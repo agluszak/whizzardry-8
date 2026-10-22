@@ -1,14 +1,14 @@
+#include "wiz8/render/frame.h"
 #include "wiz8/ui_layer.h"
 #pragma once
 
-#include <memory>
 #include <string_view>
 
 #include <SDL3/SDL_rect.h>
 
-#include "image.h"
-#include "input.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/platform/input.h"
 
 /* Button order differs from W8CampItemAction's byte values. */
 enum W8CampItemActionButton {
@@ -62,35 +62,10 @@ inline void DrawCampValueBar(unsigned int value, unsigned int base, int left, in
     }
 }
 
-void DrawCampHeader(void);
-void DrawCampVitals(void);
-void DrawCampHands(void);
-int CreateCampButtonPanel(void);
-void DestroyCampButtonPanel(void);
-void RefreshCampItemActions(bool invalidate);
-void SetCampItemActionMode(char mode);
-void SelectCampCharacter(int slot);
 /* Right-click on a camp portrait while holding an item: refuse with a notice
    for dead/insane/stoned, else try AddItemToCharacter. */
 void TryGiveHeldItemToCampPortrait(int slot);
 
-void RedrawRcsLevelUpPanel(void);
-void RedrawRcsDismissPanel(void);
-
-/* Five bottom page buttons created with the item-action strip by
-   CreateCampButtonPanel (Items/Skills/...). */
-/* The bottom Controls panel CreateCampButtonPanel parents
-   the page and item-action strips to. */
-
-UiResult HandleCampDismissPortrait(const UiPointerEvent& event);
-UiResult HandleCampPortrait(const UiPointerEvent& event, int slot);
-UiResult HandleCampCharacterHeader(const UiPointerEvent& event);
-UiResult HandleCampProfessionHistory(const UiPointerEvent& event);
-
-void CreateCampHeaderButtons();
-void DestroyCampHeaderButtons();
-void UpdateRcsLevelUpPanel(void);
-void UpdateRcsDismissPanel(void);
 void DrawRcsText(std::string_view text, int left, int top, int width, unsigned int layout_mode);
 void DrawRcsBoldText(std::string_view text, int left, int top, int width, unsigned int layout_mode);
 void DrawTallRcsText(std::string_view text, int left, int top, int width, unsigned int layout_mode);

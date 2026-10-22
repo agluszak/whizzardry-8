@@ -1,44 +1,26 @@
 #pragma once
 
-extern bool g_npc_dialogue_closed;
-extern bool g_sea_caves_slope_override_enabled;
-
-#include <vector>
-
 #include "glm/ext/vector_float3.hpp"
+
+// Worn or held by the party, this item ignores the Sea Caves' explicit slopes.
+inline constexpr int kSlopeOverrideItem = 0x254;
 
 struct W8MonsterInfo;
 struct W8MonsterGroup;
-class stSound3D;
+struct World;
+class Sound3D;
 
-/* One level-specific per-frame entry point, registered by the level's own
-   master function and run every world update. */
-typedef void (*W8MasterFunction)(int);
-
-/* The registered master functions, and the flag a callback sets to ask the
-   dispatcher to drop it after this run. */
-extern std::vector<W8MasterFunction> g_master_functions;
-extern bool g_remove_current_master_function;
-extern bool g_running_trigger_from_script;
-
-void ClearActiveWorldCursorNode(void);
 int NormalizeMasterFunctionValue(int value);
-/* Run every registered master function once with argument zero, dropping the
-   ones that set the removal flag while it runs. */
-void RunMasterFunctions(void);
-/* Run every registered master function once with argument -1, the persist
-   command the level masters answer by writing their live state into the
-   location variables. */
-void SaveMasterFunctions(void);
-/* Dispatch one world-cursor-node command against the nodes covering `info`'s
-   ground-settled position (the camera's when info is null). */
-unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, ...);
+/* Dispatch one world-cursor-node command through the loaded level's script
+   (LevelScript::dispatchCursorNodeCommand); false while no level is loaded. */
+bool DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, int argument = 0);
 /* Format the current level's message-database path, fetch the indexed string
    and show it. Answers whether the string existed. */
-unsigned char ShowLevelMessage(int message_id);
+bool ShowLevelMessage(int message_id);
 
-void InitializeLevelMasterFunctions(int level);
 W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, int hostility,
-                              bool settle, bool a, bool b); /* 0x004D8F00 */
-stSound3D* CreateAndPlaySoundNode(const char* sound_name, glm::vec3 position, float volume,
-                                  float scale, bool play_flag); /* 0x004D8F80 */
+                              bool settle, bool use_alternate_name); /* 0x004D8F00 */
+/* A one-shot positional sound owned by `world`'s script sounds; null when the
+   loudness fraction is negative. */
+Sound3D* CreateAndPlaySoundNode(World& world, const char* sound_name, glm::vec3 position,
+                                float volume, float scale, bool play_flag); /* 0x004D8F80 */

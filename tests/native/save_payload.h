@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <functional>
 #include <optional>
 #include <type_traits>
@@ -40,6 +41,6 @@ template<class Decode> auto ReadSavePayload(wiz8::File& source, Decode decode)
             finish();
             return false;
         });
-        return std::move(*result);
+        return std::move(result).value();
     }
 }

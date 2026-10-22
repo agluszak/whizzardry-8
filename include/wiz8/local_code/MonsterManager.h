@@ -4,30 +4,37 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <source_location>
 #include <string>
 
-#include "conditions.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/targeting.h"
 #include "wiz8/audio_resources.h"
+#include "wiz8/data/records.h"
+#include "wiz8/difficulty.h"
+#include "wiz8/entity_link.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/targeting.h"
 
-class W8Monster;
+class Monster;
+enum W8AnimationBehaviour : unsigned char;
+struct ScriptContext;
 struct W8MonsterGroup;
 struct W8MonsterInfo;
+struct World;
 struct W8MonsterRecord;
 
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
+#include "wiz8/audio/mouth_gap.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
-#include "wiz8/gameplay_modifiers.h"
-#include "wiz8/layouts/character.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/monster_actions.h"
-#include "wiz8/mouth_gap.h"
+#include "wiz8/monster_cycles.h"
 #include "wiz8/portrait_animation.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/sight_state.h"
 
 struct W8CharacterEvent;
@@ -68,13 +75,12 @@ struct W8MonsterManagerEntry {
     int damage_splat_frame;
     int damage_splat_end_frame;
     unsigned char damage_splat_catalog;
-    /* The last-drawn portrait vitals, so the dirty flag is raised only when
-       the computed bars or the numeric hit-point display actually changed. */
+    /* The last-sampled portrait vitals; the screen invalidates their panel
+       when a computed bar or the numeric hit-point display changes. */
     int cached_hp_bar;
     int cached_stamina_bar;
     int cached_spell_bar;
     int cached_hp;
-    bool portrait_stats_dirty;
     /* The spell/condition effect-icon flash over the portrait.
        The setup derives the icon's catalog base from the spell's
        realm and takes the frame count from the same record, shares the
@@ -104,7 +110,6 @@ struct W8MonsterManagerEntry {
        the 1..0xc brightness phase. */
     uint64_t acting_portrait_pulse_clock;
     unsigned short acting_portrait_pulse;
-    std::vector<int> highlighted_monsters;
     /* The character has reached its experience goal; set once to post
        the level-up notice line and cleared when the character is no longer
        ready to advance. */
@@ -116,14 +121,21 @@ struct W8MonsterManagerEntry {
     /* Per-skill "increased" notice flags posted by PracticeCharacterSkill
        and drained into queued skill-notice portrait messages. */
     bool skill_notice_pending[W8_SKILL_COUNT];
-    /* Set around SwapItemInstances so the autoswap-weapons check does
-       not fire on the intermediate item states. */
-    bool item_swap_in_progress;
     unsigned int pending_event_type; /* last queued portrait event type */
 };
 
-W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
-W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, W8MonsterRecord* record,
+const W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
+/* The range category of one of a monster's attacks: the database's, or the correction
+   its current attack cycle made to it. */
+W8RangeCategory MonsterAttackRange(const W8MonsterInfo& monster_info, const W8MonsterRecord& record,
+                                   unsigned int attack);
+/* Combat started: for two minutes a new fight at the same difficulty skips
+   the combat-start character reaction. */
+void RecordCombatStart(void);
+/* Forget the recent combat, so the next fight reacts again. */
+void ForgetRecentCombat(void);
+W8Difficulty LastCombatDifficulty(void);
+W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* record,
                                  glm::vec3* position);
 
 /* One queued monster action, 0x30 bytes: the kind/detail pair, the attack
@@ -173,6 +185,10 @@ struct W8MonsterCombatState {
        selected this monster. It is asserted below MAX_MONSTER_ATTACKS before
        indexing the database record. */
     unsigned int attack_index;
+    /* The range the current attack's cycle corrected a mismatched database range to: a
+       ranged cycle on a touch or short attack reaches extreme range, and a close cycle on
+       a long or extreme attack reaches touch. */
+    std::optional<W8RangeCategory> corrected_range;
     /* Berserk latch: interrupt case 8 raises it so the monster attacks
        indiscriminately (friends included); Combat Range counts allies as
        hostile while set. */
@@ -277,11 +293,11 @@ struct W8MonsterInfo {
     int location_id;
     int monster_group_id;
     unsigned int monster_species;
-    W8Monster* p3D;
+    // The monster's scene entity while the record is active.
+    EntityLink<Monster> entity;
     /* Combat state exists only during the fight, and owns its action queue. */
     std::unique_ptr<W8MonsterCombatState> pCombat;
     bool fActive;
-    bool fInCombat;
     /* Copied from the group's ubDisposition when the entry is created. */
     W8Disposition ubDisposition;
     /* The spawn position; the facing yaw toward the camera follows. */
@@ -361,7 +377,7 @@ struct W8MonsterInfo {
     int action_detail;
     unsigned int spell_power_level;
     unsigned char unknown_2ed[4];
-    /* This script part's bound NPC slot in g_npc_states, released when
+    /* This script part's bound NPC slot in the story's NPC states, released when
        the entry is destroyed. */
     int bound_npc_index;
     /* Remaining noise-hearing margin, refreshed by nearby sounds and
@@ -392,25 +408,22 @@ struct W8MonsterInfo {
     unsigned char unknown_37d[0xa8];
 };
 
-void InitializeMonsterManagerState(void);
+void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn);
 void ActivateMonsterInWorld(W8MonsterInfo* monster_info);
-std::unique_ptr<W8Monster> ReadMonsterRepresentation(W8World& world, W8MonsterInfo* monster_info,
-                                                     W8MonsterActivationMode mode);
-void ConfigureMonsterRepresentation(W8World& world, W8MonsterInfo* monster_info);
-void ActivateMonster(W8MonsterInfo* monster_info, W8MonsterActivationMode mode);
+std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info);
+void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info);
+void ActivateMonster(W8MonsterInfo* monster_info);
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);
-W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info);
+const W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info);
 
-W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure = true,
-                           std::source_location caller = std::source_location::current());
-W8MonsterRecord* GetMonsterDataByLocationID(int location_id);
-W8Monster* GetMonsterByLocationID(int location_id);
+W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure = true);
+const W8MonsterRecord* GetMonsterDataByLocationID(int location_id);
+Monster* GetMonsterByLocationID(int location_id);
 float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info);
 void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info);
 
 int GetMonsterQuadrant(W8MonsterInfo* monster_info);
-int GetMonsterCycleFallbackValue(unsigned int monster_species);
 void ProcessMonstersAtCombatEnd(bool forced_cleanup);
 void ConvertMonsterAttributes(W8MonsterInfo* monster_info);
 W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species);
@@ -419,10 +432,10 @@ void DestroyUngroupedMonsters(void);
 void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState control_state);
 void MonsterInfoSetMotionless(W8MonsterInfo* monster_info, bool motionless);
 void MoveMonsterToLiveList(W8MonsterInfo* monster_info);
-W8MonsterInfo* FindNearestMonsterInfo(const glm::vec3* position, double maximum_distance);
 void InitializeMonsterRuntimeStats(void);
 float CalculateMonsterScale(W8MonsterInfo* monster_info);
-void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8Monster* monster, int query_state);
+void TryStartMonsterCycle2(W8MonsterInfo* monster_info, Monster* monster,
+                           W8MonsterCycle query_state);
 void ProcessMonsterManagerFrame(void);
 std::string FormatMonsterHealth(W8MonsterInfo* monster_info);
 unsigned int GetMonsterExperience(const W8MonsterRecord* record);
@@ -432,13 +445,17 @@ float GetAveragePartyMemberLevel(void);
    `party_slot` receives the best member's slot. */
 unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot);
 
-void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, int behavior);
+void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehaviour behavior);
 void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info);
 void ShutdownMonsterManager(void);
 
-std::string GetMonsterName(W8MonsterInfo* monster_info, W8MonsterRecord* record,
+std::string GetMonsterName(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                            unsigned char name_form);
-bool RemoveMonster(W8MonsterInfo* monster_info, bool destroy_monster);
+/* Report the monster's line, "Name text" in the monster colour; text that opens with a
+   quote or a colon follows the name directly. */
+void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text);
+enum class W8MonsterRemoval : unsigned char { Deactivate, Despawn, Unload };
+bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal);
 void MonsterInfoEnterCombat(W8MonsterInfo* monster_info);
 void DeactivateMonster(W8MonsterInfo* monster_info);
 void ToggleCombatMode(void);
@@ -450,6 +467,6 @@ void EvaluateCombatDifficulty(void);
    faction fallout, and bank the kill count and experience when it fought. */
 void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce);
 /* Record a kill fact for a monster record and the killer party slot. */
-void MonsterKilled(int record_id, int killer_party_slot);
+void MonsterKilled(const ScriptContext& context, int record_id, int killer_party_slot);
 
 #endif

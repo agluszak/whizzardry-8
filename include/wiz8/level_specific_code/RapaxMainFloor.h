@@ -1,10 +1,9 @@
 #pragma once
 
-class Trigger;
+#include <memory>
 
-/* Level 0x12 (RapaxMainFloor) activation callbacks, registered by
-   InitializeLevelMasterFunctions. */
-bool RapaxMainFloorAltarBox(Trigger* pTrigger);
-bool RapaxMainFloorPlatform(Trigger* pTrigger);
-bool RapaxMainFloorPlatform01(Trigger* pTrigger);
-bool RapaxMainFloorPlatform02(Trigger* pTrigger);
+class LevelScript;
+struct ScriptContext;
+
+/* Level 0x12 (RapaxMainFloor): the altar and the platform sequence. */
+std::unique_ptr<LevelScript> MakeRapaxMainFloorScript(const ScriptContext& context);

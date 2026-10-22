@@ -2,40 +2,55 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
 #include "character_skills.h"
 #include "local_code/ConditionsAndEnchantments.h"
 #include "npc_trade_price.h"
-#include "random.h"
-#include "soundman.h"
+#include "wiz8/combat/combat.h"
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/data/item_records.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
+#include "wiz8/inventory.h"
+#include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/item_tables.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/level_population.h"
+#include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
+#include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
 static W8NpcItemEntry MakeNpcItemEntry(int item_id)
 {
     W8NpcItemEntry entry{};
-    ReplaceOrCreateItem(&entry.item, item_id, true, true, false);
+    entry.item = MakeItem(Data(), CurrentGame().rng, item_id, true, true, false);
     entry.item.stack_count = 0;
     return entry;
 }
 
 static int FindNpcStockItem(W8NpcState* npc, int item_id)
 {
-    unsigned int count = npc->items.size();
+    const auto count = npc->items.size();
     for (unsigned int index = 0; index < count; ++index) {
         if (npc->items[index].item.iItemNo == item_id) {
             return index;
@@ -52,9 +67,9 @@ static unsigned char GetNpcStockQuantity(W8NpcState* npc, int item_id)
 
 static unsigned char GetNpcConfiguredStockQuantity(W8NpcState* npc, int item_id)
 {
-    unsigned int count = npc->record->item_stock_rules.size();
+    const auto count = npc->record->item_stock_rules.size();
     for (unsigned int index = 0; index < count; ++index) {
-        W8NpcItemStockRule* rule = &npc->record->item_stock_rules[index];
+        const W8NpcItemStockRule* rule = &npc->record->item_stock_rules[index];
         if (rule->item_id == item_id) {
             return rule->quantity;
         }
@@ -62,18 +77,18 @@ static unsigned char GetNpcConfiguredStockQuantity(W8NpcState* npc, int item_id)
     return 0;
 }
 
-static char NpcStockChanceForTier(char tier)
+static signed char NpcStockChanceForTier(W8NpcStockChanceTier tier)
 {
     switch (tier) {
-    case 0:
+    case W8NpcStockChanceTier::never:
         return 0;
-    case 1:
+    case W8NpcStockChanceTier::quarter:
         return 25;
-    case 2:
+    case W8NpcStockChanceTier::half:
         return 50;
-    case 3:
+    case W8NpcStockChanceTier::three_quarters:
         return 75;
-    case 4:
+    case W8NpcStockChanceTier::always:
         return 100;
     default:
         return 0;
@@ -82,7 +97,7 @@ static char NpcStockChanceForTier(char tier)
 
 static unsigned char JitterNpcStockQuantity(unsigned char amount)
 {
-    int roll = Random(3);
+    int roll = CurrentGame().rng.below(3);
     if (roll == 0) {
         unsigned char jitter = static_cast<unsigned char>(amount >> 1);
         amount += jitter;
@@ -98,10 +113,9 @@ static void RemoveDepletedNpcStock(W8NpcState* npc)
     std::erase_if(npc->items, [](const W8NpcItemEntry& entry) { return entry.quantity == 0; });
 }
 
-// FUNCTION: WIZ8 0x0055a7b0
 int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity)
 {
-    W8ItemDatabaseRecord* record;
+    const W8ItemDatabaseRecord* record;
     W8NpcItemEntry* entry;
     unsigned int repeats;
     unsigned int added;
@@ -110,7 +124,7 @@ int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity)
     if (npc == 0) {
         return -1;
     }
-    record = &g_item_records[item_id];
+    record = &Data().items[item_id];
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
         repeats = quantity;
     } else {
@@ -144,12 +158,11 @@ int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity)
     return index;
 }
 
-// FUNCTION: WIZ8 0x0055afa0
-unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
+bool MaintainNpcStock(W8NpcState* npc, bool force)
 {
     W8NpcItemEntry* entry;
-    W8NpcItemStockRule* rule;
-    unsigned int count;
+    const W8NpcItemStockRule* rule;
+    std::size_t count;
     unsigned int index;
     unsigned int rule_index;
     int item_id;
@@ -161,15 +174,16 @@ unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
         entry = &npc->items[index];
         if (((entry->quantity != 0) &&
              (NormalizeItemQuantityKind(&entry->item),
-              g_item_records[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK)) &&
+              Data().items[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK)) &&
             entry->quantity > entry->item.stack_count) {
             entry->item.stack_count = entry->quantity;
             entry->quantity = 1;
         }
     }
 
-    if (static_cast<unsigned int>(g_status.world_clock - npc->restock_clock) > 0xa8c0 || force) {
-        npc->restock_clock = g_status.world_clock;
+    if (static_cast<unsigned int>(CurrentGame().status.world_clock - npc->restock_clock) > 0xa8c0 ||
+        force) {
+        npc->restock_clock = CurrentGame().status.world_clock;
         count = npc->record->item_stock_rules.size();
         for (rule_index = 0; rule_index < count; ++rule_index) {
             rule = &npc->record->item_stock_rules[rule_index];
@@ -191,40 +205,40 @@ unsigned char MaintainNpcStock(W8NpcState* npc, bool force)
         }
     }
 
-    if (static_cast<unsigned int>(g_status.world_clock - npc->maintenance_clock) < 0x15180 &&
+    if (static_cast<unsigned int>(CurrentGame().status.world_clock - npc->maintenance_clock) <
+            0x15180 &&
         !force) {
-        return 0;
+        return false;
     }
     DecayNpcInventory(npc);
     RestockNpcItems(npc);
     RemoveDepletedNpcStock(npc);
-    npc->maintenance_clock = g_status.world_clock;
-    npc->restock_clock = g_status.world_clock;
-    return 1;
+    npc->maintenance_clock = CurrentGame().status.world_clock;
+    npc->restock_clock = CurrentGame().status.world_clock;
+    return true;
 }
 
-// FUNCTION: WIZ8 0x0055a630
-unsigned char PopulateNpcStock(W8NpcState* npc)
+bool PopulateNpcStock(W8NpcState* npc)
 {
-    W8NpcItemStockRule* rule;
-    unsigned int rule_count;
+    const W8NpcItemStockRule* rule;
+    std::size_t rule_count;
     unsigned int rule_index;
     unsigned int remaining;
     int item_id;
-    char persistent;
-    char added;
-    char chance;
-    char tier;
+    signed char persistent;
+    signed char added;
+    signed char chance;
+    W8NpcStockChanceTier tier;
 
     rule_count = npc->record->item_stock_rules.size();
     if (rule_count == 0) {
         npc->items.clear();
-        return 1;
+        return true;
     }
     for (rule_index = 0; rule_index < rule_count; ++rule_index) {
         rule = &npc->record->item_stock_rules[rule_index];
         item_id = rule->item_id;
-        if (item_id < static_cast<int>(g_item_records.size())) {
+        if (item_id < static_cast<int>(Data().items.size())) {
             persistent = rule->persistent;
             added = 0;
             if (rule->quantity != 0) {
@@ -233,10 +247,10 @@ unsigned char PopulateNpcStock(W8NpcState* npc)
                     if (persistent == 0) {
                         tier = RateItemIdentifyDifficulty(npc, item_id);
                     } else {
-                        tier = 4;
+                        tier = W8NpcStockChanceTier::always;
                     }
                     chance = NpcStockChanceForTier(tier);
-                    if (Random(100) < static_cast<unsigned int>(chance)) {
+                    if (CurrentGame().rng.below(100) < static_cast<unsigned int>(chance)) {
                         ++added;
                     }
                     --remaining;
@@ -248,18 +262,17 @@ unsigned char PopulateNpcStock(W8NpcState* npc)
         }
     }
     SortNpcItems(npc);
-    npc->maintenance_clock = g_status.world_clock;
-    npc->restock_clock = g_status.world_clock;
-    return 1;
+    npc->maintenance_clock = CurrentGame().status.world_clock;
+    npc->restock_clock = CurrentGame().status.world_clock;
+    return true;
 }
 
 /* Order the stock as the item pool orders items; equal entries keep their order. */
-// FUNCTION: WIZ8 0x0055b9c0
 void SortNpcItems(W8NpcState* npc)
 {
     std::ranges::stable_sort(npc->items,
                              [](const W8NpcItemEntry& first, const W8NpcItemEntry& second) {
-                                 return ItemPrecedesInPool(first.item, second.item);
+                                 return ItemPrecedesInPool(Data(), first.item, second.item);
                              });
 }
 
@@ -268,8 +281,7 @@ void SortNpcItems(W8NpcState* npc)
    Equipment, equip_class four, always takes a new entry instead of merging. The
    quantity then lands in whichever of the two counts the item's quantity kind
    uses, and the other count is raised to one while it is still clear. */
-// FUNCTION: WIZ8 0x0055a930
-int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char quantity)
+int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, signed char quantity)
 {
     W8NpcItemEntry* entry;
     int item_id;
@@ -283,7 +295,7 @@ int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char qua
     }
     item_id = item->iItemNo;
     index = -1;
-    if (g_item_records[item_id].equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
+    if (Data().items[item_id].equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
         index = FindNpcStockItem(npc, item_id);
     }
     if (index == -1) {
@@ -292,7 +304,7 @@ int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char qua
         npc->items.push_back(MakeNpcItemEntry(item_id));
     }
     entry = &npc->items[index];
-    if (g_item_records[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
+    if (Data().items[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         if (entry->quantity == 0) {
             entry->quantity = 1;
         }
@@ -312,18 +324,17 @@ int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, char qua
    then becomes a percentage chance, and the shortfall is jittered by half up or
    down before being added. Item 0x1fc is gated behind fact 0x15f; neither has a
    recovered symbolic name. */
-// FUNCTION: WIZ8 0x0055ab80
 int RestockNpcItems(W8NpcState* npc)
 {
-    W8NpcItemStockRule* rule;
-    unsigned int rule_count;
+    const W8NpcItemStockRule* rule;
+    std::size_t rule_count;
     unsigned int rule_index;
     int item_id;
     int configured;
     unsigned char held;
     unsigned char amount;
-    char tier;
-    char chance;
+    W8NpcStockChanceTier tier;
+    signed char chance;
 
     rule_count = npc->record->item_stock_rules.size();
     for (rule_index = 0; rule_index < rule_count; ++rule_index) {
@@ -347,10 +358,10 @@ int RestockNpcItems(W8NpcState* npc)
         if (rule->persistent == 0) {
             tier = RateItemIdentifyDifficulty(npc, rule->item_id);
         } else {
-            tier = 4;
+            tier = W8NpcStockChanceTier::always;
         }
         chance = NpcStockChanceForTier(tier);
-        if (static_cast<unsigned int>(chance) <= Random(100)) {
+        if (static_cast<unsigned int>(chance) <= CurrentGame().rng.below(100)) {
             continue;
         }
 
@@ -366,22 +377,22 @@ int RestockNpcItems(W8NpcState* npc)
 /* Rate an item's identify difficulty against the band the party's average level
    supports. Three means the difficulty sits inside the band, zero that it is
    past the upper bound, and one or two grade how far below the lower bound it
-   falls. Every comparison here is signed, so the difficulty byte is read into a
-   char, and the tier is returned byte-sized. The NPC argument is unused by the
-   original. */
-// FUNCTION: WIZ8 0x0055aad0
-char RateItemIdentifyDifficulty(W8NpcState* npc, int item_id)
+   falls. Every comparison here is signed, so the difficulty byte is read into a signed
+   char, and the tier is returned byte-sized. From an average party level of 39
+   the scaled level wraps negative, as retail's did, and the band drops to one
+   through four. The NPC argument is unused by the original. */
+W8NpcStockChanceTier RateItemIdentifyDifficulty(W8NpcState* npc, int item_id)
 {
-    char difficulty;
-    char level;
-    char base;
-    char raw_upper;
-    char lower;
-    char upper;
+    signed char difficulty;
+    signed char level;
+    signed char base;
+    signed char raw_upper;
+    signed char lower;
+    signed char upper;
 
-    difficulty = static_cast<char>(g_item_records[item_id].identify_difficulty);
-    level = static_cast<char>(GetAveragePartyLevel());
-    base = static_cast<char>(level * 100 / 30) / 5;
+    difficulty = static_cast<signed char>(Data().items[item_id].identify_difficulty);
+    level = static_cast<signed char>(GetAveragePartyLevel());
+    base = static_cast<signed char>(level * 100 / 30) / 5;
     raw_upper = base + 4;
     if (base <= 16) {
         lower = base < 1 ? 1 : base;
@@ -394,18 +405,17 @@ char RateItemIdentifyDifficulty(W8NpcState* npc, int item_id)
         upper = 20;
     }
     if (difficulty > upper) {
-        return 0;
+        return W8NpcStockChanceTier::never;
     }
     if (difficulty < lower) {
-        return static_cast<char>((difficulty + 4 >= lower) + 1);
+        return static_cast<W8NpcStockChanceTier>((difficulty + 4 >= lower) + 1);
     }
-    return 3;
+    return W8NpcStockChanceTier::three_quarters;
 }
 
 /* Add stock that only becomes ordinary trade stock once the world clock passes
    the given delay. This is what establishes the leading field as a clock stamp
    rather than a state enum. */
-// FUNCTION: WIZ8 0x0055aa80
 int AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int delay)
 {
     int index;
@@ -417,11 +427,10 @@ int AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int
     if (index == -1) {
         return -1;
     }
-    npc->items[index].available_at = g_status.world_clock + delay;
+    npc->items[index].available_at = CurrentGame().status.world_clock + delay;
     return index;
 }
 
-// FUNCTION: WIZ8 0x0055ade0
 W8NpcItemEntry* GetNpcItemAt(W8NpcState* npc, int index)
 {
     if (index < 0 || std::cmp_greater_equal(index, npc->items.size())) {
@@ -430,65 +439,65 @@ W8NpcItemEntry* GetNpcItemAt(W8NpcState* npc, int index)
     return &npc->items[index];
 }
 
-// FUNCTION: WIZ8 0x0055b710
-unsigned int GetNpcItemCount(W8NpcState* npc)
+std::size_t GetNpcItemCount(W8NpcState* npc)
 {
     return npc->items.size();
 }
 
-// GLOBAL: WIZ8 0x0062A80C
-static char g_sound_cash_transaction[] = "Data\\Sound\\misc\\Cash Transaction.wav";
-
-// FUNCTION: WIZ8 0x0055B730
-unsigned char SellItemToNpc(W8NpcState* npc, W8ItemInstance* item, unsigned char quantity,
-                            bool suppress_payment)
+W8ItemInstance* ResolveTradeSelection(Game& game, W8NpcState* npc,
+                                      const W8TradeSelection& selection)
 {
-    W8ItemInstance stack;
-    int amount;
-
-    if ((g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
-        if (NpcAcceptsTradeItemClass(npc, item)) {
-            ReplaceOrCreateItem(&stack, item->iItemNo, false, item->identified, false);
-            stack.stack_count = quantity;
-            amount = CalculateTradeStackPrice(npc, &stack, W8_TRADE_PRICE_PARTY_SELLS);
-            if (!suppress_payment) {
-                AddPartyGold(amount, false);
-            }
-            wiz8::sound::play(g_sound_cash_transaction);
-            if (item->stack_count == 0) {
-                item->stack_count = 1;
-            }
-            AddNpcItemFromInstance(npc, item, quantity);
-            return 1;
-        }
+    W8ItemInstance* item = nullptr;
+    switch (selection.source) {
+    case W8TradeSource::Backpack:
+        if (selection.character < 0 || selection.character >= 8 ||
+            !game.party.members[selection.character].has_value() || selection.slot < 0 ||
+            selection.slot >= 8)
+            return nullptr;
+        item = &game.party.characters[selection.character].backpack[selection.slot];
+        break;
+    case W8TradeSource::PartyPool:
+        if (selection.slot < 0 || std::cmp_greater_equal(selection.slot, game.party.item_count))
+            return nullptr;
+        item = &game.party.item_pool[selection.slot];
+        break;
+    case W8TradeSource::NpcStock: {
+        auto* entry = npc ? GetNpcItemAt(npc, selection.slot) : nullptr;
+        if (!entry || entry->available_at != 0 || entry->quantity != selection.stock_quantity)
+            return nullptr;
+        item = &entry->item;
+        break;
     }
-    return 0;
+    case W8TradeSource::Gold:
+        return nullptr;
+    }
+    return item->iItemNo != -1 && *item == selection.expected ? item : nullptr;
 }
 
-// FUNCTION: WIZ8 0x0055b290
 bool NpcAcceptsTradeItemClass(const W8NpcState* npc, const W8ItemInstance* item)
 {
-    const auto cls = g_item_records[item->iItemNo].equip_class;
+    const auto cls = Data().items[item->iItemNo].equip_class;
     return cls <= W8_ITEM_EQUIP_CLASS_OTHER &&
            (npc->record->trade_item_class_mask & (std::uint32_t{1} << cls)) != 0;
 }
 
-// FUNCTION: WIZ8 0x0055b250
 bool NpcAcceptsTradeItem(W8NpcState* npc, W8ItemInstance* item)
 {
-    if ((g_item_records[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
+    if ((Data().items[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
         return false;
     }
     return NpcAcceptsTradeItemClass(npc, item);
 }
 
-// FUNCTION: WIZ8 0x0055b5a0
 int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind price_kind,
                                 unsigned char stack_count, bool identified)
 {
-    W8ItemInstance item;
-    ReplaceOrCreateItem(&item, item_id, false, identified, false);
-    item.stack_count = stack_count;
+    // A price query observes contents; constructing random gameplay items here
+    // made merely drawing a trade row advance the shared random sequence.
+    W8ItemInstance item{.iItemNo = item_id,
+                        .stack_count = stack_count,
+                        .identified = identified || (Data().items[item_id].flags &
+                                                     W8_ITEM_FLAG_AUTO_IDENTIFY) != 0};
     return CalculateTradeStackPrice(npc, &item, price_kind);
 }
 
@@ -499,12 +508,11 @@ int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind p
    the party buys (mode 1). Stackable non-armour bundles price per unit times
    the count, everything else prices the whole stack value, unidentified
    merchandise goes at quarter price, and no stack settles below 1. */
-// FUNCTION: WIZ8 0x0055b5e0
-int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, char price_kind)
+int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, W8TradePriceKind price_kind)
 {
     int stack_value = GetItemStackValue(item);
     unsigned int skill = GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, 0);
-    W8NpcDatabaseRecord* record = npc->record;
+    const W8NpcDatabaseRecord* record = npc->record;
     float scale = skill * 0.002f;
     if (scale > fabs(record->sell_price_factor - record->buy_price_factor) * 0.5) {
         scale *= 0.5f;
@@ -518,7 +526,7 @@ int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, char price_k
     if (price <= 0.0f) {
         price = 0.1f;
     }
-    W8ItemDatabaseRecord* info = &g_item_records[item->iItemNo];
+    const W8ItemDatabaseRecord* info = &Data().items[item->iItemNo];
     int amount;
     if (info->quantity_kind == W8_ITEM_QUANTITY_STACK && item->stack_count > 1 &&
         info->equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
@@ -537,89 +545,193 @@ int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, char price_k
    non-stack quantity kinds) until the request is filled; the price of the
    accumulated stack then leaves the party purse and the stock entry shrinks.
    The trailing pass drops entries whose remaining count hit zero. */
-// FUNCTION: WIZ8 0x0055B7E0
-bool CompleteNpcItemPurchase(W8NpcState* npc, int index, unsigned char quantity, bool no_payment,
-                             int* remaining_out)
+static W8TradeResult CompleteNpcItemPurchase(Game& game, W8NpcState* npc, int index,
+                                             unsigned char quantity, bool no_payment)
 {
-    unsigned char available;
-    unsigned char moved;
-    unsigned char unit;
-    unsigned int price;
-    W8ItemInstance hand;
-    W8ItemInstance stack;
-    W8NpcItemEntry* entry;
+    auto* entry = GetNpcItemAt(npc, index);
+    if (!entry || quantity == 0 || entry->available_at != 0)
+        return {W8TradeOutcome::InvalidSelection};
+    const auto stock = entry->item;
+    const auto& record = Data().items[stock.iItemNo];
+    const auto available =
+        record.quantity_kind == W8_ITEM_QUANTITY_STACK ? stock.stack_count : entry->quantity;
+    if (quantity > available) return {W8TradeOutcome::InvalidSelection};
+    const auto price =
+        CalculateNpcTradeStackPrice(npc, stock.iItemNo, W8_TRADE_PRICE_PARTY_BUYS, quantity, true);
+    if (!no_payment && std::cmp_greater(price, game.party.gold))
+        return {W8TradeOutcome::InsufficientGold};
 
-    moved = 0;
-    entry = GetNpcItemAt(npc, index);
-    if (entry == 0) {
-        return false;
-    }
-    available = entry->item.stack_count;
-    for (;;) {
-        ReplaceOrCreateItem(&hand, entry->item.iItemNo, true, true, false);
-        if (g_item_records[hand.iItemNo].quantity_kind == W8_ITEM_QUANTITY_NONE) {
-            unit = 1;
-        } else if (g_item_records[hand.iItemNo].quantity_kind != W8_ITEM_QUANTITY_STACK) {
-            hand.uses_or_charges = entry->item.uses_or_charges;
-            unit = 1;
-        } else {
-            unit = quantity - moved;
-            if (g_item_records[hand.iItemNo].maximum_quantity < unit) {
-                unit = g_item_records[hand.iItemNo].maximum_quantity;
-            }
+    // Plan the destination too. No acquisition callback can observe paid-for
+    // stock that has not yet reached its final pool, cursor or world location.
+    std::vector<W8ItemInstance> pool(game.party.item_pool,
+                                     game.party.item_pool + game.party.item_count);
+    std::vector<std::size_t> acquired;
+    std::vector<W8ItemInstance> overflow;
+    unsigned int moved = 0;
+    while (moved < quantity) {
+        W8ItemInstance hand;
+        hand = MakeItem(Data(), game.rng, stock.iItemNo, true, true, false);
+        unsigned int unit = 1;
+        if (record.quantity_kind == W8_ITEM_QUANTITY_STACK) {
+            if (record.maximum_quantity == 0) return {W8TradeOutcome::Refused};
+            unit = std::min<unsigned int>(quantity - moved, record.maximum_quantity);
             hand.stack_count = unit;
-            if (unit == 0) {
-                unit = 1;
-                hand.stack_count = unit;
+            for (std::size_t slot = 0; slot < pool.size() && hand.stack_count; ++slot) {
+                auto& destination = pool[slot];
+                if (destination.iItemNo != hand.iItemNo ||
+                    destination.identified != hand.identified)
+                    continue;
+                const auto count =
+                    destination.stack_count ? destination.stack_count : destination.uses_or_charges;
+                if (count > record.maximum_quantity) return {W8TradeOutcome::Refused};
+                const auto merged =
+                    std::min<unsigned int>(hand.stack_count, record.maximum_quantity - count);
+                if (!merged) continue;
+                destination.stack_count = count + merged;
+                destination.uses_or_charges = 0;
+                hand.stack_count -= merged;
+                acquired.push_back(slot);
             }
+        } else if (record.quantity_kind != W8_ITEM_QUANTITY_NONE) {
+            hand.uses_or_charges = stock.uses_or_charges;
         }
-        if (!AddItemToPartyOrDrop(&hand, false) && !g_status.item_in_cursor) {
-            DisplayNpcQuote(g_localized_strings[0x6b1], false);
+        if (record.quantity_kind != W8_ITEM_QUANTITY_STACK || hand.stack_count) {
+            if (pool.size() < 500) {
+                for (auto& slot : acquired) ++slot;
+                pool.insert(pool.begin(), hand);
+                acquired.push_back(0);
+            } else
+                overflow.push_back(hand);
         }
         moved += unit;
-        if (quantity <= moved) {
-            if (moved == 0) {
-                return false;
-            }
-            ReplaceOrCreateItem(&stack, entry->item.iItemNo, false, true, false);
-            stack.stack_count = moved;
-            price = CalculateTradeStackPrice(npc, &stack, W8_TRADE_PRICE_PARTY_BUYS);
-            wiz8::sound::play(g_sound_cash_transaction);
-            if (ConsumeNpcItemQuantity(npc, index, moved) == 0) {
-                return false;
-            }
-            if (!no_payment) {
-                SpendPartyGold(price);
-            }
-            if (remaining_out != 0) {
-                *remaining_out = available - moved;
-            }
-            RemoveDepletedNpcStock(npc);
-            return true;
+    }
+    std::optional<W8ItemInstance> held;
+    std::vector<std::unique_ptr<W8WorldItem>> drops;
+    if (!overflow.empty()) {
+        if ((record.flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
+            if ((game.party.held.item.iItemNo != -1) || overflow.size() != 1)
+                return {W8TradeOutcome::Refused};
+            held = overflow.front();
+            overflow.clear();
+        } else {
+            const auto drop_position = FindItemDropPosition();
+            if (!drop_position) return {W8TradeOutcome::Refused};
+            for (auto& item : overflow)
+                drops.push_back(CreateWorldItem(&item, &*drop_position,
+                                                W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
         }
     }
+    if (!drops.empty()) {
+        auto& items = CurrentLevelPopulation().world_items;
+        items.reserve(items.size() + drops.size());
+    }
+    // Publish the complete transfer before encumbrance, reactions or presentation.
+    std::ranges::copy(pool, game.party.item_pool);
+    game.party.item_count = static_cast<unsigned int>(pool.size());
+    ConsumeNpcItemQuantity(npc, index, quantity);
+    RemoveDepletedNpcStock(npc);
+    if (!no_payment) SpendPartyGold(game.party, price);
+    for (auto& drop : drops) AddWorldItem(std::move(drop));
+    if (held) {
+        game.party.held.item = *held;
+
+        game.party.held.actor = -1;
+        game.party.held.origin = {};
+    }
+    SettleActiveParty(game);
+    for (std::size_t slot : acquired) {
+        auto* item = &game.party.item_pool[slot];
+        UpdateFactsAfterAcquiringItem(item);
+        DeliverExceptionalItemReaction(item, true, nullptr);
+    }
+    return {W8TradeOutcome::Complete, false, !drops.empty()};
 }
 
-// FUNCTION: WIZ8 0x0055ae00
-unsigned char ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char quantity)
+W8TradeResult CompleteNpcTrade(Game& game, W8NpcState* npc, int actor,
+                               const W8TradeSelection& selection, int quantity,
+                               W8TradeAction action)
+{
+    if (!npc) return {W8TradeOutcome::InvalidSelection};
+    if (action == W8TradeAction::Offer && selection.source == W8TradeSource::Gold)
+        return {W8TradeOutcome::Offer};
+    auto* item = ResolveTradeSelection(game, npc, selection);
+    if (!item) return {W8TradeOutcome::InvalidSelection};
+    if (action != W8TradeAction::Offer && (quantity <= 0 || quantity > 255))
+        return {W8TradeOutcome::InvalidSelection};
+    if (action == W8TradeAction::Steal) {
+        if (selection.source != W8TradeSource::NpcStock || actor < 0 || actor >= 8 ||
+            !game.party.members[actor])
+            return {W8TradeOutcome::InvalidSelection};
+        const auto available = Data().items[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK
+                                   ? item->stack_count
+                                   : selection.stock_quantity;
+        if (quantity > available) return {W8TradeOutcome::InvalidSelection};
+        switch (AttemptNpcItemTheft(game, &game.party.characters[actor], npc, item->iItemNo,
+                                    quantity)) {
+        case W8_ITEM_THEFT_SUCCEEDED:
+            break;
+        case W8_ITEM_THEFT_FAILED:
+            return {W8TradeOutcome::TheftFailed};
+        case W8_ITEM_THEFT_CAUGHT:
+            SetNpcDispositionBand(npc, W8_NPC_BAND_NEUTRAL);
+            ApplyFactionChange(3, npc->record->faction, 1, -5);
+            return {W8TradeOutcome::TheftCaught};
+        }
+        if (Data().items[item->iItemNo].identify_difficulty != 0 && quantity == 1)
+            AddNpcTopic(npc, item->iItemNo);
+        auto result = CompleteNpcItemPurchase(game, npc, selection.slot, quantity, true);
+        result.theft_succeeded = true;
+        return result;
+    }
+    if (selection.source == W8TradeSource::NpcStock)
+        return action == W8TradeAction::Offer
+                   ? W8TradeResult{W8TradeOutcome::InvalidSelection}
+                   : CompleteNpcItemPurchase(game, npc, selection.slot, quantity, false);
+    const auto available = item->stack_count ? item->stack_count : 1;
+    if (action != W8TradeAction::Offer && quantity > available)
+        return {W8TradeOutcome::InvalidSelection};
+    if (selection.source == W8TradeSource::Backpack) {
+        const int owner = game.party.npcIndex(selection.character);
+        auto* owner_npc = owner == -1 ? nullptr : GetNpcState(owner);
+        if (owner_npc && NpcWantsItem(owner_npc, item)) return {W8TradeOutcome::WantedByOwner};
+    }
+    if (action == W8TradeAction::Offer) return {W8TradeOutcome::Offer};
+    if (!NpcAcceptsTradeItem(npc, item)) return {W8TradeOutcome::Refused};
+    const bool wanted = NpcHasTopic(npc, item->iItemNo);
+    auto stack = *item;
+    stack.stack_count = quantity;
+    const auto amount = CalculateTradeStackPrice(npc, &stack, W8_TRADE_PRICE_PARTY_SELLS);
+    if (!wanted) AddPartyGold(game, amount, false);
+    if (item->stack_count == 0) item->stack_count = 1;
+    AddNpcItemFromInstance(npc, item, quantity);
+    const W8ItemLocation sold =
+        selection.source == W8TradeSource::Backpack
+            ? W8ItemLocation{W8ItemStorage::Backpack, static_cast<unsigned>(selection.character),
+                             static_cast<unsigned>(selection.slot)}
+            : W8ItemLocation{W8ItemStorage::Pool, 0, static_cast<unsigned>(selection.slot)};
+    RemoveInventoryQuantity(game, sold, quantity);
+    return {W8TradeOutcome::Complete, wanted};
+}
+
+bool ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char quantity)
 {
     W8NpcItemEntry* entry;
 
     if (quantity == 0) {
-        return 0;
+        return false;
     }
     entry = GetNpcItemAt(npc, index);
     if (entry == 0) {
-        return 0;
+        return false;
     }
-    if (g_item_records[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
+    if (Data().items[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         if (entry->item.stack_count < quantity) {
             entry->item.stack_count = quantity;
         }
         entry->item.stack_count -= quantity;
         if (entry->item.stack_count == 0) {
             entry->quantity = 0;
-            return 1;
+            return true;
         }
     } else {
         if (entry->quantity < quantity) {
@@ -627,20 +739,19 @@ unsigned char ConsumeNpcItemQuantity(W8NpcState* npc, int index, unsigned char q
         }
         entry->quantity -= quantity;
     }
-    return 1;
+    return true;
 }
 
 /* Remove ordinary stock that is neither protected by its item flags nor kept
    by the NPC database's persistent stock rule. */
-// FUNCTION: WIZ8 0x0055ae70
 void DecayNpcInventory(W8NpcState* npc)
 {
     int item_id;
-    unsigned int item_count;
+    std::size_t item_count;
     W8NpcItemEntry* entry;
-    unsigned int rule_count;
-    W8NpcItemStockRule* rule;
-    char quantity;
+    std::size_t rule_count;
+    const W8NpcItemStockRule* rule;
+    signed char quantity;
     unsigned int rule_index;
     unsigned int item_index;
     unsigned char remaining;
@@ -652,7 +763,7 @@ void DecayNpcInventory(W8NpcState* npc)
             entry = &npc->items[item_index];
             if (((entry->quantity != 0) &&
                  (item_id = entry->item.iItemNo,
-                  (g_item_records[item_id].flags &
+                  (Data().items[item_id].flags &
                    (W8_ITEM_FLAG_NO_DISCARD | W8_ITEM_FLAG_MERCHANT_CANNOT_SELL)) == 0))) {
                 if (entry->available_at > 0) {
                     goto next_item;
@@ -673,7 +784,7 @@ void DecayNpcInventory(W8NpcState* npc)
                 if (remaining > 0) {
                     rule_count = remaining;
                     do {
-                        if (Random(100) < 100) {
+                        if (CurrentGame().rng.below(100) < 100) {
                             ++quantity;
                         }
                         --rule_count;
@@ -690,13 +801,12 @@ void DecayNpcInventory(W8NpcState* npc)
     }
 }
 
-// FUNCTION: WIZ8 0x0055BB10
 void MatureNpcDelayedItems(W8NpcState* npc)
 {
     for (auto& stock : npc->items) {
         W8NpcItemEntry* entry = &stock;
         if (entry->available_at == 0 ||
-            entry->available_at >= static_cast<unsigned int>(g_status.world_clock)) {
+            entry->available_at >= static_cast<unsigned int>(CurrentGame().status.world_clock)) {
             continue;
         }
         entry->available_at = 0;
@@ -747,7 +857,6 @@ void MatureNpcDelayedItems(W8NpcState* npc)
 }
 
 /* Restock the NPC's trade inventory, then refresh the derived stock state. */
-// FUNCTION: WIZ8 0x0055BCC0
 void RestockNpcInventory(W8NpcState* npc)
 {
     MaintainNpcStock(npc, false);

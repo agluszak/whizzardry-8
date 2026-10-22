@@ -1,13 +1,15 @@
 #pragma once
 
-#include "input.h"
 #include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_layer.h"
 
 struct W8ItemInstance;
 
-extern W8MainUiMode g_use_item_select_return_mode;
-extern W8ItemInstance* g_use_item_selected;
+struct W8Action;
+
+// The draft exists exactly while the item picker is open.
+W8Action* ItemUseDraft();
 
 void SetUseItemSelectInputEnabled(bool enabled);
 void InvalidateUseItemSelectPanel(void);

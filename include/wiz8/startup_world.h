@@ -1,10 +1,9 @@
 #pragma once
 
-class W8Navigator;
+class Navigator;
 
 // The party's navigator: built with the renderer, null outside that lifetime.
-W8Navigator* PartyNavigator();
-extern float g_runtime_world_scale;
+Navigator* PartyNavigator();
 
-unsigned char InitializeStartupNavigation(void);
+bool InitializeStartupNavigation(void);
 void ShutdownStartupNavigation(void);

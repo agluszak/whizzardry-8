@@ -1,0 +1,12 @@
+# Expensive ownership analysis runs separately from the PR allowlist.
+Checks: >-
+  -*,
+  bugprone-unchecked-optional-access,
+  clang-analyzer-cplusplus.Move
+WarningsAsErrors: '*'
+HeaderFilterRegex: '(^|/)(include|src|tests|tools)/'
+ExcludeHeaderFilterRegex: '(^|/)(build[^/]*|vendor)/'
+SystemHeaders: false
+InheritParentConfig: false
+CheckOptions:
+  bugprone-unchecked-optional-access.IgnoreValueCalls: 'true'

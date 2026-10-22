@@ -1,4 +1,5 @@
 #include <array>
+#include <cassert>
 #include <memory>
 #include <string>
 #include <vector>
@@ -7,26 +8,26 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "Font.h"
-#include "Video2.h"
-#include "game_timer.h"
-#include "layouts/character.h"
 #include "local_code/CharGeneration.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/HealthStaminaMana.h"
 #include "local_code/TextBuffer.h"
-#include "surrender/srDebug.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/RangeControl.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/screen.h"
 #include "wiz8/ui_layer.h"
 
-// GLOBAL: WIZ8 0x00648c90
 W8SpellRealmAnimation g_spell_realm_animations[6] = {{486, 22, 3}, {487, 18, 8},  {488, 14, 8},
                                                      {489, 21, 1}, {490, 16, 14}, {491, 24, 11}};
 
@@ -96,12 +97,11 @@ W8CharacterSpellList::W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, 
 }
 
 W8CharacterSpellsPage::W8CharacterSpellsPage()
-    : W8CharacterPage(CatalogArtwork::Load(0x109)), anim_timer(0.05f, 1)
+    : W8CharacterPage(CatalogArtwork::Load(0x109)), anim_timer(0.05f, TimerClock::Presentation)
 {
 }
 W8CharacterSpellsPage::~W8CharacterSpellsPage() = default;
 
-// FUNCTION: WIZ8 0x005c7e10
 void W8CharacterSpellList::SetEntryCount(int count)
 {
     m_range.InvalidateAll();
@@ -116,7 +116,6 @@ void W8CharacterSpellList::SetEntryCount(int count)
     }
 }
 
-// FUNCTION: WIZ8 0x005c7ef0
 void W8CharacterSpellList::Redraw(SDL_Surface& target, bool force)
 {
     if (m_dirty || force) {
@@ -137,9 +136,9 @@ void W8CharacterSpellList::Redraw(SDL_Surface& target, bool force)
                 g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
             }
             DrawText(target, g_wiz_text_font_secondary, {left + 2, y},
-                     g_spell_records[m_entries[index].spell].display_name);
+                     Data().spells[m_entries[index].spell].display_name);
             std::string cost;
-            cost = fmt::format("{:d}", g_spell_records[m_entries[index].spell].spell_point_cost);
+            cost = fmt::format("{:d}", Data().spells[m_entries[index].spell].spell_point_cost);
             DrawText(target, g_wiz_text_font_secondary,
                      {left + width - g_wiz_text_font_secondary.textWidth(cost) - 2, y}, cost);
             y += 13;
@@ -151,9 +150,9 @@ void W8CharacterSpellList::Redraw(SDL_Surface& target, bool force)
     }
 }
 
-// FUNCTION: WIZ8 0x005c83d0
 void W8CharacterSpellsPage::SetCharacter(W8Character* character,
-                                         W8CharacterCreationState* creation_state, int mode)
+                                         W8CharacterCreationState* creation_state,
+                                         W8CharacterScreenMode mode)
 {
     W8CharacterPage::SetCharacter(character, creation_state, mode);
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
@@ -162,7 +161,6 @@ void W8CharacterSpellsPage::SetCharacter(W8Character* character,
     }
 }
 
-// FUNCTION: WIZ8 0x005C8530
 void W8CharacterSpellsPage::Activate()
 {
     input.setEnabled(true);
@@ -174,7 +172,6 @@ void W8CharacterSpellsPage::Activate()
     m_prepared = true;
 }
 
-// FUNCTION: WIZ8 0x005c8570
 void W8CharacterSpellsPage::Deactivate()
 {
     input.setEnabled(false);
@@ -185,7 +182,6 @@ void W8CharacterSpellsPage::Deactivate()
 
 /* Drop every pending pick: clear the per-entry selected flags, return the
    creation-state spell selections, and repaint. */
-// FUNCTION: WIZ8 0x005C8730
 void W8CharacterSpellsPage::Accept()
 {
     for (auto& index : m_SpellData) {
@@ -202,7 +198,6 @@ void W8CharacterSpellsPage::Accept()
    pass two appends the learnable (1) spells greyed out. */
 /* Repaint the spell-point instructions and pool, the six realm headings and
    values, then the animated realm icons and their range controls. */
-// FUNCTION: WIZ8 0x005C88C0
 void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
 {
     bool redraw = m_active && m_dirty;
@@ -216,15 +211,14 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.top = 0xec;
         bounds.right = 0xc2;
         bounds.bottom = 0x173;
-        text.RenderString(
-            &bounds, g_localized_strings[m_creation_state->spell_points_total == 0 ? 0xeb : 0xea],
-            g_wiz_text_font_secondary, true, target);
+        text.RenderString(&bounds,
+                          Data().strings[m_creation_state->spell_points_total == 0 ? 0xeb : 0xea],
+                          g_wiz_text_font_secondary, true, target);
 
         bounds.top = 0x173;
         bounds.bottom = 0x18a;
         bounds.right = 0x8f;
-        text.RenderString(&bounds, g_localized_strings[0xf4], g_wiz_text_font_secondary, true,
-                          target);
+        text.RenderString(&bounds, Data().strings[0xf4], g_wiz_text_font_secondary, true, target);
         m_prepared = false;
     }
 
@@ -255,8 +249,8 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
             text.SetClipBounds(bounds);
             text.SetLayoutBounds(&bounds, true);
             text.SetFontStateIndex(1);
-            text.RenderString(fmt::format("{}:", g_localized_strings[0xf2]),
-                              g_wiz_text_font_secondary, false, target);
+            text.RenderString(fmt::format("{}:", Data().strings[0xf2]), g_wiz_text_font_secondary,
+                              false, target);
             text.SetFontStateIndex(-1);
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(
@@ -269,8 +263,8 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
             text.SetClipBounds(bounds);
             text.SetLayoutBounds(&bounds, true);
             text.SetFontStateIndex(1);
-            text.RenderString(fmt::format("{}:", g_localized_strings[0xf3]),
-                              g_wiz_text_font_secondary, false, target);
+            text.RenderString(fmt::format("{}:", Data().strings[0xf3]), g_wiz_text_font_secondary,
+                              false, target);
             text.SetFontStateIndex(-1);
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(fmt::format("{:d}/{:d}",
@@ -303,22 +297,20 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-// FUNCTION: WIZ8 0x005c87a0
 void W8CharacterSpellsPage::Refresh()
 {
     UpdateSpellLists();
 }
 
-// FUNCTION: WIZ8 0x005c85a0
 void W8CharacterSpellsPage::UpdateSpellLists()
 {
     int entry = 0;
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         m_animation_frames[realm] = g_spell_realm_animations[realm].initial_frame;
         int first = entry;
-        for (char pass = 0; pass < 2; ++pass) {
+        for (signed char pass = 0; pass < 2; ++pass) {
             for (unsigned int spell = 0; spell < 0x72; ++spell) {
-                if (g_spell_records[spell].realm == realm) {
+                if (Data().spells[spell].realm == realm) {
                     switch (m_character->spell_learned[spell]) {
                     case -1:
                     case 2:
@@ -348,7 +340,6 @@ void W8CharacterSpellsPage::UpdateSpellLists()
     }
 }
 
-// FUNCTION: WIZ8 0x005c8770
 void W8CharacterSpellsPage::GetNavigationState(bool* next_enabled, bool* exit_enabled)
 {
     *next_enabled = 1;
@@ -357,13 +348,9 @@ void W8CharacterSpellsPage::GetNavigationState(bool* next_enabled, bool* exit_en
 
 /* Retail emits this with the W8CharacterSpellListListener-adjusted `this`
    (page + 0x70): the slot is only ever dispatched through that base. */
-// FUNCTION: WIZ8 0x005c87b0
 void W8CharacterSpellsPage::SelectSpell(unsigned int uiSelected)
 {
-    if (!m_SpellData[uiSelected].fSelectable) {
-        srAssertFail("m_SpellData[uiSelected].fSelectable",
-                     "C:\\Projects\\Wizardry 8\\Local Screens\\CGSSpellsPage.cpp", 0x252, 0);
-    }
+    assert(m_SpellData[uiSelected].fSelectable);
     if (m_SpellData[uiSelected].selected) {
         m_SpellData[uiSelected].selected = false;
         DeselectCreationSpell(m_character, m_creation_state, m_SpellData[uiSelected].spell);
@@ -388,13 +375,11 @@ void W8CharacterSpellsPage::SelectSpell(unsigned int uiSelected)
     InvalidateAll();
 }
 
-// FUNCTION: WIZ8 0x005c88a0
 void W8CharacterSpellsPage::ShowSpellInfo(unsigned int entry)
 {
     m_screen->ShowSpellInfo(m_SpellData[entry].spell);
 }
 
-// FUNCTION: WIZ8 0x005C8DE0
 W8CharacterSpellsPage* CreateCharacterSpellsPage()
 {
     return new W8CharacterSpellsPage();

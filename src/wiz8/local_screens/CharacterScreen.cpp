@@ -16,85 +16,62 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
 #include "asset_paths.h"
 #include "dialog_code/DialogBase.h"
-#include "input.h"
-#include "layouts/gameplay_databases.h"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/cursor.h"
+#include "wiz8/combat/combat.h"
+#include "wiz8/data/character_tables.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
 #include "wiz8/dialog_code/StatInfoDialogs.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/combat_state.h"
+#include "wiz8/game.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/screen_state.h"
+#include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
-#include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/party_slot.h"
+#include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/xstatus.h"
 
-// GLOBAL: WIZ8 0x0061e3a4
-unsigned short g_character_description_first_ids[22] = {
-    0x274, 0x275, 0x276, 0x277, 0x278, 0x279, 0x27a, 0,     0x27b, 0x27c, 0x27d,
-    0x27e, 0x27f, 0x280, 0x281, 0,     0x6ac, 0x6ad, 0x6ae, 0x6af, 0x6b0, 0,
-};
-// GLOBAL: WIZ8 0x0061e3d0
 unsigned short g_race_name_message_ids[W8_RACE_COUNT] = {
     0x284, 0x285, 0x286, 0x287, 0x288, 0x289, 0x28a, 0x28b,
     0x28c, 0x28d, 0x28e, 0x28f, 0x290, 0x291, 0x292, 0x293,
 };
-// GLOBAL: WIZ8 0x0061e3f0
 unsigned short g_profession_name_message_ids[32] = {
     0x2a4, 0x2a5, 0x2a6, 0x2a7, 0x2a8, 0x2a9, 0x2aa, 0x2ab, 0x2ac, 0x2ad, 0x2ae,
     0x2af, 0x2b0, 0x2b1, 0x2b2, 0,     0x2c2, 0x2c3, 0x2c4, 0x2c5, 0x2c6, 0x2c7,
     0x2c8, 0x2c9, 0x2ca, 0x2cb, 0x2cc, 0x2cd, 0x2ce, 0x2cf, 0x2d0, 0,
 };
-// GLOBAL: WIZ8 0x0061e430
-unsigned short g_gender_name_message_rows[4][4] = {
-    {0x2d1, 0x2d4, 0x2d7, 0x2da},
-    {0x2d2, 0x2d5, 0x2d8, 0x2db},
-    {0x2d3, 0x2d6, 0x2d9, 0x2dc},
-    {0x2dd, 0x2de, 0x2df, 0x2e0},
-};
-// GLOBAL: WIZ8 0x0061e454
-unsigned short g_character_skill_name_ids[84] = {
-    0x2e2, 0x2e3, 0x2e4, 0x2e5, 0x2e6, 0x2e7, 0x2e8, 0x2e9, 0x2ea, 0x2eb, 0x2ec, 0x2ed,
-    0x2ee, 0x2ef, 0x2f0, 0x2f1, 0x2f2, 0x2f3, 0x2f4, 0x2f5, 0x2f6, 0x2f7, 0x2f8, 0x2f9,
-    0x2fa, 0x2fb, 0x2fc, 0x2fd, 0x2fe, 0x2ff, 0x300, 0x301, 0x302, 0x303, 0x304, 0x305,
-    0x306, 0x307, 0x308, 0x309, 0x30a, 0,     0x677, 0x678, 0x679, 0x67a, 0x67b, 0x67c,
-    0x67d, 0x67e, 0x67f, 0x680, 0x682, 0x683, 0x684, 0x685, 0x681, 0x686, 0x687, 0x688,
-    0x689, 0x68a, 0x68b, 0x68c, 0x68d, 0x68e, 0x68f, 0x690, 0x691, 0x692, 0x693, 0x694,
-    0x695, 0x696, 0x697, 0x698, 0x699, 0x69a, 0x69b, 0x69c, 0x69d, 0x69e, 0x69f, 0,
-};
-// GLOBAL: WIZ8 0x0061e674
 unsigned short g_personality_message_ids[10] = {
     0x3ad, 0x3ae, 0x3af, 0x3b0, 0x3b1, 0x3b2, 0x3b3, 0x3b4, 0x3b5, 0,
 };
-// GLOBAL: WIZ8 0x0061e688
 unsigned short g_profession_level_name_message_ids[15][9] = {
     {0x3b6, 0x3b7, 0x3b8, 0x3b9, 0x3ba, 0x3bb, 0x3bc, 0x3bd, 0x3be},
     {0x3b6, 0x3b7, 0x3bf, 0x3c0, 0x3c1, 0x3c2, 0x3c3, 0x3c4, 0x3c5},
@@ -112,41 +89,9 @@ unsigned short g_profession_level_name_message_ids[15][9] = {
     {0x3b6, 0x3b7, 0x40e, 0x40f, 0x410, 0x411, 0x412, 0x413, 0x414},
     {0x3b6, 0x3b7, 0x415, 0x416, 0x417, 0x418, 0x419, 0x41a, 0x41b},
 };
-// GLOBAL: WIZ8 0x0064da9c
 static int g_character_page_title_ids[4] = {0xcf, 0xd1, 0xd0, 0xd2};
 
-// GLOBAL: WIZ8 0x0069c2e8
-std::unique_ptr<W8CharacterScreen> g_character_screen;
-
-// class W8CharacterScreen
-
-// FUNCTION: WIZ8 0x005b0040
-W8CharacterScreen::W8CharacterScreen(int mode, W8Character* character)
-    : m_mode(mode), m_original(character), m_block_advance(0), m_confirm_profession(0),
-      m_force_transition(0), m_dialog(0), m_capture_dialog_result(0)
-{
-    if (character != 0) {
-        m_character = *character;
-        m_character.fInParty = false;
-    }
-    if (m_mode == 3) {
-        m_mode = 2;
-        wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
-        ShowMessage(fmt::sprintf(g_localized_strings[0xd9], m_character.name, 0, 0), 0, 0);
-    }
-    m_page_enabled[0] = m_mode != 1;
-    m_page_enabled[1] = m_mode != 1;
-    m_page_enabled[2] = m_mode != 1;
-    m_page_enabled[3] = m_mode != 2;
-}
-
-W8CharacterScreen::~W8CharacterScreen()
-{
-    if (m_page_index >= 0 && m_pages[m_page_index]) m_pages[m_page_index]->Deactivate();
-}
-
-// FUNCTION: WIZ8 0x005b0140
-void W8CharacterScreen::BuildControls()
+void CharacterScreen::BuildControls()
 {
     const auto button = [this](int x, int frame, int help, std::function<void()> action) {
         auto result = std::make_unique<W8ButtonWidget>(m_input);
@@ -169,24 +114,25 @@ void W8CharacterScreen::BuildControls()
     });
     m_exit = button(0x1fc, 0x14, 0xde, [this] { m_pages[m_page_index]->Accept(); });
     m_accept = button(0x1d0, 4, 0xdf, [this] {
-        if (m_mode == 1 && !m_exit->IsEnabled())
-            RequestScreenTransition();
+        if (m_mode == W8_CHARACTER_EDIT && !m_exit->IsEnabled())
+            ReturnToPreviousScreen();
         else
-            ShowMessage(g_localized_strings[0xd3], 1, 2);
+            ShowMessage(Data().strings[0xd3], 1, 2);
     });
     m_reset = button(0, 0x1d, 0xe1, [this] {
         std::ranges::fill(m_page_enabled, true);
         m_force_transition = true;
         InitializeCharacterCreation(&m_character, &m_creation_state);
-        m_mode = 0;
-        m_pages[3]->m_mode = 0;
+        m_mode = W8_CHARACTER_CREATE;
+        m_pages[3]->m_mode = W8_CHARACTER_CREATE;
         m_reset->SetVisible(false);
         SelectPage(0);
     });
     m_reset->SetVisible(false);
-    if (m_mode == 1 && g_status.game_started && CharacterPointerToPartySlot(m_original) > 1) {
+    if (m_mode == W8_CHARACTER_EDIT && GameStarted() &&
+        CharacterPointerToPartySlot(m_original) > 1) {
         m_reset->SetVisible(true);
-        if (gXStatus.fCombatMode) {
+        if (m_game.combat.has_value()) {
             m_reset->SetEnabled(false);
         }
     }
@@ -199,8 +145,7 @@ void W8CharacterScreen::BuildControls()
     SelectPage(index < 4 ? index : -1);
 }
 
-// FUNCTION: WIZ8 0x005b04b0
-void W8CharacterScreen::UpdateDialog()
+void CharacterScreen::UpdateDialog()
 {
     if (m_dialog != 0) {
         if (!m_dialog->ProcessInput()) {
@@ -218,8 +163,7 @@ void W8CharacterScreen::UpdateDialog()
     }
 }
 
-// FUNCTION: WIZ8 0x005b0580
-void W8CharacterScreen::UpdateNavigation(W8CharacterPage* page)
+void CharacterScreen::UpdateNavigation(W8CharacterPage* page)
 {
     bool next_enabled;
     bool exit_enabled;
@@ -237,8 +181,7 @@ void W8CharacterScreen::UpdateNavigation(W8CharacterPage* page)
     }
 }
 
-// FUNCTION: WIZ8 0x005b0610
-void W8CharacterScreen::ShowSpellInfo(int value)
+void CharacterScreen::ShowSpellInfo(int value)
 {
     m_dialog_response = 0;
     m_dialog = new W8SpellInfoDialog(value);
@@ -246,8 +189,7 @@ void W8CharacterScreen::ShowSpellInfo(int value)
     m_dialog->InputLayer().setModal(true);
 }
 
-// FUNCTION: WIZ8 0x005b06a0
-void W8CharacterScreen::ShowProfessionInfo(W8Profession profession)
+void CharacterScreen::ShowProfessionInfo(W8Profession profession)
 {
     m_dialog_response = 0;
     m_dialog = new W8ProfessionInfoDialog(profession);
@@ -255,8 +197,7 @@ void W8CharacterScreen::ShowProfessionInfo(W8Profession profession)
     m_dialog->InputLayer().setModal(true);
 }
 
-// FUNCTION: WIZ8 0x005b0730
-void W8CharacterScreen::ShowRaceInfo(W8Race race)
+void CharacterScreen::ShowRaceInfo(W8Race race)
 {
     m_dialog_response = 0;
     m_dialog = new W8RaceInfoDialog(race);
@@ -264,8 +205,7 @@ void W8CharacterScreen::ShowRaceInfo(W8Race race)
     m_dialog->InputLayer().setModal(true);
 }
 
-// FUNCTION: WIZ8 0x005b07c0
-void W8CharacterScreen::ShowPrimaryAttributeInfo(W8Attribute attribute)
+void CharacterScreen::ShowPrimaryAttributeInfo(W8Attribute attribute)
 {
     m_dialog_response = 0;
     m_dialog = new W8AttributeInfoDialog(attribute);
@@ -273,8 +213,7 @@ void W8CharacterScreen::ShowPrimaryAttributeInfo(W8Attribute attribute)
     m_dialog->InputLayer().setModal(true);
 }
 
-// FUNCTION: WIZ8 0x005b0850
-void W8CharacterScreen::ShowSecondaryAttributeInfo(unsigned int attribute)
+void CharacterScreen::ShowSecondaryAttributeInfo(unsigned int attribute)
 {
     m_dialog_response = 0;
     m_dialog = new W8SecondaryAttributeInfoDialog(attribute);
@@ -282,8 +221,7 @@ void W8CharacterScreen::ShowSecondaryAttributeInfo(unsigned int attribute)
     m_dialog->InputLayer().setModal(true);
 }
 
-// FUNCTION: WIZ8 0x005b08e0
-void W8CharacterScreen::ShowSkillInfo(W8Skill value)
+void CharacterScreen::ShowSkillInfo(W8Skill value)
 {
     m_dialog_response = 0;
     if (value == g_profession_bonus_skills[m_character.iProfession]) {
@@ -295,7 +233,7 @@ void W8CharacterScreen::ShowSkillInfo(W8Skill value)
     m_dialog->InputLayer().setModal(true);
 }
 
-void W8CharacterScreen::DrawNavigation(SDL_Surface& target)
+void CharacterScreen::DrawNavigation(SDL_Surface& target)
 {
     const std::array buttons{m_previous.get(), m_next.get(), m_exit.get(), m_accept.get(),
                              m_reset.get()};
@@ -306,53 +244,47 @@ void W8CharacterScreen::DrawNavigation(SDL_Surface& target)
     m_navigation_dirty = false;
 }
 
-// FUNCTION: WIZ8 0x005b09b0
-void W8CharacterScreen::ShowDescription(int first, int second)
+void CharacterScreen::ShowDescription(int first, int second)
 {
-    ShowMessage(fmt::sprintf(g_localized_strings[0x1d6],
-                             g_localized_strings[g_character_description_first_ids[first]],
-                             m_character.name,
-                             g_localized_strings[g_character_skill_name_ids[second]]),
+    ShowMessage(fmt::sprintf(Data().strings[0x1d6],
+                             Data().strings[g_character_description_first_ids[first]],
+                             m_character.name, Data().strings[g_character_skill_name_ids[second]]),
                 0, 0);
 }
 
-// FUNCTION: WIZ8 0x005b0a10
-void W8CharacterScreen::ShowCharacterSummary()
+void CharacterScreen::ShowCharacterSummary()
 {
     m_dialog_response = 1;
     m_dialog = CreateCharacterSummaryDialog(&m_character);
     m_dialog->InputLayer().setModal(true);
 }
 
-// FUNCTION: WIZ8 0x005b0b50
-void W8CharacterScreen::AdvancePage(bool forward)
+void CharacterScreen::AdvancePage(bool forward)
 {
     if (!forward || (m_page_index != 3 && m_next->IsEnabled())) {
         int index = m_page_index;
         if (index == 1 && m_creation_state.spell_points_remaining > 0 && !m_block_advance) {
-            ShowMessage(g_localized_strings[0xc4], 1, 3);
+            ShowMessage(Data().strings[0xc4], 1, 3);
             return;
         }
         if (index == 0) {
-            if (m_mode == 2 && m_character.iProfession != m_original->iProfession &&
-                !m_confirm_profession) {
+            if (m_mode == W8_CHARACTER_LEVEL_UP &&
+                m_character.iProfession != m_original->iProfession && !m_confirm_profession) {
                 int value = ComputeRealmSkillDebt(m_original, &m_character);
                 if (value > 0) {
                     ShowMessage(
-                        fmt::sprintf(g_localized_strings[0xdb],
-                                     g_localized_strings
-                                         [g_profession_name_message_ids[m_original->iProfession]],
-                                     g_localized_strings
-                                         [g_profession_name_message_ids[m_character.iProfession]],
-                                     value),
+                        fmt::sprintf(
+                            Data().strings[0xdb],
+                            Data().strings[g_profession_name_message_ids[m_original->iProfession]],
+                            Data().strings[g_profession_name_message_ids[m_character.iProfession]],
+                            value),
                         1, 4);
                 } else {
                     ShowMessage(
-                        fmt::sprintf(g_localized_strings[0xda],
-                                     g_localized_strings
-                                         [g_profession_name_message_ids[m_original->iProfession]],
-                                     g_localized_strings
-                                         [g_profession_name_message_ids[m_character.iProfession]]),
+                        fmt::sprintf(
+                            Data().strings[0xda],
+                            Data().strings[g_profession_name_message_ids[m_original->iProfession]],
+                            Data().strings[g_profession_name_message_ids[m_character.iProfession]]),
                         1, 4);
                 }
                 return;
@@ -368,21 +300,21 @@ void W8CharacterScreen::AdvancePage(bool forward)
             SelectPage(index);
         } else if (!m_force_transition) {
             if (CommitCharacter()) {
-                RequestScreenTransition();
-                if (m_mode == 2 && m_character.experience_goal <= m_character.experience) {
-                    g_pending_screen_state.mode = 3;
-                    g_pending_screen_state.character = m_original;
-                    g_pending_screen_state.id = W8_SCREEN_CHARACTER;
+                ReturnToPreviousScreen();
+                if (m_mode == W8_CHARACTER_LEVEL_UP &&
+                    m_character.experience_goal <= m_character.experience) {
+                    RequestScreen({.id = W8_SCREEN_CHARACTER,
+                                   .mode = W8_CHARACTER_LEVEL_UP_NOTICE,
+                                   .character = m_original});
                 }
             }
         } else if (ValidateName()) {
-            ShowMessage(g_localized_strings[0xd6], 1, 5);
+            ShowMessage(Data().strings[0xd6], 1, 5);
         }
     }
 }
 
-// FUNCTION: WIZ8 0x005b0d50
-void W8CharacterScreen::SelectPage(int index)
+void CharacterScreen::SelectPage(int index)
 {
     if (m_page_index >= 0) {
         m_pages[m_page_index]->SetActive(false);
@@ -429,14 +361,13 @@ void W8CharacterScreen::SelectPage(int index)
     UpdateNavigation(page);
 }
 
-// FUNCTION: WIZ8 0x005b0f30
-void W8CharacterScreen::SyncCharacterForPage(int index)
+void CharacterScreen::SyncCharacterForPage(int index)
 {
     if (m_page_index > index) return;
     if (index == 0) {
-        if (m_mode == 0)
+        if (m_mode == W8_CHARACTER_CREATE)
             InitializeCharacterCreation(&m_character, &m_creation_state);
-        else if (m_mode == 2)
+        else if (m_mode == W8_CHARACTER_LEVEL_UP)
             InitializeCharacterLevelUp(&m_character, &m_creation_state);
     } else if (index == 1) {
         CountRemainingSpellPoints(&m_character, &m_creation_state);
@@ -446,24 +377,23 @@ void W8CharacterScreen::SyncCharacterForPage(int index)
     }
 }
 
-// FUNCTION: WIZ8 0x005b1110
-void W8CharacterScreen::DrawHeader()
+void CharacterScreen::DrawHeader()
 {
     W8TextBuffer text;
     CatalogArtwork::Load(0x107, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xc3, 0);
     W8ControlsRect bounds = {0xc3, 0, 0x285, 0x2c};
-    text.RenderString(&bounds, g_localized_strings[g_character_page_title_ids[m_page_index]],
+    text.RenderString(&bounds, Data().strings[g_character_page_title_ids[m_page_index]],
                       g_options_detail_font, true, GetFrameBufferSurface());
     CatalogArtwork::Load(0x107, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0);
 
-    if (m_mode == 0) {
+    if (m_mode == W8_CHARACTER_CREATE) {
         CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 2, 10, 0xc);
     } else {
         int frame = m_original == 0 ? m_character.portrait_index : m_original->portrait_index;
         CatalogArtwork::Load(0x11, frame).draw(GetFrameBufferSurface(), 0, 10, 0xc);
     }
 
-    if (m_mode == 0 && m_page_index == 0) {
+    if (m_mode == W8_CHARACTER_CREATE && m_page_index == 0) {
         CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 3, 5, 0xa5);
     } else {
         bounds.left = 5;
@@ -471,7 +401,7 @@ void W8CharacterScreen::DrawHeader()
         bounds.right = 0xc1;
         bounds.bottom = 0xdf;
         text.SetLayoutMode(g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter);
-        if (m_mode != 0) {
+        if (m_mode != W8_CHARACTER_CREATE) {
             text.RenderString(&bounds, m_character.name, g_wiz_text_font_secondary, true,
                               GetFrameBufferSurface());
         }
@@ -479,39 +409,37 @@ void W8CharacterScreen::DrawHeader()
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, true);
         text.RenderString(
-            fmt::format("{} {}",
-                        g_localized_strings[g_gender_name_message_rows[m_character.gender][0]],
-                        g_localized_strings[g_race_name_message_ids[m_character.iRace]]),
+            fmt::format("{} {}", Data().strings[g_gender_name_message_rows[m_character.gender][0]],
+                        Data().strings[g_race_name_message_ids[m_character.iRace]]),
             g_wiz_text_font_secondary, true, GetFrameBufferSurface());
         bounds.top += 0xe;
-        text.RenderString(
-            &bounds, g_localized_strings[g_profession_name_message_ids[m_character.iProfession]],
-            g_wiz_text_font_secondary, true, GetFrameBufferSurface());
+        text.RenderString(&bounds,
+                          Data().strings[g_profession_name_message_ids[m_character.iProfession]],
+                          g_wiz_text_font_secondary, true, GetFrameBufferSurface());
         bounds.top += 0xe;
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, true);
         text.RenderString(
             fmt::format(
-                "{} {:d} ({})", g_localized_strings[0x6b9], m_character.uiExpLevel,
-                g_localized_strings[g_profession_level_name_message_ids[m_character.iProfession]
-                                                                       [m_character.level_band]]),
+                "{} {:d} ({})", Data().strings[0x6b9], m_character.uiExpLevel,
+                Data().strings[g_profession_level_name_message_ids[m_character.iProfession]
+                                                                  [m_character.level_band]]),
             g_wiz_text_font_secondary, true, GetFrameBufferSurface());
     }
     m_header_dirty = false;
 }
 
-// FUNCTION: WIZ8 0x005b0fd0
-bool W8CharacterScreen::CommitCharacter()
+bool CharacterScreen::CommitCharacter()
 {
     if (!ValidateName()) return false;
 
-    int mode = m_mode;
+    const bool creating = m_mode == W8_CHARACTER_CREATE;
     W8Character backup;
     backup = m_character;
-    if (mode != 1) {
-        FinalizeCreatedCharacter(&m_character, &m_creation_state, mode == 0);
+    if (m_mode != W8_CHARACTER_EDIT) {
+        FinalizeCreatedCharacter(&m_character, &m_creation_state, creating);
     }
-    if (!g_status.game_started && !g_status.skip_loose_character_check) {
+    if (!GameStarted() && !m_game.status.skip_loose_character_check) {
         if (m_original != 0) {
             std::string path;
             path = BuildCharacterPath(m_original->name, -1);
@@ -519,8 +447,8 @@ bool W8CharacterScreen::CommitCharacter()
         }
         m_character.fInParty = false;
         if (!SaveCharacter(&m_character, -1)) {
-            m_character = backup;
-            ShowMessage(g_localized_strings[0xd4], 0, 0);
+            m_character = std::move(backup);
+            ShowMessage(Data().strings[0xd4], 0, 0);
             return false;
         }
         m_character.fInParty = backup.fInParty;
@@ -530,37 +458,26 @@ bool W8CharacterScreen::CommitCharacter()
         *m_original = m_character;
         if (was_in_party) m_original->fInParty = true;
         if (m_original->iProfession == W8_PROFESSION_GADGETEER)
-            UpgradeProfessionClassItem(m_original);
-        UnequipUnusableItems(m_original);
+            UpgradeProfessionClassItem(
+                m_game, was_in_party ? PartyMember(m_game, CharacterPointerToPartySlot(m_original))
+                                     : Outsider(*m_original));
+        RecalculateCharacterDerivedStats(m_game, *m_original);
     }
     return true;
 }
 
-/* Skill-availability hooks raised by RefreshCharacterSkillAvailability while this screen is
-   current. They adjust the named skill through the page-2 helpers and then
-   refresh page 2, the skills list. */
-// FUNCTION: WIZ8 0x005b1af0
-void ResetCharacterScreenSkill(W8Skill skill_id)
+void CharacterScreen::SkillAvailabilityChanged(W8Skill skill, bool available)
 {
-    W8CharacterScreen* screen = g_character_screen.get();
-    ResetSkillContribution(&screen->m_character, &screen->m_creation_state, skill_id);
-    if (screen->m_pages[2] != 0) {
-        screen->m_pages[2]->Refresh();
+    if (available)
+        ResetSkillContribution(&m_character, &m_creation_state, skill);
+    else
+        RefundSkillAllocation(&m_character, &m_creation_state, skill);
+    if (m_pages[2] != 0) {
+        m_pages[2]->Refresh();
     }
 }
 
-// FUNCTION: WIZ8 0x005b1b30
-void RefundCharacterScreenSkill(W8Skill skill_id)
-{
-    W8CharacterScreen* screen = g_character_screen.get();
-    RefundSkillAllocation(&screen->m_character, &screen->m_creation_state, skill_id);
-    if (screen->m_pages[2] != 0) {
-        screen->m_pages[2]->Refresh();
-    }
-}
-
-// FUNCTION: WIZ8 0x005b1430
-void W8CharacterScreen::ShowMessage(std::string_view text, int confirmation, int response)
+void CharacterScreen::ShowMessage(std::string_view text, int confirmation, int response)
 {
     m_dialog_response = response;
     m_dialog = new W8MessageDialogBase;
@@ -576,13 +493,12 @@ void W8CharacterScreen::ShowMessage(std::string_view text, int confirmation, int
     }
 }
 
-// FUNCTION: WIZ8 0x005b1520
-void W8CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
+void CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
 {
     if (accepted) {
         switch (response) {
         case 2:
-            RequestScreenTransition();
+            ReturnToPreviousScreen();
             break;
         case 3:
             m_block_advance = true;
@@ -597,10 +513,10 @@ void W8CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
             int next_response;
             std::string format;
             if (CanAffordStartingEquipment(&m_character)) {
-                format = g_localized_strings[0xd7];
+                format = Data().strings[0xd7];
                 next_response = 6;
             } else {
-                format = g_localized_strings[0xd8];
+                format = Data().strings[0xd8];
                 next_response = 7;
             }
             ShowMessage(fmt::sprintf(format, value), 1, next_response);
@@ -609,122 +525,128 @@ void W8CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
         case 6:
             FinalizeCreatedCharacter(&m_character, &m_creation_state, false);
             RecruitCharacterIntoParty(m_original, &m_character, true);
-            RequestScreenTransition();
+            ReturnToPreviousScreen();
             break;
         case 7:
             FinalizeCreatedCharacter(&m_character, &m_creation_state, false);
             RecruitCharacterIntoParty(m_original, &m_character, false);
-            RequestScreenTransition();
+            ReturnToPreviousScreen();
             break;
         }
     } else if (response == 6) {
         FinalizeCreatedCharacter(&m_character, &m_creation_state, false);
         RecruitCharacterIntoParty(m_original, &m_character, false);
-        RequestScreenTransition();
+        ReturnToPreviousScreen();
     }
 }
 
-// FUNCTION: WIZ8 0x005b1670
-bool W8CharacterScreen::ValidateName()
+bool CharacterScreen::ValidateName()
 {
     if (m_original != 0 && strcmp(m_original->name.c_str(), m_character.name.c_str()) == 0) {
         return true;
     }
-    if (!g_status.game_started && !g_status.skip_loose_character_check) {
+    if (!GameStarted() && !m_game.status.skip_loose_character_check) {
         std::string path;
         path = BuildCharacterPath(m_character.name, -1);
         if ([&]() {
                 const auto status = wiz8::file_status(wiz8::user_path(path));
                 return status && status->info.type == SDL_PATHTYPE_FILE;
             }()) {
-            ShowMessage(g_localized_strings[0xd5], 0, 0);
+            ShowMessage(Data().strings[0xd5], 0, 0);
             return false;
         }
     }
     for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
-        if (g_status.buffers.XChar[index].fOccupied &&
-            strcmp(g_status.buffers.Char[index].name.c_str(), m_character.name.c_str()) == 0) {
-            ShowMessage(g_localized_strings[0xd5], 0, 0);
+        if (m_game.party.members[index].has_value() &&
+            strcmp(m_game.party.characters[index].name.c_str(), m_character.name.c_str()) == 0) {
+            ShowMessage(Data().strings[0xd5], 0, 0);
             return false;
         }
     }
     return true;
 }
 
-// FUNCTION: WIZ8 0x005b0120
-bool W8CharacterScreen::HasDialog()
+bool CharacterScreen::HasDialog()
 {
     return m_dialog != 0;
 }
 
-// FUNCTION: WIZ8 0x005b0130
-W8Character* W8CharacterScreen::GetOriginalCharacter()
+W8Character* CharacterScreen::GetOriginalCharacter()
 {
     return m_original;
 }
 
-// FUNCTION: WIZ8 0x005b1750
-bool CharacterScreenEnter(void)
+bool CharacterScreen::enter(const ScreenRequest& request)
 {
+    const W8CharacterScreenMode mode = std::get<W8CharacterScreenMode>(request.mode);
     SetViewport({0, 0, 0x281, 0x1e1});
-    SetPrimarySurfaceTextureHint2Enabled(false);
-    UpdateHeldItemCursor();
+    SetUiCanvasAlphaTestEnabled(false);
+    ScreenPointer().reset();
     g_wiz_text_font_secondary.resetPalette();
     g_wiz_text_bold_font.resetPalette();
-    g_character_screen = std::make_unique<W8CharacterScreen>(g_current_screen_state.mode,
-                                                             g_current_screen_state.character);
-    g_character_screen->BuildControls();
-    if (!g_status.game_started &&
-        (g_current_screen_state.mode == 0 || g_current_screen_state.mode == 2)) {
+    m_mode = mode;
+    m_original = request.character;
+    if (m_original != 0) {
+        m_character = *m_original;
+        m_character.fInParty = false;
+    }
+    if (m_mode == W8_CHARACTER_LEVEL_UP_NOTICE) {
+        m_mode = W8_CHARACTER_LEVEL_UP;
+        wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
+        ShowMessage(fmt::sprintf(Data().strings[0xd9], m_character.name, 0, 0), 0, 0);
+    }
+    m_page_enabled[0] = m_mode != W8_CHARACTER_EDIT;
+    m_page_enabled[1] = m_mode != W8_CHARACTER_EDIT;
+    m_page_enabled[2] = m_mode != W8_CHARACTER_EDIT;
+    m_page_enabled[3] = m_mode != W8_CHARACTER_LEVEL_UP;
+    BuildControls();
+    if (!GameStarted() && (mode == W8_CHARACTER_CREATE || mode == W8_CHARACTER_LEVEL_UP)) {
         StartMusicResource("Menus.MPL", 1, 1);
     }
-    return 1;
+    return true;
 }
 
-// FUNCTION: WIZ8 0x005b1840
-bool CharacterScreenLeave(int leaving)
+bool CharacterScreen::leave(ScreenDeparture)
 {
-    if (leaving) g_character_screen.reset();
-    return 1;
+    if (m_page_index >= 0 && m_pages[m_page_index]) m_pages[m_page_index]->Deactivate();
+    return true;
 }
 
-// FUNCTION: WIZ8 0x005b18e0
-void CharacterScreenFrame(void)
+void CharacterScreen::frame()
 {
-    g_character_screen->UpdateDialog();
-    W8CharacterScreen* screen = g_character_screen.get();
-    if (!screen->m_dialog)
+    UpdateDialog();
+    if (!m_dialog)
         PumpUiInput({
             .before =
-                [screen](const InputEvent& input) {
-                    screen->m_pages[screen->m_page_index]->HandleInput(&input);
+                [this](const InputEvent& input) {
+                    m_pages[m_page_index]->HandleInput(&input);
                     return InputRoute::Pass;
                 },
             .unhandled =
-                [screen](const InputEvent& input) {
+                [this](const InputEvent& input) {
                     if (input.type == InputEventType::KeyDown) {
                         if (input.key == SDLK_RETURN || input.key == SDLK_RIGHT ||
                             input.key == SDLK_N) {
-                            screen->AdvancePage(true);
+                            AdvancePage(true);
                         } else if (input.key == SDLK_ESCAPE) {
-                            if (screen->m_mode == 1 && !screen->m_exit->IsEnabled()) {
-                                RequestScreenTransition();
+                            if (m_mode == W8_CHARACTER_EDIT && !m_exit->IsEnabled()) {
+                                ReturnToPreviousScreen();
                             } else {
-                                screen->ShowMessage(g_localized_strings[0xd3], 1, 2);
+                                ShowMessage(Data().strings[0xd3], 1, 2);
                             }
                         } else if ((input.key == SDLK_LEFT || input.key == SDLK_B) &&
-                                   screen->m_page_index != 3) {
-                            int index = screen->m_page_index - 1;
-                            while (index >= 0 && !screen->m_page_enabled[index]) --index;
-                            if (index != -1) screen->SelectPage(index);
+                                   m_page_index != 3) {
+                            int index = m_page_index - 1;
+                            while (index >= 0 && !m_page_enabled[index]) --index;
+                            if (index != -1) SelectPage(index);
                         }
                     }
                     return InputRoute::Handled;
                 },
         });
-    if (screen->m_header_dirty) screen->DrawHeader();
-    screen->m_pages[screen->m_page_index]->Redraw(GetFrameBufferSurface(), false);
-    screen->DrawNavigation(GetFrameBufferSurface());
-    if (screen->m_dialog != 0) screen->m_dialog->RefreshModal();
+    if (m_header_dirty) DrawHeader();
+    m_pages[m_page_index]->Redraw(GetFrameBufferSurface(), false);
+    DrawNavigation(GetFrameBufferSurface());
+    if (m_dialog != 0) m_dialog->RefreshModal();
     RenderFrame();
 }

@@ -1,49 +1,50 @@
 #include "wiz8/local_code/Search.h"
 
-#include <cstdint>
+#include <chrono>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include <fmt/format.h>
 #include <glm/geometric.hpp>
 
-#include "compat/native.h"
-#include "conditions.h"
-#include "gameplay_modifiers.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/item_instance.h"
-#include "random.h"
-#include "timer.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/engine_code/Camera.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Item.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/combat/combat.h"
+#include "wiz8/data/skills.h"
+#include "wiz8/entities/prop.h"
+#include "wiz8/entities/trigger.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/level_population.h"
+#include "wiz8/level_specific_code/level_script.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/notices.h"
+#include "wiz8/render/picking.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party_slot.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
+#include "wiz8/world/camera_paths.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 constexpr int kSearchFoundItemEvent = 0x17;
 constexpr int kSearchFoundItemEventAlt = 0x18;
@@ -63,20 +64,14 @@ struct W8Searchable {
     Trigger* trigger = nullptr;
 };
 
-static uint64_t g_search_pulse_clock;
-
 /* 10000.0: the unit search radius PickBestSearcher scales by score, and the
    collector's outer range gate. */
-// GLOBAL: WIZ8 0x0061a364
 constexpr float g_search_radius = 10000.0f;
-// GLOBAL: WIZ8 0x0061a368
 constexpr float g_search_cone_angle = 3.1415925f;
 
 /* The view's own constructor: seeds the cursor ahead of the first element and
    builds the item vector with capacity five. */
-// FUNCTION: WIZ8 0x00517900
 /* Discovery changes the same state used to select the next pulse's candidates. */
-// FUNCTION: WIZ8 0x00516ad0
 void W8Searchable::Reveal()
 {
     if (world_item ? !ItemHasFlags(world_item, W8_WORLD_ITEM_HIDDEN) : trigger == nullptr) return;
@@ -92,8 +87,7 @@ void W8Searchable::Reveal()
 }
 
 /* Gather eligible candidates inside the radius and sight cone for one pulse. */
-// FUNCTION: WIZ8 0x00516ba0
-static std::vector<W8Searchable> CollectSearchablesInView(W8World& world)
+static std::vector<W8Searchable> CollectSearchablesInView(World& world)
 {
     std::vector<W8Searchable> found;
     const glm::vec3 camera = cameraLocation();
@@ -108,32 +102,33 @@ static std::vector<W8Searchable> CollectSearchablesInView(W8World& world)
             const float yaw = GetCameraYawRadians();
             if ((half_cone <= NormalizeAngle(yaw - heading) &&
                  half_cone <= NormalizeAngle(heading - yaw)) ||
-                !world.octree || !world.octree->HasLineOfSight(&camera, &position, true))
+                !world.compiledIndex() || !world.compiledIndex()->hasLineOfSight(camera, position))
                 return;
         }
         found.push_back(candidate);
     };
     // Trigger definitions precede item records in level loading. Keep that search order.
     for (const auto& trigger : world.triggers)
-        if (trigger->trigger_kind == 1 && trigger->searchable == 1 &&
+        if (trigger->trigger_kind == W8TriggerKind::item && trigger->searchable == 1 &&
             (trigger->flags & W8_TRIGGER_SEARCHED) == 0)
             collect({nullptr, trigger.get()});
-    for (const auto& group : gXStatus.world_items)
-        for (auto* item = group.get(); item; item = item->next.get())
-            if (ItemHasFlags(item, W8_WORLD_ITEM_HIDDEN)) collect({item, nullptr});
+    for (const auto& group : CurrentLevelPopulation().world_items) {
+        if (ItemHasFlags(group.get(), W8_WORLD_ITEM_HIDDEN)) collect({group.get(), nullptr});
+        for (const auto& item : group->contents)
+            if (ItemHasFlags(item.get(), W8_WORLD_ITEM_HIDDEN)) collect({item.get(), nullptr});
+    }
     return found;
 }
 
 /* Resolve this searchable's world position: the item's rep midpoint when it
    has a live owner, the recorded position otherwise; prop searchables
    resolve through their trigger's prop. */
-// FUNCTION: WIZ8 0x00517080
 void W8Searchable::GetPosition(glm::vec3* position)
 {
     (*position) = glm::vec3(0);
     if (world_item != 0) {
-        if (world_item->p3D != 0) {
-            *position = world_item->p3D->GetSearchPosition();
+        if (world_item->entity) {
+            *position = world_item->entity->GetSearchPosition();
             return;
         }
         (*position) =
@@ -142,99 +137,90 @@ void W8Searchable::GetPosition(glm::vec3* position)
         return;
     }
     if (trigger != 0) {
-        W8Prop* prop = trigger->GetProp();
+        Prop* prop = trigger->GetProp();
         if (prop != 0) {
             if (const auto center = prop->GetCenterPosition()) *position = *center;
         }
     }
 }
 
-// FUNCTION: WIZ8 0x005171b0
-
-/* The 500ms search sweep: while nothing is interacting or surprising the
-   party, walk the in-view searchables, pick the best searcher for each, queue
-   the found event and turn the camera toward the find. */
-// FUNCTION: WIZ8 0x005171c0
+/* The search sweep the step runs every 500ms: while nothing is interacting or surprising
+   the party, walk the in-view searchables, pick the best searcher for each, queue the
+   found event and turn the camera toward the find. */
 void RunSearchPulse(void)
 {
-    if (TimeUntilDeadline(g_search_pulse_clock) == 0) {
-        g_search_pulse_clock = w8_get_ticks() + (500);
-        if (g_environment_time_enabled != 0 && !gXStatus.world_update_blocked &&
-            !gXStatus.fSurprisePossible && !gXStatus.fLockInteractMode &&
-            !LockInteractionSuspended() && !gXStatus.fTrapInteractMode &&
-            !TrapInteractionSuspended()) {
-            if (IsLevelFastMovement() && g_status.search_mode != 0) {
-                ShowNotice(W8_FONT_PALETTE_BEIGE,
-                           g_localized_strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
-            }
-            auto candidates = CollectSearchablesInView(*GetWorld());
-            bool found = false;
-            {
-                for (auto& candidate : candidates) {
-                    auto* searchable = &candidate;
-                    int slot = searchable->PickBestSearcher();
-                    if (slot != -1) {
-                        W8Character* character = &g_status.buffers.Char[slot];
-                        if (searchable->world_item == 0) {
-                            if (searchable->trigger == 0) {
-                                QueueCharacterEvent(character, 0x1a, 0, 1,
-                                                    kCharacterEventFullVolume);
-                                found = true;
-                            } else {
-                                QueueCharacterEvent(character, 0x1a, 0, 1,
-                                                    kCharacterEventFullVolume);
-                                int message = searchable->trigger->m_lData1;
-                                found = true;
-                                if (message >= 0) {
-                                    const char* folder = GetLevelFolderName(GetLoadedLevelID());
-                                    if (folder == 0) {
-                                        folder = "Test";
-                                    }
-                                    std::string path;
-                                    path = fmt::format("Data\\Messages\\{}.msg", folder);
-                                    std::string text;
-                                    if ((!(text = GetStringFromStringDatabase(path, message, 0, 0))
-                                              .empty()) != 0) {
-                                        ShowString(text);
-                                    }
+    if (CurrentGame().advancement.time_passes && !CurrentGame().advancement.held &&
+        !CurrentGame().surprise_possible && !IsLockInteractionActive() &&
+        !LockInteractionSuspended() && !IsTrapInteractionActive() && !TrapInteractionSuspended()) {
+        if (IsLevelFastMovement() && CurrentGame().status.search_mode) {
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
+        }
+        auto candidates = CollectSearchablesInView(*GetWorld());
+        bool found = false;
+        {
+            for (auto& candidate : candidates) {
+                auto* searchable = &candidate;
+                int slot = searchable->PickBestSearcher();
+                if (slot != -1) {
+                    W8Character* character = &CurrentGame().party.characters[slot];
+                    if (searchable->world_item == 0) {
+                        if (searchable->trigger == 0) {
+                            QueueCharacterEvent(character, 0x1a, 0, kCharacterEventFullVolume);
+                            found = true;
+                        } else {
+                            QueueCharacterEvent(character, 0x1a, 0, kCharacterEventFullVolume);
+                            int message = searchable->trigger->m_lData1;
+                            found = true;
+                            if (message >= 0) {
+                                const std::string_view level_folder =
+                                    GetLevelFolderName(GetLoadedLevelID());
+                                const std::string folder =
+                                    level_folder.empty() ? "Test" : std::string(level_folder);
+                                const std::string path =
+                                    fmt::format("Data\\Messages\\{}.msg", folder);
+                                std::string text;
+                                if ((!(text = GetStringFromStringDatabase(path, message, 0, 0))
+                                          .empty()) != 0) {
+                                    ShowString(text);
                                 }
                             }
-                        } else {
-                            PartyAttemptsToIdentifyItem(&searchable->world_item->item, 0);
-                            unsigned int event_type = kSearchFoundItemEvent;
-                            if (Random(2) != 0) {
-                                event_type = kSearchFoundItemEventAlt;
-                            }
-                            auto event = std::make_unique<W8CharacterEvent>(
-                                character, event_type, 0, 1, kCharacterEventFullVolume);
-                            if (searchable->world_item != 0) {
-                                event->item = searchable->world_item->item;
-                            }
-                            gXStatus.character_event_queue->QueueEntry(std::move(event));
                         }
-                        glm::vec3 position;
-                        searchable->GetPosition(&position);
-                        ResetInactiveLevelDataVectors();
-                        PointCameraAtTarget(&position, true, true);
-                        searchable->Reveal();
+                    } else {
+                        PartyAttemptsToIdentifyItem(&searchable->world_item->item, 0);
+                        unsigned int event_type = kSearchFoundItemEvent;
+                        if (CurrentGame().rng.below(2) != 0) {
+                            event_type = kSearchFoundItemEventAlt;
+                        }
+                        auto event = std::make_unique<W8CharacterEvent>(character, event_type, 0,
+                                                                        kCharacterEventFullVolume);
+                        if (searchable->world_item != 0) {
+                            event->item = searchable->world_item->item;
+                        }
+                        CurrentGame().speech.QueueEntry(std::move(event));
                     }
+                    glm::vec3 position;
+                    searchable->GetPosition(&position);
+                    ResetInactiveLevelDataVectors();
+                    PointCameraAtTarget(&position, true, true);
+                    searchable->Reveal();
                 }
             }
-            if (g_status.search_mode == 0 || IsLevelFastMovement()) {
-                /* Retail scans the party for a live member carrying the
-                   Scouting skill and then discards the result. */
-                for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-                    W8Character* character = &g_status.buffers.Char[slot];
-                    if (g_status.buffers.XChar[slot].fOccupied && character->hp_current != 0 &&
-                        character->highest_condition < W8_CONDITION_TURNCOAT &&
-                        character->skills[W8_SKILL_SCOUTING].level != 0) {
-                        break;
-                    }
+        }
+        if (!CurrentGame().status.search_mode || IsLevelFastMovement()) {
+            /* Retail scans the party for a live member carrying the
+               Scouting skill and then discards the result. */
+            for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+                W8Character* character = &CurrentGame().party.characters[slot];
+                if (CurrentGame().party.members[slot].has_value() && character->hp_current != 0 &&
+                    character->highest_condition < W8_CONDITION_TURNCOAT &&
+                    character->skills[W8_SKILL_SCOUTING].level != 0) {
+                    break;
                 }
             }
-            if (g_status.search_mode != 0 && !IsLevelFastMovement() && !found && Random(100) == 0) {
-                ApplyItemEffectToRandomCharacter(g_container_event, -1, 0, kCharacterEventNoFlags);
-            }
+        }
+        if (CurrentGame().status.search_mode && !IsLevelFastMovement() && !found &&
+            CurrentGame().rng.below(100) == 0) {
+            ApplyItemEffectToRandomCharacter(g_container_event, -1, 0);
         }
     }
 }
@@ -244,26 +230,25 @@ void RunSearchPulse(void)
    plus a Senses-derived bonus; the detect-secrets party effect instead
    force-picks random eligible members without practicing the skill. The pick
    must also reach this searchable's position. */
-// FUNCTION: WIZ8 0x00517560
 int W8Searchable::PickBestSearcher()
 {
     unsigned int best_score = 0;
     int best_slot = -1;
     bool earned = false;
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        W8Character* character = &g_status.buffers.Char[slot];
-        if (!g_status.buffers.XChar[slot].fOccupied || character->hp_current == 0 ||
+        W8Character* character = &CurrentGame().party.characters[slot];
+        if (!CurrentGame().party.members[slot].has_value() || character->hp_current == 0 ||
             character->highest_condition >= W8_CONDITION_TURNCOAT) {
             continue;
         }
-        if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || g_status.search_mode != 0) {
+        if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || CurrentGame().status.search_mode) {
             unsigned int level = character->skills[W8_SKILL_SCOUTING].level;
             unsigned int base = level >> 1;
             if (IsLevelFastMovement()) {
                 base = level >> 2;
             }
             unsigned int score = 0;
-            if (base != 0 || (g_status.search_mode != 0 && !IsLevelFastMovement())) {
+            if (base != 0 || (CurrentGame().status.search_mode && !IsLevelFastMovement())) {
                 unsigned int attribute = character->attributes[W8_ATTRIBUTE_SENSES].effective;
                 if (attribute < 0x33) {
                     score = base + attribute / 5;
@@ -288,8 +273,8 @@ int W8Searchable::PickBestSearcher()
                 best_slot = slot;
             }
         }
-        if (g_status.party_modifiers.detect_secrets != 0) {
-            if (best_slot != -1 && Random(2) == 0) {
+        if (CurrentGame().party.modifiers.detect_secrets != 0) {
+            if (best_slot != -1 && CurrentGame().rng.below(2) == 0) {
                 continue;
             }
             best_score = 100;
@@ -304,7 +289,8 @@ int W8Searchable::PickBestSearcher()
     glm::vec3 delta = camera - position;
     if (glm::length(delta) < range) {
         if (earned) {
-            PracticeCharacterSkill(&g_status.buffers.Char[best_slot], W8_SKILL_SCOUTING, 5, false);
+            PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[best_slot],
+                                   W8_SKILL_SCOUTING, 5, false);
         }
         return best_slot;
     }
@@ -314,20 +300,21 @@ int W8Searchable::PickBestSearcher()
 /* Toggle the party's search mode: leaving it posts the off notice, entering it
    posts the on notice and arms the 500ms pulse that sweeps the searchable
    registry; combat blocks the toggle outright. */
-// FUNCTION: WIZ8 0x00517780
 void ToggleSearchMode(void)
 {
-    if (g_status.search_mode != 0) {
-        g_status.search_mode = 0;
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_OFF]);
+    if (CurrentGame().status.search_mode) {
+        CurrentGame().status.search_mode = false;
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_OFF]);
         return;
     }
-    if (!gXStatus.fCombatMode) {
-        g_status.search_mode = 1;
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_MODE_ON]);
-        g_search_pulse_clock = w8_get_ticks() + (0x1f4);
-        ClearActiveWorldCursorNode();
+    if (!CurrentGame().combat.has_value()) {
+        CurrentGame().status.search_mode = true;
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_ON]);
+        CurrentGame().search_sweep_due = std::chrono::milliseconds{500};
+        if (World* world = GetWorld(); world != nullptr && world->script) {
+            world->script->clearActiveCursorNode();
+        }
     } else {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);
     }
 }

@@ -1,132 +1,120 @@
 #include "wiz8/local_code/Factions.h"
 
-#include <cstring>
 #include <string>
-#include <vector>
 
 #include <fmt/printf.h>
 
-#include "surrender/srDebug.h"
-#include "wiz8/chunk.h"
-#include "wiz8/filesystem.h"
+#include "wiz8/data/faction_ids.h"
+#include "wiz8/data/records.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/story.h"
 
 /* Local Code\Factions.cpp. The unit is named by the two assertions this body
    embeds, and the 0..20 domain they bound is the same one the contiguous
    21-name faction table establishes. */
 
-// GLOBAL: WIZ8 0x0068D6E8
-W8FactionRuntimeRecord g_factions[W8_FACTION_COUNT];
-
-// GLOBAL: WIZ8 0x0068D528
-unsigned char g_faction_relations[W8_FACTION_COUNT][W8_FACTION_COUNT];
-
-/* Zero both tables, then write the starting relation cells and the per-faction
-   disposition scores. The two low scores are the hostile bands the faction
-   accessors cut at 34 and 67. */
-// FUNCTION: WIZ8 0x00535920
-void ResetFactions(void)
+/* The starting relation cells: each faction that sides with another. */
+W8FactionRelations StartingFactionRelations()
 {
-    memset(g_factions, 0, sizeof(g_factions));
-    memset(g_faction_relations, 0, sizeof(g_faction_relations));
-
-    g_faction_relations[W8_FACTION_BROTHERHOOD][W8_FACTION_RAPAX_COMMON] = 1;
-    g_faction_relations[W8_FACTION_BROTHERHOOD][W8_FACTION_RAPAX_TEMPLAR] = 1;
-    g_faction_relations[W8_FACTION_BROTHERHOOD][W8_FACTION_RAPAX_ARMY] = 1;
-    g_faction_relations[W8_FACTION_BROTHERHOOD][W8_FACTION_DARK_SAVANT] = 1;
-    g_faction_relations[W8_FACTION_BROTHERHOOD][W8_FACTION_KINGS_ASSASINS] = 1;
-    g_faction_relations[W8_FACTION_HIGARDI_BANK][W8_FACTION_RAPAX_COMMON] = 1;
-    g_faction_relations[W8_FACTION_HIGARDI_BANK][W8_FACTION_RAPAX_TEMPLAR] = 1;
-    g_faction_relations[W8_FACTION_HIGARDI_BANK][W8_FACTION_RAPAX_ARMY] = 1;
-    g_faction_relations[W8_FACTION_HIGARDI_BANK][W8_FACTION_DARK_SAVANT] = 1;
-    g_faction_relations[W8_FACTION_HIGARDI_BANK][W8_FACTION_KINGS_ASSASINS] = 1;
-    g_faction_relations[W8_FACTION_HIGARDI_HLL][W8_FACTION_RAPAX_COMMON] = 1;
-    g_faction_relations[W8_FACTION_HIGARDI_HLL][W8_FACTION_RAPAX_TEMPLAR] = 1;
-    g_faction_relations[W8_FACTION_HIGARDI_HLL][W8_FACTION_RAPAX_ARMY] = 1;
-    g_faction_relations[W8_FACTION_HIGARDI_HLL][W8_FACTION_DARK_SAVANT] = 1;
-    g_faction_relations[W8_FACTION_HIGARDI_HLL][W8_FACTION_KINGS_ASSASINS] = 1;
-    g_faction_relations[W8_FACTION_HIGARDI_COMMON][W8_FACTION_RAPAX_COMMON] = 1;
-    g_faction_relations[W8_FACTION_HIGARDI_COMMON][W8_FACTION_RAPAX_TEMPLAR] = 1;
-    g_faction_relations[W8_FACTION_HIGARDI_COMMON][W8_FACTION_RAPAX_ARMY] = 1;
-    g_faction_relations[W8_FACTION_HIGARDI_COMMON][W8_FACTION_DARK_SAVANT] = 1;
-    g_faction_relations[W8_FACTION_HIGARDI_COMMON][W8_FACTION_KINGS_ASSASINS] = 1;
-    g_faction_relations[W8_FACTION_TRYNNIE][W8_FACTION_RAPAX_COMMON] = 1;
-    g_faction_relations[W8_FACTION_TRYNNIE][W8_FACTION_RATTKIN_COMMON] = 1;
-    g_faction_relations[W8_FACTION_TRYNNIE][W8_FACTION_DARK_SAVANT] = 1;
-    g_faction_relations[W8_FACTION_UMPANI][W8_FACTION_TRANG] = 1;
-    g_faction_relations[W8_FACTION_UMPANI][W8_FACTION_DARK_SAVANT] = 1;
-    g_faction_relations[W8_FACTION_TRANG][W8_FACTION_UMPANI] = 1;
-    g_faction_relations[W8_FACTION_TRANG][W8_FACTION_DARK_SAVANT] = 1;
-    g_faction_relations[W8_FACTION_RATTKIN_COMMON][W8_FACTION_TRYNNIE] = 1;
-    g_faction_relations[W8_FACTION_RATTKIN_MAFIA][W8_FACTION_DARK_SAVANT] = 1;
-    g_faction_relations[W8_FACTION_RAPAX_COMMON][W8_FACTION_BROTHERHOOD] = 1;
-    g_faction_relations[W8_FACTION_RAPAX_COMMON][W8_FACTION_HIGARDI_BANK] = 1;
-    g_faction_relations[W8_FACTION_RAPAX_COMMON][W8_FACTION_HIGARDI_HLL] = 1;
-    g_faction_relations[W8_FACTION_RAPAX_COMMON][W8_FACTION_HIGARDI_COMMON] = 1;
-    g_faction_relations[W8_FACTION_RAPAX_COMMON][W8_FACTION_TRYNNIE] = 1;
-    g_faction_relations[W8_FACTION_RAPAX_TEMPLAR][W8_FACTION_BROTHERHOOD] = 1;
-    g_faction_relations[W8_FACTION_RAPAX_TEMPLAR][W8_FACTION_HIGARDI_BANK] = 1;
-    g_faction_relations[W8_FACTION_RAPAX_TEMPLAR][W8_FACTION_HIGARDI_HLL] = 1;
-    g_faction_relations[W8_FACTION_RAPAX_TEMPLAR][W8_FACTION_HIGARDI_COMMON] = 1;
-    g_faction_relations[W8_FACTION_RAPAX_TEMPLAR][W8_FACTION_TRYNNIE] = 1;
-    g_faction_relations[W8_FACTION_RAPAX_ARMY][W8_FACTION_BROTHERHOOD] = 1;
-    g_faction_relations[W8_FACTION_RAPAX_ARMY][W8_FACTION_HIGARDI_BANK] = 1;
-    g_faction_relations[W8_FACTION_RAPAX_ARMY][W8_FACTION_HIGARDI_HLL] = 1;
-    g_faction_relations[W8_FACTION_RAPAX_ARMY][W8_FACTION_HIGARDI_COMMON] = 1;
-    g_faction_relations[W8_FACTION_RAPAX_ARMY][W8_FACTION_TRYNNIE] = 1;
-    g_faction_relations[W8_FACTION_MAD_MARTEN][W8_FACTION_DARK_SAVANT] = 1;
-    g_faction_relations[W8_FACTION_DARK_SAVANT][W8_FACTION_BROTHERHOOD] = 1;
-    g_faction_relations[W8_FACTION_DARK_SAVANT][W8_FACTION_HIGARDI_BANK] = 1;
-    g_faction_relations[W8_FACTION_DARK_SAVANT][W8_FACTION_HIGARDI_HLL] = 1;
-    g_faction_relations[W8_FACTION_DARK_SAVANT][W8_FACTION_HIGARDI_COMMON] = 1;
-    g_faction_relations[W8_FACTION_DARK_SAVANT][W8_FACTION_TRYNNIE] = 1;
-    g_faction_relations[W8_FACTION_DARK_SAVANT][W8_FACTION_UMPANI] = 1;
-    g_faction_relations[W8_FACTION_DARK_SAVANT][W8_FACTION_TRANG] = 1;
-    g_faction_relations[W8_FACTION_DARK_SAVANT][W8_FACTION_RATTKIN_COMMON] = 1;
-    g_faction_relations[W8_FACTION_DARK_SAVANT][W8_FACTION_RATTKIN_MAFIA] = 1;
-    g_faction_relations[W8_FACTION_DARK_SAVANT][W8_FACTION_MOOK] = 1;
-    g_faction_relations[W8_FACTION_DARK_SAVANT][W8_FACTION_MAD_MARTEN] = 1;
-    g_faction_relations[W8_FACTION_DARK_SAVANT][W8_FACTION_COSMIC_LORDS] = 1;
-
-    g_factions[W8_FACTION_PARTY].disposition_score = 100;
-    g_factions[W8_FACTION_COSMIC_LORDS].disposition_score = 100;
-    g_factions[W8_FACTION_DARK_SAVANT].disposition_score = 0;
-    g_factions[W8_FACTION_UMPANI].disposition_score = 0x50;
-    g_factions[W8_FACTION_TRANG].disposition_score = 0x50;
-    g_factions[W8_FACTION_MOOK].disposition_score = 0x50;
-    g_factions[W8_FACTION_RATTKIN_COMMON].disposition_score = 0x32;
-    g_factions[W8_FACTION_RATTKIN_MAFIA].disposition_score = 0x50;
-    g_factions[W8_FACTION_BROTHERHOOD].disposition_score = 0x50;
-    g_factions[W8_FACTION_HIGARDI_BANK].disposition_score = 0x50;
-    g_factions[W8_FACTION_HIGARDI_HLL].disposition_score = 0x50;
-    g_factions[W8_FACTION_HIGARDI_COMMON].disposition_score = 0x50;
-    g_factions[W8_FACTION_TRYNNIE].disposition_score = 0x50;
-    g_factions[W8_FACTION_MAD_MARTEN].disposition_score = 0x46;
-    g_factions[W8_FACTION_RAPAX_COMMON].disposition_score = 0x19;
-    g_factions[W8_FACTION_RAPAX_TEMPLAR].disposition_score = 0x32;
-    g_factions[W8_FACTION_RAPAX_ARMY].disposition_score = 0x32;
-    g_factions[W8_FACTION_KINGS_ASSASINS].disposition_score = 0x50;
+    W8FactionRelations relations{};
+    relations[W8_FACTION_BROTHERHOOD][W8_FACTION_RAPAX_COMMON] = 1;
+    relations[W8_FACTION_BROTHERHOOD][W8_FACTION_RAPAX_TEMPLAR] = 1;
+    relations[W8_FACTION_BROTHERHOOD][W8_FACTION_RAPAX_ARMY] = 1;
+    relations[W8_FACTION_BROTHERHOOD][W8_FACTION_DARK_SAVANT] = 1;
+    relations[W8_FACTION_BROTHERHOOD][W8_FACTION_KINGS_ASSASINS] = 1;
+    relations[W8_FACTION_HIGARDI_BANK][W8_FACTION_RAPAX_COMMON] = 1;
+    relations[W8_FACTION_HIGARDI_BANK][W8_FACTION_RAPAX_TEMPLAR] = 1;
+    relations[W8_FACTION_HIGARDI_BANK][W8_FACTION_RAPAX_ARMY] = 1;
+    relations[W8_FACTION_HIGARDI_BANK][W8_FACTION_DARK_SAVANT] = 1;
+    relations[W8_FACTION_HIGARDI_BANK][W8_FACTION_KINGS_ASSASINS] = 1;
+    relations[W8_FACTION_HIGARDI_HLL][W8_FACTION_RAPAX_COMMON] = 1;
+    relations[W8_FACTION_HIGARDI_HLL][W8_FACTION_RAPAX_TEMPLAR] = 1;
+    relations[W8_FACTION_HIGARDI_HLL][W8_FACTION_RAPAX_ARMY] = 1;
+    relations[W8_FACTION_HIGARDI_HLL][W8_FACTION_DARK_SAVANT] = 1;
+    relations[W8_FACTION_HIGARDI_HLL][W8_FACTION_KINGS_ASSASINS] = 1;
+    relations[W8_FACTION_HIGARDI_COMMON][W8_FACTION_RAPAX_COMMON] = 1;
+    relations[W8_FACTION_HIGARDI_COMMON][W8_FACTION_RAPAX_TEMPLAR] = 1;
+    relations[W8_FACTION_HIGARDI_COMMON][W8_FACTION_RAPAX_ARMY] = 1;
+    relations[W8_FACTION_HIGARDI_COMMON][W8_FACTION_DARK_SAVANT] = 1;
+    relations[W8_FACTION_HIGARDI_COMMON][W8_FACTION_KINGS_ASSASINS] = 1;
+    relations[W8_FACTION_TRYNNIE][W8_FACTION_RAPAX_COMMON] = 1;
+    relations[W8_FACTION_TRYNNIE][W8_FACTION_RATTKIN_COMMON] = 1;
+    relations[W8_FACTION_TRYNNIE][W8_FACTION_DARK_SAVANT] = 1;
+    relations[W8_FACTION_UMPANI][W8_FACTION_TRANG] = 1;
+    relations[W8_FACTION_UMPANI][W8_FACTION_DARK_SAVANT] = 1;
+    relations[W8_FACTION_TRANG][W8_FACTION_UMPANI] = 1;
+    relations[W8_FACTION_TRANG][W8_FACTION_DARK_SAVANT] = 1;
+    relations[W8_FACTION_RATTKIN_COMMON][W8_FACTION_TRYNNIE] = 1;
+    relations[W8_FACTION_RATTKIN_MAFIA][W8_FACTION_DARK_SAVANT] = 1;
+    relations[W8_FACTION_RAPAX_COMMON][W8_FACTION_BROTHERHOOD] = 1;
+    relations[W8_FACTION_RAPAX_COMMON][W8_FACTION_HIGARDI_BANK] = 1;
+    relations[W8_FACTION_RAPAX_COMMON][W8_FACTION_HIGARDI_HLL] = 1;
+    relations[W8_FACTION_RAPAX_COMMON][W8_FACTION_HIGARDI_COMMON] = 1;
+    relations[W8_FACTION_RAPAX_COMMON][W8_FACTION_TRYNNIE] = 1;
+    relations[W8_FACTION_RAPAX_TEMPLAR][W8_FACTION_BROTHERHOOD] = 1;
+    relations[W8_FACTION_RAPAX_TEMPLAR][W8_FACTION_HIGARDI_BANK] = 1;
+    relations[W8_FACTION_RAPAX_TEMPLAR][W8_FACTION_HIGARDI_HLL] = 1;
+    relations[W8_FACTION_RAPAX_TEMPLAR][W8_FACTION_HIGARDI_COMMON] = 1;
+    relations[W8_FACTION_RAPAX_TEMPLAR][W8_FACTION_TRYNNIE] = 1;
+    relations[W8_FACTION_RAPAX_ARMY][W8_FACTION_BROTHERHOOD] = 1;
+    relations[W8_FACTION_RAPAX_ARMY][W8_FACTION_HIGARDI_BANK] = 1;
+    relations[W8_FACTION_RAPAX_ARMY][W8_FACTION_HIGARDI_HLL] = 1;
+    relations[W8_FACTION_RAPAX_ARMY][W8_FACTION_HIGARDI_COMMON] = 1;
+    relations[W8_FACTION_RAPAX_ARMY][W8_FACTION_TRYNNIE] = 1;
+    relations[W8_FACTION_MAD_MARTEN][W8_FACTION_DARK_SAVANT] = 1;
+    relations[W8_FACTION_DARK_SAVANT][W8_FACTION_BROTHERHOOD] = 1;
+    relations[W8_FACTION_DARK_SAVANT][W8_FACTION_HIGARDI_BANK] = 1;
+    relations[W8_FACTION_DARK_SAVANT][W8_FACTION_HIGARDI_HLL] = 1;
+    relations[W8_FACTION_DARK_SAVANT][W8_FACTION_HIGARDI_COMMON] = 1;
+    relations[W8_FACTION_DARK_SAVANT][W8_FACTION_TRYNNIE] = 1;
+    relations[W8_FACTION_DARK_SAVANT][W8_FACTION_UMPANI] = 1;
+    relations[W8_FACTION_DARK_SAVANT][W8_FACTION_TRANG] = 1;
+    relations[W8_FACTION_DARK_SAVANT][W8_FACTION_RATTKIN_COMMON] = 1;
+    relations[W8_FACTION_DARK_SAVANT][W8_FACTION_RATTKIN_MAFIA] = 1;
+    relations[W8_FACTION_DARK_SAVANT][W8_FACTION_MOOK] = 1;
+    relations[W8_FACTION_DARK_SAVANT][W8_FACTION_MAD_MARTEN] = 1;
+    relations[W8_FACTION_DARK_SAVANT][W8_FACTION_COSMIC_LORDS] = 1;
+    return relations;
 }
 
-// FUNCTION: WIZ8 0x00535ad0
+/* The per-faction starting disposition scores. The low scores are the hostile
+   bands the faction accessors cut at 34 and 67. */
+W8FactionStates StartingFactions()
+{
+    W8FactionStates factions{};
+    factions[W8_FACTION_PARTY].disposition_score = 100;
+    factions[W8_FACTION_COSMIC_LORDS].disposition_score = 100;
+    factions[W8_FACTION_DARK_SAVANT].disposition_score = 0;
+    factions[W8_FACTION_UMPANI].disposition_score = 0x50;
+    factions[W8_FACTION_TRANG].disposition_score = 0x50;
+    factions[W8_FACTION_MOOK].disposition_score = 0x50;
+    factions[W8_FACTION_RATTKIN_COMMON].disposition_score = 0x32;
+    factions[W8_FACTION_RATTKIN_MAFIA].disposition_score = 0x50;
+    factions[W8_FACTION_BROTHERHOOD].disposition_score = 0x50;
+    factions[W8_FACTION_HIGARDI_BANK].disposition_score = 0x50;
+    factions[W8_FACTION_HIGARDI_HLL].disposition_score = 0x50;
+    factions[W8_FACTION_HIGARDI_COMMON].disposition_score = 0x50;
+    factions[W8_FACTION_TRYNNIE].disposition_score = 0x50;
+    factions[W8_FACTION_MAD_MARTEN].disposition_score = 0x46;
+    factions[W8_FACTION_RAPAX_COMMON].disposition_score = 0x19;
+    factions[W8_FACTION_RAPAX_TEMPLAR].disposition_score = 0x32;
+    factions[W8_FACTION_RAPAX_ARMY].disposition_score = 0x32;
+    factions[W8_FACTION_KINGS_ASSASINS].disposition_score = 0x50;
+    return factions;
+}
+
 W8FactionDisposition GetFactionDisposition(signed char faction)
 {
     signed char disposition_score;
 
-    if (faction < 0) {
-        srAssertFail("bFaction >= 0", "C:\\Projects\\Wizardry 8\\Local Code\\Factions.cpp", 0xaf,
-                     0);
-    }
-    if (faction >= W8_FACTION_COUNT) {
-        srAssertFail("bFaction < FACTION_COUNT",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\Factions.cpp", 0xb0, 0);
-    }
+    // A faction id outside the table has no standing with the party.
+    if (faction < 0 || faction >= W8_FACTION_COUNT) return W8_FACTION_NEUTRAL;
 
-    disposition_score = g_factions[faction].disposition_score;
+    disposition_score = CurrentGame().story.factions[faction].disposition_score;
     if (disposition_score < 34) {
         return W8_FACTION_HOSTILE;
     }
@@ -136,9 +124,8 @@ W8FactionDisposition GetFactionDisposition(signed char faction)
     return W8_FACTION_FRIENDLY;
 }
 
-/* The g_localized_strings name id for each faction row; the two filler
+/* The Data().strings name id for each faction row; the two filler
    factions reuse the unaligned name. */
-// GLOBAL: WIZ8 0x0061EACC
 static unsigned short g_faction_name_ids[W8_FACTION_COUNT] = {
     0x5a1, 0x5a2, 0x5a3, 0x5a4, 0x5a5, 0x5a6, 0x5a7, 0x5a8, 0x5a9, 0x5aa, 0x5ab,
     0x5ac, 0x5ad, 0x5ae, 0x5af, 0x5b0, 0x5b1, 0x5b2, 0x5b3, 0x5a1, 0x5a1,
@@ -147,56 +134,54 @@ static unsigned short g_faction_name_ids[W8_FACTION_COUNT] = {
 /* Snap a faction's score onto the requested band's anchor (25/55/75). When the
    band actually moved, stamp the world clock and post the worsened/improved
    notice naming the faction. */
-// FUNCTION: WIZ8 0x00535B40
-void SetFactionDispositionBand(signed char faction, signed char band)
+void SetFactionDispositionBand(signed char faction, W8FactionDisposition band)
 {
     std::string notice;
     W8FactionDisposition old_band;
-    char palette;
+    signed char palette;
 
     old_band = GetFactionDisposition(faction);
     switch (band) {
-    case 0:
-        g_factions[faction].disposition_score = 0x19;
+    case W8_FACTION_HOSTILE:
+        CurrentGame().story.factions[faction].disposition_score = 0x19;
         break;
-    case 1:
-        g_factions[faction].disposition_score = 0x37;
+    case W8_FACTION_NEUTRAL:
+        CurrentGame().story.factions[faction].disposition_score = 0x37;
         break;
-    case 2:
-        g_factions[faction].disposition_score = 0x4b;
+    case W8_FACTION_FRIENDLY:
+        CurrentGame().story.factions[faction].disposition_score = 0x4b;
         break;
     }
     if (band != old_band) {
-        g_factions[faction].band_changed_clock = g_status.world_clock;
+        CurrentGame().story.factions[faction].band_changed_clock = CurrentGame().status.world_clock;
         if (band < old_band) {
-            notice = g_localized_strings[0x245];
+            notice = Data().strings[0x245];
             palette = 0;
         } else {
-            notice = g_localized_strings[0x246];
+            notice = Data().strings[0x246];
             palette = 5;
         }
-        ShowNotice(palette, fmt::sprintf(g_localized_strings[0x247],
-                                         g_localized_strings[g_faction_name_ids[faction]], notice));
+        ShowNotice(palette, fmt::sprintf(Data().strings[0x247],
+                                         Data().strings[g_faction_name_ids[faction]], notice));
     }
 }
 
 /* The disposition `faction` holds toward `other`: the party target reads the
    live score band while any other target is answered by the static relation
    matrix, reporting friendly unless the stored relation is neutral. */
-// FUNCTION: WIZ8 0x00535C50
 W8FactionDisposition GetFactionDispositionToward(signed char faction, signed char other)
 {
     if (other == W8_FACTION_PARTY) {
         return GetFactionDisposition(faction);
     }
-    return g_faction_relations[faction][other] != W8_FACTION_NEUTRAL ? W8_FACTION_FRIENDLY
-                                                                     : W8_FACTION_HOSTILE;
+    return CurrentGame().story.faction_relations[faction][other] != W8_FACTION_NEUTRAL
+               ? W8_FACTION_FRIENDLY
+               : W8_FACTION_HOSTILE;
 }
 
 /* Direct disposition changes skip the unaligned/party factions. Witnessed
    offenses use RecordFactionOffense with the victim itself. */
-// FUNCTION: WIZ8 0x00535CF0
-void ApplyFactionChange(char mode, char op, signed char faction, int value)
+void ApplyFactionChange(signed char mode, signed char op, signed char faction, int value)
 {
     if (op == 1 && faction != 0 && faction != 1) {
         if (mode != 0) {
@@ -211,13 +196,12 @@ void ApplyFactionChange(char mode, char op, signed char faction, int value)
    the victim. Factions that flip hostile outright do so once they were not
    already hostile; everyone else loses a record-scaled amount that grows as
    the offense count climbs. */
-// FUNCTION: WIZ8 0x00535D50
 void RecordFactionOffense(signed char faction, W8MonsterInfo* monster_info)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
 
-    if (g_factions[faction].offense_count < 0xfa) {
-        g_factions[faction].offense_count++;
+    if (CurrentGame().story.factions[faction].offense_count < 0xfa) {
+        CurrentGame().story.factions[faction].offense_count++;
     }
     record = GetMonsterDataForInfo(monster_info);
     switch (faction) {
@@ -226,16 +210,8 @@ void RecordFactionOffense(signed char faction, W8MonsterInfo* monster_info)
     case W8_FACTION_HIGARDI_BANK:
     case W8_FACTION_HIGARDI_HLL:
     case W8_FACTION_HIGARDI_COMMON:
-        if (faction < 0) {
-            srAssertFail("bFaction >= 0", "C:\\Projects\\Wizardry 8\\Local Code\\Factions.cpp",
-                         0xaf, 0);
-        }
-        if (faction >= W8_FACTION_COUNT) {
-            srAssertFail("bFaction < FACTION_COUNT",
-                         "C:\\Projects\\Wizardry 8\\Local Code\\Factions.cpp", 0xb0, 0);
-        }
-        if (g_factions[faction].disposition_score >= 34) {
-            SetFactionDispositionBand(faction, 0);
+        if (CurrentGame().story.factions[faction].disposition_score >= 34) {
+            SetFactionDispositionBand(faction, W8_FACTION_HOSTILE);
             return;
         }
     }
@@ -247,30 +223,30 @@ void RecordFactionOffense(signed char faction, W8MonsterInfo* monster_info)
         AdjustFactionDisposition(faction, -0x14);
         return;
     }
-    if (g_factions[faction].offense_count < 0x15) {
+    if (CurrentGame().story.factions[faction].offense_count < 0x15) {
         AdjustFactionDisposition(faction, -2);
         return;
     }
-    AdjustFactionDisposition(faction, g_factions[faction].offense_count > 0x28 ? -10 : -6);
+    AdjustFactionDisposition(faction,
+                             CurrentGame().story.factions[faction].offense_count > 0x28 ? -10 : -6);
 }
 
 /* Shift a faction's disposition by delta, clamped to 0..99. A band crossing
    stamps the world clock; any score move posts the worsened/improved notice
    naming the faction. The bounds asserts genuinely run twice - before the
    read and again before the band check. */
-// FUNCTION: WIZ8 0x00535EA0
-void AdjustFactionDisposition(signed char faction, char delta)
+void AdjustFactionDisposition(signed char faction, signed char delta)
 {
     std::string notice;
     signed char score;
     signed char old_score;
     W8FactionDisposition old_band;
     W8FactionDisposition new_band;
-    char palette;
+    signed char palette;
 
     old_band = GetFactionDisposition(faction);
-    score = g_factions[faction].disposition_score;
-    old_score = g_factions[faction].disposition_score;
+    score = CurrentGame().story.factions[faction].disposition_score;
+    old_score = CurrentGame().story.factions[faction].disposition_score;
     if (score + delta > 99) {
         score = 99;
     } else if (score + delta < 0) {
@@ -278,44 +254,20 @@ void AdjustFactionDisposition(signed char faction, char delta)
     } else {
         score += delta;
     }
-    g_factions[faction].disposition_score = score;
+    CurrentGame().story.factions[faction].disposition_score = score;
     new_band = GetFactionDisposition(faction);
     if (new_band != old_band) {
-        g_factions[faction].band_changed_clock = g_status.world_clock;
+        CurrentGame().story.factions[faction].band_changed_clock = CurrentGame().status.world_clock;
     }
-    if (g_factions[faction].disposition_score < old_score) {
-        notice = g_localized_strings[0x245];
+    if (CurrentGame().story.factions[faction].disposition_score < old_score) {
+        notice = Data().strings[0x245];
         palette = 0;
-    } else if (g_factions[faction].disposition_score > old_score) {
-        notice = g_localized_strings[0x246];
+    } else if (CurrentGame().story.factions[faction].disposition_score > old_score) {
+        notice = Data().strings[0x246];
         palette = 5;
     } else {
         return;
     }
-    ShowNotice(palette, fmt::sprintf(g_localized_strings[0x247],
-                                     g_localized_strings[g_faction_name_ids[faction]], notice));
-}
-
-/* Write both faction tables into the open FATA chunk: the 21x21 relation
-   matrix, then the 21 runtime disposition records. */
-// FUNCTION: WIZ8 0x00536030
-void SaveFactionState(wiz8::File& file)
-{
-    file.write(g_faction_relations, sizeof(g_faction_relations));
-    file.write(g_factions, sizeof(g_factions));
-}
-
-/* Read the relation matrix and runtime disposition records back from the open
-   FATA chunk, then re-arm the brotherhood's fixed score. */
-// FUNCTION: WIZ8 0x00536070
-void LoadFactionState(W8Chunk& file)
-{
-    unsigned char relations[W8_FACTION_COUNT][W8_FACTION_COUNT];
-    W8FactionRuntimeRecord factions[W8_FACTION_COUNT];
-
-    file.ReadBytes(relations, sizeof(relations));
-    file.ReadBytes(factions, sizeof(factions));
-    memcpy(g_faction_relations, relations, sizeof(relations));
-    memcpy(g_factions, factions, sizeof(factions));
-    g_factions[W8_FACTION_PARTY].disposition_score = 100;
+    ShowNotice(palette, fmt::sprintf(Data().strings[0x247],
+                                     Data().strings[g_faction_name_ids[faction]], notice));
 }

@@ -1,30 +1,36 @@
 #include "wiz8/level_specific_code/Rift1.h"
 
+#include <memory>
 #include <string>
 
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/script_context.h"
+#include "wiz8/world/world.h"
 
 /* Level Specific Code\Rift1.cpp (level 0x15).
 
    Attribution evidence: 0x004DAFD0 passes this file's path string to
-   MonsterGetIndexByLocationID. The level-0x15 block in
-   InitializeLevelMasterFunctions registers the surrounding cluster
+   MonsterGetIndexByLocationID. The level-0x15 script binds the surrounding
+   cluster
    (Fireantspawn, Sexspawn, Hotstuff, Gate, AshLock, TimeDorado). */
+
+namespace {
 
 /* "Sexspawn": on the first activation after fact 0x15f, mark the
    Al-Sedexus swap, remove the original Al-Sedexus (species 0xd9) and spawn
    the replacement (species 0x22b) at the Sexspawn entity if it is not already
    in the level. Returns false unless the swap runs, so the trigger stays
    armed until it does. */
-// FUNCTION: WIZ8 0x004DAFD0
 bool Rift1Sexspawn(Trigger* pTrigger)
 {
     glm::vec3 position;
@@ -35,11 +41,11 @@ bool Rift1Sexspawn(Trigger* pTrigger)
             CreateLocationVar("AlSedexusSwapped", 1);
             monster_info = FindMonsterInfoBySpecies(0xd9);
             if (monster_info != 0) {
-                RemoveMonster(monster_info, true);
+                RemoveMonster(monster_info, W8MonsterRemoval::Despawn);
             }
             monster_info = FindMonsterInfoBySpecies(0x22b);
             if (monster_info == 0 && FindEntityByName("Sexspawn", &position, 0, 0)) {
-                SpawnMonsters(0x22b, 1, &position, 0, true, false, false);
+                SpawnMonsters(0x22b, 1, &position, 0, true, false);
             }
             return true;
         }
@@ -50,16 +56,15 @@ bool Rift1Sexspawn(Trigger* pTrigger)
 /* "Hotstuff": until fact 0x326, spawn the lava lord (0x175) at the Hotstuff
    entity, give it the MoveLavalord movement script and begin the scripted
    world action. */
-// FUNCTION: WIZ8 0x004DB090
 bool Rift1Hotstuff(Trigger* pTrigger)
 {
     glm::vec3 position;
     W8MonsterGroup* group;
-    W8Monster* monster;
+    Monster* monster;
 
     if (GetFact(W8_FACT_LAVALORD_DIE) == 0) {
         if (FindEntityByName("Hotstuff", &position, 0, 0)) {
-            group = SpawnMonsters(0x175, 1, &position, 0, true, false, false);
+            group = SpawnMonsters(0x175, 1, &position, 0, true, false);
             if (group != 0) {
                 monster = GetMonsterByLocationID(group->MemberLocationId(0));
                 if (monster != 0 && monster->SetScript("MoveLavalord.MSF", true)) {
@@ -73,19 +78,17 @@ bool Rift1Hotstuff(Trigger* pTrigger)
 
 /* "Fireantspawn": spawn a hostile group of six fire ants (0x12b) at the
    Fireantspawn entity. */
-// FUNCTION: WIZ8 0x004DB120
 bool Rift1Fireantspawn(Trigger* pTrigger)
 {
     glm::vec3 position;
 
     if (FindEntityByName("Fireantspawn", &position, 0, 0)) {
-        SpawnMonsters(0x12b, 6, &position, 1, false, false, false);
+        SpawnMonsters(0x12b, 6, &position, 1, false, false);
     }
     return true;
 }
 
 /* "Gate": raise fact 0x1c4. */
-// FUNCTION: WIZ8 0x004DB160
 bool Rift1Gate(Trigger* pTrigger)
 {
     SetFact(W8_FACT_RIFT_RAFE_CAGE_OPEN, 1, false);
@@ -93,20 +96,18 @@ bool Rift1Gate(Trigger* pTrigger)
 }
 
 /* "AshLock": spawn one hostile monster 0x222 at the NP_Hotstuff3 entity. */
-// FUNCTION: WIZ8 0x004DB180
 bool Rift1AshLock(Trigger* pTrigger)
 {
     glm::vec3 position;
 
     if (FindEntityByName("NP_Hotstuff3", &position, 0, 0)) {
-        SpawnMonsters(0x222, 1, &position, 1, true, false, false);
+        SpawnMonsters(0x222, 1, &position, 1, true, false);
     }
     return true;
 }
 
 /* "TimeDorado": give every existing monster group of species 0xfc a fresh
    member. */
-// FUNCTION: WIZ8 0x004DB1C0
 bool Rift1TimeDorado(Trigger* pTrigger)
 {
     W8MonsterGroup* previous;
@@ -117,4 +118,26 @@ bool Rift1TimeDorado(Trigger* pTrigger)
         previous = FindNextExistingMonsterByID(0xfc, previous);
     }
     return true;
+}
+
+class Rift1Script final : public LevelScript {
+public:
+    using LevelScript::LevelScript;
+
+    void enter() override
+    {
+        bindTrigger("Fireantspawn", Rift1Fireantspawn);
+        bindTrigger("Sexspawn", Rift1Sexspawn);
+        bindTrigger("Hotstuff", Rift1Hotstuff);
+        bindTrigger("Gate", Rift1Gate);
+        bindTrigger("AshLock", Rift1AshLock);
+        bindTrigger("TimeDorado", Rift1TimeDorado);
+    }
+};
+
+} // namespace
+
+std::unique_ptr<LevelScript> MakeRift1Script(const ScriptContext& context)
+{
+    return std::make_unique<Rift1Script>(context);
 }

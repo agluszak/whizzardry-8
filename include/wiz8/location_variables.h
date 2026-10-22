@@ -1,16 +1,13 @@
 #pragma once
 
-struct W8Chunk;
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
-namespace wiz8 {
-class File;
-}
+using W8SavedLocationState = std::vector<std::pair<std::string, int>>;
 
-int GetLocationVarIDByName(const char* name);
-void SetTriggerVariableByName(const char* name, int value);
-void CreateLocationVar(const char* name, int value); /* 0x00443DC0 */
-int GetLocationVarValueByName(const char* name);     /* 0x004440D0 */
-void SaveLocationVariables(wiz8::File& handle);
-bool LoadLocationVariables(W8Chunk& chunk);
-bool HasLocationVariables();
-void ClearLocationVariables();
+int GetLocationVarIDByName(std::string_view name);
+void SetTriggerVariableByName(std::string_view name, int value);
+void CreateLocationVar(std::string_view name, int value);
+int GetLocationVarValueByName(std::string_view name);

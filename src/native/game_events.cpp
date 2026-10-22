@@ -4,24 +4,17 @@
 
 #include <SDL3/SDL_events.h>
 
-#include "input.h"
 #include "wiz8/application.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
+#include "wiz8/spatial/level_spatial_index.h"
 
-// GLOBAL: WIZ8 0x006505a0
-bool gfLoadAtStartup = false;
-// GLOBAL: WIZ8 0x006505a4
-std::string gzStringDataOverride;
-// GLOBAL: WIZ8 0x006505a8
 // GLOBAL: WIZ8 0x006f0630
 bool gfApplicationActive = false;
-// GLOBAL: WIZ8 0x006f0628
 bool gfProgramIsRunning = false;
-// GLOBAL: WIZ8 0x006505a9
 bool gfGameInitialized = false;
 
-// FUNCTION: WIZ8 0x00401920
 [[noreturn]] void ShutdownWithErrorBox(std::string_view message)
 {
     throw std::runtime_error(std::string(message));
@@ -45,24 +38,27 @@ void HandleGameEvent(const SDL_Event& event)
     HandleInputEvent(event);
     if (!ghWindow || SDL_GetWindowFromEvent(&event) != ghWindow) return;
     switch (event.type) {
-    case SDL_EVENT_WINDOW_RESIZED:
+    case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
         if (event.window.data1 > 0 && event.window.data2 > 0) VideoResizeWindow();
         break;
     case SDL_EVENT_WINDOW_FOCUS_GAINED:
         if (restore_pending) {
-            if (!g_video_inspector_enabled) {
-                RestoreVideoManager();
-            }
-            MoveTimer(TIMER_RESUME);
+            if (auto* screen = CurrentScreen()) screen->resetStepClock();
+            MoveTimer(W8_MOVE_TIMER_RESUME_MAIN_GAME);
             restore_pending = false;
         }
         gfApplicationActive = true;
         break;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
-        if (!g_video_inspector_enabled) SuspendVideoManager();
-        MoveTimer(TIMER_SUSPEND);
+        if (!restore_pending) MoveTimer(W8_MOVE_TIMER_SUSPEND);
         gfApplicationActive = false;
         restore_pending = true;
+        break;
+    case SDL_EVENT_WINDOW_MINIMIZED:
+        if (!g_video_inspector_enabled) SuspendVideoManager();
+        break;
+    case SDL_EVENT_WINDOW_RESTORED:
+        if (!g_video_inspector_enabled) RestoreVideoManager();
         break;
     }
 }

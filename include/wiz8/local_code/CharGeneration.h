@@ -1,8 +1,6 @@
 #pragma once
-
-#include "compat/compiler.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/data/records.h"
 
 struct W8Character;
 

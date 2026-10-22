@@ -1,58 +1,19 @@
 #pragma once
-struct W8Chunk;
 #include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
 
-#include "Font.h"
-#include "input.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/message_log.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/ui_input.h"
 
 struct W8MonsterInfo;
-namespace wiz8 {
-class File;
-}
-
-enum W8NoticeWordState {
-    W8_NOTICE_WORD_NORMAL = 0,
-    W8_NOTICE_WORD_HOVERED = 1,
-    W8_NOTICE_WORD_SELECTED = 2
-};
-
-struct W8NoticeWord {
-    std::size_t start;
-    std::size_t end;
-    short x_start;
-    short x_end;
-    unsigned char keyword; /* 0 none, 1 keyword, 2 selected */
-    bool redraw;           /* repaint once after deselection */
-};
 
 void AdvanceNoticeLine(short text_box);
-
-struct W8MessageStorageRecord {
-    void RebuildEntries();
-
-    std::string text;
-    unsigned char font_palette;
-    /* The recoloured span [start, stop) of this line. */
-    unsigned char highlight_color;
-    std::size_t highlight_start;
-    std::size_t highlight_stop;
-    uint64_t clock;
-    /* SaveGame snapshots the unsigned milliseconds remaining from
-       TimeUntilDeadline; load rearms the countdown with this duration. */
-    std::uint32_t saved_remaining_ms;
-    /* Continuation link count of a wrapped entry; -1 when unlinked. */
-    int link;
-    int length; /* UTF-8 byte length, -1 when unset */
-    std::vector<W8NoticeWord> entries;
-    unsigned char unknown_1c[8];
-};
-
-extern W8MessageStorageRecord g_message_storage[4][0x15e];
 
 enum class TextBoxRegion : std::size_t {
     ScrollUp,
@@ -63,16 +24,6 @@ enum class TextBoxRegion : std::size_t {
     ChannelTab2,
     ChannelTab3,
     Mute
-};
-
-// Scroll-arrow visual states stored in text_content_region / dialogue_content_region.
-enum TextBoxArrowState : int {
-    kUpArrowDisabled = 0x56,
-    kUpArrowEnabled = 0x57,
-    kUpArrowPressed = 0x58,
-    kDownArrowDisabled = 0x59,
-    kDownArrowEnabled = 0x5a,
-    kDownArrowPressed = 0x5b,
 };
 
 void InitTextBoxRegions();
@@ -87,8 +38,7 @@ void SetTextBoxMuteInput(bool enabled);
 /* Reset one editor status line; -1 selects the current line. */
 void ResetEditorStatusLine(short line);
 
-void ReleaseMessageStorage(void);
-char TextBoxHandleKey(const InputEvent* event);
+signed char TextBoxHandleKey(const InputEvent* event);
 void ClearSelectedTextLine(int index);
 void ClearHoveredTextLine(int index);
 void SetHoveredTextLine(int line, int box);
@@ -107,8 +57,8 @@ W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y
 /* Copy a word's text span out of its source line. */
 std::string CopyNoticeWordText(const W8NoticeWord* word, int box, int line);
 void ScrollTextBoxToCursor(void);
-unsigned char GetTextBoxMode(void);
-void SetTextBoxMode(unsigned char mode, int value);
+W8TextBoxMode GetTextBoxMode(void);
+void SetTextBoxMode(W8TextBoxMode mode, int value);
 /* Re-derive the text-box mode from the live screen state; 0xffff
    asks for the automatic choice. */
 void RefreshTextBoxMode(unsigned short mode);
@@ -118,7 +68,7 @@ void RefreshTextBoxMode(unsigned short mode);
 void SetKnockKnockTarget(int target, int flag, int backfire);
 /* The trap-mode half of CastSpellAtLockInteraction;
    same (level, flag, backfire) triple. */
-void AttemptTrapDisarm(int level, int flag, char backfire);
+void AttemptTrapDisarm(int level, int flag, signed char backfire);
 
 /* Merge text onto a box's last used line, re-posting the combined
    line so wrapping, highlighting and the link counts rebuild; -1 picks the box
@@ -128,7 +78,6 @@ void AppendToLastTextLine(std::string_view text, short text_box);
    only maintained while game_status.quote_audit is raised. */
 extern int g_notice_line_count;
 void PostCharacterNotice(int party_slot, std::string_view text, int context = -1);
-void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text);
 void ScrollTextBoxTo(int line);
 void ScrollDialogueTextBoxToLine(void);
 void ScrollTextBoxUp(int lines);
@@ -155,15 +104,8 @@ bool CurrentTextLineHasContent(void);
 bool CurrentDialogueLineHasContent(void);
 int FindStoppedTextLine(void);
 void SetTextBoxRegionBounds(int left, int top, int right, int bottom);
-void ResetMessageStorage(void);
-/* Write the four message runs into the open TEXT chunk. */
-unsigned char SaveMessageStorage(wiz8::File& file);
-/* Rebuild the four message runs from the open TEXT chunk. */
-unsigned char LoadMessageStorage(W8Chunk& file);
-/* Defaults select the live mode's text box and its available line width. */
-const short W8_NOTICE_TEXT_BOX_AUTOMATIC = -1;
-const unsigned int W8_NOTICE_WRAP_AUTOMATIC = ~0U;
-
+/* Rebuild every logged line's word hit boxes for the current text-box font. */
+void RebuildMessageLogWords(void);
 void ShowNotice(unsigned int font_palette, std::string_view text,
                 short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC,
                 unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC, bool force_dialog = false);

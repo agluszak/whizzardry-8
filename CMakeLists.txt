@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 4.4.4)
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build configuration")
 endif()
@@ -15,9 +15,12 @@ endif()
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+# No C++ modules: avoid per-source scans and generated module response files
+# so the compilation database is also immediately usable by analysis tools.
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
@@ -27,7 +30,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # builds because single-file edits otherwise rebuild whole compilation batches.
 option(WIZ8_PRECOMPILE_HEADERS "Precompile stable C++ dependencies" ON)
 option(WIZ8_UNITY_BUILD "Compile game and renderer sources in batches" OFF)
-option(WIZ8_SURRENDER_UNITY_BUILD "Unity-build SurRender independently of the game" OFF)
+option(WIZ8_RENDER_UNITY_BUILD "Unity-build rendering independently of the game" OFF)
+option(WIZ8_INTEGER_SANITIZER "Audit implicit integer truncation at data/image boundaries" OFF)
 option(WIZ8_WARNINGS_AS_ERRORS "Fail first-party compilation on warnings (CI enables this)" OFF)
 set(WIZ8_UNITY_BATCH_SIZE 4 CACHE STRING "Sources per unity compilation batch")
 if(WIZ8_UNITY_BUILD AND NOT WIZ8_UNITY_BATCH_SIZE MATCHES "^[1-9][0-9]*$")
@@ -44,19 +48,43 @@ endif()
 # defaults (UiInputPolicy, ButtonSetup), so omitting fields is intended.
 add_compile_options(-Wdeprecated -Wimplicit-fallthrough -Wno-unused-parameter
     $<$<COMPILE_LANGUAGE:CXX>:-Wsuggest-override>
+    $<$<COMPILE_LANGUAGE:CXX>:-Wshadow-field-in-constructor-modified>
+    $<$<COMPILE_LANGUAGE:CXX>:-Wshorten-64-to-32>
     $<$<CXX_COMPILER_ID:Clang,AppleClang>:-Wno-missing-designated-field-initializers>)
 # Clang 23's intra-procedural lifetime analysis: dangling and use-after-free.
 add_compile_options(
     $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CXX_COMPILER_ID:Clang>,$<VERSION_GREATER_EQUAL:$<CXX_COMPILER_VERSION>,23>>:-Wlifetime-safety-permissive>)
-# Check view bounds in Debug builds on libstdc++ versions that otherwise leave
-# these checks disabled. This does not change the container ABI.
-add_compile_definitions($<$<CONFIG:Debug>:_GLIBCXX_ASSERTIONS>)
+# Check standard-library bounds in development and sanitizer builds.
+# This does not change the container ABI.
+add_compile_definitions($<$<OR:$<CONFIG:Debug>,$<CONFIG:RelWithDebInfo>>:_GLIBCXX_ASSERTIONS>)
+
+# Fail at configure time if the selected standard library lacks the C++26
+# facilities used by the game (the language flag alone is insufficient).
+include(CheckCXXSourceCompiles)
+check_cxx_source_compiles("
+    #include <functional>
+    #include <inplace_vector>
+    #if __cpp_lib_function_ref < 202306L || __cpp_lib_inplace_vector < 202406L
+    #error Required C++26 library facilities are unavailable
+    #endif
+    int main() {
+        std::inplace_vector<int, 8> slots;
+        auto visit = [&] { slots.push_back(1); };
+        std::function_ref<void()> callback = visit;
+        callback();
+        return slots.front() - 1;
+    }" WIZ8_CXX26_LIBRARY)
+if(NOT WIZ8_CXX26_LIBRARY)
+    message(FATAL_ERROR "Whizzardry requires C++26 function_ref and inplace_vector (Linux: libstdc++ 16 or newer)")
+endif()
 
 find_package(SDL3 3.4 CONFIG REQUIRED)
 find_package(SDL3_image 3.4 CONFIG REQUIRED)
 find_package(glm 1.0.3 CONFIG REQUIRED)
 find_package(fmt 11.2.0 CONFIG REQUIRED)
 find_package(Threads REQUIRED)
+# Linux: libvulkan-dev; macOS/Windows: the Vulkan SDK (MoltenVK on macOS).
+find_package(Vulkan REQUIRED)
 
 # Conan supplies SDL3, SDL3_image, GLM, fmt, FFmpeg, zlib and glslang.
 # The remaining fetched sources are hash- or commit-pinned until their
@@ -65,8 +93,8 @@ include(FetchContent)
 
 # ConanCenter has SDL_mixer 3.2.0, but we require 3.2.4.
 # The SDL release archive doesn't contain its optional vendored submodules.
-# Build SDL_mixer static, matching Conan's static SDL3, so there is one
-# SDL runtime and its audio device state is shared with the game.
+# Build SDL_mixer static against Conan's shared SDL3, so the mixer and game
+# use the same SDL runtime and audio device state.
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build third-party dependencies statically")
 # Use the built-in decoders (WAV, MP3, Vorbis, FLAC, MIDI) instead of
 # introducing system codec dependencies.
@@ -107,6 +135,27 @@ FetchContent_Declare(utf8proc
 FetchContent_MakeAvailable(utf8proc)
 wiz8_system_headers(fmt::fmt utf8proc)
 
+# SDL owns platform windows and Vulkan surfaces. VSG owns the render graph,
+# graphics resources and presentation. Wizardry shaders compile at build time.
+set(VSG_SUPPORTS_Windowing OFF CACHE BOOL "" FORCE)
+# Require runtime compilation so standard VSG subgraphs can request ordinary
+# ShaderSet variants beyond the combinations shipped as embedded SPIR-V.
+find_package(glslang CONFIG REQUIRED)
+set(VSG_SUPPORTS_ShaderCompiler ON CACHE BOOL "" FORCE)
+set(VSG_SUPPORTS_ShaderOptimizer OFF CACHE BOOL "" FORCE)
+FetchContent_Declare(vsg
+    GIT_REPOSITORY https://github.com/vsg-dev/VulkanSceneGraph.git
+    GIT_TAG 77839c704362d832c027cc878e5496a14972e83d # v1.1.16
+    EXCLUDE_FROM_ALL SYSTEM)
+# Upstream has its own warning and language requirements. Avoid imposing the
+# game's compiler diagnostics on the dependency while preserving them locally.
+get_property(wiz8_compile_options DIRECTORY PROPERTY COMPILE_OPTIONS)
+set_property(DIRECTORY PROPERTY COMPILE_OPTIONS "")
+set(CMAKE_CXX_STANDARD 17)
+FetchContent_MakeAvailable(vsg)
+set(CMAKE_CXX_STANDARD 26)
+set_property(DIRECTORY PROPERTY COMPILE_OPTIONS "${wiz8_compile_options}")
+
 # No forced CRT vocabulary or short-wchar options at the portable API boundary.
 add_library(wiz8_filesystem STATIC
     src/platform/asset_paths.cpp
@@ -116,7 +165,7 @@ add_library(wiz8_filesystem STATIC
 )
 target_include_directories(wiz8_filesystem PUBLIC "${PROJECT_SOURCE_DIR}/include")
 target_link_libraries(wiz8_filesystem PUBLIC SDL3::SDL3 Threads::Threads fmt::fmt utf8proc)
-target_compile_features(wiz8_filesystem PUBLIC cxx_std_23)
+target_compile_features(wiz8_filesystem PUBLIC cxx_std_26)
 # SLF knowledge is confined to installation tooling, never linked into the game.
 add_library(wiz8_asset_preparation STATIC tools/assets/prepare.cpp)
 target_include_directories(wiz8_asset_preparation PUBLIC "${PROJECT_SOURCE_DIR}/tools/assets")
@@ -149,22 +198,7 @@ find_package(FFMPEG CONFIG REQUIRED)
 
 # Settings shared by every native component.
 add_library(wiz8_native_settings INTERFACE)
-target_compile_definitions(wiz8_native_settings INTERFACE NDEBUG GLM_ENABLE_EXPERIMENTAL)
-# Keep the transitional source semantics with either Clang command-line frontend.
-if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
-    set(WIZ8_COMPAT_OPTIONS
-        "/FI${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
-        /clang:-fsigned-char)
-    set(WIZ8_GAME_OPTIONS
-        ${WIZ8_COMPAT_OPTIONS} /clang:-fwrapv /clang:-fno-strict-aliasing)
-else()
-    set(WIZ8_COMPAT_OPTIONS
-        "SHELL:-include ${PROJECT_SOURCE_DIR}/include/wiz8/compat/compiler.h"
-        -fsigned-char)
-    set(WIZ8_GAME_OPTIONS
-        ${WIZ8_COMPAT_OPTIONS} -fwrapv -fno-strict-aliasing)
-endif()
-target_compile_options(wiz8_native_settings INTERFACE ${WIZ8_GAME_OPTIONS})
+target_compile_definitions(wiz8_native_settings INTERFACE GLM_ENABLE_EXPERIMENTAL)
 if(WIZ8_WARNINGS_AS_ERRORS)
     if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
         target_compile_options(wiz8_native_settings INTERFACE /WX)
@@ -175,30 +209,75 @@ endif()
 target_include_directories(wiz8_native_settings INTERFACE
     "${PROJECT_SOURCE_DIR}/include"
     "${PROJECT_SOURCE_DIR}/include/wiz8"
-    "${PROJECT_SOURCE_DIR}/include/wiz8/engine_code"
-    "${PROJECT_SOURCE_DIR}/src/sgp"
 )
-target_link_libraries(wiz8_native_settings INTERFACE glm::glm-header-only Threads::Threads ${CMAKE_DL_LIBS})
+target_link_libraries(wiz8_native_settings INTERFACE glm::glm-header-only Threads::Threads ${CMAKE_DL_LIBS}
+    wiz8_filesystem SDL3::SDL3)
 
-# Shared platform helpers and the SDL CPU surface backend used by SGP and SurRender.
-add_library(wiz8_compat STATIC
-    src/compat/native_helpers.cpp
+# The game clock, the presentation random stream and the SDL CPU surface backend.
+add_library(wiz8_platform STATIC
+    src/platform/random.cpp
+    src/platform/timer.cpp
     src/native/surface_storage.cpp
 )
-target_compile_options(wiz8_compat PRIVATE ${WIZ8_COMPAT_OPTIONS})
-target_include_directories(wiz8_compat PRIVATE "${PROJECT_SOURCE_DIR}/include/wiz8" "${PROJECT_SOURCE_DIR}/include")
-target_link_libraries(wiz8_compat PUBLIC wiz8_filesystem SDL3::SDL3)
-if(UNIX AND NOT APPLE)
-    target_link_options(wiz8_compat PRIVATE -Wl,--no-undefined)
-endif()
-target_link_libraries(wiz8_native_settings INTERFACE wiz8_compat)
+target_link_libraries(wiz8_platform PUBLIC wiz8_native_settings)
 
-add_subdirectory(src/surrender)
+# The architecture's lower layers: game data and rules. They build without the
+# platform library, SDL or the engine, so the linker enforces what
+# tools/check_layers.py checks in their includes.
+add_library(wiz8_rules STATIC
+    src/data/character_tables.cpp
+    src/rules/action_choices.cpp
+    src/rules/character_derivation.cpp
+    src/rules/character_stats.cpp
+    src/rules/events.cpp
+    src/rules/inventory.cpp
+    src/rules/item_rules.cpp
+    src/rules/party.cpp
+    src/rules/party_conditions.cpp
+    src/rules/party_formation.cpp
+    src/rules/party_stats.cpp
+)
+target_include_directories(wiz8_rules PUBLIC "${PROJECT_SOURCE_DIR}/include")
+target_link_libraries(wiz8_rules PUBLIC glm::glm-header-only fmt::fmt)
+if(WIZ8_WARNINGS_AS_ERRORS)
+    if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+        target_compile_options(wiz8_rules PRIVATE /WX)
+    else()
+        target_compile_options(wiz8_rules PRIVATE -Werror)
+    endif()
+endif()
+
+add_library(wiz8_engine STATIC)
+target_link_libraries(wiz8_engine PUBLIC wiz8_rules)
+add_subdirectory(src/render)
 add_subdirectory(src/wiz8)
 
-add_executable(Wiz8Native src/sgp/native/main.cpp)
-target_link_libraries(Wiz8Native PRIVATE WIZ8_GAME_CORE SDL3::SDL3)
+add_executable(Wiz8Native src/platform/main.cpp)
+target_link_libraries(Wiz8Native PRIVATE wiz8_engine SDL3::SDL3)
 
 if(BUILD_TESTING)
     add_subdirectory(tests)
+endif()
+
+# Keep the noisy integer experiment at file and pixel boundaries. Gameplay
+# arithmetic has intentional narrowing and is covered by the normal UBSan run.
+if(WIZ8_INTEGER_SANITIZER)
+    # Every first-party executable links the platform library. Supply the
+    # runtime even when the option is enabled outside the sanitizer preset.
+    target_link_options(wiz8_filesystem INTERFACE -fsanitize=implicit-integer-truncation)
+    foreach(component wiz8_engine wiz8_filesystem wiz8_asset_preparation)
+        get_target_property(component_dir ${component} SOURCE_DIR)
+        get_target_property(component_sources ${component} SOURCES)
+        foreach(source IN LISTS component_sources)
+            string(TOLOWER "${source}" lower_source)
+            if(lower_source MATCHES "(image|pixel|blit|retail|chunk|loadsave|packed|mesh_loader|level_loader|npc_script|unicode|assets/prepare).*\\.cpp$")
+                cmake_path(ABSOLUTE_PATH source BASE_DIRECTORY "${component_dir}" OUTPUT_VARIABLE absolute_source)
+                set_property(SOURCE "${absolute_source}" TARGET_DIRECTORY ${component}
+                    PROPERTY SKIP_PRECOMPILE_HEADERS ON)
+                set_property(SOURCE "${absolute_source}" TARGET_DIRECTORY ${component}
+                    APPEND PROPERTY COMPILE_OPTIONS -fsanitize=implicit-integer-truncation
+                    -fno-sanitize-recover=implicit-integer-truncation)
+            endif()
+        endforeach()
+    endforeach()
 endif()

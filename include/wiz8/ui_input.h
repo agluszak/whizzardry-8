@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <functional>
 
-#include "input.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_layer.h"
 
 inline constexpr int UI_PRIORITY_BACKGROUND = -1;
@@ -12,7 +12,6 @@ inline constexpr int UI_PRIORITY_BASE = 31;
 inline constexpr int UI_PRIORITY_NORMAL = UI_PRIORITY_BASE;
 inline constexpr int UI_PRIORITY_HIGHEST = 127;
 
-extern bool g_dev_mode;
 struct UiRoutingState {
     HitTarget *hover = nullptr, *captured = nullptr;
     SDL_Point pointer{};
@@ -35,12 +34,12 @@ bool UiModalActive();
 void ReleaseUiCapture();
 std::size_t LiveUiTargetCount();
 std::size_t LiveUiLayerCount();
-unsigned char InitializeUiHelp();
+bool InitializeUiHelp();
 void UpdateUiHelp();
 void ResetUiHelp(bool delayed);
 void SetUiHelpDelay(int delay_ms);
 
-enum class InputRoute { Pass, Handled, Stop };
+enum class InputRoute : unsigned char { Pass, Handled, Stop };
 
 /* How a screen or modal routes its frame's input. Each queued event is
    offered once: `before` may claim it ahead of the UI (gameplay pointer

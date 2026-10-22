@@ -1,0 +1,206 @@
+#include "wiz8/audio/SoundEvent.h"
+
+#include <cstdint>
+#include <span>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/geometric.hpp>
+#include <glm/gtc/quaternion.hpp>
+
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "wiz8/audio/AmbientSound.h"
+#include "wiz8/audio/soundman.h"
+#include "wiz8/checked_integer.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/game.h"
+#include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/platform/random.h"
+#include "wiz8/spatial/level_spatial_index.h"
+
+// Looping events own the voice they start.
+W8SoundEvent::~W8SoundEvent()
+{
+    if (looping && sound_handle != nullptr) {
+        wiz8::sound::stop(sound_handle);
+    }
+}
+
+/* The wave name is copied into storage the event owns and its destructor
+   releases. */
+W8SoundEvent::W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subcycle,
+                           std::string wave_name, bool looping)
+    : kind(kind), cycle(cycle), frame(frame), subcycle(subcycle), wave_name(std::move(wave_name)),
+      looping(looping)
+{
+}
+
+static int g_last_sound_event = -1;
+
+static int g_previous_footstep_variant;
+
+/* For every bit of the caller's mask, append the events of that kind whose
+   own classification matches, then play one of them at random without
+   repeating the previous choice for as long as a second candidate exists. */
+void UpdateSoundEvents(std::span<W8SoundEvent> events, const glm::vec3& position,
+                       unsigned int event_mask, int cycle, int frame, int subcycle)
+{
+    std::vector<W8SoundEvent*> candidates;
+    for (unsigned int bit = 1; bit != 0; bit <<= 1) {
+        if ((bit & event_mask) == 0) continue;
+        candidates.clear();
+        for (auto& event : events) {
+            const auto kind = event.kind;
+            if ((bit & kind) == 0) continue;
+            if (kind == W8_SOUND_EVENT_FRAME || kind == W8_SOUND_EVENT_FOOTSTEP) {
+                if ((event.cycle != -1 && event.cycle != cycle) || event.frame != frame ||
+                    event.subcycle != subcycle)
+                    continue;
+            } else if (kind == W8_SOUND_EVENT_CYCLE) {
+                if (event.cycle != cycle || event.subcycle != subcycle) continue;
+            }
+            candidates.push_back(&event);
+        }
+        if (candidates.empty()) continue;
+        int selected;
+        do {
+            selected = static_cast<int>(
+                PresentationRng().below(wiz8::checked_integer<std::uint32_t>(candidates.size())));
+        } while (candidates.size() > 1 && selected == g_last_sound_event);
+        if (candidates[selected]->Play(position, cycle)) g_last_sound_event = selected;
+    }
+}
+
+/* Resolve one event into a positional 3D play: decide the base volume from
+   the event's own routing, rotate the listener offset into the camera frame,
+   and let the ground/step branch rebuild the wave name before the play. */
+bool W8SoundEvent::Play(const glm::vec3& position, int cycle)
+{
+    Monster* monster = 0;
+    bool track_sound = false;
+
+    if (IsSoundEffectsMuted() || !PresentationRng().chance(probability)) {
+        return false;
+    }
+    float angle = -GetCameraYawRadians();
+    unsigned int base_volume = 0x78;
+    glm::vec3 camera_position = cameraLocation();
+    glm::vec3 camera_offset = camera_position - position;
+    if (glm::length(camera_offset) < falloff) {
+        if (kind == W8_SOUND_EVENT_FOOTSTEP || wave_name.contains("step") ||
+            (location_id != 0 && cycle == 4)) {
+            base_volume = footstep_volume;
+            track_sound = true;
+            if (location_id != 0) {
+                monster = GetMonsterByLocationID(location_id);
+                if (CurrentGame().combat.has_value() || (monster && monster->nearest_to_party)) {
+                    base_volume = footstep_combat_volume;
+                }
+            }
+        } else if (volume_min == 0 && volume_max == 0) {
+            if (wave_name.contains('+')) {
+                base_volume = 0x87;
+            }
+        } else {
+            base_volume =
+                static_cast<unsigned int>(PresentationRng().below(volume_max - volume_min + 1)) +
+                volume_min;
+        }
+
+        glm::mat3 rotation;
+
+        rotation = glm::mat3(1);
+        rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
+
+        glm::vec3 offset = position - camera_position;
+        glm::vec3 transformed = rotation * offset;
+        unsigned int event_volume =
+            static_cast<unsigned int>((1.0f - glm::length(camera_offset) / falloff) * base_volume);
+        if ((g_settings.sound_effects_volume * event_volume) / 127 != 0) {
+
+            if (kind == W8_SOUND_EVENT_FOOTSTEP) {
+                int variant;
+                int attempts = 0;
+                do {
+                    variant = static_cast<int>(PresentationRng().below(4)) + 1;
+                    ++attempts;
+                    if (variant != g_previous_footstep_variant) {
+                        break;
+                    }
+                } while (attempts < 100);
+                g_previous_footstep_variant = variant;
+
+                char path[260];
+                const auto ground = groundSurfaceInfo(position);
+                /* Retail hardcodes the surface to OutdoorsFlat here: the query
+                   result that matters for the path is the material. */
+                BuildFootstepPath(path, W8_FOOTSTEP_SURFACE_OUTDOORS_FLAT, ground.material,
+                                  W8_FOOTSTEP_KIND_STEP, variant);
+                wave_name = path;
+            }
+            sound_handle = wiz8::sound::play(
+                wave_name, {.volume = event_volume,
+                            .loops = looping ? 0u : 1u,
+                            .pitch_bend_percent = wave_name.contains('!') ? 0u : 20u,
+                            .position = transformed});
+            if (sound_handle == nullptr) {
+                return false;
+            }
+            if (track_sound && monster != 0) {
+                monster->TrackSound(sound_handle);
+            }
+        }
+    }
+    return true;
+}
+
+W8SoundEvent::W8SoundEvent(const W8SoundEvent& other)
+{
+    *this = other;
+}
+W8SoundEvent& W8SoundEvent::operator=(const W8SoundEvent& other)
+{
+    if (this == &other) return *this;
+    if (looping && sound_handle) wiz8::sound::stop(sound_handle);
+    sound_handle.reset();
+    kind = other.kind;
+    cycle = other.cycle;
+    frame = other.frame;
+    subcycle = other.subcycle;
+    wave_name = other.wave_name;
+    pitch = other.pitch;
+    volume_min = other.volume_min;
+    volume_max = other.volume_max;
+    probability = other.probability;
+    looping = other.looping;
+    location_id = other.location_id;
+    falloff = other.falloff;
+    footstep_volume = other.footstep_volume;
+    footstep_combat_volume = other.footstep_combat_volume;
+    return *this;
+}
+W8SoundEvent& W8SoundEvent::operator=(W8SoundEvent&& other) noexcept
+{
+    if (this == &other) return *this;
+    if (looping && sound_handle) wiz8::sound::stop(sound_handle);
+    kind = other.kind;
+    cycle = other.cycle;
+    frame = other.frame;
+    subcycle = other.subcycle;
+    wave_name = std::move(other.wave_name);
+    pitch = other.pitch;
+    volume_min = other.volume_min;
+    volume_max = other.volume_max;
+    probability = other.probability;
+    looping = other.looping;
+    location_id = other.location_id;
+    falloff = other.falloff;
+    footstep_volume = other.footstep_volume;
+    footstep_combat_volume = other.footstep_combat_volume;
+    sound_handle = std::move(other.sound_handle);
+    return *this;
+}

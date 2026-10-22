@@ -13,7 +13,7 @@
 #include "temporary_directory.h"
 #include "wiz8/application.h"
 #include "wiz8/asset_paths.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/ui_input.h"
 
 static void CheckStopped()
@@ -54,7 +54,6 @@ TEST_CASE("application_test")
             failed = true;
         }
         REQUIRE(failed);
-        REQUIRE(gzStringDataOverride == "string data.wiz");
         CheckStopped();
     }
 

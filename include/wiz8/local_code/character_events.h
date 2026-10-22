@@ -2,12 +2,13 @@
 
 struct SDL_Surface;
 
+#include <cstdint>
 #include <string>
 #include <string_view>
 
-#include "sprite.h"
 #include "wiz8/audio_resources.h"
-#include "wiz8/conditions.h"
+#include "wiz8/canvas/sprite.h"
+#include "wiz8/rules/conditions.h"
 
 bool IsVoiceMuted(void);
 /* Audio panels pass 0 or 2 for the enabled setting. */
@@ -20,28 +21,31 @@ struct W8MonsterManagerEntry;
 extern int g_special_event13;
 extern int g_special_event14;
 extern int g_special_event17;
-int UpdateCharacterEventState(void);
+/* The party's voices, one step: each occupied slot's line finishes when its voice or
+   unvoiced hold ends, a member who can no longer speak is cut off, an idle party lets a
+   member at zero hit points cry out, and a speaking portrait's mouth follows its voice. */
+void AdvancePartyVoices(void);
+/* The party portraits' idle animation: each shown portrait moves toward its pose and
+   blinks, and a portrait whose pose or mouth changed is redrawn. */
+void AnimatePartyPortraits(void);
 W8CharacterEvent* QueueCharacterEvent(W8Character* character, int event_type, unsigned int flags,
-                                      int queue_mode, unsigned int volume);
+                                      unsigned int volume);
 
 /* PC quotes and voice samples use character identity, without a party slot. */
 std::string GetCharacterQuoteText(const W8Character& character, unsigned int event_type,
                                   unsigned int* metadata = nullptr);
 std::string GetCharacterVoicePath(const W8Character& character, unsigned int event_type);
 
-/* Format one character quote for the given event type into the
-   shared wide text buffer. Returns zero and empties it when the type has no
-   quote. */
-bool FormatCharacterQuoteText(W8Character* character, unsigned int event_type,
-                              unsigned int* metadata);
+// Resolve the current party/NPC quote as a value, without shared text storage.
+std::string GetPartyQuoteText(const W8Character& character, unsigned int event_type);
 /* First entry of a -1-terminated event-id table. */
 extern const int g_fact_check_event;
 
 /* True when no occupied party slot has an active portrait/voice record. */
-unsigned char PartyPortraitEventsIdle(void);
+bool PartyPortraitEventsIdle(void);
 int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot);
 W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int excluded_slot,
-                                                   unsigned int flags, int queue_mode);
+                                                   unsigned int flags);
 void MaybeStartIncapacitationEvent(unsigned int party_slot);
 void QueueDamageReactionEvents(W8Character* character);
 /* After a character dies, pick one other party member and queue
@@ -81,7 +85,7 @@ bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int
    gaps follow the playback, or the portrait holds for `unvoiced_ms` when no
    voice started. Character events and NPC party members both speak this way. */
 void BeginPortraitVoice(unsigned int party_slot, const wiz8::sound::Playback& voice,
-                        std::string_view voice_path, unsigned int unvoiced_ms);
+                        std::string_view voice_path, std::uint64_t unvoiced_ms);
 /* The portrait's line is over: complete the character event speaking through
    it, or just close the portrait when the speaker was an NPC line. */
 void FinishPortraitSpeech(unsigned int party_slot);

@@ -1,8 +1,9 @@
 #pragma once
 
-class Trigger;
+#include <memory>
 
-/* Level 0x13 (RapaxUpperFloor) activation callbacks, registered by
-   InitializeLevelMasterFunctions. */
-bool RapaxUpperFloorAirBox(Trigger* pTrigger);
-bool RapaxUpperFloorDoorDone(Trigger* pTrigger);
+class LevelScript;
+struct ScriptContext;
+
+/* Level 0x13 (RapaxUpperFloor): the treasure vault. */
+std::unique_ptr<LevelScript> MakeRapaxUpperFloorScript(const ScriptContext& context);

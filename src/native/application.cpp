@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <exception>
+#include <memory>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -14,16 +15,16 @@
 #include <SDL3/SDL_stdinc.h>
 
 #include "asset_paths.h"
-#include "random.h"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/stSound3D.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/game_init.h"
-#include "wiz8/local_code/Gameloop.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 
 namespace {
 
@@ -33,6 +34,7 @@ struct LaunchOptions {
     bool load_at_startup = false;
     bool windowed = false;
     std::string string_data;
+    std::string native_object;
 };
 
 LaunchOptions ParseArguments(std::span<const std::string_view> arguments)
@@ -41,21 +43,24 @@ LaunchOptions ParseArguments(std::span<const std::string_view> arguments)
     for (size_t index = 0; index < arguments.size(); ++index) {
         const auto separator = arguments[index].find('=');
         const std::string option(arguments[index].substr(0, separator));
-        if (SDL_strcasecmp(option.c_str(), "/NOSOUND") == 0)
+        const auto is = [&](const char* name) { return SDL_strcasecmp(option.c_str(), name) == 0; };
+        if (is("/NOSOUND"))
             options.sound = false;
-        else if (SDL_strcasecmp(option.c_str(), "/INSPECTOR") == 0)
+        else if (is("/INSPECTOR"))
             options.inspector = true;
-        else if (SDL_strcasecmp(option.c_str(), "/LOAD") == 0)
+        else if (is("/LOAD"))
             options.load_at_startup = true;
-        else if (SDL_strcasecmp(option.c_str(), "/WINDOW") == 0)
+        else if (is("/WINDOW"))
             options.windowed = true;
-        else if (SDL_strcasecmp(option.c_str(), "/STRINGDATA") == 0) {
+        else if (auto* file = is("/STRINGDATA")     ? &options.string_data
+                              : is("/NATIVEOBJECT") ? &options.native_object
+                                                    : nullptr) {
             const auto value = separator != std::string_view::npos
                                    ? arguments[index].substr(separator + 1)
                                : ++index < arguments.size() ? arguments[index]
                                                             : std::string_view{};
             if (value.empty()) throw std::invalid_argument(option + " requires a filename");
-            options.string_data = value;
+            *file = value;
         }
     }
     return options;
@@ -76,16 +81,16 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
              {"config", "logs", "saves/characters", "saves/npcs", "saves/import"})
             wiz8::create_directory(wiz8::user_path(directory));
         const auto options = ParseArguments(arguments);
-        gfLoadAtStartup = options.load_at_startup;
-        gzStringDataOverride = options.string_data;
         if (options.inspector) VideoInspectorEnable();
         if (options.windowed) VideoFullScreen(false);
         if (!InitializeVideoManager()) throw std::runtime_error("Video initialization failed");
         if (!wiz8::sound::initialize(options.sound && !SetupDisablesAudio()))
             throw std::runtime_error("Sound initialization failed");
-        InitializeRandom();
+        data_ = std::make_unique<GameData>();
+        games_ = std::make_unique<GameSession>();
+        games_->native_object_file = wiz8::path_from_utf8(options.native_object);
         game_started_ = true;
-        if (!InitializeGame(initialized_screens_))
+        if (!InitializeGame(*data_, *games_, options.load_at_startup, options.string_data))
             throw std::runtime_error("Game initialization failed");
         gfGameInitialized = gfApplicationActive = gfProgramIsRunning = true;
     } catch (...) {
@@ -126,18 +131,16 @@ void wiz8::Application::shutdown() noexcept
     wiz8::sound::shutdown();
     if (game_started_) {
         try {
-            ShutdownGame(initialized_screens_, complete);
+            ShutdownGame(*games_, complete);
         } catch (const std::exception& failure) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Game shutdown: %s", failure.what());
         }
     }
-    Release3DSounds();
     ReleaseCatalogArtwork();
     ShutdownButtonImageManager();
     ReleaseMenuFonts();
     ShutdownVideoManager();
     SDL_ShowCursor();
-    VideoDumpMemoryLeaks();
     gfApplicationActive = false;
     SDL_Quit();
     sdl_initialized_ = false;

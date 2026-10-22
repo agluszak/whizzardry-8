@@ -7,7 +7,7 @@
 
 #include <glm/ext/vector_float3.hpp>
 
-#include "wiz8/layouts/item_tables.h"
+#include "wiz8/data/item_records.h"
 
 struct W8WorldItem;
 

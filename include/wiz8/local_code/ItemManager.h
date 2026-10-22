@@ -1,10 +1,12 @@
 #pragma once
 
+#include <optional>
+
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 
-struct W8Item;
+struct WorldItemEntity;
 struct W8WorldItem;
 struct W8ItemInstance;
 struct W8MonsterInfo;
@@ -16,19 +18,18 @@ extern bool g_hide_invisible_items;
 W8WorldItem* ItemInfo(unsigned int item_list_index);
 void DeactivateWorldItem(W8WorldItem* item);
 unsigned int ItemIndex(int runtime_id);
-void SetWorldItemHighlight(int runtime_id, bool on);
+
 int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance);
 unsigned char InteractWithWorldItem(int runtime_id);
 void SetWorldItemFalling(W8WorldItem* item, bool enabled);
 void RebuildAllWorldItemInstances(void);
 
-void InitializeItemManagerState();
-
 void ReleaseItemLists();
 
+std::optional<glm::vec3> FindItemDropPosition();
 void DropHeldItem(int);
 void UpdateNearbyWorldItems(void);
-unsigned char AdvanceFallingWorldItem(W8WorldItem* item);
+bool AdvanceFallingWorldItem(W8WorldItem* item);
 bool AnyWorldItemVisible(void);
 void DropMonsterLoot(W8MonsterInfo* monster_info, int value);
 

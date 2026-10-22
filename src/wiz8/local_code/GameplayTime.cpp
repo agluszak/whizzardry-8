@@ -1,45 +1,37 @@
 #include "wiz8/local_code/GameplayTime.h"
 
+#include <cassert>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <fmt/printf.h>
 #include <glm/geometric.hpp>
 
-#include "compat/native.h"
-#include "gameplay_modifiers.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/item_instance.h"
-#include "layouts/main_game_screen.h"
-#include "layouts/targeting.h"
 #include "monster_actions.h"
-#include "random.h"
-#include "soundman.h"
-#include "surrender/srDebug.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/conditions.h"
-#include "wiz8/dice.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GameTimeAccumulator.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/OctPath.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/combat/combat.h"
+#include "wiz8/combat/fight.h"
+#include "wiz8/data/character_tables.h"
+#include "wiz8/data/dice.h"
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/combat_state.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/local_code/Combat.h"
+#include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -52,143 +44,196 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/monster_runtime.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/timer.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/picking.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
+#include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
+#include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/targeting.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigation.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 constexpr float kFastMagicRecoveryScale = 1.25f;
 
-#define GAMEPLAYTIME_CPP "C:\\Projects\\Wizardry 8\\Local Code\\GameplayTime.cpp"
+using SurprisePhase = SurpriseSequence::Phase;
 
+void ApplyWorldAdvancement(Game& game, WorldHold hold)
+{
+    auto& advancement = game.advancement;
+    advancement.hold = hold;
+    const bool held = advancement.paused || hold.covered || hold.world;
+    const bool time_stopped = held || game.combat.has_value();
+    const World* world = GetWorld();
+    const bool hold_changed = held != advancement.held;
+    const bool time_changed = world != advancement.world || time_stopped == advancement.time_passes;
+    advancement.held = held;
+    advancement.world = world;
+    if (advancement.timer_paused != advancement.paused) {
+        advancement.timer_paused = advancement.paused;
+        MoveTimer(advancement.timer_paused ? W8_MOVE_TIMER_SUSPEND : W8_MOVE_TIMER_RESUME);
+    }
+    if (!world) return;
+    if (time_changed) {
+        SetEnvironmentTimeEnabled(!time_stopped);
+        if (time_stopped) {
+            StopAllNavigators();
+            ResetLevelDataVectors();
+        } else {
+            ResumeAllNavigators();
+            if (!hold.party) ClearLevelMovementStopped();
+        }
+    }
+    if (hold_changed || time_changed)
+        game.events.push(WorldAdvancementChanged{.held = held, .hold_changed = hold_changed});
+}
+
+bool SurpriseFadingIn()
+{
+    return CurrentGame().surprise.phase == SurprisePhase::fade_in;
+}
+
+// Camping lifts the player's pause; whatever the interface holds stays held.
 static void BeginPartyCamping()
 {
-    if (gXStatus.world_update_blocked) {
-        ResumeMainGameWorld();
+    auto& game = CurrentGame();
+    auto& surprise = game.surprise;
+    game.advancement.paused = false;
+    if (game.advancement.held) {
+        ApplyWorldAdvancement(game, game.advancement.hold);
     }
     if (!AnyCharacterEngaged()) {
-        gXStatus.surprise_unengaged = true;
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x794]);
+        surprise.unengaged = true;
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x794]);
     } else {
-        gXStatus.surprise_unengaged = false;
-        ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::sprintf(g_localized_strings[0x790], 8));
+        surprise.unengaged = false;
+        ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::sprintf(Data().strings[0x790], 8));
     }
     SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
     BeginSurprise();
-    gXStatus.fSurprisePossible = true;
+    game.surprise_possible = true;
     SetWorldResumeInput(true);
-    gXStatus.surprise_deadline_turns = 0;
+    surprise.deadline_turns = 0;
     CreateSurpriseFade();
-    gXStatus.surprise_phase = 0;
+    surprise.phase = SurprisePhase::fade_in;
     StartMusicResource("Camping.MPL", 0, 1);
-    gXStatus.combat_countdown = 0;
+    ForgetRecentCombat();
 }
 
 /* The per-frame game-time driver: folds the elapsed milliseconds into the
    world clock, fires the 120-second aging tick, the hourly item recharge,
    the 2500ms camping-fatigue and 1400ms stamina ticks, and runs the surprise
    sequence entry/transition while the party is eligible. */
-// FUNCTION: WIZ8 0x00502010
 void UpdateGameClock(int elapsed)
 {
-    g_status.world_clock += static_cast<int>((g_status.world_clock_ms + elapsed) / 1000);
-    g_status.world_clock_ms = (g_status.world_clock_ms + elapsed) % 1000;
+    CurrentGame().status.world_clock +=
+        static_cast<int>((CurrentGame().status.world_clock_ms + elapsed) / 1000);
+    CurrentGame().status.world_clock_ms = (CurrentGame().status.world_clock_ms + elapsed) % 1000;
 
-    g_status.aging_accumulator += elapsed;
-    unsigned int aging_ticks = 0; /* no turns pass while an item is being dragged */
-    if (!gXStatus.item_drag_active) {
-        aging_ticks = g_status.aging_accumulator / 120000;
+    CurrentGame().status.aging_accumulator += elapsed;
+    unsigned int aging_ticks = 0;
+    if (!CurrentGame().aging_held) {
+        aging_ticks = CurrentGame().status.aging_accumulator / 120000;
         if (aging_ticks != 0) {
-            g_status.aging_accumulator %= 120000;
+            CurrentGame().status.aging_accumulator %= 120000;
             AdvanceTimedEffects(aging_ticks);
         }
     }
 
-    g_status.item_recharge_ms += elapsed;
-    unsigned int hours = g_status.item_recharge_ms / 3600000;
+    CurrentGame().status.item_recharge_ms += elapsed;
+    unsigned int hours = CurrentGame().status.item_recharge_ms / 3600000;
     if (hours != 0) {
-        g_status.item_recharge_ms %= 3600000;
+        CurrentGame().status.item_recharge_ms %= 3600000;
         for (unsigned int slot = 0; slot < 8; ++slot) {
-            char uses = static_cast<char>(hours);
-            if (!g_status.buffers.XChar[slot].fOccupied) {
+            signed char uses = static_cast<signed char>(hours);
+            if (!CurrentGame().party.members[slot].has_value()) {
                 continue;
             }
-            W8Character* character = &g_status.buffers.Char[slot];
+            W8Character* character = &CurrentGame().party.characters[slot];
             int i;
             for (i = 0; i < 0xc; ++i) {
                 if (character->EquippedItem[i].iItemNo == 0x266) {
-                    AddItemUses(&character->EquippedItem[i], uses);
+                    AddItemUses(Data(), character->EquippedItem[i], uses);
                 }
             }
             for (i = 0; i < 8; ++i) {
                 if (character->backpack[i].iItemNo == 0x266) {
-                    AddItemUses(&character->backpack[i], uses);
+                    AddItemUses(Data(), character->backpack[i], uses);
                 }
             }
         }
-        for (unsigned int index = 0; index < g_status.party_item_count; ++index) {
-            W8ItemInstance* item = &g_status.party_item_pool[index];
+        for (unsigned int index = 0; index < CurrentGame().party.item_count; ++index) {
+            W8ItemInstance* item = &CurrentGame().party.item_pool[index];
             if (item->iItemNo == 0x266) {
-                AddItemUses(item, static_cast<char>(hours));
+                AddItemUses(Data(), *item, static_cast<signed char>(hours));
             }
         }
     }
 
-    if ((!gXStatus.fCombatMode || aging_ticks != 0) && g_camera_sway_active) {
-        if (gXStatus.fCombatMode) {
-            if (aging_ticks == 0) {
-                srAssertFail("uiTurnsElapsed > 0", GAMEPLAYTIME_CPP, 0x6d, 0);
-            }
-            g_status.camp_tick_ms -= 4 * 0x9c4;
+    if ((!CurrentGame().combat.has_value() || aging_ticks != 0) && g_camera_sway_active) {
+        if (CurrentGame().combat.has_value()) {
+            assert(aging_ticks != 0);
+            CurrentGame().status.camp_tick_ms -= 4 * 0x9c4;
             UpdateCampFatigue(4);
         } else {
-            g_status.camp_tick_ms += elapsed;
-            unsigned int camp_ticks = g_status.camp_tick_ms / 0x9c4;
+            CurrentGame().status.camp_tick_ms += elapsed;
+            unsigned int camp_ticks = CurrentGame().status.camp_tick_ms / 0x9c4;
             if (camp_ticks != 0) {
-                g_status.camp_tick_ms -= camp_ticks * 0x9c4;
+                CurrentGame().status.camp_tick_ms -= camp_ticks * 0x9c4;
                 UpdateCampFatigue(static_cast<int>(camp_ticks));
             }
         }
     } else {
-        g_status.camp_tick_ms = 0;
-        g_status.party_fatigued = false;
-        g_status.camp_fatigue_count = 0;
+        CurrentGame().status.camp_tick_ms = 0;
+        CurrentGame().status.party_fatigued = false;
+        CurrentGame().status.camp_fatigue_count = 0;
     }
 
-    if (gXStatus.fCombatMode) {
-        g_status.stamina_tick_ms = 0;
+    if (CurrentGame().combat.has_value()) {
+        CurrentGame().status.stamina_tick_ms = 0;
     } else {
-        g_status.stamina_tick_ms += elapsed;
-        unsigned int stamina_ticks = g_status.stamina_tick_ms / 0x578;
+        CurrentGame().status.stamina_tick_ms += elapsed;
+        unsigned int stamina_ticks = CurrentGame().status.stamina_tick_ms / 0x578;
         if (stamina_ticks != 0) {
-            g_status.stamina_tick_ms %= 0x578;
+            CurrentGame().status.stamina_tick_ms %= 0x578;
             UpdatePartyStamina(static_cast<int>(stamina_ticks));
         }
 
-        if (!gXStatus.fSurprisePossible && !AnyCharacterEngaged() && AnyCharacterActive() &&
-            !g_status.party_fatigued && !HasLevelDataVector() && HasLevelWalkableContact() &&
-            IsScreenIdle()) {
+        if (!CurrentGame().surprise_possible && !AnyCharacterEngaged() && AnyCharacterActive() &&
+            !CurrentGame().status.party_fatigued && !HasLevelDataVector() &&
+            HasLevelWalkableContact() && IsScreenIdle()) {
             BeginPartyCamping();
         }
     }
 
-    if (!gXStatus.fSurprisePossible) {
+    if (!CurrentGame().surprise_possible) {
         return;
     }
-    if (gXStatus.surprise_unengaged && AnyCharacterEngaged() && gXStatus.surprise_phase == 1) {
+    auto& surprise = CurrentGame().surprise;
+    if (surprise.unengaged && AnyCharacterEngaged() && surprise.phase == SurprisePhase::hold) {
         ResetSight();
         ReverseSurpriseFade();
-        gXStatus.surprise_phase = 2;
+        surprise.phase = SurprisePhase::fade_out_and_resolve;
         ReleaseMarkedNpcBindings();
         StartLevelMusic(1, 1);
     }
@@ -197,14 +242,13 @@ void UpdateGameClock(int elapsed)
 /* The Camp key/button requests the surprise-possible camp state. Camping is
    refused outright in combat and while a level vector or a level flag blocks
    it; a blocking world-cursor node or a busy screen declines silently. */
-// FUNCTION: WIZ8 0x00502460
 void RequestCamp(void)
 {
-    if (gXStatus.fSurprisePossible) {
+    if (CurrentGame().surprise_possible) {
         return;
     }
-    if (gXStatus.fCombatMode) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x774]);
+    if (CurrentGame().combat.has_value()) {
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x774]);
         return;
     }
     if (!HasLevelDataVector() && HasLevelWalkableContact()) {
@@ -217,26 +261,25 @@ void RequestCamp(void)
         BeginPartyCamping();
         return;
     }
-    ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x796]);
+    ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x796]);
 }
 
 /* Complete the pending character events, reset the occupied slots' portrait
    poses to the startled frame, take the menu button banks down and request a
    full redraw. The scripted ambush triggers call this to open the surprise
    sequence. */
-// FUNCTION: WIZ8 0x005025F0
 void BeginSurprise(void)
 {
     unsigned int i;
 
-    gXStatus.character_event_queue->CompleteAllActiveEvents();
+    CurrentGame().speech.CompleteAllActiveEvents();
     for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
-        if (g_status.buffers.XChar[i].fOccupied) {
-            SetPortraitTargetPose(&gXStatus.monster_manager_entries[i], 2);
+        if (CurrentGame().party.members[i].has_value()) {
+            SetPortraitTargetPose(&CurrentGame().monster_manager_entries[i], 2);
         }
     }
     DisableMenuButtonBanks();
-    RequestRedraw(W8_MAIN_REDRAW_PORTRAITS);
+    for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) CurrentGame().events.push(PartySlotChanged{i});
 }
 
 /* Advance the surprise fade/hold/resolve sequence while the party is locked
@@ -245,46 +288,46 @@ void BeginSurprise(void)
    world clock reaches the deadline (unless surprise started unengaged);
    phase 2 waits for the fade-out helper, then ends surprise and forwards
    combat if needed. */
-// FUNCTION: WIZ8 0x00502650
 void UpdateSurpriseMode(void)
 {
     float scale;
     float level_scale;
 
-    if (!gXStatus.fSurprisePossible) {
+    if (!CurrentGame().surprise_possible) {
         return;
     }
-    switch (gXStatus.surprise_phase) {
-    case 0:
+    auto& surprise = CurrentGame().surprise;
+    switch (surprise.phase) {
+    case SurprisePhase::fade_in:
         if (UpdateSurpriseFade() != 0) {
-            gXStatus.surprise_deadline_turns = g_status.world_clock + 0x7080;
+            surprise.deadline_turns = CurrentGame().status.world_clock + 0x7080;
             DestroyUngroupedMonsters();
             SetViewDistance(2880.0f);
-            SetNavigatorLinkMode(1);
-            level_scale = g_level_records[GetLoadedLevelID()].gameplay_time_scale;
+            SetNavigatorLinkMode(W8_NAVIGATOR_LINK_MODE_STOPPED);
+            level_scale = Data().levels[GetLoadedLevelID()].gameplay_time_scale;
             scale = 1.0f / level_scale;
             GameTimeAccumulator().SetTimeScale(scale);
             SetMonsterGeneratorDurationScale(scale);
-            gXStatus.surprise_phase = 1;
+            surprise.phase = SurprisePhase::hold;
         }
         break;
-    case 1:
-        if (!gXStatus.surprise_unengaged &&
-            static_cast<unsigned int>(g_status.world_clock) >= gXStatus.surprise_deadline_turns) {
+    case SurprisePhase::hold:
+        if (!surprise.unengaged && static_cast<unsigned int>(CurrentGame().status.world_clock) >=
+                                       surprise.deadline_turns) {
             ResetSight();
             UpdateEnvironmentLight();
             RefreshEnvironment();
             ReverseSurpriseFade();
-            gXStatus.surprise_phase = 2;
+            surprise.phase = SurprisePhase::fade_out_and_resolve;
             ReleaseMarkedNpcBindings();
             StartLevelMusic(1, 1);
         }
         break;
-    case 2:
+    case SurprisePhase::fade_out_and_resolve:
         if (UpdateSurpriseFade() != 0) {
             EndSurprise();
-            if (gXStatus.fCombatMode) {
-                MonsterStopAllNavigators();
+            if (CurrentGame().combat.has_value()) {
+                StopAllNavigators();
             }
         }
         break;
@@ -296,11 +339,10 @@ void UpdateSurpriseMode(void)
    has reached phase 1 it performs the same restore as UpdateSurpriseMode's
    deadline path - without the environment-light refresh - and moves the
    sequence to phase 2. */
-// FUNCTION: WIZ8 0x00502790
 void AcknowledgeSurprise(void)
 {
-    if (gXStatus.surprise_unengaged && !gXStatus.fCombatMode) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x794]);
+    if (CurrentGame().surprise.unengaged && !CurrentGame().combat.has_value()) {
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x794]);
         return;
     }
     ResolveSurpriseHold();
@@ -309,13 +351,12 @@ void AcknowledgeSurprise(void)
 /* While a surprise sequence is holding, end it for combat: restore the view,
    navigator and time-scale overrides, reverse the fade and restart the level
    music. */
-// FUNCTION: WIZ8 0x00502810
 void ResolveSurpriseHold(void)
 {
-    if (gXStatus.surprise_phase == 1) {
+    if (CurrentGame().surprise.phase == SurprisePhase::hold) {
         ResetSight();
         ReverseSurpriseFade();
-        gXStatus.surprise_phase = 2;
+        CurrentGame().surprise.phase = SurprisePhase::fade_out_and_resolve;
         ReleaseMarkedNpcBindings();
         StartLevelMusic(1, 1);
     }
@@ -324,36 +365,37 @@ void ResolveSurpriseHold(void)
 /* End the surprise sequence: post the outcome notice and, if the condition-13
    rest event armed condition13_clock more than a world-clock day ago, clear the
    condition and queue the rest-benefit event for that character. */
-// FUNCTION: WIZ8 0x00502860
 void EndSurprise(void)
 {
-    gXStatus.fSurprisePossible = false;
+    CurrentGame().surprise_possible = false;
     ResolveSurpriseWake();
     SetWorldResumeInput(false);
 
     std::string text;
-    if (!gXStatus.surprise_unengaged) {
-        if (gXStatus.surprise_deadline_turns == 0) {
-            text = g_localized_strings[0x793];
-        } else if (gXStatus.surprise_deadline_turns <
-                   static_cast<unsigned int>(g_status.world_clock)) {
-            text = g_localized_strings[0x791];
+    auto& surprise = CurrentGame().surprise;
+    if (!surprise.unengaged) {
+        if (surprise.deadline_turns == 0) {
+            text = Data().strings[0x793];
+        } else if (surprise.deadline_turns <
+                   static_cast<unsigned int>(CurrentGame().status.world_clock)) {
+            text = Data().strings[0x791];
         } else {
-            text = g_localized_strings[0x792];
+            text = Data().strings[0x792];
         }
     } else {
-        gXStatus.surprise_unengaged = false;
-        text = AnyCharacterEngaged() ? g_localized_strings[0x795] : g_localized_strings[0x792];
+        surprise.unengaged = false;
+        text = AnyCharacterEngaged() ? Data().strings[0x795] : Data().strings[0x792];
     }
     ShowNotice(W8_FONT_PALETTE_BEIGE, text);
 
-    if (g_status.condition13_clock != 0 &&
-        0x15180 < static_cast<unsigned int>(g_status.world_clock) - g_status.condition13_clock) {
-        g_status.condition13_clock = 0;
-        g_status.skip_next_condition_reaction = 1;
-        int party_slot = g_status.pending_condition_party_slot;
-        RemoveCharacterCondition(party_slot, W8_CONDITION_MISSING, false);
-        QueueCharacterEvent(&g_status.buffers.Char[party_slot], 52, 0, kCharacterEventNoFlags,
+    if (CurrentGame().status.condition13_clock != 0 &&
+        0x15180 < static_cast<unsigned int>(CurrentGame().status.world_clock) -
+                      CurrentGame().status.condition13_clock) {
+        CurrentGame().status.condition13_clock = 0;
+        CurrentGame().status.skip_next_condition_reaction = true;
+        int party_slot = CurrentGame().status.pending_condition_party_slot;
+        LiftCondition(CurrentGame(), party_slot, W8_CONDITION_MISSING, false);
+        QueueCharacterEvent(&CurrentGame().party.characters[party_slot], 52, 0,
                             kCharacterEventFullVolume);
         SetFact(W8_FACT_MOOK_MOOK_PC_SWAP_COMPLETE, 1, false);
     }
@@ -362,11 +404,10 @@ void EndSurprise(void)
 /* Tear down the world-state overrides the surprise sequence installed:
    restore default view distance and navigator link mode, reset the time
    scale, restart the monster generator timers and release the fade overlay. */
-// FUNCTION: WIZ8 0x005029a0
 void RestoreSurpriseView(void)
 {
-    gXStatus.fSurprisePossible = false;
-    gXStatus.surprise_unengaged = false;
+    CurrentGame().surprise_possible = false;
+    CurrentGame().surprise.unengaged = false;
     ResetSight();
     DestroySurpriseFade();
 }
@@ -375,85 +416,52 @@ void RestoreSurpriseView(void)
    character rolls against their senses attribute - failure applies the
    groggy condition, success posts a notice. Then every occupied portrait is
    posed awake with a randomized idle clock and the button banks re-enable. */
-// FUNCTION: WIZ8 0x005029e0
 void ResolveSurpriseWake(void)
 {
-    if (g_combat_state != 0 && g_combat_state->party_surprised) {
+    if (CurrentGame().combat.has_value() && CurrentGame().combat->party_surprised) {
         for (unsigned int slot = 0; slot < 8; ++slot) {
-            W8Character* character = &g_status.buffers.Char[slot];
-            if (!g_status.buffers.XChar[slot].fOccupied ||
+            W8Character* character = &CurrentGame().party.characters[slot];
+            if (!CurrentGame().party.members[slot].has_value() ||
                 character->highest_condition >= W8_CONDITION_DEAD) {
                 continue;
             }
             int roll =
-                static_cast<int>(Random(100)) - 0x14 -
+                static_cast<int>(CurrentGame().rng.below(100)) - 0x14 -
                 static_cast<int>(character->attributes[W8_ATTRIBUTE_SENSES].effective * 0x46 / 100);
             if (roll < 1) {
                 PostCharacterNotice(
-                    slot, fmt::sprintf(
-                              g_localized_strings[0x243],
-                              g_localized_strings[g_condition_notices[W8_CONDITION_ASLEEP].name]));
+                    slot,
+                    fmt::sprintf(Data().strings[0x243],
+                                 Data().strings[kConditionNotices[W8_CONDITION_ASLEEP].name]));
             } else {
-                SetCharacterCondition(slot, W8_CONDITION_ASLEEP, roll / 0x1e + 1, 0, 0, 0);
+                InflictCondition(CurrentGame(), slot,
+                                 {.condition = W8_CONDITION_ASLEEP,
+                                  .duration = roll / 0x1e + 1,
+                                  .announce = false});
             }
         }
     }
 
     for (unsigned int slot = 0; slot < 8; ++slot) {
-        if (!g_status.buffers.XChar[slot].fOccupied) {
+        if (!CurrentGame().party.members[slot].has_value()) {
             continue;
         }
-        W8MonsterManagerEntry* entry = &gXStatus.monster_manager_entries[slot];
+        W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[slot];
         SetPortraitTargetPose(entry, 1);
-        if (Random(2) != 0) {
-            entry->portrait.idle_clock = w8_get_ticks() + (Random(5000) + 5000);
+        // Portraits belong to the UI: their next idle pose uses presentation time.
+        if (CurrentGame().rng.below(2) != 0) {
+            entry->portrait.idle_clock =
+                MonotonicMilliseconds() + (CurrentGame().rng.below(5000) + 5000);
         }
         entry->portrait.pose_dirty = true;
-        RequestRedraw(1 << slot);
+        CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(slot)});
     }
     EnableMenuButtonBanks();
-}
-
-/* The hit-point, stamina and per-realm spell regeneration rates
-   are one tick of the pool ceiling's share, twenty points of base and a
-   twelveth of a minute each; the modifier block's three regeneration-boost flags
-   raise their rate by half. */
-// FUNCTION: WIZ8 0x00502b50
-void RebuildCharacterRegenRates(W8Character* character)
-{
-    float rate;
-    int realm;
-
-    rate = (static_cast<unsigned int>(character->uiHPMax) * 0.4f + 20.0f) * 0.0041666669f;
-    character->health_regen_rate = rate;
-    if (character->bonus.boost_health_regen != 0) {
-        character->health_regen_rate = rate * 1.5f;
-    }
-
-    rate = (static_cast<unsigned int>(character->uiStaminaMax) * 0.9f + 20.0f) * 0.0041666669f;
-    character->stamina_regen_rate = rate;
-    if (character->bonus.boost_stamina_regen != 0) {
-        character->stamina_regen_rate = rate * 1.5f;
-    }
-
-    for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        if (character->sp_max[realm] == 0) {
-            character->spell_regen_rates[realm * 2] = 0.0f;
-            continue;
-        }
-        rate =
-            (static_cast<unsigned int>(character->sp_max[realm]) * 0.65f + 20.0f) * 0.0041666669f;
-        character->spell_regen_rates[realm * 2] = rate;
-        if (character->bonus.boost_spell_regen != 0) {
-            character->spell_regen_rates[realm * 2] = rate * 1.5f;
-        }
-    }
 }
 
 /* The monster counterpart of the character regen rebuild: the same pool-share
    rates plus the modifier block's two regen channels, raised by half while the corresponding
    regeneration-boost flags are set. */
-// FUNCTION: WIZ8 0x00502c50
 void RebuildMonsterRegenRates(W8MonsterInfo* monster_info)
 {
     float rate;
@@ -490,8 +498,8 @@ static bool AgePartyEffectSlot(W8EffectSlot* slot, unsigned int minutes)
         slot->duration -= minutes;
         return false;
     }
-    ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::sprintf(g_localized_strings[0x1b4],
-                                                   g_spell_records[slot->effect_id].display_name));
+    ShowNotice(W8_FONT_PALETTE_BEIGE,
+               fmt::sprintf(Data().strings[0x1b4], Data().spells[slot->effect_id].display_name));
     if (GetViewDistance() != g_encounter_culling_rate) {
         wiz8::sound::play("Data\\Sound\\Misc\\Spell Expiry.wav");
     }
@@ -499,27 +507,29 @@ static bool AgePartyEffectSlot(W8EffectSlot* slot, unsigned int minutes)
     return true;
 }
 
-// FUNCTION: WIZ8 0x00502d00
 void AdvanceTimedEffects(unsigned int minutes)
 {
-    if (g_status.real_elapsed + g_status.frame_elapsed == 0.0f) {
-        if (g_status.wait_state == 1 || g_status.wait_state == 0) {
-            g_status.wait_state = 2;
-            for (unsigned int slot = 0; slot < 8; ++slot) {
-                g_status.buffers.XChar[slot].movement_fatigue = 0;
+    if (CurrentGame().status.real_elapsed + CurrentGame().status.frame_elapsed == 0.0f) {
+        if (CurrentGame().status.wait_state == W8_GAME_WAIT_STATE_FAST_MOVEMENT ||
+            CurrentGame().status.wait_state == W8_GAME_WAIT_STATE_MOVING) {
+            CurrentGame().status.wait_state = W8_GAME_WAIT_STATE_INITIAL_REST;
+            for (auto& member : CurrentGame().party.members) {
+                if (member) member->movement_fatigue = 0;
             }
-        } else if (g_status.wait_state == 2) {
-            g_status.wait_state = 3;
+        } else if (CurrentGame().status.wait_state == W8_GAME_WAIT_STATE_INITIAL_REST) {
+            CurrentGame().status.wait_state = W8_GAME_WAIT_STATE_RESTING;
         }
     } else {
-        g_status.wait_state = g_status.frame_elapsed != 0.0f ? 1 : 0;
-        g_status.real_elapsed = 0.0f;
-        g_status.frame_elapsed = 0.0f;
+        CurrentGame().status.wait_state = CurrentGame().status.frame_elapsed != 0.0f
+                                              ? W8_GAME_WAIT_STATE_FAST_MOVEMENT
+                                              : W8_GAME_WAIT_STATE_MOVING;
+        CurrentGame().status.real_elapsed = 0.0f;
+        CurrentGame().status.frame_elapsed = 0.0f;
     }
 
     for (unsigned int slot = 0; slot < 8; ++slot) {
-        W8Character* character = &g_status.buffers.Char[slot];
-        if (g_status.buffers.XChar[slot].fOccupied &&
+        W8Character* character = &CurrentGame().party.characters[slot];
+        if (CurrentGame().party.members[slot].has_value() &&
             (character->highest_condition < W8_CONDITION_DEAD ||
              (character->uiCondition[W8_CONDITION_DEAD] == 0 &&
               GetConditionRecordFlag(slot, W8_DEPENDENCE_SWALLOWED)))) {
@@ -527,15 +537,16 @@ void AdvanceTimedEffects(unsigned int minutes)
         }
     }
 
-    if (gXStatus.fCombatMode) {
+    if (CurrentGame().combat.has_value()) {
         W8CombatSlot target;
         ResetCombatSlot(&target);
         target.iType = W8_TARGET_KIND_PARTY;
-        TickCombatEffectSlots(g_combat_state->effect_slots, &target);
-        TickRadiusBlastEffectSlots(g_combat_state->effect_slots0);
+        TickCombatEffectSlots(CurrentGame().combat->effect_slots, &target);
+        TickRadiusBlastEffectSlots(CurrentGame().combat->effect_slots0);
     }
 
-    for (unsigned int index = 0; index < gXStatus.monster_roster.live().size(); ++index) {
+    for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
+         ++index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
         if (monster_info->highest_condition < W8_CONDITION_DEAD) {
             AgeMonsterSight(monster_info, minutes, 0);
@@ -546,21 +557,21 @@ void AdvanceTimedEffects(unsigned int minutes)
     bool combat_changed = false;
     unsigned int i;
     for (i = 0; i < 12; ++i) {
-        W8EffectSlot* slot = &g_status.effect_slots[i];
+        W8EffectSlot* slot = &CurrentGame().status.effect_slots[i];
         if (AgePartyEffectSlot(slot, minutes)) {
             party_changed = true;
         }
     }
 
-    if (gXStatus.fCombatMode) {
+    if (CurrentGame().combat.has_value()) {
         for (i = 0; i < 9; ++i) {
-            W8EffectSlot* slot = &g_combat_state->effect_slots[i];
+            W8EffectSlot* slot = &CurrentGame().combat->effect_slots[i];
             if (AgePartyEffectSlot(slot, minutes)) {
                 combat_changed = true;
             }
         }
         for (i = 0; i < 6; ++i) {
-            W8EffectSlot* slot = &g_combat_state->effect_slots0[i];
+            W8EffectSlot* slot = &CurrentGame().combat->effect_slots0[i];
             if (AgePartyEffectSlot(slot, minutes)) {
                 combat_changed = true;
             }
@@ -568,10 +579,10 @@ void AdvanceTimedEffects(unsigned int minutes)
     }
 
     if (party_changed) {
-        RequestRedrawCombatBar();
+        CurrentGame().events.push(PartyEffectsChanged{});
     }
     if (combat_changed) {
-        RequestRedraw(W8_MAIN_REDRAW_PORTRAIT_PANEL);
+        CurrentGame().events.push(PartyPanelChanged{});
     }
     for (unsigned int remaining = minutes; remaining != 0; --remaining) {
         TickSpellEffects();
@@ -583,7 +594,7 @@ void AdvanceTimedEffects(unsigned int minutes)
     if (party_changed || combat_changed) {
         wiz8::sound::play("Data\\Sound\\Misc\\GeneralMagic.wav");
     }
-    if (!gXStatus.fSurprisePossible) {
+    if (!CurrentGame().surprise_possible) {
         DetectMonsterGroups();
     }
     AdvanceNpcTimers(minutes * 10);
@@ -595,17 +606,17 @@ void AdvanceTimedEffects(unsigned int minutes)
    item-0x243/0x239 madness pair, the fractional health/stamina/spell-point
    regeneration accumulators, and the finite condition and enchantment
    countdowns. */
-// FUNCTION: WIZ8 0x00503100
 void GameTurnsPassedChar(int party_slot, unsigned int minutes)
 {
-    W8Character* character = &g_status.buffers.Char[party_slot];
+    W8Character* character = &CurrentGame().party.characters[party_slot];
     bool diseased = false;
     unsigned int realm;
 
     unsigned int damage = character->bonus.damage_per_minute;
     if (damage != 0) {
         damage *= minutes;
-        if (g_status.wait_state != 3 || gXStatus.fCombatMode) {
+        if (CurrentGame().status.wait_state != W8_GAME_WAIT_STATE_RESTING ||
+            CurrentGame().combat.has_value()) {
             damage += damage >> 1;
         }
         ApplyDamageToCharacter(party_slot, damage, true, true, false,
@@ -614,11 +625,12 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
 
     if (character->uiCondition[W8_CONDITION_DISEASED] != 0) {
         diseased = true;
-        if (Random(character->attributes[W8_ATTRIBUTE_VITALITY].effective * 10) < minutes) {
-            switch (Random(4)) {
+        if (CurrentGame().rng.below(character->attributes[W8_ATTRIBUTE_VITALITY].effective * 10) <
+            minutes) {
+            switch (CurrentGame().rng.below(4)) {
             case 0: {
                 unsigned int condition;
-                switch (Random(5)) {
+                switch (CurrentGame().rng.below(5)) {
                 case 0:
                     condition = W8_CONDITION_IRRITATED;
                     break;
@@ -638,27 +650,25 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     condition = W8_CONDITION_PARALYZED;
                     break;
                 default:
-                    srAssertFail("FALSE", GAMEPLAYTIME_CPP, 0x333,
-                                 "GameTurnsPassedChar: ERROR - Invalid condition");
-                    condition = minutes;
-                    break;
+                    std::unreachable();
                 }
-                SetCharacterCondition(party_slot, static_cast<W8Condition>(condition),
-                                      W8_CONDITION_INDEFINITE, 0, 0, 1);
+                InflictCondition(CurrentGame(), party_slot,
+                                 {.condition = static_cast<W8Condition>(condition),
+                                  .duration = W8_CONDITION_INDEFINITE});
                 break;
             }
             case 1: {
-                unsigned int attribute = Random(7);
+                unsigned int attribute = CurrentGame().rng.below(7);
                 if (1 < character->attributes[attribute].base) {
                     character->attributes[attribute].base =
                         character->attributes[attribute].base - 1;
                     ++character->attributes[attribute].change_counter;
-                    ApplyAttributeChange(character, static_cast<W8Attribute>(attribute));
+                    ApplyAttributeChange(CurrentGame(), character,
+                                         static_cast<W8Attribute>(attribute));
                     PostCharacterNotice(
                         party_slot,
-                        fmt::sprintf(
-                            g_localized_strings[0x270],
-                            g_localized_strings[g_character_description_first_ids[attribute]]));
+                        fmt::sprintf(Data().strings[0x270],
+                                     Data().strings[g_character_description_first_ids[attribute]]));
                 }
                 break;
             }
@@ -667,14 +677,13 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     break;
                 }
                 {
-                    unsigned int loss = Random(4) + 1;
+                    unsigned int loss = CurrentGame().rng.below(4) + 1;
                     character->uiHPMax -= loss;
                     character->hp_adjustment -= loss;
                     if (loss == 1) {
-                        PostCharacterNotice(party_slot, g_localized_strings[0x26e]);
+                        PostCharacterNotice(party_slot, Data().strings[0x26e]);
                     } else {
-                        PostCharacterNotice(party_slot,
-                                            fmt::sprintf(g_localized_strings[0x26f], loss));
+                        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x26f], loss));
                     }
                     unsigned int current = character->hp_current;
                     if (1 < current) {
@@ -683,7 +692,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                         }
                         character->hp_current = current - loss;
                     }
-                    RequestPartySlotRedraw(party_slot);
+                    CurrentGame().events.push(
+                        PartySlotChanged{static_cast<unsigned int>(party_slot)});
                 }
                 break;
             case 3:
@@ -691,10 +701,10 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                     break;
                 }
                 {
-                    unsigned int loss = Random(4) + 1;
+                    unsigned int loss = CurrentGame().rng.below(4) + 1;
                     character->uiStaminaMax -= loss;
                     character->fatigue_penalty += loss;
-                    PostCharacterNotice(party_slot, fmt::sprintf(g_localized_strings[0x271], loss));
+                    PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x271], loss));
                     int stamina = character->stamina;
                     if (1 < stamina) {
                         if (loss >= stamina - 1U) {
@@ -702,7 +712,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                         }
                         character->stamina = stamina - loss;
                     }
-                    RequestPartySlotRedraw(party_slot);
+                    CurrentGame().events.push(
+                        PartySlotChanged{static_cast<unsigned int>(party_slot)});
                 }
                 break;
             }
@@ -712,12 +723,12 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     if (character->uiCondition[W8_CONDITION_INFATUATED] != 0) {
         if (GetLevelBand(GetLoadedLevelID()) == 9 || GetLevelBand(GetLoadedLevelID()) == 0xa) {
             if (character->uiCondition[W8_CONDITION_HEXED] == W8_CONDITION_INDEFINITE) {
-                RemoveCharacterCondition(party_slot, W8_CONDITION_HEXED, true);
+                LiftCondition(CurrentGame(), party_slot, W8_CONDITION_HEXED, true);
             }
         } else {
             unsigned int hits = 0;
             for (unsigned int roll = minutes; roll != 0; --roll) {
-                if (Random(4) == 0) {
+                if (CurrentGame().rng.below(4) == 0) {
                     ++hits;
                 }
             }
@@ -726,25 +737,27 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                                        static_cast<W8SpellEffectResult*>(0), false);
             }
             if (character->uiCondition[W8_CONDITION_HEXED] == 0) {
-                SetCharacterCondition(party_slot, W8_CONDITION_HEXED, W8_CONDITION_INDEFINITE, 0, 0,
-                                      1);
+                InflictCondition(
+                    CurrentGame(), party_slot,
+                    {.condition = W8_CONDITION_HEXED, .duration = W8_CONDITION_INDEFINITE});
             }
         }
     }
 
-    W8ItemInstance* found;
-    W8Character* holder;
-    if (FindItemOnParty(0x243, &found, &holder, 2, static_cast<W8ItemInstance*>(0)) &&
-        found != &g_status.item_in_hand) {
-        if (holder == static_cast<W8Character*>(0) ||
-            !FindItemOnCharacter(holder, 0x239, static_cast<W8ItemInstance**>(0), 0,
-                                 static_cast<W8ItemInstance*>(0))) {
+    if (const auto found =
+            FindPartyItem(CurrentGame().party, ItemWithId(0x243), W8ItemReach::Party);
+        found.storage != W8ItemStorage::None && found.storage != W8ItemStorage::Hand) {
+        auto* holder = found.storage == W8ItemStorage::Pool
+                           ? nullptr
+                           : &CurrentGame().party.characters[found.character];
+        if (!holder || !FindCharacterItem(*holder, ItemWithId(0x239), W8ItemReach::Worn)) {
             if (character->uiCondition[W8_CONDITION_INSANE] < W8_CONDITION_INDEFINITE) {
-                SetCharacterCondition(party_slot, W8_CONDITION_INSANE, W8_CONDITION_INDEFINITE, 0,
-                                      0, 1);
+                InflictCondition(
+                    CurrentGame(), party_slot,
+                    {.condition = W8_CONDITION_INSANE, .duration = W8_CONDITION_INDEFINITE});
             }
         } else if (character->uiCondition[W8_CONDITION_INSANE] == W8_CONDITION_INDEFINITE) {
-            RemoveCharacterCondition(party_slot, W8_CONDITION_INSANE, true);
+            LiftCondition(CurrentGame(), party_slot, W8_CONDITION_INSANE, true);
         }
     }
 
@@ -785,9 +798,10 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     }
 
     float health_scale;
-    if (gXStatus.fSurprisePossible) {
+    if (CurrentGame().surprise_possible) {
         health_scale = 1.0f;
-    } else if (g_status.wait_state == 3 && !gXStatus.fCombatMode) {
+    } else if (CurrentGame().status.wait_state == W8_GAME_WAIT_STATE_RESTING &&
+               !CurrentGame().combat.has_value()) {
         health_scale = 0.5f;
     } else {
         health_scale = 0.0f;
@@ -811,7 +825,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                 health_scale;
         }
     }
-    if (CharacterHasTrait(character, W8_TRAIT_STAMINA_REGENERATION) && gXStatus.fCombatMode) {
+    if (CharacterHasTrait(character, W8_TRAIT_STAMINA_REGENERATION) &&
+        CurrentGame().combat.has_value()) {
         stamina_scale = ScaleValueByProfessionLevel(character, W8_TRAIT_STAMINA_REGENERATION, 3.3f);
     }
     if (CharacterHasTrait(character, static_cast<W8Trait>(0x1a)) && spell_scale > 0.0f) {
@@ -873,7 +888,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     for (unsigned int condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
         if (character->uiCondition[condition] != 0 &&
             character->uiCondition[condition] < W8_CONDITION_INDEFINITE) {
-            TickCharacterCondition(party_slot, static_cast<W8Condition>(condition), minutes);
+            AgeCondition(CurrentGame(), party_slot, static_cast<W8Condition>(condition), minutes);
         }
     }
     for (unsigned int slot = 0; slot < 8; ++slot) {
@@ -882,15 +897,15 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
             if (turns > minutes) {
                 character->enchantments[slot].turns = turns - minutes;
             } else {
-                ClearCharacterEnchantmentSlot(party_slot, static_cast<W8EnchantmentSlot>(slot));
+                Disenchant(CurrentGame(), party_slot, static_cast<W8EnchantmentSlot>(slot));
             }
         }
     }
 
     if (CharacterHasTrait(character, W8_TRAIT_MAKE_POTIONS)) {
-        if (gXStatus.fSurprisePossible) {
+        if (CurrentGame().surprise_possible) {
             if (character->potion_brew_cooldown == 0) {
-                BrewAlchemistPotion(character);
+                BrewAlchemistPotion(CurrentGame(), character);
             }
         } else if (character->potion_brew_cooldown != 0) {
             if (minutes >= character->potion_brew_cooldown) {
@@ -919,25 +934,25 @@ static void MoveMonsterGroupAndAllies(W8MonsterGroup* group, glm::vec3* position
    ticks the combat effect slots. */
 static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes)
 {
-    W8Monster* monster;
+    Monster* monster;
 
-    if (monster_info->fInCombat) {
+    if (monster_info->pCombat) {
         W8CombatSlot target;
         target.iType = static_cast<W8TargetKind>(3);
         target.iMonsterID = monster_info->location_id;
         TickCombatEffectSlots(monster_info->pCombat->combat_effects, &target);
         return;
     }
-    monster = monster_info->p3D;
+    monster = monster_info->entity.find();
     if (monster->stay_home) {
         glm::vec3 location;
         glm::vec3 last_seen;
         glm::vec3 delta;
 
-        location = MonsterGetLocation(monster);
+        location = monster->GetRepresentationLocation();
         if (monster->formation.x == 0.0f && monster->formation.y == 0.0f &&
             monster->formation.z == 0.0f) {
-            monster->formation = monster->GetPosition();
+            monster->formation = monster->nav.GetPosition();
         }
         last_seen = monster->formation;
         delta = last_seen - location;
@@ -948,11 +963,11 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
             probe.y += 1e+03f;
             camera = cameraLocation();
             if (projectsToCamera(probe) == 0 &&
-                !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
+                !GetWorldSpatialIndex()->hasLineOfSight(camera, probe)) {
                 glm::vec3 notify_position = last_seen;
                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
-                MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
+                MoveMonsterGroupAndAllies(group, &notify_position, monster->nav.GetYaw());
             }
         }
         return;
@@ -960,14 +975,14 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
     if (GetViewDistance() != g_sight_default) {
         return;
     }
-    if ((monster->linked_navigator == 0 && !monster->halted) &&
-        (monster_info->movement_stall_ticks > 1 || !monster->movement_stopped)) {
+    if ((monster->nav.linked_navigator == 0 && !monster->nav.halted) &&
+        (monster_info->movement_stall_ticks > 1 || !monster->nav.movement_stopped)) {
         glm::vec3 location;
         glm::vec3 previous;
         glm::vec3 delta;
         unsigned char cycle;
 
-        location = MonsterGetLocation(monster);
+        location = monster->GetRepresentationLocation();
         previous = monster_info->movement_watch_position;
         monster_info->position.y = location.y;
         cycle = monster_info->movement_stall_ticks;
@@ -982,7 +997,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
                 bool cleared = false;
 
                 if (glm::length(delta) < 500.0f) {
-                    glm::vec3 navigator_position = monster->GetPosition();
+                    glm::vec3 navigator_position = monster->nav.GetPosition();
 
                     /* Retail resets the AI mode and pathing cooldown only once the
                        short-move test passes; a long move leaves both alone. */
@@ -992,9 +1007,9 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
                         !monster_info->party_threat.visible_to_player) {
                         glm::vec3 next_position;
 
-                        next_position = monster->movement.attachment->GetNextPosition();
+                        next_position = monster->nav.movement.attachment->GetNextPosition();
                         if (glm::length(next_position) == static_cast<float>(0.0)) {
-                            next_position = monster->GetPosition();
+                            next_position = monster->nav.GetPosition();
                         }
                         {
                             glm::vec3 camera;
@@ -1002,13 +1017,13 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
 
                             camera = cameraLocation();
                             if (projectsToCamera(probe) == 0 &&
-                                !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
+                                !GetWorldSpatialIndex()->hasLineOfSight(camera, probe)) {
                                 glm::vec3 notify_position = next_position;
                                 W8MonsterGroup* group =
                                     FindMonsterGroup(monster_info->monster_group_id);
 
                                 MoveMonsterGroupAndAllies(group, &notify_position,
-                                                          monster->GetYaw());
+                                                          monster->nav.GetYaw());
                                 cleared = true;
                             }
                         }
@@ -1021,31 +1036,32 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
                 glm::vec3 location2;
 
                 camera = cameraLocation();
-                location2 = monster->GetPosition();
+                location2 = monster->nav.GetPosition();
                 probe = location2;
                 probe.y += 1e+03f;
                 /* Both on-screen tests take the representation location read at the top of
                    the watch block, not the navigator position (0x00503e90, 0x00503f40). */
                 if (projectsToCamera(location) == 0 &&
-                    !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
+                    !GetWorldSpatialIndex()->hasLineOfSight(camera, probe)) {
                     if (monster->formation.x == 0.0f && monster->formation.y == 0.0f &&
                         monster->formation.z == 0.0f) {
-                        monster->formation = monster->GetPosition();
+                        monster->formation = monster->nav.GetPosition();
                     }
                     probe = monster->formation;
                     probe.y += 1e+03f;
                     if (projectsToCamera(location) == 0 &&
-                        !GetWorldOctree()->HasLineOfSight(&camera, &probe, true)) {
+                        !GetWorldSpatialIndex()->hasLineOfSight(camera, probe)) {
                         if (monster->formation.x == 0.0f && monster->formation.y == 0.0f &&
                             monster->formation.z == 0.0f) {
-                            monster->formation = monster->GetPosition();
+                            monster->formation = monster->nav.GetPosition();
                         }
                         {
                             glm::vec3 notify_position = monster->formation;
                             W8MonsterGroup* group =
                                 FindMonsterGroup(monster_info->monster_group_id);
 
-                            MoveMonsterGroupAndAllies(group, &notify_position, monster->GetYaw());
+                            MoveMonsterGroupAndAllies(group, &notify_position,
+                                                      monster->nav.GetYaw());
                         }
                         cycle_cleared = true;
                         flags_cleared = true;
@@ -1073,11 +1089,11 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
         if (minutes < monster_info->look_time) {
             monster_info->look_time -= static_cast<unsigned char>(minutes);
         } else {
-            int duration = monster_info->p3D->look_duration;
+            int duration = monster_info->entity->look_duration;
 
             monster_info->look_time = 0;
             monster_info->pause_time = static_cast<unsigned char>(
-                Random(static_cast<unsigned int>(duration)) + duration / 2);
+                CurrentGame().rng.below(static_cast<unsigned int>(duration)) + duration / 2);
             if (monster_info->pause_time == 0) {
                 monster_info->pause_time = 1;
             }
@@ -1086,11 +1102,11 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
         if (minutes < monster_info->pause_time) {
             monster_info->pause_time -= static_cast<unsigned char>(minutes);
         } else {
-            int frequency = monster_info->p3D->look_frequency;
+            int frequency = monster_info->entity->look_frequency;
 
             monster_info->pause_time = 0;
             monster_info->look_time = static_cast<unsigned char>(
-                Random(static_cast<unsigned int>(frequency)) + frequency / 2);
+                CurrentGame().rng.below(static_cast<unsigned int>(frequency)) + frequency / 2);
             if (monster_info->look_time == 0) {
                 monster_info->look_time = 1;
             }
@@ -1102,13 +1118,12 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
    look-around timers, the sight bookkeeping around its last-seen position,
    the per-turn regeneration and fatigue bookkeeping, condition, enchantment
    and effect countdowns, and finally the combat effect slots. */
-// FUNCTION: WIZ8 0x00503990
 void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                      unsigned char full_health_regeneration)
 {
     bool frost_condition = false;
 
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     AgeMonsterMovement(monster_info, minutes);
     {
         unsigned int amount = monster_info->modifiers.damage_per_minute;
@@ -1117,19 +1132,19 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
             W8TargetSource source;
 
             amount *= minutes;
-            if (monster_info->fInCombat) {
+            if (monster_info->pCombat) {
                 amount += amount >> 1;
             }
             ResetTargetSource(&source);
-            ApplyDamageToMonster(monster_info, amount, &source, true, gXStatus.fCombatMode, 0, 0,
-                                 false);
+            ApplyDamageToMonster(monster_info, amount, &source, true,
+                                 CurrentGame().combat.has_value(), 0, 0, false);
         }
     }
     if (monster_info->uiCondition[W8_CONDITION_DISEASED] != 0) {
         frost_condition = true;
     }
     {
-        W8MonsterRecord* data = GetMonsterDataForInfo(monster_info);
+        const W8MonsterRecord* data = GetMonsterDataForInfo(monster_info);
         int amount = (static_cast<int>(data->hp_regeneration) +
                       monster_info->modifiers.health_regen_adjustment) *
                      static_cast<int>(minutes);
@@ -1161,8 +1176,8 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
     {
         float heal_scale;
 
-        if (!gXStatus.fSurprisePossible && full_health_regeneration == 0) {
-            if (!monster_info->fInCombat) {
+        if (!CurrentGame().surprise_possible && full_health_regeneration == 0) {
+            if (!monster_info->pCombat) {
                 heal_scale = 0.5f;
             } else {
                 heal_scale = 0.0f;
@@ -1236,7 +1251,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
             ++slot;
         }
     }
-    if (monster_info->fInCombat) {
+    if (monster_info->pCombat) {
         for (auto& combat_effect : monster_info->pCombat->combat_effects) {
             W8EffectSlot* slot = &combat_effect;
 
@@ -1270,21 +1285,20 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
    the rest item rolls fatigue dice whose sides grow with camp_fatigue_count;
    stamina absorbs the roll first, overflow becomes damage. The first roll
    raises the fatigued flag and posts the notice once. */
-// FUNCTION: WIZ8 0x005044d0
 void UpdateCampFatigue(int ticks)
 {
-    if (g_status.world_suspended) {
+    if (CurrentGame().status.world_suspended) {
         return;
     }
     bool any_rolled = false;
     for (unsigned int slot = 0; slot < 8; ++slot) {
-        W8Character* character = &g_status.buffers.Char[slot];
+        W8Character* character = &CurrentGame().party.characters[slot];
         if (CanPartySlotParticipate(slot) && character->iRace != W8_RACE_ANDROID &&
-            !FindItemOnCharacter(character, 0x1e5, static_cast<W8ItemInstance**>(0), 0,
-                                 static_cast<W8ItemInstance*>(0))) {
+            !FindCharacterItem(*character, ItemWithId(0x1e5), W8ItemReach::Worn)) {
             W8Dice dice;
             dice.count = static_cast<unsigned char>(ticks);
-            dice.sides = static_cast<unsigned char>(g_status.camp_fatigue_count / 6) + 2;
+            dice.sides =
+                static_cast<unsigned char>(CurrentGame().status.camp_fatigue_count / 6) + 2;
             any_rolled = true;
             dice.base = 0;
             unsigned int amount = static_cast<unsigned int>(RollDice(&dice));
@@ -1297,7 +1311,9 @@ void UpdateCampFatigue(int ticks)
                                          static_cast<W8SpellEffectResult*>(0));
                     }
                     bool announce =
-                        !gXStatus.fCombatMode || g_settings.verbose_combat_messages == 0 ? 0 : 1;
+                        !CurrentGame().combat.has_value() || g_settings.verbose_combat_messages == 0
+                            ? 0
+                            : 1;
                     ApplyDamageToCharacter(slot, amount, false, announce, false,
                                            static_cast<W8SpellEffectResult*>(0), false);
                 } else {
@@ -1305,46 +1321,45 @@ void UpdateCampFatigue(int ticks)
                                      static_cast<W8SpellEffectResult*>(0));
                 }
             }
-            if (!g_status.party_fatigued) {
-                g_status.party_fatigued = true;
-                ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x1da]);
+            if (!CurrentGame().status.party_fatigued) {
+                CurrentGame().status.party_fatigued = true;
+                ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x1da]);
             }
         }
     }
     if (any_rolled) {
-        g_status.camp_fatigue_count += ticks;
+        CurrentGame().status.camp_fatigue_count += ticks;
         return;
     }
-    g_status.camp_fatigue_count = 0;
-    g_status.party_fatigued = false;
-    g_status.camp_tick_ms = 0;
+    CurrentGame().status.camp_fatigue_count = 0;
+    CurrentGame().status.party_fatigued = false;
+    CurrentGame().status.camp_tick_ms = 0;
 }
 
 /* The stamina-tick driver: refreshes the wait state from fast movement and
    motion in the last update, then ticks each eligible character. While the party is
    fatigued, characters lacking the rest item are skipped. */
-// FUNCTION: WIZ8 0x00504670
 void UpdatePartyStamina(int ticks)
 {
     if (IsLevelFastMovement()) {
-        g_status.wait_state = 1;
+        CurrentGame().status.wait_state = W8_GAME_WAIT_STATE_FAST_MOVEMENT;
     } else {
-        g_status.wait_state = LevelMovedThisUpdate() ? 0 : 3;
+        CurrentGame().status.wait_state =
+            LevelMovedThisUpdate() ? W8_GAME_WAIT_STATE_MOVING : W8_GAME_WAIT_STATE_RESTING;
     }
 
     for (unsigned int slot = 0; slot < 8; ++slot) {
-        if (!g_status.buffers.XChar[slot].fOccupied) {
+        if (!CurrentGame().party.members[slot].has_value()) {
             continue;
         }
-        W8Character* character = &g_status.buffers.Char[slot];
+        W8Character* character = &CurrentGame().party.characters[slot];
         if (character->highest_condition >= W8_CONDITION_DEAD &&
             (character->uiCondition[W8_CONDITION_DEAD] != 0 ||
              !GetConditionRecordFlag(slot, W8_DEPENDENCE_SWALLOWED))) {
             continue;
         }
-        if (g_status.party_fatigued &&
-            !FindItemOnCharacter(character, 0x1e5, static_cast<W8ItemInstance**>(0), 0,
-                                 static_cast<W8ItemInstance*>(0))) {
+        if (CurrentGame().status.party_fatigued &&
+            !FindCharacterItem(*character, ItemWithId(0x1e5), W8ItemReach::Worn)) {
             continue;
         }
         RegenCharacterStamina(slot, static_cast<unsigned int>(ticks));
@@ -1355,10 +1370,9 @@ void UpdatePartyStamina(int ticks)
    applied directly, then the fractional regen accumulator is scaled by the
    wait state (camp halved, resting states reduced, surprise full), frost
    quarters it and the trait rerolls it through the profession level. */
-// FUNCTION: WIZ8 0x00504730
 void RegenCharacterStamina(int party_slot, unsigned int elapsed)
 {
-    W8Character* character = &g_status.buffers.Char[party_slot];
+    W8Character* character = &CurrentGame().party.characters[party_slot];
     unsigned int frost = character->uiCondition[W8_CONDITION_DISEASED];
     signed char stamina_mod = character->bonus.stamina_regen_adjustment;
     if (stamina_mod < 1) {
@@ -1371,11 +1385,12 @@ void RegenCharacterStamina(int party_slot, unsigned int elapsed)
     }
 
     float scale = 1.0f;
-    if (!gXStatus.fSurprisePossible) {
+    if (!CurrentGame().surprise_possible) {
         scale = 0.5f;
-        if (g_status.wait_state != 3) {
+        if (CurrentGame().status.wait_state != W8_GAME_WAIT_STATE_RESTING) {
             scale = 0.1f;
-            if (g_status.wait_state != 0 && g_status.wait_state != 2) {
+            if (CurrentGame().status.wait_state != W8_GAME_WAIT_STATE_MOVING &&
+                CurrentGame().status.wait_state != W8_GAME_WAIT_STATE_INITIAL_REST) {
                 scale = 0.0f;
             }
         }
@@ -1385,7 +1400,7 @@ void RegenCharacterStamina(int party_slot, unsigned int elapsed)
     }
     if (CharacterHasTrait(character, W8_TRAIT_STAMINA_REGENERATION)) {
         if (scale == 0.0f) {
-            if (gXStatus.fCombatMode) {
+            if (CurrentGame().combat.has_value()) {
                 scale = ScaleValueByProfessionLevel(character, W8_TRAIT_STAMINA_REGENERATION, 3.3f);
             }
         } else {

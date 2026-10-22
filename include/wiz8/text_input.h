@@ -5,7 +5,7 @@
 #include <string_view>
 #include <vector>
 
-#include "input.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_layer.h"
 
 struct Font;
@@ -72,7 +72,6 @@ private:
     void RenderBackground(W8TextField& field, SDL_Surface& target);
     void RenderInactive(W8TextField& field, SDL_Surface& target);
     void InsertCharacter(char32_t character);
-    void InsertRestricted(char32_t character);
     void DeleteSelection(std::size_t first, std::size_t last);
     void SelectWordAtMouse(int mouse_x);
 

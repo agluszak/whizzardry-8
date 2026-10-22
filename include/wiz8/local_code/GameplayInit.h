@@ -1,21 +1,16 @@
 #pragma once
 
+#include "wiz8/data/records.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
 
-void ResetGameStatus(bool release);
-void InitializeGameplayRuntimeObjects(void);
-unsigned char InitializeFactDatabase(void);
-unsigned char InitializeLevelDatabase(void);
-unsigned char InitializeNpcDatabase(void);
-void DestroyFactDatabase(void);
-void DestroyLevelDatabase(void);
-void DestroyNpcDatabase(void);
+class Game;
+class GameSession;
+
 void ResetPartySlotRow(int slot);
-void ResetGameplayStatusBlock(void);
 void ResetTargetingState(void);
-void DestroyGameplayObjects(void);
-void ResetForNewGame(void);
+/* Begin a new game in party creation, replacing any in progress: the party starts with
+   the starting items and gold and an empty marching order. */
+Game& BeginNewGame(GameSession& games);
 void ResetGameplaySlot(unsigned int slot);
 void ResetGameplaySettings(void);
 

@@ -25,7 +25,6 @@ inline void initializePropSurface(W8GDSurface& surface, std::span<const glm::vec
     const auto triangle = indexedTriangle(vertices, surface.vertex_indices);
     surface.plane = trianglePlane(triangle[0], triangle[1], triangle[2]);
     surface.flags = dominantPlaneAxis(surface.plane.normal) + W8_GD_SURFACE_PROP_GEOMETRY;
-    surface.hit_plane = 0;
     surface.contact_margin = 500;
     if (surface.plane.normal.y >= 0.5f)
         surface.flags |= W8_GD_SURFACE_WALKABLE;

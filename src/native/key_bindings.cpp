@@ -6,7 +6,7 @@
 
 #include <SDL3/SDL_keycode.h>
 
-#include "input.h"
+#include "wiz8/platform/input.h"
 
 namespace {
 struct KeyCharacters {

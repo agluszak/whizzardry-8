@@ -1,4 +1,3 @@
-#include "wiz8/design_rect.h"
 #ifndef WIZ8_UTILITY_H
 #define WIZ8_UTILITY_H
 
@@ -8,7 +7,8 @@
 #include <SDL3/SDL_rect.h>
 
 #include "wiz8/application.h"
-#include "wiz8/dice.h"
+#include "wiz8/data/dice.h"
+#include "wiz8/design_rect.h"
 #include "wiz8/local_code/ControlsRect.h"
 
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base);
@@ -20,13 +20,9 @@ char* TitleCaseString(char* string);
 float ShortestAngleDistance(float first, float second);
 DesignRect UnionScreenRects(const DesignRect& first, const DesignRect& second);
 bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point);
-void AdjustByteByPercent(unsigned char* value, unsigned int percent);
 void AdjustIntegerByPercent(unsigned int* value, unsigned int percent);
 float NormalizeAngle(float angle);
 
-void DebugMessage(int channel, std::string_view message);
-/* The plain message reporter. ReadLevel.cpp uses it for load failures and
-   GrCycle.cpp for a cycle with no usable LOD, so its name stays neutral. */
 int GetRandomCharacter(int require_primary, int require_secondary, int excluded_slot,
                        signed char excluded_gender);
 /* 0x00517FB0: fill `selected` with up to `count` distinct party slots that pass

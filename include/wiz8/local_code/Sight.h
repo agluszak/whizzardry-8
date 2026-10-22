@@ -6,6 +6,16 @@ struct W8MonsterInfo;
 struct W8MonsterGroup;
 struct W8VisibilityRecord;
 
+enum class W8VisibilityCondition : unsigned char {
+    SightState = 0,
+    CanSee = 1,
+    FirstLineOfSightFlag = 2,
+    ThirdLineOfSightFlag = 3,
+    ProjectileOriginLineOfSight = 4,
+    SpellOriginLineOfSight = 5,
+    GeneralLineOfSight = 6
+};
+
 void ReleaseMonToMonVisibilityList(W8MonsterInfo* monster_info);
 void RefreshAllSight(void);
 /* Put the sight subsystem back to its starting state. */
@@ -14,7 +24,7 @@ void RefreshOutwardSightForAllMonsters(void);
 void RefreshInwardSightForAllMonsters(void);
 void RefreshMonsterSight(W8MonsterInfo* monster_info);
 void ResetAndRefreshAllSight(void);
-unsigned int AgeAllMonsterSight(void);
+void AgeAllMonsterSight(void);
 void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bounds);
 
 /* Monster-to-monster sight after line of sight is already clear. */
@@ -33,12 +43,12 @@ float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_positi
 
 bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group);
 bool IsSightRangeOverridden(void);
-char GetMonsterSpellSightIndex(const W8MonsterInfo* monster);
+signed char GetMonsterSpellSightIndex(const W8MonsterInfo* monster);
 
 extern const float g_sight_default;
 
 bool IsVisibleUnderConditions(const W8MonsterInfo* monster, const W8VisibilityRecord* row,
-                              int kind);
+                              W8VisibilityCondition condition);
 /* Whether one group's leader member can see the other's: far-clip distance
    first, then the outward sight record and a line-of-sight trace. */
 bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target);

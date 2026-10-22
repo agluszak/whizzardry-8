@@ -7,9 +7,8 @@ struct W8Chunk;
 
 #include <SDL3/SDL_keycode.h>
 
-#include "compat/compiler.h"
-#include "input.h"
 #include "wiz8/mgs_commands.h"
+#include "wiz8/platform/input.h"
 
 namespace wiz8 {
 class File;
@@ -24,7 +23,6 @@ struct MGSKeyBinding {
     std::uint16_t unmapped_retail_key = 0;
 };
 
-// VTABLE: WIZ8 0x005ee8f0
 class MGSKeyboard {
 public:
     int FindBinding(W8MGSCommand command) const;
@@ -53,7 +51,7 @@ void CloseKeyboardMenu(void);
 /* Open the keyboard-action menu for one party slot. */
 void OpenKeyboardMenuForSlot(int slot);
 /* Build the panel and one row per selectable menu entry. */
-unsigned char BuildKeyboardMenu(void);
+bool BuildKeyboardMenu(void);
 /* Re-enable the menu's region set and every row region. */
 void EnableKeyboardMenuInput(void);
 /* Whether the cursor sits inside the menu panel rectangle. */
@@ -64,9 +62,9 @@ void RefreshKeyboardMenuRows(void);
 void RedrawKeyboardMenuPanel(bool invalidate);
 /* Dispatch a bound MGS command number through the keyboard system. */
 void DispatchMGSCommand(W8MGSCommand command);
-/* Route one non-mouse input atom to text entry, dialogue, the trap text box,
-   the record-mode console or a bound MGS command. */
-unsigned char HandleMainGameInputEvent(const InputEvent* input);
+/* Route one non-mouse input atom to text entry, dialogue, the trap text box
+   or a bound MGS command. */
+bool HandleMainGameInputEvent(const InputEvent* input);
 /* Poll the camera/movement command bindings and set the world-render flags. */
 void HandleManualCameraHotkeys(void);
 void ApplyCameraMotionHotkeys(void);

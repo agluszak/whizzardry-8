@@ -18,7 +18,6 @@
 #include "wiz8/unicode.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
-// FUNCTION: WIZ8 0x0055a0a0
 
 static std::string ReadNarrowText(wiz8::File& file)
 {
@@ -30,7 +29,6 @@ static std::string ReadNarrowText(wiz8::File& file)
     return text;
 }
 
-// FUNCTION: WIZ8 0x0055a140
 std::optional<W8NpcScriptQuote> ReadNpcScriptQuote(wiz8::File* file)
 try {
     wiz8::retail::nsf::Quote disk;
@@ -57,7 +55,7 @@ try {
         wiz8::retail::nsf::Entry stored;
         file->read_exact(&stored, sizeof(stored));
         W8NpcQuoteEntry entry;
-        entry.kind = stored.kind;
+        entry.kind = static_cast<W8NpcQuoteEntryKind>(stored.kind);
         entry.operand0 = stored.operand0;
         entry.operand1 = stored.operand1;
         entry.operand2 = stored.operand2;
@@ -81,7 +79,6 @@ try {
     return std::nullopt;
 }
 
-// FUNCTION: WIZ8 0x0055a480
 std::unique_ptr<W8NpcScriptFile> LoadNpcScriptFile(std::string_view path)
 try {
     auto file = wiz8::open_file(wiz8::asset_path(path));

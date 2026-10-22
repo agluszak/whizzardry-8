@@ -1,10 +1,9 @@
 #pragma once
 
-class Trigger;
+#include <memory>
 
-/* Level 0x18 (Swamp) activation callbacks, registered by
-   InitializeLevelMasterFunctions. */
-bool SwampOilPool(Trigger* pTrigger);
-bool SwampGasPlane(Trigger* pTrigger);
-bool SwampFirePlane(Trigger* pTrigger);
-bool SwampOnelid(Trigger* pTrigger);
+class LevelScript;
+struct ScriptContext;
+
+/* Level 0x18 (Swamp): the oil pool, the gas and fire planes and the lid. */
+std::unique_ptr<LevelScript> MakeSwampScript(const ScriptContext& context);

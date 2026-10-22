@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -12,31 +13,31 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
-#include "input.h"
 #include "local_code/ControlsRect.h"
 #include "npc_script_file.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/game_status.h"
+#include "wiz8/game.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/NPCScripting.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
 /* Dialog Code\NpcDialog.cpp. The NPC dialogue popup; see the header for the
    request-buffer layout. The option-list strings and the two price-check
-   strings live in the g_localized_strings message table. */
+   strings live in the Data().strings message table. */
 
-// FUNCTION: WIZ8 0x005DA6B0
-W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data,
+W8NpcDialog::W8NpcDialog(std::shared_ptr<const W8NpcScriptFile> script,
+                         const W8NpcQuoteEntry* message, int aux_data,
                          std::function<void(W8NpcDialog&)> closed)
-    : m_closed(std::move(closed))
+    : m_closed(std::move(closed)), m_script(std::move(script))
 {
     short height = 0x46;
     short max_width = -1;
@@ -47,7 +48,7 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data,
     m_input_group = std::make_unique<TextFieldGroup>(m_input, g_wiz_text_mono_font);
     m_message = message;
 
-    char opcode = message->kind;
+    signed char opcode = message->kind;
     if (opcode == W8_NPC_ENTRY_OPTIONS) {
         if (message->sub_entry_count == 2) {
             m_compact_options = false;
@@ -65,7 +66,7 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data,
         width = (m_text_width + 0xa) * message->sub_entry_count + 0x1e;
     } else if (opcode == W8_NPC_ENTRY_PRICE_CHECK || opcode == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
         m_compact_options = false;
-        short length = g_wiz_text_mono_font.textWidth(g_localized_strings[0x7df]);
+        short length = g_wiz_text_mono_font.textWidth(Data().strings[0x7df]);
         height = 0x50;
         m_text_width = length + 6;
         width = m_text_width * 2 + 0x32;
@@ -84,10 +85,8 @@ W8NpcDialog::W8NpcDialog(W8NpcQuoteEntry* message, int aux_data,
     }
 }
 
-// FUNCTION: WIZ8 0x005DA860
 W8NpcDialog::~W8NpcDialog() = default;
 
-// FUNCTION: WIZ8 0x005DA8B0
 bool W8NpcDialog::Configure()
 {
     int index;
@@ -126,14 +125,14 @@ bool W8NpcDialog::Configure()
         bounds.right = m_bounds.x + m_bounds.w - 10;
         bounds.bottom = m_bounds.y + 0x19;
         m_text_buffers[0] = std::make_unique<W8TextBuffer>(
-            &bounds, g_localized_strings[0x7e4], g_wiz_text_font_secondary,
+            &bounds, Data().strings[0x7e4], g_wiz_text_font_secondary,
             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     } else if (m_message->kind == W8_NPC_ENTRY_PRICE_CHECK ||
                m_message->kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
         short x = static_cast<short>((m_bounds.w - static_cast<short>((m_text_width + 5) * 2)) / 2);
         m_buttons[0] = std::make_unique<W8ButtonWidget>(m_input);
         m_buttons[0]->Configure(ButtonAppearance{.generic_image = DefaultGenericButtonImage(),
-                                                 .string = std::string(g_localized_strings[0x7df]),
+                                                 .string = std::string(Data().strings[0x7df]),
                                                  .usFont = &(g_wiz_text_mono_font),
                                                  .sForeColor = 4,
                                                  .sShadowColor = 5},
@@ -145,7 +144,7 @@ bool W8NpcDialog::Configure()
                                 }});
         m_buttons[1] = std::make_unique<W8ButtonWidget>(m_input);
         m_buttons[1]->Configure(ButtonAppearance{.generic_image = DefaultGenericButtonImage(),
-                                                 .string = std::string(g_localized_strings[0x7e0]),
+                                                 .string = std::string(Data().strings[0x7e0]),
                                                  .usFont = &(g_wiz_text_mono_font),
                                                  .sForeColor = 4,
                                                  .sShadowColor = 5},
@@ -155,7 +154,9 @@ bool W8NpcDialog::Configure()
                                     m_selected_option = 1;
                                     m_keep_open = false;
                                 }});
-        line = fmt::sprintf(g_localized_strings[0x7e5], g_npc_dialogue.price_check()->price);
+        const auto& price_check = CurrentGame().npc_dialogue.price_check();
+        if (!price_check) throw std::logic_error("NPC price dialogue has no active price check");
+        line = fmt::sprintf(Data().strings[0x7e5], price_check->price);
         bounds.left = m_bounds.x + 10;
         bounds.top = m_bounds.y + 10;
         bounds.right = m_bounds.x + m_bounds.w - 10;
@@ -163,7 +164,7 @@ bool W8NpcDialog::Configure()
         m_text_buffers[0] = std::make_unique<W8TextBuffer>(
             &bounds, line, g_wiz_text_font_secondary,
             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
-        line = fmt::format("{} {:d}g", g_localized_strings[0x7e6], g_status.party_gold);
+        line = fmt::format("{} {:d}g", Data().strings[0x7e6], CurrentGame().party.gold);
         bounds.left = m_bounds.x + 10;
         bounds.top = m_bounds.y + 0x37;
         bounds.right = m_bounds.x + m_bounds.w - 10;
@@ -181,13 +182,12 @@ bool W8NpcDialog::Configure()
         bounds.right = m_bounds.x + m_bounds.w - 10;
         bounds.bottom = m_bounds.y + 0x19;
         m_text_buffers[0] = std::make_unique<W8TextBuffer>(
-            &bounds, g_localized_strings[0x7e4], g_wiz_text_font_secondary,
+            &bounds, Data().strings[0x7e4], g_wiz_text_font_secondary,
             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     }
     return true;
 }
 
-// FUNCTION: WIZ8 0x005DAE00
 void W8NpcDialog::DrawModal(SDL_Surface& target)
 {
     if (!m_keep_open) return;
@@ -210,7 +210,6 @@ void W8NpcDialog::RefreshModal()
     InvalidateRegion(m_bounds);
 }
 
-// FUNCTION: WIZ8 0x005DAE90
 bool W8NpcDialog::ProcessInput()
 {
     m_input.setModal(true);

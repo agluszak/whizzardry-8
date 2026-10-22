@@ -1,12 +1,9 @@
 #pragma once
 
-class Trigger;
+#include <memory>
 
-/* Level 0x15 (Rift1) activation callbacks, registered by
-   InitializeLevelMasterFunctions. */
-bool Rift1Sexspawn(Trigger* pTrigger);
-bool Rift1Hotstuff(Trigger* pTrigger);
-bool Rift1Fireantspawn(Trigger* pTrigger);
-bool Rift1Gate(Trigger* pTrigger);
-bool Rift1AshLock(Trigger* pTrigger);
-bool Rift1TimeDorado(Trigger* pTrigger);
+class LevelScript;
+struct ScriptContext;
+
+/* Level 0x15 (Rift1): the Al-Sedexus swap, the lava lord and the spawns. */
+std::unique_ptr<LevelScript> MakeRift1Script(const ScriptContext& context);

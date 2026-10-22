@@ -3,7 +3,7 @@
 
 extern char g_button_click_1[39];
 
-enum class UiPointerAction;
+enum class UiPointerAction : unsigned char;
 void PlayButtonSound(UiPointerAction action);
 
 #endif

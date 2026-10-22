@@ -1,6 +1,7 @@
 #pragma once
-#include "compat/compiler.h"
-#include "wiz8/conditions.h"
+#include <array>
+
+#include "wiz8/rules/conditions.h"
 
 struct W8ItemInstance;
 struct W8TargetSource;
@@ -10,77 +11,48 @@ struct W8MonsterInfo;
 void CopyCharacterConditionsToTarget(const W8Character& character, const int* target);
 void CopyMonsterConditionsToCharacter(W8Character* character, const W8MonsterInfo* monster_info);
 
-#pragma pack(push, 2)
+/* A monster kind's condition immunities: the conditions that never land on it,
+   padded with W8_CONDITION_NONE to the retail table's twenty slots, so a
+   condition-less attack also counts as resisted by these kinds. */
 struct W8ConditionImmunity {
     unsigned char kind;
     /* The catch-all flag the monster-info immunity list prints as its
        final "all" entry. */
-    unsigned char immune_all;
-    W8Condition conditions[20];
-};
-#pragma pack(pop)
-static_assert(sizeof(W8ConditionImmunity) == 0x52, "W8ConditionImmunity_size");
+    bool immune_all;
+    std::array<W8Condition, 20> conditions;
 
-extern W8ConditionImmunity g_condition_immunities[3];
-/* String ids of one condition's notices (e.g. "Poisoned", "gets poisoned",
-   "get poisoned", "poison"). */
-struct W8ConditionNoticeIds {
-    unsigned short name;
-    unsigned short singular;
-    unsigned short plural;
-    unsigned short noun;
+    bool Contains(W8Condition condition) const;
 };
 
-extern W8ConditionNoticeIds g_condition_notices[25];
+/* The immunity set for a monster kind, or null when the kind has none. */
+const W8ConditionImmunity* FindConditionImmunity(unsigned char kind);
 extern unsigned short g_enchantment_notices[16];
 extern unsigned short g_condition_interrupt_notices[12];
 
-void RemoveCharacterCondition(int party_slot, W8Condition condition, bool announce);
 void SetMonsterCondition(int location_id, W8Condition condition, int duration, int poison_strength,
                          W8TargetSource* target, bool announce);
 void ClearMonsterCondition(int location_id, W8Condition condition);
 void ClearMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot);
-void ClearCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot);
-/* Run one enchantment slot down by some turns, emptying it when nothing is
-   left. */
-void TickCharacterEnchantmentSlot(int party_slot, W8EnchantmentSlot slot, unsigned int turns);
 void TickMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot, unsigned int turns);
 /* The per-condition aging tick the sight producer runs while a
    condition's countdown is live. */
 void TickMonsterCondition(int location_id, W8Condition condition, unsigned int minutes);
-/* The character-side counterpart of TickMonsterCondition. */
-void TickCharacterCondition(unsigned int party_slot, W8Condition condition, unsigned int minutes);
 /* Settle an enchantment on a character or monster with its argument, rolled
    duration and definition percentage. */
-void ApplyCharacterCondition(int party_slot, W8EnchantmentSlot slot, int argument,
-                             unsigned int duration, unsigned int percent);
 void ApplyMonsterCondition(int location_id, W8EnchantmentSlot slot, int argument,
                            unsigned int duration, unsigned int percent);
 bool GetConditionRecordFlag(int party_slot, W8CharacterDependence dependence);
-/* Record a bound monster in a party member's condition record -
-   the level the binding was made on and the monster's location id, with the
-   record's flag byte raised. Slot one also retires the monster's group and
-   its allies. */
-void RemoveAllConditionsFromParty(void);
 /* Bind a monster into one of a character's two dependence
    condition records; a slot-one binding also retires the monster's group. */
 void BindMonsterToCharacterDependence(unsigned int party_slot, unsigned int dependence_slot,
                                       int monster_id);
 
-/* Rescan uiCondition from slot 0x13 downward and write the
-   first live index into W8Character::highest_condition. */
-void RecomputeCharacterHighestCondition(int party_slot);
 /* Clear the character condition records a dead monster sourced,
    over both dependence slots and the per-character tables; RecordMonsterKill
    runs it before the faction fallout. */
 void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info);
 
-unsigned char SetCharacterCondition(int party_slot, W8Condition condition, int duration,
-                                    int poison_strength, char alternate_missing_notice,
-                                    char announce);
-
 void RemoveConditionFromEveryone(W8Condition condition);
-void RemoveConditionFromParty(W8Condition condition);
 void RemoveAllEnchantments(void);
 
 void NormalizeItemQuantityKind(W8ItemInstance* item);

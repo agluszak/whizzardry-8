@@ -1,16 +1,19 @@
-#include <string>
 #ifndef WIZ8_CHARACTER_EVENT_QUEUE_H
 #define WIZ8_CHARACTER_EVENT_QUEUE_H
 
 #include <array>
+#include <chrono>
+#include <cstdint>
 #include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <vector>
 
-#include "timer.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/item_instance.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/rules/item_instance.h"
 
 struct W8Character;
 
@@ -38,15 +41,13 @@ enum W8CharacterEventFlag {
    original type name is unknown. */
 struct W8CharacterEvent {
     W8CharacterEvent(W8Character* character, unsigned int event_type, unsigned int flags,
-                     int queue_mode, int volume);
+                     int volume);
     ~W8CharacterEvent();
     W8CharacterEvent(const W8CharacterEvent&) = delete;
     W8CharacterEvent& operator=(const W8CharacterEvent&) = delete;
 
     W8Character* character;
     unsigned int event_type;
-    /* 0x0c: queue category passed as the fourth argument. */
-    int queue_mode;
     /* 0x10: event flags passed as the third argument. */
     unsigned int flags;
     /* 0x14: the 0-127 multiplier applied to the voice volume. */
@@ -58,35 +59,36 @@ struct W8CharacterEvent {
     int trigger_value_2;
     /* 0x20: the original event type TryAdjustQueuedEvent stores before
        rewriting event_type to the shared follow-up id 10. */
-    unsigned int original_event_type;
+    unsigned int original_event_type = 0;
     /* 0x24: an embedded item instance: the event consumer passes it to
        GetItemDisplayName, which reads both the id and the identified flag.
        Only the id is ever established here; the remaining bytes keep whatever
        the allocation gave them, exactly as before. */
     W8ItemInstance item;
-    /* 0x30/0x34: ProcessDeferredCharacterEvents delays dispatch until this many
-       milliseconds have elapsed since the queued w8_get_ticks stamp. */
-    int dispatch_delay_ms;
-    uint64_t dispatch_delay_start;
+    /* ProcessDeferredCharacterEvents holds the event until more than `dispatch_delay` of
+       the game's step time has passed since `dispatch_delay_start`; zero does not hold. */
+    std::chrono::milliseconds dispatch_delay{};
+    std::chrono::milliseconds dispatch_delay_start{};
 
     /* The event owns its voice; the portrait's shared handle can change
        independently of the event lifetime. */
     wiz8::sound::Playback voice_playback;
 
-    void DelayDispatch(int milliseconds)
+    // Hold the event's dispatch for `delay` of the game's step time from now.
+    void DelayDispatch(std::chrono::milliseconds delay);
+
+    bool IsAmbientExchange() const
     {
-        dispatch_delay_ms = milliseconds;
-        dispatch_delay_start = w8_get_ticks();
+        const auto type = event_type == 10 ? original_event_type : event_type;
+        return type == 14 || type == 15;
     }
 
     void Complete(); /* 0x0052CED0 */
 
-    std::string GetQuoteText(); /* 0x0052D240 */
+    bool Dispatch(); /* 0x0052CA60 */
 
-    unsigned char Dispatch(); /* 0x0052CA60 */
-
-    unsigned char IsConditionMet(unsigned int event_type); /* 0x0052C910 */
-    unsigned char PlayEventSound();                        /* 0x0052D260 */
+    bool IsConditionMet(unsigned int event_type); /* 0x0052C910 */
+    bool PlayEventSound(std::string_view quote);                        /* 0x0052D260 */
 };
 
 /* The character-event queue. Construction is at 0x0052D460; QueueEntry and the
@@ -103,15 +105,17 @@ struct W8CharacterEventQueue {
     std::vector<std::unique_ptr<W8CharacterEvent>> active_events;
     int active_event_type;
     int active_party_slot;
-    /* 0x58: a five-second countdown armed by every successful Dispatch; while
-       it ticks, active_event_type/active_party_slot still describe the last
+    /* A five-second window, on the game's step time, opened by every successful Dispatch;
+       while it lasts, active_event_type/active_party_slot still describe the last
        dispatched event for duplicate coalescing. */
-    uint64_t recent_event_clock;
-    int follow_up_flags;
-    uint64_t follow_up_clock;
-    /* 0x64: the party slot that spoke the last follow-up event; the response
-       pick excludes it. */
-    int follow_up_speaker_slot;
+    std::chrono::milliseconds recent_event_until{};
+    // No schedule means idle dialogue is disabled. Queue membership supplies
+    // the wait for playback; this stores only the next speaker and deadline.
+    struct FollowUp {
+        int excluded_slot = -1;
+        uint64_t ready_at = 0;
+    };
+    std::optional<FollowUp> follow_up;
     /* One party-slot bit mask per (remapped) event type. */
     std::array<unsigned char, 0xb1> event_character_masks{};
 
@@ -128,7 +132,7 @@ struct W8CharacterEventQueue {
     void SetEventCharacterMask(unsigned int event_type, unsigned int party_slot, bool enabled);
     bool HasEventCharacter(unsigned int event_type, unsigned int party_slot); /* 0x0052DD90 */
     void ProcessDeferredCharacterEvents();                                    /* 0x0052DDD0 */
-    unsigned char TryAdjustQueuedEvent(W8CharacterEvent* entry);              /* 0x0052DC80 */
+    bool TryAdjustQueuedEvent(W8CharacterEvent* entry);              /* 0x0052DC80 */
     bool IsMainQueueEmpty() const;                                            /* 0x0052E470 */
     /* Unlink an active event, restart the follow-up clock for it, complete it
        and release it. Retail expands this body in the dispatch helpers as well

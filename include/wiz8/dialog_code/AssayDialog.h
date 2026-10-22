@@ -4,11 +4,10 @@
 #include <deque>
 #include <memory>
 
-#include "compat/compiler.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/layouts/item_instance.h"
+#include "wiz8/rules/item_instance.h"
 
 struct W8Character;
 class W8ButtonWidget;
@@ -16,9 +15,11 @@ class W8TextBuffer;
 
 enum { W8_ASSAY_BUTTON_COUNT = 0x25, W8_ASSAY_TEXT_BUFFER_COUNT = 5 };
 
+/* Show the profession side first again, as a fresh game does. */
+void ResetAssayTab(void);
+
 /* The item information dialog. It keeps the inspected item and the character
    whose stats the requirement lines compare against. */
-// VTABLE: WIZ8 0x005ef988
 class W8AssayDialog : public W8DialogBase {
 public:
     bool TakeDirty() override;

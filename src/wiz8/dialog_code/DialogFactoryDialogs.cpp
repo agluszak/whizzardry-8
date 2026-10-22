@@ -1,6 +1,7 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <functional>
 #include <memory>
@@ -10,347 +11,36 @@
 #include <utility>
 
 #include <SDL3/SDL_keycode.h>
-#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "Font.h"
 #include "dialog_code/DialogBase.h"
-#include "himage.h"
-#include "image.h"
-#include "input.h"
 #include "layouts/game_status.h"
-#include "layouts/item_instance.h"
 #include "local_code/ControlsRect.h"
 #include "local_code/TextBuffer.h"
-#include "soundman.h"
-#include "sprite.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
+#include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/item_tables.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
-
-void W8ListBoxDialog::ClearLines()
-{
-    m_lines.clear();
-    m_selected_line = -1;
-    m_scrollable = false;
-    m_first_visible_line = 0;
-}
-
-// FUNCTION: WIZ8 0x005cbb40
-W8ListBoxDialog::W8ListBoxDialog()
-{
-    m_fill_colour = {0, 0x60, 0, SDL_ALPHA_OPAQUE};
-    ClearLines();
-}
-
-// FUNCTION: WIZ8 0x005cbce0
-
-// FUNCTION: WIZ8 0x005cbd70
-// FUNCTION: WIZ8 0x005CC650
-int W8ListBoxDialog::GetVisibleLineCount()
-{
-    if (!m_area_button.IsConfigured()) {
-        return 0;
-    }
-    return m_area_button.Bounds().h /
-           static_cast<int>(static_cast<unsigned int>(g_wiz_dialog_font.height()));
-}
-
-/* Both selection directions clamp the requested top row independently of
-   the selected row. */
-void W8ListBoxDialog::SetFirstVisibleLine(int requested)
-{
-    if (m_area_button.IsConfigured()) {
-        int first = requested;
-        if (static_cast<int>(m_lines.size()) - GetVisibleLineCount() < requested) {
-            first = static_cast<int>(m_lines.size()) - GetVisibleLineCount();
-        }
-        if (first < 0) {
-            first = 0;
-        } else if (static_cast<int>(m_lines.size()) - GetVisibleLineCount() < requested) {
-            first = static_cast<int>(m_lines.size()) - GetVisibleLineCount();
-        }
-        if (first != m_first_visible_line) {
-            m_first_visible_line = first;
-            m_dirty = true;
-        }
-    }
-}
-
-// FUNCTION: WIZ8 0x005CCB80
-void W8ListBoxDialog::SetCurrentLine(int line)
-{
-    if (m_selected_line == line) {
-        return;
-    }
-    if (line == -1) {
-        m_selected_line = -1;
-        return;
-    }
-    int target = line < 0 ? 0 : line;
-    if (static_cast<int>(m_lines.size()) - 1 < target) {
-        target = static_cast<int>(m_lines.size()) - 1;
-    }
-    int visible = GetVisibleLineCount();
-    if (target < m_first_visible_line) {
-        SetFirstVisibleLine(target);
-    } else if (target < static_cast<int>(m_lines.size()) &&
-               m_first_visible_line - 1 + visible < target) {
-        SetFirstVisibleLine(target - visible + 1);
-    }
-    m_selected_line = target;
-    m_dirty = true;
-}
-
-// FUNCTION: WIZ8 0x005CD2B0
-bool W8ListBoxDialog::HandleInputEvent(const InputEvent* input)
-{
-    if (input->type != InputEventType::KeyDown && input->type != InputEventType::KeyRepeat) {
-        return m_keep_open;
-    }
-
-    if (IsKeyHeld(SDLK_UP)) {
-        if (m_selected_line > 0) {
-            SetCurrentLine(m_selected_line - 1);
-        }
-    } else if (IsKeyHeld(SDLK_DOWN) && m_selected_line < static_cast<int>(m_lines.size())) {
-        SetCurrentLine(m_selected_line + 1);
-    }
-
-    switch (input->key) {
-    case SDLK_ESCAPE:
-        m_selected_line = -1;
-        m_keep_open = false;
-        return false;
-    case SDLK_RETURN:
-        if (m_selected_line != -1) {
-            m_keep_open = false;
-        }
-        return m_keep_open;
-    case SDLK_PAGEUP:
-        SetCurrentLine(m_selected_line - GetVisibleLineCount());
-        return m_keep_open;
-    case SDLK_PAGEDOWN:
-        SetCurrentLine(m_selected_line + GetVisibleLineCount());
-        return m_keep_open;
-    case SDLK_HOME:
-        SetCurrentLine(0);
-        return m_keep_open;
-    case SDLK_END:
-        SetCurrentLine(static_cast<int>(m_lines.size()) - 1);
-        return m_keep_open;
-    default:
-        return m_keep_open;
-    }
-}
-
-/* Build two text buttons, the scrolling text area, the up and down arrows, a
-   slider and the confirmation pair. */
-// FUNCTION: WIZ8 0x005cbdb0
-void W8ListBoxDialog::Configure()
-{
-    edge_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogEdge.STI", {},
-                                         "Data\\Dialogs\\DialogEdge.STI", {}, m_background_path,
-                                         static_cast<short>(m_background_flags), 0, 0);
-    if (!edge_inlay) throw std::runtime_error("Cannot load list inlay");
-    m_heading_bounds = {m_x + 9, m_y + 9, m_width - 18, g_wiz_dialog_font.height() * 150 / 100};
-    area_inlay = LoadGenericButtonImages({}, "Data\\Dialogs\\DialogInlay.STI", {},
-                                         "Data\\Dialogs\\DialogInlay.STI", {},
-                                         "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
-    if (!area_inlay) {
-        throw std::runtime_error("Cannot load list inlay");
-    }
-    m_area_button.Configure(
-        ButtonAppearance{.generic_image = area_inlay ? area_inlay : DefaultGenericButtonImage(),
-                         .string = std::string({}),
-                         .usFont = &g_wiz_dialog_font,
-                         .sForeColor = 255,
-                         .sShadowColor = 0},
-        {m_heading_bounds.x, m_heading_bounds.y + m_heading_bounds.h + 4, m_heading_bounds.w, 0x14},
-        {.on_click = [this](W8ButtonWidget*) { OnTextAreaClick(); },
-         .policy = {.activation = ButtonActivation::Press},
-         .priority = UI_PRIORITY_HIGHEST - 1});
-
-    const bool configured =
-        m_up_button.Configure(
-            ButtonGraphics::Load("Data\\Dialogs\\DialogUpArrow.STI", 3, 0, 1, 2, 2),
-            {.on_click = [this](W8ButtonWidget*) { OnUp(); },
-             .priority = UI_PRIORITY_HIGHEST - 1}) &&
-        m_down_button.Configure(
-            ButtonGraphics::Load("Data\\Dialogs\\DialogDownArrow.STI", 3, 0, 1, 2, 2),
-            {.on_click = [this](W8ButtonWidget*) { OnDown(); },
-             .priority = UI_PRIORITY_HIGHEST - 1}) &&
-        m_slider_button.Configure(ButtonGraphics::Load("Data\\Dialogs\\DialogSlideBar.STI",
-                                                       BUTTON_NO_IMAGE, 0, BUTTON_NO_IMAGE, 0,
-                                                       BUTTON_NO_IMAGE),
-                                  {.priority = UI_PRIORITY_HIGHEST - 2}) &&
-        m_ok_button.Configure(
-            ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 3, 0, 1, 2, 2),
-            {.on_click = [this](W8ButtonWidget*) { OnOk(); }}) &&
-        m_cancel_button.Configure(
-            ButtonGraphics::Load("Data\\Dialogs\\DialogConfirmation.STI", 7, 4, 5, 6, 6),
-            {.on_click = [this](W8ButtonWidget*) { OnCancel(); }});
-    if (configured) {
-        m_up_button.Policy().activation = m_down_button.Policy().activation =
-            ButtonActivation::Press;
-        m_up_button.Policy().repeat = m_down_button.Policy().repeat = true;
-        third_btn_inlay = LoadGenericButtonImages(
-            {}, "Data\\Dialogs\\DialogInlay.STI", {}, "Data\\Dialogs\\DialogInlay.STI", {},
-            "Data\\Dialogs\\DialogBackground_dark.STI", 0, 3, 3);
-        if (third_btn_inlay) {
-            m_third_text_button.Configure(
-                ButtonAppearance{.generic_image = third_btn_inlay ? third_btn_inlay
-                                                                  : DefaultGenericButtonImage(),
-                                 .string = std::string({}),
-                                 .usFont = &g_wiz_dialog_font,
-                                 .sForeColor = 255,
-                                 .sShadowColor = 0},
-                {0, 0, 1, 1},
-                {.on_click = [this](W8ButtonWidget*) { OnSliderTrackClick(); },
-                 .policy = {.activation = ButtonActivation::Press, .repeat = true},
-                 .priority = UI_PRIORITY_HIGHEST - 2});
-            if (m_third_text_button.IsConfigured()) {
-
-                m_footer_bounds = {m_x + 9, m_y + m_height - m_ok_button.Bounds().h * 150 / 100 - 9,
-                                   m_width - 18, m_ok_button.Bounds().h * 150 / 100};
-                m_cancel_button.SetPosition(
-                    m_footer_bounds.x - m_cancel_button.Bounds().w + m_footer_bounds.w,
-                    m_footer_bounds.h / 2 - m_cancel_button.Bounds().h / 2 + m_footer_bounds.y);
-                m_ok_button.SetPosition(m_cancel_button.Bounds().x -
-                                            m_cancel_button.Bounds().w / 2 - m_ok_button.Bounds().w,
-                                        m_cancel_button.Bounds().y);
-                m_area_button.Resize(m_heading_bounds.w, -6 - m_heading_bounds.y -
-                                                             m_heading_bounds.h +
-                                                             m_footer_bounds.y);
-                int selected = m_selected_line;
-                m_selected_line = 0;
-                SetCurrentLine(selected);
-                UpdateLayout();
-                return;
-            }
-        }
-    }
-    throw std::runtime_error("Cannot configure list controls");
-}
-
-// FUNCTION: WIZ8 0x005cc430
-/* The scrolling text area. Rows shrink by the scroll arrow when the list does
-   not fit; the slider position tracks the selected line. */
-// FUNCTION: WIZ8 0x005cc690
-void W8ListBoxDialog::Draw(SDL_Surface& target)
-{
-    W8DialogBase::Draw(target);
-    DrawButtonAppearance(target,
-                         {.generic_image = edge_inlay,
-                          .string = m_text,
-                          .usFont = &g_wiz_dialog_font,
-                          .fMultiColor = true,
-                          .sForeColor = 255,
-                          .sShadowColor = 0},
-                         m_heading_bounds, {});
-    DrawButtonAppearance(target, {.generic_image = edge_inlay}, m_footer_bounds, {});
-    m_area_button.Draw(target);
-    if (m_scrollable) {
-        const auto& area = m_area_button.Bounds();
-        const SDL_Rect fill{area.x + area.w, area.y + m_up_button.Bounds().h,
-                            m_up_button.Bounds().w,
-                            area.h - m_up_button.Bounds().h - m_down_button.Bounds().h};
-        SDL_FillSurfaceRect(&target, &fill, Get16BPPColor(m_fill_colour));
-    }
-    for (auto* button : {&m_third_text_button, &m_up_button, &m_down_button, &m_slider_button})
-        button->Draw(target);
-    if (m_ok_button.IsEnabled()) m_ok_button.Draw(target);
-    if (m_cancel_button.IsEnabled()) m_cancel_button.Draw(target);
-    const auto& rect = m_area_button.Bounds();
-    const SDL_Rect clip{rect.x + 3, rect.y + 3, rect.w - 6, rect.h - 6};
-    ScopedClipRect clipping(target, clip);
-    const int visible = std::min(GetVisibleLineCount(), int(m_lines.size()) - m_first_visible_line);
-    for (int row = 0; row < visible; ++row) {
-        const int line = m_first_visible_line + row;
-        const int y = rect.y + 2 + g_wiz_dialog_font.height() * row;
-        if (line == m_selected_line) {
-            const SDL_Rect selection{rect.x + 3, y, rect.w - 6, g_wiz_dialog_font.height() - 2};
-            SDL_FillSurfaceRect(&target, &selection, Get16BPPColor(m_fill_colour));
-        }
-        DrawText(target, g_wiz_dialog_font, {rect.x + 3, y}, m_lines[line]);
-    }
-}
-
-void W8ListBoxDialog::UpdateLayout()
-{
-    int dx = m_heading_bounds.x - m_x;
-    int dy = m_heading_bounds.y + m_heading_bounds.h + 4 - m_y;
-    int width = m_heading_bounds.w;
-    int height = -6 - m_heading_bounds.y - m_heading_bounds.h + m_footer_bounds.y;
-    const int rows = height / g_wiz_dialog_font.height();
-    m_scrollable = static_cast<int>(m_lines.size()) > rows;
-    if (m_scrollable) width -= 7 + m_up_button.Bounds().w;
-    m_area_button.Resize(width, height);
-
-    m_up_button.SetVisible(m_scrollable);
-    m_down_button.SetVisible(m_scrollable);
-    m_slider_button.SetVisible(m_scrollable);
-    m_third_text_button.SetVisible(m_scrollable);
-    if (m_scrollable) {
-        m_up_button.SetPosition(m_x + dx + 4 + width, m_y + 4 + dy);
-        m_down_button.SetPosition(m_x + dx + 4 + width,
-                                  m_y + dy + height - m_down_button.Bounds().h - 4);
-        m_slider_button.SetPosition(m_x + dx + 4 + width, m_area_button.Bounds().h +
-                                                              ((height - m_up_button.Bounds().h -
-                                                                m_down_button.Bounds().h - 7) *
-                                                               m_selected_line) /
-                                                                  static_cast<int>(m_lines.size()) +
-                                                              m_y + 3 + dy);
-        m_third_text_button.SetPosition(m_x + dx + width, m_y + dy);
-        m_third_text_button.Resize(m_up_button.Bounds().w + 7, height);
-    }
-}
-
-bool W8ListBoxDialog::TakeDirty()
-{
-    bool dirty = W8DialogBase::TakeDirty();
-    for (auto* button : {&m_area_button, &m_third_text_button, &m_up_button, &m_down_button,
-                         &m_slider_button, &m_ok_button, &m_cancel_button})
-        dirty |= button->TakeDirty();
-    return dirty;
-}
-
-// FUNCTION: WIZ8 0x005cd470
-bool W8ListBoxDialog::ProcessInput()
-{
-    BeginModalInput();
-    const auto route = [this] { return m_keep_open ? InputRoute::Handled : InputRoute::Stop; };
-    PumpUiInput({
-        .consumed = [&](const InputEvent&) { return route(); },
-        .unhandled =
-            [&](const InputEvent& input) {
-                if (input.type == InputEventType::MouseWheel) {
-                    SetCurrentLine(m_selected_line - input.wheel);
-                } else {
-                    HandleInputEvent(&input);
-                }
-                return route();
-            },
-    });
-    if (m_dirty) UpdateLayout();
-    if (!m_keep_open) EndModalInput();
-    return m_keep_open;
-}
 
 /* The split-size dialog ("popup_splititem.sti" with a numeric entry field):
    two stepper buttons, two passive frames around the field, accept/cancel. */
@@ -359,27 +49,20 @@ struct W8SplitAmountButtonOffset {
     int y;
 };
 
-// GLOBAL: WIZ8 0x0064fc08
 static W8SplitAmountButtonOffset g_split_amount_button_offsets[6] = {
     {0xdb, 0x20}, {0xc0, 0x20}, {0xbe, 0xf}, {0xbe, 0x35}, {0xed, 0x47}, {0x111, 0x47},
 };
 
-// GLOBAL: WIZ8 0x0064fc38
 static W8ControlsRect g_split_amount_text_bounds[3] = {
     {0x4a, 0xf, 0xb8, 0x1b},
     {0x4a, 0x35, 0xb8, 0x41},
     {0xbe, 0xf, 0xf4, 0x1b},
 };
 
-// GLOBAL: WIZ8 0x0064fc68
 static DesignRect g_split_amount_field_bounds = {0xbe, 0x35, 0xf4, 0x41};
 
-// GLOBAL: WIZ8 0x0064fc78
 static int g_split_amount_string_ids[3] = {265, 266, 267};
 
-// FUNCTION: WIZ8 0x005d97d0
-
-// FUNCTION: WIZ8 0x005d9890
 W8SplitAmountDialog::W8SplitAmountDialog(int total, SDL_Point origin)
     : m_taken(0), m_total(total), m_result(W8_SPLIT_RESULT_PENDING)
 {
@@ -395,12 +78,10 @@ W8SplitAmountDialog::W8SplitAmountDialog(int total, SDL_Point origin)
     UpdateTextBuffers();
 }
 
-// FUNCTION: WIZ8 0x005d9930
 W8SplitAmountDialog::~W8SplitAmountDialog() = default;
 
 /* The split-item dialog. Three text buffers show the running totals, the
    numeric field edits the taken amount, and the buttons step it. */
-// FUNCTION: WIZ8 0x005d9b30
 bool W8SplitAmountDialog::CreateButtons()
 {
     int index;
@@ -451,7 +132,6 @@ bool W8SplitAmountDialog::CreateButtons()
     return true;
 }
 
-// FUNCTION: WIZ8 0x005d9d10
 void W8SplitAmountDialog::CreateTextBuffers()
 {
     int index;
@@ -463,12 +143,11 @@ void W8SplitAmountDialog::CreateTextBuffers()
         bounds.right = g_split_amount_text_bounds[index].right + m_x;
         bounds.bottom = g_split_amount_text_bounds[index].bottom + m_y;
         m_text_buffers[index] = std::make_unique<W8TextBuffer>(
-            &bounds, g_localized_strings[g_split_amount_string_ids[index]],
-            g_wiz_text_font_secondary, g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight, 4);
+            &bounds, Data().strings[g_split_amount_string_ids[index]], g_wiz_text_font_secondary,
+            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignRight, 4);
     }
 }
 
-// FUNCTION: WIZ8 0x005d9e30
 void W8SplitAmountDialog::CreateNumericInput()
 {
     W8ControlsRect bounds;
@@ -486,7 +165,6 @@ void W8SplitAmountDialog::CreateNumericInput()
     m_split_input->m_maximum = 1000000;
 }
 
-// FUNCTION: WIZ8 0x005d9f20
 void W8SplitAmountDialog::Draw(SDL_Surface& target)
 {
     W8DialogBase::Draw(target);
@@ -498,7 +176,6 @@ void W8SplitAmountDialog::Draw(SDL_Surface& target)
     m_split_input->Draw(target);
 }
 
-// FUNCTION: WIZ8 0x005da000
 void W8SplitAmountDialog::UpdateTextBuffers()
 {
     std::string text;
@@ -517,7 +194,6 @@ void W8SplitAmountDialog::UpdateTextBuffers()
     m_split_input->m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005da090
 void W8SplitAmountDialog::UpdateButtonStates()
 {
     m_buttons[0]->UpdateEnabledState(m_taken != 0);
@@ -531,7 +207,6 @@ void W8SplitAmountDialog::UpdateButtonStates()
     m_buttons[3]->m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005da140
 void W8SplitAmountDialog::DecreaseAmount(int amount)
 {
     m_taken = std::max(0, m_taken - amount);
@@ -546,7 +221,6 @@ void W8SplitAmountDialog::IncreaseAmount(int amount)
     UpdateTextBuffers();
 }
 
-// FUNCTION: WIZ8 0x005da180
 bool W8SplitAmountDialog::HandleInputEvent(const InputEvent* input)
 {
     if (m_split_input->HandleInput(input)) return true;
@@ -565,7 +239,6 @@ bool W8SplitAmountDialog::HandleInputEvent(const InputEvent* input)
     return m_keep_open;
 }
 
-// FUNCTION: WIZ8 0x005da2a0
 bool W8SplitAmountDialog::ProcessInput()
 {
     BeginModalInput();
@@ -573,14 +246,12 @@ bool W8SplitAmountDialog::ProcessInput()
     return m_keep_open;
 }
 
-// FUNCTION: WIZ8 0x005da5a0
 void W8SplitAmountDialog::Finish(W8SplitDialogResult result)
 {
     m_result = result;
     m_keep_open = false;
 }
 
-// FUNCTION: WIZ8 0x005da5c0
 void W8SplitAmountDialog::ActivateField()
 {
     if (!m_split_input) {
@@ -597,7 +268,6 @@ void W8SplitAmountDialog::ActivateField()
 }
 
 /* The trigger-owned item picker configures its buttons during construction. */
-// FUNCTION: WIZ8 0x005cd710
 W8TriggerItemPickerDialog::W8TriggerItemPickerDialog()
 {
     SetExtent(200, 100);
@@ -613,7 +283,6 @@ W8TriggerItemPickerDialog::W8TriggerItemPickerDialog()
 
 /* Configure the thirteen owned buttons. Buttons 5..8 are item rows and
    9..12 are the scroll bar. */
-// FUNCTION: WIZ8 0x005cd8d0
 bool W8TriggerItemPickerDialog::CreateButtons()
 {
     for (auto& button : m_buttons) {
@@ -635,7 +304,9 @@ bool W8TriggerItemPickerDialog::CreateButtons()
         m_buttons[2]->Configure(
             ButtonGraphics::Load("Data\\Dialogs\\chest_confirmationbuttons.sti", 3, 0, 1, 2, 2),
             {.on_click =
-                 [this](W8ButtonWidget*) { TransferSelectedItems(g_status.selected_character); },
+                 [this](W8ButtonWidget*) {
+                     TransferSelectedItems(CurrentGame().status.selected_character);
+                 },
              .tooltip = 0x14}) &&
         configured;
     configured =
@@ -720,7 +391,6 @@ bool W8TriggerItemPickerDialog::CreateButtons()
 /* Sync the four visible item buttons with the scroll offset and the per-item
    enable flags. A short list pins the first row; a row scrolled past the end
    clears its pressed state and hides the button. */
-// FUNCTION: WIZ8 0x005ce420
 void W8TriggerItemPickerDialog::RefreshScrollButtons()
 {
     if (static_cast<int>(entries.size()) <= 4) {
@@ -785,7 +455,6 @@ void W8TriggerItemPickerDialog::ToggleItem(int index, W8ButtonWidget* button)
    successful transfer removes the entry and retries the same
    row; any failure raises the beep flag. Afterwards the scroll state refreshes
    and an emptied picker closes itself. */
-// FUNCTION: WIZ8 0x005ce4c0
 void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
 {
     int index;
@@ -796,10 +465,10 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
             W8ItemInstance& instance = entries[index].item->item;
             bool added;
             if (destination == -1) {
-                added = AddItemToParty(&instance, true, false);
+                added = AddItemToParty(CurrentGame(), OwnedItem(instance), true, false);
             } else {
-                added = AddItemToCharacter(&g_status.buffers.Char[destination], &instance, false,
-                                           true, false);
+                added = AddItemToCharacter(CurrentGame(), PartyMember(CurrentGame(), destination),
+                                           OwnedItem(instance), false, true, false);
             }
             if (added) {
                 entries.erase(entries.begin() + index);
@@ -825,7 +494,6 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
 
 /* The select-all button: clear every flag when all are set, otherwise set them
    all. The four visible row buttons are synced with the flags. */
-// FUNCTION: WIZ8 0x005ce5f0
 void W8TriggerItemPickerDialog::ToggleAllItems()
 {
     const bool all_selected = std::ranges::all_of(entries, &PickerEntry::selected);
@@ -835,7 +503,6 @@ void W8TriggerItemPickerDialog::ToggleAllItems()
 }
 
 /* Right-clicking a visible row opens the assay dialog on a copy of its item. */
-// FUNCTION: WIZ8 0x005cea30
 void W8TriggerItemPickerDialog::ShowVisibleItemInfo(int row)
 {
     const int index = m_first_item + row;
@@ -848,7 +515,6 @@ void W8TriggerItemPickerDialog::ShowVisibleItemInfo(int row)
 /* Thumb drag callback: while the left button is held, map the live cursor
    position between the scroll buttons' top and bottom bounds onto the item
    list, then clamp through SetFirstVisible. */
-// FUNCTION: WIZ8 0x005ceaf0
 void W8TriggerItemPickerDialog::ScrollItemsToMouse()
 {
     const W8ButtonWidget& thumb = *m_buttons[12];
@@ -869,7 +535,6 @@ void W8TriggerItemPickerDialog::ScrollItemsToMouse()
 /* Keyboard list navigation. The up/down keys move the first visible row, the
    paging keys jump, the digit keys toggle one of the four visible flags and
    SDLK_ESCAPE closes the picker. */
-// FUNCTION: WIZ8 0x005cec20
 bool W8TriggerItemPickerDialog::HandleInputEvent(const InputEvent* input)
 {
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
@@ -925,20 +590,19 @@ bool W8TriggerItemPickerDialog::HandleInputEvent(const InputEvent* input)
 
 /* Move the trigger's whole item group into this picker, merging each item
    through the add path. */
-// FUNCTION: WIZ8 0x005cf0c0
 void W8TriggerItemPickerDialog::SetItemGroup(W8WorldItem* group)
 {
     m_item_group = group;
-    while (group->next) AddItem(ItemInfoRemoveFromGroup(group, group->next.get()));
+    for (auto& item : group->contents) AddItem(std::move(item));
+    group->contents.clear();
     UpdateLayout();
 }
 
 /* Hand every picker item back to the trigger's group, keeping the order the
    picker displayed them in. */
-// FUNCTION: WIZ8 0x005cf110
 W8WorldItem* W8TriggerItemPickerDialog::ReturnItemsToGroup()
 {
-    for (auto& entry : entries) ItemInfoAddToGroup(m_item_group, std::move(entry.item));
+    for (auto& entry : entries) m_item_group->contents.push_back(std::move(entry.item));
     entries.clear();
     return m_item_group;
 }
@@ -947,7 +611,6 @@ W8WorldItem* W8TriggerItemPickerDialog::ReturnItemsToGroup()
    placed next to the existing entries with the same equipment class and, among
    those, the same unidentified name, keeping each name run ordered by item id.
    The existing world-item lifetime is unchanged. */
-// FUNCTION: WIZ8 0x005ce210
 int W8TriggerItemPickerDialog::AddItem(std::unique_ptr<W8WorldItem> item)
 {
     W8ItemInstance* instance = &item->item;
@@ -991,7 +654,6 @@ int W8TriggerItemPickerDialog::AddItem(std::unique_ptr<W8WorldItem> item)
    belong to the party, and the two button-down kinds first ask the screen
    helper whether it wants them. The input layer routes dialog controls; the
    wheel scrolls the picker's first visible row in four-row steps. */
-// FUNCTION: WIZ8 0x005cef00
 bool W8TriggerItemPickerDialog::ProcessInput()
 {
     BeginModalInput();
@@ -1025,7 +687,6 @@ bool W8TriggerItemPickerDialog::ProcessInput()
    display name and its weight. A short list hides the four scroll buttons,
    otherwise they are placed around the row area and the scroll bar tracks the
    first visible item. */
-// FUNCTION: WIZ8 0x005cdc70
 void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
 {
     W8DialogBase::Draw(target);
@@ -1045,15 +706,15 @@ void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
         DrawSprite(target, *ItemSprites(item->iItemNo), 0, button->Bounds().x + 2,
                    button->Bounds().y + 2);
         if (item->stack_count > 1) {
-            auto name = GetItemDisplayName(item);
+            auto name = GetItemDisplayName(Data(), item);
             DrawText(target, g_wiz_text_font, {button->Bounds().x + 0x3c, button->Bounds().y + 6},
                      fmt::format("{}({:d})", name, item->stack_count));
         } else {
-            auto name = GetItemDisplayName(item);
+            auto name = GetItemDisplayName(Data(), item);
             DrawText(target, g_wiz_text_font, {button->Bounds().x + 0x3c, button->Bounds().y + 6},
                      name);
         }
-        unsigned short weight = g_item_records[item->iItemNo].weight;
+        unsigned short weight = Data().items[item->iItemNo].weight;
         DrawText(target, g_wiz_text_font,
                  {button->Bounds().x + 0x3c, button->Bounds().y + g_wiz_text_font.height() + 6},
                  fmt::format("{:4.1f} lbs", weight * 0.1f));
@@ -1071,7 +732,7 @@ void W8TriggerItemPickerDialog::UpdateLayout()
         visible_rows = count;
     }
 
-    if (gXStatus.fCombatMode) {
+    if (CurrentGame().combat.has_value()) {
         m_buttons[2]->SetEnabled(false);
     }
     if (m_dirty) {
@@ -1138,9 +799,7 @@ void W8TriggerItemPickerDialog::UpdateLayout()
 }
 
 /* Create the base controls first, then the picker buttons. */
-// FUNCTION: WIZ8 0x005cdc10
 /* Release base graphics and owned picker buttons. */
-// FUNCTION: WIZ8 0x005cdc40
 std::function<void()> W8SplitAmountDialog::TakeCompletion(bool completed)
 {
     W8DialogBase::TakeCompletion(completed);

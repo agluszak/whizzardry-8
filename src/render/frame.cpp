@@ -1,0 +1,1340 @@
+#include "wiz8/render/frame.h"
+
+#include <algorithm>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <exception>
+#include <ios>
+#include <limits>
+#include <memory>
+#include <span>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+#include <SDL3/SDL_blendmode.h>
+#include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_video.h>
+#include <fmt/format.h>
+#include <vsg/state/ViewportState.h>
+#include <wiz8/filesystem.h>
+
+#include "asset_paths.h"
+#include "glm/common.hpp" // IWYU pragma: keep
+#include "glm/ext/vector_float2.hpp"
+#include "glm/ext/vector_float3.hpp"
+#include "glm/ext/vector_float4.hpp"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/sprite.h"
+#include "wiz8/cursor.h"
+#include "wiz8/design_rect.h"
+#include "wiz8/entities/cursor_nodes.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/prop.h"
+#include "wiz8/entities/trigger.h"
+#include "wiz8/fonts.h"
+#include "wiz8/game.h"
+#include "wiz8/local_code/ControlsRect.h"
+#include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/platform/timer.h"
+#include "wiz8/platform/window.h"
+#include "wiz8/render/camera.h"
+#include "wiz8/render/camera_shake.h"
+#include "wiz8/render/compositor.h"
+#include "wiz8/render/draw_inputs.h"
+#include "wiz8/render/draw_shader.h"
+#include "wiz8/render/image_io.h"
+#include "wiz8/render/material.h"
+#include "wiz8/render/mesh.h"
+#include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/quality.h"
+#include "wiz8/render/renderer.h"
+#include "wiz8/render/texture.h"
+#include "wiz8/render/vsg_scene.h"
+#include "wiz8/render/world_scene.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/startup_world.h"
+#include "wiz8/surface_storage.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/world/camera_control.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/level_loader.h"
+#include "wiz8/world/party_camera.h"
+#include "wiz8/world/world.h"
+
+void SaveJpegScreenshot(void);
+static void FlushUiUpload();
+
+/* Invalidation coalesces CPU canvas publication. VSG uploads the complete
+   published image before composing it with the world and other overlays. */
+static SDL_Rect g_ui_upload{};
+
+/* SDL owns the platform window used by VSG presentation. */
+SDL_Window* ghWindow;
+
+bool g_world_pick_enabled = true;
+unsigned char g_fullscreen_scene_last = 1;
+bool g_cursor_scene_enabled = true;
+bool g_overlay_scenes_enabled = true;
+unsigned char g_fullscreen = 1;
+bool g_flush_pending = true;
+int g_screen_width = 640;
+int g_screen_height = 480;
+MeshInstance* g_current_model_instance;
+int g_fps_frame_count;
+uint64_t g_fps_window_tick;
+bool g_video_active;
+bool g_world_blacked_out;
+bool g_screenshot_pending;
+bool g_video_inspector_enabled;
+std::unique_ptr<Renderer> g_renderer;
+static std::shared_ptr<SDL_Surface> primarySurface;
+SDLSurfaceOwner videoSurfaceOwner{nullptr, SDL_DestroySurface};
+
+Compositor g_compositor;
+std::unique_ptr<UiCanvasTexture> g_ui_canvas;
+std::shared_ptr<SDL_Surface> g_mouse_surface;
+
+DesignRect g_viewport;
+bool g_camera_sway_active;
+extern const float g_viewport_x_scale = 1.0f / 640.0f;
+extern const float g_viewport_y_scale = 1.0f / 480.0f;
+
+int g_video_inspector_mode;
+float g_frames_per_second;
+
+std::unique_ptr<OverlayQuad> g_cursor_node;
+uint64_t g_cursor_move_tick;
+int g_cursor_width;
+int g_cursor_height;
+int g_cursor_image_width;
+int g_cursor_image_height;
+int g_cursor_hotspot_x;
+int g_cursor_hotspot_y;
+
+/* Publish the entire UI canvas on the next frame. */
+static void ResetVideoDirtyState()
+{
+    g_ui_upload = {};
+    InvalidateRegion(0, 0, 640, 480);
+}
+
+/* Clear the CPU canvas and publish the reset at the next frame. */
+void ResetVideoFrameState(void)
+{
+    const auto& description = *primarySurface;
+    memset(description.pixels, 0, description.pitch * 480);
+    ResetVideoDirtyState();
+}
+
+/* Create the platform window, CPU canvas and VSG renderer before scene setup. */
+bool InitializeVideoManager(void)
+{
+    g_world_pick_enabled = true;
+    g_current_model_instance = 0;
+    g_fps_frame_count = 0;
+    g_fps_window_tick = MonotonicMilliseconds();
+    if (!CreateWizardryWindow()) {
+        return 0;
+    }
+    if (!InitializePrimarySurface()) {
+        return 0;
+    }
+    if (!InitializeVideoDevice()) {
+        return 0;
+    }
+    InitializeRendererSceneObjects();
+    if (!RestoreVideoManager()) return false;
+    SetViewport({0, 0, 0x281, 0x1e1});
+    if (!InitializeStartupNavigation()) {
+        return 0;
+    }
+    EnableAllRenderOptions();
+    return InitializeMouseCursorScene();
+}
+
+void ShutdownVideoManager(void)
+{
+    FreeMouseCursor();
+    ShutdownVideoScenes();
+    ShutdownStartupNavigation();
+    SuspendVideoManager();
+    SDL_Window* native_window = ghWindow;
+    ReleasePrimarySurface();
+    videoSurfaceOwner.reset();
+    if (ghWindow) {
+        SDL_HideWindow(ghWindow);
+        ghWindow = 0;
+    }
+    if (g_renderer) {
+        g_flush_pending = false;
+        g_renderer.reset();
+    }
+    DestroyGameWindow(native_window);
+}
+
+/* Releases the renderer scene graph and 2D objects created by the video
+   startup sequence; runs from ShutdownVideoManager before the CPU surface
+   teardown. */
+void ShutdownVideoScenes(void)
+{
+    VideoRemoveToolTip();
+    g_cursor_node.reset();
+    g_compositor.clear();
+    g_ui_canvas.reset();
+    g_mouse_surface.reset();
+}
+
+/* Selects the SDL packed format for SGP's 16-bit framebuffer and sprites.
+   The startup configuration uses ARGB1555; the high bit is an opaque-pixel
+   marker, while zero is the software blitters' transparent pixel. */
+
+/* Registers and creates the real top-level Wizardry window.  The odd use of
+   the horizontal screen metric for both axes is present in the retail body and
+   is preserved here; AdjustWindowRect turns the four stored client bounds into
+   the outer window rectangle before CreateWindowEx. */
+bool CreateWizardryWindow(void)
+{
+    ghWindow = CreateGameWindow(g_screen_width, g_screen_height, g_fullscreen != 0);
+    return ghWindow != 0;
+}
+
+/* SDL owns the 640x480 CPU UI canvas. */
+void ReleasePrimarySurface(void)
+{
+    primarySurface.reset();
+}
+
+bool InitializePrimarySurface(void)
+{
+    primarySurface = std::shared_ptr<SDL_Surface>(
+        CreateCpuStorage(640, 480, kFramePixelFormat).release(), SDL_DestroySurface);
+    if (!primarySurface) return false;
+    SDL_SetSurfaceBlendMode(primarySurface.get(), SDL_BLENDMODE_NONE);
+    return true;
+}
+
+/* Starts VSG using the dimensions from the retail five-line
+   3DVideo.CFG file. Its driver and depth lines are ignored; the final audio
+   line still accepts "none" to disable sound. */
+// The 3DSetup configuration's audio device line; "none" disables sound.
+static bool s_setup_disables_audio = false;
+
+bool SetupDisablesAudio()
+{
+    return s_setup_disables_audio;
+}
+
+unsigned char InitializeVideoDevice(void)
+try {
+    std::istringstream config;
+    char audio_setting[100] = "";
+    char line[10] = "";
+    char* newline;
+
+    if (g_renderer) {
+        return 1;
+    }
+
+    try {
+        auto input = wiz8::open_file(wiz8::user_path("config/3dvideo.cfg"));
+        if (input->size() > 65536) throw std::runtime_error("oversized video configuration");
+        std::string text(static_cast<std::size_t>(input->size()), '\0');
+        if (input->read(text.data(), text.size()).bytes != text.size())
+            throw std::runtime_error("truncated video configuration");
+        config.str(text);
+    } catch (const std::exception&) {
+        config.setstate(std::ios::failbit);
+    }
+    if (config) {
+        config.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Legacy driver.
+        config.getline(line, sizeof(line));
+        g_screen_width = atoi(line);
+        config.getline(line, sizeof(line));
+        g_screen_height = atoi(line);
+        config.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Legacy depth.
+        config.getline(audio_setting, sizeof(audio_setting));
+        newline = strchr(audio_setting, '\r');
+        if (newline) {
+            *newline = '\0';
+        }
+        newline = strchr(audio_setting, '\n');
+        if (newline) {
+            *newline = '\0';
+        }
+    }
+
+    if (!ConfigureGameWindow(ghWindow, g_fullscreen != 0, g_screen_width, g_screen_height))
+        return 0;
+    g_renderer = std::make_unique<Renderer>(ghWindow);
+    g_flush_pending = true;
+    s_setup_disables_audio = SDL_strncasecmp(audio_setting, "none", 4) == 0;
+    return 1;
+} catch (const std::exception&) {
+    return false;
+}
+
+/* Restore VSG presentation at the window's current physical size. */
+bool OpenRendererWindow(void)
+{
+    if (!g_renderer->reopen()) return false;
+    g_flush_pending = !videoSurfaceOwner;
+    return true;
+}
+
+SDL_Surface* BeginVideoPresentation(void)
+{
+    const auto& source = *primarySurface;
+    videoSurfaceOwner.reset(SDL_CreateSurface(source.w, source.h, source.format));
+    g_flush_pending = false;
+    return videoSurfaceOwner.get();
+}
+
+bool FinishVideoPresentation(void)
+{
+    videoSurfaceOwner.reset();
+    g_flush_pending = true;
+    InvalidateRegion(0, 0, 640, 480);
+    return true;
+}
+
+/* Render targets follow physical pixels in both window modes. */
+bool VideoResizeWindow(void)
+{
+    if (!ghWindow || !g_renderer || !g_video_active) {
+        return 0;
+    }
+    g_flush_pending = false;
+    g_renderer->close();
+    if (!g_renderer->reopen()) {
+        return 0;
+    }
+    ResetTransientRenderScenes();
+    g_flush_pending = !videoSurfaceOwner;
+    return 1;
+}
+
+void VideoFullScreen(bool enabled)
+{
+    g_fullscreen = enabled;
+    if (!ghWindow || !SDL_SetWindowFullscreen(ghWindow, enabled) || !SDL_SyncWindow(ghWindow))
+        return;
+    if (g_renderer && g_video_active && !videoSurfaceOwner) VideoResizeWindow();
+}
+
+void ResetTransientRenderScenes(void)
+{
+    ResetVideoDirtyState();
+}
+
+/* Same dirty-block / transient-scene reset as ResetTransientRenderScenes, but
+   the full-screen invalidate uses flag 1 (the all-bits redraw path). */
+void ClearVideoDirtyBlocks(void)
+{
+    ResetVideoDirtyState();
+}
+
+bool IsVideoActive()
+{
+    return g_video_active;
+}
+
+void SuspendVideoManager(void)
+{
+    if (g_video_active) {
+        g_video_active = false;
+        if (g_renderer) {
+            g_flush_pending = false;
+            g_renderer->close();
+        }
+    }
+}
+
+bool RestoreVideoManager(void)
+{
+    if (g_video_active && g_renderer && g_renderer->isOpen()) {
+        return 1;
+    }
+    if (!ghWindow || !g_renderer) return false;
+    if (!g_renderer->isOpen() && !OpenRendererWindow()) return false;
+    g_video_active = true;
+    ResetVideoDirtyState();
+    return true;
+}
+
+bool ClearPrimarySurface(void)
+{
+    SDL_FillSurfaceRect(primarySurface.get(), nullptr, 0);
+    return true;
+}
+
+/* The inputs every scene pass of the current frame shares. */
+static SceneFrame CurrentSceneFrame()
+{
+    return {.environment_offset = CurrentEnvironmentOffset(),
+            .brightness = g_monster_light_scale,
+            .texture_reduction = g_resident_texture_policy,
+            .time = GameInProgress()
+                        ? std::chrono::duration<double>(CurrentGame().visual_time).count()
+                        : RenderClockSeconds()};
+}
+
+/* Render one scene into either the full output or a logical 640x480 viewport.
+   Scene fog follows the current world's static scene for ordinary overlays;
+   the world passes retain their own fog by selecting preserve_fog. */
+
+void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport, bool preserve_fog,
+                 std::span<Pick> picks)
+{
+    if (!scene) return;
+    if (!preserve_fog) {
+        const auto fog = GetWorld() ? GetWorld()->scene->getFogColor() : glm::vec3(0);
+        scene->setFogColor(glm::clamp(fog, 0.0f, 1.0f));
+    }
+    const auto area = viewport ? ToSurfaceRect(*viewport, g_renderer->width(), g_renderer->height())
+                               : SDL_Rect{0, 0, static_cast<int>(g_renderer->width()),
+                                          static_cast<int>(g_renderer->height())};
+    auto render_view = scene->createView(g_renderer->context(), camera, CurrentSceneFrame(),
+                                         vsg::ViewportState::create(area.x, area.y, area.w, area.h),
+                                         g_renderer->frameNumber());
+    if (!picks.empty()) scene->pick(*render_view->camera, picks);
+    g_renderer->addView(render_view);
+}
+
+/* The central renderer frame transaction. It owns presentation, every scene
+   pass, optional world picking, transient-node retirement, and frame timing;
+   callers do not reproduce any subset of that lifecycle. */
+void RenderFrame(void)
+{
+    /* The movie adapter owns presentation until FinishVideoPresentation. */
+    if (!g_flush_pending) {
+        return;
+    }
+    glm::vec3 clear_color(0);
+    std::uint64_t now;
+    float elapsed;
+    float frames_per_second;
+
+    if (!g_video_active) {
+        return;
+    }
+
+    if (auto* world = GetWorld()) {
+        placeWorldCameras(*world, GetSecondaryWorld(),
+                          g_camera_shake_active ? g_camera_shake_offset : glm::vec3(0));
+    }
+    if (GetWorld() != 0) {
+        if (!IsSkyEnabled()) {
+            GetWorldLightValue(GetWorld(), &clear_color);
+        } else {
+            clear_color =
+                // NOLINTNEXTLINE(misc-include-cleaner)
+                glm::clamp(GetWorld()->scene->getFogColor(), 0.0f, 1.0f);
+        }
+    }
+
+    SyncSystemCursor();
+    UpdateUiHelp();
+    FlushUiUpload();
+    g_renderer->beginFrame(glm::vec4(clear_color, 1.0f));
+    UpdateRenderElapsedTime();
+
+    g_compositor.draw(*g_renderer, OverlayLayer::PreWorld);
+
+    if (g_render_mesh_sky && GetSecondaryWorld() != 0 && g_monster_shadow_updates_enabled) {
+        RenderScene(GetSecondaryWorld()->scene.get(), GetSecondaryWorld()->camera, &g_viewport,
+                    false);
+    }
+    g_current_model_instance = nullptr;
+    if (GetWorld()) GetWorld()->picked = {};
+    if (GetWorld() != 0 && g_world_render_enabled) {
+        if (!g_world_pick_enabled || g_cursor_hotspot_x + g_cursor_width < g_viewport.left ||
+            g_cursor_hotspot_y + g_cursor_height < g_viewport.top ||
+            g_viewport.right < g_cursor_hotspot_x + g_cursor_width ||
+            g_viewport.bottom < g_cursor_hotspot_y + g_cursor_height) {
+            RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &g_viewport, true);
+        } else {
+            int half_width = (g_viewport.right - g_viewport.left) / 2;
+            int half_height = (g_viewport.bottom - g_viewport.top) / 2;
+            Pick pick;
+            pick.position.x = (g_cursor_hotspot_x - half_width - g_viewport.left + g_cursor_width) /
+                              static_cast<float>(half_width);
+            pick.position.y = -static_cast<float>(g_cursor_hotspot_y - half_height -
+                                                  g_viewport.top + g_cursor_height) /
+                              half_height;
+            RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &g_viewport, true,
+                        std::span{&pick, 1});
+            GetWorld()->picked = pick;
+            g_current_model_instance = render::gameOwner(pick);
+            ResolvePickedProp();
+        }
+    }
+
+    if (g_overlay_scenes_enabled) {
+        if (!g_fullscreen_scene_last) g_compositor.draw(*g_renderer, OverlayLayer::Fullscreen);
+        g_compositor.draw(*g_renderer, OverlayLayer::UnderUi);
+        g_ui_canvas->draw(g_renderer.get());
+        g_compositor.draw(*g_renderer, OverlayLayer::OverUi);
+        g_compositor.draw(*g_renderer, OverlayLayer::SquareAspect);
+        if (g_fullscreen_scene_last) g_compositor.draw(*g_renderer, OverlayLayer::Fullscreen);
+        if (g_cursor_scene_enabled) g_compositor.draw(*g_renderer, OverlayLayer::Cursor);
+    }
+    g_renderer->endFrame(true, g_screenshot_pending);
+
+    if (g_screenshot_pending) {
+        SaveJpegScreenshot();
+        g_screenshot_pending = false;
+    }
+
+    ++g_fps_frame_count;
+
+    now = MonotonicMilliseconds();
+    elapsed = static_cast<float>(now - g_fps_window_tick);
+    frames_per_second = g_fps_frame_count / elapsed * 1000.0f;
+    if (g_fps_frame_count > 50) {
+        g_fps_window_tick = MonotonicMilliseconds();
+        g_fps_frame_count = 0;
+    }
+    g_frames_per_second = frames_per_second;
+}
+
+/* Finish an offscreen frame and copy its image into a caller-owned surface. */
+static bool ReadFrameInto(SDL_Surface& target)
+{
+    g_renderer->endFrame(false, true);
+    auto* buffer = g_renderer->readback();
+    if (!buffer) return false;
+    StretchCpuSurface(*buffer, target, SDL_SCALEMODE_NEAREST);
+    return true;
+}
+
+/* Render offscreen and copy the completed image into a caller-owned surface.
+   `rect` selects a logical 640x480 viewport; otherwise the stored game viewport
+   applies. Saves use this for SHOT screenshots. */
+// FUNCTION: WIZ8 0x00426f80
+bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect)
+{
+    if (!g_renderer || !g_renderer->isOpen() || !GetWorld() || !target) return false;
+    glm::vec3 clear_color{1.0f};
+    if (GetWorld() && GetWorld()->environment.fog_enabled)
+        clear_color = EnvironmentLightDirection();
+    else
+        GetWorldLightValue(GetWorld(), &clear_color);
+    g_renderer->beginFrame(glm::vec4(clear_color, 1.0f));
+    const DesignRect bounds = rect ? *rect : g_viewport;
+    // A steady view of the party's pose; the frame's shake belongs to the presented frame.
+    placeWorldCameras(*GetWorld(), GetSecondaryWorld(), glm::vec3(0));
+    if (g_render_mesh_sky && GetSecondaryWorld())
+        RenderScene(GetSecondaryWorld()->scene.get(), GetSecondaryWorld()->camera, &bounds, true);
+    RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &bounds, true);
+    return ReadFrameInto(*target);
+}
+
+bool RenderMapToSurface(SDL_Surface& target, const DesignRect& rect)
+{
+    if (!g_renderer || !g_renderer->isOpen() || !GetWorld()) return false;
+    g_renderer->beginFrame(glm::vec4(0, 0, 0, 1));
+    auto frame = CurrentSceneFrame();
+    // The map keeps the retail automap's reduced texture detail.
+    frame.texture_reduction = 3;
+    const auto area = ToSurfaceRect(rect, g_renderer->width(), g_renderer->height());
+    g_renderer->addView(GetWorld()->scene->createMapView(
+        g_renderer->context(), frame, vsg::ViewportState::create(area.x, area.y, area.w, area.h),
+        g_renderer->frameNumber()));
+    return ReadFrameInto(target);
+}
+
+/* Both static scenes take the light direction as their fog colour. */
+void PublishLightDirection(const glm::vec3* direction)
+{
+    if (GetWorld() != 0) {
+        GetWorld()->scene->setFogColor(*direction);
+    }
+    if (GetSecondaryWorld() != 0) {
+        GetSecondaryWorld()->scene->setFogColor(*direction);
+    }
+}
+
+void SetWorldModelPickingEnabled(bool enabled)
+{
+    g_world_pick_enabled = enabled;
+    if (!enabled) {
+        g_current_model_instance = 0;
+        if (GetWorld()) GetWorld()->picked = {};
+    }
+}
+
+/* Mouse cursor scene and rendering. */
+
+// The four sprite builders share the same clockwise quad and vertically flipped UVs.
+static void SetSpriteQuad(Mesh& model, float width, float height, glm::vec2 uv_scale = glm::vec2(0),
+                          glm::vec2 uv_offset = glm::vec2(0))
+{
+    if (width == 0 || height == 0) {
+        model.reset(0, 0);
+        return;
+    }
+    model.reset(2, 4);
+    model.vertex_locations = {{-0.5f * width, -0.5f * height, 0},
+                              {-0.5f * width, 0.5f * height, 0},
+                              {0.5f * width, 0.5f * height, 0},
+                              {0.5f * width, -0.5f * height, 0}};
+    model.poly_vertices = {{0, 1, 2}, {0, 2, 3}};
+    if (uv_scale != glm::vec2(0) || uv_offset != glm::vec2(0))
+        model.texcoords[0][0] = {uv_offset + glm::vec2(0, uv_scale.y), uv_offset,
+                                 uv_offset + glm::vec2(uv_scale.x, 0), uv_offset + uv_scale};
+}
+
+std::unique_ptr<OverlayQuad> makeOverlayFromTexture(std::shared_ptr<Texture> texture, double width,
+                                                    double height, bool alpha_blend, bool square)
+{
+    auto quad = std::make_unique<OverlayQuad>();
+    quad->texture = std::move(texture);
+    if (quad->texture) quad->texture->setAnimationClock(TextureClock::Presentation);
+    quad->size = {width * 640, height * 480};
+    quad->material.blend = alpha_blend ? OverlayBlend::Alpha : OverlayBlend::Opaque;
+    if (quad->texture) {
+        auto dimensions = quad->texture->getDimensions();
+        dimensions.native_size = true;
+        quad->texture->setDimensions(dimensions);
+        quad->texture->setMipmap(Texture::MIPMAP_NONE);
+        quad->texture->setWrapS(Texture::WRAP_CLAMP);
+        quad->texture->setWrapT(Texture::WRAP_CLAMP);
+    }
+    g_compositor.attach(*quad, square ? OverlayLayer::SquareAspect : OverlayLayer::OverUi);
+    return quad;
+}
+
+std::unique_ptr<OverlayQuad> makeOverlayFromSurface(SDL_Surface& surface,
+                                                    const W8ControlsRect* bounds, bool square,
+                                                    bool alpha_blend)
+{
+    SDL_Rect source = bounds ? SDL_Rect{bounds->left, bounds->top, bounds->right - bounds->left,
+                                        bounds->bottom - bounds->top}
+                             : SDL_Rect{0, 0, surface.w, surface.h};
+    if (source.w <= 0 || source.h <= 0 || source.x < 0 || source.y < 0 ||
+        source.x + source.w > surface.w || source.y + source.h > surface.h)
+        return {};
+    auto storage = CreateCpuStorage(source.w, source.h, surface.format);
+    if (!storage) return {};
+    if (auto* palette = SDL_GetSurfacePalette(&surface))
+        if (!SDL_SetSurfacePalette(storage.get(), palette)) return {};
+    SDL_BlendMode blend;
+    SDL_GetSurfaceBlendMode(&surface, &blend);
+    SDL_SetSurfaceBlendMode(&surface, SDL_BLENDMODE_NONE);
+    const bool copied = SDL_BlitSurface(&surface, &source, storage.get(), nullptr);
+    SDL_SetSurfaceBlendMode(&surface, blend);
+    if (!copied) return {};
+    auto texture = std::make_shared<Texture>(std::shared_ptr<SDL_Surface>(std::move(storage)));
+    const int extent = std::max(source.w, source.h);
+    const auto size = square ? glm::vec2(extent) : glm::vec2(source.w, source.h);
+    auto quad = makeOverlayFromTexture(std::move(texture), size.x / 640.0, size.y / 480.0,
+                                       alpha_blend, square);
+    quad->position = {source.x, source.y};
+    return quad;
+}
+
+std::unique_ptr<OverlayQuad> makeColorOverlay(int width, int height, const glm::vec4& color,
+                                              bool fullscreen)
+{
+    auto quad = std::make_unique<OverlayQuad>();
+    quad->size = {width, height};
+    quad->color = color;
+    g_compositor.attach(*quad, fullscreen ? OverlayLayer::Fullscreen : OverlayLayer::OverUi);
+    return quad;
+}
+
+void positionOverlay(OverlayQuad* quad, int x, int y, bool snap)
+{
+    if (!quad) return;
+    quad->position = {x, y};
+    if (snap && g_renderer) {
+        const auto output = glm::vec2(g_renderer->width(), g_renderer->height());
+        const auto scale = output / glm::vec2(640, 480);
+        quad->position = glm::floor(quad->position * scale) / scale;
+    }
+}
+
+bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t region,
+                                   SDL_Surface& destination, int x, int y)
+{
+    if (region >= sprites.frames.size()) {
+        return false;
+    }
+    DrawSprite(destination, sprites, region, x, y);
+    return true;
+}
+
+static void MoveSystemCursor(int x, int y)
+{
+    /* The client space is the fixed 640x480 design space, so client and
+       screen coordinates coincide. */
+    WarpGameMouse(ghWindow, x, y);
+}
+
+bool ResizeMouseCursorSurface(int width, int height)
+{
+    if (width <= 0 || height <= 0) return false;
+    if (g_mouse_surface && g_mouse_surface->w == width && g_mouse_surface->h == height) return true;
+    auto storage = CreateCpuStorage(width, height, SDL_PIXELFORMAT_ARGB1555);
+    if (!storage) return false;
+    g_mouse_surface = std::shared_ptr<SDL_Surface>(std::move(storage));
+    g_cursor_node = makeOverlayFromTexture(std::make_shared<Texture>(g_mouse_surface),
+                                           width / 640.0, height / 480.0, true, false);
+    g_compositor.attach(*g_cursor_node, OverlayLayer::Cursor);
+    PositionMouseCursor(g_cursor_width, g_cursor_height, false);
+    return true;
+}
+
+/* Move the OS/system cursor when the hotspot changes, then resync the rendered
+   cursor. */
+void SetMouseCursorHotspot(short hotspot_x, short hotspot_y)
+{
+    int x;
+    int y;
+
+    if (g_cursor_hotspot_x != hotspot_x || g_cursor_hotspot_y != hotspot_y) {
+        x = g_cursor_width - hotspot_x + g_cursor_hotspot_x;
+        y = g_cursor_height - hotspot_y + g_cursor_hotspot_y;
+        MoveSystemCursor(x, y);
+        SyncSystemCursor();
+        g_cursor_hotspot_x = hotspot_x;
+        g_cursor_hotspot_y = hotspot_y;
+    }
+}
+
+bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t region,
+                                   std::int16_t offset_x, std::int16_t offset_y)
+{
+    int x;
+    int y;
+
+    if (region >= sprites.frames.size()) {
+        return false;
+    }
+    const SpriteFrame& properties = sprites.frames[region];
+    if (!ResizeMouseCursorSurface(properties.width, properties.height)) {
+        return false;
+    }
+    if (g_cursor_hotspot_x != offset_x || g_cursor_hotspot_y != offset_y) {
+        x = g_cursor_width - offset_x + g_cursor_hotspot_x;
+        y = g_cursor_height - offset_y + g_cursor_hotspot_y;
+        MoveSystemCursor(x, y);
+        SyncSystemCursor();
+        g_cursor_hotspot_x = offset_x;
+        g_cursor_hotspot_y = offset_y;
+    }
+    g_cursor_image_width = properties.width;
+    g_cursor_image_height = properties.height;
+    ClearMouseSurface();
+    // A standalone cursor image has no baked sprite-canvas offset. Its placement
+    // comes exclusively from the explicit hotspot.
+    return BlitVideoObjectToColorSurface(sprites, region, *g_mouse_surface, -properties.offset.x,
+                                         -properties.offset.y);
+}
+
+void BlitToMouseCursor(const SpriteSheet& sprites, std::uint16_t region, std::uint16_t x,
+                       std::uint16_t y)
+{
+    BlitVideoObjectToColorSurface(sprites, region, *g_mouse_surface, x, y);
+}
+
+void RefreshMouseCursorTexture(void)
+{
+    if (g_cursor_node && g_cursor_node->texture) g_cursor_node->texture->invalidate();
+}
+
+/* Whether the tracked cursor position lies inside the render viewport. The
+   two automap callers use it, but nothing names the viewport as automap-only
+   state; placed here with the neighbouring cursor bodies. */
+bool ClearMouseSurface(void)
+{
+    SDL_FillSurfaceRect(g_mouse_surface.get(), nullptr, 0);
+    return true;
+}
+
+/* Distinct from IsCursorInsideViewport: the whole cursor image must fit
+   inside the viewport, not just the hotspot point. */
+bool IsCursorImageInsideViewport(void)
+{
+    if (g_cursor_width >= g_viewport.left && g_cursor_height >= g_viewport.top &&
+        g_cursor_width + g_cursor_image_width <= g_viewport.right &&
+        g_cursor_height + g_cursor_image_height <= g_viewport.bottom) {
+        return true;
+    }
+    return false;
+}
+
+bool IsCursorInsideViewport(void)
+{
+    int x = g_cursor_hotspot_x + g_cursor_width;
+    int y = g_cursor_hotspot_y + g_cursor_height;
+    return x >= g_viewport.left && y >= g_viewport.top && x <= g_viewport.right &&
+           y <= g_viewport.bottom;
+}
+
+void WarpSystemCursor(int x, int y)
+{
+    WarpGameMouse(ghWindow, x, y);
+}
+
+void PositionMouseCursor(int width, int height, bool reset_tick)
+{
+    if (!g_mouse_surface) return;
+    g_cursor_width = std::min(width, 640);
+    g_cursor_height = std::min(height, 480);
+    if (g_cursor_node) {
+        g_cursor_node->position = {g_cursor_width, g_cursor_height};
+        if (reset_tick) g_cursor_move_tick = MonotonicMilliseconds();
+    }
+}
+
+/* Milliseconds since the cursor last moved (or was repositioned with the
+   reset-tick arm). */
+std::uint64_t GetMillisecondsSinceCursorMove(void)
+{
+    return MonotonicMilliseconds() - g_cursor_move_tick;
+}
+
+/* Store the tracked cursor as viewport-relative 0..1 coordinates; false when
+   it lies outside. Same tracked position and viewport as the query above. */
+bool GetCursorPositionInViewport(glm::vec2* position)
+{
+    int x = g_cursor_hotspot_x + g_cursor_width;
+    int y = g_cursor_hotspot_y + g_cursor_height;
+    if (x >= g_viewport.left && y >= g_viewport.top && x <= g_viewport.right &&
+        y <= g_viewport.bottom) {
+        position->x =
+            (x - g_viewport.left) / static_cast<float>(g_viewport.right - g_viewport.left);
+        position->y = (y - g_viewport.top) / static_cast<float>(g_viewport.bottom - g_viewport.top);
+        return true;
+    }
+    return false;
+}
+
+/* The tracked cursor tip (hotspot + size) in pixel-scale units. DropHeldItem
+   turns it into the toss direction. */
+glm::vec2 GetCursorScaledPosition()
+{
+    return glm::vec2(g_cursor_hotspot_x + g_cursor_width, g_cursor_hotspot_y + g_cursor_height) *
+           glm::vec2(g_viewport_x_scale, g_viewport_y_scale);
+}
+
+/* Keep the rendered cursor synchronized with the OS cursor. The input layer
+   already reports design-space coordinates, so windowed and fullscreen share
+   the same position; fullscreen coordinates are clamped to the 640x480 game
+   surface. */
+void SyncSystemCursor(void)
+{
+    SDL_Point cursor = GetGameMousePosition();
+    if (!g_fullscreen) {
+        /* GetGameMousePosition already returns design-space coordinates. */
+        if (cursor.x != g_cursor_width || cursor.y != g_cursor_height) {
+            PositionMouseCursor(cursor.x, cursor.y, true);
+        }
+        return;
+    }
+
+    if (cursor.x < 1)
+        cursor.x = 0;
+    else if (cursor.x >= 640)
+        cursor.x = 640;
+    if (cursor.y < 1)
+        cursor.y = 0;
+    else if (cursor.y >= 480)
+        cursor.y = 480;
+    if (cursor.x != g_cursor_width || cursor.y != g_cursor_height) {
+        PositionMouseCursor(cursor.x, cursor.y, true);
+        WarpGameMouse(ghWindow, cursor.x, cursor.y);
+    }
+}
+
+// The cursor tip in design coordinates, including the active hotspot.
+SDL_Point CursorPosition()
+{
+    SyncSystemCursor();
+    return {g_cursor_hotspot_x + g_cursor_width, g_cursor_hotspot_y + g_cursor_height};
+}
+
+bool IsCursorInRectangle(int left, int top, int right, int bottom)
+{
+    SDL_Point point;
+
+    point = CursorPosition();
+    return point.x >= left && point.x <= right && point.y >= top && point.y <= bottom;
+}
+
+/* Creates the shipped 128x128 mouse polygon inside its dedicated scene. */
+bool InitializeMouseCursorScene(void)
+{
+    if (!g_mouse_surface) return false;
+    ClearMouseSurface();
+    auto texture = std::make_shared<Texture>(g_mouse_surface);
+    g_cursor_node = makeOverlayFromTexture(texture, g_mouse_surface->w / 640.0,
+                                           g_mouse_surface->h / 480.0, true, false);
+    g_compositor.attach(*g_cursor_node, OverlayLayer::Cursor);
+    PositionMouseCursor(640, 480, true);
+    return true;
+}
+
+unsigned char g_world_render_enabled;
+
+void InvalidateRegion(int left, int top, int right, int bottom)
+{
+    constexpr SDL_Rect screen{0, 0, 640, 480};
+    const SDL_Rect area{left, top, right - left, bottom - top};
+    SDL_Rect clipped;
+    if (!SDL_GetRectIntersection(&area, &screen, &clipped)) return;
+    if (SDL_RectEmpty(&g_ui_upload))
+        g_ui_upload = clipped;
+    else
+        SDL_GetRectUnion(&g_ui_upload, &clipped, &g_ui_upload);
+}
+
+void InvalidateScreenRects(DesignRect* rects, unsigned int count)
+{
+    for (const auto& rect : std::span(rects, count))
+        InvalidateRegion(rect.left, rect.top, rect.right, rect.bottom);
+}
+
+SDL_Rect TakeUiUpload()
+{
+    return std::exchange(g_ui_upload, SDL_Rect{});
+}
+
+static void FlushUiUpload()
+{
+    const auto upload = TakeUiUpload();
+    if (SDL_RectEmpty(&upload)) return;
+    g_ui_canvas->updateRectangle(g_renderer.get(), upload.x, upload.y, upload.x + upload.w,
+                                 upload.y + upload.h);
+}
+
+void SetScaledViewport(const DesignRect& bounds)
+{
+    if (bounds == g_viewport) {
+        return;
+    }
+    g_viewport = bounds;
+}
+
+/* Sets the viewport and rebuilds the camera view plane to match it. */
+
+void SetViewport(const DesignRect& bounds)
+{
+    float fractional_left;
+    float fractional_top;
+    float fractional_right;
+    float fractional_bottom;
+    Camera3D::Rect plane;
+
+    g_viewport = bounds;
+    fractional_left = bounds.left * g_viewport_x_scale;
+    fractional_top = bounds.top * g_viewport_y_scale;
+    fractional_right = g_viewport.right * g_viewport_x_scale;
+    fractional_bottom = g_viewport.bottom * g_viewport_y_scale;
+
+    if (GetWorld() != 0 && GetWorld()->camera != 0) {
+        GetWorld()->camera->setViewPlane(3.14159265358979323846 * 0.0055555557f * 85.0f,
+                                         3.14159265358979323846 * 0.0055555557f * 71.0f);
+        const auto view = GetWorld()->camera->getViewPlane().rectangle;
+
+        plane.left = fractional_left * (view.right - view.left) + view.left;
+        plane.right = fractional_right * (view.right - view.left) + view.left;
+        plane.bottom = (1.0 - fractional_bottom) * (view.top - view.bottom) + view.bottom;
+        plane.top = (1.0 - fractional_top) * (view.top - view.bottom) + view.bottom;
+
+        GetWorld()->camera->setViewPlane(plane, 1.0);
+        if (GetSecondaryWorld() != 0) {
+            GetSecondaryWorld()->camera->setViewPlane(plane, 1.0);
+        }
+        if (g_camera_sway_active) {
+            GetWorld()->party_camera.applySway(*GetWorld()->camera, CameraSwayMode::Start);
+        }
+    }
+}
+
+/* The debug stats readout drawn over the primary surface: a black band plus
+   the frame-rate line always, the object/poly/vertex counters, texture and
+   pagefile memory in mode 2, or the scaled camera position in mode 3. */
+void DrawVideoInspector(int left, unsigned int top)
+{
+    glm::vec3 position;
+    unsigned int bottom;
+    unsigned char* row;
+    int rows;
+    /* Retail left the band height uninitialised for inspector modes outside
+       1..3 and read that storage into bottom; natively it starts at zero. */
+    int height = 0;
+
+    if (g_video_inspector_mode == 1) {
+        height = 0xb;
+    } else if (g_video_inspector_mode == 2) {
+        height = 0x9a;
+    } else if (g_video_inspector_mode == 3) {
+        height = 0x2c;
+    }
+    bottom = top + height;
+    const auto& description = *primarySurface;
+    if (description.pixels != 0) {
+        if (top < bottom) {
+            row = static_cast<unsigned char*>(description.pixels) + description.pitch * top +
+                  left * 2;
+            for (rows = bottom - top; rows != 0; --rows) {
+                memset(row, 0, 0x226);
+                row += description.pitch;
+            }
+        }
+    }
+    InvalidateRegion(left, top, left + 0x113, bottom);
+    if (g_renderer != 0) {
+        g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
+        const int text_left = static_cast<int>(left);
+        const int text_top = static_cast<int>(top);
+        DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top},
+                              fmt::format("FR: {:4.1f}", g_frames_per_second));
+        if (g_video_inspector_mode == 2) {
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
+                                  {text_left, text_top + 0xa},
+                                  fmt::format("OC: {:d}", GetWorld()->scene->submitted_polygons));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
+                                  {text_left, text_top + 0x6e},
+                                  fmt::format("DR: {:3d}", GetCameraYawAndRotation(0)));
+            return;
+        }
+        if (g_video_inspector_mode == 3) {
+            float scaled;
+
+            position = cameraLocation();
+            if (IsKeyHeld(SDLK_F1)) {
+                position.x *= g_world_cursor_scale;
+                scaled = position.y * g_world_cursor_scale;
+                position.y = position.z * g_world_cursor_scale;
+                position.z = scaled;
+            }
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
+                                  {text_left, text_top + 0xa},
+                                  fmt::format(" X: {:.2f}", position.x));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
+                                  {text_left, text_top + 0x14},
+                                  fmt::format(" Y: {:.2f}", position.y));
+            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
+                                  {text_left, text_top + 0x1e},
+                                  fmt::format(" Z: {:.2f}", position.z));
+        }
+    }
+}
+
+void VideoInspectorEnable(void)
+{
+    g_video_inspector_enabled = true;
+}
+
+std::int32_t g_help_box_width;
+std::int32_t g_help_box_height;
+
+/* Live tooltip sprites, left to right. */
+static std::vector<std::unique_ptr<OverlayQuad>> g_tooltip_nodes;
+
+void VideoRemoveToolTip(void)
+{
+    g_tooltip_nodes.clear();
+}
+
+std::unique_ptr<MeshInstance> VideoMakePoster(std::shared_ptr<SDL_Surface> surface, float width,
+                                              float height, bool additive)
+{
+    auto texture = std::make_shared<Texture>();
+    texture->setMipmapBias(-8.0f);
+    texture->setName("VideoMakePoster");
+    texture->setSurfacePtr(surface);
+    texture->setWrapS(Texture::WRAP_CLAMP);
+    texture->setWrapT(Texture::WRAP_CLAMP);
+    return MakePosterQuad(std::move(texture), width, height, additive);
+}
+
+void PresentMenuOverlayFrame(void)
+{
+    FlushUiUpload();
+    g_renderer->beginFrame();
+    g_ui_canvas->draw(g_renderer.get());
+    g_renderer->endFrame();
+}
+
+void SetUiCanvasAlphaTestEnabled(bool enabled)
+{
+    if (g_ui_canvas) {
+        g_ui_canvas->setAlphaTestEnabled(enabled);
+    }
+}
+
+bool InitializeMouseSurface(void)
+{
+    g_mouse_surface = std::shared_ptr<SDL_Surface>(
+        CreateCpuStorage(128, 128, kFramePixelFormat).release(), SDL_DestroySurface);
+    ClearMouseSurface();
+    return true;
+}
+
+/* A black, fog-free scene with no parent, used for the 2D overlay layers. */
+bool InitializeRendererSceneObjects(void)
+{
+    InitializeMouseSurface();
+    g_ui_canvas = std::make_unique<UiCanvasTexture>(primarySurface);
+    g_viewport = {};
+    return true;
+}
+
+void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom)
+{
+    if (top >= bottom || left >= right) return;
+    const SDL_Rect rectangle{left, static_cast<int>(top), right - left,
+                             static_cast<int>(bottom - top)};
+    SDL_FillSurfaceRect(primarySurface.get(), &rectangle, 0);
+}
+
+void EraseRegion(int left, int top, int right, int bottom)
+{
+    ClearSurfaceRect(left, top, right, bottom);
+    InvalidateRegion(left, top, right, bottom);
+}
+
+bool DisableCursorScene(void)
+{
+    g_cursor_scene_enabled = false;
+    return true;
+}
+
+bool EnableCursorScene(void)
+{
+    g_cursor_scene_enabled = true;
+    return true;
+}
+
+/* Install a texture (often an Texture) on the mouse-cursor mesh. A null
+   argument reuses the current cursor texture. */
+void SetMouseCursorTexture(std::shared_ptr<Texture> texture)
+{
+    if (texture && g_cursor_node) g_cursor_node->texture = std::move(texture);
+}
+
+bool HasScreenTransitionObjects(void)
+{
+    return !g_tooltip_nodes.empty();
+}
+
+void SetFullscreenSceneLast(unsigned char value)
+{
+    g_fullscreen_scene_last = value;
+}
+
+/* The retail linker folds this trivial TRUE stub with other returns; its
+   0x42B830 address sits past the proven Video2 hull, so its placement stays
+   provisional. */
+
+SDL_Surface& GetFrameBufferSurface()
+{
+    return *primarySurface;
+}
+
+/* The retail empty video-capture entry folds with the shared 0x4023a0 ret. */
+
+int g_screenshot_index;
+
+void SaveJpegScreenshot(void)
+{
+    SDL_Surface* surface = g_renderer->readback();
+    if (surface != 0) {
+        char filename[32];
+
+        int screenshot_index = g_screenshot_index++;
+        sprintf(filename, "Wiz8%5.5d.JPG", screenshot_index);
+        imageIO::save(filename, *surface);
+    }
+}
+
+/* Places one tooltip node at a screen position in normalized coordinates.
+   With positional set, the position is snapped to the renderer's pixel grid;
+   the node keeps the screen x/y in its right/bottom extent fields. */
+void VideoPositionToolTip(std::int32_t x, std::int32_t y)
+{
+    if (!g_tooltip_nodes.empty()) {
+        std::int32_t offset = x;
+        for (const auto& node : g_tooltip_nodes) {
+            positionOverlay(node.get(), offset, y, true);
+            offset += static_cast<int>(node->scaledSize().x);
+        }
+        return;
+    }
+}
+
+/* Paint the tooltip into one ARGB1555 surface, retaining its opaque black
+   panel and transparent pixels outside it. */
+void VideoToolTip(std::string_view text)
+{
+    if (!g_tooltip_nodes.empty()) {
+        return;
+    }
+    auto surface = CreateCpuStorage(0xfeUL, 0xfeUL, SDL_PIXELFORMAT_ARGB1555);
+    W8ControlsRect bounds;
+    bounds.left = 0;
+    bounds.top = 0;
+    bounds.right = 0xfa;
+    bounds.bottom = 0xfa;
+    auto buffer = std::make_unique<W8TextBuffer>(
+        &bounds, text, g_font10arial, g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
+    g_help_box_width = static_cast<int>(buffer->m_maxLineWidth) + 4;
+    g_help_box_height = g_font10arial.height() * buffer->m_lineCount + 2;
+    SDL_FillSurfaceRect(surface.get(), nullptr, 0);
+    SDL_Rect background{0, 0, g_help_box_width, g_help_box_height};
+    SDL_FillSurfaceRect(surface.get(), &background, SDL_MapSurfaceRGB(surface.get(), 0, 0, 0));
+    buffer->RenderText(*surface, 2, 1, true);
+    std::uint32_t border_colour;
+    PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
+    const SDL_Rect edges[]{{0, 0, g_help_box_width, 1},
+                           {0, g_help_box_height - 1, g_help_box_width, 1},
+                           {0, 0, 1, g_help_box_height},
+                           {g_help_box_width - 1, 0, 1, g_help_box_height}};
+    SDL_FillSurfaceRects(surface.get(), edges, 4,
+                         SDL_MapSurfaceRGBA(surface.get(), (border_colour >> 16) & 255,
+                                            (border_colour >> 8) & 255, border_colour & 255,
+                                            border_colour >> 24));
+
+    W8ControlsRect rect;
+    rect.left = 0;
+    rect.top = 0;
+    rect.right = 0xfe;
+    rect.bottom = 0xfe;
+    auto quad = makeOverlayFromSurface(*surface, &rect, false, true);
+    if (quad) {
+        g_compositor.attach(*quad, OverlayLayer::Cursor);
+        g_tooltip_nodes.push_back(std::move(quad));
+    }
+
+    int position_y = g_cursor_height - g_help_box_height;
+    int position_x = g_cursor_width;
+    int offset = position_x;
+    for (const auto& node : g_tooltip_nodes) {
+        positionOverlay(node.get(), offset, position_y, true);
+        offset += static_cast<int>(node->scaledSize().x);
+    }
+}
+
+/* Renderer configuration helpers reached from the video device, not the
+   persisted configuration block. */
+int g_resident_texture_policy;
+
+void SetResidentTexturePolicy(int policy)
+{
+    g_resident_texture_policy = policy;
+}
+
+void SetSwapInterval(bool enabled)
+{
+    g_renderer->setVsync(enabled);
+}
+
+/* Build an Texture whose frames are consecutive VObject subimages starting
+   at start_frame. use_argb1555 selects SURFACE_ARGB1555 versus SURFACE_RGB555 for
+   each frame surface. The setName string is the retail identity. */
+std::shared_ptr<Texture> VideoVObjectToTextureAnim(const SpriteSheet& sprites,
+                                                   unsigned short start_frame,
+                                                   unsigned short frame_count, bool use_argb1555)
+{
+    auto animation = std::make_shared<Texture>(TexturePlayback{});
+    animation->setName("VideoVObjecttoTextureAnim");
+    const auto end = std::min(sprites.frames.size(), std::size_t(start_frame) + frame_count);
+    for (std::size_t frame = start_frame; frame < end; ++frame) {
+        const auto& properties = sprites.frames[frame];
+        auto surface =
+            CreateCpuStorage(properties.width, properties.height,
+                             use_argb1555 ? SDL_PIXELFORMAT_ARGB1555 : SDL_PIXELFORMAT_XRGB1555);
+        if (!surface) continue;
+        SDL_FillSurfaceRect(surface.get(), nullptr, 0);
+        if (!BlitVideoObjectToColorSurface(sprites, frame, *surface, -properties.offset.x,
+                                           -properties.offset.y))
+            continue;
+        auto texture = std::make_shared<Texture>(std::shared_ptr<SDL_Surface>(std::move(surface)));
+        texture->setName("VideoVObjecttoTextureAnim");
+        auto dimensions = texture->getDimensions();
+        dimensions.native_size = true;
+        texture->setDimensions(dimensions);
+        texture->setWrapS(Texture::WRAP_CLAMP);
+        texture->setWrapT(Texture::WRAP_CLAMP);
+        texture->setMagFilter(Texture::FILTER_NONE);
+        texture->setMinFilter(Texture::FILTER_NONE);
+        texture->setMipmap(Texture::MIPMAP_NONE);
+        animation->AddTexture(std::move(texture));
+    }
+    return animation;
+}
+
+std::unique_ptr<MeshInstance> MakePosterQuad(std::shared_ptr<Texture> texture, float width,
+                                             float height, bool additive)
+{
+    DrawShader shader;
+    const auto dimensions = texture->getDimensions();
+    if (width == 0 && dimensions.height > 0) width = height * dimensions.width / dimensions.height;
+    if (height == 0 && dimensions.width > 0) height = width * dimensions.height / dimensions.width;
+    auto model = std::make_shared<Mesh>(0, 0);
+    model->setName("VideoMakePoster");
+    // Vulkan samples texel centers inside this full-image rectangle. Clamp-to-edge
+    // handles the border; shrinking UVs crops artwork and changes its scale.
+    SetSpriteQuad(*model, width, height, {1, 1});
+
+    shader.value = 0x100a013;
+    if (additive) {
+        shader.value = 0x100c0b3;
+        model->enable(Mesh::CONTROL_SORTED_RENDERING);
+    }
+    auto material = std::make_shared<Material>();
+    material->setEmissive(glm::vec4(1));
+    material->setDiffuse(glm::vec4(0));
+    material->setSpecular(glm::vec4(0));
+    model->setMaterial(std::move(material), 0, Mesh::SIDE_FRONT);
+    model->setTexture(std::move(texture), 0, 0);
+    model->setShader(shader, 0);
+
+    auto instance = std::make_unique<MeshInstance>(nullptr);
+    instance->setName("VideoMakePoster");
+    instance->setModel(model);
+    instance->render_flags |= MeshInstance::RENDER_NO_PICK;
+    return instance;
+}
+
+void DrawColorSurface(SDL_Surface* surface, int x, int y)
+{
+    SDL_Rect destination{x, y, surface->w, surface->h};
+    SDL_BlitSurface(surface, nullptr, primarySurface.get(), &destination);
+}
+
+ViewportBounds GetScaledViewportBounds()
+{
+    return {{g_viewport.left * g_viewport_x_scale, g_viewport.top * g_viewport_y_scale},
+            {g_viewport.right * g_viewport_x_scale, g_viewport.bottom * g_viewport_y_scale}};
+}
+
+/* VertexChannels::MaterialInfo's inline ctor emitted out-of-line inside
+   Material's locally-compiled constructor; the primary is in
+   srVertexProcessor.h. */
+
+void DrawTextAndInvalidate(SDL_Surface& target, Font& font, SDL_Point at, std::string_view text,
+                           TextOptions options)
+{
+    DrawText(target, font, at, text, options);
+    InvalidateRegion(at.x, at.y, at.x + font.textWidth(text), at.y + font.height());
+}

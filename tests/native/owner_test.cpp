@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -27,30 +28,24 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Font.h"
 #include "application.h"
-#include "himage.h"
-#include "image.h"
-#include "image_assets.h"
-#include "imgfmt.h"
-#include "input.h"
-#include "layouts/main_game_screen.h"
-#include "layouts/screen_state.h"
-#include "local_code/RangeControl.h"
-#include "local_screens/RCSStatsPage.h"
 #include "scoped_asset_roots.h"
-#include "scoped_records.h"
-#include "surrender/srCamera.h"
-#include "surrender/srModelInstance.h"
-#include "surrender/srNode.h"
-#include "surrender/srScene.h"
+#include "scoped_game.h"
+#include "scoped_game_data.h"
 #include "temporary_directory.h"
 #include "wiz8/assertions.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/canvas/image_assets.h"
+#include "wiz8/canvas/imgfmt.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/game_data.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 #include "wiz8/dialog_code/DialogBase.h"
@@ -60,49 +55,79 @@
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/dialog_code/DialogTextEntry.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/stModelInstance.h"
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
+#include "wiz8/game.h"
+#include "wiz8/item_spawning.h"
+#include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
+#include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/MGSButtons.h"
-#include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/RCSStatsPage.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
-#include "wiz8/local_screens/Screens.h"
+#include "wiz8/message_log.h"
 #include "wiz8/modal_content.h"
-#include "wiz8/overlay_scenes.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
+#include "wiz8/render/compositor.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/mesh_instance.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/party.h"
+#include "wiz8/screen.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
 
 namespace {
 std::vector<int> screen_leaves;
 int screen_entries, screen_frames;
-bool enter()
+struct StubScreen final : Screen {
+    bool enter(const ScreenRequest&) override
+    {
+        ++screen_entries;
+        return true;
+    }
+    void frame() override { ++screen_frames; }
+    bool leave(ScreenDeparture departure) override
+    {
+        screen_leaves.push_back(departure == ScreenDeparture::Discard);
+        return true;
+    }
+};
+std::unique_ptr<Screen> stub_factory(W8ScreenId, GameSession&, Pointer&)
 {
-    ++screen_entries;
-    return 1;
+    return std::make_unique<StubScreen>();
 }
-bool leave(int discard)
+// Rebuilt on every visit, with the request a suspension leaves behind.
+struct RebuiltScreen final : Screen {
+    static constexpr W8ScreenId id = W8_SCREEN_CAMP;
+    bool enter(const ScreenRequest& request) override
+    {
+        entered_with = request.parameter;
+        return true;
+    }
+    void frame() override {}
+    bool leave(ScreenDeparture) override { return true; }
+    std::optional<ScreenRequest> rebuildRequest(const ScreenRequest& entered) const override
+    {
+        auto request = entered;
+        request.parameter = entered_with + 1;
+        return request;
+    }
+    int entered_with = 0;
+};
+std::unique_ptr<Screen> rebuilding_factory(W8ScreenId id, GameSession&, Pointer&)
 {
-    screen_leaves.push_back(discard);
-    return 1;
-}
-void frame()
-{
-    ++screen_frames;
+    if (id == RebuiltScreen::id) return std::make_unique<RebuiltScreen>();
+    return std::make_unique<StubScreen>();
 }
 
 void button_image_fixture(const std::filesystem::path& root, std::string name, unsigned count = 9,
@@ -117,62 +142,70 @@ void initialize_test_framebuffer()
 
 void screen_stack()
 {
-    gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
-    const auto saved_intro = g_screen_handlers[W8_SCREEN_INTRO];
-    const auto saved_options = g_screen_handlers[W8_SCREEN_OPTIONS];
-    for (auto id : {W8_SCREEN_INTRO, W8_SCREEN_OPTIONS})
-        g_screen_handlers[id] = {nullptr, enter, frame, leave, nullptr};
-    g_current_screen_state = {};
-    g_current_screen_state.id = W8_SCREEN_NONE;
-    g_pending_screen_state.id = W8_SCREEN_NONE;
-    g_screen_return_requested = false;
-    REQUIRE(GetPendingScreenState() == W8_SCREEN_NONE);
+    ScopedGame game;
+    ResetScreenRouting(game.session, stub_factory);
+    REQUIRE(PendingScreen() == W8_SCREEN_NONE);
     W8Character payload{};
     for (int index = 0; index < 40; ++index) {
-        g_pending_screen_state = {};
-        g_pending_screen_state.id = index % 2 ? W8_SCREEN_OPTIONS : W8_SCREEN_INTRO;
-        g_pending_screen_state.parameter = index;
-        g_pending_screen_state.character = &payload;
-        g_pending_screen_state.name = "screen " + std::to_string(index);
-        REQUIRE(GetPendingScreenState() == g_pending_screen_state.id);
+        const auto id = index % 2 ? W8_SCREEN_OPTIONS : W8_SCREEN_INTRO;
+        RequestScreen({.id = id,
+                       .parameter = index,
+                       .character = &payload,
+                       .name = "screen " + std::to_string(index)});
+        REQUIRE(PendingScreen() == id);
         GameLoop();
-        REQUIRE(g_current_screen_state.parameter == index);
-        REQUIRE(g_screen_return_stack.size() == static_cast<size_t>(index));
+        REQUIRE(CurrentScreenState().parameter == index);
+        REQUIRE(SuspendedScreenCount() == static_cast<size_t>(index));
     }
     REQUIRE((screen_entries == 40 && screen_frames == 40));
     REQUIRE((screen_leaves.size() == 39 && screen_leaves.back() == 0));
-    REQUIRE(GetPendingScreenState() == W8_SCREEN_INTRO);
+    REQUIRE(PendingScreen() == W8_SCREEN_INTRO);
     for (int index = 38; index >= 0; --index) {
-        RequestScreenTransition();
+        ReturnToPreviousScreen();
         GameLoop();
-        REQUIRE(g_current_screen_state.parameter == index);
-        REQUIRE(g_current_screen_state.character == &payload);
-        REQUIRE(g_current_screen_state.name == std::string("screen ") + std::to_string(index));
-        REQUIRE(g_screen_return_stack.size() == static_cast<size_t>(index));
+        REQUIRE(CurrentScreenState().parameter == index);
+        REQUIRE(CurrentScreenState().character == &payload);
+        REQUIRE(CurrentScreenState().name == std::string("screen ") + std::to_string(index));
+        REQUIRE(SuspendedScreenCount() == static_cast<size_t>(index));
         REQUIRE(screen_leaves.back() == 1);
     }
-    g_screen_return_stack.push_back(g_current_screen_state);
-    g_pending_screen_state = g_current_screen_state;
-    g_pending_screen_state.id = W8_SCREEN_OPTIONS;
-    g_pending_screen_state.parameter = 99;
-    RequestScreenTransition();
+    RequestScreen({.id = W8_SCREEN_OPTIONS, .parameter = 98});
     GameLoop();
-    REQUIRE((g_current_screen_state.parameter == 99 && g_screen_return_stack.size() == 1));
-    RequestScreenTransition();
+    RequestScreen({.id = W8_SCREEN_OPTIONS, .parameter = 99}, ScreenDeparture::Discard);
     GameLoop();
-    REQUIRE((g_current_screen_state.parameter == 0 && g_screen_return_stack.empty()));
+    REQUIRE((CurrentScreenState().parameter == 99 && SuspendedScreenCount() == 1));
+    ReturnToPreviousScreen();
+    GameLoop();
+    REQUIRE((CurrentScreenState().parameter == 0 && (SuspendedScreenCount() == 0)));
     gfProgramIsRunning = true;
-    RequestScreenTransition();
+    ReturnToPreviousScreen();
     GameLoop();
-    REQUIRE((!gfProgramIsRunning && g_current_screen_state.id == W8_SCREEN_NONE));
-    g_screen_return_requested = false;
-    gXStatus.character_event_queue = nullptr;
-    g_screen_handlers[W8_SCREEN_INTRO] = saved_intro;
-    g_screen_handlers[W8_SCREEN_OPTIONS] = saved_options;
+    REQUIRE((!gfProgramIsRunning && CurrentScreenState().id == W8_SCREEN_NONE));
+
+    // A rebuilt screen exists only while current; a return enters a new one.
+    ResetScreenRouting(game.session, rebuilding_factory);
+    gfProgramIsRunning = true;
+    RequestScreen({.id = W8_SCREEN_CAMP, .parameter = 1});
+    GameLoop();
+    const auto* first = FindScreen<RebuiltScreen>();
+    REQUIRE((first && first->entered_with == 1));
+    RequestScreen({.id = W8_SCREEN_OPTIONS});
+    GameLoop();
+    REQUIRE((FindScreen<RebuiltScreen>() == nullptr && SuspendedScreenCount() == 1));
+    ReturnToPreviousScreen();
+    GameLoop();
+    REQUIRE(CurrentScreenState().parameter == 2);
+    REQUIRE(FindScreen<RebuiltScreen>()->entered_with == 2);
+    RequestScreen({.id = W8_SCREEN_OPTIONS});
+    GameLoop();
+    GameloopExit();
+    REQUIRE(CurrentScreenState().id == W8_SCREEN_NONE);
+    ResetScreenRouting(game.session);
 }
 
 void camp_effects()
 {
+    const ScopedGame game;
     ScopedTemporaryDirectory directory{"wiz8-camp-effects"};
     const auto assets = directory.path / "assets";
     const auto previous_roots = w8_native::path_roots();
@@ -183,63 +216,71 @@ void camp_effects()
         w8_native::Roots roots;
         ~Restore()
         {
-            g_camp_screen.reset();
             g_image_assets.clear();
             w8_native::configure_paths(roots);
         }
     } restore{previous_roots};
     {
-        g_camp_screen = std::make_unique<W8CampScreenState>();
-        auto* state = g_camp_screen.get();
-        REQUIRE((state->effect_list.empty() && state->stats_range == nullptr));
+        CampScreen independent(game.game, ScreenPointer());
+        auto* state = &independent;
+        REQUIRE((state->stats.effect_list.empty() && state->stats.stats_range == nullptr));
         const auto layer_count = LiveUiLayerCount();
-        state->stats_range =
+        state->stats.stats_range =
             std::make_unique<W8RangeControl>(state->scroll_input, 0x264, 0xbe, 0x276, 0x1b5);
         REQUIRE(LiveUiLayerCount() == layer_count);
         // Disabling one scrollbar must not disable unrelated targets in its layer.
         const auto consume = [](const UiPointerEvent&) { return UiResult::Handled; };
         auto& sibling = state->scroll_input.add(SDL_Rect{0, 0, 640, 480}, consume);
-        state->stats_range->SetActive(true);
-        state->stats_range->SetActive(false);
+        state->stats.stats_range->SetActive(true);
+        state->stats.stats_range->SetActive(false);
         REQUIRE(sibling.hitAt({0, 0}));
         state->scroll_input.remove(sibling);
-        auto& range = *state->stats_range;
-        state->effect_list = {{false, false, true, false, 0, 0, 0, 3, 10},
-                              {false, false, false, true, 0, 1, 0, 3, 9},
-                              {true, false, true, false, 2, 2, 0, 9999, 3},
-                              {false, false, true, true, 0, 3, 0, 3, 2}};
-        state->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
-        state->effect_scroll = 100;
-        FilterCampEffectList();
-        REQUIRE((state->effect_visible_lines == 24 && state->effect_scroll == 7));
-        REQUIRE((state->effect_first_visible == 0 && state->effect_last_visible == 3));
+        auto& range = *state->stats.stats_range;
+        state->stats.effect_list = {
+            {false, false, true, false, W8_CAMP_EFFECT_CONDITION, 0, 0, 3, 10},
+            {false, false, false, true, W8_CAMP_EFFECT_CONDITION, 1, 0, 3, 9},
+            {true, false, true, false, W8_CAMP_EFFECT_EQUIPMENT, 2, 0, 9999, 3},
+            {false, false, true, true, W8_CAMP_EFFECT_CONDITION, 3, 0, 3, 2}};
+        state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
+        state->stats.effect_scroll = 100;
+        state->stats.FilterCampEffectList();
+        REQUIRE((state->stats.effect_visible_lines == 24 && state->stats.effect_scroll == 7));
+        REQUIRE((state->stats.effect_first_visible == 0 && state->stats.effect_last_visible == 3));
         REQUIRE((range.m_enabled && range.m_value == 7));
-        state->effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
-        FilterCampEffectList();
-        REQUIRE((state->effect_visible_lines == 14 && state->effect_scroll == 0));
-        REQUIRE((!range.m_enabled && !state->effect_list[1].visible));
-        state->effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
-        FilterCampEffectList();
-        REQUIRE((state->effect_visible_lines == 13 && state->effect_list[3].visible));
-        state->effect_items_only = true;
-        state->effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
-        FilterCampEffectList();
-        REQUIRE((state->effect_visible_lines == 4 && state->effect_first_visible == 2));
+        state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_BENEFICIAL;
+        state->stats.FilterCampEffectList();
+        REQUIRE((state->stats.effect_visible_lines == 14 && state->stats.effect_scroll == 0));
+        REQUIRE((!range.m_enabled && !state->stats.effect_list[1].visible));
+        state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_DETRIMENTAL;
+        state->stats.FilterCampEffectList();
+        REQUIRE((state->stats.effect_visible_lines == 13 && state->stats.effect_list[3].visible));
+        state->stats.effect_items_only = true;
+        state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
+        state->stats.FilterCampEffectList();
+        REQUIRE((state->stats.effect_visible_lines == 4 && state->stats.effect_first_visible == 2));
         W8Character character{};
         for (auto& condition : character.uiCondition) condition = 1;
         for (auto& enchantment : character.enchantments) enchantment.turns = 2;
-        g_review_character = &character;
-        state->effect_items_only = false;
-        RebuildCampEffectList();
-        REQUIRE(state->effect_list.size() == 28);
-        REQUIRE((state->effect_detrimental_count == 20 && state->effect_beneficial_count == 8));
-        REQUIRE((state->effect_list.front().index == 19 && state->effect_list.back().index == 0));
-        REQUIRE((state->effect_visible_lines == 64 && range.m_enabled));
+        character.fInParty = true; // A saved flag does not establish membership.
+        state->reviewed = &character;
+        REQUIRE(state->ReviewedPartySlot() == -1);
+        state->reviewed = &CurrentGame().party.characters[3];
+        REQUIRE(state->ReviewedPartySlot() == 3);
+        // A camp rebuilt after a suspension reviews the character it showed.
+        const auto rebuilt = state->rebuildRequest({.id = W8_SCREEN_CAMP, .character = &character});
+        REQUIRE((rebuilt && rebuilt->character == &CurrentGame().party.characters[3]));
+        state->stats.effect_items_only = false;
+        state->stats.RebuildCampEffectList(character);
+        REQUIRE(state->stats.effect_list.size() == 28);
+        REQUIRE((state->stats.effect_detrimental_count == 20 &&
+                 state->stats.effect_beneficial_count == 8));
+        REQUIRE((state->stats.effect_list.front().index == 19 &&
+                 state->stats.effect_list.back().index == 0));
+        REQUIRE((state->stats.effect_visible_lines == 64 && range.m_enabled));
         character = {};
-        RebuildCampEffectList();
-        REQUIRE((state->effect_list.empty() && state->effect_visible_lines == 0));
-        REQUIRE((state->effect_beneficial_count == 0 && !range.m_enabled));
-        g_review_character = nullptr;
+        state->stats.RebuildCampEffectList(character);
+        REQUIRE((state->stats.effect_list.empty() && state->stats.effect_visible_lines == 0));
+        REQUIRE((state->stats.effect_beneficial_count == 0 && !range.m_enabled));
     }
 }
 
@@ -518,6 +559,11 @@ public:
         button_image_fixture(assets, "data/main interface/main_scroll.sti", 12, false, 4, 2, {}, 2,
                              3);
         bitmap_image_fixture(assets, "data/portraits/large/lhummf.sti");
+        for (const auto* name : {"HealthBar", "StaminaBar", "MagicBar", "HealthBarWide",
+                                 "StaminaBarWide", "MagicBarWide"})
+            button_image_fixture(assets, fmt::format("data/main interface/{}.sti", name), 1, false,
+                                 3, 45);
+        button_image_fixture(assets, "data/fonts/vitals.sti", 256, false, 3, 5);
         g_image_assets.clear();
         w8_native::configure_paths({assets.string(), (directory_.path / "user").string()});
     }
@@ -550,7 +596,7 @@ void generic_button_images()
     {
         auto image = LoadImage("metadata.sti");
         REQUIRE(image);
-        const auto* sheet = std::get_if<SpriteSheet>(&*image);
+        const auto* sheet = std::get_if<SpriteSheet>(&image.value());
         REQUIRE(sheet);
         REQUIRE(sheet->frames.size() == 3);
         REQUIRE(sheet->frames[2].paletteIndexAt(0, 0) == 1);
@@ -818,7 +864,7 @@ void generic_button_images()
     REQUIRE((image->offset_x == 4 && image->offset_y == 5));
     const auto background_pixel = image->frames[0]->frames[8].paletteIndexAt(0, 0);
     REQUIRE(background_pixel);
-    REQUIRE(image->fill_color == image->frames[0]->colors[*background_pixel]);
+    REQUIRE(image->fill_color == image->frames[0]->colors[background_pixel.value()]);
     auto another_owner = image;
     image.reset();
     REQUIRE(another_owner->frames[0]);
@@ -989,23 +1035,20 @@ void generic_button_images()
     REQUIRE(view_pixels == expected_pixels);
     // Rebuilding word ranges preserves UTF-8 byte boundaries and discards
     // old hover state, including when a line becomes empty.
-    auto previous_level = std::exchange(g_level_block, std::make_unique<W8LevelRuntimeBlock>());
-    g_level_block->text_box_font = &primary;
     W8MessageStorageRecord words{};
     words.text = "  é 中  ";
-    words.RebuildEntries();
+    words.RebuildEntries(primary);
     REQUIRE(words.entries.size() == 2);
     REQUIRE((words.entries[0].start == 2 && words.entries[0].end == 3));
     REQUIRE((words.entries[1].start == 5 && words.entries[1].end == 7));
     REQUIRE(words.entries[1].x_start == primary.textWidth("  é "));
     words.entries[0].keyword = W8_NOTICE_WORD_SELECTED;
     words.text = "中";
-    words.RebuildEntries();
+    words.RebuildEntries(primary);
     REQUIRE((words.entries.size() == 1 && words.entries[0].keyword == W8_NOTICE_WORD_NORMAL));
     words.text.clear();
-    words.RebuildEntries();
+    words.RebuildEntries(primary);
     REQUIRE(words.entries.empty());
-    g_level_block = std::move(previous_level);
     REQUIRE(g_font12point1.load(font_filename));
     {
         UiLayer fields_input;
@@ -1305,7 +1348,8 @@ TEST_CASE("Input-layer owners close only after the outer dispatch completes", "[
     bool finished = false;
     layer->add(SDL_Rect{10, 10, 20, 20}, [&](const UiPointerEvent& event) {
         if (event.action == UiPointerAction::Down) {
-            AfterUiDispatch([&] {
+            AfterUiDispatch([&, owned = std::make_unique<int>(42)] {
+                REQUIRE(*owned == 42);
                 REQUIRE(finished);
                 layer.reset();
             });
@@ -1358,7 +1402,7 @@ TEST_CASE("The input pump finishes its policy before committing a layer close", 
     REQUIRE(layer == nullptr);
     auto pending = PollInputEvent();
     REQUIRE(pending);
-    REQUIRE(pending->type == InputEventType::LeftButtonUp);
+    REQUIRE(pending.value().type == InputEventType::LeftButtonUp);
     REQUIRE_FALSE(PollInputEvent());
 }
 
@@ -1523,15 +1567,10 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
     UiStateSnapshot saved_state;
     struct TooltipStateSnapshot {
         bool tooltips_enabled = g_settings.tooltips_enabled;
-        std::vector<std::string> localized_strings = std::move(g_localized_strings);
-        ~TooltipStateSnapshot()
-        {
-            g_settings.tooltips_enabled = tooltips_enabled;
-            g_localized_strings = std::move(localized_strings);
-        }
+        ~TooltipStateSnapshot() { g_settings.tooltips_enabled = tooltips_enabled; }
     } tooltip_state;
     g_settings.tooltips_enabled = true;
-    g_localized_strings.emplace_back("Button tooltip");
+    const ScopedGameData installed(GameData{.strings = {"Button tooltip"}});
     UiLayer layer;
     Font font{};
 
@@ -1660,6 +1699,7 @@ TEST_CASE("Dialog controls own interaction without legacy GUI buttons", "[owner]
 
 TEST_CASE("Modal confirmations and scrollbars dispatch through their native owners", "[owner]")
 {
+    const ScopedGame game;
     initialize_test_framebuffer();
     UiStateSnapshot saved_state;
     ScopedTemporaryDirectory temporary{"wiz8-modal-controls"};
@@ -1768,7 +1808,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         area.AddEntry("", "Z", 0, 0, 0);
         area.AddEntry("", "A\nB", 0, 0, 1);
         area.AddEntry("", "C", 0, 0, 1);
-        area.SetCategoryFilter(1);
+        area.SetCategoryFilter(W8_DIALOGUE_CATEGORY_PEOPLE);
         REQUIRE(area.GetOwningEntryIndex(0) == 1);
         REQUIRE(area.UpdateSelectionFromPoint(1, 1));
         REQUIRE_FALSE(area.UpdateSelectionFromPoint(1, font.height() + 1));
@@ -1785,7 +1825,7 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         REQUIRE(area.HitTestEntry(1, 25) == 1);
         REQUIRE(area.ScrollUp(false));
         REQUIRE(area.HitTestEntry(1, 25) == 0);
-        area.SetCategoryFilter(-1);
+        area.SetCategoryFilter(W8_DIALOGUE_CATEGORY_ALL);
         area.SetSorted(true);
         REQUIRE(area.GetOwningEntryIndex(0) == 1);
         REQUIRE(area.GetOwningEntryIndex(2) == 0);
@@ -1800,6 +1840,41 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         button_image_fixture(assets / "data" / "dialogs", image, 16);
     }
     {
+        GameData data{.items = std::vector<W8ItemDatabaseRecord>(3)};
+        for (int index = 0; index < 3; ++index)
+            data.items[index].equip_class = static_cast<W8ItemEquipClass>(index);
+        const ScopedGameData installed(std::move(data));
+        W8WorldItem group{};
+        std::vector<W8WorldItem*> addresses;
+        for (int index = 0; index < 3; ++index) {
+            auto item = std::make_unique<W8WorldItem>();
+            item->item.iItemNo = index;
+            item->item.identified = true;
+            addresses.push_back(item.get());
+            group.contents.push_back(std::move(item));
+        }
+        W8TriggerItemPickerDialog picker;
+        picker.SetItemGroup(&group);
+        REQUIRE(group.contents.empty());
+        REQUIRE(picker.entries.size() == addresses.size());
+        for (std::size_t index = 0; index < addresses.size(); ++index)
+            REQUIRE(picker.entries[index].item.get() == addresses[index]);
+        bool completed = false;
+        picker.on_complete = [&](W8WorldItem* result) {
+            completed = true;
+            REQUIRE(result == &group);
+            REQUIRE(result->contents.size() == addresses.size());
+            for (std::size_t index = 0; index < addresses.size(); ++index)
+                REQUIRE(result->contents[index].get() == addresses[index]);
+        };
+        auto completion = picker.TakeCompletion(true);
+        REQUIRE(picker.entries.empty());
+        REQUIRE_FALSE(completed);
+        REQUIRE(completion);
+        completion();
+        REQUIRE(completed);
+    }
+    {
         W8TriggerItemPickerDialog picker;
         for (int row = 0; row < 4; ++row) {
             auto& button = *picker.m_buttons[5 + row];
@@ -1810,82 +1885,16 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
             REQUIRE_FALSE(g_modal_owner);
         }
     }
-    {
-        W8ListBoxDialog list;
-        list.SetOrigin(10, 10);
-        list.SetExtent(100, 80);
-        list.SetBackground("background.sti", 0);
-        for (int index = 0; index < 20; ++index) list.m_lines.emplace_back("X");
-        list.Configure();
-        auto canvas = CreateCpuStorage(640, 480, SDL_PIXELFORMAT_RGB565);
-        REQUIRE(canvas);
-        TakeUiUpload();
-        list.Draw(*canvas);
-        list.Draw(*canvas);
-        REQUIRE(TakeUiUpload().w == 0);
-        REQUIRE(list.m_area_button.m_dirty);
-        list.RefreshModal();
-        REQUIRE(TakeUiUpload().w > 0);
-        list.InputLayer().setModal(true);
-        GetInputState().mouse.y = 400;
-        dispatch_mouse(InputEventType::LeftButtonDown, list.m_area_button.Bounds().x + 3,
-                       list.m_area_button.Bounds().y + 21, true);
-        dispatch_mouse(InputEventType::LeftButtonUp, list.m_area_button.Bounds().x + 3,
-                       list.m_area_button.Bounds().y + 21);
-        REQUIRE(list.m_selected_line == 2);
-        dispatch_mouse(InputEventType::LeftButtonDown, list.m_down_button.Bounds().x,
-                       list.m_down_button.Bounds().y, true);
-        dispatch_mouse(InputEventType::LeftButtonRepeat, list.m_down_button.Bounds().x,
-                       list.m_down_button.Bounds().y, true);
-        dispatch_mouse(InputEventType::LeftButtonUp, list.m_down_button.Bounds().x,
-                       list.m_down_button.Bounds().y);
-        REQUIRE(list.m_selected_line == 4);
-        dispatch_mouse(InputEventType::LeftButtonDown, list.m_third_text_button.Bounds().x + 1,
-                       list.m_third_text_button.Bounds().y + 30, true);
-        REQUIRE(list.m_selected_line == 15);
-        dispatch_mouse(InputEventType::LeftButtonRepeat, list.m_third_text_button.Bounds().x + 1,
-                       list.m_third_text_button.Bounds().y + 20, true);
-        dispatch_mouse(InputEventType::LeftButtonUp, list.m_third_text_button.Bounds().x + 1,
-                       list.m_third_text_button.Bounds().y + 20);
-        REQUIRE(list.m_selected_line == 10);
-    }
-    {
-        W8ListBoxDialog short_list;
-        short_list.SetOrigin(10, 10);
-        short_list.SetExtent(100, 80);
-        short_list.SetBackground("background.sti", 0);
-        short_list.m_lines.emplace_back("X");
-        short_list.Configure();
-        short_list.RefreshModal();
-        REQUIRE_FALSE(short_list.m_scrollable);
-        for (const auto* button : {&short_list.m_up_button, &short_list.m_down_button,
-                                   &short_list.m_slider_button, &short_list.m_third_text_button}) {
-            REQUIRE_FALSE(button->IsVisible());
-            REQUIRE_FALSE(button->m_dirty);
-        }
-    }
     button_image_fixture(assets, "data/dialogs/popup_quote.sti");
     auto old_secondary = std::move(g_wiz_text_font_secondary);
     REQUIRE(g_wiz_text_font_secondary.load("font.sti"));
     {
         W8Character character{};
-        struct RestoreParty {
-            W8StatusBuffers buffers = g_status.buffers;
-            std::unique_ptr<W8CharacterEventQueue> queue =
-                std::move(gXStatus.character_event_queue);
-            ~RestoreParty()
-            {
-                g_status.buffers = buffers;
-                gXStatus.character_event_queue = std::move(queue);
-            }
-        } restore_party;
         character.fInParty = true; // Quote access must still use the previewed character directly.
-        gXStatus.character_event_queue = std::make_unique<W8CharacterEventQueue>();
-        auto& queue = *gXStatus.character_event_queue;
-        queue.active_events.push_back(std::make_unique<W8CharacterEvent>(&character, 0, 0, 0, 127));
+        auto& queue = CurrentGame().speech;
+        queue.active_events.push_back(std::make_unique<W8CharacterEvent>(&character, 0, 0, 127));
         auto* unrelated = queue.active_events.front().get();
-        g_status.buffers.Char = nullptr;
-        g_status.buffers.XChar = nullptr;
+        CurrentGame().party = {};
         {
             W8CharacterSummaryDialog summary(&character);
             REQUIRE(summary.ProcessInput()); // Waiting for its own 750 ms playback delay.
@@ -1992,6 +2001,54 @@ TEST_CASE("Image assets share normalized paths and retain resources across clear
     REQUIRE(bitmap->w == 1);
 }
 
+TEST_CASE("Vitals panels publish their complete bounds without changing sampled state",
+          "[owner][portrait]")
+{
+    initialize_test_framebuffer();
+    CatalogArtworkAssets assets;
+    ScopedGame game;
+    struct Settings {
+        unsigned char numeric = g_settings.numeric_hit_points;
+        Font font = std::move(g_smfnt_font);
+        ~Settings()
+        {
+            g_settings.numeric_hit_points = numeric;
+            g_smfnt_font = std::move(font);
+        }
+    } settings;
+    REQUIRE(g_smfnt_font.load("data/fonts/vitals.sti"));
+    auto& framebuffer = GetFrameBufferSurface();
+    for (bool numeric : {false, true}) {
+        g_settings.numeric_hit_points = numeric;
+        for (unsigned slot : {0u, 7u}) {
+            auto& entry = game.game.monster_manager_entries[slot];
+            game.game.party.characters[slot].hp_current = 20;
+            entry.cached_hp_bar = 20;
+            entry.cached_stamina_bar = 0;
+            const auto portrait = PartyPortraitBounds(slot);
+            const int x = portrait.left + ((slot & 1) ? 0 : 105);
+            const int y = portrait.top + (numeric ? 16 : 23);
+            REQUIRE(SDL_FillSurfaceRect(&framebuffer, nullptr, 0x1234));
+            TakeUiUpload();
+            RedrawPartyPortraitBars(slot, false);
+            const auto upload = TakeUiUpload();
+            REQUIRE((upload.x == x && upload.y == y && upload.w == 24 &&
+                     upload.h == (numeric ? 54 : 46)));
+            REQUIRE(surface_pixel(framebuffer, x + (numeric ? 3 : 6), y) != 0x1234);
+            REQUIRE(surface_pixel(framebuffer, x - 1, y) == 0x1234);
+            REQUIRE(surface_pixel(framebuffer, x + 3, y - 1) == 0x1234);
+            REQUIRE(surface_pixel(framebuffer, x + 24, y + upload.h - 1) == 0x1234);
+            if (numeric)
+                REQUIRE(surface_pixel(framebuffer, x + 2, portrait.top + 63) == 0x8000);
+            else
+                REQUIRE(surface_pixel(framebuffer, x + 10, y + 45) == 0x8001);
+            REQUIRE(entry.cached_hp_bar == 20);
+            REQUIRE(entry.cached_stamina_bar == 0);
+            REQUIRE(game.game.party.characters[slot].hp_current == 20);
+        }
+    }
+}
+
 TEST_CASE("CatalogArtwork renders sprite storage", "[owner][image][catalog]")
 {
     initialize_test_framebuffer();
@@ -2061,9 +2118,12 @@ TEST_CASE("Item images come from the shared image cache", "[owner][catalog]")
     const auto assets = directory.path / "assets";
     const auto previous_roots = w8_native::path_roots();
     button_image_fixture(assets, "data/items/icon.sti", 1);
-    const ScopedRecords items(g_item_records, 1005);
-    auto& records = g_item_records;
-    for (auto& record : records) record.video_object_name = "icon.sti";
+    GameData data{.items = std::vector<W8ItemDatabaseRecord>(1005)};
+    for (auto& record : data.items) record.video_object_name = "icon.sti";
+    data.items[1].video_object_name = "missing.sti";
+    data.items[2].video_object_name.clear();
+    data.items[2].unidentified_name_index = 145;
+    const ScopedGameData installed(std::move(data));
     struct Restore {
         w8_native::Roots roots;
         ~Restore()
@@ -2076,14 +2136,9 @@ TEST_CASE("Item images come from the shared image cache", "[owner][catalog]")
     g_image_assets.clear();
     w8_native::configure_paths({assets.string(), (directory.path / "user").string()});
     REQUIRE_THROWS_AS(ItemSprites(-1), std::out_of_range);
-    REQUIRE_THROWS_AS(ItemSprites(static_cast<int>(records.size())), std::out_of_range);
-    records[0].video_object_name = "missing.sti";
-    REQUIRE_THROWS_AS(ItemSprites(0), std::runtime_error);
-    records[0].video_object_name.clear();
-    records[0].unidentified_name_index = 145;
-    REQUIRE_THROWS_AS(ItemSprites(0), std::out_of_range);
-    records[0].video_object_name = "icon.sti";
-    records[0].unidentified_name_index = 0;
+    REQUIRE_THROWS_AS(ItemSprites(1005), std::out_of_range);
+    REQUIRE_THROWS_AS(ItemSprites(1), std::runtime_error);
+    REQUIRE_THROWS_AS(ItemSprites(2), std::out_of_range);
 
     // Items naming one file share one decoded sheet.
     const auto held = ItemSprites(0);
@@ -2106,8 +2161,9 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
     const auto layers = LiveUiLayerCount();
     const auto targets = LiveUiTargetCount();
 
+    const ScopedGame game;
     {
-        MainGameScreenState screen;
+        MainGameScreen screen(game.game, ScreenPointer());
         auto& hud = screen.hud_buttons;
         int clicks = 0;
         REQUIRE(hud.options_disk.Configure(ButtonAppearance{}, {100, 100, 20, 20},
@@ -2147,7 +2203,7 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
     REQUIRE(LiveUiTargetCount() == targets);
     REQUIRE(LiveUiLayerCount() == layers);
     {
-        MainGameScreenState reentered;
+        MainGameScreen reentered(game.game, ScreenPointer());
         REQUIRE_FALSE(reentered.hud_buttons.options_disk.IsConfigured());
     }
     REQUIRE(LiveUiTargetCount() == targets);
@@ -2204,12 +2260,12 @@ TEST_CASE("Dialog completion extracts a result before retirement and preserves r
     auto dialog = std::make_unique<W8MessageDialogBase>();
     dialog->accepted = true;
     dialog->is_open = false;
-    g_pending_main_game_dialog = std::make_unique<W8ListBoxDialog>();
+    g_pending_main_game_dialog = std::make_unique<W8MessageDialogBase>();
     auto* suspended = g_pending_main_game_dialog.get();
     dialog->on_complete = [&](bool result) {
         accepted = result;
         REQUIRE(g_modal_owner.get() == suspended);
-        auto next = std::make_unique<W8ListBoxDialog>();
+        auto next = std::make_unique<W8MessageDialogBase>();
         replacement = next.get();
         OpenModal(std::move(next));
     };
@@ -2220,42 +2276,28 @@ TEST_CASE("Dialog completion extracts a result before retirement and preserves r
     OpenModal(nullptr);
 }
 
-TEST_CASE("Video scene shutdown releases owned roots and preserves independent children")
+TEST_CASE("Compositor membership follows quad owners without owning the widgets")
 {
-    int destroyed = 0;
-    struct OverlayChild : srNode {
-        int& destroyed;
-        OverlayChild(srNode* parent, int& destroyed) : srNode(parent), destroyed(destroyed) {}
-        ~OverlayChild() override { ++destroyed; }
-    };
-    for (auto* scene :
-         {&g_overlay_scenes.user, &g_overlay_scenes.fullscreen, &g_overlay_scenes.frame[0],
-          &g_overlay_scenes.frame[1], &g_overlay_scenes.square, &g_overlay_scenes.prerender[0],
-          &g_overlay_scenes.prerender[1], &g_overlay_scenes.cursor}) {
-        *scene = std::make_unique<srScene>(nullptr);
-        (*scene)->adoptChild(std::make_unique<OverlayChild>(nullptr, destroyed));
+    auto texture = std::make_shared<Texture>();
+    std::weak_ptr<Texture> lifetime = texture;
+    auto independent = std::make_unique<OverlayQuad>();
+    independent->texture = texture;
+    texture.reset();
+    {
+        Compositor compositor;
+        compositor.attach(*independent, OverlayLayer::Cursor);
+        REQUIRE(compositor.layerGroup(OverlayLayer::Cursor).children.size() == 1);
+        auto transient = std::make_unique<OverlayQuad>();
+        transient->texture = independent->texture;
+        compositor.attach(*transient, OverlayLayer::OverUi);
+        transient.reset();
+        REQUIRE(compositor.layerGroup(OverlayLayer::OverUi).children.empty());
+        REQUIRE_FALSE(lifetime.expired());
+        compositor.clear();
+        REQUIRE(compositor.layerGroup(OverlayLayer::Cursor).children.empty());
     }
-    g_overlay_scenes.camera = std::make_unique<srCamera>(nullptr);
-    g_overlay_scenes.square_camera =
-        g_overlay_scenes.square->adoptChild(std::make_unique<srCamera>());
-    g_cursor_node = std::make_unique<srModelInstance>(g_overlay_scenes.cursor.get());
-    auto independent = std::make_unique<OverlayChild>(g_overlay_scenes.user.get(), destroyed);
-    auto borrowed_sprite = std::make_unique<stModelInstance2D>(g_overlay_scenes.frame[1].get());
-    borrowed_sprite->render_state.display_state = 4;
-    auto* retired =
-        g_overlay_scenes.frame[1]->adoptChild(std::make_unique<stModelInstance2D>(nullptr));
-    retired->render_state.display_state = 4;
-    PurgeInactiveSceneInstances(g_overlay_scenes.frame[1].get());
-    REQUIRE(borrowed_sprite->getParent() == nullptr);
-    REQUIRE(g_overlay_scenes.frame[1]->getChildCount() == 1); // The other adopted test child.
-    ShutdownVideoScenes();
-    REQUIRE(destroyed == 8);
-    REQUIRE(independent->getParent() == nullptr);
-    REQUIRE(g_cursor_node == nullptr);
-    REQUIRE(g_overlay_scenes.square_camera == nullptr);
-    REQUIRE_FALSE(g_overlay_scenes.camera);
-    REQUIRE_FALSE(g_overlay_scenes.cursor);
-    ShutdownVideoScenes();
-    REQUIRE(destroyed == 8);
+    independent->detach(); // Safe after its compositor has been destroyed.
+    REQUIRE_FALSE(lifetime.expired());
     independent.reset();
+    REQUIRE(lifetime.expired());
 }

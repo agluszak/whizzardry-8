@@ -1,27 +1,32 @@
-#include <memory>
-#include <string>
 #ifndef WIZ8_LOCAL_CODE_SPELL_EFFECT_H
 #define WIZ8_LOCAL_CODE_SPELL_EFFECT_H
 
 #include <algorithm>
+#include <memory>
+#include <string>
 #include <vector>
 
 #include <stddef.h>
-#include <string.h>
 
-#include "wiz8/attack_modes.h"
-#include "wiz8/dice.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/targeting.h"
+#include "wiz8/data/attack_modes.h"
+#include "wiz8/data/dice.h"
+#include "wiz8/data/spell_ids.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/targeting.h"
 
-class W8SpellVisual;
-class W8Missile;
+class SpellVisual;
+class Missile;
 
-/* One pending condition report. Kind 1 names a character by party slot and
-   carries no text; kind 3 carries its own inline text. The message pass
-   owns it until posting. */
+enum W8SpellDamageReportKind : unsigned char {
+    W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH = 1,
+    W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH = 3
+};
+
+/* One pending death report. Character reports identify a party slot, while
+   monster reports carry their own inline text. The message pass owns each
+   report until posting. */
 struct W8SpellDamageReport {
-    int kind;
+    W8SpellDamageReportKind kind;
     int value;
     std::string text;
 };
@@ -73,27 +78,11 @@ struct W8SpellEffectResult {
 };
 
 struct W8SpellEffectEntry {
-    void AddVisual(W8SpellVisual* visual);
+    void AddVisual(SpellVisual* visual);
 
-    /* OrigSource and OrigTarget are left for the caller to fill. */
-    W8SpellEffectEntry()
-    {
-        kind = 0;
-        turns_remaining = 0;
-        memset(&Source, 0, sizeof(Source));
-        memset(&target, 0, sizeof(target));
-        memset(&definition, 0, sizeof(definition));
-        recast = false;
-        sustained = false;
-        missiles_pending = false;
-        targets_resolved = false;
-        reported = false;
-        applied = false;
-        result = {};
-    }
-
-    int kind;
-    int turns_remaining;
+    W8SpellId kind = W8_SPELL_NONE;
+    /* Only Hypnotic Lure persists for multiple turns. */
+    int turns_remaining = 0;
     /* The cast's original source. */
     W8TargetSource OrigSource;
     /* The cast's original target slot, copied beside OrigSource before any
@@ -101,11 +90,11 @@ struct W8SpellEffectEntry {
     W8CombatSlot OrigTarget;
     /* Magic Effects.cpp asserts this as pQueue->Source: the working source the
        hostility walk and effect bodies hand to CollectHostileMonsters / damage. */
-    W8TargetSource Source;
-    W8CombatSlot target;
+    W8TargetSource Source{};
+    W8CombatSlot target{};
     /* CastSpellFromSource copies the complete definition into the queue slot;
        effect handlers interpret its existing fields for their own kind. */
-    W8SpellEffectDefinition definition;
+    W8SpellEffectDefinition definition{};
     /* Two integer lists this body walks: the monster location ids
        CollectHostileMonsters gathers at 0x0e0, and a second index list at
        0x0f0 used both as party-slot indices and as monster-manager entry
@@ -114,37 +103,32 @@ struct W8SpellEffectEntry {
     std::vector<int> target_indices;
     /* Spawned visuals and owned missiles. Their constructors
        install a base vector table followed by the derived table. */
-    std::vector<W8SpellVisual*> spell_visuals;
-    std::vector<W8Missile*> missiles;
+    std::vector<SpellVisual*> spell_visuals;
+    std::vector<Missile*> missiles;
     /* When the effect ends without having applied, the tick re-casts
        the spell from the stored source. CastSpellFromSource's `c` argument. */
-    bool recast;
-    /* Sustained effect - ticks once per turn while turns_remaining
-       counts down (set for the monster-control spell 0x26). */
-    bool sustained;
+    bool recast = false;
     /* Missiles carrying the effect are still in flight; the tick
        releases them and spawns the impact visual before resolving. */
-    bool missiles_pending;
+    bool missiles_pending = false;
     /* The non-missile path has already run ProcessSpellEffectTargets;
        skips re-resolution and gates the post-resolution bookkeeping. */
-    bool targets_resolved;
+    bool targets_resolved = false;
     /* Set once this effect's result has been reported. */
-    bool reported;
+    bool reported = false;
     /* Set by a handler that actually landed its effect; the result
        report picks its message from this flag. */
-    bool applied;
-    W8SpellEffectResult result;
+    bool applied = false;
+    W8SpellEffectResult result{};
 };
-
-extern std::vector<std::unique_ptr<W8SpellEffectEntry>> g_spell_effects;
 
 W8SpellEffectEntry* FindMonsterControlSpellEffect(void);
 /* Advance every queued spell effect one frame. */
 void UpdateSpellEffects(void);
 /* Fold one missile's accumulated damage and reports into the queued effect
    that owns it. */
-void AbsorbMissileDamage(W8Missile* missile);
+void AbsorbMissileDamage(Missile* missile);
 void ReportSpellResult(W8SpellEffectEntry* effect);
-void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, W8CombatSlot* target);
+void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, const W8CombatSlot* target);
 
 #endif

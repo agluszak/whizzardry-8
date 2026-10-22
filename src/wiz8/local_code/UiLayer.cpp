@@ -13,27 +13,20 @@
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 
-#include "input.h"
-#include "timer.h"
-#include "wiz8/compat/native.h"
 #include "wiz8/cursor.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/platform/timer.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
-#ifdef WIZ8_RUNTIME_TESTS
-#include "runtime_instrumentation.h"
-#include "wiz8/local_code/Gameloop.h"
-#endif
-
 UiRoutingState g_ui;
-bool g_dev_mode;
 bool g_ui_help_forced;
 
 namespace {
 unsigned transaction_depth = 0;
-std::vector<std::function<void()>> pending_actions;
+std::vector<std::move_only_function<void()>> pending_actions;
 std::vector<RetiredObject> retired_objects;
 InputEvent PointerMotion(SDL_Point point)
 {
@@ -155,7 +148,7 @@ struct UiState {
         if (contains(*target, input.position) && g_ui.hover != target) {
             g_ui.hover = target;
             send(*target, input, UiPointerAction::Enter);
-            g_ui_help_clock = w8_get_ticks() + g_ui_help_delay;
+            g_ui_help_clock = MonotonicMilliseconds() + g_ui_help_delay;
 
         } else
             send(*target, input, UiPointerAction::Move);
@@ -172,7 +165,7 @@ struct UiState {
         hideTooltip();
         VideoToolTip(text);
         SDL_Point anchor;
-        SGPMouseGetPos(&anchor);
+        anchor = CursorPosition();
         const int width = g_help_box_width + 2, height = g_help_box_height + 2;
         anchor.x = std::clamp(anchor.x, 2, std::max(2, 640 - width));
         anchor.y = std::clamp(anchor.y - height, 2, std::max(2, 480 - height));
@@ -211,8 +204,9 @@ UiTransaction::~UiTransaction() noexcept(false)
     }
 }
 
-void AfterUiDispatch(std::function<void()> action)
+void AfterUiDispatch(std::move_only_function<void()> action)
 {
+    if (!action) throw std::bad_function_call();
     if (transaction_depth) {
         pending_actions.push_back(std::move(action));
     } else
@@ -307,9 +301,8 @@ HitTarget& UiLayer::add(HitShape shape, HitTarget::Handler handler, int priority
 {
     auto target =
         std::unique_ptr<HitTarget>(new HitTarget(*this, shape, std::move(handler), priority));
-    auto& result = *target;
     targets_.push_back(std::move(target));
-    return result;
+    return *targets_.back();
 }
 void UiLayer::retire(std::unique_ptr<HitTarget> target)
 {
@@ -408,16 +401,10 @@ bool DispatchUiInput(const InputEvent* input)
     }
     auto& state = State();
     g_ui.pointer = input->position;
-#ifdef WIZ8_RUNTIME_TESTS
-    RuntimeObserve(RUNTIME_MOUSE_DISPATCH, input->type,
-                   static_cast<w8_ulong>(input->position.x) |
-                       (static_cast<w8_ulong>(input->position.y) << 16),
-                   g_current_screen_state.id);
-#endif
     auto* target = state.live(g_ui.captured) ? g_ui.captured : state.at(input->position);
     if (!target) return false;
     state.hideTooltip();
-    g_ui_help_clock = w8_get_ticks() + g_ui_help_delay;
+    g_ui_help_clock = MonotonicMilliseconds() + g_ui_help_delay;
     const auto mask = button == UiPointerButton::Left ? SDL_BUTTON_LMASK : SDL_BUTTON_RMASK;
     if (action == UiPointerAction::Down) {
         if (!target->passive_) {
@@ -466,7 +453,7 @@ void ResetUiHelp(bool delayed)
 {
     State().hideTooltip();
     if (delayed)
-        g_ui_help_clock = w8_get_ticks() + g_ui_help_delay;
+        g_ui_help_clock = MonotonicMilliseconds() + g_ui_help_delay;
     else
         State().showTooltip();
 }
@@ -487,7 +474,7 @@ bool PumpUiInput(const UiInputPolicy& policy)
         {
             const UiTransaction transaction;
             SDL_Point point;
-            SGPMouseGetPos(&point);
+            point = CursorPosition();
             UpdateUiPointer(point.x, point.y);
             changed = !pending_actions.empty();
         }

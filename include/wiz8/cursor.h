@@ -5,16 +5,17 @@
 #include <memory>
 
 #include "glm/ext/vector_float2.hpp"
-#include "himage.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/render/frame.h"
 
-class srModelInstance;
-class srScene;
+class MeshInstance;
+class WorldScene;
 
-extern std::unique_ptr<srModelInstance> g_cursor_node;
-unsigned char InitializeMouseCursorScene(void);
+struct OverlayQuad;
+extern std::unique_ptr<OverlayQuad> g_cursor_node;
+bool InitializeMouseCursorScene(void);
 
-class srTexture;
+class Texture;
 
 bool SetMouseCursorFromVideoObject(const SpriteSheet& sprites, std::uint16_t region,
                                    std::int16_t offset_x, std::int16_t offset_y);
@@ -23,7 +24,7 @@ void BlitToMouseCursor(const SpriteSheet& sprites, std::uint16_t region, std::ui
 void RefreshMouseCursorTexture(void);
 bool ResizeMouseCursorSurface(int width, int height);      /* 0x00427c90 */
 void SetMouseCursorHotspot(short hotspot_x, short hotspot_y); /* 0x00427f00 */
-void SetMouseCursorTexture(std::shared_ptr<srTexture> texture);          /* 0x00429170 */
+void SetMouseCursorTexture(std::shared_ptr<Texture> texture);          /* 0x00429170 */
 void SyncSystemCursor(void);                                  /* 0x00428340 */
 
 /* Indices into the 17-slot main-game cursor table that SetTargetCursor takes.
@@ -48,15 +49,13 @@ extern int g_cursor_hotspot_y;
 void PositionMouseCursor(int x, int y, bool reset_tick);
 /* 0x00428220: milliseconds since PositionMouseCursor last stamped the move
    tick. */
-unsigned int GetMillisecondsSinceCursorMove(void);
+std::uint64_t GetMillisecondsSinceCursorMove(void);
 /* 0x00428520: whether the current cursor hotspot is inside the inclusive
    rectangle (left, top, right, bottom). */
 bool IsCursorInRectangle(int left, int top, int right, int bottom);
-unsigned char GetCursorPositionInViewport(glm::vec2* position);
+bool GetCursorPositionInViewport(glm::vec2* position);
 /* The tracked cursor tip in normalized screen coordinates. */
 glm::vec2 GetCursorScaledPosition();
-void UpdateHeldItemCursor(void);
 void ClearHeldItemDisplay(void);
-void SetItemCursor(int overlay_video_object); /* 0x0055F160 */
 
 #endif

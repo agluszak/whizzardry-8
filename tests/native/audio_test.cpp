@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -20,33 +21,36 @@
 #include <SDL3/SDL_timer.h>
 #include <SDL3_mixer/SDL_mixer.h>
 #include <catch2/catch_test_macros.hpp>
+#include <wiz8/audio/native_audio.h>
 #include <wiz8/filesystem.h>
-#include <wiz8/native_audio.h>
 
 #include "asset_paths.h"
 #include "prepared_assets.h"
+#include "scoped_game.h"
+#include "wiz8/checked_integer.h"
 
 /* Native sound service -> SDL3_mixer, with deterministic offline mixing. */
 #include <glm/ext/vector_float3.hpp>
 
 #include "catch2/catch_message.hpp"
-#include "input.h"
-#include "native/audio_test.h"
-#include "native/movie_audio.h"
 #include "scoped_asset_roots.h"
 #include "slf.h"
-#include "soundman.h"
 #include "temporary_directory.h"
+#include "wiz8/audio/AmbientSound.h"
+#include "wiz8/audio/audio_test.h"
+#include "wiz8/audio/movie_audio.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/combat/sounds.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/engine_code/AmbientSound.h"
-#include "wiz8/layouts/world.h"
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/local_code/CombatSound.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/platform/random.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
+#include "wiz8/world/world.h"
 
 static unsigned callbacks = 0;
 static void word(std::vector<unsigned char>& data, unsigned value, int bytes)
@@ -112,6 +116,7 @@ static bool near(double value, double expected, double tolerance = 0.02)
 }
 
 struct AudioFixture {
+    ScopedGame game;
     ScopedTemporaryDirectory directory{"wiz8-audio"};
     std::filesystem::path temporary = directory.path;
     std::filesystem::path asset = temporary / "assets";
@@ -138,7 +143,7 @@ struct AudioFixture {
         wiz8::SlfEntry entries[2]{};
         strcpy(entries[0].sFileName, "packed.wav");
         entries[0].uiOffset = sizeof(header);
-        entries[0].uiLength = wave.size();
+        entries[0].uiLength = wiz8::checked_integer<std::uint32_t>(wave.size());
         strcpy(entries[1].sFileName, "truncated.wav");
         entries[1].uiOffset = sizeof(header);
         entries[1].uiLength = 16;
@@ -194,6 +199,55 @@ struct AudioFixture {
 
     ~AudioFixture() { wiz8::sound::shutdown(); }
 };
+
+TEST_CASE_METHOD(AudioFixture, "Ambient commands operate on their supplied world",
+                 "[audio][ambient]")
+{
+    startOfflineAudio();
+    game.game.level.replacePrimary(std::make_unique<World>());
+    auto& active = *GetWorld();
+    World candidate;
+    placeParty(active, glm::vec3(1000));
+    placeParty(candidate, glm::vec3(0));
+    for (auto* world : {&active, &candidate}) {
+        auto sound = std::make_unique<W8AmbientSound>();
+        sound->name = "shared-name";
+        sound->radius = 100;
+        sound->stopped = 1;
+        world->audio.emitters.push_back(std::move(sound));
+    }
+    auto& sound = *candidate.audio.emitters.front();
+    PositionAmbientSoundByName(candidate, "shared-name");
+    REQUIRE(sound.stopped == 0);
+    REQUIRE(sound.in_range == 1);
+    REQUIRE(active.audio.emitters.front()->stopped == 1);
+    StopAmbientSoundByName(candidate, "shared-name");
+    REQUIRE(sound.stopped == 1);
+    ToggleAmbientSoundByName(candidate, "shared-name");
+    REQUIRE(sound.stopped == 0);
+    REQUIRE(sound.in_range == 1);
+    REQUIRE(active.audio.emitters.front()->stopped == 1);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Ambient rows do not inherit a previous row's mode",
+                 "[audio][ambient]")
+{
+    startOfflineAudio();
+    World candidate;
+    // The first row uses random replay; the malformed second row must not inherit it.
+    std::ofstream(asset / "ambience.scf") << ".\n"
+                                          << "tone.wav -1 -1 0 127 10 20 -1\n"
+                                          << "tone.wav -1 -1 0 127 10 20\n";
+    REQUIRE_FALSE(ReadAmbientSoundListFile(candidate, "ambience.scf"));
+    REQUIRE(candidate.audio.tracks.size() == 1);
+    REQUIRE_FALSE(candidate.audio.tracks.front()->loops);
+    std::ofstream(asset / "ambience.scf") << ".\n" << "tone.wav -1 -1 -1 -1 -1 -1 0\n";
+    World direct;
+    REQUIRE(ReadAmbientSoundListFile(direct, "ambience.scf"));
+    REQUIRE(direct.audio.tracks.size() == 1);
+    REQUIRE(direct.audio.tracks.front()->loops == 0);
+    REQUIRE(direct.audio.tracks.front()->volume_max == 127);
+}
 
 TEST_CASE_METHOD(AudioFixture, "Prepared audio files, tracks and combat sounds", "[audio][streams]")
 {
@@ -269,12 +323,12 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     REQUIRE(wiz8::sound::is_file_playing(path));
     auto position = wiz8::sound::playback_time(sound);
     REQUIRE(position.has_value());
-    REQUIRE(position->total_ms == 100);
+    REQUIRE(position.value().total_ms == 100);
     auto samples = mix(2048);
     REQUIRE((energy(samples, 0) > 10 && energy(samples, 1) > 10));
     position = wiz8::sound::playback_time(sound);
     REQUIRE(position.has_value());
-    REQUIRE((position->current_ms > 0 && position->current_ms <= 100));
+    REQUIRE((position.value().current_ms > 0 && position.value().current_ms <= 100));
     REQUIRE(wiz8::sound::volume(sound) == 127u);
     REQUIRE(wiz8::sound::set_volume(sound, 64));
     REQUIRE(wiz8::sound::volume(sound) == 64u);
@@ -294,6 +348,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     REQUIRE(!wiz8::sound::is_playing(sound));
     sound = wiz8::sound::stream(path, {.volume = 127, .loops = 0, .group = Group::music});
     REQUIRE(sound != nullptr);
+    REQUIRE(wiz8::sound::is_file_playing(path));
     mix(12000);
     REQUIRE(wiz8::sound::is_playing(sound));
     REQUIRE(wiz8::sound::stop_group(Group::music));
@@ -326,7 +381,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     sound = wiz8::sound::stream(packed);
     REQUIRE(sound != nullptr);
     position = wiz8::sound::playback_time(sound);
-    REQUIRE((position.has_value() && position->total_ms == 100));
+    REQUIRE((position.has_value() && position.value().total_ms == 100));
     samples = mix(8192);
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 10);
     wiz8::sound::service();
@@ -381,11 +436,11 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     samples = mix(2048);
     REQUIRE(near(energy(samples, 0), baseline * std::pow(64.0 / 127, 2)));
     REQUIRE(wiz8::sound::stop(sound));
-    wiz8::sound::set_default_volume(64);
+    wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::effects, 64);
     sound = wiz8::sound::play(path);
     REQUIRE(wiz8::sound::volume(sound) == 64u);
     REQUIRE(wiz8::sound::stop(sound));
-    wiz8::sound::set_default_volume(127);
+    wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::effects, 127);
     sound = wiz8::sound::play(path, {.volume = 127, .fade_in_ms = 1000});
     REQUIRE(sound != nullptr);
     samples = mix(2048);
@@ -434,6 +489,7 @@ TEST_CASE_METHOD(AudioFixture, "Audio playback, spatialization and movie lifetim
     }
     REQUIRE(wiz8::sound::play(wiz8::sound::Clip{}) == nullptr);
     sound = wiz8::sound::stream(fallback, {.volume = 127});
+    REQUIRE(wiz8::sound::is_file_playing(fallback));
     REQUIRE(sound != nullptr);
     samples = mix(8192);
     REQUIRE(energy(samples, 0) + energy(samples, 1) > 1);
@@ -706,7 +762,7 @@ TEST_CASE_METHOD(AudioFixture,
                  "[audio][ownership]")
 {
     startOfflineAudio();
-    auto event = std::make_unique<W8CharacterEvent>(nullptr, 0, 0, 0, 127);
+    auto event = std::make_unique<W8CharacterEvent>(nullptr, 0, 0, 127);
     unsigned calls = 0;
     event->voice_playback = wiz8::sound::stream("tone.wav", {.on_finished = [&] { ++calls; }});
     REQUIRE(event->voice_playback);
@@ -789,23 +845,95 @@ TEST_CASE_METHOD(AudioFixture,
 {
     startOfflineAudio();
     std::ofstream(asset / "ambient.scf") << ".\nTone.wav 0 0 127 127 -1 -1 0\n";
-    W8World active;
+    World active;
     REQUIRE(ReadAmbientSoundListFile(active, "ambient.scf"));
-    REQUIRE(active.ambient_tracks.size() == 1);
-    REQUIRE_FALSE(active.ambient_tracks.front()->instance);
+    REQUIRE(active.audio.tracks.size() == 1);
+    REQUIRE_FALSE(active.audio.tracks.front()->instance);
     StartAmbientSoundList(active);
-    auto previous_voice = active.ambient_tracks.front()->instance;
+    auto previous_voice = active.audio.tracks.front()->instance;
     REQUIRE(wiz8::sound::is_playing(previous_voice));
     wiz8::sound::Playback candidate_voice;
     {
-        W8World pending;
+        World pending;
         REQUIRE(ReadAmbientSoundListFile(pending, "ambient.scf"));
-        REQUIRE_FALSE(pending.ambient_tracks.front()->instance);
+        REQUIRE_FALSE(pending.audio.tracks.front()->instance);
         REQUIRE(wiz8::sound::is_playing(previous_voice));
         StartAmbientSoundList(pending);
-        candidate_voice = pending.ambient_tracks.front()->instance;
+        candidate_voice = pending.audio.tracks.front()->instance;
         REQUIRE(wiz8::sound::is_playing(candidate_voice));
     }
     REQUIRE_FALSE(wiz8::sound::is_playing(candidate_voice));
     REQUIRE(wiz8::sound::is_playing(previous_voice));
+}
+
+TEST_CASE_METHOD(AudioFixture, "Shared ambience retains its playback across region changes",
+                 "[audio][ambient]")
+{
+    startOfflineAudio();
+    SetSoundEffectsVolume(127);
+    SharedAmbientGroup group;
+    group.resource = "tone.wav";
+    W8AmbientSound first, second, third;
+    for (auto* emitter : {&first, &second, &third}) {
+        emitter->radius = 100;
+        emitter->volume_max = 80;
+        emitter->bounded = 0;
+        emitter->region_scale = glm::vec3(1);
+        emitter->in_range = 1;
+        group.emitters.push_back(emitter);
+    }
+    group.service(first);
+    const auto playback = group.playback;
+    REQUIRE(playback);
+    group.current_volume = 37;
+    first.in_range = 0;
+    group.updatePosition(first, glm::vec3(0));
+    REQUIRE(group.selected == &second);
+    REQUIRE(group.playback == playback);
+    REQUIRE(group.current_volume == 37);
+    group.service(third);
+    REQUIRE(group.selected == &second);
+    REQUIRE(group.playback == playback);
+
+    group.fade_timer.Pause();
+    group.stop(second);
+    group.service(third);
+    REQUIRE(group.selected == &third);
+    REQUIRE(group.playback);
+    REQUIRE_FALSE(group.fade_timer.m_flags.paused);
+    REQUIRE(group.target_volume == third.volume_max);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Volume settings preserve source gain and ambient scheduling",
+                 "[audio][volume]")
+{
+    startOfflineAudio();
+    using wiz8::sound::VolumeChannel;
+    game.game.level.replacePrimary(std::make_unique<World>());
+    auto emitter = std::make_unique<W8AmbientSound>();
+    emitter->in_range = 1;
+    emitter->current_volume = 73;
+    emitter->random = std::make_unique<W8AmbientTrack>();
+    emitter->random->next_at = 12345;
+    auto* observed = emitter.get();
+    GetWorld()->audio.emitters.push_back(std::move(emitter));
+    auto effect = wiz8::sound::play("tone.wav", {.volume = 100, .loops = 0});
+    auto voice =
+        wiz8::sound::play("tone.wav", {.volume = 90, .channel = VolumeChannel::voice, .loops = 0});
+    auto positional = wiz8::sound::play("tone.wav", {.volume = 3, .loops = 0});
+    wiz8::sound::set_volume(positional, 3, 0.9f, wiz8::sound::VolumeRounding::after_attenuation);
+    auto expected_rng = PresentationRng();
+    SetSoundEffectsVolume(0);
+    REQUIRE(wiz8::sound::volume(effect) == 0);
+    REQUIRE(wiz8::sound::volume(voice) == 90);
+    SetSoundEffectsVolume(64);
+    REQUIRE(wiz8::sound::volume(effect) == 50);
+    REQUIRE(wiz8::sound::volume(positional) == 1);
+    REQUIRE(observed->in_range == 1);
+    REQUIRE(observed->current_volume == 73);
+    REQUIRE(observed->random->next_at == 12345);
+    REQUIRE(PresentationRng().next() == expected_rng.next());
+    SetSoundEffectsVolume(127);
+    REQUIRE(wiz8::sound::volume(effect) == 100);
+    REQUIRE(wiz8::sound::volume(positional) == 2);
 }

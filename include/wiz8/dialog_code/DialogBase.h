@@ -1,4 +1,4 @@
-#include "Font.h"
+#include "wiz8/canvas/Font.h"
 #pragma once
 
 #include <optional>
@@ -20,7 +20,6 @@ class W8DialogScrollBar;
 
 /* Modal controls own their regions and state; only visual resources and
    rendering uses the shared dialog button appearance module. */
-// VTABLE: WIZ8 0x005efaf8
 class W8DialogBase : public ModalContent {
     /* First, so it outlives every control's region. */
     UiLayer m_input;
@@ -41,7 +40,7 @@ public:
     bool ProcessInput() override;
 
 public:
-    /* Main Game raises the redraw bit when promoting its pending dialog. */
+    // The main game repaints a pending dialog it promotes.
     bool m_dirty;
 
 protected:

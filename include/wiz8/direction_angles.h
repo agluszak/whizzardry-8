@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-#include "surrender/srMath.h"
+#include "wiz8/math.h"
 
 struct DirectionAngles {
     float yaw;

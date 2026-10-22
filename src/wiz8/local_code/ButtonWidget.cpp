@@ -13,14 +13,13 @@
 #include "wiz8/assertions.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Strings.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
-// FUNCTION: WIZ8 0x005db4e0
 void W8ButtonWidget::Draw(SDL_Surface& target) const
 {
     if (m_target && m_visible) {
@@ -55,7 +54,6 @@ SDL_Point W8ButtonWidget::GetMousePosition() const
     return g_ui.pointer;
 }
 
-// FUNCTION: WIZ8 0x005db550
 void W8ButtonWidget::SetPosition(int x, int y)
 {
     if (Bounds().x == x && Bounds().y == y) return;
@@ -75,7 +73,6 @@ void W8ButtonWidget::SetText(std::string_view text)
     m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005db8d0
 void W8ButtonWidget::SetEnabled(bool enabled)
 {
     if (m_enabled == enabled) return;
@@ -87,7 +84,6 @@ void W8ButtonWidget::SetEnabled(bool enabled)
     m_dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005db950
 void W8ButtonWidget::SetPressed(bool pressed)
 {
     if (m_setup.policy.primary_toggle == ButtonToggle::Release ||
@@ -100,7 +96,6 @@ void W8ButtonWidget::SetPressed(bool pressed)
     }
 }
 
-// FUNCTION: WIZ8 0x005db9d0
 void W8ButtonWidget::SetVisible(bool visible)
 {
     if (!m_target || m_visible == visible) return;
@@ -131,26 +126,23 @@ void W8ButtonWidget::SetTooltip(std::function<std::string()> text)
     m_target->setTooltip(std::move(text));
 }
 
-// FUNCTION: WIZ8 0x005dba70
 void W8ButtonWidget::SetTooltipEnabled(bool enabled)
 {
     if (!m_target) return;
     const bool show_tooltip =
         enabled && m_setup.tooltip != W8_DIALOG_BUTTON_NO_TOOLTIP && g_settings.tooltips_enabled;
     if (show_tooltip)
-        m_target->setTooltip([index = m_setup.tooltip] { return g_localized_strings[index]; });
+        m_target->setTooltip([index = m_setup.tooltip] { return Data().strings[index]; });
     else
         m_target->setTooltip({});
 }
 
-// FUNCTION: WIZ8 0x005dbac0
 void W8ButtonWidget::SetTooltipIndex(int tooltip_index)
 {
     m_setup.tooltip = tooltip_index;
     SetTooltipEnabled(true);
 }
 
-// FUNCTION: WIZ8 0x005db1b0
 W8ButtonWidget::W8ButtonWidget(UiLayer& layer) : m_layer(layer) {}
 
 W8ButtonWidget::~W8ButtonWidget()

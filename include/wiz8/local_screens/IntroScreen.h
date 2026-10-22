@@ -1,12 +1,10 @@
 #pragma once
 
-#include "compat/compiler.h"
+#include <memory>
 
+#include "wiz8/screen.h"
+
+/* Plays the film named by the request's W8IntroVideo mode, then routes to the
+   main menu, a new game or the ending. */
+std::unique_ptr<Screen> CreateIntroScreen();
 void ContinueAfterDarkEndingVideo(void);
-bool IntroScreenEnter(void);
-void IntroScreenFrame(void);
-bool IntroScreenLeave(int leaving);
-void SetIntroVideoIndex(w8_ulong value);
-/* Which intro video the intro screen shows next; the router and
-   the menu paths select it through SetIntroVideoIndex. */
-extern w8_ulong g_intro_video_index;

@@ -1,8 +1,13 @@
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <ios>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -13,13 +18,28 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
-#include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/euler_angles.hpp>
+#include <vsg/app/Camera.h>
+#include <vsg/app/ProjectionMatrix.h>
+#include <vsg/app/ViewMatrix.h>
+#include <vsg/core/Array.h>
+#include <vsg/core/ConstVisitor.h>
+#include <vsg/core/Object.h>
+#include <vsg/nodes/Node.h>
+#include <vsg/nodes/StateGroup.h>
+#include <vsg/nodes/VertexIndexDraw.h>
+#include <vsg/state/BindDescriptorSet.h>
+#include <vsg/state/DescriptorBuffer.h>
+#include <vsg/state/GraphicsPipeline.h>
+#include <vsg/state/PipelineLayout.h>
+#include <vsg/state/ViewportState.h>
+#include <vulkan/vulkan_core.h>
 
-#include "compat/compiler.h"
 #include "geometry.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
@@ -30,77 +50,104 @@
 #include "glm/ext/vector_int3.hpp"
 #include "glm/fwd.hpp"
 #include "glm/geometric.hpp"
-#include "glm/matrix.hpp"
-#include "surrender/mesh_resources.h"
-#include "surrender/model_view_scope.h"
-#include "surrender/plane_math.h"
-#include "surrender/segment_math.h"
-#include "surrender/srBoundingBox.h"
-#include "surrender/srCamera.h"
-#include "surrender/srClipPlane.h"
-#include "surrender/srGERD.h"
-#include "surrender/srIlluminator.h"
-#include "surrender/srLight.h"
-#include "surrender/srMaterial.h"
-#include "surrender/srMeshModel.h"
-#include "surrender/srModel.h"
-#include "surrender/srModelInstance.h"
-#include "surrender/srNode.h"
-#include "surrender/srScene.h"
-#include "surrender/srTriMeshPipeline.h"
-#include "surrender/srTriangleCuller.h"
-#include "surrender/srVertexPipe.h"
-#include "surrender/triangle_projection.h"
+#include "scoped_asset_roots.h"
+#include "scoped_game.h"
+#include "temporary_directory.h"
+#include "wiz8/audio/AmbientSound.h"
+#include "wiz8/audio/SoundEvent.h"
+#include "wiz8/audio/sound3d.h"
 #include "wiz8/camera_motion.h"
+#include "wiz8/canvas/himage.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/direction_angles.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/AniMesh.h"
-#include "wiz8/engine_code/AnimObj.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/Camera.h"
-#include "wiz8/engine_code/Emitter.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GDProp.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/GameTimeAccumulator.h"
-#include "wiz8/engine_code/Item.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/OctBuildTree.h"
-#include "wiz8/engine_code/OctMeshModel.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/PathAI.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/ReadLevel.h"
-#include "wiz8/engine_code/ReadMesh.h"
-#include "wiz8/engine_code/SoundEvent.h"
-#include "wiz8/engine_code/UpdateMesh.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/game_timer.h"
-#include "wiz8/engine_code/materials.h"
-#include "wiz8/engine_code/mesh_links.h"
-#include "wiz8/engine_code/octree_spatial.h"
-#include "wiz8/engine_code/particle_modes.h"
-#include "wiz8/engine_code/stCube.h"
-#include "wiz8/engine_code/stLight.hpp"
-#include "wiz8/engine_code/stMeshModel.h"
-#include "wiz8/engine_code/stModelInstance.h"
-#include "wiz8/engine_code/stParticle.h"
-#include "wiz8/engine_code/stSound3D.h"
+#include "wiz8/entities/animation.h"
+#include "wiz8/entities/animation_mesh.h"
+#include "wiz8/entities/animation_types.h"
+#include "wiz8/entities/cursor_nodes.h"
+#include "wiz8/entities/cycle_player.h"
+#include "wiz8/entities/keyframe_track.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/native_object.h"
+#include "wiz8/entities/prop.h"
+#include "wiz8/entities/world_item.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/ground_shadow.h"
-#include "wiz8/layouts/world.h"
+#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/octree_walk.h"
 #include "wiz8/placement_math.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/render/camera.h"
+#include "wiz8/render/clip_plane.h"
+#include "wiz8/render/compiled_mesh.h"
+#include "wiz8/render/draw_inputs.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/ground_shadow.h"
+#include "wiz8/render/light.h"
+#include "wiz8/render/material.h"
+#include "wiz8/render/material_loader.h"
+#include "wiz8/render/mesh.h"
+#include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/mesh_loader.h"
+#include "wiz8/render/native_content.h"
+#include "wiz8/render/particle_modes.h"
+#include "wiz8/render/particle_system.h"
+#include "wiz8/render/plane_math.h"
+#include "wiz8/render/render_mesh.h"
+#include "wiz8/render/segment_math.h"
+#include "wiz8/render/texture.h"
+#include "wiz8/render/triangle_projection.h"
+#include "wiz8/render/vsg_material.h"
+#include "wiz8/render/vsg_scene.h"
+#include "wiz8/render/world_scene.h"
+#include "wiz8/spatial/bounding_box.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/mesh_links.h"
+#include "wiz8/spatial/navigation.h"
+#include "wiz8/spatial/navigator.h"
+#include "wiz8/spatial/octree_geometry.h"
+#include "wiz8/spatial/surface_index.h"
 #include "wiz8/surface_geometry.h"
+#include "wiz8/texture_animation.h"
+#include "wiz8/world/camera_paths.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/environment_state.h"
+#include "wiz8/world/level_loader.h"
+#include "wiz8/world/party_camera.h"
+#include "wiz8/world/party_motion.h"
+#include "wiz8/world/update.h"
+#include "wiz8/world/world.h"
 
 static bool close(const glm::vec3& actual, const glm::vec3& expected, float tolerance = 1e-4f)
 {
     return glm::length(actual - expected) < tolerance;
+}
+
+static void requireEffectLayout(const vsg::Node& root, const vsg::PipelineLayout* expected)
+{
+    struct Check : vsg::ConstVisitor {
+        explicit Check(const vsg::PipelineLayout* expected) : expected(expected) {}
+        const vsg::PipelineLayout* expected;
+        unsigned pipelines = 0;
+        unsigned descriptors = 0;
+        void apply(const vsg::Object& object) override { object.traverse(*this); }
+        void apply(const vsg::StateGroup& group) override
+        {
+            for (const auto& command : group.stateCommands) {
+                if (const auto* bind = command->cast<vsg::BindGraphicsPipeline>()) {
+                    REQUIRE(bind->pipeline->layout.get() == expected);
+                    ++pipelines;
+                } else if (const auto* bind = command->cast<vsg::BindDescriptorSet>()) {
+                    REQUIRE(bind->layout.get() == expected);
+                    ++descriptors;
+                }
+            }
+            group.traverse(*this);
+        }
+    } check(expected);
+    root.accept(check);
+    REQUIRE(check.pipelines > 0);
+    REQUIRE(check.descriptors >= 3);
 }
 
 static void bounds()
@@ -147,7 +194,7 @@ static void planes_and_segments()
 {
     const glm::vec3 a(0, 2, 0), b(0, 2, 3), c(4, 2, 0);
     const auto ground = probeGround(a);
-    REQUIRE((ground.position == a && !ground.hit));
+    REQUIRE((ground.position == a && !ground.contact));
     const auto surface = groundSurfaceInfo(a);
     REQUIRE(surface.height == 2);
     REQUIRE((surface.surface == 0 && surface.material == 0));
@@ -177,8 +224,8 @@ static void planes_and_segments()
     for (float x : {-2.f, 2.f, 6.f}) {
         const glm::vec3 point(x, 3, 4);
         const glm::vec2 planar(x, 3);
-        const auto projection = srSegmentMath::project(point, segment_from, segment_to);
-        const auto planar_projection = srSegmentMath::project(planar, planar_from, planar_to);
+        const auto projection = segmentMath::project(point, segment_from, segment_to);
+        const auto planar_projection = segmentMath::project(planar, planar_from, planar_to);
         REQUIRE(std::abs(projection.distance - (x == 2 ? 5.f : std::sqrt(29.f))) < 1e-5f);
         REQUIRE(std::abs(planar_projection.distance - (x == 2 ? 3.f : std::sqrt(13.f))) < 1e-5f);
         const float expected_fraction = x < 0 ? 0 : x > 4 ? 1 : .5f;
@@ -187,15 +234,14 @@ static void planes_and_segments()
         REQUIRE(projection.point == glm::vec3(expected_fraction * 4, 0, 0));
         REQUIRE(planar_projection.point == glm::vec2(expected_fraction * 4, 0));
     }
-    const auto degenerate = srSegmentMath::project(glm::vec3(0, 3, 4), segment_from, segment_from);
-    const auto degenerate_planar =
-        srSegmentMath::project(glm::vec2(0, 3), planar_from, planar_from);
+    const auto degenerate = segmentMath::project(glm::vec3(0, 3, 4), segment_from, segment_from);
+    const auto degenerate_planar = segmentMath::project(glm::vec2(0, 3), planar_from, planar_from);
     REQUIRE(degenerate.distance == 5);
     REQUIRE((degenerate.point == segment_from && degenerate.fraction == 0));
     REQUIRE(degenerate_planar.distance == 3);
     REQUIRE((degenerate_planar.point == planar_from && degenerate_planar.fraction == 0));
 
-    W8EnvironRecord environment;
+    LevelEnvironment environment;
     environment.scale = 2;
     environment.airborne = 0;
     environment.SetScaledMotion(glm::vec3(4, 6, 8));
@@ -220,31 +266,34 @@ static void camera_and_throw()
     OffsetPositionByYawPitch(5, &position, 0, glm::half_pi<float>());
     REQUIRE(close(position, {11, -3, 3}));
 
-    const GDCamera previous_camera = PartyCamera();
-    auto& camera = PartyCamera();
+    const PartyCamera previous_camera = partyCamera();
+    auto& camera = partyCamera();
     camera.m_position = glm::vec3(3, 4, 5);
     camera.m_yaw = .25f;
     camera.m_pitch = -.5f;
-    W8World world{};
-    const auto empty_location = cameraLocationOrZero(world);
-    const auto empty_state = cameraState(world);
-    srCamera node;
-    node.setLocation(1.25, -2.5, 3.75);
+    // A world's pose is its party's, with or without a render camera; the render camera
+    // never contributes to it.
+    World world{};
+    placeParty(world, {1.25f, -2.5f, 3.75f});
+    world.party_camera.SetOrientation(.25f, -.5f);
+    const auto location = cameraLocation(world);
+    const auto state = partyPose(world);
+    const auto rotation = cameraRotation(world);
+    Camera3D node;
+    node.transform.setLocation(7, 8, 9);
     world.camera = &node;
     const auto live_location = cameraLocation();
-    const auto node_location = cameraLocation(world);
-    const auto state = cameraState(world);
-    const auto rotation = cameraRotation(world);
-    PartyCamera() = previous_camera;
-    REQUIRE(empty_location == glm::vec3(0));
-    REQUIRE(empty_state.position == glm::vec3(0, 0, 0));
+    const auto with_node = partyPose(world);
+    partyCamera() = previous_camera;
     REQUIRE(live_location == glm::vec3(3, 4, 5));
-    REQUIRE(node_location == glm::vec3(1.25f, -2.5f, 3.75f));
-    REQUIRE(state.position == node_location);
-    REQUIRE((state.yaw[0] == .25f && state.pitch[0] == -.5f));
-    for (int index = 1; index < 6; ++index)
-        REQUIRE((state.yaw[index] == 0 && state.pitch[index] == 0));
-    REQUIRE(rotation == glm::mat3(1));
+    REQUIRE(location == glm::vec3(1.25f, -2.5f, 3.75f));
+    REQUIRE(state.position == location);
+    REQUIRE(with_node == state);
+    REQUIRE((state.orientation.yaw == .25f && state.orientation.pitch == -.5f));
+    REQUIRE(state.retail.yaw == wiz8::retail::CameraPoseOpaque{}.yaw);
+    REQUIRE(state.retail.pitch == wiz8::retail::CameraPoseOpaque{}.pitch);
+    REQUIRE(rotation == world.party_camera.rotationMatrix());
+    REQUIRE(rotation != glm::mat3(1));
     camera.SetOrientation(glm::half_pi<float>(), 0);
     glm::vec3 forward;
     camera.GetForwardPoint(10, &forward);
@@ -281,260 +330,117 @@ static void camera_and_throw()
 
 static void linked_mesh_bounds()
 {
-    stMeshModel mesh(0, 2);
+    Mesh mesh(0, 2);
     auto* vertices = mesh.getVertexLoc();
     vertices[0] = glm::vec3(2, 3, 4);
     vertices[1] = glm::vec3(4, 5, 6);
-    auto* linked = new stMeshModel(0, 2);
+    auto* linked = new Mesh(0, 2);
     linked->getVertexLoc()[0] = glm::vec3(6, 7, 8);
     linked->getVertexLoc()[1] = glm::vec3(8, 9, 10);
-    mesh.AddPart(std::unique_ptr<stMeshModel>(linked));
-    mesh.AddPart(std::make_unique<stMeshModel>(0, 0));
-    const auto linked_bounds = linked->getBounds();
+    mesh.AddPart(std::unique_ptr<Mesh>(linked));
+    mesh.AddPart(std::make_unique<Mesh>(0, 0));
+    const auto linked_bounds = mesh.getBounds();
     REQUIRE(linked_bounds.box.minimum == glm::vec3(2, 3, 4));
     REQUIRE(linked_bounds.box.maximum == glm::vec3(8, 9, 10));
     REQUIRE(linked_bounds.sphere.center == glm::vec3(5, 6, 7));
-    for (auto* member = &mesh; member; member = member->Next()) {
+    for (auto* member : meshParts(&mesh)) {
         REQUIRE(member->bounds_minimum == glm::vec3(2, 3, 4));
         REQUIRE(member->bounds_maximum == glm::vec3(8, 9, 10));
         REQUIRE(member->bounds_center == glm::vec3(5, 6, 7));
         REQUIRE(std::abs(member->bounds_radius - std::sqrt(27.0f)) < 1e-5f);
     }
     // Replacing all positions with negative values must not expand the box to the origin.
-    for (auto* member = &mesh; member; member = member->Next()) {
+    for (auto* member : meshParts(&mesh)) {
         for (auto& vertex : std::span(member->getVertexLoc(), member->vertex_location_count))
             vertex = -vertex;
         member->setDirtyAll();
     }
-    mesh.CalculateLinkedBounds();
+    mesh.calculateCompoundBounds();
     REQUIRE(mesh.bounds_minimum == glm::vec3(-8, -9, -10));
     REQUIRE(mesh.bounds_maximum == glm::vec3(-2, -3, -4));
-    REQUIRE(mesh.findClosestVertex({-3, -4, -5}) == 0); // Equal distances choose the first vertex.
-    stMeshModel zero(0, 2);
-    zero.scaleToMaxRadius(10);
-    zero.scaleToAverageRadius(10);
-    REQUIRE(zero.getVertexLoc()[0] == glm::vec3(0, 0, 0));
-    REQUIRE(zero.getMaxRadius() == 0);
 }
 
 static void baked_lighting()
 {
-    auto material = std::make_shared<srMaterial>();
+    auto material = std::make_shared<Material>();
     material->parms.diffuse = glm::vec4(0.5f, 1, 0.25f, 1);
-    auto model = std::make_shared<stMeshModel>(0, 2);
+    auto model = std::make_shared<Mesh>(0, 2);
     auto& mesh = *model;
     mesh.getVertexLoc()[0] = glm::vec3(1, 0, 0);
     mesh.getVertexLoc()[1] = glm::vec3(2, 0, 0);
     const auto normal = glm::normalize(glm::vec3(1, 1, 0));
     mesh.getVertexNormal()[0] = normal;
     mesh.getVertexNormal()[1] = normal;
-    mesh.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
-    stModelInstance instance(nullptr);
+    mesh.setMaterial(material, 0, Mesh::SIDE_FRONT);
+    MeshInstance instance(nullptr);
     instance.setModel(model);
-    instance.setLocation(10, 0, 0);
-    instance.setScale(glm::dvec3(2, 1, 1));
-    instance.setRotation(0, glm::half_pi<double>(), 0);
-    struct TestLight : stLight {
-        using stLight::stLight;
-        ~TestLight() override = default;
-    };
-    TestLight light(nullptr);
+    instance.transform.setLocation(10, 0, 0);
+    instance.transform.setScale(glm::dvec3(2, 1, 1));
+    instance.transform.setRotation(0, glm::half_pi<double>(), 0);
+    Light light(nullptr);
+    const std::array<Light*, 1> lights{&light};
     light.diffuse = glm::vec3(1, 0.5f, 1);
-    light.setLocation(10, 4, -2);
+    light.transform.setLocation(10, 4, -2);
     light.setLinearAttenuation(10, 1.0f / 511);
     light.intensity = 1;
-    REQUIRE(BakeInstanceVertexLighting(&instance, &light, false));
+    REQUIRE(BakeInstanceVertexLighting(&instance, lights));
     const float first_contribution = 2 / std::sqrt(5.0f) * 0.6f;
     const float second_contribution = 0.6f * (1 - std::sqrt(20.0f) / 10);
-    const auto colors = mesh.GetVertexLights(false, -1);
+    const auto colors = mesh.GetVertexLights(false);
     REQUIRE(close(colors[0], glm::vec3(0.5f, 0.5f, 0.25f) * first_contribution));
     REQUIRE(close(colors[1], glm::vec3(0.5f, 0.5f, 0.25f) * second_contribution));
     REQUIRE((mesh.vertex_lighting_ready && (mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY)));
 
-    mesh.setMaterial(nullptr, 0, srMeshModel::SIDE_FRONT);
+    mesh.setMaterial(nullptr, 0, Mesh::SIDE_FRONT);
     colors[0] = glm::vec3(0);
     colors[1] = glm::vec3(0);
-    REQUIRE(BakeInstanceVertexLighting(&instance, &light, false));
+    REQUIRE(BakeInstanceVertexLighting(&instance, lights));
     REQUIRE(close(colors[0], light.diffuse * first_contribution));
     REQUIRE(close(colors[1], light.diffuse * second_contribution));
-    mesh.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
+    mesh.setMaterial(material, 0, Mesh::SIDE_FRONT);
 
     colors[0] = glm::vec3(0);
     colors[1] = glm::vec3(0);
     const auto world_normal = glm::normalize(glm::vec3(0, 2, -1));
     const auto position = glm::dvec3(glm::vec3(10, 0, -2) + world_normal * 0.5f);
-    light.setLocation(glm::dvec3(position));
+    light.transform.setLocation(glm::dvec3(position));
     light.setLinearAttenuation(1, 1.0f / 511);
-    REQUIRE(BakeInstanceVertexLighting(&instance, &light, false));
+    REQUIRE(BakeInstanceVertexLighting(&instance, lights));
     REQUIRE(close(colors[0], glm::vec3(0.25f, 0.25f, 0.125f)));
     REQUIRE(colors[1] == glm::vec3(0, 0, 0));
 
     colors[0] = glm::vec3(0);
-    light.setLocation(10, 0, -2); // Coincident light and vertex remain finite.
-    REQUIRE(BakeInstanceVertexLighting(&instance, &light, false));
+    light.transform.setLocation(10, 0, -2); // Coincident light and vertex remain finite.
+    REQUIRE(BakeInstanceVertexLighting(&instance, lights));
     REQUIRE(colors[0] == glm::vec3(0, 0, 0));
     light.setName("Sun");
-    light.setLocation(glm::dvec3(position));
-    REQUIRE(BakeInstanceVertexLighting(&instance, &light, true));
+    light.transform.setLocation(glm::dvec3(position));
+    REQUIRE(BakeInstanceVertexLighting(&instance, lights));
     REQUIRE(colors[0] == glm::vec3(0, 0, 0));
-    auto world = instance.getWorldSpaceMatrix<glm::mat4>();
-    mesh.flags &= ~W8_MESH_VERTEX_LIGHTING_DIRTY;
-    mesh.RevealVerticesNear({10, 0, -2}, 0.25f, world);
-    REQUIRE((colors[0] == glm::vec3(1, 1, 1) && colors[1] == glm::vec3(0, 0, 0)));
-    REQUIRE(mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY);
-    mesh.RevealVerticesNear({10, 0, -4}, 0.25f, world);
-    REQUIRE((colors[0] == glm::vec3(1, 1, 1) && colors[1] == glm::vec3(1, 1, 1)));
-    colors[1] = glm::vec3(0);
-    mesh.RevealVerticesNear({10, 0, -4}, -1, world);
-    REQUIRE(colors[1] == glm::vec3(0, 0, 0));
-    mesh.RevealVerticesNear(glm::vec3(std::numeric_limits<float>::quiet_NaN()), 1, world);
-    REQUIRE(colors[1] == glm::vec3(0, 0, 0));
     instance.setModel(nullptr);
 }
 
 static void renderer_bounds()
 {
-    srGERD renderer;
-    renderer.matrixMode(srGERD::MATRIX_PROJECTION);
-    renderer.loadIdentity();
-    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
-    renderer.loadIdentity();
-    REQUIRE((renderer.testBoundingSphere({0, 0, 0}, 0.1f) != srGERD::VISIBILITY_OUTSIDE));
-    for (int axis = 0; axis < 3; ++axis)
-        for (float sign : {-1.0f, 1.0f}) {
-            glm::vec3 position(0);
-            position[axis] = sign * 2;
-            REQUIRE((renderer.testBoundingSphere(position, 0.1f) == srGERD::VISIBILITY_OUTSIDE));
-        }
-    srMeshModel empty;
+    Mesh empty;
     const auto empty_bounds = empty.getBounds();
     REQUIRE(empty_bounds.box.minimum == glm::vec3(0));
     REQUIRE(empty_bounds.box.maximum == glm::vec3(0));
     REQUIRE(empty_bounds.sphere.center == glm::vec3(0));
     REQUIRE(empty_bounds.sphere.radius == 0);
-
-    srMeshModel mesh(0, 8);
-    mesh.setBounds({2, 2, 2}, {3, 3, 3}, {0, 0, 0}, 0.1f);
-    mesh.render_control = 0;
-    REQUIRE_FALSE(mesh.isVisible(renderer)); // Visible sphere, rejected box.
-    mesh.enable(srMeshModel::CONTROL_SKIP_AUTO_BOX);
-    REQUIRE(mesh.isVisible(renderer));
-    mesh.setBounds({-0.5f, -0.5f, -0.5f}, {0.5f, 0.5f, 0.5f}, {3, 0, 0}, 0.1f);
-    mesh.render_control = 0;
-    REQUIRE_FALSE(mesh.isVisible(renderer)); // Rejected sphere, visible box.
-    mesh.enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
-    REQUIRE(mesh.isVisible(renderer));
-    mesh.setBounds({2, 2, 2}, {3, 3, 3}, {3, 0, 0}, 0.1f);
-    mesh.enable(srMeshModel::CONTROL_SKIP_AUTO_BOX);
-    REQUIRE(mesh.isVisible(renderer));
-    mesh.disable(srMeshModel::CONTROL_SKIP_AUTO_BOX);
-    mesh.vertex_location_count = 7;
-    REQUIRE(mesh.isVisible(renderer)); // Small meshes bypass box culling.
-
-    renderer.loadMatrix(
-        glm::scale(glm::translate(glm::mat4(1), glm::vec3(1, 2, 3)), glm::vec3(-2, 3, 4)));
-    const auto sphere = renderer.eyeSpaceBounds({{2, 3, 4}, 2});
-    REQUIRE(sphere.center == glm::vec3(-3, 11, 19));
-    REQUIRE(sphere.radius == 8);
-    renderer.loadIdentity();
-    renderer.pushClipPlane({1, 0, 0, 0}, srGERD::CLIPMODE_POSITIONAL_0);
-    REQUIRE((renderer.testBoundingSphere({-0.5f, 0, 0}, 0.1f) == srGERD::VISIBILITY_OUTSIDE));
-    REQUIRE((renderer.testBoundingSphere({0.5f, 0, 0}, 0.1f) != srGERD::VISIBILITY_OUTSIDE));
-    renderer.popClipPlane();
-    renderer.matrixMode(srGERD::MATRIX_PROJECTION);
-    renderer.loadMatrix(glm::ortho(-2.0f, 4.0f, -3.0f, 5.0f, 1.0f, 10.0f));
-    REQUIRE((renderer.testBoundingSphere({3, 0, -4}, 0.1f) != srGERD::VISIBILITY_OUTSIDE));
-    REQUIRE((renderer.testBoundingSphere({5, 0, -4}, 0.1f) == srGERD::VISIBILITY_OUTSIDE));
-    REQUIRE((renderer.testBoundingSphere({0, 6, -4}, 0.1f) == srGERD::VISIBILITY_OUTSIDE));
-    REQUIRE((renderer.testBoundingSphere({0, -4, -4}, 0.1f) == srGERD::VISIBILITY_OUTSIDE));
-    renderer.loadMatrix(glm::perspective(glm::half_pi<float>(), 1.0f, 1.0f, 10.0f));
-    REQUIRE((renderer.testBoundingSphere({0, 0, -4}, 0.1f) != srGERD::VISIBILITY_OUTSIDE));
-    REQUIRE((renderer.testBoundingSphere({0, 0, -0.5f}, 0.1f) == srGERD::VISIBILITY_OUTSIDE));
-    REQUIRE((renderer.testBoundingSphere({0, 0, -12}, 0.1f) == srGERD::VISIBILITY_OUTSIDE));
-    REQUIRE((renderer.testBoundingSphere({8, 0, -4}, 0.1f) == srGERD::VISIBILITY_OUTSIDE));
 }
 
-static void triangle_visibility()
+TEST_CASE("World cursor meshes preserve face winding and UV seams", "[geometry]")
 {
-    const std::array<glm::vec3, 9> positions{{{-0.5f, -0.5f, 0},
-                                              {0.5f, -0.5f, 0},
-                                              {0, 0.5f, 0},
-                                              {2, -0.5f, 0},
-                                              {3, -0.5f, 0},
-                                              {2.5f, 0.5f, 0},
-                                              {0, 0.25f, 0},
-                                              {2.5f, 0, 0},
-                                              {0, -0.25f, 0}}};
-    const std::array<glm::ivec3, 3> triangles{{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}}};
-    const std::array<glm::vec4, 6> planes{
-        {{1, 0, 0, 1}, {-1, 0, 0, 1}, {0, 1, 0, 1}, {0, -1, 0, 1}, {0, 0, 1, 1}, {0, 0, -1, 1}}};
-    const glm::mat4 identity(1);
-    std::array<w8_ulong, 3> indices;
-    srTriangleCuller::Input input(identity, identity);
-    input.cull_mode = 2;
-    input.triangles = triangles;
-    input.vertices = positions;
-    input.clip_planes = planes;
-    input.clip_mask = 0x3f;
-    auto output = srTriangleCuller::cull(input);
-    REQUIRE((output.indices == std::vector<w8_ulong>{0, 2}));
-    REQUIRE((output.vertexCount() == 6));
-    const std::array<w8_ulong, 6> expected{{0, 1, 2, 6, 7, 8}};
-    for (unsigned i = 0; i < expected.size(); ++i)
-        REQUIRE((output.avt[i] == expected[i] && output.vertex_remap[expected[i]] == i));
-    // Active triangle filtering must keep source order without changing the input list.
-    indices = {2, 1, 0};
-    const std::array<glm::vec4, 3> facing{{{0, 0, 0, 1}, {0, 0, 0, -1}, {0, 0, 0, 1}}};
-    input.active_triangles = indices;
-    input.polygon_planes = facing;
-    input.cull_mode = 0;
-    input.clip_mask = 0;
-    output = srTriangleCuller::cull(input);
-    REQUIRE((output.indices == std::vector<w8_ulong>{2, 0}));
-    REQUIRE((indices == std::array<w8_ulong, 3>{2, 1, 0}));
-    input.active_triangles = std::span<const w8_ulong>{};
-    output = srTriangleCuller::cull(input);
-    REQUIRE((output.indices.empty() && output.avt.empty() && output.vertex_remap.empty()));
-    const auto clip = srTriangleCuller::getClipMask({1, 0, 0}, 0, planes, 0x3f);
-    REQUIRE((clip.mask == (1u << 1) && std::isfinite(clip.depth)));
-}
-
-TEST_CASE("Sprite and cursor meshes preserve face winding and UV seams", "[geometry]")
-{
-    // This factory must work without the former modeller initialization protocol.
-    std::unique_ptr<srModelInstance> sprite(
-        MakePolygonBrush(nullptr, nullptr, 2, 4, 0.125f, 0.25f, 0.5f, 0.625f, false));
-    auto* quad = dynamic_cast<srMeshModel*>(sprite->getModel());
-    REQUIRE(quad != nullptr);
-    REQUIRE(quad->getPolygonCount() == 2);
-    REQUIRE(quad->getVertexCount() == 4);
-    for (const auto& face : quad->poly_vertices) {
-        const auto a = quad->vertex_locations[face.x];
-        const auto b = quad->vertex_locations[face.y];
-        const auto c = quad->vertex_locations[face.z];
-        REQUIRE(glm::cross(b - a, c - a).z < 0);
-    }
-    for (int i = 0; i < 4; ++i) {
-        const auto position = quad->vertex_locations[i];
-        const glm::vec2 expected((position.x / 2 + 0.5f) * 0.5f + 0.125f,
-                                 (0.5f - position.y / 4) * 0.625f + 0.25f);
-        REQUIRE(quad->texcoords[0][0][i] == expected);
-    }
-    std::unique_ptr<srModelInstance> empty(
-        MakePolygonBrush(nullptr, nullptr, 0, 4, 0, 0, 1, 1, false));
-    auto* empty_quad = dynamic_cast<srMeshModel*>(empty->getModel());
-    REQUIRE(empty_quad != nullptr);
-    REQUIRE(empty_quad->getPolygonCount() == 0);
-    REQUIRE(empty_quad->getVertexCount() == 0);
     const auto cursor = CreateWorldCursorCube();
     auto* instance = cursor->node.get();
     REQUIRE(instance != nullptr);
-    auto* cube = dynamic_cast<srMeshModel*>(instance->getModel());
+    auto* cube = instance->getModel();
     REQUIRE(cube != nullptr);
     REQUIRE(cube->getPolygonCount() == 12);
     REQUIRE(cube->getVertexCount() == 24);
-    REQUIRE(cube->getMaterial(0, srMeshModel::SIDE_FRONT) != nullptr);
-    REQUIRE(cube->getMaterial(0, srMeshModel::SIDE_BACK) == nullptr);
+    REQUIRE(cube->getMaterial(0, Mesh::SIDE_FRONT) != nullptr);
+    REQUIRE(cube->getMaterial(0, Mesh::SIDE_BACK) == nullptr);
     REQUIRE(cube->getTexture(0, 0) != nullptr);
     const glm::vec3 center(0, 250, 0);
     for (const auto& face : cube->poly_vertices) {
@@ -564,11 +470,6 @@ TEST_CASE("Renderer bounds", "[geometry]")
     renderer_bounds();
 }
 
-TEST_CASE("Triangle visibility", "[geometry]")
-{
-    triangle_visibility();
-}
-
 TEST_CASE("Bounding volumes", "[geometry]")
 {
     bounds();
@@ -591,10 +492,10 @@ TEST_CASE("Linked mesh bounds", "[geometry]")
 
 TEST_CASE("Model bounds are independent values", "[geometry]")
 {
-    auto mesh = std::make_shared<srMeshModel>(0, 2);
+    auto mesh = std::make_shared<Mesh>(0, 2);
     mesh->getVertexLoc()[0] = glm::vec3(-4, -3, -2);
     mesh->getVertexLoc()[1] = glm::vec3(2, 3, 4);
-    srModel& model = *mesh;
+    Mesh& model = *mesh;
     auto box = model.getBounds().box;
     const auto sphere = model.getBounds().sphere;
     REQUIRE(box.minimum == glm::vec3(-4, -3, -2));
@@ -604,48 +505,15 @@ TEST_CASE("Model bounds are independent values", "[geometry]")
     box.minimum = glm::vec3(99);
     REQUIRE(model.getBounds().box.minimum == glm::vec3(-4, -3, -2));
 
-    srModelInstance instance;
-    instance.setModel(mesh);
-    srNode& node = instance;
-    const auto local = node.getLocalBounds();
-    REQUIRE(local.state == 1);
-    REQUIRE(local.minimum == model.getBounds().box.minimum);
-    REQUIRE(local.maximum == model.getBounds().box.maximum);
-    REQUIRE(local.center == sphere.center);
-    REQUIRE(local.radius == sphere.radius);
-
-    auto draw = mesh->getTriMesh();
-    draw.bounds_radius = 99;
-    REQUIRE(mesh->getTriMesh().bounds_radius == sphere.radius);
     mesh->getVertexLoc()[1] = glm::vec3(4, 5, 6);
     mesh->setDirtyAll();
     REQUIRE(model.getBounds().box.maximum == glm::vec3(4, 5, 6));
-    REQUIRE(node.getLocalBounds().maximum == glm::vec3(4, 5, 6));
-
-    srNode empty;
-    REQUIRE(empty.getLocalBounds().state == 0);
-    empty.setFlag(srNode::FLAG_GLOBAL);
-    const auto global = empty.getLocalBounds();
-    REQUIRE(global.state == 2);
-    REQUIRE(global.minimum == glm::vec3(0));
-    REQUIRE(global.maximum == glm::vec3(0));
-    REQUIRE(global.center == glm::vec3(0));
-    REQUIRE(global.radius == 0);
-    instance.setModel(nullptr);
-    instance.setFlag(srNode::FLAG_GLOBAL);
-    const auto missing = node.getLocalBounds();
-    REQUIRE(missing.state == 0);
-    REQUIRE(missing.minimum == glm::vec3(0));
-    REQUIRE(missing.maximum == glm::vec3(0));
-    REQUIRE(missing.center == glm::vec3(0));
-    REQUIRE(missing.radius == 0);
-
-    stMeshModel linked(0, 1);
+    Mesh linked(0, 1);
     linked.getVertexLoc()[0] = glm::vec3(-2, -4, -6);
-    auto part = std::make_unique<stMeshModel>(0, 1);
+    auto part = std::make_unique<Mesh>(0, 1);
     part->getVertexLoc()[0] = glm::vec3(2, 4, 6);
     linked.AddPart(std::move(part));
-    srModel& linked_model = linked;
+    Mesh& linked_model = linked;
     REQUIRE(linked_model.getBounds().box.minimum == glm::vec3(-2, -4, -6));
     REQUIRE(linked_model.getBounds().box.maximum == glm::vec3(2, 4, 6));
     REQUIRE(linked_model.getBounds().sphere.center == glm::vec3(0));
@@ -660,25 +528,25 @@ TEST_CASE("Baked lighting", "[geometry]")
 TEST_CASE("navigator route growth, copying and movement")
 {
     const glm::vec3 origin(0, 0, 0), end(3, 0, 4);
-    W8NavigatorAttachment route(&origin, &end);
+    NavigatorRoute route(&origin, &end);
     REQUIRE((route.MeasurePathLength() == 5));
     route.InitializeSegment(&origin, &end);
-    route.path_position_index = 1;
+    route.path.resize(2);
     for (unsigned short i = 1; i <= 35; ++i) {
         const glm::vec3 position(i, 0, 0);
         route.AppendPathPosition(&position, i);
     }
-    REQUIRE((route.path_position_index == 36 && route.path.size() > 36));
+    REQUIRE((route.path.size() == 37));
     for (unsigned short i = 1; i <= 35; ++i) {
         REQUIRE((route.path[i].position == glm::vec3(i, 0, 0)));
         REQUIRE((route.path[i].value == i));
     }
     route.path[36] = {glm::vec3(36, 0, 0), 0};
-    W8NavigatorAttachment copied;
+    NavigatorRoute copied;
     copied.path[0].position = glm::vec3(-1, 0, 0);
-    copied.CopyPathFrom(&route);
-    REQUIRE((copied.path[0].position == glm::vec3(-1, 0, 0)));
-    REQUIRE((copied.path_position_index == route.path_position_index));
+    copied = route;
+    REQUIRE((copied.path[0].position == route.path[0].position));
+    REQUIRE((copied.path.size() == route.path.size()));
     for (unsigned i = 1; i <= 36; ++i) {
         REQUIRE((copied.path[i].position == route.path[i].position));
         REQUIRE((copied.path[i].value == route.path[i].value));
@@ -695,10 +563,35 @@ TEST_CASE("navigator route growth, copying and movement")
     REQUIRE((current == end));
 
     // An append may borrow a position from the same storage being grown.
-    W8NavigatorAttachment aliased(&origin, &end);
-    aliased.path_position_index = 9;
+    NavigatorRoute aliased(&origin, &end);
+    aliased.path.resize(10);
     aliased.AppendPathPosition(&aliased.path[1].position, 7);
     REQUIRE((aliased.path[9].position == end && aliased.path[9].value == 7));
+}
+
+TEST_CASE("Route hop heights use supplied surfaces with independent waypoint indices",
+          "[geometry][navigation][ownership]")
+{
+    std::array<W8PathSurface, 4> low_surfaces{}, high_surfaces{};
+    for (auto& surface : low_surfaces) surface.flags = 1 << 12;
+    for (auto& surface : high_surfaces) surface.flags = 2 << 12;
+    NavigatorRoute route;
+    route.path.resize(3);
+    route.path[1] = {{0, 0, 0}, 1};
+    route.path[2] = {{1000, 0, 0}, 2};
+    route.path_cursor = 2;
+    const glm::vec3 position{500, 0, 750};
+    REQUIRE_FALSE(route.checkPositionHopHeight(low_surfaces, position));
+    REQUIRE(route.checkPositionHopHeight(high_surfaces, position));
+    REQUIRE_FALSE(route.checkPositionHopHeight(low_surfaces, position));
+    REQUIRE_FALSE(route.checkPredictedHopHeight(low_surfaces, position));
+    REQUIRE(route.checkPredictedHopHeight(high_surfaces, position));
+
+    // Prediction still chooses the nearer following segment when available.
+    route.path.push_back({{1000, 0, 1000}, 3});
+    const glm::vec3 following{1000, 0, 750};
+    REQUIRE_FALSE(route.checkPositionHopHeight(low_surfaces, following));
+    REQUIRE(route.checkPredictedHopHeight(low_surfaces, following));
 }
 
 TEST_CASE("Inclusive cell boxes retain order clipping and extreme endpoints", "[geometry][octree]")
@@ -739,25 +632,23 @@ TEST_CASE("Ground shadow projection retains rotated scale center and coordinate 
 TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
           "[geometry][octree]")
 {
-    struct RestoreWorld {
-        std::unique_ptr<W8World> previous;
-        ~RestoreWorld() { ReplaceWorld(std::move(previous)); }
-    } restore{ReplaceWorld(std::make_unique<W8World>())};
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>());
     auto& world = *GetWorld();
     constexpr unsigned faces = 42;
-    auto mesh = std::make_shared<stMeshModel>(faces, 3);
+    auto mesh = std::make_shared<Mesh>(faces, 3);
     mesh->getVertexLoc()[0] = {-1, 0, -1};
     mesh->getVertexLoc()[1] = {0, 0, 1};
     mesh->getVertexLoc()[2] = {1, 0, -1};
     for (unsigned i = 0; i < faces; ++i) mesh->getPolyVertex()[i] = {0, 1, 2};
-    stModelInstance instance(nullptr);
+    MeshInstance instance(nullptr);
     instance.setModel(mesh);
     world.psrMeshes = {nullptr, &instance};
-    W8Octree tree(nullptr, nullptr);
+    LevelSpatialIndex tree("", &world);
     tree.m_meshCount = 2;
     tree.m_alpha_bits.assign(2, false);
-    tree.m_current_regions.assign(2, false);
-    tree.m_visited_polygon_bits.assign(faces + 1, false);
+    tree.registry.current_regions = {true, false};
+    tree.m_polygon_bit_count = faces + 1;
     tree.m_spatial.m_bounds.minimum = {-100, -100, -100};
     tree.m_spatial.m_node_extent = 1000;
     tree.m_leaf_grid_dimensions = {1, 1, 1};
@@ -779,38 +670,158 @@ TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
     REQUIRE(tree.polygonsNearPoint({0, 1, 0}, 2, 2).empty());
     REQUIRE(polygons.size() == faces);
     REQUIRE(polygons.front() == (1u << 16));
+    REQUIRE(tree.registry.current_regions == std::vector<bool>{true, false});
+}
+
+TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry][rendering]")
+{
+    const ScopedTemporaryDirectory directory("wiz8-shadow-bounds");
+    const auto assets = directory.path / "assets";
+    const auto user = directory.path / "user";
+    const auto bitmap_path = assets / "data/monsters/bitmaps";
+    std::filesystem::create_directories(bitmap_path);
+    std::filesystem::create_directory(user);
+    const ScopedAssetRoots asset_roots({wiz8::path_to_utf8(assets), wiz8::path_to_utf8(user)});
+    // A one-pixel opaque TGA keeps this a CPU graph test without retail assets.
+    const std::array<unsigned char, 22> tga{0, 0, 2, 0, 0, 0,  0, 0,   0,   0,   0,
+                                            0, 1, 0, 1, 0, 32, 8, 255, 255, 255, 255};
+    {
+        std::ofstream output(bitmap_path / "shadow.tga", std::ios::binary);
+        output.write(reinterpret_cast<const char*>(tga.data()), tga.size());
+        REQUIRE(output.good());
+    }
+    // The shadow's own world, not the primary one, supplies its terrain.
+    const ScopedGame game;
+    World world;
+    REQUIRE(GetWorld() == nullptr);
+    auto mesh = std::make_shared<Mesh>(1, 4);
+    mesh->getVertexLoc()[0] = {-1, 0, -1};
+    mesh->getVertexLoc()[1] = {0, 0, 1};
+    mesh->getVertexLoc()[2] = {1, 0, -1};
+    // Unselected terrain still contributes to the original shading bound.
+    mesh->getVertexLoc()[3] = {10000, 0, 0};
+    mesh->getPolyVertex()[0] = {0, 1, 2};
+    MeshInstance instance;
+    instance.setModel(mesh);
+    world.psrMeshes = {nullptr, &instance};
+    world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
+    auto& tree = *world.spatial;
+    tree.m_meshCount = 2;
+    tree.m_alpha_bits.assign(2, false);
+    tree.m_polygon_bit_count = 2;
+    tree.m_spatial.m_bounds.minimum = {-50000, -50000, -50000};
+    tree.m_spatial.m_node_extent = 100000;
+    tree.m_leaf_grid_dimensions = {1, 1, 1};
+    tree.m_leaf_lookup = {1};
+    tree.m_leaves.resize(2);
+    tree.m_leaves[1].polygon_offset = 1;
+    tree.m_polygon_index_stream = {0, 1, 1};
+    tree.m_aulPolyLookup = {0, 1u << 16};
+
+    struct ShadowSetting {
+        unsigned char previous = g_settings.monster_shadows;
+        ~ShadowSetting() { g_settings.monster_shadows = previous; }
+    } setting;
+    g_settings.monster_shadows = true;
+    GroundShadow shadow;
+    // Scene membership, not frame preparation, puts the shadow in the graph.
+    const auto in_scene = [&] {
+        struct Find : vsg::ConstVisitor {
+            const vsg::Node* node;
+            bool found = false;
+            void apply(const vsg::Node& visited) override
+            {
+                found = found || &visited == node;
+                visited.traverse(*this);
+            }
+        } find;
+        find.node = shadow.renderNode().get();
+        world.scene->root->accept(find);
+        return find.found;
+    };
+    shadow.setWorld(&world);
+    REQUIRE(in_scene());
+    shadow.setWorld(nullptr);
+    REQUIRE(!in_scene());
+    shadow.setWorld(&world);
+    std::optional<render::RenderContext> context;
+    context.emplace(VkExtent2D{640, 480});
+    shadow.updateRenderNode(*context, {}, 0);
+    struct ShadingBounds : vsg::ConstVisitor {
+        std::vector<glm::vec4> bounds;
+        void apply(const vsg::Object& object) override { object.traverse(*this); }
+        void apply(const vsg::StateGroup& group) override
+        {
+            if (dynamic_cast<const render::DrawNode*>(&group))
+                for (const auto& command : group.stateCommands) {
+                    const auto* bind = command->cast<vsg::BindDescriptorSet>();
+                    if (!bind || bind->firstSet != 1) continue;
+                    const auto* buffer =
+                        bind->descriptorSet->descriptors.front()->cast<vsg::DescriptorBuffer>();
+                    REQUIRE(buffer);
+                    const auto data = buffer->bufferInfoList.front()->data.cast<vsg::vec4Array>();
+                    REQUIRE(data);
+                    const auto value = data->at(1);
+                    bounds.emplace_back(value.x, value.y, value.z, value.w);
+                }
+            group.traverse(*this);
+        }
+    } before;
+    shadow.renderNode()->accept(before);
+    REQUIRE(before.bounds.size() == 1);
+    const auto source = mesh->getBounds().sphere;
+    REQUIRE(before.bounds.front() == glm::vec4(source.center, source.radius));
+    REQUIRE(before.bounds.front().w > shadow.width);
+
+    mesh->setBounds({-20, -30, -40}, {20, 30, 40}, {5, 6, 7}, 80);
+    shadow.width *= 2;
+    shadow.updateRenderNode(*context, {}, 1);
+    ShadingBounds after;
+    shadow.renderNode()->accept(after);
+    REQUIRE(after.bounds == std::vector<glm::vec4>{glm::vec4(5, 6, 7, 80)});
+
+    const auto previous_root = shadow.renderNode();
+    const auto* address = &*context;
+    context.reset();
+    context.emplace(VkExtent2D{640, 480});
+    REQUIRE(&*context == address);
+    shadow.updateRenderNode(*context, {}, 1);
+    REQUIRE(shadow.renderNode() == previous_root);
+    requireEffectLayout(*previous_root, context->layout.get());
+    ShadingBounds recreated;
+    shadow.renderNode()->accept(recreated);
+    REQUIRE(recreated.bounds == after.bounds);
 }
 
 TEST_CASE("Octree queries own dense results across later queries", "[geometry][octree]")
 {
-    W8Octree tree(nullptr, nullptr);
+    LevelSpatialIndex tree("", nullptr);
     tree.m_spatial.m_bounds.minimum = {0, 0, 0};
     tree.m_spatial.m_bounds.maximum = {1000, 1000, 1000};
     tree.m_spatial.m_node_extent = 1000;
     tree.m_leaf_grid_dimensions = {1, 1, 1};
-    tree.object_registry = std::make_unique<W8OctreeObjectRegistry>();
-    tree.m_visited_object_bits.assign(10001, false);
+    tree.registry.cells = std::make_unique<W8OctreeObjectRegistry>();
+    tree.m_object_bit_count = 10001;
     const glm::ivec3 cell(0, 0, 0);
     // Populate the query index directly. RegisterObjectCell also updates the
     // reverse index, navigator entries and de-duplicates one insertion at a
     // time; none of those operations is under test here. With 10k objects in
     // one cell, repeating those updates dominates this query regression.
-    auto& by_cell = tree.object_registry->by_cell;
+    auto& by_cell = tree.registry.cells->by_cell;
     by_cell.reserve(10001);
     const auto cell_key = PackOctreeCellKey(cell.x, cell.y, cell.z);
     for (unsigned id = 1; id <= 10001; ++id)
         by_cell.emplace(cell_key, PackOctreeObjectKey(W8_OCTREE_KIND_LOCATION, id));
-    const srBoundingBox bounds{{0, 0, 0}, {999, 999, 999}};
+    const BoundingBox bounds{{0, 0, 0}, {999, 999, 999}};
     const auto dense = tree.queryObjects(bounds, W8_OCTREE_KIND_LOCATION, -1);
-    REQUIRE(dense.size() == 10000);
+    REQUIRE(dense.size() == 10001);
 
-    // The 10,000-result query above verifies the fixed cap. nearbyLocations
-    // delegates to queryObjects, so exercise its bounds on the smaller data
-    // set below rather than traversing the same 10,000 entries again.
-    tree.object_registry->by_cell.clear();
-    tree.object_registry->by_object.clear();
+    // The dense query crosses the former fixed capacity. Exercise the
+    // convenience queries on a smaller set and retain the earlier result.
+    tree.registry.cells->by_cell.clear();
+    tree.registry.cells->by_object.clear();
     for (int id = 1; id <= 512; ++id)
-        tree.object_registry->RegisterObjectCell(W8_OCTREE_KIND_LOCATION, id, cell);
+        tree.registry.cells->RegisterObjectCell(W8_OCTREE_KIND_LOCATION, id, cell);
     const auto nearby = tree.nearbyLocations({500, 500, 500}, 1);
     REQUIRE(nearby.size() == 512);
     const auto locations = tree.locationsInBox(bounds, 7);
@@ -818,6 +829,7 @@ TEST_CASE("Octree queries own dense results across later queries", "[geometry][o
     REQUIRE(std::ranges::find(locations, 7u) == locations.end());
     REQUIRE(tree.locationsInBox(bounds, 0) == nearby);
     REQUIRE(tree.queryObjects(bounds, W8_OCTREE_KIND_PROP, -1).empty());
+    REQUIRE(dense.size() == 10001);
     REQUIRE(tree.locationsInBox({{2000, 2000, 2000}, {3000, 3000, 3000}}, 0).empty());
     REQUIRE(tree.locationsInBox({{999, 999, 999}, {0, 0, 0}}, 0).size() == 512);
 }
@@ -825,7 +837,7 @@ TEST_CASE("Octree queries own dense results across later queries", "[geometry][o
 TEST_CASE("Octree walks retain ordered crossings, early exits and coordinate rounding",
           "[geometry][octree]")
 {
-    W8Octree tree(nullptr, nullptr);
+    LevelSpatialIndex tree("", nullptr);
     tree.m_spatial.m_bounds.minimum = {0, 0, 0};
     tree.m_spatial.m_node_extent = 100;
     const std::vector<glm::ivec3> diagonal{{0, 0, 0}, {1, 0, 0}, {1, 0, 1}, {1, 1, 1},
@@ -902,49 +914,44 @@ TEST_CASE("Octree walks retain ordered crossings, early exits and coordinate rou
 TEST_CASE("Build-tree queries own uncapped ordered results and independent state",
           "[geometry][octree]")
 {
-    W8OctBuildTree tree(1000, std::nullopt, 16, 0);
-    REQUIRE(tree.queryAlongSegment({0, 0, 0}, {0, 0, 0}, 1, 3).empty());
-    tree.spatial.m_bounds.minimum = {0, 0, 0};
-    tree.spatial.m_bounds.maximum = {100, 100, 100};
-    tree.spatial.m_extent = 100;
-    tree.root = std::make_unique<W8OctBuildNode>();
-    tree.spatial.m_root = tree.root.get();
+    const BoundingBox domain{{0, 0, 0}, {100, 100, 100}};
+    SurfaceIndex tree(1000, domain);
+    REQUIRE(tree.queryAlongSegment({0, 0, 0}, {0, 0, 0}, 1).empty());
+    const std::array<glm::vec3, 3> vertices{{{50, 0, 0}, {50, 100, 0}, {50, 0, 100}}};
     std::vector<W8GDSurface> surfaces(10050);
-    for (auto& surface : surfaces) tree.root->surfaces[1].push_back(&surface);
-    const auto hits = tree.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 3);
+    for (auto& surface : surfaces) {
+        surface.vertex_indices[0] = 0;
+        surface.vertex_indices[1] = 1;
+        surface.vertex_indices[2] = 2;
+        surface.plane = {glm::vec3(1, 0, 0), -50};
+        REQUIRE(tree.InsertSurface(&surface, vertices));
+    }
+    const auto hits = tree.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100);
     REQUIRE(hits.size() == surfaces.size());
     for (std::size_t index = 0; index < hits.size(); ++index) {
         REQUIRE(hits[index] == &surfaces[index]);
-        REQUIRE((surfaces[index].flags & W8_GD_SURFACE_QUERY_VISITED) == 0);
+        REQUIRE((surfaces[index].flags & 0x2000u) == 0);
     }
 
-    W8OctBuildTree other(1000, std::nullopt, 16, 0);
-    other.spatial.m_bounds.minimum = {0, 0, 0};
-    other.spatial.m_bounds.maximum = {100, 100, 100};
-    other.spatial.m_extent = 100;
-    other.root = std::make_unique<W8OctBuildNode>();
-    other.spatial.m_root = other.root.get();
-    W8GDSurface separate{};
-    other.AppendLink(other.spatial.m_root, &separate, 3);
-    const auto other_hits = other.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 3);
-    REQUIRE(other_hits == std::vector<W8GDSurface*>{&separate});
-    REQUIRE(tree.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 3) == hits);
-    REQUIRE(other.queryAlongSegment({500, 500, 500}, {0, 0, 0}, 1, 3).empty());
+    SurfaceIndex other(1000, domain);
+    W8GDSurface separate = surfaces.front();
+    REQUIRE(other.InsertSurface(&separate, vertices));
+    const auto other_hits = other.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100);
+    REQUIRE(other_hits == std::vector<const W8GDSurface*>{&separate});
+    REQUIRE(tree.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100) == hits);
+    REQUIRE(other.queryAlongSegment({5000, 5000, 5000}, {0, 0, 0}, 1).empty());
     REQUIRE(hits.front() == &surfaces.front());
 
-    // Kind 9 uses the physical-surface bank and retains its visited-flag policy.
-    surfaces[0].flags |= W8_GD_SURFACE_QUERY_VISITED;
-    const auto mixed = tree.queryAlongSegment({50, 50, 50}, {0, 0, 0}, 100, 9);
-    REQUIRE(mixed.size() == surfaces.size() - 1);
-    REQUIRE(mixed.front() == &surfaces[1]);
-    REQUIRE(mixed.back() == &surfaces.back());
-    surfaces[0].flags &= ~W8_GD_SURFACE_QUERY_VISITED;
+    // Stale serialized bits are data, never mutable query bookkeeping.
+    surfaces[0].flags = 0x2000;
+    REQUIRE(tree.queryAlongSegment({50, 50, 50}, {}, 100).size() == surfaces.size());
+    REQUIRE(surfaces[0].flags == 0x2000);
 }
 
 TEST_CASE("Swept query coordinates retain negative-cell policy and complete offsets",
           "[geometry][octree]")
 {
-    W8Octree tree(nullptr, nullptr);
+    LevelSpatialIndex tree("", nullptr);
     tree.m_spatial.m_bounds.minimum = {0, 0, 0};
     tree.m_spatial.m_bounds.maximum = {100, 100, 100};
     tree.m_spatial.m_node_extent = 100;
@@ -963,33 +970,38 @@ TEST_CASE("Swept query coordinates retain negative-cell policy and complete offs
     REQUIRE(tree.projectRegionsAt({101, 50, 50}).cell == glm::ivec3(1, 0, 0));
 }
 
-TEST_CASE("Build bounds expand locally and region cells share typed boxes", "[geometry][octree]")
+TEST_CASE("Collision index expands level bounds locally", "[geometry][octree]")
 {
-    const srBoundingBox level{glm::vec3(10, 20, 30), glm::vec3(1010, 2020, 3030)};
-    W8OctBuildTree tree(1000, level, 16, 0);
+    const BoundingBox level{glm::vec3(10, 20, 30), glm::vec3(1010, 2020, 3030)};
+    SurfaceIndex tree(1000, level);
     REQUIRE(level.minimum == glm::vec3(10, 20, 30));
     REQUIRE(level.maximum == glm::vec3(1010, 2020, 3030));
-    REQUIRE(tree.spatial.GetClippedBounds().minimum == glm::vec3(-490, -480, -470));
-    REQUIRE(tree.spatial.GetClippedBounds().maximum == glm::vec3(1510, 2520, 3530));
-    REQUIRE(tree.spatial.bounds().maximum == glm::vec3(3510, 3520, 3530));
-    tree.spatial.m_region_grid_cell = 25;
-    const auto cell = tree.spatial.regionCellBounds(0xff0203);
-    REQUIRE(cell.minimum == tree.spatial.bounds().minimum + glm::vec3(255, 2, 3) * 25.0f);
-    REQUIRE(cell.maximum == cell.minimum + 25.0f);
-    W8OctSpatialState child(&tree.spatial);
-    REQUIRE(child.bounds().minimum == tree.spatial.bounds().minimum);
-    REQUIRE(child.GetClippedBounds().maximum == tree.spatial.GetClippedBounds().maximum);
+    std::array<W8GDSurface, 3> surfaces{};
+    const std::array x_positions{-480.0f, 3500.0f, 3600.0f};
+    for (unsigned i = 0; i < surfaces.size(); ++i) {
+        auto& surface = surfaces[i];
+        surface.vertex_indices[0] = 0;
+        surface.vertex_indices[1] = 1;
+        surface.vertex_indices[2] = 2;
+        surface.plane = {glm::vec3(1, 0, 0), -x_positions[i]};
+        const std::array<glm::vec3, 3> vertices{
+            {{x_positions[i], 30, 40}, {x_positions[i], 80, 40}, {x_positions[i], 30, 90}}};
+        REQUIRE(tree.InsertSurface(&surface, vertices) == (i < 2));
+    }
+    REQUIRE(tree.queryAlongSegment({-480, 50, 50}, {}, 5) ==
+            std::vector<const W8GDSurface*>{&surfaces[0]});
+    REQUIRE(tree.queryAlongSegment({3500, 50, 50}, {}, 5) ==
+            std::vector<const W8GDSurface*>{&surfaces[1]});
 }
 
 TEST_CASE("Item bounds preserve local extents and report absent world items", "[geometry][item]")
 {
-    W8Item item;
-    auto* rep = item.m_pRep.get();
-    rep->m_psrMesh = nullptr;
-    rep->bounds_minimum = {-5, -3, -1};
-    rep->bounds_maximum = {7, 9, 11};
-    rep->bounds_radius = 12;
-    rep->location = {100, 200, 300};
+    WorldItemEntity item;
+    item.m_psrMesh = nullptr;
+    item.bounds_minimum = {-5, -3, -1};
+    item.bounds_maximum = {7, 9, 11};
+    item.bounds_radius = 12;
+    item.location = {100, 200, 300};
 
     const auto local = item.GetCachedLocalBounds();
     const auto radius = item.GetBoundsRadius();
@@ -998,16 +1010,16 @@ TEST_CASE("Item bounds preserve local extents and report absent world items", "[
     REQUIRE(local.minimum == glm::vec3(-5, -3, -1));
     REQUIRE(local.maximum == glm::vec3(7, 9, 11));
     REQUIRE(radius == 12);
-    REQUIRE(world->minimum == glm::vec3(95, 197, 299));
-    REQUIRE(world->maximum == glm::vec3(107, 209, 311));
-    world->minimum = glm::vec3(0);
+    REQUIRE(world.value().minimum == glm::vec3(95, 197, 299));
+    REQUIRE(world.value().maximum == glm::vec3(107, 209, 311));
+    world.value().minimum = glm::vec3(0);
     REQUIRE(item.GetCachedLocalBounds().minimum == local.minimum);
-    REQUIRE(GetItemWorldBounds(&item)->minimum == glm::vec3(95, 197, 299));
+    REQUIRE(GetItemWorldBounds(&item).value().minimum == glm::vec3(95, 197, 299));
 
     const auto search = item.GetSearchPosition();
     REQUIRE(close(search, {100, 207.92f, 300}));
-    rep->bounds_minimum = glm::vec3(0);
-    rep->bounds_radius = 0;
+    item.bounds_minimum = glm::vec3(0);
+    item.bounds_radius = 0;
     REQUIRE(item.GetCachedLocalBounds().minimum == glm::vec3(0));
     REQUIRE(item.GetBoundsRadius() == 0);
     REQUIRE(local.minimum == glm::vec3(-5, -3, -1));
@@ -1044,106 +1056,81 @@ TEST_CASE("Viewport bounds normalize each edge into an independent value", "[geo
 TEST_CASE("Representation transform queries preserve local and parent coordinates",
           "[geometry][transform]")
 {
-    W8AnimRepBase rep;
-    rep.parent_location = {10, 20, 30};
+    Monster rep;
+    rep.visual.parent_location = {10, 20, 30};
     const glm::vec3 local(1, 2, 3);
-    rep.SetLocation(&local);
-    const auto world = rep.GetLocation();
-    const auto local_copy = rep.GetLocalLocation();
-    auto rotation = rep.GetRotation();
+    rep.visual.SetLocation(&local);
+    const auto world = rep.visual.GetLocation();
+    const auto local_copy = rep.visual.GetLocalLocation();
+    auto rotation = rep.visual.GetRotation();
     REQUIRE(world == glm::vec3(11, 22, 33));
     REQUIRE(local_copy == local);
     REQUIRE(rotation == glm::mat3(1));
     rotation[0][0] = 2;
-    REQUIRE(rep.GetRotation() == glm::mat3(1));
-    rep.SetRotation(&rotation);
-    REQUIRE(rep.GetRotation() == rotation);
+    REQUIRE(rep.visual.GetRotation() == glm::mat3(1));
+    rep.visual.SetRotation(&rotation);
+    REQUIRE(rep.visual.GetRotation() == rotation);
     const glm::vec3 next(-1, -2, -3);
-    rep.SetLocation(&next);
-    REQUIRE(rep.GetLocation() == glm::vec3(9, 18, 27));
+    rep.visual.SetLocation(&next);
+    REQUIRE(rep.visual.GetLocation() == glm::vec3(9, 18, 27));
     REQUIRE(world == glm::vec3(11, 22, 33));
     REQUIRE(local_copy == local);
 }
 
-TEST_CASE("Navigator releases replaced and cleared paths", "[geometry][navigation]")
+TEST_CASE("Navigator owns its replaceable path", "[geometry][navigation]")
 {
-    struct TrackedPath : W8PathAI {
-        explicit TrackedPath(int& releases) : releases(releases) {}
-        ~TrackedPath() override { ++releases; }
-        int& releases;
-    };
+    Navigator navigator;
+    auto first = std::optional<KeyframeTrack>(std::in_place);
+    navigator.SetPathAI(std::move(first));
+    REQUIRE(navigator.GetPathAI() != nullptr);
 
-    int releases = 0;
-    {
-        W8Navigator navigator;
-        auto first = std::make_unique<TrackedPath>(releases);
-        const auto* borrowed = first.get();
-        navigator.SetPathAI(std::move(first));
-        REQUIRE(releases == 0);
-        REQUIRE(navigator.GetPathAI() == borrowed);
+    navigator.SetNavigationMode(W8_NAVIGATOR_MODE_GROUNDED);
+    REQUIRE(navigator.GetPathAI()->animated);
 
-        navigator.SetPathAI(std::make_unique<TrackedPath>(releases));
-        REQUIRE(releases == 1);
-        navigator.SetNavigationMode(1);
-        REQUIRE(releases == 2);
-        REQUIRE(navigator.GetPathAI()->animated);
-        navigator.SetPathAI(std::make_unique<TrackedPath>(releases));
-        navigator.SetPathAI(nullptr);
-        REQUIRE(releases == 3);
-        REQUIRE(navigator.GetPathAI() == nullptr);
-        navigator.SetPathAI(nullptr);
-        REQUIRE(releases == 3);
-
-        navigator.SetPathAI(std::make_unique<TrackedPath>(releases));
-    }
-    REQUIRE(releases == 4);
+    navigator.SetPathAI(std::optional<KeyframeTrack>(std::in_place));
+    REQUIRE(navigator.GetPathAI() != nullptr);
+    navigator.SetPathAI(std::nullopt);
+    REQUIRE(navigator.GetPathAI() == nullptr);
 }
 
-TEST_CASE("Light assignment replaces owned definitions and copies paths independently",
-          "[geometry][ownership]")
+TEST_CASE("Light copies retain independent animation and path state", "[geometry][ownership]")
 {
-    struct Definition final : stLightDefinition {
-        int& releases;
-        explicit Definition(int& releases) : releases(releases) {}
-        ~Definition() override { ++releases; }
-        std::unique_ptr<stLightDefinition> Clone() const override
-        {
-            return std::make_unique<Definition>(releases);
-        }
-        bool IsEnabledForSubcycle(unsigned char) override { return false; }
-    };
-    int releases = 0;
-    {
-        stLight source;
-        source.m_definition = std::make_unique<Definition>(releases);
-        source.path_ai = std::make_unique<W8PathAI>();
-        source.path_ai->nodes.emplace_back(1, 2, 3);
-        source.path_ai->timed = true;
-        stLight destination;
-        destination.m_definition = std::make_unique<Definition>(releases);
-        destination = source;
-        REQUIRE(releases == 1);
-        REQUIRE(destination.definition() != source.definition());
-        REQUIRE(destination.path_ai->nodes == source.path_ai->nodes);
-        REQUIRE_FALSE(destination.path_ai->timed);
-        destination.path_ai->nodes.front().x = 99;
-        REQUIRE(source.path_ai->nodes.front().x == 1);
-        destination = source;
-        REQUIRE(releases == 2);
-    }
-    REQUIRE(releases == 4);
+    Light source;
+    auto& keys = source.animator.emplace<KeyframedLightAnim>();
+    keys.key_frames = {1, 2};
+    keys.time = 1.5f;
+    source.path_ai = std::optional<KeyframeTrack>(std::in_place);
+    source.path_ai->nodes.emplace_back(1, 2, 3);
+    source.path_ai->timed = true;
+    Light copy(source);
+    auto& copied = std::get<KeyframedLightAnim>(copy.animator);
+    REQUIRE(copied.time == 1.5f);
+    copied.key_frames.front() = 99;
+    copy.path_ai->nodes.front().x = 99;
+    REQUIRE(keys.key_frames.front() == 1);
+    REQUIRE(source.path_ai->nodes.front().x == 1);
+    REQUIRE_FALSE(copy.path_ai->timed);
+    // A fade starts at its game event, even if the light is sampled later.
+    Light fading;
+    fading.animator.emplace<MonsterLightAnim>();
+    fading.StartFadeOut(10);
+    const glm::vec3 position(0);
+    fading.Update(&position, 15);
+    REQUIRE(fading.intensity == 0.5f);
+    fading.Update(&position, 20);
+    REQUIRE(fading.intensity == 0);
 }
 
 TEST_CASE("Movement queries return velocity and waypoint snapshots", "[geometry][navigation]")
 {
-    W8Navigator navigator;
+    Navigator navigator;
     navigator.movement.velocity = {1, 2, 3};
     const auto velocity = navigator.GetVelocity();
     navigator.movement.velocity = {4, 5, 6};
     REQUIRE(navigator.GetVelocity() == glm::vec3(4, 5, 6));
     REQUIRE(velocity == glm::vec3(1, 2, 3));
 
-    W8NavigatorAttachment route;
+    NavigatorRoute route;
     route.start_waypoint = {1, 2, 3};
     route.path_destination = {7, 8, 9};
     route.flags = W8_NAV_ATTACHMENT_START_WAYPOINT;
@@ -1151,23 +1138,23 @@ TEST_CASE("Movement queries return velocity and waypoint snapshots", "[geometry]
     REQUIRE(start == route.start_waypoint);
     route.flags = 0;
     route.path_cursor = 0;
-    route.path_position_index = 1;
+    route.path.resize(2);
     route.path[0].position = {4, 5, 6};
     const auto waypoint = route.GetNextPosition();
     REQUIRE(waypoint == glm::vec3(4, 5, 6));
     route.path[0].position = {10, 11, 12};
     REQUIRE(waypoint == glm::vec3(4, 5, 6));
-    route.path_cursor = route.path_position_index;
+    route.path_cursor = route.lastWaypoint();
     REQUIRE(route.GetNextPosition() == route.path_destination);
     REQUIRE(start == glm::vec3(1, 2, 3));
 }
 
 TEST_CASE("Prop position and delta queries preserve animation stepping", "[geometry][animation]")
 {
-    W8Prop prop;
-    prop.Rep()->animation.emplace();
-    auto& animation = *prop.Rep()->animation;
-    prop.Rep()->location = {10, 20, 30};
+    Prop prop;
+    prop.animation.emplace();
+    auto& animation = prop.animation.value();
+    prop.location = {10, 20, 30};
     prop.animation_position = {3, 5, 7};
     prop.previous_animation_position = {1, 2, 3};
     const auto static_position = prop.GetPosition();
@@ -1175,29 +1162,29 @@ TEST_CASE("Prop position and delta queries preserve animation stepping", "[geome
     animation.path_lists = true;
     REQUIRE(prop.GetPosition() == prop.animation_position);
     REQUIRE(static_position == glm::vec3(10, 20, 30));
-    prop.Rep()->animation_behaviour = W8_ANIMATION_PLAY_ONCE;
-    prop.Rep()->frame_direction = W8_ANIMATION_FORWARD;
-    prop.Rep()->first_frame = 0;
-    prop.Rep()->last_frame = 3;
-    prop.Rep()->subcycle = 1;
+    prop.animation_behaviour = W8_ANIMATION_PLAY_ONCE;
+    prop.frame_direction = W8_ANIMATION_FORWARD;
+    prop.first_frame = 0;
+    prop.last_frame = 3;
+    prop.subcycle = 1;
     const auto delta = prop.GetDelta();
     REQUIRE(delta == glm::vec3(2, 3, 4));
-    REQUIRE(prop.Rep()->subcycle == 1);
-    prop.Rep()->subcycle = 3;
+    REQUIRE(prop.subcycle == 1);
+    prop.subcycle = 3;
     REQUIRE(prop.GetDelta() == glm::vec3(0, 0, 0));
-    prop.Rep()->animation_behaviour = W8_ANIMATION_REPEAT;
-    prop.Rep()->frame_method = W8_ANIMATION_WRAP;
+    prop.animation_behaviour = W8_ANIMATION_REPEAT;
+    prop.frame_method = W8_ANIMATION_WRAP;
     REQUIRE(prop.GetDelta() == glm::vec3(0, 0, 0));
-    prop.Rep()->frame_method = W8_ANIMATION_PING_PONG;
+    prop.frame_method = W8_ANIMATION_PING_PONG;
     REQUIRE(prop.GetDelta() == delta);
-    prop.Rep()->frame_direction = W8_ANIMATION_REVERSE;
-    prop.Rep()->subcycle = 1;
+    prop.frame_direction = W8_ANIMATION_REVERSE;
+    prop.subcycle = 1;
     REQUIRE(prop.GetDelta() == delta);
 }
 
 TEST_CASE("Animation bounds retain composite caching and path values", "[geometry][animation]")
 {
-    W8AnimObj animation;
+    Animation animation;
     animation.path_lists = true;
     animation.frame_count = 2;
     REQUIRE_FALSE(AnimObjGetBounds(&animation, 0, 2));
@@ -1205,254 +1192,102 @@ TEST_CASE("Animation bounds retain composite caching and path values", "[geometr
     REQUIRE(animation.frame_bounds.size() == 2);
     REQUIRE_FALSE(animation.frame_bounds[1].known);
     for (int index = 0; index < 2; ++index) {
-        auto mesh = std::make_unique<W8AniMesh>();
-        mesh->flags.loaded = true;
-        mesh->flags.radius_loaded = true;
+        auto mesh = std::make_unique<AnimationMesh>();
         mesh->frame_count = 1;
-        mesh->bounds_minimum = index == 0 ? glm::vec3(-1, -2, -3) : glm::vec3(-4, -1, -2);
-        mesh->bounds_maximum = index == 0 ? glm::vec3(4, 5, 6) : glm::vec3(2, 8, 3);
-        mesh->meshes.push_back(std::make_unique<stModelInstance>(nullptr));
+        mesh->bounds = index == 0 ? BoundingBox{{-1, -2, -3}, {4, 5, 6}}
+                                  : BoundingBox{{-4, -1, -2}, {2, 8, 3}};
         animation.meshes[0].push_back(std::move(mesh));
-        auto path = std::make_unique<W8PathAI>();
+        auto path = std::optional<KeyframeTrack>(std::in_place);
         PathAIAddPoint(*path, glm::vec3(100, 200, 300));
         PathAIAddPoint(*path, glm::vec3(400, 500, 600));
         path->rotations.resize(path->nodes.size(), glm::mat3(1));
-        PathAISetValue(path.get(), 0.75f);
+        PathAISetValue((path ? &*path : nullptr), 0.75f);
         animation.paths[0].push_back(std::move(path));
     }
     const auto bounds = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(bounds);
-    REQUIRE(bounds->minimum == glm::vec3(-4, -2, -3));
-    REQUIRE(bounds->maximum == glm::vec3(4, 8, 6));
+    REQUIRE(bounds.value().minimum == glm::vec3(-4, -2, -3));
+    REQUIRE(bounds.value().maximum == glm::vec3(4, 8, 6));
     REQUIRE(animation.frame_bounds[1].known);
-    for (const auto& path : animation.paths[0]) REQUIRE(PathAIGetValue(path.get()) == 0.75f);
-    const auto stamp = g_animesh_cache_stamp;
-    animation.meshes[0][0]->bounds_minimum = {-10, -20, -30};
+    for (auto& path : animation.paths[0])
+        REQUIRE(PathAIGetValue((path ? &*path : nullptr)) == 0.75f);
+    animation.meshes[0][0]->bounds.minimum = {-10, -20, -30};
     const auto cached = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(cached);
-    REQUIRE(cached->minimum == bounds->minimum);
-    REQUIRE(cached->maximum == bounds->maximum);
-    REQUIRE(g_animesh_cache_stamp == stamp);
+    REQUIRE(cached.value().minimum == bounds.value().minimum);
+    REQUIRE(cached.value().maximum == bounds.value().maximum);
     animation.frame_bounds[1].known = false;
     const auto refreshed = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(refreshed);
     REQUIRE(refreshed->minimum == glm::vec3(-10, -20, -30));
-    for (const auto& path : animation.paths[0]) REQUIRE(PathAIGetValue(path.get()) == 0.75f);
+    for (auto& path : animation.paths[0])
+        REQUIRE(PathAIGetValue((path ? &*path : nullptr)) == 0.75f);
 }
 
 TEST_CASE("Prop bounds aggregate frames without changing the current frame",
           "[geometry][animation]")
 {
-    W8Prop prop;
-    prop.Rep()->animation.emplace();
-    auto& animation = *prop.Rep()->animation;
+    Prop prop;
+    prop.animation.emplace();
+    auto& animation = prop.animation.value();
     animation.path_lists = true;
     animation.frame_count = 3;
     animation.frame_bounds = {{true, {-4, -2, -8}, {3, 5, 6}},
                               {true, {-1, -9, -3}, {12, 2, 5}},
                               {true, {-3, -5, -6}, {4, 8, 9}}};
-    prop.Rep()->subcycle = 1;
+    prop.subcycle = 1;
     const auto center = prop.GetCenterPosition();
     REQUIRE(center);
-    REQUIRE(*center == glm::vec3(5.5f, -3.5f, 1));
+    REQUIRE(center.value() == glm::vec3(5.5f, -3.5f, 1));
     const auto bounds = prop.GetBounds();
     REQUIRE(bounds);
-    REQUIRE(bounds->minimum == glm::vec3(-4, -9, -8));
-    REQUIRE(bounds->maximum == glm::vec3(12, 8, 9));
-    REQUIRE(prop.Rep()->subcycle == 1);
+    REQUIRE(bounds.value().minimum == glm::vec3(-4, -9, -8));
+    REQUIRE(bounds.value().maximum == glm::vec3(12, 8, 9));
+    REQUIRE(prop.subcycle == 1);
     animation.frame_bounds[2].known = false;
     REQUIRE_FALSE(prop.GetBounds());
-    REQUIRE(prop.Rep()->subcycle == 1);
+    REQUIRE(prop.subcycle == 1);
     animation.frame_bounds[1].known = false;
     REQUIRE_FALSE(prop.GetFrameBounds());
     REQUIRE_FALSE(prop.GetCenterPosition());
-    REQUIRE(bounds->maximum == glm::vec3(12, 8, 9));
+    REQUIRE(bounds.value().maximum == glm::vec3(12, 8, 9));
 }
 
 TEST_CASE("Monster bounds scale and translate independent optional values", "[geometry][animation]")
 {
-    W8AnimObj animation;
+    Animation animation;
     animation.frame_bounds = {{true, {-1, -2, -3}, {4, 5, 6}}};
-    struct Monster : W8Monster {
-        W8AnimObj* animation = nullptr;
-        bool detached = false;
-        W8AnimObj* GetCurrentAnimation() override { return animation; }
-        W8EmitterHost* GetRepresentation() override
-        {
-            return detached ? nullptr : W8Monster::GetRepresentation();
-        }
-    } monster;
-    monster.animation = &animation;
-    monster.m_pRep->m_bLOD = 2;
-    monster.m_pRep->subcycle = 0;
-    monster.m_pRep->scale = 2;
-    monster.movement.position = {10, 20, 30};
+    Monster monster;
+    monster.visual.active_animation = &animation;
+    monster.visual.m_bLOD = 2;
+    monster.visual.subcycle = 0;
+    monster.scale = 2;
+    monster.nav.movement.position = {10, 20, 30};
     const auto bounds = monster.GetAnimationBounds();
     REQUIRE(bounds);
-    REQUIRE(bounds->minimum == glm::vec3(-2, -4, -6));
-    REQUIRE(bounds->maximum == glm::vec3(8, 10, 12));
-    const auto world = MonsterGetWorldAnimationBounds(&monster);
+    REQUIRE(bounds.value().minimum == glm::vec3(-2, -4, -6));
+    REQUIRE(bounds.value().maximum == glm::vec3(8, 10, 12));
+    const auto world = monster.GetWorldAnimationBounds();
     REQUIRE(world);
-    REQUIRE(world->minimum == bounds->minimum + monster.GetPosition());
-    REQUIRE(world->maximum == bounds->maximum + monster.GetPosition());
+    REQUIRE(world->minimum == bounds->minimum + monster.nav.GetPosition());
+    REQUIRE(world->maximum == bounds->maximum + monster.nav.GetPosition());
     const auto center = monster.GetAnimationCenter();
     REQUIRE(center);
-    REQUIRE(std::abs(center->y - monster.GetPosition().y - 14 * 0.66f) < 0.0001f);
-    monster.detached = true;
+    REQUIRE(std::abs(center->y - monster.nav.GetPosition().y - 14 * 0.66f) < 0.0001f);
+    monster.visual.active_animation = nullptr;
     REQUIRE_FALSE(monster.GetAnimationBounds());
     REQUIRE_FALSE(monster.GetAnimationCenter());
-    REQUIRE_FALSE(MonsterGetWorldAnimationBounds(&monster));
-    monster.detached = false;
-    monster.animation = nullptr;
-    REQUIRE_FALSE(monster.GetAnimationBounds());
-    REQUIRE_FALSE(monster.GetAnimationCenter());
-    REQUIRE_FALSE(MonsterGetWorldAnimationBounds(&monster));
-    REQUIRE_FALSE(MonsterGetWorldAnimationBounds(nullptr));
-    REQUIRE(bounds->minimum == glm::vec3(-2, -4, -6));
+    REQUIRE_FALSE(monster.GetWorldAnimationBounds());
+    REQUIRE(bounds.value().minimum == glm::vec3(-2, -4, -6));
     REQUIRE(animation.frame_bounds[0].minimum == glm::vec3(-1, -2, -3));
-}
-
-TEST_CASE("Quad visibility owns ordered cells without a fixed capacity", "[geometry]")
-{
-    const auto cells = rasterizeQuadTriangle({256, 256}, {{{0, 0}, {255, 0}, {128, 255}}});
-    REQUIRE(cells.size() > 20000);
-    for (std::size_t index = 0; index < cells.size(); ++index) {
-        REQUIRE(cells[index].x >= 0);
-        REQUIRE(cells[index].x < 256);
-        REQUIRE(cells[index].y >= 0);
-        REQUIRE(cells[index].y < 256);
-        if (index) {
-            REQUIRE(cells[index].y >= cells[index - 1].y);
-            if (cells[index].y == cells[index - 1].y)
-                REQUIRE(cells[index].x == cells[index - 1].x + 1);
-        }
-    }
-    REQUIRE(rasterizeQuadTriangle({256, 256}, {{{128, 255}, {255, 0}, {0, 0}}}) == cells);
-    const auto clipped = rasterizeQuadTriangle({8, 8}, {{{-10, -10}, {15, 2}, {3, 20}}});
-    REQUIRE_FALSE(clipped.empty());
-    for (const auto& cell : clipped) {
-        REQUIRE(cell.x >= 0);
-        REQUIRE(cell.x < 8);
-        REQUIRE(cell.y >= 0);
-        REQUIRE(cell.y < 8);
-    }
-    REQUIRE(rasterizeQuadTriangle({8, 8}, {{{1, 1}, {2, 1}, {3, 1}}}).empty());
-    REQUIRE(rasterizeQuadTriangle({8, 8}, {{{1, 1}, {1, 2}, {1, 3}}}).empty());
-    REQUIRE(rasterizeQuadTriangle({0, 0}, {{{0, 0}, {10, 2}, {3, 20}}}).empty());
-}
-
-TEST_CASE("Software backface selection preserves thresholds and active order", "[geometry]")
-{
-    std::array<glm::vec3, 3> positions{{{0, 0, 0}, {0, 0, 2}, {0, 0, -2}}};
-    std::array<glm::ivec3, 3> triangles{{{0, 0, 0}, {1, 1, 1}, {2, 2, 2}}};
-    const std::array<glm::vec3, 3> normals{{{0, 0, 1}, {0, 0, 1}, {0, 0, 1}}};
-    srMeshModel::TriMesh mesh;
-    mesh.polygon_count = triangles.size();
-    mesh.positions = positions.data();
-    mesh.poly_vertices = triangles.data();
-    const auto positive = stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0);
-    REQUIRE(positive == std::vector<w8_ulong>{0, 2});
-    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), false, 0) ==
-            std::vector<w8_ulong>{0, 1});
-    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 1) ==
-            std::vector<w8_ulong>{2});
-    std::array<w8_ulong, 4> active{2, 1, 0, 2};
-    mesh.active_polygons = std::span<const w8_ulong>(active);
-    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0) ==
-            std::vector<w8_ulong>{2, 0, 2});
-    REQUIRE(positive == std::vector<w8_ulong>{0, 2});
-    mesh.active_polygons = std::span<const w8_ulong>{};
-    REQUIRE(stMeshModel::facingPolygons(mesh, normals, glm::vec3(0), true, 0).empty());
 }
 
 TEST_CASE("Clip plane normalization preserves consumer transform ordering and degenerate planes",
           "[geometry][rendering]")
 {
-    srGERD renderer;
-    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
     const auto scale = glm::scale(glm::mat4(1), glm::vec3(2, 3, 4));
-    renderer.loadMatrix(scale);
-    renderer.pushClipPlane({2, 0, 0, -2}, srGERD::CLIPMODE_POSITIONAL_0);
     // GERD normalizes in object space before the inverse-transpose transform.
-    REQUIRE(renderer.getClipPlanes().planes[6] == glm::vec4(0.5f, 0, 0, -1));
-    renderer.popClipPlane();
-    // The CPU culler normalizes after its supplied covector transform.
-    const auto plane =
-        srTriangleCuller::transformClipPlane({2, 0, 0, -2}, glm::transpose(glm::inverse(scale)));
-    REQUIRE(plane == glm::vec4(1, 0, 0, -2));
-    REQUIRE(srTriangleCuller::transformClipPlane({0, 0, 0, 4}, glm::mat4(1)) ==
-            glm::vec4(0, 0, 0, 4));
-}
-
-TEST_CASE("Empty software backface selections skip mesh submission", "[geometry]")
-{
-    srGERD renderer;
-    renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
-    stMeshModel model(1, 3);
-    auto* pipeline = &renderer.meshPipeline();
-    std::array<glm::vec3, 3> positions{{{0, 0, 2}, {0, 0, 2}, {0, 0, 2}}};
-    std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
-    const std::array<glm::vec3, 1> normals{{{0, 0, 1}}};
-    srMeshModel::TriMesh mesh;
-    mesh.vertex_count = positions.size();
-    mesh.polygon_count = triangles.size();
-    mesh.positions = positions.data();
-    mesh.poly_vertices = triangles.data();
-    mesh.control_flags = (1u << srMeshModel::CONTROL_FRONT) | (1u << srMeshModel::CONTROL_BACK);
-    const auto before = pipeline->triangle_count;
-    model.RenderTriMeshWithEquations(renderer, mesh, normals);
-    REQUIRE(pipeline->triangle_count == before);
-    mesh.polygon_count = 2;
-    REQUIRE_THROWS_AS(model.RenderTriMeshWithEquations(renderer, mesh, normals),
-                      std::invalid_argument);
-    REQUIRE(pipeline->triangle_count == before);
-}
-
-TEST_CASE("Failed mesh materials release renderer and restore enable flags", "[geometry]")
-{
-    class FailingMaterial : public srMaterial {
-    public:
-        void preProcess(srVertexPipe&) override { throw std::runtime_error("material failed"); }
-    };
-    srGERD renderer;
-    renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
-    renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
-    auto* batch = &renderer.batchRenderer();
-    renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
-    renderer.toggle(srGERD::ENABLE_REVERSE_NORMALS);
-    srMeshModel native(1, 3);
-    stMeshModel extended(1, 3);
-    std::array<glm::vec3, 3> positions{
-        {{-0.5f, -0.5f, 0.5f}, {0.5f, -0.5f, 0.5f}, {0, 0.5f, 0.5f}}};
-    std::array<glm::ivec3, 1> triangles{{{0, 1, 2}}};
-    std::array<glm::vec4, 1> equations{{{0, 0, 1, -0.5f}}};
-    const std::array<glm::vec3, 1> normals{{{0, 0, -1}}};
-    srMeshModel::TriMesh mesh;
-    mesh.vertex_count = positions.size();
-    mesh.polygon_count = triangles.size();
-    mesh.pass_count = 1;
-    mesh.positions = positions.data();
-    mesh.poly_vertices = triangles.data();
-    mesh.poly_equations = equations.data();
-    mesh.bounds_center = {0, 0, 0.5f};
-    mesh.bounds_radius = 1;
-    mesh.control_flags = (1u << srMeshModel::CONTROL_FRONT) |
-                         (1u << srMeshModel::CONTROL_NO_FRONT_CULL) |
-                         (1u << srMeshModel::CONTROL_SORTED_RENDERING);
-    mesh.materials[0][0] = std::make_shared<FailingMaterial>();
-    for (bool software : {false, true}) {
-        if (software)
-            REQUIRE_THROWS_AS(extended.RenderTriMeshWithEquations(renderer, mesh, normals),
-                              std::runtime_error);
-        else
-            REQUIRE_THROWS_AS(native.renderTriMesh(renderer, mesh), std::runtime_error);
-        REQUIRE_FALSE(renderer.isEnabled(srGERD::ENABLE_SORTED_RENDERING));
-        REQUIRE(renderer.isEnabled(srGERD::ENABLE_REVERSE_NORMALS));
-        renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
-        auto* resumed = &renderer.batchRenderer();
-        REQUIRE(resumed == batch);
-        renderer.toggle(srGERD::ENABLE_SORTED_RENDERING);
-    }
+    REQUIRE(eyeSpaceClipPlane(scale, {2, 0, 0, -2}) == glm::vec4(0.5f, 0, 0, -1));
 }
 
 TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geometry]")
@@ -1462,19 +1297,19 @@ TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geome
     for (auto mode : {PlaneContactMode::Collision, PlaneContactMode::Occlusion}) {
         const auto hit = planeContact(plane, crossing, mode);
         REQUIRE(hit.has_value());
-        REQUIRE(hit->point == glm::vec3(0, 4, 5));
-        REQUIRE(hit->distance == 3);
+        REQUIRE(hit.value().point == glm::vec3(0, 4, 5));
+        REQUIRE(hit.value().distance == 3);
     }
     const PlaneSegment skin{{3, 4, 5}, {0.5f, 4, 5}, {-1, 0, 0}, 2.5f, 4};
     const auto endpoint = planeContact(plane, skin, PlaneContactMode::Collision);
     REQUIRE(endpoint.has_value());
-    REQUIRE(endpoint->point == skin.end);
-    REQUIRE(endpoint->distance == skin.length);
+    REQUIRE(endpoint.value().point == skin.end);
+    REQUIRE(endpoint.value().distance == skin.length);
     REQUIRE_FALSE(planeContact(plane, skin, PlaneContactMode::Occlusion));
     const PlaneSegment nearer{{1.1f, 0, 0}, {-0.1f, 0, 0}, {-1, 0, 0}, 1.2f, 1.15f};
     const auto closest = planeContact(plane, nearer, PlaneContactMode::Collision);
     REQUIRE(closest.has_value());
-    REQUIRE(std::abs(closest->distance - 1.1f) < 1e-6f);
+    REQUIRE(std::abs(closest.value().distance - 1.1f) < 1e-6f);
     auto exit = crossing;
     exit.end.x = -5;
     exit.length = 8;
@@ -1485,12 +1320,12 @@ TEST_CASE("Plane contacts retain collision skin and occluder clearance", "[geome
     inside_skin.start.x = 0.5f;
     const auto start = planeContact(plane, inside_skin, PlaneContactMode::Collision);
     REQUIRE(start.has_value());
-    REQUIRE(start->point == inside_skin.start);
-    REQUIRE(start->distance == 0);
+    REQUIRE(start.value().point == inside_skin.start);
+    REQUIRE(start.value().distance == 0);
     const auto surface_start = planeContact(plane, inside_skin, PlaneContactMode::SurfaceCollision);
     REQUIRE(surface_start.has_value());
-    REQUIRE(surface_start->point == inside_skin.start);
-    REQUIRE(surface_start->distance == 0.5f);
+    REQUIRE(surface_start.value().point == inside_skin.start);
+    REQUIRE(surface_start.value().distance == 0.5f);
     inside_skin.start.x = 0;
     REQUIRE_FALSE(planeContact(plane, inside_skin, PlaneContactMode::Collision));
     REQUIRE_FALSE(planeContact(-plane, crossing, PlaneContactMode::Collision));
@@ -1508,34 +1343,34 @@ TEST_CASE("Surface triangles are complete values and reject invalid vertex indic
     const std::array<int, 3> indices{2, 0, 1};
     const auto triangle = surfaceTriangle(vertices, indices);
     REQUIRE(triangle);
-    REQUIRE((*triangle)[0] == glm::vec3(0, 0, 2));
-    REQUIRE((*triangle)[1] == glm::vec3(0));
-    REQUIRE((*triangle)[2] == glm::vec3(0, 2, 0));
+    REQUIRE((triangle.value())[0] == glm::vec3(0, 0, 2));
+    REQUIRE((triangle.value())[1] == glm::vec3(0));
+    REQUIRE((triangle.value())[2] == glm::vec3(0, 2, 0));
     vertices[2] = {99, 99, 99};
-    REQUIRE((*triangle)[0] == glm::vec3(0, 0, 2));
+    REQUIRE((triangle.value())[0] == glm::vec3(0, 0, 2));
     REQUIRE(!surfaceTriangle(vertices, std::array<int, 3>{0, 1, 3}));
     REQUIRE(!surfaceTriangle(vertices, std::array<int, 3>{0, -1, 2}));
     vertices.clear();
     REQUIRE(!surfaceTriangle(vertices, indices));
 }
 
-TEST_CASE("Particle activation values and billboard ordering", "[geometry]")
+TEST_CASE("Particle activation preserves emission limits and world placement", "[geometry]")
 {
-    stParticle empty(nullptr, 0);
+    ParticleSystem empty(nullptr, 0);
     REQUIRE(!empty.activateParticle(true));
-    stParticle particles(nullptr, 2);
+    ParticleSystem particles(nullptr, 2);
     particles.direction_mode = W8_PARTICLE_DIRECTION_FIXED;
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.initial_speed = 5;
     const auto first = particles.activateParticle(false);
     REQUIRE(first);
-    REQUIRE(*first == 0);
-    REQUIRE(particles.velocities[*first] == glm::vec3(0, -5, 0));
+    REQUIRE(first.value() == 0);
+    REQUIRE(particles.velocities[first.value()] == glm::vec3(0, -5, 0));
     REQUIRE(particles.activateParticle(false));
     REQUIRE(!particles.activateParticle(false));
     const auto replaced = particles.activateParticle(true);
     REQUIRE(replaced);
-    REQUIRE(*replaced == 0);
+    REQUIRE(replaced.value() == 0);
     REQUIRE(particles.active_particle_count == 2);
     particles.emission_limit = particles.emission_count;
     REQUIRE(!particles.activateParticle(true));
@@ -1545,26 +1380,159 @@ TEST_CASE("Particle activation values and billboard ordering", "[geometry]")
 
     particles.emission_minimum = particles.emission_maximum = {1, 2, 3};
     particles.size_scale = 2;
-    particles.setLocation(100, 200, 300);
+    particles.transform.setLocation(100, 200, 300);
     REQUIRE(particles.emissionPosition() == glm::vec3(102, 204, 306));
-    particles.particle_size = 2;
-    particles.particle_positions[0] = {10, 20, 30};
-    particles.particle_positions[1] = {-10, -20, -30};
-    glm::mat4 view(1);
-    view[3] = {70, 80, 90, 1};
-    const auto originalView = view;
-    particles.PrepareRenderer(view);
-    REQUIRE(view == originalView);
-    const std::array<glm::vec3, 4> offsets{{{-2, 2, 0}, {2, 2, 0}, {2, -2, 0}, {-2, -2, 0}}};
-    for (unsigned particle = 0; particle < 2; ++particle)
-        for (unsigned corner = 0; corner < 4; ++corner)
-            REQUIRE(particles.vertex_positions[particle * 4 + corner] ==
-                    particles.particle_positions[particle] + offsets[corner]);
+}
+
+TEST_CASE("Attached particle orientation follows rotations independently of model scale",
+          "[geometry][particles]")
+{
+    MeshInstance parent, model;
+    model.setModel(std::make_shared<Mesh>());
+    model.attachTo(parent);
+    parent.transform.setRotation(.2, -.3, .4);
+    model.transform.setRotation(-.4, .1, -.2);
+    CyclePlayer cycle;
+    cycle.current_model_instance = &model;
+    auto& attachment = cycle.particles.emplace_back();
+    attachment.position = {1, 2, 3};
+    attachment.rotation = glm::mat3(1);
+    attachment.m_pstParticles = std::make_unique<ParticleSystem>(nullptr, 1);
+    auto& particle = *attachment.m_pstParticles;
+    particle.direction_mode = W8_PARTICLE_DIRECTION_CONE;
+    const auto expected_rotation = parent.transform.getRotation() * model.transform.getRotation();
+    for (const auto& scale : {glm::dvec3(-2, 3, -4), glm::dvec3(0), glm::dvec3(2, 3, 4)}) {
+        parent.transform.setScale(scale);
+        model.transform.setScale(scale);
+        cycle.UpdateParticleAttachments();
+        const auto expected_position =
+            glm::dvec3(model.worldMatrix() * glm::dvec4(attachment.position, 1));
+        REQUIRE(particle.transform.getLocation() == expected_position);
+        const auto rotation = particle.transform.getRotation();
+        for (int column = 0; column < 3; ++column)
+            REQUIRE(glm::length(rotation[column] - expected_rotation[column]) < 1e-12);
+    }
+}
+
+TEST_CASE("Particle simulation respects activation and completes without a view", "[geometry]")
+{
+    const ScopedGame game;
+    ParticleSystem particles(nullptr, 2);
+    particles.emission_gap = 0;
+    particles.emission_mode = W8_PARTICLE_EMISSION_SINGLE;
+    particles.emission_interval = 0;
+    particles.direction_mode = W8_PARTICLE_DIRECTION_FIXED;
+    particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
+    particles.initial_speed = 0;
+    particles.visible = false;
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    REQUIRE(particles.emission_count == 0);
+    particles.visible = true;
+    particles.SetTraversalEnabled(false);
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    REQUIRE(particles.emission_count == 0);
+
+    particles.SetTraversalEnabled(true);
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    REQUIRE(particles.emission_count == 1);
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    REQUIRE(particles.active_particle_count == 2);
+    particles.DeactivateParticle(0);
+    particles.SetActive(false);
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    REQUIRE_FALSE(particles.particle_active[0]);
+    REQUIRE(particles.particle_active[1]);
+
+    const auto centers = particles.particle_positions;
+    // Constructing VSG state and arrays needs no graphics device. Preparing
+    // additional views must consume the current simulation without advancing it.
+    std::optional<render::RenderContext> context;
+    context.emplace(VkExtent2D{640, 480});
+    particles.updateRenderNode(*context, {}, 0);
+    particles.updateRenderNode(*context, {}, 1);
+    REQUIRE(particles.particle_positions == centers);
+    REQUIRE(particles.emission_count == 2);
+    struct CheckParticleDraws : vsg::ConstVisitor {
+        std::uint32_t index_count = 0;
+        void apply(const vsg::Object& object) override { object.traverse(*this); }
+        void apply(const vsg::VertexIndexDraw& draw) override
+        {
+            if (!draw.indexCount) return;
+            // A valid index range with VSG's default zero instance count
+            // silently renders nothing through the ordinary draw path.
+            REQUIRE(draw.instanceCount == 1);
+            index_count += draw.indexCount;
+        }
+    } draws;
+    particles.renderNode()->accept(draws);
+    REQUIRE(draws.index_count == 6);
+
+    // Reconstructing a renderer can reuse the C++ context's storage. Resource
+    // identity and its frame guard must still restart with the new layout.
+    const auto previous_root = particles.renderNode();
+    const auto* address = &*context;
+    context.reset();
+    context.emplace(VkExtent2D{640, 480});
+    REQUIRE(&*context == address);
+    particles.updateRenderNode(*context, {}, 1);
+    REQUIRE(particles.renderNode() == previous_root);
+    requireEffectLayout(*previous_root, context->layout.get());
+    draws.index_count = 0;
+    particles.renderNode()->accept(draws);
+    REQUIRE(draws.index_count == 6);
+
+    particles.release_when_done = true;
+    particles.lifetime_ms = 0;
+    game.game.time += std::chrono::milliseconds{1};
+    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    REQUIRE(particles.active_particle_count == 0);
+    REQUIRE(particles.finished);
+    particles.updateRenderNode(*context, {}, 2);
+    draws.index_count = 0;
+    particles.renderNode()->accept(draws);
+    REQUIRE(draws.index_count == 0);
+}
+
+TEST_CASE("Particle simulation resolves nested animation before views consume it",
+          "[geometry][particles]")
+{
+    ScopedGame game;
+    auto first = std::make_shared<Texture>();
+    auto last = std::make_shared<Texture>();
+    auto inner = std::make_shared<Texture>(TexturePlayback{});
+    inner->AddTexture(first);
+    inner->AddTexture(last);
+    inner->playback->animation_mode = W8_TEXTURE_ANIM_PLAY_ONCE;
+    inner->playback->frame_rate = 10;
+    auto outer = std::make_shared<Texture>(TexturePlayback{});
+    outer->playback->animation_mode = W8_TEXTURE_ANIM_MANUAL;
+    outer->AddTexture(inner);
+    ParticleSystem particles(nullptr, 1);
+    particles.emission_gap = 0;
+    particles.initial_speed = 0;
+    particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
+    particles.SetTexture(outer);
+    REQUIRE(particles.activateParticle(false));
+    auto& prepared = *particles.texture_frames.front()->playback->textures.front();
+    REQUIRE(&prepared != inner.get());
+    REQUIRE(particles.texture_frames.front()->currentFrame() == first.get());
+    game.game.time += std::chrono::milliseconds{1000};
+    particles.AdvanceSimulation(game.game.time);
+    REQUIRE(particles.texture_frames.front()->currentFrame() == last.get());
+
+    // Time may elapse before another view. Only simulation advances playback.
+    REQUIRE(inner->currentFrame() == first.get());
+    prepared.SetFrame(0);
+    game.game.time += std::chrono::milliseconds{1000};
+    render::RenderContext context({640, 480});
+    particles.updateRenderNode(context, {}, 0);
+    particles.updateRenderNode(context, {}, 1);
+    REQUIRE(particles.texture_frames.front()->currentFrame() == first.get());
 }
 
 TEST_CASE("Bounds probes retain ordering across reversed and degenerate extents", "[geometry]")
 {
-    const srBoundingBox bounds{{1, 2, 3}, {5, 8, 13}};
+    const BoundingBox bounds{{1, 2, 3}, {5, 8, 13}};
     const std::array<glm::vec3, 9> expected{{{3, 5, 8},
                                              {5, 8, 13},
                                              {1, 2, 3},
@@ -1575,11 +1543,11 @@ TEST_CASE("Bounds probes retain ordering across reversed and degenerate extents"
                                              {1, 2, 13},
                                              {5, 2, 3}}};
     REQUIRE(bounds.visibilitySamples() == expected);
-    const auto reversed = srBoundingBox{bounds.maximum, bounds.minimum}.visibilitySamples();
+    const auto reversed = BoundingBox{bounds.maximum, bounds.minimum}.visibilitySamples();
     REQUIRE(reversed[0] == expected[0]);
     REQUIRE(reversed[1] == bounds.minimum);
     REQUIRE(reversed[2] == bounds.maximum);
-    const auto point = srBoundingBox{{4, 5, 6}, {4, 5, 6}}.visibilitySamples();
+    const auto point = BoundingBox{{4, 5, 6}, {4, 5, 6}}.visibilitySamples();
     REQUIRE(std::ranges::all_of(point, [](const auto& p) { return p == glm::vec3(4, 5, 6); }));
 }
 
@@ -1623,79 +1591,72 @@ TEST_CASE("Octree adjacent queries skip walk creation and retain early exits", "
     REQUIRE(cells == std::vector<glm::ivec3>{{0, 0, 0}, {1, 0, 0}});
 }
 
-TEST_CASE("Baked mesh colors preserve material and light-bank rules", "[geometry]")
+TEST_CASE("Baked mesh colors preserve material and brightness rules", "[geometry]")
 {
-    struct RestoreLighting {
-        std::unique_ptr<W8World> previous = ReplaceWorld(std::make_unique<W8World>());
-        float scale = g_monster_light_scale;
-        bool unlit = g_render_unlit;
-        ~RestoreLighting()
-        {
-            ReplaceWorld(std::move(previous));
-            g_monster_light_scale = scale;
-            g_render_unlit = unlit;
-        }
-    } restore;
-    GetWorld()->environment_offset = {0.25f, 0.5f, 0.75f};
-    g_monster_light_scale = 2;
-    g_render_unlit = false;
-    stMeshModel mesh(0, 4);
-    auto material = std::make_shared<srMaterial>();
+    const glm::vec3 environment{0.25f, 0.5f, 0.75f};
+    Mesh mesh(2, 4);
+    mesh.getPolyVertex()[0] = {0, 1, 2};
+    mesh.getPolyVertex()[1] = {0, 2, 3};
+    auto material = std::make_shared<Material>();
     material->setAmbient(glm::vec4(0.5f, 0.25f, 1, 1));
-    auto zero_material = std::make_shared<srMaterial>();
+    auto zero_material = std::make_shared<Material>();
     zero_material->setAmbient(glm::vec4(0));
-    mesh.setMaterial(material, 0, srMeshModel::SIDE_FRONT);
-    mesh.SetAmbientColor({2, 3, 4});
+    mesh.setMaterial(material, 0, Mesh::SIDE_FRONT);
+    const auto asset = mesh.renderAsset();
+    mesh.SetAmbientColor({2, 3, 4}, environment, 2);
     const auto sunlight = mesh.GetVertexSunlight(true);
-    const auto lights = mesh.GetVertexLights(true, 0);
+    const auto lights = mesh.GetVertexLights(true);
     for (unsigned vertex = 0; vertex < 4; ++vertex) {
         sunlight[vertex] = 0.25f * (vertex + 1);
         lights[vertex] = glm::vec3(vertex + 1);
     }
-    const auto base = mesh.getTriMesh();
+    // The bake writes the shared asset's colours; read them back per source vertex.
+    const auto baked = [&] {
+        mesh.applyPendingLighting();
+        const auto& pass = mesh.renderAsset()->passes.at(0);
+        REQUIRE((pass.draw_flags & render::HasColors) != 0);
+        std::array<glm::vec3, 4> colors{};
+        for (std::size_t vertex = 0; vertex < pass.source_vertices.size(); ++vertex) {
+            const auto& color = pass.attributes[1]->at(vertex);
+            colors.at(pass.source_vertices[vertex]) = {color.x, color.y, color.z};
+        }
+        return colors;
+    };
+    const auto base = baked();
+    // The first bake fills the existing asset's colours.
+    REQUIRE(mesh.renderAsset() == asset);
     for (unsigned vertex = 0; vertex < 4; ++vertex)
-        REQUIRE(close(base.dig[0][vertex], (glm::vec3(1, 0.75f, 4) * sunlight[vertex] +
-                                            lights[vertex] + CurrentEnvironmentOffset()) *
-                                               2.0f));
+        REQUIRE(close(base[vertex],
+                      (glm::vec3(1, 0.75f, 4) * sunlight[vertex] + lights[vertex] + environment) *
+                          2.0f));
 
-    auto* materials = mesh.getVertexMaterialTable(0, srMeshModel::SIDE_FRONT, true);
-    materials->set(0, material);
-    materials->set(1, zero_material);
-    materials->set(2, nullptr);
-    materials->set(3, material);
+    auto* materials = mesh.getVertexMaterialTable(0, Mesh::SIDE_FRONT, true);
+    (*materials)[0] = material;
+    (*materials)[1] = zero_material;
+    (*materials)[2] = nullptr;
+    (*materials)[3] = material;
     mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-    const auto mixed = mesh.getTriMesh();
+    const auto mixed = baked();
     const std::array<glm::vec3, 4> ambient{{{1, 0.75f, 4}, {0, 0, 0}, {2, 3, 4}, {1, 0.75f, 4}}};
     for (unsigned vertex = 0; vertex < 4; ++vertex)
-        REQUIRE(close(mixed.dig[0][vertex], (ambient[vertex] * sunlight[vertex] + lights[vertex] +
-                                             CurrentEnvironmentOffset()) *
-                                                2.0f));
+        REQUIRE(close(mixed[vertex],
+                      (ambient[vertex] * sunlight[vertex] + lights[vertex] + environment) * 2.0f));
 
-    mesh.vertex_light_table = 1;
-    const auto alternate = mesh.GetVertexLights(true, 1);
-    std::ranges::fill(alternate, glm::vec3(3, 4, 5));
+    mesh.SetAmbientColor({2, 3, 4}, environment, 0);
     mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-    const auto alternate_mesh = mesh.getTriMesh();
-    REQUIRE(alternate_mesh.dig[0][0] == glm::vec3(6, 8, 10));
-    g_monster_light_scale = 0;
-    mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-    REQUIRE(mesh.getTriMesh().dig[0][0] == glm::vec3(0));
-    g_render_unlit = true;
-    mesh.flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-    mesh.getTriMesh();
-    REQUIRE(mesh.flags & W8_MESH_VERTEX_LIGHTING_DIRTY);
+    REQUIRE(baked()[0] == glm::vec3(0));
 }
 
 TEST_CASE("Static and frame normals share area weighting across shade seams", "[geometry][mesh]")
 {
-    stMeshModel mesh(3, 5);
+    Mesh mesh(3, 5);
     const std::array<glm::vec3, 5> positions{
         {{0, 0, 0}, {2, 0, 0}, {0, 3, 0}, {0, 0, 4}, {0, 0, 0}}};
     std::ranges::copy(positions, mesh.getVertexLoc());
     const std::array<glm::ivec3, 3> triangles{{{0, 1, 2}, {4, 3, 1}, {2, 2, 2}}};
     std::ranges::copy(triangles, mesh.getPolyVertex());
     auto* shades = mesh.getVertexShadeIndex(1);
-    for (w8_ulong vertex = 0; vertex < positions.size(); ++vertex) shades[vertex] = vertex;
+    for (std::uint32_t vertex = 0; vertex < positions.size(); ++vertex) shades[vertex] = vertex;
     shades[4] = 0;
     const auto* normals = mesh.getVertexNormal();
     REQUIRE(close(normals[0], {0, 0.8f, 0.6f}));
@@ -1716,10 +1677,8 @@ TEST_CASE("Static and frame normals share area weighting across shade seams", "[
     REQUIRE(sampled.normals.size() == positions.size());
     REQUIRE(sampled.polygon_normals.size() == triangles.size());
     REQUIRE(sampled.positions[1] == positions[1]);
-    REQUIRE(sampled.normals.data() == mesh.GetVertexNormals(0, true));
-    REQUIRE(sampled.polygon_normals.data() == mesh.GetPolygonNormals(0, true));
     REQUIRE_THROWS_AS(mesh.frameGeometry(1, 0.0f), std::out_of_range);
-    const auto* frame_normals = mesh.GetVertexNormals(0, true);
+    const auto& frame_normals = sampled.normals;
     REQUIRE(frame_normals[4] == frame_normals[0]);
     for (std::size_t vertex = 0; vertex < positions.size(); ++vertex)
         REQUIRE(glm::length(frame_normals[vertex] - normals[vertex]) < 0.012f);
@@ -1728,108 +1687,10 @@ TEST_CASE("Static and frame normals share area weighting across shade seams", "[
     REQUIRE(short_destination[0] == glm::vec3(99));
 }
 
-namespace {
-class TraversalMarker : public srNode {
-public:
-    explicit TraversalMarker(srNode& parent) : srNode(&parent) {}
-    void traverse(TraverseInfo& info) override
-    {
-        srNode::traverse(info);
-        info.entries.push_back({this, PROCESS_RENDER});
-    }
-};
-}
-
-TEST_CASE("Scoped renderer effects preserve sibling order and global or disabled descent",
-          "[geometry][rendering]")
-{
-    const auto check = []<class Effect>() {
-        srNode root;
-        auto* sibling = root.adoptChild(std::make_unique<TraversalMarker>(root));
-        auto* effect = root.adoptChild(std::make_unique<Effect>(nullptr));
-        auto* child = effect->adoptChild(std::make_unique<TraversalMarker>(*effect));
-        effect->clearFlag(srNode::FLAG_GLOBAL);
-        srNode::TraverseInfo info;
-        root.traverse(info);
-        REQUIRE(info.entries.size() == 4);
-        REQUIRE(info.entries[0].node == sibling);
-        REQUIRE(info.entries[1].node == effect);
-        REQUIRE(info.entries[1].value == srNode::PROCESS_PUSH);
-        REQUIRE(info.entries[2].node == child);
-        REQUIRE(info.entries[3].node == effect);
-        REQUIRE(info.entries[3].value == srNode::PROCESS_POP);
-        REQUIRE(info.nodes.empty());
-
-        effect->setFlag(srNode::FLAG_GLOBAL);
-        info = {};
-        root.traverse(info);
-        REQUIRE(info.nodes.size() == 1);
-        REQUIRE(info.nodes[0] == effect);
-        REQUIRE(info.entries.size() == 2);
-        REQUIRE(info.entries[0].node == sibling);
-        REQUIRE(info.entries[1].node == child);
-
-        effect->setFlag(srNode::FLAG_DISABLE);
-        info = {};
-        root.traverse(info);
-        REQUIRE(info.nodes.empty());
-        REQUIRE(info.entries.size() == 2);
-        REQUIRE(info.entries[1].node == child);
-
-        effect->setFlag(srNode::FLAG_TERMINATE);
-        info = {};
-        root.traverse(info);
-        REQUIRE(info.entries.size() == 1);
-        REQUIRE(info.entries[0].node == sibling);
-    };
-    check.template operator()<srClipPlane>();
-    check.template operator()<srIlluminator>();
-    check.template operator()<srLight>();
-}
-
-TEST_CASE("Wizardry light inactivity and missing definitions have distinct traversal policies",
-          "[geometry][rendering]")
-{
-    struct RestoreFlags {
-        unsigned saved = g_light_update_flags;
-        ~RestoreFlags() { g_light_update_flags = saved; }
-    } restore;
-    g_light_update_flags = 1;
-    stLight light(nullptr);
-    light.setIntensity(1);
-    light.clearFlag(srNode::FLAG_GLOBAL);
-    auto* child = light.adoptChild(std::make_unique<TraversalMarker>(light));
-    srNode::TraverseInfo info;
-    light.traverse(info);
-    REQUIRE(info.entries.empty()); // Active without a definition skips children too.
-    light.setFlag(srNode::FLAG_DISABLE);
-    light.traverse(info);
-    REQUIRE(info.entries.size() == 1);
-    REQUIRE(info.entries[0].node == child);
-    light.clearFlag(srNode::FLAG_DISABLE);
-    light.setIntensity(0);
-    info = {};
-    light.traverse(info);
-    REQUIRE(info.entries.size() == 1);
-    light.setIntensity(1);
-    g_light_update_flags = 0;
-    info = {};
-    light.traverse(info);
-    REQUIRE(info.entries.size() == 1);
-    g_light_update_flags = 1;
-    light.m_definition = std::make_unique<stParametricLightDefinition>();
-    info = {};
-    light.traverse(info);
-    REQUIRE(info.entries.size() == 3);
-    REQUIRE(info.entries[0].node == &light);
-    REQUIRE(info.entries[1].node == child);
-    REQUIRE(info.entries[2].node == &light);
-}
-
 TEST_CASE("Frustum corner ordering preserves every point and shares point sphere and box tests",
           "[geometry][frustum]")
 {
-    const srBoundingBox box{glm::vec3(-1), glm::vec3(1)};
+    const BoundingBox box{glm::vec3(-1), glm::vec3(1)};
     std::array<glm::vec3, 8> shuffled;
     constexpr std::array<unsigned, 8> permutation{7, 0, 5, 2, 6, 1, 4, 3};
     for (unsigned i = 0; i < shuffled.size(); ++i) shuffled[i] = box.corner(permutation[i]);
@@ -1883,32 +1744,34 @@ TEST_CASE("Octree mesh links own bounded runs and mark one-based object ids", "[
 TEST_CASE("Prop bounds return complete boxes and register inclusive octree cells",
           "[geometry][octree]")
 {
-    GDProp empty;
+    Prop empty;
     REQUIRE(empty.computeBounds().minimum == glm::vec3(0));
-    W8Octree tree(nullptr, nullptr);
-    auto mesh = std::make_shared<stMeshModel>(1, 3);
+    LevelSpatialIndex tree("", nullptr);
+    auto mesh = std::make_shared<Mesh>(1, 3);
     mesh->getVertexLoc()[0] = {-2, -3, 4};
     mesh->getVertexLoc()[1] = {5, 6, -7};
     mesh->getVertexLoc()[2] = {1, 2, 3};
     mesh->getPolyVertex()[0] = {0, 1, 2};
-    srModelInstance instance;
+    MeshInstance instance;
     instance.setModel(mesh);
-    GDProp prop(nullptr, &instance, "", 4, 0, 0);
+    Prop prop;
+    prop.initializeCollision(nullptr, &instance, "", 4, W8_FOOTSTEP_SURFACE_NONE,
+                             W8_FOOTSTEP_MATERIAL_NONE);
     const auto bounds = prop.computeBounds();
     REQUIRE(bounds.minimum == glm::vec3(-2, -3, -7));
     REQUIRE(bounds.maximum == glm::vec3(5, 6, 4));
     REQUIRE(prop.computeBounds().minimum == bounds.minimum);
-    tree.object_registry = std::make_unique<W8OctreeObjectRegistry>();
+    tree.registry.cells = std::make_unique<W8OctreeObjectRegistry>();
     tree.m_spatial.m_bounds.minimum = glm::vec3(10);
     tree.m_spatial.m_node_extent = 2;
-    const srBoundingBox cells{{9, 10, 10}, {12, 10, 10}};
+    const BoundingBox cells{{9, 10, 10}, {12, 10, 10}};
     tree.AddCollidablePropBounds(4, cells);
-    REQUIRE(tree.object_registry->by_cell.size() == 2);
-    REQUIRE(tree.object_registry->by_object.size() == 2);
+    REQUIRE(tree.registry.cells->by_cell.size() == 2);
+    REQUIRE(tree.registry.cells->by_object.size() == 2);
     tree.AddCollidablePropBounds(4, cells);
-    REQUIRE(tree.object_registry->by_cell.size() == 2);
-    REQUIRE(tree.object_registry->by_object.size() == 2);
-    srBoundingBox endpoints{{0, 10, 0}, {0, 10, 0}};
+    REQUIRE(tree.registry.cells->by_cell.size() == 2);
+    REQUIRE(tree.registry.cells->by_object.size() == 2);
+    BoundingBox endpoints{{0, 10, 0}, {0, 10, 0}};
     endpoints.include({1, -2, 20});
     REQUIRE(endpoints.minimum.y == -2); // Y is compared with Y even when Z lies above the start.
     REQUIRE(endpoints.maximum.z == 20);
@@ -1918,7 +1781,7 @@ TEST_CASE(
     "Conditional prop channels grow independently and path cells return coordinates with keys",
     "[geometry][octree]")
 {
-    GDProp prop;
+    Prop prop;
     for (unsigned index = 1; index <= 35; ++index) {
         REQUIRE(prop.RegisterPathSurface(index, {0, 0}));
         REQUIRE(prop.RegisterPathVertex(index + 100, {0, 0}, {1, 0}));
@@ -1934,7 +1797,7 @@ TEST_CASE(
     REQUIRE(prop.RegisterPathSurface(1, {0, 0})); // Repeated ids retain their caller order.
     REQUIRE(prop.conditionalWaypoints().back() == 1);
     REQUIRE(prop.conditionalEdges().size() == 35);
-    W8PathingService pathing;
+    NavigationMesh pathing;
     pathing.level_bounds.minimum = glm::vec3(10);
     pathing.grid_scale = 2;
     const auto cell = pathing.pathCell({14, 900, 16});
@@ -1944,232 +1807,6 @@ TEST_CASE(
     const auto negative = pathing.pathCell({6, 0, 8});
     REQUIRE(negative.coordinates == glm::ivec2(-2, -1));
     REQUIRE(negative.key == static_cast<unsigned>(-1) * 0x10000u + static_cast<unsigned>(-2));
-}
-
-TEST_CASE("Mesh permutations keep GLM channels corners shades and active polygons aligned",
-          "[geometry][rendering]")
-{
-    srMeshModel mesh(2, 3);
-    mesh.setPassCount(2);
-    const std::array<glm::vec3, 3> positions{{{1, 0, 0}, {0, 2, 0}, {0, 0, 3}}};
-    std::ranges::copy(positions, mesh.getVertexLoc());
-    auto* triangles = mesh.getPolyVertex();
-    triangles[0] = {0, 1, 2};
-    triangles[1] = {2, 0, 1};
-    auto* shades = mesh.getVertexShadeIndex(1);
-    shades[0] = shades[1] = 0;
-    shades[2] = 2;
-    mesh.setActivePolygonCount(1);
-    mesh.getActivePolygonTable(1)[0] = 0;
-    for (int pass = 0; pass < 2; ++pass) {
-        auto* uv = mesh.getPolyUVIndex(pass, 1);
-        uv[0] = {0, 7, 2}; // Separate UV indices outside the vertex range remain intact.
-        uv[1] = {1, 2, 0};
-        for (int i = 0; i < 3; ++i) {
-            mesh.getVertexDIG(pass, 1)[i] = glm::vec3(10 * pass + i);
-            mesh.getVertexDCG(pass, 1)[i] = glm::vec4(20 * pass + i);
-            mesh.getVertexSCG(pass, 1)[i] = glm::vec4(30 * pass + i);
-            for (int layer = 0; layer < 2; ++layer)
-                mesh.getVertexTexCoords(pass, layer, 1)[i] = glm::vec2(40 * pass + 5 * layer + i);
-        }
-    }
-    const std::array<w8_ulong, 2> polygon_order{1, 0};
-    const std::array<w8_ulong, 3> vertex_order{2, 0, 1};
-    mesh.reindexPolygons(polygon_order);
-    mesh.reindexVertices(vertex_order);
-    REQUIRE(mesh.getActivePolygonTable(0)[0] == 1);
-    REQUIRE(triangles[0].x == 0);
-    REQUIRE(triangles[0].y == 1);
-    REQUIRE(triangles[0].z == 2);
-    REQUIRE(triangles[1].x == 1);
-    REQUIRE(triangles[1].y == 2);
-    REQUIRE(triangles[1].z == 0);
-    REQUIRE(shades[0] == 0);
-    REQUIRE(shades[1] == 1);
-    REQUIRE(shades[2] == 1);
-    for (int pass = 0; pass < 2; ++pass) {
-        const auto* uv = mesh.getPolyUVIndex(pass, 0);
-        REQUIRE(uv[1].x == 1);
-        REQUIRE(uv[1].y == 7);
-        REQUIRE(uv[1].z == 0);
-        for (int i = 0; i < 3; ++i) {
-            REQUIRE(mesh.getVertexLoc()[i] == positions[vertex_order[i]]);
-            REQUIRE(mesh.getVertexDIG(pass, 0)[i] == glm::vec3(10 * pass + vertex_order[i]));
-            REQUIRE(mesh.getVertexDCG(pass, 0)[i] == glm::vec4(20 * pass + vertex_order[i]));
-            REQUIRE(mesh.getVertexSCG(pass, 0)[i] == glm::vec4(30 * pass + vertex_order[i]));
-            for (int layer = 0; layer < 2; ++layer)
-                REQUIRE(mesh.getVertexTexCoords(pass, layer, 0)[i] ==
-                        glm::vec2(40 * pass + 5 * layer + vertex_order[i]));
-        }
-    }
-    const std::array<w8_ulong, 3> duplicate{0, 0, 2};
-    REQUIRE_THROWS_AS(mesh.reindexVertices(duplicate), std::invalid_argument);
-    REQUIRE_THROWS_AS(mesh.reindexVertices(polygon_order), std::invalid_argument);
-    REQUIRE_THROWS_AS(mesh.reindexPolygons(vertex_order), std::invalid_argument);
-    REQUIRE(mesh.getVertexLoc()[0] == positions[2]); // Invalid permutations change no tables.
-}
-
-TEST_CASE("Model-view scopes reject overflow without taking another scope's stack entry",
-          "[geometry][rendering]")
-{
-    srGERD renderer;
-    renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
-    renderer.loadIdentity();
-    std::vector<srModelViewScope> transforms;
-    transforms.reserve(32);
-    for (int i = 0; i < 32; ++i) {
-        transforms.emplace_back(renderer);
-        renderer.translate(1, 0, 0);
-    }
-    REQUIRE_THROWS_AS(srModelViewScope(renderer), std::overflow_error);
-    REQUIRE(renderer.getMatrix()[3].x == 32);
-    while (!transforms.empty()) {
-        transforms.pop_back();
-        REQUIRE(renderer.getMatrix()[3].x == static_cast<float>(transforms.size()));
-    }
-}
-
-TEST_CASE("Linked main and highlight draws share the instance termination boundary",
-          "[geometry][rendering]")
-{
-    struct ProbeMesh : stMeshModel {
-        ProbeMesh() : stMeshModel(0, 0) {}
-        int draws = 0;
-        int fail_on = 0;
-        MeshResources<srTexture> textures;
-        TriMesh getTriMesh() override
-        {
-            if (++draws == fail_on) throw std::runtime_error("mesh acquisition failed");
-            TriMesh mesh;
-            mesh.poly_textures[0][0] = &textures; // A table enables the highlight path.
-            return mesh;
-        }
-    };
-    srGERD renderer;
-    auto model = std::make_shared<ProbeMesh>();
-    auto part = std::make_unique<ProbeMesh>();
-    auto& middle = *part;
-    model->AddPart(std::move(part));
-    part = std::make_unique<ProbeMesh>();
-    auto& last = *part;
-    model->AddPart(std::move(part));
-    model->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
-    stModelInstance instance(nullptr);
-    instance.setModel(model);
-    instance.highlight_colour = {1, 0, 0, 1};
-    srNode termination(&instance);
-    termination.setFlag(srNode::FLAG_TERMINATE);
-    const glm::vec4 ambient(0.2f, 0.3f, 0.4f, 1);
-    renderer.setAmbientLight(ambient);
-    renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
-    instance.RenderMeshes(renderer);
-    REQUIRE(model->draws == 2);
-    REQUIRE(middle.draws == 2);
-    REQUIRE(last.draws == 0);
-    REQUIRE(renderer.getAmbientLight() == ambient);
-    model->draws = 0;
-    model->fail_on = 2; // Fail after entering the reversed highlight pass.
-    REQUIRE_THROWS_AS(instance.RenderMeshes(renderer), std::runtime_error);
-    REQUIRE(renderer.getWinding() == srGERD::WINDING_POSITIONAL_0);
-    REQUIRE(renderer.getAmbientLight() == ambient);
-}
-
-TEST_CASE("Failed instance materials restore picking and lighting", "[geometry][rendering]")
-{
-    struct FailingMaterial : srMaterial {
-        void preProcess(srVertexPipe&) override { throw std::runtime_error("material failed"); }
-    };
-    srGERD renderer;
-    renderer.setWinding(srGERD::WINDING_POSITIONAL_0);
-    auto model = std::make_shared<stMeshModel>(1, 3);
-    model->getVertexLoc()[0] = {-0.5f, -0.5f, 0.5f};
-    model->getVertexLoc()[1] = {0.5f, -0.5f, 0.5f};
-    model->getVertexLoc()[2] = {0, 0.5f, 0.5f};
-    model->getPolyVertex()[0] = {0, 2, 1};
-    model->setMaterial(std::make_shared<FailingMaterial>(), 0, srMeshModel::SIDE_FRONT);
-    model->enable(srMeshModel::CONTROL_SKIP_AUTO_SPHERE);
-    stModelInstance instance(nullptr);
-    instance.setModel(model);
-    instance.render_flags = stModelInstance::RENDER_NO_PICK;
-    instance.diffuse_scale_enabled = true;
-    instance.diffuse_scale = 0.75f;
-    instance.emissive_override_enabled = true;
-    instance.emissive_override = 0.25f;
-    const glm::vec4 ambient(0.2f, 0.3f, 0.4f, 1);
-    renderer.setAmbientLight(ambient);
-    renderer.pushPick({{0, 0, 1}, nullptr, 7});
-    REQUIRE_THROWS_AS(instance.RenderMeshes(renderer), std::runtime_error);
-    REQUIRE(renderer.getAmbientLight() == ambient);
-    REQUIRE_FALSE(renderer.isPickStackEmpty());
-    const auto pick = renderer.popPick();
-    REQUIRE(pick);
-    REQUIRE(pick->triangle_index == 7);
-}
-
-TEST_CASE("Model render scopes restore GLM transforms and exclusions after a failed draw",
-          "[geometry][rendering]")
-{
-    struct Probe : srModel {
-        bool fail = false;
-        w8_ulong mask = 0;
-        glm::mat4 transform{1};
-        Bounds getBounds() override { return {}; }
-        void render(srGERD& renderer) override
-        {
-            mask = renderer.getExclusionMask();
-            transform = renderer.getMatrix(srGERD::MATRIX_MODELVIEW);
-            renderer.matrixMode(srGERD::MATRIX_PROJECTION);
-            if (fail) throw std::runtime_error("injected model draw failure");
-        }
-    };
-    srGERD renderer;
-    auto model = std::make_shared<Probe>();
-    srModelInstance instance;
-    instance.setModel(model);
-    instance.setLocation(3, 4, 5);
-    instance.setExclusionMask(4);
-    const glm::mat4 view = glm::translate(glm::mat4(1), glm::vec3(7, 8, 9));
-    for (bool aligned : {false, true}) {
-        instance.setAlignment(aligned);
-        for (bool fail : {false, true}) {
-            renderer.matrixMode(srGERD::MATRIX_MODELVIEW);
-            renderer.loadMatrix(view);
-            renderer.setExclusionMask(16);
-            model->fail = fail;
-            const srNode::ProcessInfo info{&renderer};
-            if (fail)
-                REQUIRE_THROWS_AS(instance.process(info, srNode::PROCESS_RENDER),
-                                  std::runtime_error);
-            else
-                instance.process(info, srNode::PROCESS_RENDER);
-            REQUIRE(model->mask == 20);
-            REQUIRE(renderer.getExclusionMask() == 16);
-            REQUIRE(renderer.getMatrixMode() == srGERD::MATRIX_MODELVIEW);
-            REQUIRE(renderer.getMatrix(srGERD::MATRIX_MODELVIEW) == view);
-            REQUIRE(model->transform != view);
-        }
-    }
-}
-
-TEST_CASE("Native octree trace reset snapshots aliased endpoints and clears hit state",
-          "[geometry][octree]")
-{
-    W8OctreeTrace trace;
-    REQUIRE(trace.start == glm::vec3(0));
-    REQUIRE(trace.step == glm::vec3(0));
-    REQUIRE(trace.hit_limit == 1.0e20f);
-    trace.reset({1, 2, 3}, {4, 6, 3});
-    REQUIRE(trace.length == 5);
-    REQUIRE(trace.hit_limit == 5);
-    REQUIRE(trace.step == glm::vec3(0.6f, 0.8f, 0));
-    trace.state = 7;
-    trace.hit_limit = 2;
-    trace.reset(trace.end, trace.start);
-    REQUIRE(trace.start == glm::vec3(4, 6, 3));
-    REQUIRE(trace.end == glm::vec3(1, 2, 3));
-    REQUIRE(trace.step == glm::vec3(-0.6f, -0.8f, 0));
-    REQUIRE(trace.hit_limit == 5);
-    REQUIRE(trace.state == 0);
 }
 
 TEST_CASE("Surface compilation keeps stable walkable runs and drops welded degeneracies",
@@ -2214,33 +1851,31 @@ TEST_CASE("Prop surface geometry preserves walkable slope while clearing steep s
 
 TEST_CASE("octree camera snapshots use native basis columns and plane coefficients", "[geometry]")
 {
-    srCamera camera;
-    camera.setLocation(glm::dvec3(3, -7, 11));
+    Camera3D camera;
     const auto rotation = glm::mat3(glm::rotate(glm::mat4(1), .6f, glm::vec3(0, 1, 0)));
-    camera.setRotation(rotation);
     camera.setFOV(1.2, 1.5);
     W8OctreeView view;
     view.far_clip = 123;
-    view.captureCamera(camera);
+    view.captureView({3, -7, 11}, rotation, camera);
     REQUIRE(view.camera_location == glm::vec3(3, -7, 11));
     REQUIRE(view.rotation_column0 == rotation[0]);
     REQUIRE(view.rotation_column1 == rotation[1]);
-    REQUIRE(view.camera_dof == glm::vec3(camera.getWorldSpaceDOF()));
+    REQUIRE(view.camera_dof == rotation[2]);
     REQUIRE(view.horizontal_fov == static_cast<float>(camera.getHorizontalFOV()));
     REQUIRE(view.vertical_fov == static_cast<float>(camera.getVerticalFOV()));
     REQUIRE(view.horizontal_fov_cosine == static_cast<float>(std::cos(view.horizontal_fov)));
     REQUIRE(view.far_clip == 123);
 
-    const srBoundingBox bounds{{-1, -1, -1}, {1, 1, 1}};
+    const BoundingBox bounds{{-1, -1, -1}, {1, 1, 1}};
     std::array<glm::vec3, 8> corners;
     for (unsigned i = 0; i < corners.size(); ++i) corners[i] = bounds.corner(i);
     const auto points = sortedFrustumCorners(corners);
     const auto packed = BuildFrustumPlanes(points);
     for (unsigned i = 0; i < packed.size(); ++i)
         view.frustum_planes[i] = {packed[i].normal, packed[i].w};
-    REQUIRE(srPlaneMath::containsSphere(view.frustum_planes, glm::vec3(0), 0));
-    REQUIRE(srPlaneMath::containsSphere(view.frustum_planes, glm::vec3(2, 0, 0), 1));
-    REQUIRE_FALSE(srPlaneMath::containsSphere(view.frustum_planes, glm::vec3(2, 0, 0), .99f));
+    REQUIRE(planeMath::containsSphere(view.frustum_planes, glm::vec3(0), 0));
+    REQUIRE(planeMath::containsSphere(view.frustum_planes, glm::vec3(2, 0, 0), 1));
+    REQUIRE_FALSE(planeMath::containsSphere(view.frustum_planes, glm::vec3(2, 0, 0), .99f));
     REQUIRE(SphereInsideFrustum({2, 0, 0}, 1, packed));
 
     view = {};
@@ -2250,7 +1885,7 @@ TEST_CASE("octree camera snapshots use native basis columns and plane coefficien
 
 TEST_CASE("Projected triangle queries retain visibility and collision boundary rules", "[geometry]")
 {
-    using srTriangleProjection::Boundary;
+    using triangleProjection::Boundary;
     for (unsigned axis = 0; axis < 3; ++axis) {
         const auto point = [axis](float u, float v) {
             glm::vec3 result(0);
@@ -2261,17 +1896,16 @@ TEST_CASE("Projected triangle queries retain visibility and collision boundary r
         };
         const std::array triangle{point(0, 0), point(2, 0), point(0, 2)};
         REQUIRE(
-            srTriangleProjection::contains(triangle, axis, point(.5f, .5f), Boundary::visibility));
-        REQUIRE(
-            srTriangleProjection::contains(triangle, axis, point(.5f, .5f), Boundary::collision));
+            triangleProjection::contains(triangle, axis, point(.5f, .5f), Boundary::visibility));
+        REQUIRE(triangleProjection::contains(triangle, axis, point(.5f, .5f), Boundary::collision));
         REQUIRE_FALSE(
-            srTriangleProjection::contains(triangle, axis, point(.5f, 0), Boundary::visibility));
-        REQUIRE(srTriangleProjection::contains(triangle, axis, point(.5f, 0), Boundary::collision));
-        REQUIRE(srTriangleProjection::contains(triangle, axis, point(1, 1), Boundary::visibility));
+            triangleProjection::contains(triangle, axis, point(.5f, 0), Boundary::visibility));
+        REQUIRE(triangleProjection::contains(triangle, axis, point(.5f, 0), Boundary::collision));
+        REQUIRE(triangleProjection::contains(triangle, axis, point(1, 1), Boundary::visibility));
         REQUIRE_FALSE(
-            srTriangleProjection::contains(triangle, axis, point(1, 1), Boundary::collision));
+            triangleProjection::contains(triangle, axis, point(1, 1), Boundary::collision));
         REQUIRE_FALSE(
-            srTriangleProjection::contains(triangle, axis, point(3, 3), Boundary::collision));
+            triangleProjection::contains(triangle, axis, point(3, 3), Boundary::collision));
     }
 }
 
@@ -2283,34 +1917,82 @@ TEST_CASE("Surface contacts return positions distances and edge limits without o
     surface.plane = {glm::vec3(1, 0, 0), 0};
     surface.contact_margin = 150; // Wall slope adjustment leaves a zero plane limit.
     const glm::vec3 from(3, .5f, .5f);
-    const auto hit = surface.segmentContact(from, {-5, 0, 0}, triangle, false);
+    const auto hit = surface.segmentContact(from, {-5, 0, 0}, triangle, false).contact;
     REQUIRE(hit);
     REQUIRE(glm::length(hit->point - glm::vec3(0, .5f, .5f)) < 1e-6f);
     REQUIRE(std::abs(hit->distance - 3) < 1e-6f);
+    REQUIRE(hit->surface_limit == 0);
     REQUIRE(surface.distance == 0);
     surface.distance = 9;
-    REQUIRE_FALSE(surface.segmentContact({3, 4, 4}, {-5, 0, 0}, triangle, false));
+    REQUIRE_FALSE(surface.segmentContact({3, 4, 4}, {-5, 0, 0}, triangle, false).contact);
     REQUIRE(surface.distance == 9);
     surface.flags = W8_GD_SURFACE_WALKABLE;
     const auto limit = surface.edgeContactLimit({0, .5f, -.2f}, triangle, 1);
     REQUIRE(limit);
-    REQUIRE(std::abs(*limit - std::sqrt(.96f)) < 1e-6f);
+    REQUIRE(std::abs(limit.value() - std::sqrt(.96f)) < 1e-6f);
     REQUIRE_FALSE(surface.edgeContactLimit({0, 4, 4}, triangle, 1));
 
     surface.flags = W8_GD_SURFACE_CROSSING;
     surface.contact_margin = 0;
-    const auto crossing = surface.segmentContact(from, {-5, 0, 0}, triangle, false);
+    const auto crossing = surface.segmentContact(from, {-5, 0, 0}, triangle, false).contact;
     REQUIRE(crossing);
     REQUIRE(crossing->point == from);
     REQUIRE(std::abs(crossing->distance - 3) < 1e-6f);
-    REQUIRE(surface.distance > 0);
+    REQUIRE(crossing->surface_limit > 0);
+    REQUIRE(surface.distance == 9);
     const glm::vec3 reverse_from(-2, .5f, .5f);
-    const auto reverse = surface.segmentContact(reverse_from, {5, 0, 0}, triangle, false);
+    const auto reverse = surface.segmentContact(reverse_from, {5, 0, 0}, triangle, false).contact;
     REQUIRE(reverse);
-    REQUIRE(reverse->point == reverse_from);
+    REQUIRE(reverse.value().point == reverse_from);
     // Reverse crossings retain the full segment when the signed span is below one.
     REQUIRE(std::abs(reverse->distance - 5) < 1e-6f);
-    REQUIRE(surface.distance < 0);
+    REQUIRE(reverse->surface_limit < 0);
+    REQUIRE(surface.distance == 9);
+}
+
+TEST_CASE("Environment crossings preserve live motion without changing authored settings",
+          "[geometry]")
+{
+    LevelSpatialIndex spatial;
+    spatial.environments.resize(2);
+    spatial.environments[0].gravity_y = -100;
+    spatial.environments[1].gravity_y = -20;
+    const auto original_scale = spatial.environments[1].scale;
+    ActiveEnvironment active;
+    active.value.scale = 3;
+    active.value.vector = {1, 2, 3};
+    W8GDSurface boundary{};
+    boundary.flags = W8_GD_SURFACE_ENVIRONMENT;
+    boundary.trigger_index = 1;
+    boundary.distance = 5;
+    spatial.ProcessCrossedSurface(&boundary, active);
+    REQUIRE(active.index == 1);
+    REQUIRE(active.value.gravity_y == -20);
+    REQUIRE(active.value.scale == 3);
+    REQUIRE(active.value.vector == glm::vec3(1, 2, 3));
+    REQUIRE(spatial.environments[1].scale == original_scale);
+    REQUIRE(spatial.environments[1].vector == glm::vec3(0));
+    boundary.distance = -5;
+    boundary.trigger_index = 0;
+    spatial.ProcessCrossedSurface(&boundary, active);
+    REQUIRE(active.index == 1); // Exiting an unrelated volume does not select the default.
+    boundary.trigger_index = 1;
+    spatial.ProcessCrossedSurface(&boundary, active);
+    REQUIRE(active.index == 0);
+    REQUIRE(active.value.gravity_y == -100);
+    REQUIRE(active.value.vector == glm::vec3(1, 2, 3));
+}
+
+TEST_CASE("Zero motion reports its stop state without changing collision data", "[geometry]")
+{
+    W8GDSurface surface{};
+    surface.plane = {glm::vec3(1, 0, 0), 0};
+    surface.distance = 42;
+    const std::array<glm::vec3, 3> triangle{{{0, 0, 0}, {0, 2, 0}, {0, 0, 2}}};
+    const auto result = surface.segmentContact({3, .5f, .5f}, {}, triangle, false);
+    REQUIRE(result.stops_movement);
+    REQUIRE_FALSE(result.contact);
+    REQUIRE(surface.distance == 42);
 }
 
 TEST_CASE("Placement grids rotate candidate cells and retain ground height bands", "[geometry]")
@@ -2349,7 +2031,7 @@ TEST_CASE("Camera motion inputs retain key ordering vertical gates and total spe
 
 TEST_CASE("Camera rotation and movement share the level motion flag policy", "[geometry]")
 {
-    W8LevelDataRecord level;
+    PartyMotion level;
     level.flags = W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
     REQUIRE(level.resolveMotionFlags(W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_FAST, true) ==
             (W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_FAST));
@@ -2374,72 +2056,64 @@ TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
         bool resume = g_level_motion_resume_pending;
         ~RestoreRuntime()
         {
-            ResetGameTimeAccumulator();
+            ResumeSharedGameTimers();
             g_level_motion_resume_pending = resume;
         }
     } restore;
-    W8GameData data(nullptr, true);
-    ResetGameTimeAccumulator();
-    GameTimeAccumulator().m_flags.paused = true;
-    data.motion_started = true;
+    LevelSpatialIndex data;
+    data.compiled_available = false;
+    data.collision_available = true;
+    PauseSharedGameTimers();
+    PartyCamera controller;
+    controller.motion_started = true;
+    controller.SetOrientation(.4f, .1f);
+    controller.m_position = {1, 2, 3};
+    const auto before = controller.rotationMatrix();
     g_level_motion_resume_pending = false;
-    const auto basis = glm::mat3(glm::rotate(glm::mat4(1), .4f, glm::vec3(0, 1, 0)));
-    const auto orientation = data.cameraRotation(W8_CAMERA_MOTION_TURN_LEFT, basis);
-    REQUIRE(orientation.rotation == basis);
-    REQUIRE(orientation.movement_basis == basis);
-    const auto motion = data.cameraMotion(W8_CAMERA_MOTION_FORWARD, {1, 2, 3}, basis);
+    // Held time leaves the orientation alone and hands movement the whole rotation.
+    const auto basis = controller.turn(W8_CAMERA_MOTION_TURN_LEFT);
+    REQUIRE(basis == before);
+    REQUIRE(controller.rotationMatrix() == before);
+    const auto motion = controller.move(data, W8_CAMERA_MOTION_FORWARD, basis);
     REQUIRE_FALSE(motion.moved);
     REQUIRE(motion.displacement == glm::vec3(0));
-    g_level_motion_resume_pending = true;
-    GameTimeAccumulator().m_flags.raw_time = true;
-    REQUIRE(data.cameraMotion(W8_CAMERA_MOTION_FORWARD, {1, 2, 3}, basis).displacement ==
-            glm::vec3(0));
+    REQUIRE(controller.m_position == glm::vec3(1, 2, 3));
 }
 
 TEST_CASE("Environment ambient scales scenes and lights while retaining the source colour",
           "[geometry]")
 {
-    stLight light(nullptr);
-    W8World world{};
-    world.environment_lights = {&light};
-    world.static_scene = std::make_unique<srScene>();
-    auto& scene = *world.static_scene;
+    Light light(nullptr);
+    World world{};
+    world.environment.lights = {&light};
+    world.scene = std::make_unique<WorldScene>();
+    auto& scene = *world.scene;
     const glm::vec3 colour(-0.5f, 0.5f, 2.0f);
     ApplyEnvironmentColour(&world, 0.75f, &colour);
     REQUIRE(scene.getAmbientLight() == glm::vec3(0, 0.375f, 1));
     REQUIRE(light.ambient == scene.getAmbientLight());
-    REQUIRE(world.environment_colour == colour);
-    REQUIRE(world.environment_intensity == 0.75f);
+    REQUIRE(world.environment.colour == colour);
+    REQUIRE(world.environment.intensity == 0.75f);
     SetWorldEnvironmentIntensity(&world, 0.5f);
     REQUIRE(scene.getAmbientLight() == glm::vec3(0, 0.25f, 1));
     REQUIRE(light.ambient == scene.getAmbientLight());
-    REQUIRE(world.environment_colour == colour);
-    world.static_scene = nullptr;
+    REQUIRE(world.environment.colour == colour);
+    world.scene = nullptr;
     glm::vec3 ambient(1);
     GetWorldLightValue(&world, &ambient);
     REQUIRE(ambient == glm::vec3(0));
 }
 
-TEST_CASE("Positional sound copies register each live node once", "[scene][sound]")
+TEST_CASE("Positional sound copies keep placement without sharing playback", "[sound]")
 {
-    const auto initial = g_sound3d_instances.size();
-    {
-        stSound3D source("source.wav", nullptr);
-        stSound3D assigned("assigned.wav", nullptr);
-        assigned = source;
-        assigned = source;
-        stSound3D copied(source);
-        auto owned = std::make_unique<stSound3D>("service.wav", nullptr);
-        auto* borrowed = Retain3DSound(std::move(owned));
-        REQUIRE(borrowed->getParent() == nullptr);
-        REQUIRE(g_sound3d_instances.size() == initial + 4);
-        Release3DSounds();
-        Release3DSounds();
-        REQUIRE(g_sound3d_instances.size() == initial + 3);
-        for (auto* node : {&source, &assigned, &copied})
-            REQUIRE(std::ranges::count(g_sound3d_instances, node) == 1);
-    }
-    REQUIRE(g_sound3d_instances.size() == initial);
+    Sound3D source("source.wav");
+    source.position = {1, 2, 3};
+    source.falloff = 50;
+    Sound3D copy(source);
+    source.position = {9, 8, 7};
+    REQUIRE(copy.position == glm::vec3(1, 2, 3));
+    REQUIRE(copy.falloff == 50);
+    REQUIRE_FALSE(copy.sound_handle);
 }
 
 TEST_CASE("Material sharing preserves exact colors and releases unused resources",
@@ -2457,9 +2131,252 @@ TEST_CASE("Material sharing preserves exact colors and releases unused resources
     REQUIRE(first.material != different.material);
     REQUIRE(first.material->parms.diffuse.x == 0.5001f);
     REQUIRE(different.material->parms.diffuse.x == 0.5002f);
-    const std::weak_ptr<srMaterial> weak = different.material;
+    const std::weak_ptr<Material> weak = different.material;
     different = {};
     REQUIRE(weak.expired());
     std::fill(std::begin(record.texture_names[0]), std::end(record.texture_names[0]), 'x');
     REQUIRE_THROWS(LoadMaterial("", record));
+}
+
+TEST_CASE("Movement searches score approach and retreat independently", "[geometry][pathing]")
+{
+    NavigationMesh pathing;
+    std::vector<W8PathSearchNode> nodes(2);
+    nodes[0].position = {10, 0, 0};
+    nodes[1].position = {100, 0, 0};
+    const glm::vec3 target(0);
+    const auto score = [&](unsigned short index, bool retreat) {
+        return pathing.UpdateSearchNodeScore(index, &target, 5, 5, nodes, retreat);
+    };
+    const auto near_approach = score(0, false);
+    const auto far_approach = score(1, false);
+    REQUIRE(near_approach < far_approach);
+    REQUIRE(score(0, true) > score(1, true));
+    REQUIRE(score(0, false) == near_approach);
+    REQUIRE(score(1, false) == far_approach);
+}
+
+TEST_CASE("Movement traces use each search's source and target heights", "[geometry][pathing]")
+{
+    World world;
+    world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
+    world.spatial->collision_available = true;
+    auto& data = *world.collisionIndex();
+    // A low wall blocks the ground-level trace, but not the default eye-height trace.
+    data.m_pVertices = {{500, 0, 0}, {500, 400, 0}, {500, 0, 1000}};
+    data.m_pSurfaces.resize(2);
+    auto& wall = data.m_pSurfaces[1];
+    for (int index = 0; index < 3; ++index) wall.vertex_indices[index] = index;
+    surfaceGeometry::initializePropSurface(wall, data.m_pVertices);
+    wall.index = 1;
+    auto& tree = *world.spatial;
+    tree.registry.cells = std::make_unique<W8OctreeObjectRegistry>();
+    tree.m_object_bit_count = 2;
+    tree.m_spatial.m_bounds.minimum = glm::vec3(0);
+    tree.m_spatial.m_node_extent = 1000;
+    tree.m_leaf_grid_dimensions = {1, 1, 1};
+    tree.m_leaf_lookup = {1};
+    tree.m_leaves.resize(2);
+    tree.m_leaves[1].gd_polygon_offset = 1;
+    tree.m_gd_surface_index_stream = {0, 1, 1};
+    NavigationMesh pathing(&tree);
+    NavigatorMovement movement{};
+    movement.target_position = {100, 100, 100};
+    std::vector<W8PathSearchNode> nodes(1);
+    nodes[0].position = {900, 100, 100};
+    const W8MovementTrace low{.offset = glm::vec3(0), .target_height_offset = 0};
+    const W8MovementTrace eye;
+    REQUIRE_FALSE(pathing.SearchNodeSeesTarget(0, &movement, nodes, low));
+    REQUIRE(pathing.SearchNodeSeesTarget(0, &movement, nodes, eye));
+    REQUIRE_FALSE(pathing.SearchNodeSeesTarget(0, &movement, nodes, low));
+    REQUIRE(movement.target_position == glm::vec3(100, 100, 100));
+}
+
+TEST_CASE("Ground probes report the level surface they settle on, including surface zero",
+          "[geometry][octree]")
+{
+    World world;
+    world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
+    world.spatial->collision_available = true;
+    auto& data = *world.collisionIndex();
+    data.m_pVertices = {{0, 0, 0}, {0, 0, 1000}, {1000, 0, 0}};
+    data.m_pSurfaces.resize(1);
+    auto& floor = data.m_pSurfaces[0];
+    for (int index = 0; index < 3; ++index) floor.vertex_indices[index] = index;
+    surfaceGeometry::initializePropSurface(floor, data.m_pVertices);
+    floor.index = 0;
+    auto& tree = *world.spatial;
+    tree.m_object_bit_count = 1;
+    tree.m_spatial.m_bounds.minimum = glm::vec3(0);
+    tree.m_spatial.m_clipped_bounds.maximum = glm::vec3(1000);
+    tree.m_spatial.m_node_extent = 1000;
+    tree.m_leaf_grid_dimensions = {1, 1, 1};
+    tree.m_leaf_lookup = {1};
+    tree.m_leaves.resize(2);
+    tree.m_leaves[1].gd_polygon_offset = 1;
+    tree.m_gd_surface_index_stream = {0, 1, 0};
+
+    const auto ground = tree.settleToGround({500, 100, 200}, false, 500);
+    REQUIRE(ground.position == glm::vec3(500, 0, 200));
+    REQUIRE(ground.contact);
+    REQUIRE(std::get<GroundSurfaceContact>(*ground.contact).surface == 0);
+    REQUIRE_FALSE(ground.prop());
+
+    const auto miss = tree.settleToGround({900, 100, 900}, false, 500);
+    REQUIRE(miss.position == glm::vec3(900, 100, 900));
+    REQUIRE_FALSE(miss.contact);
+}
+
+TEST_CASE("Surface ray queries keep chance and skip filters local", "[geometry]")
+{
+    const std::array<glm::vec3, 3> vertices{{{0, 0, 0}, {0, 2, 0}, {0, 0, 2}}};
+    W8GDSurface definition{};
+    definition.plane = {glm::vec3(1, 0, 0), 0};
+    definition.vertex_indices[0] = 0;
+    definition.vertex_indices[1] = 1;
+    definition.vertex_indices[2] = 2;
+    definition.index = 37;
+    definition.chance = 50;
+    definition.flags = W8_GD_SURFACE_SKIP_FILTERED_TRACE;
+    const std::array surfaces{definition};
+    const PlaneSegment segment{{3, .5f, .5f}, {-2, .5f, .5f}, {-1, 0, 0}, 5, 5};
+    const auto hit = traceSurfaces(surfaces, vertices, segment,
+                                   {.mode = 1, .percent_roll = +[] { return 99u; }});
+    REQUIRE(hit);
+    REQUIRE(hit->surface_index == 37);
+    REQUIRE(hit->distance == 3);
+    REQUIRE(hit->point == glm::vec3(0, .5f, .5f));
+    REQUIRE_FALSE(traceSurfaces(surfaces, vertices, segment,
+                                {.mode = 1, .percent_roll = +[] { return 50u; }}));
+    REQUIRE_FALSE(traceSurfaces(surfaces, vertices, segment, {.skip_filtered = true}));
+    REQUIRE(traceSurfaces(surfaces, vertices, segment, {}));
+    REQUIRE(surfaces[0].flags == definition.flags);
+}
+
+TEST_CASE("Cursor animation keeps rectangular artwork without baking sprite offsets",
+          "[geometry][cursor]")
+{
+    SpriteSheet sprites;
+    sprites.colors[7] = 0xffff;
+    sprites.frames.push_back({.indices = std::vector<std::uint16_t>(301 * 19, 7),
+                              .offset = {11, -4},
+                              .width = 301,
+                              .height = 19});
+    const auto animation = VideoVObjectToTextureAnim(sprites, 0, 1, true);
+    REQUIRE(animation->playback->textures.size() == 1);
+    const auto* image = animation->playback->textures.front()->getSurface();
+    REQUIRE(image);
+    REQUIRE(image->w == 301);
+    REQUIRE(image->h == 19);
+    for (int y : {0, 18}) {
+        const auto* row = reinterpret_cast<const std::uint16_t*>(
+            static_cast<const unsigned char*>(image->pixels) + y * image->pitch);
+        REQUIRE(row[0] == 0xffff);
+        REQUIRE(row[300] == 0xffff);
+    }
+}
+
+TEST_CASE("Recycled particles restart texture playback at their new birth", "[geometry][particles]")
+{
+    ScopedGame game;
+    TexturePlayback playback;
+    playback.animation_mode = W8_TEXTURE_ANIM_PLAY_ONCE;
+    playback.frame_rate = 1;
+    playback.textures = {std::make_shared<Texture>(), std::make_shared<Texture>(),
+                         std::make_shared<Texture>()};
+    ParticleSystem particles(nullptr, 1);
+    particles.emitting = false;
+    particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
+    particles.initial_speed = 0;
+    particles.expiry_mode = W8_PARTICLE_EXPIRY_TEXTURE;
+    particles.SetTexture(std::make_shared<Texture>(std::move(playback)));
+    REQUIRE(particles.activateParticle(false));
+    particles.AdvanceSimulation(game.game.time);
+    particles.DeactivateParticle(0);
+    game.game.time = std::chrono::milliseconds{10000};
+    REQUIRE(particles.activateParticle(false));
+    game.game.time += std::chrono::milliseconds{1000};
+    particles.AdvanceSimulation(game.game.time);
+    REQUIRE(particles.active_particle_count == 1);
+    REQUIRE(particles.texture_frames.front()->playback->frame == 1);
+}
+
+TEST_CASE("Route advancement keeps waypoint metadata and never reads past the endpoint",
+          "[geometry][navigation]")
+{
+    const glm::vec3 origin(0), end(30, 0, 0), first(10, 0, 0), second(20, 0, 0);
+    NavigatorRoute route(&origin, &end);
+    route.AppendPathPosition(&first, 7);
+    route.AppendPathPosition(&second, 2);
+    auto position = origin;
+    REQUIRE(route.AdvanceAlongPathPositions(15, &position));
+    REQUIRE(position == glm::vec3(15, 0, 0));
+    REQUIRE(route.path_cursor == 2);
+    REQUIRE(route.path.size() == 4);
+    REQUIRE(route.path[1].value == 7);
+    REQUIRE(route.path[2].value == 2);
+    REQUIRE_FALSE(route.AdvanceAlongPathPositions(100, &position));
+    REQUIRE(position == end);
+    REQUIRE(route.path_cursor == route.lastWaypoint());
+}
+
+TEST_CASE("World posters preserve full-image UVs and infer rectangular aspect", "[geometry]")
+{
+    auto pixels = std::shared_ptr<SDL_Surface>(SDL_CreateSurface(18, 9, SDL_PIXELFORMAT_ARGB1555),
+                                               SDL_DestroySurface);
+    REQUIRE(pixels);
+    auto poster = MakePosterQuad(std::make_shared<Texture>(pixels), 500, 0, false);
+    const auto& mesh = *poster->getModel();
+    REQUIRE(mesh.vertex_locations.size() == 4);
+    REQUIRE(mesh.vertex_locations[0] == glm::vec3(-250, -125, 0));
+    REQUIRE(mesh.vertex_locations[2] == glm::vec3(250, 125, 0));
+    REQUIRE(mesh.texcoords[0][0] == std::vector<glm::vec2>{{0, 1}, {0, 0}, {1, 0}, {1, 1}});
+}
+
+TEST_CASE("Native world objects activate through graph identity and game activity gates",
+          "[geometry][native-content]")
+{
+    ScopedGame scope;
+    auto& game = scope.game;
+    game.level.replacePrimary(std::make_unique<World>());
+    auto& world = *game.level.primary;
+    world.camera = &world.scene->camera;
+    world.camera->setClipRange(1, 10);
+    placeParty(world, {0, 0, 0});
+    game.native_object_file = WIZ8_NATIVE_DEMO_FILE;
+    LoadNativeLevelObject(game);
+    REQUIRE(world.native_objects.size() == 1);
+    auto& object = *world.native_objects.front();
+    auto camera = vsg::Camera::create(
+        vsg::Perspective::create(60, 1, 1, 10),
+        vsg::LookAt::create(vsg::dvec3(0, 0, 0), vsg::dvec3(0, 0, 1), vsg::dvec3(0, 1, 0)),
+        vsg::ViewportState::create(0, 0, 64, 64));
+    world.picked.position = {.1f, .1f, 1};
+    world.scene->pick(*camera, std::span{&world.picked, 1});
+    REQUIRE(SelectedNativeObject(world) == &object);
+    game.advancement.held = false;
+    REQUIRE(game.activateSelectedNativeObject());
+    REQUIRE(object.illuminated);
+    REQUIRE(std::get<TextNotice>(game.events.pending().back()).text == "The prism glows.");
+    game.advancement.held = true;
+    REQUIRE_FALSE(game.activateSelectedNativeObject());
+    game.advancement.held = false;
+    game.party.held.item.iItemNo = 5;
+    REQUIRE_FALSE(game.activateSelectedNativeObject());
+    game.party.held.item.iItemNo = -1;
+    game.activity.place = Activity::Place::Camp;
+    REQUIRE_FALSE(game.activateSelectedNativeObject());
+    game.activity.place = Activity::Place::World;
+    // The render view may move independently; gameplay reach follows the party.
+    world.camera->transform.setLocation(0, 0, -6000);
+    REQUIRE(SelectedNativeObject(world) == &object);
+    placeParty(world, {0, 0, -6000});
+    REQUIRE_FALSE(game.activateSelectedNativeObject());
+    placeParty(world, {0, 0, 0});
+    REQUIRE(game.activateSelectedNativeObject());
+    REQUIRE_FALSE(object.illuminated);
+    REQUIRE(std::get<TextNotice>(game.events.pending().back()).text == "The prism dims.");
+    world.native_objects.clear();
+    REQUIRE_FALSE(world.picked.hit);
+    REQUIRE_FALSE(game.activateSelectedNativeObject());
 }
