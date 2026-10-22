@@ -2722,7 +2722,7 @@ void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentatio
             }
             goto finish_mode_overlays;
         }
-        if (!repaint.radar || hud.radar_map_visible == 0) {
+        if (!repaint.radar || !MainGame()->radar_map) {
             if (repaint.radar) {
                 ClearSurfaceRect(0x17, 0x166, 0x80, 0x1c2);
             }
@@ -2805,7 +2805,7 @@ W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
     SyncPartyFacingFromCamera();
     auto presentation = BuildTargetingPresentation(hud);
     ApplyTargetingPresentation(presentation);
-    UpdateRadarBlips(presentation);
+    if (MainGame()->radar_map) MainGame()->radar_map->update(presentation);
     if (hud.action_panel_visible == 0 && !CurrentGame().activity.conversation &&
         !IsLockInteractionActive() && !IsTrapInteractionActive() && !gpSCSV && !ItemUseDraft()) {
         const int stopped_line = FindStoppedTextLine();
@@ -2877,8 +2877,8 @@ void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation&
         if (MainGameHud()->formation_board_visible) {
             CreateFormationBoardOverlay();
         }
-        if (MainGameHud()->radar_map_visible != 0) {
-            EnsureRadarMapOverlay();
+        if (MainGame()->radar_map) {
+            MainGame()->radar_map->captureBackdrop();
         }
         RenderFrame();
     }
@@ -3993,7 +3993,7 @@ void RefreshMainGameLayout()
         const bool action = portraits ? g_settings.portraits_action_panel_preference
                                       : g_settings.formation_action_panel_preference;
         if (formation) SetFormationBoardVisible(true);
-        if (radar) SetRadarMapVisible(true);
+        if (radar) MainGame()->setRadarVisible(true);
         if (action) SetActionPanelVisible(true);
     }
     ClearUiHover();
@@ -4110,7 +4110,7 @@ void SyncMainGameModeInput(void)
     if (IsLockInteractionActive()) LockInteraction()->EnablePanels(panels);
     if (IsTrapInteractionActive()) TrapInteraction()->EnablePanelInput(panels);
     state.formation.setEnabled(panels && !view_open && MainGameHud()->formation_board_visible);
-    state.radar.setEnabled(panels && !view_open && MainGameHud()->radar_map_visible != 0);
+    state.radar.setEnabled(panels && !view_open && MainGame()->radar_map);
 
     if (PartyMovementPanelShown() && !CurrentGame().advancement.held) {
         UpdatePartyMovementPanel();
@@ -4716,7 +4716,7 @@ UiResult RadarMapButtonInput(const UiPointerEvent& event)
         }
     } else if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Up)) {
         if ((event.captured_buttons & SDL_BUTTON_RMASK) != 0) {
-            ToggleRadarMapZoom();
+            MainGame()->radar_map->toggleZoom();
         }
     } else {
         if (!(event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter ||
@@ -4724,13 +4724,11 @@ UiResult RadarMapButtonInput(const UiPointerEvent& event)
             return UiResult::Pass;
         }
         if (event.action == UiPointerAction::Leave) {
-            MainGameHud()->radar_map_alternate = 0;
-            RefreshRadarMap();
+            MainGame()->radar_map->setHovered(false);
             return UiResult::Handled;
         }
         if (event.action == UiPointerAction::Enter) {
-            MainGameHud()->radar_map_alternate = 1;
-            RefreshRadarMap();
+            MainGame()->radar_map->setHovered(true);
             return UiResult::Handled;
         }
     }
@@ -5403,38 +5401,19 @@ static void DrawMainGamePrompt(void)
 
 /* Raise or drop the radar map panel and restore the viewport mode when the
    raise latch changes. */
-void SetRadarMapVisible(bool visible)
+void MainGameScreen::setRadarVisible(bool visible)
 {
-    const bool was_visible = MainGameHud()->radar_map_visible;
+    const bool was_visible = bool(radar_map);
+    radar.setEnabled(visible);
+    radar_target->setEnabled(visible);
     if (visible) {
-        MainGameHud()->radar_map_visible = visible;
-        MainGameHud()->radar_map_alternate = 0;
-        MainGame()->radar.setEnabled(true);
-        MainGame()->radar_target->setEnabled(true);
-        EnableRadarMap(true);
-        if (CurrentGame().combat.has_value()) {
-            ZoomRadarMapIn();
-        } else {
-            ZoomRadarMapOut();
-        }
-        if (auto* hud = MainGameHud()) {
-            hud->repaint.layout = true;
-            hud->repaint.portrait_panel = true;
-        }
+        radar_map = std::make_unique<RadarMap>(game, game.combat.has_value());
     } else {
-        MainGameHud()->radar_map_visible = 0;
-        MainGame()->radar_target->setEnabled(false);
-        MainGame()->radar.setEnabled(false);
-        EnableRadarMap(false);
-        ReleaseRadarMap();
-        if (auto* hud = MainGameHud()) {
-            hud->repaint.layout = true;
-            hud->repaint.portrait_panel = true;
-        }
+        radar_map.reset();
     }
-    if (visible != was_visible) {
-        SetViewportMode(GetMainGameViewportMode());
-    }
+    hud->repaint.layout = true;
+    hud->repaint.portrait_panel = true;
+    if (visible != was_visible) SetViewportMode(GetMainGameViewportMode());
 }
 
 /* Raise or drop the combat action panel and restore the viewport mode when the
@@ -5895,8 +5874,7 @@ W8ViewportMode GetMainGameViewportMode(void)
           CurrentGame().npc_interaction.scripted_dialogue)) &&
         !IsLockInteractionActive() && !IsTrapInteractionActive() && !ItemUseDraft() &&
         MainGameHud()->action_panel_visible == 0 && MainGameHud()->formation_board_visible &&
-        MainGameHud()->radar_map_visible != 0 &&
-        GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
+        MainGame()->radar_map && GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
         return W8_VIEWPORT_MODE_CENTERED_FULL_HEIGHT;
     }
     if (!gpSCSV &&
@@ -5904,7 +5882,7 @@ W8ViewportMode GetMainGameViewportMode(void)
          (CurrentGame().activity.conversation &&
           CurrentGame().npc_interaction.scripted_dialogue)) &&
         !IsLockInteractionActive() && !IsTrapInteractionActive() && !ItemUseDraft() &&
-        (!MainGameHud()->formation_board_visible || MainGameHud()->radar_map_visible == 0 ||
+        (!MainGameHud()->formation_board_visible || !MainGame()->radar_map ||
          MainGameHud()->action_panel_visible == 0)) {
         return W8_VIEWPORT_MODE_FULL;
     }
@@ -5926,8 +5904,8 @@ void CloseMainGameOverlays(void)
     if (MainGameHud()->formation_board_visible) {
         SetFormationBoardVisible(false);
     }
-    if (MainGameHud()->radar_map_visible != 0) {
-        SetRadarMapVisible(false);
+    if (MainGame()->radar_map) {
+        MainGame()->setRadarVisible(false);
     }
     if (MainGameHud()->action_panel_visible != 0) {
         SetActionPanelVisible(false);

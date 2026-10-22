@@ -476,8 +476,8 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     }
     case W8_MGS_COMMAND_RADAR_ZOOM:
-        if (MainGameHud()->radar_map_visible != 0) {
-            ToggleRadarMapZoom();
+        if (MainGame()->radar_map) {
+            MainGame()->radar_map->toggleZoom();
         }
         break;
     case W8_MGS_COMMAND_REPLAY_QUOTE:

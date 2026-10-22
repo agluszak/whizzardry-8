@@ -1266,7 +1266,7 @@ void DrawPartyDeathScreen(void)
     }
     DrawText(GetFrameBufferSurface(), g_level_load_font,
              {0x276 - g_level_load_font.textWidth(text), 0x1c7}, text);
-    SetRadarMapVisible(false);
+    MainGame()->setRadarVisible(false);
     SetFormationBoardVisible(false);
     VideoRemoveToolTip();
     g_world_render_enabled = 0;
@@ -1349,7 +1349,7 @@ void ShowEndingScreen(void)
         W8TextBuffer buffer(&bounds, text, g_options_detail_font, g_W8TextBufferAlignBottom, 4);
         buffer.RenderToTarget(0, false, GetFrameBufferSurface());
     }
-    SetRadarMapVisible(false);
+    MainGame()->setRadarVisible(false);
     SetFormationBoardVisible(false);
     VideoRemoveToolTip();
     g_world_render_enabled = 0;

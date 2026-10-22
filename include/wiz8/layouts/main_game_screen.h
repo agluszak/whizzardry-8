@@ -158,7 +158,6 @@ struct W8LevelRuntimeBlock {
     int portrait_refresh_image[8];
     unsigned char action_panel_visible;
     bool formation_board_visible;
-    unsigned char radar_map_visible;
     /* Portraits UI mode selected; picks the portrait-hover layout. */
     unsigned char text_scroll_drag_idle;
     /* The x origin the mode-6 hover panel anchors the slot's portrait
@@ -251,7 +250,6 @@ struct W8LevelRuntimeBlock {
     /* PortraitSelectInput right-button hold armed for camp. */
     bool portrait_right_hold_armed;
     unsigned char formation_board_alternate;
-    unsigned char radar_map_alternate;
     /* The party-death or ending screen is up, from its first fade until the
        closing fade's EndReviewTransition. */
     bool review_transition_active;

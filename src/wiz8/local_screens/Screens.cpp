@@ -470,7 +470,6 @@ void InitializeMainGameLevelBlock(W8LevelRuntimeBlock& hud)
     hud.countdown4 = MonotonicMilliseconds() + (0);
     hud.portrait_right_hold_armed = false;
     hud.formation_board_alternate = 0;
-    hud.radar_map_alternate = 0;
     hud.review_transition_active = false;
     hud.countdown5 = MonotonicMilliseconds() + (0);
     RebuildMessageLogWords();

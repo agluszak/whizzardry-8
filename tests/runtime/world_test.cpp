@@ -24,6 +24,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/vector_float3.hpp>
 #include <glm/ext/vector_float4.hpp>
+#include <vsg/nodes/Group.h>
 #include <vsg/state/ViewportState.h>
 
 #include "harness.h"
@@ -50,6 +51,7 @@
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSSpellIcons.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
@@ -59,6 +61,7 @@
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/mgs_commands.h"
 #include "wiz8/pointer.h"
+#include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/material_loader.h"
@@ -571,6 +574,28 @@ void ResourceLifecycleScenario()
     REQUIRE(GetWorld()->native_objects.size() == 1);
     // Exercise the retail scene and UI before the imported-object interaction.
     GetWorld()->native_objects.clear();
+    // Radar redraws replace artwork without leaking overlays, and hiding its
+    // screen-owned value removes the backdrop and every retained blip together.
+    const bool radar_was_visible = bool(MainGame()->radar_map);
+    MainGame()->setRadarVisible(false);
+    const auto overlay_counts = [] {
+        return std::array{g_compositor.layerGroup(OverlayLayer::OverUi).children.size(),
+                          g_compositor.layerGroup(OverlayLayer::SquareAspect).children.size()};
+    };
+    const auto without_radar = overlay_counts();
+    MainGame()->setRadarVisible(true);
+    MainGame()->radar_map->captureBackdrop();
+    const auto with_radar = overlay_counts();
+    REQUIRE(with_radar[0] > without_radar[0]);
+    REQUIRE(with_radar[1] > without_radar[1]);
+    for (int refresh = 0; refresh < 2; ++refresh) {
+        MainGame()->radar_map->refresh();
+        MainGame()->radar_map->captureBackdrop();
+        REQUIRE(overlay_counts() == with_radar);
+    }
+    MainGame()->setRadarVisible(false);
+    REQUIRE(overlay_counts() == without_radar);
+    if (radar_was_visible) MainGame()->setRadarVisible(true);
     REQUIRE(g_renderer);
     REQUIRE(g_renderer->isOpen());
     int original_width = 0, original_height = 0;
