@@ -216,7 +216,8 @@ public:
     /* Begin a new game, ending any in progress. It continues the previous game's random
        stream, and its events go to the observer. */
     Game& begin();
-    // End the game in progress, if any; the next game continues its random stream.
+    /* End the game in progress, if any, leaving its level (departure bookkeeping); the next
+       game continues its random stream. */
     void end();
     /* Seed the random stream of the game in progress, or of the next game when none is.
        The stream starts from the clock. */
@@ -226,6 +227,8 @@ public:
     void observe(std::function<void(const Event&)> observer);
 
 private:
+    // Release the game in progress without leaving its level.
+    void discard();
     std::optional<Game> game_;
     Rng next_stream_;
     std::function<void(const Event&)> observer_;
