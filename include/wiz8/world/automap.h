@@ -66,9 +66,14 @@ public:
     /* Mark the cell under `position` visited (retrying one cell higher on a miss).
        Returns true only when that mark was newly raised. */
     bool visit(const glm::vec3& position);
+    /* Visit the party's cell on its first frame in the level, then each time it has
+       moved more than 500 units from where it last visited. */
+    void follow(const glm::vec3& position);
     /* Reveal in the world's map view up to `limit` visited cells it does not show yet,
        lighting the static vertices near each. Returns how many it revealed. */
     std::size_t reveal(std::size_t limit = SIZE_MAX);
+    // Whether nothing blocks the sight line from the map camera to a point.
+    bool cameraSees(const glm::vec3& location) const;
 
     W8SavedAutomapNotes capture() const;
     /* Take the saved notes, and the saved visited cells when they describe this map's
@@ -103,4 +108,5 @@ private:
     std::vector<bool> visited_;
     std::vector<bool> lit_;
     std::vector<std::unique_ptr<W8AutomapNote>> notes_;
+    std::optional<glm::vec3> followed_;
 };

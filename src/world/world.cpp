@@ -82,8 +82,6 @@
 #include "wiz8/startup_world.h"
 #include "wiz8/world/automap.h"
 
-constexpr double kAutomapRefreshDistanceSquared = 250000.0;
-
 class MeshInstance;
 
 LevelSpatialIndex* GetWorldCollision()
@@ -202,14 +200,8 @@ void updatePartyMovement(World& world, unsigned int flags)
         const auto motion = party.move(*collision, flags, movement_basis);
         // A camera path flies the eye without moving the party.
         if (!g_camera_path_active) syncPartyNavigator(world);
-        if (motion.moved) {
-            const auto refresh_offset = party.m_position - party.last_automap_refresh_position;
-            if (glm::dot(refresh_offset, refresh_offset) > kAutomapRefreshDistanceSquared) {
-                party.last_automap_refresh_position = party.m_position;
-                world.automap.visit(navigationPosition(party.m_position));
-            }
-            DispatchWorldCursorNodeCommand(0, 0, 0);
-        }
+        world.automap.follow(navigationPosition(party.m_position));
+        if (motion.moved) DispatchWorldCursorNodeCommand(0, 0, 0);
     }
     party.applySway(*world.camera, CameraSwayMode::Reset);
     for (const auto& camera_path : world.plsCameras) {

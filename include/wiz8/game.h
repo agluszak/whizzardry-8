@@ -49,6 +49,8 @@ struct Level {
 
     std::unique_ptr<World> replacePrimary(std::unique_ptr<World> world);
     std::unique_ptr<World> replaceSky(std::unique_ptr<World> world);
+    // The loaded level; a screen that shows it is built only while one is loaded.
+    World& loaded() const;
 
     std::unique_ptr<World> primary;
     std::unique_ptr<World> sky;

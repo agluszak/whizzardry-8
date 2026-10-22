@@ -146,23 +146,6 @@ void ScaleMarker(OverlayQuad* marker, float factor)
     marker->scale = {factor, factor};
 }
 
-// The last clip plane named "LAYER n" in the world's scene.
-ClipPlane* FindLayerPlane(World& world, int number)
-{
-    const std::string name = fmt::format("LAYER {:d}", number);
-    const auto& planes = world.scene->clip_planes;
-    const auto found = std::find_if(planes.rbegin(), planes.rend(),
-                                    [&](const auto& plane) { return plane->name == name; });
-    return found != planes.rend() ? found->get() : nullptr;
-}
-
-/* Whether nothing blocks the sight line from the map camera to a point. */
-bool MapCameraSees(const World& world, const glm::vec3& location)
-{
-    const auto* spatial = world.compiledIndex();
-    const auto eye = glm::vec3(world.scene->map.camera.transform.getLocation());
-    return !spatial || spatial->hasLineOfSight(eye, location);
-}
 } // namespace
 
 AutomapScreen::AutomapScreen(World& world)
@@ -345,7 +328,7 @@ bool AutomapScreen::enter(const ScreenRequest&)
     if (!placed) m_automap.view.emplace(Automap::View{glm::vec3(0), 0.0f});
     m_layers.assign(1, nullptr);
     int layer_number = 1;
-    while (auto* layer = FindLayerPlane(m_world, layer_number)) {
+    while (auto* layer = m_world.scene->clipPlane(fmt::format("LAYER {:d}", layer_number))) {
         m_layers.push_back(layer);
         ++layer_number;
     }
@@ -825,7 +808,7 @@ void AutomapScreen::RenderMarkers()
         const int layer = LayerAtHeight(location.y);
         if ((item->flags & W8_ITEM_ENTITY_NO_PICKUP) != 0 ||
             !(detect_all || (item->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
-              MapCameraSees(m_world, location)) ||
+              m_automap.cameraSees(location)) ||
             layer - 1 != m_automap.layer || !shown(location.x, location.z))
             continue;
         if (OverlayQuad* marker = ItemMarker(world_item->item.iItemNo)) {

@@ -46,20 +46,12 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
-#include "wiz8/world/world.h"
 
 // The screens that belong to one game take it when they are built.
 static Game& GameOf(GameSession& games)
 {
     if (auto* game = games.game()) return *game;
     throw std::logic_error("a game screen was requested with no game in progress");
-}
-
-// The map shows the level the party is in.
-static World& LevelOf(GameSession& games)
-{
-    if (auto* world = GameOf(games).level.primary.get()) return *world;
-    throw std::logic_error("a level screen was requested with no level loaded");
 }
 
 std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games, Pointer& pointer)
@@ -82,7 +74,7 @@ std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games, Pointer&
     case W8_SCREEN_MAIN_GAME:
         return std::make_unique<MainGameScreen>(GameOf(games), pointer);
     case W8_SCREEN_AUTOMAP:
-        return std::make_unique<AutomapScreen>(LevelOf(games));
+        return std::make_unique<AutomapScreen>(GameOf(games).level.loaded());
     case W8_SCREEN_CREDITS:
         return CreateCreditsScreen();
     case W8_SCREEN_OPTIONS:

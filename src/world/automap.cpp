@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
+#include "glm/geometric.hpp"
 #include "wiz8/checked_integer.h"
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
@@ -26,6 +27,7 @@
 namespace {
 constexpr std::uint32_t kNotesSignature = 0xf00df00d;
 constexpr std::size_t kMaxNotes = 200;
+constexpr float kFollowDistanceSquared = 250000.0f;
 
 /* Pack a grid-relative position into a cell key: eleven bits of z, then eleven of x,
    then ten of y, each scaled to grid cells. */
@@ -104,6 +106,16 @@ bool Automap::visit(const glm::vec3& position)
     return cell > 1 && !SetBit(visited_, cell - 1);
 }
 
+void Automap::follow(const glm::vec3& position)
+{
+    if (followed_) {
+        const glm::vec3 offset = position - *followed_;
+        if (glm::dot(offset, offset) <= kFollowDistanceSquared) return;
+    }
+    followed_ = position;
+    visit(position);
+}
+
 std::size_t Automap::reveal(std::size_t limit)
 {
     const auto* spatial = world_.compiledIndex();
@@ -118,6 +130,13 @@ std::size_t Automap::reveal(std::size_t limit)
         ++revealed;
     }
     return revealed;
+}
+
+bool Automap::cameraSees(const glm::vec3& location) const
+{
+    const auto* spatial = world_.compiledIndex();
+    const auto eye = glm::vec3(world_.scene->map.camera.transform.getLocation());
+    return !spatial || spatial->hasLineOfSight(eye, location);
 }
 
 W8SavedAutomapNotes Automap::capture() const

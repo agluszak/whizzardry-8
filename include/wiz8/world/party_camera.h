@@ -53,7 +53,6 @@ public:
     ActiveEnvironment environment;
     bool motion_started = false;
     int saved_environment_flag = 1;
-    glm::vec3 last_automap_refresh_position{0};
     /* One frame of movement. `turn` applies the frame's turn and look input and returns the
        basis the movement input is taken in; `move` advances the party under that input
        against the collision index and reports the displacement. */
