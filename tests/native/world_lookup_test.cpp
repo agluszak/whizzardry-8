@@ -36,6 +36,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/level_population.h"
+#include "wiz8/level_state.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterGenerator.h"
@@ -144,13 +145,17 @@ bool nodes(const std::filesystem::path& directory)
     ForEachWorldLight([&](Light*) { ++all_lights; });
     REQUIRE(all_lights == 4);
 
-    // Only trigger-toggled lights are saved; loading restores them by name.
+    // Saved light states restore the lights by name.
     lamp->m_save_marked = true;
     lamp->visible = false;
     const auto path = directory / "lights.bin";
     {
         auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
-        WriteLightStates(*file, CaptureLightStates());
+        std::vector<W8LightState> states;
+        ForEachWorldLight([&](Light* light) {
+            if (light->m_save_marked) states.push_back({light->getName(), light->visible});
+        });
+        WriteLightStates(*file, states);
     }
     lamp->visible = true;
     torch->visible = false;
@@ -174,7 +179,7 @@ bool nodes(const std::filesystem::path& directory)
     gas->SetActive(0);
     {
         auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
-        WriteParticleStates(*file, CaptureParticleStates(*GetWorld()));
+        WriteParticleStates(*file, std::vector<W8ParticleState>{{gas->getName(), gas->emitting}});
     }
     gas->emitting = 1;
     {
@@ -279,7 +284,7 @@ TEST_CASE("Malformed level status cannot change the active level or session coun
     });
     output.Close();
     CurrentGame().status.next_group_id = 42;
-    REQUIRE_THROWS(DecodeLevelState(path, 3, true));
+    REQUIRE_THROWS(LevelState::decode(path, 3, true));
     REQUIRE(CurrentGame().status.next_group_id == 42);
     REQUIRE(GetLoadedLevelID() == 8);
 }
@@ -524,14 +529,18 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
     note->text = "Hello Ж";
     notes.notes.push_back(std::move(note));
     ApplyAutomapNotes(world, std::move(notes));
-    REQUIRE(StoreLeftLevel(CurrentGame()));
-    const auto stored = CurrentGame().left_levels.at(GetLoadedLevelID());
-    auto state = DecodeLeftLevelState(CurrentGame(), GetLoadedLevelID());
+    const auto encode = [](const LevelState& state) {
+        const std::shared_ptr<wiz8::File> file = wiz8::open_memory_writer();
+        W8Chunk image;
+        REQUIRE(image.OpenWrite(file));
+        state.encode(image);
+        image.Close();
+        return file->written_memory();
+    };
+    auto& left = CurrentGame().left_levels;
+    const auto captured = LevelState::capture(CurrentGame().level, CurrentGame().status);
+    left.store(captured);
+    const auto state = left.decode(world.level_id);
     REQUIRE(state);
-    const std::shared_ptr<wiz8::File> file = wiz8::open_memory_writer();
-    W8Chunk image;
-    REQUIRE(image.OpenWrite(file));
-    EncodeLevelState(image, *state);
-    image.Close();
-    CHECK(file->written_memory() == stored);
+    CHECK(encode(*state) == encode(captured));
 }

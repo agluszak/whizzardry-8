@@ -124,11 +124,13 @@ public:
         W8AnimationDirection frame_direction;
         unsigned char animation_playing, unused;
     };
+    SavedAnimationState CaptureAnimationState() const;
     void ApplyAnimationState(const SavedAnimationState& state, NavigationMesh* pathing);
     int BuildOrRefreshPathingRepresentation(NavigationMesh* pathing);
     glm::vec3 GetDelta() const;
     glm::vec3 GetPosition() const;
     void SetPosition(glm::vec3* position);
+    void activate();
     bool TriggerHasActionMessage();
     bool TriggerRequiresItem();
     int GetAnimationState() const;
@@ -199,9 +201,6 @@ public:
 Prop* FindPropByName(World* world, std::string_view name);
 std::unique_ptr<Prop> CreateAndLoadProp(LevelLoadContext* info);
 
-bool ResolvePickedProp();
-int GetSelectedPropIndex(void);
-bool ActivateSelectedProp(void);
 void UpdateWorldProps(World* world);
 
 void AddItemToSector(int sector, W8WorldItem* item);
