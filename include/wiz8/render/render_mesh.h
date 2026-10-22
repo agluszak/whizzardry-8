@@ -10,6 +10,7 @@
 #include <glm/glm.hpp>
 #include <vsg/core/Array.h>
 #include <vsg/nodes/VertexIndexDraw.h>
+#include <vsg/state/BindDescriptorSet.h>
 
 #include "wiz8/render/draw_shader.h"
 
@@ -60,6 +61,11 @@ struct MeshAsset {
         std::vector<std::shared_ptr<Material>> materials;
         DrawShader shader;
         std::uint32_t draw_flags = 0;
+        // The packed `materials`, bound by every instance and view that draws
+        // them unchanged (see render::sharedMaterials).
+        vsg::ref_ptr<vsg::vec4Array> material_block;
+        vsg::ref_ptr<vsg::BindDescriptorSet> material_bind;
+        std::uint64_t material_frame = ~std::uint64_t{0};
     };
     // Pass-wide state changes that keep the topology. A pass that takes its
     // materials or a texture layer from a per-element table ignores them.

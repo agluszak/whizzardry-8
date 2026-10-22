@@ -820,3 +820,59 @@ TEST_CASE("Pass-wide mesh state patches the shared asset in place", "[renderer][
     REQUIRE(mesh.renderAsset() != asset);
     REQUIRE(mesh.renderAsset()->passes.size() == 2);
 }
+
+TEST_CASE("Instances share an unchanged material block and keep highlights private",
+          "[renderer][materials]")
+{
+    // The material bindings (descriptor set 2) the instance's body draws.
+    struct Bindings : vsg::ConstVisitor {
+        std::vector<const vsg::BindDescriptorSet*> found;
+        void apply(const vsg::Object& object) override { object.traverse(*this); }
+        void apply(const vsg::StateGroup& group) override
+        {
+            if (dynamic_cast<const render::DrawNode*>(&group))
+                for (const auto& command : group.stateCommands)
+                    if (const auto* bind = command->cast<vsg::BindDescriptorSet>();
+                        bind && bind->firstSet == 2)
+                        found.push_back(bind);
+            group.traverse(*this);
+        }
+    };
+    const auto bindings = [](MeshInstance& instance) {
+        Bindings visitor;
+        instance.renderNode()->accept(visitor);
+        REQUIRE(visitor.found.size() == 1);
+        return visitor.found.front();
+    };
+    auto mesh = std::make_shared<Mesh>(1, 3);
+    mesh->getPolyVertex()[0] = {0, 1, 2};
+    auto material = std::make_shared<Material>();
+    mesh->setMaterial(material, 0, Mesh::SIDE_FRONT);
+    MeshInstance first, second;
+    first.setModel(mesh);
+    second.setModel(mesh);
+    render::RenderContext context({640, 480});
+    first.renderNode()->prepare(context, {}, 1);
+    second.renderNode()->prepare(context, {}, 1);
+    const auto* shared = bindings(first);
+    REQUIRE(bindings(second) == shared);
+
+    // A material edit reaches the shared block on the next frame.
+    auto& block = *mesh->renderAsset()->passes.at(0).material_block;
+    material->setDiffuse(glm::vec4(.25f, .5f, .75f, 1));
+    second.renderNode()->prepare(context, {}, 2);
+    first.renderNode()->prepare(context, {}, 2);
+    REQUIRE(block.at(1) == vsg::vec4(.25f, .5f, .75f, 1));
+
+    first.highlight_colour = {1, 0, 0, 1};
+    first.highlight_pass_mode = 1;
+    first.renderNode()->prepare(context, {}, 3);
+    second.renderNode()->prepare(context, {}, 3);
+    REQUIRE(bindings(first) != shared);
+    REQUIRE(bindings(second) == shared);
+    REQUIRE(block.at(1) == vsg::vec4(.25f, .5f, .75f, 1));
+
+    first.highlight_colour = {};
+    first.renderNode()->prepare(context, {}, 4);
+    REQUIRE(bindings(first) == shared);
+}

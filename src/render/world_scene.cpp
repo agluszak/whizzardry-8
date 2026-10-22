@@ -670,7 +670,7 @@ vsg::ref_ptr<vsg::View> WorldScene::createMapView(render::RenderContext& context
     // Explored colours are the map's whole appearance: no ambient, lights, fog or depth cue.
     const ScenePass pass{.frame = frame};
     render::bindViewState(*map_root, context);
-    const auto graph = map.prepare(context, static_meshes, pass);
+    const auto graph = map.prepare(context, static_meshes, pass, frame_number);
     if (map_root->children.empty()) map_root->addChild(graph);
     return cachedView(context, &map.camera, map_root, pass, std::move(viewport), frame_number);
 }

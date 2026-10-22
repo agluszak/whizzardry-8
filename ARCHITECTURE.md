@@ -122,6 +122,10 @@ Unlayered code may use the layers.
   gameplay needs nothing restored afterwards.
 - **Materials.** Wizardry lighting, fog, material operations and generated UVs
   run in shaders. The descriptor layout is scoped to Wizardry geometry.
+  A mesh pass's packed materials are one block in its shared asset: the first
+  instance or view to draw it in a frame repacks it (material edits and UV
+  scrolling), and every instance that draws it unchanged binds it. Only a
+  highlighted body binds a block of its own.
   Animated retail faces retain their authored integer-frame polygon normals
   for face selection. Translucent triangles retain the game's global ordering
   rule. Resource counts

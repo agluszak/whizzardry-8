@@ -48,7 +48,6 @@ struct MapView::Surface {
     };
     struct Pass {
         vsg::ref_ptr<vsg::vec4Array> colors;
-        vsg::ref_ptr<vsg::vec4Array> data;
         std::vector<Batch> batches;
     };
 
@@ -63,9 +62,10 @@ struct MapView::Surface {
     std::vector<Pass> passes;
 
     void build(render::RenderContext& context, const MeshInstance& owner, Mesh& mesh,
-               const std::vector<bool>& kept, const ScenePass& pass, std::uint64_t sort_order);
+               const std::vector<bool>& kept, const ScenePass& pass, std::uint64_t sort_order,
+               std::uint64_t frame_number);
     void update(render::RenderContext& context, const MeshInstance& owner, Mesh& mesh,
-                const ScenePass& pass);
+                const ScenePass& pass, std::uint64_t frame_number);
 };
 
 namespace {
@@ -128,20 +128,20 @@ void fillColors(vsg::vec4Array& colors, const render::MeshAsset::Pass& source,
 // instance and pass state; pipelines and textures follow the gameplay draws.
 void MapView::Surface::build(render::RenderContext& context, const MeshInstance& owner, Mesh& mesh,
                              const std::vector<bool>& kept, const ScenePass& pass,
-                             std::uint64_t sort_order)
+                             std::uint64_t sort_order, std::uint64_t frame_number)
 {
     explored_changed = true;
     node = vsg::MatrixTransform::create();
     instance = render::makeInstanceArray(render::packInstance(owner, mesh, pass));
     const auto instance_bind = context.descriptor(1, instance);
     passes.clear();
-    for (const auto& source : asset->passes) {
+    for (auto& source : asset->passes) {
         auto& state = passes.emplace_back();
         state.colors = vsg::vec4Array::create(source.source_vertices.size());
         state.colors->properties.dataVariance = vsg::DYNAMIC_DATA;
-        state.data = render::makeArray(
-            render::packPass(source.materials, source.draw_flags, true, pass.frame.time));
-        const auto pass_bind = context.descriptor(2, state.data);
+        // A new layout rebuilds the surface, so the binding stays current.
+        const auto materials =
+            render::sharedMaterials(context, source, pass.frame.time, frame_number);
         const auto [indices, ranges] = keptIndices(source, kept);
         const vsg::DataList arrays{source.positions,    source.normals,       source.attributes[0],
                                    state.colors,        source.attributes[2], source.attributes[3],
@@ -163,7 +163,7 @@ void MapView::Surface::build(render::RenderContext& context, const MeshInstance&
             leaf->pickable = false;
             leaf->sort_order = sort_order;
             leaf->add(instance_bind);
-            leaf->add(pass_bind);
+            leaf->add(materials);
             body->addChild(leaf);
             state.batches.push_back({.leaf = leaf, .source = batch});
         }
@@ -174,16 +174,16 @@ void MapView::Surface::build(render::RenderContext& context, const MeshInstance&
 }
 
 void MapView::Surface::update(render::RenderContext& context, const MeshInstance& owner, Mesh& mesh,
-                              const ScenePass& pass)
+                              const ScenePass& pass, std::uint64_t frame_number)
 {
     node->matrix = render::toVsg(owner.worldMatrix());
     render::store(*instance, render::packInstance(owner, mesh, pass));
     for (std::size_t index = 0; index < passes.size(); ++index) {
-        const auto& source = asset->passes[index];
+        auto& source = asset->passes[index];
         auto& state = passes[index];
         if (explored_changed) fillColors(*state.colors, source, explored);
-        render::store(*state.data,
-                      render::packPass(source.materials, source.draw_flags, true, pass.frame.time));
+        // The map can be the frame's only view of these materials.
+        render::sharedMaterials(context, source, pass.frame.time, frame_number);
         const auto shader = source.shader.value;
         for (auto& batch : state.batches) {
             const auto& draw = source.batches[batch.source];
@@ -255,7 +255,7 @@ void MapView::forgetExplored()
 
 vsg::ref_ptr<vsg::Group> MapView::prepare(render::RenderContext& context,
                                           std::span<const std::unique_ptr<MeshInstance>> instances,
-                                          const ScenePass& pass)
+                                          const ScenePass& pass, std::uint64_t frame_number)
 {
     graph->children.clear();
     for (std::size_t index = 0; index < instances.size(); ++index) {
@@ -271,9 +271,10 @@ vsg::ref_ptr<vsg::Group> MapView::prepare(render::RenderContext& context,
                 surface.asset = asset;
                 surface.layout = context.layout;
                 surface.revision = exclusion_revision;
-                surface.build(context, instance, *mesh, keptPolygons(*mesh, excluded), pass, index);
+                surface.build(context, instance, *mesh, keptPolygons(*mesh, excluded), pass, index,
+                              frame_number);
             }
-            surface.update(context, instance, *mesh, pass);
+            surface.update(context, instance, *mesh, pass, frame_number);
             graph->addChild(surface.node);
         }
     }
