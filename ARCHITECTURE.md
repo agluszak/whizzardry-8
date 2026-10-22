@@ -156,6 +156,10 @@ Unlayered code may use the layers.
   only when needed. `loadGameContent` reads static indexed VSG position/normal/UV
   geometry and adapts it to game lighting, ambient and fog without a retail mesh.
   Ordinary subgraphs can continue using standard VSG materials.
+- **Image alignment.** Overlay and poster UVs span the complete image. Vulkan samples
+  texel centers, with clamp-to-edge for posters and UI; no half-texel offset is applied.
+  An omitted poster dimension follows the decoded image's aspect ratio. The retired
+  blurred-text QLTY byte remains reserved in the retail settings record.
 - **Visual clocks.** `Game::visual_time` stops with world and shared-timer holds.
   World texture playback, UV scrolling and light animation use it. Texture lookup
   and extra views never advance animation or draw random values. UI texture
