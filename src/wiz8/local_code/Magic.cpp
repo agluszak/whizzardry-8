@@ -4,6 +4,7 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <initializer_list>
 #include <iterator>
 #include <memory>
@@ -68,7 +69,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
@@ -468,9 +468,9 @@ void StartCharacterBreathAttack(int party_slot)
 
     assert(CanCharReBreathe(party_slot));
     ChooseAction(party_slot, W8_ACTION_BREATHE, -1, 0, false, 1);
-    AimAtTarget(party_slot, &row->remembered.breath_target, GetEditedActionContext(party_slot));
+    AimAtTarget(party_slot, row->remembered.breath_target);
     if (IsSpellTargetStillValid(party_slot, W8_SPELL_SPECIAL_ATTACK_CONE,
-                                SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_BREATH))) {
+                                ParticipatingAction(party_slot, row->remembered.breath()))) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -820,13 +820,13 @@ void StartCharacterSpellCast(int party_slot, int power_level)
     if (CurrentGame().combat.has_value()) {
         SetCharacterCombatAction(party_slot, choice, 1);
     } else {
-        AimAtTarget(party_slot, &choice.target, GetEditedActionContext(party_slot));
+        AimAtTarget(party_slot, choice.target);
         ChooseAction(party_slot, choice.kind, choice.detail, &choice.detail_block, false, 1);
     }
-    AimAtTarget(party_slot, &choice.target, GetEditedActionContext(party_slot));
+    AimAtTarget(party_slot, choice.target);
 
     if (IsSpellTargetStillValid(party_slot, row->remembered.spell.detail,
-                                SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
+                                ParticipatingAction(party_slot, row->remembered.spell))) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -842,15 +842,15 @@ void StartCharacterItemUse(int party_slot)
     W8CombatSlot saved_target = row->remembered.item_target;
 
     if (!CurrentGame().combat.has_value()) {
-        AimAtTarget(party_slot, &row->remembered.item_target, GetEditedActionContext(party_slot));
+        AimAtTarget(party_slot, row->remembered.item_target);
     }
     ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &row->remembered.item_detail, false, 1);
-    AimAtTarget(party_slot, &saved_target, GetEditedActionContext(party_slot));
+    AimAtTarget(party_slot, saved_target);
 
     if (IsSpellTargetStillValid(
             party_slot,
             GetItemSpell(CurrentGame().party.itemAt(row->remembered.item_detail.item_use.item)),
-            SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM))) {
+            ParticipatingAction(party_slot, row->remembered.item()))) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -1101,8 +1101,10 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
         return false;
     }
     if (!CurrentGame().combat.has_value() &&
-        !IsSpellTargetStillValid(party_slot, spell_id,
-                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
+        !IsSpellTargetStillValid(
+            party_slot, spell_id,
+            ParticipatingAction(party_slot,
+                                CurrentGame().party.rows[party_slot].remembered.spell))) {
         return false;
     }
     return true;
@@ -1138,8 +1140,10 @@ int GetAffordableSpellPowerLevel(int party_slot)
         return 0;
     }
     if (!CurrentGame().combat.has_value() &&
-        !IsSpellTargetStillValid(party_slot, spell_id,
-                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_SPELL))) {
+        !IsSpellTargetStillValid(
+            party_slot, spell_id,
+            ParticipatingAction(party_slot,
+                                CurrentGame().party.rows[party_slot].remembered.spell))) {
         return 0;
     }
 
@@ -1196,8 +1200,10 @@ bool CanPartySlotUseRecordedItem(int party_slot)
         return false;
     }
     if (!CurrentGame().combat.has_value() &&
-        !IsSpellTargetStillValid(party_slot, spell_id,
-                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_ITEM))) {
+        !IsSpellTargetStillValid(
+            party_slot, spell_id,
+            ParticipatingAction(party_slot,
+                                CurrentGame().party.rows[party_slot].remembered.item()))) {
         return false;
     }
     return true;
@@ -1996,31 +2002,37 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
     return valid;
 }
 
-/* The spells whose casts share one three-minute cooldown slot each; the
-   slot's deadline is the game's (`Game::spell_cooldowns`). */
-int g_cooldown_gated_spells[14] = {30, 38, 75, 73, 32, 33, 17, 20, 8, 40, 26, 45, 64, 58};
-
-/* A failed check still restarts the slot. */
-static bool CheckAndRestartSpellCooldown(int spell_id)
+// A cooldown limits skill practice, not whether the spell itself can be cast.
+static std::uint64_t* SpellPracticeCooldown(int spell_id)
 {
-    bool affected = true;
-    for (unsigned int index = 0; index < 14; ++index) {
-        if (g_cooldown_gated_spells[index] == spell_id) {
-            if (TimeUntilDeadline(CurrentGame().spell_cooldowns[index]) != 0) {
-                affected = false;
-            }
-            CurrentGame().spell_cooldowns[index] = MonotonicMilliseconds() + (180000);
-            break;
+    constexpr int spells[] = {30, 38, 75, 73, 32, 33, 17, 20, 8, 40, 26, 45, 64, 58};
+    if (CurrentGame().combat) {
+        switch (spell_id) {
+        case W8_SPELL_ENCHANTED_BLADE:
+        case W8_SPELL_MISSILE_SHIELD:
+        case W8_SPELL_ARMORPLATE:
+        case W8_SPELL_MAGIC_SCREEN:
+        case W8_SPELL_REMOVE_CURSE:
+            return nullptr;
+        case W8_SPELL_SONIC_BOOM:
+        case W8_SPELL_HYPNOTIC_LURE:
+            if (CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) return nullptr;
         }
     }
-    return affected;
+    const auto slot = std::ranges::find(spells, spell_id);
+    return slot == std::end(spells) ? nullptr : &CurrentGame().spell_cooldowns[slot - spells];
 }
 
-/* Whether the spell's current target would actually be affected by it - the
-   per-spell rules the cast path checks before it spends the points. */
-bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim,
-                         unsigned int power)
+/* Pure skill-practice eligibility at the supplied game-step time. */
+bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int power,
+                         std::uint64_t now)
 {
+    if (const auto* deadline = SpellPracticeCooldown(spell_id); deadline && now < *deadline)
+        return false;
+    const auto target_conditions = [&](W8TargetKind kind = W8_TARGET_KIND_CHARACTER) {
+        return aim->iType == kind ? CurrentGame().party.characters[aim->iChar].uiCondition
+                                  : FindMonster(aim->iMonsterID)->uiCondition;
+    };
     unsigned int duration;
     unsigned int index;
     const unsigned int* conditions;
@@ -2040,9 +2052,7 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
     case W8_SPELL_MISSILE_SHIELD:
     case W8_SPELL_ARMORPLATE:
     case W8_SPELL_MAGIC_SCREEN:
-        if (!CurrentGame().combat.has_value()) {
-            affected = CheckAndRestartSpellCooldown(spell_id);
-        } else {
+        if (CurrentGame().combat.has_value()) {
             for (index = 0; index < 12; ++index) {
                 if (g_being_effect_slot_spells[index] == spell_id) {
                     affected = CurrentGame().status.effect_slots[index].duration /
@@ -2185,78 +2195,43 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
                    static_cast<unsigned int>(monster_info->stamina_max) ||
                monster_info->hp_current < static_cast<unsigned int>(monster_info->uiHPMax);
     case W8_SPELL_CURE_PARALYSIS:
-        if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            conditions = CurrentGame().party.characters[aim->iChar].uiCondition;
-        } else {
-            monster_info = FindMonster(aim->iMonsterID);
-            conditions = monster_info->uiCondition;
-        }
+        conditions = target_conditions();
         if (conditions[W8_CONDITION_PARALYZED] == 0) {
             return false;
         }
         break;
     case W8_SPELL_CURE_POISON:
-        if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            conditions = CurrentGame().party.characters[aim->iChar].uiCondition;
-        } else {
-            monster_info = FindMonster(aim->iMonsterID);
-            conditions = monster_info->uiCondition;
-        }
+        conditions = target_conditions();
         if (conditions[W8_CONDITION_POISONED] == 0) {
             return false;
         }
         break;
     case W8_SPELL_CURE_DISEASE:
-        if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            conditions = CurrentGame().party.characters[aim->iChar].uiCondition;
-        } else {
-            monster_info = FindMonster(aim->iMonsterID);
-            conditions = monster_info->uiCondition;
-        }
+        conditions = target_conditions();
         if (conditions[W8_CONDITION_DISEASED] == 0) {
             return false;
         }
         break;
     case W8_SPELL_SANE_MIND:
-        if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            conditions = CurrentGame().party.characters[aim->iChar].uiCondition;
-        } else {
-            monster_info = FindMonster(aim->iMonsterID);
-            conditions = monster_info->uiCondition;
-        }
+        conditions = target_conditions();
         if (conditions[W8_CONDITION_INSANE] == 0 && conditions[W8_CONDITION_TURNCOAT] == 0) {
             return false;
         }
         break;
     case W8_SPELL_RENEWAL:
-        if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            conditions = CurrentGame().party.characters[aim->iChar].uiCondition;
-        } else {
-            monster_info = FindMonster(aim->iMonsterID);
-            conditions = monster_info->uiCondition;
-        }
+        conditions = target_conditions();
         if (conditions[W8_CONDITION_DRAINED] == 0) {
             return false;
         }
         break;
     case W8_SPELL_RESURRECTION:
-        if (aim->iType == W8_TARGET_KIND_CHARACTER_INDIRECT) {
-            conditions = CurrentGame().party.characters[aim->iChar].uiCondition;
-        } else {
-            monster_info = FindMonster(aim->iMonsterID);
-            conditions = monster_info->uiCondition;
-        }
+        conditions = target_conditions(W8_TARGET_KIND_CHARACTER_INDIRECT);
         if (conditions[W8_CONDITION_DEAD] == 0) {
             return false;
         }
         break;
     case W8_SPELL_CURE_LESSER_COND:
-        if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            conditions = CurrentGame().party.characters[aim->iChar].uiCondition;
-        } else {
-            monster_info = FindMonster(aim->iMonsterID);
-            conditions = monster_info->uiCondition;
-        }
+        conditions = target_conditions();
         if (conditions[W8_CONDITION_IRRITATED] == 0 && conditions[W8_CONDITION_NAUSEATED] == 0 &&
             conditions[W8_CONDITION_AFRAID] == 0 && conditions[W8_CONDITION_ASLEEP] == 0 &&
             conditions[W8_CONDITION_BLIND] == 0) {
@@ -2274,40 +2249,13 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
             return false;
         }
         break;
-    case W8_SPELL_SONIC_BOOM:
-    case W8_SPELL_HYPNOTIC_LURE:
-        if (CurrentGame().combat.has_value() &&
-            CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
-            return true;
-        }
-        [[fallthrough]];
-    case W8_SPELL_LIGHT:
-    case W8_SPELL_DETECT_SECRETS:
-    case W8_SPELL_CHAMELEON:
-    case W8_SPELL_SHADOW_HOUND:
-    case W8_SPELL_X_RAY:
-    case W8_SPELL_RETURN_TO_PORTAL:
-    case W8_SPELL_SET_PORTAL:
-        affected = CheckAndRestartSpellCooldown(spell_id);
-        break;
     case W8_SPELL_IDENTIFY_ITEM:
         if (CurrentGame().party.itemAt(aim->item)->identified) {
             return false;
         }
         break;
     case W8_SPELL_REMOVE_CURSE:
-        if (!CurrentGame().combat.has_value()) {
-            affected = CheckAndRestartSpellCooldown(spell_id);
-            if (!affected) {
-                return false;
-            }
-        }
-        if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            conditions = CurrentGame().party.characters[aim->iChar].uiCondition;
-        } else {
-            monster_info = FindMonster(aim->iMonsterID);
-            conditions = monster_info->uiCondition;
-        }
+        conditions = target_conditions();
         if (conditions[W8_CONDITION_HEXED] == 0 &&
             (aim->iType != W8_TARGET_KIND_CHARACTER ||
              GetEquipmentBindingDifficulty(aim->iChar) == 0)) {
@@ -2315,6 +2263,16 @@ bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim
         }
         break;
     }
+    return affected;
+}
+
+// Both ordinary casts and item uses record an attempt at their existing practice point.
+// Failed attempts also restart the deadline; merely inspecting eligibility never does.
+bool AttemptSpellPractice(int spell_id, const W8CombatSlot* aim, unsigned int power,
+                          std::uint64_t now)
+{
+    const bool affected = SpellAffectedTarget(spell_id, aim, power, now);
+    if (auto* deadline = SpellPracticeCooldown(spell_id)) *deadline = now + 180000;
     return affected;
 }
 
@@ -2507,7 +2465,8 @@ finish_difficulty_adjustment:
         }
     }
     ++CurrentGame().status.spell_usage[spell_id - 1].cast_count;
-    affected = SpellAffectedTarget(character, spell_id, aim, power_level);
+    affected = AttemptSpellPractice(spell_id, aim, power_level,
+                                    static_cast<std::uint64_t>(CurrentGame().time.count()));
     if (!continue_cast) {
         if (CurrentGame().rng.below(2) != 0) {
             index = g_special_event6;

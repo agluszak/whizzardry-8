@@ -467,6 +467,7 @@ public:
        selected); `request.parameter_4` names an identifying character. */
     bool enter(const ScreenRequest& request) override;
     void frame() override;
+    void resetStepClock() override { step_timer.restart(); }
     bool leave(ScreenDeparture departure) override;
     std::optional<ScreenRequest> rebuildRequest(const ScreenRequest& entered) const override;
 
