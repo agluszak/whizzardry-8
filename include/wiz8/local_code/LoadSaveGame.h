@@ -1,7 +1,8 @@
 #pragma once
 
+#include <cstddef>
 #include <filesystem>
-#include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -11,6 +12,7 @@
 #include <SDL3/SDL_time.h>
 
 #include "wiz8/layouts/save_screenshot.h"
+#include "wiz8/save_codec.h"
 
 bool VerifyDataSubdirs(void);
 std::optional<std::string> FindStartupQuickSave();
@@ -56,12 +58,27 @@ std::string BuildCharacterPath(std::string_view name, int slot);
 bool SaveGameExists(void);
 class Game;
 struct GameStatus;
-// Decoded game sections, before the current session or its presentation is released.
-struct PreparedGame {
-    std::vector<std::move_only_function<void(Game&)>> sections;
+/* A save's game sections, decoded and checked. A repeated section keeps its last record
+   (a character, the last under its name) or, for location variables and monster control,
+   accumulates; a missing one leaves the new game's default. */
+struct SavedGame {
+    wiz8::save::GameState state;
+    std::vector<wiz8::save::StoredCharacter> characters;
+    // Each level's group as bytes, which a save copies and entering the level decodes.
+    std::map<int, std::vector<std::byte>> levels;
+    std::optional<wiz8::save::MessageBoxes> messages;
+    std::vector<W8LocationVariable> location_variables;
+    std::optional<wiz8::save::DialogueTranscript> transcript;
+    std::optional<std::vector<std::unique_ptr<W8NpcState>>> npcs;
+    std::optional<wiz8::save::Facts> facts;
+    std::optional<wiz8::save::Factions> factions;
+    std::optional<std::vector<W8JournalEntry>> journal;
+    std::vector<std::unique_ptr<W8SpellEffectEntry>> spell_effects;
+    // Begin `games`'s replacement game from this state, in the order a save writes it.
     void install(GameSession& games) &&;
 };
-std::optional<PreparedGame> ReadSavedGame(std::string_view slot_name);
+// Decode a save slot, or nothing (logged) when it is missing or malformed.
+std::optional<SavedGame> ReadSavedGame(std::string_view slot_name);
 struct World;
 // Store the current level's group among the levels the game has left (Game::left_levels).
 bool StoreLeftLevel(Game& game);

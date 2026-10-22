@@ -169,8 +169,8 @@ void PleaseWaitScreen::frame()
 
         break;
     case W8_PLEASE_WAIT_LOAD_GAME: {
-        auto prepared = ReadSavedGame(name);
-        if (!prepared) {
+        auto saved = ReadSavedGame(name);
+        if (!saved) {
             ReturnToPreviousScreen();
             return;
         }
@@ -178,7 +178,7 @@ void PleaseWaitScreen::frame()
         if (GameInProgress() && CurrentGame().combat) CurrentGame().endCombat(true);
         DiscardSuspendedScreensAbove(W8_SCREEN_MAIN_MENU);
         try {
-            std::move(*prepared).install(games);
+            std::move(*saved).install(games);
             if (!LoadLevel(CurrentGame().status.resume_level, -1, true))
                 throw std::runtime_error("cannot construct saved level");
         } catch (const std::exception& error) {

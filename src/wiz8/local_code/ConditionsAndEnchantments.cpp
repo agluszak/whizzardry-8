@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <span>
 #include <vector>
 
 #include <fmt/format.h>
@@ -43,6 +44,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/utility.h"
@@ -159,34 +161,21 @@ void NormalizeItemQuantityKind(W8ItemInstance* item)
 /* The load tail: drop equipment the loaded character can no longer wear, then
    normalize the quantity byte on every worn and packed item and on the shared
    party pool. */
-void SanitizeLoadedItems(void)
+void SanitizeLoadedItems(Game& game)
 {
-    unsigned int slot;
-    unsigned int index;
-    W8Character* character;
-
-    SettleActiveParty(CurrentGame());
-    for (slot = 0; slot < 8; ++slot) {
-        if (!CurrentGame().party.members[slot].has_value()) {
-            continue;
-        }
-        character = &CurrentGame().party.characters[slot];
-        for (index = 0; index < 12; ++index) {
-            if (character->EquippedItem[index].iItemNo != -1) {
-                NormalizeItemQuantityKind(&character->EquippedItem[index]);
-            }
-        }
-        for (index = 0; index < 8; ++index) {
-            if (character->backpack[index].iItemNo != -1) {
-                NormalizeItemQuantityKind(&character->backpack[index]);
-            }
-        }
+    SettleActiveParty(game);
+    auto& party = game.party;
+    const auto normalize = [](std::span<W8ItemInstance> items) {
+        for (auto& item : items)
+            if (item.iItemNo != -1) NormalizeItemQuantityKind(&item);
+    };
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        if (!party.members[slot].has_value()) continue;
+        auto& character = party.characters[slot];
+        normalize(character.EquippedItem);
+        normalize(character.backpack);
     }
-    for (index = 0; index < CurrentGame().party.item_count; ++index) {
-        if (CurrentGame().party.item_pool[index].iItemNo != -1) {
-            NormalizeItemQuantityKind(&CurrentGame().party.item_pool[index]);
-        }
-    }
+    normalize(std::span(party.item_pool).first(party.item_count));
 }
 
 /* Condition immunity sets by monster kind, from the retail table at

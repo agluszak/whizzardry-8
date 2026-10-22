@@ -291,9 +291,10 @@ Unlayered code may use the layers.
   the random stream the next game continues and the event presenter. The router hands the
   session to the screens it builds; the ones that begin and end games keep it. A game
   begins in party creation (`BeginNewGame`: party selection's entry, reset and import) or
-  when a prepared save is installed (`PreparedGame::install`). Loading decodes every game
-  section, each level's group included, before departure and screen disposal; rejection
-  resumes the suspended game. `LeaveLevel` owns departure bookkeeping, invoked explicitly
+  when a decoded save is installed (`SavedGame::install`). Loading decodes every game
+  section, each level's group included, into a plain `SavedGame` value before departure
+  and screen disposal; rejection resumes the suspended game. Installation writes that
+  value into the game it begins, in the order a save writes the sections. `LeaveLevel` owns departure bookkeeping, invoked explicitly
   for replacement, return to menu and shutdown, never by a screen's `leave` or a
   destructor. A replacement's construction failure (the resume level's world, graphics or
   scripts) ends that game and returns to the menu, without publishing a partial session.
