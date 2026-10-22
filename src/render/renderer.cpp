@@ -589,8 +589,14 @@ try {
     if (!viewer->advanceToNextFrame()) throw std::runtime_error("VSG frame acquisition failed");
     // WSI acquisition can resize the window before this frame is recorded.
     impl->syncTargets();
-    // Viewer::compile discovers current views and newly attached resources.
-    // Retain its manager so VSG can reuse device memory and descriptor pools.
+    // Compile every frame. The frame graph is reassembled each frame (views and
+    // overlays are reattached), and preparation attaches new draws, descriptors
+    // and arrays whenever a skin, texture, highlight or effect changes.
+    // Viewer::compile collects the whole graph's requirements, compiles what is
+    // new (compiled objects return early) and registers the graph's dynamic
+    // arrays for transfer. Compiling only new subgraphs through CompileManager
+    // and updateViewer would need every creation site to report its nodes.
+    // The viewer retains its manager, so VSG reuses device memory and pools.
     const auto compiled = viewer->compile();
     if (compiled.result != VK_SUCCESS)
         throw std::runtime_error("VSG scene compilation failed: " + compiled.message);
