@@ -12,6 +12,7 @@
 #include <vsg/maths/vec4.h>
 #include <vsg/nodes/VertexIndexDraw.h>
 #include <vsg/state/BindDescriptorSet.h>
+#include <vsg/state/BufferInfo.h>
 
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/vsg_material.h"
@@ -31,6 +32,8 @@ struct EffectGeometry {
     vsg::ref_ptr<vsg::vec4Array> pass;
     vsg::ref_ptr<vsg::BindDescriptorSet> instance_bind;
     vsg::ref_ptr<vsg::BindDescriptorSet> pass_bind;
+    // Every draw binds these same buffers, so the arrays are uploaded once.
+    vsg::BufferInfoList arrays;
 
     EffectGeometry(RenderContext& context, std::uint32_t count,
                    const std::shared_ptr<Material>& material, std::uint32_t flags, bool has_normals,
@@ -54,13 +57,15 @@ struct EffectGeometry {
         }
         instance_bind = context.descriptor(1, instance);
         pass_bind = context.descriptor(2, pass);
+        for (const auto& data : vsg::DataList{positions, normals, attributes[0], attributes[1],
+                                              attributes[2], attributes[3], attributes[4]})
+            arrays.push_back(vsg::BufferInfo::create(data));
     }
 
     vsg::ref_ptr<DrawNode> draw(vsg::ref_ptr<vsg::uintArray> indices, bool sorted)
     {
         auto geometry = vsg::VertexIndexDraw::create();
-        geometry->assignArrays(vsg::DataList{positions, normals, attributes[0], attributes[1],
-                                             attributes[2], attributes[3], attributes[4]});
+        geometry->arrays = arrays;
         geometry->assignIndices(indices);
         geometry->indexCount = static_cast<std::uint32_t>(indices->size());
         geometry->instanceCount = 1;

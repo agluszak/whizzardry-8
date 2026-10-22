@@ -1,14 +1,12 @@
 #include "wiz8/entities/native_object.h"
 
-#include <algorithm>
 #include <filesystem>
 #include <memory>
-#include <utility>
+#include <vector>
 
 #include <glm/ext/matrix_double4x4.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/vector_double3.hpp>
-#include <glm/geometric.hpp>
 
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
@@ -48,19 +46,6 @@ void NativeObject::activate()
     material->setEmissive(illuminated ? glm::vec4(.15f, .3f, .4f, 1) : glm::vec4(0));
 }
 
-NativeObject* SelectedNativeObject(const World& world)
-{
-    if (!world.picked.hit) return nullptr;
-    const auto& hit = *world.picked.hit;
-    const auto point = hit.worldIntersection;
-    if (glm::distance(glm::dvec3(point.x, point.y, point.z), glm::dvec3(world.party.eye())) > 5000)
-        return nullptr;
-    for (const auto& object : world.native_objects)
-        if (std::ranges::find(hit.nodePath, object->node.get()) != hit.nodePath.end())
-            return object.get();
-    return nullptr;
-}
-
 void LoadNativeLevelObject(Game& game)
 {
     if (game.native_object_file.empty() || !game.level.primary) return;
@@ -72,7 +57,7 @@ NativeObject* Game::interactiveNativeObject()
 {
     if (!activity.in_world() || advancement.held || party.held.item.iItemNo != -1 || !level.primary)
         return nullptr;
-    return SelectedNativeObject(*level.primary);
+    return level.primary->selectedNativeObject();
 }
 
 bool Game::activateSelectedNativeObject()

@@ -205,8 +205,7 @@ static_assert(std::is_trivially_copyable_v<FactDatabaseRecord>);
 static_assert(sizeof(FactDatabaseRecord) == 0x1d8, "FactDatabaseRecord_size_must_be_0x1d8");
 struct NpcCharacterTemplate {
     std::array<std::byte, 20> name;
-    std::array<std::byte, 12> name_part_2;
-    unsigned char unknown_01a[0x44]; // Unidentified retail data, preserved verbatim.
+    std::array<std::byte, 80> name_part_2; // The full name, up to 39 UTF-16 units.
     W8Profession profession;
     W8Race race;
     int table_value;

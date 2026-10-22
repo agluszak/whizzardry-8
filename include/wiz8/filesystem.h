@@ -39,11 +39,10 @@ struct FileTimes {
 
 // Owns one SDL stream. No shared cursor or global handle registry. Operations
 // throw on failure; read returns a short result only for EOF. Not thread-safe.
+// Pinned in place: a memory stream points into the File's own buffer.
 class File {
 public:
     ~File();
-    File(File&& other) noexcept;
-    File& operator=(File&& other) noexcept;
     File(const File&) = delete;
     File& operator=(const File&) = delete;
 

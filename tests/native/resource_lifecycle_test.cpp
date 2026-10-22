@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -22,9 +23,11 @@
 #include "scoped_game_data.h"
 #include "temporary_directory.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
 #include "wiz8/entities/animation_types.h"
@@ -54,6 +57,7 @@
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -110,15 +114,11 @@ static void npc_script_teardown()
 {
     auto owner = std::make_unique<W8NpcScriptFile>();
     owner->name.assign(80, 'n');
-    owner->quote_count = 2;
     owner->quotes.resize(2);
     for (auto& quote : owner->quotes) {
-        quote.subquote_count = 2;
         quote.subquotes.assign(2, std::string(80, 'q'));
-        quote.entry_count = 2;
         quote.entries.resize(2);
         for (auto& entry : quote.entries) {
-            entry.sub_entry_count = 2;
             entry.sub_entries.resize(2);
             for (auto& sub : entry.sub_entries) sub.text.assign(80, 's');
         }
@@ -406,9 +406,9 @@ TEST_CASE("A cycle player shows every frame on its own model", "[resources][anim
     auto frames = std::make_unique<AnimationMesh>();
     frames->frame_count = 2;
     frames->frames = {{std::make_shared<Mesh>(), {}}, {std::make_shared<Mesh>(), {}}};
-    animation.entries[2] = std::move(frames);
-    const auto* first_frame = animation.entries[2]->frames[0].mesh.get();
-    const auto* second_frame = animation.entries[2]->frames[1].mesh.get();
+    animation.parts[2].push_back({std::move(*frames), std::nullopt});
+    const auto* first_frame = animation.parts[2][0].mesh.frames[0].mesh.get();
+    const auto* second_frame = animation.parts[2][0].mesh.frames[1].mesh.get();
 
     World owner;
     CyclePlayer first(owner);
@@ -681,7 +681,7 @@ TEST_CASE("Cycle frame callbacks observe advances and can stop queued steps",
           "[resources][animation]")
 {
     Animation animation;
-    animation.path_lists = true;
+    animation.positioned_parts = true;
     animation.frame_count = 4;
     World owner;
     CyclePlayer player(owner);
@@ -785,9 +785,9 @@ TEST_CASE("Queued dialogue keeps its script and voice when the NPC is rebound", 
     npc->record = &record;
     npc->has_monster = true;
     auto script = std::make_shared<W8NpcScriptFile>();
-    script->quote_count = 1;
+
     script->quotes.resize(1);
-    script->quotes[0].subquote_count = 1;
+
     script->quotes[0].subquotes.emplace_back("");
     npc->script_file = script;
     auto& dialogue = scope.game.npc_dialogue;
@@ -801,4 +801,21 @@ TEST_CASE("Queued dialogue keeps its script and voice when the NPC is rebound", 
     REQUIRE(dialogue.binding().voice_stem == "NPC_Test");
     REQUIRE(dialogue.binding().npc_voice);
     REQUIRE_FALSE(dialogue.has_queued_actions());
+}
+
+TEST_CASE("Skill notices stay with the supplied game", "[resources][notices]")
+{
+    const ScopedGame active;
+    Game detached;
+    GameData data;
+    data.strings.resize(1024);
+    data.strings[0x1d9] = data.strings[0x1db] = "%s %u";
+    const ScopedGameData installed(std::move(data));
+    AnnounceSkillIncrease(detached, 0, W8_SKILL_COMMUNICATION, true);
+    REQUIRE(detached.npc_dialogue.has_queued_actions());
+    REQUIRE_FALSE(active.game.npc_dialogue.has_queued_actions());
+    const W8SkillNoticePayload notices{{{0, W8_SKILL_COMMUNICATION}, {1, W8_SKILL_COMMUNICATION}}};
+    PostSkillIncreaseNotices(detached, notices);
+    REQUIRE(detached.events.pending().size() == 2);
+    REQUIRE(active.game.events.pending().empty());
 }

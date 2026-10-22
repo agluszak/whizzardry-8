@@ -261,7 +261,6 @@ unsigned char LevelSpatialIndex::ProbeMonstersAlongMotion(glm::vec3* direction, 
     std::size_t count;
     unsigned int index;
     W8MonsterInfo* monster_info;
-    Monster* monster;
     glm::vec3 lower;
     glm::vec3 upper;
     glm::vec3 velocity;
@@ -295,18 +294,18 @@ unsigned char LevelSpatialIndex::ProbeMonstersAlongMotion(glm::vec3* direction, 
         }
         monster_info = owner_world->population->findMonster(objects[index]);
         if (monster_info != 0 && monster_info->entity && monster_info->entity->nav.active) {
-            monster = monster_info->entity.find();
+            Monster& monster = *monster_info->entity;
             time_scale = g_rate * GameTimeAccumulator().GetFrameDelta();
-            velocity = monster->nav.GetVelocity();
+            velocity = monster.nav.GetVelocity();
             adjusted.x = direction->x - velocity.x * static_cast<float>(time_scale);
             adjusted.y = direction->z - velocity.z * static_cast<float>(time_scale);
             horizontal = sqrtf(adjusted.x * adjusted.x + adjusted.y * adjusted.y);
-            monster_position = monster->nav.GetPosition();
+            monster_position = monster.nav.GetPosition();
             delta.x = monster_position.x - (adjusted.x + position->x);
             delta.y = monster_position.y - position->y;
             delta.z = monster_position.z - (adjusted.y + position->z);
             planar = sqrtf(delta.z * delta.z + delta.x * delta.x);
-            radius = monster->nav.radius;
+            radius = monster.nav.radius;
             if (monster_info->pCombat) {
                 radius += kWorldScale;
             }

@@ -2131,11 +2131,11 @@ unsigned short NavigationMesh::ResolveSearchNodeCollisions(PathSearchScratch& pa
             continue;
         }
 
-        Monster* monster = info->entity.find();
-        glm::vec3 monster_position = monster->nav.GetPosition();
+        Monster& monster = *info->entity;
+        glm::vec3 monster_position = monster.nav.GetPosition();
         glm::vec3 delta = node->position - monster_position;
         float distance = glm::length(delta);
-        float threshold = monster->nav.movement.alternate_radius + radius;
+        float threshold = monster.nav.movement.alternate_radius + radius;
         if (location_id == movement->target_location_id && !explicit_target) {
             threshold += separation;
         }

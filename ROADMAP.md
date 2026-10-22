@@ -18,14 +18,7 @@ audio modules; VSG owns rendering in place of SurRender, the `st*` layer and the
 video integration (its SDL_GPU and flat-render-list design was superseded and is not
 a requirement); entities compose `CyclePlayer`, `Navigator` and other values; spatial
 and navigation queries take explicit inputs; and `Game::level` owns the worlds, which
-own their resources and entities. Its ownership and API tail:
-
-- **Actor entity links.** Records reach their entities through `EntityLink`
-  (ARCHITECTURE.md, "Worlds and levels"), but the migration was mechanical: callers that
-  dereferenced the link now require an entity, and those that passed it on look it up.
-  About 105 `entity.find()` calls hand a possibly null entity to helpers such as
-  `SetMonsterSpellIcon` or `AimAtMonster`; each such helper should take the record or a
-  reference, as its callers' guarantees allow.
+own their resources and entities.
 
 ## Target architecture
 
@@ -339,6 +332,12 @@ each.
 
 Substantial but contained work.
 
+- **The party outside its world.** Actors use their own world's `WorldParty`, but
+  about 40 calls in free game modules (magic, targeting, range, monster groups, noise,
+  traps, the cursor, level entry and transitions) still reach it through
+  `GetWorld()->party`. Each module should become an object that its world or game
+  owns and constructs with that owner, as the actors and `RadarMap` are, rather than
+  taking a `World&` parameter.
 - **Named strings.** About 1,000 `Data().strings[0x…]` lookups use bare
   indices. Give message ids names (an enum generated from or checked against the
   string table) so rules and screens say which text they show.
@@ -377,13 +376,14 @@ before the related refactoring changes behavior.
   - Whether conjuring an item into an occupied hand destroys the held item.
   - What retail does with unusable equipment when every store is full.
   - How the alternate-hand toggle behaves when both hand pairs swap.
-- **A retail save corpus.** `tests/runtime/fixtures/vi.CHR` was written by the
-  port, and the quick-save scenarios exercise our own writer and reader together, so
-  neither is an independent compatibility reference. Collect a small maintained set of
-  saves written by retail (an early game, a later game, an NPC-heavy state, a fight
-  interrupted by a save) and add load-then-continue checks; these matter most for
-  the condition, timing and level-state changes above. Round-tripping our own
-  representation does not substitute for them.
+- **A retail save corpus.** The downloaded inputs (`tests/runtime/fetch_downloads.cmake`)
+  hold one retail save, a late two-character game that `runtime_retail-save` loads and
+  continues and `native_retail_save` re-encodes section by section, and the four
+  Wizardry 7 import files. Still missing: retail saves of an early game, an NPC-heavy
+  state and a fight interrupted by a save, with load-then-continue checks; these
+  matter most for the condition, timing and level-state changes above. The level
+  groups' sections other than STAT decode only into a loaded World and are not yet
+  compared byte for byte. Round-tripping our own representation does not substitute for them.
 - **Platform verification.** macOS (Vulkan through MoltenVK, including its packaging)
   and Windows (Vulkan) builds, their C++26 library facilities and a representative
   smoke run are unverified, and platform CI is not enabled. Establish a build and a

@@ -90,7 +90,7 @@ signed char SpellVisual::GetNumSubCycles()
 {
     Animation* animation = GetCurrentAnimation();
 
-    return static_cast<signed char>(AnimObjValue(animation, this->visual.m_bLOD));
+    return static_cast<signed char>(animation->frameCount(this->visual.m_bLOD));
 }
 
 bool SpellVisual::IsCycleSupported(signed char cycle)
@@ -665,7 +665,7 @@ unsigned int SpellVisual::ApplyEmitterSetting(signed char emitter)
     Animation* target = this->resources.cycles[emitter].animation.get();
 
     assert(target != 0);
-    return AnimObjValue(target, this->visual.m_bLOD);
+    return target->frameCount(this->visual.m_bLOD);
 }
 
 void SpellVisual::TickAnimation(float time_scale)

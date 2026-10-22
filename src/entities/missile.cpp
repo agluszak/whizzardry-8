@@ -527,7 +527,7 @@ unsigned int Missile::ApplyEmitterSetting(signed char emitter)
     Animation* target = resources.cycles[emitter].animation.get();
 
     assert(target != 0);
-    return AnimObjValue(target, visual.m_bLOD);
+    return target->frameCount(visual.m_bLOD);
 }
 
 /* Retail constructs the +0x2d8 growable vector normally, then clears the
@@ -670,7 +670,7 @@ signed char Missile::GetNumSubCycles()
 {
     Animation* animation = GetCurrentAnimation();
 
-    return static_cast<signed char>(AnimObjValue(animation, visual.m_bLOD));
+    return static_cast<signed char>(animation->frameCount(visual.m_bLOD));
 }
 
 bool Missile::IsCycleSupported(signed char cycle)

@@ -127,7 +127,6 @@ struct W8Character {
     /* Retail offset 0x0005: the character's name, also the stem of its "%s.CHR" file. */
     std::string name;
     std::string name_part_2;
-    unsigned char unknown_0025[0x44]; // Unidentified retail data, preserved verbatim.
     /* Retail offset 0x0069 and 0x006d: the current profession and the one the character
        started in. The level band subtracts a base only while the two agree. */
     W8Profession iProfession;
@@ -289,7 +288,7 @@ struct W8Character {
     /* Retail offset 0x1770: the derived modifier block the rebuild clears and folds the
        equipment, persistent and party blocks into. */
     W8GameplayModifierBlock bonus;
-    /* Retail offset 0x17d7: the CamPos record partyPose writes and recall restores.
+    /* Retail offset 0x17d7: the CamPos record `WorldParty::pose` writes and recall restores.
        The cross-level path copies the whole 0x3c bytes onto
        GameStatus::pending_move_location. */
     CameraPose saved_location;

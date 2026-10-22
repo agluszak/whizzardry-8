@@ -119,9 +119,7 @@ void RefreshAllSight(void)
 bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8VisibilityRecord* record)
 {
     const W8MonsterRecord* target_record;
-    Monster* source_monster;
     glm::vec3 observer_position;
-    Monster* target_monster;
     glm::vec3 target_position;
     float observer_yaw;
     int penalty_modifier;
@@ -134,19 +132,19 @@ bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8Visibi
         return false;
     }
     target_record = GetMonsterDataForInfo(target);
-    source_monster = source->entity.find();
-    observer_position = source_monster->nav.movement.position;
-    observer_position.y += source_monster->nav.movement.height_offset;
-    target_monster = target->entity.find();
-    target_position = target_monster->nav.movement.position;
-    target_position.y += target_monster->nav.movement.height_offset;
-    observer_yaw = source_monster->nav.GetYaw();
+    Monster& source_monster = *source->entity;
+    observer_position = source_monster.nav.movement.position;
+    observer_position.y += source_monster.nav.movement.height_offset;
+    Monster& target_monster = *target->entity;
+    target_position = target_monster.nav.movement.position;
+    target_position.y += target_monster.nav.movement.height_offset;
+    observer_yaw = source_monster.nav.GetYaw();
     if (!target->pCombat) {
         penalty_modifier = target_record->camouflage0;
     } else {
         penalty_modifier = 0;
     }
-    distance = source_monster->GetDistanceToMonster(target_monster);
+    distance = source_monster.GetDistanceToMonster(target_monster);
     source_record = GetMonsterDataForInfo(source);
     if (source_record->kind == 4) {
         ranged_bonus = source_record->effective_level * 5;
@@ -364,7 +362,6 @@ const float g_sight_threat_scale = 0.6667f;
 void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bounds)
 {
     const W8MonsterRecord* record;
-    Monster* monster;
     glm::vec3 own_position;
     float viewing_distance;
     glm::vec3 camera_position;
@@ -376,11 +373,11 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         return;
     }
     record = GetMonsterDataForInfo(monster_info);
-    monster = monster_info->entity.find();
-    viewing_distance = static_cast<float>(WorldGetFarClip(&monster->owner_world));
+    Monster& monster = *monster_info->entity;
+    viewing_distance = static_cast<float>(WorldGetFarClip(&monster.owner_world));
     assert(viewing_distance > 0.0f);
-    own_position = monster->nav.movement.position;
-    own_position.y += monster->nav.movement.height_offset;
+    own_position = monster.nav.movement.position;
+    own_position.y += monster.nav.movement.height_offset;
 
     if (!direction) {
         unsigned int index;
@@ -396,18 +393,18 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 auto* entry = &(*monster_info->monster_visibility)[other->location_id];
                 entry->about_location_id = other->location_id;
                 {
-                    Monster* other_monster = other->entity.find();
+                    Monster& other_monster = *other->entity;
                     float distance;
 
-                    other_position = other_monster->nav.movement.position;
-                    other_position.y += other_monster->nav.movement.height_offset;
+                    other_position = other_monster.nav.movement.position;
+                    other_position.y += other_monster.nav.movement.height_offset;
                     entry->can_see = false;
                     entry->line_of_sight = false;
                     bool can_see = false;
 
-                    distance = monster->GetDistanceToMonster(other->entity.find());
+                    distance = monster.GetDistanceToMonster(other_monster);
                     if (viewing_distance >= distance) {
-                        bool line_of_sight = monster->HasLineOfSightToMonster(other_monster);
+                        bool line_of_sight = monster.HasLineOfSightToMonster(other_monster);
 
                         entry->line_of_sight = line_of_sight;
                         if (line_of_sight) {
@@ -432,17 +429,17 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                     if (!entry->line_of_sight) {
                         std::ranges::fill(entry->los_flags, false);
                     } else {
-                        monster->GetMonsterSightFlags(other->entity.find(), entry->los_flags,
-                                                      entry->los_flags + 2);
+                        monster.GetMonsterSightFlags(other_monster, entry->los_flags,
+                                                     entry->los_flags + 2);
                         if (monster_info->has_projectile_origin) {
-                            bool found = monster->GetProjectilePosition(&trace_position);
+                            bool found = monster.GetProjectilePosition(&trace_position);
                             bool clear;
 
                             // A model without the origin vertex cannot see past itself.
                             if (!found) {
                                 clear = false;
                             } else {
-                                const auto hit = monster->owner_world.compiledIndex()->traceSight(
+                                const auto hit = monster.owner_world.compiledIndex()->traceSight(
                                     trace_position, other_position,
                                     {.locations = SightLocations{monster_info->location_id,
                                                                  other->location_id, true}});
@@ -453,13 +450,13 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             entry->los_flags[1] = clear;
                         }
                         if (monster_info->has_spell_origin) {
-                            bool found = monster->GetSpellPosition(&trace_position);
+                            bool found = monster.GetSpellPosition(&trace_position);
 
                             if (!found) {
                                 entry->los_flags[3] = false;
                             } else {
                                 entry->los_flags[3] =
-                                    !monster->owner_world.compiledIndex()->traceSight(
+                                    !monster.owner_world.compiledIndex()->traceSight(
                                         trace_position, other_position);
                             }
                         }
@@ -472,7 +469,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
 
     camera_position = cameraLocation();
     {
-        float distance = monster->GetDistanceToPlayer();
+        float distance = monster.GetDistanceToPlayer();
         bool visible_to_player;
 
         monster_info->within_viewing_distance = distance <= viewing_distance;
@@ -490,14 +487,14 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                         : W8_SIGHT_RECENT);
             }
         } else {
-            monster_info->player_visibility.line_of_sight = monster->CheckLineOfSightToPlayer();
+            monster_info->player_visibility.line_of_sight = monster.CheckLineOfSightToPlayer();
         }
         if (monster_info->player_visibility.line_of_sight) {
             if (monster_info->hp_current == 0 ||
                 monster_info->highest_condition > W8_CONDITION_WEBBED) {
                 visible_to_player = false;
             } else {
-                float yaw = monster->nav.GetYaw();
+                float yaw = monster.nav.GetYaw();
                 unsigned int sight_override;
                 unsigned int minimum_level = 9999;
                 unsigned char fade_flag;
@@ -519,7 +516,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                     }
                 }
 
-                player_distance = monster->GetDistanceToPlayer();
+                player_distance = monster.GetDistanceToPlayer();
                 if (record->kind == 4) {
                     int bonus = record->effective_level * 5;
 
@@ -557,16 +554,16 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         monster_info->player_visibility.los_flags[2] = false;
         monster_info->player_visibility.los_flags[3] = false;
     } else {
-        monster->GetPlayerSightFlags(monster_info->player_visibility.los_flags,
-                                     monster_info->player_visibility.los_flags + 2);
+        monster.GetPlayerSightFlags(monster_info->player_visibility.los_flags,
+                                    monster_info->player_visibility.los_flags + 2);
         if (monster_info->has_projectile_origin) {
-            bool found = monster->GetProjectilePosition(&trace_position);
+            bool found = monster.GetProjectilePosition(&trace_position);
             bool clear;
 
             if (!found) {
                 clear = false;
             } else {
-                const auto hit = monster->owner_world.compiledIndex()->traceSight(
+                const auto hit = monster.owner_world.compiledIndex()->traceSight(
                     trace_position, camera_position,
                     {.locations = SightLocations{monster_info->location_id, -1, true}});
                 // The spell-origin trace ends where this one stopped.
@@ -576,14 +573,14 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             monster_info->player_visibility.los_flags[1] = clear;
         }
         if (monster_info->has_spell_origin) {
-            bool found = monster->GetSpellPosition(&trace_position);
+            bool found = monster.GetSpellPosition(&trace_position);
 
             if (!found) {
                 monster_info->player_visibility.los_flags[3] = false;
             } else {
                 monster_info->player_visibility.los_flags[3] =
-                    !monster->owner_world.compiledIndex()->traceSight(trace_position,
-                                                                      camera_position);
+                    !monster.owner_world.compiledIndex()->traceSight(trace_position,
+                                                                     camera_position);
             }
         }
     }
@@ -600,7 +597,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 use_bounds = true;
             }
             monster_info->party_threat.use_bounds = use_bounds;
-            seen_by_party = monster->IsVisibleToPlayer(use_bounds);
+            seen_by_party = monster.IsVisibleToPlayer(use_bounds);
             monster_info->party_threat.visible_to_player = seen_by_party;
             if (seen_by_party) {
                 float yaw;
@@ -610,7 +607,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 record = GetMonsterDataForInfo(monster_info);
                 camera_position = cameraLocation();
                 yaw = GetCameraYawRadians();
-                distance = monster->GetDistanceToPlayer();
+                distance = monster.GetDistanceToPlayer();
                 npc_fade_flag = 0;
                 if (!monster_info->pCombat) {
                     npc_fade_flag = record->camouflage0;
@@ -687,7 +684,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 npc->record->monster_bound == 0 &&
                                 ShowMonsterTargetMarker(monster_info) != 0) {
                                 glm::vec3 delta;
-                                delta = own_position - monster->owner_world.party.position();
+                                delta = own_position - monster.owner_world.party.position();
                                 if (glm::length(delta) < 25000.0f &&
                                     (npc->party_noticed = true, !CurrentGame().surprise_possible) &&
                                     GetLoadedLevelID() != 4) {
@@ -717,7 +714,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                         unsigned int now =
                             static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
 
-                        monster->BeginFadeIn(5.0f);
+                        monster.BeginFadeIn(5.0f);
                         if (!CurrentGame().surprise_possible &&
                             (g_sight_fade_in_tick == 0 || now - g_sight_fade_in_tick > 199)) {
                             g_sight_fade_in_tick = now;
@@ -736,7 +733,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 record->camouflage0 != 0) {
                 unsigned int now = static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
 
-                monster->BeginFadeOut(5.0f);
+                monster.BeginFadeOut(5.0f);
                 if (!CurrentGame().surprise_possible &&
                     (g_sight_fade_out_tick == 0 || now - g_sight_fade_out_tick > 199)) {
                     g_sight_fade_out_tick = now;
@@ -767,8 +764,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         monster_info->party_threat.los_flags[1] = false;
         return;
     }
-    monster->GetPlayerToMonsterSightFlags(monster_info->party_threat.los_flags,
-                                          monster_info->party_threat.los_flags + 1, 0);
+    monster.GetPlayerToMonsterSightFlags(monster_info->party_threat.los_flags,
+                                         monster_info->party_threat.los_flags + 1, 0);
 }
 
 /* Whether the source group's monster can see the target group's monster. Out
@@ -780,25 +777,23 @@ bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
     W8MonsterInfo* source_info;
     W8MonsterInfo* target_info;
     W8VisibilityRecord record;
-    Monster* source_monster;
-    Monster* target_monster;
     World* world;
     float distance;
     double far_clip;
 
     source_info = FindMonster(source->leader_location_id);
     target_info = FindMonster(target->leader_location_id);
-    source_monster = source_info->entity.find();
-    target_monster = target_info->entity.find();
+    Monster& source_monster = *source_info->entity;
+    Monster& target_monster = *target_info->entity;
     if (!target_info->pCombat) {
-        distance = source_monster->GetDistanceToMonster(target_monster);
+        distance = source_monster.GetDistanceToMonster(target_monster);
         world = GetWorld();
         far_clip = WorldGetFarClip(world);
         if (distance <= far_clip) {
             record = {};
             record.sight_state = W8_SIGHT_SEEN;
             if (CanMonsterSeeMonster(source_info, target_info, &record) &&
-                source_monster->HasLineOfSightToMonster(target_monster)) {
+                source_monster.HasLineOfSightToMonster(target_monster)) {
                 return true;
             }
         }
