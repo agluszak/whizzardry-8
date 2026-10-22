@@ -1748,6 +1748,9 @@ void QuickSaveScenario()
     malformed.Close();
     game.command(W8_MGS_COMMAND_QUICK_LOAD);
     game.wait_screen("rejected-level-state", W8_SCREEN_MAIN_GAME);
+    REQUIRE(g_logged_errors.size() == 1);
+    REQUIRE(g_logged_errors.back() == "Cannot load save Quick 1: read past RIFF chunk");
+    g_logged_errors.pop_back(); // Consume only the diagnostic required by this rejection.
     REQUIRE(&CurrentGame() == running);
     REQUIRE(GetWorld() == world);
     REQUIRE(CurrentGame().combat.has_value());
