@@ -17,7 +17,6 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/filesystem.h"
-#include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
@@ -36,7 +35,6 @@ WorldItemEntity::WorldItemEntity()
 {
     flags = W8_ITEM_ENTITY_PULSE_INCREASING;
     pulse_level = static_cast<float>(PresentationRng().below(20) * 0.05);
-    AllocateLegacyPropSaveId();
     countdown = MonotonicMilliseconds();
 }
 
@@ -107,7 +105,7 @@ bool WorldItemEntity::IsRadarBlipLit()
     return TimeUntilDeadline(countdown) != 0;
 }
 
-std::unique_ptr<WorldItemEntity> LoadItemFromFile(std::string_view name)
+std::unique_ptr<WorldItemEntity> LoadItemFromFile(World& world, std::string_view name)
 try {
     const auto filename = fmt::format("data/items3d/{}.itm", name);
     auto file = wiz8::open_file(wiz8::asset_path(filename));
@@ -120,6 +118,7 @@ try {
     mesh->render_flags |= MeshInstance::RENDER_SHADOW;
     SetModelInstanceExclusionMask(mesh.get(), 4);
     auto item = std::make_unique<WorldItemEntity>();
+    ++world.next_legacy_prop_save_id;
     item->m_psrMesh = std::move(mesh);
     item->flags |= W8_ITEM_ENTITY_MESH_LOADED;
     item->RefreshBounds();

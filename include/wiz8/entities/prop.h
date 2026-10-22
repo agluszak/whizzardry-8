@@ -65,7 +65,7 @@ public:
     void SetFrameMethod(W8AnimationFrameMethod method);
 
     // Key used only when loading the old numeric APST save format.
-    int legacy_save_id;
+    int legacy_save_id = 0;
     glm::vec3 location{0.0f};
     glm::vec3 local_location{0.0f};
     glm::vec3 parent_location{0.0f};

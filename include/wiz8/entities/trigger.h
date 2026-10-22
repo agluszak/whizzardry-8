@@ -255,6 +255,7 @@ public:
     int required_item_id;
     std::vector<std::string> required_states;
     std::string state_to_modify;
+    std::optional<unsigned char> initial_location_value;
     char inline_action_data[0x100];
     std::unique_ptr<W8WorldItem> world_item_group;
     unsigned char items_generated;

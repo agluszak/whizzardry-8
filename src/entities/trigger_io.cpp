@@ -867,7 +867,7 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
 
         if (!trigger->state_to_modify.empty() &&
             (initial_location_value == 0 || initial_location_value == 1)) {
-            CreateLocationVar(trigger->state_to_modify.c_str(), initial_location_value);
+            trigger->initial_location_value = initial_location_value;
         }
 
         int unused_value;

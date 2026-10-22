@@ -2069,6 +2069,21 @@ int GetLocationVarIDByName(std::string_view name)
     return found == variables.end() ? -1 : static_cast<int>(found - variables.begin());
 }
 
+void InstallTriggerVariableDefaults(Game& game, const World& world)
+{
+    auto& variables = game.story.location_variables;
+    for (const auto& trigger : world.triggers) {
+        if (!trigger->initial_location_value || trigger->state_to_modify.empty()) continue;
+        const auto found = std::ranges::find_if(variables, [&](const auto& variable) {
+            return variable.level == world.level_id &&
+                   CompareTextIgnoreAsciiCase(variable.name, trigger->state_to_modify) == 0;
+        });
+        if (found == variables.end())
+            variables.push_back(
+                {trigger->state_to_modify, *trigger->initial_location_value, world.level_id});
+    }
+}
+
 void CreateLocationVar(std::string_view name, int value)
 {
     if (name.empty()) throw std::invalid_argument("empty location variable name");

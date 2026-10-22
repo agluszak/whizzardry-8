@@ -41,7 +41,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/random.h"
@@ -63,22 +62,9 @@
    updating while it is set. */
 bool g_animated_prop_present;
 
-static int g_legacy_prop_save_id = 1;
-
-int AllocateLegacyPropSaveId()
-{
-    return ++g_legacy_prop_save_id;
-}
-
-void ResetLegacyPropSaveIds()
-{
-    g_legacy_prop_save_id = 1;
-}
-
 Prop::Prop()
 {
     m_path_range.sentinel = -10000000.0f;
-    legacy_save_id = AllocateLegacyPropSaveId();
     trigger = 0;
     flags = 0;
     anim_frame_fraction = 0;
@@ -1127,6 +1113,7 @@ std::unique_ptr<Prop> CreateAndLoadProp(LevelLoadContext* info)
 {
     if (!info) throw std::invalid_argument("missing prop load context");
     auto prop = std::make_unique<Prop>();
+    prop->legacy_save_id = ++info->world->next_legacy_prop_save_id;
     if (!prop->LoadProp(info, prop.get())) return nullptr;
     prop->UpdateAnimationFrameLength();
     prop->ApplyAnimationFrame(info->world ? WorldPathing(*info->world) : nullptr);

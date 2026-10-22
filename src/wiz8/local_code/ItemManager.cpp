@@ -455,7 +455,7 @@ void ActivateItem(World& world, W8WorldItem* item)
         zItemName = "questionmark";
     }
 
-    auto entity = LoadItemFromFile(zItemName);
+    auto entity = LoadItemFromFile(world, zItemName);
     if (!entity) throw std::runtime_error(fmt::format("cannot load item model {}", zItemName));
     item->entity.attach(*entity);
     if (ItemHasFlags(item, W8_WORLD_ITEM_RADAR_BLIP_LIT)) {
