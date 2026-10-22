@@ -142,7 +142,8 @@ void CombatScenario()
     for (int id : crab_ids) {
         W8MonsterInfo* crab = FindMonster(id, false);
         if (crab && crab->hp_current)
-            ApplyDamageToMonster(crab, crab->hp_current, &attacker, false, 1, 0, nullptr, false);
+            CurrentGame().vitality.applyDamageToMonster(crab, crab->hp_current, &attacker, false, 1,
+                                                        0, nullptr, false);
         else
             slain.push_back(id);
     }

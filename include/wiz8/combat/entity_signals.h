@@ -17,6 +17,7 @@ public:
 
     bool missileReached(Missile& missile, Navigator& struck) override;
     void missileLanded(Missile& missile) override;
+    void missileDestroyed(Missile& missile) override;
     void missileReleased(Monster& monster) override;
     void spellReleased(Monster& monster) override;
 
@@ -29,6 +30,8 @@ private:
     /* A spell missile reached its combat target: play its impact sound and apply the
        carried spell effect to the target or the area (combat/attack.cpp). */
     void resolveSpellMissileHit(const World& world, Missile& missile);
+    // Cast Rocket Blast where a stored-spell missile landed, for the character that fired it.
+    void detonateStoredSpell(Missile& missile);
     // Fold a spell missile's damage and reports into the queued effect that owns it.
     void absorbMissileDamage(Missile& missile);
 

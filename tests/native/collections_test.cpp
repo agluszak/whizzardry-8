@@ -1346,7 +1346,7 @@ TEST_CASE("Pools follow a changed ceiling and keep their level otherwise", "[par
     UpdateStandaloneCharacterStats(Data(), character, {});
     REQUIRE(character.uiStaminaMax == 0);
     REQUIRE(character.fatigue_band == 4);
-    RestoreCharacterStamina(0, stamina_ceiling - 1, false);
+    CurrentGame().vitality.restoreCharacterStamina(0, stamina_ceiling - 1, false);
     REQUIRE(character.stamina == 0);
     REQUIRE(character.fatigue_band == 4);
 }

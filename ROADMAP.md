@@ -243,17 +243,16 @@ the licensed runtime scenarios after every step.
        auto-advance (`AutoAdvanceSelectedCharacter`). `Health Stamina Mana.cpp` still
        posts its notices directly.
      - Attack resolution (`StartCharacterAttack`, `ResolveCharacterAttack`,
-       `StartMonsterAttack`, `ContinueMonsterAttack`), conditions and spells are free
-       functions that reach the game through `CurrentGame()`; so do the fight's other
-       operations in `combat/fight.cpp` (rounds, surprise, the end check, action
-       choices). They should become classes constructed with the game they act on,
-       with these free functions deleted rather than given a `Game&` parameter, and
-       return what happened instead of reporting it. `CombatSignals` already holds its
-       game; the shared families it still calls as free functions come next: damage
-       (`ApplyDamageToMonster`, `ApplyDamageToCharacter`, `DamageMonstersInRadius`),
-       effect conditions (`ApplyEffectConditions`), spell casting
-       (`CastSpellFromSource`, `MonsterCastsSpell`) and missile firing
-       (`FireMissileSourceToTarget`, `GetMonsterAttackScore`).
+       `StartMonsterAttack`, `ContinueMonsterAttack`, `GetMonsterAttackScore`,
+       `ChooseAttackMode`), spell effects (`Magic Effects.cpp`) and monster conditions
+       (`ConditionsAndEnchantments.cpp`) are free functions that reach the game through
+       `CurrentGame()`; so do the fight's other operations in `combat/fight.cpp`
+       (rounds, surprise, the end check, action choices). They should become classes
+       constructed with the game they act on, like `Vitality`, `Spellcasting`,
+       `EffectConditions` and `MissileFiring`, with these free functions deleted rather
+       than given a `Game&` parameter, and return what happened instead of reporting it.
+       Callers that are still free functions reach those classes through
+       `CurrentGame()` until they become classes themselves.
      - `Combat::waitingOn` still polls each step: the camera's transition, each combat
        monster (`Monster::HoldsCombatTurn`, which keeps the cycle, frame-threshold and
        facing rules inside the entity) and the missiles in flight (`BlocksEndingCombat`,

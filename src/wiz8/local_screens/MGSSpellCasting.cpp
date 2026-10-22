@@ -339,7 +339,7 @@ void SelectSpellCastingCharacter(int party_slot)
     BuildLearnedSpellState(&gpSCSV->learned, gpSCSV->caster);
     UpdateSpellRealmPointDisplays();
     ClearSpellCastingChoice();
-    if (GetAffordableSpellPowerLevel(party_slot) != 0) {
+    if (CurrentGame().spellcasting.getAffordableSpellPowerLevel(party_slot) != 0) {
         int spell_id = CurrentGame().party.rows[party_slot].remembered.spell.detail;
         SelectSpellCastingRealm(Data().spells[spell_id].realm);
         if (spell_id == W8_SPELL_IDENTIFY_ITEM) {
@@ -433,7 +433,8 @@ static void UpdateSpellPowerPips(void)
         if (levels != 0) {
             for (pip = 0; pip < levels; ++pip) {
                 gpSCSV->power_controls[pip]->SetEnabled(false);
-                rating = GetSpellCastRating(gpSCSV->caster, gpSCSV->draft.detail, pip + 1);
+                rating = CurrentGame().spellcasting.getSpellCastRating(
+                    gpSCSV->caster, gpSCSV->draft.detail, pip + 1);
                 gpSCSV->power_frames[pip][0] = (pip + rating * 9) * 6;
             }
         }
@@ -465,7 +466,8 @@ static void RefreshSpellPowerPip(int pip)
         level = pip + 1;
     }
     gpSCSV->power_controls[pip]->SetEnabled(true);
-    rating = GetSpellCastRating(gpSCSV->caster, gpSCSV->draft.detail, level);
+    rating =
+        CurrentGame().spellcasting.getSpellCastRating(gpSCSV->caster, gpSCSV->draft.detail, level);
     frame = (pip + rating * 9) * 6;
     auto& frames = gpSCSV->power_frames[pip];
     frames[1] = frame;
@@ -488,13 +490,16 @@ static void RebuildSpellCastingList(int spell_id)
     const auto count = gpSCSV->caster->skill_unlocks[static_cast<int>(W8_SKILL_FIRE_MAGIC) + realm];
     for (unsigned int index = 0; index < count; ++index) {
         const int id = gpSCSV->learned.spell_ids_by_realm[realm][index];
-        const bool usable = SpellUsableNow(id, false);
+        const bool usable = CurrentGame().spellcasting.spellUsableNow(id, false);
         const bool castable =
             Data().spells[id].spell_point_cost <= gpSCSV->caster->iSPLeft[realm] && usable &&
             SpellHasAnyValidTarget(CharacterPointerToPartySlot(gpSCSV->caster), id, false) &&
             !IsTeleportCastMissingAnchor(gpSCSV->caster, id);
         const signed char color =
-            castable ? (IsSpellBlockedForCharacter(gpSCSV->caster, id) ? 4 : 15) : 0;
+            castable
+                ? (CurrentGame().spellcasting.isSpellBlockedForCharacter(gpSCSV->caster, id) ? 4
+                                                                                             : 15)
+                : 0;
         if (color != 15 &&
             (CurrentGame().activity.conversation_aside || LockInteractionSuspended() ||
              TrapInteractionSuspended()) &&
@@ -981,7 +986,7 @@ void TryCommitSpellCast(void)
             if (CurrentGame().activity.conversation_aside) {
                 ResetEditorStatusLine(-1);
             }
-            SetCharacterSpell(gpSCSV->caster, gpSCSV->draft);
+            CurrentGame().spellcasting.setCharacterSpell(gpSCSV->caster, gpSCSV->draft);
             CloseSpellCastingView();
             return;
         }
@@ -992,7 +997,7 @@ void TryCommitSpellCast(void)
 /* Shows why the supplied spell cannot be cast without editing the draft. */
 void ShowSpellCastingError(int spell_id)
 {
-    if (!SpellUsableNow(spell_id, false)) {
+    if (!CurrentGame().spellcasting.spellUsableNow(spell_id, false)) {
         ShowMainGameNoticeLine(Data().strings[0x79e], SpellCastingNoticeClosed, true, false);
     } else if (GetCharacterRealmSpellPoints(gpSCSV->caster, gpSCSV->iSpellRealm) <
                Data().spells[spell_id].spell_point_cost) {
@@ -1002,7 +1007,7 @@ void ShowSpellCastingError(int spell_id)
         ShowMainGameNoticeLine(Data().strings[0x7a1], SpellCastingNoticeClosed, true, false);
     } else if (IsTeleportCastMissingAnchor(gpSCSV->caster, spell_id)) {
         ShowMainGameNoticeLine(Data().strings[0x7a2], SpellCastingNoticeClosed, true, false);
-    } else if (IsSpellBlockedForCharacter(gpSCSV->caster, spell_id)) {
+    } else if (CurrentGame().spellcasting.isSpellBlockedForCharacter(gpSCSV->caster, spell_id)) {
         ShowMainGameNoticeLine(Data().strings[0x79f], SpellCastingNoticeClosed, true, false);
     }
 }

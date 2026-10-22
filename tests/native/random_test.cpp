@@ -132,7 +132,7 @@ TEST_CASE("Rules draw from the game's stream in retail order", "[random]")
     ChooseAttackMode((1u << W8_ATTACK_MODE_SWING) | (1u << W8_ATTACK_MODE_THRUST));
     glm::vec3 aim{100.0f, 0.0f, 0.0f};
     const glm::vec3 origin{};
-    ScatterMissileAimPoint(&origin, &aim, 50, false);
+    CurrentGame().missile_firing.scatterAimPoint(&origin, &aim, 50, false);
 
     REQUIRE(Describe(trace.draws) == std::vector<std::string>{
                                          "EnsureUniquePartyVoice below(9) = 0",
@@ -145,8 +145,8 @@ TEST_CASE("Rules draw from the game's stream in retail order", "[random]")
                                          "PracticeCharacterSkill below(100) = 89",
                                          "PracticeCharacterSkill below(100) = 82",
                                          "ChooseAttackMode below(9) = 6",
-                                         "ScatterMissileAimPoint below(360) = 62",
-                                         "ScatterMissileAimPoint below(100) = 85",
+                                         "scatterAimPoint below(360) = 62",
+                                         "scatterAimPoint below(100) = 85",
                                      });
 }
 

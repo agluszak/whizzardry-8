@@ -264,7 +264,8 @@ TEST_CASE("world graphics")
             ++attacker.iChar;
         REQUIRE(attacker.iChar < W8_PARTY_SLOT_COUNT);
         attacker.iMonsterID = -1;
-        ApplyDamageToMonster(monster, monster->hp_current, &attacker, false, 1, 0, nullptr, false);
+        CurrentGame().vitality.applyDamageToMonster(monster, monster->hp_current, &attacker, false,
+                                                    1, 0, nullptr, false);
         fprintf(stderr, "regression: lethal damage returned\n");
         for (int frame = 0; frame < 100; ++frame) GameLoop();
     }

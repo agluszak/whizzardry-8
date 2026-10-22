@@ -328,7 +328,7 @@ void CampSpellsScenario()
     caster.profession_levels[W8_PROFESSION_BISHOP] = 4;
     for (const auto skill : {W8_SKILL_SPELLBOOK_WIZARDRY, W8_SKILL_MENTAL_MAGIC})
         caster.skills[skill].base_level = caster.skills[skill].level = 100;
-    LearnSpell(&caster, W8_SPELL_IDENTIFY_ITEM, false);
+    CurrentGame().spellcasting.learnSpell(&caster, W8_SPELL_IDENTIFY_ITEM, false);
     const auto realm = Data().spells[W8_SPELL_IDENTIFY_ITEM].realm;
     caster.sp_max[realm] = caster.iSPLeft[realm] = 100;
     auto& sword = caster.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
@@ -342,7 +342,8 @@ void CampSpellsScenario()
     CAPTURE(caster.profession_levels[W8_PROFESSION_BISHOP],
             caster.skills[W8_SKILL_SPELLBOOK_WIZARDRY].level,
             caster.skills[W8_SKILL_MENTAL_MAGIC].level,
-            GetSpellCastRating(&caster, W8_SPELL_IDENTIFY_ITEM, 2), caster.iSPLeft[realm]);
+            CurrentGame().spellcasting.getSpellCastRating(&caster, W8_SPELL_IDENTIFY_ITEM, 2),
+            caster.iSPLeft[realm]);
     REQUIRE(sword.identified);
     REQUIRE(caster.iSPLeft[realm] < 100);
     REQUIRE(game.within_frames(4, [] {
@@ -354,7 +355,7 @@ void CampSpellsScenario()
 
     // The next automatic cast targets a character, not the remembered item.
     // Automatic power and immediate retries must respect the mana budget.
-    LearnSpell(&caster, W8_SPELL_REMOVE_CURSE, false);
+    CurrentGame().spellcasting.learnSpell(&caster, W8_SPELL_REMOVE_CURSE, false);
     caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].base_level =
         caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].level = 100;
     const auto curse_realm = Data().spells[W8_SPELL_REMOVE_CURSE].realm;
@@ -508,7 +509,7 @@ void CheckGameplayUi(GameHarness& game)
     const auto original_character = character;
     character.iProfession = W8_PROFESSION_MAGE;
     character.skills[W8_SKILL_FIRE_MAGIC].level = 100;
-    LearnSpell(&character, W8_SPELL_LIGHT, false);
+    CurrentGame().spellcasting.learnSpell(&character, W8_SPELL_LIGHT, false);
     const auto realm = Data().spells[W8_SPELL_LIGHT].realm;
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
     CurrentGame().advancement.paused = true;

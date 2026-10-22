@@ -217,7 +217,7 @@ bool MartensBluff1Script::fHandlock(Trigger* pTrigger)
         return true;
     }
     SetDice(&dice, 2, 4, 1);
-    ApplyRolledHealthChangeToParty(&dice, 0, 1);
+    CurrentGame().vitality.applyRolledHealthChangeToParty(&dice, 0, 1);
     wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 04.wav");
     g_trigger_feedback = true;
     return false;
@@ -312,7 +312,7 @@ bool MartensBluff1Script::jDoorController(Trigger* pTrigger)
             world(), "Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
     }
     position = cameraLocation(world());
-    PointCastSpell(position, W8_SPELL_FREEZE_FLESH, 5);
+    CurrentGame().spellcasting.pointCastSpell(position, W8_SPELL_FREEZE_FLESH, 5);
     state |= 0x10000000;
     SetTriggerVariableByName("DialState", state);
     return false;

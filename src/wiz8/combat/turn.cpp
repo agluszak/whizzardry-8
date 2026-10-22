@@ -66,7 +66,7 @@ CombatWait Combat::waitingOn(const Game& game) const
     if (hit_sound) {
         return CombatWait::hit_sound;
     }
-    if (!AllSpellEffectsStillRunning()) {
+    if (!game.spellcasting.allSpellEffectsStillRunning()) {
         return CombatWait::spell_effect;
     }
     for (Missile* missile = NextMissile(true); missile != 0; missile = NextMissile(false)) {

@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "wiz8/audio/soundman.h"
+#include "wiz8/level_population.h"
 #include "wiz8/npc_speech.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/random.h"
@@ -39,6 +40,17 @@ std::unique_ptr<World> Level::replacePrimary(std::unique_ptr<World> world)
 std::unique_ptr<World> Level::replaceSky(std::unique_ptr<World> world)
 {
     return std::exchange(sky, std::move(world));
+}
+
+W8LevelPopulation& Level::population() const
+{
+    if (!primary) throw std::logic_error("no gameplay level is loaded");
+    return *primary->population;
+}
+
+W8MonsterInfo* Level::findMonster(int location_id) const
+{
+    return primary ? primary->population->findMonster(location_id) : nullptr;
 }
 
 /* The session finished speech while the game was current (`GameSession::end`). The NPC

@@ -678,7 +678,7 @@ std::string KeyboardActionMenu::tooltip(const Row& row) const
         if (!row.enabled) return Data().strings[0x5a];
         const auto& spell = Data().spells[screen_.game.party.rows[slot].remembered.spell.detail];
         return fmt::format("{}: {} ({:d})", Data().strings[0x5a], spell.display_name,
-                           GetAffordableSpellPowerLevel(slot));
+                           CurrentGame().spellcasting.getAffordableSpellPowerLevel(slot));
     }
     if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
         if (!row.enabled) return Data().strings[0x5d];
@@ -835,15 +835,15 @@ void MainGameScreen::chooseKeyboardMenuAction(int slot, int menu, int item)
     if (menu == W8_SUBMENU_SPELLS) {
         if (item == 0) {
             if (!gpSCSV) OpenSpellCastingView(slot);
-        } else if (CanPartySlotCastRecordedSpell(slot)) {
-            StartCharacterSpellCast(slot, 0);
+        } else if (game.spellcasting.canPartySlotCastRecordedSpell(slot)) {
+            game.spellcasting.startCharacterSpellCast(slot, 0);
             hud->repaint.character_action = true;
         }
     } else if (menu == W8_SUBMENU_ITEMS) {
         if (item == 1) {
             if (!ItemUseDraft()) OpenUseItemSelectView(slot);
         } else {
-            StartCharacterItemUse(slot);
+            game.spellcasting.startCharacterItemUse(slot);
             hud->repaint.character_action = true;
         }
     }

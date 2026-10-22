@@ -584,7 +584,7 @@ int CharacterDraft::recountSpellPoints()
         }
         for (index = 0; index < 0x72; ++index) {
             if (character.spell_learned[index] != 1) {
-                if (!CanCharacterLearnSpell(&character, index)) {
+                if (!game.spellcasting.canCharacterLearnSpell(&character, index)) {
                     if (character.spell_learned[index] == 2) {
                         --spent;
                         ++allocation.spell_points_remaining;
@@ -694,7 +694,7 @@ int CharacterDraft::computeLevelUpSpellPointAward()
                 std::fill_n(character.spell_learned, 29, 0);
                 static const int trial_spells[6] = {0xc, 6, 7, 5, 3, 0xb};
                 for (index = 0; index < 6; ++index) {
-                    if (CanCharacterLearnSpell(&character, trial_spells[index])) {
+                    if (game.spellcasting.canCharacterLearnSpell(&character, trial_spells[index])) {
                         character.spell_learned[trial_spells[index]] = 1;
                     }
                 }

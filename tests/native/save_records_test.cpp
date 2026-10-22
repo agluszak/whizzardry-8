@@ -1303,11 +1303,11 @@ TEST_CASE("The newest unexpired lure is the active monster-control effect", "[ef
     auto* replacement_ptr = replacement.get();
     effects.push_back(std::move(replacement));
 
-    REQUIRE(FindMonsterControlSpellEffect() == replacement_ptr);
+    REQUIRE(CurrentGame().spellcasting.findMonsterControlSpellEffect() == replacement_ptr);
     previous_ptr->turns_remaining = 0;
-    REQUIRE(FindMonsterControlSpellEffect() == replacement_ptr);
+    REQUIRE(CurrentGame().spellcasting.findMonsterControlSpellEffect() == replacement_ptr);
     replacement_ptr->turns_remaining = 0;
-    REQUIRE(FindMonsterControlSpellEffect() == nullptr);
+    REQUIRE(CurrentGame().spellcasting.findMonsterControlSpellEffect() == nullptr);
 }
 
 TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][configuration]")
@@ -1342,17 +1342,17 @@ TEST_CASE("Combat condition queries stay within both effect arrays", "[effects]"
 {
     const ScopedGame game;
     ScopedCombat combat{true};
-    REQUIRE_FALSE(CombatHasCondition(0x3e));
+    REQUIRE_FALSE(CurrentGame().spellcasting.combatHasCondition(0x3e));
     CurrentGame().combat->effect_slots[8].Activate(0x3e, 1, 1);
-    REQUIRE(CombatHasCondition(0x3e));
+    REQUIRE(CurrentGame().spellcasting.combatHasCondition(0x3e));
     CurrentGame().combat->effect_slots[8].Reset();
     CurrentGame().combat->effect_slots0[5].Activate(0x3e, 1, 1);
-    REQUIRE(CombatHasCondition(0x3e));
+    REQUIRE(CurrentGame().spellcasting.combatHasCondition(0x3e));
     CurrentGame().combat->effect_slots0[5].Reset();
     // In-flight missile state next to the short array is not an effect slot.
     CurrentGame().combat->missile_hit_result = W8_MISSILE_HIT_DEFLECTED;
     CurrentGame().combat->TargetHit.iMonsterID = 2;
-    REQUIRE_FALSE(CombatHasCondition(0x3e));
+    REQUIRE_FALSE(CurrentGame().spellcasting.combatHasCondition(0x3e));
 }
 
 TEST_CASE("Retail flag bytes decode to bool by value", "[save][records]")

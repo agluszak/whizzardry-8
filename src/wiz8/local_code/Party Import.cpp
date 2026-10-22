@@ -376,7 +376,8 @@ void GrantStartingSpells(W8Character* character, const W8Wiz7Character*)
         count = 4;
     }
     for (i = 0; i < 6; ++i) {
-        LearnSpell(character, g_profession_starting_spells[character->iProfession][i], false);
+        CurrentGame().spellcasting.learnSpell(
+            character, g_profession_starting_spells[character->iProfession][i], false);
         --count;
         if (count == 0) {
             break;

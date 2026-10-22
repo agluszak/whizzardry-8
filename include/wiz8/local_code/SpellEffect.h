@@ -122,10 +122,4 @@ struct W8SpellEffectEntry {
     W8SpellEffectResult result{};
 };
 
-W8SpellEffectEntry* FindMonsterControlSpellEffect(void);
-/* Advance every queued spell effect one frame. */
-void UpdateSpellEffects(void);
-void ReportSpellResult(W8SpellEffectEntry* effect);
-void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, const W8CombatSlot* target);
-
 #endif

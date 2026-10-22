@@ -285,7 +285,8 @@ static int LearnedSpellPower(int slot, W8SpellId spell)
     if (!IsPartySlotEligible(slot) || character->spell_learned[spell] != 1) {
         return -1;
     }
-    const W8Skill book = GetBestSpellbookSkillForSpell(character, spell, true, false, 7);
+    const W8Skill book =
+        CurrentGame().spellcasting.getBestSpellbookSkillForSpell(character, spell, true, false, 7);
     return static_cast<int>(GetSpellCastingSkillLevel(character, book, Data().spells[spell].realm));
 }
 void CancelMouselook()
@@ -925,7 +926,8 @@ void W8LockInteraction::AttemptForce()
     if (!chance) {
         return;
     }
-    FatigueCharacter(CurrentGame().status.selected_character, 0x50, false, 0);
+    CurrentGame().vitality.fatigueCharacter(CurrentGame().status.selected_character, 0x50, false,
+                                            0);
     if (static_cast<int>(CurrentGame().rng.below(100)) < *chance) {
         wiz8::sound::play(s_lock_forcing_success);
         ShowString(fmt::format("{} {}", character->name, Data().strings[0x7ae]));
@@ -5632,7 +5634,7 @@ void RunMGSActionKey(unsigned short command)
         }
         break;
     case W8_MGS_ACTION_USE_RECORDED_ITEM:
-        StartCharacterItemUse(CurrentGame().status.selected_character);
+        CurrentGame().spellcasting.startCharacterItemUse(CurrentGame().status.selected_character);
         break;
     case W8_MGS_ACTION_SPELL_VIEW:
         if (gpSCSV) {
@@ -5642,14 +5644,16 @@ void RunMGSActionKey(unsigned short command)
         }
         break;
     case W8_MGS_ACTION_CAST_RECORDED_SPELL:
-        StartCharacterSpellCast(CurrentGame().status.selected_character, 0);
+        CurrentGame().spellcasting.startCharacterSpellCast(CurrentGame().status.selected_character,
+                                                           0);
         break;
     case W8_MGS_ACTION_BREATHE:
         ChooseAction(CurrentGame().status.selected_character, W8_ACTION_BREATHE, -1, 0, false, 1);
         DrawSubMenuCharacterAction();
         break;
     case W8_MGS_ACTION_BREATH_ATTACK:
-        StartCharacterBreathAttack(CurrentGame().status.selected_character);
+        CurrentGame().spellcasting.startCharacterBreathAttack(
+            CurrentGame().status.selected_character);
         break;
     case W8_MGS_ACTION_ATTACK:
         ChooseAction(CurrentGame().status.selected_character, W8_ACTION_ATTACK, -1, 0, false, 1);

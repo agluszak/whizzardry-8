@@ -14,12 +14,15 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include "wiz8/character_event_queue.h"
+#include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/entity_signals.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayTime.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/SpellEffect.h"
@@ -37,6 +40,8 @@
 #include "wiz8/story.h"
 
 class NativeObject;
+struct W8LevelPopulation;
+struct W8MonsterInfo;
 struct GameData;
 struct World;
 
@@ -52,6 +57,10 @@ struct Level {
 
     std::unique_ptr<World> replacePrimary(std::unique_ptr<World> world);
     std::unique_ptr<World> replaceSky(std::unique_ptr<World> world);
+    // The primary world's monsters; the level must have a primary world.
+    W8LevelPopulation& population() const;
+    // The primary world's monster at `location_id`, born or not, if the level has one.
+    W8MonsterInfo* findMonster(int location_id) const;
 
     SimulationSink& simulation;
     std::unique_ptr<World> primary;
@@ -199,6 +208,11 @@ public:
        its LVLS group as a RIFF image of its own. Leaving a level stores its group here,
        entering one reads it back, and a save writes them beside the current level's. */
     std::map<int, std::vector<std::byte>> left_levels;
+    // The rules the game's parts act through, each bound to this game.
+    Vitality vitality{*this};
+    Spellcasting spellcasting{*this};
+    EffectConditions effect_conditions{*this};
+    MissileFiring missile_firing{*this};
     // Resolves what the level's entities report; it outlives the level's worlds.
     CombatSignals signals{*this};
     /* Last, so its worlds are destroyed first, while combat and speech still exist.

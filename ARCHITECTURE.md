@@ -96,7 +96,7 @@ enforces this (the `layer_boundaries` test, and CI's clang-tidy job), and
 | `world/` | `World`, party camera and motion, environment, encounters, level loading. |
 | `entities/` | `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks. Each kind is loaded once into a definition that live entities copy. Entities report hits, landings and release frames to their world's `SimulationSink` rather than resolving them. |
 | `native/` | Application loop, game events, key bindings, FFmpeg movie playback. |
-| `wiz8/` | Gameplay not yet in `rules`, the game and session, saves, screens, dialogs and level scripts. `wiz8/combat/` is the fight, including `CombatSignals`, which each game owns and its level installs into the primary world to resolve what its entities report. `local_code/`, `local_screens/`, `dialog_code/` and `level_specific_code/` hold the decompiled game code still being migrated. |
+| `wiz8/` | Gameplay not yet in `rules`, the game and session, saves, screens, dialogs and level scripts. `wiz8/combat/` is the fight, including `CombatSignals`, which each game owns and its level installs into the primary world to resolve what its entities report. The game also owns the rule families bound to it (`Vitality`, `Spellcasting`, `EffectConditions`, `MissileFiring`); each holds its game from construction and reads the level's monsters through `Level`. `local_code/`, `local_screens/`, `dialog_code/` and `level_specific_code/` hold the decompiled game code still being migrated. |
 
 ## Compatibility boundary
 

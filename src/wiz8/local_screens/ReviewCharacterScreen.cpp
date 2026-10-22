@@ -272,7 +272,7 @@ void W8CampSpellsPage::DrawCampSpellPages(bool full, bool dialog_open)
                     palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
                 } else if (data.spells[spell_id].spell_point_cost <=
                                camp.reviewed->iSPLeft[realm] &&
-                           SpellUsableNow(spell_id, false)) {
+                           CurrentGame().spellcasting.spellUsableNow(spell_id, false)) {
                     palette = g_wiz_text_font_secondary.glyphs->colors;
                 } else {
                     palette = g_font_state_palettes[W8_FONT_PALETTE_RED];
@@ -1036,9 +1036,10 @@ int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8Combat
     row->executing.detail_block.spell.power_level = power_level;
     row->executing.detail_block.spell.unused = 0;
     row->executing.target = *target;
-    result = ExecuteCharacterSpellCast(party_slot, spell_id, power_level, &cost, false);
-    SetPartySlotSpell(party_slot, spell_id, power_level, target);
-    FatigueCharacter(party_slot, cost, true, 0);
+    result = CurrentGame().spellcasting.executeCharacterSpellCast(party_slot, spell_id, power_level,
+                                                                  &cost, false);
+    CurrentGame().spellcasting.setPartySlotSpell(party_slot, spell_id, power_level, target);
+    CurrentGame().vitality.fatigueCharacter(party_slot, cost, true, 0);
     if (result != 1) {
         wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
         return result;
@@ -1075,9 +1076,10 @@ int CommitPartySlotItemUse(int party_slot, W8ItemUse use, W8CombatSlot* target)
     StagePartySlotItemUse(party_slot, use.item, target);
     const auto used_item = UseItem(CurrentGame(), party_slot, use);
     result = used_item.effect;
-    FatigueCharacter(
+    CurrentGame().vitality.fatigueCharacter(
         party_slot,
-        used_item.fatigue_cost.value_or(CharacterActionFatigueCost(party_slot, W8_ACTION_USE_ITEM)),
+        used_item.fatigue_cost.value_or(
+            CurrentGame().vitality.characterActionFatigueCost(party_slot, W8_ACTION_USE_ITEM)),
         true, 0);
     if (result == 1) {
         used = CurrentGame().party.itemAt(target->item);

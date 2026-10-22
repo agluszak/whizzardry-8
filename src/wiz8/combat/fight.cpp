@@ -872,7 +872,7 @@ void EndMonsterAttack(W8MonsterInfo* monster_info)
     unsigned int next;
 
     GetMonsterDataForInfo(monster_info);
-    FatigueMonster(monster_info, MonsterActionFatigueCost(monster_info), 0);
+    FatigueMonster(monster_info, CurrentGame().vitality.monsterActionFatigueCost(monster_info), 0);
     monster_info->entity->nav.SetHalted(true);
     CurrentGame().combat->endTurnOf(MonsterActor{monster_info->location_id});
 
@@ -1603,8 +1603,8 @@ void AdvanceCombatRound(void)
                                                   character, W8_TRAIT_STAMINA_REGENERATION, 3.3f) *
                                               amount);
                 }
-                RestoreCharacterStamina(party_slot, amount,
-                                        character->stamina < character->uiStaminaMax);
+                CurrentGame().vitality.restoreCharacterStamina(
+                    party_slot, amount, character->stamina < character->uiStaminaMax);
             }
             PracticeCombatRoundSkills(party_slot);
             CurrentGame().combat->characters[party_slot].dead =
@@ -1626,7 +1626,7 @@ void AdvanceCombatRound(void)
                     sides = 1;
                 }
                 SetDice(&dice, 2, sides, 0);
-                RestoreMonsterStamina(monster_info, RollDice(&dice), false);
+                CurrentGame().vitality.restoreMonsterStamina(monster_info, RollDice(&dice), false);
             }
             if (monster_info->pCombat->special_cooldown != 0 &&
                 monster_info->action_kind != W8_MONSTER_ACTION_SPECIAL_ATTACK) {

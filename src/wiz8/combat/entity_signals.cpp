@@ -38,10 +38,11 @@
 namespace {
 // The missile table row of a stored-spell missile, which casts its spell where it lands.
 constexpr int kStoredSpellMissile = 0x23;
+} // namespace
 
 /* Cast Rocket Blast where a stored-spell missile landed, on behalf of the character
    that fired it. */
-void DetonateStoredSpell(Missile& missile)
+void CombatSignals::detonateStoredSpell(Missile& missile)
 {
     W8TargetSource source;
     W8CombatSlot target;
@@ -56,11 +57,9 @@ void DetonateStoredSpell(Missile& missile)
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_PLACE;
     target.point = position;
-    CastSpellFromSource(W8_SPELL_ROCKET_BLAST, &source, &target, 1, 0, 0, false, 0,
-                        W8SpellCastKind::Standard, 0, 0);
+    game_.spellcasting.castSpellFromSource(W8_SPELL_ROCKET_BLAST, &source, &target, 1, 0, 0, false,
+                                           0, W8SpellCastKind::Standard, 0, 0);
 }
-
-} // namespace
 
 /* Decide what the missile struck - the party or a live monster - record it in its
    combat slot, roll the target's missile deflection and either resolve the hit or
@@ -154,11 +153,17 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
 void CombatSignals::missileLanded(Missile& missile)
 {
     if (missile.missile_table_index == kStoredSpellMissile && !missile.deflected) {
-        DetonateStoredSpell(missile);
+        detonateStoredSpell(missile);
     }
     if (game_.data.missiles[missile.missile_table_index].spell_missile != 0) {
         absorbMissileDamage(missile);
     }
+}
+
+// The spell that cast the missile stops tracking it.
+void CombatSignals::missileDestroyed(Missile& missile)
+{
+    game_.spellcasting.detachMissileReferences(&missile);
 }
 
 /* Launch the missile at the frame shared by attack cycles 7, 13 and 17. In
@@ -237,7 +242,7 @@ prepare_attack:
 
 fire_missile:
     monster_info->fMissileReleased = true;
-    FireMissileSourceToTarget(missile_type, &source, &monster_info->Target, &attack_block,
+    game_.missile_firing.fire(missile_type, &source, &monster_info->Target, &attack_block,
                               !selected_attack, range_category, accuracy);
 }
 
@@ -250,7 +255,8 @@ void CombatSignals::spellReleased(Monster& monster)
     const int action_detail = monster_info->action_detail;
     const unsigned int power_level = monster_info->spell_power_level;
     if (action_kind == W8_MONSTER_ACTION_SPELL && action_detail != 0 && power_level != 0) {
-        const unsigned int fatigue = MonsterCastsSpell(monster_info, action_detail, power_level);
+        const unsigned int fatigue =
+            game_.spellcasting.monsterCastsSpell(monster_info, action_detail, power_level);
         FatigueMonster(monster_info, fatigue, 0);
         monster_info->fSpellReleased = true;
     }

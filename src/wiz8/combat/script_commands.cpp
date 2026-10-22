@@ -38,6 +38,6 @@ void Game::startGolemAttack()
 
 void Game::castTriggerSpell(glm::vec3 position, W8SpellId spell, unsigned int power_level)
 {
-    PointCastSpell(position, spell, power_level);
+    spellcasting.pointCastSpell(position, spell, power_level);
     if (spell == W8_SPELL_HEAL_ALL) LiftAllConditionsFromParty(CurrentGame());
 }

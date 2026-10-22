@@ -621,7 +621,7 @@ std::uint32_t Missile::GetAnimationState(W8MissileAnimationStateQuery query)
 Missile::~Missile()
 {
     visual.SetLights(0);
-    DetachMissileReferences(this);
+    if (owner_world && owner_world->simulation) owner_world->simulation->missileDestroyed(*this);
 }
 
 /* Start or advance the missile while its launcher is live.

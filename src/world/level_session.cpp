@@ -451,10 +451,11 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
         }
         CurrentGame().spell_effects.clear();
     } else {
-        W8SpellEffectEntry* effect = FindMonsterControlSpellEffect();
+        W8SpellEffectEntry* effect = CurrentGame().spellcasting.findMonsterControlSpellEffect();
 
         if (effect != 0) {
-            SpawnLureEffects(effect, effect->definition.duration_scale, &effect->target);
+            CurrentGame().spellcasting.spawnLureEffects(effect, effect->definition.duration_scale,
+                                                        &effect->target);
         }
     }
 

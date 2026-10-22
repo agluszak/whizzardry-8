@@ -341,7 +341,7 @@ void HandleLevelOverride(float fall)
         wiz8::sound::play(s_fall_impact_wav, {});
         W8Dice dice;
         SetDice(&dice, static_cast<unsigned char>(count), 6, 0);
-        ApplyRolledHealthChangeToParty(&dice, 0, 1);
+        CurrentGame().vitality.applyRolledHealthChangeToParty(&dice, 0, 1);
     }
 }
 

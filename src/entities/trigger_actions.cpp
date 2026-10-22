@@ -452,7 +452,7 @@ void TriggerEvent::Update()
     case 0x23: {
         W8Dice dice;
         SetDice(&dice, 1, 6, 2);
-        ApplyRolledHealthChangeToParty(&dice, 0, 0);
+        CurrentGame().vitality.applyRolledHealthChangeToParty(&dice, 0, 0);
         trigger->UpdateActionAnimation();
         break;
     }
@@ -1513,7 +1513,7 @@ void Trigger::Run(int source)
         }
         SetDice(&dice, static_cast<unsigned char>(m_lData1), static_cast<unsigned char>(m_lData2),
                 static_cast<short>(m_lData3));
-        ApplyRolledHealthChangeToParty(&dice, 0, 1);
+        CurrentGame().vitality.applyRolledHealthChangeToParty(&dice, 0, 1);
         if (trigger_kind == W8TriggerKind::prop) {
             flags |= W8_TRIGGER_RUNNING;
         }
@@ -1606,13 +1606,14 @@ void Trigger::Run(int source)
     case 0x2b: {
         if (uses_remaining != 0 || m_lData1 == -1) {
             if (action == 0x25) {
-                RestorePartyStaminaByDice(0, 0, static_cast<short>(m_lData3));
+                CurrentGame().vitality.restorePartyStaminaByDice(0, 0,
+                                                                 static_cast<short>(m_lData3));
                 PlayActionSound("Data\\Sound\\misc\\fountain_magic.wav", 0);
             } else if (action == 0x26) {
-                HealPartyByDice(0, 0, static_cast<short>(m_lData3));
+                CurrentGame().vitality.healPartyByDice(0, 0, static_cast<short>(m_lData3));
                 PlayActionSound("Data\\Sound\\misc\\fountain_magic.wav", 0);
             } else if (action == 0x27) {
-                RestorePartySpellPoints(m_lData3);
+                CurrentGame().vitality.restorePartySpellPoints(m_lData3);
                 ShowString(Data().strings[0x722]);
                 PlayActionSound("Data\\Sound\\misc\\fountain_magic.wav", 0);
             } else {

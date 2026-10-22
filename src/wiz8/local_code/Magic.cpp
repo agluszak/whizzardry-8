@@ -49,7 +49,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
@@ -117,11 +116,12 @@ int GetProfessionCasterLevel(const W8Character* character, W8Profession professi
    together - so the point cost counts a quarter and the level a half. One
    target type is three easier than the rest, and the answer never goes below
    zero. */
-int GetSpellDifficulty(unsigned int caster_figure, int spell_id, int bonus)
+int Spellcasting::getSpellDifficulty(unsigned int caster_figure, int spell_id, int bonus)
 {
-    int difficulty =
-        (caster_figure >> 1) + bonus +
-        (Data().spells[spell_id].spell_point_cost / 2 + Data().spells[spell_id].spell_level) / 2;
+    int difficulty = (caster_figure >> 1) + bonus +
+                     (game_.data.spells[spell_id].spell_point_cost / 2 +
+                      game_.data.spells[spell_id].spell_level) /
+                         2;
 
     if (GetSpellTargetType(spell_id, false) == W8_TARGET_TYPE_ALL_ENEMIES) {
         difficulty -= 3;
@@ -134,15 +134,15 @@ int GetSpellDifficulty(unsigned int caster_figure, int spell_id, int bonus)
 
 /* Whether one carried item can be cast from. It has to be of the spell-source
    kind, it has to be identified, and the caster has to be able to use it. */
-bool CanCastFromItem(const W8Character* caster, const W8ItemInstance* item)
+bool Spellcasting::canCastFromItem(const W8Character* caster, const W8ItemInstance* item)
 {
-    if (Data().items[item->iItemNo].category != W8_ITEM_CATEGORY_SPELL_SOURCE) {
+    if (game_.data.items[item->iItemNo].category != W8_ITEM_CATEGORY_SPELL_SOURCE) {
         return false;
     }
     if (!item->identified) {
         return false;
     }
-    return CanCharacterUseItem(Data(), caster, item->iItemNo);
+    return CanCharacterUseItem(game_.data, caster, item->iItemNo);
 }
 
 /* The three monster kinds whose alchemy survives a spellcasting block. */
@@ -155,10 +155,10 @@ enum {
 /* Whether a spellcasting block stops this character casting this spell. The
    block stops everything except alchemy in the hands of someone who has the
    skill for it. */
-bool IsSpellBlockedForCharacter(const W8Character* character, int spell_id)
+bool Spellcasting::isSpellBlockedForCharacter(const W8Character* character, int spell_id)
 {
     if (character->uiCondition[W8_CONDITION_SILENCED] != 0) {
-        if (Data().spells[spell_id].alchemy_spell == 0) {
+        if (game_.data.spells[spell_id].alchemy_spell == 0) {
             return true;
         }
         return character->skills[W8_SKILL_SPELLBOOK_ALCHEMY].level == 0;
@@ -168,12 +168,12 @@ bool IsSpellBlockedForCharacter(const W8Character* character, int spell_id)
 
 /* The same question for a monster. The block stops everything except alchemy
    from the three kinds that keep it. */
-bool IsSpellBlockedForMonster(W8MonsterInfo* monster_info, int spell_id)
+bool Spellcasting::isSpellBlockedForMonster(W8MonsterInfo* monster_info, int spell_id)
 {
     unsigned char kind;
 
     if (monster_info->uiCondition[W8_CONDITION_SILENCED] != 0) {
-        if (Data().spells[spell_id].alchemy_spell == 0) {
+        if (game_.data.spells[spell_id].alchemy_spell == 0) {
             return true;
         }
         kind = GetMonsterDataForInfo(monster_info)->kind;
@@ -189,16 +189,16 @@ bool IsSpellBlockedForMonster(W8MonsterInfo* monster_info, int spell_id)
    has to be one monsters can cast at all, the monster has to be in a state to
    cast it, it has to have somewhere to aim, it has to be able to act, and the
    two combat gates have to agree. */
-bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
+bool Spellcasting::monsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
 {
     const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     W8CombatSlot* combat_slot;
     unsigned char kind;
 
-    assert(Data().spells[spell_id].monster_castable != 0);
+    assert(game_.data.spells[spell_id].monster_castable != 0);
 
     if (monster_info->uiCondition[W8_CONDITION_SILENCED] != 0) {
-        if (Data().spells[spell_id].alchemy_spell == 0) {
+        if (game_.data.spells[spell_id].alchemy_spell == 0) {
             return false;
         }
         kind = GetMonsterDataForInfo(monster_info)->kind;
@@ -233,17 +233,17 @@ bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
    record's usable-when value picks which of camp, combat and the shop admit
    it. The second parameter doubles as the out-of-combat override and the
    default-case return. */
-bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
+bool Spellcasting::spellUsableNow(int spell_id, bool allow_out_of_combat)
 {
     W8SpellUsage usable_when;
     bool lock_or_trap;
 
     assert(spell_id < W8_SPELL_COUNT);
-    usable_when = Data().spells[spell_id].usable_when;
+    usable_when = game_.data.spells[spell_id].usable_when;
     assert(usable_when < W8_SPELL_USAGE_COUNT);
 
-    if (CurrentGame().activity.in_camp() && !CurrentGame().combat.has_value() &&
-        CurrentGame().activity.conversation_aside &&
+    if (game_.activity.in_camp() && !game_.combat.has_value() &&
+        game_.activity.conversation_aside &&
         (spell_id == W8_SPELL_IDENTIFY_ITEM || spell_id == W8_SPELL_REMOVE_CURSE)) {
         return true;
     }
@@ -254,17 +254,17 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
     case W8_SPELL_USABLE_ANY_TIME:
         break;
     case W8_SPELL_USABLE_IN_COMBAT:
-        if (!CurrentGame().combat.has_value() && !allow_out_of_combat) {
+        if (!game_.combat.has_value() && !allow_out_of_combat) {
             return false;
         }
         break;
     case W8_SPELL_USABLE_OUT_OF_COMBAT:
-        if (CurrentGame().combat.has_value()) {
+        if (game_.combat.has_value()) {
             return false;
         }
         break;
     case W8_SPELL_USABLE_WHILE_CAMPED:
-        if (!CurrentGame().activity.conversation_aside) {
+        if (!game_.activity.conversation_aside) {
             return false;
         }
         return !lock_or_trap;
@@ -280,7 +280,7 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
         std::unreachable();
     }
 
-    if (!CurrentGame().activity.conversation_aside) {
+    if (!game_.activity.conversation_aside) {
         return !lock_or_trap;
     }
     return false;
@@ -359,22 +359,22 @@ enum { W8_PARTY_CONDITION_SLOTS = 12, W8_COMBAT_CONDITION_SLOTS = 9 };
    percent failure chance. */
 bool g_force_spell_failure;
 /* Whether every queued effect still has time left on it. */
-bool AllSpellEffectsStillRunning(void)
+bool Spellcasting::allSpellEffectsStillRunning() const
 {
     int index;
 
-    for (index = 0; index < static_cast<int>(CurrentGame().spell_effects.size()); ++index) {
-        if (CurrentGame().spell_effects[index]->turns_remaining == 0) {
+    for (index = 0; index < static_cast<int>(game_.spell_effects.size()); ++index) {
+        if (game_.spell_effects[index]->turns_remaining == 0) {
             return false;
         }
     }
     return true;
 }
 
-W8SpellEffectEntry* FindMonsterControlSpellEffect(void)
+W8SpellEffectEntry* Spellcasting::findMonsterControlSpellEffect() const
 {
     // Replaced lures remain queued until their visuals are retired.
-    auto& effects = CurrentGame().spell_effects;
+    auto& effects = game_.spell_effects;
     for (auto it = effects.rbegin(); it != effects.rend(); ++it) {
         const auto& effect = **it;
         if (effect.kind == W8_SPELL_HYPNOTIC_LURE && effect.turns_remaining > 0) return it->get();
@@ -386,34 +386,34 @@ W8SpellEffectEntry* FindMonsterControlSpellEffect(void)
    running out is the one with a consequence: every monster that is still alive
    goes back to controlling itself. */
 /* An expired or replaced hypnotic lure releases every living monster. */
-static void ReleaseHypnoticLureControl()
+void Spellcasting::releaseHypnoticLureControl()
 {
-    for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
+    for (unsigned int index = 0; index < game_.level.population().monster_roster.live().size();
          ++index) {
-        W8MonsterInfo* monster = GetMonsterListEntry(index);
+        W8MonsterInfo* monster = game_.level.population().monster_roster.live()[index].get();
         if (monster && !monster->entity->IsDying())
             SetMonsterControlState(monster, W8_MONSTER_CONTROL_NONE);
     }
 }
 
-void TickSpellEffects(void)
+void Spellcasting::tickSpellEffects()
 {
-    for (const auto& effect : CurrentGame().spell_effects) {
+    for (const auto& effect : game_.spell_effects) {
         if (effect->turns_remaining != 0) {
             --effect->turns_remaining;
             if (effect->turns_remaining == 0 && effect->kind == W8_SPELL_HYPNOTIC_LURE)
-                ReleaseHypnoticLureControl();
+                releaseHypnoticLureControl();
         }
     }
 }
 
-bool PartyHasCondition(int effect_id)
+bool Spellcasting::partyHasCondition(int effect_id) const
 {
-    W8EffectSlot* slot = CurrentGame().status.effect_slots.data();
+    W8EffectSlot* slot = game_.status.effect_slots.data();
 
     while (!slot->active || slot->effect_id != effect_id) {
         ++slot;
-        if (slot > &CurrentGame().status.effect_slots[W8_PARTY_CONDITION_SLOTS - 1]) {
+        if (slot > &game_.status.effect_slots[W8_PARTY_CONDITION_SLOTS - 1]) {
             return false;
         }
     }
@@ -422,22 +422,23 @@ bool PartyHasCondition(int effect_id)
 
 /* Whether either side of the current fight is under one particular condition.
    Both tables are searched, the party's first. */
-bool CombatHasCondition(int effect_id)
+bool Spellcasting::combatHasCondition(int effect_id) const
 {
-    if (CurrentGame().combat) {
-        for (const auto& slot : CurrentGame().combat->effect_slots) {
+    if (game_.combat) {
+        for (const auto& slot : game_.combat->effect_slots) {
             if (slot.active && slot.effect_id == effect_id) return true;
         }
-        for (const auto& slot : CurrentGame().combat->effect_slots0) {
+        for (const auto& slot : game_.combat->effect_slots0) {
             if (slot.active && slot.effect_id == effect_id) return true;
         }
     }
     return false;
 }
 
-void SetPartySlotSpell(int party_slot, int spell_id, int power_level, const W8CombatSlot* target)
+void Spellcasting::setPartySlotSpell(int party_slot, int spell_id, int power_level,
+                                     const W8CombatSlot* target)
 {
-    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
+    W8PartySlotRow* row = &game_.party.rows[party_slot];
 
     row->remembered.spell.kind = W8_ACTION_CAST_SPELL;
     row->remembered.spell.detail = spell_id;
@@ -446,12 +447,12 @@ void SetPartySlotSpell(int party_slot, int spell_id, int power_level, const W8Co
     row->remembered.spell.target = *target;
 }
 
-void SetCharacterSpell(const W8Character* character, const W8Action& spell)
+void Spellcasting::setCharacterSpell(const W8Character* character, const W8Action& spell)
 {
     const int party_slot = CharacterPointerToPartySlot(character);
-    auto& row = CurrentGame().party.rows[party_slot];
+    auto& row = game_.party.rows[party_slot];
     row.remembered.spell = spell;
-    if (CurrentGame().combat.has_value()) {
+    if (game_.combat.has_value()) {
         SetCharacterCombatAction(party_slot, spell, 1);
     } else {
         row.executing.target = spell.target;
@@ -462,9 +463,9 @@ void SetCharacterSpell(const W8Character* character, const W8Action& spell)
 
 /* Start one character's breath attack; the character must be able to
    breathe again. */
-void StartCharacterBreathAttack(int party_slot)
+void Spellcasting::startCharacterBreathAttack(int party_slot)
 {
-    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
+    W8PartySlotRow* row = &game_.party.rows[party_slot];
 
     assert(CanCharReBreathe(party_slot));
     ChooseAction(party_slot, W8_ACTION_BREATHE, -1, 0, false, 1);
@@ -488,16 +489,16 @@ void FinishSpellEffect(W8SpellEffectEntry* effect);
    run out is finalized: a spell that needed aiming and is not in the singled
    out set reports itself, its visuals and missiles are released, and the entry
    is removed from the queue and deleted. */
-void UpdateSpellEffects(void)
+void Spellcasting::updateSpellEffects()
 {
     bool handled = false;
     int index;
 
-    if (static_cast<int>(CurrentGame().spell_effects.size()) <= 0) {
+    if (static_cast<int>(game_.spell_effects.size()) <= 0) {
         return;
     }
-    for (index = 0; index < static_cast<int>(CurrentGame().spell_effects.size()); ++index) {
-        auto& effect = *CurrentGame().spell_effects[index];
+    for (index = 0; index < static_cast<int>(game_.spell_effects.size()); ++index) {
+        auto& effect = *game_.spell_effects[index];
         bool alive = true;
 
         for (int visual_index = 0;
@@ -519,13 +520,13 @@ void UpdateSpellEffects(void)
              monster_index < static_cast<int>(effect.target_indices.size()) && alive;
              ++monster_index) {
             int entry = effect.target_indices[monster_index];
-            if (CurrentGame().monster_manager_entries[entry].effect_icon_active) {
+            if (game_.monster_manager_entries[entry].effect_icon_active) {
                 alive = false;
             }
         }
 
         bool process =
-            ((Data().spells[effect.kind].missile_delivered == 0 && !effect.missiles_pending) ||
+            ((game_.data.spells[effect.kind].missile_delivered == 0 && !effect.missiles_pending) ||
              effect.kind == W8_SPELL_HYPNOTIC_LURE || alive) &&
             !effect.targets_resolved;
         if (process) {
@@ -543,7 +544,7 @@ void UpdateSpellEffects(void)
                     glm::vec3 position = missile->nav.GetPosition();
                     position.y -= 1e+03f;
                     SpellVisual* visual =
-                        SpawnSpellEffect(&position, Data().spells[effect.kind].resource_name,
+                        SpawnSpellEffect(&position, game_.data.spells[effect.kind].resource_name,
                                          missile->definition.duration_scale, 0, 0);
                     if (visual != 0) {
                         visual->auto_release = false;
@@ -563,9 +564,9 @@ void UpdateSpellEffects(void)
                 if (TargetSourceIsMonster(&effect.OrigSource, 0)) {
                     assert(effect.OrigSource.iMonsterID != -1);
                     /* The casting monster's turn finishes with its spell. */
-                    if (CurrentGame().combat.has_value()) {
-                        CurrentGame().combat->setStepOf(MonsterActor{effect.OrigSource.iMonsterID},
-                                                        ActionStep::finishing);
+                    if (game_.combat.has_value()) {
+                        game_.combat->setStepOf(MonsterActor{effect.OrigSource.iMonsterID},
+                                                ActionStep::finishing);
                     }
                 }
             }
@@ -577,18 +578,18 @@ void UpdateSpellEffects(void)
             continue;
         }
 
-        if (!handled && Data().spells[effect.kind].needs_aim != 0 &&
+        if (!handled && game_.data.spells[effect.kind].needs_aim != 0 &&
             !IsCombatEffectSlotSpell(effect.kind)) {
             W8SpellTargetType target_type = GetSpellTargetType(effect.kind, false);
             if (target_type != W8_TARGET_TYPE_RADIUS && target_type != W8_TARGET_TYPE_PARTY) {
                 if (g_settings.verbose_combat_messages == 0) {
-                    ReportSpellResult(&effect);
+                    reportSpellResult(&effect);
                 }
                 FinishSpellEffectTargets(&effect);
             }
         }
         if (effect.kind == W8_SPELL_BOILING_BLOOD) {
-            FinishSpellEffect(&effect);
+            finishSpellEffect(&effect);
         }
         for (int release_visual = 0; release_visual < static_cast<int>(effect.spell_visuals.size());
              ++release_visual) {
@@ -601,18 +602,16 @@ void UpdateSpellEffects(void)
         for (auto* missile : effect.missiles) {
             missile->block_released = 1;
         }
-        CurrentGame().spell_effects.erase(CurrentGame().spell_effects.begin() + index);
+        game_.spell_effects.erase(game_.spell_effects.begin() + index);
         --index;
     }
 }
 
 /* Take one missile back off the spell effect that owns it. The first effect
    whose missile list contains it drops the entry and stops the walk. */
-void DetachMissileReferences(Missile* missile)
+void Spellcasting::detachMissileReferences(Missile* missile)
 {
-    // The spell effects end with their game; a missile may outlive it.
-    if (!GameInProgress()) return;
-    for (const auto& effect : CurrentGame().spell_effects) {
+    for (const auto& effect : game_.spell_effects) {
         const bool was_removed = wiz8::erase_first(effect->missiles, missile);
         if (was_removed) {
             return;
@@ -683,36 +682,36 @@ bool IsTeleportCastMissingAnchor(W8Character* character, int spell_id)
    character's notice for a character whose row is empty. A text box is only
    opened when the detailed combat messages are off, matching the ordinary
    damage path. */
-void FinishSpellEffect(W8SpellEffectEntry* effect)
+void Spellcasting::finishSpellEffect(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info = 0;
     W8CombatSlot target;
     glm::vec3 position;
 
     if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
-        monster_info = FindMonster(effect->target.iMonsterID);
+        monster_info = game_.level.findMonster(effect->target.iMonsterID);
     }
     if ((effect->target.iType == W8_TARGET_KIND_MONSTER && monster_info->hp_current == 0) ||
         (effect->target.iType == W8_TARGET_KIND_CHARACTER &&
-         CurrentGame().party.characters[effect->target.iChar].hp_current == 0)) {
+         game_.party.characters[effect->target.iChar].hp_current == 0)) {
         target.iType = W8_TARGET_KIND_PLACE;
         if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
             NavigatorMovement* movement = &monster_info->entity->nav.movement;
             position = movement->position;
             position.y += movement->height_offset;
             position.y = probeGround(position).position.y;
-            PostMonsterNotice(monster_info, Data().strings[0x195]);
+            PostMonsterNotice(monster_info, game_.data.strings[0x195]);
         } else {
             position = cameraLocation();
             position.y -= g_default_world_height;
-            CurrentGame().events.push(CharacterNotice{
-                static_cast<unsigned int>(effect->target.iChar), Data().strings[0x195]});
+            game_.events.push(CharacterNotice{static_cast<unsigned int>(effect->target.iChar),
+                                              game_.data.strings[0x195]});
         }
         if (g_settings.verbose_combat_messages == 0) {
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+            game_.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
         target.point = position;
-        CastSpellFromSource(W8_SPELL_BOILING_BLOOD_EXPLOSION, &effect->Source, &target,
+        castSpellFromSource(W8_SPELL_BOILING_BLOOD_EXPLOSION, &effect->Source, &target,
                             effect->definition.duration_scale, effect->definition.percent, 0, false,
                             0, W8SpellCastKind::Standard, 0, 0);
     }
@@ -721,12 +720,12 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
 /* Scale a value by how far ahead of the difficulty's own pace one combatant
    is. Out of combat nothing is scaled; in combat a combatant slower than the
    pace is left alone too, and so is every value under an unknown difficulty. */
-void ScaleByCombatPace(int party_slot, unsigned int* value)
+void Spellcasting::scaleByCombatPace(int party_slot, unsigned int* value)
 {
     unsigned int pace;
     unsigned int phase_clock;
 
-    if (!CurrentGame().combat.has_value()) {
+    if (!game_.combat.has_value()) {
         return;
     }
 
@@ -744,7 +743,7 @@ void ScaleByCombatPace(int party_slot, unsigned int* value)
         std::unreachable();
     }
 
-    phase_clock = CurrentGame().combat->characters[party_slot].phase_clock_stamp;
+    phase_clock = game_.combat->characters[party_slot].phase_clock_stamp;
     if (pace <= phase_clock) {
         *value = ((0x32 - pace) + phase_clock) * *value * 2 / 100;
     }
@@ -754,9 +753,10 @@ void ScaleByCombatPace(int party_slot, unsigned int* value)
    difficulty off a seventeen-entry table, scaled by the caller's factor and
    divided by seven; a caster already at or past that has no chance of failing
    at all, and the rest is the shortfall as a percentage capped at a hundred. */
-unsigned int GetSpellFailureChance(unsigned int skill, int spell_id, int factor)
+unsigned int Spellcasting::getSpellFailureChance(unsigned int skill, int spell_id, int factor)
 {
-    int band = Data().spells[spell_id].spell_point_cost / 2 + Data().spells[spell_id].spell_level;
+    int band =
+        game_.data.spells[spell_id].spell_point_cost / 2 + game_.data.spells[spell_id].spell_level;
     unsigned int needed;
     unsigned int chance;
 
@@ -785,12 +785,12 @@ unsigned char g_profession_spellbooks[15] = {
 
 /* Repeat the remembered choice. A power override belongs to this cast;
    it does not rewrite the remembered power. */
-void StartCharacterSpellCast(int party_slot, int power_level)
+void Spellcasting::startCharacterSpellCast(int party_slot, int power_level)
 {
-    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
+    W8PartySlotRow* row = &game_.party.rows[party_slot];
     auto choice = row->remembered.spell;
     if (power_level != 0) choice.detail_block.spell.power_level = power_level;
-    if (CurrentGame().combat.has_value()) {
+    if (game_.combat.has_value()) {
         SetCharacterCombatAction(party_slot, choice, 1);
     } else {
         AimAtTarget(party_slot, choice.target);
@@ -809,20 +809,19 @@ void StartCharacterSpellCast(int party_slot, int power_level)
 /* The same for using an item. The item's own spell decides whether the target
    still holds, and where the item came from is recorded before the check so a
    failed use can put it back. */
-void StartCharacterItemUse(int party_slot)
+void Spellcasting::startCharacterItemUse(int party_slot)
 {
-    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
+    W8PartySlotRow* row = &game_.party.rows[party_slot];
     W8CombatSlot saved_target = row->remembered.item_target;
 
-    if (!CurrentGame().combat.has_value()) {
+    if (!game_.combat.has_value()) {
         AimAtTarget(party_slot, row->remembered.item_target);
     }
     ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &row->remembered.item_detail, false, 1);
     AimAtTarget(party_slot, saved_target);
 
     if (IsSpellTargetStillValid(
-            party_slot,
-            GetItemSpell(CurrentGame().party.itemAt(row->remembered.item_detail.item_use.item)),
+            party_slot, GetItemSpell(game_.party.itemAt(row->remembered.item_detail.item_use.item)),
             ParticipatingAction(party_slot, row->remembered.item()))) {
         StartBreathCycle(party_slot, false);
         return;
@@ -862,13 +861,16 @@ int GetTotalCasterLevel(const W8Character* character, int spellbook, bool includ
 /* Which spellbooks a spell belongs to, as the mask the profession table is
    tested against. A spell in no book at all answers nothing, which is what
    makes the test below a membership test rather than a comparison. */
-static unsigned char SpellbookMaskForSpell(int spell_id)
+unsigned char Spellcasting::spellbookMaskForSpell(int spell_id)
 {
     return static_cast<unsigned char>(
-        (Data().spells[spell_id].wizardry_spell != 0) |
-        (Data().spells[spell_id].psionics_spell != 0 ? W8_SPELLBOOK_PSIONICS : W8_SPELLBOOK_NONE) |
-        (Data().spells[spell_id].divinity_spell != 0 ? W8_SPELLBOOK_DIVINITY : W8_SPELLBOOK_NONE) |
-        (Data().spells[spell_id].alchemy_spell != 0 ? W8_SPELLBOOK_ALCHEMY : W8_SPELLBOOK_NONE));
+        (game_.data.spells[spell_id].wizardry_spell != 0) |
+        (game_.data.spells[spell_id].psionics_spell != 0 ? W8_SPELLBOOK_PSIONICS
+                                                         : W8_SPELLBOOK_NONE) |
+        (game_.data.spells[spell_id].divinity_spell != 0 ? W8_SPELLBOOK_DIVINITY
+                                                         : W8_SPELLBOOK_NONE) |
+        (game_.data.spells[spell_id].alchemy_spell != 0 ? W8_SPELLBOOK_ALCHEMY
+                                                        : W8_SPELLBOOK_NONE));
 }
 
 /* Whether the character knows any spell whose realm's remaining points still
@@ -894,9 +896,9 @@ bool CharacterHasCastableSpell(W8Character* character)
 
    The two ceilings are computed even when the first alone would settle it,
    which is what shows them as one rule rather than two guards. */
-bool CanCharacterLearnSpell(W8Character* character, int spell_id)
+bool Spellcasting::canCharacterLearnSpell(W8Character* character, int spell_id)
 {
-    unsigned char book = SpellbookMaskForSpell(spell_id);
+    unsigned char book = spellbookMaskForSpell(spell_id);
     int caster_level;
     int other;
     int other_level;
@@ -938,9 +940,10 @@ bool CanCharacterLearnSpell(W8Character* character, int spell_id)
         }
     }
 
-    spellbook_skill = GetBestSpellbookSkillForSpell(character, spell_id, false, false, 0);
+    spellbook_skill = getBestSpellbookSkillForSpell(character, spell_id, false, false, 0);
     skill_ceiling =
-        (character->skills[static_cast<int>(W8_SKILL_FIRE_MAGIC) + Data().spells[spell_id].realm]
+        (character
+                 ->skills[static_cast<int>(W8_SKILL_FIRE_MAGIC) + game_.data.spells[spell_id].realm]
                  .points /
              10 +
          character->skills[spellbook_skill].level) /
@@ -948,7 +951,7 @@ bool CanCharacterLearnSpell(W8Character* character, int spell_id)
         1;
     ceiling = skill_ceiling < level_ceiling ? skill_ceiling : level_ceiling;
 
-    return ceiling >= static_cast<unsigned int>(Data().spells[spell_id].spell_level);
+    return ceiling >= static_cast<unsigned int>(game_.data.spells[spell_id].spell_level);
 }
 
 /* One message-table index per realm, for the realm's name. */
@@ -964,28 +967,28 @@ unsigned short g_realm_message_offsets[W8_SPELL_REALM_COUNT] = {
 
    The line is assembled twice over: once only to measure the three pieces so
    the buffer can be allocated, and once into it. */
-void LearnSpell(W8Character* character, int spell_id, bool announce)
+void Spellcasting::learnSpell(W8Character* character, int spell_id, bool announce)
 {
     W8SpellRealm realm;
     std::string realm_name;
 
     character->spell_learned[spell_id] = 1;
-    realm = Data().spells[spell_id].realm;
+    realm = game_.data.spells[spell_id].realm;
     ++character->skill_unlocks[static_cast<int>(W8_SKILL_FIRE_MAGIC) + realm];
     const auto spell_point_ceilings = std::to_array(character->sp_max);
     character->skill_unlocks[W8_SKILL_IRON_WILL] =
-        RebuildRealmSpellPointCeilings(Data(), character);
+        RebuildRealmSpellPointCeilings(game_.data, character);
     FollowSpellPointCeilings(*character, spell_point_ceilings);
 
     if (!announce) {
         return;
     }
 
-    realm_name = Data().strings[g_realm_message_offsets[realm]];
+    realm_name = game_.data.strings[g_realm_message_offsets[realm]];
     const std::string line =
-        fmt::format("{}: \"{}\" - {}", fmt::sprintf(Data().strings[0x1b9], character->name),
-                    Data().spells[spell_id].display_name,
-                    fmt::sprintf(Data().strings[0x1ba], realm_name, character->sp_max[realm]));
+        fmt::format("{}: \"{}\" - {}", fmt::sprintf(game_.data.strings[0x1b9], character->name),
+                    game_.data.spells[spell_id].display_name,
+                    fmt::sprintf(game_.data.strings[0x1ba], realm_name, character->sp_max[realm]));
     ShowNoticeLine(line, 0, true, false);
 }
 
@@ -997,35 +1000,35 @@ int g_learn_sound = kFirstRemappedEvent + 16;
    Learning practises three things at once: the learning skill at twice the
    spell's level, the spell's own realm skill at its level, and every spellbook
    skill the spell belongs to at the same. */
-void LearnSpellFromItem(W8Character* character, W8ItemLocation location)
+void Spellcasting::learnSpellFromItem(W8Character* character, W8ItemLocation location)
 {
-    const W8ItemInstance* item = CurrentGame().party.itemAt(location);
+    const W8ItemInstance* item = game_.party.itemAt(location);
     unsigned int spell_id;
     int usage_points;
     unsigned int skill_id;
 
-    assert(Data().items[item->iItemNo].spell_id != W8_SPELL_NONE);
-    spell_id = Data().items[item->iItemNo].spell_id;
+    assert(game_.data.items[item->iItemNo].spell_id != W8_SPELL_NONE);
+    spell_id = game_.data.items[item->iItemNo].spell_id;
 
-    if (!CanCharacterLearnSpell(character, spell_id)) {
-        ShowNoticeLine(fmt::sprintf(Data().strings[0x1bb], character->name), 0, true, false);
+    if (!canCharacterLearnSpell(character, spell_id)) {
+        ShowNoticeLine(fmt::sprintf(game_.data.strings[0x1bb], character->name), 0, true, false);
         return;
     }
 
-    LearnSpell(character, spell_id, true);
-    usage_points = Data().spells[spell_id].spell_level;
-    PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_ARTIFACTS, usage_points * 2, false);
-    PracticeCharacterSkill(
-        CurrentGame(), character,
-        static_cast<W8Skill>(static_cast<int>(W8_SKILL_FIRE_MAGIC) + Data().spells[spell_id].realm),
-        usage_points, false);
+    learnSpell(character, spell_id, true);
+    usage_points = game_.data.spells[spell_id].spell_level;
+    PracticeCharacterSkill(game_, character, W8_SKILL_ARTIFACTS, usage_points * 2, false);
+    PracticeCharacterSkill(game_, character,
+                           static_cast<W8Skill>(static_cast<int>(W8_SKILL_FIRE_MAGIC) +
+                                                game_.data.spells[spell_id].realm),
+                           usage_points, false);
     for (skill_id = W8_SKILL_SPELLBOOK_WIZARDRY; skill_id < W8_SKILL_FIRE_MAGIC; ++skill_id) {
-        if (Data().spells[spell_id].wizardry_spell != 0) {
-            PracticeCharacterSkill(CurrentGame(), character, static_cast<W8Skill>(skill_id),
-                                   usage_points, false);
+        if (game_.data.spells[spell_id].wizardry_spell != 0) {
+            PracticeCharacterSkill(game_, character, static_cast<W8Skill>(skill_id), usage_points,
+                                   false);
         }
     }
-    (void)TakeInventoryItem(CurrentGame(), location);
+    (void)TakeInventoryItem(game_, location);
     QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventFullVolume);
 }
 
@@ -1041,9 +1044,9 @@ enum { W8_SPELL_POWER_AS_AFFORDABLE = 8, W8_SPELL_POWER_MAX = 7 };
    A spell asking for the affordable power level is priced at one here, so this
    answers whether the cast is possible at all rather than at the level the
    player picked. */
-bool CanPartySlotCastRecordedSpell(int party_slot)
+bool Spellcasting::canPartySlotCastRecordedSpell(int party_slot)
 {
-    const W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
+    const W8PartySlotRow* row = &game_.party.rows[party_slot];
     int spell_id = row->remembered.spell.detail;
     int power_level = row->remembered.spell.detail_block.spell.power_level;
 
@@ -1054,30 +1057,29 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
         GetConditionRecordFlag(party_slot, W8_DEPENDENCE_SUMMON)) {
         return false;
     }
-    if (CurrentGame().party.characters[party_slot].spell_learned[spell_id] != 1) {
+    if (game_.party.characters[party_slot].spell_learned[spell_id] != 1) {
         return false;
     }
     if (row->remembered.spell.detail_block.spell.power_level == W8_SPELL_POWER_AS_AFFORDABLE &&
-        Data().spells[spell_id].power_class == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT &&
-        CurrentGame().combat.has_value()) {
+        game_.data.spells[spell_id].power_class == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT &&
+        game_.combat.has_value()) {
         return false;
     }
 
     if (power_level == W8_SPELL_POWER_AS_AFFORDABLE) {
         power_level = 1;
     }
-    if (Data().spells[spell_id].spell_point_cost * power_level >
-        CurrentGame().party.characters[party_slot].iSPLeft[Data().spells[spell_id].realm]) {
+    if (game_.data.spells[spell_id].spell_point_cost * power_level >
+        game_.party.characters[party_slot].iSPLeft[game_.data.spells[spell_id].realm]) {
         return false;
     }
-    if (!SpellUsableNow(spell_id, false)) {
+    if (!spellUsableNow(spell_id, false)) {
         return false;
     }
-    if (!CurrentGame().combat.has_value() &&
+    if (!game_.combat.has_value() &&
         !IsSpellTargetStillValid(
             party_slot, spell_id,
-            ParticipatingAction(party_slot,
-                                CurrentGame().party.rows[party_slot].remembered.spell))) {
+            ParticipatingAction(party_slot, game_.party.rows[party_slot].remembered.spell))) {
         return false;
     }
     return true;
@@ -1087,9 +1089,9 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
    the one it asked for. Zero means the cast cannot happen at all - either
    because the spell fails the same checks as above, or because even one level
    is more than the pool holds. */
-int GetAffordableSpellPowerLevel(int party_slot)
+int Spellcasting::getAffordableSpellPowerLevel(int party_slot)
 {
-    const W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
+    const W8PartySlotRow* row = &game_.party.rows[party_slot];
     int spell_id = row->remembered.spell.detail;
     int power_level = row->remembered.spell.detail_block.spell.power_level;
     int cost;
@@ -1101,36 +1103,34 @@ int GetAffordableSpellPowerLevel(int party_slot)
         GetConditionRecordFlag(party_slot, W8_DEPENDENCE_SUMMON)) {
         return 0;
     }
-    if (CurrentGame().party.characters[party_slot].spell_learned[spell_id] != 1) {
+    if (game_.party.characters[party_slot].spell_learned[spell_id] != 1) {
         return 0;
     }
     if (row->remembered.spell.detail_block.spell.power_level == W8_SPELL_POWER_AS_AFFORDABLE &&
-        Data().spells[spell_id].power_class == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT &&
-        CurrentGame().combat.has_value()) {
+        game_.data.spells[spell_id].power_class == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT &&
+        game_.combat.has_value()) {
         return 0;
     }
-    if (!SpellUsableNow(spell_id, false)) {
+    if (!spellUsableNow(spell_id, false)) {
         return 0;
     }
-    if (!CurrentGame().combat.has_value() &&
+    if (!game_.combat.has_value() &&
         !IsSpellTargetStillValid(
             party_slot, spell_id,
-            ParticipatingAction(party_slot,
-                                CurrentGame().party.rows[party_slot].remembered.spell))) {
+            ParticipatingAction(party_slot, game_.party.rows[party_slot].remembered.spell))) {
         return 0;
     }
 
     if (power_level == W8_SPELL_POWER_AS_AFFORDABLE) {
         power_level = 1;
     }
-    cost = Data().spells[spell_id].spell_point_cost * power_level;
+    cost = game_.data.spells[spell_id].spell_point_cost * power_level;
     while (power_level != 0) {
-        if (cost <=
-            CurrentGame().party.characters[party_slot].iSPLeft[Data().spells[spell_id].realm]) {
+        if (cost <= game_.party.characters[party_slot].iSPLeft[game_.data.spells[spell_id].realm]) {
             return power_level;
         }
         --power_level;
-        cost -= Data().spells[spell_id].spell_point_cost;
+        cost -= game_.data.spells[spell_id].spell_point_cost;
     }
     return 0;
 }
@@ -1141,42 +1141,41 @@ int GetAffordableSpellPowerLevel(int party_slot)
 
    A spell whose target type is not the self-only one may be aimed anywhere; the
    self-only one has to be aimed at the user. */
-bool CanPartySlotUseRecordedItem(int party_slot)
+bool Spellcasting::canPartySlotUseRecordedItem(int party_slot)
 {
-    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
+    W8PartySlotRow* row = &game_.party.rows[party_slot];
     W8ItemInstance* item;
     int spell_id;
     bool normalize;
 
     const auto& use = row->remembered.item_detail.item_use;
     if (use.item.storage == W8ItemStorage::None || use.item.storage == W8ItemStorage::Hand ||
-        (use.item.storage == W8ItemStorage::Pool && CurrentGame().combat.has_value()))
+        (use.item.storage == W8ItemStorage::Pool && game_.combat.has_value()))
         return false;
-    item = ResolveItemUse(CurrentGame().party, use);
+    item = ResolveItemUse(game_.party, use);
     if (item == 0) {
         return false;
     }
     if (!CanUseItemForAction(party_slot, item)) {
         return false;
     }
-    if (!CanCharacterActivateItem(&CurrentGame().party.characters[party_slot], item)) {
+    if (!CanCharacterActivateItem(&game_.party.characters[party_slot], item)) {
         return false;
     }
 
     spell_id = GetItemSpell(item);
-    normalize = ItemClassNormalizesTarget(&Data().items[item->iItemNo]);
+    normalize = ItemClassNormalizesTarget(&game_.data.items[item->iItemNo]);
     if (GetSpellTargetType(spell_id, normalize) == W8_TARGET_TYPE_CASTER &&
         row->remembered.item_target.iChar != party_slot) {
         return false;
     }
-    if (!SpellUsableNow(spell_id, false)) {
+    if (!spellUsableNow(spell_id, false)) {
         return false;
     }
-    if (!CurrentGame().combat.has_value() &&
+    if (!game_.combat.has_value() &&
         !IsSpellTargetStillValid(
             party_slot, spell_id,
-            ParticipatingAction(party_slot,
-                                CurrentGame().party.rows[party_slot].remembered.item()))) {
+            ParticipatingAction(party_slot, game_.party.rows[party_slot].remembered.item()))) {
         return false;
     }
     return true;
@@ -1201,8 +1200,8 @@ static unsigned int MonsterSpellPointBudget(W8MonsterInfo* monster_info,
 
    The budget is the monster's database base plus its own runtime bonus; a base
    of zero is a data error the monster is named in. */
-unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, const W8MonsterRecord*,
-                                          int spell_id)
+unsigned int Spellcasting::chooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info,
+                                                        const W8MonsterRecord*, int spell_id)
 {
     unsigned int power_level;
     unsigned int budget;
@@ -1219,7 +1218,8 @@ unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, const W8M
 
         budget = MonsterSpellPointBudget(monster_info, record);
 
-        band = Data().spells[spell_id].spell_point_cost / 2 + Data().spells[spell_id].spell_level;
+        band = game_.data.spells[spell_id].spell_point_cost / 2 +
+               game_.data.spells[spell_id].spell_level;
         if (band > 16) {
             band = 16;
         }
@@ -1241,7 +1241,7 @@ unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, const W8M
         --power_level;
     }
 
-    switch (CurrentGame().rng.below(4)) {
+    switch (game_.rng.below(4)) {
     case 0:
         if (power_level > 2) {
             --power_level;
@@ -1268,7 +1268,7 @@ unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, const W8M
 
    A power level outside one through seven is silently taken as one, which is
    what makes a caller passing zero cast nothing at all rather than cast weakly. */
-int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level)
+int Spellcasting::pointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level)
 {
     W8TargetSource source;
     W8CombatSlot target;
@@ -1314,7 +1314,7 @@ int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level)
         return 0;
     }
 
-    CastSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0,
+    castSpellFromSource(spell_id, &source, &target, power_level, 0, 0, false, 0,
                         W8SpellCastKind::Standard, 0, 0);
     return 1;
 }
@@ -1327,10 +1327,11 @@ unsigned int GetSpellCastingSkillLevel(const W8Character* character, W8Skill spe
            5;
 }
 
-W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool pricing,
-                                      bool prefer_unlocked, unsigned int power_level)
+W8Skill Spellcasting::getBestSpellbookSkillForSpell(W8Character* character, int spell_id,
+                                                    bool pricing, bool prefer_unlocked,
+                                                    unsigned int power_level)
 {
-    unsigned char book = SpellbookMaskForSpell(spell_id);
+    unsigned char book = spellbookMaskForSpell(spell_id);
     unsigned char probe;
     unsigned int skill_id;
     W8Skill best_skill = W8_SKILL_NONE;
@@ -1341,7 +1342,7 @@ W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool
     int party_slot;
 
     if (pricing && character->uiCondition[W8_CONDITION_SILENCED] != 0 &&
-        Data().spells[spell_id].alchemy_spell != 0) {
+        game_.data.spells[spell_id].alchemy_spell != 0) {
         return W8_SKILL_SPELLBOOK_ALCHEMY;
     }
 
@@ -1369,16 +1370,16 @@ W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool
             unsigned int skill_figure;
 
             party_slot = CharacterPointerToPartySlot(character);
-            skill_figure =
-                GetSpellCastingSkillLevel(character, unlocked_skill, Data().spells[spell_id].realm);
-            failure = GetSpellFailureChance(skill_figure, spell_id, static_cast<int>(power_level));
+            skill_figure = GetSpellCastingSkillLevel(character, unlocked_skill,
+                                                     game_.data.spells[spell_id].realm);
+            failure = getSpellFailureChance(skill_figure, spell_id, static_cast<int>(power_level));
 
             shortfall = GetMinimumCasterLevelForSpell(spell_id) -
                         GetTotalCasterLevel(character, book, true) - 1 + power_level;
             if (shortfall > 0) {
-                failure += Data().spells[spell_id].spell_level * shortfall;
+                failure += game_.data.spells[spell_id].spell_level * shortfall;
             }
-            ScaleByCombatPace(party_slot, &failure);
+            scaleByCombatPace(party_slot, &failure);
             if (failure == 0) {
                 best_skill = unlocked_skill;
             }
@@ -1395,11 +1396,11 @@ W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool
    chosen spellbook skill weighted four to one against the realm skill, priced
    against the spell's cost band, plus the spell's level for every caster level
    short of what it asks for, scaled by the caster's combat pace. */
-static unsigned int GetCastFailureChance(W8Character* character, int spell_id,
-                                         unsigned int power_level)
+unsigned int Spellcasting::getCastFailureChance(W8Character* character, int spell_id,
+                                                unsigned int power_level)
 {
-    const W8SpellRuntimeRecord* record = &Data().spells[spell_id];
-    W8Skill skill = GetBestSpellbookSkillForSpell(character, spell_id, true, true, power_level);
+    const W8SpellRuntimeRecord* record = &game_.data.spells[spell_id];
+    W8Skill skill = getBestSpellbookSkillForSpell(character, spell_id, true, true, power_level);
     int party_slot = CharacterPointerToPartySlot(character);
     unsigned int skill_figure = GetSpellCastingSkillLevel(character, skill, record->realm);
     unsigned int chance;
@@ -1407,14 +1408,14 @@ static unsigned int GetCastFailureChance(W8Character* character, int spell_id,
     int caster_level;
     int shortfall;
 
-    chance = GetSpellFailureChance(skill_figure, spell_id, static_cast<int>(power_level));
-    book = SpellbookMaskForSpell(spell_id);
+    chance = getSpellFailureChance(skill_figure, spell_id, static_cast<int>(power_level));
+    book = spellbookMaskForSpell(spell_id);
     caster_level = GetTotalCasterLevel(character, book, true);
     shortfall = GetMinimumCasterLevelForSpell(spell_id) - caster_level - 1 + power_level;
     if (shortfall > 0) {
         chance += record->spell_level * shortfall;
     }
-    ScaleByCombatPace(party_slot, &chance);
+    scaleByCombatPace(party_slot, &chance);
     return chance;
 }
 
@@ -1433,13 +1434,14 @@ static unsigned int GetCastFailureChance(W8Character* character, int spell_id,
    Power level eight is the request to cast as high as affordable rather than a
    level, so it has no rating of its own. The power-level choosers carry the
    unbanded percentage from GetCastFailureChance rather than calling this. */
-W8SpellCastRating GetSpellCastRating(W8Character* character, int spell_id, unsigned int power_level)
+W8SpellCastRating Spellcasting::getSpellCastRating(W8Character* character, int spell_id,
+                                                   unsigned int power_level)
 {
     if (power_level == W8_SPELL_POWER_AS_AFFORDABLE) {
         return W8_CAST_RATING_AUTOMATIC;
     }
 
-    unsigned int chance = GetCastFailureChance(character, spell_id, power_level);
+    unsigned int chance = getCastFailureChance(character, spell_id, power_level);
     if (chance == 0) {
         return W8_CAST_RATING_NO_FAILURE;
     }
@@ -1484,10 +1486,10 @@ enum { W8_SPELL_FAILURE_ACCEPTABLE = 10 };
 
    A condition that never runs out cannot be out-waited, so it is answered with
    the lowest power level rather than the cheapest. */
-unsigned int ChoosePowerLevelForDuration(W8Character* character, int spell_id,
-                                         unsigned int turns_needed)
+unsigned int Spellcasting::choosePowerLevelForDuration(W8Character* character, int spell_id,
+                                                       unsigned int turns_needed)
 {
-    W8SpellRealm realm = Data().spells[spell_id].realm;
+    W8SpellRealm realm = game_.data.spells[spell_id].realm;
     unsigned int power_level;
     unsigned int best_cost = 0;
     unsigned int best_power = 0;
@@ -1502,11 +1504,11 @@ unsigned int ChoosePowerLevelForDuration(W8Character* character, int spell_id,
 
     for (power_level = 1; power_level < 8; ++power_level) {
         if (character->iSPLeft[realm] <
-            static_cast<int>(Data().spells[spell_id].spell_point_cost * power_level)) {
+            static_cast<int>(game_.data.spells[spell_id].spell_point_cost * power_level)) {
             return best_power;
         }
 
-        failure = GetCastFailureChance(character, spell_id, power_level);
+        failure = getCastFailureChance(character, spell_id, power_level);
         // A guaranteed failure delivers no duration and cannot be priced.
         if (failure >= 100) continue;
 
@@ -1517,7 +1519,7 @@ unsigned int ChoosePowerLevelForDuration(W8Character* character, int spell_id,
         if (turns_needed % per_turn != 0) {
             ++casts;
         }
-        cost = Data().spells[spell_id].spell_point_cost * casts * power_level;
+        cost = game_.data.spells[spell_id].spell_point_cost * casts * power_level;
 
         if (best_power == 0 || cost < best_cost) {
             best_power = power_level;
@@ -1535,8 +1537,8 @@ unsigned int ChoosePowerLevelForDuration(W8Character* character, int spell_id,
    Which pool is missing comes from the spell: one restores hit points, one
    stamina, and one takes hit points first and falls back to stamina when they
    are already full. */
-unsigned int ChoosePowerLevelToRestore(W8Character* character, int spell_id,
-                                       const W8Character* target)
+unsigned int Spellcasting::choosePowerLevelToRestore(W8Character* character, int spell_id,
+                                                     const W8Character* target)
 {
     int missing;
     unsigned int power_level;
@@ -1564,14 +1566,14 @@ unsigned int ChoosePowerLevelToRestore(W8Character* character, int spell_id,
     }
 
     for (power_level = 1; power_level < 8; ++power_level) {
-        failure = GetCastFailureChance(character, spell_id, power_level);
+        failure = getCastFailureChance(character, spell_id, power_level);
         if (failure > W8_SPELL_FAILURE_ACCEPTABLE) {
             if (power_level > 1) {
                 --power_level;
             }
             return power_level;
         }
-        if (missing < AverageEffectAtPower(Data().spells[spell_id].effect_dice, power_level)) {
+        if (missing < AverageEffectAtPower(game_.data.spells[spell_id].effect_dice, power_level)) {
             return power_level;
         }
     }
@@ -1592,8 +1594,9 @@ static unsigned int worstCondition(const unsigned int* conditions, std::initiali
 
 /* Pick automatic power from this cast's target. Zero means that no viable
    power was found; the caller must not turn that into a minimum-power cast. */
-static unsigned int ChooseSpellPowerLevelForTarget(W8Character* caster, int spell_id,
-                                                   const W8CombatSlot& target, int identify_context)
+unsigned int Spellcasting::chooseSpellPowerLevelForTarget(W8Character* caster, int spell_id,
+                                                          const W8CombatSlot& target,
+                                                          int identify_context)
 {
     const unsigned int* conditions = 0;
     const W8Character* target_character = 0;
@@ -1601,10 +1604,10 @@ static unsigned int ChooseSpellPowerLevelForTarget(W8Character* caster, int spel
     unsigned int worst;
 
     if (target.iType == W8_TARGET_KIND_CHARACTER) {
-        target_character = &CurrentGame().party.characters[target.iChar];
+        target_character = &game_.party.characters[target.iChar];
         conditions = target_character->uiCondition;
     } else if (target.iType == W8_TARGET_KIND_MONSTER) {
-        if (const W8MonsterInfo* monster_info = FindMonster(target.iMonsterID)) {
+        if (const W8MonsterInfo* monster_info = game_.level.findMonster(target.iMonsterID)) {
             conditions = monster_info->uiCondition;
         }
     }
@@ -1620,33 +1623,33 @@ static unsigned int ChooseSpellPowerLevelForTarget(W8Character* caster, int spel
         case W8_SPELL_HEAL_WOUNDS:
         case W8_SPELL_STAMINA:
         case W8_SPELL_RESTORATION:
-            power_level = ChoosePowerLevelToRestore(caster, spell_id, target_character);
+            power_level = choosePowerLevelToRestore(caster, spell_id, target_character);
             break;
         case W8_SPELL_CURE_LESSER_COND:
             worst = worstCondition(conditions, {W8_CONDITION_NAUSEATED, W8_CONDITION_AFRAID,
                                                 W8_CONDITION_ASLEEP, W8_CONDITION_BLIND});
-            power_level = ChoosePowerLevelForDuration(caster, spell_id, worst);
+            power_level = choosePowerLevelForDuration(caster, spell_id, worst);
             break;
         case W8_SPELL_CURE_PARALYSIS:
             power_level =
-                ChoosePowerLevelForDuration(caster, spell_id, conditions[W8_CONDITION_PARALYZED]);
+                choosePowerLevelForDuration(caster, spell_id, conditions[W8_CONDITION_PARALYZED]);
             break;
         case W8_SPELL_CURE_POISON:
             power_level =
-                ChoosePowerLevelForDuration(caster, spell_id, conditions[W8_CONDITION_POISONED]);
+                choosePowerLevelForDuration(caster, spell_id, conditions[W8_CONDITION_POISONED]);
             break;
         case W8_SPELL_CURE_DISEASE:
             power_level =
-                ChoosePowerLevelForDuration(caster, spell_id, conditions[W8_CONDITION_DISEASED]);
+                choosePowerLevelForDuration(caster, spell_id, conditions[W8_CONDITION_DISEASED]);
             break;
         case W8_SPELL_SANE_MIND:
             worst = worstCondition(
                 conditions, {W8_CONDITION_INSANE, W8_CONDITION_TURNCOAT, W8_CONDITION_ASLEEP});
-            power_level = ChoosePowerLevelForDuration(caster, spell_id, worst);
+            power_level = choosePowerLevelForDuration(caster, spell_id, worst);
             break;
         case W8_SPELL_REMOVE_CURSE:
             power_level =
-                ChoosePowerLevelForDuration(caster, spell_id, conditions[W8_CONDITION_HEXED]);
+                choosePowerLevelForDuration(caster, spell_id, conditions[W8_CONDITION_HEXED]);
             /* The one case where the target being a character says something
                the condition does not: the item they are carrying asks for more
                than the condition does. */
@@ -1664,7 +1667,7 @@ static unsigned int ChooseSpellPowerLevelForTarget(W8Character* caster, int spel
         if (spell_id != W8_SPELL_REST_ALL && spell_id != W8_SPELL_HEAL_ALL) {
             return 1;
         }
-        power_level = ChoosePowerLevelToRestore(caster, spell_id, 0);
+        power_level = choosePowerLevelToRestore(caster, spell_id, 0);
         break;
 
     case W8_TARGET_TYPE_ITEM:
@@ -1672,7 +1675,7 @@ static unsigned int ChooseSpellPowerLevelForTarget(W8Character* caster, int spel
             return 1;
         }
         power_level =
-            CountIdentifyAttemptsNeeded(CurrentGame().party.itemAt(target.item), identify_context);
+            CountIdentifyAttemptsNeeded(game_.party.itemAt(target.item), identify_context);
         break;
 
     default:
@@ -1702,7 +1705,8 @@ unsigned short g_name_prefix_messages[15] = {
 /* Say in words what a spell is aimed at. A character or a monster whose name
    the party does not have is described by its name prefix instead. Everything
    else is a fixed word. */
-static std::string SpellTargetString(const W8TargetSource* source, const W8CombatSlot* target)
+std::string Spellcasting::spellTargetString(const W8TargetSource* source,
+                                            const W8CombatSlot* target)
 {
     unsigned short name_prefix;
 
@@ -1718,25 +1722,24 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
         assert(target->iChar != -1);
         if (!TargetSourceIsCharacter(source, 0) || source->name_known ||
             source->iChar != target->iChar) {
-            return fmt::sprintf(Data().strings[W8_MESSAGE_TARGET_AT / 4],
-                                CurrentGame().party.characters[target->iChar].name);
+            return fmt::sprintf(game_.data.strings[W8_MESSAGE_TARGET_AT / 4],
+                                game_.party.characters[target->iChar].name);
         }
-        name_prefix =
-            g_name_prefix_messages[CurrentGame().party.characters[target->iChar].gender * 4];
+        name_prefix = g_name_prefix_messages[game_.party.characters[target->iChar].gender * 4];
         break;
 
     case 2:
-        return Data().strings[W8_MESSAGE_TARGET_PARTY / 4];
+        return game_.data.strings[W8_MESSAGE_TARGET_PARTY / 4];
 
     case 3: {
         W8MonsterInfo* monster_info;
         const W8MonsterRecord* record;
 
         assert(target->iMonsterID != -1);
-        monster_info = FindMonster(target->iMonsterID);
+        monster_info = game_.level.findMonster(target->iMonsterID);
         record = GetMonsterDataForInfo(monster_info);
         if (!TargetSourceIsMonster(source, 0) || source->iMonsterID != target->iMonsterID) {
-            return fmt::sprintf(Data().strings[W8_MESSAGE_TARGET_AT / 4],
+            return fmt::sprintf(game_.data.strings[W8_MESSAGE_TARGET_AT / 4],
                                 GetMonsterName(monster_info, record, 0));
         }
         name_prefix = g_name_prefix_messages[record->name_group * 4];
@@ -1744,25 +1747,26 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
     }
 
     case 4:
-        return fmt::sprintf(Data().strings[W8_MESSAGE_TARGET_AT / 4],
+        return fmt::sprintf(game_.data.strings[W8_MESSAGE_TARGET_AT / 4],
                             GetMonsterGroupName(FindMonsterGroup(target->iGroupID)));
 
     case W8_TARGET_KIND_ALL_ENEMIES:
-        return Data().strings[W8_MESSAGE_TARGET_PLACE / 4];
+        return game_.data.strings[W8_MESSAGE_TARGET_PLACE / 4];
 
     case 7:
         return fmt::sprintf(
-            Data().strings[W8_MESSAGE_TARGET_ITEM / 4],
-            FormatItemDisplayName(Data(), CurrentGame().party.itemAt(target->item), false));
+            game_.data.strings[W8_MESSAGE_TARGET_ITEM / 4],
+            FormatItemDisplayName(game_.data, game_.party.itemAt(target->item), false));
 
     case W8_TARGET_KIND_EIGHT:
-        return Data().strings[W8_MESSAGE_TARGET_DIRECTION / 4];
+        return game_.data.strings[W8_MESSAGE_TARGET_DIRECTION / 4];
 
     default:
         return {};
     }
 
-    return fmt::sprintf(Data().strings[W8_MESSAGE_TARGET_AT / 4], Data().strings[name_prefix]);
+    return fmt::sprintf(game_.data.strings[W8_MESSAGE_TARGET_AT / 4],
+                        game_.data.strings[name_prefix]);
 }
 
 /* The two log lines a monster's cast is announced with: one that names the
@@ -1777,7 +1781,8 @@ enum { W8_MESSAGE_MONSTER_CAST_VERBOSE = 0x638, W8_MESSAGE_MONSTER_CAST = 0x63c 
    Its failure chance is the same rule the party's is, with the monster's
    spell-point budget standing in for a caster's spellbook skill, which is what
    makes the two one rule rather than a monster-specific one. */
-unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsigned int power_level)
+unsigned int Spellcasting::monsterCastsSpell(W8MonsterInfo* monster_info, int spell_id,
+                                             unsigned int power_level)
 {
     const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     W8TargetSource source;
@@ -1788,27 +1793,28 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
     SetTargetSourceToMonster(monster_info, &source);
 
     if (g_settings.verbose_combat_messages == 0) {
-        CurrentGame().events.push(TextNotice{
-            W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[W8_MESSAGE_MONSTER_CAST / 4],
+        game_.events.push(TextNotice{
+            W8_FONT_PALETTE_RUST, fmt::sprintf(game_.data.strings[W8_MESSAGE_MONSTER_CAST / 4],
                                                GetMonsterName(monster_info, record, 0),
-                                               Data().spells[spell_id].display_name,
-                                               SpellTargetString(&source, &monster_info->Target))});
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, 9});
+                                               game_.data.spells[spell_id].display_name,
+                                               spellTargetString(&source, &monster_info->Target))});
+        game_.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, 9});
     } else {
-        CurrentGame().events.push(TextNotice{
-            W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[W8_MESSAGE_MONSTER_CAST_VERBOSE / 4],
-                                               GetMonsterName(monster_info, record, 0),
-                                               Data().spells[spell_id].display_name, power_level,
-                                               SpellTargetString(&source, &monster_info->Target))});
+        game_.events.push(
+            TextNotice{W8_FONT_PALETTE_RUST,
+                       fmt::sprintf(game_.data.strings[W8_MESSAGE_MONSTER_CAST_VERBOSE / 4],
+                                    GetMonsterName(monster_info, record, 0),
+                                    game_.data.spells[spell_id].display_name, power_level,
+                                    spellTargetString(&source, &monster_info->Target))});
     }
 
     record = GetMonsterDataForInfo(monster_info);
     budget = MonsterSpellPointBudget(monster_info, record);
-    failure = GetSpellFailureChance(budget, spell_id, static_cast<int>(power_level));
+    failure = getSpellFailureChance(budget, spell_id, static_cast<int>(power_level));
 
-    CastSpellFromSource(spell_id, &source, &monster_info->Target, power_level, 0, failure, false,
+    castSpellFromSource(spell_id, &source, &monster_info->Target, power_level, 0, failure, false,
                         &result, W8SpellCastKind::Standard, 0, 0);
-    return SpellCastFatigueCost(spell_id, result);
+    return game_.vitality.spellCastFatigueCost(spell_id, result);
 }
 
 void W8SpellEffectEntry::AddVisual(SpellVisual* visual)
@@ -1821,14 +1827,15 @@ void W8SpellEffectEntry::AddVisual(SpellVisual* visual)
 
 /* The target already contains the lowered gameplay anchor. Recreating the visuals
    after a load must not lower the persisted point again. */
-void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, const W8CombatSlot* target)
+void Spellcasting::spawnLureEffects(W8SpellEffectEntry* owner, int argument,
+                                    const W8CombatSlot* target)
 {
     glm::vec3 position;
     SpellVisual* effect;
 
     position = target->point;
 
-    effect = SpawnSpellEffect(&position, Data().spells[W8_SPELL_HYPNOTIC_LURE].resource_name,
+    effect = SpawnSpellEffect(&position, game_.data.spells[W8_SPELL_HYPNOTIC_LURE].resource_name,
                               argument, 0, 0);
     owner->AddVisual(effect);
 
@@ -1851,54 +1858,55 @@ void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, const W8CombatSlo
    character's notice, a text record formats its own "%s %s" line, and the box
    is reset around each. With nothing reported at all the effect reports that
    its target took no damage. */
-void ReportSpellResult(W8SpellEffectEntry* effect)
+void Spellcasting::reportSpellResult(W8SpellEffectEntry* effect)
 {
 
     if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
         AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+        game_.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
     }
     if (effect->result.amount != 0) {
         if (effect->result.count == 1) {
-            AppendToLastTextLine(fmt::sprintf(Data().strings[0x19a], effect->result.amount), -1);
+            AppendToLastTextLine(fmt::sprintf(game_.data.strings[0x19a], effect->result.amount),
+                                 -1);
         } else {
-            AppendToLastTextLine(fmt::sprintf(Data().strings[0x199], effect->result.count,
+            AppendToLastTextLine(fmt::sprintf(game_.data.strings[0x199], effect->result.count,
                                               effect->result.amount / effect->result.count, -1),
                                  -1);
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+            game_.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+        game_.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         effect->reported = true;
     }
     for (int condition = W8_CONDITION_DRAINED; condition < W8_CONDITION_COUNT; ++condition) {
         if (effect->result.condition_counts[condition] != 0) {
             if (effect->reported && GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
                 AppendToLastTextLine(", ", -1);
-                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+                game_.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             }
             if (effect->result.condition_counts[condition] == 1) {
                 if (effect->target.iType == W8_TARGET_KIND_CHARACTER) {
                     AppendToLastTextLine(
-                        fmt::format("{} {}",
-                                    CurrentGame().party.characters[effect->target.iChar].name,
-                                    Data().strings[kConditionNotices[condition].singular]),
+                        fmt::format("{} {}", game_.party.characters[effect->target.iChar].name,
+                                    game_.data.strings[kConditionNotices[condition].singular]),
                         -1);
                 } else if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
-                    W8MonsterInfo* monster_info = FindMonster(effect->target.iMonsterID);
+                    W8MonsterInfo* monster_info =
+                        game_.level.findMonster(effect->target.iMonsterID);
                     if (monster_info != 0) {
                         AppendToLastTextLine(
                             fmt::format("{} {}", GetMonsterName(monster_info, 0, 0),
-                                        Data().strings[kConditionNotices[condition].singular]),
+                                        game_.data.strings[kConditionNotices[condition].singular]),
                             -1);
                     }
                 }
             } else {
                 AppendToLastTextLine(
                     fmt::format("{:d} {}", effect->result.condition_counts[condition],
-                                Data().strings[kConditionNotices[condition].plural]),
+                                game_.data.strings[kConditionNotices[condition].plural]),
                     -1);
             }
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+            game_.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             effect->reported = true;
         }
     }
@@ -1908,37 +1916,38 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
         effect->result.reports.erase(effect->result.reports.begin());
         if (report != 0) {
             if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
-                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_NOTICE, -1});
-                CurrentGame().events.push(CharacterNotice{
+                game_.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_NOTICE, -1});
+                game_.events.push(CharacterNotice{
                     static_cast<unsigned int>(report->value),
-                    fmt::format("{}!",
-                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
+                    fmt::format(
+                        "{}!", game_.data.strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
                 effect->reported = true;
             } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
-                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_NOTICE, -1});
-                CurrentGame().events.push(TextNotice{
+                game_.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_NOTICE, -1});
+                game_.events.push(TextNotice{
                     W8_FONT_PALETTE_RUST,
-                    fmt::format("{} {}!", report->text,
-                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
+                    fmt::format(
+                        "{} {}!", report->text,
+                        game_.data.strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
                 effect->reported = true;
             }
         }
     }
     if (!effect->reported) {
-        AppendToLastTextLine(Data().strings[0x1a5], -1);
+        AppendToLastTextLine(game_.data.strings[0x1a5], -1);
     }
 }
 
-bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool item_cast,
-                         bool skip_world_cursor)
+bool Spellcasting::validateSpellTarget(int party_slot, int spell_id, unsigned int power,
+                                       bool item_cast, bool skip_world_cursor)
 {
     std::vector<int> monsters;
     std::vector<int> party;
     W8TargetSource source;
     SetTargetSourceToCharacter(party_slot, &source);
-    PopulateSpellTargetMarkers(spell_id, power, &source,
-                               &CurrentGame().party.rows[party_slot].executing.target, monsters,
-                               party, W8AreaSightRule::RequireLineOfSight);
+    populateSpellTargetMarkers(spell_id, power, &source,
+                               &game_.party.rows[party_slot].executing.target, monsters, party,
+                               W8AreaSightRule::RequireLineOfSight);
 
     bool valid = true;
     bool has_targets = spell_id == W8_SPELL_SONIC_BOOM || !monsters.empty() || !party.empty();
@@ -1949,12 +1958,12 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
     }
     if (!has_targets) {
         if (!item_cast) {
-            CurrentGame().events.push(CharacterNotice{
+            game_.events.push(CharacterNotice{
                 static_cast<unsigned int>(party_slot),
-                fmt::sprintf(Data().strings[0x1b7], Data().spells[spell_id].display_name)});
+                fmt::sprintf(game_.data.strings[0x1b7], game_.data.spells[spell_id].display_name)});
         } else {
-            CurrentGame().events.push(
-                CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x1b8]});
+            game_.events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot), game_.data.strings[0x1b8]});
         }
         valid = false;
     } else if (!skip_world_cursor && DispatchWorldCursorNodeCommand(0, 4, 1)) {
@@ -1966,20 +1975,20 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
          LevelMovedThisUpdate())) {
         valid = false;
     }
-    if (!valid && (!CurrentGame().combat.has_value() || !MonsterCanAimSpell(spell_id) ||
-                   CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 ||
-                   !CurrentGame().combat->enemies_engaged)) {
-        QueueCharacterEvent(&CurrentGame().party.characters[party_slot], 0x35, 0,
+    if (!valid && (!game_.combat.has_value() || !MonsterCanAimSpell(spell_id) ||
+                   game_.level.population().monster_roster.hostileCombatCount() != 0 ||
+                   !game_.combat->enemies_engaged)) {
+        QueueCharacterEvent(&game_.party.characters[party_slot], 0x35, 0,
                             kCharacterEventFullVolume);
     }
     return valid;
 }
 
 // A cooldown limits skill practice, not whether the spell itself can be cast.
-static std::uint64_t* SpellPracticeCooldown(int spell_id)
+std::uint64_t* Spellcasting::spellPracticeCooldown(int spell_id)
 {
     constexpr int spells[] = {30, 38, 75, 73, 32, 33, 17, 20, 8, 40, 26, 45, 64, 58};
-    if (CurrentGame().combat) {
+    if (game_.combat) {
         switch (spell_id) {
         case W8_SPELL_ENCHANTED_BLADE:
         case W8_SPELL_MISSILE_SHIELD:
@@ -1989,22 +1998,22 @@ static std::uint64_t* SpellPracticeCooldown(int spell_id)
             return nullptr;
         case W8_SPELL_SONIC_BOOM:
         case W8_SPELL_HYPNOTIC_LURE:
-            if (CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) return nullptr;
+            if (game_.level.population().monster_roster.hostileCombatCount() > 0) return nullptr;
         }
     }
     const auto slot = std::ranges::find(spells, spell_id);
-    return slot == std::end(spells) ? nullptr : &CurrentGame().spell_cooldowns[slot - spells];
+    return slot == std::end(spells) ? nullptr : &game_.spell_cooldowns[slot - spells];
 }
 
 /* Pure skill-practice eligibility at the supplied game-step time. */
-bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int power,
-                         std::uint64_t now)
+bool Spellcasting::spellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int power,
+                                       std::uint64_t now)
 {
-    if (const auto* deadline = SpellPracticeCooldown(spell_id); deadline && now < *deadline)
+    if (const auto* deadline = spellPracticeCooldown(spell_id); deadline && now < *deadline)
         return false;
     const auto target_conditions = [&](W8TargetKind kind = W8_TARGET_KIND_CHARACTER) {
-        return aim->iType == kind ? CurrentGame().party.characters[aim->iChar].uiCondition
-                                  : FindMonster(aim->iMonsterID)->uiCondition;
+        return aim->iType == kind ? game_.party.characters[aim->iChar].uiCondition
+                                  : game_.level.findMonster(aim->iMonsterID)->uiCondition;
     };
     unsigned int duration;
     unsigned int index;
@@ -2014,8 +2023,8 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
     const W8Character* target;
     bool affected;
 
-    duration =
-        Data().spells[spell_id].duration * power + Data().spells[spell_id].duration_per_level;
+    duration = game_.data.spells[spell_id].duration * power +
+               game_.data.spells[spell_id].duration_per_level;
     affected = true;
     if (duration != W8_CONDITION_INDEFINITE) {
         duration += 1;
@@ -2025,12 +2034,12 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
     case W8_SPELL_MISSILE_SHIELD:
     case W8_SPELL_ARMORPLATE:
     case W8_SPELL_MAGIC_SCREEN:
-        if (CurrentGame().combat.has_value()) {
+        if (game_.combat.has_value()) {
             for (index = 0; index < 12; ++index) {
                 if (g_being_effect_slot_spells[index] == spell_id) {
-                    affected = CurrentGame().status.effect_slots[index].duration /
-                                   static_cast<float>(duration) <=
-                               g_navigator_vertical_phase_step;
+                    affected =
+                        game_.status.effect_slots[index].duration / static_cast<float>(duration) <=
+                        g_navigator_vertical_phase_step;
                     break;
                 }
             }
@@ -2040,11 +2049,11 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
     case W8_SPELL_ELEMENT_SHIELD:
     case W8_SPELL_SOUL_SHIELD:
     case W8_SPELL_RING_OF_FIRE:
-        if (CurrentGame().combat.has_value() &&
-            CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
+        if (game_.combat.has_value() &&
+            game_.level.population().monster_roster.hostileCombatCount() > 0) {
             for (index = 0; index < 9; ++index) {
                 if (g_combat_effect_slot_spells_and_cast_success[index] == spell_id) {
-                    affected = CurrentGame().combat->effect_slots0[index].duration /
+                    affected = game_.combat->effect_slots0[index].duration /
                                    static_cast<float>(duration) <=
                                g_navigator_vertical_phase_step;
                     break;
@@ -2060,12 +2069,12 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
     case W8_SPELL_EYE_FOR_AN_EYE:
     case W8_SPELL_SUPERMAN:
     case W8_SPELL_BODY_OF_STONE:
-        if (CurrentGame().combat.has_value() &&
-            CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
+        if (game_.combat.has_value() &&
+            game_.level.population().monster_roster.hostileCombatCount() > 0) {
             if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-                enchantments = CurrentGame().party.characters[aim->iChar].enchantments;
+                enchantments = game_.party.characters[aim->iChar].enchantments;
             } else {
-                monster_info = FindMonster(aim->iMonsterID);
+                monster_info = game_.level.findMonster(aim->iMonsterID);
                 enchantments = monster_info->enchantments;
             }
             W8EnchantmentSlot enchantment = GetConditionDisplaySlot(spell_id);
@@ -2076,18 +2085,15 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
         affected = false;
         break;
     case W8_SPELL_HASTE:
-        if (CurrentGame().combat.has_value() &&
-            CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
+        if (game_.combat.has_value() &&
+            game_.level.population().monster_roster.hostileCombatCount() > 0) {
             if (aim->iType != W8_TARGET_KIND_PARTY) {
                 return true;
             }
             affected = false;
             for (index = 0; index < 8; ++index) {
-                if (CurrentGame().party.members[index].has_value() &&
-                    CurrentGame()
-                                .party.characters[index]
-                                .enchantments[W8_ENCHANTMENT_RAZOR_CLOAK]
-                                .turns /
+                if (game_.party.members[index].has_value() &&
+                    game_.party.characters[index].enchantments[W8_ENCHANTMENT_RAZOR_CLOAK].turns /
                             static_cast<float>(duration) <=
                         g_navigator_vertical_phase_step) {
                     affected = true;
@@ -2099,12 +2105,12 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
         break;
     case W8_SPELL_HEAL_WOUNDS:
         if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            if (CurrentGame().party.characters[aim->iChar].hp_current ==
-                static_cast<unsigned int>(CurrentGame().party.characters[aim->iChar].uiHPMax)) {
+            if (game_.party.characters[aim->iChar].hp_current ==
+                static_cast<unsigned int>(game_.party.characters[aim->iChar].uiHPMax)) {
                 return false;
             }
         } else {
-            monster_info = FindMonster(aim->iMonsterID);
+            monster_info = game_.level.findMonster(aim->iMonsterID);
             if (monster_info->hp_current == static_cast<unsigned int>(monster_info->uiHPMax)) {
                 return false;
             }
@@ -2112,8 +2118,8 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
         break;
     case W8_SPELL_HEAL_ALL:
         for (index = 0; index < 8; ++index) {
-            target = &CurrentGame().party.characters[index];
-            if (CurrentGame().party.members[index].has_value() &&
+            target = &game_.party.characters[index];
+            if (game_.party.members[index].has_value() &&
                 target->highest_condition <= W8_CONDITION_DEAD &&
                 target->hp_current < static_cast<unsigned int>(target->uiHPMax)) {
                 return true;
@@ -2121,22 +2127,22 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
         }
         return false;
     case W8_SPELL_STAMINA:
-        if (CurrentGame().combat.has_value()) {
+        if (game_.combat.has_value()) {
             if (aim->iType != W8_TARGET_KIND_CHARACTER) {
-                monster_info = FindMonster(aim->iMonsterID);
+                monster_info = game_.level.findMonster(aim->iMonsterID);
                 return monster_info->stamina != monster_info->stamina_max;
             }
-            return CurrentGame().party.characters[aim->iChar].stamina !=
-                   CurrentGame().party.characters[aim->iChar].uiStaminaMax;
+            return game_.party.characters[aim->iChar].stamina !=
+                   game_.party.characters[aim->iChar].uiStaminaMax;
         }
         affected = false;
         break;
     case W8_SPELL_REST_ALL:
         affected = false;
-        if (CurrentGame().combat.has_value()) {
+        if (game_.combat.has_value()) {
             for (index = 0; index < 8; ++index) {
-                target = &CurrentGame().party.characters[index];
-                if (CurrentGame().party.members[index].has_value() &&
+                target = &game_.party.characters[index];
+                if (game_.party.members[index].has_value() &&
                     target->highest_condition <= W8_CONDITION_DEAD &&
                     static_cast<unsigned int>(target->stamina) <
                         static_cast<unsigned int>(target->uiStaminaMax)) {
@@ -2148,7 +2154,7 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
         break;
     case W8_SPELL_RESTORATION:
         if (aim->iType == W8_TARGET_KIND_CHARACTER) {
-            target = &CurrentGame().party.characters[aim->iChar];
+            target = &game_.party.characters[aim->iChar];
             for (index = 1; index < 0x12; ++index) {
                 if (target->uiCondition[index] != 0) {
                     return true;
@@ -2158,7 +2164,7 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
                        static_cast<unsigned int>(target->uiStaminaMax) ||
                    target->hp_current < static_cast<unsigned int>(target->uiHPMax);
         }
-        monster_info = FindMonster(aim->iMonsterID);
+        monster_info = game_.level.findMonster(aim->iMonsterID);
         for (index = 1; index < 0x12; ++index) {
             if (monster_info->uiCondition[index] != 0) {
                 return true;
@@ -2213,9 +2219,9 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
         break;
     case W8_SPELL_PURIFY_AIR:
         affected = false;
-        if (CurrentGame().combat.has_value()) {
+        if (game_.combat.has_value()) {
             for (index = 0; index < 9; ++index) {
-                if (CurrentGame().combat->effect_slots[index].active) {
+                if (game_.combat->effect_slots[index].active) {
                     return true;
                 }
             }
@@ -2223,7 +2229,7 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
         }
         break;
     case W8_SPELL_IDENTIFY_ITEM:
-        if (CurrentGame().party.itemAt(aim->item)->identified) {
+        if (game_.party.itemAt(aim->item)->identified) {
             return false;
         }
         break;
@@ -2241,11 +2247,11 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
 
 // Both ordinary casts and item uses record an attempt at their existing practice point.
 // Failed attempts also restart the deadline; merely inspecting eligibility never does.
-bool AttemptSpellPractice(int spell_id, const W8CombatSlot* aim, unsigned int power,
-                          std::uint64_t now)
+bool Spellcasting::attemptSpellPractice(int spell_id, const W8CombatSlot* aim, unsigned int power,
+                                        std::uint64_t now)
 {
-    const bool affected = SpellAffectedTarget(spell_id, aim, power, now);
-    if (auto* deadline = SpellPracticeCooldown(spell_id)) *deadline = now + 180000;
+    const bool affected = spellAffectedTarget(spell_id, aim, power, now);
+    if (auto* deadline = spellPracticeCooldown(spell_id)) *deadline = now + 180000;
     return affected;
 }
 
@@ -2253,8 +2259,8 @@ bool AttemptSpellPractice(int spell_id, const W8CombatSlot* aim, unsigned int po
    notices, the success-chance figure, the point spend and the skill practice
    all happen here. Answers the cast step's status; out_points gets the
    fatigue cost. */
-int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_level,
-                              int* out_points, bool continue_cast)
+int Spellcasting::executeCharacterSpellCast(int party_slot, int spell_id, unsigned int power_level,
+                                            int* out_points, bool continue_cast)
 {
     W8Character* character;
     const W8SpellRuntimeRecord* record;
@@ -2283,14 +2289,14 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     bool recast;
     bool clamp_power;
 
-    character = &CurrentGame().party.characters[party_slot];
-    record = &Data().spells[spell_id];
+    character = &game_.party.characters[party_slot];
+    record = &game_.data.spells[spell_id];
     realm = record->realm;
     sp_cost = record->spell_point_cost;
     *out_points = 0;
     switch (record->power_class) {
     case W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT:
-        if (!CurrentGame().combat.has_value() && power_level == 8) {
+        if (!game_.combat.has_value() && power_level == 8) {
             recast = true;
             clamp_power = false;
             break;
@@ -2320,18 +2326,18 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
             power_level = character->iSPLeft[realm] / sp_cost;
         }
     } else if (character->iSPLeft[realm] < static_cast<int>(sp_cost)) {
-        CurrentGame().events.push(
+        game_.events.push(
             CharacterNotice{static_cast<unsigned int>(party_slot),
-                            fmt::sprintf(Data().strings[0x18a], record->display_name)});
+                            fmt::sprintf(game_.data.strings[0x18a], record->display_name)});
         return 0;
     }
     if (power_level == 0) {
-        CurrentGame().events.push(
+        game_.events.push(
             CharacterNotice{static_cast<unsigned int>(party_slot),
-                            fmt::sprintf(Data().strings[0x18a], record->display_name)});
+                            fmt::sprintf(game_.data.strings[0x18a], record->display_name)});
         return 0;
     }
-    if (!ValidateSpellTarget(party_slot, spell_id, power_level, false, false)) {
+    if (!validateSpellTarget(party_slot, spell_id, power_level, false, false)) {
         return 0;
     }
     if (character->uiCondition[W8_CONDITION_SILENCED] != 0 &&
@@ -2344,9 +2350,9 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     } else {
         power_cast_bonus = (character->skills[W8_SKILL_POWER_CAST].level >> 2) + 1;
     }
-    aim = &CurrentGame().party.rows[party_slot].executing.target;
+    aim = &game_.party.rows[party_slot].executing.target;
     if (power_level == 8) {
-        power_level = ChooseSpellPowerLevelForTarget(character, spell_id, *aim, power_cast_bonus);
+        power_level = chooseSpellPowerLevelForTarget(character, spell_id, *aim, power_cast_bonus);
         if (power_level == 0) {
             return 0;
         }
@@ -2357,23 +2363,23 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     }
     if (g_settings.verbose_combat_messages == 0) {
         if (!continue_cast) {
-            CurrentGame().events.push(
+            game_.events.push(
                 CharacterNotice{static_cast<unsigned int>(party_slot),
-                                fmt::sprintf(Data().strings[0x18c], record->display_name,
-                                             SpellTargetString(&source, aim))});
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, 8});
+                                fmt::sprintf(game_.data.strings[0x18c], record->display_name,
+                                             spellTargetString(&source, aim))});
+            game_.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, 8});
         } else {
-            CurrentGame().events.push(
-                CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x18d]});
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, 8});
+            game_.events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot), game_.data.strings[0x18d]});
+            game_.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, 8});
         }
     } else {
-        CurrentGame().events.push(
+        game_.events.push(
             CharacterNotice{static_cast<unsigned int>(party_slot),
-                            fmt::sprintf(Data().strings[0x18b], record->display_name, power_level,
-                                         SpellTargetString(&source, aim))});
+                            fmt::sprintf(game_.data.strings[0x18b], record->display_name,
+                                         power_level, spellTargetString(&source, aim))});
     }
-    best_skill = GetBestSpellbookSkillForSpell(character, spell_id, true, true, power_level);
+    best_skill = getBestSpellbookSkillForSpell(character, spell_id, true, true, power_level);
     realm_skill = static_cast<W8Skill>(realm + 0x1c);
     slot = CharacterPointerToPartySlot(character);
     level_index = record->spell_point_cost / 2 + record->spell_level;
@@ -2408,7 +2414,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     if (0 < index) {
         chance += record->spell_level * index;
     }
-    if (CurrentGame().combat.has_value()) {
+    if (game_.combat.has_value()) {
         if (g_settings.difficulty == W8_DIFFICULTY_NOVICE) {
             morale = 0x50;
         } else if (g_settings.difficulty == W8_DIFFICULTY_NORMAL) {
@@ -2419,7 +2425,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
             }
             morale = 0x28;
         }
-        threshold = CurrentGame().combat->characters[slot].phase_clock_stamp;
+        threshold = game_.combat->characters[slot].phase_clock_stamp;
         if (morale <= threshold) {
             chance = (((0x32 - morale) + threshold) * chance * 2) / 100;
         }
@@ -2431,17 +2437,17 @@ finish_difficulty_adjustment:
     }
     for (index = 0; index < 0x72; ++index) {
         if (index != 0 && character->spell_learned[index] == 1 &&
-            Data().spells[index].spell_point_cost <=
-                character->iSPLeft[Data().spells[index].realm] &&
-            SpellUsableNow(index, false)) {
-            ++CurrentGame().status.spell_usage[index - 1].usable_cast_count;
+            game_.data.spells[index].spell_point_cost <=
+                character->iSPLeft[game_.data.spells[index].realm] &&
+            spellUsableNow(index, false)) {
+            ++game_.status.spell_usage[index - 1].usable_cast_count;
         }
     }
-    ++CurrentGame().status.spell_usage[spell_id - 1].cast_count;
-    affected = AttemptSpellPractice(spell_id, aim, power_level,
-                                    static_cast<std::uint64_t>(CurrentGame().time.count()));
+    ++game_.status.spell_usage[spell_id - 1].cast_count;
+    affected = attemptSpellPractice(spell_id, aim, power_level,
+                                    static_cast<std::uint64_t>(game_.time.count()));
     if (!continue_cast) {
-        if (CurrentGame().rng.below(2) != 0) {
+        if (game_.rng.below(2) != 0) {
             index = g_special_event6;
         } else {
             index = g_special_event5;
@@ -2451,28 +2457,29 @@ finish_difficulty_adjustment:
     // Immediate effects can recursively cast again. Pay for this attempt
     // before they see the available mana, and refund a cancelled attempt.
     const int mana_cost = power_level * sp_cost;
-    SpendCharacterSpellPoints(party_slot, realm, mana_cost);
+    game_.vitality.spendCharacterSpellPoints(party_slot, realm, mana_cost);
     try {
-        result = CastSpellFromSource(spell_id, &source, aim, power_level, power_cast_bonus, chance,
+        result = castSpellFromSource(spell_id, &source, aim, power_level, power_cast_bonus, chance,
                                      recast, &cast_result, W8SpellCastKind::Standard, 0, 0);
     } catch (...) {
-        RestoreCharacterRealmSpellPoints(party_slot, realm, mana_cost);
+        game_.vitality.restoreCharacterRealmSpellPoints(party_slot, realm, mana_cost);
         throw;
     }
-    if (cast_result == 0) RestoreCharacterRealmSpellPoints(party_slot, realm, mana_cost);
+    if (cast_result == 0)
+        game_.vitality.restoreCharacterRealmSpellPoints(party_slot, realm, mana_cost);
     if (cast_result != 0) {
         if (affected) {
             index = record->spell_level + cast_result;
             assert(index >= 2);
-            PracticeCharacterSkill(CurrentGame(), character, best_skill, (index + 2) >> 2, false);
-            PracticeCharacterSkill(CurrentGame(), character, realm_skill, index, false);
+            PracticeCharacterSkill(game_, character, best_skill, (index + 2) >> 2, false);
+            PracticeCharacterSkill(game_, character, realm_skill, index, false);
             if (character->skills[W8_SKILL_POWER_CAST].active) {
-                PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_POWER_CAST,
-                                       (index + 2) >> 2, false);
+                PracticeCharacterSkill(game_, character, W8_SKILL_POWER_CAST, (index + 2) >> 2,
+                                       false);
             }
         }
     }
-    *out_points = SpellCastFatigueCost(spell_id, cast_result);
+    *out_points = game_.vitality.spellCastFatigueCost(spell_id, cast_result);
     return result;
 }
 
@@ -2483,10 +2490,11 @@ finish_difficulty_adjustment:
    lists instead of the aimed collection. Returns 0 when the effect could
    not be allocated, 1 on a normal cast, 2 when a fizzle consumed the cast
    and 3 when it backfired. */
-int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* target,
-                        unsigned int power_level, int power_cast_bonus, unsigned int failure_chance,
-                        bool recast, int* out_power, W8SpellCastKind cast_kind,
-                        std::vector<int>* party_targets, std::vector<int>* monster_targets)
+int Spellcasting::castSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* target,
+                                      unsigned int power_level, int power_cast_bonus,
+                                      unsigned int failure_chance, bool recast, int* out_power,
+                                      W8SpellCastKind cast_kind, std::vector<int>* party_targets,
+                                      std::vector<int>* monster_targets)
 {
     glm::vec3 point;
     bool fizzled;
@@ -2542,15 +2550,15 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         forced = true;
         failure_chance = 100;
     }
-    if (Data().spells[spell_id].realm == W8_SPELL_REALM_FIRE && g_camera_sway_active) {
+    if (game_.data.spells[spell_id].realm == W8_SPELL_REALM_FIRE && g_camera_sway_active) {
         failure_chance = 100;
     }
     if (quiet && !g_force_spell_failure) {
         failure_chance /= 2;
     }
-    if (failure_chance != 0 && (roll = CurrentGame().rng.below(100)) < failure_chance) {
+    if (failure_chance != 0 && (roll = game_.rng.below(100)) < failure_chance) {
         backfire_chance = failure_chance;
-        if (Data().spells[spell_id].realm == W8_SPELL_REALM_FIRE && g_camera_sway_active) {
+        if (game_.data.spells[spell_id].realm == W8_SPELL_REALM_FIRE && g_camera_sway_active) {
             backfire_chance = 0;
         } else if (!quiet && !forced) {
             if (backfire_chance < 6) {
@@ -2563,28 +2571,28 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             backfire_chance = 0;
         }
         if (roll < backfire_chance) {
-            PrepareSpellTarget(spell_id, source, target);
+            prepareSpellTarget(spell_id, source, target);
             source->fBackfire = true;
             recast = false;
             wiz8::sound::play("Data\\Sound\\Misc\\Spell Backfire.wav");
         } else {
             fizzled = true;
             wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
-            if (caster_slot != -1 && CurrentGame().rng.below(100) < 0x46) {
-                QueueCharacterEvent(&CurrentGame().party.characters[caster_slot], g_special_event13,
-                                    0, kCharacterEventFullVolume);
+            if (caster_slot != -1 && game_.rng.below(100) < 0x46) {
+                QueueCharacterEvent(&game_.party.characters[caster_slot], g_special_event13, 0,
+                                    kCharacterEventFullVolume);
             }
         }
     }
     if (!fizzled) {
         if (!source->fBackfire && !source->auto_cast && !source->fReflection &&
-            Data().spells[spell_id].realm != W8_SPELL_REALM_MENTAL &&
+            game_.data.spells[spell_id].realm != W8_SPELL_REALM_MENTAL &&
             spell_id != W8_SPELL_ROCKET_BLAST) {
-            CheckSpellBackfire(spell_id, source, target);
+            checkSpellBackfire(spell_id, source, target);
         }
         if (party_targets == 0) {
             if (monster_targets == 0) {
-                PopulateSpellTargetMarkers(spell_id, power_level, source, target, monster_markers,
+                populateSpellTargetMarkers(spell_id, power_level, source, target, monster_markers,
                                            party_markers, W8AreaSightRule::RequireLineOfSight);
                 if (spell_id == W8_SPELL_SUMMON_ELEMENTAL) {
                     ground_point.y = target->point.y - 1e+03f;
@@ -2622,25 +2630,25 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         block = {};
         if (TargetSourceIsCharacter(source, 1)) {
             if (!source->name_known) {
-                caster_figure =
-                    GetTotalCasterLevel(&CurrentGame().party.characters[source->iChar],
-                                        (Data().spells[spell_id].psionics_spell != 0 ? 8 : 0) |
-                                            (Data().spells[spell_id].divinity_spell != 0 ? 2 : 0) |
-                                            (Data().spells[spell_id].wizardry_spell != 0 ? 1 : 0) |
-                                            (Data().spells[spell_id].alchemy_spell != 0 ? 4 : 0),
-                                        true);
-                caster_figure = GetSpellDifficulty(caster_figure, spell_id, power_level);
+                caster_figure = GetTotalCasterLevel(
+                    &game_.party.characters[source->iChar],
+                    (game_.data.spells[spell_id].psionics_spell != 0 ? 8 : 0) |
+                        (game_.data.spells[spell_id].divinity_spell != 0 ? 2 : 0) |
+                        (game_.data.spells[spell_id].wizardry_spell != 0 ? 1 : 0) |
+                        (game_.data.spells[spell_id].alchemy_spell != 0 ? 4 : 0),
+                    true);
+                caster_figure = getSpellDifficulty(caster_figure, spell_id, power_level);
             } else {
                 caster_figure = source->spell_difficulty;
             }
         } else if (TargetSourceIsMonster(source, 1)) {
-            monster_info = FindMonster(source->iMonsterID);
+            monster_info = game_.level.findMonster(source->iMonsterID);
             record_data = GetMonsterDataForInfo(monster_info);
-            caster_figure = GetSpellDifficulty(record_data->effective_level, spell_id, power_level);
+            caster_figure = getSpellDifficulty(record_data->effective_level, spell_id, power_level);
         } else {
             assert(source->iType == W8_TARGET_SOURCE_INDIRECT);
-            caster_figure = (Data().spells[spell_id].spell_point_cost / 2 +
-                             Data().spells[spell_id].spell_level) /
+            caster_figure = (game_.data.spells[spell_id].spell_point_cost / 2 +
+                             game_.data.spells[spell_id].spell_level) /
                                 2 +
                             power_level;
             if (GetSpellTargetType(spell_id, false) == 7) {
@@ -2677,31 +2685,31 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         if (IsCombatEffectSlotSpell(spell_id)) {
             SetDice(&block.magnitude, 0, 0, 0);
         } else {
-            block.magnitude = Data().spells[spell_id].effect_dice;
+            block.magnitude = game_.data.spells[spell_id].effect_dice;
             block.magnitude.count = static_cast<signed char>(power_level) * block.magnitude.count;
         }
         block.duration_scale = power_level;
         block.percent = power_cast_bonus;
-        block.duration_base = Data().spells[spell_id].duration_per_level;
-        block.duration_per_power = Data().spells[spell_id].duration;
-        if (Data().spells[spell_id].needs_aim != 0) {
-            missile_index = Data().spells[spell_id].missile_index;
+        block.duration_base = game_.data.spells[spell_id].duration_per_level;
+        block.duration_per_power = game_.data.spells[spell_id].duration;
+        if (game_.data.spells[spell_id].needs_aim != 0) {
+            missile_index = game_.data.spells[spell_id].missile_index;
             if (GetSpellTargetType(spell_id, false) == 6) {
                 ResetCombatSlot(&point_target);
                 point_target.point =
                     glm::vec3(target->point.x, g_default_world_height * 0.5f + target->point.y,
                               target->point.z);
                 point_target.iType = W8_TARGET_KIND_PLACE;
-                missile = FireMissileSourceToTarget(missile_index, source, &point_target, &block,
+                missile = game_.missile_firing.fire(missile_index, source, &point_target, &block,
                                                     true, W8_RANGE_NONE, 9999);
                 if (missile != 0) {
                     owner.missiles.push_back(missile);
                 }
                 owner.missiles_pending = true;
             } else {
-                std::ranges::copy(Data().missiles[missile_index].condition_chances,
+                std::ranges::copy(game_.data.missiles[missile_index].condition_chances,
                                   block.condition_chances);
-                block.magnitude_base = Data().missiles[missile_index].magnitude_base;
+                block.magnitude_base = game_.data.missiles[missile_index].magnitude_base;
                 for (index = 0; index < static_cast<int>(monster_markers.size()); ++index) {
                     ResetCombatSlot(&point_target);
                     point_target.iType = W8_TARGET_KIND_MONSTER;
@@ -2709,9 +2717,9 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                     if (!source->fBackfire && !source->fReflection) {
                         MakeTargetGroupHostile(source, &point_target);
                     }
-                    missile = FireMissileSourceToTarget(
+                    missile = game_.missile_firing.fire(
                         missile_index, source, &point_target, &block, true,
-                        Data().spells[spell_id].range_category, 9999);
+                        game_.data.spells[spell_id].range_category, 9999);
                     if (missile != 0) {
                         owner.missiles.push_back(missile);
                     }
@@ -2720,9 +2728,9 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                     ResetCombatSlot(&point_target);
                     point_target.iType = W8_TARGET_KIND_CHARACTER;
                     point_target.iChar = party_markers[index];
-                    missile = FireMissileSourceToTarget(
+                    missile = game_.missile_firing.fire(
                         missile_index, source, &point_target, &block, true,
-                        Data().spells[spell_id].range_category, 9999);
+                        game_.data.spells[spell_id].range_category, 9999);
                     if (missile != 0) {
                         owner.missiles.push_back(missile);
                     }
@@ -2742,28 +2750,30 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                         point.x = target->point.x;
                         point.z = target->point.z;
                         visual = SpawnSpellEffect(
-                            &point, Data().spells[W8_SPELL_BOILING_BLOOD_EXPLOSION].resource_name,
-                            1, 0, 0);
+                            &point,
+                            game_.data.spells[W8_SPELL_BOILING_BLOOD_EXPLOSION].resource_name, 1, 0,
+                            0);
                     } else {
                         GetCameraForwardPoint(1.0, &forward_point);
                         forward_point.y -= g_default_world_height;
                         visual = SpawnSpellEffect(
                             &forward_point,
-                            Data().spells[W8_SPELL_BOILING_BLOOD_EXPLOSION].resource_name, 2, 0, 0);
+                            game_.data.spells[W8_SPELL_BOILING_BLOOD_EXPLOSION].resource_name, 2, 0,
+                            0);
                     }
                 } else {
                     point.y = target->point.y - 1e+03f;
                     target->point.y = point.y;
                     point.x = target->point.x;
                     point.z = target->point.z;
-                    visual = SpawnSpellEffect(&point, Data().spells[spell_id].resource_name,
+                    visual = SpawnSpellEffect(&point, game_.data.spells[spell_id].resource_name,
                                               power_level, 0, 0);
                 }
                 owner.AddVisual(visual);
                 break;
             case W8_TARGET_TYPE_CONE:
                 if (TargetSourceIsCharacter(source, 0)) {
-                    visual = CreateAttachedSpellEffect(Data().spells[spell_id].resource_name,
+                    visual = CreateAttachedSpellEffect(game_.data.spells[spell_id].resource_name,
                                                        power_level, 0, 0, 0);
                     if (visual != 0) {
                         visual->auto_release = false;
@@ -2773,10 +2783,10 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 } else {
                     if (TargetSourceIsMonster(source, 0)) {
                         auto* actor = GetMonsterByLocationID(source->iMonsterID);
-                        visual =
-                            actor ? CreateAttachedSpellEffect(Data().spells[spell_id].resource_name,
-                                                              power_level, actor, 0, 0)
-                                  : nullptr;
+                        visual = actor ? CreateAttachedSpellEffect(
+                                             game_.data.spells[spell_id].resource_name, power_level,
+                                             actor, 0, 0)
+                                       : nullptr;
                     } else {
                         origin = source->point;
                         direction = target->point - origin;
@@ -2790,7 +2800,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                         pitch = -atan2(direction.y, direction.z);
                         local_90 *=
                             glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
-                        visual = CreateAimedSpellEffect(Data().spells[spell_id].resource_name,
+                        visual = CreateAimedSpellEffect(game_.data.spells[spell_id].resource_name,
                                                         power_level, &origin, &local_90, 0, 0);
                     }
                     owner.AddVisual(visual);
@@ -2800,13 +2810,13 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 if (spell_id == W8_SPELL_HYPNOTIC_LURE) {
                     // Lower the HYPN anchor once, on casting, not on visual reconstruction.
                     target->point.y -= 1000.0f;
-                    SpawnLureEffects(&owner, power_level, target);
+                    spawnLureEffects(&owner, power_level, target);
                 } else {
                     if (spell_id != W8_SPELL_SUMMON_ELEMENTAL) {
                         target->point.y -= 1e+03f;
                     }
                     point = target->point;
-                    visual = SpawnSpellEffect(&point, Data().spells[spell_id].resource_name,
+                    visual = SpawnSpellEffect(&point, game_.data.spells[spell_id].resource_name,
                                               power_level, 0, 0);
                     owner.AddVisual(visual);
                 }
@@ -2818,7 +2828,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                     for (index = 0; index < static_cast<int>(monster_markers.size()); ++index) {
                         monster = GetMonsterByLocationID(monster_markers[index]);
                         if (!monster) continue;
-                        visual = CreateMonsterSpellEffect(Data().spells[spell_id].resource_name,
+                        visual = CreateMonsterSpellEffect(game_.data.spells[spell_id].resource_name,
                                                           power_level, monster, 0, 0);
                         owner.AddVisual(visual);
                     }
@@ -2830,12 +2840,12 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                                 icon_flag = !source->fBackfire;
                             }
                             StageMonsterCastIcon(party_markers[index],
-                                                 Data().spells[spell_id].realm, icon_flag,
+                                                 game_.data.spells[spell_id].realm, icon_flag,
                                                  spell_id);
                         }
                     }
                 } else {
-                    visual = SpawnCameraSpellEffect(Data().spells[spell_id].resource_name,
+                    visual = SpawnCameraSpellEffect(game_.data.spells[spell_id].resource_name,
                                                     power_level, 0, 0);
                     owner.AddVisual(visual);
                 }
@@ -2851,28 +2861,28 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                     target->point.y = point.y;
                     point.x = target->point.x;
                     point.z = target->point.z;
-                    visual = SpawnSpellEffect(&point,
-                                              Data().spells[W8_SPELL_NUCLEAR_BLAST].resource_name,
-                                              power_level, 0, 0);
+                    visual = SpawnSpellEffect(
+                        &point, game_.data.spells[W8_SPELL_NUCLEAR_BLAST].resource_name,
+                        power_level, 0, 0);
                     owner.AddVisual(visual);
                     break;
                 }
                 for (index = 0; index < static_cast<int>(monster_markers.size()); ++index) {
                     monster = GetMonsterByLocationID(monster_markers[index]);
                     if (!monster) continue;
-                    visual = CreateMonsterSpellEffect(Data().spells[spell_id].resource_name,
+                    visual = CreateMonsterSpellEffect(game_.data.spells[spell_id].resource_name,
                                                       power_level, monster, 0, 0);
                     owner.AddVisual(visual);
                 }
                 if (!party_markers.empty()) {
-                    visual = SpawnCameraSpellEffect(Data().spells[spell_id].resource_name,
+                    visual = SpawnCameraSpellEffect(game_.data.spells[spell_id].resource_name,
                                                     power_level, 0, 0);
                     owner.AddVisual(visual);
                 }
                 break;
             case W8_TARGET_TYPE_LOCK_OR_TRAP:
-                visual = SpawnCameraSpellEffect(Data().spells[spell_id].resource_name, power_level,
-                                                0, 0);
+                visual = SpawnCameraSpellEffect(game_.data.spells[spell_id].resource_name,
+                                                power_level, 0, 0);
                 owner.AddVisual(visual);
                 break;
             default:
@@ -2895,17 +2905,17 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         if (spell_id == W8_SPELL_HYPNOTIC_LURE) {
             owner.turns_remaining = RollEffectDuration(&owner.definition);
             bool replaced = false;
-            for (const auto& previous : CurrentGame().spell_effects) {
+            for (const auto& previous : game_.spell_effects) {
                 if (previous->kind == W8_SPELL_HYPNOTIC_LURE && previous->turns_remaining > 0) {
                     previous->turns_remaining = 0;
                     replaced = true;
                 }
             }
-            if (replaced) ReleaseHypnoticLureControl();
+            if (replaced) releaseHypnoticLureControl();
         }
-        if (CurrentGame().activity.in_world() && !CurrentGame().activity.conversation &&
-            !CurrentGame().activity.conversation_aside) {
-            CurrentGame().spell_effects.push_back(std::move(pending));
+        if (game_.activity.in_world() && !game_.activity.conversation &&
+            !game_.activity.conversation_aside) {
+            game_.spell_effects.push_back(std::move(pending));
         } else {
             ProcessSpellEffectTargets(&owner);
             // Immediate casts have no queued owner to retire their visuals later.
@@ -2916,14 +2926,14 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             if (quiet) {
                 owner.reported = true;
             } else if (g_settings.verbose_combat_messages != 0) {
-                CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x197]});
+                game_.events.push(TextNotice{W8_FONT_PALETTE_BEIGE, game_.data.strings[0x197]});
             } else {
-                AppendToLastTextLine(fmt::format(" -- {}", Data().strings[0x197]), -1);
+                AppendToLastTextLine(fmt::format(" -- {}", game_.data.strings[0x197]), -1);
                 owner.reported = true;
             }
             if (caster_slot != -1) {
-                if (CurrentGame().rng.below(2) == 0) {
-                    QueueCharacterEvent(&CurrentGame().party.characters[caster_slot], 16, 0,
+                if (game_.rng.below(2) == 0) {
+                    QueueCharacterEvent(&game_.party.characters[caster_slot], 16, 0,
                                         kCharacterEventFullVolume);
                 } else {
                     ApplyItemEffectToRandomCharacter(17, caster_slot, 0);
@@ -2943,17 +2953,17 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 message = 0x1ab;
             }
             if (g_settings.verbose_combat_messages != 0) {
-                CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(source->iChar),
-                                                          Data().strings[message]});
+                game_.events.push(CharacterNotice{static_cast<unsigned int>(source->iChar),
+                                                  game_.data.strings[message]});
             } else {
-                AppendToLastTextLine(fmt::format(" -- {}", Data().strings[message]), -1);
+                AppendToLastTextLine(fmt::format(" -- {}", game_.data.strings[message]), -1);
             }
             break;
         default:
             if (g_settings.verbose_combat_messages != 0) {
-                CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x196]});
+                game_.events.push(TextNotice{W8_FONT_PALETTE_BEIGE, game_.data.strings[0x196]});
             } else {
-                AppendToLastTextLine(fmt::format(" -- {}", Data().strings[0x196]), -1);
+                AppendToLastTextLine(fmt::format(" -- {}", game_.data.strings[0x196]), -1);
             }
             break;
         }
@@ -2964,9 +2974,9 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     if (fizzled) {
         if (TargetSourceIsMonster(&owner.Source, 0)) {
             assert(owner.Source.iMonsterID != -1);
-            if (CurrentGame().combat.has_value()) {
-                CurrentGame().combat->setStepOf(MonsterActor{owner.Source.iMonsterID},
-                                                ActionStep::finishing);
+            if (game_.combat.has_value()) {
+                game_.combat->setStepOf(MonsterActor{owner.Source.iMonsterID},
+                                        ActionStep::finishing);
             }
         }
         return 2;
@@ -2981,7 +2991,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
    the concrete thing to aim back at is resolved here - the caster for a
    character target, the first live party member for a party target, and so
    on. */
-void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
+void Spellcasting::redirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
 {
     W8TargetSource source_copy;
     W8CombatSlot target_copy;
@@ -2998,7 +3008,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
         SetTargetSourceToCharacter(target_copy.iChar, source);
         break;
     case W8_TARGET_KIND_MONSTER:
-        monster_info = FindMonster(target_copy.iMonsterID);
+        monster_info = game_.level.findMonster(target_copy.iMonsterID);
         SetTargetSourceToMonster(monster_info, source);
         break;
     case W8_TARGET_KIND_PARTY:
@@ -3014,21 +3024,21 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
             target->iType = W8_TARGET_KIND_PARTY;
         } else if (source_copy.iType == W8_TARGET_SOURCE_MONSTER) {
             target->iType = W8_TARGET_KIND_GROUP;
-            monster_info = FindMonster(source_copy.iMonsterID);
+            monster_info = game_.level.findMonster(source_copy.iMonsterID);
             target->iGroupID = monster_info->monster_group_id;
         }
         source->point_source = true;
         return;
     case W8_TARGET_KIND_GROUP:
         group = FindMonsterGroup(target_copy.iGroupID);
-        monster_info = FindMonster(group->leader_location_id);
+        monster_info = game_.level.findMonster(group->leader_location_id);
         SetTargetSourceToMonster(monster_info, source);
         ResetCombatSlot(target);
         if (source_copy.iType == W8_TARGET_SOURCE_CHARACTER) {
             target->iType = W8_TARGET_KIND_PARTY;
         } else if (source_copy.iType == W8_TARGET_SOURCE_MONSTER) {
             target->iType = W8_TARGET_KIND_GROUP;
-            monster_info = FindMonster(source_copy.iMonsterID);
+            monster_info = game_.level.findMonster(source_copy.iMonsterID);
             target->iGroupID = monster_info->monster_group_id;
         }
         source->point_source = true;
@@ -3050,7 +3060,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
    kinds that aim at a single combatant re-resolve both ends through
    RedirectBackfiredSpellTarget; the point kinds trace the aim to where the
    spell actually lands and turn the source into a point. */
-void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target)
+void Spellcasting::prepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target)
 {
     glm::vec3 from;
     glm::vec3 trace;
@@ -3065,7 +3075,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     const bool monster_source = TargetSourceIsMonster(source, 0);
     monster_info = 0;
     if (monster_source) {
-        monster_info = FindMonster(source->iMonsterID);
+        monster_info = game_.level.findMonster(source->iMonsterID);
     }
     target_type = GetSpellTargetType(spell_id, false);
     switch (target_type) {
@@ -3083,7 +3093,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         [[fallthrough]];
     case 1:
     case 4:
-        RedirectBackfiredSpellTarget(source, target);
+        redirectBackfiredSpellTarget(source, target);
         return;
     case 5:
         if (TargetSourceIsCharacter(source, 0)) {
@@ -3136,7 +3146,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
 /* Pick one random in-combat participant other than the source and write it as
    the backfired spell's new target. A single-target spell keeps it a single
    slot; a group spell takes the whole monster group or the party instead. */
-int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target)
+int Spellcasting::pickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target)
 {
     W8MonsterInfo* monster_info;
     unsigned int candidates;
@@ -3146,14 +3156,14 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
 
     candidates = 0;
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.members[slot].has_value() &&
+        if (game_.party.members[slot].has_value() &&
             (!TargetSourceIsCharacter(source, 0) || source->iChar != slot)) {
             ++candidates;
         }
     }
     index = 0;
-    while (index < CurrentLevelPopulation().monster_roster.live().size()) {
-        monster_info = GetMonsterListEntry(index);
+    while (index < game_.level.population().monster_roster.live().size()) {
+        monster_info = game_.level.population().monster_roster.live()[index].get();
         if (monster_info->fActive && monster_info->pCombat && monster_info->hp_current != 0 &&
             (!TargetSourceIsMonster(source, 0) ||
              source->iMonsterID != monster_info->location_id)) {
@@ -3164,9 +3174,9 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
     if (candidates == 0) {
         return 0;
     }
-    pick = CurrentGame().rng.below(candidates) + 1;
+    pick = game_.rng.below(candidates) + 1;
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.members[slot].has_value() &&
+        if (game_.party.members[slot].has_value() &&
             (!TargetSourceIsCharacter(source, 0) || source->iChar != slot) && (--pick == 0)) {
             if (GetSpellTargetType(spell_id, false) == 4) {
                 target->iType = W8_TARGET_KIND_PARTY;
@@ -3178,8 +3188,8 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
         }
     }
     index = 0;
-    while (index < CurrentLevelPopulation().monster_roster.live().size()) {
-        monster_info = GetMonsterListEntry(index);
+    while (index < game_.level.population().monster_roster.live().size()) {
+        monster_info = game_.level.population().monster_roster.live()[index].get();
         if (monster_info->fActive && monster_info->pCombat && monster_info->hp_current != 0 &&
             (!TargetSourceIsMonster(source, 0) ||
              source->iMonsterID != monster_info->location_id) &&
@@ -3202,7 +3212,8 @@ int PickBackfireTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targe
    spell's range around its source: random offsets off the source's position,
    line of sight traced, the result settled onto the ground and clamped back
    inside range. */
-void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target)
+void Spellcasting::scatterSpellPointTarget(int spell_id, W8TargetSource* source,
+                                           W8CombatSlot* target)
 {
     glm::vec3 origin;
     glm::vec3 point;
@@ -3212,22 +3223,20 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
     double range;
     int attempt;
 
-    range = CalcRangeDistance(Data().spells[spell_id].range_category);
+    range = CalcRangeDistance(game_.data.spells[spell_id].range_category);
     navigator = PartyNavigator();
     if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
         assert(source->iType == W8_TARGET_SOURCE_MONSTER);
-        monster_info = FindMonster(source->iMonsterID);
+        monster_info = game_.level.findMonster(source->iMonsterID);
         navigator = &monster_info->entity->nav;
     }
     origin = navigator->GetPosition();
     for (attempt = 0; attempt < 5; ++attempt) {
         point.x = static_cast<float>(
-            (CurrentGame().rng.below(0x7d1) - g_monster_poster_max_distance) * range * 0.001 +
-            origin.x);
+            (game_.rng.below(0x7d1) - g_monster_poster_max_distance) * range * 0.001 + origin.x);
         point.z = static_cast<float>(
-            (CurrentGame().rng.below(0x7d1) - g_monster_poster_max_distance) * range * 0.001 +
-            origin.z);
-        point.y = CurrentGame().rng.below(0x3e9) * range * 0.001 + origin.y;
+            (game_.rng.below(0x7d1) - g_monster_poster_max_distance) * range * 0.001 + origin.z);
+        point.y = game_.rng.below(0x3e9) * range * 0.001 + origin.y;
         if (const auto hit = GetWorldSpatialIndex()->traceSight(origin, point)) point = hit->point;
         point.y = probeGround(point).position.y;
         if (point.y != kGroundSettleFail) {
@@ -3247,7 +3256,7 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
    confusion condition: a trait save can skip it, then roughly one cast in
    five has its target re-picked at random or scattered to a random point,
    with a notice to whoever the source is. */
-void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* target)
+void Spellcasting::checkSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* target)
 {
     W8Character* character;
     W8MonsterInfo* monster_info;
@@ -3255,7 +3264,7 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
 
     monster_info = 0;
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
-        character = &CurrentGame().party.characters[source->iChar];
+        character = &game_.party.characters[source->iChar];
         if (character->uiCondition[W8_CONDITION_BLIND] == 0) {
             return;
         }
@@ -3263,7 +3272,7 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             return;
         }
         if (CharacterHasTrait(character, W8_TRAIT_EFFECTIVE_WHILE_BLIND)) {
-            if (CurrentGame().rng.below(100) <
+            if (game_.rng.below(100) <
                 static_cast<unsigned int>(static_cast<int>(ScaleValueByProfessionLevel(
                     character, W8_TRAIT_EFFECTIVE_WHILE_BLIND, 50.0)))) {
                 return;
@@ -3273,7 +3282,7 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         if (source->iType != W8_TARGET_SOURCE_MONSTER) {
             return;
         }
-        monster_info = FindMonster(source->iMonsterID);
+        monster_info = game_.level.findMonster(source->iMonsterID);
         if (monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
             return;
         }
@@ -3281,7 +3290,7 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             return;
         }
     }
-    if (0x13 < CurrentGame().rng.below(100)) {
+    if (0x13 < game_.rng.below(100)) {
         return;
     }
     target_type = GetSpellTargetType(spell_id, false);
@@ -3289,25 +3298,25 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     case 1:
     case 3:
     case 4:
-        if (PickBackfireTarget(spell_id, source, target) == 0) {
+        if (pickBackfireTarget(spell_id, source, target) == 0) {
             return;
         }
         break;
     case 5:
     case 6:
     case 8:
-        ScatterSpellPointTarget(spell_id, source, target);
+        scatterSpellPointTarget(spell_id, source, target);
         break;
     default:
         return;
     }
     if (TargetSourceIsCharacter(source, 0)) {
-        CurrentGame().events.push(
-            CharacterNotice{static_cast<unsigned int>(source->iChar), Data().strings[0x191]});
+        game_.events.push(
+            CharacterNotice{static_cast<unsigned int>(source->iChar), game_.data.strings[0x191]});
         return;
     }
     if (TargetSourceIsMonster(source, 0)) {
-        PostMonsterNotice(monster_info, Data().strings[0x191]);
+        PostMonsterNotice(monster_info, game_.data.strings[0x191]);
     }
 }
 
@@ -3315,9 +3324,11 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
    caller's vectors. The source's position and eye are picked per source kind,
    then the spell's target type decides whether the single aimed slot, a
    radius, a cone or a whole side goes into the vectors. */
-void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* source,
-                                W8CombatSlot* target, std::vector<int>& monster_markers,
-                                std::vector<int>& party_markers, W8AreaSightRule sight_rule)
+void Spellcasting::populateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* source,
+                                              W8CombatSlot* target,
+                                              std::vector<int>& monster_markers,
+                                              std::vector<int>& party_markers,
+                                              W8AreaSightRule sight_rule)
 {
     glm::vec3 player_pos;
     glm::vec3 camera;
@@ -3358,7 +3369,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         if (source->iMonsterID == -1) {
             return;
         }
-        monster_info = FindMonster(source->iMonsterID);
+        monster_info = game_.level.findMonster(source->iMonsterID);
         if (monster_info == nullptr) {
             return;
         }
@@ -3414,8 +3425,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         }
         break;
     case W8_TARGET_TYPE_PARTY:
-        radius = (Data().spells[spell_id].radius_per_level * power_level +
-                  Data().spells[spell_id].effect_radius) *
+        radius = (game_.data.spells[spell_id].radius_per_level * power_level +
+                  game_.data.spells[spell_id].effect_radius) *
                  kWorldScale;
         if (TargetSourceIsCharacter(source, 0)) {
             marked = true;
@@ -3458,7 +3469,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             index = 0;
             while (index < group->MemberIds().size()) {
                 slot = group->MemberLocationId(index);
-                member = FindMonster(slot);
+                member = game_.level.findMonster(slot);
                 if (member->ubDisposition == group->ubDisposition) {
                     monster_markers.push_back(slot);
                 }
@@ -3494,7 +3505,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                 if (source->iChar != -1) {
                     side = 2;
                 } else if (source->iMonsterID != -1) {
-                    if (FindMonster(source->iMonsterID)->ubDisposition != W8_DISPOSITION_FRIENDLY) {
+                    if (game_.level.findMonster(source->iMonsterID)->ubDisposition !=
+                        W8_DISPOSITION_FRIENDLY) {
                         side = 1;
                     } else {
                         side = 2;
@@ -3511,7 +3523,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         CollectConeMonsterTargets(source, &eye, heading, elevation, monster_markers,
                                   static_cast<unsigned char>(side), sight_flag, cone_range);
         if (monster_markers.empty() &&
-            (!CurrentGame().combat.has_value() || !CurrentGame().combat->enemies_engaged) &&
+            (!game_.combat.has_value() || !game_.combat->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<signed char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectConeMonsterTargets(source, &eye, heading, elevation, monster_markers, 3,
@@ -3520,8 +3532,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         break;
     case W8_TARGET_TYPE_RADIUS:
         trace = glm::vec3(target_point.x, target_point.y - 1e+03f, target_point.z);
-        radius = (Data().spells[spell_id].radius_per_level * power_level +
-                  Data().spells[spell_id].effect_radius) *
+        radius = (game_.data.spells[spell_id].radius_per_level * power_level +
+                  game_.data.spells[spell_id].effect_radius) *
                  kWorldScale;
         if (TargetSourceIsCharacter(source, 1)) {
             side = (source->fBackfire || source->fReflection) ? 1 : 2;
@@ -3546,7 +3558,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         CollectMonstersWithinRadius(&trace, &target_point, monster_markers, radius,
                                     static_cast<signed char>(side), sight_rule);
         if (monster_markers.empty() &&
-            (!CurrentGame().combat.has_value() || !CurrentGame().combat->enemies_engaged) &&
+            (!game_.combat.has_value() || !game_.combat->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<signed char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectMonstersWithinRadius(&trace, &target_point, monster_markers, radius, 3,
@@ -3555,7 +3567,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         break;
     case W8_TARGET_TYPE_ALL_ENEMIES:
         target->point = eye;
-        radius = CalcRangeDistance(Data().spells[spell_id].range_category, source);
+        radius = CalcRangeDistance(game_.data.spells[spell_id].range_category, source);
         if (TargetSourceIsCharacter(source, 1) ||
             (monster_source && monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY)) {
             side = (source->fBackfire || source->fReflection) ? 2 : 1;
@@ -3575,7 +3587,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius,
                                     static_cast<signed char>(side), sight_rule);
         if (monster_markers.empty() &&
-            (!CurrentGame().combat.has_value() || !CurrentGame().combat->enemies_engaged) &&
+            (!game_.combat.has_value() || !game_.combat->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<signed char>(side) == 1 &&
             !AnyMonsterEngaged()) {
             CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius, 3, sight_rule);
@@ -3587,21 +3599,21 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
     if (marked && spell_id != W8_SPELL_HOLY_WATER && spell_id != W8_SPELL_BANISH) {
         for (slot = 0; slot < 8; ++slot) {
             if (CanPartySlotParticipate(slot) &&
-                (CurrentGame().party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] == 0 ||
+                (game_.party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] == 0 ||
                  !MonsterCanAimSpell(spell_id) || static_cast<signed char>(side) == 3)) {
                 party_markers.push_back(slot);
             }
         }
     }
-    PruneSpellTargetMarkers(spell_id, monster_markers);
+    pruneSpellTargetMarkers(spell_id, monster_markers);
 }
 
 /* Drop every marker that no longer names a live, targetable monster. Spells
    0x16, 0x4d and 0x81 also drop markers whose monster kind they do not affect. */
-void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers)
+void Spellcasting::pruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers)
 {
-    std::erase_if(monster_markers, [spell_id](int monster_id) {
-        W8MonsterInfo* monster = FindMonster(monster_id);
+    std::erase_if(monster_markers, [this, spell_id](int monster_id) {
+        W8MonsterInfo* monster = game_.level.findMonster(monster_id);
         const W8MonsterRecord* record = GetMonsterDataForInfo(monster);
         if (!monster->fActive || monster->hp_current == 0 ||
             monster->uiCondition[W8_CONDITION_DEAD] > 0 || record->untargetable != 0) {
@@ -3621,7 +3633,7 @@ void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers)
     });
 }
 
-void TrackItemSpellSource(W8Character* character, int spell_id)
+void Spellcasting::trackItemSpellSource(W8Character* character, int spell_id)
 {
     bool has_spell[0x96] = {false};
 
@@ -3630,22 +3642,22 @@ void TrackItemSpellSource(W8Character* character, int spell_id)
         W8ItemInstance* item =
             index < 12 ? &character->EquippedItem[index] : &character->backpack[index - 12];
         const int item_id = item->iItemNo;
-        if (item_id != -1 && Data().items[item_id].spell_id != W8_SPELL_NONE &&
+        if (item_id != -1 && game_.data.items[item_id].spell_id != W8_SPELL_NONE &&
             CanCharacterActivateItem(character, item) &&
-            ((Data().items[item_id].quantity_kind != W8_ITEM_QUANTITY_SHOTS &&
-              Data().items[item_id].quantity_kind != W8_ITEM_QUANTITY_CHARGES) ||
+            ((game_.data.items[item_id].quantity_kind != W8_ITEM_QUANTITY_SHOTS &&
+              game_.data.items[item_id].quantity_kind != W8_ITEM_QUANTITY_CHARGES) ||
              item->uses_or_charges != 0)) {
-            has_spell[Data().items[item_id].spell_id] = 1;
+            has_spell[game_.data.items[item_id].spell_id] = 1;
         }
     }
-    W8ItemSpellUsageRecord* record = CurrentGame().status.item_spell_usage.data();
+    W8ItemSpellUsageRecord* record = game_.status.item_spell_usage.data();
     int index = 0;
-    while (record < CurrentGame().status.item_spell_usage.data() + 150) {
+    while (record < game_.status.item_spell_usage.data() + 150) {
         if (has_spell[index]) {
             ++record->usable_cast_count;
         }
         ++index;
         ++record;
     }
-    ++CurrentGame().status.item_spell_usage[spell_id].cast_count;
+    ++game_.status.item_spell_usage[spell_id].cast_count;
 }
