@@ -156,7 +156,7 @@ bool Game::beginCombat(int surprise)
     if (surprise_possible) {
         ResolveSurpriseHold();
     }
-    if (CurrentGame().advancement.time_scale != g_sight_default) {
+    if (calendar.timeScale() != g_sight_default) {
         ResetSight();
     }
     UpdateScreenOverlays(0);
@@ -1568,7 +1568,7 @@ void AdvanceCombatRound(void)
             ++CurrentGame().combat->unengaged_rounds;
         }
     }
-    CurrentGame().advanceCalendar(120000);
+    CurrentGame().calendar.advance(120000);
     if (g_camera_sway_active) {
         UpdateCampFatigue(10);
     }

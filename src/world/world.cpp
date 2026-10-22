@@ -126,14 +126,14 @@ static void UpdateWorld(World& world, std::chrono::milliseconds elapsed)
     SweepFinishedParticles(&world);
 }
 
-void UpdateWorlds(Game& game, std::chrono::milliseconds elapsed)
+void UpdateWorlds(std::chrono::milliseconds elapsed)
 {
     g_navigator_vertical_enabled =
-        !(((GetInputState().modifiers & CTRL_DOWN) != 0) && game.combat.has_value() &&
-          (game.combat->round_active || game.party_movement_mode));
+        !(((GetInputState().modifiers & CTRL_DOWN) != 0) && CurrentGame().combat.has_value() &&
+          (CurrentGame().combat->round_active || CurrentGame().party_movement_mode));
 
     // Loading registered the sky first; preserve that update order.
-    for (World* world : {game.level.sky.get(), game.level.primary.get()}) {
+    for (World* world : {GetSecondaryWorld(), GetWorld()}) {
         if (world) UpdateWorld(*world, elapsed);
     }
 
@@ -141,8 +141,6 @@ void UpdateWorlds(Game& game, std::chrono::milliseconds elapsed)
 
     UpdateTimedTriggerEvents();
     UpdateShakeEffects();
-    game.updateEnvironment();
-    UpdateNpcEvents();
 }
 
 /* Detach the item meshes in the level and sky worlds before the renderer-side

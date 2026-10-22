@@ -2198,7 +2198,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
     ClearPrimarySurface();
     if (Level& level = CurrentGame().level; level.primary) {
         if (level.primary->environment.fogConfigured())
-            CurrentGame().enableSky();
+            CurrentGame().calendar.enableSky();
         else
             level.disableSky();
     }
@@ -2558,7 +2558,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     }
     g_world_render_enabled = 0;
     g_monster_shadow_updates_enabled = 0;
-    if (GameInProgress() && CurrentGame().level.primary) CurrentGame().level.disableSky();
+    if (GameInProgress()) CurrentGame().level.disableSky();
     DestroySubMenuPanel();
     DestroySpellIconHudControls();
     return true;

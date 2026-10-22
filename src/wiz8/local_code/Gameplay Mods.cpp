@@ -2,7 +2,6 @@
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/game.h"
-#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -16,7 +15,6 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/party_conditions.h"
-#include "wiz8/world/environment.h"
 
 /* Clear the party modifier block, fold the party's effect slots, the combat
    effect run and each character's own equipment and condition blocks into
@@ -57,12 +55,7 @@ void RebuildPartyEffectBlock(void)
     }
     CurrentGame().party.modifiers = modifiers;
     SettleActiveParty(CurrentGame());
-    World* world = CurrentGame().level.primary.get();
-    if (!world) return;
-    Light* light = world->camera_light;
-    if (!light) return;
-    light->visible = modifiers.light != 0;
-    if (modifiers.light != 0) light->intensity = modifiers.light + kEnvironmentNearScale;
+    CurrentGame().level.showPartyLight(modifiers.light);
 }
 
 /* Fold the party's twelve effect slots into the shared modifier block. */

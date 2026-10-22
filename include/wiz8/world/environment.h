@@ -1,11 +1,9 @@
 #pragma once
 
 #include <array>
-#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <optional>
-#include <utility>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
@@ -109,10 +107,6 @@ public:
        has passed. A faded-out or fully restored world stops fading. */
     std::optional<float> advanceFade(float scale);
 
-    // Step time reaches the world while the calendar runs; the calendar takes it up.
-    void passTime(std::chrono::milliseconds elapsed) { untaken_time_ += elapsed; }
-    std::chrono::milliseconds takeUntakenTime() { return std::exchange(untaken_time_, {}); }
-
     /* For a sky world: find its Sun and Moon and, the first time, measure their orbit
        and claim the animated sky gradients. */
     void locateCelestialBodies();
@@ -135,7 +129,6 @@ private:
     W8EnvironmentLightingMode lighting_mode_ = W8EnvironmentLightingMode::DayNight;
     float transition_rate_ = 0.0f;
     std::uint64_t transition_tick_ = 0;
-    std::chrono::milliseconds untaken_time_{};
     // Sun and Moon are owned by this sky world's props collection.
     Prop* sun_ = nullptr;
     Prop* moon_ = nullptr;

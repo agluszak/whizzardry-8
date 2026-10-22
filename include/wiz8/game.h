@@ -13,6 +13,7 @@
 
 #include <glm/ext/vector_float3.hpp>
 
+#include "wiz8/calendar.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/spell_ids.h"
@@ -50,30 +51,24 @@ struct Level {
     std::unique_ptr<World> replacePrimary(std::unique_ptr<World> world);
     std::unique_ptr<World> replaceSky(std::unique_ptr<World> world);
 
-    /* The level's lighting across its two worlds: the primary world is lit, and both
-       take its light direction as their fog colour. Each needs a primary world, and the
-       sky's operations a sky world. */
-    // Step time that passed in the level and the calendar has not taken up yet.
-    void passTime(std::chrono::milliseconds elapsed);
-    std::chrono::milliseconds takeUntakenTime();
-    // Find the sky's Sun and Moon, and place them and the clouds for a time of day.
-    void locateCelestialBodies();
-    void placeSky(unsigned int time_of_day);
-    /* Light both worlds for a time of day on entering the level. The sky moves with the
-       calendar's next advance. */
+    /* The level's lighting across its two worlds, for a time of day: the primary world
+       is lit, and both take its light direction as their fog colour. Each needs a
+       primary world. */
+    // Find the sky's Sun and Moon and light the worlds on entering the level.
     void enterEnvironment(unsigned int time_of_day);
-    // Show the light direction or colour of a time of day's phase, if it moved on.
-    void showDayPhaseLight(unsigned int time_of_day);
-    void showDayPhaseColour(unsigned int time_of_day);
-    // Day/night lighting shows, with the light direction following the day when `sky`.
-    bool showsDayNight() const;
-    bool skyEnabled() const;
-    // Both worlds take a light direction as their fog colour.
-    void showLightDirection(glm::vec3 direction);
-    // Create the fog and show the light direction through it.
-    void enableSky();
+    // Place the sky's Sun, Moon and clouds, if there is a sky.
+    void placeSky(unsigned int time_of_day);
+    // Show the day phase's light direction and colour, if they moved on.
+    void showDayPhase(unsigned int time_of_day);
+    /* In day/night mode, show the day phase's colour and, with the sky on, its light
+       direction. */
+    void showDayNight(unsigned int time_of_day);
+    // Create the fog and show the day phase's light direction through it.
+    void enableSky(unsigned int time_of_day);
     // Drop the fog and clear the fog colour.
     void disableSky();
+    // Show the party's light spell as the camera light; 0 turns it off.
+    void showPartyLight(int light);
     /* Arm the lighting transition. Duration is in milliseconds: negative fades the
        worlds out, positive fades them back in over abs(duration); zero applies the
        current base intensities immediately and returns to day/night mode. */
@@ -124,22 +119,6 @@ public:
        may be ambushed. Declines (returns false) while no member can fight, the party has
        no footing, or a hostile NPC's combat-start script is still owed. */
     bool beginCombat(int surprise);
-
-    /* The calendar (`status.game_time_ms`) drives the level's environment. Advancing it
-       by `elapsed` milliseconds (0x00482A20) runs the game clock while the party is in
-       the world and places the sky for the new time of day. */
-    void advanceCalendar(int elapsed);
-    // Run or stop the calendar; running it drops the time the level has not taken up.
-    void setCalendarRunning(bool running);
-    /* The per-frame environment update: a running lighting transition, otherwise the
-       calendar and, in day/night mode, the day phase's light and colour. */
-    void updateEnvironment();
-    // Catch the calendar up and show the day phase's light and colour.
-    void showDayPhase();
-    // Light the level for the calendar on entering it.
-    void enterLevelEnvironment();
-    // Turn on the level's fog and catch its light direction up with the calendar.
-    void enableSky();
     /* End the fight: award its experience, restore the formation and the world, and
        destroy the combat. A forced end (a departure or a scripted end) neither announces
        nor kills the summoned monsters. */
@@ -241,17 +220,12 @@ public:
        its LVLS group as a RIFF image of its own. Leaving a level stores its group here,
        entering one reads it back, and a save writes them beside the current level's. */
     std::map<int, std::vector<std::byte>> left_levels;
+    // The time of day drives the level's sky and lighting.
+    Calendar calendar{status, activity, level};
     /* Last, so its worlds are destroyed first, while combat and speech still exist.
        The main game leaves the level when it is discarded, before a game that ends in
        play is destroyed; destroying a world does no departure bookkeeping. */
     Level level;
-
-private:
-    // Step time reaches the level while the calendar runs.
-    void passCalendarTime(std::chrono::milliseconds elapsed);
-    /* Advance the calendar by the time scale's share of the step time the level has not
-       taken up yet, while time passes. */
-    void catchUpCalendar();
 };
 
 /* The games of one run of the program: the game in progress, if any, and the random

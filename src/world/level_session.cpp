@@ -419,7 +419,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
         ResetCurrentEnvironment();
     }
     g_camera_path_active = false;
-    CurrentGame().enterLevelEnvironment();
+    CurrentGame().calendar.enterLevel();
     World& world = *GetWorld();
     world.script = MakeLevelScript(level, MakeScriptContext(CurrentGame()));
     world.script->enter();

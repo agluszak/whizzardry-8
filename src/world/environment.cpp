@@ -1,7 +1,6 @@
 #include "wiz8/world/environment.h"
 
 #include <array>
-#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <exception>
@@ -23,7 +22,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/game_status.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera.h"
@@ -296,58 +295,44 @@ void Environment::placeSky(unsigned int time_of_day)
     }
 }
 
-void Level::passTime(std::chrono::milliseconds elapsed)
+// Both static scenes take the light direction as their fog colour.
+static void ShowLightDirection(Level& level, glm::vec3 direction)
 {
-    if (primary) primary->environment.passTime(elapsed);
+    level.primary->environment.setFogColour(direction);
+    if (level.sky) level.sky->environment.setFogColour(direction);
 }
 
-std::chrono::milliseconds Level::takeUntakenTime()
+static void ShowDayPhaseLight(Level& level, unsigned int time_of_day)
 {
-    return primary ? primary->environment.takeUntakenTime() : std::chrono::milliseconds{};
-}
-
-void Level::locateCelestialBodies()
-{
-    sky->environment.locateCelestialBodies();
+    auto& environment = level.primary->environment;
+    if (environment.showLightPhase(time_of_day))
+        ShowLightDirection(level, environment.lightDirection());
 }
 
 void Level::placeSky(unsigned int time_of_day)
 {
-    sky->environment.placeSky(time_of_day);
-}
-
-// Both static scenes take the light direction as their fog colour.
-void Level::showLightDirection(glm::vec3 direction)
-{
-    primary->environment.setFogColour(direction);
-    if (sky) sky->environment.setFogColour(direction);
+    if (sky) sky->environment.placeSky(time_of_day);
 }
 
 void Level::enterEnvironment(unsigned int time_of_day)
 {
+    if (sky) sky->environment.locateCelestialBodies();
     primary->environment.showDayPhase(time_of_day);
-    showLightDirection(primary->environment.lightDirection());
+    ShowLightDirection(*this, primary->environment.lightDirection());
 }
 
-void Level::showDayPhaseLight(unsigned int time_of_day)
+void Level::showDayPhase(unsigned int time_of_day)
 {
-    if (primary->environment.showLightPhase(time_of_day))
-        showLightDirection(primary->environment.lightDirection());
-}
-
-void Level::showDayPhaseColour(unsigned int time_of_day)
-{
+    ShowDayPhaseLight(*this, time_of_day);
     primary->environment.showColourPhase(time_of_day);
 }
 
-bool Level::showsDayNight() const
+void Level::showDayNight(unsigned int time_of_day)
 {
-    return primary->environment.lightingMode() == W8EnvironmentLightingMode::DayNight;
-}
-
-bool Level::skyEnabled() const
-{
-    return primary->environment.skyEnabled();
+    auto& environment = primary->environment;
+    if (environment.lightingMode() != W8EnvironmentLightingMode::DayNight) return;
+    if (environment.skyEnabled()) ShowDayPhaseLight(*this, time_of_day);
+    environment.showColourPhase(time_of_day);
 }
 
 bool Level::fading() const
@@ -355,21 +340,30 @@ bool Level::fading() const
     return primary->environment.fading();
 }
 
-void Level::enableSky()
+void Level::enableSky(unsigned int time_of_day)
 {
     auto& environment = primary->environment;
     if (primary->scene && !environment.fogEnabled()) {
         environment.enableFog();
-        showLightDirection(environment.lightDirection());
+        ShowLightDirection(*this, environment.lightDirection());
     }
     environment.setSkyEnabled(true);
+    ShowDayPhaseLight(*this, time_of_day);
 }
 
 void Level::disableSky()
 {
+    if (!primary) return;
     primary->environment.disableFog();
-    showLightDirection(glm::vec3(0));
+    ShowLightDirection(*this, glm::vec3(0));
     primary->environment.setSkyEnabled(false);
+}
+
+void Level::showPartyLight(int light)
+{
+    if (!primary || !primary->camera_light) return;
+    primary->camera_light->visible = light != 0;
+    if (light != 0) primary->camera_light->intensity = light + kEnvironmentNearScale;
 }
 
 /* The primary world's transition drives both worlds; the shared light scale also
@@ -390,7 +384,7 @@ void Level::beginLightingFade(float duration)
         ShowFadeState(environment.lightingMode());
         g_monster_light_scale = 1.0f;
         if (sky) sky->environment.fadeTo(1.0f);
-        showLightDirection(glm::clamp(environment.lightDirection(), 0.0f, 1.0f));
+        ShowLightDirection(*this, glm::clamp(environment.lightDirection(), 0.0f, 1.0f));
         return;
     }
     environment.beginFade(duration);
@@ -404,85 +398,6 @@ void Level::advanceLightingFade()
     if (!scale) return;
     g_monster_light_scale = *scale;
     if (sky) sky->environment.fadeTo(*scale);
-    showLightDirection(glm::clamp(environment.lightDirection() * *scale, 0.0f, 1.0f));
+    ShowLightDirection(*this, glm::clamp(environment.lightDirection() * *scale, 0.0f, 1.0f));
     ShowFadeState(environment.lightingMode());
-}
-
-void Game::advanceCalendar(int elapsed)
-{
-    unsigned int time = status.game_time_ms + elapsed;
-    if (time > 86399999U) {
-        ++status.game_time_days;
-    }
-    status.game_time_ms = time % 86400000U;
-
-    /* The game clock (turns, aging, recharges, fatigue, stamina, camping) runs only while
-       the party is in the world. Time reaches it from the calendar while nothing holds
-       the world and no fight is on, and from the rounds of a fight there. */
-    if (activity.in_world()) {
-        UpdateGameClock(*this, elapsed);
-    }
-    level.takeUntakenTime();
-    if (level.sky) level.placeSky(status.game_time_ms);
-}
-
-void Game::passCalendarTime(std::chrono::milliseconds elapsed)
-{
-    if (advancement.time_passes) level.passTime(elapsed);
-}
-
-void Game::setCalendarRunning(bool running)
-{
-    advancement.time_passes = running;
-    if (running) level.takeUntakenTime();
-}
-
-void Game::catchUpCalendar()
-{
-    if (!advancement.time_passes) return;
-    const auto elapsed = level.takeUntakenTime();
-    if (elapsed.count() != 0) {
-        advanceCalendar(
-            static_cast<int>(static_cast<double>(elapsed.count()) * advancement.time_scale));
-    }
-}
-
-void Game::updateEnvironment()
-{
-    if (!level.primary) return;
-    if (level.fading()) {
-        level.advanceLightingFade();
-        return;
-    }
-    if (!advancement.time_passes) {
-        return;
-    }
-    catchUpCalendar();
-    if (!level.showsDayNight()) return;
-    if (level.skyEnabled()) level.showDayPhaseLight(status.game_time_ms);
-    level.showDayPhaseColour(status.game_time_ms);
-}
-
-void Game::showDayPhase()
-{
-    if (!level.primary) return;
-    catchUpCalendar();
-    level.showDayPhaseLight(status.game_time_ms);
-    level.showDayPhaseColour(status.game_time_ms);
-}
-
-void Game::enterLevelEnvironment()
-{
-    if (!level.primary) return;
-    if (level.sky) level.locateCelestialBodies();
-    catchUpCalendar();
-    level.enterEnvironment(status.game_time_ms);
-}
-
-void Game::enableSky()
-{
-    if (!level.primary) return;
-    level.enableSky();
-    catchUpCalendar();
-    level.showDayPhaseLight(status.game_time_ms);
 }

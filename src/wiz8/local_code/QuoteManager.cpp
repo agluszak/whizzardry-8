@@ -994,7 +994,7 @@ void W8CharacterEventQueue::RestartFollowUpClock(W8CharacterEvent* entry)
 
 void W8CharacterEventQueue::ProcessFollowUpEvents()
 {
-    if (!CurrentGame().advancement.time_passes) return;
+    if (!CurrentGame().calendar.running()) return;
     if (!follow_up) follow_up = FollowUp{};
     const auto ambient = [](const auto& event) { return event->IsAmbientExchange(); };
     for (const auto* events : {&pending_events, &npc_deferred_events, &active_events})

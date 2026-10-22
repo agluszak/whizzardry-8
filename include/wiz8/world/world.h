@@ -27,7 +27,6 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world_cursor.h"
 
-class Game;
 class NativeObject;
 class LevelScript;
 class W8AmbientSound;
@@ -180,7 +179,7 @@ World* GetSecondaryWorld(void);
 std::unique_ptr<World> LoadWorld(int level_id, std::string source_path);
 void DetachAllWorldItems(void);
 // Run the worlds over the step's `elapsed` time.
-void UpdateWorlds(Game& game, std::chrono::milliseconds elapsed);
+void UpdateWorlds(std::chrono::milliseconds elapsed);
 void RefreshWorldView(void);
 /* The party's pose is `World::party_camera`: the eye position and the orientation,
    with the retail pose bytes the save keeps. Gameplay queries, saves and the rendered

@@ -149,7 +149,7 @@ void W8Searchable::GetPosition(glm::vec3* position)
    found event and turn the camera toward the find. */
 void RunSearchPulse(void)
 {
-    if (CurrentGame().advancement.time_passes && !CurrentGame().advancement.held &&
+    if (CurrentGame().calendar.running() && !CurrentGame().advancement.held &&
         !CurrentGame().surprise_possible && !IsLockInteractionActive() &&
         !LockInteractionSuspended() && !IsTrapInteractionActive() && !TrapInteractionSuspended()) {
         if (IsLevelFastMovement() && CurrentGame().status.search_mode) {

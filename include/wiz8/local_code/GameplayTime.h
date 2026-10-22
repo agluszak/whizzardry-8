@@ -29,11 +29,6 @@ struct WorldAdvancement {
     WorldHold hold{.covered = true};
     // As last applied: paused or held by the interface, so the world's simulation waits.
     bool held = true;
-    // As last applied: the environment clock runs, as nothing holds the world or fights.
-    bool time_passes = false;
-    /* The calendar's multiplier: each catch-up scales the step time by it, 12 normally
-       and 2880 while the party rests. Sight and encounters compare it as well. */
-    float time_scale = 12.0f;
     // The world the environment state was applied to; a new world takes it up again.
     const World* world = nullptr;
     // The pause the move timer was last suspended or resumed for.
@@ -58,7 +53,7 @@ struct SurpriseSequence {
     Phase phase = Phase::fade_in;
 };
 
-void UpdateGameClock(Game& game, int elapsed);
+void UpdateGameClock(int elapsed);
 /* The 120-second aging tick - wait-state machine, per-character
    aging, combat/monster effect expiry and NPC-side aging. */
 void AdvanceTimedEffects(unsigned int minutes);
@@ -86,7 +81,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
 void RebuildMonsterRegenRates(W8MonsterInfo* monster_info);
 /* Advance the surprise fade/hold/resolve sequence while
    fSurprisePossible is set. */
-void UpdateSurpriseMode(Game& game);
+void UpdateSurpriseMode(void);
 /* The surprise sequence is still fading the view in. */
 bool SurpriseFadingIn(void);
 /* The cancel command while surprise runs - reposts the surprise

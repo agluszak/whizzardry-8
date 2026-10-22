@@ -166,6 +166,7 @@ target_sources(wiz8_engine PRIVATE
     loaded_game_data.cpp
     game.cpp
     game_advance.cpp
+    calendar.cpp
     combat/entity_signals.cpp
     combat/script_commands.cpp
     fact_state.cpp
