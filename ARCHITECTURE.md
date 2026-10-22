@@ -36,9 +36,6 @@ ScreenRouter (file-scope in screen_router.cpp)
   conversation, spell cooldowns, the event log, stored characters, the byte images
   of levels the party has left, and the `Level`. Destroying a game does no
   departure bookkeeping; the main game leaves the level before its game ends.
-  The speech queue takes its game in its constructor and each event takes its queue,
-  so a voice completes into the queue that started it; destroying the queue stops its
-  voices without completing their events.
 - **`Level`** owns the primary and sky `World`s. Queries borrow those owners, so no
   world outlives its game; replacing a slot hands back the previous owner.
 - **`World`** (`world/world.h`) owns a loaded level: the VSG scene, environment,
