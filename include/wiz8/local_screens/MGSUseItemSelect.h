@@ -12,6 +12,7 @@
 #include "wiz8/rules/item_location.h"
 #include "wiz8/ui_layer.h"
 
+struct MainGameScreen;
 struct SpriteSheet;
 struct W8ItemInstance;
 
@@ -21,7 +22,7 @@ struct W8ItemInstance;
    cancelled. Abandoning the screen discards the picker without running it. */
 class W8UseItemView {
 public:
-    explicit W8UseItemView(std::move_only_function<void()> on_return);
+    W8UseItemView(MainGameScreen& screen, std::move_only_function<void()> on_return);
 
     W8Action draft{W8_ACTION_USE_ITEM, -1};
     std::move_only_function<void()> on_return;
@@ -62,8 +63,11 @@ private:
     void UpdateDetailPanel(W8ItemInstance* item);
     void TakeIntoHand();
 
+    // The screen that owns the picker, and through it the game it uses items in.
+    MainGameScreen& screen;
     Pool pool = Pool::Character;
     int selected_line = -1;
+    // The party slot using the item; it follows the selected character.
     int owner = -1;
     int hover_row = -1;
     W8ItemInstance* detail_item = nullptr;

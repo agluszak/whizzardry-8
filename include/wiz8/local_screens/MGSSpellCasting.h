@@ -15,23 +15,27 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/ui_layer.h"
 
+struct MainGameScreen;
 struct W8Character;
 
 inline constexpr int W8_SPELL_POWER_PIP_COUNT = 9;
 
-/* The spell picker. The main-game screen owns it, with its input and controls,
-   for exactly as long as it is open; whoever opened it supplies `on_return`,
+/* The spell picker for one caster (`caster`, which follows the selected
+   character). The main-game screen owns it, with its input and controls, for
+   exactly as long as it is open; whoever opened it supplies `on_return`,
    which runs once a cast is chosen or the picker is cancelled. Abandoning the
    screen discards the picker without running it. */
 struct W8SpellCastingView {
-    explicit W8SpellCastingView(std::move_only_function<void()> on_return = {})
-        : on_return(std::move(on_return))
+    W8SpellCastingView(MainGameScreen& screen, std::move_only_function<void()> on_return)
+        : screen(screen), on_return(std::move(on_return))
     {
     }
 
+    // The screen that owns the picker, and through it the game it casts in.
+    MainGameScreen& screen;
     UiLayer input{UiLayerOrder::SpellCasting};
     HitTarget* name_target = nullptr;
-    W8Character* caster;
+    W8Character* caster = nullptr;
     W8SpellRealm iSpellRealm = W8_SPELL_REALM_NONE; /* selected realm, -1 when none */
     W8Action draft{W8_ACTION_CAST_SPELL, 0};
     uint64_t realm_anim_timer;

@@ -64,6 +64,7 @@
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/activity.h"
@@ -254,8 +255,10 @@ TEST_CASE("Spell picker metadata follows its draft and caster", "[targeting]")
     data.spells[2].power_class = W8_SPELL_POWER_FIXED;
     data.spells[2].spell_point_cost = 10;
     const ScopedGameData installed(std::move(data));
+    const ScopedGame game;
+    MainGameScreen screen(game.game, ScreenPointer());
     W8Character caster{};
-    W8SpellCastingView view{};
+    W8SpellCastingView view(screen, {});
     view.caster = &caster;
     caster.iSPLeft[W8_SPELL_REALM_FIRE] = 20;
     view.draft.detail = 1;

@@ -131,10 +131,7 @@ void W8SpellCastingView::CreateControls()
             const auto& name = Data().strings[g_spell_realm_help_string_ids[realm]];
             if (!realm_buttons[realm]->IsEnabled()) return std::string(name);
             return fmt::format("{} ({}: {:d})", name, Data().strings[0x2d],
-                               CurrentGame()
-                                   .party.characters[CurrentGame().status.selected_character]
-                                   .skills[W8_SKILL_FIRE_MAGIC + realm]
-                                   .level);
+                               caster->skills[W8_SKILL_FIRE_MAGIC + realm].level);
         };
         button->SetTooltip(tooltip);
         auto& text = realm_text[realm];
@@ -199,29 +196,30 @@ bool OpenSpellCastingView(int party_slot, std::move_only_function<void()> on_ret
         return false;
     }
     UpdateScreenOverlays(0);
+    auto& screen = *MainGame();
     auto& view =
-        *(MainGame()->spell_picker = std::make_unique<W8SpellCastingView>(std::move(on_return)));
+        *(screen.spell_picker = std::make_unique<W8SpellCastingView>(screen, std::move(on_return)));
     view.CreateControls();
-    if (MainGameHud()->open_submenu) {
+    if (screen.hud->open_submenu) {
         DestroySubMenuControls();
     }
     CloseMainGameOverlays();
     RefreshMainGameLayout();
-    if (CurrentGame().activity.conversation_aside) {
+    if (screen.game.activity.conversation_aside) {
         for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
             DisableMainGamePortraitSlot(index);
-            MainGame()->edge_targets[index]->setEnabled(false);
+            screen.edge_targets[index]->setEnabled(false);
         }
     }
     RestoreSpellCastingRegions();
     view.input.setEnabled(true);
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
-    MainGameHud()->text_box_visible = false;
+    screen.hud->text_box_visible = false;
     SetTextBoxRegionBounds(0xea, 0x16e, 0x18c, 0x1ba);
     SelectSpellCastingPartySlot(party_slot, view.draft);
     view.SelectCharacter(party_slot);
-    if (auto* hud = MainGameHud()) {
+    if (auto* hud = screen.hud.get()) {
         hud->repaint.layout = true;
         hud->repaint.roof_and_spell_icons = true;
         hud->repaint.submenu_buttons = true;
@@ -234,19 +232,20 @@ void DismissSpellCastingView(void)
 {
     auto* main_game = MainGame();
     if (!main_game || !main_game->spell_picker) return;
-    main_game->spell_picker->input.setEnabled(false);
+    auto& screen = *main_game;
+    screen.spell_picker->input.setEnabled(false);
     SetTextBoxScrollInput(false);
-    MainGameHud()->action_panel_visible = 0;
+    screen.hud->action_panel_visible = 0;
     SetTargetingMode(W8_TARGET_NEED_NONE);
-    if (!CurrentGame().activity.conversation_aside) {
+    if (!screen.game.activity.conversation_aside) {
         ResetEditorStatusLine(-1);
     }
-    MainGameHud()->text_box_visible = true;
-    SelectTextBox(CurrentGame().combat.has_value());
+    screen.hud->text_box_visible = true;
+    SelectTextBox(screen.game.combat.has_value());
     SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
-    main_game->spell_picker.reset();
+    screen.spell_picker.reset();
     RefreshMainGameLayout();
-    if (auto* hud = MainGameHud()) {
+    if (auto* hud = screen.hud.get()) {
         hud->repaint.layout = true;
         hud->repaint.roof_and_spell_icons = true;
         hud->repaint.submenu_buttons = true;
@@ -286,8 +285,8 @@ void W8SpellCastingView::ClearChoice()
     SelectPowerLevel(-1);
     dialog_confirmed = false;
     UpdatePowerPips();
-    SelectSpellCastingPartySlot(CurrentGame().status.selected_character, draft);
-    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
+    SelectSpellCastingPartySlot(CharacterPointerToPartySlot(caster), draft);
+    if (auto* hud = screen.hud.get()) hud->repaint.layout = true;
 }
 
 /* Points the view at a new caster: rebuilds the learned-spell buckets and the
@@ -297,18 +296,18 @@ void W8SpellCastingView::SelectCharacter(int party_slot)
 {
     W8SpellRealm realm;
 
-    if (!CharacterHasCastableSpell(&CurrentGame().party.characters[party_slot]) ||
+    if (!CharacterHasCastableSpell(&screen.game.party.characters[party_slot]) ||
         !IsPartySlotEligible(party_slot)) {
         ResetEditorStatusLine(-1);
         CloseSpellCastingView();
         return;
     }
-    caster = &CurrentGame().party.characters[party_slot];
+    caster = &screen.game.party.characters[party_slot];
     BuildLearnedSpellState(&learned, caster);
     UpdateRealmPointDisplays();
     ClearChoice();
     if (GetAffordableSpellPowerLevel(party_slot) != 0) {
-        int spell_id = CurrentGame().party.rows[party_slot].remembered.spell.detail;
+        int spell_id = screen.game.party.rows[party_slot].remembered.spell.detail;
         SelectRealm(Data().spells[spell_id].realm);
         if (spell_id == W8_SPELL_IDENTIFY_ITEM) {
             uiSpellIndex = -1;
@@ -385,7 +384,7 @@ void W8SpellCastingView::UpdatePowerPips()
             power_controls[7]->SetVisible(false);
             power_controls[8]->SetVisible(false);
         } else if (PowerClass() == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT) {
-            power_controls[7]->SetVisible(!CurrentGame().combat.has_value());
+            power_controls[7]->SetVisible(!screen.game.combat.has_value());
             RefreshAvailablePowerPips();
             power_controls[8]->SetVisible(false);
         } else if (PowerClass() == W8_SPELL_POWER_MAXIMUM) {
@@ -462,7 +461,7 @@ void W8SpellCastingView::RebuildList(int spell_id)
             !IsTeleportCastMissingAnchor(caster, id);
         const signed char color = castable ? (IsSpellBlockedForCharacter(caster, id) ? 4 : 15) : 0;
         if (color != 15 &&
-            (CurrentGame().activity.conversation_aside || LockInteractionSuspended() ||
+            (screen.game.activity.conversation_aside || LockInteractionSuspended() ||
              TrapInteractionSuspended()) &&
             !usable)
             continue;
@@ -488,7 +487,7 @@ void W8SpellCastingView::RebuildList(int spell_id)
         SelectListRow(selected);
         ScrollTextBoxTo(selected);
     }
-    if (auto* hud = MainGameHud()) hud->repaint.text_box = true;
+    if (auto* hud = screen.hud.get()) hud->repaint.text_box = true;
 }
 
 /* Recolours one spell-list line; -1 keeps the row's own color, or the
@@ -505,7 +504,7 @@ void W8SpellCastingView::SetLineColor(int index, signed char color)
             color = spells[index].color;
         }
     }
-    line = &CurrentGame().message_log[2][index];
+    line = &screen.game.message_log[2][index];
     line->highlight_start = 2;
     length = line->text.size();
     line->highlight_color = color;
@@ -522,7 +521,7 @@ void W8SpellCastingView::SelectRow(int index)
         if (selected_spell_index != -1) {
             SetLineColor(selected_spell_index, -1);
             selected_spell_index = -1;
-            if (auto* hud = MainGameHud()) hud->repaint.text_box = true;
+            if (auto* hud = screen.hud.get()) hud->repaint.text_box = true;
             return;
         }
     } else {
@@ -533,7 +532,7 @@ void W8SpellCastingView::SelectRow(int index)
         SetLineColor(index, 5);
         selected_spell_index = index;
     }
-    if (auto* hud = MainGameHud()) hud->repaint.text_box = true;
+    if (auto* hud = screen.hud.get()) hud->repaint.text_box = true;
 }
 
 /* Opens the spell-casting view for the selected character with the given
@@ -775,7 +774,7 @@ void W8SpellCastingView::DialogResult(bool accepted)
 
 void W8SpellCastingView::Cancel()
 {
-    if (CurrentGame().activity.conversation_aside) {
+    if (screen.game.activity.conversation_aside) {
         ResetEditorStatusLine(-1);
     }
     CloseSpellCastingView();
@@ -793,7 +792,7 @@ void W8SpellCastingView::Update()
             }
             dirty[0] = true;
             realm_anim_timer = MonotonicMilliseconds() + (0x32);
-            if (auto* hud = MainGameHud()) hud->repaint.panels = true;
+            if (auto* hud = screen.hud.get()) hud->repaint.panels = true;
         }
     }
     TryCommit();
@@ -801,10 +800,8 @@ void W8SpellCastingView::Update()
 
 UiResult W8SpellCastingView::HandleTextBox(const UiPointerEvent& event)
 {
-    if (CurrentGame().status.selected_character == -1 || iSpellRealm == W8_SPELL_REALM_NONE)
-        return UiResult::Handled;
-    int line =
-        MainGameHud()->text_lines[CurrentGame().status.text_line_cursor] + event.local.y / 11;
+    if (iSpellRealm == W8_SPELL_REALM_NONE) return UiResult::Handled;
+    int line = screen.hud->text_lines[screen.game.status.text_line_cursor] + event.local.y / 11;
     if (!event.inside || line < 0 || line >= static_cast<int>(spells.size())) line = -1;
     if (line != selected_spell_index) SelectRow(line);
     if (line != -1 && event.action == UiPointerAction::Up) {
@@ -855,30 +852,25 @@ void W8SpellCastingView::SelectListRow(int index)
         uiSpellIndex = -1;
         ConfigureSpellTargetFilter(W8_TARGET_TYPE_NONE, W8_TARGET_NEED_NONE, &draft);
         ShowError(spell_id);
-        QueueCharacterEvent(
-            &CurrentGame().party.characters[CurrentGame().status.selected_character], 0x35, 0,
-            kCharacterEventFullVolume);
+        QueueCharacterEvent(caster, 0x35, 0, kCharacterEventFullVolume);
         return;
     }
     SetLineColor(uiSpellIndex, 3);
     assert(Data().spells[spell_id].power_class != W8_SPELL_POWER_CLASS_NONE);
     cost = Data().spells[spell_id].spell_point_cost;
-    levels = GetCharacterRealmSpellPoints(
-                 &CurrentGame().party.characters[CurrentGame().status.selected_character],
-                 Data().spells[spell_id].realm) /
-             cost;
+    levels = GetCharacterRealmSpellPoints(caster, Data().spells[spell_id].realm) / cost;
     levels = std::clamp(levels, 0u, 7u);
     if (levels == 0) {
         uiSpellIndex = -1;
         return;
     }
     draft.detail = spell_id;
-    needed = GetTargetNeededForSpellFriendly(spell_id, false, MainGameHud() == nullptr);
+    needed = GetTargetNeededForSpellFriendly(spell_id, false, !screen.hud);
     target_type = GetSpellTargetType(spell_id, false);
     ConfigureSpellTargetFilter(target_type, needed, &draft);
     SelectPowerLevel(-1);
     UpdatePowerPips();
-    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
+    if (auto* hud = screen.hud.get()) hud->repaint.layout = true;
 }
 
 /* Lets a fully priced spell commit once its target is valid; spells 0x49 and
@@ -890,13 +882,11 @@ void W8SpellCastingView::TryCommit()
     ready = false;
     if (draft.detail != 0 &&
         (draft.detail_block.spell.power_level != 0 || PowerClass() == W8_SPELL_POWER_FIXED)) {
-        ready = IsSpellTargetOfNeededKind(&draft.target, draft.detail, MainGameHud() == nullptr);
+        ready = IsSpellTargetOfNeededKind(&draft.target, draft.detail, !screen.hud);
     }
     const auto result = [this](bool accepted) { DialogResult(accepted); };
     if (draft.detail == 0x4b && !dialog_confirmed) {
-        if (!IsModalOpen() && CurrentGame()
-                                  .party.characters[CurrentGame().status.selected_character]
-                                  .has_saved_location) {
+        if (!IsModalOpen() && caster->has_saved_location) {
             ShowMainGameNoticeLine(Data().strings[0x7a4], result, true, true);
         }
     } else if (draft.detail == 0x49 && !dialog_confirmed && !IsModalOpen()) {
@@ -904,7 +894,7 @@ void W8SpellCastingView::TryCommit()
     }
     if (ready && !IsModalOpen()) {
         if (draft.detail != 0x17) {
-            if (CurrentGame().activity.conversation_aside) {
+            if (screen.game.activity.conversation_aside) {
                 ResetEditorStatusLine(-1);
             }
             // Commit a copy: casting may close the picker.

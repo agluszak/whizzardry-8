@@ -69,8 +69,8 @@ W8UseItemView* UseItemPicker()
     return main_game ? main_game->item_picker.get() : nullptr;
 }
 
-W8UseItemView::W8UseItemView(std::move_only_function<void()> on_return)
-    : on_return(std::move(on_return))
+W8UseItemView::W8UseItemView(MainGameScreen& screen, std::move_only_function<void()> on_return)
+    : on_return(std::move(on_return)), screen(screen)
 {
     CreateControls();
 }
@@ -128,8 +128,9 @@ void W8UseItemView::CreateControls()
 bool OpenUseItemSelectView(int slot, std::move_only_function<void()> on_return)
 {
     UpdateScreenOverlays(0);
-    MainGame()->item_picker = std::make_unique<W8UseItemView>(std::move(on_return));
-    if (MainGameHud()->open_submenu) {
+    auto& screen = *MainGame();
+    screen.item_picker = std::make_unique<W8UseItemView>(screen, std::move(on_return));
+    if (screen.hud->open_submenu) {
         DestroySubMenuControls();
     }
     CloseNpcDialogueIfActive();
@@ -138,14 +139,14 @@ bool OpenUseItemSelectView(int slot, std::move_only_function<void()> on_return)
     RestoreSpellCastingRegions();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
-    MainGameHud()->text_box_visible = false;
-    if (auto* hud = MainGameHud()) {
+    screen.hud->text_box_visible = false;
+    if (auto* hud = screen.hud.get()) {
         hud->repaint.layout = true;
         hud->repaint.roof_and_spell_icons = true;
         hud->repaint.submenu_buttons = true;
     }
-    UseItemPicker()->RefreshForSlot(slot);
-    if (auto* view = UseItemPicker()) SelectSpellCastingPartySlot(slot, view->draft);
+    screen.item_picker->RefreshForSlot(slot);
+    if (screen.item_picker) SelectSpellCastingPartySlot(slot, screen.item_picker->draft);
     return true;
 }
 
@@ -154,22 +155,23 @@ void DismissUseItemSelectView(void)
 {
     auto* main_game = MainGame();
     if (!main_game || !main_game->item_picker) return;
+    auto& screen = *main_game;
     SetTextBoxScrollInput(false);
     SetTextBoxEnabled(false);
-    MainGameHud()->action_panel_visible = 0;
+    screen.hud->action_panel_visible = 0;
     SetTargetingMode(W8_TARGET_NEED_NONE);
     ResetEditorStatusLine(-1);
-    MainGameHud()->text_box_visible = true;
-    SelectTextBox(CurrentGame().combat.has_value());
-    main_game->item_picker.reset();
+    screen.hud->text_box_visible = true;
+    SelectTextBox(screen.game.combat.has_value());
+    screen.item_picker.reset();
     RefreshMainGameLayout();
-    if (auto* hud = MainGameHud()) {
+    if (auto* hud = screen.hud.get()) {
         hud->repaint.layout = true;
         hud->repaint.roof_and_spell_icons = true;
         hud->repaint.submenu_buttons = true;
     }
-    main_game->item_drag.reset();
-    CurrentGame().aging_held = false;
+    screen.item_drag.reset();
+    screen.game.aging_held = false;
 }
 
 /* Discard the picker, then let whoever opened it take over again. */
@@ -192,31 +194,30 @@ void W8UseItemView::RefreshForSlot(int party_slot)
         return;
     }
     owner = party_slot;
-    if (MainGame()->item_drag && MainGame()->item_drag->pending) {
-        MainGame()->item_drag->pending = false;
-        CurrentGame().aging_held = false;
-        const auto dragged = MainGame()->item_drag->item;
-        if (CurrentGame().party.held.item.iItemNo == -1) {
+    if (screen.item_drag && screen.item_drag->pending) {
+        screen.item_drag->pending = false;
+        screen.game.aging_held = false;
+        const auto dragged = screen.item_drag->item;
+        if (screen.game.party.held.item.iItemNo == -1) {
             const bool party_pool = dragged.storage == W8ItemStorage::Pool;
-            assert(!party_pool || !CurrentGame().combat.has_value());
-            Rebuild(party_pool ? Pool::Party : Pool::Character,
-                    CurrentGame().party.itemAt(dragged));
+            assert(!party_pool || !screen.game.combat.has_value());
+            Rebuild(party_pool ? Pool::Party : Pool::Character, screen.game.party.itemAt(dragged));
         } else {
-            Rebuild(Pool::Hand, &CurrentGame().party.held.item);
+            Rebuild(Pool::Hand, &screen.game.party.held.item);
         }
         assert(selected_line != -1);
         ScrollTextBoxTo(selected_line);
         return;
     }
     if (CanPartySlotUseRecordedItem(party_slot)) {
-        MainGame()->item_drag.reset();
-        item = CurrentGame().party.itemAt(
-            CurrentGame().party.rows[party_slot].remembered.item_detail.item_use.item);
+        screen.item_drag.reset();
+        item = screen.game.party.itemAt(
+            screen.game.party.rows[party_slot].remembered.item_detail.item_use.item);
         if (CanUseItemForAction(owner, item)) {
             const bool party_pool =
-                CurrentGame().party.rows[party_slot].remembered.item_detail.item_use.item.storage ==
+                screen.game.party.rows[party_slot].remembered.item_detail.item_use.item.storage ==
                 W8ItemStorage::Pool;
-            assert(!party_pool || !CurrentGame().combat.has_value());
+            assert(!party_pool || !screen.game.combat.has_value());
             Rebuild(party_pool ? Pool::Party : Pool::Character, item);
             assert(selected_line != -1);
             ScrollTextBoxTo(selected_line);
@@ -225,7 +226,7 @@ void W8UseItemView::RefreshForSlot(int party_slot)
             return;
         }
     }
-    MainGame()->item_drag.reset();
+    screen.item_drag.reset();
     Rebuild(pool, nullptr);
 }
 
@@ -274,10 +275,10 @@ void W8UseItemView::SelectPool(Pool source)
 // Both controls project the selected source. Their pressed states never select a source.
 void W8UseItemView::UpdatePoolButtons()
 {
-    if (CurrentGame().combat.has_value() && pool == Pool::Party) Rebuild(Pool::Character, nullptr);
+    if (screen.game.combat.has_value() && pool == Pool::Party) Rebuild(Pool::Character, nullptr);
     const bool hand = pool == Pool::Hand;
     pools[0]->SetEnabled(!hand);
-    pools[1]->SetEnabled(!hand && !CurrentGame().combat.has_value());
+    pools[1]->SetEnabled(!hand && !screen.game.combat.has_value());
     pools[0]->SetPressed(pool == Pool::Character);
     pools[1]->SetPressed(pool == Pool::Party);
 }
@@ -287,7 +288,7 @@ void W8UseItemView::UpdatePoolButtons()
 void W8UseItemView::Commit()
 {
     const auto chosen = draft;
-    auto* item = CurrentGame().party.itemAt(chosen.detail_block.item_use.item);
+    auto* item = screen.game.party.itemAt(chosen.detail_block.item_use.item);
     const int slot = owner;
     if (!item || !CanUseItemForAction(slot, item) ||
         !IsItemTargetOfNeededKind(&chosen.target, item))
@@ -309,7 +310,7 @@ void W8UseItemView::Rebuild(Pool source, W8ItemInstance* select)
     item_image.reset();
     quantity.SetText("", g_large_font);
     dirty[2] = true;
-    SelectSpellCastingPartySlot(CurrentGame().status.selected_character, draft);
+    SelectSpellCastingPartySlot(owner, draft);
     pool = source;
     filter->SetEnabled(true);
     filter->SetPressed(true);
@@ -323,7 +324,7 @@ void W8UseItemView::Rebuild(Pool source, W8ItemInstance* select)
         for (unsigned int slot = 0; slot < 8; ++slot)
             AppendEntry({W8ItemStorage::Backpack, character, slot});
     } else {
-        for (unsigned int i = 0; i < CurrentGame().party.item_count; ++i)
+        for (unsigned int i = 0; i < screen.game.party.item_count; ++i)
             AppendEntry({W8ItemStorage::Pool, 0, i});
     }
     ShowList(select);
@@ -335,10 +336,10 @@ void W8UseItemView::Rebuild(Pool source, W8ItemInstance* select)
 // Classify once; stable partition preserves inventory order within each band.
 void W8UseItemView::AppendEntry(W8ItemLocation location)
 {
-    W8ItemInstance* item = CurrentGame().party.itemAt(location);
+    W8ItemInstance* item = screen.game.party.itemAt(location);
     if (item->iItemNo == -1 || IsFilteredOut(item)) return;
     const bool usable = CanUseItemForAction(owner, item);
-    if (!usable && (CurrentGame().activity.conversation_aside || LockInteractionSuspended() ||
+    if (!usable && (screen.game.activity.conversation_aside || LockInteractionSuspended() ||
                     TrapInteractionSuspended()))
         return;
     rows.push_back({item, location, usable});
@@ -356,7 +357,7 @@ void W8UseItemView::ShowList(W8ItemInstance* select)
         if (!usable) {
             const bool silenced =
                 Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
-                CurrentGame().party.characters[owner].uiCondition[W8_CONDITION_SILENCED];
+                screen.game.party.characters[owner].uiCondition[W8_CONDITION_SILENCED];
             ShowNotice(silenced ? 4 : 0, FormatItemDisplayName(Data(), item, true), 2);
             continue;
         }
@@ -400,20 +401,15 @@ bool W8UseItemView::IsFilteredOut(W8ItemInstance* item) const
     if (item->iItemNo == -1) {
         return true;
     }
-    if (!CanCharacterActivateItem(
-            &CurrentGame().party.characters[CurrentGame().status.selected_character], item)) {
-        if (CanCastFromItem(
-                &CurrentGame().party.characters[CurrentGame().status.selected_character], item)) {
+    if (!CanCharacterActivateItem(&screen.game.party.characters[owner], item)) {
+        if (CanCastFromItem(&screen.game.party.characters[owner], item)) {
             return false;
         }
         if (!IsUsableItemClass(item)) {
             return true;
         }
-        if ((CurrentGame().status.selected_character == 0 ||
-             CurrentGame().status.selected_character == 1) &&
-            (npc =
-                 GetNpcState(CurrentGame().party.npcIndex(CurrentGame().status.selected_character)),
-             npc != 0) &&
+        if ((owner == 0 || owner == 1) &&
+            (npc = GetNpcState(screen.game.party.npcIndex(owner)), npc != 0) &&
             NpcWantsItem(npc, item)) {
             return true;
         }
@@ -426,7 +422,7 @@ bool W8UseItemView::IsFilteredOut(W8ItemInstance* item) const
 void W8UseItemView::Refresh()
 {
     Rebuild(pool, nullptr);
-    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
+    if (auto* hud = screen.hud.get()) hud->repaint.layout = true;
 }
 
 /* Right release on the use-item text box: open the assay dialog for the item
@@ -435,7 +431,7 @@ void W8UseItemView::OpenAssayDialog(W8ItemInstance* item)
 {
     W8AssayDialog* dialog;
 
-    dialog = new W8AssayDialog(*item, &CurrentGame().party.characters[owner], {kInfoDialogX, 0x48});
+    dialog = new W8AssayDialog(*item, &screen.game.party.characters[owner], {kInfoDialogX, 0x48});
     dialog->SetText("");
 
     dialog->cleanup = [pointer = ScreenPointer().request()] {
@@ -456,13 +452,13 @@ UiResult W8UseItemView::HandleTextBox(const UiPointerEvent& event)
         hover_row = row;
     } else if (event.action == UiPointerAction::Up && event.inside) {
         if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK)) {
-            const int slot = MainGameHud()->hovered_text_lines[2];
+            const int slot = screen.hud->hovered_text_lines[2];
             if (slot != -1) AfterUiDispatch([this, slot] { SelectLine(slot); });
         }
         if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK)) {
             const int row = event.local.y / 11;
-            if (row >= 0 && row < static_cast<int>(CurrentGame().status.text_box_lines_shown[2])) {
-                const auto item = rows[MainGameHud()->text_lines[2] + row].item;
+            if (row >= 0 && row < static_cast<int>(screen.game.status.text_box_lines_shown[2])) {
+                const auto item = rows[screen.hud->text_lines[2] + row].item;
                 if (item) AfterUiDispatch([this, item] { OpenAssayDialog(item); });
             }
         }
@@ -474,10 +470,10 @@ UiResult W8UseItemView::HandleTextBox(const UiPointerEvent& event)
    cursor, even when it is already the hovered row. */
 void W8UseItemView::TextBoxWheelAt(unsigned short y)
 {
-    if (y < MainGameHud()->text_box_top || MainGameHud()->text_box_bottom < y) {
+    if (y < screen.hud->text_box_top || screen.hud->text_box_bottom < y) {
         return;
     }
-    hover_row = (y - MainGameHud()->text_box_top) / 0xb;
+    hover_row = (y - screen.hud->text_box_top) / 0xb;
     HighlightNoticeRow(hover_row);
 }
 
@@ -493,7 +489,7 @@ void W8UseItemView::SelectLine(int iTextLine)
     SetTargetingMode(W8_TARGET_NEED_NONE);
     UpdateDetailPanel(rows[iTextLine].item);
     if (ValidateItemSpellUse(owner, rows[iTextLine].item, SpellCastingNoticeClosed)) {
-        QueueCharacterEvent(&CurrentGame().party.characters[owner], 0x35, 0,
+        QueueCharacterEvent(&screen.game.party.characters[owner], 0x35, 0,
                             kCharacterEventFullVolume);
         return;
     }
@@ -501,7 +497,7 @@ void W8UseItemView::SelectLine(int iTextLine)
     const auto location = rows[iTextLine].location;
     draft.detail_block.item_use.item = location;
     draft.detail_block.item_use.item_id = item->iItemNo;
-    if (Trynnie2UseItem(MakeScriptContext(CurrentGame()), location)) {
+    if (Trynnie2UseItem(MakeScriptContext(screen.game), location)) {
         CloseUseItemSelectView();
         return;
     }
@@ -510,10 +506,8 @@ void W8UseItemView::SelectLine(int iTextLine)
         CloseUseItemSelectView();
         return;
     }
-    if (CanCastFromItem(&CurrentGame().party.characters[CurrentGame().status.selected_character],
-                        item)) {
-        LearnSpellFromItem(&CurrentGame().party.characters[CurrentGame().status.selected_character],
-                           location);
+    if (CanCastFromItem(&screen.game.party.characters[owner], item)) {
+        LearnSpellFromItem(&screen.game.party.characters[owner], location);
         CloseUseItemSelectView();
         return;
     }
@@ -522,8 +516,7 @@ void W8UseItemView::SelectLine(int iTextLine)
     RedrawTextBox();
     target_type = GetSpellTargetType(GetItemSpell(item),
                                      ItemClassNormalizesTarget(&Data().items[item->iItemNo]));
-    ConfigureSpellTargetFilter(target_type, GetTargetNeededForItem(item, MainGameHud() == nullptr),
-                               &draft);
+    ConfigureSpellTargetFilter(target_type, GetTargetNeededForItem(item, !screen.hud), &draft);
 }
 
 /* Show the item in the detail control: its catalog icon plus a quantity line -
@@ -578,17 +571,16 @@ void W8UseItemView::UpdateDetailPanel(W8ItemInstance* item)
 void W8UseItemView::TakeIntoHand()
 {
     auto& selected = draft.detail_block.item_use.item;
-    if (CurrentGame().party.held.item.iItemNo != -1) {
+    if (screen.game.party.held.item.iItemNo != -1) {
         assert(owner != -1);
-        const auto old_count = CurrentGame().party.item_count;
-        GiveItemToCharacterOrParty(CurrentGame(), owner,
-                                   PartyItem(CurrentGame().party, {W8ItemStorage::Hand}), true);
+        const auto old_count = screen.game.party.item_count;
+        GiveItemToCharacterOrParty(screen.game, owner,
+                                   PartyItem(screen.game.party, {W8ItemStorage::Hand}), true);
         // A new pool entry goes to the front and moves the selection down one row.
-        if (pool == Pool::Party && old_count != CurrentGame().party.item_count &&
-            selected.storage == W8ItemStorage::Pool &&
-            selected.slot < CurrentGame().party.item_count)
+        if (pool == Pool::Party && old_count != screen.game.party.item_count &&
+            selected.storage == W8ItemStorage::Pool && selected.slot < screen.game.party.item_count)
             ++selected.slot;
     }
-    ExchangeInventoryItems(CurrentGame(), selected, {W8ItemStorage::Hand},
-                           static_cast<unsigned>(CurrentGame().status.selected_character));
+    ExchangeInventoryItems(screen.game, selected, {W8ItemStorage::Hand},
+                           static_cast<unsigned>(owner));
 }
