@@ -12,6 +12,12 @@ class Monster;
 /* The NPC voice line being played, the hold that keeps a quote or portrait
    message on screen, and the mouth-gap track of an ungrouped speaker. */
 struct W8NpcSpeech {
+    W8NpcSpeech() = default;
+    // Destroying the speech stops its voice, so the voice's completion never runs.
+    ~W8NpcSpeech();
+    W8NpcSpeech(const W8NpcSpeech&) = delete;
+    W8NpcSpeech& operator=(const W8NpcSpeech&) = delete;
+
     wiz8::sound::Playback voice_handle;
     /* The presentation is voiced; a notice bubble clears it to hold silently. */
     bool voice_playing = false;

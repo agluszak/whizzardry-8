@@ -61,7 +61,8 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
                 missile.retargeted = true;
             }
             missile.combat_slot.iType = W8_TARGET_KIND_CHARACTER;
-            missile.combat_slot.iChar = CurrentGame().randomPartySlot(1, 1, -1, -1);
+            missile.combat_slot.iChar =
+                CurrentGame().party.randomSlot(CurrentGame().rng, 1, 1, -1, -1);
             missile.combat_slot.iMonsterID = -1;
             if (CurrentGame().combat.has_value()) {
                 missile.AnnounceCollisionTarget();
@@ -193,7 +194,7 @@ void CombatSignals::missileReleased(Monster& monster)
     }
 
     monster_info->Target.iType = W8_TARGET_KIND_CHARACTER;
-    monster_info->Target.iChar = CurrentGame().randomPartySlot(1, 1, -1, -1);
+    monster_info->Target.iChar = CurrentGame().party.randomSlot(CurrentGame().rng, 1, 1, -1, -1);
     monster_info->Target.iMonsterID = -1;
     if (monster_info->Target.iChar == -1) {
         return;

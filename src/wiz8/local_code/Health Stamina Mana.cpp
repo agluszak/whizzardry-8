@@ -153,7 +153,7 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
     return amount;
 }
 
-/* The eligibility window the party sweeps use, the same one Game::randomPartySlot
+/* The eligibility window the party sweeps use, the same one W8Party::randomSlot
    and AnyPartyMemberCanUseItem apply: highest_condition below death. */
 
 /* A negative amount means "as much as they could possibly hold", which the

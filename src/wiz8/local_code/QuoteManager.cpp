@@ -748,7 +748,7 @@ struct PartyQuoteInput {
                         if (slot > 1 && active)
                             CurrentGame().speech.CompleteActiveEvent(active);
                         else
-                            TryFinishNpcVoicePlayback(CurrentGame().status, true);
+                            TryFinishNpcVoicePlayback(true);
                     });
                 }
                 return UiResult::Handled;
@@ -996,7 +996,7 @@ void W8CharacterEventQueue::ProcessFollowUpEvents()
         if (std::ranges::any_of(*events, ambient)) return;
     if (TimeUntilDeadline(follow_up->ready_at) != 0) return;
 
-    const int speaker = game.randomPartySlot(0, 0, follow_up->excluded_slot, -1);
+    const int speaker = game.party.randomSlot(game.rng, 0, 0, follow_up->excluded_slot, -1);
     if (speaker == -1) return;
     if (!Queue(&game.party.characters[speaker], game.rng.below(2) + 0xe, 1, 0x7f)) return;
     follow_up->excluded_slot = follow_up->excluded_slot == -1 ? speaker : -1;
@@ -1215,14 +1215,14 @@ W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int 
         return 0;
     }
     Game& game = CurrentGame();
-    character_slot = game.randomPartySlot(0, 0, excluded_slot, -1);
+    character_slot = game.party.randomSlot(game.rng, 0, 0, excluded_slot, -1);
     if (character_slot == -1) {
         return 0;
     }
     attempts = 0;
     bool can_dispatch = game.speech.CanDispatch(character_slot, event_type);
     while (!can_dispatch && attempts < 0x32) {
-        character_slot = game.randomPartySlot(0, 0, excluded_slot, -1);
+        character_slot = game.party.randomSlot(game.rng, 0, 0, excluded_slot, -1);
         ++attempts;
         can_dispatch = game.speech.CanDispatch(character_slot, event_type);
     }
@@ -1475,13 +1475,14 @@ void QueueConditionChangeReaction(W8Character* character)
         if ((reaction < g_normal_event_count ||
              (kFirstRemappedEvent <= reaction &&
               reaction < kRemappedEventCount + kFirstRemappedEvent)) &&
-            (slot = CurrentGame().randomPartySlot(0, 0, excluded_slot, -1)) != -1) {
+            (slot = CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, excluded_slot, -1)) !=
+                -1) {
             attempts = 0;
             while (!CurrentGame().speech.CanDispatch(slot, reaction)) {
                 if (attempts >= 0x32) {
                     return;
                 }
-                slot = CurrentGame().randomPartySlot(0, 0, excluded_slot, -1);
+                slot = CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, excluded_slot, -1);
                 ++attempts;
             }
             QueueCharacterEvent(&CurrentGame().party.characters[slot], reaction, 0,

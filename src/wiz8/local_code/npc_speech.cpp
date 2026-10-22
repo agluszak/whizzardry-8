@@ -22,6 +22,11 @@ bool PlayNpcVoice(W8NpcSpeech& speech, std::string_view path, std::function<void
     return speech.voice_playing;
 }
 
+W8NpcSpeech::~W8NpcSpeech()
+{
+    StopNpcVoice(*this);
+}
+
 void StopNpcVoice(W8NpcSpeech& speech)
 {
     speech.voice_playing = false;

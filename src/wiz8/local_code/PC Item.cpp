@@ -795,7 +795,7 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
         return;
     }
     if (choose_character) {
-        int party_slot = CurrentGame().randomPartySlot(0, 0, -1, -1);
+        int party_slot = CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, -1, -1);
         if (party_slot == -1) {
             return;
         }

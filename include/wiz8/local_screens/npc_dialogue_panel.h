@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <vector>
 
 #include <SDL3/SDL_rect.h>
@@ -14,7 +15,11 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/ui_layer.h"
 
+struct MainGameScreen;
 struct NpcDialogueUi;
+struct ScriptContext;
+struct W8NpcScriptQuote;
+enum class W8NpcSubquoteOutcome : unsigned char;
 
 /* Usability filters and the exclusive equipment categories in the trade UI.
    The category bits use the same positions as W8ItemEquipSlotGroup. */
@@ -59,13 +64,40 @@ struct W8ActiveNpcQuote {
 /* The NPC dialogue's interface on the main game: the layouts and their widgets, the trade
    table, the transcript view, the quote bubble and the camera turned toward the speaker.
    The main game owns it (`MainGameScreen::dialogue`); what the conversation itself keeps
-   is the game's (`W8NpcInteractionState`). */
+   is the game's (`W8NpcInteractionState`). It presents the conversation's quotes,
+   portrait messages and voice for its screen's game. */
 struct W8NpcDialoguePanel {
     // Out of line, where the dialogue's widgets are a complete type.
-    W8NpcDialoguePanel();
+    explicit W8NpcDialoguePanel(MainGameScreen& screen);
     ~W8NpcDialoguePanel();
     W8NpcDialoguePanel(const W8NpcDialoguePanel&) = delete;
     W8NpcDialoguePanel& operator=(const W8NpcDialoguePanel&) = delete;
+
+    // A quote or portrait message is on screen.
+    bool presenting() const { return presentation != W8NpcPresentation::none; }
+    bool voicePlaying() const { return speech.voice_playing; }
+    // Finish a message or quote whose time is up, and move the speaker's mouth.
+    void updateVoice();
+    /* Speak one subquote of the speaker's current quote; `notice_only` posts it to the
+       text box instead. */
+    W8NpcSubquoteOutcome speakSubquote(const ScriptContext& context, const W8NpcScriptQuote* quote,
+                                       unsigned char subquote_index, bool notice_only,
+                                       bool force_npc_voice);
+    /* Finish the voice on request. Suppressed while the level-4 gate is up; without
+       `force`, ignored within 500 ms of the voice starting. */
+    void tryFinishVoice(bool force);
+    void showPortraitMessage(std::string_view text, W8QuoteNotice notice = {});
+    /* Raise the quote bubble over `text`, with the start-game click when
+       `play_sound` is set. */
+    void displayQuote(std::string_view text, bool play_sound);
+    /* Repost the speaker's current quote after a modal sub-dialog closes, or clear the
+       bubble when the speaker or its script went away. */
+    void restoreQuoteBubble();
+    /* Show the quote bubble over `text`, or dismiss it and deliver what it held back:
+       the notice it carried and, at the end of a quote, the pending notice lines. */
+    void setQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
+                               int quote_id, unsigned int font_palette, W8QuoteNotice notice = {},
+                               int npc_kind = -1);
 
     W8NpcSpeech speech;
     W8NpcPresentation presentation = W8NpcPresentation::none;
@@ -109,4 +141,9 @@ struct W8NpcDialoguePanel {
     /* The main text box is collapsed to a single line while the dialogue is
        fresh; cleared when the next transcript line scrolls. */
     bool text_box_collapsed{};
+
+private:
+    void finishVoice(bool resume_script);
+
+    MainGameScreen& screen_;
 };
