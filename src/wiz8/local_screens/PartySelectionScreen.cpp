@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <SDL3/SDL_filesystem.h>
@@ -66,47 +67,36 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
+/* The characters offered for selection: party members, named by their party slot and read
+   from the game, and saved characters the roster owns until they join the party. */
 struct W8PartySelectionCharacterCollection {
-    W8PartySelectionCharacterCollection() : first_visible(0) {}
-    ~W8PartySelectionCharacterCollection();
-    W8PartySelectionCharacterCollection(const W8PartySelectionCharacterCollection&) = delete;
+    using Entry = std::variant<int, std::unique_ptr<W8Character>>;
+
     W8Character* GetCharacter(int index);
     int FindPartySlot(int index);
     void DetachFromParty(int index);
     void DeleteAt(int index);
-    void ClearCharacters();
     void ReloadCharacters();
     void LoadExternalCharacters();
     void SortCharactersByWriteTime();
 
-    std::vector<W8Character*> characters;
+    std::vector<Entry> characters;
     std::vector<std::string> names;
-    int first_visible;
+    int first_visible = 0;
 };
 
-W8PartySelectionCharacterCollection::~W8PartySelectionCharacterCollection()
+static W8Character& CharacterOf(W8PartySelectionCharacterCollection::Entry& entry)
 {
-    ClearCharacters();
-}
-
-void W8PartySelectionCharacterCollection::ClearCharacters()
-{
-    int index;
-    for (index = 0; index < static_cast<int>(characters.size()); ++index) {
-        W8Character* character = GetCharacter(index);
-        if (!character->fInParty) {
-            delete character;
-        }
-    }
-    characters.clear();
+    if (const auto* slot = std::get_if<int>(&entry)) return CurrentGame().party.characters[*slot];
+    return *std::get<std::unique_ptr<W8Character>>(entry);
 }
 
 void W8PartySelectionCharacterCollection::ReloadCharacters()
 {
-    ClearCharacters();
+    characters.clear();
     for (int slot = 2; slot < 8; ++slot) {
         if (CurrentGame().party.members[slot].has_value()) {
-            characters.push_back(&CurrentGame().party.characters[slot]);
+            characters.emplace_back(slot);
         }
     }
     LoadExternalCharacters();
@@ -116,7 +106,7 @@ void W8PartySelectionCharacterCollection::ReloadCharacters()
 W8Character* W8PartySelectionCharacterCollection::GetCharacter(int index)
 {
     if (static_cast<std::size_t>(index) < characters.size()) {
-        return characters[index];
+        return &CharacterOf(characters[index]);
     }
     return 0;
 }
@@ -125,27 +115,23 @@ void W8PartySelectionCharacterCollection::DetachFromParty(int index)
 {
     W8Character* previous = GetCharacter(index);
     int slot = FindPartySlot(index);
-    W8Character* replacement = new W8Character;
-    std::string path;
-    path = BuildCharacterPath(previous->name, -1);
-    if (!LoadCharacter(path, replacement, -1)) {
+    auto replacement = std::make_unique<W8Character>();
+    if (!LoadCharacter(BuildCharacterPath(previous->name, -1), replacement.get(), -1)) {
         *replacement = *previous;
     }
     RemoveCharacterFromParty(slot + 2);
     replacement->fInParty = false;
-    characters[index] = replacement;
+    characters[index] = std::move(replacement);
 }
 
 int W8PartySelectionCharacterCollection::FindPartySlot(int index)
 {
-    W8Character* character = GetCharacter(index);
-    if (character && character->fInParty) {
-        for (int slot = 0; slot < 6; ++slot) {
-            if (CurrentGame().party.members[slot + 2].has_value() &&
-                &CurrentGame().party.characters[slot + 2] == character) {
-                return slot;
-            }
-        }
+    if (static_cast<std::size_t>(index) >= characters.size()) {
+        return -1;
+    }
+    const auto* slot = std::get_if<int>(&characters[index]);
+    if (slot && CurrentGame().party.members[*slot].has_value()) {
+        return *slot - 2;
     }
     return -1;
 }
@@ -153,9 +139,7 @@ int W8PartySelectionCharacterCollection::FindPartySlot(int index)
 void W8PartySelectionCharacterCollection::DeleteAt(int index)
 {
     if (index >= 0 && std::cmp_less(index, characters.size())) {
-        auto* object = characters[index];
         characters.erase(characters.begin() + index);
-        delete object;
     }
 }
 
@@ -168,43 +152,40 @@ void W8PartySelectionCharacterCollection::LoadExternalCharacters()
     const auto separator = pattern.find_last_of("\\/");
     for (const auto& entry :
          wiz8::list_directory(wiz8::user_path(pattern.substr(0, separator)), "*.CHR")) {
-        W8Character* character = new W8Character;
-        if (!LoadCharacter(entry.c_str(), character, -1)) {
-            delete character;
-        } else {
-            int slot;
-            for (slot = 2; slot < 8; ++slot) {
-                if (CurrentGame().party.members[slot].has_value() &&
-                    strcmp(CurrentGame().party.characters[slot].name.c_str(),
-                           character->name.c_str()) == 0) {
-                    break;
-                }
+        auto character = std::make_unique<W8Character>();
+        if (!LoadCharacter(entry.c_str(), character.get(), -1)) {
+            continue;
+        }
+        int slot;
+        for (slot = 2; slot < 8; ++slot) {
+            if (CurrentGame().party.members[slot].has_value() &&
+                strcmp(CurrentGame().party.characters[slot].name.c_str(),
+                       character->name.c_str()) == 0) {
+                break;
             }
-            if (slot < 8) {
-                delete character;
-            } else {
-                characters.push_back(character);
-            }
+        }
+        if (slot == 8) {
+            characters.emplace_back(std::move(character));
         }
     }
 }
 
 void W8PartySelectionCharacterCollection::SortCharactersByWriteTime()
 {
-    std::vector<std::pair<SDL_Time, W8Character*>> dated;
+    std::vector<std::pair<SDL_Time, Entry>> dated;
     dated.reserve(characters.size());
-    for (auto* character : characters) {
+    for (auto& entry : characters) {
         SDL_Time time = 0;
         try {
-            const auto status =
-                wiz8::file_status(wiz8::user_path(BuildCharacterPath(character->name, -1)));
+            const auto status = wiz8::file_status(
+                wiz8::user_path(BuildCharacterPath(CharacterOf(entry).name, -1)));
             if (status) time = status->info.modify_time;
         } catch (const std::exception&) {
         }
-        dated.emplace_back(time, character);
+        dated.emplace_back(time, std::move(entry));
     }
     std::ranges::sort(dated, std::greater{}, &decltype(dated)::value_type::first);
-    for (std::size_t i = 0; i < dated.size(); ++i) characters[i] = dated[i].second;
+    for (std::size_t i = 0; i < dated.size(); ++i) characters[i] = std::move(dated[i].second);
 }
 
 class PartySelectionScreen final : public Screen {
@@ -1200,8 +1181,7 @@ void PartySelectionScreen::TogglePartyMemberSelection()
     if (!character->fInParty) {
         int slot = AddCharacterToParty(*character, -1);
         if (slot != -1) {
-            delete character;
-            collection->characters[selected] = &CurrentGame().party.characters[slot];
+            collection->characters[selected] = slot;
         }
         if (selected < static_cast<int>(collection->characters.size()) - 1) {
             ++selected;
