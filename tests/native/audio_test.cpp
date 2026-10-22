@@ -201,6 +201,55 @@ struct AudioFixture {
     ~AudioFixture() { wiz8::sound::shutdown(); }
 };
 
+TEST_CASE_METHOD(AudioFixture, "Ambient commands operate on their supplied world",
+                 "[audio][ambient]")
+{
+    startOfflineAudio();
+    game.game.level.replacePrimary(std::make_unique<World>());
+    auto& active = *GetWorld();
+    World candidate;
+    placeParty(active, glm::vec3(1000));
+    placeParty(candidate, glm::vec3(0));
+    for (auto* world : {&active, &candidate}) {
+        auto sound = std::make_unique<W8AmbientSound>();
+        sound->name = "shared-name";
+        sound->radius = 100;
+        sound->stopped = 1;
+        world->audio.emitters.push_back(std::move(sound));
+    }
+    auto& sound = *candidate.audio.emitters.front();
+    PositionAmbientSoundByName(candidate, "shared-name");
+    REQUIRE(sound.stopped == 0);
+    REQUIRE(sound.in_range == 1);
+    REQUIRE(active.audio.emitters.front()->stopped == 1);
+    StopAmbientSoundByName(candidate, "shared-name");
+    REQUIRE(sound.stopped == 1);
+    ToggleAmbientSoundByName(candidate, "shared-name");
+    REQUIRE(sound.stopped == 0);
+    REQUIRE(sound.in_range == 1);
+    REQUIRE(active.audio.emitters.front()->stopped == 1);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Ambient rows do not inherit a previous row's mode",
+                 "[audio][ambient]")
+{
+    startOfflineAudio();
+    World candidate;
+    // The first row uses random replay; the malformed second row must not inherit it.
+    std::ofstream(asset / "ambience.scf") << ".\n"
+                                          << "tone.wav -1 -1 0 127 10 20 -1\n"
+                                          << "tone.wav -1 -1 0 127 10 20\n";
+    REQUIRE_FALSE(ReadAmbientSoundListFile(candidate, "ambience.scf"));
+    REQUIRE(candidate.audio.tracks.size() == 1);
+    REQUIRE_FALSE(candidate.audio.tracks.front()->loops);
+    std::ofstream(asset / "ambience.scf") << ".\n" << "tone.wav -1 -1 -1 -1 -1 -1 0\n";
+    World direct;
+    REQUIRE(ReadAmbientSoundListFile(direct, "ambience.scf"));
+    REQUIRE(direct.audio.tracks.size() == 1);
+    REQUIRE(direct.audio.tracks.front()->loops == 0);
+    REQUIRE(direct.audio.tracks.front()->volume_max == 127);
+}
+
 TEST_CASE_METHOD(AudioFixture, "Prepared audio files, tracks and combat sounds", "[audio][streams]")
 {
     checkArchiveStreams();
@@ -847,7 +896,7 @@ TEST_CASE_METHOD(AudioFixture, "Shared ambience retains its playback across regi
     REQUIRE(group.selected == &second);
     REQUIRE(group.playback == playback);
 
-    group.fade_timer.m_flags.paused = true;
+    group.fade_timer.Pause();
     group.stop(second);
     group.service(third);
     REQUIRE(group.selected == &third);

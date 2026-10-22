@@ -1,9 +1,8 @@
 #ifndef WIZ8_LOCAL_CODE_MAGIC_H
 #define WIZ8_LOCAL_CODE_MAGIC_H
 
+#include <cstdint>
 #include <vector>
-
-/* Forget the three-minute cooldowns of the gated spells. */
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/character_skills.h"
@@ -155,8 +154,10 @@ void ScaleByCombatPace(int party_slot, unsigned int* value);
 /* Validate the available target set and cursor state for a spell or item cast. */
 bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool item_cast,
                          bool skip_world_cursor);
-bool SpellAffectedTarget(W8Character* character, int spell_id, W8CombatSlot* aim,
-                         unsigned int power);
+bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int power,
+                         std::uint64_t now);
+bool AttemptSpellPractice(int spell_id, const W8CombatSlot* aim, unsigned int power,
+                          std::uint64_t now);
 void TrackItemSpellSource(W8Character* character, int spell_id);
 bool IsTeleportCastMissingAnchor(W8Character* character, int spell_id);
 extern unsigned short g_realm_message_offsets[W8_SPELL_REALM_COUNT];

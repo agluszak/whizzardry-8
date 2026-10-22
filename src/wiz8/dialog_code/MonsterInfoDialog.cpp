@@ -91,7 +91,6 @@ bool W8MonsterInfoDialog::PopulateText()
     int sight;
     W8NpcState* npc;
     const W8MonsterAttack* attack;
-    W8ConditionImmunity* immunity;
     W8MonsterInfo* monster_info;
     const W8MonsterRecord* record;
 
@@ -328,27 +327,26 @@ bool W8MonsterInfoDialog::PopulateText()
     if (0x1d < knowledge) {
         text.clear();
         count = 0;
-        for (index = 0; index < 3; ++index) {
-            immunity = &g_condition_immunities[index];
-            if (record->kind == immunity->kind) {
-                for (slot = 0; slot < 0x14 && immunity->conditions[slot] != 0; ++slot) {
-                    if (count > 0) {
-                        text += g_comma_space;
-                    }
-                    text += Data().strings[kConditionNotices[immunity->conditions[slot]].noun];
-                    ++count;
-                }
-                if (immunity->immune_all != 0) {
-                    if (count > 0) {
-                        text += g_comma_space;
-                    }
-                    text += Data().strings[0x14b];
-                    ++count;
+        if (const auto* immunity = FindConditionImmunity(record->kind)) {
+            for (const W8Condition condition : immunity->conditions) {
+                if (condition == W8_CONDITION_NONE) {
+                    break;
                 }
                 if (count > 0) {
-                    m_text_area.AddEntry(Data().strings[0x14a], text, 10, 0xf, 0);
+                    text += g_comma_space;
                 }
-                break;
+                text += Data().strings[kConditionNotices[condition].noun];
+                ++count;
+            }
+            if (immunity->immune_all) {
+                if (count > 0) {
+                    text += g_comma_space;
+                }
+                text += Data().strings[0x14b];
+                ++count;
+            }
+            if (count > 0) {
+                m_text_area.AddEntry(Data().strings[0x14a], text, 10, 0xf, 0);
             }
         }
     }

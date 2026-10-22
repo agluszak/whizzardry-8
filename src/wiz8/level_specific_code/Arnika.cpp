@@ -29,6 +29,7 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
@@ -464,7 +465,7 @@ bool ArnikaScript::warningSound(int command)
         }
         warning_gate_.reset();
         if (command <= 0x1e) {
-            warning_gate_.emplace(static_cast<float>(command), false, true);
+            warning_gate_.emplace(static_cast<float>(command), TimerClock::World, true);
         } else {
             warning_oneshot_ = CreateAndPlaySoundNode(
                 world(), "Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_002.wav", position,
@@ -484,7 +485,7 @@ bool ArnikaScript::warningSound(int command)
         warning_oneshot_ = 0;
     }
     if (!warning_gate_) {
-        warning_gate_.emplace(30.0f, false, true);
+        warning_gate_.emplace(30.0f, TimerClock::World, true);
         return false;
     }
     if (!warning_gate_->PollFinished()) {
