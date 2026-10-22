@@ -1,9 +1,10 @@
 #pragma once
 
+#include <memory>
 #include <optional>
 #include <string>
 
-#include "compat/compiler.h"
+#include "wiz8/screen.h"
 
 namespace wiz8 {
 class File;
@@ -18,6 +19,5 @@ struct W8CreditLine {
 };
 
 std::optional<std::string> ReadRetailTextLine(wiz8::File* handle);
-bool CreditsScreenEnter(void);
-void CreditsScreenFrame(void);
-bool CreditsScreenLeave(int leaving);
+/* Scrolls Data\Options\Credits.txt over the credits backdrop. */
+std::unique_ptr<Screen> CreateCreditsScreen();

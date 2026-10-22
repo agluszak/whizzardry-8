@@ -4,34 +4,32 @@
 
 #include <glm/geometric.hpp>
 
-#include "Navigator.h"
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/Factions.h"
-#include "random.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Octree.h"
+#include "wiz8/combat/combat.h"
+#include "wiz8/data/records.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/xstatus.h"
 
 /* Retail Local Code\Noise.cpp. */
 
 /* The remaining audibility of a noise after distance and the per-hop region
    penalty: positive means the monster group still hears it. */
-// FUNCTION: WIZ8 0x004F0E50
 int NoiseHearingMargin(int radius, int range, int hops)
 {
     return radius + hops * -25000 - range;
 }
 
-// FUNCTION: WIZ8 0x004F0E80
 void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
 {
-    if (g_status.world_suspended) {
+    if (CurrentGame().status.world_suspended) {
         return;
     }
     glm::vec3 noise_position = *position;
@@ -39,42 +37,41 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
          ++group_index) {
         W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
         W8MonsterInfo* info = FindMonster(group->leader_location_id);
-        if (info->p3D->deaf) {
+        if (info->entity->deaf) {
             continue;
         }
         if (flag == 1) {
-            if (gXStatus.fCombatMode && group->fInCombat) {
+            if (CurrentGame().combat.has_value() && group->fInCombat) {
                 continue;
             }
         } else if (flag == 0 && info->ubDisposition != W8_DISPOSITION_HOSTILE) {
             continue;
         }
-        W8MonsterRecord* record = GetMonsterDataForInfo(info);
-        glm::vec3 monster_position = info->p3D->GetPosition();
+        const W8MonsterRecord* record = GetMonsterDataForInfo(info);
+        glm::vec3 monster_position = info->entity->nav.GetPosition();
         int remaining = radius - static_cast<int>(glm::length((monster_position - noise_position)));
         if (remaining <= 0) {
             continue;
         }
-        if (Random(100) >=
+        if (CurrentGame().rng.below(100) >=
             remaining * 0.001f + record->attribute_values[W8_MONSTER_ATTRIBUTE_SENSES]) {
             continue;
         }
         if (group->leader_group_id != 0) {
             W8MonsterGroup* leader = FindMonsterGroup(group->leader_group_id);
             info = FindMonster(leader->leader_location_id);
-            if (info->p3D->deaf) {
+            if (info->entity->deaf) {
                 continue;
             }
         }
-        if (flag == 1 && gXStatus.fCombatMode) {
-            float range = static_cast<float>(radius);
-            int hops;
-            if (GetWorldOctree()->TestNoiseLineOfSight(&monster_position, &noise_position, &range,
-                                                       &hops) == 0) {
+        if (flag == 1 && CurrentGame().combat.has_value()) {
+            const auto path = GetWorldSpatialIndex()->measureNoisePath(
+                monster_position, noise_position, static_cast<float>(radius));
+            if (!path) {
                 continue;
             }
             // Truncate the float move-range to int before scaling, matching retail.
-            if (static_cast<int>(GetMonsterCombatMoveRange(info)) * 1000 < range) {
+            if (static_cast<int>(GetMonsterCombatMoveRange(info)) * 1000 < path->length) {
                 continue;
             }
         }
@@ -90,17 +87,15 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
     }
 }
 
-// FUNCTION: WIZ8 0x004F1100
 void AlertWorldNoise(void)
 {
     glm::vec3 position = PartyNavigator()->GetPosition();
     AlertMonsterGroupsToNoise(&position, 50000, 1);
 }
 
-// FUNCTION: WIZ8 0x004F1150
 void AlertCombatNoise(bool large_radius)
 {
-    if (g_status.world_suspended) {
+    if (CurrentGame().status.world_suspended) {
         return;
     }
     glm::vec3 position = PartyNavigator()->GetPosition();

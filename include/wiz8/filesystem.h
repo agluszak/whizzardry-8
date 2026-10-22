@@ -20,9 +20,8 @@ namespace wiz8 {
 std::filesystem::path path_from_utf8(std::string_view text);
 std::string path_to_utf8(const std::filesystem::path& path);
 
-enum class OpenMode { read, update, replace, append };
-enum class SeekOrigin { begin, current, end };
-enum class CopyMode { fail_if_exists, replace };
+enum class OpenMode : unsigned char { read, update, replace, append };
+enum class SeekOrigin : unsigned char { begin, current, end };
 
 struct ReadResult {
     std::size_t bytes;
@@ -40,11 +39,10 @@ struct FileTimes {
 
 // Owns one SDL stream. No shared cursor or global handle registry. Operations
 // throw on failure; read returns a short result only for EOF. Not thread-safe.
+// Pinned in place: a memory stream points into the File's own buffer.
 class File {
 public:
     ~File();
-    File(File&& other) noexcept;
-    File& operator=(File&& other) noexcept;
     File(const File&) = delete;
     File& operator=(const File&) = delete;
 
@@ -71,31 +69,45 @@ public:
     FileStatus status() const;
     FileTimes times() const;
     const std::filesystem::path& physical_path() const noexcept;
+    // What a memory writer holds; once closed, what it held when it closed.
+    std::vector<std::byte> written_memory() const;
 
 private:
     File(std::filesystem::path path, OpenMode mode);
+    explicit File(std::vector<std::byte> bytes);
+    struct MemoryWriter {};
+    explicit File(MemoryWriter);
+    void capture_memory();
     SDL_IOStream* require_stream() const;
     SDL_IOStream* stream_ = nullptr;
     std::filesystem::path path_;
     bool writable_ = false;
     std::optional<SDL_Time> writer_create_time_;
+    // A memory reader's bytes, or what a closed memory writer held.
+    std::vector<std::byte> memory_;
+    bool memory_writer_ = false;
     friend std::unique_ptr<File> open_file(const std::filesystem::path&, OpenMode);
+    friend std::unique_ptr<File> open_memory(std::vector<std::byte> bytes);
+    friend std::unique_ptr<File> open_memory_writer();
 };
 
 // Ordinary native paths. Callers select asset_path() or user_path() explicitly.
 std::unique_ptr<File> open_file(const std::filesystem::path& path, OpenMode mode = OpenMode::read);
+// Streams over memory, for data that never reaches the disk: a reader over `bytes` (not
+// empty), which it owns, and a writer that grows as it is written.
+std::unique_ptr<File> open_memory(std::vector<std::byte> bytes);
+std::unique_ptr<File> open_memory_writer();
 std::optional<FileStatus> file_status(const std::filesystem::path& path);
 bool remove_file(const std::filesystem::path& path);
 void create_directory(const std::filesystem::path& path);
 void clear_read_only(const std::filesystem::path& path);
-// Basenames; ASCII case-insensitive * / ? matching. Missing directories throw.
+// Basenames; SDL case-insensitive * / ? matching. Missing directories throw.
 std::vector<std::string> list_directory(const std::filesystem::path& directory,
                                         std::string_view pattern = "*");
 
-// Streams opened for a copy are closed before destination replacement. Callers
-// must close independently owned destination streams themselves (also Windows).
-void copy_file(const std::filesystem::path& source, const std::filesystem::path& destination,
-               CopyMode mode = CopyMode::fail_if_exists);
+// Stage a writable copy before replacing the destination. Callers must close
+// independently owned destination streams themselves (also Windows).
+void copy_file(const std::filesystem::path& source, const std::filesystem::path& destination);
 // Owns a same-filesystem staging file. commit flushes and closes every shared
 // stream reference before publication; abandonment removes the temporary file.
 class StagedFile {

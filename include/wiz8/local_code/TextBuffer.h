@@ -6,7 +6,7 @@
 
 #include <SDL3/SDL_surface.h>
 
-#include "Font.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/local_code/ControlsRect.h"
 
 extern char g_W8TextSeparator[];
@@ -19,11 +19,10 @@ extern const unsigned int g_W8TextBufferAlignTop;
 extern const unsigned int g_W8TextBufferAlignBottom;
 extern const unsigned int g_W8TextBufferNoWrap;
 
-// VTABLE: WIZ8 0x005ed5b8
 class W8TextBuffer {
 public:
     friend class W8DialogTextArea;
-    W8TextBuffer();
+    W8TextBuffer() = default;
     W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, Font& font,
                  unsigned int layout_mode, int render_mode);
     std::string_view GetText() const { return m_text; }
@@ -75,33 +74,33 @@ public:
 
     W8TextBuffer(const W8TextBuffer&) = default;
     W8TextBuffer& operator=(const W8TextBuffer&) = default;
-    virtual ~W8TextBuffer();
+    virtual ~W8TextBuffer() = default;
 
 private:
     void PaintLines(SDL_Surface& target, SDL_Point offset, bool highlighted, bool mono);
 
 protected:
-    W8ControlsRect m_layoutBounds;  /* current absolute layout bounds */
-    W8ControlsRect m_clipBounds; /* clip remains fixed while layout scrolls */
-    Font* m_font;                     /* font used for uncached line height */
+    W8ControlsRect m_layoutBounds{};  /* current absolute layout bounds */
+    W8ControlsRect m_clipBounds{}; /* clip remains fixed while layout scrolls */
+    Font* m_font = nullptr;                     /* font used for uncached line height */
 public:
     /* The tooltip builder in Video2.cpp reads the finished layout directly. */
-    int m_lineCount;
+    int m_lineCount = 0;
 
 protected:
-    unsigned int m_lineHeight; /* cached height, zero means query font */
+    unsigned int m_lineHeight = 0; /* cached height, zero means query font */
     std::string m_text; // Original text; wrapping never modifies it.
     std::string m_buffer; // Rebuilt layout text, owned by this control.
-    unsigned int m_layoutMode; /* 10 initially */
+    unsigned int m_layoutMode = 10; /* 10 initially */
 public:
-    unsigned int m_maxLineWidth;
+    unsigned int m_maxLineWidth = 0;
 
 public:
     /* The party-selection controller raises the geometry-dirty byte directly
        when it changes modes; retain that observed public storage access. */
-    bool m_geometryDirty;
-    unsigned char m_alternateRenderer;
-    int m_renderMode;     /* 4 initially */
-    std::optional<int> m_fontStateIndex; /* Empty skips the state-table override. */
-    bool m_highlighted;
+    bool m_geometryDirty = false;
+    unsigned char m_alternateRenderer = 0;
+    int m_renderMode = 4;     /* 4 initially */
+    std::optional<int> m_fontStateIndex;
+    bool m_highlighted = false;
 };

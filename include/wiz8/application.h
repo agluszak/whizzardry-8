@@ -1,13 +1,12 @@
-#include <string>
-#include <string_view>
 #pragma once
 
+#include <memory>
 #include <span>
+#include <string>
+#include <string_view>
 
 extern "C" {
 extern bool gfProgramIsRunning;
-extern bool gfLoadAtStartup;
-extern std::string gzStringDataOverride;
 extern bool gfApplicationActive;
 extern bool gfGameInitialized;
 
@@ -17,7 +16,12 @@ bool PumpGameEvents(bool wait = false);
 [[noreturn]] void ShutdownWithErrorBox(std::string_view message);
 }
 
+struct GameData;
+class GameSession;
+
 namespace wiz8 {
+/* The composition root: the platform, the game data, the session's games and the
+   screens, which the router hands the session. */
 class Application {
 public:
     explicit Application(std::span<const std::string_view> arguments = {});
@@ -25,11 +29,14 @@ public:
     Application(const Application&) = delete;
     Application& operator=(const Application&) = delete;
     void run();
+    GameSession& games() { return *games_; }
 
 private:
     void shutdown() noexcept;
     bool sdl_initialized_ = false;
     bool game_started_ = false;
-    size_t initialized_screens_ = 0;
+    // Declared before the games, which read it, so it outlives them.
+    std::unique_ptr<GameData> data_;
+    std::unique_ptr<GameSession> games_;
 };
 }

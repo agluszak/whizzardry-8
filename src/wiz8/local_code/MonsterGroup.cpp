@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <memory>
 #include <optional>
-#include <source_location>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -14,49 +16,44 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
-#include "Monster.h"
-#include "conditions.h"
 #include "glm/ext/vector_float3.hpp"
 #include "monster_actions.h"
-#include "random.h"
-#include "surrender/srDebug.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/PolyPick.h"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/stScript.h"
+#include "wiz8/combat/combat.h"
+#include "wiz8/combat/hostility.h"
+#include "wiz8/data/faction_ids.h"
+#include "wiz8/data/records.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/script.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/level_population.h"
-#include "wiz8/local_code/CombatHostility.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Sight.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
+#include "wiz8/render/picking.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
+#include "wiz8/spatial/bounding_sphere.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
+#include "wiz8/world/world.h"
 
 constexpr float kMonsterScatterHeadingBias = 0.8f;
 constexpr float kMonsterScatterHeadingRandomScale = 0.001600000075995922f;
 
 struct W8NpcState;
-
-// STRING: WIZ8 0x00619FDC
-#define MONSTER_GROUP_CPP "C:\\Projects\\Wizardry 8\\Local Code\\MonsterGroup.cpp"
 
 /* A group of one is named in the singular; any other count uses the plural
    form, which is the second entry of each name set. */
@@ -64,7 +61,6 @@ enum { W8_MONSTER_GROUP_SINGULAR = 1, W8_MONSTER_NAME_STRIDE = 24 };
 
 enum { W8_MONSTER_GROUP_ALLY_COUNT = 4 };
 
-// FUNCTION: WIZ8 0x00510cc0
 bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position, float yaw,
                                 bool proximity_check, bool include_allies, bool flatten_y,
                                 bool alternate_radius)
@@ -73,44 +69,51 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
         return false;
     }
     W8MonsterInfo* leader = FindMonster(group->leader_location_id);
-    float radius = alternate_radius ? leader->p3D->movement.alternate_radius : leader->p3D->radius;
+    float radius = alternate_radius ? leader->entity->nav.movement.alternate_radius
+                                    : leader->entity->nav.radius;
     int location_ids[45];
     std::vector<glm::vec3> positions;
     unsigned int count = group->MemberCount();
     unsigned int index;
     for (index = 0; index < count; ++index) {
-        location_ids[index] = group->MemberLocationId(index).value();
+        location_ids[index] = group->MemberLocationId(index);
     }
     if (include_allies) {
         for (int allied_group_id : group->allied_group_ids) {
             if (allied_group_id != 0) {
                 W8MonsterGroup* ally = FindMonsterGroup(allied_group_id);
                 W8MonsterInfo* ally_leader = FindMonster(ally->leader_location_id);
-                float ally_radius = alternate_radius ? ally_leader->p3D->movement.alternate_radius
-                                                     : ally_leader->p3D->radius;
+                float ally_radius = alternate_radius
+                                        ? ally_leader->entity->nav.movement.alternate_radius
+                                        : ally_leader->entity->nav.radius;
                 if (radius < ally_radius) {
                     radius = ally_radius;
                 }
                 for (index = 0; index < ally->MemberCount(); ++index) {
-                    location_ids[count++] = ally->MemberLocationId(index).value();
+                    location_ids[count++] = ally->MemberLocationId(index);
                 }
             }
         }
     }
     if (proximity_check) {
         for (index = 0; index < count; ++index) {
-            GetWorldOctree()->UnregisterLocationObjects(static_cast<short>(location_ids[index]));
+            GetWorldSpatialIndex()->UnregisterLocationObjects(
+                static_cast<short>(location_ids[index]));
         }
     }
     glm::vec3 target = *position;
     if (alternate_radius) {
-        positions = GetWorldOctree()
-                        ->navigatorPositions(target, yaw, radius + radius, count, proximity_check,
-                                             flatten_y, false, 5, true)
-                        .positions;
+        positions =
+            GetWorldSpatialIndex()
+                ->navigatorPositions(target, yaw, radius + radius, count, proximity_check,
+                                     flatten_y, false, 5, true,
+                                     BoundingSphere{PartyNavigator()->movement.position,
+                                                    PartyNavigator()->movement.alternate_radius})
+                .positions;
     } else {
-        positions = GetWorldOctree()->scatterPositions(target, yaw, radius + radius, count,
-                                                       proximity_check, flatten_y);
+        positions = GetWorldSpatialIndex()->scatterPositions(
+            target, yaw, radius + radius, count, proximity_check, flatten_y,
+            BoundingSphere{PartyNavigator()->movement.position, PartyNavigator()->radius});
     }
     const auto found = positions.size();
     if (found == 0) {
@@ -127,19 +130,20 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
     for (index = 0; index < count; ++index) {
         int location_id = location_ids[index];
         W8MonsterInfo* member = FindMonster(location_id);
-        member->p3D->SetAngles(yaw);
-        member->p3D->position_dirty = true;
+        member->entity->nav.SetAngles(yaw);
+        member->entity->nav.position_dirty = true;
         if (location_id == group->leader_location_id) {
-            member->p3D->SetPositionInternal(&target);
+            member->entity->nav.SetPositionInternal(&target);
         } else {
             if (position_index < found - 1) {
                 ++position_index;
             }
             const glm::vec3 member_position = positions[position_index];
-            member->p3D->SetPositionInternal(&member_position);
+            member->entity->nav.SetPositionInternal(&member_position);
         }
-        glm::vec3 placed = member->p3D->GetPosition();
-        GetWorldOctree()->UpdateMonsterLocation(static_cast<unsigned short>(location_id), &placed);
+        glm::vec3 placed = member->entity->nav.GetPosition();
+        GetWorldSpatialIndex()->UpdateMonsterLocation(static_cast<unsigned short>(location_id),
+                                                      placed);
     }
     return true;
 }
@@ -148,21 +152,17 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
    engine Monster or reports the Monster death cycle.  Save-list location IDs
    are deliberately resolved through the canonical lookup path rather than
    treated as list indices. */
-// FUNCTION: WIZ8 0x00511850
 bool MonsterGroupAllMembersDying(W8MonsterGroup* monster_group)
 {
     unsigned int index;
     int location_id;
     W8MonsterInfo* monster_info;
 
-    if (monster_group == 0) {
-        srAssertFail("pMonsterGroup", "C:\\Projects\\Wizardry 8\\Local Code\\MonsterGroup.cpp",
-                     0x82b, 0);
-    }
+    assert(monster_group != 0);
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        location_id = monster_group->MemberLocationId(index).value();
+        location_id = monster_group->MemberLocationId(index);
         monster_info = FindMonster(location_id);
-        if (monster_info != 0 && !monster_info->p3D->IsDying()) {
+        if (monster_info != 0 && !monster_info->entity->IsDying()) {
             return false;
         }
     }
@@ -183,25 +183,19 @@ bool MonsterGroupAllMembersDying(W8MonsterGroup* monster_group)
 
    Each of the three multi-way tests is a switch rather than a comparison chain:
    the original emits the dec/je ladder VC6 produces for small dense cases. */
-// FUNCTION: WIZ8 0x00511250
 static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_group)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8NpcState* npc_record;
     W8Disposition disposition = W8_DISPOSITION_NEUTRAL;
 
-    if (monster_group == 0) {
-        srAssertFail("pMonsterGroup != NULL", MONSTER_GROUP_CPP, 0x3bd, 0);
-    }
+    assert(monster_group != 0);
     record = MonsterDBFromSpecies(monster_group->monster_id);
     if ((record->flags & W8_MONSTER_FLAG_NPC) != 0) {
-        npc_record =
-            FindNpcBindingForMonster(FindMonster(monster_group->MemberLocationId(0).value()));
+        npc_record = FindNpcBindingForMonster(FindMonster(monster_group->MemberLocationId(0)));
         if (npc_record == 0) {
-            srAssertFail("FALSE", MONSTER_GROUP_CPP, 0x75d,
-                         fmt::format("MonsterGroupCalcDefaultDisposition: Monster species {:d}({}) "
-                                     "NPC data not found",
-                                     monster_group->monster_id, record->name0));
+            throw std::runtime_error(
+                fmt::format("NPC monster {} has no NPC state", monster_group->monster_id));
         } else {
             switch (GetNpcDispositionBand(npc_record)) {
             case W8_NPC_BAND_FRIENDLY:
@@ -213,7 +207,6 @@ static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
                 disposition = W8_DISPOSITION_HOSTILE;
                 break;
             default:
-                srAssertFail("FALSE", MONSTER_GROUP_CPP, 0x769, 0);
                 break;
             }
         }
@@ -235,9 +228,6 @@ static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
             case W8_FACTION_FRIENDLY:
                 disposition = W8_DISPOSITION_FRIENDLY;
                 break;
-            default:
-                srAssertFail("FALSE", MONSTER_GROUP_CPP, 0x78d, 0);
-                break;
             }
             break;
         }
@@ -251,28 +241,23 @@ static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
    Then the default disposition is reapplied unless the group's hostility_set_at stamp
    is still inside the intelligence-squared cooldown and the faction band has
    not moved since that stamp. */
-// FUNCTION: WIZ8 0x005113A0
 void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8MonsterInfo* monster_info;
     unsigned int index;
     int cooldown;
 
-    if (monster_group == 0) {
-        srAssertFail("pMonsterGroup != NULL", MONSTER_GROUP_CPP, 0x3bd, 0);
-    }
+    assert(monster_group != 0);
     record = MonsterDBFromSpecies(monster_group->monster_id);
-    if (monster_group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x82b, 0);
-    }
+    assert(monster_group != 0);
     index = 0;
     if (monster_group->MemberIds().empty()) {
         return;
     }
     while (true) {
-        monster_info = FindMonster(monster_group->MemberLocationId(index).value());
-        if (monster_info != 0 && !monster_info->p3D->IsDying()) {
+        monster_info = FindMonster(monster_group->MemberLocationId(index));
+        if (monster_info != 0 && !monster_info->entity->IsDying()) {
             break;
         }
         ++index;
@@ -290,41 +275,38 @@ void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
     }
     cooldown = IntegerPower(record->attribute_values[W8_MONSTER_ATTRIBUTE_INTELLIGENCE], 2) * 0x3c;
     if (monster_group->hostility_set_at != 0 &&
-        static_cast<unsigned int>(g_status.world_clock - monster_group->hostility_set_at) <=
+        static_cast<unsigned int>(CurrentGame().status.world_clock -
+                                  monster_group->hostility_set_at) <=
             static_cast<unsigned int>(cooldown)) {
         if (record->faction_id == W8_FACTION_UNALIGNED) {
             return;
         }
         if (static_cast<unsigned int>(monster_group->hostility_set_at) >=
             static_cast<unsigned int>(
-                (g_factions[(static_cast<signed char>(record->faction_id))].band_changed_clock))) {
+                (CurrentGame()
+                     .story.factions[(static_cast<signed char>(record->faction_id))]
+                     .band_changed_clock))) {
             return;
         }
     }
     SetMonsterGroupHostility(monster_group, MonsterGroupCalcDefaultDisposition(monster_group),
                              false);
-    monster_group->hostility_set_at = g_status.world_clock;
+    monster_group->hostility_set_at = CurrentGame().status.world_clock;
 }
 
-W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure, std::source_location caller)
+W8MonsterGroup* FindMonsterGroup(int group_id, [[maybe_unused]] bool assert_on_failure)
 {
     if (!GetWorld()) return nullptr;
     auto* group = CurrentLevelPopulation().findGroup(group_id);
-    if (!group && assert_on_failure)
-        srAssertFail("group", MONSTER_GROUP_CPP, 0x3b2,
-                     fmt::format("Group ID {:d} not found ({} line {:d})", group_id,
-                                 caller.file_name(), caller.line()));
+    assert(group || !assert_on_failure);
     return group;
 }
 
 /* The database record behind a group's species. The assertion is the same one
    the disposition calculation opens with, at the same source line. */
-// FUNCTION: WIZ8 0x00510180
-W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* monster_group)
+const W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* monster_group)
 {
-    if (monster_group == 0) {
-        srAssertFail("pMonsterGroup != NULL", MONSTER_GROUP_CPP, 0x3bd, 0);
-    }
+    assert(monster_group != 0);
     return MonsterDBFromSpecies(monster_group->monster_id);
 }
 
@@ -334,62 +316,34 @@ W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* monster_group)
    rather than a counted walk.
 
    The despawn paths and the standalone emission share this canonical body. */
-// FUNCTION: WIZ8 0x0050f5d0
-unsigned char RemoveAllGroupMembers(W8MonsterGroup* monster_group)
+bool RemoveAllGroupMembers(W8MonsterGroup* monster_group)
 {
-    unsigned int index;
-    bool removed;
-    int location_id;
-
-    index = monster_group->MemberIds().size();
-    do {
-        --index;
-        if (static_cast<int>(index) < 0) {
-            return 1;
-        }
-
-        location_id = monster_group->MemberLocationId(index).value();
-        removed = RemoveMonster(FindMonster(location_id), W8MonsterRemoval::Despawn);
-    } while (removed);
-    return 0;
-}
-
-/* Brings every member of a group into the world. Front to back, and the list
-   length is re-read each time because activation can add to it. */
-// FUNCTION: WIZ8 0x0050f6a0
-void ActivateGroupMembers(W8MonsterGroup* monster_group, W8MonsterActivationMode mode)
-{
-    unsigned int index;
-
-    for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        ActivateMonster(FindMonster(monster_group->MemberLocationId(index).value()), mode);
+    for (auto index = monster_group->MemberIds().size(); index > 0; --index) {
+        const int location_id = monster_group->MemberLocationId(index - 1);
+        if (!RemoveMonster(FindMonster(location_id), W8MonsterRemoval::Despawn)) return false;
     }
+    return true;
 }
 
-// FUNCTION: WIZ8 0x00510590
 void RefreshMonsterGroup(W8MonsterGroup* monster_group)
 {
-    W8Monster* leader;
+    Monster* leader;
     unsigned int index;
 
-    if (monster_group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x478, 0);
-    }
+    assert(monster_group != 0);
     if (monster_group->leader_group_id == 0) {
         leader = GetMonsterByLocationID(monster_group->leader_location_id);
-        leader->LinkGroupNavigator(nullptr, g_combat_inactive == 0);
+        if (leader) leader->nav.LinkGroupNavigator(nullptr, CurrentGame().combat.has_value());
     } else {
         W8MonsterGroup* leader_group = FindMonsterGroup(monster_group->leader_group_id);
         leader = GetMonsterByLocationID(leader_group->leader_location_id);
     }
-    if (leader == 0) {
-        srAssertFail("pLeader", MONSTER_GROUP_CPP, 0x482, 0);
-    }
+    if (!leader) return;
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        W8Monster* member = GetMonsterByLocationID(monster_group->MemberLocationId(index).value());
+        Monster* member = GetMonsterByLocationID(monster_group->MemberLocationId(index));
 
-        if (member != leader) {
-            member->LinkGroupNavigator(static_cast<W8Navigator*>(leader), g_combat_inactive == 0);
+        if (member && member != leader) {
+            member->nav.LinkGroupNavigator(&leader->nav, CurrentGame().combat.has_value());
         }
     }
 }
@@ -399,7 +353,6 @@ void RefreshMonsterGroup(W8MonsterGroup* monster_group)
    array is fixed-size rather than terminated.
 
    The link-repair path calls the same canonical body. */
-// FUNCTION: WIZ8 0x005106d0
 void RefreshMonsterGroupAndAllies(W8MonsterGroup* monster_group)
 {
     int index;
@@ -410,11 +363,11 @@ void RefreshMonsterGroupAndAllies(W8MonsterGroup* monster_group)
             RefreshMonsterGroup(FindMonsterGroup(monster_group->allied_group_ids[index]));
         }
     }
-    GetMonsterByLocationID(monster_group->leader_location_id)->PropagateGroupPosition();
+    if (auto* leader = GetMonsterByLocationID(monster_group->leader_location_id))
+        leader->nav.PropagateGroupPosition();
 }
 
 /* Detaches a group from whatever is tracking it and marks it no longer loaded. */
-// FUNCTION: WIZ8 0x0050f700
 void DetachMonsterGroup(W8MonsterGroup* monster_group)
 {
     SetTargetToGroup(monster_group->group_id, false);
@@ -424,7 +377,6 @@ void DetachMonsterGroup(W8MonsterGroup* monster_group)
 /* Whether a group is live: loaded, still flagged, and with members left. A
    group flagged at +0x2A is live on that alone; any other group also has to
    pass the global gate at 0x00547510. */
-// FUNCTION: WIZ8 0x00510b30
 bool IsMonsterGroupLive(W8MonsterGroup* monster_group)
 {
     if (monster_group->members_active && monster_group->fInCombat &&
@@ -438,7 +390,6 @@ bool IsMonsterGroupLive(W8MonsterGroup* monster_group)
 }
 
 /* Walk plsMonsterGroupList and return the Nth live combat group. */
-// FUNCTION: WIZ8 0x00510ac0
 W8MonsterGroup* GetLiveMonsterGroupAtIndex(int index)
 {
     for (const auto& group : CurrentLevelPopulation().monster_groups) {
@@ -451,31 +402,28 @@ W8MonsterGroup* GetLiveMonsterGroupAtIndex(int index)
    and acts on its lead member. A broken link - a leader id that resolves to no
    group - stops the walk and reports success anyway, as does a null group,
    which is why every path returns one. */
-// FUNCTION: WIZ8 0x0050fba0
-unsigned char ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group, const glm::vec3* position,
-                                        bool follow_leader)
+bool ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group, const glm::vec3* position,
+                               bool follow_leader)
 {
     if (monster_group != 0) {
         while (follow_leader && monster_group->leader_group_id != 0) {
             monster_group = FindMonsterGroup(monster_group->leader_group_id);
             if (monster_group == 0) {
-                return 1;
+                return true;
             }
         }
         W8MonsterInfo* monster_info = FindMonster(monster_group->leader_location_id);
-        monster_info->p3D->ConfigureMovementToPosition(position);
+        monster_info->entity->nav.ConfigureMovementToPosition(position);
     }
-    return 1;
+    return true;
 }
 
 /* Sets a group's formation and pushes it straight onto every member's live
    Monster, so the group record and the members never disagree. */
-// FUNCTION: WIZ8 0x0050ff40
 void SetMonsterGroupFormation(W8MonsterGroup* monster_group, const glm::vec3* formation)
 {
-    unsigned int count;
+    std::size_t count;
     int index;
-    W8Monster* monster;
 
     if (monster_group == 0) {
         return;
@@ -483,8 +431,7 @@ void SetMonsterGroupFormation(W8MonsterGroup* monster_group, const glm::vec3* fo
     monster_group->formation = *formation;
     count = monster_group->MemberIds().size();
     for (index = 0; index < static_cast<int>(count); ++index) {
-        monster = FindMonster(monster_group->MemberLocationId(index).value())->p3D;
-        monster->formation = *formation;
+        FindMonster(monster_group->MemberLocationId(index))->entity->formation = *formation;
     }
 }
 
@@ -492,7 +439,6 @@ void SetMonsterGroupFormation(W8MonsterGroup* monster_group, const glm::vec3* fo
    followed first, so calling this on any member of a formation retires the
    whole formation; the retire itself is idempotent, gated on the flag it
    clears. All four ally slots are walked and the empty ones skipped. */
-// FUNCTION: WIZ8 0x00510a10
 void RetireMonsterGroupAndAllies(W8MonsterGroup* monster_group)
 {
     int index;
@@ -521,21 +467,18 @@ void RetireMonsterGroupAndAllies(W8MonsterGroup* monster_group)
    caller - a group of exactly one is named in the singular.
 
    Its opening assertion is followed immediately by MonsterGroupGetRecord's own. */
-// FUNCTION: WIZ8 0x00510280
 std::string GetMonsterGroupName(W8MonsterGroup* monster_group)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     unsigned int name_form;
 
-    if (monster_group == 0) {
-        srAssertFail("pMonsterGroup != NULL", MONSTER_GROUP_CPP, 0x3eb, 0);
-    }
+    assert(monster_group != 0);
     record = MonsterGroupGetRecord(monster_group);
     name_form = monster_group->MemberCount() != W8_MONSTER_GROUP_SINGULAR;
     if (record->record_id == W8_MONSTER_RECORD_ALTERNATE_NAME) {
-        g_status.monster_name_buffer =
-            fmt::format("Al-{}", g_status.buffers.Char[g_status.sedexus_party_slot].name);
-        return g_status.monster_name_buffer;
+        CurrentGame().status.monster_name_buffer = fmt::format(
+            "Al-{}", CurrentGame().party.characters[CurrentGame().status.sedexus_party_slot].name);
+        return CurrentGame().status.monster_name_buffer;
     }
     if (monster_group->alternate_name) {
         return (name_form ? record->name1 : record->name0);
@@ -548,23 +491,18 @@ std::string GetMonsterGroupName(W8MonsterGroup* monster_group)
    list length is re-read each iteration because leaving combat can change it.
    Both assertions name what they guard - the global combat mode and the group's
    own fInCombat, which is what gives +0x29 its name. */
-// FUNCTION: WIZ8 0x0050fad0
 void MonsterGroupLeaveCombat(W8MonsterGroup* monster_group)
 {
     unsigned int index;
     W8MonsterInfo* lead;
 
-    if (!gXStatus.fCombatMode) {
-        srAssertFail("gXStatus.fCombatMode", MONSTER_GROUP_CPP, 0x1eb, 0);
-    }
-    if (!monster_group->fInCombat) {
-        srAssertFail("pMonsterGroup->fInCombat", MONSTER_GROUP_CPP, 0x1ec, 0);
-    }
+    assert(CurrentGame().combat.has_value());
+    assert(monster_group->fInCombat);
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        MonsterInfoLeaveCombat(FindMonster(monster_group->MemberLocationId(index).value()));
+        MonsterInfoLeaveCombat(FindMonster(monster_group->MemberLocationId(index)));
     }
     monster_group->fInCombat = false;
-    RequestRedrawParty();
+    CurrentGame().events.push(MonstersChanged{});
     lead = FindMonster(monster_group->leader_location_id);
     lead->ai_mode |= W8_MONSTER_AI_REAPPLY_MODE;
 }
@@ -572,7 +510,6 @@ void MonsterGroupLeaveCombat(W8MonsterGroup* monster_group)
 /* Removes a group and everything allied to it from the world. Each ally is
    emptied and its slot cleared before the group itself is emptied, so the
    group's own members are the last to go and an ally cannot be reached twice. */
-// FUNCTION: WIZ8 0x00510930
 void DespawnMonsterGroup(W8MonsterGroup* monster_group)
 {
     int index;
@@ -589,7 +526,6 @@ void DespawnMonsterGroup(W8MonsterGroup* monster_group)
 /* Brings a freshly loaded group's members into the world and marks the group
    loaded. Members that are already active are left alone. The sentinel at +0x9B
    is reset first, so a reload does not inherit the previous run's value. */
-// FUNCTION: WIZ8 0x0050f630
 void LoadMonsterGroupMembers(W8MonsterGroup* monster_group)
 {
     unsigned int index;
@@ -597,7 +533,7 @@ void LoadMonsterGroupMembers(W8MonsterGroup* monster_group)
 
     monster_group->highlighted_member.reset();
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        monster_info = FindMonster(monster_group->MemberLocationId(index).value());
+        monster_info = FindMonster(monster_group->MemberLocationId(index));
         if (!monster_info->fActive) {
             ActivateMonsterInWorld(monster_info);
         }
@@ -607,7 +543,6 @@ void LoadMonsterGroupMembers(W8MonsterGroup* monster_group)
 
 /* Clears the per-turn scratch on every loaded group and every monster entry.
    Both walks re-read their list length each iteration. */
-// FUNCTION: WIZ8 0x00511530
 void ResetMonsterGroupTurnState(void)
 {
     unsigned int index;
@@ -626,43 +561,40 @@ void ResetMonsterGroupTurnState(void)
 /* On a level's first visit, rebind every group monster's script from the name
    of the script it already carries, so reloaded monsters resume their
    level-local script objects. */
-// FUNCTION: WIZ8 0x005115B0
 void RebindMonsterGroupScripts(void)
 {
     for (unsigned int index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
         W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[index].get();
         W8MonsterInfo* info = FindMonster(group->leader_location_id);
-        if (info->p3D->script != 0) {
+        if (info->entity->script != 0) {
             char script_name[256];
-            strcpy(script_name, info->p3D->script->getName().c_str());
-            info->p3D->SetScript(script_name, true);
+            strcpy(script_name, info->entity->script->getName().c_str());
+            info->entity->SetScript(script_name, true);
         }
     }
 }
 
 /* Writes a control state onto every live member of the group; the Lure
    effect uses it to flip a whole out-of-combat group at once. */
-// FUNCTION: WIZ8 0x005117D0
 void SetMonsterGroupControlState(W8MonsterGroup* monster_group, W8MonsterControlState control_state)
 {
     for (unsigned int index = 0; index < monster_group->MemberIds().size(); ++index) {
-        int location_id = monster_group->MemberLocationId(index).value();
+        int location_id = monster_group->MemberLocationId(index);
         W8MonsterInfo* info = FindMonster(location_id);
-        if (info != 0 && !info->p3D->IsDying()) {
+        if (info != 0 && !info->entity->IsDying()) {
             SetMonsterControlState(info, control_state);
         }
     }
 }
 
-// FUNCTION: WIZ8 0x00511B40
 bool MonsterGroupHasRenderableMember(W8MonsterGroup* monster_group, bool require_threat)
 {
     if (!monster_group->members_active) {
         return false;
     }
     for (unsigned int index = 0; index < monster_group->MemberIds().size(); ++index) {
-        W8MonsterInfo* info = FindMonster(monster_group->MemberLocationId(index).value());
-        if (info->p3D->IsWithinWorldRange() && info->p3D->IsRenderable(true) &&
+        W8MonsterInfo* info = FindMonster(monster_group->MemberLocationId(index));
+        if (info->entity->IsWithinWorldRange() && info->entity->IsRenderable(true) &&
             (!require_threat || info->party_threat.los_flags[1])) {
             return true;
         }
@@ -672,13 +604,12 @@ bool MonsterGroupHasRenderableMember(W8MonsterGroup* monster_group, bool require
 
 /* Nonzero when the group - or, recursing, one of its allied groups - has a
    member whose highest condition is in the 0x0e..0x11 incapacitated band. */
-// FUNCTION: WIZ8 0x00511D40
 bool MonsterGroupHasIncapacitatedMember(int group_id)
 {
     W8MonsterGroup* group = FindMonsterGroup(group_id);
     unsigned int index;
     for (index = 0; index < group->MemberIds().size(); ++index) {
-        W8MonsterInfo* info = FindMonster(group->MemberLocationId(index).value());
+        W8MonsterInfo* info = FindMonster(group->MemberLocationId(index));
         if (info->highest_condition > W8_CONDITION_TURNCOAT &&
             info->highest_condition < W8_CONDITION_DEAD) {
             return true;
@@ -701,10 +632,9 @@ bool MonsterGroupHasIncapacitatedMember(int group_id)
    The divisor is the member count captured before the walk, not re-read after
    it, which is what makes a member added during the walk skew the average
    rather than divide by the wrong count. Preserved as found. */
-// FUNCTION: WIZ8 0x0050ffd0
 void GetMonsterGroupCentre(W8MonsterGroup* monster_group, glm::vec3* centre)
 {
-    unsigned int count;
+    std::size_t count;
     unsigned int index;
     glm::vec3 position;
     float divisor;
@@ -716,8 +646,8 @@ void GetMonsterGroupCentre(W8MonsterGroup* monster_group, glm::vec3* centre)
         monster_group->centre = glm::vec3(0);
         count = monster_group->MemberIds().size();
         for (index = 0; index < count; ++index) {
-            position = MonsterGetLocation(
-                FindMonster(monster_group->MemberLocationId(index).value())->p3D);
+            position = FindMonster(monster_group->MemberLocationId(index))
+                           ->entity->GetRepresentationLocation();
             monster_group->centre += position;
         }
         divisor = static_cast<float>(count);
@@ -759,12 +689,11 @@ bool LinkMonsterGroupToLeader(W8MonsterGroup* leader, W8MonsterGroup* group)
 
 /* Allocate one live monster group, create its members, activate them, and
    register it on the species or encounter list. */
-// FUNCTION: WIZ8 0x0050F1A0
 W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const glm::vec3* position,
-                            bool use_alternate_name, bool announce_spawn, bool place_on_ground)
+                            bool use_alternate_name, bool place_on_ground)
 {
     W8MonsterGroup* group;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     std::vector<std::unique_ptr<W8MonsterGroup>>* list;
     unsigned int index;
     unsigned int created;
@@ -781,8 +710,8 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
     group = owner.get();
 
     do {
-        group->group_id = g_status.next_group_id;
-        ++g_status.next_group_id;
+        group->group_id = CurrentGame().status.next_group_id;
+        ++CurrentGame().status.next_group_id;
     } while (group->group_id == 0);
 
     group->leader_group_id = 0;
@@ -806,7 +735,7 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
     group->group_state[3] = 0xff;
     group->group_state[4] = 0xff;
     group->group_state[5] = 0xff;
-    group->spawn_time = g_status.world_clock;
+    group->spawn_time = CurrentGame().status.world_clock;
 
     list = &CurrentLevelPopulation().monster_groups;
     if (record->unborn != 0) {
@@ -828,12 +757,12 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
         }
     }
 
-    group->leader_location_id = g_status.next_monster_location_id - 1;
+    group->leader_location_id = CurrentGame().status.next_monster_location_id - 1;
     group->highlighted_member.reset();
 
     index = 0;
     while (index < group->MemberIds().size()) {
-        int location_id = group->MemberLocationId(index).value();
+        int location_id = group->MemberLocationId(index);
         W8MonsterInfo* monster_info = FindMonster(location_id);
 
         if (!monster_info->fActive) {
@@ -847,12 +776,6 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
     MoveMonsterGroupToPosition(group, position, yaw, false, false, false, false);
     RefreshMonsterGroup(group);
     SetMonsterGroupHostility(group, MonsterGroupCalcDefaultDisposition(group), false);
-
-    if (announce_spawn && g_dev_mode) {
-        const char* verb = count == 1 ? "appears" : "appear";
-        ShowNotice(W8_FONT_PALETTE_RUST,
-                   fmt::format("{:d} {} {} nearby!", count, GetMonsterGroupName(group), verb));
-    }
 
     return group;
 }
@@ -878,7 +801,6 @@ bool DestroyMonsterGroup(W8MonsterGroup* group, W8MonsterInfo* monster_info)
     return false;
 }
 
-// FUNCTION: WIZ8 0x00510b60
 W8MonsterGroup* FindFirstMonsterByID(int monster_id)
 {
     unsigned int index;
@@ -900,7 +822,6 @@ W8MonsterGroup* FindFirstMonsterByID(int monster_id)
 }
 
 /* Continue through live groups, then encounters, after the previous match. */
-// FUNCTION: WIZ8 0x00510bf0
 W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* previous)
 {
     bool after_previous = previous == nullptr;
@@ -918,31 +839,24 @@ W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* prev
    navigator leadership_rank, or the first member when none qualify, then hand the
    outgoing leader's script and heard-noise state to the new leader's
    MonsterInfo. */
-// FUNCTION: WIZ8 0x005103E0
 void ElectGroupLeaderMember(W8MonsterGroup* monster_group)
 {
-    if (monster_group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x438, 0);
-    }
-    if (monster_group->MemberIds().empty()) {
-        srAssertFail(
-            "(pMonsterGroup->plsMonsterIDList ? pMonsterGroup->plsMonsterIDList->size() : 0)",
-            MONSTER_GROUP_CPP, 0x439, 0);
-    }
+    assert(monster_group != 0);
+    assert(!monster_group->MemberIds().empty());
     W8MonsterInfo* old_info = FindMonster(monster_group->leader_location_id);
-    W8Monster* old_monster = old_info->p3D;
+    Monster* old_monster = old_info->entity.find();
     int leader_id = 0;
     unsigned int best = 0;
     if (!monster_group->MemberIds().empty()) {
         unsigned int index = 0;
         while (index < monster_group->MemberIds().size()) {
-            int member_id = monster_group->MemberLocationId(index).value();
-            W8Monster* member = GetMonsterByLocationID(member_id);
+            int member_id = monster_group->MemberLocationId(index);
+            Monster* member = GetMonsterByLocationID(member_id);
             W8MonsterInfo* member_info = FindMonster(member_id);
-            if (member_info->highest_condition < W8_CONDITION_TURNCOAT &&
+            if (member && member_info->highest_condition < W8_CONDITION_TURNCOAT &&
                 (member->runtime_flags & W8_MONSTER_REMOVE_NOW) == 0 &&
-                best < static_cast<unsigned int>(member->movement.leadership_rank)) {
-                best = member->movement.leadership_rank;
+                best < static_cast<unsigned int>(member->nav.movement.leadership_rank)) {
+                best = member->nav.movement.leadership_rank;
                 leader_id = member_id;
             }
             ++index;
@@ -952,12 +866,12 @@ void ElectGroupLeaderMember(W8MonsterGroup* monster_group)
             goto done;
         }
     }
-    monster_group->leader_location_id = monster_group->MemberLocationId(0).value();
+    monster_group->leader_location_id = monster_group->MemberLocationId(0);
 done:
     W8MonsterInfo* leader_info = FindMonster(monster_group->leader_location_id);
-    stScript* script = old_monster->script.get();
-    W8Monster* leader_monster = leader_info->p3D;
-    if (script != 0) {
+    Script* script = old_monster ? old_monster->script.get() : nullptr;
+    Monster* leader_monster = leader_info->entity.find();
+    if (script && leader_monster) {
         leader_monster->SetScript(script->getName(), true);
     }
     leader_info->heard_noise_radius = old_info->heard_noise_radius;
@@ -974,10 +888,12 @@ void ElectAlliedLeaderGroup(W8MonsterGroup* monster_group, W8MonsterInfo* leader
     for (int id : allies) {
         if (id == 0) continue;
         auto* candidate = FindMonsterGroup(id);
+        if (!candidate) continue;
         unsigned int high = 0;
         for (int member_id : candidate->MemberIds()) {
             if (auto* member = GetMonsterByLocationID(member_id))
-                high = std::max(high, static_cast<unsigned int>(member->movement.leadership_rank));
+                high =
+                    std::max(high, static_cast<unsigned int>(member->nav.movement.leadership_rank));
         }
         if (!leader || high > best) {
             leader = candidate;
@@ -991,8 +907,8 @@ void ElectAlliedLeaderGroup(W8MonsterGroup* monster_group, W8MonsterInfo* leader
             LinkMonsterGroupToLeader(leader, FindMonsterGroup(id));
 
     auto* new_leader_info = FindMonster(leader->leader_location_id);
-    if (auto* script = leader_info->p3D->script.get())
-        new_leader_info->p3D->SetScript(script->getName(), true);
+    if (auto* script = leader_info->entity->script.get())
+        new_leader_info->entity->SetScript(script->getName(), true);
     new_leader_info->heard_noise_radius = leader_info->heard_noise_radius;
     new_leader_info->heard_noise_position = leader_info->heard_noise_position;
 }
@@ -1002,33 +918,29 @@ void ElectAlliedLeaderGroup(W8MonsterGroup* monster_group, W8MonsterInfo* leader
    still settling, all defer the entry. The leader's members and its allies'
    members enter together, and a second live hostile group arms the
    ambush-warning event. */
-// FUNCTION: WIZ8 0x0050F720
 void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
 {
     while (true) {
-        if (g_status.world_suspended && monster_group->ubDisposition == W8_DISPOSITION_HOSTILE &&
-            !gXStatus.fCombatMode) {
+        if (CurrentGame().status.world_suspended &&
+            monster_group->ubDisposition == W8_DISPOSITION_HOSTILE &&
+            !CurrentGame().combat.has_value()) {
             return;
         }
 
         if (monster_group->fInCombat) {
             return;
         }
-        if (monster_group == 0) {
-            srAssertFail("pMonsterGroup != NULL", MONSTER_GROUP_CPP, 0x3bd, 0);
-        }
-        W8MonsterRecord* record = MonsterDBFromSpecies(monster_group->monster_id);
+        assert(monster_group != 0);
+        const W8MonsterRecord* record = MonsterDBFromSpecies(monster_group->monster_id);
         if (record->untargetable != 0) {
             return;
         }
-        if (monster_group == 0) {
-            srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x511, 0);
-        }
+        assert(monster_group != 0);
         unsigned int index = 0;
         while (index < monster_group->MemberIds().size()) {
-            int member_id = monster_group->MemberLocationId(index).value();
+            int member_id = monster_group->MemberLocationId(index);
             W8MonsterInfo* member_info = FindMonster(member_id);
-            if (member_info->p3D->position_dirty) {
+            if (member_info->entity->nav.position_dirty) {
                 return;
             }
             ++index;
@@ -1036,29 +948,25 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
         if (PartyNavigator()->position_dirty) {
             return;
         }
-        if (monster_group == 0) {
-            srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x8c9, 0);
-        }
+        assert(monster_group != 0);
         index = 0;
         while (index < monster_group->MemberIds().size()) {
-            int member_id = monster_group->MemberLocationId(index).value();
+            int member_id = monster_group->MemberLocationId(index);
             W8MonsterInfo* member_info = FindMonster(member_id);
-            if ((member_info->p3D->runtime_flags & W8_MONSTER_SCRIPT_WAIT) != 0) {
+            if ((member_info->entity->runtime_flags & W8_MONSTER_SCRIPT_WAIT) != 0) {
                 return;
             }
             ++index;
         }
-        if (monster_group == 0) {
-            srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x82b, 0);
-        }
+        assert(monster_group != 0);
         index = 0;
         if (monster_group->MemberIds().empty()) {
             return;
         }
         while (true) {
-            int member_id = monster_group->MemberLocationId(index).value();
+            int member_id = monster_group->MemberLocationId(index);
             W8MonsterInfo* member_info = FindMonster(member_id);
-            if (member_info != 0 && !member_info->p3D->IsDying()) {
+            if (member_info != 0 && !member_info->entity->IsDying()) {
                 break;
             }
             ++index;
@@ -1069,14 +977,14 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
         if (monster_group->leader_group_id == 0) {
             index = 0;
             while (index < monster_group->MemberIds().size()) {
-                int member_id = monster_group->MemberLocationId(index).value();
+                int member_id = monster_group->MemberLocationId(index);
                 W8MonsterInfo* member_info = FindMonster(member_id);
                 MonsterInfoEnterCombat(member_info);
                 ++index;
             }
             monster_group->fInCombat = true;
-            if (monster_group->ubDisposition == W8_DISPOSITION_HOSTILE && gXStatus.fCombatMode &&
-                g_combat_state->round_count != 0) {
+            if (monster_group->ubDisposition == W8_DISPOSITION_HOSTILE &&
+                CurrentGame().combat.has_value() && CurrentGame().combat->round_count != 0) {
                 unsigned int live_groups = 0;
                 unsigned int group_list_index = 0;
                 while (group_list_index < CurrentLevelPopulation().monster_groups.size()) {
@@ -1100,7 +1008,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                     if (!ally->fInCombat) {
                         index = 0;
                         while (index < ally->MemberIds().size()) {
-                            int member_id = ally->MemberLocationId(index).value();
+                            int member_id = ally->MemberLocationId(index);
                             W8MonsterInfo* member_info = FindMonster(member_id);
                             MonsterInfoEnterCombat(member_info);
                             ++index;
@@ -1109,7 +1017,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                     }
                 }
             }
-            RequestRedrawParty();
+            CurrentGame().events.push(MonstersChanged{});
             SetMonsterGroupEngagementState(monster_group->group_id, false);
             return;
         }
@@ -1121,7 +1029,6 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
    camera position, flag set scatters it `distance` out on a random heading
    centred just off the camera's back, widened to the largest allied member
    radius. `yaw` is read by the prototype but the body never uses it. */
-// FUNCTION: WIZ8 0x00511050
 bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float yaw, bool flag)
 {
     glm::vec3 camera;
@@ -1138,16 +1045,16 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
         return MoveMonsterGroupToPosition(group, &target, 0.0f, true, true, false, true);
     }
     member_info = FindMonster(group->leader_location_id);
-    angle =
-        NormalizeAngle(GetCameraYawRadians() + Random(1000) * kMonsterScatterHeadingRandomScale +
-                       g_monster_rotation_offset - kMonsterScatterHeadingBias);
-    radius = member_info->p3D->radius;
+    angle = NormalizeAngle(GetCameraYawRadians() +
+                           CurrentGame().rng.below(1000) * kMonsterScatterHeadingRandomScale +
+                           g_monster_rotation_offset - kMonsterScatterHeadingBias);
+    radius = member_info->entity->nav.radius;
     for (index = 0; index < W8_MONSTER_GROUP_ALLY_COUNT; ++index) {
         if (group->allied_group_ids[index] != 0) {
             ally = FindMonsterGroup(group->allied_group_ids[index]);
             member_info = FindMonster(ally->leader_location_id);
-            if (radius < member_info->p3D->radius) {
-                radius = member_info->p3D->radius;
+            if (radius < member_info->entity->nav.radius) {
+                radius = member_info->entity->nav.radius;
             }
         }
     }
@@ -1165,7 +1072,6 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
    singular/plural record name - the alternate-name record takes the selected
    party member's name prefixed "Al-" - then the active, selectable and visible
    tallies, with the spotted flag adding its own line. */
-// FUNCTION: WIZ8 0x00511670
 void ShowMonsterGroupInfoNotice(int group_id)
 {
     W8MonsterGroup* group = FindMonsterGroup(group_id);
@@ -1173,20 +1079,19 @@ void ShowMonsterGroupInfoNotice(int group_id)
 
     ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::format("{:d} {}", group->MemberCount(), name));
     if (!group->alternate_name) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x1c5]);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x1c5]);
     }
+    ShowNotice(
+        W8_FONT_PALETTE_BEIGE,
+        fmt::sprintf(Data().strings[0x1c6], CurrentLevelPopulation().activeMemberCount(*group)));
     ShowNotice(W8_FONT_PALETTE_BEIGE,
-               fmt::sprintf(g_localized_strings[0x1c6],
-                            CurrentLevelPopulation().activeMemberCount(*group)));
+               fmt::sprintf(Data().strings[0x1c7], group->selectable_member_count));
     ShowNotice(W8_FONT_PALETTE_BEIGE,
-               fmt::sprintf(g_localized_strings[0x1c7], group->selectable_member_count));
-    ShowNotice(W8_FONT_PALETTE_BEIGE,
-               fmt::sprintf(g_localized_strings[0x1c8], group->visible_member_count));
+               fmt::sprintf(Data().strings[0x1c8], group->visible_member_count));
 }
 
 /* Flags every live member of the group for removal, then recurses into each
    allied group. Members already dying are left alone. */
-// FUNCTION: WIZ8 0x005118E0
 void MarkMonsterGroupForRemoval(int group_id)
 {
     W8MonsterGroup* group;
@@ -1196,9 +1101,9 @@ void MarkMonsterGroupForRemoval(int group_id)
 
     group = FindMonsterGroup(group_id);
     for (index = 0; index < group->MemberIds().size(); ++index) {
-        member_info = FindMonster(group->MemberLocationId(index).value());
-        if (member_info != 0 && !member_info->p3D->IsDying()) {
-            member_info->p3D->runtime_flags |= W8_MONSTER_REMOVE_NOW;
+        member_info = FindMonster(group->MemberLocationId(index));
+        if (member_info != 0 && !member_info->entity->IsDying()) {
+            member_info->entity->runtime_flags |= W8_MONSTER_REMOVE_NOW;
         }
     }
     for (ally_index = 0; ally_index < W8_MONSTER_GROUP_ALLY_COUNT; ++ally_index) {
@@ -1211,16 +1116,13 @@ void MarkMonsterGroupForRemoval(int group_id)
 /* Moves a group off the encounter list onto the live list and brings every one
    of its members into the live monster list. Answers 1 when the group was
    actually waiting on the encounter list. */
-// FUNCTION: WIZ8 0x00511990
-unsigned char GiveBirthToMonster(W8MonsterGroup* monster_group)
+bool GiveBirthToMonster(W8MonsterGroup* monster_group)
 {
     W8MonsterInfo* member_info;
     unsigned int index;
     int location_id;
 
-    if (monster_group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_GROUP_CPP, 0x87a, 0);
-    }
+    assert(monster_group != 0);
     auto& encounters = CurrentLevelPopulation().encounter_groups;
     const auto found = std::ranges::find_if(
         encounters, [monster_group](const auto& owner) { return owner.get() == monster_group; });
@@ -1228,23 +1130,22 @@ unsigned char GiveBirthToMonster(W8MonsterGroup* monster_group)
         CurrentLevelPopulation().monster_groups.push_back(std::move(*found));
         encounters.erase(found);
         for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-            location_id = monster_group->MemberLocationId(index).value();
+            location_id = monster_group->MemberLocationId(index);
             member_info = FindMonster(location_id);
             if (member_info != 0) {
                 MoveMonsterToLiveList(member_info);
             }
         }
         RefreshOutwardSightForAllMonsters();
-        return 1;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 /* Respawns a same-sized group of a different monster id beside the source
    group: the new group's members are created, each old member's position is
    overwritten by the replacement's before it is deactivated, and the new
    member is activated. NULL when creation fails or the counts disagree. */
-// FUNCTION: WIZ8 0x00511A40
 W8MonsterGroup* ReplaceMonsterGroupSpecies(W8MonsterGroup* group, unsigned int monster_id)
 {
     W8MonsterGroup* new_group;
@@ -1254,16 +1155,16 @@ W8MonsterGroup* ReplaceMonsterGroupSpecies(W8MonsterGroup* group, unsigned int m
     glm::vec3 spawn;
     unsigned int index;
 
-    new_group = CreateGroup(monster_id, group->MemberCount(), &spawn, false, false, false);
+    new_group = CreateGroup(monster_id, group->MemberCount(), &spawn, false, false);
     if (new_group == 0 || new_group->MemberCount() != group->MemberCount()) {
         return 0;
     }
     for (index = 0; index < new_group->MemberCount(); ++index) {
-        new_member = FindMonster(new_group->MemberLocationId(index).value());
-        old_member = FindMonster(group->MemberLocationId(index).value());
+        new_member = FindMonster(new_group->MemberLocationId(index));
+        old_member = FindMonster(group->MemberLocationId(index));
         if (new_member != 0 && old_member != 0) {
-            position = new_member->p3D->GetPosition();
-            old_member->p3D->SetPositionInternal(&position);
+            position = new_member->entity->nav.GetPosition();
+            old_member->entity->nav.SetPositionInternal(&position);
             DeactivateMonster(old_member);
             ActivateMonsterInWorld(new_member);
         }
@@ -1277,7 +1178,6 @@ W8MonsterGroup* ReplaceMonsterGroupSpecies(W8MonsterGroup* group, unsigned int m
 /* Writes `state` into the group's engagement byte and propagates it to its
    four allied groups; while the byte is set each call ticks the counter beside
    it. The two special record kinds ignore a set. */
-// FUNCTION: WIZ8 0x00511BE0
 void SetMonsterGroupEngagementState(int group_id, bool state)
 {
     W8MonsterGroup* group;
@@ -1307,20 +1207,18 @@ void SetMonsterGroupEngagementState(int group_id, bool state)
     }
 }
 
-// FUNCTION: WIZ8 0x00511CB0
 bool GetMonsterGroupEngagementState(int group_id)
 {
     return FindMonsterGroup(group_id)->engagement;
 }
 
-// FUNCTION: WIZ8 0x00511CE0
 void SetMonsterGroupNavigatorDirty(W8MonsterGroup* monster_group, bool flag)
 {
     W8MonsterInfo* member_info;
     unsigned int index;
 
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        member_info = FindMonster(monster_group->MemberLocationId(index).value());
-        member_info->p3D->position_dirty = flag;
+        member_info = FindMonster(monster_group->MemberLocationId(index));
+        member_info->entity->nav.position_dirty = flag;
     }
 }

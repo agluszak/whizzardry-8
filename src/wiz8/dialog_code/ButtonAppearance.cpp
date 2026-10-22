@@ -14,11 +14,11 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "Font.h"
-#include "himage.h"
-#include "image.h"
-#include "image_assets.h"
-#include "sprite.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/canvas/image_assets.h"
+#include "wiz8/canvas/sprite.h"
 
 static GenericButtonImage default_generic_image;
 
@@ -34,30 +34,27 @@ static bool DrawGenericButton(SDL_Surface& target, const ButtonAppearance* appea
 static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* appearance,
                              const SDL_Rect& bounds, const ButtonVisualState& state);
 
-ButtonImage ButtonGraphics::Load(std::string_view filename, std::optional<std::int32_t> grayed,
-                                 std::optional<std::int32_t> off_normal,
-                                 std::optional<std::int32_t> off_hilite,
-                                 std::optional<std::int32_t> on_normal,
-                                 std::optional<std::int32_t> on_hilite)
+ButtonImage ButtonGraphics::Load(std::string_view filename, std::optional<int> grayed,
+                                 std::optional<int> off_normal, std::optional<int> off_hilite,
+                                 std::optional<int> on_normal, std::optional<int> on_hilite)
 {
     if (filename.empty()) return {};
     return Load(g_image_assets.sprites(filename), grayed, off_normal, off_hilite, on_normal,
                 on_hilite);
 }
 
-ButtonImage
-ButtonGraphics::Load(std::shared_ptr<const SpriteSheet> sprites, std::optional<std::int32_t> grayed,
-                     std::optional<std::int32_t> off_normal, std::optional<std::int32_t> off_hilite,
-                     std::optional<std::int32_t> on_normal, std::optional<std::int32_t> on_hilite)
+ButtonImage ButtonGraphics::Load(std::shared_ptr<const SpriteSheet> sprites,
+                                 std::optional<int> grayed, std::optional<int> off_normal,
+                                 std::optional<int> off_hilite, std::optional<int> on_normal,
+                                 std::optional<int> on_hilite)
 {
     const std::array frames{grayed, off_normal, off_hilite, on_normal, on_hilite};
-    if (!sprites ||
-        std::all_of(frames.begin(), frames.end(), [](const auto& frame) { return !frame; }))
+    if (!sprites || std::all_of(frames.begin(), frames.end(), [](auto frame) { return !frame; }))
         return {};
 
     auto image = std::make_shared<ButtonGraphics>();
     image->sprites = std::move(sprites);
-    for (const auto& index : frames) {
+    for (const auto index : frames) {
         if (!index) continue;
         if (*index < 0 || static_cast<std::size_t>(*index) >= image->object().frames.size()) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Invalid button frame %d", *index);
@@ -127,7 +124,6 @@ bool InitializeButtonImageManager()
     return default_generic_image != nullptr;
 }
 
-// FUNCTION: WIZ8 0x0040cb70
 GenericButtonImage LoadGenericButtonImages(std::string_view gray, std::string_view off_normal,
                                            std::string_view off_hilite, std::string_view on_normal,
                                            std::string_view on_hilite, std::string_view background,
@@ -138,7 +134,6 @@ GenericButtonImage LoadGenericButtonImages(std::string_view gray, std::string_vi
                                index, offset_x, offset_y);
 }
 
-// FUNCTION: WIZ8 0x0040ce60
 void ShutdownButtonImageManager(void)
 {
     default_generic_image.reset();
@@ -159,7 +154,6 @@ void DrawButtonAppearance(SDL_Surface& target, const ButtonAppearance& appearanc
     }
 }
 
-// FUNCTION: WIZ8 0x0040e060
 static bool DrawQuickButton(SDL_Surface& target, const ButtonAppearance* b, const SDL_Rect& bounds,
                             const ButtonVisualState& state)
 {
@@ -167,7 +161,7 @@ static bool DrawQuickButton(SDL_Surface& target, const ButtonAppearance* b, cons
     if (!b->quick_image) return overlay;
     const auto& image = *b->quick_image;
     const bool pressed = state.pressed;
-    std::optional<std::int32_t> frame = state.menu_artwork ? std::nullopt : std::optional{0};
+    std::optional<int> frame = state.menu_artwork ? std::nullopt : std::optional{0};
     if (state.enabled) {
         const auto normal = pressed ? image.OnNormal : image.OffNormal;
         const auto hilite = pressed ? image.OnHilite : image.OffHilite;
@@ -211,10 +205,9 @@ static void DrawTextOnButton(SDL_Surface& target, const ButtonAppearance* b, con
     // Palette entry 0 is the font's colour key; a zero background leaves the button art visible.
     options.colors.background = 0;
     options.colors.foreground = b->usFont->color(static_cast<std::uint8_t>(b->sForeColor));
-    if (b->sShadowColor)
-        options.colors.shadow = b->usFont->color(static_cast<std::uint8_t>(*b->sShadowColor));
-    if (options.colors.shadow == 0 && b->sShadowColor && *b->sShadowColor > 0)
-        options.colors.shadow = 1;
+    if (b->sShadowColor != -1)
+        options.colors.shadow = b->usFont->color(static_cast<std::uint8_t>(b->sShadowColor));
+    if (options.colors.shadow == 0 && b->sShadowColor > 0) options.colors.shadow = 1;
     options.mono = !b->fMultiColor;
     DrawText(target, *b->usFont, origin, b->string, options);
 }

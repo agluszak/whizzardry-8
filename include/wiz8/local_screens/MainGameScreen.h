@@ -1,5 +1,4 @@
 #pragma once
-
 #include <array>
 #include <memory>
 #include <optional>
@@ -7,23 +6,83 @@
 
 #include <SDL3/SDL_keycode.h>
 
-#include "compat/compiler.h"
-#include "input.h"
-#include "layouts/targeting.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/local_screens/MGSButtons.h"
+#include "wiz8/local_screens/npc_dialogue_panel.h"
 #include "wiz8/modal_content.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/platform/timer.h"
+#include "wiz8/rules/item_location.h"
+#include "wiz8/rules/targeting.h"
+#include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 
+class RadarMap;
+class KeyboardActionMenu;
+class Pointer;
 class Trigger;
+class W8LockInteraction;
+class W8TrapInteraction;
+struct W8LevelRuntimeBlock;
 
-struct MainGameScreenState {
-    MainGameScreenState();
+/* The world view with its HUD, portraits, text box and overlays. The level
+   block, cursor resources and HUD are created on first entry and survive the
+   camp, options, automap, journal and character screens opened over it. */
+struct MainGameScreen final : Screen {
+    static constexpr W8ScreenId id = W8_SCREEN_MAIN_GAME;
+
+    MainGameScreen(Game& game, Pointer& pointer);
+    ~MainGameScreen() override;
+    bool enter(const ScreenRequest& request) override;
+    void frame() override;
+    void resetStepClock() override { step_timer.restart(); }
+    bool leave(ScreenDeparture departure) override;
+
+    // The game this main game belongs to; it is discarded before the game ends.
+    Game& game;
+    std::unique_ptr<KeyboardActionMenu> keyboard_menu;
+    std::unique_ptr<RadarMap> radar_map;
+    void setRadarVisible(bool visible);
+    bool keyboardMenuForSlot(int slot) const;
+    void openKeyboardMenu(int slot);
+    void closeKeyboardMenu();
+    void chooseKeyboardMenuAction(int slot, int menu, int item);
+    // The pointer the main game aims with, shared with a camp opened over it.
+    Pointer& pointer;
+    // The time since the screen last stepped the game.
+    LapTimer step_timer;
+    std::unique_ptr<W8LockInteraction> lock_interaction;
+    std::unique_ptr<W8TrapInteraction> trap_interaction;
+    bool lock_active = false;
+    bool trap_active = false;
     bool resume_world = false;
+    /* The camp closed over a conversation set aside to open it; the next frame takes the
+       conversation up again. */
+    bool resume_conversation = false;
+    /* The slot whose NPC the camp just dismissed; its portrait ignores input
+       until the screen state is reset. */
+    int dismissed_npc_slot = -1;
+    /* An item the camp's Use action handed to the use-item picker, and the member who
+       uses it. Until the picker opens on it, the game's aging is held. */
+    struct ItemDrag {
+        W8ItemLocation item;
+        int actor = -1;
+        bool pending = true;
+    };
+    std::optional<ItemDrag> item_drag;
+    // The formation panel is open.
+    bool formation_panel_open = false;
+    // The combat party-movement panel is shown.
+    bool party_movement_panel = false;
+    /* The HUD's presentation state; created on the first entry and released when the
+       screen is discarded. */
+    std::unique_ptr<W8LevelRuntimeBlock> hud;
     MainGameHudButtons hud_buttons;
     std::unique_ptr<MainGameSubMenu> submenu;
+    // The NPC dialogue's interface: its layouts, trade table and quote bubble.
+    W8NpcDialoguePanel dialogue{*this};
     UiLayer combat{UiLayerOrder::Combat}, edges{UiLayerOrder::ScreenEdges},
         radar{UiLayerOrder::Radar}, formation{UiLayerOrder::FormationBase},
         world{UiLayerOrder::GameplayOverlays};
@@ -32,11 +91,20 @@ struct MainGameScreenState {
     std::array<HitTarget*, 8> combat_targets{}, edge_targets{};
     HitTarget *radar_target = nullptr, *monster_list = nullptr, *world_view = nullptr;
 };
-extern std::unique_ptr<MainGameScreenState> g_main_game_state;
+/* The main game screen, current or suspended, or null. */
+inline MainGameScreen* MainGame()
+{
+    return FindScreen<MainGameScreen>();
+}
+// The main game's HUD state, or null while there is no main game.
+W8LevelRuntimeBlock* MainGameHud();
+// The main game exists with its formation panel open.
+bool FormationPanelOpen();
+// The main game exists with its combat party-movement panel shown.
+bool PartyMovementPanelShown();
 void EnableMainGamePortraitSlot(unsigned int slot);
 void DisableMainGamePortraitSlot(unsigned int slot);
 
-void RequestRedrawParty(void);
 void RedrawCombatMonsterList(bool subject_valid);
 void RefreshSelectedPartyPortrait(unsigned int party_slot);
 void ClearHighlightIfItIs(const int* item);
@@ -49,30 +117,29 @@ extern DesignRect g_viewport_modes[];
    trigger's trap type for the disarm/spring notices. */
 extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/engine_code/game_timer.h"
 #include "wiz8/layouts/npc_dialogue.h"
-#include "wiz8/layouts/screen_state.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/ui_layer.h"
 
-class W8MainGameScreen;
+class Game;
+
+class W8TrapInteraction;
 
 class W8MainGameTextKeyHandler {
 public:
     W8MainGameTextKeyHandler();
     void Redraw(SDL_Surface& target, bool full_redraw);
     void SetSelectedLine(int line);
-    char HandleKey(SDL_Keycode key);
+    signed char HandleKey(SDL_Keycode key);
     UiLayer input;
     W8RangeControl m_range{input, 0x1d0, 0x16b, 0x1e2, 0x1bf};
     int m_line_count = 15, m_visible_lines = 6;
-    int m_selected_line = 0, m_first_visible_line = 0;
-    std::optional<int> m_hover_line;
+    int m_selected_line = 0, m_hover_line = -1, m_first_visible_line = 0;
     bool m_dirty = true;
     std::function<void()> on_selection;
 };
@@ -98,22 +165,22 @@ public:
         HitTarget* target;
         ButtonInteraction interaction;
         bool enabled = true, blocked = false, dirty = true;
-        std::optional<int> image;
+        int image = -1;
     };
     std::array<Cell, 8> cells;
     std::unique_ptr<W8MainGameTextKeyHandler> m_key_handler;
     bool m_dirty = true;
     int m_selection;
-    W8MainGameScreen* m_screen;
+    W8TrapInteraction* m_screen;
     int* m_values;
     bool m_progress_display; /* the timed progress text block is displayed */
     float m_progress_duration;
     float m_progress_elapsed;
     int m_progress_drawn; /* widest progress extent drawn so far */
-    W8GameTimer m_timer0;
+    W8GameTimer m_timer0{1.0f, TimerClock::Presentation};
     W8ControlsRect m_text_bounds;
     W8TextBuffer m_text_buffer;
-    W8GameTimer m_timer1;
+    W8GameTimer m_timer1{1.0f, TimerClock::Presentation};
     int m_marker_anim_time; /* drives the 12-frame target-changed marker */
     bool m_target_changed;
     /* Draw the animated target-changed marker this frame; raised while
@@ -134,7 +201,6 @@ private:
 };
 
 /* The NPC dialogue keyword transcript. */
-// VTABLE: WIZ8 0x005ee920
 class W8NpcDialogueTextController {
 public:
     W8NpcDialogueTextController();
@@ -146,10 +212,9 @@ public:
     bool m_active = false, m_dirty = true;
     bool HandleScrollDownCommand(bool check_only);
     bool HandleScrollUpCommand(bool check_only);
-    /* Add one keyword line to the transcript unless the text is already
-       present; a nonzero mark puts the new entry in state 0x60, and any
-       leftover "[No Keywords]" placeholder is removed afterwards. */
-    unsigned char AddTranscriptEntry(std::string_view text, W8DialogueCategory category, char mark);
+    /* Show one notebook keyword as a line; a marked line is drawn as new, and
+       any leftover "[No Keywords]" placeholder is removed afterwards. */
+    void AddTranscriptEntry(std::string_view text, W8DialogueCategory category, bool marked);
     /* Whether the expanded transcript's top edge reaches above the portrait
        band for an odd party slot (1 -> 0x67, 3 -> 0xbc, 5 -> 0x111, 7 ->
        always covered). Callers use it to skip portrait work on rows the
@@ -158,17 +223,16 @@ public:
     /* Re-apply the category filter, rebuild the expansion and restate the
        scroll widgets. */
     void SetTranscriptCategoryFilter(W8DialogueCategory category);
-    /* Replay every saved dialogue_transcript record into the text area,
-       adding the "[No Keywords]" placeholder and forcing the all filter
-       when nothing was saved. */
-    void RestoreTranscriptEntries();
-    /* Snapshot the transcript lines into the screen state's
-       dialogue_transcript records (text plus category byte). */
-    void SaveTranscriptEntries();
+    /* Show every notebook keyword as a line, adding the "[No Keywords]"
+       placeholder and forcing the all filter when the notebook is empty. */
+    void ShowTranscriptEntries();
     void HighlightFirstEntry() { text_area.SelectEntry(text_area.m_first_visible_entry); }
     /* Drop every transcript line from the text area and invalidate. */
     void ClearTranscriptEntries();
-    std::optional<int> GetSelectedTranscriptEntryIndex();
+    /* Whether the lines currently show the notebook, between
+       ShowTranscriptEntries and ClearTranscriptEntries. */
+    bool showing_notebook = false;
+    int GetSelectedTranscriptEntryIndex();
     void SetTranscriptSorted(bool sorted);
     void RemoveSelectedTranscriptEntry();
     /* Open the transcript upward to fit its lines (capped at 0xff pixels)
@@ -195,7 +259,7 @@ struct W8LockTumbler {
     bool m_pin_set = false, m_rising = false, m_falling = false, m_at_top = false;
     bool m_hovered = false, m_enabled = true, m_dirty = true;
     int m_pin_index = 0, m_pin_height = 0x22;
-    void Redraw(SDL_Surface& target, bool full_redraw);
+    void Redraw(SDL_Surface& target, bool full_redraw, int phase);
 };
 
 class W8LockTumblerPanel {
@@ -209,9 +273,9 @@ public:
     int m_tumbler_count;
     bool m_animating = false, m_dirty = true;
     int m_phase = 0;
-    W8GameTimer m_phase_timer{0.04f, 0};
-    W8GameTimer m_rise_timer{0.03f, 0};
-    W8GameTimer m_fall_timer{0.01f, 0};
+    W8GameTimer m_phase_timer{0.04f, TimerClock::Presentation};
+    W8GameTimer m_rise_timer{0.03f, TimerClock::Presentation};
+    W8GameTimer m_fall_timer{0.01f, TimerClock::Presentation};
 };
 
 class W8LockInfoPanel {
@@ -258,7 +322,7 @@ public:
     /* Knock-knock resolution: rolls the per-level chance over a shuffled pin
        order, raising (or on backfire dropping) them, then re-derives the
        control enables and enters state 7. The flag parameter is unused. */
-    void ApplyKnockKnock(int level, int flag, char backfire);
+    void ApplyKnockKnock(int level, int flag, signed char backfire);
 
     UiLayer input;
     std::array<std::unique_ptr<W8ButtonWidget>, 4> buttons;
@@ -271,13 +335,13 @@ public:
     W8ButtonWidget* m_spell_button;     /* gated by spell-0x27 power */
     W8ButtonWidget* m_force_button;     /* gated by the force chance */
     W8ButtonWidget* m_cancel_button;    /* OnPrimary target, state 5 (cancel) */
-    std::optional<int> m_selected_slot; /* party slot owning the raised pins */
+    int m_selected_slot;               /* party slot owning the raised pins */
     int m_picked_tumbler;              /* index OnTumblerPicked recorded */
     W8LockInteractionState m_state;      /* Process() state */
-    std::optional<int> m_tumbler_owner[8]; /* owning party slot per pin */
+    int m_tumbler_owner[8];            /* owning party slot per pin, -1 unset */
     unsigned char m_tumbler_locked[8]; /* pin kept when the slot is released */
     int m_slot_attempts[8];            /* pick attempts per party slot */
-    W8GameTimer m_timer;               /* state-8 completion delay */
+    W8GameTimer m_timer{1.0f, TimerClock::Presentation}; /* state-8 completion delay */
 };
 
 enum W8TrapInteractionAction {
@@ -302,9 +366,9 @@ enum W8TrapDisarmState {
     W8_TRAP_DISARM_EXIT = 10
 };
 
-class W8MainGameScreen {
+class W8TrapInteraction {
 public:
-    W8MainGameScreen(Trigger* owner);
+    W8TrapInteraction(Trigger* owner);
     void SelectTextEntry(int index);
     void OnPrimary(W8TrapInteractionAction action);
     void DrawActions(SDL_Surface& target);
@@ -331,11 +395,12 @@ public:
     int m_slot_columns[8][8];
     int m_target_difficulty;
     wiz8::sound::Playback m_sound_handle;
-    W8GameTimer m_timer;
+    W8GameTimer m_timer{1.0f, TimerClock::Presentation};
 };
 
-extern std::unique_ptr<W8LevelRuntimeBlock> g_level_block;
-extern std::unique_ptr<W8MainGameScreen> g_main_game_screen;
+W8TrapInteraction* TrapInteraction();
+bool IsLockInteractionActive();
+bool IsTrapInteractionActive();
 
 /* Insanity (spell 0x3c) world-cursor extent rows and the per spell-power
    index into them; CastSpellFromSource scans the same extents when it
@@ -365,9 +430,8 @@ void OpenAssayDialog(const W8ItemInstance& item, int character_slot);
 void OnQuitGameDialogClosed(bool accepted);
 void OnLeaveGameConfirmClosed(bool accepted);
 
-bool WorldAdvancementBlocked();
-void SyncWorldAdvancement();
-void ResetMainGameScreenState(void);
+// Show that the world was held or released, or that its time stopped or resumed.
+void PresentWorldAdvancement(bool held, bool hold_changed);
 
 void RefreshTrackedPortraitOverlay(void);
 /* Which party portrait the pointer is over, if any. */
@@ -378,18 +442,20 @@ void RefreshFlaggedMainGameState(void);
 bool IsScreenIdle(void);
 bool IsModalOpen(void);
 
-void RequestRedraw(unsigned int mask);
 struct W8TargetingPresentation;
-void ApplyMainGameRedrawFlags(const W8TargetingPresentation& presentation);
-void DrawMainGameScreen(void);
+void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation);
+/* A main-game frame updates what it shows, then paints it: the update brings the party's
+   facing, the targeting presentation, the radar blips and the text box's repaint in line
+   with the game; the draw paints the recorded repaint parts and presents. */
+W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud);
+void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation);
 void CancelMouselook();
-void SetTooltipSubject(W8PortraitHighlightKind kind, std::optional<int> subject);
-int IsScreenInputBlocked(void);
+void SetTooltipSubject(W8PortraitHighlightKind kind, int subject);
+bool IsScreenInputBlocked(void);
 void DisableCombatRegions(void);
 
 extern bool g_mouselook_active;
 extern bool g_mouselook_left_held;
-extern bool g_node_cull_pending;
 enum W8MainGameMode {
     W8_MAIN_GAME_DEFAULT = 0,
     W8_MAIN_GAME_NPC_DIALOGUE = 3,
@@ -399,12 +465,9 @@ enum W8MainGameMode {
 };
 
 extern W8MainGameMode g_main_game_mode;
-extern std::optional<int> g_selected_party_slot;
 void RequestLevelTransition(int level, int entry, unsigned char flag);
-extern bool g_build_level_links;
-extern int g_next_link_level;
-extern bool g_navigator_position_changed;
-void BeginLevelTransition(void);
+// Change to `level`, arriving at `entry` (-1 for a saved location).
+void BeginLevelTransition(int level, int entry);
 void SetViewportMode(W8ViewportMode mode);
 /* Apply a main-game UI mode (0=portraits, 1=formation, 2=radar): drop raised
    panels, optionally re-raise them from settings prefs, refresh tooltip and
@@ -412,7 +475,7 @@ void SetViewportMode(W8ViewportMode mode);
 W8MainUiMode GetEffectiveMainUiMode();
 void SetMainUiPreference(W8MainUiMode mode);
 void RefreshMainGameLayout();
-unsigned char ProcessMainGameInput(void);
+bool ProcessMainGameInput(void);
 void TickAmbientFollowUpIdle(unsigned char input_handled);
 /* Re-sync the eight party slots' region sets and portrait hit
    regions with occupancy, the monster-entry flag and the display mode; the
@@ -437,11 +500,9 @@ void OpenAutomapScreen(void);
    portrait mode, and disable that slot's portrait region set. */
 void ClearPortraitRefreshSlot(int slot);
 /* Clear whatever the screen was waiting on and open the options screen. */
-// FUNCTION: WIZ8 0x00565970
 inline void ClearScreenWait(void)
 {
-    g_pending_screen_state.mode = W8_OPTIONS_DEFAULT;
-    g_pending_screen_state.id = W8_SCREEN_OPTIONS;
+    RequestScreen({.id = W8_SCREEN_OPTIONS, .mode = W8_OPTIONS_DEFAULT});
 }
 /* Portrait condition / enchantment orbs (help 25 / 26): hold opens the
    mode-6 hover overlay; leave and release tear it down. */
@@ -497,7 +558,6 @@ void RunMGSActionKey(unsigned short command);
 void LoadMainGameCursorResources(void);
 W8ViewportMode GetMainGameViewportMode(void);
 void CloseMainGameOverlays(void);
-void SetRadarMapVisible(bool visible);
 void SetActionPanelVisible(bool visible);
 void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag);
 void RebuildNpcTradeItemList(bool scroll_to_top);
@@ -512,15 +572,11 @@ void PopulateNpcTradeList(void);
    fails when the NPC declines the item or the party cannot pay. */
 /* Run one NPC trade offer; the result selects the accepted,
    refused or offended script path. */
-bool AttemptNpcItemTrade(W8ItemInstance* item, unsigned char quantity, int index);
-/* Destroy callback on the NPC trade split dialog; commits the
-   chosen count to the editor slot and refreshes the trade selection. */
-void NpcTradeSplitDialogResult(int count);
 void RefreshFormationPanel(bool show_portraits);
-void EndLockInteractMode(char suspend);
-void UpdateMainGameScreen(void);
-void EndTrapInteractMode(char suspend);
-std::optional<int> GetPartySlotLocksTrapsLevel(int slot);
+void EndLockInteractMode(signed char suspend);
+void UpdateTrapInteraction(void);
+void EndTrapInteractMode(signed char suspend);
+int GetPartySlotLocksTrapsLevel(int slot);
 int OpenLockInteraction(Trigger* trigger);
 int OpenTrapInteraction(Trigger* trigger);
 /* The interaction exists but is suspended while a spell or item targets it. */
@@ -529,11 +585,10 @@ bool TrapInteractionSuspended();
 /* When a slot's committed action cannot execute, re-choose a
    fallback hand, breath or character attack, or reroute spell/item aiming. */
 void FallbackFromUnreachableAction(int party_slot);
-void SetCombatAction(std::optional<int> value);
-void SetCombatSelection(std::optional<int> value);
-void SetCombatTarget(std::optional<int> value);
+void SetCombatAction(int value);
+void SetCombatSelection(int value);
+void SetCombatTarget(int value);
 
-void RequestRedrawCombatBar(void);
 void UpdateScreenOverlays(int frame);
 bool LoadCurrentLevelData(void);
 void ResetMainGameMode(void);
@@ -541,19 +596,21 @@ void CreateSurpriseFade(void);
 void ReverseSurpriseFade(void);
 void DestroySurpriseFade(void);
 unsigned char UpdateSurpriseFade(void);
-unsigned char OpenUseItemSelectView(int slot);
+bool OpenUseItemSelectView(int slot);
 
-bool MainGameScreenEnter(void);
-void MainGameScreenFrame(void);
-bool MainGameScreenLeave(int leaving);
 void ShowMainGameNoticeLine(std::string_view text, std::function<void(bool)> callback,
                             bool confirmation, bool cancel);
 
-unsigned char HandleWorldResumeInput(const InputEvent* event);
+bool HandleWorldResumeInput(const InputEvent* event);
 void SetWorldResumeInput(bool enabled);
 void SelectNpcBuyMode(void);
 void ConfirmNpcTradeItem(void);
 void RestockNpcTradeStock(void);
 void OpenNpcTradeQuantityDialog(void);
 
-W8TargetingContext GetEditedActionContext(int party_slot);
+/* The action the slot is editing: the open picker's draft for the selected slot, otherwise
+   its stored in-combat or out-of-combat action. Out of combat with no picker open the
+   player is sighting: aiming the executing action without needing a particular target. */
+W8Action* EditedDraft(int party_slot);
+W8Action EditedAction(int party_slot);
+bool IsSighting(int party_slot);

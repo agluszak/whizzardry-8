@@ -1,51 +1,28 @@
 #pragma once
-struct W8Chunk;
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
-#include "Font.h"
+#include "wiz8/canvas/Font.h"
 
 void SyncNpcDialogueTranscriptScrollButtons();
 void SetNpcDialogueInputEnabled(int group, bool enabled);
-void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2);
-void HideNpcQuoteBubbleRegion();
 
 #include <array>
 #include <functional>
 
-#include "input.h"
 #include "wiz8/button_interaction.h"
-#include "wiz8/dialog_code/PortraitQuote.h"
-#include "wiz8/layouts/item_instance.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/message_box.h"
-#include "wiz8/npc_items.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/xstatus.h"
-
-namespace wiz8 {
-class File;
-}
-
-/* Usability filters and the exclusive equipment categories in the trade UI.
-   The category bits use the same positions as W8ItemEquipSlotGroup. */
-enum W8NpcTradeFilter : int {
-    W8_NPC_TRADE_FILTER_NONE = 0,
-    W8_NPC_TRADE_USABLE_BY_CHARACTER = 0x01,
-    W8_NPC_TRADE_HAND = 0x04,
-    W8_NPC_TRADE_BODY = 0x08,
-    W8_NPC_TRADE_ACCESSORY = 0x10,
-    W8_NPC_TRADE_OTHER = 0x20,
-    W8_NPC_TRADE_CATEGORY_MASK = 0x3c,
-    W8_NPC_TRADE_USABLE_BY_PARTY = 0x40
-};
 
 class W8DialogBase;
 struct W8ControlsRect;
@@ -76,11 +53,11 @@ struct NpcDialogueUi {
                                  {{0x1dc, 0x166}, 6},
                                  {{0x1dc, 0x166}, 13}}};
     struct Action {
-        std::optional<int> panel;
+        int panel = -1;
         SDL_Rect bounds{};
         std::shared_ptr<const SpriteSheet> sprites;
         int image_offset = 0;
-        std::array<std::optional<int>, 5> frames{};
+        std::array<int, 5> frames{-1, -1, -1, -1, -1};
         HitTarget* target = nullptr;
         W8TextBuffer text;
         ButtonInteraction interaction;
@@ -91,40 +68,6 @@ struct NpcDialogueUi {
     std::array<Action, 39> actions;
     std::shared_ptr<const SpriteSheet> item_preview;
     std::unique_ptr<W8NpcDialogueTextController> transcript;
-};
-
-struct W8PendingNoticeLine {
-    std::string text;
-    std::optional<int> npc_kind;
-};
-
-/* An NPC script notice waiting for DispatchPendingNpcScriptNotice. */
-struct W8PendingNotice {
-    W8NpcState* npc;
-    W8ItemInstance item;
-    std::optional<int> line;
-    bool flag;
-    unsigned char force;
-};
-extern W8PendingNotice g_pending_notice;
-
-/* W8NpcInteractionState::trade_mode - the active tab of the option/trade
-   layouts. The StringData.DAT captions the tabs and headers load are
-   "Give", "Sell", "Buy" and "Shoplift": mode 2 lists the party's items
-   with the purse as row zero, mode 3 the character/party sell pools, and
-   modes 4/5 the NPC's own inventory. 0 while no tab is selected. */
-enum W8NpcTradeMode {
-    W8_NPC_TRADE_NONE = 0,
-    W8_NPC_TRADE_GIVE = 2,
-    W8_NPC_TRADE_SELL = 3,
-    W8_NPC_TRADE_BUY = 4,
-    W8_NPC_TRADE_SHOPLIFT = 5
-};
-
-/* One saved transcript keyword. */
-struct W8DialogueTranscriptRecord {
-    std::string text;
-    W8DialogueCategory category;
 };
 
 enum W8NpcDialogueControlSlot {
@@ -161,125 +104,17 @@ enum W8NpcDialogueControlSlot {
     W8_NPC_CONTROL_TEXT_38 = 38,
 };
 
-struct W8NpcInteractionState {
-    short value_000; /* cleared while the dialogue opens */
-    unsigned char unknown_002[0xee];
-    /* The dialogue's leading speaker: the occupied row whose character leads
-       skill 0x16. */
-    std::optional<int> dialogue_speaker;
-    std::optional<int> target_location_id;
-    W8NpcDialogueLayout dialogue_layout;
-    W8NpcTradeMode trade_mode;
-    /* The layout the current one replaced; back-out paths reopen it. */
-    std::optional<W8NpcDialogueLayout> previous_dialogue_layout;
-    // Borrowed preview only; confirmation resolves trade_selection.
-    W8ItemInstance* trade_item;
-    std::vector<W8TradeSelection> trade_rows;
-    std::optional<W8TradeSelection> trade_selection;
-    std::unique_ptr<NpcDialogueUi> ui;
-    /* The cursor position of the last mouse event the region handler acted
-       on; repeat events at the same point are dropped. */
-    std::optional<std::pair<int, int>> last_mouse_position;
-    /* The text-box line the mouse/wheel handlers last selected. */
-    std::optional<int> hovered_text_line;
-    W8NpcTradeFilter trade_filter = W8_NPC_TRADE_FILTER_NONE;
-    W8NpcState* dialogue_npc;
-    W8DialogueCategory dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
-    /* Raised while the "Where Is" submit path runs, so the typed text is
-       wrapped in the "Where is %s" template instead of a plain keyword lookup. */
-    bool where_is_query;
-    std::vector<std::unique_ptr<W8DialogueTranscriptRecord>> dialogue_transcript;
-    bool transcript_sorted;
-    /* The item a pending NPC notice carries; copied from g_pending_notice
-       when the dialogue opens. */
-    W8ItemInstance pending_item;
-    /* pending_item came in through the cursor item; dialogue close returns it
-       to the hand and the consume path drains its stack. */
-    bool held_item_pending;
-    std::optional<QuoteBubble> quote_bubble;
-    short quote_x;
-    short quote_y;
-    short quote_width;
-    short quote_height;
-    bool quote_visible;
-    std::vector<W8PendingNoticeLine> pending_notice_lines;
-    /* The whole dialogue UI is parked (right-click hide) and the world input
-       path is live until it is shown again. */
-    unsigned char dialogue_hidden;
-    /* The option layout was reached through the Exit/farewell path, so backing
-       out of it reopens the topic menu instead of the transcript. */
-    bool reopen_topics;
-    int trade_gold; /* gold put on the trade table */
-    /* g_settings.main_ui_mode saved while the NPC dialogue is suppressed. */
-    /* The next UpdateNpcDialogueSubMode must reapply the trade_pc_items
-       toggle state. */
-    bool pending_trade_toggle;
-    /* A layout staged for reopen; the frame update closes the current layout
-       and opens this one, then clears it. */
-    std::optional<W8NpcDialogueLayout> pending_layout;
-    /* Cleared when the dialogue ends on a refusal/abrupt dismissal, in which
-       case the close path queues a delayed party reaction event. */
-    bool suppress_parting_reaction;
-    /* LookAtDialogueNpc aimed the camera at the NPC, so the close restores
-       the saved camera angles. */
-    bool camera_redirected;
-    float saved_camera_pitch;
-    W8QuoteNotice quote_notice;
-    /* A modal W8NpcDialog is up over the dialogue; transcript word clicks,
-       layout keys other than Escape and layout leave paths bail. */
-    bool modal_dialog_open;
-    /* The dialogue session runs as queued script lines without the
-       interactive panel. */
-    bool scripted_dialogue;
-    int trade_quantity;
-    std::optional<int> selected_trade_row;
-    /* How many times the transcript layout has opened this session; the
-       first open queues the greeting lines. */
-    int transcript_open_count;
-    /* The "PC Items"/"Party Items" pool toggle of the trade layouts. */
-    bool trade_pc_items;
-    /* The main text box is collapsed to a single line while the dialogue is
-       fresh; cleared when the next transcript line scrolls. */
-    bool text_box_collapsed;
-    bool dialogue_panel_hidden;
-    std::optional<int> last_notice_npc_kind;
-};
-
-extern W8NpcInteractionState* g_npc_interaction_state;
-
-void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, std::optional<int> line,
-                            bool suppress);
-void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, std::optional<int> line,
-                          bool suppress, unsigned char arg);
+void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress);
+void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress,
+                          unsigned char arg);
 void FlushPendingNoticeLines(void);
-/* Zero W8NpcInteractionState, write its reset values, and reload the
-   keyword lists through the loader below. */
-void ResetMainScreenStateBlock(void);
-/* The dialogue keyword tables, one file list per language;
-   element zero is English_Keywords.txt and element one the translated list.
-   A file list holds one line list per line, and a line list one malloc'd wide
-   word per '/'-separated field. */
-using KeywordFile = std::vector<std::vector<std::string>>;
-extern std::vector<KeywordFile> g_keyword_lists;
-/* Both files are loaded and the tables are usable. Raised once the
-   second file loads and lowered whenever the tables are released. */
-extern bool g_keyword_lists_loaded;
-/* Replace the keyword lists with the contents of
-   Data\Strings\English_Keywords.txt and Data\Strings\translated_Keywords.txt. */
-void ReloadKeywordLists(void);
-/* Clear the loaded keyword tables. */
-void ClearKeywordLists(void);
-/* Copy the next '/'-terminated field out of a keyword line into
-   the caller's buffer and return the cursor past it, or null at the end. */
 
 void SyncDialogueNpcState(void);
-/* Store a transcript keyword, inferring its category when category is -1. */
-void AddDialogueTranscriptKeyword(std::string_view name, W8DialogueCategory category);
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
-                              int quote_id, std::optional<std::uint8_t> font_palette);
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, W8NpcScriptQuote* quote,
-                              int quote_id, std::optional<std::uint8_t> font_palette,
-                              W8QuoteNotice notice, std::optional<int> npc_kind);
+/* Learn one keyword into the notebook unless it is already there. Category
+   -1 classifies the text against items, NPC and named-monster names and the
+   place-name table. While the transcript shows the notebook the new line
+   appears there too, marked and with the keyword chime when `chime` is set. */
+void LearnDialogueKeyword(std::string_view text, W8DialogueCategory category, bool chime);
 void DrawNpcQuoteBubble(void);
 void LookAtDialogueNpc(void);
 void CloseNpcDialogueLayout(void);
@@ -287,15 +122,13 @@ void OpenNpcDialogueTranscriptLayout(void);
 void DispatchPendingNpcScriptNotice(void);
 bool IsNpcDialogueTextInputActive(void);
 bool IsNpcDialogueTextBoxActive(void);
-unsigned char SetNpcDialoguePanelVisible(unsigned char value);
+bool SetNpcDialoguePanelVisible(unsigned char value);
 bool ProcessPendingEvent(void);
 void SyncDialogueNpcStateAndMarkPending(void);
-/* A script notice is staged in g_pending_notice */
-extern bool g_pending_notice_queued;
 void SyncNpcServiceButtons(int party_slot);
 void SwitchNpcDialogueLayout(W8NpcDialogueLayout layout);
-void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, std::optional<int> quote,
-                      unsigned char flags, unsigned char force);
+void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
+                      unsigned char force);
 void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags);
 void InvalidateMainGameActionPanelRect(const W8ControlsRect* rect);
 void CloseNpcDialogueOptionLayout(void);
@@ -309,12 +142,9 @@ void DrainNpcDialogueDeferralInput(void);
    the world-cursor gate does not process stale events. */
 void FlushInputWhileWorldCursorGate(void);
 void HandleNpcDialogueInput(void);
-void OpenNpcDialog(W8NpcQuoteEntry* request, int aux_data);
-/* Learn one keyword into the dialogue transcript. category -1
-   auto-classifies the text against items, NPC/named-monster names and the
-   place-name table; a nonzero play_chime rings the keyword chime. */
-void AddNpcDialogueKeyword(std::string text, W8DialogueCategory category, int play_chime);
-void ClearNpcDialogueTranscript(void);
+/* Open the reply dialog for `request`, an entry of `script`. */
+void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, const W8NpcQuoteEntry* request,
+                   int aux_data);
 void CloseNpcDialogueForCamp(void);
 void UpdateNpcDialogueSubMode(void);
 /* Restate the five transcript category buttons so only the
@@ -322,10 +152,9 @@ void UpdateNpcDialogueSubMode(void);
 void SyncDialogueCategoryButtons(void);
 void EndNpcDialogueSession(bool skip_exit_actions);
 
-// FUNCTION: WIZ8 0x00576b80
 inline void CloseNpcDialogueIfActive(void)
 {
-    if (gXStatus.fNpcDialogueMode) {
+    if (CurrentGame().activity.conversation) {
         EndNpcDialogueSession(false);
     }
 }
@@ -351,8 +180,6 @@ void UpdateNpcTradeSelection(int index, int, int);
 bool NpcTradeItemAllowed(W8ItemInstance* item);
 void EnableNpcTradeFilterButtons(void);
 void HandleNpcDialogueKeyEvent(const InputEvent* event);
-unsigned char LoadNpcDialogueTranscript(W8Chunk& file);
-unsigned char SaveNpcDialogueTranscript(wiz8::File& file);
 void HandleNpcDialogueItemChoice(void);
 void RefreshNpcTradePartyGold(void);
 void RefreshNpcTradePrice(void);

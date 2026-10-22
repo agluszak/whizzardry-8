@@ -3,18 +3,17 @@
 
 #include <memory>
 #include <optional>
-#include <type_traits>
 #include <vector>
 struct W8NpcItemEntry;
 
 #include <algorithm>
 
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_instance.h"
+#include "wiz8/data/records.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/item_instance.h"
 
-/* One entry in an NPC's stock list. */
+/* One entry in an NPC's stock list. Saves store it as wiz8::retail::NpcItemEntry. */
 struct W8NpcItemEntry {
     /* 0x00: the game-clock stamp before which the entry is not ordinary trade
        stock. Zero is the ordinary tradeable entry; restocking writes a clock
@@ -23,17 +22,20 @@ struct W8NpcItemEntry {
     W8ItemInstance item;    /* 0x04 */
     unsigned char quantity; /* 0x10: non-stack remaining quantity */
 };
-// Stock entries are saved whole.
-static_assert(sizeof(W8NpcItemEntry) == 0x14 && std::is_trivially_copyable_v<W8NpcItemEntry>);
 
-/* A live NPC. Saves store it as wiz8::retail::NpcState. */
-struct W8NpcState {
-    std::unique_ptr<W8NpcScriptFile> script_file;
+/* A live NPC. Saves store it as wiz8::retail::NpcState. The story owns it; a
+   conversation, price check or queued notice started with it shares it until done. */
+struct W8NpcState : std::enable_shared_from_this<W8NpcState> {
+    W8NpcState() = default;
+
+    /* The NPC's current script. A reply dialog showing one of its entries shares it, so
+       replacing or releasing the script leaves the open dialog valid. */
+    std::shared_ptr<const W8NpcScriptFile> script_file;
     /* 0x04: spawned flag; FindNpcOfKind returns it as the "in the world"
        answer, facts/combat paths set it, and 0xffff is the never-set
        sentinel normalized to zero on load. */
     unsigned short spawned;
-    W8NpcDatabaseRecord* record; /* 0x06 */
+    const W8NpcDatabaseRecord* record; /* 0x06 */
     std::vector<W8NpcItemEntry> items; /* the NPC's stock */
     /* 0x0e and 0x12: two world-clock stamps, both set when the stock is first
        populated. The stock-rule pass reruns once the first is more than 0xa8c0
@@ -62,7 +64,7 @@ struct W8NpcState {
        belong to a group. */
     std::optional<W8Character> character;
     signed char group_index; /* 0x2b */
-    /* 0x2c: this node's own slot in g_npc_states, written by
+    /* 0x2c: this node's own slot in the story's NPC states, written by
        CreateNpcRuntimeNode; the release pass follows the index a partner
        names. */
     unsigned char partner_index;

@@ -1,0 +1,79 @@
+#pragma once
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+
+#include <vsg/core/Array.h>
+#include <vsg/core/Data.h>
+#include <vsg/core/ref_ptr.h>
+#include <vsg/maths/vec3.h>
+#include <vsg/maths/vec4.h>
+#include <vsg/nodes/VertexIndexDraw.h>
+#include <vsg/state/BindDescriptorSet.h>
+#include <vsg/state/BufferInfo.h>
+
+#include "wiz8/render/draw_inputs.h"
+#include "wiz8/render/vsg_material.h"
+#include "wiz8/render/vsg_scene.h"
+
+class Material;
+
+namespace render {
+
+// Ordinary vertex arrays used by the game's billboard and floor-decal effects.
+// Their state stays local to the effect, alongside standard VSG subgraphs.
+struct EffectGeometry {
+    vsg::ref_ptr<vsg::vec3Array> positions;
+    vsg::ref_ptr<vsg::vec3Array> normals;
+    std::array<vsg::ref_ptr<vsg::vec4Array>, 5> attributes;
+    vsg::ref_ptr<vsg::vec4Array> instance;
+    vsg::ref_ptr<vsg::vec4Array> pass;
+    vsg::ref_ptr<vsg::BindDescriptorSet> instance_bind;
+    vsg::ref_ptr<vsg::BindDescriptorSet> pass_bind;
+    // Every draw binds these same buffers, so the arrays are uploaded once.
+    vsg::BufferInfoList arrays;
+
+    EffectGeometry(RenderContext& context, std::uint32_t count,
+                   const std::shared_ptr<Material>& material, std::uint32_t flags, bool has_normals,
+                   double time)
+        : positions(vsg::vec3Array::create(count)), normals(vsg::vec3Array::create(count)),
+          instance(makeInstanceArray({})),
+          pass(makeArray(packPass(std::array{material}, flags, has_normals, time)))
+    {
+        positions->properties.dataVariance = vsg::DYNAMIC_DATA;
+        for (auto& attribute : attributes) {
+            attribute = vsg::vec4Array::create(count);
+            attribute->properties.dataVariance = vsg::DYNAMIC_DATA;
+        }
+        for (std::size_t index = 0; index < count; ++index) {
+            normals->at(index) = vsg::vec3(0, 0, 1);
+            attributes[0]->at(index) = vsg::vec4(0, 0, 0, 0);
+            attributes[1]->at(index) = vsg::vec4(0, 0, 0, 0);
+            attributes[2]->at(index) = vsg::vec4(1, 1, 1, 1);
+            attributes[3]->at(index) = vsg::vec4(1, 1, 1, 1);
+            attributes[4]->at(index) = vsg::vec4(0, 1, 1, 0);
+        }
+        instance_bind = context.descriptor(1, instance);
+        pass_bind = context.descriptor(2, pass);
+        for (const auto& data : vsg::DataList{positions, normals, attributes[0], attributes[1],
+                                              attributes[2], attributes[3], attributes[4]})
+            arrays.push_back(vsg::BufferInfo::create(data));
+    }
+
+    vsg::ref_ptr<DrawNode> draw(vsg::ref_ptr<vsg::uintArray> indices, bool sorted)
+    {
+        auto geometry = vsg::VertexIndexDraw::create();
+        geometry->arrays = arrays;
+        geometry->assignIndices(indices);
+        geometry->indexCount = static_cast<std::uint32_t>(indices->size());
+        geometry->instanceCount = 1;
+        auto node = DrawNode::create(geometry, positions, sorted);
+        node->cull = FaceCull::None;
+        node->pickable = false;
+        return node;
+    }
+};
+
+} // namespace render

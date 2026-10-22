@@ -2,7 +2,7 @@
 
 /* The monster action domain is distinct from the party's W8ActionKind.
    AI decisions and the queued/committed records use the same signed word.
-   ExecuteMonsterAction and MonsterActionFatigueCost consume -1 through 9. */
+   Combat::executeMonsterAction and MonsterActionFatigueCost consume -1 through 9. */
 enum W8MonsterActionKind {
     W8_MONSTER_ACTION_NONE = -1,
     W8_MONSTER_ACTION_ATTACK = 0,
@@ -131,6 +131,3 @@ enum W8MonsterSummonKind {
     W8_MONSTER_SUMMON_FRIENDLY = 1,
     W8_MONSTER_SUMMON_HOSTILE = 2
 };
-
-/* Representation loading policy, independent of the monster's active flag. */
-enum W8MonsterActivationMode { W8_MONSTER_LOAD_ALL_CYCLES = 0, W8_MONSTER_LOAD_STARTUP_CYCLE = 1 };

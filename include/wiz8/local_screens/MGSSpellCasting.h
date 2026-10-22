@@ -3,17 +3,15 @@
 #include <array>
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <vector>
 
-#include "compat/compiler.h"
-#include "input.h"
-#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/data/records.h"
 #include "wiz8/layouts/learned_spells.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/TextBuffer.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_layer.h"
 
 struct W8Character;
@@ -32,17 +30,17 @@ struct W8SpellCastingView {
     uint64_t realm_anim_timer;
     unsigned int realm_anim_frame;
     W8LearnedSpellState learned;
-    std::optional<int> uiSpellIndex; /* clicked list row */
-    std::optional<int> selected_spell_index;
+    int uiSpellIndex; /* clicked list row */
+    int selected_spell_index;
     std::array<std::unique_ptr<W8ButtonWidget>, 6> realm_buttons;
     std::array<W8TextBuffer, 6> realm_text;
     std::array<std::unique_ptr<W8ButtonWidget>, 9> power_controls;
-    std::array<std::array<std::optional<int>, 5>, 9> power_frames;
+    std::array<std::array<int, 5>, 9> power_frames;
     std::unique_ptr<W8ButtonWidget> cancel;
     W8TextBuffer spell_name;
     std::array<bool, 3> dirty{true, true, true};
-    std::optional<W8NpcDialogueLayout> interact_id;
-    std::optional<int> location_id;
+    W8NpcDialogueLayout interact_id;
+    int location_id;
     struct SpellRow {
         int spell;
         signed char color;
@@ -51,12 +49,11 @@ struct W8SpellCastingView {
     bool dialog_confirmed;
 };
 
-unsigned char OpenSpellCastingView(int party_slot);
+bool OpenSpellCastingView(int party_slot);
 void CloseSpellCastingView(void);
 void RestoreSpellCastingRegions(void);
 void SelectSpellCastingCharacter(int party_slot);
-void BeginSpellCast(int spell_id, std::optional<int> location_id,
-                    std::optional<W8NpcDialogueLayout> interact_id);
+void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_id);
 void SetSpellCastingPanelsActive(bool active);
 void SelectSpellPowerLevel(int power_level);
 void ResetSpellCastingSelection(void);

@@ -79,10 +79,11 @@ bool IsMonsterActionUsable(W8MonsterInfo* monster_info);
    or move, then fall back to holding when the choice cannot be carried out. */
 void UpdateMonsterAI(W8MonsterInfo* monster_info);
 /* The percentage chance the monster advances on the party this round. */
-unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, W8MonsterRecord* record);
+unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
 /* Whether the monster can flee at all: it has a flee chance, a flee
    animation, enough of its stat left, and somewhere to run. */
-bool CanMonsterFlee(W8MonsterInfo* monster_info, W8MonsterRecord* record, bool exclude_special);
+bool CanMonsterFlee(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
+                    bool exclude_special);
 /* Pick the direction a fleeing monster runs; returns whether a heading was
    found. */
 bool AimFleeingMonster(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
@@ -96,7 +97,7 @@ bool CanMonsterAimSpell(W8MonsterInfo* monster_info, int spell_id);
    monster, falling back on where the party stands. */
 short IsMonsterControlPointInRange(W8MonsterInfo* monster_info);
 /* Which of the monster's ten spells to cast, weighted by the spell table. */
-int ChooseMonsterSpell(W8MonsterInfo* monster_info, W8MonsterRecord* record);
+int ChooseMonsterSpell(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
 /* Whether the monster sees no living enemy: a set threat flag answers at
    once, a hostile party member in play counts, and `party_only` zero also
    scans the monsters it is hostile to that it can see. */

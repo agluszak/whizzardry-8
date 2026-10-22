@@ -12,12 +12,12 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "himage.h"
-#include "image.h"
-#include "image_assets.h"
-#include "sprite.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/canvas/image_assets.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/render/frame.h"
 
 // A catalog object names a run of entries; its image offset selects the first sprite frame.
 struct CatalogSlot {

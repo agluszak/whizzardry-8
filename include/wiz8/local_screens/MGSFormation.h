@@ -1,8 +1,6 @@
 #pragma once
 
-#include <optional>
-
-#include "input.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_layer.h"
 
 /* Local Screens\MGSFormation.cpp: the party-formation screen - a board of
@@ -24,7 +22,7 @@ void CreateFormationBoardOverlay(void);
    markers for tooltips, and switches board art on hover transitions. */
 UiResult HandleFormationBoard(const UiPointerEvent& event);
 /* Open the formation panel: build the controls, snapshot the live formation
-   into gXStatus.edited_formation and pause the world. */
+   into the game's planned formation and pause the world. */
 void OpenFormationPanel(void);
 /* Highlight the cell holding one party slot and un-highlight the rest. */
-void SelectFormationSlotCell(std::optional<int> party_slot);
+void SelectFormationSlotCell(int party_slot);

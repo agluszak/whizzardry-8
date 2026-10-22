@@ -1,21 +1,14 @@
 #pragma once
 
-#include <optional>
-
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
 
-class W8Monster;
-struct W8MonsterInfo;
-class stParticle;
-class srNode;
-class stLight;
+class Monster;
+class Light;
 
 struct W8WorldCursorState {
     /* detached with the world when the cursor hides. */
-    W8Monster* monster = nullptr;
-    /* deactivated with a zero when the cursor hides. */
-    stParticle* particle = nullptr;
+    Monster* monster = nullptr;
     /* set by the right-button path while light exists; the group
        bind consumes and clears it. */
     bool group_bind_pending{};
@@ -27,13 +20,13 @@ struct W8WorldCursorState {
        position. */
     glm::vec3 cam_rel_offset{0};
     /* the light node the complete teardown removes from the world. */
-    stLight* light = nullptr;
+    Light* light = nullptr;
     /* read back by the path-visualization update as a world point. */
     glm::vec3 position{0};
     /* the last position published to the cursor's nodes and monster;
-       the update compares it against position to detect a move. Empty
-       until the first position is published or after explicit invalidation. */
-    std::optional<glm::vec3> last_published;
+       the update compares it against position to detect a move. Seeded
+       to the -1e7 sentinel by the placement update. */
+    glm::vec3 last_published{0};
     /* authored name fEnabled - the cursor update asserts it. */
     bool enabled{};
     /* ground tracking. Set by the initializer and the placement
@@ -48,7 +41,7 @@ struct W8WorldCursorState {
        placement click. */
     bool left_held{};
     /* Selected monster group id, resolved in the owning population. */
-    std::optional<int> monster_group_id;
+    int monster_group_id{};
     /* when set the cursor is detached from the camera - input moves
        position directly and the placement update skips the
        camera-relative cam_rel_offset store. */
@@ -71,18 +64,23 @@ struct W8WorldCursorState {
     glm::vec3 extent_min{0};
     /* second fixed probe offset used when footprint_mode is set. */
     glm::vec3 extent_max{0};
-    /* the monster info latched by the shift-drag; the update drags
-       it to the cursor position and releases it when shift lifts. */
-    W8MonsterInfo* dragged_info = nullptr;
 };
 
-/* Build the 3D cursor, light, particle and initial camera-relative bounds. */
+/* What a world remembers between showings of its cursor: a new cursor is placed this far
+   in front of the camera (where the last one was, until a fight ends) and starts with the
+   monster group the last one selected. */
+struct W8WorldCursorRecall {
+    float projection_distance = 4000.0f;
+    int monster_group_id = -1;
+};
+
+/* Build the 3D cursor, light and initial camera-relative bounds. */
 void InitializeWorldCursor(void);
 bool IsWorldCursorVisible(void);
 void SetWorldCursorNodesVisible(bool visible);
 bool SelectWorldCursorNode(void);
 /* Clamp and install an action-range distance into the live world cursor, then
-   clear last_published so the next update republishes. */
+   invalidate last_published so the next update republishes. */
 void SetWorldCursorRange(float distance); /* 0x00491650 */
 /* Arm footprint placement: the target resolver ground-probes the two fixed
    offsets instead of the probe box. */

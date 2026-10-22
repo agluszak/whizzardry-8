@@ -1,15 +1,16 @@
-#include "layouts/gameplay_databases.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/targeting.h"
-#include "wiz8/local_code/CombatAttack.h"
+#include "wiz8/combat/attack.h"
+#include "wiz8/combat/combat.h"
+#include "wiz8/data/records.h"
+#include "wiz8/game.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/targeting.h"
 
 /* The combat-strip portrait catalog index for one slot's chosen action and
    status. Most actions map to a fixed base; attacks pick per weapon skill and
    spells per realm, and the status selects the frame variant beside it. */
-// FUNCTION: WIZ8 0x0059A180
 short GetCombatPortraitImage(W8ActionKind action, int detail, W8CombatPortraitStatus status,
                              short slot)
 {
@@ -17,7 +18,8 @@ short GetCombatPortraitImage(W8ActionKind action, int detail, W8CombatPortraitSt
 
     switch (action) {
     case W8_ACTION_ATTACK:
-        image = 14 * GetAttackMenuWeaponOffset(g_status.buffers.Char[slot].Hand[0].weapon_skill);
+        image = 14 * GetAttackMenuWeaponOffset(
+                         CurrentGame().party.characters[slot].Hand[0].weapon_skill);
         break;
     case W8_ACTION_BERSERK:
         image = 0x7e;
@@ -44,7 +46,7 @@ short GetCombatPortraitImage(W8ActionKind action, int detail, W8CombatPortraitSt
         image = 0x134;
         break;
     case W8_ACTION_CAST_SPELL:
-        switch (g_spell_records[detail].realm) {
+        switch (Data().spells[detail].realm) {
         case W8_SPELL_REALM_FIRE:
             image = 0x126;
             break;

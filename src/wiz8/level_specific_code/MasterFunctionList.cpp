@@ -1,37 +1,28 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 
-#include <cstdarg>
 #include <cstddef>
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
-#include <vector>
 
 #include <fmt/format.h>
 
-#include "gameplay_modifiers.h"
-#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
-#include "item_spawning.h"
-#include "layouts/gameplay_databases.h"
-#include "surrender/srDebug.h"
+#include "wiz8/audio/sound3d.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Levels.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Prop.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
-#include "wiz8/engine_code/stCube.h"
-#include "wiz8/engine_code/stSound3D.h"
+#include "wiz8/combat/combat.h"
+#include "wiz8/combat/hostility.h"
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
+#include "wiz8/entities/cursor_nodes.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/screen_state.h"
-#include "wiz8/layouts/world.h"
 #include "wiz8/level_specific_code/Arnika.h"
 #include "wiz8/level_specific_code/Ascension.h"
 #include "wiz8/level_specific_code/Camp.h"
@@ -51,49 +42,78 @@
 #include "wiz8/level_specific_code/SavantTower.h"
 #include "wiz8/level_specific_code/SeaCaves.h"
 #include "wiz8/level_specific_code/Swamp.h"
+#include "wiz8/level_specific_code/Trynnie1.h"
 #include "wiz8/level_specific_code/Trynnie2.h"
-#include "wiz8/local_code/CombatHostility.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/Factions.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/location_variables.h"
-#include "wiz8/save_game.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
+#include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/party.h"
+#include "wiz8/rules/party_slot.h"
+#include "wiz8/screen.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/string_database.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
+
+namespace {
 
 constexpr float kSoundNodeFullVolume = 127.0f;
 
-/* The world-cursor node the party is standing in, tracked across the
-   command-0 sweep so enter/leave commands fire once per crossing. */
-// GLOBAL: WIZ8 0x006834d4
-static W8WorldCursorNode* g_active_cursor_node;
+/* The character events the world-cursor nodes queue: a random member's reaction
+   to the node's effect, the relic reaction, and the Sedexus pick's male event. */
+constexpr int kCursorNodeEffectEvent = 0x1b;
+constexpr int kSedexusMaleEvent = 0x2d;
+constexpr int kCursorNodeRelicEvent = 0x40;
 
-// GLOBAL: WIZ8 0x006834d8
-std::vector<W8LevelMaster> g_master_functions;
+std::string LevelMessagePath()
+{
+    const std::string_view folder = GetLevelFolderName(GetLoadedLevelID());
+    return fmt::format("Data\\Messages\\{}.msg", folder.empty() ? "Test" : folder);
+}
+
+} // namespace
+
+LevelScript::LevelScript(const ScriptContext& context) : ctx(context) {}
+
+LevelScript::~LevelScript() = default;
+
+void LevelScript::addMaster(Update update, Capture capture)
+{
+    masters_.push_back({std::move(update), std::move(capture)});
+}
+
+void LevelScript::bindTrigger(std::string_view trigger, Callback callback)
+{
+    FindRequiredTriggerByName(trigger)->activation_callback = std::move(callback);
+}
 
 // Capture the batch size: callbacks may append work for the next frame.
-// FUNCTION: WIZ8 0x004D8E40
-void RunMasterFunctions(void)
+void LevelScript::runMasters()
 {
-    int count = static_cast<int>(g_master_functions.size());
+    int count = static_cast<int>(masters_.size());
 
     for (int index = 0; index < count; ++index) {
-        const auto update = g_master_functions[index].update;
+        // A copy: the update may arm masters, which moves the stored ones.
+        const auto update = masters_[index].update;
         if (update(0)) {
-            g_master_functions.erase(g_master_functions.begin() + index);
+            masters_.erase(masters_.begin() + index);
             --count;
             --index;
         }
     }
 }
 
-W8SavedLocationState CaptureMasterFunctionState()
+W8SavedLocationState LevelScript::captureState() const
 {
     W8SavedLocationState state;
-    for (const auto& master : g_master_functions)
+    for (const auto& master : masters_)
         if (master.capture) master.capture(state);
     return state;
 }
@@ -101,9 +121,8 @@ W8SavedLocationState CaptureMasterFunctionState()
 /* The level callbacks' scripted spawn: settle the requested point onto the
    ground when asked, create the group, apply hostility, refresh its centre
    cache and re-run outward sight for the new arrivals. */
-// FUNCTION: WIZ8 0x004D8F00
 W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, int hostility,
-                              bool settle, bool a, bool b)
+                              bool settle, bool use_alternate_name)
 {
     W8MonsterGroup* group;
     glm::vec3 position_copy;
@@ -112,7 +131,7 @@ W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, in
         position->y = probeGround((*position)).position.y;
     }
     position_copy = *position;
-    group = CreateGroup(monster_id, count, &position_copy, a, b, settle);
+    group = CreateGroup(monster_id, count, &position_copy, use_alternate_name, settle);
     if (group != 0) {
         SetMonsterGroupHostility(group, static_cast<W8Disposition>(hostility), false);
         GetMonsterGroupCentre(group, 0);
@@ -124,9 +143,8 @@ W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, in
 /* The level callbacks' one-shot positional sound: reject a negative
    loudness fraction, clamp anything above one, then create the node at the
    requested spot, scale its base volume and falloff and start playback. */
-// FUNCTION: WIZ8 0x004D8F80
-stSound3D* CreateAndPlaySoundNode(const char* sound_name, glm::vec3 position, float volume,
-                                  float scale, bool play_flag)
+Sound3D* CreateAndPlaySoundNode(World& world, const char* sound_name, glm::vec3 position,
+                                float volume, float scale, bool play_flag)
 {
     if (volume > 1.0f) {
         volume = 1.0f;
@@ -134,136 +152,78 @@ stSound3D* CreateAndPlaySoundNode(const char* sound_name, glm::vec3 position, fl
         return 0;
     }
 
-    auto sound = std::make_unique<stSound3D>(sound_name, nullptr);
-    sound->setLocation(glm::dvec3(position));
+    auto sound = std::make_unique<Sound3D>(sound_name);
+    sound->position = position;
     sound->volume = static_cast<int>(volume * kSoundNodeFullVolume);
     sound->falloff = scale * kWorldScale;
     sound->Play(play_flag);
-    return Retain3DSound(std::move(sound));
+    auto* result = sound.get();
+    world.audio.script_sounds.push_back(std::move(sound));
+    return result;
 }
 
-/* One row of the cursor-node dispatch table at 0x006109F4, indexed by the
-   node's type parameter (numbers[2]). The dispatcher invokes a row as
-   (command, node, context); the context slot normally carries the address of
-   the command's argument byte, while command 4 smuggles the byte itself
-   through it. */
-typedef unsigned char (*W8WorldCursorNodeHandler)(int command, W8WorldCursorNode* node,
-                                                  int context);
+bool DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, int argument)
+{
+    World* world = GetWorld();
+    if (world == nullptr || !world->script) return false;
+    return world->script->dispatchCursorNodeCommand(info, command, argument);
+}
 
-static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNode* node,
-                                                    int context);
-static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCursorNode* node,
-                                                       int context);
-static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* node, int context);
-static unsigned char WorldCursorNodeApplyItemEffect(int command, W8WorldCursorNode* node,
-                                                    int context);
-static unsigned char WorldCursorNodeMaleCharacterEvent(int command, W8WorldCursorNode* node,
-                                                       int context);
-static unsigned char IsMasterFunctionTypeEight(int command, W8WorldCursorNode* node, int context);
-static unsigned char WorldCursorNodeSeenBodies(int command, W8WorldCursorNode* node, int context);
-static unsigned char WorldCursorNodeApplyType6ItemEffect(int command, W8WorldCursorNode* node,
-                                                         int context);
-static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* node, int context);
-
-/* The character-event kind constants the cursor-node handlers queue. */
-// GLOBAL: WIZ8 0x005EE5F4
-const int g_character_event_kind0 = 0x1b;
-// GLOBAL: WIZ8 0x005EE63C
-const int g_character_event_kind1 = 0x2d;
-// GLOBAL: WIZ8 0x005EE688
-const int g_character_event_kind3 = 0x40;
-
-// GLOBAL: WIZ8 0x006109F4
-static W8WorldCursorNodeHandler g_world_cursor_node_handlers[10] = {
-    WorldCursorNodeShowMessageOnce,      /* type 0 */
-    WorldCursorNodeShowMessageOnce,      /* type 1 */
-    WorldCursorNodeShowContextMessage,   /* type 2 */
-    WorldCursorNodeShowMessage,          /* type 3 */
-    WorldCursorNodeApplyItemEffect,      /* type 4 */
-    WorldCursorNodeSeenBodies,           /* type 5 */
-    WorldCursorNodeApplyType6ItemEffect, /* type 6 */
-    IsMasterFunctionTypeEight,           /* type 7 */
-    WorldCursorNodePartyVoice,           /* type 8 */
-    WorldCursorNodeMaleCharacterEvent    /* type 9 */
-};
-
-/* Dispatch one world-cursor-node command against the nodes covering `info`'s
-   ground-settled position (the camera's when info is null). Command zero is
-   the movement sweep: the tracked node's handler gets 2 (leave) and each
-   newly entered node's handler gets 1 (enter); commands 3, 4 and 8 deliver
-   themselves to nodes of type 3, 2 and 7 respectively. Answers whether any
-   handler reported the command handled. */
-// FUNCTION: WIZ8 0x004D9080
-unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, ...)
+/* Command zero is the movement sweep: the tracked node's handler gets 2 (leave)
+   and each newly entered node's handler gets 1 (enter); commands 3, 4 and 8
+   deliver themselves to nodes of type 3, 2 and 7 respectively. */
+bool LevelScript::dispatchCursorNodeCommand(W8MonsterInfo* info, int command, int argument)
 {
     glm::vec3 position;
     W8WorldCursorNode* node;
-    W8WorldCursorNode* previous;
-    int context;
-    bool handled;
-    unsigned char result;
-
-    result = 0;
-    handled = false;
-    // Retail callers use both two and three arguments. Non-4 commands only
-    // forward the optional argument slot's address; handlers do not read it.
-    va_list arguments;
-    va_start(arguments, command);
-    // Only command 4 reads context, from va_arg below. Other handlers ignore
-    // the historical address of the optional argument slot.
-    context = 0;
+    bool handled = false;
+    bool result = false;
 
     if (info == 0) {
         position = cameraLocation();
     } else {
-        position = info->p3D->GetPosition();
+        position = info->entity->nav.GetPosition();
     }
     position.y = probeGround(position).position.y + 125.0f;
     node = FindWorldCursorNodeAtPoint(0, &position);
-    if (command == 4) {
-        context = va_arg(arguments, int);
+    // Only command 4 reads its argument.
+    if (command != 4) {
+        argument = 0;
     }
-    va_end(arguments);
     if (node == 0) {
         return handled;
     }
     do {
-        previous = g_active_cursor_node;
         switch (command) {
         case 0:
-            if (previous != 0 && previous != node) {
-                result =
-                    g_world_cursor_node_handlers[previous->parameters[2]](2, previous, context);
+            if (active_cursor_node_ != 0 && active_cursor_node_ != node) {
+                result = runCursorNodeHandler(2, active_cursor_node_, argument);
             }
-            previous = g_active_cursor_node;
-            if (node != 0 && previous != node) {
-                result = g_world_cursor_node_handlers[node->parameters[2]](1, node, context);
+            if (active_cursor_node_ != node) {
+                result = runCursorNodeHandler(1, node, argument);
             }
-            g_active_cursor_node = node;
+            active_cursor_node_ = node;
             break;
         case 4:
-            if (node != 0 && node->parameters[2] == 2) {
-                result = g_world_cursor_node_handlers[2](4, node, context);
+            if (node->parameters[2] == 2) {
+                result = runCursorNodeHandler(4, node, argument);
             }
             break;
         case 8:
-            if (node != 0 && node->parameters[2] == 7) {
-                result = g_world_cursor_node_handlers[7](8, node, context);
+            if (node->parameters[2] == 7) {
+                result = runCursorNodeHandler(8, node, argument);
             }
             break;
         case 3:
-            if (node != 0) {
-                int type = node->parameters[2];
-                if (type == 3) {
-                    result = g_world_cursor_node_handlers[3](type, node, context);
-                }
+            if (node->parameters[2] == 3) {
+                result = runCursorNodeHandler(3, node, argument);
             }
             break;
         default:
-            result = 0;
+            result = false;
             break;
         }
-        if (result != 0) {
+        if (result) {
             handled = true;
         }
         node = FindWorldCursorNodeAtPoint(node, &position);
@@ -271,166 +231,138 @@ unsigned char DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, .
     return handled;
 }
 
+/* The cursor-node handlers, by the node's type parameter (numbers[2]). */
+bool LevelScript::runCursorNodeHandler(int command, W8WorldCursorNode* node, int argument)
+{
+    switch (node->parameters[2]) {
+    case 0:
+    case 1:
+        return showMessageOnce(command, node);
+    case 2:
+        return showContextMessage(command, node, argument);
+    case 3:
+        return showMessage(command, node);
+    case 4:
+        // Entering applies the node's item effect to a random party member.
+        if (command == 1) {
+            ApplyItemEffectToRandomCharacter(kCursorNodeEffectEvent, std::nullopt, 0);
+        }
+        return true;
+    case 5:
+        return seenBodies(command);
+    case 6:
+        if (command == 1) {
+            ApplyItemEffectToRandomCharacter(kCursorNodeRelicEvent, std::nullopt, 0);
+        }
+        return true;
+    case 7:
+        return command == 8;
+    case 8:
+        return partyVoice(command, node);
+    case 9:
+        return maleCharacterEvent(command);
+    default:
+        return false;
+    }
+}
+
 /* Type-0/1 nodes: on the enter command, show the node's message-database
    string once - the first byte of the node's userdata is the shown flag.
    Parameter 1 additionally gates the message on a living party member with
    trait 0x0c while the party is neither searching nor under effect 0x11. */
-// FUNCTION: WIZ8 0x004D9260
-static unsigned char WorldCursorNodeShowMessageOnce(int command, W8WorldCursorNode* node,
-                                                    int context)
+bool LevelScript::showMessageOnce(int command, W8WorldCursorNode* node)
 {
-    int message_id;
-    const char* folder;
-    int type;
-    unsigned char enabled;
-    bool result;
-    std::byte* shown;
-    int slot;
-    std::string path;
-    std::string text;
-
-    result = false;
-    message_id = node->parameters[0];
-    folder = GetLevelFolderName(GetRequiredLoadedLevelID());
-    type = node->parameters[2];
-    enabled = static_cast<unsigned char>(node->parameters[1]);
-    if (enabled != 0 && g_status.search_mode == 0 && g_status.party_modifiers.detect_secrets == 0) {
-        for (slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-            if (g_status.buffers.XChar[slot].fOccupied &&
-                CharacterHasTrait(g_status.buffers.Char + slot, W8_TRAIT_SEARCH)) {
-                goto command_check;
+    const int message_id = node->parameters[0];
+    const int type = node->parameters[2];
+    const auto enabled = static_cast<unsigned char>(node->parameters[1]);
+    if (enabled != 0 && !ctx.status.search_mode && ctx.party.modifiers.detect_secrets == 0) {
+        bool searcher = false;
+        for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+            if (ctx.party.members[slot].has_value() &&
+                CharacterHasTrait(ctx.party.characters + slot, W8_TRAIT_SEARCH)) {
+                searcher = true;
+                break;
             }
         }
-        return 0;
+        if (!searcher) {
+            return false;
+        }
     }
-command_check:
     if (command != 1) {
-        return 0;
+        return false;
     }
-    if (type == 0) {
-        result = true;
-        if (node->userdata.empty()) node->userdata.resize(1);
-        shown = node->userdata.data();
-        if (*shown != std::byte{}) {
-            return 0;
-        }
-        *shown = std::byte{1};
-        if (folder == 0) {
-            folder = "Test";
-        }
-        path = fmt::format("Data\\Messages\\{}.msg", folder);
-        if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
+    if (type != 0) {
+        return false;
+    }
+    if (node->userdata.empty()) node->userdata.resize(1);
+    std::byte* shown = node->userdata.data();
+    if (*shown != std::byte{}) {
+        return false;
+    }
+    *shown = std::byte{1};
+    const std::string text = GetStringFromStringDatabase(LevelMessagePath(), message_id, 0, 0);
+    if (!text.empty()) {
+        ShowString(text);
+    }
+    return true;
+}
+
+/* Type-2 nodes: command 4 with a nonzero argument shows the node's message
+   while the main game screen is up. */
+bool LevelScript::showContextMessage(int command, W8WorldCursorNode* node, int argument)
+{
+    if (command != 4) {
+        return false;
+    }
+    if (static_cast<unsigned char>(argument) != 0) {
+        const std::string text =
+            GetStringFromStringDatabase(LevelMessagePath(), node->parameters[0], 0, 0);
+        if (!text.empty() && CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
             ShowString(text);
         }
     }
-    return result;
-}
-
-/* Type-2 nodes: command 4 with a nonzero context flag shows the node's
-   message while the main game screen is up. */
-// FUNCTION: WIZ8 0x004D93E0
-static unsigned char WorldCursorNodeShowContextMessage(int command, W8WorldCursorNode* node,
-                                                       int context)
-{
-    const char* folder;
-    int message_id;
-    std::string path;
-    std::string text;
-
-    folder = GetLevelFolderName(GetRequiredLoadedLevelID());
-    if (command != 4) {
-        return 0;
-    }
-    if (static_cast<unsigned char>(context) != 0) {
-        message_id = node->parameters[0];
-        if (folder == 0) {
-            folder = "Test";
-        }
-        path = fmt::format("Data\\Messages\\{}.msg", folder);
-        if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
-            if (text.size() != 0 && g_current_screen_state.id == W8_SCREEN_MAIN_GAME) {
-                ShowString(text);
-            }
-        }
-    }
-    return 1;
+    return true;
 }
 
 /* Type-3 nodes: command 3 shows the node's message unconditionally. */
-// FUNCTION: WIZ8 0x004D94B0
-static unsigned char WorldCursorNodeShowMessage(int command, W8WorldCursorNode* node, int context)
+bool LevelScript::showMessage(int command, W8WorldCursorNode* node)
 {
-    const char* folder;
-    int message_id;
-    std::string path;
-    std::string text;
-
-    folder = GetLevelFolderName(GetRequiredLoadedLevelID());
     if (command != 3) {
-        return 0;
+        return false;
     }
-    message_id = node->parameters[0];
-    if (folder == 0) {
-        folder = "Test";
+    const std::string text =
+        GetStringFromStringDatabase(LevelMessagePath(), node->parameters[0], 0, 0);
+    if (!text.empty()) {
+        ShowString(text);
     }
-    path = fmt::format("Data\\Messages\\{}.msg", folder);
-    if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
-        if (text.size() != 0) {
-            ShowString(text);
-        }
-    }
-    return 1;
-}
-
-/* Type-4 nodes: entering applies the node's item effect to a random party
-   member. */
-// FUNCTION: WIZ8 0x004D9560
-static unsigned char WorldCursorNodeApplyItemEffect(int command, W8WorldCursorNode* node,
-                                                    int context)
-{
-    if (command == 1) {
-        ApplyItemEffectToRandomCharacter(g_character_event_kind0, std::nullopt, 0);
-    }
-    return 1;
+    return true;
 }
 
 /* Type-9 nodes: entering while the fact-0x14c gate holds queues the male
    event for the indexed party member when that member is male. */
-// FUNCTION: WIZ8 0x004D9590
-static unsigned char WorldCursorNodeMaleCharacterEvent(int command, W8WorldCursorNode* node,
-                                                       int context)
+bool LevelScript::maleCharacterEvent(int command)
 {
-    W8Character* character;
-
-    if (command == 1 && g_status.rpc_active) {
-        character = g_status.buffers.Char + g_status.sedexus_party_slot;
+    if (command == 1 && ctx.status.rpc_active) {
+        W8Character* character = ctx.party.characters + ctx.status.sedexus_party_slot;
         if (character->gender == W8_GENDER_MALE) {
-            QueueCharacterEvent(character, g_character_event_kind1, 0, kCharacterEventFullVolume);
+            QueueCharacterEvent(character, kSedexusMaleEvent, 0, kCharacterEventFullVolume);
         }
     }
-    return 1;
-}
-
-/* Predicate installed in the master-function callback table. */
-// FUNCTION: WIZ8 0x004D95F0
-static unsigned char IsMasterFunctionTypeEight(int command, W8WorldCursorNode* node, int context)
-{
-    return command == 8;
+    return true;
 }
 
 /* Type-5 nodes: the Ascension Peak "seen bodies" check. Once all three relic
    items are on the party and neither blocking fact holds, queue the reaction
    and latch the AP_SeenBodies location variable. Retail runs the fact-0x133
    clear twice. */
-// FUNCTION: WIZ8 0x004D9600
-static unsigned char WorldCursorNodeSeenBodies(int command, W8WorldCursorNode* node, int context)
+bool LevelScript::seenBodies(int command)
 {
     if (command == 1) {
         if (!GetLocationVarIDByName("AP_SeenBodies")) {
-            if (CountAscensionPeakItems() == 3) {
+            if (CountAscensionPeakItems(ctx.party) == 3) {
                 if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
                     GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
-                    ApplyItemEffectToRandomCharacter(g_character_event_kind3, std::nullopt, 0);
+                    ApplyItemEffectToRandomCharacter(kCursorNodeRelicEvent, std::nullopt, 0);
                     CreateLocationVar("AP_SeenBodies", 1);
                     if (GetFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
                         SetFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0, false);
@@ -442,30 +374,33 @@ static unsigned char WorldCursorNodeSeenBodies(int command, W8WorldCursorNode* n
             }
         }
     }
-    return 1;
+    return true;
 }
 
-/* Type-6 nodes: entering applies the node's item effect to a random party
-   member. */
-// FUNCTION: WIZ8 0x004D96C0
-static unsigned char WorldCursorNodeApplyType6ItemEffect(int command, W8WorldCursorNode* node,
-                                                         int context)
+/* Type-8 nodes: entering queues a random party member's voice line for the
+   node's event type, once - the first byte of the node's userdata is the
+   shown flag. */
+bool LevelScript::partyVoice(int command, W8WorldCursorNode* node)
 {
+    const int event_type = node->parameters[0];
+
     if (command == 1) {
-        ApplyItemEffectToRandomCharacter(g_character_event_kind3, std::nullopt, 0);
+        if (node->userdata.empty()) node->userdata.resize(1);
+        std::byte* shown = node->userdata.data();
+        if (*shown == std::byte{}) {
+            *shown = std::byte{1};
+            const auto slot = PickRandomPartySpeaker(event_type);
+            if (slot) {
+                QueueCharacterEvent(ctx.party.characters + *slot, event_type, 0,
+                                    kCharacterEventFullVolume);
+            }
+        }
     }
-    return 1;
-}
-
-// FUNCTION: WIZ8 0x004D96F0
-void ClearActiveWorldCursorNode(void)
-{
-    g_active_cursor_node = 0;
+    return true;
 }
 
 /* Master-function values 0x10 and 0x26 select the same path once either of
    the two enabling facts has been set. */
-// FUNCTION: WIZ8 0x004D9700
 int NormalizeMasterFunctionValue(int value)
 {
     if (value == 0x10 || value == 0x26) {
@@ -477,363 +412,64 @@ int NormalizeMasterFunctionValue(int value)
     return value;
 }
 
-// GLOBAL: WIZ8 0x006834DD
-bool g_running_trigger_from_script;
-// GLOBAL: WIZ8 0x006109F0
-bool g_npc_dialogue_closed = true;
-// GLOBAL: WIZ8 0x00652DA5
-bool g_sea_caves_slope_override_enabled;
-
-/* Fill the away camp chest from the level-0x26 item records stored in the
-   current save. Records that are not world-persistent move into the chest
-   trigger's container item; persistent records are flattened back into the
-   load vector (so their own groups are visited too) and then freed. */
-// FUNCTION: WIZ8 0x004D9740
-void LoadAwayCampChest(void)
-{
-    std::vector<std::unique_ptr<W8WorldItem>> items;
-    W8Prop* pChest;
-    Trigger* pTrigger;
-    W8WorldItem* pContainer;
-    int index;
-
-    pChest = FindPropByName(GetWorld(), "AwayCampChest");
-    if (pChest == 0) {
-        srAssertFail("pChest", __FILE__, __LINE__, 0);
-    }
-    pTrigger = pChest->GetTrigger();
-    if (pTrigger == 0) {
-        srAssertFail("pTrigger", __FILE__, __LINE__, 0);
-    }
-    pContainer = pTrigger->GetOrCreateItemGroup(true);
-    if (pContainer == 0) {
-        srAssertFail("pContainer", __FILE__, __LINE__, 0);
-    }
-    LoadSavedLevelItems(0x26, items);
-    for (index = 0; index < static_cast<int>(items.size()); ++index) {
-        auto item = std::move(items[index]);
-        if (ItemInfoIsWorldPersistent(item.get())) {
-            while (item->next) {
-                auto next = std::move(item->next);
-                item->next = std::move(next->next);
-                items.push_back(std::move(next));
-            }
-        } else {
-            ItemInfoAddToGroup(pContainer, std::move(item));
-        }
-    }
-}
-
-/* Type-8 nodes: entering queues a random party member's voice line for the
-   node's event type, once - the first byte of the node's userdata is the
-   shown flag. */
-// FUNCTION: WIZ8 0x004D98C0
-static unsigned char WorldCursorNodePartyVoice(int command, W8WorldCursorNode* node, int context)
-{
-    int event_type;
-    std::byte* shown;
-
-    event_type = node->parameters[0];
-    if (command == 1) {
-        if (node->userdata.empty()) node->userdata.resize(1);
-        shown = node->userdata.data();
-        if (*shown == std::byte{}) {
-            *shown = std::byte{1};
-            if (const auto slot = PickRandomPartySpeaker(event_type, std::nullopt)) {
-                QueueCharacterEvent(g_status.buffers.Char + *slot, event_type, 0,
-                                    kCharacterEventFullVolume);
-            }
-        }
-    }
-    return 1;
-}
-
 /* Format the current level's message-database path, fetch the indexed string
    and show it. Answers whether the string existed. */
-// FUNCTION: WIZ8 0x004D9960
-unsigned char ShowLevelMessage(int message_id)
+bool ShowLevelMessage(int message_id)
 {
-    const char* folder;
-    std::string path;
-    std::string text;
-
-    folder = GetLevelFolderName(GetRequiredLoadedLevelID());
-    if (folder == 0) {
-        folder = "Test";
-    }
-    path = fmt::format("Data\\Messages\\{}.msg", folder);
-    if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
+    const std::string text = GetStringFromStringDatabase(LevelMessagePath(), message_id, 0, 0);
+    if (!text.empty()) {
         ShowString(text);
-        return 1;
+        return true;
     }
-    return 0;
-}
-
-/* The level-specific callbacks and master-function helpers this unit
-   installs. Their bodies live in the other level-specific units, so they
-   are declared here rather than in the published header. */
-void EnsureTrynnie1KilledVar(void);
-bool Trynnie2GoodaVineA(Trigger* trigger);
-bool Trynnie2GoodaVineB(Trigger* trigger);
-bool Trynnie2GiveZulu(Trigger* trigger);
-bool Trynnie2MeatMaker(Trigger* trigger);
-bool Trynnie2MeatBox(Trigger* trigger);
-bool Trynnie2UrnTrigger(Trigger* trigger);
-bool Trynnie1FountRandomFX(Trigger* trigger);
-
-/* Activation callbacks that only let the trigger run or stop it. */
-static bool AllowTriggerActivation(Trigger* trigger)
-{
-    return true;
-}
-
-static bool BlockTriggerActivation(Trigger* trigger)
-{
     return false;
 }
 
-static void BindLevelTrigger(const char* name, Trigger::ActivationCallback callback)
+std::unique_ptr<LevelScript> MakeLevelScript(int level, const ScriptContext& context)
 {
-    FindRequiredTriggerByName(name)->activation_callback = callback;
-}
-
-/* Install the level's trigger callbacks and master-function helpers. */
-// FUNCTION: WIZ8 0x004D6C50
-void InitializeLevelMasterFunctions(int level)
-{
-    Trigger* pTrigger;
-
-    g_master_functions.clear();
-    g_running_trigger_from_script = false;
-    g_npc_dialogue_closed = true;
-    g_sea_caves_slope_override_enabled = false;
     switch (level) {
     case 0:
-        BindLevelTrigger("ChaosMolori", ArnikaChaosMolori);
-        BindLevelTrigger("Maddmook", ArnikaMaddmook);
-        BindLevelTrigger("CMbox", ArnikaCMbox);
-        BindLevelTrigger("AstralDominae", ArnikaAstralDominae);
-        BindLevelTrigger("BallSlot", ArnikaBallSlot);
-        BindLevelTrigger("Flightrecordertrigger", ArnikaFlightRecorder);
-        BindLevelTrigger("ULLspawn", AllowTriggerActivation);
-        BindLevelTrigger("Mookholo", ArnikaMookholo);
-        BindLevelTrigger("MookFrontDoor", ArnikaMookFrontDoor);
-        BindLevelTrigger("YellowButton", ArnikaYellowButton);
-        BindLevelTrigger("Vaultalarmdoor", ArnikaVaultAlarmDoor);
-        BindLevelTrigger("Exitbutton", ArnikaExitButton);
-        BindLevelTrigger("GenVault-2-door", ArnikaGenVaultDoor);
-        BindLevelTrigger("ARN11", CosmicCircleReturnFalse);
-        BindLevelTrigger("RedButton", ArnikaRedButton);
-        BindLevelTrigger("El1-TopButtons", ArnikaEl1TopButtons);
-        BindLevelTrigger("El1-BottomButtons", ArnikaEl1BottomButtons);
-        BindLevelTrigger("GreenButton", ArnikaGreenButton);
-        BindLevelTrigger("Elevator-02", ArnikaElevator02Trigger);
-        BindLevelTrigger("LazerScanner", ArnikaLazerScanner);
-        pTrigger = FindRequiredTriggerByName("ScannerDoor");
-        pTrigger->m_lData1 = 0;
-        pTrigger->activation_callback = ArnikaScannerDoor;
-        ArnikaLevelSetup();
-        return;
+        return MakeArnikaScript(context);
     case 1:
-        BindLevelTrigger("RampUp", AscensionRampUp);
-        BindLevelTrigger("ChaosATrigger", AscensionChaosATrigger);
-        BindLevelTrigger("ChaosBTrigger", AscensionChaosBTrigger);
-        BindLevelTrigger("LifeATrigger", AscensionLifeATrigger);
-        BindLevelTrigger("LifeBTrigger", AscensionLifeBTrigger);
-        BindLevelTrigger("KnowATrigger", AscensionKnowATrigger);
-        BindLevelTrigger("KnowBTrigger", AscensionKnowBTrigger);
-        BindLevelTrigger("RampUp", AscensionDarkSavantSpawn);
-        BindLevelTrigger("Path1Camera", AscensionPath1Camera);
-        BindLevelTrigger("Shaker", AscensionShaker);
-        AscensionPeakInit();
-        return;
+        return MakeAscensionScript(context);
     case 4:
-        CosmicCircleSetup();
-        BindLevelTrigger("CC_TRIGGERPLANE1HEDRA", CosmicCircleTriggerPlane1Hedra);
-        break;
+        return MakeCosmicCircleScript(context);
     case 5:
-        MartensBluff1Setup();
-        BindLevelTrigger("MR109", MartensBluff1Teleporter);
-        pTrigger = FindTriggerByName("MR110");
-        if (pTrigger != 0) {
-            pTrigger->activation_callback = BlockTriggerActivation;
-        }
-        pTrigger = FindTriggerByName("MR111");
-        if (pTrigger != 0) {
-            pTrigger->activation_callback = BlockTriggerActivation;
-        }
-        pTrigger = FindTriggerByName("MR112");
-        if (pTrigger != 0) {
-            pTrigger->activation_callback = BlockTriggerActivation;
-        }
-        BindLevelTrigger("F-Handlock", MartensBluff1FHandlock);
-        BindLevelTrigger("ButtonGigas", MartensBluff1ButtonGigas);
-        BindLevelTrigger("ButtonTrang", MartensBluff1ButtonTrang);
-        BindLevelTrigger("ButtonRift", MartensBluff1ButtonRift);
-        BindLevelTrigger("ButtonMaten", MartensBluff1ButtonMaten);
-        BindLevelTrigger("WireTrigger", MartensBluff1WireTrigger);
-        BindLevelTrigger("ButtonGigas", MartensBluff1ButtonGigas);
-        BindLevelTrigger("Controller", MartensBluff1Controller);
-        BindLevelTrigger("Dial-A", MartensBluff1DialA);
-        BindLevelTrigger("Dial-B", MartensBluff1DialB);
-        BindLevelTrigger("Dial-C", MartensBluff1DialC);
-        BindLevelTrigger("Gas-Switch", MartensBluff1GasSwitch);
-        BindLevelTrigger("J-Doorcontroller", MartensBluff1JDoorController);
-        BindLevelTrigger("MartenBook", MartensBluff1MartenBook);
-        return;
+        return MakeMartensBluff1Script(context);
     case 6:
-        MartensBluff2Setup();
-        BindLevelTrigger("Arrowtraptrigger", TriggerArrowTrap);
-        BindLevelTrigger("Spikeballtrigger", MartensBluff2Spikeballtrigger);
-        BindLevelTrigger("DoorBolt", MartensBluff2DoorBolt);
-        BindLevelTrigger("DummyLever", MartensBluff2DummyLever);
-        BindLevelTrigger("Dummy", MartensBluff2Dummy);
-        BindLevelTrigger("PerfumeBox", MartensBluff2PerfumeBox);
-        BindLevelTrigger("StoneIdol", MartensBluff2StoneIdol);
-        BindLevelTrigger("BlueFlowers", MartensBluff2BlueFlowers);
-        BindLevelTrigger("SquisherControls", MartensBluff2SquisherControls);
-        BindLevelTrigger("DoorControls", MartensBluff2DoorControls);
-        return;
+        return MakeMartensBluff2Script(context);
     case 8:
-        ClearTextForBarTrigger();
-        BindLevelTrigger("roach_trigger", OnRoachTriggerActivated);
-        BindLevelTrigger("spider_trigger", OnSpiderTriggerActivated);
-        BindLevelTrigger("Bartrigger", OnBarTriggerActivated);
-        BindLevelTrigger("Coffinlide", OnCoffinlideActivated);
-        BindLevelTrigger("Coffinlidg", OnCoffinlidgActivated);
-        BindLevelTrigger("wheel_star", OnWheelStarActivated);
-        return;
+        return MakeMonastery1Script(context);
     case 9:
-        BindLevelTrigger("bell_button", Monastery2BellButton);
-        BindLevelTrigger("micro_door2", Monastery2MicroDoor2);
-        return;
+        return MakeMonastery2Script(context);
     case 0xc:
-        MtGigas1Setup();
-        BindLevelTrigger("_VOC_EWAXXLIFT1", MtGigas1Lift1);
-        BindLevelTrigger("_VOC_EWAXXLIFT2", MtGigas1Lift2);
-        BindLevelTrigger("PRESSUREPLATE", MtGigas1PressurePlate);
-        BindLevelTrigger("mudWallTrigger", MtGigas1MudWall);
-        return;
+        return MakeMtGigas1Script(context);
     case 0xd:
-        MtGigas2Setup();
-        BindLevelTrigger("_VOC_EWAXXTRAIN", MtGigas2Train);
-        BindLevelTrigger("redwire", MtGigas2RedWire);
-        BindLevelTrigger("bluewire", MtGigas2BlueWire);
-        BindLevelTrigger("yellowwire", MtGigas2YellowWire);
-        BindLevelTrigger("_VOC_EWAXXLIFT3", MtGigas2Lift3);
-        BindLevelTrigger("_VOC_EWAXXTOPDOOR1", MtGigas2TopDoor1);
-        BindLevelTrigger("_VOC_EWAXXOFFICER1", MtGigas2Officer1);
-        BindLevelTrigger("_VOC_EWAXXOFFICER2", MtGigas2Officer2);
-        BindLevelTrigger("triggerPlaneLaserAlarm", MtGigas2LaserAlarm);
-        BindLevelTrigger("triggerPlaneLaserAlarm01", MtGigas2LaserAlarm);
-        BindLevelTrigger("accessHatch", MtGigas2AccessHatch);
-        BindLevelTrigger("wiringMalfunction", MtGigas2WiringMalfunction);
-        return;
+        return MakeMtGigas2Script(context);
     case 0xe:
-        ProcessFlagPosition();
-        BindLevelTrigger("_VOC_EWAXXLIFT1", MtGigas1Lift1);
-        BindLevelTrigger("crank", OnCrankTriggerActivated);
-        BindLevelTrigger("Security Button", OnSecurityButtonActivated);
-        BindLevelTrigger("VOC_EWAXXSENTRYtrig", OnSentryTriggerActivated);
-        BindLevelTrigger("ewaxxdoortrigger03", OnEwaxxDoor03Activated);
-        BindLevelTrigger("dummytrigger", OnDummyTriggerActivated);
-        return;
+        return MakeMtGigasOuterScript(context);
     case 0xf:
-        BindLevelTrigger("_VOC_EWAXXCANNON1", OnEwaxxCannon1Activated);
-        BindLevelTrigger("EwaxxLanding", OnEwaxxLandingActivated);
-        BindLevelTrigger("catchCord", OnCatchCordActivated);
-        BindLevelTrigger("painActivatorTrigger", OnPainActivatorActivated);
-        BindLevelTrigger("_VOC_EWAXXTOPDOOR2", OnEwaxxTopDoor2Activated);
-        return;
+        return MakeMtGigasTopScript(context);
     case 0x10:
-        if (GetFact(W8_FACT_PARTY_AT_RAC) == 0) {
-            LoadAwayCampChest();
-            SetFact(W8_FACT_PARTY_AT_RAC, 0, false);
-        }
-        BindLevelTrigger("prisondoor06", CampPrisonDoor06);
-        BindLevelTrigger("prisondoor04", CampPrisonDoor04);
-        BindLevelTrigger("prisondoor03", CampPrisonDoor03);
-        return;
+        return MakeCampScript(context);
     case 0x12:
-        BindLevelTrigger("AltarBox", RapaxMainFloorAltarBox);
-        BindLevelTrigger("platformtrigger", RapaxMainFloorPlatform);
-        BindLevelTrigger("platformtrigger01", RapaxMainFloorPlatform01);
-        BindLevelTrigger("platformtrigger02", RapaxMainFloorPlatform02);
-        return;
+        return MakeRapaxMainFloorScript(context);
     case 0x13:
-        BindLevelTrigger("AirBox", RapaxUpperFloorAirBox);
-        BindLevelTrigger("DoorDone", RapaxUpperFloorDoorDone);
-        return;
+        return MakeRapaxUpperFloorScript(context);
     case 0x15:
-        BindLevelTrigger("Fireantspawn", Rift1Fireantspawn);
-        BindLevelTrigger("Sexspawn", Rift1Sexspawn);
-        BindLevelTrigger("Hotstuff", Rift1Hotstuff);
-        BindLevelTrigger("Gate", Rift1Gate);
-        BindLevelTrigger("AshLock", Rift1AshLock);
-        BindLevelTrigger("TimeDorado", Rift1TimeDorado);
-        return;
+        return MakeRift1Script(context);
     case 0x16:
-        g_sea_caves_slope_override_enabled = true;
-        g_party_has_slope_override_item = FindItemOnParty(0x254, 0, 0, 0, 0);
-        BindLevelTrigger("HigardiChest01", SeaCavesHigardiChest01);
-        BindLevelTrigger("HigardiChest02", SeaCavesHigardiChest02);
-        BindLevelTrigger("HigardiChest03", SeaCavesHigardiChest03);
-        BindLevelTrigger("HigardiChest04", SeaCavesHigardiChest04);
-        BindLevelTrigger("HigardiChest05", SeaCavesHigardiChest05);
-        BindLevelTrigger("doortomb", SeaCavesDoorTomb);
-        return;
+        return MakeSeaCavesScript(context);
     case 0x18:
-        BindLevelTrigger("gas_trig_plane01", SwampGasPlane);
-        BindLevelTrigger("gas_trig_plane02", SwampGasPlane);
-        BindLevelTrigger("gas_trig_plane03", SwampGasPlane);
-        BindLevelTrigger("gas_trig_plane04", SwampGasPlane);
-        BindLevelTrigger("gas_trig_plane05", SwampGasPlane);
-        BindLevelTrigger("gas_trig_plane06", SwampGasPlane);
-        BindLevelTrigger("gas_trig_plane07", SwampGasPlane);
-        BindLevelTrigger("oil_pool", SwampOilPool);
-        BindLevelTrigger("onelid", SwampOnelid);
-        pTrigger = FindRequiredTriggerByName("fire_trig_plane01");
-        pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindRequiredTriggerByName("fire_trig_plane02");
-        pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindRequiredTriggerByName("fire_trig_plane03");
-        pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindRequiredTriggerByName("fire_trig_plane04");
-        pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindRequiredTriggerByName("fire_trig_plane05");
-        pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindRequiredTriggerByName("fire_trig_plane06");
-        pTrigger->activation_callback = SwampFirePlane;
-        pTrigger = FindRequiredTriggerByName("fire_trig_plane07");
-        pTrigger->activation_callback = SwampFirePlane;
-        return;
+        return MakeSwampScript(context);
     case 0x19:
-        BindLevelTrigger("Fount_randomFX", Trynnie1FountRandomFX);
-        EnsureTrynnie1KilledVar();
-        return;
+        return MakeTrynnie1Script(context);
     case 0x1a:
-        BindLevelTrigger("GoodaVine_A", Trynnie2GoodaVineA);
-        BindLevelTrigger("GoodaVine_B", Trynnie2GoodaVineB);
-        BindLevelTrigger("Meat_Maker", Trynnie2MeatMaker);
-        BindLevelTrigger("Meat_Box", Trynnie2MeatBox);
-        BindLevelTrigger("Give_Zulu", Trynnie2GiveZulu);
-        BindLevelTrigger("URN_Trigger_01", Trynnie2UrnTrigger);
-        BindLevelTrigger("URN_Trigger_02", Trynnie2UrnTrigger);
-        BindLevelTrigger("URN_Trigger_03", Trynnie2UrnTrigger);
-        BindLevelTrigger("URN_Trigger_04", Trynnie2UrnTrigger);
-        EnsureTrynnie2KilledVar();
-        return;
+        return MakeTrynnie2Script(context);
     case 0x1b:
-        BindLevelTrigger("Liche", ConnectiveTissueLiche);
-        return;
+        return MakeConnectiveTissueScript(context);
     case 0x24:
-        SavantTowerSyncButtonBlocker();
-        BindLevelTrigger("Triangle", SavantTowerShape);
-        BindLevelTrigger("Circle", SavantTowerShape);
-        BindLevelTrigger("Square", SavantTowerShape);
-        BindLevelTrigger("Star", SavantTowerShape);
-        BindLevelTrigger("ButtonBlocker", SavantTowerButtonBlocker);
-        return;
+        return MakeSavantTowerScript(context);
+    default:
+        return std::make_unique<LevelScript>(context);
     }
-    return;
 }

@@ -15,13 +15,13 @@
 #include <SDL3/SDL_video.h>
 #include <catch2/catch_test_macros.hpp>
 
-#include "Video2.h"
-#include "compat/native.h"
-#include "input.h"
-#include "timer.h"
 #include "wiz8/application.h"
-#include "wiz8/engine_code/GameData.h"
 #include "wiz8/key_bindings.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/platform/timer.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
+#include "wiz8/spatial/level_spatial_index.h"
 
 SDL_Window* ghWindow = nullptr;
 bool g_screenshot_pending = false;
@@ -47,6 +47,11 @@ float MoveTimer(W8MoveTimerAction action)
 {
     clock_actions.push_back(action);
     return 0;
+}
+// This event fixture has no game screen; the runtime scenario covers its step clock.
+Screen* CurrentScreen()
+{
+    return nullptr;
 }
 static SDL_WindowID id;
 static void push(SDL_Event event)
@@ -257,7 +262,7 @@ TEST_CASE("events_test")
     REQUIRE(events[0].buttons == 0);
     REQUIRE(events[1].buttons == SDL_BUTTON_LMASK);
     REQUIRE(events[1].clicks == 1);
-    GetInputState().left_repeat_at = w8_get_ticks() - 1;
+    GetInputState().left_repeat_at = MonotonicMilliseconds() - 1;
     events = input();
     REQUIRE(events.size() == 1);
     expect(events[0], InputEventType::LeftButtonRepeat, 0);
@@ -350,33 +355,46 @@ TEST_CASE("events_test")
     expect(events[0], InputEventType::KeyDown, SDLK_F);
     expect(events[1], InputEventType::KeyUp, SDLK_F);
 
-    uint64_t countdown = w8_get_ticks() + 100;
+    uint64_t countdown = MonotonicMilliseconds() + 100;
     REQUIRE((TimeUntilDeadline(countdown) <= 100 && TimeUntilDeadline(countdown) > 0));
-    REQUIRE(TimeUntilDeadline(w8_get_ticks() - 1) == 0);
+    REQUIRE(TimeUntilDeadline(MonotonicMilliseconds() - 1) == 0);
     /* 64-bit deadlines never wrap: far-future stamps honestly report their
        remaining time instead of aliasing into the past. */
-    countdown = w8_get_ticks() + 0xfffffff0u;
+    countdown = MonotonicMilliseconds() + 0xfffffff0u;
     REQUIRE((TimeUntilDeadline(countdown) > 0 && TimeUntilDeadline(countdown) <= 0xfffffff0u));
 
     suspensions = restorations = 0;
     clock_actions.clear();
     focus(SDL_EVENT_WINDOW_FOCUS_LOST);
     drain_events();
-    REQUIRE((!gfApplicationActive && suspensions == 1));
+    REQUIRE((!gfApplicationActive && suspensions == 0));
     focus(SDL_EVENT_WINDOW_FOCUS_GAINED);
     drain_events();
-    REQUIRE((gfApplicationActive && restorations == 1));
+    REQUIRE((gfApplicationActive && restorations == 0));
     focus(SDL_EVENT_WINDOW_FOCUS_GAINED);
     drain_events();
-    REQUIRE((restorations == 1 && clock_actions.size() == 2));
+    REQUIRE((restorations == 0 && clock_actions.size() == 2));
     REQUIRE((clock_actions[0] == W8_MOVE_TIMER_SUSPEND &&
              clock_actions[1] == W8_MOVE_TIMER_RESUME_MAIN_GAME));
+    focus(SDL_EVENT_WINDOW_MINIMIZED);
+    drain_events();
+    REQUIRE(suspensions == 1);
+    focus(SDL_EVENT_WINDOW_RESTORED);
+    drain_events();
+    REQUIRE(restorations == 1);
+    REQUIRE(clock_actions.size() == 2);
     SDL_Event resize{};
     resize.type = SDL_EVENT_WINDOW_RESIZED;
     resize.window.windowID = id;
     resize.window.data1 = 1280;
     resize.window.data2 = 960;
     resizes = 0;
+    push(resize);
+    drain_events();
+    REQUIRE(resizes == 0);
+    // Vulkan targets follow physical pixels, which can change without a
+    // logical resize when the window moves between displays with different DPI.
+    resize.type = SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED;
     push(resize);
     drain_events();
     REQUIRE(resizes == 1);

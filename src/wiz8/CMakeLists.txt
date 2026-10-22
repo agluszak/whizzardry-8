@@ -1,17 +1,22 @@
-
-add_library(WIZ8_GAME_CORE STATIC
-    ../sgp/image.cpp
-    ../sgp/sprite.cpp
-    ../sgp/input.cpp
-    ../sgp/soundman.cpp
-    ../sgp/native/audio.cpp
-    ../sgp/native/video.cpp
-    ../sgp/Font.cpp
+target_sources(wiz8_engine PRIVATE
+    ../canvas/image.cpp
+    ../canvas/sprite.cpp
+    ../canvas/Font.cpp
+    ../canvas/himage.cpp
+    ../canvas/image_assets.cpp
+    ../canvas/shading.cpp
+    ../platform/input.cpp
+    ../platform/window.cpp
+    ../platform/game_timer.cpp
+    ../platform/GameTimeAccumulator.cpp
+    ../platform/IntervalGate.cpp
+    ../audio/soundman.cpp
+    ../audio/native_audio.cpp
+    ../audio/sound3d.cpp
+    ../audio/SoundEvent.cpp
+    ../audio/AmbientSound.cpp
+    ../audio/mouth_gap.cpp
     dialog_code/ButtonAppearance.cpp
-    ../sgp/himage.cpp
-    ../sgp/image_assets.cpp
-    ../sgp/shading.cpp
-    ../sgp/Random.cpp
     "local_code/PC Item.cpp"
     local_code/FormationAndFacing.cpp
     local_code/ThingEditorShared.cpp
@@ -20,22 +25,25 @@ add_library(WIZ8_GAME_CORE STATIC
     local_code/UiLayer.cpp
     local_code/Factions.cpp
     local_code/LoadSaveGame.cpp
+    save_codec.cpp
     local_code/Magic.cpp
     "local_code/Health Stamina Mana.cpp"
     local_code/QuoteManager.cpp
     local_code/ConditionsAndEnchantments.cpp
     local_code/GameplayTime.cpp
     local_code/Sight.cpp
-    "local_code/Combat Party Movement.cpp"
-    "local_code/Combat Range.cpp"
+    combat/party_movement.cpp
+    combat/range.cpp
     "local_code/Gameplay Mods.cpp"
     local_code/GameplayCode.cpp
-    local_code/Combat.cpp
-    "local_code/Combat Sound.cpp"
+    combat/fight.cpp
+    combat/turn.cpp
+    combat/actions.cpp
+    combat/sounds.cpp
     local_code/MonsterAI.cpp
     "local_code/NPC Manager.cpp"
-    "local_code/Combat Attack.cpp"
-    "local_code/Combat Hostility.cpp"
+    combat/attack.cpp
+    combat/hostility.cpp
     "local_code/Magic Effects.cpp"
     local_code/CatalogArtwork.cpp
     "local_screens/IntroScreen.cpp"
@@ -75,67 +83,57 @@ add_library(WIZ8_GAME_CORE STATIC
     dialog_code/stMessageDialog.cpp
     dialog_code/DialogBase.cpp
     dialog_code/DialogFactoryDialogs.cpp
-    dialog_code/stListBox.cpp
     dialog_code/DialogTextEntry.cpp
     dialog_code/StatInfoDialogs.cpp
     dialog_code/CharacterSummaryDialog.cpp
     dialog_code/ProfRaceInfoDialog.cpp
-    engine_code/GameTimeAccumulator.cpp
-    engine_code/IntervalGate.cpp
-    engine_code/GameData.cpp
-    engine_code/GDFileIO.cpp
-    engine_code/Octree.cpp
-    engine_code/OctPath.cpp
-    engine_code/Levels.cpp
-    engine_code/ReadLevel.cpp
-    engine_code/ReadMesh.cpp
-    engine_code/quad.cpp
-    engine_code/3dapi.cpp
-    engine_code/stMeshModel.cpp
-    engine_code/stModelInstance.cpp
-    engine_code/stTextureAnim.cpp
-    engine_code/stTextureFile.cpp
-    engine_code/stParticle.cpp
-    engine_code/OctSubMesh.cpp
-    engine_code/Trigger.cpp
-    engine_code/OctBuildTree.cpp
-    engine_code/Environment.cpp
-    engine_code/AmbientSound.cpp
-    engine_code/emitter_resources.cpp
-    engine_code/AnimObj.cpp
-    engine_code/AniMesh.cpp
-    engine_code/Item.cpp
-    engine_code/Missile.cpp
-    engine_code/PathAI.cpp
-    engine_code/Spells.cpp
-    engine_code/SoundEvent.cpp
-    engine_code/AnimRep.cpp
-    engine_code/GDProp.cpp
-    engine_code/Prop.cpp
-    engine_code/Navigator.cpp
-    engine_code/GrObject.cpp
+    ../spatial/collision.cpp
+    ../spatial/level_spatial_index.cpp
+    ../spatial/navigation.cpp
+    ../world/level_session.cpp
+    ../world/level_loader.cpp
+    ../render/resources/mesh_loader.cpp
+    ../world/world.cpp
+    ../render/effects/particle_system.cpp
+    ../render/resources/compiled_mesh.cpp
+    ../entities/trigger_actions.cpp
+    ../entities/trigger_io.cpp
+    ../entities/locks.cpp
+    ../spatial/surface_index.cpp
+    ../spatial/surface_trace.cpp
+    ../world/environment.cpp
+    ../entities/cycle_resources.cpp
+    ../entities/animation.cpp
+    ../entities/animation_mesh.cpp
+    ../entities/world_item.cpp
+    ../entities/native_object.cpp
+    ../entities/missile.cpp
+    ../entities/keyframe_track.cpp
+    local_code/spell_database.cpp
+    ../entities/spell_visual.cpp
+    ../entities/prop_collision.cpp
+    ../entities/prop.cpp
+    ../spatial/navigator.cpp
     "local_code/Party Import.cpp"
     learned_spells.cpp
     packed_bits.cpp
     local_code/Noise.cpp
     local_code/chunk.cpp
     local_code/DifficultyScaling.cpp
-    engine_code/GrCycle.cpp
-    engine_code/UpdateMesh.cpp
-    engine_code/stGroundShadow.cpp
-    local_code/GameplayDatabase.cpp
+    ../entities/cycle_player.cpp
+    ../render/effects/ground_shadow.cpp
     "local_code/Gameplay Init.cpp"
     dialog_code/DialogInterface.cpp
     dialog_code/PortraitQuote.cpp
     local_code/ItemManager.cpp
-    engine_code/game_timer.cpp
-    engine_code/materials.cpp
-    engine_code/PolyPick.cpp
-    engine_code/Monster.cpp
-    engine_code/stScript.cpp
+    ../render/resources/material_loader.cpp
+    ../render/picking.cpp
+    ../entities/monster.cpp
+    ../entities/monster_script.cpp
+    ../entities/monster_loader.cpp
+    ../entities/script.cpp
     local_code/Targeting.cpp
-    engine_code/3d.cpp
-    engine_code/mouth_gap.cpp
+    ../world/update.cpp
     level_specific_code/MasterFunctionList.cpp
     level_specific_code/Monastery1.cpp
     level_specific_code/Monastery2.cpp
@@ -158,25 +156,28 @@ add_library(WIZ8_GAME_CORE STATIC
     level_specific_code/SavantTower.cpp
     level_specific_code/ConnectiveTissue.cpp
     level_specific_code/Arnika.cpp
-    engine_code/Quality.cpp
+    ../render/quality.cpp
     startup_render_state.cpp
     startup_world.cpp
     startup_subsystems.cpp
     startup_ui_state.cpp
-    surface2d.cpp
-    engine_code/Video2.cpp
+    ../render/frame.cpp
     character_skills.cpp
+    loaded_game_data.cpp
+    game.cpp
+    game_advance.cpp
+    combat/entity_signals.cpp
+    combat/script_commands.cpp
     fact_state.cpp
-    engine_code/MonsterLight.cpp
-    engine_code/GDCamera.cpp
-    engine_code/camera_transition_state.cpp
-    engine_code/world_selection.cpp
-    engine_code/stCube.cpp
-    engine_code/Camera.cpp
-    engine_code/Cursor3d.cpp
-    engine_code/stLight.cpp
+    ../world/party_camera.cpp
+    ../world/party_motion.cpp
+    ../world/selection.cpp
+    ../entities/cursor_nodes.cpp
+    ../entities/cursor.cpp
+    ../render/effects/light_animation.cpp
     version.cpp
-    local_code/party_encumbrance.cpp
+    inventory.cpp
+    live_party.cpp
     local_code/Search.cpp
     local_code/npc_interaction.cpp
     local_code/npc_dialogue.cpp
@@ -186,17 +187,17 @@ add_library(WIZ8_GAME_CORE STATIC
     "local_code/NPC Scripting.cpp"
     "local_code/NPC Scripting Facts.cpp"
     local_code/formation_state.cpp
-    local_code/GroupAttacks.cpp
+    combat/group_attacks.cpp
     local_code/CharGeneration.cpp
     local_screens/AutomapScreen.cpp
-    local_screens/screen12.cpp
+    local_screens/ExitScreen.cpp
     local_screens/MGSPortraitCombat.cpp
     local_screens/MGSButtons.cpp
     local_screens/MGSSpellCasting.cpp
     local_screens/PartySelectionScreen.cpp
     local_code/Text_Input.cpp
     local_code/Traps.cpp
-    local_code/Gameloop.cpp
+    screen_router.cpp
     game_init.cpp
     dialog_code/MonsterInfoDialog.cpp
     dialog_code/AssayDialog.cpp
@@ -207,8 +208,9 @@ add_library(WIZ8_GAME_CORE STATIC
     dialog_code/SplitItemDialog.cpp
     dialog_code/DialogScrollBar.cpp
     dialog_code/DialogNumericInput.cpp
-    engine_code/MonGen.cpp
+    ../world/encounters.cpp
     music_playlist.cpp
+    pointer.cpp
     targeting_presentation.cpp
     npc_items.cpp
     npc_script_file.cpp
@@ -216,26 +218,35 @@ add_library(WIZ8_GAME_CORE STATIC
     ../native/key_bindings.cpp
     ../native/game_events.cpp
     ../native/movie.cpp
-    ../native/bink_video.cpp
 )
-target_link_libraries(WIZ8_GAME_CORE PRIVATE PkgConfig::FFMPEG)
-target_link_libraries(WIZ8_GAME_CORE PUBLIC wiz8_native_settings SURRENDER
+target_link_libraries(wiz8_engine PRIVATE PkgConfig::FFMPEG)
+target_link_libraries(wiz8_engine PUBLIC wiz8_native_settings
     ZLIB::ZLIB SDL3_image::SDL3_image SDL3_mixer::SDL3_mixer)
 
 # Keep focused integration tests able to discard unused recovered game functions.
 if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
-    target_compile_options(WIZ8_GAME_CORE PRIVATE /Gy /Gw)
+    target_compile_options(wiz8_engine PRIVATE /Gy /Gw)
 else()
-    target_compile_options(WIZ8_GAME_CORE PRIVATE -ffunction-sections -fdata-sections)
+    target_compile_options(wiz8_engine PRIVATE -ffunction-sections -fdata-sections)
 endif()
 
-target_include_directories(WIZ8_GAME_CORE PUBLIC "${PROJECT_SOURCE_DIR}/src/sgp")
-
 if(WIZ8_PRECOMPILE_HEADERS)
-    target_precompile_headers(WIZ8_GAME_CORE PRIVATE
+    target_precompile_headers(wiz8_engine PRIVATE
         "$<$<COMPILE_LANGUAGE:CXX>:${PROJECT_SOURCE_DIR}/src/wiz8/pch.h>")
 endif()
 if(WIZ8_UNITY_BUILD)
-    set_target_properties(WIZ8_GAME_CORE PROPERTIES
+    set_target_properties(wiz8_engine PROPERTIES
         UNITY_BUILD ON UNITY_BUILD_BATCH_SIZE ${WIZ8_UNITY_BATCH_SIZE})
+endif()
+
+# The renderer's optional unity batches share one engine archive with the game.
+# Keep unrelated game files independent unless whole-engine unity was requested.
+if(WIZ8_RENDER_UNITY_BUILD AND NOT WIZ8_UNITY_BUILD)
+    get_target_property(engine_sources wiz8_engine SOURCES)
+    foreach(source IN LISTS engine_sources)
+        if(NOT source MATCHES "/src/render/")
+            set_source_files_properties("${source}" TARGET_DIRECTORY wiz8_engine
+                PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+        endif()
+    endforeach()
 endif()

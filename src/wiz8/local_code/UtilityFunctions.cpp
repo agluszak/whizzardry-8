@@ -1,31 +1,23 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cctype>
 #include <cmath>
-#include <cstring>
-#include <optional>
+#include <cstddef>
 #include <string>
-#include <string_view>
 
 #include <SDL3/SDL_rect.h>
-#include <fmt/format.h>
 
-#include "conditions.h"
-#include "dice.h"
-#include "random.h"
-#include "surrender/srDebug.h"
+#include "wiz8/combat/combat.h"
+#include "wiz8/data/dice.h"
 #include "wiz8/design_rect.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/layouts/game_status.h"
+#include "wiz8/game.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Strings.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
 
-// FUNCTION: WIZ8 0x00517950
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base)
 {
     dice->count = count;
@@ -33,16 +25,9 @@ void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base)
     dice->base = base;
 }
 
-// FUNCTION: WIZ8 0x00517970
 int RollDice(const W8Dice* dice)
 {
-    unsigned int roll;
-    int result = dice->base;
-
-    for (roll = 0; roll < dice->count; ++roll) {
-        result += Random(dice->sides) + 1;
-    }
-    return result;
+    return RollDice(CurrentGame().rng, *dice);
 }
 
 int RollDice(const W8Dice* dice, unsigned int rolls)
@@ -55,7 +40,6 @@ int RollDice(const W8Dice* dice, unsigned int rolls)
     return result;
 }
 
-// FUNCTION: WIZ8 0x005179b0
 int IntegerPower(int base, unsigned int exponent)
 {
     int result;
@@ -66,7 +50,6 @@ int IntegerPower(int base, unsigned int exponent)
     return result;
 }
 
-// FUNCTION: WIZ8 0x00517af0
 std::string FormatUnsignedIntegerWithCommas(unsigned int value)
 {
     auto text = std::to_string(value);
@@ -77,7 +60,6 @@ std::string FormatUnsignedIntegerWithCommas(unsigned int value)
     return text;
 }
 
-// FUNCTION: WIZ8 0x00517bd0
 char* TitleCaseString(char* string)
 {
     bool capitalize = true;
@@ -85,9 +67,9 @@ char* TitleCaseString(char* string)
 
     while (*cursor != '\0') {
         if (capitalize) {
-            *cursor = static_cast<char>(toupper(*cursor));
+            *cursor = static_cast<char>(toupper(static_cast<unsigned char>(*cursor)));
         } else {
-            *cursor = static_cast<char>(tolower(*cursor));
+            *cursor = static_cast<char>(tolower(static_cast<unsigned char>(*cursor)));
         }
 
         switch (*cursor) {
@@ -111,13 +93,9 @@ char* TitleCaseString(char* string)
     return string;
 }
 
-// FUNCTION: WIZ8 0x00517c60
 float NormalizeAngle(float angle)
 {
-    if (!std::isfinite(angle)) {
-        srAssertFail("std::isfinite(flAngle)",
-                     "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x13b, 0);
-    }
+    assert(std::isfinite(angle));
 
     angle += 6.2831852;
     while (angle < 0.0f) {
@@ -129,7 +107,6 @@ float NormalizeAngle(float angle)
     return angle;
 }
 
-// FUNCTION: WIZ8 0x00517ce0
 float ShortestAngleDistance(float first, float second)
 {
     float forward = NormalizeAngle(first - second);
@@ -138,14 +115,12 @@ float ShortestAngleDistance(float first, float second)
     return forward < backward ? forward : backward;
 }
 
-// FUNCTION: WIZ8 0x00517e20
 DesignRect UnionScreenRects(const DesignRect& first, const DesignRect& second)
 {
     return {std::min(first.left, second.left), std::min(first.top, second.top),
             std::max(first.right, second.right), std::max(first.bottom, second.bottom)};
 }
 
-// FUNCTION: WIZ8 0x00517e70
 bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point)
 {
     if (rect == nullptr || point == nullptr) return false;
@@ -154,40 +129,27 @@ bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point)
     return SDL_PointInRect(point, &bounds);
 }
 
-// FUNCTION: WIZ8 0x00517ea0
-void StripMonsterNameSuffix(std::string& name)
-{
-    if (const auto suffix = name.find('#'); suffix != std::string::npos) name.resize(suffix);
-}
-
-// FUNCTION: WIZ8 0x00517ec0
 unsigned int CharacterPointerToPartySlot(const W8Character* character)
 {
     unsigned int slot;
     const W8Character* party_character;
 
-    if (!character->fInParty) {
-        srAssertFail("pPC->fInParty", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp",
-                     0x1c8, "PCPtrToPCSlot: ERROR - called for non-party character");
-    }
+    assert(character->fInParty);
 
-    party_character = g_status.buffers.Char;
+    party_character = CurrentGame().party.characters;
     for (slot = 0; slot < 8; ++slot, ++party_character) {
         if (character == party_character) {
             return slot;
         }
     }
 
-    srAssertFail("FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x1d1,
-                 fmt::format("PCPtrToPCSlot: ERROR - no match on ptr {}",
-                             static_cast<const void*>(character)));
+    assert(false && "character is not in the party");
     return 0;
 }
 
-// FUNCTION: WIZ8 0x00517f30
 bool IsPartyCharacterPointer(const W8Character* character)
 {
-    W8Character* party_character = g_status.buffers.Char;
+    W8Character* party_character = CurrentGame().party.characters;
     unsigned int slot;
 
     for (slot = 0; slot < 8; ++slot, ++party_character) {
@@ -199,203 +161,22 @@ bool IsPartyCharacterPointer(const W8Character* character)
     return false;
 }
 
-// FUNCTION: WIZ8 0x00517f60
-void AdjustByteByPercent(unsigned char* value, unsigned int percent)
-{
-    *value = static_cast<unsigned char>(((percent + 100) * *value + 50) / 100);
-}
-
-// FUNCTION: WIZ8 0x00517f90
 void AdjustIntegerByPercent(unsigned int* value, unsigned int percent)
 {
     *value += *value * percent / 100;
 }
 
-// FUNCTION: WIZ8 0x00517FB0
-unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
-                                 unsigned int excluded_slot, unsigned int* selected,
-                                 unsigned int count, bool skip_first_two)
-{
-    int claimed[8];
-    unsigned int eligible[8];
-    unsigned int found = 0;
-    unsigned int returned = 0;
-    unsigned int slot;
-    bool relaxed;
-    int index;
-
-    for (index = 0; index < 8; ++index) {
-        claimed[index] = 0;
-    }
-    if (count != 0) {
-        for (relaxed = false; !relaxed;) {
-            for (slot = skip_first_two ? 2u : 0u; slot < 8; ++slot) {
-                W8Character* character = &g_status.buffers.Char[slot];
-                if (g_status.buffers.XChar[slot].fOccupied && slot != excluded_slot &&
-                    claimed[slot] == 0 && (character->hp_current != 0 || require_primary == 2) &&
-                    (character->highest_condition < W8_CONDITION_DEAD || require_secondary == 2)) {
-                    eligible[found] = slot;
-                    ++found;
-                    claimed[slot] = 1;
-                }
-            }
-            if (found >= count) {
-                break;
-            }
-            if (require_secondary == 1) {
-                require_secondary = 2;
-            } else if (require_primary == 1) {
-                require_primary = 2;
-            } else {
-                relaxed = true;
-            }
-        }
-        if (found > count) {
-            for (index = 0; index < 8; ++index) {
-                claimed[index] = 0;
-            }
-            while (returned < count && found != 0) {
-                unsigned int pick = Random(found);
-                while (pick < 8 && claimed[pick] != 0) {
-                    ++pick;
-                }
-                if (pick >= 8) {
-                    break;
-                }
-                selected[returned] = eligible[pick];
-                ++returned;
-                claimed[pick] = 1;
-                --found;
-            }
-            return returned;
-        }
-    }
-    memcpy(selected, eligible, found * 4);
-    return found;
-}
-
-// FUNCTION: WIZ8 0x00518150
-std::optional<int> GetRandomCharacter(int require_primary, int require_secondary,
-                                      std::optional<int> excluded_slot)
-{
-    int skip;
-    unsigned int slot;
-    unsigned int scanned;
-    bool matched;
-    W8Character* character;
-
-retry:
-    skip = Random(8);
-    scanned = 0;
-    slot = 0;
-    do {
-        matched = false;
-        if (g_status.buffers.XChar[slot].fOccupied &&
-            (!excluded_slot || static_cast<int>(slot) != *excluded_slot)) {
-            character = &g_status.buffers.Char[slot];
-            if ((character->hp_current > 0 && character->highest_condition < W8_CONDITION_DEAD) ||
-                require_primary == 2) {
-                if (character->highest_condition < W8_CONDITION_ASLEEP || require_secondary == 2) {
-                    matched = true;
-                    if (skip == 0) {
-                        return slot;
-                    }
-                    skip--;
-                    scanned = 0;
-                }
-            }
-        }
-        slot++;
-        if (slot == 8) {
-            slot = 0;
-        }
-        scanned++;
-    } while (scanned <= 8);
-
-    if (matched) {
-        return slot;
-    }
-    if (require_secondary == 1) {
-        require_secondary = 2;
-        goto retry;
-    }
-    if (require_primary == 1) {
-        require_primary = 2;
-        goto retry;
-    }
-    return std::nullopt;
-}
-
-// FUNCTION: WIZ8 0x00518230
-std::optional<int> GetNextCharacter(int require_primary, int require_secondary,
-                                    std::optional<int> previous_slot)
-{
-    int start_slot = previous_slot ? (*previous_slot + 1) % 8 : 0;
-    W8Character* characters = g_status.buffers.Char;
-    W8PartySlotRow* rows = g_status.buffers.XChar;
-    int slot;
-    unsigned int scanned;
-
-retry:
-    slot = start_slot;
-    scanned = 0;
-
-    do {
-        if (rows[slot].fOccupied) {
-            W8Character* character = &characters[slot];
-
-            if ((character->hp_current > 0 && character->highest_condition < W8_CONDITION_DEAD) ||
-                require_primary == 2) {
-                if (character->highest_condition < W8_CONDITION_ASLEEP || require_secondary == 2) {
-                    return slot;
-                }
-            }
-        }
-        ++slot;
-        if (slot == 8) {
-            slot = 0;
-        }
-        ++scanned;
-    } while (scanned <= 8);
-
-    if (require_secondary == 1) {
-        require_secondary = 2;
-        goto retry;
-    }
-    if (require_primary == 1) {
-        require_primary = 2;
-        goto retry;
-    }
-    return std::nullopt;
-}
-
-// FUNCTION: WIZ8 0x005182e0
-void DebugMessage(int channel, std::string_view message)
-{
-    (void)channel;
-    (void)message; // The recovered diagnostic sink is inactive.
-}
-
-// FUNCTION: WIZ8 0x00518310
 int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
 {
     int slot = 0;
 
-    for (const W8MonsterManagerEntry* current = gXStatus.monster_manager_entries;
-         current < &gXStatus.monster_manager_entries[8]; ++current) {
+    for (const W8MonsterManagerEntry* current = CurrentGame().monster_manager_entries;
+         current < &CurrentGame().monster_manager_entries[8]; ++current) {
         if (rpc == current) {
             return slot;
         }
         ++slot;
     }
-    srAssertFail(
-        "FALSE", "C:\\Projects\\Wizardry 8\\Local Code\\UtilityFunctions.cpp", 0x385,
-        fmt::format("RPCPtrToPCSlot: ERROR - no match on ptr {}", static_cast<const void*>(rpc)));
+    assert(false && "entry is not a monster manager slot");
     return 0;
-}
-
-// FUNCTION: WIZ8 0x005184b0
-void FreeStringTable(void)
-{
-    ReleaseLocalizedStrings();
 }

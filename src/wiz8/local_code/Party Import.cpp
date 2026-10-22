@@ -1,44 +1,49 @@
+#include <algorithm>
+#include <array>
 #include <cstring>
 #include <exception>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include "asset_paths.h"
-#include "equipment_slots.h"
 #include "layouts/game_status.h"
-#include "layouts/item_instance.h"
 #include "layouts/learned_spells.h"
-#include "random.h"
-#include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/conditions.h"
+#include "wiz8/data/character_tables.h"
+#include "wiz8/data/game_data.h"
+#include "wiz8/data/item_records.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ProfRaceInfoDialog.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/item_tables.h"
+#include "wiz8/game.h"
+#include "wiz8/inventory.h"
 #include "wiz8/learned_spells.h"
+#include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/PartyImport.h"
-#include "wiz8/local_code/party_encumbrance.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party_stats.h"
 #include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
 
 /* Retail Local Code\Party Import.cpp: converts imported Wizardry 7
    characters into the Wizardry 8 layout. */
 
-#define PARTY_IMPORT_CPP "C:\\Projects\\Wizardry 8\\Local Code\\Party Import.cpp"
-
 /* The three bonus attributes each profession grants on top of the imported
    values. */
-// GLOBAL: WIZ8 0x00614FC8
 static int g_profession_primary_attributes[15][3] = {
     {W8_ATTRIBUTE_STRENGTH, W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_VITALITY},
     {W8_ATTRIBUTE_STRENGTH, W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_PIETY},
@@ -58,7 +63,6 @@ static int g_profession_primary_attributes[15][3] = {
 };
 
 /* The starting spells LearnSpell grants each profession on import. */
-// GLOBAL: WIZ8 0x0062A5F8
 static int g_profession_starting_spells[15][6] = {
     {0, 0, 0, 0, 0, 0},   {6, 2, 0, 0, 0, 0},     {6, 13, 0, 0, 0, 0},  {6, 1, 0, 0, 0, 0},
     {5, 12, 0, 0, 0, 0},  {1, 7, 0, 0, 0, 0},     {6, 10, 0, 0, 0, 0},  {0, 0, 0, 0, 0, 0},
@@ -66,16 +70,12 @@ static int g_profession_starting_spells[15][6] = {
     {6, 12, 5, 11, 0, 0}, {10, 12, 11, 14, 0, 0}, {5, 12, 14, 4, 0, 0},
 };
 
-/* The item database index whose legacy item number matches the imported
-   one, if a record carries it. */
-static std::optional<int> FindItemByLegacyNumber(short item_number)
+/* The database ID is kept because imported items store that identity, not their
+   legacy number. */
+static std::optional<int> FindItemByLegacyNumber(const GameData& data, short item_number)
 {
-    unsigned int index = 0;
-    while (index < g_item_records.size()) {
-        if (g_item_records[index].legacy_item_number == item_number) {
-            return index;
-        }
-        ++index;
+    for (unsigned int index = 0; index < data.items.size(); ++index) {
+        if (data.items[index].legacy_item_number == item_number) return index;
     }
     return std::nullopt;
 }
@@ -83,16 +83,12 @@ static std::optional<int> FindItemByLegacyNumber(short item_number)
 /* The Wizardry 7 import file state filled by the loader below: the record
    count, whether the save carries an ending selector, that selector's two
    nibbles decoded, the ninety-six flag bits and the character records. */
-// GLOBAL: WIZ8 0x0068DE48
 int g_import_character_count;
 
-// GLOBAL: WIZ8 0x0068DE50
-std::optional<int> g_wiz7_ending;
+int g_wiz7_ending;
 
-// GLOBAL: WIZ8 0x0068DE58
 unsigned char g_import_flags[0x60];
 
-// GLOBAL: WIZ8 0x0068DEB8
 W8Wiz7Character g_imported_characters[6];
 
 /* Load a Wizardry 7 save for import: a 0x34c-byte header (two record-skip
@@ -102,7 +98,6 @@ W8Wiz7Character g_imported_characters[6];
    sections, then the character records. Every record must carry the previous
    one's tag byte. On success the ending and difficulty nibbles decode from
    the shared tag and the flag bits unpack into g_import_flags. */
-// FUNCTION: WIZ8 0x00558D00
 unsigned char LoadWizardry7ImportFile(std::string_view path)
 try {
     if (path.empty()) return 0;
@@ -127,7 +122,7 @@ try {
     }
 
     const bool ending_record = party_block[0] == -1;
-    std::optional<int> ending;
+    int ending = -1;
     if (ending_record) {
         switch (characters[0].party_tag & 0xf0) {
         case 0x10:
@@ -147,7 +142,7 @@ try {
         }
     }
 
-    memcpy(g_imported_characters, characters, sizeof(characters));
+    std::ranges::copy(characters, g_imported_characters);
     g_import_character_count = character_count;
     g_wiz7_ending = ending;
     for (int index = 0; index < 0x60; ++index) {
@@ -162,8 +157,7 @@ try {
    mark the imported-party path and convert each record into a regular member.
    Reports 1 when the file does not load or a slot cannot take the character,
    2 when the ending selector holds the value three, 0 otherwise. */
-// FUNCTION: WIZ8 0x00558C40
-unsigned char ImportWizardry7Party(std::string_view path)
+unsigned char ImportWizardry7Party(GameSession& games, std::string_view path)
 {
     W8Character scratch;
     int index;
@@ -171,9 +165,9 @@ unsigned char ImportWizardry7Party(std::string_view path)
     if (LoadWizardry7ImportFile(path) == 0) {
         return 1;
     }
-    ResetForNewGame();
-    g_status.party_gold = 2500;
-    g_status.skip_loose_character_check = 1;
+    auto& game = BeginNewGame(games);
+    game.party.gold = 2500;
+    game.status.skip_loose_character_check = 1;
     if (g_import_character_count < 7) {
         for (index = 0; index < g_import_character_count; ++index) {
             ImportWizardry7Character(&scratch, &g_imported_characters[index]);
@@ -181,18 +175,16 @@ unsigned char ImportWizardry7Party(std::string_view path)
                 return 1;
             }
         }
-        return (!g_wiz7_ending || *g_wiz7_ending != 3) - 1 & 2;
+        return (g_wiz7_ending != 3) - 1 & 2;
     }
     return 1;
 }
 
-// FUNCTION: WIZ8 0x005590B0
 void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
 {
     W8Profession profession;
     unsigned int level;
     unsigned int skill_id;
-    int status;
 
     *character = W8Character{};
     character->name = TitleCaseString(imported->name);
@@ -256,8 +248,8 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
     character->profession_levels[character->iProfession] = character->uiExpLevel;
     character->original_profession = character->iProfession;
     character->level_band_base = 0;
-    status = imported->status;
-    if (status == 2 || status == 3) {
+    if (imported->status == W8Wiz7CharacterStatus::dead_with_status_2 ||
+        imported->status == W8Wiz7CharacterStatus::dead_with_status_3) {
         character->uiCondition[W8_CONDITION_DEAD] = W8_CONDITION_INDEFINITE;
         character->highest_condition = W8_CONDITION_DEAD;
     } else {
@@ -271,12 +263,12 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
         character->skills[skill_id].points =
             ConvertSkill(static_cast<W8Skill>(skill_id), character, imported);
     }
-    RefreshCharacterSkillAvailability(character);
+    RefreshCharacterSkillAvailability(Data(), character);
     ImportEquipment(character, imported);
     DeriveCharacterPersonality(character);
     EnsureUniquePartyVoice(character);
     CalcCharacterLevelBand(character);
-    RecalculateCharacterDerivedStats(character);
+    RecalculateCharacterDerivedStats(CurrentGame(), *character);
     character->stamina = character->uiStaminaMax;
     character->hp_current = character->uiHPMax;
     for (skill_id = 0; skill_id < 6; ++skill_id) {
@@ -284,11 +276,9 @@ void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
     }
 }
 
-// FUNCTION: WIZ8 0x005592D0
 void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
 {
     unsigned int imported_values[7] = {0};
-    int mapped;
     int i;
     int total = 0;
     int average;
@@ -300,61 +290,9 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
     unsigned int pick;
     int removed;
 
-    for (i = 0; i < 8; ++i) {
-        if (i != 6 && i != 7) {
-            switch (i) {
-            case 0:
-                mapped = 0;
-                break;
-            case 1:
-                mapped = 1;
-                break;
-            case 2:
-                mapped = 2;
-                break;
-            case 3:
-                mapped = 3;
-                break;
-            case 4:
-                mapped = 4;
-                break;
-            case 5:
-                mapped = 5;
-                break;
-            case 6:
-                break;
-            default:
-                srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x462,
-                             "ConvertAttribute: ERROR - Invalid attribute");
-            }
-            imported_values[mapped] = imported->attributes[i];
-            switch (i) {
-            case 0:
-                mapped = 0;
-                break;
-            case 1:
-                mapped = 1;
-                break;
-            case 2:
-                mapped = 2;
-                break;
-            case 3:
-                mapped = 3;
-                break;
-            case 4:
-                mapped = 4;
-                break;
-            case 5:
-                mapped = 5;
-                break;
-            case 6:
-                break;
-            default:
-                srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x462,
-                             "ConvertAttribute: ERROR - Invalid attribute");
-            }
-            total += imported_values[mapped];
-        }
+    for (i = 0; i < 6; ++i) {
+        imported_values[i] = imported->attributes[i];
+        total += imported_values[i];
     }
     average = total / 6;
     for (i = 0; i < 3; ++i) {
@@ -389,7 +327,7 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
         points -= added;
         spins = points * 3;
         for (i = 0; i < spins; ++i) {
-            Random(7);
+            CurrentGame().rng.below(7);
             if (character->attributes[i].base < 100) {
                 --points;
                 spins -= 3;
@@ -404,7 +342,7 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
     removed = 0;
     if (0 < -points) {
         do {
-            pick = Random(7);
+            pick = CurrentGame().rng.below(7);
             if (g_profession_attribute_minimums[character->iProfession].values[pick] != 0 &&
                 static_cast<unsigned int>(
                     g_race_attribute_minimums[character->iRace].values[pick]) <
@@ -418,11 +356,10 @@ void ConvertAttribute(W8Character* character, const W8Wiz7Character* imported)
     character->level_band_base = 1;
 }
 
-// FUNCTION: WIZ8 0x005595D0
 void GrantStartingSpells(W8Character* character, const W8Wiz7Character*)
 {
     W8LearnedSpellState scratch;
-    char count;
+    signed char count;
     int offset;
     int i;
 
@@ -448,135 +385,96 @@ void GrantStartingSpells(W8Character* character, const W8Wiz7Character*)
     BuildLearnedSpellState(&scratch, character);
 }
 
-// FUNCTION: WIZ8 0x00559650
 void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
 {
-    W8ItemInstance item;
-    /* The worthiest imported items: band 0 keeps the two most valuable finds
-       (value above 3000), band 1 the next three (above 1000). */
-    W8Wiz7Item candidates[2][20];
-    W8Wiz7Item empty_item;
-    int maximum[2];
-    int counts[2];
-    const W8Wiz7Item* source;
-    const W8Wiz7Item* entry;
-    int slot;
-    int index;
-    int best_value;
-    int price;
-    int give;
-    int item_id;
-    W8EquipSlot equip_slot;
-    W8Profession profession;
-
-    memset(&empty_item, 0, sizeof(empty_item));
-    counts[0] = 0;
-    counts[1] = 0;
-    EmptyAllCarriedItems(character);
-    for (slot = 0; slot < 2; ++slot) {
-        source = imported->items[slot];
-        for (index = 0; index < 10; ++index) {
-            if (source->item_number != 0) {
-                const auto item_index = FindItemByLegacyNumber(source->item_number);
-                if (item_index) {
-                    if (*item_index != 0x128) {
-                        if (g_item_records[*item_index].unidentified_name_index == 0x84 ||
-                            4999 < static_cast<int>(g_item_records[*item_index].value)) {
-                            source++;
-                            continue;
-                        }
-                        if (2999 < static_cast<int>(g_item_records[*item_index].value)) {
-                            candidates[0][counts[0]] = *source;
-                            ++counts[0];
-                            source++;
-                            continue;
-                        }
-                        if (999 < static_cast<int>(g_item_records[*item_index].value)) {
-                            candidates[1][counts[1]] = *source;
-                            ++counts[1];
-                            source++;
-                            continue;
-                        }
-                    }
-                    ReplaceOrCreateItem(&item, *item_index, true, true, true);
-                    if (g_item_records[*item_index].binds_on_equip == 0) {
-                        StoreItemWithCharacterOrParty(character, &item, false, false,
-                                                      static_cast<unsigned int>(slot == 0));
-                    } else {
-                        AddItemToCharacter(character, &item, false, false, false);
-                    }
+    auto& game = CurrentGame();
+    const auto& data = Data();
+    // Keep one imported item worth 3000–4999, and two worth 1000–2999.
+    std::array<std::vector<int>, 2> candidates;
+    EmptyAllCarriedItems(game, *character);
+    for (int source_slot = 0; source_slot < 2; ++source_slot) {
+        for (const auto& source : imported->items[source_slot]) {
+            if (source.item_number == 0) continue;
+            const auto item_id = FindItemByLegacyNumber(data, source.item_number);
+            if (!item_id) continue;
+            const auto& record = data.items[*item_id];
+            if (*item_id != 0x128) {
+                const int value = static_cast<int>(record.value);
+                if (record.unidentified_name_index == 0x84 || value > 4999) continue;
+                if (value > 999) {
+                    // Only positive legacy numbers participate in the valuable-item sweep.
+                    if (source.item_number > 0)
+                        candidates[value > 2999 ? 0 : 1].push_back(*item_id);
+                    continue;
                 }
             }
-            source++;
-        }
-    }
-    maximum[0] = 1;
-    if (counts[0] < 2) {
-        maximum[0] = counts[0];
-    }
-    maximum[1] = 2;
-    if (counts[1] < 3) {
-        maximum[1] = counts[1];
-    }
-    for (slot = 0; slot < 2; ++slot) {
-        while (0 < maximum[slot]) {
-            best_value = 0;
-            std::optional<int> best_index;
-            for (index = 0; index < counts[slot]; ++index) {
-                entry = &candidates[slot][index];
-                if (0 < entry->item_number) {
-                    const auto item_index = FindItemByLegacyNumber(entry->item_number);
-                    if (!item_index) continue;
-                    price = g_item_records[*item_index].value;
-                    if (!ItemHasHiddenProperties(*item_index)) {
-                        price /= 2;
-                    }
-                    if (best_value < price) {
-                        best_value = g_item_records[*item_index].value;
-                        best_index = index;
-                    }
-                }
-            }
-            if (!best_index) break;
-            const auto item_index =
-                FindItemByLegacyNumber(candidates[slot][*best_index].item_number);
-            if (!item_index) break;
-            ReplaceOrCreateItem(&item, *item_index, true, true, true);
-            if (g_item_records[*item_index].binds_on_equip == 0) {
-                StoreItemWithCharacterOrParty(character, &item, false, false, true);
+            auto item = MakeItem(data, game.rng, *item_id, true, true, true);
+            if (record.binds_on_equip == 0) {
+                StoreItemWithCharacterOrParty(game, Outsider(*character), OwnedItem(item), false,
+                                              false, source_slot == 0);
             } else {
-                AddItemToCharacter(character, &item, false, false, false);
+                AddItemToCharacter(game, Outsider(*character), OwnedItem(item), false, false,
+                                   false);
             }
-            --maximum[slot];
-            candidates[slot][*best_index] = empty_item;
         }
     }
-    profession = W8_PROFESSION_COUNT;
+    for (unsigned int band = 0; band < candidates.size(); ++band) {
+        auto& pool = candidates[band];
+        for (unsigned int remaining = band + 1; remaining != 0 && !pool.empty(); --remaining) {
+            auto best = pool.end();
+            int best_value = 0;
+            for (auto candidate = pool.begin(); candidate != pool.end(); ++candidate) {
+                const auto& record = data.items[*candidate];
+                int price = record.value;
+                if (!ItemHasHiddenProperties(data, *candidate)) price /= 2;
+                if (best_value < price) {
+                    // The comparison uses discounted price, but its threshold is full value.
+                    best_value = record.value;
+                    best = candidate;
+                }
+            }
+            if (best == pool.end()) break;
+            const int item_id = *best;
+            auto item = MakeItem(data, game.rng, item_id, true, true, true);
+            if (data.items[item_id].binds_on_equip == 0) {
+                StoreItemWithCharacterOrParty(game, Outsider(*character), OwnedItem(item), false,
+                                              false, true);
+            } else {
+                AddItemToCharacter(game, Outsider(*character), OwnedItem(item), false, false,
+                                   false);
+            }
+            pool.erase(best);
+        }
+    }
+    auto profession = W8_PROFESSION_COUNT;
     if (character->iRace != W8_RACE_FAERIE) {
         profession = character->iProfession;
     }
-    for (slot = 0; slot < 6; ++slot) {
-        item_id = g_starting_equipment[profession][slot];
+    for (int slot = 0; slot < 6; ++slot) {
+        const int item_id = g_starting_equipment[profession][slot];
         if (item_id != -1) {
-            ReplaceOrCreateItem(&item, item_id, true, true, true);
-            equip_slot = GetItemDefaultEquipSlot(item_id);
+            auto item = MakeItem(data, game.rng, item_id, true, true, true);
+            auto equip_slot = GetItemDefaultEquipSlot(data, item_id, GameStarted());
             if (equip_slot == W8_EQUIP_SLOT_NONE) {
-                if (!FindCharacterItemByDatabaseKind(
-                        character, g_item_records[item_id].unidentified_name_index, 0, 2)) {
-                    AddItemToCharacter(character, &item, true, false, false);
+                if (!FindCharacterItem(
+                        *character, ItemOfKind(data, data.items[item_id].unidentified_name_index),
+                        W8ItemReach::Carried)) {
+                    AddItemToCharacter(game, Outsider(*character), OwnedItem(item), true, false,
+                                       false);
                 }
             } else {
                 if (equip_slot == W8_EQUIP_SLOT_PRIMARY_WEAPON &&
-                    (g_item_records[item_id].flags & W8_ITEM_FLAG_OFF_HAND_ALLOWED) != 0) {
+                    (data.items[item_id].flags & W8_ITEM_FLAG_OFF_HAND_ALLOWED) != 0) {
                     equip_slot = W8_EQUIP_SLOT_SECONDARY_WEAPON;
                 }
                 if (character->EquippedItem[equip_slot].iItemNo == -1) {
-                    AddItemToCharacter(character, &item, true, false, false);
+                    AddItemToCharacter(game, Outsider(*character), OwnedItem(item), true, false,
+                                       false);
                 }
             }
         }
     }
-    give = -1;
+    std::optional<int> give;
     if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1) {
         if (character->iProfession == W8_PROFESSION_FIGHTER) {
             if (character->skills[W8_SKILL_SWORD].level < character->skills[W8_SKILL_AXE].level) {
@@ -592,17 +490,16 @@ void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
                 give = 0x16;
             }
         }
-        if (give != -1) {
-            ReplaceOrCreateItem(&item, give, true, true, true);
-            AddItemToCharacter(character, &item, true, false, false);
+        if (give) {
+            auto item = MakeItem(data, game.rng, *give, true, true, true);
+            AddItemToCharacter(game, Outsider(*character), OwnedItem(item), true, false, false);
         }
     }
-    RebuildEquipmentAndDerivedStats(character);
+    RecalculateCharacterDerivedStats(game, *character);
 }
 
 /* Retail fell through the failed assert and read `imported->skills` by
    whatever `mapped` held; the recovery keeps that read. */
-// FUNCTION: WIZ8 0x00559BC0
 unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7Character* imported)
 {
     int mapped;
@@ -790,14 +687,11 @@ unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7
             }
             break;
         default:
-            srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x56c,
-                         "ConvertSkill: ERROR - Invalid NEW skill");
-            break;
+            std::unreachable();
         }
         break;
     default:
-        srAssertFail("FALSE", PARTY_IMPORT_CPP, 0x4b3, "ConvertSkill: ERROR - Invalid skill");
-        break;
+        std::unreachable();
     }
     if (!routed) {
         base_value = imported->skills[mapped];
@@ -816,7 +710,7 @@ unsigned int ConvertSkill(W8Skill skill_id, W8Character* character, const W8Wiz7
                 unlocks += character->skill_unlocks[i];
             }
             if (unlocks == 0) {
-                roll = Random(5);
+                roll = CurrentGame().rng.below(5);
                 base_value /= roll + 5;
             } else if (unlocks < 5) {
                 base_value = (unlocks * base_value) / 5;

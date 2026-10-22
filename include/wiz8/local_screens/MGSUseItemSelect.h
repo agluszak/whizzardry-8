@@ -1,7 +1,7 @@
 #pragma once
 
-#include "input.h"
 #include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_layer.h"
 
 struct W8ItemInstance;
@@ -10,7 +10,6 @@ struct W8Action;
 
 // The draft exists exactly while the item picker is open.
 W8Action* ItemUseDraft();
-void ResetUseItemSelection();
 
 void SetUseItemSelectInputEnabled(bool enabled);
 void InvalidateUseItemSelectPanel(void);

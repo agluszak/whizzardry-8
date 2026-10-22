@@ -1,9 +1,13 @@
 #pragma once
 
-class Trigger;
+#include <memory>
 
-/* Level 0x10 (Camp) activation callbacks, registered by
-   InitializeLevelMasterFunctions. */
-bool CampPrisonDoor06(Trigger* pTrigger);
-bool CampPrisonDoor04(Trigger* pTrigger);
-bool CampPrisonDoor03(Trigger* pTrigger);
+class LevelScript;
+struct ScriptContext;
+struct World;
+
+/* Level 0x10 (Camp, the Rapax away camp): the camp chest and the prison doors. */
+std::unique_ptr<LevelScript> MakeCampScript(const ScriptContext& context);
+/* Fill the away camp chest from the level-0x26 item records stored in the
+   current save. */
+void LoadAwayCampChest(World& world);

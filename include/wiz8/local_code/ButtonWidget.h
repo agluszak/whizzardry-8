@@ -1,7 +1,6 @@
 #pragma once
 
 #include <functional>
-#include <optional>
 #include <string_view>
 #include <utility>
 
@@ -12,6 +11,9 @@
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
+
+/* Tooltip string-table sentinel; independent of the five frame indices. */
+enum { W8_DIALOG_BUTTON_NO_TOOLTIP = -1 };
 
 class W8ButtonWidget;
 
@@ -27,14 +29,13 @@ struct ButtonSetup {
     W8ButtonCallback on_double_click = {};
     std::function<void(bool)> on_hover = {};
     ButtonPolicy policy{};
-    std::optional<int> tooltip;
+    int tooltip = W8_DIALOG_BUTTON_NO_TOOLTIP;
     int priority = UI_PRIORITY_HIGHEST;
     bool menu_artwork = false;
 };
 
 /* Ordinary sprite or generic-frame button. Its layer owns input registration;
    this control owns behavior and appearance without a visual parent tree. */
-// VTABLE: WIZ8 0x005efa98
 class W8ButtonWidget {
 public:
     explicit W8ButtonWidget(UiLayer& layer);
@@ -74,6 +75,9 @@ public:
     bool IsEnabled() const { return m_target && m_enabled; }
     void SetPressed(bool pressed);
     bool IsPressed() const { return m_interaction.pressed; }
+    // Whether the pointer currently rests on this button rather than on
+    // anything above it.
+    bool IsHovered() const { return m_target && m_target->hovered(); }
     void SetVisible(bool visible);
     bool IsVisible() const { return m_visible; }
     void SetImage(ButtonImage image);
@@ -87,7 +91,7 @@ public:
 
     /* Store the tooltip string-table index and, when tooltips are
        enabled, push its text onto the input target. */
-    void SetTooltipIndex(std::optional<int> tooltip_index);
+    void SetTooltipIndex(int tooltip_index);
 
 private:
     UiLayer& m_layer;

@@ -1,33 +1,33 @@
-/* Native Bink replacement: SDL file I/O, FFmpeg decoding and
-   timed RGB555 frames. Recovered IntroScreen still owns transitions/input. */
-#include "movie.h"
+/* Native Bink replacement: FFmpeg decoding and timed RGB555 frames.
+   IntroScreen owns transitions and input. */
+#include "wiz8/movie.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <vector>
 
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <wiz8/filesystem.h>
 
 #include "asset_paths.h"
-#include "compat/native.h"
-#include "native/movie_audio.h"
-#include "surrender/SDLGPUDevice.h"
-#include "surrender/srGERD.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/surface2d.h"
+#include "wiz8/audio/movie_audio.h"
+#include "wiz8/platform/timer.h"
+#include "wiz8/render/compositor.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/render/renderer.h"
+#include "wiz8/runtime_test_hooks.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavcodec/codec.h>
 #include <libavcodec/packet.h>
 #include <libavformat/avformat.h>
-#include <libavformat/avio.h>
 #include <libavutil/avutil.h>
 #include <libavutil/channel_layout.h>
 #include <libavutil/error.h>
 #include <libavutil/frame.h>
-#include <libavutil/mem.h>
 #include <libavutil/pixfmt.h>
 #include <libavutil/rational.h>
 #include <libavutil/samplefmt.h>
@@ -38,8 +38,8 @@ extern "C" {
 #include <cerrno>
 #include <cstdio>
 #include <deque>
+#include <exception>
 #include <new>
-#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -54,25 +54,23 @@ void check(int result, const char* operation)
 }
 } // namespace
 struct W8NativeVideo::State {
-    std::unique_ptr<wiz8::File> file;
-    AVIOContext* io = nullptr;
     AVFormatContext* format = nullptr;
     AVCodecContext *video = nullptr, *audio = nullptr;
     AVPacket* packet = nullptr;
     AVFrame* decoded = nullptr;
     SwsContext* scale = nullptr;
     SwrContext* resample = nullptr;
-    std::optional<int> video_index, audio_index;
+    int video_index = -1, audio_index = -1;
     double origin = 0, frame_duration = 0, last_video_time = 0, end_time = 0;
     unsigned video_frames = 0;
     uint64_t audio_frames = 0;
     bool eof = false, started = false;
-    uint64_t began = 0; // w8_clock_us
+    uint64_t began = 0; // MonotonicMicroseconds
     std::unique_ptr<w8_native::MovieAudio> voice;
     std::deque<Frame> queued;
     Frame current{};
     std::shared_ptr<SDL_Surface> presentation_surface;
-    std::unique_ptr<stSurface2D> presentation_overlay;
+    std::unique_ptr<UiCanvasTexture> presentation_overlay;
     ~State()
     {
         voice.reset();
@@ -83,45 +81,6 @@ struct W8NativeVideo::State {
         avcodec_free_context(&audio);
         avcodec_free_context(&video);
         avformat_close_input(&format);
-        if (io) av_freep(&io->buffer); // libavformat may replace the original AVIO buffer.
-        avio_context_free(&io);
-        file.reset();
-    }
-    static int read(void* opaque, uint8_t* bytes, int size)
-    {
-        auto& source = *static_cast<State*>(opaque);
-        if (size < 0) return AVERROR(EINVAL);
-        if (!size) return 0;
-        try {
-            const auto result = source.file->read(bytes, size);
-            return result.bytes ? int(result.bytes) : result.eof ? AVERROR_EOF : AVERROR(EIO);
-        } catch (...) {
-            return AVERROR(EIO);
-        }
-    }
-    static int64_t seek(void* opaque, int64_t offset, int whence)
-    {
-        auto& source = *static_cast<State*>(opaque);
-        try {
-            if (whence & AVSEEK_SIZE) return source.file->size();
-            wiz8::SeekOrigin origin;
-            switch (whence & ~AVSEEK_FORCE) {
-            case SEEK_SET:
-                origin = wiz8::SeekOrigin::begin;
-                break;
-            case SEEK_CUR:
-                origin = wiz8::SeekOrigin::current;
-                break;
-            case SEEK_END:
-                origin = wiz8::SeekOrigin::end;
-                break;
-            default:
-                return AVERROR(EINVAL);
-            }
-            return source.file->seek(offset, origin);
-        } catch (...) {
-            return AVERROR(EIO);
-        }
     }
     AVCodecContext* codec(int index)
     {
@@ -143,37 +102,23 @@ struct W8NativeVideo::State {
     void open(const char* path)
     {
         if (!path) throw std::runtime_error("Movie path is null");
-        file = wiz8::open_file(wiz8::asset_path(path));
-        auto buffer = static_cast<unsigned char*>(av_malloc(32768));
-        if (!buffer) throw std::bad_alloc();
-        io = avio_alloc_context(buffer, 32768, 0, this, read, nullptr, seek);
-        if (!io) {
-            av_free(buffer);
-            throw std::bad_alloc();
-        }
-        format = avformat_alloc_context();
-        if (!format) throw std::bad_alloc();
-        format->pb = io;
-        format->flags |= AVFMT_FLAG_CUSTOM_IO;
-        check(avformat_open_input(&format, nullptr, nullptr, nullptr), "Movie container");
+        // FFmpeg's file protocol takes UTF-8, including on Windows.
+        const auto url = "file:" + wiz8::path_to_utf8(wiz8::asset_path(path));
+        check(avformat_open_input(&format, url.c_str(), nullptr, nullptr), "Movie container");
         check(avformat_find_stream_info(format, nullptr), "Movie streams");
-        const int found_video_index =
-            av_find_best_stream(format, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
-        check(found_video_index, "Movie video stream");
-        video_index = found_video_index;
-        codec(*video_index);
+        video_index = av_find_best_stream(format, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
+        check(video_index, "Movie video stream");
+        codec(video_index);
         if (video->width <= 0 || video->width > 640 || video->height <= 0 || video->height > 480)
             throw std::runtime_error("Movie exceeds the 640x480 presentation surface");
-        auto rate = av_guess_frame_rate(format, format->streams[*video_index], nullptr);
+        auto rate = av_guess_frame_rate(format, format->streams[video_index], nullptr);
         if (!rate.num || !rate.den) throw std::runtime_error("Movie has no frame rate");
         frame_duration = av_q2d(av_inv_q(rate));
         if (format->start_time != AV_NOPTS_VALUE)
             origin = double(format->start_time) / AV_TIME_BASE;
-        const int found_audio_index =
-            av_find_best_stream(format, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
-        if (found_audio_index >= 0) {
-            audio_index = found_audio_index;
-            codec(*audio_index);
+        audio_index = av_find_best_stream(format, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
+        if (audio_index >= 0) {
+            codec(audio_index);
             AVChannelLayout stereo = AV_CHANNEL_LAYOUT_STEREO;
             check(swr_alloc_set_opts2(&resample, &stereo, AV_SAMPLE_FMT_FLT, 44100,
                                       &audio->ch_layout, audio->sample_fmt, audio->sample_rate, 0,
@@ -202,10 +147,11 @@ struct W8NativeVideo::State {
     }
     void video_frame()
     {
-        const double time_base = av_q2d(format->streams[*video_index]->time_base);
-        double time = video_frames * frame_duration;
-        if (decoded->best_effort_timestamp != AV_NOPTS_VALUE)
-            time = decoded->best_effort_timestamp * time_base - origin;
+        double time =
+            decoded->best_effort_timestamp == AV_NOPTS_VALUE
+                ? video_frames * frame_duration
+                : decoded->best_effort_timestamp * av_q2d(format->streams[video_index]->time_base) -
+                      origin;
         Frame frame{decoded->width, decoded->height, std::max(0.0, time), frame_duration, {}};
         frame.pixels.resize(size_t(frame.width) * frame.height);
         scale =
@@ -253,9 +199,9 @@ struct W8NativeVideo::State {
                 break;
             }
             check(result, "Movie demux");
-            if (packet->stream_index == *video_index)
+            if (packet->stream_index == video_index)
                 decode(video, packet);
-            else if (audio_index && packet->stream_index == *audio_index)
+            else if (packet->stream_index == audio_index)
                 decode(audio, packet);
             av_packet_unref(packet);
             if (queued.size() > 64)
@@ -309,30 +255,65 @@ uint64_t W8NativeVideo::decoded_audio_frames() const
 
 W8NativeVideo::Result W8NativeVideo::update_now()
 {
-    const uint64_t now = w8_clock_us();
+    const uint64_t now = MonotonicMicroseconds();
     if (!state->started) state->began = now;
     return update((now - state->began) / 1e6);
 }
 
-void W8NativeVideo::present(SDL_Surface* target)
+bool W8NativeVideo::play(const char* path, SDL_Surface& surface)
 {
-    if (!g_gerd || !g_surface_node) return;
+    target = &surface;
+    WIZ8_TEST_HOOK(if (g_runtime_test_hooks.skip_movies) {
+        state = std::make_unique<State>();
+        return false;
+    })
+    try {
+        open(path);
+        return true;
+    } catch (const std::exception& failure) {
+        fprintf(stderr, "Wizardry movie: %s\n", failure.what());
+        return false;
+    }
+}
+
+bool W8NativeVideo::advance()
+{
+    try {
+        const auto result = update_now();
+        if (result == FrameReady) {
+            show();
+            WIZ8_TEST_HOOK(++g_runtime_test_hooks.movie_frames_presented;)
+        }
+        return result == Done;
+    } catch (const std::exception& failure) {
+        fprintf(stderr, "Wizardry movie: %s\n", failure.what());
+        return true;
+    }
+}
+
+/* Copy the current frame into the RGB555 target and present the target. */
+void W8NativeVideo::show()
+{
+    const auto& frame = state->current;
+    const auto* format = target ? SDL_GetPixelFormatDetails(target->format) : nullptr;
+    if (!format || !target->pixels || target->w < frame.width || target->h < frame.height ||
+        SDL_BYTESPERPIXEL(target->format) != 2 || format->Rmask != 0x7c00 ||
+        format->Gmask != 0x3e0 || format->Bmask != 0x1f ||
+        !SDL_ConvertPixels(frame.width, frame.height, SDL_PIXELFORMAT_XRGB1555, frame.pixels.data(),
+                           frame.width * 2, target->format, target->pixels, target->pitch))
+        throw std::runtime_error("Movie surface does not support RGB555 output");
+    if (!g_renderer || !g_ui_canvas) return;
     const auto& description = *target;
     if (!state->presentation_surface || state->presentation_surface.get() != target) {
         ++target->refcount;
         state->presentation_surface = std::shared_ptr<SDL_Surface>(target, SDL_DestroySurface);
         state->presentation_overlay =
-            std::make_unique<stSurface2D>(state->presentation_surface, nullptr);
+            std::make_unique<UiCanvasTexture>(state->presentation_surface);
         state->presentation_overlay->setAlphaTestEnabled(false);
     }
-    if (!description.pixels) throw std::runtime_error("Movie presentation surface has no pixels");
-    state->presentation_overlay->updateRectangle(g_gerd.get(), 0, 0, description.w, description.h);
-    if (g_gerd->beginFrame() != srGERD::ERROR_NONE)
-        throw std::runtime_error("Cannot begin movie presentation");
-    g_gerd->setClearColor(0, 0, 0, 1);
-    g_gerd->clear(SDLGPUDevice::BUFFER_COLOR | SDLGPUDevice::BUFFER_DEPTH);
-    g_gerd->matrixMode(srGERD::MATRIX_MODELVIEW);
-    g_gerd->loadIdentity();
-    state->presentation_overlay->draw(g_gerd.get());
-    g_gerd->endFrame();
+    state->presentation_overlay->updateRectangle(g_renderer.get(), 0, 0, description.w,
+                                                 description.h);
+    g_renderer->beginFrame();
+    state->presentation_overlay->draw(g_renderer.get());
+    g_renderer->endFrame();
 }

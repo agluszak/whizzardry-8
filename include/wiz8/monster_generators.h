@@ -1,49 +1,25 @@
 #pragma once
 struct W8Chunk;
 
-#include <algorithm>
+#include <chrono>
 #include <memory>
 #include <optional>
-#include <string>
 #include <vector>
 
 #include "wiz8/filesystem.h"
-#include "wiz8/layouts/encounter_tables.h"
 
-// Runtime records own their storage; the database layout stays in layouts/.
-struct W8EncounterEntry {
-    unsigned short species;
-    unsigned char rarity_class;
-    unsigned char time_condition;
-    unsigned char challenge_level;
-    W8EncounterScriptName script;
-};
-
-struct W8EncounterTableRuntime {
-    std::vector<W8EncounterEntry> entries;
-    char name[256];
-    unsigned int category;
-    unsigned char version_two_flags;
-};
-
-unsigned int InitializeEncounterTables(void);
-void UnloadEncounterTables(void);
-
-extern std::vector<W8EncounterTableRuntime> g_encounter_tables;
-extern std::vector<std::string> g_encounter_names;
-extern std::optional<int> g_encounter_tables_level;
-
+struct W8EncounterTable;
 struct W8MonsterGroup;
 struct MonGen;
 
-/* MonGen.cpp's generator registry accessors. */
-W8EncounterTableRuntime* GetEncounterTable(int index); /* 0x0048AD00 */
-std::optional<int> FindEncounterTableByName(const char* name); /* 0x0048CCA0 */
+/* The loaded encounter tables, by index and by name prefix. */
+const W8EncounterTable* GetEncounterTable(int index); /* 0x0048AD00 */
+std::optional<int> FindEncounterTableByName(const char* name);       /* 0x0048CCA0 */
 
 void SaveEncounterState(wiz8::File& handle);
 void SaveMonsterGenerators(wiz8::File& handle);
 void DestroyMonsterGenerators(void);
-struct W8World;
+struct World;
 struct W8EncounterState {
     int saved_budget = 100;
     int random_budget = 20;
@@ -54,8 +30,9 @@ struct W8EncounterState {
 };
 W8EncounterState ReadEncounterState(W8Chunk& file);
 void ReadMonsterGeneratorStates(W8Chunk& file, W8EncounterState& state);
-void StartLevelEncounters(W8World& world);
-void RunMonsterGenerators(void);
+void StartLevelEncounters(World& world);
+// Roll the generators whose intervals passed in the step's `elapsed` time.
+void RunMonsterGenerators(std::chrono::milliseconds elapsed);
 void DespawnAllActiveMonsterGroups(void);
 void ResetMonsterGeneratorTimers(void);
 void SetMonsterGeneratorDurationScale(float scale); /* 0x0048CB80 */

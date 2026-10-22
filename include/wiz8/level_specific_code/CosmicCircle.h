@@ -1,10 +1,9 @@
 #pragma once
 
-class Trigger;
+#include <memory>
 
-/* Level 4 (Cosmic Circle) setup and activation callbacks, registered by
-   InitializeLevelMasterFunctions. The always-false callback is also
-   installed on Arnika's "ARN11" trigger. */
-bool CosmicCircleReturnFalse(Trigger* pTrigger);
-bool CosmicCircleTriggerPlane1Hedra(Trigger* pTrigger);
-void CosmicCircleSetup(void);
+class LevelScript;
+struct ScriptContext;
+
+/* Level 4 (Cosmic Circle): the arena spawn and its trigger plane. */
+std::unique_ptr<LevelScript> MakeCosmicCircleScript(const ScriptContext& context);

@@ -1,0 +1,33 @@
+#pragma once
+
+/* Runtime particle selectors are four-byte domains. File emission/speed
+   selectors use the same values; ReadWorldParticles normalizes other values. */
+enum W8ParticleBoundsMode {
+    W8_PARTICLE_BOUNDS_NONE = 0,
+    W8_PARTICLE_BOUNDS_BOX = 1,
+    W8_PARTICLE_BOUNDS_SPHERE = 2
+};
+enum W8ParticleEmissionMode {
+    W8_PARTICLE_EMISSION_NONE = 0,
+    W8_PARTICLE_EMISSION_SINGLE = 1,
+    W8_PARTICLE_EMISSION_CATCH_UP = 2
+};
+enum W8ParticleDirectionMode {
+    W8_PARTICLE_DIRECTION_STATIONARY = 0,
+    W8_PARTICLE_DIRECTION_FIXED = 1,
+    W8_PARTICLE_DIRECTION_NODE_FORWARD = 2,
+    W8_PARTICLE_DIRECTION_CONE = 3,
+    W8_PARTICLE_DIRECTION_RANDOM = 4
+};
+enum W8ParticleSpeedMode {
+    W8_PARTICLE_SPEED_ZERO = 0,
+    W8_PARTICLE_SPEED_FIXED = 1,
+    W8_PARTICLE_SPEED_RANDOM = 2
+};
+enum W8ParticleFlutterMode {
+    W8_PARTICLE_FLUTTER_NONE = 0,
+    W8_PARTICLE_FLUTTER_VELOCITY_SCALED = 2
+};
+/* Zero expires by birth tick/lifetime; one follows texture playback and
+   falls back to timed expiry if no texture-frame bank exists. */
+enum W8ParticleExpiryMode { W8_PARTICLE_EXPIRY_TIMED = 0, W8_PARTICLE_EXPIRY_TEXTURE = 1 };

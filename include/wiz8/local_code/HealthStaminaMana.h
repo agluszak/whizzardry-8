@@ -1,17 +1,16 @@
 #pragma once
 
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/targeting.h"
+#include "wiz8/data/records.h"
+#include "wiz8/rules/targeting.h"
 
-class W8Monster;
+class Monster;
 struct W8Character;
 struct W8CombatSlot;
 struct W8Dice;
 struct W8MonsterInfo;
 struct W8SpellEffectResult;
 
-W8Character* FindPartyMemberWithLowestResistance4(void);
 unsigned int FindPartySlotWithLowestHitPoints(void);
 unsigned int FindPartySlotWithLowestSpellPoints(void);
 
@@ -32,7 +31,6 @@ void DrainCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, unsigned
                                     bool announce);
 void DrainPartySpellPoints(int amount, bool announce);
 int CalculateMonsterFatigueBand(int current, int maximum);
-unsigned int FatigueArmorPenalty(int fatigue_band);
 int SpellCastFatigueCost(int spell_id, int result);
 void SpendCharacterSpellPoints(int party_slot, W8SpellRealm realm, int amount);
 int MonsterActionFatigueCost(const W8MonsterInfo* monster_info);
@@ -47,7 +45,7 @@ void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announc
    skips the condition-target bookkeeping, and silences the struck reaction. */
 unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amount,
                                   struct W8TargetSource* source, bool quiet,
-                                  unsigned char in_combat, char a,
+                                  unsigned char in_combat, signed char a,
                                   W8SpellEffectResult* result_stats, bool c);
 /* The character-side counterpart - damage absorbed by the
    slot-2 enchantment first, two thirds of the rest fatigue the character, the
@@ -65,7 +63,6 @@ extern char g_poison_suffix[];
 /* How a monster answers being struck - the struck cycle, a
    possible condition knock-on, and the hostility check toward the attacker. */
 void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* attacker, bool quiet);
-void CharacterDies(int party_slot);
 void ApplyRolledHealthChangeToParty(const W8Dice* dice, W8SpellEffectResult* result, int announce);
 /* Roll the dice once for every live monster within the radius of
    a point and apply each roll as damage. */
@@ -74,10 +71,6 @@ void DamageMonstersInRadius(const glm::vec3& center, float radius, const W8Dice*
 void RestorePartyStaminaByDice(unsigned char count, unsigned char sides, short base);
 void HealPartyByDice(unsigned char count, unsigned char sides, short base);
 void RestorePartySpellPoints(int amount);
-void RecalculateCharacterHitPoints(W8Character* character);
 int SumCharacterSpellPoints(const W8Character* character);
 int SumCharacterSpellPointsLeft(const W8Character* character);
 int GetCharacterRealmSpellPoints(const W8Character* character, W8SpellRealm realm);
-void RecalculateCharacterStamina(W8Character* character);
-void RecalculateRealmSpellPoints(W8Character* character);
-int RebuildRealmSpellPointCeilings(W8Character* character);

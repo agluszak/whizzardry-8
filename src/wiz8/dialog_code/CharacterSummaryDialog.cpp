@@ -1,39 +1,37 @@
 #include "wiz8/dialog_code/CharacterSummaryDialog.h"
 
+#include <chrono>
 #include <memory>
 
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_surface.h>
 
-#include "compat/native.h"
 #include "dialog_code/DialogBase.h"
-#include "input.h"
-#include "layouts/character.h"
 #include "local_code/ControlsRect.h"
-#include "random.h"
-#include "soundman.h"
+#include "wiz8/audio/mouth_gap.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/conditions.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/mouth_gap.h"
 #include "wiz8/npc_speech.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/platform/random.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/portrait_animation.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
 #include "wiz8/ui_input.h"
 
 /* The bodies from 0x005E0320 through 0x005E0C30 form one dialog lifecycle
    cluster immediately after StatInfoDialogs.cpp.  Retail does not expose its
    original translation-unit or class spelling. */
 
-// GLOBAL: WIZ8 0x00650250
 static W8ControlsRect g_character_summary_quote_bounds[1] = {
     {121, 24, 345, 72},
 };
 
-// FUNCTION: WIZ8 0x005e0320
 W8CharacterSummaryDialog::W8CharacterSummaryDialog(W8Character* character)
     : m_voice_started(0), m_quote_text(nullptr), m_character(character), m_portrait_clock_started(0)
 {
@@ -44,16 +42,14 @@ W8CharacterSummaryDialog::W8CharacterSummaryDialog(W8Character* character)
 
     m_portrait.pose = m_portrait.target_pose =
         m_character->highest_condition >= W8_CONDITION_ASLEEP ? 2 : 1;
-    m_portrait.idle_clock = w8_get_ticks() + Random(5000) + 5000;
+    m_portrait.idle_clock = MonotonicMilliseconds() + PresentationRng().below(5000) + 5000;
 }
 
-// FUNCTION: WIZ8 0x005e0410
 W8CharacterSummaryDialog::~W8CharacterSummaryDialog()
 {
     wiz8::sound::stop(m_voice);
 }
 
-// FUNCTION: WIZ8 0x005e0600
 void W8CharacterSummaryDialog::CreateQuoteText()
 {
     const auto& offset = g_character_summary_quote_bounds[0];
@@ -64,7 +60,6 @@ void W8CharacterSummaryDialog::CreateQuoteText()
         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
 }
 
-// FUNCTION: WIZ8 0x005e07b0
 void W8CharacterSummaryDialog::Draw(SDL_Surface& target)
 {
     W8DialogBase::Draw(target);
@@ -76,7 +71,6 @@ void W8CharacterSummaryDialog::Draw(SDL_Surface& target)
                            .zero_hp = m_character->hp_current == 0});
 }
 
-// FUNCTION: WIZ8 0x005e0830
 void W8CharacterSummaryDialog::RefreshModal()
 {
     W8DialogBase::RefreshModal();
@@ -86,8 +80,6 @@ void W8CharacterSummaryDialog::RefreshModal()
                            .zero_hp = m_character->hp_current == 0});
 }
 
-// FUNCTION: WIZ8 0x005e0860
-// FUNCTION: WIZ8 0x005e0880
 bool W8CharacterSummaryDialog::HandleInputEvent(const InputEvent* input)
 {
     if (input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) {
@@ -103,18 +95,17 @@ bool W8CharacterSummaryDialog::HandleInputEvent(const InputEvent* input)
     return m_keep_open;
 }
 
-// FUNCTION: WIZ8 0x005e0920
 bool W8CharacterSummaryDialog::ProcessInput()
 {
     if (!m_portrait_clock_started) {
         m_portrait_clock_started = true;
-        m_portrait_clock = w8_get_ticks();
+        m_portrait_clock = MonotonicMilliseconds();
     }
     BeginModalInput();
-    if (!m_voice_started && m_portrait_clock + 750 < w8_get_ticks()) {
+    if (!m_voice_started && m_portrait_clock + 750 < MonotonicMilliseconds()) {
         m_voice_started = true;
         const auto path = GetCharacterVoicePath(*m_character, 0);
-        m_voice = wiz8::sound::play(path, {.volume = g_settings.voice_volume & 0xffu});
+        m_voice = wiz8::sound::play(path, {.channel = wiz8::sound::VolumeChannel::voice});
         m_mouth_gap = LoadMouthGapTrack(path);
         m_portrait.voice_remaining_ms =
             wiz8::sound::playback_time(m_voice)
@@ -125,12 +116,13 @@ bool W8CharacterSummaryDialog::ProcessInput()
                 .total_ms;
         m_portrait.frame = 7;
         m_portrait.frame_dirty = true;
-        m_portrait.frame_clock = w8_get_ticks() + 120;
+        m_portrait.frame_due = std::chrono::milliseconds(MonotonicMilliseconds() + 120);
         m_portrait.target_pose = m_character->highest_condition >= W8_CONDITION_ASLEEP ? 2 : 1;
     }
     if (m_voice_started) {
         UpdateMouthGapTrack(m_voice, m_mouth_gap);
-        AdvancePortraitSpeech(m_portrait, m_mouth_gap.mouth_open, false);
+        AdvancePortraitSpeech(m_portrait, std::chrono::milliseconds(MonotonicMilliseconds()),
+                              m_mouth_gap.mouth_open, false);
         AdvancePortraitPose(m_portrait);
         if (m_voice ? !wiz8::sound::is_playing(m_voice) : m_portrait.voice_remaining_ms == 0)
             m_keep_open = false;
@@ -167,5 +159,3 @@ bool W8CharacterSummaryDialog::ProcessInput()
     }
     return keep_open;
 }
-
-// FUNCTION: WIZ8 0x005e0c30

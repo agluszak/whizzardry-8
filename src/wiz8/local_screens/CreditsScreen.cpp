@@ -12,36 +12,39 @@
 #include <utility>
 #include <vector>
 
-#include "Font.h"
 #include "asset_paths.h"
-#include "compat/compiler.h"
-#include "compat/native.h"
-#include "input.h"
+#include "wiz8/canvas/Font.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
-#include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/platform/timer.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/unicode.h"
 
-// GLOBAL: WIZ8 0x0069C4A8
-static std::vector<W8CreditLine> g_credit_lines;
-// GLOBAL: WIZ8 0x0069C494
-static int g_credit_elapsed_steps;
-// GLOBAL: WIZ8 0x0069C498
-static bool g_credit_redraw;
-// GLOBAL: WIZ8 0x0069C49C
-static w8_ulong g_credit_started_at;
-// GLOBAL: WIZ8 0x0069C4A0
-static int g_credit_y;
-// GLOBAL: WIZ8 0x0069C4A4
-static int g_credit_line;
+namespace {
+class CreditsScreen final : public Screen {
+public:
+    bool enter(const ScreenRequest& request) override;
+    void frame() override;
+    bool leave(ScreenDeparture departure) override;
+
+private:
+    std::vector<W8CreditLine> lines_;
+    std::uint64_t elapsed_steps_ = 0;
+    bool redraw_ = false;
+    std::uint64_t started_at_ = 0;
+    int y_ = 0;
+    int line_ = 0;
+};
+} // namespace
 
 /* Read one wide line, stopping at a newline, capacity, or the end of the
    stream. Answers whether the line ended at a newline; trailing carriage
    returns are stripped. */
-// FUNCTION: WIZ8 0x004CEED0
 std::optional<std::string> ReadRetailTextLine(wiz8::File* handle)
 {
     std::vector<std::byte> bytes;
@@ -62,8 +65,7 @@ std::optional<std::string> ReadRetailTextLine(wiz8::File* handle)
     return text;
 }
 
-// FUNCTION: WIZ8 0x005bc130
-bool CreditsScreenEnter(void)
+bool CreditsScreen::enter(const ScreenRequest&)
 try {
     std::unique_ptr<wiz8::File> handle;
     std::string line;
@@ -121,30 +123,28 @@ try {
         if (handle) handle->close();
         handle.reset();
     }
-    g_credit_line = 0;
-    g_credit_lines.swap(pending);
-    g_credit_elapsed_steps = 0;
-    g_credit_y = 0x1df;
-    g_credit_started_at = w8_get_ticks();
-    g_credit_redraw = true;
-    return 1;
+    line_ = 0;
+    lines_.swap(pending);
+    elapsed_steps_ = 0;
+    y_ = 0x1df;
+    started_at_ = MonotonicMilliseconds();
+    redraw_ = true;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
 
-// FUNCTION: WIZ8 0x005bc420
-bool CreditsScreenLeave(int)
+bool CreditsScreen::leave(ScreenDeparture)
 {
-    g_credit_lines.clear();
+    lines_.clear();
     EnableCursorScene();
     if (IsCurrentMusicPlaylist("EndCredit.MPL")) {
         StopMusicPlaylist(true);
     }
-    return 1;
+    return true;
 }
 
-// FUNCTION: WIZ8 0x005bc530
-void CreditsScreenFrame(void)
+void CreditsScreen::frame()
 {
     InputEvent input;
 
@@ -153,34 +153,31 @@ void CreditsScreenFrame(void)
         input = *next_input;
         if (input.type == InputEventType::KeyDown || input.type == InputEventType::LeftButtonUp ||
             input.type == InputEventType::RightButtonUp)
-            RequestScreenTransition();
+            ReturnToPreviousScreen();
     }
 
-    int steps = (w8_get_ticks() - g_credit_started_at) / 35 - g_credit_elapsed_steps;
+    const auto steps = (MonotonicMilliseconds() - started_at_) / 35 - elapsed_steps_;
     if (steps >= 1) {
-        g_credit_elapsed_steps += steps;
-        g_credit_redraw = true;
-        W8CreditLine entry = g_credit_lines[g_credit_line];
-        g_credit_y -= steps;
-        while (g_credit_y < 0) {
-            ++g_credit_line;
-            if (g_credit_line >= static_cast<int>(g_credit_lines.size())) {
-                RequestScreenTransition();
+        elapsed_steps_ += steps;
+        redraw_ = true;
+        y_ -= wiz8::checked_integer<int>(steps);
+        while (y_ < 0) {
+            ++line_;
+            if (line_ >= static_cast<int>(lines_.size())) {
+                ReturnToPreviousScreen();
                 break;
             }
-            entry = g_credit_lines[g_credit_line];
-            g_credit_y += entry.line_height;
+            y_ += lines_[line_].line_height;
         }
     }
-    if (!g_credit_redraw) {
+    if (!redraw_) {
         return;
     }
 
     CatalogArtwork::Load(0xe9, 0).draw(GetFrameBufferSurface(), 0, 0, 0, {}, BitmapKey::Opaque);
-    int y = g_credit_y;
-    for (int index = g_credit_line; index < static_cast<int>(g_credit_lines.size()) && y <= 0x1df;
-         ++index) {
-        const W8CreditLine* entry = &g_credit_lines[index];
+    int y = y_;
+    for (int index = line_; index < static_cast<int>(lines_.size()) && y <= 0x1df; ++index) {
+        const W8CreditLine* entry = &lines_[index];
         if ((entry->flags & 4) == 0) {
             Font& font = (entry->flags & 1) ? g_options_title_font : g_options_detail_font;
             if ((entry->flags & 2) == 0) {
@@ -197,6 +194,11 @@ void CreditsScreenFrame(void)
         y += entry->line_height;
     }
     ResetTransientRenderScenes();
-    g_credit_redraw = false;
+    redraw_ = false;
     RenderFrame();
+}
+
+std::unique_ptr<Screen> CreateCreditsScreen()
+{
+    return std::make_unique<CreditsScreen>();
 }

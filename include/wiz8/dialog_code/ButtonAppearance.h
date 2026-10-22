@@ -11,7 +11,7 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "Font.h"
+#include "wiz8/canvas/Font.h"
 
 struct SpriteSheet;
 inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_OFF = "Data\\Message Box\\GENBUTN.STI";
@@ -32,7 +32,7 @@ struct ButtonAppearance {
     Font* usFont = nullptr;
     bool fMultiColor = false;
     std::int16_t sForeColor = 0;
-    std::optional<std::int16_t> sShadowColor;
+    std::int16_t sShadowColor = -1;
 };
 
 struct ButtonVisualState {
@@ -44,15 +44,12 @@ struct ButtonVisualState {
 };
 
 struct ButtonGraphics {
-    static ButtonImage Load(std::string_view filename, std::optional<std::int32_t> grayed,
-                            std::optional<std::int32_t> off_normal,
-                            std::optional<std::int32_t> off_hilite,
-                            std::optional<std::int32_t> on_normal,
-                            std::optional<std::int32_t> on_hilite);
-    static ButtonImage
-    Load(std::shared_ptr<const SpriteSheet> sprites, std::optional<std::int32_t> grayed,
-         std::optional<std::int32_t> off_normal, std::optional<std::int32_t> off_hilite,
-         std::optional<std::int32_t> on_normal, std::optional<std::int32_t> on_hilite);
+    static ButtonImage Load(std::string_view filename, std::optional<int> grayed,
+                            std::optional<int> off_normal, std::optional<int> off_hilite,
+                            std::optional<int> on_normal, std::optional<int> on_hilite);
+    static ButtonImage Load(std::shared_ptr<const SpriteSheet> sprites, std::optional<int> grayed,
+                            std::optional<int> off_normal, std::optional<int> off_hilite,
+                            std::optional<int> on_normal, std::optional<int> on_hilite);
 
     const SpriteSheet& object() const { return *sprites; }
 
@@ -60,11 +57,11 @@ private:
     std::shared_ptr<const SpriteSheet> sprites;
 
 public:
-    std::optional<std::int32_t> Grayed;
-    std::optional<std::int32_t> OffNormal;
-    std::optional<std::int32_t> OffHilite;
-    std::optional<std::int32_t> OnNormal;
-    std::optional<std::int32_t> OnHilite;
+    std::optional<int> Grayed;
+    std::optional<int> OffNormal;
+    std::optional<int> OffHilite;
+    std::optional<int> OnNormal;
+    std::optional<int> OnHilite;
     std::uint32_t MaxWidth = 0;
     std::uint32_t MaxHeight = 0;
 };

@@ -8,21 +8,20 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "Font.h"
-#include "himage.h"
-#include "image.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
+#include "wiz8/checked_integer.h"
 #include "wiz8/fonts.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/render/frame.h"
 
 /* Retail initializer 0x005D1010 copies the Controls layout constant. */
-// GLOBAL: WIZ8 0x0069c5d0
 unsigned int g_dialog_text_layout_mask = g_W8TextBufferNoWrap;
 
-// FUNCTION: WIZ8 0x005d1050
 W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view text,
                                      unsigned int prefix_palette, unsigned int text_palette,
                                      const W8ControlsRect* bounds, Font& font,
@@ -40,7 +39,7 @@ W8DialogTextEntry::W8DialogTextEntry(std::string_view prefix, std::string_view t
     SetLayoutBounds(bounds, true);
     SetLayoutMode(layout_mode);
     m_shorten_mask = shorten;
-    m_prefix_length = prefix.empty() ? 0 : prefix.size() + 2;
+    m_prefix_length = prefix.empty() ? 0 : wiz8::checked_integer<int>(prefix.size() + 2);
     m_text = prefix.empty() ? std::string(text) : fmt::format("{}: {}", prefix, text);
     UpdateLayout();
 }
@@ -65,8 +64,6 @@ int W8DialogTextEntry::DrawLine(SDL_Surface& target, std::string_view line, int 
     DrawText(target, *m_font, {x, y}, line);
     return prefix_remaining;
 }
-
-// FUNCTION: WIZ8 0x005d1170
 
 void W8DialogTextEntry::Paint(SDL_Surface& target, bool selected, bool highlighted)
 {
@@ -115,5 +112,3 @@ void W8DialogTextEntry::Paint(SDL_Surface& target, bool selected, bool highlight
     }
     m_font->setPalette(previous_palette);
 }
-
-// FUNCTION: WIZ8 0x005d14b0

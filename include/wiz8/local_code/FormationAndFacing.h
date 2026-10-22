@@ -3,14 +3,14 @@
 #include <optional>
 
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/rules/party_formation.h"
 
 struct W8MonsterInfo;
 struct W8CombatSlot;
 struct W8PartySlotRow;
-struct W8PartyFormationState;
 
 unsigned int TurnPartyTo(unsigned int degrees);
-void TurnPartyToImmediate(unsigned int degrees, char snap);
+void TurnPartyToImmediate(unsigned int degrees, signed char snap);
 /* Sync party facing/heading from the camera yaw and refresh the compass. */
 void SyncPartyFacingFromCamera(void);
 
@@ -18,8 +18,6 @@ extern const double g_facing_tolerance1;
 extern const float g_facing_tolerance0;
 
 signed char DecideFacingForPosition(int position, int target_position);
-
-void RebuildPartyStatus(W8PartyFormationState* status, const W8PartySlotRow* party_rows);
 
 /* Turn the position's formation facing toward the second position
    the way DecideFacingForPosition resolved it. */
@@ -35,18 +33,16 @@ bool PositionFacesOppositeToDecided(int target_position, int position);
 bool IsPartyLookingAwayFrom(int party_slot, W8MonsterInfo* monster_info);
 /* Whether the character can hold a formation place at all: alive
    and in better shape than the hostile conditions. */
-bool CanHoldFormationPlace(std::optional<int> party_slot);
+bool CanHoldFormationPlace(int party_slot);
 void RestoreCombatFormation(void);
 /* Give one joining party slot its formation position, scanning
    the row order for the first free one. */
 void PlaceCharacterInFormation(W8PartyFormationState* formation, int slot);
-/* Move one party position into a formation row and column,
-   updating both rows' occupant lists. */
-void SetFormationPosition(W8PartyFormationState* formation, int slot, signed char new_row,
-                          signed char new_column, bool announce, bool detach, bool update_facing);
-/* Re-place the positions left in a row after one moved out: a
-   single occupant goes to column 0, two pack toward column 2. */
-void CompactFormationRow(W8PartyFormationState* formation, unsigned char row);
+/* Move one party slot into a formation cell, or unseat it, announcing the row
+   change when asked and redrawing the live formation's displays. */
+void SetFormationPosition(W8PartyFormationState* formation, int slot,
+                          std::optional<W8FormationCell> cell, bool announce, bool detach,
+                          bool update_facing);
 
 void InitializePartyFormation(W8PartyFormationState* state);
 /* Remember the formation combat started with. */
@@ -55,8 +51,8 @@ void SaveCombatFormation(void);
    characters that can no longer hold their edited place and writing the
    result back into both formations. */
 void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationState* live);
-/* Keep one slot's seat in step with its liveness - death stashes
-   its quadrant in bOldQuadrant and unseats it, revival re-seats it there or
+/* Keep one slot's seat in step with its liveness - death remembers
+   its row as the revival row and unseats it, revival re-seats it there or
    in a fallback row. */
 void UpdateFormationSlotState(W8PartyFormationState* formation, int slot);
 /* Seat one party slot in a formation row, shuffling its occupants
@@ -77,7 +73,7 @@ int IsMonsterFacingMonster(W8MonsterInfo* first, W8MonsterInfo* second);
 /* Whether the party faces a world point. */
 bool IsPartyLookingAt(W8MonsterInfo* monster_info, glm::vec3 point);
 /* Whether the second monster looks away from the first. */
-int IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second);
+bool IsMonsterLookingAwayFrom(W8MonsterInfo* first, W8MonsterInfo* second);
 /* Whether the monster sits on the screen side the character
    faces. */
 bool IsCharacterFacingMonster(int party_slot, W8MonsterInfo* monster_info);
@@ -85,7 +81,7 @@ bool IsCharacterFacingMonster(int party_slot, W8MonsterInfo* monster_info);
 void TurnCharacterTowardMonster(int party_slot, W8MonsterInfo* monster_info);
 /* Whether the monster is on the side opposite the character's
    facing. */
-int IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot);
+bool IsMonsterBehindCharacter(W8MonsterInfo* monster_info, int party_slot);
 /* Face the character toward its committed combat slot's target;
    asserts the slot ids are not BAD_INDEX. */
 void FaceCharacterTowardCombatTarget(int party_slot, W8CombatSlot* target);

@@ -10,12 +10,12 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "Missile.h"
-#include "attack_modes.h"
-#include "layouts/character.h"
-#include "layouts/gameplay_databases.h"
 #include "retail_records.h"
+#include "wiz8/data/attack_modes.h"
+#include "wiz8/data/missile_records.h"
+#include "wiz8/data/records.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/rules/character.h"
 #include "wiz8/unicode.h"
 
 static_assert(wiz8::retail::kMonsterRecordBytes == 0x297);
@@ -119,20 +119,13 @@ static void record_contracts()
     REQUIRE(wiz8::retail::encode(decoded) == bytes);
     wiz8::retail::decode<W8Character>(std::span(bytes).first(0x185c), decoded);
     REQUIRE(std::string(decoded.name) == "é中😀");
-    // Nonzero opaque bytes after the six-unit secondary name survive both
-    // a no-op round trip and edits to identified text, including old saves.
-    for (std::size_t i = 0; i < 0x44; ++i) bytes[0x25 + i] = std::byte(1 + i * 37);
+    // The full name fills 0x19..0x69: retail accepts 39 characters, and NPC full names
+    // such as this one run that long.
+    decoded.name_part_2 = "Madras, Gadgeteer to the Stars";
+    bytes = wiz8::retail::encode(decoded);
+    REQUIRE(bytes[0x19 + 29 * 2] == std::byte{'s'});
     wiz8::retail::decode<W8Character>(bytes, decoded);
-    REQUIRE(wiz8::retail::encode(decoded) == bytes);
-    auto independent = decoded;
-    independent.name = std::string(5000, 'x');
-    REQUIRE(decoded.name == "é中😀");
-    decoded.name = "中文";
-    const auto edited = wiz8::retail::encode(decoded);
-    REQUIRE(std::equal(bytes.begin() + 0x25, bytes.begin() + 0x69, edited.begin() + 0x25));
-    wiz8::retail::decode<W8Character>(std::span(bytes).first(0x185c), decoded);
-    const auto old_saved = wiz8::retail::encode(decoded);
-    REQUIRE(std::equal(bytes.begin() + 0x25, bytes.begin() + 0x69, old_saved.begin() + 0x25));
+    REQUIRE(decoded.name_part_2 == "Madras, Gadgeteer to the Stars");
     W8SpellRuntimeRecord spell{};
     spell.display_name = "é中😀";
     spell.spell_point_cost = 17;
@@ -157,17 +150,14 @@ static void record_contracts()
     W8NpcDatabaseRecord npc{};
     npc.source_name = "商人";
     npc.character.name = "é中😀";
+    npc.character.name_part_2 = "Madras, Gadgeteer to the Stars";
     auto npc_bytes = wiz8::retail::encode(npc);
-    for (std::size_t i = 0; i < 0x44; ++i) npc_bytes[0xc4 + 0x20 + i] = std::byte(0xff - i);
     W8NpcDatabaseRecord copy{};
     wiz8::retail::decode<W8NpcDatabaseRecord>(npc_bytes, copy);
     REQUIRE(std::string(copy.source_name) == "商人");
     REQUIRE(std::string(copy.character.name) == "é中😀");
+    REQUIRE(copy.character.name_part_2 == "Madras, Gadgeteer to the Stars");
     REQUIRE(wiz8::retail::encode(copy) == npc_bytes);
-    copy.character.name_part_2 = "改名";
-    auto npc_edited = wiz8::retail::encode(copy);
-    REQUIRE(
-        std::equal(npc_bytes.begin() + 0xe4, npc_bytes.begin() + 0x128, npc_edited.begin() + 0xe4));
 }
 
 TEST_CASE("UTF-8 and host Unicode conversion", "[unicode]")

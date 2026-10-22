@@ -1,44 +1,35 @@
 #include "wiz8/local_code/npc_story_events.h"
 
 #include <cstdint>
-#include <optional>
 #include <string>
 
 #include <fmt/chrono.h> // IWYU pragma: keep - std::tm formatter specialization.
 #include <fmt/format.h>
 
-#include "compat/native.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/item_instance.h"
-#include "layouts/screen_state.h"
-#include "layouts/targeting.h"
-#include "layouts/world.h"
-#include "local_code/Gameloop.h"
 #include "local_code/MonsterManager.h"
 #include "monster_actions.h"
-#include "soundman.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/conditions.h"
+#include "wiz8/combat/combat.h"
+#include "wiz8/combat/hostility.h"
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/data/records.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/engine_code/AnimRep.hpp"
-#include "wiz8/engine_code/Camera.h"
-#include "wiz8/engine_code/Environment.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Trigger.hpp"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/entities/animation_types.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/combat_state.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_specific_code/Ascension.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/local_code/CombatHostility.h"
+#include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -48,8 +39,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/IntroScreen.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -57,12 +46,24 @@
 #include "wiz8/message_box.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/xstatus.h"
+#include "wiz8/platform/timer.h"
+#include "wiz8/rules/activity.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
+#include "wiz8/rules/party.h"
+#include "wiz8/rules/targeting.h"
+#include "wiz8/screen.h"
+#include "wiz8/script_context.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/world/camera_paths.h"
+#include "wiz8/world/environment.h"
+#include "wiz8/world/world.h"
 
 static void ResolveSedexusCapture(void);
-static void NpcScriptHenchmanArrives(W8Monster* monster);
-static void NpcScriptHenchmanDeparted(W8Monster* monster);
-static void NpcScriptSavantHackDone(W8Monster* monster);
+static void NpcScriptHenchmanArrives(Monster* monster);
+static void NpcScriptHenchmanDeparted(Monster* monster);
+static void NpcScriptSavantHackDone(Monster* monster);
 
 static W8MonsterInfo* FindMonsterByLocation(int location_id)
 {
@@ -96,72 +97,69 @@ static void RemoveNpcKindMonster(int npc_kind)
     }
     if (!monster_info->fActive) {
         RemoveMonsterNow(monster_info);
-    } else if (monster_info->p3D != 0) {
-        monster_info->p3D->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
+    } else if (monster_info->entity) {
+        monster_info->entity->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
     }
 }
 
 static void FadeOutNpcKindMonster(int npc_kind)
 {
     if (W8MonsterInfo* monster_info = FindNpcKindMonster(npc_kind)) {
-        monster_info->p3D->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
+        monster_info->entity->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
     }
 }
 
 static void SetMonsterGroupScript(int species, const char* script)
 {
     if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(species)) {
-        monster_info->p3D->SetScript(script, true);
+        monster_info->entity->SetScript(script, true);
     }
 }
 
 /* The fade-completion callback NpcScriptTurnToBook schedules: while either
    queued endgame stage is pending - and stage three still finds PHOONZANG -
    ENDGAME2's script notice runs the book sequence. */
-// FUNCTION: WIZ8 0x00526DF0
 static void NpcScriptQueueEndgame(void)
 {
-    if (g_status.endgame2_queued != 0 ||
-        (g_status.endgame3_queued != 0 && FindNpcOfKind(W8_NPC_PHOONZANG))) {
+    // A fade completion receives no context; it reads the game in progress.
+    const GameStatus& status = CurrentGame().status;
+    if (status.endgame2_queued != 0 ||
+        (status.endgame3_queued != 0 && FindNpcOfKind(W8_NPC_PHOONZANG))) {
         W8NpcState* npc = GetNpcStateByKind(W8_NPC_ENDGAME2);
         if (npc != 0) {
-            QueueNpcScriptNotice(npc, 0, std::nullopt, false, 0);
+            QueueNpcScriptNotice(npc, 0, -1, false, 0);
         }
     }
 }
 
 /* CameraPath4 swings the view to the ascension book; the endgame queue runs
    when the fade completes. */
-// FUNCTION: WIZ8 0x00526E40
 static void NpcScriptTurnToBook(void)
 {
     UpdateCameraPathStateByName(GetWorld(), "CameraPath4", 1);
     BeginScreenFade(0, 1, 1000, NpcScriptQueueEndgame, false, 0);
 }
 
-// FUNCTION: WIZ8 0x00526E70
 static void NpcScriptEndgameScreen(void)
 {
-    SetIntroVideoIndex(W8_INTRO_VIDEO_DARK_ENDING);
-    g_pending_screen_state.id = W8_SCREEN_INTRO;
+    RequestScreen({.id = W8_SCREEN_INTRO, .mode = W8_INTRO_VIDEO_DARK_ENDING});
 }
 
 /* Fact 0x1bf: raise the scripted-scene gate, drop the level's transient data
    vectors, force the single-target mode, and reopen the party-member region
    sets (7 + slot, member region 0x5a + slot) for every occupied slot. */
-// FUNCTION: WIZ8 0x00529BE0
-void BeginNpcScriptedScene(void)
+void BeginNpcScriptedScene(const ScriptContext& context)
 {
     int party_slot;
 
-    g_npc_dialogue.HoldForScene();
+    CurrentGame().npc_dialogue.HoldForScene();
     ResetLevelDataVectors();
-    gXStatus.scripted_scene = true;
-    SetTargetingMode(W8_TARGET_NEED_ALLY);
+    context.activity.scripted_scene = true;
+    context.events.push(TargetingRequested{W8_TARGET_NEED_ALLY});
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (g_status.buffers.XChar[party_slot].fOccupied) {
+        if (context.party.members[party_slot].has_value()) {
             EnableMainGamePortraitSlot(party_slot);
-            g_main_game_state->edge_targets[party_slot]->setEnabled(true);
+            MainGame()->edge_targets[party_slot]->setEnabled(true);
         }
     }
 }
@@ -172,59 +170,57 @@ void BeginNpcScriptedScene(void)
    tested for the three 0x1fd-0x1ff items (success leaves fact 0x1c1 at zero
    and fills the alternate-name display), and anything else falls back to
    facts 0x1c1 or 0x227. The party-member region sets reopen on the way out. */
-// FUNCTION: WIZ8 0x00529C40
-void EndScriptedPortraitPick(int party_slot)
+void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
 {
-    W8ItemInstance* found;
     W8Character* character;
     /* 0x00529EDC compares the slot counter as slot - 7 against 8 with a
        signed jump, so the counter is not unsigned. */
     int slot;
     bool other_gender_present;
 
-    if (!gXStatus.scripted_scene) {
+    if (!context.activity.scripted_scene) {
         return;
     }
-    if (!gXStatus.fCombatMode || gXStatus.fPartyMovementMode) {
+    if (!context.combat.has_value() || context.game.party_movement_mode) {
         ClearLevelMovementStopped();
     }
-    SetTargetingMode(W8_TARGET_NEED_NONE);
+    context.events.push(TargetingRequested{});
     for (slot = 0; slot < 8; ++slot) {
-        if (g_status.buffers.XChar[slot].fOccupied) {
+        if (context.party.members[slot].has_value()) {
             DisableMainGamePortraitSlot(slot);
-            g_main_game_state->edge_targets[slot]->setEnabled(false);
+            MainGame()->edge_targets[slot]->setEnabled(false);
         }
     }
-    g_npc_dialogue.ReleaseScene();
-    gXStatus.scripted_scene = false;
+    CurrentGame().npc_dialogue.ReleaseScene();
+    context.activity.scripted_scene = false;
     other_gender_present = false;
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_WOMAN, 0, false);
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_ALL_WOMAN, 0, false);
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 0, false);
     SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_ABLE, 0, false);
     for (slot = 0; slot < 8; ++slot) {
-        if (g_status.buffers.XChar[slot].fOccupied &&
-            g_status.buffers.Char[slot].gender != W8_GENDER_FEMALE) {
+        if (context.party.members[slot].has_value() &&
+            context.party.characters[slot].gender != W8_GENDER_FEMALE) {
             other_gender_present = true;
             break;
         }
     }
-    character = &g_status.buffers.Char[party_slot];
+    character = &context.party.characters[party_slot];
     if (character->gender == W8_GENDER_FEMALE && other_gender_present) {
         SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_WOMAN, 1, false);
         QueueCharacterEvent(character, 43, kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
         return;
     }
-    if (g_status.buffers.XChar[party_slot].npc_index == -1 &&
+    if (context.party.npcIndex(party_slot) == -1 &&
         character->highest_condition < W8_CONDITION_ASLEEP) {
-        if (FindItemOnCharacter(character, 0x1fd, &found, 0, 0) &&
-            FindItemOnCharacter(character, 0x1fe, &found, 0, 0) &&
-            FindItemOnCharacter(character, 0x1ff, &found, 0, 0)) {
+        if (FindCharacterItem(*character, ItemWithId(0x1fd), W8ItemReach::Worn) &&
+            FindCharacterItem(*character, ItemWithId(0x1fe), W8ItemReach::Worn) &&
+            FindCharacterItem(*character, ItemWithId(0x1ff), W8ItemReach::Worn)) {
             SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 0, false);
-            g_status.monster_name_buffer = fmt::format("Al-{}", character->name);
-            g_status.sedexus_party_slot = party_slot;
-            g_status.rpc_active = true;
-            g_status.infatuation_pending = true;
+            context.status.monster_name_buffer = fmt::format("Al-{}", character->name);
+            context.status.sedexus_party_slot = party_slot;
+            context.status.rpc_active = true;
+            context.status.infatuation_pending = true;
             QueueCharacterEvent(character, g_special_event2, 0, kCharacterEventFullVolume);
         } else {
             SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 1, false);
@@ -233,97 +229,80 @@ void EndScriptedPortraitPick(int party_slot)
         SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_ABLE, 1, false);
     }
     for (slot = 0; slot < 8; ++slot) {
-        if (g_status.buffers.XChar[slot].fOccupied) {
+        if (context.party.members[slot].has_value()) {
             EnableMainGamePortraitSlot(slot);
-            g_main_game_state->edge_targets[slot]->setEnabled(true);
+            MainGame()->edge_targets[slot]->setEnabled(true);
         }
     }
 }
-/* The Al-Sedexus capture scene. Capture and release are each picked up by
-   the next scripting frame that runs in a suitable environment; the capture
-   stays active, with the moaning ambience streaming, until the release. */
-struct W8SedexusScene {
-    bool capture_pending = false;
-    bool release_pending = false;
-    bool capture_active = false;
-    wiz8::sound::Playback moaning;
-};
-static W8SedexusScene g_sedexus_scene;
 
-// FUNCTION: WIZ8 0x0052A070
 bool IsSedexusCaptureActive(void)
 {
-    return g_sedexus_scene.capture_active;
+    return CurrentGame().sedexus_scene.capture_active;
 }
 
-void ResetSedexusScene(void)
+void UpdateSedexusScene(const ScriptContext& context)
 {
-    g_sedexus_scene.capture_pending = false;
-    g_sedexus_scene.release_pending = false;
-    g_sedexus_scene.capture_active = false;
-}
-
-void UpdateSedexusScene(void)
-{
-    if (!g_sedexus_scene.capture_pending && !g_sedexus_scene.release_pending) {
+    if (!context.game.sedexus_scene.capture_pending &&
+        !context.game.sedexus_scene.release_pending) {
         return;
     }
-    const W8EnvironmentLightingMode environment = g_environment_lighting_mode;
+    const W8EnvironmentLightingMode environment = EnvironmentLightingMode();
     if (environment != W8EnvironmentLightingMode::FadedOut &&
         environment != W8EnvironmentLightingMode::DayNight) {
         return;
     }
-    g_npc_dialogue.ReleaseScene();
-    if (!g_sedexus_scene.release_pending) {
-        g_sedexus_scene.moaning =
+    context.game.npc_dialogue.ReleaseScene();
+    if (!context.game.sedexus_scene.release_pending) {
+        context.game.sedexus_scene.moaning =
             wiz8::sound::stream("Data\\Sound\\Ambients\\Al_Sedexus Moaning.wav");
     } else {
         ClearMainGameTargetState();
-        int sedexus_party_slot = g_status.sedexus_party_slot;
+        int sedexus_party_slot = context.status.sedexus_party_slot;
         for (int party_slot = 0; party_slot < 8; ++party_slot) {
-            const W8PartySlotRow& row = g_status.buffers.XChar[party_slot];
-            const W8Character& character = g_status.buffers.Char[party_slot];
-            if (row.fOccupied &&
+            const W8Character& character = context.party.characters[party_slot];
+            if (context.party.members[party_slot].has_value() &&
                 (character.hp_current > 0 || character.highest_condition < W8_CONDITION_DEAD) &&
                 party_slot != sedexus_party_slot) {
-                RemoveCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, false);
-                sedexus_party_slot = g_status.sedexus_party_slot;
+                LiftCondition(context.game, party_slot, W8_CONDITION_UNCONSCIOUS, false);
+                sedexus_party_slot = context.status.sedexus_party_slot;
             }
         }
-        W8Character* character = &g_status.buffers.Char[sedexus_party_slot];
+        W8Character* character = &context.party.characters[sedexus_party_slot];
         if (character->gender == W8_GENDER_MALE) {
-            QueueCharacterEvent(character, 43, 0, kCharacterEventFullVolume);
+            context.game.speech.Queue(character, 43, 0, kCharacterEventFullVolume);
         }
-        g_sedexus_scene.capture_active = false;
-        if (g_sedexus_scene.moaning != nullptr) {
-            wiz8::sound::stop(g_sedexus_scene.moaning);
-            g_sedexus_scene.moaning = nullptr;
+        context.game.sedexus_scene.capture_active = false;
+        if (context.game.sedexus_scene.moaning != nullptr) {
+            wiz8::sound::stop(context.game.sedexus_scene.moaning);
+            context.game.sedexus_scene.moaning = nullptr;
         }
     }
-    g_sedexus_scene.capture_pending = false;
-    g_sedexus_scene.release_pending = false;
+    context.game.sedexus_scene.capture_pending = false;
+    context.game.sedexus_scene.release_pending = false;
 }
 
 /* Al-Sedexus takes her pick: the scripted scene opens, the lighting fades,
    and every still-living occupied slot other than the selected character is
    put under condition 0x11. */
-// FUNCTION: WIZ8 0x00529EF0
-void BeginSedexusCapture(void)
+void BeginSedexusCapture(const ScriptContext& context)
 {
     unsigned int party_slot;
 
-    g_npc_dialogue.HoldForScene();
+    CurrentGame().npc_dialogue.HoldForScene();
     BeginScriptedWorldAction();
-    g_sedexus_scene.capture_pending = true;
-    g_sedexus_scene.capture_active = true;
+    CurrentGame().sedexus_scene.capture_pending = true;
+    CurrentGame().sedexus_scene.capture_active = true;
     BeginWorldLightingFade(-1000.0f);
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (g_status.buffers.XChar[party_slot].fOccupied &&
-            (g_status.buffers.Char[party_slot].hp_current > 0 ||
-             g_status.buffers.Char[party_slot].highest_condition < W8_CONDITION_DEAD) &&
-            party_slot != static_cast<unsigned int>(g_status.sedexus_party_slot)) {
-            SetCharacterCondition(party_slot, W8_CONDITION_UNCONSCIOUS, W8_CONDITION_INDEFINITE, 0,
-                                  0, 0);
+        if (context.party.members[party_slot].has_value() &&
+            (context.party.characters[party_slot].hp_current > 0 ||
+             context.party.characters[party_slot].highest_condition < W8_CONDITION_DEAD) &&
+            party_slot != static_cast<unsigned int>(context.status.sedexus_party_slot)) {
+            InflictCondition(CurrentGame(), party_slot,
+                             {.condition = W8_CONDITION_UNCONSCIOUS,
+                              .duration = W8_CONDITION_INDEFINITE,
+                              .announce = false});
         }
     }
 }
@@ -331,7 +310,6 @@ void BeginSedexusCapture(void)
    released, the LezboDemonAppeared trigger variable drops, monster 0xd8 is
    spawned on np_al-adryian51 and given proximitytemplar.msf, and the two
    gate triggers fire while the lighting fades back up. */
-// FUNCTION: WIZ8 0x00529F90
 static void ResolveSedexusCapture(void)
 {
     W8MonsterGroup* group;
@@ -343,17 +321,17 @@ static void ResolveSedexusCapture(void)
     ReleaseNpcMonsterByKind(0x40);
     SetTriggerVariableByName("LezboDemonAppeared", 0);
     if (FindEntityByName("np_al-adryian51", &position, 0, 0)) {
-        group = SpawnMonsters(0xd8, 1, &position, 2, true, false, false);
-        location_id = group->MemberLocationId(0).value();
+        group = SpawnMonsters(0xd8, 1, &position, 2, true, false);
+        location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             info = FindMonsterByLocation(location_id);
             if (info != 0) {
-                info->p3D->SetScript("proximitytemplar.msf", true);
+                info->entity->SetScript("proximitytemplar.msf", true);
             }
         }
     }
-    g_npc_dialogue.HoldForScene();
-    g_sedexus_scene.release_pending = true;
+    CurrentGame().npc_dialogue.HoldForScene();
+    CurrentGame().sedexus_scene.release_pending = true;
     BeginWorldLightingFade(1000.0f);
     RunNamedTrigger("al-seduxusgate", -1);
     RunNamedTrigger("templargate14", -1);
@@ -362,22 +340,21 @@ static void ResolveSedexusCapture(void)
    waypoint and its first member's bound NPC gets the script notice; the
    callback monster itself is parked at the origin with its position flagged
    dirty either way. */
-// FUNCTION: WIZ8 0x0052A080
-static void NpcScriptHenchmanArrives(W8Monster* monster)
+static void NpcScriptHenchmanArrives(Monster* monster)
 {
     glm::vec3 position;
     glm::vec3 origin;
 
     if (FindEntityByName("NP_HENCHMEN", &position, 0, 0)) {
         PointCameraAtTarget(&position, false, true);
-        W8MonsterGroup* group = SpawnMonsters(0xdc, 1, &position, 2, true, false, false);
-        int location_id = group->MemberLocationId(0).value();
+        W8MonsterGroup* group = SpawnMonsters(0xdc, 1, &position, 2, true, false);
+        int location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
             if (monster_info != 0) {
                 W8NpcState* npc = GetNpcStateForMonsterInfo(monster_info, false);
                 if (npc != 0) {
-                    QueueNpcScriptNotice(npc, 0, std::nullopt, false, 0);
+                    QueueNpcScriptNotice(npc, 0, -1, false, 0);
                 }
             }
         }
@@ -389,8 +366,7 @@ static void NpcScriptHenchmanArrives(W8Monster* monster)
 
 /* Cycle-0x12 departure callback: park the monster at the origin and flag its
    position dirty. */
-// FUNCTION: WIZ8 0x0052A150
-static void NpcScriptHenchmanDeparted(W8Monster* monster)
+static void NpcScriptHenchmanDeparted(Monster* monster)
 {
     glm::vec3 origin;
 
@@ -401,13 +377,13 @@ static void NpcScriptHenchmanDeparted(W8Monster* monster)
 
 /* Cycle-0x19 completion callback: stamping savant_hack_tick lets
    UpdateNpcEvents retire NPC group 0x1b3 fifty ticks later. */
-// FUNCTION: WIZ8 0x0052A190
-static void NpcScriptSavantHackDone(W8Monster* monster)
+static void NpcScriptSavantHackDone(Monster* monster)
 {
-    g_status.savant_hack_tick = int(uint32_t(w8_get_ticks()));
+    // A cycle callback receives no context; it stamps the game in progress.
+    CurrentGame().status.savant_hack_tick = int(uint32_t(MonotonicMilliseconds()));
 }
 
-void RunNpcStoryAction(W8NpcStoryAction action)
+void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
 {
     W8NpcState* npc;
 
@@ -422,7 +398,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
     case W8NpcStoryAction::phoonzang_notice:
         npc = GetNpcStateByKind(0x87);
         if (npc != 0) {
-            QueueNpcScriptNotice(npc, 0, std::nullopt, false, 0);
+            QueueNpcScriptNotice(npc, 0, -1, false, 0);
         }
         break;
     case W8NpcStoryAction::move_gari: {
@@ -445,13 +421,13 @@ void RunNpcStoryAction(W8NpcStoryAction action)
         break;
     }
     case W8NpcStoryAction::spawn_alfie_chaos:
-        SpawnAlfieChaos(0);
+        SpawnAlfieChaos(context.party);
         break;
     case W8NpcStoryAction::spawn_alfie_life:
-        SpawnAlfieLife(0);
+        SpawnAlfieLife();
         break;
     case W8NpcStoryAction::spawn_alfie_know:
-        SpawnAlfieKnow(0);
+        SpawnAlfieKnow();
         break;
     case W8NpcStoryAction::remove_aletheides_ad: {
         EndNpcDialogueSession(false);
@@ -487,15 +463,15 @@ void RunNpcStoryAction(W8NpcStoryAction action)
         unsigned int eligible = 0;
         int party_slot;
         for (party_slot = 2; party_slot < 8; ++party_slot) {
-            if (g_status.buffers.XChar[party_slot].fOccupied &&
-                g_status.buffers.Char[party_slot].highest_condition < W8_CONDITION_ASLEEP) {
+            if (context.party.members[party_slot].has_value() &&
+                context.party.characters[party_slot].highest_condition < W8_CONDITION_ASLEEP) {
                 ++eligible;
             }
         }
         if (eligible > 1) {
             for (party_slot = 0; party_slot < 8; ++party_slot) {
-                W8Character* character = &g_status.buffers.Char[party_slot];
-                if (g_status.buffers.XChar[party_slot].fOccupied &&
+                W8Character* character = &context.party.characters[party_slot];
+                if (context.party.members[party_slot].has_value() &&
                     character->iRace == W8_RACE_MOOK &&
                     character->highest_condition < W8_CONDITION_ASLEEP) {
                     QueueCharacterEvent(character, 51, kCharacterEventNoNpcDefer,
@@ -514,7 +490,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0xdc)) {
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL,
                               W8_ANIMATION_PLAY_ONCE);
-            monster_info->p3D->SetCycleCallback(0x12, NpcScriptHenchmanDeparted);
+            monster_info->entity->SetCycleCallback(0x12, NpcScriptHenchmanDeparted);
         }
         ClearMainGameTargetState();
         break;
@@ -522,7 +498,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
     case W8NpcStoryAction::prince_disappears: {
         EndNpcDialogueSession(false);
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0x1ab)) {
-            monster_info->p3D->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
+            monster_info->entity->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
         if (W8MonsterGroup* group = FindFirstMonsterByID(0x15d)) {
             SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
@@ -532,7 +508,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
     case W8NpcStoryAction::prince_not_home: {
         EndNpcDialogueSession(false);
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0x1aa)) {
-            monster_info->p3D->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
+            monster_info->entity->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
         break;
     }
@@ -555,7 +531,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
         W8MonsterInfo* monster_info = FindNpcKindMonster(0xc);
         glm::vec3 position;
         if (monster_info != 0 && FindEntityByName("NP_Balbrakhome", &position, 0, 0)) {
-            monster_info->p3D->SetPosition(&position);
+            monster_info->entity->SetPosition(&position);
         }
         break;
     }
@@ -563,7 +539,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
         EndNpcDialogueSession(false);
         BeginScriptedWorldAction();
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0x112)) {
-            monster_info->p3D->SetCycleCallback(0x12, NpcScriptHenchmanArrives);
+            monster_info->entity->SetCycleCallback(0x12, NpcScriptHenchmanArrives);
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL,
                               W8_ANIMATION_PLAY_ONCE);
         }
@@ -598,15 +574,15 @@ void RunNpcStoryAction(W8NpcStoryAction action)
     case W8NpcStoryAction::savant_appears: {
         glm::vec3 position;
         if (FindEntityByName("NP_DS1", &position, 0, 0)) {
-            W8MonsterGroup* group = SpawnMonsters(0x234, 1, &position, 0, true, false, false);
-            int location_id = group->MemberLocationId(0).value();
+            W8MonsterGroup* group = SpawnMonsters(0x234, 1, &position, 0, true, false);
+            int location_id = group->MemberLocationId(0);
             if (location_id != 0) {
                 W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
-                MonsterForwardReferencePosition(monster_info->p3D, 0);
+                monster_info->entity->ForwardReferencePosition(0);
             }
             npc = GetNpcStateByKind(0x84);
             if (npc != 0) {
-                QueueNpcScriptNotice(npc, 0, std::nullopt, false, 0);
+                QueueNpcScriptNotice(npc, 0, -1, false, 0);
             }
         }
         break;
@@ -619,8 +595,8 @@ void RunNpcStoryAction(W8NpcStoryAction action)
         glm::vec3 position;
         if (FindEntityByName("NP_PHOONZANGLEE", &position, 0, 0) &&
             (monster_info = FindMonsterGroupLeader(0x197)) != 0) {
-            monster_info->p3D->SetPosition(&position);
-            MonsterForwardReferencePosition(monster_info->p3D, 0);
+            monster_info->entity->SetPosition(&position);
+            monster_info->entity->ForwardReferencePosition(0);
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL,
                               W8_ANIMATION_PLAY_ONCE);
         }
@@ -638,12 +614,12 @@ void RunNpcStoryAction(W8NpcStoryAction action)
             }
             glm::vec3 position;
             if (FindEntityByName("NP_VI1", &position, 0, 0)) {
-                W8MonsterGroup* group = SpawnMonsters(0x1b9, 1, &position, 2, true, false, false);
-                int location_id = group->MemberLocationId(0).value();
+                W8MonsterGroup* group = SpawnMonsters(0x1b9, 1, &position, 2, true, false);
+                int location_id = group->MemberLocationId(0);
                 if (location_id != 0) {
                     W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
                     if (FindEntityByName("NP_DS1", &position, 0, 0)) {
-                        monster_info->p3D->AimAtPosition(&position);
+                        monster_info->entity->nav.AimAtPosition(&position);
                     }
                 }
             }
@@ -658,7 +634,7 @@ void RunNpcStoryAction(W8NpcStoryAction action)
     case W8NpcStoryAction::savant_hack: {
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0x1b6)) {
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_SPELL, W8_ANIMATION_PLAY_ONCE);
-            monster_info->p3D->SetCycleCallback(0x19, NpcScriptSavantHackDone);
+            monster_info->entity->SetCycleCallback(0x19, NpcScriptSavantHackDone);
         }
         break;
     }

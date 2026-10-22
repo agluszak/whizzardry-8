@@ -8,36 +8,30 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "Video2.h"
 #include "local_code/ControlsRect.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
 /* Reconstructed logical owner; original translation-unit identity is unproven.
    Live query: 0x005E0C40 sits in the gap after StatInfoDialogs.cpp (upper
-   0x005E0180) and before 3D Code\PList.cpp (lower 0x005E22C0). It is not
-   stListBox.cpp. */
+   0x005E0180) and before 3D Code\PList.cpp (lower 0x005E22C0). */
 
-// FUNCTION: WIZ8 0x005e0ca0
 W8DialogScrollBar::W8DialogScrollBar(UiLayer& layer, Resources resources)
     : m_up_button(layer), m_down_button(layer), m_thumb_button(layer), m_track_button(layer)
 {
     const bool configured =
-        // FUNCTION: WIZ8 0x005e1280
         m_up_button.Configure(ButtonGraphics::Load(resources.arrows_path, 3, 0, 1, 2, 2),
                               {.on_click = [this](W8ButtonWidget*) { ScrollUp(); },
                                .priority = UI_PRIORITY_HIGHEST - 1}) &&
-        // FUNCTION: WIZ8 0x005e1320
         m_down_button.Configure(ButtonGraphics::Load(resources.arrows_path, 11, 8, 9, 10, 10),
                                 {.on_click = [this](W8ButtonWidget*) { ScrollDown(); },
                                  .priority = UI_PRIORITY_HIGHEST - 1}) &&
         m_thumb_button.Configure(ButtonGraphics::Load(resources.arrows_path, 7, 4, 5, 6, 6),
                                  {.priority = UI_PRIORITY_HIGHEST - 2}) &&
-        // FUNCTION: WIZ8 0x005e13d0
         m_track_button.Configure(
             ButtonGraphics::Load(resources.track_path, std::nullopt, resources.track_frame,
                                  std::nullopt, resources.track_frame, std::nullopt),
@@ -53,7 +47,6 @@ W8DialogScrollBar::W8DialogScrollBar(UiLayer& layer, Resources resources)
     m_visible = false;
 }
 
-// FUNCTION: WIZ8 0x005e0eb0
 void W8DialogScrollBar::SetLayout(int x, int y, int entry_count, int first_visible_entry,
                                   int entry_height, int view_height)
 {
@@ -84,7 +77,6 @@ void W8DialogScrollBar::SetLayout(int x, int y, int entry_count, int first_visib
     }
 }
 
-// FUNCTION: WIZ8 0x005e1000
 void W8DialogScrollBar::UpdateThumb()
 {
     {
@@ -101,7 +93,6 @@ void W8DialogScrollBar::UpdateThumb()
     }
 }
 
-// FUNCTION: WIZ8 0x005e10b0
 void W8DialogScrollBar::Draw(SDL_Surface& target)
 {
     if (!m_visible) return;
@@ -139,7 +130,6 @@ void W8DialogScrollBar::ScrollBy(int delta)
     }
 }
 
-// FUNCTION: WIZ8 0x005e1170
 void W8DialogScrollBar::ScrollUp()
 {
     if (m_first_visible_entry != 0) {
@@ -151,7 +141,6 @@ void W8DialogScrollBar::ScrollUp()
     }
 }
 
-// FUNCTION: WIZ8 0x005e11a0
 void W8DialogScrollBar::ScrollDown()
 {
     int visible_entries = m_view_height / m_entry_height;
@@ -165,7 +154,6 @@ void W8DialogScrollBar::ScrollDown()
     }
 }
 
-// FUNCTION: WIZ8 0x005e11e0
 void W8DialogScrollBar::ScrollToMouse(int mouse_y)
 {
     if (m_view_height / m_entry_height < m_entry_count && m_entry_count != -1 &&
@@ -181,5 +169,3 @@ void W8DialogScrollBar::ScrollToMouse(int mouse_y)
         UpdateThumb();
     }
 }
-
-// FUNCTION: WIZ8 0x005e0c40

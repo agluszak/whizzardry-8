@@ -1,15 +1,13 @@
-#include "Font.h"
+#include "wiz8/canvas/Font.h"
 #pragma once
 
-#include <optional>
 #include <string_view>
 
-#include "compat/compiler.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/data/records.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogScrollBar.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/layouts/gameplay_databases.h"
 #include "wiz8/local_code/ButtonWidget.h"
 
 enum { W8_DIALOG_ATTRIBUTE_COUNT = 7 };
@@ -34,10 +32,9 @@ extern W8ProfRaceInfoRow g_race_info_rows[W8_RACE_COUNT];
 /* Shared shell of the profession and race information dialogs: the base fixes
    the popup frame and the derived dialogs fill the string ids, the attribute
    minimums and the header icon. */
-// VTABLE: WIZ8 0x005efbc0
 class W8ProfRaceInfoDialogBase : public W8DialogBase {
 public:
-    W8ProfRaceInfoDialogBase();
+    explicit W8ProfRaceInfoDialogBase(CatalogArtwork artwork);
     virtual void Draw(SDL_Surface& target) override;
 
 protected:
@@ -51,11 +48,11 @@ private:
                       int height, std::string_view text, Font& font);
 
 protected:
-    std::optional<CatalogArtwork> m_uiArtwork;
+    CatalogArtwork m_uiArtwork;
     unsigned int m_uiSummaryImage;
-    unsigned int m_uiNameId;    /* g_localized_strings index */
-    unsigned int m_uiHeadingId; /* g_localized_strings index */
-    unsigned int m_uiDetailId;  /* g_localized_strings index */
+    unsigned int m_uiNameId;    /* Data().strings index */
+    unsigned int m_uiHeadingId; /* Data().strings index */
+    unsigned int m_uiDetailId;  /* Data().strings index */
     int m_minimums[W8_DIALOG_ATTRIBUTE_COUNT];
     W8DialogScrollBar m_scroll_bar{InputLayer(),
                                    {"Data\\Main Interface\\main_scroll.sti",
@@ -65,7 +62,6 @@ protected:
     W8DialogTextArea m_text_area;
 };
 
-// VTABLE: WIZ8 0x005efbfc
 class W8ProfessionInfoDialog : public W8ProfRaceInfoDialogBase {
 public:
     W8ProfessionInfoDialog(W8Profession uiIndex);
@@ -76,7 +72,6 @@ private:
     W8Profession m_uiIndex;
 };
 
-// VTABLE: WIZ8 0x005efc38
 class W8RaceInfoDialog : public W8ProfRaceInfoDialogBase {
 public:
     W8RaceInfoDialog(W8Race uiIndex);

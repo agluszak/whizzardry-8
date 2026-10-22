@@ -4,66 +4,71 @@
 #include <tuple>
 #include <utility>
 
-#include "Font.h"
-#include "himage.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
-#include "wiz8/local_screens/PleaseWaitScreen.h"
+#include "wiz8/render/frame.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 
-// GLOBAL: WIZ8 0x0065beaf
 bool g_texture_cache_enabled;
 
-// GLOBAL: WIZ8 0x006835f4
 Font g_calligraphy_shadow_font;
-// GLOBAL: WIZ8 0x006835f8
 Font g_calligraphy_font;
-// GLOBAL: WIZ8 0x00683600
 Font g_engraved_font;
-// GLOBAL: WIZ8 0x00683608
 Font g_monster_damage_font;
-// GLOBAL: WIZ8 0x00683614
 Font g_options_detail_font;
-// GLOBAL: WIZ8 0x00683630
 Font g_wiz_text_mono_font;
-// GLOBAL: WIZ8 0x00683640
 Font g_wiz_text_font;
-// GLOBAL: WIZ8 0x00683644
 Font g_embossed_font;
-// GLOBAL: WIZ8 0x00683648
 Font g_font12point1;
-// GLOBAL: WIZ8 0x00683654
 Font g_wiz_dialog_font;
-// GLOBAL: WIZ8 0x00683658
 Font g_profession_font;
-// GLOBAL: WIZ8 0x00683660
 Font g_wiz_text_font_secondary;
-// GLOBAL: WIZ8 0x00683664
 Font g_wiz_text_bold_font;
-// GLOBAL: WIZ8 0x00683668
 Font g_font10arial;
-// GLOBAL: WIZ8 0x0068366C
 Font g_small_font_secondary;
-// GLOBAL: WIZ8 0x00683670
 Font g_button_font;
-// GLOBAL: WIZ8 0x00683674
 Font g_large_font;
-// GLOBAL: WIZ8 0x00683678
 Font g_small_font;
-// GLOBAL: WIZ8 0x0068368C
 Font g_options_title_font;
-// GLOBAL: WIZ8 0x00683690
 Font ghTinyMonoFont;
-// GLOBAL: WIZ8 0x00683694
 Font g_smfnt_font;
+Font g_level_load_font;
+Font g_journal_font;
 
-// GLOBAL: WIZ8 0x0068EE1C
 std::array<Palette16, 15> g_font_state_palettes;
 
-// FUNCTION: WIZ8 0x004e27a0
-unsigned char InitializeMenuFonts(void)
+namespace {
+constexpr std::array all_fonts = {
+    &g_calligraphy_shadow_font,
+    &g_calligraphy_font,
+    &g_engraved_font,
+    &g_monster_damage_font,
+    &g_options_detail_font,
+    &g_wiz_text_mono_font,
+    &g_wiz_text_font,
+    &g_embossed_font,
+    &g_font12point1,
+    &g_wiz_dialog_font,
+    &g_profession_font,
+    &g_wiz_text_font_secondary,
+    &g_wiz_text_bold_font,
+    &g_font10arial,
+    &g_small_font_secondary,
+    &g_button_font,
+    &g_large_font,
+    &g_small_font,
+    &g_options_title_font,
+    &ghTinyMonoFont,
+    &g_smfnt_font,
+    &g_level_load_font,
+    &g_journal_font,
+};
+}
+
+bool InitializeMenuFonts(void)
 {
     const std::array fonts{
         std::tuple{&g_large_font, "Data\\Fonts\\LargeFont.sti", FONT_GLOW_GREEN},
@@ -88,12 +93,14 @@ unsigned char InitializeMenuFonts(void)
         std::tuple{&g_font10arial, "Data\\Fonts\\Font10Arial.sti", std::uint32_t{0}},
         std::tuple{&g_wiz_dialog_font, "Data\\Fonts\\dialog_font.sti", FONT_GLOW_GREEN},
         std::tuple{&g_monster_damage_font, "Data\\Fonts\\monsterdamage_font.sti", std::uint32_t{0}},
-        std::tuple{&g_font12point1, "Data\\Fonts\\FONT12POINT1.sti", FONT_GLOW_GREEN}};
+        std::tuple{&g_font12point1, "Data\\Fonts\\FONT12POINT1.sti", FONT_GLOW_GREEN},
+        std::tuple{&g_level_load_font, "Data\\Level Load\\levelload_font.sti", std::uint32_t{0}},
+        std::tuple{&g_journal_font, "Data\\Journal\\journal_font.sti", std::uint32_t{0}}};
     std::array<Font, fonts.size()> loaded;
     for (size_t index = 0; index < fonts.size(); ++index) {
         const auto& [role, filename, shade] = fonts[index];
         if (!loaded[index].load(filename)) {
-            return 0;
+            return false;
         }
     }
     for (size_t index = 0; index < fonts.size(); ++index) {
@@ -102,37 +109,22 @@ unsigned char InitializeMenuFonts(void)
     }
     decltype(g_font_state_palettes) palettes;
     for (size_t index = 0; index < palettes.size(); ++index) {
-        palettes[index] = CatalogArtwork::Load(0x1e5, index).spriteSheet()->colors;
+        palettes[index] =
+            CatalogArtwork::Load(0x1e5, static_cast<int>(index)).spriteSheet()->colors;
     }
     for (size_t index = 0; index < fonts.size(); ++index)
         *std::get<0>(fonts[index]) = std::move(loaded[index]);
     g_font_state_palettes.swap(palettes);
-    return 1;
+    return true;
 }
 
 void ReleaseMenuFonts()
 {
-    g_level_load_font.clear();
-    ghTinyMonoFont.clear();
-    g_calligraphy_shadow_font.clear();
-    g_calligraphy_font.clear();
-    g_engraved_font.clear();
-    g_monster_damage_font.clear();
-    g_options_detail_font.clear();
-    g_wiz_text_mono_font.clear();
-    g_wiz_text_font.clear();
-    g_embossed_font.clear();
-    g_font12point1.clear();
-    g_wiz_dialog_font.clear();
-    g_profession_font.clear();
-    g_wiz_text_font_secondary.clear();
-    g_wiz_text_bold_font.clear();
-    g_font10arial.clear();
-    g_small_font_secondary.clear();
-    g_button_font.clear();
-    g_large_font.clear();
-    g_small_font.clear();
-    g_options_title_font.clear();
-    g_smfnt_font.clear();
+    for (Font* font : all_fonts) font->clear();
     g_font_state_palettes = {};
+}
+
+void ResetMenuFontPalettes()
+{
+    for (Font* font : all_fonts) font->resetPalette();
 }

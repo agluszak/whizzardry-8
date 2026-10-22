@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 
 #include <SDL3/SDL_endian.h>
 #include <SDL3/SDL_keycode.h>
@@ -16,33 +17,29 @@
 
 #include "camera_motion.h"
 #include "glm/ext/vector_int2.hpp"
-#include "input.h"
 #include "layouts/main_game_screen.h"
 #include "layouts/npc_dialogue.h"
-#include "layouts/screen_state.h"
-#include "layouts/targeting.h"
 #include "mgs_commands.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/chunk.h"
+#include "wiz8/combat/combat.h"
+#include "wiz8/combat/fight.h"
+#include "wiz8/combat/party_movement.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/engine_code/Cursor3d.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/entities/cursor.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
+#include "wiz8/inventory.h"
 #include "wiz8/key_bindings.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/gameplay_databases.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
-#include "wiz8/local_code/Combat.h"
-#include "wiz8/local_code/CombatPartyMovement.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Gameloop.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/Magic.h"
@@ -50,9 +47,7 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Search.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_code/Traps.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSFormation.h"
@@ -66,12 +61,20 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/npc_interaction_state.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/targeting.h"
+#include "wiz8/screen.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/version.h"
 #include "wiz8/world_cursor.h"
-#include "wiz8/xstatus.h"
 
 struct W8ItemInstance;
 
@@ -79,25 +82,16 @@ struct W8ItemInstance;
    lookup and the singleton ResetMGSKeyboardBindings installs.
    MGSKeyboard::LoadDefaults moved to Local Code\InputMapper.cpp. */
 
-// GLOBAL: WIZ8 0x0069b7e4
 MGSKeyboard g_mgs_keyboard;
 
 // Retail set 0x26, regions 180-193.
 
-// FUNCTION: WIZ8 0x0055d260
-MGSKeyBinding* MGSKeyboard::FindBinding(W8MGSCommand command)
+int MGSKeyboard::FindBinding(W8MGSCommand command) const
 {
     const auto found = std::ranges::find(m_bindings, command, &MGSKeyBinding::command);
-    return found == m_bindings.end() ? nullptr : &*found;
+    return found == m_bindings.end() ? -1 : static_cast<int>(found - m_bindings.begin());
 }
 
-const MGSKeyBinding* MGSKeyboard::FindBinding(W8MGSCommand command) const
-{
-    const auto found = std::ranges::find(m_bindings, command, &MGSKeyBinding::command);
-    return found == m_bindings.end() ? nullptr : &*found;
-}
-
-// FUNCTION: WIZ8 0x0055d2a0
 W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
 {
     if (event->type != InputEventType::KeyDown || event->key == SDLK_UNKNOWN)
@@ -108,24 +102,33 @@ W8MGSCommand MGSKeyboard::FindCommandForEvent(const InputEvent* event) const
     return W8_MGS_COMMAND_NONE;
 }
 
-// FUNCTION: WIZ8 0x0055d300
-// FUNCTION: WIZ8 0x0055d320
+MGSKeyBinding* MGSKeyboard::GetBinding(int index)
+{
+    if (index < 0 || m_bindings.empty()) {
+        return nullptr;
+    }
+    // Preserve the binding table's fallback to its first entry.
+    if (std::cmp_greater_equal(index, m_bindings.size())) {
+        return &m_bindings.front();
+    }
+    return &m_bindings[index];
+}
+
 bool MGSKeyboard::IsCommandPressed(W8MGSCommand command) const
 {
-    const auto* binding = FindBinding(command);
-    return binding && IsKeyHeld(binding->key) && binding->modifiers == GetInputState().modifiers;
+    const int index = FindBinding(command);
+    return index >= 0 && IsKeyHeld(m_bindings[index].key) &&
+           m_bindings[index].modifiers == GetInputState().modifiers;
 }
 
 /* Discard every queued input atom. MainGameScreenEnter calls this so stale
    presses do not fire against the freshly entered screen state. */
-// FUNCTION: WIZ8 0x0055D3C0
 void DrainInputEventQueue()
 {
     while (PollInputEvent()) {
     }
 }
 
-// FUNCTION: WIZ8 0x0055D3F0
 void MGSKeyboard::Clear()
 {
     m_bindings.clear();
@@ -133,9 +136,8 @@ void MGSKeyboard::Clear()
 
 void MGSKeyboard::SetBinding(MGSKeyBinding binding)
 {
-    std::erase_if(m_bindings, [&](const MGSKeyBinding& existing) {
-        return existing.command == binding.command;
-    });
+    const int index = FindBinding(binding.command);
+    if (index >= 0) m_bindings.erase(m_bindings.begin() + index);
     m_bindings.push_back(binding);
 }
 
@@ -152,7 +154,6 @@ struct RetailKeyBinding {
 static_assert(sizeof(RetailKeyBinding) == 10);
 } // namespace
 
-// FUNCTION: WIZ8 0x0055d590
 unsigned char MGSKeyboard::Load(W8Chunk& handle, bool clear)
 try {
     if (clear) Clear();
@@ -174,7 +175,6 @@ try {
     return false;
 }
 
-// FUNCTION: WIZ8 0x0055d7a0
 unsigned char MGSKeyboard::Save(wiz8::File& handle) const
 {
     const auto count = SDL_Swap32LE(static_cast<std::uint32_t>(m_bindings.size()));
@@ -190,7 +190,6 @@ unsigned char MGSKeyboard::Save(wiz8::File& handle) const
     return true;
 }
 
-// FUNCTION: WIZ8 0x00592BE0
 void ResetMGSKeyboardBindings()
 {
     g_mgs_keyboard.Clear();
@@ -198,92 +197,78 @@ void ResetMGSKeyboardBindings()
 }
 
 /* Route one non-mouse input atom: text entry, NPC dialogue and the trap text
-   box consume key presses first; the record-mode console gates on its flag;
-   everything else resolves to a bound MGS command.
+   box consume key presses first; everything else resolves to a bound MGS
+   command.
    Attribution-gap body leading the MGSKeyboard.cpp hull at 0x00591960. */
-// FUNCTION: WIZ8 0x00591890
-unsigned char HandleMainGameInputEvent(const InputEvent* input)
+bool HandleMainGameInputEvent(const InputEvent* input)
 {
     auto* text_fields = TextFieldGroup::Focused();
     if (IsTypingEvent(*input) && text_fields && text_fields->HandleInput(*input)) {
-        return 1;
+        return true;
     }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
-        gXStatus.fNpcDialogueMode) {
+        CurrentGame().activity.conversation) {
         HandleNpcDialogueKeyEvent(input);
-        return 1;
+        return true;
     }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
-        gXStatus.fTrapInteractMode && TextBoxHandleKey(input) != 0) {
-        return 1;
+        IsTrapInteractionActive() && TextBoxHandleKey(input) != 0) {
+        return true;
     }
 
-    if (IsRecordModeActive()) {
-        if (((GetInputState().modifiers & CTRL_DOWN) == 0) &&
-            HandleRecordModeKey(input, PromptRecordModeEntry) == 1) {
-            ApplyRecordModeLine();
-            return 1;
-        }
-    } else {
-        DispatchMGSCommand(g_mgs_keyboard.FindCommandForEvent(input));
-    }
-    return 1;
+    DispatchMGSCommand(g_mgs_keyboard.FindCommandForEvent(input));
+    return true;
 }
 
-// FUNCTION: WIZ8 0x00591960
 void DispatchMGSCommand(W8MGSCommand command)
 {
     switch (command) {
     case W8_MGS_COMMAND_CANCEL:
         if (IsWorldCursorVisible()) {
             ToggleWorldCursor();
-        } else if (gXStatus.fSurprisePossible) {
+        } else if (CurrentGame().surprise_possible) {
             AcknowledgeSurprise();
         } else if (gpSCSV) {
             ResetSpellCastingSelection();
-        } else if (gXStatus.fLockInteractMode) {
+        } else if (IsLockInteractionActive()) {
             EndLockInteractMode(0);
         } else if (ItemUseDraft()) {
             CloseUseItemSelection();
-        } else if (gXStatus.iTargetingMode != W8_TARGET_NEED_NONE) {
+        } else if (ScreenPointer().targeting() != W8_TARGET_NEED_NONE) {
             SetTargetingMode(W8_TARGET_NEED_NONE);
-        } else if (gXStatus.fReviewCharacterMode) {
+        } else if (FormationPanelOpen()) {
             CloseFormationPanel();
         } else if (IsNpcScriptSessionActive()) {
             TryFinishNpcVoicePlayback(true);
-        } else if (gXStatus.character_event_queue->HasActiveEvents()) {
-            gXStatus.character_event_queue->CompleteFirstActiveEvent();
+        } else if (CurrentGame().speech.HasActiveEvents()) {
+            CurrentGame().speech.CompleteFirstActiveEvent();
         } else {
-            if (gXStatus.fCombatMode) {
+            if (CurrentGame().combat.has_value()) {
                 ToggleCombatMode();
-                if (!gXStatus.fCombatMode) {
+                if (!CurrentGame().combat.has_value()) {
                     InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba);
                     return;
                 }
             }
-            ShowMainGameNoticeLine(g_localized_strings[0x779], OnLeaveGameConfirmClosed, true,
-                                   true);
+            ShowMainGameNoticeLine(Data().strings[0x779], OnLeaveGameConfirmClosed, true, true);
         }
         InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba);
         break;
     case W8_MGS_COMMAND_QUIT_GAME:
-        ShowMainGameNoticeLine(g_localized_strings[0x832], OnQuitGameDialogClosed, true, true);
+        ShowMainGameNoticeLine(Data().strings[0x832], OnQuitGameDialogClosed, true, true);
         break;
     case W8_MGS_COMMAND_TOGGLE_FULLSCREEN:
         ResetTransientRenderScenes();
-        SetRendererModePair();
         VideoFullScreen(g_fullscreen == 0);
         break;
     case W8_MGS_COMMAND_LOAD_OPTIONS:
         if (IsScreenInputBlocked() == 0 && CanInterruptLevelMovement()) {
-            g_pending_screen_state.mode = W8_OPTIONS_LOAD;
-            g_pending_screen_state.id = W8_SCREEN_OPTIONS;
+            RequestScreen({.id = W8_SCREEN_OPTIONS, .mode = W8_OPTIONS_LOAD});
         }
         break;
     case W8_MGS_COMMAND_SAVE_OPTIONS:
         if (IsScreenInputBlocked() == 0 && CanInterruptLevelMovement()) {
-            g_pending_screen_state.mode = W8_OPTIONS_SAVE;
-            g_pending_screen_state.id = W8_SCREEN_OPTIONS;
+            RequestScreen({.id = W8_SCREEN_OPTIONS, .mode = W8_OPTIONS_SAVE});
         }
         break;
     case W8_MGS_COMMAND_COMBAT_DELAY_UP: {
@@ -296,10 +281,10 @@ void DispatchMGSCommand(W8MGSCommand command)
             }
             g_settings.combat_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} {:d}", g_localized_strings[0x7ba], 0x14 - delay / 0xfa));
+                       fmt::format("{} {:d}", Data().strings[0x7ba], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} ({:d})", g_localized_strings[0x7bb], 0x14 - delay / 0xfa));
+                       fmt::format("{} ({:d})", Data().strings[0x7bb], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -313,10 +298,10 @@ void DispatchMGSCommand(W8MGSCommand command)
             }
             g_settings.combat_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} {:d}", g_localized_strings[0x7ba], 0x14 - delay / 0xfa));
+                       fmt::format("{} {:d}", Data().strings[0x7ba], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} ({:d})", g_localized_strings[0x7bc], 0x14 - delay / 0xfa));
+                       fmt::format("{} ({:d})", Data().strings[0x7bc], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -330,10 +315,10 @@ void DispatchMGSCommand(W8MGSCommand command)
             }
             g_settings.text_display_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} {:d}", g_localized_strings[0x7b7], 0x14 - delay / 0xfa));
+                       fmt::format("{} {:d}", Data().strings[0x7b7], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} ({:d})", g_localized_strings[0x7b8], 0x14 - delay / 0xfa));
+                       fmt::format("{} ({:d})", Data().strings[0x7b8], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -347,10 +332,10 @@ void DispatchMGSCommand(W8MGSCommand command)
             }
             g_settings.text_display_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} {:d}", g_localized_strings[0x7b7], 0x14 - delay / 0xfa));
+                       fmt::format("{} {:d}", Data().strings[0x7b7], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} ({:d})", g_localized_strings[0x7b9], 0x14 - delay / 0xfa));
+                       fmt::format("{} ({:d})", Data().strings[0x7b9], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -371,7 +356,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         ToggleMainGamePause();
         break;
     case W8_MGS_COMMAND_NEXT_LAYOUT:
-        if (gXStatus.fNpcDialogueMode || gXStatus.fCampMode) {
+        if (CurrentGame().activity.conversation || CurrentGame().activity.conversation_aside) {
             break;
         }
         if (IsScreenInputBlocked() != 0) {
@@ -393,10 +378,12 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         break;
     case W8_MGS_COMMAND_OPTIONS:
-        if (gXStatus.fNpcDialogueMode ||
-            (gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue) ||
-            gXStatus.fLockInteractMode || gXStatus.fTrapInteractMode || gXStatus.fCampMode ||
-            LockInteractionSuspended() || TrapInteractionSuspended()) {
+        if (CurrentGame().activity.conversation ||
+            (CurrentGame().activity.conversation &&
+             CurrentGame().npc_interaction.scripted_dialogue) ||
+            IsLockInteractionActive() || IsTrapInteractionActive() ||
+            CurrentGame().activity.conversation_aside || LockInteractionSuspended() ||
+            TrapInteractionSuspended()) {
             break;
         }
         if (!CanInterruptLevelMovement()) {
@@ -408,13 +395,15 @@ void DispatchMGSCommand(W8MGSCommand command)
         TryMGSActionKey(W8_MGS_ACTION_JOURNAL);
         break;
     case W8_MGS_COMMAND_INVENTORY:
-        if ((gXStatus.fNpcDialogueMode && g_npc_interaction_state->scripted_dialogue) ||
-            gXStatus.fCampMode || g_status.selected_character == -1 ||
-            (gXStatus.fNpcDialogueMode &&
-             g_npc_interaction_state->dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT)) {
+        if ((CurrentGame().activity.conversation &&
+             CurrentGame().npc_interaction.scripted_dialogue) ||
+            CurrentGame().activity.conversation_aside ||
+            CurrentGame().status.selected_character == -1 ||
+            (CurrentGame().activity.conversation &&
+             CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT)) {
             break;
         }
-        OpenCharacterScreenForPartySlot(g_status.selected_character, false);
+        OpenCharacterScreenForPartySlot(CurrentGame().status.selected_character, false);
         break;
     case W8_MGS_COMMAND_USE_ITEM:
         TryMGSActionKey(W8_MGS_ACTION_USE_ITEM_VIEW);
@@ -445,24 +434,20 @@ void DispatchMGSCommand(W8MGSCommand command)
         if (IsScreenInputBlocked() != 0 || !CanInterruptLevelMovement()) {
             break;
         }
-        if (g_status.iron_man && !g_dev_mode) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x82c]);
+        if (CurrentGame().status.iron_man) {
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x82c]);
             break;
         }
-        if (gXStatus.fCombatMode) {
-            if (g_dev_mode) {
-                EndCombat(false);
-            } else {
-                ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x774]);
-                break;
-            }
+        if (CurrentGame().combat.has_value()) {
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x774]);
+            break;
         }
         const auto slot_name = SelectQuickSaveSlotForWrite();
         if (slot_name && SaveGame(*slot_name, nullptr)) {
             g_options_last_save_name = (*slot_name);
-            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x6f5]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x6f5]);
         } else {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x6f6]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x6f6]);
         }
         break;
     }
@@ -470,35 +455,37 @@ void DispatchMGSCommand(W8MGSCommand command)
         if (IsScreenInputBlocked() != 0) {
             break;
         }
-        if (g_status.iron_man && !g_dev_mode) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x82c]);
+        if (CurrentGame().status.iron_man) {
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x82c]);
             break;
         }
         if (const auto slot_name = FindStartupQuickSave()) {
             g_options_last_save_name = (*slot_name);
             ClearHeldItemDisplay();
-            g_pending_screen_state.mode = W8_PLEASE_WAIT_LOAD_GAME;
-            g_pending_screen_state.name = *slot_name;
-            g_pending_screen_state.parameter = GetSaveGameLevel(g_pending_screen_state.name);
+            ScreenRequest request;
+            request.mode = W8_PLEASE_WAIT_LOAD_GAME;
+            request.name = *slot_name;
+            request.parameter = GetSaveGameLevel(request.name);
             CloseMainGameOverlays();
             SetMainGameMode(W8_MAIN_GAME_DEFAULT);
-            g_pending_screen_state.id = W8_SCREEN_PLEASE_WAIT;
+            request.id = W8_SCREEN_PLEASE_WAIT;
+            RequestScreen(std::move(request));
         } else {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, g_localized_strings[0x786]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x786]);
         }
         break;
     }
     case W8_MGS_COMMAND_RADAR_ZOOM:
-        if (g_level_block->radar_map_visible != 0) {
-            ToggleRadarMapZoom();
+        if (MainGame()->radar_map) {
+            MainGame()->radar_map->toggleZoom();
         }
         break;
     case W8_MGS_COMMAND_REPLAY_QUOTE:
         RequeueSelectedPortraitEvent();
         break;
     case W8_MGS_COMMAND_SWAP_WEAPONS:
-        if (IsScreenInputBlocked() == 0 && g_status.selected_character != -1) {
-            BindCharacterItems(g_status.selected_character, true);
+        if (IsScreenInputBlocked() == 0 && CurrentGame().status.selected_character != -1) {
+            BindCharacterItems(CurrentGame(), CurrentGame().status.selected_character, true);
         }
         break;
     case W8_MGS_COMMAND_SWAP_ALL_WEAPONS:
@@ -515,21 +502,21 @@ void DispatchMGSCommand(W8MGSCommand command)
     case W8_MGS_COMMAND_SELECT_PC_5:
     case W8_MGS_COMMAND_SELECT_PC_6: {
         int slot = command - W8_MGS_COMMAND_SELECT_RECRUITED_1;
-        if (!g_status.buffers.XChar[slot].fOccupied) {
+        if (!CurrentGame().party.members[slot].has_value()) {
             break;
         }
-        if (g_status.selected_character != slot) {
+        if (CurrentGame().status.selected_character != slot) {
             SelectPartyCharacter(slot);
             break;
         }
         if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
             break;
         }
-        if (g_level_block->portrait_refresh_pending[slot] != 0) {
+        if (MainGameHud()->portrait_refresh_pending[slot] != 0) {
             ClearPortraitRefreshSlot(slot);
         } else {
             RefreshSelectedPartyPortrait(slot);
-            gXStatus.monster_manager_entries[slot].portrait_refresh_pinned = true;
+            CurrentGame().monster_manager_entries[slot].portrait_refresh_pinned = true;
         }
         break;
     }
@@ -547,16 +534,16 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_TEXTBOX_CLEAR:
         if (!gpSCSV && !ItemUseDraft()) {
-            ResetEditorStatusLine(std::nullopt);
+            ResetEditorStatusLine(-1);
         }
         break;
     case W8_MGS_COMMAND_START_COMBAT_ROUND:
-        if (!gXStatus.fCombatMode || gpSCSV || ItemUseDraft()) {
+        if (!CurrentGame().combat.has_value() || gpSCSV || ItemUseDraft()) {
             break;
         }
-        if (g_combat_state->execution_active == 0) {
+        if (CurrentGame().combat->execution_active == 0) {
             BeginCombatExecution();
-        } else if (gXStatus.fPartyMovementUi && !CanPartyMove() && !IsLevelMovementStopped()) {
+        } else if (PartyMovementPanelShown() && !CanPartyMove() && !IsLevelMovementStopped()) {
             BeginFreeTurnPhase();
         }
         break;
@@ -566,8 +553,8 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         break;
     case W8_MGS_COMMAND_CYCLE_TARGET:
-        if (g_status.selected_character != -1) {
-            CycleToNextTarget(g_status.selected_character);
+        if (CurrentGame().status.selected_character != -1) {
+            CycleToNextTarget(CurrentGame().status.selected_character);
         }
         break;
     case W8_MGS_COMMAND_ATTACK:
@@ -604,7 +591,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         TryMGSActionKey(W8_MGS_ACTION_REPEAT);
         break;
     case W8_MGS_COMMAND_DEBUG_AUDIT_QUOTES:
-        AuditNpcScriptQuotes();
+        AuditNpcScriptQuotes(CurrentGame().status);
         break;
     case W8_MGS_COMMAND_DEBUG_NUMERIC_HP:
         ToggleNumericHitPoints();
@@ -620,7 +607,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         g_settings.auto_advance_character ^= 1;
         ShowNotice(
             W8_FONT_PALETTE_BEIGE,
-            g_localized_strings[g_settings.auto_advance_character != 0 ? 0x1f68 / 4 : 0x1f6c / 4]);
+            Data().strings[g_settings.auto_advance_character != 0 ? 0x1f68 / 4 : 0x1f6c / 4]);
         break;
     case W8_MGS_COMMAND_TEXTBOX_SCROLL_UP:
         ScrollTextBoxUp(1);
@@ -629,12 +616,12 @@ void DispatchMGSCommand(W8MGSCommand command)
         ScrollTextBoxDown(1);
         break;
     case W8_MGS_COMMAND_DEBUG_TOGGLE_FLAG_271:
-        g_level_block->text_box_visible ^= 1;
-        RequestRedraw(W8_MAIN_REDRAW_TEXT_BOX);
+        MainGameHud()->text_box_visible ^= 1;
+        if (auto* hud = MainGameHud()) hud->repaint.text_box = true;
         break;
     case W8_MGS_COMMAND_DEBUG_MONSTER_SCRIPT:
-        if (g_level_block->highlighted_item) {
-            FindMonster(*g_level_block->highlighted_item);
+        if (MainGameHud()->highlighted_item != -1) {
+            FindMonster(MainGameHud()->highlighted_item);
         }
         break;
     default:
@@ -642,142 +629,92 @@ void DispatchMGSCommand(W8MGSCommand command)
     }
 }
 
-// GLOBAL: WIZ8 0x0064c1cc
-glm::ivec2 g_keyboard_row_positions[13] = {
+constexpr glm::ivec2 keyboard_row_positions[13] = {
     {5, 55}, {23, 55}, {41, 55}, {59, 55}, {59, 37}, {5, 37},  {5, 19},
     {5, 1},  {23, 1},  {41, 1},  {59, 1},  {59, 19}, {32, 28},
 };
 
-namespace {
-struct KeyboardMenuRow {
-    std::optional<int> menu;
-    std::optional<int> item;
-    bool enabled = true;
-    HitTarget* target = nullptr;
-    ButtonInteraction press;
-    ButtonAppearance appearance;
-};
-struct KeyboardMenu {
-    UiLayer input{UiLayerOrder::KeyboardMenu};
-    SDL_Point origin;
-    std::array<KeyboardMenuRow, 13> rows;
-    bool dirty = true;
-};
-std::unique_ptr<KeyboardMenu> keyboard_menu;
+bool MainGameScreen::keyboardMenuForSlot(int slot) const
+{
+    return keyboard_menu && keyboard_menu->slot == slot;
 }
 
-static void KeyboardMenuSelectAttack(void);
-static void KeyboardMenuSelectBerserk(void);
-static void KeyboardMenuSelectBreathe(void);
-static void KeyboardMenuSelectPray(void);
-static void KeyboardMenuSelectTurnUndead(void);
-static void KeyboardMenuSelectDefend(void);
-static void KeyboardMenuSelectProtect(void);
-static void KeyboardMenuOpenUseItemView(void);
-static void KeyboardMenuSelectEquip(void);
-static void KeyboardMenuOpenSpellView(void);
-static void KeyboardMenuCastRecordedSpell(void);
-static void KeyboardMenuUseRecordedItem(void);
-
-// FUNCTION: WIZ8 0x00592C70
-void OpenKeyboardMenuForSlot(int slot)
+void MainGameScreen::openKeyboardMenu(int slot)
 {
-    g_selected_party_slot = slot;
     keyboard_menu.reset();
-    g_level_block->keyboard_menu_open = true;
-    SelectPartyCharacter(*g_selected_party_slot);
-    if (BuildKeyboardMenu() == 0) {
-        CloseKeyboardMenu();
-        return;
-    }
+    SelectPartyCharacter(slot);
+    keyboard_menu = std::make_unique<KeyboardActionMenu>(*this, slot);
     UpdateScreenOverlays(0);
-    gXStatus.monster_manager_entries[slot].keyboard_menu_open = true;
     DisableMainGamePortraitSlot(slot);
-
-    g_main_game_state->edge_targets[slot]->setEnabled(false);
-    g_main_game_state->combat_targets[slot]->setEnabled(false);
-    EnableKeyboardMenuInput();
-    RequestRedraw(1 << slot);
+    edge_targets[slot]->setEnabled(false);
+    combat_targets[slot]->setEnabled(false);
+    hud->repaint.portrait(slot);
 }
 
-// FUNCTION: WIZ8 0x00592E60
-void CloseKeyboardMenu(void)
+void MainGameScreen::closeKeyboardMenu()
 {
-    const int slot = *g_selected_party_slot;
-    gXStatus.monster_manager_entries[slot].keyboard_menu_open = false;
-    g_level_block->keyboard_menu_open = false;
-    g_level_block->combat_slot.reset();
-    g_level_block->hover_combat_slot = slot;
-    g_level_block->cursor_grace = 0;
+    auto menu = std::move(keyboard_menu);
+    auto& state = *hud;
+    const int slot = menu ? menu->slot : state.combat_slot;
+    state.combat_slot = -1;
+    state.hover_combat_slot = slot;
+    state.cursor_grace = 0;
     RefreshPartySlotRegions();
-    if (gXStatus.fCombatMode) {
-        g_main_game_state->combat.setEnabled(true);
-    } else {
-        g_main_game_state->combat.setEnabled(false);
+    combat.setEnabled(game.combat.has_value());
+    if (menu && !state.portrait_refresh_pending[slot]) {
+        ClearSurfaceRect(menu->origin.x, menu->origin.y, menu->origin.x + 0x52,
+                         menu->origin.y + 0x4a);
+        InvalidateRegion(menu->origin.x, menu->origin.y, menu->origin.x + 0x52,
+                         menu->origin.y + 0x4a);
     }
-    if (keyboard_menu && g_level_block->portrait_refresh_pending[slot] == 0) {
-        ClearSurfaceRect(keyboard_menu->origin.x, keyboard_menu->origin.y,
-                         keyboard_menu->origin.x + 0x52, keyboard_menu->origin.y + 0x4a);
-        InvalidateRegion(keyboard_menu->origin.x, keyboard_menu->origin.y,
-                         keyboard_menu->origin.x + 0x52, keyboard_menu->origin.y + 0x4a);
-    }
-    keyboard_menu.reset();
-    g_selected_party_slot.reset();
-    RequestRedraw(1 << slot);
+    menu.reset();
+    if (slot >= 0) state.repaint.portrait(slot);
 }
 
-static std::string KeyboardMenuTooltip(const KeyboardMenuRow& row)
+std::string KeyboardActionMenu::tooltip(const Row& row) const
 {
-    if (!row.menu || !row.item) return g_localized_strings[0x11];
-    if (*row.menu == W8_SUBMENU_SPELLS && *row.item == 1) {
-        if (!row.enabled) return g_localized_strings[0x5a];
-        const auto& spell =
-            g_spell_records[g_status.buffers.XChar[*g_selected_party_slot].spell.detail];
-        return fmt::format("{}: {} ({:d})", g_localized_strings[0x5a], spell.display_name,
-                           GetAffordableSpellPowerLevel(*g_selected_party_slot));
+    if (row.menu == -1) return Data().strings[0x11];
+    if (row.menu == W8_SUBMENU_SPELLS && row.item == 1) {
+        if (!row.enabled) return Data().strings[0x5a];
+        const auto& spell = Data().spells[screen_.game.party.rows[slot].remembered.spell.detail];
+        return fmt::format("{}: {} ({:d})", Data().strings[0x5a], spell.display_name,
+                           GetAffordableSpellPowerLevel(slot));
     }
-    if (*row.menu == W8_SUBMENU_ITEMS && *row.item == 2) {
-        if (!row.enabled) return g_localized_strings[0x5d];
-        const auto& party = g_status.buffers.XChar[*g_selected_party_slot];
-        auto* item =
-            FindCharacterItemAt(*g_selected_party_slot, party.item_origin, party.item_slot);
-        return fmt::format("{}: {}", g_localized_strings[0x5d], FormatItemDisplayName(item, false));
+    if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
+        if (!row.enabled) return Data().strings[0x5d];
+        const auto& party = screen_.game.party.rows[slot];
+        auto* item = screen_.game.party.itemAt(party.remembered.item_detail.item_use.item);
+        return fmt::format("{}: {}", Data().strings[0x5d],
+                           FormatItemDisplayName(Data(), item, false));
     }
-    return g_localized_strings[g_submenu_entry_help_ids[*row.menu * 5 + *row.item]];
+    return Data().strings[g_submenu_entry_help_ids[row.menu * 5 + row.item]];
 }
 
-unsigned char BuildKeyboardMenu(void)
+KeyboardActionMenu::KeyboardActionMenu(MainGameScreen& screen, int selected_slot)
+    : slot(selected_slot), screen_(screen)
 {
     int left, top, unused_4, unused_5, unused_6, unused_7;
-    GetPartySlotMenuAnchor(*g_selected_party_slot, &left, &top, &unused_4, &unused_5, &unused_6,
-                           &unused_7, 0);
-    keyboard_menu = std::make_unique<KeyboardMenu>();
-    keyboard_menu->origin = {left + 0x17, top};
-    static void (*const actions[4][5])() = {
-        {KeyboardMenuSelectAttack, KeyboardMenuSelectBerserk, KeyboardMenuSelectBreathe,
-         KeyboardMenuSelectTurnUndead, KeyboardMenuSelectPray},
-        {KeyboardMenuSelectDefend, KeyboardMenuSelectProtect},
-        {KeyboardMenuSelectEquip, KeyboardMenuOpenUseItemView, KeyboardMenuUseRecordedItem},
-        {KeyboardMenuOpenSpellView, KeyboardMenuCastRecordedSpell}};
+    GetPartySlotMenuAnchor(slot, &left, &top, &unused_4, &unused_5, &unused_6, &unused_7, 0);
+    origin = {left + 0x17, top};
     int index = 0;
     for (int menu = 0; menu < 4; ++menu)
         for (int item = 0; item < 5; ++item) {
             if (g_submenu_entry_message_ids[menu * 5 + item] == -1) continue;
-            keyboard_menu->rows[index].menu = menu;
-            keyboard_menu->rows[index++].item = item;
+            rows[index].menu = menu;
+            rows[index++].item = item;
         }
     for (int i = 0; i < 13; ++i) {
-        auto& row = keyboard_menu->rows[i];
-        row.target = &keyboard_menu->input.add(
-            SDL_Rect{left + 0x17 + g_keyboard_row_positions[i].x,
-                     top + g_keyboard_row_positions[i].y, 19, 19},
-            [&row](const UiPointerEvent& event) {
-                keyboard_menu->dirty = true;
+        auto& row = rows[i];
+        row.target = &input.add(
+            SDL_Rect{left + 0x17 + keyboard_row_positions[i].x, top + keyboard_row_positions[i].y,
+                     19, 19},
+            [this, &row](const UiPointerEvent& event) {
+                dirty = true;
                 const ButtonPolicy policy{.input_rule = ButtonInputRule::PrimaryPressedState};
                 if (event.action == UiPointerAction::Leave) row.press.leave(policy);
                 if (event.action == UiPointerAction::Enter &&
-                    ((row.menu && row.item && *row.menu == W8_SUBMENU_ITEMS && *row.item == 2) ||
-                     (row.menu && row.item && *row.menu == W8_SUBMENU_SPELLS && *row.item == 1)))
+                    ((row.menu == W8_SUBMENU_ITEMS && row.item == 2) ||
+                     (row.menu == W8_SUBMENU_SPELLS && row.item == 1)))
                     g_ui_help_forced = true;
                 if ((row.enabled) &&
                     (event.action != UiPointerAction::Up || event.captured_buttons))
@@ -791,50 +728,41 @@ unsigned char BuildKeyboardMenu(void)
                 if (event.action == UiPointerAction::Down) row.press.press(mask, policy);
                 if (event.action == UiPointerAction::Up && event.inside &&
                     (event.captured_buttons & mask) && row.press.release(mask, policy).activate) {
-                    auto action = event.button == UiPointerButton::Right || !row.menu || !row.item
-                                      ? CloseKeyboardMenu
-                                      : actions[*row.menu][*row.item];
-                    if (action) AfterUiDispatch(action);
+                    const int menu = event.button == UiPointerButton::Right ? -1 : row.menu;
+                    AfterUiDispatch([owner = &screen_, slot = slot, menu, item = row.item] {
+                        owner->chooseKeyboardMenuAction(slot, menu, item);
+                    });
                 }
                 return UiResult::Handled;
             });
-        row.target->setTooltip([&row] { return KeyboardMenuTooltip(row); });
+        row.target->setTooltip([this, &row] { return tooltip(row); });
     }
-    keyboard_menu->rows[12].appearance.quick_image = ButtonGraphics::Load(
+    rows[12].appearance.quick_image = ButtonGraphics::Load(
         CatalogArtwork::Load(0x89, 0).spriteSheet(), std::nullopt, 0xbd, 0xbf, 0xbd, 0xbf);
-    keyboard_menu->input.add(
-        SDL_Rect{left + 0x17, top, 0x53, 0x4b}, [](const UiPointerEvent& event) {
-            if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
-                AfterUiDispatch(CloseKeyboardMenu);
-            return UiResult::Handled;
-        });
-    RefreshKeyboardMenuRows();
-    return 1;
+    input.add(SDL_Rect{left + 0x17, top, 0x53, 0x4b}, [this](const UiPointerEvent& event) {
+        if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
+            AfterUiDispatch([owner = &screen_] { owner->closeKeyboardMenu(); });
+        return UiResult::Handled;
+    });
+    refresh();
 }
 
-void EnableKeyboardMenuInput(void)
+bool KeyboardActionMenu::containsCursor() const
 {
-    keyboard_menu->input.setEnabled(true);
-}
-
-bool KeyboardMenuContainsCursor(void)
-{
-    const auto [x, y] = keyboard_menu->origin;
+    const auto [x, y] = origin;
     return IsCursorInRectangle(x, y, x + 0x52, y + 0x4a);
 }
 
-void RefreshKeyboardMenuRows(void)
+void KeyboardActionMenu::refresh()
 {
     const auto art = CatalogArtwork::Load(0x89, 0);
-    for (auto& row : keyboard_menu->rows) {
-        if (!row.menu || !row.item) continue;
-        const int menu = *row.menu;
-        const int item = *row.item;
-        const int base = g_submenu_entry_message_ids[menu * 5 + item];
+    for (auto& row : rows) {
+        if (row.menu == -1) continue;
+        const int base = g_submenu_entry_message_ids[row.menu * 5 + row.item];
         int normal = base;
         int hover = base + 2;
         row.enabled = true;
-        switch (GetSubMenuEntryState(menu, item, *g_selected_party_slot)) {
+        switch (GetSubMenuEntryState(row.menu, row.item, slot)) {
         case W8_SUBMENU_ENTRY_USABLE:
             break;
         case W8_SUBMENU_ENTRY_USABLE_SELECTED:
@@ -853,147 +781,77 @@ void RefreshKeyboardMenuRows(void)
             break;
         }
         int offset = 0;
-        if (menu == W8_SUBMENU_SPELLS && item == 1)
-            offset =
-                g_spell_records[g_status.buffers.XChar[*g_selected_party_slot].spell.detail].realm *
-                7;
-        else if (menu == W8_SUBMENU_ATTACK && item == 0)
+        if (row.menu == W8_SUBMENU_SPELLS && row.item == 1)
+            offset = Data().spells[screen_.game.party.rows[slot].remembered.spell.detail].realm * 7;
+        else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0)
             offset = GetAttackMenuWeaponOffset(
-                         g_status.buffers.Char[*g_selected_party_slot].Hand[0].weapon_skill) *
+                         screen_.game.party.characters[slot].Hand[0].weapon_skill) *
                      7;
         row.appearance.quick_image =
             ButtonGraphics::Load(art.spriteSheet(), base + 6, normal + offset, hover + offset,
                                  normal + offset, hover + offset);
     }
-    keyboard_menu->dirty = true;
+    dirty = true;
 }
 
-void RedrawKeyboardMenuPanel(bool invalidate)
+void KeyboardActionMenu::redraw(bool invalidate)
 {
-    if (!invalidate && !keyboard_menu->dirty) return;
-    const auto [x, y] = keyboard_menu->origin;
+    if (!invalidate && !dirty) return;
+    const auto [x, y] = origin;
     auto& target = GetFrameBufferSurface();
     CatalogArtwork::Load(0xa6, 0).drawAndInvalidate(target, 0, x, y);
     for (int index = 0; index < 13; ++index) {
-        const auto& row = keyboard_menu->rows[index];
+        const auto& row = rows[index];
         DrawButtonAppearance(
             target, row.appearance,
-            {x + g_keyboard_row_positions[index].x, y + g_keyboard_row_positions[index].y, 18, 18},
+            {x + keyboard_row_positions[index].x, y + keyboard_row_positions[index].y, 18, 18},
             {.enabled = row.enabled,
              .pressed = row.press.pressed,
              .hovered = row.target->hovered(),
              .menu_artwork = true});
     }
-    keyboard_menu->dirty = false;
+    dirty = false;
 }
 
-static void ChooseKeyboardMenuAction(W8ActionKind action)
+void MainGameScreen::chooseKeyboardMenuAction(int slot, int menu, int item)
 {
-    ChooseAction(*g_selected_party_slot, action, -1, 0, false, 1);
-    RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
-    CloseKeyboardMenu();
-}
-
-// FUNCTION: WIZ8 0x00593710
-static void KeyboardMenuSelectAttack(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_ATTACK);
-}
-
-// FUNCTION: WIZ8 0x00593860
-static void KeyboardMenuSelectBerserk(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_BERSERK);
-}
-
-// FUNCTION: WIZ8 0x005939B0
-static void KeyboardMenuSelectBreathe(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_BREATHE);
-}
-
-// FUNCTION: WIZ8 0x00593B00
-static void KeyboardMenuSelectTurnUndead(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_TURN_UNDEAD);
-}
-
-// FUNCTION: WIZ8 0x00593C50
-static void KeyboardMenuSelectPray(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_PRAY);
-}
-
-// FUNCTION: WIZ8 0x00593DA0
-static void KeyboardMenuSelectDefend(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_DEFEND);
-}
-
-// FUNCTION: WIZ8 0x00593EF0
-static void KeyboardMenuSelectProtect(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_PROTECT);
-}
-
-// FUNCTION: WIZ8 0x00594040
-static void KeyboardMenuOpenSpellView(void)
-{
-    const int slot = *g_selected_party_slot;
-    CloseKeyboardMenu();
-    if (!gpSCSV) {
-        OpenSpellCastingView(slot);
+    W8ActionKind action = W8_ACTION_NONE;
+    if (menu == W8_SUBMENU_ATTACK) {
+        static constexpr std::array actions{W8_ACTION_ATTACK, W8_ACTION_BERSERK, W8_ACTION_BREATHE,
+                                            W8_ACTION_TURN_UNDEAD, W8_ACTION_PRAY};
+        action = actions[item];
+    } else if (menu == W8_SUBMENU_DEFEND) {
+        action = item == 0 ? W8_ACTION_DEFEND : W8_ACTION_PROTECT;
+    } else if (menu == W8_SUBMENU_ITEMS && item == 0) {
+        action = W8_ACTION_EQUIP;
+    }
+    if (action != W8_ACTION_NONE) {
+        ChooseAction(slot, action, -1, 0, false, 1);
+        hud->repaint.character_action = true;
+        closeKeyboardMenu();
+        return;
+    }
+    closeKeyboardMenu();
+    if (menu == W8_SUBMENU_SPELLS) {
+        if (item == 0) {
+            if (!gpSCSV) OpenSpellCastingView(slot);
+        } else if (CanPartySlotCastRecordedSpell(slot)) {
+            StartCharacterSpellCast(slot, 0);
+            hud->repaint.character_action = true;
+        }
+    } else if (menu == W8_SUBMENU_ITEMS) {
+        if (item == 1) {
+            if (!ItemUseDraft()) OpenUseItemSelectView(slot);
+        } else {
+            StartCharacterItemUse(slot);
+            hud->repaint.character_action = true;
+        }
     }
 }
 
-// FUNCTION: WIZ8 0x00594180
-static void KeyboardMenuCastRecordedSpell(void)
-{
-    const int slot = *g_selected_party_slot;
-    CloseKeyboardMenu();
-    if (CanPartySlotCastRecordedSpell(slot)) {
-        StartCharacterSpellCast(slot, 0);
-        RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
-    }
-}
-
-// FUNCTION: WIZ8 0x00594390
-static void KeyboardMenuSelectEquip(void)
-{
-
-    ChooseKeyboardMenuAction(W8_ACTION_EQUIP);
-}
-
-// FUNCTION: WIZ8 0x005944E0
-static void KeyboardMenuOpenUseItemView(void)
-{
-    const int slot = *g_selected_party_slot;
-    CloseKeyboardMenu();
-    if (!ItemUseDraft()) {
-        OpenUseItemSelectView(slot);
-    }
-}
-
-// FUNCTION: WIZ8 0x00594620
-static void KeyboardMenuUseRecordedItem(void)
-{
-    const int slot = *g_selected_party_slot;
-    CloseKeyboardMenu();
-    StartCharacterItemUse(slot);
-    RequestRedraw(W8_MAIN_REDRAW_CHARACTER_ACTION);
-}
-
-// FUNCTION: WIZ8 0x005929d0
 void HandleManualCameraHotkeys(void)
 {
-    if (g_modal_owner == 0 && !gXStatus.fNpcDialogueMode) {
+    if (g_modal_owner == 0 && !CurrentGame().activity.conversation) {
         if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_CAMERA_LOCK)) {
             BeginManualCameraControl();
         }
@@ -1001,45 +859,44 @@ void HandleManualCameraHotkeys(void)
     }
 }
 
-// FUNCTION: WIZ8 0x00592a10
 void ApplyCameraMotionHotkeys(void)
 {
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_LEFT) ||
         g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_LEFT_ALT)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_TURN_LEFT;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_TURN_LEFT;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_RIGHT) ||
         g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_RIGHT_ALT)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_TURN_RIGHT;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_TURN_RIGHT;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_FORWARD)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_FORWARD_RUN)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_FAST;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_FAST;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_BACKWARD)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_BACKWARD_RUN)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD | W8_CAMERA_MOTION_FAST;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD | W8_CAMERA_MOTION_FAST;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_LOOK_UP)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_UP;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_UP;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_LOOK_DOWN)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_DOWN;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_DOWN;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_LEFT)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_RIGHT)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_LEFT_RUN)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT | W8_CAMERA_MOTION_FAST;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT | W8_CAMERA_MOTION_FAST;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_RIGHT_RUN)) {
-        g_level_block->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT | W8_CAMERA_MOTION_FAST;
+        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT | W8_CAMERA_MOTION_FAST;
     }
 }

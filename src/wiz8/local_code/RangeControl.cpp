@@ -8,8 +8,8 @@
 
 #include "wiz8/button_interaction.h"
 #include "wiz8/cursor.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/local_code/ButtonSound.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/ui_layer.h"
 
 W8RangeControl::W8RangeControl(UiLayer& input, int left, int top, int right, int bottom)

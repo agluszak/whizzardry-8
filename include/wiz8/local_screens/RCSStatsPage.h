@@ -1,27 +1,23 @@
-#include "wiz8/ui_layer.h"
 #pragma once
 
 #include <array>
 #include <memory>
 
-#include "compat/compiler.h"
-#include "input.h"
-#include "wiz8/character_skills.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/RangeControl.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 
 /* One row of the stats page's effect list: a character condition, an
    enchantment, or the modifiers of one equipped item. */
-enum W8CampEffectKind : int {
+enum W8CampEffectKind : unsigned char {
     W8_CAMP_EFFECT_CONDITION,
     W8_CAMP_EFFECT_ENCHANTMENT,
     W8_CAMP_EFFECT_EQUIPMENT
 };
 
 struct W8CampEffectEntry {
-    bool items;          /* row lists an equipped item */
-    bool visible;        /* passes the current filter */
     bool beneficial;
     bool detrimental;
     W8CampEffectKind kind;
@@ -36,28 +32,16 @@ struct W8CampEffectEntry {
    list: button 0 selects beneficial rows, button 1 detrimental rows and
    button 2 switches the list to equipped items. */
 
+class W8CampStatsPage;
+
 class W8CampStatsControls {
+    W8CampStatsPage& page;
+
 public:
-    W8CampStatsControls();
+    explicit W8CampStatsControls(W8CampStatsPage& page);
     void Redraw(SDL_Surface& target, bool force);
     void InvalidateAll();
     void SelectFilter(int index);
     UiLayer input;
     std::array<std::unique_ptr<W8ButtonWidget>, 3> m_buttons;
 };
-
-/* Camp page-1 renderer - attributes, traits and the effect list trigger. */
-void DrawCampStatsPage(void);
-void DrawCampSkillsPage(void);
-
-/* Rebuilds the stats page's effect list from the reviewed character's
-   conditions, enchantments and equipped items, then refilters it. Called when
-   the reviewed character changes and when the stats page is entered. */
-void RebuildCampEffectList(void);
-void FilterCampEffectList(void);
-
-/* Lazily creates and enables the five per-category skill regions of camp page
-   2; DisableCampSkillRegions releases them on camp leave. */
-void CreateCampSkillRegions(void);
-void DisableCampSkillRegions(void);
-UiResult HandleCampSkillList(const UiPointerEvent& event, W8SkillCategory category);

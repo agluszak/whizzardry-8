@@ -1,10 +1,9 @@
 #pragma once
-
-#include "compat/compiler.h"
-#include "input.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/layouts/gameplay_databases.h"
-#include "wiz8/layouts/targeting.h"
+#include "wiz8/combat/combat.h"
+#include "wiz8/data/records.h"
+#include "wiz8/design_rect.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/rules/targeting.h"
 
 extern char s_general_magic_sound[];
 
@@ -17,6 +16,7 @@ void CreateLevelButtons(void);
 short GetCombatPortraitImage(W8ActionKind action, int detail, W8CombatPortraitStatus status,
                              short slot);
 void SyncPartyPortraitVitalsBars(void);
+void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled);
 void RecordCharacterDamage(int party_slot, unsigned int amount);
 /* Advance per-slot portrait FX counters on a 100ms clock and dirty redraw. */
 void TickPartyPortraitFx(void);
@@ -51,6 +51,8 @@ void EnableConditionButtons(void);
 bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int flags, unsigned int top);
 void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool overlay_ready,
                                 bool slot_enabled);
+
+DesignRect PartyPortraitBounds(unsigned int slot, int offset = 0);
 
 /* The slot's menu/portrait anchor table - the keyboard-menu
    panel's origin, the portrait band's two x edges, the grid row and the

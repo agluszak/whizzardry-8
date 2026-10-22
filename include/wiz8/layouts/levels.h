@@ -28,6 +28,8 @@ struct W8LevelProgressRow {
     int gold_collected;
     int sight_clock;
     unsigned char unknown_11[0x10];
+
+    bool operator==(const W8LevelProgressRow&) const = default;
 };
 
 // Native asset paths, relative to the game filesystem.

@@ -1,21 +1,10 @@
 #pragma once
 
-class Trigger;
+#include <memory>
 
-/* Level 6 (MartensBluff2) master function and activation callbacks,
-   registered by the case-6 block of InitializeLevelMasterFunctions. */
-void MartensBluff2Setup(void);
-bool TriggerArrowTrap(Trigger* pTrigger);
-bool MartensBluff2Spikeballtrigger(Trigger* pTrigger);
-bool MartensBluff2Spikeball(int command);
-bool MartensBluff2MonsterCrusher(int command);
-bool MartensBluff2IdolGas(int command);
-void MartensBluff2IdolGasVictim(void);
-bool MartensBluff2DoorBolt(Trigger* pTrigger);
-bool MartensBluff2DummyLever(Trigger* pTrigger);
-bool MartensBluff2Dummy(Trigger* pTrigger);
-bool MartensBluff2PerfumeBox(Trigger* pTrigger);
-bool MartensBluff2SquisherControls(Trigger* pTrigger);
-bool MartensBluff2DoorControls(Trigger* pTrigger);
-bool MartensBluff2StoneIdol(Trigger* pTrigger);
-bool MartensBluff2BlueFlowers(Trigger* pTrigger);
+class LevelScript;
+struct ScriptContext;
+
+/* Level 6 (Marten's Bluff 2): the arrow and spikeball traps, the monster
+   crusher, the raven quest and the stone idol's gas. */
+std::unique_ptr<LevelScript> MakeMartensBluff2Script(const ScriptContext& context);

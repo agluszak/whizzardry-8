@@ -8,8 +8,8 @@
 
 #include <SDL3/SDL_rect.h>
 
-#include "input.h"
 #include "wiz8/character_skills.h"
+#include "wiz8/platform/input.h"
 
 /* Local Screens\MGSButtons.cpp. The combat sub-menu's panel, its five text
    rows and the two scroll-arrow buttons: construction, teardown and the
@@ -20,7 +20,7 @@
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/ui_layer.h"
 
-// Owned by MainGameScreenState while the screen is active. The layer precedes
+// Owned by MainGameScreen while the screen is active. The layer precedes
 // the buttons so input registrations are removed before the layer is destroyed.
 // Modal submenu controls retain their independently activated layer.
 struct MainGameHudButtons {
@@ -61,8 +61,8 @@ extern unsigned short g_action_kind_message_ids[12];
 void RefreshSubMenuPanel(bool invalidate);
 /* Close and rebuild the sub menu around the saved combat-end notification. */
 void ResetSubMenuPanel(void);
-/* Draw roof chrome, mark the three buttons dirty, sync state, and request the
-   0x100000 redraw bit. */
+/* Draw roof chrome, mark the three buttons dirty and sync state; the same repaint
+   draws the combat progress gauge. */
 void RedrawRoofButtons(void);
 /* Sync roof-button visibility/enabled/pressed state and Draw each button. */
 void UpdateRoofButtons(void);
@@ -80,12 +80,11 @@ void DrawSubMenuCharacterAction(void);
 /* Sync enable/press of the two sub-menu panel buttons, then Draw them. */
 void UpdateSubMenuPanelButtons(void);
 /* Redraw the bottom sub-menu chrome, bank buttons, panel buttons, character
-   action caption, and scroll arrows (redraw bit 0x1000). */
+   action caption, and scroll arrows. */
 void RedrawSubMenuButtons(void);
-/* Redraw the options-disk button (redraw bit 0x40000). */
+// Redraw the options-disk button.
 void RedrawOptionsDiskButton(void);
-/* Mark combat-stance buttons dirty and refresh which stance is shown
-   (redraw bit 0x80000). */
+// Mark combat-stance buttons dirty and refresh which stance is shown.
 void RedrawCombatStanceButtons(void);
 /* Show the active continuous/manual combat-stance button for the live mode. */
 void UpdateCombatStanceButtons(void);
@@ -97,8 +96,8 @@ void UpdateMainGameButtons(void);
 void UpdateSubMenuAutoClose(void);
 
 /* Move selected_character to the next eligible party slot (0 steps toward
-   slot 0, 1 toward slot 7), wrapping, and raise the portrait redraw masks. */
-void ScrollSubMenuCharacter(char direction);
+   slot 0, 1 toward slot 7), wrapping, and repaint the portraits involved. */
+void ScrollSubMenuCharacter(signed char direction);
 
 /* The per-row select callbacks AssignSubMenuCallback installs. */
 void SubMenuSelectAttack(void);
@@ -137,10 +136,5 @@ bool BuildSubMenuPanel(short notification);
 /* Install the row's primary callback for its (W8SubMenuPage, entry) pair. */
 /* The row availability states the refresh maps icon frames through. */
 W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot);
-/* Store the (W8SubMenuPage, entry) pair's pending command in the level block. */
-void MapSubMenuSelection(short menu, short item);
-/* Whether the slot may perform the pending command, in entry-state terms:
-   USABLE/UNUSABLE or the _SELECTED variant when it is already queued. */
-W8SubMenuEntryState CheckSubMenuActionUsable(int party_slot);
 
 int GetAttackMenuWeaponOffset(W8Skill skill);

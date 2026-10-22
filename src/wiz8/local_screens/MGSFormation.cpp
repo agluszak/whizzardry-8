@@ -2,46 +2,44 @@
 
 #include <array>
 #include <cstdint>
-#include <cstring>
 #include <memory>
 #include <optional>
+#include <utility>
 
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "compat/native.h"
 #include "glm/ext/vector_int2.hpp"
 #include "layouts/main_game_screen.h"
-#include "layouts/party_formation.h"
 #include "local_code/ControlsRect.h"
-#include "sprite.h"
-#include "timer.h"
 #include "wiz8/button_interaction.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/cursor.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/stModelInstance.h" // IWYU pragma: keep - complete sprite type for conversion to srNode.
 #include "wiz8/fonts.h"
-#include "wiz8/layouts/combat_state.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/rules/party_formation.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/xstatus.h"
 
 /* On-board (left, top) of each of the fifteen cell markers,
    relative to the board anchor. */
-// GLOBAL: WIZ8 0x0064daf4
 static glm::ivec2 g_formation_marker_offsets[15] = {
     {0x26, 0x9},  {0x19, 0xd},  {0x33, 0xd},  {0x43, 0x26}, {0x3f, 0x19},
     {0x3f, 0x33}, {0x26, 0x43}, {0x33, 0x3f}, {0x19, 0x3f}, {0x9, 0x26},
@@ -49,24 +47,25 @@ static glm::ivec2 g_formation_marker_offsets[15] = {
 };
 
 /* Screen (left, top) of the fifteen cell controls. */
-// GLOBAL: WIZ8 0x0064db6c
 static glm::ivec2 g_formation_cell_positions[15] = {
     {0x5a, 0x1c}, {0x3d, 0x25}, {0x77, 0x25}, {0x98, 0x5a}, {0x8f, 0x3d},
     {0x8f, 0x77}, {0x5a, 0x98}, {0x77, 0x8f}, {0x3d, 0x8f}, {0x1c, 0x5a},
     {0x25, 0x77}, {0x25, 0x3d}, {0x5a, 0x48}, {0x48, 0x61}, {0x6c, 0x61},
 };
 
-// GLOBAL: WIZ8 0x0069c2f0
-static std::optional<int> g_formation_active_cell;
-// GLOBAL: WIZ8 0x0069c2f4
-static std::optional<int> g_formation_drag_slot;
-/* The party slot occupying each cell control, if any. */
-// GLOBAL: WIZ8 0x0069c304
-static std::array<std::optional<int>, 15> g_formation_cell_slots;
-// GLOBAL: WIZ8 0x0069c340
+static int g_formation_active_cell;
+static int g_formation_drag_slot;
 static uint64_t g_formation_drag_clock;
-// GLOBAL: WIZ8 0x0069c380
-static std::optional<int> g_formation_drag_cell;
+static int g_formation_drag_cell;
+
+/* The party slot shown in a cell control, or -1: the edited formation's
+   member there, except while it is being dragged away. */
+static int FormationCellSlot(int cell)
+{
+    if (cell == g_formation_drag_cell) return -1;
+    const auto slot = CurrentGame().planned_formation.occupant(cell / 3, cell % 3);
+    return slot && CurrentGame().party.members[*slot].has_value() ? *slot : -1;
+}
 
 namespace {
 struct FormationPanel {
@@ -94,27 +93,25 @@ static void UpdateFormationCells(void);
 
 /* Draw each occupied slot's facing arrow and marching-order chip into the
    board image; the slot the board highlights gets the +1 frame of each. */
-// FUNCTION: WIZ8 0x005b1f40
 void DrawFormationSlotMarkers(SDL_Surface& target)
 {
     int slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* row = &g_status.buffers.XChar[slot];
-        W8PartyFormationPosition* position = &g_status.formation.positions[slot];
+        const auto seat = CurrentGame().party.formation.cellOf(slot);
         int left;
         int top;
         int image;
         int order_image;
 
-        if (!row->fOccupied || position->bQuadrant == -1) {
+        if (!CurrentGame().party.members[slot].has_value() || !seat) {
             continue;
         }
-        left = g_formation_marker_offsets[position->bQuadrant * 3 + position->bQuadrantSlot].x;
-        top = g_formation_marker_offsets[position->bQuadrant * 3 + position->bQuadrantSlot].y;
-        image = position->facing * 3;
-        order_image = row->party_order_index * 3;
-        if (slot == g_level_block->highlight.FormationSlot()) {
+        left = g_formation_marker_offsets[seat->row * 3 + seat->column].x;
+        top = g_formation_marker_offsets[seat->row * 3 + seat->column].y;
+        image = CurrentGame().party.formation.positions[slot].facing * 3;
+        order_image = CurrentGame().party.orderIndexOf(slot) * 3;
+        if (slot == MainGameHud()->highlight.FormationSlot()) {
             image += 1;
             order_image += 1;
         }
@@ -125,63 +122,57 @@ void DrawFormationSlotMarkers(SDL_Surface& target)
 
 /* Rebuild the board, compass and overlay sprites and redraw the slot markers
    into the board image. */
-// FUNCTION: WIZ8 0x005b1c80
 void RefreshFormationBoard(void)
 {
     SDLSurfaceOwner board_image{nullptr, SDL_DestroySurface};
     SDLSurfaceOwner compass_image{nullptr, SDL_DestroySurface};
 
-    if (g_status.selected_character != -1) {
-        FaceCameraToSelection(g_status.selected_character);
+    if (CurrentGame().status.selected_character != -1) {
+        FaceCameraToSelection(CurrentGame().status.selected_character);
     }
-    if (!g_level_block->formation_board_visible) {
+    if (!MainGameHud()->formation_board_visible) {
         return;
     }
     ReleaseFormationBoard();
     const auto board_artwork =
-        CatalogArtwork::Load(g_level_block->formation_board_alternate ? 0x9a : 0x99);
+        CatalogArtwork::Load(MainGameHud()->formation_board_alternate ? 0x9a : 0x99);
     board_image = RenderSpriteToImage(*board_artwork.spriteSheet(), 0);
     if (!board_image) return;
     const auto compass_artwork = CatalogArtwork::Load(0x9b);
     compass_image = RenderSpriteToImage(*compass_artwork.spriteSheet(), 0);
     if (!compass_image) return;
     DrawFormationSlotMarkers(*board_image);
-    g_level_block->formation_compass_sprite = CreateSpriteFromSurface(*compass_image, 0, 1, 1);
-    Position2DNodeUnsnapped(g_level_block->formation_compass_sprite, 0x207, 0x167);
-    g_level_block->formation_compass_sprite->render_state.display_state = 4;
-    g_level_block->formation_board_sprite = CreateSpriteFromSurface(*board_image, 0, 1, 1);
-    Position2DNodeUnsnapped(g_level_block->formation_board_sprite, 0x207, 0x167);
-    g_level_block->formation_board_sprite->render_state.display_state = 4;
+    MainGameHud()->formation_compass_sprite = makeOverlayFromSurface(*compass_image, 0, 1, 1);
+    positionOverlay(MainGameHud()->formation_compass_sprite.get(), 0x207, 0x167, false);
+    MainGameHud()->formation_board_sprite = makeOverlayFromSurface(*board_image, 0, 1, 1);
+    positionOverlay(MainGameHud()->formation_board_sprite.get(), 0x207, 0x167, false);
     UpdateFormationCompass();
 }
 
 /* Rotate the compass needle to party_facing - party_heading. */
-// FUNCTION: WIZ8 0x005b1e70
 void UpdateFormationCompass(void)
 {
-    if (g_level_block->formation_compass_sprite != 0) {
-        RotateNodeInDegrees(g_level_block->formation_compass_sprite,
-                            g_status.party_facing - g_status.party_heading + 0x168);
+    if (MainGameHud()->formation_compass_sprite != 0) {
+        MainGameHud()->formation_compass_sprite->rotation = static_cast<float>(
+            (CurrentGame().status.party_facing - CurrentGame().status.party_heading + 0x168) *
+            -0.017453292519943295);
     }
-    SetRendererModePair();
 }
 
 /* Lazily create the overlay sprite above the board. */
-// FUNCTION: WIZ8 0x005b1ea0
 void CreateFormationBoardOverlay(void)
 {
     W8ControlsRect bounds;
 
-    if (g_level_block->formation_overlay_sprite == 0 &&
-        g_level_block->formation_board_sprite != 0) {
+    if (MainGameHud()->formation_overlay_sprite == 0 &&
+        MainGameHud()->formation_board_sprite != 0) {
         bounds.left = 0x200;
         bounds.top = 0x166;
         bounds.right = 0x269;
         bounds.bottom = 0x1c2;
-        g_level_block->formation_overlay_sprite =
-            CreateSpriteFromSurface(GetFrameBufferSurface(), &bounds, 0, 1);
-        Position2DNodeUnsnapped(g_level_block->formation_overlay_sprite, 0x200, 0x166);
-        g_level_block->formation_overlay_sprite->render_state.display_state = 4;
+        MainGameHud()->formation_overlay_sprite =
+            makeOverlayFromSurface(GetFrameBufferSurface(), &bounds, 0, 1);
+        positionOverlay(MainGameHud()->formation_overlay_sprite.get(), 0x200, 0x166, false);
     }
 }
 
@@ -191,22 +182,23 @@ UiResult HandleFormationBoard(const UiPointerEvent& event)
         PlayButtonSound(event.action);
     if (event.action == UiPointerAction::Up && event.inside &&
         event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK) &&
-        !gXStatus.fReviewCharacterMode)
+        !FormationPanelOpen())
         AfterUiDispatch(OpenFormationPanel);
     if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Enter &&
         event.action != UiPointerAction::Leave)
         return UiResult::Handled;
     int slot;
-    std::optional<int> hit;
+    int hit;
+
+    hit = -1;
     for (slot = 0; slot < 8; ++slot) {
-        W8PartySlotRow* row = &g_status.buffers.XChar[slot];
-        W8PartyFormationPosition* position = &g_status.formation.positions[slot];
+        const auto seat = CurrentGame().party.formation.cellOf(slot);
         int cell;
 
-        if (!row->fOccupied || position->bQuadrant == -1) {
+        if (!CurrentGame().party.members[slot].has_value() || !seat) {
             continue;
         }
-        cell = position->bQuadrant * 3 + position->bQuadrantSlot;
+        cell = seat->row * 3 + seat->column;
         if (IsCursorInRectangle(g_formation_marker_offsets[cell].x + 0x207,
                                 g_formation_marker_offsets[cell].y + 0x167,
                                 g_formation_marker_offsets[cell].x + 0x211,
@@ -215,17 +207,17 @@ UiResult HandleFormationBoard(const UiPointerEvent& event)
             break;
         }
     }
-    if (hit != g_level_block->highlight.FormationSlot()) {
+    if (hit != MainGameHud()->highlight.FormationSlot()) {
         SetTooltipSubject(W8_HIGHLIGHT_FORMATION_BOARD, hit);
     }
     if (event.action != UiPointerAction::Enter) {
         if (event.action == UiPointerAction::Leave) {
-            g_level_block->formation_board_alternate = 0;
+            MainGameHud()->formation_board_alternate = 0;
             RefreshFormationBoard();
         }
         return UiResult::Handled;
     }
-    g_level_block->formation_board_alternate = 1;
+    MainGameHud()->formation_board_alternate = 1;
     RefreshFormationBoard();
     return UiResult::Handled;
 }
@@ -280,18 +272,18 @@ void RefreshFormationPanel(bool force)
     const auto arrows = CatalogArtwork::Load(0x9f, 0);
     const auto chips = CatalogArtwork::Load(0xa0, 0);
     for (int cell = 0; cell < 15; ++cell) {
-        const auto& slot = g_formation_cell_slots[cell];
-        if (!slot) continue;
+        const int slot = FormationCellSlot(cell);
+        if (slot == -1) continue;
         const auto position = g_formation_cell_positions[cell];
         const bool disabled = !CanHoldFormationPlace(slot);
-        const int arrow = gXStatus.edited_formation.positions[*slot].facing * 3 +
+        const int arrow = CurrentGame().planned_formation.positions[slot].facing * 3 +
                           (disabled                         ? 2
                            : formation->cells[cell].pressed ? 1
                                                             : 0);
-        const int chip = g_status.buffers.XChar[*slot].party_order_index * 3 +
-                         (disabled                       ? 2
-                          : formation->highlighted[cell] ? 1
-                                                         : 0);
+        const int chip =
+            CurrentGame().party.orderIndexOf(slot) * 3 + (disabled                       ? 2
+                                                          : formation->highlighted[cell] ? 1
+                                                                                         : 0);
         arrows.draw(target, arrow, 0xd6 + position.x, 0x3c + position.y);
         chips.draw(target, chip, 0xd6 + position.x, 0x3c + position.y);
     }
@@ -300,111 +292,95 @@ void RefreshFormationPanel(bool force)
 }
 
 /* Open the formation panel: build the controls, snapshot the live formation
-   into gXStatus.edited_formation and pause the world. */
-// FUNCTION: WIZ8 0x005b2150
+   into the game's planned formation and pause the world. */
 void OpenFormationPanel(void)
 {
     DestroyFormationPanel();
     CreateFormationPanel();
-    g_formation_active_cell.reset();
-    g_formation_drag_cell.reset();
-    g_formation_drag_slot.reset();
-    g_formation_drag_clock = w8_get_ticks() + (0);
-    gXStatus.fReviewCharacterMode = true;
-    RequestRedraw(W8_MAIN_REDRAW_SUBMENU_BUTTONS);
-    gXStatus.edited_formation = g_status.formation;
-    SyncWorldAdvancement();
+    g_formation_active_cell = -1;
+    g_formation_drag_cell = -1;
+    g_formation_drag_slot = -1;
+    g_formation_drag_clock = MonotonicMilliseconds() + (0);
+    MainGame()->formation_panel_open = true;
+    if (auto* hud = MainGameHud()) hud->repaint.submenu_buttons = true;
+    CurrentGame().planned_formation = CurrentGame().party.formation;
     UpdateFormationCells();
 }
 
-/* Re-derive every cell's sprites and enabled state from the edited formation
-   and re-highlight the selected character's cell. */
-// FUNCTION: WIZ8 0x005b2600
+/* Re-highlight the selected character's cell after the edited formation changed. */
 static void UpdateFormationCells(void)
 {
-    for (auto& slot : g_formation_cell_slots) slot.reset();
-    for (int slot = 0; slot < 8; ++slot) {
-        const auto& position = gXStatus.edited_formation.positions[slot];
-        if (g_status.buffers.XChar[slot].fOccupied && position.bQuadrant != -1)
-            g_formation_cell_slots[position.bQuadrant * 3 + position.bQuadrantSlot] = slot;
-    }
-    SelectFormationSlotCell(g_status.selected_character);
+    SelectFormationSlotCell(CurrentGame().status.selected_character);
 }
 
 /* The cells' activation callback: highlight the active cell and make its
    party slot the selected character. */
-// FUNCTION: WIZ8 0x005b27e0
 static void SelectFormationCell(void)
 {
-    if (!g_formation_active_cell) return;
-    const auto& slot = g_formation_cell_slots[*g_formation_active_cell];
+    const int slot = FormationCellSlot(g_formation_active_cell);
     if (CanHoldFormationPlace(slot)) {
         SelectFormationSlotCell(slot);
-        SelectPartyCharacter(*slot);
+        SelectPartyCharacter(slot);
     }
 }
 
 /* The accept button: wake any slot whose row changed, reconcile the edited
    formation into the live one (or just warn while in combat) and close the
    panel. */
-// FUNCTION: WIZ8 0x005b2860
 static void AcceptFormationChanges(void)
 {
     unsigned int slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        if (g_status.buffers.XChar[slot].fOccupied && CanHoldFormationPlace(slot) &&
-            gXStatus.edited_formation.positions[slot].bQuadrant !=
-                g_status.formation.positions[slot].bQuadrant) {
+        if (CurrentGame().party.members[slot].has_value() && CanHoldFormationPlace(slot) &&
+            CurrentGame().planned_formation.rowOf(slot) !=
+                CurrentGame().party.formation.rowOf(slot)) {
             StartBreathCycle(slot, false);
         }
     }
-    if (!gXStatus.fCombatMode) {
-        ReconcilePartyFormation(&gXStatus.edited_formation, &g_status.formation);
-    } else if (memcmp(&g_status.formation, &gXStatus.edited_formation,
-                      sizeof(W8PartyFormationState)) != 0) {
-        ShowNotice(W8_FONT_PALETTE_WHITE, g_localized_strings[0x7d9]);
+    if (!CurrentGame().combat.has_value()) {
+        ReconcilePartyFormation(&CurrentGame().planned_formation, &CurrentGame().party.formation);
+    } else if (CurrentGame().party.formation != CurrentGame().planned_formation) {
+        ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x7d9]);
     }
     RefreshFormationBoard();
-    RefreshRadarMap();
+    if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->refresh();
     CloseFormationPanel();
 }
 
 /* The reset button: throw the staged edits away and rebuild the cells. */
-// FUNCTION: WIZ8 0x005b2960
 static void ResetFormationPanel(void)
 {
-    gXStatus.edited_formation = g_status.formation;
+    CurrentGame().planned_formation = CurrentGame().party.formation;
     UpdateFormationCells();
 }
 
 static void BeginFormationDrag();
-static void DropFormationSlot(std::optional<int> cell);
+static void DropFormationSlot(int cell);
 
 /* Region callback the fifteen formation cells share: left press arms the
    drag clock, a repeat while held begins the drag, left release either
    activates the cell or completes the drop, and mouse transitions drive the
    hover art and tooltip. */
-// FUNCTION: WIZ8 0x005b29d0
 static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
 {
-    if ((g_formation_cell_slots[id].has_value()) &&
+    if ((FormationCellSlot(id) != -1) &&
         (event.action != UiPointerAction::Up || event.captured_buttons))
         PlayButtonSound(event.action);
-    if (!gXStatus.fReviewCharacterMode) return UiResult::Pass;
-    if (!g_formation_cell_slots[id]) {
+    if (!FormationPanelOpen()) return UiResult::Pass;
+    if (FormationCellSlot(id) == -1) {
 
         if (event.action != UiPointerAction::Up || event.button != UiPointerButton::Left ||
-            !g_formation_drag_cell)
+            g_formation_drag_cell == -1)
             return UiResult::Handled;
     }
     if (event.button == UiPointerButton::Left) {
         switch (event.action) {
         case UiPointerAction::Repeat:
             if ((event.captured_buttons & SDL_BUTTON_LMASK) &&
-                TimeUntilDeadline(g_formation_drag_clock) == 0 && !g_formation_drag_cell &&
-                g_formation_active_cell.has_value()) {
-                if (!CanHoldFormationPlace(g_formation_cell_slots[id])) {
+                TimeUntilDeadline(g_formation_drag_clock) == 0 && g_formation_drag_cell == -1 &&
+                g_formation_active_cell != -1) {
+                if (!CanHoldFormationPlace(FormationCellSlot(id))) {
                     formation->targets[id]->releaseCapture();
                     return UiResult::Handled;
                 }
@@ -415,16 +391,16 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
         case UiPointerAction::Down:
             formation->cells[id].press(SDL_BUTTON_LMASK, cell_policy);
             formation->dirty = true;
-            g_formation_drag_clock = w8_get_ticks() + 250;
+            g_formation_drag_clock = MonotonicMilliseconds() + 250;
             return UiResult::Handled;
         case UiPointerAction::Up:
-            if (g_formation_cell_slots[id].has_value()) {
+            if (FormationCellSlot(id) != -1) {
                 g_formation_active_cell = id;
                 if (formation->cells[id].release(SDL_BUTTON_LMASK, cell_policy).activate)
                     SelectFormationCell();
                 formation->dirty = true;
             }
-            if (g_formation_drag_cell.has_value()) DropFormationSlot(id);
+            if (g_formation_drag_cell != -1) DropFormationSlot(id);
             return UiResult::Handled;
         default:
             break;
@@ -434,22 +410,22 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
         formation->cells[id].leave(cell_policy);
         formation->highlighted[id] = false;
         formation->dirty = true;
-        if ((event.buttons & SDL_BUTTON_LMASK) && !g_formation_drag_cell &&
-            CanHoldFormationPlace(g_formation_cell_slots[id])) {
+        if ((event.buttons & SDL_BUTTON_LMASK) && g_formation_drag_cell == -1 &&
+            CanHoldFormationPlace(FormationCellSlot(id))) {
             g_formation_active_cell = id;
             BeginFormationDrag();
             formation->dirty = true;
         }
-        g_formation_active_cell.reset();
-        SetTooltipSubject(W8_HIGHLIGHT_FORMATION, std::nullopt);
+        g_formation_active_cell = -1;
+        SetTooltipSubject(W8_HIGHLIGHT_FORMATION, -1);
         return UiResult::Handled;
     }
     if (event.action == UiPointerAction::Enter ||
-        (event.action == UiPointerAction::Move && !g_formation_active_cell)) {
+        (event.action == UiPointerAction::Move && g_formation_active_cell == -1)) {
         formation->highlighted[id] = true;
         formation->dirty = true;
         g_formation_active_cell = id;
-        SetTooltipSubject(W8_HIGHLIGHT_FORMATION, g_formation_cell_slots[id]);
+        SetTooltipSubject(W8_HIGHLIGHT_FORMATION, FormationCellSlot(id));
         return UiResult::Handled;
     }
     return UiResult::Pass;
@@ -457,105 +433,97 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
 
 static UiResult HandleFormationBackground(const UiPointerEvent& event)
 {
-    if (!gXStatus.fReviewCharacterMode) return UiResult::Pass;
+    if (!FormationPanelOpen()) return UiResult::Pass;
 
     if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Left) {
-        if (g_formation_drag_cell.has_value()) DropFormationSlot(std::nullopt);
+        if (g_formation_drag_cell != -1) DropFormationSlot(-1);
         return UiResult::Handled;
     }
     if ((event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter ||
          event.action == UiPointerAction::Leave) &&
         (event.position.x < 234 || event.position.x > 406 || event.position.y < 80 ||
          event.position.y > 252) &&
-        g_formation_drag_cell.has_value())
-        DropFormationSlot(std::nullopt);
+        g_formation_drag_cell != -1)
+        DropFormationSlot(-1);
     return UiResult::Pass;
 }
 
 /* Pick up the active cell's character: clear the cell, switch the mouse
    cursor to the dragged chip and blank both controls' sprites. */
-// FUNCTION: WIZ8 0x005b2e10
 static void BeginFormationDrag()
 {
-    if (!g_formation_active_cell || !g_formation_cell_slots[*g_formation_active_cell]) return;
     SDL_Point point;
     unsigned short region;
     int sprite;
 
-    formation->targets[*g_formation_active_cell]->releaseCapture();
+    formation->targets[g_formation_active_cell]->releaseCapture();
     SelectFormationCell();
-    formation->cells[*g_formation_active_cell] = {};
-    g_formation_drag_slot = g_formation_cell_slots[*g_formation_active_cell];
+    formation->cells[g_formation_active_cell] = {};
+    g_formation_drag_slot = FormationCellSlot(g_formation_active_cell);
+    // The dragged chip follows the pointer and its cell shows empty; the drop
+    // must reach the cell under it rather than the button region that captured
+    // the initial press.
     g_formation_drag_cell = g_formation_active_cell;
-    // The dragged chip follows the pointer; the drop must reach the cell under
-    // it rather than the button region that captured the initial press.
-    g_formation_cell_slots[*g_formation_active_cell].reset();
-    SGPMouseGetPos(&point);
+    point = CursorPosition();
     ClearMouseSurface();
-    sprite = gXStatus.edited_formation.positions[*g_formation_drag_slot].facing * 3 + 1;
+    sprite = CurrentGame().planned_formation.positions[g_formation_drag_slot].facing * 3 + 1;
     const auto artwork = CatalogArtwork::Load(0x9f);
     region = artwork.imageOffset() + static_cast<short>(sprite);
     SetMouseCursorFromVideoObject(*artwork.spriteSheet(), region, 0x10, 0x10);
     const auto overlay_artwork = CatalogArtwork::Load(0xa0);
-    const auto overlay = static_cast<std::uint16_t>(
-        overlay_artwork.imageOffset() +
-        g_status.buffers.XChar[*g_formation_drag_slot].party_order_index * 3 + 1);
+    const auto overlay =
+        static_cast<std::uint16_t>(overlay_artwork.imageOffset() +
+                                   CurrentGame().party.orderIndexOf(g_formation_drag_slot) * 3 + 1);
     BlitToMouseCursor(*overlay_artwork.spriteSheet(), overlay, 0, 0);
     WarpSystemCursor(point.x - 0x10, point.y - 0x10);
     RefreshMouseCursorTexture();
-    gXStatus.iCurrentCursor = W8_CURSOR_INVALID_TARGET;
+    ScreenPointer().showCustom();
     formation->dirty = true;
 }
 
 /* Drop the dragged character: into an empty cell it re-seats the row, onto a
    movable occupant it swaps positions, onto a dead one it cancels. */
-// FUNCTION: WIZ8 0x005b2f70
-static void DropFormationSlot(std::optional<int> cell)
+static void DropFormationSlot(int cell)
 {
-    if (!g_formation_drag_cell || !g_formation_drag_slot) return;
-    const int drag_cell = *g_formation_drag_cell;
-    const int drag_slot = *g_formation_drag_slot;
-    if (cell && *cell != drag_cell) {
-        if (!g_formation_cell_slots[*cell]) {
-            SetFormationPosition(&gXStatus.edited_formation, drag_slot, -1, -1, false, true, true);
-            SeatFormationSlotInRow(&gXStatus.edited_formation, drag_slot, *cell / 3);
-        } else if (!CanHoldFormationPlace(g_formation_cell_slots[*cell])) {
-            cell.reset();
+    if (cell != -1 && cell != g_formation_drag_cell) {
+        if (FormationCellSlot(cell) == -1) {
+            SetFormationPosition(&CurrentGame().planned_formation, g_formation_drag_slot,
+                                 std::nullopt, false, true, true);
+            SeatFormationSlotInRow(&CurrentGame().planned_formation, g_formation_drag_slot,
+                                   cell / 3);
+        } else if (!CanHoldFormationPlace(FormationCellSlot(cell))) {
+            cell = -1;
         } else {
-            SwapFormationSlots(&gXStatus.edited_formation, drag_slot,
-                               *g_formation_cell_slots[*cell]);
+            SwapFormationSlots(&CurrentGame().planned_formation, g_formation_drag_slot,
+                               FormationCellSlot(cell));
         }
     }
-    UpdateHeldItemCursor();
+    const int dragged_from = std::exchange(g_formation_drag_cell, -1);
+    ScreenPointer().reset();
     UpdateFormationCells();
-    formation->highlighted[drag_cell] = false;
-    if (cell) {
-        formation->highlighted[*cell] = true;
-        g_formation_active_cell = *cell;
-        g_level_block->highlight = {W8_HIGHLIGHT_FORMATION, g_formation_cell_slots[*cell]};
-        if (g_level_block->highlight.slot)
-            RequestRedraw(1u << (*g_level_block->highlight.slot & 0x1f));
+    formation->highlighted[dragged_from] = false;
+    if (cell != -1) {
+        formation->highlighted[cell] = true;
+        g_formation_active_cell = cell;
+        MainGameHud()->highlight = {W8_HIGHLIGHT_FORMATION, FormationCellSlot(cell)};
+        if (auto* hud = MainGameHud()) hud->repaint.portrait(MainGameHud()->highlight.slot);
     }
-    g_formation_drag_cell.reset();
-    g_formation_drag_slot.reset();
 }
 
-void SelectFormationSlotCell(std::optional<int> party_slot)
+void SelectFormationSlotCell(int party_slot)
 {
     for (int cell = 0; cell < 15; ++cell) {
         auto& state = formation->cells[cell];
-        state.pressed = state.selected = party_slot && g_formation_cell_slots[cell] == party_slot;
+        state.pressed = state.selected = party_slot != -1 && FormationCellSlot(cell) == party_slot;
     }
     formation->dirty = true;
 }
 
-// FUNCTION: WIZ8 0x005B2200
 void CloseFormationPanel(void)
 {
     DestroyFormationPanel();
-    gXStatus.fReviewCharacterMode = false;
-    UpdateHeldItemCursor();
-    RequestRedraw(W8_MAIN_REDRAW_LAYOUT);
+    MainGame()->formation_panel_open = false;
+    ScreenPointer().reset();
+    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     EraseRegion(0xd6, 0x3c, 0x1ab, 0x12f);
-    SyncWorldAdvancement();
 }

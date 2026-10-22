@@ -1,23 +1,33 @@
 #pragma once
 
-#include <optional>
+#include <memory>
 #include <string>
 #include <variant>
+#include <vector>
+
+#include "wiz8/data/skills.h"
 
 struct W8NpcState;
+struct W8NpcScriptFile;
 
-/* Notice payloads carried by queued portrait messages and the quote bubble.
-   The experience appender at 0x004eef10 allocates 8 bytes; the skill appenders
-   at 0x00553f10/0x005542e0 allocate 0x11 bytes with count/slot/skill columns. */
+struct W8NpcScriptBinding {
+    std::shared_ptr<const W8NpcScriptFile> script;
+    std::string voice_stem;
+    bool npc_voice = false;
+};
+
+/* Deferred notices carry their complete values until the quote is dismissed. */
 struct W8ExperienceNoticePayload {
     unsigned int amount;
     bool alternate_message;
 };
 
 struct W8SkillNoticePayload {
-    signed char count;
-    signed char party_slots[8];
-    signed char skills[8];
+    struct Entry {
+        unsigned int party_slot;
+        W8Skill skill;
+    };
+    std::vector<Entry> entries;
 };
 
 struct W8LevelUpNotice {
@@ -75,7 +85,7 @@ enum class W8NpcStoryAction : unsigned char {
 
 /* Queued actions that carry no data. */
 enum class W8NpcCommand : unsigned char {
-    close_dialogue,            /* close dialogue; set g_npc_dialogue_closed */
+    close_dialogue,            /* close dialogue; tell the level script */
     close_and_resume_npc,      /* close dialogue; ResumeNpc on the dialogue NPC */
     reopen_transcript,         /* CloseNpcDialogueLayout + transcript layout */
     journal_quote,             /* quote bubble + journal-entry.wav */
@@ -91,15 +101,16 @@ enum class W8NpcCommand : unsigned char {
 
 /* Run `quote_index` of the queuing NPC's script. */
 struct W8NpcQueuedQuote {
+    W8NpcScriptBinding binding;
+    unsigned char subquote_index;
     int quote_index;
     bool mark_pending;     /* record quote_index as pending */
     bool suppress_entries; /* skip the price-check and pending-quote entry scans */
 };
 
-/* Deferred quote entry. It is addressed by index into the queuing NPC's
-   script and resolved at dispatch, so a script reload can only make it drop
-   out, never dangle. */
+/* Deferred entries retain the immutable script that supplied their indices. */
 struct W8NpcQueuedEntry {
+    W8NpcScriptBinding binding;
     int quote_index;
     int entry_index;
     int continuation_quote;
@@ -138,7 +149,7 @@ struct W8NpcPartyScriptLine {
     int party_slot;
 };
 
-/* Show g_localized_strings[`string_index`] as a portrait message. */
+/* Show Data().strings[`string_index`] as a portrait message. */
 struct W8NpcPortraitString {
     int string_index;
 };
@@ -166,6 +177,6 @@ using W8NpcAction =
 
 /* One queued action and the speaker it was queued for. */
 struct W8MessageBoxLine {
-    std::optional<int> npc_kind; // Empty when no speaker is associated with the line.
+    int npc_kind; /* record kind of the speaking NPC, or -1; resolved when the line runs */
     W8NpcAction action;
 };

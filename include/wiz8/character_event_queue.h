@@ -1,20 +1,23 @@
-#include <string>
 #ifndef WIZ8_CHARACTER_EVENT_QUEUE_H
 #define WIZ8_CHARACTER_EVENT_QUEUE_H
 
 #include <array>
+#include <chrono>
+#include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
-#include "timer.h"
 #include "wiz8/audio_resources.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/item_instance.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/rules/item_instance.h"
 
+class Game;
 struct W8Character;
+struct W8CharacterEventQueue;
 
 /* W8CharacterEvent::flags bits. Bit 0x01 is written by several producers but
    never tested anywhere in retail. */
@@ -35,16 +38,17 @@ enum W8CharacterEventFlag {
     W8_EVENT_NPC_SCRIPT = 0x40
 };
 
-/* One queued character-event entry. The constructor, quote formatter and
-   dispatch path live with QueueCharacterEvent in QuoteManager.cpp; the
-   original type name is unknown. */
+/* One queued character-event entry of `queue`, which owns it, runs it in its game and
+   receives its voice's completion. The constructor, quote formatter and dispatch path
+   live with QueueCharacterEvent in QuoteManager.cpp; the original type name is unknown. */
 struct W8CharacterEvent {
-    W8CharacterEvent(W8Character* character, unsigned int event_type, unsigned int flags,
-                     int volume);
+    W8CharacterEvent(W8CharacterEventQueue& queue, W8Character* character, unsigned int event_type,
+                     unsigned int flags, int volume);
     ~W8CharacterEvent();
     W8CharacterEvent(const W8CharacterEvent&) = delete;
     W8CharacterEvent& operator=(const W8CharacterEvent&) = delete;
 
+    W8CharacterEventQueue& queue;
     W8Character* character;
     unsigned int event_type;
     /* 0x10: event flags passed as the third argument. */
@@ -64,20 +68,18 @@ struct W8CharacterEvent {
        Only the id is ever established here; the remaining bytes keep whatever
        the allocation gave them, exactly as before. */
     W8ItemInstance item;
-    /* 0x30/0x34: ProcessDeferredCharacterEvents delays dispatch until this many
-       milliseconds have elapsed since the queued w8_get_ticks stamp. */
-    int dispatch_delay_ms;
-    uint64_t dispatch_delay_start;
+    /* ProcessDeferredCharacterEvents holds the event until more than `dispatch_delay` of
+       the game's step time has passed since `queued_at`, when it was created; zero does
+       not hold. */
+    std::chrono::milliseconds dispatch_delay{};
+    std::chrono::milliseconds queued_at;
 
     /* The event owns its voice; the portrait's shared handle can change
        independently of the event lifetime. */
     wiz8::sound::Playback voice_playback;
 
-    void DelayDispatch(int milliseconds)
-    {
-        dispatch_delay_ms = milliseconds;
-        dispatch_delay_start = w8_get_ticks();
-    }
+    // Hold the event's dispatch for `delay` of the game's step time from when it was queued.
+    void DelayDispatch(std::chrono::milliseconds delay) { dispatch_delay = delay; }
 
     bool IsAmbientExchange() const
     {
@@ -87,30 +89,34 @@ struct W8CharacterEvent {
 
     void Complete(); /* 0x0052CED0 */
 
-    unsigned char Dispatch(); /* 0x0052CA60 */
+    bool Dispatch(); /* 0x0052CA60 */
 
-    unsigned char IsConditionMet(unsigned int event_type); /* 0x0052C910 */
-    unsigned char PlayEventSound(std::string_view quote);                        /* 0x0052D260 */
+    bool IsConditionMet(unsigned int event_type); /* 0x0052C910 */
+    bool PlayEventSound(std::string_view quote);  /* 0x0052D260 */
 };
 
 /* The character-event queue. Construction is at 0x0052D460; QueueEntry and the
    later methods occupy the following 0x52Dxxx block. The whole 0x52C810-0x52FEE0
    span sits inside Local Code\Health Stamina Mana.cpp's emission range: 0x52C500
    asserts that file's name before it and 0x52FE80 is placed after it, so the
-   bodies live in Health Stamina Mana.cpp. */
+   bodies live in Health Stamina Mana.cpp.
+   The queue belongs to one game and acts on it: its time, random stream, party and
+   the party portraits its events speak through. Destroying it stops every voice
+   without completing its event. */
 struct W8CharacterEventQueue {
+    Game& game;
     /* The queue owns every event it accepts: pending and NPC-deferred entries
        until they dispatch or are dropped, dispatched ones until they
        complete. */
     std::vector<std::unique_ptr<W8CharacterEvent>> pending_events;
     std::vector<std::unique_ptr<W8CharacterEvent>> npc_deferred_events;
     std::vector<std::unique_ptr<W8CharacterEvent>> active_events;
-    int active_event_type;
-    int active_party_slot;
-    /* 0x58: a five-second countdown armed by every successful Dispatch; while
-       it ticks, active_event_type/active_party_slot still describe the last
+    int active_event_type = -1;
+    int active_party_slot = -1;
+    /* A five-second window, on the game's step time, opened by every successful Dispatch;
+       while it lasts, active_event_type/active_party_slot still describe the last
        dispatched event for duplicate coalescing. */
-    uint64_t recent_event_clock;
+    std::chrono::milliseconds recent_event_until{};
     // No schedule means idle dialogue is disabled. Queue membership supplies
     // the wait for playback; this stores only the next speaker and deadline.
     struct FollowUp {
@@ -121,11 +127,15 @@ struct W8CharacterEventQueue {
     /* One party-slot bit mask per (remapped) event type. */
     std::array<unsigned char, 0xb1> event_character_masks{};
 
-    W8CharacterEventQueue();
+    explicit W8CharacterEventQueue(Game& game) : game(game) {}
     ~W8CharacterEventQueue();
     W8CharacterEventQueue(const W8CharacterEventQueue&) = delete;
     W8CharacterEventQueue& operator=(const W8CharacterEventQueue&) = delete;
+    /* Completes every active event, then drops the undispatched ones. */
     void DestroyAllEvents();
+    /* Create and queue `character`'s event; see QueueEntry for the result. */
+    W8CharacterEvent* Queue(W8Character* character, int event_type, unsigned int flags,
+                            unsigned int volume);
     /* Takes ownership of `entry`. Returns the event while the queue still
        holds it, so the caller may adjust it, or null when it was dropped. */
     W8CharacterEvent* QueueEntry(std::unique_ptr<W8CharacterEvent> entry);
@@ -134,7 +144,7 @@ struct W8CharacterEventQueue {
     void SetEventCharacterMask(unsigned int event_type, unsigned int party_slot, bool enabled);
     bool HasEventCharacter(unsigned int event_type, unsigned int party_slot); /* 0x0052DD90 */
     void ProcessDeferredCharacterEvents();                                    /* 0x0052DDD0 */
-    unsigned char TryAdjustQueuedEvent(W8CharacterEvent* entry);              /* 0x0052DC80 */
+    bool TryAdjustQueuedEvent(W8CharacterEvent* entry);              /* 0x0052DC80 */
     bool IsMainQueueEmpty() const;                                            /* 0x0052E470 */
     /* Unlink an active event, restart the follow-up clock for it, complete it
        and release it. Retail expands this body in the dispatch helpers as well
@@ -151,6 +161,30 @@ struct W8CharacterEventQueue {
        expiry queues another middle-band event on a random member, excluding
        the previous speaker. */
     void ProcessFollowUpEvents(); /* 0x0052E1C0 */
+
+    // The party slot of `character`, a member of the game's party.
+    unsigned int SlotOf(const W8Character& character) const;
+    // Whether the member in `party_slot` may voice `event_type` now.
+    bool CanDispatch(unsigned int party_slot, unsigned int event_type) const;
+    /* The quote `character` says for `event_type`: party RPCs use their NPC quote
+       database; character creation uses PC identity. */
+    std::string QuoteText(const W8Character& character, unsigned int event_type) const;
+
+    /* The party portraits speak the events' lines. Turn `party_slot`'s portrait event on
+       or off, optionally laying out the quote bubble and posting subtitle notices when
+       one ends. */
+    void SetPortraitEventState(unsigned int party_slot, bool active, unsigned int event_type,
+                               std::string_view quote_text, int show_quote);
+    /* Drive `party_slot`'s portrait from `voice`: its remaining time and mouth gaps
+       follow the playback, or the portrait holds for `unvoiced_ms` when no voice
+       started. Character events and NPC party members both speak this way. */
+    void BeginPortraitVoice(unsigned int party_slot, const wiz8::sound::Playback& voice,
+                            std::string_view voice_path, std::uint64_t unvoiced_ms);
+    /* The portrait's line is over: complete the event speaking through it, or just
+       close the portrait when the speaker was an NPC line. */
+    void FinishPortraitSpeech(unsigned int party_slot);
+    // No occupied party slot has an active portrait event.
+    bool PortraitsIdle() const;
 };
 
 #endif

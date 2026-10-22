@@ -1,9 +1,9 @@
 {
   "version": 3,
   "cmakeMinimumRequired": {
-    "major": 3,
-    "minor": 21,
-    "patch": 0
+    "major": 4,
+    "minor": 4,
+    "patch": 4
   },
   "configurePresets": [
     {
@@ -45,11 +45,19 @@
       "inherits": "linux",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_C_FLAGS": "-fsanitize=address -fno-omit-frame-pointer",
-        "CMAKE_CXX_FLAGS": "-fsanitize=address -fno-omit-frame-pointer",
-        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address",
+        "CMAKE_C_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=undefined",
         "CMAKE_C_FLAGS_RELWITHDEBINFO": "-O1 -g1 -DNDEBUG",
-        "CMAKE_CXX_FLAGS_RELWITHDEBINFO": "-O1 -g1 -DNDEBUG"
+        "CMAKE_CXX_FLAGS_RELWITHDEBINFO": "-O1 -g1 -DNDEBUG",
+        "CMAKE_SHARED_LINKER_FLAGS": "-fsanitize=address,undefined -fno-sanitize-recover=undefined"
+      }
+    },
+    {
+      "name": "linux-integer-audit",
+      "inherits": "linux-asan",
+      "cacheVariables": {
+        "WIZ8_INTEGER_SANITIZER": "ON"
       }
     },
     {
@@ -119,6 +127,10 @@
     {
       "name": "linux-asan",
       "configurePreset": "linux-asan"
+    },
+    {
+      "name": "linux-integer-audit",
+      "configurePreset": "linux-integer-audit"
     }
   ],
   "testPresets": [
@@ -153,6 +165,13 @@
     {
       "name": "linux-asan",
       "configurePreset": "linux-asan",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux-integer-audit",
+      "configurePreset": "linux-integer-audit",
       "output": {
         "outputOnFailure": true
       }

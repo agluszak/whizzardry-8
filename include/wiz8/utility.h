@@ -1,15 +1,14 @@
-#include "wiz8/design_rect.h"
 #ifndef WIZ8_UTILITY_H
 #define WIZ8_UTILITY_H
 
-#include <optional>
 #include <string>
 #include <string_view>
 
 #include <SDL3/SDL_rect.h>
 
 #include "wiz8/application.h"
-#include "wiz8/dice.h"
+#include "wiz8/data/dice.h"
+#include "wiz8/design_rect.h"
 #include "wiz8/local_code/ControlsRect.h"
 
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base);
@@ -21,22 +20,7 @@ char* TitleCaseString(char* string);
 float ShortestAngleDistance(float first, float second);
 DesignRect UnionScreenRects(const DesignRect& first, const DesignRect& second);
 bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point);
-void AdjustByteByPercent(unsigned char* value, unsigned int percent);
 void AdjustIntegerByPercent(unsigned int* value, unsigned int percent);
 float NormalizeAngle(float angle);
-
-void DebugMessage(int channel, std::string_view message);
-/* The plain message reporter. ReadLevel.cpp uses it for load failures and
-   GrCycle.cpp for a cycle with no usable LOD, so its name stays neutral. */
-std::optional<int> GetRandomCharacter(int require_primary, int require_secondary,
-                                      std::optional<int> excluded_slot = std::nullopt);
-/* 0x00517FB0: fill `selected` with up to `count` distinct party slots that pass
-   the same eligibility gate as GetRandomCharacter, skipping `excluded_slot` and
-   starting the scan at slot two when `skip_first_two` is set. More eligible
-   slots than asked for are sampled at random; too few relaxes the requirements
-   once each before giving up. Returns how many were written. */
-unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
-                                 unsigned int excluded_slot, unsigned int* selected,
-                                 unsigned int count, bool skip_first_two);
 
 #endif

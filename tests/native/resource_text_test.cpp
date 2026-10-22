@@ -1,19 +1,19 @@
 #include <cstdio>
 #include <filesystem>
 #include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "scoped_game.h"
 #include "temporary_directory.h"
 #include "wiz8/asset_paths.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/stScript.h"
+#include "wiz8/combat/sounds.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/script.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/local_code/CombatSound.h"
 
 static void write_text(std::string_view path, std::string_view text)
 {
@@ -31,15 +31,14 @@ TEST_CASE("resource_text_test")
     const std::string long_line = "SOUND " + std::string(600, 'x') + "é";
     write_text("data/script.txt",
                "* comment\r\n\r\nStart:\r\n  " + long_line + "\r\nSTART:\r\nend");
-    stScript script;
+    Script script;
     REQUIRE((script.Load("data/script.txt")));
     REQUIRE((script.lines.size() == 2 && script.labels.size() == 1));
     REQUIRE((script.lines[0].text == "  " + long_line));
     REQUIRE((script.lines[1].text == "end"));
     REQUIRE((script.GetSourceLine(0) == 4 && script.GetSourceLine(1) == 6));
-    REQUIRE((script.GetSourceLine(-1) == std::nullopt && script.GetSourceLine(2) == std::nullopt));
-    REQUIRE(
-        (script.FindLabelLine("start") == 0 && script.FindLabelLine("missing") == std::nullopt));
+    REQUIRE((!script.GetSourceLine(-1) && !script.GetSourceLine(2)));
+    REQUIRE((script.FindLabelLine("start") == 0 && !script.FindLabelLine("missing")));
     script.Clear();
     REQUIRE((script.lines.empty() && script.labels.empty()));
     // Labels sharing a long prefix remain distinct; they have no disk width.
@@ -51,7 +50,8 @@ TEST_CASE("resource_text_test")
     REQUIRE((!script.Load("data/missing.txt")));
 
     {
-        W8Monster monster;
+        const ScopedGame game; // Script conditions draw from the game's stream.
+        Monster monster;
         REQUIRE((monster.EvaluateScriptCondition("random(100)")));
         REQUIRE((!monster.EvaluateScriptCondition("RANDOM(0)")));
         REQUIRE((!monster.EvaluateScriptCondition("RANDOM(0," + std::string(1000, 'x') + ")")));

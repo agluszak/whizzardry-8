@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -16,14 +17,14 @@
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 
-#include "../../src/native/movie.h"
-#include "native/audio_test.h"
 #include "prepared_assets.h"
 #include "scoped_asset_roots.h"
 #include "slf.h"
-#include "soundman.h"
 #include "temporary_directory.h"
-#include "wiz8/bink_video.h"
+#include "wiz8/audio/audio_test.h"
+#include "wiz8/audio/soundman.h"
+#include "wiz8/checked_integer.h"
+#include "wiz8/movie.h"
 #include "wiz8/surface_storage.h"
 
 std::vector<unsigned char> read(const char* path)
@@ -76,7 +77,7 @@ static void exercise_movie(const char* retail_movie)
     wiz8::SlfEntry entries[2]{};
     strcpy(entries[0].sFileName, "packed.mkv");
     entries[0].uiOffset = sizeof(header);
-    entries[0].uiLength = encoded.size();
+    entries[0].uiLength = wiz8::checked_integer<std::uint32_t>(encoded.size());
     strcpy(entries[1].sFileName, "truncated.mkv");
     entries[1].uiOffset = sizeof(header);
     entries[1].uiLength = 16; // The rest of the valid movie must be inaccessible.
@@ -149,19 +150,16 @@ static void exercise_movie(const char* retail_movie)
     REQUIRE(target);
     const auto& description = *target;
     {
-        W8BinkVideo movie;
-        movie.SetTarget(target.get());
-        REQUIRE(movie.Open("movie.mkv", 0));
-        REQUIRE(!movie.UpdateFrame());
+        W8NativeVideo movie;
+        REQUIRE(movie.play("movie.mkv", *target));
+        REQUIRE(!movie.advance());
         for (int y = 0; y < 24; ++y)
             REQUIRE(
                 std::memcmp(static_cast<unsigned char*>(description.pixels) + y * description.pitch,
                             first_frame.data() + y * 32, 64) == 0);
-        REQUIRE(movie.Open("data\\packed.mkv",
-                           0)); // Reopen stops the preceding PCM voice.
-        REQUIRE(!movie.UpdateFrame());
-        REQUIRE(!movie.Open("movie.mkv", 1));
-        REQUIRE(!movie.Open("missing.bik", 0));
+        REQUIRE(movie.play("data\\packed.mkv", *target)); // Reopen stops the preceding PCM voice.
+        REQUIRE(!movie.advance());
+        REQUIRE(!movie.play("missing.bik", *target));
     }
     target.reset();
     std::vector<float> silence(8192 * 2);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <optional>
 
@@ -10,8 +11,9 @@ struct SpriteDraw;
 struct W8PortraitAnimation {
     std::optional<int> rendered_frame;
     int frame = 6;
-    uint64_t frame_clock = 0;
-    unsigned int voice_remaining_ms = 0;
+    // When the next mouth frame is due, on the clock its caller passes to AdvancePortraitSpeech.
+    std::chrono::milliseconds frame_due{};
+    std::uint64_t voice_remaining_ms = 0;
     std::optional<int> rendered_pose;
     int pose = 1;
     int target_pose = 1;
@@ -29,7 +31,10 @@ struct W8PortraitCondition {
     bool zero_hp = false;
 };
 
-void AdvancePortraitSpeech(W8PortraitAnimation& state, bool mouth_open, bool fixed_frame);
+/* Flicker the mouth while the voice plays. `now` is the caller's clock: the game's step
+   time for the party, the monotonic clock for a dialog outside the game's step. */
+void AdvancePortraitSpeech(W8PortraitAnimation& state, std::chrono::milliseconds now,
+                           bool mouth_open, bool fixed_frame);
 void AdvancePortraitPose(W8PortraitAnimation& state);
 bool BlitPortraitAnimation(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options,
                            W8PortraitAnimation& state, bool animate,

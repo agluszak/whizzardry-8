@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <optional>
 #include <span>
 #include <type_traits>
@@ -59,11 +60,11 @@ struct MonsterInfo {
     float stamina_regen_rate;
     float stamina_regen_accumulator;
     unsigned int uiCondition[W8_CONDITION_COUNT];
-    W8Enchantment enchantments[8];
+    std::array<std::byte, 0x60> enchantments;
     W8Condition highest_condition;
     int condition_argument;
-    W8EffectSlot effect_slots[12];
-    W8GameplayModifierBlock modifiers;
+    EffectSlot effect_slots[12];
+    std::array<std::byte, 0x67> modifiers;
     int fatigue_band;
     unsigned char pathing_cooldown;
     unsigned char attributes[W8_MONSTER_ATTR_COUNT];
@@ -141,7 +142,7 @@ struct WorldItem {
     int runtime_id;
     std::uint32_t p3D;
     bool fActive;
-    W8ItemInstance item;
+    ItemInstance item;
     wiz8::retail::Vec3f position;
     unsigned char unknown_21[4];
     int entity_flags;
@@ -208,8 +209,18 @@ struct NpcState {
     unsigned char item_weights[40];
 };
 
+/* One entry of an NPC's stock list, as the NPCT section stores it. */
+struct NpcItemEntry {
+    std::uint32_t available_at;
+    ItemInstance item;
+    std::uint8_t quantity;
+    // Retail's alignment padding; written as zeros.
+    std::uint8_t padding_11[3];
+};
+
 #pragma pack(pop)
 
+static_assert(sizeof(NpcItemEntry) == 0x14);
 static_assert(sizeof(MonsterInfo) == 0x425);
 static_assert(offsetof(MonsterInfo, modifiers) == 0x1db);
 static_assert(offsetof(MonsterInfo, heard_noise_margin) == 0x2f5);
@@ -265,7 +276,7 @@ template<> struct Record<W8MonsterInfo> {
               field(offsetof(Disk, monster_group_id), sizeof(Disk::monster_group_id)));
         value(&runtime.monster_species,
               field(offsetof(Disk, monster_species), sizeof(Disk::monster_species)));
-        pointer_slot(runtime.p3D, field(offsetof(Disk, p3D), sizeof(Disk::p3D)));
+        pointer_slot(runtime.entity, field(offsetof(Disk, p3D), sizeof(Disk::p3D)));
         pointer_slot(runtime.pCombat, field(offsetof(Disk, pCombat), sizeof(Disk::pCombat)));
         value(&runtime.fActive, field(offsetof(Disk, fActive), sizeof(Disk::fActive)));
         // Saved combat state is transient; loading never reconstructs a fight.
@@ -296,15 +307,21 @@ template<> struct Record<W8MonsterInfo> {
         value(&runtime.stamina_regen_accumulator, field(offsetof(Disk, stamina_regen_accumulator),
                                                         sizeof(Disk::stamina_regen_accumulator)));
         value(&runtime.uiCondition, field(offsetof(Disk, uiCondition), sizeof(Disk::uiCondition)));
-        value(&runtime.enchantments,
-              field(offsetof(Disk, enchantments), sizeof(Disk::enchantments)));
+        for (std::size_t index = 0; index < std::size(runtime.enchantments); ++index)
+            nested(runtime.enchantments[index],
+                   field(offsetof(Disk, enchantments) + index * 0x0c, 0x0c), value, text);
         value(&runtime.highest_condition,
               field(offsetof(Disk, highest_condition), sizeof(Disk::highest_condition)));
         value(&runtime.condition_argument,
               field(offsetof(Disk, condition_argument), sizeof(Disk::condition_argument)));
-        value(&runtime.effect_slots,
-              field(offsetof(Disk, effect_slots), sizeof(Disk::effect_slots)));
-        value(&runtime.modifiers, field(offsetof(Disk, modifiers), sizeof(Disk::modifiers)));
+        for (std::size_t index = 0; index < std::size(runtime.effect_slots); ++index)
+            Record<W8EffectSlot>::fields(
+                runtime.effect_slots[index],
+                field(offsetof(Disk, effect_slots) + index * sizeof(EffectSlot),
+                      sizeof(EffectSlot)),
+                value, text);
+        nested(runtime.modifiers, field(offsetof(Disk, modifiers), sizeof(Disk::modifiers)), value,
+               text);
         value(&runtime.fatigue_band,
               field(offsetof(Disk, fatigue_band), sizeof(Disk::fatigue_band)));
         value(&runtime.pathing_cooldown,
@@ -404,15 +421,13 @@ template<> struct Record<W8MonsterGroup> {
         value(&runtime.alternate_name,
               field(offsetof(Disk, alternate_name), sizeof(Disk::alternate_name)));
         value(&runtime.group_state, field(offsetof(Disk, group_state), sizeof(Disk::group_state)));
-        // The retail save field keeps its -1 encoding; runtime group state is optional.
-        int highlighted_member = runtime.highlighted_member ? *runtime.highlighted_member : -1;
+        // Absence is encoded as -1 only at the retail save boundary.
+        int highlighted_member = runtime.highlighted_member.value_or(-1);
         value(&highlighted_member,
               field(offsetof(Disk, highlighted_member), sizeof(Disk::highlighted_member)));
         if constexpr (!std::is_const_v<Runtime>) {
-            if (highlighted_member == -1)
-                runtime.highlighted_member.reset();
-            else
-                runtime.highlighted_member = highlighted_member;
+            runtime.highlighted_member =
+                highlighted_member == -1 ? std::nullopt : std::optional(highlighted_member);
         }
         value(&runtime.leader_location_id,
               field(offsetof(Disk, leader_location_id), sizeof(Disk::leader_location_id)));
@@ -455,18 +470,17 @@ template<> struct Record<W8WorldItem> {
             return bytes.subspan(offset, size);
         };
         value(&runtime.runtime_id, field(offsetof(Disk, runtime_id), sizeof(Disk::runtime_id)));
-        pointer_slot(runtime.p3D, field(offsetof(Disk, p3D), sizeof(Disk::p3D)));
+        pointer_slot(runtime.entity, field(offsetof(Disk, p3D), sizeof(Disk::p3D)));
         value(&runtime.fActive, field(offsetof(Disk, fActive), sizeof(Disk::fActive)));
-        value(&runtime.item, field(offsetof(Disk, item), sizeof(Disk::item)));
+        nested(runtime.item, field(offsetof(Disk, item), sizeof(Disk::item)), value, text);
         nested(runtime.position, field(offsetof(Disk, position), sizeof(Disk::position)), value,
                text);
         value(&runtime.unknown_21, field(offsetof(Disk, unknown_21), sizeof(Disk::unknown_21)));
         value(&runtime.entity_flags,
               field(offsetof(Disk, entity_flags), sizeof(Disk::entity_flags)));
         value(&runtime.flags, field(offsetof(Disk, flags), sizeof(Disk::flags)));
-        value(&runtime.saved_marker,
-              field(offsetof(Disk, saved_marker), sizeof(Disk::saved_marker)));
-        pointer_slot(runtime.next, field(offsetof(Disk, next), sizeof(Disk::next)));
+        // saved_marker and next frame the flat sequence SaveItemFile writes and LoadItem
+        // reads; they are not item state.
         value(&runtime.vertical_velocity,
               field(offsetof(Disk, vertical_velocity), sizeof(Disk::vertical_velocity)));
         value(&runtime.sector_id, field(offsetof(Disk, sector_id), sizeof(Disk::sector_id)));
@@ -560,6 +574,18 @@ template<> struct Record<W8NpcState> {
               field(offsetof(Disk, restore_done), sizeof(Disk::restore_done)));
         value(&runtime.item_weights,
               field(offsetof(Disk, item_weights), sizeof(Disk::item_weights)));
+    }
+};
+
+template<> struct Record<W8NpcItemEntry> {
+    using Disk = NpcItemEntry;
+    template<class Runtime, class Bytes, class Value, class Text>
+    static void fields(Runtime& runtime, Bytes bytes, Value value, Text text)
+    {
+        value(&runtime.available_at,
+              bytes.subspan(offsetof(Disk, available_at), sizeof(Disk::available_at)));
+        nested(runtime.item, bytes.subspan(offsetof(Disk, item), sizeof(Disk::item)), value, text);
+        value(&runtime.quantity, bytes.subspan(offsetof(Disk, quantity), sizeof(Disk::quantity)));
     }
 };
 

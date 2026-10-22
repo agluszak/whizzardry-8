@@ -15,17 +15,17 @@
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "Font.h"
-#include "compat/native.h"
-#include "himage.h"
-#include "image.h"
-#include "input.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/himage.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/cursor.h"
-#include "wiz8/engine_code/Video2.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_screens/Screens.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
 
@@ -35,7 +35,7 @@
  * Released ancestor: ja2-stracciatella/ja2-stracciatella commit
  * 5ac0a9d56d27e8a7e2c4a7b48ed8932ae7f64033,
  * ja2/Build/Utils/Text_Input.{c,h}. This derivative is distributed under the
- * SFI Source Code License Agreement retained in src/sgp.
+ * SFI Source Code License Agreement retained in licenses/.
  *
  * The released JA2 source establishes ancestry, not Wizardry's original source
  * path. Retail contains no Text_Input / Utils path string, so the recovered
@@ -160,8 +160,8 @@ UiResult W8TextField::HandleInput(const UiPointerEvent& event)
 void W8TextField::MouseMoved(UiPointerAction action, int mouse_x, SDL_MouseButtonFlags buttons)
 {
     if (blocks_mouse) return;
-    if (action == UiPointerAction::Enter) SetTargetCursor(W8_CURSOR_TEXT_INPUT);
-    if (action == UiPointerAction::Leave) SetTargetCursor(W8_CURSOR_NONE);
+    if (action == UiPointerAction::Enter) ScreenPointer().showSlot(W8_CURSOR_TEXT_INPUT);
+    if (action == UiPointerAction::Leave) ScreenPointer().showSlot(W8_CURSOR_NONE);
     if ((buttons & SDL_BUTTON_LMASK) == 0 || !group.focused_ || action != UiPointerAction::Move)
         return;
     if (group.focused_ != this) {
@@ -270,7 +270,7 @@ int TextFieldGroup::Add(int left, int top, int width, int height, int priority,
     auto& field = *fields_.emplace_back(
         std::make_unique<W8TextField>(*this, id, priority, SDL_Rect{left, top, width, height}));
     field.input_type = input_type;
-    field.capacity = input_type == 0x1002 ? 6 : capacity;
+    field.capacity = capacity;
     field.text.assign(text);
     field.use_inactive_color = use_inactive_color;
     if (fields_.size() == 1) field.SelectAll();
@@ -334,8 +334,8 @@ void TextFieldGroup::Focus(int id)
 
 std::optional<int> TextFieldGroup::FocusedId() const
 {
-    if (!focused_) return std::nullopt;
-    return focused_->id;
+    if (focused_) return focused_->id;
+    return {};
 }
 
 void TextFieldGroup::FocusNext()
@@ -390,64 +390,6 @@ void TextFieldGroup::InsertCharacter(char32_t character)
     field.text.insert(field.cursor, bytes);
     field.cursor += bytes.size();
     field.Relayout();
-}
-
-/* Input types above 0x0fff accept one fixed format each: identifiers, a
-   lowercase letter followed by digits, and HH:MM. */
-void TextFieldGroup::InsertRestricted(char32_t character)
-{
-    auto& field = *focused_;
-    const auto is_digit = [](char32_t c) { return c >= '0' && c <= '9'; };
-    if (field.input_type == 0x1000) {
-        if (IsUppercaseCharacter(character) == 0 && IsLowercaseCharacter(character) == 0 &&
-            !is_digit(character) && character != '_' && character != '.')
-            return;
-        if (field.cursor == 0 && is_digit(character)) return;
-        InsertCharacter(character);
-        return;
-    }
-    if (field.input_type == 0x1001) {
-        if (field.cursor == 0) {
-            if (IsLowercaseCharacter(character) != 0)
-                InsertCharacter(character);
-            else if (IsUppercaseCharacter(character) != 0)
-                InsertCharacter(ToLowercaseCharacter(character));
-            return;
-        }
-        if (is_digit(character)) InsertCharacter(character);
-        return;
-    }
-    if (field.input_type != 0x1002) return;
-    switch (field.cursor) {
-    case 0:
-        if (character >= '0' && character <= '2') InsertCharacter(character);
-        return;
-    case 1:
-        if (is_digit(character) && (field.text[0] != '2' || character <= '3'))
-            InsertCharacter(character);
-        if (field.text.size() <= 2) {
-            InsertCharacter(':');
-            return;
-        }
-        field.SetCursor(wiz8::text::next_grapheme(field.text, field.cursor));
-        return;
-    case 2:
-        if (character == ':') {
-            InsertCharacter(':');
-        } else if (is_digit(character)) {
-            InsertCharacter(':');
-            InsertCharacter(character);
-        }
-        return;
-    case 3:
-        if (character >= '0' && character <= '5') InsertCharacter(character);
-        return;
-    case 4:
-        if (is_digit(character)) InsertCharacter(character);
-        return;
-    default:
-        return;
-    }
 }
 
 bool TextFieldGroup::HandleInput(const InputEvent& event)
@@ -572,10 +514,6 @@ bool TextFieldGroup::HandleInput(const InputEvent& event)
             DeleteSelection(field.selection_start, field.selection_end);
     }
     const auto input_type = static_cast<unsigned short>(field.input_type);
-    if (input_type > 0x0fff) {
-        InsertRestricted(character);
-        return true;
-    }
     const bool space = character == ' ' && (input_type & 4) != 0;
     const bool sign = character == '-' && (input_type & 2) != 0 && field.cursor == 0;
     const bool digit = character >= '0' && character <= '9' && (input_type & 1) != 0;
@@ -670,7 +608,7 @@ void TextFieldGroup::RenderFocused(SDL_Surface& target)
                  visible.substr(index, end - index), options);
         index = end;
     }
-    if (editing_ && !IsLeftButtonHeld() && w8_get_ticks() % 1000 < 500) {
+    if (editing_ && !IsLeftButtonHeld() && MonotonicMilliseconds() % 1000 < 500) {
         const SDL_Rect caret{field.Edges().left + field.cursor_x, text_top, 1, font_height};
         SDL_FillSurfaceRect(&target, &caret, style_.cursor_color);
     }

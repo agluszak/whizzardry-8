@@ -2,14 +2,19 @@
 
 struct W8Chunk;
 
+#include <array>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_rect.h>
 
-#include "compat/compiler.h"
-#include "input.h"
+#include "wiz8/button_interaction.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/mgs_commands.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/ui_layer.h"
 
 namespace wiz8 {
 class File;
@@ -24,13 +29,12 @@ struct MGSKeyBinding {
     std::uint16_t unmapped_retail_key = 0;
 };
 
-// VTABLE: WIZ8 0x005ee8f0
 class MGSKeyboard {
 public:
-    MGSKeyBinding* FindBinding(W8MGSCommand command);
-    const MGSKeyBinding* FindBinding(W8MGSCommand command) const;
+    int FindBinding(W8MGSCommand command) const;
     /* Match a live InputEvent against the binding table; returns command or -1. */
     W8MGSCommand FindCommandForEvent(const InputEvent* event) const;
+    MGSKeyBinding* GetBinding(int index);
     bool IsCommandPressed(W8MGSCommand command) const;
     void Clear();
     unsigned char Load(W8Chunk& handle, bool clear);
@@ -48,25 +52,39 @@ void ResetMGSKeyboardBindings();
 
 /* Discard every queued input atom (screen-entry stale-input flush). */
 void DrainInputEventQueue(void);
-/* Reset the slot's combat selection and tear down the menu panel and rows. */
-void CloseKeyboardMenu(void);
-/* Open the keyboard-action menu for one party slot. */
-void OpenKeyboardMenuForSlot(int slot);
-/* Build the panel and one row per selectable menu entry. */
-unsigned char BuildKeyboardMenu(void);
-/* Re-enable the menu's region set and every row region. */
-void EnableKeyboardMenuInput(void);
-/* Whether the cursor sits inside the menu panel rectangle. */
-bool KeyboardMenuContainsCursor(void);
-/* Re-evaluate every row's availability and restate its icon frames. */
-void RefreshKeyboardMenuRows(void);
-/* Invalidate (when asked) then redraw the menu panel. */
-void RedrawKeyboardMenuPanel(bool invalidate);
+struct MainGameScreen;
+
+class KeyboardActionMenu {
+public:
+    KeyboardActionMenu(MainGameScreen& screen, int slot);
+    const int slot;
+    bool containsCursor() const;
+    void refresh();
+    void redraw(bool invalidate);
+
+private:
+    friend struct MainGameScreen;
+    struct Row {
+        int menu = -1;
+        int item = -1;
+        bool enabled = true;
+        HitTarget* target = nullptr;
+        ButtonInteraction press;
+        ButtonAppearance appearance;
+    };
+    std::string tooltip(const Row& row) const;
+    MainGameScreen& screen_;
+    SDL_Point origin;
+    std::array<Row, 13> rows;
+    bool dirty = true;
+    UiLayer input{UiLayerOrder::KeyboardMenu};
+};
+
 /* Dispatch a bound MGS command number through the keyboard system. */
 void DispatchMGSCommand(W8MGSCommand command);
-/* Route one non-mouse input atom to text entry, dialogue, the trap text box,
-   the record-mode console or a bound MGS command. */
-unsigned char HandleMainGameInputEvent(const InputEvent* input);
+/* Route one non-mouse input atom to text entry, dialogue, the trap text box
+   or a bound MGS command. */
+bool HandleMainGameInputEvent(const InputEvent* input);
 /* Poll the camera/movement command bindings and set the world-render flags. */
 void HandleManualCameraHotkeys(void);
 void ApplyCameraMotionHotkeys(void);

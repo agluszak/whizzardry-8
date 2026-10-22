@@ -1,6 +1,8 @@
 #pragma once
+#include <cstddef>
+#include <span>
+#include <vector>
 
-#include "compat/compiler.h"
 #include "wiz8/difficulty.h"
 #include "wiz8/layouts/main_game_screen.h"
 
@@ -19,9 +21,8 @@ void SetMusicVolume(unsigned char volume);
 bool IsMusicMuted(void);
 void SetMusicMuted(unsigned char muted);
 
-/* The persisted configuration block. */
-
-#pragma pack(push, 1)
+/* The persisted configuration. The configuration file's CNFG chunk stores it as a fixed
+   0xa4-byte record (EncodeGameSettings); unnamed slots keep their bytes. */
 struct W8GameSettings {
     unsigned char field_000;
     unsigned char numeric_hit_points;
@@ -76,8 +77,10 @@ struct W8GameSettings {
     unsigned char simplified_npc_interaction;
     unsigned char unknown_051[0x53];
 };
-#pragma pack(pop)
-
-static_assert(sizeof(W8GameSettings) == 0xa4, "W8GameSettings_must_be_0xa4");
 
 extern W8GameSettings g_settings;
+
+/* The CNFG chunk of the configuration file. Decoding throws std::runtime_error unless the
+   payload is exactly one record. */
+std::vector<std::byte> EncodeGameSettings(const W8GameSettings& settings);
+W8GameSettings DecodeGameSettings(std::span<const std::byte> payload);

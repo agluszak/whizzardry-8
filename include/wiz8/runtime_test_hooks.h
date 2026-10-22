@@ -11,7 +11,7 @@ struct W8RuntimeTestHooks {
     /* Movie opens fail, so every caller takes its existing no-movie path. */
     bool skip_movies = false;
     unsigned movie_frames_presented = 0;
-    /* When set, w8_clock_us returns clock_us, which the test advances per frame. */
+    /* When set, MonotonicMicroseconds returns clock_us, which the test advances per frame. */
     bool virtual_clock = false;
     unsigned long long clock_us = 0;
 };

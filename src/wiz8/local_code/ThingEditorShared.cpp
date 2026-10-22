@@ -6,7 +6,6 @@
 
 /* Scale total surviving hostile experience to the level used by the combat
    difficulty evaluator. The signed byte clamp is visible in retail. */
-// FUNCTION: WIZ8 0x00556000
 unsigned char EstimateCombatThreatLevel(unsigned int experience)
 {
     signed char level =

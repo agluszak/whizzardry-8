@@ -1,61 +1,30 @@
 #include "wiz8/local_code/TextBuffer.h"
 
+#include <algorithm>
+#include <cstddef>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <string_view>
 
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
-#include "Font.h"
-#include "image.h"
-#include "wiz8/engine_code/Video2.h"
+#include "wiz8/canvas/Font.h"
+#include "wiz8/canvas/image.h"
 #include "wiz8/fonts.h"
+#include "wiz8/render/frame.h"
 
-// GLOBAL: WIZ8 0x005ED548
 extern const unsigned int g_W8TextBufferAlignLeft = 0x01;
-// GLOBAL: WIZ8 0x005ED54C
 extern const unsigned int g_W8TextBufferAlignCenter = 0x02;
-// GLOBAL: WIZ8 0x005ED550
 extern const unsigned int g_W8TextBufferAlignRight = 0x04;
-// GLOBAL: WIZ8 0x005ED554
 extern const unsigned int g_W8TextBufferAlignMiddle = 0x08;
-// GLOBAL: WIZ8 0x005ED558
 extern const unsigned int g_W8TextBufferAlignTop = 0x10;
-// GLOBAL: WIZ8 0x005ED55C
 extern const unsigned int g_W8TextBufferAlignBottom = 0x20;
-// GLOBAL: WIZ8 0x005ED560
 extern const unsigned int g_W8TextBufferNoWrap = 0x40;
 char g_W8TextSeparator[] = " ";
 static char g_W8TextBreakCharacters[] = " \n";
 
-W8TextBuffer::~W8TextBuffer() = default;
-
-// FUNCTION: WIZ8 0x004f3310
-W8TextBuffer::W8TextBuffer()
-{
-    m_buffer.clear();
-    m_font = 0;
-    m_lineCount = 0;
-    m_geometryDirty = false;
-    m_layoutMode = 10;
-    m_maxLineWidth = 0;
-    m_lineHeight = 0;
-    m_renderMode = 4;
-    m_alternateRenderer = 0;
-    m_fontStateIndex.reset();
-    m_highlighted = false;
-    m_layoutBounds.left = 0;
-    m_layoutBounds.top = 0;
-    m_layoutBounds.right = 0;
-    m_layoutBounds.bottom = 0;
-    m_clipBounds.left = 0;
-    m_clipBounds.top = 0;
-    m_clipBounds.right = 0;
-    m_clipBounds.bottom = 0;
-}
-
-// FUNCTION: WIZ8 0x004f34d0
 void W8TextBuffer::SetText(std::string_view text, Font& font)
 {
     m_font = &font;
@@ -64,27 +33,14 @@ void W8TextBuffer::SetText(std::string_view text, Font& font)
     m_geometryDirty = true;
 }
 
-// FUNCTION: WIZ8 0x004f33a0
 W8TextBuffer::W8TextBuffer(const W8ControlsRect* bounds, std::string_view text, Font& font,
                            unsigned int layout_mode, int render_mode)
+    : m_layoutBounds(*bounds), m_clipBounds(*bounds), m_renderMode(render_mode)
 {
-    m_buffer.clear();
-    m_font = 0;
-    m_lineCount = 0;
-    m_maxLineWidth = 0;
-    m_geometryDirty = false;
-    m_lineHeight = 0;
-    m_alternateRenderer = 0;
     SetLayoutMode(layout_mode);
-    m_renderMode = render_mode;
-    m_fontStateIndex.reset();
-    m_highlighted = false;
-    m_layoutBounds = *bounds;
-    m_clipBounds = *bounds;
     SetText(text, font);
 }
 
-// FUNCTION: WIZ8 0x004f34a0
 void W8TextBuffer::SetLayoutMode(unsigned int layout_mode)
 {
     m_layoutMode = layout_mode;
@@ -96,7 +52,6 @@ void W8TextBuffer::SetLayoutMode(unsigned int layout_mode)
     }
 }
 
-// FUNCTION: WIZ8 0x004f3540
 void W8TextBuffer::SetLayoutBounds(const W8ControlsRect* bounds, bool update_layout)
 {
     m_layoutBounds = *bounds;
@@ -106,7 +61,6 @@ void W8TextBuffer::SetLayoutBounds(const W8ControlsRect* bounds, bool update_lay
     m_geometryDirty = true;
 }
 
-// FUNCTION: WIZ8 0x004f35b0
 void W8TextBuffer::UpdateLayout()
 {
     m_buffer = m_text;
@@ -176,11 +130,11 @@ void W8TextBuffer::UpdateLayout()
         }
         return;
     }
-    m_maxLineWidth = m_buffer.size();
+    m_maxLineWidth = static_cast<unsigned int>(
+        std::min(m_buffer.size(), std::size_t(std::numeric_limits<unsigned int>::max())));
 }
 
 /* Resolves one measured line against the horizontal alignment flags. */
-// FUNCTION: WIZ8 0x004f3c00
 int W8TextBuffer::GetHorizontalPosition(int width)
 {
     if ((m_layoutMode & 2) != 0) {
@@ -202,7 +156,6 @@ int W8TextBuffer::GetHorizontalPosition(int width)
 
 /* Resolves the first baseline from the line count, line height and vertical
    alignment flags, including the font's own height inside a larger override. */
-// FUNCTION: WIZ8 0x004f3c50
 int W8TextBuffer::GetVerticalPosition()
 {
     unsigned int line_height = m_lineHeight;
@@ -229,7 +182,6 @@ int W8TextBuffer::GetVerticalPosition()
 }
 
 /* Rejects an override smaller than the active font's natural line height. */
-// FUNCTION: WIZ8 0x004f3cf0
 void W8TextBuffer::SetLineHeight(unsigned int height)
 {
     if (height < m_font->height()) {
@@ -241,7 +193,6 @@ void W8TextBuffer::SetLineHeight(unsigned int height)
 
 /* Fills the current text rectangle on the standard UI surface and queues the
    same rectangle for composition. */
-// FUNCTION: WIZ8 0x004f3d50
 void W8TextBuffer::FillBounds(SDL_Surface& target, int colour)
 {
     const SDL_Rect area{m_layoutBounds.left, m_layoutBounds.top,
@@ -253,7 +204,6 @@ void W8TextBuffer::FillBounds(SDL_Surface& target, int colour)
 }
 
 /* Draw each newline-delimited view without modifying the owned text. */
-// FUNCTION: WIZ8 0x004f3710
 void W8TextBuffer::RenderText(SDL_Surface& target, int x_offset, int y_offset, bool force)
 {
     if (m_buffer.empty() || (!force && !m_geometryDirty)) return;
@@ -261,7 +211,6 @@ void W8TextBuffer::RenderText(SDL_Surface& target, int x_offset, int y_offset, b
     m_geometryDirty = false;
 }
 
-// FUNCTION: WIZ8 0x004f39b0
 void W8TextBuffer::RenderToTarget(int offset, bool force, SDL_Surface& target)
 {
     if (m_buffer.empty() || (!force && !m_geometryDirty)) return;
@@ -314,8 +263,6 @@ void W8TextBuffer::PaintLines(SDL_Surface& target, SDL_Point offset, bool highli
 
 /* Copies the owned text into caller storage. The caller supplies the capacity;
    the canonical method performs the same unbounded wide-string copy. */
-// FUNCTION: WIZ8 0x004f3990
-// FUNCTION: WIZ8 0x004f3d30
 unsigned int W8TextBuffer::GetLineHeight()
 {
     unsigned int height = m_lineHeight;
@@ -327,4 +274,3 @@ unsigned int W8TextBuffer::GetLineHeight()
 
 /* Concrete controls share the widget dirty flag, panel invalidation and
    frame redraw request. Text controls also invalidate their text geometry. */
-// FUNCTION: WIZ8 0x004f40a0

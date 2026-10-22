@@ -13,24 +13,24 @@
 #include <fmt/format.h>
 
 #include "dialog_code/DialogBase.h"
-#include "input.h"
 #include "npc_trade_price.h"
-#include "sprite.h"
+#include "wiz8/canvas/sprite.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_instance.h"
-#include "wiz8/layouts/item_tables.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Strings.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
+#include "wiz8/npc_interaction_state.h"
+#include "wiz8/platform/input.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/utility.h"
 
@@ -43,13 +43,11 @@ struct W8SplitButtonOffset {
     int y;
 };
 
-// GLOBAL: WIZ8 0x0064FE38
 static W8SplitButtonOffset g_split_button_offsets[10] = {
     {0xd9, 0x5a}, {0xbe, 0x5a}, {0xbc, 0x49},  {0xbc, 0x6f}, {0x81, 0x35},
     {0x81, 0x83}, {0xed, 0x95}, {0x111, 0x95}, {0xf4, 0x35}, {0xf4, 0x83},
 };
 
-// GLOBAL: WIZ8 0x0064FE88
 static W8ControlsRect g_split_text_bounds[14] = {
     {0x48, 0x49, 0xb6, 0x55},  {0x48, 0x6f, 0xb6, 0x7b},  {0xbc, 0x49, 0xef, 0x55},
     {0x48, 0x0f, 0x12a, 0x1f}, {0x48, 0x23, 0x7d, 0x2f},  {0x81, 0x23, 0x12a, 0x2f},
@@ -58,16 +56,13 @@ static W8ControlsRect g_split_text_bounds[14] = {
     {0xbb, 0x83, 0xf0, 0x8f},  {0x90, 0x83, 0x12a, 0x8f},
 };
 
-// GLOBAL: WIZ8 0x0064FF68
 static int g_split_text_string_ids[14] = {
     268, 269, 270, 270, 271, 270, 272, 270, 272, 270, 273, 270, 273, 270,
 };
 
-// GLOBAL: WIZ8 0x0064FFA0
 static DesignRect g_split_count_field_bounds = {0xbc, 0x6f, 0xef, 0x7b};
 
-// FUNCTION: WIZ8 0x005DCED0
-W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, int count,
+W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, const W8ItemInstance* item, int count,
                                      SDL_Point origin)
 {
     SetOrigin(origin.x, origin.y);
@@ -83,7 +78,7 @@ W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item,
     m_remaining = item->stack_count;
     m_stack_total = item->stack_count;
     if (count == -1) {
-        if (g_item_records[item->iItemNo].maximum_quantity <= 0xa) {
+        if (Data().items[item->iItemNo].maximum_quantity <= 0xa) {
             split_count = 1;
         } else {
             split_count = item->stack_count >> 1;
@@ -93,7 +88,7 @@ W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item,
         split_count = count;
         m_remaining = item->stack_count - count;
     }
-    m_item = item;
+    m_item = *item;
     split_result = W8_SPLIT_RESULT_PENDING;
 
     split_result = W8_SPLIT_RESULT_PENDING;
@@ -105,10 +100,8 @@ W8SplitItemDialog::W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item,
     UpdateTotals();
 }
 
-// FUNCTION: WIZ8 0x005DD030
 W8SplitItemDialog::~W8SplitItemDialog() = default;
 
-// FUNCTION: WIZ8 0x005DD480
 bool W8SplitItemDialog::CreateButtons()
 {
     int count;
@@ -163,7 +156,6 @@ bool W8SplitItemDialog::CreateButtons()
     return true;
 }
 
-// FUNCTION: WIZ8 0x005DD750
 void W8SplitItemDialog::CreateTextBuffers()
 {
     int count;
@@ -183,7 +175,7 @@ void W8SplitItemDialog::CreateTextBuffers()
         bounds.right = g_split_text_bounds[index].right + m_x;
         bounds.bottom = g_split_text_bounds[index].bottom + m_y;
         m_texts[index] = std::make_unique<W8TextBuffer>(
-            &bounds, g_localized_strings[g_split_text_string_ids[index]], g_wiz_text_font_secondary,
+            &bounds, Data().strings[g_split_text_string_ids[index]], g_wiz_text_font_secondary,
             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
     }
     m_texts[2]->SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
@@ -193,23 +185,22 @@ void W8SplitItemDialog::CreateTextBuffers()
         m_texts[11]->SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
         m_texts[13]->SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
         if (m_mode == W8_ITEM_SPLIT_SELL) {
-            m_texts[1]->SetText(g_localized_strings[274], g_wiz_text_font_secondary);
-            header = g_localized_strings[268];
+            m_texts[1]->SetText(Data().strings[274], g_wiz_text_font_secondary);
+            header = Data().strings[268];
         } else {
-            m_texts[1]->SetText(g_localized_strings[275], g_wiz_text_font_secondary);
-            header = g_localized_strings[276];
+            m_texts[1]->SetText(Data().strings[275], g_wiz_text_font_secondary);
+            header = Data().strings[276];
         }
         m_texts[0]->SetText(header, g_wiz_text_font_secondary);
     }
-    m_texts[3]->SetText(FormatItemDisplayName(m_item, false), g_wiz_text_font_secondary);
+    m_texts[3]->SetText(FormatItemDisplayName(Data(), &m_item, false), g_wiz_text_font_secondary);
     m_texts[5]->SetText(
         fmt::format(
-            "{} ({})", g_localized_strings[g_equip_class_name_ids[GetItemEquipClass(m_item)]],
-            g_localized_strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(m_item)]]),
+            "{} ({})", Data().strings[g_equip_class_name_ids[GetItemEquipClass(&m_item)]],
+            Data().strings[g_generic_item_name_notice[GetItemUnidentifiedNameIndex(&m_item)]]),
         g_wiz_text_font_secondary);
 }
 
-// FUNCTION: WIZ8 0x005DDA60
 void W8SplitItemDialog::CreateNumericInput()
 {
     W8ControlsRect bounds;
@@ -227,18 +218,16 @@ void W8SplitItemDialog::CreateNumericInput()
     m_count_input->m_maximum = m_stack_total;
 }
 
-// FUNCTION: WIZ8 0x005DDB60
 void W8SplitItemDialog::Draw(SDL_Surface& target)
 {
     W8DialogBase::Draw(target);
-    DrawSprite(target, *ItemSprites(m_item->iItemNo), 0, m_x + 0x18, m_y + 0xe);
+    DrawSprite(target, *ItemSprites(m_item.iItemNo), 0, m_x + 0x18, m_y + 0xe);
     for (auto& button : m_buttons) button.Draw(target);
     for (auto& text : m_texts)
         if (text) text->Paint(target);
     m_count_input->Draw(target);
 }
 
-// FUNCTION: WIZ8 0x005DDCC0
 void W8SplitItemDialog::UpdateCostLabels()
 {
     W8ItemInstance stack;
@@ -246,7 +235,7 @@ void W8SplitItemDialog::UpdateCostLabels()
     int remaining_price;
     int split_price;
 
-    stack = *m_item;
+    stack = m_item;
     if (m_mode == W8_ITEM_SPLIT_INVENTORY) {
         return;
     }
@@ -255,33 +244,35 @@ void W8SplitItemDialog::UpdateCostLabels()
         if (split_count == 0) {
             split_price = 0;
         } else {
-            split_price = CalculateTradeStackPrice(g_npc_interaction_state->dialogue_npc, &stack,
-                                                   W8_TRADE_PRICE_PARTY_SELLS);
+            split_price = CalculateTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc.get(),
+                                                   &stack, W8_TRADE_PRICE_PARTY_SELLS);
         }
         stack.stack_count = static_cast<unsigned char>(m_remaining);
         if (m_remaining == 0) {
             remaining_price = 0;
         } else {
-            remaining_price = CalculateTradeStackPrice(g_npc_interaction_state->dialogue_npc,
-                                                       &stack, W8_TRADE_PRICE_PARTY_SELLS);
+            remaining_price =
+                CalculateTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc.get(), &stack,
+                                         W8_TRADE_PRICE_PARTY_SELLS);
         }
     } else if (m_mode == W8_ITEM_SPLIT_BUY) {
         stack.stack_count = static_cast<unsigned char>(split_count);
         if (split_count == 0) {
             split_price = 0;
         } else {
-            split_price = CalculateTradeStackPrice(g_npc_interaction_state->dialogue_npc, &stack,
-                                                   W8_TRADE_PRICE_PARTY_BUYS);
+            split_price = CalculateTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc.get(),
+                                                   &stack, W8_TRADE_PRICE_PARTY_BUYS);
         }
         stack.stack_count = static_cast<unsigned char>(m_remaining);
         if (m_remaining == 0) {
             remaining_price = 0;
         } else {
-            remaining_price = CalculateTradeStackPrice(g_npc_interaction_state->dialogue_npc,
-                                                       &stack, W8_TRADE_PRICE_PARTY_BUYS);
+            remaining_price =
+                CalculateTradeStackPrice(CurrentGame().npc_interaction.dialogue_npc.get(), &stack,
+                                         W8_TRADE_PRICE_PARTY_BUYS);
         }
     } else {
-        remaining_price = GetItemStackValue(m_item);
+        remaining_price = GetItemStackValue(&m_item);
         split_price = remaining_price;
     }
     text = fmt::format("{:d}", remaining_price);
@@ -294,34 +285,32 @@ void W8SplitItemDialog::UpdateCostLabels()
     m_texts[13]->SetGeometryDirty();
 }
 
-// FUNCTION: WIZ8 0x005DDE60
 void W8SplitItemDialog::UpdateArrowStates()
 {
     m_buttons[0].UpdateEnabledState(split_count != 0);
     m_buttons[1].UpdateEnabledState(m_remaining != 0);
 }
 
-// FUNCTION: WIZ8 0x005DDEE0
 void W8SplitItemDialog::UpdateAcceptButton()
 {
     W8ItemInstance stack;
     bool can_accept;
 
-    stack = *m_item;
+    stack = m_item;
     stack.stack_count = static_cast<unsigned char>(split_count);
     can_accept = split_count != 0;
     switch (m_mode) {
     case W8_ITEM_SPLIT_SELL:
-        if (g_status.party_gold <
-            static_cast<unsigned int>(CalculateTradeStackPrice(
-                g_npc_interaction_state->dialogue_npc, &stack, W8_TRADE_PRICE_PARTY_SELLS))) {
+        if (CurrentGame().party.gold < static_cast<unsigned int>(CalculateTradeStackPrice(
+                                           CurrentGame().npc_interaction.dialogue_npc.get(), &stack,
+                                           W8_TRADE_PRICE_PARTY_SELLS))) {
             can_accept = false;
         }
         break;
     case W8_ITEM_SPLIT_BUY:
-        if (g_status.party_gold <
-            static_cast<unsigned int>(CalculateTradeStackPrice(
-                g_npc_interaction_state->dialogue_npc, &stack, W8_TRADE_PRICE_PARTY_BUYS))) {
+        if (CurrentGame().party.gold < static_cast<unsigned int>(CalculateTradeStackPrice(
+                                           CurrentGame().npc_interaction.dialogue_npc.get(), &stack,
+                                           W8_TRADE_PRICE_PARTY_BUYS))) {
             can_accept = false;
         }
         break;
@@ -350,12 +339,12 @@ void W8SplitItemDialog::UpdateTotals()
     m_count_input->SetValue(split_count);
     m_buttons[3].m_dirty = true;
     m_count_input->m_dirty = true;
-    text = fmt::format("{:.1f}", static_cast<double>(GetItemUnitWeight(m_item) * m_remaining) *
+    text = fmt::format("{:.1f}", static_cast<double>(GetItemUnitWeight(&m_item) * m_remaining) *
                                      kItemWeightDisplayScale);
     m_texts[7]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[4].m_dirty = true;
     m_texts[7]->SetGeometryDirty();
-    text = fmt::format("{:.1f}", static_cast<double>(GetItemUnitWeight(m_item) * split_count) *
+    text = fmt::format("{:.1f}", static_cast<double>(GetItemUnitWeight(&m_item) * split_count) *
                                      kItemWeightDisplayScale);
     m_texts[9]->SetText(text, g_wiz_text_font_secondary);
     m_buttons[5].m_dirty = true;
@@ -363,8 +352,6 @@ void W8SplitItemDialog::UpdateTotals()
     UpdateCostLabels();
 }
 
-// FUNCTION: WIZ8 0x005DDFA0
-// FUNCTION: WIZ8 0x005DE120
 bool W8SplitItemDialog::HandleInputEvent(const InputEvent* input)
 {
     if (m_count_input->HandleInput(input)) return true;
@@ -381,7 +368,6 @@ bool W8SplitItemDialog::HandleInputEvent(const InputEvent* input)
     return m_keep_open;
 }
 
-// FUNCTION: WIZ8 0x005DE1B0
 bool W8SplitItemDialog::ProcessInput()
 {
     BeginModalInput();
@@ -394,7 +380,6 @@ bool W8SplitItemDialog::ProcessInput()
 
 /* Move `count` items between the split and the remaining stack; a negative
    count moves them back. Both sides stay within the stack. */
-// FUNCTION: WIZ8 0x005DE810
 void W8SplitItemDialog::StepSplit(int count)
 {
     split_count = std::clamp(split_count + count, 0, m_stack_total);
@@ -402,14 +387,12 @@ void W8SplitItemDialog::StepSplit(int count)
     UpdateTotals();
 }
 
-// FUNCTION: WIZ8 0x005DE9D0
 void W8SplitItemDialog::Finish(W8SplitDialogResult result)
 {
     split_result = result;
     m_keep_open = false;
 }
 
-// FUNCTION: WIZ8 0x005DE9F0
 void W8SplitItemDialog::OnCountFieldClick()
 {
     if (!m_count_input) {

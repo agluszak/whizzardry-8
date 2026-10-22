@@ -1,12 +1,6 @@
-#include <array>
-#include <cassert>
 #include <cfenv>
-#include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <iterator>
 #include <limits>
 #include <memory>
 #include <utility>
@@ -14,45 +8,31 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
-#include <catch2/matchers/catch_matchers.hpp>
 
-#include "glm/ext/vector_float3.hpp"
-#include "surrender/srDebug.h"
-#include "surrender/srMath.h"
+#include "wiz8/math.h"
 /* Native consumer-side linking and lifetime for the renderer contracts used
    by the game, including compiler-generated members imported on Windows. */
-#include "compat/compiler.h"
 #include "glm/ext/vector_float4.hpp"
-#include "surrender/srCamera.h"
-#include "surrender/srClipPlane.h"
-#include "surrender/srFog.h"
-#include "surrender/srLight.h"
-#include "surrender/srMaterial.h"
-#include "surrender/srMeshModel.h"
-#include "surrender/srModelInstance.h"
-#include "surrender/srNode.h"
-#include "surrender/srScene.h"
-#include "surrender/srTexture.h"
+#include "wiz8/render/camera.h"
+#include "wiz8/render/clip_plane.h"
+#include "wiz8/render/fog.h"
+#include "wiz8/render/material.h"
+#include "wiz8/render/mesh.h"
+#include "wiz8/render/mesh_instance.h"
+#include "wiz8/render/texture.h"
+#include "wiz8/render/world_scene.h"
 #include "wiz8/surface_storage.h"
 
-class srModel;
+class Mesh;
 
-static int destroyed_nodes = 0;
-struct ClientNode : srNode {
-    bool transformDirty() const { return testNotify(NOTIFY_TRANSFORM_DIRTY) != 0; }
-    ~ClientNode() override { ++destroyed_nodes; }
-};
-struct ClientMaterial : srMaterial {
-    ~ClientMaterial() override = default;
-};
 // Instances, including copies, share ownership of their model.
 static int shared_model_lifetimes()
 {
-    auto model = std::make_shared<srMeshModel>(0, 0);
-    std::weak_ptr<srModel> lifetime = model;
-    auto* first = new srModelInstance(nullptr);
+    auto model = std::make_shared<Mesh>(0, 0);
+    std::weak_ptr<Mesh> lifetime = model;
+    auto* first = new MeshInstance(nullptr);
     first->setModel(std::move(model));
-    auto* copy = new srModelInstance(nullptr);
+    auto* copy = new MeshInstance(nullptr);
     *copy = *first;
     REQUIRE(copy->getModel() == first->getModel());
     delete first;
@@ -65,17 +45,12 @@ static int shared_model_lifetimes()
 // Maps share their SDL source surface.
 static int shared_surface_lifetimes()
 {
-    struct Map : srTexture {
-        using srTexture::srTexture;
-        Map& operator=(const Map&) = default;
-        ~Map() override = default;
-    };
     std::weak_ptr<SDL_Surface> surface_lifetime;
     {
         auto surface = std::shared_ptr<SDL_Surface>(
             CreateCpuStorage(2, 2, SDL_PIXELFORMAT_INDEX8).release(), SDL_DestroySurface);
         surface_lifetime = surface;
-        Map first(surface), second;
+        Texture first(surface), second;
         second = first;
         surface.reset();
         first.setSurfacePtr(nullptr);
@@ -104,10 +79,10 @@ TEST_CASE("imports_test")
                                  std::numeric_limits<double>::quiet_NaN()};
         for (volatile double input : inputs) {
             feclearexcept(FE_ALL_EXCEPT);
-            const w8_long actual = srFloatToInt(input);
+            const std::int32_t actual = roundedInt32(input);
             const bool invalid = fetestexcept(FE_INVALID);
 #if defined(__i386__) || defined(__x86_64__)
-            w8_long retail;
+            std::int32_t retail;
             unsigned short saved_control, status;
             asm volatile("fnstcw %0" : "=m"(saved_control));
             const unsigned rounding = mode == FE_DOWNWARD     ? 1
@@ -131,82 +106,17 @@ TEST_CASE("imports_test")
         }
     }
     REQUIRE(fesetround(FE_TONEAREST) == 0);
-    REQUIRE(srFloatToInt(std::numeric_limits<float>::quiet_NaN()) == (-2147483647 - 1));
+    REQUIRE(roundedInt32(std::numeric_limits<float>::quiet_NaN()) == (-2147483647 - 1));
     REQUIRE(shared_surface_lifetimes() == 0);
     REQUIRE(shared_model_lifetimes() == 0);
     {
-        const int before_destruction = destroyed_nodes;
-        srScene* scene = new srScene;
-        auto* child = scene->adoptChild(std::make_unique<ClientNode>());
-        child->setParent(scene, 0);
-        REQUIRE(scene->getChildCount() == 1);
-        delete scene;
-        REQUIRE(destroyed_nodes == before_destruction + 1);
-
-        auto parent_node = new ClientNode;
-        auto transformed_owner = std::make_unique<ClientNode>();
-        auto* transformed_child = transformed_owner.get();
-        transformed_child->setParent(parent_node, 0);
-        REQUIRE(transformed_child->getWorldSpaceLocation().x == 0);
-        REQUIRE((!parent_node->transformDirty() && !transformed_child->transformDirty()));
-        parent_node->setLocation(10, 0, 0);
-        REQUIRE((parent_node->transformDirty() && transformed_child->transformDirty()));
-        REQUIRE(transformed_child->getWorldSpaceLocation().x == 10);
-        REQUIRE((!parent_node->transformDirty() && !transformed_child->transformDirty()));
-        transformed_child->setLocation(3, 0, 0);
-        REQUIRE(transformed_child->getWorldSpaceLocation().x == 13);
-        auto other_parent = new ClientNode;
-        other_parent->setLocation(20, 0, 0);
-        transformed_child->setParent(other_parent, 1);
-        REQUIRE(transformed_child->getWorldSpaceLocation().x == 13);
-        other_parent->setLocation(30, 0, 0);
-        REQUIRE(transformed_child->transformDirty());
-        REQUIRE(transformed_child->getWorldSpaceLocation().x == 23);
-        delete parent_node;
-        delete other_parent;
-
-        struct AlignedVectors {
-            char padding;
-            glm::vec3 values[2];
-            glm::vec3 minimum;
-            glm::vec3 maximum;
-        } vectors;
-        vectors.values[0] = glm::vec3(5, -2, 7);
-        vectors.values[1] = glm::vec3(-3, 9, 1);
-        REQUIRE(reinterpret_cast<uintptr_t>(&vectors.values[0]) % alignof(glm::vec3) == 0);
-        {
-            assert(std::size(vectors.values) != 0);
-            auto lower = vectors.values[0];
-            auto upper = lower;
-            for (std::size_t point_index = 1; point_index < std::size(vectors.values);
-                 ++point_index) {
-                const auto& point = vectors.values[point_index];
-                const auto v = point;
-                // Keep the comparison order for NaNs in recovered bounds.
-                for (int c = 0; c < 3; ++c) {
-                    if (v[c] >= lower[c]) {
-                        if (v[c] > upper[c]) upper[c] = v[c];
-                    } else
-                        lower[c] = v[c];
-                }
-            }
-            (vectors.minimum) = lower;
-            (vectors.maximum) = upper;
-        }
-        REQUIRE((vectors.minimum.x == -3 && vectors.minimum.y == -2 && vectors.minimum.z == 1));
-        REQUIRE((vectors.maximum.x == 5 && vectors.maximum.y == 9 && vectors.maximum.z == 7));
-        srCamera source, copy;
+        Camera3D source, copy;
         source.setViewPlane(2, 3);
         copy = source;
         const auto before = source.getViewPlane();
         const auto after = copy.getViewPlane();
         REQUIRE((before.rectangle.left == after.rectangle.left &&
                  before.rectangle.top == after.rectangle.top && before.distance == after.distance));
-        const auto normalized = copy.getNormalizedViewPlane();
-        REQUIRE((normalized.left == after.rectangle.left / after.distance &&
-                 normalized.bottom == after.rectangle.bottom / after.distance &&
-                 normalized.right == after.rectangle.right / after.distance &&
-                 normalized.top == after.rectangle.top / after.distance));
         copy.setClipRange(1000, 10);
         const auto [near_clip, far_clip] = copy.getClipRange();
         REQUIRE((near_clip == 10 && far_clip == 1000));
@@ -216,7 +126,7 @@ TEST_CASE("imports_test")
         copy.setEnvironmentScale(0.5f, 2);
         const auto [near_scale, far_scale] = copy.getEnvironmentScale();
         REQUIRE((near_scale == 0.5f && far_scale == 2));
-        srClipPlane plane, plane_copy;
+        ClipPlane plane, plane_copy;
         glm::vec4 plane_value;
         plane_value.x = 1;
         plane_value.y = 2;
@@ -225,34 +135,19 @@ TEST_CASE("imports_test")
         plane.setClipPlane(plane_value);
         plane_copy = plane;
         REQUIRE(plane_copy.getClipPlane().w == 4);
-        srFog fog, fog_copy;
+        FogParams fog, fog_copy;
         fog.setDensity(0.25f);
         fog_copy = fog;
         REQUIRE(fog_copy.getDensity() == 0.25f);
-        ClientMaterial material, material_copy;
+        Material material, material_copy;
         glm::vec4 emissive;
         emissive.x = 0.25f;
         emissive.y = 0.5f;
         emissive.z = 0.75f;
         emissive.w = 1;
         material.setEmissive(emissive);
-        material_copy.srMaterial::operator=(material);
+        material_copy.Material::operator=(material);
         REQUIRE(material_copy.getEmissive().z == 0.75f);
-        // Copied lights must own independent registry entries and scene links.
-        auto parent = new ClientNode;
-        auto original = new srLight(parent);
-        auto* sibling = parent->adoptChild(std::make_unique<srLight>());
-        auto copied = std::make_unique<srLight>(*original);
-        REQUIRE(copied->getParent() == nullptr);
-        auto* clone = parent->adoptChild(std::move(copied));
-        clone->setParent(parent, 0);
-        delete original;
-        REQUIRE((parent->getChildCount() == 2 && clone->getParent() == parent &&
-                 sibling->getParent() == parent));
-        delete parent; // Recursively releases the sibling and copied light.
     }
-    REQUIRE_THROWS_WITH(srAssertFail("native probe", "imports_test.cpp", 42, "value %d", 7),
-                        "Debug assertion in module imports_test.cpp line 42 failed:\n\n"
-                        "Expression [ native probe ] evaluates to false.\n\nvalue 7\n");
-    puts("ok: native renderer consumer imports, generated special members and variadic assertion");
+    puts("ok: native renderer consumer imports and generated special members");
 }

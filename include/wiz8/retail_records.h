@@ -5,13 +5,12 @@
 #include <cstdint>
 #include <type_traits>
 
-#include "wiz8/engine_code/Missile.h"
-#include "wiz8/layouts/character.h"
-#include "wiz8/layouts/combat_state.h"
-#include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/item_tables.h"
+#include "wiz8/combat/combat.h"
+#include "wiz8/data/item_records.h"
+#include "wiz8/entities/missile.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/retail_geometry_types.h"
+#include "wiz8/rules/character.h"
 
 namespace wiz8::retail {
 // Format-defined storage only. Text fields are bytes so odd UTF-16 offsets
@@ -24,7 +23,6 @@ inline constexpr std::size_t kNpcDatabaseRecordBytes = 0x309;
 inline constexpr std::size_t kLevelDatabaseRecordBytes = 0xd8;
 inline constexpr std::size_t kMonsterRecordBytes = 0x297;
 inline constexpr std::size_t kCharacterBytes = 0x1862;
-inline constexpr std::size_t kGlobalStatusBytes = 0x49c2;
 inline constexpr std::size_t kPartySlotBytes = 0x106;
 inline constexpr std::size_t kMissileTableRecordBytes = 0x1e5;
 
@@ -35,7 +33,7 @@ struct CameraState {
 };
 static_assert(sizeof(CameraState) == 0x3c);
 struct TargetSource {
-    W8TargetSourceKind iType;
+    std::int32_t iType;
     int iChar;
     int iMonsterID;
     Vec3f point;
@@ -207,8 +205,7 @@ static_assert(std::is_trivially_copyable_v<FactDatabaseRecord>);
 static_assert(sizeof(FactDatabaseRecord) == 0x1d8, "FactDatabaseRecord_size_must_be_0x1d8");
 struct NpcCharacterTemplate {
     std::array<std::byte, 20> name;
-    std::array<std::byte, 12> name_part_2;
-    unsigned char unknown_01a[0x44]; // Unidentified retail data, preserved verbatim.
+    std::array<std::byte, 80> name_part_2; // The full name, up to 39 UTF-16 units.
     W8Profession profession;
     W8Race race;
     int table_value;
@@ -261,7 +258,7 @@ struct NpcDatabaseRecord {
     /* 0x060: one bit per named-person alias the NPC answers to; read as one
        dword by FindNpcNameOrPlaceQuote. */
     unsigned int name_alias_mask;
-    /* 0x064: one-based index into g_item_tables selecting the record's item
+    /* 0x064: one-based index into GameData::item_tables selecting the record's item
        table, copied into the runtime state. */
     int item_table_id;
     /* 0x068: one bit per service the NPC offers. */
@@ -277,7 +274,7 @@ struct NpcDatabaseRecord {
     /* 0x070/0x074: the level this NPC restores its binding at and the
        FindEntityByName key the restore moves its monster to - the default
        pair copied into the runtime state's pending restore. */
-    char restore_level;
+    signed char restore_level;
     unsigned char unknown_071[3];
     char restore_entity_name[0x29];
     /* 0x09d: set when the record carries no appended item-stock
@@ -446,7 +443,7 @@ struct MonsterRecord {
     int model_index;           /* 0x253 */
     int alternate_model_index; /* 0x257: alternate selected value */
     int hostility_radius;      /* 0x25b: Minimal Neutrality Distance / Hostility Radius */
-    W8Faction faction_id;      /* 0x25f: W8Faction value, domain 0..20 */
+    std::int32_t faction_id;   /* 0x25f: W8Faction value, domain 0..20 */
     int material;              /* 0x263: Monster Editor Material selector */
     unsigned char deleted;     /* 0x267: LoadMonsterGroup skips the record */
     unsigned char significant_kill;
@@ -473,449 +470,80 @@ static_assert(offsetof(MonsterRecord, attack_body_part_chances) == 0x157,
               "MonsterRecord_attack_body_part_chances");
 static_assert(offsetof(MonsterRecord, effective_level) == 0x24f, "MonsterRecord_effective_level");
 static_assert(offsetof(MonsterRecord, display_level) == 0x251, "MonsterRecord_display_level");
-struct Character {
-    /* 0x0000: SaveCharacter stamps 1 here before writing the record, so the
-       leading dword is a saved-record version rather than runtime state. */
-    unsigned int record_version;
-    bool fInParty; /* 0x0004 */
-    /* 0x0005: the character's name, also the stem of its "%s.CHR" file. */
-    std::array<std::byte, 20> name;
-    std::array<std::byte, 12> name_part_2; /* 0x0019: rendered as the parenthesized name */
-    unsigned char unknown_0025[0x44]; // Unidentified retail data, preserved verbatim.
-    /* 0x0069 and 0x006d: the current profession and the one the character
-       started in. The level band subtracts a base only while the two agree. */
-    W8Profession iProfession;         /* 0x0069 */
-    W8Profession original_profession; /* 0x006d */
-    /* 0x0071: indexes the race resistance table. */
-    W8Race iRace;
-    /* 0x0075: zero is male and one is female. The quote lookup names the
-       Data\Quotes\PCs files m_ or f_ from it, the item record's two-bit mask
-       admits exactly one sex, and the female-only profession at index two
-       forces the field to one. */
-    W8Gender gender;
-    /* 0x0079: the portrait/catalog index. Looked up by gender, race and
-       profession together, drawn by RenderPartyPortrait, and reassigned from
-       g_portrait_groups[].portraits[] when the portrait changes. */
-    int portrait_index;
-    /* 0x007d: cleared by DeriveCharacterPersonality in both of its branches and set to -1
-       by the character rebuild; all three accesses are four-byte stores. */
-    int unknown_007d;
-    int personality; /* indexes the state-5 descriptor text */
-    int voice;       /* selected by the character voice control */
-    /* 0x0089: the experience level; averaged across occupied slots. */
-    unsigned int uiExpLevel;
-    int profession_levels[W8_PROFESSION_COUNT]; /* 0x008d */
-    unsigned char unknown_00c9[0x14];
-    /* 0x00dd: the eight-band ladder over the character's level in their
-       current profession, and the base subtracted from it while they are still
-       in the profession they started in. */
-    int level_band;
-    int level_band_base;
-    W8CharacterAttribute attributes[7]; /* 0x00e5, indexed by skill_id - 0x22 */
-    unsigned char unknown_0171[0x28];
-    /* 0x199: the attribute points the level-up reset still owes against the
-       profession's minimums. It accumulates as a negative debt and is drawn
-       back down one point at a time once the pool is positive. */
-    int attribute_point_deficit;
-    W8CharacterSkill skills[0x29]; /* 0x019d, indexed by skill_id */
-    unsigned char unknown_07b3[0x23a];
-    /* 0x09ed..0x09f8: experience, the goal for the next level, and the goal
-       the previous level had. A character is ready to advance once the first
-       reaches the second. */
-    unsigned int experience;
-    unsigned int experience_goal;
-    unsigned int experience_previous_goal;
-    /* 0x09f9: this character's confirmed kills, shown on the camp stats
-       page and imported from the Wiz7 record. */
-    int kill_count;
-    /* 0x09fd: how many times this character has died. */
-    int death_count;
-    /* 0x0a01: one entry per condition, holding how long it has left to run;
-       W8_CONDITION_INDEFINITE means until something lifts it. The monster
-       carries the identical array. */
-    unsigned int uiCondition[W8_CONDITION_COUNT]; /* 0x0a01 */
-    unsigned char unknown_0a51[0x14];
-    W8Enchantment enchantments[8]; /* 0x0a65 */
-    unsigned char unknown_0ac5[0x3c];
-    /* 0x0b01: the highest currently-set condition index, rescanned from
-       uiCondition[0x13] downward whenever a condition is
-       lifted. Zero is either "none set" or condition zero, matching the
-       monster copy at W8MonsterInfo::highest_condition. Thresholds are the
-       condition ids themselves: below HOSTILE for rest/formation, below
-       DEAD for ordinary party eligibility. */
-    W8Condition highest_condition;
-    /* 0x0b05: the highest enchantment slot still in use, recomputed by
-       scanning down from the last one whenever a slot is cleared. */
-    W8EnchantmentSlot enchantment_top;
-    /* 0x0b09: the argument COND_POISONED carries (poison strength). */
-    int condition_argument;
-    /* 0x0b0d..0x0b20: the two pools with a ceiling each, plus the adjustment
-       damage is booked against before hit points are recalculated. A character
-       whose hp_current is zero is treated as out of the fight everywhere. */
-    int uiHPMax;                  /* 0x0b0d */
-    unsigned int hp_current;      /* 0x0b11 */
-    int hp_adjustment;            /* 0x0b15 */
-    int uiStaminaMax;             /* 0x0b19 */
-    int stamina;                  /* 0x0b1d */
-    unsigned int fatigue_penalty; /* 0x0b21: taken off the stamina ceiling */
-    /* 0x0b25 and 0x0b45: the spell-point pools, one per spell realm. */
-    int sp_max[W8_SPELL_REALM_COUNT]; /* 0x0b25 */
-    unsigned char unknown_0b3d[8];
-    int iSPLeft[W8_SPELL_REALM_COUNT]; /* 0x0b45 */
-    unsigned char unknown_0b5d[8];
-    /* 0x0b65: game minutes until the alchemist (trait MAKE_POTIONS) may brew
-       again; the aging tick counts it down outside surprise, and a successful
-       brew restarts it at 0x168. */
-    unsigned int potion_brew_cooldown;
-    /* 0x0b69, 0x0b71 and 0x0b79: the per-tick regeneration rates rebuilt from
-       the pool ceilings, one each for hit points and stamina and one per spell
-       realm at a two-float stride. */
-    float health_regen_rate;
-    /* 0x0b6d: fractional hit-point regeneration remainder carried between
-       ticks; reset to zero when hit points reach the ceiling. */
-    float health_regen_accumulator;
-    float stamina_regen_rate;
-    /* 0x0b75: fractional stamina-regeneration remainder carried between
-       ticks; reset to zero when stamina reaches the ceiling. */
-    float stamina_regen_accumulator;
-    float spell_regen_rates[12];
-    unsigned char unknown_0ba9[0x10];
-    unsigned int inventory_weight;     /* 0x0bb9 */
-    unsigned int party_weight_share;   /* 0x0bbd */
-    unsigned int total_carried_weight; /* 0x0bc1 */
-    unsigned int carrying_capacity;    /* 0x0bc5; displayed divided by 10 */
-    /* 0x0bc9: the load category, zero through four, which scales what an
-       action costs in fatigue. FatigueCharacter's error text calls it that. */
-    W8LoadCategory load_category;
-    /* 0x0bcd: one entry per spell. CanCharacterUseItem refuses a spell-source
-       item whose spell already reads one here, so one is the learned state. */
-    int spell_learned[136]; /* 0x0bcd */
-    /* 0x0ded: indexed by skill_id. For the six realm skills it counts the
-       spells known in that realm, which is what makes the skill available at
-       all - LearnSpell bumps the entry and IsCharacterSkillAvailable reads it.
-       LearnSpell also writes a recomputed figure into entry 36, which is a
-       real skill id but not a count. */
-    unsigned int skill_unlocks[0x25];
-    /* 0x0e81: rebuilt by CalcInitiative from level, speed, senses, the
-       initiative skill and the current load category. */
-    int initiative;
-    /* 0x0e85..0x0e8c: the two armor-class summaries rebuilt after the
-       location values below. */
-    int armor_class_total;
-    int armor_class_average;
-    /* 0x0e8d: thirteen armor-class components. CalcArmorClasses clears the
-       whole run before applying equipment, traits, load and fatigue. */
-    int armor_class_components[13];
-    int armor_class_by_location[5]; /* 0x0ec1 */
-    unsigned char unknown_0ed5[4];
-    /* 0x0ed9: a percentage taken off incoming damage, the character's
-       counterpart of the monster's own at 0x1e1. */
-    int damage_reduction;
-    W8CharacterResistance resistances[W8_RESISTANCE_COUNT]; /* 0x0edd */
-    unsigned char flags0[0x20];
-    /* 0x0f5d: the twelve worn/held slots, indexed by W8EquipSlot. Slots six
-       and seven are the primary hands and eight and nine the alternate pair. */
-    W8ItemInstance EquippedItem[12]; /* 0x0f5d */
-    unsigned char flags1[0x3c];
-    /* 0x1029: the eight per-character carried slots. GetOriginOfCharacterItem
-       reports this array as origin zero and the equipment array as origin one. */
-    W8ItemInstance backpack[8]; /* 0x1029 */
-    unsigned char unknown_1089[0xc0];
-    /* 0x1149: the two per-hand derived attack blocks. */
-    W8HandAttack Hand[2];
-    unsigned char unknown_11ff[0xb6];
-    unsigned char dual_wielding; /* 0x12b5 */
-    /* 0x12b6: per-monster-id detection score, one byte per record id. The
-       wandering-group pass adds the group's member count while the party stays
-       unaware, and the detection roll subtracts the record's effective level
-       before scaling. */
-    unsigned char monster_awareness[0x3e8];
-    /* 0x169e: the fatigue band, zero through four, recomputed from the stamina
-       fraction whenever it moves; a change re-runs the armour class pass. */
-    int fatigue_band;
-    /* 0x16a2: the modifier block rebuilt from the character's condition
-       durations, enchantment slots and the bound-NPC penalty; folded into
-       `bonus` alongside the equipment and party blocks. */
-    W8GameplayModifierBlock condition_modifiers;
-    /* 0x1709: the equipment bonus block accumulated from the worn items and
-       folded into `bonus`. */
-    W8GameplayModifierBlock equipment_bonus;
-    /* 0x1770: the derived modifier block the rebuild clears and folds the
-       equipment, persistent and party blocks into. */
-    W8GameplayModifierBlock bonus;
-    /* 0x17d7: the CamPos record cameraState writes and recall restores.
-       The cross-level path copies the whole 0x3c bytes onto
-       W8GlobalStatus::pending_move_location. */
-    CameraState saved_location; /* 0x17d7 */
-    /* 0x1813: which level that anchor belongs to. The recall compares it
-       against GetLoadedLevelID() and takes a different path when they differ. */
-    int saved_level;                          /* 0x1813 */
-    W8CharacterConditionRecord conditions[4]; /* 0x1817 .. 0x185a */
-    /* 0x185b: the deep-fatigue effect is already on this character, which is
-       what stops FatigueCharacter re-applying it every turn. */
-    bool deep_fatigue_applied;
-    /* 0x185c: one cost per skill id 0x18..0x1b, read by the profession-change
-       cost diff with the skill id biased down. */
-    unsigned char skill_costs[4];
-    unsigned char magic_bonus_pool;
-    /* 0x1861: the anchor above has been set. Recall does nothing without it. */
-    bool has_saved_location;
+struct HandAttack {
+    int uiHolds;
+    bool in_play;
+    W8Skill weapon_skill;
+    W8Skill combat_skill;
+    unsigned int combined_skill;
+    int attack_score;
+    unsigned int attacks;
+    int swings;
+    int damage_bonus;
+    int hit_bonus;
+    int attack_bonus;
+    int damage_percent;
+    W8Dice damage_dice;
+    unsigned short attack_flags;
+    unsigned char condition_chances[W8_ATTACK_EFFECT_COUNT];
+    unsigned char unknown_43[0x18];
 };
-static_assert(std::is_trivially_copyable_v<Character>);
-static_assert(sizeof(Character) == 0x1862, "Character_must_be_0x1862");
-/* The status block's head: its version and two pointer words retail stored
-   but never used after loading. */
-struct StatusBuffers {
-    float save_version;
-    std::uint32_t characters;
-    std::uint32_t party_rows;
+static_assert(sizeof(HandAttack) == 0x5b);
+struct CharacterConditionRecord {
+    int level_acquired;
+    int source_monster;
+    bool active;
+    unsigned char unknown_09[8];
 };
-static_assert(sizeof(StatusBuffers) == 0x0c);
-struct LevelProgress {
-    std::uint8_t visited;
-    std::uint16_t combat_end_count;
-    std::int16_t monster_kill_count;
-    std::uint32_t experience_gained;
-    std::int32_t gold_collected;
-    std::int32_t sight_clock;
-    std::uint8_t unknown_11[0x10];
+static_assert(sizeof(CharacterConditionRecord) == 0x11);
+struct EffectSlot {
+    bool active;
+    int effect_id;
+    int amount;
+    unsigned int percent;
+    unsigned int duration;
 };
-static_assert(sizeof(LevelProgress) == 0x21);
+static_assert(sizeof(EffectSlot) == 0x11);
+static_assert(offsetof(EffectSlot, effect_id) == 0x01);
+static_assert(offsetof(EffectSlot, amount) == 0x05);
+static_assert(offsetof(EffectSlot, duration) == 0x0d);
+struct ItemInstance {
+    std::int32_t item_id;
+    std::uint8_t stack_count;
+    std::uint8_t uses_or_charges;
+    std::uint8_t identified;
+    std::uint8_t spell_hint;
+    std::uint8_t unknown_08;
+    std::uint8_t effect_used;
+    std::uint8_t bind_announced;
+    std::uint8_t bound;
+};
+static_assert(sizeof(ItemInstance) == 0x0c);
+struct FormationPosition {
+    std::int8_t row;
+    std::int8_t old_row;
+    std::int8_t column;
+    std::int8_t facing;
+    std::uint8_t unknown_04[8];
+};
+static_assert(sizeof(FormationPosition) == 0x0c);
+struct PartyFormation {
+    std::int8_t occupants[5][3];
+    std::uint8_t row_occupants[5];
+    FormationPosition positions[8];
+    std::uint8_t unknown_74[0x10];
+};
+static_assert(sizeof(PartyFormation) == 0x84);
+static_assert(offsetof(PartyFormation, positions) == 0x14);
+struct CharacterSkill {
+    std::uint8_t active, reset_flag;
+    std::uint32_t points, level, base_level, practice_count;
+    std::uint8_t improved, available;
+    std::uint8_t unknown_14[0x12];
+};
+static_assert(sizeof(CharacterSkill) == 0x26);
+static_assert(offsetof(CharacterSkill, points) == 0x02);
+static_assert(offsetof(CharacterSkill, level) == 0x06);
 
-struct GlobalStatus {
-    StatusBuffers buffers;
-    bool game_started; /* 0x000c */
-    /* 0x000d..0x0018: the three join counters the party-add entry advances:
-       the regular-member, auxiliary and total counts. */
-    int regular_member_count;
-    int auxiliary_member_count;
-    int total_member_count;
-    unsigned int party_gold;
-    int selected_character;
-    W8ItemInstance party_item_pool[500];
-    unsigned int party_item_count;
-    /* 0x1795: text-box line cursor. */
-    short text_line_cursor;
-    unsigned int legacy_text_box_lines[2][3];
-    /* 0x17af: the party's twelve effect slots, the same 0x11-byte records the
-       monster and combat tables hold. The trailing run is opaque. */
-    W8EffectSlot effect_slots[12];
-    unsigned char unknown_187b[0x55];
-    int party_facing;
-    unsigned int party_heading;
-    int world_clock;
-    unsigned int world_clock_ms;
-    unsigned int party_order_slots[8];
-    int current_level;
-    /* 0x1904..0x1a03: the 0x100-byte STAT header block. */
-    unsigned char status_header_prefix[0xd4];
-    unsigned int uiTurnsElapsed; /* 0x19d8 */
-    unsigned char status_header_suffix[0x28];
-    LevelProgress level_progress[W8_LEVEL_COUNT];
-    unsigned char unknown_2013[0x294];
-    /* 0x22a7: CamPos staged by recall when the anchor is on another level;
-       LoadLevel restores it after the new world exists. */
-    CameraState pending_move_location;
-    /* 0x22e3: the party-wide modifier block the effect rebuild clears and
-       refills. Its +0x4a flag is the light gate the monster-sight threshold
-       pass reads. */
-    W8GameplayModifierBlock party_modifiers;
-    int next_group_id;
-    int next_monster_location_id;
-    int next_world_item_id;
-    int next_trigger_id;
-    bool item_in_cursor;
-    W8ItemInstance item_in_hand;
-    /* 0x2367: per-slot flags the character-load path consults. */
-    unsigned char flags[0x20];
-    unsigned int game_time_ms;
-    unsigned int aging_accumulator;
-    /* 0x238f: search mode toggle. Mirrors the submenu search button, slows
-       party movement, and scales the monster-sight threshold while set. */
-    unsigned char search_mode;
-    /* 0x2390: cleared by the main-game frame; HP/SP and condition updates
-       skip work while it is set, and encounter culling treats it as the
-       force-despawn gate. */
-    bool world_suspended;
-    /* 0x2391/0x2395: session accumulators ConsumeLevelElapsedTime
-       folds the level's pending elapsed times into; the aging tick's wait
-       pass sums them against zero. */
-    float real_elapsed;
-    float frame_elapsed;
-    W8GameWaitState wait_state;
-    unsigned int item_recharge_ms;
-    W8PartyFormationState formation;
-    int game_time_days;
-    bool iron_man;
-    /* 0x242a: world-clock stamp of the last NPC-binding reset; the event
-       pass waits 0x3c ticks past it. */
-    int binding_reset_clock;
-    /* 0x242e: binding-reset grace period in effect; cleared once the sweep
-       runs after the clock elapses. */
-    bool binding_reset_pending;
-    unsigned char padding_242f;
-    /* 0x2430: one-shot gate for the NPC event pass. */
-    bool npc_restore_pending;
-    /* 0x2431: raised by the .nsf quote audit while it runs; ShowNotice counts
-       each notice's wrapped lines under it. */
-    unsigned char quote_audit;
-    /* 0x2432: ShowNotice sets it under quote_audit when a notice wraps
-       past seven lines; the audit reports those as "Long Quote". */
-    unsigned char long_quote;
-    bool party_fatigued;
-    /* 0x2434: index of the party member the main-game selection flow is on.
-       The screen reset writes 0xff. */
-    unsigned char selected_party_member;
-    /* 0x2435: read as a gate by the main-game frame's world-cursor path. */
-    unsigned char world_cursor_gate;
-    unsigned int camp_tick_ms;
-    /* 0x243a: the five RPC race ids AssayDialog walks as NUM_RPC_RACES. */
-    unsigned char rpc_races[5];
-    unsigned char unknown_243f[5];
-    /* Character creation skips the loose CHR collision check when set. */
-    unsigned char skip_loose_character_check;
-    /* 0x2445: latched once the Trynnie2 Zulu/0x1c3 use-item action has been
-       handled at a cursor node; later uses take the Mystical Shaman branch. */
-    bool use_item_latch;
-    bool infatuation_pending;
-    W8Difficulty difficulty;
-    /* 0x244b: the save file's creation-time pair XOR-masked by SaveGame's
-       two data constants; both halves are written as dwords. */
-    unsigned int save_filetime_xor[2];
-    std::array<std::byte, 44> monster_name_buffer;
-    /* 0x247f: party slot selected by the Sedexus path before rpc_active
-       is armed; later capture, fact and death handling reuse the same slot. */
-    int sedexus_party_slot;
-    unsigned int stamina_tick_ms;
-    unsigned char condition13_clock;
-    /* 0x2488: one-shot gate; when set, the next condition-change and
-       condition-cleared reaction is swallowed and the flag cleared. */
-    unsigned char skip_next_condition_reaction;
-    bool rpc_active; /* 0x2489: fact 0x14c gate */
-    /* 0x248a: armed by the long NPC reward event; the event also stamps
-       0x2493 with the world clock. */
-    bool fact_b8_pending;
-    unsigned int condition13_stamp;
-    int pending_condition_party_slot;
-    int fact_b8_clock;
-    bool greeting_pending;
-    unsigned int camp_fatigue_count;
-    /* 0x249c: party slot fact 0x39 hands to RemoveCharacterCondition. */
-    int party_slot;
-    /* 0x24a0: per-spell 0x10-byte stat records; TrackItemSpellSource
-       walks records[0..149] bumping usable_cast_count for spells the character
-       carries and cast_count for the selected source spell. */
-    W8ItemSpellUsageRecord item_spell_usage[200];
-    unsigned char log_fact_checks;
-    int status_ints[1000];
-    bool fact_88_latch;
-    unsigned char unknown_40c2[0xc];
-    /* Indexed by spell_id - 1, for the player spells 1..0x71. */
-    W8CharacterSpellUsageRecord spell_usage[0x71];
-    unsigned char unknown_47de[0x194];
-    /* 0x4972: set once the Cosmic Circle arena monsters have been spawned by
-       the level-4 setup; the setup skips its work while this or world_suspended
-       holds. */
-    bool cc_arena_spawned;
-    /* 0x4973/0x4977: GetTickCount stamps. NpcScriptSavantHackDone writes the
-       first; UpdateNpcEvents retires NPC 0x1b3 fifty ticks later and starts
-       the second, which gates monster group 0x1b6's Bela cycle after five
-       seconds. */
-    int savant_hack_tick;
-    int bela_cycle_tick;
-    unsigned char unknown_497b[4];
-    /* 0x497f: combat difficulty band counters, indexed by EvaluateCombatDifficulty. */
-    unsigned int combat_difficulty_counts[3];
-    /* 0x498b: NPC group event counter, cleared once the group event runs. */
-    int vi_event_stage;
-    /* 0x498f/0x4993: pending-stage flags set by FACT_QUE_ENDGAME2/3; the book
-       callback queues ENDGAME2's script notice while either holds. */
-    int endgame2_queued;
-    int endgame3_queued;
-    unsigned int text_box_lines_used[4];
-    unsigned int text_box_lines_shown[4];
-    /* 0x49b7: world-clock stamp the 0x49bb reward event compares against. */
-    int trang_check_clock;
-    bool trang_check_pending;
-    bool intro_shown;
-    bool flag;
-    unsigned char padding_49be[2];
-    /* 0x49c0: set when the endgame transition starts; saves carrying either
-       this or flag are filtered from the load list. */
-    bool endgame_started;
-    /* 0x49c1: latched while g_dev_mode is set at teardown; persisted into
-       the save slot as dev_flagged. */
-    bool dev_flagged;
-};
-static_assert(std::is_trivially_copyable_v<GlobalStatus>);
-static_assert(offsetof(GlobalStatus, status_header_suffix) +
-                      sizeof(GlobalStatus::status_header_suffix) -
-                      offsetof(GlobalStatus, status_header_prefix) ==
-                  0x100,
-              "GlobalStatus_status_header_size");
-static_assert(offsetof(GlobalStatus, party_gold) == 0x19, "GlobalStatus_party_gold_offset");
-static_assert(offsetof(GlobalStatus, selected_character) == 0x1d,
-              "GlobalStatus_selected_character_offset");
-static_assert(offsetof(GlobalStatus, party_item_pool) == 0x21,
-              "GlobalStatus_party_item_pool_offset");
-static_assert(offsetof(GlobalStatus, party_item_count) == 0x1791,
-              "GlobalStatus_party_item_count_offset");
-static_assert(offsetof(GlobalStatus, text_line_cursor) == 0x1795,
-              "GlobalStatus_text_line_cursor_offset");
-static_assert(offsetof(GlobalStatus, flags) == 0x2367, "GlobalStatus_flags_offset");
-static_assert(offsetof(GlobalStatus, party_facing) == 0x18d0, "GlobalStatus_party_facing_offset");
-static_assert(offsetof(GlobalStatus, current_level) == 0x1900, "GlobalStatus_current_level_offset");
-static_assert(offsetof(GlobalStatus, status_header_prefix) == 0x1904,
-              "GlobalStatus_status_header_prefix_offset");
-static_assert(offsetof(GlobalStatus, uiTurnsElapsed) == 0x19d8,
-              "GlobalStatus_uiTurnsElapsed_offset");
-static_assert(offsetof(GlobalStatus, status_header_suffix) == 0x19dc,
-              "GlobalStatus_status_header_suffix_offset");
-static_assert(offsetof(GlobalStatus, level_progress) == 0x1a04,
-              "GlobalStatus_level_progress_offset");
-static_assert(offsetof(GlobalStatus, iron_man) == 0x2429, "GlobalStatus_iron_man_offset");
-static_assert(offsetof(GlobalStatus, world_cursor_gate) == 0x2435,
-              "GlobalStatus_value_2435_offset");
-static_assert(offsetof(GlobalStatus, pending_move_location) == 0x22a7,
-              "GlobalStatus_pending_move_location_offset");
-static_assert(offsetof(GlobalStatus, formation) == 0x23a1, "GlobalStatus_formation_offset");
-static_assert(offsetof(GlobalStatus, world_suspended) == 0x2390,
-              "GlobalStatus_world_suspended_offset");
-static_assert(offsetof(GlobalStatus, skip_loose_character_check) == 0x2444,
-              "GlobalStatus_skip_loose_character_check_offset");
-static_assert(offsetof(GlobalStatus, use_item_latch) == 0x2445,
-              "GlobalStatus_use_item_latch_offset");
-static_assert(offsetof(GlobalStatus, selected_party_member) == 0x2434,
-              "GlobalStatus_selected_party_member_offset");
-static_assert(offsetof(GlobalStatus, rpc_races) == 0x243a, "GlobalStatus_rpc_races_offset");
-static_assert(offsetof(GlobalStatus, monster_name_buffer) == 0x2453,
-              "GlobalStatus_monster_name_buffer_offset");
-static_assert(offsetof(GlobalStatus, sedexus_party_slot) == 0x247f,
-              "GlobalStatus_sedexus_party_slot_offset");
-static_assert(offsetof(GlobalStatus, greeting_pending) == 0x2497, "GlobalStatus_flag_2497_offset");
-static_assert(offsetof(GlobalStatus, next_group_id) == 0x234a, "GlobalStatus_next_group_id_offset");
-static_assert(offsetof(GlobalStatus, log_fact_checks) == 0x3120,
-              "GlobalStatus_log_fact_checks_offset");
-static_assert(offsetof(GlobalStatus, text_box_lines_shown) == 0x49a7,
-              "GlobalStatus_text_box_lines_shown_offset");
-static_assert(offsetof(GlobalStatus, intro_shown) == 0x49bc, "GlobalStatus_intro_shown_offset");
-static_assert(offsetof(GlobalStatus, text_box_lines_used) == 0x4997,
-              "GlobalStatus_migrated_values_offset");
-static_assert(offsetof(GlobalStatus, rpc_active) == 0x2489, "GlobalStatus_flag_2489_offset");
-static_assert(offsetof(GlobalStatus, status_ints) == 0x3121, "GlobalStatus_status_ints_offset");
-static_assert(offsetof(GlobalStatus, fact_88_latch) == 0x40c1, "GlobalStatus_fact_88_latch_offset");
-static_assert(offsetof(GlobalStatus, spell_usage) == 0x40ce, "GlobalStatus_spell_usage_offset");
-static_assert(offsetof(GlobalStatus, vi_event_stage) == 0x498b, "GlobalStatus_value_498b_offset");
-static_assert(offsetof(GlobalStatus, endgame2_queued) == 0x498f, "GlobalStatus_value_498f_offset");
-static_assert(offsetof(GlobalStatus, endgame3_queued) == 0x4993, "GlobalStatus_value_4993_offset");
-static_assert(offsetof(GlobalStatus, party_slot) == 0x249c, "GlobalStatus_party_slot_offset");
-static_assert(offsetof(GlobalStatus, regular_member_count) == 0x000d,
-              "GlobalStatus_regular_member_count_offset");
-static_assert(offsetof(GlobalStatus, auxiliary_member_count) == 0x0011,
-              "GlobalStatus_auxiliary_member_count_offset");
-static_assert(offsetof(GlobalStatus, total_member_count) == 0x0015,
-              "GlobalStatus_total_member_count_offset");
-static_assert(offsetof(GlobalStatus, party_gold) == 0x0019, "GlobalStatus_party_gold_offset");
-static_assert(sizeof(GlobalStatus) == 0x49c2, "GlobalStatus_must_be_0x49c2");
 #pragma pack(pop)
 } // namespace wiz8::retail

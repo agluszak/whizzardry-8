@@ -1,48 +1,38 @@
 #include "wiz8/local_code/MonsterAI.h"
 
+#include <cassert>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <span>
 #include <vector>
 
-#include <fmt/format.h>
 #include <glm/geometric.hpp>
 
-#include "conditions.h"
-#include "gameplay_modifiers.h"
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/character.h"
-#include "layouts/gameplay_databases.h"
-#include "layouts/targeting.h"
-#include "layouts/world.h"
 #include "local_code/Factions.h"
 #include "monster_actions.h"
 #include "monster_cycles.h"
-#include "random.h"
 #include "sight_state.h"
-#include "surrender/srDebug.h"
 #include "wiz8/character_skills.h"
-#include "wiz8/compat/unaligned.h"
-#include "wiz8/engine_code/3d.h"
-#include "wiz8/engine_code/GDCamera.h"
-#include "wiz8/engine_code/GameData.h"
-#include "wiz8/engine_code/Monster.h"
-#include "wiz8/engine_code/Navigator.h"
-#include "wiz8/engine_code/OctPath.h"
-#include "wiz8/engine_code/Octree.h"
-#include "wiz8/engine_code/SpellVisual.h"
-#include "wiz8/engine_code/Spells.h"
-#include "wiz8/engine_code/Video2.h"
-#include "wiz8/engine_code/World.h"
+#include "wiz8/checked_integer.h"
+#include "wiz8/combat/attack.h"
+#include "wiz8/combat/combat.h"
+#include "wiz8/combat/group_attacks.h"
+#include "wiz8/combat/hostility.h"
+#include "wiz8/combat/range.h"
+#include "wiz8/data/faction_ids.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
+#include "wiz8/data/spell_ids.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/layouts/combat_state.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
-#include "wiz8/local_code/CombatAttack.h"
-#include "wiz8/local_code/CombatHostility.h"
-#include "wiz8/local_code/CombatRange.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayCode.h"
-#include "wiz8/local_code/GroupAttacks.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -50,17 +40,24 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/spell_ids.h"
+#include "wiz8/local_code/spell_database.h"
+#include "wiz8/render/frame.h"
+#include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/targeting.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigation.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/startup_world.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/utility.h"
-#include "wiz8/xstatus.h"
+#include "wiz8/world/party_camera.h"
+#include "wiz8/world/update.h"
+#include "wiz8/world/world.h"
 
 constexpr float kGroupEngagementProbeScale = 333.33333f;
 constexpr float kMonsterEngagementRangeFloor = 7500.0f;
 constexpr float kReinforcementDistanceSlack = 1.15f;
-
-#define MONSTER_AI_CPP "C:\\Projects\\Wizardry 8\\Local Code\\MonsterAI.cpp"
 
 /* The special-attack table row value that marks a summon; flee and control
    rules treat those rows differently. */
@@ -68,12 +65,10 @@ enum { W8_SPECIAL_ATTACK_EFFECT_SUMMON = 6 };
 
 /* Gates the out-of-combat check that gives a group whose leader is still up a
    nudge. Only UpdateMonsterGroups reads it. */
-// GLOBAL: WIZ8 0x0061CC10
 static bool g_out_of_combat_rtai_enabled = true;
 
 /* The frame counter the staggered group update rotates through the group
    list, one fifth per frame with a full-distance pass every twentieth. */
-// GLOBAL: WIZ8 0x0068D520
 static unsigned int g_monster_group_tick = 0;
 
 static W8MonsterInfo* GetGroupMemberInfo(W8MonsterGroup* group, unsigned int index);
@@ -83,12 +78,10 @@ static void QueueMonsterAction(W8MonsterInfo* monster_info, W8MonsterActionKind 
 
 /* 125000, the cap on how far a monster will walk to investigate a heard
    noise. */
-// GLOBAL: WIZ8 0x00617AE8
 int g_noise_investigate_radius_cap = 125000;
 
 /* Two dwords per special-attack kind; only the leading dword is
    read here. */
-// GLOBAL: WIZ8 0x0061EEFC
 int g_special_attack_table[32][2] = {
     {0, 0}, {1, 0}, {1, 0}, {2, 3}, {4, 0}, {1, 1}, {1, 1}, {1, 0}, {5, 4}, {5, 0}, {1, 5},
     {1, 1}, {1, 0}, {1, 0}, {1, 0}, {1, 0}, {1, 0}, {1, 0}, {1, 0}, {1, 1}, {1, 5}, {1, 0},
@@ -98,30 +91,27 @@ int g_special_attack_table[32][2] = {
 /* The spell that fills each being effect slot, walked by
    MonsterSpellTargetOK to tell whether a buff is already running; the
    monster side indexes effect_slots, the party side the matching rows
-   in g_status. */
-// GLOBAL: WIZ8 0x00616D84
-int g_being_effect_slot_spells[12] = {
+   in CurrentGame().status. */
+const int g_being_effect_slot_spells[12] = {
     W8_SPELL_ARMORPLATE, W8_SPELL_CHAMELEON,    W8_SPELL_DETECT_SECRETS, W8_SPELL_ENCHANTED_BLADE,
     W8_SPELL_LIGHT,      W8_SPELL_MAGIC_SCREEN, W8_SPELL_MISSILE_SHIELD, W8_SPELL_SHADOW_HOUND,
     W8_SPELL_X_RAY,      W8_SPELL_NONE,         W8_SPELL_NONE,           W8_SPELL_NONE,
 };
 
 /* The combat-state spell per effect slot, walked against
-   W8CombatState::effect_slots and the monster's combat_effects. */
-// GLOBAL: WIZ8 0x00616DB4
-int g_combat_effect_slot_spells[9] = {
+   Combat::effect_slots and the monster's combat_effects. */
+const int g_combat_effect_slot_spells[9] = {
     W8_SPELL_ARMORMELT, W8_SPELL_ACID_BOMB,   W8_SPELL_TOXIC_CLOUD,
     W8_SPELL_FIRESTORM, W8_SPELL_DEATH_CLOUD, W8_SPELL_DRAINING_CLOUD,
     W8_SPELL_NONE,      W8_SPELL_NONE,        W8_SPELL_NONE,
 };
 
 /* The same mapping for the second combat effect block, indexed against
-   W8CombatState::effect_slots0 and the monster's combat_effects_2. One
+   Combat::effect_slots0 and the monster's combat_effects_2. One
    retail array: [0..6) are spell ids, [6..23) — the retail sub-table at
    0x00616DF0 — is the spell-point budget/failure percentage indexed by cost
    band that Magic.cpp's failure and power-level readers consume. */
-// GLOBAL: WIZ8 0x00616DD8
-int g_combat_effect_slot_spells_and_cast_success[23] = {
+const int g_combat_effect_slot_spells_and_cast_success[23] = {
     W8_SPELL_BLESS,
     W8_SPELL_ELEMENT_SHIELD,
     W8_SPELL_SOUL_SHIELD,
@@ -148,27 +138,20 @@ int g_combat_effect_slot_spells_and_cast_success[23] = {
 };
 
 /* The per-slot weights ChooseMonsterSpell rolls against. */
-// GLOBAL: WIZ8 0x0061CC14
 static int g_spell_cast_weights[10] = {5, 5, 5, 10, 10, 10, 10, 15, 15, 15};
-
-/* Reported once, so a monster missing its special-attack cycle does not flood
-   the log. */
-// GLOBAL: WIZ8 0x0068D525
-static bool g_special_attack_cycle_error_reported;
 
 /* The timed sight service. The dirty flag is raised by the condition and
    enchantment writers whenever what monsters can see of the party may have
    changed; out of combat sight is refreshed unconditionally, in combat only
    when the flag says so, and detection runs while the combat state permits. */
-// FUNCTION: WIZ8 0x00530110
 void UpdateMonsterSight(void)
 {
-    if (!gXStatus.fCombatMode || gXStatus.sight_refresh_pending) {
-        if (gXStatus.sight_refresh_pending) {
-            gXStatus.sight_refresh_pending = false;
+    if (!CurrentGame().combat.has_value() || CurrentGame().sight_refresh_pending) {
+        if (CurrentGame().sight_refresh_pending) {
+            CurrentGame().sight_refresh_pending = false;
         }
         RefreshOutwardSightForAllMonsters();
-        if (gXStatus.fCombatMode && g_combat_state->round_count == 0) {
+        if (CurrentGame().combat.has_value() && CurrentGame().combat->round_count == 0) {
             CheckMonsterGroupsEnterCombat();
         }
     }
@@ -179,7 +162,6 @@ void UpdateMonsterSight(void)
    the group list a fifth at a time, with a full-distance check every
    twentieth frame; groups further than twice the far clip are detached and
    groups close enough get their members loaded. */
-// FUNCTION: WIZ8 0x00530150
 void UpdateMonsterGroups(bool staggered)
 {
     W8MonsterGroup* monster_group;
@@ -209,7 +191,7 @@ void UpdateMonsterGroups(bool staggered)
             continue;
         }
         monster_info = FindMonster(monster_group->leader_location_id);
-        if (monster_info == 0 || monster_info->p3D == 0) {
+        if (monster_info == 0 || !monster_info->entity) {
             continue;
         }
         nearest_distance = GetGroupNearestDistance(monster_group);
@@ -230,20 +212,18 @@ void UpdateMonsterGroups(bool staggered)
             }
             far_clip = WorldGetFarClip(GetWorld());
             if (nearest_distance <= far_clip + far_clip) {
-                if (!gXStatus.fCombatMode && MonsterGroupCanEngage(monster_group)) {
+                if (!CurrentGame().combat.has_value() && MonsterGroupCanEngage(monster_group)) {
                     MonsterGroupEnterCombat(monster_group);
                 }
             } else {
                 DetachMonsterGroup(monster_group);
             }
         }
-        if (g_out_of_combat_rtai_enabled && !gXStatus.fCombatMode) {
-            if (monster_group == 0) {
-                srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 207, 0);
-            }
+        if (g_out_of_combat_rtai_enabled && !CurrentGame().combat.has_value()) {
+            assert(monster_group != 0);
             if (monster_group->leader_group_id == 0) {
                 monster_info = FindMonster(monster_group->leader_location_id);
-                if (!monster_info->p3D->IsDying()) {
+                if (!monster_info->entity->IsDying()) {
                     DoMonsterRTAI(monster_info, true);
                 }
             }
@@ -256,16 +236,15 @@ void UpdateMonsterGroups(bool staggered)
    moment any live member's party-visibility state is one, and two while the
    best state a live member reports is two. Members with no live entry, a
    dying body, no hit points or a condition at 0x0c or higher do not count. */
-// FUNCTION: WIZ8 0x00530470
 W8SightState GetMonsterGroupPartySightState(W8MonsterGroup* monster_group)
 {
     W8MonsterInfo* monster_info;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     unsigned int index;
     W8SightState result;
 
     result = W8_SIGHT_UNSEEN;
-    if (g_status.world_suspended) {
+    if (CurrentGame().status.world_suspended) {
         return W8_SIGHT_UNSEEN;
     }
     monster_info = FindMonster(monster_group->leader_location_id);
@@ -276,9 +255,9 @@ W8SightState GetMonsterGroupPartySightState(W8MonsterGroup* monster_group)
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
         int location_id;
 
-        location_id = monster_group->MemberLocationId(index).value();
+        location_id = monster_group->MemberLocationId(index);
         monster_info = FindMonster(location_id);
-        if (monster_info->fActive && !monster_info->p3D->IsDying() &&
+        if (monster_info->fActive && !monster_info->entity->IsDying() &&
             monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_BLIND) {
             if (monster_info->player_visibility.sight_state == W8_SIGHT_SEEN) {
                 return W8_SIGHT_SEEN;
@@ -298,7 +277,6 @@ W8SightState GetMonsterGroupPartySightState(W8MonsterGroup* monster_group)
    a mode: the scripted-orders helper for dispositions zero and two, a
    hit-point retreat check for one. The chosen mode is committed through
    ApplyMonsterRTAIDecision when it differs from what ai_mode already holds. */
-// FUNCTION: WIZ8 0x00530560
 void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
 {
     bool update;
@@ -307,18 +285,16 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
     update = false;
     decision = W8_RT_AI_IDLE;
     if (engage && IsSightRangeOverridden() && monster_info->ai_mode == W8_RT_AI_CHARGE_PARTY) {
-        W8MonsterRecord* record;
+        const W8MonsterRecord* record;
         W8MonsterGroup* monster_group;
-        W8Navigator* navigator;
+        Navigator* navigator;
         unsigned char best_range;
         unsigned int attack;
 
         if (monster_info->pCombat) {
             return;
         }
-        if (monster_info == 0) {
-            srAssertFail("pMonsterInfo", MONSTER_AI_CPP, 0x479, 0);
-        }
+        assert(monster_info != 0);
         record = GetMonsterDataForInfo(monster_info);
         best_range = 0;
         for (attack = 0; attack < W8_MAX_MONSTER_ATTACKS; ++attack) {
@@ -328,18 +304,17 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
                 best_range = record->attacks[attack].range_category;
             }
         }
-        if (MonsterApproachStartupNavigator(
-                monster_info->p3D,
+        if (monster_info->entity->ApproachStartupNavigator(
                 CalcRangeDistance(static_cast<W8RangeCategory>(best_range)) * 0.9f) == 0) {
             return;
         }
         monster_group = FindMonsterGroup(monster_info->monster_group_id);
         MonsterGroupEnterCombat(monster_group);
-        navigator = monster_info->p3D->linked_navigator;
+        navigator = monster_info->entity->nav.linked_navigator;
         if (navigator != 0) {
             navigator->group_linked = true;
         } else {
-            monster_info->p3D->group_linked = true;
+            monster_info->entity->nav.group_linked = true;
         }
         return;
     }
@@ -358,7 +333,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
                     FindMonsterGroup(monster_info->monster_group_id));
             }
             if (alert == W8_SIGHT_UNSEEN) {
-                if (!monster_info->p3D->orders_finished) {
+                if (!monster_info->entity->orders_finished) {
                     decision = W8_RT_AI_IDLE;
                 } else {
                     update = ChooseMonsterRTAIMode(monster_info, &decision);
@@ -366,7 +341,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
             } else if (alert <= W8_SIGHT_RECENT) {
                 switch (monster_info->ubDisposition) {
                 case W8_DISPOSITION_NEUTRAL:
-                    if (!monster_info->p3D->orders_finished) {
+                    if (!monster_info->entity->orders_finished) {
                         decision = W8_RT_AI_IDLE;
                     } else {
                         update = ChooseMonsterRTAIMode(monster_info, &decision);
@@ -376,20 +351,18 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
                     decision = static_cast<unsigned char>(
                                    monster_info->hp_current * 100 / monster_info->uiHPMax <= 0x14) +
                                1;
-                    if (monster_info->p3D->movement_stopped) {
+                    if (monster_info->entity->nav.movement_stopped) {
                         update = true;
                     }
                     break;
                 case W8_DISPOSITION_FRIENDLY:
-                    if (!monster_info->p3D->orders_finished) {
+                    if (!monster_info->entity->orders_finished) {
                         decision = W8_RT_AI_IDLE;
                     } else {
                         update = ChooseMonsterRTAIMode(monster_info, &decision);
                     }
                     break;
                 default:
-                    srAssertFail("FALSE", MONSTER_AI_CPP, 0x185,
-                                 "DoMonsterRTAI: ERROR - Invalid disposition");
                     return;
                 }
             }
@@ -400,9 +373,9 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
 
         mode = monster_info->ai_mode & W8_MONSTER_AI_MODE_MASK;
         if (mode != W8_RT_AI_PATROL_AREA &&
-            (!monster_info->p3D->face_party || monster_info->pathing_cooldown != 0 ||
+            (!monster_info->entity->face_party || monster_info->pathing_cooldown != 0 ||
              mode != W8_RT_AI_FACE_DIRECTION || !monster_info->player_visibility.line_of_sight ||
-             glm::length((((monster_info->p3D->movement.position -
+             glm::length((((monster_info->entity->nav.movement.position -
                             PartyNavigator()->GetPosition())))) >= 5e+03f)) {
             monster_info->ai_mode &= ~W8_MONSTER_AI_REAPPLY_MODE;
         }
@@ -411,11 +384,9 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
         }
     }
     if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE ||
-        monster_info->p3D->script_wait != MONSCR_WALKTO || decision != W8_RT_AI_IDLE) {
+        monster_info->entity->script_wait != MONSCR_WALKTO || decision != W8_RT_AI_IDLE) {
         if (decision != monster_info->ai_mode || update) {
-            if (!engage && decision == W8_RT_AI_CHARGE_PARTY) {
-                srAssertFail("ubAIDecision != RT_AI_MODE_CHARGE_PARTY", MONSTER_AI_CPP, 0x1c9, 0);
-            }
+            assert(engage || decision != W8_RT_AI_CHARGE_PARTY);
             ApplyMonsterRTAIDecision(monster_info, decision);
         }
     }
@@ -426,29 +397,27 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
    downed member takes nothing. A latched mode keeps running until its patrol
    point is reached, a fresh look-around delay just counts down, and a heard
    noise is investigated while the path to it still looks cheap enough. */
-// FUNCTION: WIZ8 0x005308C0
 bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
 {
-    W8Monster* monster;
     bool changed;
-    char mode;
+    signed char mode;
 
-    monster = monster_info->p3D;
+    Monster& monster = *monster_info->entity;
     mode = W8_RT_AI_IDLE;
     changed = false;
-    if (monster->face_party && monster_info->pathing_cooldown == 0 &&
+    if (monster.face_party && monster_info->pathing_cooldown == 0 &&
         monster_info->player_visibility.line_of_sight) {
         glm::vec3 delta;
 
-        delta = monster->movement.position - PartyNavigator()->GetPosition();
+        delta = monster.nav.movement.position - PartyNavigator()->GetPosition();
         if (glm::length(delta) < 5e+03f) {
             glm::vec3 camera;
             glm::vec3 position;
 
             camera = cameraLocation();
-            position = monster->GetPosition();
+            position = monster.nav.GetPosition();
             *decision = W8_RT_AI_FACE_DIRECTION;
-            monster->move_direction = camera - position;
+            monster.move_direction = camera - position;
             return true;
         }
     }
@@ -457,13 +426,13 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
         return false;
     }
     if ((monster_info->ai_mode & W8_MONSTER_AI_REAPPLY_MODE) != 0) {
-        if (monster->order_mode == W8_MONSTER_ORDER_POINT_PATROL ||
-            monster->order_mode == W8_MONSTER_ORDER_RANDOM_POINT_PATROL) {
+        if (monster.order_mode == W8_MONSTER_ORDER_POINT_PATROL ||
+            monster.order_mode == W8_MONSTER_ORDER_RANDOM_POINT_PATROL) {
             glm::vec3 delta;
             glm::vec3 patrol;
 
-            monster->GetPatrolPoint(&patrol);
-            delta = patrol - monster->GetPosition();
+            monster.GetPatrolPoint(&patrol);
+            delta = patrol - monster.nav.GetPosition();
             if (glm::length(delta) >= 1500.0) {
                 *decision = monster_info->ai_mode;
                 return true;
@@ -481,40 +450,39 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
         return false;
     }
     if (monster_info->ai_mode == W8_RT_AI_FACE_NOISE &&
-        fabsf(monster->movement.target_yaw - monster->movement.yaw) >=
+        fabsf(monster.nav.movement.target_yaw - monster.nav.movement.yaw) >=
             g_camera_transition_epsilon) {
         mode = W8_RT_AI_FACE_NOISE;
     } else {
-        if (monster_info->heard_noise_radius > 0 && monster->movement_stopped &&
+        if (monster_info->heard_noise_radius > 0 && monster.nav.movement_stopped &&
             monster_info->ai_mode == W8_RT_AI_INVESTIGATE_NOISE) {
             glm::vec3 delta;
 
-            delta = monster_info->heard_noise_position - monster->GetPosition();
+            delta = monster_info->heard_noise_position - monster.nav.GetPosition();
             if (glm::length(delta) < 1500.0) {
                 monster_info->heard_noise_radius = 0;
             }
         }
         if (monster_info->heard_noise_radius > 0) {
-            if (!monster->movement_stopped && monster_info->ai_mode == W8_RT_AI_INVESTIGATE_NOISE) {
+            if (!monster.nav.movement_stopped &&
+                monster_info->ai_mode == W8_RT_AI_INVESTIGATE_NOISE) {
                 mode = W8_RT_AI_INVESTIGATE_NOISE;
             } else {
                 glm::vec3 noise_position;
                 glm::vec3 position;
-                float range;
                 int radius;
-                int hops;
 
                 noise_position = monster_info->heard_noise_position;
                 radius = monster_info->heard_noise_radius * 3 / 2;
                 if (radius >= g_noise_investigate_radius_cap) {
                     radius = g_noise_investigate_radius_cap;
                 }
-                range = static_cast<float>(radius);
-                position = monster->GetPosition();
-                if (GetWorldOctree()->TestNoiseLineOfSight(&position, &noise_position, &range,
-                                                           &hops) != 0 &&
-                    NoiseHearingMargin(monster_info->heard_noise_radius, static_cast<int>(range),
-                                       hops) > 0) {
+                position = monster.nav.GetPosition();
+                const auto path = GetWorldSpatialIndex()->measureNoisePath(
+                    position, noise_position, static_cast<float>(radius));
+                if (path &&
+                    NoiseHearingMargin(monster_info->heard_noise_radius,
+                                       static_cast<int>(path->length), path->door_hops) > 0) {
                     mode = W8_RT_AI_INVESTIGATE_NOISE;
                     changed = true;
                 } else {
@@ -522,27 +490,28 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 }
             }
         } else if (monster_info->pause_time != 0) {
-            if (Random(0x14) == 0) {
+            if (CurrentGame().rng.below(0x14) == 0) {
                 double angle;
 
                 mode = W8_RT_AI_FACE_DIRECTION;
-                angle = (Random(0x168) << 1) * g_camera_pi * kInverseFullTurnDegrees;
-                monster->move_direction.x = static_cast<float>(cos(angle) * 500.0);
-                monster->move_direction.y = 0.0f;
-                monster->move_direction.z = static_cast<float>(sin(angle) * 500.0);
+                angle =
+                    (CurrentGame().rng.below(0x168) << 1) * g_camera_pi * kInverseFullTurnDegrees;
+                monster.move_direction.x = static_cast<float>(cos(angle) * 500.0);
+                monster.move_direction.y = 0.0f;
+                monster.move_direction.z = static_cast<float>(sin(angle) * 500.0);
             } else {
                 mode = W8_RT_AI_IDLE;
             }
         } else {
-            switch (monster->order_mode) {
+            switch (monster.order_mode) {
             case W8_MONSTER_ORDER_NONE:
                 break;
             case W8_MONSTER_ORDER_GUARD: {
                 glm::vec3 delta;
                 glm::vec3 patrol;
 
-                monster->GetPatrolPoint(&patrol);
-                delta = patrol - monster->GetPosition();
+                monster.GetPatrolPoint(&patrol);
+                delta = patrol - monster.nav.GetPosition();
                 if (glm::length(delta) < 1500.0) {
                     mode = W8_RT_AI_IDLE;
                 } else {
@@ -552,7 +521,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
             }
             case W8_MONSTER_ORDER_PATROL:
                 mode = W8_RT_AI_PATROL_AREA;
-                if (monster->movement_stopped) {
+                if (monster.nav.movement_stopped) {
                     changed = true;
                 }
                 break;
@@ -564,43 +533,43 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
                 int next;
 
                 mode = W8_RT_AI_MOVE_TO_PATROL_POINT;
-                monster->GetPatrolPoint(&patrol);
-                delta = patrol - monster->GetPosition();
+                monster.GetPatrolPoint(&patrol);
+                delta = patrol - monster.nav.GetPosition();
                 if (glm::length(delta) >= 1500.0) {
                     break;
                 }
-                count = static_cast<int>(monster->vector.size());
-                if (monster->order_mode == W8_MONSTER_ORDER_POINT_PATROL) {
-                    next = monster->patrol_index + 1;
+                count = static_cast<int>(monster.vector.size());
+                if (monster.order_mode == W8_MONSTER_ORDER_POINT_PATROL) {
+                    next = monster.patrol_index + 1;
                     if (next < count) {
-                        monster->patrol_index = static_cast<signed char>(next);
+                        monster.patrol_index = static_cast<signed char>(next);
                     } else {
-                        monster->patrol_index = 0;
+                        monster.patrol_index = 0;
                     }
                 } else if (count < 2) {
-                    monster->patrol_index = 0;
+                    monster.patrol_index = 0;
                 } else if ((monster_info->ai_mode & W8_MONSTER_AI_MODE_MASK) ==
                            W8_RT_AI_MOVE_TO_PATROL_POINT) {
                     do {
-                        next = static_cast<signed char>(Random(count));
-                    } while (next == monster->patrol_index);
-                    monster->patrol_index = static_cast<signed char>(next);
+                        next = static_cast<signed char>(CurrentGame().rng.below(count));
+                    } while (next == monster.patrol_index);
+                    monster.patrol_index = static_cast<signed char>(next);
                 } else {
-                    monster->patrol_index = static_cast<signed char>(Random(count));
+                    monster.patrol_index = static_cast<signed char>(CurrentGame().rng.below(count));
                 }
                 changed = true;
                 break;
             }
             case W8_MONSTER_ORDER_FACE_DIRECTION:
-                monster->move_direction =
-                    glm::vec3(monster->direction_x, monster->direction_y, monster->direction_z);
+                monster.move_direction =
+                    glm::vec3(monster.direction_x, monster.direction_y, monster.direction_z);
                 mode = W8_RT_AI_FACE_DIRECTION;
                 changed = true;
                 break;
             }
         }
     }
-    if (mode != static_cast<char>(monster_info->ai_mode)) {
+    if (mode != static_cast<signed char>(monster_info->ai_mode)) {
         changed = true;
     }
     *decision = static_cast<unsigned char>(mode);
@@ -611,18 +580,8 @@ static void HandleMonsterPatrolFailure(W8MonsterInfo* monster_info)
 {
     W8MonsterGroup* monster_group = FindMonsterGroup(monster_info->monster_group_id);
     if (monster_group->encounter_registered) {
-        if (g_dev_mode) {
-            DebugMessage(
-                0, fmt::format(
-                       "Monster {:d} and associated monsters killed because it couldn't patrol",
-                       monster_info->location_id));
-        }
         MarkMonsterGroupForRemoval(monster_info->monster_group_id);
     } else {
-        if (g_dev_mode) {
-            DebugMessage(0, fmt::format("{} {:d} can't path!", GetMonsterName(monster_info, 0, 0),
-                                        monster_info->location_id));
-        }
         monster_info->pathing_cooldown = 0x14;
         if (monster_info->movement_stall_ticks < 2) {
             monster_info->movement_stall_ticks = 2;
@@ -634,15 +593,13 @@ static void HandleMonsterPatrolFailure(W8MonsterInfo* monster_info)
    the movement or aiming that mode needs; when a mode cannot run the decision
    is folded back to zero so ai_mode records what actually happened. Bit 0x80
    of the decision rides in alongside the mode and only case 6 consumes it. */
-// FUNCTION: WIZ8 0x00530f10
 void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decision)
 {
-    W8Monster* monster = monster_info->p3D;
+    Monster& monster = *monster_info->entity;
     W8MonsterGroup* monster_group;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8MonsterInfo* member;
     W8SpellEffectEntry* effect;
-    W8SpellVisual* visual;
     glm::vec3 position;
     glm::vec3 patrol_point;
     unsigned char best_range;
@@ -652,9 +609,7 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
     switch (decision & W8_MONSTER_AI_MODE_MASK) {
     case W8_RT_AI_CHARGE_PARTY:
         best_range = 0;
-        if (monster_info == 0) {
-            srAssertFail("pMonsterInfo", MONSTER_AI_CPP, 1145, 0);
-        }
+        assert(monster_info != 0);
         record = GetMonsterDataForInfo(monster_info);
         for (attack = 0; attack < 3; ++attack) {
             if (RateMonsterAttack(monster_info, record, attack, 0, false) == 3 &&
@@ -662,8 +617,8 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
                 best_range = record->attacks[attack].range_category;
             }
         }
-        if (MonsterApproachStartupNavigator(
-                monster, CalcRangeDistance(static_cast<W8RangeCategory>(best_range)) * 0.9f) == 1) {
+        if (monster.ApproachStartupNavigator(
+                CalcRangeDistance(static_cast<W8RangeCategory>(best_range)) * 0.9f) == 1) {
             if (IsSightRangeOverridden()) {
                 monster_group = FindMonsterGroup(monster_info->monster_group_id);
                 MonsterGroupEnterCombat(monster_group);
@@ -676,48 +631,46 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
         ClearMonsterPathAndResume(monster_info);
         break;
     case W8_RT_AI_LINK_TO_PARTY:
-        MonsterLinkToStartupNavigator(monster);
+        monster.LinkToStartupNavigator();
         break;
     case W8_RT_AI_APPROACH_PARTY:
-        if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
-            srAssertFail("pMonsterInfo->ubDisposition != DISP_HOSTILE", MONSTER_AI_CPP, 810, 0);
-        }
-        MonsterApproachStartupNavigator(monster, 3000.0);
+        assert(monster_info->ubDisposition != W8_DISPOSITION_HOSTILE);
+        monster.ApproachStartupNavigator(3000.0);
         break;
     case W8_RT_AI_INVESTIGATE_NOISE:
         position = monster_info->heard_noise_position;
-        MonsterConfigureMovementToPosition(monster, &position);
+        monster.nav.ConfigureMovementToPosition(&position);
         break;
     case W8_RT_AI_PATROL_AREA:
         if ((decision & W8_MONSTER_AI_REAPPLY_MODE) != 0) {
-            monster->SetHeightRange(monster->patrol_distance, monster->patrol_variation);
+            monster.nav.SetHeightRange(monster.patrol_distance, monster.patrol_variation);
             monster_info->ai_mode &= ~W8_MONSTER_AI_REAPPLY_MODE;
             break;
         }
-        if (monster->formation == glm::vec3(0)) {
-            monster->formation = monster->GetPosition();
+        if (monster.formation == glm::vec3(0)) {
+            monster.formation = monster.nav.GetPosition();
         }
-        position = monster->formation;
-        if (monster->StartPatrol(&position, monster->patrol_distance, monster->patrol_variation)) {
+        position = monster.formation;
+        if (monster.nav.StartPatrol(&position, monster.patrol_distance, monster.patrol_variation)) {
             break;
         }
         HandleMonsterPatrolFailure(monster_info);
         decision = W8_RT_AI_IDLE;
         break;
     case W8_RT_AI_MOVE_TO_PATROL_POINT:
-        if (!monster->GetPatrolPoint(&patrol_point)) {
+        if (!monster.GetPatrolPoint(&patrol_point)) {
             decision = W8_RT_AI_IDLE;
             break;
         }
-        if (MonsterConfigureMovementToPosition(monster, &patrol_point) != 0) {
+        if (monster.nav.ConfigureMovementToPosition(&patrol_point) != 0) {
             break;
         }
-        if (!monster->IsWithinWorldRange() &&
+        if (!monster.IsWithinWorldRange() &&
             monster_info->party_threat.sight_state == W8_SIGHT_SEEN) {
             monster_group = FindMonsterGroup(monster_info->monster_group_id);
             position = patrol_point;
-            if (MoveMonsterGroupToPosition(monster_group, &position, monster->GetYaw(), false, true,
-                                           false, false)) {
+            if (MoveMonsterGroupToPosition(monster_group, &position, monster.nav.GetYaw(), false,
+                                           true, false, false)) {
                 break;
             }
         }
@@ -725,40 +678,37 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
         decision = W8_RT_AI_IDLE;
         break;
     case W8_RT_AI_FACE_NOISE:
-        monster->flags &= ~0x20000000;
-        monster->ClearMovement();
+        monster.nav.flags &= ~0x20000000;
+        monster.nav.ClearMovement();
         position = monster_info->heard_noise_position;
         monster_info->heard_noise_radius = 0;
         monster_info->pathing_cooldown = 0x1e;
         monster_group = FindMonsterGroup(monster_info->monster_group_id);
         for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-            member = FindMonster(monster_group->MemberLocationId(index).value());
-            member->p3D->AimAtPosition(&position);
+            member = FindMonster(monster_group->MemberLocationId(index));
+            member->entity->nav.AimAtPosition(&position);
         }
         break;
     case W8_RT_AI_FOLLOW_LURE:
         effect = FindMonsterControlSpellEffect();
-        if (effect == 0 || (visual = effect->spell_visuals[0]) == 0) {
-            break;
-        }
-        if (monster->SetMovementTargetToNavigator(visual, 2500.0) == 0) {
-            position = visual->GetPosition();
-            monster->AimAtPosition(&position);
+        if (!effect) break;
+        if (monster.nav.SetMovementTargetToAnchor(effect->target.point, 2500.0) == 0) {
+            position = effect->target.point;
+            monster.nav.AimAtPosition(&position);
         }
         break;
     case W8_RT_AI_FACE_DIRECTION:
-        monster->flags &= ~0x20000000;
-        monster->ClearMovement();
-        position = monster->GetPosition();
-        position += monster->move_direction;
-        monster->AimAtPosition(&position);
+        monster.nav.flags &= ~0x20000000;
+        monster.nav.ClearMovement();
+        position = monster.nav.GetPosition();
+        position += monster.move_direction;
+        monster.nav.AimAtPosition(&position);
         break;
     }
     monster_info->ai_mode ^= (monster_info->ai_mode ^ decision) & W8_MONSTER_AI_MODE_MASK;
 }
 
 /* Run the decision over every monster that is in the fight and still alive. */
-// FUNCTION: WIZ8 0x005314f0
 void UpdateAllMonsterAI(void)
 {
     unsigned int index;
@@ -774,8 +724,8 @@ void UpdateAllMonsterAI(void)
 
 /* The cycle a monster must have to cast at all. */
 
-/* Reported once, so a monster missing its spell cycle does not flood the log. */
-// GLOBAL: WIZ8 0x0068d524
+/* Retail's once-only missing-spell-cycle report. Only MonsterSpellTargetOK still
+   reads it: the first such target it meets is refused, later ones are not. */
 static bool g_spell_cycle_error_reported;
 
 /* Decide what one monster does this round. A monster taken out of the fight
@@ -786,10 +736,9 @@ static bool g_spell_cycle_error_reported;
    when hurt); otherwise it rolls to flee and to cast, weighs its attacks, and
    only then settles for closing in, backing off or holding. Whatever it
    settles on is checked, and a group that has given up holds instead. */
-// FUNCTION: WIZ8 0x00531540
 void UpdateMonsterAI(W8MonsterInfo* monster_info)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     W8RangeCategory range_category;
     unsigned int chance;
     unsigned char rating;
@@ -811,7 +760,7 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
         return;
     }
     chance = MonsterAdvanceChance(monster_info, record);
-    if (Random(100) < chance) {
+    if (CurrentGame().rng.below(100) < chance) {
         monster_info->action_kind = W8_MONSTER_ACTION_ADVANCE;
         goto validate;
     }
@@ -828,7 +777,8 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
     if (record->prefer_ranged_actions == 0 &&
         (range_category = GetBestMonsterAttackRange(record, true)) != W8_RANGE_NONE &&
         (monster_info->uiCondition[W8_CONDITION_BLIND] == 0 || record->kind == 0xc) &&
-        MonsterChooseTarget(monster_info, &chosen, 2) > CalcRangeDistance(range_category)) {
+        MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::FirstLineOfSightFlag) >
+            CalcRangeDistance(range_category)) {
         record = GetMonsterDataForInfo(monster_info);
         hp_ratio = monster_info->hp_current / static_cast<float>(monster_info->uiHPMax);
         backs_off = hp_ratio <= 0.95f && record->prefer_ranged_actions == 0;
@@ -841,16 +791,19 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
             if (rating != 0) {
                 chance = 100;
             }
-            if (CanMonsterFlee(monster_info, record, false) && Random(100) < chance) {
+            if (CanMonsterFlee(monster_info, record, false) &&
+                CurrentGame().rng.below(100) < chance) {
                 monster_info->action_kind = W8_MONSTER_ACTION_SPECIAL_ATTACK;
                 if (g_special_attack_table[record->special_attack_kind][0] ==
                     W8_SPECIAL_ATTACK_EFFECT_SUMMON) {
-                    position = monster_info->p3D->GetPosition();
+                    position = monster_info->entity->nav.GetPosition();
                     ResetCombatSlot(&monster_info->Target);
                     monster_info->Target.iType = W8_TARGET_KIND_PLACE;
                     monster_info->Target.point = position;
-                } else if (!AimMonsterAtSpellTarget(monster_info, W8_SPELL_SPECIAL_ATTACK_CONE)) {
-                    srAssertFail("fSuccess", MONSTER_AI_CPP, 1052, 0);
+                } else {
+                    [[maybe_unused]] const bool aimed =
+                        AimMonsterAtSpellTarget(monster_info, W8_SPELL_SPECIAL_ATTACK_CONE);
+                    assert(aimed);
                 }
                 goto validate;
             }
@@ -861,23 +814,18 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
                 chance = 100;
             }
             if (record->spell_chance != 0) {
-                if (!MonsterIsCycleSupported(monster_info->p3D, W8_MONSTER_CYCLE_SPELL)) {
-                    if (!g_spell_cycle_error_reported) {
-                        DebugMessage(0, fmt::format("ERROR: {} is missing a SPELL animation cycle",
-                                                    record->name0));
-                        g_spell_cycle_error_reported = true;
-                    }
+                if (!monster_info->entity->IsCycleSupported(W8_MONSTER_CYCLE_SPELL)) {
+                    g_spell_cycle_error_reported = true;
                 } else {
                     for (spell = 0; spell < 10; ++spell) {
                         if (IsSpellUsableByMonster(monster_info, record->spells[spell], true)) {
-                            if (Random(100) < chance) {
+                            if (CurrentGame().rng.below(100) < chance) {
                                 monster_info->action_kind = W8_MONSTER_ACTION_SPELL;
                                 monster_info->action_detail =
                                     ChooseMonsterSpell(monster_info, record);
-                                if (!AimMonsterAtSpellTarget(monster_info,
-                                                             monster_info->action_detail)) {
-                                    srAssertFail("fSuccess", MONSTER_AI_CPP, 1076, 0);
-                                }
+                                [[maybe_unused]] const bool aimed = AimMonsterAtSpellTarget(
+                                    monster_info, monster_info->action_detail);
+                                assert(aimed);
                                 goto validate;
                             }
                             break;
@@ -917,12 +865,11 @@ validate:
    spells, flee, or - for a touch/short attack with the party close - reach
    the party along the waypoints. The waypoint probe runs once, against the
    group's named member, and is reused for the rest of the sweep. */
-// FUNCTION: WIZ8 0x00531920
 bool MonsterGroupCanEngage(W8MonsterGroup* monster_group)
 {
     W8MonsterInfo* member;
     W8MonsterInfo* leader;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     unsigned int index;
     unsigned int spell;
     float distance;
@@ -931,9 +878,7 @@ bool MonsterGroupCanEngage(W8MonsterGroup* monster_group)
     glm::vec3 source;
     glm::vec3 destination;
 
-    if (monster_group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 1178, 0);
-    }
+    assert(monster_group != 0);
     if (monster_group->ubDisposition == W8_DISPOSITION_HOSTILE) {
         for (index = 0; index < monster_group->MemberIds().size(); ++index) {
             member = GetGroupMemberInfo(monster_group, index);
@@ -947,9 +892,9 @@ bool MonsterGroupCanEngage(W8MonsterGroup* monster_group)
     return false;
 members:
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        member = FindMonster(monster_group->MemberLocationId(index).value());
+        member = FindMonster(monster_group->MemberLocationId(index));
         record = GetMonsterDataForInfo(member);
-        if (!member->fActive || member->fMotionless || member->p3D->IsDying() ||
+        if (!member->fActive || member->fMotionless || member->entity->IsDying() ||
             member->hp_current == 0 || member->highest_condition >= W8_CONDITION_BLIND) {
             continue;
         }
@@ -957,12 +902,8 @@ members:
             return true;
         }
         if (record->spell_chance != 0) {
-            if (!MonsterIsCycleSupported(member->p3D, W8_MONSTER_CYCLE_SPELL)) {
-                if (!g_spell_cycle_error_reported) {
-                    DebugMessage(0, fmt::format("ERROR: {} is missing a SPELL animation cycle",
-                                                record->name0));
-                    g_spell_cycle_error_reported = true;
-                }
+            if (!member->entity->IsCycleSupported(W8_MONSTER_CYCLE_SPELL)) {
+                g_spell_cycle_error_reported = true;
             } else {
                 for (spell = 0; spell < 10; ++spell) {
                     if (MonsterCanAimSpell(record->spells[spell]) &&
@@ -976,15 +917,17 @@ members:
             return true;
         }
         if (GetBestMonsterAttackRange(record, false) <= W8_RANGE_SHORT) {
-            distance = member->p3D->GetDistanceToPlayer();
+            distance = member->entity->GetDistanceToPlayer();
             if (GetMonsterCombatMoveRange(member) * kGroupEngagementProbeScale > distance) {
                 if (!waypoint_checked) {
                     leader = FindMonster(monster_group->leader_location_id);
                     if (leader != 0 && leader->fActive) {
                         destination = PartyNavigator()->GetPosition();
-                        source = leader->p3D->GetPosition();
-                        waypoint_result = GetWorldOctree()->pathing->TestWaypointSpan(
-                            &source, &destination, false, false);
+                        source = leader->entity->nav.GetPosition();
+                        waypoint_result =
+                            GetWorldSpatialIndex()
+                                ->pathing->tracePathSpan(source, destination, false, false)
+                                .reachable;
                     }
                     waypoint_checked = true;
                 }
@@ -1002,8 +945,7 @@ members:
    committed keeps advancing until an enemy is inside short range, and a
    record without an explicit advance chance advances unless its behavior byte
    says otherwise. */
-// FUNCTION: WIZ8 0x00531c00
-unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, W8MonsterRecord* record)
+unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, const W8MonsterRecord* record)
 {
     unsigned int hp_percent;
     unsigned int result = 0;
@@ -1011,15 +953,14 @@ unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, W8MonsterRecord* 
     float distance;
 
     hp_percent = monster_info->hp_current * 100 / monster_info->uiHPMax;
-    if (!monster_info->pCombat) {
-        srAssertFail("pMonsterInfo->pCombat", MONSTER_AI_CPP, 1272, 0);
-    }
+    assert(monster_info->pCombat);
     if ((record->flags & W8_MONSTER_FLAG_NPC) != 0 &&
         monster_info->ubDisposition != W8_DISPOSITION_HOSTILE && hp_percent <= 33) {
         return 100;
     }
     if (monster_info->pCombat->advancing) {
-        distance = MonsterChooseTarget(monster_info, &chosen, 2);
+        distance =
+            MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::FirstLineOfSightFlag);
         if (CalcRangeDistance(W8_RANGE_SHORT) < distance) {
             result = 100;
         } else {
@@ -1044,19 +985,18 @@ unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, W8MonsterRecord* 
    sweeps every target. A character's evasion skill roll keeps attacks off it
    but flags the slot, and each flagged slot may practice that skill at the
    end. */
-// FUNCTION: WIZ8 0x00531CE0
 void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bool attack_locked)
 {
     W8MonsterInfo* locked_monster = nullptr;
     W8MonsterInfo* other;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     unsigned int index;
     unsigned int attack;
     unsigned int mode_bit;
     unsigned int char_lo;
     unsigned int char_hi;
-    unsigned int monster_lo;
-    unsigned int monster_hi;
+    std::size_t monster_lo;
+    std::size_t monster_hi;
     unsigned int attack_lo;
     unsigned int attack_hi;
     bool scan_chars = false;
@@ -1071,7 +1011,8 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
     actions.clear();
     if (!target_locked && !attack_locked) {
         if (CanMonsterProtect(monster_info) &&
-            Random(100) < monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
+            CurrentGame().rng.below(100) <
+                monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
             monster_info->action_kind = W8_MONSTER_ACTION_PROTECT;
             for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
                  ++index) {
@@ -1100,7 +1041,8 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
             }
         }
         if (record->combat_morale == 2 && record->combat_behavior != 3 &&
-            Random(100) < monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
+            CurrentGame().rng.below(100) <
+                monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
             QueueMonsterAction(monster_info, W8_MONSTER_ACTION_WAIT, -1, 0, W8_TARGET_KIND_NONE, 0);
         }
     }
@@ -1125,16 +1067,12 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
             return;
         }
         if (monster_info->Target.iType == W8_TARGET_KIND_CHARACTER) {
-            if (monster_info->Target.iChar == -1) {
-                srAssertFail("pTarget->iChar != BAD_INDEX", MONSTER_AI_CPP, 1510, 0);
-            }
+            assert(monster_info->Target.iChar != -1);
             char_lo = monster_info->Target.iChar;
             char_hi = char_lo + 1;
             scan_chars = true;
         } else if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
-            if (monster_info->Target.iMonsterID == -1) {
-                srAssertFail("pTarget->iMonsterID != BAD_INDEX", MONSTER_AI_CPP, 1519, 0);
-            }
+            assert(monster_info->Target.iMonsterID != -1);
             scan_monsters = true;
             locked_monster = FindMonster(monster_info->Target.iMonsterID);
             monster_lo = 0;
@@ -1145,7 +1083,8 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
         }
     }
     for (index = char_lo; index < char_hi; ++index) {
-        if (Random(100) < g_status.buffers.Char[index].skills[W8_SKILL_STEALTH].level * 75 / 100) {
+        if (CurrentGame().rng.below(100) <
+            CurrentGame().party.characters[index].skills[W8_SKILL_STEALTH].level * 75 / 100) {
             avoided[index] = 1;
         }
     }
@@ -1177,8 +1116,8 @@ targets_chosen:
             }
         }
         if (scan_monsters) {
-            for (index = monster_lo; index < monster_hi; ++index) {
-                other = GetMonsterListEntry(index);
+            for (auto monster_index = monster_lo; monster_index < monster_hi; ++monster_index) {
+                other = GetMonsterListEntry(monster_index);
                 if (locked_monster && other != locked_monster) continue;
                 if (other != monster_info && other->fActive && other->hp_current != 0 &&
                     GetMonsterDataForInfo(other)->untargetable == 0 && other->pCombat &&
@@ -1196,8 +1135,9 @@ targets_chosen:
     }
     if (scan_chars) {
         for (index = char_lo; index < char_hi; ++index) {
-            if (resisted[index] != 0 && Random(2) == 0) {
-                PracticeCharacterSkill(&g_status.buffers.Char[index], W8_SKILL_STEALTH, 1, false);
+            if (resisted[index] != 0 && CurrentGame().rng.below(2) == 0) {
+                PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[index],
+                                       W8_SKILL_STEALTH, 1, false);
             }
         }
     }
@@ -1207,7 +1147,6 @@ targets_chosen:
    value for the plain attack, and which of the two target fields the target
    goes in depends on what kind of target it is. Each entry gets a random tie
    break so two equal decisions do not always resolve the same way. */
-// FUNCTION: WIZ8 0x00532360
 static void QueueMonsterAction(W8MonsterInfo* monster_info, W8MonsterActionKind action_kind,
                                int action_detail, int attack_index, W8TargetKind target_kind,
                                int target_value)
@@ -1225,18 +1164,17 @@ static void QueueMonsterAction(W8MonsterInfo* monster_info, W8MonsterActionKind 
     } else if (target_kind == W8_TARGET_KIND_MONSTER) {
         entry.target.iMonsterID = target_value;
     }
-    entry.tie_break = static_cast<unsigned char>(Random(100)) + 1;
+    entry.tie_break = static_cast<unsigned char>(CurrentGame().rng.below(100)) + 1;
 }
 
 /* Build the monster's list of possible actions and take one of them at
    random into its action fields and target. Committing a plain attack also
    commits its attack index and, when asked, restages the round's attack
    counts; a wait action keeps only its detail word. */
-// FUNCTION: WIZ8 0x005323F0
 bool ChooseRandomMonsterAction(W8MonsterInfo* monster_info, bool target_locked, bool attack_locked,
                                bool set_attack_rate)
 {
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
 
     record = GetMonsterDataForInfo(monster_info);
     BuildMonsterActionQueue(monster_info, target_locked, attack_locked);
@@ -1244,7 +1182,8 @@ bool ChooseRandomMonsterAction(W8MonsterInfo* monster_info, bool target_locked, 
     if (actions.empty()) {
         return false;
     }
-    const auto& entry = actions[Random(actions.size())];
+    const auto& entry =
+        actions[CurrentGame().rng.below(wiz8::checked_integer<std::uint32_t>(actions.size()))];
     monster_info->action_kind = entry.action_kind;
     switch (entry.action_kind) {
     case W8_MONSTER_ACTION_ATTACK:
@@ -1269,13 +1208,12 @@ bool ChooseRandomMonsterAction(W8MonsterInfo* monster_info, bool target_locked, 
    cast it, nothing is blocking the cast, the special cases for spell 0x3c
    and fire spells under camera sway pass, and `needs_target` also demands a
    target to aim at. */
-// FUNCTION: WIZ8 0x00532550
 bool IsSpellUsableByMonster(W8MonsterInfo* monster_info, int spell_id, bool needs_target)
 {
     if (spell_id == W8_SPELL_NONE) {
         return false;
     }
-    if (g_spell_records[spell_id].monster_castable == 0) {
+    if (Data().spells[spell_id].monster_castable == 0) {
         return false;
     }
     if (IsSpellBlockedForMonster(monster_info, spell_id)) {
@@ -1287,7 +1225,7 @@ bool IsSpellUsableByMonster(W8MonsterInfo* monster_info, int spell_id, bool need
     if (spell_id == W8_SPELL_SUMMON_ELEMENTAL && monster_info->elemental_summon != -1) {
         return false;
     }
-    if (g_spell_records[spell_id].realm == W8_SPELL_REALM_FIRE && g_camera_sway_active) {
+    if (Data().spells[spell_id].realm == W8_SPELL_REALM_FIRE && g_camera_sway_active) {
         return false;
     }
     if (needs_target) {
@@ -1302,7 +1240,6 @@ bool IsSpellUsableByMonster(W8MonsterInfo* monster_info, int spell_id, bool need
 
 /* Pick where the spell lands: collect every slot the spell may be cast at
    and take one at random into the monster's stored target. */
-// FUNCTION: WIZ8 0x005326F0
 bool AimMonsterAtSpellTarget(W8MonsterInfo* monster_info, int spell_id)
 {
     std::vector<W8CombatSlot> targets;
@@ -1311,7 +1248,7 @@ bool AimMonsterAtSpellTarget(W8MonsterInfo* monster_info, int spell_id)
     if (targets.empty()) {
         return false;
     }
-    monster_info->Target = targets[Random(static_cast<int>(targets.size()))];
+    monster_info->Target = targets[CurrentGame().rng.below(static_cast<int>(targets.size()))];
     return true;
 }
 
@@ -1320,17 +1257,16 @@ bool AimMonsterAtSpellTarget(W8MonsterInfo* monster_info, int spell_id)
    against its own record, and anything else is resolved into its markers
    and accepted when at least half of them take the spell. The per-spell
    switch then vetoes targets the spell would not help or cannot affect. */
-// FUNCTION: WIZ8 0x005327E0
 bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlot* combat_slot)
 {
     W8MonsterInfo* target = 0;
     W8Character* character = 0;
-    W8MonsterRecord* record = 0;
+    const W8MonsterRecord* record = 0;
     int hp = 0;
     int hp_max = 0;
     int stat = 0;
     int stat_max = 0;
-    w8_unaligned_uint* condition_turns = 0;
+    unsigned int* condition_turns = 0;
     W8Enchantment* enchantments = 0;
     /* 0x00532EE3 and 0x00532F38 test the marker count signed and 0x00532F89
        compares the index signed. */
@@ -1341,7 +1277,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
         return true;
     }
     if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-        character = &g_status.buffers.Char[combat_slot->iChar];
+        character = &CurrentGame().party.characters[combat_slot->iChar];
         hp_max = character->uiHPMax;
         hp = character->hp_current;
         stat = character->stamina;
@@ -1438,13 +1374,13 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
     case W8_SPELL_BLESS:
     case W8_SPELL_ELEMENT_SHIELD:
     case W8_SPELL_SOUL_SHIELD:
-        if (!gXStatus.fCombatMode) {
+        if (!CurrentGame().combat.has_value()) {
             return true;
         }
         for (index = 0; index < 9; ++index) {
             if (spell_id == g_combat_effect_slot_spells_and_cast_success[index]) {
                 if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-                    duration = g_combat_state->effect_slots0[index].duration;
+                    duration = CurrentGame().combat->effect_slots0[index].duration;
                 } else {
                     if (!target->pCombat) {
                         continue;
@@ -1509,7 +1445,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
         for (index = 0; index < 12; ++index) {
             if (spell_id == g_being_effect_slot_spells[index]) {
                 if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-                    duration = g_status.effect_slots[index].duration;
+                    duration = CurrentGame().status.effect_slots[index].duration;
                 } else {
                     duration = target->effect_slots[index].duration;
                 }
@@ -1563,11 +1499,8 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
                     return false;
                 }
                 if (record->spell_chance != 0) {
-                    if (!MonsterIsCycleSupported(target->p3D, W8_MONSTER_CYCLE_SPELL)) {
+                    if (!target->entity->IsCycleSupported(W8_MONSTER_CYCLE_SPELL)) {
                         if (!g_spell_cycle_error_reported) {
-                            DebugMessage(0,
-                                         fmt::format("ERROR: {} is missing a SPELL animation cycle",
-                                                     record->name0));
                             g_spell_cycle_error_reported = true;
                             return false;
                         }
@@ -1593,7 +1526,7 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
         if (index > 0x71) {
             return false;
         }
-        if (g_spell_records[spell_id].alchemy_spell != 0 &&
+        if (Data().spells[spell_id].alchemy_spell != 0 &&
             character->skills[W8_SKILL_SPELLBOOK_ALCHEMY].level != 0) {
             return false;
         }
@@ -1604,13 +1537,13 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
     case W8_SPELL_DRAINING_CLOUD:
     case W8_SPELL_FIRESTORM:
     case W8_SPELL_DEATH_CLOUD:
-        if (!gXStatus.fCombatMode) {
+        if (!CurrentGame().combat.has_value()) {
             return true;
         }
         for (index = 0; index < 9; ++index) {
             if (spell_id == g_combat_effect_slot_spells[index]) {
                 if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-                    duration = g_combat_state->effect_slots[index].duration;
+                    duration = CurrentGame().combat->effect_slots[index].duration;
                 } else {
                     if (!target->pCombat) {
                         continue;
@@ -1649,13 +1582,13 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
         }
         break;
     case W8_SPELL_PURIFY_AIR:
-        if (!gXStatus.fCombatMode) {
+        if (!CurrentGame().combat.has_value()) {
             return false;
         }
         for (index = 0; index < 9; ++index) {
             if (g_combat_effect_slot_spells[index] != 0x31) {
                 if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-                    duration = g_combat_state->effect_slots[index].duration;
+                    duration = CurrentGame().combat->effect_slots[index].duration;
                 } else {
                     if (!target->pCombat) {
                         continue;
@@ -1738,8 +1671,6 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
     case W8_SPELL_ROUT:
     case W8_SPELL_BOILING_BLOOD_EXPLOSION:
     default:
-        DebugMessage(0, fmt::format("WARNING: MonsterSpellTargetOK - unlisted spell {:d}({})",
-                                    spell_id, g_spell_records[spell_id].display_name));
         break;
     }
     return true;
@@ -1748,7 +1679,6 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
 /* Whether the spell's area effect would catch a disposition-neutral monster;
    a true return vetoes the cast, since the AI does not turn neutrals hostile
    by accident. */
-// FUNCTION: WIZ8 0x005330E0
 bool SpellAreaHitsNeutralMonster(W8MonsterInfo* monster_info, int spell_id,
                                  W8CombatSlot* combat_slot)
 {
@@ -1780,8 +1710,7 @@ bool SpellAreaHitsNeutralMonster(W8MonsterInfo* monster_info, int spell_id,
 /* Which of the record's ten spells the monster casts: each usable slot adds
    its weight from the fixed table, then a roll under the total walks them
    down. The assertion names the original local, uiCastableSpellCnt. */
-// FUNCTION: WIZ8 0x00533260
-int ChooseMonsterSpell(W8MonsterInfo* monster_info, W8MonsterRecord* record)
+int ChooseMonsterSpell(W8MonsterInfo* monster_info, const W8MonsterRecord* record)
 {
     int weights[10] = {0};
     int spell_ids[10];
@@ -1800,10 +1729,8 @@ int ChooseMonsterSpell(W8MonsterInfo* monster_info, W8MonsterRecord* record)
             ++count;
         }
     }
-    if (count == 0) {
-        srAssertFail("uiCastableSpellCnt > 0", MONSTER_AI_CPP, 0xa03, 0);
-    }
-    roll = Random(total);
+    assert(count != 0);
+    roll = CurrentGame().rng.below(total);
     index = 0;
     while (index < count && roll >= weights[index]) {
         roll -= weights[index];
@@ -1815,7 +1742,7 @@ int ChooseMonsterSpell(W8MonsterInfo* monster_info, W8MonsterRecord* record)
 /* Adds each active monster in combat with the given disposition that can reach the
    caster and accept the spell. exclude_caster skips the caster itself. */
 static void addMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
-                                   W8MonsterRecord* record, W8Disposition disposition,
+                                   const W8MonsterRecord* record, W8Disposition disposition,
                                    bool exclude_caster, std::vector<W8CombatSlot>& targets)
 {
     W8CombatSlot slot;
@@ -1842,14 +1769,13 @@ static void addMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
    monster. The monster's action fields carry the action being probed while
    the reachability helpers run and are restored afterwards; spell 0x77 asks
    for a place to flee to, everything else is a cast. */
-// FUNCTION: WIZ8 0x00533320
 void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
                                 std::vector<W8CombatSlot>& targets)
 {
-    W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     int saved_detail = monster_info->action_detail;
     W8MonsterActionKind saved_kind = monster_info->action_kind;
-    int sight_kind;
+    W8VisibilityCondition sight_kind;
     W8SpellTargetType target_type;
     W8CombatSlot slot;
     W8MonsterGroup* monster_group;
@@ -1857,10 +1783,10 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
     unsigned int index;
 
     if (spell_id == W8_SPELL_SPECIAL_ATTACK_CONE) {
-        sight_kind = 3;
+        sight_kind = W8VisibilityCondition::ThirdLineOfSightFlag;
         monster_info->action_kind = W8_MONSTER_ACTION_SPECIAL_ATTACK;
     } else {
-        sight_kind = 5;
+        sight_kind = W8VisibilityCondition::SpellOriginLineOfSight;
         monster_info->action_kind = W8_MONSTER_ACTION_SPELL;
         monster_info->action_detail = spell_id;
     }
@@ -1983,7 +1909,7 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         break;
     case W8_TARGET_TYPE_POINT:
         ResetCombatSlot(&slot);
-        slot.point = monster_info->p3D->GetPosition();
+        slot.point = monster_info->entity->nav.GetPosition();
         targets.push_back(slot);
         break;
     default:
@@ -2001,7 +1927,6 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
 /* Whether a monster can aim the spell it wants to cast. The two area target
    types aim at the world; anything else either needs no aim at all or has to
    pass the slot check. */
-// FUNCTION: WIZ8 0x00534290
 bool CanMonsterAimSpell(W8MonsterInfo* monster_info, int spell_id)
 {
     W8SpellTargetType target_type = GetSpellTargetType(spell_id, false);
@@ -2009,7 +1934,7 @@ bool CanMonsterAimSpell(W8MonsterInfo* monster_info, int spell_id)
     if (target_type > W8_TARGET_TYPE_ENEMY_GROUP && target_type < W8_TARGET_TYPE_ALL_ENEMIES) {
         return AimMonsterAtSpellTarget(monster_info, spell_id);
     }
-    if (g_spell_records[spell_id].needs_aim != 0) {
+    if (Data().spells[spell_id].needs_aim != 0) {
         return ResolveTargetPoint(&monster_info->Target, false);
     }
     return true;
@@ -2021,7 +1946,6 @@ bool CanMonsterAimSpell(W8MonsterInfo* monster_info, int spell_id)
    has a visible enemy, and - when the leader cannot reach - when the nearest
    member sits outside the leader's reach with nothing the group can engage.
    Once no group still has a member fighting, every group leaves at once. */
-// FUNCTION: WIZ8 0x00534300
 void CheckMonsterGroupsLeaveCombat(void)
 {
     W8MonsterGroup* group;
@@ -2050,11 +1974,9 @@ void CheckMonsterGroupsLeaveCombat(void)
             }
             continue;
         }
-        if (group == 0) {
-            srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 0xc06, 0);
-        }
+        assert(group != 0);
         for (index = 0; index < group->MemberIds().size(); ++index) {
-            member = FindMonster(group->MemberLocationId(index).value());
+            member = FindMonster(group->MemberLocationId(index));
             if (!member->fActive || member->hp_current == 0 ||
                 member->highest_condition >= W8_CONDITION_DEAD ||
                 MonsterHasNoVisibleEnemy(member, false)) {
@@ -2077,11 +1999,9 @@ void CheckMonsterGroupsLeaveCombat(void)
                     break;
                 }
             }
-            if (group == 0) {
-                srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 0xc06, 0);
-            }
+            assert(group != 0);
             for (member_index = 0; member_index < group->MemberIds().size(); ++member_index) {
-                other = FindMonster(group->MemberLocationId(member_index).value());
+                other = FindMonster(group->MemberLocationId(member_index));
                 if (other->fActive && other->hp_current != 0 &&
                     other->highest_condition < W8_CONDITION_DEAD &&
                     !MonsterHasNoVisibleEnemy(other, true)) {
@@ -2110,7 +2030,6 @@ void CheckMonsterGroupsLeaveCombat(void)
 /* Whether the monster sees no living enemy. A raised party-threat flag
    answers at once; a visible hostile party member counts, and `party_only`
    zero also scans the monsters it is hostile to that it can see. */
-// FUNCTION: WIZ8 0x00534690
 bool MonsterHasNoVisibleEnemy(W8MonsterInfo* monster_info, bool party_only)
 {
     unsigned int index;
@@ -2145,16 +2064,13 @@ bool MonsterHasNoVisibleEnemy(W8MonsterInfo* monster_info, bool party_only)
 
 /* Whether any live member of the group has a visible target; the arguments
    forward to MonsterHasVisibleTarget. */
-// FUNCTION: WIZ8 0x005347A0
 bool MonsterGroupHasVisibleTarget(W8MonsterGroup* monster_group, bool party_only,
                                   W8VisibleTargetFilter hostility, bool within_reach)
 {
     unsigned int index;
     W8MonsterInfo* member;
 
-    if (monster_group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 0xc7f, 0);
-    }
+    assert(monster_group != 0);
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
         member = GetGroupMemberInfo(monster_group, index);
         if (member->fActive && member->hp_current > 0 &&
@@ -2170,7 +2086,6 @@ bool MonsterGroupHasVisibleTarget(W8MonsterGroup* monster_group, bool party_only
    monster scan, `hostility` selects the class - three accepts anything and
    four anything non-neutral - and `within_reach` also requires the target
    inside the engagement range computed from the monster's best attack. */
-// FUNCTION: WIZ8 0x00534850
 bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
                              W8VisibleTargetFilter hostility, bool within_reach)
 {
@@ -2190,7 +2105,7 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
     }
     if (monster_info->player_visibility.sight_state == W8_SIGHT_SEEN &&
         monster_info->player_visibility.los_flags[2] &&
-        (!within_reach || monster_info->p3D->GetDistanceToPlayer() <= reach)) {
+        (!within_reach || monster_info->entity->GetDistanceToPlayer() <= reach)) {
         for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
             if (CanPartySlotParticipate(index)) {
                 disposition = MonsterVsCharDisposition(index, monster_info);
@@ -2221,7 +2136,7 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
                     if (record != 0 && record->sight_state == W8_SIGHT_SEEN &&
                         record->los_flags[2]) {
                         if (!within_reach ||
-                            monster_info->p3D->GetDistanceToMonster(other->p3D) <= reach) {
+                            monster_info->entity->GetDistanceToMonster(*other->entity) <= reach) {
                             return true;
                         }
                     }
@@ -2236,8 +2151,8 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
    row, the special-attack cycle the flee uses, enough stamina left, and - for
    non-summoning attacks - somewhere to run. Summoning rows flee at the party
    instead and may not be offered as a special action. */
-// FUNCTION: WIZ8 0x00534A40
-bool CanMonsterFlee(W8MonsterInfo* monster_info, W8MonsterRecord* record, bool exclude_special)
+bool CanMonsterFlee(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
+                    bool exclude_special)
 {
     std::vector<W8CombatSlot> targets;
 
@@ -2247,15 +2162,10 @@ bool CanMonsterFlee(W8MonsterInfo* monster_info, W8MonsterRecord* record, bool e
     if (record->special_attack_kind == 0) {
         return false;
     }
-    if (!MonsterIsCycleSupported(monster_info->p3D, 0x12)) {
-        if (!g_special_attack_cycle_error_reported) {
-            DebugMessage(0, fmt::format("ERROR: {} is missing a SPECIAL ATTACK animation cycle",
-                                        record->name0));
-            g_special_attack_cycle_error_reported = true;
-        }
+    if (!monster_info->entity->IsCycleSupported(0x12)) {
         return false;
     }
-    if (gXStatus.fCombatMode && monster_info->pCombat->special_cooldown != 0) {
+    if (CurrentGame().combat.has_value() && monster_info->pCombat->special_cooldown != 0) {
         return false;
     }
     if (static_cast<unsigned int>(monster_info->stamina) <
@@ -2267,7 +2177,7 @@ bool CanMonsterFlee(W8MonsterInfo* monster_info, W8MonsterRecord* record, bool e
         return false;
     }
     if (g_special_attack_table[record->special_attack_kind][0] == W8_SPECIAL_ATTACK_EFFECT_SUMMON) {
-        if (CalcRangeDistance(W8_RANGE_LONG) < monster_info->p3D->GetDistanceToPlayer()) {
+        if (CalcRangeDistance(W8_RANGE_LONG) < monster_info->entity->GetDistanceToPlayer()) {
             return false;
         }
         if (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY) {
@@ -2287,13 +2197,12 @@ bool CanMonsterFlee(W8MonsterInfo* monster_info, W8MonsterRecord* record, bool e
 
 /* Aim a monster that wants to get away. A summoning special-attack row aims
    at the monster's own position. */
-// FUNCTION: WIZ8 0x00534cb0
 bool AimFleeingMonster(W8MonsterInfo* monster_info, const W8MonsterRecord* record)
 {
     glm::vec3 position;
 
     if (g_special_attack_table[record->special_attack_kind][0] == W8_SPECIAL_ATTACK_EFFECT_SUMMON) {
-        position = monster_info->p3D->GetPosition();
+        position = monster_info->entity->nav.GetPosition();
         ResetCombatSlot(&monster_info->Target);
         monster_info->Target.iType = W8_TARGET_KIND_PLACE;
         monster_info->Target.point = position;
@@ -2306,7 +2215,6 @@ bool AimFleeingMonster(W8MonsterInfo* monster_info, const W8MonsterRecord* recor
    attack needs a character to swing at; a spell needs to be castable and needs
    a target of a kind it accepts; fleeing is refused outright for the summoning
    special-attack rows that have nowhere to flee to. */
-// FUNCTION: WIZ8 0x00535150
 bool IsMonsterActionUsable(W8MonsterInfo* monster_info)
 {
     int spell_id;
@@ -2345,7 +2253,6 @@ bool IsMonsterActionUsable(W8MonsterInfo* monster_info)
 
 /* How near the nearest member of a group has come. The search starts at
    999999 and keeps the smallest player distance any member reports. */
-// FUNCTION: WIZ8 0x005324b0
 float GetGroupNearestDistance(W8MonsterGroup* group)
 {
     unsigned int index;
@@ -2354,14 +2261,12 @@ float GetGroupNearestDistance(W8MonsterGroup* group)
     float furthest = 999999.0f;
     float distance;
 
-    if (group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 1840, 0);
-    }
+    assert(group != 0);
 
     for (index = 0; index < group->MemberIds().size(); ++index) {
-        location_id = group->MemberLocationId(index).value();
+        location_id = group->MemberLocationId(index);
         monster_info = FindMonster(location_id);
-        distance = monster_info->p3D->GetDistanceToPlayer();
+        distance = monster_info->entity->GetDistanceToPlayer();
         if (distance < furthest) {
             furthest = distance;
         }
@@ -2369,41 +2274,21 @@ float GetGroupNearestDistance(W8MonsterGroup* group)
     return furthest;
 }
 
-/* Whether the point the monster-control effect is anchored to is still within
-   reach. spell_visuals.data sits at W8SpellEffectEntry + 0x10c; the first visual is
-   a W8SpellVisual whose W8Navigator secondary base is the ordinary GrCycle
-   conversion at +0x18. With no effect running, or nothing anchored, there is
-   nothing to be in range of; failing the test falls back on where the party
-   is standing. */
-// FUNCTION: WIZ8 0x00534d50
+/* Follow the saved gameplay anchor even when no lure visual could be created. */
 short IsMonsterControlPointInRange(W8MonsterInfo* monster_info)
 {
-    W8SpellEffectEntry* effect = FindMonsterControlSpellEffect();
-    W8SpellVisual* visual;
-    W8Navigator* anchor_navigator;
-    short in_range;
-    glm::vec3 party;
-
-    if (effect == 0) {
-        return 0;
-    }
-    visual = effect->spell_visuals[0];
-    if (visual == 0) {
-        return 0;
-    }
-    anchor_navigator = visual;
-    in_range = monster_info->p3D->SetMovementTargetToNavigator(anchor_navigator, 2500.0);
-    if (in_range == 0) {
-        party = anchor_navigator->GetPosition();
-        monster_info->p3D->AimAtPosition(&party);
-    }
+    const auto* effect = FindMonsterControlSpellEffect();
+    if (!effect) return 0;
+    const auto& anchor = effect->target.point;
+    auto& nav = monster_info->entity->nav;
+    const auto in_range = nav.SetMovementTargetToAnchor(anchor, 2500.0);
+    if (!in_range) nav.AimAtPosition(&anchor);
     return in_range;
 }
 
 /* Whether at least half of the group's live in-combat members the caster is
    hostile to accept the spell; the probe is the same MonsterSpellTargetOK
    the cast itself would face. */
-// FUNCTION: WIZ8 0x00534DD0
 bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id,
                                        W8MonsterGroup* target_group)
 {
@@ -2413,11 +2298,9 @@ bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id
     W8MonsterInfo* member;
     W8CombatSlot slot;
 
-    if (target_group == 0) {
-        srAssertFail("pTargetMonsterGroup", MONSTER_AI_CPP, 0xdc4, 0);
-    }
+    assert(target_group != 0);
     for (index = 0; index < target_group->MemberIds().size(); ++index) {
-        int location_id = target_group->MemberLocationId(index).value();
+        int location_id = target_group->MemberLocationId(index);
         member = FindMonster(location_id);
         if (member->fActive && member->hp_current != 0 &&
             member->highest_condition < W8_CONDITION_DEAD && member->pCombat &&
@@ -2436,7 +2319,6 @@ bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id
 
 /* Whether at least half of the party members the caster is hostile to accept
    the spell. */
-// FUNCTION: WIZ8 0x00534EF0
 bool PartyHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id)
 {
     unsigned int valid = 0;
@@ -2464,7 +2346,6 @@ bool PartyHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id)
    neutral group out of the leave sweep and brings it into combat. The group
    only counts members already flagged or whose record cannot idle, and only
    while an encounter list exists. */
-// FUNCTION: WIZ8 0x00534FC0
 bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
 {
     unsigned int index;
@@ -2479,13 +2360,13 @@ bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
         return false;
     }
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        member = FindMonster(monster_group->MemberLocationId(index).value());
+        member = FindMonster(monster_group->MemberLocationId(index));
         if ((member->ubDisposition == W8_DISPOSITION_NEUTRAL &&
              GetMonsterDataForInfo(member)->camouflage1 != 0) ||
             !member->party_threat.los_flags[1]) {
             continue;
         }
-        member_distance = member->p3D->GetDistanceToPlayer();
+        member_distance = member->entity->GetDistanceToPlayer();
         if (member_distance > GetMonsterEngagementRange()) {
             continue;
         }
@@ -2495,8 +2376,8 @@ bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
             if (other != member && other->party_threat.los_flags[1] && other->fActive &&
                 other->pCombat && other->hp_current != 0 &&
                 other->ubDisposition == W8_DISPOSITION_HOSTILE) {
-                other_distance = other->p3D->GetDistanceToPlayer();
-                monster_distance = member->p3D->GetDistanceToMonster(other->p3D);
+                other_distance = other->entity->GetDistanceToPlayer();
+                monster_distance = member->entity->GetDistanceToMonster(*other->entity);
                 if (monster_distance + member_distance <
                         other_distance * kReinforcementDistanceSlack &&
                     (member_distance < other_distance || monster_distance < other_distance)) {
@@ -2513,17 +2394,14 @@ bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
    in the original file. */
 static W8MonsterInfo* GetGroupMemberInfo(W8MonsterGroup* group, unsigned int index)
 {
-    if (group == 0) {
-        srAssertFail("pMonsterGroup", MONSTER_AI_CPP, 3199, 0);
-    }
-    return FindMonster(group->MemberLocationId(index).value());
+    assert(group != 0);
+    return FindMonster(group->MemberLocationId(index));
 }
 
 /* Recompute each unled hostile group's engagement byte once the combat state
    has settled: a member still finding its feet (settle_ticks under three) in the
    group or an allied group drops it, and past that the group's own counter
    decides. */
-// FUNCTION: WIZ8 0x00535200
 void UpdateMonsterGroupEngagement(void)
 {
     W8MonsterGroup* group;
@@ -2534,7 +2412,7 @@ void UpdateMonsterGroupEngagement(void)
     int allied_index;
     int member_starting;
 
-    if (g_combat_state->combat_update_count <= 2) {
+    if (CurrentGame().combat->combat_update_count <= 2) {
         return;
     }
     for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
@@ -2546,7 +2424,7 @@ void UpdateMonsterGroupEngagement(void)
         }
         member_starting = 0;
         for (index = 0; index < group->MemberIds().size(); ++index) {
-            member = FindMonster(group->MemberLocationId(index).value());
+            member = FindMonster(group->MemberLocationId(index));
             if (member->fActive && member->pCombat &&
                 static_cast<unsigned int>(member->pCombat->settle_ticks) < 3) {
                 member_starting = 1;
@@ -2557,7 +2435,7 @@ void UpdateMonsterGroupEngagement(void)
             if (group->allied_group_ids[allied_index] != 0) {
                 allied = FindMonsterGroup(group->allied_group_ids[allied_index]);
                 for (index = 0; index < allied->MemberIds().size(); ++index) {
-                    member = FindMonster(allied->MemberLocationId(index).value());
+                    member = FindMonster(allied->MemberLocationId(index));
                     if (member->fActive && member->pCombat &&
                         static_cast<unsigned int>(member->pCombat->settle_ticks) < 3) {
                         member_starting = 1;
@@ -2573,7 +2451,6 @@ void UpdateMonsterGroupEngagement(void)
 
 /* Whether the spell's markers catch at least one party member when cast at
    `slot`. */
-// FUNCTION: WIZ8 0x005353E0
 bool MonsterSpellHasPartyTarget(W8MonsterInfo* monster_info, int spell_id, W8CombatSlot* slot)
 {
     std::vector<int> monster_markers;
@@ -2593,11 +2470,10 @@ bool MonsterSpellHasPartyTarget(W8MonsterInfo* monster_info, int spell_id, W8Com
    every group already fighting, then enters combat for the groups that
    should - promoting a neutral group's disposition when its record says the
    encounter turns it hostile. */
-// FUNCTION: WIZ8 0x005354E0
 void CheckMonsterGroupsEnterCombat(void)
 {
     W8MonsterGroup* group;
-    W8MonsterRecord* record;
+    const W8MonsterRecord* record;
     unsigned int index;
 
     RefreshAllSight();
@@ -2629,7 +2505,6 @@ void CheckMonsterGroupsEnterCombat(void)
    reinforcement; hostile ones need a member with a visible non-neutral
    target inside the leader's reach, the leader itself close enough to walk
    to the party, or a rendered member already near the party. */
-// FUNCTION: WIZ8 0x005355D0
 bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
 {
     W8MonsterInfo* leader;
@@ -2644,12 +2519,10 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
         return false;
     }
     if (monster_group->leader_location_id == -0x32323233 ||
-        (leader = FindMonster(monster_group->leader_location_id)) == 0 || leader->p3D == 0) {
-        DebugMessage(1, fmt::format("ERROR: Group {:d} is without an active leader",
-                                    monster_group->group_id));
+        (leader = FindMonster(monster_group->leader_location_id)) == 0 || !leader->entity) {
         return false;
     }
-    if (!gXStatus.fCombatMode) {
+    if (!CurrentGame().combat.has_value()) {
         return false;
     }
     if (monster_group->ubDisposition == W8_DISPOSITION_NEUTRAL) {
@@ -2669,9 +2542,9 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                     reach = minimum;
                 }
                 party = PartyNavigator()->GetPosition();
-                if (glm::length((leader->p3D->movement.position - party)) <= reach) {
-                    const auto path_distance = leader->p3D->FindNavigatorPathDistance(750.0f);
-                    if (path_distance && *path_distance <= reach) return true;
+                if (glm::length((leader->entity->nav.movement.position - party)) <= reach) {
+                    const auto distance = leader->entity->nav.FindNavigatorPathDistance(750.0f);
+                    if (distance && *distance <= reach) return true;
                 }
                 break;
             }
