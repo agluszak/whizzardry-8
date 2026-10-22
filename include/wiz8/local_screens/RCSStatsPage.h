@@ -18,8 +18,6 @@ enum W8CampEffectKind : unsigned char {
 };
 
 struct W8CampEffectEntry {
-    bool items;          /* row lists an equipped item */
-    bool visible;        /* passes the current filter */
     bool beneficial;
     bool detrimental;
     W8CampEffectKind kind;

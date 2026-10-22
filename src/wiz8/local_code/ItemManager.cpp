@@ -45,7 +45,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/modal_content.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/picking.h"
@@ -502,10 +501,10 @@ void DeactivateWorldItem(W8WorldItem* item)
     item->position = position;
     item->entity_flags = item->entity->flags;
 
-    item->entity->DetachMesh();
-    std::erase_if(GetWorld()->plsItems,
-                  [item](const auto& owner) { return owner.get() == item->entity.find(); });
+    WorldItemEntity& entity = *item->entity;
     item->entity.detach();
+    entity.DetachMesh();
+    std::erase_if(GetWorld()->plsItems, [&](const auto& owner) { return owner.get() == &entity; });
     item->fActive = false;
     --CurrentGame().item_manager_pending;
 }
@@ -534,7 +533,7 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
         if (!item->entity->IsSelected()) {
             continue;
         }
-        distance = ItemDistanceToCamera(item->entity.find());
+        distance = ItemDistanceToCamera(*item->entity);
         if (distance < max_distance && distance < best_distance) {
             result = item->runtime_id;
             best_distance = distance;
@@ -678,12 +677,10 @@ unsigned char InteractWithWorldItem(int runtime_id)
 
     assert(item != 0);
     if (Data().items[item->item.iItemNo].flags & W8_ITEM_FLAG_CONTAINER) {
-        W8TriggerItemPickerDialog* dialog = new W8TriggerItemPickerDialog;
-        if (dialog != 0) {
-            dialog->SetItemGroup(item);
-            dialog->on_complete = OnItemPickerClosed;
-        }
-        OpenModal(std::unique_ptr<ModalContent>(dialog));
+        auto dialog = std::make_unique<W8TriggerItemPickerDialog>();
+        dialog->SetItemGroup(item);
+        dialog->on_complete = OnItemPickerClosed;
+        OpenModal(std::move(dialog));
         return 1;
     }
     if (Trigger* trigger = item->trigger) {

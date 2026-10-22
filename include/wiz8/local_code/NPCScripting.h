@@ -156,7 +156,7 @@ void QueueDialogueNpcRefusal(void);
 void AuditNpcScriptQuotes(GameStatus& status);
 /* The NPC-side rebinding pass; reloads the NPC's .nsf script
    file and rebuilds its runtime bindings. */
-void ReloadNpcScriptResources(W8NpcState* npc, Monster* monster);
+void ReloadNpcScriptResources(W8NpcState* npc);
 /* Load the NPC's .nsf script and give its monster the matching .msf script,
    without changing the NPC. */
 std::unique_ptr<W8NpcScriptFile> LoadNpcScriptResources(W8NpcState& npc, Monster* monster);
