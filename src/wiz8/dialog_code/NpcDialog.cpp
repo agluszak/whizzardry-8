@@ -1,6 +1,7 @@
 #include "wiz8/dialog_code/NpcDialog.h"
 
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -50,12 +51,12 @@ W8NpcDialog::W8NpcDialog(std::shared_ptr<const W8NpcScriptFile> script,
 
     signed char opcode = message->kind;
     if (opcode == W8_NPC_ENTRY_OPTIONS) {
-        if (message->sub_entries.size() == 2) {
+        if (std::ssize(message->sub_entries) == 2) {
             m_compact_options = false;
         } else {
             m_compact_options = true;
         }
-        for (index = 0; index < message->sub_entries.size(); ++index) {
+        for (index = 0; index < std::ssize(message->sub_entries); ++index) {
             line = message->sub_entries[index].text;
             short length = g_wiz_text_mono_font.textWidth(line);
             if (max_width < length) {
@@ -63,7 +64,7 @@ W8NpcDialog::W8NpcDialog(std::shared_ptr<const W8NpcScriptFile> script,
             }
         }
         m_text_width = max_width + 6;
-        width = (m_text_width + 0xa) * message->sub_entries.size() + 0x1e;
+        width = static_cast<short>((m_text_width + 0xa) * std::ssize(message->sub_entries) + 0x1e);
     } else if (opcode == W8_NPC_ENTRY_PRICE_CHECK || opcode == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
         m_compact_options = false;
         short length = g_wiz_text_mono_font.textWidth(Data().strings[0x7df]);
@@ -100,10 +101,10 @@ bool W8NpcDialog::Configure()
     m_input.add(SDL_Rect{m_bounds.x, m_bounds.y, m_bounds.w + 1, m_bounds.h + 1}, {},
                 UI_PRIORITY_BACKGROUND);
     if (m_message->kind == W8_NPC_ENTRY_OPTIONS) {
-        int x = (m_bounds.w -
-                 static_cast<short>((m_text_width + 10) * m_message->sub_entries.size() - 10)) /
+        int x = (m_bounds.w - static_cast<short>(
+                                  (m_text_width + 10) * std::ssize(m_message->sub_entries) - 10)) /
                 2;
-        for (index = 0; index < m_message->sub_entries.size(); ++index) {
+        for (index = 0; index < std::ssize(m_message->sub_entries); ++index) {
             line = m_message->sub_entries[index].text;
             m_buttons[index] = std::make_unique<W8ButtonWidget>(m_input);
             m_buttons[index]->Configure(

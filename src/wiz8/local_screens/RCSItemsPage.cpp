@@ -1533,7 +1533,7 @@ void W8CampItemsPage::RebuildCampItemList()
     if (item_list.empty()) {
         item_scroll = 0;
     } else if (item_list.size() <= item_scroll) {
-        item_scroll = (item_list.size() - 1) / 8 * 8;
+        item_scroll = static_cast<unsigned int>((item_list.size() - 1) / 8 * 8);
     }
     item_range->SetValue((item_scroll + 1) / 2);
 }

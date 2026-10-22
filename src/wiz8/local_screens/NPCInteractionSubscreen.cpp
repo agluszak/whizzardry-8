@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <span>
@@ -3737,7 +3738,7 @@ void OnNpcDialogClosed(W8NpcDialog& dialog)
         return;
     }
     if (request->kind == W8_NPC_ENTRY_OPTIONS) {
-        for (index = 0; index < request->sub_entries.size(); ++index) {
+        for (index = 0; index < std::ssize(request->sub_entries); ++index) {
             if (index == npc_dialog->m_selected_option) {
                 entry_text = request->sub_entries[index].text.c_str();
                 if (!CurrentGame().activity.conversation ||

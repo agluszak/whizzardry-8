@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <ctime>
 #include <exception>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
@@ -183,10 +184,9 @@ std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id)
     int entry_index;
     int quote_index;
 
-    for (quote_index = 0; quote_index < static_cast<int>(script->quotes.size()); ++quote_index) {
+    for (quote_index = 0; quote_index < std::ssize(script->quotes); ++quote_index) {
         const W8NpcScriptQuote* quote = script->quotes.data() + quote_index;
-        for (entry_index = 0; entry_index < static_cast<int>(quote->entries.size());
-             ++entry_index) {
+        for (entry_index = 0; entry_index < std::ssize(quote->entries); ++entry_index) {
             const W8NpcQuoteEntry* entry = quote->entries.data() + entry_index;
             if ((entry->kind == W8_NPC_ENTRY_ITEM_REQUEST ||
                  entry->kind == W8_NPC_ENTRY_ITEM_MENTION) &&
@@ -537,7 +537,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
                 for (const W8MessageBoxLine& queued_line : queue_) {
                     const auto* queued = std::get_if<W8NpcQueuedQuote>(&queued_line.action);
                     if (queued == 0 || !queued->binding.script || queued->quote_index < 0 ||
-                        queued->quote_index >= queued->binding.script->quotes.size() ||
+                        queued->quote_index >= std::ssize(queued->binding.script->quotes) ||
                         queued->suppress_entries ||
                         std::ranges::find(pending_quotes_, queued->quote_index) ==
                             pending_quotes_.end()) {
@@ -565,9 +565,9 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
 
         const W8NpcScriptFile* script = session_.binding.script.get();
         if (script != 0 && !quote_line->suppress_entries && quote_index >= 0 &&
-            quote_index < script->quotes.size()) {
+            quote_index < std::ssize(script->quotes)) {
             const W8NpcScriptQuote* quote = &script->quotes[quote_index];
-            for (index = 0; index < quote->entries.size(); ++index) {
+            for (index = 0; index < std::ssize(quote->entries); ++index) {
                 W8NpcQuoteEntryKind kind = quote->entries[index].kind;
                 if ((kind == W8_NPC_ENTRY_PRICE_CHECK || kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) &&
                     (kind == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK ||
@@ -603,8 +603,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
             dialogue.session_.binding = binding;
             dialogue.session_.current_quote_index = queued.quote_index;
             if (script != 0 && queued.quote_index >= 0 &&
-                queued.quote_index < static_cast<int>(script->quotes.size()) &&
-                queued.entry_index >= 0 &&
+                queued.quote_index < std::ssize(script->quotes) && queued.entry_index >= 0 &&
                 queued.entry_index <
                     static_cast<int>(script->quotes[queued.quote_index].entries.size())) {
                 dialogue.RunQuoteEntry(
@@ -825,9 +824,9 @@ void AuditNpcScriptQuotes(GameStatus& status)
             if (script != 0) {
                 file_lines = 0;
                 file_quotes = 0;
-                for (record_index = 0; record_index < script->quotes.size(); ++record_index) {
+                for (record_index = 0; record_index < std::ssize(script->quotes); ++record_index) {
                     quote = &script->quotes[record_index];
-                    for (sub_index = 0; sub_index < quote->subquotes.size(); ++sub_index) {
+                    for (sub_index = 0; sub_index < std::ssize(quote->subquotes); ++sub_index) {
                         text = quote->subquotes[sub_index];
                         if (text.size() != 0 && CompareTextIgnoreAsciiCase(text, "EMPTY") != 0 &&
                             CompareTextIgnoreAsciiCase(text, "BLANK") != 0 &&

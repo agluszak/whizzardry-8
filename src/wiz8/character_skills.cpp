@@ -105,7 +105,7 @@ void FlushDeferredSkillNotices(Game& game)
             if (notice.entries.size() == 8) {
                 game.npc_dialogue.QueuePortraitMessage(std::move(text), std::move(notice));
                 text.clear();
-                notice.entries.clear();
+                notice = {};
             }
         }
     }
