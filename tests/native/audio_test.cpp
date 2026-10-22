@@ -738,9 +738,15 @@ TEST_CASE_METHOD(AudioFixture, "Discarding NPC presentation cancels its pending 
     const auto targets = LiveUiTargetCount();
     {
         W8NpcDialoguePanel panel;
-        panel.quote_input = std::make_unique<UiLayer>(UiLayerOrder::NpcQuoteBubble);
-        panel.quote_input->add(SDL_Rect{0, 0, 20, 20},
-                               [](const UiPointerEvent&) { return UiResult::Handled; });
+        auto& quote = panel.active_quote.emplace();
+        quote.input.add(SDL_Rect{0, 0, 20, 20},
+                        [](const UiPointerEvent&) { return UiResult::Handled; });
+        REQUIRE_FALSE(quote.bubble); // Failed text layout still has a dismissible quote.
+        REQUIRE(LiveUiTargetCount() == targets + 1);
+        panel.active_quote.reset();
+        REQUIRE(LiveUiTargetCount() == targets);
+        panel.active_quote.emplace().input.add(
+            SDL_Rect{0, 0, 20, 20}, [](const UiPointerEvent&) { return UiResult::Handled; });
         REQUIRE(PlayNpcVoice(panel.speech, "tone.wav", [&] { ++calls; }));
         mix(8192);
         REQUIRE_FALSE(wiz8::sound::is_playing(panel.speech.voice_handle));
