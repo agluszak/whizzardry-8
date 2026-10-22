@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxcb-randr0-dev libxcb-shape0-dev libxcb-sync-dev \
     libxcb-xfixes0-dev libxcb-xinerama0-dev libxcb-dri2-0-dev \
     libxcb-dri3-dev libxcb-present-dev libxcb-composite0-dev \
-    libxcb-cursor-dev libxcb-ewmh-dev libxcb-res0-dev \
+    libxcb-cursor-dev libxcb-ewmh-dev libxcb-res0-dev libxcb-util-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key \

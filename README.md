@@ -65,18 +65,22 @@ For the current technical direction, see [AGENTS.md](AGENTS.md), [the architectu
 After building, run tests in the same environment as CI:
 
 ```sh
-./build.sh -- bash -c 'source build/linux/conan/conanrun.sh; xvfb-run -a ctest --preset linux'
+./build.sh -- bash -c 'source build/linux/conan/conanrun.sh; ctest --preset linux'
 ```
 
-The headless runner uses `xvfb-run -a`; the graphics scenarios use
-SDL's X11 Vulkan surface. CI also enables the Khronos validation layer and fails
-graphics tests on validation errors.
+Graphics tests and runtime scenarios render through SDL's offscreen video driver, so
+they need no display, open no windows and receive no desktop input. CI also enables
+the Khronos validation layer and fails graphics tests on validation errors.
 
 Some runtime tests also need prepared retail assets:
 
 ```sh
 ./build.sh -- bash -c 'source build/linux/conan/conanrun.sh; ctest --preset linux -L runtime'
 ```
+
+A failing scenario saves the game's frame under `tests/runtime-artifacts/` in the
+build tree; [the runtime fixture notes](tests/runtime/fixtures/README.md) also
+describe the golden screen signatures and how to update them.
 
 C and C++ changes should use the repository's `.clang-format` configuration (clang-format 23).
 

@@ -72,6 +72,8 @@ jobs:
       CCACHE_MAXSIZE: 1G
       # Clang PCH can be cached only with these documented ccache settings.
       CCACHE_SLOPPINESS: pch_defines,time_macros
+      # Downloaded runtime test inputs; CMake bakes this path in at configure.
+      WIZ8_DOWNLOAD_CACHE: ${{ github.workspace }}/build/downloads
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: docker/setup-buildx-action@v4
@@ -206,15 +208,40 @@ jobs:
           ./build.sh -- bash -c 'source "build/${{ matrix.preset }}/conan/conanrun.sh"; "build/${{ matrix.preset }}/wiz8_prepare_assets" "$1" "$2"' -- "$prepared_root" "$game_root"
           echo "WIZ8_ASSET_ROOT=$prepared_root" >> "$GITHUB_ENV"
 
+      # Third-party runtime inputs (tests/runtime/fetch_downloads.cmake) are
+      # fetched once and verified by hash; the runtime_downloads test only
+      # downloads what the restored cache lacks.
+      - name: Restore downloaded runtime inputs
+        id: downloads-cache
+        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ${{ env.WIZ8_DOWNLOAD_CACHE }}
+          key: wiz8-downloads-${{ hashFiles('tests/runtime/fetch_downloads.cmake') }}
       - name: Test native contracts and licensed runtime scenarios
+        id: tests
         run: |
           if [[ '${{ matrix.preset }}' != linux ]]; then
             # SDL unloads the software Vulkan ICD before LSan scans globals.
             export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
             export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so
           fi
-          ./build.sh -- bash -c 'source "build/${{ matrix.preset }}/conan/conanrun.sh"; xvfb-run -a ctest --preset "${{ matrix.preset }}" --output-on-failure --parallel "$(nproc)"'
+          ./build.sh -- bash -c 'source "build/${{ matrix.preset }}/conan/conanrun.sh"; ctest --preset "${{ matrix.preset }}" --output-on-failure --parallel "$(nproc)"'
+      # Frames saved by failing runtime scenarios and golden-image mismatches.
+      - name: Upload runtime scenario images
+        if: failure() && steps.tests.outcome == 'failure'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: runtime-artifacts-${{ matrix.preset }}
+          path: build/${{ matrix.preset }}/tests/runtime-artifacts
+          retention-days: 7
+          if-no-files-found: ignore
 
+      - name: Save downloaded runtime inputs
+        if: always() && steps.downloads-cache.outputs.cache-hit != 'true' && hashFiles('build/downloads/*.sav') != ''
+        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ${{ env.WIZ8_DOWNLOAD_CACHE }}
+          key: ${{ steps.downloads-cache.outputs.cache-primary-key }}
       - name: Remove decrypted game assets
         if: always() && steps.game-assets.outputs.enabled == 'true'
         run: rm -rf "$RUNNER_TEMP/wiz8-native-game"
