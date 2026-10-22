@@ -120,11 +120,11 @@ void CampDialogs::Display(std::unique_ptr<W8DialogBase> dialog)
 void CampDialogs::ShowNotice(std::string_view text, std::function<void(bool)> callback,
                              bool confirmation, bool cancel)
 {
-    W8MessageDialogBase* dialog = CreateMessageDialog();
+    auto dialog = CreateMessageDialog();
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
     dialog->on_complete = std::move(callback);
-    Display(std::unique_ptr<W8DialogBase>(dialog));
+    Display(std::move(dialog));
 }
 
 bool CampDialogs::ProcessInput()
