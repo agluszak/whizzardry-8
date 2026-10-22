@@ -109,7 +109,9 @@ saves we write must load in retail.
   and throws otherwise. Unknown and padding bytes live in `retail_opaque_records.h`
   and round-trip unchanged.
 - Runtime types don't mirror retail layout, though types still embedded in disk
-  records keep it until they get records of their own.
+  records keep it until they get records of their own. Wizardry 7 import records
+  are local decoded values; only alignment and two story choices remain on
+  `Game` until opening fact seeding consumes them.
 - Retail UTF-16LE text is decoded to and encoded from UTF-8 explicitly.
 - Four-byte words that were process addresses in retail are never trusted as
   addresses: each is a presence word, a framing word, or a dead constant.
