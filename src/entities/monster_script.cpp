@@ -22,7 +22,6 @@
 #include "wiz8/combat/fight.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/cycle_player.h"
-#include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/script.h"

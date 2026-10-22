@@ -579,18 +579,18 @@ try {
         if (!group) return false;
         auto* monster_info = FindMonster(group->MemberLocationId(0));
         ActivateMonster(monster_info);
-        auto* monster = monster_info->entity.find();
+        Monster& monster = *monster_info->entity;
         const glm::vec3 camera_position = cameraLocation(*world);
-        monster->visual.SelectLOD(&camera_position);
-        monster->nav.SetPathAI(std::move(path));
+        monster.visual.SelectLOD(&camera_position);
+        monster.nav.SetPathAI(std::move(path));
         if (has_options) {
             if (options[1] == '0' || options[1] == '\0') {
                 group->members_active = false;
-                monster->visual.rep_active = false;
+                monster.visual.rep_active = false;
             }
             if (options[0] == '0' || options[0] == '\0') continue;
         }
-        monster->UpdateRepresentation(world);
+        monster.UpdateRepresentation(world);
     }
     return true;
 } catch (const std::exception&) {
@@ -1011,20 +1011,15 @@ try {
         Prop* prop = GetWorldProp(world, index);
         Animation* animation = prop->currentAnimation();
 
-        if ((prop->flags & W8_PROP_NO_DIRECT_SUN) != 0) {
-            unsigned int animation_count = AnimObjListCount(animation, 2);
+        if ((prop->flags & W8_PROP_NO_DIRECT_SUN) != 0 && animation->positioned_parts) {
+            const auto animation_count = animation->parts[2].size();
             for (unsigned int animation_index = 0; animation_index < animation_count;
                  ++animation_index) {
                 MeshInstance* instance = prop->FrameModel(static_cast<int>(animation_index));
                 Mesh* mesh = static_cast<Mesh*>(instance->getModel());
 
                 for (auto* mesh_part : meshParts(mesh)) {
-                    if (!animation->path_lists) {
-                        mesh_part->GetVertexSunlight(true);
-                        SetModelInstanceExclusionMask(instance, 5);
-                    } else if (animation->path_lists == 1) {
-                        SetModelInstanceExclusionMask(instance, 4);
-                    }
+                    SetModelInstanceExclusionMask(instance, 4);
 
                     auto* material = mesh_part->getMaterial(0, Mesh::SIDE_FRONT);
                     if (material != 0) {

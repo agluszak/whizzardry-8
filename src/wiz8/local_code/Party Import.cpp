@@ -266,7 +266,7 @@ void ImportWizardry7Character(W8Character* character, const W8Wiz7Character* imp
         character->skills[skill_id].points =
             ConvertSkill(static_cast<W8Skill>(skill_id), character, imported);
     }
-    RefreshCharacterSkillAvailability(CurrentGame().events, character);
+    RefreshCharacterSkillAvailability(Data(), character);
     ImportEquipment(character, imported);
     DeriveCharacterPersonality(character);
     EnsureUniquePartyVoice(character);

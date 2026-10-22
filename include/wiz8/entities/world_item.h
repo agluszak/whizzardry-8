@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <string_view>
 
 #include "glm/ext/matrix_float3x3.hpp"
@@ -64,10 +63,9 @@ struct WorldItemEntity {
     glm::vec3 GetSearchPosition() const;
     void SetYaw(float angle);
     void SetHighlight(bool enabled, bool hovered = false);
-    bool IsSelected();
     void LightRadarBlip();
     bool IsRadarBlipLit();
 };
 
-std::optional<BoundingBox> GetItemWorldBounds(const WorldItemEntity* item);
+BoundingBox GetItemWorldBounds(const WorldItemEntity& item);
 std::unique_ptr<WorldItemEntity> LoadItemFromFile(std::string_view name);
