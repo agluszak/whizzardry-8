@@ -154,7 +154,8 @@ Unlayered code may use the layers.
   Inherited timers choose `TimerClock::World`, `Game`, `Presentation`, or `Calendar`.
   World gates, monster script/light/fade delays, triggers, camera holds, shake,
   ambient fades/replay, keyframes, environment transitions and item radar deadlines
-  use held world time. Spell cooldowns use game step time; UI delays and portrait
+  use held world time. Spell practice attempts explicitly restart cooldowns using game step
+  time, including failed attempts; target eligibility queries never restart them. UI delays and portrait
   idle poses use presentation time. Calendar-trigger delays use the saved game-day
   clock. Timer saves still store retail progress/scale, rebased on load even at zero;
   pause controls hold simulation clocks without a wall-clock offset accumulator.

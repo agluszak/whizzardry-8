@@ -138,7 +138,7 @@ public:
     W8NpcPresentation npc_presentation = W8NpcPresentation::none;
     W8NpcSpeech npc_speech;
     W8SedexusScene sedexus_scene;
-    // The deadline of each shared three-minute spell cooldown (`g_cooldown_gated_spells`).
+    // The deadline of each shared three-minute spell cooldown (in `SpellPracticeCooldown`).
     std::array<std::uint64_t, 14> spell_cooldowns{};
     /* The step time left until the timed autosave announces itself, counted in the world
        while the shared timers run (`SharedGameTimersHeld`). */
