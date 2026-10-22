@@ -276,8 +276,7 @@ bool W8MonsterInfoDialog::PopulateText()
     if (0x31 < knowledge && record->special_attack_kind != 0) {
         m_text_area.AddEntry(
             Data().strings[0x142],
-            Data().strings[g_monster_special_attack_name_ids[record->special_attack_kind]], 10, 0xf,
-            0);
+            Data().strings[MonsterSpecialAttackNameId(record->special_attack_kind)], 10, 0xf, 0);
     }
 
     if (9 < knowledge) {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <vector>
 
 #include "wiz8/local_code/Factions.h"
@@ -60,7 +61,11 @@ int TurnUndead(int party_slot, bool check);
    cannot be carried out. */
 int CharacterPrayAction(int party_slot);
 
-/* GppStringList indices naming each monster special-attack kind,
-   indexed by W8MonsterRecord::special_attack_kind; slot zero is unused.
-   The retail table covers all 32 rows of g_special_attack_table. */
-extern int g_monster_special_attack_name_ids[32];
+/* The string naming a monster special-attack kind (W8MonsterRecord::special_attack_kind).
+   Retail names all 31 kinds of g_special_attack_table in consecutive strings from 1598;
+   kind zero has no attack and names nothing. */
+constexpr unsigned int MonsterSpecialAttackNameId(unsigned int kind)
+{
+    assert(kind < 32);
+    return kind == 0 ? 0 : 1597 + kind;
+}
