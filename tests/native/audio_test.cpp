@@ -917,8 +917,8 @@ TEST_CASE_METHOD(AudioFixture, "Playlist parsing drives only playable tracks", "
     REQUIRE(StartMusicResource("test.mpl", 0, true));
     ServiceMusicPlaylist();
     REQUIRE(wiz8::sound::is_file_playing(
-        range == 5 ? (draw < 2 ? "Data/Music/a.wav" : "Data/Music/b.wav")
-                   : (draw == 0 ? "Data/Music/a.wav" : "Data/Music/b.wav")));
+        range == 5 ? (draw < 2 ? "Data\\Music\\a.wav" : "Data\\Music\\b.wav")
+                   : (draw == 0 ? "Data\\Music\\a.wav" : "Data\\Music\\b.wav")));
     REQUIRE(PresentationRng().next() == expected.next());
     StopMusicPlaylist(false);
 }
