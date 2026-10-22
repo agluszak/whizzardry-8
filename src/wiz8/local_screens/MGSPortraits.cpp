@@ -444,10 +444,7 @@ void ToggleNumericHitPoints(void)
     }
 }
 
-/* The slot's anchor positions for the keyboard menu and portrait band: the
-   panel corner, the band's two x edges (their order swaps with the column),
-   the grid row and the column pixel. 'adjust' applies the compact-display
-   shift used when the party display is a single column. */
+// Inclusive portrait bounds; offset follows the mirrored hover-slide direction.
 DesignRect PartyPortraitBounds(unsigned int slot, int offset)
 {
     const int left = (slot & 1) ? 512 - offset : offset;
@@ -455,6 +452,10 @@ DesignRect PartyPortraitBounds(unsigned int slot, int offset)
     return {left, top, left + 127, top + 85};
 }
 
+/* The slot's anchor positions for the keyboard menu and portrait band: the
+   panel corner, the band's two x edges (their order swaps with the column),
+   the grid row and the column pixel. 'adjust' applies the compact-display
+   shift used when the party display is a single column. */
 void GetPartySlotMenuAnchor(int party_slot, int* menu_x, int* menu_y, int* band_menu_edge,
                             int* band_portrait_edge, int* grid_row, int* column_x, int adjust)
 {
