@@ -51,7 +51,7 @@
 
 static std::vector<unsigned int> ReadFrame()
 {
-    auto surface = g_renderer->readback();
+    auto surface = g_renderer->captureLastFrame();
     REQUIRE(surface);
     std::vector<unsigned int> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
     for (int y = 0; y < SCREEN_HEIGHT; ++y)
@@ -104,7 +104,6 @@ TEST_CASE("world graphics")
     const std::array<std::string_view, 1> arguments{"/WINDOW"};
     fprintf(stderr, "world: initialize native application/game\n");
     application = std::make_unique<wiz8::Application>(arguments);
-    g_renderer->setCaptureEnabled(true);
     BeginNewGame(application->games());
     W8Character character{};
     REQUIRE(LoadCharacter(character_file.filename().string(), &character, -1));

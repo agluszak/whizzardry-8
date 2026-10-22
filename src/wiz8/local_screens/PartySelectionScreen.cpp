@@ -1081,7 +1081,7 @@ void PartySelectionScreen::DrawPartySelectionComposition()
     DrawImportList(target);
     for (auto& button : actions) button->Refresh();
     title.RenderToTarget(0, false, target);
-    if (m_dialog) m_dialog->Draw(target);
+    if (m_dialog) m_dialog->RefreshModal();
     if (name_input) name_input->RenderAll(target);
 }
 

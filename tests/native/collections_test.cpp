@@ -65,6 +65,7 @@
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/resource_cache.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/activity.h"
@@ -221,6 +222,16 @@ static bool groupMemberLookup()
     group.monsters.erase(group.monsters.begin());
     REQUIRE(group.MemberLocationId(0) == 202);
     return true;
+}
+
+TEST_CASE("Resource names match without regard to case", "[collections]")
+{
+    // The sky asks for "SkyGrad0000.ifl"; the prepared file is skygrad0000.ifl.
+    ResourceCache<int> cache;
+    const auto gradient = std::make_shared<int>(7);
+    cache.insert("skygrad0000.ifl", gradient);
+    REQUIRE(cache.find("SkyGrad0000.ifl") == gradient);
+    REQUIRE(cache.find("skytop0000.ifl") == nullptr);
 }
 
 TEST_CASE("Group activity is derived from its own population without recounts", "[collections]")
