@@ -138,36 +138,31 @@ static W8ItemInstance NormalizeItemStack(const GameData& data, W8Party& party, W
     return item;
 }
 
-/* Merge as much of one stack as fits in another. A completely consumed source is emptied
-   and reported; a partial merge is reported through `partially_merged`. */
-static bool MergeStack(const GameData& data, W8Party& party, ItemSource target, ItemSource source,
-                       bool* partially_merged)
+/* Normalize the destination, then merge as much of the source as fits.
+   Like MergeInventoryStacks, an absent result means nothing merged. */
+static std::optional<StackMerge> MergeStack(const GameData& data, W8Party& party, ItemSource target,
+                                            ItemSource source)
 {
-    if (target.get(party).iItemNo == -1) return false;
+    if (target.get(party).iItemNo == -1) return std::nullopt;
 
     const auto normalized = NormalizeItemStack(data, party, target.get(party));
     auto& destination = target.get(party);
     destination = normalized;
+    auto& incoming = source.get(party);
     const auto& record = data.items[destination.iItemNo];
-    if (record.quantity_kind != W8_ITEM_QUANTITY_STACK) return false;
-    if (destination.stack_count > record.maximum_quantity)
-        destination.stack_count = record.maximum_quantity;
-    if (destination.iItemNo != source.get(party).iItemNo ||
-        destination.identified != source.get(party).identified)
-        return false;
+    if (record.quantity_kind != W8_ITEM_QUANTITY_STACK) return std::nullopt;
+    if (destination.iItemNo != incoming.iItemNo || destination.identified != incoming.identified)
+        return std::nullopt;
 
     const unsigned char room = record.maximum_quantity - destination.stack_count;
-    if (room == 0) return false;
-    const unsigned char moved =
-        source.get(party).stack_count < room ? source.get(party).stack_count : room;
+    if (room == 0) return std::nullopt;
+    const auto moved = std::min(incoming.stack_count, room);
     destination.stack_count += moved;
-    source.get(party).stack_count -= moved;
-    if (source.get(party).stack_count == 0) {
-        Discard(party, source);
-        return true;
-    }
-    if (partially_merged) *partially_merged = true;
-    return false;
+    incoming.stack_count -= moved;
+    const bool complete = incoming.stack_count == 0;
+    if (complete) Discard(party, source);
+    return StackMerge{complete, InventoryEdit{{complete && source.location ? *source.location
+                                                                           : W8ItemLocation{}}}};
 }
 
 /* Take one of an item's uses away, and when that was the last one, empty the source. A
@@ -419,7 +414,8 @@ std::optional<ItemPlacement> PlaceWithCharacter(const RuleContext& rules, ItemRe
                          recipient.slot ? std::optional{location} : std::nullopt, source);
                 return ItemPlacement{location, nullptr};
             }
-            if (MergeStack(data, party, OwnedItem(destination), source, nullptr))
+            if (const auto merge = MergeStack(data, party, OwnedItem(destination), source);
+                merge && merge->complete)
                 return ItemPlacement{{}, nullptr};
         }
     }
@@ -433,14 +429,17 @@ std::optional<ItemPlacement> PlaceWithCharacter(const RuleContext& rules, ItemRe
     if (data.items[source.get(party).iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
         !skip_stacking) {
         for (unsigned int index = 0; index < 12 && !stored_item; ++index) {
-            if (MergeStack(data, party, OwnedItem(character.EquippedItem[index]), source,
-                           nullptr)) {
+            if (const auto merge =
+                    MergeStack(data, party, OwnedItem(character.EquippedItem[index]), source);
+                merge && merge->complete) {
                 stored_item = &character.EquippedItem[index];
                 stored_index = index;
             }
         }
         for (unsigned int index = 0; index < 8 && !stored_item; ++index) {
-            if (MergeStack(data, party, OwnedItem(character.backpack[index]), source, nullptr)) {
+            if (const auto merge =
+                    MergeStack(data, party, OwnedItem(character.backpack[index]), source);
+                merge && merge->complete) {
                 stored_item = &character.backpack[index];
                 stored_index = index;
             }
@@ -474,15 +473,15 @@ std::optional<ItemPlacement> PlaceInPool(const RuleContext& rules, ItemSource so
     // Named before a merge can empty the source.
     const std::string display_name =
         announce ? FormatItemDisplayName(data, &source.get(party), true) : "";
-    bool partially_merged = false;
     unsigned int index = 0;
     bool merged = false;
 
     if (data.items[source.get(party).iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
         !skip_stacking) {
         for (; index < party.item_pool.size(); ++index) {
-            if (MergeStack(data, party, PartyItem(party, {W8ItemStorage::Pool, 0, index}), source,
-                           &partially_merged)) {
+            if (const auto merge = MergeStack(
+                    data, party, PartyItem(party, {W8ItemStorage::Pool, 0, index}), source);
+                merge && merge->complete) {
                 merged = true;
                 break;
             }
@@ -864,12 +863,10 @@ MergeItems(const RuleContext& rules, unsigned actor, W8ItemLocation target)
         return made;
     }
     if (held.iItemNo == destination->iItemNo) {
-        bool partial = false;
-        const bool merged = MergeStack(data, party, PartyItem(party, target),
-                                       PartyItem(party, {W8ItemStorage::Hand}), &partial);
-        return ItemCombination{.merged = merged || partial,
-                               .edit = InventoryEdit{{merged ? W8ItemLocation{W8ItemStorage::Hand}
-                                                             : W8ItemLocation{}}}};
+        auto merged = MergeStack(data, party, PartyItem(party, target),
+                                 PartyItem(party, {W8ItemStorage::Hand}));
+        return ItemCombination{.merged = merged.has_value(),
+                               .edit = merged ? std::move(merged->edit) : InventoryEdit{}};
     }
     return std::unexpected(InventoryRefusal{data.strings[0x161]});
 }

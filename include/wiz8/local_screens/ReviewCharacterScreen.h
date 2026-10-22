@@ -325,6 +325,7 @@ private:
     void SelectPendingCampCharacter();
     void HandleCampItemClick(W8ItemLocation location);
     void HandleEmptyPoolCell();
+    void RefreshCampInventory();
     void DepositHeldItemInPool(unsigned int index);
     void TakeItemUnitToHand(W8ItemLocation source);
     void MarkCampCharacterPending(W8ItemInstance* item);

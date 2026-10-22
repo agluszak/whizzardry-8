@@ -424,25 +424,21 @@ template<> struct Record<save::GameState> {
             if (count > pool_slots) throw std::runtime_error("invalid party inventory count");
             runtime.party.item_pool.resize(count);
         }
-        // The fixed retail block is a disk format, not 500 live runtime items.
-        // Known fields outside the live prefix are canonical empty records;
-        // uninterpreted bytes from unused disk slots remain round-trippable.
-        for (std::size_t index = 0; index < pool_slots; ++index) {
-            using Item =
-                std::conditional_t<std::is_const_v<R>, const W8ItemInstance, W8ItemInstance>;
-            Item item = index < count
-                            ? runtime.party.item_pool[index]
-                            : W8ItemInstance{.unknown_08 =
-                                                 runtime.status.retail.unused_pool_unknown[index]};
-            Record<W8ItemInstance>::fields(
-                item,
-                bytes.subspan(offsetof(Disk, party_item_pool) + index * sizeof(ItemInstance),
-                              sizeof(ItemInstance)),
-                value, text);
-            if constexpr (!std::is_const_v<R>) {
-                if (index < count) runtime.party.item_pool[index] = item;
-                runtime.status.retail.unused_pool_unknown[index] =
-                    index < count ? 0 : item.unknown_08;
+        const auto pool_bytes =
+            bytes.subspan(offsetof(Disk, party_item_pool), sizeof(Disk::party_item_pool));
+        item_run(runtime.party.item_pool, pool_bytes, value, text);
+        // Only the codec handles unused disk slots. Known fields are canonical empty
+        // values; unknown bytes from loaded unused records remain round-trippable.
+        auto& unused = runtime.status.retail.unused_pool_unknown;
+        if constexpr (!std::is_const_v<R>) unused.fill(0);
+        for (std::size_t index = count; index < pool_slots; ++index) {
+            const auto slot =
+                pool_bytes.subspan(index * sizeof(ItemInstance), sizeof(ItemInstance));
+            if constexpr (std::is_const_v<R>) {
+                const W8ItemInstance empty{.unknown_08 = unused[index]};
+                nested(empty, slot, value, text);
+            } else {
+                value(&unused[index], slot.subspan(offsetof(ItemInstance, unknown_08), 1));
             }
         }
         value(&runtime.status.text_line_cursor,

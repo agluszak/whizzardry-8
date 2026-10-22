@@ -102,7 +102,8 @@ TEST_CASE("A berserk choice yields to attack while the member cannot berserk", "
     REQUIRE(committed.kind == W8_ACTION_DEFEND);
 }
 
-TEST_CASE("Stack normalization survives pool growth", "[party][inventory]")
+TEST_CASE("Pool placement preserves stack quantities across growth and refusal",
+          "[party][inventory]")
 {
     GameData data;
     auto& record = data.items.emplace_back();
@@ -124,6 +125,28 @@ TEST_CASE("Stack normalization survives pool growth", "[party][inventory]")
         REQUIRE(party.item_pool[1].stack_count == 100);
         REQUIRE(party.item_pool[2].stack_count == 100);
     }
+    SECTION("A partial merge stores the remaining units separately")
+    {
+        party.item_pool = {{.iItemNo = 0, .stack_count = 98}};
+        W8ItemInstance incoming{.iItemNo = 0, .stack_count = 5};
+        REQUIRE(PlaceInPool(rules, OwnedItem(incoming), false, false));
+        REQUIRE(incoming.iItemNo == -1);
+        REQUIRE(party.item_pool.size() == 2);
+        REQUIRE(party.item_pool[0].stack_count == 3);
+        REQUIRE(party.item_pool[1].stack_count == 100);
+    }
+    SECTION("A full pool merges what fits and leaves the remainder with its owner")
+    {
+        party.item_pool.reserve(1000);
+        party.item_pool.assign(W8_PARTY_POOL_LIMIT,
+                               W8ItemInstance{.iItemNo = 0, .stack_count = 100});
+        party.item_pool[0].stack_count = 98;
+        W8ItemInstance incoming{.iItemNo = 0, .stack_count = 5};
+        REQUIRE_FALSE(PlaceInPool(rules, OwnedItem(incoming), false, false));
+        REQUIRE(incoming.stack_count == 3);
+        REQUIRE(party.item_pool.size() == W8_PARTY_POOL_LIMIT);
+        REQUIRE(party.item_pool[0].stack_count == 100);
+    }
     SECTION("The source is a pool item")
     {
         party.item_pool = {{.iItemNo = 0, .stack_count = 5}};
@@ -137,16 +160,4 @@ TEST_CASE("Stack normalization survives pool growth", "[party][inventory]")
         REQUIRE(party.item_pool.size() == 1);
         REQUIRE(party.item_pool[0].stack_count == 100);
     }
-}
-
-TEST_CASE("Pool insertion obeys the gameplay limit independently of allocation",
-          "[party][inventory]")
-{
-    W8Party party;
-    party.item_pool.reserve(1000);
-    party.item_pool.assign(W8_PARTY_POOL_LIMIT - 1, W8ItemInstance{.iItemNo = 1});
-    REQUIRE(party.insertIntoPool(0, {.iItemNo = 2}));
-    REQUIRE_FALSE(party.insertIntoPool(0, {.iItemNo = 3}));
-    REQUIRE(party.item_pool.size() == W8_PARTY_POOL_LIMIT);
-    REQUIRE(party.item_pool[0].iItemNo == 2);
 }
