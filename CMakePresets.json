@@ -25,8 +25,15 @@
         "rhs": "Linux"
       },
       "cacheVariables": {
-        "CMAKE_C_COMPILER": "clang",
-        "CMAKE_CXX_COMPILER": "clang++"
+        "CMAKE_C_COMPILER": "clang-23",
+        "CMAKE_CXX_COMPILER": "clang++-23",
+        "CMAKE_C_COMPILER_LAUNCHER": "ccache",
+        "CMAKE_CXX_COMPILER_LAUNCHER": "ccache",
+        "CMAKE_C_FLAGS_DEBUG": "-O0 -g1",
+        "CMAKE_CXX_FLAGS_DEBUG": "-O0 -g1 -Xclang -fno-pch-timestamp",
+        "CMAKE_CXX_FLAGS_RELWITHDEBINFO": "-O1 -g1 -DNDEBUG -Xclang -fno-pch-timestamp",
+        "WIZ8_RENDER_UNITY_BUILD": "ON",
+        "WIZ8_WARNINGS_AS_ERRORS": "ON"
       }
     },
     {
@@ -34,8 +41,6 @@
       "inherits": "linux",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_C_FLAGS_DEBUG": "-O0 -g1",
-        "CMAKE_CXX_FLAGS_DEBUG": "-O0 -g1",
         "BUILD_TESTING": "OFF",
         "WIZ8_PRECOMPILE_HEADERS": "ON"
       }
@@ -101,6 +106,15 @@
         "CMAKE_CXX_COMPILER": "clang-cl",
         "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreadedDLL"
       }
+    },
+    {
+      "name": "linux-tidy",
+      "inherits": "linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "WIZ8_PRECOMPILE_HEADERS": "OFF",
+        "WIZ8_RENDER_UNITY_BUILD": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -131,6 +145,10 @@
     {
       "name": "linux-integer-audit",
       "configurePreset": "linux-integer-audit"
+    },
+    {
+      "name": "linux-tidy",
+      "configurePreset": "linux-tidy"
     }
   ],
   "testPresets": [

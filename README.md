@@ -8,57 +8,40 @@ Linux is the only platform currently tested in CI. macOS and Windows builds are 
 
 This repository does **not** include game assets. You'll need your own retail copy of Wizardry 8.
 
-## Build on Linux
+## Build and play (Linux)
 
-You'll need Clang 23, GCC 16 (including libstdc++ development headers), CMake 4.4.4 or newer, Ninja, Python 3.11 or newer, [Conan 2](https://conan.io/), Vulkan development headers and loader (`libvulkan-dev` on Debian/Ubuntu), and a working Vulkan driver. Conan handles the other C/C++ library dependencies; CMake fetches the pinned VulkanSceneGraph source.
-
-On Ubuntu, `tools/setup-linux.sh` does all of the following in one step (it is safe to
-re-run, and adds the toolchain PPA for libstdc++ 16 on releases older than 26.04). For
-Claude Code cloud sessions, paste `tools/cloud-setup.sh` into the cloud environment's
-setup script so the toolchain is part of the cached environment; sessions then run
-`tools/cloud-deps.sh` (see `CLAUDE.md`), which reuses Conan packages a previous project
-thread saved. To do it by hand, from the repository root:
+Install Docker and run:
 
 ```sh
-python3 -m pip install 'conan==2.33.0' 'cmake==4.4.4'
-conan export conan/recipes/libalsa
-
-CC=clang-23 CXX=clang++-23 conan install . \
-    -pr:h conan/profiles/linux-clang23 -pr:b conan/profiles/linux-gcc16 \
-    -s:h build_type=Release --build=missing -of build/linux/conan
-
-. build/linux/conan/conanbuild.sh
-cmake --preset linux \
-    -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux/conan/conan_toolchain.cmake" \
-    -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23
-cmake --build --preset linux
-. build/linux/conan/conanrun.sh
+./build.sh
 ```
 
-The first build may take a while because Conan needs to build some dependencies.
+The first run builds the toolchain image and resolves the pinned Conan dependencies.
+Subsequent builds reuse Docker layers, Conan binaries and ccache. CI uses the same
+command and image. The host does not need Clang, CMake or Conan.
 
-The renderer uses Vulkan on all platforms. Windows builds require the Vulkan SDK;
-macOS builds require the Vulkan SDK with MoltenVK. Set `VULKAN_SDK` as instructed
-by the SDK installer. SDL continues to provide windows, input, audio and CPU
-surfaces. Linux is the platform covered by CI.
-
-## Play
-
-First, prepare the data from your retail installation:
+Prepare assets from a retail installation once:
 
 ```sh
 build/linux/wiz8_prepare_assets /path/to/prepared-assets /path/to/retail-install
 ```
 
-Choose a **new directory** for `prepared-assets`, outside the retail installation. The preparation tool extracts the game data and applies the installed patches.
-
-Then launch the game:
+Choose a new directory outside the retail installation, then play:
 
 ```sh
 WIZ8_ASSET_ROOT=/path/to/prepared-assets ./run.sh
 ```
 
-Saves, settings and logs go into the system's per-user application directory, separate from the game assets. Set `WIZ8_USER_ROOT` if you'd rather choose that directory yourself.
+Conan runtime paths are activated automatically by the launcher. The game runs
+on the host without Docker, provided its C++ runtime and Vulkan driver are
+compatible with the build environment. Saves, settings and logs use the
+per-user application directory; override it with `WIZ8_USER_ROOT`.
+
+Use `./build.sh linux-dev`, `./build.sh linux-asan` or
+`./build.sh linux-integer-audit` for other configurations, and set
+`WIZ8_BUILD_DIR` to select the resulting executable in `run.sh`.
+`./build.sh -- <command>` runs a command in the same build container.
+macOS and Windows builds are not yet verified.
 
 ## Contributing
 
