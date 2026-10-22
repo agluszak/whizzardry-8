@@ -207,9 +207,9 @@ the licensed runtime scenarios after every step.
      from its members and explicit inputs.
    - The main game, the camp and the camp's items page borrow the router's `Pointer`,
      but the free functions in `local_screens`, the dialogs and text entry, the targeting
-     presentation, the world cursor (`entities/cursor.cpp`) and two readers in combat
-     (`GateActionSwitch`, `AutoAdvanceSelectedCharacter`, which ask whether a target is
-     being picked) still reach it through `ScreenPointer()`. They should receive it with
+     presentation, the world cursor (`entities/cursor.cpp`) and one reader in combat
+     (`AutoAdvanceSelectedCharacter`, which asks whether a target is being picked) still
+     reach it through `ScreenPointer()`. They should receive it with
      the HUD, and the accessor then goes.
    - The HUD panels below `ApplyMainGameRepaint` (portraits and their bars, the text box,
      submenu, formation board, monster list, radar) still read the HUD, the game and

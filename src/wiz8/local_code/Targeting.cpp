@@ -551,9 +551,8 @@ void RepickInvalidCombatTargets(void)
         W8Character* character = &CurrentGame().party.characters[party_slot];
         if (!CurrentGame().party.members[party_slot].has_value() || character->hp_current == 0 ||
             character->highest_condition >= W8_CONDITION_TURNCOAT ||
-            !CharacterCanSwitchTo(party_slot,
-                                  SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
-                                  true, false)) {
+            !CharacterCanSwitchTo(
+                party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT), true)) {
             continue;
         }
         const auto selected = SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
@@ -931,7 +930,7 @@ void RevalidateSelectedTarget(int party_slot)
         return;
     }
     const auto selected = EditedAction(party_slot);
-    if (!CharacterCanSwitchTo(party_slot, selected, true, false)) {
+    if (!CharacterCanSwitchTo(party_slot, selected, true)) {
         CurrentGame().events.push(TargetingRequested{});
         return;
     }
@@ -1073,32 +1072,47 @@ bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group, const W8Action
     return reachable != 0;
 }
 
+static W8CombatSlot MonsterTarget(int location_id)
+{
+    W8CombatSlot target{};
+    target.iChar = -1;
+    target.iGroupID = -1;
+    target.iType = W8_TARGET_KIND_MONSTER;
+    target.iMonsterID = location_id;
+    return target;
+}
+
+static bool NeedsMonsterTarget(const W8Action& action)
+{
+    const auto kind = action.kind;
+    return CurrentGame().combat.has_value() &&
+           (kind == W8_ACTION_ATTACK || kind == W8_ACTION_BERSERK || kind == W8_ACTION_CAST_SPELL ||
+            kind == W8_ACTION_USE_ITEM) &&
+           GetTargetNeededForAction(CurrentGame().party, action) == W8_TARGET_NEED_ENEMY;
+}
+
+std::optional<W8CombatSlot> ChooseEquippedMonsterTarget(int party_slot, const W8Action& action)
+{
+    if (!NeedsMonsterTarget(action)) return std::nullopt;
+    const int selected = ChooseMonsterTarget(party_slot, action);
+    if (selected == -1) return std::nullopt;
+    return MonsterTarget(selected);
+}
+
 /* The monster a live attack, spell or item action that needs an enemy turns to in combat:
    the best monster, or one the alternate weapon set reaches, which commits the weapon
    choice. */
 static std::optional<W8CombatSlot> RepickMonsterTarget(int party_slot, const W8Action& action)
 {
-    if (!CurrentGame().combat.has_value()) return std::nullopt;
-    const auto kind = action.kind;
-    const bool is_attack_kind = kind == W8_ACTION_ATTACK || kind == W8_ACTION_BERSERK;
-    if (!(is_attack_kind || kind == W8_ACTION_CAST_SPELL || kind == W8_ACTION_USE_ITEM) ||
-        GetTargetNeededForAction(CurrentGame().party, action) != W8_TARGET_NEED_ENEMY) {
+    if (const auto target = ChooseEquippedMonsterTarget(party_slot, action)) return target;
+    if (!NeedsMonsterTarget(action) ||
+        (action.kind != W8_ACTION_ATTACK && action.kind != W8_ACTION_BERSERK)) {
         return std::nullopt;
     }
-    int selected = ChooseMonsterTarget(party_slot, action);
-    if (selected == -1 && is_attack_kind) {
-        if (const auto fallback = ChooseFallbackMonsterTarget(party_slot, action)) {
-            CommitAutomaticWeaponChoice(party_slot, *fallback);
-            selected = fallback->location_id;
-        }
-    }
-    if (selected == -1) return std::nullopt;
-    W8CombatSlot target{};
-    target.iChar = -1;
-    target.iGroupID = -1;
-    target.iType = W8_TARGET_KIND_MONSTER;
-    target.iMonsterID = selected;
-    return target;
+    const auto fallback = ChooseFallbackMonsterTarget(party_slot, action);
+    if (!fallback) return std::nullopt;
+    CommitAutomaticWeaponChoice(party_slot, *fallback);
+    return MonsterTarget(fallback->location_id);
 }
 
 static W8CombatSlot ClearedTarget()
@@ -1576,10 +1590,10 @@ void RefreshAllPartyTargets(void)
         if (CurrentGame().party.members[party_slot].has_value() &&
             (character->hp_current != 0 || character->highest_condition < W8_CONDITION_DEAD)) {
             const auto selected = EditedAction(party_slot);
-            bool can_switch = CharacterCanSwitchTo(party_slot, selected, false, false);
+            bool can_switch = CharacterCanSwitchTo(party_slot, selected, false);
 
             if (!can_switch) {
-                can_switch = CharacterCanSwitchTo(party_slot, selected, true, false);
+                can_switch = CharacterCanSwitchTo(party_slot, selected, true);
                 if (!can_switch) {
                     if (selected.target.iType != W8_TARGET_KIND_NONE) {
                         W8CombatSlot action{};
@@ -1605,7 +1619,7 @@ void RefreshAllPartyTargets(void)
                 (row->weapon_swap_pending ||
                  CharacterCanSwitchTo(
                      party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
-                     false, false))) {
+                     false))) {
                 const auto fallback = ChooseFallbackMonsterTarget(
                     party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT));
                 if (fallback) {

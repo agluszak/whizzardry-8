@@ -3807,7 +3807,7 @@ void UpdateCombatPortraitStatus(void)
                     } else {
                         status = CharacterCanSwitchTo(
                                      slot, SelectCombatAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
-                                     false, false)
+                                     false)
                                      ? W8_COMBAT_PORTRAIT_READY
                                      : W8_COMBAT_PORTRAIT_CANNOT_SWITCH;
                     }
