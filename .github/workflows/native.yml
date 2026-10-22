@@ -65,8 +65,6 @@ jobs:
       run:
         shell: bash
     env:
-      # Both sanitizer presets use the same unsanitized Conan dependencies.
-      CONAN_BUILD_TYPE: ${{ matrix.preset == 'linux' && 'Debug' || 'RelWithDebInfo' }}
       VK_INSTANCE_LAYERS: VK_LAYER_KHRONOS_validation
       CCACHE_DIR: ${{ github.workspace }}/build/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
@@ -76,22 +74,26 @@ jobs:
       CCACHE_SLOPPINESS: pch_defines,time_macros
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Install Clang 23, libstdc++ 16, CMake 4.4.4 and Conan 2
-        run: |
-          tools/install-llvm.sh 23 clang
-          sudo apt-get install -y g++-16 ninja-build ccache python3-venv libvulkan-dev mesa-vulkan-drivers vulkan-validationlayers xvfb xauth
-          python3 -m venv "$RUNNER_TEMP/conan-venv"
-          "$RUNNER_TEMP/conan-venv/bin/pip" install 'conan==2.33.0' 'cmake==4.4.4'
-          echo "$RUNNER_TEMP/conan-venv/bin" >> "$GITHUB_PATH"
+      - uses: docker/setup-buildx-action@v4
+      - name: Restore or build toolchain image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: whizzardry-build:ci
+          cache-from: type=gha,scope=wiz8-toolchain
+          cache-to: type=gha,mode=max,scope=wiz8-toolchain
+      - name: Identify exact toolchain image
+        id: toolchain
+        run: echo "key=$(docker image inspect --format '{{.Id}}' whizzardry-build:ci | cut -c8-23)" >> "$GITHUB_OUTPUT"
       - name: Restore Conan packages
         id: conan-cache
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
-          path: ~/.conan2/p
-          key: conan-cxx26-gcc16-clang23-${{ env.CONAN_BUILD_TYPE }}-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*', 'conan/recipes/**') }}
+          path: build/cache
+          key: conan-${{ steps.toolchain.outputs.key }}-${{ matrix.preset == 'linux' && 'Release' || 'RelWithDebInfo' }}-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*', 'conan/recipes/**') }}
           restore-keys: |
-            conan-cxx26-gcc16-clang23-${{ env.CONAN_BUILD_TYPE }}-
-            conan-clang23-${{ matrix.preset == 'linux' && 'linux' || 'linux-asan' }}-
+            conan-${{ steps.toolchain.outputs.key }}-${{ matrix.preset == 'linux' && 'Release' || 'RelWithDebInfo' }}-
       - name: Select software Vulkan driver
         run: echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json" >> "$GITHUB_ENV"
       - name: Create cache directories
@@ -100,60 +102,26 @@ jobs:
         id: ccache-cache
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-cxx26-gcc16-${{ matrix.preset }}-clang23-${{ github.run_id }}
+          key: ccache-${{ steps.toolchain.outputs.key }}-${{ matrix.preset }}-${{ github.run_id }}
           restore-keys: |
-            ccache-cxx26-gcc16-${{ matrix.preset }}-clang23-
+            ccache-${{ steps.toolchain.outputs.key }}-${{ matrix.preset }}-
       - name: Reset compiler cache statistics
-        run: ccache --zero-stats
-      - name: Resolve Conan dependencies
-        run: |
-          build_type="$CONAN_BUILD_TYPE"
-          conan export conan/recipes/libalsa
-          CC=clang-23 CXX=clang++-23 conan install . \
-            -pr:h conan/profiles/linux-clang23 -pr:b conan/profiles/linux-gcc16 \
-            -s:h build_type="$build_type" -c tools.system.package_manager:mode=install \
-            -c tools.system.package_manager:sudo=True \
-            --build=missing \
-            -of "build/${{ matrix.preset }}/conan"
-      - name: Clean Conan build intermediates
-        if: steps.conan-cache.outputs.cache-hit != 'true'
-        run: conan cache clean '*'
-      # PR caches are isolated by GitHub's merge ref. Save one dependency
-      # snapshot per lock/profile so revisions do not rebuild the toolchain.
-
-      - name: Save Conan packages
-        if: steps.conan-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        with:
-          path: ~/.conan2/p
-          key: conan-cxx26-gcc16-clang23-${{ env.CONAN_BUILD_TYPE }}-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*', 'conan/recipes/**') }}
-      - name: Configure
-        run: |
-          build_type="$CONAN_BUILD_TYPE"
-          source "build/${{ matrix.preset }}/conan/conanbuild.sh"
-          cmake --preset "${{ matrix.preset }}" \
-            -DCMAKE_TOOLCHAIN_FILE="$PWD/build/${{ matrix.preset }}/conan/conan_toolchain.cmake" \
-            -DCMAKE_BUILD_TYPE="$build_type" \
-            -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23 \
-            -DCMAKE_C_FLAGS_DEBUG="-O0 -g1" \
-            -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g1 -Xclang -fno-pch-timestamp" \
-            -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O1 -g1 -DNDEBUG -Xclang -fno-pch-timestamp" \
-            -DWIZ8_RENDER_UNITY_BUILD=ON -DWIZ8_WARNINGS_AS_ERRORS=ON \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        run: ./build.sh -- ccache --zero-stats
       - name: Build native game and fixtures
         id: native-build
-        run: |
-          source "build/${{ matrix.preset }}/conan/conanbuild.sh"
-          cmake --build --preset ${{ matrix.preset }} --parallel "$(nproc)"
-      # Retain successful compilations when another source fails or a newer
-      # revision cancels the run. ccache never stores failed compilations.
-      - uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
-        # GitHub isolates PR snapshots to their merge ref. Revisions reuse
-        # compiled objects as well as tidy results; main seeds other PRs.
+        run: ./build.sh "${{ matrix.preset }}"
+      - name: Save Conan packages
+        if: always() && steps.conan-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: build/cache
+          key: ${{ steps.conan-cache.outputs.cache-primary-key }}
+      - name: Save compiler cache
         if: always() && steps.native-build.outcome != 'skipped' && steps.native-build.outcome != '' && steps.ccache-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-cxx26-gcc16-${{ matrix.preset }}-clang23-${{ github.run_id }}
+          key: ccache-${{ steps.toolchain.outputs.key }}-${{ matrix.preset }}-${{ github.run_id }}
       # The canonical GOG installer is stored in the decomp project's private
       # wiz8-ci-inputs release. Never put decrypted game files in Actions cache.
       - name: Check access to licensed game assets
@@ -231,22 +199,18 @@ jobs:
             -in "$encrypted" -pass env:WIZ8_CACHE_KEY | tar -C "$game_root" -xf -
           test -d "$game_root/Data"
           test -d "$game_root/Levels"
-          source "build/${{ matrix.preset }}/conan/conanrun.sh"
           prepared_root="$RUNNER_TEMP/wiz8-native-prepared"
-          "build/${{ matrix.preset }}/wiz8_prepare_assets" "$prepared_root" "$game_root"
+          ./build.sh -- bash -c 'source "build/${{ matrix.preset }}/conan/conanrun.sh"; "build/${{ matrix.preset }}/wiz8_prepare_assets" "$1" "$2"' -- "$prepared_root" "$game_root"
           echo "WIZ8_ASSET_ROOT=$prepared_root" >> "$GITHUB_ENV"
 
       - name: Test native contracts and licensed runtime scenarios
         run: |
-          source "build/${{ matrix.preset }}/conan/conanrun.sh"
           if [[ '${{ matrix.preset }}' != linux ]]; then
             # SDL unloads the software Vulkan ICD before LSan scans globals.
-            # Keep Mesa and its dependencies mapped so process-lifetime driver
-            # allocations retain their real roots. Project leak checks stay on.
             export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
             export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so
           fi
-          xvfb-run -a ctest --preset ${{ matrix.preset }} --output-on-failure --parallel "$(nproc)"
+          ./build.sh -- bash -c 'source "build/${{ matrix.preset }}/conan/conanrun.sh"; xvfb-run -a ctest --preset "${{ matrix.preset }}" --output-on-failure --parallel "$(nproc)"'
 
       - name: Remove decrypted game assets
         if: always() && steps.game-assets.outputs.enabled == 'true'
@@ -256,7 +220,7 @@ jobs:
         run: |
           echo '### ccache (${{ matrix.preset }})' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          ccache --show-stats 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || true
+          ./build.sh -- ccache --show-stats 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || true
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
   analysis:
@@ -277,41 +241,36 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Install Clang 23, libstdc++ 16, CMake 4.4.4 and Conan 2
-        run: |
-          tools/install-llvm.sh 23 clang clang-tidy
-          sudo apt-get install -y g++-16 ninja-build python3-venv libvulkan-dev
-          python3 -m venv "$RUNNER_TEMP/conan-venv"
-          "$RUNNER_TEMP/conan-venv/bin/pip" install 'conan==2.33.0' 'cmake==4.4.4'
-          echo "$RUNNER_TEMP/conan-venv/bin" >> "$GITHUB_PATH"
+      - uses: docker/setup-buildx-action@v4
+      - name: Restore or build toolchain image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: whizzardry-build:ci
+          cache-from: type=gha,scope=wiz8-toolchain
+          cache-to: type=gha,mode=max,scope=wiz8-toolchain
+      - name: Identify exact toolchain image
+        id: toolchain
+        run: echo "key=$(docker image inspect --format '{{.Id}}' whizzardry-build:ci | cut -c8-23)" >> "$GITHUB_OUTPUT"
       - name: Restore Conan packages
         id: conan-cache
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
-          path: ~/.conan2/p
-          key: conan-cxx26-gcc16-clang23-Debug-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*', 'conan/recipes/**') }}
+          path: build/cache
+          key: conan-${{ steps.toolchain.outputs.key }}-Debug-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*', 'conan/recipes/**') }}
           restore-keys: |
-            conan-cxx26-gcc16-clang23-Debug-
-            conan-clang23-linux-
-      # Include checks need direct includes, not PCH or unity sources.
-      - name: Resolve Conan dependencies for analysis
-        run: |
-          conan export conan/recipes/libalsa
-          CC=clang-23 CXX=clang++-23 conan install . \
-            -pr:h conan/profiles/linux-clang23 -pr:b conan/profiles/linux-gcc16 \
-            -s:h build_type=Debug -c tools.system.package_manager:mode=install \
-            -c tools.system.package_manager:sudo=True \
-            --build=missing \
-            -of build/linux-tidy/conan
+            conan-${{ steps.toolchain.outputs.key }}-Debug-
       - name: Configure analysis database
         run: |
-          source build/linux-tidy/conan/conanbuild.sh
-          cmake --preset linux -B build/linux-tidy \
-            -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux-tidy/conan/conan_toolchain.cmake" \
-            -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23 \
-            -DWIZ8_PRECOMPILE_HEADERS=OFF -DWIZ8_RENDER_UNITY_BUILD=OFF
-          cmake --build build/linux-tidy --target wiz8_shader_headers
+          ./build.sh linux-tidy --configure-only
+          ./build.sh -- bash -c 'source build/linux-tidy/conan/conanbuild.sh; cmake --build build/linux-tidy --target wiz8_shader_headers'
+      - name: Save Conan packages
+        if: steps.conan-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: build/cache
+          key: ${{ steps.conan-cache.outputs.cache-primary-key }}
       - name: Restore successful static analyses
         if: ${{ !inputs.full_scan }}
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
@@ -327,14 +286,16 @@ jobs:
           RUN_CLANG_TIDY: run-clang-tidy-23
           PYTHONUNBUFFERED: "1"
         run: |
-          export CLANG_TIDY_JOBS="$(nproc)"
-          clang-tidy-23 --verify-config --config-file=.clang-tidy-audit
-          if [[ '${{ matrix.shard }}' == 0 ]]; then
-            python3 -m py_compile tools/run-diagnostic-audit.py tools/run-clang-tidy-cached.py tools/clang_tidy_support.py tools/clang_tidy_shard.py
-            python3 -m unittest discover -s tests/tools -p "*_test.py"
-            python3 tools/check_layers.py --clang-tidy clang-tidy-23 -p build/linux-tidy
-          fi
-          ./tools/run-clang-tidy.sh build/linux-tidy
+          ./build.sh -- bash -c '
+            export CLANG_TIDY_JOBS="$(nproc)"
+            clang-tidy-23 --verify-config --config-file=.clang-tidy-audit
+            if [[ "${{ matrix.shard }}" == 0 ]]; then
+              python3 -m py_compile tools/run-diagnostic-audit.py tools/run-clang-tidy-cached.py tools/clang_tidy_support.py tools/clang_tidy_shard.py
+              python3 -m unittest discover -s tests/tools -p "*_test.py"
+              python3 tools/check_layers.py --clang-tidy clang-tidy-23 -p build/linux-tidy
+            fi
+            ./tools/run-clang-tidy.sh build/linux-tidy
+          '
 
       - name: Audit optional access and moved-from ownership
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -344,10 +305,10 @@ jobs:
           PYTHONUNBUFFERED: "1"
           CLANG_TIDY_CONFIG: ${{ github.workspace }}/.clang-tidy-audit
           CLANG_TIDY_JOBS: "2"
-        run: ./tools/run-clang-tidy.sh build/linux-tidy
+        run: ./build.sh -- ./tools/run-clang-tidy.sh build/linux-tidy
       - name: Audit strict lifetime, enums and parser buffers
         if: always() && matrix.shard == 0 && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-        run: python3 tools/run-diagnostic-audit.py build/linux-tidy --output build/diagnostic-audit.log
+        run: ./build.sh -- python3 tools/run-diagnostic-audit.py build/linux-tidy --output build/diagnostic-audit.log
       - name: Upload experimental compiler diagnostics
         if: always() && matrix.shard == 0 && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
