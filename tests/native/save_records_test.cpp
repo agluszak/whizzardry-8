@@ -1241,6 +1241,30 @@ TEST_CASE("Monster-control sections keep the retail record", "[save][records]")
         wiz8::save::decode_monster_control(std::span(payload).first(payload.size() - 1)));
 }
 
+TEST_CASE("The newest unexpired lure is the active monster-control effect", "[effects]")
+{
+    const ScopedGame game;
+    auto& effects = CurrentGame().spell_effects;
+
+    auto previous = std::make_unique<W8SpellEffectEntry>();
+    previous->kind = W8_SPELL_HYPNOTIC_LURE;
+    previous->turns_remaining = 3;
+    auto* previous_ptr = previous.get();
+    effects.push_back(std::move(previous));
+
+    auto replacement = std::make_unique<W8SpellEffectEntry>();
+    replacement->kind = W8_SPELL_HYPNOTIC_LURE;
+    replacement->turns_remaining = 5;
+    auto* replacement_ptr = replacement.get();
+    effects.push_back(std::move(replacement));
+
+    REQUIRE(FindMonsterControlSpellEffect() == replacement_ptr);
+    previous_ptr->turns_remaining = 0;
+    REQUIRE(FindMonsterControlSpellEffect() == replacement_ptr);
+    replacement_ptr->turns_remaining = 0;
+    REQUIRE(FindMonsterControlSpellEffect() == nullptr);
+}
+
 TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][configuration]")
 {
     W8GameSettings settings{};
