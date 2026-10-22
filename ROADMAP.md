@@ -203,6 +203,18 @@ the licensed runtime scenarios after every step.
      (`GateActionSwitch`, `AutoAdvanceSelectedCharacter`, which ask whether a target is
      being picked) still reach it through `ScreenPointer()`. They should receive it with
      the HUD, and the accessor then goes.
+   - The main game owns the spell and item pickers (`spell_picker`, `item_picker`) and
+     opens, closes and dismisses them. About 35 free functions still ask
+     `SpellPicker()`/`UseItemPicker()` whether one is open, or reach the screen through
+     `MainGame()->openSpellPicker(…)`. These are the world, portrait, monster-list and
+     combat-slot input handlers, the keyboard dispatch (`DispatchMGSCommand`,
+     `TryMGSActionKey`), the submenu buttons, the text box module, the lock/trap
+     interactions and the NPC services. Game code calls the screen as well:
+     `FallbackFromUnreachableAction` from `Magic.cpp`, `SelectPartyCharacter`,
+     `UpdateScreenOverlays` and `AutoAdvanceSelectedCharacter` from combat, `IsScreenIdle`
+     from `GameplayTime.cpp`, `EditedDraft` from `Targeting.cpp`, and `StartBreathCycle`.
+     Each group should become members of its owner, or take the screen's state as events
+     or `advance` inputs. Delete both accessors when the last caller goes.
    - The HUD panels below `ApplyMainGameRepaint` (portraits and their bars, the text box,
      submenu, formation board, monster list, radar) still read the HUD, the game and
      module state themselves; give each the values it draws.
