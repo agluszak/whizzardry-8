@@ -6380,29 +6380,32 @@ void PopulateNpcTradeList(void)
 
 void OpenNpcTradeQuantityDialog(void)
 {
-    W8SplitItemDialog* dialog;
-
-    if (MainGame()->dialogue.trade_item == 0 || MainGame()->dialogue.trade_item->stack_count < 2) {
-        return;
-    }
-    if (MainGame()->dialogue.trade_mode == W8_NPC_TRADE_SELL) {
-        dialog = new W8SplitItemDialog(W8_ITEM_SPLIT_SELL, MainGame()->dialogue.trade_item,
-                                       MainGame()->dialogue.trade_quantity,
-                                       {kSplitDialogX, kSplitDialogY});
-    } else if (MainGame()->dialogue.trade_mode == W8_NPC_TRADE_BUY ||
-               MainGame()->dialogue.trade_mode == W8_NPC_TRADE_SHOPLIFT) {
-        dialog = new W8SplitItemDialog(W8_ITEM_SPLIT_BUY, MainGame()->dialogue.trade_item,
-                                       MainGame()->dialogue.trade_quantity,
-                                       {kSplitDialogX, kSplitDialogY});
-    } else {
-        dialog = new W8SplitItemDialog(W8_ITEM_SPLIT_INVENTORY, MainGame()->dialogue.trade_item,
-                                       MainGame()->dialogue.trade_quantity,
-                                       {kSplitDialogX, kSplitDialogY});
-    }
+    auto& panel = MainGame()->dialogue;
+    if (!panel.trade_selection || panel.trade_selection->expected.stack_count < 2) return;
+    const auto selection = *panel.trade_selection;
+    const auto mode = panel.trade_mode;
+    const auto npc = CurrentGame().npc_interaction.dialogue_npc;
+    const int actor = CurrentGame().status.selected_character;
+    const auto split_mode = mode == W8_NPC_TRADE_SELL ? W8_ITEM_SPLIT_SELL
+                            : mode == W8_NPC_TRADE_BUY || mode == W8_NPC_TRADE_SHOPLIFT
+                                ? W8_ITEM_SPLIT_BUY
+                                : W8_ITEM_SPLIT_INVENTORY;
+    auto dialog =
+        std::make_unique<W8SplitItemDialog>(split_mode, &selection.expected, panel.trade_quantity,
+                                            SDL_Point{kSplitDialogX, kSplitDialogY});
     dialog->SetText("");
-
-    dialog->on_complete = NpcTradeSplitDialogResult;
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
+    dialog->on_complete = [selection, mode, npc, actor](int count) {
+        auto* screen = MainGame();
+        if (!screen || count <= 0 || screen->dialogue.trade_mode != mode ||
+            screen->dialogue.trade_selection != selection ||
+            screen->game.npc_interaction.dialogue_npc != npc ||
+            screen->game.status.selected_character != actor ||
+            !ResolveTradeSelection(screen->game, npc.get(), selection))
+            return;
+        screen->dialogue.trade_quantity = count;
+        UpdateNpcTradeSelection(screen->hud->selected_text_lines[2], 0, 0);
+    };
+    OpenModal(std::move(dialog));
 }
 
 void SelectNpcBuyMode(void)
@@ -6414,16 +6417,6 @@ void SelectNpcBuyMode(void)
 void RestockNpcTradeStock(void)
 {
     RestockNpcInventory(CurrentGame().npc_interaction.dialogue_npc.get());
-}
-
-void NpcTradeSplitDialogResult(int count)
-{
-    if (count != 0) {
-        int slot = MainGameHud()->selected_text_lines[2];
-        MainGame()->dialogue.trade_quantity = count - 1;
-        SetSelectedTextLine(slot, 2);
-        UpdateNpcTradeSelection(slot, 0, 1);
-    }
 }
 
 /* Highlight a clicked transcript keyword; clicking it again submits it to
