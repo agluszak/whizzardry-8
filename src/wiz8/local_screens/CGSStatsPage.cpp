@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <memory>
+#include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_rect.h>
@@ -29,48 +31,45 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
-static W8CharacterStatsRecord g_character_profession_records[15] = {
-    {0x0000010b, 0x0000000a, 0x0000000b, 0x02a4, 0, 0},
-    {0x0000010b, 0x00000018, 0x00000019, 0x02a5, 0, 0},
-    {0x0000010b, 0x00000008, 0x00000009, 0x02a6, 0, 0},
-    {0x0000010b, 0x00000002, 0x00000003, 0x02a7, 0, 0},
-    {0x0000010b, 0x00000010, 0x00000011, 0x02a8, 0, 0},
-    {0x0000010b, 0x00000014, 0x00000015, 0x02a9, 0, 0},
-    {0x0000010b, 0x0000000c, 0x0000000d, 0x02aa, 0, 0},
-    {0x0000010b, 0x0000001c, 0x0000001d, 0x02ab, 0, 0},
-    {0x0000010b, 0x00000006, 0x00000007, 0x02ac, 0, 0},
-    {0x0000010b, 0x00000000, 0x00000001, 0x02ad, 0, 0},
-    {0x0000010b, 0x00000012, 0x00000013, 0x02ae, 0, 0},
-    {0x0000010b, 0x00000016, 0x00000017, 0x02af, 0, 0},
-    {0x0000010b, 0x00000004, 0x00000005, 0x02b0, 0, 0},
-    {0x0000010b, 0x0000000e, 0x0000000f, 0x02b1, 0, 0},
-    {0x0000010b, 0x0000001a, 0x0000001b, 0x02b2, 0, 0},
+static constexpr W8CharacterStatsRecord g_character_profession_records[15] = {
+    {0x0000010b, 0x0000000a, 0x0000000b, 0x02a4}, {0x0000010b, 0x00000018, 0x00000019, 0x02a5},
+    {0x0000010b, 0x00000008, 0x00000009, 0x02a6}, {0x0000010b, 0x00000002, 0x00000003, 0x02a7},
+    {0x0000010b, 0x00000010, 0x00000011, 0x02a8}, {0x0000010b, 0x00000014, 0x00000015, 0x02a9},
+    {0x0000010b, 0x0000000c, 0x0000000d, 0x02aa}, {0x0000010b, 0x0000001c, 0x0000001d, 0x02ab},
+    {0x0000010b, 0x00000006, 0x00000007, 0x02ac}, {0x0000010b, 0x00000000, 0x00000001, 0x02ad},
+    {0x0000010b, 0x00000012, 0x00000013, 0x02ae}, {0x0000010b, 0x00000016, 0x00000017, 0x02af},
+    {0x0000010b, 0x00000004, 0x00000005, 0x02b0}, {0x0000010b, 0x0000000e, 0x0000000f, 0x02b1},
+    {0x0000010b, 0x0000001a, 0x0000001b, 0x02b2},
 };
-static W8CharacterStatsRecord g_character_race_records[W8_RACE_PLAYABLE_COUNT] = {
-    {0x0000010c, 0x00000008, 0x00000009, 0x0284, 1, 0},
-    {0x0000010c, 0x00000004, 0x00000005, 0x0285, 1, 0},
-    {0x0000010c, 0x0000000c, 0x0000000d, 0x0286, 1, 0},
-    {0x0000010c, 0x00000010, 0x00000011, 0x0287, 1, 0},
-    {0x0000010c, 0x0000000e, 0x0000000f, 0x0288, 1, 0},
-    {0x0000010c, 0x00000014, 0x00000015, 0x0289, 1, 0},
-    {0x0000010c, 0x00000000, 0x00000001, 0x028a, 1, 0},
-    {0x0000010c, 0x0000000a, 0x0000000b, 0x028b, 1, 0},
-    {0x0000010c, 0x00000002, 0x00000003, 0x028c, 1, 0},
-    {0x0000010c, 0x00000012, 0x00000013, 0x028d, 1, 0},
-    {0x0000010c, 0x00000006, 0x00000007, 0x028e, 1, 0},
+static constexpr W8CharacterStatsRecord g_character_race_records[W8_RACE_PLAYABLE_COUNT] = {
+    {0x0000010c, 0x00000008, 0x00000009, 0x0284}, {0x0000010c, 0x00000004, 0x00000005, 0x0285},
+    {0x0000010c, 0x0000000c, 0x0000000d, 0x0286}, {0x0000010c, 0x00000010, 0x00000011, 0x0287},
+    {0x0000010c, 0x0000000e, 0x0000000f, 0x0288}, {0x0000010c, 0x00000014, 0x00000015, 0x0289},
+    {0x0000010c, 0x00000000, 0x00000001, 0x028a}, {0x0000010c, 0x0000000a, 0x0000000b, 0x028b},
+    {0x0000010c, 0x00000002, 0x00000003, 0x028c}, {0x0000010c, 0x00000012, 0x00000013, 0x028d},
+    {0x0000010c, 0x00000006, 0x00000007, 0x028e},
 };
-static W8CharacterStatsRecord g_character_gender_records[2] = {
-    {0x0000010d, 0x00000000, 0x00000001, 0x02d1, 0, 0},
-    {0x0000010d, 0x00000002, 0x00000003, 0x02d2, 0, 0},
+static constexpr W8CharacterStatsRecord g_character_gender_records[2] = {
+    {0x0000010d, 0x00000000, 0x00000001, 0x02d1},
+    {0x0000010d, 0x00000002, 0x00000003, 0x02d2},
 };
-static W8CharacterStatsRecord g_character_profession_default_record = {
-    0x0000010e, 0x00000002, 0x00000003, 0x008f, 1, 0,
+static constexpr W8CharacterStatsRecord g_character_profession_default_record = {
+    0x0000010e,
+    0x00000002,
+    0x00000003,
+    0x008f,
 };
-static W8CharacterStatsRecord g_character_race_default_record = {
-    0x0000010e, 0x00000000, 0x00000001, 0x0090, 1, 0,
+static constexpr W8CharacterStatsRecord g_character_race_default_record = {
+    0x0000010e,
+    0x00000000,
+    0x00000001,
+    0x0090,
 };
-static W8CharacterStatsRecord g_character_gender_default_record = {
-    0x0000010e, 0x00000004, 0x00000005, 0x0091, 1, 0,
+static constexpr W8CharacterStatsRecord g_character_gender_default_record = {
+    0x0000010e,
+    0x00000004,
+    0x00000005,
+    0x0091,
 };
 
 /* The six resistance icons drawn beside the stats page's resistance values. */
@@ -92,12 +91,12 @@ static char g_zero_slash_zero[] = "0/0";
    frames; the profession bonus block's line height depends on how many traits
    the character has. */
 
-W8CharacterStatsRow::W8CharacterStatsRow(W8CharacterStatsPage& owner, int x, int y, int count,
-                                         const W8CharacterStatsRecord* table,
+W8CharacterStatsRow::W8CharacterStatsRow(W8CharacterStatsPage& owner, Kind choice, int x, int y,
+                                         std::span<const W8CharacterStatsRecord> table,
                                          const W8CharacterStatsRecord* default_record,
                                          int help_first, int help_second, int help_value)
-    : m_count(count), m_x(0xc3 + x), m_y(0x2b + y), m_table(table),
-      m_default_record(default_record), m_owner(owner)
+    : kind(choice), m_x(0xc3 + x), m_y(0x2b + y), m_table(table), m_default_record(default_record),
+      m_owner(owner)
 {
     const auto arrow = [this](int x, int frame, int help, int direction) {
         auto button = std::make_unique<W8ButtonWidget>(m_owner.input);
@@ -122,8 +121,8 @@ W8CharacterStatsRow::W8CharacterStatsRow(W8CharacterStatsPage& owner, int x, int
             if ((m_enabled) && (event.action != UiPointerAction::Up || event.captured_buttons))
                 PlayButtonSound(event.action);
             if (event.action == UiPointerAction::Up && event.inside && event.captured_buttons) {
-                if (event.button == UiPointerButton::Right && m_index >= 0)
-                    AfterUiDispatch([this] { m_owner.OnRowInfoRequested(this, m_index); });
+                if (event.button == UiPointerButton::Right && selectedValue() >= 0)
+                    AfterUiDispatch([this] { m_owner.OnRowInfoRequested(this, selectedValue()); });
                 else if (event.button == UiPointerButton::Left && m_enabled)
                     AfterUiDispatch([this] {
                         if (m_choices)
@@ -150,21 +149,45 @@ void W8CharacterStatsRow::SetEnabled(bool enabled)
     m_dirty = true;
 }
 
-void W8CharacterStatsRow::SetValue(int index)
+int W8CharacterStatsRow::selectedValue() const
 {
-    const int previous = m_index;
-    m_index = index;
-    m_dirty = true;
-    if (previous != index) m_owner.OnRowValueChanged(this, index);
+    const auto& character = m_owner.screen.draft.character;
+    switch (kind) {
+    case Kind::Profession:
+        return character.iProfession;
+    case Kind::Race:
+        return character.iRace;
+    case Kind::Gender:
+        return character.gender;
+    }
+    std::unreachable();
+}
+
+bool W8CharacterStatsRow::choiceEnabled(int index) const
+{
+    const auto& screen = m_owner.screen;
+    if (kind == Kind::Profession && screen.m_mode == W8_CHARACTER_LEVEL_UP)
+        return screen.draft.canChooseProfession(static_cast<W8Profession>(index));
+    return kind != Kind::Gender || screen.m_mode != W8_CHARACTER_CREATE ||
+           screen.draft.character.iProfession != W8_PROFESSION_VALKYRIE || index != W8_GENDER_MALE;
+}
+
+void W8CharacterStatsRow::Select(int index)
+{
+    if (selectedValue() == index) return;
+    m_owner.OnRowValueChanged(this, index);
+    Invalidate();
 }
 
 void W8CharacterStatsRow::Step(int direction)
 {
-    for (int step = 1; step <= m_count; ++step) {
-        const int index = m_index < 0 ? (direction > 0 ? step - 1 : m_count - step)
-                                      : (m_index + direction * step + m_count * 2) % m_count;
-        if (m_table[index].enabled) {
-            SetValue(index);
+    const int count = static_cast<int>(m_table.size());
+    for (int step = 1; step <= count; ++step) {
+        const int index = selectedValue() < 0
+                              ? (direction > 0 ? step - 1 : count - step)
+                              : (selectedValue() + direction * step + count * 2) % count;
+        if (choiceEnabled(index)) {
+            Select(index);
             return;
         }
     }
@@ -172,24 +195,25 @@ void W8CharacterStatsRow::Step(int direction)
 
 void W8CharacterStatsRow::BuildSubpanel()
 {
+    const int count = static_cast<int>(m_table.size());
     m_choices = std::make_unique<UiLayer>(UiLayerOrder::CharacterChoices);
     m_choice_targets.clear();
-    for (int index = 0; index < m_count; ++index) {
+    for (int index = 0; index < count; ++index) {
         const int top = index == 0 ? 0 : index * 22 + 2;
-        const int height = index == 0 || index == m_count - 1 ? 24 : 22;
+        const int height = index == 0 || index == count - 1 ? 24 : 22;
         auto& choice = m_choices->add(
             SDL_Rect{m_x + 0x9e, m_y + 1 + top, 127, height + 1},
             [this, index](const UiPointerEvent& event) {
                 m_dirty = true;
-                if ((m_table[index].enabled) &&
+                if ((choiceEnabled(index)) &&
                     (event.action != UiPointerAction::Up || event.captured_buttons))
                     PlayButtonSound(event.action);
                 if (event.action == UiPointerAction::Up && event.inside && event.captured_buttons) {
                     if (event.button == UiPointerButton::Right)
                         AfterUiDispatch([this, index] { m_owner.OnRowInfoRequested(this, index); });
-                    else if (event.button == UiPointerButton::Left && m_table[index].enabled)
+                    else if (event.button == UiPointerButton::Left && choiceEnabled(index))
                         AfterUiDispatch([this, index] {
-                            SetValue(index);
+                            Select(index);
                             Collapse();
                         });
                 }
@@ -240,8 +264,8 @@ void W8CharacterStatsRow::Draw(SDL_Surface& target, bool force)
                                                          : m_value->hovered() ? 2
                                                                               : 1,
                                                          m_x + 0x1c, m_y + 4);
-        DrawStatRecord(target, m_index < 0 ? *m_default_record : m_table[m_index], m_x + 0x1c,
-                       m_y + 4, m_enabled, false);
+        DrawStatRecord(target, selectedValue() < 0 ? *m_default_record : m_table[selectedValue()],
+                       m_x + 0x1c, m_y + 4, m_enabled, false);
     }
     m_decrement->m_dirty |= force;
     m_increment->m_dirty |= force;
@@ -252,13 +276,14 @@ void W8CharacterStatsRow::Draw(SDL_Surface& target, bool force)
 
 void W8CharacterStatsRow::DrawChoices(SDL_Surface& target)
 {
+    const int count = static_cast<int>(m_table.size());
     if (!m_choices || !m_dirty) return;
-    for (int index = 0; index < m_count; ++index) {
+    for (int index = 0; index < count; ++index) {
         const int top = index == 0 ? 0 : index * 22 + 2;
-        const int frame = index == 0 ? 4 : index == m_count - 1 ? 6 : 5;
+        const int frame = index == 0 ? 4 : index == count - 1 ? 6 : 5;
         CatalogArtwork::Load(0x104, 0).drawAndInvalidate(target, frame, m_x + 0x9e, m_y + 1 + top);
         DrawStatRecord(target, m_table[index], m_x + 0x9e, m_y + 1 + top + (index == 0 ? 2 : 0),
-                       m_table[index].enabled, m_choice_targets[index]->hovered());
+                       choiceEnabled(index), m_choice_targets[index]->hovered());
     }
     m_dirty = false;
 }
@@ -273,7 +298,7 @@ void W8CharacterStatsPage::Activate()
         m_attribute_controls[index]->setEnabled(true);
     }
     m_contentDirty = true;
-    m_prepared = true;
+    m_instructions_dirty = true;
 }
 
 /* The skills page's Deactivate is the same one-call body; the linker folded
@@ -286,56 +311,16 @@ void W8CharacterStatsPage::Deactivate()
 /* Rebuild the three row displays from the character's current profession,
    race and sex. In creation mode the profession list is opened up
    entirely; in level-up mode only the eligible professions stay enabled. */
-void W8CharacterStatsPage::UpdateRowValues()
-{
-    unsigned char eligible[15];
-
-    if (m_mode == W8_CHARACTER_CREATE) {
-        if (m_character->iProfession == W8_PROFESSION_VALKYRIE) {
-            g_character_gender_records[0].enabled = 0;
-        } else {
-            g_character_gender_records[0].enabled = 1;
-            g_character_gender_records[1].enabled = 1;
-        }
-    } else if (m_mode == W8_CHARACTER_LEVEL_UP) {
-        DetermineEligibleProfessions(m_character, m_creation_state, eligible);
-    }
-    for (int index = 0; index < 15; ++index) {
-        if (m_mode == W8_CHARACTER_CREATE) {
-            g_character_profession_records[index].enabled = 1;
-        } else if (m_mode == W8_CHARACTER_LEVEL_UP) {
-            g_character_profession_records[index].enabled = eligible[index];
-        }
-    }
-
-    W8Profession profession = m_character->iProfession;
-    W8CharacterStatsRow* row = m_profession_row.get();
-    row->SetValue(profession);
-    m_profession_row->Invalidate();
-
-    W8Race race = m_character->iRace;
-    row = m_race_row.get();
-    row->SetValue(race);
-    m_race_row->Invalidate();
-
-    W8Gender gender = m_character->gender;
-    row = m_gender_row.get();
-    row->SetValue(gender);
-    m_gender_row->Invalidate();
-}
 
 /* The entries only need enabling the first time the rows become usable. */
 void W8CharacterStatsPage::Refresh()
 {
-    UpdateRowValues();
-    if (m_character->iRace != W8_RACE_NONE || m_character->iProfession != W8_PROFESSION_NONE) {
-        for (const auto& entry : m_entries) {
-            if (!m_rows_initialized) {
-                entry->SetEnabled(true);
-            }
-            entry->UpdateButtons();
-        }
-        m_rows_initialized = true;
+    InvalidateAll();
+    const bool has_choice = screen.draft.character.iRace != W8_RACE_NONE ||
+                            screen.draft.character.iProfession != W8_PROFESSION_NONE;
+    for (const auto& entry : m_entries) {
+        entry->SetEnabled(has_choice);
+        entry->UpdateButtons();
     }
 }
 
@@ -343,10 +328,10 @@ void W8CharacterStatsPage::Refresh()
    the screen recompute its navigation buttons. */
 void W8CharacterStatsPage::Accept()
 {
-    RefundAllocatedAttributes(m_character, m_creation_state);
+    screen.draft.refundAllocatedAttributes();
     InvalidateAll();
     m_contentDirty = true;
-    m_screen->UpdateNavigation(this);
+    screen.UpdateNavigation(this);
     for (const auto& entry : m_entries) {
         entry->UpdateButtons();
     }
@@ -356,20 +341,17 @@ void W8CharacterStatsPage::Accept()
    once any points are committed. */
 void W8CharacterStatsPage::GetNavigationState(bool* next_enabled, bool* exit_enabled)
 {
-    if (!m_creation_state->attributes_complete || m_character->iProfession == W8_PROFESSION_NONE ||
-        m_character->iRace == W8_RACE_NONE || m_character->gender == W8_GENDER_UNSET) {
+    if (!screen.draft.attributesComplete() ||
+        screen.draft.character.iProfession == W8_PROFESSION_NONE ||
+        screen.draft.character.iRace == W8_RACE_NONE ||
+        screen.draft.character.gender == W8_GENDER_UNSET) {
         *next_enabled = false;
     } else {
         *next_enabled = true;
     }
-    *exit_enabled =
-        m_creation_state->attribute_points_remaining < m_creation_state->attribute_points_total;
-    if (*next_enabled != nav_next_state) {
-        for (const auto& entry : m_entries) {
-            entry->SetIncrementAllowed(!*next_enabled);
-        }
-        nav_next_state = *next_enabled;
-    }
+    *exit_enabled = screen.draft.allocation.attribute_points_remaining <
+                    screen.draft.allocation.attribute_points_total;
+    for (const auto& entry : m_entries) entry->SetIncrementAllowed(!*next_enabled);
 }
 
 /* A click anywhere closes an expanded row's record list. */
@@ -392,15 +374,14 @@ void W8CharacterStatsPage::AdjustEntry(W8CharacterPageEntry* entry, int delta)
 {
     entry->MarkDirty();
     m_contentDirty = true;
-    AdjustAllocatedAttribute(m_character, m_creation_state, static_cast<W8Attribute>(entry->m_id),
-                             delta);
+    screen.draft.adjustAttribute(static_cast<W8Attribute>(entry->m_id), delta);
     InvalidateAll();
-    m_screen->UpdateNavigation(this);
-    if (m_character->attributes[entry->m_id].base >= 100) {
+    screen.UpdateNavigation(this);
+    if (screen.draft.character.attributes[entry->m_id].base >= 100) {
         for (int skill = 0x22; skill < 0x28; ++skill) {
             if (g_skill_attributes[skill].attribute_1 == static_cast<int>(entry->m_id) &&
-                m_character->skills[skill].active) {
-                m_screen->ShowDescription(entry->m_id, skill);
+                screen.draft.character.skills[skill].active) {
+                screen.ShowDescription(entry->m_id, skill);
             }
         }
     }
@@ -408,7 +389,7 @@ void W8CharacterStatsPage::AdjustEntry(W8CharacterPageEntry* entry, int delta)
 
 void W8CharacterStatsPage::ShowEntryInfo(W8CharacterPageEntry* entry)
 {
-    m_screen->ShowPrimaryAttributeInfo(static_cast<W8Attribute>(entry->m_id));
+    screen.ShowPrimaryAttributeInfo(static_cast<W8Attribute>(entry->m_id));
 }
 
 /* A value row moved: rerun the whole creation rebuild for the new
@@ -416,15 +397,14 @@ void W8CharacterStatsPage::ShowEntryInfo(W8CharacterPageEntry* entry)
 void W8CharacterStatsPage::OnRowValueChanged(W8CharacterStatsRow* row, int value)
 {
     if (row == m_profession_row.get()) {
-        RebuildLevelUpPoolsForProfession(m_character, m_creation_state,
-                                         static_cast<W8Profession>(value));
+        screen.draft.setProfession(static_cast<W8Profession>(value));
     } else if (row == m_race_row.get()) {
-        SetCharacterRace(m_character, m_creation_state, static_cast<W8Race>(value));
+        screen.draft.setRace(static_cast<W8Race>(value));
     } else {
-        SetCharacterGender(m_character, m_creation_state, static_cast<W8Gender>(value));
+        screen.draft.setGender(static_cast<W8Gender>(value));
     }
     m_contentDirty = true;
-    m_screen->UpdateNavigation(this);
+    screen.UpdateNavigation(this);
     Refresh();
 }
 
@@ -466,17 +446,17 @@ void W8CharacterStatsPage::OnRowCollapsed(W8CharacterStatsRow* row)
 void W8CharacterStatsPage::OnRowInfoRequested(W8CharacterStatsRow* row, int value)
 {
     if (row == m_profession_row.get()) {
-        m_screen->ShowProfessionInfo(static_cast<W8Profession>(value));
+        screen.ShowProfessionInfo(static_cast<W8Profession>(value));
         return;
     }
     if (row == m_race_row.get()) {
-        m_screen->ShowRaceInfo(static_cast<W8Race>(value));
+        screen.ShowRaceInfo(static_cast<W8Race>(value));
     }
 }
 
-void W8CharacterStatsPage::Prepare()
+void W8CharacterStatsPage::InvalidateAll()
 {
-    W8CharacterPage::Prepare();
+    W8CharacterPage::InvalidateAll();
     m_profession_row->Invalidate();
     m_race_row->Invalidate();
     m_gender_row->Invalidate();
@@ -484,20 +464,21 @@ void W8CharacterStatsPage::Prepare()
 
 /* The whole page: three value rows, seven attribute entries, five attribute
    corner controls, then the profession/race/sex list state. */
-void W8CharacterStatsPage::SetCharacter(W8Character* character,
-                                        W8CharacterCreationState* creation_state,
-                                        W8CharacterScreenMode mode)
+W8CharacterStatsPage::W8CharacterStatsPage(CharacterScreen& owner)
+    : W8CharacterPage(owner, CatalogArtwork::Load(0x104))
 {
-    W8CharacterPage::SetCharacter(character, creation_state, mode);
+    auto* character = &screen.draft.character;
+    auto* creation_state = &screen.draft.allocation;
+    const auto mode = screen.m_mode;
     m_profession_row = std::make_unique<W8CharacterStatsRow>(
-        *this, 0x16, 10, 15, g_character_profession_records, &g_character_profession_default_record,
-        0xf7, 0xf6, 0xf8);
-    m_race_row =
-        std::make_unique<W8CharacterStatsRow>(*this, 0x16, 0x3d, 11, g_character_race_records,
-                                              &g_character_race_default_record, 0xfa, 0xf9, 0xfb);
-    m_gender_row =
-        std::make_unique<W8CharacterStatsRow>(*this, 0x16, 0x70, 2, g_character_gender_records,
-                                              &g_character_gender_default_record, 0xfd, 0xfc, 0xfe);
+        *this, W8CharacterStatsRow::Kind::Profession, 0x16, 10, g_character_profession_records,
+        &g_character_profession_default_record, 0xf7, 0xf6, 0xf8);
+    m_race_row = std::make_unique<W8CharacterStatsRow>(
+        *this, W8CharacterStatsRow::Kind::Race, 0x16, 0x3d, g_character_race_records,
+        &g_character_race_default_record, 0xfa, 0xf9, 0xfb);
+    m_gender_row = std::make_unique<W8CharacterStatsRow>(
+        *this, W8CharacterStatsRow::Kind::Gender, 0x16, 0x70, g_character_gender_records,
+        &g_character_gender_default_record, 0xfd, 0xfc, 0xfe);
 
     if (mode == W8_CHARACTER_CREATE) {
         m_profession_row->SetEnabled(true);
@@ -528,8 +509,6 @@ void W8CharacterStatsPage::SetCharacter(W8Character* character,
                           &creation_state->attribute_limits[attribute_index], 0x101);
         entry->SetEnabled(false);
     }
-    nav_next_state = false;
-    m_rows_initialized = false;
 
     for (int index = 0; index < 5; ++index) {
         auto& target = input.add(
@@ -537,7 +516,7 @@ void W8CharacterStatsPage::SetCharacter(W8Character* character,
             [this, index](const UiPointerEvent& event) {
                 if (event.action == UiPointerAction::Up && event.inside &&
                     event.button == UiPointerButton::Right && event.captured_buttons)
-                    AfterUiDispatch([this, index] { m_screen->ShowSecondaryAttributeInfo(index); });
+                    AfterUiDispatch([this, index] { screen.ShowSecondaryAttributeInfo(index); });
                 return UiResult::Handled;
             });
         target.setTooltip([] { return std::string(Data().strings[0x101]); });
@@ -567,15 +546,16 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.bottom = top + 0x1a;
         text.RenderString(&bounds, Data().strings[0x96], g_wiz_text_font_secondary, false, target);
 
-        if (m_character->iRace != W8_RACE_NONE) {
+        if (screen.draft.character.iRace != W8_RACE_NONE) {
             bounds.top = top + 0x7e;
             bounds.bottom = top + 0x8a;
             bounds.left = left + 0xf9;
             bounds.right = left + 0x10f;
             text.SetClipBounds(bounds);
             text.SetLayoutBounds(&bounds, true);
-            text.RenderString(fmt::format("{:d}", m_creation_state->attribute_points_remaining),
-                              g_wiz_text_font_secondary, false, target);
+            text.RenderString(
+                fmt::format("{:d}", screen.draft.allocation.attribute_points_remaining),
+                g_wiz_text_font_secondary, false, target);
         }
 
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
@@ -598,11 +578,12 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.bottom = top + 0x133;
         bounds.top = top + 0xbb;
         bounds.right = left + 0xe6;
-        if (m_character->iProfession != W8_PROFESSION_NONE || m_character->iRace != W8_RACE_NONE) {
+        if (screen.draft.character.iProfession != W8_PROFESSION_NONE ||
+            screen.draft.character.iRace != W8_RACE_NONE) {
             unsigned char available[0x20];
             unsigned int available_count = 0;
             for (int trait = 0; trait < 0x20; ++trait) {
-                if (CharacterHasTrait(m_character, static_cast<W8Trait>(trait))) {
+                if (CharacterHasTrait((&screen.draft.character), static_cast<W8Trait>(trait))) {
                     available[trait] = 1;
                     ++available_count;
                 } else {
@@ -610,14 +591,15 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
                 }
             }
             int line_height = (available_count < 8) + 0xd;
-            if (m_character->iProfession != W8_PROFESSION_NONE) {
+            if (screen.draft.character.iProfession != W8_PROFESSION_NONE) {
                 text.SetClipBounds(bounds);
                 text.SetLayoutBounds(&bounds, true);
                 text.RenderString(
                     fmt::format(
                         "{} {}",
-                        Data().strings[g_character_skill_name_ids
-                                           [g_profession_bonus_skills[m_character->iProfession]]],
+                        Data().strings
+                            [g_character_skill_name_ids
+                                 [g_profession_bonus_skills[screen.draft.character.iProfession]]],
                         Data().strings[0xb2]),
                     g_wiz_text_font_secondary, false, target);
                 bounds.top += line_height;
@@ -645,19 +627,19 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.right = left + 0x195;
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
         text.RenderString(&bounds, Data().strings[0xa7], g_wiz_text_font_secondary, false, target);
-        if (m_character->iRace != W8_RACE_NONE) {
+        if (screen.draft.character.iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
-            text.RenderString(fmt::format("{:d}", m_character->uiHPMax), g_wiz_text_font_secondary,
-                              false, target);
+            text.RenderString(fmt::format("{:d}", screen.draft.character.uiHPMax),
+                              g_wiz_text_font_secondary, false, target);
         }
 
         bounds.top += 0xe;
         bounds.bottom += 0xe;
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
         text.RenderString(&bounds, Data().strings[0xa9], g_wiz_text_font_secondary, false, target);
-        if (m_character->iRace != W8_RACE_NONE) {
+        if (screen.draft.character.iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
-            text.RenderString(fmt::format("{:d}", m_character->uiStaminaMax),
+            text.RenderString(fmt::format("{:d}", screen.draft.character.uiStaminaMax),
                               g_wiz_text_font_secondary, false, target);
         }
 
@@ -665,20 +647,19 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.top += 0xe;
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
         text.RenderString(&bounds, Data().strings[0xed], g_wiz_text_font_secondary, false, target);
-        if (m_character->iRace != W8_RACE_NONE) {
+        if (screen.draft.character.iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
-            text.RenderString(
-                fmt::format("{:d}", ComputeLevelUpSpellPointAward(m_character, m_creation_state)),
-                g_wiz_text_font_secondary, false, target);
+            text.RenderString(fmt::format("{:d}", screen.draft.computeLevelUpSpellPointAward()),
+                              g_wiz_text_font_secondary, false, target);
         }
 
         bounds.top += 0xe;
         bounds.bottom += 0xe;
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
         text.RenderString(&bounds, Data().strings[0xad], g_wiz_text_font_secondary, false, target);
-        if (m_character->iRace != W8_RACE_NONE) {
+        if (screen.draft.character.iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
-            text.RenderString(fmt::format("{:d}", m_character->armor_class_average),
+            text.RenderString(fmt::format("{:d}", screen.draft.character.armor_class_average),
                               g_wiz_text_font_secondary, false, target);
         }
 
@@ -686,9 +667,9 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.bottom += 0xe;
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
         text.RenderString(&bounds, Data().strings[0xaf], g_wiz_text_font_secondary, false, target);
-        if (m_character->iRace != W8_RACE_NONE) {
+        if (screen.draft.character.iRace != W8_RACE_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
-            text.RenderString(fmt::format("{:d}", m_character->carrying_capacity / 10),
+            text.RenderString(fmt::format("{:d}", screen.draft.character.carrying_capacity / 10),
                               g_wiz_text_font_secondary, false, target);
         }
 
@@ -698,7 +679,8 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.top = top + 0x140;
         bounds.bottom = top + 0x14c;
         text.RenderString(&bounds, Data().strings[0xb9], g_wiz_text_font_secondary, false, target);
-        if (m_character->iRace != W8_RACE_NONE || m_character->iProfession != W8_PROFESSION_NONE) {
+        if (screen.draft.character.iRace != W8_RACE_NONE ||
+            screen.draft.character.iProfession != W8_PROFESSION_NONE) {
             for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
                 bool first_column = (realm & 1) == 0;
                 bounds.left = (realm / 2) * 0x3f + 0x39 + left;
@@ -707,7 +689,7 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
                 bounds.right = bounds.left + 0x21;
                 text.SetClipBounds(bounds);
                 text.SetLayoutBounds(&bounds, true);
-                int value = m_character->resistances[realm].total - 0x19;
+                int value = screen.draft.character.resistances[realm].total - 0x19;
                 std::string value_text =
                     value == 0 ? std::string(g_dash) : fmt::format("{:+d}", value);
                 text.RenderString(value_text, g_wiz_text_font_secondary, false, target);
@@ -727,7 +709,7 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.top = top + 0x120;
         bounds.bottom = top + 0x12c;
         text.RenderString(&bounds, Data().strings[0xb3], g_wiz_text_font_secondary, false, target);
-        if (m_character->iProfession != W8_PROFESSION_NONE) {
+        if (screen.draft.character.iProfession != W8_PROFESSION_NONE) {
             text.SetLayoutMode(g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft);
             bounds.top = top + 0x12f;
             bounds.bottom = top + 0x13b;
@@ -736,16 +718,17 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
             text.RenderString(
                 &bounds,
                 Data().strings[g_character_skill_name_ids
-                                   [g_profession_bonus_skills[m_character->iProfession]]],
+                                   [g_profession_bonus_skills[screen.draft.character.iProfession]]],
                 g_wiz_text_font_secondary, false, target);
             for (int index = 0; index < 4; ++index) {
-                if (g_profession_skills[m_character->iProfession][index] != -1) {
+                if (g_profession_skills[screen.draft.character.iProfession][index] != -1) {
                     bounds.top += 0xe;
                     bounds.bottom += 0xe;
                     text.RenderString(
                         &bounds,
-                        Data().strings[g_character_skill_name_ids
-                                           [g_profession_skills[m_character->iProfession][index]]],
+                        Data().strings
+                            [g_character_skill_name_ids
+                                 [g_profession_skills[screen.draft.character.iProfession][index]]],
                         g_wiz_text_font_secondary, false, target);
                 }
             }
@@ -756,7 +739,7 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
             bounds.bottom = top + 0x185;
             text.SetClipBounds(bounds);
             text.SetLayoutBounds(&bounds, true);
-            text.RenderString(fmt::format("{:d}", m_creation_state->skill_points_total),
+            text.RenderString(fmt::format("{:d}", screen.draft.allocation.skill_points_total),
                               g_wiz_text_font_secondary, false, target);
         }
         text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
@@ -768,14 +751,14 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
     }
 
     text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    if (m_prepared) {
+    if (m_instructions_dirty) {
         W8ControlsRect bounds = {4, 0xec, 0xc2, 0x162};
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, true);
         int text_id;
-        if (m_mode == W8_CHARACTER_CREATE) {
+        if (screen.m_mode == W8_CHARACTER_CREATE) {
             text_id = 0xe5;
-        } else if (m_character->iRace == W8_RACE_ANDROID) {
+        } else if (screen.draft.character.iRace == W8_RACE_ANDROID) {
             text_id = 0xe7;
         } else {
             text_id = 0xe6;
@@ -788,7 +771,7 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
         bounds.top = 0x184;
         bounds.bottom = 0x19b;
         text.RenderString(&bounds, Data().strings[0xe4], g_wiz_text_font_secondary, true, target);
-        m_prepared = false;
+        m_instructions_dirty = false;
     }
 
     if (m_contentDirty) {
@@ -796,18 +779,18 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
         CatalogArtwork::Load(0x107, 0).draw(target, 5, 0x8f, 0x162);
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, true);
-        text.RenderString(fmt::format("{:d}", m_creation_state->attribute_step_limit),
+        text.RenderString(fmt::format("{:d}", screen.draft.allocation.attribute_step_limit),
                           g_options_detail_font, true, target);
         bounds.top = 0x184;
         bounds.bottom = 0x19b;
         CatalogArtwork::Load(0x107, 0).draw(target, 5, 0x8f, 0x184);
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, true);
-        int total = m_creation_state->attribute_points_total;
+        int total = screen.draft.allocation.attribute_points_total;
         std::string points_text =
-            total < 1
-                ? g_zero_slash_zero
-                : fmt::format("{:d}/{:d}", m_creation_state->attribute_points_remaining, total);
+            total < 1 ? g_zero_slash_zero
+                      : fmt::format("{:d}/{:d}", screen.draft.allocation.attribute_points_remaining,
+                                    total);
         text.RenderString(points_text, g_options_detail_font, true, target);
         m_contentDirty = false;
     }
@@ -819,7 +802,3 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
 
 /* Factory for the stats page; the render target comes from the base
    constructor. */
-std::unique_ptr<W8CharacterPage> CreateCharacterStatsPage()
-{
-    return std::make_unique<W8CharacterStatsPage>();
-}
