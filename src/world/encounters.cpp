@@ -38,6 +38,7 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
@@ -508,7 +509,7 @@ void DestroyMonsterGenerators(void)
    fields; version four and below also have no saved encounter budget. The
    random-encounter budget is always clamped to the current level after loading,
    and the culling span is finally reset from that level's database row. */
-W8EncounterState ReadEncounterState(W8Chunk& file)
+W8EncounterState ReadEncounterState(W8Chunk& file, Rng& rng)
 {
     W8EncounterState state;
     int version, count;
@@ -528,7 +529,7 @@ W8EncounterState ReadEncounterState(W8Chunk& file)
     state.generators.reserve(count);
     for (int index = 0; index < count; ++index) {
         auto generator = std::make_unique<MonGen>();
-        if (!generator->Load(file, state.default_interval))
+        if (!generator->Load(file, state.default_interval, rng))
             throw std::runtime_error("invalid encounter generator");
         state.generators.push_back(std::move(generator));
     }
@@ -596,7 +597,7 @@ void RunMonsterGenerators(std::chrono::milliseconds elapsed)
             if (generator->CanGenerateEncounter(false)) {
                 generator->GenerateEncounter(&generator->spawn_position);
             }
-            generator->Reset(GetWorld()->encounters.default_interval);
+            generator->Reset(GetWorld()->encounters.default_interval, CurrentGame().rng);
         }
     }
 }
@@ -664,7 +665,7 @@ void MonGen::Save(wiz8::File& handle)
    through the same conjunction, so the first failure abandons the rest and the
    record is reported bad; the timer is rearmed either way, and the armed bit is
    always cleared on the way out so a loaded generator starts disarmed. */
-unsigned char MonGen::Load(W8Chunk& handle, short default_interval)
+unsigned char MonGen::Load(W8Chunk& handle, short default_interval, Rng& rng)
 try {
     unsigned char version{};
 
@@ -683,7 +684,7 @@ try {
     handle.ReadBytes(&spawn_position.y, 4);
     handle.ReadBytes(&spawn_position.z, 4);
     handle.ReadBytes(&encounter_table_index, 4);
-    Reset(default_interval);
+    Reset(default_interval, rng);
     if (static_cast<signed char>(version) > 1) {
         timer.load(handle);
         timer.arm();
@@ -698,7 +699,7 @@ try {
    configured interval jittered by a uniform draw over twice its jitter
    fraction, so the mean is the interval itself. Bit 3 selects the shared
    default interval; a clear bit uses the generator's custom +0x06 interval. */
-void MonGen::Reset(short default_interval)
+void MonGen::Reset(short default_interval, Rng& rng)
 {
     short interval;
     float jitter;
@@ -706,8 +707,8 @@ void MonGen::Reset(short default_interval)
     interval =
         (flags & W8_MONGEN_USE_DEFAULT_SETTINGS) != 0 ? default_interval : custom_interval_seconds;
     jitter = interval * g_generator_jitter_fraction;
-    timer.setSeconds(static_cast<float>(CurrentGame().rng.below(static_cast<int>(jitter) * 2 + 1)) +
-                     interval - jitter);
+    timer.setSeconds(static_cast<float>(rng.below(static_cast<int>(jitter) * 2 + 1)) + interval -
+                     jitter);
     timer.arm();
 }
 

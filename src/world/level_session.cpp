@@ -57,6 +57,7 @@
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
+#include "wiz8/world/level_loader.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
@@ -216,10 +217,10 @@ std::string_view GetLevelFolderName(int level_id)
    the previous sky. A replacement receives the animated-cloud material:
    its cloud meshes are marked for the renderer's
    control bits and every CloudsN prop's mesh chain is rebound to it. */
-static std::unique_ptr<World> PrepareSkyWorld(std::string_view sky_path)
+static std::unique_ptr<World> PrepareSkyWorld(std::string_view sky_path, LevelBuildState& state)
 {
     if (sky_path.empty()) return nullptr;
-    auto replacement = LoadWorld(-1, std::string(sky_path));
+    auto replacement = LoadWorld(-1, std::string(sky_path), state);
     if (!replacement) return nullptr;
     auto* sky = replacement.get();
 
@@ -497,7 +498,8 @@ bool LoadLevel(int requested_level, int entrance, bool restoring_game)
         return false;
     }
 
-    auto replacement = LoadWorld(level, level_info.level_path);
+    LevelBuildState state{CurrentGame().rng, CurrentGame().status.next_world_item_id};
+    auto replacement = LoadWorld(level, level_info.level_path, state);
     if (!replacement) return false;
     auto ambient_path = wiz8::path_from_utf8(level_info.level_path);
     ambient_path.replace_extension(".SCF");
@@ -506,17 +508,18 @@ bool LoadLevel(int requested_level, int entrance, bool restoring_game)
     const bool reuse_sky =
         current.sky && current.sky->source_path ==
                            wiz8::normalize_asset_path(level_info.sky_path).generic_string();
-    auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(level_info.sky_path);
+    auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(level_info.sky_path, state);
     if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return false;
     if (GetWorld() && !StoreLeftLevel(CurrentGame())) return false;
-    auto status = ReadLeftLevelStatus(*replacement, CurrentGame(), level);
+    auto status = ReadLeftLevelStatus(*replacement, CurrentGame(), level, state.rng);
     if (!status)
         status = ReadLevelStatus(*replacement, wiz8::asset_path(BuildLevelStatusPath(level)), level,
-                                 true);
+                                 true, state.rng);
+    CurrentGame().rng = state.rng;
     if (GetWorld()) LeaveLevel();
     current.replacePrimary(std::move(replacement));
     if (!reuse_sky) current.replaceSky(std::move(replacement_sky));
-    InstallLevelSessionState(*GetWorld(), status.get());
+    InstallLevelSessionState(*GetWorld(), status.get(), state.next_item_id);
     EnterLevel(level, entrance, restoring_game, status.get());
     return true;
 }

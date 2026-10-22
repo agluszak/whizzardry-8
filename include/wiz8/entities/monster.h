@@ -1,4 +1,5 @@
 #ifndef WIZ8_ENGINE_CODE_MONSTER_H
+class Rng;
 #define WIZ8_ENGINE_CODE_MONSTER_H
 
 #include <array>
@@ -176,7 +177,7 @@ public:
     int Query(W8MonsterQueryKind query);         /* 0x004C4660 */
     // Monster operations that were free Monster* wrappers around this object.
     static std::unique_ptr<Monster> ReadAllCycles(World* world, std::string_view monster_name,
-                                                  int location_id);
+                                                  int location_id, Rng& rng);
     std::optional<BoundingBox> GetWorldAnimationBounds();
     glm::vec3 GetRepresentationLocation() const;
     glm::vec3 GetRepresentationLocalLocation() const;
@@ -215,7 +216,7 @@ public:
     std::vector<Mesh*> CollectModelMeshes();
     bool ReplaceSkinTexture(int stage, std::string_view old_name, std::string_view new_name);
     int AddDamageStage(int stage);
-    void RandomizeAppearanceAndMotion();
+    void RandomizeAppearanceAndMotion(Rng& rng);
     bool IsRenderable(bool alternate);
     void InitializeAnimatedTexture();
     void HandleAnimationFrame(unsigned char frame);

@@ -1,5 +1,4 @@
 #pragma once
-
 #include <filesystem>
 #include <memory>
 #include <string_view>
@@ -8,6 +7,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/retail_geometry_types.h"
+#include "wiz8/rules/random.h"
 
 glm::vec3 CurrentEnvironmentOffset();
 
@@ -66,14 +66,21 @@ struct W8LevelParticleRecord {
 #pragma pack(pop)
 static_assert(sizeof(W8LevelParticleRecord) == 0x225);
 
+// State advanced by candidate construction, committed only after preparation succeeds.
+struct LevelBuildState {
+    Rng rng;
+    int next_item_id = 1;
+};
+
 struct LevelLoadContext {
     World* world = nullptr;
     wiz8::File* hFile = nullptr;
     std::filesystem::path bitmap_folder;
+    LevelBuildState* build_state = nullptr;
 };
 
 unsigned char ReadLevel(World* world, wiz8::File* handle,
-                        const std::filesystem::path& texture_directory);
+                        const std::filesystem::path& texture_directory, LevelBuildState& state);
 unsigned char ReadWorldItems(LevelLoadContext* info, World* world);
 // The destination owns particles; scene attachment borrows them.
 unsigned char ReadWorldParticles(LevelLoadContext* info, WorldScene* scene,

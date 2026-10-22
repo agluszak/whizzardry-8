@@ -89,6 +89,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/save_game.h"
@@ -721,7 +722,7 @@ W8LoadedLevelStatus::~W8LoadedLevelStatus() = default;
 namespace {
 // Decode one section of a level group into the group's values.
 void ReadLevelSection(LevelState& data, W8Chunk& chunk, unsigned int chunk_id, bool from_assets,
-                      bool baseline = false)
+                      Rng& rng, bool baseline = false)
 {
     switch (chunk_id) {
     case W8_CHUNK_STATUS_HEADER:
@@ -759,7 +760,7 @@ void ReadLevelSection(LevelState& data, W8Chunk& chunk, unsigned int chunk_id, b
         if (from_assets && !baseline) ReadWorldCursorNodeStates(chunk, *data.cursors);
         break;
     case W8_CHUNK_ENCOUNTERS:
-        data.encounters = ReadEncounterState(chunk);
+        data.encounters = ReadEncounterState(chunk, rng);
         break;
     case W8_CHUNK_TRIGGER_LOCKS:
     case W8_CHUNK_TRIGGER_STATES:
@@ -1178,7 +1179,7 @@ namespace {
 /* Decode level `level`'s group from `chunk`, or nothing when the file has none. A saved
    group takes the sections a save does not repeat (locks, cursor nodes, encounters and
    trigger actions) from the level's asset status first. */
-std::optional<LevelState> DecodeLevelState(W8Chunk& chunk, int level, bool from_assets)
+std::optional<LevelState> DecodeLevelState(W8Chunk& chunk, int level, bool from_assets, Rng& rng)
 {
     LevelState state;
     const bool found = WithLevelGroup(chunk, level, [&] {
@@ -1189,27 +1190,28 @@ std::optional<LevelState> DecodeLevelState(W8Chunk& chunk, int level, bool from_
                     baseline.ForEachChunk([&](unsigned int section) {
                         if (section == W8_CHUNK_TRIGGER_LOCKS || section == W8_CHUNK_CURSOR_NODES ||
                             section == W8_CHUNK_ENCOUNTERS || section == W8_CHUNK_TRIGGER_ACTIONS)
-                            ReadLevelSection(state, baseline, section, true, true);
+                            ReadLevelSection(state, baseline, section, true, rng, true);
                     });
                 });
             }
         }
-        chunk.ForEachChunk(
-            [&](unsigned int section) { ReadLevelSection(state, chunk, section, from_assets); });
+        chunk.ForEachChunk([&](unsigned int section) {
+            ReadLevelSection(state, chunk, section, from_assets, rng);
+        });
     });
     if (!found) return std::nullopt;
     return state;
 }
 
 std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world, W8Chunk& chunk, int level,
-                                                     bool from_assets)
+                                                     bool from_assets, Rng& rng)
 {
-    auto state = DecodeLevelState(chunk, level, from_assets);
+    auto state = DecodeLevelState(chunk, level, from_assets, rng);
     if (!state) return nullptr;
     auto status = std::make_unique<W8LoadedLevelStatus>();
     auto& data = *status->data;
     static_cast<LevelState&>(data) = std::move(*state);
-    for (auto& section : data.world_sections) ApplySavedSection(world, section);
+    for (auto& section : data.world_sections) ApplySavedSection(world, section, rng);
     std::unordered_set<int> group_ids, monster_ids;
     for (const auto& group : data.groups) {
         if (!group_ids.insert(group.group->group_id).second)
@@ -1231,7 +1233,7 @@ std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world, W8Chunk& chun
             });
         if (group == data.groups.end() || MonsterDBFromSpecies(group->group->monster_id)->deleted)
             throw std::runtime_error("missing saved monster group");
-        auto model = ReadMonsterRepresentation(world, &info);
+        auto model = ReadMonsterRepresentation(world, &info, rng);
         info.entity.attach(*model);
         world.monsters.push_back(std::move(model));
         RestoreMonsterSpellIcons(world, info, info.entity.find());
@@ -1242,29 +1244,31 @@ std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world, W8Chunk& chun
             saved.script->resource = LoadMonsterScript(saved.script->name);
     }
     if (data.cursors) BuildWorldCursorNodes(world, std::move(*data.cursors));
-    PrepareLevelPopulation(world, *status);
+    PrepareLevelPopulation(world, *status, rng);
     return status;
 }
 } // namespace
 
-std::unique_ptr<W8LoadedLevelStatus>
-ReadLevelStatus(World& world, const std::filesystem::path& path, int level, bool from_assets)
+std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world,
+                                                     const std::filesystem::path& path, int level,
+                                                     bool from_assets, Rng& rng)
 {
     W8Chunk chunk;
     if (!chunk.OpenRead(path)) return nullptr;
-    return ReadLevelStatus(world, chunk, level, from_assets);
+    return ReadLevelStatus(world, chunk, level, from_assets, rng);
 }
 
-std::unique_ptr<W8LoadedLevelStatus> ReadLeftLevelStatus(World& world, const Game& game, int level)
+std::unique_ptr<W8LoadedLevelStatus> ReadLeftLevelStatus(World& world, const Game& game, int level,
+                                                         Rng& rng)
 {
     const auto left = game.left_levels.find(level);
     if (left == game.left_levels.end()) return nullptr;
     W8Chunk chunk;
     OpenLevelImage(chunk, left->second);
-    return ReadLevelStatus(world, chunk, level, false);
+    return ReadLevelStatus(world, chunk, level, false, rng);
 }
 
-void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
+void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status, Rng& rng)
 {
     auto& data = *status.data;
     auto& population = *world.population;
@@ -1296,11 +1300,11 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
     }
     for (size_t index = 0; index < records.size(); ++index) {
         if (auto* info = records[index]) {
-            ConfigureMonsterRepresentation(world, info);
-            PrepareMonsterInWorld(world, *info, data.monsters[index].unborn);
+            ConfigureMonsterRepresentation(world, info, rng);
+            PrepareMonsterInWorld(world, *info, data.monsters[index].unborn, rng);
         }
     }
-    data.npc_bindings = PrepareNpcBindings(world);
+    data.npc_bindings = PrepareNpcBindings(world, rng);
     for (size_t index = 0; index < records.size(); ++index) {
         auto* info = records[index];
         if (!info) continue;
@@ -1362,13 +1366,12 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
 
 // Publish shared session references and scalar state only. The replacement
 // already owns every record, representation, membership and identity link.
-void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status)
+void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status, int next_item_id)
 {
     InstallTriggerVariableDefaults(CurrentGame(), world);
-    CurrentGame().status.next_group_id = CurrentGame().status.next_monster_location_id =
-        CurrentGame().status.next_world_item_id = 1;
+    CurrentGame().status.next_group_id = CurrentGame().status.next_monster_location_id = 1;
+    CurrentGame().status.next_world_item_id = next_item_id;
     CurrentGame().status.next_trigger_id = world.next_trigger_id;
-    CurrentGame().item_manager_pending = 0;
     if (!status) return;
     auto& data = *status->data;
     if (data.header) ApplyStatusHeader(*data.header, CurrentGame().status);

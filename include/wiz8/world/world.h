@@ -165,7 +165,8 @@ class Prop;
 World* GetWorld(void);
 World* GetSecondaryWorld(void);
 
-std::unique_ptr<World> LoadWorld(int level_id, std::string source_path);
+struct LevelBuildState;
+std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, LevelBuildState& state);
 void DetachAllWorldItems(void);
 // Run the worlds over the step's `elapsed` time.
 void UpdateWorlds(std::chrono::milliseconds elapsed);

@@ -239,6 +239,7 @@ TEST_CASE("serialized_mesh_test")
             return instance;
         };
         World world{};
+        LevelBuildState build;
         auto& scene = *world.scene;
         world.update_mesh_source = scene.addStaticMesh(trackedInstance());
         world.psrMeshes = {scene.addStaticMesh(trackedInstance()),
@@ -246,12 +247,12 @@ TEST_CASE("serialized_mesh_test")
         const auto empty = directory / "empty.lvl";
         wiz8::open_file(empty, wiz8::OpenMode::replace)->close();
         auto file = wiz8::open_file(empty);
-        REQUIRE_FALSE(ReadLevel(&world, file.get(), ""));
+        REQUIRE_FALSE(ReadLevel(&world, file.get(), "", build));
         REQUIRE(destroyed == 3);
         REQUIRE(world.update_mesh_source == nullptr);
         REQUIRE(world.psrMeshes.empty());
         REQUIRE(world.scene->static_meshes.empty());
-        REQUIRE_FALSE(ReadLevel(&world, file.get(), ""));
+        REQUIRE_FALSE(ReadLevel(&world, file.get(), "", build));
         REQUIRE(destroyed == 3);
     }
     REQUIRE(ok);
@@ -292,7 +293,8 @@ TEST_CASE("Level clip planes attach only complete sections")
         }
         auto file = wiz8::open_file(path);
         world.camera = &world.scene->camera; // The empty environment sets its far clip.
-        return ReadLevel(&world, file.get(), "");
+        LevelBuildState build;
+        return ReadLevel(&world, file.get(), "", build);
     };
     Plane first, second;
     std::strcpy(first.name.data(), "first");

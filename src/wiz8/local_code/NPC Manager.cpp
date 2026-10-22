@@ -14,6 +14,7 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/startup_world.h"
 #include "wiz8/world/party_camera.h"
@@ -89,7 +90,7 @@
 #include "wiz8/world/world.h"
 
 static bool ProbeNpcPlacementNearParty(int party_slot, int mode, glm::vec3* position_out);
-static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character);
+static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character, Rng& rng);
 static void InitializeNpcItemTable(W8NpcState* npc);
 static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name);
 static bool NpcOffersService(W8NpcState* npc, unsigned int service_id);
@@ -1110,17 +1111,17 @@ void CreateNewGameNpcStates(void)
 
 /* Build one runtime NPC state, reusing an unavailable slot or appending a new
    one. Save records and monster bindings refer to these stable slot indices. */
-static std::unique_ptr<W8NpcState> MakeNpcRuntimeNode(int npc_id)
+static std::unique_ptr<W8NpcState> MakeNpcRuntimeNode(int npc_id, Rng& rng)
 {
     auto owner = std::make_unique<W8NpcState>();
     auto* npc = owner.get();
     npc->name_style = npc_id;
     npc->record = &Data().npcs[npc_id];
     if (npc->record->has_group != 0) {
-        InitializeNpcCharacter(npc, npc->character.emplace());
+        InitializeNpcCharacter(npc, npc->character.emplace(), rng);
     }
     if (npc->record->owns_stock != 0) {
-        PopulateNpcStock(npc);
+        PopulateNpcStock(npc, rng);
     }
     InitializeNpcItemTable(npc);
     npc->location_id = 0;
@@ -1135,7 +1136,7 @@ static std::unique_ptr<W8NpcState> MakeNpcRuntimeNode(int npc_id)
 
 W8NpcState* CreateNpcRuntimeNode(int npc_id)
 {
-    auto owner = MakeNpcRuntimeNode(npc_id);
+    auto owner = MakeNpcRuntimeNode(npc_id, CurrentGame().rng);
     auto* npc = owner.get();
     auto& story = CurrentGame().story;
     W8NpcState* released;
@@ -1153,7 +1154,7 @@ W8NpcState* CreateNpcRuntimeNode(int npc_id)
     return npc;
 }
 
-W8PreparedNpcBindings PrepareNpcBindings(World& world)
+W8PreparedNpcBindings PrepareNpcBindings(World& world, Rng& rng)
 {
     W8PreparedNpcBindings pending;
     std::vector<bool> reserved(CurrentGame().story.npcs.size(), false);
@@ -1190,7 +1191,7 @@ W8PreparedNpcBindings PrepareNpcBindings(World& world)
         auto existing = std::ranges::find(pending.records, slot, &W8PreparedNpcBinding::slot);
         if (existing == pending.records.end()) {
             pending.records.push_back({.slot = slot});
-            if (!source) pending.records.back().created = MakeNpcRuntimeNode(kind);
+            if (!source) pending.records.back().created = MakeNpcRuntimeNode(kind, rng);
             existing = pending.records.end() - 1;
         }
         reserved[slot] = true;
@@ -1280,7 +1281,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
 /* Expand the record's character block into a fresh group-member character:
    the name, profession and starting level, attributes, skills, known spells
    and worn/carried items, then the derived passes a level advance settles. */
-static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character)
+static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character, Rng& rng)
 {
     const W8NpcDatabaseRecord* record = npc->record;
     const W8NpcCharacterTemplate* source;
@@ -1320,15 +1321,15 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character)
     }
     for (index = 0; index < 12; ++index) {
         if (source->equipment_present[index] != 0 && source->equipment_ids[index] != 0xffff) {
-            item = MakeItem(Data(), CurrentGame().rng,
-                            static_cast<short>(source->equipment_ids[index]), true, true, false);
+            item = MakeItem(Data(), rng, static_cast<short>(source->equipment_ids[index]), true,
+                            true, false);
             character.EquippedItem[index] = item;
         }
     }
     for (index = 0; index < 8; ++index) {
         if (source->backpack_present[index] != 0 && source->backpack_ids[index] != 0xffff) {
-            item = MakeItem(Data(), CurrentGame().rng,
-                            static_cast<short>(source->backpack_ids[index]), true, true, false);
+            item = MakeItem(Data(), rng, static_cast<short>(source->backpack_ids[index]), true,
+                            true, false);
             character.backpack[index] = item;
         }
     }
@@ -2129,20 +2130,22 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
         monster_info = GetNpcMonsterInfo(npc);
         if (monster_info != 0) {
             position = monster_info->entity->nav.GetPosition();
-            W8WorldItem* item =
-                AddWorldItem(*GetWorld(), SpawnItem(*GetWorld(), 0x1e6, &position,
-                                                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+            W8WorldItem* item = AddWorldItem(
+                *GetWorld(),
+                SpawnItem(*GetWorld(), CurrentGame().rng, CurrentGame().status.next_world_item_id,
+                          0x1e6, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
 
             if (item != 0) {
-                ActivateItem(*GetWorld(), item);
+                ActivateItem(*GetWorld(), CurrentGame().rng, item);
             }
         } else if (FindEntityByName("NP_Glumph", &position, 0, 0)) {
-            W8WorldItem* item =
-                AddWorldItem(*GetWorld(), SpawnItem(*GetWorld(), 0x1e6, &position,
-                                                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+            W8WorldItem* item = AddWorldItem(
+                *GetWorld(),
+                SpawnItem(*GetWorld(), CurrentGame().rng, CurrentGame().status.next_world_item_id,
+                          0x1e6, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
 
             if (item != 0) {
-                ActivateItem(*GetWorld(), item);
+                ActivateItem(*GetWorld(), CurrentGame().rng, item);
             }
         }
     }

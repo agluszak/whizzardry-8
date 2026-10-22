@@ -61,6 +61,7 @@
 #include "wiz8/retail_geometry_records.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/save_game.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -759,6 +760,7 @@ TEST_CASE_METHOD(LoaderFixture,
                  "World item records reject incomplete data without touching the active world",
                  "[loader][records]")
 {
+    LevelBuildState build;
     World world{};
     for (const int count : {-1, 100000, 0}) {
         std::string bytes;
@@ -766,12 +768,14 @@ TEST_CASE_METHOD(LoaderFixture,
         store("items.bin", bytes);
         auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
         LevelLoadContext info{&world, file.get(), {}};
+        info.build_state = &build;
         REQUIRE(bool(ReadWorldItems(&info, &world)) == (count == 0));
     }
     store("items.bin", std::string(3, '\0'));
     {
         auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
         LevelLoadContext info{&world, file.get(), {}};
+        info.build_state = &build;
         REQUIRE_FALSE(ReadWorldItems(&info, &world));
     }
 
@@ -822,6 +826,7 @@ TEST_CASE_METHOD(LoaderFixture,
     store("items.bin", bytes);
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
     LevelLoadContext info{&world, file.get(), {}};
+    info.build_state = &build;
     REQUIRE_FALSE(ReadWorldItems(&info, &world));
     REQUIRE(world.population->world_items.empty());
     REQUIRE(current.population->world_items.empty());
@@ -834,9 +839,17 @@ TEST_CASE_METHOD(LoaderFixture, "Failed item activation stays inside the candida
     const ScopedGame game;
     game.game.level.replacePrimary(std::make_unique<World>());
     auto& active = *game.game.level.primary;
+    game.game.rng.seed(17);
+    game.game.status.next_world_item_id = 42;
+    auto original_rng = game.game.rng;
+    LevelBuildState build{game.game.rng, game.game.status.next_world_item_id};
+    auto expected_rng = build.rng;
     GameData data;
     data.items.resize(1);
     data.items[0].internal_name = "missing-model";
+    data.items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
+    data.items[0].initial_quantity = {.base = 0, .count = 1, .sides = 6};
+    const auto quantity = RollDice(expected_rng, data.items[0].initial_quantity);
     const ScopedGameData installed(std::move(data));
     {
         World candidate;
@@ -848,9 +861,15 @@ TEST_CASE_METHOD(LoaderFixture, "Failed item activation stays inside the candida
         store("candidate-items.bin", bytes);
         auto file = wiz8::open_file(wiz8::asset_path("candidate-items.bin"));
         LevelLoadContext info{&candidate, file.get(), {}};
+        info.build_state = &build;
         REQUIRE_FALSE(ReadWorldItems(&info, &candidate)); // The model is deliberately absent.
         REQUIRE(candidate.population->world_items.size() == 1);
         REQUIRE(candidate.population->world_items.front()->item.iItemNo == 0);
+        REQUIRE(candidate.population->world_items.front()->item.stack_count == quantity);
+        REQUIRE(build.next_item_id == 43);
+        REQUIRE(build.rng.next() == expected_rng.next());
+        REQUIRE(game.game.status.next_world_item_id == 42);
+        REQUIRE(game.game.rng.next() == original_rng.next());
         REQUIRE(active.population->world_items.empty());
         REQUIRE(active.plsItems.empty());
     }
@@ -1472,7 +1491,7 @@ TEST_CASE_METHOD(LoaderFixture, "Trigger action loading rejects incomplete and u
         auto file = wiz8::open_file(wiz8::asset_path("trigger-action.dat"));
         return ReadSavePayload(*file, [&](W8Chunk& chunk) {
             auto section = SavedWorldSection(DecodeSavedTriggerActions(chunk));
-            ApplySavedSection(world, section);
+            ApplySavedSection(world, section, CurrentGame().rng);
             return true;
         });
     };

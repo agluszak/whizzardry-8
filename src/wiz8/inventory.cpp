@@ -181,7 +181,8 @@ static bool DropUnstoredItem(Game& game, ItemSource source)
     if ((Data().items[source.item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
         if (const auto position = FindItemDropPosition()) {
             AddWorldItem(*GetWorld(),
-                         CreateWorldItem(*GetWorld(), &source.item, &*position,
+                         CreateWorldItem(*GetWorld(), CurrentGame().status.next_world_item_id,
+                                         &source.item, &*position,
                                          W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             return true;
         }

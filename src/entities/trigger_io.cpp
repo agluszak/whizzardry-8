@@ -31,6 +31,7 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/save_game.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/world.h"
@@ -119,13 +120,13 @@ SavedTriggerLocks DecodeSavedTriggerLocks(W8Chunk& handle)
 }
 
 // A restored lock re-rolls when the section restores, and keeps its door's lock in step.
-static void ApplySavedLocks(World& world, const SavedTriggerLocks& section)
+static void ApplySavedLocks(World& world, const SavedTriggerLocks& section, Rng& rng)
 {
     for (const auto& saved : section.locks) {
         auto* trigger = FindTriggerInWorld(world, saved.trigger);
         if (!trigger) continue;
         trigger->lock_state.Restore(saved);
-        if (section.restoring) trigger->lock_state.Reset();
+        if (section.restoring) trigger->lock_state.Reset(rng);
         if (auto* door = trigger->doorData(); door && (!door->locked || door->item == -1)) {
             door->locked = trigger->lock_state.device_state.completed == 0;
             door->item = static_cast<short>(trigger->lock_state.key_id);
@@ -418,7 +419,7 @@ static void ApplySavedTriggerActions(World& world, const std::vector<SavedTrigge
             std::ranges::copy(saved.action, trigger->inline_action_data);
 }
 
-void ApplySavedSection(World& world, SavedWorldSection& section)
+void ApplySavedSection(World& world, SavedWorldSection& section, Rng& rng)
 {
     std::visit(
         [&](auto& value) {
@@ -428,7 +429,7 @@ void ApplySavedSection(World& world, SavedWorldSection& section)
             else if constexpr (std::is_same_v<Section, std::vector<SavedProp>>)
                 ApplySavedProps(world, value);
             else if constexpr (std::is_same_v<Section, SavedTriggerLocks>)
-                ApplySavedLocks(world, value);
+                ApplySavedLocks(world, value, rng);
             else
                 ApplySavedTriggerActions(world, value);
         },

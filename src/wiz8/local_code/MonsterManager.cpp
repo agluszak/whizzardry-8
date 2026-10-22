@@ -74,6 +74,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -157,14 +158,15 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
     if (!monster_info || monster_info->fActive) return;
     ActivateMonster(monster_info);
     PrepareMonsterInWorld(*GetWorld(), *monster_info,
-                          CurrentLevelPopulation().monster_roster.isUnborn(monster_info));
+                          CurrentLevelPopulation().monster_roster.isUnborn(monster_info),
+                          CurrentGame().rng);
     RequestRefreshPartyState();
     RefreshFlaggedMainGameState();
     BindNpcToMonster(MonsterDBFromSpecies(monster_info->monster_species)->npc_kind, true,
                      monster_info->location_id);
 }
 
-void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
+void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn, Rng& rng)
 {
     auto* monster_info = &info;
     const W8MonsterRecord* record;
@@ -198,7 +200,7 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
             monster_info->entity->visual.SetBehaviour(W8_ANIMATION_NEVER_STOP);
             assert(monster_info->entity->Query(W8_MONSTER_QUERY_FRAME_COUNT) != -1);
             monster_info->entity->visual.SetSubCycle(
-                CurrentGame().rng.below(monster_info->entity->Query(W8_MONSTER_QUERY_FRAME_COUNT)));
+                rng.below(monster_info->entity->Query(W8_MONSTER_QUERY_FRAME_COUNT)));
             monster_info->entity->SetAnimating(!monster_info->fMotionless);
         }
 
@@ -228,22 +230,24 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
     }
 }
 
-std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info)
+std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info,
+                                                   Rng& rng)
 {
     const W8MonsterRecord* record;
     record = GetMonsterDataForInfo(monster_info);
 
-    auto monster = Monster::ReadAllCycles(&world, record->cycle_name, monster_info->location_id);
+    auto monster =
+        Monster::ReadAllCycles(&world, record->cycle_name, monster_info->location_id, rng);
     assert(monster);
     return monster;
 }
 
-void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info)
+void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info, Rng& rng)
 {
     if (monster_info->scale < 0.0f ||
         CurrentGame().status.level_progress[world.level_id].visited == 0) {
         monster_info->saved_mirror_x = monster_info->entity->visual.mirror_x;
-        monster_info->scale = CalculateMonsterScale(monster_info);
+        monster_info->scale = CalculateMonsterScale(monster_info, rng);
         monster_info->entity->scale = monster_info->scale;
     } else {
         monster_info->entity->scale = monster_info->scale;
@@ -259,10 +263,10 @@ void ActivateMonster(W8MonsterInfo* monster_info)
 {
     assert(monster_info && !monster_info->fActive);
     if (monster_info->entity.find()) return;
-    auto monster = ReadMonsterRepresentation(*GetWorld(), monster_info);
+    auto monster = ReadMonsterRepresentation(*GetWorld(), monster_info, CurrentGame().rng);
     monster_info->entity.attach(*monster);
     GetWorld()->monsters.push_back(std::move(monster));
-    ConfigureMonsterRepresentation(*GetWorld(), monster_info);
+    ConfigureMonsterRepresentation(*GetWorld(), monster_info, CurrentGame().rng);
 }
 
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info)
@@ -693,7 +697,7 @@ static void InitializeMonsterRuntimeStatsFor(W8MonsterInfo* monster_info)
     monster_info->stamina_max = value;
     monster_info->stamina = value;
     monster_info->fatigue_band = CalculateMonsterFatigueBand(value, value);
-    monster_info->scale = CalculateMonsterScale(monster_info);
+    monster_info->scale = CalculateMonsterScale(monster_info, CurrentGame().rng);
     monster_info->entity->scale = monster_info->scale;
     ApplyMonsterRepresentationScale(monster_info->entity.find());
     RefreshMonsterStandingHeight(monster_info->entity.find());
@@ -712,7 +716,7 @@ void InitializeMonsterRuntimeStats(void)
     }
 }
 
-float CalculateMonsterScale(W8MonsterInfo* monster_info)
+float CalculateMonsterScale(W8MonsterInfo* monster_info, Rng& rng)
 {
     float minimum;
     float maximum;
@@ -730,7 +734,7 @@ float CalculateMonsterScale(W8MonsterInfo* monster_info)
         ((maximum - minimum) * (static_cast<unsigned int>(monster_info->uiHPMax) - minimum_hp)) /
             (maximum_hp - minimum_hp) +
         minimum;
-    float result = (maximum - minimum) * (CurrentGame().rng.below(1000) * 0.0004f - 0.2f) + scale;
+    float result = (maximum - minimum) * (rng.below(1000) * 0.0004f - 0.2f) + scale;
 
     if (result < minimum) {
         return minimum;

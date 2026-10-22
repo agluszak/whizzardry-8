@@ -81,6 +81,7 @@
 #include "wiz8/render/picking.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/bounding_sphere.h"
@@ -231,26 +232,26 @@ unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction
    vertical-motion variation. The cycle-one animation and scale vectors are
    updated together so the representation and its cached scalar values remain
    synchronized. */
-void Monster::RandomizeAppearanceAndMotion()
+void Monster::RandomizeAppearanceAndMotion(Rng& rng)
 {
     unsigned int random_value;
 
     /* 0x004C1D3D: cmp/setl - a signed test against the LEFTHANDED percent. */
-    visual.mirror_x = static_cast<int>(CurrentGame().rng.below(100)) < left_handed;
+    visual.mirror_x = static_cast<int>(rng.below(100)) < left_handed;
 
     if (minimum_scale != 0.0f && maximum_scale != 0.0f) {
         float minimum = minimum_scale;
         float maximum = maximum_scale;
 
         assert(minimum <= maximum);
-        random_value = CurrentGame().rng.below(1000);
+        random_value = rng.below(1000);
         scale = (maximum - minimum) * random_value * 0.001f + minimum;
     }
 
     if (random_idle) {
         int subcycle;
         float playback_scale =
-            (random_idle_fps_max - random_idle_fps_min) * CurrentGame().rng.below(1000) * 0.001f +
+            (random_idle_fps_max - random_idle_fps_min) * rng.below(1000) * 0.001f +
             random_idle_fps_min;
 
         for (subcycle = 0; subcycle < static_cast<signed char>(cycles[1].size()); ++subcycle) {
@@ -276,16 +277,15 @@ void Monster::RandomizeAppearanceAndMotion()
         }
     }
 
-    nav.movement.vertical_base = ((hover_base_max - hover_base_min) *
-                                      static_cast<float>(CurrentGame().rng.below(1000)) * 0.001f +
-                                  hover_base_min) *
-                                 kWorldScale;
+    nav.movement.vertical_base =
+        ((hover_base_max - hover_base_min) * static_cast<float>(rng.below(1000)) * 0.001f +
+         hover_base_min) *
+        kWorldScale;
     nav.movement.vertical_amplitude =
-        ((bob_amplitude_max - bob_amplitude_min) *
-             static_cast<float>(CurrentGame().rng.below(1000)) * 0.001f +
+        ((bob_amplitude_max - bob_amplitude_min) * static_cast<float>(rng.below(1000)) * 0.001f +
          bob_amplitude_min) *
         kWorldScale;
-    nav.movement.vertical_phase = CurrentGame().rng.below(1000) * 0.001f;
+    nav.movement.vertical_phase = rng.below(1000) * 0.001f;
     nav.movement.vertical_offset =
         static_cast<float>(sin(nav.movement.vertical_phase * kMotionFullTurnRadians)) *
             nav.movement.vertical_amplitude +

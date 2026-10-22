@@ -1,4 +1,5 @@
 #pragma once
+class Rng;
 struct W8Chunk;
 
 #include <chrono>
@@ -27,7 +28,7 @@ struct W8EncounterState {
     short interval_min = 100, default_interval = 10, interval_max = -1;
     std::vector<std::unique_ptr<MonGen>> generators;
 };
-W8EncounterState ReadEncounterState(W8Chunk& file);
+W8EncounterState ReadEncounterState(W8Chunk& file, Rng& rng);
 void ReadMonsterGeneratorStates(W8Chunk& file, W8EncounterState& state);
 void StartLevelEncounters(World& world);
 // Roll the generators whose intervals passed in the step's `elapsed` time.

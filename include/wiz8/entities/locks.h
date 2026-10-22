@@ -1,4 +1,5 @@
 #pragma once
+class Rng;
 struct SavedLock;
 /* Persisted lock/trap device state: `completed` latches once the pick/disarm
    interaction finishes; `pins` holds the eight tumbler bytes of a pickable
@@ -19,7 +20,7 @@ enum class LockType : unsigned char { none = 0, pickable_lock = 1, trap = 2, key
 struct LockState {
     /* Re-rolls the eight pin bytes of a pickable lock and
        resets its difficulty-derived countdown and interaction state. */
-    void Reset(); /* 0x00445730 */
+    void Reset(Rng& rng); /* 0x00445730 */
     void Restore(const SavedLock& saved);
     /* Spends one point of the lock countdown and reports whether one
        remained to spend. */

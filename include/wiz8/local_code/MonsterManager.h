@@ -1,4 +1,5 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
+class Rng;
 #define WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 
 #include <cstdint>
@@ -408,10 +409,11 @@ struct W8MonsterInfo {
     unsigned char unknown_37d[0xa8];
 };
 
-void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn);
+void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn, Rng& rng);
 void ActivateMonsterInWorld(W8MonsterInfo* monster_info);
-std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info);
-void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info);
+std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info,
+                                                   Rng& rng);
+void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info, Rng& rng);
 void ActivateMonster(W8MonsterInfo* monster_info);
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);
@@ -433,7 +435,7 @@ void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState c
 void MonsterInfoSetMotionless(W8MonsterInfo* monster_info, bool motionless);
 void MoveMonsterToLiveList(W8MonsterInfo* monster_info);
 void InitializeMonsterRuntimeStats(void);
-float CalculateMonsterScale(W8MonsterInfo* monster_info);
+float CalculateMonsterScale(W8MonsterInfo* monster_info, Rng& rng);
 void TryStartMonsterCycle2(W8MonsterInfo* monster_info, Monster* monster,
                            W8MonsterCycle query_state);
 void ProcessMonsterManagerFrame(void);

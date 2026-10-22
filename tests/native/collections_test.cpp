@@ -887,7 +887,7 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
     chunk.Close();
     REQUIRE(chunk.OpenRead(directory.path / "state.riff"));
     chunk.ForEachChunk([&](unsigned) {
-        const auto loaded = ReadEncounterState(chunk);
+        const auto loaded = ReadEncounterState(chunk, CurrentGame().rng);
         REQUIRE(loaded.random_budget == 6);
         REQUIRE(loaded.saved_budget == 77);
         REQUIRE(loaded.culling_seconds == 180);

@@ -37,6 +37,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/world/world.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
@@ -219,7 +220,7 @@ bool MaintainNpcStock(W8NpcState* npc, bool force)
     return true;
 }
 
-bool PopulateNpcStock(W8NpcState* npc)
+bool PopulateNpcStock(W8NpcState* npc, Rng& rng)
 {
     const W8NpcItemStockRule* rule;
     std::size_t rule_count;
@@ -251,7 +252,7 @@ bool PopulateNpcStock(W8NpcState* npc)
                         tier = W8NpcStockChanceTier::always;
                     }
                     chance = NpcStockChanceForTier(tier);
-                    if (CurrentGame().rng.below(100) < static_cast<unsigned int>(chance)) {
+                    if (rng.below(100) < static_cast<unsigned int>(chance)) {
                         ++added;
                     }
                     --remaining;
@@ -618,8 +619,9 @@ static W8TradeResult CompleteNpcItemPurchase(Game& game, W8NpcState* npc, int in
             const auto drop_position = FindItemDropPosition();
             if (!drop_position) return {W8TradeOutcome::Refused};
             for (auto& item : overflow)
-                drops.push_back(CreateWorldItem(*GetWorld(), &item, &*drop_position,
-                                                W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                drops.push_back(
+                    CreateWorldItem(*GetWorld(), CurrentGame().status.next_world_item_id, &item,
+                                    &*drop_position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
         }
     }
     if (!drops.empty()) {

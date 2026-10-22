@@ -268,7 +268,7 @@ TEST_CASE("Malformed level status cannot change the active level or session coun
     output.Close();
     CurrentGame().status.next_group_id = 42;
     auto pending = std::make_unique<World>(3);
-    REQUIRE_THROWS(ReadLevelStatus(*pending, path, 3, true));
+    REQUIRE_THROWS(ReadLevelStatus(*pending, path, 3, true, CurrentGame().rng));
     REQUIRE(CurrentGame().status.next_group_id == 42);
     REQUIRE(GetLoadedLevelID() == 8);
 }

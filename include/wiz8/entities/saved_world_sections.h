@@ -1,4 +1,5 @@
 #pragma once
+class Rng;
 
 #include <array>
 #include <cstddef>
@@ -99,5 +100,5 @@ SavedTriggerLocks DecodeSavedTriggerLocks(W8Chunk& chunk);
 std::vector<SavedTriggerAction> DecodeSavedTriggerActions(W8Chunk& chunk);
 
 // Apply a decoded section to the world; entries naming nothing in it are ignored.
-void ApplySavedSection(World& world, SavedWorldSection& section);
+void ApplySavedSection(World& world, SavedWorldSection& section, Rng& rng);
 void ApplySavedProps(World& world, const std::vector<SavedProp>& section);
