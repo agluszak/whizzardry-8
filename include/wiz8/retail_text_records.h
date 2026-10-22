@@ -553,8 +553,6 @@ template<> struct Record<W8NpcCharacterTemplate> {
         text(runtime.name_part_2,
              bytes.subspan(offsetof(Disk, name_part_2), sizeof(Disk::name_part_2)),
              Encoding::utf16);
-        value(&runtime.unknown_01a,
-              bytes.subspan(offsetof(Disk, unknown_01a), sizeof(Disk::unknown_01a)));
         value(&runtime.profession,
               bytes.subspan(offsetof(Disk, profession), sizeof(Disk::profession)));
         value(&runtime.race, bytes.subspan(offsetof(Disk, race), sizeof(Disk::race)));
@@ -925,8 +923,6 @@ template<> struct Record<W8Character> {
         text(runtime.name_part_2,
              bytes.subspan(offsetof(Disk, name_part_2), sizeof(Disk::name_part_2)),
              Encoding::utf16);
-        value(&runtime.unknown_0025,
-              bytes.subspan(offsetof(Disk, unknown_0025), sizeof(Disk::unknown_0025)));
         value(&runtime.iProfession,
               bytes.subspan(offsetof(Disk, iProfession), sizeof(Disk::iProfession)));
         value(&runtime.original_profession, bytes.subspan(offsetof(Disk, original_profession),

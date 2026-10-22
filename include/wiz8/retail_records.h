@@ -205,8 +205,7 @@ static_assert(std::is_trivially_copyable_v<FactDatabaseRecord>);
 static_assert(sizeof(FactDatabaseRecord) == 0x1d8, "FactDatabaseRecord_size_must_be_0x1d8");
 struct NpcCharacterTemplate {
     std::array<std::byte, 20> name;
-    std::array<std::byte, 12> name_part_2;
-    unsigned char unknown_01a[0x44]; // Unidentified retail data, preserved verbatim.
+    std::array<std::byte, 80> name_part_2; // The full name, up to 39 UTF-16 units.
     W8Profession profession;
     W8Race race;
     int table_value;
@@ -557,8 +556,8 @@ struct Character {
     bool fInParty; /* 0x0004 */
     /* 0x0005: the character's name, also the stem of its "%s.CHR" file. */
     std::array<std::byte, 20> name;
-    std::array<std::byte, 12> name_part_2; /* 0x0019: rendered as the parenthesized name */
-    unsigned char unknown_0025[0x44]; // Unidentified retail data, preserved verbatim.
+    /* 0x0019: the full name, up to 39 UTF-16 units, shown before the parenthesized name. */
+    std::array<std::byte, 80> name_part_2;
     /* 0x0069 and 0x006d: the current profession and the one the character
        started in. The level band subtracts a base only while the two agree. */
     W8Profession iProfession;         /* 0x0069 */
