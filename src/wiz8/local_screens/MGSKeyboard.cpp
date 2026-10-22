@@ -46,7 +46,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSButtons.h"
@@ -425,7 +424,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_TOGGLE_SEARCH:
         if (IsScreenInputBlocked() == 0) {
-            ToggleSearchMode();
+            CurrentGame().toggleSearchMode();
         }
         break;
     case W8_MGS_COMMAND_TOGGLE_COMBAT:

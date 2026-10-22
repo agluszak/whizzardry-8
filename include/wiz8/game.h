@@ -99,6 +99,12 @@ public:
     /* The party searches while the player's search mode is on and no fight is in
        progress; a fight suspends searching without changing the player's choice. */
     bool searching() const { return status.search_mode && !combat; }
+    /* The player toggles search mode: turning it off posts the off notice, turning it on
+       starts searching; a fight blocks the toggle outright. */
+    void toggleSearchMode();
+    /* The party starts searching (search mode turned on, or a fight ended with it on):
+       post the on notice, arm the 500ms sweep and drop the active cursor node. */
+    void resumeSearching();
 
     // Commands the level's monster scripts and triggers issue.
     // A monster's script turns the group of the monster at `location_id` to `disposition`.

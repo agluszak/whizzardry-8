@@ -297,27 +297,22 @@ int W8Searchable::PickBestSearcher()
     return -1;
 }
 
-void ResumeSearching(void)
+void Game::resumeSearching()
 {
     ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_ON]);
-    CurrentGame().search_sweep_due = std::chrono::milliseconds{500};
-    if (World* world = GetWorld(); world != nullptr && world->script) {
-        world->script->clearActiveCursorNode();
-    }
+    search_sweep_due = std::chrono::milliseconds{500};
+    if (level.primary && level.primary->script) level.primary->script->clearActiveCursorNode();
 }
 
-/* Toggle the player's search mode: turning it off posts the off notice, turning
-   it on starts searching; combat blocks the toggle outright. */
-void ToggleSearchMode(void)
+void Game::toggleSearchMode()
 {
-    Game& game = CurrentGame();
-    if (game.combat.has_value()) {
+    if (combat) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);
-    } else if (game.status.search_mode) {
-        game.status.search_mode = false;
+    } else if (status.search_mode) {
+        status.search_mode = false;
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_OFF]);
     } else {
-        game.status.search_mode = true;
-        ResumeSearching();
+        status.search_mode = true;
+        resumeSearching();
     }
 }

@@ -11,7 +11,6 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Search.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
@@ -272,7 +271,7 @@ static void SubMenuButtonSurprise(W8ButtonWidget* button)
 
 static void SubMenuButtonToggleFlag(W8ButtonWidget* button)
 {
-    ToggleSearchMode();
+    CurrentGame().toggleSearchMode();
     button->SetPressed(CurrentGame().searching());
     if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     DrawSubMenuCharacterAction();

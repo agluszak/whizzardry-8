@@ -58,7 +58,6 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Noise.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
@@ -1007,7 +1006,7 @@ void Game::endCombat(bool forced_cleanup)
     ReconcilePartyEquipmentAfterCombat();
     // The fight is over; what follows restores the world around it.
     combat.reset();
-    if (searching()) ResumeSearching();
+    if (searching()) resumeSearching();
     ZoomRadarMapOut();
     events.push(CombatEnded{});
     if (!activity.conversation && !gpSCSV && !ItemUseDraft()) {
