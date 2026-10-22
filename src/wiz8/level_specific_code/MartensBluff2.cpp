@@ -143,11 +143,9 @@ private:
     void idolGasVictim();
 
     bool idol_gas_armed_ = true;
-    bool crusher_excluded_flag_ = false;
     bool crusher_active_ = false;
     std::optional<W8IntervalGate> spikeball_gate_;
     int spikeball_count_ = 0;
-    Monster* crusher_excluded_ = nullptr;
     Prop* squisher3_prop_ = nullptr;
     Prop* squisher4_prop_ = nullptr;
     Prop* dummy_prop_ = nullptr;
@@ -468,7 +466,6 @@ bool MartensBluff2Script::monsterCrusher(int command)
     std::size_t count;
     unsigned int i;
     W8MonsterInfo* info;
-    Monster* monster;
     float left;
     float right;
     float radius;
@@ -499,8 +496,6 @@ bool MartensBluff2Script::monsterCrusher(int command)
             upper = other_bounds->maximum;
             crusher_lower_.y -= kWorldScale;
             crusher_upper_.x = upper.x;
-            crusher_excluded_ = 0;
-            crusher_excluded_flag_ = false;
             centre = glm::vec3((crusher_lower_.x + crusher_upper_.x) * 0.5,
                                (crusher_lower_.y + crusher_upper_.y) * 0.5,
                                (crusher_lower_.z + crusher_upper_.z) * 0.5);
@@ -570,10 +565,8 @@ bool MartensBluff2Script::monsterCrusher(int command)
     }
     for (i = 0; i < count; i++) {
         info = FindMonster(location_ids[i]);
-        if (info != 0 && info->entity &&
-            (!crusher_excluded_flag_ || info->entity.find() != crusher_excluded_) &&
-            info->entity->nav.flags != 0x200000) {
-            monster = info->entity.find();
+        Monster* monster = info ? info->entity.find() : nullptr;
+        if (monster && monster->nav.flags != 0x200000) {
             position = monster->nav.GetPosition();
             radius = monster->nav.movement.alternate_radius;
             if (left <= position.x - radius) {

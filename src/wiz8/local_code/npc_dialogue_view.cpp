@@ -1,5 +1,6 @@
 #include "wiz8/local_code/npc_dialogue_view.h"
 
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -243,7 +244,7 @@ static void FinishNpcVoicePlayback(MainGameScreen& screen, bool resume_script)
     screen.game.npc_dialogue.SpeechFinished();
     if (screen.game.npc_dialogue.reply() == W8NpcReplyState::none && resume_script) {
         if (speaker != 0 && screen.game.npc_dialogue.binding().script != 0 &&
-            current_quote < screen.game.npc_dialogue.binding().script->quote_count) {
+            current_quote < std::ssize(screen.game.npc_dialogue.binding().script->quotes)) {
             SetNpcQuoteBubbleVisible(
                 screen, false, {},
                 &screen.game.npc_dialogue.binding().script->quotes[current_quote], current_quote,
@@ -282,7 +283,7 @@ void RestoreCurrentNpcQuoteBubble(void)
     const int current_quote = CurrentGame().npc_dialogue.current_quote();
     const W8NpcScriptFile* script_file =
         speaker != 0 ? CurrentGame().npc_dialogue.binding().script.get() : 0;
-    if (script_file != 0 && current_quote < static_cast<int>(script_file->quote_count)) {
+    if (script_file != 0 && current_quote < std::ssize(script_file->quotes)) {
         SetNpcQuoteBubbleVisible(*MainGame(), false, {}, script_file->quotes.data() + current_quote,
                                  current_quote, 0xffffffff);
         return;

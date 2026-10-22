@@ -332,28 +332,11 @@ static unsigned int CountEquipItemPenalties(const W8Character& character, int sl
    the enchantments, then one entry per worn item that has any modifier at all.
    Alternate-hand slots 8 and 9 are skipped, and unidentified items contribute
    nothing. */
-/* Descriptive name for appending an effect and updating both category counts. */
-static void AddCampEffectEntry(W8CampStatsPage* page, W8CampEffectEntry* entry)
-{
-    page->effect_list.push_back(*entry);
-    if (entry->beneficial) {
-        ++page->effect_beneficial_count;
-    }
-    if (entry->detrimental) {
-        ++page->effect_detrimental_count;
-    }
-}
-
 // FUNCTION: WIZ8 0x005c4ee0
 void W8CampStatsPage::RebuildCampEffectList(const W8Character& character)
 {
     effect_list.clear();
-    effect_beneficial_count = 0;
-    effect_detrimental_count = 0;
-    effect_first_visible = 0;
-    effect_last_visible = 0;
-    effect_visible_lines = 0;
-    effect_scroll = 0;
+    stats_range->SetValue(0);
     for (int condition = 0x13; condition >= 0; --condition) {
         if (character.uiCondition[condition] != 0) {
             W8CampEffectEntry entry{};
@@ -373,7 +356,7 @@ void W8CampStatsPage::RebuildCampEffectList(const W8Character& character)
                 }
             }
             entry.index = condition;
-            AddCampEffectEntry(this, &entry);
+            effect_list.push_back(entry);
         }
     }
     for (int index = 7; index >= 0; --index) {
@@ -385,7 +368,7 @@ void W8CampStatsPage::RebuildCampEffectList(const W8Character& character)
             entry.turns = character.enchantments[index].turns;
             entry.lines = 2;
             entry.index = index;
-            AddCampEffectEntry(this, &entry);
+            effect_list.push_back(entry);
         }
     }
     for (int slot = 0; slot < 12; ++slot) {
@@ -398,11 +381,11 @@ void W8CampStatsPage::RebuildCampEffectList(const W8Character& character)
                 entry.beneficial = beneficial != 0;
                 entry.detrimental = detrimental != 0;
                 entry.lines = detrimental + beneficial + 1;
-                entry.items = true;
+
                 entry.kind = W8_CAMP_EFFECT_EQUIPMENT;
                 entry.turns = W8_CONDITION_INDEFINITE;
                 entry.index = slot;
-                AddCampEffectEntry(this, &entry);
+                effect_list.push_back(entry);
             }
         }
     }
@@ -412,44 +395,26 @@ void W8CampStatsPage::RebuildCampEffectList(const W8Character& character)
 /* Remarks each list entry against the current tab and beneficial/detrimental
    filter, tracks the first/last visible rows, and reprograms the scrollbar to
    the visible line total. */
-// FUNCTION: WIZ8 0x005c5240
-void W8CampStatsPage::FilterCampEffectList(void)
+bool W8CampStatsPage::ShowsEffect(const W8CampEffectEntry& entry) const
 {
-    effect_visible_lines = 0;
-    bool any_visible = false;
-    auto count = effect_list.size();
-    for (unsigned int pos = 0; pos < count; ++pos) {
-        auto& entry = effect_list[pos];
-        entry.visible = false;
-        if (entry.items == effect_items_only &&
-            (effect_filter == W8_CAMP_EFFECT_FILTER_ALL ||
-             (effect_filter == W8_CAMP_EFFECT_FILTER_BENEFICIAL && entry.beneficial) ||
-             (effect_filter == W8_CAMP_EFFECT_FILTER_DETRIMENTAL && entry.detrimental))) {
-            entry.visible = true;
-            if (!any_visible) {
-                effect_first_visible = pos;
-                any_visible = true;
-            }
-            effect_last_visible = pos;
-        }
-        if (entry.visible) {
-            effect_visible_lines += entry.lines + 1;
+    return (entry.kind == W8_CAMP_EFFECT_EQUIPMENT) == effect_items_only &&
+           (effect_filter == W8_CAMP_EFFECT_FILTER_ALL ||
+            (effect_filter == W8_CAMP_EFFECT_FILTER_BENEFICIAL && entry.beneficial) ||
+            (effect_filter == W8_CAMP_EFFECT_FILTER_DETRIMENTAL && entry.detrimental));
+}
+
+void W8CampStatsPage::FilterCampEffectList()
+{
+    int visible_lines = 0;
+    for (const auto& entry : effect_list) {
+        if (ShowsEffect(entry)) {
+            visible_lines += entry.lines + 1;
         }
     }
-    int second = effect_visible_lines - 0x11;
-    W8RangeControl* range = stats_range.get();
-    if (second < 1) {
-        second = 0;
-        range->SetEnabled(false);
-    } else {
-        range->SetEnabled(true);
-        range->SetRange(0, second);
-    }
-    if (effect_scroll > second) {
-        effect_scroll = second;
-    }
-    range->SetValue(effect_scroll);
-    range->InvalidateAll();
+    const int last = std::max(0, visible_lines - 0x11);
+    stats_range->SetEnabled(last > 0);
+    stats_range->SetRange(0, last);
+    stats_range->InvalidateAll();
 }
 
 /* Renders one effect-list entry at `line` (in 0xe-pixel rows from
@@ -629,14 +594,14 @@ void W8CampStatsPage::DrawCampEffectList(const W8Character& character)
 {
     SDL_Rect effect_clip{0, 0xbe, 0x280, 0xee};
     ScopedClipRect clipping(GetFrameBufferSurface(), effect_clip);
-    int line = -effect_scroll;
+    int line = -stats_range->m_value;
     auto count = effect_list.size();
     for (unsigned int pos = 0; pos < count; ++pos) {
         if (line > 0x10) {
             break;
         }
         auto& entry = effect_list[pos];
-        if (entry.visible) {
+        if (ShowsEffect(entry)) {
             if (line + entry.lines < 0) {
                 line += entry.lines + 1;
             } else {
@@ -942,7 +907,7 @@ void W8CharacterPersonalityPage::Activate()
     auto& fields = m_text_fields.emplace(input, g_wiz_text_mono_font);
     fields.UseGameStyle();
     fields.Add(W8CharacterPage::bounds.x + 0x97, W8CharacterPage::bounds.y + 0xab, 0x106, 0x10,
-               0x7f, m_character->name_part_2, 5, 0xf, true);
+               0x7f, m_character->name_part_2, 0x27, 0xf, true);
     fields.Add(W8CharacterPage::bounds.x + 0x97, W8CharacterPage::bounds.y + 0xc7, 0x106, 0x10,
                0x7f, m_character->name, 9, 0xf, true);
     if (fields.Text(0).empty())
@@ -1209,9 +1174,9 @@ void W8CharacterPersonalityPage::ChangePortrait(W8CharacterPortraitAction action
     }
 }
 
-W8CharacterPersonalityPage* CreateCharacterPersonalityPage()
+std::unique_ptr<W8CharacterPage> CreateCharacterPersonalityPage()
 {
-    return new W8CharacterPersonalityPage;
+    return std::make_unique<W8CharacterPersonalityPage>();
 }
 
 void W8CharacterSkillsPage::SetCharacter(W8Character* character,
@@ -1224,11 +1189,10 @@ void W8CharacterSkillsPage::SetCharacter(W8Character* character,
         const auto category = skill_attribute.category;
         const int category_index = static_cast<int>(category);
         W8CharacterPageEntry* entry =
-            new W8CharacterPageEntry(input, g_character_page2_category_geometry[category_index].x,
-                                     g_character_page2_category_geometry[category_index].y +
-                                         category_count[category_index] * 0xe,
-                                     true);
-        AddEntry(entry);
+            &AddEntry(g_character_page2_category_geometry[category_index].x,
+                      g_character_page2_category_geometry[category_index].y +
+                          category_count[category_index] * 0xe,
+                      true);
         entry->on_adjust = [this, entry](int delta) { AdjustEntry(entry, delta); };
         entry->on_info = [this, entry] { ShowEntryInfo(entry); };
         ++category_count[category_index];
@@ -1383,9 +1347,9 @@ void W8CharacterSkillsPage::UpdateEntries()
     }
 }
 
-W8CharacterSkillsPage* CreateCharacterSkillsPage()
+std::unique_ptr<W8CharacterPage> CreateCharacterSkillsPage()
 {
-    return new W8CharacterSkillsPage;
+    return std::make_unique<W8CharacterSkillsPage>();
 }
 
 void W8CharacterSkillsPage::Refresh()
@@ -1399,10 +1363,7 @@ void W8CampStatsPage::CreateControls(UiLayer& scroll_input)
     effect_items_only = true;
     effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
     stats_range = std::make_unique<W8RangeControl>(scroll_input, 0x264, 0xbe, 0x276, 0x1b5);
-    stats_range->on_change = [this](auto* range) {
-        effect_scroll = range->m_value;
-        effect_list_dirty = true;
-    };
+    stats_range->on_change = [this](auto*) { effect_list_dirty = true; };
     stats_controls = std::make_unique<W8CampStatsControls>(*this);
 }
 

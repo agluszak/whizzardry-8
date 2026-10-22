@@ -84,15 +84,19 @@ After building, run the tests with:
 ctest --preset linux
 ```
 
-On a headless Linux host, run CTest under `xvfb-run -a`; the graphics scenarios use
-SDL's X11 Vulkan surface. CI also enables the Khronos validation layer and fails
-graphics tests on validation errors.
+Graphics tests and runtime scenarios render through SDL's offscreen video driver, so
+they need no display, open no windows and receive no desktop input. CI also enables
+the Khronos validation layer and fails graphics tests on validation errors.
 
 Some runtime tests also need prepared retail assets:
 
 ```sh
 WIZ8_ASSET_ROOT=/path/to/prepared-assets ctest --preset linux -L runtime
 ```
+
+A failing scenario saves the game's frame under `tests/runtime-artifacts/` in the
+build tree; [the runtime fixture notes](tests/runtime/fixtures/README.md) also
+describe the golden screen signatures and how to update them.
 
 C and C++ changes should use the repository's `.clang-format` configuration (clang-format 23).
 
