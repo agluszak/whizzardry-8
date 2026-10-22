@@ -565,7 +565,10 @@ Missile::Missile(const MissileDefinition& definition, World* owner)
     nav.movement.collision_radius = 1.0f;
     nav.movement.alternate_radius = 1.0f;
     nav.collision = [this](Navigator* other) { return OnCollision(other); };
-    visual.active_animation = resources.cycles[0].animation.get();
+    if (auto* animation = resources.cycles[0].animation.get()) {
+        StartEmitterCycle(visual, *animation, 0);
+        visual.animation_behaviour = animation->behaviour;
+    }
 
     result = {};
     ResetCombatSlot(&combat_slot);

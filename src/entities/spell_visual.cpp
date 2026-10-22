@@ -395,11 +395,13 @@ SpellVisual::SpellVisual(const SpellVisualDefinition& definition, World* owner)
 {
     visual.rep_active = true;
     visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
+    // Stand ready on the first cycle the group has until a pending cycle starts.
     const auto first = std::ranges::find_if(
         resources.cycles, [](const auto& cycle) { return cycle.animation != nullptr; });
     if (first != resources.cycles.end()) {
-        visual.current_cycle = static_cast<signed char>(first - resources.cycles.begin());
-        visual.active_animation = first->animation.get();
+        StartEmitterCycle(visual, *first->animation,
+                          static_cast<signed char>(first - resources.cycles.begin()));
+        visual.animation_behaviour = first->animation->behaviour;
     }
 }
 
