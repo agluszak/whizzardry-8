@@ -391,13 +391,14 @@ before the related refactoring changes behavior.
   - Whether conjuring an item into an occupied hand destroys the held item.
   - What retail does with unusable equipment when every store is full.
   - How the alternate-hand toggle behaves when both hand pairs swap.
-- **A retail save corpus.** `tests/runtime/fixtures/vi.CHR` was written by the
-  port, and the quick-save scenarios exercise our own writer and reader together, so
-  neither is an independent compatibility reference. Collect a small maintained set of
-  saves written by retail (an early game, a later game, an NPC-heavy state, a fight
-  interrupted by a save) and add load-then-continue checks; these matter most for
-  the condition, timing and level-state changes above. Round-tripping our own
-  representation does not substitute for them.
+- **A retail save corpus.** The downloaded inputs (`tests/runtime/fetch_downloads.cmake`)
+  hold one retail save, a late two-character game that `runtime_retail-save` loads and
+  continues and `native_retail_save` re-encodes section by section, and the four
+  Wizardry 7 import files. Still missing: retail saves of an early game, an NPC-heavy
+  state and a fight interrupted by a save, with load-then-continue checks; these
+  matter most for the condition, timing and level-state changes above. The level
+  groups' sections other than STAT decode only into a loaded World and are not yet
+  compared byte for byte. Round-tripping our own representation does not substitute for them.
 - **Platform verification.** macOS (Vulkan through MoltenVK, including its packaging)
   and Windows (Vulkan) builds, their C++26 library facilities and a representative
   smoke run are unverified, and platform CI is not enabled. Establish a build and a

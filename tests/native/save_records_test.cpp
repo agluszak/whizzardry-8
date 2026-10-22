@@ -363,6 +363,14 @@ static void unicode_file_contracts()
     three_boxes.resize(three_boxes.size() - 4);
     REQUIRE(wiz8::save::decode_message_boxes(three_boxes, 1.0f)[0][0].text == message);
     REQUIRE_THROWS(wiz8::save::decode_message_boxes(three_boxes, 9.0f));
+    // An empty line is a lone terminator, never a zero count: retail would read a zero-size
+    // allocation as an unterminated string.
+    wiz8::save::MessageBoxes blank;
+    blank[1].emplace_back();
+    const auto blank_payload = wiz8::save::encode(blank);
+    REQUIRE(blank_payload.size() == 8 + 4 + 0x24 + 2 + 2 * 4);
+    REQUIRE(blank_payload[12] == std::byte{1});
+    REQUIRE(wiz8::save::decode_message_boxes(blank_payload, 9.0f)[1][0].text.empty());
 }
 
 static void transcript_contracts()
