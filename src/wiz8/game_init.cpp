@@ -2,7 +2,6 @@
 
 #include <cstring>
 #include <optional>
-#include <string>
 
 #include "wiz8/application.h"
 #include "wiz8/canvas/shading.h"
