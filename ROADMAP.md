@@ -361,8 +361,6 @@ Questions to settle, usually against the retail executable, traces or saves,
 before the related refactoring changes behavior.
 
 - **Retail semantics to confirm.**
-  - Whether swings really use the previous pass's damage bonus in observable play,
-    and how many stat passes retail runs per operation.
   - Whether `GiveHeldItemToCharacterOrParty`'s party-first refusal discards the
     held item.
   - Whether `CountCharacterItem`'s backpack count (which reads the equipment slot
