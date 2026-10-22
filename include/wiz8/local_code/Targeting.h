@@ -38,6 +38,9 @@ void RefreshAllPartyTargets(void);
    holds. Both return whether a monster was found; otherwise the target is cleared. */
 bool RepickActionTarget(int party_slot, W8TargetingContext stored, int arg);
 bool RepickDraftTarget(int party_slot, W8Action& draft);
+/* The best monster for a live attack, spell or item action that needs an enemy in
+   combat, reached with the weapons in hand; it never changes equipment. */
+std::optional<W8CombatSlot> ChooseEquippedMonsterTarget(int party_slot, const W8Action& action);
 /* Commit a target and refresh the presentation of the choice: into the action the slot is
    editing (see EditedAction), a stored action, or a picker's draft. Only a committed in-combat
    target is also remembered for its action kind. */
