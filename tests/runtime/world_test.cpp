@@ -635,8 +635,8 @@ void ResourceLifecycleScenario()
         SetTargetingMode(W8_TARGET_NEED_NONE);
         game.move_pointer(x, y);
         game.move_pointer(x + 1, y);
-        REQUIRE(SelectedNativeObject(world) == &object);
-        REQUIRE(render::gameOwner(world.picked) == nullptr);
+        REQUIRE(world.selectedNativeObject() == &object);
+        REQUIRE(render::gameOwner(world.picked.intersection) == nullptr);
         REQUIRE(ScreenPointer().shownSlot() == 13);
         REQUIRE_FALSE(object.illuminated);
         game.click_at(x, y);
@@ -648,7 +648,7 @@ void ResourceLifecycleScenario()
         game.click_at(x, y);
         REQUIRE_FALSE(object.illuminated);
         world.native_objects.clear();
-        REQUIRE_FALSE(world.picked.hit);
+        REQUIRE_FALSE(world.picked.intersection.hit);
         game.frame();
     }
     // Automap buttons own their sprite sheets. Re-entering the screen must

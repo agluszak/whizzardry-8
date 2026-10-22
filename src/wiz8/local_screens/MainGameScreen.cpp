@@ -4913,7 +4913,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                (needed == W8_TARGET_NEED_CONE && (event.modifiers & CTRL_DOWN) != 0)) {
         AimAtGroundTarget(CurrentGame().status.selected_character);
     } else if (MainGameHud()->highlighted_item == -1) {
-        if ((CurrentGame().party.held.item.iItemNo != -1) && GetSelectedPropIndex() == -1) {
+        if ((CurrentGame().party.held.item.iItemNo != -1) && !GetWorld()->selectedProp()) {
             if (!CurrentGame().advancement.held) {
                 if (auto dropped = DropItemInHand(CurrentGame(), 1); !dropped)
                     ShowRefusal(dropped.error());
@@ -4928,7 +4928,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         } else if (!CurrentGame().advancement.held) {
             if (ScreenPointer().targeting() != W8_TARGET_NEED_NONE ||
                 !CurrentGame().activateSelectedNativeObject())
-                ActivateSelectedProp();
+                if (auto* prop = GetWorld()->selectedProp()) prop->activate();
         }
     } else {
         W8MonsterInfo* monster_info = FindMonster(MainGameHud()->highlighted_item);
@@ -5073,20 +5073,14 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
                 ScreenPointer().showSlot(13);
                 return;
             }
-            int prop_index = GetSelectedPropIndex();
-            if (prop_index > -1) {
-                Prop* prop = GetWorldProp(GetWorld(), prop_index);
+            if (auto* prop = GetWorld()->selectedProp()) {
                 if (!CurrentGame().advancement.held) {
-                    if (prop != 0) {
-                        if (prop->TriggerRequiresItem() &&
-                            (CurrentGame().party.held.item.iItemNo != -1)) {
-                            ScreenPointer().showSlot(0x10);
-                            return;
-                        }
-                        ScreenPointer().showSlot(prop->TriggerHasActionMessage() ? 13 : 5);
+                    if (prop->TriggerRequiresItem() &&
+                        CurrentGame().party.held.item.iItemNo != -1) {
+                        ScreenPointer().showSlot(0x10);
                         return;
                     }
-                    ScreenPointer().showSlot(5);
+                    ScreenPointer().showSlot(prop->TriggerHasActionMessage() ? 13 : 5);
                     return;
                 }
                 ScreenPointer().showSlot(cursor);

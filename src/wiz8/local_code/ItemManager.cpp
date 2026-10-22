@@ -530,7 +530,7 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
         if (item->entity->flags & W8_ITEM_ENTITY_NO_PICKUP) {
             continue;
         }
-        if (!item->entity->IsSelected()) {
+        if (GetWorld()->selectedModel() != item->entity->GetMesh()) {
             continue;
         }
         distance = ItemDistanceToCamera(*item->entity);

@@ -38,6 +38,7 @@
 #include <vsg/state/GraphicsPipeline.h>
 #include <vsg/state/PipelineLayout.h>
 #include <vsg/state/ViewportState.h>
+#include <vsg/utils/LineSegmentIntersector.h>
 #include <vulkan/vulkan_core.h>
 
 #include "geometry.h"
@@ -69,6 +70,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/native_object.h"
 #include "wiz8/entities/prop.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
@@ -2346,9 +2348,11 @@ TEST_CASE("Native world objects activate through graph identity and game activit
         vsg::Perspective::create(60, 1, 1, 10),
         vsg::LookAt::create(vsg::dvec3(0, 0, 0), vsg::dvec3(0, 0, 1), vsg::dvec3(0, 1, 0)),
         vsg::ViewportState::create(0, 0, 64, 64));
-    world.picked.position = {.1f, .1f, 1};
-    world.scene->pick(*camera, std::span{&world.picked, 1});
-    REQUIRE(SelectedNativeObject(world) == &object);
+    Pick pick;
+    pick.position = {.1f, .1f, 1};
+    world.scene->pick(*camera, std::span{&pick, 1});
+    world.acceptPick(std::move(pick), false);
+    REQUIRE(world.selectedNativeObject() == &object);
     game.advancement.held = false;
     REQUIRE(game.activateSelectedNativeObject());
     REQUIRE(object.illuminated);
@@ -2364,7 +2368,7 @@ TEST_CASE("Native world objects activate through graph identity and game activit
     game.activity.place = Activity::Place::World;
     // The render view may move independently; gameplay reach follows the party.
     world.camera->transform.setLocation(0, 0, -6000);
-    REQUIRE(SelectedNativeObject(world) == &object);
+    REQUIRE(world.selectedNativeObject() == &object);
     placeParty(world, {0, 0, -6000});
     REQUIRE_FALSE(game.activateSelectedNativeObject());
     placeParty(world, {0, 0, 0});
@@ -2372,6 +2376,47 @@ TEST_CASE("Native world objects activate through graph identity and game activit
     REQUIRE_FALSE(object.illuminated);
     REQUIRE(std::get<TextNotice>(game.events.pending().back()).text == "The prism dims.");
     world.native_objects.clear();
-    REQUIRE_FALSE(world.picked.hit);
+    REQUIRE_FALSE(world.picked.intersection.hit);
     REQUIRE_FALSE(game.activateSelectedNativeObject());
+}
+
+TEST_CASE("Resolved prop picks retain occlusion and the closed-door combat exception",
+          "[geometry][picking]")
+{
+    ScopedGame game;
+    World world;
+    placeParty(world, {0, 0, 0});
+    Trigger trigger(&world);
+    trigger.flags = W8_TRIGGER_ENABLED;
+    trigger.range_minimum = trigger.range_maximum = 100;
+    auto& prop = *world.plsProps.emplace_back(std::make_unique<Prop>());
+    prop.active = true;
+    prop.trigger = &trigger;
+    auto& animation = prop.animation.emplace();
+    animation.positioned_parts = true;
+    animation.frame_count = 1;
+    animation.parts[2].emplace_back();
+    animation.frame_bounds = {{true, {100, 0, 0}, {100, 0, 0}}};
+    auto& model = prop.model(0);
+    Pick intersection;
+    intersection.hit = vsg::LineSegmentIntersector::Intersection::create();
+    intersection.hit->nodePath.push_back(model.renderNode().get());
+    world.acceptPick(intersection, false);
+    REQUIRE(world.selectedProp() == &prop); // Both distance boundaries are inclusive.
+    REQUIRE_FALSE(world.selectedModel());
+    world.acceptPick(intersection, true);
+    REQUIRE_FALSE(world.selectedProp());
+    REQUIRE(world.picked.intersection.hit == intersection.hit); // Still occludes behind it.
+    auto& door = trigger.action_payload.emplace<W8DoorTriggerActionData>();
+    world.acceptPick(intersection, true);
+    REQUIRE(world.selectedProp() == &prop);
+    door.open = true;
+    world.acceptPick(intersection, true);
+    REQUIRE_FALSE(world.selectedProp());
+    trigger.flags |= W8_TRIGGER_ONCE | W8_TRIGGER_FIRED;
+    world.acceptPick(intersection, false);
+    REQUIRE_FALSE(world.selectedProp());
+    world.acceptPick({}, false);
+    REQUIRE_FALSE(world.picked.intersection.hit);
+    REQUIRE_FALSE(world.selectedProp());
 }
