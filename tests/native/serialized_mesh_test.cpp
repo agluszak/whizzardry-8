@@ -10,6 +10,7 @@
 #include <ios>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -27,6 +28,7 @@
 #include "scoped_asset_roots.h"
 #include "temporary_directory.h"
 #include "wiz8/asset_paths.h"
+#include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/compiled_mesh.h"
@@ -345,8 +347,8 @@ TEST_CASE("Animated meshes share source geometry and keep playback independent")
         output.put(0); // First frame index.
         output << input.rdbuf();
     }
-    std::unique_ptr<AnimationMesh> first;
-    std::unique_ptr<AnimationMesh> second;
+    std::optional<AnimationMesh> first;
+    std::optional<AnimationMesh> second;
     {
         auto input = wiz8::open_file(animation);
         first = ReadAnimatedMesh(*input, {});
@@ -373,6 +375,59 @@ TEST_CASE("Animated meshes share source geometry and keep playback independent")
     REQUIRE(shown_first.getModel() == shown_second.getModel());
     REQUIRE(shown_first.frame_index == 1);
     REQUIRE(shown_second.frame_index == 0);
+}
+
+TEST_CASE("Animation records publish complete LOD parts and retain authored frame ranges")
+{
+    ScopedTemporaryDirectory directory{"wiz8-animation-parts"};
+    const auto mesh_path = directory.path / "mesh.bin";
+    WriteAnimatedFixture(mesh_path);
+    auto mesh_file = wiz8::open_file(mesh_path);
+    std::vector<char> mesh_bytes(mesh_file->size());
+    mesh_file->read_exact(mesh_bytes.data(), mesh_bytes.size());
+    for (const unsigned char positioned : {0, 1}) {
+        const auto path = directory.path / (positioned ? "parts.bin" : "sequence.bin");
+        {
+            auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+            Write(*file, std::array<unsigned char, 7>{1, 1, 0, 0, 0, 0, positioned});
+            Write(*file, std::array<unsigned char, 50>{});
+            Write(*file, static_cast<unsigned char>(2)); // Authored LOD channel.
+            const int count = positioned ? 2 : 1;
+            if (positioned) Write(*file, static_cast<unsigned char>(count));
+            for (int part = 0; part < count; ++part) {
+                Write(*file, static_cast<unsigned char>(2));
+                Write(*file, std::array<unsigned char, 2>{2, 0}); // Vertex-frame sequence.
+                file->write(mesh_bytes.data(), mesh_bytes.size());
+                if (positioned) {
+                    Write(*file, std::array<unsigned char, 2>{0, 1}); // Path kind/version.
+                    Write(*file, 0.f);
+                    Write(*file, 0u);
+                    Write(*file, 2); // Two path points.
+                    for (int point = 0; point < 2; ++point)
+                        Write(*file,
+                              std::array<float, 7>{static_cast<float>(part),
+                                                   static_cast<float>(point), 0, 0, 0, 1, 0});
+                }
+            }
+        }
+        auto file = wiz8::open_file(path);
+        LevelLoadContext context{};
+        context.hFile = file.get();
+        Animation animation;
+        REQUIRE(AnimObjReadFromFile(&context, &animation, nullptr));
+        REQUIRE(animation.parts[0].empty());
+        REQUIRE(animation.parts[2].size() == (positioned ? 2 : 1));
+        REQUIRE(animation.frameCount(2) == 2);
+        REQUIRE(animation.end_frame == (positioned ? 0 : 1));
+        if (positioned) {
+            REQUIRE(animation.parts[2][0].path->points()[0].position.x == 0);
+            REQUIRE(animation.parts[2][1].path->points()[0].position.x == 500);
+            REQUIRE(animation.frame(2, 1, 1).vertex_frame == 0);
+        } else {
+            REQUIRE_FALSE(animation.parts[2][0].path);
+            REQUIRE(animation.frame(2, 1).vertex_frame == 1);
+        }
+    }
 }
 
 TEST_CASE("Animated frame indices determine playback order before publication")

@@ -3,7 +3,6 @@
 #include <cassert>
 #include <exception>
 #include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -17,9 +16,9 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/filesystem.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
@@ -35,7 +34,7 @@ WorldItemEntity::WorldItemEntity()
 {
     flags = W8_ITEM_ENTITY_PULSE_INCREASING;
     pulse_level = static_cast<float>(PresentationRng().below(20) * 0.05);
-    countdown = MonotonicMilliseconds();
+    countdown = WorldClockMilliseconds();
 }
 
 WorldItemEntity::~WorldItemEntity() = default;
@@ -102,7 +101,7 @@ MeshInstance* WorldItemEntity::GetMesh()
 
 bool WorldItemEntity::IsRadarBlipLit()
 {
-    return TimeUntilDeadline(countdown) != 0;
+    return WorldClockMilliseconds() < countdown;
 }
 
 std::unique_ptr<WorldItemEntity> LoadItemFromFile(World& world, std::string_view name)
@@ -195,23 +194,15 @@ void WorldItemEntity::SetHighlight(bool enabled, bool hovered)
     highlight_colour = glm::vec4(0.0f, green, blue, alpha);
 }
 
-bool WorldItemEntity::IsSelected()
-{
-    return g_current_model_instance == m_psrMesh.get();
-}
-
 void WorldItemEntity::LightRadarBlip()
 {
-    countdown = MonotonicMilliseconds() + 10000;
+    countdown = WorldClockMilliseconds() + 10000;
 }
 
-std::optional<BoundingBox> GetItemWorldBounds(const WorldItemEntity* item)
+BoundingBox GetItemWorldBounds(const WorldItemEntity& item)
 {
-    if (!item) {
-        return std::nullopt;
-    }
-    auto bounds = item->GetCachedLocalBounds();
-    bounds.minimum += item->location;
-    bounds.maximum += item->location;
+    auto bounds = item.GetCachedLocalBounds();
+    bounds.minimum += item.location;
+    bounds.maximum += item.location;
     return bounds;
 }

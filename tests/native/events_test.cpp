@@ -20,6 +20,7 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 
 SDL_Window* ghWindow = nullptr;
@@ -46,6 +47,11 @@ float MoveTimer(W8MoveTimerAction action)
 {
     clock_actions.push_back(action);
     return 0;
+}
+// This event fixture has no game screen; the runtime scenario covers its step clock.
+Screen* CurrentScreen()
+{
+    return nullptr;
 }
 static SDL_WindowID id;
 static void push(SDL_Event event)

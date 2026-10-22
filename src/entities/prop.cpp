@@ -120,7 +120,7 @@ Prop* FindPropByName(World* world, std::string_view name)
 
 glm::vec3 Prop::GetPosition() const
 {
-    if (this->currentAnimation()->path_lists == 1) {
+    if (this->currentAnimation()->positioned_parts) {
         return animation_position;
     }
     return this->GetLocation();
@@ -199,96 +199,6 @@ std::optional<glm::vec3> Prop::GetCenterPosition()
         [](const auto& bounds) { return glm::vec3(bounds.center()); });
 }
 
-static Trigger* g_selected_prop_trigger;
-static int g_selected_prop_index = -1;
-
-/* Resolve the renderer's picked model instance back to the prop and trigger
-   that own it. A pick is accepted only while the prop is active, the trigger
-   permits selection, and the prop centre lies inside the trigger's distance
-   interval. */
-bool ResolvePickedProp()
-{
-    MeshInstance* selected;
-    glm::vec3 camera_position;
-    std::size_t prop_count;
-    int prop_index;
-    bool valid;
-
-    g_selected_prop_trigger = 0;
-    g_selected_prop_index = -1;
-    selected = g_current_model_instance;
-    if (selected == 0) {
-        return false;
-    }
-
-    valid = true;
-    camera_position = cameraLocation();
-    prop_count = GetWorld()->plsProps.size();
-    for (prop_index = 0; prop_index < static_cast<int>(prop_count); ++prop_index) {
-        Prop* prop;
-        Prop* representation;
-        MeshInstance* instance;
-        int instance_index;
-
-        if (!valid) {
-            return false;
-        }
-        if (g_selected_prop_trigger != 0) {
-            return valid;
-        }
-        prop = GetWorldProp(GetWorld(), prop_index);
-        representation = prop;
-        if (representation->active == 0) {
-            continue;
-        }
-
-        instance = 0;
-        if (representation->currentAnimation()->path_lists == 1) {
-            int count = static_cast<int>(std::min<std::size_t>(
-                AnimObjListCount(representation->currentAnimation(), 2), prop->models.size()));
-            for (instance_index = 0; instance_index < count; ++instance_index) {
-                instance = prop->models[instance_index].get();
-                if (g_current_model_instance == instance) {
-                    break;
-                }
-            }
-            if (instance_index == count) {
-                continue;
-            }
-        } else {
-            instance = representation->FrameModel(representation->subcycle);
-            if (g_current_model_instance != instance) {
-                continue;
-            }
-        }
-
-        {
-            Trigger* trigger = prop->trigger;
-            g_selected_prop_trigger = trigger;
-            if (trigger != 0 && (trigger->flags & W8_TRIGGER_ENABLED) != 0 &&
-                ((trigger->flags & W8_TRIGGER_ONCE) == 0 ||
-                 (trigger->flags & W8_TRIGGER_FIRED) == 0) &&
-                ((!CurrentGame().combat.has_value()) ||
-                 (trigger->doorData() != nullptr && !trigger->doorData()->open)) &&
-                representation->active != 0) {
-                if (const auto bounds = prop->GetFrameBounds()) {
-                    const float distance =
-                        glm::length((glm::vec3(bounds->center()) - camera_position));
-                    if (trigger->range_minimum <= distance) {
-                        g_selected_prop_index = prop_index;
-                        if (distance <= trigger->range_maximum) continue;
-                    }
-                }
-            }
-            valid = false;
-            g_current_model_instance = 0;
-            g_selected_prop_trigger = 0;
-            g_selected_prop_index = -1;
-        }
-    }
-    return valid;
-}
-
 /* A model can be picked unless the level marks its prop otherwise, or it draws
    a sorted mesh for a prop without a trigger. */
 static void SetModelPickable(const Prop& prop, MeshInstance& model, const Mesh& mesh)
@@ -304,7 +214,7 @@ static void SetModelPickable(const Prop& prop, MeshInstance& model, const Mesh& 
 /* Show part `index` of the prop's path-list animation on its model. */
 static MeshInstance& ShowPart(Prop& prop, Animation* animation, int index)
 {
-    const auto part = AnimObjDispatchList(animation, 2, static_cast<signed char>(index));
+    const auto part = animation->frame(2, 0, static_cast<signed char>(index));
     assert(part);
     auto& model = prop.model(static_cast<std::size_t>(index));
     ShowFrame(model, part);
@@ -326,9 +236,7 @@ MeshInstance& Prop::model(std::size_t index)
 
 MeshInstance* Prop::FrameModel(int frame)
 {
-    const auto shown = currentAnimation()->path_lists == 0
-                           ? AnimObjDispatch(currentAnimation(), 2, frame)
-                           : AnimObjDispatchList(currentAnimation(), 2, 0);
+    const auto shown = currentAnimation()->frame(2, frame);
     if (!shown) return nullptr;
     ShowFrame(model(0), shown);
     return &model(0);
@@ -475,7 +383,7 @@ void Prop::UpdatePropAnimation(std::chrono::milliseconds elapsed)
         (flags & W8_PROP_ANIMATION_GEOMETRY_DIRTY) == 0) {
         return;
     }
-    total = AnimObjValue(rep->currentAnimation(), 2);
+    total = rep->currentAnimation()->frameCount(2);
     anim_frame_fraction = 0.0f;
     if (rep->pending_subcycle != 0xffff) {
         if (static_cast<short>(rep->pending_subcycle) < static_cast<int>(total)) {
@@ -550,13 +458,13 @@ void Prop::ApplyAnimationPaths()
     int index;
 
     assert(GetWorld() != nullptr);
-    if (this->currentAnimation()->path_lists == 1) {
-        count = AnimObjListCount(this->currentAnimation(), 2);
+    if (this->currentAnimation()->positioned_parts) {
+        count = this->currentAnimation()->parts[2].size();
         for (index = 0; index < static_cast<int>(count); ++index) {
             MeshInstance* mesh = &ShowPart(*this, this->currentAnimation(), index);
             KeyframeTrack* path;
 
-            path = AnimObjListEntry(this->currentAnimation(), 2, static_cast<signed char>(index));
+            path = this->currentAnimation()->partPath(2, static_cast<signed char>(index));
             if (path != 0) {
                 glm::vec3 location;
 
@@ -681,11 +589,11 @@ void Prop::AdvanceAnimationValue(int frames, signed char total)
     } else if (rep->subcycle > rep->last_frame) {
         rep->subcycle = rep->last_frame;
     }
-    if (rep->currentAnimation()->path_lists == 1) {
-        count = AnimObjListCount(rep->currentAnimation(), 2);
+    if (rep->currentAnimation()->positioned_parts) {
+        count = rep->currentAnimation()->parts[2].size();
         for (index = 0; index < static_cast<int>(count); ++index) {
             KeyframeTrack* path =
-                AnimObjListEntry(rep->currentAnimation(), 2, static_cast<signed char>(index));
+                rep->currentAnimation()->partPath(2, static_cast<signed char>(index));
 
             if (path != 0) {
                 PathAISetValue(path, static_cast<float>(rep->subcycle));
@@ -786,7 +694,7 @@ void Prop::ApplyAnimationFrame(NavigationMesh* pathing)
     std::size_t count;
     int index;
 
-    if (animation->path_lists != 1) {
+    if (!animation->positioned_parts) {
         MeshInstance* mesh = FrameModel(subcycle);
         KeyframeTrack* path;
 
@@ -799,12 +707,12 @@ void Prop::ApplyAnimationFrame(NavigationMesh* pathing)
         return;
     }
 
-    count = AnimObjListCount(animation, 2);
+    count = animation->parts[2].size();
     for (index = 0; index < static_cast<int>(count); ++index) {
         MeshInstance* mesh = &ShowPart(*this, animation, index);
         KeyframeTrack* path;
 
-        path = AnimObjListEntry(animation, 2, static_cast<signed char>(index));
+        path = animation->partPath(2, static_cast<signed char>(index));
         if (path != 0) {
             glm::vec3 location;
 
@@ -856,9 +764,9 @@ void Prop::AttachAnimationInstances(World* world)
         return;
     }
     assert(world != 0);
-    if (animation->path_lists == 1) {
+    if (animation->positioned_parts) {
         has_scales = false;
-        count = static_cast<int>(AnimObjListCount(animation, 2));
+        count = static_cast<int>(animation->parts[2].size());
         for (index = 0; index < count; ++index) {
             instance = &ShowPart(*this, animation, index);
             instance->visible = true;
@@ -871,7 +779,7 @@ void Prop::AttachAnimationInstances(World* world)
             }
             mesh = static_cast<Mesh*>(instance->getModel());
             SetModelPickable(*this, *instance, *mesh);
-            path = AnimObjListEntry(animation, 2, static_cast<signed char>(index));
+            path = animation->partPath(2, static_cast<signed char>(index));
             if (path == 0) {
                 continue;
             }
@@ -879,8 +787,8 @@ void Prop::AttachAnimationInstances(World* world)
             if (next_frame > this->last_frame) {
                 anim_frame_fraction = 0.0f;
             }
-            rotation = path->rotations[this->subcycle];
-            next = path->rotations[next_frame];
+            rotation = *path->points()[this->subcycle].rotation;
+            next = *path->points()[next_frame].rotation;
             if (!(rotation == next)) {
                 const auto first_rotation = glm::dquat(glm::quat_cast(rotation));
                 auto next_rotation = glm::dquat(glm::quat_cast(next));
@@ -896,14 +804,14 @@ void Prop::AttachAnimationInstances(World* world)
                         : glm::slerp(first_rotation, next_rotation, double(anim_frame_fraction));
                 rotation = glm::mat3_cast(glm::normalize(interpolated_rotation));
             }
-            current = path->nodes[this->subcycle];
-            next_pos = path->nodes[next_frame];
+            current = path->points()[this->subcycle].position;
+            next_pos = path->points()[next_frame].position;
             inv = 1.0f - anim_frame_fraction;
             position = current * inv + next_pos * anim_frame_fraction;
-            if (!path->scales.empty()) {
+            if (path->points()[this->subcycle].scale.has_value()) {
                 has_scales = true;
-                current_scale = path->scales[this->subcycle];
-                next_scale = path->scales[next_frame];
+                current_scale = *path->points()[this->subcycle].scale;
+                next_scale = *path->points()[next_frame].scale;
                 scale_vector = current_scale * inv + next_scale * anim_frame_fraction;
             }
 
@@ -978,7 +886,7 @@ void Prop::ApplyAnimationState(const SavedAnimationState& state, NavigationMesh*
     this->frame_direction = state.frame_direction;
     this->animation_playing = state.animation_playing;
     if (this->currentAnimation() != 0) {
-        total = static_cast<int>(AnimObjValue(this->currentAnimation(), 2));
+        total = static_cast<int>(this->currentAnimation()->frameCount(2));
         if (this->last_frame >= total) {
             this->last_frame = static_cast<unsigned char>(total - 1);
         }
@@ -988,11 +896,10 @@ void Prop::ApplyAnimationState(const SavedAnimationState& state, NavigationMesh*
         if (this->subcycle >= total) {
             this->subcycle = static_cast<unsigned char>(total - 1);
         }
-        if (this->currentAnimation()->path_lists == 1) {
-            count = AnimObjListCount(this->currentAnimation(), 2);
+        if (this->currentAnimation()->positioned_parts) {
+            count = this->currentAnimation()->parts[2].size();
             for (index = 0; index < static_cast<int>(count); ++index) {
-                path =
-                    AnimObjListEntry(this->currentAnimation(), 2, static_cast<signed char>(index));
+                path = this->currentAnimation()->partPath(2, static_cast<signed char>(index));
                 if (path != 0) {
                     PathAISetValue(path, static_cast<float>(this->subcycle));
                 }
@@ -1010,7 +917,7 @@ std::optional<BoundingBox> Prop::GetBounds()
     auto* animation = this->currentAnimation();
     auto bounds = AnimObjGetBounds(animation, 2, 0);
     if (!bounds) return std::nullopt;
-    const auto total = AnimObjValue(animation, 2);
+    const auto total = animation->frameCount(2);
     for (unsigned int frame = 1; frame < total; ++frame) {
         const auto frame_bounds = AnimObjGetBounds(animation, 2, frame);
         if (!frame_bounds) return std::nullopt;
@@ -1029,10 +936,10 @@ int Prop::BuildOrRefreshPathingRepresentation(NavigationMesh* pathing)
     if ((flags & W8_PROP_COLLIDABLE) == 0) {
         return 0;
     }
-    if (this->currentAnimation()->path_lists != 1) {
+    if (!this->currentAnimation()->positioned_parts) {
         ShutdownWithErrorBox("Collidable props can be of Transform type only.");
     }
-    if (AnimObjListCount(this->currentAnimation(), 2) != 1) {
+    if (this->currentAnimation()->parts[2].size() != 1) {
         ShutdownWithErrorBox("Collideable props should have a single LOD.");
     }
     instance = &ShowPart(*this, this->currentAnimation(), 0);
@@ -1073,7 +980,7 @@ void Prop::RunMissileTrigger(MissileFlight* record)
    node's own location. */
 void Prop::SetPosition(glm::vec3* position)
 {
-    if (this->currentAnimation()->path_lists == 1) {
+    if (this->currentAnimation()->positioned_parts) {
         animation_position = *position;
         return;
     }
@@ -1144,7 +1051,7 @@ try {
         unsigned char b1 = 0;
         unsigned char b2 = 0;
         int ok;
-        std::unique_ptr<AnimationMesh> mesh;
+        std::optional<AnimationMesh> mesh;
 
         if (!success ||
             (success = (hFile->read(&b0, 1).bytes == static_cast<std::size_t>(1)), !success) ||
@@ -1174,17 +1081,16 @@ try {
         }
         result = true;
         animation = &this->animation.emplace();
-        animation->entries[2] = std::move(mesh);
-        animation->group_count = 1;
+        animation->parts[2].push_back({std::move(*mesh), std::nullopt});
         animation->animation_playing = b0;
         animation->frame_method = static_cast<W8AnimationFrameMethod>(b1);
         animation->behaviour = static_cast<W8AnimationBehaviour>(b2);
         animation->cycle = 0;
-        animation->path_lists = 0;
+        animation->positioned_parts = false;
         animation->playback_scale = playback_scale;
     } else {
         unsigned int entry_index;
-        unsigned int list_count;
+        std::size_t list_count;
         signed char slot_count;
         int slot_i;
 
@@ -1244,25 +1150,23 @@ try {
         }
         animation = &this->animation.emplace();
         result = AnimObjReadFromFile(info, animation, nullptr);
-        if (animation->path_lists == 1) {
+        if (animation->positioned_parts) {
             animation->frame_count = frame_count;
         }
         this->play_chance = animation->play_chance;
         this->random_play = animation->random_play != 0;
         face_camera = option_byte != 0;
-        if (animation->path_lists == 0) {
-            list_count = AnimObjValue(animation, 2);
+        if (!animation->positioned_parts) {
+            list_count = animation->frameCount(2);
             for (entry_index = 0; entry_index < list_count; ++entry_index) {
-                const auto frame =
-                    AnimObjDispatch(animation, 2, static_cast<unsigned char>(entry_index));
+                const auto frame = animation->frame(2, static_cast<unsigned char>(entry_index));
                 for (auto* mesh_part : meshParts(frame.mesh.get()))
                     mesh_part->GetVertexSunlight(true);
             }
         }
-        list_count = AnimObjListCount(animation, 2);
+        list_count = animation->parts[2].size();
         for (entry_index = 0; entry_index < list_count; ++entry_index) {
-            KeyframeTrack* path =
-                AnimObjListEntry(animation, 2, static_cast<signed char>(entry_index));
+            KeyframeTrack* path = animation->partPath(2, static_cast<signed char>(entry_index));
             if (path != 0) {
                 path->looping = true;
                 path->discrete_mode = true;
@@ -1285,8 +1189,8 @@ try {
                                     : W8_ANIMATION_FORWARD_COMPLETE;
     }
 
-    if (animation->path_lists == 0) {
-        const AnimationMesh* mesh = AnimObjEntry(animation, 2, 0);
+    if (!animation->positioned_parts) {
+        const AnimationMesh* mesh = animation->mesh(2, 0);
         auto box = mesh->frames.front().mesh->getBounds().box;
         for (const auto& frame : mesh->frames) box.include(frame.mesh->getBounds().box);
         bounds_min = box.minimum;
@@ -1314,15 +1218,15 @@ try {
                 InitializeStateDrivenPropVariables(trigger);
             }
             if (trigger->trigger_kind == W8TriggerKind::item && trigger->initial_action == 8) {
-                unsigned int path_count;
+                std::size_t path_count;
                 unsigned int path_i;
 
                 this->animation_running = true;
-                if (currentAnimation()->path_lists == 1) {
-                    path_count = AnimObjListCount(currentAnimation(), 2);
+                if (currentAnimation()->positioned_parts) {
+                    path_count = currentAnimation()->parts[2].size();
                     for (path_i = 0; path_i < path_count; ++path_i) {
-                        KeyframeTrack* path = AnimObjListEntry(currentAnimation(), 2,
-                                                               static_cast<signed char>(path_i));
+                        KeyframeTrack* path =
+                            currentAnimation()->partPath(2, static_cast<signed char>(path_i));
                         path->step_by_node = 1;
                     }
                 }
@@ -1368,7 +1272,7 @@ try {
     this->first_frame = 0;
     this->subcycle = 0;
     {
-        unsigned int frames = AnimObjValue(animation, 2);
+        unsigned int frames = animation->frameCount(2);
         this->last_frame = static_cast<unsigned char>(frames) - 1;
     }
     return result;
@@ -1382,7 +1286,7 @@ int Prop::GetAnimationState() const
 {
     const Animation* animation = this->currentAnimation();
     if (animation != 0) {
-        return static_cast<int>(AnimObjValue(animation, 2));
+        return static_cast<int>(animation->frameCount(2));
     }
     return -1;
 }
@@ -1463,30 +1367,9 @@ void ApplySavedProps(World& world, const std::vector<SavedProp>& section)
     }
 }
 
-/* The renderer owns the selected model instance. Without one, retail also
-   resets the cached prop index to -1 before returning it. */
-int GetSelectedPropIndex(void)
+void Prop::activate()
 {
-    if (g_current_model_instance == 0) {
-        return g_selected_prop_index = -1;
-    }
-    return g_selected_prop_index;
-}
-
-/* When the renderer still holds a pick and ResolvePickedProp latched a
-   trigger, run that trigger and post the nothing-happened / special-item
-   notice. Clearing the pick also clears the latch. */
-bool ActivateSelectedProp(void)
-{
-    if (g_current_model_instance == 0) {
-        g_selected_prop_trigger = 0;
-        return false;
-    }
-    if (g_selected_prop_trigger != 0) {
-        g_trigger_feedback = false;
-        g_selected_prop_trigger->Run(-1);
-        g_selected_prop_trigger->PrintNothingHappenedOrSpecialItemRequired();
-        return true;
-    }
-    return false;
+    g_trigger_feedback = false;
+    trigger->Run(-1);
+    trigger->PrintNothingHappenedOrSpecialItemRequired();
 }

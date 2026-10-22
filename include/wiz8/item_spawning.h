@@ -10,7 +10,6 @@
 #include "wiz8/rules/item_instance.h"
 
 class Trigger;
-struct World;
 
 /* Bit masks in W8WorldItem::flags; preserve combinations in unsigned int. */
 enum {
@@ -35,7 +34,6 @@ struct W8WorldItem {
     /* Saved world item flag word; level restore clears RADAR_SEEN. */
     int entity_flags;
     unsigned int flags; /* 0x29: W8_WORLD_ITEM_* masks */
-    int saved_marker;
     std::vector<std::unique_ptr<W8WorldItem>> contents;
     /* 0x35: vertical velocity while flag bit 1 (falling) is set; cleared on
        ground settle. */
@@ -44,16 +42,8 @@ struct W8WorldItem {
     unsigned char unknown_3d[0x70];
 };
 
-std::unique_ptr<W8WorldItem> CreateWorldItem(World& world, W8ItemInstance* item,
-                                             const glm::vec3* position, int entity_flags);
-W8WorldItem* AddWorldItem(World& world, std::unique_ptr<W8WorldItem> item);
-bool SettleWorldItem(World& world, W8WorldItem* item);
-std::unique_ptr<W8WorldItem> SpawnItem(World& world, int item_id, const glm::vec3* position,
-                                       int entity_flags);
-
 bool ItemHasFlags(const W8WorldItem* item, unsigned int mask);
 void SetItemFlags(W8WorldItem* item, unsigned int mask, bool enabled);
 void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled);
 bool ItemInfoIsWorldPersistent(const W8WorldItem* item);
-void ActivateItem(World& world, W8WorldItem* item);
 int FindItemRecordByName(const char* name);

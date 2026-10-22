@@ -38,9 +38,8 @@ bool CurrentCombatSubjectIsValid(const W8LevelRuntimeBlock& hud)
 {
     const int actor = CurrentGame().status.selected_character;
     if (actor == -1) return true;
-    const auto context = GetEditedActionContext(actor);
-    const auto action = SelectCombatAction(actor, context);
-    const bool sighting = context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
+    const auto action = EditedAction(actor);
+    const bool sighting = IsSighting(actor);
     if (hud.highlighted_item != -1)
         return AssessMonsterTarget(actor, hud.highlighted_item, action, true, sighting);
     if (auto* group = FindMonsterGroup(hud.action_group, false))
@@ -59,7 +58,7 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
     if (selected != -1 &&
         (ScreenPointer().targeting() == W8_TARGET_NEED_CONE ||
          (ScreenPointer().targeting() == W8_TARGET_NEED_PLACE && IsWorldCursorVisible()))) {
-        const auto action = SelectCombatAction(selected, GetEditedActionContext(selected));
+        const auto action = EditedAction(selected);
         const auto spell = GetActionSpellLikeId(CurrentGame().party, action);
         if (spell != 0) {
             area_preview = true;
@@ -104,18 +103,14 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
     };
     for (int actor = 0; actor < 8; ++actor) {
         if (!CanPartySlotParticipate(actor)) continue;
-        const auto context = GetEditedActionContext(actor);
-        if (context != W8_TARGETING_CONTEXT_OUT_OF_COMBAT)
-            add_targets(actor, SelectCombatAction(actor, context));
+        if (!IsSighting(actor)) add_targets(actor, EditedAction(actor));
     }
     result.subject_valid = CurrentCombatSubjectIsValid(hud);
     result.hovered_item = hud.selected_item;
     const glm::vec4 tint = result.subject_valid ? glm::vec4{0, 1, 0, 1} : glm::vec4{1, 0, 0, 1};
     if (auto* info = FindMonster(hud.highlighted_item, false)) {
         result.monsters[info->location_id].hovered = true;
-        const auto action = selected == -1
-                                ? W8Action{}
-                                : SelectCombatAction(selected, GetEditedActionContext(selected));
+        const auto action = selected == -1 ? W8Action{} : EditedAction(selected);
         if (selected != -1 &&
             GetTargetNeededForAction(CurrentGame().party, action) == W8_TARGET_NEED_GROUP) {
             if (auto* group = FindMonsterGroup(info->monster_group_id, false))
@@ -123,16 +118,13 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
         } else
             result.monsters[info->location_id].tint = tint;
     } else if (auto* group = FindMonsterGroup(hud.action_group, false)) {
-        const auto action = selected == -1
-                                ? W8Action{}
-                                : SelectCombatAction(selected, GetEditedActionContext(selected));
+        const auto action = selected == -1 ? W8Action{} : EditedAction(selected);
         if (selected != -1 &&
             GetTargetNeededForAction(CurrentGame().party, action) == W8_TARGET_NEED_GROUP) {
             for (int id : group->MemberIds()) result.monsters[id].tint = tint;
         } else if (selected != -1) {
-            const auto id = PickNextTargetableGroupMember(selected, group, action,
-                                                          GetEditedActionContext(selected) ==
-                                                              W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
+            const auto id =
+                PickNextTargetableGroupMember(selected, group, action, IsSighting(selected));
             if (id != -1) result.monsters[id].tint = tint;
         }
     }
@@ -157,8 +149,8 @@ void ApplyTargetingPresentation(const W8TargetingPresentation& presentation)
         monster->UpdateAttachedObjects(mark.hovered);
         monster->visual.SetPresentationColour(monster->IsDying() ? glm::vec4{0} : mark.tint);
     }
-    for (const auto& item : CurrentLevelPopulation().world_items) {
-        if (item->fActive && item->entity.find()) {
+    for (const auto& item : GetWorld()->items.records()) {
+        if (item->fActive && item->entity) {
             const bool hovered = presentation.hovered_item == item->runtime_id;
             item->entity->SetHighlight(true, hovered);
         }

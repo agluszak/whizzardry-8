@@ -29,7 +29,7 @@
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/item_spawning.h"
+#include "wiz8/item_spawning.h" // IWYU pragma: keep - completes created world items.
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/npc_state.h"
@@ -180,9 +180,9 @@ static bool DropUnstoredItem(Game& game, ItemSource source)
 {
     if ((Data().items[source.item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
         if (const auto position = FindItemDropPosition()) {
-            AddWorldItem(*GetWorld(),
-                         CreateWorldItem(*GetWorld(), &source.item, &*position,
-                                         W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+            auto& items = GetWorld()->items;
+            items.add(items.create(&source.item, *position,
+                                   W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             return true;
         }
     }
@@ -803,7 +803,8 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
                     SetTargetSourceToMonster(FindMonster(aimed->iMonsterID), &target);
                 }
             } else {
-                AimAtCharacter(party_slot, party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
+                AimStoredAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
+                                CharacterTarget(party_slot));
             }
         }
         target.name_known = true;

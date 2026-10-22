@@ -567,7 +567,7 @@ struct SavedMonsterOrders {
 
 /* Rebuild the icons for the conditions, enchantments and effects a loaded
    monster carries. */
-void RestoreMonsterSpellIcons(World& world, const W8MonsterInfo& info, Monster* monster)
+void RestoreMonsterSpellIcons(World& world, const W8MonsterInfo& info, Monster& monster)
 {
     if (info.highest_condition != W8_CONDITION_NONE) {
         for (int index = 0; index < W8_CONDITION_COUNT; ++index) {
@@ -624,11 +624,9 @@ void WriteMonsterRecord(W8Chunk& chunk, const W8MonsterInfo* info)
 
 void WriteWorldItems(W8Chunk& chunks)
 {
-    const auto count =
-        wiz8::checked_integer<std::uint32_t>(CurrentLevelPopulation().world_items.size());
-    chunks.WriteValue(count);
-    for (unsigned int index = 0; index < count; ++index)
-        SaveItemFile(chunks.WriteStream(), *ItemInfo(index));
+    const auto& items = GetWorld()->items.records();
+    chunks.WriteValue(wiz8::checked_integer<std::uint32_t>(items.size()));
+    for (const auto& item : items) SaveItemFile(chunks.WriteStream(), *item);
 }
 
 struct SavedMonsterGroup {
@@ -667,8 +665,6 @@ SavedMonster ReadMonster(W8Chunk& chunk)
     auto& script = saved.script;
     if (chunk.ReadValue<unsigned char>()) script = SavedMonsterScript::Read(chunk);
     info.fActive = false;
-    info.entity.detach();
-    info.pCombat = nullptr;
     saved.unborn = version >= 5 && chunk.ReadValue<unsigned char>() != 0;
     auto& movement = saved.movement;
     if (version >= 2 && chunk.ReadValue<unsigned char>())
@@ -1235,7 +1231,7 @@ std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world, W8Chunk& chun
         auto model = ReadMonsterRepresentation(world, &info);
         info.entity.attach(*model);
         world.monsters.push_back(std::move(model));
-        RestoreMonsterSpellIcons(world, info, info.entity.find());
+        RestoreMonsterSpellIcons(world, info, *info.entity);
         // Keep the encounter default script cached until activation assigns it.
         if (group->group->encounter_registered && !info.entity->script && !data.default_script)
             data.default_script = LoadMonsterScript("Default.MSF");
@@ -1278,7 +1274,7 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
         auto& list = saved.encounter ? population.encounter_groups : population.monster_groups;
         list.push_back(std::move(saved.group));
     }
-    population.world_items = std::move(data.items);
+    world.items.restore(std::move(data.items));
     std::vector<W8MonsterInfo*> records;
     records.reserve(data.monsters.size());
     for (auto& saved : data.monsters) {
@@ -1321,10 +1317,10 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
             group->leader_group_id = 0;
         for (int& ally : group->allied_group_ids)
             if (ally == group->group_id || (ally && !population.findGroup(ally))) ally = 0;
-        auto* leader = population.findMonster(group->leader_location_id)->entity.find();
-        leader->formation = group->formation;
-        if (group->encounter_registered && !leader->script)
-            leader->UseScript(data.default_script, true);
+        Monster& leader = *population.findMonster(group->leader_location_id)->entity;
+        leader.formation = group->formation;
+        if (group->encounter_registered && !leader.script)
+            leader.UseScript(data.default_script, true);
         auto* lead_group = group.get();
         size_t remaining = population.monster_groups.size();
         while (lead_group->leader_group_id) {
@@ -1332,25 +1328,24 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
             lead_group = population.findGroup(lead_group->leader_group_id);
             if (!lead_group) throw std::runtime_error("missing monster group leader");
         }
-        auto* formation_leader = population.findMonster(lead_group->leader_location_id);
-        if (!formation_leader) throw std::runtime_error("missing formation leader");
+        auto* formation_leader_info = population.findMonster(lead_group->leader_location_id);
+        if (!formation_leader_info) throw std::runtime_error("missing formation leader");
+        Monster& formation_leader = *formation_leader_info->entity;
         for (int id : group->MemberIds()) {
-            auto* member = population.findMonster(id)->entity.find();
-            member->nav.LinkGroupNavigator(member == formation_leader->entity.find()
-                                               ? nullptr
-                                               : &formation_leader->entity->nav,
-                                           false);
+            Monster& member = *population.findMonster(id)->entity;
+            member.nav.LinkGroupNavigator(
+                &member == &formation_leader ? nullptr : &formation_leader.nav, false);
         }
     }
     for (const auto& group : population.monster_groups) {
         if (group->leader_group_id) continue;
-        auto* leader = population.findMonster(group->leader_location_id)->entity.find();
+        Monster& leader = *population.findMonster(group->leader_location_id)->entity;
         // Restored levels start outside combat. Propagate the saved path using
         // this population, independently of the old world's combat clock.
-        leader->nav.CopyPathToGroup();
-        if (!leader->nav.movement_stopped) {
+        leader.nav.CopyPathToGroup();
+        if (!leader.nav.movement_stopped) {
             for (const auto& member : population.monster_roster.live())
-                if (member->entity->nav.linked_navigator == &(leader)->nav)
+                if (member->entity->nav.linked_navigator == &leader.nav)
                     member->entity->nav.movement_stopped = false;
         }
     }
@@ -1398,7 +1393,8 @@ try {
     return false;
 }
 
-/* Write the container and its contents as the retail flat sequence. */
+/* Write the container and its contents as the retail flat sequence. Each record's
+   marker word is one, and its next word says whether another record follows. */
 // FUNCTION: WIZ8 0x00514be0
 void SaveItemFile(wiz8::File& handle, const W8WorldItem& item_info)
 {

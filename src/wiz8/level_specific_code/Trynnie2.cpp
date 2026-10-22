@@ -114,15 +114,12 @@ bool MeatMaker(Trigger* pTrigger)
 {
     glm::vec3 entity_position;
     glm::vec3 position;
-    W8WorldItem* item;
 
     if (FindEntityByName("Meat_Position", &entity_position, 0, 0)) {
         position = entity_position;
-        item = AddWorldItem(*GetWorld(), SpawnItem(*GetWorld(), 0x1b4, &position,
-                                                   W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-        if (item != 0) {
-            ActivateItem(*GetWorld(), item);
-        }
+        auto& items = GetWorld()->items;
+        items.activate(
+            items.add(items.spawn(0x1b4, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
     }
     return true;
 }

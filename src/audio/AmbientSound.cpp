@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/geometric.hpp>
@@ -35,12 +36,12 @@
 #include "wiz8/math.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/random.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/render/quality.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/unicode.h"
+#include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
 
 static constexpr float g_ambient_sound_inner_radius_scale = 0.6000000238418579f;
@@ -51,11 +52,11 @@ W8AmbientTrack::~W8AmbientTrack()
 }
 void W8AmbientTrack::Reschedule()
 {
-    next_at = MonotonicMilliseconds() + RandomRange(time_min, time_max);
+    next_at = WorldClockMilliseconds() + RandomRange(time_min, time_max);
 }
 bool W8AmbientTrack::Due() const
 {
-    return !loops && next_at <= MonotonicMilliseconds() && !wiz8::sound::is_playing(instance);
+    return !loops && next_at <= WorldClockMilliseconds() && !wiz8::sound::is_playing(instance);
 }
 std::uint32_t W8AmbientTrack::RandomRange(std::uint32_t minimum, std::uint32_t maximum)
 {
@@ -167,21 +168,21 @@ bool W8AmbientSound::IsInsideRegion(const glm::vec3* listener)
    one-shot scheduling, re-aim a live 3D voice around the camera, and nudge its
    volume up inside the inner 40% of the radius. Shared sounds retarget the
    fade at the bus-scaled maximum. */
-void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
+void W8AmbientSound::UpdatePosition(const glm::vec3& listener, float yaw)
 {
     if (stopped != 0) {
         return;
     }
     {
-        glm::vec3 to_listener = *listener - position;
+        glm::vec3 to_listener = listener - position;
         float distance = glm::length(to_listener);
-        unsigned char inside = IsInsideRegion(listener);
+        unsigned char inside = IsInsideRegion(&listener);
 
         if (radius <= distance || (bounded != 0 && inside == 0)) {
             if (in_range != 0) {
                 in_range = 0;
                 if (group) {
-                    group->updatePosition(*this, *listener);
+                    group->updatePosition(*this, listener);
                     return;
                 }
                 if (sound_handle != nullptr) {
@@ -193,18 +194,18 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
         }
         if (in_range == 0) {
             in_range = 1;
-            Service(true);
+            Service(listener, yaw, true);
         }
         if (!group) {
             if (sound_handle != nullptr) {
-                float angle = -GetCameraYawRadians();
+                float angle = -yaw;
                 glm::mat3 rotation;
                 glm::vec3 transformed;
                 float gain_scale;
 
                 rotation = glm::mat3(1);
                 rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
-                glm::vec3 offset = position - *listener;
+                glm::vec3 offset = position - listener;
                 transformed = rotation * offset;
                 wiz8::sound::set_position(sound_handle, transformed);
                 if (radius * kNavigatorMode3Scale <= distance) {
@@ -217,7 +218,7 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
             }
             return;
         }
-        group->updatePosition(*this, *listener);
+        group->updatePosition(*this, listener);
     }
 }
 
@@ -226,7 +227,7 @@ void W8AmbientSound::UpdatePosition(const glm::vec3* listener)
    fire a positioned one-shot at the emitter. Looping sounds start once:
    positional emitters are positioned, shared group sounds start at zero volume
    so UpdateFade can ramp them up. */
-void W8AmbientSound::Service(bool entered)
+void W8AmbientSound::Service(const glm::vec3& listener, float yaw, bool entered)
 {
     if (stopped != 0 || in_range == 0) {
         return;
@@ -247,22 +248,12 @@ void W8AmbientSound::Service(bool entered)
             }
             if (!CurrentGame().combat.has_value() && should_play != 0 &&
                 CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-                float angle = -GetCameraYawRadians();
-                glm::vec3 camera;
-                glm::mat3 rotation;
-                glm::vec3 offset;
-                glm::vec3 transformed;
-                glm::vec3 to_listener;
-                float distance;
+                const auto offset = position - listener;
+                const auto rotation = glm::mat3_cast(glm::angleAxis(-yaw, glm::vec3(0, 1, 0)));
+                const auto transformed = rotation * offset;
+                const float distance = glm::length(offset);
                 unsigned int volume;
                 float gain_scale;
-
-                camera = cameraLocation();
-                rotation = glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0)));
-                offset = position - camera;
-                transformed = rotation * offset;
-                to_listener = camera - position;
-                distance = glm::length(to_listener);
                 volume = static_cast<unsigned int>(
                     (PresentationRng().below(volume_max - volume_min) + volume_min));
                 current_volume = volume;
@@ -281,17 +272,10 @@ void W8AmbientSound::Service(bool entered)
         return;
     }
     if (!group) {
-        float angle = -GetCameraYawRadians();
-        glm::vec3 camera;
-        glm::mat3 rotation;
-        glm::vec3 offset;
-        glm::vec3 transformed;
-
-        camera = cameraLocation();
         current_volume = volume_max;
-        rotation = glm::mat3_cast(glm::angleAxis(angle, glm::vec3(0, 1, 0)));
-        offset = position - camera;
-        transformed = rotation * offset;
+        const auto offset = position - listener;
+        const auto rotation = glm::mat3_cast(glm::angleAxis(-yaw, glm::vec3(0, 1, 0)));
+        const auto transformed = rotation * offset;
         sound_handle = wiz8::sound::play(
             config.wave_name, {.volume = current_volume, .loops = 0, .position = transformed});
         if (sound_handle == nullptr) {
@@ -299,7 +283,7 @@ void W8AmbientSound::Service(bool entered)
         }
         return;
     }
-    if (group) group->service(*this);
+    group->service(*this);
 }
 
 SharedAmbientGroup::~SharedAmbientGroup()
@@ -313,9 +297,6 @@ void SharedAmbientGroup::retarget(unsigned volume, unsigned full_volume)
     target_volume = volume;
     fade_timer.SetDuration(1.5f / std::max(full_volume, 1u));
     fade_timer.Restart();
-    fade_timer.m_flags.paused = false;
-    fade_timer.m_start = fade_timer.GetTime() - fade_timer.m_start;
-    fade_timer.SetDuration(-1.0f);
 }
 
 void SharedAmbientGroup::service(W8AmbientSound& emitter)
@@ -366,10 +347,8 @@ void SharedAmbientGroup::updateFade()
             ++current_volume;
         else if (current_volume > target_volume)
             --current_volume;
-        else if (!fade_timer.m_flags.paused) {
-            fade_timer.m_flags.paused = true;
-            fade_timer.m_start = fade_timer.GetTime() - fade_timer.m_start;
-        }
+        else
+            fade_timer.Pause();
         wiz8::sound::set_volume(playback, current_volume);
     }
     if (!selected && current_volume == target_volume) {
@@ -388,21 +367,14 @@ void SharedAmbientGroup::stop(W8AmbientSound& emitter)
 
 void UpdateAmbientSounds(World* world)
 {
-    if (world != 0) {
-        int count;
-        int index;
-
-        ServiceRandomAmbients(*world);
-        count = static_cast<int>(world->audio.emitters.size());
-        for (index = 0; index < count; ++index) {
-            W8AmbientSound* sound = GetWorldAmbientSound(world, index);
-            if (sound != 0) {
-                sound->Service(false);
-            }
-        }
-        for (auto& group : world->audio.shared_groups) group->updateFade();
-        world->audio.update(cameraLocation(), GetCameraYawRadians());
-    }
+    if (!world) return;
+    ServiceRandomAmbients(*world);
+    const auto listener = cameraLocation(*world);
+    const float yaw = world->party_camera.m_yaw;
+    for (const auto& sound : world->audio.emitters)
+        if (sound) sound->Service(listener, yaw, false);
+    for (auto& group : world->audio.shared_groups) group->updateFade();
+    world->audio.update(listener, yaw);
 }
 
 // Surface and material fallbacks: the "None" row of each name table.
@@ -484,22 +456,14 @@ void BuildFootstepPath(char* path, W8FootstepSurface surface, W8FootstepMaterial
     }
 }
 
-void RepositionAmbientSounds()
+void RepositionAmbientSounds(World* world)
 {
-    if (GetWorld() != nullptr) {
-        int count;
-        int index;
-
-        ServiceRandomAmbients(*GetWorld());
-        count = static_cast<int>(GetWorld()->audio.emitters.size());
-        for (index = 0; index < count; ++index) {
-            W8AmbientSound* sound = GetWorldAmbientSound(GetWorld(), index);
-            if (sound != 0) {
-                glm::vec3 position = cameraLocation();
-                sound->UpdatePosition(&position);
-            }
-        }
-    }
+    if (!world) return;
+    ServiceRandomAmbients(*world);
+    const auto listener = cameraLocation(*world);
+    const float yaw = world->party_camera.m_yaw;
+    for (const auto& sound : world->audio.emitters)
+        if (sound) sound->UpdatePosition(listener, yaw);
 }
 
 W8AmbientSound::~W8AmbientSound()
@@ -557,24 +521,18 @@ bool AddAmbientSound(World* world, std::string_view name, const W8AmbientSoundCo
 /* The by-name script operations share one lookup and the same start/stop
    steps; retail expands all of them, re-testing the found pointer after the
    lookup has already dereferenced it. */
-static W8AmbientSound* FindAmbientSoundByName(std::string_view name)
+static W8AmbientSound* FindAmbientSoundByName(World& world, std::string_view name)
 {
-    const int count = static_cast<int>(GetWorld()->audio.emitters.size());
-
-    for (int index = 0; index < count; ++index) {
-        W8AmbientSound* sound = GetWorldAmbientSound(GetWorld(), index);
-        if (!sound->name.empty() && CompareTextIgnoreAsciiCase(sound->name, name) == 0) {
-            return sound;
-        }
-    }
+    for (const auto& sound : world.audio.emitters)
+        if (!sound->name.empty() && CompareTextIgnoreAsciiCase(sound->name, name) == 0)
+            return sound.get();
     return nullptr;
 }
 
-static void StartAmbientSoundAtCamera(W8AmbientSound* sound)
+static void StartAmbientSoundAtCamera(World& world, W8AmbientSound* sound)
 {
-    glm::vec3 position = cameraLocation();
     sound->stopped = 0;
-    sound->UpdatePosition(&position);
+    sound->UpdatePosition(cameraLocation(world), world.party_camera.m_yaw);
 }
 
 static void StopAmbientSound(W8AmbientSound* sound)
@@ -586,28 +544,28 @@ static void StopAmbientSound(W8AmbientSound* sound)
     sound->sound_handle = nullptr;
 }
 
-void PositionAmbientSoundByName(World* /* unused */, std::string_view name)
+void PositionAmbientSoundByName(World& world, std::string_view name)
 {
-    W8AmbientSound* sound = FindAmbientSoundByName(name);
+    W8AmbientSound* sound = FindAmbientSoundByName(world, name);
     if (sound != 0) {
-        StartAmbientSoundAtCamera(sound);
+        StartAmbientSoundAtCamera(world, sound);
     }
 }
 
-void StopAmbientSoundByName(World* /* unused */, std::string_view name)
+void StopAmbientSoundByName(World& world, std::string_view name)
 {
-    W8AmbientSound* sound = FindAmbientSoundByName(name);
+    W8AmbientSound* sound = FindAmbientSoundByName(world, name);
     if (sound != 0) {
         StopAmbientSound(sound);
     }
 }
 
-void ToggleAmbientSoundByName(std::string_view name)
+void ToggleAmbientSoundByName(World& world, std::string_view name)
 {
-    W8AmbientSound* sound = FindAmbientSoundByName(name);
+    W8AmbientSound* sound = FindAmbientSoundByName(world, name);
     if (sound != 0) {
         if (sound->stopped != 0) {
-            StartAmbientSoundAtCamera(sound);
+            StartAmbientSoundAtCamera(world, sound);
             return;
         }
         StopAmbientSound(sound);
@@ -621,29 +579,34 @@ try {
     std::string directory, line;
     if (!std::getline(input, directory)) return false;
     if (directory.ends_with('\r')) directory.pop_back();
-    int direct_selector = 0;
     while (std::getline(input, line)) {
         std::istringstream fields(line);
         std::string name;
         if (!(fields >> name) || name.starts_with('#')) continue;
-        int configured[6]{-1, -1, -1, -1, -1, -1};
-        fields >> configured[2] >> configured[3] >> configured[4] >> configured[5] >>
-            configured[0] >> configured[1] >> direct_selector;
+        int speed_min, speed_max, volume_min, volume_max, time_min, time_max, loops;
+        if (!(fields >> speed_min >> speed_max >> volume_min >> volume_max >> time_min >>
+              time_max >> loops))
+            return false;
+        const auto ordered = [](int low, int high) {
+            return low == -1 || high == -1 || low <= high;
+        };
+        if (std::min({speed_min, speed_max, volume_min, volume_max, time_min, time_max, loops}) <
+                -1 ||
+            volume_min > 127 || volume_max > 127 || !ordered(speed_min, speed_max) ||
+            !ordered(volume_min, volume_max) || !ordered(time_min, time_max))
+            return false;
+        const auto volume = [](int v) { return std::uint32_t(v == -1 ? 127 : v); };
         const auto path = fmt::format("{}\\{}", directory, name);
-        if (direct_selector == -1) {
-            const auto volume = [](int value) {
-                return value == -1 ? std::uint32_t(127) : std::uint32_t(value);
-            };
-            auto track =
-                ReadRandomAmbient(path.c_str(), configured[0], configured[1], configured[2],
-                                  configured[3], volume(configured[4]), volume(configured[5]));
+        if (loops == -1) {
+            auto track = ReadRandomAmbient(path.c_str(), time_min, time_max, speed_min, speed_max,
+                                           volume(volume_min), volume(volume_max));
             if (track) world.audio.tracks.push_back(std::move(track));
         } else {
             auto track = std::make_unique<W8AmbientTrack>();
             track->clip = wiz8::sound::load(path);
             if (!track->clip) continue;
-            track->volume_min = track->volume_max = std::uint32_t(configured[5]);
-            track->loops = std::uint32_t(direct_selector);
+            track->volume_min = track->volume_max = volume(volume_max);
+            track->loops = std::uint32_t(loops);
             world.audio.tracks.push_back(std::move(track));
         }
     }
@@ -694,11 +657,13 @@ std::vector<W8AmbientSoundState> ReadAmbientSoundStates(W8Chunk& handle)
     std::uint32_t count;
     handle.ReadBytes(&version, sizeof(version));
     handle.ReadBytes(&count, sizeof(count));
-    if (count > (handle.RemainingBytes()) / 129)
-        throw std::runtime_error("invalid ambient sound state count");
+    // Retail writes the emitter list's length but skips its empty slots, so
+    // the chunk can hold fewer records than the count says.
+    const auto stored =
+        static_cast<std::uint32_t>(std::min<std::int64_t>(count, handle.RemainingBytes() / 129));
     std::vector<W8AmbientSoundState> pending;
-    pending.reserve(count);
-    for (std::uint32_t index = 0; index < count; ++index) {
+    pending.reserve(stored);
+    for (std::uint32_t index = 0; index < stored; ++index) {
         std::array<char, 128> name;
         unsigned char stopped;
         handle.ReadBytes(name.data(), name.size());
@@ -714,7 +679,7 @@ void ApplyAmbientSoundStates(World& world, std::span<const W8AmbientSoundState> 
 {
     for (const auto& [name, stopped] : states)
         for (const auto& sound : world.audio.emitters)
-            if (sound->name == name) sound->stopped = stopped;
+            if (SDL_strcasecmp(sound->name.c_str(), name.c_str()) == 0) sound->stopped = stopped;
 }
 
 void AmbientAudioSystem::update(const glm::vec3& listener, float yaw)

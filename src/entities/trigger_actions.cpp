@@ -64,7 +64,6 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/math.h"
 #include "wiz8/platform/game_timer.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/particle_system.h"
@@ -437,22 +436,12 @@ void TriggerEvent::Update()
         return;
     }
     if (action == 2) {
-        W8GameTimer::Flags flags = timer.m_flags;
-
         if (CurrentGame().combat.has_value()) {
-            if (flags.paused || (g_shared_timer_paused && !flags.raw_time) ||
-                g_shared_timer_flag0) {
-                return;
-            }
-            timer.m_flags.paused = true;
-            timer.m_start = timer.GetTime() - timer.m_start;
+            timer.Pause();
             return;
         }
-        if (flags.paused || (g_shared_timer_paused && !flags.raw_time) || g_shared_timer_flag0) {
-            timer.m_flags.paused = false;
-            timer.m_start = timer.GetTime() - timer.m_start;
-            timer.SetDuration(-1.0f);
-        }
+        timer.Resume();
+        if (SharedGameTimersHeld()) return;
     }
 
     if (timer.GetProgress() <= 1.0f || trigger->HasActorWithinRadius(5000.0f, true)) {
@@ -649,7 +638,7 @@ Trigger::Trigger(World* world)
     action_data[0] = 0;
     action_data_mode = W8TriggerActionDataMode::toggle_alternate;
     item_group_seed =
-        static_cast<unsigned int>(MonotonicMilliseconds() + CurrentGame().rng.below(30000));
+        static_cast<unsigned int>(WorldClockMilliseconds() + CurrentGame().rng.below(30000));
     gold = 0;
     uses_remaining = 0;
     trigger_id = world ? world->next_trigger_id++ : 0;
@@ -947,7 +936,7 @@ void Trigger::GenerateItemGroup()
     maximum_items = RollDice(&Data().item_tables[table_id].item_count_dice);
     GenerateItemsFromTable(items, table_id, maximum_items, position);
     if (world_item_group == 0) {
-        world_item_group = SpawnItem(*GetWorld(), 0x23c, &position, 0);
+        world_item_group = m_pWorld->items.spawn(0x23c, position, 0);
     }
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         world_item_group->contents.push_back(std::move(items[index]));
@@ -962,7 +951,7 @@ void Trigger::GenerateItemGroup()
 W8WorldItem* Trigger::GetOrCreateItemGroup(bool create)
 {
     if (create && world_item_group == 0) {
-        world_item_group = SpawnItem(*GetWorld(), 0x23c, &position, 0);
+        world_item_group = m_pWorld->items.spawn(0x23c, position, 0);
     }
     return world_item_group.get();
 }
@@ -1263,18 +1252,12 @@ void Trigger::Run(int source)
 
             if ((flags & W8_TRIGGER_ANIMATE_STATES) != 0) {
                 Animation* animation;
-                /* 0x0043E4C3 tests the AnimObjListCount result signed. */
-                int count;
-                int index;
 
                 assert(m_pProp != 0 && m_bRepType == W8_TRIGGER_REP_PROP);
                 animation = m_pProp->currentAnimation();
-                if (animation->path_lists == 1) {
-                    count = AnimObjListCount(animation, 2);
-                    for (index = 0; index < count; ++index) {
-                        KeyframeTrack* path =
-                            AnimObjListEntry(animation, 2, static_cast<signed char>(index));
-                        PathAIUpdate(path,
+                if (animation->positioned_parts) {
+                    for (auto& part : animation->parts[2]) {
+                        PathAIUpdate(part.path ? &*part.path : nullptr,
                                      previous <= static_cast<signed char>(state_index) ? 1 : -1);
                     }
                 } else {
@@ -1379,14 +1362,13 @@ void Trigger::Run(int source)
         if (inline_action_data[0] != '\0') {
             if ((CurrentGame().party.held.item.iItemNo != -1)) {
                 glm::vec3 item_position;
-                auto item =
-                    CreateWorldItem(*GetWorld(), &CurrentGame().party.held.item, &item_position,
-                                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
+                auto item = m_pWorld->items.create(&CurrentGame().party.held.item, item_position,
+                                                   W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
 
                 if (item != 0) {
                     if (world_item_group == 0) {
                         glm::vec3 group_position;
-                        world_item_group = SpawnItem(*GetWorld(), 0x23c, &group_position, 0);
+                        world_item_group = m_pWorld->items.spawn(0x23c, group_position, 0);
                     }
                     world_item_group->contents.push_back(std::move(item));
                 }
@@ -1663,7 +1645,7 @@ void Trigger::Run(int source)
                 timed_action->timer.SetDuration(m_lData2 * 720.0f);
                 timed_action->timer.Restart();
 
-                timed_action->timer.SetMode(W8_TIMER_CLOCK_GAME);
+                timed_action->timer.SetMode(TimerClock::Calendar);
             }
         }
         if (trigger_kind == W8TriggerKind::prop) {
@@ -1777,11 +1759,11 @@ void Trigger::Run(int source)
         for (const auto& recipient : recipients) {
             const auto& name = recipient;
             if (action == 0x41) {
-                PositionAmbientSoundByName(GetWorld(), name.c_str());
+                PositionAmbientSoundByName(*m_pWorld, name.c_str());
             } else if (action == 0x42) {
-                StopAmbientSoundByName(GetWorld(), name.c_str());
+                StopAmbientSoundByName(*m_pWorld, name.c_str());
             } else {
-                ToggleAmbientSoundByName(name.c_str());
+                ToggleAmbientSoundByName(*m_pWorld, name.c_str());
             }
             action_succeeded = true;
         }
@@ -1848,7 +1830,7 @@ void Trigger::Run(int source)
         if (m_pProp == 0 || m_lData1 < 0) {
             return;
         }
-        count = AnimObjValue(m_pProp->currentAnimation(), 2);
+        count = m_pProp->currentAnimation()->frameCount(2);
         if (static_cast<int>(count) <= m_lData1) {
             return;
         }
@@ -1879,7 +1861,7 @@ void Trigger::Run(int source)
 
     case 0x4b: {
         if (recipients.empty()) return;
-        const auto selected = MonotonicMilliseconds() % recipients.size();
+        const auto selected = WorldClockMilliseconds() % recipients.size();
         RunDestination(recipients[selected].c_str());
         break;
     }
