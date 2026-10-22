@@ -697,13 +697,12 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
                 text.RenderString(value_text, g_wiz_text_font_secondary, false, target);
             }
         }
-        for (int realselectedValue() = 0; realselectedValue() < 6; ++realselectedValue()) {
-            bool first_column = (realselectedValue() & 1) == 0;
+        for (int realm_index = 0; realm_index < 6; ++realm_index) {
+            bool first_column = (realm_index & 1) == 0;
             int frame_top = (first_column ? 0x155 : 0x16f) + top;
-            CatalogArtwork::Load(g_character_resistance_images[realselectedValue()], 0)
-                .drawAndInvalidate(target,
-                                   g_spell_realm_animations[realselectedValue()].initial_frame,
-                                   (realselectedValue() / 2) * 0x3f + 0x23 + left, frame_top);
+            CatalogArtwork::Load(g_character_resistance_images[realm_index], 0)
+                .drawAndInvalidate(target, g_spell_realm_animations[realm_index].initial_frame,
+                                   (realm_index / 2) * 0x3f + 0x23 + left, frame_top);
         }
 
         text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
