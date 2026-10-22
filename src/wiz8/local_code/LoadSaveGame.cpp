@@ -373,7 +373,6 @@ constexpr unsigned int kMonsterGroupRecordVersion = 3;
 constexpr unsigned int kMonsterHasMovement = 0x20000000;
 
 struct SavedMonsterScript {
-    std::shared_ptr<Script> resource;
     char name[0x40]{};
     W8MonsterScriptCommand wait{};
     int line = 0;
@@ -415,11 +414,11 @@ struct SavedMonsterScript {
         chunk.ReadBytes(script.conditions.data(), script.conditions.size());
         return script;
     }
-    void Apply(W8MonsterInfo& info, Monster& monster) const
+    void Apply(W8MonsterInfo& info, Monster& monster, std::shared_ptr<Script> resource) const
     {
         if (name[0] == '\0') return;
         info.ai_mode |= W8_MONSTER_AI_RESTORE_SCRIPT;
-        monster.UseScript(resource, false);
+        monster.UseScript(std::move(resource), false);
         monster.script_wait = wait;
         monster.script_line = line;
         for (const auto condition : conditions) monster.script_conditions.push_back(condition != 0);
@@ -687,12 +686,10 @@ SavedMonster ReadMonster(W8Chunk& chunk)
 
 } // namespace
 
-namespace {
-/* One level's saved state as its LVLS group holds it, decoded without the level's world:
-   the status header, the monster groups and monsters, the world items, cursor nodes,
+/* The status header, the monster groups and monsters, the world items, cursor nodes,
    encounters and automap, the trigger, prop, lock and action sections, and the ambient
    sounds, particles and lights. */
-struct LevelState {
+struct LevelState::Data {
     std::optional<wiz8::save::LevelStatusHeader> header;
     std::vector<SavedMonsterGroup> groups;
     std::vector<SavedMonster> monsters;
@@ -706,11 +703,15 @@ struct LevelState {
     // The trigger, prop, lock and action sections, in the order they were read.
     std::vector<SavedWorldSection> world_sections;
 };
-} // namespace
 
-// A level's decoded state with what building its world prepared from it.
-struct W8LoadedLevelStatus::Data : LevelState {
-    std::shared_ptr<Script> default_script;
+LevelState::LevelState() : data(std::make_unique<Data>()) {}
+LevelState::LevelState(LevelState&&) noexcept = default;
+LevelState& LevelState::operator=(LevelState&&) noexcept = default;
+LevelState::~LevelState() = default;
+
+// What entering a built level installs: its status header, NPC bindings and pending deaths.
+struct W8LoadedLevelStatus::Data {
+    std::optional<wiz8::save::LevelStatusHeader> header;
     W8PreparedNpcBindings npc_bindings;
     std::vector<int> pending_deaths;
 };
@@ -720,8 +721,8 @@ W8LoadedLevelStatus::~W8LoadedLevelStatus() = default;
 
 namespace {
 // Decode one section of a level group into the group's values.
-void ReadLevelSection(LevelState& data, W8Chunk& chunk, unsigned int chunk_id, bool from_assets,
-                      bool baseline = false)
+void ReadLevelSection(LevelState::Data& data, W8Chunk& chunk, unsigned int chunk_id,
+                      bool from_assets, bool baseline = false)
 {
     switch (chunk_id) {
     case W8_CHUNK_STATUS_HEADER:
@@ -1177,10 +1178,12 @@ try {
 namespace {
 /* Decode level `level`'s group from `chunk`, or nothing when the file has none. A saved
    group takes the sections a save does not repeat (locks, cursor nodes, encounters and
-   trigger actions) from the level's asset status first. */
+   trigger actions) from the level's asset status first. Group and monster identities
+   must be unique. */
 std::optional<LevelState> DecodeLevelState(W8Chunk& chunk, int level, bool from_assets)
 {
-    LevelState state;
+    LevelState decoded;
+    auto& state = *decoded.data;
     const bool found = WithLevelGroup(chunk, level, [&] {
         if (!from_assets) {
             W8Chunk baseline;
@@ -1198,75 +1201,47 @@ std::optional<LevelState> DecodeLevelState(W8Chunk& chunk, int level, bool from_
             [&](unsigned int section) { ReadLevelSection(state, chunk, section, from_assets); });
     });
     if (!found) return std::nullopt;
-    return state;
-}
-
-std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world, W8Chunk& chunk, int level,
-                                                     bool from_assets)
-{
-    auto state = DecodeLevelState(chunk, level, from_assets);
-    if (!state) return nullptr;
-    auto status = std::make_unique<W8LoadedLevelStatus>();
-    auto& data = *status->data;
-    static_cast<LevelState&>(data) = std::move(*state);
-    for (auto& section : data.world_sections) ApplySavedSection(world, section);
     std::unordered_set<int> group_ids, monster_ids;
-    for (const auto& group : data.groups) {
+    for (const auto& group : state.groups)
         if (!group_ids.insert(group.group->group_id).second)
             throw std::runtime_error("duplicate saved monster group");
+    for (const auto& saved : state.monsters)
+        if (!monster_ids.insert(saved.info->location_id).second)
+            throw std::runtime_error("duplicate saved monster identity");
+    return decoded;
+}
+
+/* Check the species a decoded level names against the monster database. A monster of a
+   deleted species is dropped, so only the others need their group. */
+void CheckLevelSpecies(const LevelState::Data& state)
+{
+    for (const auto& group : state.groups)
         if (!MonsterDBFromSpecies(group.group->monster_id))
             throw std::runtime_error("missing saved monster group species");
-    }
-    // Loading graphics and scripts belongs to construction, not gameplay entry.
-    for (auto& saved : data.monsters) {
-        auto& info = *saved.info;
-        if (!monster_ids.insert(info.location_id).second)
-            throw std::runtime_error("duplicate saved monster identity");
-        const auto* record = MonsterDBFromSpecies(info.monster_species);
+    for (const auto& saved : state.monsters) {
+        const auto* record = MonsterDBFromSpecies(saved.info->monster_species);
         if (!record) throw std::runtime_error("missing saved monster species");
         if (record->deleted) continue;
-        const auto group =
-            std::find_if(data.groups.begin(), data.groups.end(), [&](const auto& saved_group) {
-                return saved_group.group->group_id == info.monster_group_id;
-            });
-        if (group == data.groups.end() || MonsterDBFromSpecies(group->group->monster_id)->deleted)
+        const auto group = std::ranges::find_if(state.groups, [&](const auto& saved_group) {
+            return saved_group.group->group_id == saved.info->monster_group_id;
+        });
+        if (group == state.groups.end() || MonsterDBFromSpecies(group->group->monster_id)->deleted)
             throw std::runtime_error("missing saved monster group");
-        auto model = ReadMonsterRepresentation(world, &info);
-        info.entity.attach(*model);
-        world.monsters.push_back(std::move(model));
-        RestoreMonsterSpellIcons(world, info, info.entity.find());
-        // Keep the encounter default script cached until activation assigns it.
-        if (group->group->encounter_registered && !info.entity->script && !data.default_script)
-            data.default_script = LoadMonsterScript("Default.MSF");
-        if (saved.script && saved.script->name[0] != '\0')
-            saved.script->resource = LoadMonsterScript(saved.script->name);
     }
-    if (data.cursors) BuildWorldCursorNodes(world, std::move(*data.cursors));
-    PrepareLevelPopulation(world, *status);
-    return status;
-}
-} // namespace
-
-std::unique_ptr<W8LoadedLevelStatus>
-ReadLevelStatus(World& world, const std::filesystem::path& path, int level, bool from_assets)
-{
-    W8Chunk chunk;
-    if (!chunk.OpenRead(path)) return nullptr;
-    return ReadLevelStatus(world, chunk, level, from_assets);
 }
 
-std::unique_ptr<W8LoadedLevelStatus> ReadLeftLevelStatus(World& world, const Game& game, int level)
-{
-    const auto left = game.left_levels.find(level);
-    if (left == game.left_levels.end()) return nullptr;
-    W8Chunk chunk;
-    OpenLevelImage(chunk, left->second);
-    return ReadLevelStatus(world, chunk, level, false);
-}
+/* The scripts building a level loads for its monsters: the encounter default, kept until
+   activation assigns it, and each saved monster's own, by the monster's index. */
+struct LevelScripts {
+    std::shared_ptr<Script> default_script;
+    std::vector<std::shared_ptr<Script>> saved;
+};
 
-void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
+/* Install the decoded groups, items and monsters in `world`'s population, link them, and
+   restore the encounters, automap, ambient sounds, particles and lights. */
+void PrepareLevelPopulation(World& world, LevelState::Data& data, LevelScripts scripts,
+                            W8LoadedLevelStatus::Data& entry)
 {
-    auto& data = *status.data;
     auto& population = *world.population;
     for (auto& saved : data.groups) {
         auto& group = *saved.group;
@@ -1300,15 +1275,16 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
             PrepareMonsterInWorld(world, *info, data.monsters[index].unborn);
         }
     }
-    data.npc_bindings = PrepareNpcBindings(world);
+    entry.npc_bindings = PrepareNpcBindings(world);
     for (size_t index = 0; index < records.size(); ++index) {
         auto* info = records[index];
         if (!info) continue;
         auto& saved = data.monsters[index];
         if (saved.movement) saved.movement->Apply(*info->entity);
         if (saved.orders) saved.orders->Apply(*info, *info->entity);
-        if (saved.script) saved.script->Apply(*info, *info->entity);
-        if (info->hp_current == 0) data.pending_deaths.push_back(info->location_id);
+        if (saved.script)
+            saved.script->Apply(*info, *info->entity, std::move(scripts.saved[index]));
+        if (info->hp_current == 0) entry.pending_deaths.push_back(info->location_id);
     }
     // Resolve durable links against this population, preserving stored member order.
     for (auto& group : population.monster_groups) {
@@ -1323,7 +1299,7 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
         auto* leader = population.findMonster(group->leader_location_id)->entity.find();
         leader->formation = group->formation;
         if (group->encounter_registered && !leader->script)
-            leader->UseScript(data.default_script, true);
+            leader->UseScript(scripts.default_script, true);
         auto* lead_group = group.get();
         size_t remaining = population.monster_groups.size();
         while (lead_group->leader_group_id) {
@@ -1358,6 +1334,55 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
     ApplyAmbientSoundStates(world, data.ambient);
     ApplyParticleStates(world, data.particles);
     ApplyLightStates(world, data.lights);
+}
+} // namespace
+
+std::optional<LevelState> DecodeLevelState(const std::filesystem::path& path, int level,
+                                           bool from_assets)
+{
+    W8Chunk chunk;
+    if (!chunk.OpenRead(path)) return std::nullopt;
+    return DecodeLevelState(chunk, level, from_assets);
+}
+
+std::optional<LevelState> DecodeLeftLevelState(const Game& game, int level)
+{
+    const auto left = game.left_levels.find(level);
+    if (left == game.left_levels.end()) return std::nullopt;
+    W8Chunk chunk;
+    OpenLevelImage(chunk, left->second);
+    return DecodeLevelState(chunk, level, false);
+}
+
+std::unique_ptr<W8LoadedLevelStatus> BuildLevel(World& world, LevelState level)
+{
+    auto& state = *level.data;
+    CheckLevelSpecies(state);
+    // Retail drew the generators' jittered intervals as it read them, before building anything.
+    if (state.encounters) RearmDecodedGenerators(*state.encounters);
+    auto status = std::make_unique<W8LoadedLevelStatus>();
+    status->data->header = state.header;
+    for (auto& section : state.world_sections) ApplySavedSection(world, section);
+    LevelScripts scripts{.saved = std::vector<std::shared_ptr<Script>>(state.monsters.size())};
+    for (std::size_t index = 0; index < state.monsters.size(); ++index) {
+        auto& saved = state.monsters[index];
+        auto& info = *saved.info;
+        if (MonsterDBFromSpecies(info.monster_species)->deleted) continue;
+        const auto group = std::ranges::find_if(state.groups, [&](const auto& saved_group) {
+            return saved_group.group->group_id == info.monster_group_id;
+        });
+        auto model = ReadMonsterRepresentation(world, &info);
+        info.entity.attach(*model);
+        world.monsters.push_back(std::move(model));
+        RestoreMonsterSpellIcons(world, info, info.entity.find());
+        if (group->group->encounter_registered && !info.entity->script && !scripts.default_script)
+            scripts.default_script = LoadMonsterScript("Default.MSF");
+        if (saved.script && saved.script->name[0] != '\0')
+            scripts.saved[index] = LoadMonsterScript(saved.script->name);
+    }
+    if (state.cursors) BuildWorldCursorNodes(world, std::move(*state.cursors));
+    PrepareLevelPopulation(world, state, std::move(scripts), *status->data);
+    return status;
 }
 
 // Publish shared session references and scalar state only. The replacement
@@ -1624,8 +1649,8 @@ try {
 
 /* Load a save slot. Every game section is decoded first, so a malformed one fails the load
    before the game in progress is replaced; then a new game begins and the sections are
-   installed in the order the file holds them. The game keeps each level's group as bytes,
-   which a save copies and entering the level decodes. The message countdowns, the gameplay
+   installed in the order the file holds them. Each level's group is decoded to check it, and
+   the game keeps it as bytes, which a save copies and entering the level decodes again. The message countdowns, the gameplay
    timer and the held item are re-armed and the loaded items normalized last. */
 bool LoadGame(GameSession& games, std::string_view slot_name)
 try {
@@ -1638,7 +1663,11 @@ try {
         switch (id) {
         case W8_CHUNK_LEVEL_STATUS: {
             const int level = PeekGroupLevel(chunks);
-            installs.emplace_back([level, image = CopyLevelGroupImage(chunks)](Game& game) mutable {
+            auto image = CopyLevelGroupImage(chunks);
+            W8Chunk group;
+            OpenLevelImage(group, image);
+            DecodeLevelState(group, level, false);
+            installs.emplace_back([level, image = std::move(image)](Game& game) mutable {
                 game.left_levels[level] = std::move(image);
             });
             break;

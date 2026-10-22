@@ -564,7 +564,7 @@ void ReadMonsterGeneratorStates(W8Chunk& file, W8EncounterState& state)
             // The record restores a one-second interval until the generator rearms.
             GeneratorInterval timer;
             timer.load(file);
-            if (generator) generator->timer = timer;
+            if (generator) generator->rearm.value().saved_timer = timer;
         }
     }
 }
@@ -662,8 +662,9 @@ void MonGen::Save(wiz8::File& handle)
    name and its trailing flag are stored too, below that they are not, and the
    two paths converge on the same eight common fields. Every read is chained
    through the same conjunction, so the first failure abandons the rest and the
-   record is reported bad; the timer is rearmed either way, and the armed bit is
-   always cleared on the way out so a loaded generator starts disarmed. */
+   record is reported bad. The jittered rearm waits for the world to be built
+   (`RearmDecodedGenerators`), and the armed bit is always cleared on the way out
+   so a loaded generator starts disarmed. */
 unsigned char MonGen::Load(W8Chunk& handle, short default_interval)
 try {
     unsigned char version{};
@@ -683,7 +684,7 @@ try {
     handle.ReadBytes(&spawn_position.y, 4);
     handle.ReadBytes(&spawn_position.z, 4);
     handle.ReadBytes(&encounter_table_index, 4);
-    Reset(default_interval);
+    rearm = DecodedRearm{IntervalSeconds(default_interval), std::nullopt};
     if (static_cast<signed char>(version) > 1) {
         timer.load(handle);
         timer.arm();
@@ -700,15 +701,31 @@ try {
    default interval; a clear bit uses the generator's custom +0x06 interval. */
 void MonGen::Reset(short default_interval)
 {
-    short interval;
-    float jitter;
+    Rearm(IntervalSeconds(default_interval));
+}
 
-    interval =
-        (flags & W8_MONGEN_USE_DEFAULT_SETTINGS) != 0 ? default_interval : custom_interval_seconds;
-    jitter = interval * g_generator_jitter_fraction;
+short MonGen::IntervalSeconds(short default_interval) const
+{
+    return (flags & W8_MONGEN_USE_DEFAULT_SETTINGS) != 0 ? default_interval
+                                                         : custom_interval_seconds;
+}
+
+void MonGen::Rearm(short interval)
+{
+    const float jitter = interval * g_generator_jitter_fraction;
     timer.setSeconds(static_cast<float>(CurrentGame().rng.below(static_cast<int>(jitter) * 2 + 1)) +
                      interval - jitter);
     timer.arm();
+}
+
+void RearmDecodedGenerators(W8EncounterState& state)
+{
+    for (const auto& generator : state.generators) {
+        if (!generator->rearm) continue;
+        auto rearm = *std::exchange(generator->rearm, std::nullopt);
+        generator->Rearm(rearm.interval);
+        if (rearm.saved_timer) generator->timer = *rearm.saved_timer;
+    }
 }
 
 /* Writes the encounter subsystem's own state to a save, ahead of the generator

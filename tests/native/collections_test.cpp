@@ -2,6 +2,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <span>
 #include <string>
@@ -839,6 +840,8 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
     live.default_interval = 17;
     live.interval_max = 44;
     live.save_flag = 1;
+    auto& generator = *live.generators.emplace_back(std::make_unique<MonGen>());
+    std::strcpy(generator.name, "gate");
     World replacement(1);
     replacement.encounters.random_budget = 100;
     StartLevelEncounters(replacement);
@@ -853,8 +856,15 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
     chunk.WriteChunk(W8ChunkId("ENCT"), [&] { SaveEncounterState(chunk.WriteStream()); });
     chunk.Close();
     REQUIRE(chunk.OpenRead(directory.path / "state.riff"));
+    std::vector<Rng::Draw> draws;
+    game.game.rng.trace(&draws);
     chunk.ForEachChunk([&](unsigned) {
-        const auto loaded = ReadEncounterState(chunk);
+        auto loaded = ReadEncounterState(chunk);
+        // Decoding draws nothing; building the world draws each generator's jitter once.
+        REQUIRE(draws.empty());
+        RearmDecodedGenerators(loaded);
+        REQUIRE(draws.size() == 1);
+        REQUIRE(draws[0].range == 41);
         REQUIRE(loaded.random_budget == 6);
         REQUIRE(loaded.saved_budget == 77);
         REQUIRE(loaded.culling_seconds == 180);
@@ -864,6 +874,7 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
         REQUIRE(loaded.save_flag == 1);
         REQUIRE(chunk.RemainingBytes() == 0);
     });
+    game.game.rng.trace(nullptr);
 }
 
 TEST_CASE_METHOD(LevelWorldFixture, "Full formations reject a link before detaching its source",

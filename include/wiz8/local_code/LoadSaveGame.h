@@ -61,19 +61,33 @@ class Game;
 struct World;
 // Store the current level's group among the levels the game has left (Game::left_levels).
 bool StoreLeftLevel(Game& game);
-// Decoded level data. Its implementation stays with the existing retail codecs.
+/* A level's saved state as its LVLS group holds it, decoded without the level's world,
+   graphics or scripts (defined with the retail codecs). */
+struct LevelState {
+    struct Data;
+    std::unique_ptr<Data> data;
+    LevelState();
+    LevelState(LevelState&&) noexcept;
+    LevelState& operator=(LevelState&&) noexcept;
+    ~LevelState();
+};
+/* Decode level `level`'s group from a status file, or nothing when the file is missing or
+   has none. Throws on malformed input. */
+std::optional<LevelState> DecodeLevelState(const std::filesystem::path& path, int level,
+                                           bool from_assets = false);
+// The level's state as the party left it, or nothing when it never left the level.
+std::optional<LevelState> DecodeLeftLevelState(const Game& game, int level);
+// What entering a built level still installs (InstallLevelSessionState).
 struct W8LoadedLevelStatus {
     struct Data;
     std::unique_ptr<Data> data;
     W8LoadedLevelStatus();
     ~W8LoadedLevelStatus();
 };
-std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world,
-                                                     const std::filesystem::path& path, int level,
-                                                     bool from_assets = false);
-// The level's state as the party left it, or null when it never left the level.
-std::unique_ptr<W8LoadedLevelStatus> ReadLeftLevelStatus(World& world, const Game& game, int level);
-void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status);
+/* Build the unpublished `world`'s monsters, items and saved state from `state`, loading
+   their representations and scripts. Throws when the state names what the game data lacks;
+   the world is then discarded. */
+std::unique_ptr<W8LoadedLevelStatus> BuildLevel(World& world, LevelState state);
 void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status);
 void BeginRestoredLevelActivity(World& world, W8LoadedLevelStatus* status);
 std::string BuildLevelStatusPath(unsigned int level);

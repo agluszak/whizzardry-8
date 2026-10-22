@@ -29,6 +29,9 @@ struct W8EncounterState {
 };
 W8EncounterState ReadEncounterState(W8Chunk& file);
 void ReadMonsterGeneratorStates(W8Chunk& file, W8EncounterState& state);
+/* Rearm decoded generators in the order they were read, drawing each one's jittered
+   interval from the game's stream as retail did while it read the level. */
+void RearmDecodedGenerators(W8EncounterState& state);
 void StartLevelEncounters(World& world);
 // Roll the generators whose intervals passed in the step's `elapsed` time.
 void RunMonsterGenerators(std::chrono::milliseconds elapsed);

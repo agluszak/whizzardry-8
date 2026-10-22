@@ -4,6 +4,7 @@
 struct W8Chunk;
 
 #include <chrono>
+#include <optional>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/filesystem.h"
@@ -57,8 +58,20 @@ struct MonGen {
     char name[32]{};
     bool generation_enabled; /* MIPE "Toggle Active"; gates CanGenerate */
 
+    /* A generator read from a save rearms when its world is built, drawing its jittered
+       interval there rather than as it is read; a saved generator state then puts back
+       its own timer. */
+    struct DecodedRearm {
+        short interval;
+        std::optional<GeneratorInterval> saved_timer;
+    };
+    std::optional<DecodedRearm> rearm;
+
     MonGen();
+    // Rearm the timer for the configured interval, jittered by one draw.
     void Reset(short default_interval);
+    [[nodiscard]] short IntervalSeconds(short default_interval) const;
+    void Rearm(short interval);
     /* Tests global encounter gates, range/LOS/occupancy constraints and this
        generator's chance. */
     bool CanGenerateEncounter(bool force);
