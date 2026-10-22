@@ -270,12 +270,16 @@ foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-
     set_tests_properties(runtime_${scenario} PROPERTIES
         ENVIRONMENT "${WIZ8_RUNTIME_TEST_ENVIRONMENT}"
         SKIP_REGULAR_EXPRESSION "WIZ8_ASSET_ROOT is not set" TIMEOUT 120
-        RESOURCE_LOCK game_gpu LABELS runtime
+        LABELS runtime
         FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
 endforeach()
-# These scenarios advance many simulated frames. Software Vulkan with
-# validation needs more wall time while retaining the normal 60 Hz game clock.
-set_tests_properties(runtime_combat runtime_random-play PROPERTIES TIMEOUT 600)
+# Each scenario is its own process with its own user directory, so they run in
+# parallel; only the save fixture below orders two of them.
+# These scenarios advance many simulated frames of the main-game rendering the
+# shorter scenarios already validate, so they run without the validation layer
+# CI enables, and with more wall time for software Vulkan.
+set_tests_properties(runtime_combat runtime_random-play PROPERTIES TIMEOUT 600
+    ENVIRONMENT_MODIFICATION "VK_INSTANCE_LAYERS=unset:")
 set_tests_properties(runtime_npc-dialogue PROPERTIES TIMEOUT 300)
 # The quick-save scenario writes a fixture consumed by the menu-driven load test.
 # CTest arranges the dependency even when only runtime_load-game is selected.
