@@ -21,6 +21,7 @@
 #include "layouts/levels.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/entities/native_object.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
@@ -425,6 +426,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
     World& world = *GetWorld();
     world.script = MakeLevelScript(level, MakeScriptContext(CurrentGame()));
     world.script->enter();
+    LoadNativeLevelObject(CurrentGame());
     RebindNpcLevelTriggers();
     SetWorldCursorNodesVisible(false);
     RebuildPartyEffectBlock();

@@ -10,6 +10,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/camera_motion.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/retail_opaque_records.h"
 #include "wiz8/world/environment_state.h"
 #include "wiz8/world/party_motion.h"
@@ -117,7 +118,7 @@ public:
     float m_yaw_distance; /* 0x0b0 */
     float m_pitch_distance; /* 0x0b4 */
     float m_transition_duration; /* 0x0b8 */
-    W8IntervalGate m_manual_input_timer{1.0f, false, true};
+    W8IntervalGate m_manual_input_timer{1.0f, TimerClock::World, true};
 
 private:
     bool CanTrackTarget();

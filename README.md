@@ -6,7 +6,7 @@ It builds on the recovered source code from [Wizardry 8 Decomp](https://github.c
 
 Linux is the only platform currently tested in CI. macOS and Windows builds are not yet verified, and the game is still under development.
 
-This repository does **not** include game assets. You'll need your own retail copy of Wizardry 8.
+This repository does **not** include retail game assets. You'll need your own retail copy of Wizardry 8.
 
 ## Build and play (Linux)
 
@@ -42,6 +42,19 @@ Use `./build.sh linux-dev`, `./build.sh linux-asan` or
 `WIZ8_BUILD_DIR` to select the resulting executable in `run.sh`.
 `./build.sh -- <command>` runs a command in the same build container.
 macOS and Windows builds are not yet verified.
+
+To try an imported, interactive VSG object in a retail world:
+
+```bash
+WIZ8_ASSET_ROOT=/path/to/prepared-assets ./run.sh /WINDOW /NATIVEOBJECT=examples/native/prism.vsgt
+```
+
+Start or load a game. A prism appears just ahead of the party at level entry.
+Point at it with an empty hand and click to toggle its glow; the normal message
+log describes the action. It uses the world's lights and fog. This optional sample
+is recreated at each level entry, with no changes to retail assets or save records.
+The same option accepts other static indexed VSG position/normal/UV geometry.
+
 
 ## Contributing
 

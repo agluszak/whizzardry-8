@@ -13,6 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libx11-dev libx11-xcb-dev libfontenc-dev libice-dev libsm-dev \
     libxau-dev libxaw7-dev libxcomposite-dev libxdamage-dev libxkbfile-dev \
     libxmu-dev libxmuu-dev libxpm-dev libxres-dev \
+    libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev libxrender-dev \
+    libxss-dev libxtst-dev libxv-dev libxxf86vm-dev \
     libxcb-glx0-dev libxcb-render0-dev libxcb-render-util0-dev libxcb-xkb-dev \
     libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev \
     libxcb-randr0-dev libxcb-shape0-dev libxcb-sync-dev \
