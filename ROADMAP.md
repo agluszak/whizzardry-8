@@ -350,6 +350,12 @@ Substantial but contained work.
   `CONTROL_REUSE_FRONT_MATERIAL`, `CONTROL_NO_FRONT_CULL`) that only tests
   exercise. `W8_MESH_SORTED_RENDERING` duplicates `CONTROL_SORTED_RENDERING`,
   except that posters set only the control bit; merging them changes behaviour.
+- **One world pick.** `RenderFrame` stores the intersection in `World::picked` and
+  its mesh owner in `g_current_model_instance`; `ResolvePickedProp` then latches
+  `g_selected_prop_trigger`/`g_selected_prop_index` and clears the instance when the
+  prop refuses. Native objects, props, monsters and world items each match against
+  one of these. Resolve the pick once into a world-owned selection (owner, prop,
+  native object, distance) that the cursor and activation read, and delete the globals.
 - **Modules named for what they do.** `local_code/` and `local_screens/` keep
   retail translation-unit names, including nine files with spaces (`PC Item.cpp`,
   `Magic Effects.cpp`, …). Move the remaining code into named modules, as

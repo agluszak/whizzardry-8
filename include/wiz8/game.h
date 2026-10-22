@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <map>
 #include <memory>
@@ -34,6 +35,7 @@
 #include "wiz8/save_codec.h"
 #include "wiz8/story.h"
 
+class NativeObject;
 struct World;
 
 /* The worlds the party is in: the loaded level and the sky drawn behind it. Each slot
@@ -107,6 +109,12 @@ public:
 
     // The context the rules act on: the game's data, party, random stream and events.
     RuleContext rules();
+    // The picked imported object, while the party is free to interact with the world.
+    NativeObject* interactiveNativeObject();
+    // Inspect that object; the cursor shows the same object as interactive.
+    bool activateSelectedNativeObject();
+    // Optional session content, rebuilt at level entry; never written into retail saves.
+    std::filesystem::path native_object_file;
 
     W8Party party{};
     GameStatus status{};
@@ -204,6 +212,7 @@ public:
 
     // The game in progress, or null.
     Game* game() { return game_ ? &*game_ : nullptr; }
+    std::filesystem::path native_object_file;
     /* Begin a new game, ending any in progress. It continues the previous game's random
        stream, and its events go to the observer. */
     Game& begin();

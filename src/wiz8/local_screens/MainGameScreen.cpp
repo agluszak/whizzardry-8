@@ -4934,7 +4934,9 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                 SetTargetingMode(W8_TARGET_NEED_NONE);
             }
         } else if (!CurrentGame().advancement.held) {
-            ActivateSelectedProp();
+            if (ScreenPointer().targeting() != W8_TARGET_NEED_NONE ||
+                !CurrentGame().activateSelectedNativeObject())
+                ActivateSelectedProp();
         }
     } else {
         W8MonsterInfo* monster_info = FindMonster(MainGameHud()->highlighted_item);
@@ -5078,6 +5080,10 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
                     return;
                 }
                 ScreenPointer().showSlot(cursor);
+                return;
+            }
+            if (CurrentGame().interactiveNativeObject()) {
+                ScreenPointer().showSlot(13);
                 return;
             }
             int prop_index = GetSelectedPropIndex();

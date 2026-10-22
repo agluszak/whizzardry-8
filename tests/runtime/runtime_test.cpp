@@ -39,13 +39,9 @@
 #include <SDL3/SDL_video.h>
 #include <catch2/catch_get_random_seed.hpp>
 #include <catch2/catch_test_macros.hpp>
-#include <glm/ext/matrix_double4x4.hpp>
 #include <glm/ext/scalar_constants.hpp>
 #include <glm/ext/vector_float3.hpp>
 #include <glm/ext/vector_float4.hpp>
-#include <vsg/core/Array.h>
-#include <vsg/maths/vec3.h>
-#include <vsg/nodes/VertexIndexDraw.h>
 
 #include "../native/surface_pixels.h"
 #include "wiz8/data/fact_ids.h"
@@ -83,7 +79,6 @@
 
    Run under SDL's X11 video driver under Xvfb (no host input) with
    movies skipped through WIZ8_TEST_HOOK. Exit code 77 means assets are absent. */
-#include <vsg/io/write.h>
 #include <vsg/state/ViewportState.h>
 
 #include "catch2/catch_message.hpp"
@@ -103,6 +98,7 @@
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entities/native_object.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
@@ -148,7 +144,6 @@
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
-#include "wiz8/render/native_content.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/renderer.h"
 #include "wiz8/render/vsg_scene.h"
@@ -218,7 +213,7 @@ struct GameExited : std::runtime_error {
 
 class GameHarness {
 public:
-    explicit GameHarness(bool play_movies)
+    explicit GameHarness(bool play_movies, bool native_object = false)
     {
         const char* assets = SDL_getenv("WIZ8_ASSET_ROOT");
         if (!assets || !fs::is_directory(assets))
@@ -242,7 +237,9 @@ public:
 
         SDL_GetLogOutputFunction(&g_default_log, &g_default_log_data);
         SDL_SetLogOutputFunction(CaptureLog, nullptr);
-        const std::string_view arguments[] = {"/WINDOW"};
+        const std::string native_option = "/NATIVEOBJECT=" WIZ8_NATIVE_DEMO_FILE;
+        std::vector<std::string_view> arguments{"/WINDOW"};
+        if (native_object) arguments.push_back(native_option);
         w8_native::audio_offline_for_test(true);
         application_.emplace(arguments);
         REQUIRE(g_renderer);
@@ -1464,8 +1461,11 @@ void CheckGameplayUi(GameHarness& game)
 // scope exit so Application shutdown exercises the same owners as gameplay.
 void ResourceLifecycleScenario()
 {
-    GameHarness game(false);
+    GameHarness game(false, true);
     StartPremadeGame(game);
+    REQUIRE(GetWorld()->native_objects.size() == 1);
+    // Exercise the retail scene and UI before the imported-object interaction.
+    GetWorld()->native_objects.clear();
     REQUIRE(g_renderer);
     REQUIRE(g_renderer->isOpen());
     int original_width = 0, original_height = 0;
@@ -1515,45 +1515,36 @@ void ResourceLifecycleScenario()
     CheckWorldRender(game);
     CheckTwoWorldViews(game);
     CheckGameplayUi(game);
-    // Import a native VSG object into the loaded retail world, in front of its
-    // actual camera. It uses the same world lighting/fog and remains identifiable
-    // through the game's VSG picker without a retail MeshInstance.
+    // The shipped import option attaches a real game object at level entry. Use
+    // normal pointer movement and clicks, rather than a test-only activation path.
     {
-        ScopedTemporaryDirectory content("wiz8-world-native");
         auto& world = *GetWorld();
-        const float near = world.camera->getClipRange().first;
-        auto positions = vsg::vec3Array::create(
-            {{-near, -near, near * 1.5f}, {near, -near, near * 1.5f}, {0, near, near * 1.5f}});
-        auto normals = vsg::vec3Array::create(3, vsg::vec3(0, 0, -1));
-        auto source = vsg::VertexIndexDraw::create();
-        source->assignArrays({positions, normals});
-        source->assignIndices(vsg::ushortArray::create({0, 1, 2}));
-        source->indexCount = 3;
-        source->instanceCount = 1;
-        const auto path = content.path / "world-object.vsgt";
-        REQUIRE(vsg::write(source, path.string()));
-        auto material = std::make_shared<Material>();
-        material->setAmbient(glm::vec4(1));
-        material->setDiffuse(glm::vec4(1));
-        material->setEmissive(glm::vec4(0));
-        auto object = render::loadGameContent(path, material);
-        object->matrix = render::toVsg(world.camera->transform.matrix<glm::dmat4>());
-        world.scene->root->addChild(object);
-        g_renderer->beginFrame();
-        auto view =
-            world.scene->createView(g_renderer->context(), world.camera, {},
-                                    vsg::ViewportState::create(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT),
-                                    g_renderer->frameNumber());
-        Pick picked;
-        world.scene->pick(*view->camera, std::span{&picked, 1});
-        REQUIRE(picked.hit);
-        REQUIRE(std::ranges::find(picked.hit->nodePath, object.get()) !=
-                picked.hit->nodePath.end());
-        REQUIRE(render::gameOwner(picked) == nullptr);
-        g_renderer->addView(view);
-        g_renderer->endFrame(false, true);
-        REQUIRE(g_renderer->readback());
-        std::erase(world.scene->root->children, object);
+        REQUIRE(world.native_objects.empty());
+        REQUIRE(CurrentGame().native_object_file == fs::path(WIZ8_NATIVE_DEMO_FILE));
+        // Re-anchor after the preceding camera/UI exercises, using the entry path.
+        LoadNativeLevelObject(CurrentGame());
+        REQUIRE(world.native_objects.size() == 1);
+        auto& object = *world.native_objects.front();
+        const int x = (g_viewport.left + g_viewport.right) / 2;
+        const int y = (g_viewport.top + g_viewport.bottom) / 2;
+        SetTargetingMode(W8_TARGET_NEED_NONE);
+        game.move_pointer(x, y);
+        game.move_pointer(x + 1, y);
+        REQUIRE(SelectedNativeObject(world) == &object);
+        REQUIRE(render::gameOwner(world.picked) == nullptr);
+        REQUIRE(ScreenPointer().shownSlot() == 13);
+        REQUIRE_FALSE(object.illuminated);
+        game.click_at(x, y);
+        REQUIRE(object.illuminated);
+        const auto held = std::exchange(CurrentGame().advancement.held, true);
+        REQUIRE_FALSE(CurrentGame().activateSelectedNativeObject());
+        REQUIRE(object.illuminated);
+        CurrentGame().advancement.held = held;
+        game.click_at(x, y);
+        REQUIRE_FALSE(object.illuminated);
+        world.native_objects.clear();
+        REQUIRE_FALSE(world.picked.hit);
+        game.frame();
     }
     // Automap buttons own their sprite sheets. Re-entering the screen must
     // rebuild all sixteen controls after the previous owners are destroyed.
@@ -1662,6 +1653,7 @@ void ResourceLifecycleScenario()
         });
         Settle(game, "reload-level");
         REQUIRE(GetLoadedLevelID() == level);
+        REQUIRE(GetWorld()->native_objects.size() == 1);
         ExpectAt("reloaded-position", anchor);
     }
     RenderFrame();
