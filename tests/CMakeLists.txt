@@ -8,9 +8,6 @@ add_test(NAME layer_boundaries
 add_executable(native_party_storage_test native/party_storage_test.cpp)
 target_link_libraries(native_party_storage_test PRIVATE wiz8_rules)
 catch_discover_tests(native_party_storage_test TEST_PREFIX "native_party_storage/")
-add_executable(native_party_conditions_test native/party_conditions_test.cpp)
-target_link_libraries(native_party_conditions_test PRIVATE wiz8_rules)
-catch_discover_tests(native_party_conditions_test TEST_PREFIX "native_party_conditions/")
 
 # Reuse the runtime clock hook for deterministic timer checks without game assets.
 add_executable(native_game_timer_test native/game_timer_test.cpp
@@ -21,6 +18,8 @@ catch_discover_tests(native_game_timer_test TEST_PREFIX "native_game_timer/")
 
 add_executable(native_game_geometry_test native/game_geometry_test.cpp)
 target_link_libraries(native_game_geometry_test PRIVATE wiz8_engine)
+target_compile_definitions(native_game_geometry_test PRIVATE
+    WIZ8_NATIVE_DEMO_FILE="${PROJECT_SOURCE_DIR}/examples/native/prism.vsgt")
 catch_discover_tests(native_game_geometry_test TEST_PREFIX "native_game_geometry/")
 
 add_executable(native_bit_array_io_test native/bit_array_io_test.cpp)
@@ -232,6 +231,7 @@ target_link_libraries(native_runtime_test PRIVATE wiz8_engine SDL3::SDL3 PkgConf
 set(WIZ8_RUNTIME_SAVE_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/runtime-fixtures")
 target_compile_definitions(native_runtime_test PRIVATE
     WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
+    WIZ8_NATIVE_DEMO_FILE="${PROJECT_SOURCE_DIR}/examples/native/prism.vsgt"
     WIZ8_RUNTIME_SAVE_FIXTURE="${WIZ8_RUNTIME_SAVE_FIXTURE}")
 set(WIZ8_RUNTIME_TEST_ENVIRONMENT ${WIZ8_GRAPHICS_TEST_ENVIRONMENT} "SDL_AUDIO_DRIVER=dummy")
 foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-lifecycle inventory-chest camp-spells quick-save combat npc-dialogue load-game random-play menu-save)
@@ -296,6 +296,15 @@ elseif(UNIX)
     target_link_options(native_inventory_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
 add_test(NAME native_inventory COMMAND native_inventory_test)
+
+add_executable(native_party_conditions_test native/party_conditions_test.cpp)
+target_link_libraries(native_party_conditions_test PRIVATE wiz8_engine SDL3::SDL3)
+if(APPLE)
+    target_link_options(native_party_conditions_test PRIVATE -Wl,-dead_strip)
+elseif(UNIX)
+    target_link_options(native_party_conditions_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
+endif()
+catch_discover_tests(native_party_conditions_test TEST_PREFIX "native_party_conditions/")
 
 add_executable(native_random_test native/random_test.cpp)
 target_link_libraries(native_random_test PRIVATE wiz8_engine)

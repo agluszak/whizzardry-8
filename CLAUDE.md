@@ -10,3 +10,7 @@ it in the background. Then:
 
     . build/linux/conan/conanbuild.sh && cmake --build --preset linux
     . build/linux/conan/conanrun.sh && xvfb-run -a ctest --preset linux
+
+The build compiles through a ccache that `cloud-deps.sh` restores from the project's
+shared files. After your first successful build, run `tools/cloud-ccache.sh save` so
+later sessions reuse your objects.

@@ -109,6 +109,8 @@ public:
        visit leave this as a plain entry. */
     virtual bool resume(const ScreenRequest& request) { return enter(request); }
     virtual void frame() = 0;
+    // Drop elapsed simulation time when the application regains focus.
+    virtual void resetStepClock() {}
     /* The screen stops being current. A suspended screen is resumed later; a
        discarded one is destroyed afterwards. */
     virtual bool leave(ScreenDeparture departure) = 0;
