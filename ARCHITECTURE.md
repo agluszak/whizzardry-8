@@ -683,3 +683,12 @@ player could: the control is shown and enabled, the pointer over it reaches it, 
 the presented frame shows what the UI painted there. On every frame the harness also
 requires a newly active modal input scope to be shown within four frames, so input
 can never be captured by a prompt the player cannot see.
+
+## Animation parts
+
+An animation owns one sequence of parts per authored LOD. Each part contains its
+mesh frame sequence and optional placement track as a value, so mesh/path indices
+cannot diverge. The authored distinction between a frame sequence and simultaneous
+positioned parts remains explicit; rendering resolves both through the same frame
+operation. The record's group count is decoder state, not mutable runtime state.
+Copies share mesh resources but retain independent placement and path playback.

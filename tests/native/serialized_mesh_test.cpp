@@ -8,6 +8,7 @@
 #include <fstream>
 #include <ios>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -269,8 +270,8 @@ TEST_CASE("Animated meshes share source geometry and keep playback independent")
         output.put(0); // First frame index.
         output << input.rdbuf();
     }
-    std::unique_ptr<AnimationMesh> first;
-    std::unique_ptr<AnimationMesh> second;
+    std::optional<AnimationMesh> first;
+    std::optional<AnimationMesh> second;
     {
         auto input = wiz8::open_file(animation);
         first = ReadAnimatedMesh(*input, {});

@@ -410,9 +410,9 @@ TEST_CASE("A cycle player shows every frame on its own model", "[resources][anim
     auto frames = std::make_unique<AnimationMesh>();
     frames->frame_count = 2;
     frames->frames = {{std::make_shared<Mesh>(), {}}, {std::make_shared<Mesh>(), {}}};
-    animation.entries[2] = std::move(frames);
-    const auto* first_frame = animation.entries[2]->frames[0].mesh.get();
-    const auto* second_frame = animation.entries[2]->frames[1].mesh.get();
+    animation.parts[2].push_back({std::move(*frames), std::nullopt});
+    const auto* first_frame = animation.parts[2][0].mesh.frames[0].mesh.get();
+    const auto* second_frame = animation.parts[2][0].mesh.frames[1].mesh.get();
 
     CyclePlayer first;
     first.active_animation = &animation;
@@ -679,7 +679,7 @@ TEST_CASE("Cycle frame callbacks observe advances and can stop queued steps",
           "[resources][animation]")
 {
     Animation animation;
-    animation.path_lists = true;
+    animation.positioned_parts = true;
     animation.frame_count = 4;
     CyclePlayer player;
     player.active_animation = &animation;

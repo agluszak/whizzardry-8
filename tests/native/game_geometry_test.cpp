@@ -1157,7 +1157,7 @@ TEST_CASE("Prop position and delta queries preserve animation stepping", "[geome
     prop.previous_animation_position = {1, 2, 3};
     const auto static_position = prop.GetPosition();
     REQUIRE(static_position == glm::vec3(10, 20, 30));
-    animation.path_lists = true;
+    animation.positioned_parts = true;
     REQUIRE(prop.GetPosition() == prop.animation_position);
     REQUIRE(static_position == glm::vec3(10, 20, 30));
     prop.animation_behaviour = W8_ANIMATION_PLAY_ONCE;
@@ -1183,7 +1183,7 @@ TEST_CASE("Prop position and delta queries preserve animation stepping", "[geome
 TEST_CASE("Animation bounds retain composite caching and path values", "[geometry][animation]")
 {
     Animation animation;
-    animation.path_lists = true;
+    animation.positioned_parts = true;
     animation.frame_count = 2;
     REQUIRE_FALSE(AnimObjGetBounds(&animation, 0, 2));
     REQUIRE_FALSE(AnimObjGetBounds(&animation, 0, 1));
@@ -1194,22 +1194,20 @@ TEST_CASE("Animation bounds retain composite caching and path values", "[geometr
         mesh->frame_count = 1;
         mesh->bounds = index == 0 ? BoundingBox{{-1, -2, -3}, {4, 5, 6}}
                                   : BoundingBox{{-4, -1, -2}, {2, 8, 3}};
-        animation.meshes[0].push_back(std::move(mesh));
         auto path = std::optional<KeyframeTrack>(std::in_place);
         PathAIAddPoint(*path, glm::vec3(100, 200, 300));
         PathAIAddPoint(*path, glm::vec3(400, 500, 600));
         path->rotations.resize(path->nodes.size(), glm::mat3(1));
         PathAISetValue((path ? &*path : nullptr), 0.75f);
-        animation.paths[0].push_back(std::move(path));
+        animation.parts[0].push_back({std::move(*mesh), std::move(path)});
     }
     const auto bounds = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(bounds);
     REQUIRE(bounds.value().minimum == glm::vec3(-4, -2, -3));
     REQUIRE(bounds.value().maximum == glm::vec3(4, 8, 6));
     REQUIRE(animation.frame_bounds[1].known);
-    for (auto& path : animation.paths[0])
-        REQUIRE(PathAIGetValue((path ? &*path : nullptr)) == 0.75f);
-    animation.meshes[0][0]->bounds.minimum = {-10, -20, -30};
+    for (auto& part : animation.parts[0]) REQUIRE(PathAIGetValue(&*part.path) == 0.75f);
+    animation.parts[0][0].mesh.bounds.minimum = {-10, -20, -30};
     const auto cached = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(cached);
     REQUIRE(cached.value().minimum == bounds.value().minimum);
@@ -1218,8 +1216,7 @@ TEST_CASE("Animation bounds retain composite caching and path values", "[geometr
     const auto refreshed = AnimObjGetBounds(&animation, 0, 1);
     REQUIRE(refreshed);
     REQUIRE(refreshed->minimum == glm::vec3(-10, -20, -30));
-    for (auto& path : animation.paths[0])
-        REQUIRE(PathAIGetValue((path ? &*path : nullptr)) == 0.75f);
+    for (auto& part : animation.parts[0]) REQUIRE(PathAIGetValue(&*part.path) == 0.75f);
 }
 
 TEST_CASE("Prop bounds aggregate frames without changing the current frame",
@@ -1228,7 +1225,7 @@ TEST_CASE("Prop bounds aggregate frames without changing the current frame",
     Prop prop;
     prop.animation.emplace();
     auto& animation = prop.animation.value();
-    animation.path_lists = true;
+    animation.positioned_parts = true;
     animation.frame_count = 3;
     animation.frame_bounds = {{true, {-4, -2, -8}, {3, 5, 6}},
                               {true, {-1, -9, -3}, {12, 2, 5}},
