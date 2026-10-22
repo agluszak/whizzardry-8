@@ -1602,11 +1602,11 @@ unsigned int NavigationMesh::CollectPathProbes(PathSearchScratch& path_search,
                                    : nullptr);
         if (info != 0) {
             if (info != 0 && info->entity && info->entity->nav.active) {
-                Monster* monster = info->entity.find();
-                glm::vec3 monster_position = monster->nav.GetPosition();
+                Monster& monster = *info->entity;
+                glm::vec3 monster_position = monster.nav.GetPosition();
                 glm::vec3 monster_delta = monster_position - movement->position;
                 distance = glm::length(monster_delta);
-                float monster_radius = monster->nav.movement.alternate_radius;
+                float monster_radius = monster.nav.movement.alternate_radius;
                 overlap_radius = radius;
                 if (monster_radius < radius) {
                     overlap_radius = monster_radius;
@@ -1616,7 +1616,7 @@ unsigned int NavigationMesh::CollectPathProbes(PathSearchScratch& path_search,
                     probe->tag = location_id;
                     probe->outer_radius = monster_radius;
                     probe->inner_radius = distance;
-                    probe->center = monster->nav.GetPosition();
+                    probe->center = monster.nav.GetPosition();
                     ++path_search.probe_count;
                 }
             }
@@ -2150,11 +2150,11 @@ unsigned short NavigationMesh::ResolveSearchNodeCollisions(PathSearchScratch& pa
             continue;
         }
 
-        Monster* monster = info->entity.find();
-        glm::vec3 monster_position = monster->nav.GetPosition();
+        Monster& monster = *info->entity;
+        glm::vec3 monster_position = monster.nav.GetPosition();
         glm::vec3 delta = node->position - monster_position;
         float distance = glm::length(delta);
-        threshold = monster->nav.movement.alternate_radius + radius;
+        threshold = monster.nav.movement.alternate_radius + radius;
         if (location_id == movement->target_location_id && !explicit_target) {
             threshold += separation;
         }

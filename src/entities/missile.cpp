@@ -545,7 +545,7 @@ unsigned int Missile::ApplyEmitterSetting(signed char emitter)
     Animation* target = resources.cycles[emitter].animation.get();
 
     assert(target != 0);
-    return AnimObjValue(target, visual.m_bLOD);
+    return target->frameCount(visual.m_bLOD);
 }
 
 unsigned char Missile::ReadCycleData(LevelLoadContext* info, int cycle_index)
@@ -693,7 +693,7 @@ signed char Missile::GetNumSubCycles()
 {
     Animation* animation = GetCurrentAnimation();
 
-    return static_cast<signed char>(AnimObjValue(animation, visual.m_bLOD));
+    return static_cast<signed char>(animation->frameCount(visual.m_bLOD));
 }
 
 bool Missile::IsCycleSupported(signed char cycle)

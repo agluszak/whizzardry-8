@@ -171,7 +171,7 @@ bool MainMenuScreen::enter(const ScreenRequest&)
     ScreenPointer().reset();
 
     if (!g_pending_main_menu_message.empty()) {
-        dialog_.reset(CreateMessageDialog());
+        dialog_ = CreateMessageDialog();
         dialog_->SetClientExtent(0xfa, 200);
         dialog_->SetMessage(g_pending_main_menu_message, 1, 0x32, true, false, true, true, 0,
                             0x15e);

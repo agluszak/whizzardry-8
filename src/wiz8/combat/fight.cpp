@@ -115,7 +115,6 @@ bool Game::beginCombat(int surprise)
 {
     W8MonsterInfo* monster_info;
     W8MonsterInfo* nearest_info;
-    W8CombatSlot chosen;
     W8NpcState* npc;
     float nearest_distance;
     unsigned int index;
@@ -205,18 +204,7 @@ bool Game::beginCombat(int surprise)
             monster_info->pCombat->active = true;
             monster_info->pCombat->settle_ticks = 0;
             CurrentGame().events.push(CombatProgressChanged{});
-            if (monster_info->hp_current > 0 &&
-                monster_info->highest_condition < W8_CONDITION_WEBBED &&
-                monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
-                MonsterChooseTarget(monster_info, &chosen,
-                                    W8VisibilityCondition::ThirdLineOfSightFlag);
-                if (chosen.iType == W8_TARGET_KIND_PARTY) {
-                    monster_info->entity->ForwardReferencePosition(0);
-                } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
-                    monster_info->entity->AimAtMonster(GetMonsterByLocationID(chosen.iMonsterID),
-                                                       false);
-                }
-            }
+            TurnMonsterToNewTarget(*monster_info);
             monster_info->death_processed = false;
         }
     }
@@ -810,9 +798,6 @@ bool TryPanicWoundedCharacter(const W8CombatSlot* target)
    it to face whoever it settled on. */
 void EndMonsterTurn(W8MonsterInfo* monster_info)
 {
-    W8CombatSlot chosen;
-    int target_location;
-
     monster_info->action_kind = W8_MONSTER_ACTION_NONE;
     monster_info->action_detail = 0;
     monster_info->pCombat->phase = 0;
@@ -820,20 +805,24 @@ void EndMonsterTurn(W8MonsterInfo* monster_info)
     monster_info->pCombat->settle_ticks = 0;
     CurrentGame().events.push(CombatProgressChanged{});
 
-    if (monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_WEBBED &&
-        monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
-        MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
-        if (chosen.iType == W8_TARGET_KIND_PARTY) {
-            monster_info->entity->ForwardReferencePosition(0);
-            monster_info->death_processed = false;
-            return;
-        }
-        if (chosen.iType == W8_TARGET_KIND_MONSTER) {
-            target_location = chosen.iMonsterID;
-            monster_info->entity->AimAtMonster(GetMonsterByLocationID(target_location), false);
-        }
-    }
+    TurnMonsterToNewTarget(*monster_info);
     monster_info->death_processed = false;
+}
+
+void TurnMonsterToNewTarget(W8MonsterInfo& monster_info)
+{
+    if (monster_info.hp_current == 0 || monster_info.highest_condition >= W8_CONDITION_WEBBED ||
+        monster_info.uiCondition[W8_CONDITION_BLIND] != 0) {
+        return;
+    }
+    W8CombatSlot chosen;
+    MonsterChooseTarget(&monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
+    if (chosen.iType == W8_TARGET_KIND_PARTY) {
+        monster_info.entity->ForwardReferencePosition(0);
+    } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
+        if (Monster* target = GetMonsterByLocationID(chosen.iMonsterID))
+            monster_info.entity->AimAtMonster(*target, false);
+    }
 }
 
 /* Set one monster's turn up, once. How fast it moves through the turn depends
@@ -1007,7 +996,7 @@ void Game::endCombat(bool forced_cleanup)
     // The fight is over; what follows restores the world around it.
     combat.reset();
     if (searching()) resumeSearching();
-    ZoomRadarMapOut();
+    if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->setZoom(false);
     events.push(CombatEnded{});
     if (!activity.conversation && !gpSCSV && !ItemUseDraft()) {
         SelectTextBox(0);
@@ -1353,7 +1342,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
         if (monster_info->location_id != location_id) {
             target = FindMonster(location_id);
             if (IsMonsterFacingMonster(monster_info, target) == 0) {
-                monster_info->entity->AimAtMonster(target->entity.find(), alternate);
+                monster_info->entity->AimAtMonster(*target->entity, alternate);
                 return;
             }
         }
@@ -1364,7 +1353,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
         if (location_id != -1) {
             target = FindMonster(location_id);
             if (IsMonsterFacingMonster(monster_info, target) == 0) {
-                monster_info->entity->AimAtMonster(target->entity.find(), alternate);
+                monster_info->entity->AimAtMonster(*target->entity, alternate);
                 return;
             }
         }
@@ -1654,18 +1643,7 @@ void AdvanceCombatRound(void)
     index = 0;
     while (index < CurrentLevelPopulation().monster_roster.live().size()) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-        if (monster_info->pCombat && monster_info->hp_current != 0 &&
-            monster_info->highest_condition < W8_CONDITION_WEBBED &&
-            monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
-            W8CombatSlot chosen;
-            MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
-            if (chosen.iType == W8_TARGET_KIND_PARTY) {
-                monster_info->entity->ForwardReferencePosition(0);
-            } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
-                monster_info->entity->AimAtMonster(GetMonsterByLocationID(chosen.iMonsterID),
-                                                   false);
-            }
-        }
+        if (monster_info->pCombat) TurnMonsterToNewTarget(*monster_info);
         ++index;
     }
 }

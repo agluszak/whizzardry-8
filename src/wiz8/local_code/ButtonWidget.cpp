@@ -25,7 +25,7 @@ void W8ButtonWidget::Draw(SDL_Surface& target) const
     if (m_target && m_visible) {
         const ButtonVisualState visual{.enabled = m_enabled,
                                        .pressed = m_interaction.pressed,
-                                       .hovered = m_target->hovered(),
+                                       .hovered = IsHovered(),
                                        .menu_artwork = m_setup.menu_artwork};
         DrawButtonAppearance(target, m_appearance, Bounds(), visual);
     }
