@@ -242,6 +242,7 @@ void camp_effects()
                                     {false, true, W8_CAMP_EFFECT_CONDITION, 1, 0, 3, 30},
                                     {true, false, W8_CAMP_EFFECT_EQUIPMENT, 2, 0, 9999, 40},
                                     {true, true, W8_CAMP_EFFECT_CONDITION, 3, 0, 3, 50}};
+        state->stats.effect_items_only = false;
         state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
         range.SetRange(0, 100);
         range.SetValue(100);
