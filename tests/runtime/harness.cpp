@@ -13,11 +13,13 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_error.h>
@@ -98,6 +100,21 @@ void SaveImage(const fs::path& path, const std::vector<unsigned>& pixels, int wi
         std::fprintf(stderr, "runtime: could not write %s: %s\n", path.string().c_str(),
                      SDL_GetError());
     SDL_DestroySurface(surface);
+}
+
+/* XRGB pixels of a PNG with the given size; empty if it is missing or differs. */
+std::vector<unsigned> LoadImage(const fs::path& path, int width, int height)
+{
+    std::vector<unsigned> pixels;
+    SDL_Surface* image = SDL_LoadPNG(path.string().c_str());
+    if (image && image->w == width && image->h == height) {
+        pixels.resize(std::size_t(width) * height);
+        if (!SDL_ConvertPixels(width, height, image->format, image->pixels, image->pitch,
+                               SDL_PIXELFORMAT_XRGB8888, pixels.data(), width * 4))
+            pixels.clear();
+    }
+    SDL_DestroySurface(image);
+    return pixels;
 }
 
 /* The harness whose frame a failed assertion shows. */
@@ -455,6 +472,117 @@ void Snapshot(const char* name, const std::vector<unsigned>& pixels)
     const fs::path directory = ArtifactDirectory();
     if (!directory.empty())
         SaveImage(directory / (std::string(name) + ".png"), pixels, SCREEN_WIDTH);
+}
+
+namespace {
+/* A golden is the frame box-averaged over 8x8 cells: 80x60 RGB. */
+constexpr int kCell = 8, kSignatureWidth = SCREEN_WIDTH / kCell,
+              kSignatureHeight = SCREEN_HEIGHT / kCell;
+/* A cell differs when a channel moved by more than this... */
+constexpr int kCellTolerance = 4;
+/* ...and a frame differs when more cells than this do. */
+constexpr int kMaxDifferingCells = 4;
+
+int Channel(unsigned pixel, int shift)
+{
+    return int(pixel >> shift & 255);
+}
+
+std::vector<unsigned> Signature(const std::vector<unsigned>& frame)
+{
+    std::vector<unsigned> signature(kSignatureWidth * kSignatureHeight);
+    for (int cy = 0; cy < kSignatureHeight; ++cy)
+        for (int cx = 0; cx < kSignatureWidth; ++cx) {
+            unsigned cell = 0;
+            for (int shift : {0, 8, 16}) {
+                int sum = 0;
+                for (int y = cy * kCell; y < (cy + 1) * kCell; ++y)
+                    for (int x = cx * kCell; x < (cx + 1) * kCell; ++x)
+                        sum += Channel(frame[y * SCREEN_WIDTH + x], shift);
+                cell |= unsigned((sum + kCell * kCell / 2) / (kCell * kCell)) << shift;
+            }
+            signature[cy * kSignatureWidth + cx] = cell;
+        }
+    return signature;
+}
+
+int CellDifference(unsigned a, unsigned b)
+{
+    int worst = 0;
+    for (int shift : {0, 8, 16})
+        worst = std::max(worst, std::abs(Channel(a, shift) - Channel(b, shift)));
+    return worst;
+}
+
+/* A signature at screen size, for viewing next to the frame. */
+std::vector<unsigned> Enlarged(const std::vector<unsigned>& signature)
+{
+    std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
+    for (int y = 0; y < SCREEN_HEIGHT; ++y)
+        for (int x = 0; x < SCREEN_WIDTH; ++x)
+            pixels[y * SCREEN_WIDTH + x] = signature[y / kCell * kSignatureWidth + x / kCell];
+    return pixels;
+}
+
+/* Goldens come from Mesa's software Vulkan driver, which CTest selects. */
+bool RendersWithLavapipe()
+{
+    const char* drivers = SDL_getenv("VK_DRIVER_FILES");
+    return drivers && std::string_view(drivers).contains("lvp_icd");
+}
+} // namespace
+
+void ExpectScreen(GameHarness& game, const char* name)
+{
+    const auto frame = game.read_frame();
+    Snapshot(name, frame);
+    if (g_renderer && !RendersWithLavapipe()) {
+        std::printf("%s: golden comparison skipped: not rendering with lavapipe\n", name);
+        return;
+    }
+    const char* goldens = SDL_getenv("WIZ8_RUNTIME_GOLDENS");
+    if (!goldens) {
+        std::printf("%s: golden comparison skipped: WIZ8_RUNTIME_GOLDENS is not set\n", name);
+        return;
+    }
+    const auto actual = Signature(frame);
+    const fs::path golden = fs::path(goldens) / (std::string(name) + ".png");
+    if (SDL_getenv("WIZ8_RUNTIME_UPDATE_GOLDENS")) {
+        SaveImage(golden, actual, kSignatureWidth);
+        return;
+    }
+    const auto expected = LoadImage(golden, kSignatureWidth, kSignatureHeight);
+    INFO(name << ": golden " << golden.string());
+    REQUIRE(!expected.empty());
+    std::vector<int> differences(actual.size()), differing;
+    std::vector<unsigned> diff(actual.size());
+    for (std::size_t i = 0; i < actual.size(); ++i) {
+        differences[i] = CellDifference(actual[i], expected[i]);
+        // Differing cells are red, the others grey by how far they moved.
+        diff[i] = differences[i] > kCellTolerance
+                      ? 0xff0000
+                      : unsigned(std::min(differences[i] * 16, 255)) * 0x010101;
+        if (differences[i] > kCellTolerance) differing.push_back(int(i));
+    }
+    std::ranges::sort(differing, std::greater{}, [&](int i) { return differences[i]; });
+    std::string worst;
+    for (int i : differing | std::views::take(5))
+        worst += " (" + std::to_string(i % kSignatureWidth * kCell) + "," +
+                 std::to_string(i / kSignatureWidth * kCell) +
+                 ")=" + std::to_string(differences[i]);
+    std::printf("%s: %zu of %zu cells differ by more than %d (largest difference %d)%s\n", name,
+                differing.size(), actual.size(), kCellTolerance, std::ranges::max(differences),
+                worst.c_str());
+    if (differing.size() > kMaxDifferingCells) {
+        const fs::path directory = ArtifactDirectory();
+        if (!directory.empty())
+            for (const auto& [suffix, image] :
+                 {std::pair{"expected", &expected}, {"actual", &actual}, {"diff", &diff}})
+                SaveImage(directory / (std::string(name) + "-golden-" + suffix + ".png"),
+                          Enlarged(*image), SCREEN_WIDTH);
+    }
+    INFO("worst cells (x,y)=difference:" << worst);
+    CHECK(differing.size() <= kMaxDifferingCells);
 }
 
 void ReachMainMenu(GameHarness& game)

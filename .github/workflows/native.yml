@@ -259,7 +259,7 @@ jobs:
             export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so
           fi
           ctest --preset ${{ matrix.preset }} --output-on-failure --parallel "$(nproc)"
-      # Frames saved by failing runtime scenarios.
+      # Frames saved by failing runtime scenarios and golden-image mismatches.
       - name: Upload runtime scenario images
         if: failure() && steps.tests.outcome == 'failure'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

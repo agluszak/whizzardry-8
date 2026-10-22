@@ -266,8 +266,10 @@ void CampSpellsScenario()
 {
     GameHarness game(false);
     StartPremadeGame(game);
+    ExpectScreen(game, "premade-main-game");
     game.command(W8_MGS_COMMAND_INVENTORY);
     game.wait_screen("camp-spells", W8_SCREEN_CAMP);
+    ExpectScreen(game, "camp");
     // Identify from the inventory action strip must cast on the clicked item,
     // spend mana and show its information, rather than book an empty target.
     auto& caster = CurrentGame().party.characters[PremadeSlot()];

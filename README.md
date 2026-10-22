@@ -81,7 +81,8 @@ WIZ8_ASSET_ROOT=/path/to/prepared-assets ctest --preset linux -L runtime
 ```
 
 A failing scenario saves the game's frame under `tests/runtime-artifacts/` in the
-build tree; see [the runtime fixture notes](tests/runtime/fixtures/README.md).
+build tree; [the runtime fixture notes](tests/runtime/fixtures/README.md) also
+describe the golden screen signatures and how to update them.
 
 C and C++ changes should use the repository's `.clang-format` configuration (clang-format 23).
 

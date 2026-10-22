@@ -202,6 +202,11 @@ SDL_Point MainMenuRegion(short item);
    scenario checks are also saved there as PNGs for inspection. */
 void Snapshot(const char* name, const std::vector<unsigned>& pixels);
 
+/* Compares the presented frame with the golden signature
+   WIZ8_RUNTIME_GOLDENS/<name>.png (see tests/runtime/fixtures/README.md).
+   WIZ8_RUNTIME_UPDATE_GOLDENS=1 rewrites the golden instead. */
+void ExpectScreen(GameHarness& game, const char* name);
+
 void ReachMainMenu(GameHarness& game);
 
 /* --- Main-game helpers ---------------------------------------------------- */
