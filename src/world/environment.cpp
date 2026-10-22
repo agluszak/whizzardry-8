@@ -25,7 +25,7 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/platform/timer.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/fog.h"
 #include "wiz8/render/frame.h"
@@ -410,7 +410,7 @@ void BeginWorldLightingFade(float duration)
     }
 
     GetWorld()->environment.transition_rate = 1.0f / duration;
-    GetWorld()->environment.transition_tick = MonotonicMilliseconds();
+    GetWorld()->environment.transition_tick = WorldClockMilliseconds();
     GetWorld()->environment.lighting_mode = W8EnvironmentLightingMode::Transition;
     if (duration < 0.0f) {
         GetWorld()->environment.base_intensity = GetWorld()->environment.intensity;
@@ -429,7 +429,7 @@ void BeginWorldLightingFade(float duration)
 void UpdateEnvironmentLighting(void)
 {
     if (!GetWorld()) return;
-    std::uint64_t now = MonotonicMilliseconds();
+    std::uint64_t now = WorldClockMilliseconds();
     std::uint64_t elapsed = now - GetWorld()->environment.transition_tick;
     World* world;
     float scale;
