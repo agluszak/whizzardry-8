@@ -2,13 +2,14 @@
 
 #include <array>
 #include <cstdint>
+#include <functional>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "wiz8/data/records.h"
 #include "wiz8/layouts/learned_spells.h"
 #include "wiz8/layouts/main_game_screen.h"
-#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/platform/input.h"
@@ -18,20 +19,26 @@ struct W8Character;
 
 inline constexpr int W8_SPELL_POWER_PIP_COUNT = 9;
 
-/* The view owns its input and controls for exactly as long as it is open. */
+/* The spell picker. The main-game screen owns it, with its input and controls,
+   for exactly as long as it is open; whoever opened it supplies `on_return`,
+   which runs once a cast is chosen or the picker is cancelled. Abandoning the
+   screen discards the picker without running it. */
 struct W8SpellCastingView {
+    explicit W8SpellCastingView(std::move_only_function<void()> on_return = {})
+        : on_return(std::move(on_return))
+    {
+    }
+
     UiLayer input{UiLayerOrder::SpellCasting};
     HitTarget* name_target = nullptr;
     W8Character* caster;
-    W8SpellRealm iSpellRealm; /* selected realm, -1 when none */
+    W8SpellRealm iSpellRealm = W8_SPELL_REALM_NONE; /* selected realm, -1 when none */
     W8Action draft{W8_ACTION_CAST_SPELL, 0};
-    W8SpellPowerClass PowerClass() const;
-    unsigned int AffordablePowerLevels() const;
     uint64_t realm_anim_timer;
     unsigned int realm_anim_frame;
     W8LearnedSpellState learned;
-    int uiSpellIndex; /* clicked list row */
-    int selected_spell_index;
+    int uiSpellIndex = -1; /* clicked list row */
+    int selected_spell_index = -1;
     std::array<std::unique_ptr<W8ButtonWidget>, 6> realm_buttons;
     std::array<W8TextBuffer, 6> realm_text;
     std::array<std::unique_ptr<W8ButtonWidget>, 9> power_controls;
@@ -39,32 +46,63 @@ struct W8SpellCastingView {
     std::unique_ptr<W8ButtonWidget> cancel;
     W8TextBuffer spell_name;
     std::array<bool, 3> dirty{true, true, true};
-    W8NpcDialogueLayout interact_id;
-    int location_id;
     struct SpellRow {
         int spell;
         signed char color;
     };
     std::vector<SpellRow> spells;
-    bool dialog_confirmed;
+    bool dialog_confirmed = false;
+    std::move_only_function<void()> on_return;
+
+    /* Build the three panels' controls. */
+    void CreateControls();
+    W8SpellPowerClass PowerClass() const;
+    unsigned int AffordablePowerLevels() const;
+    /* Point the picker at a new caster, closing it when the caster cannot cast. */
+    void SelectCharacter(int party_slot);
+    /* Select the spell's realm and list row. */
+    void SelectSpell(int spell_id);
+    void SelectPowerLevel(int power_level);
+    /* Redraw the dirty panels, or every panel when `all` is set. */
+    void PaintPanels(bool all);
+    /* Per frame: advance the realm icon and commit a ready cast. */
+    void Update();
+    /* Text-box body input while the picker is open. */
+    UiResult HandleTextBox(const UiPointerEvent& event);
+    /* The cancel button: close and return to the opener. */
+    void Cancel();
+
+private:
+    void UpdateRealmPointDisplays();
+    void ClearChoice();
+    void RefreshAvailablePowerPips();
+    void UpdatePowerPips();
+    void RefreshPowerPip(int pip);
+    void RebuildList(int spell_id);
+    void SetLineColor(int index, signed char color);
+    void SelectRow(int index);
+    void SelectRealm(W8SpellRealm realm);
+    void SelectPip7();
+    void SelectPip8();
+    void PreviewPowerPipHover(int power_level);
+    void DialogResult(bool accepted);
+    void SelectListRow(int index);
+    void TryCommit();
+    void ShowError(int spell_id);
 };
 
-bool OpenSpellCastingView(int party_slot);
+/* The main game's open spell picker, or null. */
+W8SpellCastingView* SpellPicker();
+/* Open the spell picker for a party slot. `on_return` runs when it closes
+   with a cast chosen or cancelled. */
+bool OpenSpellCastingView(int party_slot, std::move_only_function<void()> on_return = {});
+/* Open the picker for the selected character with one spell preselected. */
+void BeginSpellCast(int spell_id, std::move_only_function<void()> on_return);
+/* Close the picker and return to whoever opened it. */
 void CloseSpellCastingView(void);
+/* Discard the picker without returning to its opener. */
+void DismissSpellCastingView(void);
 void RestoreSpellCastingRegions(void);
-void SelectSpellCastingCharacter(int party_slot);
-void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_id);
-void SetSpellCastingPanelsActive(bool active);
-void SelectSpellPowerLevel(int power_level);
-void ResetSpellCastingSelection(void);
-void CommitSpellCastingSelection(void);
-
-class W8DialogBase;
 
 /* Destroy callback for the spell/use-item reason notices. */
 void SpellCastingNoticeClosed(bool);
-/* Text-box body callback while spell casting is active. */
-UiResult HandleSpellTextBox(const UiPointerEvent& event);
-
-/* Live spell-casting view, or null when the panel is closed. */
-extern std::unique_ptr<W8SpellCastingView> gpSCSV;

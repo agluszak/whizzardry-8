@@ -33,7 +33,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
@@ -748,27 +747,6 @@ TEST_CASE("Trade confirmation rejects changed inventory and stock sources", "[tr
         REQUIRE(CompleteNpcTrade(CurrentGame(), &npc, 0, selected, 1, action).outcome ==
                 W8TradeOutcome::WantedByOwner);
     REQUIRE(item == selected.expected);
-}
-
-TEST_CASE("A picker constrains layout without restoring an obsolete preference", "[layout]")
-{
-    const ScopedGame game;
-    struct Restore {
-        std::unique_ptr<W8SpellCastingView> view = std::move(gpSCSV);
-        W8MainUiMode mode = g_settings.main_ui_mode;
-        ~Restore()
-        {
-            gpSCSV = std::move(view);
-            g_settings.main_ui_mode = mode;
-        }
-    } restore;
-    gpSCSV = std::make_unique<W8SpellCastingView>();
-    g_settings.main_ui_mode = W8_MAIN_UI_MODE_RADAR;
-    REQUIRE(GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION);
-    REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR);
-    g_settings.main_ui_mode = W8_MAIN_UI_MODE_PORTRAITS;
-    gpSCSV.reset();
-    REQUIRE(GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS);
 }
 
 TEST_CASE("A refused purchase leaves stock, payment and a full destination unchanged", "[trade]")

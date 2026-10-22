@@ -1167,14 +1167,14 @@ void InventoryChestScenario()
     game.click_at(83, 219);
     game.wait_screen("use-potion-return", W8_SCREEN_MAIN_GAME);
     const bool healed = game.within_frames(600, [&] { return caster.hp_current > 1; });
-    CAPTURE(ItemUseDraft(), ScreenPointer().targeting(),
+    CAPTURE(UseItemPicker(), ScreenPointer().targeting(),
             (CurrentGame().party.held.item.iItemNo != -1), potion.stack_count,
             CurrentGame().party.rows[slot].executing.kind);
     Snapshot("potion-use", game.read_frame());
     REQUIRE(healed);
     REQUIRE(potion.iItemNo == healing_potion);
     REQUIRE(potion.stack_count == 1);
-    REQUIRE_FALSE(ItemUseDraft());
+    REQUIRE_FALSE(UseItemPicker());
     Walk(game, "walk-after-inventory", 5);
     const auto start = PartyPosition();
     game.hold_key(SDLK_DOWN, true);
@@ -1393,30 +1393,43 @@ void CheckGameplayUi(GameHarness& game)
     const auto realm = Data().spells[W8_SPELL_LIGHT].realm;
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
     CurrentGame().advancement.paused = true;
-    REQUIRE(OpenSpellCastingView(slot));
+    int returns = 0;
+    REQUIRE(OpenSpellCastingView(slot, [&] { ++returns; }));
     game.frame();
-    const auto realm_bounds = gpSCSV->realm_buttons[realm]->Bounds();
+    // A picker constrains the layout without overwriting the stored preference.
+    const auto preference = g_settings.main_ui_mode;
+    g_settings.main_ui_mode = W8_MAIN_UI_MODE_RADAR;
+    REQUIRE(GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION);
+    REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR);
+    g_settings.main_ui_mode = preference;
+    const auto realm_bounds = SpellPicker()->realm_buttons[realm]->Bounds();
     game.move_pointer(0, 200);
     VideoRemoveToolTip();
     game.move_pointer(realm_bounds.x + 5, realm_bounds.y + 5);
     ResetUiHelp(false);
     REQUIRE(HasScreenTransitionObjects());
     game.click_at(realm_bounds.x + realm_bounds.w / 2, realm_bounds.y + realm_bounds.h / 2);
-    REQUIRE(gpSCSV->iSpellRealm == realm);
-    REQUIRE(gpSCSV->spells.size() == 1);
+    REQUIRE(SpellPicker()->iSpellRealm == realm);
+    REQUIRE(SpellPicker()->spells.size() == 1);
     game.click_at(250, 372); // First spell in the ordinary text-box list.
-    REQUIRE(gpSCSV->draft.detail == W8_SPELL_LIGHT);
+    REQUIRE(SpellPicker()->draft.detail == W8_SPELL_LIGHT);
     game.click_at(0x1f4, 0x172);
-    if (gpSCSV) {
-        REQUIRE(gpSCSV->draft.detail_block.spell.power_level == 2);
+    if (SpellPicker()) {
+        REQUIRE(SpellPicker()->draft.detail_block.spell.power_level == 2);
         game.click_at(0x247, 0x179);
-        REQUIRE(!gpSCSV);
+        REQUIRE(!SpellPicker());
     } else {
         // Target-free spells may commit in the same frame as power selection.
         REQUIRE(CurrentGame().party.rows[slot].remembered.spell.detail == W8_SPELL_LIGHT);
         REQUIRE(CurrentGame().party.rows[slot].remembered.spell.detail_block.spell.power_level ==
                 2);
     }
+    // Committing or cancelling returns to the opener once; abandoning never does.
+    REQUIRE(returns == 1);
+    REQUIRE(OpenSpellCastingView(slot, [&] { ++returns; }));
+    DismissSpellCastingView();
+    REQUIRE_FALSE(SpellPicker());
+    REQUIRE(returns == 1);
     REQUIRE(CurrentGame().advancement.paused);
     REQUIRE(CurrentGame().advancement.held);
     ToggleMainGamePause();

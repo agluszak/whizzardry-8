@@ -78,6 +78,7 @@
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
 #include "wiz8/local_screens/Screens.h"
@@ -2670,34 +2671,43 @@ static void CloseNpcDialogueMode1Layout(void)
     }
 }
 
-static void RequestNpcSpellService3(void)
+/* Set the conversation aside and open the spell picker on one spell; once the
+   picker closes the conversation resumes with the same NPC and layout. */
+static void RequestNpcSpellService(int spell_id)
 {
-    int location = CurrentGame().npc_interaction.target_location_id;
-    W8NpcDialogueLayout mode = CurrentGame().npc_interaction.dialogue_layout;
+    const int location = CurrentGame().npc_interaction.target_location_id;
+    const W8NpcDialogueLayout layout = CurrentGame().npc_interaction.dialogue_layout;
 
     CurrentGame().activity.conversation_aside = true;
     CloseNpcDialogueMode1Layout();
     EndNpcDialogueSession(false);
-    BeginSpellCast(W8_SPELL_CHARM, location, mode);
+    BeginSpellCast(spell_id, [location, layout] {
+        BeginNpcDialogue(FindNpcBindingForMonster(FindMonster(location)), 0, -1, 0, 1);
+        SwitchNpcDialogueLayout(layout);
+    });
+}
+
+static void RequestNpcSpellService3(void)
+{
+    RequestNpcSpellService(W8_SPELL_CHARM);
 }
 
 static void RequestNpcSpellService41(void)
 {
-    int location = CurrentGame().npc_interaction.target_location_id;
-    W8NpcDialogueLayout mode = CurrentGame().npc_interaction.dialogue_layout;
-
-    CurrentGame().activity.conversation_aside = true;
-    CloseNpcDialogueMode1Layout();
-    EndNpcDialogueSession(false);
-    BeginSpellCast(W8_SPELL_MINDREAD, location, mode);
+    RequestNpcSpellService(W8_SPELL_MINDREAD);
 }
 
+/* Set the conversation aside for the item picker; it resumes once the picker
+   closes, unless the use opened the camp, which takes it up itself. */
 static void RequestNpcCharacterService(void)
 {
     CurrentGame().activity.conversation_aside = true;
     CloseNpcDialogueMode1Layout();
     EndNpcDialogueSession(false);
-    OpenUseItemSelectView(CurrentGame().status.selected_character);
+    OpenUseItemSelectView(CurrentGame().status.selected_character, [] {
+        if (CurrentGame().activity.conversation_aside && PendingScreen() != W8_SCREEN_CAMP)
+            SyncDialogueNpcState();
+    });
 }
 
 /* Pick the index-th activatable item on the dialogue character: the twelve

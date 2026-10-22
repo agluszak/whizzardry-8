@@ -455,7 +455,11 @@ Unlayered code may use the layers.
 ## Gameplay operations
 
 - **Actions.** Spell and item pickers own an action draft while open; cancelling
-  discards it, and committing copies the completed draft. The party keeps a row
+  discards it, and committing copies the completed draft. The main-game screen owns
+  the open picker (`spell_picker`, `item_picker`); whoever opens one (the action bar, a
+  lock or trap interaction, an NPC service) passes the return it runs when the picker
+  commits or is cancelled, such as resuming the suspended interaction or conversation.
+  Leaving the screen discards the picker without that return. The party keeps a row
   (`W8PartySlotRow`) for every slot, occupied or not, with three independent parts
   (`action_choices.h`): the member's `remembered` choices (basic
   action, last spell, item use, breath target, the repeat key's action), the action

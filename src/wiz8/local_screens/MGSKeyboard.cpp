@@ -231,12 +231,12 @@ void DispatchMGSCommand(W8MGSCommand command)
             ToggleWorldCursor();
         } else if (CurrentGame().surprise_possible) {
             AcknowledgeSurprise();
-        } else if (gpSCSV) {
-            ResetSpellCastingSelection();
+        } else if (auto* picker = SpellPicker()) {
+            picker->Cancel();
         } else if (IsLockInteractionActive()) {
             EndLockInteractMode(0);
-        } else if (ItemUseDraft()) {
-            CloseUseItemSelection();
+        } else if (UseItemPicker()) {
+            CloseUseItemSelectView();
         } else if (ScreenPointer().targeting() != W8_TARGET_NEED_NONE) {
             SetTargetingMode(W8_TARGET_NEED_NONE);
         } else if (FormationPanelOpen()) {
@@ -536,12 +536,12 @@ void DispatchMGSCommand(W8MGSCommand command)
         ScrollDialogueTextBoxToLine();
         break;
     case W8_MGS_COMMAND_TEXTBOX_CLEAR:
-        if (!gpSCSV && !ItemUseDraft()) {
+        if (!SpellPicker() && !UseItemPicker()) {
             ResetEditorStatusLine(-1);
         }
         break;
     case W8_MGS_COMMAND_START_COMBAT_ROUND:
-        if (!CurrentGame().combat.has_value() || gpSCSV || ItemUseDraft()) {
+        if (!CurrentGame().combat.has_value() || SpellPicker() || UseItemPicker()) {
             break;
         }
         if (CurrentGame().combat->execution_active == 0) {
@@ -926,7 +926,7 @@ static void KeyboardMenuOpenSpellView(void)
 {
 
     CloseKeyboardMenu();
-    if (!gpSCSV) {
+    if (!SpellPicker()) {
         OpenSpellCastingView(g_selected_party_slot);
     }
 }
@@ -951,7 +951,7 @@ static void KeyboardMenuOpenUseItemView(void)
 {
 
     CloseKeyboardMenu();
-    if (!ItemUseDraft()) {
+    if (!UseItemPicker()) {
         OpenUseItemSelectView(g_selected_party_slot);
     }
 }

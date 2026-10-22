@@ -137,11 +137,11 @@ void UpdateSubMenuButton(int index)
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
-    if (ItemUseDraft() && index != 3) {
+    if (UseItemPicker() && index != 3) {
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
-    if (gpSCSV && index != 4) {
+    if (SpellPicker() && index != 4) {
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
@@ -201,7 +201,7 @@ void UpdateSubMenuButton(int index)
         MainGame()->hud_buttons.submenu[3].SetEnabled(true);
         /* As case 2, with an item draft: 0x00594F07/0x00594F1C then
            0x00594F23/0x00594F38. */
-        if (ItemUseDraft()) {
+        if (UseItemPicker()) {
             if (MainGame()->hud_buttons.submenu[3].IsPressed() == 0) {
                 MainGame()->hud_buttons.submenu[3].SetPressed(true);
             }
@@ -219,7 +219,7 @@ void UpdateSubMenuButton(int index)
         /* As case 2, with the spell picker open: 0x00594FA0/0x00594FB5 then
            0x00594FBC/0x00594FCD. This case's SetEnabled stays a single call -
            the retail's `? :` collapses into one at 0x00594F8C. */
-        if (gpSCSV) {
+        if (SpellPicker()) {
             if (MainGame()->hud_buttons.submenu[4].IsPressed() == 0) {
                 MainGame()->hud_buttons.submenu[4].SetPressed(true);
             }
@@ -280,7 +280,7 @@ static void SubMenuButtonToggleFlag(W8ButtonWidget* button)
 
 static void SubMenuButtonUseItem(W8ButtonWidget* button)
 {
-    if (ItemUseDraft()) {
+    if (UseItemPicker()) {
         CloseUseItemSelectView();
         return;
     }
@@ -296,7 +296,7 @@ static void SubMenuButtonSpellView(W8ButtonWidget* button)
 {
     if (CharacterHasCastableSpell(
             &CurrentGame().party.characters[CurrentGame().status.selected_character])) {
-        if (gpSCSV) {
+        if (SpellPicker()) {
             CloseSpellCastingView();
         } else {
             OpenSpellCastingView(CurrentGame().status.selected_character);

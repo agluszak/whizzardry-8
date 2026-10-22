@@ -23,7 +23,9 @@ class Pointer;
 class Trigger;
 class W8LockInteraction;
 class W8TrapInteraction;
+class W8UseItemView;
 struct W8LevelRuntimeBlock;
+struct W8SpellCastingView;
 
 /* The world view with its HUD, portraits, text box and overlays. The level
    block, cursor resources and HUD are created on first entry and survive the
@@ -48,6 +50,10 @@ struct MainGameScreen final : Screen {
     std::unique_ptr<W8TrapInteraction> trap_interaction;
     bool lock_active = false;
     bool trap_active = false;
+    /* The open spell or use-item picker. Closing one returns to whatever opened it;
+       leaving the screen discards it without that return. */
+    std::unique_ptr<W8SpellCastingView> spell_picker;
+    std::unique_ptr<W8UseItemView> item_picker;
     bool resume_world = false;
     /* The camp closed over a conversation set aside to open it; the next frame takes the
        conversation up again. */
@@ -589,7 +595,6 @@ void CreateSurpriseFade(void);
 void ReverseSurpriseFade(void);
 void DestroySurpriseFade(void);
 unsigned char UpdateSurpriseFade(void);
-bool OpenUseItemSelectView(int slot);
 
 void ShowMainGameNoticeLine(std::string_view text, std::function<void(bool)> callback,
                             bool confirmation, bool cancel);

@@ -906,7 +906,7 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
         ShowNoticeLine(Data().strings[0x7a7], callback, true, false);
         return true;
     }
-    if (ItemUseDraft()) {
+    if (UseItemPicker()) {
         if (!SpellHasAnyValidTarget(character_index, record->spell_id,
                                     ItemClassNormalizesTarget(record))) {
             ShowNoticeLine(Data().strings[0x7a8], callback, true, false);

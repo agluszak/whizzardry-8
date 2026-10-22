@@ -164,7 +164,7 @@ bool Game::beginCombat(int surprise)
     UpdateScreenOverlays(0);
     AutoSaveIfAllowed(true);
     ResetLevelDataVectors();
-    if (!activity.conversation && !gpSCSV && !ItemUseDraft()) {
+    if (!activity.conversation && !SpellPicker() && !UseItemPicker()) {
         SelectTextBox(1);
     }
     ResetEditorStatusLine(1);
@@ -1013,7 +1013,7 @@ void Game::endCombat(bool forced_cleanup)
     }
     ZoomRadarMapOut();
     events.push(CombatEnded{});
-    if (!activity.conversation && !gpSCSV && !ItemUseDraft()) {
+    if (!activity.conversation && !SpellPicker() && !UseItemPicker()) {
         SelectTextBox(0);
     }
     ApplyWorldAdvancement(*this, advancement.hold);
@@ -1393,7 +1393,7 @@ void AutoAdvanceSelectedCharacter(void)
 {
     if (g_settings.auto_advance_character == 0 || CurrentGame().combat->target_picked ||
         !CurrentGame().combat->round_active || ScreenPointer().targeting() != W8_TARGET_NEED_NONE ||
-        gpSCSV || ItemUseDraft()) {
+        SpellPicker() || UseItemPicker()) {
         return;
     }
     int selected = CurrentGame().status.selected_character;
