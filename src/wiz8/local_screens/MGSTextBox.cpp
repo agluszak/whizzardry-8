@@ -162,6 +162,9 @@ static void AppendNoticeLine(W8MessageStorageRecord line, short text_box)
     }
     unsigned int index = CurrentGame().status.text_box_lines_used[text_box];
     W8MessageStorageRecord* record = &CurrentGame().message_log[text_box][index];
+    line.clock = record->clock;
+    line.saved_remaining_ms = record->saved_remaining_ms;
+    std::ranges::copy(record->unknown_1c, line.unknown_1c);
     *record = std::move(line);
     ++CurrentGame().status.text_box_lines_used[text_box];
     ++g_notice_line_count;
