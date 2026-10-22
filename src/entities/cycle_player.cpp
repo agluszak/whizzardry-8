@@ -81,7 +81,8 @@ ShakeSystem& CameraShakes()
 
 ShakeSystem::Instance::Instance(const ShakeDefinition& definition, const ShakeDefinition* key)
     : definition(definition),
-      timer(std::isfinite(definition.duration) ? definition.duration : 0.0f, false), key(key)
+      timer(std::isfinite(definition.duration) ? definition.duration : 0.0f, TimerClock::World),
+      key(key)
 {
     timer.Restart();
 }

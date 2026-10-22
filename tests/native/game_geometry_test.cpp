@@ -71,7 +71,6 @@
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/octree_walk.h"
 #include "wiz8/placement_math.h"
-#include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
@@ -2030,15 +2029,14 @@ TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
         bool resume = g_level_motion_resume_pending;
         ~RestoreRuntime()
         {
-            ResetGameTimeAccumulator();
+            ResumeSharedGameTimers();
             g_level_motion_resume_pending = resume;
         }
     } restore;
     LevelSpatialIndex data;
     data.compiled_available = false;
     data.collision_available = true;
-    ResetGameTimeAccumulator();
-    GameTimeAccumulator().m_flags.paused = true;
+    PauseSharedGameTimers();
     PartyCamera controller;
     controller.motion_started = true;
     controller.SetOrientation(.4f, .1f);
@@ -2052,10 +2050,6 @@ TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
     const auto motion = controller.move(data, W8_CAMERA_MOTION_FORWARD, basis);
     REQUIRE_FALSE(motion.moved);
     REQUIRE(motion.displacement == glm::vec3(0));
-    REQUIRE(controller.m_position == glm::vec3(1, 2, 3));
-    g_level_motion_resume_pending = true;
-    GameTimeAccumulator().m_flags.raw_time = true;
-    REQUIRE(controller.move(data, W8_CAMERA_MOTION_FORWARD, basis).displacement == glm::vec3(0));
     REQUIRE(controller.m_position == glm::vec3(1, 2, 3));
 }
 

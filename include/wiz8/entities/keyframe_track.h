@@ -34,7 +34,7 @@ struct KeyframeTrack {
     bool discrete_mode{};
     unsigned int point_index{};
     float interpolation_fraction{};
-    uint64_t last_update_tick{};
+    uint64_t last_update_tick{}; // Held world-clock milliseconds.
     float speed{};
     float distance_travelled{};
     float total_length{};

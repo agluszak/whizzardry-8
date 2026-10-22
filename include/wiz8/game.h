@@ -79,8 +79,8 @@ public:
     };
     void advance(std::chrono::milliseconds elapsed, StepHold hold);
     /* The step time this game has run: the sum of the elapsed times its steps were given.
-       Code below the step stamps and measures its deadlines on it. Some world code still
-       reads the monotonic clock or the shared timers (ROADMAP.md, "One step"). */
+       Game-step deadlines use this clock; world holds use visual_time, while UI
+       presentation and the saved game-day calendar are explicit timer domains. */
     std::chrono::milliseconds time{};
     // World visual time stops with world advancement and shared timer holds.
     // UI/cursor presentation continues on its own monotonic clock.
@@ -138,7 +138,7 @@ public:
     W8NpcPresentation npc_presentation = W8NpcPresentation::none;
     W8NpcSpeech npc_speech;
     W8SedexusScene sedexus_scene;
-    // The deadline of each shared three-minute spell cooldown (`g_cooldown_gated_spells`).
+    // The deadline of each shared three-minute spell cooldown (in `SpellPracticeCooldown`).
     std::array<std::uint64_t, 14> spell_cooldowns{};
     /* The step time left until the timed autosave announces itself, counted in the world
        while the shared timers run (`SharedGameTimersHeld`). */
