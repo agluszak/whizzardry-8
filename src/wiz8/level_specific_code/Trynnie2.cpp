@@ -10,6 +10,7 @@
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
@@ -92,21 +93,21 @@ void EnsureKilledVar(World& world)
    already holds an item. */
 bool Trynnie2Script::goodaVineA(Trigger* pTrigger)
 {
-    return PlaceItemOnCursor(ctx.game, 0x16d, true, true, false);
+    return ctx.game.inventory.placeInHand(0x16d, true, true, false);
 }
 
 /* "GoodaVine_B": place the second vine item on the cursor, refusing while the
    cursor already holds an item. */
 bool Trynnie2Script::goodaVineB(Trigger* pTrigger)
 {
-    return PlaceItemOnCursor(ctx.game, 0x16e, true, true, false);
+    return ctx.game.inventory.placeInHand(0x16e, true, true, false);
 }
 
 /* "Give_Zulu": place item 0x1b3 on the cursor, refusing while the cursor
    already holds an item. */
 bool Trynnie2Script::giveZulu(Trigger* pTrigger)
 {
-    return PlaceItemOnCursor(ctx.game, 0x1b3, true, true, false);
+    return ctx.game.inventory.placeInHand(0x1b3, true, true, false);
 }
 
 /* "Meat_Maker": spawn the meat item at the Meat_Position entity. */
@@ -159,7 +160,7 @@ bool Trynnie2Script::meatBox(Trigger* pTrigger)
             CreateLocationVar("HogarDruggedGivenExp", 1);
         }
     }
-    (void)TakeInventoryItem(ctx.game, {W8ItemStorage::Hand});
+    (void)ctx.game.inventory.take({W8ItemStorage::Hand});
     BeginScriptedWorldAction();
     return true;
 }
@@ -239,6 +240,6 @@ bool Trynnie2UseItem(const ScriptContext& context, W8ItemLocation location)
         }
     }
     destination.iItemNo = -1;
-    destination = TakeInventoryItem(context.game, location);
+    destination = context.game.inventory.take(location);
     return true;
 }

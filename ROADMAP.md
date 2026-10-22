@@ -163,13 +163,15 @@ the licensed runtime scenarios after every step.
      names ("Named strings") travel with the same migrations.
 3. **Inventory and party in `rules`.** The storage and item rules are behind the
    boundary, in `PartyStorage` (ARCHITECTURE.md, "Inventory"). What remains:
-   - The commands in `wiz8/inventory.h` (about 30) still take `Game&`, because what
-     they owe after a rule reaches unmigrated code: settlement's host applies
-     combat's hand and death bookkeeping (ARCHITECTURE.md, "Conditions"), acquisition
-     updates story facts and runs
-     exceptional-item reactions, an unstored item drops into the world, and `UseItem`
-     and `BindCharacterItems` run per-item effects in `PC Item.cpp`. They become `Game`
-     members once conditions (step 6) and facts (step 7) take explicit state.
+   - `Inventory` (`wiz8/inventory.h`) holds its `Game`, because what its commands owe
+     after a rule reaches unmigrated code: settlement's host applies combat's hand and
+     death bookkeeping (ARCHITECTURE.md, "Conditions"), acquisition updates story facts
+     and runs exceptional-item reactions through global lookups, an unstored item drops
+     into the world, and `use` and `requestWeaponSetSwap` run per-item effects in
+     `PC Item.cpp`. It takes those parts instead once conditions (step 6) and facts
+     (step 7) are classes of their own. 48 of its call sites, in screens, level
+     scripts and local code, still reach it through `CurrentGame()`; they lose that
+     lookup as they receive their game.
    - Unmigrated code still finds a member's slot from its address:
      `CharacterPointerToPartySlot` (35 uses in 16 files), the camp's reviewed
      character (`CampPartySlot`, since the camp also shows characters outside the
@@ -365,7 +367,7 @@ before the related refactoring changes behavior.
 - **Retail semantics to confirm.**
   - Whether swings really use the previous pass's damage bonus in observable play,
     and how many stat passes retail runs per operation.
-  - Whether `GiveHeldItemToCharacterOrParty`'s party-first refusal discards the
+  - Whether `Inventory::giveHeld`'s party-first refusal discards the
     held item.
   - Whether `CountCharacterItem`'s backpack count (which reads the equipment slot
     with the same index) affects any quest.

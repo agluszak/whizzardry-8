@@ -48,7 +48,7 @@ Game& BeginNewGame(GameSession& games)
     for (const auto id : starting_items) {
         auto item = MakeItem(Data(), CurrentGame().rng, id, true, true, true);
         item.stack_count = 1;
-        AddItemToParty(game, OwnedItem(item), false, false);
+        game.inventory.addToPool(OwnedItem(item), false, false);
     }
     game.party.gold = 500;
     game.status.selected_character = GetNextCharacter(1, 1, -1);
@@ -137,7 +137,6 @@ void ResetGameplaySlot(unsigned int slot)
     record->cached_spell_bar = 0;
     record->portrait_refresh_pinned = false;
     record->auto_portrait_refresh = false;
-    record->keyboard_menu_open = false;
     record->combat_portrait_dirty = false;
     record->acting_portrait_pulse = 0;
     record->level_up_ready = false;

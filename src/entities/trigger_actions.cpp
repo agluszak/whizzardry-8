@@ -1252,18 +1252,12 @@ void Trigger::Run(int source)
 
             if ((flags & W8_TRIGGER_ANIMATE_STATES) != 0) {
                 Animation* animation;
-                /* 0x0043E4C3 tests the AnimObjListCount result signed. */
-                int count;
-                int index;
 
                 assert(m_pProp != 0 && m_bRepType == W8_TRIGGER_REP_PROP);
                 animation = m_pProp->currentAnimation();
-                if (animation->path_lists == 1) {
-                    count = AnimObjListCount(animation, 2);
-                    for (index = 0; index < count; ++index) {
-                        KeyframeTrack* path =
-                            AnimObjListEntry(animation, 2, static_cast<signed char>(index));
-                        PathAIUpdate(path,
+                if (animation->positioned_parts) {
+                    for (auto& part : animation->parts[2]) {
+                        PathAIUpdate(part.path ? &*part.path : nullptr,
                                      previous <= static_cast<signed char>(state_index) ? 1 : -1);
                     }
                 } else {
@@ -1407,7 +1401,7 @@ void Trigger::Run(int source)
                 }
 
                 if (gold != 0) {
-                    AddPartyGold(CurrentGame(), gold, true);
+                    CurrentGame().inventory.addGold(gold, true);
                     gold = 0;
                 }
 
@@ -1420,7 +1414,7 @@ void Trigger::Run(int source)
                     }
                 } else if (item_count == 1 && !(CurrentGame().party.held.item.iItemNo != -1)) {
                     item = world_item_group->contents.front().get();
-                    ReceiveItemInHand(CurrentGame(), item->item);
+                    CurrentGame().inventory.receiveInHand(item->item);
                     world_item_group->contents.clear();
                     if (m_pProp->subcycle != 0) {
                         goto toggle_item_prop;
@@ -1836,7 +1830,7 @@ void Trigger::Run(int source)
         if (m_pProp == 0 || m_lData1 < 0) {
             return;
         }
-        count = AnimObjValue(m_pProp->currentAnimation(), 2);
+        count = m_pProp->currentAnimation()->frameCount(2);
         if (static_cast<int>(count) <= m_lData1) {
             return;
         }
@@ -1933,7 +1927,7 @@ bool Trigger::SelectAction()
         if (required_item_id >= 0) {
             if (GetItemInHand(CurrentGame().party) == required_item_id) {
                 if ((flags & W8_TRIGGER_CONSUME_ITEM) != 0) {
-                    RemovePartyItemByID(CurrentGame(), required_item_id, false);
+                    CurrentGame().inventory.removeItemById(required_item_id, false);
                     required_item_id = -1;
                 }
             } else {

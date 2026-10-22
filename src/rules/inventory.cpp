@@ -318,10 +318,11 @@ W8ItemInstance* ResolveItemUse(W8Party& party, const W8ItemUse& use)
    hand pairs are special-cased: a dual-wield-capable item can displace the right hand's
    item into the left hand, a ranged weapon fills a free pair before anything else, and
    ammunition looks for a ranged weapon to go with and otherwise fails. */
-W8EquipSlot PartyStorage::chooseEquipSlot(W8Character& character, int item_id)
+W8EquipSlot PartyStorage::chooseEquipSlot(W8Character& character, int item_id, PlayPhase phase)
 {
-    W8EquipSlot slot = GetItemDefaultEquipSlot(data_, item_id, game_started_);
-    if (game_started_ ||
+    const bool game_started = phase == PlayPhase::Play;
+    W8EquipSlot slot = GetItemDefaultEquipSlot(data_, item_id, game_started);
+    if (game_started ||
         (slot != W8_EQUIP_SLOT_PRIMARY_WEAPON && slot != W8_EQUIP_SLOT_SECONDARY_WEAPON))
         return slot;
 
@@ -391,12 +392,12 @@ W8EquipSlot PartyStorage::chooseEquipSlot(W8Character& character, int item_id)
 std::optional<ItemPlacement> PartyStorage::placeWithCharacter(ItemRecipient recipient,
                                                               ItemSource source,
                                                               bool equip_if_possible, bool announce,
-                                                              bool skip_stacking)
+                                                              bool skip_stacking, PlayPhase phase)
 {
     auto& character = recipient.character;
 
     if (equip_if_possible && CanCharacterUseItem(data_, &character, source.item.iItemNo)) {
-        const W8EquipSlot equip_slot = chooseEquipSlot(character, source.item.iItemNo);
+        const W8EquipSlot equip_slot = chooseEquipSlot(character, source.item.iItemNo, phase);
         if (equip_slot != W8_EQUIP_SLOT_NONE) {
             auto& destination = character.EquippedItem[equip_slot];
             const auto location =
@@ -497,7 +498,8 @@ bool PartyStorage::placeInEmptyHand(ItemSource source)
 }
 
 std::optional<UnusableEquipment>
-PartyStorage::takeUnusableEquipment(unsigned int party_slot, std::bitset<W8_EQUIP_SLOT_COUNT> kept)
+PartyStorage::takeUnusableEquipment(unsigned int party_slot, PlayPhase phase,
+                                    std::bitset<W8_EQUIP_SLOT_COUNT> kept)
 {
     auto& character = party_.characters[party_slot];
     EvaluateCharacterInputs(data_, character, character.fInParty ? &party_.modifiers : nullptr);
@@ -509,7 +511,7 @@ PartyStorage::takeUnusableEquipment(unsigned int party_slot, std::bitset<W8_EQUI
     if (item == std::end(character.EquippedItem)) return std::nullopt;
     const auto equip_slot = static_cast<unsigned int>(item - character.EquippedItem);
     std::string notice;
-    if (game_started_) {
+    if (phase == PlayPhase::Play) {
         unsigned short message_id = 0;
         const auto& pronoun = data_.strings[g_gender_name_message_rows[character.gender][2]];
         notice = FindUnmetItemRequirement(&character, &data_.items[item->iItemNo], &message_id)
@@ -917,7 +919,6 @@ bool ItemPrecedesInPool(const GameData& data, const W8ItemInstance& a, const W8I
 // A pool of one is left alone.
 void PartyStorage::sortPool()
 {
-    if (!game_started_) throw std::logic_error("SortPartyItemPool: before play");
     if (party_.item_count > 1)
         std::sort(party_.item_pool, party_.item_pool + party_.item_count,
                   [&](const W8ItemInstance& a, const W8ItemInstance& b) {

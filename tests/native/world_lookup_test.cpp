@@ -309,7 +309,7 @@ TEST_CASE("Reward accounting follows the owned world, not a pending save destina
     characters[0].hp_current = 1;
     CurrentGame().status.resume_level = 8;
     game.game.level.replacePrimary(std::make_unique<World>(3));
-    AddPartyGold(CurrentGame(), 1, false);
+    CurrentGame().inventory.addGold(1, false);
     AwardPartyExperience(1, 0);
     REQUIRE(CurrentGame().status.level_progress[3].gold_collected == 1);
     REQUIRE(CurrentGame().status.level_progress[3].experience_gained == 1);
@@ -317,7 +317,7 @@ TEST_CASE("Reward accounting follows the owned world, not a pending save destina
     REQUIRE(CurrentGame().status.level_progress[8].experience_gained == 0);
     game.game.level.replacePrimary(nullptr);
     const auto suffix = CurrentGame().status.retail.status_header_suffix;
-    AddPartyGold(CurrentGame(), 1, false);
+    CurrentGame().inventory.addGold(1, false);
     AwardPartyExperience(1, 0);
     REQUIRE(CurrentGame().party.gold == 2);
     REQUIRE(characters[0].experience == 2);

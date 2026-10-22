@@ -1052,7 +1052,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemLocation location)
                                    usage_points, false);
         }
     }
-    (void)TakeInventoryItem(CurrentGame(), location);
+    (void)CurrentGame().inventory.take(location);
     QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventFullVolume);
 }
 

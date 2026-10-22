@@ -167,14 +167,16 @@ struct AttackItemsSpent {
 
 // ---- The rules over one party
 
+/* Whether play has begun. During party creation hands are filled their own way and nothing
+   is announced. */
+enum class PlayPhase { Creation, Play };
+
 /* A party's storage, with the data it reads, the random stream it draws from and the log it
-   reports to. Before play has started, party creation fills hands its own way and nothing
-   is announced. It borrows all of them and lives no longer than they do. */
+   reports to. It borrows all of them and lives no longer than they do. */
 class PartyStorage {
 public:
-    PartyStorage(const GameData& data, W8Party& party, Rng& rng, Events& events,
-                 const bool& game_started)
-        : data_(data), party_(party), rng_(rng), events_(events), game_started_(game_started)
+    PartyStorage(const GameData& data, W8Party& party, Rng& rng, Events& events)
+        : data_(data), party_(party), rng_(rng), events_(events)
     {
     }
 
@@ -184,7 +186,7 @@ public:
        stack or put in the first free backpack slot. Announcing names it in a notice. */
     std::optional<ItemPlacement> placeWithCharacter(ItemRecipient recipient, ItemSource source,
                                                     bool equip_if_possible, bool announce,
-                                                    bool skip_stacking);
+                                                    bool skip_stacking, PlayPhase phase);
     // Merge into a pool stack, else add a new entry at the front of the pool.
     std::optional<ItemPlacement> placeInPool(ItemSource source, bool announce, bool skip_stacking);
     // Put an item into an empty hand; false when the hand holds something.
@@ -195,7 +197,8 @@ public:
     bool consumeUse(W8ItemLocation location, bool remove_exhausted);
     // See UnusableEquipment.
     std::optional<UnusableEquipment>
-    takeUnusableEquipment(unsigned int party_slot, std::bitset<W8_EQUIP_SLOT_COUNT> kept = {});
+    takeUnusableEquipment(unsigned int party_slot, PlayPhase phase,
+                          std::bitset<W8_EQUIP_SLOT_COUNT> kept = {});
 
     // ---- Losing items
 
@@ -228,7 +231,7 @@ public:
     // Pour the source's uses into the destination; none when they do not share an item.
     std::optional<InventoryEdit> mergeUses(unsigned actor, W8ItemLocation destination,
                                            W8ItemLocation source);
-    // Sort the pool by ItemPrecedesInPool; only once play has started.
+    // Sort the pool by ItemPrecedesInPool.
     void sortPool();
 
     // ---- Weapon sets and ammunition
@@ -249,7 +252,7 @@ public:
     InventoryEdit readyPrimaryWeapon(unsigned party_slot);
 
 private:
-    W8EquipSlot chooseEquipSlot(W8Character& character, int item_id);
+    W8EquipSlot chooseEquipSlot(W8Character& character, int item_id, PlayPhase phase);
     W8ItemLocation equipPartner(unsigned int party_slot, const W8ItemInstance& item, int item_id,
                                 W8EquipSlot equip_slot);
     W8ItemLocation mergePartnerUses(unsigned int party_slot, W8ItemInstance& item);
@@ -259,5 +262,4 @@ private:
     W8Party& party_;
     Rng& rng_;
     Events& events_;
-    const bool& game_started_;
 };

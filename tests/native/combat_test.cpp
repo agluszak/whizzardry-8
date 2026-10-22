@@ -136,7 +136,7 @@ TEST_CASE_METHOD(InventoryCombatFixture,
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo = 1;
 
-    CommitWeaponSetSwap(game, 0, {.primary = true, .secondary = true});
+    game.inventory.commitWeaponSetSwap(0, {.primary = true, .secondary = true});
 
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo == 0);
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo == 1);
@@ -158,7 +158,7 @@ TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed 
     // The member has acted this round; the use waits for the next one.
     combat.characters[0].dead = true;
 
-    MergeItemUses(game, 0, destination, source);
+    game.inventory.mergeUses(0, destination, source);
 
     REQUIRE(backpack[0].uses_or_charges == 2);
     REQUIRE(backpack[1].uses_or_charges == 5);

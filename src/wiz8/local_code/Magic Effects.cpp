@@ -2107,7 +2107,7 @@ static void DestroyItemConsumables(W8ItemLocation location, unsigned int chance,
         } else if (equip_class == W8_ITEM_EQUIP_CLASS_SCROLL) {
             totals[1] += destroyed;
         }
-        RemoveInventoryQuantity(CurrentGame(), location, destroyed);
+        CurrentGame().inventory.removeQuantity(location, destroyed);
     }
 }
 

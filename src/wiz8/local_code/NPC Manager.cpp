@@ -416,7 +416,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
         if (item->iItemNo != -1 &&
             CanUnequipSlotItem(Data(), &character, static_cast<W8EquipSlot>(slot)) &&
             !NpcWantsItem(npc, item)) {
-            if (AddItemToPartyOrDrop(CurrentGame(), OwnedItem(*item), false)) {
+            if (CurrentGame().inventory.addToPoolOrDrop(OwnedItem(*item), false)) {
                 returned = true;
             } else if (item->iItemNo == -1) {
                 dropped = true;
@@ -426,7 +426,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
     for (slot = 0; slot < 8; ++slot) {
         W8ItemInstance* item = &character.backpack[slot];
         if (item->iItemNo != -1 && !NpcWantsItem(npc, item)) {
-            if (AddItemToPartyOrDrop(CurrentGame(), OwnedItem(*item), false)) {
+            if (CurrentGame().inventory.addToPoolOrDrop(OwnedItem(*item), false)) {
                 returned = true;
             } else if (item->iItemNo == -1) {
                 dropped = true;
@@ -523,7 +523,7 @@ void UpdateNpcPartyMember(int party_slot)
 
     if (character->highest_condition == W8_CONDITION_DEAD) {
         ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(Data().strings[0x7d4], character->name));
-        StashDepartingCharacterItems(CurrentGame(), party_slot);
+        CurrentGame().inventory.stashDepartingMember(party_slot);
         RemoveCharacterFromParty(party_slot);
         return;
     }
@@ -565,8 +565,7 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
             CurrentGame().party.characters[party_slot].skills[index].available = true;
         }
     }
-    RefreshCharacterSkillAvailability(CurrentGame().events,
-                                      &CurrentGame().party.characters[party_slot]);
+    RefreshCharacterSkillAvailability(Data(), &CurrentGame().party.characters[party_slot]);
     if (npc->has_monster && npc->is_present) {
         W8MonsterInfo* monster = FindMonster(npc->location_id);
         if (monster != 0) {
@@ -1333,7 +1332,7 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character)
     }
     AdvanceCharacterToLevel(&character, source->level);
     CalcCharacterLevelBand(&character);
-    RefreshCharacterSkillAvailability(CurrentGame().events, &character);
+    RefreshCharacterSkillAvailability(Data(), &character);
     RecalculateCharacterDerivedStats(CurrentGame(), character);
     for (index = 1; index < 0x73; ++index) {
         if (source->spells[index - 1] != 0 && CanCharacterLearnSpell(&character, index)) {

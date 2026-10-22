@@ -530,7 +530,7 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
         if (item->entity->flags & W8_ITEM_ENTITY_NO_PICKUP) {
             continue;
         }
-        if (!item->entity->IsSelected()) {
+        if (GetWorld()->selectedModel() != item->entity->GetMesh()) {
             continue;
         }
         distance = ItemDistanceToCamera(*item->entity);
@@ -691,7 +691,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
         }
     }
     if ((item->entity->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
-        ReceiveItemInHand(CurrentGame(), item->item);
+        CurrentGame().inventory.receiveInHand(item->item);
     }
     index = ItemIndex(runtime_id);
     item = ItemInfo(index);
@@ -1010,7 +1010,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
             gold = npc->gold;
         }
         if (gold != 0) {
-            AddPartyGold(CurrentGame(), gold, true);
+            CurrentGame().inventory.addGold(gold, true);
         }
         if (items.size() == 1) {
             auto* dropped = AddWorldItem(std::move(items[0]));

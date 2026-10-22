@@ -6,6 +6,7 @@
 #include <initializer_list>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -20,6 +21,7 @@
 #include "wiz8/combat/fight.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -60,6 +62,8 @@
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
+#include "wiz8/screen.h"
+#include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 
 enum { W8_ITEM_USE_TYPE_COUNT = 10 };
@@ -69,15 +73,25 @@ static bool IsHandSlot(unsigned int slot)
     return slot == W8_EQUIP_SLOT_PRIMARY_WEAPON || slot == W8_EQUIP_SLOT_SECONDARY_WEAPON;
 }
 
+Inventory::Inventory(Game& game)
+    : game_(game), storage_(game.data, game.party, game.rng, game.events)
+{
+}
+
+PlayPhase Inventory::phase() const
+{
+    return game_.status.game_started ? PlayPhase::Play : PlayPhase::Creation;
+}
+
 // ---- Consequences of an edit
 
 /* The consequences of one live inventory edit. The edit names the locations whose item it
    replaced or emptied; a change of quantity alone is not a replacement. A committed item
    use whose item is gone or has moved is abandoned, a weapon hand change reconciles combat
    choices, and a changed hand is reported. */
-static void FinishInventoryEdit(Game& game, std::span<const W8ItemLocation> replaced)
+void Inventory::finishEdit(std::span<const W8ItemLocation> replaced)
 {
-    auto& party = game.party;
+    auto& party = game_.party;
     std::bitset<W8_PARTY_SLOT_COUNT> changed_hands;
     bool any = false;
     for (const auto location : replaced) {
@@ -89,32 +103,32 @@ static void FinishInventoryEdit(Game& game, std::span<const W8ItemLocation> repl
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         const auto& action = party.rows[slot].committed;
         const auto& use = action.detail_block.item_use;
-        if (game.status.game_started && party.members[slot].has_value() &&
+        if (game_.status.game_started && party.members[slot].has_value() &&
             action.kind == W8_ACTION_USE_ITEM && use.item.storage != W8ItemStorage::None &&
             !ResolveItemUse(party, use))
             DropCharacterFromRound(slot);
     }
-    SettleActiveParty(game, changed_hands);
-    if (any) game.events.push(EquipmentSettled{});
+    SettleActiveParty(game_, changed_hands);
+    if (any) game_.events.push(EquipmentSettled{});
 }
 
-static void FinishInventoryEdit(Game& game, std::initializer_list<W8ItemLocation> replaced)
+void Inventory::finishEdit(std::initializer_list<W8ItemLocation> replaced)
 {
-    FinishInventoryEdit(game, std::span{replaced.begin(), replaced.size()});
+    finishEdit(std::span{replaced.begin(), replaced.size()});
 }
 
-static void Finish(Game& game, const InventoryEdit& edit)
+void Inventory::finish(const InventoryEdit& edit)
 {
-    if (edit.settle) FinishInventoryEdit(game, edit.replaced);
+    if (edit.settle) finishEdit(edit.replaced);
 }
 
 /* An edit of a character outside the party, such as a draft in party creation, also brings
    that character's own statistics up to date. */
-static void FinishCharacterInventoryEdit(Game& game, ItemRecipient recipient,
-                                         std::initializer_list<W8ItemLocation> replaced)
+void Inventory::finishCharacterEdit(ItemRecipient recipient,
+                                    std::initializer_list<W8ItemLocation> replaced)
 {
-    FinishInventoryEdit(game, replaced);
-    if (!recipient.slot) UpdateStandaloneCharacterStats(game.data, recipient.character, {});
+    finishEdit(replaced);
+    if (!recipient.slot) UpdateStandaloneCharacterStats(game_.data, recipient.character, {});
 }
 
 // ---- Acquiring items
@@ -122,44 +136,112 @@ static void FinishCharacterInventoryEdit(Game& game, ItemRecipient recipient,
 /* What acquiring an item sets off: a handful of plot items update their facts, and an
    exceptional one draws a remark, from the receiver or from a random member when the pool
    took it. A placement into equipment acquires nothing. */
-static void Acquire(Game& game, const std::optional<ItemPlacement>& placement,
-                    W8Character* receiver)
+void Inventory::acquire(const std::optional<ItemPlacement>& placement, W8Character* receiver)
 {
-    if (!placement || !placement->received) return;
-    UpdateFactsAfterAcquiringItem(placement->received);
-    DeliverExceptionalItemReaction(game, placement->received, receiver == nullptr, receiver);
+    if (placement && placement->received) acquire(*placement->received, receiver);
 }
 
-static std::optional<ItemPlacement> StoreWithCharacter(Game& game, ItemRecipient recipient,
-                                                       ItemSource source, bool equip_if_possible,
-                                                       bool announce, bool skip_stacking)
+void Inventory::acquire(W8ItemInstance& item, W8Character* receiver)
 {
-    const auto placement = game.storage.placeWithCharacter(recipient, source, equip_if_possible,
-                                                           announce, skip_stacking);
-    Acquire(game, placement, &recipient.character);
+    UpdateFactsAfterAcquiringItem(&item);
+    reactToExceptionalItem(item, receiver);
+}
+
+// Character creation (screen 5) deliberately suppresses every reaction.
+void Inventory::reactToExceptionalItem(W8ItemInstance& item, W8Character* receiver)
+{
+    const bool choose_character = receiver == nullptr;
+    W8Character* character = receiver;
+    int message;
+
+    if (CurrentScreenState().id == W8_SCREEN_PARTY_SELECTION) {
+        return;
+    }
+    if (choose_character) {
+        int party_slot = GetRandomCharacter(0, 0, -1, -1);
+        if (party_slot == -1) {
+            return;
+        }
+        character = &game_.party.characters[party_slot];
+    }
+    if ((item.effect_used & 1) != 0) {
+        return;
+    }
+
+    switch (item.iItemNo) {
+    case 0x239:
+        message = 132;
+        break;
+    case 0x242:
+        message = 46;
+        break;
+    case 0x243:
+        message = 47;
+        break;
+    case 0x244:
+        message = game_.story.factions[W8_FACTION_MOOK].disposition_score != 0 ? 48 : 49;
+        break;
+    case 0x264:
+        message = 66;
+        break;
+    case 0x27c: {
+        SetFact(W8_FACT_DIAMOND_FOUND, 1, false);
+        if (!NpcLeadHasNameStyle(W8_NPC_MYLES) || !GetFact(W8_FACT_QUEST_MYLES_FIND_DIAMOND)) {
+            return;
+        }
+        W8NpcState* npc = GetNpcStateByKind(7);
+        if (npc == 0) {
+            return;
+        }
+        signed char npc_slot = npc->group_index;
+        QueueCharacterEvent(&game_.party.characters[npc_slot], 65, 0, kCharacterEventFullVolume);
+        return;
+    }
+    default:
+        if (choose_character || !CanCharacterUseItem(game_.data, character, item.iItemNo) ||
+            game_.data.items[item.iItemNo].value / character->uiExpLevel <= 500 ||
+            !item.identified) {
+            return;
+        }
+        message = 55;
+        break;
+    }
+
+    QueueCharacterEvent(character, message, 0, kCharacterEventFullVolume);
+    item.effect_used |= 1;
+}
+
+std::optional<ItemPlacement> Inventory::storeWithCharacter(ItemRecipient recipient,
+                                                           ItemSource source,
+                                                           bool equip_if_possible, bool announce,
+                                                           bool skip_stacking)
+{
+    const auto placement = storage_.placeWithCharacter(recipient, source, equip_if_possible,
+                                                       announce, skip_stacking, phase());
+    acquire(placement, &recipient.character);
     return placement;
 }
 
-static std::optional<ItemPlacement> StoreInPool(Game& game, ItemSource source, bool announce,
-                                                bool skip_stacking)
+std::optional<ItemPlacement> Inventory::storeInPool(ItemSource source, bool announce,
+                                                    bool skip_stacking)
 {
-    const auto placement = game.storage.placeInPool(source, announce, skip_stacking);
-    Acquire(game, placement, nullptr);
+    const auto placement = storage_.placeInPool(source, announce, skip_stacking);
+    acquire(placement, nullptr);
     return placement;
 }
 
 /* Put an item somewhere it will fit. The flag decides which of the character and the party
    pool is tried first; the other is tried after. */
-static std::optional<ItemPlacement> StoreWithCharacterOrPool(Game& game, ItemRecipient recipient,
-                                                             ItemSource source, bool party_first,
-                                                             bool announce, bool equip_if_possible)
+std::optional<ItemPlacement>
+Inventory::storeWithCharacterOrPoolFirst(ItemRecipient recipient, ItemSource source,
+                                         bool party_first, bool announce, bool equip_if_possible)
 {
     std::optional<ItemPlacement> stored;
     if (!party_first)
-        stored = StoreWithCharacter(game, recipient, source, equip_if_possible, announce, false);
-    if (!stored) stored = StoreInPool(game, source, announce, false);
+        stored = storeWithCharacter(recipient, source, equip_if_possible, announce, false);
+    if (!stored) stored = storeInPool(source, announce, false);
     if (!stored && party_first)
-        stored = StoreWithCharacter(game, recipient, source, equip_if_possible, announce, false);
+        stored = storeWithCharacter(recipient, source, equip_if_possible, announce, false);
     return stored;
 }
 
@@ -176,76 +258,74 @@ static W8ItemLocation To(const std::optional<ItemPlacement>& placement)
 
 /* What no store takes is dropped at the party's feet unless it may not be discarded, and
    otherwise goes into an empty hand. Failure leaves the source intact. */
-static bool DropUnstoredItem(Game& game, ItemSource source)
+bool Inventory::dropUnstored(ItemSource source)
 {
-    if ((game.data.items[source.item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
+    if ((game_.data.items[source.item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
         if (const auto position = FindItemDropPosition()) {
             AddWorldItem(CreateWorldItem(&source.item, &*position,
                                          W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             return true;
         }
     }
-    return game.storage.placeInEmptyHand(source);
+    return storage_.placeInEmptyHand(source);
 }
 
-ItemRecipient PartyMember(Game& game, unsigned int party_slot)
+ItemRecipient Inventory::member(unsigned int party_slot)
 {
-    return {game.party.characters[party_slot], party_slot};
+    return {game_.party.characters[party_slot], party_slot};
 }
 
-bool AddItemToCharacter(Game& game, ItemRecipient recipient, ItemSource source,
-                        bool equip_if_possible, bool announce, bool skip_stacking)
+bool Inventory::addToCharacter(ItemRecipient recipient, ItemSource source, bool equip_if_possible,
+                               bool announce, bool skip_stacking)
 {
     const auto stored =
-        StoreWithCharacter(game, recipient, source, equip_if_possible, announce, skip_stacking);
-    FinishCharacterInventoryEdit(game, recipient, {From(source, stored.has_value()), To(stored)});
+        storeWithCharacter(recipient, source, equip_if_possible, announce, skip_stacking);
+    finishCharacterEdit(recipient, {From(source, stored.has_value()), To(stored)});
     return stored.has_value();
 }
 
-bool AddItemToParty(Game& game, ItemSource source, bool announce, bool skip_stacking)
+bool Inventory::addToPool(ItemSource source, bool announce, bool skip_stacking)
 {
-    const auto stored = StoreInPool(game, source, announce, skip_stacking);
-    FinishInventoryEdit(game, {From(source, stored.has_value()), To(stored)});
+    const auto stored = storeInPool(source, announce, skip_stacking);
+    finishEdit({From(source, stored.has_value()), To(stored)});
     return stored.has_value();
 }
 
 /* Put an item in the party pool, and when the pool will not take it, drop it at the party's
    feet or into an empty hand. */
-bool AddItemToPartyOrDrop(Game& game, ItemSource source, bool announce)
+bool Inventory::addToPoolOrDrop(ItemSource source, bool announce)
 {
-    const auto stored = StoreInPool(game, source, announce, false);
-    if (!stored) DropUnstoredItem(game, source);
-    FinishInventoryEdit(
-        game, {From(source, true), stored ? stored->stored : W8ItemLocation{W8ItemStorage::Hand}});
+    const auto stored = storeInPool(source, announce, false);
+    if (!stored) dropUnstored(source);
+    finishEdit({From(source, true), stored ? stored->stored : W8ItemLocation{W8ItemStorage::Hand}});
     return stored.has_value();
 }
 
-bool StoreItemWithCharacterOrParty(Game& game, ItemRecipient recipient, ItemSource source,
-                                   bool party_first, bool announce, bool equip_if_possible)
+bool Inventory::storeWithCharacterOrPool(ItemRecipient recipient, ItemSource source,
+                                         bool party_first, bool announce, bool equip_if_possible)
 {
     const auto stored =
-        StoreWithCharacterOrPool(game, recipient, source, party_first, announce, equip_if_possible);
-    FinishCharacterInventoryEdit(game, recipient, {From(source, stored.has_value()), To(stored)});
+        storeWithCharacterOrPoolFirst(recipient, source, party_first, announce, equip_if_possible);
+    finishCharacterEdit(recipient, {From(source, stored.has_value()), To(stored)});
     return stored.has_value();
 }
 
 /* The character and the party pool are tried in the order the flag asks for, with the other
    tried after - and when the slot cannot take items, only the pool. */
-bool GiveItemToCharacterOrParty(Game& game, unsigned int party_slot, ItemSource source,
-                                bool party_first)
+bool Inventory::give(unsigned int party_slot, ItemSource source, bool party_first)
 {
-    assert(game.status.game_started);
-    assert(game.party.members[party_slot].has_value());
+    assert(game_.status.game_started);
+    assert(game_.party.members[party_slot].has_value());
 
     std::optional<ItemPlacement> destination;
     if (!IsPartySlotEligible(static_cast<int>(party_slot))) {
-        if (party_first) destination = StoreInPool(game, source, true, false);
+        if (party_first) destination = storeInPool(source, true, false);
     } else {
-        destination = StoreWithCharacterOrPool(game, PartyMember(game, party_slot), source,
-                                               party_first, true, false);
+        destination =
+            storeWithCharacterOrPoolFirst(member(party_slot), source, party_first, true, false);
     }
     // A stored item has left its source; a refused one is untouched.
-    FinishInventoryEdit(game, {From(source, destination.has_value()), To(destination)});
+    finishEdit({From(source, destination.has_value()), To(destination)});
     return destination.has_value();
 }
 
@@ -253,59 +333,58 @@ bool GiveItemToCharacterOrParty(Game& game, unsigned int party_slot, ItemSource 
    the member or the party pool in the order the flag asks for. The hand is cleared before
    the outcome is tested, and a store that fails is refused: the notice names the slot when
    neither destination was open, and the item otherwise. */
-std::expected<void, InventoryRefusal>
-GiveHeldItemToCharacterOrParty(Game& game, unsigned int party_slot, bool party_first)
+std::expected<void, InventoryRefusal> Inventory::giveHeld(unsigned int party_slot, bool party_first)
 {
-    auto& held = game.party.held.item;
+    auto& held = game_.party.held.item;
     bool stored = party_first;
     assert(held.iItemNo != -1);
     if (!held.identified) PartyAttemptsToIdentifyItem(&held, 0);
-    assert(game.status.game_started);
-    assert(game.party.members[party_slot].has_value());
+    assert(game_.status.game_started);
+    assert(game_.party.members[party_slot].has_value());
 
-    const auto source = PartyItem(game.party, {W8ItemStorage::Hand});
+    const auto source = PartyItem(game_.party, {W8ItemStorage::Hand});
     const bool eligible = IsPartySlotEligible(static_cast<int>(party_slot));
     std::optional<ItemPlacement> destination;
     if (eligible) {
-        destination = StoreWithCharacterOrPool(game, PartyMember(game, party_slot), source,
-                                               party_first, true, false);
+        destination =
+            storeWithCharacterOrPoolFirst(member(party_slot), source, party_first, true, false);
         if (destination) stored = true;
     } else if (stored) {
-        destination = StoreInPool(game, source, true, false);
+        destination = storeInPool(source, true, false);
         stored = destination.has_value();
     }
 
     // Only a stored item releases the hand; a refused one stays held.
     if (stored) {
-        game.party.take({W8ItemStorage::Hand});
-        FinishInventoryEdit(game, {{W8ItemStorage::Hand}, To(destination)});
+        game_.party.take({W8ItemStorage::Hand});
+        finishEdit({{W8ItemStorage::Hand}, To(destination)});
         return {};
     }
 
-    FinishInventoryEdit(game, {});
+    finishEdit({});
     const bool slot_closed = !eligible && !party_first;
-    return std::unexpected(InventoryRefusal{game.data.strings[slot_closed ? 0x1f5 : 0x90c]});
+    return std::unexpected(InventoryRefusal{game_.data.strings[slot_closed ? 0x1f5 : 0x90c]});
 }
 
 /* Equipment that is bound to its slot stays with the body unless the binding was announced,
    the slot has no paper-doll position, or the member is dead. What the pool cannot take is
    dropped into the world or held when the hand is empty. */
-void StashDepartingCharacterItems(Game& game, unsigned int party_slot)
+void Inventory::stashDepartingMember(unsigned int party_slot)
 {
-    auto& character = game.party.characters[party_slot];
+    auto& character = game_.party.characters[party_slot];
     const auto stash = [&](W8ItemLocation location) {
-        const int item_id = game.party.itemAt(location)->iItemNo;
-        const auto source = PartyItem(game.party, location);
-        if (StoreInPool(game, source, false, false)) return;
-        if (!DropUnstoredItem(game, source)) return;
-        game.events.push(
-            TextNotice{W8_FONT_PALETTE_RED, fmt::sprintf(game.data.strings[0x7d3],
-                                                         game.data.items[item_id].display_name)});
+        const int item_id = game_.party.itemAt(location)->iItemNo;
+        const auto source = PartyItem(game_.party, location);
+        if (storeInPool(source, false, false)) return;
+        if (!dropUnstored(source)) return;
+        game_.events.push(
+            TextNotice{W8_FONT_PALETTE_RED, fmt::sprintf(game_.data.strings[0x7d3],
+                                                         game_.data.items[item_id].display_name)});
     };
     for (unsigned int equip_slot = 0; equip_slot < W8_EQUIP_SLOT_COUNT; ++equip_slot) {
         const auto& item = character.EquippedItem[equip_slot];
         if (item.iItemNo != -1 &&
-            (game.data.items[item.iItemNo].binds_on_equip == 0 || item.bind_announced ||
+            (game_.data.items[item.iItemNo].binds_on_equip == 0 || item.bind_announced ||
              !HasPaperDollPosition(static_cast<W8EquipSlot>(equip_slot)) ||
              character.uiCondition[W8_CONDITION_DEAD] != 0))
             stash({W8ItemStorage::Equipment, party_slot, equip_slot});
@@ -313,29 +392,29 @@ void StashDepartingCharacterItems(Game& game, unsigned int party_slot)
     for (unsigned int slot = 0; slot < 8; ++slot)
         if (character.backpack[slot].iItemNo != -1)
             stash({W8ItemStorage::Backpack, party_slot, slot});
-    FinishInventoryEdit(game, {});
+    finishEdit({});
 }
 
-void EmptyAllCarriedItems(Game& game, W8Character& outsider)
+void Inventory::emptyOutsider(W8Character& outsider)
 {
     for (auto& item : outsider.EquippedItem) item = {};
     for (auto& item : outsider.backpack) item = {};
-    FinishCharacterInventoryEdit(game, Outsider(outsider), {});
+    finishCharacterEdit(Outsider(outsider), {});
 }
 
 /* The ladder answers with the item id and the notice to show; the first tier hands over the
    welcome item outright, and an item the character already holds only gets its id raised
    when it is below the tier's. Returns the location whose item was replaced. */
-static W8ItemLocation UpgradeClassItem(Game& game, ItemRecipient recipient)
+W8ItemLocation Inventory::upgradeClassItemIn(ItemRecipient recipient)
 {
     auto& character = recipient.character;
     const auto notice = [&](unsigned int message, unsigned int pronoun_column) {
         assert(recipient.slot);
-        game.events.push(CharacterNotice{
+        game_.events.push(CharacterNotice{
             *recipient.slot,
             fmt::sprintf(
-                game.data.strings[message],
-                game.data.strings[g_gender_name_message_rows[character.gender][pronoun_column]])});
+                game_.data.strings[message],
+                game_.data.strings[g_gender_name_message_rows[character.gender][pronoun_column]])});
     };
     int item_id;
     unsigned int message_id;
@@ -344,11 +423,11 @@ static W8ItemLocation UpgradeClassItem(Game& game, ItemRecipient recipient)
     case 2:
         return {};
     case 1: {
-        if (FindCharacterItem(character, ItemOfKind(game.data, 0x83), W8ItemReach::Carried))
+        if (FindCharacterItem(character, ItemOfKind(game_.data, 0x83), W8ItemReach::Carried))
             return {};
-        auto created = MakeItem(game.data, game.rng, 599, false, true, true);
-        auto stored = StoreWithCharacter(game, recipient, OwnedItem(created), false, true, false);
-        if (!stored) stored = StoreInPool(game, OwnedItem(created), true, false);
+        auto created = MakeItem(game_.data, game_.rng, 599, false, true, true);
+        auto stored = storeWithCharacter(recipient, OwnedItem(created), false, true, false);
+        if (!stored) stored = storeInPool(OwnedItem(created), true, false);
         if (!stored) return {};
         notice(0x167, 3);
         return stored->stored;
@@ -417,7 +496,7 @@ static W8ItemLocation UpgradeClassItem(Game& game, ItemRecipient recipient)
     W8ItemLocation location{};
     const auto search = [&](std::span<W8ItemInstance> slots, W8ItemStorage storage) {
         for (unsigned int index = 0; index < slots.size() && !found; ++index) {
-            if (!ItemIsOfKind(game.data, slots[index], 0x83)) continue;
+            if (!ItemIsOfKind(game_.data, slots[index], 0x83)) continue;
             found = &slots[index];
             if (recipient.slot) location = {storage, *recipient.slot, index};
         }
@@ -425,8 +504,8 @@ static W8ItemLocation UpgradeClassItem(Game& game, ItemRecipient recipient)
     search(character.EquippedItem, W8ItemStorage::Equipment);
     search(character.backpack, W8ItemStorage::Backpack);
     if (!found) {
-        location = FindPartyItem(game.party, ItemOfKind(game.data, 0x83), W8ItemReach::Party);
-        found = game.party.itemAt(location);
+        location = FindPartyItem(game_.party, ItemOfKind(game_.data, 0x83), W8ItemReach::Party);
+        found = game_.party.itemAt(location);
     }
     if (found && found->iItemNo < item_id) {
         found->iItemNo = item_id;
@@ -436,175 +515,187 @@ static W8ItemLocation UpgradeClassItem(Game& game, ItemRecipient recipient)
     return {};
 }
 
-void UpgradeProfessionClassItem(Game& game, ItemRecipient recipient)
+void Inventory::upgradeClassItem(ItemRecipient recipient)
 {
-    FinishCharacterInventoryEdit(game, recipient, {UpgradeClassItem(game, recipient)});
+    finishCharacterEdit(recipient, {upgradeClassItemIn(recipient)});
 }
 
-bool RemovePartyItemByID(Game& game, int item_id, bool remove_all)
+bool Inventory::removeItemById(int item_id, bool remove_all)
 {
-    const auto edit = game.storage.removeItemById(item_id, remove_all);
-    Finish(game, edit);
+    const auto edit = storage_.removeItemById(item_id, remove_all);
+    finish(edit);
     return !edit.replaced.empty();
 }
 
-void RemoveInventoryQuantity(Game& game, W8ItemLocation location, unsigned amount)
+void Inventory::removeQuantity(W8ItemLocation location, unsigned amount)
 {
-    if (const auto edit = game.storage.removeQuantity(location, amount)) Finish(game, *edit);
+    if (const auto edit = storage_.removeQuantity(location, amount)) finish(*edit);
 }
 
-W8ItemInstance TakeInventoryItem(Game& game, W8ItemLocation location)
+W8ItemInstance Inventory::take(W8ItemLocation location)
 {
-    auto item = game.storage.take(location);
+    auto item = storage_.take(location);
     if (!item) return {};
-    FinishInventoryEdit(game, {location});
+    finishEdit({location});
     return *item;
 }
 
 /* The gold goes into the purse and into the level's running tally, and announcing it plays
    the coin sound. */
-void AddPartyGold(Game& game, int amount, bool announce)
+void Inventory::addGold(int amount, bool announce)
 {
     const std::string_view sound_path = "Data\\Sound\\Misc\\ChaChing.wav";
-    game.party.gold += amount;
+    game_.party.gold += amount;
     if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT)
-        game.status.level_progress[GetLoadedLevelID()].gold_collected += amount;
+        game_.status.level_progress[GetLoadedLevelID()].gold_collected += amount;
     if (announce) {
-        game.events.push(TextNotice{8, fmt::format("{} {:d} {}.", game.data.strings[0x15f], amount,
-                                                   game.data.strings[0x160])});
+        game_.events.push(TextNotice{8, fmt::format("{} {:d} {}.", game_.data.strings[0x15f],
+                                                    amount, game_.data.strings[0x160])});
         if (!wiz8::sound::is_file_playing(sound_path)) wiz8::sound::play(sound_path);
     }
 }
 
 // ---- The hand
 
-void ReplaceHeldItem(Game& game, W8ItemInstance item)
+void Inventory::replaceHeld(W8ItemInstance item)
 {
-    game.party.held = {.item = item};
-    FinishInventoryEdit(game, {{W8ItemStorage::Hand}});
+    game_.party.held = {.item = item};
+    finishEdit({{W8ItemStorage::Hand}});
 }
 
-bool PlaceItemOnCursor(Game& game, int item_id, bool maximum_quantity, bool force_identified,
-                       bool mark_special)
+bool Inventory::placeInHand(int item_id, bool maximum_quantity, bool force_identified,
+                            bool mark_special)
 {
-    if (game.party.held.item.iItemNo != -1) return false;
-    ReplaceHeldItem(game, MakeItem(game.data, game.rng, item_id, maximum_quantity, force_identified,
-                                   mark_special));
+    if (game_.party.held.item.iItemNo != -1) return false;
+    replaceHeld(
+        MakeItem(game_.data, game_.rng, item_id, maximum_quantity, force_identified, mark_special));
     return true;
 }
 
-void ReplaceHeldItemWithNew(Game& game, int item_id, bool quality)
+void Inventory::replaceHeldWithNew(int item_id, bool quality)
 {
-    game.party.take({W8ItemStorage::Hand});
-    auto created = MakeItem(game.data, game.rng, item_id, true, quality, false);
-    game.storage.placeInEmptyHand(OwnedItem(created));
-    FinishInventoryEdit(game, {{W8ItemStorage::Hand}});
+    game_.party.take({W8ItemStorage::Hand});
+    auto created = MakeItem(game_.data, game_.rng, item_id, true, quality, false);
+    storage_.placeInEmptyHand(OwnedItem(created));
+    finishEdit({{W8ItemStorage::Hand}});
 }
 
-bool ReceiveItemInHand(Game& game, W8ItemInstance& item)
+bool Inventory::receiveInHand(W8ItemInstance& item)
 {
-    auto& party = game.party;
+    auto& party = game_.party;
     if (party.held.item.iItemNo != -1 || item.iItemNo == -1) return false;
     party.held = {std::exchange(item, W8ItemInstance{}), {}, -1};
-    FinishInventoryEdit(game, {{W8ItemStorage::Hand}});
+    finishEdit({{W8ItemStorage::Hand}});
     return true;
 }
 
 // An item that may not be discarded is refused.
-std::expected<void, InventoryRefusal> DropItemInHand(Game& game, int unused)
+std::expected<void, InventoryRefusal> Inventory::dropHeld(int unused)
 {
-    if ((game.data.items[game.party.held.item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0)
-        return std::unexpected(InventoryRefusal{game.data.strings[0x4ef]});
+    if ((game_.data.items[game_.party.held.item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0)
+        return std::unexpected(InventoryRefusal{game_.data.strings[0x4ef]});
     DropHeldItem(unused);
-    FinishInventoryEdit(game, {{W8ItemStorage::Hand}});
+    finishEdit({{W8ItemStorage::Hand}});
     return {};
 }
 
 // ---- Player edits
 
-bool SplitItemStack(Game& game, W8ItemLocation source, unsigned amount, unsigned actor)
+bool Inventory::splitStack(W8ItemLocation source, unsigned amount, unsigned actor)
 {
-    const auto edit = game.storage.splitStack(source, amount, actor);
+    const auto edit = storage_.splitStack(source, amount, actor);
     if (!edit) return false;
-    Finish(game, *edit);
+    finish(*edit);
     return true;
 }
 
-bool ExchangeInventoryItems(Game& game, W8ItemLocation first, W8ItemLocation second, unsigned actor)
+bool Inventory::exchange(W8ItemLocation first, W8ItemLocation second, unsigned actor)
 {
-    const auto edit = game.storage.exchange(first, second, actor);
+    const auto edit = storage_.exchange(first, second, actor);
     if (!edit) return false;
-    Finish(game, *edit);
+    finish(*edit);
     return true;
 }
 
-bool EquipHeldItemAndStowPartner(Game& game, unsigned actor, W8EquipSlot slot)
+bool Inventory::equipHeldAndStowPartner(unsigned actor, W8EquipSlot slot)
 {
     const auto npc_keeps = [&](const W8ItemInstance& partner) {
-        auto* npc = actor < 2 ? GetNpcState(game.party.npcIndex(actor)) : nullptr;
+        auto* npc = actor < 2 ? GetNpcState(game_.party.npcIndex(actor)) : nullptr;
         return npc && NpcWantsItem(npc, &partner);
     };
-    const auto stowed = game.storage.equipHeldAndStowPartner(actor, slot, npc_keeps);
+    const auto stowed = storage_.equipHeldAndStowPartner(actor, slot, npc_keeps);
     if (!stowed) return false;
     const bool pool = stowed->stored && stowed->stored->stored.storage == W8ItemStorage::Pool;
-    Acquire(game, stowed->stored, pool ? nullptr : &game.party.characters[actor]);
-    Finish(game, stowed->edit);
+    acquire(stowed->stored, pool ? nullptr : &game_.party.characters[actor]);
+    finish(stowed->edit);
     return true;
 }
 
-StackMergeResult MergeInventoryStacks(Game& game, W8ItemLocation destination, W8ItemLocation source)
+StackMergeResult Inventory::mergeStacks(W8ItemLocation destination, W8ItemLocation source)
 {
-    const auto merge = game.storage.mergeStacks(destination, source);
+    const auto merge = storage_.mergeStacks(destination, source);
     if (!merge) return {};
-    Finish(game, merge->edit);
+    finish(merge->edit);
     return {merge->complete, true};
 }
 
-bool InsertHeldItemInPool(Game& game, unsigned index)
+bool Inventory::insertHeldInPool(unsigned index)
 {
-    const auto edit = game.storage.insertHeldInPool(index);
+    const auto edit = storage_.insertHeldInPool(index);
     if (!edit) return false;
-    Finish(game, *edit);
+    finish(*edit);
     return true;
 }
 
 // Practice follows a completed recipe as a phase of its own.
-std::expected<bool, InventoryRefusal> MergeItems(Game& game, unsigned actor, W8ItemLocation target)
+std::expected<bool, InventoryRefusal> Inventory::combine(unsigned actor, W8ItemLocation target)
 {
-    const auto combination = game.storage.combine(actor, target);
+    const auto combination = storage_.combine(actor, target);
     if (!combination) return std::unexpected(combination.error());
     if (!*combination) return false;
     const auto& made = **combination;
-    Finish(game, made.edit);
+    finish(made.edit);
     if (made.practised_skill) {
-        auto* character = &game.party.characters[actor];
+        auto* character = &game_.party.characters[actor];
         QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventFullVolume);
-        PracticeCharacterSkill(game, character, *made.practised_skill, made.practice, false);
+        PracticeCharacterSkill(game_, character, *made.practised_skill, made.practice, false);
     }
     return made.merged;
 }
 
-void MergeItemUses(Game& game, unsigned actor, W8ItemLocation destination, W8ItemLocation source)
+void Inventory::mergeUses(unsigned actor, W8ItemLocation destination, W8ItemLocation source)
 {
-    if (const auto edit = game.storage.mergeUses(actor, destination, source)) Finish(game, *edit);
+    if (const auto edit = storage_.mergeUses(actor, destination, source)) finish(*edit);
+}
+
+// The screens sort only once play has started.
+void Inventory::sortPool()
+{
+    if (!game_.status.game_started) throw std::logic_error("Inventory::sortPool: before play");
+    storage_.sortPool();
 }
 
 // ---- Weapon sets and ammunition
 
-void CommitWeaponSetSwap(Game& game, unsigned int party_slot, W8WeaponSwap choice)
+void Inventory::bind(W8Character& character, W8EquipSlot equip_slot)
 {
-    Finish(game, game.storage.commitWeaponSetSwap(party_slot, choice));
+    storage_.bind(character, equip_slot);
+}
+
+void Inventory::commitWeaponSetSwap(unsigned int party_slot, W8WeaponSwap choice)
+{
+    finish(storage_.commitWeaponSetSwap(party_slot, choice));
 }
 
 /* The notices go to the conversation's text box while the party talks. */
-bool SwapWeaponSetSlots(Game& game, unsigned int party_slot, bool announce)
+bool Inventory::swapWeaponSets(unsigned int party_slot, bool announce)
 {
-    const short notice_context = game.activity.conversation ? 0 : -1;
-    const auto plan = game.storage.prepareWeaponSetSwap(party_slot, announce, notice_context);
+    const short notice_context = game_.activity.conversation ? 0 : -1;
+    const auto plan = storage_.prepareWeaponSetSwap(party_slot, announce, notice_context);
     if (!plan) return false;
-    CommitWeaponSetSwap(game, party_slot, *plan);
+    commitWeaponSetSwap(party_slot, *plan);
     if (announce)
-        game.events.push(CharacterNotice{party_slot, game.data.strings[0x1ec], notice_context});
+        game_.events.push(CharacterNotice{party_slot, game_.data.strings[0x1ec], notice_context});
     return true;
 }
 
@@ -612,62 +703,61 @@ bool SwapWeaponSetSlots(Game& game, unsigned int party_slot, bool announce)
    a party movement mode refuses the whole request with a notice, and so does the member
    whose attack is being carried out. Otherwise the weapon sets swap, the queued swap
    clears, and the portraits redraw. */
-void BindCharacterItems(Game& game, unsigned int party_slot, bool announce)
+void Inventory::requestWeaponSetSwap(unsigned int party_slot, bool announce)
 {
-    if (game.combat.has_value()) {
-        if (!game.combat->round_active && !game.party_movement_mode) {
-            game.events.push(TextNotice{W8_FONT_PALETTE_BEIGE,
-                                        game.data.strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]});
+    if (game_.combat.has_value()) {
+        if (!game_.combat->round_active && !game_.party_movement_mode) {
+            game_.events.push(TextNotice{W8_FONT_PALETTE_BEIGE,
+                                         game_.data.strings[W8_NOTICE_WEAPON_SWAP_BLOCKED_COMBAT]});
             return;
         }
-        if (game.combat->resolvingTurnOf(PartyActor{static_cast<int>(party_slot)}) &&
-            (game.party.rows[party_slot].executing.kind == W8_ACTION_ATTACK ||
-             game.party.rows[party_slot].executing.kind == W8_ACTION_BERSERK)) {
-            game.events.push(TextNotice{
+        if (game_.combat->resolvingTurnOf(PartyActor{static_cast<int>(party_slot)}) &&
+            (game_.party.rows[party_slot].executing.kind == W8_ACTION_ATTACK ||
+             game_.party.rows[party_slot].executing.kind == W8_ACTION_BERSERK)) {
+            game_.events.push(TextNotice{
                 W8_FONT_PALETTE_WHITE,
-                fmt::sprintf(game.data.strings[0x1f7], game.party.characters[party_slot].name)});
+                fmt::sprintf(game_.data.strings[0x1f7], game_.party.characters[party_slot].name)});
             return;
         }
     }
 
-    if (IsPartySlotEligible(static_cast<int>(party_slot)) &&
-        SwapWeaponSetSlots(game, party_slot, announce))
-        game.party.rows[party_slot].weapon_swap_pending = false;
-    game.events.push(CharacterActionChanged{});
+    if (IsPartySlotEligible(static_cast<int>(party_slot)) && swapWeaponSets(party_slot, announce))
+        game_.party.rows[party_slot].weapon_swap_pending = false;
+    game_.events.push(CharacterActionChanged{});
 }
 
-bool ConsumeAttackItems(Game& game, unsigned actor, unsigned hand, W8EquipSlot used,
-                        W8EquipSlot paired)
+bool Inventory::consumeAttackItems(unsigned actor, unsigned hand, W8EquipSlot used,
+                                   W8EquipSlot paired)
 {
-    const auto spent = game.storage.consumeAttackItems(actor, hand, used, paired);
-    Finish(game, spent.edit);
+    const auto spent = storage_.consumeAttackItems(actor, hand, used, paired);
+    finish(spent.edit);
     return spent.thrown_spent;
 }
 
-void ReadyPrimaryWeapon(Game& game, unsigned party_slot)
+void Inventory::readyPrimaryWeapon(unsigned party_slot)
 {
-    Finish(game, game.storage.readyPrimaryWeapon(party_slot));
+    finish(storage_.readyPrimaryWeapon(party_slot));
 }
 
 // ---- Equipment rule
 
 /* Each unusable piece is stored like a received item: on the member, then in the pool, and
    otherwise at the party's feet. */
-bool UnequipUnusableItems(Game& game, unsigned int party_slot)
+bool Inventory::unequipUnusable(unsigned int party_slot)
 {
     bool hands_changed = false;
     std::bitset<W8_EQUIP_SLOT_COUNT> kept;
-    while (auto removed = game.storage.takeUnusableEquipment(party_slot, kept)) {
+    while (auto removed = storage_.takeUnusableEquipment(party_slot, phase(), kept)) {
         const auto source = OwnedItem(removed->item);
-        if (!StoreWithCharacter(game, PartyMember(game, party_slot), source, false, false, false) &&
-            !StoreInPool(game, source, false, false) && !DropUnstoredItem(game, source)) {
-            game.party.characters[party_slot].EquippedItem[removed->equip_slot] = removed->item;
+        if (!storeWithCharacter(member(party_slot), source, false, false, false) &&
+            !storeInPool(source, false, false) && !dropUnstored(source)) {
+            game_.party.characters[party_slot].EquippedItem[removed->equip_slot] = removed->item;
             kept.set(removed->equip_slot);
             continue;
         }
         hands_changed |= removed->weapon_hand;
         if (!removed->notice.empty())
-            game.events.push(CharacterNotice{party_slot, std::move(removed->notice)});
+            game_.events.push(CharacterNotice{party_slot, std::move(removed->notice)});
     }
     return hands_changed;
 }
@@ -683,18 +773,11 @@ bool UnequipUnusableItems(Game& game, unsigned int party_slot)
    hard the attempt is. `out_uses` receives the fatigue cost of the attempt, and
    stays -1 when nothing was attempted; a casting aid's attempt costs eight per
    level of its spell plus twenty, even when it fails. */
-namespace {
-struct ItemUseOutcome {
-    W8ItemUseResult result;
-    bool emptied = false;
-};
-}
-
-static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLocation location)
+Inventory::ItemUseOutcome Inventory::useOnce(unsigned int party_slot, W8ItemLocation location)
 {
-    W8Character* character = &game.party.characters[party_slot];
-    W8ItemInstance* item = game.party.itemAt(location);
-    const W8ItemDatabaseRecord* record = &game.data.items[item->iItemNo];
+    W8Character* character = &game_.party.characters[party_slot];
+    W8ItemInstance* item = game_.party.itemAt(location);
+    const W8ItemDatabaseRecord* record = &game_.data.items[item->iItemNo];
     unsigned int power;
     unsigned int chance;
     W8Skill skill;
@@ -708,45 +791,45 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
     // Retail returned an unset byte for a spent item; nothing was used.
     unsigned char used = 0;
 
-    if (!CanCharacterUseItem(game.data, character, item->iItemNo)) {
-        game.events.push(
-            CharacterNotice{party_slot, fmt::sprintf(game.data.strings[0x164],
-                                                     GetItemDisplayName(game.data, item))});
+    if (!CanCharacterUseItem(game_.data, character, item->iItemNo)) {
+        game_.events.push(
+            CharacterNotice{party_slot, fmt::sprintf(game_.data.strings[0x164],
+                                                     GetItemDisplayName(game_.data, item))});
         return {};
     }
     if (!CanCharacterActivateItem(character, item)) {
-        game.events.push(
-            CharacterNotice{party_slot, fmt::sprintf(game.data.strings[0x165],
-                                                     GetItemDisplayName(game.data, item))});
+        game_.events.push(
+            CharacterNotice{party_slot, fmt::sprintf(game_.data.strings[0x165],
+                                                     GetItemDisplayName(game_.data, item))});
         return {};
     }
 
     if (record->quantity_kind == W8_ITEM_QUANTITY_CHARGES && item->uses_or_charges == 0) {
-        game.events.push(
-            CharacterNotice{party_slot, fmt::sprintf(game.data.strings[0x1f1],
-                                                     GetItemDisplayName(game.data, item))});
+        game_.events.push(
+            CharacterNotice{party_slot, fmt::sprintf(game_.data.strings[0x1f1],
+                                                     GetItemDisplayName(game_.data, item))});
         event_type = g_special_event13;
     } else if (record->quantity_kind == W8_ITEM_QUANTITY_SHOTS && item->uses_or_charges == 0) {
-        game.events.push(
-            CharacterNotice{party_slot, fmt::sprintf(game.data.strings[0x1f2],
-                                                     GetItemDisplayName(game.data, item))});
+        game_.events.push(
+            CharacterNotice{party_slot, fmt::sprintf(game_.data.strings[0x1f2],
+                                                     GetItemDisplayName(game_.data, item))});
         event_type = 39;
     } else {
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
             character->uiCondition[W8_CONDITION_SILENCED] != 0) {
-            game.events.push(CharacterNotice{party_slot, game.data.strings[0x166]});
+            game_.events.push(CharacterNotice{party_slot, game_.data.strings[0x166]});
             return {};
         }
 
         /* The one item that is not used on anybody: it hands the level's NPC
            over to the fact that says the party has met them. */
         if (item->iItemNo == 0x29f) {
-            [[maybe_unused]] W8NpcState* npc = GetNpcState(game.party.npcIndex(party_slot));
+            [[maybe_unused]] W8NpcState* npc = GetNpcState(game_.party.npcIndex(party_slot));
             assert(npc != 0);
             assert(npc->name_style == W8_NPC_RFS81_A);
             SetFact(W8_FACT_RFS81_HAS_BEEN_FIXED, 1, false);
             SetFact(W8_FACT_QUEST_ANDROID_BROKEN, 0, false);
-            return {{1, std::nullopt}, game.storage.consumeUse(location, true)};
+            return {{1, std::nullopt}, storage_.consumeUse(location, true)};
         }
 
         if (record->equip_class != W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
@@ -766,7 +849,7 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
             skill = GetItemSpellPresentation(record);
             /* The attempt costs fatigue by the carried spell's level, whether
                or not it succeeds. */
-            fatigue_cost = game.data.spells[record->spell_id].spell_level * 8 + 0x14;
+            fatigue_cost = game_.data.spells[record->spell_id].spell_level * 8 + 0x14;
             power = 7;
             do {
                 if (GetItemUseDifficulty(character, skill, character->skills[skill].level,
@@ -775,7 +858,7 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
                     continue;
                 }
                 chance = power * 7;
-                while (power != 0 && chance > game.rng.below(100)) {
+                while (power != 0 && chance > game_.rng.below(100)) {
                     --power;
                     chance -= 7;
                 }
@@ -783,10 +866,10 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
             } while (power != 0);
 
             if (power == 0) {
-                game.events.push(
-                    CharacterNotice{party_slot, fmt::sprintf(game.data.strings[0x1f3],
-                                                             GetItemDisplayName(game.data, item))});
-                PracticeCharacterSkill(game, character, skill, 1, false);
+                game_.events.push(CharacterNotice{
+                    party_slot,
+                    fmt::sprintf(game_.data.strings[0x1f3], GetItemDisplayName(game_.data, item))});
+                PracticeCharacterSkill(game_, character, skill, 1, false);
                 return {{0, own_cost()}};
             }
         }
@@ -797,8 +880,8 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_POTION ||
             (record->equip_class > W8_ITEM_EQUIP_CLASS_SCROLL &&
              record->equip_class < W8_ITEM_EQUIP_CLASS_KEY)) {
-            if (!game.combat.has_value()) {
-                W8CombatSlot* aimed = &game.party.rows[party_slot].executing.target;
+            if (!game_.combat.has_value()) {
+                W8CombatSlot* aimed = &game_.party.rows[party_slot].executing.target;
                 if (aimed->iType == W8_TARGET_KIND_CHARACTER) {
                     SetTargetSourceToCharacter(aimed->iChar, &target);
                 } else if (aimed->iType == W8_TARGET_KIND_MONSTER) {
@@ -814,10 +897,10 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
         /* A spell-carrying item the world-cursor handler refuses cannot be used
            at all, and the attempt is over before anything is announced. */
         if (record->spell_id != W8_SPELL_NONE &&
-            game.data.items[item->iItemNo].spell_id != W8_SPELL_NONE &&
-            game.data.items[item->iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_GADGET &&
-            (game.data.items[item->iItemNo].equip_class < W8_ITEM_EQUIP_CLASS_FOOD ||
-             game.data.items[item->iItemNo].equip_class > W8_ITEM_EQUIP_CLASS_DRINK) &&
+            game_.data.items[item->iItemNo].spell_id != W8_SPELL_NONE &&
+            game_.data.items[item->iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_GADGET &&
+            (game_.data.items[item->iItemNo].equip_class < W8_ITEM_EQUIP_CLASS_FOOD ||
+             game_.data.items[item->iItemNo].equip_class > W8_ITEM_EQUIP_CLASS_DRINK) &&
             DispatchWorldCursorNodeCommand(0, 4, 1)) {
             return {{0, 0}};
         }
@@ -825,19 +908,19 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
         // Items outside the use-message table are used without an announcement.
         const bool announced = static_cast<int>(record->category) < W8_ITEM_USE_TYPE_COUNT;
         if (announced && TargetSourceIsCharacter(&target, 0)) {
-            game.events.push(CharacterNotice{
+            game_.events.push(CharacterNotice{
                 static_cast<unsigned int>(target.iChar),
-                fmt::format("{} {}", game.data.strings[g_item_use_messages[record->category * 2]],
-                            GetItemDisplayName(game.data, item))});
+                fmt::format("{} {}", game_.data.strings[g_item_use_messages[record->category * 2]],
+                            GetItemDisplayName(game_.data, item))});
         } else if (announced && TargetSourceIsMonster(&target, 0)) {
-            game.events.push(TextNotice{
+            game_.events.push(TextNotice{
                 9, fmt::format("{} {} {}", GetMonsterName(FindMonster(target.iMonsterID), 0, 0),
-                               game.data.strings[g_item_use_messages[record->category * 2]],
-                               GetItemDisplayName(game.data, item))});
+                               game_.data.strings[g_item_use_messages[record->category * 2]],
+                               GetItemDisplayName(game_.data, item))});
         }
 
         if (g_settings.verbose_combat_messages == 0) {
-            game.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+            game_.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
         // A usable item without a spell does nothing.
         if (record->spell_id == W8_SPELL_NONE) {
@@ -848,22 +931,22 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
             if (!used) {
                 fatigue_cost = 0;
             } else {
-                emptied = game.storage.consumeUse(location, true);
+                emptied = storage_.consumeUse(location, true);
             }
         }
         return {{used, own_cost()}, emptied};
     }
 
-    QueueCharacterEvent(&game.party.characters[party_slot], event_type, 0,
+    QueueCharacterEvent(&game_.party.characters[party_slot], event_type, 0,
                         kCharacterEventFullVolume);
     return {{used, own_cost()}, emptied};
 }
 
-W8ItemUseResult UseItem(Game& game, unsigned actor, const W8ItemUse& use)
+W8ItemUseResult Inventory::use(unsigned actor, const W8ItemUse& item_use)
 {
-    const auto location = use.item;
-    if (actor >= W8_PARTY_SLOT_COUNT || !ResolveItemUse(game.party, use)) return {};
-    const auto outcome = UseItemOnce(game, actor, location);
-    FinishInventoryEdit(game, {outcome.emptied ? location : W8ItemLocation{}});
+    const auto location = item_use.item;
+    if (actor >= W8_PARTY_SLOT_COUNT || !ResolveItemUse(game_.party, item_use)) return {};
+    const auto outcome = useOnce(actor, location);
+    finishEdit({outcome.emptied ? location : W8ItemLocation{}});
     return outcome.result;
 }

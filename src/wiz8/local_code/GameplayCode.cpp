@@ -542,18 +542,18 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
 
     for (index = 0; index < 12; ++index) {
         if (character->EquippedItem[index].iItemNo != -1) {
-            AddItemToParty(CurrentGame(),
-                           PartyItem(CurrentGame().party, {W8ItemStorage::Equipment, slot,
-                                                           static_cast<unsigned>(index)}),
-                           false, false);
+            CurrentGame().inventory.addToPool(
+                PartyItem(CurrentGame().party,
+                          {W8ItemStorage::Equipment, slot, static_cast<unsigned>(index)}),
+                false, false);
         }
     }
     for (index = 0; index < 8; ++index) {
         if (character->backpack[index].iItemNo != -1) {
-            AddItemToParty(CurrentGame(),
-                           PartyItem(CurrentGame().party,
-                                     {W8ItemStorage::Backpack, slot, static_cast<unsigned>(index)}),
-                           false, false);
+            CurrentGame().inventory.addToPool(
+                PartyItem(CurrentGame().party,
+                          {W8ItemStorage::Backpack, slot, static_cast<unsigned>(index)}),
+                false, false);
         }
     }
     RemoveCharacterFromParty(slot);
@@ -573,10 +573,10 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
     CurrentGame().party.formation.positions[slot].revival_row = -1;
     RecalculateCharacterDerivedStats(CurrentGame(), *character);
     if (buy_equipment) {
-        unsigned int cost = ComputeStartingEquipmentCost(character);
+        unsigned int cost = ComputeStartingEquipmentCost(CurrentGame(), character);
         assert(CurrentGame().party.gold >= cost);
         CurrentGame().party.gold -= cost;
-        AddCharacterStartingEquipment(character);
+        AddCharacterStartingEquipment(CurrentGame(), character);
     }
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         RefreshPartySlotRegions();

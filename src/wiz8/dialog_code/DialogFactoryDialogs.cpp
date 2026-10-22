@@ -465,10 +465,11 @@ void W8TriggerItemPickerDialog::TransferSelectedItems(int destination)
             W8ItemInstance& instance = entries[index].item->item;
             bool added;
             if (destination == -1) {
-                added = AddItemToParty(CurrentGame(), OwnedItem(instance), true, false);
+                added = CurrentGame().inventory.addToPool(OwnedItem(instance), true, false);
             } else {
-                added = AddItemToCharacter(CurrentGame(), PartyMember(CurrentGame(), destination),
-                                           OwnedItem(instance), false, true, false);
+                added = CurrentGame().inventory.addToCharacter(
+                    CurrentGame().inventory.member(destination), OwnedItem(instance), false, true,
+                    false);
             }
             if (added) {
                 entries.erase(entries.begin() + index);

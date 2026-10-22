@@ -3872,8 +3872,8 @@ ActionStep ResolveCharacterAttack(int party_slot)
     }
     FatigueCharacter(party_slot, CharacterActionFatigueCost(party_slot, party_row->executing.kind),
                      true, 0);
-    if (ConsumeAttackItems(CurrentGame(), party_slot, hand, row->current_equip_slot,
-                           row->paired_equip_slot))
+    if (CurrentGame().inventory.consumeAttackItems(party_slot, hand, row->current_equip_slot,
+                                                   row->paired_equip_slot))
         row->uiSwingsRemaining = 1;
     assert(row->uiSwingsRemaining != 0);
     --row->uiSwingsRemaining;

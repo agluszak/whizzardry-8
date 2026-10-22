@@ -519,7 +519,7 @@ struct W8MonsterRecord {
        whose count is nonzero once Random(100) stays under its chance, rolling
        the slot dice for the drop count; type 0 creates the item id directly,
        type 1 feeds the id to GenerateItemsFromTable. The gold dice lands in
-       AddPartyGold. */
+       `Inventory::addGold`. */
     W8MonsterTreasureBlock treasure;
     unsigned char attack_multiple_targets;
     /* Retail offset 0x248: Monster Editor camouflage rating. */

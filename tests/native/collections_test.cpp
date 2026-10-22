@@ -40,6 +40,7 @@
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
+#include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -583,7 +584,7 @@ TEST_CASE("Weapon-set replacement derives both hands from the completed arrangem
     character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo = 1;
     SetHandType(data, &character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
     REQUIRE(character.Hand[1].uiHolds == 3);
-    CommitWeaponSetSwap(CurrentGame(), 0, {true, false});
+    CurrentGame().inventory.commitWeaponSetSwap(0, {true, false});
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == 1);
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo == 0);
     REQUIRE(character.Hand[0].uiHolds == 1);
@@ -605,7 +606,7 @@ TEST_CASE("An inventory command's notice follows its consequences in the game's 
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo = 1;
 
-    REQUIRE(SwapWeaponSetSlots(game, 0, true));
+    REQUIRE(game.inventory.swapWeaponSets(0, true));
     const auto& pending = game.events.pending();
     REQUIRE(pending.size() == 3);
     REQUIRE(std::get<PartySlotChanged>(pending[0]).party_slot == 0);
@@ -1063,6 +1064,56 @@ W8Character MakeFighter()
 }
 }
 
+TEST_CASE("Character drafts reconcile their own skill allocations without a screen",
+          "[character][creation]")
+{
+    const ScopedGame current;
+    const GameData data{.strings = std::vector<std::string>(0x1000)};
+    Game owner(data);
+    CharacterDraft draft(owner);
+    draft.character = MakeFighter();
+    draft.character.uiExpLevel = 2;
+    draft.character.profession_levels[W8_PROFESSION_FIGHTER] = 2;
+    draft.character.attributes[W8_ATTRIBUTE_STRENGTH].base = 100;
+    auto& power_strike = draft.character.skills[W8_SKILL_POWER_STRIKE];
+    power_strike.active = true;
+    power_strike.points = power_strike.level = 10;
+    draft.allocation.attribute_points_total = 3;
+    draft.allocation.attribute_points_remaining = 2;
+    draft.allocation.attribute_values[W8_ATTRIBUTE_STRENGTH] = 1;
+    draft.allocation.attribute_limits[W8_ATTRIBUTE_STRENGTH] = 3;
+    draft.allocation.skill_points_total = 9;
+    draft.allocation.skill_points_remaining = 7;
+    draft.allocation.skill_points_spent[W8_SKILL_POWER_STRIKE] = 2;
+
+    draft.adjustAttribute(W8_ATTRIBUTE_STRENGTH, -1);
+
+    REQUIRE(draft.character.attributes[W8_ATTRIBUTE_STRENGTH].base == 99);
+    REQUIRE_FALSE(power_strike.active);
+    REQUIRE(power_strike.points == 8);
+    REQUIRE(draft.allocation.skill_points_spent[W8_SKILL_POWER_STRIKE] == 0);
+    REQUIRE(draft.allocation.skill_points_remaining == 9);
+    REQUIRE(current.game.events.pending().empty());
+    REQUIRE(owner.events.pending().empty());
+}
+
+TEST_CASE("A second character draft cannot erase a forced-gender choice", "[character][creation]")
+{
+    const GameData data{.strings = std::vector<std::string>(0x1000)};
+    const ScopedGame current(data);
+    CharacterDraft first(current.game);
+    first.character = MakeFighter();
+    first.character.profession_levels[W8_PROFESSION_FIGHTER] = 1;
+    first.beginLevelUp();
+    first.setProfession(W8_PROFESSION_VALKYRIE);
+    REQUIRE(first.character.gender == W8_GENDER_FEMALE);
+
+    CharacterDraft second(current.game);
+    second.beginCreation();
+    first.setProfession(W8_PROFESSION_FIGHTER);
+    REQUIRE(first.character.gender == W8_GENDER_MALE);
+}
+
 TEST_CASE("Attribute-cap notices follow the party's activity without a screen", "[party][events]")
 {
     struct Scenario {
@@ -1088,9 +1139,9 @@ TEST_CASE("Attribute-cap notices follow the party's activity without a screen", 
         ApplyAttributeChange(game, &character, W8_ATTRIBUTE_STRENGTH);
 
         const auto& pending = game.events.pending();
-        REQUIRE(pending.size() == (scenario.announces ? 2u : 1u));
-        REQUIRE(std::get<SkillAvailabilityChanged>(pending[0]).available);
-        if (scenario.announces) REQUIRE(std::holds_alternative<NoticeDialog>(pending[1]));
+        REQUIRE(character.skills[W8_SKILL_POWER_STRIKE].active);
+        REQUIRE(pending.size() == (scenario.announces ? 1u : 0u));
+        if (scenario.announces) REQUIRE(std::holds_alternative<NoticeDialog>(pending[0]));
     }
 }
 
@@ -1406,16 +1457,16 @@ TEST_CASE("A split stack travels through the hand and merges back", "[party][inv
     auto& party = CurrentGame().party;
     actor.backpack[0] = W8ItemInstance{.iItemNo = 0, .stack_count = 10};
 
-    REQUIRE(SplitItemStack(CurrentGame(), {W8ItemStorage::Backpack, 0, 0}, 3, 0));
+    REQUIRE(CurrentGame().inventory.splitStack({W8ItemStorage::Backpack, 0, 0}, 3, 0));
     REQUIRE(actor.backpack[0].stack_count == 7);
     REQUIRE(party.held.item.stack_count == 3);
     REQUIRE(party.held.origin == W8ItemLocation{W8ItemStorage::Backpack, 0, 0});
     REQUIRE(actor.inventory_weight == 70);
-    REQUIRE(SplitItemStack(CurrentGame(), {W8ItemStorage::Backpack, 0, 0}, 1, 0));
+    REQUIRE(CurrentGame().inventory.splitStack({W8ItemStorage::Backpack, 0, 0}, 1, 0));
     REQUIRE(party.held.item.stack_count == 4);
     REQUIRE(actor.inventory_weight == 60);
     const auto result =
-        MergeInventoryStacks(CurrentGame(), {W8ItemStorage::Backpack, 0, 0}, {W8ItemStorage::Hand});
+        CurrentGame().inventory.mergeStacks({W8ItemStorage::Backpack, 0, 0}, {W8ItemStorage::Hand});
     REQUIRE(result.complete);
     REQUIRE(party.held.item.iItemNo == -1);
     REQUIRE(party.held.origin == W8ItemLocation{});
@@ -1437,12 +1488,12 @@ TEST_CASE("A held stack refuses an unstorable split without losing or duplicatin
         item = W8ItemInstance{.iItemNo = 0, .stack_count = 100};
     for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 0, .stack_count = 100};
     party.item_count = 500;
-    REQUIRE_FALSE(SplitItemStack(CurrentGame(), {W8ItemStorage::Hand}, 4, 0));
+    REQUIRE_FALSE(CurrentGame().inventory.splitStack({W8ItemStorage::Hand}, 4, 0));
     REQUIRE(party.held.item.stack_count == 10);
     REQUIRE(party.item_count == 500);
     REQUIRE(party.characters[0].backpack[0].stack_count == 100);
-    REQUIRE_FALSE(SplitItemStack(CurrentGame(), {W8ItemStorage::Hand}, 11, 0));
-    REQUIRE_FALSE(SplitItemStack(CurrentGame(), {W8ItemStorage::Hand}, 0, 0));
+    REQUIRE_FALSE(CurrentGame().inventory.splitStack({W8ItemStorage::Hand}, 11, 0));
+    REQUIRE_FALSE(CurrentGame().inventory.splitStack({W8ItemStorage::Hand}, 0, 0));
 }
 
 TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
@@ -1508,7 +1559,7 @@ namespace {
 // Unrestricted records that neither stack nor combine.
 GameData InventoryData(std::size_t count)
 {
-    GameData data{.strings = std::vector<std::string>(0x300), .items = UnrestrictedItems(count)};
+    GameData data{.strings = std::vector<std::string>(0x500), .items = UnrestrictedItems(count)};
     for (auto& record : data.items) {
         record.equip_class = W8_ITEM_EQUIP_CLASS_OTHER;
         record.merge_component_a = record.merge_component_b = -1;
@@ -1540,16 +1591,16 @@ TEST_CASE("A received stack tops up the character's stacks before taking a free 
     actor.backpack[1] = W8ItemInstance{.iItemNo = 0, .stack_count = 98};
 
     W8ItemInstance received{.iItemNo = 0, .stack_count = 5};
-    REQUIRE(AddItemToCharacter(CurrentGame(), PartyMember(CurrentGame(), 0), OwnedItem(received),
-                               false, false, false));
+    REQUIRE(CurrentGame().inventory.addToCharacter(CurrentGame().inventory.member(0),
+                                                   OwnedItem(received), false, false, false));
     REQUIRE(actor.backpack[1].stack_count == 100);
     REQUIRE((actor.backpack[0].iItemNo == 0 && actor.backpack[0].stack_count == 3));
     REQUIRE(received.iItemNo == -1);
 
     // Skipping the stacks puts the whole item in the next free slot.
     W8ItemInstance separate{.iItemNo = 0, .stack_count = 2};
-    REQUIRE(AddItemToCharacter(CurrentGame(), PartyMember(CurrentGame(), 0), OwnedItem(separate),
-                               false, false, true));
+    REQUIRE(CurrentGame().inventory.addToCharacter(CurrentGame().inventory.member(0),
+                                                   OwnedItem(separate), false, false, true));
     REQUIRE(actor.backpack[0].stack_count == 3);
     REQUIRE(actor.backpack[2].stack_count == 2);
 }
@@ -1562,8 +1613,8 @@ TEST_CASE("A received item is equipped when asked and its slot is free", "[party
     auto& actor = PrepareMember(0);
     for (int copy = 0; copy < 2; ++copy) {
         W8ItemInstance helmet{.iItemNo = 0};
-        REQUIRE(AddItemToCharacter(CurrentGame(), PartyMember(CurrentGame(), 0), OwnedItem(helmet),
-                                   true, false, false));
+        REQUIRE(CurrentGame().inventory.addToCharacter(CurrentGame().inventory.member(0),
+                                                       OwnedItem(helmet), true, false, false));
     }
     REQUIRE(actor.EquippedItem[W8_EQUIP_SLOT_HEAD].iItemNo == 0);
     REQUIRE(actor.backpack[0].iItemNo == 0);
@@ -1572,8 +1623,8 @@ TEST_CASE("A received item is equipped when asked and its slot is free", "[party
     // A full backpack refuses and leaves the item with its owner.
     for (auto& item : actor.backpack) item = W8ItemInstance{.iItemNo = 0};
     W8ItemInstance extra{.iItemNo = 0};
-    REQUIRE_FALSE(AddItemToCharacter(CurrentGame(), PartyMember(CurrentGame(), 0), OwnedItem(extra),
-                                     true, false, false));
+    REQUIRE_FALSE(CurrentGame().inventory.addToCharacter(CurrentGame().inventory.member(0),
+                                                         OwnedItem(extra), true, false, false));
     REQUIRE(extra.iItemNo == 0);
 }
 
@@ -1587,8 +1638,8 @@ TEST_CASE("A ranged weapon received before play fills the first free weapon set"
     auto& actor = PrepareMember(0);
     const auto receive = [&] {
         W8ItemInstance bow{.iItemNo = 0};
-        REQUIRE(AddItemToCharacter(CurrentGame(), PartyMember(CurrentGame(), 0), OwnedItem(bow),
-                                   true, false, false));
+        REQUIRE(CurrentGame().inventory.addToCharacter(CurrentGame().inventory.member(0),
+                                                       OwnedItem(bow), true, false, false));
     };
 
     receive();
@@ -1616,20 +1667,20 @@ TEST_CASE("The pool merges a stack into its entries and puts anything else in fr
     REQUIRE(party.insertIntoPool(0, {.iItemNo = 0, .stack_count = 8}));
 
     W8ItemInstance stack{.iItemNo = 0, .stack_count = 4};
-    REQUIRE(AddItemToParty(CurrentGame(), OwnedItem(stack), false, false));
+    REQUIRE(CurrentGame().inventory.addToPool(OwnedItem(stack), false, false));
     REQUIRE(party.item_count == 2);
     REQUIRE((party.item_pool[0].iItemNo == 0 && party.item_pool[0].stack_count == 2));
     REQUIRE(party.item_pool[1].stack_count == 10);
 
     W8ItemInstance other{.iItemNo = 1};
-    REQUIRE(AddItemToParty(CurrentGame(), OwnedItem(other), false, false));
+    REQUIRE(CurrentGame().inventory.addToPool(OwnedItem(other), false, false));
     REQUIRE(party.item_count == 3);
     REQUIRE(party.item_pool[0].iItemNo == 1);
     REQUIRE(party.item_pool[1].stack_count == 2);
 
     // A stack that fits entirely adds no entry.
     W8ItemInstance more{.iItemNo = 0, .stack_count = 3};
-    REQUIRE(AddItemToParty(CurrentGame(), OwnedItem(more), false, false));
+    REQUIRE(CurrentGame().inventory.addToPool(OwnedItem(more), false, false));
     REQUIRE(party.item_count == 3);
     REQUIRE(party.item_pool[1].stack_count == 5);
 }
@@ -1643,7 +1694,7 @@ TEST_CASE("An item a full pool refuses goes into an empty hand when there is now
     FillPool(party, 0);
 
     W8ItemInstance item{.iItemNo = 1};
-    REQUIRE_FALSE(AddItemToPartyOrDrop(CurrentGame(), OwnedItem(item), false));
+    REQUIRE_FALSE(CurrentGame().inventory.addToPoolOrDrop(OwnedItem(item), false));
     REQUIRE(party.held.item.iItemNo == 1);
     REQUIRE(item.iItemNo == -1);
     REQUIRE(party.item_count == std::size(party.item_pool));
@@ -1662,16 +1713,16 @@ TEST_CASE("Removing an item by id takes one copy per holder, or only the first",
     second.EquippedItem[W8_EQUIP_SLOT_MISC_1] = W8ItemInstance{.iItemNo = 0};
     for (const int id : {0, 1, 0}) REQUIRE(party.insertIntoPool(party.item_count, {.iItemNo = id}));
 
-    REQUIRE(RemovePartyItemByID(CurrentGame(), 0, false));
+    REQUIRE(CurrentGame().inventory.removeItemById(0, false));
     REQUIRE(party.held.item.iItemNo == -1);
     REQUIRE(first.backpack[0].iItemNo == 0);
 
-    REQUIRE(RemovePartyItemByID(CurrentGame(), 0, true));
+    REQUIRE(CurrentGame().inventory.removeItemById(0, true));
     REQUIRE(first.backpack[0].iItemNo == -1);
     REQUIRE(first.backpack[1].iItemNo == 0);
     REQUIRE(second.EquippedItem[W8_EQUIP_SLOT_MISC_1].iItemNo == -1);
     REQUIRE((party.item_count == 1 && party.item_pool[0].iItemNo == 1));
-    REQUIRE_FALSE(RemovePartyItemByID(CurrentGame(), 7, true));
+    REQUIRE_FALSE(CurrentGame().inventory.removeItemById(7, true));
 }
 
 TEST_CASE("Removing part of a stack keeps the entry, removing all of it closes the pool up",
@@ -1684,14 +1735,14 @@ TEST_CASE("Removing part of a stack keeps the entry, removing all of it closes t
     REQUIRE(party.insertIntoPool(0, {.iItemNo = 0, .stack_count = 5}));
     REQUIRE(party.insertIntoPool(1, {.iItemNo = 1}));
 
-    RemoveInventoryQuantity(CurrentGame(), {W8ItemStorage::Pool, 0, 0}, 2);
+    CurrentGame().inventory.removeQuantity({W8ItemStorage::Pool, 0, 0}, 2);
     REQUIRE((party.item_count == 2 && party.item_pool[0].stack_count == 3));
-    RemoveInventoryQuantity(CurrentGame(), {W8ItemStorage::Pool, 0, 0}, 9);
+    CurrentGame().inventory.removeQuantity({W8ItemStorage::Pool, 0, 0}, 9);
     REQUIRE((party.item_count == 1 && party.item_pool[0].iItemNo == 1));
 
-    REQUIRE(TakeInventoryItem(CurrentGame(), {W8ItemStorage::Pool, 0, 0}).iItemNo == 1);
+    REQUIRE(CurrentGame().inventory.take({W8ItemStorage::Pool, 0, 0}).iItemNo == 1);
     REQUIRE(party.item_count == 0);
-    REQUIRE(TakeInventoryItem(CurrentGame(), {W8ItemStorage::Pool, 0, 0}).iItemNo == -1);
+    REQUIRE(CurrentGame().inventory.take({W8ItemStorage::Pool, 0, 0}).iItemNo == -1);
 }
 
 TEST_CASE("An equipment slot refuses an item its wearer may not use", "[party][inventory]")
@@ -1705,9 +1756,9 @@ TEST_CASE("An equipment slot refuses an item its wearer may not use", "[party][i
     actor.backpack[1] = W8ItemInstance{.iItemNo = 1};
     const W8ItemLocation head{W8ItemStorage::Equipment, 0, W8_EQUIP_SLOT_HEAD};
 
-    REQUIRE_FALSE(ExchangeInventoryItems(CurrentGame(), {W8ItemStorage::Backpack, 0, 1}, head, 0));
+    REQUIRE_FALSE(CurrentGame().inventory.exchange({W8ItemStorage::Backpack, 0, 1}, head, 0));
     REQUIRE(actor.backpack[1].iItemNo == 1);
-    REQUIRE(ExchangeInventoryItems(CurrentGame(), {W8ItemStorage::Backpack, 0, 0}, head, 0));
+    REQUIRE(CurrentGame().inventory.exchange({W8ItemStorage::Backpack, 0, 0}, head, 0));
     REQUIRE(actor.EquippedItem[W8_EQUIP_SLOT_HEAD].iItemNo == 0);
     REQUIRE(actor.backpack[0].iItemNo == -1);
 }
@@ -1732,19 +1783,19 @@ TEST_CASE("Combining held items follows a recipe the character is skilled enough
     actor.backpack[0] = W8ItemInstance{.iItemNo = 0};
     party.held = {W8ItemInstance{.iItemNo = 1}, {}, 0};
 
-    REQUIRE(MergeItems(CurrentGame(), 0, target).error().notice == "Identify them first.");
+    REQUIRE(CurrentGame().inventory.combine(0, target).error().notice == "Identify them first.");
     actor.backpack[0].identified = party.held.item.identified = true;
-    REQUIRE(MergeItems(CurrentGame(), 0, target).error().notice == "Kiri lacks the skill.");
+    REQUIRE(CurrentGame().inventory.combine(0, target).error().notice == "Kiri lacks the skill.");
     REQUIRE((actor.backpack[0].iItemNo == 0 && party.held.item.iItemNo == 1));
 
     // Without a skill requirement the pair is made into the recipe's item.
     data.items[2].merge_skill = -1;
-    REQUIRE(MergeItems(CurrentGame(), 0, target).value());
+    REQUIRE(CurrentGame().inventory.combine(0, target).value());
     REQUIRE((actor.backpack[0].iItemNo == 2 && actor.backpack[0].identified));
     REQUIRE(party.held.item.iItemNo == -1);
 
     party.held = {W8ItemInstance{.iItemNo = 1, .identified = true}, {}, 0};
-    REQUIRE(MergeItems(CurrentGame(), 0, target).error().notice == "These do not combine.");
+    REQUIRE(CurrentGame().inventory.combine(0, target).error().notice == "These do not combine.");
 }
 
 TEST_CASE("Pouring uses tops up the destination and empties a spent source", "[party][inventory]")
@@ -1757,12 +1808,12 @@ TEST_CASE("Pouring uses tops up the destination and empties a spent source", "[p
     actor.backpack[0] = W8ItemInstance{.iItemNo = 0, .uses_or_charges = 6};
     actor.backpack[1] = W8ItemInstance{.iItemNo = 0, .uses_or_charges = 7};
 
-    MergeItemUses(CurrentGame(), 0, {W8ItemStorage::Backpack, 0, 0},
-                  {W8ItemStorage::Backpack, 0, 1});
+    CurrentGame().inventory.mergeUses(0, {W8ItemStorage::Backpack, 0, 0},
+                                      {W8ItemStorage::Backpack, 0, 1});
     REQUIRE(actor.backpack[0].uses_or_charges == 10);
     REQUIRE(actor.backpack[1].uses_or_charges == 3);
-    MergeItemUses(CurrentGame(), 0, {W8ItemStorage::Backpack, 0, 1},
-                  {W8ItemStorage::Backpack, 0, 0});
+    CurrentGame().inventory.mergeUses(0, {W8ItemStorage::Backpack, 0, 1},
+                                      {W8ItemStorage::Backpack, 0, 0});
     REQUIRE(actor.backpack[1].uses_or_charges == 10);
     REQUIRE(actor.backpack[0].uses_or_charges == 3);
 }
@@ -1784,9 +1835,9 @@ TEST_CASE("The pool sorts by class, kind, value and quantity, once play has star
                             W8ItemInstance{.iItemNo = 1, .stack_count = 5, .identified = true}})
         REQUIRE(game.party.insertIntoPool(game.party.item_count, item));
 
-    REQUIRE_THROWS(game.storage.sortPool());
+    REQUIRE_THROWS(game.inventory.sortPool());
     game.status.game_started = true;
-    game.storage.sortPool();
+    game.inventory.sortPool();
     const auto& pool = game.party.item_pool;
     REQUIRE(pool[0].iItemNo == 2);
     REQUIRE((pool[1].iItemNo == 1 && pool[1].stack_count == 5));
@@ -1810,14 +1861,14 @@ TEST_CASE("Unusable equipment is announced only once play has started", "[party]
     };
 
     actor.EquippedItem[W8_EQUIP_SLOT_HEAD].iItemNo = 0;
-    REQUIRE(UnequipUnusableItems(game, 0) == false);
+    REQUIRE(game.inventory.unequipUnusable(0) == false);
     REQUIRE(actor.backpack[0].iItemNo == 0);
     REQUIRE(notices() == 0);
 
     game.status.game_started = true;
     actor.backpack[0] = {};
     actor.EquippedItem[W8_EQUIP_SLOT_HEAD].iItemNo = 0;
-    UnequipUnusableItems(game, 0);
+    game.inventory.unequipUnusable(0);
     REQUIRE(actor.backpack[0].iItemNo == 0);
     REQUIRE(notices() == 1);
 }
@@ -1834,8 +1885,8 @@ TEST_CASE("A spent throwing stack is refilled from the other hand", "[party][inv
     primary = W8ItemInstance{.iItemNo = 0, .stack_count = 2};
     const auto attack = [&] {
         actor.Hand[0].combat_skill = W8_SKILL_RANGED_COMBAT;
-        return ConsumeAttackItems(CurrentGame(), 0, 0, W8_EQUIP_SLOT_PRIMARY_WEAPON,
-                                  W8_EQUIP_SLOT_NONE);
+        return CurrentGame().inventory.consumeAttackItems(0, 0, W8_EQUIP_SLOT_PRIMARY_WEAPON,
+                                                          W8_EQUIP_SLOT_NONE);
     };
 
     REQUIRE_FALSE(attack());
@@ -1864,8 +1915,8 @@ TEST_CASE("Firing spends ammunition from the paired hand", "[party][inventory][c
     auto& arrows = actor.EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON];
     arrows = W8ItemInstance{.iItemNo = 1, .stack_count = 2};
     const auto fire = [&] {
-        return ConsumeAttackItems(CurrentGame(), 0, 0, W8_EQUIP_SLOT_PRIMARY_WEAPON,
-                                  W8_EQUIP_SLOT_SECONDARY_WEAPON);
+        return CurrentGame().inventory.consumeAttackItems(0, 0, W8_EQUIP_SLOT_PRIMARY_WEAPON,
+                                                          W8_EQUIP_SLOT_SECONDARY_WEAPON);
     };
 
     REQUIRE_FALSE(fire());

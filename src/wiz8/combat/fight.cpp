@@ -1000,7 +1000,7 @@ void Game::endCombat(bool forced_cleanup)
     if (search_mode_saved) {
         ToggleSearchMode();
     }
-    ZoomRadarMapOut();
+    if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->setZoom(false);
     events.push(CombatEnded{});
     if (!activity.conversation && !gpSCSV && !ItemUseDraft()) {
         SelectTextBox(0);
@@ -1236,7 +1236,7 @@ bool CanPerformAction(int party_slot, const W8Action& selected, bool allow_missi
             if (!allow_equipment_changes) {
                 return false;
             }
-            ReadyPrimaryWeapon(CurrentGame(), party_slot);
+            CurrentGame().inventory.readyPrimaryWeapon(party_slot);
             if (!CanAnyHandReachTarget(party_slot)) {
                 return false;
             }
@@ -1247,7 +1247,7 @@ bool CanPerformAction(int party_slot, const W8Action& selected, bool allow_missi
             if (!allow_equipment_changes) {
                 return false;
             }
-            ReadyPrimaryWeapon(CurrentGame(), party_slot);
+            CurrentGame().inventory.readyPrimaryWeapon(party_slot);
             if (!CanCharacterBerserk(party_slot)) {
                 return false;
             }
@@ -1890,14 +1890,14 @@ int GetConditionInterrupt(W8TargetSource* source)
             if (!AreAllHandSlotsEmpty(&CurrentGame().party.characters[party_slot]) &&
                 CanUnequipSlotItem(Data(), character, W8_EQUIP_SLOT_PRIMARY_WEAPON) &&
                 CanUnequipSlotItem(Data(), character, W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
-                SwapWeaponSetSlots(CurrentGame(), party_slot, false);
+                CurrentGame().inventory.swapWeaponSets(party_slot, false);
                 if (CanAnyHandReachTarget(party_slot) &&
                     CanPartySlotAttackAnyTarget(party_slot, 1, false)) {
                     CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
                                                               Data().strings[0x23d]});
                     return 9;
                 }
-                SwapWeaponSetSlots(CurrentGame(), party_slot, false);
+                CurrentGame().inventory.swapWeaponSets(party_slot, false);
             }
             return 10;
         }

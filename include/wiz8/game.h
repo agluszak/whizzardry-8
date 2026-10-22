@@ -16,6 +16,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/spell_ids.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayTime.h"
@@ -28,7 +29,6 @@
 #include "wiz8/npc_speech.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/events.h"
-#include "wiz8/rules/inventory.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/random.h"
@@ -190,8 +190,8 @@ public:
 
     // What happened, in order, for the UI to present.
     Events events;
-    // The party's storage rules, over the members above.
-    PartyStorage storage{data, party, rng, events, status.game_started};
+    // The commands that change what the party carries, over the members above.
+    Inventory inventory{*this};
     /* The saved state of each level the party has left (or a load brought), kept undecoded:
        its LVLS group as a RIFF image of its own. Leaving a level stores its group here,
        entering one reads it back, and a save writes them beside the current level's. */

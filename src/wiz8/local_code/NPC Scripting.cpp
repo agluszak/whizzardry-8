@@ -274,7 +274,7 @@ void RemoveNpcScriptItem(const ScriptContext& context, W8ItemInstance* item, int
             slot_item = &context.party.characters[slot].backpack[index];
             if (slot_item->iItemNo != -1 &&
                 (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
-                RemoveInventoryQuantity(context.game, {W8ItemStorage::Backpack, slot, index}, 1);
+                context.game.inventory.removeQuantity({W8ItemStorage::Backpack, slot, index}, 1);
                 text = fmt::sprintf(Data().strings[0x7ec], context.party.characters[slot].name);
                 ShowConsumedItemQuote(text);
                 return;
@@ -285,7 +285,7 @@ void RemoveNpcScriptItem(const ScriptContext& context, W8ItemInstance* item, int
         slot_item = &context.party.item_pool[slot];
         if (slot_item->iItemNo != -1 &&
             (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
-            RemoveInventoryQuantity(context.game, {W8ItemStorage::Pool, 0, slot}, 1);
+            context.game.inventory.removeQuantity({W8ItemStorage::Pool, 0, slot}, 1);
             text = Data().strings[0x7ed];
             ShowConsumedItemQuote(text);
             return;
@@ -475,7 +475,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
         if (!context.activity.conversation && context.party.held.item.iItemNo == -1) {
             context.party.held.item = item;
         } else {
-            AddItemToPartyOrDrop(context.game, OwnedItem(item), false);
+            context.game.inventory.addToPoolOrDrop(OwnedItem(item), false);
             if (item.iItemNo != -1) break;
             if (context.activity.conversation) DisplayNpcQuote(notice_text, true);
         }
@@ -490,7 +490,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
     case W8_NPC_ENTRY_GIVE_GOLD:
         notice_text =
             fmt::sprintf(Data().strings[0x7e9], session_.npc->record->source_name, entry->operand0);
-        AddPartyGold(context.game, entry->operand0, false);
+        context.game.inventory.addGold(entry->operand0, false);
         DisplayNpcQuote(notice_text, true);
         break;
     case W8_NPC_ENTRY_GIVE_EXPERIENCE:

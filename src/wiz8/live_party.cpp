@@ -14,6 +14,7 @@
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/game.h"
@@ -21,7 +22,6 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -214,7 +214,7 @@ void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hand
     auto& party = game.party;
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (party.members[slot].has_value() && IsCharacterDefined(party.characters[slot]) &&
-            UnequipUnusableItems(game, slot))
+            game.inventory.unequipUnusable(slot))
             changed_hands.set(slot);
     const auto stats = UpdatePartyStats(game.data, party, CaptureLivePartyStatRules(game));
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
@@ -403,9 +403,9 @@ void RecalculateCharacterDerivedStats(Game& game, W8Character& character)
     UpdateStandaloneCharacterStats(game.data, character, {});
 }
 
-void RecalculateEditedCharacterStats(W8Character& draft)
+void RecalculateEditedCharacterStats(Game& game, W8Character& draft)
 {
     draft.party_weight_share = 0;
-    const auto update = UpdateCharacterStatsFromInputs(Data(), draft, {});
-    if (update.became_overloaded) PresentOverload(CurrentGame(), draft);
+    const auto update = UpdateCharacterStatsFromInputs(game.data, draft, {});
+    if (update.became_overloaded) PresentOverload(game, draft);
 }

@@ -104,8 +104,8 @@ void SwampScript::enter()
 bool SwampScript::oilPool(Trigger* pTrigger)
 {
     if ((ctx.party.held.item.iItemNo != -1) && GetItemInHand(ctx.party) == 0x2d0) {
-        (void)TakeInventoryItem(ctx.game, {W8ItemStorage::Hand});
-        ReplaceHeldItem(ctx.game, MakeItem(Data(), ctx.game.rng, 0x15e, false, true, false));
+        (void)ctx.game.inventory.take({W8ItemStorage::Hand});
+        ctx.game.inventory.replaceHeld(MakeItem(Data(), ctx.game.rng, 0x15e, false, true, false));
         g_trigger_feedback = true;
     }
     return false;
