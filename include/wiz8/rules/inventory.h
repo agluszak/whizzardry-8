@@ -15,15 +15,16 @@
 #include "wiz8/rules/targeting.h"
 
 struct GameData;
-struct RuleContext;
+class Events;
+class Rng;
 struct W8Character;
 struct W8Party;
 
 /* Party storage: searching, placing and editing the items a party carries in its members'
-   equipment and backpacks, the shared pool and the hand. These rules act on the context's
-   party and report notices and speech as events. They return what they changed: the game's
-   inventory commands (inventory.h) apply what acquiring an item sets off and settle the
-   party after every edit. */
+   equipment and backpacks, the shared pool and the hand. PartyStorage applies the rules to
+   one party and reports notices and speech as events. Its edits return what they changed:
+   the game's inventory commands (inventory.h) apply what acquiring an item sets off and
+   settle the party after every edit. */
 
 // Preserve full-inventory gameplay independently of the runtime container and save codec.
 inline constexpr std::size_t W8_PARTY_POOL_LIMIT = 500;
@@ -110,26 +111,6 @@ struct ItemPlacement {
     W8ItemLocation stored;
     std::optional<ItemReference> received;
 };
-/* Place an item with a character: equipped when asked and allowed, else merged into a
-   stack or put in the first free backpack slot. Announcing names it in a notice. */
-std::optional<ItemPlacement> PlaceWithCharacter(const RuleContext& rules, ItemRecipient recipient,
-                                                ItemReference source, bool equip_if_possible,
-                                                bool announce, bool skip_stacking);
-// Merge into a pool stack, else add a new entry at the front of the pool.
-std::optional<ItemPlacement> PlaceInPool(const RuleContext& rules, ItemReference source,
-                                         bool announce, bool skip_stacking);
-// Try the character and pool in the requested order; refusal preserves unstored units.
-std::optional<ItemPlacement> PlaceWithCharacterOrPool(const RuleContext& rules,
-                                                      ItemRecipient recipient, ItemReference source,
-                                                      bool party_first, bool announce,
-                                                      bool equip_if_possible);
-// Put an item into an empty hand; false when the hand holds something.
-bool PlaceInEmptyHand(const RuleContext& rules, ItemReference source);
-/* Take one use off an item, a stack's unit or a charge, and empty it after the last one. An
-   exhausted charged item is emptied only when asked, and one with hidden properties is
-   kept. Returns whether the location was emptied. */
-bool ConsumeItemUse(const RuleContext& rules, W8ItemLocation location, bool remove_exhausted);
-
 /* The first piece of equipment a member can no longer use, taken off and announced once
    play has started; none when everything is usable. Taking one item off can remove a bonus
    another one needs, so the member's inputs are evaluated again each time. */
@@ -139,30 +120,14 @@ struct UnusableEquipment {
     unsigned int equip_slot = 0;
     std::string notice;
 };
-std::optional<UnusableEquipment> TakeUnusableEquipment(const RuleContext& rules,
-                                                       unsigned int party_slot,
-                                                       std::bitset<W8_EQUIP_SLOT_COUNT> kept = {});
 
 // ---- Losing items and gold
 
-// Remove an item id from the hand, the members and the pool; once per holder.
-InventoryEdit RemovePartyItemByID(const RuleContext& rules, int item_id, bool remove_all);
-// Take some units of a stack; none when nothing is there.
-std::optional<InventoryEdit> RemoveInventoryQuantity(const RuleContext& rules,
-                                                     W8ItemLocation location, unsigned amount);
-// The item at a location, taken out; none when nothing is there.
-std::optional<W8ItemInstance> TakeInventoryItem(const RuleContext& rules, W8ItemLocation location);
 // Take gold from the party, clamping at zero.
 void SpendPartyGold(W8Party& party, unsigned int amount);
 
 // ---- Player edits
 
-// Split or pick up a stack; none when refused, which leaves inventory unchanged.
-std::optional<InventoryEdit> SplitItemStack(const RuleContext& rules, W8ItemLocation source,
-                                            unsigned amount, unsigned actor);
-// Exchange two locations; equipment slots accept only what their wearer may equip.
-std::optional<InventoryEdit> ExchangeInventoryItems(const RuleContext& rules, W8ItemLocation first,
-                                                    W8ItemLocation second, unsigned actor);
 /* Equip the held item in a hand whose partner it cannot share, taking the partner off. With
    a full backpack the partner goes to the pool, unless the member's NPC wants to keep it. */
 struct StowedPartner {
@@ -170,17 +135,10 @@ struct StowedPartner {
     // Where the partner was stored, which acquired it; none when it went into the hand.
     std::optional<ItemPlacement> stored;
 };
-std::optional<StowedPartner>
-EquipHeldItemAndStowPartner(const RuleContext& rules, unsigned actor, W8EquipSlot slot,
-                            std::function_ref<bool(const W8ItemInstance&)> npc_keeps);
 struct StackMerge {
     bool complete = false;
     InventoryEdit edit;
 };
-// Fold as much of one stack onto another as fits; none when nothing moved.
-std::optional<StackMerge> MergeInventoryStacks(const RuleContext& rules, W8ItemLocation destination,
-                                               W8ItemLocation source);
-std::optional<InventoryEdit> InsertHeldItemInPool(const RuleContext& rules, unsigned index);
 /* Combining the held item with another: a recipe makes a new item, and practice of the
    recipe's skill follows; otherwise two stacks of one item merge. */
 struct ItemCombination {
@@ -191,45 +149,127 @@ struct ItemCombination {
     std::optional<W8Skill> practised_skill;
     unsigned int practice = 0;
 };
-/* Combine the held item with another. None when either item is missing; the refusal of an
-   unidentified item, a recipe beyond the character's skill or two items that do not
-   combine. */
-std::expected<std::optional<ItemCombination>, InventoryRefusal>
-MergeItems(const RuleContext& rules, unsigned actor, W8ItemLocation target);
-// Pour the source's uses into the destination; none when they do not share an item.
-std::optional<InventoryEdit> MergeItemUses(const RuleContext& rules, unsigned actor,
-                                           W8ItemLocation destination, W8ItemLocation source);
 // Add recharge uses to an item, never past what it can hold.
 void AddItemUses(const GameData& data, W8ItemInstance& item, signed char uses);
 // Pool order: by class, kind, identification, value, stack and uses, all descending.
 bool ItemPrecedesInPool(const GameData& data, const W8ItemInstance& first,
                         const W8ItemInstance& second);
-void SortPartyItemPool(const RuleContext& rules);
 
 // ---- Weapon sets and ammunition
 
-/* Bind one worn item to its wearer; an unannounced binding is announced as it takes hold.
-   The alternate hands bind nothing. */
-void BindEquippedItem(const RuleContext& rules, W8Character& character, W8EquipSlot equip_slot);
 struct W8WeaponSwap {
     bool primary;
     bool secondary;
 };
 std::optional<W8WeaponSwap> PlanWeaponSetSwap(const GameData& data, const W8Character& character);
-InventoryEdit CommitWeaponSetSwap(const RuleContext& rules, unsigned int party_slot,
-                                  W8WeaponSwap choice);
-/* Whether a member's weapon sets can swap now: the hands' items bind first, and the notice
-   says why when they cannot (to the given text box context). None when nothing would
-   swap. */
-std::optional<W8WeaponSwap> PrepareWeaponSetSwap(const RuleContext& rules, unsigned int party_slot,
-                                                 bool announce, short notice_context);
 /* Spend what one attack used and ready the weapon again. `thrown_spent` says the thrown
    weapon ran out. */
 struct AttackItemsSpent {
     bool thrown_spent = false;
     InventoryEdit edit;
 };
-AttackItemsSpent ConsumeAttackItems(const RuleContext& rules, unsigned actor, unsigned hand,
-                                    W8EquipSlot used, W8EquipSlot paired);
-// Equip the primary weapon's off-hand partner and refill its shots before attacking.
-InventoryEdit ReadyPrimaryWeapon(const RuleContext& rules, unsigned party_slot);
+
+// ---- The rules over one party
+
+/* Whether play has begun. During party creation hands are filled their own way and nothing
+   is announced. */
+enum class PlayPhase { Creation, Play };
+
+/* A party's storage, with the data it reads, the random stream it draws from and the log it
+   reports to. It borrows all of them and lives no longer than they do. */
+class PartyStorage {
+public:
+    PartyStorage(const GameData& data, W8Party& party, Rng& rng, Events& events)
+        : data_(data), party_(party), rng_(rng), events_(events)
+    {
+    }
+
+    // ---- Placing items
+
+    /* Place an item with a character: equipped when asked and allowed, else merged into a
+       stack or put in the first free backpack slot. Announcing names it in a notice. */
+    std::optional<ItemPlacement> placeWithCharacter(ItemRecipient recipient, ItemReference source,
+                                                    bool equip_if_possible, bool announce,
+                                                    bool skip_stacking, PlayPhase phase);
+    // Merge into a pool stack, else add a new entry at the front of the pool.
+    std::optional<ItemPlacement> placeInPool(ItemReference source, bool announce,
+                                             bool skip_stacking);
+    // Try the character and pool in the requested order; refusal preserves unstored units.
+    std::optional<ItemPlacement> placeWithCharacterOrPool(ItemRecipient recipient,
+                                                          ItemReference source, bool party_first,
+                                                          bool announce, bool equip_if_possible,
+                                                          PlayPhase phase);
+    // Put an item into an empty hand; false when the hand holds something.
+    bool placeInEmptyHand(ItemReference source);
+    /* Take one use off an item, a stack's unit or a charge, and empty it after the last one.
+       An exhausted charged item is emptied only when asked, and one with hidden properties
+       is kept. Returns whether the location was emptied. */
+    bool consumeUse(W8ItemLocation location, bool remove_exhausted);
+    // See UnusableEquipment.
+    std::optional<UnusableEquipment>
+    takeUnusableEquipment(unsigned int party_slot, PlayPhase phase,
+                          std::bitset<W8_EQUIP_SLOT_COUNT> kept = {});
+
+    // ---- Losing items
+
+    // Remove an item id from the hand, the members and the pool; once per holder.
+    InventoryEdit removeItemById(int item_id, bool remove_all);
+    // Take some units of a stack; none when nothing is there.
+    std::optional<InventoryEdit> removeQuantity(W8ItemLocation location, unsigned amount);
+    // The item at a location, taken out; none when nothing is there.
+    std::optional<W8ItemInstance> take(W8ItemLocation location);
+
+    // ---- Player edits
+
+    // Split or pick up a stack; none when refused, which leaves inventory unchanged.
+    std::optional<InventoryEdit> splitStack(W8ItemLocation source, unsigned amount, unsigned actor);
+    // Exchange two locations; equipment slots accept only what their wearer may equip.
+    std::optional<InventoryEdit> exchange(W8ItemLocation first, W8ItemLocation second,
+                                          unsigned actor);
+    // See StowedPartner.
+    std::optional<StowedPartner>
+    equipHeldAndStowPartner(unsigned actor, W8EquipSlot slot,
+                            std::function_ref<bool(const W8ItemInstance&)> npc_keeps);
+    // Fold as much of one stack onto another as fits; none when nothing moved.
+    std::optional<StackMerge> mergeStacks(W8ItemLocation destination, W8ItemLocation source);
+    std::optional<InventoryEdit> insertHeldInPool(unsigned index);
+    /* Combine the held item with another. None when either item is missing; the refusal of
+       an unidentified item, a recipe beyond the character's skill or two items that do not
+       combine. */
+    std::expected<std::optional<ItemCombination>, InventoryRefusal> combine(unsigned actor,
+                                                                            W8ItemLocation target);
+    // Pour the source's uses into the destination; none when they do not share an item.
+    std::optional<InventoryEdit> mergeUses(unsigned actor, W8ItemLocation destination,
+                                           W8ItemLocation source);
+    // Sort the pool by ItemPrecedesInPool.
+    void sortPool();
+
+    // ---- Weapon sets and ammunition
+
+    /* Bind one worn item to its wearer; an unannounced binding is announced as it takes
+       hold. The alternate hands bind nothing. */
+    void bind(W8Character& character, W8EquipSlot equip_slot);
+    InventoryEdit commitWeaponSetSwap(unsigned int party_slot, W8WeaponSwap choice);
+    /* Whether a member's weapon sets can swap now: the hands' items bind first, and the
+       notice says why when they cannot (to the given text box context). None when nothing
+       would swap. */
+    std::optional<W8WeaponSwap> prepareWeaponSetSwap(unsigned int party_slot, bool announce,
+                                                     short notice_context);
+    // See AttackItemsSpent.
+    AttackItemsSpent consumeAttackItems(unsigned actor, unsigned hand, W8EquipSlot used,
+                                        W8EquipSlot paired);
+    // Equip the primary weapon's off-hand partner and refill its shots before attacking.
+    InventoryEdit readyPrimaryWeapon(unsigned party_slot);
+
+private:
+    W8EquipSlot chooseEquipSlot(W8Character& character, int item_id, PlayPhase phase);
+    W8ItemLocation equipPartner(unsigned int party_slot, const W8ItemInstance& item, int item_id,
+                                W8EquipSlot equip_slot);
+    W8ItemLocation mergePartnerUses(unsigned int party_slot, W8ItemInstance& item);
+    void splitThrowableStack(unsigned int party_slot, W8EquipSlot equip_slot);
+
+    const GameData& data_;
+    W8Party& party_;
+    Rng& rng_;
+    Events& events_;
+};

@@ -7,6 +7,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -100,7 +101,7 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
         if (item_id == 0x1cb || item_id == 0x1cd || item_id == 0x1cc || item_id == 0x1ce) {
             SetFact(W8_FACT_RAPAX_TREASURY_RAIDED, 1, false);
             SetFactionDispositionBand(0x12, W8_FACTION_HOSTILE);
-            (void)TakeInventoryItem(ctx.game, {W8ItemStorage::Hand});
+            (void)ctx.game.inventory.take({W8ItemStorage::Hand});
             if (item_id == 0x1cb) {
                 item_id = 0x1c7;
             } else if (item_id == 0x1cd) {

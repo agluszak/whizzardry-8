@@ -212,7 +212,7 @@ void W8CampSpellsPage::RefreshCampSpellRanges(void)
    unusable spells dim. */
 void W8CampSpellsPage::DrawCampSpellPages(bool full, bool dialog_open)
 {
-    const auto& data = camp.game.rules().data;
+    const auto& data = camp.game.data;
     const W8SpellRealmAnimation* animation;
     int realm;
     int row;
@@ -324,7 +324,7 @@ void W8CampSpellsPage::DrawCampResistances(void)
     int width;
 
     CatalogArtwork::Load(0x140, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x136, 0);
-    text = camp.game.rules().data.strings[0x8ca];
+    text = camp.game.data.strings[0x8ca];
     width = g_wiz_text_font_secondary.textWidth(text);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
              {(0x134 - width) / 2 + 0x144, 0x1e}, text);
@@ -594,17 +594,17 @@ void CampScreen::CreateCampInput()
         &main_input.add(SDL_Rect{164, 12, 91, 73}, [this](const UiPointerEvent& event) {
             return HandleCampDismissPortrait(event);
         });
-    main_targets[0]->setTooltip([this] { return game.rules().data.strings[2368]; });
+    main_targets[0]->setTooltip([this] { return game.data.strings[2368]; });
     main_targets[9] =
         &main_input.add(SDL_Rect{106, 96, 197, 14}, [this](const UiPointerEvent& event) {
             return HandleCampCharacterHeader(event);
         });
-    main_targets[9]->setTooltip([this] { return game.rules().data.strings[2362]; });
+    main_targets[9]->setTooltip([this] { return game.data.strings[2362]; });
     main_targets[10] =
         &main_input.add(SDL_Rect{106, 124, 197, 10}, [this](const UiPointerEvent& event) {
             return HandleCampProfessionHistory(event);
         });
-    main_targets[10]->setTooltip([this] { return game.rules().data.strings[2363]; });
+    main_targets[10]->setTooltip([this] { return game.data.strings[2363]; });
     for (int slot = 0; slot < 8; ++slot) {
         main_targets[1 + slot] = &main_input.add(
             SDL_Rect{(slot & 1) * 48 + 6, (slot / 2) * 39 + 5, 46, 37},
@@ -614,7 +614,7 @@ void CampScreen::CreateCampInput()
 
 bool CampScreen::enter(const ScreenRequest& request)
 {
-    const auto& data = game.rules().data;
+    const auto& data = game.data;
     std::string text;
 
     ClearPrimarySurface();
@@ -705,13 +705,13 @@ void CampScreen::frame()
                     }
                 } else if (input.key == SDLK_P) {
                     if (game.status.game_started) {
-                        SortPartyItemPool(game.rules());
+                        game.inventory.sortPool();
                     }
                 } else if (input.key == SDLK_X && ((GetInputState().modifiers & ALT_DOWN) != 0) &&
                            ((GetInputState().modifiers & CTRL_DOWN) == 0) &&
                            ((GetInputState().modifiers & SHIFT_DOWN) == 0)) {
-                    dialogs.ShowNotice(game.rules().data.strings[0x832], OnQuitGameDialogClosed,
-                                       true, true);
+                    dialogs.ShowNotice(game.data.strings[0x832], OnQuitGameDialogClosed, true,
+                                       true);
                 }
             }
             return InputRoute::Handled;
@@ -925,7 +925,7 @@ void CampScreen::DeactivateCampPage(void)
    point regeneration rates. */
 void CampScreen::DrawCampRegenStats(void)
 {
-    const auto& data = game.rules().data;
+    const auto& data = game.data;
     unsigned int index;
 
     g_calligraphy_font.setShade(Font::kNormalShade);
@@ -963,7 +963,7 @@ void CampScreen::SetCampHeaderMode(W8CampHeaderMode mode)
    and the equip-in-progress actions each carry their own refusal message. */
 bool CampScreen::AllowAction(int party_slot)
 {
-    const auto& data = game.rules().data;
+    const auto& data = game.data;
     std::string message;
     W8PartySlotRow* row;
     W8Character* character;
@@ -1073,7 +1073,7 @@ int CommitPartySlotItemUse(int party_slot, W8ItemUse use, W8CombatSlot* target)
     row->executing.target = *target;
     const auto spell = Data().items[item->iItemNo].spell_id;
     StagePartySlotItemUse(party_slot, use.item, target);
-    const auto used_item = UseItem(CurrentGame(), party_slot, use);
+    const auto used_item = CurrentGame().inventory.use(party_slot, use);
     result = used_item.effect;
     FatigueCharacter(
         party_slot,

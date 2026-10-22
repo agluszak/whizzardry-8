@@ -477,33 +477,6 @@ void StartCharacterBreathAttack(int party_slot)
     FallbackFromUnreachableAction(party_slot);
 }
 
-/* Fold one missile's accumulated damage and reports into the queued effect
-   that owns it. The owning effect is the one whose missile list still names
-   the missile; nothing happens if it has already been detached. */
-void AbsorbMissileDamage(Missile* missile)
-{
-    for (const auto& effect : CurrentGame().spell_effects) {
-        for (int missile_index = 0; missile_index < static_cast<int>(effect->missiles.size());
-             ++missile_index) {
-            if (effect->missiles[missile_index] == missile) {
-                effect->result.count += missile->result.count;
-                effect->result.amount += missile->result.amount;
-                for (int condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
-                    effect->result.condition_counts[condition] +=
-                        missile->result.condition_counts[condition];
-                }
-                auto& source_reports = missile->result.reports;
-                auto& destination_reports = effect->result.reports;
-                destination_reports.insert(destination_reports.end(),
-                                           std::make_move_iterator(source_reports.begin()),
-                                           std::make_move_iterator(source_reports.end()));
-                source_reports.clear();
-                return;
-            }
-        }
-    }
-}
-
 void FinishSpellEffect(W8SpellEffectEntry* effect);
 
 /* Advance every queued spell effect one frame. An effect first checks that
@@ -1052,7 +1025,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemLocation location)
                                    usage_points, false);
         }
     }
-    (void)TakeInventoryItem(CurrentGame(), location);
+    (void)CurrentGame().inventory.take(location);
     QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventFullVolume);
 }
 

@@ -592,7 +592,7 @@ int CharacterPrayAction(int party_slot)
                 CurrentGame().combat->experience_bonus += 10;
             } else {
                 AppendToLastTextLine(Data().strings[0x177], -1);
-                AddPartyGold(CurrentGame(), 100, true);
+                CurrentGame().inventory.addGold(100, true);
             }
             prayed = true;
             break;

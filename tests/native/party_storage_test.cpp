@@ -10,7 +10,6 @@
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/random.h"
-#include "wiz8/rules/rule_context.h"
 #include "wiz8/rules/targeting.h"
 
 namespace {
@@ -110,13 +109,13 @@ TEST_CASE("Pool placement preserves stack quantities across growth and refusal",
     W8Party party;
     Rng rng;
     Events events;
-    const RuleContext rules{data, party, rng, events};
+    PartyStorage storage{data, party, rng, events};
 
     SECTION("The destination is a pool item")
     {
         party.item_pool = {{.iItemNo = 0, .stack_count = 200}};
         W8ItemInstance incoming{.iItemNo = 0, .stack_count = 5};
-        REQUIRE(PlaceInPool(rules, OwnedItem(incoming), false, false));
+        REQUIRE(storage.placeInPool(OwnedItem(incoming), false, false));
         REQUIRE(incoming.iItemNo == -1);
         REQUIRE(party.item_pool.size() == 3);
         REQUIRE(party.item_pool[0].stack_count == 5);
@@ -127,7 +126,7 @@ TEST_CASE("Pool placement preserves stack quantities across growth and refusal",
     {
         party.item_pool = {{.iItemNo = 0, .stack_count = 98}};
         W8ItemInstance incoming{.iItemNo = 0, .stack_count = 5};
-        REQUIRE(PlaceInPool(rules, OwnedItem(incoming), false, false));
+        REQUIRE(storage.placeInPool(OwnedItem(incoming), false, false));
         REQUIRE(incoming.iItemNo == -1);
         REQUIRE(party.item_pool.size() == 2);
         REQUIRE(party.item_pool[0].stack_count == 3);
@@ -140,7 +139,7 @@ TEST_CASE("Pool placement preserves stack quantities across growth and refusal",
                                W8ItemInstance{.iItemNo = 0, .stack_count = 100});
         party.item_pool[0].stack_count = 98;
         W8ItemInstance incoming{.iItemNo = 0, .stack_count = 5};
-        REQUIRE_FALSE(PlaceInPool(rules, OwnedItem(incoming), false, false));
+        REQUIRE_FALSE(storage.placeInPool(OwnedItem(incoming), false, false));
         REQUIRE(incoming.stack_count == 3);
         REQUIRE(party.item_pool.size() == W8_PARTY_POOL_LIMIT);
         REQUIRE(party.item_pool[0].stack_count == 100);
@@ -153,9 +152,9 @@ TEST_CASE("Pool placement preserves stack quantities across growth and refusal",
                                W8ItemInstance{.iItemNo = 0, .stack_count = 100});
         party.held.item = {.iItemNo = 0, .stack_count = 5};
         for (const bool party_first : {false, true}) {
-            REQUIRE_FALSE(PlaceWithCharacterOrPool(rules, {character, 0},
-                                                   PartyItem({W8ItemStorage::Hand}), party_first,
-                                                   false, false));
+            REQUIRE_FALSE(
+                storage.placeWithCharacterOrPool({character, 0}, PartyItem({W8ItemStorage::Hand}),
+                                                 party_first, false, false, PlayPhase::Creation));
             REQUIRE(party.held.item.stack_count == 5);
             REQUIRE(party.item_pool.size() == W8_PARTY_POOL_LIMIT);
         }
@@ -165,8 +164,8 @@ TEST_CASE("Pool placement preserves stack quantities across growth and refusal",
         auto& character = party.characters[0];
         character.EquippedItem[8] = {.iItemNo = 0, .stack_count = 90};
         W8ItemInstance incoming{.iItemNo = 0, .stack_count = 5};
-        const auto placed =
-            PlaceWithCharacter(rules, {character, 0}, OwnedItem(incoming), false, false, false);
+        const auto placed = storage.placeWithCharacter({character, 0}, OwnedItem(incoming), false,
+                                                       false, false, PlayPhase::Creation);
         REQUIRE(placed);
         REQUIRE(placed->stored.storage == W8ItemStorage::None);
         REQUIRE(placed->received);
@@ -179,8 +178,9 @@ TEST_CASE("Pool placement preserves stack quantities across growth and refusal",
         W8Character outsider{};
         outsider.EquippedItem[10] = {.iItemNo = 0, .stack_count = 90};
         W8ItemInstance incoming{.iItemNo = 0, .stack_count = 5};
-        const auto placed = PlaceWithCharacter(rules, {outsider, std::nullopt}, OwnedItem(incoming),
-                                               false, false, false);
+        const auto placed =
+            storage.placeWithCharacter({outsider, std::nullopt}, OwnedItem(incoming), false, false,
+                                       false, PlayPhase::Creation);
         REQUIRE(placed);
         REQUIRE(placed->received);
         REQUIRE_FALSE(placed->received->location);
@@ -191,7 +191,7 @@ TEST_CASE("Pool placement preserves stack quantities across growth and refusal",
     {
         party.item_pool = {{.iItemNo = 0, .stack_count = 5}, {.iItemNo = 0, .stack_count = 90}};
         const auto placed =
-            PlaceInPool(rules, PartyItem({W8ItemStorage::Pool, 0, 0}), false, false);
+            storage.placeInPool(PartyItem({W8ItemStorage::Pool, 0, 0}), false, false);
         REQUIRE(placed);
         REQUIRE(party.item_pool.size() == 1);
         REQUIRE(party.item_pool[0].stack_count == 95);
@@ -205,7 +205,7 @@ TEST_CASE("Pool placement preserves stack quantities across growth and refusal",
                                W8ItemInstance{.iItemNo = 0, .stack_count = 100});
         party.item_pool.back().stack_count = 5;
         const auto placed =
-            PlaceInPool(rules, PartyItem({W8ItemStorage::Pool, 0, 499}), false, false);
+            storage.placeInPool(PartyItem({W8ItemStorage::Pool, 0, 499}), false, false);
         REQUIRE(placed);
         REQUIRE(party.item_pool.size() == W8_PARTY_POOL_LIMIT);
         REQUIRE(party.item_pool.front().stack_count == 5);
@@ -214,7 +214,7 @@ TEST_CASE("Pool placement preserves stack quantities across growth and refusal",
     SECTION("Invalid pool insertion preserves the held item")
     {
         party.held.item = {.iItemNo = 0, .stack_count = 5};
-        REQUIRE_FALSE(InsertHeldItemInPool(rules, 1));
+        REQUIRE_FALSE(storage.insertHeldInPool(1));
         REQUIRE(party.item_pool.empty());
         REQUIRE(party.held.item.stack_count == 5);
     }
@@ -223,8 +223,8 @@ TEST_CASE("Pool placement preserves stack quantities across growth and refusal",
         party.item_pool = {{.iItemNo = 0, .stack_count = 5}};
         auto& character = party.characters[0];
         character.EquippedItem[0] = {.iItemNo = 0, .stack_count = 200};
-        REQUIRE(PlaceWithCharacter(rules, {character, 0}, PartyItem({W8ItemStorage::Pool, 0, 0}),
-                                   false, false, false));
+        REQUIRE(storage.placeWithCharacter({character, 0}, PartyItem({W8ItemStorage::Pool, 0, 0}),
+                                           false, false, false, PlayPhase::Creation));
         REQUIRE(character.EquippedItem[0].stack_count == 100);
         REQUIRE(character.backpack[0].stack_count == 5);
         REQUIRE(party.item_pool.size() == 1);

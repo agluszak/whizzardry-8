@@ -4259,8 +4259,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                         } else {
                             force_to_party = true;
                         }
-                        if (auto given =
-                                GiveHeldItemToCharacterOrParty(CurrentGame(), slot, force_to_party);
+                        if (auto given = CurrentGame().inventory.giveHeld(slot, force_to_party);
                             !given)
                             ShowRefusal(given.error());
                         if (ItemUseDraft()) {
@@ -4370,7 +4369,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                 AfterUiDispatch([=] { OpenCharacterScreenForPartySlot(slot, false); });
                 return UiResult::Handled;
             }
-            if (auto given = GiveHeldItemToCharacterOrParty(CurrentGame(), slot, true); !given)
+            if (auto given = CurrentGame().inventory.giveHeld(slot, true); !given)
                 ShowRefusal(given.error());
             if (ItemUseDraft()) {
                 RefreshUseItemSelection();
@@ -4512,7 +4511,7 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
             return UiResult::Handled;
         }
         if ((event.modifiers & SHIFT_DOWN) == 0) {
-            BindCharacterItems(CurrentGame(), slot, true);
+            CurrentGame().inventory.requestWeaponSetSwap(slot, true);
             return UiResult::Handled;
         }
         BindEveryPartyItem();
@@ -4912,7 +4911,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     } else if (MainGameHud()->highlighted_item == -1) {
         if ((CurrentGame().party.held.item.iItemNo != -1) && !GetWorld()->selectedProp()) {
             if (!CurrentGame().advancement.held) {
-                if (auto dropped = DropItemInHand(CurrentGame(), 1); !dropped)
+                if (auto dropped = CurrentGame().inventory.dropHeld(1); !dropped)
                     ShowRefusal(dropped.error());
             }
         } else if (MainGameHud()->selected_item != -1) {

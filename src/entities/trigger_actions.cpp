@@ -1401,7 +1401,7 @@ void Trigger::Run(int source)
                 }
 
                 if (gold != 0) {
-                    AddPartyGold(CurrentGame(), gold, true);
+                    CurrentGame().inventory.addGold(gold, true);
                     gold = 0;
                 }
 
@@ -1414,7 +1414,7 @@ void Trigger::Run(int source)
                     }
                 } else if (item_count == 1 && !(CurrentGame().party.held.item.iItemNo != -1)) {
                     item = world_item_group->contents.front().get();
-                    ReceiveItemInHand(CurrentGame(), item->item);
+                    CurrentGame().inventory.receiveInHand(item->item);
                     world_item_group->contents.clear();
                     if (m_pProp->subcycle != 0) {
                         goto toggle_item_prop;
@@ -1927,7 +1927,7 @@ bool Trigger::SelectAction()
         if (required_item_id >= 0) {
             if (GetItemInHand(CurrentGame().party) == required_item_id) {
                 if ((flags & W8_TRIGGER_CONSUME_ITEM) != 0) {
-                    RemovePartyItemByID(CurrentGame(), required_item_id, false);
+                    CurrentGame().inventory.removeItemById(required_item_id, false);
                     required_item_id = -1;
                 }
             } else {

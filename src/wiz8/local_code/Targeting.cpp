@@ -1890,7 +1890,7 @@ std::optional<W8WeaponTarget> ChooseFallbackMonsterTarget(int party_slot, const 
 static void CommitAutomaticWeaponChoice(int party_slot, const W8WeaponTarget& choice)
 {
     CurrentGame().party.rows[party_slot].weapon_swap_pending ^= 1;
-    CommitWeaponSetSwap(CurrentGame(), party_slot, choice.equipment);
+    CurrentGame().inventory.commitWeaponSetSwap(party_slot, choice.equipment);
     PostCharacterNotice(party_slot, Data().strings[0x26d]);
 }
 
@@ -1906,7 +1906,7 @@ void ReconcilePartyEquipmentAfterCombat(void)
             (character->hp_current != 0 || character->highest_condition < W8_CONDITION_TURNCOAT) &&
             row->weapon_swap_pending && g_settings.autoswap_weapons != 0 &&
             !CurrentGame().party.rows[party_slot].remembered.weapon_sets_locked) {
-            SwapWeaponSetSlots(CurrentGame(), party_slot, false);
+            CurrentGame().inventory.swapWeaponSets(party_slot, false);
             row->weapon_swap_pending = false;
         }
     }

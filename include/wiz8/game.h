@@ -15,7 +15,9 @@
 
 #include "wiz8/character_event_queue.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/entity_signals.h"
 #include "wiz8/data/spell_ids.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayTime.h"
@@ -31,18 +33,19 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/random.h"
-#include "wiz8/rules/rule_context.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/story.h"
 
 class NativeObject;
+struct GameData;
 struct World;
 
 /* The worlds the party is in: the loaded level and the sky drawn behind it. Each slot
-   owns its world; queries borrow it. The level's entities report to combat. Replacing a slot hands back the previous owner,
+   owns its world; queries borrow it. The primary world's entities report to
+   `simulation`, which outlives the level. Replacing a slot hands back the previous owner,
    so a world is never reachable from its slot while it is destroyed. */
 struct Level {
-    Level();
+    explicit Level(SimulationSink& simulation);
     ~Level();
     Level(const Level&) = delete;
     Level& operator=(const Level&) = delete;
@@ -50,6 +53,7 @@ struct Level {
     std::unique_ptr<World> replacePrimary(std::unique_ptr<World> world);
     std::unique_ptr<World> replaceSky(std::unique_ptr<World> world);
 
+    SimulationSink& simulation;
     std::unique_ptr<World> primary;
     std::unique_ptr<World> sky;
 };
@@ -60,7 +64,8 @@ struct Level {
    `game` layer as they move into the lower layers (ROADMAP.md, "Migration"). */
 class Game {
 public:
-    Game() = default;
+    // The game reads `data`, which its session's owner keeps alive longer than the game.
+    explicit Game(const GameData& data) : data(data) {}
     ~Game();
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
@@ -107,8 +112,7 @@ public:
        from the party. */
     void castTriggerSpell(glm::vec3 position, W8SpellId spell, unsigned int power_level);
 
-    // The context the rules act on: the game's data, party, random stream and events.
-    RuleContext rules();
+    const GameData& data;
     // The picked imported object, while the party is free to interact with the world.
     NativeObject* interactiveNativeObject();
     // Inspect that object; the cursor shows the same object as interactive.
@@ -189,23 +193,28 @@ public:
 
     // What happened, in order, for the UI to present.
     Events events;
+    // The commands that change what the party carries, over the members above.
+    Inventory inventory{*this};
     /* The saved state of each level the party has left (or a load brought), kept undecoded:
        its LVLS group as a RIFF image of its own. Leaving a level stores its group here,
        entering one reads it back, and a save writes them beside the current level's. */
     std::map<int, std::vector<std::byte>> left_levels;
+    // Resolves what the level's entities report; it outlives the level's worlds.
+    CombatSignals signals{*this};
     /* Last, so its worlds are destroyed first, while combat and speech still exist.
        The main game leaves the level when it is discarded, before a game that ends in
        play is destroyed; destroying a world does no departure bookkeeping. */
-    Level level;
+    Level level{signals};
 };
 
 /* The games of one run of the program: the game in progress, if any, and the random
    stream the next game continues, so a run draws one sequence from one seed, as retail
    did. The Application owns it, and the router hands it to the screens that begin and
-   end games. One exists at a time; while it does, `CurrentGame()` reads its game. */
+   end games. One exists at a time; while it does, `CurrentGame()` reads its game. Every
+   game reads `data`, which the caller keeps alive longer than the session. */
 class GameSession {
 public:
-    GameSession();
+    explicit GameSession(const GameData& data);
     ~GameSession();
     GameSession(const GameSession&) = delete;
     GameSession& operator=(const GameSession&) = delete;
@@ -226,6 +235,7 @@ public:
     void observe(std::function<void(const Event&)> observer);
 
 private:
+    const GameData& data_;
     std::optional<Game> game_;
     Rng next_stream_;
     std::function<void(const Event&)> observer_;

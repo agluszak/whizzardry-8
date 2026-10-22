@@ -406,7 +406,7 @@ void Monster::ProcessScript()
                 if (tokens) {
                     int item = FindItemRecordByName(token.c_str());
                     if (item != -1) {
-                        ReplaceHeldItemWithNew(CurrentGame(), item, true);
+                        CurrentGame().inventory.replaceHeldWithNew(item, true);
                     }
                 }
                 break;

@@ -485,7 +485,8 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_SWAP_WEAPONS:
         if (IsScreenInputBlocked() == 0 && CurrentGame().status.selected_character != -1) {
-            BindCharacterItems(CurrentGame(), CurrentGame().status.selected_character, true);
+            CurrentGame().inventory.requestWeaponSetSwap(CurrentGame().status.selected_character,
+                                                         true);
         }
         break;
     case W8_MGS_COMMAND_SWAP_ALL_WEAPONS:

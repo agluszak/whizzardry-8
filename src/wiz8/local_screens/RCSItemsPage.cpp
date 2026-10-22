@@ -26,7 +26,6 @@
 #include "ui_input.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
-#include "wiz8/pointer.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/image.h"
 #include "wiz8/canvas/sprite.h"
@@ -68,6 +67,7 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
@@ -174,7 +174,7 @@ void W8CampItemsPage::IdentifyAndOpenItemInfo(W8ItemInstance* item)
 void W8CampItemsPage::DropHeldCampItem(void)
 {
     if (ResolvePendingCampCharacter(true)) {
-        if (auto dropped = DropItemInHand(camp.game, 0); !dropped)
+        if (auto dropped = camp.game.inventory.dropHeld(0); !dropped)
             camp.dialogs.ShowNotice(dropped.error().notice, {}, true, false);
         else
             SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
@@ -186,8 +186,8 @@ void W8CampItemsPage::OpenSplitStackDialog(W8ItemLocation location)
 {
     auto* item = camp.game.party.itemAt(location);
     if (item->iItemNo != -1 && item->stack_count > 1 &&
-        (camp.game.rules().data.items[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0 &&
-        camp.game.rules().data.items[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
+        (camp.game.data.items[item->iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0 &&
+        camp.game.data.items[item->iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         auto dialog = std::make_unique<W8SplitItemDialog>(W8_ITEM_SPLIT_INVENTORY, item, -1,
                                                           SDL_Point{kSplitDialogX, kSplitDialogY});
         dialog->SetText("");
@@ -195,8 +195,8 @@ void W8CampItemsPage::OpenSplitStackDialog(W8ItemLocation location)
         dialog->on_complete = [this, source = location,
                                actor = static_cast<unsigned>(PartySlot())](int count) {
             if (count <= 0) return;
-            if (!SplitItemStack(camp.game, source, static_cast<unsigned>(count), actor)) {
-                camp.dialogs.ShowNotice(camp.game.rules().data.strings[0x915], 0, true, false);
+            if (!camp.game.inventory.splitStack(source, static_cast<unsigned>(count), actor)) {
+                camp.dialogs.ShowNotice(camp.game.data.strings[0x915], 0, true, false);
                 return;
             }
             RebuildCampItemList();
@@ -228,8 +228,9 @@ void W8CampItemsPage::UseCampItem(W8ItemLocation location)
         } else {
             if (!(camp.game.party.held.item.iItemNo != -1)) {
                 MarkCampCharacterPending(item);
-                ExchangeInventoryItems(camp.game, location, {W8ItemStorage::Hand},
-                                       static_cast<unsigned>(camp.game.status.selected_character));
+                camp.game.inventory.exchange(
+                    location, {W8ItemStorage::Hand},
+                    static_cast<unsigned>(camp.game.status.selected_character));
             }
         }
         camp.DismissSelectedPartyCharacter();
@@ -243,7 +244,7 @@ void W8CampItemsPage::UseCampItem(W8ItemLocation location)
 void W8CampItemsPage::MergeItemStacksWithHeld(W8ItemLocation location)
 {
     if (camp.game.party.itemAt(location)->iItemNo != -1) {
-        const auto merged = MergeItems(camp.game, PartySlot(), location);
+        const auto merged = camp.game.inventory.combine(PartySlot(), location);
         if (!merged)
             camp.dialogs.ShowNotice(merged.error().notice, {}, true, false);
         else if (*merged) {
@@ -257,7 +258,7 @@ void W8CampItemsPage::MergeItemStacksWithHeld(W8ItemLocation location)
 // FUNCTION: WIZ8 0x005BA620
 void W8CampItemsPage::ReportCastResult(int party_slot)
 {
-    const auto& data = camp.game.rules().data;
+    const auto& data = camp.game.data;
     std::string text;
     int result;
 
@@ -391,7 +392,7 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
             return;
         }
         if (item_action == W8_CAMP_ITEM_ACTION_SPLIT_STACK) {
-            const W8ItemDatabaseRecord* record = &camp.game.rules().data.items[item->iItemNo];
+            const W8ItemDatabaseRecord* record = &camp.game.data.items[item->iItemNo];
             if ((record->flags & W8_ITEM_FLAG_NO_DISCARD) != 0 ||
                 record->quantity_kind != W8_ITEM_QUANTITY_STACK) {
                 return;
@@ -454,7 +455,7 @@ void W8CampItemsPage::ShowHandCursor()
 // FUNCTION: WIZ8 0x005BB010
 void W8CampItemsPage::UnequipBothHands(void)
 {
-    const auto& data = camp.game.rules().data;
+    const auto& data = camp.game.data;
     if (camp.game.combat.has_value() && !camp.game.combat->round_active &&
         !camp.game.party_movement_mode &&
         camp.game.combat->equip_phase == W8CombatEquipPhase::action_selection) {
@@ -465,11 +466,11 @@ void W8CampItemsPage::UnequipBothHands(void)
         camp.dialogs.ShowNotice(data.strings[0x917], 0, true, false);
         return;
     }
-    BindEquippedItem(camp.game.rules(), *camp.reviewed, W8_EQUIP_SLOT_PRIMARY_WEAPON);
-    BindEquippedItem(camp.game.rules(), *camp.reviewed, W8_EQUIP_SLOT_SECONDARY_WEAPON);
+    camp.game.inventory.bind(*camp.reviewed, W8_EQUIP_SLOT_PRIMARY_WEAPON);
+    camp.game.inventory.bind(*camp.reviewed, W8_EQUIP_SLOT_SECONDARY_WEAPON);
     if (CanUnequipSlotItem(data, camp.reviewed, W8_EQUIP_SLOT_PRIMARY_WEAPON) &&
         CanUnequipSlotItem(data, camp.reviewed, W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
-        SwapWeaponSetSlots(camp.game, PartySlot(), false);
+        camp.game.inventory.swapWeaponSets(PartySlot(), false);
         cell_redraw.InvalidateEquipment();
         camp_repaint.portrait = true;
         character_info_dirty = true;
@@ -489,7 +490,7 @@ void W8CampItemsPage::TogglePartyRowFlag()
 // FUNCTION: WIZ8 0x005BB220
 void W8CampItemsPage::SortCampItemPool(void)
 {
-    SortPartyItemPool(camp.game.rules());
+    camp.game.inventory.sortPool();
     item_scroll = 0;
     RebuildCampItemList();
     cell_redraw.InvalidatePool();
@@ -545,7 +546,7 @@ W8ItemLocation W8CampItemsPage::CampItemAt(int slot, W8ItemStorage storage) cons
 
 std::string W8CampItemsPage::CampItemTooltip(int slot, W8ItemStorage storage)
 {
-    const auto& data = camp.game.rules().data;
+    const auto& data = camp.game.data;
     const auto* item = camp.game.party.itemAt(CampItemAt(slot, storage));
     if (!item) return {};
     std::string text =
@@ -575,10 +576,10 @@ UiResult W8CampItemsPage::HandleCampItem(const UiPointerEvent& event, int slot,
     const bool interactive =
         !(!occupied && (!(camp.game.party.held.item.iItemNo != -1) ||
                         (equipped && (item_action == W8_CAMP_ITEM_ACTION_MOVE ||
-                                      !CanEquipItemInSlot(camp.game.rules().data, camp.reviewed,
+                                      !CanEquipItemInSlot(camp.game.data, camp.reviewed,
                                                           camp.game.party.held.item.iItemNo,
                                                           static_cast<unsigned char>(slot), true) ||
-                                      !CanCharacterUseItem(camp.game.rules().data, camp.reviewed,
+                                      !CanCharacterUseItem(camp.game.data, camp.reviewed,
                                                            camp.game.party.held.item.iItemNo)))));
     if (interactive && (event.action != UiPointerAction::Up || event.captured_buttons))
         PlayButtonSound(event.action);
@@ -685,7 +686,7 @@ void W8CampItemsPage::DrawCampItemLabel(W8ItemInstance* item, int left, int top,
     int width;
     int height;
 
-    name = FormatItemDisplayName(camp.game.rules().data, item, false);
+    name = FormatItemDisplayName(camp.game.data, item, false);
     label = name;
     bounds.left = left;
     bounds.top = top;
@@ -783,8 +784,7 @@ void W8CampItemsPage::CreateCampItemControls(UiLayer& scroll_input)
             return UiResult::Handled;
         });
         if (help >= 0)
-            target.setTooltip(
-                [this, help] { return std::string(camp.game.rules().data.strings[help]); });
+            target.setTooltip([this, help] { return std::string(camp.game.data.strings[help]); });
         return &target;
     };
     for (int index = 0; index < 7; ++index)
@@ -991,7 +991,7 @@ void W8CampItemsPage::RedrawCampItemsPage(bool full)
    rows and the armor summaries. */
 void W8CampItemsPage::DrawCampCharacterInfo(void)
 {
-    const auto& data = camp.game.rules().data;
+    const auto& data = camp.game.data;
     std::string text;
     int index;
     int realm;
@@ -1095,7 +1095,7 @@ void W8CampItemsPage::DrawCampCharacterInfo(void)
    and caption above them. */
 void W8CampItemsPage::DrawCampBackpackItems(void)
 {
-    const auto& data = camp.game.rules().data;
+    const auto& data = camp.game.data;
     unsigned int slot;
     int left;
     int top;
@@ -1148,7 +1148,7 @@ void W8CampItemsPage::DrawCampBackpackItems(void)
    portrait behind them. */
 void W8CampItemsPage::DrawCampEquipmentItems(void)
 {
-    const auto& data = camp.game.rules().data;
+    const auto& data = camp.game.data;
     std::string text;
     const W8CampScreenRegion* region;
     unsigned int slot;
@@ -1266,7 +1266,7 @@ void W8CampItemsPage::DrawCampEquipmentItems(void)
    cells, plus the header strip and the gold counter. */
 void W8CampItemsPage::DrawCampItemPool(void)
 {
-    const auto& data = camp.game.rules().data;
+    const auto& data = camp.game.data;
     std::string text;
     unsigned int visible;
     unsigned int i;
@@ -1353,7 +1353,7 @@ void W8CampItemsPage::DrawCampItemQuantity(W8ItemInstance* item, int left, int t
     std::string text;
     int height;
 
-    switch (camp.game.rules().data.items[item->iItemNo].quantity_kind) {
+    switch (camp.game.data.items[item->iItemNo].quantity_kind) {
     case W8_ITEM_QUANTITY_NONE:
         break;
     case W8_ITEM_QUANTITY_STACK:
@@ -1418,8 +1418,7 @@ void W8CampItemsPage::RebuildCampItemList()
     for (unsigned int index = 0; index < camp.game.party.item_pool.size(); ++index) {
         const auto& item = camp.game.party.item_pool[index];
         if (item.iItemNo != -1 &&
-            (!usable_only ||
-             CanCharacterUseItem(camp.game.rules().data, camp.reviewed, item.iItemNo)) &&
+            (!usable_only || CanCharacterUseItem(camp.game.data, camp.reviewed, item.iItemNo)) &&
             (!unidentified_only || !item.identified) &&
             (!group_filter || GetItemEquipSlotGroup(item.iItemNo) == groups[*group_filter])) {
             item_list.push_back(index);
@@ -1450,8 +1449,8 @@ void W8CampItemsPage::SelectPendingCampCharacter()
     if (IsPartySlotEligible(slot)) {
         QueueCharacterEvent(&camp.game.party.characters[slot], 109, 0, kCharacterEventFullVolume);
     } else {
-        std::string text = fmt::sprintf(camp.game.rules().data.strings[0x931],
-                                        camp.game.party.characters[slot].name);
+        std::string text =
+            fmt::sprintf(camp.game.data.strings[0x931], camp.game.party.characters[slot].name);
         camp.dialogs.ShowNotice(text, 0, true, false);
     }
 }
@@ -1462,7 +1461,7 @@ void W8CampItemsPage::HandleEmptyPoolCell()
         item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER)
         return;
     if (!camp.game.status.game_started) {
-        camp.dialogs.ShowNotice(camp.game.rules().data.strings[0x900], 0, true, false);
+        camp.dialogs.ShowNotice(camp.game.data.strings[0x900], 0, true, false);
         return;
     }
     if (!camp.AllowAction(PartySlot()) || (GetInputState().modifiers & SHIFT_DOWN)) return;
@@ -1501,11 +1500,10 @@ void W8CampItemsPage::DepositHeldItemInPool(unsigned int index)
     auto& party = game.party;
     bool changed = false;
     const auto merge = [&](unsigned int slot) {
-        changed |= MergeInventoryStacks(game, {W8ItemStorage::Pool, 0, slot}, {W8ItemStorage::Hand})
+        changed |= game.inventory.mergeStacks({W8ItemStorage::Pool, 0, slot}, {W8ItemStorage::Hand})
                        .changed;
     };
-    if (camp.game.rules().data.items[party.held.item.iItemNo].quantity_kind ==
-        W8_ITEM_QUANTITY_STACK) {
+    if (camp.game.data.items[party.held.item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         if (index < party.item_pool.size()) merge(index);
         for (unsigned int slot = 0; party.held.item.iItemNo != -1 && slot < party.item_pool.size();
              ++slot)
@@ -1514,10 +1512,10 @@ void W8CampItemsPage::DepositHeldItemInPool(unsigned int index)
     if (party.held.item.iItemNo != -1) {
         if (party.companion_inventory)
             SelectPendingCampCharacter();
-        else if (InsertHeldItemInPool(game, index))
+        else if (game.inventory.insertHeldInPool(index))
             changed = true;
         else
-            camp.dialogs.ShowNotice(camp.game.rules().data.strings[0x90c], 0, true, false);
+            camp.dialogs.ShowNotice(camp.game.data.strings[0x90c], 0, true, false);
     }
     if (changed) RefreshCampInventory();
 }
@@ -1527,7 +1525,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
     auto& game = camp.game;
     auto& party = game.party;
     auto& held = party.held.item;
-    const auto& data = camp.game.rules().data;
+    const auto& data = camp.game.data;
     auto* item = party.itemAt(location);
     if (!item || (item->iItemNo == -1 && held.iItemNo == -1)) return;
     const auto actor = PartySlot();
@@ -1655,7 +1653,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
     if (equipped && item->iItemNo != -1) {
         if (!CanUnequipSlotItem(data, camp.reviewed, equip_slot)) {
             camp.dialogs.ShowNotice(data.strings[0x90b], 0, true, false);
-            if (!item->bound) BindEquippedItem(game.rules(), *camp.reviewed, equip_slot);
+            if (!item->bound) game.inventory.bind(*camp.reviewed, equip_slot);
             return;
         }
         item->bound = true;
@@ -1665,7 +1663,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
             party.rows[actor].weapon_swap_pending = false;
     };
     if (same_kind) {
-        MergeItemUses(game, actor, location, {W8ItemStorage::Hand});
+        game.inventory.mergeUses(actor, location, {W8ItemStorage::Hand});
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
         cancel_queued_swap();
         RefreshCampInventory();
@@ -1675,8 +1673,8 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         if (held.iItemNo != -1) {
             DepositHeldItemInPool(location.slot);
         } else {
-            ExchangeInventoryItems(game, location, {W8ItemStorage::Hand},
-                                   static_cast<unsigned>(game.status.selected_character));
+            game.inventory.exchange(location, {W8ItemStorage::Hand},
+                                    static_cast<unsigned>(game.status.selected_character));
             if (item_action == W8_CAMP_ITEM_ACTION_DROP)
                 DropHeldCampItem();
             else if (item_action == W8_CAMP_ITEM_ACTION_MOVE)
@@ -1689,30 +1687,30 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
     bool changed = false;
     if (held.iItemNo != -1 && item->iItemNo == held.iItemNo &&
         data.items[held.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
-        changed = MergeInventoryStacks(game, location, {W8ItemStorage::Hand}).changed;
+        changed = game.inventory.mergeStacks(location, {W8ItemStorage::Hand}).changed;
     } else if (party.companion_inventory &&
                &party.characters[*party.companion_inventory] != camp.reviewed) {
         SelectPendingCampCharacter();
     } else {
         MarkCampCharacterPending(item);
         if (held.iItemNo != -1)
-            DeliverExceptionalItemReaction(&held, party.held.actor == -1, camp.reviewed);
+            game.inventory.reactToExceptionalItem(held,
+                                                  party.held.actor == -1 ? nullptr : camp.reviewed);
         if (equipped && held.iItemNo != -1 && !HeldItemFitsPairedSlot(actor, equip_slot)) {
             const auto paired_slot = GetPairedEquipSlot(equip_slot);
             auto& paired = camp.reviewed->EquippedItem[paired_slot];
             if (!CanUnequipSlotItem(data, camp.reviewed, paired_slot)) {
                 camp.dialogs.ShowNotice(data.strings[0x916], 0, true, false);
-                if (!paired.bound) BindEquippedItem(game.rules(), *camp.reviewed, paired_slot);
+                if (!paired.bound) game.inventory.bind(*camp.reviewed, paired_slot);
                 return;
             }
             if (item->iItemNo == -1) MarkCampCharacterPending(&paired);
-            if (!EquipHeldItemAndStowPartner(game, actor, equip_slot)) {
+            if (!game.inventory.equipHeldAndStowPartner(actor, equip_slot)) {
                 camp.dialogs.ShowNotice(data.strings[0x90c], 0, true, false);
                 return;
             }
         } else {
-            ExchangeInventoryItems(game, location, {W8ItemStorage::Hand},
-                                   static_cast<unsigned>(actor));
+            game.inventory.exchange(location, {W8ItemStorage::Hand}, static_cast<unsigned>(actor));
             if (location.storage == W8ItemStorage::Backpack &&
                 camp.reviewed->backpack[location.slot].iItemNo != -1 && game.rng.below(100) < 5)
                 QueueCharacterEvent(camp.reviewed, g_special_event14, 0, kCharacterEventFullVolume);
@@ -1736,7 +1734,7 @@ void W8CampItemsPage::TakeItemUnitToHand(W8ItemLocation source)
     const auto* item = camp.game.party.itemAt(source);
     if (!item) return;
     if (item_action != W8_CAMP_ITEM_ACTION_NONE || !CanSplitItemStack(item)) return;
-    if (!SplitItemStack(camp.game, source, 1, PartySlot())) return;
+    if (!camp.game.inventory.splitStack(source, 1, PartySlot())) return;
     RebuildCampItemList();
     camp_repaint.all = true;
 }
@@ -1911,7 +1909,7 @@ void W8CampItemsPage::UpdateControls(bool shown)
                 if (!IsPartySlotEligible(PartySlot()) || camp.game.combat.has_value()) {
                     break;
                 }
-                spell = &camp.game.rules().data.spells[W8_SPELL_IDENTIFY_ITEM];
+                spell = &camp.game.data.spells[W8_SPELL_IDENTIFY_ITEM];
                 if (spell->spell_point_cost > camp.reviewed->iSPLeft[spell->realm]) {
                     break;
                 }
@@ -1931,7 +1929,7 @@ void W8CampItemsPage::UpdateControls(bool shown)
                 if (!IsPartySlotEligible(PartySlot()) || camp.game.combat.has_value()) {
                     break;
                 }
-                spell = &camp.game.rules().data.spells[W8_SPELL_REMOVE_CURSE];
+                spell = &camp.game.data.spells[W8_SPELL_REMOVE_CURSE];
                 if (spell->spell_point_cost > camp.reviewed->iSPLeft[spell->realm]) {
                     break;
                 }

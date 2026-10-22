@@ -102,10 +102,10 @@ void CampScreen::SelectCampCharacter(int slot)
 
 /* Give the held item to a camp portrait on right-click: refuse dead/insane/
    stoned with a notice, check eligibility and combat action allowance, then
-   AddItemToCharacter. */
+   `Inventory::addToCharacter`. */
 void CampScreen::GiveHeldItemToPortrait(int slot)
 {
-    const auto& data = game.rules().data;
+    const auto& data = game.data;
     W8Character* character;
 
     if (!game.party.members[slot].has_value()) {
@@ -131,8 +131,8 @@ void CampScreen::GiveHeldItemToPortrait(int slot)
     if (!AllowAction(slot)) {
         return;
     }
-    AddItemToCharacter(game, PartyMember(game, slot), PartyItem({W8ItemStorage::Hand}), false,
-                       false, false);
+    game.inventory.addToCharacter(game.inventory.member(slot), PartyItem({W8ItemStorage::Hand}),
+                                  false, false, false);
 }
 
 bool CanSelectRcsPartySlot(int ui_slot)
@@ -380,12 +380,12 @@ void CampScreen::ShowDismissCharacterDialog()
     std::string format;
     if (character->uiCondition[W8_CONDITION_MISSING] == 0) {
         if (character->uiCondition[W8_CONDITION_DEAD] == 0) {
-            format = game.rules().data.strings[0x92d];
+            format = game.data.strings[0x92d];
         } else {
-            format = game.rules().data.strings[0x92e];
+            format = game.data.strings[0x92e];
         }
     } else {
-        format = game.rules().data.strings[0x92f];
+        format = game.data.strings[0x92f];
     }
     dialog->SetMessage(fmt::sprintf(format, character->name), 1, 0x32, true, true, true, true, 0,
                        0x15e);
@@ -444,7 +444,7 @@ void ReleaseFormationBoard(void)
 // FUNCTION: WIZ8 0x005b4000
 void CampScreen::DrawCampHeader(void)
 {
-    const auto& data = game.rules().data;
+    const auto& data = game.data;
     std::string text;
     W8Character* character = reviewed;
     unsigned int row;
@@ -703,7 +703,7 @@ void CampScreen::DrawCampVitals(void)
         text.SetFontStateIndex(game.party.orderIndexOf(ReviewedPartySlot()));
     }
     text.RenderString(
-        game.rules().data.strings[g_profession_name_message_ids[reviewed->iProfession + 0x10]],
+        game.data.strings[g_profession_name_message_ids[reviewed->iProfession + 0x10]],
         g_smfnt_font, false, GetFrameBufferSurface());
     if (g_settings.numeric_hit_points != 0) {
         bounds.left = 0x10e;
@@ -755,7 +755,7 @@ void CampScreen::DrawCampHands(void)
     Palette16 palette;
 
     item_id = reviewed->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
-    if (item_id == -1 || (game.rules().data.items[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
+    if (item_id == -1 || (game.data.items[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
         two_handed = false;
         hand_image = 0;
     } else {

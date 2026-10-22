@@ -416,7 +416,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
         if (item->iItemNo != -1 &&
             CanUnequipSlotItem(Data(), &character, static_cast<W8EquipSlot>(slot)) &&
             !NpcWantsItem(npc, item)) {
-            if (AddItemToPartyOrDrop(CurrentGame(), OwnedItem(*item), false)) {
+            if (CurrentGame().inventory.addToPoolOrDrop(OwnedItem(*item), false)) {
                 returned = true;
             } else if (item->iItemNo == -1) {
                 dropped = true;
@@ -426,7 +426,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
     for (slot = 0; slot < 8; ++slot) {
         W8ItemInstance* item = &character.backpack[slot];
         if (item->iItemNo != -1 && !NpcWantsItem(npc, item)) {
-            if (AddItemToPartyOrDrop(CurrentGame(), OwnedItem(*item), false)) {
+            if (CurrentGame().inventory.addToPoolOrDrop(OwnedItem(*item), false)) {
                 returned = true;
             } else if (item->iItemNo == -1) {
                 dropped = true;
@@ -523,7 +523,7 @@ void UpdateNpcPartyMember(int party_slot)
 
     if (character->highest_condition == W8_CONDITION_DEAD) {
         ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(Data().strings[0x7d4], character->name));
-        StashDepartingCharacterItems(CurrentGame(), party_slot);
+        CurrentGame().inventory.stashDepartingMember(party_slot);
         RemoveCharacterFromParty(party_slot);
         return;
     }

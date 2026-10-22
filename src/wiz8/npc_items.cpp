@@ -640,8 +640,7 @@ static W8TradeResult CompleteNpcItemPurchase(Game& game, W8NpcState* npc, int in
     SettleActiveParty(game);
     for (std::size_t slot : acquired) {
         auto* item = &game.party.item_pool[slot];
-        UpdateFactsAfterAcquiringItem(item);
-        DeliverExceptionalItemReaction(item, true, nullptr);
+        game.inventory.acquire(*item, nullptr);
     }
     return {W8TradeOutcome::Complete, false, !drops.empty()};
 }
@@ -700,7 +699,7 @@ W8TradeResult CompleteNpcTrade(Game& game, W8NpcState* npc, int actor,
     auto stack = *item;
     stack.stack_count = quantity;
     const auto amount = CalculateTradeStackPrice(npc, &stack, W8_TRADE_PRICE_PARTY_SELLS);
-    if (!wanted) AddPartyGold(game, amount, false);
+    if (!wanted) game.inventory.addGold(amount, false);
     if (item->stack_count == 0) item->stack_count = 1;
     AddNpcItemFromInstance(npc, item, quantity);
     const W8ItemLocation sold =
@@ -708,7 +707,7 @@ W8TradeResult CompleteNpcTrade(Game& game, W8NpcState* npc, int actor,
             ? W8ItemLocation{W8ItemStorage::Backpack, static_cast<unsigned>(selection.character),
                              static_cast<unsigned>(selection.slot)}
             : W8ItemLocation{W8ItemStorage::Pool, 0, static_cast<unsigned>(selection.slot)};
-    RemoveInventoryQuantity(game, sold, quantity);
+    game.inventory.removeQuantity(sold, quantity);
     return {W8TradeOutcome::Complete, wanted};
 }
 

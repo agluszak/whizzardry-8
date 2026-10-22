@@ -29,7 +29,7 @@ struct W8PartySlotRow {
     ActionChoices remembered;
     W8Action committed;
     ActionInProgress executing;
-    /* A weapon-set swap is queued; the autoswap pass consumes it through SwapWeaponSetSlots
+    /* A weapon-set swap is queued; the autoswap pass consumes it through `Inventory::swapWeaponSets`
        and clears it. */
     bool weapon_swap_pending;
     // The character event last queued for the slot's portrait.

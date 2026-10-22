@@ -36,10 +36,11 @@ struct ScopedSettings {
     ~ScopedSettings() { g_settings = previous; }
 };
 
-// A fight in an empty level with two conscious party members.
+// A fight in an empty level with two conscious party members, reading the fixture's data.
 struct CombatFixture {
     ScopedSettings settings;
-    ScopedGame game_scope;
+    GameData data;
+    ScopedGame game_scope{data};
     ScopedCombat combat_scope{true};
     Game& game = game_scope.game;
     Combat& combat = *game.combat;
@@ -69,10 +70,9 @@ struct CombatFixture {
 /* The fight in a started game with two item records, so inventory edits settle the
    party. No profession or race data is loaded, so the members derive no statistics. */
 struct InventoryCombatFixture : CombatFixture {
-    ScopedGameData item_data{GameData{.items = std::vector<W8ItemDatabaseRecord>(2)}};
-
     InventoryCombatFixture()
     {
+        data.items.resize(2);
         game.status.game_started = true;
         for (int slot = 0; slot < 2; ++slot) {
             game.party.characters[slot].fInParty = true;
@@ -136,7 +136,7 @@ TEST_CASE_METHOD(InventoryCombatFixture,
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo = 1;
 
-    CommitWeaponSetSwap(game, 0, {.primary = true, .secondary = true});
+    game.inventory.commitWeaponSetSwap(0, {.primary = true, .secondary = true});
 
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo == 0);
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo == 1);
@@ -145,10 +145,8 @@ TEST_CASE_METHOD(InventoryCombatFixture,
 
 TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed use of the item")
 {
-    GameData wands{.items = std::vector<W8ItemDatabaseRecord>(2)};
-    wands.items[0].quantity_kind = W8_ITEM_QUANTITY_CHARGES;
-    wands.items[0].initial_quantity = {.base = 0, .count = 1, .sides = 5};
-    const ScopedGameData installed(std::move(wands));
+    data.items[0].quantity_kind = W8_ITEM_QUANTITY_CHARGES;
+    data.items[0].initial_quantity = {.base = 0, .count = 1, .sides = 5};
     const W8ItemLocation source{W8ItemStorage::Backpack, 0, 0};
     const W8ItemLocation destination{W8ItemStorage::Backpack, 0, 1};
     auto& backpack = game.party.characters[0].backpack;
@@ -160,7 +158,7 @@ TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed 
     // The member has acted this round; the use waits for the next one.
     combat.characters[0].dead = true;
 
-    MergeItemUses(game, 0, destination, source);
+    game.inventory.mergeUses(0, destination, source);
 
     REQUIRE(backpack[0].uses_or_charges == 2);
     REQUIRE(backpack[1].uses_or_charges == 5);
@@ -170,11 +168,14 @@ TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed 
 
 TEST_CASE("A deflected stored-spell missile keeps its outcome outside combat")
 {
-    const ScopedGame game_scope;
+    const GameData data{.missiles = std::vector<W8MissileTableRecord>(36)};
+    const ScopedGame game_scope(data);
     Game& game = game_scope.game;
-    const ScopedGameData missile_data{GameData{.missiles = std::vector<W8MissileTableRecord>(36)}};
+    const ScopedGameData missile_data{data};
     game.level.replacePrimary(std::make_unique<World>());
     World& world = *game.level.primary;
+    // The level's entities report to the game that owns it.
+    REQUIRE(world.simulation == &game.signals);
     Monster target(&world);
     target.location_id = 7;
     target.nav.movement.location_id = target.location_id;

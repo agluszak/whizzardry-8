@@ -15,6 +15,7 @@ std::shared_ptr<const SpriteSheet> ItemSprites(int item_id);
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 
+class Game;
 struct W8ItemDatabaseRecord;
 struct W8NpcState;
 struct W8CombatSlot;
@@ -45,8 +46,6 @@ unsigned int GetItemUnitWeight(const W8ItemInstance* item);
 unsigned char GetItemEquipClass(const W8ItemInstance* item);
 W8Skill GetItemSpellPresentation(const W8ItemDatabaseRecord* record);
 void UpdateFactsAfterAcquiringItem(const W8ItemInstance* item);
-void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
-                                    W8Character* character);
 void StagePartySlotItemUse(int party_slot, W8ItemLocation location, const W8CombatSlot* target);
 bool PartyAttemptsToIdentifyItem(W8ItemInstance* item, int);
 

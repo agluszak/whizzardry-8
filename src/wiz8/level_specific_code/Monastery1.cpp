@@ -5,6 +5,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -141,7 +142,7 @@ bool Monastery1Script::wheelStar(Trigger* trigger)
         g_trigger_feedback = true;
         return false;
     }
-    RemovePartyItemByID(ctx.game, GetItemInHand(ctx.party), false);
+    ctx.game.inventory.removeItemById(GetItemInHand(ctx.party), false);
     return true;
 }
 
