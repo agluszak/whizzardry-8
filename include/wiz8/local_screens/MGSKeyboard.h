@@ -2,13 +2,19 @@
 
 struct W8Chunk;
 
+#include <array>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include <SDL3/SDL_keycode.h>
+#include <SDL3/SDL_rect.h>
 
+#include "wiz8/button_interaction.h"
+#include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/mgs_commands.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/ui_layer.h"
 
 namespace wiz8 {
 class File;
@@ -46,20 +52,35 @@ void ResetMGSKeyboardBindings();
 
 /* Discard every queued input atom (screen-entry stale-input flush). */
 void DrainInputEventQueue(void);
-/* Reset the slot's combat selection and tear down the menu panel and rows. */
-void CloseKeyboardMenu(void);
-/* Open the keyboard-action menu for one party slot. */
-void OpenKeyboardMenuForSlot(int slot);
-/* Build the panel and one row per selectable menu entry. */
-bool BuildKeyboardMenu(void);
-/* Re-enable the menu's region set and every row region. */
-void EnableKeyboardMenuInput(void);
-/* Whether the cursor sits inside the menu panel rectangle. */
-bool KeyboardMenuContainsCursor(void);
-/* Re-evaluate every row's availability and restate its icon frames. */
-void RefreshKeyboardMenuRows(void);
-// Redraw the menu panel when its repaint was requested.
-void RedrawKeyboardMenuPanel(bool invalidate);
+struct MainGameScreen;
+
+class KeyboardActionMenu {
+public:
+    KeyboardActionMenu(MainGameScreen& screen, int slot);
+    const int slot;
+    bool containsCursor() const;
+    void refresh();
+    // Paint the panel and its rows; the HUD repaint record says when.
+    void paint() const;
+
+private:
+    friend struct MainGameScreen;
+    struct Row {
+        int menu = -1;
+        int item = -1;
+        bool enabled = true;
+        HitTarget* target = nullptr;
+        ButtonInteraction press;
+        ButtonAppearance appearance;
+    };
+    std::string tooltip(const Row& row) const;
+    void requestRedraw();
+    MainGameScreen& screen_;
+    SDL_Point origin;
+    std::array<Row, 13> rows;
+    UiLayer input{UiLayerOrder::KeyboardMenu};
+};
+
 /* Dispatch a bound MGS command number through the keyboard system. */
 void DispatchMGSCommand(W8MGSCommand command);
 /* Route one non-mouse input atom to text entry, dialogue, the trap text box
