@@ -85,7 +85,7 @@ void W8Party::exchange(W8ItemLocation first, W8ItemLocation second, int actor)
 
 bool W8Party::insertIntoPool(std::size_t index, W8ItemInstance item)
 {
-    if (item_pool.size() == item_pool.capacity() || index > item_pool.size()) return false;
+    if (item_pool.size() >= W8_PARTY_POOL_LIMIT || index > item_pool.size()) return false;
     item_pool.insert(item_pool.begin() + index, item);
     return true;
 }

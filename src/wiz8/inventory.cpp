@@ -177,9 +177,9 @@ static W8ItemLocation To(const std::optional<ItemPlacement>& placement)
    otherwise goes into an empty hand. Failure leaves the source intact. */
 static bool DropUnstoredItem(Game& game, ItemSource source)
 {
-    if ((Data().items[source.item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
+    if ((Data().items[source.get(game.party).iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
         if (const auto position = FindItemDropPosition()) {
-            AddWorldItem(CreateWorldItem(&source.item, &*position,
+            AddWorldItem(CreateWorldItem(&source.get(game.party), &*position,
                                          W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             return true;
         }

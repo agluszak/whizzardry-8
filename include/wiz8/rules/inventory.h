@@ -88,14 +88,16 @@ struct ItemRecipient {
 /* An item to place: at a location in the party, or a value the caller owns. A stored item
    leaves its source; a refused one stays there, and a stack merged in part keeps the rest. */
 struct ItemSource {
-    W8ItemInstance& item;
+    // Borrow an external value, or resolve a party location after storage mutations.
+    W8ItemInstance* value = nullptr;
+    W8ItemInstance& get(W8Party& party) const;
     // Where the item is in the party; none for a value the caller owns.
     std::optional<W8ItemLocation> location;
 };
 ItemSource PartyItem(W8Party& party, W8ItemLocation location);
 inline ItemSource OwnedItem(W8ItemInstance& item)
 {
-    return {item, std::nullopt};
+    return {&item, std::nullopt};
 }
 /* Where a placement put an item. `stored` is the location a new entry filled; it is None
    after merging into a stack and for a recipient outside the party. `received` is the item

@@ -1709,8 +1709,7 @@ TEST_CASE("Level asset paths select preprocessed levels and sky fallbacks", "[le
     REQUIRE(info.sky_path.empty());
 }
 
-TEST_CASE_METHOD(SaveFixture, "Party inventory has live items, not a writable disk suffix",
-                 "[save][records]")
+TEST_CASE("Party inventory has live items, not a writable disk suffix", "[save][records]")
 {
     auto payload = wiz8::save::encode(populated_game_state());
     constexpr std::size_t second = 4 + 0x21 + 12;
@@ -1733,4 +1732,7 @@ TEST_CASE_METHOD(SaveFixture, "Party inventory has live items, not a writable di
     const unsigned int invalid_count = 501;
     std::memcpy(payload.data() + 4 + 0x1791, &invalid_count, sizeof(invalid_count));
     REQUIRE_THROWS_AS(wiz8::save::decode_game_state(payload), std::runtime_error);
+
+    restored.party.item_pool.resize(501);
+    REQUIRE_THROWS_AS(wiz8::save::encode(restored), std::runtime_error);
 }

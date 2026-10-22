@@ -538,21 +538,16 @@ void W8CampItemsPage::ShowCampItemInfo(W8ItemInstance* item)
     SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
 }
 
-/* A visible cell: the reviewed character's own slot, or the pool row the scrolled
-   list shows there (the first free pool entry past the list's end). */
+/* A visible cell names an item location only when the list has a row there.
+   A blank pool cell is a destination, not a location past the live items. */
 W8ItemLocation W8CampItemsPage::CampItemAt(int slot, W8ItemStorage storage) const
 {
     const auto cell = static_cast<unsigned int>(slot);
     if (storage != W8ItemStorage::Pool)
         return {storage, static_cast<unsigned int>(PartySlot()), cell};
     const auto visible = item_scroll + cell;
-    const auto index = visible < item_list.size() &&
-                               static_cast<std::size_t>(item_list[visible]) <
-                                   CurrentGame().party.item_pool.size() &&
-                               CurrentGame().party.item_pool[item_list[visible]].iItemNo != -1
-                           ? item_list[visible]
-                           : CurrentGame().party.item_pool.size();
-    return {W8ItemStorage::Pool, 0, static_cast<unsigned int>(index)};
+    if (visible >= item_list.size()) return {};
+    return {W8ItemStorage::Pool, 0, static_cast<unsigned int>(item_list[visible])};
 }
 
 std::string W8CampItemsPage::CampItemTooltip(int slot, W8ItemStorage storage)
@@ -612,10 +607,18 @@ UiResult W8CampItemsPage::HandleCampItem(const UiPointerEvent& event, int slot,
     if (event.action == UiPointerAction::Wheel && pool) item_range->AdjustValue(event.wheel);
     if (event.action == UiPointerAction::Up && event.inside) {
         if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK))
-            AfterUiDispatch([this, location] { HandleCampItemClick(location); });
+            AfterUiDispatch([this, location, pool] {
+                if (pool && location.storage == W8ItemStorage::None)
+                    HandleEmptyPoolCell();
+                else
+                    HandleCampItemClick(location);
+            });
         if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK) &&
             occupied && item_action != W8_CAMP_ITEM_ACTION_IDENTIFY)
-            AfterUiDispatch([this, item] { ShowCampItemInfo(item); });
+            AfterUiDispatch([this, location] {
+                auto* current = CurrentGame().party.itemAt(location);
+                if (current && current->iItemNo != -1) ShowCampItemInfo(current);
+            });
     }
     if (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Up ||
         event.action == UiPointerAction::Wheel) {
@@ -1550,6 +1553,72 @@ void W8CampItemsPage::SelectPendingCampCharacter()
     }
 }
 
+void W8CampItemsPage::HandleEmptyPoolCell()
+{
+    if (CurrentGame().party.held.item.iItemNo == -1 ||
+        item_action == W8_CAMP_ITEM_ACTION_CAST_SPELL ||
+        item_action == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER)
+        return;
+    if (!GameStarted()) {
+        dialogs.ShowNotice(Data().strings[0x900], 0, true, false);
+        return;
+    }
+    if (!IsCampActionAllowed(PartySlot()) || (GetInputState().modifiers & SHIFT_DOWN)) return;
+    switch (item_action) {
+    case W8_CAMP_ITEM_ACTION_MOVE:
+        SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
+        return;
+    case W8_CAMP_ITEM_ACTION_IDENTIFY_SPELL: {
+        const auto slot = CharacterPointerToPartySlot(pending_item_action.identifying_character);
+        QueueCharacterEvent(&CurrentGame().party.characters[slot], 0x35, 0,
+                            kCharacterEventFullVolume);
+        return;
+    }
+    case W8_CAMP_ITEM_ACTION_NONE:
+    case W8_CAMP_ITEM_ACTION_SPLIT_STACK:
+    case W8_CAMP_ITEM_ACTION_DROP:
+        DepositHeldItemInPool(static_cast<unsigned int>(CurrentGame().party.item_pool.size()));
+        return;
+    default:
+        return;
+    }
+}
+
+void W8CampItemsPage::DepositHeldItemInPool(unsigned int index)
+{
+    auto& party = CurrentGame().party;
+    bool changed = false;
+    bool merged = false;
+    const auto merge = [&](unsigned int slot) {
+        const auto outcome = MergeInventoryStacks(CurrentGame(), {W8ItemStorage::Pool, 0, slot},
+                                                  {W8ItemStorage::Hand});
+        changed |= outcome.changed;
+        merged = outcome.complete;
+    };
+    if (Data().items[party.held.item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
+        if (index < party.item_pool.size()) merge(index);
+        for (unsigned int slot = 0; !merged && slot < party.item_pool.size(); ++slot) merge(slot);
+    }
+    if (!merged) {
+        if (party.companion_inventory) {
+            SelectPendingCampCharacter();
+        } else if (InsertHeldItemInPool(CurrentGame(), index)) {
+            changed = true;
+        } else {
+            dialogs.ShowNotice(Data().strings[0x90c], 0, true, false);
+        }
+    }
+    if (changed) {
+        RebuildCampItemList();
+        action_buttons_invalidated = true;
+        cell_redraw.InvalidatePool();
+        cell_redraw.equipment.set();
+        character_info_dirty = true;
+        camp_repaint.portrait = true;
+        if (GetInputState().modifiers & CTRL_DOWN) camp_repaint.all = true;
+    }
+}
+
 void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
 {
     W8ItemInstance* item = CurrentGame().party.itemAt(location);
@@ -1563,7 +1632,6 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
     bool merge_tried = false;
     bool same_kind = false;
     bool choose_character;
-    unsigned int index;
     std::size_t old_pool_count;
     int result;
     int party_slot;
@@ -1573,21 +1641,17 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
     W8ItemInstance* paired;
     std::string text;
 
-    // A blank pool cell is an insertion position, not a live empty item.
-    if (!item &&
-        (origin != W8ItemStorage::Pool || slot_index != CurrentGame().party.item_pool.size() ||
-         CurrentGame().party.item_pool.size() == CurrentGame().party.item_pool.capacity()))
-        return;
+    if (!item) return;
 
     /* A held stackable whose name kind the clicked item merges with counts as
        the same item for the use-merge path below. */
-    if ((CurrentGame().party.held.item.iItemNo != -1) && (item && item->iItemNo != -1) &&
+    if ((CurrentGame().party.held.item.iItemNo != -1) && item->iItemNo != -1 &&
         GetItemMergeKind(Data(), item->iItemNo, &related_kind) &&
         Data().items[CurrentGame().party.held.item.iItemNo].unidentified_name_index ==
             related_kind) {
         same_kind = true;
     }
-    if ((!item || item->iItemNo == -1) && !(CurrentGame().party.held.item.iItemNo != -1)) {
+    if (item->iItemNo == -1 && !(CurrentGame().party.held.item.iItemNo != -1)) {
         return;
     }
     if (origin == W8ItemStorage::Equipment && (CurrentGame().party.held.item.iItemNo != -1) &&
@@ -1650,7 +1714,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
              CurrentGame().party.held.actor == PartySlot() &&
              (origin != W8ItemStorage::Equipment ||
               HeldItemFitsPairedSlot(PartySlot(), equip_slot)))) {
-            if ((!item || item->iItemNo == -1) ||
+            if (item->iItemNo == -1 ||
                 Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_THROWN_WEAPON ||
                 Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION ||
                 same_kind) {
@@ -1667,7 +1731,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
     }
     if (item_action == W8_CAMP_ITEM_ACTION_IDENTIFY_SPELL) {
         party_slot = CharacterPointerToPartySlot(pending_item_action.identifying_character);
-        if (!item || !CanItemLeaveItsSlot(item)) {
+        if (!CanItemLeaveItsSlot(item)) {
             QueueCharacterEvent(&CurrentGame().party.characters[party_slot], 0x35, 0,
                                 kCharacterEventFullVolume);
             return;
@@ -1700,7 +1764,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
             character_info_dirty = true;
             cell_redraw.InvalidatePool();
         }
-        if (result == 1 && (item && item->iItemNo != -1)) {
+        if (result == 1 && item && item->iItemNo != -1) {
             OpenItemInfoDialog(item);
             if (!item->identified) {
                 QueueCharacterEvent(&CurrentGame().party.characters[party_slot], 0x35, 0,
@@ -1711,26 +1775,26 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         return;
     }
     if (item_action == W8_CAMP_ITEM_ACTION_USE_ON_ITEM) {
-        if (item) UseHeldItemOnItem(location);
+        UseHeldItemOnItem(location);
         return;
     }
     if (item_action == W8_CAMP_ITEM_ACTION_IDENTIFY) {
-        if (item) IdentifyAndOpenItemInfo(item);
+        IdentifyAndOpenItemInfo(item);
         return;
     }
     if (item_action == W8_CAMP_ITEM_ACTION_SPLIT_STACK) {
-        if ((item && item->iItemNo != -1)) {
+        if (item->iItemNo != -1) {
             OpenSplitStackDialog(location);
             return;
         }
     } else if (item_action == W8_CAMP_ITEM_ACTION_USE) {
-        if (item && CanCharacterUseItemEntry(character, item) != 0) {
+        if (CanCharacterUseItemEntry(character, item) != 0) {
             UseCampItem(location);
         }
         return;
     } else if (item_action == W8_CAMP_ITEM_ACTION_MOVE) {
         if ((CurrentGame().party.held.item.iItemNo != -1)) {
-            if ((!item || item->iItemNo == -1)) {
+            if (item->iItemNo == -1) {
                 SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
                 return;
             }
@@ -1741,7 +1805,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
             MergeItemStacksWithHeld(location);
             return;
         }
-        if ((!item || item->iItemNo == -1)) {
+        if (item->iItemNo == -1) {
             SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
             return;
         }
@@ -1749,7 +1813,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
 
     /* Equipped items that may not be removed get one warning dialog and a
        bound mark; the next click then unequips them. */
-    if ((item && item->iItemNo != -1) && origin == W8ItemStorage::Equipment) {
+    if (item->iItemNo != -1 && origin == W8ItemStorage::Equipment) {
         if (!CanUnequipSlotItem(Data(), character, equip_slot)) {
             text = Data().strings[0x90b];
             dialogs.ShowNotice(text, 0, true, false);
@@ -1768,6 +1832,11 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
             GetPairedEquipSlot(equip_slot) != W8_EQUIP_SLOT_NONE)
             CurrentGame().party.rows[PartySlot()].weapon_swap_pending = false;
     };
+    if (!same_kind && origin == W8ItemStorage::Pool &&
+        CurrentGame().party.held.item.iItemNo != -1) {
+        DepositHeldItemInPool(slot_index);
+        return;
+    }
     if (same_kind) {
         MergeItemUses(CurrentGame(), PartySlot(), location, {W8ItemStorage::Hand});
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
@@ -1775,64 +1844,32 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         cancel_queued_swap();
         RebuildCampItemList();
     } else {
-        /* Fold the held stack onto a matching stack; for the pool the scan
-           continues across every row until the held stack is consumed. */
+        // Fold the held stack onto the matching character slot.
         if ((CurrentGame().party.held.item.iItemNo != -1) &&
             Data().items[CurrentGame().party.held.item.iItemNo].quantity_kind ==
                 W8_ITEM_QUANTITY_STACK) {
-            if ((item && item->iItemNo != -1) &&
-                item->iItemNo == CurrentGame().party.held.item.iItemNo) {
+            if (item->iItemNo != -1 && item->iItemNo == CurrentGame().party.held.item.iItemNo) {
                 const auto outcome =
                     MergeInventoryStacks(CurrentGame(), location, {W8ItemStorage::Hand});
                 merged = outcome.complete;
                 partially_merged = outcome.changed && !outcome.complete;
                 merge_tried = true;
             }
-            if (!merged && origin == W8ItemStorage::Pool) {
-                for (index = 0; index < CurrentGame().party.item_pool.size(); ++index) {
-                    const auto outcome = MergeInventoryStacks(
-                        CurrentGame(), {W8ItemStorage::Pool, 0, index}, {W8ItemStorage::Hand});
-                    partially_merged |= outcome.changed && !outcome.complete;
-                    if (outcome.complete) {
-                        merged = true;
-                        break;
-                    }
-                }
-            }
         }
         if (origin == W8ItemStorage::Pool) {
-            if (!merged) {
-                if ((CurrentGame().party.held.item.iItemNo != -1)) {
-                    if (CurrentGame().party.companion_inventory) {
-                        SelectPendingCampCharacter();
-                    } else if (InsertHeldItemInPool(CurrentGame(), slot_index)) {
-                        changed = true;
-                        RebuildCampItemList();
-                    } else {
-                        text = Data().strings[0x90c];
-                        dialogs.ShowNotice(text, 0, true, false);
-                    }
-                } else if (slot_index < CurrentGame().party.item_pool.size()) {
-                    /* An empty hand picks the clicked pool row up. */
-                    ExchangeInventoryItems(
-                        CurrentGame(), location, {W8ItemStorage::Hand},
-                        static_cast<unsigned>(CurrentGame().status.selected_character));
-                    changed = true;
-                    if (item_action == W8_CAMP_ITEM_ACTION_DROP) {
-                        DropHeldCampItem();
-                        RebuildCampItemList();
-                    } else if (item_action == W8_CAMP_ITEM_ACTION_MOVE) {
-                        ShowHandCursor();
-                        RebuildCampItemList();
-                    } else {
-                        RebuildCampItemList();
-                    }
-                }
-            }
+            // A held item was handled above; an empty hand picks this row up.
+            ExchangeInventoryItems(CurrentGame(), location, {W8ItemStorage::Hand},
+                                   static_cast<unsigned>(CurrentGame().status.selected_character));
+            changed = true;
+            if (item_action == W8_CAMP_ITEM_ACTION_DROP)
+                DropHeldCampItem();
+            else if (item_action == W8_CAMP_ITEM_ACTION_MOVE)
+                ShowHandCursor();
+            RebuildCampItemList();
         } else {
-            if (!merge_tried && ((!(CurrentGame().party.held.item.iItemNo != -1) &&
-                                  (item && item->iItemNo != -1)) ||
-                                 ((CurrentGame().party.held.item.iItemNo != -1) && !merged))) {
+            if (!merge_tried &&
+                ((!(CurrentGame().party.held.item.iItemNo != -1) && item->iItemNo != -1) ||
+                 ((CurrentGame().party.held.item.iItemNo != -1) && !merged))) {
                 if (!CurrentGame().party.companion_inventory ||
                     (&CurrentGame().party.characters[*CurrentGame().party.companion_inventory]) ==
                         character) {
@@ -1856,7 +1893,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                             BindEquippedItem(CurrentGame().rules(), *character, paired_slot);
                             return;
                         }
-                        if ((!item || item->iItemNo == -1)) {
+                        if (item->iItemNo == -1) {
                             MarkCampCharacterPending(paired);
                         }
                         if (!EquipHeldItemAndStowPartner(CurrentGame(), PartySlot(), equip_slot)) {

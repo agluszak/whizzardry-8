@@ -48,9 +48,14 @@ static bool IsCarried(W8ItemLocation location)
            location.storage == W8ItemStorage::Backpack;
 }
 
+W8ItemInstance& ItemSource::get(W8Party& party) const
+{
+    return location ? *party.itemAt(*location) : *value;
+}
+
 ItemSource PartyItem(W8Party& party, W8ItemLocation location)
 {
-    return {*party.itemAt(location), location};
+    return {nullptr, location};
 }
 
 // Empty a source: a party location gives its item up, closing up the pool; a value clears.
@@ -59,7 +64,7 @@ static void Discard(W8Party& party, ItemSource source)
     if (source.location)
         party.take(*source.location);
     else
-        source.item = {};
+        source.get(party) = {};
 }
 
 /* Move a complete item into an empty destination and empty its source. Between two party
@@ -75,7 +80,7 @@ static void MoveInto(W8Party& party, W8ItemInstance& destination,
         return;
     }
     destination = source.location ? party.take(*source.location)
-                                  : std::exchange(source.item, W8ItemInstance{});
+                                  : std::exchange(source.get(party), W8ItemInstance{});
     destination.bind_announced = false;
     if (destination_location && destination_location->storage == W8ItemStorage::Hand)
         party.held = {destination, {}, -1};
@@ -98,9 +103,9 @@ static int MaximumQuantity(const GameData& data, int item_id)
 
 /* Normalize a stack and split every full overflow stack into the party pool. Quantity kinds
    two through four live in uses_or_charges instead. */
-static void NormalizeItemStack(const GameData& data, W8Party& party, W8ItemInstance& item)
+static W8ItemInstance NormalizeItemStack(const GameData& data, W8Party& party, W8ItemInstance item)
 {
-    if (item.iItemNo == -1) return;
+    if (item.iItemNo == -1) return item;
 
     const auto& record = data.items[item.iItemNo];
     if (record.quantity_kind == W8_ITEM_QUANTITY_STACK) {
@@ -114,10 +119,10 @@ static void NormalizeItemStack(const GameData& data, W8Party& party, W8ItemInsta
         item.stack_count = 0;
     }
 
-    if (record.quantity_kind != W8_ITEM_QUANTITY_STACK) return;
+    if (record.quantity_kind != W8_ITEM_QUANTITY_STACK) return item;
     if (record.maximum_quantity == 0) {
         item.stack_count = 0;
-        return;
+        return item;
     }
     while (item.stack_count > record.maximum_quantity) {
         W8ItemInstance split = item;
@@ -126,34 +131,38 @@ static void NormalizeItemStack(const GameData& data, W8Party& party, W8ItemInsta
         split.stack_count = quantity;
         if (!party.insertIntoPool(party.item_pool.size(), split)) {
             item.stack_count = record.maximum_quantity;
-            return;
+            return item;
         }
         item.stack_count -= quantity;
     }
+    return item;
 }
 
 /* Merge as much of one stack as fits in another. A completely consumed source is emptied
    and reported; a partial merge is reported through `partially_merged`. */
-static bool MergeStack(const GameData& data, W8Party& party, W8ItemInstance& destination,
-                       ItemSource source, bool* partially_merged)
+static bool MergeStack(const GameData& data, W8Party& party, ItemSource target, ItemSource source,
+                       bool* partially_merged)
 {
-    if (destination.iItemNo == -1) return false;
+    if (target.get(party).iItemNo == -1) return false;
 
-    NormalizeItemStack(data, party, destination);
+    const auto normalized = NormalizeItemStack(data, party, target.get(party));
+    auto& destination = target.get(party);
+    destination = normalized;
     const auto& record = data.items[destination.iItemNo];
     if (record.quantity_kind != W8_ITEM_QUANTITY_STACK) return false;
     if (destination.stack_count > record.maximum_quantity)
         destination.stack_count = record.maximum_quantity;
-    if (destination.iItemNo != source.item.iItemNo ||
-        destination.identified != source.item.identified)
+    if (destination.iItemNo != source.get(party).iItemNo ||
+        destination.identified != source.get(party).identified)
         return false;
 
     const unsigned char room = record.maximum_quantity - destination.stack_count;
     if (room == 0) return false;
-    const unsigned char moved = source.item.stack_count < room ? source.item.stack_count : room;
+    const unsigned char moved =
+        source.get(party).stack_count < room ? source.get(party).stack_count : room;
     destination.stack_count += moved;
-    source.item.stack_count -= moved;
-    if (source.item.stack_count == 0) {
+    source.get(party).stack_count -= moved;
+    if (source.get(party).stack_count == 0) {
         Discard(party, source);
         return true;
     }
@@ -168,7 +177,7 @@ static bool MergeStack(const GameData& data, W8Party& party, W8ItemInstance& des
 static bool ConsumeUse(const GameData& data, W8Party& party, ItemSource source,
                        bool remove_exhausted)
 {
-    auto& item = source.item;
+    auto& item = source.get(party);
     const int item_id = item.iItemNo;
     if (item_id == -1) return false;
     const auto& record = data.items[item_id];
@@ -396,9 +405,9 @@ std::optional<ItemPlacement> PlaceWithCharacter(const RuleContext& rules, ItemRe
     auto& party = rules.party;
     auto& character = recipient.character;
 
-    if (equip_if_possible && CanCharacterUseItem(data, &character, source.item.iItemNo)) {
+    if (equip_if_possible && CanCharacterUseItem(data, &character, source.get(party).iItemNo)) {
         const W8EquipSlot equip_slot =
-            ChooseCharacterEquipSlot(rules, character, source.item.iItemNo);
+            ChooseCharacterEquipSlot(rules, character, source.get(party).iItemNo);
         if (equip_slot != W8_EQUIP_SLOT_NONE) {
             auto& destination = character.EquippedItem[equip_slot];
             const auto location =
@@ -410,26 +419,28 @@ std::optional<ItemPlacement> PlaceWithCharacter(const RuleContext& rules, ItemRe
                          recipient.slot ? std::optional{location} : std::nullopt, source);
                 return ItemPlacement{location, nullptr};
             }
-            if (MergeStack(data, party, destination, source, nullptr))
+            if (MergeStack(data, party, OwnedItem(destination), source, nullptr))
                 return ItemPlacement{{}, nullptr};
         }
     }
 
     // Named before a merge can empty the source.
     const std::string display_name =
-        announce ? FormatItemDisplayName(data, &source.item, true) : "";
+        announce ? FormatItemDisplayName(data, &source.get(party), true) : "";
     W8ItemInstance* stored_item = nullptr;
     unsigned int stored_index = 0;
     bool placed = false;
-    if (data.items[source.item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK && !skip_stacking) {
+    if (data.items[source.get(party).iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
+        !skip_stacking) {
         for (unsigned int index = 0; index < 12 && !stored_item; ++index) {
-            if (MergeStack(data, party, character.EquippedItem[index], source, nullptr)) {
+            if (MergeStack(data, party, OwnedItem(character.EquippedItem[index]), source,
+                           nullptr)) {
                 stored_item = &character.EquippedItem[index];
                 stored_index = index;
             }
         }
         for (unsigned int index = 0; index < 8 && !stored_item; ++index) {
-            if (MergeStack(data, party, character.backpack[index], source, nullptr)) {
+            if (MergeStack(data, party, OwnedItem(character.backpack[index]), source, nullptr)) {
                 stored_item = &character.backpack[index];
                 stored_index = index;
             }
@@ -462,14 +473,16 @@ std::optional<ItemPlacement> PlaceInPool(const RuleContext& rules, ItemSource so
     auto& party = rules.party;
     // Named before a merge can empty the source.
     const std::string display_name =
-        announce ? FormatItemDisplayName(data, &source.item, true) : "";
+        announce ? FormatItemDisplayName(data, &source.get(party), true) : "";
     bool partially_merged = false;
     unsigned int index = 0;
     bool merged = false;
 
-    if (data.items[source.item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK && !skip_stacking) {
+    if (data.items[source.get(party).iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK &&
+        !skip_stacking) {
         for (; index < party.item_pool.size(); ++index) {
-            if (MergeStack(data, party, party.item_pool[index], source, &partially_merged)) {
+            if (MergeStack(data, party, PartyItem(party, {W8ItemStorage::Pool, 0, index}), source,
+                           &partially_merged)) {
                 merged = true;
                 break;
             }
@@ -477,7 +490,7 @@ std::optional<ItemPlacement> PlaceInPool(const RuleContext& rules, ItemSource so
     }
 
     if (!merged) {
-        if (party.item_pool.size() >= party.item_pool.capacity()) return std::nullopt;
+        if (party.item_pool.size() >= W8_PARTY_POOL_LIMIT) return std::nullopt;
         index = 0;
         W8ItemInstance entry{};
         MoveInto(party, entry, std::nullopt, source);
@@ -638,7 +651,7 @@ std::optional<InventoryEdit> SplitItemStack(const RuleContext& rules,
                 }
             }
             if (destination_location.storage == W8ItemStorage::None) {
-                if (party.item_pool.size() == party.item_pool.capacity()) return std::nullopt;
+                if (party.item_pool.size() >= W8_PARTY_POOL_LIMIT) return std::nullopt;
                 destination_location = {W8ItemStorage::Pool, 0,
                                         static_cast<unsigned int>(party.item_pool.size())};
             }
@@ -722,7 +735,7 @@ EquipHeldItemAndStowPartner(const RuleContext& rules, unsigned actor, W8EquipSlo
             }
         }
         if (storage.storage == W8ItemStorage::None) {
-            if (npc_keeps(partner) || party.item_pool.size() >= party.item_pool.capacity())
+            if (npc_keeps(partner) || party.item_pool.size() >= W8_PARTY_POOL_LIMIT)
                 return std::nullopt;
             storage = {W8ItemStorage::Pool, 0, 0};
         }
@@ -852,7 +865,7 @@ MergeItems(const RuleContext& rules, unsigned actor, W8ItemLocation target)
     }
     if (held.iItemNo == destination->iItemNo) {
         bool partial = false;
-        const bool merged = MergeStack(data, party, *destination,
+        const bool merged = MergeStack(data, party, PartyItem(party, target),
                                        PartyItem(party, {W8ItemStorage::Hand}), &partial);
         return ItemCombination{.merged = merged || partial,
                                .edit = InventoryEdit{{merged ? W8ItemLocation{W8ItemStorage::Hand}
@@ -867,9 +880,9 @@ MergeItems(const RuleContext& rules, unsigned actor, W8ItemLocation target)
 static bool MergeUses(const GameData& data, W8Party& party, W8ItemInstance& into, ItemSource from)
 {
     const unsigned char available =
-        data.items[from.item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK
-            ? from.item.stack_count
-            : from.item.uses_or_charges;
+        data.items[from.get(party).iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK
+            ? from.get(party).stack_count
+            : from.get(party).uses_or_charges;
     const unsigned char held = data.items[into.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK
                                    ? into.stack_count
                                    : into.uses_or_charges;

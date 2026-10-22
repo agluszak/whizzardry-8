@@ -324,6 +324,8 @@ private:
     void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width);
     void SelectPendingCampCharacter();
     void HandleCampItemClick(W8ItemLocation location);
+    void HandleEmptyPoolCell();
+    void DepositHeldItemInPool(unsigned int index);
     void TakeItemUnitToHand(W8ItemLocation source);
     void MarkCampCharacterPending(W8ItemInstance* item);
     void OpenItemInfoDialog(W8ItemInstance* item);

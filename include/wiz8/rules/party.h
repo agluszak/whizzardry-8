@@ -2,17 +2,8 @@
 
 #include <array>
 #include <cstddef>
-// Some libstdc++ 16 releases use deprecated is_trivial_v in _M_init.
-// Limit the workaround to diagnostics originating in that library header.
-#if defined(__clang__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE == 16
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
-#include <inplace_vector>
-#if defined(__clang__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE == 16
-#pragma clang diagnostic pop
-#endif
 #include <optional>
+#include <vector>
 
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/gameplay_modifiers.h"
@@ -20,6 +11,9 @@
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
+
+// Preserve full-inventory gameplay until its policy and save support change together.
+inline constexpr std::size_t W8_PARTY_POOL_LIMIT = 500;
 
 struct W8HeldItem {
     W8ItemInstance item{.iItemNo = -1};
@@ -33,7 +27,7 @@ struct W8Party {
     unsigned int order_slots[W8_PARTY_SLOT_COUNT]{};
     unsigned int gold = 0;
     W8GameplayModifierBlock modifiers{};
-    std::inplace_vector<W8ItemInstance, 500> item_pool;
+    std::vector<W8ItemInstance> item_pool;
     W8HeldItem held{};
 
     W8ItemInstance* itemAt(W8ItemLocation location);

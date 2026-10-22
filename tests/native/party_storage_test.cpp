@@ -3,10 +3,14 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include "wiz8/data/game_data.h"
 #include "wiz8/rules/action_choices.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/inventory.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"
+#include "wiz8/rules/random.h"
+#include "wiz8/rules/rule_context.h"
 #include "wiz8/rules/targeting.h"
 
 namespace {
@@ -96,4 +100,53 @@ TEST_CASE("A berserk choice yields to attack while the member cannot berserk", "
     ReconcileBerserkChoice(choices, committed, true);
     REQUIRE(choices.basic_kind == W8_ACTION_ATTACK);
     REQUIRE(committed.kind == W8_ACTION_DEFEND);
+}
+
+TEST_CASE("Stack normalization survives pool growth", "[party][inventory]")
+{
+    GameData data;
+    auto& record = data.items.emplace_back();
+    record.quantity_kind = W8_ITEM_QUANTITY_STACK;
+    record.maximum_quantity = 100;
+    W8Party party;
+    Rng rng;
+    Events events;
+    const RuleContext rules{data, party, rng, events};
+
+    SECTION("The destination is a pool item")
+    {
+        party.item_pool = {{.iItemNo = 0, .stack_count = 200}};
+        W8ItemInstance incoming{.iItemNo = 0, .stack_count = 5};
+        REQUIRE(PlaceInPool(rules, OwnedItem(incoming), false, false));
+        REQUIRE(incoming.iItemNo == -1);
+        REQUIRE(party.item_pool.size() == 3);
+        REQUIRE(party.item_pool[0].stack_count == 5);
+        REQUIRE(party.item_pool[1].stack_count == 100);
+        REQUIRE(party.item_pool[2].stack_count == 100);
+    }
+    SECTION("The source is a pool item")
+    {
+        party.item_pool = {{.iItemNo = 0, .stack_count = 5}};
+        auto& character = party.characters[0];
+        character.EquippedItem[0] = {.iItemNo = 0, .stack_count = 200};
+        REQUIRE(PlaceWithCharacter(rules, {character, 0},
+                                   PartyItem(party, {W8ItemStorage::Pool, 0, 0}), false, false,
+                                   false));
+        REQUIRE(character.EquippedItem[0].stack_count == 100);
+        REQUIRE(character.backpack[0].stack_count == 5);
+        REQUIRE(party.item_pool.size() == 1);
+        REQUIRE(party.item_pool[0].stack_count == 100);
+    }
+}
+
+TEST_CASE("Pool insertion obeys the gameplay limit independently of allocation",
+          "[party][inventory]")
+{
+    W8Party party;
+    party.item_pool.reserve(1000);
+    party.item_pool.assign(W8_PARTY_POOL_LIMIT - 1, W8ItemInstance{.iItemNo = 1});
+    REQUIRE(party.insertIntoPool(0, {.iItemNo = 2}));
+    REQUIRE_FALSE(party.insertIntoPool(0, {.iItemNo = 3}));
+    REQUIRE(party.item_pool.size() == W8_PARTY_POOL_LIMIT);
+    REQUIRE(party.item_pool[0].iItemNo == 2);
 }

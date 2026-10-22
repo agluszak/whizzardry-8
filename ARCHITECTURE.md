@@ -686,10 +686,12 @@ can never be captured by a prompt the player cannot see.
 
 ## Party inventory extent
 
-The party pool is a `std::inplace_vector<W8ItemInstance, 500>`: its live extent,
-capacity and contiguous storage are one value. There is no separately writable
+The party pool is a `std::vector<W8ItemInstance>`; its size is the live extent.
+Inventory operations preserve the existing 500-item gameplay limit explicitly,
+independently of allocated capacity. There is no separately writable
 count or live-prefix convention. Item location resolution rejects absent rows.
 Trade preparation copies the complete pool value and publishes it in one step.
-The retail codec alone expands it to 500 disk records. Known fields of unused
+The retail codec independently rejects oversized pools and expands live items to
+500 disk records. Known fields of unused
 records are canonical empty values; unknown bytes from unused loaded records
 remain opaque provenance, never live inventory or mutation-history counters.

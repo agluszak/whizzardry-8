@@ -360,6 +360,9 @@ Substantial but contained work.
 Questions to settle, usually against the retail executable, traces or saves,
 before the related refactoring changes behavior.
 
+- **Party pool limit.** Determine whether 500 items is a gameplay rule or only a
+  retail storage limit. Decide how larger inventories can be saved before removing
+  the current gameplay restriction.
 - **Retail semantics to confirm.**
   - Whether swings really use the previous pass's damage bonus in observable play,
     and how many stat passes retail runs per operation.
