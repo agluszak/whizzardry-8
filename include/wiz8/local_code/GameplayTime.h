@@ -55,7 +55,7 @@ struct SurpriseSequence {
     Phase phase = Phase::fade_in;
 };
 
-void UpdateGameClock(int elapsed);
+void UpdateGameClock(Game& game, int elapsed);
 /* The 120-second aging tick - wait-state machine, per-character
    aging, combat/monster effect expiry and NPC-side aging. */
 void AdvanceTimedEffects(unsigned int minutes);
@@ -83,7 +83,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
 void RebuildMonsterRegenRates(W8MonsterInfo* monster_info);
 /* Advance the surprise fade/hold/resolve sequence while
    fSurprisePossible is set. */
-void UpdateSurpriseMode(void);
+void UpdateSurpriseMode(Game& game);
 /* The surprise sequence is still fading the view in. */
 bool SurpriseFadingIn(void);
 /* The cancel command while surprise runs - reposts the surprise

@@ -144,32 +144,31 @@ static void BeginPartyCamping()
    world clock, fires the 120-second aging tick, the hourly item recharge,
    the 2500ms camping-fatigue and 1400ms stamina ticks, and runs the surprise
    sequence entry/transition while the party is eligible. */
-void UpdateGameClock(int elapsed)
+void UpdateGameClock(Game& game, int elapsed)
 {
-    CurrentGame().status.world_clock +=
-        static_cast<int>((CurrentGame().status.world_clock_ms + elapsed) / 1000);
-    CurrentGame().status.world_clock_ms = (CurrentGame().status.world_clock_ms + elapsed) % 1000;
+    game.status.world_clock += static_cast<int>((game.status.world_clock_ms + elapsed) / 1000);
+    game.status.world_clock_ms = (game.status.world_clock_ms + elapsed) % 1000;
 
-    CurrentGame().status.aging_accumulator += elapsed;
+    game.status.aging_accumulator += elapsed;
     unsigned int aging_ticks = 0;
-    if (!CurrentGame().aging_held) {
-        aging_ticks = CurrentGame().status.aging_accumulator / 120000;
+    if (!game.aging_held) {
+        aging_ticks = game.status.aging_accumulator / 120000;
         if (aging_ticks != 0) {
-            CurrentGame().status.aging_accumulator %= 120000;
+            game.status.aging_accumulator %= 120000;
             AdvanceTimedEffects(aging_ticks);
         }
     }
 
-    CurrentGame().status.item_recharge_ms += elapsed;
-    unsigned int hours = CurrentGame().status.item_recharge_ms / 3600000;
+    game.status.item_recharge_ms += elapsed;
+    unsigned int hours = game.status.item_recharge_ms / 3600000;
     if (hours != 0) {
-        CurrentGame().status.item_recharge_ms %= 3600000;
+        game.status.item_recharge_ms %= 3600000;
         for (unsigned int slot = 0; slot < 8; ++slot) {
             signed char uses = static_cast<signed char>(hours);
-            if (!CurrentGame().party.members[slot].has_value()) {
+            if (!game.party.members[slot].has_value()) {
                 continue;
             }
-            W8Character* character = &CurrentGame().party.characters[slot];
+            W8Character* character = &game.party.characters[slot];
             int i;
             for (i = 0; i < 0xc; ++i) {
                 if (character->EquippedItem[i].iItemNo == 0x266) {
@@ -182,54 +181,54 @@ void UpdateGameClock(int elapsed)
                 }
             }
         }
-        for (unsigned int index = 0; index < CurrentGame().party.item_count; ++index) {
-            W8ItemInstance* item = &CurrentGame().party.item_pool[index];
+        for (unsigned int index = 0; index < game.party.item_count; ++index) {
+            W8ItemInstance* item = &game.party.item_pool[index];
             if (item->iItemNo == 0x266) {
                 AddItemUses(Data(), *item, static_cast<signed char>(hours));
             }
         }
     }
 
-    if ((!CurrentGame().combat.has_value() || aging_ticks != 0) && g_camera_sway_active) {
-        if (CurrentGame().combat.has_value()) {
+    if ((!game.combat.has_value() || aging_ticks != 0) && g_camera_sway_active) {
+        if (game.combat.has_value()) {
             assert(aging_ticks != 0);
-            CurrentGame().status.camp_tick_ms -= 4 * 0x9c4;
+            game.status.camp_tick_ms -= 4 * 0x9c4;
             UpdateCampFatigue(4);
         } else {
-            CurrentGame().status.camp_tick_ms += elapsed;
-            unsigned int camp_ticks = CurrentGame().status.camp_tick_ms / 0x9c4;
+            game.status.camp_tick_ms += elapsed;
+            unsigned int camp_ticks = game.status.camp_tick_ms / 0x9c4;
             if (camp_ticks != 0) {
-                CurrentGame().status.camp_tick_ms -= camp_ticks * 0x9c4;
+                game.status.camp_tick_ms -= camp_ticks * 0x9c4;
                 UpdateCampFatigue(static_cast<int>(camp_ticks));
             }
         }
     } else {
-        CurrentGame().status.camp_tick_ms = 0;
-        CurrentGame().status.party_fatigued = false;
-        CurrentGame().status.camp_fatigue_count = 0;
+        game.status.camp_tick_ms = 0;
+        game.status.party_fatigued = false;
+        game.status.camp_fatigue_count = 0;
     }
 
-    if (CurrentGame().combat.has_value()) {
-        CurrentGame().status.stamina_tick_ms = 0;
+    if (game.combat.has_value()) {
+        game.status.stamina_tick_ms = 0;
     } else {
-        CurrentGame().status.stamina_tick_ms += elapsed;
-        unsigned int stamina_ticks = CurrentGame().status.stamina_tick_ms / 0x578;
+        game.status.stamina_tick_ms += elapsed;
+        unsigned int stamina_ticks = game.status.stamina_tick_ms / 0x578;
         if (stamina_ticks != 0) {
-            CurrentGame().status.stamina_tick_ms %= 0x578;
+            game.status.stamina_tick_ms %= 0x578;
             UpdatePartyStamina(static_cast<int>(stamina_ticks));
         }
 
-        if (!CurrentGame().surprise_possible && !AnyCharacterEngaged() && AnyCharacterActive() &&
-            !CurrentGame().status.party_fatigued && !HasLevelDataVector() &&
-            HasLevelWalkableContact() && IsScreenIdle()) {
+        if (!game.surprise_possible && !AnyCharacterEngaged() && AnyCharacterActive() &&
+            !game.status.party_fatigued && !HasLevelDataVector() && HasLevelWalkableContact() &&
+            IsScreenIdle()) {
             BeginPartyCamping();
         }
     }
 
-    if (!CurrentGame().surprise_possible) {
+    if (!game.surprise_possible) {
         return;
     }
-    auto& surprise = CurrentGame().surprise;
+    auto& surprise = game.surprise;
     if (surprise.unengaged && AnyCharacterEngaged() && surprise.phase == SurprisePhase::hold) {
         ResetSight();
         ReverseSurpriseFade();
@@ -288,19 +287,19 @@ void BeginSurprise(void)
    world clock reaches the deadline (unless surprise started unengaged);
    phase 2 waits for the fade-out helper, then ends surprise and forwards
    combat if needed. */
-void UpdateSurpriseMode(void)
+void UpdateSurpriseMode(Game& game)
 {
     float scale;
     float level_scale;
 
-    if (!CurrentGame().surprise_possible) {
+    if (!game.surprise_possible) {
         return;
     }
-    auto& surprise = CurrentGame().surprise;
+    auto& surprise = game.surprise;
     switch (surprise.phase) {
     case SurprisePhase::fade_in:
         if (UpdateSurpriseFade() != 0) {
-            surprise.deadline_turns = CurrentGame().status.world_clock + 0x7080;
+            surprise.deadline_turns = game.status.world_clock + 0x7080;
             DestroyUngroupedMonsters();
             SetViewDistance(2880.0f);
             SetNavigatorLinkMode(W8_NAVIGATOR_LINK_MODE_STOPPED);
@@ -312,11 +311,11 @@ void UpdateSurpriseMode(void)
         }
         break;
     case SurprisePhase::hold:
-        if (!surprise.unengaged && static_cast<unsigned int>(CurrentGame().status.world_clock) >=
-                                       surprise.deadline_turns) {
+        if (!surprise.unengaged &&
+            static_cast<unsigned int>(game.status.world_clock) >= surprise.deadline_turns) {
             ResetSight();
-            UpdateEnvironmentLight(CurrentGame());
-            RefreshEnvironment(CurrentGame());
+            UpdateEnvironmentLight(game);
+            RefreshEnvironment(game);
             ReverseSurpriseFade();
             surprise.phase = SurprisePhase::fade_out_and_resolve;
             ReleaseMarkedNpcBindings();
@@ -326,7 +325,7 @@ void UpdateSurpriseMode(void)
     case SurprisePhase::fade_out_and_resolve:
         if (UpdateSurpriseFade() != 0) {
             EndSurprise();
-            if (CurrentGame().combat.has_value()) {
+            if (game.combat.has_value()) {
                 StopAllNavigators();
             }
         }

@@ -73,7 +73,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
     world_items_due -= elapsed;
     if (combat) combat->passTime(elapsed);
     if (!SharedGameTimersHeld()) autosave_due -= elapsed;
-    UpdateSurpriseMode();
+    UpdateSurpriseMode(*this);
     ProcessMainGameAutoSave();
     GameTimeAccumulator().Update(elapsed);
     g_animated_prop_present = false;

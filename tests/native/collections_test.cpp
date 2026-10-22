@@ -99,7 +99,7 @@ TEST_CASE("World-clock rollover preserves seconds and NPC cooldowns", "[timers][
     game.surprise_possible = true;
     game.status.world_clock = 0x7fffffffu;
     game.status.world_clock_ms = 999;
-    UpdateGameClock(1);
+    UpdateGameClock(game, 1);
     REQUIRE(game.status.world_clock == 0x80000000u);
     REQUIRE(game.status.world_clock_ms == 0);
 
@@ -120,7 +120,7 @@ TEST_CASE("World-clock rollover preserves seconds and NPC cooldowns", "[timers][
 
     game.status.world_clock = 0xffffffffu;
     game.status.world_clock_ms = 999;
-    UpdateGameClock(1);
+    UpdateGameClock(game, 1);
     REQUIRE(game.status.world_clock == 0);
     REQUIRE(game.status.world_clock_ms == 0);
 

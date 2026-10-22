@@ -110,7 +110,7 @@ void AdvanceEnvironmentTime(Game& game, int elapsed)
        the party is in the world. Time reaches it from the environment clock while nothing
        holds the world and no fight is on, and from the rounds of a fight there. */
     if (game.activity.in_world()) {
-        UpdateGameClock(elapsed);
+        UpdateGameClock(game, elapsed);
     }
     if (World* world = game.level.primary.get()) world->environment.untaken_time = {};
     if (World* sky = game.level.sky.get()) PlaceSky(*sky, game.status.game_time_ms);

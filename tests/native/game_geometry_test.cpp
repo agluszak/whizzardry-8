@@ -71,6 +71,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -2100,6 +2101,29 @@ TEST_CASE("Environment ambient scales scenes and lights while retaining the sour
     REQUIRE(world.environment.colour == colour);
     world.scene = nullptr;
     REQUIRE(WorldLightValue(world) == glm::vec3(0));
+}
+
+TEST_CASE("Environment operations change only the level they are given", "[geometry]")
+{
+    const ScopedGame scope;
+    Level& installed = scope.game.level;
+    installed.replacePrimary(std::make_unique<World>());
+    installed.primary->scene = std::make_unique<WorldScene>();
+    installed.primary->scene->setFogColor(glm::vec3(0.5f));
+
+    Level other;
+    other.replacePrimary(std::make_unique<World>());
+    other.replaceSky(std::make_unique<World>());
+    other.primary->scene = std::make_unique<WorldScene>();
+    other.sky->scene = std::make_unique<WorldScene>();
+    other.sky->scene->setFogColor(glm::vec3(1.0f));
+
+    BeginWorldLightingFade(other, -1000.0f);
+    DisableSky(other);
+    REQUIRE(other.primary->environment.lighting_mode == W8EnvironmentLightingMode::Transition);
+    REQUIRE(other.sky->scene->getFogColor() == glm::vec3(0));
+    REQUIRE(installed.primary->environment.lighting_mode == W8EnvironmentLightingMode::DayNight);
+    REQUIRE(installed.primary->scene->getFogColor() == glm::vec3(0.5f));
 }
 
 TEST_CASE("Positional sound copies keep placement without sharing playback", "[sound]")

@@ -60,7 +60,7 @@
 #include "wiz8/world/environment.h"
 #include "wiz8/world/world.h"
 
-static void ResolveSedexusCapture(void);
+static void ResolveSedexusCapture(Level& level);
 static void NpcScriptHenchmanArrives(Monster* monster);
 static void NpcScriptHenchmanDeparted(Monster* monster);
 static void NpcScriptSavantHackDone(Monster* monster);
@@ -312,7 +312,7 @@ void BeginSedexusCapture(const ScriptContext& context)
    released, the LezboDemonAppeared trigger variable drops, monster 0xd8 is
    spawned on np_al-adryian51 and given proximitytemplar.msf, and the two
    gate triggers fire while the lighting fades back up. */
-static void ResolveSedexusCapture(void)
+static void ResolveSedexusCapture(Level& level)
 {
     W8MonsterGroup* group;
     glm::vec3 position;
@@ -334,7 +334,7 @@ static void ResolveSedexusCapture(void)
     }
     CurrentGame().npc_dialogue.HoldForScene();
     CurrentGame().sedexus_scene.release_pending = true;
-    BeginWorldLightingFade(CurrentGame().level, 1000.0f);
+    BeginWorldLightingFade(level, 1000.0f);
     RunNamedTrigger("al-seduxusgate", -1);
     RunNamedTrigger("templargate14", -1);
 }
@@ -485,7 +485,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         break;
     }
     case W8NpcStoryAction::sedexus_passout:
-        ResolveSedexusCapture();
+        ResolveSedexusCapture(context.game.level);
         break;
     case W8NpcStoryAction::henchman_leaves: {
         EndNpcDialogueSession(false);
