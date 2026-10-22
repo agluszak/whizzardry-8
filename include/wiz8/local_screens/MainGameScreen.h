@@ -465,8 +465,6 @@ void BeginLevelTransition(int level, int entry);
    trap (`picker`) or an NPC dialogue is open or not. An interaction overrides the
    preferred layout without changing the preference. */
 MainGameLayout DecideMainGameLayout(const W8GameSettings& settings, bool picker, bool npc_dialogue);
-// The mode the applied layout shows, or the preferred one without a main game.
-W8MainUiMode GetEffectiveMainUiMode();
 void SetMainUiPreference(W8MainUiMode mode);
 /* Decide the main game's layout and apply it to the panels, viewport and input. */
 void RefreshMainGameLayout();
@@ -475,7 +473,7 @@ void TickAmbientFollowUpIdle(unsigned char input_handled);
 /* Re-sync the eight party slots' region sets and portrait hit
    regions with occupancy, the monster-entry flag and the display mode; the
    party add/remove entries and the keyboard menu's close run it. */
-void RefreshPartySlotRegions(void);
+void RefreshPartySlotRegions(MainGameScreen& screen);
 /* Forget the shown plate and, while the overlay mode is up, have the next draw
    erase its rectangle and repaint the roof or text box it crossed. */
 void ClearHighlightOverlayRegion(void);

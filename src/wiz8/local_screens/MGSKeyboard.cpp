@@ -363,16 +363,16 @@ void DispatchMGSCommand(W8MGSCommand command)
             break;
         }
         if (IsScreenInputBlocked() != 0) {
-            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() - 1) & 1));
+            SetMainUiPreference(static_cast<W8MainUiMode>((MainGameHud()->layout.mode - 1) & 1));
         } else {
-            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() + 1) % 3));
+            SetMainUiPreference(static_cast<W8MainUiMode>((MainGameHud()->layout.mode + 1) % 3));
         }
         break;
     case W8_MGS_COMMAND_PREV_LAYOUT:
         if (IsScreenInputBlocked() != 0) {
-            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() - 1) & 1));
+            SetMainUiPreference(static_cast<W8MainUiMode>((MainGameHud()->layout.mode - 1) & 1));
         } else {
-            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() + 2) % 3));
+            SetMainUiPreference(static_cast<W8MainUiMode>((MainGameHud()->layout.mode + 2) % 3));
         }
         break;
     case W8_MGS_COMMAND_AUTOMAP:
@@ -511,7 +511,7 @@ void DispatchMGSCommand(W8MGSCommand command)
             SelectPartyCharacter(slot);
             break;
         }
-        if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
+        if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_PORTRAITS) {
             break;
         }
         if (MainGameHud()->portrait_refresh_pending[slot] != 0) {
@@ -693,7 +693,7 @@ void CloseKeyboardMenu(void)
     MainGameHud()->combat_slot = -1;
     MainGameHud()->hover_combat_slot = g_selected_party_slot;
     MainGameHud()->cursor_grace = 0;
-    RefreshPartySlotRegions();
+    RefreshPartySlotRegions(*MainGame());
     if (CurrentGame().combat.has_value()) {
         MainGame()->combat.setEnabled(true);
     } else {

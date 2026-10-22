@@ -3089,7 +3089,7 @@ void SelectPartyCharacter(int party_slot)
 
 void RefreshSelectedPartyPortrait(unsigned int party_slot)
 {
-    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
+    if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_PORTRAITS ||
         MainGameHud()->portrait_refresh_pending[party_slot] != 0) {
         return;
     }
@@ -3543,7 +3543,7 @@ void UpdatePortraitPlate(W8LevelRuntimeBlock& hud)
     const auto tracked = TrackedPortraitPlate(hud);
     if (!tracked) return;
     bool lay_out = repaint.portrait_panel && !PartyMovementPanelShown();
-    const bool portraits_mode = GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS;
+    const bool portraits_mode = MainGameHud()->layout.mode == W8_MAIN_UI_MODE_PORTRAITS;
     for (int slot = 0; slot < 8 && !lay_out; ++slot) {
         const bool band = repaint.portraits.test(slot) ||
                           (repaint.portrait_frames.test(slot) &&
@@ -3965,12 +3965,6 @@ MainGameLayout DecideMainGameLayout(const W8GameSettings& settings, bool picker,
     }
 }
 
-W8MainUiMode GetEffectiveMainUiMode()
-{
-    const auto* hud = MainGameHud();
-    return hud ? hud->layout.mode : g_settings.main_ui_mode;
-}
-
 void SetMainUiPreference(W8MainUiMode mode)
 {
     g_settings.main_ui_mode = mode;
@@ -4022,7 +4016,7 @@ static void SyncMainGameModeInput(MainGameScreen& screen, const MainGameLayout& 
     screen.hud_buttons.input.setEnabled(true);
     screen.monster_list->setEnabled(screen.hud->group_list_rows != 0);
     screen.edges.setEnabled(layout.mode != W8_MAIN_UI_MODE_PORTRAITS);
-    RefreshPartySlotRegions();
+    RefreshPartySlotRegions(screen);
     screen.combat.setEnabled(screen.game.combat.has_value());
     if (screen.game.combat.has_value()) {
         DisablePortraitControls();
@@ -4129,16 +4123,15 @@ void OpenModal(std::unique_ptr<ModalContent> owner)
    slot's occupancy, its monster-entry flag and the display mode - the party
    add/remove entries and the keyboard menu's close run it after slot state
    changes. */
-void RefreshPartySlotRegions(void)
+void RefreshPartySlotRegions(MainGameScreen& screen)
 {
-    if (!MainGame()) return;
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        const bool available = CurrentGame().party.members[slot].has_value() &&
-                               !CurrentGame().monster_manager_entries[slot].keyboard_menu_open;
-        const bool full = GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
-                          MainGameHud()->portrait_refresh_pending[slot] != 0;
-        MainGame()->portraits[slot]->setEnabled(available && full);
-        MainGame()->edge_targets[slot]->setEnabled(available && !full);
+        const bool available = screen.game.party.members[slot].has_value() &&
+                               !screen.game.monster_manager_entries[slot].keyboard_menu_open;
+        const bool full = screen.hud->layout.mode == W8_MAIN_UI_MODE_PORTRAITS ||
+                          screen.hud->portrait_refresh_pending[slot] != 0;
+        screen.portraits[slot]->setEnabled(available && full);
+        screen.edge_targets[slot]->setEnabled(available && !full);
     }
 }
 

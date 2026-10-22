@@ -452,11 +452,11 @@ static void CreateRoofButtons()
         {.on_click = MainGameRoofButton2,
          .policy = {.primary_toggle = ButtonToggle::Press},
          .tooltip = 0x3a});
-    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
+    if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_PORTRAITS) {
         MainGame()->hud_buttons.roof[0].SetPressed(true);
-    } else if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION) {
+    } else if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_FORMATION) {
         MainGame()->hud_buttons.roof[1].SetPressed(true);
-    } else if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) {
+    } else if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_RADAR) {
         MainGame()->hud_buttons.roof[2].SetPressed(true);
     }
     for (index = 0; index < 3; ++index) {
@@ -499,11 +499,11 @@ void UpdateRoofButtons(void)
     SyncRoofButtonPressedState();
 }
 
-/* Mirror GetEffectiveMainUiMode() onto the three roof buttons' pressed
+/* Mirror the shown layout mode onto the three roof buttons' pressed
    state (portraits / formation / radar). */
 void SyncRoofButtonPressedState(void)
 {
-    if (GetEffectiveMainUiMode() == 0) {
+    if (MainGameHud()->layout.mode == 0) {
         if (MainGame()->hud_buttons.roof[0].IsPressed() == 0) {
             MainGame()->hud_buttons.roof[0].SetPressed(true);
         }
@@ -513,7 +513,7 @@ void SyncRoofButtonPressedState(void)
         if (MainGame()->hud_buttons.roof[2].IsPressed()) {
             MainGame()->hud_buttons.roof[2].SetPressed(false);
         }
-    } else if (GetEffectiveMainUiMode() == 1) {
+    } else if (MainGameHud()->layout.mode == 1) {
         if (MainGame()->hud_buttons.roof[1].IsPressed() == 0) {
             MainGame()->hud_buttons.roof[1].SetPressed(true);
         }
@@ -523,7 +523,7 @@ void SyncRoofButtonPressedState(void)
         if (MainGame()->hud_buttons.roof[2].IsPressed()) {
             MainGame()->hud_buttons.roof[2].SetPressed(false);
         }
-    } else if (GetEffectiveMainUiMode() == 2) {
+    } else if (MainGameHud()->layout.mode == 2) {
         if (MainGame()->hud_buttons.roof[2].IsPressed() == 0) {
             MainGame()->hud_buttons.roof[2].SetPressed(true);
         }
@@ -548,7 +548,7 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button)
         return;
     }
     g_settings.formation_radar_map_preference = 1;
-    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) {
+    if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_RADAR) {
         g_settings.formation_action_panel_preference = 0;
         g_settings.formation_board_preference = 0;
         SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
@@ -560,7 +560,7 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button)
 static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
 {
     if (MainGameHud()->layout.bottom_panel) {
-        if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION) {
+        if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_FORMATION) {
             if (!MainGameHud()->layout.radar_map && !MainGameHud()->layout.formation_board) {
                 SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
             }
@@ -568,20 +568,20 @@ static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
             RefreshMainGameLayout();
             return;
         }
-        if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
+        if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_PORTRAITS) {
             g_settings.portraits_action_panel_preference = 0;
         }
         RefreshMainGameLayout();
         return;
     }
-    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) {
+    if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_RADAR) {
         g_settings.formation_radar_map_preference = 0;
         g_settings.formation_action_panel_preference = 1;
         g_settings.formation_board_preference = 0;
         SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
         return;
     }
-    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
+    if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_PORTRAITS) {
         g_settings.portraits_action_panel_preference = 1;
         RefreshMainGameLayout();
         return;
@@ -602,7 +602,7 @@ static void MainGameLayoutFormationButton(W8ButtonWidget* button)
         return;
     }
     g_settings.formation_board_preference = 1;
-    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) {
+    if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_RADAR) {
         g_settings.formation_radar_map_preference = 0;
         g_settings.formation_action_panel_preference = 0;
         SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);

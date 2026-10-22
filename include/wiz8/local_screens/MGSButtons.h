@@ -66,7 +66,7 @@ void ResetSubMenuPanel(void);
 void RedrawRoofButtons(void);
 // Sync roof-button visibility/enabled/pressed state.
 void UpdateRoofButtons(void);
-/* Press the roof button that matches g_settings.main_ui_mode. */
+/* Press the roof button that matches the shown layout mode. */
 void SyncRoofButtonPressedState(void);
 // Draw layout-arrow chrome and the visible raise/lower arrows.
 void RedrawLayoutArrowButtons(void);
