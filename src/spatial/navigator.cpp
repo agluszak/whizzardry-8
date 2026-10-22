@@ -1622,8 +1622,8 @@ std::vector<Navigator*> Navigator::CollectGroupNavigators() const
         int location_id = group->MemberLocationId(member);
         if (location_id != movement.location_id) {
             monster_info = population.findMonster(location_id);
-            if (monster_info && monster_info->entity.find())
-                navigators.push_back(&monster_info->entity->nav);
+            if (Monster* monster = monster_info ? monster_info->entity.find() : nullptr)
+                navigators.push_back(&monster->nav);
         }
     }
 
@@ -1633,8 +1633,8 @@ std::vector<Navigator*> Navigator::CollectGroupNavigators() const
             if (!allied_group) continue;
             for (member = 0; member < allied_group->MemberCount(); ++member) {
                 monster_info = population.findMonster(allied_group->MemberLocationId(member));
-                if (monster_info && monster_info->entity.find())
-                    navigators.push_back(&monster_info->entity->nav);
+                if (Monster* monster = monster_info ? monster_info->entity.find() : nullptr)
+                    navigators.push_back(&monster->nav);
             }
         }
     }
