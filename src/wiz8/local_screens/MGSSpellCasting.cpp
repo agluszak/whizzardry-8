@@ -9,6 +9,7 @@
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -48,6 +49,7 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/CharacterScreen.h"
+#include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -65,12 +67,6 @@
 #include "wiz8/world_cursor.h"
 
 struct W8NpcState;
-
-/* The first realm skill id; character->skill_unlocks[first + realm] counts
-   the spells known in that realm. */
-
-/* Realm-name string ids for the spell-casting realm-button tooltips. */
-static int g_spell_realm_help_string_ids[6] = {0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c};
 
 W8SpellCastingView* SpellPicker()
 {
@@ -95,7 +91,9 @@ unsigned int W8SpellCastingView::AffordablePowerLevels() const
 /* Builds the three spell-casting panels and all of their controls: the six
    realm buttons with their animated icons, the nine power-level pips, the
    spell-name label and the cancel button. */
-void W8SpellCastingView::CreateControls()
+W8SpellCastingView::W8SpellCastingView(MainGameScreen& screen, W8Character& caster,
+                                       std::move_only_function<void()> on_return)
+    : screen(screen), caster(&caster), on_return(std::move(on_return))
 {
     const auto make_button = [this](int artwork, const std::array<int, 5>& frames, SDL_Rect bounds,
                                     int help, std::function<void()> action,
@@ -129,7 +127,7 @@ void W8SpellCastingView::CreateControls()
             [this, realm] { SelectRealm(static_cast<W8SpellRealm>(realm)); },
             [this](bool) { Repaint(0); });
         const auto tooltip = [this, realm] {
-            const auto& name = Data().strings[g_spell_realm_help_string_ids[realm]];
+            const auto& name = Data().strings[0x27 + realm];
             if (!realm_buttons[realm]->IsEnabled()) return std::string(name);
             return fmt::format("{} ({}: {:d})", name, Data().strings[0x2d],
                                caster->skills[W8_SKILL_FIRE_MAGIC + realm].level);
@@ -196,10 +194,11 @@ bool MainGameScreen::openSpellPicker(int party_slot, std::move_only_function<voi
     if (!IsPartySlotEligible(party_slot)) {
         return false;
     }
-    UpdateScreenOverlays(0);
-    auto& view =
-        *(spell_picker = std::make_unique<W8SpellCastingView>(*this, std::move(on_return)));
-    view.CreateControls();
+    // A new detour keeps its already-suspended parent; replacement abandons the old one.
+    if (spell_picker || item_picker || lock_active || trap_active) dismissOverlays(false);
+    if (FormationPanelOpen()) CloseFormationPanel();
+    auto& view = *(spell_picker = std::make_unique<W8SpellCastingView>(
+                       *this, game.party.characters[party_slot], std::move(on_return)));
     if (hud->open_submenu) {
         DestroySubMenuControls();
     }
@@ -220,13 +219,15 @@ bool MainGameScreen::openSpellPicker(int party_slot, std::move_only_function<voi
     hud->repaint.layout = true;
     hud->repaint.roof_and_spell_icons = true;
     hud->repaint.submenu_buttons = true;
-    return true;
+    return spell_picker != nullptr;
 }
 
 /* Discard the picker and restore the HUD it took over. */
 void MainGameScreen::dismissSpellPicker()
 {
     if (!spell_picker) return;
+    const UiTransaction transaction;
+    OpenModal(nullptr);
     spell_picker->input.setEnabled(false);
     SetTextBoxScrollInput(false);
     SetTargetingMode(W8_TARGET_NEED_NONE);
@@ -236,7 +237,7 @@ void MainGameScreen::dismissSpellPicker()
     hud->text_box_visible = true;
     SelectTextBox(game.combat.has_value());
     SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
-    spell_picker.reset();
+    DestroyAfterUiDispatch(std::move(spell_picker));
     refreshLayout();
     hud->repaint.layout = true;
     hud->repaint.roof_and_spell_icons = true;
@@ -254,15 +255,6 @@ void MainGameScreen::closeSpellPicker()
     if (on_return) on_return();
 }
 
-/* Re-enables the region set and inputs the spell-casting view owns. */
-void RestoreSpellCastingRegions()
-{
-    SetTextBoxEnabled(true);
-    SetTextBoxScrollInput(true);
-    SetTextBoxMuteInput(false);
-    SetTextBoxChannelTabInput(false);
-}
-
 /* Shared choice reset for caster/realm changes and a cancelled dialog.
    This descriptive helper keeps the view open and retains callback order. */
 void W8SpellCastingView::ClearChoice()
@@ -274,7 +266,7 @@ void W8SpellCastingView::ClearChoice()
     dialog_confirmed = false;
     UpdatePowerPips();
     SelectSpellCastingPartySlot(CharacterPointerToPartySlot(caster), draft);
-    if (auto* hud = screen.hud.get()) hud->repaint.layout = true;
+    screen.hud->repaint.layout = true;
 }
 
 /* Points the view at a new caster: rebuilds the learned-spell buckets and the
@@ -284,8 +276,8 @@ void W8SpellCastingView::SelectCharacter(int party_slot)
 {
     W8SpellRealm realm;
 
-    if (!CharacterHasCastableSpell(&screen.game.party.characters[party_slot]) ||
-        !IsPartySlotEligible(party_slot)) {
+    if (!IsPartySlotEligible(party_slot) ||
+        !CharacterHasCastableSpell(&screen.game.party.characters[party_slot])) {
         ResetEditorStatusLine(-1);
         screen.closeSpellPicker();
         return;
@@ -475,7 +467,7 @@ void W8SpellCastingView::RebuildList(int spell_id)
         SelectListRow(selected);
         ScrollTextBoxTo(selected);
     }
-    if (auto* hud = screen.hud.get()) hud->repaint.text_box = true;
+    screen.hud->repaint.text_box = true;
 }
 
 /* Recolours one spell-list line; -1 keeps the row's own color, or the
@@ -509,7 +501,7 @@ void W8SpellCastingView::SelectRow(int index)
         if (selected_spell_index != -1) {
             SetLineColor(selected_spell_index, -1);
             selected_spell_index = -1;
-            if (auto* hud = screen.hud.get()) hud->repaint.text_box = true;
+            screen.hud->repaint.text_box = true;
             return;
         }
     } else {
@@ -520,7 +512,7 @@ void W8SpellCastingView::SelectRow(int index)
         SetLineColor(index, 5);
         selected_spell_index = index;
     }
-    if (auto* hud = screen.hud.get()) hud->repaint.text_box = true;
+    screen.hud->repaint.text_box = true;
 }
 
 /* Opens the spell-casting view for the selected character with the given
@@ -542,7 +534,7 @@ void W8SpellCastingView::SelectSpell(int spell_id)
 
 void W8SpellCastingView::Repaint(int panel)
 {
-    if (screen.hud) screen.hud->repaint.mode_panels.set(panel);
+    screen.hud->repaint.mode_panels.set(panel);
 }
 
 /* Before the draw: a changed widget repaints its panel, and a repainted power
@@ -595,11 +587,6 @@ void W8SpellCastingView::PaintPanels(std::bitset<7> panels)
             spell_name.RenderToTarget(0, true, target);
         }
     }
-}
-
-void SpellCastingNoticeClosed(bool)
-{
-    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
 }
 
 /* Switches the view to another realm: the old realm's icon returns to its
@@ -781,7 +768,7 @@ void W8SpellCastingView::Cancel()
 
 /* Per-frame spell-casting pump: advances the selected realm's icon animation
    on its own clock, then lets a ready cast commit. */
-void W8SpellCastingView::Update()
+bool W8SpellCastingView::Update()
 {
     if (iSpellRealm != W8_SPELL_REALM_NONE) {
         if (TimeUntilDeadline(realm_anim_timer) == 0) {
@@ -793,7 +780,7 @@ void W8SpellCastingView::Update()
             realm_anim_timer = MonotonicMilliseconds() + (0x32);
         }
     }
-    TryCommit();
+    return ReadyToCommit();
 }
 
 UiResult W8SpellCastingView::HandleTextBox(const UiPointerEvent& event)
@@ -863,61 +850,75 @@ void W8SpellCastingView::SelectListRow(int index)
         return;
     }
     draft.detail = spell_id;
-    needed = GetTargetNeededForSpellFriendly(spell_id, false, !screen.hud);
+    needed = GetTargetNeededForSpellFriendly(spell_id, false, false);
     target_type = GetSpellTargetType(spell_id, false);
     ConfigureSpellTargetFilter(target_type, needed, &draft);
     SelectPowerLevel(-1);
     UpdatePowerPips();
-    if (auto* hud = screen.hud.get()) hud->repaint.layout = true;
+    screen.hud->repaint.layout = true;
 }
 
 /* Lets a fully priced spell commit once its target is valid; spells 0x49 and
    0x4b first raise a confirmation notice unless one was already answered. */
-void W8SpellCastingView::TryCommit()
+bool W8SpellCastingView::ReadyToCommit()
 {
     bool ready;
 
     ready = false;
     if (draft.detail != 0 &&
         (draft.detail_block.spell.power_level != 0 || PowerClass() == W8_SPELL_POWER_FIXED)) {
-        ready = IsSpellTargetOfNeededKind(&draft.target, draft.detail, !screen.hud);
+        ready = IsSpellTargetOfNeededKind(&draft.target, draft.detail, false);
     }
-    const auto result = [this](bool accepted) { DialogResult(accepted); };
-    if (draft.detail == 0x4b && !dialog_confirmed) {
+    const auto result = [owner = &screen, picker = this](bool accepted) {
+        if (owner->spell_picker.get() == picker) picker->DialogResult(accepted);
+    };
+    if (draft.detail == W8_SPELL_SET_PORTAL && !dialog_confirmed) {
         if (!IsModalOpen() && caster->has_saved_location) {
             ShowMainGameNoticeLine(Data().strings[0x7a4], result, true, true);
         }
-    } else if (draft.detail == 0x49 && !dialog_confirmed && !IsModalOpen()) {
+    } else if (draft.detail == W8_SPELL_RETURN_TO_PORTAL && !dialog_confirmed && !IsModalOpen()) {
         ShowMainGameNoticeLine(Data().strings[0x7a5], result, true, true);
     }
-    if (ready && !IsModalOpen()) {
-        if (draft.detail != 0x17) {
-            if (screen.game.activity.conversation_aside) {
-                ResetEditorStatusLine(-1);
-            }
-            // Commit a copy: casting may close the picker.
-            const auto chosen = draft;
-            SetCharacterSpell(caster, chosen);
-            screen.closeSpellPicker();
-            return;
-        }
+    return ready && !IsModalOpen();
+}
+
+void MainGameScreen::updateSpellPicker()
+{
+    auto* picker = spell_picker.get();
+    if (!picker) return;
+    const UiTransaction transaction;
+    if (!picker->Update() || spell_picker.get() != picker) return;
+    const auto chosen = picker->draft;
+    auto* caster = picker->caster;
+    if (chosen.detail == W8_SPELL_IDENTIFY_ITEM) {
         OpenCharacterScreenForPartySlot(CharacterPointerToPartySlot(caster), true);
+        return;
     }
+    if (game.activity.conversation_aside) ResetEditorStatusLine(-1);
+    SetCharacterSpell(caster, chosen);
+    // Gameplay may retire this picker or open another. Never close its replacement.
+    if (spell_picker.get() == picker) closeSpellPicker();
 }
 
 /* Shows why the supplied spell cannot be cast without editing the draft. */
 void W8SpellCastingView::ShowError(int spell_id)
 {
+    std::optional<int> reason;
     if (!SpellUsableNow(spell_id, false)) {
-        ShowMainGameNoticeLine(Data().strings[0x79e], SpellCastingNoticeClosed, true, false);
+        reason = 0x79e;
     } else if (GetCharacterRealmSpellPoints(caster, iSpellRealm) <
                Data().spells[spell_id].spell_point_cost) {
-        ShowMainGameNoticeLine(Data().strings[0x7a0], SpellCastingNoticeClosed, true, false);
+        reason = 0x7a0;
     } else if (!SpellHasAnyValidTarget(CharacterPointerToPartySlot(caster), spell_id, false)) {
-        ShowMainGameNoticeLine(Data().strings[0x7a1], SpellCastingNoticeClosed, true, false);
+        reason = 0x7a1;
     } else if (IsTeleportCastMissingAnchor(caster, spell_id)) {
-        ShowMainGameNoticeLine(Data().strings[0x7a2], SpellCastingNoticeClosed, true, false);
+        reason = 0x7a2;
     } else if (IsSpellBlockedForCharacter(caster, spell_id)) {
-        ShowMainGameNoticeLine(Data().strings[0x79f], SpellCastingNoticeClosed, true, false);
+        reason = 0x79f;
+    }
+    if (reason) {
+        ShowMainGameNoticeLine(
+            Data().strings[*reason], [owner = &screen](bool) { owner->hud->repaint.layout = true; },
+            true, false);
     }
 }

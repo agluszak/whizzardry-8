@@ -4,6 +4,7 @@
 #include <bitset>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "wiz8/layouts/main_game_screen.h"
@@ -23,10 +24,10 @@ struct W8ItemInstance;
    cancelled. Abandoning the screen discards the picker without running it. */
 class W8UseItemView {
 public:
-    W8UseItemView(MainGameScreen& screen, std::move_only_function<void()> on_return);
+    W8UseItemView(MainGameScreen& screen, int party_slot,
+                  std::move_only_function<void()> on_return);
 
-    W8Action draft{W8_ACTION_USE_ITEM, -1};
-    std::move_only_function<void()> on_return;
+    W8Action& action() { return draft; }
 
     void SetInputEnabled(bool enabled) { input.setEnabled(enabled); }
     /* Retarget the list at party_slot (drag, recorded item, or plain refresh
@@ -41,32 +42,31 @@ public:
        requested ones. */
     void UpdatePanels(std::bitset<7>& panels);
     void PaintPanels(std::bitset<7> panels);
-    /* Per frame: hand a ready use to its character. */
-    void Commit();
     /* Text-box body input and wheel rotation while the picker is open. */
     UiResult HandleTextBox(const UiPointerEvent& event);
     void TextBoxWheelAt(unsigned short y);
     void SelectCurrentLine() { SelectLine(selected_line); }
 
 private:
+    friend struct MainGameScreen;
+    W8Action draft{W8_ACTION_USE_ITEM, -1};
+    std::move_only_function<void()> on_return;
     enum class Pool { Character, Party, Hand };
     struct Row {
-        W8ItemInstance* item;
         W8ItemLocation location;
         bool usable;
     };
 
     // Request a panel's repaint.
     void Repaint(int panel);
-    void CreateControls();
     void SelectPool(Pool pool);
     void Rebuild(Pool pool, W8ItemInstance* select);
     void AppendEntry(W8ItemLocation location);
     void ShowList(W8ItemInstance* select);
     bool IsFilteredOut(W8ItemInstance* item) const;
     void SelectLine(int line);
-    void OpenAssayDialog(W8ItemInstance* item);
-    void UpdateDetailPanel(W8ItemInstance* item);
+    void OpenAssayDialog(W8ItemLocation location);
+    void UpdateDetailPanel(W8ItemLocation location);
     void TakeIntoHand();
 
     // The screen that owns the picker, and through it the game it uses items in.
@@ -74,9 +74,9 @@ private:
     Pool pool = Pool::Character;
     int selected_line = -1;
     // The party slot using the item; it follows the selected character.
-    int owner = -1;
+    int owner;
     int hover_row = -1;
-    W8ItemInstance* detail_item = nullptr;
+    std::optional<W8ItemLocation> detail_location;
     std::vector<Row> rows;
     UiLayer input{UiLayerOrder::ItemSelection};
     std::array<std::unique_ptr<W8ButtonWidget>, 2> pools;

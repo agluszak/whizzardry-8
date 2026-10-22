@@ -212,7 +212,7 @@ void OpenSubMenuPanel(short notification)
     if (MainGameHud()->open_submenu) {
         DestroySubMenuControls();
     }
-    UpdateScreenOverlays(0);
+    MainGame()->dismissOverlays(false);
     if (!BuildSubMenuPanel(notification)) {
         DestroySubMenuControls();
     }

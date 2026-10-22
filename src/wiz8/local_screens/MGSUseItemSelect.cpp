@@ -23,6 +23,7 @@
 #include "wiz8/combat/fight.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/fonts.h"
@@ -40,6 +41,7 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
+#include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -69,13 +71,9 @@ W8UseItemView* UseItemPicker()
     return main_game ? main_game->item_picker.get() : nullptr;
 }
 
-W8UseItemView::W8UseItemView(MainGameScreen& screen, std::move_only_function<void()> on_return)
-    : on_return(std::move(on_return)), screen(screen)
-{
-    CreateControls();
-}
-
-void W8UseItemView::CreateControls()
+W8UseItemView::W8UseItemView(MainGameScreen& screen, int party_slot,
+                             std::move_only_function<void()> on_return)
+    : on_return(std::move(on_return)), screen(screen), owner(party_slot)
 {
     const auto make_button = [this](int artwork, int normal, int pressed, int hover,
                                     int pressed_hover, int disabled, SDL_Rect bounds, int help,
@@ -119,7 +117,7 @@ void W8UseItemView::CreateControls()
             event.button == UiPointerButton::Right ? SDL_BUTTON_RMASK : SDL_BUTTON_LMASK;
         if (event.action == UiPointerAction::Up && event.inside && (event.captured_buttons & mask))
             AfterUiDispatch([this] {
-                if (detail_item && item_image) OpenAssayDialog(detail_item);
+                if (detail_location && item_image) OpenAssayDialog(*detail_location);
             });
         return UiResult::Handled;
     });
@@ -128,8 +126,11 @@ void W8UseItemView::CreateControls()
 
 bool MainGameScreen::openItemPicker(int party_slot, std::move_only_function<void()> on_return)
 {
-    UpdateScreenOverlays(0);
-    item_picker = std::make_unique<W8UseItemView>(*this, std::move(on_return));
+    if (!IsPartySlotEligible(party_slot)) return false;
+    // A new detour keeps its already-suspended parent; replacement abandons the old one.
+    if (spell_picker || item_picker || lock_active || trap_active) dismissOverlays(false);
+    if (FormationPanelOpen()) CloseFormationPanel();
+    item_picker = std::make_unique<W8UseItemView>(*this, party_slot, std::move(on_return));
     if (hud->open_submenu) {
         DestroySubMenuControls();
     }
@@ -143,20 +144,23 @@ bool MainGameScreen::openItemPicker(int party_slot, std::move_only_function<void
     hud->repaint.submenu_buttons = true;
     item_picker->RefreshForSlot(party_slot);
     if (item_picker) SelectSpellCastingPartySlot(party_slot, item_picker->draft);
-    return true;
+    return item_picker != nullptr;
 }
 
 /* Discard the picker and restore the HUD it took over. */
 void MainGameScreen::dismissItemPicker()
 {
     if (!item_picker) return;
+    const UiTransaction transaction;
+    OpenModal(nullptr);
     SetTextBoxScrollInput(false);
     SetTextBoxEnabled(false);
     SetTargetingMode(W8_TARGET_NEED_NONE);
     ResetEditorStatusLine(-1);
     hud->text_box_visible = true;
     SelectTextBox(game.combat.has_value());
-    item_picker.reset();
+    item_picker->SetInputEnabled(false);
+    DestroyAfterUiDispatch(std::move(item_picker));
     refreshLayout();
     hud->repaint.layout = true;
     hud->repaint.roof_and_spell_icons = true;
@@ -221,7 +225,7 @@ void W8UseItemView::RefreshForSlot(int party_slot)
 
 void W8UseItemView::Repaint(int panel)
 {
-    if (screen.hud) screen.hud->repaint.mode_panels.set(panel);
+    screen.hud->repaint.mode_panels.set(panel);
 }
 
 void W8UseItemView::UpdatePanels(std::bitset<7>& panels)
@@ -279,21 +283,22 @@ void W8UseItemView::UpdatePoolButtons()
     pools[1]->SetPressed(pool == Pool::Party);
 }
 
-// Commit a copy of the draft; execution may close the picker. Identify keeps
-// the view available for its second selection step.
-void W8UseItemView::Commit()
+// The owner commits values; gameplay may discard or replace its picker.
+void MainGameScreen::updateItemPicker()
 {
-    const auto chosen = draft;
-    auto* item = screen.game.party.itemAt(chosen.detail_block.item_use.item);
-    const int slot = owner;
+    auto* picker = item_picker.get();
+    if (!picker) return;
+    const UiTransaction transaction;
+    const auto chosen = picker->draft;
+    auto* item = game.party.itemAt(chosen.detail_block.item_use.item);
+    const int slot = picker->owner;
     if (!item || !CanUseItemForAction(slot, item) ||
         !IsItemTargetOfNeededKind(&chosen.target, item))
         return;
-
+    const bool identify = GetItemSpell(item) == W8_SPELL_IDENTIFY_ITEM;
     StartBreathCycle(slot, true);
     SetCharacterItemUse(slot, chosen);
-    if (item->iItemNo != -1 && GetItemSpell(item) == 0x17) return;
-    screen.closeItemPicker();
+    if (!identify && item_picker.get() == picker) closeItemPicker();
 }
 
 // Rebuild from the selected inventory source; usable entries retain inventory order.
@@ -302,7 +307,7 @@ void W8UseItemView::Rebuild(Pool source, W8ItemInstance* select)
     ResetEditorStatusLine(2);
     ClearSelectedTextLine(2);
     draft.detail_block.item_use.item = {};
-    detail_item = 0;
+    detail_location.reset();
     item_image.reset();
     quantity.SetText("", g_large_font);
     Repaint(2);
@@ -338,7 +343,7 @@ void W8UseItemView::AppendEntry(W8ItemLocation location)
     if (!usable && (screen.game.activity.conversation_aside || LockInteractionSuspended() ||
                     TrapInteractionSuspended()))
         return;
-    rows.push_back({item, location, usable});
+    rows.push_back({location, usable});
 }
 
 void W8UseItemView::ShowList(W8ItemInstance* select)
@@ -348,7 +353,8 @@ void W8UseItemView::ShowList(W8ItemInstance* select)
     if (rows.size() > 350) rows.resize(350);
     selected_line = -1;
     for (std::size_t index = 0; index < rows.size(); ++index) {
-        const auto [item, location, usable] = rows[index];
+        const auto [location, usable] = rows[index];
+        auto* item = screen.game.party.itemAt(location);
         if (item == select) selected_line = static_cast<int>(index);
         if (!usable) {
             const bool silenced =
@@ -418,20 +424,23 @@ bool W8UseItemView::IsFilteredOut(W8ItemInstance* item) const
 void W8UseItemView::Refresh()
 {
     Rebuild(pool, nullptr);
-    if (auto* hud = screen.hud.get()) hud->repaint.layout = true;
+    screen.hud->repaint.layout = true;
 }
 
 /* Right release on the use-item text box: open the assay dialog for the item
    on the clicked row. Cleanup restores the saved target cursor. */
-void W8UseItemView::OpenAssayDialog(W8ItemInstance* item)
+void W8UseItemView::OpenAssayDialog(W8ItemLocation location)
 {
+    auto* item = screen.game.party.itemAt(location);
+    if (!item || item->iItemNo == -1) return;
     auto dialog = std::make_unique<W8AssayDialog>(*item, &screen.game.party.characters[owner],
                                                   SDL_Point{kInfoDialogX, 0x48});
     dialog->SetText("");
 
-    dialog->cleanup = [pointer = ScreenPointer().request()] {
-        ScreenPointer().restore(pointer);
-        if (auto* hud = MainGameHud()) hud->repaint.everything = true;
+    dialog->cleanup = [owner = &screen, picker = this, pointer = screen.pointer.request()] {
+        if (owner->item_picker.get() != picker) return;
+        owner->pointer.restore(pointer);
+        owner->hud->repaint.everything = true;
     };
     OpenModal(std::move(dialog));
 }
@@ -453,8 +462,8 @@ UiResult W8UseItemView::HandleTextBox(const UiPointerEvent& event)
         if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK)) {
             const int row = event.local.y / 11;
             if (row >= 0 && row < static_cast<int>(screen.game.status.text_box_lines_shown[2])) {
-                const auto item = rows[screen.hud->text_lines[2] + row].item;
-                if (item) AfterUiDispatch([this, item] { OpenAssayDialog(item); });
+                const auto location = rows[screen.hud->text_lines[2] + row].location;
+                AfterUiDispatch([this, location] { OpenAssayDialog(location); });
             }
         }
     }
@@ -482,13 +491,15 @@ void W8UseItemView::SelectLine(int iTextLine)
     assert(iTextLine >= 0);
     assert(iTextLine < static_cast<int>(rows.size()));
     SetTargetingMode(W8_TARGET_NEED_NONE);
-    UpdateDetailPanel(rows[iTextLine].item);
-    if (ValidateItemSpellUse(owner, rows[iTextLine].item, SpellCastingNoticeClosed, true)) {
+    UpdateDetailPanel(rows[iTextLine].location);
+    if (ValidateItemSpellUse(
+            owner, screen.game.party.itemAt(rows[iTextLine].location),
+            [owner = &screen](bool) { owner->hud->repaint.layout = true; }, true)) {
         QueueCharacterEvent(&screen.game.party.characters[owner], 0x35, 0,
                             kCharacterEventFullVolume);
         return;
     }
-    auto* item = rows[iTextLine].item;
+    auto* item = screen.game.party.itemAt(rows[iTextLine].location);
     const auto location = rows[iTextLine].location;
     draft.detail_block.item_use.item = location;
     draft.detail_block.item_use.item_id = item->iItemNo;
@@ -511,14 +522,15 @@ void W8UseItemView::SelectLine(int iTextLine)
     RedrawTextBox();
     target_type = GetSpellTargetType(GetItemSpell(item),
                                      ItemClassNormalizesTarget(&Data().items[item->iItemNo]));
-    ConfigureSpellTargetFilter(target_type, GetTargetNeededForItem(item, !screen.hud), &draft);
+    ConfigureSpellTargetFilter(target_type, GetTargetNeededForItem(item, false), &draft);
 }
 
 /* Show the item in the detail control: its catalog icon plus a quantity line -
    stack counts only past one, uses/charges always once the item is identified,
    '?' while it still is not. */
-void W8UseItemView::UpdateDetailPanel(W8ItemInstance* item)
+void W8UseItemView::UpdateDetailPanel(W8ItemLocation location)
 {
+    auto* item = screen.game.party.itemAt(location);
     std::string text;
     std::string value;
     short count;
@@ -556,7 +568,7 @@ void W8UseItemView::UpdateDetailPanel(W8ItemInstance* item)
     }
     quantity.SetText(value, g_wiz_text_font_secondary);
     Repaint(2);
-    detail_item = item;
+    detail_location = location;
 }
 
 /* Move the selected item into the cursor hand. When the hand is already

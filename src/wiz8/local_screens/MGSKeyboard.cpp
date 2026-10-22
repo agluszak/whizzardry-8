@@ -231,7 +231,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         } else if (auto* picker = SpellPicker()) {
             picker->Cancel();
         } else if (IsLockInteractionActive()) {
-            EndLockInteractMode(0);
+            EndLockInteractMode(false);
         } else if (UseItemPicker()) {
             MainGame()->closeItemPicker();
         } else if (ScreenPointer().targeting() != W8_TARGET_NEED_NONE) {
@@ -635,7 +635,7 @@ void MainGameScreen::openKeyboardMenu(int slot)
     keyboard_menu.reset();
     SelectPartyCharacter(slot);
     keyboard_menu = std::make_unique<KeyboardActionMenu>(*this, slot);
-    UpdateScreenOverlays(0);
+    dismissOverlays(false);
     DisableMainGamePortraitSlot(slot);
     edge_targets[slot]->setEnabled(false);
     combat_targets[slot]->setEnabled(false);

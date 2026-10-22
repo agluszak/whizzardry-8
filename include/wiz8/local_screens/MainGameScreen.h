@@ -1,10 +1,14 @@
 #pragma once
 #include <array>
 #include <bitset>
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
+#include <unordered_set>
+#include <vector>
 
 #include <SDL3/SDL_keycode.h>
 
@@ -12,6 +16,7 @@
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/npc_dialogue_panel.h"
 #include "wiz8/modal_content.h"
@@ -58,6 +63,8 @@ struct MainGameScreen final : Screen {
     // Discard the picker, then run its opener's return.
     void closeSpellPicker();
     void closeItemPicker();
+    // Abandon overlays for a replacement or screen/combat transition.
+    void dismissOverlays(bool suspend_interaction);
     // Discard the picker without returning to its opener.
     void dismissSpellPicker();
     void dismissItemPicker();
@@ -153,6 +160,9 @@ struct MainGameScreen final : Screen {
     HitTarget *radar_target = nullptr, *monster_list = nullptr, *world_view = nullptr;
 
 private:
+    // Advance choices and commit them from their owner, not from a retiring view.
+    void updateSpellPicker();
+    void updateItemPicker();
     MainGameLayout applied_layout;
 
     void chooseRoofMode(W8MainUiMode mode);
@@ -203,10 +213,8 @@ extern DesignRect g_viewport_modes[];
 /* String-list ids naming each trap row; Traps.cpp indexes it with the
    trigger's trap type for the disarm/spring notices. */
 extern unsigned short g_trap_name_string_ids[];
-#include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/Screens.h"
@@ -287,10 +295,10 @@ private:
     bool m_dirty = true;
 };
 
-/* The NPC dialogue keyword transcript. */
+// A view of the owning game's notebook, not a second keyword collection.
 class W8NpcDialogueTextController {
 public:
-    W8NpcDialogueTextController();
+    explicit W8NpcDialogueTextController(Game& game);
     void Redraw(SDL_Surface& target, bool full_redraw);
     void InvalidateAll() { m_dirty = true; }
     void InvalidateLayout() { m_dirty = true; }
@@ -299,44 +307,35 @@ public:
     bool m_active = false, m_dirty = true;
     bool HandleScrollDownCommand(bool check_only);
     bool HandleScrollUpCommand(bool check_only);
-    /* Show one notebook keyword as a line; a marked line is drawn as new, and
-       any leftover "[No Keywords]" placeholder is removed afterwards. */
-    void AddTranscriptEntry(std::string_view text, W8DialogueCategory category, bool marked);
-    /* Whether the expanded transcript's top edge reaches above the portrait
-       band for an odd party slot (1 -> 0x67, 3 -> 0xbc, 5 -> 0x111, 7 ->
-       always covered). Callers use it to skip portrait work on rows the
-       open transcript covers. */
+    void MarkNewKeyword(std::string_view text);
     bool IsSlotPortraitTranscriptCovered(unsigned int party_slot);
-    /* Re-apply the category filter, rebuild the expansion and restate the
-       scroll widgets. */
-    void SetTranscriptCategoryFilter(W8DialogueCategory category);
-    /* Show every notebook keyword as a line, adding the "[No Keywords]"
-       placeholder and forcing the all filter when the notebook is empty. */
+    void RefreshNotebook();
     void ShowTranscriptEntries();
-    void HighlightFirstEntry() { text_area.SelectEntry(text_area.m_first_visible_entry); }
-    /* Drop every transcript line from the text area and invalidate. */
+    void HighlightFirstEntry();
+    void ClearHover();
     void ClearTranscriptEntries();
-    /* Whether the lines currently show the notebook, between
-       ShowTranscriptEntries and ClearTranscriptEntries. */
     bool showing_notebook = false;
     int GetSelectedTranscriptEntryIndex();
-    void SetTranscriptSorted(bool sorted);
     void RemoveSelectedTranscriptEntry();
-    /* Open the transcript upward to fit its lines (capped at 0xff pixels)
-       and enable its scroll region. */
     void Expand();
-    /* Shrink the transcript back to one line, clearing and redrawing the
-       area it covered. */
     void Collapse();
-    /* Clear and redraw the backdrop the transcript covers. */
     void ClearBackground();
     bool IsExpanded();
     int visible;
     int line_height;
     int margin;
     int scroll_height;
-    W8DialogTextArea text_area;
     void SelectTranscriptKeywordAtPoint(int x, int y);
+
+private:
+    std::vector<std::size_t> VisibleKeywords() const;
+    std::optional<std::size_t> HitKeyword(int y) const;
+    void PaintKeywords(SDL_Surface& target);
+    Game& game;
+    W8ControlsRect bounds{};
+    std::size_t first = 0;
+    std::optional<std::size_t> hovered, selected;
+    std::unordered_set<std::string> marked;
 };
 
 class W8LockInteraction;
@@ -629,9 +628,9 @@ void PopulateNpcTradeList(void);
    refused or offended script path. */
 // Redraw the formation panel when asked or when one of its buttons changed.
 void RefreshFormationPanel(bool force);
-void EndLockInteractMode(signed char suspend);
+void EndLockInteractMode(bool suspend);
 void UpdateTrapInteraction(void);
-void EndTrapInteractMode(signed char suspend);
+void EndTrapInteractMode(bool suspend);
 int GetPartySlotLocksTrapsLevel(int slot);
 int OpenLockInteraction(Trigger* trigger);
 int OpenTrapInteraction(Trigger* trigger);
@@ -645,7 +644,6 @@ void SetCombatAction(int value);
 void SetCombatSelection(int value);
 void SetCombatTarget(int value);
 
-void UpdateScreenOverlays(int frame);
 bool LoadCurrentLevelData(void);
 void ResetMainGameMode(void);
 void CreateSurpriseFade(void);

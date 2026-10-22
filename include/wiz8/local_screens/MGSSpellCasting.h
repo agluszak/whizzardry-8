@@ -27,11 +27,29 @@ inline constexpr int W8_SPELL_POWER_PIP_COUNT = 9;
    `on_return`, which the screen runs once a cast is chosen or the picker is
    cancelled. Abandoning the screen discards the picker without running it. */
 struct W8SpellCastingView {
-    W8SpellCastingView(MainGameScreen& screen, std::move_only_function<void()> on_return)
-        : screen(screen), on_return(std::move(on_return))
-    {
-    }
+    W8SpellCastingView(MainGameScreen& screen, W8Character& caster,
+                       std::move_only_function<void()> on_return);
+    // The targeting editor edits this choice; controls and cached presentation stay private.
+    W8Action& action() { return draft; }
 
+    /* Point the picker at a new caster, closing it when the caster cannot cast. */
+    void SelectCharacter(int party_slot);
+    /* Select the spell's realm and list row. */
+    void SelectSpell(int spell_id);
+    void SelectPowerLevel(int power_level);
+    /* Before the draw, add the panels whose widgets changed to `panels`; the draw
+       then paints the requested ones. */
+    void UpdatePanels(std::bitset<7>& panels);
+    void PaintPanels(std::bitset<7> panels);
+    /* Per frame: advance the realm icon and report a choice ready for the owner. */
+    bool Update();
+    /* Text-box body input while the picker is open. */
+    UiResult HandleTextBox(const UiPointerEvent& event);
+    /* The cancel button: close and return to the opener. */
+    void Cancel();
+
+private:
+    friend struct MainGameScreen;
     // The screen that owns the picker, and through it the game it casts in.
     MainGameScreen& screen;
     UiLayer input{UiLayerOrder::SpellCasting};
@@ -39,8 +57,8 @@ struct W8SpellCastingView {
     W8Character* caster = nullptr;
     W8SpellRealm iSpellRealm = W8_SPELL_REALM_NONE; /* selected realm, -1 when none */
     W8Action draft{W8_ACTION_CAST_SPELL, 0};
-    uint64_t realm_anim_timer;
-    unsigned int realm_anim_frame;
+    uint64_t realm_anim_timer = 0;
+    unsigned int realm_anim_frame = 0;
     W8LearnedSpellState learned;
     int uiSpellIndex = -1; /* clicked list row */
     int selected_spell_index = -1;
@@ -58,27 +76,8 @@ struct W8SpellCastingView {
     bool dialog_confirmed = false;
     std::move_only_function<void()> on_return;
 
-    /* Build the three panels' controls. */
-    void CreateControls();
     W8SpellPowerClass PowerClass() const;
     unsigned int AffordablePowerLevels() const;
-    /* Point the picker at a new caster, closing it when the caster cannot cast. */
-    void SelectCharacter(int party_slot);
-    /* Select the spell's realm and list row. */
-    void SelectSpell(int spell_id);
-    void SelectPowerLevel(int power_level);
-    /* Before the draw, add the panels whose widgets changed to `panels`; the draw
-       then paints the requested ones. */
-    void UpdatePanels(std::bitset<7>& panels);
-    void PaintPanels(std::bitset<7> panels);
-    /* Per frame: advance the realm icon and commit a ready cast. */
-    void Update();
-    /* Text-box body input while the picker is open. */
-    UiResult HandleTextBox(const UiPointerEvent& event);
-    /* The cancel button: close and return to the opener. */
-    void Cancel();
-
-private:
     // Request a panel's repaint.
     void Repaint(int panel);
     void UpdateRealmPointDisplays();
@@ -95,13 +94,9 @@ private:
     void PreviewPowerPipHover(int power_level);
     void DialogResult(bool accepted);
     void SelectListRow(int index);
-    void TryCommit();
+    bool ReadyToCommit();
     void ShowError(int spell_id);
 };
 
 /* The main game's open spell picker, or null. */
 W8SpellCastingView* SpellPicker();
-void RestoreSpellCastingRegions(void);
-
-/* Destroy callback for the spell/use-item reason notices. */
-void SpellCastingNoticeClosed(bool);

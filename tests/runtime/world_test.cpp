@@ -416,14 +416,22 @@ void CheckTwoWorldViews(GameHarness& game)
     auto& scene = *GetWorld()->scene;
     struct ParticleState {
         ParticleSystem* system;
-        unsigned active, emitted, integration_tick, emission_tick;
+        std::ptrdiff_t active;
+        unsigned emitted, integration_tick, emission_tick;
         std::vector<glm::vec3> positions;
     };
     std::vector<ParticleState> particles;
-    for (auto* system : scene.particles)
-        particles.push_back({system, system->active_particle_count, system->emission_count,
-                             system->last_integration_tick, system->last_emission_tick,
-                             system->particle_positions});
+    for (auto* system : scene.particles) {
+        particles.push_back(
+            {system,
+             std::ranges::count(system->particles, true, &ParticleSystem::Particle::active),
+             system->emission_count,
+             system->last_integration_tick,
+             system->last_emission_tick,
+             {}});
+        for (const auto& particle : system->particles)
+            particles.back().positions.push_back(particle.position);
+    }
     std::vector<std::pair<MeshInstance*, std::pair<unsigned, float>>> poses;
     for (auto* mesh : scene.dynamic_meshes)
         poses.push_back({mesh, {mesh->frame_index, mesh->frame_interpolation}});
@@ -453,11 +461,13 @@ void CheckTwoWorldViews(GameHarness& game)
     REQUIRE(max_channel_difference <= 1);
     REQUIRE(colored > SCREEN_WIDTH * SCREEN_HEIGHT / 16);
     for (const auto& saved : particles) {
-        REQUIRE(saved.system->active_particle_count == saved.active);
+        REQUIRE(std::ranges::count(saved.system->particles, true,
+                                   &ParticleSystem::Particle::active) == saved.active);
         REQUIRE(saved.system->emission_count == saved.emitted);
         REQUIRE(saved.system->last_integration_tick == saved.integration_tick);
         REQUIRE(saved.system->last_emission_tick == saved.emission_tick);
-        REQUIRE(saved.system->particle_positions == saved.positions);
+        REQUIRE(std::ranges::equal(saved.system->particles, saved.positions, {},
+                                   &ParticleSystem::Particle::position));
     }
     for (const auto& [mesh, pose] : poses) {
         REQUIRE(mesh->frame_index == pose.first);
@@ -515,21 +525,21 @@ void CheckGameplayUi(GameHarness& game)
     int returns = 0;
     REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
     game.frame();
-    const auto realm_bounds = SpellPicker()->realm_buttons[realm]->Bounds();
+    constexpr SDL_Point realm_buttons[] = {{0x35, 0x173}, {0x88, 0x173}, {0x29, 0x189},
+                                           {0x94, 0x189}, {0x35, 0x19f}, {0x88, 0x19f}};
+    const auto realm_button = realm_buttons[realm];
     game.move_pointer(0, 200);
     VideoRemoveToolTip();
-    game.move_pointer(realm_bounds.x + 5, realm_bounds.y + 5);
+    game.move_pointer(realm_button.x + 5, realm_button.y + 5);
     ResetUiHelp(false);
     REQUIRE(HasScreenTransitionObjects());
-    game.click("realm", *SpellPicker()->realm_buttons[realm]);
-    REQUIRE(SpellPicker()->iSpellRealm == realm);
-    REQUIRE(SpellPicker()->spells.size() == 1);
+    game.click("realm", SDL_Point{realm_button.x + 5, realm_button.y + 5});
     game.click("choose-spell", kSpellListFirstRow);
-    REQUIRE(SpellPicker()->draft.detail == W8_SPELL_LIGHT);
-    game.click("power-pip", *SpellPicker()->power_controls[1]);
+    REQUIRE(SpellPicker()->action().detail == W8_SPELL_LIGHT);
+    game.click("power-pip", SDL_Point{0x1f4, 0x172});
     if (SpellPicker()) {
-        REQUIRE(SpellPicker()->draft.detail_block.spell.power_level == 2);
-        game.click("cancel-cast", *SpellPicker()->cancel);
+        REQUIRE(SpellPicker()->action().detail_block.spell.power_level == 2);
+        game.click("cancel-cast", SDL_Point{0x23f, 0x171});
         REQUIRE(!SpellPicker());
     } else {
         // Target-free spells may commit in the same frame as power selection.
@@ -543,6 +553,56 @@ void CheckGameplayUi(GameHarness& game)
     MainGame()->dismissSpellPicker();
     REQUIRE_FALSE(SpellPicker());
     REQUIRE(returns == 1);
+    // Replacement abandons the old return; it must not reopen a suspended interaction.
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
+    REQUIRE(MainGame()->openItemPicker(slot, [&] { ++returns; }));
+    REQUIRE_FALSE(SpellPicker());
+    REQUIRE(UseItemPicker());
+    REQUIRE(returns == 1);
+    MainGame()->closeItemPicker();
+    REQUIRE(returns == 2);
+    // Combat/screen transitions discard the return rather than resuming its opener.
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
+    MainGame()->dismissOverlays(false);
+    REQUIRE_FALSE(SpellPicker());
+    REQUIRE(returns == 2);
+    // A pending confirmation belongs to the picker being replaced, not its successor.
+    LearnSpell(&character, W8_SPELL_SET_PORTAL, false);
+    const auto portal_realm = Data().spells[W8_SPELL_SET_PORTAL].realm;
+    character.sp_max[portal_realm] = character.iSPLeft[portal_realm] = 100;
+    character.has_saved_location = true;
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
+    SpellPicker()->SelectSpell(W8_SPELL_SET_PORTAL);
+    REQUIRE(SpellPicker()->action().detail == W8_SPELL_SET_PORTAL);
+    game.frame();
+    REQUIRE(IsModalOpen());
+    REQUIRE(MainGame()->openItemPicker(slot, [&] { ++returns; }));
+    REQUIRE_FALSE(IsModalOpen());
+    REQUIRE(UseItemPicker());
+    REQUIRE(UseItemPicker()->action().kind == W8_ACTION_USE_ITEM);
+    REQUIRE(returns == 2);
+    MainGame()->closeItemPicker();
+    REQUIRE(returns == 3);
+    // Keep a new detour's parent, but do not strand it when that picker is replaced.
+    Trigger trigger;
+    REQUIRE(OpenLockInteraction(&trigger) == 1);
+    auto* lock = MainGame()->lock_interaction.get();
+    REQUIRE(lock);
+    EndLockInteractMode(true);
+    REQUIRE(MainGame()->openItemPicker(slot));
+    REQUIRE(MainGame()->lock_interaction.get() == lock);
+    REQUIRE_FALSE(IsLockInteractionActive());
+    REQUIRE(MainGame()->openSpellPicker(slot));
+    REQUIRE_FALSE(MainGame()->lock_interaction);
+    MainGame()->dismissSpellPicker();
+    REQUIRE(OpenLockInteraction(&trigger) == 1);
+    REQUIRE(IsLockInteractionActive());
+    lock = MainGame()->lock_interaction.get();
+    MainGame()->dismissOverlays(true);
+    REQUIRE(MainGame()->lock_interaction.get() == lock);
+    REQUIRE_FALSE(IsLockInteractionActive());
+    MainGame()->dismissOverlays(false);
+    REQUIRE_FALSE(MainGame()->lock_interaction);
     REQUIRE(CurrentGame().advancement.paused);
     REQUIRE(CurrentGame().advancement.held);
     ToggleMainGamePause();

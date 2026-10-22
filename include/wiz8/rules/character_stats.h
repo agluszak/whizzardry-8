@@ -54,16 +54,12 @@ struct CharacterStatRules {
 };
 
 /* The derived values an operation starts from. The resource transitions compare the new
-   ceilings and weight with it, and swing counts read its damage bonuses: retail scores
-   swings with the bonus its previous calculation left, so the previous calculation is
-   this explicit input. Every pass of one operation reads the same baseline, so the number
-   of passes cannot change the result. */
+   ceilings and weight with it; every pass of one operation reads the same baseline. */
 struct CharacterBaseline {
     int hp_max = 0;
     int stamina_max = 0;
     std::array<int, W8_SPELL_REALM_COUNT> sp_max{};
     unsigned int inventory_weight = 0;
-    std::array<int, 2> damage_bonus{};
 };
 CharacterBaseline CaptureCharacterBaseline(const W8Character& character);
 
@@ -72,8 +68,7 @@ CharacterBaseline CaptureCharacterBaseline(const W8Character& character);
    learned spells, conditions, fatigue band and assigned party weight share: the pool
    ceilings, regeneration rates, damage reduction, resistances, carrying capacity, weight
    and load, initiative, attacks and armor class. Current pools are left alone. */
-void DeriveCharacterStats(const GameData& data, W8Character& character, CharacterStatRules rules,
-                          const CharacterBaseline& baseline);
+void DeriveCharacterStats(const GameData& data, W8Character& character, CharacterStatRules rules);
 
 unsigned int CarryingCapacity(const W8Character& character);
 unsigned int InventoryWeight(const GameData& data, const W8Character& character);
