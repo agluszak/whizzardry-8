@@ -29,15 +29,22 @@ bool TargetSourceIsMonster(const W8TargetSource* source, int allow_indirect);
 signed char GetSourceNoticeColor(const W8TargetSource* source);
 signed char GetTargetNoticeColor(const W8TargetSource* source, const W8CombatSlot* target);
 
-void AimByKind(int actor, W8TargetKind kind, W8EditedAction context);
 void SetMonsterCombatTarget(W8MonsterInfo* monster_info, int location_id);
 bool MonsterTargetMatchesSpell(W8MonsterInfo* monster_info, int spell_id);
 
 void RefreshAllPartyTargets(void);
-bool RepickActionTarget(int party_slot, W8EditedAction context, int arg);
-void AimAtTarget(int actor, const W8CombatSlot* target, W8EditedAction context);
-void AimAtCharacter(int actor, int character_slot, W8EditedAction context);
-void AimAtCharacterIndirect(int actor, int character_slot, W8EditedAction context);
+/* Repick a stored action's target, or a picker's draft target, when the old one no longer
+   holds. Both return whether a monster was found; otherwise the target is cleared. */
+bool RepickActionTarget(int party_slot, W8TargetingContext stored, int arg);
+bool RepickDraftTarget(int party_slot, W8Action& draft);
+/* Commit a target and refresh the presentation of the choice: into the action the slot is
+   editing (see EditedAction), a stored action, or a picker's draft. Only a committed in-combat
+   target is also remembered for its action kind. */
+void AimAtTarget(int actor, const W8CombatSlot& target);
+void AimStoredAction(int actor, W8TargetingContext stored, const W8CombatSlot& target);
+void AimDraft(int actor, W8Action& draft, const W8CombatSlot& target);
+// A target naming one party character, directly or indirectly.
+W8CombatSlot CharacterTarget(int character_slot, W8TargetKind kind = W8_TARGET_KIND_CHARACTER);
 void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_target);
 void AimAtPlace(int actor);
 void AimAtGroundTarget(int party_slot);
@@ -55,9 +62,11 @@ bool IsSpellTargetStillValid(int party_slot, int spell_id, const W8Action& selec
 
 void SetTargetToCharacter(int character_slot, bool in_combat);
 
-/* The action a slot's selection holds in a targeting context: its committed or
-   executing action, or the spell, item or submenu choice being drafted. */
-W8Action SelectCombatAction(int party_slot, W8EditedAction context);
+/* The action as the slot can carry it out: nothing while its member cannot participate,
+   except a party move. */
+W8Action ParticipatingAction(int party_slot, W8Action action);
+// The slot's stored committed or executing action, as it can carry it out.
+W8Action SelectCombatAction(int party_slot, W8TargetingContext stored);
 /* Ask the player to pick a target of `state` (W8_TARGET_NEED_NONE stops asking): the
    pointer's cursor, the party panel and the aiming cone follow it. Game code asks through a
    `TargetingRequested` event instead. */
@@ -166,9 +175,8 @@ bool IsDeadCharacterTargetable(int party_slot);
 signed char FindFactionByName(const char* name);
 void RepickInvalidCombatTargets(void);
 
-// Commit gameplay state only. Presentation belongs to the interaction controller.
-void CommitActionTarget(int actor, W8EditedAction context, const W8CombatSlot& target,
-                        bool remember_action_target);
+// Remember a committed target for the action kind that repeats it.
+void RememberActionTarget(ActionChoices& remembered, W8ActionKind kind, const W8CombatSlot& target);
 
 int PickNextTargetableGroupMember(int party_slot, const W8MonsterGroup* group,
                                   const W8Action& action, bool sighting);

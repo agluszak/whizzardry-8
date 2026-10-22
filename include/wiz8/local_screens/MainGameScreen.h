@@ -600,6 +600,9 @@ void ConfirmNpcTradeItem(void);
 void RestockNpcTradeStock(void);
 void OpenNpcTradeQuantityDialog(void);
 
-/* Which action the slot is editing: the open picker's draft for the selected
-   slot, otherwise its stored in-combat or out-of-combat action. */
-W8EditedAction GetEditedActionContext(int party_slot);
+/* The action the slot is editing: the open picker's draft for the selected slot, otherwise
+   its stored in-combat or out-of-combat action. Out of combat with no picker open the
+   player is sighting: aiming the executing action without needing a particular target. */
+W8Action* EditedDraft(int party_slot);
+W8Action EditedAction(int party_slot);
+bool IsSighting(int party_slot);
