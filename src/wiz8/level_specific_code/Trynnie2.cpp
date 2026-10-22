@@ -10,6 +10,7 @@
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"

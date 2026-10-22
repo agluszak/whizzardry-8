@@ -270,8 +270,12 @@ bool LoadSkyWorld(std::string_view sky_path)
     if (level.sky &&
         level.sky->source_path == wiz8::normalize_asset_path(sky_path).generic_string())
         return true;
-    auto replacement = PrepareSkyWorld(sky_path);
+    auto& game = CurrentGame();
+    LevelBuildState state{game.rng, game.status.next_world_item_id};
+    auto replacement = PrepareSkyWorld(sky_path, state);
     if (!sky_path.empty() && !replacement) return false;
+    game.rng = state.rng;
+    game.status.next_world_item_id = state.next_item_id;
     level.replaceSky(std::move(replacement));
     if (!level.sky) ResetEnvironment();
     return true;
