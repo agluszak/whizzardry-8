@@ -11,6 +11,7 @@ void ResetTargetPicks(void);
 #include "wiz8/data/records.h"
 #include "wiz8/inventory.h"
 #include "wiz8/local_code/PC_Item.h"
+#include "wiz8/rules/action_choices.h"
 #include "wiz8/rules/targeting.h"
 
 struct W8Party;

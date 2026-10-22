@@ -8,7 +8,6 @@
 #include <iterator>
 #include <optional>
 #include <span>
-#include <stdexcept>
 #include <tuple>
 #include <vector>
 
@@ -48,6 +47,7 @@
 #include "wiz8/render/camera.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
+#include "wiz8/rules/action_choices.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
