@@ -1,5 +1,4 @@
 #pragma once
-class WorldScene;
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -20,6 +19,8 @@ class RenderContext;
 }
 struct ShadowRenderData;
 struct GroundShadowAsset;
+struct World;
+class WorldScene;
 
 struct GroundShadowProjection {
     glm::mat2 matrix;
@@ -45,7 +46,7 @@ struct GroundShadowProjection {
 // A concrete floor-projected blob shadow.
 class GroundShadow {
 public:
-    GroundShadow(WorldScene* scene);              /* 0x004D61B0 */
+    GroundShadow();                          /* 0x004D61B0 */
     GroundShadow(const GroundShadow& other); /* 0x004D6430 */
     ~GroundShadow();
     GroundShadow& operator=(const GroundShadow&) = delete;
@@ -74,5 +75,10 @@ public:
     bool visible = true;
     Transform3D transform;
     WorldScene* scene = nullptr; // Borrowed typed render membership.
-    void setScene(WorldScene* value);
+    /* The world whose scene shows the shadow and whose terrain receives it;
+       null removes the shadow from its scene. */
+    void setWorld(const World* value);
+
+private:
+    const World* world = nullptr;
 };

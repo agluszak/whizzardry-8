@@ -684,9 +684,10 @@ TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry]
         output.write(reinterpret_cast<const char*>(tga.data()), tga.size());
         REQUIRE(output.good());
     }
+    // The shadow's own world, not the primary one, supplies its terrain.
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>());
-    auto& world = *GetWorld();
+    World world;
+    REQUIRE(GetWorld() == nullptr);
     auto mesh = std::make_shared<Mesh>(1, 4);
     mesh->getVertexLoc()[0] = {-1, 0, -1};
     mesh->getVertexLoc()[1] = {0, 0, 1};
@@ -716,7 +717,8 @@ TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry]
         ~ShadowSetting() { g_settings.monster_shadows = previous; }
     } setting;
     g_settings.monster_shadows = true;
-    GroundShadow shadow(world.scene.get());
+    GroundShadow shadow;
+    shadow.setWorld(&world);
     std::optional<render::RenderContext> context;
     context.emplace(VkExtent2D{640, 480});
     shadow.updateRenderNode(*context, {}, 0);

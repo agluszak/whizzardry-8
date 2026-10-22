@@ -149,10 +149,7 @@ static std::shared_ptr<GroundShadowAsset> shadowAsset()
     return asset;
 }
 
-GroundShadow::GroundShadow(WorldScene* scene) : asset(shadowAsset())
-{
-    setScene(scene);
-}
+GroundShadow::GroundShadow() : asset(shadowAsset()) {}
 
 GroundShadow::GroundShadow(const GroundShadow& other) : asset(other.asset)
 {
@@ -195,9 +192,8 @@ void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneF
             for (auto& draw : part->draws)
                 if (draw) draw->draw->indexCount = 0;
     };
-    auto* world = GetWorld();
-    auto* spatial = GetWorldSpatialIndex();
-    if (!visible || !g_settings.monster_shadows || !world || !spatial || width <= 0 || depth <= 0) {
+    auto* spatial = world ? world->compiledIndex() : nullptr;
+    if (!visible || !g_settings.monster_shadows || !spatial || width <= 0 || depth <= 0) {
         hide();
         return;
     }
@@ -332,7 +328,17 @@ void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneF
     }
 }
 
+void GroundShadow::setWorld(const World* value)
+{
+    auto* target = value ? value->scene.get() : nullptr;
+    if (scene != target) {
+        if (scene) scene->detach(*this);
+        if (target) target->attach(*this);
+    }
+    world = value;
+}
+
 GroundShadow::~GroundShadow()
 {
-    setScene(nullptr);
+    setWorld(nullptr);
 }

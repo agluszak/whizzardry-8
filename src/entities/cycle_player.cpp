@@ -744,7 +744,7 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
         m_ground_shadow->transform.setLocation(loc);
         m_ground_shadow->angle = nav.GetYaw();
 
-        m_ground_shadow->setScene((pWorld->scene.get()));
+        m_ground_shadow->setWorld(pWorld);
     }
     if (m_plsLights != 0) {
         int count = static_cast<int>(m_plsLights->size());
@@ -797,7 +797,7 @@ void CyclePlayer::DetachRepresentation(World* world)
 
     if (m_ground_shadow != 0) {
 
-        m_ground_shadow->setScene(0);
+        m_ground_shadow->setWorld(nullptr);
     }
 }
 
@@ -1019,7 +1019,7 @@ void CyclePlayer::AddShakeEffect(ShakeDefinition effect)
 
 void CyclePlayer::CreateGroundShadow(float width, float depth)
 {
-    m_ground_shadow = std::make_unique<GroundShadow>(nullptr);
+    m_ground_shadow = std::make_unique<GroundShadow>();
     m_ground_shadow->setName("Ground Shadow");
     m_ground_shadow->width = width;
     m_ground_shadow->depth = depth;

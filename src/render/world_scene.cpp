@@ -964,12 +964,6 @@ void WorldScene::detach(GroundShadow& item)
     std::erase(objects->children, item.renderNode());
     if (item.scene == this) item.scene = nullptr;
 }
-void GroundShadow::setScene(WorldScene* value)
-{
-    if (value == scene) return;
-    if (scene) scene->detach(*this);
-    if (value) value->attach(*this);
-}
 void WorldScene::attach(FogParams& item)
 {
     if (item.scene == this) return;
