@@ -1,4 +1,6 @@
 #pragma once
+#include <array>
+
 #include "wiz8/rules/conditions.h"
 
 struct W8ItemInstance;
@@ -9,18 +11,21 @@ struct W8MonsterInfo;
 void CopyCharacterConditionsToTarget(const W8Character& character, const int* target);
 void CopyMonsterConditionsToCharacter(W8Character* character, const W8MonsterInfo* monster_info);
 
-#pragma pack(push, 2)
+/* A monster kind's condition immunities: the conditions that never land on it,
+   padded with W8_CONDITION_NONE to the retail table's twenty slots, so a
+   condition-less attack also counts as resisted by these kinds. */
 struct W8ConditionImmunity {
     unsigned char kind;
     /* The catch-all flag the monster-info immunity list prints as its
        final "all" entry. */
-    unsigned char immune_all;
-    W8Condition conditions[20];
-};
-#pragma pack(pop)
-static_assert(sizeof(W8ConditionImmunity) == 0x52, "W8ConditionImmunity_size");
+    bool immune_all;
+    std::array<W8Condition, 20> conditions;
 
-extern W8ConditionImmunity g_condition_immunities[3];
+    bool Contains(W8Condition condition) const;
+};
+
+/* The immunity set for a monster kind, or null when the kind has none. */
+const W8ConditionImmunity* FindConditionImmunity(unsigned char kind);
 extern unsigned short g_enchantment_notices[16];
 extern unsigned short g_condition_interrupt_notices[12];
 

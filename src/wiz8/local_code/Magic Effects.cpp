@@ -886,7 +886,6 @@ bool ResolveAttackOnTarget(const W8TargetSource* source, W8CombatSlot* target,
     W8MonsterInfo* monster_info;
     const W8MonsterRecord* monster;
     W8Condition highest_condition;
-    unsigned int index;
     int source_character;
     bool resolved;
 
@@ -899,16 +898,9 @@ bool ResolveAttackOnTarget(const W8TargetSource* source, W8CombatSlot* target,
         if (monster->instant_death_immune != 0 && condition_id == W8_CONDITION_DEAD) {
             return true;
         }
-        W8ConditionImmunity* immunity = g_condition_immunities;
-        for (; immunity < g_condition_immunities + 3; ++immunity) {
-            if (monster->kind != immunity->kind) {
-                continue;
-            }
-            for (index = 0; index < W8_CONDITION_COUNT; ++index) {
-                if (condition_id == immunity->conditions[index]) {
-                    return true;
-                }
-            }
+        if (const auto* immunity = FindConditionImmunity(monster->kind);
+            immunity && immunity->Contains(condition_id)) {
+            return true;
         }
         highest_condition = monster_info->highest_condition;
     }

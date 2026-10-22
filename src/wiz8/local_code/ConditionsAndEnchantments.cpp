@@ -1,5 +1,6 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 
+#include <algorithm>
 #include <cassert>
 #include <vector>
 
@@ -187,13 +188,10 @@ void SanitizeLoadedItems(void)
     }
 }
 
-/* Condition immunity sets by monster kind. Each entry is a kind byte, one
-   byte no recovered reader consumes, and twenty condition ids; a match means
-   the condition never lands. The two-byte packing is load-bearing: padded to
-   four the stride would be 0x54, but the table walks 0x52 per entry. Values
-   are the retail table at 0x006171A8; the walkers address the ids at +2. */
-W8ConditionImmunity g_condition_immunities[3] = {
-    {20, 1, {W8_CONDITION_DISEASED,  W8_CONDITION_POISONED,  W8_CONDITION_UNCONSCIOUS,
+/* Condition immunity sets by monster kind, from the retail table at
+   0x006171A8. */
+static constexpr std::array<W8ConditionImmunity, 3> kConditionImmunities = {{
+    {20, true, {W8_CONDITION_DISEASED,  W8_CONDITION_POISONED,  W8_CONDITION_UNCONSCIOUS,
              W8_CONDITION_IRRITATED, W8_CONDITION_AFRAID,    W8_CONDITION_INSANE,
              W8_CONDITION_ASLEEP,    W8_CONDITION_NAUSEATED, W8_CONDITION_NONE,
              W8_CONDITION_NONE,      W8_CONDITION_NONE,      W8_CONDITION_NONE,
@@ -201,18 +199,29 @@ W8ConditionImmunity g_condition_immunities[3] = {
              W8_CONDITION_NONE,      W8_CONDITION_NONE,      W8_CONDITION_NONE,
              W8_CONDITION_NONE,      W8_CONDITION_NONE}},
     {22,
-     0,
+     false,
      {W8_CONDITION_DISEASED, W8_CONDITION_POISONED, W8_CONDITION_NAUSEATED, W8_CONDITION_IRRITATED,
       W8_CONDITION_AFRAID,   W8_CONDITION_ASLEEP,   W8_CONDITION_NONE,      W8_CONDITION_NONE,
       W8_CONDITION_NONE,     W8_CONDITION_NONE,     W8_CONDITION_NONE,      W8_CONDITION_NONE,
       W8_CONDITION_NONE,     W8_CONDITION_NONE,     W8_CONDITION_NONE,      W8_CONDITION_NONE,
       W8_CONDITION_NONE,     W8_CONDITION_NONE,     W8_CONDITION_NONE,      W8_CONDITION_NONE}},
-    {17, 1, {W8_CONDITION_INSANE, W8_CONDITION_AFRAID, W8_CONDITION_NAUSEATED, W8_CONDITION_NONE,
+    {17, true, {W8_CONDITION_INSANE, W8_CONDITION_AFRAID, W8_CONDITION_NAUSEATED, W8_CONDITION_NONE,
              W8_CONDITION_NONE,   W8_CONDITION_NONE,   W8_CONDITION_NONE,      W8_CONDITION_NONE,
              W8_CONDITION_NONE,   W8_CONDITION_NONE,   W8_CONDITION_NONE,      W8_CONDITION_NONE,
              W8_CONDITION_NONE,   W8_CONDITION_NONE,   W8_CONDITION_NONE,      W8_CONDITION_NONE,
              W8_CONDITION_NONE,   W8_CONDITION_NONE,   W8_CONDITION_NONE,      W8_CONDITION_NONE}},
-};
+}};
+
+bool W8ConditionImmunity::Contains(W8Condition condition) const
+{
+    return std::ranges::contains(conditions, condition);
+}
+
+const W8ConditionImmunity* FindConditionImmunity(unsigned char kind)
+{
+    const auto found = std::ranges::find(kConditionImmunities, kind, &W8ConditionImmunity::kind);
+    return found == kConditionImmunities.end() ? nullptr : &*found;
+}
 
 /* Setting a monster's condition runs the sameCountdown rescan, group recount
    and motion update as clearing it, plus immunity, argument and combat-hate
@@ -239,9 +248,6 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
 {
     W8MonsterInfo* monster_info;
     const W8MonsterRecord* record;
-    W8ConditionImmunity* immunity;
-    unsigned char kind;
-    int index;
     int old_duration;
     bool handled;
 
@@ -267,15 +273,9 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
     if (monster_info->hp_current == 0) {
         return;
     }
-    kind = record->kind;
-    for (immunity = g_condition_immunities; immunity < g_condition_immunities + 3; ++immunity) {
-        if (immunity->kind == kind) {
-            for (index = 0; index < 0x14; ++index) {
-                if (condition == immunity->conditions[index]) {
-                    return;
-                }
-            }
-        }
+    if (const auto* immunity = FindConditionImmunity(record->kind);
+        immunity && immunity->Contains(condition)) {
+        return;
     }
     old_duration = monster_info->uiCondition[condition];
     if (old_duration < duration) {
