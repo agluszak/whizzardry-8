@@ -1,6 +1,7 @@
 #include "wiz8/character_skills.h"
 
 #include <algorithm>
+#include <bitset>
 #include <string>
 #include <utility>
 #include <vector>
@@ -10,6 +11,7 @@
 
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/character_tables.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/game.h"
@@ -46,11 +48,9 @@ unsigned int GetCharacterSkillNoticeValue(const W8Character* character, W8Skill 
     return value;
 }
 
-void PostSkillIncreaseNotices(Game& game, const W8SkillNoticePayload* notices)
+void PostSkillIncreaseNotices(Game& game, const W8SkillNoticePayload& notices)
 {
-    for (int index = 0; index < notices->count; ++index) {
-        const auto slot = static_cast<unsigned int>(notices->party_slots[index]);
-        W8Skill skill = static_cast<W8Skill>(notices->skills[index]);
+    for (const auto& [slot, skill] : notices.entries) {
         W8Character* character = &game.party.characters[slot];
         unsigned int value = GetCharacterSkillNoticeValue(character, skill);
         game.events.push(CharacterNotice{
@@ -81,59 +81,42 @@ void AnnounceSkillIncrease(Game& game, unsigned int party_slot, W8Skill skill_id
         game.monster_manager_entries[party_slot].skill_notice_pending[skill_id] = true;
         return;
     }
-    W8SkillNoticePayload notice{};
-    notice.count = 1;
-    notice.party_slots[0] = static_cast<signed char>(party_slot);
-    notice.skills[0] = static_cast<signed char>(skill_id);
-    CurrentGame().npc_dialogue.QueuePortraitMessage(
+    game.npc_dialogue.QueuePortraitMessage(
         FormatSkillIncreaseNoticeText(game.party, static_cast<int>(party_slot), false, skill_id),
-        notice);
+        W8SkillNoticePayload{{{party_slot, skill_id}}});
 }
 
 void FlushDeferredSkillNotices(Game& game)
 {
-    int count;
-    bool have_line;
     std::string text;
-    W8SkillNoticePayload extra{};
-    int slot;
-    unsigned int skill_id;
-
-    count = 0;
-    have_line = false;
-    text.clear();
-    for (slot = 0; slot < 8; ++slot) {
-        W8Character* character = &game.party.characters[slot];
-        if (!game.party.members[slot].has_value() || character->hp_current == 0 ||
-            character->highest_condition >= W8_CONDITION_DEAD) {
+    W8SkillNoticePayload notice;
+    for (unsigned int slot = 0; slot < 8; ++slot) {
+        const auto& character = game.party.characters[slot];
+        if (!game.party.members[slot] || character.hp_current == 0 ||
+            character.highest_condition >= W8_CONDITION_DEAD) {
             continue;
         }
-        for (skill_id = 0; skill_id < W8_SKILL_COUNT; ++skill_id) {
-            if (!game.monster_manager_entries[slot].skill_notice_pending[skill_id]) {
+        for (int skill = 0; skill < W8_SKILL_COUNT; ++skill) {
+            if (!game.monster_manager_entries[slot].skill_notice_pending[skill]) {
                 continue;
             }
-            extra.party_slots[count] = static_cast<signed char>(slot);
-            extra.skills[count] = static_cast<signed char>(skill_id);
-            ++count;
-            text += FormatSkillIncreaseNoticeText(game.party, slot, have_line,
-                                                  static_cast<W8Skill>(skill_id));
-            have_line = true;
-            if (count == 8) {
-                extra.count = 8;
-                CurrentGame().npc_dialogue.QueuePortraitMessage(std::move(text), extra);
-                count = 0;
-                have_line = false;
+            const auto skill_id = static_cast<W8Skill>(skill);
+            text +=
+                FormatSkillIncreaseNoticeText(game.party, slot, !notice.entries.empty(), skill_id);
+            notice.entries.push_back({slot, skill_id});
+            if (notice.entries.size() == 8) {
+                game.npc_dialogue.QueuePortraitMessage(std::move(text), std::move(notice));
                 text.clear();
-                extra = {};
+                notice = {};
             }
         }
     }
-    if (have_line) {
-        extra.count = static_cast<signed char>(count);
-        CurrentGame().npc_dialogue.QueuePortraitMessage(std::move(text), extra);
+    if (!notice.entries.empty()) {
+        game.npc_dialogue.QueuePortraitMessage(std::move(text), std::move(notice));
     }
-    for (auto& entry : game.monster_manager_entries)
+    for (auto& entry : game.monster_manager_entries) {
         std::ranges::fill(entry.skill_notice_pending, false);
+    }
 }
 
 void InvalidateAndRecalculateCharacterClassData(W8Character* character)
@@ -287,8 +270,7 @@ bool IsCharacterSkillAvailable(W8Character* character, W8Skill skill_id,
 }
 
 /* An attribute's base value changed: flip the at-maximum flag on the
-   attribute's pseudo-skill entry (id = attribute + 0x22), resetting or
-   refunding its row while the character screen is up and announcing the cap
+   attribute's pseudo-skill entry (id = attribute + 0x22) and announce the cap
    in the main game, rebuild the effective value from the modifier block's
    adjustment clamped to 1..125, and refresh the equipment and derived state.
    Retail inlines InitializeSkillBaseLevels at the tail. */
@@ -299,7 +281,7 @@ void ApplyAttributeChange(Game& game, W8Character* character, W8Attribute attrib
     if (character->attributes[attribute].base >= 0x64) {
         if (!character->skills[skill_id].active) {
             character->skills[skill_id].active = true;
-            game.events.push(SkillAvailabilityChanged{skill_id, true});
+
             // Party creation and camp edits leave the announcement to their editors.
             if (game.status.game_started && game.activity.in_world()) {
                 game.events.push(NoticeDialog{
@@ -312,7 +294,6 @@ void ApplyAttributeChange(Game& game, W8Character* character, W8Attribute attrib
     } else {
         if (character->skills[skill_id].active) {
             character->skills[skill_id].active = false;
-            game.events.push(SkillAvailabilityChanged{skill_id, false});
         }
     }
     int effective = character->bonus.attribute_adjustments[attribute] +
@@ -330,40 +311,31 @@ void ApplyAttributeChange(Game& game, W8Character* character, W8Attribute attrib
    ResetCharacterSkills. */
 void ApplySkillChange(Game& game, W8Character* character, W8Skill skill_id)
 {
-    RefreshCharacterSkillAvailability(game.events, character);
+    RefreshCharacterSkillAvailability(game.rules().data, character);
 
     character->skills[skill_id].level = GetEffectiveSkillLevel(character, skill_id);
     RecalculateCharacterDerivedStats(game, *character);
 }
 
-/* Re-scan every skill's availability and report each flag change. The realm flags
-   array marks which expert skills gained a spell since the last scan. */
-void RefreshCharacterSkillAvailability(Events& events, W8Character* character)
+/* Re-scan availability in skill order and return the changed rows. Editors settle
+   their own allocations; native rules never call back into the current screen. */
+std::bitset<W8_SKILL_COUNT> RefreshCharacterSkillAvailability(const GameData& data,
+                                                              W8Character* character)
 {
-    bool expert_realm_flags[8];
-    int index;
-
-    for (index = 0; index < 8; ++index) {
-        expert_realm_flags[index] = false;
+    bool expert_realm_flags[8]{};
+    for (int index = 0; index < 0x72; ++index) {
+        if (character->spell_learned[index + 1] == -1 || character->spell_learned[index + 1] == 2)
+            expert_realm_flags[data.spells[index].realm] = true;
     }
-    for (index = 0; index < 0x72; ++index) {
-        if (character->spell_learned[index + 1] == -1 || character->spell_learned[index + 1] == 2) {
-            expert_realm_flags[Data().spells[index].realm] = true;
-        }
-    }
-    for (index = 0; index < 0x29; ++index) {
-        bool available =
+    std::bitset<W8_SKILL_COUNT> changed;
+    // Spellbook availability precedes realm availability, as in the original scan.
+    for (int index = 0; index < W8_SKILL_COUNT; ++index) {
+        const bool available =
             IsCharacterSkillAvailable(character, static_cast<W8Skill>(index), expert_realm_flags);
-        if (!available) {
-            if (character->skills[index].active) {
-                character->skills[index].active = false;
-                events.push(SkillAvailabilityChanged{static_cast<W8Skill>(index), false});
-            }
-        } else if (!character->skills[index].active) {
-            character->skills[index].active = true;
-            events.push(SkillAvailabilityChanged{static_cast<W8Skill>(index), true});
-        }
+        changed[index] = character->skills[index].active != available;
+        character->skills[index].active = available;
     }
+    return changed;
 }
 
 /* A quarter of the skill's current value, never below one. The bonus skill's
@@ -399,7 +371,6 @@ void PracticeCharacterSkill(Game& game, W8Character* character, W8Skill skill_id
                 return;
             }
             skill->active = true;
-            game.events.push(SkillAvailabilityChanged{skill_id, true});
         }
         if (usage_points != 0) {
             do {
@@ -423,7 +394,7 @@ void PracticeCharacterSkill(Game& game, W8Character* character, W8Skill skill_id
                 }
             } while (--usage_points != 0);
             if (improved) {
-                RefreshCharacterSkillAvailability(game.events, character);
+                RefreshCharacterSkillAvailability(game.rules().data, character);
                 skill->level = GetEffectiveSkillLevel(character, skill_id);
                 RecalculateCharacterDerivedStats(game, *character);
                 game.events.push(SkillImproved{CharacterPointerToPartySlot(character), skill_id,

@@ -29,8 +29,6 @@ public:
        a derived-only helper. */
     void SetClientExtent(int width, int height);
 
-    unsigned int WrapMessage(std::string_view message);
-
     /* Both are read and written on this object from outside the class by the
        Please Wait screen's frame handler, which is what puts them here. */
     bool accepted; /* cleared; a derived close passes it on */
@@ -38,6 +36,7 @@ public:
 
 private:
     void Configure();
+    void WrapMessage(std::string_view message);
 
 protected:
     void Close(bool accept);
@@ -46,7 +45,6 @@ protected:
     W8ButtonWidget m_confirm_button{InputLayer()};
     W8ButtonWidget m_cancel_button{InputLayer()};
     std::vector<std::string> m_lines;
-    unsigned int m_line_count;
     bool m_show_confirm;
     bool allow_cancel; /* changes Escape handling */
 };

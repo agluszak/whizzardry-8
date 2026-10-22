@@ -74,6 +74,7 @@
 #include <wiz8/filesystem.h>
 
 #include "file_faults.h"
+#include "glm/ext/vector_double3.hpp"
 #include "scoped_asset_roots.h"
 #include "temporary_directory.h"
 #include "wiz8/audio/SoundEvent.h"
@@ -94,6 +95,7 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/IntervalGate.h"
+#include "wiz8/render/transform.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/level_loader.h"
@@ -465,7 +467,7 @@ static void path_record_contracts()
     constexpr auto filename = "data/path-records.bin";
     auto write_header = [](wiz8::File& file, unsigned char version, int count) {
         const unsigned char kind = 0;
-        const float position = 0;
+        const float position = 0.75f;
         const unsigned int unknown = 17;
         file.write(&kind, 1);
         file.write(&version, 1);
@@ -489,23 +491,21 @@ static void path_record_contracts()
         auto file = wiz8::open_file(wiz8::user_path(filename));
         auto path = LoadPathAI(*file);
         REQUIRE(path);
-        REQUIRE((path->nodes.size() == 2 && path->rotations.size() == 2));
-        REQUIRE((path->nodes[1].x == 500 && path->total_length == 500));
-        REQUIRE((path->unknown_08 == 17 && path->rotations[0] == glm::mat3(1)));
-        REQUIRE((path->scales.size() == (version == 2 ? 2 : 0)));
-        if (version == 2) REQUIRE((path->scales[1].y == 3));
+        REQUIRE(path->points().size() == 2);
+        REQUIRE((path->points()[1].position.x == 500 && path->length() == 500));
+        REQUIRE((path->unknown_08 == 17 && *path->points()[0].rotation == glm::mat3(1)));
+        REQUIRE(path->points()[1].scale.has_value() == (version == 2));
+        if (version == 2) REQUIRE(path->points()[1].scale->y == 3);
         path->timed = true;
-        auto copy = std::optional<KeyframeTrack>(std::in_place, *path);
+        auto copy = path;
         auto restarted = path->restarted();
-        REQUIRE((!restarted.timed));
-        REQUIRE((copy->timed && copy->nodes.data() != path->nodes.data()));
-        REQUIRE((copy->rotations.data() != path->rotations.data()));
-        if (version == 2) REQUIRE((copy->scales.data() != path->scales.data()));
-        copy->nodes[0].x = 99;
-        REQUIRE((path->nodes[0].x == 0));
-        PathAIClearOwned((copy ? &*copy : nullptr));
-        PathAIClearOwned((copy ? &*copy : nullptr));
-        REQUIRE((copy->nodes.empty() && copy->rotations.empty() && copy->scales.empty()));
+        REQUIRE_FALSE(restarted.timed);
+        REQUIRE((copy->timed && copy->geometry == path->geometry));
+        copy->position = 99;
+        REQUIRE(path->position == 0);
+        copy->geometry.reset();
+        REQUIRE(copy->points().empty());
+        REQUIRE(path->points().size() == 2);
         glm::vec3 point(7, 8, 9);
         PathAIPosition(nullptr, &point);
         PathAIPosition((copy ? &*copy : nullptr), &point);
@@ -520,6 +520,11 @@ static void path_record_contracts()
         path->interpolation_fraction = 0.25f;
         PathAIPosition((path ? &*path : nullptr), &point);
         REQUIRE((point.x == 125));
+        Transform3D initial;
+        initial.scale = {7, 8, 9};
+        const auto sampled = sampleKeyframeTrack(*path, initial);
+        REQUIRE(sampled.position.x == 125);
+        REQUIRE(sampled.scale == (version == 2 ? glm::dvec3(2, 3, 4) : initial.scale));
     }
     for (int count : {-1, 0, 1, std::numeric_limits<int>::max()}) {
         {
@@ -568,7 +573,7 @@ static void animation_record_contracts()
         REQUIRE((AnimObjReadFromFile(&info, animation.get(), nullptr)));
         REQUIRE((animation->animation_playing == (flag != 0)));
         REQUIRE((animation->random_play == (flag != 0)));
-        REQUIRE((((animation.get())->path_lists) == (flag != 0)));
+        REQUIRE((((animation.get())->positioned_parts) == (flag != 0)));
         REQUIRE((animation->frame_bounds.size() == 2));
         const auto bounds = AnimObjGetBounds(animation.get(), 0, 1);
         REQUIRE(bounds);
@@ -580,32 +585,30 @@ static void animation_record_contracts()
         REQUIRE(wrapped_bounds);
         REQUIRE(wrapped_bounds->minimum == bounds->minimum);
         REQUIRE(wrapped_bounds->maximum == bounds->maximum);
-        animation->path = std::optional<KeyframeTrack>(std::in_place);
-        PathAIAddPoint(*animation->path, glm::vec3(1, 2, 3));
-        animation->paths[0].push_back(animation->path);
-        animation->entries[0] = std::make_unique<AnimationMesh>();
-        animation->entries[0]->source_file = std::string(300, 'x');
-        animation->entries[0]->frames.resize(2);
-        animation->meshes[0].push_back(std::make_unique<AnimationMesh>(*animation->entries[0]));
+        animation->path.emplace(std::vector<KeyframePoint>{{{1, 2, 3}}});
+        auto& part = animation->parts[0].emplace_back();
+        part.path = animation->path;
+        part.mesh.source_file = std::string(300, 'x');
+        part.mesh.frames.resize(2);
         auto copy = std::make_unique<Animation>(*animation);
-        REQUIRE((copy->entries[0] != animation->entries[0]));
-        REQUIRE((copy->meshes[0][0] != animation->meshes[0][0]));
-        REQUIRE((copy->entries[0]->frames.size() == 2));
+        REQUIRE(copy->parts[0].data() != animation->parts[0].data());
+        REQUIRE((copy->parts[0][0].mesh.frames.size() == 2));
         REQUIRE((copy->frame_bounds.data() != animation->frame_bounds.data()));
         REQUIRE(copy->path);
-        copy->path->nodes[0].x = 9;
-        REQUIRE(animation->path->nodes[0].x == 1);
-        REQUIRE(copy->paths[0][0]);
-        copy->paths[0][0]->nodes[0].z = 7;
-        REQUIRE(animation->paths[0][0]->nodes[0].z == 3);
+        copy->path->position = 9;
+        REQUIRE(animation->path->position == 0);
+        REQUIRE(copy->parts[0][0].path);
+        copy->parts[0][0].path->position = 7;
+        REQUIRE(animation->parts[0][0].path->position == 0);
         animation.reset();
-        REQUIRE((copy->entries[0]->source_file == std::string(300, 'x')));
-        REQUIRE((copy->meshes[0][0]->source_file == std::string(300, 'x')));
-        REQUIRE((copy->paths[0][0]->nodes[0].z == 7));
+        REQUIRE((copy->parts[0][0].mesh.source_file == std::string(300, 'x')));
+        REQUIRE((copy->parts[0][0].path->position == 7));
+        REQUIRE(glm::vec3(sampleKeyframeTrack(*copy->parts[0][0].path, {}).position) ==
+                glm::vec3(1, 2, 3));
         const auto copy_bounds = AnimObjGetBounds(copy.get(), 0, 0);
         REQUIRE(copy_bounds);
         REQUIRE((copy_bounds.value().minimum.x == -500 && copy_bounds.value().maximum.x == 500));
-        copy->path_lists = true;
+        copy->positioned_parts = true;
         REQUIRE((!AnimObjGetBounds(copy.get(), 0, 2)));
     }
     REQUIRE((wiz8::remove_file(wiz8::user_path(filename))));
@@ -614,8 +617,7 @@ static void animation_record_contracts()
 static void graphical_object_ownership_contracts()
 {
     Missile original;
-    original.visual.m_pAI = std::optional<KeyframeTrack>(std::in_place);
-    PathAIAddPoint(*original.visual.m_pAI, glm::vec3(1, 2, 3));
+    original.visual.m_pAI.emplace(std::vector<KeyframePoint>{{{1, 2, 3}}});
     auto event = W8SoundEvent(W8_SOUND_EVENT_FRAME, 1, 2, 3, "step.wav", true);
     event.pitch = 3;
     original.visual.AddSoundEvent(std::move(event));
@@ -624,8 +626,8 @@ static void graphical_object_ownership_contracts()
             W8SoundEvent(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
     }
     Missile copy(original);
-    REQUIRE((copy.visual.m_pAI->nodes.data() != original.visual.m_pAI->nodes.data()));
-    REQUIRE((copy.visual.m_pAI->nodes[0].y == 2));
+    REQUIRE((copy.visual.m_pAI->geometry == original.visual.m_pAI->geometry));
+    REQUIRE((copy.visual.m_pAI->points()[0].position.y == 2));
     REQUIRE((copy.visual.sound_events.size() == original.visual.sound_events.size()));
     REQUIRE(copy.visual.sound_events.front().pitch == 3);
     REQUIRE((copy.visual.sound_events.front().wave_name == "step.wav"));
@@ -1519,6 +1521,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
         sub.operand = 22;
         write(out, sub);
         quote = {};
+        quote.subquote_count = 7; // No subquote block: the runtime collection stays empty.
         memcpy(&quote.entries, &live_handle, sizeof(live_handle));
         write(out, quote);
         quote.entry_count = 1;
@@ -1531,10 +1534,10 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
         out.close();
         char filename[] = "data\\dialogue.nsf";
         auto file = LoadNpcScriptFile(filename);
-        REQUIRE((file && file->quote_count == 3));
+        REQUIRE((file && file->quotes.size() == 3));
         REQUIRE((marker ? file->name == "name" : file->name.empty()));
         W8NpcScriptQuote* quotes = file->quotes.data();
-        REQUIRE((quotes[0].subquote_count == 2 && quotes[0].subquotes[0] == "é中😀"));
+        REQUIRE((quotes[0].subquotes.size() == 2 && quotes[0].subquotes[0] == "é中😀"));
         REQUIRE(quotes[0].subquotes[1].empty());
         W8NpcQuoteSubEntry* subs = quotes[0].entries[0].sub_entries.data();
         REQUIRE((subs[0].operand == 11 && subs[0].text == "line"));
