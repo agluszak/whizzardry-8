@@ -27,7 +27,7 @@ of it:
 
 - **Shared mutable state.** About 250 mutable `extern` globals remain, and unlayered code
   reaches the game through `CurrentGame()` (about 4,500 uses) and the data through
-  `Data()` (about 1,650). The Application owns both, and the game's state has moved
+  `Data()` (about 1,580). The Application owns both, and the game's state has moved
   into `Game`, but ownership is not the same as explicit dependencies: thousands of
   functions still find their owner through these accessors. The remaining steps migrate
   whole operations and their consumers, so the accessors disappear with their last
@@ -153,11 +153,13 @@ the licensed runtime scenarios after every step.
 2. **Finish `GameData`.** The databases and the string table are one immutable value
    (ARCHITECTURE.md, "Layers"), which the Application owns.
    - `Data()` reads the data the Application installs (`InstallGameData`). It has about
-     1,650 uses in 92 unlayered files: 758 in 37 `local_code` files, 535 in 25
-     `local_screens` files, 198 in 11 `dialog_code` files, 122 in `src/wiz8`, and the rest
+     1,580 uses in 89 unlayered files: 756 in 37 `local_code` files, 535 in 25
+     `local_screens` files, 198 in 11 `dialog_code` files, 78 in `src/wiz8`, and the rest
      in `level_specific_code`, `entities`, `world` and `combat`. They reach the data from
-     code that receives neither the data nor the game, and go as screens receive it
-     from the router and rules receive a `RuleContext` (steps 3 and 6). Message-id
+     code that receives neither the data nor the game. A `Game` reads the data its
+     session was given; the inventory commands and the live party's settlement and
+     conditions already read it there. The rest go as screens receive it from the
+     router and rules receive a `RuleContext` (steps 3 and 6). Message-id
      names ("Named strings") travel with the same migrations.
 3. **Inventory and party in `rules`.** The storage and item rules are behind the
    boundary and take a `RuleContext` (ARCHITECTURE.md, "Inventory"). What remains:

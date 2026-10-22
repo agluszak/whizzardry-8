@@ -19,7 +19,6 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -78,7 +77,7 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
         }
         if (missile.combat_slot.iType != W8_TARGET_KIND_PARTY &&
             missile.combat_slot.iType != W8_TARGET_KIND_CHARACTER) {
-            if (Data().missiles[missile.missile_table_index].spell_missile) {
+            if (game_.data.missiles[missile.missile_table_index].spell_missile) {
                 return false;
             }
             if (missile.combat_slot.iType != W8_TARGET_KIND_NONE) {
@@ -106,7 +105,7 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
         }
         if (missile.combat_slot.iType != W8_TARGET_KIND_MONSTER ||
             missile.combat_slot.iMonsterID != location_id) {
-            if (Data().missiles[missile.missile_table_index].spell_missile) {
+            if (game_.data.missiles[missile.missile_table_index].spell_missile) {
                 return false;
             }
             if (missile.combat_slot.iType != W8_TARGET_KIND_NONE) {
@@ -120,7 +119,7 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
     }
 
     hit_result = W8_MISSILE_HIT;
-    if (!Data().missiles[missile.missile_table_index].spell_missile) {
+    if (!game_.data.missiles[missile.missile_table_index].spell_missile) {
         if (missile.combat_slot.iType == W8_TARGET_KIND_CHARACTER) {
             deflect_chance =
                 game_.party.characters[missile.combat_slot.iChar].bonus.missile_deflect_chance;
@@ -142,7 +141,7 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
     } else if (game_.combat.has_value() && game_.combat->engaged_missile != 0) {
         game_.combat->missile_hit_result = hit_result;
         game_.combat->TargetHit = missile.combat_slot;
-    } else if (Data().missiles[missile.missile_table_index].spell_missile) {
+    } else if (game_.data.missiles[missile.missile_table_index].spell_missile) {
         resolveSpellMissileHit(world, missile);
     } else {
         resolveMissileHit(world, missile, hit_result == W8_MISSILE_HIT_DEFLECTED);
@@ -157,7 +156,7 @@ void CombatSignals::missileLanded(Missile& missile)
     if (missile.missile_table_index == kStoredSpellMissile && !missile.deflected) {
         DetonateStoredSpell(missile);
     }
-    if (Data().missiles[missile.missile_table_index].spell_missile != 0) {
+    if (game_.data.missiles[missile.missile_table_index].spell_missile != 0) {
         absorbMissileDamage(missile);
     }
 }
@@ -217,7 +216,7 @@ prepare_attack:
     assert(attack_index < W8_MAX_MONSTER_ATTACKS);
     attack = &record->attacks[attack_index];
     missile_type = attack->missile_type;
-    if (static_cast<unsigned int>(missile_type) >= Data().missiles.size()) {
+    if (static_cast<unsigned int>(missile_type) >= game_.data.missiles.size()) {
         missile_type = 0;
     }
 
@@ -264,7 +263,7 @@ void CombatSignals::announceCollisionTarget(const World& world, const Missile& m
     if (!game_.combat.has_value()) {
         return;
     }
-    std::string text = fmt::format("{} ", Data().strings[0x1bf]);
+    std::string text = fmt::format("{} ", game_.data.strings[0x1bf]);
     const auto target_start = static_cast<unsigned char>(text.size());
     if (missile.combat_slot.iType == W8_TARGET_KIND_MONSTER) {
         text += GetMonsterName(world.population->findMonster(missile.combat_slot.iMonsterID), 0, 0);
@@ -276,7 +275,7 @@ void CombatSignals::announceCollisionTarget(const World& world, const Missile& m
     const auto target_color =
         static_cast<unsigned char>(GetTargetNoticeColor(&missile.m_Source, &missile.combat_slot));
     text += " ";
-    text += Data().strings[0x1c0];
+    text += game_.data.strings[0x1c0];
     ShowNotice(source_color, text);
     if (target_color != source_color) {
         HighlightTextBoxRange(target_color, target_start, target_stop, -1);

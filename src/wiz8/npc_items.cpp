@@ -642,7 +642,7 @@ static W8TradeResult CompleteNpcItemPurchase(Game& game, W8NpcState* npc, int in
     for (std::size_t slot : acquired) {
         auto* item = &game.party.item_pool[slot];
         UpdateFactsAfterAcquiringItem(item);
-        DeliverExceptionalItemReaction(item, true, nullptr);
+        DeliverExceptionalItemReaction(game, item, true, nullptr);
     }
     return {W8TradeOutcome::Complete, false, !drops.empty()};
 }

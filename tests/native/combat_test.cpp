@@ -36,10 +36,11 @@ struct ScopedSettings {
     ~ScopedSettings() { g_settings = previous; }
 };
 
-// A fight in an empty level with two conscious party members.
+// A fight in an empty level with two conscious party members, reading the fixture's data.
 struct CombatFixture {
     ScopedSettings settings;
-    ScopedGame game_scope;
+    GameData data;
+    ScopedGame game_scope{data};
     ScopedCombat combat_scope{true};
     Game& game = game_scope.game;
     Combat& combat = *game.combat;
@@ -69,10 +70,9 @@ struct CombatFixture {
 /* The fight in a started game with two item records, so inventory edits settle the
    party. No profession or race data is loaded, so the members derive no statistics. */
 struct InventoryCombatFixture : CombatFixture {
-    ScopedGameData item_data{GameData{.items = std::vector<W8ItemDatabaseRecord>(2)}};
-
     InventoryCombatFixture()
     {
+        data.items.resize(2);
         game.status.game_started = true;
         for (int slot = 0; slot < 2; ++slot) {
             game.party.characters[slot].fInParty = true;
@@ -145,10 +145,8 @@ TEST_CASE_METHOD(InventoryCombatFixture,
 
 TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed use of the item")
 {
-    GameData wands{.items = std::vector<W8ItemDatabaseRecord>(2)};
-    wands.items[0].quantity_kind = W8_ITEM_QUANTITY_CHARGES;
-    wands.items[0].initial_quantity = {.base = 0, .count = 1, .sides = 5};
-    const ScopedGameData installed(std::move(wands));
+    data.items[0].quantity_kind = W8_ITEM_QUANTITY_CHARGES;
+    data.items[0].initial_quantity = {.base = 0, .count = 1, .sides = 5};
     const W8ItemLocation source{W8ItemStorage::Backpack, 0, 0};
     const W8ItemLocation destination{W8ItemStorage::Backpack, 0, 1};
     auto& backpack = game.party.characters[0].backpack;

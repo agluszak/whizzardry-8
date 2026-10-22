@@ -37,6 +37,7 @@
 #include "wiz8/story.h"
 
 class NativeObject;
+struct GameData;
 struct World;
 
 /* The worlds the party is in: the loaded level and the sky drawn behind it. Each slot
@@ -63,7 +64,8 @@ struct Level {
    `game` layer as they move into the lower layers (ROADMAP.md, "Migration"). */
 class Game {
 public:
-    Game() = default;
+    // The game reads `data`, which its session's owner keeps alive longer than the game.
+    explicit Game(const GameData& data) : data(data) {}
     ~Game();
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
@@ -112,6 +114,7 @@ public:
 
     // The context the rules act on: the game's data, party, random stream and events.
     RuleContext rules();
+    const GameData& data;
     // The picked imported object, while the party is free to interact with the world.
     NativeObject* interactiveNativeObject();
     // Inspect that object; the cursor shows the same object as interactive.
@@ -207,10 +210,11 @@ public:
 /* The games of one run of the program: the game in progress, if any, and the random
    stream the next game continues, so a run draws one sequence from one seed, as retail
    did. The Application owns it, and the router hands it to the screens that begin and
-   end games. One exists at a time; while it does, `CurrentGame()` reads its game. */
+   end games. One exists at a time; while it does, `CurrentGame()` reads its game. Every
+   game reads `data`, which the caller keeps alive longer than the session. */
 class GameSession {
 public:
-    GameSession();
+    explicit GameSession(const GameData& data);
     ~GameSession();
     GameSession(const GameSession&) = delete;
     GameSession& operator=(const GameSession&) = delete;
@@ -231,6 +235,7 @@ public:
     void observe(std::function<void(const Event&)> observer);
 
 private:
+    const GameData& data_;
     std::optional<Game> game_;
     Rng next_stream_;
     std::function<void(const Event&)> observer_;

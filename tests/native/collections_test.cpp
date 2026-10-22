@@ -569,21 +569,20 @@ TEST_CASE("Proposed weapons use the same hand rules without changing equipment",
 
 TEST_CASE("Weapon-set replacement derives both hands from the completed arrangement", "[equipment]")
 {
-    const ScopedGame game;
-    auto& characters = CurrentGame().party.characters;
     GameData data{.items = UnrestrictedItems(3)};
     data.items[0].equip_class = W8_ITEM_EQUIP_CLASS_RANGED_WEAPON;
     data.items[0].unidentified_name_index = 0x83;
     data.items[1].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
     data.items[2].equip_class = W8_ITEM_EQUIP_CLASS_THROWN_WEAPON;
-    const ScopedGameData installed(std::move(data));
+    const ScopedGame game(data);
+    auto& characters = CurrentGame().party.characters;
     CurrentGame().party.members[0].emplace();
     auto& character = characters[0];
     for (auto& item : character.EquippedItem) item.iItemNo = -1;
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo = 2;
     character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo = 1;
-    SetHandType(Data(), &character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
+    SetHandType(data, &character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
     REQUIRE(character.Hand[1].uiHolds == 3);
     CommitWeaponSetSwap(CurrentGame(), 0, {true, false});
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == 1);
@@ -595,12 +594,11 @@ TEST_CASE("Weapon-set replacement derives both hands from the completed arrangem
 TEST_CASE("An inventory command's notice follows its consequences in the game's events",
           "[equipment][events]")
 {
-    const ScopedGame scoped;
-    auto& game = scoped.game;
     GameData data{.strings = std::vector<std::string>(0x200), .items = UnrestrictedItems(2)};
     data.strings[0x1ec] = "changes weapons.";
     for (auto& record : data.items) record.equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
-    const ScopedGameData installed(std::move(data));
+    const ScopedGame scoped(data);
+    auto& game = scoped.game;
     game.party.members[0].emplace();
     auto& character = game.party.characters[0];
     character.fInParty = true;
@@ -1070,8 +1068,8 @@ TEST_CASE("Character drafts reconcile their own skill allocations without a scre
           "[character][creation]")
 {
     const ScopedGame current;
-    Game owner;
-    const ScopedGameData installed(GameData{.strings = std::vector<std::string>(0x1000)});
+    const GameData data{.strings = std::vector<std::string>(0x1000)};
+    Game owner(data);
     CharacterDraft draft(owner);
     draft.character = MakeFighter();
     draft.character.uiExpLevel = 2;
@@ -1101,8 +1099,8 @@ TEST_CASE("Character drafts reconcile their own skill allocations without a scre
 
 TEST_CASE("A second character draft cannot erase a forced-gender choice", "[character][creation]")
 {
-    const ScopedGame current;
-    const ScopedGameData installed(GameData{.strings = std::vector<std::string>(0x1000)});
+    const GameData data{.strings = std::vector<std::string>(0x1000)};
+    const ScopedGame current(data);
     CharacterDraft first(current.game);
     first.character = MakeFighter();
     first.character.profession_levels[W8_PROFESSION_FIGHTER] = 1;
@@ -1431,10 +1429,6 @@ TEST_CASE("Weapon swings read the damage bonus the operation started from", "[pa
 }
 
 namespace {
-// The active party as an inventory command sees it outside a running game.
-struct ScopedActiveParty {
-    ScopedGame game;
-};
 
 W8Character& PrepareMember(unsigned int slot)
 {
@@ -1453,13 +1447,12 @@ W8Character& PrepareMember(unsigned int slot)
 
 TEST_CASE("A split stack travels through the hand and merges back", "[party][inventory]")
 {
-    const ScopedActiveParty active;
     GameData data;
     auto& record = data.items.emplace_back();
     record.quantity_kind = W8_ITEM_QUANTITY_STACK;
     record.maximum_quantity = 100;
     record.weight = 10;
-    const ScopedGameData installed(std::move(data));
+    const ScopedGame game(data);
     auto& actor = PrepareMember(0);
     auto& party = CurrentGame().party;
     actor.backpack[0] = W8ItemInstance{.iItemNo = 0, .stack_count = 10};
@@ -1484,12 +1477,11 @@ TEST_CASE("A split stack travels through the hand and merges back", "[party][inv
 TEST_CASE("A held stack refuses an unstorable split without losing or duplicating items",
           "[party][inventory]")
 {
-    const ScopedActiveParty active;
     GameData data;
     data.items.resize(1);
     data.items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
     data.items[0].maximum_quantity = 100;
-    const ScopedGameData installed(std::move(data));
+    const ScopedGame game(data);
     auto& party = CurrentGame().party;
     party.held = {W8ItemInstance{.iItemNo = 0, .stack_count = 10}, {}, 0};
     for (auto& item : party.characters[0].backpack)
@@ -1507,16 +1499,13 @@ TEST_CASE("A held stack refuses an unstorable split without losing or duplicatin
 TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
           "[party][inventory][stats]")
 {
-    const ScopedActiveParty active;
     GameData data{.items = UnrestrictedItems(3)};
     // The first item supplies strength to the second, but itself requires speed.
     data.items[0].modifier_0b3_index = W8_ATTRIBUTE_STRENGTH;
     data.items[0].modifier_0b3_value = 20;
     data.items[0].attribute_requirements[0] = {W8_ATTRIBUTE_SPEED, 60};
     data.items[1].attribute_requirements[0] = {W8_ATTRIBUTE_STRENGTH, 60};
-    auto undiscardable = data;
-    undiscardable.items[1].flags |= W8_ITEM_FLAG_NO_DISCARD;
-    const ScopedGameData installed(std::move(data));
+    const ScopedGame game(data);
     auto& character = PrepareMember(0);
     character.EquippedItem[W8_EQUIP_SLOT_HEAD].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo = 1;
@@ -1530,7 +1519,7 @@ TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
 
     // With no storage left, an item that may not be discarded falls into the hand.
     auto& party = CurrentGame().party;
-    const ScopedGameData no_discard(std::move(undiscardable));
+    data.items[1].flags |= W8_ITEM_FLAG_NO_DISCARD;
     for (auto& item : character.backpack) item = W8ItemInstance{.iItemNo = 2};
     for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 2};
     party.item_count = 500;
@@ -1543,10 +1532,9 @@ TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
 TEST_CASE("Unusable equipment that nothing can take stays equipped until there is room",
           "[party][inventory]")
 {
-    const ScopedActiveParty active;
     GameData data{.items = UnrestrictedItems(3)};
     data.items[0].attribute_requirements[0] = {W8_ATTRIBUTE_STRENGTH, 60};
-    const ScopedGameData installed(std::move(data));
+    const ScopedGame game(data);
     auto& character = PrepareMember(0);
     auto& party = CurrentGame().party;
     for (auto& item : character.backpack) item = W8ItemInstance{.iItemNo = 1};

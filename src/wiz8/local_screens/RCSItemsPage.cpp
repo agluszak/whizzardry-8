@@ -1737,10 +1737,10 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                     (&camp.game.party.characters[*camp.game.party.companion_inventory]) ==
                         camp.reviewed) {
                     MarkCampCharacterPending(item);
-                    if ((camp.game.party.held.item.iItemNo != -1)) {
+                    if (camp.game.party.held.item.iItemNo != -1) {
                         choose_character = camp.game.party.held.actor == -1;
-                        DeliverExceptionalItemReaction(&camp.game.party.held.item, choose_character,
-                                                       camp.reviewed);
+                        DeliverExceptionalItemReaction(camp.game, &camp.game.party.held.item,
+                                                       choose_character, camp.reviewed);
                     }
                     if (origin == W8ItemStorage::Equipment &&
                         (camp.game.party.held.item.iItemNo != -1) &&

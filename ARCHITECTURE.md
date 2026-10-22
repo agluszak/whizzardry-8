@@ -23,8 +23,9 @@ ScreenRouter (file-scope in screen_router.cpp)
 ```
 
 - **`Application`** (`application.h`) is the composition root: it owns the loaded
-  `GameData` and the `GameSession`, and runs the main loop. The screen router is
-  still a file-scope object, not owned by the Application.
+  `GameData` and the `GameSession`, and runs the main loop. It loads immutable data
+  before constructing the session; the session and its games borrow that data.
+  The screen router is still a file-scope object, not owned by the Application.
 - **`GameSession`** (`game.h`) holds the game in progress, the random stream the
   next game continues, and the event presenter. A game begins in party creation
   (`BeginNewGame`) or when a save is loaded (`LoadGame`); either replaces any game in

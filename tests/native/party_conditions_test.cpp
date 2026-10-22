@@ -9,7 +9,6 @@
 
 #include "scoped_combat.h"
 #include "scoped_game.h"
-#include "scoped_game_data.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/game.h"
@@ -32,8 +31,8 @@ GameData ConditionData()
 }
 
 struct PartyFixture {
-    ScopedGameData data{ConditionData()};
-    ScopedGame scope;
+    GameData data = ConditionData();
+    ScopedGame scope{data};
     Game& game = scope.game;
 
     PartyFixture()

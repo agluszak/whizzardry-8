@@ -772,7 +772,7 @@ void CombatSignals::resolveSpellMissileHit(const World& world, Missile& missile)
     unsigned int index;
 
     TargetSourceIsCharacter(source, 0);
-    spell = &Data().spells[MissileSpellId(missile.missile_table_index)];
+    spell = &game_.data.spells[MissileSpellId(missile.missile_table_index)];
     if (spell->sound_name.size() != 0) {
         wiz8::sound::play(fmt::format("Data\\Missiles\\Sounds\\{}.wav", spell->sound_name));
     }
@@ -906,7 +906,7 @@ void CombatSignals::resolveMissileHit(const World& world, Missile& missile, bool
     W8MonsterInfo* monster_info =
         target_is_monster ? world.population->findMonster(target->iMonsterID) : nullptr;
     TargetSourceIsCharacter(source, 0);
-    text = fmt::format("{} ", Data().strings[0x1bf]);
+    text = fmt::format("{} ", game_.data.strings[0x1bf]);
     target_start = text.size();
     if (target_is_monster) {
         text += GetMonsterName(monster_info, 0, 0);
@@ -915,7 +915,7 @@ void CombatSignals::resolveMissileHit(const World& world, Missile& missile, bool
     }
     if (missile.retargeted) {
         text += " ";
-        text += Data().strings[0x1c0];
+        text += game_.data.strings[0x1c0];
     }
     target_stop = text.size();
     source_color = GetSourceNoticeColor(source);
@@ -926,7 +926,7 @@ void CombatSignals::resolveMissileHit(const World& world, Missile& missile, bool
     }
     if (deflected) {
         game_.events.push(
-            TextNotice{static_cast<unsigned int>(source_color), Data().strings[0x214]});
+            TextNotice{static_cast<unsigned int>(source_color), game_.data.strings[0x214]});
         return;
     }
 
@@ -935,20 +935,21 @@ void CombatSignals::resolveMissileHit(const World& world, Missile& missile, bool
         hit_location = MonsterHitLocation(*record, game_.rng.below(100));
         if (record->hit_location_chances[hit_location] < 100) {
             location_name =
-                Data().strings[g_monster_hit_location_labels[hit_location][record->constitution]];
+                game_.data
+                    .strings[g_monster_hit_location_labels[hit_location][record->constitution]];
         } else {
             location_name = "";
         }
     } else {
         hit_location = CharacterHitLocation(game_.rng.below(100));
-        location_name = Data().strings[g_pc_hit_location_labels[hit_location][0]];
+        location_name = game_.data.strings[g_pc_hit_location_labels[hit_location][0]];
     }
     if (g_settings.verbose_combat_messages != 0) {
         game_.events.push(TextNotice{static_cast<unsigned int>(source_color),
-                                     fmt::sprintf(Data().strings[0x20c], location_name)});
+                                     fmt::sprintf(game_.data.strings[0x20c], location_name)});
     }
 
-    attack_mode = Data().missiles[missile.missile_table_index].attack_mode;
+    attack_mode = game_.data.missiles[missile.missile_table_index].attack_mode;
     chance = AttackModeMod(1, attack_mode) + 50 +
              (10 - TargetArmorClassAtLocation(target, attack_mode, hit_location)) * 5;
     penetration_roll = game_.rng.below(100) + 1;
@@ -964,11 +965,11 @@ void CombatSignals::resolveMissileHit(const World& world, Missile& missile, bool
             ApplyEffectConditions(source, target, &missile.definition, true, false, 0);
         } else if (g_settings.verbose_combat_messages != 0) {
             game_.events.push(
-                TextNotice{static_cast<unsigned int>(source_color), Data().strings[0x20e]});
+                TextNotice{static_cast<unsigned int>(source_color), game_.data.strings[0x20e]});
         }
     } else {
         game_.events.push(
-            TextNotice{static_cast<unsigned int>(source_color), Data().strings[0x20f]});
+            TextNotice{static_cast<unsigned int>(source_color), game_.data.strings[0x20f]});
         MakePCHitSound(&missile, target, hit_location, -1);
     }
 }
