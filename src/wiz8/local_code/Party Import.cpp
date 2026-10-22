@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstring>
 #include <exception>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -180,14 +181,16 @@ unsigned char ImportWizardry7Party(GameSession& games, std::string_view path)
     return 1;
 }
 
-void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
+void ImportWizardry7Character(W8Character* character, const W8Wiz7Character* imported)
 {
     W8Profession profession;
     unsigned int level;
     unsigned int skill_id;
 
     *character = W8Character{};
-    character->name = TitleCaseString(imported->name);
+    // The name fills its field without a terminator when it is sixteen characters long.
+    character->name = TitleCaseString(
+        std::string_view(std::begin(imported->name), std::ranges::find(imported->name, '\0')));
     character->name_part_2 = character->name;
     character->iRace = static_cast<W8Race>(imported->race);
     character->gender = static_cast<W8Gender>(imported->gender);

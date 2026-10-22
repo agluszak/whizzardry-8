@@ -16,7 +16,7 @@ int RollDice(const W8Dice* dice);
 int RollDice(const W8Dice* dice, unsigned int rolls);
 int IntegerPower(int base, unsigned int exponent);
 std::string FormatUnsignedIntegerWithCommas(unsigned int value);
-char* TitleCaseString(char* string);
+std::string TitleCaseString(std::string_view text);
 float ShortestAngleDistance(float first, float second);
 DesignRect UnionScreenRects(const DesignRect& first, const DesignRect& second);
 bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point);

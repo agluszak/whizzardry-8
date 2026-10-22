@@ -22,7 +22,7 @@ struct W8Wiz7Item {
 
 /* The imported Wizardry 7 character record. */
 struct W8Wiz7Character {
-    char name[0x10]; /* ASCII name TitleCaseString reads */
+    char name[0x10]; /* ASCII, NUL-padded; a full-length name has no terminator */
     int kill_count;  /* stored verbatim to kill_count */
     unsigned char unknown_014[0x10];
     short level;  /* positive values import as level 1 */
@@ -54,7 +54,7 @@ void GrantStartingSpells(W8Character* character, const W8Wiz7Character* imported
 void ImportEquipment(W8Character* character, const W8Wiz7Character* imported);
 unsigned int ConvertSkill(W8Skill skill_id, W8Character* character,
                           const W8Wiz7Character* imported);
-void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported);
+void ImportWizardry7Character(W8Character* character, const W8Wiz7Character* imported);
 
 /* Parse the Wizardry 7 save into the import globals - character
    count, records, ending/difficulty selectors and the 96 flag bits. */

@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstddef>
 #include <string>
+#include <string_view>
 
 #include <SDL3/SDL_rect.h>
 
@@ -61,19 +62,16 @@ std::string FormatUnsignedIntegerWithCommas(unsigned int value)
     return text;
 }
 
-char* TitleCaseString(char* string)
+std::string TitleCaseString(std::string_view text)
 {
     bool capitalize = true;
-    char* cursor = string;
+    std::string result(text);
 
-    while (*cursor != '\0') {
-        if (capitalize) {
-            *cursor = static_cast<char>(toupper(static_cast<unsigned char>(*cursor)));
-        } else {
-            *cursor = static_cast<char>(tolower(static_cast<unsigned char>(*cursor)));
-        }
+    for (char& c : result) {
+        const auto byte = static_cast<unsigned char>(c);
+        c = static_cast<char>(capitalize ? toupper(byte) : tolower(byte));
 
-        switch (*cursor) {
+        switch (c) {
         case ' ':
         case '&':
         case '\'':
@@ -89,9 +87,8 @@ char* TitleCaseString(char* string)
             capitalize = false;
             break;
         }
-        ++cursor;
     }
-    return string;
+    return result;
 }
 
 float NormalizeAngle(float angle)
