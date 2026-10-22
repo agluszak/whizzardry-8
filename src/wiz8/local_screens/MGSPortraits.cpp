@@ -444,12 +444,12 @@ void ToggleNumericHitPoints(void)
     }
 }
 
-// Inclusive portrait bounds; offset follows the mirrored hover-slide direction.
+// Offset follows the mirrored hover-slide direction.
 DesignRect PartyPortraitBounds(unsigned int slot, int offset)
 {
     const int left = (slot & 1) ? 512 - offset : offset;
     const int top = 18 + static_cast<int>(slot / 2) * 85;
-    return {left, top, left + 127, top + 85};
+    return {left, top, left + 128, top + 86};
 }
 
 /* The slot's anchor positions for the keyboard menu and portrait band: the

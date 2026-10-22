@@ -2673,9 +2673,13 @@ void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentatio
                                        true, hud.portrait_refresh_pending[party_slot] == 0);
             auto rect = PartyPortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
                                                             hud.portrait_hover_x_origin);
-            if (hud.portrait_refresh_pending[party_slot])
-                rect = UnionScreenRects(rect, PartyPortraitBounds(party_slot));
-            InvalidateRegion(rect.left, rect.top, rect.right + 1, rect.bottom + 1);
+            if (hud.portrait_refresh_pending[party_slot]) {
+                auto backing = PartyPortraitBounds(party_slot);
+                --backing.right;
+                --backing.bottom;
+                rect = UnionScreenRects(rect, backing);
+            }
+            InvalidateRegion(rect.left, rect.top, rect.right, rect.bottom);
         } else if (repaint.portrait_bars.test(party_slot)) {
             RedrawPartyPortraitBars(party_slot, hud.portrait_refresh_pending[party_slot] == 0);
         }
@@ -3835,8 +3839,8 @@ static bool IsPartyPortraitUnderCursor(unsigned int party_slot)
     const auto& hud = *MainGameHud();
     const auto rect = PartyPortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
                                                           hud.portrait_hover_x_origin);
-    return rect.right >= 0 &&
-           IsCursorInRectangle(std::max(0, rect.left), rect.top, rect.right, rect.bottom);
+    return rect.right > 0 &&
+           IsCursorInRectangle(std::max(0, rect.left), rect.top, rect.right - 1, rect.bottom - 1);
 }
 
 /* The per-frame combat-strip update: while combat mode is on, recompute each
@@ -3990,7 +3994,7 @@ void ClearPortraitRefreshSlot(int slot)
         CurrentGame().monster_manager_entries[slot].portrait_refresh_pinned = false;
         MainGameHud()->portrait_refresh_image[slot] = 0;
         const auto rect = PartyPortraitBounds(slot);
-        EraseRegion(rect.left - 1, rect.top, rect.right + 1, rect.bottom);
+        EraseRegion(rect.left - 1, rect.top, rect.right, rect.bottom - 1);
         if (auto* hud = MainGameHud()) hud->repaint.portrait(slot);
         MainGame()->edge_targets[slot]->setEnabled(true);
         DisableMainGamePortraitSlot(slot);
