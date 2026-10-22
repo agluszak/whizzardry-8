@@ -8,9 +8,6 @@ add_test(NAME layer_boundaries
 add_executable(native_party_storage_test native/party_storage_test.cpp)
 target_link_libraries(native_party_storage_test PRIVATE wiz8_rules)
 catch_discover_tests(native_party_storage_test TEST_PREFIX "native_party_storage/")
-add_executable(native_party_conditions_test native/party_conditions_test.cpp)
-target_link_libraries(native_party_conditions_test PRIVATE wiz8_rules)
-catch_discover_tests(native_party_conditions_test TEST_PREFIX "native_party_conditions/")
 
 # Reuse the runtime clock hook for deterministic timer checks without game assets.
 add_executable(native_game_timer_test native/game_timer_test.cpp
@@ -287,6 +284,15 @@ elseif(UNIX)
     target_link_options(native_combat_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
 endif()
 add_test(NAME native_combat COMMAND native_combat_test)
+
+add_executable(native_party_conditions_test native/party_conditions_test.cpp)
+target_link_libraries(native_party_conditions_test PRIVATE wiz8_engine SDL3::SDL3)
+if(APPLE)
+    target_link_options(native_party_conditions_test PRIVATE -Wl,-dead_strip)
+elseif(UNIX)
+    target_link_options(native_party_conditions_test PRIVATE -Wl,--gc-sections -Wl,-z,start-stop-gc)
+endif()
+catch_discover_tests(native_party_conditions_test TEST_PREFIX "native_party_conditions/")
 
 add_executable(native_random_test native/random_test.cpp)
 target_link_libraries(native_random_test PRIVATE wiz8_engine)

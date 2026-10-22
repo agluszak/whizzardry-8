@@ -43,11 +43,10 @@ std::unique_ptr<World> Level::replaceSky(std::unique_ptr<World> world)
     return std::exchange(sky, std::move(world));
 }
 
-/* Finish speech first: its voices complete into the queue and the characters it names.
-   The NPC voice and the Al-Sedexus ambience stop with the game. */
+/* The session finished speech while the game was current (`GameSession::end`). The NPC
+   voice and the Al-Sedexus ambience stop with the game. */
 Game::~Game()
 {
-    speech.DestroyAllEvents();
     for (auto& entry : monster_manager_entries) entry.mouth_gap = {};
     StopNpcVoice(npc_speech);
     wiz8::sound::stop(sedexus_scene.moaning);
@@ -61,7 +60,7 @@ GameSession::GameSession() : next_stream_(static_cast<std::uint32_t>(std::time(n
 
 GameSession::~GameSession()
 {
-    game_.reset();
+    end();
     current_session = nullptr;
 }
 
@@ -76,7 +75,11 @@ Game& GameSession::begin()
 
 void GameSession::end()
 {
-    if (game_) next_stream_ = game_->rng;
+    if (!game_) return;
+    next_stream_ = game_->rng;
+    // Voice events complete into the queue and the characters they name, which they find
+    // through the current game.
+    game_->speech.DestroyAllEvents();
     game_.reset();
 }
 

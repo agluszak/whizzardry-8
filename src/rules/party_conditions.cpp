@@ -1,30 +1,18 @@
 #include "wiz8/rules/party_conditions.h"
 
-#include <bitset>
-#include <cassert>
 #include <optional>
-#include <string>
-#include <utility>
-
-#include <fmt/format.h>
-#include <fmt/printf.h>
 
 #include "wiz8/data/game_data.h"
-#include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
-#include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/inventory.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
-#include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/random.h"
-#include "wiz8/rules/rule_context.h"
-#include "wiz8/rules/targeting.h"
 
 namespace {
 constexpr int kItemMadnessRing = 0x243;
@@ -47,9 +35,55 @@ std::optional<unsigned int> LowestMentalResistanceSlot(const W8Party& party)
     }
     return selected;
 }
+} // namespace
 
-/* The madness ring keeps its bearer insane: carried by a member, or, from the pool, by
-   whoever resists least, unless the bearer wears its counter-charm. */
+int ConditionDuration(W8Condition condition, int duration)
+{
+    switch (condition) {
+    case W8_CONDITION_DISEASED:
+    case W8_CONDITION_INFATUATED:
+    case W8_CONDITION_DEAD:
+    case W8_CONDITION_MISSING:
+        return W8_CONDITION_INDEFINITE;
+    default:
+        return duration;
+    }
+}
+
+ConditionResistance ResistCondition(const W8Character& character, W8Condition condition,
+                                    int duration)
+{
+    switch (condition) {
+    case W8_CONDITION_AFRAID:
+        if (CharacterHasTrait(&character, W8_TRAIT_FEARLESS)) return ConditionResistance::Fearless;
+        [[fallthrough]];
+    case W8_CONDITION_DISEASED:
+    case W8_CONDITION_IRRITATED:
+    case W8_CONDITION_NAUSEATED:
+    case W8_CONDITION_POISONED:
+    case W8_CONDITION_ASLEEP:
+        if (CharacterHasTrait(&character, static_cast<W8Trait>(0x1e)))
+            return ConditionResistance::Silent;
+        break;
+    case W8_CONDITION_INSANE:
+        if (duration == W8_CONDITION_INDEFINITE) break;
+        [[fallthrough]];
+    case W8_CONDITION_TURNCOAT:
+        if (CharacterHasTrait(&character, W8_TRAIT_MENTAL_CONDITION_IMMUNITY))
+            return ConditionResistance::MentallyImmune;
+        break;
+    default:
+        break;
+    }
+    return ConditionResistance::None;
+}
+
+bool InfatuationHoldsHex(const W8Character& character, int level_band)
+{
+    return character.uiCondition[W8_CONDITION_INFATUATED] != 0 && level_band != 9 &&
+           level_band != 10;
+}
+
 bool MadnessRingHoldsInsanity(const W8Party& party, unsigned int slot)
 {
     const auto found = FindPartyItem(party, ItemWithId(kItemMadnessRing), W8ItemReach::Party);
@@ -60,136 +94,26 @@ bool MadnessRingHoldsInsanity(const W8Party& party, unsigned int slot)
                                                 ItemWithId(kItemMadnessCharm), W8ItemReach::Worn);
 }
 
-void PushSlotDisplayChanged(Events& events, unsigned int slot)
+W8Condition HighestCondition(const W8Character& character)
 {
-    events.push(PartySlotChanged{slot});
-    events.push(CharacterActionChanged{});
-    events.push(PartyPanelChanged{});
+    for (int index = W8_CONDITION_COUNT - 1; index > 0; --index)
+        if (character.uiCondition[index] != 0) return static_cast<W8Condition>(index);
+    return W8_CONDITION_NONE;
 }
 
-/* Rescan the member's condition countdowns from the top for its highest condition and
-   let the game follow it. */
-void RecomputeHighestCondition(RuleContext& rules, PartyHost& host, unsigned int slot)
+W8EnchantmentSlot TopEnchantment(const W8Character& character)
 {
-    auto& character = rules.party.characters[slot];
-    character.highest_condition = W8_CONDITION_NONE;
-    for (int index = W8_CONDITION_COUNT - 1; index > 0; --index) {
-        if (character.uiCondition[index] != 0) {
-            character.highest_condition = static_cast<W8Condition>(index);
-            break;
-        }
-    }
-    host.standingChanged(slot);
-    PushSlotDisplayChanged(rules.events, slot);
+    for (int scan = 7; scan > 0; --scan)
+        if (character.enchantments[scan].turns > 0) return static_cast<W8EnchantmentSlot>(scan);
+    return W8_ENCHANTMENT_NONE;
 }
 
-void RecomputeEnchantmentTop(W8Character& character)
+int AgedPoisonStrength(Rng& rng, int strength, unsigned int remaining, unsigned int minutes)
 {
-    character.enchantment_top = W8_ENCHANTMENT_NONE;
-    for (int scan = 7; scan > 0; --scan) {
-        if (character.enchantments[scan].turns > 0) {
-            character.enchantment_top = static_cast<W8EnchantmentSlot>(scan);
-            break;
-        }
-    }
-}
-
-// Rebuild the member's condition block and settle the party.
-void Resettle(RuleContext& rules, PartyHost& host, unsigned int slot)
-{
-    RebuildConditionModifiers(rules, host, slot);
-    SettleParty(rules, host);
-}
-
-/* Clear the condition and what it alone maintained; true when it was lifted. A dying
-   member's conditions are cleared without settling each time. */
-bool ClearCondition(RuleContext& rules, PartyHost& host, unsigned int slot, W8Condition condition,
-                    bool announce)
-{
-    auto& party = rules.party;
-    auto& character = party.characters[slot];
-    if (character.uiCondition[condition] == 0 && host.worldSuspended()) return false;
-    assert(party.members[slot].has_value());
-    assert(character.uiCondition[condition] != 0);
-    if (condition == W8_CONDITION_HEXED) {
-        const int band = host.levelBand();
-        if (character.uiCondition[W8_CONDITION_INFATUATED] != 0 && band != 9 && band != 10)
-            return false;
-    } else if (condition == W8_CONDITION_INSANE && MadnessRingHoldsInsanity(party, slot)) {
-        return false;
-    }
-    if (announce) {
-        rules.events.push(CharacterNotice{
-            slot, fmt::sprintf(rules.data.strings[0x243],
-                               rules.data.strings[kConditionNotices[condition].name])});
-    }
-    character.uiCondition[condition] = 0;
-    RecomputeHighestCondition(rules, host, slot);
-    switch (condition) {
-    case W8_CONDITION_POISONED:
-        character.condition_argument = 0;
-        break;
-    case W8_CONDITION_DRAINED:
-        character.hp_adjustment = 0;
-        character.fatigue_penalty = 0;
-        break;
-    default:
-        break;
-    }
-    host.conditionLifted(slot, condition);
-    return true;
-}
-
-// Death's own consequences, after the death condition took hold.
-void Die(RuleContext& rules, PartyHost& host, unsigned int slot)
-{
-    auto& character = rules.party.characters[slot];
-    assert(rules.party.members[slot].has_value());
-    ++character.death_count;
-    bool lifted = false;
-    for (unsigned int condition = 0; condition < W8_CONDITION_CLEARABLE_COUNT; ++condition) {
-        if (condition != W8_CONDITION_INFATUATED && character.uiCondition[condition] != 0 &&
-            ClearCondition(rules, host, slot, static_cast<W8Condition>(condition), false)) {
-            host.recoveryReaction(slot, static_cast<W8Condition>(condition));
-            lifted = true;
-        }
-    }
-    if (lifted) Resettle(rules, host, slot);
-    character.hp_current = 0;
-    character.stamina = 0;
-    auto& row = rules.party.rows[slot];
-    row.executing.target = W8CombatSlot{W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}};
-    row.committed.target = W8CombatSlot{W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}};
-    rules.events.push(CharacterDied{slot});
-    host.died(slot);
-}
-} // namespace
-
-void SettleParty(RuleContext& rules, PartyHost& host,
-                 std::bitset<W8_PARTY_SLOT_COUNT> changed_hands)
-{
-    auto& party = rules.party;
-    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (party.members[slot].has_value() && IsCharacterDefined(party.characters[slot]) &&
-            host.unequipUnusable(slot))
-            changed_hands.set(slot);
-    const auto stats = UpdatePartyStats(rules.data, party, host.statRules());
-    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        if (!party.members[slot].has_value()) continue;
-        const auto& character = party.characters[slot];
-        if (changed_hands[slot] && character.fInParty && rules.game_started) {
-            host.handsChanged(slot);
-            rules.events.push(PartySlotChanged{slot});
-        }
-        if (stats.characters[slot].became_overloaded) host.overloaded(slot);
-        if (character.fInParty) rules.events.push(PartySlotChanged{slot});
-    }
-    if (stats.load_redistributed) rules.events.push(PartyLoadChanged{});
-    // Death is a condition change with consequences of its own.
-    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (stats.characters[slot].hp_exhausted)
-            InflictCondition(rules, host, slot,
-                             {.condition = W8_CONDITION_DEAD, .duration = W8_CONDITION_INDEFINITE});
+    // A roll covers a share that floors to zero.
+    unsigned int lost = strength * minutes / remaining;
+    if (lost == 0 && rng.below(100) < strength * minutes * 100 / remaining) lost = 1;
+    return strength - lost;
 }
 
 bool CheatsDeath(const W8Character& character)
@@ -198,227 +122,70 @@ bool CheatsDeath(const W8Character& character)
            character.uiCondition[W8_CONDITION_UNCONSCIOUS] < kCheatDeathUnconsciousLimit;
 }
 
-/* A notice, an unconscious stint shortened by the profession-level scale, and hit points
-   rolled back up: from a scaled share of the maximum once per fight, from a scaled share
-   of the current pool every other time. */
-void ReviveByCheatingDeath(RuleContext& rules, PartyHost& host, unsigned int slot)
+int CheatDeathUnconsciousTurns(const W8Character& character)
 {
-    auto& character = rules.party.characters[slot];
-    rules.events.push(CharacterNotice{slot, rules.data.strings[0x173]});
-    InflictCondition(
-        rules, host, slot,
-        {.condition = W8_CONDITION_UNCONSCIOUS,
-         .duration =
-             static_cast<int>(character.uiCondition[W8_CONDITION_UNCONSCIOUS]) -
-             static_cast<int>(ScaleValueByProfessionLevel(&character, W8_TRAIT_CHEAT_DEATH, 5.0f)) +
-             static_cast<int>(kCheatDeathUnconsciousLimit)});
-    if (host.spendFirstCombatRevival(slot)) {
-        character.hp_current =
-            (rules.rng.below(static_cast<unsigned int>(ScaleValueByProfessionLevel(
-                 &character, W8_TRAIT_CHEAT_DEATH,
-                 static_cast<unsigned int>(character.uiHPMax) * 0.5f))) +
-             0x32) *
-            character.uiHPMax / 100;
-    } else {
-        character.hp_current =
-            rules.rng.below(static_cast<unsigned int>(ScaleValueByProfessionLevel(
-                &character, W8_TRAIT_CHEAT_DEATH, character.hp_current))) +
-            1;
-    }
+    // An unconscious stint shortened by the profession-level scale.
+    return static_cast<int>(character.uiCondition[W8_CONDITION_UNCONSCIOUS]) -
+           static_cast<int>(ScaleValueByProfessionLevel(&character, W8_TRAIT_CHEAT_DEATH, 5.0f)) +
+           static_cast<int>(kCheatDeathUnconsciousLimit);
 }
 
-bool InflictCondition(RuleContext& rules, PartyHost& host, unsigned int slot,
-                      const ConditionInfliction& infliction)
+unsigned int CheatDeathHitPoints(Rng& rng, const W8Character& character, bool first_in_fight)
 {
-    auto& character = rules.party.characters[slot];
-    const auto condition = infliction.condition;
-    int duration = infliction.duration;
-    assert(rules.party.members[slot].has_value());
-    assert(infliction.poison_strength == 0 || condition == W8_CONDITION_POISONED);
-    if (condition == W8_CONDITION_POISONED && infliction.poison_strength == 0) return false;
-    if (condition == W8_CONDITION_DEAD && CheatsDeath(character)) {
-        ReviveByCheatingDeath(rules, host, slot);
-        return false;
+    if (first_in_fight) {
+        return (rng.below(static_cast<unsigned int>(ScaleValueByProfessionLevel(
+                    &character, W8_TRAIT_CHEAT_DEATH,
+                    static_cast<unsigned int>(character.uiHPMax) * 0.5f))) +
+                0x32) *
+               character.uiHPMax / 100;
     }
-    switch (condition) {
-    case W8_CONDITION_DISEASED:
-    case W8_CONDITION_INFATUATED:
-    case W8_CONDITION_DEAD:
-    case W8_CONDITION_MISSING:
-        duration = W8_CONDITION_INDEFINITE;
-        break;
-    default:
-        if (duration == 0) return false;
-        break;
+    return rng.below(static_cast<unsigned int>(ScaleValueByProfessionLevel(
+               &character, W8_TRAIT_CHEAT_DEATH, character.hp_current))) +
+           1;
+}
+
+bool StrengthenEnchantment(Rng& rng, const GameData& data, W8Character& character,
+                           W8EnchantmentSlot enchantment, int power, unsigned int turns,
+                           unsigned int percent)
+{
+    auto& entry = character.enchantments[enchantment];
+    if (entry.power >= static_cast<unsigned int>(power)) return false;
+    entry.power = power;
+    entry.percent = static_cast<unsigned short>(percent);
+    entry.turns = turns;
+    if (enchantment == W8_ENCHANTMENT_GUARDIAN_ANGEL) {
+        entry.magnitude = static_cast<short>(
+            RollDice(rng, data.spells[W8_SPELL_GUARDIAN_ANGEL].effect_dice) * power);
+        entry.magnitude =
+            static_cast<short>((static_cast<unsigned int>(entry.magnitude) * percent) / 100) +
+            entry.magnitude;
     }
-    const auto refuse = [&](std::string text) {
-        rules.events.push(CharacterNotice{slot, std::move(text)});
-        return false;
-    };
-    if (host.worldSuspended()) {
-        return refuse(fmt::sprintf(rules.data.strings[0x242],
-                                   rules.data.strings[kConditionNotices[condition].name]));
-    }
-    switch (condition) {
-    case W8_CONDITION_AFRAID:
-        if (CharacterHasTrait(&character, W8_TRAIT_FEARLESS))
-            return refuse(rules.data.strings[0x180]);
-        [[fallthrough]];
-    case W8_CONDITION_DISEASED:
-    case W8_CONDITION_IRRITATED:
-    case W8_CONDITION_NAUSEATED:
-    case W8_CONDITION_POISONED:
-    case W8_CONDITION_ASLEEP:
-        if (CharacterHasTrait(&character, static_cast<W8Trait>(0x1e))) return false;
-        break;
-    case W8_CONDITION_INSANE:
-        if (duration == W8_CONDITION_INDEFINITE) break;
-        [[fallthrough]];
-    case W8_CONDITION_TURNCOAT:
-        if (CharacterHasTrait(&character, W8_TRAIT_MENTAL_CONDITION_IMMUNITY))
-            return refuse(rules.data.strings[0x181]);
-        break;
-    default:
-        break;
-    }
-    const auto old_highest = character.highest_condition;
-    const unsigned int old_duration = character.uiCondition[condition];
-    const bool took_hold = old_duration < static_cast<unsigned int>(duration);
-    if (took_hold) {
-        if (old_duration == 0) host.conditionStarted(slot, condition);
-        character.uiCondition[condition] = duration;
-        RecomputeHighestCondition(rules, host, slot);
-    }
-    if (static_cast<unsigned int>(character.condition_argument) <
-        static_cast<unsigned int>(infliction.poison_strength)) {
-        character.condition_argument = infliction.poison_strength;
-    }
-    Resettle(rules, host, slot);
-    if (!took_hold) return false;
-    if (condition == W8_CONDITION_DEAD) Die(rules, host, slot);
-    if (condition >= W8_CONDITION_DEAD) host.incapacitated(slot);
-    if (old_highest != character.highest_condition) host.conditionReaction(slot);
-    if (infliction.announce) {
-        if (condition == W8_CONDITION_MISSING && infliction.alternate_missing_notice) {
-            rules.events.push(CharacterNotice{slot, rules.data.strings[0x1d5]});
-        } else {
-            rules.events.push(CharacterNotice{
-                slot,
-                fmt::format("{}!", rules.data.strings[kConditionNotices[condition].singular])});
-        }
-    }
+    character.enchantment_top = TopEnchantment(character);
     return true;
 }
 
-void LiftCondition(RuleContext& rules, PartyHost& host, unsigned int slot, W8Condition condition,
-                   bool announce)
+bool Swallowed(const W8Character& character)
 {
-    if (!ClearCondition(rules, host, slot, condition, announce)) return;
-    Resettle(rules, host, slot);
-    host.recoveryReaction(slot, condition);
+    return character.uiCondition[W8_CONDITION_MISSING] != 0 &&
+           character.conditions[W8_DEPENDENCE_SWALLOWED].active;
 }
 
-void AgeCondition(RuleContext& rules, PartyHost& host, unsigned int slot, W8Condition condition,
-                  unsigned int minutes)
+W8GameplayModifierBlock ConditionModifiers(const W8Character& character, bool npc_bound,
+                                           std::optional<int> swallower_level)
 {
-    auto& character = rules.party.characters[slot];
-    assert(rules.party.members[slot].has_value());
-    assert(character.uiCondition[condition] != 0);
-    if (character.uiCondition[condition] <= minutes) {
-        LiftCondition(rules, host, slot, condition, true);
-        return;
-    }
-    if (condition == W8_CONDITION_POISONED) {
-        // Poison bleeds its strength pro rata; a roll covers a share that floors to zero.
-        const int strength = character.condition_argument;
-        const unsigned int remaining = character.uiCondition[W8_CONDITION_POISONED];
-        unsigned int lost = strength * minutes / remaining;
-        if (lost == 0 && rules.rng.below(100) < strength * minutes * 100 / remaining) lost = 1;
-        character.condition_argument = strength - lost;
-    }
-    character.uiCondition[condition] -= minutes;
-}
-
-void LiftConditionFromParty(RuleContext& rules, PartyHost& host, W8Condition condition)
-{
-    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
-        if (rules.party.members[slot].has_value() &&
-            rules.party.characters[slot].uiCondition[condition] != 0)
-            LiftCondition(rules, host, slot, condition, true);
-}
-
-void LiftAllConditionsFromParty(RuleContext& rules, PartyHost& host)
-{
-    for (unsigned int condition = 0; condition < W8_CONDITION_CLEARABLE_COUNT; ++condition)
-        if (condition != W8_CONDITION_INFATUATED)
-            LiftConditionFromParty(rules, host, static_cast<W8Condition>(condition));
-}
-
-void Enchant(RuleContext& rules, PartyHost& host, unsigned int slot, W8EnchantmentSlot enchantment,
-             int power, unsigned int turns, unsigned int percent)
-{
-    auto& character = rules.party.characters[slot];
-    auto& entry = character.enchantments[enchantment];
-    if (entry.power < static_cast<unsigned int>(power)) {
-        entry.power = power;
-        entry.percent = static_cast<unsigned short>(percent);
-        entry.turns = turns;
-        if (enchantment == W8_ENCHANTMENT_GUARDIAN_ANGEL) {
-            entry.magnitude = static_cast<short>(
-                RollDice(rules.rng, rules.data.spells[W8_SPELL_GUARDIAN_ANGEL].effect_dice) *
-                power);
-            entry.magnitude =
-                static_cast<short>((static_cast<unsigned int>(entry.magnitude) * percent) / 100) +
-                entry.magnitude;
-        }
-        RecomputeEnchantmentTop(character);
-        PushSlotDisplayChanged(rules.events, slot);
-        host.enchantmentChanged(slot, enchantment);
-    }
-    Resettle(rules, host, slot);
-}
-
-void Disenchant(RuleContext& rules, PartyHost& host, unsigned int slot,
-                W8EnchantmentSlot enchantment)
-{
-    auto& character = rules.party.characters[slot];
-    character.enchantments[enchantment] = {};
-    RecomputeEnchantmentTop(character);
-    PushSlotDisplayChanged(rules.events, slot);
-    Resettle(rules, host, slot);
-    host.enchantmentChanged(slot, enchantment);
-}
-
-void AgeEnchantment(RuleContext& rules, PartyHost& host, unsigned int slot,
-                    W8EnchantmentSlot enchantment, unsigned int turns)
-{
-    auto& entry = rules.party.characters[slot].enchantments[enchantment];
-    if (entry.turns <= turns) {
-        Disenchant(rules, host, slot, enchantment);
-        return;
-    }
-    entry.turns -= turns;
-}
-
-void RebuildConditionModifiers(RuleContext& rules, PartyHost& host, unsigned int slot)
-{
-    auto& character = rules.party.characters[slot];
-    auto& block = character.condition_modifiers;
-    block = {};
+    W8GameplayModifierBlock block{};
     ApplyConditionModifiers(&character, character.uiCondition, character.condition_argument,
                             &block);
     // A swallowed member's regeneration suffers by the swallower's level.
-    const auto& swallowed = character.conditions[W8_DEPENDENCE_SWALLOWED];
-    if (character.uiCondition[W8_CONDITION_MISSING] != 0 && swallowed.active) {
-        const auto level = host.swallowerLevel(swallowed);
-        block.health_regen_adjustment += level ? -1 - (*level >> 1) : -5;
-    }
+    if (Swallowed(character))
+        block.health_regen_adjustment += swallower_level ? -1 - (*swallower_level >> 1) : -5;
     ApplyEnchantmentModifiers(character.enchantments, &block);
     // A member whose NPC is bound loses twenty from every attribute and skill.
-    if (const auto& member = rules.party.members[slot]; member && member->npc_bound) {
+    if (npc_bound) {
         for (auto& adjustment : block.attribute_adjustments) adjustment -= 0x14;
         for (auto& bonus : block.skill_bonus) bonus -= 0x14;
     }
+    return block;
 }
 
 /* Fold the live conditions into the modifier block: each running condition id
