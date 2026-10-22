@@ -662,6 +662,15 @@ widget tree.
   also refreshes the party panel and the aiming cone, and game code asks for it with a
   `TargetingRequested` event.
 
+## Character editing
+
+`CharacterDraft` owns the edited character, allocation history and game binding. Creation
+and level-up operations act on that owner, not an independently supplied character/state
+pair. Skill availability returns changed rows; the draft settles its own allocations
+without publishing an untargeted event to whichever screen is current. Its pages borrow
+their screen from construction. Choice rows derive selection and eligibility from the
+draft; repainting them does not reapply character rules or modify shared choice tables.
+
 ## Tests
 
 CTest contains asset-independent fixtures and licensed runtime scenarios (label

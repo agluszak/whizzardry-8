@@ -597,25 +597,29 @@ W8CharacterStatsPage* StatsPage()
 
 /* Spend a page's point pool through each entry's increment control until the
    page reports the allocation complete. */
-void SpendPool(GameHarness& game, const char* step, int page_index, const bool& complete)
+void SpendPool(GameHarness& game, const char* step, int page_index)
 {
     W8CharacterPage* page = FindScreen<CharacterScreen>()->m_pages[page_index].get();
     REQUIRE((page && !page->m_entries.empty()));
-    for (int index = 0; index < static_cast<int>(page->m_entries.size()) && !complete; ++index) {
+    const auto complete = [&] {
+        const auto& draft = FindScreen<CharacterScreen>()->draft;
+        return page_index == 0 ? draft.attributesComplete() : draft.skillsComplete();
+    };
+    for (int index = 0; index < static_cast<int>(page->m_entries.size()) && !complete(); ++index) {
         W8CharacterPageEntry* entry = page->m_entries[index].get();
         if (!entry || !entry->m_enabled || !entry->m_second || !entry->m_third ||
             (page_index == 2 && !entry->m_increment_allowed))
             continue;
-        while (!complete && *entry->m_second < *entry->m_third) {
+        while (!complete() && *entry->m_second < *entry->m_third) {
             const int before = *entry->m_second;
             INFO(step);
             const auto bounds = entry->m_increment->Bounds();
             game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
-            if (!game.within_frames(2, [&] { return complete || *entry->m_second != before; }))
+            if (!game.within_frames(2, [&] { return complete() || *entry->m_second != before; }))
                 break; // The entry is capped by something else (race maximum).
         }
     }
-    REQUIRE(complete);
+    REQUIRE(complete());
 }
 
 /* Main menu -> party selection -> character screen -> saved character back on
@@ -671,21 +675,23 @@ std::string CreateCharacter(GameHarness& game)
         const auto bounds = stats->m_profession_row->m_increment->Bounds();
         game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
     }
-    REQUIRE(game.within_frames(2, [&] { return stats->m_profession_row->m_index != -1; }));
+    REQUIRE(game.within_frames(
+        2, [&] { return stats->screen.draft.character.iProfession != W8_PROFESSION_NONE; }));
     {
         const auto bounds = stats->m_race_row->m_increment->Bounds();
         game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
     }
-    REQUIRE(game.within_frames(2, [&] { return stats->m_race_row->m_index != -1; }));
+    REQUIRE(
+        game.within_frames(2, [&] { return stats->screen.draft.character.iRace != W8_RACE_NONE; }));
     {
         const auto bounds = stats->m_gender_row->m_increment->Bounds();
         game.click_at(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2);
     }
-    REQUIRE(game.within_frames(2, [&] { return stats->m_gender_row->m_index != -1; }));
+    REQUIRE(game.within_frames(
+        2, [&] { return stats->screen.draft.character.gender != W8_GENDER_UNSET; }));
     REQUIRE((game.within_frames(
         2, [&] { return !stats->m_entries.empty() && stats->m_entries[0]->m_enabled; })));
-    SpendPool(game, "attributes", 0,
-              FindScreen<CharacterScreen>()->m_creation_state.attributes_complete);
+    SpendPool(game, "attributes", 0);
 
     // The first profession is a non-caster, so Next skips the spell page.
     game.click_at(616, 464);
@@ -693,18 +699,19 @@ std::string CreateCharacter(GameHarness& game)
         W8CharacterPage* page = FindScreen<CharacterScreen>()->m_pages[2].get();
         return FindScreen<CharacterScreen>()->m_page_index == 2 && page && !page->m_entries.empty();
     });
-    SpendPool(game, "skills", 2, FindScreen<CharacterScreen>()->m_creation_state.skills_complete);
+    SpendPool(game, "skills", 2);
 
     game.click_at(616, 464);
     game.wait("personality", [&] {
         W8CharacterPage* page = FindScreen<CharacterScreen>()->m_pages[3].get();
-        return FindScreen<CharacterScreen>()->m_page_index == 3 && page && !page->m_prepared;
+        return FindScreen<CharacterScreen>()->m_page_index == 3 && page &&
+               !page->m_instructions_dirty;
     });
     // The page focuses its first (full name) field; Tab moves to the short
     // name, which names the saved file.
     for (SDL_Keycode key : {SDLK_P, SDLK_R, SDLK_O, SDLK_B, SDLK_E, SDLK_TAB, SDLK_V, SDLK_I})
         game.key(key);
-    const W8Character& typed = FindScreen<CharacterScreen>()->m_character;
+    const W8Character& typed = FindScreen<CharacterScreen>()->draft.character;
     const std::string name = typed.name;
     REQUIRE(!name.empty());
 

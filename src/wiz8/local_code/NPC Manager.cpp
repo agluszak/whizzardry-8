@@ -565,8 +565,7 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
             CurrentGame().party.characters[party_slot].skills[index].available = true;
         }
     }
-    RefreshCharacterSkillAvailability(CurrentGame().events,
-                                      &CurrentGame().party.characters[party_slot]);
+    RefreshCharacterSkillAvailability(Data(), &CurrentGame().party.characters[party_slot]);
     if (npc->has_monster && npc->is_present) {
         W8MonsterInfo* monster = FindMonster(npc->location_id);
         if (monster != 0) {
@@ -1334,7 +1333,7 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character)
     }
     AdvanceCharacterToLevel(&character, source->level);
     CalcCharacterLevelBand(&character);
-    RefreshCharacterSkillAvailability(CurrentGame().events, &character);
+    RefreshCharacterSkillAvailability(Data(), &character);
     RecalculateCharacterDerivedStats(CurrentGame(), character);
     for (index = 1; index < 0x73; ++index) {
         if (source->spells[index - 1] != 0 && CanCharacterLearnSpell(&character, index)) {

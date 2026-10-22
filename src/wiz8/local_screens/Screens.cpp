@@ -374,11 +374,6 @@ struct GameEventPresentation {
         if (hud->open_submenu) ReopenSubMenuPanel();
         RefreshFlaggedMainGameState();
     }
-    void operator()(const SkillAvailabilityChanged& change) const
-    {
-        if (auto* screen = FindScreen<CharacterScreen>())
-            screen->SkillAvailabilityChanged(change.skill, change.available);
-    }
     void operator()(const SkillImproved& improved) const
     {
         auto& game = CurrentGame();
