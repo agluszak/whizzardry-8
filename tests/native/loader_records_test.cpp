@@ -1336,7 +1336,7 @@ TEST_CASE_METHOD(LoaderFixture, "Particle record versions initialize omitted fie
         REQUIRE(ReadWorldParticles(&info, &scene, &particles));
         REQUIRE(particles.size() == 2);
         for (const auto& particle : particles) {
-            REQUIRE(particle->particle_count == 2);
+            REQUIRE(particle->particles.size() == 2);
             REQUIRE(particle->getName() == "EMITTER");
             REQUIRE(particle->attachment_key == (version < 2 ? -1 : 7));
             REQUIRE(particle->start_frame == (version < 4 ? -1 : 4));

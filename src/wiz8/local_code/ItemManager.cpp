@@ -495,7 +495,6 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
 {
     int result;
     float best_distance;
-    unsigned int index;
 
     result = -1;
     best_distance = 999999.0f;
