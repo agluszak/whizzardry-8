@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <variant>
 #include <vector>
@@ -12,9 +13,10 @@
 #include "wiz8/entities/locks.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/filesystem.h"
+#include "wiz8/save_game.h"
 
 struct W8Chunk;
-struct W8WorldItem;
 struct World;
 
 /* The sections of a level group that name a level's own triggers and props (TRIG, APST,
@@ -33,7 +35,7 @@ struct SavedDoorState {
 };
 
 struct SavedTriggerLoot {
-    std::unique_ptr<W8WorldItem> item_group;
+    std::optional<SavedWorldItem> item_group;
     unsigned char items_generated = 0;
     unsigned int item_group_seed = 0;
     int gold = 0;
@@ -71,6 +73,8 @@ struct SavedLock {
     std::optional<int> last_interaction_clock;
 };
 struct SavedTriggerLocks {
+    // Sections before version 2 store every lock in the full form.
+    int version = 2;
     // A restoring section re-rolls each lock after reading it.
     bool restoring = false;
     std::vector<SavedLock> locks;
@@ -97,6 +101,16 @@ std::vector<SavedTrigger> DecodeSavedTriggers(W8Chunk& chunk, bool from_assets);
 std::vector<SavedProp> DecodeSavedProps(W8Chunk& chunk);
 SavedTriggerLocks DecodeSavedTriggerLocks(W8Chunk& chunk);
 std::vector<SavedTriggerAction> DecodeSavedTriggerActions(W8Chunk& chunk);
+
+/* What a save keeps of the world's triggers (TRIG), props (APST) and locks (LCKS), and the
+   writers of each section, which reproduce the records they were decoded from. */
+std::vector<SavedTrigger> CaptureSavedTriggers(const World& world);
+std::vector<SavedProp> CaptureSavedProps(const World& world);
+SavedTriggerLocks CaptureSavedTriggerLocks(const World& world);
+void WriteSavedTriggers(wiz8::File& file, std::span<const SavedTrigger> section);
+void WriteSavedProps(wiz8::File& file, std::span<const SavedProp> section);
+void WriteSavedTriggerLocks(wiz8::File& file, const SavedTriggerLocks& section);
+void WriteSavedTriggerActions(wiz8::File& file, std::span<const SavedTriggerAction> section);
 
 // Apply a decoded section to the world; entries naming nothing in it are ignored.
 void ApplySavedSection(World& world, SavedWorldSection& section);

@@ -871,11 +871,13 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     append(bytes, third);
     store("items.bin", bytes.substr(0, bytes.size() - 1));
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    REQUIRE_THROWS(ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk); }));
+    REQUIRE_THROWS(
+        ReadSavePayload(*file, [](W8Chunk& chunk) { return ReadSavedWorldItem(chunk); }));
     file.reset();
     store("items.bin", bytes);
     file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    auto group = ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk); });
+    auto group = BuildWorldItem(
+        ReadSavePayload(*file, [](W8Chunk& chunk) { return ReadSavedWorldItem(chunk); }));
     REQUIRE(group);
     REQUIRE(group->contents.size() == 2);
     REQUIRE(group->contents[0]->runtime_id == 29);
@@ -884,7 +886,7 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     auto output = wiz8::open_file(roundtrip_path, wiz8::OpenMode::replace);
     group->saved_marker = 23;
     group->contents.front()->saved_marker = 24;
-    REQUIRE_NOTHROW(SaveItemFile(*output, *group));
+    REQUIRE_NOTHROW(WriteSavedWorldItem(*output, CaptureWorldItem(*group)));
     REQUIRE(group->saved_marker == 23);
     REQUIRE(group->contents.front()->saved_marker == 24);
     output.reset();
@@ -894,7 +896,8 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     REQUIRE(roundtrip.size() == bytes.size());
     REQUIRE(std::equal(roundtrip.begin(), roundtrip.end(), bytes.begin()));
     file->seek(0, wiz8::SeekOrigin::begin);
-    auto defaults = ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk, true); });
+    auto defaults = BuildWorldItem(
+        ReadSavePayload(*file, [](W8Chunk& chunk) { return ReadSavedWorldItem(chunk, true); }));
     REQUIRE(defaults);
     REQUIRE((defaults->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
     REQUIRE((defaults->contents.front()->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
@@ -968,7 +971,8 @@ TEST_CASE_METHOD(LoaderFixture, "Nested item write failure aborts a staged trigg
             wiz8::testing::FileOperationHook previous;
             ~RestoreHook() { wiz8::testing::set_file_operation_hook(previous); }
         } restore{previous};
-        REQUIRE_THROWS_WITH(SaveWorldTriggers(*writer), "fixture item write failure");
+        REQUIRE_THROWS_WITH(WriteSavedTriggers(*writer, CaptureSavedTriggers(*GetWorld())),
+                            "fixture item write failure");
         REQUIRE(fired);
     }
     REQUIRE(wiz8::open_file(path)->read_text() == "old");
@@ -1333,7 +1337,9 @@ TEST_CASE_METHOD(LoaderFixture, "Cursor scratch replacement validates complete s
     const auto load = [&](const std::string& data) {
         store("cursor-state.dat", data);
         auto file = wiz8::open_file(wiz8::asset_path("cursor-state.dat"));
-        ReadSavePayload(*file, [&](W8Chunk& chunk) { ReadWorldCursorNodeStates(chunk, table); });
+        ReadSavePayload(*file, [&](W8Chunk& chunk) {
+            ApplyWorldCursorNodeStates(table, ReadWorldCursorNodeStates(chunk));
+        });
     };
     REQUIRE_THROWS(load(bytes.substr(0, bytes.size() - 1)));
     REQUIRE(table.nodes[0].userdata == std::vector{std::byte{7}});

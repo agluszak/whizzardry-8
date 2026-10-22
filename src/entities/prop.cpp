@@ -12,6 +12,7 @@
 #include <exception>
 #include <memory>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -1400,35 +1401,35 @@ int Prop::GetAnimationState() const
     return -1;
 }
 
-/* APST chunk writer: a 0xDEADD00D signature, the format version and the prop
-   count, then one record per prop - a fixed 64-byte name plus the six rep
-   bytes that LoadAnimationState reads back (frame, counters, direction
-   flags and the active byte). The per-prop byte writes only run while the
-   previous writes succeed. */
-void SaveWorldProps(wiz8::File& handle)
+std::vector<SavedProp> CaptureSavedProps(const World& world)
 {
-    int index;
-    int count;
-    unsigned int signature;
-    unsigned int version;
-    Prop* prop;
+    std::vector<SavedProp> section;
+    for (const auto& prop : world.plsProps)
+        section.push_back({prop->name,
+                           {prop->subcycle, prop->first_frame, prop->last_frame,
+                            prop->frame_direction, prop->animation_playing, prop->active}});
+    return section;
+}
 
-    signature = 0xDEADD00D;
-    version = 1;
-    handle.write(&signature, 4);
-    handle.write(&version, 4);
-    count = static_cast<int>(GetWorld()->plsProps.size());
+/* The named form: a 0xDEADD00D signature, the format version and the prop count, then one
+   record per prop - a fixed 64-byte name plus the six animation bytes (frame, counters,
+   direction flags and the active byte). The older form keys each record by its legacy id. */
+void WriteSavedProps(wiz8::File& handle, std::span<const SavedProp> section)
+{
+    const bool named = section.empty() || std::holds_alternative<std::string>(section[0].key);
+    const auto count = static_cast<unsigned int>(section.size());
+    if (named) {
+        const unsigned int signature = 0xDEADD00D, version = 1;
+        handle.write(&signature, 4);
+        handle.write(&version, 4);
+    }
     handle.write(&count, 4);
-    for (index = 0; index < count; ++index) {
-        prop = GetWorldProp(GetWorld(), index);
-        handle.write_padded(prop->name.c_str(), 0x40);
-        if ((handle.write(&prop->subcycle, 1), true) != 0 &&
-            (handle.write(&prop->first_frame, 1), true) != 0 &&
-            (handle.write(&prop->last_frame, 1), true) != 0 &&
-            (handle.write(&prop->frame_direction, 1), true) != 0 &&
-            (handle.write(&prop->animation_playing, 1), true) != 0) {
-            handle.write(&prop->active, 1);
-        }
+    for (const auto& prop : section) {
+        if (named)
+            handle.write_padded(std::get<std::string>(prop.key), 0x40);
+        else
+            handle.write(&std::get<int>(prop.key), sizeof(int));
+        handle.write(&prop.state, sizeof(prop.state));
     }
 }
 

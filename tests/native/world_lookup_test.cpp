@@ -138,7 +138,7 @@ bool nodes(const std::filesystem::path& directory)
     const auto path = directory / "lights.bin";
     {
         auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
-        SaveLightStates(*file);
+        WriteLightStates(*file, CaptureLightStates());
     }
     lamp->visible = true;
     torch->visible = false;
@@ -162,7 +162,7 @@ bool nodes(const std::filesystem::path& directory)
     gas->SetActive(0);
     {
         auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
-        SaveParticleStates(*file);
+        WriteParticleStates(*file, CaptureParticleStates(*GetWorld()));
     }
     gas->emitting = 1;
     {

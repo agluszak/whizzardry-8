@@ -117,27 +117,23 @@ void ParticleSystem::SetParticleScale(float scale)
     lifetime_maximum = (lifetime_maximum - offset) * scale + offset;
 }
 
-void SaveParticleStates(wiz8::File& handle)
+std::vector<W8ParticleState> CaptureParticleStates(const World& world)
 {
-    unsigned char version = 1;
-    int count = 0;
+    std::vector<W8ParticleState> states;
+    for (const auto& particle : world.particles)
+        if (particle->persisted) states.push_back({particle->getName(), particle->emitting});
+    return states;
+}
 
+void WriteParticleStates(wiz8::File& handle, std::span<const W8ParticleState> states)
+{
+    const unsigned char version = 1;
+    const int count = static_cast<int>(states.size());
     handle.write(&version, sizeof(version));
-
-    if (GetWorld() != 0) {
-        for (const auto& particle : GetWorld()->particles) {
-            count += particle->persisted;
-        }
-    }
     handle.write(&count, sizeof(count));
-
-    if (GetWorld() != 0) {
-        for (const auto& particle : GetWorld()->particles) {
-            if (particle->persisted) {
-                handle.write_padded(particle->getName(), 0x80);
-                handle.write(&particle->emitting, sizeof(particle->emitting));
-            }
-        }
+    for (const auto& [name, active] : states) {
+        handle.write_padded(name, 0x80);
+        handle.write(&active, sizeof(active));
     }
 }
 

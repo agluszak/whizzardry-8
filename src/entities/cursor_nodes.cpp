@@ -180,60 +180,77 @@ static void DrawWorldCursorNodeLabel(W8WorldCursorNode& entry)
     }
 }
 
-void ReadWorldCursorNodeStates(W8Chunk& file, W8SavedCursorNodes& table)
+W8SavedCursorNodeStates ReadWorldCursorNodeStates(W8Chunk& file)
 {
-    std::int32_t version;
+    W8SavedCursorNodeStates states;
     std::uint32_t count;
-    file.ReadBytes(&version, sizeof(version));
-    if (version == 0x21122112) version = 1;
-    if (version != 1 && version != 2) throw std::runtime_error("invalid cursor state version");
+    file.ReadBytes(&states.version, sizeof(states.version));
+    if (states.version == 0x21122112) states.version = 1;
+    if (states.version != 1 && states.version != 2)
+        throw std::runtime_error("invalid cursor state version");
     file.ReadBytes(&count, sizeof(count));
-    if (count > file.RemainingBytes() / (version == 1 ? 4 : 36))
+    if (count > file.RemainingBytes() / (states.version == 1 ? 4 : 36))
         throw std::runtime_error("invalid cursor state count");
-    std::vector<std::pair<std::size_t, std::vector<std::byte>>> pending;
-    pending.reserve(count);
-    for (std::uint32_t index = 0; index < count; ++index) {
-        auto destination = static_cast<std::size_t>(index);
-        if (version == 2) {
-            std::array<char, 32> name;
-            file.ReadBytes(name.data(), name.size());
-            const auto end = std::find(name.begin(), name.end(), '\0');
-            if (end == name.end()) throw std::runtime_error("unterminated cursor state name");
-            const auto found =
-                std::find_if(table.nodes.begin(), table.nodes.end(), [&](const auto& node) {
-                    return std::string_view(node.name.data()) ==
-                           std::string_view(name.data(), end - name.begin());
-                });
-            destination = found - table.nodes.begin();
+    states.entries.resize(count);
+    for (auto& entry : states.entries) {
+        if (states.version == 2) {
+            file.ReadBytes(entry.name.data(), entry.name.size());
+            if (std::ranges::find(entry.name, '\0') == entry.name.end())
+                throw std::runtime_error("unterminated cursor state name");
         }
         std::int32_t size;
         file.ReadBytes(&size, sizeof(size));
         if (size < 0 || size > file.RemainingBytes())
             throw std::runtime_error("invalid cursor userdata size");
-        std::vector<std::byte> bytes(size);
-        file.ReadBytes(bytes.data(), bytes.size());
-        pending.emplace_back(destination, std::move(bytes));
+        entry.userdata.resize(size);
+        file.ReadBytes(entry.userdata.data(), entry.userdata.size());
     }
-    for (auto& [index, bytes] : pending) {
-        // Version 1 matched by position; an index past the table names the first node.
-        if (version == 1 && index >= table.nodes.size()) index = 0;
-        if (index < table.nodes.size()) table.nodes[index].userdata = std::move(bytes);
+    return states;
+}
+
+void ApplyWorldCursorNodeStates(W8SavedCursorNodes& table, W8SavedCursorNodeStates states)
+{
+    for (std::size_t position = 0; position < states.entries.size(); ++position) {
+        auto& entry = states.entries[position];
+        auto index = position;
+        if (states.version == 2) {
+            index = std::ranges::find_if(table.nodes,
+                                         [&](const auto& node) {
+                                             return std::string_view(node.name.data()) ==
+                                                    std::string_view(entry.name.data());
+                                         }) -
+                    table.nodes.begin();
+        } else if (index >= table.nodes.size()) {
+            // Version 1 matched by position; an index past the table names the first node.
+            index = 0;
+        }
+        if (index < table.nodes.size()) table.nodes[index].userdata = std::move(entry.userdata);
     }
 }
 
-void SaveWorldCursorNodeStates(wiz8::File& handle)
+W8SavedCursorNodeStates CaptureWorldCursorNodeStates(const World& world)
 {
-    const std::int32_t version = 2;
-    const auto count = static_cast<std::uint32_t>(GetWorld()->cursor_nodes.size());
-    handle.write(&version, sizeof(version));
+    W8SavedCursorNodeStates states;
+    for (const auto& node : world.cursor_nodes) {
+        auto& entry = states.entries.emplace_back();
+        std::ranges::copy(node->name, entry.name.begin());
+        entry.userdata = node->userdata;
+    }
+    return states;
+}
+
+void WriteWorldCursorNodeStates(wiz8::File& handle, const W8SavedCursorNodeStates& states)
+{
+    const auto count = static_cast<std::uint32_t>(states.entries.size());
+    handle.write(&states.version, sizeof(states.version));
     handle.write(&count, sizeof(count));
-    for (const auto& node : GetWorld()->cursor_nodes) {
-        if (node->userdata.size() > std::numeric_limits<std::int32_t>::max())
+    for (const auto& entry : states.entries) {
+        if (entry.userdata.size() > std::numeric_limits<std::int32_t>::max())
             throw std::length_error("cursor userdata exceeds save format");
-        const auto size = static_cast<std::int32_t>(node->userdata.size());
-        handle.write(node->name, sizeof(node->name));
+        const auto size = static_cast<std::int32_t>(entry.userdata.size());
+        if (states.version == 2) handle.write(entry.name.data(), entry.name.size());
         handle.write(&size, sizeof(size));
-        handle.write(node->userdata.data(), node->userdata.size());
+        handle.write(entry.userdata.data(), entry.userdata.size());
     }
 }
 
@@ -292,26 +309,6 @@ void BuildWorldCursorNodes(World& world, W8SavedCursorNodes records)
         cube->userdata = std::move(record.userdata);
         DrawWorldCursorNodeLabel(*cube);
         world.cursor_nodes.push_back(std::move(cube));
-    }
-}
-
-void SaveWorldCursorNodes(wiz8::File& handle)
-{
-    const std::int32_t version = 3;
-    const auto count = static_cast<std::uint32_t>(GetWorld()->cursor_nodes.size());
-
-    handle.write(&version, sizeof(version));
-    handle.write(&GetWorld()->cursor_serial, sizeof(GetWorld()->cursor_serial));
-    handle.write(&count, sizeof(count));
-    for (const auto& node : GetWorld()->cursor_nodes) {
-        handle.write(node->name, sizeof(node->name));
-        handle.write(node->parameters, sizeof(node->parameters));
-        const auto bounds = node->node->getModel()->getBounds().box;
-        const auto location = glm::vec3(node->node->transform.getLocation());
-        handle.write(&bounds.minimum, sizeof(bounds.minimum));
-        handle.write(&bounds.maximum, sizeof(bounds.maximum));
-        handle.write(&location, sizeof(location));
-        handle.write(&node->value_08, sizeof(node->value_08));
     }
 }
 

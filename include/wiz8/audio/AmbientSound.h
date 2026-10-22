@@ -177,11 +177,12 @@ bool AddAmbientSound(World* world, std::string_view name, const W8AmbientSoundCo
                      const glm::vec3* region_axis, const glm::vec3* region_scale,
                      unsigned char shared);
 
-void SaveAmbientSoundList(wiz8::File& handle);
 struct W8AmbientSoundState {
     std::string name;
     bool stopped;
 };
+std::vector<W8AmbientSoundState> CaptureAmbientSoundStates(const World& world);
+void WriteAmbientSoundStates(wiz8::File& handle, std::span<const W8AmbientSoundState> states);
 std::vector<W8AmbientSoundState> ReadAmbientSoundStates(W8Chunk& file);
 void ApplyAmbientSoundStates(World& world, std::span<const W8AmbientSoundState> states);
 

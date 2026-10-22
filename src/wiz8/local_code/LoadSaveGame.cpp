@@ -253,6 +253,15 @@ unsigned int ReadWorldItemCount(W8Chunk& chunk)
     return count;
 }
 
+/* A size-prefixed record image; an older writer's shorter image is zero-extended. */
+template<class Disk> void ReadSizedImage(W8Chunk& chunk, Disk& image)
+{
+    const auto size = chunk.ReadValue<std::uint32_t>();
+    if (size > sizeof(image)) throw std::runtime_error("Oversized retail record");
+    image = {};
+    chunk.ReadBytes(&image, size);
+}
+
 /* Save names and stored characters' file names fit a 64-byte field with its terminator. */
 constexpr int kCharacterNameBytes = 64;
 
@@ -518,9 +527,9 @@ struct SavedMonsterOrders {
         chunk.WriteValue(patrol_index);
         chunk.WriteValue(static_cast<int>(points.size()));
         for (const auto& point : points) wiz8::retail::write(chunk, point);
-        wiz8::retail::write(chunk, direction.value());
-        chunk.WriteValue(face_party.value());
-        chunk.WriteValue(stay_home.value());
+        if (direction) wiz8::retail::write(chunk, *direction);
+        if (face_party) chunk.WriteValue(*face_party);
+        if (stay_home) chunk.WriteValue(*stay_home);
     }
     static SavedMonsterOrders Read(W8Chunk& chunk, unsigned int version)
     {
@@ -587,115 +596,131 @@ void RestoreMonsterSpellIcons(World& world, const W8MonsterInfo& info, Monster* 
         AddMonsterSpellIcon(world, monster, SPELL_ICON_SUMMONED);
 }
 
-/* One monster record: the version, the size-prefixed W8MonsterInfo image with
-   position and yaw refreshed while the monster is live, then the script,
-   unborn, movement and order sections. */
-void WriteMonsterRecord(W8Chunk& chunk, const W8MonsterInfo* info)
-{
-    if (!info || !info->entity) throw std::runtime_error("missing monster");
-    Monster& monster = *info->entity;
-    auto image = wiz8::retail::encode_image(*info);
-    if (info->fActive) {
-        auto position = monster.GetRepresentationLocation();
-        position.y = probeGround(position).position.y;
-        image.position = {position.x, position.y, position.z};
-        image.derived = monster.nav.GetYaw();
-    }
-    chunk.WriteValue(kMonsterRecordVersion);
-    chunk.WriteValue(static_cast<std::uint32_t>(sizeof(image)));
-    chunk.WriteBytes(&image, sizeof(image));
-
-    const unsigned char has_script = monster.script != nullptr;
-    chunk.WriteValue(has_script);
-    if (has_script) SavedMonsterScript::Capture(monster).Write(chunk);
-
-    const unsigned char unborn = CurrentLevelPopulation().monster_roster.isUnborn(info);
-    chunk.WriteValue(unborn);
-
-    const unsigned char has_movement =
-        !monster.nav.linked_navigator && (monster.nav.flags & kMonsterHasMovement) != 0;
-    chunk.WriteValue(has_movement);
-    if (has_movement) SavedMonsterMovement::Capture(monster).Write(chunk);
-
-    SavedMonsterOrders::Capture(monster).Write(chunk);
-}
-
-void WriteWorldItems(W8Chunk& chunks)
-{
-    const auto count =
-        wiz8::checked_integer<std::uint32_t>(CurrentLevelPopulation().world_items.size());
-    chunks.WriteValue(count);
-    for (unsigned int index = 0; index < count; ++index)
-        SaveItemFile(chunks.WriteStream(), *ItemInfo(index));
-}
-
+/* A MONS group record: its size-prefixed W8MonsterGroup image and, from version 2,
+   whether it was on the encounter list. */
 struct SavedMonsterGroup {
-    std::unique_ptr<W8MonsterGroup> group;
-    bool encounter;
+    wiz8::retail::MonsterGroup image{};
+    bool encounter = false;
+
+    void Write(W8Chunk& chunk) const
+    {
+        chunk.WriteValue(static_cast<std::uint32_t>(sizeof(image)));
+        chunk.WriteBytes(&image, sizeof(image));
+        if (image.version >= 2) chunk.WriteValue(static_cast<unsigned char>(encounter));
+    }
+    static SavedMonsterGroup Read(W8Chunk& chunk)
+    {
+        SavedMonsterGroup saved;
+        ReadSizedImage(chunk, saved.image);
+        saved.encounter = saved.image.version >= 2 && chunk.ReadValue<unsigned char>() != 0;
+        if (static_cast<unsigned int>(saved.image.monster_id) >= kMaxMonsterSpecies)
+            throw std::runtime_error("invalid monster group species");
+        return saved;
+    }
+    // The group, without members until its monsters join it.
+    std::unique_ptr<W8MonsterGroup> Build() const
+    {
+        auto group = std::make_unique<W8MonsterGroup>();
+        wiz8::retail::decode_image(image, *group);
+        if (group->version < 3) group->forced_neutral = false;
+        group->monsters.clear();
+        group->members_active = false;
+        group->fInCombat = false;
+        return group;
+    }
 };
+
+/* One monster record: the version, the size-prefixed W8MonsterInfo image with position
+   and yaw refreshed while the monster is live, then the script, unborn (version 5),
+   movement (version 2) and order (version 3) sections. */
 struct SavedMonster {
-    std::unique_ptr<W8MonsterInfo> info = std::make_unique<W8MonsterInfo>();
-    bool unborn = false;
+    unsigned int version = kMonsterRecordVersion;
+    wiz8::retail::MonsterInfo image{};
     std::optional<SavedMonsterScript> script;
+    bool unborn = false;
     std::optional<SavedMonsterMovement> movement;
     std::optional<SavedMonsterOrders> orders;
-};
 
-SavedMonsterGroup ReadMonsterGroup(W8Chunk& chunk)
-{
-    auto owner = std::make_unique<W8MonsterGroup>();
-    auto& group = *owner;
-    wiz8::retail::read_sized(chunk, group);
-    const bool is_encounter = group.version >= 2 && chunk.ReadValue<unsigned char>() != 0;
-    if (group.version < 3) group.forced_neutral = false;
-
-    if (static_cast<unsigned int>(group.monster_id) >= kMaxMonsterSpecies)
-        throw std::runtime_error("invalid monster group species");
-
-    return {std::move(owner), is_encounter};
-}
-
-SavedMonster ReadMonster(W8Chunk& chunk)
-{
-    SavedMonster saved;
-    auto& owner = saved.info;
-    auto& info = *owner;
-    const auto version = chunk.ReadValue<unsigned int>();
-    wiz8::retail::read_sized(chunk, info);
-    auto& script = saved.script;
-    if (chunk.ReadValue<unsigned char>()) script = SavedMonsterScript::Read(chunk);
-    info.fActive = false;
-    info.entity.detach();
-    info.pCombat = nullptr;
-    saved.unborn = version >= 5 && chunk.ReadValue<unsigned char>() != 0;
-    auto& movement = saved.movement;
-    if (version >= 2 && chunk.ReadValue<unsigned char>())
-        movement = SavedMonsterMovement::Read(chunk);
-    auto& orders = saved.orders;
-    if (version >= 3) orders = SavedMonsterOrders::Read(chunk, version);
-
-    for (const auto& effect : info.effect_slots) {
-        if (effect.duration &&
-            static_cast<unsigned int>(effect.effect_id) >= std::size(g_effect_visual_table))
-            throw std::runtime_error("invalid monster status species or effect");
+    static SavedMonster Capture(const W8MonsterInfo& info, bool unborn)
+    {
+        if (!info.entity) throw std::runtime_error("missing monster");
+        Monster& monster = *info.entity.find();
+        SavedMonster saved{.image = wiz8::retail::encode_image(info), .unborn = unborn};
+        if (info.fActive) {
+            auto position = monster.GetRepresentationLocation();
+            position.y = probeGround(position).position.y;
+            saved.image.position = {position.x, position.y, position.z};
+            saved.image.derived = monster.nav.GetYaw();
+        }
+        if (monster.script) saved.script = SavedMonsterScript::Capture(monster);
+        if (!monster.nav.linked_navigator && (monster.nav.flags & kMonsterHasMovement) != 0)
+            saved.movement = SavedMonsterMovement::Capture(monster);
+        saved.orders = SavedMonsterOrders::Capture(monster);
+        return saved;
     }
-    if (info.monster_species >= kMaxMonsterSpecies)
-        throw std::runtime_error("invalid monster status species or effect");
-    return saved;
-}
+    void Write(W8Chunk& chunk) const
+    {
+        chunk.WriteValue(version);
+        chunk.WriteValue(static_cast<std::uint32_t>(sizeof(image)));
+        chunk.WriteBytes(&image, sizeof(image));
+        chunk.WriteValue(static_cast<unsigned char>(script.has_value()));
+        if (script) script->Write(chunk);
+        if (version >= 5) chunk.WriteValue(static_cast<unsigned char>(unborn));
+        if (version >= 2) {
+            chunk.WriteValue(static_cast<unsigned char>(movement.has_value()));
+            if (movement) movement->Write(chunk);
+        }
+        if (orders) orders->Write(chunk);
+    }
+    static SavedMonster Read(W8Chunk& chunk)
+    {
+        SavedMonster saved;
+        saved.version = chunk.ReadValue<unsigned int>();
+        ReadSizedImage(chunk, saved.image);
+        if (chunk.ReadValue<unsigned char>()) saved.script = SavedMonsterScript::Read(chunk);
+        saved.unborn = saved.version >= 5 && chunk.ReadValue<unsigned char>() != 0;
+        if (saved.version >= 2 && chunk.ReadValue<unsigned char>())
+            saved.movement = SavedMonsterMovement::Read(chunk);
+        if (saved.version >= 3) saved.orders = SavedMonsterOrders::Read(chunk, saved.version);
+        const auto info = saved.Build();
+        for (const auto& effect : info->effect_slots) {
+            if (effect.duration &&
+                static_cast<unsigned int>(effect.effect_id) >= std::size(g_effect_visual_table))
+                throw std::runtime_error("invalid monster status species or effect");
+        }
+        if (info->monster_species >= kMaxMonsterSpecies)
+            throw std::runtime_error("invalid monster status species or effect");
+        return saved;
+    }
+    // The inactive record, without its entity or combat state.
+    std::unique_ptr<W8MonsterInfo> Build() const
+    {
+        auto info = std::make_unique<W8MonsterInfo>();
+        wiz8::retail::decode_image(image, *info);
+        info->fActive = false;
+        return info;
+    }
+};
 
 } // namespace
 
-/* The status header, the monster groups and monsters, the world items, cursor nodes,
-   encounters and automap, the trigger, prop, lock and action sections, and the ambient
-   sounds, particles and lights. */
+/* The sections of one level's LVLS group: the status header, the monster groups and
+   monsters, the world items and automap, the trigger, prop, lock and action sections, the
+   cursor node and generator states, and the ambient sounds, particles and lights. The
+   level's asset status also holds its cursor nodes and encounters, which a save does not
+   repeat. */
 struct LevelState::Data {
+    int level = 0;
+    // Read from the level's asset status rather than from a save.
+    bool from_assets = false;
     std::optional<wiz8::save::LevelStatusHeader> header;
     std::vector<SavedMonsterGroup> groups;
     std::vector<SavedMonster> monsters;
-    std::vector<std::unique_ptr<W8WorldItem>> items;
+    std::vector<SavedWorldItem> items;
     std::optional<W8SavedCursorNodes> cursors;
+    std::optional<W8SavedCursorNodeStates> cursor_states;
     std::optional<W8EncounterState> encounters;
+    std::optional<W8MonsterGeneratorStates> generator_states;
     std::optional<W8SavedAutomapNotes> automap;
     std::vector<W8AmbientSoundState> ambient;
     std::vector<W8ParticleState> particles;
@@ -720,7 +745,8 @@ W8LoadedLevelStatus::W8LoadedLevelStatus() : data(std::make_unique<Data>()) {}
 W8LoadedLevelStatus::~W8LoadedLevelStatus() = default;
 
 namespace {
-// Decode one section of a level group into the group's values.
+/* Decode one section of a level group into the group's values. The asset status's cursor
+   section carries the nodes' bytes too, except when it is the base of a saved level. */
 void ReadLevelSection(LevelState::Data& data, W8Chunk& chunk, unsigned int chunk_id,
                       bool from_assets, bool baseline = false)
 {
@@ -740,24 +766,22 @@ void ReadLevelSection(LevelState::Data& data, W8Chunk& chunk, unsigned int chunk
         groups.reserve(groups.size() + group_count);
         monsters.reserve(monsters.size() + monster_count);
         for (unsigned int index = 0; index < group_count; ++index)
-            groups.push_back(ReadMonsterGroup(chunk));
+            groups.push_back(SavedMonsterGroup::Read(chunk));
         for (unsigned int index = 0; index < monster_count; ++index)
-            monsters.push_back(ReadMonster(chunk));
+            monsters.push_back(SavedMonster::Read(chunk));
         break;
     }
     case W8_CHUNK_WORLD_ITEMS: {
         const auto count = ReadWorldItemCount(chunk);
-        auto& items = data.items;
-        items.reserve(items.size() + count);
-        for (unsigned int index = 0; index < count; ++index) {
-            auto item = LoadItem(chunk, from_assets);
-            items.push_back(std::move(item));
-        }
+        data.items.reserve(data.items.size() + count);
+        for (unsigned int index = 0; index < count; ++index)
+            data.items.push_back(ReadSavedWorldItem(chunk, from_assets));
         break;
     }
     case W8_CHUNK_CURSOR_NODES:
         data.cursors = ReadWorldCursorNodes(chunk);
-        if (from_assets && !baseline) ReadWorldCursorNodeStates(chunk, *data.cursors);
+        if (from_assets && !baseline)
+            ApplyWorldCursorNodeStates(*data.cursors, ReadWorldCursorNodeStates(chunk));
         break;
     case W8_CHUNK_ENCOUNTERS:
         data.encounters = ReadEncounterState(chunk);
@@ -779,12 +803,10 @@ void ReadLevelSection(LevelState::Data& data, W8Chunk& chunk, unsigned int chunk
         data.world_sections.emplace_back(DecodeSavedProps(chunk));
         break;
     case W8_CHUNK_CURSOR_NODE_STATES:
-        if (!data.cursors) data.cursors.emplace();
-        ReadWorldCursorNodeStates(chunk, *data.cursors);
+        data.cursor_states = ReadWorldCursorNodeStates(chunk);
         break;
     case W8_CHUNK_MONSTER_GENERATORS:
-        if (!data.encounters) data.encounters.emplace();
-        ReadMonsterGeneratorStates(chunk, *data.encounters);
+        data.generator_states = ReadMonsterGeneratorStates(chunk);
         break;
     case W8_CHUNK_AMBIENT_SOUNDS:
         std::ranges::move(ReadAmbientSoundStates(chunk), std::back_inserter(data.ambient));
@@ -1014,6 +1036,107 @@ static wiz8::save::GameState CaptureStateForSave(const Game& game, const wiz8::F
     return snapshot;
 }
 
+LevelState CaptureLevelState(World& world, int level, const GameStatus& status)
+{
+    LevelState captured;
+    auto& state = *captured.data;
+    state.level = level;
+    state.header = CaptureStatusHeader(status);
+    auto& population = *world.population;
+    // Live list entries come first, then encounter groups and unborn monsters.
+    for (const auto* partition : {&population.monster_groups, &population.encounter_groups}) {
+        for (const auto& group : *partition) {
+            auto& saved = state.groups.emplace_back(SavedMonsterGroup{
+                wiz8::retail::encode_image(*group), partition == &population.encounter_groups});
+            saved.image.version = kMonsterGroupRecordVersion;
+            saved.image.active_member_count =
+                wiz8::checked_integer<std::int32_t>(population.activeMemberCount(*group));
+        }
+    }
+    for (const auto* partition :
+         {&population.monster_roster.live(), &population.monster_roster.unborn()})
+        for (const auto& monster : *partition)
+            if (monster->monster_group_id != 0)
+                state.monsters.push_back(SavedMonster::Capture(
+                    *monster, population.monster_roster.isUnborn(monster.get())));
+    for (const auto& item : population.world_items) state.items.push_back(CaptureWorldItem(*item));
+    state.automap = CaptureAutomapNotes(world);
+    if (!world.triggers.empty()) state.world_sections.emplace_back(CaptureSavedTriggers(world));
+    state.world_sections.emplace_back(CaptureSavedProps(world));
+    state.cursor_states = CaptureWorldCursorNodeStates(world);
+    state.generator_states = CaptureMonsterGeneratorStates(world.encounters);
+    state.world_sections.emplace_back(CaptureSavedTriggerLocks(world));
+    state.ambient = CaptureAmbientSoundStates(world);
+    state.particles = CaptureParticleStates(world);
+    state.lights = CaptureLightStates();
+    return captured;
+}
+
+/* The LVLS group: the level number, STAT, MONS and ITEM, then the automap, the trigger and
+   prop sections, the cursor node and generator states, the lock and action sections, and
+   the ambient sounds, particles and lights, in the order retail writes them. A save does
+   not repeat the asset status's cursor nodes and encounters. */
+void EncodeLevelState(W8Chunk& chunks, const LevelState& level)
+{
+    const auto& state = *level.data;
+    auto& file = chunks.WriteStream();
+    const auto sections = [&]<class Section>(unsigned int id) {
+        for (const auto& section : state.world_sections)
+            if (const auto* value = std::get_if<Section>(&section))
+                chunks.WriteChunk(id, [&] {
+                    if constexpr (std::is_same_v<Section, std::vector<SavedTrigger>>)
+                        WriteSavedTriggers(file, *value);
+                    else if constexpr (std::is_same_v<Section, std::vector<SavedProp>>)
+                        WriteSavedProps(file, *value);
+                    else if constexpr (std::is_same_v<Section, SavedTriggerLocks>)
+                        WriteSavedTriggerLocks(file, *value);
+                    else
+                        WriteSavedTriggerActions(file, *value);
+                });
+    };
+    chunks.WriteGroup(W8_CHUNK_LEVEL_STATUS, [&] {
+        chunks.WriteValue(state.level);
+        if (state.header)
+            WriteChunkPayload(chunks, W8_CHUNK_STATUS_HEADER, wiz8::save::encode(*state.header));
+        chunks.WriteChunk(W8_CHUNK_MONSTERS, [&] {
+            chunks.WriteValue(wiz8::checked_integer<std::uint32_t>(state.groups.size()));
+            chunks.WriteValue(wiz8::checked_integer<std::uint32_t>(state.monsters.size()));
+            for (const auto& group : state.groups) group.Write(chunks);
+            for (const auto& monster : state.monsters) monster.Write(chunks);
+        });
+        chunks.WriteChunk(W8_CHUNK_WORLD_ITEMS, [&] {
+            chunks.WriteValue(wiz8::checked_integer<std::uint32_t>(state.items.size()));
+            for (const auto& item : state.items) WriteSavedWorldItem(file, item);
+        });
+        if (state.automap)
+            chunks.WriteChunk(W8_CHUNK_AUTOMAP_NOTES,
+                              [&] { WriteAutomapNotes(file, *state.automap); });
+        sections.operator()<std::vector<SavedTrigger>>(W8_CHUNK_TRIGGERS);
+        sections.operator()<std::vector<SavedProp>>(W8_CHUNK_PROPS);
+        if (state.cursor_states)
+            chunks.WriteChunk(W8_CHUNK_CURSOR_NODE_STATES,
+                              [&] { WriteWorldCursorNodeStates(file, *state.cursor_states); });
+        if (state.generator_states)
+            chunks.WriteChunk(W8_CHUNK_MONSTER_GENERATORS,
+                              [&] { WriteMonsterGeneratorStates(file, *state.generator_states); });
+        sections.operator()<SavedTriggerLocks>(W8_CHUNK_TRIGGER_STATES);
+        sections.operator()<std::vector<SavedTriggerAction>>(W8_CHUNK_TRIGGER_ACTIONS);
+        chunks.WriteChunk(W8_CHUNK_AMBIENT_SOUNDS,
+                          [&] { WriteAmbientSoundStates(file, state.ambient); });
+        chunks.WriteChunk(W8_CHUNK_PARTICLES, [&] { WriteParticleStates(file, state.particles); });
+        chunks.WriteChunk(W8_CHUNK_LIGHTS, [&] { WriteLightStates(file, state.lights); });
+    });
+}
+
+namespace {
+// The current level's group, captured from its world.
+void WriteCurrentLevel(W8Chunk& chunks)
+{
+    EncodeLevelState(chunks,
+                     CaptureLevelState(*GetWorld(), GetLoadedLevelID(), CurrentGame().status));
+}
+} // namespace
+
 /* Write one whole save: the CHAR and other-level chunks carried over from
    CurrentGame (unless this is CurrentGame), the status, version, screenshot
    (captured now when the caller has none), the message, location, NPC, fact,
@@ -1070,7 +1193,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
     WriteChunkPayload(chunks, W8_CHUNK_JOURNAL, wiz8::save::encode(story.journal));
     if (const auto* control = FindMonsterControlSpellEffect())
         WriteChunkPayload(chunks, W8_CHUNK_MONSTER_CONTROL, wiz8::save::encode(*control));
-    RequireSection(SaveStatusHeader(&chunks), "level status");
+    WriteCurrentLevel(chunks);
 }
 
 bool SaveGame(std::string_view name, const W8SaveScreenshot* screenshot)
@@ -1102,7 +1225,8 @@ bool StoreLeftLevel(Game& game)
 try {
     const std::shared_ptr<wiz8::File> file = wiz8::open_memory_writer();
     W8Chunk image;
-    if (!image.OpenWrite(file) || !SaveStatusHeader(&image)) return false;
+    if (!image.OpenWrite(file)) return false;
+    WriteCurrentLevel(image);
     image.Close();
     game.left_levels[GetLoadedLevelID()] = file->written_memory();
     return true;
@@ -1110,105 +1234,61 @@ try {
     return false;
 }
 
-/* Write the current level's LVLS group: the level number, STAT, MONS and ITEM,
-   then the world sections a save keeps. */
-bool SaveStatusHeader(W8Chunk* chunks)
-try {
-    auto& file = chunks->WriteStream();
-    chunks->WriteGroup(W8_CHUNK_LEVEL_STATUS, [&] {
-        chunks->WriteValue(GetLoadedLevelID());
-        WriteChunkPayload(*chunks, W8_CHUNK_STATUS_HEADER,
-                          wiz8::save::encode(CaptureStatusHeader(CurrentGame().status)));
-        chunks->WriteChunk(W8_CHUNK_MONSTERS,
-                           [&] { RequireSection(SaveMonsterStatus(chunks), "monster status"); });
-        chunks->WriteChunk(W8_CHUNK_WORLD_ITEMS, [&] { WriteWorldItems(*chunks); });
-
-        chunks->WriteChunk(W8_CHUNK_AUTOMAP_NOTES, [&] { SaveAutomapNotes(file); });
-        if (!GetWorld()->triggers.empty())
-            chunks->WriteChunk(W8_CHUNK_TRIGGERS, [&] { SaveWorldTriggers(file); });
-        chunks->WriteChunk(W8_CHUNK_PROPS, [&] { SaveWorldProps(file); });
-        chunks->WriteChunk(W8_CHUNK_CURSOR_NODE_STATES, [&] { SaveWorldCursorNodeStates(file); });
-        chunks->WriteChunk(W8_CHUNK_MONSTER_GENERATORS, [&] { SaveMonsterGenerators(file); });
-        chunks->WriteChunk(W8_CHUNK_TRIGGER_STATES, [&] { SaveTriggerRuntimeStates(file); });
-        chunks->WriteChunk(W8_CHUNK_AMBIENT_SOUNDS, [&] { SaveAmbientSoundList(file); });
-        chunks->WriteChunk(W8_CHUNK_PARTICLES, [&] { SaveParticleStates(file); });
-        chunks->WriteChunk(W8_CHUNK_LIGHTS, [&] { SaveLightStates(file); });
-    });
-    return true;
-} catch (const std::exception&) {
-    return false;
-}
-
-/* The MONS section: group and monster counts, every group record (stamped
-   version 3) with its encounter-list flag, then every monster record. Live
-   list entries come first, then encounter groups and unborn monsters. */
-bool SaveMonsterStatus(W8Chunk* chunks)
-try {
-    const auto group_count =
-        wiz8::checked_integer<std::uint32_t>(CurrentLevelPopulation().monster_groups.size() +
-                                             CurrentLevelPopulation().encounter_groups.size());
-    const auto persistent = [](const auto& monster) { return monster->monster_group_id != 0; };
-    const auto monster_count = wiz8::checked_integer<std::uint32_t>(
-        std::ranges::count_if(CurrentLevelPopulation().monster_roster.live(), persistent) +
-        std::ranges::count_if(CurrentLevelPopulation().monster_roster.unborn(), persistent));
-    chunks->WriteValue(group_count);
-    chunks->WriteValue(monster_count);
-    for (const auto* partition :
-         {&CurrentLevelPopulation().monster_groups, &CurrentLevelPopulation().encounter_groups}) {
-        const unsigned char encountered = partition == &CurrentLevelPopulation().encounter_groups;
-        for (const auto& group : *partition) {
-            auto image = wiz8::retail::encode_image(*group);
-            image.version = kMonsterGroupRecordVersion;
-            image.active_member_count = wiz8::checked_integer<std::int32_t>(
-                CurrentLevelPopulation().activeMemberCount(*group));
-            chunks->WriteValue(static_cast<std::uint32_t>(sizeof(image)));
-            chunks->WriteBytes(&image, sizeof(image));
-            chunks->WriteValue(encountered);
-        }
-    }
-    for (const auto* partition : {&CurrentLevelPopulation().monster_roster.live(),
-                                  &CurrentLevelPopulation().monster_roster.unborn()})
-        for (const auto& monster : *partition)
-            if (persistent(monster)) WriteMonsterRecord(*chunks, monster.get());
-    return true;
-} catch (const std::exception&) {
-    return false;
-}
-
 namespace {
-/* Decode level `level`'s group from `chunk`, or nothing when the file has none. A saved
-   group takes the sections a save does not repeat (locks, cursor nodes, encounters and
-   trigger actions) from the level's asset status first. Group and monster identities
-   must be unique. */
+/* Decode level `level`'s group from `chunk`, or nothing when the file has none. Group and
+   monster identities must be unique. */
 std::optional<LevelState> DecodeLevelState(W8Chunk& chunk, int level, bool from_assets)
 {
     LevelState decoded;
     auto& state = *decoded.data;
+    state.level = level;
+    state.from_assets = from_assets;
     const bool found = WithLevelGroup(chunk, level, [&] {
-        if (!from_assets) {
-            W8Chunk baseline;
-            if (baseline.OpenRead(wiz8::asset_path(BuildLevelStatusPath(level)))) {
-                WithLevelGroup(baseline, std::nullopt, [&] {
-                    baseline.ForEachChunk([&](unsigned int section) {
-                        if (section == W8_CHUNK_TRIGGER_LOCKS || section == W8_CHUNK_CURSOR_NODES ||
-                            section == W8_CHUNK_ENCOUNTERS || section == W8_CHUNK_TRIGGER_ACTIONS)
-                            ReadLevelSection(state, baseline, section, true, true);
-                    });
-                });
-            }
-        }
         chunk.ForEachChunk(
             [&](unsigned int section) { ReadLevelSection(state, chunk, section, from_assets); });
     });
     if (!found) return std::nullopt;
     std::unordered_set<int> group_ids, monster_ids;
     for (const auto& group : state.groups)
-        if (!group_ids.insert(group.group->group_id).second)
+        if (!group_ids.insert(group.image.group_id).second)
             throw std::runtime_error("duplicate saved monster group");
     for (const auto& saved : state.monsters)
-        if (!monster_ids.insert(saved.info->location_id).second)
+        if (!monster_ids.insert(saved.image.location_id).second)
             throw std::runtime_error("duplicate saved monster identity");
     return decoded;
+}
+
+/* A saved level takes the sections a save does not repeat (locks, cursor nodes, encounters
+   and trigger actions) from the level's asset status, ahead of its own; then the saved
+   cursor node and generator states update the nodes and generators. */
+void ApplyLevelBase(LevelState::Data& state)
+{
+    if (!state.from_assets) {
+        LevelState::Data base;
+        W8Chunk baseline;
+        if (baseline.OpenRead(wiz8::asset_path(BuildLevelStatusPath(state.level)))) {
+            WithLevelGroup(baseline, std::nullopt, [&] {
+                baseline.ForEachChunk([&](unsigned int section) {
+                    if (section == W8_CHUNK_TRIGGER_LOCKS || section == W8_CHUNK_CURSOR_NODES ||
+                        section == W8_CHUNK_ENCOUNTERS || section == W8_CHUNK_TRIGGER_ACTIONS)
+                        ReadLevelSection(base, baseline, section, true, true);
+                });
+            });
+        }
+        state.cursors = std::move(base.cursors);
+        state.encounters = std::move(base.encounters);
+        state.world_sections.insert(state.world_sections.begin(),
+                                    std::make_move_iterator(base.world_sections.begin()),
+                                    std::make_move_iterator(base.world_sections.end()));
+    }
+    if (state.cursor_states) {
+        if (!state.cursors) state.cursors.emplace();
+        ApplyWorldCursorNodeStates(*state.cursors, std::move(*state.cursor_states));
+    }
+    if (state.generator_states) {
+        if (!state.encounters) state.encounters.emplace();
+        ApplyMonsterGeneratorStates(*state.encounters, *state.generator_states);
+    }
 }
 
 /* Check the species a decoded level names against the monster database. A monster of a
@@ -1216,16 +1296,16 @@ std::optional<LevelState> DecodeLevelState(W8Chunk& chunk, int level, bool from_
 void CheckLevelSpecies(const LevelState::Data& state)
 {
     for (const auto& group : state.groups)
-        if (!MonsterDBFromSpecies(group.group->monster_id))
+        if (!MonsterDBFromSpecies(group.image.monster_id))
             throw std::runtime_error("missing saved monster group species");
     for (const auto& saved : state.monsters) {
-        const auto* record = MonsterDBFromSpecies(saved.info->monster_species);
+        const auto* record = MonsterDBFromSpecies(saved.image.monster_species);
         if (!record) throw std::runtime_error("missing saved monster species");
         if (record->deleted) continue;
         const auto group = std::ranges::find_if(state.groups, [&](const auto& saved_group) {
-            return saved_group.group->group_id == saved.info->monster_group_id;
+            return saved_group.image.group_id == saved.image.monster_group_id;
         });
-        if (group == state.groups.end() || MonsterDBFromSpecies(group->group->monster_id)->deleted)
+        if (group == state.groups.end() || MonsterDBFromSpecies(group->image.monster_id)->deleted)
             throw std::runtime_error("missing saved monster group");
     }
 }
@@ -1239,25 +1319,23 @@ struct LevelScripts {
 
 /* Install the decoded groups, items and monsters in `world`'s population, link them, and
    restore the encounters, automap, ambient sounds, particles and lights. */
-void PrepareLevelPopulation(World& world, LevelState::Data& data, LevelScripts scripts,
+void PrepareLevelPopulation(World& world, LevelState::Data& data,
+                            std::vector<std::unique_ptr<W8MonsterInfo>> infos, LevelScripts scripts,
                             W8LoadedLevelStatus::Data& entry)
 {
     auto& population = *world.population;
-    for (auto& saved : data.groups) {
-        auto& group = *saved.group;
-        if (MonsterDBFromSpecies(group.monster_id)->deleted) continue;
-        group.monsters.clear();
-        group.members_active = false;
-        group.fInCombat = false;
+    for (const auto& saved : data.groups) {
+        if (MonsterDBFromSpecies(saved.image.monster_id)->deleted) continue;
         auto& list = saved.encounter ? population.encounter_groups : population.monster_groups;
-        list.push_back(std::move(saved.group));
+        list.push_back(saved.Build());
     }
-    population.world_items = std::move(data.items);
+    for (const auto& item : data.items) population.world_items.push_back(BuildWorldItem(item));
     std::vector<W8MonsterInfo*> records;
     records.reserve(data.monsters.size());
-    for (auto& saved : data.monsters) {
-        auto* info = saved.info.get();
-        if (MonsterDBFromSpecies(info->monster_species)->deleted) {
+    for (std::size_t index = 0; index < data.monsters.size(); ++index) {
+        auto& saved = data.monsters[index];
+        auto* info = infos[index].get();
+        if (!info) {
             records.push_back(nullptr);
             continue;
         }
@@ -1267,7 +1345,7 @@ void PrepareLevelPopulation(World& world, LevelState::Data& data, LevelScripts s
         if (static_cast<unsigned int>(group->leader_location_id) <
             static_cast<unsigned int>(info->location_id))
             group->leader_location_id = info->location_id;
-        records.push_back(population.monster_roster.add(std::move(saved.info), saved.unborn));
+        records.push_back(population.monster_roster.add(std::move(infos[index]), saved.unborn));
     }
     for (size_t index = 0; index < records.size(); ++index) {
         if (auto* info = records[index]) {
@@ -1357,6 +1435,7 @@ std::optional<LevelState> DecodeLeftLevelState(const Game& game, int level)
 std::unique_ptr<W8LoadedLevelStatus> BuildLevel(World& world, LevelState level)
 {
     auto& state = *level.data;
+    ApplyLevelBase(state);
     CheckLevelSpecies(state);
     // Retail drew the generators' jittered intervals as it read them, before building anything.
     if (state.encounters) RearmDecodedGenerators(*state.encounters);
@@ -1364,24 +1443,26 @@ std::unique_ptr<W8LoadedLevelStatus> BuildLevel(World& world, LevelState level)
     status->data->header = state.header;
     for (auto& section : state.world_sections) ApplySavedSection(world, section);
     LevelScripts scripts{.saved = std::vector<std::shared_ptr<Script>>(state.monsters.size())};
+    // A monster of a deleted species has no record.
+    std::vector<std::unique_ptr<W8MonsterInfo>> infos(state.monsters.size());
     for (std::size_t index = 0; index < state.monsters.size(); ++index) {
-        auto& saved = state.monsters[index];
-        auto& info = *saved.info;
-        if (MonsterDBFromSpecies(info.monster_species)->deleted) continue;
+        const auto& saved = state.monsters[index];
+        if (MonsterDBFromSpecies(saved.image.monster_species)->deleted) continue;
+        auto& info = *(infos[index] = saved.Build());
         const auto group = std::ranges::find_if(state.groups, [&](const auto& saved_group) {
-            return saved_group.group->group_id == info.monster_group_id;
+            return saved_group.image.group_id == info.monster_group_id;
         });
         auto model = ReadMonsterRepresentation(world, &info);
         info.entity.attach(*model);
         world.monsters.push_back(std::move(model));
         RestoreMonsterSpellIcons(world, info, info.entity.find());
-        if (group->group->encounter_registered && !info.entity->script && !scripts.default_script)
+        if (!info.entity->script && !scripts.default_script && group->Build()->encounter_registered)
             scripts.default_script = LoadMonsterScript("Default.MSF");
         if (saved.script && saved.script->name[0] != '\0')
             scripts.saved[index] = LoadMonsterScript(saved.script->name);
     }
     if (state.cursors) BuildWorldCursorNodes(world, std::move(*state.cursors));
-    PrepareLevelPopulation(world, state, std::move(scripts), *status->data);
+    PrepareLevelPopulation(world, state, std::move(infos), std::move(scripts), *status->data);
     return status;
 }
 
@@ -1421,13 +1502,15 @@ try {
     return false;
 }
 
-/* Write the container and its contents as the retail flat sequence. */
+/* The retail flat sequence: each record marks the saved slot and whether another
+   follows. An active item's position and flags come from its entity. */
 // FUNCTION: WIZ8 0x00514be0
-void SaveItemFile(wiz8::File& handle, const W8WorldItem& item_info)
+SavedWorldItem CaptureWorldItem(const W8WorldItem& item_info)
 {
+    SavedWorldItem records;
     for (std::size_t index = 0; index <= item_info.contents.size(); ++index) {
         const auto* item = index == 0 ? &item_info : item_info.contents[index - 1].get();
-        auto image = wiz8::retail::encode_image(*item);
+        auto& image = records.emplace_back(wiz8::retail::encode_image(*item));
         image.saved_marker = 1;
         image.next = index < item_info.contents.size() ? 1 : 0;
         if (item->fActive) {
@@ -1435,32 +1518,41 @@ void SaveItemFile(wiz8::File& handle, const W8WorldItem& item_info)
             image.position = {position.x, position.y, position.z};
             image.entity_flags = item->entity->flags;
         }
-        handle.write(&image, sizeof(image));
     }
+    return records;
 }
 
-/* Read the retail flat sequence into a container and its owned contents.
-   A saved next pointer only marks that another record follows. All records
-   are staged before publication to the item list and search registry. */
+void WriteSavedWorldItem(wiz8::File& handle, const SavedWorldItem& item)
+{
+    handle.write(item.data(), item.size() * sizeof(item[0]));
+}
+
+/* A saved next pointer only marks that another record follows. */
 // FUNCTION: WIZ8 0x00514c80
-std::unique_ptr<W8WorldItem> LoadItem(W8Chunk& handle, bool from_assets)
+SavedWorldItem ReadSavedWorldItem(W8Chunk& handle, bool from_assets)
+{
+    SavedWorldItem records;
+    do {
+        auto& image = records.emplace_back(wiz8::retail::read_image<W8WorldItem>(handle));
+        if (from_assets) image.entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
+    } while (records.back().next != 0);
+    return records;
+}
+
+/* All records are staged before publication to the item list and search registry. */
+std::unique_ptr<W8WorldItem> BuildWorldItem(const SavedWorldItem& records)
 {
     std::unique_ptr<W8WorldItem> head;
-    bool has_next;
-    do {
-        const auto image = wiz8::retail::read_image<W8WorldItem>(handle);
-        has_next = image.next != 0;
+    for (const auto& image : records) {
         auto entry = std::make_unique<W8WorldItem>();
-        auto& item = *entry;
-        wiz8::retail::decode_image(image, item);
-        item.sector_id = -2;
-        item.fActive = false;
-        if (from_assets) item.entity_flags &= ~W8_ITEM_ENTITY_RADAR_SEEN;
+        wiz8::retail::decode_image(image, *entry);
+        entry->sector_id = -2;
+        entry->fActive = false;
         if (!head)
             head = std::move(entry);
         else
             head->contents.push_back(std::move(entry));
-    } while (has_next);
+    }
     return head;
 }
 
@@ -1624,8 +1716,7 @@ try {
                 throw std::runtime_error("too many world items");
             items.reserve(items.size() + count);
             for (unsigned int index = 0; index < count; ++index) {
-                auto item = LoadItem(chunk);
-                items.push_back(std::move(item));
+                items.push_back(BuildWorldItem(ReadSavedWorldItem(chunk)));
             }
         });
     });

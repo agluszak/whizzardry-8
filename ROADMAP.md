@@ -312,13 +312,12 @@ the licensed runtime scenarios after every step.
    ARCHITECTURE.md, "Saves"), and the game owns its stored characters. What remains:
    - A level's LVLS group (MONS, ITEM, AUTO, TRIG, APST, CUBS, MGNS, LCKS, AMBS, PART,
      LGHT) decodes into a `LevelState` without the level's world, graphics or scripts, and a
-     load decodes every group to check it; `BuildLevel` builds the world from that value.
-     The other direction remains: `SaveStatusHeader` writes the sections from live objects.
-     Capture a `LevelState` from the world and encode it, so leaving a level and saving go
-     through the value; then the game can hold `LevelState`s for the levels it has left
-     instead of their bytes (`Game::left_levels`), keeping the groups of levels it never
-     decoded intact. The encoder has to reproduce the retail records byte for byte, so it
-     needs retail saves to check against (see "Needs research").
+     load decodes every group to check it; `BuildLevel` builds the world from that value,
+     and `CaptureLevelState` and `EncodeLevelState` go the other way for saving and leaving
+     a level. The game still holds the levels it has left as bytes (`Game::left_levels`);
+     holding `LevelState`s instead must keep the groups of levels it never decoded intact.
+     The encoder matches the old writers byte for byte; retail saves would confirm it
+     against the original (see "Needs research").
    - `GameStatus` still has retail-era names (`uiTurnsElapsed`, `status_ints`) and holds
      interface state (`text_line_cursor`, `selected_party_member`, `world_cursor_gate`).
      Split it by owner.

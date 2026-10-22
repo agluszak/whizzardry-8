@@ -31,9 +31,8 @@ public:
     unsigned int advance(std::chrono::milliseconds elapsed);
     [[nodiscard]] float progress() const { return elapsed_ / length(); }
     [[nodiscard]] float scale() const { return scale_; }
-    // The retail pair: progress, then scale.
-    void save(wiz8::File& handle) const;
-    void load(W8Chunk& handle);
+    // Restore the retail pair: progress through the interval, then scale.
+    void restore(float progress, float scale);
 
 private:
     [[nodiscard]] std::chrono::duration<float> length() const
@@ -81,8 +80,6 @@ struct MonGen {
     const W8EncounterEntry* SelectEncounterCandidate(const W8EncounterTable& table);
     /* Difficulty-aware group-size roll for one monster database record. */
     int RollEncounterGroupSize(const W8MonsterRecord* record);
-    /* The save pair. Both are __thiscall in the image. */
-    void Save(wiz8::File& handle);
     unsigned char Load(W8Chunk& handle, short default_interval);
     /* The MONG chunk loader. */
     /* Select one loaded encounter table and apply its HARASSMENT flag. */

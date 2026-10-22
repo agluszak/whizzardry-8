@@ -1,8 +1,11 @@
 #pragma once
 struct W8Chunk;
 
+#include <array>
 #include <chrono>
 #include <memory>
+#include <optional>
+#include <utility>
 #include <vector>
 
 #include "wiz8/filesystem.h"
@@ -15,8 +18,6 @@ struct MonGen;
 const W8EncounterTable* GetEncounterTable(int index); /* 0x0048AD00 */
 int FindEncounterTableByName(const char* name);       /* 0x0048CCA0 */
 
-void SaveEncounterState(wiz8::File& handle);
-void SaveMonsterGenerators(wiz8::File& handle);
 void DestroyMonsterGenerators(void);
 struct World;
 struct W8EncounterState {
@@ -28,7 +29,23 @@ struct W8EncounterState {
     std::vector<std::unique_ptr<MonGen>> generators;
 };
 W8EncounterState ReadEncounterState(W8Chunk& file);
-void ReadMonsterGeneratorStates(W8Chunk& file, W8EncounterState& state);
+/* The saved switches and timers of a level's generators (MGNS), matched to the generators
+   by name. A timer is its progress through the interval and its scale. */
+struct W8MonsterGeneratorStates {
+    struct Entry {
+        std::array<char, 32> name{};
+        bool enabled = true;
+        unsigned int flags = 0;
+        std::optional<std::pair<float, float>> timer;
+    };
+    int version = 3;
+    unsigned char save_flag = 0;
+    std::vector<Entry> entries;
+};
+W8MonsterGeneratorStates CaptureMonsterGeneratorStates(const W8EncounterState& state);
+W8MonsterGeneratorStates ReadMonsterGeneratorStates(W8Chunk& file);
+void WriteMonsterGeneratorStates(wiz8::File& handle, const W8MonsterGeneratorStates& states);
+void ApplyMonsterGeneratorStates(W8EncounterState& state, const W8MonsterGeneratorStates& states);
 /* Rearm decoded generators in the order they were read, drawing each one's jittered
    interval from the game's stream as retail did while it read the level. */
 void RearmDecodedGenerators(W8EncounterState& state);

@@ -165,29 +165,11 @@ TEST_CASE_METHOD(TimerFixture, "Generator intervals catch up on step time and sa
     interval.setScale(0.5f);
     REQUIRE(interval.progress() == Catch::Approx(0.25f));
 
-    ScopedTemporaryDirectory directory{"wiz8-generator-interval"};
-    const auto path = directory.path / "progress.bin";
-    {
-        auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
-        interval.save(*file);
-    }
-    {
-        auto file = wiz8::open_file(path);
-        REQUIRE(file->size() == sizeof(float) * 2);
-        std::array<float, 2> values{};
-        file->read_exact(values.data(), sizeof(values));
-        REQUIRE(values[0] == Catch::Approx(0.25f));
-        REQUIRE(values[1] == Catch::Approx(0.5f));
-    }
+    // A save stores the progress and the scale.
+    REQUIRE(interval.scale() == 0.5f);
     GeneratorInterval loaded;
     loaded.setSeconds(2.0f);
-    {
-        auto file = wiz8::open_file(path);
-        REQUIRE(ReadSavePayload(*file, [&](W8Chunk& chunk) {
-            loaded.load(chunk);
-            return true;
-        }));
-    }
+    loaded.restore(interval.progress(), interval.scale());
     REQUIRE(loaded.progress() == Catch::Approx(0.25f));
     REQUIRE(loaded.advance(milliseconds{750}) == 1);
 }

@@ -260,26 +260,24 @@ void Light::Reset()
     m_path_time = m_level_time = -1;
 }
 
-/* Serialize the trigger-toggled lights of the loaded worlds: a version byte and
-   count followed by each light's 0x80-byte name and its enable flag. */
-void SaveLightStates(wiz8::File& handle)
+std::vector<W8LightState> CaptureLightStates()
 {
-    unsigned char version = 1;
-
-    handle.write(&version, sizeof(version));
-
-    std::vector<Light*> marked;
+    std::vector<W8LightState> states;
     ForEachWorldLight([&](Light* light) {
-        if (light->m_save_marked) {
-            marked.push_back(light);
-        }
+        if (light->m_save_marked) states.push_back({light->getName(), light->visible});
     });
-    int count = static_cast<int>(marked.size());
-    handle.write(&count, sizeof(count));
+    return states;
+}
 
-    for (Light* light : marked) {
-        handle.write_padded(light->getName(), 0x80);
-        unsigned char enabled = (!light->visible) == 0;
+/* A version byte and count followed by each light's 0x80-byte name and its enable flag. */
+void WriteLightStates(wiz8::File& handle, std::span<const W8LightState> states)
+{
+    const unsigned char version = 1;
+    const int count = static_cast<int>(states.size());
+    handle.write(&version, sizeof(version));
+    handle.write(&count, sizeof(count));
+    for (const auto& [name, enabled] : states) {
+        handle.write_padded(name, 0x80);
         handle.write(&enabled, sizeof(enabled));
     }
 }

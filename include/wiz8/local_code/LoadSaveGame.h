@@ -58,6 +58,7 @@ bool SaveGameExists(void);
 bool LoadGame(GameSession& games, std::string_view slot_name);
 
 class Game;
+struct GameStatus;
 struct World;
 // Store the current level's group among the levels the game has left (Game::left_levels).
 bool StoreLeftLevel(Game& game);
@@ -77,6 +78,11 @@ std::optional<LevelState> DecodeLevelState(const std::filesystem::path& path, in
                                            bool from_assets = false);
 // The level's state as the party left it, or nothing when it never left the level.
 std::optional<LevelState> DecodeLeftLevelState(const Game& game, int level);
+// The state a save keeps of level `level`, from its world and the game's status.
+LevelState CaptureLevelState(World& world, int level, const GameStatus& status);
+/* Write a state decoded from a save or captured from a world as the LVLS group it came
+   from; the asset status's cursor nodes and encounters are not written. */
+void EncodeLevelState(W8Chunk& chunks, const LevelState& state);
 // What entering a built level still installs (InstallLevelSessionState).
 struct W8LoadedLevelStatus {
     struct Data;
@@ -91,13 +97,11 @@ std::unique_ptr<W8LoadedLevelStatus> BuildLevel(World& world, LevelState state);
 void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status);
 void BeginRestoredLevelActivity(World& world, W8LoadedLevelStatus* status);
 std::string BuildLevelStatusPath(unsigned int level);
-bool SaveStatusHeader(W8Chunk* chunks);
 
 extern bool g_save_pending;
 
 /* Deferred main-game autosave: notice first, then SaveGame on the next tick. */
 void ProcessMainGameAutoSave(void);
-bool SaveMonsterStatus(W8Chunk* chunks);
 
 std::optional<std::string> SelectQuickSaveSlotForWrite();
 std::optional<std::string> FindFreeEndingSaveName();
