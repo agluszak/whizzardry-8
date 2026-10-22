@@ -21,6 +21,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  WIZ8_BUILD_IMAGE: whizzardry-build:ci
+
 jobs:
   scope:
     runs-on: ubuntu-26.04
@@ -82,12 +85,12 @@ jobs:
         with:
           context: .
           load: true
-          tags: whizzardry-build:ci
+          tags: ${{ env.WIZ8_BUILD_IMAGE }}
           cache-from: type=gha,scope=wiz8-toolchain
           cache-to: type=gha,mode=max,scope=wiz8-toolchain
       - name: Identify exact toolchain image
         id: toolchain
-        run: echo "key=$(docker image inspect --format '{{.Id}}' whizzardry-build:ci | cut -c8-23)" >> "$GITHUB_OUTPUT"
+        run: echo "key=$(docker image inspect --format '{{.Id}}' "$WIZ8_BUILD_IMAGE" | cut -c8-23)" >> "$GITHUB_OUTPUT"
       - name: Restore Conan packages
         id: conan-cache
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
@@ -277,12 +280,12 @@ jobs:
         with:
           context: .
           load: true
-          tags: whizzardry-build:ci
+          tags: ${{ env.WIZ8_BUILD_IMAGE }}
           cache-from: type=gha,scope=wiz8-toolchain
           cache-to: type=gha,mode=max,scope=wiz8-toolchain
       - name: Identify exact toolchain image
         id: toolchain
-        run: echo "key=$(docker image inspect --format '{{.Id}}' whizzardry-build:ci | cut -c8-23)" >> "$GITHUB_OUTPUT"
+        run: echo "key=$(docker image inspect --format '{{.Id}}' "$WIZ8_BUILD_IMAGE" | cut -c8-23)" >> "$GITHUB_OUTPUT"
       - name: Restore Conan packages
         id: conan-cache
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
