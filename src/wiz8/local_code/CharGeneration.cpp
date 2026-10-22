@@ -161,7 +161,7 @@ void CharacterDraft::beginLevelUp()
         payDownAttributeDebt();
     }
     CalcCharacterLevelBand(&character);
-    RecalculateEditedCharacterStats(character);
+    RecalculateEditedCharacterStats(game, character);
     finalizeSpellPointPool();
 }
 
@@ -436,7 +436,7 @@ void CharacterDraft::adjustAttribute(W8Attribute attribute, int modifier)
     allocation.attribute_points_remaining -= modifier;
     allocation.attribute_values[attribute] += modifier;
 
-    RecalculateEditedCharacterStats(character);
+    RecalculateEditedCharacterStats(game, character);
     if (character.uiExpLevel == 1) {
         rebuildSkillAllocations();
     }
@@ -699,7 +699,7 @@ int CharacterDraft::computeLevelUpSpellPointAward()
                     }
                 }
             }
-            RecalculateEditedCharacterStats(character);
+            RecalculateEditedCharacterStats(game, character);
             std::array<std::array<int, 2>, 6> pools;
             for (index = 0; index < 6; ++index) {
                 pools[index][0] = character.sp_max[index];
@@ -714,7 +714,7 @@ int CharacterDraft::computeLevelUpSpellPointAward()
                 for (index = 0; index < 0x72; ++index) {
                     character.spell_learned[index] = saved[index];
                 }
-                RecalculateEditedCharacterStats(character);
+                RecalculateEditedCharacterStats(game, character);
             }
         }
         return total;
@@ -745,7 +745,7 @@ void CharacterDraft::selectCreationSpell(unsigned int spell)
     }
     if (allocation.spell_points_remaining == 0) {
     }
-    RecalculateEditedCharacterStats(character);
+    RecalculateEditedCharacterStats(game, character);
 }
 
 /* Return one creation spell pick: the spell goes to declined, an auto-added
@@ -765,7 +765,7 @@ void CharacterDraft::deselectCreationSpell(unsigned int spell)
             }
         }
         ++allocation.spell_points_remaining;
-        RecalculateEditedCharacterStats(character);
+        RecalculateEditedCharacterStats(game, character);
     }
 }
 
@@ -937,7 +937,7 @@ void CharacterDraft::applyRaceProfessionTables()
             }
         }
     }
-    RecalculateEditedCharacterStats(character);
+    RecalculateEditedCharacterStats(game, character);
     if (character.uiExpLevel == 1) {
         if (character.gender != W8_GENDER_UNSET && character.iProfession != W8_PROFESSION_NONE &&
             character.iRace != W8_RACE_NONE) {
@@ -973,7 +973,7 @@ void CharacterDraft::adjustSkill(unsigned int skill, int modifier)
     recountSpellPoints();
     refreshSkillAvailability();
     recomputeSkillLimits();
-    RecalculateEditedCharacterStats(character);
+    RecalculateEditedCharacterStats(game, character);
 }
 
 /* Finalize a created character: recompute the derived stats, hand out the
