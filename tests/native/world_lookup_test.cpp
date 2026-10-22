@@ -1,4 +1,5 @@
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -20,18 +21,29 @@
 #include "scoped_game.h"
 #include "scoped_game_data.h"
 #include "temporary_directory.h"
+#include "wiz8/audio/AmbientSound.h"
 #include "wiz8/chunk.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/game_data.h"
+#include "wiz8/entities/cursor_nodes.h"
+#include "wiz8/entities/locks.h"
+#include "wiz8/entities/monster.h"
+#include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
+#include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/levels.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/MonsterGenerator.h"
+#include "wiz8/local_code/MonsterGroup.h"
+#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/light.h"
@@ -376,4 +388,150 @@ TEST_CASE("Replacing a timed action keeps the executing action alive until the s
     replacement.completed = true;
     UpdateTimedTriggerEvents();
     REQUIRE(world.timed_events.empty());
+}
+
+// A level left with something in every section decodes without its world and encodes
+// back to the bytes it was stored as.
+TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", "[save]")
+{
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>(3));
+    auto& world = *GetWorld();
+    auto& status = CurrentGame().status;
+    status.next_group_id = 77;
+    status.world_clock = 123456;
+    auto& population = *world.population;
+    std::vector<std::unique_ptr<Monster>> models;
+    for (int index = 0; index < 4; ++index) {
+        auto group = std::make_unique<W8MonsterGroup>();
+        group->group_id = index + 1;
+        group->monster_id = 10 + index;
+        group->leader_location_id = index + 1;
+        group->encounter_registered = index == 2;
+        group->formation = {float(index), 0.5f, 0.0f};
+        group->allied_group_ids[0] = (index + 1) % 4 + 1;
+        group->version = 1;
+        group->forced_neutral = true;
+        group->monsters = {index + 1};
+        group->centre = {1.5f * index, 2.0f, 3.0f};
+        (index == 3 ? population.encounter_groups : population.monster_groups)
+            .push_back(std::move(group));
+        auto record = std::make_unique<W8MonsterInfo>();
+        record->location_id = index + 1;
+        record->monster_group_id = index == 1 ? 0 : index + 1;
+        record->monster_species = 10 + index;
+        record->hp_current = 5 * index;
+        record->position = {index * 10.0f, 1.0f, -2.0f};
+        record->enchantments[1].turns = 3;
+        auto& model = models.emplace_back(std::make_unique<Monster>(&world));
+        model->location_id = index + 1;
+        model->defining_orders = index == 0;
+        model->patrol_distance = 4.5f;
+        model->patrol_index = 2;
+        model->vector = {{1, 2, 3}, {4, 5, 6}};
+        model->direction_x = 0.25f;
+        model->face_party = true;
+        record->entity.attach(*model);
+        population.monster_roster.add(std::move(record), index == 2);
+    }
+    for (int index = 0; index < 2; ++index) {
+        auto item = std::make_unique<W8WorldItem>();
+        item->runtime_id = 40 + index;
+        item->position = {1, 2, 3.0f * index};
+        item->entity_flags = 0x18;
+        item->unknown_3d[5] = 0x5a;
+        if (index == 1) {
+            auto inner = std::make_unique<W8WorldItem>();
+            inner->runtime_id = 99;
+            item->contents.push_back(std::move(inner));
+        }
+        population.world_items.push_back(std::move(item));
+    }
+    Trigger* door = AddTrigger(world, "DOOR01");
+    door->flags = 0x1234;
+    door->state_index = 2;
+    door->action = 7;
+    door->required_item_id = -1;
+    door->m_lData1 = 5;
+    W8DoorTriggerActionData data{};
+    data.open = true;
+    data.locked = true;
+    data.secret = true;
+    data.item = 12;
+    door->action_payload = data;
+    auto& timed = world.addTimedAction(door);
+    timed.timer.SetDuration(5.0f);
+    timed.timer.Restart();
+    timed.timer.SetProgress(1.25f);
+    door->lock_state.lock_type = LockType::pickable_lock;
+    door->lock_state.device_state.completed = 3;
+    door->lock_state.device_state.pins[2] = 9;
+    door->lock_state.lock_countdown = 6;
+    door->lock_state.last_interaction_clock = 1000;
+    door->world_item_group = std::make_unique<W8WorldItem>();
+    door->world_item_group->runtime_id = 55;
+    door->gold = 17;
+    door->uses_remaining = 2;
+    door->item_group_seed = 0xdeadbeef;
+    Trigger* plain = AddTrigger(world, "PLAIN");
+    plain->required_item_id = 4;
+    for (int index = 0; index < 2; ++index) {
+        auto prop = std::make_unique<Prop>();
+        prop->name = index ? "LEVER" : "GATE";
+        prop->subcycle = 3 + index;
+        prop->first_frame = 1;
+        prop->last_frame = 9;
+        prop->animation_playing = 1;
+        prop->active = static_cast<unsigned char>(index);
+        world.plsProps.push_back(std::move(prop));
+    }
+    for (int index = 0; index < 2; ++index) {
+        auto node = std::make_unique<W8WorldCursorNode>();
+        std::snprintf(node->name, sizeof(node->name), "Cube%03d", index);
+        node->userdata = std::vector<std::byte>(3 + index, std::byte{0x41});
+        world.cursor_nodes.push_back(std::move(node));
+    }
+    world.encounters.save_flag = 1;
+    for (int index = 0; index < 2; ++index) {
+        auto& generator = *world.encounters.generators.emplace_back(std::make_unique<MonGen>());
+        std::snprintf(generator.name, sizeof(generator.name), "GEN%d", index);
+        generator.flags = 0x40 + index;
+        generator.generation_enabled = index == 0;
+        generator.timer.setSeconds(4.0f);
+        generator.timer.setScale(0.5f + index);
+        generator.timer.advance(std::chrono::milliseconds{300});
+    }
+    for (int index = 0; index < 2; ++index) {
+        auto sound = std::make_unique<W8AmbientSound>();
+        sound->name = index ? "WIND" : "DRIP";
+        sound->stopped = static_cast<unsigned char>(index);
+        world.audio.emitters.push_back(std::move(sound));
+    }
+    auto* gas =
+        world.particles.emplace_back(std::make_unique<ParticleSystem>(world.scene.get(), 1)).get();
+    gas->setName("GAS");
+    gas->persisted = true;
+    auto* lamp = CreateWorldLight(&world, "LAMP");
+    lamp->setName("LAMP");
+    lamp->m_save_marked = true;
+    lamp->visible = false;
+    world.automap.keys.resize(5);
+    W8SavedAutomapNotes notes;
+    notes.visited = {true, false, true, true, false};
+    auto note = std::make_unique<W8AutomapNote>();
+    note->position = {1.5f, 2.5f};
+    note->layer = 2;
+    note->text = "Hello Ж";
+    notes.notes.push_back(std::move(note));
+    ApplyAutomapNotes(world, std::move(notes));
+    REQUIRE(StoreLeftLevel(CurrentGame()));
+    const auto stored = CurrentGame().left_levels.at(GetLoadedLevelID());
+    auto state = DecodeLeftLevelState(CurrentGame(), GetLoadedLevelID());
+    REQUIRE(state);
+    const std::shared_ptr<wiz8::File> file = wiz8::open_memory_writer();
+    W8Chunk image;
+    REQUIRE(image.OpenWrite(file));
+    EncodeLevelState(image, *state);
+    image.Close();
+    CHECK(file->written_memory() == stored);
 }
