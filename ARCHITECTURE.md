@@ -12,7 +12,10 @@ disk images and `wiz8::retail::Record` codecs (`retail_save_records.h`,
 padding bytes that belong to a file live in `retail_opaque_records.h` and round-trip
 unchanged. A codec copies a field verbatim only when the runtime field is exactly as wide
 as its disk field, and throws otherwise; items, formations and NPC stock entries have
-codecs of their own, so their runtime types need not match a retail size.
+codecs of their own, so their runtime types need not match a retail size. Character
+attributes, resistances, enchantments, modifier blocks and HYPN effect definitions
+use explicit field offsets in byte images; the character codec is the sole declaration
+of its retail field layout.
 Runtime types are not meant to mirror retail memory layout, but types embedded in
 disk records still keep it until they get records of their own (ROADMAP.md,
 "Runtime types with semantic shape"). Runtime strings are UTF-8;
