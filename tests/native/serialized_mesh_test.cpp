@@ -4,9 +4,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -26,6 +28,7 @@
 #include "temporary_directory.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/entities/animation_mesh.h"
+#include "wiz8/render/clip_plane.h"
 #include "wiz8/render/compiled_mesh.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/material.h"
@@ -254,6 +257,79 @@ TEST_CASE("serialized_mesh_test")
     REQUIRE(ok);
     std::puts(
         "ok: serialized mesh loading, linked successors, unloading, reloading and invalid links");
+}
+
+TEST_CASE("Level clip planes attach only complete sections")
+{
+    ScopedTemporaryDirectory directory{"wiz8-level-clip-planes"};
+    const auto path = directory.path / "level.lvl";
+    struct Plane {
+        std::array<char, 64> name{};
+        std::array<float, 4> position{};
+    };
+    const auto load = [&](int count, const std::vector<Plane>& planes, bool truncate,
+                          World& world) {
+        WriteAnimatedFixture(path);
+        {
+            auto file = wiz8::open_file(path, wiz8::OpenMode::append);
+            Write(*file, short{0}); // Lights.
+            for (int section = 0; section < 9; ++section) Write(*file, 0); // Paths to camera mode.
+            Write(*file, count);
+            if (count != 0) Write(*file, std::uint8_t{1});
+            for (const auto& plane : planes) {
+                Write(*file, plane.name);
+                Write(*file, plane.position);
+            }
+            Write(*file, glm::vec3(0)); // Environment offset.
+            Write(*file, 0); // Particles.
+            Write(*file, 0); // Named positions.
+            Write(*file, 2000.0f); // Automap cell size.
+            Write(*file, 0u); // Automap nodes.
+        }
+        if (truncate) {
+            // Drop the sections after the planes and the final plane's last byte.
+            std::filesystem::resize_file(path, std::filesystem::file_size(path) - 28 - 1);
+        }
+        auto file = wiz8::open_file(path);
+        world.camera = &world.scene->camera; // The empty environment sets its far clip.
+        return ReadLevel(&world, file.get(), "");
+    };
+    Plane first, second;
+    std::strcpy(first.name.data(), "first");
+    first.position = {1, 2, 3, 0};
+    std::strcpy(second.name.data(), "Second");
+    second.position = {4, 5, 6, 0};
+    {
+        World world{};
+        REQUIRE(load(2, {first, second}, false, world));
+        const auto& planes = world.scene->clip_planes;
+        REQUIRE(planes.size() == 2);
+        REQUIRE(planes[0]->getName() == "FIRST");
+        REQUIRE(planes[1]->getName() == "SECOND");
+        REQUIRE(planes[1]->transform.getLocation() == glm::dvec3(2000, 2500, 3000));
+    }
+    auto invalid = second;
+    bool truncate = false;
+    int count = 2;
+    SECTION("Negative count")
+    {
+        count = -1;
+    }
+    SECTION("Short final plane")
+    {
+        truncate = true;
+    }
+    SECTION("Unterminated name")
+    {
+        invalid.name.fill('x');
+    }
+    SECTION("Nonfinite position")
+    {
+        invalid.position[1] = std::numeric_limits<float>::infinity();
+    }
+    World world{};
+    REQUIRE_FALSE(load(count, {first, invalid}, truncate, world));
+    REQUIRE(world.scene->clip_planes.empty());
 }
 
 TEST_CASE("Animated meshes share source geometry and keep playback independent")

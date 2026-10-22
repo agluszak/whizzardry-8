@@ -13,6 +13,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -46,6 +47,7 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/Camp.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -753,7 +755,7 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
     }
 }
 
-TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed counts",
+TEST_CASE_METHOD(LoaderFixture, "World item sections spawn nothing from incomplete records",
                  "[loader][records]")
 {
     World world{};
@@ -766,9 +768,62 @@ TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed count
         REQUIRE(bool(ReadWorldItems(&info, &world)) == (count == 0));
     }
     store("items.bin", std::string(3, '\0'));
+    {
+        auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
+        LevelLoadContext info{&world, file.get(), {}};
+        REQUIRE_FALSE(ReadWorldItems(&info, &world));
+    }
+
+    // Spawning goes through the current game's world.
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>());
+    World& current = *game.game.level.primary;
+    GameData data;
+    data.items.resize(1);
+    const ScopedGameData installed(std::move(data));
+    const auto record = [](std::string_view name, std::uint8_t has_trigger = 0) {
+        std::string bytes(20, '\0');
+        bytes.replace(0, std::min(name.size(), bytes.size()), name.substr(0, bytes.size()));
+        append(bytes, glm::vec3(1, 2, 3));
+        for (int field = 0; field < 4; ++field) append(bytes, 0);
+        append(bytes, has_trigger);
+        if (has_trigger == 0) {
+            bytes.append(3, '\0');
+            for (int field = 0; field < 4; ++field) append(bytes, 0);
+        }
+        return bytes;
+    };
+    // A complete first record must not spawn when a later one is rejected.
+    std::string second;
+    SECTION("Short tail")
+    {
+        second = record("0").substr(0, 67);
+    }
+    SECTION("Missing trigger")
+    {
+        second = record("0", 1);
+    }
+    SECTION("Unterminated name")
+    {
+        second = record(std::string(20, '1'));
+    }
+    SECTION("Trailing text after an id")
+    {
+        second = record("0x");
+    }
+    SECTION("Id past the item table")
+    {
+        second = record("1");
+    }
+    std::string bytes;
+    append(bytes, 2);
+    bytes += record("0") + second;
+    store("items.bin", bytes);
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    LevelLoadContext info{&world, file.get(), {}};
-    REQUIRE_FALSE(ReadWorldItems(&info, &world));
+    LevelLoadContext info{&current, file.get(), {}};
+    REQUIRE_FALSE(ReadWorldItems(&info, &current));
+    REQUIRE(current.population->world_items.empty());
+    REQUIRE(current.triggers.empty());
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without runtime vector layout",
