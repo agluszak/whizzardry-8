@@ -127,8 +127,9 @@ Unlayered code may use the layers.
   lights, fog or ambient light. The layer is the map camera's near clip. Opening
   the map changes no gameplay camera, lighting, picking or mesh state, so
   gameplay needs nothing restored afterwards. What persists with the level is
-  `World::automap` (`W8Automap`): the cells, the visited and revealed bits, the
-  notes and the last map view. The router builds `AutomapScreen` with the level's
+  `World::automap`, an `Automap` built with its world: it keeps the cells, the
+  visited and revealed bits, the notes and the last map view, and visits, reveals,
+  captures and restores them itself. The router builds `AutomapScreen` with the level's
   world on every visit; it owns only its controls, markers, surface and the note
   being edited, so no suspended map outlives its level.
 - **Materials.** Wizardry lighting, fog, material operations and generated UVs

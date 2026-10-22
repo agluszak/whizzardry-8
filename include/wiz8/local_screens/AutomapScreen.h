@@ -54,7 +54,7 @@ public:
 private:
     enum class ZoomMode { ZoomInOnly, Both, ZoomOutOnly };
 
-    W8Automap::View& view();
+    Automap::View& view();
     glm::vec2 WorldPosition(const glm::vec2& cursor);
     bool HasLayer(int layer) const;
     int LayerAtHeight(double height) const;
@@ -94,6 +94,7 @@ private:
     void HandleViewportInput(const InputEvent& input);
 
     World& m_world;
+    Automap& m_automap;
     AutomapGrid m_grid;
     // The explored cells' box, padded, and the height that frames all of it.
     glm::vec3 m_bounds_min{0};

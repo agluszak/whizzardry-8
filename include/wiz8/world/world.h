@@ -78,7 +78,7 @@ struct World {
     AmbientAudioSystem audio;
     PartyCamera party_camera;
     std::unique_ptr<W8LevelPopulation> population;
-    W8Automap automap;
+    Automap automap{*this};
     // These indexes borrow resources owned below or by the scene.
     Camera3D* camera{};
     Light* camera_light{};

@@ -357,7 +357,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
                                                                 ? CameraSwayMode::Start
                                                                 : CameraSwayMode::Stop);
     SetSkyNodeVisible(false);
-    VisitAutomapCell(*GetWorld(), cameraLocation(*GetWorld()));
+    GetWorld()->automap.visit(cameraLocation(*GetWorld()));
     BeginRestoredLevelActivity(*GetWorld(), status);
 
     if (!restoring_game && entrance != -1) {

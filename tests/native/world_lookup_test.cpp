@@ -1,6 +1,7 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -515,7 +516,14 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
     lamp->setName("LAMP");
     lamp->m_save_marked = true;
     lamp->visible = false;
-    world.automap.keys.resize(5);
+    {
+        auto cells = wiz8::open_memory_writer();
+        const float size = 2000.0f;
+        const std::array<std::uint32_t, 6> count_and_keys{5, 1, 2, 3, 4, 5};
+        cells->write(&size, sizeof(size));
+        cells->write(count_and_keys.data(), sizeof(count_and_keys));
+        REQUIRE(world.automap.readCells(*wiz8::open_memory(cells->written_memory())));
+    }
     W8SavedAutomapNotes notes;
     notes.visited = {true, false, true, true, false};
     auto note = std::make_unique<W8AutomapNote>();
@@ -523,7 +531,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
     note->layer = 2;
     note->text = "Hello Ж";
     notes.notes.push_back(std::move(note));
-    ApplyAutomapNotes(world.automap, std::move(notes));
+    world.automap.restore(std::move(notes));
     REQUIRE(StoreLeftLevel(CurrentGame()));
     const auto stored = CurrentGame().left_levels.at(GetLoadedLevelID());
     auto state = DecodeLeftLevelState(CurrentGame(), GetLoadedLevelID());

@@ -1004,7 +1004,7 @@ try {
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after particles.");
     success = success && ReadNamedPositions(info.hFile, world->named_positions);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after named position points.");
-    success = success && ReadAutomapNodes(*handle, world->automap);
+    success = success && world->automap.readCells(*handle);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after automap nodes.");
 
     world->environment.offset = environment_offset;

@@ -932,7 +932,8 @@ TEST_CASE("Automap notes say whether a visited-cell bitmap precedes them", "[loa
         writer->write(&count, sizeof(count));
         writer->write(&signature, sizeof(signature));
         auto file = wiz8::open_memory(writer->written_memory());
-        return ReadSavePayload(*file, [](W8Chunk& chunk) { return ReadAutomapNotes(chunk); });
+        return ReadSavePayload(*file,
+                               [](W8Chunk& chunk) { return W8SavedAutomapNotes::read(chunk); });
     };
     REQUIRE(section(nullptr).visited.empty());
     const std::vector<bool> visited{true, false, true};
@@ -943,25 +944,35 @@ TEST_CASE("A level's map notes and visited cells travel with that level's map", 
 {
     // A save captures the notes from the level's own map, and a load hands them to the
     // map of the level being built.
-    W8Automap left;
-    left.keys.resize(3);
-    left.visited = {false, true, true};
-    left.notes.push_back(std::make_unique<W8AutomapNote>(W8AutomapNote{{1.5f, -2.0f}, 1, "Ж"}));
+    const auto give_cells = [](Automap& automap) {
+        auto cells = wiz8::open_memory_writer();
+        const float size = 2000.0f;
+        const std::array<std::uint32_t, 4> header_and_keys{3, 1, 2, 3};
+        cells->write(&size, sizeof(size));
+        cells->write(header_and_keys.data(), sizeof(header_and_keys));
+        REQUIRE(automap.readCells(*wiz8::open_memory(cells->written_memory())));
+    };
+    World left;
+    give_cells(left.automap);
+    W8SavedAutomapNotes saved{.visited = {false, true, true}};
+    saved.notes.push_back(std::make_unique<W8AutomapNote>(W8AutomapNote{{1.5f, -2.0f}, 1, "Ж"}));
+    left.automap.restore(std::move(saved));
 
     auto writer = wiz8::open_memory_writer();
-    WriteAutomapNotes(*writer, CaptureAutomapNotes(left));
+    left.automap.capture().write(*writer);
     auto file = wiz8::open_memory(writer->written_memory());
-    W8Automap entered;
-    entered.keys.resize(3);
-    entered.visited.resize(3);
-    ApplyAutomapNotes(
-        entered, ReadSavePayload(*file, [](W8Chunk& chunk) { return ReadAutomapNotes(chunk); }));
+    World entered;
+    give_cells(entered.automap);
+    entered.automap.restore(
+        ReadSavePayload(*file, [](W8Chunk& chunk) { return W8SavedAutomapNotes::read(chunk); }));
 
-    REQUIRE(entered.visited == left.visited);
-    REQUIRE(entered.notes.size() == 1);
-    CHECK(entered.notes[0]->position == glm::vec2(1.5f, -2.0f));
-    CHECK(entered.notes[0]->layer == 1);
-    CHECK(entered.notes[0]->text == "Ж");
+    for (std::size_t cell = 0; cell != 3; ++cell)
+        CHECK(entered.automap.visited(cell) == left.automap.visited(cell));
+    CHECK(entered.automap.visited(2));
+    REQUIRE(entered.automap.notes().size() == 1);
+    CHECK(entered.automap.notes()[0]->position == glm::vec2(1.5f, -2.0f));
+    CHECK(entered.automap.notes()[0]->layer == 1);
+    CHECK(entered.automap.notes()[0]->text == "Ж");
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Nested item write failure aborts a staged trigger save",

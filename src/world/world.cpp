@@ -186,7 +186,7 @@ void updatePartyMovement(World& world, unsigned int flags)
 {
     auto& party = world.party_camera;
 
-    RevealAutomapCells(world, 10);
+    world.automap.reveal(10);
     if (auto* collision = world.collisionIndex()) {
         party.motion.flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
         const glm::mat3 movement_basis = party.turn(flags);
@@ -197,7 +197,7 @@ void updatePartyMovement(World& world, unsigned int flags)
             const auto refresh_offset = party.m_position - party.last_automap_refresh_position;
             if (glm::dot(refresh_offset, refresh_offset) > kAutomapRefreshDistanceSquared) {
                 party.last_automap_refresh_position = party.m_position;
-                VisitAutomapCell(world, navigationPosition(party.m_position));
+                world.automap.visit(navigationPosition(party.m_position));
             }
             DispatchWorldCursorNodeCommand(0, 0, 0);
         }

@@ -47,7 +47,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
-#include "wiz8/packed_bits.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/pointer.h"
 #include "wiz8/render/camera.h"
@@ -67,7 +66,6 @@
 #include "wiz8/world/world.h"
 
 namespace {
-constexpr std::size_t kMaxNotes = 200;
 // UTF-16 units a note's text and its trailing cursor marker may take.
 constexpr std::size_t kMaxNoteUnits = 40;
 // The map's viewport in screen space.
@@ -167,14 +165,17 @@ bool MapCameraSees(const World& world, const glm::vec3& location)
 }
 } // namespace
 
-AutomapScreen::AutomapScreen(World& world) : m_world(world), m_grid(automapGrid(world)) {}
+AutomapScreen::AutomapScreen(World& world)
+    : m_world(world), m_automap(world.automap), m_grid(m_automap.grid())
+{
+}
 
 AutomapScreen::~AutomapScreen() = default;
 
 // The level's remembered view, which entering the screen places.
-W8Automap::View& AutomapScreen::view()
+Automap::View& AutomapScreen::view()
 {
-    return *m_world.automap.view;
+    return *m_automap.view;
 }
 
 glm::vec2 AutomapScreen::WorldPosition(const glm::vec2& cursor)
@@ -232,19 +233,16 @@ void AutomapScreen::ClearMarkers()
 
 W8AutomapNote* AutomapScreen::CreateNote(glm::vec2 position, int layer)
 {
-    auto& notes = m_world.automap.notes;
-    if (notes.size() >= kMaxNotes) return nullptr;
-    auto& note =
-        notes.emplace_back(std::make_unique<W8AutomapNote>(W8AutomapNote{position, layer, "_"}));
-    m_redraw = true;
-    return note.get();
+    auto* note = m_automap.addNote(position, layer);
+    if (note) m_redraw = true;
+    return note;
 }
 
 void AutomapScreen::EraseNote(W8AutomapNote* note)
 {
     if (m_editing_note == note) m_editing_note = nullptr;
     if (m_hovered_note == note) m_hovered_note = nullptr;
-    std::erase_if(m_world.automap.notes, [note](const auto& owned) { return owned.get() == note; });
+    m_automap.eraseNote(note);
     m_redraw = true;
 }
 
@@ -271,11 +269,10 @@ void AutomapScreen::CreateButtons()
         [this] { CyclePage(); },
         [this] { CyclePage(); },
         [this] {
-            if (m_world.automap.layer > 0) SetLayer(m_world.automap.layer - 1);
+            if (m_automap.layer > 0) SetLayer(m_automap.layer - 1);
         },
         [this] {
-            if (m_world.automap.layer < static_cast<int>(m_layers.size()))
-                SetLayer(m_world.automap.layer + 1);
+            if (m_automap.layer < static_cast<int>(m_layers.size())) SetLayer(m_automap.layer + 1);
         },
         [this] { Pan(0, 1); },
         [this] { Pan(0, -1); },
@@ -336,17 +333,16 @@ void AutomapScreen::ZoomOut()
 
 void AutomapScreen::CyclePage()
 {
-    m_world.automap.page = (m_world.automap.page + 1) % 3;
+    m_automap.page = (m_automap.page + 1) % 3;
     UpdatePageButtons();
     m_redraw = true;
 }
 
 bool AutomapScreen::enter(const ScreenRequest&)
 {
-    auto& automap = m_world.automap;
     // A level's first map places its camera once the explored bounds are known.
-    const bool placed = automap.view.has_value();
-    if (!placed) automap.view.emplace(W8Automap::View{glm::vec3(0), 0.0f});
+    const bool placed = m_automap.view.has_value();
+    if (!placed) m_automap.view.emplace(Automap::View{glm::vec3(0), 0.0f});
     m_layers.assign(1, nullptr);
     int layer_number = 1;
     while (auto* layer = FindLayerPlane(m_world, layer_number)) {
@@ -458,7 +454,7 @@ void AutomapScreen::HandleViewportInput(const InputEvent& input)
         glm::vec2 point;
         if (m_tool == W8AutomapTool::AddNote) {
             if (GetCursorPositionInViewport(&point)) {
-                m_editing_note = CreateNote(WorldPosition(point), m_world.automap.layer);
+                m_editing_note = CreateNote(WorldPosition(point), m_automap.layer);
                 SetNativeTextInputEnabled(m_editing_note != nullptr);
             }
         } else if (m_tool == W8AutomapTool::EraseNote) {
@@ -527,7 +523,7 @@ void AutomapScreen::SetCameraPoint(glm::vec3 position)
     position.z = std::min(std::max(position.z, m_bounds_min.z), m_bounds_max.z);
     m_world.scene->map.camera.transform.setLocation(glm::dvec3(position));
     view().position = position;
-    SetLayer(m_world.automap.layer);
+    SetLayer(m_automap.layer);
     m_redraw = true;
     m_overlay_redraw = true;
 }
@@ -542,7 +538,7 @@ void AutomapScreen::SetLayer(int layer)
             view().position.y - static_cast<float>(m_layers[layer]->transform.getLocation().y);
         m_near_clip = std::max(height, 1.0f);
     }
-    m_world.automap.layer = layer;
+    m_automap.layer = layer;
     m_redraw = true;
     m_overlay_redraw = true;
     if (auto& up = m_buttons->buttons[kLayerUpButton])
@@ -597,8 +593,7 @@ void AutomapScreen::ZoomIn(const glm::vec2& point)
 /* Reveal the visited cells and recompute the explored box around them. */
 void AutomapScreen::UpdateBounds()
 {
-    RevealAutomapCells(m_world);
-    const auto& automap = m_world.automap;
+    m_automap.reveal();
     if (!m_world.compiledIndex()) {
         const glm::vec3 span = m_grid.maximum - m_grid.minimum;
         m_top_y = std::max(std::max(span.x, span.z), 2.5e+04f);
@@ -606,9 +601,9 @@ void AutomapScreen::UpdateBounds()
     }
     m_bounds_min = glm::vec3(1e+09f, m_grid.minimum.y, 1e+09f);
     m_bounds_max = glm::vec3(-1e+09f, m_grid.maximum.y, -1e+09f);
-    for (std::size_t cell = 0; cell < automap.keys.size(); ++cell) {
-        if (!TestBit(automap.visited, cell)) continue;
-        const glm::vec3 position = automapCellPosition(m_world, cell);
+    for (std::size_t cell = 0; cell < m_automap.cellCount(); ++cell) {
+        if (!m_automap.visited(cell)) continue;
+        const glm::vec3 position = m_automap.cellPosition(cell);
         m_bounds_min.x = std::min(m_bounds_min.x, position.x);
         m_bounds_min.z = std::min(m_bounds_min.z, position.z);
         m_bounds_max.x = std::max(m_bounds_max.x, position.x);
@@ -649,7 +644,7 @@ void AutomapScreen::Present()
 
 void AutomapScreen::UpdatePageButtons()
 {
-    const auto page = m_world.automap.page;
+    const auto page = m_automap.page;
     for (unsigned int index = 0; index != 3; ++index)
         m_buttons->buttons[kFirstPageButton + index]->SetVisible(page == index);
     auto& shown = m_buttons->buttons[kFirstPageButton + page];
@@ -674,7 +669,7 @@ bool AutomapScreen::EraseNoteTooltip(const W8AutomapNote* note)
     const float floor_y = HasLayer(layer)
                               ? static_cast<float>(m_layers[layer]->transform.getLocationY())
                               : m_grid.minimum.y;
-    if (LayerAtHeight(floor_y) - 1 != m_world.automap.layer) return false;
+    if (LayerAtHeight(floor_y) - 1 != m_automap.layer) return false;
     const float zoom = view().zoom;
     const float left = view().position.x - zoom * 0.5f;
     const float bottom = view().position.z - zoom * 0.5f;
@@ -711,7 +706,7 @@ std::optional<glm::vec3> AutomapScreen::PositionUnderCursor()
 {
     glm::vec2 point;
     if (!GetCursorPositionInViewport(&point)) return std::nullopt;
-    const int layer = m_world.automap.layer + 1;
+    const int layer = m_automap.layer + 1;
     const float height = HasLayer(layer)
                              ? static_cast<float>(m_layers[layer]->transform.getLocationY())
                              : m_grid.minimum.y;
@@ -725,10 +720,10 @@ W8AutomapNote* AutomapScreen::NoteUnderCursor()
     W8AutomapNote* result = nullptr;
     double best = 99999999999.9;
     glm::vec2 point;
-    if (m_world.automap.page == 2 || !GetCursorPositionInViewport(&point)) return nullptr;
+    if (m_automap.page == 2 || !GetCursorPositionInViewport(&point)) return nullptr;
     const auto location = WorldPosition(point);
-    for (const auto& note : m_world.automap.notes) {
-        if (note->layer != m_world.automap.layer) continue;
+    for (const auto& note : m_automap.notes()) {
+        if (note->layer != m_automap.layer) continue;
         // NOLINTNEXTLINE(misc-include-cleaner)
         const float distance = glm::distance(location, note->position);
         if (distance < best && distance < view().zoom * 0.05) {
@@ -831,7 +826,7 @@ void AutomapScreen::RenderMarkers()
         if ((item->flags & W8_ITEM_ENTITY_NO_PICKUP) != 0 ||
             !(detect_all || (item->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
               MapCameraSees(m_world, location)) ||
-            layer - 1 != m_world.automap.layer || !shown(location.x, location.z))
+            layer - 1 != m_automap.layer || !shown(location.x, location.z))
             continue;
         if (OverlayQuad* marker = ItemMarker(world_item->item.iItemNo)) {
             const auto point = screen(location.x, location.z);
@@ -841,11 +836,11 @@ void AutomapScreen::RenderMarkers()
             g_compositor.attach(*marker, OverlayLayer::Fullscreen);
         }
     }
-    if (m_world.automap.page == 2) return;
+    if (m_automap.page == 2) return;
     ScopedClipRect clipped(GetFrameBufferSurface(), kViewportRegion);
     g_wiz_text_font_secondary.setShade(Font::kNormalShade);
     const int text_height = g_wiz_text_font_secondary.height() & 0xffff;
-    for (const auto& owned : m_world.automap.notes) {
+    for (const auto& owned : m_automap.notes()) {
         const W8AutomapNote* note = owned.get();
         if (!shown(note->position.x, note->position.y)) continue;
         auto point = screen(note->position.x, note->position.y);
@@ -857,8 +852,8 @@ void AutomapScreen::RenderMarkers()
         point.y -= height >> 1;
         positionOverlay(marker, point.x, point.y, false);
         g_compositor.attach(*marker, OverlayLayer::Fullscreen);
-        if (note->layer != m_world.automap.layer || note->text.empty() ||
-            !(m_world.automap.page == 0 || note == m_hovered_note || note == m_editing_note))
+        if (note->layer != m_automap.layer || note->text.empty() ||
+            !(m_automap.page == 0 || note == m_hovered_note || note == m_editing_note))
             continue;
         point.y += (height >> 1) - (text_height >> 1);
         point.x += width + 2;

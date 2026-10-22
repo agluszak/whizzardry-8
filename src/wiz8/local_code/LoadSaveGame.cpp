@@ -795,7 +795,7 @@ void ReadLevelSection(LevelState::Data& data, W8Chunk& chunk, unsigned int chunk
         data.world_sections.emplace_back(DecodeSavedTriggerActions(chunk));
         break;
     case W8_CHUNK_AUTOMAP_NOTES:
-        data.automap = ReadAutomapNotes(chunk);
+        data.automap = W8SavedAutomapNotes::read(chunk);
         break;
     case W8_CHUNK_TRIGGERS:
         data.world_sections.emplace_back(DecodeSavedTriggers(chunk, from_assets));
@@ -1061,7 +1061,7 @@ LevelState CaptureLevelState(World& world, int level, const GameStatus& status)
                 state.monsters.push_back(SavedMonster::Capture(
                     *monster, population.monster_roster.isUnborn(monster.get())));
     for (const auto& item : population.world_items) state.items.push_back(CaptureWorldItem(*item));
-    state.automap = CaptureAutomapNotes(world.automap);
+    state.automap = world.automap.capture();
     if (!world.triggers.empty()) state.world_sections.emplace_back(CaptureSavedTriggers(world));
     state.world_sections.emplace_back(CaptureSavedProps(world));
     state.cursor_states = CaptureWorldCursorNodeStates(world);
@@ -1110,8 +1110,7 @@ void EncodeLevelState(W8Chunk& chunks, const LevelState& level)
             for (const auto& item : state.items) WriteSavedWorldItem(file, item);
         });
         if (state.automap)
-            chunks.WriteChunk(W8_CHUNK_AUTOMAP_NOTES,
-                              [&] { WriteAutomapNotes(file, *state.automap); });
+            chunks.WriteChunk(W8_CHUNK_AUTOMAP_NOTES, [&] { state.automap->write(file); });
         sections.operator()<std::vector<SavedTrigger>>(W8_CHUNK_TRIGGERS);
         sections.operator()<std::vector<SavedProp>>(W8_CHUNK_PROPS);
         if (state.cursor_states)
@@ -1409,7 +1408,7 @@ void PrepareLevelPopulation(World& world, LevelState::Data& data,
         }
     }
     if (data.encounters) world.encounters = std::move(*data.encounters);
-    if (data.automap) ApplyAutomapNotes(world.automap, std::move(*data.automap));
+    if (data.automap) world.automap.restore(std::move(*data.automap));
     ApplyAmbientSoundStates(world, data.ambient);
     ApplyParticleStates(world, data.particles);
     ApplyLightStates(world, data.lights);
