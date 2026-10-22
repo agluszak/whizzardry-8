@@ -93,6 +93,8 @@ int FindStoppedTextLine(void);
 void SetTextBoxRegionBounds(int left, int top, int right, int bottom);
 /* Rebuild every logged line's word hit boxes for the current text-box font. */
 void RebuildMessageLogWords(void);
+std::vector<W8MessageStorageRecord> WrapNotice(const TextNotice& notice, const Font& font,
+                                               unsigned int width);
 void ShowNotice(unsigned int font_palette, std::string_view text,
                 short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC,
                 unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC, bool force_dialog = false,

@@ -65,8 +65,7 @@ int g_notice_line_count;
 /* The screen the text box belongs to; its two panels sit at 0x0c
    and 0x14. */
 
-static void AppendNoticeLine(unsigned char font_palette, std::string_view text, short text_box,
-                             int wrapped_line, NoticeHighlight highlight, std::size_t offset);
+static void AppendNoticeLine(W8MessageStorageRecord line, short text_box);
 
 // Rebuild byte ranges and pixel hit boxes when the text or font changes.
 void W8MessageStorageRecord::RebuildEntries(const Font& font)
@@ -136,8 +135,7 @@ static short ResolveNoticeTextBox(short text_box)
     return text_box;
 }
 
-static void AppendNoticeLine(unsigned char font_palette, std::string_view text, short text_box,
-                             int wrapped_line, NoticeHighlight highlight, std::size_t offset)
+static void AppendNoticeLine(W8MessageStorageRecord line, short text_box)
 {
     text_box = ResolveNoticeTextBox(text_box);
     if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME &&
@@ -164,19 +162,8 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
     }
     unsigned int index = CurrentGame().status.text_box_lines_used[text_box];
     W8MessageStorageRecord* record = &CurrentGame().message_log[text_box][index];
-    record->text.assign(text);
-    record->RebuildEntries(*MainGameHud()->text_box_font);
+    *record = std::move(line);
     ++CurrentGame().status.text_box_lines_used[text_box];
-    record->font_palette = font_palette;
-    record->highlight_color = 0xff;
-    if (highlight.palette != 0xff && highlight.start < offset + text.size() &&
-        highlight.stop > offset) {
-        record->highlight_color = highlight.palette;
-        record->highlight_start = std::max(highlight.start, offset) - offset;
-        record->highlight_stop = std::min(highlight.stop - offset, text.size());
-    }
-    record->link = wrapped_line;
-    record->length = -1;
     ++g_notice_line_count;
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
         CurrentGame().status.text_line_cursor == text_box) {
@@ -272,6 +259,51 @@ void SetTextBoxRegionBounds(int left, int top, int right, int bottom)
     targets[2]->setShape(SDL_Rect{right + 9, 379, 8, 50});
 }
 
+std::vector<W8MessageStorageRecord> WrapNotice(const TextNotice& notice, const Font& font,
+                                               unsigned int width)
+{
+    std::vector<W8MessageStorageRecord> rows;
+    const std::string_view text = notice.text;
+    auto append = [&](std::string_view line, std::size_t offset) {
+        auto& row = rows.emplace_back();
+        row.text = line;
+        row.font_palette = static_cast<unsigned char>(notice.palette);
+        row.highlight_color = 0xff;
+        const auto& highlight = notice.highlight;
+        if (highlight.palette != 0xff && highlight.start < offset + line.size() &&
+            highlight.stop > offset) {
+            row.highlight_color = highlight.palette;
+            row.highlight_start = std::max(highlight.start, offset) - offset;
+            row.highlight_stop = std::min(highlight.stop - offset, line.size());
+        }
+        row.link = wiz8::checked_integer<int>(rows.size() - 1);
+        row.length = -1;
+        row.RebuildEntries(font);
+    };
+    if (static_cast<unsigned int>(font.textWidth(text)) < width) {
+        append(text, 0);
+    } else {
+        auto remaining = text;
+        while (!remaining.empty()) {
+            std::size_t end = 0, last_space = 0;
+            while (end < remaining.size() && remaining[end] != '\n') {
+                const auto next = wiz8::text::next_grapheme(remaining, end);
+                if (font.textWidth(remaining.substr(0, next)) >= static_cast<int>(width) && end) {
+                    if (last_space) end = last_space;
+                    break;
+                }
+                end = next;
+                if (end < remaining.size() && (remaining[end] == ' ' || remaining[end] == '\t'))
+                    last_space = end;
+            }
+            append(remaining.substr(0, end), text.size() - remaining.size());
+            remaining.remove_prefix(end);
+            if (!remaining.empty() && remaining.front() == '\n') remaining.remove_prefix(1);
+        }
+    }
+    return rows;
+}
+
 void ShowNotice(unsigned int font_palette, std::string_view text_view, short text_box,
                 unsigned int wrap_width, bool force_dialog, NoticeHighlight highlight)
 {
@@ -292,33 +324,11 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
             g_notice_line_count = 0;
             CurrentGame().status.long_quote = 0;
         }
-        if (static_cast<unsigned int>(MainGameHud()->text_box_font->textWidth(text)) < wrap_width) {
-            AppendNoticeLine(static_cast<unsigned char>(font_palette), text, text_box, 0, highlight,
-                             0);
-        } else {
-            std::string_view remaining(text);
-            int line_index = 0;
-            while (!remaining.empty()) {
-                std::size_t end = 0, last_space = 0;
-                while (end < remaining.size() && remaining[end] != '\n') {
-                    const auto next = wiz8::text::next_grapheme(remaining, end);
-                    if (MainGameHud()->text_box_font->textWidth(remaining.substr(0, next)) >=
-                            static_cast<int>(wrap_width) &&
-                        end) {
-                        if (last_space) end = last_space;
-                        break;
-                    }
-                    end = next;
-                    if (end < remaining.size() && (remaining[end] == ' ' || remaining[end] == '\t'))
-                        last_space = end;
-                }
-                const auto line = remaining.substr(0, end);
-                AppendNoticeLine(static_cast<unsigned char>(font_palette), line, text_box,
-                                 line_index++, highlight, text.size() - remaining.size());
-                remaining.remove_prefix(end);
-                if (!remaining.empty() && remaining.front() == '\n') remaining.remove_prefix(1);
-            }
-        }
+        if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) highlight = {};
+        for (auto& row :
+             WrapNotice({.palette = font_palette, .text = owned_text, .highlight = highlight},
+                        *MainGameHud()->text_box_font, wrap_width))
+            AppendNoticeLine(std::move(row), text_box);
         if (CurrentGame().status.quote_audit && g_notice_line_count > 7) {
             CurrentGame().status.long_quote = 1;
         }

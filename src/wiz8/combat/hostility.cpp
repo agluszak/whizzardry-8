@@ -39,7 +39,6 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"

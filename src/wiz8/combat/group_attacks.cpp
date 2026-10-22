@@ -25,7 +25,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"

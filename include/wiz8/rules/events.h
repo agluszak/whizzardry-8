@@ -55,7 +55,7 @@ struct TextNotice {
     short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC;
     unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC;
     bool force_dialog = false;
-    NoticeHighlight highlight;
+    NoticeHighlight highlight{};
 };
 
 /* A party member's line, "Name: text", the name in the member's marching-order
