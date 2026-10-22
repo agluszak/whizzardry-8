@@ -230,11 +230,27 @@ target_compile_definitions(native_runtime_test PRIVATE WIZ8_RUNTIME_TESTS=1)
 target_include_directories(native_runtime_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native")
 target_link_libraries(native_runtime_test PRIVATE wiz8_engine SDL3::SDL3 PkgConfig::FFMPEG)
 set(WIZ8_RUNTIME_SAVE_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/runtime-fixtures")
+# Third-party runtime inputs are downloaded once into a cache that every build
+# tree shares; CI keeps it in the Actions cache.
+if(DEFINED ENV{WIZ8_DOWNLOAD_CACHE})
+    set(wiz8_download_cache "$ENV{WIZ8_DOWNLOAD_CACHE}")
+elseif(DEFINED ENV{XDG_CACHE_HOME})
+    set(wiz8_download_cache "$ENV{XDG_CACHE_HOME}/whizzardry8/downloads")
+elseif(WIN32)
+    set(wiz8_download_cache "$ENV{LOCALAPPDATA}/whizzardry8/downloads")
+elseif(APPLE)
+    set(wiz8_download_cache "$ENV{HOME}/Library/Caches/whizzardry8/downloads")
+else()
+    set(wiz8_download_cache "$ENV{HOME}/.cache/whizzardry8/downloads")
+endif()
+set(WIZ8_DOWNLOAD_CACHE "${wiz8_download_cache}" CACHE PATH
+    "Directory caching downloaded runtime test inputs")
 target_compile_definitions(native_runtime_test PRIVATE
     WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
-    WIZ8_RUNTIME_SAVE_FIXTURE="${WIZ8_RUNTIME_SAVE_FIXTURE}")
+    WIZ8_RUNTIME_SAVE_FIXTURE="${WIZ8_RUNTIME_SAVE_FIXTURE}"
+    WIZ8_RUNTIME_DOWNLOADS="${WIZ8_DOWNLOAD_CACHE}")
 set(WIZ8_RUNTIME_TEST_ENVIRONMENT ${WIZ8_GRAPHICS_TEST_ENVIRONMENT} "SDL_AUDIO_DRIVER=dummy")
-foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-lifecycle inventory-chest camp-spells quick-save combat npc-dialogue load-game random-play menu-save)
+foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-lifecycle inventory-chest camp-spells quick-save combat npc-dialogue load-game retail-save random-play menu-save)
     # A fixed seed makes the game's random rolls repeatable.
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario} --rng-seed 1)
     set_tests_properties(runtime_${scenario} PROPERTIES
@@ -251,6 +267,11 @@ set_tests_properties(runtime_npc-dialogue PROPERTIES TIMEOUT 300)
 # CTest arranges the dependency even when only runtime_load-game is selected.
 set_tests_properties(runtime_quick-save PROPERTIES FIXTURES_SETUP runtime_save)
 set_tests_properties(runtime_load-game PROPERTIES FIXTURES_REQUIRED runtime_save)
+add_test(NAME runtime_downloads COMMAND "${CMAKE_COMMAND}" "-DCACHE_DIR=${WIZ8_DOWNLOAD_CACHE}"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/runtime/fetch_downloads.cmake")
+set_tests_properties(runtime_downloads PROPERTIES
+    FIXTURES_SETUP runtime_downloads LABELS runtime TIMEOUT 600)
+set_tests_properties(runtime_retail-save PROPERTIES FIXTURES_REQUIRED runtime_downloads)
 
 add_executable(native_resource_lifecycle_test native/resource_lifecycle_test.cpp)
 target_link_libraries(native_resource_lifecycle_test PRIVATE wiz8_engine)

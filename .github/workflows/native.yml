@@ -74,6 +74,8 @@ jobs:
       CCACHE_MAXSIZE: 1G
       # Clang PCH can be cached only with these documented ccache settings.
       CCACHE_SLOPPINESS: pch_defines,time_macros
+      # Downloaded runtime test inputs; CMake bakes this path in at configure.
+      WIZ8_DOWNLOAD_CACHE: ${{ github.workspace }}/build/downloads
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Install Clang 23, libstdc++ 16, CMake 4.4.4 and Conan 2
@@ -236,6 +238,15 @@ jobs:
           "build/${{ matrix.preset }}/wiz8_prepare_assets" "$prepared_root" "$game_root"
           echo "WIZ8_ASSET_ROOT=$prepared_root" >> "$GITHUB_ENV"
 
+      # Third-party runtime inputs (tests/runtime/fetch_downloads.cmake) are
+      # fetched once and verified by hash; the runtime_downloads test only
+      # downloads what the restored cache lacks.
+      - name: Restore downloaded runtime inputs
+        id: downloads-cache
+        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ${{ env.WIZ8_DOWNLOAD_CACHE }}
+          key: wiz8-downloads-${{ hashFiles('tests/runtime/fetch_downloads.cmake') }}
       - name: Test native contracts and licensed runtime scenarios
         run: |
           source "build/${{ matrix.preset }}/conan/conanrun.sh"
@@ -248,6 +259,12 @@ jobs:
           fi
           xvfb-run -a ctest --preset ${{ matrix.preset }} --output-on-failure --parallel "$(nproc)"
 
+      - name: Save downloaded runtime inputs
+        if: always() && steps.downloads-cache.outputs.cache-hit != 'true' && hashFiles('build/downloads/*.sav') != ''
+        uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: ${{ env.WIZ8_DOWNLOAD_CACHE }}
+          key: ${{ steps.downloads-cache.outputs.cache-primary-key }}
       - name: Remove decrypted game assets
         if: always() && steps.game-assets.outputs.enabled == 'true'
         run: rm -rf "$RUNNER_TEMP/wiz8-native-game"

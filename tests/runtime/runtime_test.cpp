@@ -503,10 +503,13 @@ public:
         }
         auto* surface = g_renderer->readback();
         REQUIRE(surface);
+        // The swapchain matches the window's pixel size; sample it in screen coordinates.
         std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
         for (int y = 0; y < SCREEN_HEIGHT; ++y)
             for (int x = 0; x < SCREEN_WIDTH; ++x)
-                pixels[y * SCREEN_WIDTH + x] = ReadARGB(*surface, x, y) & 0xffffff;
+                pixels[y * SCREEN_WIDTH + x] = ReadARGB(*surface, x * surface->w / SCREEN_WIDTH,
+                                                        y * surface->h / SCREEN_HEIGHT) &
+                                               0xffffff;
         return pixels;
     }
 
@@ -719,6 +722,12 @@ std::string CreateCharacter(GameHarness& game)
     return name;
 }
 
+/* Party selection's Confirm button, and the party-size prompt it opens for a
+   party of fewer than six with that prompt's accept button. */
+constexpr SDL_Point kPartyConfirmButton{430, 447};
+constexpr SDL_Rect kPartySizePrompt{170, 160, 300, 110};
+constexpr SDL_Point kPartySizePromptAccept{293, 306};
+
 /* Adds the newest character to the party and starts the game. */
 void StartGame(GameHarness& game)
 {
@@ -730,14 +739,26 @@ void StartGame(GameHarness& game)
     Snapshot("party-with-member", game.read_frame());
     ExpectPartyActionLabels("party-with-member labels", game, 4);
 
-    /* Confirm walks the screen's own steps: a party of fewer than six asks
-       for confirmation, then the options page's Confirm runs the opening. */
-    for (int press = 0;
-         press < 3 && CurrentScreenState().id == W8_SCREEN_PARTY_SELECTION && game.settled();
-         ++press) {
-        game.click_at(430, 447);
-        if (UiModalActive()) game.key(SDLK_RETURN);
+    /* Confirm walks the screen's own steps by mouse: a party of fewer than six
+       asks for confirmation, then the options page's Confirm runs the opening.
+       The prompt is modal, so it must also be visible. */
+    const auto before_prompt = game.read_frame();
+    game.click("confirm-party", kPartyConfirmButton);
+    REQUIRE(game.within_frames(2, [] { return UiModalActive(); }));
+    game.frame();
+    const auto prompt = game.read_frame();
+    Snapshot("party-size-prompt", prompt);
+    {
+        int changed = 0;
+        for (int y = kPartySizePrompt.y; y < kPartySizePrompt.y + kPartySizePrompt.h; ++y)
+            for (int x = kPartySizePrompt.x; x < kPartySizePrompt.x + kPartySizePrompt.w; ++x)
+                changed += prompt[y * SCREEN_WIDTH + x] != before_prompt[y * SCREEN_WIDTH + x];
+        INFO("party-size prompt: " << changed << " changed pixels");
+        REQUIRE(changed > kPartySizePrompt.w * kPartySizePrompt.h / 2);
     }
+    game.click("accept-party-size", kPartySizePromptAccept);
+    REQUIRE(game.within_frames(2, [] { return !UiModalActive(); }));
+    game.click("start-game", kPartyConfirmButton);
     game.wait_screen("main-game", W8_SCREEN_MAIN_GAME, 60);
     REQUIRE(g_runtime_test_hooks.movie_frames_presented == 0);
     World* world = GetWorld();
@@ -921,12 +942,25 @@ std::vector<fs::path> SaveFiles(const fs::path& user)
 /* Quick-save through its key binding; returns the written save. */
 fs::path QuickSave(GameHarness& game)
 {
-    REQUIRE(SaveFiles(game.user_root()).empty());
+    const auto before = SaveFiles(game.user_root());
     game.command(W8_MGS_COMMAND_QUICK_SAVE);
-    const auto saves = SaveFiles(game.user_root());
+    auto saves = SaveFiles(game.user_root());
+    std::erase_if(saves, [&](const fs::path& save) { return std::ranges::contains(before, save); });
     REQUIRE((saves.size() == 1 && fs::file_size(saves[0]) > 0));
     REQUIRE(GetSaveGameLevel(saves[0].stem().string().c_str()) == int(GetLoadedLevelID()));
     return saves[0];
+}
+
+/* Quick-loads and waits until the main game is back and settled. */
+void QuickLoad(GameHarness& game)
+{
+    game.command(W8_MGS_COMMAND_QUICK_LOAD);
+    bool loading = false;
+    game.wait("quick-load", [&] {
+        loading = loading || CurrentScreenState().id == W8_SCREEN_PLEASE_WAIT;
+        return loading && CurrentScreenState().id == W8_SCREEN_MAIN_GAME && game.settled();
+    });
+    Settle(game, "quick-load");
 }
 
 void ExpectAt(const char* step, const glm::vec3& expected)
@@ -1727,13 +1761,7 @@ void QuickSaveScenario()
        not name item 0 as the selected world item. */
     game.move_pointer(320, 180);
 
-    game.command(W8_MGS_COMMAND_QUICK_LOAD);
-    bool loading = false;
-    game.wait("quick-load", [&] {
-        loading = loading || CurrentScreenState().id == W8_SCREEN_PLEASE_WAIT;
-        return loading && CurrentScreenState().id == W8_SCREEN_MAIN_GAME && game.settled();
-    });
-    Settle(game, "quick-load");
+    QuickLoad(game);
     ExpectAt("quick-load", anchor);
     REQUIRE(CountActiveCharacters() == 1);
     REQUIRE(GetLoadedLevelID() == level);
@@ -1792,6 +1820,50 @@ void LoadGameScenario(const fs::path& fixture)
     REQUIRE(CurrentGame().party.characters[PremadeSlot()].experience == experience);
     REQUIRE(CurrentGame().party.characters[PremadeSlot()].hp_current == health);
     std::printf("load-game: loaded the fixture after %lu frames\n", game.frames());
+}
+
+/* The party a save holds, in slot order. */
+struct SavedMember {
+    std::string name;
+    unsigned level, experience;
+};
+std::vector<SavedMember> PartyMembers()
+{
+    std::vector<SavedMember> members;
+    for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
+        if (CurrentGame().party.members[slot].has_value()) {
+            const W8Character& character = CurrentGame().party.characters[slot];
+            members.push_back({character.name, character.uiExpLevel, character.experience});
+        }
+    return members;
+}
+bool operator==(const SavedMember& a, const SavedMember& b)
+{
+    return a.name == b.name && a.level == b.level && a.experience == b.experience;
+}
+
+/* A save written by the retail game (fetch_downloads.cmake) loads through the
+   menu with its party, level and position, and the party can walk. Our quick
+   save of that world then loads back unchanged. */
+void RetailSaveScenario()
+{
+    GameHarness game(false);
+    LoadFromMenu(game, fs::path(WIZ8_RUNTIME_DOWNLOADS) / "p2-RapaxAC.sav");
+    REQUIRE(GetLoadedLevelID() == 16);
+    ExpectAt("loaded", {29237.4f, 404.094f, -3452.46f});
+    const std::vector<SavedMember> party{{"TBell", 23, 21210115}, {"Peter", 23, 21134738}};
+    REQUIRE(PartyMembers() == party);
+    Snapshot("retail-save", game.read_frame());
+
+    const glm::vec3 anchor = Walk(game, "walk", 2.0f);
+    QuickSave(game);
+    Walk(game, "walk-away", 4.0f);
+    REQUIRE(HorizontalDistance(PartyPosition(), anchor) > 2.0f);
+    QuickLoad(game);
+    ExpectAt("quick-load", anchor);
+    REQUIRE(GetLoadedLevelID() == 16);
+    REQUIRE(PartyMembers() == party);
+    std::printf("retail-save: loaded and round-tripped after %lu frames\n", game.frames());
 }
 
 /* Menu saving exercises name edits and confirmation callbacks, which quick-save
@@ -2629,6 +2701,11 @@ TEST_CASE("menu-save", "[runtime]")
 TEST_CASE("script", "[.][runtime]")
 {
     RunScenario(ScriptScenario);
+}
+
+TEST_CASE("retail-save", "[runtime]")
+{
+    RunScenario(RetailSaveScenario);
 }
 
 TEST_CASE("load-game", "[runtime]")

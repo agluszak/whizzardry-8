@@ -13,6 +13,7 @@
 #include "scoped_game.h"
 #include "scoped_game_data.h"
 #include "unicode.h"
+#include "wiz8/audio/AmbientSound.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/data/encounter_records.h"
 #include "wiz8/data/fact_ids.h"
@@ -1179,6 +1180,37 @@ TEST_CASE("Faction sections keep every byte", "[save][records]")
     REQUIRE(wiz8::save::encode(factions) == bytes);
     bytes.pop_back();
     REQUIRE_THROWS(wiz8::save::decode_factions(bytes));
+}
+
+TEST_CASE_METHOD(SaveFixture, "Ambient sound states read the records retail stored",
+                 "[save][records]")
+{
+    // Retail counts the whole emitter list but skips its empty slots, so the
+    // count can exceed the stored records. Names match without regard to case.
+    const auto path = user / "saves" / "ambient.SAV";
+    W8Chunk save;
+    REQUIRE(save.OpenWrite(path));
+    save.WriteChunk(W8ChunkId("AMBS"), [&] {
+        save.WriteValue(std::uint8_t{1});
+        save.WriteValue(std::uint32_t{3});
+        std::array<char, 128> name{};
+        std::ranges::copy(std::string_view("soundWaterfall01"), name.begin());
+        save.WriteValue(name);
+        save.WriteValue(std::uint8_t{1});
+    });
+    save.Close();
+    REQUIRE(save.OpenRead(path));
+    std::vector<W8AmbientSoundState> states;
+    save.ForEachChunk([&](unsigned) { states = ReadAmbientSoundStates(save); });
+    save.Close();
+    REQUIRE(states.size() == 1);
+    REQUIRE((states[0].name == "soundWaterfall01" && states[0].stopped));
+
+    World world;
+    world.audio.emitters.push_back(std::make_unique<W8AmbientSound>());
+    world.audio.emitters[0]->name = "SOUNDWATERFALL01";
+    ApplyAmbientSoundStates(world, states);
+    REQUIRE(world.audio.emitters[0]->stopped);
 }
 
 TEST_CASE("Monster-control sections keep the retail record", "[save][records]")

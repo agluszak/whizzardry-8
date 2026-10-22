@@ -28,3 +28,13 @@ record, and cancels and confirms deletion. It also replaces the enumerated save
 with a directory to verify that a failed delete shows an error and leaves the
 row usable for a retry. All writable files stay in the scenario's temporary user
 root; installed assets are read-only inputs.
+
+`runtime_retail-save` loads a save written by the retail game: Peter and
+TBell, a level-23 pair just outside the Rapax Away Camp, offered by its author
+at <https://r0k.us/rock/games/wizardry8/>. It is not checked in.
+`tests/runtime/fetch_downloads.cmake`, run as the `runtime_downloads` CTest
+fixture, downloads it once into `WIZ8_DOWNLOAD_CACHE` (by default
+`~/.cache/whizzardry8/downloads`, shared by every build tree) and verifies it
+by SHA-256; CI keeps that directory in the Actions cache. The scenario checks
+the save's level, position and party, walks, then quick-saves and quick-loads
+it through our writer.
