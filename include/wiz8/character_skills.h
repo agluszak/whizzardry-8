@@ -5,6 +5,7 @@
 class Events;
 class Game;
 struct W8Character;
+struct W8Party;
 struct W8SkillNoticePayload;
 
 /* 0x00553F10: add usage points to one skill, roll its increase, and report
