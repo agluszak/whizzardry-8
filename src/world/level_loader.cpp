@@ -179,6 +179,7 @@ try {
         hFile->read_exact(&record, sizeof(record));
         if (record.version >= 2) {
             hFile->read_exact(name, sizeof(name));
+            if (std::find(std::begin(name), std::end(name), '\0') == std::end(name)) return 0;
             SDL_strupr(name);
 
             if ((record.flags & 2) != 0) {
