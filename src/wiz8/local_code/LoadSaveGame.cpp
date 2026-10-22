@@ -1715,6 +1715,8 @@ try {
 
 void PreparedGame::install(GameSession& games) &&
 {
+    // Departure is a gameplay transition, not part of destroying a session.
+    if (games.game()) LeaveLevel();
     auto& game = games.begin();
     for (auto& install : sections) install(game);
     for (std::size_t box = 0; box < game.message_log.size(); ++box) {
