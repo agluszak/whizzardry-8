@@ -1193,7 +1193,7 @@ try {
         animation->playback_scale = playback_scale;
     } else {
         unsigned int entry_index;
-        unsigned int list_count;
+        std::size_t list_count;
         signed char slot_count;
         int slot_i;
 
@@ -1321,7 +1321,7 @@ try {
                 InitializeStateDrivenPropVariables(trigger);
             }
             if (trigger->trigger_kind == W8TriggerKind::item && trigger->initial_action == 8) {
-                unsigned int path_count;
+                std::size_t path_count;
                 unsigned int path_i;
 
                 this->animation_running = true;

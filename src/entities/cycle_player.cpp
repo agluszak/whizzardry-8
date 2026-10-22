@@ -614,7 +614,7 @@ void CyclePlayer::advanceFrame()
     }
 
     if (animation->positioned_parts) {
-        unsigned int count = animation->parts[m_bLOD].size();
+        const auto count = animation->parts[m_bLOD].size();
         unsigned int index;
 
         for (index = 0; index < count; ++index) {

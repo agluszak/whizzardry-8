@@ -1015,7 +1015,7 @@ try {
         Animation* animation = prop->currentAnimation();
 
         if ((prop->flags & W8_PROP_NO_DIRECT_SUN) != 0 && animation->positioned_parts) {
-            unsigned int animation_count = animation->parts[2].size();
+            const auto animation_count = animation->parts[2].size();
             for (unsigned int animation_index = 0; animation_index < animation_count;
                  ++animation_index) {
                 MeshInstance* instance = prop->FrameModel(static_cast<int>(animation_index));
