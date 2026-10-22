@@ -415,7 +415,7 @@ template<> struct Record<save::GameState> {
               bytes.subspan(offsetof(Disk, party_gold), sizeof(Disk::party_gold)));
         value(&runtime.status.selected_character,
               bytes.subspan(offsetof(Disk, selected_character), sizeof(Disk::selected_character)));
-        unsigned int count = runtime.party.item_pool.size();
+        unsigned int count = static_cast<unsigned int>(runtime.party.item_pool.size());
         value(&count, bytes.subspan(offsetof(Disk, party_item_count), sizeof(count)));
         if constexpr (!std::is_const_v<R>) {
             if (count > runtime.party.item_pool.capacity())

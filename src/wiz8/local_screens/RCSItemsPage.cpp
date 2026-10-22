@@ -4,10 +4,10 @@
 #include <array>
 #include <bitset>
 #include <cassert>
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <optional>
-#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -1493,7 +1493,10 @@ void W8CampItemsPage::InvalidateChangedCells()
         if (!same_character || shown.equipment[slot] != character->EquippedItem[slot])
             cell_redraw.equipment.set(slot);
     const auto& pool = CurrentGame().party.item_pool;
-    if (!std::ranges::equal(shown.pool, pool)) cell_redraw.InvalidatePool();
+    if (!std::ranges::equal(shown.pool, pool)) {
+        RebuildCampItemList();
+        cell_redraw.InvalidatePool();
+    }
     shown.character = character;
     std::ranges::copy(character->backpack, shown.backpack.begin());
     std::ranges::copy(character->EquippedItem, shown.equipment.begin());
@@ -1561,7 +1564,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
     bool same_kind = false;
     bool choose_character;
     unsigned int index;
-    unsigned int old_pool_count;
+    std::size_t old_pool_count;
     int result;
     int party_slot;
     W8EquipSlot paired_slot;
@@ -1689,8 +1692,9 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         }
         if (origin == W8ItemStorage::Pool && reidentify &&
             old_pool_count != CurrentGame().party.item_pool.size()) {
-            item = &CurrentGame().party.item_pool[CurrentGame().party.item_pool.size() -
-                                                  old_pool_count + slot_index];
+            const auto shifted = static_cast<unsigned int>(CurrentGame().party.item_pool.size() -
+                                                           old_pool_count + slot_index);
+            item = CurrentGame().party.itemAt({W8ItemStorage::Pool, 0, shifted});
             RebuildCampItemList();
 
             character_info_dirty = true;

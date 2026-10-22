@@ -1,5 +1,6 @@
 #include "wiz8/rules/party.h"
 
+#include <cstddef>
 #include <optional>
 #include <utility>
 
@@ -82,7 +83,7 @@ void W8Party::exchange(W8ItemLocation first, W8ItemLocation second, int actor)
             take(location);
 }
 
-bool W8Party::insertIntoPool(unsigned int index, W8ItemInstance item)
+bool W8Party::insertIntoPool(std::size_t index, W8ItemInstance item)
 {
     if (item_pool.size() == item_pool.capacity() || index > item_pool.size()) return false;
     item_pool.insert(item_pool.begin() + index, item);
