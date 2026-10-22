@@ -608,8 +608,9 @@ bool IsItemTargetOfNeededKind(const W8CombatSlot* target, const W8ItemInstance* 
 static bool IsMonsterHoverSelectable(W8MonsterInfo* monster_info)
 {
     if (!monster_info->fActive || monster_info->entity->IsDying() ||
-        monster_info->entity->hostility_preserved ||
-        monster_info->entity->visual.GetCurrentModelInstance() != g_current_model_instance) {
+        monster_info->entity->hostility_preserved || !monster_info->entity->owner_world ||
+        monster_info->entity->visual.GetCurrentModelInstance() !=
+            monster_info->entity->owner_world->selectedModel()) {
         return false;
     }
     if (!monster_info->party_threat.use_bounds) {

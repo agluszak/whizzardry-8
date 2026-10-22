@@ -999,7 +999,7 @@ void Game::endCombat(bool forced_cleanup)
     if (search_mode_saved) {
         ToggleSearchMode();
     }
-    ZoomRadarMapOut();
+    if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->setZoom(false);
     events.push(CombatEnded{});
     if (!activity.conversation && !gpSCSV && !ItemUseDraft()) {
         SelectTextBox(0);
