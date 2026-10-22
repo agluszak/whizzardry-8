@@ -683,3 +683,12 @@ player could: the control is shown and enabled, the pointer over it reaches it, 
 the presented frame shows what the UI painted there. On every frame the harness also
 requires a newly active modal input scope to be shown within four frames, so input
 can never be captured by a prompt the player cannot see.
+
+## Notebook and information text
+
+The NPC notebook controller borrows its Game and derives visible keyword indices
+from story storage, category and sort settings. It owns only scrolling, hover,
+selection and new-topic marks. There is no copied text collection to reconcile
+when a keyword is learned or forgotten; the empty message is presentation only.
+Information dialogs use a separate append-only paragraph layout with one scroll
+position. They have no notebook categories, selection, marks or sorting protocol.

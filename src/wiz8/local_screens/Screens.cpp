@@ -90,29 +90,6 @@ std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games, Pointer&
     std::unreachable();
 }
 
-/* Query whether scrolling is possible, or scroll and invalidate the transcript. */
-bool W8NpcDialogueTextController::HandleScrollDownCommand(bool check_only)
-{
-    if (text_area.ScrollDown(check_only)) {
-        if (!check_only) {
-            InvalidateAll();
-        }
-        return true;
-    }
-    return false;
-}
-
-bool W8NpcDialogueTextController::HandleScrollUpCommand(bool check_only)
-{
-    if (text_area.ScrollUp(check_only)) {
-        if (!check_only) {
-            InvalidateAll();
-        }
-        return true;
-    }
-    return false;
-}
-
 namespace {
 // The main game's HUD while the main game is the screen shown.
 W8LevelRuntimeBlock* ShownHud()

@@ -397,7 +397,7 @@ static void AddNpcAction(int index, int panel, SDL_Rect bounds, int catalog,
                     if (event.action == UiPointerAction::Enter)
                         transcript.HighlightFirstEntry();
                     else
-                        transcript.text_area.ClearSelection();
+                        transcript.ClearHover();
                     transcript.InvalidateLayout();
                 }
                 return UiResult::Handled;
@@ -871,7 +871,7 @@ static void CreateNpcDialogueControls()
 {
     Panel().ui = std::make_unique<NpcDialogueUi>();
     auto& ui = *Panel().ui;
-    ui.transcript = std::make_unique<W8NpcDialogueTextController>();
+    ui.transcript = std::make_unique<W8NpcDialogueTextController>(MainGame()->game);
     AddNpcAction(W8_NPC_CONTROL_NPC_NAME, 0, {5, 2, (0x89) - (5), (0x12) - (2)}, -1,
                  {-1, -1, -1, -1, -1});
     AddNpcAction(W8_NPC_CONTROL_TEXT_38, 0, {5, 0x47, (0x89) - (5), (0x57) - (0x47)}, -1,
@@ -1922,10 +1922,6 @@ void OpenNpcDialogueTranscriptLayout(void)
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_1, true);
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_2, true);
     MainGame()->dialogue.ui->transcript->ShowTranscriptEntries();
-    MainGame()->dialogue.ui->transcript->SetTranscriptCategoryFilter(
-        CurrentGame().npc_interaction.dialogue_category_filter);
-    MainGame()->dialogue.ui->transcript->SetTranscriptSorted(CurrentGame().story.keywords_sorted);
-    MainGame()->dialogue.ui->transcript->Expand();
     SyncNpcDialogueTranscriptScrollButtons();
     SyncDialogueCategoryButtons();
     if (CurrentGame().story.keywords_sorted) {
@@ -2051,7 +2047,7 @@ static void SyncNpcDialogueListFilter(void)
     } else {
         CurrentGame().story.keywords_sorted = false;
     }
-    MainGame()->dialogue.ui->transcript->SetTranscriptSorted(CurrentGame().story.keywords_sorted);
+    MainGame()->dialogue.ui->transcript->RefreshNotebook();
 }
 
 static void SelectNpcDialogueTopics(W8NpcDialogueControlSlot button, W8DialogueCategory category)
@@ -2060,7 +2056,7 @@ static void SelectNpcDialogueTopics(W8NpcDialogueControlSlot button, W8DialogueC
         CurrentGame().npc_interaction.dialogue_category_filter = category;
         SyncDialogueCategoryButtons();
     }
-    MainGame()->dialogue.ui->transcript->SetTranscriptCategoryFilter(category);
+    MainGame()->dialogue.ui->transcript->RefreshNotebook();
 }
 
 static void SelectNpcPeopleTopics(void)
@@ -3954,21 +3950,17 @@ void LearnDialogueKeyword(std::string_view text, W8DialogueCategory category, bo
     if (controller == nullptr || !controller->showing_notebook) {
         return;
     }
-    controller->AddTranscriptEntry(keyword, category, chime);
+    if (chime) controller->MarkNewKeyword(keyword);
     if (state.dialogue_category_filter != W8_DIALOGUE_CATEGORY_ALL &&
         state.dialogue_category_filter != category) {
         state.dialogue_category_filter = category;
-        controller->SetTranscriptCategoryFilter(state.dialogue_category_filter);
         SyncDialogueCategoryButtons();
     }
     if (chime) {
         wiz8::sound::play(reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
             "Data\\Sound\\Misc\\Keyword Chime.wav")));
     }
-    controller->Collapse();
-    controller->Expand();
-    controller->InvalidateAll();
-    SyncNpcDialogueTranscriptScrollButtons();
+    controller->RefreshNotebook();
 }
 
 void RecordLevelEntryDialogueState(void)
