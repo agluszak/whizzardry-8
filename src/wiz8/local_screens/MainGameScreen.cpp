@@ -6354,7 +6354,6 @@ void ResetMainGameMode(void)
     if (CurrentGame().surprise_possible) {
         RestoreSurpriseView();
     }
-    LeaveLevel();
     CurrentGame().status.game_started = false;
     ClearHeldItemDisplay();
     ReturnToPreviousScreen();
