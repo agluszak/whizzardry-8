@@ -114,7 +114,6 @@ GameHarness::GameHarness(bool play_movies)
     w8_native::audio_offline_for_test(true);
     application_.emplace(arguments);
     REQUIRE(g_renderer);
-    g_renderer->setCaptureEnabled(true);
     // Games draw from a stream seeded by the clock. Catch's seed makes a run
     // repeatable: CTest fixes it, and failures print it.
     application_->games().seed(Catch::getSeed());
@@ -308,9 +307,9 @@ std::vector<unsigned> GameHarness::read_frame()
                                   SCREEN_WIDTH * sizeof(unsigned)));
         return pixels;
     }
-    auto* surface = g_renderer->readback();
+    auto* surface = g_renderer->captureLastFrame();
     REQUIRE(surface);
-    // The swapchain matches the window's pixel size; sample it in screen coordinates.
+    // The target matches the window's pixel size; sample it in screen coordinates.
     std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
     for (int y = 0; y < SCREEN_HEIGHT; ++y)
         for (int x = 0; x < SCREEN_WIDTH; ++x)

@@ -143,6 +143,7 @@ struct Renderer::Impl {
     vsg::ref_ptr<vsg::BindGraphicsPipeline> overlayPipeline(OverlayMaterial material);
     void capture(vsg::ref_ptr<vsg::Image> image, VkFormat format, VkExtent2D extent,
                  VkImageLayout layout);
+    void renderOffscreen();
 
     SDL_Window* platform_window;
     vsg::ref_ptr<vsg::Instance> instance;
@@ -166,7 +167,6 @@ struct Renderer::Impl {
     std::uint64_t frame_number = 0;
     int graphics_family = -1;
     bool open = true;
-    bool capture_enabled = false;
     bool capture_window = false;
 };
 
@@ -405,10 +405,6 @@ render::RenderContext& Renderer::context()
 {
     return *impl->context;
 }
-void Renderer::setCaptureEnabled(bool enabled)
-{
-    impl->capture_enabled = enabled;
-}
 void Renderer::setVsync(bool enabled)
 try {
     const auto mode = enabled ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR;
@@ -599,20 +595,8 @@ try {
     // A single completion boundary handles removed graph nodes, replaced
     // descriptors and streamed UI pixels without parallel retirement queues.
     viewer->deviceWaitIdle();
-    if (capture || impl->capture_enabled) {
-        if (present && !impl->capture_window) {
-            // The render graph has no simulation updates: another target sees
-            // the same prepared pose, materials and canvas publication.
-            if (!impl->offscreen_viewer->advanceToNextFrame())
-                throw std::runtime_error("VSG offscreen frame acquisition failed");
-            const auto compiled_offscreen = impl->offscreen_viewer->compile();
-            if (compiled_offscreen.result != VK_SUCCESS)
-                throw std::runtime_error("VSG scene compilation failed: " +
-                                         compiled_offscreen.message);
-            impl->offscreen_viewer->update();
-            impl->offscreen_viewer->recordAndSubmit();
-            impl->offscreen_viewer->deviceWaitIdle();
-        }
+    if (capture) {
+        if (present && !impl->capture_window) impl->renderOffscreen();
         if (present && impl->capture_window) {
             const auto index = impl->window->imageIndex();
             if (index >= impl->window->numFrames())
@@ -637,4 +621,31 @@ try {
 SDL_Surface* Renderer::readback() const
 {
     return impl->captured.get();
+}
+
+/* The render graph has no simulation updates between frames: the offscreen
+   target sees the same prepared pose, materials and canvas publication as the
+   frame last presented. */
+void Renderer::Impl::renderOffscreen()
+{
+    if (!offscreen_viewer->advanceToNextFrame())
+        throw std::runtime_error("VSG offscreen frame acquisition failed");
+    const auto compiled = offscreen_viewer->compile();
+    if (compiled.result != VK_SUCCESS)
+        throw std::runtime_error("VSG scene compilation failed: " + compiled.message);
+    offscreen_viewer->update();
+    offscreen_viewer->recordAndSubmit();
+    offscreen_viewer->deviceWaitIdle();
+}
+
+SDL_Surface* Renderer::captureLastFrame()
+try {
+    if (!impl->open) return nullptr;
+    impl->renderOffscreen();
+    const auto image = impl->offscreen_color;
+    impl->capture(image, image->format, {image->extent.width, image->extent.height},
+                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    return impl->captured.get();
+} catch (const vsg::Exception& error) {
+    throw std::runtime_error(error.message);
 }
