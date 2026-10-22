@@ -277,11 +277,13 @@ foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-
 endforeach()
 # Each scenario is its own process with its own user directory, so they run in
 # parallel; only the save fixture below orders two of them.
-# These scenarios advance many simulated frames of the main-game rendering the
-# shorter scenarios already validate, so they run without the validation layer
-# CI enables, and with more wall time for software Vulkan.
-set_tests_properties(runtime_combat runtime_random-play PROPERTIES TIMEOUT 600
+# These scenarios advance many simulated frames of the main-game world and
+# interface overlay, which the shorter scenarios already render under the
+# validation layer CI enables. They run without it, and with more wall time for
+# software Vulkan.
+set_tests_properties(runtime_combat runtime_random-play runtime_npc-dialogue PROPERTIES
     ENVIRONMENT_MODIFICATION "VK_INSTANCE_LAYERS=unset:")
+set_tests_properties(runtime_combat runtime_random-play PROPERTIES TIMEOUT 600)
 set_tests_properties(runtime_npc-dialogue PROPERTIES TIMEOUT 300)
 # The quick-save scenario writes a fixture consumed by the menu-driven load test.
 # CTest arranges the dependency even when only runtime_load-game is selected.
