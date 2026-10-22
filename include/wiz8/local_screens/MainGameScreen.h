@@ -19,6 +19,7 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 
+class KeyboardActionMenu;
 class Pointer;
 class Trigger;
 class W8LockInteraction;
@@ -40,6 +41,11 @@ struct MainGameScreen final : Screen {
 
     // The game this main game belongs to; it is discarded before the game ends.
     Game& game;
+    std::unique_ptr<KeyboardActionMenu> keyboard_menu;
+    bool keyboardMenuForSlot(int slot) const;
+    void openKeyboardMenu(int slot);
+    void closeKeyboardMenu();
+    void chooseKeyboardMenuAction(int slot, int menu, int item);
     // The pointer the main game aims with, shared with a camp opened over it.
     Pointer& pointer;
     // The time since the screen last stepped the game.
@@ -456,7 +462,6 @@ enum W8MainGameMode {
 };
 
 extern W8MainGameMode g_main_game_mode;
-extern int g_selected_party_slot;
 void RequestLevelTransition(int level, int entry, unsigned char flag);
 // Change to `level`, arriving at `entry` (-1 for a saved location).
 void BeginLevelTransition(int level, int entry);

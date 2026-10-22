@@ -2072,8 +2072,8 @@ void W8NpcDialogueTextController::ShowTranscriptEntries()
 void RefreshFlaggedMainGameState(void)
 {
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && MainGameHud() != nullptr &&
-        MainGameHud()->keyboard_menu_open) {
-        RefreshKeyboardMenuRows();
+        MainGame()->keyboard_menu) {
+        MainGame()->keyboard_menu->refresh();
     }
 }
 
@@ -2383,14 +2383,14 @@ void MainGameScreen::frame()
         UpdateCombatPortraitStatus();
     }
     game.status.world_suspended = false;
-    if (MainGameHud()->keyboard_menu_open || MainGameHud()->combat_slot != -1) {
+    if (MainGame()->keyboard_menu || MainGameHud()->combat_slot != -1) {
         UpdateKeyboardMenu();
     }
     if (game.combat.has_value()) {
         for (int slot = 0; slot < 8; ++slot) {
             if (!game.party.members[slot].has_value() ||
                 game.party.characters[slot].highest_condition > W8_CONDITION_UNCONSCIOUS ||
-                (MainGameHud()->keyboard_menu_open && MainGameHud()->combat_slot == slot)) {
+                (MainGame()->keyboard_menu && MainGameHud()->combat_slot == slot)) {
                 MainGame()->combat_targets[slot]->setEnabled(false);
             } else {
                 MainGame()->combat_targets[slot]->setEnabled(true);
@@ -2430,7 +2430,7 @@ void MainGameScreen::frame()
         }
     } else
         UpdateWorldCursor();
-    if (!MainGameHud()->keyboard_menu_open && MainGameHud()->hover_combat_slot != -1 &&
+    if (!MainGame()->keyboard_menu && MainGameHud()->hover_combat_slot != -1 &&
         !MainGame()->combat_targets[MainGameHud()->hover_combat_slot]->hitAt(point))
         MainGameHud()->hover_combat_slot = -1;
     TickAmbientFollowUpIdle(ProcessMainGameInput());
@@ -2519,7 +2519,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     if (ItemUseDraft()) CloseUseItemSelectView();
     if (FormationPanelOpen()) CloseFormationPanel();
     if (game.activity.conversation) EndNpcDialogueSession(false);
-    if (MainGameHud()->keyboard_menu_open) CloseKeyboardMenu();
+    if (MainGame()->keyboard_menu) MainGame()->closeKeyboardMenu();
     ReleasePortraitControls();
     ReleaseConditionButtons();
     if (PartyMovementPanelShown()) DisablePartyMovementRegions();
@@ -2678,8 +2678,7 @@ void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentatio
         } else if (repaint.portrait_bars.test(party_slot)) {
             RedrawPartyPortraitBars(party_slot, hud.portrait_refresh_pending[party_slot] == 0);
         }
-        if (CurrentGame().monster_manager_entries[party_slot].keyboard_menu_open)
-            RedrawKeyboardMenuPanel(dirty);
+        if (MainGame()->keyboardMenuForSlot(party_slot)) MainGame()->keyboard_menu->redraw(dirty);
     }
     if (repaint.layout) {
         publish_chrome(0, 358, 640, 450);
@@ -3080,8 +3079,8 @@ void SelectPartyCharacter(int party_slot)
     if (MainGameHud()->open_submenu) {
         ResetSubMenuPanel();
     }
-    if (MainGameHud()->keyboard_menu_open && party_slot != g_selected_party_slot) {
-        CloseKeyboardMenu();
+    if (MainGame()->keyboard_menu && party_slot != MainGame()->keyboard_menu->slot) {
+        MainGame()->closeKeyboardMenu();
     }
     SetTargetingMode(W8_TARGET_NEED_NONE);
     if (auto* hud = MainGameHud()) {
@@ -3098,8 +3097,8 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
         MainGameHud()->portrait_refresh_pending[party_slot] != 0) {
         return;
     }
-    if (MainGameHud()->keyboard_menu_open &&
-        party_slot == static_cast<unsigned int>(g_selected_party_slot) &&
+    if (MainGame()->keyboard_menu &&
+        party_slot == static_cast<unsigned int>(MainGame()->keyboard_menu->slot) &&
         !CurrentGame().monster_manager_entries[party_slot].effect_icon_active &&
         !CurrentGame().monster_manager_entries[party_slot].damage_splat_active) {
         if (!CurrentGame().monster_manager_entries[party_slot].quote.bubble ||
@@ -3151,7 +3150,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
     MainGameHud()->portrait_refresh_image[party_slot] = 0x69;
     if (auto* hud = MainGameHud()) hud->repaint.portrait(party_slot);
     MainGame()->edge_targets[party_slot]->setEnabled(false);
-    if (!CurrentGame().monster_manager_entries[party_slot].keyboard_menu_open) {
+    if (!MainGame()->keyboardMenuForSlot(party_slot)) {
         EnableMainGamePortraitSlot(party_slot);
     }
 }
@@ -3859,33 +3858,33 @@ void UpdateCombatPortraitStatus(void)
 void UpdateKeyboardMenu(void)
 {
     if (auto* hud = MainGameHud()) hud->repaint.panels = true;
-    if ((!CurrentGame().combat.has_value() && MainGameHud()->keyboard_menu_open) ||
+    if ((!CurrentGame().combat.has_value() && MainGame()->keyboard_menu) ||
         (MainGameHud()->combat_slot != -1 && !IsPartySlotEligible(MainGameHud()->combat_slot))) {
-        CloseKeyboardMenu();
+        MainGame()->closeKeyboardMenu();
         return;
     }
     if (CurrentGame().combat.has_value() && !CurrentGame().combat->round_active) {
-        CloseKeyboardMenu();
+        MainGame()->closeKeyboardMenu();
         return;
     }
-    if (MainGameHud()->keyboard_menu_open) {
+    if (MainGame()->keyboard_menu) {
         if (MainGameHud()->cursor_grace == 0) {
             if (CurrentGame().party.members[MainGameHud()->combat_slot].has_value() == 0) {
-                CloseKeyboardMenu();
+                MainGame()->closeKeyboardMenu();
                 return;
             }
-            if (!KeyboardMenuContainsCursor()) {
+            if (!MainGame()->keyboard_menu->containsCursor()) {
                 MainGameHud()->cursor_grace = 1;
                 MainGameHud()->countdown3 = MonotonicMilliseconds() + (0x258);
                 return;
             }
         } else {
-            if (KeyboardMenuContainsCursor()) {
+            if (MainGame()->keyboard_menu->containsCursor()) {
                 MainGameHud()->countdown3 = MonotonicMilliseconds() + (0);
-                MainGameHud()->combat_slot = g_selected_party_slot;
+                MainGameHud()->combat_slot = MainGame()->keyboard_menu->slot;
                 MainGameHud()->cursor_grace = 0;
             } else if (TimeUntilDeadline(MainGameHud()->countdown3) == 0) {
-                CloseKeyboardMenu();
+                MainGame()->closeKeyboardMenu();
             }
         }
     }
@@ -4050,15 +4049,15 @@ void OpenModal(std::unique_ptr<ModalContent> owner)
 }
 
 /* Re-sync each party slot's region set and portrait hit region with the
-   slot's occupancy, its monster-entry flag and the display mode - the party
+   slot's occupancy, its action menu and the display mode - the party
    add/remove entries and the keyboard menu's close run it after slot state
    changes. */
 void RefreshPartySlotRegions(void)
 {
     if (!MainGame()) return;
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        const bool available = CurrentGame().party.members[slot].has_value() &&
-                               !CurrentGame().monster_manager_entries[slot].keyboard_menu_open;
+        const bool available =
+            CurrentGame().party.members[slot].has_value() && !MainGame()->keyboardMenuForSlot(slot);
         const bool full = GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
                           MainGameHud()->portrait_refresh_pending[slot] != 0;
         MainGame()->portraits[slot]->setEnabled(available && full);
@@ -4627,12 +4626,12 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
     if (event.button == UiPointerButton::Left && event.action == UiPointerAction::Up) {
         if ((event.captured_buttons & SDL_BUTTON_LMASK) != 0 &&
             CurrentGame().party.members[slot].has_value()) {
-            if (MainGameHud()->keyboard_menu_open && slot != MainGameHud()->combat_slot) {
-                CloseKeyboardMenu();
+            if (MainGame()->keyboard_menu && slot != MainGameHud()->combat_slot) {
+                MainGame()->closeKeyboardMenu();
             }
             if (CurrentGame().combat->round_active) {
                 MainGameHud()->combat_slot = slot;
-                OpenKeyboardMenuForSlot(slot);
+                MainGame()->openKeyboardMenu(slot);
                 return UiResult::Handled;
             }
         }
@@ -4647,7 +4646,7 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
     if (event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter ||
         event.action == UiPointerAction::Leave) {
         if (event.action == UiPointerAction::Leave) {
-            if (!MainGameHud()->keyboard_menu_open) {
+            if (!MainGame()->keyboard_menu) {
                 MainGameHud()->combat_slot = -1;
                 MainGameHud()->countdown3 = MonotonicMilliseconds() + (0);
                 MainGameHud()->hover_combat_slot = -1;
@@ -5636,8 +5635,8 @@ void RunMGSActionKey(unsigned short command)
     if (MainGameHud()->open_submenu) {
         DestroySubMenuControls();
     }
-    if (MainGameHud()->keyboard_menu_open) {
-        CloseKeyboardMenu();
+    if (MainGame()->keyboard_menu) {
+        MainGame()->closeKeyboardMenu();
     }
     switch (command) {
     case W8_MGS_ACTION_JOURNAL:
