@@ -287,18 +287,13 @@ struct W8LevelRuntimeBlock {
     bool tooltip_pending;
     uint64_t countdown3;
     int combat_slot;
-    /* The keyboard-action menu is open; set before BuildKeyboardMenu,
-       cleared by CloseKeyboardMenu. */
-    bool keyboard_menu_open;
     int hover_combat_slot;
-    /* Keyboard-menu cursor-left grace countdown armed; expires into
-       CloseKeyboardMenu. */
+    /* Keyboard-menu cursor-left grace countdown armed. */
     unsigned char cursor_grace;
     uint64_t countdown4;
     /* PortraitSelectInput right-button hold armed for camp. */
     bool portrait_right_hold_armed;
     unsigned char formation_board_alternate;
-    unsigned char radar_map_alternate;
     /* The party-death or ending screen is up, from its first fade until the
        closing fade's EndReviewTransition. */
     bool review_transition_active;

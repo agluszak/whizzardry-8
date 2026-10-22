@@ -100,9 +100,6 @@ struct W8MonsterManagerEntry {
        in-flight splat/icon animation or portrait event, so the formation sync
        may release it even while the slot is under the cursor. */
     bool auto_portrait_refresh;
-    /* The keyboard menu is open on this slot's portrait; region input is
-       disabled and the menu panel redraws with the portrait. */
-    bool keyboard_menu_open;
     /* The acting combatant's portrait pulse - a countdown clock that rearms
        the 1..0xc brightness phase. */
     uint64_t acting_portrait_pulse_clock;

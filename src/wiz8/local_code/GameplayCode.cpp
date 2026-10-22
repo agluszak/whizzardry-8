@@ -573,10 +573,10 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
     CurrentGame().party.formation.positions[slot].revival_row = -1;
     RecalculateCharacterDerivedStats(CurrentGame(), *character);
     if (buy_equipment) {
-        unsigned int cost = ComputeStartingEquipmentCost(character);
+        unsigned int cost = ComputeStartingEquipmentCost(CurrentGame(), character);
         assert(CurrentGame().party.gold >= cost);
         CurrentGame().party.gold -= cost;
-        AddCharacterStartingEquipment(character);
+        AddCharacterStartingEquipment(CurrentGame(), character);
     }
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         MainGame()->refreshPartySlotRegions();
