@@ -46,7 +46,6 @@ public:
     /* Clock samples and stamps are modulo 2^32 ticks: intervals are measured
        as unsigned differences, so the clock may wrap. */
     std::uint32_t ReadClock() const;
-    std::uint32_t GetTime();
     void SetMode(TimerClock mode);
     void SetDuration(float duration);
     void Restart();
@@ -62,14 +61,16 @@ public:
     TimerClock m_clock_mode;
     Flags m_flags;             /* runtime clock state; save/load uses progress and scale */
     std::uint32_t m_start;
-    std::uint32_t m_end;       /* start + duration */
     int m_duration;            /* 10000 */
     float m_duration_seconds;
     float m_duration_scale;
 
 protected:
     std::uint32_t ElapsedTicks() const;
+    // Paused, or on a world or calendar clock while the shared timers are held.
+    bool Held() const;
 
 private:
+    void Rescale(float scale);
     std::uint32_t paused_elapsed_ = 0;
 };

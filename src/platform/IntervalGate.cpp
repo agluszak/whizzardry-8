@@ -21,7 +21,6 @@ void W8IntervalGate::Arm()
 {
     m_finished = false;
     m_start = ReadClock();
-    m_end = m_duration + m_start;
 }
 
 unsigned int W8IntervalGate::PollElapsedIntervals()
@@ -29,10 +28,7 @@ unsigned int W8IntervalGate::PollElapsedIntervals()
     if (m_finished) {
         return 1;
     }
-    if (m_flags.paused ||
-        ((m_clock_mode == TimerClock::World || m_clock_mode == TimerClock::Calendar) &&
-         SharedGameTimersHeld()))
-        return 0;
+    if (Held()) return 0;
     if (m_duration <= 0) {
         m_finished = m_flags.one_shot;
         return 1;
@@ -43,8 +39,7 @@ unsigned int W8IntervalGate::PollElapsedIntervals()
             m_finished = true;
             return intervals;
         }
-        m_start = (intervals - 1) * m_duration + m_end;
-        m_end = m_start + m_duration;
+        m_start += intervals * static_cast<unsigned int>(m_duration);
     }
     return intervals;
 }
@@ -55,11 +50,8 @@ try {
         return W8GameTimer::Load(handle);
     }
     m_duration_seconds = handle.ReadValue<float>();
-    {
-        m_start = ReadClock();
-        m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
-        m_end = m_start + m_duration;
-    }
+    SetDuration(-1.0f);
+    Restart();
     return true;
 } catch (const std::exception&) {
     return false;

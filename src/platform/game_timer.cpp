@@ -38,35 +38,25 @@ void ResumeSharedGameTimers(void)
     GameTimeAccumulator().m_flags.paused = false;
 }
 
-std::uint32_t W8GameTimer::GetTime()
-{
-    return ReadClock();
-}
-
 W8GameTimer::W8GameTimer() : W8GameTimer(1.0f) {}
 
 W8GameTimer::W8GameTimer(float duration, TimerClock clock)
 {
     m_clock_mode = clock;
     m_flags = {};
-    m_start = 0;
-    m_end = 0;
-    m_duration_seconds = 0;
     m_duration_scale = 1.0f;
-
     m_start = ReadClock();
     m_duration_seconds = duration;
     m_duration = static_cast<int>(duration * 10000.0f);
-    m_end = m_start + m_duration;
 }
 
 void W8GameTimer::SetDuration(float duration)
 {
+    // A non-positive duration keeps the seconds and only reapplies the scale.
     if (duration > 0.0f) {
         m_duration_seconds = duration;
     }
     m_duration = static_cast<int>(m_duration_scale * m_duration_seconds * 10000.0f);
-    m_end = m_start + m_duration;
 }
 
 void W8GameTimer::SetMode(TimerClock mode)
@@ -80,7 +70,6 @@ void W8GameTimer::Restart()
     m_flags.paused = false;
     paused_elapsed_ = 0;
     m_start = ReadClock();
-    m_end = m_start + m_duration;
 }
 
 std::uint32_t W8GameTimer::ElapsedTicks() const
@@ -99,42 +88,46 @@ void W8GameTimer::Resume()
 {
     if (!m_flags.paused) return;
     m_start = ReadClock() - paused_elapsed_;
-    m_end = m_start + m_duration;
     m_flags.paused = false;
 }
 
 void W8GameTimer::SetDurationScale(float scale)
 {
-    m_duration_scale = scale;
     if (scale < 0.5f) {
         m_flags.slow_scale = true;
     }
-    const float progress = m_duration > 0 ? ElapsedTicks() / static_cast<float>(m_duration) : 1.0f;
-    m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
-    SetProgress(progress);
+    Rescale(scale);
 }
 
 void W8GameTimer::ResetDurationScale()
 {
     m_flags.slow_scale = false;
-    m_duration_scale = 1.0f;
+    Rescale(1.0f);
+}
+
+void W8GameTimer::Rescale(float scale)
+{
     const float progress = m_duration > 0 ? ElapsedTicks() / static_cast<float>(m_duration) : 1.0f;
-    m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
+    m_duration_scale = scale;
+    SetDuration(-1.0f);
     SetProgress(progress);
+}
+
+bool W8GameTimer::Held() const
+{
+    return m_flags.paused ||
+           ((m_clock_mode == TimerClock::World || m_clock_mode == TimerClock::Calendar) &&
+            SharedGameTimersHeld());
 }
 
 float W8GameTimer::GetProgress()
 {
-    if (m_flags.paused ||
-        ((m_clock_mode == TimerClock::World || m_clock_mode == TimerClock::Calendar) &&
-         SharedGameTimersHeld()))
-        return 0.0f;
+    if (Held()) return 0.0f;
     if (m_duration <= 0) return 1.0f;
     const float progress = ElapsedTicks() / static_cast<float>(m_duration);
     const auto completed = static_cast<std::uint32_t>(progress);
     if (completed > 0) {
         m_start += completed * static_cast<std::uint32_t>(m_duration);
-        m_end = m_start + m_duration;
     }
     return progress;
 }
@@ -143,24 +136,14 @@ void W8GameTimer::SetProgress(float progress)
 {
     paused_elapsed_ = static_cast<std::uint32_t>(m_duration * progress);
     m_start = ReadClock() - paused_elapsed_;
-    m_end = m_start + m_duration;
 }
 
 bool W8GameTimer::Load(W8Chunk& handle)
 try {
     const auto progress = handle.ReadValue<float>();
-    const auto scale = handle.ReadValue<float>();
-    m_duration_scale = scale;
-    {
-        m_duration = static_cast<int>(m_duration_seconds * m_duration_scale * 10000.0f);
-        m_end = m_start + m_duration;
-        const std::uint32_t sample = ReadClock();
-        unsigned int elapsed =
-            static_cast<unsigned int>(static_cast<unsigned int>(m_duration) * progress);
-        paused_elapsed_ = elapsed;
-        m_start = sample - elapsed; // Unsigned interval subtraction also works at a new game epoch.
-        m_end = m_start + m_duration;
-    }
+    m_duration_scale = handle.ReadValue<float>();
+    SetDuration(-1.0f);
+    SetProgress(progress); // Unsigned interval subtraction also works at a new game epoch.
     return true;
 } catch (const std::exception&) {
     return false;

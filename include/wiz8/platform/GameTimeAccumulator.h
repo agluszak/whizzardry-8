@@ -17,11 +17,11 @@ public:
     float GetElapsed() const { return m_elapsed; }
 
 private:
-    float m_max_frame_delta;
-    /* 0x28: elapsed ticks scaled into duration units, clamped to m_max_frame_delta. */
-    float m_frame_delta;
-    /* 0x30: running total of the scaled deltas. */
-    float m_elapsed;
+    float m_max_frame_delta = 2.0f;
+    // Elapsed ticks scaled into duration units, clamped to m_max_frame_delta.
+    float m_frame_delta = 0.0f;
+    // Running total of the scaled deltas.
+    float m_elapsed = 0.0f;
 };
 
 /* The session game clock: created on first use, restarted when a level's data

@@ -23,34 +23,23 @@ void ResetGameTimeAccumulator()
     g_game_time_accumulator.reset();
 }
 
-W8GameTimeAccumulator::W8GameTimeAccumulator()
-{
-    m_duration_seconds = g_rate;
-    m_max_frame_delta = 2.0f;
-    m_frame_delta = 0;
-    m_elapsed = 0;
-    m_duration_scale = 1.0f;
-    m_duration = static_cast<int>(m_duration_seconds * 10000.0f);
-}
+W8GameTimeAccumulator::W8GameTimeAccumulator() : W8GameTimer(g_rate) {}
 
 void W8GameTimeAccumulator::SetTimeScale(float scale)
 {
-    m_duration_scale = scale;
     if (scale < 0.5f) {
         m_flags.slow_scale = true;
     }
+    m_duration_scale = scale;
     m_max_frame_delta = 2.0f / scale;
-    m_duration = static_cast<int>(scale * m_duration_seconds * 10000.0f);
+    SetDuration(-1.0f);
     m_frame_delta = 0.0f;
 }
 
 void W8GameTimeAccumulator::ResetTimeScale()
 {
+    SetTimeScale(1.0f);
     m_flags.slow_scale = false;
-    m_max_frame_delta = 2.0f;
-    m_duration_scale = 1.0f;
-    m_duration = static_cast<int>(m_duration_seconds * 10000.0f);
-    m_frame_delta = 0.0f;
 }
 
 float W8GameTimeAccumulator::Update(std::chrono::milliseconds elapsed)

@@ -525,20 +525,11 @@ glm::mat3 PartyCamera::turn(unsigned int flags)
 {
     float pitch_input;
     float yaw_input;
-    W8GameTimer::Flags timer_flags;
 
     // Held time leaves the orientation alone, and movement takes the whole rotation.
-    timer_flags = GameTimeAccumulator().m_flags;
-    if (timer_flags.paused) {
-        return m_rotation;
-    }
-    if (g_shared_timer_paused) {
-        return m_rotation;
-    }
-    if (g_shared_timer_flag0) {
-        return m_rotation;
-    }
-    if (timer_flags.slow_scale) {
+    const auto timer_flags = GameTimeAccumulator().m_flags;
+    if (timer_flags.paused || g_shared_timer_paused || g_shared_timer_flag0 ||
+        timer_flags.slow_scale) {
         return m_rotation;
     }
 
@@ -611,7 +602,7 @@ CameraMotion PartyCamera::move(LevelSpatialIndex& collision, unsigned int flags,
     }
 
     timer_flags = GameTimeAccumulator().m_flags;
-    if (timer_flags.paused || (g_shared_timer_paused) || g_shared_timer_flag0) {
+    if (timer_flags.paused || g_shared_timer_paused || g_shared_timer_flag0) {
         if (!g_level_motion_resume_pending) {
             return result;
         }
