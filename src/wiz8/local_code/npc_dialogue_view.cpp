@@ -29,6 +29,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
+#include "wiz8/local_screens/npc_dialogue_panel.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_interaction_state.h"
