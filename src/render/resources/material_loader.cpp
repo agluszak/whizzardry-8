@@ -19,7 +19,6 @@
 
 #include "asset_paths.h"
 #include "glm/ext/vector_float4.hpp"
-#include "wiz8/application.h"
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/render/compiled_mesh.h"

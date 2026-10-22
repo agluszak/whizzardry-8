@@ -30,7 +30,6 @@
 #include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 #include <glm/gtc/quaternion.hpp>
 
-#include "application.h"
 #include "asset_paths.h"
 #include "geometry.h"
 #include "glm/ext/matrix_float3x3.hpp"

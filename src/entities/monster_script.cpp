@@ -13,7 +13,6 @@
 #include <fmt/format.h>
 #include <glm/geometric.hpp>
 
-#include "application.h"
 #include "glm/ext/vector_float3.hpp"
 #include "monster_actions.h"
 #include "monster_cycles.h"

@@ -11,7 +11,6 @@
 #include <type_traits>
 #include <vector>
 
-#include "application.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"

@@ -26,7 +26,6 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "wiz8/application.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/audio/SoundEvent.h"
 #include "wiz8/entities/animation.h"
