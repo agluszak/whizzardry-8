@@ -59,7 +59,8 @@ struct Level {
     // Find the sky's Sun and Moon, and place them and the clouds for a time of day.
     void locateCelestialBodies();
     void placeSky(unsigned int time_of_day);
-    // Place the sky and light both worlds for a time of day on entering the level.
+    /* Light both worlds for a time of day on entering the level. The sky moves with the
+       calendar's next advance. */
     void enterEnvironment(unsigned int time_of_day);
     // Show the light direction or colour of a time of day's phase, if it moved on.
     void showDayPhaseLight(unsigned int time_of_day);

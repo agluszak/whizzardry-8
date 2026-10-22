@@ -325,7 +325,6 @@ void Level::showLightDirection(glm::vec3 direction)
 
 void Level::enterEnvironment(unsigned int time_of_day)
 {
-    if (sky) placeSky(time_of_day);
     primary->environment.showDayPhase(time_of_day);
     showLightDirection(primary->environment.lightDirection());
 }
