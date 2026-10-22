@@ -1,7 +1,13 @@
 #include "wiz8/dialog_code/DialogTextArea.h"
 
 #include <memory>
+#include <string_view>
 #include <utility>
+
+#include <SDL3/SDL_surface.h>
+
+#include "wiz8/canvas/Font.h"
+#include "wiz8/local_code/ControlsRect.h"
 
 void W8DialogTextArea::Configure(const W8ControlsRect* bounds, Font& font)
 {

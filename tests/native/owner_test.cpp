@@ -59,7 +59,6 @@
 #include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/main_game_screen.h"
-#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -1822,6 +1821,8 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
     }
 
     REQUIRE(font.load("font.sti"));
+    auto old_secondary = std::move(g_wiz_text_font_secondary);
+    REQUIRE(g_wiz_text_font_secondary.load("font.sti"));
     {
         W8DialogTextArea area;
         const W8ControlsRect bounds{0, 0, 100, 100};
@@ -1890,8 +1891,6 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         }
     }
     button_image_fixture(assets, "data/dialogs/popup_quote.sti");
-    auto old_secondary = std::move(g_wiz_text_font_secondary);
-    REQUIRE(g_wiz_text_font_secondary.load("font.sti"));
     {
         W8Character character{};
         character.fInParty = true; // Quote access must still use the previewed character directly.
