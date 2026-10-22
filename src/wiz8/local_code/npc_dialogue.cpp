@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iterator>
 #include <list>
 #include <optional>
@@ -329,56 +330,27 @@ void W8NpcDialogue::QueuePortraitMessage(std::string text, W8QuoteNotice notice)
    quote has no usable reply. */
 int W8NpcDialogue::FindReplyQuote(std::string_view text) const
 {
-    const W8NpcScriptQuote* quote;
-    const W8NpcQuoteEntry* entry;
-    std::string sub_text;
-    int quote_index;
-    int index;
-    int sub;
-
-    quote_index = session_.current_quote_index;
-    quote = session_.binding.script->quotes.data() + quote_index;
-    for (index = 0; index < std::ssize(quote->entries); ++index) {
-        entry = &quote->entries[index];
-        if (entry->kind == W8_NPC_ENTRY_OPTIONS || entry->kind == W8_NPC_ENTRY_KEYWORD_INPUT) {
-            break;
+    const auto& entries = session_.binding.script->quotes[session_.current_quote_index].entries;
+    const auto matches = [text](const W8NpcQuoteEntry& entry) {
+        return std::ranges::any_of(entry.sub_entries, [text](const auto& sub) {
+            return CompareTextIgnoreAsciiCase(sub.text, text) == 0;
+        });
+    };
+    const auto options = std::ranges::find_if(entries, [](const auto& entry) {
+        return entry.kind == W8_NPC_ENTRY_OPTIONS || entry.kind == W8_NPC_ENTRY_KEYWORD_INPUT;
+    });
+    const bool matched = options != entries.end() && matches(*options);
+    if (matched) {
+        for (const auto& entry : entries) {
+            if (entry.kind == W8_NPC_ENTRY_REPLY && entry.operand2 == 3 && matches(entry)) {
+                return entry.operand0;
+            }
         }
     }
-
-    if (index < std::ssize(quote->entries)) {
-        for (sub = 0; sub < std::ssize(entry->sub_entries); ++sub) {
-            sub_text = entry->sub_entries[sub].text;
-            if (CompareTextIgnoreAsciiCase(sub_text, text) != 0) {
-                continue;
-            }
-            /* The reply matched an option: a keyword answer, else the generic
-               answer. */
-            for (index = 0; index < std::ssize(quote->entries); ++index) {
-                entry = &quote->entries[index];
-                if (entry->kind == W8_NPC_ENTRY_REPLY && entry->operand2 == 3 &&
-                    std::ssize(entry->sub_entries) != 0) {
-                    for (sub = 0; sub < std::ssize(entry->sub_entries); ++sub) {
-                        sub_text = entry->sub_entries[sub].text;
-                        if (CompareTextIgnoreAsciiCase(sub_text, text) == 0) {
-                            return entry->operand0;
-                        }
-                    }
-                }
-            }
-            for (index = 0; index < std::ssize(quote->entries); ++index) {
-                entry = &quote->entries[index];
-                if (entry->kind == W8_NPC_ENTRY_REPLY && entry->operand2 == 1) {
-                    return entry->operand0;
-                }
-            }
-            return -1;
-        }
-    }
-
-    for (index = 0; index < std::ssize(quote->entries); ++index) {
-        entry = &quote->entries[index];
-        if (entry->kind == W8_NPC_ENTRY_REPLY && entry->operand2 == 2) {
-            return entry->operand0;
+    // A recognized option uses the generic answer; other text uses the fallback.
+    for (const auto& entry : entries) {
+        if (entry.kind == W8_NPC_ENTRY_REPLY && entry.operand2 == (matched ? 1 : 2)) {
+            return entry.operand0;
         }
     }
     return -1;
