@@ -793,9 +793,9 @@ void AutomapScreen::RenderMarkers()
     }
     auto& population = *m_world.population;
     for (const auto& info : population.monster_roster.live()) {
-        Monster* monster = info->entity.find();
-        const glm::vec3 location = monster->visual.GetLocation();
-        if (!detect_all && (monster->disabled || info->party_threat.sight_state != W8_SIGHT_SEEN))
+        Monster& monster = *info->entity;
+        const glm::vec3 location = monster.visual.GetLocation();
+        if (!detect_all && (monster.disabled || info->party_threat.sight_state != W8_SIGHT_SEEN))
             continue;
         if (!shown(location.x, location.z)) continue;
         OverlayQuad* marker;

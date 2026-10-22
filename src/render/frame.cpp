@@ -1195,14 +1195,14 @@ void VideoToolTip(std::string_view text)
     bounds.top = 0;
     bounds.right = 0xfa;
     bounds.bottom = 0xfa;
-    auto buffer = std::make_unique<W8TextBuffer>(
-        &bounds, text, g_font10arial, g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
-    g_help_box_width = static_cast<int>(buffer->m_maxLineWidth) + 4;
-    g_help_box_height = g_font10arial.height() * buffer->m_lineCount + 2;
+    W8TextBuffer buffer(&bounds, text, g_font10arial,
+                        g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
+    g_help_box_width = static_cast<int>(buffer.m_maxLineWidth) + 4;
+    g_help_box_height = g_font10arial.height() * buffer.m_lineCount + 2;
     SDL_FillSurfaceRect(surface.get(), nullptr, 0);
     SDL_Rect background{0, 0, g_help_box_width, g_help_box_height};
     SDL_FillSurfaceRect(surface.get(), &background, SDL_MapSurfaceRGB(surface.get(), 0, 0, 0));
-    buffer->RenderText(*surface, 2, 1, true);
+    buffer.RenderText(*surface, 2, 1, true);
     std::uint32_t border_colour;
     PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
     const SDL_Rect edges[]{{0, 0, g_help_box_width, 1},

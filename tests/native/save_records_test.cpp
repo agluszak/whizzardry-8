@@ -13,6 +13,7 @@
 #include "scoped_game.h"
 #include "scoped_game_data.h"
 #include "unicode.h"
+#include "wiz8/audio/AmbientSound.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/data/encounter_records.h"
 #include "wiz8/data/fact_ids.h"
@@ -385,6 +386,14 @@ static void unicode_file_contracts()
     three_boxes.resize(three_boxes.size() - 4);
     REQUIRE(wiz8::save::decode_message_boxes(three_boxes, 1.0f)[0][0].text == message);
     REQUIRE_THROWS(wiz8::save::decode_message_boxes(three_boxes, 9.0f));
+    // An empty line is a lone terminator, never a zero count: retail would read a zero-size
+    // allocation as an unterminated string.
+    wiz8::save::MessageBoxes blank;
+    blank[1].emplace_back();
+    const auto blank_payload = wiz8::save::encode(blank);
+    REQUIRE(blank_payload.size() == 8 + 4 + 0x24 + 2 + 2 * 4);
+    REQUIRE(blank_payload[12] == std::byte{1});
+    REQUIRE(wiz8::save::decode_message_boxes(blank_payload, 9.0f)[1][0].text.empty());
 }
 
 static void transcript_contracts()
@@ -1204,6 +1213,37 @@ TEST_CASE("Faction sections keep every byte", "[save][records]")
     REQUIRE_THROWS(wiz8::save::decode_factions(bytes));
 }
 
+TEST_CASE_METHOD(SaveFixture, "Ambient sound states read the records retail stored",
+                 "[save][records]")
+{
+    // Retail counts the whole emitter list but skips its empty slots, so the
+    // count can exceed the stored records. Names match without regard to case.
+    const auto path = user / "saves" / "ambient.SAV";
+    W8Chunk save;
+    REQUIRE(save.OpenWrite(path));
+    save.WriteChunk(W8ChunkId("AMBS"), [&] {
+        save.WriteValue(std::uint8_t{1});
+        save.WriteValue(std::uint32_t{3});
+        std::array<char, 128> name{};
+        std::ranges::copy(std::string_view("soundWaterfall01"), name.begin());
+        save.WriteValue(name);
+        save.WriteValue(std::uint8_t{1});
+    });
+    save.Close();
+    REQUIRE(save.OpenRead(path));
+    std::vector<W8AmbientSoundState> states;
+    save.ForEachChunk([&](unsigned) { states = ReadAmbientSoundStates(save); });
+    save.Close();
+    REQUIRE(states.size() == 1);
+    REQUIRE((states[0].name == "soundWaterfall01" && states[0].stopped));
+
+    World world;
+    world.audio.emitters.push_back(std::make_unique<W8AmbientSound>());
+    world.audio.emitters[0]->name = "SOUNDWATERFALL01";
+    ApplyAmbientSoundStates(world, states);
+    REQUIRE(world.audio.emitters[0]->stopped);
+}
+
 TEST_CASE("Monster-control sections keep the retail record", "[save][records]")
 {
     W8SpellEffectEntry effect{};
@@ -1482,6 +1522,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
         sub.operand = 22;
         write(out, sub);
         quote = {};
+        quote.subquote_count = 7; // No subquote block: the runtime collection stays empty.
         memcpy(&quote.entries, &live_handle, sizeof(live_handle));
         write(out, quote);
         quote.entry_count = 1;
@@ -1494,10 +1535,10 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
         out.close();
         char filename[] = "data\\dialogue.nsf";
         auto file = LoadNpcScriptFile(filename);
-        REQUIRE((file && file->quote_count == 3));
+        REQUIRE((file && file->quotes.size() == 3));
         REQUIRE((marker ? file->name == "name" : file->name.empty()));
         W8NpcScriptQuote* quotes = file->quotes.data();
-        REQUIRE((quotes[0].subquote_count == 2 && quotes[0].subquotes[0] == "é中😀"));
+        REQUIRE((quotes[0].subquotes.size() == 2 && quotes[0].subquotes[0] == "é中😀"));
         REQUIRE(quotes[0].subquotes[1].empty());
         W8NpcQuoteSubEntry* subs = quotes[0].entries[0].sub_entries.data();
         REQUIRE((subs[0].operand == 11 && subs[0].text == "line"));

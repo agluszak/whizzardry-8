@@ -518,9 +518,7 @@ void W8CharacterStatsPage::SetCharacter(W8Character* character,
     }
 
     for (int attribute_index = 0; attribute_index < 7; ++attribute_index) {
-        W8CharacterPageEntry* entry =
-            new W8CharacterPageEntry(input, 0xe5, 0x1b + attribute_index * 0xe, false);
-        AddEntry(entry);
+        W8CharacterPageEntry* entry = &AddEntry(0xe5, 0x1b + attribute_index * 0xe, false);
         entry->on_adjust = [this, entry](int delta) { AdjustEntry(entry, delta); };
         entry->on_info = [this, entry] { ShowEntryInfo(entry); };
         entry->SetContent(attribute_index,
@@ -821,7 +819,7 @@ void W8CharacterStatsPage::Redraw(SDL_Surface& target, bool full_redraw)
 
 /* Factory for the stats page; the render target comes from the base
    constructor. */
-W8CharacterStatsPage* CreateCharacterStatsPage()
+std::unique_ptr<W8CharacterPage> CreateCharacterStatsPage()
 {
-    return new W8CharacterStatsPage;
+    return std::make_unique<W8CharacterStatsPage>();
 }

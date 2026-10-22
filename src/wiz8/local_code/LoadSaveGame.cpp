@@ -576,7 +576,7 @@ struct SavedMonsterOrders {
 
 /* Rebuild the icons for the conditions, enchantments and effects a loaded
    monster carries. */
-void RestoreMonsterSpellIcons(World& world, const W8MonsterInfo& info, Monster* monster)
+void RestoreMonsterSpellIcons(World& world, const W8MonsterInfo& info, Monster& monster)
 {
     if (info.highest_condition != W8_CONDITION_NONE) {
         for (int index = 0; index < W8_CONDITION_COUNT; ++index) {
@@ -1374,10 +1374,10 @@ void PrepareLevelPopulation(World& world, LevelState::Data& data,
             group->leader_group_id = 0;
         for (int& ally : group->allied_group_ids)
             if (ally == group->group_id || (ally && !population.findGroup(ally))) ally = 0;
-        auto* leader = population.findMonster(group->leader_location_id)->entity.find();
-        leader->formation = group->formation;
-        if (group->encounter_registered && !leader->script)
-            leader->UseScript(scripts.default_script, true);
+        Monster& leader = *population.findMonster(group->leader_location_id)->entity;
+        leader.formation = group->formation;
+        if (group->encounter_registered && !leader.script)
+            leader.UseScript(scripts.default_script, true);
         auto* lead_group = group.get();
         size_t remaining = population.monster_groups.size();
         while (lead_group->leader_group_id) {
@@ -1385,25 +1385,24 @@ void PrepareLevelPopulation(World& world, LevelState::Data& data,
             lead_group = population.findGroup(lead_group->leader_group_id);
             if (!lead_group) throw std::runtime_error("missing monster group leader");
         }
-        auto* formation_leader = population.findMonster(lead_group->leader_location_id);
-        if (!formation_leader) throw std::runtime_error("missing formation leader");
+        auto* formation_leader_info = population.findMonster(lead_group->leader_location_id);
+        if (!formation_leader_info) throw std::runtime_error("missing formation leader");
+        Monster& formation_leader = *formation_leader_info->entity;
         for (int id : group->MemberIds()) {
-            auto* member = population.findMonster(id)->entity.find();
-            member->nav.LinkGroupNavigator(member == formation_leader->entity.find()
-                                               ? nullptr
-                                               : &formation_leader->entity->nav,
-                                           false);
+            Monster& member = *population.findMonster(id)->entity;
+            member.nav.LinkGroupNavigator(
+                &member == &formation_leader ? nullptr : &formation_leader.nav, false);
         }
     }
     for (const auto& group : population.monster_groups) {
         if (group->leader_group_id) continue;
-        auto* leader = population.findMonster(group->leader_location_id)->entity.find();
+        Monster& leader = *population.findMonster(group->leader_location_id)->entity;
         // Restored levels start outside combat. Propagate the saved path using
         // this population, independently of the old world's combat clock.
-        leader->nav.CopyPathToGroup();
-        if (!leader->nav.movement_stopped) {
+        leader.nav.CopyPathToGroup();
+        if (!leader.nav.movement_stopped) {
             for (const auto& member : population.monster_roster.live())
-                if (member->entity->nav.linked_navigator == &(leader)->nav)
+                if (member->entity->nav.linked_navigator == &leader.nav)
                     member->entity->nav.movement_stopped = false;
         }
     }
@@ -1455,7 +1454,7 @@ std::unique_ptr<W8LoadedLevelStatus> BuildLevel(World& world, LevelState level)
         auto model = ReadMonsterRepresentation(world, &info);
         info.entity.attach(*model);
         world.monsters.push_back(std::move(model));
-        RestoreMonsterSpellIcons(world, info, info.entity.find());
+        RestoreMonsterSpellIcons(world, info, *info.entity);
         if (!info.entity->script && !scripts.default_script && group->image.encounter_registered)
             scripts.default_script = LoadMonsterScript("Default.MSF");
         if (saved.script && saved.script->name[0] != '\0')

@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/geometric.hpp>
@@ -665,11 +666,13 @@ std::vector<W8AmbientSoundState> ReadAmbientSoundStates(W8Chunk& handle)
     std::uint32_t count;
     handle.ReadBytes(&version, sizeof(version));
     handle.ReadBytes(&count, sizeof(count));
-    if (count > (handle.RemainingBytes()) / 129)
-        throw std::runtime_error("invalid ambient sound state count");
+    // Retail writes the emitter list's length but skips its empty slots, so
+    // the chunk can hold fewer records than the count says.
+    const auto stored =
+        static_cast<std::uint32_t>(std::min<std::int64_t>(count, handle.RemainingBytes() / 129));
     std::vector<W8AmbientSoundState> pending;
-    pending.reserve(count);
-    for (std::uint32_t index = 0; index < count; ++index) {
+    pending.reserve(stored);
+    for (std::uint32_t index = 0; index < stored; ++index) {
         std::array<char, 128> name;
         unsigned char stopped;
         handle.ReadBytes(name.data(), name.size());
@@ -685,7 +688,7 @@ void ApplyAmbientSoundStates(World& world, std::span<const W8AmbientSoundState> 
 {
     for (const auto& [name, stopped] : states)
         for (const auto& sound : world.audio.emitters)
-            if (sound->name == name) sound->stopped = stopped;
+            if (SDL_strcasecmp(sound->name.c_str(), name.c_str()) == 0) sound->stopped = stopped;
 }
 
 void AmbientAudioSystem::update(const glm::vec3& listener, float yaw)

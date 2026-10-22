@@ -42,7 +42,6 @@ void W8DialogTextArea::SetFirstVisibleEntry(unsigned int index)
 void W8DialogTextArea::Configure(const W8ControlsRect* bounds, Font& font, unsigned int flags)
 {
     m_bounds = *bounds;
-    m_layout_initialized = true;
     m_dirty = m_relayout_needed = true;
     m_behavior_flags = flags;
     m_font = &font;
@@ -109,7 +108,7 @@ int W8DialogTextArea::GetTotalLineCount()
 
 unsigned int W8DialogTextArea::GetLineHeight()
 {
-    if (!m_layout_initialized) return static_cast<unsigned int>(-1);
+    if (!m_font) return static_cast<unsigned int>(-1);
     unsigned int height = m_line_height_override;
     if (height == static_cast<unsigned int>(-1)) height = m_font->height();
     return height;
@@ -117,7 +116,7 @@ unsigned int W8DialogTextArea::GetLineHeight()
 
 void W8DialogTextArea::SetEntrySpacing(int lines)
 {
-    if (m_layout_initialized) {
+    if (m_font) {
         m_dirty = m_relayout_needed = true;
         m_entry_spacing_lines = lines;
     }
@@ -344,24 +343,4 @@ bool W8DialogTextArea::ScrollUp(bool check_only)
         m_relayout_needed = true;
     }
     return true;
-}
-
-W8DialogTextArea::W8DialogTextArea()
-{
-    int invalid;
-
-    invalid = -1;
-    m_line_height_override = invalid;
-    m_selected_visible_entry = invalid;
-    m_highlighted_entry = invalid;
-    m_category_filter = W8_DIALOGUE_CATEGORY_ALL;
-    m_first_visible_entry = 0;
-    m_first_visible_line = 0;
-    m_font = 0;
-    m_layout_initialized = false;
-    m_dirty = false;
-    m_entry_spacing_lines = 0;
-    m_behavior_flags = 0;
-    m_relayout_needed = false;
-    m_sorted = false;
 }
