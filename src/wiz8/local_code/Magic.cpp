@@ -377,8 +377,7 @@ W8SpellEffectEntry* FindMonsterControlSpellEffect(void)
     auto& effects = CurrentGame().spell_effects;
     for (auto it = effects.rbegin(); it != effects.rend(); ++it) {
         const auto& effect = **it;
-        if (effect.kind == W8_SPELL_HYPNOTIC_LURE && effect.turns_remaining > 0)
-            return it->get();
+        if (effect.kind == W8_SPELL_HYPNOTIC_LURE && effect.turns_remaining > 0) return it->get();
     }
     return nullptr;
 }
