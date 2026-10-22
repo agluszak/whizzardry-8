@@ -56,7 +56,7 @@ cache="$root/build/cache/$key"
 mkdir -p "$cache/home" "$cache/conan" "$root/build/ccache"
 
 # The compiler and system headers may change when the image changes.
-if [[ -f build/.toolchain-id && $(<build/.toolchain-id) != "$image_id" ]]; then
+if [[ ! -f build/.toolchain-id || $(<build/.toolchain-id) != "$image_id" ]]; then
     rm -rf build/linux build/linux-dev build/linux-asan \
         build/linux-integer-audit build/linux-tidy
 fi
