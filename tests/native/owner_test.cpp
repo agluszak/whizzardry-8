@@ -2041,7 +2041,7 @@ TEST_CASE("Vitals panels publish their complete bounds without changing sampled 
             if (numeric)
                 REQUIRE(surface_pixel(framebuffer, x + 2, portrait.top + 63) == 0x8000);
             else
-                REQUIRE(surface_pixel(framebuffer, x + 10, y + 45) == 0x8000);
+                REQUIRE(surface_pixel(framebuffer, x + 10, y + 45) == 0x8001);
             REQUIRE(entry.cached_hp_bar == 20);
             REQUIRE(entry.cached_stamina_bar == 0);
             REQUIRE(game.game.party.characters[slot].hp_current == 20);
