@@ -563,7 +563,7 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
             const SDL_Rect background{bounds.left, bounds.top + 1, bounds.right - bounds.left,
                                       bounds.bottom - bounds.top - 1};
             SDL_FillSurfaceRect(&GetFrameBufferSurface(), &background, 0x8000);
-            text.RenderToTarget(0, false, GetFrameBufferSurface());
+            text.Paint(GetFrameBufferSurface());
         }
         InvalidateRegion(band_portrait_edge, bar_y + menu_y, band_portrait_edge + 0x18,
                          menu_y + (numeric_hp_mode ? 0x46 : bar_y + 0x2d));
