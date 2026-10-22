@@ -21,25 +21,48 @@ void SetMusicVolume(unsigned char volume);
 bool IsMusicMuted(void);
 void SetMusicMuted(unsigned char muted);
 
+// User options applied together when the options screen closes. The editor and
+// running game use this same value type; live audio/tooltip previews are separate.
+struct GameOptions {
+    unsigned char mouselook_toggle;
+    unsigned char mouselook_smoothing;
+    unsigned char invert_mouse_y;
+    unsigned char ctrl_right_click_info;
+    W8Difficulty difficulty;
+    W8CameraRotationMode camera_rotation_mode;
+    W8CameraRotationStyle camera_rotation_style;
+    unsigned char continuous_combat;
+    unsigned char numeric_hit_points;
+    unsigned char autoscroll_combat_messages;
+    unsigned char simplified_npc_interaction;
+    unsigned char verbose_combat_messages;
+    unsigned char autoswap_weapons;
+    unsigned char auto_advance_character;
+    unsigned char autotarget_spells;
+    unsigned char skill_increase_messages;
+    int combat_delay_ms;
+    float monster_movement_speed;
+    unsigned int text_display_delay_ms;
+    unsigned char auto_save;
+    unsigned char monster_shadows;           /* options string 0x818 */
+    unsigned char smooth_monster_animations; /* options string 0x819 */
+    unsigned char smooth_world_animations;   /* options string 0x81a */
+    unsigned char pc_confirmations; /* options string 0x823 */
+    unsigned char pc_subtitles; /* options string 0x824 */
+};
+
 /* The persisted configuration. The configuration file's CNFG chunk stores it as a fixed
    0xa4-byte record (EncodeGameSettings); unnamed slots keep their bytes. */
 struct W8GameSettings {
+    GameOptions options{};
     unsigned char field_000;
-    unsigned char numeric_hit_points;
     unsigned char unknown_002[0x4];
     /* The main-game layout RefreshMainGameLayout selects. NONE is the
        transient park Screens uses while it re-raises panels on main-game
        enter. */
     W8MainUiMode main_ui_mode;
-    unsigned char continuous_combat;
-    unsigned char auto_advance_character;
     bool tooltips_enabled;
-    W8Difficulty difficulty;
-    unsigned int text_display_delay_ms;
-    int combat_delay_ms;
     int continuous_combat_start_delay_ms;
-    W8CameraRotationMode camera_rotation_mode;
-    W8CameraRotationStyle camera_rotation_style;
     int tooltip_delay_ms;
     unsigned char formation_action_panel_preference;
     unsigned char formation_radar_map_preference;
@@ -54,31 +77,17 @@ struct W8GameSettings {
     unsigned char muted_music_volume;
     unsigned char muted_voice_volume;
     unsigned char field_035;
-    unsigned char invert_mouse_y;
-    float monster_movement_speed;
     unsigned char field_03b;
     float legacy_gamma; // Retained CNFG slot; gamma is not a runtime setting.
-    unsigned char pc_confirmations; /* options string 0x823 */
-    unsigned char mouselook_toggle;
-    unsigned char pc_subtitles; /* options string 0x824 */
-    unsigned char mouselook_smoothing;
-    unsigned char verbose_combat_messages;
-    unsigned char auto_save;
     bool intro_seen;
     unsigned char field_047;
-    unsigned char monster_shadows;           /* options string 0x818 */
-    unsigned char smooth_monster_animations; /* options string 0x819 */
-    unsigned char smooth_world_animations;   /* options string 0x81a */
-    unsigned char skill_increase_messages;
-    unsigned char ctrl_right_click_info;
-    unsigned char autoswap_weapons;
-    unsigned char autotarget_spells;
-    unsigned char autoscroll_combat_messages;
-    unsigned char simplified_npc_interaction;
     unsigned char unknown_051[0x53];
 };
 
 extern W8GameSettings g_settings;
+
+// Install an edited options value, including difficulty and combat-stance effects.
+void ApplyGameOptions(const GameOptions& options);
 
 /* The CNFG chunk of the configuration file. Decoding throws std::runtime_error unless the
    payload is exactly one record. */

@@ -277,7 +277,7 @@ void FaceCameraToSelection(int party_slot)
 {
     unsigned int heading;
 
-    if (g_settings.camera_rotation_mode != W8_CAMERA_ROTATION_SELECTED_CHARACTER ||
+    if (g_settings.options.camera_rotation_mode != W8_CAMERA_ROTATION_SELECTED_CHARACTER ||
         CurrentGame().status.selected_character != party_slot) {
         return;
     }
@@ -285,7 +285,7 @@ void FaceCameraToSelection(int party_slot)
         CurrentGame().status.party_facing +
         static_cast<unsigned char>(CurrentGame().party.formation.positions[party_slot].facing) *
             W8_DEGREES_PER_QUADRANT;
-    TurnPartyToImmediate(heading, g_settings.camera_rotation_style);
+    TurnPartyToImmediate(heading, g_settings.options.camera_rotation_style);
 }
 
 /* Face one position the way the rules say it should, unless the rules have no

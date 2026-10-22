@@ -455,7 +455,7 @@ static std::optional<int> LockForceChance(int tumbler_count)
         strength <= 0x32) {
         return std::nullopt;
     }
-    const int divisor = std::clamp(g_settings.difficulty - 1 + tumbler_count, 2, 8);
+    const int divisor = std::clamp(g_settings.options.difficulty - 1 + tumbler_count, 2, 8);
     return (strength - 0x32) / IntegerPower(2, divisor - 2);
 }
 
@@ -883,7 +883,8 @@ void W8LockInteraction::ResolvePick()
     for (i = 0; i < m_tumbler_count; i++) {
         if (m_tumbler_owner[i] == m_selected_slot && m_tumbler_locked[i] == 0) {
             character = &CurrentGame().party.characters[m_selected_slot];
-            chance = character->skills[W8_SKILL_LOCKS_TRAPS].level + g_settings.difficulty * -5 + 5;
+            chance = character->skills[W8_SKILL_LOCKS_TRAPS].level +
+                     g_settings.options.difficulty * -5 + 5;
             if ((chance < 0 ? 0 : static_cast<unsigned char>(chance)) <=
                 static_cast<int>(CurrentGame().rng.below(100))) {
                 m_tumbler_owner[i] = -1;
@@ -1443,7 +1444,7 @@ void W8TrapInteraction::SelectTextEntry(int index)
         skill += ((m_target_difficulty + 1) / 2) * 6;
     }
     skill -= g_table2[chance];
-    chance = (skill * 3) / 2 + (11 - g_settings.difficulty) * 10;
+    chance = (skill * 3) / 2 + (11 - g_settings.options.difficulty) * 10;
     if (chance < 0) {
         chance = 0;
     } else if (chance > 0x63) {
@@ -1486,7 +1487,7 @@ int W8TrapInteraction::GetTrapInteractionChance() const
         skill += m_target_difficulty * 6;
     }
     skill -= g_table2[chance];
-    chance = (skill * 3) / 2 + (11 - g_settings.difficulty) * 10;
+    chance = (skill * 3) / 2 + (11 - g_settings.options.difficulty) * 10;
     if (chance < 0) {
         chance = 0;
     } else if (chance > 0x63) {
@@ -2203,8 +2204,8 @@ bool MainGameScreen::enter(const ScreenRequest&)
     if (TakePendingSaveFlag()) {
         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x782]);
     }
-    if (g_settings.difficulty != difficulty) {
-        g_settings.difficulty = difficulty;
+    if (g_settings.options.difficulty != difficulty) {
+        g_settings.options.difficulty = difficulty;
         switch (difficulty) {
         case W8_DIFFICULTY_NOVICE:
             display_mode = 0x7f8;
@@ -3103,7 +3104,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
         !CurrentGame().monster_manager_entries[party_slot].effect_icon_active &&
         !CurrentGame().monster_manager_entries[party_slot].damage_splat_active) {
         if (!CurrentGame().monster_manager_entries[party_slot].quote.bubble ||
-            g_settings.pc_subtitles == 0) {
+            g_settings.options.pc_subtitles == 0) {
             return;
         }
     }
@@ -4779,7 +4780,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     if (!(event.button == UiPointerButton::Left) &&
         !(event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
         if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Up)) {
-            if (g_mouselook_active && g_settings.mouselook_toggle == 0) {
+            if (g_mouselook_active && g_settings.options.mouselook_toggle == 0) {
                 StopWorldMouseLook();
                 return UiResult::Handled;
             }
@@ -4834,7 +4835,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         if (MainGameHud()->highlighted_item != -1 && !gpSCSV &&
             !CurrentGame().activity.conversation && !ItemUseDraft() && !IsLockInteractionActive() &&
             !IsTrapInteractionActive() &&
-            (g_settings.ctrl_right_click_info == 0 ||
+            (g_settings.options.ctrl_right_click_info == 0 ||
              ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
             AfterUiDispatch([=] { OpenMonsterInfoDialog(MainGameHud()->highlighted_item); });
             return UiResult::Handled;
@@ -4842,7 +4843,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         if (!(CurrentGame().party.held.item.iItemNo != -1) && MainGameHud()->selected_item != -1 &&
             !gpSCSV && !CurrentGame().activity.conversation && !ItemUseDraft() &&
             !IsLockInteractionActive() && !IsTrapInteractionActive() &&
-            (g_settings.ctrl_right_click_info == 0 ||
+            (g_settings.options.ctrl_right_click_info == 0 ||
              ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
             W8WorldItem* world_item = ItemInfo(ItemIndex(MainGameHud()->selected_item));
             PartyAttemptsToIdentifyItem(&world_item->item, 0);
@@ -4850,7 +4851,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
             return UiResult::Handled;
         }
         if (!IsWorldCursorVisible() && !CurrentGame().activity.conversation) {
-            if (g_settings.mouselook_toggle != 0) {
+            if (g_settings.options.mouselook_toggle != 0) {
                 if (g_mouselook_active) {
                     StopWorldMouseLook();
                     return UiResult::Handled;
@@ -5222,7 +5223,7 @@ static void ApplyPendingMouselook(void)
     if (g_mouselook_pending_pitch == 0.0f && g_mouselook_pending_yaw == 0.0f) {
         return;
     }
-    if (g_settings.mouselook_smoothing == 0) {
+    if (g_settings.options.mouselook_smoothing == 0) {
         pitch_step = g_mouselook_pending_pitch;
         yaw_step = g_mouselook_pending_yaw;
     } else {
@@ -5811,10 +5812,10 @@ bool HandleMouselookInput(const InputEvent* input)
                 (input->position.x - 0x140) * g_mouselook_yaw_scale + g_mouselook_pending_yaw;
             g_mouselook_pending_pitch =
                 g_mouselook_pending_pitch + (input->position.y - 0xf0) *
-                                                (g_settings.invert_mouse_y != 0 ? -1 : 1) *
+                                                (g_settings.options.invert_mouse_y != 0 ? -1 : 1) *
                                                 g_mouselook_pitch_scale;
             WarpSystemCursor(0x140, 0xf0);
-            if (g_settings.mouselook_smoothing == 0) {
+            if (g_settings.options.mouselook_smoothing == 0) {
                 ApplyPendingMouselook();
             }
             return true;
@@ -6559,7 +6560,7 @@ void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed need
             target.iMonsterID = CurrentGame().npc_interaction.target_location_id;
             AimAtTarget(selected, &target, GetEditedActionContext(selected));
             needed_kind = W8_TARGET_NEED_NONE;
-        } else if (g_settings.autotarget_spells != 0 && draft &&
+        } else if (g_settings.options.autotarget_spells != 0 && draft &&
                    RepickActionTarget(selected, W8EditedAction{*draft}, 0)) {
             W8TargetSource source;
             SetTargetSourceToCharacter(selected, &source);

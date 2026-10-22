@@ -184,7 +184,7 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
         MainGameHud()->text_lines[3] = CurrentGame().status.text_box_lines_used[3];
         W8MessageStorageRecord* last =
             &CurrentGame().message_log[3][CurrentGame().status.text_box_lines_shown[3] - 1];
-        auto delay = g_settings.text_display_delay_ms *
+        auto delay = g_settings.options.text_display_delay_ms *
                      (wiz8::text::grapheme_count(last->text) * 100 / 20 + 100) / 100;
         if (delay > 60000) {
             delay = 60000;
@@ -544,7 +544,7 @@ void AdvanceNoticeLine(short text_box)
     assert(CurrentGame().status.text_box_lines_shown[text_box] < 350);
     W8MessageStorageRecord* record =
         &CurrentGame().message_log[text_box][CurrentGame().status.text_box_lines_shown[text_box]];
-    auto delay = g_settings.text_display_delay_ms *
+    auto delay = g_settings.options.text_display_delay_ms *
                  (wiz8::text::grapheme_count(record->text) * 100 / 20 + 100) / 100;
     if (delay > 60000) {
         delay = 60000;

@@ -819,11 +819,11 @@ glm::vec3* Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* current
                     float distance;
                     if (NavigationCombatActive(*this)) {
                         movement.vertical_velocity += GameTimeAccumulator().GetFrameDelta() *
-                                                      g_settings.monster_movement_speed *
+                                                      g_settings.options.monster_movement_speed *
                                                       g_navigator_gravity * acceleration_scale;
                         distance = movement.vertical_velocity *
                                    GameTimeAccumulator().GetFrameDelta() *
-                                   g_settings.monster_movement_speed;
+                                   g_settings.options.monster_movement_speed;
                     } else {
                         movement.vertical_velocity += GameTimeAccumulator().GetFrameDelta() *
                                                       g_navigator_gravity * acceleration_scale;
@@ -1689,7 +1689,7 @@ void Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed,
     }
 
     if (NavigationCombatActive(*this)) {
-        movement.movement_speed = g_settings.monster_movement_speed;
+        movement.movement_speed = g_settings.options.monster_movement_speed;
         if (slowed) {
             movement.movement_speed *= 0.5f;
         }

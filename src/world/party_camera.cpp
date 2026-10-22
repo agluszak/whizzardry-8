@@ -781,13 +781,14 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
                 PointCameraAtMonster(monster_info, true, true);
                 position = monster_info->entity->nav.GetPosition();
                 target = position;
-                if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_ALL_TARGETS) {
-                    if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SNAP) {
+                if (g_settings.options.camera_rotation_mode == W8_CAMERA_ROTATION_ALL_TARGETS) {
+                    if (g_settings.options.camera_rotation_style == W8_CAMERA_ROTATION_SNAP) {
                         if (partyCamera().ComputeTrackingOrientation(&target, &angle, &pitch) ==
                             0) {
                             CameraSnapToTarget(&target);
                         }
-                    } else if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SMOOTH &&
+                    } else if (g_settings.options.camera_rotation_style ==
+                                   W8_CAMERA_ROTATION_SMOOTH &&
                                partyCamera().ComputeTrackingOrientation(&target, &angle, &pitch) ==
                                    0) {
                         partyCamera().BeginOrientationTransition(pitch, angle, false);
@@ -832,13 +833,13 @@ void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
     Monster* monster;
     bool track;
 
-    if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER &&
+    if (g_settings.options.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER &&
         monster_info->Target.iType == W8_TARGET_KIND_CHARACTER &&
         monster_info->Target.iChar == CurrentGame().status.selected_character) {
         track = true;
     } else {
         track = force;
-        if (!track && g_settings.camera_rotation_mode != W8_CAMERA_ROTATION_ALL_TARGETS) {
+        if (!track && g_settings.options.camera_rotation_mode != W8_CAMERA_ROTATION_ALL_TARGETS) {
             return;
         }
     }
@@ -865,14 +866,14 @@ void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
         }
         return;
     }
-    if (g_settings.camera_rotation_mode != W8_CAMERA_ROTATION_ALL_TARGETS) {
+    if (g_settings.options.camera_rotation_mode != W8_CAMERA_ROTATION_ALL_TARGETS) {
         return;
     }
-    if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SMOOTH) {
+    if (g_settings.options.camera_rotation_style == W8_CAMERA_ROTATION_SMOOTH) {
         if (partyCamera().ComputeTrackingOrientation(&position, &angle, &pitch) == 0) {
             partyCamera().BeginOrientationTransition(pitch, angle, false);
         }
-    } else if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SNAP &&
+    } else if (g_settings.options.camera_rotation_style == W8_CAMERA_ROTATION_SNAP &&
                partyCamera().ComputeTrackingOrientation(&position, &pitch, &angle) == 0) {
         CameraSnapToTarget(&position);
     }
@@ -897,10 +898,10 @@ void PointCameraAtTarget(glm::vec3* position, bool force, bool animate)
         }
         return;
     }
-    if (g_settings.camera_rotation_mode != W8_CAMERA_ROTATION_ALL_TARGETS) {
+    if (g_settings.options.camera_rotation_mode != W8_CAMERA_ROTATION_ALL_TARGETS) {
         return;
     }
-    switch (g_settings.camera_rotation_style) {
+    switch (g_settings.options.camera_rotation_style) {
     case W8_CAMERA_ROTATION_SMOOTH:
         if (partyCamera().ComputeTrackingOrientation(position, &angle, &pitch) == 0) {
             partyCamera().BeginOrientationTransition(pitch, angle, false);

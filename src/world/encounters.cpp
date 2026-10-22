@@ -196,10 +196,10 @@ int MonGen::RollEncounterGroupSize(const W8MonsterRecord* record)
     int rolled = RollDice(dice);
 
     if (relative_level >= 1.2f) {
-        if (g_settings.difficulty == W8_DIFFICULTY_NOVICE) {
+        if (g_settings.options.difficulty == W8_DIFFICULTY_NOVICE) {
             return minimum;
         }
-        if (g_settings.difficulty == W8_DIFFICULTY_EXPERT) {
+        if (g_settings.options.difficulty == W8_DIFFICULTY_EXPERT) {
             return rolled;
         }
         while (rolled > midpoint) {
@@ -212,10 +212,10 @@ int MonGen::RollEncounterGroupSize(const W8MonsterRecord* record)
     if (midpoint > 0.8f) {
         return rolled;
     }
-    if (g_settings.difficulty == W8_DIFFICULTY_EXPERT) {
+    if (g_settings.options.difficulty == W8_DIFFICULTY_EXPERT) {
         return maximum;
     }
-    if (g_settings.difficulty == W8_DIFFICULTY_NOVICE) {
+    if (g_settings.options.difficulty == W8_DIFFICULTY_NOVICE) {
         return rolled;
     }
     while (rolled < midpoint) {

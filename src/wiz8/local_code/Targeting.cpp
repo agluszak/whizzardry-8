@@ -271,7 +271,7 @@ bool IsSpellTargetOfNeededKind(const W8CombatSlot* target, int spell_id, bool ne
 {
     W8TargetNeed needed = GetTargetNeededForSpellFriendly(spell_id, false, needs_item_target);
 
-    if (needed == W8_TARGET_NEED_ENEMY && g_settings.autotarget_spells != 0) {
+    if (needed == W8_TARGET_NEED_ENEMY && g_settings.options.autotarget_spells != 0) {
         return true;
     }
     return TargetMatchesNeeded(target, needed);
@@ -618,7 +618,7 @@ bool IsItemTargetOfNeededKind(const W8CombatSlot* target, const W8ItemInstance* 
         if (record->spell_id != W8_SPELL_NONE) {
             needed = GetTargetNeededForSpellFriendly(record->spell_id,
                                                      ItemClassNormalizesTarget(record), true);
-            if (needed == W8_TARGET_NEED_ENEMY && g_settings.autotarget_spells != 0) {
+            if (needed == W8_TARGET_NEED_ENEMY && g_settings.options.autotarget_spells != 0) {
                 return true;
             }
         }
@@ -908,7 +908,7 @@ bool ActionNeedsExplicitTarget(const W8Action& action, bool conversation_aside)
         if (conversation_aside) {
             return false;
         }
-        return g_settings.autotarget_spells == 0;
+        return g_settings.options.autotarget_spells == 0;
     case W8_TARGET_TYPE_CASTER:
     case W8_TARGET_TYPE_PARTY:
     case W8_TARGET_TYPE_ALL_ENEMIES:
@@ -1148,7 +1148,7 @@ bool RepickActionTarget(int party_slot, W8EditedAction context, int arg)
                     StartBreathCycle(party_slot, false);
                 }
                 if (context == W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
-                    if (g_settings.verbose_combat_messages != 0) {
+                    if (g_settings.options.verbose_combat_messages != 0) {
                         PostCharacterNotice(party_slot, Data().strings[0x26b]);
                     }
                     const auto committed =
@@ -1326,7 +1326,7 @@ bool SpellHasAnyValidTarget(int party_slot, int spell_id, bool normalize)
 
     switch (GetTargetNeededForSpellFriendly(spell_id, normalize, true)) {
     case W8_TARGET_NEED_ENEMY:
-        if (g_settings.autotarget_spells != 0) {
+        if (g_settings.options.autotarget_spells != 0) {
             return true;
         }
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
@@ -1882,7 +1882,7 @@ bool ItemUseNeedsTarget(int party_slot)
         if (CurrentGame().activity.conversation_aside) {
             return false;
         }
-        return g_settings.autotarget_spells == 0;
+        return g_settings.options.autotarget_spells == 0;
     case 0:
     case 2:
     case 7:
@@ -1898,7 +1898,7 @@ std::optional<W8WeaponTarget> ChooseFallbackMonsterTarget(int party_slot, const 
 {
     const auto& row = CurrentGame().party.rows[party_slot];
     const auto& character = CurrentGame().party.characters[party_slot];
-    if (!g_settings.autoswap_weapons || row.remembered.weapon_sets_locked ||
+    if (!g_settings.options.autoswap_weapons || row.remembered.weapon_sets_locked ||
         (CurrentGame().combat && CurrentGame().combat->execution_active &&
          CurrentGame().combat->characters[party_slot].dead &&
          CurrentGame().combat->characters[party_slot].phase != 0) ||
@@ -1951,7 +1951,7 @@ void ReconcilePartyEquipmentAfterCombat(void)
         W8Character* character = &CurrentGame().party.characters[party_slot];
         if (CurrentGame().party.members[party_slot].has_value() &&
             (character->hp_current != 0 || character->highest_condition < W8_CONDITION_TURNCOAT) &&
-            row->weapon_swap_pending && g_settings.autoswap_weapons != 0 &&
+            row->weapon_swap_pending && g_settings.options.autoswap_weapons != 0 &&
             !CurrentGame().party.rows[party_slot].remembered.weapon_sets_locked) {
             SwapWeaponSetSlots(CurrentGame(), party_slot, false);
             row->weapon_swap_pending = false;

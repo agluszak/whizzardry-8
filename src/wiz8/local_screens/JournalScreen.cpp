@@ -99,13 +99,13 @@ void RecordFactChangeForJournal(W8FactId fact_id)
         return;
     }
     int visibility;
-    if (g_settings.difficulty == W8_DIFFICULTY_NOVICE) {
+    if (g_settings.options.difficulty == W8_DIFFICULTY_NOVICE) {
         visibility = 2;
-    } else if (g_settings.difficulty == W8_DIFFICULTY_NORMAL) {
+    } else if (g_settings.options.difficulty == W8_DIFFICULTY_NORMAL) {
         visibility = 1;
     } else {
         visibility = fact_id;
-        if (g_settings.difficulty == W8_DIFFICULTY_EXPERT) {
+        if (g_settings.options.difficulty == W8_DIFFICULTY_EXPERT) {
             visibility = 0;
         }
     }
@@ -337,7 +337,7 @@ bool JournalScreen::enter(const ScreenRequest&)
     ScreenPointer().reset();
     g_journal_font_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
 
-    switch (g_settings.difficulty) {
+    switch (g_settings.options.difficulty) {
     case W8_DIFFICULTY_NOVICE:
         maximum_visibility = 2;
         break;

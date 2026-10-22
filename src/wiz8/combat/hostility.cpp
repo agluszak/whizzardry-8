@@ -557,7 +557,7 @@ int CharacterPrayAction(int party_slot)
             CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x175]});
         return cost;
     }
-    if (g_settings.verbose_combat_messages == 0) {
+    if (g_settings.options.verbose_combat_messages == 0) {
         CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         AppendToLastTextLine(g_pray_dash, -1);
         CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
@@ -568,9 +568,9 @@ int CharacterPrayAction(int party_slot)
     } else if (CurrentGame().combat->round_count > 8) {
         roll += CurrentGame().rng.below(10);
     }
-    if (g_settings.difficulty == W8_DIFFICULTY_NOVICE) {
+    if (g_settings.options.difficulty == W8_DIFFICULTY_NOVICE) {
         roll -= 10;
-    } else if (g_settings.difficulty == W8_DIFFICULTY_EXPERT) {
+    } else if (g_settings.options.difficulty == W8_DIFFICULTY_EXPERT) {
         roll += 10;
     }
     action = 0;

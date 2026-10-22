@@ -232,7 +232,7 @@ bool Game::beginCombat(int surprise)
     if (IsLevelFastMovement()) {
         ClearLevelFastMovement();
     }
-    if (g_settings.continuous_combat != 0 && !fight.party_surprised) {
+    if (g_settings.options.continuous_combat != 0 && !fight.party_surprised) {
         fight.continuous_start_delay =
             std::chrono::milliseconds{g_settings.continuous_combat_start_delay_ms};
     }
@@ -480,7 +480,7 @@ void BeginCombatExecution(void)
     if (CurrentGame().combat->uiNextPartyAction != W8_PARTY_ACTION_NONE) {
         ClearPendingPartyMovement();
     }
-    if (g_settings.continuous_combat == 0) {
+    if (g_settings.options.continuous_combat == 0) {
         CurrentGame().combat->round_active = false;
         ClearCombatSelection();
     }
@@ -549,7 +549,7 @@ void BeginCombatExecution(void)
     CurrentGame().events.push(CombatProgressChanged{.whole_party = true});
     CurrentGame().events.push(CombatStanceChanged{});
 
-    if (g_settings.verbose_combat_messages != 0 &&
+    if (g_settings.options.verbose_combat_messages != 0 &&
         CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_NONE) {
         for (slot = 0; slot < 8; ++slot) {
             W8PartySlotRow* party = &CurrentGame().party.rows[slot];
@@ -1380,7 +1380,7 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
    live member without a combat action to take. */
 void AutoAdvanceSelectedCharacter(void)
 {
-    if (g_settings.auto_advance_character == 0 || CurrentGame().combat->target_picked ||
+    if (g_settings.options.auto_advance_character == 0 || CurrentGame().combat->target_picked ||
         !CurrentGame().combat->round_active || ScreenPointer().targeting() != W8_TARGET_NEED_NONE ||
         gpSCSV || ItemUseDraft()) {
         return;
@@ -1536,7 +1536,7 @@ void AdvanceCombatRound(void)
     if (CurrentGame().party_movement_mode) {
         BeginFreeTurnPhase();
     }
-    if (g_settings.continuous_combat == 0 &&
+    if (g_settings.options.continuous_combat == 0 &&
         CurrentGame().combat->uiNextPartyAction != W8_PARTY_ACTION_NONE) {
         ClearPendingPartyMovement();
     }
@@ -1928,13 +1928,13 @@ void PointCameraAtCombatTarget(W8TargetSource* source, const W8CombatSlot* targe
     W8MonsterGroup* group;
     glm::vec3 position;
 
-    if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_DISABLED) {
+    if (g_settings.options.camera_rotation_mode == W8_CAMERA_ROTATION_DISABLED) {
         return;
     }
     if (!IsTargetStillPresent(target)) {
         return;
     }
-    if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER &&
+    if (g_settings.options.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER &&
         (!TargetSourceIsCharacter(source, 0) ||
          source->iChar != CurrentGame().status.selected_character)) {
         if (target->iType != W8_TARGET_KIND_CHARACTER) {

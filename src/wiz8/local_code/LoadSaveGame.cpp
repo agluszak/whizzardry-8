@@ -1002,7 +1002,7 @@ static wiz8::save::GameState CaptureStateForSave(const Game& game, const wiz8::F
     auto& status = snapshot.status;
     status.pending_move_location = partyPose(*GetWorld());
     status.retail.save_version = 1.1f;
-    status.difficulty = g_settings.difficulty;
+    status.difficulty = g_settings.options.difficulty;
     if (status.iron_man) {
         const auto creation_time = file.times().created;
         status.retail.save_filetime_xor = {creation_time.low ^ g_save_filetime_xor_low,
@@ -1503,7 +1503,8 @@ void DeleteCurrentSaveFiles(void)
 bool AutoSaveIfAllowed(bool forced)
 {
     CurrentGame().save_notice_shown = false;
-    const bool wanted = (g_settings.auto_save != 0 && !forced) || CurrentGame().status.iron_man;
+    const bool wanted =
+        (g_settings.options.auto_save != 0 && !forced) || CurrentGame().status.iron_man;
     if (!wanted || !CanAutoSaveNow()) return true;
     return SaveGame(AutoSaveSlotName(), nullptr);
 }
@@ -1532,7 +1533,8 @@ void ReportSaveFailed(bool quiet)
    frame saves and reports the result. */
 void ProcessMainGameAutoSave(void)
 {
-    if ((g_settings.auto_save == 0 && !CurrentGame().status.iron_man) || !CanAutoSaveNow()) return;
+    if ((g_settings.options.auto_save == 0 && !CurrentGame().status.iron_man) || !CanAutoSaveNow())
+        return;
     if (!CurrentGame().save_notice_shown) {
         if (CurrentGame().autosave_due >= std::chrono::milliseconds::zero()) return;
         CurrentGame().save_notice_shown = true;

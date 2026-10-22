@@ -1581,23 +1581,25 @@ void ResourceLifecycleScenario()
     REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 2);
     game.click_at(30, 60); // Artwork hotspot selects the same panel as its button.
     REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 0);
-    const float combat_speed = FindScreen<OptionsScreen>()->values.combat_speed;
+    const int combat_delay = FindScreen<OptionsScreen>()->options.combat_delay_ms;
     game.click_at(480, 50);
-    const float clicked_speed = FindScreen<OptionsScreen>()->values.combat_speed;
-    REQUIRE(clicked_speed < 0.5f);
+    const int clicked_delay = FindScreen<OptionsScreen>()->options.combat_delay_ms;
+    REQUIRE(clicked_delay > 2500);
     game.press_at(480, 50);
     game.move_pointer(520, 50);
-    REQUIRE(FindScreen<OptionsScreen>()->values.combat_speed > clicked_speed);
+    REQUIRE(FindScreen<OptionsScreen>()->options.combat_delay_ms < clicked_delay);
     game.release_at(200, 190); // Captured release outside ends the drag.
-    const float released_speed = FindScreen<OptionsScreen>()->values.combat_speed;
+    const int released_delay = FindScreen<OptionsScreen>()->options.combat_delay_ms;
+    REQUIRE(g_settings.options.combat_delay_ms == combat_delay); // The draft is not live yet.
     game.move_pointer(490, 50);
-    REQUIRE(FindScreen<OptionsScreen>()->values.combat_speed == released_speed);
+    REQUIRE(FindScreen<OptionsScreen>()->options.combat_delay_ms == released_delay);
     game.click_at(30, 250); // An inactive panel must not retain slider input.
     game.click_at(480, 50);
-    REQUIRE(FindScreen<OptionsScreen>()->values.combat_speed == released_speed);
-    FindScreen<OptionsScreen>()->values.combat_speed = combat_speed;
+    REQUIRE(FindScreen<OptionsScreen>()->options.combat_delay_ms == released_delay);
+    FindScreen<OptionsScreen>()->options.combat_delay_ms = combat_delay;
     game.click_at(20, 445);
     game.wait_screen("options-menu-return", W8_SCREEN_MAIN_GAME);
+    REQUIRE(g_settings.options.combat_delay_ms == combat_delay);
     // Exercise a second screen's input, teardown and return-stack lifecycle.
     const std::size_t return_depth = SuspendedScreenCount();
     // Retail saves can retain entries whose fact no longer exists. Opening,

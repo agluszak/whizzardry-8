@@ -15,12 +15,24 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/chunk.h"
 #include "wiz8/difficulty.h"
+#include "wiz8/game.h"
+#include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/GameplayInit.h"
+#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/render/quality.h"
 #include "wiz8/retail_text_records.h"
 
 W8GameSettings g_settings;
+void ApplyGameOptions(const GameOptions& options)
+{
+    if ((options.continuous_combat != 0) != (g_settings.options.continuous_combat != 0)) {
+        TogglePartyCombatStance();
+    }
+    g_settings.options = options;
+    if (GameInProgress()) CurrentGame().status.difficulty = options.difficulty;
+}
+
 static char g_config_file_name[8] = "Wiz8";
 static char g_config_file_extension[] = "CFG";
 constexpr unsigned int W8_CHUNK_SETTINGS = W8ChunkId("CNFG");
@@ -93,31 +105,31 @@ template<> struct Record<W8GameSettings> {
             return bytes.subspan(offset, size);
         };
         value(&runtime.field_000, at(offsetof(Disk, field_000), sizeof(Disk::field_000)));
-        value(&runtime.numeric_hit_points,
+        value(&runtime.options.numeric_hit_points,
               at(offsetof(Disk, numeric_hit_points), sizeof(Disk::numeric_hit_points)));
         value(&runtime.unknown_002, at(offsetof(Disk, unknown_002), sizeof(Disk::unknown_002)));
         enum_value<std::int32_t>(&runtime.main_ui_mode,
                                  at(offsetof(Disk, main_ui_mode), sizeof(Disk::main_ui_mode)));
-        value(&runtime.continuous_combat,
+        value(&runtime.options.continuous_combat,
               at(offsetof(Disk, continuous_combat), sizeof(Disk::continuous_combat)));
-        value(&runtime.auto_advance_character,
+        value(&runtime.options.auto_advance_character,
               at(offsetof(Disk, auto_advance_character), sizeof(Disk::auto_advance_character)));
         byte_boolean(&runtime.tooltips_enabled,
                      at(offsetof(Disk, tooltips_enabled), sizeof(Disk::tooltips_enabled)));
-        enum_value<std::int32_t>(&runtime.difficulty,
+        enum_value<std::int32_t>(&runtime.options.difficulty,
                                  at(offsetof(Disk, difficulty), sizeof(Disk::difficulty)));
-        value(&runtime.text_display_delay_ms,
+        value(&runtime.options.text_display_delay_ms,
               at(offsetof(Disk, text_display_delay_ms), sizeof(Disk::text_display_delay_ms)));
-        value(&runtime.combat_delay_ms,
+        value(&runtime.options.combat_delay_ms,
               at(offsetof(Disk, combat_delay_ms), sizeof(Disk::combat_delay_ms)));
-        value(&runtime.continuous_combat_start_delay_ms,
+        value(&runtime.options.continuous_combat_start_delay_ms,
               at(offsetof(Disk, continuous_combat_start_delay_ms),
                  sizeof(Disk::continuous_combat_start_delay_ms)));
         enum_value<std::int32_t>(
-            &runtime.camera_rotation_mode,
+            &runtime.options.camera_rotation_mode,
             at(offsetof(Disk, camera_rotation_mode), sizeof(Disk::camera_rotation_mode)));
         enum_value<std::int32_t>(
-            &runtime.camera_rotation_style,
+            &runtime.options.camera_rotation_style,
             at(offsetof(Disk, camera_rotation_style), sizeof(Disk::camera_rotation_style)));
         value(&runtime.tooltip_delay_ms,
               at(offsetof(Disk, tooltip_delay_ms), sizeof(Disk::tooltip_delay_ms)));
@@ -146,42 +158,46 @@ template<> struct Record<W8GameSettings> {
         value(&runtime.muted_voice_volume,
               at(offsetof(Disk, muted_voice_volume), sizeof(Disk::muted_voice_volume)));
         value(&runtime.field_035, at(offsetof(Disk, field_035), sizeof(Disk::field_035)));
-        value(&runtime.invert_mouse_y,
+        value(&runtime.options.invert_mouse_y,
               at(offsetof(Disk, invert_mouse_y), sizeof(Disk::invert_mouse_y)));
-        value(&runtime.monster_movement_speed,
+        value(&runtime.options.monster_movement_speed,
               at(offsetof(Disk, monster_movement_speed), sizeof(Disk::monster_movement_speed)));
         value(&runtime.field_03b, at(offsetof(Disk, field_03b), sizeof(Disk::field_03b)));
         value(&runtime.legacy_gamma, at(offsetof(Disk, legacy_gamma), sizeof(Disk::legacy_gamma)));
-        value(&runtime.pc_confirmations,
+        value(&runtime.options.pc_confirmations,
               at(offsetof(Disk, pc_confirmations), sizeof(Disk::pc_confirmations)));
-        value(&runtime.mouselook_toggle,
+        value(&runtime.options.mouselook_toggle,
               at(offsetof(Disk, mouselook_toggle), sizeof(Disk::mouselook_toggle)));
-        value(&runtime.pc_subtitles, at(offsetof(Disk, pc_subtitles), sizeof(Disk::pc_subtitles)));
-        value(&runtime.mouselook_smoothing,
+        value(&runtime.options.pc_subtitles,
+              at(offsetof(Disk, pc_subtitles), sizeof(Disk::pc_subtitles)));
+        value(&runtime.options.mouselook_smoothing,
               at(offsetof(Disk, mouselook_smoothing), sizeof(Disk::mouselook_smoothing)));
-        value(&runtime.verbose_combat_messages,
+        value(&runtime.options.verbose_combat_messages,
               at(offsetof(Disk, verbose_combat_messages), sizeof(Disk::verbose_combat_messages)));
-        value(&runtime.auto_save, at(offsetof(Disk, auto_save), sizeof(Disk::auto_save)));
+        value(&runtime.options.auto_save, at(offsetof(Disk, auto_save), sizeof(Disk::auto_save)));
         byte_boolean(&runtime.intro_seen, at(offsetof(Disk, intro_seen), sizeof(Disk::intro_seen)));
         value(&runtime.field_047, at(offsetof(Disk, field_047), sizeof(Disk::field_047)));
-        value(&runtime.monster_shadows,
+        value(&runtime.options.monster_shadows,
               at(offsetof(Disk, monster_shadows), sizeof(Disk::monster_shadows)));
-        value(&runtime.smooth_monster_animations, at(offsetof(Disk, smooth_monster_animations),
-                                                     sizeof(Disk::smooth_monster_animations)));
-        value(&runtime.smooth_world_animations,
+        value(
+            &runtime.options.smooth_monster_animations,
+            at(offsetof(Disk, smooth_monster_animations), sizeof(Disk::smooth_monster_animations)));
+        value(&runtime.options.smooth_world_animations,
               at(offsetof(Disk, smooth_world_animations), sizeof(Disk::smooth_world_animations)));
-        value(&runtime.skill_increase_messages,
+        value(&runtime.options.skill_increase_messages,
               at(offsetof(Disk, skill_increase_messages), sizeof(Disk::skill_increase_messages)));
-        value(&runtime.ctrl_right_click_info,
+        value(&runtime.options.ctrl_right_click_info,
               at(offsetof(Disk, ctrl_right_click_info), sizeof(Disk::ctrl_right_click_info)));
-        value(&runtime.autoswap_weapons,
+        value(&runtime.options.autoswap_weapons,
               at(offsetof(Disk, autoswap_weapons), sizeof(Disk::autoswap_weapons)));
-        value(&runtime.autotarget_spells,
+        value(&runtime.options.autotarget_spells,
               at(offsetof(Disk, autotarget_spells), sizeof(Disk::autotarget_spells)));
-        value(&runtime.autoscroll_combat_messages, at(offsetof(Disk, autoscroll_combat_messages),
-                                                      sizeof(Disk::autoscroll_combat_messages)));
-        value(&runtime.simplified_npc_interaction, at(offsetof(Disk, simplified_npc_interaction),
-                                                      sizeof(Disk::simplified_npc_interaction)));
+        value(&runtime.options.autoscroll_combat_messages,
+              at(offsetof(Disk, autoscroll_combat_messages),
+                 sizeof(Disk::autoscroll_combat_messages)));
+        value(&runtime.options.simplified_npc_interaction,
+              at(offsetof(Disk, simplified_npc_interaction),
+                 sizeof(Disk::simplified_npc_interaction)));
         value(&runtime.unknown_051, at(offsetof(Disk, unknown_051), sizeof(Disk::unknown_051)));
     }
 };
@@ -231,9 +247,9 @@ void LoadGameConfiguration(void)
         file.Close();
     }
     // Out-of-range delays or difficulty mean a corrupt file; fall back to the defaults.
-    if (loaded && static_cast<unsigned int>(g_settings.combat_delay_ms) <= 5000u &&
-        g_settings.text_display_delay_ms <= 5000u &&
-        static_cast<unsigned int>(g_settings.difficulty) <= W8_DIFFICULTY_EXPERT) {
+    if (loaded && static_cast<unsigned int>(g_settings.options.combat_delay_ms) <= 5000u &&
+        g_settings.options.text_display_delay_ms <= 5000u &&
+        static_cast<unsigned int>(g_settings.options.difficulty) <= W8_DIFFICULTY_EXPERT) {
         reset = false;
     }
     if (reset) {

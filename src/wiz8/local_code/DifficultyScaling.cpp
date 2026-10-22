@@ -9,7 +9,7 @@
 static void ScaleValueForDifficulty(int* value, bool fights_for_monsters)
 {
     int multiplier;
-    switch (g_settings.difficulty) {
+    switch (g_settings.options.difficulty) {
     case 0:
         multiplier = fights_for_monsters ? 3 : 7;
         break;
