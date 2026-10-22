@@ -3505,7 +3505,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
                                 experience->amount),
                    0);
     } else if (const auto* skills = std::get_if<W8SkillNoticePayload>(&dismissed)) {
-        PostSkillIncreaseNotices(CurrentGame(), skills);
+        PostSkillIncreaseNotices(CurrentGame(), *skills);
     } else if (const auto* level_up = std::get_if<W8LevelUpNotice>(&dismissed)) {
         PostCharacterNotice(level_up->party_slot, Data().strings[0x773]);
     }
@@ -3515,7 +3515,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
            (0x00576521 mov ax,word ptr [ecx+0x9]; 0x00576525 test eax,eax;
            jle 0x00576543). An unsigned index would make the comparison
            unsigned and lose that. */
-        for (int index = 0; index < quote->entry_count; ++index) {
+        for (int index = 0; index < quote->entries.size(); ++index) {
             if (quote->entries[index].kind == W8_NPC_ENTRY_KEYWORD_INPUT ||
                 quote->entries[index].kind == W8_NPC_ENTRY_OPTIONS) {
                 flush_notices = true;
@@ -3743,7 +3743,7 @@ void OnNpcDialogClosed(W8NpcDialog& dialog)
         return;
     }
     if (request->kind == W8_NPC_ENTRY_OPTIONS) {
-        for (index = 0; index < request->sub_entry_count; ++index) {
+        for (index = 0; index < request->sub_entries.size(); ++index) {
             if (index == npc_dialog->m_selected_option) {
                 entry_text = request->sub_entries[index].text.c_str();
                 if (!CurrentGame().activity.conversation ||

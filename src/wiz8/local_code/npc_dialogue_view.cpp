@@ -256,7 +256,7 @@ static void FinishNpcVoicePlayback(bool resume_script)
     CurrentGame().npc_dialogue.SpeechFinished();
     if (CurrentGame().npc_dialogue.reply() == W8NpcReplyState::none && resume_script) {
         if (speaker != 0 && CurrentGame().npc_dialogue.binding().script != 0 &&
-            current_quote < CurrentGame().npc_dialogue.binding().script->quote_count) {
+            current_quote < CurrentGame().npc_dialogue.binding().script->quotes.size()) {
             SetNpcQuoteBubbleVisible(
                 false, {}, &CurrentGame().npc_dialogue.binding().script->quotes[current_quote],
                 current_quote, -1);
@@ -293,7 +293,7 @@ void RestoreCurrentNpcQuoteBubble(void)
     const int current_quote = CurrentGame().npc_dialogue.current_quote();
     const W8NpcScriptFile* script_file =
         speaker != 0 ? CurrentGame().npc_dialogue.binding().script.get() : 0;
-    if (script_file != 0 && current_quote < static_cast<int>(script_file->quote_count)) {
+    if (script_file != 0 && current_quote < static_cast<int>(script_file->quotes.size())) {
         SetNpcQuoteBubbleVisible(false, {}, script_file->quotes.data() + current_quote,
                                  current_quote, 0xffffffff);
         return;

@@ -50,12 +50,12 @@ W8NpcDialog::W8NpcDialog(std::shared_ptr<const W8NpcScriptFile> script,
 
     signed char opcode = message->kind;
     if (opcode == W8_NPC_ENTRY_OPTIONS) {
-        if (message->sub_entry_count == 2) {
+        if (message->sub_entries.size() == 2) {
             m_compact_options = false;
         } else {
             m_compact_options = true;
         }
-        for (index = 0; index < message->sub_entry_count; ++index) {
+        for (index = 0; index < message->sub_entries.size(); ++index) {
             line = message->sub_entries[index].text;
             short length = g_wiz_text_mono_font.textWidth(line);
             if (max_width < length) {
@@ -63,7 +63,7 @@ W8NpcDialog::W8NpcDialog(std::shared_ptr<const W8NpcScriptFile> script,
             }
         }
         m_text_width = max_width + 6;
-        width = (m_text_width + 0xa) * message->sub_entry_count + 0x1e;
+        width = (m_text_width + 0xa) * message->sub_entries.size() + 0x1e;
     } else if (opcode == W8_NPC_ENTRY_PRICE_CHECK || opcode == W8_NPC_ENTRY_ALWAYS_PRICE_CHECK) {
         m_compact_options = false;
         short length = g_wiz_text_mono_font.textWidth(Data().strings[0x7df]);
@@ -101,9 +101,9 @@ bool W8NpcDialog::Configure()
                 UI_PRIORITY_BACKGROUND);
     if (m_message->kind == W8_NPC_ENTRY_OPTIONS) {
         int x = (m_bounds.w -
-                 static_cast<short>((m_text_width + 10) * m_message->sub_entry_count - 10)) /
+                 static_cast<short>((m_text_width + 10) * m_message->sub_entries.size() - 10)) /
                 2;
-        for (index = 0; index < m_message->sub_entry_count; ++index) {
+        for (index = 0; index < m_message->sub_entries.size(); ++index) {
             line = m_message->sub_entries[index].text;
             m_buttons[index] = std::make_unique<W8ButtonWidget>(m_input);
             m_buttons[index]->Configure(

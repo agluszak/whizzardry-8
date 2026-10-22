@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <memory>
@@ -33,41 +34,31 @@ W8SpellRealmAnimation g_spell_realm_animations[6] = {{486, 22, 3}, {487, 18, 8},
 
 class W8CharacterSpellList {
 public:
-    W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, int y,
-                         W8CharacterSpellEntry* entries);
+    W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, int y);
     ~W8CharacterSpellList() { m_owner.input.remove(*m_target); }
     W8CharacterSpellList(const W8CharacterSpellList&) = delete;
     void Redraw(SDL_Surface& target, bool force);
-    void SetEntryCount(int count);
+    void UpdateRange();
     W8CharacterSpellsPage& m_owner;
     HitTarget* m_target;
     SDL_Rect m_bounds;
     bool m_dirty = true;
     W8RangeControl m_range;
-    W8CharacterSpellEntry* m_entries;
-    int m_first_entry = 0;
-    int m_entry_count = 0;
+    std::vector<unsigned int> m_spells;
     int m_hovered_entry = -1;
-    int m_scroll_offset = 0;
 };
 
-W8CharacterSpellList::W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, int y,
-                                           W8CharacterSpellEntry* entries)
+W8CharacterSpellList::W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, int y)
     : m_owner(owner), m_bounds{0xc3 + x + 0x1a, 0x2b + y + 0x19, 0x9a, 0x60},
-      m_range(owner.input, 0xc3 + x + 0xb8, 0x2b + y + 0x1a, 0xc3 + x + 0xca, 0x2b + y + 0x78),
-      m_entries(entries)
+      m_range(owner.input, 0xc3 + x + 0xb8, 0x2b + y + 0x1a, 0xc3 + x + 0xca, 0x2b + y + 0x78)
 {
 
-    m_range.on_change = [this](auto* range) {
-        m_scroll_offset = range->m_value;
-        m_dirty = true;
-    };
+    m_range.on_change = [this](auto*) { m_dirty = true; };
     m_target = &owner.input.add(
         SDL_Rect{m_bounds.x, m_bounds.y, m_bounds.w + 1, m_bounds.h + 1},
         [this](const UiPointerEvent& event) {
-            const int entry =
-                (event.position.y - m_bounds.y) / 13 + m_scroll_offset + m_first_entry;
-            const bool valid = entry >= m_first_entry && entry < m_first_entry + m_entry_count;
+            const int entry = (event.position.y - m_bounds.y) / 13 + m_range.m_value;
+            const bool valid = entry >= 0 && entry < static_cast<int>(m_spells.size());
             if ((valid) && (event.action != UiPointerAction::Enter &&
                             (event.action != UiPointerAction::Up || event.captured_buttons)))
                 PlayButtonSound(event.action);
@@ -85,11 +76,12 @@ W8CharacterSpellList::W8CharacterSpellList(W8CharacterSpellsPage& owner, int x, 
                 m_range.AdjustValue(event.wheel);
             } else if (event.action == UiPointerAction::Up && event.inside &&
                        event.captured_buttons && valid) {
+                const auto spell = m_spells[entry];
                 if (event.button == UiPointerButton::Right)
-                    AfterUiDispatch([this, entry] { m_owner.ShowSpellInfo(entry); });
-                else if (m_entries[entry].fSelectable) {
+                    AfterUiDispatch([this, spell] { m_owner.ShowSpellInfo(spell); });
+                else if (m_owner.m_character->spell_learned[spell] != 1) {
                     m_dirty = true;
-                    AfterUiDispatch([this, entry] { m_owner.SelectSpell(entry); });
+                    AfterUiDispatch([this, spell] { m_owner.SelectSpell(spell); });
                 }
             }
             return UiResult::Handled;
@@ -102,18 +94,14 @@ W8CharacterSpellsPage::W8CharacterSpellsPage()
 }
 W8CharacterSpellsPage::~W8CharacterSpellsPage() = default;
 
-void W8CharacterSpellList::SetEntryCount(int count)
+void W8CharacterSpellList::UpdateRange()
 {
-    m_range.InvalidateAll();
+    const int count = static_cast<int>(m_spells.size());
+    m_range.SetRange(0, std::max(0, count - 7));
+    m_range.SetEnabled(count > 7);
     m_range.SetActive(true);
-    m_entry_count = count;
+    m_range.InvalidateAll();
     m_dirty = true;
-    if (count > 7) {
-        m_range.SetRange(0, count - 7);
-        m_range.SetEnabled(true);
-    } else {
-        m_range.SetEnabled(false);
-    }
 }
 
 void W8CharacterSpellList::Redraw(SDL_Surface& target, bool force)
@@ -125,20 +113,20 @@ void W8CharacterSpellList::Redraw(SDL_Surface& target, bool force)
         int y = top + 1;
         g_wiz_text_font_secondary.resetPalette();
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
-        for (int index = m_first_entry + m_scroll_offset;
-             index < m_first_entry + m_scroll_offset + 7; ++index) {
-            if (index >= m_first_entry + m_entry_count) break;
-            if (!m_entries[index].fSelectable) {
+        for (int index = m_range.m_value;
+             index < m_range.m_value + 7 && index < static_cast<int>(m_spells.size()); ++index) {
+            const auto spell = m_spells[index];
+            if (m_owner.m_character->spell_learned[spell] == 1) {
                 g_wiz_text_font_secondary.setShade(6);
-            } else if (m_entries[index].selected) {
+            } else if (m_owner.m_character->spell_learned[spell] == 2) {
                 g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_BLUE]);
             } else if (index == m_hovered_entry) {
                 g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
             }
             DrawText(target, g_wiz_text_font_secondary, {left + 2, y},
-                     Data().spells[m_entries[index].spell].display_name);
+                     Data().spells[spell].display_name);
             std::string cost;
-            cost = fmt::format("{:d}", Data().spells[m_entries[index].spell].spell_point_cost);
+            cost = fmt::format("{:d}", Data().spells[spell].spell_point_cost);
             DrawText(target, g_wiz_text_font_secondary,
                      {left + width - g_wiz_text_font_secondary.textWidth(cost) - 2, y}, cost);
             y += 13;
@@ -155,9 +143,10 @@ void W8CharacterSpellsPage::SetCharacter(W8Character* character,
                                          W8CharacterScreenMode mode)
 {
     W8CharacterPage::SetCharacter(character, creation_state, mode);
+    m_last_selected.reset();
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        m_realms[realm] = std::make_unique<W8CharacterSpellList>(
-            *this, (realm % 2) * 215 + 13, (realm / 2) * 130 + 8, m_SpellData);
+        m_realms[realm] = std::make_unique<W8CharacterSpellList>(*this, (realm % 2) * 215 + 13,
+                                                                 (realm / 2) * 130 + 8);
     }
 }
 
@@ -180,13 +169,10 @@ void W8CharacterSpellsPage::Deactivate()
     }
 }
 
-/* Drop every pending pick: clear the per-entry selected flags, return the
-   creation-state spell selections, and repaint. */
+/* Return the pending spell picks to the creation state and repaint. */
 void W8CharacterSpellsPage::Accept()
 {
-    for (auto& index : m_SpellData) {
-        index.selected = false;
-    }
+    m_last_selected.reset();
     ResetSpellSelections(m_character, m_creation_state);
     InvalidateAll();
     m_contentDirty = true;
@@ -238,7 +224,7 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
 
     if (redraw) {
         for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-            if (m_realms[realm]->m_entry_count == 0) {
+            if (m_realms[realm]->m_spells.empty()) {
                 continue;
             }
             text.SetLayoutMode(g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
@@ -279,7 +265,7 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
     if (elapsed > 0 || redraw) {
         for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
             const W8SpellRealmAnimation& animation = g_spell_realm_animations[realm];
-            if (m_realms[realm]->m_entry_count != 0 && elapsed != 0) {
+            if (!m_realms[realm]->m_spells.empty() && elapsed != 0) {
                 m_animation_frames[realm] =
                     (m_animation_frames[realm] + elapsed) % animation.frame_count;
             }
@@ -304,39 +290,20 @@ void W8CharacterSpellsPage::Refresh()
 
 void W8CharacterSpellsPage::UpdateSpellLists()
 {
-    int entry = 0;
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         m_animation_frames[realm] = g_spell_realm_animations[realm].initial_frame;
-        int first = entry;
-        for (signed char pass = 0; pass < 2; ++pass) {
+        auto& list = *m_realms[realm];
+        list.m_spells.clear();
+        for (int pass = 0; pass < 2; ++pass) {
             for (unsigned int spell = 0; spell < 0x72; ++spell) {
-                if (Data().spells[spell].realm == realm) {
-                    switch (m_character->spell_learned[spell]) {
-                    case -1:
-                    case 2:
-                        if (pass == 0) {
-                            m_SpellData[entry].realm = static_cast<W8SpellRealm>(realm);
-                            m_SpellData[entry].spell = spell;
-                            m_SpellData[entry].fSelectable = true;
-                            m_SpellData[entry].selected = m_character->spell_learned[spell] == 2;
-                            ++entry;
-                        }
-                        break;
-                    case 1:
-                        if (pass == 1) {
-                            m_SpellData[entry].realm = static_cast<W8SpellRealm>(realm);
-                            m_SpellData[entry].spell = spell;
-                            m_SpellData[entry].fSelectable = false;
-                            m_SpellData[entry].selected = false;
-                            ++entry;
-                        }
-                        break;
-                    }
+                const auto learned = m_character->spell_learned[spell];
+                if (Data().spells[spell].realm == realm &&
+                    (pass == 0 ? learned == -1 || learned == 2 : learned == 1)) {
+                    list.m_spells.push_back(spell);
                 }
             }
         }
-        m_realms[realm]->m_first_entry = first;
-        m_realms[realm]->SetEntryCount(entry - first);
+        list.UpdateRange();
     }
 }
 
@@ -346,28 +313,26 @@ void W8CharacterSpellsPage::GetNavigationState(bool* next_enabled, bool* exit_en
     *exit_enabled = m_creation_state->spell_points_remaining < m_creation_state->spell_points_total;
 }
 
-/* Retail emits this with the W8CharacterSpellListListener-adjusted `this`
-   (page + 0x70): the slot is only ever dispatched through that base. */
-void W8CharacterSpellsPage::SelectSpell(unsigned int uiSelected)
+void W8CharacterSpellsPage::SelectSpell(unsigned int spell)
 {
-    assert(m_SpellData[uiSelected].fSelectable);
-    if (m_SpellData[uiSelected].selected) {
-        m_SpellData[uiSelected].selected = false;
-        DeselectCreationSpell(m_character, m_creation_state, m_SpellData[uiSelected].spell);
+    assert(m_character->spell_learned[spell] == -1 || m_character->spell_learned[spell] == 2);
+    if (m_character->spell_learned[spell] == 2) {
+        DeselectCreationSpell(m_character, m_creation_state, spell);
     } else {
         if (m_creation_state->spell_points_remaining == 0) {
-            for (unsigned int index = 0; index < 0x72; ++index) {
-                if (m_SpellData[index].selected &&
-                    (index != m_last_selected || m_creation_state->spell_points_total == 1)) {
-                    m_SpellData[index].selected = false;
-                    DeselectCreationSpell(m_character, m_creation_state, m_SpellData[index].spell);
+            for (const auto& realm : m_realms) {
+                const auto previous = std::ranges::find_if(realm->m_spells, [&](unsigned int id) {
+                    return m_character->spell_learned[id] == 2 &&
+                           (m_last_selected != id || m_creation_state->spell_points_total == 1);
+                });
+                if (previous != realm->m_spells.end()) {
+                    DeselectCreationSpell(m_character, m_creation_state, *previous);
                     break;
                 }
             }
         }
-        m_SpellData[uiSelected].selected = true;
-        SelectCreationSpell(m_character, m_creation_state, m_SpellData[uiSelected].spell);
-        m_last_selected = uiSelected;
+        SelectCreationSpell(m_character, m_creation_state, spell);
+        m_last_selected = spell;
     }
     UpdateSpellLists();
     m_contentDirty = true;
@@ -375,9 +340,9 @@ void W8CharacterSpellsPage::SelectSpell(unsigned int uiSelected)
     InvalidateAll();
 }
 
-void W8CharacterSpellsPage::ShowSpellInfo(unsigned int entry)
+void W8CharacterSpellsPage::ShowSpellInfo(unsigned int spell)
 {
-    m_screen->ShowSpellInfo(m_SpellData[entry].spell);
+    m_screen->ShowSpellInfo(spell);
 }
 
 W8CharacterSpellsPage* CreateCharacterSpellsPage()

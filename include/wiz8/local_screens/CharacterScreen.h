@@ -189,13 +189,6 @@ public:
     HitTarget* m_attribute_controls[5];
 };
 
-struct W8CharacterSpellEntry {
-    W8SpellRealm realm;
-    unsigned int spell;
-    bool fSelectable;
-    bool selected;
-};
-
 class W8CharacterSpellList;
 
 class W8CharacterSpellsPage : public W8CharacterPage {
@@ -216,10 +209,9 @@ public:
 private:
     void UpdateSpellLists();
     std::unique_ptr<W8CharacterSpellList> m_realms[6];
-    W8CharacterSpellEntry m_SpellData[114];
     W8GameTimer anim_timer;
     unsigned int m_animation_frames[6];
-    unsigned int m_last_selected;
+    std::optional<unsigned int> m_last_selected;
 };
 
 class W8CharacterSkillsPage : public W8CharacterPage {

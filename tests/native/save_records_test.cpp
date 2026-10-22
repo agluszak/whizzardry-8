@@ -1479,6 +1479,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
         sub.operand = 22;
         write(out, sub);
         quote = {};
+        quote.subquote_count = 7; // No subquote block: the runtime collection stays empty.
         memcpy(&quote.entries, &live_handle, sizeof(live_handle));
         write(out, quote);
         quote.entry_count = 1;
@@ -1491,10 +1492,10 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
         out.close();
         char filename[] = "data\\dialogue.nsf";
         auto file = LoadNpcScriptFile(filename);
-        REQUIRE((file && file->quote_count == 3));
+        REQUIRE((file && file->quotes.size() == 3));
         REQUIRE((marker ? file->name == "name" : file->name.empty()));
         W8NpcScriptQuote* quotes = file->quotes.data();
-        REQUIRE((quotes[0].subquote_count == 2 && quotes[0].subquotes[0] == "é中😀"));
+        REQUIRE((quotes[0].subquotes.size() == 2 && quotes[0].subquotes[0] == "é中😀"));
         REQUIRE(quotes[0].subquotes[1].empty());
         W8NpcQuoteSubEntry* subs = quotes[0].entries[0].sub_entries.data();
         REQUIRE((subs[0].operand == 11 && subs[0].text == "line"));
