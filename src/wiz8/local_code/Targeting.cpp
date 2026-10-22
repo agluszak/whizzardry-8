@@ -689,7 +689,7 @@ bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe)
 }
 
 // Select the best live enemy directly; no owning scratch array or sort is needed.
-static void CommitAutomaticWeaponChoice(int party_slot, const W8WeaponTarget& choice);
+static void CommitAutomaticWeaponChoice(int party_slot, W8WeaponSwap equipment);
 
 static int ChooseMonsterTarget(int party_slot, const W8Action& action,
                                std::optional<W8RangeCategory> attack_range = {})
@@ -1099,20 +1099,28 @@ std::optional<W8CombatSlot> ChooseEquippedMonsterTarget(int party_slot, const W8
     return MonsterTarget(selected);
 }
 
+/* A repicked monster, and the weapon set to change to when only the alternate set
+   reaches it. */
+struct MonsterRepick {
+    W8CombatSlot target;
+    std::optional<W8WeaponSwap> equipment;
+};
+
 /* The monster a live attack, spell or item action that needs an enemy turns to in combat:
-   the best monster, or one the alternate weapon set reaches, which commits the weapon
-   choice. */
-static std::optional<W8CombatSlot> RepickMonsterTarget(int party_slot, const W8Action& action)
+   the best monster, or one the alternate weapon set reaches. Choosing changes nothing;
+   the caller aims first and then commits the equipment, so settling the swap finds the
+   target already in play. */
+static std::optional<MonsterRepick> RepickMonsterTarget(int party_slot, const W8Action& action)
 {
-    if (const auto target = ChooseEquippedMonsterTarget(party_slot, action)) return target;
+    if (const auto target = ChooseEquippedMonsterTarget(party_slot, action))
+        return MonsterRepick{*target, std::nullopt};
     if (!NeedsMonsterTarget(action) ||
         (action.kind != W8_ACTION_ATTACK && action.kind != W8_ACTION_BERSERK)) {
         return std::nullopt;
     }
     const auto fallback = ChooseFallbackMonsterTarget(party_slot, action);
     if (!fallback) return std::nullopt;
-    CommitAutomaticWeaponChoice(party_slot, *fallback);
-    return MonsterTarget(fallback->location_id);
+    return MonsterRepick{MonsterTarget(fallback->location_id), fallback->equipment};
 }
 
 static W8CombatSlot ClearedTarget()
@@ -1139,7 +1147,8 @@ bool RepickActionTarget(int party_slot, W8TargetingContext stored, int arg)
     if (CurrentGame().combat.has_value() && stored == W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
         ++CurrentGame().combat->characters[party_slot].pending_action_repick_count;
     }
-    const auto new_target = RepickMonsterTarget(party_slot, selected_action);
+    const auto repick = RepickMonsterTarget(party_slot, selected_action);
+    const auto new_target = repick ? std::optional{repick->target} : std::optional<W8CombatSlot>{};
     if (new_target) {
         // 0x00536876: the new target goes into the selected action's block.
         AimStoredAction(party_slot, stored, *new_target);
@@ -1162,6 +1171,7 @@ bool RepickActionTarget(int party_slot, W8TargetingContext stored, int arg)
         new_target.value_or(ClearedTarget()).iType != previous_kind) {
         CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
     }
+    if (repick && repick->equipment) CommitAutomaticWeaponChoice(party_slot, *repick->equipment);
     return new_target.has_value();
 }
 
@@ -1170,9 +1180,10 @@ bool RepickDraftTarget(int party_slot, W8Action& draft)
     if (!CanPartySlotParticipate(party_slot)) {
         return false;
     }
-    const auto new_target = RepickMonsterTarget(party_slot, ParticipatingAction(party_slot, draft));
-    AimDraft(party_slot, draft, new_target.value_or(ClearedTarget()));
-    return new_target.has_value();
+    const auto repick = RepickMonsterTarget(party_slot, ParticipatingAction(party_slot, draft));
+    AimDraft(party_slot, draft, repick ? repick->target : ClearedTarget());
+    if (repick && repick->equipment) CommitAutomaticWeaponChoice(party_slot, *repick->equipment);
+    return repick.has_value();
 }
 
 // Eligibility and reach use the same action and target selected by the caller.
@@ -1623,16 +1634,9 @@ void RefreshAllPartyTargets(void)
                 const auto fallback = ChooseFallbackMonsterTarget(
                     party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT));
                 if (fallback) {
-                    CommitAutomaticWeaponChoice(party_slot, *fallback);
-                    const int selected = fallback->location_id;
-                    W8CombatSlot action;
-
-                    action = {};
-                    action.iType = W8_TARGET_KIND_MONSTER;
-                    action.iChar = BAD_INDEX;
-                    action.iMonsterID = selected;
-                    action.iGroupID = BAD_INDEX;
-                    AimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, action);
+                    AimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT,
+                                    MonsterTarget(fallback->location_id));
+                    CommitAutomaticWeaponChoice(party_slot, fallback->equipment);
                 }
             }
         }
@@ -1905,10 +1909,12 @@ std::optional<W8WeaponTarget> ChooseFallbackMonsterTarget(int party_slot, const 
     return W8WeaponTarget{target, *choice};
 }
 
-static void CommitAutomaticWeaponChoice(int party_slot, const W8WeaponTarget& choice)
+/* Change to the weapon set an automatic target choice needs. The target is aimed
+   beforehand, so the one settlement this swap starts keeps it. */
+static void CommitAutomaticWeaponChoice(int party_slot, W8WeaponSwap equipment)
 {
     CurrentGame().party.rows[party_slot].weapon_swap_pending ^= 1;
-    CommitWeaponSetSwap(CurrentGame(), party_slot, choice.equipment);
+    CommitWeaponSetSwap(CurrentGame(), party_slot, equipment);
     PostCharacterNotice(party_slot, Data().strings[0x26d]);
 }
 
