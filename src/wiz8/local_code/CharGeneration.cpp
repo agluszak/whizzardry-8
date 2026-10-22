@@ -161,7 +161,7 @@ void InitializeCharacterLevelUp(W8Character* character, W8CharacterCreationState
         PayDownAttributeDebt(character, creation_state);
     }
     CalcCharacterLevelBand(character);
-    RecalculateEditedCharacterStats(CurrentGame(), *character);
+    RecalculateEditedCharacterStats(*character);
     FinalizeSpellPointPool(character, creation_state);
 }
 
@@ -478,7 +478,7 @@ void AdjustAllocatedAttribute(W8Character* character, W8CharacterCreationState* 
     }
     creation_state->attributes_complete = true;
 complete:
-    RecalculateEditedCharacterStats(CurrentGame(), *character);
+    RecalculateEditedCharacterStats(*character);
     if (character->uiExpLevel == 1) {
         RebuildSkillAllocations(character, creation_state);
     }
@@ -752,7 +752,7 @@ int ComputeLevelUpSpellPointAward(W8Character* character, W8CharacterCreationSta
                     }
                 }
             }
-            RecalculateEditedCharacterStats(CurrentGame(), *character);
+            RecalculateEditedCharacterStats(*character);
             std::array<std::array<int, 2>, 6> pools;
             for (index = 0; index < 6; ++index) {
                 pools[index][0] = character->sp_max[index];
@@ -768,7 +768,7 @@ int ComputeLevelUpSpellPointAward(W8Character* character, W8CharacterCreationSta
                 for (index = 0; index < 0x72; ++index) {
                     character->spell_learned[index] = saved[index];
                 }
-                RecalculateEditedCharacterStats(CurrentGame(), *character);
+                RecalculateEditedCharacterStats(*character);
             }
         }
         return total;
@@ -800,7 +800,7 @@ void SelectCreationSpell(W8Character* character, W8CharacterCreationState* creat
     }
     if (creation_state->spell_points_remaining == 0) {
     }
-    RecalculateEditedCharacterStats(CurrentGame(), *character);
+    RecalculateEditedCharacterStats(*character);
 }
 
 /* Return one creation spell pick: the spell goes to declined, an auto-added
@@ -821,7 +821,7 @@ void DeselectCreationSpell(W8Character* character, W8CharacterCreationState* cre
             }
         }
         ++creation_state->spell_points_remaining;
-        RecalculateEditedCharacterStats(CurrentGame(), *character);
+        RecalculateEditedCharacterStats(*character);
     }
 }
 
@@ -1000,7 +1000,7 @@ void ApplyRaceProfessionTables(W8Character* character, W8CharacterCreationState*
             }
         }
     }
-    RecalculateEditedCharacterStats(CurrentGame(), *character);
+    RecalculateEditedCharacterStats(*character);
     if (character->uiExpLevel == 1) {
         if (character->gender != W8_GENDER_UNSET && character->iProfession != W8_PROFESSION_NONE &&
             character->iRace != W8_RACE_NONE) {
@@ -1048,7 +1048,7 @@ complete:
     CountRemainingSpellPoints(character, creation_state);
     RefreshCharacterSkillAvailability(CurrentGame().events, character);
     RecomputeSkillLimits(character, creation_state);
-    RecalculateEditedCharacterStats(CurrentGame(), *character);
+    RecalculateEditedCharacterStats(*character);
 }
 
 /* Finalize a created character: recompute the derived stats, hand out the
