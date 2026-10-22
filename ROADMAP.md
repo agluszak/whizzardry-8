@@ -258,8 +258,8 @@ the licensed runtime scenarios after every step.
      - Presentation calls left in those rules: sounds (`wiz8::sound::play`,
        `combat/sounds.cpp`), the camera
        (`PointCameraAtMonster`, `PointCameraAtCombatTarget`), the text box's queries and
-       edits (`GetTextBoxMode`, `AppendToLastTextLine`, `HighlightTextBoxRange`,
-       `RefreshTextBoxMode`, `SelectTextBox`), the character screen the scheduler opens
+       edits (`GetTextBoxMode`, `AppendToLastTextLine`, `RefreshTextBoxMode`,
+       `SelectTextBox`), the character screen the scheduler opens
        for an equip round (`OpenCharacterScreenForPartySlot`) and the selection
        auto-advance (`AutoAdvanceSelectedCharacter`). `Health Stamina Mana.cpp` still
        posts its notices directly.

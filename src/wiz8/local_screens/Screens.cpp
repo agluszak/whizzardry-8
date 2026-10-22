@@ -234,6 +234,10 @@ struct GameEventPresentation {
     {
         ShowNotice(notice.palette, notice.text, notice.text_box, notice.wrap_width,
                    notice.force_dialog);
+        if (const auto& highlight = notice.highlight;
+            highlight && highlight->palette != notice.palette)
+            HighlightTextBoxRange(static_cast<unsigned char>(highlight->palette), highlight->start,
+                                  highlight->stop, notice.text_box);
     }
     void operator()(const CharacterNotice& notice) const
     {

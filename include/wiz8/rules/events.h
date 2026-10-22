@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstddef>
 #include <functional>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -46,13 +48,22 @@ enum W8FontPaletteIndex {
     W8_FONT_PALETTE_COUNT = 16
 };
 
-// A line for the text box in a font palette, or a message dialog when forced.
+// The byte span [start, stop) of a notice's text, drawn in another font palette.
+struct NoticeHighlight {
+    unsigned int palette = 0;
+    std::size_t start = 0;
+    std::size_t stop = 0;
+};
+
+/* A line for the text box in a font palette, or a message dialog when forced. The
+   highlight, when set, is applied to the text before it is wrapped. */
 struct TextNotice {
     unsigned int palette = 0;
     std::string text;
     short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC;
     unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC;
     bool force_dialog = false;
+    std::optional<NoticeHighlight> highlight = std::nullopt;
 };
 
 /* A party member's line, "Name: text", the name in the member's marching-order
