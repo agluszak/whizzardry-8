@@ -27,9 +27,8 @@ struct W8GameSettings {
     unsigned char field_000;
     unsigned char numeric_hit_points;
     unsigned char unknown_002[0x4];
-    /* The main-game layout RefreshMainGameLayout selects. NONE is the
-       transient park Screens uses while it re-raises panels on main-game
-       enter. */
+    /* The player's preferred main-game layout. An open interaction overrides
+       it in the applied MainGameLayout without changing it. */
     W8MainUiMode main_ui_mode;
     unsigned char continuous_combat;
     unsigned char auto_advance_character;

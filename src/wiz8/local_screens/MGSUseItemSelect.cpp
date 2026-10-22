@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bitset>
 #include <cassert>
 #include <cstddef>
 #include <functional>
@@ -133,9 +134,7 @@ bool MainGameScreen::openItemPicker(int party_slot, std::move_only_function<void
         DestroySubMenuControls();
     }
     CloseNpcDialogueIfActive();
-    CloseMainGameOverlays();
-    RefreshMainGameLayout();
-    RestoreSpellCastingRegions();
+    refreshLayout();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     hud->text_box_visible = false;
@@ -153,13 +152,12 @@ void MainGameScreen::dismissItemPicker()
     if (!item_picker) return;
     SetTextBoxScrollInput(false);
     SetTextBoxEnabled(false);
-    hud->action_panel_visible = 0;
     SetTargetingMode(W8_TARGET_NEED_NONE);
     ResetEditorStatusLine(-1);
     hud->text_box_visible = true;
     SelectTextBox(game.combat.has_value());
     item_picker.reset();
-    RefreshMainGameLayout();
+    refreshLayout();
     hud->repaint.layout = true;
     hud->repaint.roof_and_spell_icons = true;
     hud->repaint.submenu_buttons = true;
@@ -221,16 +219,25 @@ void W8UseItemView::RefreshForSlot(int party_slot)
     Rebuild(pool, nullptr);
 }
 
-/* Keep the source buttons synced and redraw the dirty panels. */
-void W8UseItemView::Paint(bool all)
+void W8UseItemView::Repaint(int panel)
 {
-    UpdatePoolButtons();
-    dirty[0] |= pools[0]->m_dirty || pools[1]->m_dirty;
-    dirty[2] |= filter->m_dirty || close->m_dirty;
+    if (screen.hud) screen.hud->repaint.mode_panels.set(panel);
+}
+
+void W8UseItemView::UpdatePanels(std::bitset<7>& panels)
+{
+    if (pools[0]->m_dirty || pools[1]->m_dirty) panels.set(0);
+    if (filter->m_dirty || close->m_dirty) panels.set(2);
+}
+
+/* Paint the given item-use panels: the source caption and buttons, the list's
+   scroll chrome, and the actions with the chosen item and its quantity. */
+void W8UseItemView::PaintPanels(std::bitset<7> panels)
+{
     auto& target = GetFrameBufferSurface();
     const int x[]{0x17, 0xa4, 0x1dc};
     for (int panel = 0; panel < 3; ++panel) {
-        if (!all && !dirty[panel]) continue;
+        if (!panels.test(panel)) continue;
         CatalogArtwork::Load(0x97, 0).drawAndInvalidate(target, panel, x[panel], 0x166);
         if (panel == 0) {
             caption.RenderToTarget(0, true, target);
@@ -246,13 +253,11 @@ void W8UseItemView::Paint(bool all)
                 actions.draw(target, index * 5 + 3, 0x212 + (index % 3) * 17,
                              0x16c + (index / 3) * 17);
             CatalogArtwork::Load(0x1aa, 0).draw(target, 0x21, 0x211, 0x18d);
-            filter->m_dirty = close->m_dirty = true;
-            filter->Refresh();
-            close->Refresh();
+            filter->Refresh(true);
+            close->Refresh(true);
             if (item_image) DrawSpriteAndInvalidate(target, *item_image, 0, 0x1e1, 0x16b);
             quantity.RenderToTarget(0, true, target);
         }
-        dirty[panel] = false;
     }
 }
 
@@ -300,7 +305,7 @@ void W8UseItemView::Rebuild(Pool source, W8ItemInstance* select)
     detail_item = 0;
     item_image.reset();
     quantity.SetText("", g_large_font);
-    dirty[2] = true;
+    Repaint(2);
     SelectSpellCastingPartySlot(owner, draft);
     pool = source;
     filter->SetEnabled(true);
@@ -321,7 +326,7 @@ void W8UseItemView::Rebuild(Pool source, W8ItemInstance* select)
     ShowList(select);
     UpdatePoolButtons();
     ScrollTextBoxTo(0);
-    InvalidatePanel();
+    Repaint(1);
 }
 
 // Classify once; stable partition preserves inventory order within each band.
@@ -550,7 +555,7 @@ void W8UseItemView::UpdateDetailPanel(W8ItemInstance* item)
         value = "";
     }
     quantity.SetText(value, g_wiz_text_font_secondary);
-    dirty[2] = true;
+    Repaint(2);
     detail_item = item;
 }
 

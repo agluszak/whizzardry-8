@@ -74,9 +74,13 @@ struct FormationPanel {
     std::array<ButtonInteraction, 15> cells{};
     std::array<bool, 15> highlighted{};
     std::array<std::unique_ptr<W8ButtonWidget>, 3> actions;
-    bool dirty = true;
 };
 std::unique_ptr<FormationPanel> formation;
+
+void RepaintFormationPanel()
+{
+    if (auto* hud = MainGameHud()) hud->repaint.formation_panel = true;
+}
 constexpr ButtonPolicy cell_policy{.primary_toggle = ButtonToggle::Release,
                                    .input_rule = ButtonInputRule::PrimaryPressedState};
 }
@@ -130,7 +134,7 @@ void RefreshFormationBoard(void)
     if (CurrentGame().status.selected_character != -1) {
         FaceCameraToSelection(CurrentGame().status.selected_character);
     }
-    if (!MainGameHud()->formation_board_visible) {
+    if (!MainGame()->layout().formation_board) {
         return;
     }
     ReleaseFormationBoard();
@@ -229,6 +233,7 @@ static void ResetFormationPanel(void);
 static void CreateFormationPanel()
 {
     formation = std::make_unique<FormationPanel>();
+    RepaintFormationPanel();
     for (int cell = 0; cell < 15; ++cell) {
         const auto position = g_formation_cell_positions[cell];
         formation->targets[cell] = &formation->input.add(
@@ -263,7 +268,7 @@ static void CreateFormationPanel()
 void RefreshFormationPanel(bool force)
 {
     if (!formation) return;
-    bool dirty = force || formation->dirty;
+    bool dirty = force;
     for (auto& button : formation->actions) dirty |= button->TakeDirty();
     if (!dirty) return;
     auto& target = GetFrameBufferSurface();
@@ -287,7 +292,6 @@ void RefreshFormationPanel(bool force)
         chips.draw(target, chip, 0xd6 + position.x, 0x3c + position.y);
     }
     for (auto& button : formation->actions) button->Draw(target);
-    formation->dirty = false;
 }
 
 /* Open the formation panel: build the controls, snapshot the live formation
@@ -384,12 +388,12 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
                     return UiResult::Handled;
                 }
                 BeginFormationDrag();
-                formation->dirty = true;
+                RepaintFormationPanel();
             }
             return UiResult::Handled;
         case UiPointerAction::Down:
             formation->cells[id].press(SDL_BUTTON_LMASK, cell_policy);
-            formation->dirty = true;
+            RepaintFormationPanel();
             g_formation_drag_clock = MonotonicMilliseconds() + 250;
             return UiResult::Handled;
         case UiPointerAction::Up:
@@ -397,7 +401,7 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
                 g_formation_active_cell = id;
                 if (formation->cells[id].release(SDL_BUTTON_LMASK, cell_policy).activate)
                     SelectFormationCell();
-                formation->dirty = true;
+                RepaintFormationPanel();
             }
             if (g_formation_drag_cell != -1) DropFormationSlot(id);
             return UiResult::Handled;
@@ -408,12 +412,12 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
     if (event.action == UiPointerAction::Leave) {
         formation->cells[id].leave(cell_policy);
         formation->highlighted[id] = false;
-        formation->dirty = true;
+        RepaintFormationPanel();
         if ((event.buttons & SDL_BUTTON_LMASK) && g_formation_drag_cell == -1 &&
             CanHoldFormationPlace(FormationCellSlot(id))) {
             g_formation_active_cell = id;
             BeginFormationDrag();
-            formation->dirty = true;
+            RepaintFormationPanel();
         }
         g_formation_active_cell = -1;
         SetTooltipSubject(W8_HIGHLIGHT_FORMATION, -1);
@@ -422,7 +426,7 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
     if (event.action == UiPointerAction::Enter ||
         (event.action == UiPointerAction::Move && g_formation_active_cell == -1)) {
         formation->highlighted[id] = true;
-        formation->dirty = true;
+        RepaintFormationPanel();
         g_formation_active_cell = id;
         SetTooltipSubject(W8_HIGHLIGHT_FORMATION, FormationCellSlot(id));
         return UiResult::Handled;
@@ -477,7 +481,7 @@ static void BeginFormationDrag()
     WarpSystemCursor(point.x - 0x10, point.y - 0x10);
     RefreshMouseCursorTexture();
     ScreenPointer().showCustom();
-    formation->dirty = true;
+    RepaintFormationPanel();
 }
 
 /* Drop the dragged character: into an empty cell it re-seats the row, onto a
@@ -515,7 +519,7 @@ void SelectFormationSlotCell(int party_slot)
         auto& state = formation->cells[cell];
         state.pressed = state.selected = party_slot != -1 && FormationCellSlot(cell) == party_slot;
     }
-    formation->dirty = true;
+    RepaintFormationPanel();
 }
 
 void CloseFormationPanel(void)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <bitset>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -49,7 +50,6 @@ struct W8SpellCastingView {
     std::array<std::array<int, 5>, 9> power_frames;
     std::unique_ptr<W8ButtonWidget> cancel;
     W8TextBuffer spell_name;
-    std::array<bool, 3> dirty{true, true, true};
     struct SpellRow {
         int spell;
         signed char color;
@@ -67,8 +67,10 @@ struct W8SpellCastingView {
     /* Select the spell's realm and list row. */
     void SelectSpell(int spell_id);
     void SelectPowerLevel(int power_level);
-    /* Redraw the dirty panels, or every panel when `all` is set. */
-    void PaintPanels(bool all);
+    /* Before the draw, add the panels whose widgets changed to `panels`; the draw
+       then paints the requested ones. */
+    void UpdatePanels(std::bitset<7>& panels);
+    void PaintPanels(std::bitset<7> panels);
     /* Per frame: advance the realm icon and commit a ready cast. */
     void Update();
     /* Text-box body input while the picker is open. */
@@ -77,6 +79,8 @@ struct W8SpellCastingView {
     void Cancel();
 
 private:
+    // Request a panel's repaint.
+    void Repaint(int panel);
     void UpdateRealmPointDisplays();
     void ClearChoice();
     void RefreshAvailablePowerPips();

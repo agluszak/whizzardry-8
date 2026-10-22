@@ -956,9 +956,7 @@ void Game::endCombat(bool forced_cleanup)
     if (party_movement_mode) {
         BeginFreeTurnPhase();
     }
-    if (PartyMovementPanelShown()) {
-        ReleasePartyMovement();
-    }
+    ReleasePartyMovement();
     CurrentGame().events.push(PartyEffectsChanged{});
 
     CurrentGame().events.push(TargetingRequested{});
@@ -1108,12 +1106,7 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
                                                               : W8_PARTY_ACTION_RUN);
         }
     }
-    if (!PartyMovementPanelShown()) {
-        CreatePartyMovementPanel();
-        CurrentGame().events.push(TargetingRequested{});
-        return;
-    }
-    InvalidatePartyMovementPanel();
+    ShowPartyMovementPanel();
     CurrentGame().events.push(TargetingRequested{});
 }
 

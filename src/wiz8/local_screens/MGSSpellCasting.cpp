@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bitset>
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>
@@ -126,7 +127,7 @@ void W8SpellCastingView::CreateControls()
             0x191, {frame + 2, frame, frame + 1, frame + 3, frame + 3},
             {0x17 + pos.x, 0x166 + pos.y, 75, 22}, -1,
             [this, realm] { SelectRealm(static_cast<W8SpellRealm>(realm)); },
-            [this](bool) { dirty[0] = true; });
+            [this](bool) { Repaint(0); });
         const auto tooltip = [this, realm] {
             const auto& name = Data().strings[g_spell_realm_help_string_ids[realm]];
             if (!realm_buttons[realm]->IsEnabled()) return std::string(name);
@@ -202,15 +203,13 @@ bool MainGameScreen::openSpellPicker(int party_slot, std::move_only_function<voi
     if (hud->open_submenu) {
         DestroySubMenuControls();
     }
-    CloseMainGameOverlays();
-    RefreshMainGameLayout();
+    refreshLayout();
     if (game.activity.conversation_aside) {
         for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
             DisableMainGamePortraitSlot(index);
             edge_targets[index]->setEnabled(false);
         }
     }
-    RestoreSpellCastingRegions();
     view.input.setEnabled(true);
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
@@ -230,7 +229,6 @@ void MainGameScreen::dismissSpellPicker()
     if (!spell_picker) return;
     spell_picker->input.setEnabled(false);
     SetTextBoxScrollInput(false);
-    hud->action_panel_visible = 0;
     SetTargetingMode(W8_TARGET_NEED_NONE);
     if (!game.activity.conversation_aside) {
         ResetEditorStatusLine(-1);
@@ -239,7 +237,7 @@ void MainGameScreen::dismissSpellPicker()
     SelectTextBox(game.combat.has_value());
     SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
     spell_picker.reset();
-    RefreshMainGameLayout();
+    refreshLayout();
     hud->repaint.layout = true;
     hud->repaint.roof_and_spell_icons = true;
     hud->repaint.submenu_buttons = true;
@@ -261,7 +259,6 @@ void RestoreSpellCastingRegions()
 {
     SetTextBoxEnabled(true);
     SetTextBoxScrollInput(true);
-    MainGameHud()->action_panel_visible = 1;
     SetTextBoxMuteInput(false);
     SetTextBoxChannelTabInput(false);
 }
@@ -312,7 +309,7 @@ void W8SpellCastingView::SelectCharacter(int party_slot)
         return;
     }
     if (caster->sp_max[realm] == 0) {
-        dirty[0] = true;
+        Repaint(0);
         iSpellRealm = W8_SPELL_REALM_NONE;
         ResetEditorStatusLine(-1);
         return;
@@ -330,7 +327,7 @@ void W8SpellCastingView::UpdateRealmPointDisplays()
         bool has_realm = caster->sp_max[realm] != 0;
         realm_buttons[realm]->SetEnabled(has_realm);
         realm_text[realm].SetFontStateIndex(has_realm ? -1 : 0);
-        dirty[0] = true;
+        Repaint(0);
         realm_text[realm].SetText(
             fmt::format("{:d}/{:d}",
                         GetCharacterRealmSpellPoints(caster, static_cast<W8SpellRealm>(realm)),
@@ -361,7 +358,7 @@ void W8SpellCastingView::UpdatePowerPips()
     const auto levels = AffordablePowerLevels();
     unsigned int pip;
     W8SpellCastRating rating;
-    dirty[2] = true;
+    Repaint(2);
 
     if (levels == 0 || PowerClass() == W8_SPELL_POWER_FIXED) {
         for (pip = 0; pip < W8_SPELL_POWER_PIP_COUNT; ++pip) {
@@ -429,7 +426,7 @@ void W8SpellCastingView::RefreshPowerPip(int pip)
     frames[2] = pip == 8 ? frame : frame + 1;
     frames[3] = frame + 2;
     frames[4] = pip == 8 ? frame + 2 : frame + 4;
-    dirty[2] = true;
+    Repaint(2);
 }
 
 /* Evaluate each learned spell once, then display castable spells first while
@@ -543,31 +540,49 @@ void W8SpellCastingView::SelectSpell(int spell_id)
     RebuildList(spell_id);
 }
 
-/* Redraws every live spell-casting panel; the middle panel's pending text
-   update is flushed through the message storage. */
-void W8SpellCastingView::PaintPanels(bool active)
+void W8SpellCastingView::Repaint(int panel)
 {
-    auto& view = *this;
+    if (screen.hud) screen.hud->repaint.mode_panels.set(panel);
+}
+
+/* Before the draw: a changed widget repaints its panel, and a repainted power
+   panel takes the pips' current frames. */
+void W8SpellCastingView::UpdatePanels(std::bitset<7>& panels)
+{
+    for (const auto& button : realm_buttons)
+        if (button->m_dirty) panels.set(0);
+    for (const auto& button : power_controls)
+        if (button->m_dirty) panels.set(2);
+    if (cancel->m_dirty) panels.set(2);
+    if (!panels.test(2)) return;
+    for (int pip = 0; pip < 9; ++pip) {
+        const auto& f = power_frames[pip];
+        power_controls[pip]->SetImage(ButtonGraphics::Load(
+            CatalogArtwork::Load(0x192, 0).spriteSheet(), f[0], f[1], f[2], f[3], f[4]));
+    }
+}
+
+/* Paint the given spell-casting panels: the realm buttons and their icons, the
+   list's scroll chrome, and the power pips with the spell name. */
+void W8SpellCastingView::PaintPanels(std::bitset<7> panels)
+{
     auto& target = GetFrameBufferSurface();
-    for (const auto& button : view.realm_buttons) view.dirty[0] |= button->m_dirty;
-    for (const auto& button : view.power_controls) view.dirty[2] |= button->m_dirty;
-    view.dirty[2] |= view.cancel->m_dirty;
     constexpr int origins[] = {0x17, 0xe6, 0x1a4};
     constexpr SDL_Point icons[] = {{0x55, 0xf},  {0x73, 0xf},  {0x49, 0x25},
                                    {0x7f, 0x25}, {0x55, 0x3b}, {0x73, 0x3b}};
     for (int panel = 0; panel < 3; ++panel) {
-        if (!active && !view.dirty[panel]) continue;
+        if (!panels.test(panel)) continue;
         CatalogArtwork::Load(400, 0).drawAndInvalidate(target, panel, origins[panel], 0x166);
         if (panel == 0) {
             for (int realm = 0; realm < 6; ++realm) {
-                auto& button = *view.realm_buttons[realm];
+                auto& button = *realm_buttons[realm];
                 button.Refresh(true);
                 const int offset = button.IsPressed() ? 1 : 0;
-                view.realm_text[realm].RenderText(target, offset, offset, true);
+                realm_text[realm].RenderText(target, offset, offset, true);
                 const auto& animation = g_spell_realm_animations[realm];
-                const int frame = !button.IsEnabled()         ? animation.frame_count
-                                  : view.iSpellRealm == realm ? view.realm_anim_frame
-                                                              : animation.initial_frame;
+                const int frame = !button.IsEnabled()    ? animation.frame_count
+                                  : iSpellRealm == realm ? realm_anim_frame
+                                                         : animation.initial_frame;
                 CatalogArtwork::Load(0x193 + realm, 0)
                     .drawAndInvalidate(target, frame, 0x17 + icons[realm].x,
                                        0x166 + icons[realm].y);
@@ -575,16 +590,10 @@ void W8SpellCastingView::PaintPanels(bool active)
         } else if (panel == 1) {
             RedrawTextBoxScrollChrome();
         } else {
-            for (int pip = 0; pip < 9; ++pip) {
-                const auto& f = view.power_frames[pip];
-                view.power_controls[pip]->SetImage(ButtonGraphics::Load(
-                    CatalogArtwork::Load(0x192, 0).spriteSheet(), f[0], f[1], f[2], f[3], f[4]));
-                view.power_controls[pip]->Refresh();
-            }
-            view.cancel->Refresh(true);
-            view.spell_name.RenderToTarget(0, true, target);
+            for (const auto& button : power_controls) button->Refresh();
+            cancel->Refresh(true);
+            spell_name.RenderToTarget(0, true, target);
         }
-        view.dirty[panel] = false;
     }
 }
 
@@ -603,13 +612,13 @@ void W8SpellCastingView::SelectRealm(W8SpellRealm realm)
     previous = iSpellRealm;
     if (previous != realm) {
         if (previous != W8_SPELL_REALM_NONE) {
-            dirty[0] = true;
+            Repaint(0);
             realm_buttons[iSpellRealm]->SetPressed(false);
             realm_buttons[iSpellRealm]->m_dirty = true;
         }
         iSpellRealm = realm;
         realm_anim_frame = g_spell_realm_animations[iSpellRealm].initial_frame;
-        dirty[0] = true;
+        Repaint(0);
         realm_anim_timer = MonotonicMilliseconds() + (0x32);
         RebuildList(W8_SPELL_NONE);
         ClearChoice();
@@ -637,13 +646,13 @@ void W8SpellCastingView::SelectPip7()
         spell_name.SetRenderMode(4);
         spell_name.SetText("?", g_wiz_text_font_secondary);
         draft.detail_block.spell.power_level = 8;
-        dirty[2] = true;
+        Repaint(2);
         return;
     }
     spell_name.SetRenderMode(4);
     spell_name.SetText("", g_wiz_text_font_secondary);
     draft.detail_block.spell.power_level = 0;
-    dirty[2] = true;
+    Repaint(2);
 }
 
 /* The max-power pip: while its secondary state is lit it prices the name
@@ -654,11 +663,11 @@ void W8SpellCastingView::SelectPip8()
         spell_name.SetRenderMode(4);
         spell_name.SetText("?", g_wiz_text_font_secondary);
         draft.detail_block.spell.power_level = 8;
-        dirty[2] = true;
+        Repaint(2);
         return;
     }
     power_controls[8]->SetPressed(true);
-    dirty[2] = true;
+    Repaint(2);
 }
 
 /* Records the chosen power level: pips through the level light, pips above it
@@ -668,7 +677,7 @@ void W8SpellCastingView::SelectPowerLevel(int power_level)
     int pip;
     std::string text;
 
-    dirty[2] = true;
+    Repaint(2);
     if (power_level == -1 || (power_controls[power_level]->IsPressed() == 0 &&
                               draft.detail_block.spell.power_level == power_level + 1)) {
         for (pip = 0; pip < 7; ++pip) {
@@ -684,7 +693,7 @@ void W8SpellCastingView::SelectPowerLevel(int power_level)
                 spell_name.SetText("?", g_wiz_text_font_secondary);
                 draft.detail_block.spell.power_level = 8;
             }
-            dirty[2] = true;
+            Repaint(2);
             return;
         }
         spell_name.SetRenderMode(4);
@@ -725,7 +734,7 @@ void W8SpellCastingView::PreviewPowerPipHover(int power_level)
              PowerClass() == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT) &&
             (power_level == -1 || (power_controls[power_level]->IsVisible() &&
                                    power_controls[power_level]->IsEnabled()))) {
-            dirty[2] = true;
+            Repaint(2);
             if (power_level != -1) {
                 spell_name.SetRenderMode(6);
                 text = fmt::format("{:d}", (power_level + 1) *
@@ -780,9 +789,8 @@ void W8SpellCastingView::Update()
             if (realm_anim_frame == g_spell_realm_animations[iSpellRealm].frame_count) {
                 realm_anim_frame = 0;
             }
-            dirty[0] = true;
+            Repaint(0);
             realm_anim_timer = MonotonicMilliseconds() + (0x32);
-            if (auto* hud = screen.hud.get()) hud->repaint.panels = true;
         }
     }
     TryCommit();

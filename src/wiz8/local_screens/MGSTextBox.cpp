@@ -871,7 +871,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
         rows = 7;
     }
 
-    if (MainGameHud()->action_panel_visible == 0) {
+    if (!MainGame()->layout().bottom_panel) {
         can_scroll_down = scroll + static_cast<unsigned int>(GetTextBoxVisibleLineCount()) <
                           CurrentGame().status.text_box_lines_shown[text_box];
         if (!can_scroll_down &&
@@ -931,7 +931,7 @@ void RedrawTextBoxScrollChrome(void)
     clip.h = (0x1db) - clip.y;
     ScopedClipRect clipped(framebuffer, clip);
 
-    if (MainGameHud()->action_panel_visible != 0) {
+    if (MainGame()->layout().bottom_panel) {
         text_box = CurrentGame().status.text_line_cursor;
         scroll = MainGameHud()->text_lines[text_box];
         if (scroll == 0) {
@@ -998,16 +998,6 @@ void RedrawTextBoxScrollChrome(void)
     InvalidateRegion(MainGameHud()->text_box_right + 5, 0x16b, MainGameHud()->text_box_right + 0x1e,
                      0x1c1);
     RedrawTextBoxBody(false);
-}
-
-/* Invalidate the text and action panels around a status-panel text refresh. */
-void RedrawTextBoxComplete(void)
-{
-    W8TrapInteraction* screen = TrapInteraction();
-
-    screen->m_text_panel->InvalidateAll();
-    screen->m_status_panel->RefreshStatusTexts();
-    screen->actions_dirty = true;
 }
 
 /* The last message on the current line whose clock has stopped, searched from

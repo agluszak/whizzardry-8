@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <bitset>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -28,14 +29,18 @@ public:
     std::move_only_function<void()> on_return;
 
     void SetInputEnabled(bool enabled) { input.setEnabled(enabled); }
-    void InvalidatePanel() { dirty[1] = true; }
     /* Retarget the list at party_slot (drag, recorded item, or plain refresh
        paths), closing the picker when the slot cannot act. */
     void RefreshForSlot(int party_slot);
     /* After dropping a cursor item, rebuild the list under the current pool. */
     void Refresh();
-    /* Redraw the dirty panels, or every panel when `all` is set. */
-    void Paint(bool all);
+    /* Before the draw: keep the source buttons in step with the picker (combat
+       moves a party list back to the character). */
+    void UpdatePoolButtons();
+    /* Add the panels whose widgets changed to `panels`; the draw then paints the
+       requested ones. */
+    void UpdatePanels(std::bitset<7>& panels);
+    void PaintPanels(std::bitset<7> panels);
     /* Per frame: hand a ready use to its character. */
     void Commit();
     /* Text-box body input and wheel rotation while the picker is open. */
@@ -51,9 +56,10 @@ private:
         bool usable;
     };
 
+    // Request a panel's repaint.
+    void Repaint(int panel);
     void CreateControls();
     void SelectPool(Pool pool);
-    void UpdatePoolButtons();
     void Rebuild(Pool pool, W8ItemInstance* select);
     void AppendEntry(W8ItemLocation location);
     void ShowList(W8ItemInstance* select);
@@ -79,7 +85,6 @@ private:
     W8TextBuffer caption;
     W8TextBuffer quantity;
     std::shared_ptr<const SpriteSheet> item_image;
-    std::array<bool, 3> dirty{true, true, true};
 };
 
 /* The main game's open use-item picker, or null. */
