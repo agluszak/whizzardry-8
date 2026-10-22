@@ -309,6 +309,17 @@ void CampSpellsScenario()
     game.command(W8_MGS_COMMAND_INVENTORY);
     game.wait_screen("camp-spells", W8_SCREEN_CAMP);
     ExpectScreen(game, "camp");
+    // Projecting the model every frame must not erase a captured press, and
+    // clicking the selected action cancels the action rather than a widget flag.
+    auto* camp = FindScreen<CampScreen>();
+    game.press_at(66, 466);
+    game.frame();
+    REQUIRE(camp->items.action() == W8_CAMP_ITEM_ACTION_NONE);
+    game.release_at(66, 466);
+    REQUIRE(camp->items.action() == W8_CAMP_ITEM_ACTION_MOVE);
+    game.click_at(66, 466);
+    REQUIRE(camp->items.action() == W8_CAMP_ITEM_ACTION_NONE);
+
     // Identify from the inventory action strip must cast on the clicked item,
     // spend mana and show its information, rather than book an empty target.
     auto& caster = CurrentGame().party.characters[PremadeSlot()];

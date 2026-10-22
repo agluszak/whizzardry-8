@@ -37,6 +37,7 @@
 #include "wiz8/cursor.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -137,11 +138,6 @@ bool CampDialogs::ProcessInput()
     return true;
 }
 
-int CampPartySlot(const W8Character& character)
-{
-    if (const auto slot = CurrentGame().party.slotOf(character)) return static_cast<int>(*slot);
-    return -1;
-}
 std::uint64_t g_fade_tick_base;
 void (*g_fade_callback)(void);
 unsigned char g_fade_flag;
@@ -200,7 +196,7 @@ void W8CampSpellsPage::RefreshCampSpellRanges(void)
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         spell_range = spell_ranges[realm].get();
         spell_range->SetActive(true);
-        second = character->skill_unlocks[0x1c + realm] - 8;
+        second = camp.reviewed->skill_unlocks[0x1c + realm] - 8;
         if (second < 1) {
             spell_range->SetEnabled(false);
         } else {
@@ -216,6 +212,7 @@ void W8CampSpellsPage::RefreshCampSpellRanges(void)
    unusable spells dim. */
 void W8CampSpellsPage::DrawCampSpellPages(bool full, bool dialog_open)
 {
+    const auto& data = camp.game.rules().data;
     const W8SpellRealmAnimation* animation;
     int realm;
     int row;
@@ -239,31 +236,31 @@ void W8CampSpellsPage::DrawCampSpellPages(bool full, bool dialog_open)
         }
         left = (realm % 3) * 0xd5 + 3;
         top = (realm / 3) * 0x8c + 0xaa;
-        if (character->skill_unlocks[0x1c + realm] != 0) {
+        if (camp.reviewed->skill_unlocks[0x1c + realm] != 0) {
             CatalogArtwork::Load(0x140, 0).drawAndInvalidate(GetFrameBufferSurface(), 3, left, top);
             g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x1b, top + 8},
-                     fmt::format("{}:", Data().strings[0x8c7]));
+                     fmt::format("{}:", data.strings[0x8c7]));
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x72, top + 8},
-                     Data().strings[0x8c9]);
+                     data.strings[0x8c9]);
             g_wiz_text_font_secondary.resetPalette();
-            width = g_wiz_text_font_secondary.textWidth(fmt::format("{}: ", Data().strings[0x8c7]));
-            DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
-                     {left + 0x1b + width, top + 8},
-                     fmt::format("{:3d}", character->skills[W8_SKILL_FIRE_MAGIC + realm].level));
+            width = g_wiz_text_font_secondary.textWidth(fmt::format("{}: ", data.strings[0x8c7]));
+            DrawText(
+                GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x1b + width, top + 8},
+                fmt::format("{:3d}", camp.reviewed->skills[W8_SKILL_FIRE_MAGIC + realm].level));
             width = g_wiz_text_font_secondary.codepointPrefixWidth(
                 fmt::format(
                     "{:d}/{:d}",
-                    GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
-                    character->sp_max[realm]),
+                    GetCharacterRealmSpellPoints(camp.reviewed, static_cast<W8SpellRealm>(realm)),
+                    camp.reviewed->sp_max[realm]),
                 7);
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                      {left + 0xc8 - width, top + 8},
-                     fmt::format(
-                         "{:d}/{:d}",
-                         GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
-                         character->sp_max[realm]));
-            visible = character->skill_unlocks[0x1c + realm];
+                     fmt::format("{:d}/{:d}",
+                                 GetCharacterRealmSpellPoints(camp.reviewed,
+                                                              static_cast<W8SpellRealm>(realm)),
+                                 camp.reviewed->sp_max[realm]));
+            visible = camp.reviewed->skill_unlocks[0x1c + realm];
             if (visible >= 8) {
                 visible = 8;
             }
@@ -273,7 +270,8 @@ void W8CampSpellsPage::DrawCampSpellPages(bool full, bool dialog_open)
                     learned_spells.spell_ids_by_realm[realm][learned_spells.scroll[realm] + row];
                 if (spell_targets[realm]->hovered() && selected_spell_row == row) {
                     palette = g_font_state_palettes[W8_FONT_PALETTE_YELLOW];
-                } else if (Data().spells[spell_id].spell_point_cost <= character->iSPLeft[realm] &&
+                } else if (data.spells[spell_id].spell_point_cost <=
+                               camp.reviewed->iSPLeft[realm] &&
                            SpellUsableNow(spell_id, false)) {
                     palette = g_wiz_text_font_secondary.glyphs->colors;
                 } else {
@@ -281,12 +279,12 @@ void W8CampSpellsPage::DrawCampSpellPages(bool full, bool dialog_open)
                 }
                 g_wiz_text_font_secondary.setPalette(palette);
                 width = g_wiz_text_font_secondary.codepointPrefixWidth(
-                    fmt::format("{:03d}", Data().spells[spell_id].spell_point_cost), 3);
+                    fmt::format("{:03d}", data.spells[spell_id].spell_point_cost), 3);
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x1c, row_top},
-                         Data().spells[spell_id].display_name);
+                         data.spells[spell_id].display_name);
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                          {left + 0xb1 - width, row_top},
-                         fmt::format("{:3d}", Data().spells[spell_id].spell_point_cost));
+                         fmt::format("{:3d}", data.spells[spell_id].spell_point_cost));
                 row_top += 0xd;
             }
             g_wiz_text_font_secondary.resetPalette();
@@ -301,7 +299,7 @@ void W8CampSpellsPage::DrawCampSpellPages(bool full, bool dialog_open)
             continue;
         }
         animation = &g_spell_realm_animations[realm];
-        if (character->sp_max[realm] != 0) {
+        if (camp.reviewed->sp_max[realm] != 0) {
             CatalogArtwork::Load(animation->image, 0)
                 .drawAndInvalidate(GetFrameBufferSurface(), animation_frames[realm],
                                    (realm % 3) * 213 + 5, (realm / 3) * 140 + 0xac);
@@ -326,7 +324,7 @@ void W8CampSpellsPage::DrawCampResistances(void)
     int width;
 
     CatalogArtwork::Load(0x140, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x136, 0);
-    text = Data().strings[0x8ca];
+    text = camp.game.rules().data.strings[0x8ca];
     width = g_wiz_text_font_secondary.textWidth(text);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
              {(0x134 - width) / 2 + 0x144, 0x1e}, text);
@@ -336,12 +334,12 @@ void W8CampSpellsPage::DrawCampResistances(void)
         top = (index >> 1) * 28 + 0x35;
         CatalogArtwork::Load(animation->image, 0)
             .draw(GetFrameBufferSurface(), animation->initial_frame, left, top);
-        DrawCampValueBar(character->resistances[index].total, character->resistances[index].base,
-                         left + 0x18, top + 4);
+        DrawCampValueBar(camp.reviewed->resistances[index].total,
+                         camp.reviewed->resistances[index].base, left + 0x18, top + 4);
         width = g_wiz_text_font_secondary.codepointPrefixWidth(
-            fmt::format("{:d}", character->resistances[index].total), 5);
+            fmt::format("{:d}", camp.reviewed->resistances[index].total), 5);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {left + 0x93 - width, top + 3},
-                 fmt::format("{:d}", character->resistances[index].total));
+                 fmt::format("{:d}", camp.reviewed->resistances[index].total));
     }
 }
 
@@ -353,7 +351,7 @@ UiResult W8CampSpellsPage::HandleCampSpellList(const UiPointerEvent& event, int 
 {
 
     int row = (event.local.y - 1) / 13;
-    const int visible = std::min(8, int(character->skill_unlocks[0x1c + realm]) -
+    const int visible = std::min(8, int(camp.reviewed->skill_unlocks[0x1c + realm]) -
                                         int(learned_spells.scroll[realm]));
     if (!event.inside || row < 0 || row >= visible) row = -1;
     if (row != selected_spell_row || event.action == UiPointerAction::Enter ||
@@ -376,16 +374,12 @@ void W8CampSpellsPage::OpenSpellInfoDialog(unsigned int spell_id)
 {
     auto dialog = std::make_unique<W8SpellInfoDialog>(spell_id);
     dialog->SetText("");
-    dialogs.Display(std::move(dialog));
+    camp.dialogs.Display(std::move(dialog));
 }
 
 W8CampCharacterInfo::W8CampCharacterInfo()
 {
     input.setEnabled(false);
-}
-
-void W8CampCharacterInfo::CreateControls()
-{
     const auto button = [this](int frame, int help, bool combat) {
         auto result = std::make_unique<W8ButtonWidget>(input);
         result->Configure(
@@ -412,6 +406,7 @@ void W8CampCharacterInfo::CreateControls()
 
 void W8CampCharacterInfo::SetActive(bool enabled)
 {
+    if (m_active == enabled) return;
     m_active = enabled;
     input.setEnabled(enabled);
     if (enabled) SetCombatView(m_combat_view);
@@ -595,23 +590,21 @@ bool W8CampCharacterInfo::Redraw(SDL_Surface& target, const W8Character& charact
 
 void CampScreen::CreateCampInput()
 {
-    items.CreateInput();
-    spells.CreateInput();
     main_targets[0] =
         &main_input.add(SDL_Rect{164, 12, 91, 73}, [this](const UiPointerEvent& event) {
             return HandleCampDismissPortrait(event);
         });
-    main_targets[0]->setTooltip([] { return Data().strings[2368]; });
+    main_targets[0]->setTooltip([this] { return game.rules().data.strings[2368]; });
     main_targets[9] =
         &main_input.add(SDL_Rect{106, 96, 197, 14}, [this](const UiPointerEvent& event) {
             return HandleCampCharacterHeader(event);
         });
-    main_targets[9]->setTooltip([] { return Data().strings[2362]; });
+    main_targets[9]->setTooltip([this] { return game.rules().data.strings[2362]; });
     main_targets[10] =
         &main_input.add(SDL_Rect{106, 124, 197, 10}, [this](const UiPointerEvent& event) {
             return HandleCampProfessionHistory(event);
         });
-    main_targets[10]->setTooltip([] { return Data().strings[2363]; });
+    main_targets[10]->setTooltip([this] { return game.rules().data.strings[2363]; });
     for (int slot = 0; slot < 8; ++slot) {
         main_targets[1 + slot] = &main_input.add(
             SDL_Rect{(slot & 1) * 48 + 6, (slot / 2) * 39 + 5, 46, 37},
@@ -621,6 +614,7 @@ void CampScreen::CreateCampInput()
 
 bool CampScreen::enter(const ScreenRequest& request)
 {
+    const auto& data = game.rules().data;
     std::string text;
 
     ClearPrimarySurface();
@@ -630,47 +624,44 @@ bool CampScreen::enter(const ScreenRequest& request)
         SetTargetingMode(W8_TARGET_NEED_ITEM);
     }
     if (auto* main_game = MainGame()) main_game->item_drag.reset();
-    game_.aging_held = false;
+    game.aging_held = false;
     CreatePartyPortraitEventRegions();
     CreateCampInput();
-    items.Reset(request.parameter_4);
+    if (request.parameter_4) items.IdentifyWithSpell(*request.parameter_4);
     CreateCampButtonPanel();
-    items.CreateActionButtons();
-    items.CreateCampItemControls(scroll_input);
     CreateCampHeaderButtons();
     page = W8_CAMP_PAGE_ITEMS;
-    spells.CreateControls(scroll_input);
-    stats.CreateControls(scroll_input);
-    character_info.CreateControls();
+    spells.StartVisitAnimations();
     ActivateCampPage();
-    if (game_.combat.has_value() &&
-        game_.combat->equip_phase != W8CombatEquipPhase::action_selection) {
-        if (game_.combat->equip_pending == 1) {
+    RefreshControls();
+    if (game.combat.has_value() &&
+        game.combat->equip_phase != W8CombatEquipPhase::action_selection) {
+        if (game.combat->equip_pending == 1) {
             for (int slot = 0; slot < 8; ++slot) {
-                if (game_.party.members[slot].has_value() && IsPartySlotEligible(slot) &&
-                    game_.party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
-                    text = fmt::format("{} {}", game_.party.characters[slot].name,
-                                       Data().strings[0x919]);
+                if (game.party.members[slot].has_value() && IsPartySlotEligible(slot) &&
+                    game.party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
+                    text =
+                        fmt::format("{} {}", game.party.characters[slot].name, data.strings[0x919]);
                     goto show_equip_message;
                 }
             }
         } else {
             unsigned char count = 0;
             for (int slot = 0; slot < 8; ++slot) {
-                if (game_.party.members[slot].has_value() && IsPartySlotEligible(slot) &&
-                    game_.party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
+                if (game.party.members[slot].has_value() && IsPartySlotEligible(slot) &&
+                    game.party.rows[slot].executing.kind == W8_ACTION_EQUIP) {
                     ++count;
                     if (count == 1) {
-                        text = fmt::format("{}", game_.party.characters[slot].name);
+                        text = fmt::format("{}", game.party.characters[slot].name);
                     } else {
-                        if (count == game_.combat->equip_pending) {
+                        if (count == game.combat->equip_pending) {
                             text += " ";
-                            text += fmt::sprintf(Data().strings[0x918],
-                                                 game_.party.characters[slot].name);
+                            text +=
+                                fmt::sprintf(data.strings[0x918], game.party.characters[slot].name);
                             goto show_equip_message;
                         }
                         text += ", ";
-                        text += game_.party.characters[slot].name;
+                        text += game.party.characters[slot].name;
                     }
                 }
             }
@@ -682,7 +673,7 @@ bool CampScreen::enter(const ScreenRequest& request)
     InvalidateAll();
     ResetTransientRenderScenes();
     SetUiCanvasAlphaTestEnabled(false);
-    if (!GameStarted()) {
+    if (!game.status.game_started) {
         StartMusicResource("MainMenu.MPL", 1, 1);
     }
     return 1;
@@ -699,8 +690,8 @@ void CampScreen::frame()
 {
     ServiceMusicPlaylist();
     if (dialogs.ProcessInput()) InvalidateAll();
-    if (game_.level_up_check_due && SuspendedScreen() != W8_SCREEN_CHARACTER &&
-        !game_.combat.has_value() && !IsScreenTransitionPending()) {
+    if (game.level_up_check_due && SuspendedScreen() != W8_SCREEN_CHARACTER &&
+        !game.combat.has_value() && !IsScreenTransitionPending()) {
         RefreshLevelUpReadyNotices();
     }
     if (!dialogs.open())
@@ -713,13 +704,14 @@ void CampScreen::frame()
                         items.SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
                     }
                 } else if (input.key == SDLK_P) {
-                    if (GameStarted()) {
-                        SortPartyItemPool(game_.rules());
+                    if (game.status.game_started) {
+                        SortPartyItemPool(game.rules());
                     }
                 } else if (input.key == SDLK_X && ((GetInputState().modifiers & ALT_DOWN) != 0) &&
                            ((GetInputState().modifiers & CTRL_DOWN) == 0) &&
                            ((GetInputState().modifiers & SHIFT_DOWN) == 0)) {
-                    dialogs.ShowNotice(Data().strings[0x832], OnQuitGameDialogClosed, true, true);
+                    dialogs.ShowNotice(game.rules().data.strings[0x832], OnQuitGameDialogClosed,
+                                       true, true);
                 }
             }
             return InputRoute::Handled;
@@ -728,10 +720,11 @@ void CampScreen::frame()
     if (page == W8_CAMP_PAGE_ITEMS) items.Tick();
     // The world stays covered while the camp steps the game; speech waits for the portraits.
     if (!IsScreenTransitionPending()) {
-        game_.advance(step_timer.lap(), {.world = {.covered = true},
-                                         .speech = header_mode != W8_CAMP_HEADER_SUMMARY});
+        game.advance(step_timer.lap(),
+                     {.world = {.covered = true}, .speech = header_mode != W8_CAMP_HEADER_SUMMARY});
     }
     if (header_mode == W8_CAMP_HEADER_SUMMARY) AnimatePartyPortraits();
+    RefreshControls();
     DrawCampScreen();
 }
 
@@ -744,7 +737,7 @@ bool CampScreen::leave(ScreenDeparture)
     g_wiz_text_font.resetPalette();
     // A conversation set aside for the camp resumes once the main game runs again.
     if (auto* main_game = MainGame();
-        main_game && GameInProgress() && game_.activity.conversation_aside) {
+        main_game && GameInProgress() && game.activity.conversation_aside) {
         main_game->resume_conversation = true;
     }
     return true;
@@ -758,13 +751,21 @@ void CampScreen::DismissSelectedPartyCharacter()
 {
     if (!items.ResolvePendingCampCharacter(true)) return;
     BeginCombatRound();
-    game_.activity.place = Activity::Place::World;
+    game.activity.place = Activity::Place::World;
     ReturnToPreviousScreen();
 }
 
 /* Each draw repaints what was invalidated since the previous one: everything
    after InvalidateAll, otherwise the header parts and the parts each page
    tracks. A held item repaints the page under the cursor every frame. */
+void CampScreen::RefreshControls()
+{
+    const bool items_shown = page == W8_CAMP_PAGE_ITEMS;
+    items.UpdateControls(items_shown);
+    character_info.SetActive(
+        reviewed && (page == W8_CAMP_PAGE_STATS || (items_shown && items.ShowsCharacterInfo())));
+}
+
 void CampScreen::DrawCampScreen(void)
 {
     if (page == W8_CAMP_PAGE_ITEMS) items.BeginRedraw();
@@ -772,7 +773,7 @@ void CampScreen::DrawCampScreen(void)
     full_redraw |= requested.all;
     header_redraw.portrait |= requested.portrait;
     if (full_redraw || header_redraw.any() || items.RedrawPending() || stats.RedrawPending() ||
-        spells.RedrawPending() || (game_.party.held.item.iItemNo != -1)) {
+        spells.RedrawPending() || (game.party.held.item.iItemNo != -1)) {
         if (full_redraw) {
             items.InvalidateCells();
             if (auto* dialog = dialogs.open()) dialog->m_dirty = true;
@@ -783,7 +784,7 @@ void CampScreen::DrawCampScreen(void)
             items.RedrawCampItemsPage(full_redraw);
             break;
         case W8_CAMP_PAGE_STATS:
-            stats.DrawCampStatsPage(*reviewed, full_redraw);
+            stats.DrawCampStatsPage(full_redraw);
             break;
         case W8_CAMP_PAGE_SKILLS:
             skills.DrawCampSkillsPage(full_redraw);
@@ -813,17 +814,17 @@ void CampScreen::DrawCampScreen(void)
         spells.DrawControls();
     }
     DrawButtonPanel(false);
-    if (!game_.combat.has_value()) {
+    if (!game.combat.has_value()) {
         if (ReviewedPartySlot() != -1) {
-            if (GameStarted() ||
+            if (game.status.game_started ||
                 (PreviousScreen() == W8_SCREEN_PARTY_SELECTION && PartySelectionInReviewMode())) {
                 UpdateRcsLevelUpPanel();
             }
-            if (game_.combat.has_value()) {
+            if (game.combat.has_value()) {
                 goto done;
             }
         }
-        if (GameStarted()) {
+        if (game.status.game_started) {
             UpdateRcsDismissPanel();
         }
     }
@@ -835,7 +836,7 @@ done:
 
 void CampScreen::SyncReviewCharInputRegion(void)
 {
-    if (ReviewedPartySlot() != -1 && game_.party.npcIndex(ReviewedPartySlot()) != -1) {
+    if (ReviewedPartySlot() != -1 && game.party.npcIndex(ReviewedPartySlot()) != -1) {
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(false);
         return;
     }
@@ -849,6 +850,7 @@ void CampScreen::SwitchCampPage(W8CampPage page)
     DeactivateCampPage();
     this->page = page;
     ActivateCampPage();
+    RefreshControls();
     InvalidateAll();
 }
 
@@ -867,7 +869,7 @@ void CampScreen::ActivateCampPage(void)
         for (index = 0; index < 8; ++index) {
             main_targets[kCampPartyPortraitRegionOffset + index]->setEnabled(false);
         }
-    } else if (game_.party.npcIndex(ReviewedPartySlot()) == -1) {
+    } else if (game.party.npcIndex(ReviewedPartySlot()) == -1) {
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(true);
     } else {
         main_targets[kCampCharacterHeaderRegionOffset]->setEnabled(false);
@@ -876,17 +878,17 @@ void CampScreen::ActivateCampPage(void)
     InvalidateHeader();
     switch (page) {
     case W8_CAMP_PAGE_ITEMS:
-        items.Activate(*reviewed);
-        if (GameStarted()) return;
+        items.Activate();
+        if (game.status.game_started) return;
         break;
     case W8_CAMP_PAGE_STATS:
-        stats.Activate(*reviewed);
+        stats.Activate();
         return;
     case W8_CAMP_PAGE_SKILLS:
-        skills.Activate(*reviewed);
+        skills.Activate();
         return;
     case W8_CAMP_PAGE_SPELLS:
-        spells.Activate(*reviewed);
+        spells.Activate();
         break;
     default:
         break;
@@ -898,10 +900,12 @@ void CampScreen::ActivateCampPage(void)
    skill-improvement flags on the skills page. */
 void CampScreen::DeactivateCampPage(void)
 {
+    items.UpdateControls(false);
+    character_info.SetActive(false);
     switch (page) {
     case W8_CAMP_PAGE_ITEMS:
         items.Deactivate();
-        if (GameStarted()) return;
+        if (game.status.game_started) return;
         break;
     case W8_CAMP_PAGE_STATS:
         stats.Deactivate();
@@ -921,24 +925,25 @@ void CampScreen::DeactivateCampPage(void)
    point regeneration rates. */
 void CampScreen::DrawCampRegenStats(void)
 {
+    const auto& data = game.rules().data;
     unsigned int index;
 
     g_calligraphy_font.setShade(Font::kNormalShade);
     g_calligraphy_font.setShade(0);
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x14a, 5},
-                          Data().strings[0x8ce]);
+                          data.strings[0x8ce]);
     g_calligraphy_font.setShade(Font::kNormalShade);
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x221, 5},
                           fmt::format("{:6.3f}", reviewed->health_regen_rate));
     g_calligraphy_font.setShade(0);
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x14a, 0x14},
-                          Data().strings[0x8cd]);
+                          data.strings[0x8cd]);
     g_calligraphy_font.setShade(Font::kNormalShade);
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x221, 0x14},
                           fmt::format("{:6.3f}", reviewed->stamina_regen_rate));
     g_calligraphy_font.setShade(0);
     DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font, {0x14a, 0x23},
-                          Data().strings[0x8d0]);
+                          data.strings[0x8d0]);
     g_calligraphy_font.setShade(Font::kNormalShade);
     for (index = 0; index < 6; ++index) {
         DrawTextAndInvalidate(GetFrameBufferSurface(), g_calligraphy_font,
@@ -953,61 +958,56 @@ void CampScreen::SetCampHeaderMode(W8CampHeaderMode mode)
     InvalidateHeader();
 }
 
-void ShowCampNoticeLine(std::string_view text, std::function<void(bool)> callback,
-                        bool confirmation, bool cancel)
-{
-    FindScreen<CampScreen>()->dialogs.ShowNotice(text, std::move(callback), confirmation, cancel);
-}
-
 /* Whether the camp item action may proceed for the reviewed slot: outside
    combat always; in combat the sleeping/paralyzed/unconscious/dead conditions
    and the equip-in-progress actions each carry their own refusal message. */
-bool IsCampActionAllowed(int party_slot)
+bool CampScreen::AllowAction(int party_slot)
 {
+    const auto& data = game.rules().data;
     std::string message;
     W8PartySlotRow* row;
     W8Character* character;
 
-    if (!CurrentGame().combat.has_value()) {
+    if (!game.combat.has_value()) {
         return true;
     }
-    character = &CurrentGame().party.characters[party_slot];
+    character = &game.party.characters[party_slot];
     if (character->uiCondition[W8_CONDITION_DEAD] != 0 ||
         character->uiCondition[W8_CONDITION_UNCONSCIOUS] != 0 ||
         character->uiCondition[W8_CONDITION_PARALYZED] != 0 ||
         character->uiCondition[W8_CONDITION_ASLEEP] != 0) {
-        if (CurrentGame().combat->equip_phase != W8CombatEquipPhase::action_selection) {
+        if (game.combat->equip_phase != W8CombatEquipPhase::action_selection) {
             return true;
         }
-        message = Data().strings[0x90a];
+        message = data.strings[0x90a];
     } else {
-        row = &CurrentGame().party.rows[party_slot];
-        if (CurrentGame().combat->equip_phase == W8CombatEquipPhase::action_selection) {
-            if (CurrentGame().combat->characters[party_slot].dead) {
+        row = &game.party.rows[party_slot];
+        if (game.combat->equip_phase == W8CombatEquipPhase::action_selection) {
+            if (game.combat->characters[party_slot].dead) {
                 if (row->executing.kind == W8_ACTION_EQUIP) {
-                    message = Data().strings[0x903];
+                    message = data.strings[0x903];
                 } else if (row->committed.kind == W8_ACTION_EQUIP) {
-                    message = Data().strings[0x904];
+                    message = data.strings[0x904];
                 } else {
-                    message = Data().strings[0x902];
+                    message = data.strings[0x902];
                 }
             } else if (row->committed.kind == W8_ACTION_EQUIP) {
-                message = Data().strings[0x903];
+                message = data.strings[0x903];
             } else {
-                message = Data().strings[0x902];
+                message = data.strings[0x902];
             }
         } else {
             if (row->executing.kind == W8_ACTION_EQUIP) {
                 return true;
             }
             if (row->committed.kind == W8_ACTION_EQUIP) {
-                message = Data().strings[0x904];
+                message = data.strings[0x904];
             } else {
-                message = Data().strings[0x902];
+                message = data.strings[0x902];
             }
         }
     }
-    ShowCampNoticeLine(message, 0, true, false);
+    dialogs.ShowNotice(message, 0, true, false);
     return false;
 }
 
@@ -1377,19 +1377,24 @@ void W8CampSpellsPage::CreateInput()
     }
 }
 
-void W8CampSpellsPage::CreateControls(UiLayer& scroll_input)
+W8CampSpellsPage::W8CampSpellsPage(CampScreen& owner) : camp(owner)
 {
+    CreateInput();
     for (int range_index = 0; range_index < 6; ++range_index) {
         const int x = (range_index % 3) * 0xd5;
         const int y = (range_index / 3) * 0x8c;
         auto& range = spell_ranges[range_index];
-        range =
-            std::make_unique<W8RangeControl>(scroll_input, x + 0xbb, y + 0xc3, x + 0xcd, y + 0x129);
+        range = std::make_unique<W8RangeControl>(camp.scroll_input, x + 0xbb, y + 0xc3, x + 0xcd,
+                                                 y + 0x129);
         range->on_change = [this, range_index](auto* scroll) {
             learned_spells.scroll[range_index] = scroll->m_value;
             realms_dirty.set(range_index);
         };
     }
+}
+
+void W8CampSpellsPage::StartVisitAnimations()
+{
     animation_timer = MonotonicMilliseconds() + (50);
     for (unsigned int animation = 0; animation < 6; ++animation) {
         animation_frames[animation] =
@@ -1397,10 +1402,10 @@ void W8CampSpellsPage::CreateControls(UiLayer& scroll_input)
     }
 }
 
-void W8CampSpellsPage::Activate(W8Character& character)
+void W8CampSpellsPage::Activate()
 {
     spell_input.setEnabled(true);
-    ReviewedCharacterChanged(character);
+    RefreshCharacter();
     selected_spell_row = -1;
 }
 
@@ -1410,9 +1415,9 @@ void W8CampSpellsPage::Deactivate()
     for (auto& range : spell_ranges) range->SetActive(false);
 }
 
-void W8CampSpellsPage::ReviewedCharacterChanged(W8Character& character)
+void W8CampSpellsPage::RefreshCharacter()
 {
-    this->character = &character;
+    auto& character = *camp.reviewed;
     BuildLearnedSpellState(&learned_spells, &character);
     RefreshCampSpellRanges();
 }
