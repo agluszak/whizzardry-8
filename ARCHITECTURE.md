@@ -683,3 +683,12 @@ player could: the control is shown and enabled, the pointer over it reaches it, 
 the presented frame shows what the UI painted there. On every frame the harness also
 requires a newly active modal input scope to be shown within four frames, so input
 can never be captured by a prompt the player cannot see.
+
+## Particle simulation slots
+
+Each particle slot owns its position, velocity, birth tick, active state, flutter
+phase, alpha and optional animated-texture playback. One vector defines the pool's
+extent; liveness is observed from slots rather than maintained in a second count.
+Slots retain their stable draw order and resources across activation. A copied
+system shares immutable resources but starts with fresh slots and playback.
+Simulation, texture-clock advancement and rendering keep their existing order.

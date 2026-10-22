@@ -43,7 +43,7 @@ public:
     void CancelAnimationCallback();
     void SetActive(bool active);
     void SetTraversalEnabled(bool enabled);
-    void DeactivateParticle(unsigned int index);
+    bool hasActiveParticles() const;
     std::optional<unsigned int> activateParticle(bool replaceWhenFull);
     glm::vec3 emissionPosition();
     void SetTexture(std::shared_ptr<Texture> texture);
@@ -66,23 +66,21 @@ public:
     std::shared_ptr<Material> material;
     DrawShader render_flags;
     std::shared_ptr<Texture> texture;
-    unsigned int particle_count = 0;
-    /* Per-particle state. */
-    std::vector<glm::vec3> particle_positions;
-    std::vector<glm::vec3> velocities;
-    /* Unsigned millisecond birth ticks. */
-    std::vector<unsigned int> birth_ticks;
-    std::vector<bool> particle_active;
-    /* Flutter phase per particle; empty without flutter. */
-    std::vector<float> flutter_angles;
-    std::vector<float> alphas;
-    // Each particle has independent animated-texture playback.
-    std::vector<std::shared_ptr<Texture>> texture_frames;
+    struct Particle {
+        glm::vec3 position{0};
+        glm::vec3 velocity{0};
+        unsigned int birth_tick = 0;
+        bool active = false;
+        float flutter_angle = 0;
+        float alpha = 1;
+        // Animated textures have independent playback per slot.
+        std::shared_ptr<Texture> animation;
+    };
+    std::vector<Particle> particles;
     /* Both unsigned: 0x004994D0 gates the particle off with the unsigned
        `emission_limit != 0 && emission_limit <= emission_count` pair. */
     unsigned int emission_limit = 0;
     unsigned int emission_count = 0;
-    unsigned int active_particle_count = 0;
     /* Once it stops emitting with no live particles, the particle marks itself
        finished; its owner (the world's retired list) destroys it outside rendering. */
     bool release_when_done = false;
@@ -137,7 +135,6 @@ public:
     float size_scale = 1.0f;
 
 private:
-    void AllocateParticles(unsigned int count);
     void Update(); /* 0x00499FA0 */
     vsg::ref_ptr<vsg::Group> root = vsg::Group::create();
     std::unique_ptr<ParticleRenderData> render_data;

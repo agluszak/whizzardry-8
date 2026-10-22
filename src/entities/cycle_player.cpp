@@ -410,7 +410,7 @@ void CyclePlayer::RetireParticles(World& world)
     for (auto& event : particles) {
         auto owner = std::move(event.m_pstParticles);
         if (owner) owner->CancelAnimationCallback();
-        if (owner && owner->active_particle_count != 0) {
+        if (owner && owner->hasActiveParticles()) {
             owner->SetActive(true);
             owner->emission_limit = 1;
             RetireParticle(world, std::move(owner));

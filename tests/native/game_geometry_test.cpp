@@ -1363,23 +1363,33 @@ TEST_CASE("Particle activation preserves emission limits and world placement", "
     const auto first = particles.activateParticle(false);
     REQUIRE(first);
     REQUIRE(first.value() == 0);
-    REQUIRE(particles.velocities[first.value()] == glm::vec3(0, -5, 0));
+    REQUIRE(particles.particles[first.value()].velocity == glm::vec3(0, -5, 0));
     REQUIRE(particles.activateParticle(false));
     REQUIRE(!particles.activateParticle(false));
     const auto replaced = particles.activateParticle(true);
     REQUIRE(replaced);
     REQUIRE(replaced.value() == 0);
-    REQUIRE(particles.active_particle_count == 2);
+    // The old pool compared absolute unsigned ticks, even across wraparound.
+    particles.particles[0].birth_tick = 0xfffffffeu;
+    particles.particles[1].birth_tick = 2;
+    REQUIRE(particles.activateParticle(true) == 1);
+    REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 2);
     particles.emission_limit = particles.emission_count;
     REQUIRE(!particles.activateParticle(true));
-    particles.DeactivateParticle(0);
-    particles.DeactivateParticle(0);
-    REQUIRE(particles.active_particle_count == 1);
+    particles.particles[0].active = false;
+    REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 1);
 
     particles.emission_minimum = particles.emission_maximum = {1, 2, 3};
     particles.size_scale = 2;
     particles.transform.setLocation(100, 200, 300);
     REQUIRE(particles.emissionPosition() == glm::vec3(102, 204, 306));
+    particles.SetFlutter(W8_PARTICLE_FLUTTER_VELOCITY_SCALED);
+    particles.particles[0].flutter_angle = 1;
+    particles.SetFlutter(W8_PARTICLE_FLUTTER_VELOCITY_SCALED);
+    REQUIRE(particles.particles[0].flutter_angle == 1);
+    particles.SetFlutter(W8_PARTICLE_FLUTTER_NONE);
+    particles.SetFlutter(W8_PARTICLE_FLUTTER_VELOCITY_SCALED);
+    REQUIRE(particles.particles[0].flutter_angle == 0);
 }
 
 TEST_CASE("Attached particle orientation follows rotations independently of model scale",
@@ -1434,21 +1444,23 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.emission_count == 1);
     particles.AdvanceSimulation(std::chrono::milliseconds{0});
-    REQUIRE(particles.active_particle_count == 2);
-    particles.DeactivateParticle(0);
+    REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 2);
+    particles.particles[0].active = false;
     particles.SetActive(false);
     particles.AdvanceSimulation(std::chrono::milliseconds{0});
-    REQUIRE_FALSE(particles.particle_active[0]);
-    REQUIRE(particles.particle_active[1]);
+    REQUIRE_FALSE(particles.particles[0].active);
+    REQUIRE(particles.particles[1].active);
 
-    const auto centers = particles.particle_positions;
+    std::vector<glm::vec3> centers;
+    for (const auto& particle : particles.particles) centers.push_back(particle.position);
     // Constructing VSG state and arrays needs no graphics device. Preparing
     // additional views must consume the current simulation without advancing it.
     std::optional<render::RenderContext> context;
     context.emplace(VkExtent2D{640, 480});
     particles.updateRenderNode(*context, {}, 0);
     particles.updateRenderNode(*context, {}, 1);
-    REQUIRE(particles.particle_positions == centers);
+    REQUIRE(
+        std::ranges::equal(particles.particles, centers, {}, &ParticleSystem::Particle::position));
     REQUIRE(particles.emission_count == 2);
     struct CheckParticleDraws : vsg::ConstVisitor {
         std::uint32_t index_count = 0;
@@ -1483,7 +1495,7 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.lifetime_ms = 0;
     game.game.time += std::chrono::milliseconds{1};
     particles.AdvanceSimulation(std::chrono::milliseconds{0});
-    REQUIRE(particles.active_particle_count == 0);
+    REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 0);
     REQUIRE(particles.finished);
     particles.updateRenderNode(*context, {}, 2);
     draws.index_count = 0;
@@ -1511,12 +1523,12 @@ TEST_CASE("Particle simulation resolves nested animation before views consume it
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.SetTexture(outer);
     REQUIRE(particles.activateParticle(false));
-    auto& prepared = *particles.texture_frames.front()->playback->textures.front();
+    auto& prepared = *particles.particles.front().animation->playback->textures.front();
     REQUIRE(&prepared != inner.get());
-    REQUIRE(particles.texture_frames.front()->currentFrame() == first.get());
+    REQUIRE(particles.particles.front().animation->currentFrame() == first.get());
     game.game.time += std::chrono::milliseconds{1000};
     particles.AdvanceSimulation(game.game.time);
-    REQUIRE(particles.texture_frames.front()->currentFrame() == last.get());
+    REQUIRE(particles.particles.front().animation->currentFrame() == last.get());
 
     // Time may elapse before another view. Only simulation advances playback.
     REQUIRE(inner->currentFrame() == first.get());
@@ -1525,7 +1537,7 @@ TEST_CASE("Particle simulation resolves nested animation before views consume it
     render::RenderContext context({640, 480});
     particles.updateRenderNode(context, {}, 0);
     particles.updateRenderNode(context, {}, 1);
-    REQUIRE(particles.texture_frames.front()->currentFrame() == first.get());
+    REQUIRE(particles.particles.front().animation->currentFrame() == first.get());
 }
 
 TEST_CASE("Bounds probes retain ordering across reversed and degenerate extents", "[geometry]")
@@ -2290,13 +2302,13 @@ TEST_CASE("Recycled particles restart texture playback at their new birth", "[ge
     particles.SetTexture(std::make_shared<Texture>(std::move(playback)));
     REQUIRE(particles.activateParticle(false));
     particles.AdvanceSimulation(game.game.time);
-    particles.DeactivateParticle(0);
+    particles.particles[0].active = false;
     game.game.time = std::chrono::milliseconds{10000};
     REQUIRE(particles.activateParticle(false));
     game.game.time += std::chrono::milliseconds{1000};
     particles.AdvanceSimulation(game.game.time);
-    REQUIRE(particles.active_particle_count == 1);
-    REQUIRE(particles.texture_frames.front()->playback->frame == 1);
+    REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 1);
+    REQUIRE(particles.particles.front().animation->playback->frame == 1);
 }
 
 TEST_CASE("Route advancement keeps waypoint metadata and never reads past the endpoint",

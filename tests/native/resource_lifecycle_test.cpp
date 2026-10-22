@@ -468,7 +468,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Retiring a cycle cancels borrowed monster 
     {
         SpellVisual cycle(&world);
         auto particle = std::make_unique<ParticleSystem>((world.scene.get()), 1);
-        particle->active_particle_count = 1;
+        particle->particles[0].active = true;
         particle->callback = std::make_unique<W8MonsterShakeCallback>();
         cycle.visual.particles.emplace_back().m_pstParticles = std::move(particle);
         cycle.visual.RetireParticles(world);
@@ -485,7 +485,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
     auto* retiring = GetWorld();
     auto visual = std::make_unique<SpellVisual>(retiring);
     auto particle = std::make_unique<ParticleSystem>(retiring->scene.get(), 1);
-    particle->active_particle_count = 1;
+    particle->particles[0].active = true;
     auto texture = std::make_shared<Texture>();
     const std::weak_ptr<Texture> released = texture;
     particle->SetTexture(texture);
