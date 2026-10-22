@@ -3,30 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-
-#include "wiz8/data/fact_ids.h"
-#include "wiz8/data/faction_ids.h"
-#include "wiz8/data/skills.h"
-#include "wiz8/game.h"
-#include "wiz8/inventory.h"
-#include "wiz8/live_party.h"
-#include "wiz8/loaded_game_data.h"
-#include "wiz8/platform/timer.h"
-#include "wiz8/rules/events.h"
-#include "wiz8/rules/item_rules.h"
-#include "wiz8/spatial/bounding_sphere.h"
-#include "wiz8/startup_world.h"
-#include "wiz8/world/party_camera.h"
-// Some libstdc++ 16 releases use deprecated is_trivial_v in _M_init.
-// Limit the workaround to diagnostics originating in that library header.
-#if defined(__clang__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE == 16
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#endif
 #include <inplace_vector>
-#if defined(__clang__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE == 16
-#pragma clang diagnostic pop
-#endif
 #include <iterator>
 #include <memory>
 #include <optional>
@@ -45,19 +22,26 @@
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/hostility.h"
 #include "wiz8/data/dice.h"
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
+#include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
+#include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
@@ -77,15 +61,21 @@
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
+#include "wiz8/platform/timer.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/startup_world.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
 
 static bool ProbeNpcPlacementNearParty(int party_slot, int mode, glm::vec3* position_out);

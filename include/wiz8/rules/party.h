@@ -2,7 +2,16 @@
 
 #include <array>
 #include <cstddef>
+// Some libstdc++ 16 releases use deprecated is_trivial_v in _M_init.
+// Limit the workaround to diagnostics originating in that library header.
+#if defined(__clang__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE == 16
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
 #include <inplace_vector>
+#if defined(__clang__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE == 16
+#pragma clang diagnostic pop
+#endif
 #include <optional>
 
 #include "wiz8/rules/character.h"
