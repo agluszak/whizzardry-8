@@ -182,7 +182,7 @@ void UpdateSubMenuButton(int index)
            IsPressed and two SetPressed calls for this case alone
            (0x00594E92/0x00594EA7 under search_mode, 0x00594EAE/0x00594EC3
            under its negation). */
-        if (CurrentGame().searching()) {
+        if (CurrentGame().search.active()) {
             if (MainGame()->hud_buttons.submenu[2].IsPressed() == 0) {
                 MainGame()->hud_buttons.submenu[2].SetPressed(true);
             }
@@ -271,8 +271,8 @@ static void SubMenuButtonSurprise(W8ButtonWidget* button)
 
 static void SubMenuButtonToggleFlag(W8ButtonWidget* button)
 {
-    CurrentGame().toggleSearchMode();
-    button->SetPressed(CurrentGame().searching());
+    CurrentGame().search.toggle();
+    button->SetPressed(CurrentGame().search.active());
     if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     DrawSubMenuCharacterAction();
 }

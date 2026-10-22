@@ -103,7 +103,7 @@ std::optional<PartyMotionElapsed> AccumulateMovementFatigue(Game& game)
             continue;
         }
         float amount = elapsed.frame;
-        if (game.searching() || game.combat.has_value()) amount = elapsed.real * 0.5f + amount;
+        if (game.search.active() || game.combat.has_value()) amount = elapsed.real * 0.5f + amount;
         float multiplier = 1.0f;
         switch (character.load_category) {
         case W8_LOAD_NONE:

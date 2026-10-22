@@ -58,7 +58,7 @@ struct W8Searchable {
     void Reveal();
     /* The best searching party member within range of this
        searchable, or -1. Practices the searching skill on a qualified pick. */
-    int PickBestSearcher();
+    int PickBestSearcher(bool searching);
 
     W8WorldItem* world_item = nullptr;
     Trigger* trigger = nullptr;
@@ -144,15 +144,16 @@ void W8Searchable::GetPosition(glm::vec3* position)
     }
 }
 
-/* The search sweep the step runs every 500ms: while nothing is interacting or surprising
-   the party, walk the in-view searchables, pick the best searcher for each, queue the
-   found event and turn the camera toward the find. */
-void RunSearchPulse(void)
+/* The sweep, while nothing is interacting or surprising the party; `searching` says
+   the player's search mode is on, rather than a searcher trait or a party effect. */
+constexpr std::chrono::milliseconds kSweepInterval{500};
+
+static void RunSearchPulse(bool searching)
 {
     if (CurrentGame().advancement.time_passes && !CurrentGame().advancement.held &&
         !CurrentGame().surprise_possible && !IsLockInteractionActive() &&
         !LockInteractionSuspended() && !IsTrapInteractionActive() && !TrapInteractionSuspended()) {
-        if (IsLevelFastMovement() && CurrentGame().searching()) {
+        if (IsLevelFastMovement() && searching) {
             ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_SPECIAL_LEVEL]);
         }
         auto candidates = CollectSearchablesInView(*GetWorld());
@@ -160,7 +161,7 @@ void RunSearchPulse(void)
         {
             for (auto& candidate : candidates) {
                 auto* searchable = &candidate;
-                int slot = searchable->PickBestSearcher();
+                int slot = searchable->PickBestSearcher(searching);
                 if (slot != -1) {
                     W8Character* character = &CurrentGame().party.characters[slot];
                     if (searchable->world_item == 0) {
@@ -206,7 +207,7 @@ void RunSearchPulse(void)
                 }
             }
         }
-        if (!CurrentGame().searching() || IsLevelFastMovement()) {
+        if (!searching || IsLevelFastMovement()) {
             /* Retail scans the party for a live member carrying the
                Scouting skill and then discards the result. */
             for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
@@ -218,8 +219,7 @@ void RunSearchPulse(void)
                 }
             }
         }
-        if (CurrentGame().searching() && !IsLevelFastMovement() && !found &&
-            CurrentGame().rng.below(100) == 0) {
+        if (searching && !IsLevelFastMovement() && !found && CurrentGame().rng.below(100) == 0) {
             ApplyItemEffectToRandomCharacter(g_container_event, -1, 0);
         }
     }
@@ -230,7 +230,7 @@ void RunSearchPulse(void)
    plus a Senses-derived bonus; the detect-secrets party effect instead
    force-picks random eligible members without practicing the skill. The pick
    must also reach this searchable's position. */
-int W8Searchable::PickBestSearcher()
+int W8Searchable::PickBestSearcher(bool searching)
 {
     unsigned int best_score = 0;
     int best_slot = -1;
@@ -241,14 +241,14 @@ int W8Searchable::PickBestSearcher()
             character->highest_condition >= W8_CONDITION_TURNCOAT) {
             continue;
         }
-        if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || CurrentGame().searching()) {
+        if (CharacterHasTrait(character, W8_TRAIT_SEARCH) || searching) {
             unsigned int level = character->skills[W8_SKILL_SCOUTING].level;
             unsigned int base = level >> 1;
             if (IsLevelFastMovement()) {
                 base = level >> 2;
             }
             unsigned int score = 0;
-            if (base != 0 || (CurrentGame().searching() && !IsLevelFastMovement())) {
+            if (base != 0 || (searching && !IsLevelFastMovement())) {
                 unsigned int attribute = character->attributes[W8_ATTRIBUTE_SENSES].effective;
                 if (attribute < 0x33) {
                     score = base + attribute / 5;
@@ -297,22 +297,46 @@ int W8Searchable::PickBestSearcher()
     return -1;
 }
 
-void Game::resumeSearching()
+bool Search::active() const
 {
-    ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_ON]);
-    search_sweep_due = std::chrono::milliseconds{500};
-    if (level.primary && level.primary->script) level.primary->script->clearActiveCursorNode();
+    return requested_ && !fight_;
 }
 
-void Game::toggleSearchMode()
+void Search::toggle()
 {
-    if (combat) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_BLOCKED_COMBAT]);
-    } else if (status.search_mode) {
-        status.search_mode = false;
-        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_OFF]);
+    if (fight_) {
+        events_.push(
+            TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_BLOCKED_COMBAT]});
+    } else if (requested_) {
+        requested_ = false;
+        events_.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_OFF]});
     } else {
-        status.search_mode = true;
-        resumeSearching();
+        requested_ = true;
+        resume();
     }
+}
+
+void Search::fightBegan()
+{
+    if (requested_)
+        events_.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_OFF]});
+}
+
+void Search::fightEnded()
+{
+    if (requested_) resume();
+}
+
+void Search::sweepIfDue()
+{
+    if (fight_ || sweep_due_ > std::chrono::milliseconds::zero()) return;
+    sweep_due_ = kSweepInterval;
+    RunSearchPulse(requested_);
+}
+
+void Search::resume()
+{
+    events_.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_ON]});
+    sweep_due_ = kSweepInterval;
+    if (level_.primary && level_.primary->script) level_.primary->script->clearActiveCursorNode();
 }

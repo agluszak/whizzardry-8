@@ -213,9 +213,7 @@ bool Game::beginCombat(int surprise)
     CurrentGame().events.push(MonstersChanged{});
     planned_formation = party.formation;
     SaveCombatFormation();
-    if (status.search_mode) {
-        ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_SEARCH_MODE_OFF]);
-    }
+    search.fightBegan();
     if (IsLevelFastMovement()) {
         ClearLevelFastMovement();
     }
@@ -995,7 +993,7 @@ void Game::endCombat(bool forced_cleanup)
     ReconcilePartyEquipmentAfterCombat();
     // The fight is over; what follows restores the world around it.
     combat.reset();
-    if (searching()) resumeSearching();
+    search.fightEnded();
     if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->setZoom(false);
     events.push(CombatEnded{});
     if (!activity.conversation && !gpSCSV && !ItemUseDraft()) {
@@ -1753,7 +1751,7 @@ void RollCombatSurprise(signed char party_cannot_be_surprised)
                     CurrentGame().combat->party_surprised = true;
                     level_surprise = true;
                 }
-            } else if (CurrentGame().status.search_mode /* searching as the fight began */ &&
+            } else if (CurrentGame().search.requested() /* searching as the fight began */ &&
                        CurrentGame().rng.below(100) < 0x14) {
                 CurrentGame().combat->party_surprised = true;
                 search_surprise = true;

@@ -421,7 +421,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_TOGGLE_SEARCH:
         if (IsScreenInputBlocked() == 0) {
-            CurrentGame().toggleSearchMode();
+            CurrentGame().search.toggle();
         }
         break;
     case W8_MGS_COMMAND_TOGGLE_COMBAT:

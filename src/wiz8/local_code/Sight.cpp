@@ -632,7 +632,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             npc_fade_flag, static_cast<int>(monster_info->party_threat.sight_state),
                             CurrentGame().party.modifiers.sight_override, distance);
 
-                        if (CurrentGame().searching()) {
+                        if (CurrentGame().search.active()) {
                             threshold *= g_sight_threat_scale;
                         }
                         if (threshold >= distance) {

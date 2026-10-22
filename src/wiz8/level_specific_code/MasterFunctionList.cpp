@@ -275,7 +275,7 @@ bool LevelScript::showMessageOnce(int command, W8WorldCursorNode* node)
     const int message_id = node->parameters[0];
     const int type = node->parameters[2];
     const auto enabled = static_cast<unsigned char>(node->parameters[1]);
-    if (enabled != 0 && !ctx.game.searching() && ctx.party.modifiers.detect_secrets == 0) {
+    if (enabled != 0 && !ctx.game.search.active() && ctx.party.modifiers.detect_secrets == 0) {
         bool searcher = false;
         for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
             if (ctx.party.members[slot].has_value() &&
