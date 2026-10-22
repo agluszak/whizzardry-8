@@ -101,9 +101,6 @@ struct CombatPanelChanged {};
 struct CharacterActionChanged {};
 // The party's equipment settled after an inventory edit.
 struct EquipmentSettled {};
-bool available = false;
-}
-;
 
 /* A member's skill rose a point through practice. A quiet increase is announced
    later rather than at once. */
