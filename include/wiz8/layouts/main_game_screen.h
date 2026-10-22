@@ -262,8 +262,6 @@ struct W8LevelRuntimeBlock {
     int text_box_top;
     int text_box_right;
     int text_box_bottom;
-    // The party's remaining move, in percent, as the gauge last showed it.
-    int move_percent_shown;
     Font* text_box_font;
     Palette16 palette;
     uint64_t tooltip_since;

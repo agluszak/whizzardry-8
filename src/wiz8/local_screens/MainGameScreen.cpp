@@ -1985,7 +1985,7 @@ void W8NpcDialogueTextController::Collapse()
                         g_W8DialogTextAreaNoWrap | g_W8DialogTextAreaPointSelection |
                             g_W8DialogTextAreaShortenText);
     expanded_target->setEnabled(false);
-    RepaintNpcPanel(3);
+    MainGame()->dialogue.requestRepaint(3);
 }
 
 void W8NpcDialogueTextController::Expand()
@@ -2101,7 +2101,7 @@ bool FormationPanelOpen()
 bool PartyMovementPanelShown()
 {
     const auto* main_game = MainGame();
-    return main_game && main_game->party_movement_panel;
+    return main_game && main_game->party_movement;
 }
 
 void SetWorldResumeInput(bool enabled)
@@ -2109,7 +2109,8 @@ void SetWorldResumeInput(bool enabled)
     if (MainGame()) MainGame()->resume_world = enabled;
 }
 
-MainGameScreen::MainGameScreen(Game& game, Pointer& pointer) : game(game), pointer(pointer)
+MainGameScreen::MainGameScreen(Game& game, Pointer& pointer)
+    : game(game), pointer(pointer), dialogue(*this)
 {
     for (int slot = 0; slot < 8; ++slot) {
         const int row = slot / 2;
@@ -2411,7 +2412,7 @@ void MainGameScreen::frame()
     if (IsScreenTransitionPending()) {
         // A pending transition holds the world until another screen covers it.
         step_timer.restart();
-        DrawMainGameScreen(*hud, UpdateMainGamePresentation(*hud));
+        draw(updatePresentation());
         return;
     }
     SDL_Point point;
@@ -2491,7 +2492,7 @@ void MainGameScreen::frame()
             SelectPartyCharacter(next);
         }
     }
-    DrawMainGameScreen(*hud, UpdateMainGamePresentation(*hud));
+    draw(updatePresentation());
 }
 
 /* Suspension retains the allocation and resource strip. A full leave also
@@ -2525,7 +2526,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     if (MainGame()->keyboard_menu) MainGame()->closeKeyboardMenu();
     ReleasePortraitControls();
     ReleaseConditionButtons();
-    if (PartyMovementPanelShown()) DisablePartyMovementRegions();
+    if (party_movement) party_movement->disableInput();
     RestoreCurrentNpcQuoteBubble();
     MoveTimer(W8_MOVE_TIMER_SUSPEND);
     // The world stays covered, and held, until this screen steps it again.
@@ -2547,9 +2548,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
             UnloadSkyWorld();
             LeaveLevel();
         }
-        if (PartyMovementPanelShown()) {
-            ReleasePartyMovement();
-        }
+        ReleasePartyMovement();
 
         HideNpcQuoteBubbleRegion();
         ShutdownTextBoxRegions();
@@ -2619,10 +2618,10 @@ struct RepaintedPortraitBands {
 /* Repaint what the HUD's record holds: clear the primary surface for a full repaint,
    refresh the chrome panels the current UI mode owns, and repaint the recorded party
    slots. Dependencies have already been resolved by the presentation update. */
-static void ApplyMainGameRepaint(const W8LevelRuntimeBlock& hud,
-                                 const W8TargetingPresentation& presentation,
-                                 RepaintedPortraitBands& bands)
+void MainGameScreen::paintRequested(const W8TargetingPresentation& presentation,
+                                    RepaintedPortraitBands& bands) const
 {
+    const W8LevelRuntimeBlock& hud = *this->hud;
     const auto& repaint = hud.repaint;
     const auto publish_chrome = [&hud](int left, int top, int right, int bottom) {
         InvalidateRegion(left, top + hud.portrait_y_shift, right, bottom + hud.portrait_y_shift);
@@ -2686,10 +2685,10 @@ static void ApplyMainGameRepaint(const W8LevelRuntimeBlock& hud,
         } else if (repaint.portrait_bars.test(party_slot)) {
             RedrawPartyPortraitBars(party_slot, hud.portrait_refresh_pending[party_slot] == 0);
         }
-        if (MainGame()->keyboardMenuForSlot(party_slot) && (dirty || repaint.keyboard_menu))
-            MainGame()->keyboard_menu->paint();
+        if (keyboardMenuForSlot(party_slot) && (dirty || repaint.keyboard_menu))
+            keyboard_menu->paint();
     }
-    if (repaint.portrait_plate) PaintPortraitPlate(hud);
+    if (repaint.portrait_plate) paintPortraitPlate();
     if (repaint.layout) {
         publish_chrome(0, 358, 640, 450);
         RedrawLayoutArrowButtons();
@@ -2750,7 +2749,7 @@ static void ApplyMainGameRepaint(const W8LevelRuntimeBlock& hud,
         }
         goto finish_mode_overlays;
     }
-    if (repaint.mode_panels.any()) PaintNpcDialoguePanels(repaint.mode_panels);
+    if (repaint.mode_panels.any()) dialogue.paintPanels(repaint.mode_panels);
 finish_mode_overlays:
     if (repaint.radar) publish_chrome(23, 360, 128, 450);
     if (repaint.text_box) publish_chrome(129, 358, 511, 450);
@@ -2781,8 +2780,9 @@ finish_mode_overlays:
     if (repaint.everything) ClearVideoDirtyBlocks();
 }
 
-W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
+W8TargetingPresentation MainGameScreen::updatePresentation()
 {
+    W8LevelRuntimeBlock& hud = *this->hud;
     SyncPartyFacingFromCamera();
     auto presentation = BuildTargetingPresentation(hud);
     ApplyTargetingPresentation(presentation);
@@ -2800,9 +2800,8 @@ W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
         if (hud.open_submenu) UpdateSubMenuAutoClose();
         if (!CurrentGame().combat.has_value()) UpdatePortraitAdvanceButtons();
         UpdateConditionButtons();
-        UpdateMainGameButtons();
-        if (PartyMovementPanelShown() && !CurrentGame().advancement.held)
-            UpdatePartyMovementGauge();
+        updateHudButtons();
+        if (party_movement && !game.advancement.held) party_movement->update();
         if (MonotonicMilliseconds() - hud.tick > 499) {
             hud.repaint.video_inspector = g_video_inspector_enabled && !gpSCSV &&
                                           !CurrentGame().activity.conversation && !ItemUseDraft() &&
@@ -2826,15 +2825,14 @@ W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
     }
     if (repaint.portrait_panel) {
         // The world view's frame repaints the movement panel and the modal over it.
-        if (!CurrentGame().advancement.held && PartyMovementPanelShown())
-            repaint.movement_panel = true;
+        if (!game.advancement.held && party_movement) repaint.movement_panel = true;
         if (g_modal_owner) g_modal_owner->RequestModalRedraw();
     }
-    UpdatePortraitPlate(hud);
+    updatePortraitPlate();
     for (int slot = 0; slot < 8; ++slot) {
         if (repaint.portraits.test(slot) ||
-            (repaint.portrait_frames.test(slot) && PartyPortraitFrameCoversBand(slot))) {
-            KeepNpcDialogueTranscriptOverPortraits();
+            (repaint.portrait_frames.test(slot) && partyPortraitFrameCoversBand(slot))) {
+            dialogue.keepTranscriptOverPortraits();
             break;
         }
     }
@@ -2848,7 +2846,7 @@ W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
         UpdateUseItemPanels(repaint.mode_panels);
     } else if (CurrentGame().activity.conversation &&
                !CurrentGame().npc_interaction.scripted_dialogue) {
-        UpdateNpcDialoguePanels(repaint.mode_panels);
+        dialogue.updatePanels(repaint.mode_panels);
     } else {
         repaint.mode_panels.reset();
         if (repaint.layout && IsLockInteractionActive()) InvalidateLockInteractionPanels();
@@ -2859,8 +2857,9 @@ W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
 
 /* Draw the main-game frame: repaint the requested regions and invalidate their
    rectangles, paint overlays, and present. */
-void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation)
+void MainGameScreen::draw(const W8TargetingPresentation& presentation)
 {
+    W8LevelRuntimeBlock& hud = *this->hud;
     if (const auto& erase = hud.repaint.plate_erase) {
         ClearSurfaceRect(erase->left, erase->top, erase->right, erase->bottom);
         InvalidateRegion(erase->left, erase->top, erase->right, erase->bottom);
@@ -2868,10 +2867,10 @@ void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation&
     RepaintedPortraitBands bands;
     for (int slot = 0; slot < 8; ++slot) {
         if (hud.repaint.portrait_frames.test(slot) && !hud.repaint.portraits.test(slot))
-            bands.add(slot, PaintPartyPortraitFrame(slot));
+            bands.add(slot, paintPartyPortraitFrame(slot));
     }
     if (hud.repaint.any()) {
-        ApplyMainGameRepaint(hud, presentation, bands);
+        paintRequested(presentation, bands);
     }
     const MainGameRepaint repaint = std::exchange(hud.repaint, {});
     if (!IsScreenTransitionPending()) {
@@ -2879,14 +2878,12 @@ void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation&
             g_modal_owner->RefreshModal();
         }
         if (!CurrentGame().combat.has_value()) {
-            RefreshPortraitAdvanceButtons(bands.any);
+            refreshPortraitAdvanceButtons(bands.any);
         } else {
-            PaintCombatPortraits(repaint.combat_portraits | bands.side_strips);
+            paintCombatPortraits(repaint.combat_portraits | bands.side_strips);
         }
-        PaintConditionIcons(repaint.condition_icons, bands.complete);
-        if (PartyMovementPanelShown() && !CurrentGame().advancement.held) {
-            DrawPartyMovementPanel(repaint.movement_panel);
-        }
+        paintConditionIcons(repaint.condition_icons, bands.complete);
+        if (party_movement && !game.advancement.held) party_movement->paint(repaint.movement_panel);
         DrawNpcQuoteBubble();
         if (IsLockInteractionActive()) {
             RedrawLockInteractionPanels();
@@ -2894,7 +2891,7 @@ void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation&
         if (IsTrapInteractionActive()) {
             RedrawTrapInteractionPanels();
         }
-        RefreshMainGameButtons();
+        refreshHudButtons();
         RedrawPortraitQuoteBubbles();
         if (auto* text_fields = TextFieldGroup::Focused())
             text_fields->RenderAll(GetFrameBufferSurface());
@@ -3489,11 +3486,12 @@ static int PaintPortraitConditionRows(const W8Character* character, int text_x, 
    enchantment rows. Enchantment rows visit slots 7 down to 1, so slot 0's
    counted row is never drawn; a truncated status list ends in the "more"
    notice. */
-void PaintPortraitPlate(const W8LevelRuntimeBlock& hud)
+void MainGameScreen::paintPortraitPlate() const
 {
+    const W8LevelRuntimeBlock& hud = *this->hud;
     if (g_main_game_mode != W8_MAIN_GAME_HIGHLIGHT_OVERLAY || !hud.shown_plate) return;
     const auto& plate = *hud.shown_plate;
-    const W8Character* character = &CurrentGame().party.characters[plate.slot];
+    const W8Character* character = &game.party.characters[plate.slot];
     PaintPortraitPlateFrame(hud, plate.slot, plate.rows);
 
     const int text_x = hud.dialogue_text_x;
@@ -3539,12 +3537,13 @@ void PaintPortraitPlate(const W8LevelRuntimeBlock& hud)
    the world view's frame (unless the movement panel shows), or a band of a
    slot that holds an orb, the vitals or the condition highlight. A slid-out
    portrait does so for any vitals or condition plate. */
-void UpdatePortraitPlate(W8LevelRuntimeBlock& hud)
+void MainGameScreen::updatePortraitPlate()
 {
+    W8LevelRuntimeBlock& hud = *this->hud;
     auto& repaint = hud.repaint;
     const auto tracked = TrackedPortraitPlate(hud);
     if (!tracked) return;
-    bool lay_out = repaint.portrait_panel && !PartyMovementPanelShown();
+    bool lay_out = repaint.portrait_panel && !party_movement;
     const bool portraits_mode = GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS;
     for (int slot = 0; slot < 8 && !lay_out; ++slot) {
         const bool band = repaint.portraits.test(slot) ||
@@ -4087,10 +4086,11 @@ void SyncMainGameModeInput(void)
     state.formation.setEnabled(panels && !view_open && MainGameHud()->formation_board_visible);
     state.radar.setEnabled(panels && !view_open && MainGame()->radar_map);
 
-    if (PartyMovementPanelShown() && !CurrentGame().advancement.held) {
-        UpdatePartyMovementPanel();
-    } else {
-        DisablePartyMovementRegions();
+    if (auto& movement = MainGame()->party_movement) {
+        if (CurrentGame().advancement.held)
+            movement->disableInput();
+        else
+            movement->enableInput();
     }
 }
 
@@ -5762,10 +5762,12 @@ bool HandleMouselookInput(const InputEvent* input)
 
 void PresentWorldAdvancement(bool held, bool hold_changed)
 {
-    if (held && hold_changed && PartyMovementPanelShown()) DisablePartyMovementRegions();
+    auto* screen = MainGame();
+    auto* movement = screen ? screen->party_movement.get() : nullptr;
+    if (held && hold_changed && movement) movement->disableInput();
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && MainGameHud()) {
         if (!held && !MainGameHud()->review_transition_active) {
-            if (PartyMovementPanelShown()) UpdatePartyMovementPanel();
+            if (movement) movement->enableInput();
             EraseRegion(0xb1, 0x13f, 0x1cf, 0x153);
         }
         if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
@@ -6173,7 +6175,7 @@ void PopulateNpcTradeList(void)
             ShowNpcPlayerTradeItem(item, acceptable, font_palette);
         }
     }
-    RepaintNpcPanel(1);
+    MainGame()->dialogue.requestRepaint(1);
 }
 
 void OpenNpcTradeQuantityDialog(void)

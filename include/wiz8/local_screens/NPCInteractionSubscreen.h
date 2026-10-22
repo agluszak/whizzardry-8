@@ -176,17 +176,6 @@ unsigned char IsNpcDialogueCursorActive(void);
 void TryNpcDialoguePickpocket(int party_slot);
 std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& font);
 void SetDialogueFieldKeyword(std::string keyword, bool append);
-// Request an NPC dialogue panel's repaint.
-void RepaintNpcPanel(int panel);
-// Show and expand the transcript panel, without repainting the layout.
-void ShowNpcDialogueTranscript();
-/* A repainted portrait band covers the open transcript: show it again while
-   the transcript layout is up, unhidden and not waiting on a reply. */
-void KeepNpcDialogueTranscriptOverPortraits();
-/* Before the draw, add the panels whose transcript or action text changed to
-   `panels`; the draw then paints the requested ones. */
-void UpdateNpcDialoguePanels(std::bitset<7>& panels);
-void PaintNpcDialoguePanels(std::bitset<7> panels);
 UiResult HandleNpcTextBox(const UiPointerEvent& event);
 void NpcDialogueTextBoxWheelAt(short x, unsigned short y, bool flag);
 /* True when an NPC quote/portrait session is active: finish voice playback and

@@ -47,19 +47,6 @@ void InvalidatePortraitControl(unsigned int party_slot);
    a condition-icon change requests its repaint. */
 void UpdatePortraitAdvanceButtons(void);
 void UpdateConditionButtons(void);
-/* The draw paints the widgets over the portrait bands: the given combat
-   side-strip portraits, the level-advance buttons (forced over repainted
-   bands), and the condition icons that were requested or whose band was
-   repainted. */
-void PaintCombatPortraits(std::bitset<8> slots);
-void RefreshPortraitAdvanceButtons(std::bitset<8> repainted);
-void PaintConditionIcons(std::bitset<8> requested, std::bitset<8> repainted_bands);
-/* Paint a party slot's next animated portrait frame, as the portrait animation
-   asked. */
-PortraitBandPaint PaintPartyPortraitFrame(unsigned int party_slot);
-/* Whether painting the slot's requested animation frame repaints its complete band
-   too, as it does for a character dead in combat, surprised or missing. */
-bool PartyPortraitFrameCoversBand(unsigned int party_slot);
 /* Stage the casting icon on a monster-manager entry; the spell's
    realm picks the icon catalog base and the flag picks the dim variant. */
 void StageMonsterCastIcon(unsigned int monster_index, W8SpellRealm spell_realm, bool flag,

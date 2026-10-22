@@ -70,9 +70,6 @@ void UpdateRoofButtons(void);
 void SyncRoofButtonPressedState(void);
 // Draw layout-arrow chrome and the visible raise/lower arrows.
 void RedrawLayoutArrowButtons(void);
-/* Sync the six raise/lower arrows against the live action-panel /
-   formation-board / radar-map visibility flags. */
-void UpdateLayoutArrowButtons(void);
 /* MainGameScreenEnter's interface-button bank: submenu, scroll, panel,
    options disk, combat stance, roof, and layout arrows. */
 void ConfigureMainGameHudButtons(void);
@@ -90,12 +87,6 @@ void RedrawOptionsDiskButton(void);
 void RedrawCombatStanceButtons(void);
 /* Show the active continuous/manual combat-stance button for the live mode. */
 void UpdateCombatStanceButtons(void);
-/* The presentation update's button sync: bank buttons, scroll arrows,
-   panel/options/stance/roof buttons and the layout arrows. */
-void UpdateMainGameButtons(void);
-/* The draw's per-frame button refresh: every changed button except the layout
-   arrows, which the layout repaint draws. */
-void RefreshMainGameButtons(void);
 /* While the combat-end submenu is up and the cursor has left its row band,
    run a 500 ms countdown, then tear the panel and rows down. */
 void UpdateSubMenuAutoClose(void);

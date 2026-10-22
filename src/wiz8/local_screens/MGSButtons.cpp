@@ -620,24 +620,24 @@ void RedrawLayoutArrowButtons(void)
 
 /* Show one arrow of each raise/lower pair against the action-panel,
    formation-board and radar-map visibility; modal modes hide them all. */
-void UpdateLayoutArrowButtons(void)
+void MainGameScreen::updateLayoutArrows()
 {
-    auto& arrows = MainGame()->hud_buttons.layout_arrows;
-    if (CurrentGame().activity.conversation || gpSCSV || ItemUseDraft() ||
-        IsLockInteractionActive() || IsTrapInteractionActive()) {
+    auto& arrows = hud_buttons.layout_arrows;
+    if (game.activity.conversation || gpSCSV || ItemUseDraft() || IsLockInteractionActive() ||
+        IsTrapInteractionActive()) {
         for (auto& button : arrows) button.SetVisible(false);
         return;
     }
     const bool enabled = GetEffectiveMainUiMode() != 0;
     arrows[0].SetEnabled(enabled);
     arrows[2].SetEnabled(enabled);
-    const bool radar = MainGame()->radar_map != nullptr;
+    const bool radar = radar_map != nullptr;
     arrows[0].SetVisible(radar);
     arrows[3].SetVisible(!radar);
-    const bool action_panel = MainGameHud()->action_panel_visible != 0;
+    const bool action_panel = hud->action_panel_visible != 0;
     arrows[1].SetVisible(action_panel);
     arrows[4].SetVisible(!action_panel);
-    const bool formation = MainGameHud()->formation_board_visible;
+    const bool formation = hud->formation_board_visible;
     arrows[2].SetVisible(formation);
     arrows[5].SetVisible(!formation);
 }
@@ -963,24 +963,24 @@ void SetSubMenuButtonTooltips(int enabled)
 /* Restate every HUD button from the game: the nine bank buttons, the scroll
    arrows (idle submenu only), the options/disk button outside modal modes, and
    the panel, stance, roof and layout-arrow sets. */
-void UpdateMainGameButtons(void)
+void MainGameScreen::updateHudButtons()
 {
     for (int index = 0; index < 9; ++index) UpdateSubMenuButton(index);
     UpdateSubMenuScrollButtons();
     UpdateSubMenuPanelButtons();
-    const bool enabled = !CurrentGame().activity.conversation && !IsLockInteractionActive() &&
-                         !IsTrapInteractionActive() && !CurrentGame().activity.conversation_aside &&
+    const bool enabled = !game.activity.conversation && !IsLockInteractionActive() &&
+                         !IsTrapInteractionActive() && !game.activity.conversation_aside &&
                          !LockInteractionSuspended() && !TrapInteractionSuspended();
-    MainGame()->hud_buttons.options_disk.SetEnabled(enabled);
+    hud_buttons.options_disk.SetEnabled(enabled);
     UpdateCombatStanceButtons();
     UpdateRoofButtons();
-    UpdateLayoutArrowButtons();
+    updateLayoutArrows();
 }
 
 // Draw the HUD buttons whose state or hover changed since they were last drawn.
-void RefreshMainGameButtons(void)
+void MainGameScreen::refreshHudButtons()
 {
-    auto& buttons = MainGame()->hud_buttons;
+    auto& buttons = hud_buttons;
     for (auto& button : buttons.submenu) button.Refresh();
     for (auto& button : buttons.submenu_scroll) button.Refresh();
     for (auto& button : buttons.submenu_panel) button.Refresh();
