@@ -373,9 +373,11 @@ bool AllSpellEffectsStillRunning(void)
 
 W8SpellEffectEntry* FindMonsterControlSpellEffect(void)
 {
-    for (const auto& owned : CurrentGame().spell_effects) {
-        auto& effect = *owned;
-        if (effect.kind == W8_SPELL_HYPNOTIC_LURE) return &effect;
+    // Replaced lures remain queued until their visuals are retired.
+    for (auto it = CurrentGame().spell_effects.rbegin();
+         it != CurrentGame().spell_effects.rend(); ++it) {
+        if ((*it)->kind == W8_SPELL_HYPNOTIC_LURE && (*it)->turns_remaining > 0)
+            return it->get();
     }
     return nullptr;
 }
@@ -551,7 +553,7 @@ void UpdateSpellEffects(void)
 
         bool process =
             ((Data().spells[effect.kind].missile_delivered == 0 && !effect.missiles_pending) ||
-             effect.sustained || alive) &&
+             effect.kind == W8_SPELL_HYPNOTIC_LURE || alive) &&
             !effect.targets_resolved;
         if (process) {
 
@@ -596,10 +598,8 @@ void UpdateSpellEffects(void)
             }
         }
 
-        if (effect.sustained) {
-            if (effect.turns_remaining != 0) {
-                continue;
-            }
+        if (effect.kind == W8_SPELL_HYPNOTIC_LURE) {
+            if (effect.turns_remaining != 0) continue;
         } else if (!alive || !effect.targets_resolved) {
             continue;
         }
@@ -621,7 +621,7 @@ void UpdateSpellEffects(void)
              ++release_visual) {
             SpellVisual* visual = effect.spell_visuals[release_visual];
             visual->auto_release = true;
-            if (effect.sustained) {
+            if (effect.kind == W8_SPELL_HYPNOTIC_LURE) {
                 visual->finished = true;
             }
         }
@@ -1840,15 +1840,13 @@ void W8SpellEffectEntry::AddVisual(SpellVisual* visual)
     }
 }
 
-/* Put the lure's two effects a thousand units below the target. The target
-   point itself moves down, so subsequent users see the lowered position.
-   Only the named companion effect has its mode set. */
-void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, W8CombatSlot* target)
+/* The target already contains the lowered gameplay anchor. Recreating the visuals
+   after a load must not lower the persisted point again. */
+void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, const W8CombatSlot* target)
 {
     glm::vec3 position;
     SpellVisual* effect;
 
-    target->point.y -= 1000.0f;
     position = target->point;
 
     effect = SpawnSpellEffect(&position, Data().spells[W8_SPELL_HYPNOTIC_LURE].resource_name,
@@ -2868,6 +2866,8 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 break;
             case W8_TARGET_TYPE_POINT:
                 if (spell_id == W8_SPELL_HYPNOTIC_LURE) {
+                    // Lower the HYPN anchor once, on casting, not on visual reconstruction.
+                    target->point.y -= 1000.0f;
                     SpawnLureEffects(&owner, power_level, target);
                 } else {
                     if (spell_id != W8_SPELL_SUMMON_ELEMENTAL) {
@@ -2961,16 +2961,16 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         owner.target_indices = party_markers;
         owner.recast = recast;
         if (spell_id == W8_SPELL_HYPNOTIC_LURE) {
-            owner.sustained = true;
             owner.turns_remaining = RollEffectDuration(&owner.definition);
-            for (index = 0; index < static_cast<int>(CurrentGame().spell_effects.size()); ++index) {
-                auto& previous = *CurrentGame().spell_effects[index];
-                if (previous.kind == W8_SPELL_HYPNOTIC_LURE) {
-                    previous.turns_remaining = 0;
-                    ReleaseHypnoticLureControl();
-                    break;
+            bool replaced = false;
+            for (const auto& previous : CurrentGame().spell_effects) {
+                if (previous->kind == W8_SPELL_HYPNOTIC_LURE &&
+                    previous->turns_remaining > 0) {
+                    previous->turns_remaining = 0;
+                    replaced = true;
                 }
             }
+            if (replaced) ReleaseHypnoticLureControl();
         }
         if (CurrentGame().activity.in_world() && !CurrentGame().activity.conversation &&
             !CurrentGame().activity.conversation_aside) {

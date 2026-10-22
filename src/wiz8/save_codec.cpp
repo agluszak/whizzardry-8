@@ -1174,7 +1174,7 @@ std::vector<std::byte> encode(const W8SpellEffectEntry& monster_control)
     out.record(monster_control.OrigSource);
     out.record(monster_control.OrigTarget);
     out.flag(monster_control.recast);
-    out.flag(monster_control.sustained);
+    out.flag(true); // Retail HYPN sustained flag.
     out.flag(monster_control.missiles_pending);
     out.flag(monster_control.targets_resolved);
     out.record(monster_control.definition);
@@ -1192,7 +1192,7 @@ W8SpellEffectEntry decode_monster_control(std::span<const std::byte> payload)
     in.record(effect.OrigSource);
     in.record(effect.OrigTarget);
     effect.recast = in.flag();
-    effect.sustained = in.flag();
+    in.flag(); // Retail flag: HYPN is always sustained.
     effect.missiles_pending = in.flag();
     effect.targets_resolved = in.flag();
     in.record(effect.definition);

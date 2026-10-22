@@ -1208,7 +1208,7 @@ TEST_CASE("Monster-control sections keep the retail record", "[save][records]")
     W8SpellEffectEntry effect{};
     effect.kind = static_cast<W8SpellId>(0x26);
     effect.turns_remaining = 5;
-    effect.sustained = true;
+    effect.target.point.y = -1000.0f;
     effect.definition.radius = 1.5f;
     effect.definition.magnitude = {-123, 4, 8};
     for (unsigned char index = 0; index < 16; ++index)
@@ -1232,9 +1232,10 @@ TEST_CASE("Monster-control sections keep the retail record", "[save][records]")
     REQUIRE(std::memcmp(payload.data() + payload.size() - sizeof(definition), definition,
                         sizeof(definition)) == 0);
     const auto decoded = wiz8::save::decode_monster_control(payload);
-    REQUIRE((decoded.kind == effect.kind && decoded.turns_remaining == 5 && decoded.sustained &&
+    REQUIRE((decoded.kind == effect.kind && decoded.turns_remaining == 5 &&
              !decoded.recast && decoded.definition.power_level == 3 &&
-             decoded.monster_ids.empty()));
+             decoded.target.point.y == -1000.0f && decoded.monster_ids.empty()));
+    REQUIRE(payload[4 + 4 + 2 * (0x34 + 0x20) + 1] == std::byte{1});
     REQUIRE(wiz8::save::encode(decoded) == payload);
     REQUIRE_THROWS(
         wiz8::save::decode_monster_control(std::span(payload).first(payload.size() - 1)));
