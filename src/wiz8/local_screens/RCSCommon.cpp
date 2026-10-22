@@ -4,8 +4,10 @@
 #include <cassert>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_mouse.h>
@@ -25,6 +27,7 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/character_tables.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -35,7 +38,6 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/learned_spells.h"
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
@@ -69,65 +71,68 @@
 
 int CampScreen::ReviewedPartySlot() const
 {
-    return reviewed ? CampPartySlot(*reviewed) : -1;
+    const auto slot = reviewed ? game.party.slotOf(*reviewed) : std::nullopt;
+    return slot ? static_cast<int>(*slot) : -1;
 }
 
 /* Select a party member and rebuild the active page for that character. */
 void CampScreen::SelectCampCharacter(int slot)
 {
-    reviewed = &CurrentGame().party.characters[slot];
+    reviewed = &game.party.characters[slot];
     SyncReviewCharInputRegion();
     switch (page) {
     case W8_CAMP_PAGE_ITEMS:
-        items.ReviewedCharacterChanged(*reviewed);
+        items.RefreshCharacter();
         break;
     case W8_CAMP_PAGE_STATS:
-        stats.ReviewedCharacterChanged(*reviewed);
+        stats.RefreshCharacter();
         break;
     case W8_CAMP_PAGE_SKILLS:
-        skills.ReviewedCharacterChanged(*reviewed);
         break;
     case W8_CAMP_PAGE_SPELLS:
-        spells.ReviewedCharacterChanged(*reviewed);
+        spells.RefreshCharacter();
         break;
     default:
         break;
     }
+    character_info.InvalidateAll();
+    RefreshControls();
     InvalidateAll();
 }
 
 /* Give the held item to a camp portrait on right-click: refuse dead/insane/
    stoned with a notice, check eligibility and combat action allowance, then
    AddItemToCharacter. */
-void TryGiveHeldItemToCampPortrait(int slot)
+void CampScreen::GiveHeldItemToPortrait(int slot)
 {
+    const auto& data = game.rules().data;
     W8Character* character;
 
-    if (!CurrentGame().party.members[slot].has_value()) {
+    if (!game.party.members[slot].has_value()) {
         return;
     }
-    character = &CurrentGame().party.characters[slot];
+    character = &game.party.characters[slot];
     if (character->uiCondition[W8_CONDITION_MISSING] != 0) {
-        ShowCampNoticeLine(Data().strings[0x907], 0, true, false);
+        dialogs.ShowNotice(data.strings[0x907], 0, true, false);
         return;
     }
     if (character->uiCondition[W8_CONDITION_WEBBED] != 0) {
-        ShowCampNoticeLine(Data().strings[0x908], 0, true, false);
+        dialogs.ShowNotice(data.strings[0x908], 0, true, false);
         return;
     }
     if (character->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
-        ShowCampNoticeLine(Data().strings[0x909], 0, true, false);
+        dialogs.ShowNotice(data.strings[0x909], 0, true, false);
         return;
     }
     if (!IsPartySlotEligible(slot)) {
-        ShowCampNoticeLine(Data().strings[0x901], 0, true, false);
+        dialogs.ShowNotice(data.strings[0x901], 0, true, false);
         return;
     }
-    if (!IsCampActionAllowed(slot)) {
+    if (!AllowAction(slot)) {
         return;
     }
-    AddItemToCharacter(CurrentGame(), PartyMember(CurrentGame(), slot),
-                       PartyItem(CurrentGame().party, {W8ItemStorage::Hand}), false, false, false);
+    AddItemToCharacter(game, PartyMember(game, slot), PartyItem(game.party, {W8ItemStorage::Hand}),
+                       false, false, false);
 }
 
 bool CanSelectRcsPartySlot(int ui_slot)
@@ -198,10 +203,10 @@ void DrawRcsTextJustified(std::string_view text, int left, int top, int width, i
 // FUNCTION: WIZ8 0x005b6630
 void CampScreen::OpenLevelUpCharacterScreen()
 {
-    assert(CurrentGame().party.members[ReviewedPartySlot()].has_value());
+    assert(game.party.members[ReviewedPartySlot()].has_value());
     RequestScreen({.id = W8_SCREEN_CHARACTER,
                    .mode = W8_CHARACTER_LEVEL_UP,
-                   .character = &CurrentGame().party.characters[ReviewedPartySlot()]});
+                   .character = &game.party.characters[ReviewedPartySlot()]});
 }
 
 UiResult CampScreen::HandleCampDismissPortrait(const UiPointerEvent& event)
@@ -226,33 +231,31 @@ UiResult CampScreen::HandleCampPortrait(const UiPointerEvent& event, int target_
         header_redraw.party_slots.set(target_slot);
         if ((items.action() == W8_CAMP_ITEM_ACTION_CAST_SPELL ||
              items.action() == W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER) &&
-            CurrentGame().party.characters[target_slot].uiCondition[W8_CONDITION_MISSING] == 0)
+            game.party.characters[target_slot].uiCondition[W8_CONDITION_MISSING] == 0)
             items.UpdateItemCursorForState(event.action == UiPointerAction::Enter, nullptr,
                                            target_slot);
     }
     if (event.action != UiPointerAction::Up || !event.inside) return UiResult::Handled;
     if (event.button == UiPointerButton::Right && (event.captured_buttons & SDL_BUTTON_RMASK) &&
-        (CurrentGame().party.held.item.iItemNo != -1))
-        AfterUiDispatch([target_slot] { TryGiveHeldItemToCampPortrait(target_slot); });
+        (game.party.held.item.iItemNo != -1))
+        AfterUiDispatch([this, target_slot] { GiveHeldItemToPortrait(target_slot); });
     if (event.button == UiPointerButton::Left && (event.captured_buttons & SDL_BUTTON_LMASK) &&
-        CurrentGame().party.members[target_slot].has_value()) {
+        game.party.members[target_slot].has_value()) {
         AfterUiDispatch([this, target_slot] {
             if (ScreenPointer().targeting() == W8_TARGET_NEED_ALLY) {
                 if (page != W8_CAMP_PAGE_ITEMS ||
                     (items.action() != W8_CAMP_ITEM_ACTION_CAST_SPELL &&
                      items.action() != W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER)) {
                     if (!CanPartySlotParticipate(target_slot)) {
-                        QueueCharacterEvent(&CurrentGame().party.characters[ReviewedPartySlot()],
-                                            0x35, 0, kCharacterEventFullVolume);
+                        QueueCharacterEvent(&game.party.characters[ReviewedPartySlot()], 0x35, 0,
+                                            kCharacterEventFullVolume);
                         return;
                     }
-                    AimAtCharacter(ReviewedPartySlot(), target_slot,
-                                   GetEditedActionContext(ReviewedPartySlot()));
+                    AimAtTarget(ReviewedPartySlot(), CharacterTarget(target_slot));
                     StartBreathCycle(ReviewedPartySlot(), false);
                     return;
                 }
-                if (CurrentGame().party.characters[target_slot].uiCondition[W8_CONDITION_MISSING] ==
-                    0) {
+                if (game.party.characters[target_slot].uiCondition[W8_CONDITION_MISSING] == 0) {
                     if (items.action() != W8_CAMP_ITEM_ACTION_CAST_SPELL) {
                         items.TargetCharacterWithHeldItem(target_slot);
                         return;
@@ -263,12 +266,12 @@ UiResult CampScreen::HandleCampPortrait(const UiPointerEvent& event, int target_
             } else {
                 if (ScreenPointer().targeting() == W8_TARGET_NEED_CHARACTER_INDIRECT) {
                     if (!IsDeadCharacterTargetable(target_slot)) {
-                        QueueCharacterEvent(&CurrentGame().party.characters[ReviewedPartySlot()],
-                                            0x35, 0, kCharacterEventFullVolume);
+                        QueueCharacterEvent(&game.party.characters[ReviewedPartySlot()], 0x35, 0,
+                                            kCharacterEventFullVolume);
                         return;
                     }
-                    AimAtCharacterIndirect(ReviewedPartySlot(), target_slot,
-                                           GetEditedActionContext(ReviewedPartySlot()));
+                    AimAtTarget(ReviewedPartySlot(),
+                                CharacterTarget(target_slot, W8_TARGET_KIND_CHARACTER_INDIRECT));
                     StartBreathCycle(ReviewedPartySlot(), false);
                     return;
                 }
@@ -351,9 +354,10 @@ void CampScreen::RedrawRcsDismissPanel()
 void CampScreen::UpdateRcsLevelUpPanel(void)
 {
     bool enabled = IsCharacterReadyToAdvance(ReviewedPartySlot());
-    if (!enabled || CurrentGame().combat.has_value() ||
-        (!CurrentGame().party.members[ReviewedPartySlot()]->level_up_announced && GameStarted()) ||
-        CurrentGame().activity.conversation_aside) {
+    if (!enabled || game.combat.has_value() ||
+        (!game.party.members[ReviewedPartySlot()]->level_up_announced &&
+         game.status.game_started) ||
+        game.activity.conversation_aside) {
         if (header_buttons.level_up->IsVisible()) {
             header_buttons.level_up->SetVisible(false);
         }
@@ -367,32 +371,32 @@ void CampScreen::UpdateRcsLevelUpPanel(void)
 // FUNCTION: WIZ8 0x005b6950
 void CampScreen::ShowDismissCharacterDialog()
 {
-    assert(CurrentGame().party.members[ReviewedPartySlot()].has_value());
+    assert(game.party.members[ReviewedPartySlot()].has_value());
 
-    W8MessageDialogBase* dialog = CreateMessageDialog();
+    auto dialog = CreateMessageDialog();
     dialog->SetClientExtent(0xfa, 200);
 
-    W8Character* character = &CurrentGame().party.characters[ReviewedPartySlot()];
+    W8Character* character = &game.party.characters[ReviewedPartySlot()];
     std::string format;
     if (character->uiCondition[W8_CONDITION_MISSING] == 0) {
         if (character->uiCondition[W8_CONDITION_DEAD] == 0) {
-            format = Data().strings[0x92d];
+            format = game.rules().data.strings[0x92d];
         } else {
-            format = Data().strings[0x92e];
+            format = game.rules().data.strings[0x92e];
         }
     } else {
-        format = Data().strings[0x92f];
+        format = game.rules().data.strings[0x92f];
     }
     dialog->SetMessage(fmt::sprintf(format, character->name), 1, 0x32, true, true, true, true, 0,
                        0x15e);
     dialog->on_complete = [this](bool accepted) { OnDismissCharacterDialogClosed(accepted); };
-    dialogs.Display(std::unique_ptr<W8DialogBase>(dialog));
+    dialogs.Display(std::move(dialog));
 }
 
 // FUNCTION: WIZ8 0x005b6a60
 void CampScreen::OnDismissCharacterDialogClosed(bool accepted)
 {
-    if (accepted && CurrentGame().party.npcIndex(ReviewedPartySlot()) != -1) {
+    if (accepted && game.party.npcIndex(ReviewedPartySlot()) != -1) {
         if (auto* main_game = MainGame()) main_game->dismissed_npc_slot = ReviewedPartySlot();
         DismissSelectedPartyCharacter();
     }
@@ -404,8 +408,8 @@ void CampScreen::OnDismissCharacterDialogClosed(bool accepted)
 // FUNCTION: WIZ8 0x005b68e0
 void CampScreen::UpdateRcsDismissPanel(void)
 {
-    if ((ReviewedPartySlot() == 0 || ReviewedPartySlot() == 1) &&
-        !CurrentGame().combat.has_value() && !CurrentGame().activity.conversation_aside) {
+    if ((ReviewedPartySlot() == 0 || ReviewedPartySlot() == 1) && !game.combat.has_value() &&
+        !game.activity.conversation_aside) {
         if (!header_buttons.dismiss->IsVisible()) {
             header_buttons.dismiss->SetVisible(true);
             RedrawRcsDismissPanel();
@@ -440,6 +444,7 @@ void ReleaseFormationBoard(void)
 // FUNCTION: WIZ8 0x005b4000
 void CampScreen::DrawCampHeader(void)
 {
+    const auto& data = game.rules().data;
     std::string text;
     W8Character* character = reviewed;
     unsigned int row;
@@ -461,7 +466,7 @@ void CampScreen::DrawCampHeader(void)
             const SDL_Rect bounds{0, 0, 0x136, 0xa5};
             SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, 0x8000);
             CatalogArtwork::Load(0x123, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
-            DrawRcsText(Data().strings[0x8c2], 0xb, 0xd, 0x11e,
+            DrawRcsText(data.strings[0x8c2], 0xb, 0xd, 0x11e,
                         g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
             row = 0;
             for (profession = 0; profession < W8_PROFESSION_COUNT; ++profession) {
@@ -475,8 +480,8 @@ void CampScreen::DrawCampHeader(void)
                         level_x = 0x10a;
                     }
                     y = (row & 7) * 0xe + 0x24;
-                    DrawRcsText(Data().strings[g_profession_name_message_ids[profession]], name_x,
-                                y, 0x68, g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
+                    DrawRcsText(data.strings[g_profession_name_message_ids[profession]], name_x, y,
+                                0x68, g_W8TextBufferAlignLeft | g_W8TextBufferAlignMiddle);
                     text = fmt::format("{:d}", character->profession_levels[profession]);
                     DrawRcsText(text, level_x, y, 0x20,
                                 g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
@@ -505,7 +510,7 @@ void CampScreen::DrawCampHeader(void)
         if (portrait_hovered != 0) {
             CatalogArtwork::Load(0x116, 0).draw(GetFrameBufferSurface(), 0, 0xa4, 0xc);
         }
-        if (!CurrentGame().combat.has_value()) {
+        if (!game.combat.has_value()) {
             RedrawRcsLevelUpPanel();
             RedrawRcsDismissPanel();
         }
@@ -538,25 +543,25 @@ void CampScreen::DrawCampHeader(void)
                               text);
         g_wiz_text_bold_font.resetPalette();
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
-        text = Data().strings[g_gender_name_message_rows[character->gender][0]];
+        text = data.strings[g_gender_name_message_rows[character->gender][0]];
         text += " ";
-        text += Data().strings[g_race_name_message_ids[character->iRace]];
+        text += data.strings[g_race_name_message_ids[character->iRace]];
         DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                               {(0xba - g_wiz_text_font_secondary.textWidth(text)) / 2 + 0x74, 0x6f},
                               text);
         if (main_targets[10]->hovered()) {
             g_wiz_text_font_secondary.setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);
         }
-        text = Data().strings[g_profession_name_message_ids[character->iProfession]];
+        text = data.strings[g_profession_name_message_ids[character->iProfession]];
         DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                               {(0xba - g_wiz_text_font_secondary.textWidth(text)) / 2 + 0x74, 0x7c},
                               text);
         g_wiz_text_font_secondary.resetPalette();
         g_wiz_text_font_secondary.setShade(Font::kNormalShade);
         text =
-            fmt::format("{} {:d} ({})", Data().strings[0x91a], character->uiExpLevel,
-                        Data().strings[g_profession_level_name_message_ids[character->iProfession]
-                                                                          [character->level_band]]);
+            fmt::format("{} {:d} ({})", data.strings[0x91a], character->uiExpLevel,
+                        data.strings[g_profession_level_name_message_ids[character->iProfession]
+                                                                        [character->level_band]]);
         DrawTextAndInvalidate(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                               {(0xba - g_wiz_text_font_secondary.textWidth(text)) / 2 + 0x74, 0x89},
                               text);
@@ -567,11 +572,11 @@ void CampScreen::DrawCampHeader(void)
             band_x = (slot & 1) * 0x30;
             left = band_x + 6;
             top = band_y + 5;
-            if (ReviewedPartySlot() == -1 || !CurrentGame().party.members[slot].has_value()) {
+            if (ReviewedPartySlot() == -1 || !game.party.members[slot].has_value()) {
                 CatalogArtwork::Load(0x10f, 0).draw(GetFrameBufferSurface(), slot + 1, band_x + 5,
                                                     band_y + 4);
             } else {
-                W8Character* member = &CurrentGame().party.characters[slot];
+                W8Character* member = &game.party.characters[slot];
                 if (member->hp_current == 0) {
                     image = g_dead_portrait_catalog_ids[member->iRace][0];
                     sub_image = 0;
@@ -692,13 +697,14 @@ void CampScreen::DrawCampVitals(void)
     text.SetClipBounds(bounds);
     text.SetLayoutBounds(&bounds, true);
     text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
-    if (!GameStarted()) {
+    if (!game.status.game_started) {
         text.SetFontStateIndex(8);
     } else {
-        text.SetFontStateIndex(CurrentGame().party.orderIndexOf(ReviewedPartySlot()));
+        text.SetFontStateIndex(game.party.orderIndexOf(ReviewedPartySlot()));
     }
-    text.RenderString(Data().strings[g_profession_name_message_ids[reviewed->iProfession + 0x10]],
-                      g_smfnt_font, false, GetFrameBufferSurface());
+    text.RenderString(
+        game.rules().data.strings[g_profession_name_message_ids[reviewed->iProfession + 0x10]],
+        g_smfnt_font, false, GetFrameBufferSurface());
     if (g_settings.numeric_hit_points != 0) {
         bounds.left = 0x10e;
         bounds.right = 0x120;
@@ -749,7 +755,7 @@ void CampScreen::DrawCampHands(void)
     Palette16 palette;
 
     item_id = reviewed->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo;
-    if (item_id == -1 || (Data().items[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
+    if (item_id == -1 || (game.rules().data.items[item_id].flags & W8_ITEM_FLAG_TWO_HANDED) == 0) {
         two_handed = false;
         hand_image = 0;
     } else {
@@ -815,7 +821,6 @@ void CampScreen::CreateCampButtonPanel()
 // FUNCTION: WIZ8 0x005b5670
 void CampScreen::DrawButtonPanel(bool invalidate)
 {
-    items.UpdateActionButtons(page == W8_CAMP_PAGE_ITEMS);
     button_panel_dirty |= invalidate;
     for (const auto& button : page_buttons.pages) button_panel_dirty |= button->m_dirty;
     button_panel_dirty |= items.ActionButtonsDirty();

@@ -106,6 +106,7 @@ target_sources(wiz8_engine PRIVATE
     ../entities/animation.cpp
     ../entities/animation_mesh.cpp
     ../entities/world_item.cpp
+    ../entities/native_object.cpp
     ../entities/missile.cpp
     ../entities/keyframe_track.cpp
     local_code/spell_database.cpp

@@ -35,7 +35,6 @@ struct W8WorldItem {
     /* Saved world item flag word; level restore clears RADAR_SEEN. */
     int entity_flags;
     unsigned int flags; /* 0x29: W8_WORLD_ITEM_* masks */
-    int saved_marker;
     std::vector<std::unique_ptr<W8WorldItem>> contents;
     /* 0x35: vertical velocity while flag bit 1 (falling) is set; cleared on
        ground settle. */

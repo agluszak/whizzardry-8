@@ -147,15 +147,12 @@ extern std::unique_ptr<Renderer> g_renderer;
 /* CPU canvas published as a VSG texture. */
 extern std::unique_ptr<UiCanvasTexture> g_ui_canvas;
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
-extern MeshInstance* g_current_model_instance;
-extern float g_texture_inset_pixels;
 extern DesignRect g_viewport;
 extern int g_resident_texture_policy;
 extern unsigned char g_world_render_enabled;
 extern bool g_world_blacked_out;
 
 void SetResidentTexturePolicy(int policy);
-void SetTextureInset(float scale);
 void SetSwapInterval(bool enabled);
 void SetViewport(const DesignRect& bounds);
 // Update the surface viewport without changing the camera view plane.

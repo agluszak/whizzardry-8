@@ -31,7 +31,6 @@ public:
     std::uint32_t width() const;
     std::uint32_t height() const;
     void setVsync(bool enabled);
-    void setCaptureEnabled(bool enabled);
     std::uint64_t frameNumber() const;
     render::RenderContext& context();
 
@@ -44,6 +43,9 @@ public:
     // The returned surface remains valid until the next captured frame.
     void endFrame(bool present = true, bool capture = false);
     SDL_Surface* readback() const;
+    // Renders the last presented frame again offscreen and copies it, for
+    // callers that only sometimes need the image. Valid as readback() is.
+    SDL_Surface* captureLastFrame();
 
 private:
     struct Impl;

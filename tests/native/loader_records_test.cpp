@@ -717,8 +717,8 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
     REQUIRE(second->path->entry_index == 1);
     REQUIRE(first->path->speed == 15.f);
     REQUIRE(second->path->speed == 7.5f);
-    REQUIRE(first->path->nodes.size() == 2);
-    REQUIRE(first->path->nodes[1].x == 500.f);
+    REQUIRE(first->path->points().size() == 2);
+    REQUIRE(first->path->points()[1].position.x == 500.f);
     world.plsCameras.resize(1);
     for (std::size_t operation = 1; operation <= operations; ++operation) {
         auto file = wiz8::open_file(wiz8::asset_path("cameras.bin"));
@@ -969,11 +969,7 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     REQUIRE(group->contents[1]->runtime_id == 31);
     const auto roundtrip_path = wiz8::user_path("items-roundtrip.bin");
     auto output = wiz8::open_file(roundtrip_path, wiz8::OpenMode::replace);
-    group->saved_marker = 23;
-    group->contents.front()->saved_marker = 24;
     REQUIRE_NOTHROW(SaveItemFile(*output, *group));
-    REQUIRE(group->saved_marker == 23);
-    REQUIRE(group->contents.front()->saved_marker == 24);
     output.reset();
     auto encoded = wiz8::open_file(roundtrip_path);
     std::string roundtrip(encoded->size(), '\0');
@@ -1014,7 +1010,7 @@ TEST_CASE("Automap notes say whether a visited-cell bitmap precedes them", "[loa
     // bitmap first. The reader tells them apart without the level's world.
     const auto section = [](const std::vector<bool>* visited) {
         auto writer = wiz8::open_memory_writer();
-        if (visited) REQUIRE(SavePackedBits(*writer, *visited));
+        if (visited) SavePackedBits(*writer, *visited);
         const std::uint32_t signature = 0xf00df00d, count = 0;
         writer->write(&signature, sizeof(signature));
         writer->write(&count, sizeof(count));

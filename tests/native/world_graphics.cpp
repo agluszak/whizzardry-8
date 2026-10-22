@@ -51,7 +51,7 @@
 
 static std::vector<unsigned int> ReadFrame()
 {
-    auto surface = g_renderer->readback();
+    auto surface = g_renderer->captureLastFrame();
     REQUIRE(surface);
     std::vector<unsigned int> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
     for (int y = 0; y < SCREEN_HEIGHT; ++y)
@@ -104,7 +104,6 @@ TEST_CASE("world graphics")
     const std::array<std::string_view, 1> arguments{"/WINDOW"};
     fprintf(stderr, "world: initialize native application/game\n");
     application = std::make_unique<wiz8::Application>(arguments);
-    g_renderer->setCaptureEnabled(true);
     BeginNewGame(application->games());
     W8Character character{};
     REQUIRE(LoadCharacter(character_file.filename().string(), &character, -1));
@@ -133,7 +132,6 @@ TEST_CASE("world graphics")
         auto& portrait = CurrentGame().monster_manager_entries[slot];
         portrait.portrait_event_active = false;
         portrait.damage_splat_active = portrait.effect_icon_active = false;
-        portrait.keyboard_menu_open = false;
         portrait.portrait.pose = portrait.portrait.rendered_pose = 2;
         portrait.portrait.target_pose = 1;
         portrait.portrait.blink_closing = false;

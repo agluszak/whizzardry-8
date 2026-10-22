@@ -9,6 +9,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
@@ -26,6 +27,7 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world_cursor.h"
 
+class NativeObject;
 class LevelScript;
 class W8AmbientSound;
 struct W8AmbientTrack;
@@ -75,6 +77,16 @@ struct World {
     const int level_id;
     const std::string source_path;
     std::unique_ptr<WorldScene> scene;
+    // One frame result: the occluding intersection and its eligible gameplay subject.
+    struct Selection {
+        Pick intersection;
+        std::variant<std::monostate, MeshInstance*, Prop*, NativeObject*> subject;
+    } picked;
+    void acceptPick(Pick intersection, bool in_combat);
+    MeshInstance* selectedModel() const;
+    Prop* selectedProp() const;
+    NativeObject* selectedNativeObject() const;
+    std::vector<std::unique_ptr<NativeObject>> native_objects;
     EnvironmentState environment;
     std::unique_ptr<LevelSpatialIndex> spatial;
     LevelSpatialIndex* compiledIndex() const;
