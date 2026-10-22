@@ -684,6 +684,15 @@ the presented frame shows what the UI painted there. On every frame the harness 
 requires a newly active modal input scope to be shown within four frames, so input
 can never be captured by a prompt the player cannot see.
 
+## World selection
+
+The world publishes one resolved selection per rendered pick: the actual VSG
+intersection and one eligible subject (model, prop, native object, or none).
+Rejected props keep their intersection and mask what is behind them. Prop
+eligibility is sampled at that boundary, including the closed-door exception in
+combat; native-object reach still follows the current party position when queried.
+UI and targeting read this value instead of coordinating renderer and prop latches.
+
 ## Animation parts
 
 An animation owns one sequence of parts per authored LOD. Each part contains its

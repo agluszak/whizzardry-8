@@ -213,96 +213,6 @@ std::optional<glm::vec3> Prop::GetCenterPosition()
         [](const auto& bounds) { return glm::vec3(bounds.center()); });
 }
 
-static Trigger* g_selected_prop_trigger;
-static int g_selected_prop_index = -1;
-
-/* Resolve the renderer's picked model instance back to the prop and trigger
-   that own it. A pick is accepted only while the prop is active, the trigger
-   permits selection, and the prop centre lies inside the trigger's distance
-   interval. */
-bool ResolvePickedProp()
-{
-    MeshInstance* selected;
-    glm::vec3 camera_position;
-    std::size_t prop_count;
-    int prop_index;
-    bool valid;
-
-    g_selected_prop_trigger = 0;
-    g_selected_prop_index = -1;
-    selected = g_current_model_instance;
-    if (selected == 0) {
-        return false;
-    }
-
-    valid = true;
-    camera_position = cameraLocation();
-    prop_count = GetWorld()->plsProps.size();
-    for (prop_index = 0; prop_index < static_cast<int>(prop_count); ++prop_index) {
-        Prop* prop;
-        Prop* representation;
-        MeshInstance* instance;
-        int instance_index;
-
-        if (!valid) {
-            return false;
-        }
-        if (g_selected_prop_trigger != 0) {
-            return valid;
-        }
-        prop = GetWorldProp(GetWorld(), prop_index);
-        representation = prop;
-        if (representation->active == 0) {
-            continue;
-        }
-
-        instance = 0;
-        if (representation->currentAnimation()->positioned_parts) {
-            int count = static_cast<int>(std::min<std::size_t>(
-                representation->currentAnimation()->parts[2].size(), prop->models.size()));
-            for (instance_index = 0; instance_index < count; ++instance_index) {
-                instance = prop->models[instance_index].get();
-                if (g_current_model_instance == instance) {
-                    break;
-                }
-            }
-            if (instance_index == count) {
-                continue;
-            }
-        } else {
-            instance = representation->FrameModel(representation->subcycle);
-            if (g_current_model_instance != instance) {
-                continue;
-            }
-        }
-
-        {
-            Trigger* trigger = prop->trigger;
-            g_selected_prop_trigger = trigger;
-            if (trigger != 0 && (trigger->flags & W8_TRIGGER_ENABLED) != 0 &&
-                ((trigger->flags & W8_TRIGGER_ONCE) == 0 ||
-                 (trigger->flags & W8_TRIGGER_FIRED) == 0) &&
-                ((!CurrentGame().combat.has_value()) ||
-                 (trigger->doorData() != nullptr && !trigger->doorData()->open)) &&
-                representation->active != 0) {
-                if (const auto bounds = prop->GetFrameBounds()) {
-                    const float distance =
-                        glm::length((glm::vec3(bounds->center()) - camera_position));
-                    if (trigger->range_minimum <= distance) {
-                        g_selected_prop_index = prop_index;
-                        if (distance <= trigger->range_maximum) continue;
-                    }
-                }
-            }
-            valid = false;
-            g_current_model_instance = 0;
-            g_selected_prop_trigger = 0;
-            g_selected_prop_index = -1;
-        }
-    }
-    return valid;
-}
-
 /* A model can be picked unless the level marks its prop otherwise, or it draws
    a sorted mesh for a prop without a trigger. */
 static void SetModelPickable(const Prop& prop, MeshInstance& model, const Mesh& mesh)
@@ -1470,30 +1380,9 @@ void ApplySavedProps(World& world, const std::vector<SavedProp>& section)
     }
 }
 
-/* The renderer owns the selected model instance. Without one, retail also
-   resets the cached prop index to -1 before returning it. */
-int GetSelectedPropIndex(void)
+void Prop::activate()
 {
-    if (g_current_model_instance == 0) {
-        return g_selected_prop_index = -1;
-    }
-    return g_selected_prop_index;
-}
-
-/* When the renderer still holds a pick and ResolvePickedProp latched a
-   trigger, run that trigger and post the nothing-happened / special-item
-   notice. Clearing the pick also clears the latch. */
-bool ActivateSelectedProp(void)
-{
-    if (g_current_model_instance == 0) {
-        g_selected_prop_trigger = 0;
-        return false;
-    }
-    if (g_selected_prop_trigger != 0) {
-        g_trigger_feedback = false;
-        g_selected_prop_trigger->Run(-1);
-        g_selected_prop_trigger->PrintNothingHappenedOrSpecialItemRequired();
-        return true;
-    }
-    return false;
+    g_trigger_feedback = false;
+    trigger->Run(-1);
+    trigger->PrintNothingHappenedOrSpecialItemRequired();
 }
