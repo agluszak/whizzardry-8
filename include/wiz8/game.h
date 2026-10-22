@@ -60,15 +60,6 @@ struct Level {
    `game` layer as they move into the lower layers (ROADMAP.md, "Migration"). */
 class Game {
 public:
-    struct ImportedOrigin {
-        enum class Alignment { Unaligned, Umpani, Trang };
-        Alignment alignment = Alignment::Unaligned;
-        bool barlone_dead = false;
-        bool rodan_dead = false;
-    };
-    // Needed only between party import, the opening movie and fact seeding.
-    std::optional<ImportedOrigin> imported_origin;
-
     Game() = default;
     ~Game();
     Game(const Game&) = delete;

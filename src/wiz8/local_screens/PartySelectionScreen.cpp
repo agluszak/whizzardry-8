@@ -1289,14 +1289,14 @@ void GameStartRouterScreen::frame()
     W8IntroVideo code;
 
     ReturnToPreviousScreen();
-    if (!CurrentGame().imported_origin) {
+    if (!CurrentGame().story.imported_origin) {
         code = W8_INTRO_VIDEO_VIRGIN;
     } else {
-        switch (CurrentGame().imported_origin->alignment) {
-        case Game::ImportedOrigin::Alignment::Umpani:
+        switch (CurrentGame().story.imported_origin->alignment) {
+        case Story::ImportedOrigin::Alignment::Umpani:
             code = W8_INTRO_VIDEO_UMPANI;
             break;
-        case Game::ImportedOrigin::Alignment::Trang:
+        case Story::ImportedOrigin::Alignment::Trang:
             code = W8_INTRO_VIDEO_TRANG;
             break;
         default:

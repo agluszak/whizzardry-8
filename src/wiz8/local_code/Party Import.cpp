@@ -130,7 +130,7 @@ static int FindItemByLegacyNumber(short item_number)
 
 struct ImportedParty {
     std::vector<W8Wiz7Character> characters;
-    Game::ImportedOrigin origin;
+    Story::ImportedOrigin origin;
     bool unsupported_ending = false;
 };
 
@@ -187,8 +187,8 @@ try {
         }
     }
 
-    if (ending == 1) result.origin.alignment = Game::ImportedOrigin::Alignment::Umpani;
-    if (ending == 2) result.origin.alignment = Game::ImportedOrigin::Alignment::Trang;
+    if (ending == 1) result.origin.alignment = Story::ImportedOrigin::Alignment::Umpani;
+    if (ending == 2) result.origin.alignment = Story::ImportedOrigin::Alignment::Trang;
     result.unsupported_ending = ending == 3;
     result.origin.barlone_dead = (header[0x201] & (1 << 3)) != 0;
     result.origin.rodan_dead = (header[0x200] & (1 << 5)) != 0;
@@ -204,7 +204,7 @@ PartyImportResult ImportWizardry7Party(GameSession& games, std::string_view path
     auto& game = BeginNewGame(games);
     game.party.gold = 2500;
     game.status.skip_loose_character_check = true;
-    game.imported_origin = imported->origin;
+    game.story.imported_origin = imported->origin;
     for (auto& record : imported->characters) {
         W8Character character;
         ImportWizardry7Character(&character, &record);

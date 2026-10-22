@@ -230,7 +230,7 @@ void ImportScenario(const char* file, const std::vector<ImportedMember>* party,
     REQUIRE(game.within_frames(2, [] { return CountActiveCharacters() == 6; }));
     REQUIRE_FALSE(UiModalActive());
     REQUIRE(ImportedParty() == *party);
-    REQUIRE(CurrentGame().imported_origin);
+    REQUIRE(CurrentGame().story.imported_origin);
     for (const auto& character : CurrentGame().party.characters)
         if (character.fInParty)
             REQUIRE((character.uiExpLevel == 1 && character.experience == 13000));
@@ -239,7 +239,7 @@ void ImportScenario(const char* file, const std::vector<ImportedMember>* party,
     game.click("start-game", kPartyConfirmButton);
     WaitMainGame(game, "imported-game");
     REQUIRE(Data().levels[GetLoadedLevelID()].display_name == start_level);
-    REQUIRE_FALSE(CurrentGame().imported_origin);
+    REQUIRE_FALSE(CurrentGame().story.imported_origin);
     REQUIRE(ImportedParty() == *party);
     Snapshot(file, game.read_frame());
     std::printf("import: %s started on %s after %lu frames\n", file,

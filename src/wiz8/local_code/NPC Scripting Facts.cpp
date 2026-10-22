@@ -1037,26 +1037,26 @@ void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
 
 /* The opening sequence consumes only the imported story choices. The decoded
    Wizardry 7 records have already been discarded after character conversion. */
-void SeedNewGameFacts(Game& game)
+void SeedNewGameFacts(Story& story)
 {
     g_fact_notifications_suppressed = true;
-    if (game.imported_origin) {
+    if (story.imported_origin) {
         SetFact(W8_FACT_IMPORT, 1, false);
-        switch (game.imported_origin->alignment) {
-        case Game::ImportedOrigin::Alignment::Umpani:
+        switch (story.imported_origin->alignment) {
+        case Story::ImportedOrigin::Alignment::Umpani:
             SetFact(W8_FACT_IMPORT_UMPANI, 1, false);
             break;
-        case Game::ImportedOrigin::Alignment::Trang:
+        case Story::ImportedOrigin::Alignment::Trang:
             SetFact(W8_FACT_IMPORT_TRANG, 1, false);
             break;
         default:
             SetFact(W8_FACT_IMPORT_NOALIGN, 1, false);
             break;
         }
-        if (game.imported_origin->barlone_dead) {
+        if (story.imported_origin->barlone_dead) {
             SetFact(W8_FACT_BARLONE_WAS_DEAD, 1, false);
         }
-        if (game.imported_origin->rodan_dead) {
+        if (story.imported_origin->rodan_dead) {
             SetFact(W8_FACT_RODAN_WAS_DEAD, 1, false);
         }
     } else {
@@ -1065,6 +1065,6 @@ void SeedNewGameFacts(Game& game)
         SetFact(W8_FACT_QUEST_VIRGIN_2, 1, false);
         SetFact(W8_FACT_QUEST_VIRGIN_3, 1, false);
     }
-    game.imported_origin.reset();
+    story.imported_origin.reset();
     g_fact_notifications_suppressed = false;
 }
