@@ -13,6 +13,7 @@
 #include "wiz8/canvas/Font.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -209,19 +210,20 @@ struct GameEventPresentation {
     void operator()(const TextNotice& notice) const
     {
         ShowNotice(notice.palette, notice.text, notice.text_box, notice.wrap_width,
-                   notice.force_dialog);
+                   notice.force_dialog, notice.highlight);
     }
     void operator()(const CharacterNotice& notice) const
     {
         PostCharacterNotice(static_cast<int>(notice.party_slot), notice.text, notice.context);
     }
+    void operator()(const SpellEffectResolved& resolved) const
+    {
+        if (resolved.spell != W8_SPELL_IDENTIFY_ITEM && CurrentScreenState().id == W8_SCREEN_CAMP)
+            ShowLastNoticeDialog();
+    }
     void operator()(const NoticeDialog& dialog) const
     {
         ShowNoticeLine(dialog.text, dialog.on_closed, dialog.confirmation, dialog.cancel);
-    }
-    void operator()(const TextBoxModeChange& change) const
-    {
-        SetTextBoxMode(change.mode, change.value);
     }
     void operator()(const CharacterSpeech& speech) const
     {

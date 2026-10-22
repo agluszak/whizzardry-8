@@ -67,6 +67,7 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -2306,4 +2307,29 @@ TEST_CASE("Compositor membership follows quad owners without owning the widgets"
     REQUIRE_FALSE(lifetime.expired());
     independent.reset();
     REQUIRE(lifetime.expired());
+}
+
+TEST_CASE("Notice emphasis follows UTF-8 spans across wrapped rows and newlines", "[text][owner]")
+{
+    auto glyphs = std::make_shared<SpriteSheet>();
+    glyphs->frames.resize(1024);
+    for (auto& glyph : glyphs->frames) glyph.width = 1;
+    Font font;
+    font.glyphs = glyphs;
+    const auto rows =
+        WrapNotice({.text = "AéBCD\nEFGH", .highlight = {W8_FONT_PALETTE_BLUE, 1, 10}}, font, 4);
+    REQUIRE(rows.size() == 4);
+    REQUIRE(rows[0].text == "AéB");
+    REQUIRE(rows[0].highlight_start == 1);
+    REQUIRE(rows[0].highlight_stop == 4);
+    REQUIRE(rows[1].text == "CD");
+    REQUIRE(rows[2].text == "EFG");
+    for (int i = 1; i <= 2; ++i) {
+        REQUIRE(rows[i].highlight_color == W8_FONT_PALETTE_BLUE);
+        REQUIRE(rows[i].highlight_start == 0);
+        REQUIRE(rows[i].highlight_stop == rows[i].text.size());
+        REQUIRE(rows[i].link == i);
+    }
+    REQUIRE(rows[3].text == "H");
+    REQUIRE(rows[3].highlight_color == 0xff);
 }

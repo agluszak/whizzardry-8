@@ -176,7 +176,7 @@ struct W8LevelRuntimeBlock {
     int held_item_display = -1;
     W8TextBoxArrowState text_content_region = kTextBoxArrowNone;
     W8TextBoxArrowState dialogue_content_region = kTextBoxArrowNone;
-    unsigned int text_lines[12];
+    unsigned int text_lines[8];
     /* Wrapped-line starts for hover and selection highlighting.
        NPC dialogue uses box 2 for the hovered row and selected trade item. */
     int hovered_text_lines[4];

@@ -4,6 +4,7 @@
 #include <optional>
 
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
@@ -34,6 +35,9 @@ struct W8Party {
     /* The slot's place in the marching order; an empty slot reads as the first place, as a
        cleared retail row did. */
     int orderIndexOf(unsigned int slot) const;
+    // The member's line as the text box shows it: "Name: text", the name in the member's
+    // marching-order colour.
+    TextNotice characterNotice(const CharacterNotice& notice) const;
 
     // Storage only: no legality checks and no gameplay consequences. An emptied pool
     // entry closes up; an emptied hand forgets where its item came from.

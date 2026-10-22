@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <exception>
@@ -43,12 +44,12 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -736,8 +737,8 @@ void Missile::SetCycle(signed char cycle)
 void Missile::AnnounceCollisionTarget()
 {
     std::string text;
-    unsigned char target_start;
-    unsigned char target_stop;
+    std::size_t target_start;
+    std::size_t target_stop;
     unsigned char source_color;
     unsigned char target_color;
 
@@ -757,10 +758,9 @@ void Missile::AnnounceCollisionTarget()
     target_color = GetTargetNoticeColor(&m_Source, &combat_slot);
     text += " ";
     text += Data().strings[0x1c0];
-    ShowNotice(source_color, text);
-    if (target_color != source_color) {
-        HighlightTextBoxRange(target_color, target_start, target_stop, -1);
-    }
+    CurrentGame().events.push(TextNotice{.palette = source_color,
+                                         .text = std::move(text),
+                                         .highlight = {target_color, target_start, target_stop}});
 }
 
 void Missile::EnterImpactCycle()

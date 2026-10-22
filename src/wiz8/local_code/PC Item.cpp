@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <fmt/format.h>
@@ -1027,9 +1028,10 @@ void SetCharacterItemUse(int party_slot, const W8Action& action)
    an item use that is about to commit. */
 void StagePartySlotItemUse(int party_slot, W8ItemLocation location, const W8CombatSlot* target)
 {
-    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
+    Game& game = CurrentGame();
+    W8PartySlotRow* row = &game.party.rows[party_slot];
 
-    row->remembered.item_detail.item_use = ItemUseAt(CurrentGame().party, location);
+    row->remembered.item_detail.item_use = ItemUseAt(game.party, location);
     row->remembered.item_target = *target;
 }
 
@@ -1039,8 +1041,10 @@ void StagePartySlotItemUse(int party_slot, W8ItemLocation location, const W8Comb
    raised for an item nobody has identified yet; the sound is keyed by the
    item's own resource name; and the effect's outcome decides whether the item
    is marked used, reported as a finding, or practised on afterwards. */
-int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int power)
+int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int power,
+                  TextNotice notice)
 {
+    Game& game = CurrentGame();
     const W8ItemDatabaseRecord* record = &Data().items[item->iItemNo];
     unsigned int party_slot = CharacterPointerToPartySlot(character);
     unsigned int spell_id = record->spell_id;
@@ -1061,6 +1065,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
             ? 1
             : 0;
     if (!ValidateSpellTarget(party_slot, spell_id, power, true, rejected_spell)) {
+        if (!notice.text.empty()) game.events.push(std::move(notice));
         return 0;
     }
 
@@ -1107,32 +1112,31 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
     {
         int power_out = static_cast<int>(power);
-        effect = CastSpellFromSource(spell_id, &target,
-                                     &CurrentGame().party.rows[party_slot].executing.target, power,
-                                     0, difficulty, false, &power_out, difficulty_kind, 0, 0);
+        effect = CastSpellFromSource(
+            spell_id, &target, &game.party.rows[party_slot].executing.target, power, 0, difficulty,
+            false, &power_out, difficulty_kind, 0, 0, std::move(notice));
         power = static_cast<unsigned int>(power_out);
     }
 
     if (effect == 1) {
         if (g_settings.verbose_combat_messages != 0 || !item->identified) {
-            ShowNotice(W8_FONT_PALETTE_WHITE,
-                       fmt::sprintf(Data().strings[0x1f4], GetItemDisplayName(Data(), item),
-                                    Data().spells[spell_id].display_name, power),
-                       -1);
-            if (g_settings.verbose_combat_messages == 0) {
-                SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
-            }
+            game.events.push(
+                TextNotice{W8_FONT_PALETTE_WHITE,
+                           fmt::sprintf(Data().strings[0x1f4], GetItemDisplayName(Data(), item),
+                                        Data().spells[spell_id].display_name, power),
+                           -1});
         }
         item->spell_hint = true;
     } else if (effect == 3) {
-        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x1a9],
-                                                     FormatItemDisplayName(Data(), item, false)));
+        game.events.push(CharacterNotice{
+            static_cast<unsigned int>(party_slot),
+            fmt::sprintf(Data().strings[0x1a9], FormatItemDisplayName(Data(), item, false))});
     }
 
     if (skill != W8_SKILL_NONE) {
-        if (AttemptSpellPractice(spell_id, &CurrentGame().party.rows[party_slot].executing.target,
-                                 power, static_cast<std::uint64_t>(CurrentGame().time.count()))) {
-            PracticeCharacterSkill(CurrentGame(), character, skill,
+        if (AttemptSpellPractice(spell_id, &game.party.rows[party_slot].executing.target, power,
+                                 static_cast<std::uint64_t>(game.time.count()))) {
+            PracticeCharacterSkill(game, character, skill,
                                    Data().spells[spell_id].spell_level + (power >> 1), false);
         }
     }

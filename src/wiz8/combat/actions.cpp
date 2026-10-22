@@ -162,8 +162,9 @@ ActionStep ReleaseMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8Mons
                                    W8AreaSightRule::RequireLineOfSight);
         ProvokeListedMonsterGroups(&source, monster_targets);
     }
-    ResolveMonsterGroupAttack(record->special_attack_kind, &source, &monster_info->Target,
-                              char_targets, monster_targets);
+    const auto summary = ResolveMonsterGroupAttack(
+        record->special_attack_kind, &source, &monster_info->Target, char_targets, monster_targets);
+    if (!summary.empty()) CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_RUST, summary});
     monster_info->pCombat->special_cooldown = record->special_attack_cooldown;
     FatigueMonster(monster_info, static_cast<unsigned int>(monster_info->stamina_max) / 10,
                    nullptr);
@@ -722,8 +723,10 @@ ActionStep Combat::releaseCharacterBreath(Game& game, int party_slot)
                                &game.party.rows[party_slot].executing.target, monster_targets,
                                char_targets, W8AreaSightRule::RequireLineOfSight);
     ProvokeListedMonsterGroups(&source, monster_targets);
-    ResolveMonsterGroupAttack(0x1e, &source, &game.party.rows[party_slot].executing.target,
-                              char_targets, monster_targets);
+    const auto summary =
+        ResolveMonsterGroupAttack(0x1e, &source, &game.party.rows[party_slot].executing.target,
+                                  char_targets, monster_targets);
+    if (!summary.empty()) game.events.push(TextNotice{W8_FONT_PALETTE_WHITE, summary});
     FatigueCharacter(
         party_slot,
         static_cast<int>(static_cast<unsigned int>(game.party.characters[party_slot].uiStaminaMax) /

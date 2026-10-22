@@ -599,6 +599,7 @@ void UpdateSpellEffects(void)
         }
 
         if (effect.kind == W8_SPELL_HYPNOTIC_LURE) {
+            effect.PublishNotice();
             if (effect.turns_remaining != 0) continue;
         } else if (!alive || !effect.targets_resolved) {
             continue;
@@ -628,6 +629,7 @@ void UpdateSpellEffects(void)
         for (auto* missile : effect.missiles) {
             missile->block_released = 1;
         }
+        effect.PublishNotice();
         CurrentGame().spell_effects.erase(CurrentGame().spell_effects.begin() + index);
         --index;
     }
@@ -707,14 +709,14 @@ bool IsTeleportCastMissingAnchor(W8Character* character, int spell_id)
 /* The 0x4f spell's finalizer. Once its target is gone, the impact spell 0x76
    is cast at the target's last position and the matching notice is posted:
    the monster's own notice for a monster that has died, or the targeted
-   character's notice for a character whose row is empty. A text box is only
-   opened when the detailed combat messages are off, matching the ordinary
-   damage path. */
+   character's notice for a character whose row is empty. Short notices
+   travel with the follow-up effect; detailed notices publish separately. */
 void FinishSpellEffect(W8SpellEffectEntry* effect)
 {
     W8MonsterInfo* monster_info = 0;
     W8CombatSlot target;
     glm::vec3 position;
+    TextNotice notice{.palette = W8_FONT_PALETTE_RUST};
 
     if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
         monster_info = FindMonster(effect->target.iMonsterID);
@@ -728,20 +730,20 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
             position = movement->position;
             position.y += movement->height_offset;
             position.y = probeGround(position).position.y;
-            PostMonsterNotice(monster_info, Data().strings[0x195]);
+            notice.text = fmt::format("{} {}", GetMonsterName(monster_info, nullptr, 0),
+                                      Data().strings[0x195]);
         } else {
             position = cameraLocation();
             position.y -= g_default_world_height;
-            CurrentGame().events.push(CharacterNotice{
-                static_cast<unsigned int>(effect->target.iChar), Data().strings[0x195]});
+            notice = CurrentGame().party.characterNotice(
+                {static_cast<unsigned int>(effect->target.iChar), Data().strings[0x195]});
         }
-        if (g_settings.verbose_combat_messages == 0) {
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-        }
+        if (g_settings.verbose_combat_messages != 0)
+            CurrentGame().events.push(std::exchange(notice, {.palette = W8_FONT_PALETTE_BEIGE}));
         target.point = position;
         CastSpellFromSource(W8_SPELL_BOILING_BLOOD_EXPLOSION, &effect->Source, &target,
                             effect->definition.duration_scale, effect->definition.percent, 0, false,
-                            0, W8SpellCastKind::Standard, 0, 0);
+                            0, W8SpellCastKind::Standard, 0, 0, std::move(notice));
     }
 }
 
@@ -1797,9 +1799,8 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
 enum { W8_MESSAGE_MONSTER_CAST_VERBOSE = 0x638, W8_MESSAGE_MONSTER_CAST = 0x63c };
 
 /* A monster casts. The line it is announced with names the caster, the spell
-   and what it is aimed at; the quiet form leaves the power level out and puts
-   the text box into its message mode, and the verbose form keeps the power
-   level and does not.
+   and what it is aimed at. The short form omits the power level and stays
+   with the effect until its result is complete.
 
    Its failure chance is the same rule the party's is, with the monster's
    spell-point budget standing in for a caster's spellbook skill, which is what
@@ -1814,13 +1815,13 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
 
     SetTargetSourceToMonster(monster_info, &source);
 
+    TextNotice notice{.palette = W8_FONT_PALETTE_BEIGE};
     if (g_settings.verbose_combat_messages == 0) {
-        CurrentGame().events.push(TextNotice{
-            W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[W8_MESSAGE_MONSTER_CAST / 4],
-                                               GetMonsterName(monster_info, record, 0),
-                                               Data().spells[spell_id].display_name,
-                                               SpellTargetString(&source, &monster_info->Target))});
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, 9});
+        notice.palette = W8_FONT_PALETTE_RUST;
+        notice.text = fmt::sprintf(Data().strings[W8_MESSAGE_MONSTER_CAST / 4],
+                                   GetMonsterName(monster_info, record, 0),
+                                   Data().spells[spell_id].display_name,
+                                   SpellTargetString(&source, &monster_info->Target));
     } else {
         CurrentGame().events.push(TextNotice{
             W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[W8_MESSAGE_MONSTER_CAST_VERBOSE / 4],
@@ -1834,8 +1835,15 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
     failure = GetSpellFailureChance(budget, spell_id, static_cast<int>(power_level));
 
     CastSpellFromSource(spell_id, &source, &monster_info->Target, power_level, 0, failure, false,
-                        &result, W8SpellCastKind::Standard, 0, 0);
+                        &result, W8SpellCastKind::Standard, 0, 0, std::move(notice));
     return SpellCastFatigueCost(spell_id, result);
+}
+
+void W8SpellEffectEntry::PublishNotice()
+{
+    if (!notice.text.empty()) {
+        CurrentGame().events.push(std::exchange(notice, TextNotice{.palette = notice.palette}));
+    }
 }
 
 void W8SpellEffectEntry::AddVisual(SpellVisual* visual)
@@ -1868,81 +1876,63 @@ void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, const W8CombatSlo
     }
 }
 
-/* Queued report records use the exhausted-condition notice. */
-
-/* Post what an effect accumulated. The opening separator only appears once
-   the text box already has something in it; the total is reported as
-   "<count> <unit>" or, for a single hit, "<amount> points", and each nonzero
-   condition appends its own affected-target count and condition name. Records still queued on
-   the result are then drained: a character-slot record posts the named
-   character's notice, a text record formats its own "%s %s" line, and the box
-   is reset around each. With nothing reported at all the effect reports that
-   its target took no damage. */
+/* Complete the effect's damage and condition summary, then publish it before
+   separate death reports. An effect that reported nothing describes no damage. */
 void ReportSpellResult(W8SpellEffectEntry* effect)
 {
 
-    if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
-        AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+    if (!effect->notice.text.empty()) {
+        effect->notice.text.append(!effect->reported ? " -- " : ", ");
     }
     if (effect->result.amount != 0) {
         if (effect->result.count == 1) {
-            AppendToLastTextLine(fmt::sprintf(Data().strings[0x19a], effect->result.amount), -1);
+            effect->notice.text.append(fmt::sprintf(Data().strings[0x19a], effect->result.amount));
         } else {
-            AppendToLastTextLine(fmt::sprintf(Data().strings[0x199], effect->result.count,
-                                              effect->result.amount / effect->result.count, -1),
-                                 -1);
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+            effect->notice.text.append(fmt::sprintf(Data().strings[0x199], effect->result.count,
+                                                    effect->result.amount / effect->result.count,
+                                                    -1));
         }
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         effect->reported = true;
     }
     for (int condition = W8_CONDITION_DRAINED; condition < W8_CONDITION_COUNT; ++condition) {
         if (effect->result.condition_counts[condition] != 0) {
-            if (effect->reported && GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
-                AppendToLastTextLine(", ", -1);
-                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+            if (effect->reported && !effect->notice.text.empty()) {
+                effect->notice.text.append(", ");
             }
             if (effect->result.condition_counts[condition] == 1) {
                 if (effect->target.iType == W8_TARGET_KIND_CHARACTER) {
-                    AppendToLastTextLine(
-                        fmt::format("{} {}",
-                                    CurrentGame().party.characters[effect->target.iChar].name,
-                                    Data().strings[kConditionNotices[condition].singular]),
-                        -1);
+                    effect->notice.text.append(fmt::format(
+                        "{} {}", CurrentGame().party.characters[effect->target.iChar].name,
+                        Data().strings[kConditionNotices[condition].singular]));
                 } else if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
                     W8MonsterInfo* monster_info = FindMonster(effect->target.iMonsterID);
                     if (monster_info != 0) {
-                        AppendToLastTextLine(
+                        effect->notice.text.append(
                             fmt::format("{} {}", GetMonsterName(monster_info, 0, 0),
-                                        Data().strings[kConditionNotices[condition].singular]),
-                            -1);
+                                        Data().strings[kConditionNotices[condition].singular]));
                     }
                 }
             } else {
-                AppendToLastTextLine(
+                effect->notice.text.append(
                     fmt::format("{:d} {}", effect->result.condition_counts[condition],
-                                Data().strings[kConditionNotices[condition].plural]),
-                    -1);
+                                Data().strings[kConditionNotices[condition].plural]));
             }
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             effect->reported = true;
         }
     }
 
+    if (!effect->result.reports.empty()) effect->PublishNotice();
     while (!effect->result.reports.empty()) {
         auto report = std::move(effect->result.reports.front());
         effect->result.reports.erase(effect->result.reports.begin());
         if (report != 0) {
             if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
-                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_NOTICE, -1});
                 CurrentGame().events.push(CharacterNotice{
                     static_cast<unsigned int>(report->value),
                     fmt::format("{}!",
                                 Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
                 effect->reported = true;
             } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
-                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_NOTICE, -1});
                 CurrentGame().events.push(TextNotice{
                     W8_FONT_PALETTE_RUST,
                     fmt::format("{} {}!", report->text,
@@ -1952,7 +1942,7 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
         }
     }
     if (!effect->reported) {
-        AppendToLastTextLine(Data().strings[0x1a5], -1);
+        effect->notice.text.append(Data().strings[0x1a5]);
     }
 }
 
@@ -2382,18 +2372,13 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
             power_level = character->iSPLeft[realm] / sp_cost;
         }
     }
+    TextNotice notice{.palette = W8_FONT_PALETTE_BEIGE};
     if (g_settings.verbose_combat_messages == 0) {
-        if (!continue_cast) {
-            CurrentGame().events.push(
-                CharacterNotice{static_cast<unsigned int>(party_slot),
-                                fmt::sprintf(Data().strings[0x18c], record->display_name,
-                                             SpellTargetString(&source, aim))});
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, 8});
-        } else {
-            CurrentGame().events.push(
-                CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x18d]});
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, 8});
-        }
+        notice = CurrentGame().party.characterNotice(
+            {static_cast<unsigned int>(party_slot),
+             continue_cast ? Data().strings[0x18d]
+                           : fmt::sprintf(Data().strings[0x18c], record->display_name,
+                                          SpellTargetString(&source, aim))});
     } else {
         CurrentGame().events.push(
             CharacterNotice{static_cast<unsigned int>(party_slot),
@@ -2481,7 +2466,8 @@ finish_difficulty_adjustment:
     SpendCharacterSpellPoints(party_slot, realm, mana_cost);
     try {
         result = CastSpellFromSource(spell_id, &source, aim, power_level, power_cast_bonus, chance,
-                                     recast, &cast_result, W8SpellCastKind::Standard, 0, 0);
+                                     recast, &cast_result, W8SpellCastKind::Standard, 0, 0,
+                                     std::move(notice));
     } catch (...) {
         RestoreCharacterRealmSpellPoints(party_slot, realm, mana_cost);
         throw;
@@ -2513,7 +2499,8 @@ finish_difficulty_adjustment:
 int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* target,
                         unsigned int power_level, int power_cast_bonus, unsigned int failure_chance,
                         bool recast, int* out_power, W8SpellCastKind cast_kind,
-                        std::vector<int>* party_targets, std::vector<int>* monster_targets)
+                        std::vector<int>* party_targets, std::vector<int>* monster_targets,
+                        TextNotice notice)
 {
     glm::vec3 point;
     bool fizzled;
@@ -2557,6 +2544,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     }
     auto pending = std::make_unique<W8SpellEffectEntry>();
     auto& owner = *pending;
+    owner.notice = std::move(notice);
     owner.OrigSource = *source;
     owner.OrigTarget = *target;
     if (TargetSourceIsCharacter(source, 0)) {
@@ -2945,7 +2933,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             } else if (g_settings.verbose_combat_messages != 0) {
                 CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x197]});
             } else {
-                AppendToLastTextLine(fmt::format(" -- {}", Data().strings[0x197]), -1);
+                owner.notice.text.append(fmt::format(" -- {}", Data().strings[0x197]));
                 owner.reported = true;
             }
             if (caster_slot != -1) {
@@ -2973,18 +2961,19 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(source->iChar),
                                                           Data().strings[message]});
             } else {
-                AppendToLastTextLine(fmt::format(" -- {}", Data().strings[message]), -1);
+                owner.notice.text.append(fmt::format(" -- {}", Data().strings[message]));
             }
             break;
         default:
             if (g_settings.verbose_combat_messages != 0) {
                 CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x196]});
             } else {
-                AppendToLastTextLine(fmt::format(" -- {}", Data().strings[0x196]), -1);
+                owner.notice.text.append(fmt::format(" -- {}", Data().strings[0x196]));
             }
             break;
         }
     }
+    if (pending) owner.PublishNotice();
     if (out_power != 0) {
         *out_power = power_level;
     }

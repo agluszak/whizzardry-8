@@ -1,11 +1,13 @@
 #pragma once
 
+#include <cstddef>
 #include <functional>
 #include <string>
 #include <variant>
 #include <vector>
 
 #include "wiz8/data/skills.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/rules/targeting.h"
 
 /* What happened in a game, in the order it happened. Rules append events to their
@@ -17,13 +19,6 @@ constexpr short W8_NOTICE_TEXT_BOX_AUTOMATIC = -1;
 constexpr unsigned int W8_NOTICE_WRAP_AUTOMATIC = ~0U;
 // Wrap at the text box's full width.
 constexpr unsigned int W8_NOTICE_WRAP_TEXT_BOX = ~0U - 1;
-
-enum W8TextBoxMode : unsigned char {
-    W8_TEXT_BOX_MODE_NOTICE = 0,
-    // The next notice continues the current line.
-    W8_TEXT_BOX_MODE_APPEND = 1,
-    W8_TEXT_BOX_MODE_SPECIAL_PANEL = 3
-};
 
 /* Frames of the notice palette catalog (Data\Fonts\Palette*.sti). */
 enum W8FontPaletteIndex {
@@ -46,6 +41,13 @@ enum W8FontPaletteIndex {
     W8_FONT_PALETTE_COUNT = 16
 };
 
+// A UTF-8 byte span in the complete notice, before presentation wraps it.
+struct NoticeHighlight {
+    unsigned char palette = 0xff;
+    std::size_t start = 0;
+    std::size_t stop = 0;
+};
+
 // A line for the text box in a font palette, or a message dialog when forced.
 struct TextNotice {
     unsigned int palette = 0;
@@ -53,6 +55,7 @@ struct TextNotice {
     short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC;
     unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC;
     bool force_dialog = false;
+    NoticeHighlight highlight{};
 };
 
 /* A party member's line, "Name: text", the name in the member's marching-order
@@ -72,12 +75,6 @@ struct NoticeDialog {
     bool cancel = false;
 };
 
-// How the text box takes the next notice; a value of -1 keeps the mode's current one.
-struct TextBoxModeChange {
-    W8TextBoxMode mode = W8_TEXT_BOX_MODE_NOTICE;
-    int value = -1;
-};
-
 /* A member says one of their lines (a character event type), as a voice and a portrait
    quote. */
 struct CharacterSpeech {
@@ -85,6 +82,10 @@ struct CharacterSpeech {
     int event_type = 0;
 };
 
+// A spell's immediate targets and notices have finished resolving.
+struct SpellEffectResolved {
+    W8SpellId spell;
+};
 // A member died.
 struct CharacterDied {
     unsigned int party_slot = 0;
@@ -153,7 +154,7 @@ struct TargetingRequested {
 };
 
 using Event =
-    std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, CharacterSpeech,
+    std::variant<TextNotice, CharacterNotice, NoticeDialog, CharacterSpeech, SpellEffectResolved,
                  CharacterDied, PartySlotChanged, PartyLoadChanged, CombatPanelChanged,
                  CharacterActionChanged, EquipmentSettled, SkillImproved, WorldAdvancementChanged,
                  CombatantsMoved, CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,

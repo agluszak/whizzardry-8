@@ -12,6 +12,7 @@
 #include "wiz8/data/dice.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/targeting.h"
 
 class SpellVisual;
@@ -79,6 +80,8 @@ struct W8SpellEffectResult {
 
 struct W8SpellEffectEntry {
     void AddVisual(SpellVisual* visual);
+    void PublishNotice();
+    TextNotice notice{.palette = W8_FONT_PALETTE_BEIGE};
 
     W8SpellId kind = W8_SPELL_NONE;
     /* Only Hypnotic Lure persists for multiple turns. */

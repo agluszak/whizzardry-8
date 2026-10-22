@@ -1,4 +1,5 @@
 #include <memory>
+#include <string>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -8,6 +9,7 @@
 #include "scoped_combat.h"
 #include "scoped_game.h"
 #include "scoped_game_data.h"
+#include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
@@ -19,10 +21,13 @@
 #include "wiz8/inventory.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/monster_roster.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/navigator.h"
@@ -203,4 +208,83 @@ TEST_CASE("A deflected stored-spell missile keeps its outcome outside combat")
     // Deflection prevents Rocket Blast even without a fight to remember the hit.
     missile.Land();
     REQUIRE(missile.flight_done);
+}
+
+TEST_CASE_METHOD(CombatFixture, "Missile hit notices retain target emphasis without a screen")
+{
+    GameData data;
+    data.strings.resize(0x215);
+    data.strings[0x1bf] = "Hits";
+    data.strings[0x1c0] = "instead";
+    data.strings[0x214] = "Deflected";
+    const ScopedGameData installed(std::move(data));
+    game.party.characters[1].name = std::string(260, 'x') + "é";
+    Missile missile(game.level.primary.get());
+    missile.m_Source.iType = W8_TARGET_SOURCE_MONSTER;
+    missile.m_Source.iMonsterID = 7;
+    missile.combat_slot.iType = W8_TARGET_KIND_CHARACTER;
+    missile.combat_slot.iChar = 1;
+    missile.retargeted = true;
+
+    ResolveMissileHit(&missile, true);
+
+    REQUIRE(game.events.pending().size() == 2);
+    const auto& hit = std::get<TextNotice>(game.events.pending()[0]);
+    REQUIRE(hit.text == "Hits " + game.party.characters[1].name + " instead");
+    REQUIRE(hit.highlight.palette == game.party.orderIndexOf(1));
+    REQUIRE(hit.highlight.start == 5);
+    REQUIRE(hit.highlight.stop == hit.text.size());
+    REQUIRE(std::get<TextNotice>(game.events.pending()[1]).text == "Deflected");
+    std::vector<TextNotice> delivered;
+    game.events.observe(
+        [&](const Event& event) { delivered.push_back(std::get<TextNotice>(event)); });
+    REQUIRE(delivered.size() == 2);
+    REQUIRE(delivered[0].highlight.stop == delivered[0].text.size());
+    REQUIRE(delivered[1].text == "Deflected");
+}
+
+TEST_CASE_METHOD(CombatFixture, "Spell summaries belong to their effect and precede death reports")
+{
+    GameData data;
+    data.strings.resize(2048);
+    data.strings[0x19a] = "%d damage";
+    data.strings[kConditionNotices[W8_CONDITION_DEAD].singular] = "dies";
+    const ScopedGameData installed(std::move(data));
+    W8SpellEffectEntry first, second;
+    first.notice = {.palette = W8_FONT_PALETTE_WHITE,
+                    .text = "First casts",
+                    .highlight = {W8_FONT_PALETTE_BLUE, 0, 5}};
+    second.notice = {.palette = W8_FONT_PALETTE_RUST, .text = "Second casts"};
+    first.result.amount = 7;
+    first.result.count = 1;
+    second.result.amount = 3;
+    second.result.count = 1;
+    second.result.reports.push_back(std::make_unique<W8SpellDamageReport>(
+        W8SpellDamageReport{W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH, 0, "Monster"}));
+    ReportSpellResult(&first);
+    REQUIRE(game.events.pending().empty());
+    ReportSpellResult(&second);
+    first.PublishNotice();
+    first.PublishNotice(); // Retiring an already published effect cannot repeat it.
+    REQUIRE(game.events.pending().size() == 3);
+    REQUIRE(std::get<TextNotice>(game.events.pending()[0]).text == "Second casts -- 3 damage");
+    REQUIRE(std::get<TextNotice>(game.events.pending()[1]).text == "Monster dies!");
+    const auto& completed = std::get<TextNotice>(game.events.pending()[2]);
+    REQUIRE(completed.text == "First casts -- 7 damage");
+    REQUIRE(completed.highlight.stop == 5);
+}
+
+TEST_CASE_METHOD(CombatFixture, "Detailed healing reports without a screen observer")
+{
+    GameData data;
+    data.strings.resize(0x25b);
+    data.strings[0x25a] = "%d hit points restored";
+    const ScopedGameData installed(std::move(data));
+    game.party.characters[0].uiHPMax = 20;
+    HealCharacter(0, 5, true);
+    REQUIRE(game.party.characters[0].hp_current == 15);
+    REQUIRE(game.events.pending().size() == 1);
+    const auto& notice = std::get<CharacterNotice>(game.events.pending()[0]);
+    REQUIRE(notice.party_slot == 0);
+    REQUIRE(notice.text == "5 hit points restored");
 }

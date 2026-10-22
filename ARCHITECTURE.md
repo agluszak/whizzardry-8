@@ -151,7 +151,9 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
 - **Events.** Rules push typed events onto `Game::events` (notices, display
   changes, combat progress, speech) and never ask for repaints. The session's
   presenter (`PresentGameEvent`) maps each to the active screen. A game without an
-  observer keeps events pending, which is how tests inspect them.
+  observer keeps events pending, which is how tests inspect them. Combat notices
+  carry complete text and UTF-8 emphasis spans before presentation wraps them;
+  spell effects publish their accumulated summary before deferred death reports.
 - **Combat.** `Combat::turn()` is idle or one actor's turn, stepped once per frame
   once nothing is waited on (camera, animation, sound, missile, script). Actors are
   held by slot or location id and looked up when used. Combat is not saved.

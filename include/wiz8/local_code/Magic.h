@@ -10,6 +10,7 @@
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/targeting.h"
 
 enum class W8SpellCastKind : unsigned char {
@@ -91,7 +92,8 @@ W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool
 int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* target,
                         unsigned int power_level, int power_cast_bonus, unsigned int failure_chance,
                         bool recast, int* out_power, W8SpellCastKind cast_kind,
-                        std::vector<int>* party_targets, std::vector<int>* monster_targets);
+                        std::vector<int>* party_targets, std::vector<int>* monster_targets,
+                        TextNotice notice = {.palette = W8_FONT_PALETTE_BEIGE});
 /* Assert and route the source/target pair a cast is about to
    use; some target kinds have their own placement pass. */
 void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target);
