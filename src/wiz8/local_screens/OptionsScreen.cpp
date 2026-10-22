@@ -1766,7 +1766,7 @@ bool OptionsScreen::enter(const ScreenRequest& request)
    dispatch; only an unhandled Escape requests the screen transition. */
 void OptionsScreen::frame()
 {
-    RepositionAmbientSounds();
+    RepositionAmbientSounds(GetWorld());
     UpdateAmbientSounds(GetWorld());
     ServiceMusicPlaylist();
     auto& active_modal = m_active_modal;
