@@ -259,6 +259,35 @@ jobs:
             export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so
           fi
           ctest --preset ${{ matrix.preset }} --output-on-failure --parallel "$(nproc)"
+      - name: Profile slow runtime scenarios (temporary)
+        if: matrix.preset == 'linux' && env.WIZ8_ASSET_ROOT != ''
+        continue-on-error: true
+        run: |
+          source "build/linux/conan/conanrun.sh"
+          sudo apt-get install -y --no-install-recommends linux-tools-common "linux-tools-$(uname -r)" ||
+            sudo apt-get install -y --no-install-recommends linux-tools-generic
+          sudo sysctl kernel.perf_event_paranoid=-1 kernel.kptr_restrict=0
+          perf=$(command -v perf || ls /usr/lib/linux-tools/*/perf | head -1)
+          cd build/linux
+          for scenario in combat npc-dialogue random-play; do
+            mapfile -t environment < <(ctest -R "runtime_${scenario}\$" --show-only=json-v1 | python3 -c '
+          import json, sys
+          test = json.load(sys.stdin)["tests"][0]
+          for p in test["properties"]:
+              if p["name"] == "ENVIRONMENT":
+                  print("\n".join(p["value"]))
+              if p["name"] == "WORKING_DIRECTORY":
+                  print("PWD_FOR_TEST=" + p["value"])')
+            unset_layers=()
+            [[ $scenario != npc-dialogue ]] && unset_layers=(-u VK_INSTANCE_LAYERS)
+            echo "::group::$scenario"
+            printf '%s\n' "${environment[@]}"
+            ( cd tests && /usr/bin/time -v env "${unset_layers[@]}" "${environment[@]}" "$perf" record -F 499 -o "../perf-$scenario.data" \
+                ../native_runtime_test "$scenario" --rng-seed 1 2>&1 | tail -45 )
+            "$perf" report -i "perf-$scenario.data" --no-children --sort dso --stdio 2>/dev/null | grep -v '^#' | head -25
+            "$perf" report -i "perf-$scenario.data" --no-children --sort dso,sym --stdio 2>/dev/null | grep -v '^#' | head -90
+            echo "::endgroup::"
+          done
       # Frames saved by failing runtime scenarios and golden-image mismatches.
       - name: Upload runtime scenario images
         if: failure() && steps.tests.outcome == 'failure'
