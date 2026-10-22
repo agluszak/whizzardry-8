@@ -134,19 +134,6 @@ bool NpcEditingText()
 }
 } // namespace
 
-void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2)
-{
-    MainGame()->dialogue.quote_input = std::make_unique<UiLayer>(UiLayerOrder::NpcQuoteBubble);
-    MainGame()->dialogue.quote_input->add(
-        SDL_Rect{x1, y1, x2 - x1 + 1, y2 - y1 + 1}, [](const UiPointerEvent& event) {
-            if (event.action != UiPointerAction::Up || event.captured_buttons)
-                PlayButtonSound(event.action);
-            if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left)
-                AfterUiDispatch([] { TryFinishNpcVoicePlayback(CurrentGame().status, true); });
-            return UiResult::Handled;
-        });
-}
-
 static void ToggleNpcTradeCategory(int button, W8NpcTradeFilter filter);
 static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force);
 static unsigned char HandleNpcDialogueItem(W8ItemInstance* item);
@@ -3560,16 +3547,10 @@ void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, const W8NpcQuo
 }
 
 void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
-                              int quote_id, unsigned int font_palette)
-{
-    SetNpcQuoteBubbleVisible(visible, text, quote, quote_id, font_palette, {}, -1);
-}
-
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
                               int quote_id, unsigned int font_palette, W8QuoteNotice notice,
                               int npc_kind)
 {
-    if (visible == MainGame()->dialogue.quote_visible) {
+    if (visible == MainGame()->dialogue.active_quote.has_value()) {
         return;
     }
     if (visible) {
@@ -3584,7 +3565,8 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
             }
             normalized += text[index];
         }
-        auto& bubble = MainGame()->dialogue.quote_bubble;
+        auto& active = MainGame()->dialogue.active_quote.emplace();
+        auto& bubble = active.bubble;
         bubble = QuoteBubble::layout(
             normalized, 280,
             font_palette == 0xffffffff ? std::nullopt : std::optional<std::uint8_t>(font_palette));
@@ -3600,19 +3582,22 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
             ShowNotice(W8_FONT_PALETTE_BEIGE, error_text, 0,
                        (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
         }
-        MainGame()->dialogue.quote_width = static_cast<short>(bubble ? bubble->width() : 0);
-        MainGame()->dialogue.quote_height = static_cast<short>(bubble ? bubble->height() : 0);
-        MainGame()->dialogue.quote_x = 320 - MainGame()->dialogue.quote_width / 2;
-        MainGame()->dialogue.quote_y = quote_id < 0 ? 350 - MainGame()->dialogue.quote_height : 20;
-        ShowNpcQuoteBubbleRegion(MainGame()->dialogue.quote_x, MainGame()->dialogue.quote_y,
-                                 MainGame()->dialogue.quote_x + MainGame()->dialogue.quote_width,
-                                 MainGame()->dialogue.quote_y + MainGame()->dialogue.quote_height);
-        MainGame()->dialogue.quote_visible = true;
+        active.origin = {320 - active.bounds().w / 2, quote_id < 0 ? 350 - active.bounds().h : 20};
+        const auto bounds = active.bounds();
+        active.input.add(
+            SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1},
+            [](const UiPointerEvent& event) {
+                if (event.action != UiPointerAction::Up || event.captured_buttons)
+                    PlayButtonSound(event.action);
+                if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left)
+                    AfterUiDispatch([] { TryFinishNpcVoicePlayback(CurrentGame().status, true); });
+                return UiResult::Handled;
+            });
         if (std::holds_alternative<std::monostate>(notice)) {
             CurrentGame().npc_interaction.pending_notice_lines.push_back({normalized, npc_kind});
         }
         bool level_up = std::holds_alternative<W8LevelUpNotice>(notice);
-        MainGame()->dialogue.quote_notice = notice;
+        active.notice = std::move(notice);
         if (level_up) {
             wiz8::sound::play(
                 reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
@@ -3621,9 +3606,10 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
         return;
     }
 
-    bool flush_notices = (quote_id == 0x12 || quote_id < 0) &&
-                         std::holds_alternative<std::monostate>(MainGame()->dialogue.quote_notice);
-    W8QuoteNotice dismissed = std::exchange(MainGame()->dialogue.quote_notice, {});
+    auto& active = *MainGame()->dialogue.active_quote;
+    bool flush_notices =
+        (quote_id == 0x12 || quote_id < 0) && std::holds_alternative<std::monostate>(active.notice);
+    W8QuoteNotice dismissed = std::move(active.notice);
     if (const auto* experience = std::get_if<W8ExperienceNoticePayload>(&dismissed)) {
         ShowNotice(W8_FONT_PALETTE_BEIGE,
                    fmt::sprintf(Data().strings[experience->alternate_message ? 0x231 : 0x232],
@@ -3650,18 +3636,13 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
     if (flush_notices) {
         FlushPendingNoticeLines();
     }
-    MainGame()->dialogue.quote_visible = false;
-    const bool had_bubble = MainGame()->dialogue.quote_bubble.has_value();
-    MainGame()->dialogue.quote_bubble.reset();
-    MainGame()->dialogue.quote_input.reset();
+    const auto bounds = active.bounds();
+    const bool had_bubble = active.bubble.has_value();
+    MainGame()->dialogue.active_quote.reset();
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         if (had_bubble) {
-            ClearSurfaceRect(MainGame()->dialogue.quote_x, MainGame()->dialogue.quote_y,
-                             MainGame()->dialogue.quote_x + MainGame()->dialogue.quote_width,
-                             MainGame()->dialogue.quote_y + MainGame()->dialogue.quote_height);
-            InvalidateRegion(MainGame()->dialogue.quote_x, MainGame()->dialogue.quote_y,
-                             MainGame()->dialogue.quote_x + MainGame()->dialogue.quote_width,
-                             MainGame()->dialogue.quote_y + MainGame()->dialogue.quote_height);
+            ClearSurfaceRect(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
+            InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
         }
         if (auto* hud = MainGameHud()) {
             hud->repaint.layout = true;
@@ -3675,10 +3656,9 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
 
 void DrawNpcQuoteBubble(void)
 {
-    IsModalOpen();
-    if (MainGame()->dialogue.quote_visible && MainGame()->dialogue.quote_bubble) {
-        MainGame()->dialogue.quote_bubble->draw(
-            GetFrameBufferSurface(), MainGame()->dialogue.quote_x, MainGame()->dialogue.quote_y);
+    const auto& active = MainGame()->dialogue.active_quote;
+    if (active && active->bubble) {
+        active->bubble->draw(GetFrameBufferSurface(), active->origin.x, active->origin.y);
     }
 }
 
