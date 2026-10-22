@@ -478,7 +478,7 @@ void W8UseItemView::SelectLine(int iTextLine)
     assert(iTextLine < static_cast<int>(rows.size()));
     SetTargetingMode(W8_TARGET_NEED_NONE);
     UpdateDetailPanel(rows[iTextLine].item);
-    if (ValidateItemSpellUse(owner, rows[iTextLine].item, SpellCastingNoticeClosed)) {
+    if (ValidateItemSpellUse(owner, rows[iTextLine].item, SpellCastingNoticeClosed, true)) {
         QueueCharacterEvent(&screen.game.party.characters[owner], 0x35, 0,
                             kCharacterEventFullVolume);
         return;
