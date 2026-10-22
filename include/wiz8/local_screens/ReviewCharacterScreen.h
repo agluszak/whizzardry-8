@@ -88,17 +88,6 @@ enum W8CampEffectFilter {
     W8_CAMP_EFFECT_FILTER_DETRIMENTAL = 2
 };
 
-/* Stored item-filter order; the four group indices match GetItemEquipSlotGroup. */
-enum W8CampItemFilter {
-    W8_CAMP_ITEM_FILTER_USABLE = 0,
-    W8_CAMP_ITEM_FILTER_UNIDENTIFIED = 1,
-    W8_CAMP_ITEM_FILTER_HAND = 2,
-    W8_CAMP_ITEM_FILTER_BODY = 3,
-    W8_CAMP_ITEM_FILTER_ACCESSORY = 4,
-    W8_CAMP_ITEM_FILTER_OTHER = 5,
-    W8_CAMP_ITEM_FILTER_COUNT = 6
-};
-
 /* The camp's one modal dialog. Opening a dialog retires the open one; the
    pages open theirs here. */
 class CampDialogs {
@@ -211,10 +200,7 @@ public:
     void DrawControls(bool dialog_open);
     void InvalidateControls() { item_controls.dirty = true; }
     W8CampItemAction action() const { return item_action; }
-    std::span<const int> ListedPoolEntries() const
-    {
-        return std::span{item_list}.first(item_list_count);
-    }
+    std::span<const int> ListedPoolEntries() const { return item_list; }
 
     /* The item-action buttons along the bottom panel: enabled only while the
        page is shown; the camp repaints them with its page buttons. */
@@ -315,13 +301,11 @@ private:
     bool action_buttons_invalidated = false;
     bool hand_buttons_dirty = false;
     bool filter_buttons_dirty = false;
-    unsigned char item_filters[W8_CAMP_ITEM_FILTER_COUNT] = {};
+    std::optional<W8CampItemFilterButton> group_filter;
+    bool usable_only = false;
+    bool unidentified_only = false;
     unsigned int item_scroll = 0;
-    /* The displayed item-pool indices - the count and the list of pool
-       slots RCSItemsPage.cpp renders. RebuildCampItemList rebuilds it; the pool
-       handler reads it through item_scroll. */
-    unsigned int item_list_count = 0;
-    int item_list[500] = {};
+    std::vector<int> item_list;
     std::unique_ptr<W8RangeControl> item_range;
     uint64_t item_timer = 0;
     bool item_timer_active = false;
@@ -338,7 +322,6 @@ private:
     void DrawCampEquipmentItems();
     void DrawCampItemPool();
     void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width);
-    void ClearOtherCampItemGroupFilters(W8CampItemFilter filter);
     void SelectPendingCampCharacter();
     void HandleCampItemClick(W8ItemLocation location);
     void TakeItemUnitToHand(W8ItemLocation source);
@@ -392,17 +375,12 @@ public:
        FilterCampEffectList. */
     bool effect_items_only = false; /* true lists equipped items, false conditions/enchantments */
     W8CampEffectFilter effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
-    int effect_beneficial_count = 0;
-    int effect_detrimental_count = 0;
-    int effect_first_visible = 0;
-    int effect_last_visible = 0;
-    int effect_visible_lines = 0;
-    int effect_scroll = 0;
     std::vector<W8CampEffectEntry> effect_list; /* W8CampEffectEntry rows */
 
 private:
     W8CampCharacterInfo& character_info;
     bool effect_list_dirty = false;
+    bool ShowsEffect(const W8CampEffectEntry& entry) const;
     void DrawCampEffectList(const W8Character& character);
 };
 

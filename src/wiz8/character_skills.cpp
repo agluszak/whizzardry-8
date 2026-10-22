@@ -46,11 +46,9 @@ unsigned int GetCharacterSkillNoticeValue(const W8Character* character, W8Skill 
     return value;
 }
 
-void PostSkillIncreaseNotices(Game& game, const W8SkillNoticePayload* notices)
+void PostSkillIncreaseNotices(Game& game, const W8SkillNoticePayload& notices)
 {
-    for (int index = 0; index < notices->count; ++index) {
-        const auto slot = static_cast<unsigned int>(notices->party_slots[index]);
-        W8Skill skill = static_cast<W8Skill>(notices->skills[index]);
+    for (const auto& [slot, skill] : notices.entries) {
         W8Character* character = &game.party.characters[slot];
         unsigned int value = GetCharacterSkillNoticeValue(character, skill);
         game.events.push(CharacterNotice{
@@ -81,59 +79,42 @@ void AnnounceSkillIncrease(Game& game, unsigned int party_slot, W8Skill skill_id
         game.monster_manager_entries[party_slot].skill_notice_pending[skill_id] = true;
         return;
     }
-    W8SkillNoticePayload notice{};
-    notice.count = 1;
-    notice.party_slots[0] = static_cast<signed char>(party_slot);
-    notice.skills[0] = static_cast<signed char>(skill_id);
-    CurrentGame().npc_dialogue.QueuePortraitMessage(
+    game.npc_dialogue.QueuePortraitMessage(
         FormatSkillIncreaseNoticeText(game.party, static_cast<int>(party_slot), false, skill_id),
-        notice);
+        W8SkillNoticePayload{{{party_slot, skill_id}}});
 }
 
 void FlushDeferredSkillNotices(Game& game)
 {
-    int count;
-    bool have_line;
     std::string text;
-    W8SkillNoticePayload extra{};
-    int slot;
-    unsigned int skill_id;
-
-    count = 0;
-    have_line = false;
-    text.clear();
-    for (slot = 0; slot < 8; ++slot) {
-        W8Character* character = &game.party.characters[slot];
-        if (!game.party.members[slot].has_value() || character->hp_current == 0 ||
-            character->highest_condition >= W8_CONDITION_DEAD) {
+    W8SkillNoticePayload notice;
+    for (unsigned int slot = 0; slot < 8; ++slot) {
+        const auto& character = game.party.characters[slot];
+        if (!game.party.members[slot] || character.hp_current == 0 ||
+            character.highest_condition >= W8_CONDITION_DEAD) {
             continue;
         }
-        for (skill_id = 0; skill_id < W8_SKILL_COUNT; ++skill_id) {
-            if (!game.monster_manager_entries[slot].skill_notice_pending[skill_id]) {
+        for (int skill = 0; skill < W8_SKILL_COUNT; ++skill) {
+            if (!game.monster_manager_entries[slot].skill_notice_pending[skill]) {
                 continue;
             }
-            extra.party_slots[count] = static_cast<signed char>(slot);
-            extra.skills[count] = static_cast<signed char>(skill_id);
-            ++count;
-            text += FormatSkillIncreaseNoticeText(game.party, slot, have_line,
-                                                  static_cast<W8Skill>(skill_id));
-            have_line = true;
-            if (count == 8) {
-                extra.count = 8;
-                CurrentGame().npc_dialogue.QueuePortraitMessage(std::move(text), extra);
-                count = 0;
-                have_line = false;
+            const auto skill_id = static_cast<W8Skill>(skill);
+            text +=
+                FormatSkillIncreaseNoticeText(game.party, slot, !notice.entries.empty(), skill_id);
+            notice.entries.push_back({slot, skill_id});
+            if (notice.entries.size() == 8) {
+                game.npc_dialogue.QueuePortraitMessage(std::move(text), std::move(notice));
                 text.clear();
-                extra = {};
+                notice = {};
             }
         }
     }
-    if (have_line) {
-        extra.count = static_cast<signed char>(count);
-        CurrentGame().npc_dialogue.QueuePortraitMessage(std::move(text), extra);
+    if (!notice.entries.empty()) {
+        game.npc_dialogue.QueuePortraitMessage(std::move(text), std::move(notice));
     }
-    for (auto& entry : game.monster_manager_entries)
+    for (auto& entry : game.monster_manager_entries) {
         std::ranges::fill(entry.skill_notice_pending, false);
+    }
 }
 
 void InvalidateAndRecalculateCharacterClassData(W8Character* character)

@@ -131,9 +131,8 @@ void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
 class Monster;
 
 /* Whether `monster` is within `max_distance` of the player and
-   still projects on screen. `position` is unused. */
-bool IsMonsterVisibleWithinDistance(Monster* monster, const glm::vec3* position,
-                                    float max_distance);
+   still projects on screen. */
+bool IsMonsterVisibleWithinDistance(Monster& monster, float max_distance);
 
 /* Whether `target` lies within the combined radii of `eye` and
    `bonus`, inside the heading and elevation arcs. */
