@@ -1,6 +1,7 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <vector>
 

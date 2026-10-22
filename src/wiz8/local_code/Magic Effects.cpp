@@ -882,7 +882,7 @@ bool ResolveAttackOnTarget(const W8TargetSource* source, W8CombatSlot* target,
                            int argument, int magnitude, bool announce_resistance,
                            bool announce_condition, int duration)
 {
-    W8Character* character;
+    W8Character* character = nullptr;
     W8MonsterInfo* monster_info;
     const W8MonsterRecord* monster;
     W8Condition highest_condition;
