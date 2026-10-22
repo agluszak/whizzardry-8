@@ -344,8 +344,8 @@ TEST_CASE("Animation records publish complete LOD parts and retain authored fram
         REQUIRE(animation.frameCount(2) == 2);
         REQUIRE(animation.end_frame == (positioned ? 0 : 1));
         if (positioned) {
-            REQUIRE(animation.parts[2][0].path->nodes[0].x == 0);
-            REQUIRE(animation.parts[2][1].path->nodes[0].x == 500);
+            REQUIRE(animation.parts[2][0].path->points()[0].position.x == 0);
+            REQUIRE(animation.parts[2][1].path->points()[0].position.x == 500);
             REQUIRE(animation.frame(2, 1, 1).vertex_frame == 0);
         } else {
             REQUIRE_FALSE(animation.parts[2][0].path);

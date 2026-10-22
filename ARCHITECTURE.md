@@ -701,3 +701,13 @@ cannot diverge. The authored distinction between a frame sequence and simultaneo
 positioned parts remains explicit; rendering resolves both through the same frame
 operation. The record's group count is decoder state, not mutable runtime state.
 Copies share mesh resources but retain independent placement and path playback.
+
+## Authored keyframes and playback
+
+Keyframe tracks share immutable geometry: one point sequence pairs positions with
+optional orientations and scales, and its length is calculated once on creation.
+Each player retains its own cursor, interpolation, mode and clock. Loading builds
+the complete geometry before publishing it; there is no incremental parallel-array
+mutation API. Navigation transitions discard geometry without resetting unrelated
+playback configuration. Normalized, distance-based and discrete sampling remain
+separate authored behaviors, not competing storage representations.

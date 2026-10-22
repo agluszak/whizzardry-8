@@ -1099,16 +1099,16 @@ TEST_CASE("Light copies retain independent animation and path state", "[geometry
     auto& keys = source.animator.emplace<KeyframedLightAnim>();
     keys.key_frames = {1, 2};
     keys.time = 1.5f;
-    source.path_ai = std::optional<KeyframeTrack>(std::in_place);
-    source.path_ai->nodes.emplace_back(1, 2, 3);
+    source.path_ai.emplace(std::vector<KeyframePoint>{{{1, 2, 3}}});
     source.path_ai->timed = true;
     Light copy(source);
     auto& copied = std::get<KeyframedLightAnim>(copy.animator);
     REQUIRE(copied.time == 1.5f);
     copied.key_frames.front() = 99;
-    copy.path_ai->nodes.front().x = 99;
+    copy.path_ai->position = 99;
     REQUIRE(keys.key_frames.front() == 1);
-    REQUIRE(source.path_ai->nodes.front().x == 1);
+    REQUIRE(source.path_ai->position == 0);
+    REQUIRE(source.path_ai->geometry == copy.path_ai->geometry);
     REQUIRE_FALSE(copy.path_ai->timed);
     // A fade starts at its game event, even if the light is sampled later.
     Light fading;
@@ -1196,10 +1196,9 @@ TEST_CASE("Animation bounds retain composite caching and path values", "[geometr
         mesh->frame_count = 1;
         mesh->bounds = index == 0 ? BoundingBox{{-1, -2, -3}, {4, 5, 6}}
                                   : BoundingBox{{-4, -1, -2}, {2, 8, 3}};
-        auto path = std::optional<KeyframeTrack>(std::in_place);
-        PathAIAddPoint(*path, glm::vec3(100, 200, 300));
-        PathAIAddPoint(*path, glm::vec3(400, 500, 600));
-        path->rotations.resize(path->nodes.size(), glm::mat3(1));
+        auto path = std::optional<KeyframeTrack>(
+            std::in_place, std::vector<KeyframePoint>{{{100, 200, 300}, glm::mat3(1), {}},
+                                                      {{400, 500, 600}, glm::mat3(1), {}}});
         PathAISetValue((path ? &*path : nullptr), 0.75f);
         animation.parts[0].push_back({std::move(*mesh), std::move(path)});
     }
