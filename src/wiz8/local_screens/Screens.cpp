@@ -13,6 +13,7 @@
 #include "wiz8/canvas/Font.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/fonts.h"
