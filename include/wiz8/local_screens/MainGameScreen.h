@@ -82,7 +82,7 @@ struct MainGameScreen final : Screen {
     MainGameHudButtons hud_buttons;
     std::unique_ptr<MainGameSubMenu> submenu;
     // The NPC dialogue's interface: its layouts, trade table and quote bubble.
-    W8NpcDialoguePanel dialogue;
+    W8NpcDialoguePanel dialogue{*this};
     UiLayer combat{UiLayerOrder::Combat}, edges{UiLayerOrder::ScreenEdges},
         radar{UiLayerOrder::Radar}, formation{UiLayerOrder::FormationBase},
         world{UiLayerOrder::GameplayOverlays};

@@ -9,6 +9,7 @@
 #include <fstream>
 #include <ios>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -786,19 +787,21 @@ TEST_CASE_METHOD(AudioFixture, "Discarding NPC presentation cancels its pending 
     unsigned calls = 0;
     const auto targets = LiveUiTargetCount();
     {
-        W8NpcDialoguePanel panel;
-        auto& quote = panel.active_quote.emplace();
+        // The panel's quote and voice, as the main game's dialogue panel holds them.
+        W8NpcSpeech speech;
+        std::optional<W8ActiveNpcQuote> active_quote;
+        auto& quote = active_quote.emplace();
         quote.input.add(SDL_Rect{0, 0, 20, 20},
                         [](const UiPointerEvent&) { return UiResult::Handled; });
         REQUIRE_FALSE(quote.bubble); // Failed text layout still has a dismissible quote.
         REQUIRE(LiveUiTargetCount() == targets + 1);
-        panel.active_quote.reset();
+        active_quote.reset();
         REQUIRE(LiveUiTargetCount() == targets);
-        panel.active_quote.emplace().input.add(
-            SDL_Rect{0, 0, 20, 20}, [](const UiPointerEvent&) { return UiResult::Handled; });
-        REQUIRE(PlayNpcVoice(panel.speech, "tone.wav", [&] { ++calls; }));
+        active_quote.emplace().input.add(SDL_Rect{0, 0, 20, 20},
+                                         [](const UiPointerEvent&) { return UiResult::Handled; });
+        REQUIRE(PlayNpcVoice(speech, "tone.wav", [&] { ++calls; }));
         mix(8192);
-        REQUIRE_FALSE(wiz8::sound::is_playing(panel.speech.voice_handle));
+        REQUIRE_FALSE(wiz8::sound::is_playing(speech.voice_handle));
     }
     wiz8::sound::service();
     REQUIRE(calls == 0);

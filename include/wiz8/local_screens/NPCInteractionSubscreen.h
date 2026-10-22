@@ -24,7 +24,6 @@ void SetNpcDialogueInputEnabled(int group, bool enabled);
 #include "wiz8/ui_layer.h"
 
 class W8DialogBase;
-struct MainGameScreen;
 struct W8ControlsRect;
 struct W8NpcQuoteEntry;
 struct W8NpcScriptQuote;
@@ -115,10 +114,6 @@ void SyncDialogueNpcState(void);
    place-name table. While the transcript shows the notebook the new line
    appears there too, marked and with the keyword chime when `chime` is set. */
 void LearnDialogueKeyword(std::string_view text, W8DialogueCategory category, bool chime);
-void SetNpcQuoteBubbleVisible(MainGameScreen& screen, bool visible, std::string_view text,
-                              const W8NpcScriptQuote* quote, int quote_id,
-                              unsigned int font_palette, W8QuoteNotice notice = {},
-                              int npc_kind = -1);
 void DrawNpcQuoteBubble(void);
 void LookAtDialogueNpc(void);
 void CloseNpcDialogueLayout(void);

@@ -753,7 +753,7 @@ struct PartyQuoteInput {
                         if (slot > 1 && active)
                             CurrentGame().speech.CompleteActiveEvent(active);
                         else
-                            TryFinishNpcVoicePlayback(CurrentGame().status, true);
+                            TryFinishNpcVoicePlayback(true);
                     });
                 }
                 return UiResult::Handled;

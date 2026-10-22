@@ -129,7 +129,7 @@ static void BeginPartyCamping()
         surprise.unengaged = false;
         ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::sprintf(Data().strings[0x790], 8));
     }
-    SetNpcQuoteBubbleVisible(*MainGame(), false, {}, 0, -1, 0xffffffff);
+    MainGame()->dialogue.setQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
     BeginSurprise();
     game.surprise_possible = true;
     SetWorldResumeInput(true);

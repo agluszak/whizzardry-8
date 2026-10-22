@@ -116,7 +116,7 @@ private:
 
 std::string GetNpcScriptRegionName(int region);
 void StripNpcKeywordPunctuation(std::string& text);
-void TryFinishNpcVoicePlayback(const GameStatus& status, bool force);
+void TryFinishNpcVoicePlayback(bool force);
 int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
                                 short* sub_entry_index);
 /* What presenting a subquote asks of the conversation: script sentinels
