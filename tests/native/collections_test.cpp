@@ -839,6 +839,10 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
     live.default_interval = 17;
     live.interval_max = 44;
     live.save_flag = 1;
+    auto generator = std::make_unique<MonGen>();
+    generator->custom_interval_seconds = 17;
+    generator->timer.setScale(2.0f);
+    live.generators.push_back(std::move(generator));
     World replacement(1);
     replacement.encounters.random_budget = 100;
     StartLevelEncounters(replacement);
@@ -854,7 +858,10 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
     chunk.Close();
     REQUIRE(chunk.OpenRead(directory.path / "state.riff"));
     chunk.ForEachChunk([&](unsigned) {
-        const auto loaded = ReadEncounterState(chunk);
+        std::vector<Rng::Draw> draws;
+        game.game.rng.trace(&draws);
+        auto loaded = ReadEncounterState(chunk);
+        REQUIRE(draws.empty());
         REQUIRE(loaded.random_budget == 6);
         REQUIRE(loaded.saved_budget == 77);
         REQUIRE(loaded.culling_seconds == 180);
@@ -863,6 +870,17 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
         REQUIRE(loaded.interval_max == 44);
         REQUIRE(loaded.save_flag == 1);
         REQUIRE(chunk.RemainingBytes() == 0);
+        REQUIRE(loaded.generators.size() == 1);
+        REQUIRE(loaded.generators.front().timer_scale == 2.0f);
+        std::vector<SavedEncounterSection> sections;
+        sections.emplace_back(std::move(loaded));
+        ApplyEncounterSections(replacement, sections);
+        REQUIRE(draws.size() == 1); // One jitter draw at construction, none at decode.
+        REQUIRE(draws.front().range ==
+                static_cast<unsigned>(17 * g_generator_jitter_fraction) * 2 + 1);
+        REQUIRE(replacement.encounters.generators.front()->timer.scale() == 2.0f);
+        REQUIRE(replacement.encounters.generators.front()->timer.progress() == 0.0f);
+        game.game.rng.trace(nullptr);
     });
 }
 

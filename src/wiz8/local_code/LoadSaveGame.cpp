@@ -698,7 +698,7 @@ struct LevelState {
     std::vector<SavedMonster> monsters;
     std::vector<std::unique_ptr<W8WorldItem>> items;
     std::optional<W8SavedCursorNodes> cursors;
-    std::optional<W8EncounterState> encounters;
+    std::vector<SavedEncounterSection> encounters;
     std::optional<W8SavedAutomapNotes> automap;
     std::vector<W8AmbientSoundState> ambient;
     std::vector<W8ParticleState> particles;
@@ -759,7 +759,7 @@ void ReadLevelSection(LevelState& data, W8Chunk& chunk, unsigned int chunk_id, b
         if (from_assets && !baseline) ReadWorldCursorNodeStates(chunk, *data.cursors);
         break;
     case W8_CHUNK_ENCOUNTERS:
-        data.encounters = ReadEncounterState(chunk);
+        data.encounters.emplace_back(ReadEncounterState(chunk));
         break;
     case W8_CHUNK_TRIGGER_LOCKS:
     case W8_CHUNK_TRIGGER_STATES:
@@ -782,8 +782,7 @@ void ReadLevelSection(LevelState& data, W8Chunk& chunk, unsigned int chunk_id, b
         ReadWorldCursorNodeStates(chunk, *data.cursors);
         break;
     case W8_CHUNK_MONSTER_GENERATORS:
-        if (!data.encounters) data.encounters.emplace();
-        ReadMonsterGeneratorStates(chunk, *data.encounters);
+        data.encounters.emplace_back(ReadMonsterGeneratorStates(chunk));
         break;
     case W8_CHUNK_AMBIENT_SOUNDS:
         std::ranges::move(ReadAmbientSoundStates(chunk), std::back_inserter(data.ambient));
@@ -1209,6 +1208,7 @@ std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world, W8Chunk& chun
     auto status = std::make_unique<W8LoadedLevelStatus>();
     auto& data = *status->data;
     static_cast<LevelState&>(data) = std::move(*state);
+    ApplyEncounterSections(world, data.encounters);
     for (auto& section : data.world_sections) ApplySavedSection(world, section);
     std::unordered_set<int> group_ids, monster_ids;
     for (const auto& group : data.groups) {
@@ -1353,7 +1353,6 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
                     member->entity->nav.movement_stopped = false;
         }
     }
-    if (data.encounters) world.encounters = std::move(*data.encounters);
     if (data.automap) ApplyAutomapNotes(world, std::move(*data.automap));
     ApplyAmbientSoundStates(world, data.ambient);
     ApplyParticleStates(world, data.particles);
@@ -1622,7 +1621,7 @@ try {
     return {};
 }
 
-// Decode before departure. Level images remain deferred until level construction.
+// Decode every saved group before departure; constructing its world is a separate operation.
 std::optional<PreparedGame> ReadSavedGame(std::string_view slot_name)
 try {
     W8Chunk chunks;
@@ -1634,10 +1633,13 @@ try {
         switch (id) {
         case W8_CHUNK_LEVEL_STATUS: {
             const int level = PeekGroupLevel(chunks);
-            prepared.sections.emplace_back(
-                [level, image = CopyLevelGroupImage(chunks)](Game& game) mutable {
-                    game.left_levels[level] = std::move(image);
-                });
+            auto image = CopyLevelGroupImage(chunks);
+            W8Chunk validation;
+            OpenLevelImage(validation, image);
+            RequireSection(DecodeLevelState(validation, level, false).has_value(), "saved level");
+            prepared.sections.emplace_back([level, image = std::move(image)](Game& game) mutable {
+                game.left_levels[level] = std::move(image);
+            });
             break;
         }
         case W8_CHUNK_GAME_STATUS: {

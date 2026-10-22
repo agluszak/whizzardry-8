@@ -45,19 +45,21 @@ private:
     std::chrono::duration<float> elapsed_{};
 };
 
-struct MonGen {
-    unsigned int flags;
-    signed char custom_spawn_chance; /* MIPE edits 0..100 in steps of ten */
-    short custom_interval_seconds;   /* MIPE's custom "every N s" value */
-    short unknown_08;                /* persisted, initialized to -1 */
+struct MonsterGeneratorDefinition {
+    unsigned int flags = 0;
+    signed char custom_spawn_chance = 100; /* MIPE edits 0..100 in steps of ten */
+    short custom_interval_seconds = 100;   /* MIPE's custom "every N s" value */
+    short unknown_08 = -1;                /* persisted, initialized to -1 */
     /* World position, saved as three dwords and handed to GenerateEncounter. */
-    glm::vec3 spawn_position;
-    int encounter_table_index; /* index into GameData::encounter_tables, -1 means none */
-    GeneratorInterval timer;
+    glm::vec3 spawn_position{};
+    int encounter_table_index = -1; /* index into GameData::encounter_tables, -1 means none */
     char name[32]{};
-    bool generation_enabled; /* MIPE "Toggle Active"; gates CanGenerate */
+    bool generation_enabled = true; /* MIPE "Toggle Active"; gates CanGenerate */
+};
 
-    MonGen();
+struct MonGen : MonsterGeneratorDefinition {
+    MonGen() = default;
+    GeneratorInterval timer;
     void Reset(short default_interval);
     /* Tests global encounter gates, range/LOS/occupancy constraints and this
        generator's chance. */
@@ -68,10 +70,7 @@ struct MonGen {
     const W8EncounterEntry* SelectEncounterCandidate(const W8EncounterTable& table);
     /* Difficulty-aware group-size roll for one monster database record. */
     int RollEncounterGroupSize(const W8MonsterRecord* record);
-    /* The save pair. Both are __thiscall in the image. */
     void Save(wiz8::File& handle);
-    unsigned char Load(W8Chunk& handle, short default_interval);
-    /* The MONG chunk loader. */
     /* Select one loaded encounter table and apply its HARASSMENT flag. */
     void SetEncounterTable(int index);
     MonGen(const MonGen&) = delete;

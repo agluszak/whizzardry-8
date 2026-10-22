@@ -48,6 +48,7 @@
 #include <vsg/nodes/VertexIndexDraw.h>
 
 #include "../native/surface_pixels.h"
+#include "wiz8/chunk.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/game.h"
@@ -1734,6 +1735,19 @@ void QuickSaveScenario()
     std::ofstream(save, std::ios::binary).write("bad", 3);
     game.command(W8_MGS_COMMAND_QUICK_LOAD);
     game.wait_screen("rejected-load", W8_SCREEN_MAIN_GAME);
+    REQUIRE(&CurrentGame() == running);
+    REQUIRE(GetWorld() == world);
+    REQUIRE(CurrentGame().combat.has_value());
+    // A valid RIFF with a truncated nested generator section must fail before departure too.
+    W8Chunk malformed;
+    REQUIRE(malformed.OpenWrite(save));
+    malformed.WriteGroup(W8ChunkId("LVLS"), [&] {
+        malformed.WriteValue(level);
+        malformed.WriteChunk(W8ChunkId("MGNS"), [&] { malformed.WriteValue(2); });
+    });
+    malformed.Close();
+    game.command(W8_MGS_COMMAND_QUICK_LOAD);
+    game.wait_screen("rejected-level-state", W8_SCREEN_MAIN_GAME);
     REQUIRE(&CurrentGame() == running);
     REQUIRE(GetWorld() == world);
     REQUIRE(CurrentGame().combat.has_value());
