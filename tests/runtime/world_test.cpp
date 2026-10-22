@@ -416,14 +416,22 @@ void CheckTwoWorldViews(GameHarness& game)
     auto& scene = *GetWorld()->scene;
     struct ParticleState {
         ParticleSystem* system;
-        unsigned active, emitted, integration_tick, emission_tick;
+        std::ptrdiff_t active;
+        unsigned emitted, integration_tick, emission_tick;
         std::vector<glm::vec3> positions;
     };
     std::vector<ParticleState> particles;
-    for (auto* system : scene.particles)
-        particles.push_back({system, system->active_particle_count, system->emission_count,
-                             system->last_integration_tick, system->last_emission_tick,
-                             system->particle_positions});
+    for (auto* system : scene.particles) {
+        particles.push_back(
+            {system,
+             std::ranges::count(system->particles, true, &ParticleSystem::Particle::active),
+             system->emission_count,
+             system->last_integration_tick,
+             system->last_emission_tick,
+             {}});
+        for (const auto& particle : system->particles)
+            particles.back().positions.push_back(particle.position);
+    }
     std::vector<std::pair<MeshInstance*, std::pair<unsigned, float>>> poses;
     for (auto* mesh : scene.dynamic_meshes)
         poses.push_back({mesh, {mesh->frame_index, mesh->frame_interpolation}});
@@ -453,11 +461,13 @@ void CheckTwoWorldViews(GameHarness& game)
     REQUIRE(max_channel_difference <= 1);
     REQUIRE(colored > SCREEN_WIDTH * SCREEN_HEIGHT / 16);
     for (const auto& saved : particles) {
-        REQUIRE(saved.system->active_particle_count == saved.active);
+        REQUIRE(std::ranges::count(saved.system->particles, true,
+                                   &ParticleSystem::Particle::active) == saved.active);
         REQUIRE(saved.system->emission_count == saved.emitted);
         REQUIRE(saved.system->last_integration_tick == saved.integration_tick);
         REQUIRE(saved.system->last_emission_tick == saved.emission_tick);
-        REQUIRE(saved.system->particle_positions == saved.positions);
+        REQUIRE(std::ranges::equal(saved.system->particles, saved.positions, {},
+                                   &ParticleSystem::Particle::position));
     }
     for (const auto& [mesh, pose] : poses) {
         REQUIRE(mesh->frame_index == pose.first);

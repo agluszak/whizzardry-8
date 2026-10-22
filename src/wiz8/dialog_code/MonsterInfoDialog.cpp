@@ -121,7 +121,7 @@ bool W8MonsterInfoDialog::PopulateText()
         }
     }
     combat_range = monster_info->entity->GetDistanceToPlayer();
-    m_text_area.Configure(&bounds, g_wiz_text_font_secondary, 0);
+    m_text_area.Configure(&bounds, g_wiz_text_font_secondary);
     m_text_area.SetEntrySpacing(1);
 
     if (is_npc) {
@@ -134,14 +134,14 @@ bool W8MonsterInfoDialog::PopulateText()
                                  Data().strings[g_monster_level_name_ids[level_class]]);
         prefix = Data().strings[0x13b];
     }
-    m_text_area.AddEntry(prefix, entry_text, 10, 0xf, 0);
+    m_text_area.AddEntry(prefix, entry_text, 10, 0xf);
 
     if (CurrentGame().status.status_ints[monster_info->monster_species] == 2) {
         text = FormatUnsignedIntegerWithCommas(GetMonsterExperience(record));
     } else {
         text = Data().strings[0x13a];
     }
-    m_text_area.AddEntry(Data().strings[0x13c], text, 10, 0xf, 0);
+    m_text_area.AddEntry(Data().strings[0x13c], text, 10, 0xf);
 
     if (knowledge < 10 || is_npc) {
         text = Data().strings[0x13a];
@@ -154,7 +154,7 @@ bool W8MonsterInfoDialog::PopulateText()
     } else {
         text += fmt::format("{:d}", monster_info->uiHPMax);
     }
-    m_text_area.AddEntry(Data().strings[0x13d], text, 10, 0xf, 0);
+    m_text_area.AddEntry(Data().strings[0x13d], text, 10, 0xf);
 
     if (knowledge < 0x14 || is_npc) {
         text = Data().strings[0x13a];
@@ -167,7 +167,7 @@ bool W8MonsterInfoDialog::PopulateText()
     } else {
         text += fmt::format("{:d}", monster_info->stamina_max);
     }
-    m_text_area.AddEntry(Data().strings[0x13e], text, 10, 0xf, 0);
+    m_text_area.AddEntry(Data().strings[0x13e], text, 10, 0xf);
 
     text.clear();
     count = 0;
@@ -215,7 +215,7 @@ bool W8MonsterInfoDialog::PopulateText()
         ++count;
     }
     if (count > 0) {
-        m_text_area.AddEntry(Data().strings[0x147], text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x147], text, 10, 0xf);
     }
 
     text.clear();
@@ -252,7 +252,7 @@ bool W8MonsterInfoDialog::PopulateText()
         }
     }
     if (count > 0) {
-        m_text_area.AddEntry(Data().strings[0x148], text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x148], text, 10, 0xf);
     }
 
     for (range_category = W8_RANGE_TOUCH; range_category < 4; ++range_category) {
@@ -264,19 +264,19 @@ bool W8MonsterInfoDialog::PopulateText()
     if (range_category == 4) {
         text = Data().strings[0x140];
     }
-    m_text_area.AddEntry(Data().strings[0x13f], text, 10, 0xf, 0);
+    m_text_area.AddEntry(Data().strings[0x13f], text, 10, 0xf);
 
     if (0x13 < knowledge) {
         W8RangeCategory best_range = GetMonsterBestRangeCategory(monster_info, true, &sight);
         if (best_range != W8_RANGE_NONE) {
             m_text_area.AddEntry(Data().strings[0x141],
-                                 Data().strings[g_spell_range_name_ids[best_range]], 10, 0xf, 0);
+                                 Data().strings[g_spell_range_name_ids[best_range]], 10, 0xf);
         }
     }
     if (0x31 < knowledge && record->special_attack_kind != 0) {
         m_text_area.AddEntry(
             Data().strings[0x142],
-            Data().strings[MonsterSpecialAttackNameId(record->special_attack_kind)], 10, 0xf, 0);
+            Data().strings[MonsterSpecialAttackNameId(record->special_attack_kind)], 10, 0xf);
     }
 
     if (9 < knowledge) {
@@ -319,7 +319,7 @@ bool W8MonsterInfoDialog::PopulateText()
             ++count;
         }
         if (count > 0) {
-            m_text_area.AddEntry(Data().strings[0x143], text, 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[0x143], text, 10, 0xf);
         }
     }
 
@@ -345,7 +345,7 @@ bool W8MonsterInfoDialog::PopulateText()
                 ++count;
             }
             if (count > 0) {
-                m_text_area.AddEntry(Data().strings[0x14a], text, 10, 0xf, 0);
+                m_text_area.AddEntry(Data().strings[0x14a], text, 10, 0xf);
             }
         }
     }
@@ -353,7 +353,7 @@ bool W8MonsterInfoDialog::PopulateText()
     for (index = 0; index < 6; ++index) {
         if (g_monster_resistance_label_gates[index][0] <= static_cast<int>(knowledge)) {
             m_text_area.AddEntry(Data().strings[g_monster_resistance_label_gates[index][1]],
-                                 fmt::format("{:d}", record->resistances[index]), 10, 0xf, 0);
+                                 fmt::format("{:d}", record->resistances[index]), 10, 0xf);
         }
     }
 
