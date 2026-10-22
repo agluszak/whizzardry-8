@@ -63,9 +63,16 @@ enum W8ViewportMode : unsigned char {
     W8_VIEWPORT_MODE_UNINITIALIZED = 7
 };
 
+struct W8GameSettings;
+
 /* The main game's panel layout, decided at once from the open interaction and the
-   player's preferences, and applied by RefreshMainGameLayout. */
+   player's preferences, and applied by MainGameScreen::refreshLayout. */
 struct MainGameLayout {
+    /* The layout for the player's preferences while a spell or item picker, lock or
+       trap (`picker`) or an NPC dialogue is open or not. An interaction overrides the
+       preferred layout without changing the preference. */
+    static MainGameLayout Decide(const W8GameSettings& settings, bool picker, bool npc_dialogue);
+
     // The mode shown: the preferred one unless an interaction overrides it.
     W8MainUiMode mode = W8_MAIN_UI_MODE_FORMATION;
     /* A spell or item picker, a lock or trap, or an NPC dialogue owns the bottom panel

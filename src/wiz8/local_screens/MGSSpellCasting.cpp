@@ -240,7 +240,7 @@ bool OpenSpellCastingView(int party_slot)
     }
     gpSCSV->location_id = -1;
     gpSCSV->interact_id = W8_DIALOGUE_LAYOUT_UNSET;
-    RefreshMainGameLayout();
+    MainGame()->refreshLayout();
     CreateSpellCastingViewControls();
     gpSCSV->input.setEnabled(true);
     SelectTextBox(2);
@@ -280,7 +280,7 @@ void CloseSpellCastingView(void)
     location_id = gpSCSV->location_id;
     interact_id = gpSCSV->interact_id;
     gpSCSV.reset();
-    RefreshMainGameLayout();
+    MainGame()->refreshLayout();
     if (auto* hud = MainGameHud()) {
         hud->repaint.layout = true;
         hud->repaint.roof_and_spell_icons = true;

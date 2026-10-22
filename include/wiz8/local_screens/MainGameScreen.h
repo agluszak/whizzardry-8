@@ -9,6 +9,7 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/npc_dialogue_panel.h"
 #include "wiz8/modal_content.h"
@@ -24,7 +25,6 @@ class Trigger;
 class W8LockInteraction;
 class W8TrapInteraction;
 struct W8LevelRuntimeBlock;
-struct W8GameSettings;
 
 /* The world view with its HUD, portraits, text box and overlays. The level
    block, cursor resources and HUD are created on first entry and survive the
@@ -37,6 +37,19 @@ struct MainGameScreen final : Screen {
     bool enter(const ScreenRequest& request) override;
     void frame() override;
     bool leave(ScreenDeparture departure) override;
+
+    /* Decide the layout from the open interaction and the player's preferences, and
+       apply it once. Only the panels and viewport that change are touched; an
+       unchanged layout keeps its panels, hover and tooltip state. */
+    void refreshLayout();
+    // Store the player's preferred mode and apply the layout it gives.
+    void setPreferredMode(W8MainUiMode mode);
+    /* Drop the formation board, radar map and bottom panel while the screen is
+       covered; the next refreshLayout raises what its layout wants. */
+    void closeOverlays();
+    /* Re-sync the party slots' portrait and edge hit regions with occupancy, the
+       keyboard menu and the shown mode. */
+    void refreshPartySlotRegions();
 
     // The game this main game belongs to; it is discarded before the game ends.
     Game& game;
@@ -81,6 +94,11 @@ struct MainGameScreen final : Screen {
     std::array<std::array<HitTarget*, 6>, 8> portrait_targets{};
     std::array<HitTarget*, 8> combat_targets{}, edge_targets{};
     HitTarget *radar_target = nullptr, *monster_list = nullptr, *world_view = nullptr;
+
+private:
+    void showRadarMap(bool visible);
+    void showFormationBoard(bool visible);
+    void syncInput(const MainGameLayout& layout);
 };
 /* The main game screen, current or suspended, or null. */
 inline MainGameScreen* MainGame()
@@ -99,8 +117,6 @@ void DisableMainGamePortraitSlot(unsigned int slot);
 void RedrawCombatMonsterList(bool subject_valid);
 void RefreshSelectedPartyPortrait(unsigned int party_slot);
 void ClearHighlightIfItIs(const int* item);
-
-#include "wiz8/layouts/main_game_screen.h"
 
 extern W8MainGameResourceSlot g_main_game_resource_slots[17];
 extern DesignRect g_viewport_modes[];
@@ -461,19 +477,8 @@ extern int g_selected_party_slot;
 void RequestLevelTransition(int level, int entry, unsigned char flag);
 // Change to `level`, arriving at `entry` (-1 for a saved location).
 void BeginLevelTransition(int level, int entry);
-/* The layout for the player's preferences while a spell or item picker, lock or
-   trap (`picker`) or an NPC dialogue is open or not. An interaction overrides the
-   preferred layout without changing the preference. */
-MainGameLayout DecideMainGameLayout(const W8GameSettings& settings, bool picker, bool npc_dialogue);
-void SetMainUiPreference(W8MainUiMode mode);
-/* Decide the main game's layout and apply it to the panels, viewport and input. */
-void RefreshMainGameLayout();
 bool ProcessMainGameInput(void);
 void TickAmbientFollowUpIdle(unsigned char input_handled);
-/* Re-sync the eight party slots' region sets and portrait hit
-   regions with occupancy, the monster-entry flag and the display mode; the
-   party add/remove entries and the keyboard menu's close run it. */
-void RefreshPartySlotRegions(MainGameScreen& screen);
 /* Forget the shown plate and, while the overlay mode is up, have the next draw
    erase its rectangle and repaint the roof or text box it crossed. */
 void ClearHighlightOverlayRegion(void);
@@ -540,9 +545,6 @@ void TryMGSActionKey(W8MGSAction command);
 bool IsMGSActionKeyEnabled(unsigned short command);
 void RunMGSActionKey(unsigned short command);
 void LoadMainGameCursorResources(void);
-/* Drop the formation board, radar map and bottom panel while the main game is
-   covered; the next RefreshMainGameLayout raises them again. */
-void CloseMainGameOverlays(void);
 void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag);
 void RebuildNpcTradeItemList(bool scroll_to_top);
 /* The trade-stock index behind a visible NPC item row. */

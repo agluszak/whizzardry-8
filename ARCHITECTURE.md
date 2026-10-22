@@ -559,7 +559,7 @@ widget tree.
   owner's layer explicitly.
 - Screens own their layers and keep them while suspended, so the game loop
   disables all input before entering a screen and the entering screen enables its
-  own. In the main game, `RefreshMainGameLayout` decides one `MainGameLayout` (the
+  own. In the main game, `MainGameScreen::refreshLayout` decides one `MainGameLayout` (the
   shown mode, panels and world viewport) from the open interaction and the player's
   preferences, raises or releases only the panels that changed, and re-enables the
   layers that layout uses. An interaction overrides the layout, never the preference.

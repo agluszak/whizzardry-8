@@ -173,7 +173,7 @@ bool OpenUseItemSelectView(int slot)
         DestroySubMenuControls();
     }
     CloseNpcDialogueIfActive();
-    RefreshMainGameLayout();
+    MainGame()->refreshLayout();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     MainGameHud()->text_box_visible = false;
@@ -198,7 +198,7 @@ void CloseUseItemSelectView(void)
         MainGameHud()->text_box_visible = true;
         SelectTextBox(CurrentGame().combat.has_value());
         use_item.reset();
-        RefreshMainGameLayout();
+        MainGame()->refreshLayout();
         if (auto* hud = MainGameHud()) {
             hud->repaint.layout = true;
             hud->repaint.roof_and_spell_icons = true;

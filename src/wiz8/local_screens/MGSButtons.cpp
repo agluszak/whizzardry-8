@@ -408,7 +408,7 @@ static void CreateCombatStanceButtons()
 
 static void MainGameRoofButton0(W8ButtonWidget* button)
 {
-    SetMainUiPreference(W8_MAIN_UI_MODE_PORTRAITS);
+    MainGame()->setPreferredMode(W8_MAIN_UI_MODE_PORTRAITS);
     if (auto* hud = MainGameHud()) {
         hud->repaint.roof_and_spell_icons = true;
         hud->repaint.layout = true;
@@ -417,7 +417,7 @@ static void MainGameRoofButton0(W8ButtonWidget* button)
 
 static void MainGameRoofButton1(W8ButtonWidget* button)
 {
-    SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
+    MainGame()->setPreferredMode(W8_MAIN_UI_MODE_FORMATION);
     if (auto* hud = MainGameHud()) {
         hud->repaint.roof_and_spell_icons = true;
         hud->repaint.layout = true;
@@ -426,7 +426,7 @@ static void MainGameRoofButton1(W8ButtonWidget* button)
 
 static void MainGameRoofButton2(W8ButtonWidget* button)
 {
-    SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
+    MainGame()->setPreferredMode(W8_MAIN_UI_MODE_RADAR);
     if (auto* hud = MainGameHud()) {
         hud->repaint.roof_and_spell_icons = true;
         hud->repaint.layout = true;
@@ -540,21 +540,21 @@ static void MainGameLayoutRadarButton(W8ButtonWidget* button)
 {
     if (MainGameHud()->layout.radar_map) {
         if (!MainGameHud()->layout.formation_board && !MainGameHud()->layout.bottom_panel) {
-            SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
+            MainGame()->setPreferredMode(W8_MAIN_UI_MODE_RADAR);
             return;
         }
         g_settings.formation_radar_map_preference = 0;
-        RefreshMainGameLayout();
+        MainGame()->refreshLayout();
         return;
     }
     g_settings.formation_radar_map_preference = 1;
     if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_RADAR) {
         g_settings.formation_action_panel_preference = 0;
         g_settings.formation_board_preference = 0;
-        SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
+        MainGame()->setPreferredMode(W8_MAIN_UI_MODE_FORMATION);
         return;
     }
-    RefreshMainGameLayout();
+    MainGame()->refreshLayout();
 }
 
 static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
@@ -562,53 +562,53 @@ static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
     if (MainGameHud()->layout.bottom_panel) {
         if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_FORMATION) {
             if (!MainGameHud()->layout.radar_map && !MainGameHud()->layout.formation_board) {
-                SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
+                MainGame()->setPreferredMode(W8_MAIN_UI_MODE_RADAR);
             }
             g_settings.formation_action_panel_preference = 0;
-            RefreshMainGameLayout();
+            MainGame()->refreshLayout();
             return;
         }
         if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_PORTRAITS) {
             g_settings.portraits_action_panel_preference = 0;
         }
-        RefreshMainGameLayout();
+        MainGame()->refreshLayout();
         return;
     }
     if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_RADAR) {
         g_settings.formation_radar_map_preference = 0;
         g_settings.formation_action_panel_preference = 1;
         g_settings.formation_board_preference = 0;
-        SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
+        MainGame()->setPreferredMode(W8_MAIN_UI_MODE_FORMATION);
         return;
     }
     if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_PORTRAITS) {
         g_settings.portraits_action_panel_preference = 1;
-        RefreshMainGameLayout();
+        MainGame()->refreshLayout();
         return;
     }
     g_settings.formation_action_panel_preference = 1;
-    RefreshMainGameLayout();
+    MainGame()->refreshLayout();
 }
 
 static void MainGameLayoutFormationButton(W8ButtonWidget* button)
 {
     if (MainGameHud()->layout.formation_board) {
         if (!MainGameHud()->layout.radar_map && !MainGameHud()->layout.bottom_panel) {
-            SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
+            MainGame()->setPreferredMode(W8_MAIN_UI_MODE_RADAR);
             return;
         }
         g_settings.formation_board_preference = 0;
-        RefreshMainGameLayout();
+        MainGame()->refreshLayout();
         return;
     }
     g_settings.formation_board_preference = 1;
     if (MainGameHud()->layout.mode == W8_MAIN_UI_MODE_RADAR) {
         g_settings.formation_radar_map_preference = 0;
         g_settings.formation_action_panel_preference = 0;
-        SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
+        MainGame()->setPreferredMode(W8_MAIN_UI_MODE_FORMATION);
         return;
     }
-    RefreshMainGameLayout();
+    MainGame()->refreshLayout();
 }
 
 // Draw the left layout-arrow strip and its visible arrows.
