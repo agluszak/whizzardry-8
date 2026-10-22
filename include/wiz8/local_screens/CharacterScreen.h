@@ -217,7 +217,7 @@ private:
     void UpdateSpellLists();
     std::unique_ptr<W8CharacterSpellList> m_realms[6];
     W8CharacterSpellEntry m_SpellData[114];
-    W8GameTimer anim_timer;
+    W8GameTimer anim_timer{1.0f, TimerClock::Presentation};
     unsigned int m_animation_frames[6];
     unsigned int m_last_selected;
 };
@@ -246,7 +246,8 @@ private:
 class W8CharacterPersonalityPage : public W8CharacterPage {
 public:
     W8CharacterPersonalityPage()
-        : W8CharacterPage(CatalogArtwork::Load(0x105)), anim_timer(0.4f, 1), m_animation_active(0)
+        : W8CharacterPage(CatalogArtwork::Load(0x105)), anim_timer(0.4f, TimerClock::Presentation),
+          m_animation_active(0)
     {
     }
     void Redraw(SDL_Surface& target, bool full_redraw) override;
@@ -264,7 +265,7 @@ private:
     std::array<std::unique_ptr<W8ButtonWidget>, 5> m_buttons;
     std::array<HitTarget*, 11> m_choices{};
     bool m_choices_dirty = true;
-    W8GameTimer anim_timer;
+    W8GameTimer anim_timer{1.0f, TimerClock::Presentation};
     int m_animation_frame;
     bool m_animation_active;
     bool m_description_dirty;

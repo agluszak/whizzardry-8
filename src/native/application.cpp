@@ -34,6 +34,7 @@ struct LaunchOptions {
     bool load_at_startup = false;
     bool windowed = false;
     std::string string_data;
+    std::string native_object;
 };
 
 LaunchOptions ParseArguments(std::span<const std::string_view> arguments)
@@ -42,21 +43,24 @@ LaunchOptions ParseArguments(std::span<const std::string_view> arguments)
     for (size_t index = 0; index < arguments.size(); ++index) {
         const auto separator = arguments[index].find('=');
         const std::string option(arguments[index].substr(0, separator));
-        if (SDL_strcasecmp(option.c_str(), "/NOSOUND") == 0)
+        const auto is = [&](const char* name) { return SDL_strcasecmp(option.c_str(), name) == 0; };
+        if (is("/NOSOUND"))
             options.sound = false;
-        else if (SDL_strcasecmp(option.c_str(), "/INSPECTOR") == 0)
+        else if (is("/INSPECTOR"))
             options.inspector = true;
-        else if (SDL_strcasecmp(option.c_str(), "/LOAD") == 0)
+        else if (is("/LOAD"))
             options.load_at_startup = true;
-        else if (SDL_strcasecmp(option.c_str(), "/WINDOW") == 0)
+        else if (is("/WINDOW"))
             options.windowed = true;
-        else if (SDL_strcasecmp(option.c_str(), "/STRINGDATA") == 0) {
+        else if (auto* file = is("/STRINGDATA")     ? &options.string_data
+                              : is("/NATIVEOBJECT") ? &options.native_object
+                                                    : nullptr) {
             const auto value = separator != std::string_view::npos
                                    ? arguments[index].substr(separator + 1)
                                : ++index < arguments.size() ? arguments[index]
                                                             : std::string_view{};
             if (value.empty()) throw std::invalid_argument(option + " requires a filename");
-            options.string_data = value;
+            *file = value;
         }
     }
     return options;
@@ -84,6 +88,7 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
             throw std::runtime_error("Sound initialization failed");
         data_ = std::make_unique<GameData>();
         games_ = std::make_unique<GameSession>();
+        games_->native_object_file = wiz8::path_from_utf8(options.native_object);
         game_started_ = true;
         if (!InitializeGame(*data_, *games_, options.load_at_startup, options.string_data))
             throw std::runtime_error("Game initialization failed");

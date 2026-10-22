@@ -30,7 +30,7 @@
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/world/environment_state.h"
 #include "wiz8/world/level_session.h"
-#include "wiz8/world/party_camera.h"
+#include "wiz8/world/party_motion.h"
 
 namespace wiz8 {
 class File;

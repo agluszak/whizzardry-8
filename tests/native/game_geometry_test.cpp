@@ -18,11 +18,15 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
 #include <glm/gtx/euler_angles.hpp>
+#include <vsg/app/Camera.h>
+#include <vsg/app/ProjectionMatrix.h>
+#include <vsg/app/ViewMatrix.h>
 #include <vsg/core/Array.h>
 #include <vsg/core/ConstVisitor.h>
 #include <vsg/core/Object.h>
@@ -33,6 +37,7 @@
 #include <vsg/state/DescriptorBuffer.h>
 #include <vsg/state/GraphicsPipeline.h>
 #include <vsg/state/PipelineLayout.h>
+#include <vsg/state/ViewportState.h>
 #include <vulkan/vulkan_core.h>
 
 #include "geometry.h"
@@ -62,6 +67,7 @@
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entities/native_object.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
@@ -70,7 +76,6 @@
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/octree_walk.h"
 #include "wiz8/placement_math.h"
-#include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/clip_plane.h"
@@ -84,6 +89,7 @@
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
+#include "wiz8/render/native_content.h"
 #include "wiz8/render/particle_modes.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/plane_math.h"
@@ -684,9 +690,10 @@ TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry]
         output.write(reinterpret_cast<const char*>(tga.data()), tga.size());
         REQUIRE(output.good());
     }
+    // The shadow's own world, not the primary one, supplies its terrain.
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>());
-    auto& world = *GetWorld();
+    World world;
+    REQUIRE(GetWorld() == nullptr);
     auto mesh = std::make_shared<Mesh>(1, 4);
     mesh->getVertexLoc()[0] = {-1, 0, -1};
     mesh->getVertexLoc()[1] = {0, 0, 1};
@@ -716,7 +723,27 @@ TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry]
         ~ShadowSetting() { g_settings.monster_shadows = previous; }
     } setting;
     g_settings.monster_shadows = true;
-    GroundShadow shadow(world.scene.get());
+    GroundShadow shadow;
+    // Scene membership, not frame preparation, puts the shadow in the graph.
+    const auto in_scene = [&] {
+        struct Find : vsg::ConstVisitor {
+            const vsg::Node* node;
+            bool found = false;
+            void apply(const vsg::Node& visited) override
+            {
+                found = found || &visited == node;
+                visited.traverse(*this);
+            }
+        } find;
+        find.node = shadow.renderNode().get();
+        world.scene->root->accept(find);
+        return find.found;
+    };
+    shadow.setWorld(&world);
+    REQUIRE(in_scene());
+    shadow.setWorld(nullptr);
+    REQUIRE(!in_scene());
+    shadow.setWorld(&world);
     std::optional<render::RenderContext> context;
     context.emplace(VkExtent2D{640, 480});
     shadow.updateRenderNode(*context, {}, 0);
@@ -758,8 +785,8 @@ TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry]
     context.reset();
     context.emplace(VkExtent2D{640, 480});
     REQUIRE(&*context == address);
-    REQUIRE(shadow.renderNode(*context) == previous_root);
     shadow.updateRenderNode(*context, {}, 1);
+    REQUIRE(shadow.renderNode() == previous_root);
     requireEffectLayout(*previous_root, context->layout.get());
     ShadingBounds recreated;
     shadow.renderNode()->accept(recreated);
@@ -1447,8 +1474,8 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     context.reset();
     context.emplace(VkExtent2D{640, 480});
     REQUIRE(&*context == address);
-    REQUIRE(particles.renderNode(*context) == previous_root);
     particles.updateRenderNode(*context, {}, 1);
+    REQUIRE(particles.renderNode() == previous_root);
     requireEffectLayout(*previous_root, context->layout.get());
     draws.index_count = 0;
     particles.renderNode()->accept(draws);
@@ -2029,15 +2056,14 @@ TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
         bool resume = g_level_motion_resume_pending;
         ~RestoreRuntime()
         {
-            ResetGameTimeAccumulator();
+            ResumeSharedGameTimers();
             g_level_motion_resume_pending = resume;
         }
     } restore;
     LevelSpatialIndex data;
     data.compiled_available = false;
     data.collision_available = true;
-    ResetGameTimeAccumulator();
-    GameTimeAccumulator().m_flags.paused = true;
+    PauseSharedGameTimers();
     PartyCamera controller;
     controller.motion_started = true;
     controller.SetOrientation(.4f, .1f);
@@ -2051,10 +2077,6 @@ TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
     const auto motion = controller.move(data, W8_CAMERA_MOTION_FORWARD, basis);
     REQUIRE_FALSE(motion.moved);
     REQUIRE(motion.displacement == glm::vec3(0));
-    REQUIRE(controller.m_position == glm::vec3(1, 2, 3));
-    g_level_motion_resume_pending = true;
-    GameTimeAccumulator().m_flags.raw_time = true;
-    REQUIRE(controller.move(data, W8_CAMERA_MOTION_FORWARD, basis).displacement == glm::vec3(0));
     REQUIRE(controller.m_position == glm::vec3(1, 2, 3));
 }
 
@@ -2296,4 +2318,65 @@ TEST_CASE("Route advancement keeps waypoint metadata and never reads past the en
     REQUIRE_FALSE(route.AdvanceAlongPathPositions(100, &position));
     REQUIRE(position == end);
     REQUIRE(route.path_cursor == route.lastWaypoint());
+}
+
+TEST_CASE("World posters preserve full-image UVs and infer rectangular aspect", "[geometry]")
+{
+    auto pixels = std::shared_ptr<SDL_Surface>(SDL_CreateSurface(18, 9, SDL_PIXELFORMAT_ARGB1555),
+                                               SDL_DestroySurface);
+    REQUIRE(pixels);
+    auto poster = MakePosterQuad(std::make_shared<Texture>(pixels), 500, 0, false);
+    const auto& mesh = *poster->getModel();
+    REQUIRE(mesh.vertex_locations.size() == 4);
+    REQUIRE(mesh.vertex_locations[0] == glm::vec3(-250, -125, 0));
+    REQUIRE(mesh.vertex_locations[2] == glm::vec3(250, 125, 0));
+    REQUIRE(mesh.texcoords[0][0] == std::vector<glm::vec2>{{0, 1}, {0, 0}, {1, 0}, {1, 1}});
+}
+
+TEST_CASE("Native world objects activate through graph identity and game activity gates",
+          "[geometry][native-content]")
+{
+    ScopedGame scope;
+    auto& game = scope.game;
+    game.level.replacePrimary(std::make_unique<World>());
+    auto& world = *game.level.primary;
+    world.camera = &world.scene->camera;
+    world.camera->setClipRange(1, 10);
+    placeParty(world, {0, 0, 0});
+    game.native_object_file = WIZ8_NATIVE_DEMO_FILE;
+    LoadNativeLevelObject(game);
+    REQUIRE(world.native_objects.size() == 1);
+    auto& object = *world.native_objects.front();
+    auto camera = vsg::Camera::create(
+        vsg::Perspective::create(60, 1, 1, 10),
+        vsg::LookAt::create(vsg::dvec3(0, 0, 0), vsg::dvec3(0, 0, 1), vsg::dvec3(0, 1, 0)),
+        vsg::ViewportState::create(0, 0, 64, 64));
+    world.picked.position = {.1f, .1f, 1};
+    world.scene->pick(*camera, std::span{&world.picked, 1});
+    REQUIRE(SelectedNativeObject(world) == &object);
+    game.advancement.held = false;
+    REQUIRE(game.activateSelectedNativeObject());
+    REQUIRE(object.illuminated);
+    REQUIRE(std::get<TextNotice>(game.events.pending().back()).text == "The prism glows.");
+    game.advancement.held = true;
+    REQUIRE_FALSE(game.activateSelectedNativeObject());
+    game.advancement.held = false;
+    game.party.held.item.iItemNo = 5;
+    REQUIRE_FALSE(game.activateSelectedNativeObject());
+    game.party.held.item.iItemNo = -1;
+    game.activity.place = Activity::Place::Camp;
+    REQUIRE_FALSE(game.activateSelectedNativeObject());
+    game.activity.place = Activity::Place::World;
+    // The render view may move independently; gameplay reach follows the party.
+    world.camera->transform.setLocation(0, 0, -6000);
+    REQUIRE(SelectedNativeObject(world) == &object);
+    placeParty(world, {0, 0, -6000});
+    REQUIRE_FALSE(game.activateSelectedNativeObject());
+    placeParty(world, {0, 0, 0});
+    REQUIRE(game.activateSelectedNativeObject());
+    REQUIRE_FALSE(object.illuminated);
+    REQUIRE(std::get<TextNotice>(game.events.pending().back()).text == "The prism dims.");
+    world.native_objects.clear();
+    REQUIRE_FALSE(world.picked.hit);
+    REQUIRE_FALSE(game.activateSelectedNativeObject());
 }

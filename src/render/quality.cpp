@@ -31,7 +31,9 @@ void EnableRenderOption(W8RenderOption option)
 
 void SetRenderOption(W8RenderOption option, int enabled)
 {
-    if (option == W8_RENDER_OPTION_RESERVED_5 || option == W8_RENDER_OPTION_RESERVED_12) return;
+    if (option == W8_RENDER_OPTION_RESERVED_5 || option == W8_RENDER_OPTION_RESERVED_12 ||
+        option == W8_RENDER_OPTION_RESERVED_16)
+        return;
     /* The remaining numeric cases have not been assigned reliable option names. */
     switch (static_cast<int>(option)) {
     case W8_RENDER_OPTION_BRIGHTNESS:
@@ -65,9 +67,6 @@ void SetRenderOption(W8RenderOption option, int enabled)
         break;
     case W8_RENDER_OPTION_VIDEO_SYNC:
         SetSwapInterval(enabled != 0);
-        break;
-    case W8_RENDER_OPTION_CORRECT_BLURRED_TEXT:
-        SetTextureInset(enabled ? 0.5f : 0.0f);
         break;
     }
     if (option < W8_RENDER_OPTION_COUNT) {

@@ -667,8 +667,6 @@ TEST_CASE("A scene refreshes scoped material bindings when its render context is
     const auto previous_particle = particle.renderNode();
     original.reset();
     render::RenderContext replacement({640, 480});
-    // An external owner may request the new graphics state before the scene.
-    REQUIRE(particle.renderNode(replacement) == previous_particle);
     // A new renderer restarts its frame counter, too.
     const auto view = scene.createView(replacement, &scene.camera, {}, viewport, 1);
     REQUIRE(particle.renderNode() == previous_particle);
