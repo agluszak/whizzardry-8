@@ -7,6 +7,7 @@
    which the caller keeps alive longer; by default it reads no data. */
 struct ScopedGame {
     explicit ScopedGame(const GameData& data = NoData()) : session(data) {}
+    explicit ScopedGame(const GameData&&) = delete;
     ScopedGame(const ScopedGame&) = delete;
     ScopedGame& operator=(const ScopedGame&) = delete;
     static const GameData& NoData()
