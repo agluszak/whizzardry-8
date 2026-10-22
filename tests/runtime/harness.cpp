@@ -45,20 +45,35 @@
 
 #include "../native/surface_pixels.h"
 #include "temporary_directory.h"
+#include "wiz8/application.h"
+#include "wiz8/asset_paths.h"
 #include "wiz8/audio/audio_test.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/records.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/OptionsScreen.h"
+#include "wiz8/mgs_commands.h"
+#include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/renderer.h"
+#include "wiz8/rules/party_slot.h"
 #include "wiz8/runtime_test_hooks.h"
+#include "wiz8/screen.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
+#include "wiz8/world/camera_pose.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 W8RuntimeTestHooks g_runtime_test_hooks;
 
@@ -163,7 +178,7 @@ fs::path RuntimeOutput(const char* variable)
     return RuntimeVariable(variable);
 }
 
-GameHarness::GameHarness(bool play_movies)
+GameHarness::GameHarness(bool play_movies, bool native_object)
 {
     const char* assets = SDL_getenv("WIZ8_ASSET_ROOT");
     if (!assets || !fs::is_directory(assets))
@@ -186,7 +201,10 @@ GameHarness::GameHarness(bool play_movies)
 
     SDL_GetLogOutputFunction(&g_default_log, &g_default_log_data);
     SDL_SetLogOutputFunction(CaptureLog, nullptr);
-    const std::string_view arguments[] = {"/WINDOW"};
+    const std::string native_option =
+        "/NATIVEOBJECT=" + RuntimeInput("WIZ8_NATIVE_DEMO_FILE").string();
+    std::vector<std::string_view> arguments{"/WINDOW"};
+    if (native_object) arguments.push_back(native_option);
     w8_native::audio_offline_for_test(true);
     application_.emplace(arguments);
     REQUIRE(g_renderer);

@@ -6,15 +6,25 @@
 
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_rect.h>
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include "harness.h"
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/data/skills.h"
+#include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/npc_dialogue_view.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/npc_script_file.h"
+#include "wiz8/screen.h"
 #include "wiz8/text_input.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 
 namespace {
 

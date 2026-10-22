@@ -647,20 +647,14 @@ void WorldScene::prepare(render::RenderContext& context, const SceneFrame& frame
     root->accept(prepare_instances);
     std::uint64_t effect_order = static_count + dynamic_count * 2;
     for (auto* shadow : shadows) {
-        auto node = shadow->renderNode(context);
-        if (std::ranges::find(objects->children, node) == objects->children.end())
-            objects->addChild(node);
         shadow->updateRenderNode(context, frame, frame_number);
         render::SetSortOrder order(effect_order++);
-        node->accept(order);
+        shadow->renderNode()->accept(order);
     }
     for (auto* particle : particles) {
-        auto node = particle->renderNode(context);
-        if (std::ranges::find(objects->children, node) == objects->children.end())
-            objects->addChild(node);
         particle->updateRenderNode(context, frame, frame_number);
         render::SetSortOrder order(effect_order++);
-        node->accept(order);
+        particle->renderNode()->accept(order);
     }
 }
 vsg::ref_ptr<vsg::View> WorldScene::createView(render::RenderContext& context, Camera3D* source,
@@ -748,8 +742,8 @@ vsg::ref_ptr<vsg::View> WorldScene::cachedView(render::RenderContext& context, C
         state->refresh(pass, counts.lights, counts.sorted, counts.opaque, clip_planes_eye);
     else
         view->viewDependentState =
-            render::WorldViewState::create(view.get(), context, pass, counts.lights,
-                                           counts.sorted, counts.opaque, clip_planes_eye);
+            render::WorldViewState::create(view.get(), context, pass, counts.lights, counts.sorted,
+                                           counts.opaque, clip_planes_eye);
     return view;
 }
 void WorldScene::pick(const vsg::Camera& camera, std::span<Pick> picks) const
@@ -949,6 +943,7 @@ void WorldScene::attach(ParticleSystem& item)
     if (item.scene == this) return;
     if (item.scene) item.scene->detach(item);
     particles.push_back(&item);
+    objects->addChild(item.renderNode());
     item.scene = this;
 }
 void WorldScene::detach(ParticleSystem& item)
@@ -970,6 +965,7 @@ void WorldScene::attach(GroundShadow& item)
     if (item.scene == this) return;
     if (item.scene) item.scene->detach(item);
     shadows.push_back(&item);
+    objects->addChild(item.renderNode());
     item.scene = this;
 }
 void WorldScene::detach(GroundShadow& item)
@@ -977,12 +973,6 @@ void WorldScene::detach(GroundShadow& item)
     std::erase(shadows, &item);
     std::erase(objects->children, item.renderNode());
     if (item.scene == this) item.scene = nullptr;
-}
-void GroundShadow::setScene(WorldScene* value)
-{
-    if (value == scene) return;
-    if (scene) scene->detach(*this);
-    if (value) value->attach(*this);
 }
 void WorldScene::attach(FogParams& item)
 {

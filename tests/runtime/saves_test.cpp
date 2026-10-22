@@ -21,11 +21,18 @@
 #include <glm/ext/vector_float3.hpp>
 
 #include "harness.h"
+#include "wiz8/asset_paths.h"
+#include "wiz8/data/records.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_screens/OptionsScreen.h"
+#include "wiz8/mgs_commands.h"
+#include "wiz8/rules/party_slot.h"
+#include "wiz8/screen.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/world/level_session.h"
 
 namespace {

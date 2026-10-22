@@ -10,6 +10,7 @@
 
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_rect.h>
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <glm/ext/vector_float3.hpp>
 
@@ -23,7 +24,12 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/pointer.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/runtime_test_hooks.h"
+#include "wiz8/screen.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/world/camera_pose.h"
+#include "wiz8/world/world.h"
 
 namespace {
 

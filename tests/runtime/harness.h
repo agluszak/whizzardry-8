@@ -64,7 +64,7 @@ struct GameExited : std::runtime_error {
 
 class GameHarness {
 public:
-    explicit GameHarness(bool play_movies);
+    explicit GameHarness(bool play_movies, bool native_object = false);
     GameSession& games() { return application_->games(); }
     ~GameHarness();
     GameHarness(const GameHarness&) = delete;

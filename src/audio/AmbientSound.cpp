@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/geometric.hpp>
@@ -35,7 +36,6 @@
 #include "wiz8/math.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/random.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/render/quality.h"
 #include "wiz8/screen.h"
@@ -51,11 +51,11 @@ W8AmbientTrack::~W8AmbientTrack()
 }
 void W8AmbientTrack::Reschedule()
 {
-    next_at = MonotonicMilliseconds() + RandomRange(time_min, time_max);
+    next_at = WorldClockMilliseconds() + RandomRange(time_min, time_max);
 }
 bool W8AmbientTrack::Due() const
 {
-    return !loops && next_at <= MonotonicMilliseconds() && !wiz8::sound::is_playing(instance);
+    return !loops && next_at <= WorldClockMilliseconds() && !wiz8::sound::is_playing(instance);
 }
 std::uint32_t W8AmbientTrack::RandomRange(std::uint32_t minimum, std::uint32_t maximum)
 {
@@ -313,9 +313,6 @@ void SharedAmbientGroup::retarget(unsigned volume, unsigned full_volume)
     target_volume = volume;
     fade_timer.SetDuration(1.5f / std::max(full_volume, 1u));
     fade_timer.Restart();
-    fade_timer.m_flags.paused = false;
-    fade_timer.m_start = fade_timer.GetTime() - fade_timer.m_start;
-    fade_timer.SetDuration(-1.0f);
 }
 
 void SharedAmbientGroup::service(W8AmbientSound& emitter)
@@ -366,10 +363,8 @@ void SharedAmbientGroup::updateFade()
             ++current_volume;
         else if (current_volume > target_volume)
             --current_volume;
-        else if (!fade_timer.m_flags.paused) {
-            fade_timer.m_flags.paused = true;
-            fade_timer.m_start = fade_timer.GetTime() - fade_timer.m_start;
-        }
+        else
+            fade_timer.Pause();
         wiz8::sound::set_volume(playback, current_volume);
     }
     if (!selected && current_volume == target_volume) {

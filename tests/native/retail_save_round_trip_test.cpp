@@ -19,6 +19,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "wiz8/chunk.h"
+#include "wiz8/layouts/npc_state.h"
 #include "wiz8/save_codec.h"
 
 namespace {

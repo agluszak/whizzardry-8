@@ -28,11 +28,21 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/mgs_commands.h"
+#include "wiz8/monster_cycles.h"
 #include "wiz8/pointer.h"
+#include "wiz8/rules/party_slot.h"
+#include "wiz8/screen.h"
+#include "wiz8/story.h"
+#include "wiz8/world/camera_pose.h"
+#include "wiz8/world/world.h"
 
 namespace {
 

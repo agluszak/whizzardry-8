@@ -151,6 +151,7 @@ SDL_PixelFormat readbackFormat(VkFormat format)
 class FrameCompiler : public vsg::Inherit<vsg::CompileTraversal, FrameCompiler> {
 public:
     explicit FrameCompiler(vsg::ref_ptr<vsg::Device> device) : Inherit(device) {}
+    using CompileTraversal::apply;
 
     void compile(vsg::Viewer& viewer)
     {

@@ -846,7 +846,7 @@ TEST_CASE_METHOD(AudioFixture, "Shared ambience retains its playback across regi
     REQUIRE(group.selected == &second);
     REQUIRE(group.playback == playback);
 
-    group.fade_timer.m_flags.paused = true;
+    group.fade_timer.Pause();
     group.stop(second);
     group.service(third);
     REQUIRE(group.selected == &third);

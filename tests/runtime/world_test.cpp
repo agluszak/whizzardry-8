@@ -1,10 +1,10 @@
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
-#include <filesystem>
 #include <functional>
 #include <iterator>
 #include <memory>
@@ -17,31 +17,35 @@
 
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keycode.h>
-#include <SDL3/SDL_pixels.h>
+#include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
-#include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
-#include <glm/ext/matrix_double4x4.hpp>
 #include <glm/ext/vector_float3.hpp>
 #include <glm/ext/vector_float4.hpp>
-#include <vsg/core/Array.h>
-#include <vsg/io/write.h>
-#include <vsg/maths/vec3.h>
-#include <vsg/nodes/VertexIndexDraw.h>
 #include <vsg/state/ViewportState.h>
 
 #include "harness.h"
-#include "temporary_directory.h"
+#include "wiz8/application.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/data/item_records.h"
+#include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/dialog_code/AssayDialog.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
+#include "wiz8/entities/native_object.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
+#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Magic.h"
+#include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/CharacterScreen.h"
 #include "wiz8/local_screens/MGSFormation.h"
@@ -53,13 +57,25 @@
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
+#include "wiz8/mgs_commands.h"
 #include "wiz8/pointer.h"
+#include "wiz8/render/draw_inputs.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh_instance.h"
-#include "wiz8/render/native_content.h"
 #include "wiz8/render/renderer.h"
+#include "wiz8/render/vsg_scene.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/targeting.h"
+#include "wiz8/runtime_test_hooks.h"
+#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/ui_input.h"
+#include "wiz8/world/camera_pose.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 namespace {
 
@@ -550,8 +566,11 @@ void CheckGameplayUi(GameHarness& game)
 // scope exit so Application shutdown exercises the same owners as gameplay.
 void ResourceLifecycleScenario()
 {
-    GameHarness game(false);
+    GameHarness game(false, true);
     StartPremadeGame(game);
+    REQUIRE(GetWorld()->native_objects.size() == 1);
+    // Exercise the retail scene and UI before the imported-object interaction.
+    GetWorld()->native_objects.clear();
     REQUIRE(g_renderer);
     REQUIRE(g_renderer->isOpen());
     int original_width = 0, original_height = 0;
@@ -560,12 +579,16 @@ void ResourceLifecycleScenario()
     REQUIRE(SDL_SyncWindow(ghWindow));
     SDL_Event focus{};
     focus.window.windowID = SDL_GetWindowID(ghWindow);
+    const auto before_focus_loss = CurrentGame().time;
     focus.type = SDL_EVENT_WINDOW_FOCUS_LOST;
     HandleGameEvent(focus);
+    g_runtime_test_hooks.clock_us += 30'000'000;
     REQUIRE(IsVideoActive());
     REQUIRE(g_renderer->isOpen());
     focus.type = SDL_EVENT_WINDOW_FOCUS_GAINED;
     HandleGameEvent(focus);
+    game.frame();
+    REQUIRE(CurrentGame().time - before_focus_loss < std::chrono::milliseconds(100));
     g_renderer->close();
     REQUIRE(OpenRendererWindow());
     REQUIRE(g_renderer->isOpen());
@@ -597,45 +620,36 @@ void ResourceLifecycleScenario()
     CheckWorldRender(game);
     CheckTwoWorldViews(game);
     CheckGameplayUi(game);
-    // Import a native VSG object into the loaded retail world, in front of its
-    // actual camera. It uses the same world lighting/fog and remains identifiable
-    // through the game's VSG picker without a retail MeshInstance.
+    // The shipped import option attaches a real game object at level entry. Use
+    // normal pointer movement and clicks, rather than a test-only activation path.
     {
-        ScopedTemporaryDirectory content("wiz8-world-native");
         auto& world = *GetWorld();
-        const float near = world.camera->getClipRange().first;
-        auto positions = vsg::vec3Array::create(
-            {{-near, -near, near * 1.5f}, {near, -near, near * 1.5f}, {0, near, near * 1.5f}});
-        auto normals = vsg::vec3Array::create(3, vsg::vec3(0, 0, -1));
-        auto source = vsg::VertexIndexDraw::create();
-        source->assignArrays({positions, normals});
-        source->assignIndices(vsg::ushortArray::create({0, 1, 2}));
-        source->indexCount = 3;
-        source->instanceCount = 1;
-        const auto path = content.path / "world-object.vsgt";
-        REQUIRE(vsg::write(source, path.string()));
-        auto material = std::make_shared<Material>();
-        material->setAmbient(glm::vec4(1));
-        material->setDiffuse(glm::vec4(1));
-        material->setEmissive(glm::vec4(0));
-        auto object = render::loadGameContent(path, material);
-        object->matrix = render::toVsg(world.camera->transform.matrix<glm::dmat4>());
-        world.scene->root->addChild(object);
-        g_renderer->beginFrame();
-        auto view =
-            world.scene->createView(g_renderer->context(), world.camera, {},
-                                    vsg::ViewportState::create(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT),
-                                    g_renderer->frameNumber());
-        Pick picked;
-        world.scene->pick(*view->camera, std::span{&picked, 1});
-        REQUIRE(picked.hit);
-        REQUIRE(std::ranges::find(picked.hit->nodePath, object.get()) !=
-                picked.hit->nodePath.end());
-        REQUIRE(render::gameOwner(picked) == nullptr);
-        g_renderer->addView(view);
-        g_renderer->endFrame(false, true);
-        REQUIRE(g_renderer->readback());
-        std::erase(world.scene->root->children, object);
+        REQUIRE(world.native_objects.empty());
+        REQUIRE(CurrentGame().native_object_file == RuntimeInput("WIZ8_NATIVE_DEMO_FILE"));
+        // Re-anchor after the preceding camera/UI exercises, using the entry path.
+        LoadNativeLevelObject(CurrentGame());
+        REQUIRE(world.native_objects.size() == 1);
+        auto& object = *world.native_objects.front();
+        const int x = (g_viewport.left + g_viewport.right) / 2;
+        const int y = (g_viewport.top + g_viewport.bottom) / 2;
+        SetTargetingMode(W8_TARGET_NEED_NONE);
+        game.move_pointer(x, y);
+        game.move_pointer(x + 1, y);
+        REQUIRE(SelectedNativeObject(world) == &object);
+        REQUIRE(render::gameOwner(world.picked) == nullptr);
+        REQUIRE(ScreenPointer().shownSlot() == 13);
+        REQUIRE_FALSE(object.illuminated);
+        game.click_at(x, y);
+        REQUIRE(object.illuminated);
+        const auto held = std::exchange(CurrentGame().advancement.held, true);
+        REQUIRE_FALSE(CurrentGame().activateSelectedNativeObject());
+        REQUIRE(object.illuminated);
+        CurrentGame().advancement.held = held;
+        game.click_at(x, y);
+        REQUIRE_FALSE(object.illuminated);
+        world.native_objects.clear();
+        REQUIRE_FALSE(world.picked.hit);
+        game.frame();
     }
     // Automap buttons own their sprite sheets. Re-entering the screen must
     // rebuild all sixteen controls after the previous owners are destroyed.
@@ -745,6 +759,7 @@ void ResourceLifecycleScenario()
         });
         Settle(game, "reload-level");
         REQUIRE(GetLoadedLevelID() == level);
+        REQUIRE(GetWorld()->native_objects.size() == 1);
         ExpectAt("reloaded-position", anchor);
     }
     RenderFrame();

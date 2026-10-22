@@ -8,6 +8,7 @@
 #include <vector>
 
 #include <SDL3/SDL_keycode.h>
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 
 #include "harness.h"
@@ -16,9 +17,16 @@
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/mgs_commands.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/targeting.h"
+#include "wiz8/screen.h"
+#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/startup_world.h"
+#include "wiz8/world/world.h"
 
 namespace {
 
