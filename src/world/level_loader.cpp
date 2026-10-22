@@ -7,7 +7,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <exception>
@@ -876,8 +875,7 @@ try {
     if (world->compiledIndex() != 0 && (!(handle->read(&section_end, sizeof(section_end)).bytes == \
                                           static_cast<std::size_t>(sizeof(section_end))) ||        \
                                         section_end != -1)) {                                      \
-        sprintf(error_message, "%s\nTry deleting .PVL file and reloading.", message);              \
-        ShutdownWithErrorBox(error_message);                                                       \
+        throw std::runtime_error(message);                                                         \
     }
 
 unsigned char ReadLevel(World* world, wiz8::File* handle,
@@ -886,7 +884,6 @@ try {
     LevelLoadContext info;
     std::unique_ptr<MeshInstance> level_mesh;
     glm::vec3 environment_offset;
-    char error_message[512];
     int section_end;
     int section_count;
     int camera_mode;
@@ -923,7 +920,7 @@ try {
         auto meshes = ReadMultipleLevelMeshes(*handle, world->compiledIndex()->GetMeshCount(),
                                               texture_directory);
         if (meshes.empty()) {
-            ShutdownWithErrorBox("ReadLevel: Error reading multi-meshes.");
+            throw std::runtime_error("ReadLevel: Error reading multi-meshes.");
         }
         for (unsigned int mesh_index = 0; mesh_index < world->compiledIndex()->m_meshCount;
              ++mesh_index) {

@@ -68,13 +68,4 @@ TEST_CASE("application_test")
     REQUIRE(failed);
     CheckStopped();
     REQUIRE(SDL_SetEnvironmentVariable(SDL_GetEnvironment(), "SDL_VIDEODRIVER", "dummy", true));
-
-    bool reported = false;
-    try {
-        ShutdownWithErrorBox("native initialization failure");
-    } catch (const std::runtime_error& failure) {
-        reported = std::string_view(failure.what()) == "native initialization failure";
-    }
-    REQUIRE(reported);
-    CheckStopped();
 }

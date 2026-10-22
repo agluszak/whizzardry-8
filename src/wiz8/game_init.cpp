@@ -61,7 +61,7 @@ bool InitializeGame(GameData& data, GameSession& games, bool load_at_startup,
         RequestScreen({.id = W8_SCREEN_INTRO, .mode = W8_INTRO_VIDEO_SIRTECH});
     }
     if (!LoadHitSoundDatabase()) {
-        ShutdownWithErrorBox("Could not load hit sound database!");
+        return false;
     }
     if (!InitializeMusicPlaylist()) {
         return false;

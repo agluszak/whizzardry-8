@@ -1,7 +1,3 @@
-#include <stdexcept>
-#include <string>
-#include <string_view>
-
 #include <SDL3/SDL_events.h>
 
 #include "wiz8/application.h"
@@ -13,11 +9,6 @@
 bool gfApplicationActive = false;
 bool gfProgramIsRunning = false;
 bool gfGameInitialized = false;
-
-[[noreturn]] void ShutdownWithErrorBox(std::string_view message)
-{
-    throw std::runtime_error(std::string(message));
-}
 
 namespace {
 bool restore_pending = false;

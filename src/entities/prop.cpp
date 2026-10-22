@@ -1044,10 +1044,10 @@ int Prop::BuildOrRefreshPathingRepresentation(NavigationMesh* pathing)
         return 0;
     }
     if (this->currentAnimation()->path_lists != 1) {
-        ShutdownWithErrorBox("Collidable props can be of Transform type only.");
+        throw std::runtime_error("Collidable props can be of Transform type only.");
     }
     if (AnimObjListCount(this->currentAnimation(), 2) != 1) {
-        ShutdownWithErrorBox("Collideable props should have a single LOD.");
+        throw std::runtime_error("Collideable props should have a single LOD.");
     }
     instance = &ShowPart(*this, this->currentAnimation(), 0);
 

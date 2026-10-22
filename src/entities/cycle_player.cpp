@@ -11,6 +11,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -267,7 +268,7 @@ try {
         }
     }();
     if (handle == 0) {
-        ShutdownWithErrorBox(fmt::format("Couldn't open {}", mon_path));
+        throw std::runtime_error(fmt::format("Couldn't open {}", mon_path));
     }
 
     info.world = cycle.owner_world;
@@ -864,7 +865,7 @@ void CyclePlayer::SelectLOD(const glm::vec3* position)
     bool has_lod_0 = static_cast<bool>(frameModel(0, 0));
 
     if (!has_lod_2 && !has_lod_1 && !has_lod_0) {
-        ShutdownWithErrorBox("Monster has no valid LODs!");
+        throw std::runtime_error("Monster has no valid LODs!");
     }
     if (g_render_brightness * lod_near > distance) {
         if (has_lod_2) {

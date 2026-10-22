@@ -245,8 +245,8 @@ static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_
                 fields >> old_name >> new_name;
                 if (damage_stage != -1 && !monster->ReplaceSkinTexture(
                                               damage_stage, old_name.c_str(), new_name.c_str())) {
-                    ShutdownWithErrorBox(fmt::format("The skin texture {} not found in monster {}!",
-                                                     old_name, monster_name));
+                    throw std::runtime_error(fmt::format(
+                        "The skin texture {} not found in monster {}!", old_name, monster_name));
                 }
             } else {
                 /* 0x004C10FB: the length test is on the whole line, not the argument. */
@@ -288,7 +288,7 @@ static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_
                                 /* 0x004C128A: a missing subcycle is fatal, as in
                                    every other retail cycle lookup. */
                                 if (static_cast<int>(rep->cycles[cycle].size()) <= current) {
-                                    ShutdownWithErrorBox(
+                                    throw std::runtime_error(
                                         fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
                                                     rep->name, g_cycle_names[cycle].name, current));
                                 }
@@ -409,8 +409,8 @@ static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_
         idle_fps_end = 3.0f;
     }
     if (static_cast<int>(representation->cycles[1].size()) < 1) {
-        ShutdownWithErrorBox(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
-                                         representation->name, g_cycle_names[1].name, 0));
+        throw std::runtime_error(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
+                                             representation->name, g_cycle_names[1].name, 0));
     }
     Animation* idle = representation->cycles[1][0].animation.get();
     if (idle != 0) {

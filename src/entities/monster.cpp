@@ -262,8 +262,8 @@ void Monster::RandomizeAppearanceAndMotion()
                 animation_index = visual.current_subcycle;
             }
             if (animation_index >= static_cast<int>(cycles[1].size())) {
-                ShutdownWithErrorBox(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
-                                                 name, g_cycle_names[1].name, animation_index));
+                throw std::runtime_error(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
+                                                     name, g_cycle_names[1].name, animation_index));
             }
             animation = cycles[1][animation_index].animation.get();
             if (scale < 1.0f) {
@@ -765,8 +765,8 @@ bool Monster::GetCycleMappedPosition(signed char cycle, int mapped_index, glm::v
     }
     auto& cycle_animations = cycles[cycle];
     if (static_cast<int>(cycle_animations.size()) <= subcycle) {
-        ShutdownWithErrorBox(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}", name,
-                                         g_cycle_names[cycle].name, subcycle));
+        throw std::runtime_error(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}", name,
+                                             g_cycle_names[cycle].name, subcycle));
     }
     animation = cycle_animations[subcycle].animation.get();
 
@@ -2301,8 +2301,7 @@ bool Monster::ReplaceSkinTexture(int stage, std::string_view old_name, std::stri
     path = fmt::format("Data\\Monsters\\Bitmaps\\{}", new_name);
     auto texture = LoadTextureFromPath(wiz8::asset_path(path), nullptr, true);
     if (texture == 0) {
-        ShutdownWithErrorBox(fmt::format("Missing skin texture: {}", new_name));
-        return false;
+        throw std::runtime_error(fmt::format("Missing skin texture: {}", new_name));
     }
 
     if (texture->playback) texture->Prepare();

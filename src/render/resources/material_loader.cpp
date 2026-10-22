@@ -257,8 +257,7 @@ std::shared_ptr<Texture> LoadTextureFromPath(const std::filesystem::path& path,
         g_texture_files.insert_or_assign(path, texture);
         return texture;
     }
-    ShutdownWithErrorBox(fmt::format("Missing texture file: {}", wiz8::path_to_utf8(path)));
-    return {};
+    throw std::runtime_error(fmt::format("Missing texture file: {}", wiz8::path_to_utf8(path)));
 }
 
 /* getPolyTexture selects the layer and table up front, then returns one smart
