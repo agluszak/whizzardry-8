@@ -423,7 +423,10 @@ void OnLeaveGameConfirmClosed(bool accepted);
 // Show that the world was held or released, or that its time stopped or resumed.
 void PresentWorldAdvancement(bool held, bool hold_changed);
 
-void RefreshTrackedPortraitOverlay(void);
+/* The presentation update lays the tracked portrait plate out again when the draw
+   repaints what it sits over; the draw paints the laid-out plate. */
+void UpdatePortraitPlate(W8LevelRuntimeBlock& hud);
+void PaintPortraitPlate(const W8LevelRuntimeBlock& hud);
 /* Which party portrait the pointer is over, if any. */
 void ClearCombatSelection(void);
 void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_needed);
@@ -474,15 +477,10 @@ void RefreshPartySlotRegions(void);
 /* Re-sync mouse hotspot, region enables and viewport after a
    main-game mode change. */
 void SyncMainGameModeInput(void);
+/* Forget the shown plate and, while the overlay mode is up, have the next draw
+   erase its rectangle and repaint the roof or text box it crossed. */
 void ClearHighlightOverlayRegion(void);
 void DismissHighlightOverlay(void);
-/* The portrait-hover panel's producer; the four hover entry
-   points hand it the slot, a content row count and a minimum plate width. */
-void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int min_width);
-void DrawPortraitVitalsOverlay(int party_slot);
-void DrawPortraitConditionOverlay(int party_slot);
-void DrawPortraitStatusOverlay(int party_slot);
-void DrawPortraitEnchantmentOverlay(int party_slot);
 void SelectPartyCharacter(int party_slot);
 void RefreshMainGameActionPanel(void);
 void OpenAutomapScreen(void);
@@ -563,7 +561,8 @@ void PopulateNpcTradeList(void);
    fails when the NPC declines the item or the party cannot pay. */
 /* Run one NPC trade offer; the result selects the accepted,
    refused or offended script path. */
-void RefreshFormationPanel(bool show_portraits);
+// Redraw the formation panel when asked or when one of its buttons changed.
+void RefreshFormationPanel(bool force);
 void EndLockInteractMode(signed char suspend);
 void UpdateTrapInteraction(void);
 void EndTrapInteractMode(signed char suspend);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <bitset>
+
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/ui_layer.h"
@@ -12,7 +14,6 @@ struct W8Action;
 W8Action* ItemUseDraft();
 
 void SetUseItemSelectInputEnabled(bool enabled);
-void InvalidateUseItemSelectPanel(void);
 void CloseUseItemSelection(void);
 /* Text-box body callback while use-item select is active. */
 UiResult HandleUseItemTextBox(const UiPointerEvent& event);
@@ -30,9 +31,12 @@ void CloseUseItemSelectView(void);
 /* Retarget the open use-item list at party_slot (drag, recorded
    item, or plain refresh paths). */
 void RefreshUseItemSelectionForSlot(int party_slot);
-/* FItemSelectMode per-frame update: panel redraws plus the
-   pending-use commit check. */
-void UpdateUseItemSelect(bool active);
+/* Before the draw: keep the source buttons in step with the picker (combat
+   moves a party list back to the character), then add the panels whose widgets
+   changed to `panels`. The draw paints the requested panels. */
+void UpdateUseItemScrollButtons(void);
+void UpdateUseItemPanels(std::bitset<7>& panels);
+void PaintUseItemPanels(std::bitset<7> panels);
 /* After dropping a cursor item during use-item select, refresh
    the selected line. */
 void RefreshUseItemSelection(void);

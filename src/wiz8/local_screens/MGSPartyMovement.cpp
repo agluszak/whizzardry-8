@@ -39,17 +39,15 @@ struct PartyMovementPanel {
     std::unique_ptr<W8TextBuffer> caption;
     uint64_t animation_clock = 0;
     unsigned int animation_frame = 0;
-    bool dirty = true;
     int visible_button = 1;
 };
 std::unique_ptr<PartyMovementPanel> movement;
 }
 
-void DrawPartyMovementGauge(short right, short image, bool panel_live, int caption);
-
 bool CreatePartyMovementPanel(void)
 {
     movement = std::make_unique<PartyMovementPanel>();
+    InvalidatePartyMovementPanel();
     const W8ControlsRect bounds{0xc3, 0x13f, 0x1b9, 0x153};
     movement->caption =
         std::make_unique<W8TextBuffer>(&bounds, std::string_view{}, g_wiz_text_font_secondary,
@@ -97,13 +95,19 @@ void ReleasePartyMovement(void)
     if (auto* main_game = MainGame()) main_game->party_movement_panel = false;
 }
 
+// Show the free-turn button while the party can move, the cancel button otherwise.
+static void SyncPartyMovementButtons()
+{
+    const int visible = CanPartyMove() ? 1 : 0;
+    if (visible != movement->visible_button) InvalidatePartyMovementPanel();
+    movement->visible_button = visible;
+    for (int index = 0; index < 2; ++index) movement->buttons[index]->SetVisible(index == visible);
+}
+
 void UpdatePartyMovementPanel(void)
 {
     movement->input.setEnabled(true);
-    const int visible = CanPartyMove() ? 1 : 0;
-    movement->dirty |= visible != movement->visible_button;
-    movement->visible_button = visible;
-    for (int index = 0; index < 2; ++index) movement->buttons[index]->SetVisible(index == visible);
+    SyncPartyMovementButtons();
 }
 
 void DisablePartyMovementRegions(void)
@@ -111,123 +115,89 @@ void DisablePartyMovementRegions(void)
     if (movement) movement->input.setEnabled(false);
 }
 
-void DrawPartyMovementPanel(void)
+/* The gauge image: 0 while the party can move, 1 while it runs out, 2 once the
+   level stopped its movement. */
+static int PartyMovementGaugeImage()
 {
-    SDL_Rect clip;
-    bool panel_live;
-    int caption;
-    short right;
-    int image;
+    if (CanPartyMove()) return 0;
+    return IsLevelMovementStopped() ? 2 : 1;
+}
 
+// Whether the gauge shows the action under way rather than the one planned next.
+static bool PartyMovementShowsCurrentAction()
+{
+    return !CanPartyMove() ||
+           (CurrentGame().combat->execution_active != 0 && IsPartyEngaged() == 0);
+}
+
+void UpdatePartyMovementGauge(void)
+{
+    SyncPartyMovementButtons();
+    if (movement->visible_button == 1)
+        movement->buttons[1]->SetEnabled(CurrentGame().combat->round_active);
+    const bool running = PartyMovementGaugeImage() == 1;
+    if (running && TimeUntilDeadline(movement->animation_clock) != 0) return;
+    if (running) {
+        movement->animation_frame = (movement->animation_frame + 1) % 12;
+        InvalidatePartyMovementPanel();
+    }
+    const W8PartyAction action = PartyMovementShowsCurrentAction()
+                                     ? CurrentGame().combat->uiCurrentPartyAction
+                                     : CurrentGame().combat->uiNextPartyAction;
+    movement->animation_clock =
+        MonotonicMilliseconds() + (action == W8_PARTY_ACTION_RUN ? 0x32 : 0x5a);
+}
+
+/* The panel, its live button, the gauge bar clipped to the party's remaining
+   move with its animated end, the caption, and the portrait plate it covers. */
+void DrawPartyMovementPanel(bool requested)
+{
     assert(CurrentGame().combat.has_value());
     assert((CurrentGame().combat->uiCurrentPartyAction != W8_PARTY_ACTION_NONE &&
             CurrentGame().combat->uiCurrentPartyActionStatus != W8_PARTY_ACTION_FINISHED) ||
            CurrentGame().combat->uiNextPartyAction != W8_PARTY_ACTION_NONE);
-    const int visible = CanPartyMove() ? 1 : 0;
-    movement->dirty |= visible != movement->visible_button;
-    movement->visible_button = visible;
-    for (int index = 0; index < 2; ++index) movement->buttons[index]->SetVisible(index == visible);
-    if (visible == 1) movement->buttons[1]->SetEnabled(CurrentGame().combat->round_active);
-    panel_live = movement->dirty || movement->buttons[visible]->m_dirty;
-    if (panel_live) {
-        CatalogArtwork::Load(0x93, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xb1, 0x13f);
-        movement->buttons[visible]->Refresh(true);
-        movement->dirty = false;
-    }
+    const int visible = movement->visible_button;
+    if (!requested && !movement->buttons[visible]->m_dirty) return;
+    auto& target = GetFrameBufferSurface();
+    CatalogArtwork::Load(0x93, 0).drawAndInvalidate(target, 0, 0xb1, 0x13f);
+    movement->buttons[visible]->Refresh(true);
+
     const int percent = CurrentGame().combat->party_move_percent;
-    right = 0x1b9 - percent * 0xf6 / 100;
-    if (!CanPartyMove()) {
-        if (!IsLevelMovementStopped()) {
-            image = 1;
-            caption = ((percent != 100) - 1 & 0x77f) - 1;
-        } else {
-            image = 2;
-            caption = 0x77d;
-        }
-    } else {
-        image = 0;
-        if (CurrentGame().combat->execution_active != 0 && IsPartyEngaged() == 0) {
-            caption = (CurrentGame().combat->uiCurrentPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
-        } else {
-            caption = (CurrentGame().combat->uiNextPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
-        }
-    }
-    if (panel_live) {
-        clip = {right, 0, 0x1b9 - right, 0x1e0};
-        ScopedClipRect clipped(GetFrameBufferSurface(), clip);
-        CatalogArtwork::Load(0x96, 0).drawAndInvalidate(GetFrameBufferSurface(), image, 0xc3,
-                                                        0x144);
-    }
-    DrawPartyMovementGauge(right, image, panel_live, caption);
-    if (panel_live) {
-        RefreshTrackedPortraitOverlay();
-    }
-}
-
-/* The movement gauge: a static end frame for the empty/full states and the
-   twelve-frame animated bar otherwise, rearming its own countdown each tick. */
-void DrawPartyMovementGauge(short right, short image, bool panel_live, int caption)
-{
-    bool rearm;
-    bool advanced;
-    int frame;
-    int timer_length;
-    int frame_base;
-
-    frame_base = 0;
-    rearm = false;
-    advanced = false;
-    if (image == 0) {
-        rearm = true;
-        frame = 0x18;
+    const short right = 0x1b9 - percent * 0xf6 / 100;
+    const int image = PartyMovementGaugeImage();
+    int caption;
+    if (image == 1) {
+        caption = ((percent != 100) - 1 & 0x77f) - 1;
     } else if (image == 2) {
-        rearm = true;
-        frame = 0xc;
+        caption = 0x77d;
+    } else if (CurrentGame().combat->execution_active != 0 && IsPartyEngaged() == 0) {
+        caption = (CurrentGame().combat->uiCurrentPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
     } else {
-        if (TimeUntilDeadline(movement->animation_clock) == 0) {
-            ++movement->animation_frame;
-            if (movement->animation_frame > 0xb) {
-                movement->animation_frame = 0;
-            }
-            rearm = true;
-            advanced = true;
-        }
-        frame = 0;
+        caption = (CurrentGame().combat->uiNextPartyAction != W8_PARTY_ACTION_RUN) + 0x77b;
     }
-    W8PartyAction action;
-    if (!CanPartyMove() || (CurrentGame().combat->execution_active != 0 && IsPartyEngaged() == 0)) {
-        action = CurrentGame().combat->uiCurrentPartyAction;
-    } else {
-        action = CurrentGame().combat->uiNextPartyAction;
+    {
+        ScopedClipRect clipped(target, SDL_Rect{right, 0, 0x1b9 - right, 0x1e0});
+        CatalogArtwork::Load(0x96, 0).drawAndInvalidate(target, image, 0xc3, 0x144);
     }
-    if (action == W8_PARTY_ACTION_RUN) {
-        timer_length = 0x32;
-    } else {
-        frame_base = 0x24;
-        timer_length = 0x5a;
-    }
-    if (rearm) {
-        movement->animation_clock = MonotonicMilliseconds() + (timer_length);
-    }
-    if (!panel_live) {
-        if (advanced) {
-            movement->dirty = true;
-        }
-        return;
-    }
-    CatalogArtwork::Load(0x95, 0).drawAndInvalidate(GetFrameBufferSurface(),
-                                                    movement->animation_frame + frame_base + frame,
-                                                    right - 0xf, 0x142);
+
+    const W8PartyAction action = PartyMovementShowsCurrentAction()
+                                     ? CurrentGame().combat->uiCurrentPartyAction
+                                     : CurrentGame().combat->uiNextPartyAction;
+    const int frame_base = action == W8_PARTY_ACTION_RUN ? 0 : 0x24;
+    const int frame = image == 0 ? 0x18 : image == 2 ? 0xc : 0;
+    CatalogArtwork::Load(0x95, 0).drawAndInvalidate(
+        target, movement->animation_frame + frame_base + frame, right - 0xf, 0x142);
     InvalidateRegion(right - 0xf, 0x142, right - 1, 0x150);
     if (caption != -1) {
         movement->caption->RenderString(Data().strings[caption], g_wiz_text_font_secondary, false,
-                                        GetFrameBufferSurface());
+                                        target);
     }
+    PaintPortraitPlate(*MainGameHud());
 }
 
 void InvalidatePartyMovementPanel(void)
 {
-    movement->dirty = true;
+    if (auto* hud = MainGameHud()) hud->repaint.movement_panel = true;
 }
 
 void DisableFreeTurnButton(void)

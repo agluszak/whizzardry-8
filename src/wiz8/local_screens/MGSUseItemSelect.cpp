@@ -83,9 +83,14 @@ struct UseItemView {
     W8TextBuffer caption;
     W8TextBuffer quantity;
     std::shared_ptr<const SpriteSheet> item_image;
-    std::array<bool, 3> dirty{true, true, true};
 };
 std::unique_ptr<UseItemView> use_item;
+}
+
+// Request an item-use panel's repaint.
+static void RepaintUseItemPanel(int panel)
+{
+    if (auto* hud = MainGameHud()) hud->repaint.mode_panels.set(panel);
 }
 
 W8Action* ItemUseDraft()
@@ -98,7 +103,6 @@ void SetUseItemSelectInputEnabled(bool enabled)
     if (use_item) use_item->input.setEnabled(enabled);
 }
 
-void UpdateUseItemScrollButtons(void);
 static void SelectUseItemPool(ItemPool pool);
 static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select);
 static void AppendUseItemListEntry(W8ItemLocation location);
@@ -265,23 +269,20 @@ void RefreshUseItemSelectionForSlot(int party_slot)
     RebuildUseItemSelectList(use_item->pool, nullptr);
 }
 
-void InvalidateUseItemSelectPanel(void)
+void UpdateUseItemPanels(std::bitset<7>& panels)
 {
-    use_item->dirty[1] = true;
+    if (use_item->pools[0]->m_dirty || use_item->pools[1]->m_dirty) panels.set(0);
+    if (use_item->filter->m_dirty || use_item->close->m_dirty) panels.set(2);
 }
 
-/* Per-frame update: keep the scroll buttons synced, run the
-   dirty panels' redraw pass, then re-check the pending commit through the
-   shared helper. */
-void UpdateUseItemSelect(bool active)
+/* Paint the given item-use panels: the source caption and buttons, the list's
+   scroll chrome, and the actions with the chosen item and its quantity. */
+void PaintUseItemPanels(std::bitset<7> panels)
 {
-    UpdateUseItemScrollButtons();
-    use_item->dirty[0] |= use_item->pools[0]->m_dirty || use_item->pools[1]->m_dirty;
-    use_item->dirty[2] |= use_item->filter->m_dirty || use_item->close->m_dirty;
     auto& target = GetFrameBufferSurface();
     const int x[]{0x17, 0xa4, 0x1dc};
     for (int panel = 0; panel < 3; ++panel) {
-        if (!active && !use_item->dirty[panel]) continue;
+        if (!panels.test(panel)) continue;
         CatalogArtwork::Load(0x97, 0).drawAndInvalidate(target, panel, x[panel], 0x166);
         if (panel == 0) {
             use_item->caption.RenderToTarget(0, true, target);
@@ -297,16 +298,13 @@ void UpdateUseItemSelect(bool active)
                 actions.draw(target, index * 5 + 3, 0x212 + (index % 3) * 17,
                              0x16c + (index / 3) * 17);
             CatalogArtwork::Load(0x1aa, 0).draw(target, 0x21, 0x211, 0x18d);
-            use_item->filter->m_dirty = use_item->close->m_dirty = true;
-            use_item->filter->Refresh();
-            use_item->close->Refresh();
+            use_item->filter->Refresh(true);
+            use_item->close->Refresh(true);
             if (use_item->item_image)
                 DrawSpriteAndInvalidate(target, *use_item->item_image, 0, 0x1e1, 0x16b);
             use_item->quantity.RenderToTarget(0, true, target);
         }
-        use_item->dirty[panel] = false;
     }
-    CommitSelectedItemUse();
 }
 
 /* The two scroll buttons are mutually exclusive views of the same list. */
@@ -360,7 +358,7 @@ static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select)
     use_item->detail_item = 0;
     use_item->item_image.reset();
     use_item->quantity.SetText("", g_large_font);
-    use_item->dirty[2] = true;
+    RepaintUseItemPanel(2);
     SelectSpellCastingPartySlot(CurrentGame().status.selected_character, use_item->draft);
     use_item->pool = pool;
     use_item->filter->SetEnabled(true);
@@ -381,7 +379,7 @@ static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select)
     ShowUseItemList(select);
     UpdateUseItemScrollButtons();
     ScrollTextBoxTo(0);
-    InvalidateUseItemSelectPanel();
+    RepaintUseItemPanel(1);
 }
 
 // Classify once; stable partition preserves inventory order within each band.
@@ -633,7 +631,7 @@ void UpdateUseItemDetailPanel(W8ItemInstance* item)
         value = "";
     }
     use_item->quantity.SetText(value, g_wiz_text_font_secondary);
-    use_item->dirty[2] = true;
+    RepaintUseItemPanel(2);
     use_item->detail_item = item;
 }
 

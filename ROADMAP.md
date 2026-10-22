@@ -232,19 +232,6 @@ the licensed runtime scenarios after every step.
    - The HUD panels below `ApplyMainGameRepaint` (portraits and their bars, the text box,
      submenu, formation board, monster list, radar) still read the HUD, the game and
      module state themselves; give each the values it draws.
-   - Painting still updates in a few places: the main game's frame updates its facing,
-     targeting presentation, radar blips, text-box request, repaint dependencies, HUD
-     button state, submenu auto-close and condition icons before `DrawMainGameScreen`
-     (`UpdateMainGamePresentation`), and the portrait panel (band, vitals, animated
-     frame, condition icon, combat side strip) is painted only from `MainGameRepaint`.
-     A portrait band paint still opens the NPC transcript panel
-     (`SetNpcDialoguePanelVisible`) and dismisses highlight overlays
-     (`RefreshTrackedPortraitOverlay`, whose repaint requests the draw drops), and the
-     spell, use-item, keyboard-menu and NPC dialogue panels still sync their own state
-     inside the repaint pass. Move those updates before the draw too.
-     Then try a full paint or coarse per-panel invalidation, measuring CPU draw and upload
-     cost against the current path, and keep `MainGameRepaint`'s finer invalidation only
-     where it earns its complexity.
    - Game code still calls presentation for the
      combat panel (`RequestRefreshPartyState` in `Combat Hostility.cpp`,
      `MonsterManager.cpp`, `world.cpp` and `entities/cursor.cpp`, which the existing

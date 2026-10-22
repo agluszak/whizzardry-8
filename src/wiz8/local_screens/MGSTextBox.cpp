@@ -997,16 +997,6 @@ void RedrawTextBoxScrollChrome(void)
     RedrawTextBoxBody(false);
 }
 
-/* Invalidate the text and action panels around a status-panel text refresh. */
-void RedrawTextBoxComplete(void)
-{
-    W8TrapInteraction* screen = TrapInteraction();
-
-    screen->m_text_panel->InvalidateAll();
-    screen->m_status_panel->RefreshStatusTexts();
-    screen->actions_dirty = true;
-}
-
 /* The last message on the current line whose clock has stopped, searched from
    the newest backwards - so the first one found is the most recent finished
    message rather than the oldest. */

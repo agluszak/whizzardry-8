@@ -119,15 +119,11 @@ void RefreshSubMenuPanel(bool invalidate)
 {
     auto& submenu = MainGame()->submenu;
     if (!submenu) return;
-    submenu->dirty |= invalidate;
-    auto& target = GetFrameBufferSurface();
-    if (submenu->dirty) {
-        CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(target, submenu->background,
-                                                        submenu->bounds.x, 0x1c3);
-        for (auto& button : submenu->buttons) button->m_dirty = true;
-        submenu->dirty = false;
+    if (invalidate) {
+        CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(
+            GetFrameBufferSurface(), submenu->background, submenu->bounds.x, 0x1c3);
     }
-    for (auto& button : submenu->buttons) button->Refresh();
+    for (auto& button : submenu->buttons) button->Refresh(invalidate);
 }
 
 static void ChooseSubMenuAction(W8ActionKind action)
@@ -1070,6 +1066,7 @@ bool BuildSubMenuPanel(short notification)
     W8_ASSERT(entries.size() <= widths.size());
     const int built = static_cast<int>(entries.size()) + 1;
     submenu = std::make_unique<MainGameSubMenu>();
+    if (auto* hud = MainGameHud()) hud->repaint.submenu_panel = true;
     submenu->bounds = {left, 0x1c3, widths[entries.size() - 1] + 1, 0x1d};
     submenu->background = static_cast<int>(entries.size()) - 1;
     submenu->input.add(

@@ -58,7 +58,7 @@ void EnableKeyboardMenuInput(void);
 bool KeyboardMenuContainsCursor(void);
 /* Re-evaluate every row's availability and restate its icon frames. */
 void RefreshKeyboardMenuRows(void);
-/* Invalidate (when asked) then redraw the menu panel. */
+// Redraw the menu panel when its repaint was requested.
 void RedrawKeyboardMenuPanel(bool invalidate);
 /* Dispatch a bound MGS command number through the keyboard system. */
 void DispatchMGSCommand(W8MGSCommand command);

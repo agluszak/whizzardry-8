@@ -1,12 +1,14 @@
 #include <bitset>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 
 #include "wiz8/canvas/Font.h"
 #pragma once
 
 #include "wiz8/camera_motion.h"
+#include "wiz8/design_rect.h"
 #include "wiz8/geometry.h"
 #include "wiz8/rules/targeting.h"
 
@@ -68,9 +70,6 @@ enum W8ViewportMode : unsigned char {
 struct MainGameRepaint {
     // Clear the screen and repaint every part.
     bool everything = false;
-    /* Run the repaint pass even with no part recorded, for the panels that track their own
-       state: the spell page and the keyboard menu. */
-    bool panels = false;
     /* A slot's complete portrait panel: the band, its vitals, its condition icon and, in
        combat, its side-strip portrait. Each finer request below is part of this one. */
     std::bitset<8> portraits;
@@ -82,6 +81,9 @@ struct MainGameRepaint {
     std::bitset<8> portrait_frames;
     std::bitset<8> condition_icons;
     std::bitset<8> combat_portraits;
+    /* The bottom panels of the active mode: spell casting (3), item use (3) or NPC
+       dialogue (7). Panel 1 is the text box. */
+    std::bitset<7> mode_panels;
     bool roof_and_spell_icons = false;
     // The chrome's layout changed: the bottom panels and the buttons around them repaint.
     bool layout = false;
@@ -92,28 +94,36 @@ struct MainGameRepaint {
     bool formation = false;
     // The world view's frame: the prompt, the movement panel or the combat effects.
     bool portrait_panel = false;
+    // The plate shown beside a portrait, laid out by the presentation update.
+    bool portrait_plate = false;
+    // Where a dismissed plate was, cleared before anything repaints over it.
+    std::optional<DesignRect> plate_erase;
     bool monster_list = false;
+    // The open keyboard menu, formation panel and combat movement panel.
+    bool keyboard_menu = false;
+    bool formation_panel = false;
+    bool movement_panel = false;
     bool options_button = false;
     bool combat_stance = false;
     bool combat_progress = false;
     bool character_action = false;
     bool combat_effects = false;
+    // The debug video inspector, refreshed every half second; painted after the panels.
+    bool video_inspector = false;
 
-    /* A party slot's portrait. Without a slot (-1) only the repaint pass runs, as the
-       retail mask shifted by the slot asked. */
+    // A party slot's portrait; no slot (-1) asks for none.
     void portrait(int slot)
     {
-        if (slot >= 0 && slot < 8)
-            portraits.set(static_cast<std::size_t>(slot));
-        else
-            panels = true;
+        if (slot >= 0 && slot < 8) portraits.set(static_cast<std::size_t>(slot));
     }
     bool any() const
     {
-        return everything || panels || portraits.any() || portrait_bars.any() ||
-               roof_and_spell_icons || layout || radar || text_box || submenu_buttons ||
-               submenu_panel || formation || portrait_panel || monster_list || options_button ||
-               combat_stance || combat_progress || character_action || combat_effects;
+        return everything || portraits.any() || portrait_bars.any() || mode_panels.any() ||
+               portrait_plate || plate_erase || roof_and_spell_icons || layout || radar ||
+               text_box || submenu_buttons || submenu_panel || formation || portrait_panel ||
+               monster_list || keyboard_menu || formation_panel || movement_panel ||
+               options_button || combat_stance || combat_progress || character_action ||
+               combat_effects;
     }
 };
 
@@ -155,6 +165,15 @@ enum W8PortraitAssayHoverMode : unsigned char {
     W8_PORTRAIT_ASSAY_HOVER_PRIMARY_WEAPON = 1,
     W8_PORTRAIT_ASSAY_HOVER_SECONDARY_WEAPON = 2,
     W8_PORTRAIT_ASSAY_HOVER_TWO_HANDED_WEAPON = 3
+};
+
+/* The plate beside a portrait: the held condition or enchantment orb's list,
+   the vitals, or the condition highlight's conditions and enchantments. */
+enum class PortraitPlate : unsigned char { Conditions, Enchantments, Vitals, Status };
+struct ShownPortraitPlate {
+    PortraitPlate kind;
+    int slot;
+    int rows;
 };
 
 struct W8LevelRuntimeBlock {
@@ -208,10 +227,10 @@ struct W8LevelRuntimeBlock {
     int dialogue_text_width;
     int dialogue_width;
     int highlight_row = -1;
-    /* The dialogue highlight sprite. DrawHighlightOverlay lazily creates it
-       from catalog object 0x72 through makeOverlayFromSurface, and it is released
-       through ReleaseObject whenever mode 6 ends or the tracked party
-       slots change. */
+    // The plate the dialogue rectangle holds while the highlight overlay mode is up.
+    std::optional<ShownPortraitPlate> shown_plate;
+    /* The dialogue highlight sprite, made from catalog object 0x72 when a plate
+       is laid out and released when the plate is dismissed. */
     std::unique_ptr<OverlayQuad> highlight_graphic;
     unsigned int world_update_flags;
     unsigned int camera_motion_flags;
@@ -222,6 +241,7 @@ struct W8LevelRuntimeBlock {
     /* Text box visible; toggled by the keyboard shortcut and raised
        by spell/item/dialogue screens that need it. */
     bool text_box_visible;
+    // When the video inspector was last refreshed.
     uint64_t tick;
     int group_list_rows;
     int group_list_width;

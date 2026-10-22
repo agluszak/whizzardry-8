@@ -650,7 +650,6 @@ struct KeyboardMenu {
     UiLayer input{UiLayerOrder::KeyboardMenu};
     SDL_Point origin;
     std::array<KeyboardMenuRow, 13> rows;
-    bool dirty = true;
 };
 std::unique_ptr<KeyboardMenu> keyboard_menu;
 }
@@ -737,6 +736,7 @@ bool BuildKeyboardMenu(void)
     GetPartySlotMenuAnchor(g_selected_party_slot, &left, &top, &unused_4, &unused_5, &unused_6,
                            &unused_7, 0);
     keyboard_menu = std::make_unique<KeyboardMenu>();
+    if (auto* hud = MainGameHud()) hud->repaint.keyboard_menu = true;
     keyboard_menu->origin = {left + 0x17, top};
     static void (*const actions[4][5])() = {
         {KeyboardMenuSelectAttack, KeyboardMenuSelectBerserk, KeyboardMenuSelectBreathe,
@@ -757,7 +757,7 @@ bool BuildKeyboardMenu(void)
             SDL_Rect{left + 0x17 + g_keyboard_row_positions[i].x,
                      top + g_keyboard_row_positions[i].y, 19, 19},
             [&row](const UiPointerEvent& event) {
-                keyboard_menu->dirty = true;
+                if (auto* hud = MainGameHud()) hud->repaint.keyboard_menu = true;
                 const ButtonPolicy policy{.input_rule = ButtonInputRule::PrimaryPressedState};
                 if (event.action == UiPointerAction::Leave) row.press.leave(policy);
                 if (event.action == UiPointerAction::Enter &&
@@ -851,12 +851,12 @@ void RefreshKeyboardMenuRows(void)
             ButtonGraphics::Load(art.spriteSheet(), base + 6, normal + offset, hover + offset,
                                  normal + offset, hover + offset);
     }
-    keyboard_menu->dirty = true;
+    if (auto* hud = MainGameHud()) hud->repaint.keyboard_menu = true;
 }
 
 void RedrawKeyboardMenuPanel(bool invalidate)
 {
-    if (!invalidate && !keyboard_menu->dirty) return;
+    if (!invalidate) return;
     const auto [x, y] = keyboard_menu->origin;
     auto& target = GetFrameBufferSurface();
     CatalogArtwork::Load(0xa6, 0).drawAndInvalidate(target, 0, x, y);
@@ -870,7 +870,6 @@ void RedrawKeyboardMenuPanel(bool invalidate)
              .hovered = row.target->hovered(),
              .menu_artwork = true});
     }
-    keyboard_menu->dirty = false;
 }
 
 static void ChooseKeyboardMenuAction(W8ActionKind action)

@@ -610,15 +610,19 @@ widget tree.
   full or portrait repaint through `TakeCampRepaint`, which the camp reads
   before drawing. Each draw receives whether it is a full repaint, and
   everything recorded is cleared after the draw.
-- The main game's invalidation is per part too: its HUD's `MainGameRepaint` records
-  each portrait and HUD part the next draw repaints, `everything` for a full repaint
-  (which entering the main game asks for) and `panels` for the pass that refreshes the
-  panels tracking their own state. Each frame first updates what it shows
+- The main game's invalidation is per part too: its HUD's `MainGameRepaint` is the one
+  record of what the next draw repaints. It holds each portrait and HUD part, the mode
+  panels (spell, use-item, NPC dialogue), the portrait plate, the keyboard, formation and
+  movement panels, and `everything` for a full repaint (which entering the main game asks
+  for). Panels own no repaint flags of their own; widgets keep only their draw cache
+  (`m_dirty` on buttons and text areas). Each frame first updates what it shows
   (`UpdateMainGamePresentation`: the party's facing, the targeting presentation, the
-  radar blips and the text box's repaint), then `DrawMainGameScreen` paints the recorded parts
-  (`ApplyMainGameRepaint`, where painting one part may record others), invalidates the
-  rectangles of the parts it was asked for, and clears the record. Screen code marks the
-  parts it changed; game events mark the shown main game's parts through the presenter.
+  radar blips, button and gauge state, the portrait plate's layout, and the mode panels'
+  state), then `DrawMainGameScreen` paints the recorded parts (`ApplyMainGameRepaint`,
+  where painting a portrait band also repaints what lies on it), invalidates the
+  rectangles of the parts it was asked for, and clears the record. Painting changes no
+  game or panel state. Screen code marks the parts it changed; game events mark the
+  shown main game's parts through the presenter.
 - One `Pointer` (`pointer.h`), owned by the screen router, holds what the pointer shows
   and what the player is asked to pick a target for. The main game and the camp borrow it
   from their construction, so a camp opened over a main game, or from party creation,

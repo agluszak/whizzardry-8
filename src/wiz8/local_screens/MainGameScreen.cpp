@@ -234,7 +234,6 @@ void InvalidatePortraitPanel(void);
 
 static void DrawMainGamePrompt(void);
 void InvalidateLockInteractionPanels(void);
-void RedrawTextBoxComplete(void);
 bool HandleMouselookInput(const InputEvent* input);
 
 static bool IsPartyPortraitUnderCursor(unsigned int party_slot);
@@ -472,14 +471,24 @@ void W8LockInteraction::RefreshControls()
 }
 
 /* Mark the lock interaction's tumbler and action panels dirty and rebuild the
-   info text; run from the redraw sweep when flag 0x200 is raised while lock
-   interact mode is up. */
+   info text; run from the update phase when the layout is repainted. */
 void InvalidateLockInteractionPanels(void)
 {
     W8LockInteraction* interaction = LockInteraction();
 
     interaction->m_tumbler_panel->InvalidateAll();
     interaction->m_info_panel->RefreshInfo();
+    interaction->actions_dirty = true;
+}
+
+/* The trap interaction's counterpart: its text and action panels, and the
+   status texts. */
+static void InvalidateTrapInteractionPanels()
+{
+    W8TrapInteraction* interaction = TrapInteraction();
+
+    interaction->m_text_panel->InvalidateAll();
+    interaction->m_status_panel->RefreshStatusTexts();
     interaction->actions_dirty = true;
 }
 
@@ -1975,7 +1984,7 @@ void W8NpcDialogueTextController::Collapse()
                         g_W8DialogTextAreaNoWrap | g_W8DialogTextAreaPointSelection |
                             g_W8DialogTextAreaShortenText);
     expanded_target->setEnabled(false);
-    MainGame()->dialogue.ui->panels[3].dirty = true;
+    RepaintNpcPanel(3);
 }
 
 void W8NpcDialogueTextController::Expand()
@@ -2301,13 +2310,7 @@ void SetMainGameMode(W8MainGameMode mode)
         CloseNpcDialogueIfActive();
         break;
     case W8_MAIN_GAME_HIGHLIGHT_OVERLAY:
-        if (MainGameHud()->highlight_graphic != 0) {
-            MainGameHud()->highlight_graphic.reset();
-            MainGameHud()->highlight_graphic = 0;
-            if (g_main_game_mode != W8_MAIN_GAME_HIGHLIGHT_OVERLAY) {
-                break;
-            }
-        }
+        MainGameHud()->highlight_graphic.reset();
         ClearHighlightOverlayRegion();
         break;
     default:
@@ -2589,7 +2592,7 @@ void OnQuitGameDialogClosed(bool accepted)
 MainGameRepaint RepaintOfEverything()
 {
     MainGameRepaint all;
-    all.everything = all.panels = true;
+    all.everything = true;
     all.portraits.set();
     all.roof_and_spell_icons = all.layout = all.radar = all.text_box = all.submenu_buttons =
         all.submenu_panel = all.formation = all.portrait_panel = all.monster_list =
@@ -2636,19 +2639,7 @@ static void ApplyMainGameRepaint(const W8LevelRuntimeBlock& hud,
     if (repaint.portrait_panel) {
         const auto bounds = MainGame()->world_view->bounds();
         InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w + 1, bounds.y + bounds.h + 1);
-        if (!CurrentGame().advancement.held) {
-            if (PartyMovementPanelShown()) {
-                InvalidatePartyMovementPanel();
-            }
-        } else {
-            DrawMainGamePrompt();
-        }
-        if (!PartyMovementPanelShown()) {
-            RefreshTrackedPortraitOverlay();
-        }
-        if (g_modal_owner != 0) {
-            g_modal_owner->RequestModalRedraw();
-        }
+        if (CurrentGame().advancement.held) DrawMainGamePrompt();
     }
     if (repaint.monster_list) {
         RedrawCombatMonsterList(presentation.subject_valid);
@@ -2672,7 +2663,7 @@ static void ApplyMainGameRepaint(const W8LevelRuntimeBlock& hud,
         } else {
             show_portraits = true;
         }
-        RefreshFormationPanel(show_portraits);
+        RefreshFormationPanel(show_portraits || repaint.formation_panel);
     }
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         const bool dirty = repaint.portraits.test(party_slot);
@@ -2695,8 +2686,9 @@ static void ApplyMainGameRepaint(const W8LevelRuntimeBlock& hud,
             RedrawPartyPortraitBars(party_slot, hud.portrait_refresh_pending[party_slot] == 0);
         }
         if (CurrentGame().monster_manager_entries[party_slot].keyboard_menu_open)
-            RedrawKeyboardMenuPanel(dirty);
+            RedrawKeyboardMenuPanel(dirty || repaint.keyboard_menu);
     }
+    if (repaint.portrait_plate) PaintPortraitPlate(hud);
     if (repaint.layout) {
         publish_chrome(0, 358, 640, 450);
         RedrawLayoutArrowButtons();
@@ -2704,39 +2696,19 @@ static void ApplyMainGameRepaint(const W8LevelRuntimeBlock& hud,
         InvalidateRegion(0x269, 0x166, 0x27f, 0x1c1);
     }
     if (gpSCSV) {
-        if (repaint.text_box) {
-            gpSCSV->dirty[1] = true;
-        }
-        if (!repaint.layout) {
-            SetSpellCastingPanelsActive(false);
-        } else {
-            SetSpellCastingPanelsActive(true);
-        }
+        PaintSpellCastingPanels(repaint.mode_panels);
         goto finish_mode_overlays;
     }
     if (ItemUseDraft()) {
-        if (repaint.text_box) {
-            InvalidateUseItemSelectPanel();
-        }
-        if (!repaint.layout) {
-            UpdateUseItemSelect(false);
-        } else {
-            UpdateUseItemSelect(true);
-        }
+        PaintUseItemPanels(repaint.mode_panels);
         goto finish_mode_overlays;
     }
     if (!CurrentGame().activity.conversation ||
         (CurrentGame().activity.conversation && CurrentGame().npc_interaction.scripted_dialogue)) {
         if (IsLockInteractionActive()) {
-            if (repaint.layout) {
-                InvalidateLockInteractionPanels();
-            }
             goto finish_mode_overlays;
         }
         if (IsTrapInteractionActive()) {
-            if (repaint.layout) {
-                RedrawTextBoxComplete();
-            }
             goto finish_mode_overlays;
         }
         if (!repaint.radar || hud.radar_map_visible == 0) {
@@ -2777,16 +2749,7 @@ static void ApplyMainGameRepaint(const W8LevelRuntimeBlock& hud,
         }
         goto finish_mode_overlays;
     }
-    if (repaint.text_box) {
-        InvalidateMainGameActionPanelRect(0);
-    }
-    if (!repaint.layout) {
-        if (HasNpcDialogueDirtyPanels()) {
-            ActivateNpcDialoguePanels(false);
-        }
-    } else {
-        ActivateNpcDialoguePanels(true);
-    }
+    if (repaint.mode_panels.any()) PaintNpcDialoguePanels(repaint.mode_panels);
 finish_mode_overlays:
     if (repaint.radar) publish_chrome(23, 360, 128, 450);
     if (repaint.text_box) publish_chrome(129, 358, 511, 450);
@@ -2831,11 +2794,20 @@ W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
             hud.repaint.text_box = true;
         }
     }
+    if (!gpSCSV && ItemUseDraft()) UpdateUseItemScrollButtons();
     if (!IsScreenTransitionPending()) {
         if (hud.open_submenu) UpdateSubMenuAutoClose();
         if (!CurrentGame().combat.has_value()) UpdatePortraitAdvanceButtons();
         UpdateConditionButtons();
         UpdateMainGameButtons();
+        if (PartyMovementPanelShown() && !CurrentGame().advancement.held)
+            UpdatePartyMovementGauge();
+        if (MonotonicMilliseconds() - hud.tick > 499) {
+            hud.repaint.video_inspector = g_video_inspector_enabled && !gpSCSV &&
+                                          !CurrentGame().activity.conversation && !ItemUseDraft() &&
+                                          !IsLockInteractionActive() && !IsTrapInteractionActive();
+            hud.tick = MonotonicMilliseconds();
+        }
     }
     auto& repaint = hud.repaint;
     if (repaint.everything) {
@@ -2851,7 +2823,36 @@ W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
         for (int slot = 0; slot < 8; ++slot)
             if (hud.portrait_refresh_pending[slot]) repaint.portraits.set(slot);
     }
+    if (repaint.portrait_panel) {
+        // The world view's frame repaints the movement panel and the modal over it.
+        if (!CurrentGame().advancement.held && PartyMovementPanelShown())
+            repaint.movement_panel = true;
+        if (g_modal_owner) g_modal_owner->RequestModalRedraw();
+    }
+    UpdatePortraitPlate(hud);
+    for (int slot = 0; slot < 8; ++slot) {
+        if (repaint.portraits.test(slot) ||
+            (repaint.portrait_frames.test(slot) && PartyPortraitFrameCoversBand(slot))) {
+            KeepNpcDialogueTranscriptOverPortraits();
+            break;
+        }
+    }
     if (repaint.roof_and_spell_icons) repaint.combat_progress = true;
+    // The active mode's bottom panels repaint with the layout, and panel 1 with the text box.
+    if (repaint.layout) repaint.mode_panels.set();
+    if (repaint.text_box) repaint.mode_panels.set(1);
+    if (gpSCSV) {
+        UpdateSpellCastingPanels(repaint.mode_panels);
+    } else if (ItemUseDraft()) {
+        UpdateUseItemPanels(repaint.mode_panels);
+    } else if (CurrentGame().activity.conversation &&
+               !CurrentGame().npc_interaction.scripted_dialogue) {
+        UpdateNpcDialoguePanels(repaint.mode_panels);
+    } else {
+        repaint.mode_panels.reset();
+        if (repaint.layout && IsLockInteractionActive()) InvalidateLockInteractionPanels();
+        if (repaint.layout && IsTrapInteractionActive()) InvalidateTrapInteractionPanels();
+    }
     return presentation;
 }
 
@@ -2859,6 +2860,10 @@ W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
    rectangles, paint overlays, and present. */
 void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation)
 {
+    if (const auto& erase = hud.repaint.plate_erase) {
+        ClearSurfaceRect(erase->left, erase->top, erase->right, erase->bottom);
+        InvalidateRegion(erase->left, erase->top, erase->right, erase->bottom);
+    }
     RepaintedPortraitBands bands;
     for (int slot = 0; slot < 8; ++slot) {
         if (hud.repaint.portrait_frames.test(slot) && !hud.repaint.portraits.test(slot))
@@ -2879,7 +2884,7 @@ void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation&
         }
         PaintConditionIcons(repaint.condition_icons, bands.complete);
         if (PartyMovementPanelShown() && !CurrentGame().advancement.held) {
-            DrawPartyMovementPanel();
+            DrawPartyMovementPanel(repaint.movement_panel);
         }
         DrawNpcQuoteBubble();
         if (IsLockInteractionActive()) {
@@ -2892,13 +2897,7 @@ void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation&
         RedrawPortraitQuoteBubbles();
         if (auto* text_fields = TextFieldGroup::Focused())
             text_fields->RenderAll(GetFrameBufferSurface());
-        if (MonotonicMilliseconds() - hud.tick > 499) {
-            if (g_video_inspector_enabled && !gpSCSV && !CurrentGame().activity.conversation &&
-                !ItemUseDraft() && !IsLockInteractionActive() && !IsTrapInteractionActive()) {
-                DrawVideoInspector(0xdc, 0x32);
-            }
-            hud.tick = MonotonicMilliseconds();
-        }
+        if (repaint.video_inspector) DrawVideoInspector(0xdc, 0x32);
         if (MainGameHud()->formation_board_visible) {
             CreateFormationBoardOverlay();
         }
@@ -2906,33 +2905,6 @@ void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation&
             EnsureRadarMapOverlay();
         }
         RenderFrame();
-    }
-}
-
-/* Activate whichever portrait overlay is pending: the tracked slots are
-   checked in priority order, the highlight sprite and the mode-6 hover overlay
-   are torn down first, then the matching launcher runs for that slot. The same
-   sequence is inlined inside the mode-6 block of the redraw orchestrator. */
-void RefreshTrackedPortraitOverlay(void)
-{
-    if (MainGameHud()->condition_orb_party_slot != -1) {
-        DismissHighlightOverlay();
-        DrawPortraitConditionOverlay(MainGameHud()->condition_orb_party_slot);
-        return;
-    }
-    if (MainGameHud()->enchantment_orb_party_slot != -1) {
-        DismissHighlightOverlay();
-        DrawPortraitEnchantmentOverlay(MainGameHud()->enchantment_orb_party_slot);
-        return;
-    }
-    if (MainGameHud()->portrait_overlay_party_slot != -1) {
-        DismissHighlightOverlay();
-        DrawPortraitVitalsOverlay(MainGameHud()->portrait_overlay_party_slot);
-        return;
-    }
-    if (MainGameHud()->condition_highlight_party_slot != -1) {
-        DismissHighlightOverlay();
-        DrawPortraitStatusOverlay(MainGameHud()->condition_highlight_party_slot);
     }
 }
 
@@ -3158,16 +3130,8 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
     if (g_main_game_mode == W8_MAIN_GAME_NPC_DIALOGUE) {
         CloseNpcDialogueIfActive();
     } else if (g_main_game_mode == W8_MAIN_GAME_HIGHLIGHT_OVERLAY) {
-        if (MainGameHud()->highlight_graphic != 0) {
-            MainGameHud()->highlight_graphic.reset();
-            MainGameHud()->highlight_graphic = 0;
-        }
-        ClearSurfaceRect(MainGameHud()->dialogue_x, MainGameHud()->dialogue_y,
-                         MainGameHud()->dialogue_x + MainGameHud()->dialogue_width,
-                         MainGameHud()->dialogue_y + MainGameHud()->dialogue_height);
-        InvalidateRegion(MainGameHud()->dialogue_x, MainGameHud()->dialogue_y,
-                         MainGameHud()->dialogue_x + MainGameHud()->dialogue_width,
-                         MainGameHud()->dialogue_y + MainGameHud()->dialogue_height);
+        MainGameHud()->highlight_graphic.reset();
+        ClearHighlightOverlayRegion();
     }
 
     g_main_game_mode = W8_MAIN_GAME_PORTRAIT_REFRESH;
@@ -3182,15 +3146,11 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
 }
 
 /* Take the mode-6 hover overlay down: the portrait highlight graphic is
-   released, the dialogue-area rectangle it drew over is cleared and
-   invalidated, the rectangle's position against the viewport decides the
-   extra redraw flags, and the mode resets to the default. */
+   released, the plate's rectangle is erased by the next draw, and the mode
+   resets to the default. */
 void DismissHighlightOverlay(void)
 {
-    if (MainGameHud()->highlight_graphic != 0) {
-        MainGameHud()->highlight_graphic.reset();
-        MainGameHud()->highlight_graphic = 0;
-    }
+    MainGameHud()->highlight_graphic.reset();
     ClearHighlightOverlayRegion();
     g_main_game_mode = W8_MAIN_GAME_DEFAULT;
 }
@@ -3206,410 +3166,400 @@ static void DrawHighlightFrameRow(int left, int right, int y, unsigned int tiles
     CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 4, right, y);
 }
 
-/* Build the mode-6 hover panel over a portrait: the framed plate carrying the
-   character's name and `row_count` content rows, plus the lazily created 0x72
-   highlight sprite pinned to highlight_row. An active mode-3 NPC dialogue,
-   mode-5 panel or previous overlay is torn down first; the panel is anchored
-   off the slot's portrait column and clamped inside the viewport. The retail
-   assertion names the sprite gpMGSV->pHighlightGraphic. */
-void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int min_width)
+/* The plate a held orb, vitals hover or condition highlight asks for; the first
+   one set wins. */
+static std::optional<std::pair<PortraitPlate, int>>
+TrackedPortraitPlate(const W8LevelRuntimeBlock& hud)
 {
+    if (hud.condition_orb_party_slot != -1)
+        return std::pair{PortraitPlate::Conditions, hud.condition_orb_party_slot};
+    if (hud.enchantment_orb_party_slot != -1)
+        return std::pair{PortraitPlate::Enchantments, hud.enchantment_orb_party_slot};
+    if (hud.portrait_overlay_party_slot != -1)
+        return std::pair{PortraitPlate::Vitals, hud.portrait_overlay_party_slot};
+    if (hud.condition_highlight_party_slot != -1)
+        return std::pair{PortraitPlate::Status, hud.condition_highlight_party_slot};
+    return std::nullopt;
+}
+
+/* Count the active conditions and widen max_width to the widest name; `text`
+   is left holding the last name measured. */
+static int MeasurePortraitConditions(const W8Character* character, unsigned int& max_width,
+                                     std::string& text)
+{
+    int row_count = 0;
+    for (int condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
+        if (character->uiCondition[condition] != 0) {
+            ++row_count;
+        }
+    }
+    for (int condition = W8_CONDITION_COUNT - 1; condition > 0; --condition) {
+        if (character->uiCondition[condition] != 0) {
+            text = Data().strings[kConditionNotices[condition].name];
+            const unsigned int width = g_wiz_text_font.textWidth(text);
+            max_width = std::max(max_width, width);
+        }
+    }
+    return row_count;
+}
+
+static std::string PortraitEnchantmentText(const W8Character* character, int slot)
+{
+    return fmt::format("{} ({:d})", Data().strings[g_enchantment_notices[slot]],
+                       character->enchantments[slot].power);
+}
+
+/* Count the active enchantments and widen max_width to the widest row; `text`
+   is left holding the last row measured. */
+static int MeasurePortraitEnchantments(const W8Character* character, unsigned int& max_width,
+                                       std::string& text)
+{
+    int row_count = 0;
+    for (int slot = 0; slot < 8; ++slot) {
+        if (character->enchantments[slot].turns != 0) {
+            ++row_count;
+        }
+    }
+    for (int slot = 7; slot > 0; --slot) {
+        if (character->enchantments[slot].turns != 0) {
+            text = PortraitEnchantmentText(character, slot);
+            const unsigned int width = g_wiz_text_font.textWidth(text);
+            max_width = std::max(max_width, width);
+        }
+    }
+    return row_count;
+}
+
+static std::string PortraitRealmPointsText(const W8Character* character, int realm)
+{
+    return fmt::format("{:d}/{:d}",
+                       GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
+                       character->sp_max[realm]);
+}
+
+/* The vitals plate's label column: the wider of the "HP:" and "Stamina:"
+   labels, at least 0x12, plus a gap. */
+static unsigned int PortraitVitalsLabelWidth()
+{
+    const unsigned int hp = g_wiz_text_font.textWidth(fmt::format("{}: ", Data().strings[0x282]));
+    const unsigned int stamina =
+        g_wiz_text_font.textWidth(fmt::format("{}: ", Data().strings[0x283]));
+    return std::max({hp, stamina, 0x12u}) + 10;
+}
+
+struct PortraitPlateContent {
+    int rows;
+    unsigned int width;
+};
+
+/* The rows and content width a plate needs. Retail seeds the vitals' value
+   column from the HP/stamina strings and lets a realm string replace it only
+   when it beats the label column; a status list over 0x14 rows ends in the
+   "more" notice, and widens to the last row measured when that notice is
+   wider. */
+static PortraitPlateContent MeasurePortraitPlate(PortraitPlate kind, int party_slot)
+{
+    const W8Character* character = &CurrentGame().party.characters[party_slot];
+    unsigned int max_width = 0;
+    std::string text;
+    switch (kind) {
+    case PortraitPlate::Vitals: {
+        const unsigned int label_width = PortraitVitalsLabelWidth();
+        unsigned int value_width =
+            std::max(g_wiz_text_font.textWidth(
+                         fmt::format("{:d}/{:d}", character->hp_current, character->uiHPMax)),
+                     g_wiz_text_font.textWidth(
+                         fmt::format("{:d}/{:d}", character->stamina, character->uiStaminaMax)));
+        for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+            const unsigned int width =
+                g_wiz_text_font.textWidth(PortraitRealmPointsText(character, realm));
+            if (label_width < width) value_width = width;
+        }
+        return {8, value_width + label_width};
+    }
+    case PortraitPlate::Conditions: {
+        const int rows = MeasurePortraitConditions(character, max_width, text);
+        return {rows, max_width + 0x1a};
+    }
+    case PortraitPlate::Enchantments: {
+        const int rows = MeasurePortraitEnchantments(character, max_width, text);
+        return {rows, max_width + 0x1a};
+    }
+    case PortraitPlate::Status: {
+        int rows = MeasurePortraitConditions(character, max_width, text);
+        rows += MeasurePortraitEnchantments(character, max_width, text);
+        if (rows > 0x14) {
+            rows = 0x14;
+            const int more = g_wiz_text_font.textWidth(Data().strings[0x7d8]);
+            if (max_width < static_cast<unsigned int>(more - 0x1a))
+                max_width = g_wiz_text_font.textWidth(text) - 0x1a;
+        }
+        return {rows, max_width + 0x1a};
+    }
+    }
+    return {};
+}
+
+/* Lay out the plate beside a portrait: enter the overlay mode (tearing down an
+   NPC dialogue, panel or previous plate), anchor the framed plate off the
+   slot's portrait column inside the viewport, and pin the lazily created 0x72
+   highlight sprite to the first row, hidden. */
+static void LayOutPortraitPlate(W8LevelRuntimeBlock& hud, PortraitPlate kind, int party_slot)
+{
+    const auto content = MeasurePortraitPlate(kind, party_slot);
+    DismissHighlightOverlay();
     SetMainGameMode(W8_MAIN_GAME_HIGHLIGHT_OVERLAY);
 
-    std::string name = CurrentGame().party.characters[party_slot].name;
-    int width = g_wiz_text_font.textWidth(name);
-    if (min_width < static_cast<unsigned int>(width)) {
-        width = g_wiz_text_font.textWidth(name);
-        min_width = width;
-    }
+    unsigned int min_width =
+        std::max(content.width, static_cast<unsigned int>(g_wiz_text_font.textWidth(
+                                    CurrentGame().party.characters[party_slot].name)));
     min_width += 6;
-    unsigned int tiles = min_width / 6;
-    if (min_width % 6 != 0) {
-        ++tiles;
-        min_width = tiles * 6;
-    }
-    unsigned int panel_width = min_width + 0xc;
+    const unsigned int tiles = (min_width + 5) / 6;
+    const unsigned int panel_width = tiles * 6 + 0xc;
 
     int left;
-    unsigned char pending = MainGameHud()->portrait_refresh_pending[party_slot];
+    const unsigned char pending = hud.portrait_refresh_pending[party_slot];
+    const bool shifted = pending == 0 && (hud.condition_highlight_party_slot != -1 ||
+                                          hud.portrait_overlay_party_slot != -1);
     if ((party_slot & 1) == 0) {
-        left = MainGameHud()->portrait_refresh_image[party_slot] -
-               MainGameHud()->portrait_hover_x_origin + 0x80;
-        if (pending == 0 && (MainGameHud()->condition_highlight_party_slot != -1 ||
-                             MainGameHud()->portrait_overlay_party_slot != -1)) {
-            left += 0x18;
-        }
+        left = hud.portrait_refresh_image[party_slot] - hud.portrait_hover_x_origin + 0x80;
+        if (shifted) left += 0x18;
     } else {
-        left = MainGameHud()->portrait_hover_x_origin -
-               MainGameHud()->portrait_refresh_image[party_slot] - static_cast<int>(panel_width) +
-               0x200;
-        if (pending == 0 && (MainGameHud()->condition_highlight_party_slot != -1 ||
-                             MainGameHud()->portrait_overlay_party_slot != -1)) {
-            left -= 0x18;
-        }
+        left = hud.portrait_hover_x_origin - hud.portrait_refresh_image[party_slot] -
+               static_cast<int>(panel_width) + 0x200;
+        if (shifted) left -= 0x18;
     }
 
-    unsigned int content_height = row_count * 9 + 0x12;
-    int row_y = (party_slot >> 1) * 0x55;
-    int top = g_viewport_modes[static_cast<unsigned int>(MainGameHud()->camera_mode)].top;
-    int candidate = row_y - static_cast<int>(content_height) + 0x3c;
+    const unsigned int content_height = content.rows * 9 + 0x12;
+    const int row_y = (party_slot >> 1) * 0x55;
+    int top = g_viewport_modes[static_cast<unsigned int>(hud.camera_mode)].top;
+    const int candidate = row_y - static_cast<int>(content_height) + 0x3c;
     if (candidate >= top) {
         if (candidate + content_height * 2 > 0x166) {
             top = 0x166 - content_height * 2;
         } else {
             top = candidate;
-            if (pending == 0 && MainGameHud()->condition_highlight_party_slot != -1) {
+            if (pending == 0 && hud.condition_highlight_party_slot != -1) {
                 top = row_y + 0x12;
             }
         }
     }
-    MainGameHud()->dialogue_x = left;
-    MainGameHud()->dialogue_y = top;
-    MainGameHud()->dialogue_height = content_height * 2;
-    MainGameHud()->dialogue_width = panel_width;
-    MainGameHud()->dialogue_text_x = left + 9;
-    MainGameHud()->dialogue_text_width = panel_width - 0x12;
+    hud.dialogue_x = left;
+    hud.dialogue_y = top;
+    hud.dialogue_height = content_height * 2;
+    hud.dialogue_width = panel_width;
+    hud.dialogue_text_x = left + 9;
+    hud.dialogue_text_width = panel_width - 0x12;
+    hud.dialogue_row_y = top + 0x1e;
+    hud.highlight_row = 0;
+    hud.shown_plate = ShownPortraitPlate{kind, party_slot, content.rows};
 
-    unsigned int tile;
-    int row;
-    int inner;
-    CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 0, left, top);
-    inner = left + 6;
-    for (tile = tiles; tile != 0; --tile) {
-        CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 1, inner, top);
+    const auto artwork = CatalogArtwork::Load(0x72);
+    if (auto surface = RenderSpriteToImage(*artwork.spriteSheet(), 0)) {
+        hud.highlight_graphic = makeOverlayFromSurface(*surface, 0, 0, 1);
+    }
+    assert(hud.highlight_graphic != 0);
+    positionOverlay(hud.highlight_graphic.get(), hud.dialogue_x + 7,
+                    hud.dialogue_row_y - 1 + hud.highlight_row * 0x12, false);
+    hud.highlight_graphic->visible = false;
+}
+
+/* Draw the plate's frame around `rows` content rows and the character's name in
+   their party colour. */
+static void PaintPortraitPlateFrame(const W8LevelRuntimeBlock& hud, int party_slot, int rows)
+{
+    const int left = hud.dialogue_x;
+    const int top = static_cast<int>(hud.dialogue_y);
+    const unsigned int panel_width = hud.dialogue_width;
+    const unsigned int tiles = (panel_width - 0xc) / 6;
+    auto& target = GetFrameBufferSurface();
+    const auto frame = CatalogArtwork::Load(0x70, 0);
+    const auto divider = CatalogArtwork::Load(0x71, 0);
+
+    frame.draw(target, 0, left, top);
+    int inner = left + 6;
+    for (unsigned int tile = tiles; tile != 0; --tile) {
+        frame.draw(target, 1, inner, top);
         inner += 6;
     }
-    int right = left + (tiles * 3 + 3) * 2;
-    CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 2, right, top);
-    int row_y_pos = top + 6;
-    for (row = 0; row < 2; ++row) {
-        DrawHighlightFrameRow(left, right, row_y_pos, tiles);
-        row_y_pos += 6;
+    const int right = left + (tiles * 3 + 3) * 2;
+    frame.draw(target, 2, right, top);
+    int row_y = top + 6;
+    for (int row = 0; row < 2; ++row) {
+        DrawHighlightFrameRow(left, right, row_y, tiles);
+        row_y += 6;
     }
 
+    const std::string& name = CurrentGame().party.characters[party_slot].name;
     g_wiz_text_font.setPalette(g_font_state_palettes[CurrentGame().party.orderIndexOf(party_slot)]);
-    int font_height = g_wiz_text_font.height();
-    int name_width = g_wiz_text_font.textWidth(name);
-    DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+    const int name_width = g_wiz_text_font.textWidth(name);
+    DrawText(target, g_wiz_text_font,
              {left + static_cast<int>(panel_width >> 1) - name_width / 2,
-              (0xc - font_height) / 2 + top + 6},
+              (0xc - g_wiz_text_font.height()) / 2 + top + 6},
              name);
     g_wiz_text_font.resetPalette();
 
-    row_y_pos = top + 0x12;
-    CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 3, left, row_y_pos);
-    CatalogArtwork::Load(0x71, 0).draw(GetFrameBufferSurface(), 0, left + 6, row_y_pos);
+    row_y = top + 0x12;
+    frame.draw(target, 3, left, row_y);
+    divider.draw(target, 0, left + 6, row_y);
     if (tiles > 2) {
         inner = left + 0xc;
-        for (tile = 0; tile < tiles - 2; ++tile) {
-            CatalogArtwork::Load(0x71, 0).draw(GetFrameBufferSurface(), 1, inner, row_y_pos);
+        for (unsigned int tile = 0; tile < tiles - 2; ++tile) {
+            divider.draw(target, 1, inner, row_y);
             inner += 6;
         }
     }
-    CatalogArtwork::Load(0x71, 0).draw(GetFrameBufferSurface(), 2, left + tiles * 6, row_y_pos);
-    CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 4, right, row_y_pos);
+    divider.draw(target, 2, left + tiles * 6, row_y);
+    frame.draw(target, 4, right, row_y);
 
-    row_y_pos += 6;
-    MainGameHud()->dialogue_row_y = row_y_pos + 6;
-    for (row = row_count * 3 + 1; row != 0; --row) {
-        DrawHighlightFrameRow(left, right, row_y_pos, tiles);
-        row_y_pos += 6;
+    row_y += 6;
+    for (int row = rows * 3 + 1; row != 0; --row) {
+        DrawHighlightFrameRow(left, right, row_y, tiles);
+        row_y += 6;
     }
-    CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 5, left, row_y_pos);
+    frame.draw(target, 5, left, row_y);
     inner = left + 6;
-    for (tile = tiles; tile != 0; --tile) {
-        CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 6, inner, row_y_pos);
+    for (unsigned int tile = tiles; tile != 0; --tile) {
+        frame.draw(target, 6, inner, row_y);
         inner += 6;
     }
-    CatalogArtwork::Load(0x70, 0).draw(GetFrameBufferSurface(), 7, right, row_y_pos);
-
-    if (MainGameHud()->highlight_graphic == 0) {
-        const auto artwork = CatalogArtwork::Load(0x72);
-        if (auto surface = RenderSpriteToImage(*artwork.spriteSheet(), 0)) {
-            MainGameHud()->highlight_graphic = makeOverlayFromSurface(*surface, 0, 0, 1);
-        }
-    }
-    assert(MainGameHud()->highlight_graphic != 0);
-    positionOverlay(MainGameHud()->highlight_graphic.get(), MainGameHud()->dialogue_x + 7,
-                    MainGameHud()->dialogue_row_y - 1 + MainGameHud()->highlight_row * 0x12, false);
-    InvalidateRegion(MainGameHud()->dialogue_x, MainGameHud()->dialogue_y,
-                     MainGameHud()->dialogue_x + MainGameHud()->dialogue_width,
-                     MainGameHud()->dialogue_y + MainGameHud()->dialogue_height);
+    frame.draw(target, 7, right, row_y);
 }
 
-static void BeginPortraitOverlay(unsigned int party_slot, int row_count, unsigned int width)
+static void DrawPortraitPlateRow(int icon, std::string_view text, int text_x, int row_y,
+                                 unsigned int width)
 {
-    MainGameHud()->highlight_row = 0;
-    DrawHighlightOverlay(party_slot, row_count, width);
-    if (MainGameHud()->highlight_graphic != 0) {
-        MainGameHud()->highlight_graphic->visible = false;
-    }
-}
-
-static void DrawPortraitConditionRow(int condition, int text_x, int row_y, unsigned int width)
-{
-    CatalogArtwork::Load(condition + 0xb6, 0).draw(GetFrameBufferSurface(), 0, text_x, row_y);
-    MainGameHud()->text_paint_scratch =
-        fmt::format("{}", Data().strings[kConditionNotices[condition].name]);
-    int text_width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
+    CatalogArtwork::Load(icon, 0).draw(GetFrameBufferSurface(), 0, text_x, row_y);
+    const int text_width = g_wiz_text_font.textWidth(text);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font,
-             {static_cast<int>(((width >> 1) - text_width / 2) + 0x1a + text_x), row_y},
-             MainGameHud()->text_paint_scratch);
+             {static_cast<int>(((width >> 1) - text_width / 2) + 0x1a + text_x), row_y}, text);
 }
 
-static void DrawPortraitEnchantmentRow(const W8Character* character, int slot, int text_x,
-                                       int row_y, unsigned int width)
+/* The vitals plate: "HP:"/"Stamina:" label rows then one icon row per spell
+   realm, each "cur/max" value centered in the column right of the labels. */
+static void PaintPortraitVitals(const W8LevelRuntimeBlock& hud, const W8Character* character)
 {
-    CatalogArtwork::Load(slot + 0xc9, 0).draw(GetFrameBufferSurface(), 0, text_x, row_y);
-    MainGameHud()->text_paint_scratch =
-        fmt::format("{} ({:d})", Data().strings[g_enchantment_notices[slot]],
-                    character->enchantments[slot].power);
-    int text_width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-    DrawText(GetFrameBufferSurface(), g_wiz_text_font,
-             {static_cast<int>(((width >> 1) - text_width / 2) + 0x1a + text_x), row_y},
-             MainGameHud()->text_paint_scratch);
-}
+    const unsigned int label_width = PortraitVitalsLabelWidth();
+    const int text_x = hud.dialogue_text_x;
+    const unsigned int value_center = (hud.dialogue_text_width - label_width) >> 1;
+    int row_y = hud.dialogue_row_y;
+    const auto draw_value = [&](const std::string& value, int y) {
+        const int width = g_wiz_text_font.textWidth(value);
+        DrawText(GetFrameBufferSurface(), g_wiz_text_font,
+                 {static_cast<int>(value_center - width / 2 + text_x + label_width), y}, value);
+    };
 
-/* The portrait overlay's vitals content: "HP:"/"Stamina:" label rows then one
-   icon row per spell realm, each "cur/max" value centered in the column right
-   of the labels. Retail seeds the value-column width from the HP/stamina
-   strings; the realm pass widens it only when a realm string beats the label
-   width rather than the running value width. */
-void DrawPortraitVitalsOverlay(int party_slot)
-{
-    int realm_icons[6] = {0x193, 0x194, 0x195, 0x196, 0x197, 0x198};
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-
-    MainGameHud()->text_paint_scratch = fmt::format("{}: ", Data().strings[0x282]);
-    unsigned int label_width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-    MainGameHud()->text_paint_scratch = fmt::format("{}: ", Data().strings[0x283]);
-    int width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-    if (label_width < static_cast<unsigned int>(width)) {
-        width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-        label_width = width;
-    }
-    if (label_width < 0x12) {
-        label_width = 0x12;
-    }
-    label_width += 10;
-
-    MainGameHud()->text_paint_scratch =
-        fmt::format("{:d}/{:d}", character->hp_current, character->uiHPMax);
-    unsigned int value_width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-    MainGameHud()->text_paint_scratch =
-        fmt::format("{:d}/{:d}", character->stamina, character->uiStaminaMax);
-    width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-    if (value_width < static_cast<unsigned int>(width)) {
-        width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-        value_width = width;
-    }
-    int realm;
-    for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        MainGameHud()->text_paint_scratch = fmt::format(
-            "{:d}/{:d}", GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
-            character->sp_max[realm]);
-        width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-        if (label_width < static_cast<unsigned int>(width)) {
-            width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-            value_width = width;
-        }
-    }
-
-    BeginPortraitOverlay(party_slot, 8, value_width + label_width);
-
-    int text_width = MainGameHud()->dialogue_text_width;
-    int text_x = MainGameHud()->dialogue_text_x;
-    int row_y = MainGameHud()->dialogue_row_y;
-
-    MainGameHud()->text_paint_scratch = fmt::format("{}: ", Data().strings[0x282]);
     DrawText(GetFrameBufferSurface(), g_wiz_text_font, {text_x, row_y},
-             MainGameHud()->text_paint_scratch);
-    MainGameHud()->text_paint_scratch =
-        fmt::format("{:d}/{:d}", character->hp_current, character->uiHPMax);
-    unsigned int value_center = (text_width - label_width) >> 1;
-    width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-    DrawText(GetFrameBufferSurface(), g_wiz_text_font,
-             {static_cast<int>(value_center - width / 2 + text_x + label_width), row_y},
-             MainGameHud()->text_paint_scratch);
+             fmt::format("{}: ", Data().strings[0x282]));
+    draw_value(fmt::format("{:d}/{:d}", character->hp_current, character->uiHPMax), row_y);
+    row_y += 0x12;
+    DrawText(GetFrameBufferSurface(), g_wiz_text_font, {text_x, row_y},
+             fmt::format("{}: ", Data().strings[0x283]));
+    draw_value(fmt::format("{:d}/{:d}", character->stamina, character->uiStaminaMax), row_y);
     row_y += 0x12;
 
-    MainGameHud()->text_paint_scratch = fmt::format("{}: ", Data().strings[0x283]);
-    DrawText(GetFrameBufferSurface(), g_wiz_text_font, {text_x, row_y},
-             MainGameHud()->text_paint_scratch);
-    MainGameHud()->text_paint_scratch =
-        fmt::format("{:d}/{:d}", character->stamina, character->uiStaminaMax);
-    width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-    DrawText(GetFrameBufferSurface(), g_wiz_text_font,
-             {static_cast<int>(value_center - width / 2 + text_x + label_width), row_y},
-             MainGameHud()->text_paint_scratch);
-    row_y += 0x12;
-
-    for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
-        CatalogArtwork::Load(realm_icons[realm], 0)
+    for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
+        CatalogArtwork::Load(0x193 + realm, 0)
             .draw(GetFrameBufferSurface(),
                   static_cast<short>(g_spell_realm_animations[realm].initial_frame), text_x, row_y);
-        MainGameHud()->text_paint_scratch = fmt::format(
-            "{:d}/{:d}", GetCharacterRealmSpellPoints(character, static_cast<W8SpellRealm>(realm)),
-            character->sp_max[realm]);
-        int text_y = (0x12 - g_wiz_text_font.height()) / 2 + row_y;
-        width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-        DrawText(GetFrameBufferSurface(), g_wiz_text_font,
-                 {static_cast<int>(value_center - width / 2 + text_x + label_width), text_y},
-                 MainGameHud()->text_paint_scratch);
+        draw_value(PortraitRealmPointsText(character, realm),
+                   (0x12 - g_wiz_text_font.height()) / 2 + row_y);
         row_y += 0x12;
     }
 }
 
-static int MeasurePortraitConditions(const W8Character* character, unsigned int& max_width)
+/* Condition rows, bottom-up: the measure counts all twenty slots while the rows
+   visit 0x13 down to 1 only. Returns the next row's y and adds to `rows_drawn`. */
+static int PaintPortraitConditionRows(const W8Character* character, int text_x, int row_y,
+                                      unsigned int width, int& rows_drawn)
 {
-    int condition;
-    int row_count = 0;
-    for (condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
-        if (character->uiCondition[condition] != 0) {
-            ++row_count;
-        }
-    }
-    for (condition = W8_CONDITION_COUNT - 1; condition > 0; --condition) {
-        if (character->uiCondition[condition] != 0) {
-            MainGameHud()->text_paint_scratch =
-                fmt::format("{}", Data().strings[kConditionNotices[condition].name]);
-            int width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-            if (max_width < static_cast<unsigned int>(width)) {
-                max_width = width;
-            }
-        }
-    }
-
-    return row_count;
-}
-
-static int MeasurePortraitEnchantments(const W8Character* character, unsigned int& max_width)
-{
-    int slot;
-    int row_count = 0;
-    for (slot = 0; slot < 8; ++slot) {
-        if (character->enchantments[slot].turns != 0) {
-            ++row_count;
-        }
-    }
-    for (slot = 7; slot > 0; --slot) {
-        if (character->enchantments[slot].turns != 0) {
-            MainGameHud()->text_paint_scratch =
-                fmt::format("{} ({:d})", Data().strings[g_enchantment_notices[slot]],
-                            character->enchantments[slot].power);
-            int width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-            if (max_width < static_cast<unsigned int>(width)) {
-                max_width = width;
-            }
-        }
-    }
-
-    return row_count;
-}
-
-/* The portrait overlay's condition content: one row per active condition with
-   its status icon and notice name, drawn bottom-up. The count covers all
-   twenty condition slots while the measure and draw passes visit 0x13 down to
-   1 only, paired with the kConditionNotices
-   row names. */
-void DrawPortraitConditionOverlay(int party_slot)
-{
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-
-    unsigned int max_width = 0;
-    int row_count = MeasurePortraitConditions(character, max_width);
-
-    BeginPortraitOverlay(party_slot, row_count, max_width + 0x1a);
-
-    int text_x = MainGameHud()->dialogue_text_x;
-    int row_y = MainGameHud()->dialogue_row_y;
-    int text_width = MainGameHud()->dialogue_text_width;
     for (int condition = W8_CONDITION_COUNT - 1; condition > 0; --condition) {
         if (character->uiCondition[condition] != 0) {
-            DrawPortraitConditionRow(condition, text_x, row_y, text_width - 0x1aU);
+            DrawPortraitPlateRow(condition + 0xb6,
+                                 Data().strings[kConditionNotices[condition].name], text_x, row_y,
+                                 width);
             row_y += 0x12;
+            ++rows_drawn;
         }
     }
+    return row_y;
 }
 
-/* The condition-highlight panel's combined content: the active conditions
-   followed by the active enchantments, capped at 0x14 rows. When the lists
-   overflow, the last row instead prints the "more" notice (0x7d8) - the extra
-   enchantment power argument it pushes is dead, "%s" never consumes it. */
-void DrawPortraitStatusOverlay(int party_slot)
+/* Paint the laid-out plate: its frame, then the vitals or the condition and
+   enchantment rows. Enchantment rows visit slots 7 down to 1, so slot 0's
+   counted row is never drawn; a truncated status list ends in the "more"
+   notice. */
+void PaintPortraitPlate(const W8LevelRuntimeBlock& hud)
 {
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-    unsigned int max_width = 0;
-    bool truncated = false;
-    int condition;
-    int slot;
+    if (g_main_game_mode != W8_MAIN_GAME_HIGHLIGHT_OVERLAY || !hud.shown_plate) return;
+    const auto& plate = *hud.shown_plate;
+    const W8Character* character = &CurrentGame().party.characters[plate.slot];
+    PaintPortraitPlateFrame(hud, plate.slot, plate.rows);
 
-    int condition_count = MeasurePortraitConditions(character, max_width);
-    int enchantment_count = MeasurePortraitEnchantments(character, max_width);
-
-    int row_count = condition_count + enchantment_count;
-    if (0x14 < row_count) {
-        row_count = 0x14;
-        truncated = true;
-        int width = g_wiz_text_font.textWidth(Data().strings[0x7d8]);
-        if (max_width < static_cast<unsigned int>(width - 0x1a)) {
-            width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-            max_width = width - 0x1a;
-        }
-    }
-
-    BeginPortraitOverlay(party_slot, row_count, max_width + 0x1a);
-
-    int text_x = MainGameHud()->dialogue_text_x;
-    int row_y = MainGameHud()->dialogue_row_y;
-    unsigned int text_width = MainGameHud()->dialogue_text_width - 0x1a;
+    const int text_x = hud.dialogue_text_x;
+    const unsigned int width = hud.dialogue_text_width - 0x1a;
+    int row_y = hud.dialogue_row_y;
     int rows_drawn = 0;
-    for (condition = W8_CONDITION_COUNT - 1; condition > 0; --condition) {
-        if (character->uiCondition[condition] != 0) {
-            DrawPortraitConditionRow(condition, text_x, row_y, text_width);
-            row_y += 0x12;
-            ++rows_drawn;
+    const bool truncated = plate.kind == PortraitPlate::Status &&
+                           std::ranges::count_if(character->uiCondition, [](auto c) {
+                               return c != 0;
+                           }) + std::ranges::count_if(character->enchantments, [](const auto& e) {
+                               return e.turns != 0;
+                           }) > 0x14;
+    if (plate.kind == PortraitPlate::Vitals) {
+        PaintPortraitVitals(hud, character);
+    } else {
+        if (plate.kind != PortraitPlate::Enchantments)
+            row_y = PaintPortraitConditionRows(character, text_x, row_y, width, rows_drawn);
+        if (plate.kind != PortraitPlate::Conditions) {
+            for (int slot = 7; slot > 0; --slot) {
+                if (truncated && rows_drawn == 0x13) {
+                    const std::string& more = Data().strings[0x7d8];
+                    const int more_width = g_wiz_text_font.textWidth(more);
+                    DrawText(
+                        GetFrameBufferSurface(), g_wiz_text_font,
+                        {static_cast<int>((((width - more_width) + 0x1a) >> 1) + text_x), row_y},
+                        more);
+                    break;
+                }
+                if (character->enchantments[slot].turns != 0) {
+                    DrawPortraitPlateRow(slot + 0xc9, PortraitEnchantmentText(character, slot),
+                                         text_x, row_y, width);
+                    row_y += 0x12;
+                    ++rows_drawn;
+                }
+            }
         }
     }
-    for (slot = 7; slot > 0; --slot) {
-        if (rows_drawn == 0x13 && truncated) {
-            MainGameHud()->text_paint_scratch = Data().strings[0x7d8];
-            int width = g_wiz_text_font.textWidth(MainGameHud()->text_paint_scratch);
-            DrawText(GetFrameBufferSurface(), g_wiz_text_font,
-                     {static_cast<int>((((text_width - width) + 0x1a) >> 1) + text_x), row_y},
-                     MainGameHud()->text_paint_scratch);
-            return;
-        }
-        if (character->enchantments[slot].turns != 0) {
-            DrawPortraitEnchantmentRow(character, slot, text_x, row_y, text_width);
-            row_y += 0x12;
-            ++rows_drawn;
-        }
-    }
+    InvalidateRegion(hud.dialogue_x, hud.dialogue_y, hud.dialogue_x + hud.dialogue_width,
+                     hud.dialogue_y + hud.dialogue_height);
 }
 
-/* The enchantment orb's hover content: one row per active enchantment showing
-   its icon and "name (power)" text. The count covers all eight slots while the
-   measure and draw passes visit 7 down to 1 - slot 0's row is counted but
-   never drawn. */
-void DrawPortraitEnchantmentOverlay(int party_slot)
+/* Lay out the tracked plate again when the draw repaints what it sits over:
+   the world view's frame (unless the movement panel shows), or a band of a
+   slot that holds an orb, the vitals or the condition highlight. A slid-out
+   portrait does so for any vitals or condition plate. */
+void UpdatePortraitPlate(W8LevelRuntimeBlock& hud)
 {
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-
-    unsigned int max_width = 0;
-    int row_count = MeasurePortraitEnchantments(character, max_width);
-
-    BeginPortraitOverlay(party_slot, row_count, max_width + 0x1a);
-
-    int text_x = MainGameHud()->dialogue_text_x;
-    int row_y = MainGameHud()->dialogue_row_y;
-    int text_width = MainGameHud()->dialogue_text_width;
-    for (int slot = 7; slot > 0; --slot) {
-        if (character->enchantments[slot].turns != 0) {
-            DrawPortraitEnchantmentRow(character, slot, text_x, row_y, text_width - 0x1aU);
-            row_y += 0x12;
-        }
+    auto& repaint = hud.repaint;
+    const auto tracked = TrackedPortraitPlate(hud);
+    if (!tracked) return;
+    bool lay_out = repaint.portrait_panel && !PartyMovementPanelShown();
+    const bool portraits_mode = GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS;
+    for (int slot = 0; slot < 8 && !lay_out; ++slot) {
+        const bool band = repaint.portraits.test(slot) ||
+                          (repaint.portrait_frames.test(slot) &&
+                           (portraits_mode || hud.portrait_refresh_pending[slot] != 0));
+        if (!band) continue;
+        lay_out =
+            slot == hud.condition_orb_party_slot || slot == hud.enchantment_orb_party_slot ||
+            slot == hud.portrait_overlay_party_slot || slot == hud.condition_highlight_party_slot ||
+            (!portraits_mode && hud.portrait_refresh_pending[slot] != 0 &&
+             (hud.condition_highlight_party_slot != -1 || hud.portrait_overlay_party_slot != -1));
     }
+    if (!lay_out) return;
+    LayOutPortraitPlate(hud, tracked->first, tracked->second);
+    repaint.portrait_plate = true;
 }
 
 /* Raise a modal notice line over the main game: enter mode 5 (tearing down
@@ -3884,7 +3834,6 @@ void UpdateCombatPortraitStatus(void)
    re-arms the slot from the cursor row, and expiry closes the menu. */
 void UpdateKeyboardMenu(void)
 {
-    if (auto* hud = MainGameHud()) hud->repaint.panels = true;
     if ((!CurrentGame().combat.has_value() && MainGameHud()->keyboard_menu_open) ||
         (MainGameHud()->combat_slot != -1 && !IsPartySlotEligible(MainGameHud()->combat_slot))) {
         CloseKeyboardMenu();
@@ -5985,22 +5934,18 @@ void CloseMainGameOverlays(void)
 
 void ClearHighlightOverlayRegion(void)
 {
-    if (g_main_game_mode == W8_MAIN_GAME_HIGHLIGHT_OVERLAY) {
-        ClearSurfaceRect(MainGameHud()->dialogue_x, MainGameHud()->dialogue_y,
-                         MainGameHud()->dialogue_x + MainGameHud()->dialogue_width,
-                         MainGameHud()->dialogue_y + MainGameHud()->dialogue_height);
-        InvalidateRegion(MainGameHud()->dialogue_x, MainGameHud()->dialogue_y,
-                         MainGameHud()->dialogue_x + MainGameHud()->dialogue_width,
-                         MainGameHud()->dialogue_y + MainGameHud()->dialogue_height);
-        if (MainGameHud()->dialogue_y <
-            static_cast<unsigned int>(
-                g_viewport_modes[static_cast<unsigned int>(MainGameHud()->camera_mode)].top)) {
-            if (auto* hud = MainGameHud()) hud->repaint.roof_and_spell_icons = true;
-        }
-        if (MainGameHud()->dialogue_y + MainGameHud()->dialogue_height > 0x166) {
-            if (auto* hud = MainGameHud()) hud->repaint.text_box = true;
-        }
-    }
+    auto& hud = *MainGameHud();
+    hud.shown_plate.reset();
+    if (g_main_game_mode != W8_MAIN_GAME_HIGHLIGHT_OVERLAY) return;
+    const DesignRect plate{hud.dialogue_x, static_cast<int>(hud.dialogue_y),
+                           hud.dialogue_x + hud.dialogue_width,
+                           static_cast<int>(hud.dialogue_y + hud.dialogue_height)};
+    hud.repaint.plate_erase =
+        hud.repaint.plate_erase ? UnionScreenRects(*hud.repaint.plate_erase, plate) : plate;
+    if (hud.dialogue_y <
+        static_cast<unsigned int>(g_viewport_modes[static_cast<unsigned int>(hud.camera_mode)].top))
+        hud.repaint.roof_and_spell_icons = true;
+    if (hud.dialogue_y + hud.dialogue_height > 0x166) hud.repaint.text_box = true;
 }
 
 void W8NpcDialogueTextController::ClearTranscriptEntries()
@@ -6273,7 +6218,7 @@ void PopulateNpcTradeList(void)
             ShowNpcPlayerTradeItem(item, acceptable, font_palette);
         }
     }
-    MainGame()->dialogue.ui->panels[1].dirty = true;
+    RepaintNpcPanel(1);
 }
 
 void OpenNpcTradeQuantityDialog(void)

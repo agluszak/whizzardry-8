@@ -68,10 +68,17 @@
 
 struct W8NpcState;
 
+// Request a spell-casting panel's repaint.
+static void RepaintSpellCastingPanel(int panel)
+{
+    if (auto* hud = MainGameHud()) hud->repaint.mode_panels.set(panel);
+}
+
 /* The first realm skill id; character->skill_unlocks[first + realm] counts
    the spells known in that realm. */
 
 /* Realm-name string ids for the spell-casting realm-button tooltips. */
+
 static int g_spell_realm_help_string_ids[6] = {0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c};
 
 std::unique_ptr<W8SpellCastingView> gpSCSV;
@@ -141,7 +148,7 @@ static void CreateSpellCastingViewControls(void)
             0x191, {frame + 2, frame, frame + 1, frame + 3, frame + 3},
             {0x17 + pos.x, 0x166 + pos.y, 75, 22}, -1,
             [realm] { SelectSpellCastingRealm(static_cast<W8SpellRealm>(realm)); },
-            [](bool) { gpSCSV->dirty[0] = true; });
+            [](bool) { RepaintSpellCastingPanel(0); });
         const auto tooltip = [realm] {
             const auto& name = Data().strings[g_spell_realm_help_string_ids[realm]];
             if (!gpSCSV->realm_buttons[realm]->IsEnabled()) return std::string(name);
@@ -205,7 +212,6 @@ static void CreateSpellCastingViewControls(void)
     gpSCSV->cancel =
         make_button(0x8e, {7, 4, 5, -1, 6}, {0x23a, 0x16c, 27, 27}, 17, ResetSpellCastingSelection);
     gpSCSV->cancel->Policy().primary_toggle = ButtonToggle::None;
-    gpSCSV->dirty.fill(true);
 
     if (CurrentGame().activity.conversation_aside) {
         for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
@@ -354,7 +360,7 @@ void SelectSpellCastingCharacter(int party_slot)
         return;
     }
     if (gpSCSV->caster->sp_max[realm] == 0) {
-        gpSCSV->dirty[0] = true;
+        RepaintSpellCastingPanel(0);
         gpSCSV->iSpellRealm = W8_SPELL_REALM_NONE;
         ResetEditorStatusLine(-1);
         return;
@@ -372,7 +378,7 @@ void UpdateSpellRealmPointDisplays(void)
         bool has_realm = gpSCSV->caster->sp_max[realm] != 0;
         gpSCSV->realm_buttons[realm]->SetEnabled(has_realm);
         gpSCSV->realm_text[realm].SetFontStateIndex(has_realm ? -1 : 0);
-        gpSCSV->dirty[0] = true;
+        RepaintSpellCastingPanel(0);
         gpSCSV->realm_text[realm].SetText(
             fmt::format(
                 "{:d}/{:d}",
@@ -404,7 +410,7 @@ static void UpdateSpellPowerPips(void)
     const auto levels = gpSCSV->AffordablePowerLevels();
     unsigned int pip;
     W8SpellCastRating rating;
-    gpSCSV->dirty[2] = true;
+    RepaintSpellCastingPanel(2);
 
     if (levels == 0 || gpSCSV->PowerClass() == W8_SPELL_POWER_FIXED) {
         for (pip = 0; pip < W8_SPELL_POWER_PIP_COUNT; ++pip) {
@@ -472,7 +478,7 @@ static void RefreshSpellPowerPip(int pip)
     frames[2] = pip == 8 ? frame : frame + 1;
     frames[3] = frame + 2;
     frames[4] = pip == 8 ? frame + 2 : frame + 4;
-    gpSCSV->dirty[2] = true;
+    RepaintSpellCastingPanel(2);
 }
 
 /* Evaluate each learned spell once, then display castable spells first while
@@ -625,20 +631,35 @@ void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_
     RebuildSpellCastingList(spell_id);
 }
 
-/* Redraws every live spell-casting panel; the middle panel's pending text
-   update is flushed through the message storage. */
-void SetSpellCastingPanelsActive(bool active)
+/* Before the draw: a changed widget repaints its panel, and a repainted power
+   panel takes the pips' current frames. */
+void UpdateSpellCastingPanels(std::bitset<7>& panels)
+{
+    auto& view = *gpSCSV;
+    for (const auto& button : view.realm_buttons)
+        if (button->m_dirty) panels.set(0);
+    for (const auto& button : view.power_controls)
+        if (button->m_dirty) panels.set(2);
+    if (view.cancel->m_dirty) panels.set(2);
+    if (!panels.test(2)) return;
+    for (int pip = 0; pip < 9; ++pip) {
+        const auto& f = view.power_frames[pip];
+        view.power_controls[pip]->SetImage(ButtonGraphics::Load(
+            CatalogArtwork::Load(0x192, 0).spriteSheet(), f[0], f[1], f[2], f[3], f[4]));
+    }
+}
+
+/* Paint the given spell-casting panels: the realm buttons and their icons, the
+   list's scroll chrome, and the power pips with the spell name. */
+void PaintSpellCastingPanels(std::bitset<7> panels)
 {
     auto& view = *gpSCSV;
     auto& target = GetFrameBufferSurface();
-    for (const auto& button : view.realm_buttons) view.dirty[0] |= button->m_dirty;
-    for (const auto& button : view.power_controls) view.dirty[2] |= button->m_dirty;
-    view.dirty[2] |= view.cancel->m_dirty;
     constexpr int origins[] = {0x17, 0xe6, 0x1a4};
     constexpr SDL_Point icons[] = {{0x55, 0xf},  {0x73, 0xf},  {0x49, 0x25},
                                    {0x7f, 0x25}, {0x55, 0x3b}, {0x73, 0x3b}};
     for (int panel = 0; panel < 3; ++panel) {
-        if (!active && !view.dirty[panel]) continue;
+        if (!panels.test(panel)) continue;
         CatalogArtwork::Load(400, 0).drawAndInvalidate(target, panel, origins[panel], 0x166);
         if (panel == 0) {
             for (int realm = 0; realm < 6; ++realm) {
@@ -657,16 +678,10 @@ void SetSpellCastingPanelsActive(bool active)
         } else if (panel == 1) {
             RedrawTextBoxScrollChrome();
         } else {
-            for (int pip = 0; pip < 9; ++pip) {
-                const auto& f = view.power_frames[pip];
-                view.power_controls[pip]->SetImage(ButtonGraphics::Load(
-                    CatalogArtwork::Load(0x192, 0).spriteSheet(), f[0], f[1], f[2], f[3], f[4]));
-                view.power_controls[pip]->Refresh();
-            }
+            for (const auto& button : view.power_controls) button->Refresh();
             view.cancel->Refresh(true);
             view.spell_name.RenderToTarget(0, true, target);
         }
-        view.dirty[panel] = false;
     }
 }
 
@@ -685,13 +700,13 @@ static void SelectSpellCastingRealm(W8SpellRealm realm)
     previous = gpSCSV->iSpellRealm;
     if (previous != realm) {
         if (previous != W8_SPELL_REALM_NONE) {
-            gpSCSV->dirty[0] = true;
+            RepaintSpellCastingPanel(0);
             gpSCSV->realm_buttons[gpSCSV->iSpellRealm]->SetPressed(false);
             gpSCSV->realm_buttons[gpSCSV->iSpellRealm]->m_dirty = true;
         }
         gpSCSV->iSpellRealm = realm;
         gpSCSV->realm_anim_frame = g_spell_realm_animations[gpSCSV->iSpellRealm].initial_frame;
-        gpSCSV->dirty[0] = true;
+        RepaintSpellCastingPanel(0);
         gpSCSV->realm_anim_timer = MonotonicMilliseconds() + (0x32);
         RebuildSpellCastingList(W8_SPELL_NONE);
         ClearSpellCastingChoice();
@@ -719,13 +734,13 @@ static void SelectSpellPowerPip7(void)
         gpSCSV->spell_name.SetRenderMode(4);
         gpSCSV->spell_name.SetText("?", g_wiz_text_font_secondary);
         gpSCSV->draft.detail_block.spell.power_level = 8;
-        gpSCSV->dirty[2] = true;
+        RepaintSpellCastingPanel(2);
         return;
     }
     gpSCSV->spell_name.SetRenderMode(4);
     gpSCSV->spell_name.SetText("", g_wiz_text_font_secondary);
     gpSCSV->draft.detail_block.spell.power_level = 0;
-    gpSCSV->dirty[2] = true;
+    RepaintSpellCastingPanel(2);
 }
 
 /* The max-power pip: while its secondary state is lit it prices the name
@@ -736,11 +751,11 @@ static void SelectSpellPowerPip8(void)
         gpSCSV->spell_name.SetRenderMode(4);
         gpSCSV->spell_name.SetText("?", g_wiz_text_font_secondary);
         gpSCSV->draft.detail_block.spell.power_level = 8;
-        gpSCSV->dirty[2] = true;
+        RepaintSpellCastingPanel(2);
         return;
     }
     gpSCSV->power_controls[8]->SetPressed(true);
-    gpSCSV->dirty[2] = true;
+    RepaintSpellCastingPanel(2);
 }
 
 /* Records the chosen power level: pips through the level light, pips above it
@@ -750,7 +765,7 @@ void SelectSpellPowerLevel(int power_level)
     int pip;
     std::string text;
 
-    gpSCSV->dirty[2] = true;
+    RepaintSpellCastingPanel(2);
     if (power_level == -1 || (gpSCSV->power_controls[power_level]->IsPressed() == 0 &&
                               gpSCSV->draft.detail_block.spell.power_level == power_level + 1)) {
         for (pip = 0; pip < 7; ++pip) {
@@ -766,7 +781,7 @@ void SelectSpellPowerLevel(int power_level)
                 gpSCSV->spell_name.SetText("?", g_wiz_text_font_secondary);
                 gpSCSV->draft.detail_block.spell.power_level = 8;
             }
-            gpSCSV->dirty[2] = true;
+            RepaintSpellCastingPanel(2);
             return;
         }
         gpSCSV->spell_name.SetRenderMode(4);
@@ -807,7 +822,7 @@ static void PreviewSpellPowerPipHover(int power_level)
              gpSCSV->PowerClass() == W8_SPELL_POWER_REPEAT_OUT_OF_COMBAT) &&
             (power_level == -1 || (gpSCSV->power_controls[power_level]->IsVisible() &&
                                    gpSCSV->power_controls[power_level]->IsEnabled()))) {
-            gpSCSV->dirty[2] = true;
+            RepaintSpellCastingPanel(2);
             if (power_level != -1) {
                 gpSCSV->spell_name.SetRenderMode(6);
                 text =
@@ -865,9 +880,8 @@ void CommitSpellCastingSelection(void)
                 g_spell_realm_animations[gpSCSV->iSpellRealm].frame_count) {
                 gpSCSV->realm_anim_frame = 0;
             }
-            gpSCSV->dirty[0] = true;
+            RepaintSpellCastingPanel(0);
             gpSCSV->realm_anim_timer = MonotonicMilliseconds() + (0x32);
-            if (auto* hud = MainGameHud()) hud->repaint.panels = true;
         }
     }
     TryCommitSpellCast();

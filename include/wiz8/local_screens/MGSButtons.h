@@ -49,7 +49,6 @@ struct MainGameSubMenu {
     UiLayer input{UiLayerOrder::Submenu};
     SDL_Rect bounds{};
     int background = 0;
-    bool dirty = true;
     std::optional<uint64_t> close_deadline;
     std::vector<std::unique_ptr<W8ButtonWidget>> buttons;
 };
@@ -57,7 +56,8 @@ struct MainGameSubMenu {
 /* The action-kind message indexes the caption draw maps through. */
 extern unsigned short g_action_kind_message_ids[12];
 
-/* Invalidate (when asked) then redraw the sub-menu panel. */
+/* Redraw the sub-menu panel when its repaint was requested; otherwise only its
+   changed buttons. */
 void RefreshSubMenuPanel(bool invalidate);
 /* Close and rebuild the sub menu around the saved combat-end notification. */
 void ResetSubMenuPanel(void);

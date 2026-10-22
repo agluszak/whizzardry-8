@@ -622,38 +622,53 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
     entry->effect_icon_frame = -1;
 }
 
-bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, unsigned int top)
+// Whether the slot's portrait animation is drawn at all.
+static bool PartyPortraitAnimates(unsigned int party_slot)
 {
     if (CurrentGame().activity.conversation && (party_slot & 1) != 0 &&
         IsPortraitObscuredByNpcDialogue(party_slot)) {
         return false;
     }
-    if ((MainGameHud() == nullptr ||
-         (GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_FORMATION &&
-          GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_RADAR) ||
-         MainGameHud()->portrait_refresh_pending[party_slot] != 0) &&
-        CurrentGame().party.members[party_slot].has_value()) {
-        W8Character* character = &CurrentGame().party.characters[party_slot];
-        if (character->hp_current != 0) {
-            int portrait = character->portrait_index;
-            SpriteDraw draw{};
-            if ((g_portrait_descriptors[portrait].mirror_side == W8PortraitMirrorSide::left &&
-                 (party_slot & 1) == 0) ||
-                (g_portrait_descriptors[portrait].mirror_side == W8PortraitMirrorSide::right &&
-                 (party_slot & 1) != 0)) {
-                draw.mirror = true;
-            }
-            if (BlitPartyPortraitAnimation(GetFrameBufferSurface(), portrait, left, top, draw,
-                                           party_slot, false) &&
-                ((CurrentGame().combat.has_value() &&
-                  CurrentGame().combat->characters[party_slot].dead) ||
-                 CurrentGame().surprise_possible ||
-                 character->highest_condition == W8_CONDITION_MISSING)) {
-                return true;
-            }
-        }
+    return (MainGameHud() == nullptr ||
+            (GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_FORMATION &&
+             GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_RADAR) ||
+            MainGameHud()->portrait_refresh_pending[party_slot] != 0) &&
+           CurrentGame().party.members[party_slot].has_value() &&
+           CurrentGame().party.characters[party_slot].hp_current != 0;
+}
+
+/* Whether an animated frame is followed by the complete band: the frame is
+   drawn and the character is dead in combat, surprised or missing. */
+static bool PartyPortraitFrameShowsBand(unsigned int party_slot)
+{
+    return PartyPortraitAnimates(party_slot) &&
+           ((CurrentGame().combat.has_value() &&
+             CurrentGame().combat->characters[party_slot].dead) ||
+            CurrentGame().surprise_possible ||
+            CurrentGame().party.characters[party_slot].highest_condition == W8_CONDITION_MISSING);
+}
+
+bool PartyPortraitFrameCoversBand(unsigned int party_slot)
+{
+    return (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
+            MainGameHud()->portrait_refresh_pending[party_slot] != 0) &&
+           PartyPortraitFrameShowsBand(party_slot);
+}
+
+bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int left, unsigned int top)
+{
+    if (!PartyPortraitAnimates(party_slot)) return false;
+    const int portrait = CurrentGame().party.characters[party_slot].portrait_index;
+    SpriteDraw draw{};
+    if ((g_portrait_descriptors[portrait].mirror_side == W8PortraitMirrorSide::left &&
+         (party_slot & 1) == 0) ||
+        (g_portrait_descriptors[portrait].mirror_side == W8PortraitMirrorSide::right &&
+         (party_slot & 1) != 0)) {
+        draw.mirror = true;
     }
-    return false;
+    return BlitPartyPortraitAnimation(GetFrameBufferSurface(), portrait, left, top, draw,
+                                      party_slot, false) &&
+           PartyPortraitFrameShowsBand(party_slot);
 }
 
 PortraitBandPaint PaintPartyPortraitFrame(unsigned int party_slot)
@@ -1009,35 +1024,6 @@ portrait_fx:
             .draw(GetFrameBufferSurface(), 0, hp_overlay_x, hp_overlay_y);
     }
 
-    if (MainGameHud()->portrait_overlay_party_slot == static_cast<int>(party_slot)) {
-        DrawPortraitConditionOverlay(MainGameHud()->portrait_overlay_party_slot);
-    }
-    if (MainGameHud()->condition_orb_party_slot == static_cast<int>(party_slot)) {
-        DrawPortraitEnchantmentOverlay(MainGameHud()->condition_orb_party_slot);
-    }
-    if (MainGameHud()->enchantment_orb_party_slot == static_cast<int>(party_slot)) {
-        DrawPortraitVitalsOverlay(MainGameHud()->enchantment_orb_party_slot);
-    }
-    if (MainGameHud()->condition_highlight_party_slot == static_cast<int>(party_slot)) {
-        DrawPortraitStatusOverlay(MainGameHud()->condition_highlight_party_slot);
-    }
-
-    if (GetEffectiveMainUiMode() != W8_MAIN_UI_MODE_PORTRAITS &&
-        MainGameHud()->portrait_refresh_pending[party_slot] != 0 &&
-        (MainGameHud()->condition_highlight_party_slot != -1 ||
-         MainGameHud()->portrait_overlay_party_slot != -1)) {
-        RefreshTrackedPortraitOverlay();
-    }
-
-    if (overlay_ready && CurrentGame().activity.conversation &&
-        CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT &&
-        !CurrentGame().npc_interaction.scripted_dialogue &&
-        !CurrentGame().npc_interaction.dialogue_panel_hidden &&
-        CurrentGame().npc_dialogue.reply() == W8NpcReplyState::none &&
-        CurrentGame().npc_interaction.dialogue_hidden == 0 &&
-        !CurrentGame().activity.scripted_scene) {
-        SetNpcDialoguePanelVisible(1);
-    }
     return painted;
 }
 
