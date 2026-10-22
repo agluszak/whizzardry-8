@@ -53,9 +53,9 @@ public:
     /* 0x004790D0: true when listener is inside the rotated/scaled min-max region */
     bool IsInsideRegion(const glm::vec3* listener);
     /* 0x00479350: listener-relative range test, group handoff, 3D re-aim, fade retarget */
-    void UpdatePosition(World& world);
+    void UpdatePosition(const glm::vec3& listener, float yaw);
     /* 0x00479970: per-frame service while in range; 'entered' forces an immediate roll */
-    void Service(World& world, bool entered);
+    void Service(const glm::vec3& listener, float yaw, bool entered);
     SharedAmbientGroup* group = nullptr; // Borrowed from the owning world.
 
     std::string name;
@@ -162,7 +162,7 @@ void BuildFootstepPath(char* path, W8FootstepSurface surface, W8FootstepMaterial
 wiz8::sound::Playback PlayFootstep(W8FootstepSurface surface, W8FootstepMaterial material,
                                    W8FootstepKind kind);
 void UpdateAmbientSounds(World* world);
-void RepositionAmbientSounds();
+void RepositionAmbientSounds(World* world);
 unsigned char ReadAmbientSoundListFile(World& world, std::string_view filename);
 void StartAmbientSoundList(World& world);
 

@@ -267,7 +267,7 @@ void RefreshWorldView()
     auto* world = GetWorld();
     if (!world || !world->camera) return;
     if (world->compiledIndex()) world->compiledIndex()->UpdateCameraVisibility();
-    RepositionAmbientSounds();
+    RepositionAmbientSounds(world);
     RequestRefreshPartyState();
 }
 
