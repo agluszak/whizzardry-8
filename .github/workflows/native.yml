@@ -248,6 +248,7 @@ jobs:
           path: ${{ env.WIZ8_DOWNLOAD_CACHE }}
           key: wiz8-downloads-${{ hashFiles('tests/runtime/fetch_downloads.cmake') }}
       - name: Test native contracts and licensed runtime scenarios
+        id: tests
         run: |
           source "build/${{ matrix.preset }}/conan/conanrun.sh"
           if [[ '${{ matrix.preset }}' != linux ]]; then
@@ -258,6 +259,15 @@ jobs:
             export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so
           fi
           ctest --preset ${{ matrix.preset }} --output-on-failure --parallel "$(nproc)"
+      # Frames saved by failing runtime scenarios.
+      - name: Upload runtime scenario images
+        if: failure() && steps.tests.outcome == 'failure'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: runtime-artifacts-${{ matrix.preset }}
+          path: build/${{ matrix.preset }}/tests/runtime-artifacts
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Save downloaded runtime inputs
         if: always() && steps.downloads-cache.outputs.cache-hit != 'true' && hashFiles('build/downloads/*.sav') != ''

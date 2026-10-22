@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <functional>
 #include <iterator>
@@ -19,6 +20,7 @@
 #include <system_error>
 #include <vector>
 
+#include <SDL3/SDL_error.h>
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keyboard.h>
 #include <SDL3/SDL_keycode.h>
@@ -30,7 +32,12 @@
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_video.h>
 #include <catch2/catch_get_random_seed.hpp>
+#include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_test_run_info.hpp>
+#include <catch2/interfaces/catch_interfaces_reporter.hpp>
+#include <catch2/reporters/catch_reporter_event_listener.hpp>
+#include <catch2/reporters/catch_reporter_registrars.hpp>
 #include <glm/ext/scalar_constants.hpp>
 #include <glm/ext/vector_float3.hpp>
 
@@ -68,7 +75,57 @@ fs::path RuntimeVariable(const char* variable)
     if (!value || !*value) FailStep(variable, "environment variable is not set");
     return value;
 }
+
+/* Where CTest collects a scenario's images; empty when unset. */
+fs::path ArtifactDirectory()
+{
+    const char* directory = SDL_getenv("WIZ8_RUNTIME_ARTIFACT_DIR");
+    return directory ? directory : "";
+}
+
+/* Writes XRGB pixels `width` wide as a PNG and prints where. */
+void SaveImage(const fs::path& path, const std::vector<unsigned>& pixels, int width)
+{
+    if (pixels.empty()) return;
+    std::error_code ignored;
+    fs::create_directories(path.parent_path(), ignored);
+    SDL_Surface* surface =
+        SDL_CreateSurfaceFrom(width, int(pixels.size()) / width, SDL_PIXELFORMAT_XRGB8888,
+                              const_cast<unsigned*>(pixels.data()), width * 4);
+    if (surface && SDL_SavePNG(surface, path.string().c_str()))
+        std::fprintf(stderr, "runtime: wrote %s\n", path.string().c_str());
+    else
+        std::fprintf(stderr, "runtime: could not write %s: %s\n", path.string().c_str(),
+                     SDL_GetError());
+    SDL_DestroySurface(surface);
+}
+
+/* The harness whose frame a failed assertion shows. */
+GameHarness* g_live_game = nullptr;
+
+/* Saves the game's frame when an assertion fails while a game runs. Thrown
+   failures (FailStep, REQUIRE, unexpected exceptions) unwind the harness
+   before Catch reports them, so its destructor saves those. */
+class FailureFrames : public Catch::EventListenerBase {
+public:
+    using EventListenerBase::EventListenerBase;
+
+    void testRunStarting(const Catch::TestRunInfo&) override
+    {
+        // Leave only this run's images.
+        std::error_code ignored;
+        for (const auto& entry : fs::directory_iterator(ArtifactDirectory(), ignored))
+            if (entry.path().extension() == ".png") fs::remove(entry.path(), ignored);
+    }
+
+    void assertionEnded(const Catch::AssertionStats& stats) override
+    {
+        if (!stats.assertionResult.isOk() && g_live_game) g_live_game->save_failure_frames();
+    }
+};
 } // namespace
+
+CATCH_REGISTER_LISTENER(FailureFrames)
 
 [[noreturn]] void FailStep(const std::string& step, const std::string& detail)
 {
@@ -124,10 +181,13 @@ GameHarness::GameHarness(bool play_movies)
     focus.type = SDL_EVENT_WINDOW_FOCUS_GAINED;
     focus.window.windowID = SDL_GetWindowID(window_);
     HandleGameEvent(focus);
+    g_live_game = this;
 }
 
 GameHarness::~GameHarness()
 {
+    if (std::uncaught_exceptions() > 0) save_failure_frames();
+    g_live_game = nullptr;
     application_.reset();
     w8_native::audio_offline_for_test(false);
     SDL_SetLogOutputFunction(g_default_log, g_default_log_data);
@@ -297,19 +357,23 @@ void GameHarness::command(W8MGSCommand command)
     frame();
 }
 
-std::vector<unsigned> GameHarness::read_frame()
+std::vector<unsigned> FrameBufferPixels()
 {
-    if (!g_renderer) {
-        // Camp renders through SGP's CPU surface, without a world renderer.
-        const auto& surface = GetFrameBufferSurface();
-        std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
-        REQUIRE(SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format, surface.pixels,
-                                  surface.pitch, SDL_PIXELFORMAT_XRGB8888, pixels.data(),
-                                  SCREEN_WIDTH * sizeof(unsigned)));
-        return pixels;
-    }
+    const auto& surface = GetFrameBufferSurface();
+    std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
+    if (!SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format, surface.pixels,
+                           surface.pitch, SDL_PIXELFORMAT_XRGB8888, pixels.data(),
+                           SCREEN_WIDTH * sizeof(unsigned)))
+        pixels.clear();
+    return pixels;
+}
+
+std::vector<unsigned> GameHarness::presented_frame() const
+{
+    // Camp renders through SGP's CPU surface, without a world renderer.
+    if (!g_renderer) return FrameBufferPixels();
     auto* surface = g_renderer->readback();
-    REQUIRE(surface);
+    if (!surface) return {};
     // The swapchain matches the window's pixel size; sample it in screen coordinates.
     std::vector<unsigned> pixels(SCREEN_WIDTH * SCREEN_HEIGHT);
     for (int y = 0; y < SCREEN_HEIGHT; ++y)
@@ -318,6 +382,26 @@ std::vector<unsigned> GameHarness::read_frame()
                 ReadARGB(*surface, x * surface->w / SCREEN_WIDTH, y * surface->h / SCREEN_HEIGHT) &
                 0xffffff;
     return pixels;
+}
+
+std::vector<unsigned> GameHarness::read_frame()
+{
+    auto pixels = presented_frame();
+    REQUIRE(!pixels.empty());
+    return pixels;
+}
+
+void GameHarness::save_failure_frames()
+{
+    if (failure_frame_ == frames_) return;
+    failure_frame_ = frames_;
+    const fs::path directory = ArtifactDirectory();
+    if (directory.empty()) return;
+    const std::string stem = "failure-frame" + std::to_string(frames_);
+    std::fprintf(stderr, "runtime: the game's frame at the failure:\n");
+    SaveImage(directory / (stem + ".png"), presented_frame(), SCREEN_WIDTH);
+    // With a renderer, the CPU frame buffer holds the 2D interface on its own.
+    if (g_renderer) SaveImage(directory / (stem + "-ui.png"), FrameBufferPixels(), SCREEN_WIDTH);
 }
 
 void GameHarness::mouse_button(int x, int y, bool down, Uint8 which)
@@ -368,15 +452,9 @@ SDL_Point MainMenuRegion(short item)
 
 void Snapshot(const char* name, const std::vector<unsigned>& pixels)
 {
-    const char* directory = SDL_getenv("WIZ8_RUNTIME_SNAPSHOT_DIR");
-    if (!directory) return;
-    SDL_Surface* surface =
-        SDL_CreateSurfaceFrom(SCREEN_WIDTH, SCREEN_HEIGHT, SDL_PIXELFORMAT_XRGB8888,
-                              const_cast<unsigned*>(pixels.data()), SCREEN_WIDTH * 4);
-    if (!surface) return;
-    const std::string path = (fs::path(directory) / (std::string(name) + ".bmp")).string();
-    SDL_SaveBMP(surface, path.c_str());
-    SDL_DestroySurface(surface);
+    const fs::path directory = ArtifactDirectory();
+    if (!directory.empty())
+        SaveImage(directory / (std::string(name) + ".png"), pixels, SCREEN_WIDTH);
 }
 
 void ReachMainMenu(GameHarness& game)

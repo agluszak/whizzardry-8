@@ -38,3 +38,17 @@ fixture, downloads it once into `WIZ8_DOWNLOAD_CACHE` (by default
 by SHA-256; CI keeps that directory in the Actions cache. The scenario checks
 the save's level, position and party, walks, then quick-saves and quick-loads
 it through our writer.
+
+## Images: failure frames and snapshots
+
+CTest gives every runtime scenario its own `WIZ8_RUNTIME_ARTIFACT_DIR`
+(`tests/runtime-artifacts/<scenario>` in the build tree), emptied of PNGs when
+the scenario starts. Without the variable nothing is written.
+
+- When an assertion fails or an exception (including `FailStep`) leaves a
+  scenario while the game runs, the harness saves the presented frame as
+  `failure-frame<N>.png`, and the 2D interface's CPU frame buffer as
+  `failure-frame<N>-ui.png`, and prints both paths. CI uploads the directory
+  as the `runtime-artifacts-<preset>` artifact when the test step fails.
+- `Snapshot(name, pixels)` and the script command `snap NAME` save frames
+  there for inspection.

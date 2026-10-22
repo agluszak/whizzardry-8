@@ -170,11 +170,17 @@ public:
     /* Pixels of the last rendered frame, or the CPU frame before renderer setup. */
     std::vector<unsigned> read_frame();
 
+    /* Saves the current frame into WIZ8_RUNTIME_ARTIFACT_DIR, once per frame.
+       Every failed assertion or exception during a scenario calls it. */
+    void save_failure_frames();
+
     unsigned long frames() const { return frames_; }
     static constexpr unsigned long long frame_us = 16'667;
 
 private:
     void mouse_button(int x, int y, bool down, Uint8 which = SDL_BUTTON_LEFT);
+    /* read_frame without assertions; empty when no frame is available. */
+    std::vector<unsigned> presented_frame() const;
 
     ScopedTemporaryDirectory user_{"wiz8-runtime"};
     Clock::time_point started_ = Clock::now();
@@ -182,14 +188,18 @@ private:
     std::optional<wiz8::Application> application_;
     SDL_Window* window_ = nullptr;
     unsigned long frames_ = 0;
+    std::optional<unsigned long> failure_frame_;
 };
+
+/* The CPU frame buffer (the 2D interface) as XRGB pixels; empty on failure. */
+std::vector<unsigned> FrameBufferPixels();
 
 const char* ScreenName(int id);
 
 SDL_Point MainMenuRegion(short item);
 
-/* With WIZ8_RUNTIME_SNAPSHOT_DIR set, frames the scenario checks are also
-   saved there as BMPs for inspection. */
+/* With WIZ8_RUNTIME_ARTIFACT_DIR set (CTest sets one per scenario), frames the
+   scenario checks are also saved there as PNGs for inspection. */
 void Snapshot(const char* name, const std::vector<unsigned>& pixels);
 
 void ReachMainMenu(GameHarness& game);

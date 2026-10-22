@@ -268,7 +268,8 @@ foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-
     # A fixed seed makes the game's random rolls repeatable.
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario} --rng-seed 1)
     set_tests_properties(runtime_${scenario} PROPERTIES
-        ENVIRONMENT "${WIZ8_RUNTIME_TEST_ENVIRONMENT}"
+        # Snapshots and failure frames; CI uploads them on failure.
+        ENVIRONMENT "${WIZ8_RUNTIME_TEST_ENVIRONMENT};WIZ8_RUNTIME_ARTIFACT_DIR=${CMAKE_CURRENT_BINARY_DIR}/runtime-artifacts/${scenario}"
         SKIP_REGULAR_EXPRESSION "WIZ8_ASSET_ROOT is not set" TIMEOUT 120
         RESOURCE_LOCK game_gpu LABELS runtime
         FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")

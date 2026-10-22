@@ -187,11 +187,8 @@ void InventoryChestScenario()
     REQUIRE_FALSE((CurrentGame().party.held.item.iItemNo != -1));
     game.click_at(320, 170); // Keep the cursor outside the grids for pixel comparisons.
     const auto rendered = game.read_frame();
-    const auto& surface = GetFrameBufferSurface();
-    std::vector<unsigned> expected(SCREEN_WIDTH * SCREEN_HEIGHT);
-    REQUIRE(SDL_ConvertPixels(SCREEN_WIDTH, SCREEN_HEIGHT, surface.format, surface.pixels,
-                              surface.pitch, SDL_PIXELFORMAT_XRGB8888, expected.data(),
-                              SCREEN_WIDTH * sizeof(unsigned)));
+    const auto expected = FrameBufferPixels();
+    REQUIRE(!expected.empty());
     unsigned mismatches = 0;
     for (int y = 192; y < 417; ++y)
         for (int x : {11, 60, 512, 561})
