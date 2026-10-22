@@ -13,7 +13,6 @@
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
-#include <fmt/format.h>
 
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/himage.h"
@@ -31,7 +30,6 @@
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/RangeControl.h"
-#include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -44,7 +42,6 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/rules/character.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_layer.h"
