@@ -190,12 +190,9 @@ code has a subclass whose members are that state. Trigger callbacks are
 ## Rendering
 
 - `WorldScene::root` is the VSG graph. An instance owns its transform and
-  drawable subgraph; its model owns shared topology, materials and authored
-  vertex lighting. Poses are sampled on the CPU once per frame and shared by
-  every view, picking and attachments. A vertex-lit pose bakes its own colours
-  from the scene terms and the lights baked for its placement, which the
-  `MeshInstance` keeps. A mesh pass's packed materials are one shared block,
-  repacked once per frame; only a highlighted body binds its own. The automap is a separate view of the same scene that changes no
+  drawable subgraph; its model owns shared topology and materials. Poses are
+  sampled on the CPU once per frame and shared by every view, picking and
+  attachments. The automap is a separate view of the same scene that changes no
   gameplay state.
 - Wizardry lighting, fog and material operations run in GLSL shaders compiled to
   SPIR-V. VSG uses Vulkan (MoltenVK on macOS).
