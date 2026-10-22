@@ -121,9 +121,8 @@ void CharacterScreen::BuildControls()
     m_reset = button(0, 0x1d, 0xe1, [this] {
         std::ranges::fill(m_page_enabled, true);
         m_force_transition = true;
-        InitializeCharacterCreation(&m_character, &m_creation_state);
+        draft.beginCreation();
         m_mode = W8_CHARACTER_CREATE;
-        m_pages[3]->m_mode = W8_CHARACTER_CREATE;
         m_reset->SetVisible(false);
         SelectPage(0);
     });
@@ -149,7 +148,7 @@ void CharacterScreen::UpdateDialog()
     if (m_dialog) {
         if (!m_dialog->ProcessInput()) {
             m_navigation_dirty = true;
-            m_pages[m_page_index]->Prepare();
+            m_pages[m_page_index]->InvalidateAll();
             m_header_dirty = true;
             bool accepted = false;
             if (m_capture_dialog_result) {
@@ -223,7 +222,7 @@ void CharacterScreen::ShowSecondaryAttributeInfo(unsigned int attribute)
 void CharacterScreen::ShowSkillInfo(W8Skill value)
 {
     m_dialog_response = 0;
-    if (value == g_profession_bonus_skills[m_character.iProfession]) {
+    if (value == g_profession_bonus_skills[draft.character.iProfession]) {
         m_dialog = std::make_unique<W8SkillInfoDialog>(value, false, false, true);
     } else {
         m_dialog = std::make_unique<W8SkillInfoDialog>(value, false, false, false);
@@ -245,16 +244,16 @@ void CharacterScreen::DrawNavigation(SDL_Surface& target)
 
 void CharacterScreen::ShowDescription(int first, int second)
 {
-    ShowMessage(fmt::sprintf(Data().strings[0x1d6],
-                             Data().strings[g_character_description_first_ids[first]],
-                             m_character.name, Data().strings[g_character_skill_name_ids[second]]),
+    ShowMessage(fmt::sprintf(
+                    Data().strings[0x1d6], Data().strings[g_character_description_first_ids[first]],
+                    draft.character.name, Data().strings[g_character_skill_name_ids[second]]),
                 0, 0);
 }
 
 void CharacterScreen::ShowCharacterSummary()
 {
     m_dialog_response = 1;
-    m_dialog = CreateCharacterSummaryDialog(&m_character);
+    m_dialog = CreateCharacterSummaryDialog(&draft.character);
     m_dialog->InputLayer().setModal(true);
 }
 
@@ -262,20 +261,21 @@ void CharacterScreen::AdvancePage(bool forward)
 {
     if (!forward || (m_page_index != 3 && m_next->IsEnabled())) {
         int index = m_page_index;
-        if (index == 1 && m_creation_state.spell_points_remaining > 0 && !m_block_advance) {
+        if (index == 1 && draft.allocation.spell_points_remaining > 0 && !m_block_advance) {
             ShowMessage(Data().strings[0xc4], 1, 3);
             return;
         }
         if (index == 0) {
             if (m_mode == W8_CHARACTER_LEVEL_UP &&
-                m_character.iProfession != m_original->iProfession && !m_confirm_profession) {
-                int value = ComputeRealmSkillDebt(m_original, &m_character);
+                draft.character.iProfession != m_original->iProfession && !m_confirm_profession) {
+                int value = ComputeRealmSkillDebt(m_original, &draft.character);
                 if (value > 0) {
                     ShowMessage(
                         fmt::sprintf(
                             Data().strings[0xdb],
                             Data().strings[g_profession_name_message_ids[m_original->iProfession]],
-                            Data().strings[g_profession_name_message_ids[m_character.iProfession]],
+                            Data().strings
+                                [g_profession_name_message_ids[draft.character.iProfession]],
                             value),
                         1, 4);
                 } else {
@@ -283,12 +283,13 @@ void CharacterScreen::AdvancePage(bool forward)
                         fmt::sprintf(
                             Data().strings[0xda],
                             Data().strings[g_profession_name_message_ids[m_original->iProfession]],
-                            Data().strings[g_profession_name_message_ids[m_character.iProfession]]),
+                            Data().strings
+                                [g_profession_name_message_ids[draft.character.iProfession]]),
                         1, 4);
                 }
                 return;
             }
-            m_page_enabled[1] = m_creation_state.spell_points_total > 0;
+            m_page_enabled[1] = draft.allocation.spell_points_total > 0;
         }
         m_block_advance = false;
         m_confirm_profession = false;
@@ -301,7 +302,7 @@ void CharacterScreen::AdvancePage(bool forward)
             if (CommitCharacter()) {
                 ReturnToPreviousScreen();
                 if (m_mode == W8_CHARACTER_LEVEL_UP &&
-                    m_character.experience_goal <= m_character.experience) {
+                    draft.character.experience_goal <= draft.character.experience) {
                     RequestScreen({.id = W8_SCREEN_CHARACTER,
                                    .mode = W8_CHARACTER_LEVEL_UP_NOTICE,
                                    .character = m_original});
@@ -321,24 +322,20 @@ void CharacterScreen::SelectPage(int index)
     }
     SyncCharacterForPage(index);
     if (!m_pages[index]) {
-        std::unique_ptr<W8CharacterPage> page;
         switch (index) {
         case 0:
-            page = CreateCharacterStatsPage();
+            m_pages[index] = std::make_unique<W8CharacterStatsPage>(*this);
             break;
         case 1:
-            page = CreateCharacterSpellsPage();
+            m_pages[index] = std::make_unique<W8CharacterSpellsPage>(*this);
             break;
         case 2:
-            page = CreateCharacterSkillsPage();
+            m_pages[index] = std::make_unique<W8CharacterSkillsPage>(*this);
             break;
         case 3:
-            page = CreateCharacterPersonalityPage();
+            m_pages[index] = std::make_unique<W8CharacterPersonalityPage>(*this);
             break;
         }
-        page->m_screen = this;
-        page->SetCharacter(&m_character, &m_creation_state, m_mode);
-        m_pages[index] = std::move(page);
     }
     m_page_index = index;
     W8CharacterPage* page = m_pages[index].get();
@@ -355,7 +352,7 @@ void CharacterScreen::SelectPage(int index)
                                           frame, frame + 1, frame + 2, frame + 2));
     m_next->SetTooltipIndex(next == 4 ? 0xe0 : 0xdc);
     m_navigation_dirty = true;
-    page->Prepare();
+    page->InvalidateAll();
     m_header_dirty = true;
     UpdateNavigation(page);
 }
@@ -365,14 +362,14 @@ void CharacterScreen::SyncCharacterForPage(int index)
     if (m_page_index > index) return;
     if (index == 0) {
         if (m_mode == W8_CHARACTER_CREATE)
-            InitializeCharacterCreation(&m_character, &m_creation_state);
+            draft.beginCreation();
         else if (m_mode == W8_CHARACTER_LEVEL_UP)
-            InitializeCharacterLevelUp(&m_character, &m_creation_state);
+            draft.beginLevelUp();
     } else if (index == 1) {
-        CountRemainingSpellPoints(&m_character, &m_creation_state);
+        draft.recountSpellPoints();
     } else if (index == 3) {
-        if (m_character.personality < 0) DeriveCharacterPersonality(&m_character);
-        if (m_character.portrait_index < 0) CalcCharacterTableValue(&m_character);
+        if (draft.character.personality < 0) DeriveCharacterPersonality(&draft.character);
+        if (draft.character.portrait_index < 0) CalcCharacterTableValue(&draft.character);
     }
 }
 
@@ -388,7 +385,7 @@ void CharacterScreen::DrawHeader()
     if (m_mode == W8_CHARACTER_CREATE) {
         CatalogArtwork::Load(0x107, 0).draw(GetFrameBufferSurface(), 2, 10, 0xc);
     } else {
-        int frame = m_original == 0 ? m_character.portrait_index : m_original->portrait_index;
+        int frame = m_original == 0 ? draft.character.portrait_index : m_original->portrait_index;
         CatalogArtwork::Load(0x11, frame).draw(GetFrameBufferSurface(), 0, 10, 0xc);
     }
 
@@ -401,28 +398,29 @@ void CharacterScreen::DrawHeader()
         bounds.bottom = 0xdf;
         text.SetLayoutMode(g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter);
         if (m_mode != W8_CHARACTER_CREATE) {
-            text.RenderString(&bounds, m_character.name, g_wiz_text_font_secondary, true,
+            text.RenderString(&bounds, draft.character.name, g_wiz_text_font_secondary, true,
                               GetFrameBufferSurface());
         }
         bounds.top += 0xe;
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, true);
         text.RenderString(
-            fmt::format("{} {}", Data().strings[g_gender_name_message_rows[m_character.gender][0]],
-                        Data().strings[g_race_name_message_ids[m_character.iRace]]),
+            fmt::format("{} {}",
+                        Data().strings[g_gender_name_message_rows[draft.character.gender][0]],
+                        Data().strings[g_race_name_message_ids[draft.character.iRace]]),
             g_wiz_text_font_secondary, true, GetFrameBufferSurface());
         bounds.top += 0xe;
-        text.RenderString(&bounds,
-                          Data().strings[g_profession_name_message_ids[m_character.iProfession]],
-                          g_wiz_text_font_secondary, true, GetFrameBufferSurface());
+        text.RenderString(
+            &bounds, Data().strings[g_profession_name_message_ids[draft.character.iProfession]],
+            g_wiz_text_font_secondary, true, GetFrameBufferSurface());
         bounds.top += 0xe;
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, true);
         text.RenderString(
             fmt::format(
-                "{} {:d} ({})", Data().strings[0x6b9], m_character.uiExpLevel,
-                Data().strings[g_profession_level_name_message_ids[m_character.iProfession]
-                                                                  [m_character.level_band]]),
+                "{} {:d} ({})", Data().strings[0x6b9], draft.character.uiExpLevel,
+                Data().strings[g_profession_level_name_message_ids[draft.character.iProfession]
+                                                                  [draft.character.level_band]]),
             g_wiz_text_font_secondary, true, GetFrameBufferSurface());
     }
     m_header_dirty = false;
@@ -434,9 +432,9 @@ bool CharacterScreen::CommitCharacter()
 
     const bool creating = m_mode == W8_CHARACTER_CREATE;
     W8Character backup;
-    backup = m_character;
+    backup = draft.character;
     if (m_mode != W8_CHARACTER_EDIT) {
-        FinalizeCreatedCharacter(&m_character, &m_creation_state, creating);
+        draft.finish(creating);
     }
     if (!GameStarted() && !m_game.status.skip_loose_character_check) {
         if (m_original != 0) {
@@ -444,17 +442,17 @@ bool CharacterScreen::CommitCharacter()
             path = BuildCharacterPath(m_original->name, -1);
             wiz8::remove_file(wiz8::user_path(path));
         }
-        m_character.fInParty = false;
-        if (!SaveCharacter(&m_character, -1)) {
-            m_character = std::move(backup);
+        draft.character.fInParty = false;
+        if (!SaveCharacter(&draft.character, -1)) {
+            draft.character = std::move(backup);
             ShowMessage(Data().strings[0xd4], 0, 0);
             return false;
         }
-        m_character.fInParty = backup.fInParty;
+        draft.character.fInParty = backup.fInParty;
     }
     if (m_original != 0) {
         bool was_in_party = m_original->fInParty;
-        *m_original = m_character;
+        *m_original = draft.character;
         if (was_in_party) m_original->fInParty = true;
         if (m_original->iProfession == W8_PROFESSION_GADGETEER)
             UpgradeProfessionClassItem(
@@ -463,17 +461,6 @@ bool CharacterScreen::CommitCharacter()
         RecalculateCharacterDerivedStats(m_game, *m_original);
     }
     return true;
-}
-
-void CharacterScreen::SkillAvailabilityChanged(W8Skill skill, bool available)
-{
-    if (available)
-        ResetSkillContribution(&m_character, &m_creation_state, skill);
-    else
-        RefundSkillAllocation(&m_character, &m_creation_state, skill);
-    if (m_pages[2] != 0) {
-        m_pages[2]->Refresh();
-    }
 }
 
 void CharacterScreen::ShowMessage(std::string_view text, int confirmation, int response)
@@ -506,10 +493,10 @@ void CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
             AdvancePage(false);
             break;
         case 5: {
-            int value = ComputeStartingEquipmentCost(&m_character);
+            int value = ComputeStartingEquipmentCost(m_game, &draft.character);
             int next_response;
             std::string format;
-            if (CanAffordStartingEquipment(&m_character)) {
+            if (CanAffordStartingEquipment(m_game, &draft.character)) {
                 format = Data().strings[0xd7];
                 next_response = 6;
             } else {
@@ -520,31 +507,31 @@ void CharacterScreen::HandleDialogResult(int response, unsigned char accepted)
             break;
         }
         case 6:
-            FinalizeCreatedCharacter(&m_character, &m_creation_state, false);
-            RecruitCharacterIntoParty(m_original, &m_character, true);
+            draft.finish(false);
+            RecruitCharacterIntoParty(m_original, &draft.character, true);
             ReturnToPreviousScreen();
             break;
         case 7:
-            FinalizeCreatedCharacter(&m_character, &m_creation_state, false);
-            RecruitCharacterIntoParty(m_original, &m_character, false);
+            draft.finish(false);
+            RecruitCharacterIntoParty(m_original, &draft.character, false);
             ReturnToPreviousScreen();
             break;
         }
     } else if (response == 6) {
-        FinalizeCreatedCharacter(&m_character, &m_creation_state, false);
-        RecruitCharacterIntoParty(m_original, &m_character, false);
+        draft.finish(false);
+        RecruitCharacterIntoParty(m_original, &draft.character, false);
         ReturnToPreviousScreen();
     }
 }
 
 bool CharacterScreen::ValidateName()
 {
-    if (m_original != 0 && strcmp(m_original->name.c_str(), m_character.name.c_str()) == 0) {
+    if (m_original != 0 && strcmp(m_original->name.c_str(), draft.character.name.c_str()) == 0) {
         return true;
     }
     if (!GameStarted() && !m_game.status.skip_loose_character_check) {
         std::string path;
-        path = BuildCharacterPath(m_character.name, -1);
+        path = BuildCharacterPath(draft.character.name, -1);
         if ([&]() {
                 const auto status = wiz8::file_status(wiz8::user_path(path));
                 return status && status->info.type == SDL_PATHTYPE_FILE;
@@ -555,7 +542,8 @@ bool CharacterScreen::ValidateName()
     }
     for (int index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
         if (m_game.party.members[index].has_value() &&
-            strcmp(m_game.party.characters[index].name.c_str(), m_character.name.c_str()) == 0) {
+            strcmp(m_game.party.characters[index].name.c_str(), draft.character.name.c_str()) ==
+                0) {
             ShowMessage(Data().strings[0xd5], 0, 0);
             return false;
         }
@@ -584,13 +572,13 @@ bool CharacterScreen::enter(const ScreenRequest& request)
     m_mode = mode;
     m_original = request.character;
     if (m_original != 0) {
-        m_character = *m_original;
-        m_character.fInParty = false;
+        draft.character = *m_original;
+        draft.character.fInParty = false;
     }
     if (m_mode == W8_CHARACTER_LEVEL_UP_NOTICE) {
         m_mode = W8_CHARACTER_LEVEL_UP;
         wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
-        ShowMessage(fmt::sprintf(Data().strings[0xd9], m_character.name, 0, 0), 0, 0);
+        ShowMessage(fmt::sprintf(Data().strings[0xd9], draft.character.name, 0, 0), 0, 0);
     }
     m_page_enabled[0] = m_mode != W8_CHARACTER_EDIT;
     m_page_enabled[1] = m_mode != W8_CHARACTER_EDIT;
@@ -603,7 +591,7 @@ bool CharacterScreen::enter(const ScreenRequest& request)
     return true;
 }
 
-CharacterScreen::CharacterScreen(Game& game) : m_game(game) {}
+CharacterScreen::CharacterScreen(Game& game) : m_game(game), draft(game) {}
 
 CharacterScreen::~CharacterScreen() = default;
 

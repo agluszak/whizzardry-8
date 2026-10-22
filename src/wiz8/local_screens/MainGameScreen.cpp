@@ -2110,8 +2110,8 @@ void W8NpcDialogueTextController::ShowTranscriptEntries()
 void RefreshFlaggedMainGameState(void)
 {
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && MainGameHud() != nullptr &&
-        MainGameHud()->keyboard_menu_open) {
-        RefreshKeyboardMenuRows();
+        MainGame()->keyboard_menu) {
+        MainGame()->keyboard_menu->refresh();
     }
 }
 
@@ -2421,14 +2421,14 @@ void MainGameScreen::frame()
         UpdateCombatPortraitStatus();
     }
     game.status.world_suspended = false;
-    if (MainGameHud()->keyboard_menu_open || MainGameHud()->combat_slot != -1) {
+    if (MainGame()->keyboard_menu || MainGameHud()->combat_slot != -1) {
         UpdateKeyboardMenu();
     }
     if (game.combat.has_value()) {
         for (int slot = 0; slot < 8; ++slot) {
             if (!game.party.members[slot].has_value() ||
                 game.party.characters[slot].highest_condition > W8_CONDITION_UNCONSCIOUS ||
-                (MainGameHud()->keyboard_menu_open && MainGameHud()->combat_slot == slot)) {
+                (MainGame()->keyboard_menu && MainGameHud()->combat_slot == slot)) {
                 MainGame()->combat_targets[slot]->setEnabled(false);
             } else {
                 MainGame()->combat_targets[slot]->setEnabled(true);
@@ -2468,7 +2468,7 @@ void MainGameScreen::frame()
         }
     } else
         UpdateWorldCursor();
-    if (!MainGameHud()->keyboard_menu_open && MainGameHud()->hover_combat_slot != -1 &&
+    if (!MainGame()->keyboard_menu && MainGameHud()->hover_combat_slot != -1 &&
         !MainGame()->combat_targets[MainGameHud()->hover_combat_slot]->hitAt(point))
         MainGameHud()->hover_combat_slot = -1;
     TickAmbientFollowUpIdle(ProcessMainGameInput());
@@ -2557,7 +2557,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     if (ItemUseDraft()) CloseUseItemSelectView();
     if (FormationPanelOpen()) CloseFormationPanel();
     if (game.activity.conversation) EndNpcDialogueSession(false);
-    if (MainGameHud()->keyboard_menu_open) CloseKeyboardMenu();
+    if (MainGame()->keyboard_menu) MainGame()->closeKeyboardMenu();
     ReleasePortraitControls();
     ReleaseConditionButtons();
     if (PartyMovementPanelShown()) DisablePartyMovementRegions();
@@ -2716,8 +2716,7 @@ void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentatio
         } else if (repaint.portrait_bars.test(party_slot)) {
             RedrawPartyPortraitBars(party_slot, hud.portrait_refresh_pending[party_slot] == 0);
         }
-        if (CurrentGame().monster_manager_entries[party_slot].keyboard_menu_open)
-            RedrawKeyboardMenuPanel(dirty);
+        if (MainGame()->keyboardMenuForSlot(party_slot)) MainGame()->keyboard_menu->redraw(dirty);
     }
     if (repaint.layout) {
         publish_chrome(0, 358, 640, 450);
@@ -2761,7 +2760,7 @@ void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentatio
             }
             goto finish_mode_overlays;
         }
-        if (!repaint.radar || hud.radar_map_visible == 0) {
+        if (!repaint.radar || !MainGame()->radar_map) {
             if (repaint.radar) {
                 ClearSurfaceRect(0x17, 0x166, 0x80, 0x1c2);
             }
@@ -2844,7 +2843,7 @@ W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud)
     SyncPartyFacingFromCamera();
     auto presentation = BuildTargetingPresentation(hud);
     ApplyTargetingPresentation(presentation);
-    UpdateRadarBlips(presentation);
+    if (MainGame()->radar_map) MainGame()->radar_map->update(presentation);
     if (hud.action_panel_visible == 0 && !CurrentGame().activity.conversation &&
         !IsLockInteractionActive() && !IsTrapInteractionActive() && !gpSCSV && !ItemUseDraft()) {
         const int stopped_line = FindStoppedTextLine();
@@ -2916,8 +2915,8 @@ void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation&
         if (MainGameHud()->formation_board_visible) {
             CreateFormationBoardOverlay();
         }
-        if (MainGameHud()->radar_map_visible != 0) {
-            EnsureRadarMapOverlay();
+        if (MainGame()->radar_map) {
+            MainGame()->radar_map->captureBackdrop();
         }
         RenderFrame();
     }
@@ -3118,8 +3117,8 @@ void SelectPartyCharacter(int party_slot)
     if (MainGameHud()->open_submenu) {
         ResetSubMenuPanel();
     }
-    if (MainGameHud()->keyboard_menu_open && party_slot != g_selected_party_slot) {
-        CloseKeyboardMenu();
+    if (MainGame()->keyboard_menu && party_slot != MainGame()->keyboard_menu->slot) {
+        MainGame()->closeKeyboardMenu();
     }
     SetTargetingMode(W8_TARGET_NEED_NONE);
     if (auto* hud = MainGameHud()) {
@@ -3136,8 +3135,8 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
         MainGameHud()->portrait_refresh_pending[party_slot] != 0) {
         return;
     }
-    if (MainGameHud()->keyboard_menu_open &&
-        party_slot == static_cast<unsigned int>(g_selected_party_slot) &&
+    if (MainGame()->keyboard_menu &&
+        party_slot == static_cast<unsigned int>(MainGame()->keyboard_menu->slot) &&
         !CurrentGame().monster_manager_entries[party_slot].effect_icon_active &&
         !CurrentGame().monster_manager_entries[party_slot].damage_splat_active) {
         if (!CurrentGame().monster_manager_entries[party_slot].quote.bubble ||
@@ -3189,7 +3188,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
     MainGameHud()->portrait_refresh_image[party_slot] = 0x69;
     if (auto* hud = MainGameHud()) hud->repaint.portrait(party_slot);
     MainGame()->edge_targets[party_slot]->setEnabled(false);
-    if (!CurrentGame().monster_manager_entries[party_slot].keyboard_menu_open) {
+    if (!MainGame()->keyboardMenuForSlot(party_slot)) {
         EnableMainGamePortraitSlot(party_slot);
     }
 }
@@ -3897,33 +3896,33 @@ void UpdateCombatPortraitStatus(void)
 void UpdateKeyboardMenu(void)
 {
     if (auto* hud = MainGameHud()) hud->repaint.panels = true;
-    if ((!CurrentGame().combat.has_value() && MainGameHud()->keyboard_menu_open) ||
+    if ((!CurrentGame().combat.has_value() && MainGame()->keyboard_menu) ||
         (MainGameHud()->combat_slot != -1 && !IsPartySlotEligible(MainGameHud()->combat_slot))) {
-        CloseKeyboardMenu();
+        MainGame()->closeKeyboardMenu();
         return;
     }
     if (CurrentGame().combat.has_value() && !CurrentGame().combat->round_active) {
-        CloseKeyboardMenu();
+        MainGame()->closeKeyboardMenu();
         return;
     }
-    if (MainGameHud()->keyboard_menu_open) {
+    if (MainGame()->keyboard_menu) {
         if (MainGameHud()->cursor_grace == 0) {
             if (CurrentGame().party.members[MainGameHud()->combat_slot].has_value() == 0) {
-                CloseKeyboardMenu();
+                MainGame()->closeKeyboardMenu();
                 return;
             }
-            if (!KeyboardMenuContainsCursor()) {
+            if (!MainGame()->keyboard_menu->containsCursor()) {
                 MainGameHud()->cursor_grace = 1;
                 MainGameHud()->countdown3 = MonotonicMilliseconds() + (0x258);
                 return;
             }
         } else {
-            if (KeyboardMenuContainsCursor()) {
+            if (MainGame()->keyboard_menu->containsCursor()) {
                 MainGameHud()->countdown3 = MonotonicMilliseconds() + (0);
-                MainGameHud()->combat_slot = g_selected_party_slot;
+                MainGameHud()->combat_slot = MainGame()->keyboard_menu->slot;
                 MainGameHud()->cursor_grace = 0;
             } else if (TimeUntilDeadline(MainGameHud()->countdown3) == 0) {
-                CloseKeyboardMenu();
+                MainGame()->closeKeyboardMenu();
             }
         }
     }
@@ -4032,7 +4031,7 @@ void RefreshMainGameLayout()
         const bool action = portraits ? g_settings.portraits_action_panel_preference
                                       : g_settings.formation_action_panel_preference;
         if (formation) SetFormationBoardVisible(true);
-        if (radar) SetRadarMapVisible(true);
+        if (radar) MainGame()->setRadarVisible(true);
         if (action) SetActionPanelVisible(true);
     }
     ClearUiHover();
@@ -4088,15 +4087,15 @@ void OpenModal(std::unique_ptr<ModalContent> owner)
 }
 
 /* Re-sync each party slot's region set and portrait hit region with the
-   slot's occupancy, its monster-entry flag and the display mode - the party
+   slot's occupancy, its action menu and the display mode - the party
    add/remove entries and the keyboard menu's close run it after slot state
    changes. */
 void RefreshPartySlotRegions(void)
 {
     if (!MainGame()) return;
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        const bool available = CurrentGame().party.members[slot].has_value() &&
-                               !CurrentGame().monster_manager_entries[slot].keyboard_menu_open;
+        const bool available =
+            CurrentGame().party.members[slot].has_value() && !MainGame()->keyboardMenuForSlot(slot);
         const bool full = GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
                           MainGameHud()->portrait_refresh_pending[slot] != 0;
         MainGame()->portraits[slot]->setEnabled(available && full);
@@ -4149,7 +4148,7 @@ void SyncMainGameModeInput(void)
     if (IsLockInteractionActive()) LockInteraction()->EnablePanels(panels);
     if (IsTrapInteractionActive()) TrapInteraction()->EnablePanelInput(panels);
     state.formation.setEnabled(panels && !view_open && MainGameHud()->formation_board_visible);
-    state.radar.setEnabled(panels && !view_open && MainGameHud()->radar_map_visible != 0);
+    state.radar.setEnabled(panels && !view_open && MainGame()->radar_map);
 
     if (PartyMovementPanelShown() && !CurrentGame().advancement.held) {
         UpdatePartyMovementPanel();
@@ -4665,12 +4664,12 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
     if (event.button == UiPointerButton::Left && event.action == UiPointerAction::Up) {
         if ((event.captured_buttons & SDL_BUTTON_LMASK) != 0 &&
             CurrentGame().party.members[slot].has_value()) {
-            if (MainGameHud()->keyboard_menu_open && slot != MainGameHud()->combat_slot) {
-                CloseKeyboardMenu();
+            if (MainGame()->keyboard_menu && slot != MainGameHud()->combat_slot) {
+                MainGame()->closeKeyboardMenu();
             }
             if (CurrentGame().combat->round_active) {
                 MainGameHud()->combat_slot = slot;
-                OpenKeyboardMenuForSlot(slot);
+                MainGame()->openKeyboardMenu(slot);
                 return UiResult::Handled;
             }
         }
@@ -4685,7 +4684,7 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
     if (event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter ||
         event.action == UiPointerAction::Leave) {
         if (event.action == UiPointerAction::Leave) {
-            if (!MainGameHud()->keyboard_menu_open) {
+            if (!MainGame()->keyboard_menu) {
                 MainGameHud()->combat_slot = -1;
                 MainGameHud()->countdown3 = MonotonicMilliseconds() + (0);
                 MainGameHud()->hover_combat_slot = -1;
@@ -4755,7 +4754,7 @@ UiResult RadarMapButtonInput(const UiPointerEvent& event)
         }
     } else if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Up)) {
         if ((event.captured_buttons & SDL_BUTTON_RMASK) != 0) {
-            ToggleRadarMapZoom();
+            MainGame()->radar_map->toggleZoom();
         }
     } else {
         if (!(event.action == UiPointerAction::Move || event.action == UiPointerAction::Enter ||
@@ -4763,13 +4762,11 @@ UiResult RadarMapButtonInput(const UiPointerEvent& event)
             return UiResult::Pass;
         }
         if (event.action == UiPointerAction::Leave) {
-            MainGameHud()->radar_map_alternate = 0;
-            RefreshRadarMap();
+            MainGame()->radar_map->setHovered(false);
             return UiResult::Handled;
         }
         if (event.action == UiPointerAction::Enter) {
-            MainGameHud()->radar_map_alternate = 1;
-            RefreshRadarMap();
+            MainGame()->radar_map->setHovered(true);
             return UiResult::Handled;
         }
     }
@@ -4951,7 +4948,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                (needed == W8_TARGET_NEED_CONE && (event.modifiers & CTRL_DOWN) != 0)) {
         AimAtGroundTarget(CurrentGame().status.selected_character);
     } else if (MainGameHud()->highlighted_item == -1) {
-        if ((CurrentGame().party.held.item.iItemNo != -1) && GetSelectedPropIndex() == -1) {
+        if ((CurrentGame().party.held.item.iItemNo != -1) && !GetWorld()->selectedProp()) {
             if (!CurrentGame().advancement.held) {
                 if (auto dropped = DropItemInHand(CurrentGame(), 1); !dropped)
                     ShowRefusal(dropped.error());
@@ -4966,7 +4963,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         } else if (!CurrentGame().advancement.held) {
             if (ScreenPointer().targeting() != W8_TARGET_NEED_NONE ||
                 !CurrentGame().activateSelectedNativeObject())
-                ActivateSelectedProp();
+                if (auto* prop = GetWorld()->selectedProp()) prop->activate();
         }
     } else {
         W8MonsterInfo* monster_info = FindMonster(MainGameHud()->highlighted_item);
@@ -5111,20 +5108,14 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
                 ScreenPointer().showSlot(13);
                 return;
             }
-            int prop_index = GetSelectedPropIndex();
-            if (prop_index > -1) {
-                Prop* prop = GetWorldProp(GetWorld(), prop_index);
+            if (auto* prop = GetWorld()->selectedProp()) {
                 if (!CurrentGame().advancement.held) {
-                    if (prop != 0) {
-                        if (prop->TriggerRequiresItem() &&
-                            (CurrentGame().party.held.item.iItemNo != -1)) {
-                            ScreenPointer().showSlot(0x10);
-                            return;
-                        }
-                        ScreenPointer().showSlot(prop->TriggerHasActionMessage() ? 13 : 5);
+                    if (prop->TriggerRequiresItem() &&
+                        CurrentGame().party.held.item.iItemNo != -1) {
+                        ScreenPointer().showSlot(0x10);
                         return;
                     }
-                    ScreenPointer().showSlot(5);
+                    ScreenPointer().showSlot(prop->TriggerHasActionMessage() ? 13 : 5);
                     return;
                 }
                 ScreenPointer().showSlot(cursor);
@@ -5448,38 +5439,19 @@ static void DrawMainGamePrompt(void)
 
 /* Raise or drop the radar map panel and restore the viewport mode when the
    raise latch changes. */
-void SetRadarMapVisible(bool visible)
+void MainGameScreen::setRadarVisible(bool visible)
 {
-    const bool was_visible = MainGameHud()->radar_map_visible;
+    const bool was_visible = bool(radar_map);
+    radar.setEnabled(visible);
+    radar_target->setEnabled(visible);
     if (visible) {
-        MainGameHud()->radar_map_visible = visible;
-        MainGameHud()->radar_map_alternate = 0;
-        MainGame()->radar.setEnabled(true);
-        MainGame()->radar_target->setEnabled(true);
-        EnableRadarMap(true);
-        if (CurrentGame().combat.has_value()) {
-            ZoomRadarMapIn();
-        } else {
-            ZoomRadarMapOut();
-        }
-        if (auto* hud = MainGameHud()) {
-            hud->repaint.layout = true;
-            hud->repaint.portrait_panel = true;
-        }
+        radar_map = std::make_unique<RadarMap>(game, game.combat.has_value());
     } else {
-        MainGameHud()->radar_map_visible = 0;
-        MainGame()->radar_target->setEnabled(false);
-        MainGame()->radar.setEnabled(false);
-        EnableRadarMap(false);
-        ReleaseRadarMap();
-        if (auto* hud = MainGameHud()) {
-            hud->repaint.layout = true;
-            hud->repaint.portrait_panel = true;
-        }
+        radar_map.reset();
     }
-    if (visible != was_visible) {
-        SetViewportMode(GetMainGameViewportMode());
-    }
+    hud->repaint.layout = true;
+    hud->repaint.portrait_panel = true;
+    if (visible != was_visible) SetViewportMode(GetMainGameViewportMode());
 }
 
 /* Raise or drop the combat action panel and restore the viewport mode when the
@@ -5680,8 +5652,8 @@ void RunMGSActionKey(unsigned short command)
     if (MainGameHud()->open_submenu) {
         DestroySubMenuControls();
     }
-    if (MainGameHud()->keyboard_menu_open) {
-        CloseKeyboardMenu();
+    if (MainGame()->keyboard_menu) {
+        MainGame()->closeKeyboardMenu();
     }
     switch (command) {
     case W8_MGS_ACTION_JOURNAL:
@@ -5940,8 +5912,7 @@ W8ViewportMode GetMainGameViewportMode(void)
           CurrentGame().npc_interaction.scripted_dialogue)) &&
         !IsLockInteractionActive() && !IsTrapInteractionActive() && !ItemUseDraft() &&
         MainGameHud()->action_panel_visible == 0 && MainGameHud()->formation_board_visible &&
-        MainGameHud()->radar_map_visible != 0 &&
-        GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
+        MainGame()->radar_map && GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
         return W8_VIEWPORT_MODE_CENTERED_FULL_HEIGHT;
     }
     if (!gpSCSV &&
@@ -5949,7 +5920,7 @@ W8ViewportMode GetMainGameViewportMode(void)
          (CurrentGame().activity.conversation &&
           CurrentGame().npc_interaction.scripted_dialogue)) &&
         !IsLockInteractionActive() && !IsTrapInteractionActive() && !ItemUseDraft() &&
-        (!MainGameHud()->formation_board_visible || MainGameHud()->radar_map_visible == 0 ||
+        (!MainGameHud()->formation_board_visible || !MainGame()->radar_map ||
          MainGameHud()->action_panel_visible == 0)) {
         return W8_VIEWPORT_MODE_FULL;
     }
@@ -5971,8 +5942,8 @@ void CloseMainGameOverlays(void)
     if (MainGameHud()->formation_board_visible) {
         SetFormationBoardVisible(false);
     }
-    if (MainGameHud()->radar_map_visible != 0) {
-        SetRadarMapVisible(false);
+    if (MainGame()->radar_map) {
+        MainGame()->setRadarVisible(false);
     }
     if (MainGameHud()->action_panel_visible != 0) {
         SetActionPanelVisible(false);

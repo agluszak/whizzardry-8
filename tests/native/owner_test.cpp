@@ -209,6 +209,9 @@ void camp_effects()
     const auto assets = directory.path / "assets";
     const auto previous_roots = w8_native::path_roots();
     button_image_fixture(assets, "data/main interface/main_scroll.sti", 12, false, 16, 8);
+    for (const auto* name : {"commod_buttons", "ReviewItemButtons", "InventorySwapButtons",
+                             "InventoryFilterButtons", "ReviewFXFilters"})
+        button_image_fixture(assets, fmt::format("data/review/{}.sti", name), 45, false, 16, 8);
     g_image_assets.clear();
     w8_native::configure_paths({assets.string(), (directory.path / "user").string()});
     struct Restore {
@@ -222,23 +225,23 @@ void camp_effects()
     {
         CampScreen independent(game.game, ScreenPointer());
         auto* state = &independent;
-        REQUIRE((state->stats.effect_list.empty() && state->stats.stats_range == nullptr));
+        REQUIRE(state->stats.effect_list.empty());
+        REQUIRE(state->stats.stats_range);
         const auto layer_count = LiveUiLayerCount();
-        state->stats.stats_range =
-            std::make_unique<W8RangeControl>(state->scroll_input, 0x264, 0xbe, 0x276, 0x1b5);
-        REQUIRE(LiveUiLayerCount() == layer_count);
         // Disabling one scrollbar must not disable unrelated targets in its layer.
         const auto consume = [](const UiPointerEvent&) { return UiResult::Handled; };
         auto& sibling = state->scroll_input.add(SDL_Rect{0, 0, 640, 480}, consume);
         state->stats.stats_range->SetActive(true);
         state->stats.stats_range->SetActive(false);
         REQUIRE(sibling.hitAt({0, 0}));
+        REQUIRE(LiveUiLayerCount() == layer_count);
         state->scroll_input.remove(sibling);
         auto& range = *state->stats.stats_range;
         state->stats.effect_list = {{true, false, W8_CAMP_EFFECT_CONDITION, 0, 0, 3, 20},
                                     {false, true, W8_CAMP_EFFECT_CONDITION, 1, 0, 3, 30},
                                     {true, false, W8_CAMP_EFFECT_EQUIPMENT, 2, 0, 9999, 40},
                                     {true, true, W8_CAMP_EFFECT_CONDITION, 3, 0, 3, 50}};
+        state->stats.effect_items_only = false;
         state->stats.effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
         range.SetRange(0, 100);
         range.SetValue(100);
