@@ -36,6 +36,7 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/targeting_presentation.h"
+#include "wiz8/world/world.h"
 
 /* The blip palette, six classes of three distance rings. Items
    take class 4 and missiles class 5; monsters take their disposition-mapped

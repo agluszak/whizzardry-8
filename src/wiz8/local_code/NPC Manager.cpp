@@ -14,7 +14,6 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_rules.h"
-#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/world/party_camera.h"
 // Some libstdc++ 16 releases use deprecated is_trivial_v in _M_init.
 // Limit the workaround to diagnostics originating in that library header.

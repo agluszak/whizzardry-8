@@ -29,6 +29,7 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/world.h"
 
 /* Original translation unit: Local Code\Formation & Facing.cpp. */
 

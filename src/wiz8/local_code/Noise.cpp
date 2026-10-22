@@ -16,6 +16,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/world/world.h"
 
 /* Retail Local Code\Noise.cpp. */
 

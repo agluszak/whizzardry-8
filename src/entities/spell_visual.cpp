@@ -39,7 +39,6 @@
 #include "wiz8/render/light.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/picking.h"
-#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/unicode.h"

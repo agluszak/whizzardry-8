@@ -50,6 +50,7 @@
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/transform.h"
 #include "wiz8/render/world_scene.h"
+#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/spatial/navigator.h"

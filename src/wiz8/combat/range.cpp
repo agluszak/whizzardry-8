@@ -42,6 +42,7 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 int g_event_sight_blocked = kFirstRemappedEvent + 30;
 
