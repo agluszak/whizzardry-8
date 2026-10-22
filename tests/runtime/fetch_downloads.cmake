@@ -7,6 +7,9 @@ if(NOT CACHE_DIR)
     message(FATAL_ERROR "CACHE_DIR is required")
 endif()
 
+# Each entry is: archive URL, archive SHA-256, member file, member SHA-256.
+# Members of one archive repeat its URL; the archive is downloaded once.
+
 # A retail save (patched Wizardry 8, 2003): a two-character level-23 party just
 # outside the Rapax Away Camp. Offered to Wizardry 8 players by its author at
 # https://r0k.us/rock/games/wizardry8/; downloaded, never redistributed.
@@ -15,6 +18,19 @@ set(downloads
     "3726a728af64ec9a17772d8adc51f11e27518b2cfca238fc882dedbea8e0cb6b"
     "p2-RapaxAC.sav"
     "8c1eebc907ec0c045dbd6a3fcbb763afd49ed04295f362fbb0decbac0138a003")
+
+# Wizardry 7 end-game parties for the 7->8 import, one per Wizardry 7 ending,
+# offered on the same page (two donated by Chris Beebe). Six level 27-35
+# characters each: the Vitalia ending (RichVitalia.end), Vitalia sacrificed for
+# the Astral Dominae (noVitalia.end), allied with the T'Rang (QuinnTrang.sav)
+# and with the Umpani (QuinnUmpani.sav).
+set(imports "https://r0k.us/rock/games/wizardry8/wiz8imports.zip"
+    "dd484fbb0ef41b088334e01cde662013e210f054b54bc3e8e9c332e672e38c52")
+list(APPEND downloads
+    ${imports} "RichVitalia.end" "890fc2336860b24bdb51bff702682c25a462cde40745e7d8275612a739663ddb"
+    ${imports} "noVitalia.end" "6dce2d565fa68e774c2dfd0e19f2b0a2aa53a48d4a5c0be12b9259db14af13fc"
+    ${imports} "QuinnTrang.sav" "c133408ff39c682fbe1209ca28995d6e92df2fb0838d5d62182c3eaf046dcbe0"
+    ${imports} "QuinnUmpani.sav" "796cfc9118284398c9399a6fb7b6396b86a6a5ced2466e6f3d2e9cfdad90791b")
 
 function(file_matches path hash result)
     set(${result} FALSE PARENT_SCOPE)

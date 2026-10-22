@@ -38,3 +38,18 @@ fixture, downloads it once into `WIZ8_DOWNLOAD_CACHE` (by default
 by SHA-256; CI keeps that directory in the Actions cache. The scenario checks
 the save's level, position and party, walks, then quick-saves and quick-loads
 it through our writer.
+
+`native_retail_save` reads the same downloaded save without assets or a GPU,
+decodes each section the save codec handles and re-encodes it. Sections that do
+not come back byte for byte must be on the test's commented allow-list, which
+records what we rewrite and why (process addresses, stale bytes after string
+terminators, empty party slots); none may change size.
+
+The same page offers `wiz8imports.zip`, four Wizardry 7 end-game files for the
+7->8 import, fetched the same way. `runtime_import-*` put one of them in
+`Saves\Import`, press the [7->8] button on party selection and start the game.
+They check the page's cast list (name, sex, race, profession), level 1 with
+13,000 experience, and the starting level each ending leads to: the monastery
+(`RichVitalia.end`), outside the Umpani fort at Mt. Gigas (`QuinnUmpani.sav`)
+and outside Marten's Bluff (`QuinnTrang.sav`). `noVitalia.end`, the ending in
+which Vitalia was sacrificed, is refused with the game's notice.

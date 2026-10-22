@@ -264,7 +264,7 @@ set(WIZ8_RUNTIME_TEST_ENVIRONMENT ${WIZ8_GRAPHICS_TEST_ENVIRONMENT} "SDL_AUDIO_D
     "WIZ8_RUNTIME_FIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
     "WIZ8_RUNTIME_SAVE_FIXTURE=${WIZ8_RUNTIME_SAVE_FIXTURE}"
     "WIZ8_RUNTIME_DOWNLOADS=${WIZ8_DOWNLOAD_CACHE}")
-foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-lifecycle inventory-chest camp-spells quick-save combat npc-dialogue load-game retail-save random-play menu-save)
+foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-lifecycle inventory-chest camp-spells quick-save combat npc-dialogue load-game retail-save import-vitalia import-no-vitalia import-umpani import-trang random-play menu-save)
     # A fixed seed makes the game's random rolls repeatable.
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario} --rng-seed 1)
     set_tests_properties(runtime_${scenario} PROPERTIES
@@ -285,7 +285,15 @@ add_test(NAME runtime_downloads COMMAND "${CMAKE_COMMAND}" "-DCACHE_DIR=${WIZ8_D
     -P "${CMAKE_CURRENT_SOURCE_DIR}/runtime/fetch_downloads.cmake")
 set_tests_properties(runtime_downloads PROPERTIES
     FIXTURES_SETUP runtime_downloads LABELS runtime TIMEOUT 600)
-set_tests_properties(runtime_retail-save PROPERTIES FIXTURES_REQUIRED runtime_downloads)
+set_tests_properties(runtime_retail-save runtime_import-vitalia runtime_import-no-vitalia
+    runtime_import-umpani runtime_import-trang PROPERTIES FIXTURES_REQUIRED runtime_downloads)
+
+# The downloaded retail save through the save codec alone: no assets or display.
+add_executable(native_retail_save_test native/retail_save_round_trip_test.cpp)
+target_link_libraries(native_retail_save_test PRIVATE wiz8_engine)
+add_test(NAME native_retail_save COMMAND native_retail_save_test)
+set_tests_properties(native_retail_save PROPERTIES FIXTURES_REQUIRED runtime_downloads
+    ENVIRONMENT "WIZ8_RUNTIME_DOWNLOADS=${WIZ8_DOWNLOAD_CACHE}" TIMEOUT 30)
 
 add_executable(native_resource_lifecycle_test native/resource_lifecycle_test.cpp)
 target_link_libraries(native_resource_lifecycle_test PRIVATE wiz8_engine)

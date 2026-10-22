@@ -22,6 +22,7 @@
 
 #include "harness.h"
 #include "wiz8/game.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_screens/OptionsScreen.h"
@@ -146,6 +147,94 @@ void RetailSaveScenario()
     REQUIRE(GetLoadedLevelID() == 16);
     REQUIRE(PartyMembers() == party);
     std::printf("retail-save: loaded and round-tripped after %lu frames\n", game.frames());
+}
+
+/* --- Wizardry 7 import ---------------------------------------------------- */
+
+/* Party selection's [7->8] button, left of Confirm on the bottom bar. */
+constexpr SDL_Point kImportButton{386, 447};
+constexpr SDL_Point kPartyConfirmButton{430, 447};
+
+struct ImportedMember {
+    std::string name;
+    W8Gender gender;
+    W8Race race;
+    W8Profession profession;
+    bool operator==(const ImportedMember&) const = default;
+};
+std::vector<ImportedMember> ImportedParty()
+{
+    std::vector<ImportedMember> members;
+    for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
+        if (CurrentGame().party.members[slot].has_value()) {
+            const W8Character& character = CurrentGame().party.characters[slot];
+            members.push_back(
+                {character.name, character.gender, character.iRace, character.iProfession});
+        }
+    return members;
+}
+
+/* The casts the import page lists for its Wizardry 7 end-game files
+   (fetch_downloads.cmake). Chris' two files hold the same party. */
+const std::vector<ImportedMember> kVitaliaParty{
+    {"Rock", W8_GENDER_MALE, W8_RACE_HUMAN, W8_PROFESSION_MONK},
+    {"Tanya", W8_GENDER_FEMALE, W8_RACE_FAERIE, W8_PROFESSION_NINJA},
+    {"Ralph", W8_GENDER_MALE, W8_RACE_RAWULF, W8_PROFESSION_LORD},
+    {"Dale", W8_GENDER_MALE, W8_RACE_DRACON, W8_PROFESSION_NINJA},
+    {"Mark", W8_GENDER_MALE, W8_RACE_HOBBIT, W8_PROFESSION_BISHOP},
+    {"Eliza", W8_GENDER_FEMALE, W8_RACE_ELF, W8_PROFESSION_VALKYRIE}};
+const std::vector<ImportedMember> kQuinnParty{
+    {"Raine", W8_GENDER_FEMALE, W8_RACE_HUMAN, W8_PROFESSION_FIGHTER},
+    {"Kimonso", W8_GENDER_MALE, W8_RACE_FELPURR, W8_PROFESSION_SAMURAI},
+    {"Mist", W8_GENDER_FEMALE, W8_RACE_ELF, W8_PROFESSION_RANGER},
+    {"Kiwi", W8_GENDER_FEMALE, W8_RACE_FAERIE, W8_PROFESSION_MONK},
+    {"Elly", W8_GENDER_FEMALE, W8_RACE_HOBBIT, W8_PROFESSION_PRIEST},
+    {"Janus", W8_GENDER_MALE, W8_RACE_ELF, W8_PROFESSION_MAGE}};
+
+/* Imports a Wizardry 7 end-game file as a player would: Saves\Import holds only
+   this file, so opening the import list selects and loads it. Every imported
+   character starts at level 1 with 13,000 experience, and the Wizardry 7
+   ending picks where the game begins (`start_level`, a LEVELS.DBS name). Without
+   a `party` the file is an ending Wizardry 8 refuses with a notice. */
+void ImportScenario(const char* file, const std::vector<ImportedMember>* party,
+                    std::string_view start_level)
+{
+    GameHarness game(false);
+    game.install(RuntimeInput("WIZ8_RUNTIME_DOWNLOADS") / file, fs::path("saves/import") / file);
+    ReachMainMenu(game);
+    game.click("new-game", MainMenuRegion(1));
+    game.wait("party-selection", [&] {
+        return CurrentScreenState().id == W8_SCREEN_PARTY_SELECTION && game.settled() &&
+               UiTargetAt(kImportButton) != nullptr;
+    });
+    REQUIRE(CountActiveCharacters() == 0);
+    game.click("import", kImportButton);
+    if (!party) {
+        REQUIRE(game.within_frames(2, [] { return UiModalActive(); }));
+        game.frame();
+        Snapshot(file, game.read_frame());
+        REQUIRE(CountActiveCharacters() == 0);
+        game.key(SDLK_RETURN);
+        REQUIRE(game.within_frames(2, [] { return !UiModalActive(); }));
+        REQUIRE(CurrentScreenState().id == W8_SCREEN_PARTY_SELECTION);
+        REQUIRE(CountActiveCharacters() == 0);
+        return;
+    }
+    REQUIRE(game.within_frames(2, [] { return CountActiveCharacters() == 6; }));
+    REQUIRE_FALSE(UiModalActive());
+    REQUIRE(ImportedParty() == *party);
+    for (const auto& character : CurrentGame().party.characters)
+        if (character.fInParty)
+            REQUIRE((character.uiExpLevel == 1 && character.experience == 13000));
+    // Confirm opens the game options; Confirm there starts the game.
+    game.click("confirm-party", kPartyConfirmButton);
+    game.click("start-game", kPartyConfirmButton);
+    WaitMainGame(game, "imported-game");
+    REQUIRE(Data().levels[GetLoadedLevelID()].display_name == start_level);
+    REQUIRE(ImportedParty() == *party);
+    Snapshot(file, game.read_frame());
+    std::printf("import: %s started on %s after %lu frames\n", file,
+                std::string(start_level).c_str(), game.frames());
 }
 
 /* Menu saving exercises name edits and confirmation callbacks, which quick-save
@@ -292,4 +381,28 @@ TEST_CASE("menu-save", "[runtime]")
 TEST_CASE("retail-save", "[runtime]")
 {
     RunScenario(RetailSaveScenario);
+}
+
+/* The page: with Vitalia rescued the game begins at the monastery; allied with
+   the Umpani, just outside their fort at Mt. Gigas; allied with the T'Rang,
+   outside the front gate of Marten's Bluff. Sacrificing Vitalia for the Astral
+   Dominae is the ending Wizardry 8 does not continue. */
+TEST_CASE("import-vitalia", "[runtime]")
+{
+    RunScenario([] { ImportScenario("RichVitalia.end", &kVitaliaParty, "Monastery 1"); });
+}
+
+TEST_CASE("import-no-vitalia", "[runtime]")
+{
+    RunScenario([] { ImportScenario("noVitalia.end", nullptr, {}); });
+}
+
+TEST_CASE("import-umpani", "[runtime]")
+{
+    RunScenario([] { ImportScenario("QuinnUmpani.sav", &kQuinnParty, "Mt. Gigas (Outer)"); });
+}
+
+TEST_CASE("import-trang", "[runtime]")
+{
+    RunScenario([] { ImportScenario("QuinnTrang.sav", &kQuinnParty, "Marten's Bluff 2"); });
 }
