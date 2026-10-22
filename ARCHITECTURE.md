@@ -50,7 +50,7 @@ are enforced:
   databases, the encounter tables and the dialogue keyword lists. `LoadGameData` reads
   all of it once at startup, and a malformed database throws; missing or malformed
   keyword lists leave keywords untranslated. The Application loads and owns the data
-  before its `GameSession`, which hands it by reference to every `Game`; `Game::rules()`
+  before its `GameSession`, which hands it by reference to every `Game`; `Game::storage`
   and the commands that take a `Game` read `Game::data`. Unlayered code that receives
   neither reads the installed data through `Data()`. A test builds a small `GameData`,
   passes it to its `ScopedGame`, and installs it with `ScopedGameData` only for code that
@@ -62,10 +62,11 @@ are enforced:
   party's shared load), members' conditions, enchantments, death and the party's
   settlement (`party_conditions.h`), the event log (`events.h`) and the party's
   `Activity`. Functions
-  that read the databases take `const GameData&`; those that change the party, draw
-  random numbers or report events take a `RuleContext` (`rule_context.h`: the data, the
-  party, the game's `Rng` and `Events`, and whether the game has started), which
-  `Game::rules()` builds.
+  that only read the databases take `const GameData&`. Rules that change the party, draw
+  random numbers or report events are classes that receive what they act on in their
+  constructor: `PartyStorage` (`inventory.h`) holds the data, the party, the game's `Rng`
+  and `Events`, and whether play has started, and each `Game` owns one as
+  `Game::storage`.
 
 A layer file includes only its own layer, the layers below it, the standard library,
 glm, fmt and three stateless foundation headers (`math.h`, `world/camera_pose.h`,
@@ -487,9 +488,9 @@ Unlayered code may use the layers.
   compaction or changed contents invalidates the selection. Identical stacks are
   fungible, and there is no global item identity. Purchasing prepares stack merges,
   capacity and overflow placement before committing stock and payment.
-- **Inventory.** Two headers share the inventory. `rules/inventory.h` holds the
-  storage rules over a `RuleContext`: placement (`PlaceWithCharacter`, `PlaceInPool`,
-  `PlaceInEmptyHand`) returns where an item went, and removal, splitting, exchange,
+- **Inventory.** Two headers share the inventory. `rules/inventory.h` holds
+  `PartyStorage`, the storage rules over one party: placement (`placeWithCharacter`,
+  `placeInPool`, `placeInEmptyHand`) returns where an item went, and removal, splitting, exchange,
   stack merging, pool sorting, weapon-set swaps and attack consumption return an
   `InventoryEdit` naming the locations they replaced. Rules address members by party
   slot and items by `W8ItemLocation` (`PartyItem`) or as owned values (`OwnedItem`),

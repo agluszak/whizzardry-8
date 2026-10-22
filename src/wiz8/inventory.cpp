@@ -134,8 +134,8 @@ static std::optional<ItemPlacement> StoreWithCharacter(Game& game, ItemRecipient
                                                        ItemSource source, bool equip_if_possible,
                                                        bool announce, bool skip_stacking)
 {
-    const auto placement = PlaceWithCharacter(game.rules(), recipient, source, equip_if_possible,
-                                              announce, skip_stacking);
+    const auto placement = game.storage.placeWithCharacter(recipient, source, equip_if_possible,
+                                                           announce, skip_stacking);
     Acquire(game, placement, &recipient.character);
     return placement;
 }
@@ -143,7 +143,7 @@ static std::optional<ItemPlacement> StoreWithCharacter(Game& game, ItemRecipient
 static std::optional<ItemPlacement> StoreInPool(Game& game, ItemSource source, bool announce,
                                                 bool skip_stacking)
 {
-    const auto placement = PlaceInPool(game.rules(), source, announce, skip_stacking);
+    const auto placement = game.storage.placeInPool(source, announce, skip_stacking);
     Acquire(game, placement, nullptr);
     return placement;
 }
@@ -185,7 +185,7 @@ static bool DropUnstoredItem(Game& game, ItemSource source)
             return true;
         }
     }
-    return PlaceInEmptyHand(game.rules(), source);
+    return game.storage.placeInEmptyHand(source);
 }
 
 ItemRecipient PartyMember(Game& game, unsigned int party_slot)
@@ -443,20 +443,19 @@ void UpgradeProfessionClassItem(Game& game, ItemRecipient recipient)
 
 bool RemovePartyItemByID(Game& game, int item_id, bool remove_all)
 {
-    const auto edit = RemovePartyItemByID(game.rules(), item_id, remove_all);
+    const auto edit = game.storage.removeItemById(item_id, remove_all);
     Finish(game, edit);
     return !edit.replaced.empty();
 }
 
 void RemoveInventoryQuantity(Game& game, W8ItemLocation location, unsigned amount)
 {
-    if (const auto edit = RemoveInventoryQuantity(game.rules(), location, amount))
-        Finish(game, *edit);
+    if (const auto edit = game.storage.removeQuantity(location, amount)) Finish(game, *edit);
 }
 
 W8ItemInstance TakeInventoryItem(Game& game, W8ItemLocation location)
 {
-    auto item = TakeInventoryItem(game.rules(), location);
+    auto item = game.storage.take(location);
     if (!item) return {};
     FinishInventoryEdit(game, {location});
     return *item;
@@ -498,7 +497,7 @@ void ReplaceHeldItemWithNew(Game& game, int item_id, bool quality)
 {
     game.party.take({W8ItemStorage::Hand});
     auto created = MakeItem(game.data, game.rng, item_id, true, quality, false);
-    PlaceInEmptyHand(game.rules(), OwnedItem(created));
+    game.storage.placeInEmptyHand(OwnedItem(created));
     FinishInventoryEdit(game, {{W8ItemStorage::Hand}});
 }
 
@@ -525,7 +524,7 @@ std::expected<void, InventoryRefusal> DropItemInHand(Game& game, int unused)
 
 bool SplitItemStack(Game& game, W8ItemLocation source, unsigned amount, unsigned actor)
 {
-    const auto edit = SplitItemStack(game.rules(), source, amount, actor);
+    const auto edit = game.storage.splitStack(source, amount, actor);
     if (!edit) return false;
     Finish(game, *edit);
     return true;
@@ -533,7 +532,7 @@ bool SplitItemStack(Game& game, W8ItemLocation source, unsigned amount, unsigned
 
 bool ExchangeInventoryItems(Game& game, W8ItemLocation first, W8ItemLocation second, unsigned actor)
 {
-    const auto edit = ExchangeInventoryItems(game.rules(), first, second, actor);
+    const auto edit = game.storage.exchange(first, second, actor);
     if (!edit) return false;
     Finish(game, *edit);
     return true;
@@ -545,7 +544,7 @@ bool EquipHeldItemAndStowPartner(Game& game, unsigned actor, W8EquipSlot slot)
         auto* npc = actor < 2 ? GetNpcState(game.party.npcIndex(actor)) : nullptr;
         return npc && NpcWantsItem(npc, &partner);
     };
-    const auto stowed = EquipHeldItemAndStowPartner(game.rules(), actor, slot, npc_keeps);
+    const auto stowed = game.storage.equipHeldAndStowPartner(actor, slot, npc_keeps);
     if (!stowed) return false;
     const bool pool = stowed->stored && stowed->stored->stored.storage == W8ItemStorage::Pool;
     Acquire(game, stowed->stored, pool ? nullptr : &game.party.characters[actor]);
@@ -555,7 +554,7 @@ bool EquipHeldItemAndStowPartner(Game& game, unsigned actor, W8EquipSlot slot)
 
 StackMergeResult MergeInventoryStacks(Game& game, W8ItemLocation destination, W8ItemLocation source)
 {
-    const auto merge = MergeInventoryStacks(game.rules(), destination, source);
+    const auto merge = game.storage.mergeStacks(destination, source);
     if (!merge) return {};
     Finish(game, merge->edit);
     return {merge->complete, true};
@@ -563,7 +562,7 @@ StackMergeResult MergeInventoryStacks(Game& game, W8ItemLocation destination, W8
 
 bool InsertHeldItemInPool(Game& game, unsigned index)
 {
-    const auto edit = InsertHeldItemInPool(game.rules(), index);
+    const auto edit = game.storage.insertHeldInPool(index);
     if (!edit) return false;
     Finish(game, *edit);
     return true;
@@ -572,7 +571,7 @@ bool InsertHeldItemInPool(Game& game, unsigned index)
 // Practice follows a completed recipe as a phase of its own.
 std::expected<bool, InventoryRefusal> MergeItems(Game& game, unsigned actor, W8ItemLocation target)
 {
-    const auto combination = MergeItems(game.rules(), actor, target);
+    const auto combination = game.storage.combine(actor, target);
     if (!combination) return std::unexpected(combination.error());
     if (!*combination) return false;
     const auto& made = **combination;
@@ -587,22 +586,21 @@ std::expected<bool, InventoryRefusal> MergeItems(Game& game, unsigned actor, W8I
 
 void MergeItemUses(Game& game, unsigned actor, W8ItemLocation destination, W8ItemLocation source)
 {
-    if (const auto edit = MergeItemUses(game.rules(), actor, destination, source))
-        Finish(game, *edit);
+    if (const auto edit = game.storage.mergeUses(actor, destination, source)) Finish(game, *edit);
 }
 
 // ---- Weapon sets and ammunition
 
 void CommitWeaponSetSwap(Game& game, unsigned int party_slot, W8WeaponSwap choice)
 {
-    Finish(game, CommitWeaponSetSwap(game.rules(), party_slot, choice));
+    Finish(game, game.storage.commitWeaponSetSwap(party_slot, choice));
 }
 
 /* The notices go to the conversation's text box while the party talks. */
 bool SwapWeaponSetSlots(Game& game, unsigned int party_slot, bool announce)
 {
     const short notice_context = game.activity.conversation ? 0 : -1;
-    const auto plan = PrepareWeaponSetSwap(game.rules(), party_slot, announce, notice_context);
+    const auto plan = game.storage.prepareWeaponSetSwap(party_slot, announce, notice_context);
     if (!plan) return false;
     CommitWeaponSetSwap(game, party_slot, *plan);
     if (announce)
@@ -641,14 +639,14 @@ void BindCharacterItems(Game& game, unsigned int party_slot, bool announce)
 bool ConsumeAttackItems(Game& game, unsigned actor, unsigned hand, W8EquipSlot used,
                         W8EquipSlot paired)
 {
-    const auto spent = ConsumeAttackItems(game.rules(), actor, hand, used, paired);
+    const auto spent = game.storage.consumeAttackItems(actor, hand, used, paired);
     Finish(game, spent.edit);
     return spent.thrown_spent;
 }
 
 void ReadyPrimaryWeapon(Game& game, unsigned party_slot)
 {
-    Finish(game, ReadyPrimaryWeapon(game.rules(), party_slot));
+    Finish(game, game.storage.readyPrimaryWeapon(party_slot));
 }
 
 // ---- Equipment rule
@@ -659,7 +657,7 @@ bool UnequipUnusableItems(Game& game, unsigned int party_slot)
 {
     bool hands_changed = false;
     std::bitset<W8_EQUIP_SLOT_COUNT> kept;
-    while (auto removed = TakeUnusableEquipment(game.rules(), party_slot, kept)) {
+    while (auto removed = game.storage.takeUnusableEquipment(party_slot, kept)) {
         const auto source = OwnedItem(removed->item);
         if (!StoreWithCharacter(game, PartyMember(game, party_slot), source, false, false, false) &&
             !StoreInPool(game, source, false, false) && !DropUnstoredItem(game, source)) {
@@ -748,7 +746,7 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
             assert(npc->name_style == W8_NPC_RFS81_A);
             SetFact(W8_FACT_RFS81_HAS_BEEN_FIXED, 1, false);
             SetFact(W8_FACT_QUEST_ANDROID_BROKEN, 0, false);
-            return {{1, std::nullopt}, ConsumeItemUse(game.rules(), location, true)};
+            return {{1, std::nullopt}, game.storage.consumeUse(location, true)};
         }
 
         if (record->equip_class != W8_ITEM_EQUIP_CLASS_INSTRUMENT &&
@@ -850,7 +848,7 @@ static ItemUseOutcome UseItemOnce(Game& game, unsigned int party_slot, W8ItemLoc
             if (!used) {
                 fatigue_cost = 0;
             } else {
-                emptied = ConsumeItemUse(game.rules(), location, true);
+                emptied = game.storage.consumeUse(location, true);
             }
         }
         return {{used, own_cost()}, emptied};

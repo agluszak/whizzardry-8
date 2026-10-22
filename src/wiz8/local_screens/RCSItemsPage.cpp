@@ -463,8 +463,8 @@ void W8CampItemsPage::UnequipBothHands(void)
         dialogs.ShowNotice(Data().strings[0x917], 0, true, false);
         return;
     }
-    BindEquippedItem(CurrentGame().rules(), *character, W8_EQUIP_SLOT_PRIMARY_WEAPON);
-    BindEquippedItem(CurrentGame().rules(), *character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
+    CurrentGame().storage.bind(*character, W8_EQUIP_SLOT_PRIMARY_WEAPON);
+    CurrentGame().storage.bind(*character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
     if (CanUnequipSlotItem(Data(), character, W8_EQUIP_SLOT_PRIMARY_WEAPON) &&
         CanUnequipSlotItem(Data(), character, W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
         SwapWeaponSetSlots(CurrentGame(), PartySlot(), false);
@@ -493,7 +493,7 @@ void W8CampItemsPage::TogglePartyRowFlag(void)
 // FUNCTION: WIZ8 0x005BB220
 void W8CampItemsPage::SortCampItemPool(void)
 {
-    SortPartyItemPool(CurrentGame().rules());
+    CurrentGame().storage.sortPool();
     item_scroll = 0;
     RebuildCampItemList();
     cell_redraw.InvalidatePool();
@@ -1750,7 +1750,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
             if (item->bound) {
                 return;
             }
-            BindEquippedItem(CurrentGame().rules(), *character, equip_slot);
+            CurrentGame().storage.bind(*character, equip_slot);
             return;
         }
         item->bound = true;
@@ -1847,7 +1847,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                             if (paired->bound) {
                                 return;
                             }
-                            BindEquippedItem(CurrentGame().rules(), *character, paired_slot);
+                            CurrentGame().storage.bind(*character, paired_slot);
                             return;
                         }
                         if (item->iItemNo == -1) {

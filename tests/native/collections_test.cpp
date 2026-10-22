@@ -1784,9 +1784,9 @@ TEST_CASE("The pool sorts by class, kind, value and quantity, once play has star
                             W8ItemInstance{.iItemNo = 1, .stack_count = 5, .identified = true}})
         REQUIRE(game.party.insertIntoPool(game.party.item_count, item));
 
-    REQUIRE_THROWS(SortPartyItemPool(game.rules()));
+    REQUIRE_THROWS(game.storage.sortPool());
     game.status.game_started = true;
-    SortPartyItemPool(game.rules());
+    game.storage.sortPool();
     const auto& pool = game.party.item_pool;
     REQUIRE(pool[0].iItemNo == 2);
     REQUIRE((pool[1].iItemNo == 1 && pool[1].stack_count == 5));

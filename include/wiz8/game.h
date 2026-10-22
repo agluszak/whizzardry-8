@@ -28,10 +28,10 @@
 #include "wiz8/npc_speech.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/inventory.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/random.h"
-#include "wiz8/rules/rule_context.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/story.h"
 
@@ -109,8 +109,6 @@ public:
        from the party. */
     void castTriggerSpell(glm::vec3 position, W8SpellId spell, unsigned int power_level);
 
-    // The context the rules act on: the game's data, party, random stream and events.
-    RuleContext rules();
     const GameData& data;
     // The picked imported object, while the party is free to interact with the world.
     NativeObject* interactiveNativeObject();
@@ -192,6 +190,8 @@ public:
 
     // What happened, in order, for the UI to present.
     Events events;
+    // The party's storage rules, over the members above.
+    PartyStorage storage{data, party, rng, events, status.game_started};
     /* The saved state of each level the party has left (or a load brought), kept undecoded:
        its LVLS group as a RIFF image of its own. Leaving a level stores its group here,
        entering one reads it back, and a save writes them beside the current level's. */
