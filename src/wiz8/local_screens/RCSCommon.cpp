@@ -131,8 +131,8 @@ void CampScreen::GiveHeldItemToPortrait(int slot)
     if (!AllowAction(slot)) {
         return;
     }
-    AddItemToCharacter(game, PartyMember(game, slot), PartyItem(game.party, {W8ItemStorage::Hand}),
-                       false, false, false);
+    AddItemToCharacter(game, PartyMember(game, slot), PartyItem({W8ItemStorage::Hand}), false,
+                       false, false);
 }
 
 bool CanSelectRcsPartySlot(int ui_slot)

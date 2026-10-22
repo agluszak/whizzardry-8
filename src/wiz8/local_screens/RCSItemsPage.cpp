@@ -26,7 +26,7 @@
 #include "ui_input.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
-#include "wiz8/camp.pointer.h"
+#include "wiz8/pointer.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/image.h"
 #include "wiz8/canvas/sprite.h"
@@ -346,7 +346,7 @@ bool CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item)
 
 bool CanSplitItemStack(const W8ItemInstance* item)
 {
-    const W8ItemDatabaseRecord* record = &camp.game.rules().data.items[item->iItemNo];
+    const W8ItemDatabaseRecord* record = &Data().items[item->iItemNo];
     if ((record->flags & W8_ITEM_FLAG_NO_DISCARD) != 0) {
         return false;
     }

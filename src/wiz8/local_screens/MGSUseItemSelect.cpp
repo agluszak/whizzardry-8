@@ -650,8 +650,8 @@ void TakeUseItemIntoHand(void)
     if (CurrentGame().party.held.item.iItemNo != -1) {
         assert(use_item->owner != -1);
         const auto old_count = CurrentGame().party.item_pool.size();
-        GiveItemToCharacterOrParty(CurrentGame(), use_item->owner,
-                                   PartyItem(CurrentGame().party, {W8ItemStorage::Hand}), true);
+        GiveItemToCharacterOrParty(CurrentGame(), use_item->owner, PartyItem({W8ItemStorage::Hand}),
+                                   true);
         // A new pool entry goes to the front and moves the selection down one row.
         if (use_item->pool == ItemPool::Party &&
             old_count != CurrentGame().party.item_pool.size() &&

@@ -17,8 +17,7 @@ namespace {
 W8Party PartyWithPool(std::initializer_list<int> item_ids)
 {
     W8Party party;
-    for (const int id : item_ids)
-        REQUIRE(party.insertIntoPool(party.item_pool.size(), {.iItemNo = id}));
+    for (const int id : item_ids) party.item_pool.push_back({.iItemNo = id});
     return party;
 }
 
@@ -34,7 +33,6 @@ TEST_CASE("Taking or emptying a pool entry closes the pool up", "[party][storage
     REQUIRE(party.take({W8ItemStorage::Pool, 0, 1}).iItemNo == 11);
     REQUIRE(party.item_pool.size() == 2);
     REQUIRE(party.itemAt({W8ItemStorage::Pool, 0, 2}) == nullptr);
-    REQUIRE_FALSE(party.insertIntoPool(3, {.iItemNo = 99}));
     REQUIRE((PoolItem(party, 0) == 10 && PoolItem(party, 1) == 12));
 
     // Moving a pool entry into an empty backpack slot closes the pool too.
@@ -147,14 +145,86 @@ TEST_CASE("Pool placement preserves stack quantities across growth and refusal",
         REQUIRE(party.item_pool.size() == W8_PARTY_POOL_LIMIT);
         REQUIRE(party.item_pool[0].stack_count == 100);
     }
+    SECTION("Both transfer orders leave a refused held item in its source")
+    {
+        auto& character = party.characters[0];
+        for (auto& item : character.backpack) item = {.iItemNo = 0, .stack_count = 100};
+        party.item_pool.assign(W8_PARTY_POOL_LIMIT,
+                               W8ItemInstance{.iItemNo = 0, .stack_count = 100});
+        party.held.item = {.iItemNo = 0, .stack_count = 5};
+        for (const bool party_first : {false, true}) {
+            REQUIRE_FALSE(PlaceWithCharacterOrPool(rules, {character, 0},
+                                                   PartyItem({W8ItemStorage::Hand}), party_first,
+                                                   false, false));
+            REQUIRE(party.held.item.stack_count == 5);
+            REQUIRE(party.item_pool.size() == W8_PARTY_POOL_LIMIT);
+        }
+    }
+    SECTION("A merged equipment stack is the actual acquisition receiver")
+    {
+        auto& character = party.characters[0];
+        character.EquippedItem[8] = {.iItemNo = 0, .stack_count = 90};
+        W8ItemInstance incoming{.iItemNo = 0, .stack_count = 5};
+        const auto placed =
+            PlaceWithCharacter(rules, {character, 0}, OwnedItem(incoming), false, false, false);
+        REQUIRE(placed);
+        REQUIRE(placed->stored.storage == W8ItemStorage::None);
+        REQUIRE(placed->received);
+        REQUIRE(placed->received->location == W8ItemLocation{W8ItemStorage::Equipment, 0, 8});
+        REQUIRE(&placed->received->get(party) == &character.EquippedItem[8]);
+        REQUIRE(character.EquippedItem[8].stack_count == 95);
+    }
+    SECTION("An outsider's acquisition receiver belongs to its own character")
+    {
+        W8Character outsider{};
+        outsider.EquippedItem[10] = {.iItemNo = 0, .stack_count = 90};
+        W8ItemInstance incoming{.iItemNo = 0, .stack_count = 5};
+        const auto placed = PlaceWithCharacter(rules, {outsider, std::nullopt}, OwnedItem(incoming),
+                                               false, false, false);
+        REQUIRE(placed);
+        REQUIRE(placed->received);
+        REQUIRE_FALSE(placed->received->location);
+        REQUIRE(&placed->received->get(party) == &outsider.EquippedItem[10]);
+        REQUIRE(outsider.EquippedItem[10].stack_count == 95);
+    }
+    SECTION("Consuming an earlier source preserves the receiving pool location")
+    {
+        party.item_pool = {{.iItemNo = 0, .stack_count = 5}, {.iItemNo = 0, .stack_count = 90}};
+        const auto placed =
+            PlaceInPool(rules, PartyItem({W8ItemStorage::Pool, 0, 0}), false, false);
+        REQUIRE(placed);
+        REQUIRE(party.item_pool.size() == 1);
+        REQUIRE(party.item_pool[0].stack_count == 95);
+        REQUIRE(placed->received->location == W8ItemLocation{W8ItemStorage::Pool, 0, 0});
+        party.item_pool.reserve(1000);
+        REQUIRE(&placed->received->get(party) == &party.item_pool[0]);
+    }
+    SECTION("An existing row can move within a full pool")
+    {
+        party.item_pool.assign(W8_PARTY_POOL_LIMIT,
+                               W8ItemInstance{.iItemNo = 0, .stack_count = 100});
+        party.item_pool.back().stack_count = 5;
+        const auto placed =
+            PlaceInPool(rules, PartyItem({W8ItemStorage::Pool, 0, 499}), false, false);
+        REQUIRE(placed);
+        REQUIRE(party.item_pool.size() == W8_PARTY_POOL_LIMIT);
+        REQUIRE(party.item_pool.front().stack_count == 5);
+        REQUIRE(placed->stored == W8ItemLocation{W8ItemStorage::Pool, 0, 0});
+    }
+    SECTION("Invalid pool insertion preserves the held item")
+    {
+        party.held.item = {.iItemNo = 0, .stack_count = 5};
+        REQUIRE_FALSE(InsertHeldItemInPool(rules, 1));
+        REQUIRE(party.item_pool.empty());
+        REQUIRE(party.held.item.stack_count == 5);
+    }
     SECTION("The source is a pool item")
     {
         party.item_pool = {{.iItemNo = 0, .stack_count = 5}};
         auto& character = party.characters[0];
         character.EquippedItem[0] = {.iItemNo = 0, .stack_count = 200};
-        REQUIRE(PlaceWithCharacter(rules, {character, 0},
-                                   PartyItem(party, {W8ItemStorage::Pool, 0, 0}), false, false,
-                                   false));
+        REQUIRE(PlaceWithCharacter(rules, {character, 0}, PartyItem({W8ItemStorage::Pool, 0, 0}),
+                                   false, false, false));
         REQUIRE(character.EquippedItem[0].stack_count == 100);
         REQUIRE(character.backpack[0].stack_count == 5);
         REQUIRE(party.item_pool.size() == 1);
