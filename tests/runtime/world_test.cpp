@@ -673,34 +673,44 @@ void ResourceLifecycleScenario()
     game.click("options-panel", *FindScreen<OptionsScreen>()->m_menu_buttons[2]);
     REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 2);
     game.click("options-next", *FindScreen<OptionsScreen>()->m_navigation[1]);
-    REQUIRE(FindScreen<OptionsScreen>()->m_panel[2]->m_current == 1);
+    REQUIRE(FindScreen<OptionsScreen>()->m_current_page == 1);
     game.click("options-previous", *FindScreen<OptionsScreen>()->m_navigation[0]);
-    REQUIRE(FindScreen<OptionsScreen>()->m_panel[2]->m_current == 0);
+    REQUIRE(FindScreen<OptionsScreen>()->m_current_page == 0);
+    auto* keyboard =
+        static_cast<W8OptionsKeyboardPanel*>(FindScreen<OptionsScreen>()->m_panels.front().get());
+    game.click("options-key-capture", *keyboard->m_keys.front()->target);
+    REQUIRE(FindScreen<OptionsScreen>()->m_key_capture == keyboard);
     game.press_at(30, 60);
     game.release_at(200, 190);
     REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 2);
     // The artwork hotspot selects the same panel as its button.
     game.click("options-artwork", {30, 60});
     REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 0);
-    const int combat_delay = FindScreen<OptionsScreen>()->options.combat_delay_ms;
+    REQUIRE_FALSE(FindScreen<OptionsScreen>()->m_key_capture);
+    REQUIRE(FindScreen<OptionsScreen>()->m_panels.size() == 3);
+    const int combat_delay = g_settings.combat_delay_ms;
     game.click_at(480, 50);
-    const int clicked_delay = FindScreen<OptionsScreen>()->options.combat_delay_ms;
+    const int clicked_delay = g_settings.combat_delay_ms;
     REQUIRE(clicked_delay > 2500);
     game.press_at(480, 50);
     game.move_pointer(520, 50);
-    REQUIRE(FindScreen<OptionsScreen>()->options.combat_delay_ms < clicked_delay);
+    REQUIRE(g_settings.combat_delay_ms < clicked_delay);
     game.release_at(200, 190); // Captured release outside ends the drag.
-    const int released_delay = FindScreen<OptionsScreen>()->options.combat_delay_ms;
-    REQUIRE(g_settings.options.combat_delay_ms == combat_delay); // The draft is not live yet.
+    const int released_delay = g_settings.combat_delay_ms;
+    REQUIRE(released_delay != combat_delay); // Slider changes are immediately live.
     game.move_pointer(490, 50);
-    REQUIRE(FindScreen<OptionsScreen>()->options.combat_delay_ms == released_delay);
+    REQUIRE(g_settings.combat_delay_ms == released_delay);
     game.click_at(30, 250); // An inactive panel must not retain slider input.
     game.click_at(480, 50);
-    REQUIRE(FindScreen<OptionsScreen>()->options.combat_delay_ms == released_delay);
-    FindScreen<OptionsScreen>()->options.combat_delay_ms = combat_delay;
+    REQUIRE(g_settings.combat_delay_ms == released_delay);
+    game.click_at(30, 60); // Rebuild the game menu from its live settings.
+    REQUIRE(g_settings.combat_delay_ms == released_delay);
+    game.click_at(480, 50); // The rebuilt slider writes through too.
+    REQUIRE(g_settings.combat_delay_ms > 2500);
+    g_settings.combat_delay_ms = combat_delay;
     game.click_at(20, 445);
     game.wait_screen("options-menu-return", W8_SCREEN_MAIN_GAME);
-    REQUIRE(g_settings.options.combat_delay_ms == combat_delay);
+    REQUIRE(g_settings.combat_delay_ms == combat_delay);
     // Exercise a second screen's input, teardown and return-stack lifecycle.
     const std::size_t return_depth = SuspendedScreenCount();
     // Retail saves can retain entries whose fact no longer exists. Opening,

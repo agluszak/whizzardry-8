@@ -252,7 +252,7 @@ TEST_CASE_METHOD(TimerFixture, "A game steps deterministically on the times it i
     auto& game = CurrentGame();
     game.level.replacePrimary(std::make_unique<World>());
     game.level.primary->camera = &game.level.primary->scene->camera;
-    const auto auto_save = std::exchange(g_settings.options.auto_save, 0);
+    const auto auto_save = std::exchange(g_settings.auto_save, 0);
     const auto step = [&](int ms) { game.advance(milliseconds{ms}, {}); };
 
     step(16);
@@ -275,7 +275,7 @@ TEST_CASE_METHOD(TimerFixture, "A game steps deterministically on the times it i
     REQUIRE(game.visual_time == milliseconds{433});
     REQUIRE(game.autosave_due == Game::kAutosaveInterval - milliseconds{433});
 
-    g_settings.options.auto_save = auto_save;
+    g_settings.auto_save = auto_save;
 }
 
 TEST_CASE_METHOD(TimerFixture, "Texture animations retain their clock after 32-bit tick rollover",

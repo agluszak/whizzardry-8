@@ -2029,18 +2029,18 @@ TEST_CASE("Vitals panels publish their complete bounds without changing sampled 
     CatalogArtworkAssets assets;
     ScopedGame game;
     struct Settings {
-        unsigned char numeric = g_settings.options.numeric_hit_points;
+        unsigned char numeric = g_settings.numeric_hit_points;
         Font font = std::move(g_smfnt_font);
         ~Settings()
         {
-            g_settings.options.numeric_hit_points = numeric;
+            g_settings.numeric_hit_points = numeric;
             g_smfnt_font = std::move(font);
         }
     } settings;
     REQUIRE(g_smfnt_font.load("data/fonts/vitals.sti"));
     auto& framebuffer = GetFrameBufferSurface();
     for (bool numeric : {false, true}) {
-        g_settings.options.numeric_hit_points = numeric;
+        g_settings.numeric_hit_points = numeric;
         for (unsigned slot : {0u, 7u}) {
             auto& entry = game.game.monster_manager_entries[slot];
             game.game.party.characters[slot].hp_current = 20;

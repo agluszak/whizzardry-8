@@ -275,14 +275,14 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         break;
     case W8_MGS_COMMAND_COMBAT_DELAY_UP: {
-        unsigned int delay = g_settings.options.combat_delay_ms;
+        unsigned int delay = g_settings.combat_delay_ms;
         if (delay < 0x1388) {
             if (delay % 0xfa == 0) {
                 delay += 0xfa;
             } else {
                 delay += 0xfa - delay % 0xfa;
             }
-            g_settings.options.combat_delay_ms = delay;
+            g_settings.combat_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
                        fmt::format("{} {:d}", Data().strings[0x7ba], 0x14 - delay / 0xfa));
         } else {
@@ -292,14 +292,14 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     }
     case W8_MGS_COMMAND_COMBAT_DELAY_DOWN: {
-        unsigned int delay = g_settings.options.combat_delay_ms;
+        unsigned int delay = g_settings.combat_delay_ms;
         if (delay > 0) {
             if (delay % 0xfa == 0) {
                 delay -= 0xfa;
             } else {
                 delay -= delay % 0xfa;
             }
-            g_settings.options.combat_delay_ms = delay;
+            g_settings.combat_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
                        fmt::format("{} {:d}", Data().strings[0x7ba], 0x14 - delay / 0xfa));
         } else {
@@ -309,14 +309,14 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     }
     case W8_MGS_COMMAND_TEXT_DELAY_UP: {
-        unsigned int delay = g_settings.options.text_display_delay_ms;
+        unsigned int delay = g_settings.text_display_delay_ms;
         if (delay < 0x1388) {
             if (delay % 0xfa == 0) {
                 delay += 0xfa;
             } else {
                 delay += 0xfa - delay % 0xfa;
             }
-            g_settings.options.text_display_delay_ms = delay;
+            g_settings.text_display_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
                        fmt::format("{} {:d}", Data().strings[0x7b7], 0x14 - delay / 0xfa));
         } else {
@@ -326,14 +326,14 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     }
     case W8_MGS_COMMAND_TEXT_DELAY_DOWN: {
-        unsigned int delay = g_settings.options.text_display_delay_ms;
+        unsigned int delay = g_settings.text_display_delay_ms;
         if (delay > 0) {
             if (delay % 0xfa == 0) {
                 delay -= 0xfa;
             } else {
                 delay -= delay % 0xfa;
             }
-            g_settings.options.text_display_delay_ms = delay;
+            g_settings.text_display_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
                        fmt::format("{} {:d}", Data().strings[0x7b7], 0x14 - delay / 0xfa));
         } else {
@@ -607,10 +607,9 @@ void DispatchMGSCommand(W8MGSCommand command)
         }
         break;
     case W8_MGS_COMMAND_TOGGLE_AUTO_ADVANCE:
-        g_settings.options.auto_advance_character = !g_settings.options.auto_advance_character;
-        ShowNotice(
-            W8_FONT_PALETTE_BEIGE,
-            Data().strings[g_settings.options.auto_advance_character ? 0x1f68 / 4 : 0x1f6c / 4]);
+        g_settings.auto_advance_character = !g_settings.auto_advance_character;
+        ShowNotice(W8_FONT_PALETTE_BEIGE,
+                   Data().strings[g_settings.auto_advance_character ? 0x1f68 / 4 : 0x1f6c / 4]);
         break;
     case W8_MGS_COMMAND_TEXTBOX_SCROLL_UP:
         ScrollTextBoxUp(1);

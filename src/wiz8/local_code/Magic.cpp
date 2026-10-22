@@ -608,7 +608,7 @@ void UpdateSpellEffects(void)
             !IsCombatEffectSlotSpell(effect.kind)) {
             W8SpellTargetType target_type = GetSpellTargetType(effect.kind, false);
             if (target_type != W8_TARGET_TYPE_RADIUS && target_type != W8_TARGET_TYPE_PARTY) {
-                if (!g_settings.options.verbose_combat_messages) {
+                if (!g_settings.verbose_combat_messages) {
                     ReportSpellResult(&effect);
                 }
                 FinishSpellEffectTargets(&effect);
@@ -735,7 +735,7 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
             CurrentGame().events.push(CharacterNotice{
                 static_cast<unsigned int>(effect->target.iChar), Data().strings[0x195]});
         }
-        if (!g_settings.options.verbose_combat_messages) {
+        if (!g_settings.verbose_combat_messages) {
             CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
         target.point = position;
@@ -757,7 +757,7 @@ void ScaleByCombatPace(int party_slot, unsigned int* value)
         return;
     }
 
-    switch (g_settings.options.difficulty) {
+    switch (g_settings.difficulty) {
     case W8_DIFFICULTY_NOVICE:
         pace = 0x50;
         break;
@@ -1814,7 +1814,7 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
 
     SetTargetSourceToMonster(monster_info, &source);
 
-    if (!g_settings.options.verbose_combat_messages) {
+    if (!g_settings.verbose_combat_messages) {
         CurrentGame().events.push(TextNotice{
             W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[W8_MESSAGE_MONSTER_CAST / 4],
                                                GetMonsterName(monster_info, record, 0),
@@ -2382,7 +2382,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
             power_level = character->iSPLeft[realm] / sp_cost;
         }
     }
-    if (!g_settings.options.verbose_combat_messages) {
+    if (!g_settings.verbose_combat_messages) {
         if (!continue_cast) {
             CurrentGame().events.push(
                 CharacterNotice{static_cast<unsigned int>(party_slot),
@@ -2436,12 +2436,12 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
         chance += record->spell_level * index;
     }
     if (CurrentGame().combat.has_value()) {
-        if (g_settings.options.difficulty == W8_DIFFICULTY_NOVICE) {
+        if (g_settings.difficulty == W8_DIFFICULTY_NOVICE) {
             morale = 0x50;
-        } else if (g_settings.options.difficulty == W8_DIFFICULTY_NORMAL) {
+        } else if (g_settings.difficulty == W8_DIFFICULTY_NORMAL) {
             morale = 0x3c;
         } else {
-            if (g_settings.options.difficulty != W8_DIFFICULTY_EXPERT) {
+            if (g_settings.difficulty != W8_DIFFICULTY_EXPERT) {
                 goto finish_difficulty_adjustment;
             }
             morale = 0x28;
@@ -2942,7 +2942,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         if (source->fBackfire) {
             if (quiet) {
                 owner.reported = true;
-            } else if (g_settings.options.verbose_combat_messages) {
+            } else if (g_settings.verbose_combat_messages) {
                 CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x197]});
             } else {
                 AppendToLastTextLine(fmt::format(" -- {}", Data().strings[0x197]), -1);
@@ -2969,7 +2969,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             if (cast_kind == W8SpellCastKind::EngineeringItemUse) {
                 message = 0x1ab;
             }
-            if (g_settings.options.verbose_combat_messages) {
+            if (g_settings.verbose_combat_messages) {
                 CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(source->iChar),
                                                           Data().strings[message]});
             } else {
@@ -2977,7 +2977,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             }
             break;
         default:
-            if (g_settings.options.verbose_combat_messages) {
+            if (g_settings.verbose_combat_messages) {
                 CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x196]});
             } else {
                 AppendToLastTextLine(fmt::format(" -- {}", Data().strings[0x196]), -1);

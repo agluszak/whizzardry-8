@@ -1308,10 +1308,10 @@ void UpdateCampFatigue(int ticks)
                         FatigueCharacter(slot, stamina, false,
                                          static_cast<W8SpellEffectResult*>(0));
                     }
-                    bool announce = !CurrentGame().combat.has_value() ||
-                                            !g_settings.options.verbose_combat_messages
-                                        ? 0
-                                        : 1;
+                    bool announce =
+                        !CurrentGame().combat.has_value() || !g_settings.verbose_combat_messages
+                            ? 0
+                            : 1;
                     ApplyDamageToCharacter(slot, amount, false, announce, false,
                                            static_cast<W8SpellEffectResult*>(0), false);
                 } else {

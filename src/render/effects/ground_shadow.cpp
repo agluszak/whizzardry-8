@@ -181,7 +181,7 @@ void GroundShadow::updateRenderNode(render::RenderContext& context, const SceneF
                 if (draw) draw->draw->indexCount = 0;
     };
     auto* spatial = world ? world->compiledIndex() : nullptr;
-    if (!visible || !g_settings.options.monster_shadows || !spatial || width <= 0 || depth <= 0) {
+    if (!visible || !g_settings.monster_shadows || !spatial || width <= 0 || depth <= 0) {
         hide();
         return;
     }

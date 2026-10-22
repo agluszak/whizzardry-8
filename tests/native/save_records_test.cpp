@@ -1308,38 +1308,15 @@ TEST_CASE("The newest unexpired lure is the active monster-control effect", "[ef
     REQUIRE(FindMonsterControlSpellEffect() == nullptr);
 }
 
-TEST_CASE("Applying options preserves native values and live preview settings", "[configuration]")
-{
-    struct RestoreSettings {
-        W8GameSettings saved = g_settings;
-        ~RestoreSettings() { g_settings = saved; }
-    } restore;
-    const ScopedGame game;
-    auto options = g_settings.options;
-    options.combat_delay_ms = 1234;
-    options.camera_rotation_mode = W8_CAMERA_ROTATION_SELECTED_CHARACTER;
-    options.camera_rotation_style = W8_CAMERA_ROTATION_SMOOTH;
-    options.difficulty = W8_DIFFICULTY_EXPERT;
-    // Audio/tooltips can change while the deferred options value is being edited.
-    g_settings.music_volume = 37;
-    g_settings.tooltip_delay_ms = 450;
-    ApplyGameOptions(options);
-    REQUIRE(g_settings.options.combat_delay_ms == 1234);
-    REQUIRE(g_settings.options.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER);
-    REQUIRE(g_settings.options.camera_rotation_style == W8_CAMERA_ROTATION_SMOOTH);
-    REQUIRE(game.game.status.difficulty == W8_DIFFICULTY_EXPERT);
-    REQUIRE(g_settings.music_volume == 37);
-    REQUIRE(g_settings.tooltip_delay_ms == 450);
-    const auto committed = EncodeGameSettings(g_settings);
-    ApplyGameOptions(g_settings.options);
-    REQUIRE(EncodeGameSettings(g_settings) == committed);
-}
-
 TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][configuration]")
 {
     W8GameSettings settings{};
     settings.tooltips_enabled = true;
-    settings.options.difficulty = W8_DIFFICULTY_EXPERT;
+    settings.difficulty = W8_DIFFICULTY_EXPERT;
+    settings.combat_delay_ms = 1234;
+    settings.text_display_delay_ms = 4321;
+    settings.camera_rotation_mode = W8_CAMERA_ROTATION_SELECTED_CHARACTER;
+    settings.camera_rotation_style = W8_CAMERA_ROTATION_SMOOTH;
     settings.music_volume = 77;
     settings.intro_seen = true;
     settings.unknown_051[0] = 0x5a;
@@ -1349,14 +1326,18 @@ TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][c
              record[0x2f] == std::byte{77} && record[0x46] == std::byte{1} &&
              record[0x51] == std::byte{0x5a}));
     const auto decoded = DecodeGameSettings(record);
-    REQUIRE((decoded.options.difficulty == W8_DIFFICULTY_EXPERT && decoded.music_volume == 77 &&
+    REQUIRE((decoded.difficulty == W8_DIFFICULTY_EXPERT && decoded.music_volume == 77 &&
              decoded.intro_seen && decoded.unknown_051[0] == 0x5a));
+    REQUIRE(decoded.combat_delay_ms == 1234);
+    REQUIRE(decoded.text_display_delay_ms == 4321);
+    REQUIRE(decoded.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER);
+    REQUIRE(decoded.camera_rotation_style == W8_CAMERA_ROTATION_SMOOTH);
     REQUIRE(EncodeGameSettings(decoded) == record);
     // Retail flag bytes are truth values, not native bool object representations.
     auto noncanonical = record;
     noncanonical[0x01] = std::byte{0x80};
     const auto normalized = DecodeGameSettings(noncanonical);
-    REQUIRE(normalized.options.numeric_hit_points);
+    REQUIRE(normalized.numeric_hit_points);
     noncanonical[0x01] = std::byte{1};
     REQUIRE(EncodeGameSettings(normalized) == noncanonical);
     REQUIRE_THROWS(DecodeGameSettings(std::span(record).first(0xa3)));

@@ -21,9 +21,9 @@ void SetMusicVolume(unsigned char volume);
 bool IsMusicMuted(void);
 void SetMusicMuted(unsigned char muted);
 
-// User options applied together when the options screen closes. The editor and
-// running game use this same value type; live audio/tooltip previews are separate.
-struct GameOptions {
+/* The persisted configuration. The configuration file's CNFG chunk stores it as a fixed
+   0xa4-byte record (EncodeGameSettings); unnamed slots keep their bytes. */
+struct W8GameSettings {
     bool mouselook_toggle;
     bool mouselook_smoothing;
     bool invert_mouse_y;
@@ -49,12 +49,6 @@ struct GameOptions {
     bool smooth_world_animations;   /* options string 0x81a */
     bool pc_confirmations; /* options string 0x823 */
     bool pc_subtitles; /* options string 0x824 */
-};
-
-/* The persisted configuration. The configuration file's CNFG chunk stores it as a fixed
-   0xa4-byte record (EncodeGameSettings); unnamed slots keep their bytes. */
-struct W8GameSettings {
-    GameOptions options{};
     unsigned char field_000;
     unsigned char unknown_002[0x4];
     /* The main-game layout RefreshMainGameLayout selects. NONE is the
@@ -85,9 +79,6 @@ struct W8GameSettings {
 };
 
 extern W8GameSettings g_settings;
-
-// Install an edited options value, including difficulty and combat-stance effects.
-void ApplyGameOptions(const GameOptions& options);
 
 /* The CNFG chunk of the configuration file. Decoding throws std::runtime_error unless the
    payload is exactly one record. */

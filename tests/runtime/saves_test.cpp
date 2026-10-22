@@ -262,10 +262,14 @@ void MenuSaveScenario()
         REQUIRE(FindScreen<OptionsScreen>());
         click(*FindScreen<OptionsScreen>()->m_menu_buttons[save ? 5 : 4]);
         REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == (save ? 5 : 4));
-        return static_cast<W8OptionsSaveLoadPanel&>(
-            *FindScreen<OptionsScreen>()->m_panel[save ? 5 : 4]->m_panels.front());
+        return static_cast<W8OptionsSaveLoadPanel&>(*FindScreen<OptionsScreen>()->m_panels.front());
     };
 
+    open(true);
+    REQUIRE(FindScreen<OptionsScreen>()->m_text_editor);
+    game.enter_text("Abandoned");
+    click(*FindScreen<OptionsScreen>()->m_menu_buttons[0]);
+    REQUIRE_FALSE(FindScreen<OptionsScreen>()->m_text_editor);
     auto& create = open(true);
     REQUIRE(FindScreen<OptionsScreen>()->m_text_editor);
     game.enter_text("MenuOne");

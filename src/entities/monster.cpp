@@ -1394,7 +1394,7 @@ void Monster::UpdateRepresentation(World* world)
         model = visual.GetCurrentModelInstance();
         if (model != 0) {
             static_cast<MeshInstance*>(model)->frame_interpolation =
-                g_settings.options.smooth_monster_animations ? visual.frame_fraction : 0.0f;
+                g_settings.smooth_monster_animations ? visual.frame_fraction : 0.0f;
             SetModelInstanceExclusionMask(model, 4);
         }
         if (monster_light != 0) {

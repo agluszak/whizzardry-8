@@ -14,7 +14,6 @@
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/mgs_commands.h"
 #include "wiz8/platform/input.h"
@@ -49,17 +48,6 @@ struct W8OptionsSaveRow {
     W8ButtonWidget button;
     bool m_editing = false;
     W8SaveSlot* m_save = nullptr;
-};
-
-/* A set of option panels; it owns the panels in its vector. */
-class W8OptionsPanelSet {
-public:
-    W8OptionsPanelSet();
-    ~W8OptionsPanelSet();
-    unsigned char m_compact_layout;
-    unsigned char m_hide_navigation;
-    int m_current;
-    std::vector<std::unique_ptr<W8OptionsPanel>> m_panels;
 };
 
 // Options own slider input and painting; no visual parent or listener hierarchy.
@@ -129,23 +117,6 @@ public:
     std::vector<std::unique_ptr<W8TextBuffer>> m_text_buffers;
 };
 
-class W8OptionsInterfacePanel : public W8OptionsPanel {
-public:
-    explicit W8OptionsInterfacePanel(GameOptions& values);
-    void OnPrimary(W8ButtonWidget* control);
-    W8OptionsSlider* m_tooltip_delay;
-};
-
-class W8OptionsAudioPanel : public W8OptionsPanel {
-public:
-    explicit W8OptionsAudioPanel(GameOptions& values);
-    void OnPrimary(W8ButtonWidget* control);
-    void ChangeVolume(int index, float value);
-    void PreviewVolume(int index);
-    W8OptionsSlider* m_sliders[4];
-    W8ButtonWidget* m_mute_buttons[4];
-};
-
 struct W8OptionsKeyButton {
     void SetKey(SDL_Keycode key);
     void SetKeyText(SDL_Keycode key);
@@ -171,11 +142,6 @@ public:
     int m_panel;
     std::vector<std::unique_ptr<W8OptionsKeyButton>> m_keys;
     W8OptionsKeyButton* m_captured_button = nullptr;
-};
-
-class W8OptionsUnavailablePanel : public W8OptionsPanel {
-public:
-    explicit W8OptionsUnavailablePanel(int message);
 };
 
 class W8OptionsSaveLoadPanel : public W8OptionsPanel {
@@ -219,8 +185,7 @@ struct W8OptionsPanelRange {
     int last;
 };
 
-/* Settings, key bindings and the save and load lists. The panels are rebuilt
-   from the live settings on every visit and applied when the screen leaves. */
+// Settings are edited live; only the selected menu owns panels.
 class OptionsScreen final : public Screen {
     UiLayer m_menu_input;
 
@@ -251,8 +216,6 @@ public:
     void FinishTextEdit(bool cancelled);
     void OnDialogClosed(bool accepted, int value);
 
-    GameOptions options{};
-    std::array<bool, 6> render_options{};
     std::vector<std::unique_ptr<W8SaveSlot>> m_save_slots;
     bool m_redraw_pending = true;
     std::function<void(bool)> m_notification_closed;
@@ -263,7 +226,8 @@ public:
     int m_navigation_y = 0x1a8;
     bool m_navigation_visible = false;
     bool m_navigation_dirty = true;
-    std::unique_ptr<W8OptionsPanelSet> m_panel[8];
+    std::vector<std::unique_ptr<W8OptionsPanel>> m_panels;
+    int m_current_page = 0;
     std::unique_ptr<W8MessageDialogBase> m_active_modal;
     std::unique_ptr<W8OptionsTextEditor> m_text_editor;
     W8OptionsKeyboardPanel* m_key_capture = nullptr;

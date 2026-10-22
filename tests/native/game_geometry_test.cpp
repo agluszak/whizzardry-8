@@ -719,10 +719,10 @@ TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry]
     tree.m_aulPolyLookup = {0, 1u << 16};
 
     struct ShadowSetting {
-        unsigned char previous = g_settings.options.monster_shadows;
-        ~ShadowSetting() { g_settings.options.monster_shadows = previous; }
+        unsigned char previous = g_settings.monster_shadows;
+        ~ShadowSetting() { g_settings.monster_shadows = previous; }
     } setting;
-    g_settings.options.monster_shadows = true;
+    g_settings.monster_shadows = true;
     GroundShadow shadow;
     // Scene membership, not frame preparation, puts the shadow in the graph.
     const auto in_scene = [&] {

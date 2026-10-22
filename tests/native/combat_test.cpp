@@ -47,8 +47,8 @@ struct CombatFixture {
     CombatFixture()
     {
         game.level.replacePrimary(std::make_unique<World>());
-        g_settings.options.camera_rotation_mode = W8_CAMERA_ROTATION_DISABLED;
-        g_settings.options.verbose_combat_messages = 0;
+        g_settings.camera_rotation_mode = W8_CAMERA_ROTATION_DISABLED;
+        g_settings.verbose_combat_messages = 0;
         for (int slot = 0; slot < 2; ++slot) {
             game.party.members[slot].emplace();
             game.party.characters[slot].hp_current = 10;

@@ -193,7 +193,7 @@ void Combat::step(Game& game)
         if (CheckCombatEnd(execution_active == 0 && enemies_engaged) != 0) {
             return;
         }
-        if ((!g_settings.options.continuous_combat ||
+        if ((!g_settings.continuous_combat ||
              continuous_start_delay > std::chrono::milliseconds::zero() ||
              !CombatMayAdvanceContinuously()) &&
             !party_surprised) {
@@ -210,7 +210,7 @@ void Combat::step(Game& game)
         }
     } else if (const auto* scheduled = std::get_if<TurnScheduled>(&current)) {
         if (action_delay == std::chrono::milliseconds::zero()) {
-            if (g_settings.options.autoscroll_combat_messages) {
+            if (g_settings.autoscroll_combat_messages) {
                 notice_scroll_pending = true;
             }
             beginScheduledAction(game, scheduled->actor);
@@ -312,12 +312,12 @@ void Combat::scheduleNextActor(Game& game)
                 }
                 if ((action == W8_ACTION_DEFEND || action == W8_ACTION_PROTECT ||
                      action == W8_ACTION_NONE) &&
-                    (!g_settings.options.continuous_combat ||
+                    (!g_settings.continuous_combat ||
                      CharacterCanSwitchTo(*slot, SelectCombatAction(*slot, context), false,
                                           false))) {
                     interruptible = true;
                 }
-                if ((g_settings.options.continuous_combat ||
+                if ((g_settings.continuous_combat ||
                      CharacterCanSwitchTo(*slot, SelectCombatAction(*slot, context), false,
                                           false)) &&
                     !interruptible) {
@@ -336,8 +336,8 @@ void Combat::scheduleNextActor(Game& game)
             }
             if (apply_delay && CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 &&
                 IsLevelMovementStopped()) {
-                unsigned int delay = g_settings.options.combat_delay_ms;
-                if (pacing_latch && (!g_settings.options.continuous_combat || !free_turn) &&
+                unsigned int delay = g_settings.combat_delay_ms;
+                if (pacing_latch && (!g_settings.continuous_combat || !free_turn) &&
                     delay > 0x31f) {
                     delay = 0x320;
                 }
@@ -381,7 +381,7 @@ void Combat::scheduleNextActor(Game& game)
                 }
                 if (equip_phase == W8CombatEquipPhase::action_selection) {
                     AdvanceCombatRound();
-                    if (CheckCombatEnd(1) == 0 && g_settings.options.continuous_combat) {
+                    if (CheckCombatEnd(1) == 0 && g_settings.continuous_combat) {
                         BeginCombatExecution();
                     }
                 }

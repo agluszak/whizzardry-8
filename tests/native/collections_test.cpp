@@ -645,11 +645,11 @@ TEST_CASE_METHOD(LevelWorldFixture,
     records[1].binds_on_equip = 1;
     const ScopedGameData installed(std::move(data));
     struct RestoreState {
-        unsigned char autoswap = g_settings.options.autoswap_weapons;
+        unsigned char autoswap = g_settings.autoswap_weapons;
         ScopedCombat combat;
-        ~RestoreState() { g_settings.options.autoswap_weapons = autoswap; }
+        ~RestoreState() { g_settings.autoswap_weapons = autoswap; }
     } restore;
-    g_settings.options.autoswap_weapons = true;
+    g_settings.autoswap_weapons = true;
     REQUIRE(CurrentLevelPopulation().monster_roster.live().empty());
     auto& character = characters[0];
     for (auto& item : character.EquippedItem) item.iItemNo = -1;

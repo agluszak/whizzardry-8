@@ -458,7 +458,11 @@ Unlayered code may use the layers.
   level's, and a load brings every saved group in. No working file sits beside the saves.
 - **Configuration.** The configuration file's CNFG chunk is a fixed 0xa4-byte record with
   its own codec (`EncodeGameSettings`); `W8GameSettings` has an ordinary layout and keeps
-  the bytes of its unnamed slots.
+  the bytes of its unnamed slots. Options controls edit this single native settings
+  object directly. Difficulty and combat-mode controls apply their gameplay effects
+  at the interaction boundary; render controls call `SetRenderOption` with the actual
+  option enum. The options screen keeps only the selected menu's panels, rebuilding
+  them from live settings on menu changes after cancelling text edits and key capture.
 
 ## Gameplay operations
 

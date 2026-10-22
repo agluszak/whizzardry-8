@@ -44,6 +44,7 @@
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/JournalScreen.h"
@@ -67,13 +68,6 @@
 
 // GLOBAL: WIZ8 0x0069c254
 std::string g_options_last_save_name;
-
-constexpr std::array kEditableRenderOptions{W8_RENDER_OPTION_MIP_MAPPING,
-                                            W8_RENDER_OPTION_MISSILE_LIGHTS,
-                                            W8_RENDER_OPTION_MESH_SKY,
-                                            W8_RENDER_OPTION_VIDEO_SYNC,
-                                            W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS,
-                                            W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL};
 
 static void AddOptionsLabel(W8OptionsPanel& panel, int label);
 
@@ -253,10 +247,6 @@ static W8OptionsKeyboardPage g_options_keyboard_pages[5] = {
     {0x837, W8_MGS_COMMAND_SELECT_PC_1, W8_MGS_COMMAND_SELECT_RECRUITED_2},
     {0x838, W8_MGS_COMMAND_TEXTBOX_PAGE_UP, W8_MGS_COMMAND_TEXTBOX_CLEAR},
     {0x839, W8_MGS_COMMAND_START_COMBAT_ROUND, W8_MGS_COMMAND_REPEAT_ACTION}};
-
-W8OptionsPanelSet::W8OptionsPanelSet() : m_compact_layout(0), m_hide_navigation(0), m_current(0) {}
-
-W8OptionsPanelSet::~W8OptionsPanelSet() = default;
 
 void W8OptionsSaveRow::SetSave(W8SaveSlot& save)
 {
@@ -870,164 +860,189 @@ void W8OptionsKeyboardPanel::ClearDuplicateBinding(SDL_Keycode key)
     }
 }
 
-static std::unique_ptr<W8OptionsPanel> CreateGameOptionsPanel(GameOptions& values)
+static void AddRenderCheckbox(W8OptionsPanel& panel, int label, W8RenderOption option)
+{
+    panel.AddCheckbox(label, GetRenderOptionState(option) != 0,
+                      [option](bool enabled) { SetRenderOption(option, enabled); });
+}
+
+static std::unique_ptr<W8OptionsPanel> CreateGameOptionsPanel()
 {
     auto panel = std::make_unique<W8OptionsPanel>();
     panel->m_content_top += 22;
-    panel->AddSlider(
-        0x805, (5000 - values.combat_delay_ms) * 0.0002f, 0, 1,
-        [&values](float speed) { values.combat_delay_ms = 5000 - static_cast<int>(speed * 5000); });
-    panel->m_content_top += 22;
-    panel->AddSlider(0x80c, static_cast<float>(values.text_display_delay_ms), 0, 5000,
-                     [&values](float delay) {
-                         values.text_display_delay_ms = static_cast<unsigned int>(delay);
-                     });
+    panel->AddSlider(0x805, (5000 - g_settings.combat_delay_ms) * 0.0002f, 0, 1, [](float speed) {
+        g_settings.combat_delay_ms = 5000 - static_cast<int>(speed * 5000);
+    });
     panel->m_content_top += 22;
     panel->AddSlider(
-        0x802, values.monster_movement_speed, 1, 5,
-        [&values](float speed) { values.monster_movement_speed = speed; }, true);
+        0x80c, static_cast<float>(g_settings.text_display_delay_ms), 0, 5000,
+        [](float delay) { g_settings.text_display_delay_ms = static_cast<unsigned int>(delay); });
     panel->m_content_top += 22;
-    panel->AddChoices(0x7f7, 3, g_options_difficulty_labels, &values.difficulty);
-    panel->AddChoices(0x7f4, 2, g_options_combat_mode_labels, values.continuous_combat != 0,
-                      [&values](int selected) { values.continuous_combat = selected != 0; });
-    const int rotation = values.camera_rotation_mode == W8_CAMERA_ROTATION_DISABLED
+    panel->AddSlider(
+        0x802, g_settings.monster_movement_speed, 1, 5,
+        [](float speed) { g_settings.monster_movement_speed = speed; }, true);
+    panel->m_content_top += 22;
+    panel->AddChoices(0x7f7, 3, g_options_difficulty_labels, g_settings.difficulty,
+                      [](int selected) {
+                          g_settings.difficulty = static_cast<W8Difficulty>(selected);
+                          if (GameInProgress())
+                              CurrentGame().status.difficulty = g_settings.difficulty;
+                      });
+    panel->AddChoices(0x7f4, 2, g_options_combat_mode_labels, g_settings.continuous_combat != 0,
+                      [](int selected) {
+                          if (g_settings.continuous_combat != (selected != 0))
+                              TogglePartyCombatStance();
+                      });
+    const int rotation = g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_DISABLED
                              ? 2
-                             : static_cast<int>(values.camera_rotation_style);
-    panel->AddChoices(
-        0x7fd, 3, g_options_camera_rotation_labels, rotation, [&values](int selected) {
-            values.camera_rotation_mode =
-                selected == 2 ? W8_CAMERA_ROTATION_DISABLED : W8_CAMERA_ROTATION_ALL_TARGETS;
-            if (selected != 2)
-                values.camera_rotation_style = static_cast<W8CameraRotationStyle>(selected);
-        });
+                             : static_cast<int>(g_settings.camera_rotation_style);
+    panel->AddChoices(0x7fd, 3, g_options_camera_rotation_labels, rotation, [](int selected) {
+        g_settings.camera_rotation_mode =
+            selected == 2 ? W8_CAMERA_ROTATION_DISABLED : W8_CAMERA_ROTATION_ALL_TARGETS;
+        if (selected != 2)
+            g_settings.camera_rotation_style = static_cast<W8CameraRotationStyle>(selected);
+    });
     return panel;
 }
 
-static std::unique_ptr<W8OptionsPanel> CreateMouseOptionsPanel(GameOptions& values)
+static std::unique_ptr<W8OptionsPanel> CreateMouseOptionsPanel()
 {
     auto panel = std::make_unique<W8OptionsPanel>();
     panel->m_content_top += 22;
-    panel->AddCheckbox(0x7f0, &values.mouselook_toggle);
-    panel->AddCheckbox(0x7f1, &values.mouselook_smoothing);
-    panel->AddCheckbox(0x7f2, &values.invert_mouse_y);
-    panel->AddCheckbox(0x801, false); // This legacy checkbox has no gameplay setting.
-    panel->AddCheckbox(0x809, &values.autotarget_spells);
-    panel->AddCheckbox(0x804, &values.auto_advance_character);
-    panel->AddCheckbox(0x808, &values.autoswap_weapons);
+    panel->AddCheckbox(0x7f0, &g_settings.mouselook_toggle);
+    panel->AddCheckbox(0x7f1, &g_settings.mouselook_smoothing);
+    panel->AddCheckbox(0x7f2, &g_settings.invert_mouse_y);
+    panel->AddCheckbox(0x801, false); // Unavailable: this legacy option has no gameplay setting.
+    panel->AddCheckbox(0x809, &g_settings.autotarget_spells);
+    panel->AddCheckbox(0x804, &g_settings.auto_advance_character);
+    panel->AddCheckbox(0x808, &g_settings.autoswap_weapons);
     if (!GameStarted() || !CurrentGame().status.iron_man) {
-        panel->AddCheckbox(0x80d, &values.auto_save);
+        panel->AddCheckbox(0x80d, &g_settings.auto_save);
     }
     return panel;
 }
 
-static std::unique_ptr<W8OptionsPanel>
-CreateGraphicsOptionsPanel(GameOptions& values, std::array<bool, 6>& render_options)
+static std::unique_ptr<W8OptionsPanel> CreateGraphicsOptionsPanel()
 {
     auto panel = std::make_unique<W8OptionsPanel>();
     panel->m_content_top += 22;
-    panel->AddCheckbox(0x816, &render_options[3]);
-    panel->AddCheckbox(0x819, &values.smooth_monster_animations);
-    panel->AddCheckbox(0x81a, &values.smooth_world_animations);
-    panel->AddCheckbox(0x81b, &render_options[5]);
-    panel->AddCheckbox(0x818, &values.monster_shadows);
-    panel->AddCheckbox(0x817, &render_options[4]);
+    AddRenderCheckbox(*panel, 0x816, W8_RENDER_OPTION_VIDEO_SYNC);
+    panel->AddCheckbox(0x819, &g_settings.smooth_monster_animations);
+    panel->AddCheckbox(0x81a, &g_settings.smooth_world_animations);
+    AddRenderCheckbox(*panel, 0x81b, W8_RENDER_OPTION_HIGH_TEXTURE_DETAIL);
+    panel->AddCheckbox(0x818, &g_settings.monster_shadows);
+    AddRenderCheckbox(*panel, 0x817, W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS);
     return panel;
 }
 
-static std::unique_ptr<W8OptionsPanel>
-CreateAdvancedGraphicsOptionsPanel(std::array<bool, 6>& render_options)
+static std::unique_ptr<W8OptionsPanel> CreateAdvancedGraphicsOptionsPanel()
 {
     auto panel = std::make_unique<W8OptionsPanel>();
     panel->m_content_top += 22;
-    panel->AddCheckbox(0x815, &render_options[2]);
-    panel->AddCheckbox(0x812, &render_options[0]);
-    panel->AddCheckbox(0x813, &render_options[1]);
+    AddRenderCheckbox(*panel, 0x815, W8_RENDER_OPTION_MESH_SKY);
+    AddRenderCheckbox(*panel, 0x812, W8_RENDER_OPTION_MIP_MAPPING);
+    AddRenderCheckbox(*panel, 0x813, W8_RENDER_OPTION_MISSILE_LIGHTS);
     return panel;
 }
 
-static std::unique_ptr<W8OptionsPanel> CreateOptionsPanel(OptionsScreen& screen, int panel,
-                                                          unsigned char* compact,
-                                                          unsigned char* hide_navigation)
+static void ChangeVolume(int index, float value)
 {
-    switch (panel) {
+    switch (index) {
     case 0:
-        return CreateGameOptionsPanel(screen.options);
+        SetMusicVolume(static_cast<unsigned char>(value));
+        return;
     case 1:
-        return CreateMouseOptionsPanel(screen.options);
+        SetSoundEffectsVolume(static_cast<unsigned char>(value));
+        return;
     case 2:
-        return std::make_unique<W8OptionsInterfacePanel>(screen.options);
+        g_settings.footstep_volume = static_cast<unsigned char>(value);
+        wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::footsteps,
+                                        g_settings.footstep_volume);
+        return;
     case 3:
-        return std::make_unique<W8OptionsAudioPanel>(screen.options);
-    case 4:
-        return CreateGraphicsOptionsPanel(screen.options, screen.render_options);
-    case 5:
-        return CreateAdvancedGraphicsOptionsPanel(screen.render_options);
-    case 6:
-    case 7:
-    case 8:
-    case 9:
-    case 10:
-        return std::make_unique<W8OptionsKeyboardPanel>(screen, panel);
-    case 11:
-        if (GameStarted() && CurrentGame().status.iron_man) {
-            *hide_navigation = 1;
-            return std::make_unique<W8OptionsUnavailablePanel>(0x82c);
-        }
-        *compact = 1;
-        return std::make_unique<W8OptionsSaveLoadPanel>(screen, 11);
-    case 12:
-        if (GameStarted()) {
-            if (CurrentGame().status.iron_man) {
-                *hide_navigation = 1;
-                return std::make_unique<W8OptionsUnavailablePanel>(0x82c);
-            }
-            if (CurrentGame().combat.has_value()) {
-                *hide_navigation = 1;
-                return std::make_unique<W8OptionsUnavailablePanel>(0x82b);
-            }
-        }
-        *compact = 1;
-        return std::make_unique<W8OptionsSaveLoadPanel>(screen, 12);
+        g_settings.voice_volume = static_cast<unsigned char>(value);
+        wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::voice, g_settings.voice_volume);
+        return;
     }
-    return nullptr;
 }
 
-W8OptionsInterfacePanel::W8OptionsInterfacePanel(GameOptions& values)
+static void PreviewVolume(int index)
 {
-    m_content_top += 22;
-    m_tooltip_delay = AddSlider(0x80e, static_cast<float>(g_settings.tooltip_delay_ms), 0, 1200);
-    m_tooltip_delay->on_release = [this] {
-        g_settings.tooltip_delay_ms = static_cast<int>(m_tooltip_delay->m_position);
+    switch (index) {
+    case 1:
+        wiz8::sound::play("Data\\Sound\\Misc\\Interface Swoosh 01.wav");
+        break;
+    case 2:
+        PlayFootstep(W8_FOOTSTEP_SURFACE_MEDIUM_ROOM, W8_FOOTSTEP_MATERIAL_GRAVEL,
+                     W8_FOOTSTEP_KIND_STEP);
+        break;
+    case 3: {
+        wiz8::sound::play("Data\\Sound\\Misc\\Interface Vox 01.wav",
+                          {.channel = wiz8::sound::VolumeChannel::voice});
+        break;
+    }
+    }
+}
+
+static void SetAudioMuted(int index, bool muted)
+{
+    switch (index) {
+    case 0:
+        SetMusicMuted(muted);
+        break;
+    case 1:
+        SetSoundEffectsMuted(muted);
+        break;
+    case 2:
+        if (muted != 0) {
+            DisableRenderOption(W8_RENDER_OPTION_FOOTSTEP_SOUND);
+        } else {
+            EnableRenderOption(W8_RENDER_OPTION_FOOTSTEP_SOUND);
+        }
+        break;
+    case 3:
+        SetVoiceMuted(muted);
+        break;
+    }
+}
+
+static std::unique_ptr<W8OptionsPanel> CreateInterfaceOptionsPanel()
+{
+    auto panel = std::make_unique<W8OptionsPanel>();
+    panel->m_content_top += 22;
+    auto* slider =
+        panel->AddSlider(0x80e, static_cast<float>(g_settings.tooltip_delay_ms), 0, 1200);
+    slider->on_release = [slider] {
+        g_settings.tooltip_delay_ms = static_cast<int>(slider->m_position);
         SetUiHelpDelay(0);
     };
-    auto* button = AddChoiceButton(0x80f, [this](auto* control) { OnPrimary(control); });
+    auto* button = panel->AddChoiceButton(0x80f, [slider](auto* control) {
+        g_settings.tooltips_enabled = !control->IsPressed();
+        slider->SetEnabled(g_settings.tooltips_enabled);
+    });
     button->SetTooltipIndex(0x810);
     if (!g_settings.tooltips_enabled) {
         button->SetPressed(true);
-        m_tooltip_delay->SetEnabled(false);
+        slider->SetEnabled(false);
     }
-    m_content_top += 22;
-    AddCheckbox(0x80b, &values.simplified_npc_interaction);
-    AddCheckbox(0x807, &values.verbose_combat_messages);
-    AddCheckbox(0x7f3, &values.ctrl_right_click_info);
-    AddCheckbox(0x7fc, &values.skill_increase_messages);
-    AddCheckbox(0x806, &values.numeric_hit_points);
-    AddCheckbox(0x80a, &values.autoscroll_combat_messages);
+    panel->m_content_top += 22;
+    panel->AddCheckbox(0x80b, &g_settings.simplified_npc_interaction);
+    panel->AddCheckbox(0x807, &g_settings.verbose_combat_messages);
+    panel->AddCheckbox(0x7f3, &g_settings.ctrl_right_click_info);
+    panel->AddCheckbox(0x7fc, &g_settings.skill_increase_messages);
+    panel->AddCheckbox(0x806, &g_settings.numeric_hit_points);
+    panel->AddCheckbox(0x80a, &g_settings.autoscroll_combat_messages);
+    return panel;
 }
 
-void W8OptionsInterfacePanel::OnPrimary(W8ButtonWidget* control)
+static std::unique_ptr<W8OptionsPanel> CreateAudioOptionsPanel()
 {
-    g_settings.tooltips_enabled = !control->IsPressed();
-    m_tooltip_delay->SetEnabled(g_settings.tooltips_enabled);
-}
-
-W8OptionsAudioPanel::W8OptionsAudioPanel(GameOptions& values)
-{
+    auto panel = std::make_unique<W8OptionsPanel>();
     for (int index = 0; index < 4; ++index) {
         int volume;
         bool muted = false;
 
-        m_content_top += 22;
+        panel->m_content_top += 22;
         switch (index) {
         case 0:
             if (IsMusicMuted()) {
@@ -1060,104 +1075,78 @@ W8OptionsAudioPanel::W8OptionsAudioPanel(GameOptions& values)
             }
             break;
         }
-        auto* slider = AddSlider(g_options_audio_labels[index], static_cast<float>(volume), 0, 127,
-                                 [this, index](float value) { ChangeVolume(index, value); });
-        slider->on_release = [this, index] { PreviewVolume(index); };
-        m_sliders[index] = slider;
+        auto* slider =
+            panel->AddSlider(g_options_audio_labels[index], static_cast<float>(volume), 0, 127,
+                             [index](float value) { ChangeVolume(index, value); });
+        slider->on_release = [index] { PreviewVolume(index); };
 
-        m_mute_buttons[index] =
-            AddChoiceButton(0x822, [this](auto* control) { OnPrimary(control); });
+        auto* mute = panel->AddChoiceButton(0x822, [index, slider](auto* control) {
+            SetAudioMuted(index, control->IsPressed());
+            slider->SetEnabled(!control->IsPressed());
+        });
         if (muted) {
-            m_sliders[index]->SetEnabled(false);
-            m_mute_buttons[index]->SetPressed(true);
+            slider->SetEnabled(false);
+            mute->SetPressed(true);
         }
     }
-    m_content_top += 22;
-    AddCheckbox(0x823, &values.pc_confirmations);
-    AddCheckbox(0x824, &values.pc_subtitles);
+    panel->m_content_top += 22;
+    panel->AddCheckbox(0x823, &g_settings.pc_confirmations);
+    panel->AddCheckbox(0x824, &g_settings.pc_subtitles);
+    return panel;
 }
 
-void W8OptionsAudioPanel::ChangeVolume(int index, float value)
+static std::unique_ptr<W8OptionsPanel> CreateUnavailableOptionsPanel(int message)
 {
-    switch (index) {
-    case 0:
-        SetMusicVolume(static_cast<unsigned char>(value));
-        return;
-    case 1:
-        SetSoundEffectsVolume(static_cast<unsigned char>(value));
-        return;
-    case 2:
-        g_settings.footstep_volume = static_cast<unsigned char>(value);
-        wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::footsteps,
-                                        g_settings.footstep_volume);
-        return;
-    case 3:
-        g_settings.voice_volume = static_cast<unsigned char>(value);
-        wiz8::sound::set_channel_volume(wiz8::sound::VolumeChannel::voice, g_settings.voice_volume);
-        return;
-    }
-}
-
-void W8OptionsAudioPanel::PreviewVolume(int index)
-{
-    switch (index) {
-    case 1:
-        wiz8::sound::play("Data\\Sound\\Misc\\Interface Swoosh 01.wav");
-        break;
-    case 2:
-        PlayFootstep(W8_FOOTSTEP_SURFACE_MEDIUM_ROOM, W8_FOOTSTEP_MATERIAL_GRAVEL,
-                     W8_FOOTSTEP_KIND_STEP);
-        break;
-    case 3: {
-        wiz8::sound::play("Data\\Sound\\Misc\\Interface Vox 01.wav",
-                          {.channel = wiz8::sound::VolumeChannel::voice});
-        break;
-    }
-    }
-}
-
-void W8OptionsAudioPanel::OnPrimary(W8ButtonWidget* control)
-{
-    int index;
-    for (index = 0; index < 4; ++index) {
-        if (control == m_mute_buttons[index]) {
-            break;
-        }
-    }
-    if (index == 4) {
-        index = -1;
-    }
-    const bool muted = control->IsPressed();
-    switch (index) {
-    case 0:
-        SetMusicMuted(muted);
-        break;
-    case 1:
-        SetSoundEffectsMuted(muted);
-        break;
-    case 2:
-        if (muted != 0) {
-            DisableRenderOption(W8_RENDER_OPTION_FOOTSTEP_SOUND);
-        } else {
-            EnableRenderOption(W8_RENDER_OPTION_FOOTSTEP_SOUND);
-        }
-        break;
-    case 3:
-        SetVoiceMuted(muted);
-        break;
-    }
-    m_sliders[index]->SetEnabled(muted == 0);
-}
-
-W8OptionsUnavailablePanel::W8OptionsUnavailablePanel(int message)
-{
-    m_content_top += 44;
-    W8ControlsRect bounds = {ScreenBounds().x + 30, ScreenBounds().y + m_content_top,
-                             ToEdges(ScreenBounds()).right - 30, ToEdges(ScreenBounds()).bottom};
-    m_text_buffers.emplace_back(
+    auto panel = std::make_unique<W8OptionsPanel>();
+    panel->m_content_top += 44;
+    W8ControlsRect bounds = {
+        panel->ScreenBounds().x + 30, panel->ScreenBounds().y + panel->m_content_top,
+        ToEdges(panel->ScreenBounds()).right - 30, ToEdges(panel->ScreenBounds()).bottom};
+    panel->m_text_buffers.emplace_back(
         std::make_unique<W8TextBuffer>(&bounds, Data().strings[message], g_options_detail_font,
                                        g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4));
-    m_text_buffers[0]->SetLineHeight(22);
+    panel->m_text_buffers[0]->SetLineHeight(22);
+    return panel;
+}
+
+static std::unique_ptr<W8OptionsPanel> CreateOptionsPanel(OptionsScreen& screen, int panel)
+{
+    switch (panel) {
+    case 0:
+        return CreateGameOptionsPanel();
+    case 1:
+        return CreateMouseOptionsPanel();
+    case 2:
+        return CreateInterfaceOptionsPanel();
+    case 3:
+        return CreateAudioOptionsPanel();
+    case 4:
+        return CreateGraphicsOptionsPanel();
+    case 5:
+        return CreateAdvancedGraphicsOptionsPanel();
+    case 6:
+    case 7:
+    case 8:
+    case 9:
+    case 10:
+        return std::make_unique<W8OptionsKeyboardPanel>(screen, panel);
+    case 11:
+        if (GameStarted() && CurrentGame().status.iron_man) {
+            return CreateUnavailableOptionsPanel(0x82c);
+        }
+        return std::make_unique<W8OptionsSaveLoadPanel>(screen, 11);
+    case 12:
+        if (GameStarted()) {
+            if (CurrentGame().status.iron_man) {
+                return CreateUnavailableOptionsPanel(0x82c);
+            }
+            if (CurrentGame().combat.has_value()) {
+                return CreateUnavailableOptionsPanel(0x82b);
+            }
+        }
+        return std::make_unique<W8OptionsSaveLoadPanel>(screen, 12);
+    }
+    return nullptr;
 }
 
 void OptionsScreen::CreateControls()
@@ -1242,25 +1231,16 @@ void OptionsScreen::SelectPanel(int selected)
         return;
     }
     FinishTextEdit(true);
-    if (m_selected_panel != -1) {
-        W8OptionsPanelSet* previous = m_panel[m_selected_panel].get();
-        previous->m_panels[previous->m_current]->SetActive(false);
-    }
+    if (!m_panels.empty()) m_panels[m_current_page]->SetActive(false);
+    m_panels.clear();
+    m_current_page = 0;
     m_selected_panel = selected;
     if (selected != -1) {
-        if (!m_panel[selected]) {
-            m_panel[selected] = std::make_unique<W8OptionsPanelSet>();
-            W8OptionsPanelSet* created = m_panel[m_selected_panel].get();
-            for (int index = g_options_panel_ranges[m_selected_panel].first;
-                 index <= g_options_panel_ranges[m_selected_panel].last; ++index) {
-                auto panel = CreateOptionsPanel(*this, index, &created->m_compact_layout,
-                                                &created->m_hide_navigation);
-                created->m_panels.push_back(std::move(panel));
-            }
+        for (int index = g_options_panel_ranges[selected].first;
+             index <= g_options_panel_ranges[selected].last; ++index) {
+            m_panels.push_back(CreateOptionsPanel(*this, index));
         }
-        W8OptionsPanelSet* current = m_panel[m_selected_panel].get();
-        current->m_current = 0;
-        current->m_panels[current->m_current]->SetActive(true);
+        m_panels.front()->SetActive(true);
         UpdateNavigation();
     }
     for (int item = 0; item < 6; ++item) m_menu_buttons[item]->SetPressed(item == selected);
@@ -1329,8 +1309,7 @@ void OptionsScreen::Redraw()
         m_redraw_pending = false;
     }
     if (m_selected_panel != -1) {
-        W8OptionsPanelSet* panel_set = m_panel[m_selected_panel].get();
-        panel_set->m_panels[panel_set->m_current]->Redraw(GetFrameBufferSurface(), false);
+        m_panels[m_current_page]->Redraw(GetFrameBufferSurface(), false);
     }
     for (int item = 0; item < 8; ++item) {
         auto& button = *m_menu_buttons[item];
@@ -1492,6 +1471,7 @@ static void AddOptionsLabel(W8OptionsPanel& panel, int label)
 
 void W8OptionsPanel::AddCheckbox(int label, bool selected, std::function<void(bool)> changed)
 {
+    const bool enabled = static_cast<bool>(changed);
     AddOptionsLabel(*this, label);
     auto* checkbox = AddButton(0x14d, m_content_top - 2, 0xf1, 2, 0, 3, 1, -1,
                                [changed = std::move(changed)](auto* button) {
@@ -1499,6 +1479,7 @@ void W8OptionsPanel::AddCheckbox(int label, bool selected, std::function<void(bo
                                });
     checkbox->Policy().primary_toggle = ButtonToggle::Release;
     checkbox->SetPressed(selected);
+    checkbox->SetEnabled(enabled);
     m_content_top += 44;
 }
 
@@ -1568,40 +1549,39 @@ void W8OptionsPanel::SetCurrent(int current)
 
 int OptionsScreen::CurrentPage() const
 {
-    const auto& panels = *m_panel[m_selected_panel];
-    return m_selected_panel == 4 || m_selected_panel == 5 ? panels.m_panels[0]->m_current
-                                                          : panels.m_current;
+    return m_selected_panel == 4 || m_selected_panel == 5 ? m_panels[0]->m_current : m_current_page;
 }
 
 int OptionsScreen::PageCount() const
 {
     if (m_selected_panel == 4) return (static_cast<int>(m_save_slots.size()) - 2) / 5 + 1;
     if (m_selected_panel == 5) return (static_cast<int>(m_save_slots.size()) - 1) / 5 + 1;
-    return static_cast<int>(m_panel[m_selected_panel]->m_panels.size());
+    return static_cast<int>(m_panels.size());
 }
 
 void OptionsScreen::Scroll(int delta)
 {
-    auto& panels = *m_panel[m_selected_panel];
     const int current = CurrentPage();
     const int next = std::clamp(current + delta, 0, PageCount() - 1);
     if (next == current) return;
     if (m_selected_panel == 4 || m_selected_panel == 5) {
-        panels.m_panels[0]->SetCurrent(next);
+        m_panels[0]->SetCurrent(next);
     } else {
-        panels.m_panels[panels.m_current]->SetActive(false);
-        panels.m_current = next;
-        panels.m_panels[panels.m_current]->SetActive(true);
+        m_panels[m_current_page]->SetActive(false);
+        m_current_page = next;
+        m_panels[m_current_page]->SetActive(true);
     }
 }
 
 void OptionsScreen::UpdateNavigation()
 {
-    const auto& panels = *m_panel[m_selected_panel];
     const int current = CurrentPage();
     const int count = PageCount();
-    m_navigation_y = panels.m_compact_layout ? 0x180 : 0x1a8;
-    m_navigation_visible = !panels.m_hide_navigation && (panels.m_compact_layout || count > 1);
+    const bool save_menu = m_selected_panel == 4 || m_selected_panel == 5;
+    const bool save_panel =
+        dynamic_cast<W8OptionsSaveLoadPanel*>(m_panels.front().get()) != nullptr;
+    m_navigation_y = save_panel ? 0x180 : 0x1a8;
+    m_navigation_visible = save_menu ? save_panel : count > 1;
     for (int direction = 0; direction < 2; ++direction) {
         auto& button = *m_navigation[direction];
         button.SetPosition(0x11b + (direction == 0 ? 3 : 0x11f), m_navigation_y + 3);
@@ -1629,16 +1609,8 @@ void OptionsScreen::OnDialogClosed(bool accepted, int)
     }
 }
 
-/* Commit the native options value, then retire the current panel. Audio and
-   tooltip previews are live settings outside this deferred value. */
 bool OptionsScreen::leave(ScreenDeparture)
 {
-    ApplyGameOptions(options);
-    for (std::size_t index = 0; index < kEditableRenderOptions.size(); ++index) {
-        if ((GetRenderOptionState(kEditableRenderOptions[index]) != 0) != render_options[index]) {
-            SetRenderOption(kEditableRenderOptions[index], render_options[index]);
-        }
-    }
     SelectPanel(-1);
     return true;
 }
@@ -1657,10 +1629,6 @@ bool OptionsScreen::enter(const ScreenRequest& request)
     SetUiCanvasAlphaTestEnabled(false);
     ScreenPointer().reset();
     g_wiz_text_font_secondary.resetPalette();
-    options = g_settings.options;
-    for (std::size_t index = 0; index < kEditableRenderOptions.size(); ++index) {
-        render_options[index] = GetRenderOptionState(kEditableRenderOptions[index]) != 0;
-    }
     auto& current = m_save_slots.emplace_back(std::make_unique<W8SaveSlot>());
     if (GameStarted()) {
         FillCurrentSaveSlot(*current);
@@ -1710,8 +1678,7 @@ void OptionsScreen::frame()
             if (closed) closed(accepted);
             m_redraw_pending = true;
             if (m_selected_panel != -1) {
-                W8OptionsPanelSet* panel_set = m_panel[m_selected_panel].get();
-                panel_set->m_panels[panel_set->m_current]->InvalidateAll();
+                m_panels[m_current_page]->InvalidateAll();
             }
         }
     }

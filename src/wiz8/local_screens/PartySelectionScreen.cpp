@@ -235,7 +235,7 @@ public:
     bool list_dirty = true, options_dirty = true;
     int m_selected_row = 0, selected_slot = -1, hovered_row = -1, hovered_slot = -1;
     int import_selection = 0, import_hovered = -1, import_first = 0;
-    int difficulty = g_settings.options.difficulty;
+    int difficulty = g_settings.difficulty;
     W8PartyCreationPage creation_page = W8_PARTY_CREATION_OPTIONS;
     W8RangeControl m_range{input, 0x1e9, 0x31, 0x1fb, 0x12b};
     std::array<HitTarget*, 6> rows{}, slots{};
@@ -766,7 +766,7 @@ void PartySelectionScreen::Setup()
 
         button->SetPosition(0x1d3, button == npc_toggle.get() ? 0x93 : 0xfe);
     }
-    npc_toggle->SetPressed(g_settings.options.simplified_npc_interaction);
+    npc_toggle->SetPressed(g_settings.simplified_npc_interaction);
     W8ControlsRect bounds{0x7b, 6, 0x205, 0x23};
     title.SetClipBounds(bounds);
     title.SetLayoutBounds(&bounds, true);
@@ -943,8 +943,8 @@ void PartySelectionScreen::OnPrimary(W8ButtonWidget* control)
             SetMode(W8_PARTY_SELECT_OPTIONS);
             return;
         case W8_PARTY_SELECT_OPTIONS:
-            g_settings.options.difficulty = static_cast<W8Difficulty>(difficulty);
-            g_settings.options.simplified_npc_interaction = npc_toggle->IsPressed();
+            g_settings.difficulty = static_cast<W8Difficulty>(difficulty);
+            g_settings.simplified_npc_interaction = npc_toggle->IsPressed();
             if (ironman_toggle->IsPressed()) {
                 SetMode(W8_PARTY_SELECT_CREATION_NOTICE);
             } else {
