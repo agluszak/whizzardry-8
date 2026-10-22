@@ -53,7 +53,7 @@ migration target (AGENTS.md, "What we are doing") and must not gain new callers:
 | Lookup | Reads |
 | :--- | :--- |
 | `CurrentGame()`, `GameInProgress()` | the live `GameSession`'s game (throws with none) |
-| `GetWorld()`, `GetSecondaryWorld()` | the current game's level slots (null with no game) |
+| `GetWorld()`, `GetSecondaryWorld()`, `GetWorldSpatialIndex()`, `GetWorldCollision()`, `GetWorldPathing()` | the current game's level slots and their parts (null with no game) |
 | `Data()` | the installed `GameData` |
 | `MainGame()`, `MainGameHud()`, `FindScreen<T>()` | a screen on the global router's stack |
 | `MakeScriptContext(CurrentGame())` | a `ScriptContext` built from the global game |
