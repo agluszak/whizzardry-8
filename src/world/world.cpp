@@ -226,7 +226,7 @@ void updatePartyMovement(World& world, unsigned int flags)
         glm::mat3 rotation = pose.getRotation<glm::mat3>();
         ApplyCameraRotation(&rotation);
         if (path->discrete_mode != 0) {
-            if (path->position >= static_cast<int>(path->nodes.size()) - 1.0f) {
+            if (path->position >= static_cast<int>(path->points().size()) - 1.0f) {
                 UpdateCameraPathState(&world, camera_path.get(), 0);
             }
         } else if (path->position >= 1.0) {

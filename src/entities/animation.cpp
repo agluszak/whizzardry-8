@@ -202,7 +202,7 @@ try {
             path->discrete_mode = true;
             path->animated = false;
             path->speed = animation->playback_scale;
-            animation->frame_count = static_cast<unsigned char>(path->nodes.size());
+            animation->frame_count = static_cast<unsigned char>(path->points().size());
             animation->path = std::move(path);
         }
     }
@@ -228,7 +228,7 @@ try {
                 part.path->discrete_mode = true;
                 part.path->animated = false;
                 part.path->speed = animation->playback_scale;
-                animation->frame_count = static_cast<unsigned char>(part.path->nodes.size());
+                animation->frame_count = static_cast<unsigned char>(part.path->points().size());
                 if (std::cmp_greater(entry, parts.size())) return false;
                 parts.insert(parts.begin() + entry, std::move(part));
             } else {

@@ -801,8 +801,8 @@ void Prop::AttachAnimationInstances(World* world)
             if (next_frame > this->last_frame) {
                 anim_frame_fraction = 0.0f;
             }
-            rotation = path->rotations[this->subcycle];
-            next = path->rotations[next_frame];
+            rotation = *path->points()[this->subcycle].rotation;
+            next = *path->points()[next_frame].rotation;
             if (!(rotation == next)) {
                 const auto first_rotation = glm::dquat(glm::quat_cast(rotation));
                 auto next_rotation = glm::dquat(glm::quat_cast(next));
@@ -818,14 +818,14 @@ void Prop::AttachAnimationInstances(World* world)
                         : glm::slerp(first_rotation, next_rotation, double(anim_frame_fraction));
                 rotation = glm::mat3_cast(glm::normalize(interpolated_rotation));
             }
-            current = path->nodes[this->subcycle];
-            next_pos = path->nodes[next_frame];
+            current = path->points()[this->subcycle].position;
+            next_pos = path->points()[next_frame].position;
             inv = 1.0f - anim_frame_fraction;
             position = current * inv + next_pos * anim_frame_fraction;
-            if (!path->scales.empty()) {
+            if (path->points()[this->subcycle].scale.has_value()) {
                 has_scales = true;
-                current_scale = path->scales[this->subcycle];
-                next_scale = path->scales[next_frame];
+                current_scale = *path->points()[this->subcycle].scale;
+                next_scale = *path->points()[next_frame].scale;
                 scale_vector = current_scale * inv + next_scale * anim_frame_fraction;
             }
 
