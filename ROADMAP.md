@@ -231,13 +231,15 @@ the licensed runtime scenarios after every step.
      submenu, formation board, monster list, radar) still read the HUD, the game and
      module state themselves; give each the values it draws.
    - Painting still updates: the main game's frame now updates its facing, targeting
-     presentation, radar blips and text-box request before `DrawMainGameScreen`
-     (`UpdateMainGamePresentation`), but the draw still refreshes the portrait,
+     presentation, radar blips, text-box request and repaint dependencies before
+     `DrawMainGameScreen` (`UpdateMainGamePresentation`). Vitals panels have one
+     screen-owned invalidation and publish their complete bounds; portrait bounds
+     no longer have a second dispatch table. The draw still refreshes the portrait,
      condition, submenu and HUD buttons, which repaint as they change. Make the frame
      "update presentation state, paint the 640×480 canvas, commit it".
      Once painting is free of updates, try a full paint or coarse per-panel
-     invalidation, and keep `MainGameRepaint`'s finer propagation (one part requesting
-     others, a separate pass mapping parts to rectangles, per-panel shadow state) only
+     invalidation, and keep `MainGameRepaint`'s remaining finer invalidation
+     (a separate pass mapping bottom panels to rectangles, per-panel shadow state) only
      where it earns its complexity.
    - Game code still calls presentation for the
      combat panel (`RequestRefreshPartyState` in `Combat Hostility.cpp`,
@@ -341,10 +343,8 @@ each.
   `uiCondition`. Verbatim codec copies check field widths, and items, formations and
   NPC stock entries have their own disk records, so those types may change shape. Retail
   disk records still embed other runtime types, which therefore keep their retail
-  layout: `W8Enchantment`, `W8CharacterAttribute` and `W8CharacterResistance` (asserted
-  in `retail_records.h`), `W8GameplayModifierBlock`, `W8PartyThreatRecord`, `W8Dice`,
-  `W8SpellEffectDefinition` (asserted in `save_codec.cpp`), `ItemProperties` and
-  `ItemEffects`, and the runtime enums used as disk field types.
+  layout: `W8PartyThreatRecord`, `W8Dice`, `ItemProperties` and `ItemEffects`, and
+  the runtime enums used as disk field types.
   Finish the move:
   - semantic names, enums, `std::array`/`std::optional`/`inplace_vector` members, and
     no runtime size asserts;

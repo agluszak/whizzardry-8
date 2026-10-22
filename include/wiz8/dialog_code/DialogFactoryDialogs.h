@@ -17,6 +17,7 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/text_input.h"
 
 struct W8WorldItem;
@@ -160,7 +161,8 @@ public:
     bool TakeDirty() override;
     std::function<void()> TakeCompletion(bool completed) override;
     std::function<void(int)> on_complete;
-    W8SplitItemDialog(W8ItemSplitMode mode, W8ItemInstance* item, int count, SDL_Point origin);
+    W8SplitItemDialog(W8ItemSplitMode mode, const W8ItemInstance* item, int count,
+                      SDL_Point origin);
     virtual ~W8SplitItemDialog() override;
     virtual void Draw(SDL_Surface& target) override;
     virtual bool ProcessInput() override;
@@ -200,5 +202,5 @@ public:
 
 private:
     W8ItemSplitMode m_mode; /* 0 inventory, 1 and 2 trade modes */
-    W8ItemInstance* m_item;
+    W8ItemInstance m_item;
 };
