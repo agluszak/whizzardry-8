@@ -178,11 +178,18 @@ catch_discover_tests(native_audio_test
 
 add_executable(native_gpu_rendering_test native/gpu_rendering_test.cpp)
 target_link_libraries(native_gpu_rendering_test PRIVATE wiz8_engine wiz8_native_settings SDL3::SDL3)
-# Linux CI provides an X11 Vulkan surface under Xvfb. Other platforms use
-# SDL's native video driver.
+# On Linux, SDL's offscreen driver provides a headless Vulkan surface: graphics
+# tests need no display server, open no windows and receive no desktop input.
+# Mesa's software driver renders them as CI does, so pixel checks do not depend
+# on the developer's GPU. Other platforms use SDL's native video driver.
 set(WIZ8_GRAPHICS_TEST_ENVIRONMENT)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    list(APPEND WIZ8_GRAPHICS_TEST_ENVIRONMENT "SDL_VIDEODRIVER=x11")
+    list(APPEND WIZ8_GRAPHICS_TEST_ENVIRONMENT "SDL_VIDEODRIVER=offscreen")
+    find_file(WIZ8_LAVAPIPE_ICD lvp_icd.json
+        PATHS /usr/share/vulkan/icd.d /usr/local/share/vulkan/icd.d NO_DEFAULT_PATH)
+    if(WIZ8_LAVAPIPE_ICD)
+        list(APPEND WIZ8_GRAPHICS_TEST_ENVIRONMENT "VK_DRIVER_FILES=${WIZ8_LAVAPIPE_ICD}")
+    endif()
 endif()
 add_test(NAME native_gpu_rendering COMMAND native_gpu_rendering_test)
 set_tests_properties(native_gpu_rendering PROPERTIES
@@ -222,35 +229,77 @@ target_link_libraries(native_world_graphics PRIVATE wiz8_engine SDL3::SDL3)
 # (WIZ8_ASSET_ROOT); skipped when it is unset. movie.cpp is recompiled
 # with WIZ8_RUNTIME_TESTS (as is platform/timer.cpp, the game clock) so their test
 # hooks replace the archives' objects.
-add_executable(native_runtime_test runtime/runtime_test.cpp
+add_executable(native_runtime_test
+    runtime/harness.cpp
+    runtime/menus_test.cpp
+    runtime/saves_test.cpp
+    runtime/world_test.cpp
+    runtime/combat_test.cpp
+    runtime/dialogue_test.cpp
+    runtime/play_test.cpp
     "${PROJECT_SOURCE_DIR}/src/native/movie.cpp"
     "${PROJECT_SOURCE_DIR}/src/platform/timer.cpp")
 target_compile_definitions(native_runtime_test PRIVATE WIZ8_RUNTIME_TESTS=1)
 target_include_directories(native_runtime_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/native")
 target_link_libraries(native_runtime_test PRIVATE wiz8_engine SDL3::SDL3 PkgConfig::FFMPEG)
 set(WIZ8_RUNTIME_SAVE_FIXTURE "${CMAKE_CURRENT_BINARY_DIR}/runtime-fixtures")
-target_compile_definitions(native_runtime_test PRIVATE
-    WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
-    WIZ8_NATIVE_DEMO_FILE="${PROJECT_SOURCE_DIR}/examples/native/prism.vsgt"
-    WIZ8_RUNTIME_SAVE_FIXTURE="${WIZ8_RUNTIME_SAVE_FIXTURE}")
-set(WIZ8_RUNTIME_TEST_ENVIRONMENT ${WIZ8_GRAPHICS_TEST_ENVIRONMENT} "SDL_AUDIO_DRIVER=dummy")
-foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-lifecycle inventory-chest camp-spells quick-save combat npc-dialogue load-game random-play menu-save)
+# Third-party runtime inputs are downloaded once into a cache that every build
+# tree shares; CI keeps it in the Actions cache.
+if(DEFINED ENV{WIZ8_DOWNLOAD_CACHE})
+    set(wiz8_download_cache "$ENV{WIZ8_DOWNLOAD_CACHE}")
+elseif(DEFINED ENV{XDG_CACHE_HOME})
+    set(wiz8_download_cache "$ENV{XDG_CACHE_HOME}/whizzardry8/downloads")
+elseif(WIN32)
+    set(wiz8_download_cache "$ENV{LOCALAPPDATA}/whizzardry8/downloads")
+elseif(APPLE)
+    set(wiz8_download_cache "$ENV{HOME}/Library/Caches/whizzardry8/downloads")
+else()
+    set(wiz8_download_cache "$ENV{HOME}/.cache/whizzardry8/downloads")
+endif()
+set(WIZ8_DOWNLOAD_CACHE "${wiz8_download_cache}" CACHE PATH
+    "Directory caching downloaded runtime test inputs")
+# Scenario inputs reach the executable through the environment (see RuntimeInput).
+set(WIZ8_RUNTIME_TEST_ENVIRONMENT ${WIZ8_GRAPHICS_TEST_ENVIRONMENT} "SDL_AUDIO_DRIVER=dummy"
+    "WIZ8_RUNTIME_FIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
+    "WIZ8_RUNTIME_GOLDENS=${CMAKE_CURRENT_SOURCE_DIR}/runtime/goldens"
+    "WIZ8_RUNTIME_SAVE_FIXTURE=${WIZ8_RUNTIME_SAVE_FIXTURE}"
+    "WIZ8_RUNTIME_DOWNLOADS=${WIZ8_DOWNLOAD_CACHE}"
+    "WIZ8_NATIVE_EXAMPLES=${PROJECT_SOURCE_DIR}/examples/native")
+foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-lifecycle inventory-chest camp-spells quick-save combat npc-dialogue load-game retail-save import-vitalia import-no-vitalia import-umpani import-trang random-play menu-save)
     # A fixed seed makes the game's random rolls repeatable.
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario} --rng-seed 1)
     set_tests_properties(runtime_${scenario} PROPERTIES
-        ENVIRONMENT "${WIZ8_RUNTIME_TEST_ENVIRONMENT}"
+        # Snapshots, failure frames and golden mismatches; CI uploads them on failure.
+        ENVIRONMENT "${WIZ8_RUNTIME_TEST_ENVIRONMENT};WIZ8_RUNTIME_ARTIFACT_DIR=${CMAKE_CURRENT_BINARY_DIR}/runtime-artifacts/${scenario}"
         SKIP_REGULAR_EXPRESSION "WIZ8_ASSET_ROOT is not set" TIMEOUT 120
-        RESOURCE_LOCK game_gpu LABELS runtime
+        LABELS runtime
         FAIL_REGULAR_EXPRESSION "Validation Error;VUID-")
 endforeach()
-# These scenarios advance many simulated frames. Software Vulkan with
-# validation needs more wall time while retaining the normal 60 Hz game clock.
-set_tests_properties(runtime_combat runtime_random-play PROPERTIES TIMEOUT 600)
+# Each scenario is its own process with its own user directory, so they run in
+# parallel; only the save fixture below orders two of them.
+# These scenarios advance many simulated frames of the main-game rendering the
+# shorter scenarios already validate, so they run without the validation layer
+# CI enables, and with more wall time for software Vulkan.
+set_tests_properties(runtime_combat runtime_random-play PROPERTIES TIMEOUT 600
+    ENVIRONMENT_MODIFICATION "VK_INSTANCE_LAYERS=unset:")
 set_tests_properties(runtime_npc-dialogue PROPERTIES TIMEOUT 300)
 # The quick-save scenario writes a fixture consumed by the menu-driven load test.
 # CTest arranges the dependency even when only runtime_load-game is selected.
 set_tests_properties(runtime_quick-save PROPERTIES FIXTURES_SETUP runtime_save)
 set_tests_properties(runtime_load-game PROPERTIES FIXTURES_REQUIRED runtime_save)
+add_test(NAME runtime_downloads COMMAND "${CMAKE_COMMAND}" "-DCACHE_DIR=${WIZ8_DOWNLOAD_CACHE}"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/runtime/fetch_downloads.cmake")
+set_tests_properties(runtime_downloads PROPERTIES
+    FIXTURES_SETUP runtime_downloads LABELS runtime TIMEOUT 600)
+set_tests_properties(runtime_retail-save runtime_import-vitalia runtime_import-no-vitalia
+    runtime_import-umpani runtime_import-trang PROPERTIES FIXTURES_REQUIRED runtime_downloads)
+
+# The downloaded retail save through the save codec alone: no assets or display.
+add_executable(native_retail_save_test native/retail_save_round_trip_test.cpp)
+target_link_libraries(native_retail_save_test PRIVATE wiz8_engine)
+add_test(NAME native_retail_save COMMAND native_retail_save_test)
+set_tests_properties(native_retail_save PROPERTIES FIXTURES_REQUIRED runtime_downloads
+    ENVIRONMENT "WIZ8_RUNTIME_DOWNLOADS=${WIZ8_DOWNLOAD_CACHE}" TIMEOUT 30)
 
 add_executable(native_resource_lifecycle_test native/resource_lifecycle_test.cpp)
 target_link_libraries(native_resource_lifecycle_test PRIVATE wiz8_engine)

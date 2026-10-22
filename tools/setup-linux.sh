@@ -2,10 +2,10 @@
 # Prepare an Ubuntu host to build and test, in one step:
 #   tools/setup-linux.sh
 # installs Clang 23 (clang, clang-format, clang-tidy), GCC 16's libstdc++, Ninja, the
-# Vulkan loader, Mesa's software driver and Xvfb, Conan 2 and CMake 4.4.4; resolves the
+# Vulkan loader, Mesa's software driver, Conan 2 and CMake 4.4.4; resolves the
 # Conan dependencies; and configures build/linux. Then:
 #   . build/linux/conan/conanbuild.sh && cmake --build --preset linux
-#   . build/linux/conan/conanrun.sh && xvfb-run -a ctest --preset linux
+#   . build/linux/conan/conanrun.sh && ctest --preset linux
 # It is safe to run again; installed pieces are skipped.
 #
 # Networks that serve git but not GitHub source archives can set:
@@ -53,7 +53,7 @@ if ! command -v g++-16 >/dev/null; then
 fi
 
 apt_install ninja-build ccache python3-pip libvulkan-dev mesa-vulkan-drivers \
-    vulkan-validationlayers xvfb xauth
+    vulkan-validationlayers
 if [[ ${WIZ8_SYSTEM_GLSLANG:-} == 1 ]]; then
     apt_install glslang-tools glslang-dev
 fi

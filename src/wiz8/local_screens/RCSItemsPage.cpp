@@ -6,6 +6,7 @@
 #include <cassert>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -133,16 +134,13 @@ void W8CampItemsPage::SetCampInfoPageMode(W8CampInfoPage mode)
 // FUNCTION: WIZ8 0x005BA110
 void W8CampItemsPage::OpenItemInfoDialog(W8ItemInstance* item)
 {
-    W8DialogBase* dialog;
-
-    if (!IsItemWornByCharacter(character, item) && !IsItemCarriedByCharacter(character, item)) {
-        dialog = new W8AssayDialog(*item, 0, {kInfoDialogX, kInfoDialogY});
-    } else {
-        dialog = new W8AssayDialog(*item, character, {kInfoDialogX, kInfoDialogY});
-    }
+    const bool owned =
+        IsItemWornByCharacter(character, item) || IsItemCarriedByCharacter(character, item);
+    auto dialog = std::make_unique<W8AssayDialog>(*item, owned ? character : nullptr,
+                                                  SDL_Point{kInfoDialogX, kInfoDialogY});
     dialog->SetText("");
 
-    dialogs.Display(std::unique_ptr<W8DialogBase>(dialog));
+    dialogs.Display(std::move(dialog));
 }
 
 // FUNCTION: WIZ8 0x005BA2B0
@@ -161,8 +159,7 @@ void W8CampItemsPage::OpenSecondaryAttributeInfoDialog(unsigned int uiIndex)
 void W8CampItemsPage::IdentifyAndOpenItemInfo(W8ItemInstance* item)
 {
     if (CanItemLeaveItsSlot(item)) {
-        if (PartyAttemptsToIdentifyItem(item, 0) &&
-            item_filters[W8_CAMP_ITEM_FILTER_UNIDENTIFIED] != 0) {
+        if (PartyAttemptsToIdentifyItem(item, 0) && unidentified_only) {
             RebuildCampItemList();
             camp_repaint.all = true;
         }
@@ -506,42 +503,15 @@ void W8CampItemsPage::SortCampItemPool(void)
 // FUNCTION: WIZ8 0x005BB250
 void W8CampItemsPage::ToggleCampItemFilter(W8CampItemFilterButton tab)
 {
-    W8CampItemFilter filter;
-    int index;
-
-    switch (tab) {
-    case W8_CAMP_ITEM_FILTER_BUTTON_HAND:
-        filter = W8_CAMP_ITEM_FILTER_HAND;
-        break;
-    case W8_CAMP_ITEM_FILTER_BUTTON_BODY:
-        filter = W8_CAMP_ITEM_FILTER_BODY;
-        break;
-    case W8_CAMP_ITEM_FILTER_BUTTON_OTHER:
-        filter = W8_CAMP_ITEM_FILTER_OTHER;
-        break;
-    case W8_CAMP_ITEM_FILTER_BUTTON_ACCESSORY:
-        filter = W8_CAMP_ITEM_FILTER_ACCESSORY;
-        break;
-    case W8_CAMP_ITEM_FILTER_BUTTON_USABLE:
-        filter = W8_CAMP_ITEM_FILTER_USABLE;
-        break;
-    case W8_CAMP_ITEM_FILTER_BUTTON_UNIDENTIFIED:
-        filter = W8_CAMP_ITEM_FILTER_UNIDENTIFIED;
-        break;
-    default:
-        filter = static_cast<W8CampItemFilter>(tab);
-    }
-    if (!item_controls.filters[tab]->IsPressed()) {
-        item_filters[filter] = 0;
+    const bool pressed = item_controls.filters[tab]->IsPressed();
+    if (tab == W8_CAMP_ITEM_FILTER_BUTTON_USABLE) {
+        usable_only = pressed;
+    } else if (tab == W8_CAMP_ITEM_FILTER_BUTTON_UNIDENTIFIED) {
+        unidentified_only = pressed;
     } else {
-        item_filters[filter] = 1;
-        if (filter != W8_CAMP_ITEM_FILTER_USABLE && filter != W8_CAMP_ITEM_FILTER_UNIDENTIFIED) {
-            ClearOtherCampItemGroupFilters(filter);
-            for (index = 0; index < 4; ++index) {
-                if (index != tab && item_controls.filters[index]->IsPressed()) {
-                    item_controls.filters[index]->SetPressed(false);
-                }
-            }
+        group_filter = pressed ? std::optional{tab} : std::nullopt;
+        for (int index = 0; index < 4; ++index) {
+            item_controls.filters[index]->SetPressed(group_filter == index);
         }
     }
     item_scroll = 0;
@@ -561,8 +531,7 @@ void W8CampItemsPage::ToggleCampItemFilter(W8CampItemFilterButton tab)
 void W8CampItemsPage::ShowCampItemInfo(W8ItemInstance* item)
 {
     pending_item_action.identifying_character = character;
-    if (CanItemLeaveItsSlot(item) && PartyAttemptsToIdentifyItem(item, 0) &&
-        item_filters[W8_CAMP_ITEM_FILTER_UNIDENTIFIED] != 0) {
+    if (CanItemLeaveItsSlot(item) && PartyAttemptsToIdentifyItem(item, 0) && unidentified_only) {
         RebuildCampItemList();
         camp_repaint.all = true;
     }
@@ -578,10 +547,10 @@ W8ItemLocation W8CampItemsPage::CampItemAt(int slot, W8ItemStorage storage) cons
     if (storage != W8ItemStorage::Pool)
         return {storage, static_cast<unsigned int>(PartySlot()), cell};
     const auto visible = item_scroll + cell;
-    const auto index =
-        visible < item_list_count && CurrentGame().party.item_pool[item_list[visible]].iItemNo != -1
-            ? item_list[visible]
-            : CurrentGame().party.item_count;
+    const auto index = visible < item_list.size() &&
+                               CurrentGame().party.item_pool[item_list[visible]].iItemNo != -1
+                           ? item_list[visible]
+                           : CurrentGame().party.item_count;
     return {W8ItemStorage::Pool, 0, static_cast<unsigned int>(index)};
 }
 
@@ -679,7 +648,7 @@ void W8CampItemsPage::DrawCampItemIcons(void)
     }
     index = 0;
     while (true) {
-        count = item_list_count - item_scroll;
+        count = static_cast<int>(item_list.size()) - static_cast<int>(item_scroll);
         if (count > 8) {
             count = 8;
         }
@@ -716,7 +685,6 @@ void W8CampItemsPage::DrawCampItemLabel(W8ItemInstance* item, int left, int top,
     std::string label;
     std::string name;
     W8ControlsRect bounds;
-    W8TextBuffer* text;
     int width;
     int height;
 
@@ -726,35 +694,30 @@ void W8CampItemsPage::DrawCampItemLabel(W8ItemInstance* item, int left, int top,
     bounds.top = top;
     bounds.right = left + 0xfa;
     bounds.bottom = top + 0xfa;
-    text = new W8TextBuffer(&bounds, label, g_font10arial,
-                            g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
-    if (text != 0) {
-        height = text->m_lineCount;
-        width = text->m_maxLineWidth + 4;
-        height = g_font10arial.height() * height + 2;
-        if (flag != 0) {
-            bounds.right -= width;
-            bounds.left -= width;
-            text->SetClipBounds(bounds);
-            text->SetLayoutBounds(&bounds, true);
-        }
-        SDL_Surface& framebuffer = GetFrameBufferSurface();
-        const SDL_Rect fill{bounds.left, bounds.top, width, height};
-        SDL_FillSurfaceRect(&framebuffer, &fill, 0x8000);
-        if (framebuffer.pixels != nullptr) {
-            // reinterpret-ok: SGP frame-buffer bytes to W8TextBuffer's byte view
-            text->RenderText(framebuffer, 2, 1, true);
-            const Uint16 outline = static_cast<Uint16>(-0x6613);
-            const SDL_Rect top_edge{bounds.left, bounds.top, width + 1, 1};
-            const SDL_Rect right_edge{bounds.left + width, bounds.top, 1, height + 1};
-            const SDL_Rect bottom_edge{bounds.left, bounds.top + height, width + 1, 1};
-            const SDL_Rect left_edge{bounds.left, bounds.top, 1, height + 1};
-            SDL_FillSurfaceRect(&framebuffer, &top_edge, outline);
-            SDL_FillSurfaceRect(&framebuffer, &right_edge, outline);
-            SDL_FillSurfaceRect(&framebuffer, &bottom_edge, outline);
-            SDL_FillSurfaceRect(&framebuffer, &left_edge, outline);
-            delete text;
-        }
+    W8TextBuffer text(&bounds, label, g_font10arial,
+                      g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
+    width = text.m_maxLineWidth + 4;
+    height = g_font10arial.height() * text.m_lineCount + 2;
+    if (flag != 0) {
+        bounds.right -= width;
+        bounds.left -= width;
+        text.SetClipBounds(bounds);
+        text.SetLayoutBounds(&bounds, true);
+    }
+    SDL_Surface& framebuffer = GetFrameBufferSurface();
+    const SDL_Rect fill{bounds.left, bounds.top, width, height};
+    SDL_FillSurfaceRect(&framebuffer, &fill, 0x8000);
+    if (framebuffer.pixels != nullptr) {
+        text.RenderText(framebuffer, 2, 1, true);
+        const Uint16 outline = static_cast<Uint16>(-0x6613);
+        const SDL_Rect top_edge{bounds.left, bounds.top, width + 1, 1};
+        const SDL_Rect right_edge{bounds.left + width, bounds.top, 1, height + 1};
+        const SDL_Rect bottom_edge{bounds.left, bounds.top + height, width + 1, 1};
+        const SDL_Rect left_edge{bounds.left, bounds.top, 1, height + 1};
+        SDL_FillSurfaceRect(&framebuffer, &top_edge, outline);
+        SDL_FillSurfaceRect(&framebuffer, &right_edge, outline);
+        SDL_FillSurfaceRect(&framebuffer, &bottom_edge, outline);
+        SDL_FillSurfaceRect(&framebuffer, &left_edge, outline);
     }
 }
 
@@ -883,7 +846,6 @@ void W8CampItemsPage::RefreshCampActionPanel(bool invalidate)
 void W8CampItemsPage::UpdateCampItemFilters(void)
 {
     int index;
-    unsigned char flag;
 
     for (index = 0; index < 7; ++index) {
         item_controls.filters[index]->SetVisible(true);
@@ -896,30 +858,12 @@ void W8CampItemsPage::UpdateCampItemFilters(void)
     }
     for (index = 0; index < 7; ++index) {
         item_controls.filters[index]->SetEnabled(true);
-        switch (index) {
-        case 0:
-            flag = item_filters[W8_CAMP_ITEM_FILTER_HAND];
-            break;
-        case 1:
-            flag = item_filters[W8_CAMP_ITEM_FILTER_BODY];
-            break;
-        case 2:
-            flag = item_filters[W8_CAMP_ITEM_FILTER_OTHER];
-            break;
-        case 3:
-            flag = item_filters[W8_CAMP_ITEM_FILTER_ACCESSORY];
-            break;
-        case 4:
-            flag = item_filters[W8_CAMP_ITEM_FILTER_USABLE];
-            break;
-        case 5:
-            flag = item_filters[W8_CAMP_ITEM_FILTER_UNIDENTIFIED];
-            break;
-        default:
-            continue;
-        }
-        if (flag != 0) {
-            item_controls.filters[index]->SetPressed(true);
+        if (index < 4) {
+            item_controls.filters[index]->SetPressed(group_filter == index);
+        } else if (index == W8_CAMP_ITEM_FILTER_BUTTON_USABLE) {
+            item_controls.filters[index]->SetPressed(usable_only);
+        } else if (index == W8_CAMP_ITEM_FILTER_BUTTON_UNIDENTIFIED) {
+            item_controls.filters[index]->SetPressed(unidentified_only);
         }
     }
 }
@@ -1019,7 +963,8 @@ void W8CampItemsPage::Reset(W8Character* identifying_character)
     pending_item_action.identifying_character = identifying_character;
     item_action =
         identifying_character ? W8_CAMP_ITEM_ACTION_IDENTIFY_SPELL : W8_CAMP_ITEM_ACTION_NONE;
-    std::ranges::fill(item_filters, 0);
+    group_filter.reset();
+    usable_only = unidentified_only = false;
     item_timer_active = false;
     item_timer_expired = false;
     info_page = W8_CAMP_INFO_PAGE_ITEMS;
@@ -1057,7 +1002,7 @@ void W8CampItemsPage::ReviewedCharacterChanged(W8Character& character)
 {
     this->character = &character;
     EnableCampActionButtons();
-    if (item_filters[W8_CAMP_ITEM_FILTER_USABLE] != 0) {
+    if (usable_only) {
         item_scroll = 0;
         RebuildCampItemList();
     }
@@ -1441,7 +1386,7 @@ void W8CampItemsPage::DrawCampItemPool(void)
                     g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter);
     }
     for (i = 0;; ++i) {
-        visible = item_list_count - item_scroll;
+        visible = static_cast<int>(item_list.size()) - static_cast<int>(item_scroll);
         if (visible > 8) {
             visible = 8;
         }
@@ -1476,7 +1421,7 @@ void W8CampItemsPage::DrawCampItemPool(void)
             CatalogArtwork::Load(0x115, 0).draw(GetFrameBufferSurface(), 0x30, left, top);
         }
     }
-    for (i = item_list_count - item_scroll; i < 8; ++i) {
+    for (i = static_cast<int>(item_list.size()) - static_cast<int>(item_scroll); i < 8; ++i) {
         left = (i & 1) * 0x31 + 0x200;
         top = (i >> 1) * 0x39 + 0xc0;
         right = left + 0x2e;
@@ -1556,66 +1501,32 @@ void W8CampItemsPage::InvalidateChangedCells()
     shown.pool.assign(pool.begin(), pool.end());
 }
 
-/* Equip-slot-group item filters are exclusive: selecting one clears the others. */
-void W8CampItemsPage::ClearOtherCampItemGroupFilters(W8CampItemFilter filter)
+/* The group filter is exclusive; the two independent restrictions compose with it. */
+void W8CampItemsPage::RebuildCampItemList()
 {
-    unsigned int index;
-
-    for (index = 2; index < 6; ++index) {
-        if (index != filter) {
-            item_filters[index] = 0;
+    constexpr std::array groups{W8_ITEM_EQUIP_GROUP_HAND, W8_ITEM_EQUIP_GROUP_BODY,
+                                W8_ITEM_EQUIP_GROUP_OTHER, W8_ITEM_EQUIP_GROUP_ACCESSORY};
+    item_list.clear();
+    for (unsigned int index = 0; index < CurrentGame().party.item_count; ++index) {
+        const auto& item = CurrentGame().party.item_pool[index];
+        if (item.iItemNo != -1 &&
+            (!usable_only || CanCharacterUseItem(Data(), character, item.iItemNo)) &&
+            (!unidentified_only || !item.identified) &&
+            (!group_filter || GetItemEquipSlotGroup(item.iItemNo) == groups[*group_filter])) {
+            item_list.push_back(index);
         }
     }
-}
-
-/* Rebuild the visible item list from the party pool under the item filters:
-   flag 0 restricts to items the displayed character can use, flag 1 to
-   unidentified items, and flags 2-5 each admit one equip-slot group. The
-   scrollbar's range and value track the count; the scroll position snaps back
-   inside an emptied or shrunken list. */
-void W8CampItemsPage::RebuildCampItemList(void)
-{
-    unsigned int index;
-    unsigned char filter;
-    W8ItemInstance* pool;
-    W8RangeControl* scrollbar;
-    int rows;
-
-    item_list_count = 0;
-    filter = 0;
-    for (index = 0; index < 6; ++index) {
-        if (index != 0 && index != 1 && item_filters[index] != 0) {
-            filter |= 1 << index;
-        }
-    }
-    pool = CurrentGame().party.item_pool;
-    for (index = 0; index < CurrentGame().party.item_count; ++index, ++pool) {
-        if (pool->iItemNo != -1 &&
-            (item_filters[W8_CAMP_ITEM_FILTER_USABLE] == 0 ||
-             CanCharacterUseItem(Data(), character, pool->iItemNo)) &&
-            (item_filters[W8_CAMP_ITEM_FILTER_UNIDENTIFIED] == 0 || !pool->identified) &&
-            (filter == 0 || (filter & static_cast<unsigned char>(
-                                          1 << GetItemEquipSlotGroup(pool->iItemNo))) != 0)) {
-            item_list[item_list_count] = index;
-            ++item_list_count;
-        }
-    }
-    scrollbar = item_range.get();
-    scrollbar->SetEnabled(item_list_count > 8);
-    rows = item_list_count - 8;
+    const int rows = static_cast<int>(item_list.size()) - 8;
+    item_range->SetEnabled(rows > 0);
     if (rows > 0) {
-        scrollbar->SetRange(0, rows % 2 == 0 ? rows / 2 : rows / 2 + 1);
+        item_range->SetRange(0, (rows + 1) / 2);
     }
-    if (item_list_count == 0) {
+    if (item_list.empty()) {
         item_scroll = 0;
-    } else if (item_list_count <= item_scroll) {
-        item_scroll = (item_list_count - 1) / 8 * 8;
+    } else if (item_list.size() <= item_scroll) {
+        item_scroll = static_cast<unsigned int>((item_list.size() - 1) / 8 * 8);
     }
-    if ((item_scroll & 1) == 0) {
-        scrollbar->SetValue(item_scroll >> 1);
-    } else {
-        scrollbar->SetValue((item_scroll >> 1) + 1);
-    }
+    item_range->SetValue((item_scroll + 1) / 2);
 }
 
 /* The shared click handler for the camp item regions: a backpack slot arrives

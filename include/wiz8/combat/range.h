@@ -99,7 +99,7 @@ bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot,
 int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship);
 /* Write `out` the offset from the monster's feet to the origin of
    its attack for `kind` - 1 the projectile muzzle, 3 the spell hand. */
-void GetMonsterAttackSourceOffset(Monster* monster, int kind, glm::vec3* out);
+glm::vec3 GetMonsterAttackSourceOffset(Monster& monster, int kind);
 /* Whether `source`'s queued action still reaches `target` -
    characters check their own current target, monsters check `target`. */
 bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target,

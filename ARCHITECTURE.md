@@ -141,7 +141,13 @@ Unlayered code may use the layers.
   the resulting geometry and never advances gameplay.
 - **Presentation and lifetime.** SDL creates the Vulkan-capable window; `Renderer`
   supplies its surface to VSG. VSG owns the device, views, command graphs and
-  swapchain. `endFrame` waits for submitted work before returning. That is the
+  swapchain. Before recording, one persistent VSG compile traversal visits the
+  frame: compiled objects return immediately, so only new geometry, descriptor
+  sets, pipelines and views do work, and anything attached to the graph is
+  compiled before it is drawn. A view's resources are collected once, when it is
+  first drawn; descriptor pools are reserved for the whole frame only when they
+  had to grow. Both targets share one transfer task for dynamic data.
+  `endFrame` waits for submitted work before returning. That is the
   single resource-retirement boundary: game-thread graph mutations and object
   destruction occur between completed frames. Readback is requested before
   presentation and copies the completed image into an SDL surface. Window and
@@ -225,7 +231,9 @@ Unlayered code may use the layers.
   Activation attaches it, and removal or deactivation detaches it before the entity is
   destroyed. An active record always has an entity, but an inactive one may not, so a
   caller says which it needs: `entity.find()` may find none, and `entity->` and
-  `*entity` require one (asserted). Anything that keeps an actor
+  `*entity` require one (asserted). An operation that needs the entity takes
+  `Monster&` or `WorldItemEntity&`, so its caller resolves the link once; one meaningful
+  for an inactive record takes the record and handles absence itself. Anything that keeps an actor
   past the current call keeps its id: a monster's location id or a world item's runtime
   id. It looks the actor up again when it is used and does nothing when the actor is
   gone. Navigators target and follow each other by address, so a destroyed navigator
@@ -672,3 +680,9 @@ CTest contains asset-independent fixtures and licensed runtime scenarios (label
 save-fixture creation and loading). Runtime scenarios need `WIZ8_ASSET_ROOT` and a
 usable Vulkan backend; CI provisions the licensed assets. A skipped licensed test
 does not establish behavioral parity.
+
+Scenarios click controls as objects (`GameHarness::click`), which first checks that a
+player could: the control is shown and enabled, the pointer over it reaches it, and
+the presented frame shows what the UI painted there. On every frame the harness also
+requires a newly active modal input scope to be shown within four frames, so input
+can never be captured by a prompt the player cannot see.
