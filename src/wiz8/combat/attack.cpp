@@ -2947,7 +2947,7 @@ void QueueFumbleReaction(int party_slot)
         !IsTargetStillPresent(&CurrentGame().combat->TargetHit) ||
         (slot = CurrentGame().combat->TargetHit.iChar,
          CurrentGame().party.characters[slot].highest_condition > W8_CONDITION_WEBBED)) {
-        slot = GetRandomCharacter(0, 0, party_slot, -1);
+        slot = GetRandomCharacter(CurrentGame(), 0, 0, party_slot, -1);
     }
     if (slot == -1) {
         return;

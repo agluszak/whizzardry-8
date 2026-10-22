@@ -229,7 +229,7 @@ unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
     return found;
 }
 
-int GetRandomCharacter(int require_primary, int require_secondary, int excluded_slot,
+int GetRandomCharacter(Game& game, int require_primary, int require_secondary, int excluded_slot,
                        signed char excluded_gender)
 {
     int skip;
@@ -239,14 +239,13 @@ int GetRandomCharacter(int require_primary, int require_secondary, int excluded_
     W8Character* character;
 
 retry:
-    skip = CurrentGame().rng.below(8);
+    skip = game.rng.below(8);
     scanned = 0;
     slot = 0;
     do {
         matched = false;
-        if (CurrentGame().party.members[slot].has_value() &&
-            static_cast<int>(slot) != excluded_slot) {
-            character = &CurrentGame().party.characters[slot];
+        if (game.party.members[slot].has_value() && static_cast<int>(slot) != excluded_slot) {
+            character = &game.party.characters[slot];
             if ((character->hp_current > 0 && character->highest_condition < W8_CONDITION_DEAD) ||
                 require_primary == 2) {
                 if (excluded_gender == -1 || excluded_gender != character->gender) {

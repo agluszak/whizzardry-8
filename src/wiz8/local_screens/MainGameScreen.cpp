@@ -1553,7 +1553,7 @@ void W8TrapInteraction::Update()
     float progress;
 
     if (m_disarm_state == W8_TRAP_DISARM_WAIT_FOR_TRAP && m_timer.GetProgress() >= 1.0f &&
-        PartyPortraitEventsIdle() != 0) {
+        PartyPortraitEventsIdle(CurrentGame())) {
         m_owner->Run(-1);
         m_disarm_state = W8_TRAP_DISARM_EXIT;
     }

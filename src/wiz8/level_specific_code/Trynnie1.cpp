@@ -123,7 +123,7 @@ bool Trynnie1Script::fountRandomFX(Trigger* pTrigger)
 
     roll = ctx.game.rng.below(100);
     if (roll < 25) {
-        slot = GetRandomCharacter(0, 0, -1, -1);
+        slot = GetRandomCharacter(CurrentGame(), 0, 0, -1, -1);
         if (slot != -1) {
             InflictCondition(ctx.game, slot,
                              {.condition = W8_CONDITION_HEXED,

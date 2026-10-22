@@ -196,9 +196,11 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(const ScriptContext& context, const W8NpcS
         }
         entry = GetNpcGroupEntry(speaker);
         if (entry != 0) {
-            SetPartyPortraitEventState(speaker->group_index, true, current_quote, display_text, 1);
-            BeginPortraitVoice(speaker->group_index, MainGame()->dialogue.speech.voice_handle,
-                               voice_path, MainGame()->dialogue.speech.hold_ms);
+            SetPartyPortraitEventState(CurrentGame(), speaker->group_index, true, current_quote,
+                                       display_text, 1);
+            BeginPortraitVoice(CurrentGame(), speaker->group_index,
+                               MainGame()->dialogue.speech.voice_handle, voice_path,
+                               MainGame()->dialogue.speech.hold_ms);
             if (voiced) {
                 context.party.rows[speaker->group_index].pending_event_type = current_quote;
                 entry->pending_event_type = current_quote;
@@ -234,7 +236,7 @@ static void FinishNpcVoicePlayback(MainGameScreen& screen, bool resume_script)
         monster->StopTalking();
     }
     if (GetNpcGroupEntry(speaker) != 0) {
-        FinishPortraitSpeech(speaker->group_index);
+        FinishPortraitSpeech(screen.game, speaker->group_index);
         SetNpcQuoteBubbleVisible(screen, false, {}, 0, -1, -1);
     }
     screen.dialogue.presentation = W8NpcPresentation::none;

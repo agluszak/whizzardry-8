@@ -273,7 +273,8 @@ Unlayered code may use the layers.
   - combat and the spell effects still in progress;
   - the activity and the world's advancement;
   - the camping surprise sequence, the search sweep's deadline and the autosave notice;
-  - the speech queue;
+  - the speech queue, bound to its game: each voice completes into the queue that started
+    it, and destroying the queue stops its voices without completing their events;
   - the NPC conversation: its progress (`npc_dialogue`), who speaks with whom, the
     offered item and the staged script notice (`npc_interaction`; the dialogue's
     interface, quote input and voice playback belong to the main game's

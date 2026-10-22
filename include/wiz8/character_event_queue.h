@@ -15,7 +15,9 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/rules/item_instance.h"
 
+class Game;
 struct W8Character;
+struct W8CharacterEventQueue;
 
 /* W8CharacterEvent::flags bits. Bit 0x01 is written by several producers but
    never tested anywhere in retail. */
@@ -66,16 +68,16 @@ struct W8CharacterEvent {
        the allocation gave them, exactly as before. */
     W8ItemInstance item;
     /* ProcessDeferredCharacterEvents holds the event until more than `dispatch_delay` of
-       the game's step time has passed since `dispatch_delay_start`; zero does not hold. */
+       the game's step time has passed since `queued_at`; zero does not hold. */
     std::chrono::milliseconds dispatch_delay{};
-    std::chrono::milliseconds dispatch_delay_start{};
+    std::chrono::milliseconds queued_at{};
 
     /* The event owns its voice; the portrait's shared handle can change
        independently of the event lifetime. */
     wiz8::sound::Playback voice_playback;
 
-    // Hold the event's dispatch for `delay` of the game's step time from now.
-    void DelayDispatch(std::chrono::milliseconds delay);
+    // Hold the event's dispatch for `delay` of the game's step time from when it was queued.
+    void DelayDispatch(std::chrono::milliseconds delay) { dispatch_delay = delay; }
 
     bool IsAmbientExchange() const
     {
@@ -83,28 +85,33 @@ struct W8CharacterEvent {
         return type == 14 || type == 15;
     }
 
-    void Complete(); /* 0x0052CED0 */
+    // The event's consequences in the game whose queue held it.
+    void Complete(Game& game); /* 0x0052CED0 */
 
-    bool Dispatch(); /* 0x0052CA60 */
+    // Start the event from `queue`; its voice completes back into that queue.
+    bool Dispatch(W8CharacterEventQueue& queue); /* 0x0052CA60 */
 
-    bool IsConditionMet(unsigned int event_type); /* 0x0052C910 */
-    bool PlayEventSound(std::string_view quote);                        /* 0x0052D260 */
+    bool IsConditionMet(W8CharacterEventQueue& queue, unsigned int event_type); /* 0x0052C910 */
+    bool PlayEventSound(W8CharacterEventQueue& queue, std::string_view quote);  /* 0x0052D260 */
 };
 
 /* The character-event queue. Construction is at 0x0052D460; QueueEntry and the
    later methods occupy the following 0x52Dxxx block. The whole 0x52C810-0x52FEE0
    span sits inside Local Code\Health Stamina Mana.cpp's emission range: 0x52C500
    asserts that file's name before it and 0x52FE80 is placed after it, so the
-   bodies live in Health Stamina Mana.cpp. */
+   bodies live in Health Stamina Mana.cpp.
+   The queue belongs to one game and acts on it: its time, random stream, party and
+   portraits. Destroying it stops every voice without completing its event. */
 struct W8CharacterEventQueue {
+    Game& game;
     /* The queue owns every event it accepts: pending and NPC-deferred entries
        until they dispatch or are dropped, dispatched ones until they
        complete. */
     std::vector<std::unique_ptr<W8CharacterEvent>> pending_events;
     std::vector<std::unique_ptr<W8CharacterEvent>> npc_deferred_events;
     std::vector<std::unique_ptr<W8CharacterEvent>> active_events;
-    int active_event_type;
-    int active_party_slot;
+    int active_event_type = -1;
+    int active_party_slot = -1;
     /* A five-second window, on the game's step time, opened by every successful Dispatch;
        while it lasts, active_event_type/active_party_slot still describe the last
        dispatched event for duplicate coalescing. */
@@ -119,11 +126,15 @@ struct W8CharacterEventQueue {
     /* One party-slot bit mask per (remapped) event type. */
     std::array<unsigned char, 0xb1> event_character_masks{};
 
-    W8CharacterEventQueue();
+    explicit W8CharacterEventQueue(Game& game) : game(game) {}
     ~W8CharacterEventQueue();
     W8CharacterEventQueue(const W8CharacterEventQueue&) = delete;
     W8CharacterEventQueue& operator=(const W8CharacterEventQueue&) = delete;
+    /* Completes every active event, then drops the undispatched ones. */
     void DestroyAllEvents();
+    /* Create and queue `character`'s event; see QueueEntry for the result. */
+    W8CharacterEvent* Queue(W8Character* character, int event_type, unsigned int flags,
+                            unsigned int volume);
     /* Takes ownership of `entry`. Returns the event while the queue still
        holds it, so the caller may adjust it, or null when it was dropped. */
     W8CharacterEvent* QueueEntry(std::unique_ptr<W8CharacterEvent> entry);

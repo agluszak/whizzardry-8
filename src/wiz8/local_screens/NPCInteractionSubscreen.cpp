@@ -1150,7 +1150,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
         W8NpcState* npc = CurrentGame().npc_interaction.dialogue_npc.get();
         if (!CurrentGame().npc_interaction.suppress_parting_reaction &&
             npc->record->merchant == 0 && !npc->is_grouped && GetNpcMonsterInfo(npc) != 0) {
-            int slot = GetRandomCharacter(1, 1, -1, -1);
+            int slot = GetRandomCharacter(CurrentGame(), 1, 1, -1, -1);
             if (slot != -1) {
                 W8CharacterEvent* event =
                     QueueCharacterEvent(&CurrentGame().party.characters[slot], g_special_event8,

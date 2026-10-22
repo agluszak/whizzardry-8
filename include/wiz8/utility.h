@@ -11,6 +11,8 @@
 #include "wiz8/design_rect.h"
 #include "wiz8/local_code/ControlsRect.h"
 
+class Game;
+
 void SetDice(W8Dice* dice, unsigned char count, unsigned char sides, short base);
 int RollDice(const W8Dice* dice);
 int RollDice(const W8Dice* dice, unsigned int rolls);
@@ -23,7 +25,7 @@ bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point);
 void AdjustIntegerByPercent(unsigned int* value, unsigned int percent);
 float NormalizeAngle(float angle);
 
-int GetRandomCharacter(int require_primary, int require_secondary, int excluded_slot,
+int GetRandomCharacter(Game& game, int require_primary, int require_secondary, int excluded_slot,
                        signed char excluded_gender);
 /* 0x00517FB0: fill `selected` with up to `count` distinct party slots that pass
    the same eligibility gate as GetRandomCharacter, skipping `excluded_slot` and

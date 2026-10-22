@@ -164,27 +164,31 @@ TEST_CASE("NPC message queues release their contents", "[resources][lifecycle]")
     queued_state_teardown(game.session);
 }
 
-TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]")
+TEST_CASE("A dead character's events leave every queue of their own game", "[resources][lifecycle]")
 {
-    const ScopedGame game;
-    auto& party = CurrentGame().party.characters;
+    const ScopedGame current;
+    // The queue's game is not the current one: completion must act on its owner.
+    Game owner;
+    auto& party = owner.party.characters;
     party[0].fInParty = party[1].fInParty = true;
-    // Declared last, so its remaining active event completes while the party is reachable.
-    W8CharacterEventQueue queue;
+    auto& queue = owner.speech;
     const auto queues = {&queue.pending_events, &queue.npc_deferred_events, &queue.active_events};
     for (auto* events : queues) {
         for (auto* character : {&party[0], &party[1]})
-            events->push_back(std::make_unique<W8CharacterEvent>(character, 0, 0, 0));
+            events->push_back(std::make_unique<W8CharacterEvent>(character, 51, 0, 0));
     }
-    CurrentGame().monster_manager_entries[0].active_character_event =
-        queue.active_events.front().get();
+    owner.monster_manager_entries[0].active_character_event = queue.active_events.front().get();
 
     queue.RemoveCharacterEvents(&party[0]);
 
     for (const auto* events : queues)
         REQUIRE((events->size() == 1 && events->front()->character == &party[1]));
-    // Completion releases the portrait's borrowed pointer to the active event.
-    REQUIRE(CurrentGame().monster_manager_entries[0].active_character_event == nullptr);
+    // Completion releases the portrait's borrowed pointer and runs its consequences in
+    // the owning game only.
+    REQUIRE(owner.monster_manager_entries[0].active_character_event == nullptr);
+    REQUIRE(owner.npc_dialogue.has_queued_actions());
+    REQUIRE_FALSE(CurrentGame().npc_dialogue.has_queued_actions());
+    // Destroying the owner drops the remaining events without completing them.
 }
 
 TEST_CASE("A new game releases the previous game's queued events", "[resources][lifecycle]")

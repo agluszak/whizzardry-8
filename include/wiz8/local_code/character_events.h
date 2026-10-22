@@ -14,6 +14,7 @@ bool IsVoiceMuted(void);
 /* Audio panels pass 0 or 2 for the enabled setting. */
 void SetVoiceMuted(unsigned char muted);
 
+class Game;
 struct W8Character;
 struct W8CharacterEvent;
 struct W8MonsterManagerEntry;
@@ -42,7 +43,7 @@ std::string GetPartyQuoteText(const W8Character& character, unsigned int event_t
 extern const int g_fact_check_event;
 
 /* True when no occupied party slot has an active portrait/voice record. */
-bool PartyPortraitEventsIdle(void);
+bool PartyPortraitEventsIdle(const Game& game);
 int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot);
 W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int excluded_slot,
                                                    unsigned int flags);
@@ -84,13 +85,14 @@ bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int
 /* Drive `party_slot`'s portrait from `voice`: its remaining time and mouth
    gaps follow the playback, or the portrait holds for `unvoiced_ms` when no
    voice started. Character events and NPC party members both speak this way. */
-void BeginPortraitVoice(unsigned int party_slot, const wiz8::sound::Playback& voice,
+void BeginPortraitVoice(Game& game, unsigned int party_slot, const wiz8::sound::Playback& voice,
                         std::string_view voice_path, std::uint64_t unvoiced_ms);
 /* The portrait's line is over: complete the character event speaking through
    it, or just close the portrait when the speaker was an NPC line. */
-void FinishPortraitSpeech(unsigned int party_slot);
-void SetPartyPortraitEventState(unsigned int party_slot, bool active, unsigned int event_type,
-                                std::string_view quote_text, int show_quote);
+void FinishPortraitSpeech(Game& game, unsigned int party_slot);
+void SetPartyPortraitEventState(Game& game, unsigned int party_slot, bool active,
+                                unsigned int event_type, std::string_view quote_text,
+                                int show_quote);
 void CreatePartyPortraitEventRegions();
 extern int g_special_event2;
 extern unsigned int g_event_range_max;
