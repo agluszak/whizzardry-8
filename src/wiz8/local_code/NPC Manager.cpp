@@ -1385,7 +1385,6 @@ void ReleaseNpcBinding(int value)
     }
 }
 
-
 /* Hand back the NPC binding selected by a monster-list index, or null when
    the monster's record is missing, is not NPC-routed, binds no NPC, or the
    binding has been released. */

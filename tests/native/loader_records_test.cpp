@@ -1003,8 +1003,9 @@ TEST_CASE_METHOD(LoaderFixture, "Nested item write failure aborts a staged trigg
             wiz8::testing::FileOperationHook previous;
             ~RestoreHook() { wiz8::testing::set_file_operation_hook(previous); }
         } restore{previous};
-        REQUIRE_THROWS_WITH(WriteSavedTriggers(*writer, CaptureSavedTriggers(*GetWorld())),
-                            "fixture item write failure");
+        std::vector<SavedTrigger> section;
+        for (const auto& trigger : GetWorld()->triggers) section.push_back(trigger->Capture());
+        REQUIRE_THROWS_WITH(WriteSavedTriggers(*writer, section), "fixture item write failure");
         REQUIRE(fired);
     }
     REQUIRE(wiz8::open_file(path)->read_text() == "old");
@@ -1049,7 +1050,7 @@ TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat g
             });
         });
         chunks.Close();
-        game.game.left_levels[0x26] = file->written_memory();
+        game.game.left_levels.keep(0x26, file->written_memory());
     };
     write_items(true);
     LoadAwayCampChest(*GetWorld());

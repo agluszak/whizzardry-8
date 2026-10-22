@@ -1305,14 +1305,10 @@ int Prop::GetAnimationState() const
     return -1;
 }
 
-std::vector<SavedProp> CaptureSavedProps(const World& world)
+// The animation a save keeps; the active byte rides in the record's spare slot.
+Prop::SavedAnimationState Prop::CaptureAnimationState() const
 {
-    std::vector<SavedProp> section;
-    for (const auto& prop : world.plsProps)
-        section.push_back({prop->name,
-                           {prop->subcycle, prop->first_frame, prop->last_frame,
-                            prop->frame_direction, prop->animation_playing, prop->active}});
-    return section;
+    return {subcycle, first_frame, last_frame, frame_direction, animation_playing, active};
 }
 
 /* The named form: a 0xDEADD00D signature, the format version and the prop count, then one

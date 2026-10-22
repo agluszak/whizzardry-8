@@ -550,14 +550,14 @@ W8MonsterGeneratorStates ReadMonsterGeneratorStates(W8Chunk& file)
     return states;
 }
 
-void ApplyMonsterGeneratorStates(W8EncounterState& state, const W8MonsterGeneratorStates& states)
+void W8EncounterState::applyGeneratorStates(const W8MonsterGeneratorStates& states)
 {
-    state.save_flag = states.save_flag;
+    save_flag = states.save_flag;
     for (const auto& entry : states.entries) {
-        const auto generator = std::ranges::find_if(state.generators, [&](const auto& candidate) {
+        const auto generator = std::ranges::find_if(generators, [&](const auto& candidate) {
             return std::strncmp(entry.name.data(), candidate->name, entry.name.size()) == 0;
         });
-        if (generator == state.generators.end()) continue;
+        if (generator == generators.end()) continue;
         (*generator)->generation_enabled = entry.enabled;
         (*generator)->flags = entry.flags;
         if (entry.timer) {
@@ -569,10 +569,10 @@ void ApplyMonsterGeneratorStates(W8EncounterState& state, const W8MonsterGenerat
     }
 }
 
-W8MonsterGeneratorStates CaptureMonsterGeneratorStates(const W8EncounterState& state)
+W8MonsterGeneratorStates W8EncounterState::savedGeneratorStates() const
 {
-    W8MonsterGeneratorStates states{.save_flag = state.save_flag};
-    for (const auto& generator : state.generators) {
+    W8MonsterGeneratorStates states{.save_flag = save_flag};
+    for (const auto& generator : generators) {
         auto& entry = states.entries.emplace_back();
         std::ranges::copy(generator->name, entry.name.begin());
         entry.enabled = generator->generation_enabled;
@@ -648,8 +648,8 @@ void SpendRandomEncounterBudget()
    two paths converge on the same eight common fields. Every read is chained
    through the same conjunction, so the first failure abandons the rest and the
    record is reported bad. The jittered rearm waits for the world to be built
-   (`RearmDecodedGenerators`), and the armed bit is always cleared on the way out
-   so a loaded generator starts disarmed. */
+   (`W8EncounterState::rearmDecodedGenerators`), and the armed bit is always cleared on the
+   way out so a loaded generator starts disarmed. */
 unsigned char MonGen::Load(W8Chunk& handle, short default_interval)
 try {
     unsigned char version{};
@@ -704,9 +704,9 @@ void MonGen::Rearm(short interval)
     timer.arm();
 }
 
-void RearmDecodedGenerators(W8EncounterState& state)
+void W8EncounterState::rearmDecodedGenerators()
 {
-    for (const auto& generator : state.generators) {
+    for (const auto& generator : generators) {
         if (!generator->rearm) continue;
         auto rearm = *std::exchange(generator->rearm, std::nullopt);
         generator->Rearm(rearm.interval);

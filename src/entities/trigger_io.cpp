@@ -60,19 +60,14 @@ template<std::size_t N> static void ReadTriggerText(W8Chunk& file, char (&text)[
 
 const float g_trigger_progress_limit = 64.0f;
 
-SavedTriggerLocks CaptureSavedTriggerLocks(const World& world)
+std::optional<SavedLock> Trigger::CaptureLock() const
 {
-    SavedTriggerLocks section;
-    for (const auto& trigger : world.triggers) {
-        const auto& lock = trigger->lock_state;
-        if (lock.lock_type == LockType::none) continue;
-        section.locks.push_back({.trigger = trigger->name,
-                                 .record_version = 2,
-                                 .device_state = lock.device_state,
-                                 .lock_countdown = lock.lock_countdown,
-                                 .last_interaction_clock = lock.last_interaction_clock});
-    }
-    return section;
+    if (lock_state.lock_type == LockType::none) return std::nullopt;
+    return SavedLock{.trigger = name,
+                     .record_version = 2,
+                     .device_state = lock_state.device_state,
+                     .lock_countdown = lock_state.lock_countdown,
+                     .last_interaction_clock = lock_state.last_interaction_clock};
 }
 
 void WriteSavedTriggerLocks(wiz8::File& handle, const SavedTriggerLocks& section)
@@ -358,13 +353,6 @@ static void ApplySavedTriggers(World& world, std::vector<SavedTrigger>& section)
                                                         : nullptr;
         if (trigger) trigger->Restore(std::move(saved));
     }
-}
-
-std::vector<SavedTrigger> CaptureSavedTriggers(const World& world)
-{
-    std::vector<SavedTrigger> section;
-    for (const auto& trigger : world.triggers) section.push_back(trigger->Capture());
-    return section;
 }
 
 /* Each record in the form its version tag names. A door's packed flags add 0x200 when it
