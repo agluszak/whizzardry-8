@@ -313,13 +313,11 @@ void Combat::scheduleNextActor(Game& game)
                 if ((action == W8_ACTION_DEFEND || action == W8_ACTION_PROTECT ||
                      action == W8_ACTION_NONE) &&
                     (g_settings.continuous_combat == 0 ||
-                     CharacterCanSwitchTo(*slot, SelectCombatAction(*slot, context), false,
-                                          false))) {
+                     CharacterCanSwitchTo(*slot, SelectCombatAction(*slot, context), false))) {
                     interruptible = true;
                 }
                 if ((g_settings.continuous_combat != 0 ||
-                     CharacterCanSwitchTo(*slot, SelectCombatAction(*slot, context), false,
-                                          false)) &&
+                     CharacterCanSwitchTo(*slot, SelectCombatAction(*slot, context), false)) &&
                     !interruptible) {
                     apply_delay = true;
                 }
