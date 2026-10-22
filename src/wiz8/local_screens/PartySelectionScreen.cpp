@@ -224,7 +224,7 @@ public:
     std::array<std::unique_ptr<W8ButtonWidget>, 7> actions;
     W8ButtonWidget *m_create_button, *m_add_remove_button, *m_delete_button, *m_review_button,
         *m_reset_button, *m_confirm_button, *m_back_button;
-    std::vector<std::unique_ptr<W8TextBuffer>> option_text;
+    std::vector<W8TextBuffer> option_text;
     W8TextBuffer title;
     std::unique_ptr<TextFieldGroup> name_input;
     std::unique_ptr<W8MessageDialogBase> m_dialog;
@@ -467,7 +467,7 @@ void PartySelectionScreen::DrawOptions(SDL_Surface& target)
     if (options_dirty) {
         options_dirty = false;
         CatalogArtwork::Load(0x102, 0).drawAndInvalidate(target, 0, 0x78, 0x28);
-        for (auto& entry : option_text) entry->RenderToTarget(0, true, target);
+        for (auto& entry : option_text) entry.RenderToTarget(0, true, target);
         for (auto& button : difficulty_buttons) button->m_dirty = true;
         npc_toggle->m_dirty = ironman_toggle->m_dirty = true;
         if (creation_page == W8_PARTY_CREATION_SAVE_NAME) {
@@ -507,56 +507,48 @@ void PartySelectionScreen::SetOptionPanelMode(W8PartyCreationPage page)
     W8ControlsRect bounds = {0x78 + 0x22, 0x28 + 0x12, 0x78 + 0x16e, 0x28 + 0x171};
 
     if (page == W8_PARTY_CREATION_OPTIONS) {
-        option_text.emplace_back(
-            new W8TextBuffer(&bounds, Data().strings[0x7f7], g_options_detail_font,
-                             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+        option_text.emplace_back(&bounds, Data().strings[0x7f7], g_options_detail_font,
+                                 g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
 
         bounds.right = 0x78 + 0x155;
-        option_text.emplace_back(
-            new W8TextBuffer(&bounds, Data().strings[0x7f8], g_options_detail_font,
-                             g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
+        option_text.emplace_back(&bounds, Data().strings[0x7f8], g_options_detail_font,
+                                 g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4);
         bounds.top += 0x16;
-        option_text.emplace_back(
-            new W8TextBuffer(&bounds, Data().strings[0x7f9], g_options_detail_font,
-                             g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
+        option_text.emplace_back(&bounds, Data().strings[0x7f9], g_options_detail_font,
+                                 g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4);
         bounds.top += 0x16;
-        option_text.emplace_back(
-            new W8TextBuffer(&bounds, Data().strings[0x7fa], g_options_detail_font,
-                             g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4));
+        option_text.emplace_back(&bounds, Data().strings[0x7fa], g_options_detail_font,
+                                 g_W8TextBufferAlignRight | g_W8TextBufferAlignTop, 4);
 
         bounds.right = 0x78 + 0x16e;
         bounds.top += 0x2c;
-        option_text.emplace_back(
-            new W8TextBuffer(&bounds, Data().strings[0x80b], g_options_detail_font,
-                             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+        option_text.emplace_back(&bounds, Data().strings[0x80b], g_options_detail_font,
+                                 g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
 
         bounds.top += 0x2c;
-        W8TextBuffer* text =
-            new W8TextBuffer(&bounds, Data().strings[0x6cd], g_options_detail_font,
-                             g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
-        text->SetLineHeight(0x16);
-        option_text.emplace_back(text);
+        option_text
+            .emplace_back(&bounds, Data().strings[0x6cd], g_options_detail_font,
+                          g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4)
+            .SetLineHeight(0x16);
 
         bounds.top += 0x42;
-        option_text.emplace_back(
-            new W8TextBuffer(&bounds, Data().strings[0x6ce], g_options_detail_font,
-                             g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+        option_text.emplace_back(&bounds, Data().strings[0x6ce], g_options_detail_font,
+                                 g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4);
 
         bounds.top += 0x2c;
-        text = new W8TextBuffer(&bounds, Data().strings[0x6cf], g_options_detail_font,
-                                g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
-        text->SetLineHeight(0x16);
-        option_text.emplace_back(text);
+        option_text
+            .emplace_back(&bounds, Data().strings[0x6cf], g_options_detail_font,
+                          g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4)
+            .SetLineHeight(0x16);
         return;
     }
 
     if (page == W8_PARTY_CREATION_NOTICE) {
         bounds.top += 0x2c;
-        W8TextBuffer* text =
-            new W8TextBuffer(&bounds, Data().strings[0x6d0], g_options_detail_font,
-                             g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
-        text->SetLineHeight(0x16);
-        option_text.emplace_back(text);
+        option_text
+            .emplace_back(&bounds, Data().strings[0x6d0], g_options_detail_font,
+                          g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4)
+            .SetLineHeight(0x16);
         return;
     }
 
@@ -566,10 +558,10 @@ void PartySelectionScreen::SetOptionPanelMode(W8PartyCreationPage page)
 
     bounds.left = 0x78 + 0x2c;
     bounds.right = 0x78 + 0x164;
-    W8TextBuffer* text = new W8TextBuffer(&bounds, Data().strings[0x6d1], g_options_detail_font,
-                                          g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4);
-    text->SetLineHeight(0x16);
-    option_text.emplace_back(text);
+    option_text
+        .emplace_back(&bounds, Data().strings[0x6d1], g_options_detail_font,
+                      g_W8TextBufferAlignCenter | g_W8TextBufferAlignTop, 4)
+        .SetLineHeight(0x16);
 
     if (!name_input) {
         const auto size = CatalogArtwork::Load(0x102, 0).size(1);
