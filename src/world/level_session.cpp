@@ -45,7 +45,6 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/render/camera.h"
-#include "wiz8/render/frame.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
@@ -159,12 +158,6 @@ void StartLevelMusic(int fade, int replace_current)
                                                                         : "Adventure.MPL",
                        fade, replace_current);
     ServiceMusicPlaylist();
-}
-
-void UnloadSkyWorld(void)
-{
-    CurrentLevel().replaceSky(nullptr);
-    ResetEnvironment();
 }
 
 static int LevelFindIDByLocationCode(std::string_view location_code)
@@ -527,34 +520,16 @@ void LeaveLevel()
 {
     if (!GetWorld()) return;
     FinishLevelDeparture();
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
 
     ReleaseMarkedNpcBindings();
-
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
-
     ReleaseItemLists();
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
     ShutdownMonsterManager();
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
 
     ReleaseWorldCursor();
     DisableSky();
     EndCameraSway();
     ResetGameTimeAccumulator();
     CurrentLevel().replacePrimary(nullptr);
-
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
 }
 
 /* Unload the current level and load `level` at `entrance`. When the request

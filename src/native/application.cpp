@@ -122,6 +122,7 @@ void wiz8::Application::shutdown() noexcept
     const bool complete = gfGameInitialized;
     if (complete) {
         try {
+            if (auto* game = games_->game(); game && game->combat) game->endCombat(true);
             GameloopExit();
         } catch (const std::exception& failure) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Leaving game: %s", failure.what());

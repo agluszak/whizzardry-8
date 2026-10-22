@@ -1103,7 +1103,7 @@ void CreateNewGameNpcStates(void)
 {
     for (unsigned int npc_id = 0; npc_id < Data().npcs.size(); ++npc_id) {
         if (Data().npcs[npc_id].monster_bound == 0) {
-            CreateNpcRuntimeNode(npc_id);
+            CreateNpcRuntimeNode(CurrentGame().story, npc_id);
         }
     }
 }
@@ -1133,11 +1133,10 @@ static std::unique_ptr<W8NpcState> MakeNpcRuntimeNode(int npc_id)
     return owner;
 }
 
-W8NpcState* CreateNpcRuntimeNode(int npc_id)
+W8NpcState* CreateNpcRuntimeNode(Story& story, int npc_id)
 {
     auto owner = MakeNpcRuntimeNode(npc_id);
     auto* npc = owner.get();
-    auto& story = CurrentGame().story;
     W8NpcState* released;
     int index;
     for (index = 0; index < static_cast<int>(story.npcs.size()); ++index) {
@@ -1260,7 +1259,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
                 }
             }
             if (npc == 0) {
-                npc = CreateNpcRuntimeNode(npc_id);
+                npc = CreateNpcRuntimeNode(CurrentGame().story, npc_id);
             }
         }
         monster_info->bound_npc_index = npc->partner_index;
@@ -1389,12 +1388,9 @@ void ReleaseNpcBinding(int value)
     }
 }
 
-/* Install the states a save's NPCT section holds, bound to their database records.
-   Grouped NPCs re-bind to the loaded level, and runtime nodes are created for the
-   unflagged records no loaded state claims. */
-void InstallNpcStates(std::vector<std::unique_ptr<W8NpcState>> npcs)
+void InstallNpcStates(Story& story, std::vector<std::unique_ptr<W8NpcState>> npcs)
 {
-    auto& states = CurrentGame().story.npcs;
+    auto& states = story.npcs;
     states.assign(std::make_move_iterator(npcs.begin()), std::make_move_iterator(npcs.end()));
     for (std::size_t index = 0; index < states.size(); ++index) {
         auto* npc = states[index].get();
@@ -1403,18 +1399,19 @@ void InstallNpcStates(std::vector<std::unique_ptr<W8NpcState>> npcs)
         npc->has_monster = false;
         npc->record = &Data().npcs[npc->name_style];
         if (npc->is_grouped) {
+            // Entering the saved level binds the NPC to its monster.
             npc->is_present = false;
             npc->has_monster = true;
-            npc->level_band = GetLevelBand(GetLoadedLevelID());
-            npc->bound_level = GetLoadedLevelID();
-            ReloadNpcScriptResources(npc, GetNpcMonster(npc));
+            npc->level_band = GetLevelBand(-1);
+            npc->bound_level = -1;
+            ReloadNpcScriptResources(npc, nullptr);
         }
         if (npc->spawned == 0xffff) npc->spawned = 0;
     }
     for (unsigned int npc_id = 0; npc_id < Data().npcs.size(); ++npc_id) {
-        if (Data().npcs[npc_id].monster_bound == 0 && GetNpcStateByKind(npc_id) == 0) {
-            CreateNpcRuntimeNode(npc_id);
-        }
+        const auto claimed = std::ranges::any_of(
+            states, [&](const auto& npc) { return npc->record->kind == static_cast<int>(npc_id); });
+        if (Data().npcs[npc_id].monster_bound == 0 && !claimed) CreateNpcRuntimeNode(story, npc_id);
     }
 }
 
@@ -1957,7 +1954,7 @@ void RestoreNamedNpcAtLevel(int kind, signed char level, std::string_view entity
 {
     auto* npc = GetNpcStateByKind(kind);
     if (npc == 0) {
-        npc = CreateNpcRuntimeNode(kind);
+        npc = CreateNpcRuntimeNode(CurrentGame().story, kind);
     }
     if (level == GetLoadedLevelID()) {
         RestoreNpcMonster(npc, std::string(entity_name).c_str());

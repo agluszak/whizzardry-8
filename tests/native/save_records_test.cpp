@@ -45,6 +45,7 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
+#include "wiz8/story.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/world.h"
 /* Exercise recovered NPCT loading with retail addresses and native handles as
@@ -1374,7 +1375,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
         }
         // Version >= 2 follows the states with an item count for each NPC.
         for (unsigned int i = 0; i < 3; ++i) append_bytes(bytes, 0u);
-        InstallNpcStates(wiz8::save::decode_npc_states(bytes, Data().npcs.size()));
+        InstallNpcStates(CurrentGame().story,
+                         wiz8::save::decode_npc_states(bytes, Data().npcs.size()));
         REQUIRE(static_cast<int>(CurrentGame().story.npcs.size()) == 3);
         for (unsigned int i = 0; i < 3; ++i) {
             W8NpcState* npc = CurrentGame().story.npcs[i].get();
@@ -1390,7 +1392,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
         // Round-trip the current version through its encoder.
         CurrentGame().story.npcs[1]->items.push_back(
             {.available_at = 7, .item = {}, .quantity = 2});
-        InstallNpcStates(wiz8::save::decode_npc_states(wiz8::save::encode(CurrentGame().story.npcs),
+        InstallNpcStates(CurrentGame().story,
+                         wiz8::save::decode_npc_states(wiz8::save::encode(CurrentGame().story.npcs),
                                                        Data().npcs.size()));
         REQUIRE(CurrentGame().story.npcs.size() == 3);
         for (int index = 0; index < 3; ++index) {
@@ -1421,7 +1424,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
         const auto retired = CurrentGame().story.npcs[0];
         retired->binding_unavailable = true;
         REQUIRE(!GetNpcState(0));
-        auto* replacement = CreateNpcRuntimeNode(0);
+        auto* replacement = CreateNpcRuntimeNode(CurrentGame().story, 0);
         REQUIRE((CurrentGame().story.npcs.size() == 3 && GetNpcState(0) == replacement));
         REQUIRE((replacement->partner_index == 0 && GetNpcState(1) == kept));
         REQUIRE((retired->binding_unavailable && retired->character.value().name[0] == L'A'));
@@ -1513,6 +1516,51 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
             REQUIRE(LoadNpcScriptFile(filename) == nullptr);
         }
     }
+}
+
+TEST_CASE_METHOD(SaveFixture, "A save decodes to a game state before any session begins",
+                 "[save][records]")
+{
+    const auto path = user / "saves" / "candidate.SAV";
+    const auto write_save = [&](bool with_status) {
+        W8Chunk save;
+        REQUIRE(save.OpenWrite(path));
+        const auto section = [&](unsigned int id, const std::vector<std::byte>& payload) {
+            save.WriteChunk(id, [&] { save.WriteBytes(payload.data(), payload.size()); });
+        };
+        W8Character character{};
+        character.uiExpLevel = 7;
+        section(W8ChunkId("CHAR"), wiz8::save::encode({"Vi.CHR", character}));
+        character.uiExpLevel = 8;
+        section(W8ChunkId("CHAR"), wiz8::save::encode({"VI.chr", character}));
+        if (with_status) {
+            wiz8::save::GameState state;
+            state.status.resume_level = 5;
+            section(W8ChunkId("GSTA"), wiz8::save::encode(state));
+        }
+        section(W8ChunkId("TVAR"),
+                wiz8::save::encode(std::vector<W8LocationVariable>{{"door", 1, 3}}));
+        section(W8ChunkId("TVAR"),
+                wiz8::save::encode(std::vector<W8LocationVariable>{{"lever", 2, 4}}));
+        section(W8ChunkId("FATA"), wiz8::save::encode(wiz8::save::Factions{}));
+        save.Close();
+    };
+
+    write_save(true);
+    auto saved = ReadSavedGame("candidate");
+    REQUIRE(!GameInProgress());
+    REQUIRE(saved);
+    REQUIRE(saved->state.status.resume_level == 5);
+    // The last character under a name wins; location variables accumulate.
+    REQUIRE((saved->characters.size() == 1 && saved->characters[0].file_name == "VI.chr" &&
+             saved->characters[0].character.uiExpLevel == 8));
+    REQUIRE(saved->location_variables.size() == 2);
+    REQUIRE(saved->location_variables[1].name == "lever");
+    REQUIRE(saved->factions->states[W8_FACTION_PARTY].disposition_score == 100);
+    REQUIRE((!saved->npcs && !saved->facts && !saved->journal));
+
+    write_save(false);
+    REQUIRE(!ReadSavedGame("candidate"));
 }
 
 TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][records]")
