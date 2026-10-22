@@ -804,11 +804,11 @@ TEST_CASE("Queued dialogue keeps its script and voice when the NPC is rebound", 
 TEST_CASE("Skill notices stay with the supplied game", "[resources][notices]")
 {
     const ScopedGame active;
-    Game detached;
     GameData data;
     data.strings.resize(1024);
     data.strings[0x1d9] = data.strings[0x1db] = "%s %u";
-    const ScopedGameData installed(std::move(data));
+    Game detached(data);
+    const ScopedGameData installed(data);
     AnnounceSkillIncrease(detached, 0, W8_SKILL_COMMUNICATION, true);
     REQUIRE(detached.npc_dialogue.has_queued_actions());
     REQUIRE_FALSE(active.game.npc_dialogue.has_queued_actions());
