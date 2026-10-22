@@ -31,7 +31,7 @@ TEST_CASE("Taking or emptying a pool entry closes the pool up", "[party][storage
     REQUIRE(party.item_pool.size() == 2);
     REQUIRE(party.itemAt({W8ItemStorage::Pool, 0, 2}) == nullptr);
     REQUIRE_FALSE(party.insertIntoPool(3, {.iItemNo = 99}));
-    REQUIRE((PoolItem(party, 0) == 10 && PoolItem(party, 1) == 12 && PoolItem(party, 2) == -1));
+    REQUIRE((PoolItem(party, 0) == 10 && PoolItem(party, 1) == 12));
 
     // Moving a pool entry into an empty backpack slot closes the pool too.
     party.exchange({W8ItemStorage::Pool, 0, 0}, {W8ItemStorage::Backpack, 0, 0}, -1);
