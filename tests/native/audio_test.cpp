@@ -17,6 +17,7 @@
 #include <SDL3/SDL_iostream.h>
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_properties.h>
+#include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_stdinc.h>
 #include <SDL3/SDL_timer.h>
 #include <SDL3_mixer/SDL_mixer.h>
