@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "wiz8/render/mesh_loader.h"
@@ -36,8 +37,8 @@ struct AnimationFrame {
     explicit operator bool() const { return mesh != nullptr; }
 };
 
-std::unique_ptr<AnimationMesh> ReadAnimatedMesh(wiz8::File& file,
-                                                const std::filesystem::path& texture_directory);
+std::optional<AnimationMesh> ReadAnimatedMesh(wiz8::File& file,
+                                              const std::filesystem::path& texture_directory);
 AnimationFrame GetAniMeshFrame(const AnimationMesh& mesh, unsigned char frame);
 // Draw `frame` with `instance`. Changing to another mesh starts the instance from
 // that mesh's placement, as a separate instance per frame did.

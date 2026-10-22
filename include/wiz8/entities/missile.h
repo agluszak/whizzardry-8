@@ -88,7 +88,6 @@ public:
     bool OnCollision(Navigator* other); /* 0x004A4720 */
 
     std::uint32_t GetAnimationState(W8MissileAnimationStateQuery query);
-    void AnnounceCollisionTarget(); /* 0x004A4AC0 */
     /* Switch the representation to its impact cycle, or end the flight when the
        missile has no such cycle. */
     void EnterImpactCycle(); /* 0x004A4C20 */

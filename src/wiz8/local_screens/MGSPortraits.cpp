@@ -220,7 +220,7 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
             entry->damage_splat_end_frame = 0x1e;
         }
     }
-    if (!entry->keyboard_menu_open) {
+    if (!(MainGame() && MainGame()->keyboardMenuForSlot(party_slot))) {
         if (auto* hud = MainGameHud()) hud->repaint.portrait(party_slot);
     }
     if (entry->effect_icon_active && splat_started) {
@@ -350,7 +350,7 @@ void TickPartyPortraitFx(void)
         if (clock_expired) {
             entry->portrait_fx_clock = MonotonicMilliseconds() + (100);
         }
-        if (dirty && !entry->keyboard_menu_open) {
+        if (dirty && !(MainGame() && MainGame()->keyboardMenuForSlot(slot))) {
             if (auto* hud = MainGameHud()) hud->repaint.portrait(slot);
         }
     }
@@ -618,7 +618,7 @@ void StageMonsterCastIcon(unsigned int party_slot, W8SpellRealm realm, bool alte
         entry->auto_portrait_refresh = true;
         entry->effect_icon_frame = -1;
     }
-    if (!entry->keyboard_menu_open) {
+    if (!(MainGame() && MainGame()->keyboardMenuForSlot(party_slot))) {
         if (auto* hud = MainGameHud()) hud->repaint.portrait(party_slot);
     }
     if (!entry->damage_splat_active) {
@@ -1184,10 +1184,10 @@ void UpdateConditionButtons()
 {
     for (int slot = 0; slot < 8; ++slot) {
         auto& icon = condition_icons->icons[slot];
-        const auto& entry = CurrentGame().monster_manager_entries[slot];
         int catalog = 0;
         if (CurrentGame().party.members[slot].has_value() &&
-            MainGameHud()->portrait_refresh_pending[slot] == 0 && !entry.keyboard_menu_open) {
+            MainGameHud()->portrait_refresh_pending[slot] == 0 &&
+            !(MainGame() && MainGame()->keyboardMenuForSlot(slot))) {
             const auto& character = CurrentGame().party.characters[slot];
             if (character.highest_condition)
                 catalog = character.highest_condition + 0xb6;
@@ -1197,7 +1197,8 @@ void UpdateConditionButtons()
         if (catalog != icon.catalog) {
             icon.dirty = true;
             if (!catalog) {
-                if (!MainGameHud()->portrait_refresh_pending[slot] && !entry.keyboard_menu_open)
+                if (!MainGameHud()->portrait_refresh_pending[slot] &&
+                    !(MainGame() && MainGame()->keyboardMenuForSlot(slot)))
                     ClearSurfaceRect(icon.position.x, icon.position.y, icon.position.x + 19,
                                      icon.position.y + 19);
                 if (MainGameHud()->condition_highlight_party_slot == slot)

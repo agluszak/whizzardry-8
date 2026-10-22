@@ -1,6 +1,7 @@
 #include "wiz8/character_skills.h"
 
 #include <algorithm>
+#include <bitset>
 #include <string>
 #include <utility>
 #include <vector>
@@ -270,8 +271,7 @@ bool IsCharacterSkillAvailable(W8Character* character, W8Skill skill_id,
 }
 
 /* An attribute's base value changed: flip the at-maximum flag on the
-   attribute's pseudo-skill entry (id = attribute + 0x22), resetting or
-   refunding its row while the character screen is up and announcing the cap
+   attribute's pseudo-skill entry (id = attribute + 0x22) and announce the cap
    in the main game, rebuild the effective value from the modifier block's
    adjustment clamped to 1..125, and refresh the equipment and derived state.
    Retail inlines InitializeSkillBaseLevels at the tail. */
@@ -282,7 +282,7 @@ void ApplyAttributeChange(Game& game, W8Character* character, W8Attribute attrib
     if (character->attributes[attribute].base >= 0x64) {
         if (!character->skills[skill_id].active) {
             character->skills[skill_id].active = true;
-            game.events.push(SkillAvailabilityChanged{skill_id, true});
+
             // Party creation and camp edits leave the announcement to their editors.
             if (game.status.game_started && game.activity.in_world()) {
                 game.events.push(NoticeDialog{
@@ -295,7 +295,6 @@ void ApplyAttributeChange(Game& game, W8Character* character, W8Attribute attrib
     } else {
         if (character->skills[skill_id].active) {
             character->skills[skill_id].active = false;
-            game.events.push(SkillAvailabilityChanged{skill_id, false});
         }
     }
     int effective = character->bonus.attribute_adjustments[attribute] +
@@ -313,40 +312,31 @@ void ApplyAttributeChange(Game& game, W8Character* character, W8Attribute attrib
    ResetCharacterSkills. */
 void ApplySkillChange(Game& game, W8Character* character, W8Skill skill_id)
 {
-    RefreshCharacterSkillAvailability(game.events, character);
+    RefreshCharacterSkillAvailability(game.data, character);
 
     character->skills[skill_id].level = GetEffectiveSkillLevel(character, skill_id);
     RecalculateCharacterDerivedStats(game, *character);
 }
 
-/* Re-scan every skill's availability and report each flag change. The realm flags
-   array marks which expert skills gained a spell since the last scan. */
-void RefreshCharacterSkillAvailability(Events& events, W8Character* character)
+/* Re-scan availability in skill order and return the changed rows. Editors settle
+   their own allocations; native rules never call back into the current screen. */
+std::bitset<W8_SKILL_COUNT> RefreshCharacterSkillAvailability(const GameData& data,
+                                                              W8Character* character)
 {
-    bool expert_realm_flags[8];
-    int index;
-
-    for (index = 0; index < 8; ++index) {
-        expert_realm_flags[index] = false;
+    bool expert_realm_flags[8]{};
+    for (int index = 0; index < 0x72; ++index) {
+        if (character->spell_learned[index + 1] == -1 || character->spell_learned[index + 1] == 2)
+            expert_realm_flags[data.spells[index].realm] = true;
     }
-    for (index = 0; index < 0x72; ++index) {
-        if (character->spell_learned[index + 1] == -1 || character->spell_learned[index + 1] == 2) {
-            expert_realm_flags[Data().spells[index].realm] = true;
-        }
-    }
-    for (index = 0; index < 0x29; ++index) {
-        bool available =
+    std::bitset<W8_SKILL_COUNT> changed;
+    // Spellbook availability precedes realm availability, as in the original scan.
+    for (int index = 0; index < W8_SKILL_COUNT; ++index) {
+        const bool available =
             IsCharacterSkillAvailable(character, static_cast<W8Skill>(index), expert_realm_flags);
-        if (!available) {
-            if (character->skills[index].active) {
-                character->skills[index].active = false;
-                events.push(SkillAvailabilityChanged{static_cast<W8Skill>(index), false});
-            }
-        } else if (!character->skills[index].active) {
-            character->skills[index].active = true;
-            events.push(SkillAvailabilityChanged{static_cast<W8Skill>(index), true});
-        }
+        changed[index] = character->skills[index].active != available;
+        character->skills[index].active = available;
     }
+    return changed;
 }
 
 /* A quarter of the skill's current value, never below one. The bonus skill's
@@ -382,7 +372,6 @@ void PracticeCharacterSkill(Game& game, W8Character* character, W8Skill skill_id
                 return;
             }
             skill->active = true;
-            game.events.push(SkillAvailabilityChanged{skill_id, true});
         }
         if (usage_points != 0) {
             do {
@@ -406,7 +395,7 @@ void PracticeCharacterSkill(Game& game, W8Character* character, W8Skill skill_id
                 }
             } while (--usage_points != 0);
             if (improved) {
-                RefreshCharacterSkillAvailability(game.events, character);
+                RefreshCharacterSkillAvailability(game.data, character);
                 skill->level = GetEffectiveSkillLevel(character, skill_id);
                 RecalculateCharacterDerivedStats(game, *character);
                 game.events.push(SkillImproved{CharacterPointerToPartySlot(character), skill_id,
