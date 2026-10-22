@@ -1150,9 +1150,9 @@ void W8OptionsUnavailablePanel::Populate()
     m_content_top += 44;
     W8ControlsRect bounds = {ScreenBounds().x + 30, ScreenBounds().y + m_content_top,
                              ToEdges(ScreenBounds()).right - 30, ToEdges(ScreenBounds()).bottom};
-    W8TextBuffer* text = new W8TextBuffer(&bounds, Data().strings[m_message], g_options_detail_font,
-                                          g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4);
-    m_text_buffers.emplace_back(text);
+    m_text_buffers.emplace_back(
+        std::make_unique<W8TextBuffer>(&bounds, Data().strings[m_message], g_options_detail_font,
+                                       g_W8TextBufferAlignTop | g_W8TextBufferAlignCenter, 4));
     m_text_buffers[0]->SetLineHeight(22);
 }
 
@@ -1278,7 +1278,7 @@ void OptionsScreen::SelectPanel(int selected)
 void OptionsScreen::ShowNotification(bool allow_cancel, int message,
                                      std::function<void(bool)> closed)
 {
-    auto dialog = std::unique_ptr<W8MessageDialogBase>(CreateMessageDialog());
+    auto dialog = CreateMessageDialog();
     dialog->SetClientExtent(250, 200);
     dialog->SetMessage(Data().strings[message], 1, 50, true, allow_cancel, true, true, 0, 350);
     dialog->InputLayer().setModal(true);
@@ -1579,8 +1579,8 @@ static void AddOptionsLabel(W8OptionsPanel& panel, int label)
         panel.ScreenBounds().x + 20, panel.ScreenBounds().y + panel.m_content_top,
         ToEdges(panel.ScreenBounds()).right, panel.ScreenBounds().y + panel.m_content_top + 22};
     panel.m_text_buffers.emplace_back(
-        new W8TextBuffer(&bounds, Data().strings[label], g_options_detail_font,
-                         g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
+        std::make_unique<W8TextBuffer>(&bounds, Data().strings[label], g_options_detail_font,
+                                       g_W8TextBufferAlignTop | g_W8TextBufferAlignLeft, 4));
 }
 
 void W8OptionsPanel::AddCheckbox(int label, bool* value)

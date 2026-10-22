@@ -1209,9 +1209,9 @@ void W8CharacterPersonalityPage::ChangePortrait(W8CharacterPortraitAction action
     }
 }
 
-W8CharacterPersonalityPage* CreateCharacterPersonalityPage()
+std::unique_ptr<W8CharacterPage> CreateCharacterPersonalityPage()
 {
-    return new W8CharacterPersonalityPage;
+    return std::make_unique<W8CharacterPersonalityPage>();
 }
 
 void W8CharacterSkillsPage::SetCharacter(W8Character* character,
@@ -1224,11 +1224,10 @@ void W8CharacterSkillsPage::SetCharacter(W8Character* character,
         const auto category = skill_attribute.category;
         const int category_index = static_cast<int>(category);
         W8CharacterPageEntry* entry =
-            new W8CharacterPageEntry(input, g_character_page2_category_geometry[category_index].x,
-                                     g_character_page2_category_geometry[category_index].y +
-                                         category_count[category_index] * 0xe,
-                                     true);
-        AddEntry(entry);
+            &AddEntry(g_character_page2_category_geometry[category_index].x,
+                      g_character_page2_category_geometry[category_index].y +
+                          category_count[category_index] * 0xe,
+                      true);
         entry->on_adjust = [this, entry](int delta) { AdjustEntry(entry, delta); };
         entry->on_info = [this, entry] { ShowEntryInfo(entry); };
         ++category_count[category_index];
@@ -1383,9 +1382,9 @@ void W8CharacterSkillsPage::UpdateEntries()
     }
 }
 
-W8CharacterSkillsPage* CreateCharacterSkillsPage()
+std::unique_ptr<W8CharacterPage> CreateCharacterSkillsPage()
 {
-    return new W8CharacterSkillsPage;
+    return std::make_unique<W8CharacterSkillsPage>();
 }
 
 void W8CharacterSkillsPage::Refresh()

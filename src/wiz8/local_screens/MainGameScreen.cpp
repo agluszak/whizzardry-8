@@ -3594,14 +3594,12 @@ void DrawPortraitEnchantmentOverlay(int party_slot)
 void ShowMainGameNoticeLine(std::string_view text, std::function<void(bool)> callback,
                             bool confirmation, bool cancel)
 {
-    W8MessageDialogBase* dialog;
-
     SetMainGameMode(W8_MAIN_GAME_MODAL);
-    dialog = CreateMessageDialog();
+    auto dialog = CreateMessageDialog();
     dialog->SetClientExtent(0xfa, 200);
     dialog->SetMessage(text, 1, 0x32, confirmation, cancel, true, true, 0, 0x15e);
     dialog->on_complete = std::move(callback);
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
+    OpenModal(std::move(dialog));
 }
 
 /* Note that the party's state changed. The combat half is only asked for while
@@ -3738,7 +3736,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
             return;
         }
         SetMainGameMode(W8_MAIN_GAME_MODAL);
-        W8MessageDialogBase* dialog = CreateMessageDialog();
+        auto dialog = CreateMessageDialog();
         dialog->SetClientExtent(0xfa, 0xc8);
         dialog->SetMessage(question, 1, 0x32, true, true, true, true, 0, 0x15e);
         dialog->on_complete = [level_id, entry](bool accepted) {
@@ -3748,7 +3746,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
                 placeParty(*GetWorld(), g_trigger_camera);
             }
         };
-        OpenModal(std::unique_ptr<ModalContent>(dialog));
+        OpenModal(std::move(dialog));
         return;
     }
     BeginLevelTransition(level_id, entry);
@@ -5404,7 +5402,6 @@ void SetCombatAction(int value)
 static void DrawMainGamePrompt(void)
 {
     W8ControlsRect bounds;
-    W8TextBuffer* buffer;
 
     if (g_modal_owner == 0 && !CurrentGame().activity.conversation) {
         CatalogArtwork::Load(0xa9, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0xb1, 0x13f);
@@ -5412,11 +5409,10 @@ static void DrawMainGamePrompt(void)
         bounds.top = 0x13f;
         bounds.right = 0x1cf;
         bounds.bottom = 0x153;
-        buffer = new W8TextBuffer(&bounds, {}, g_wiz_text_font_secondary,
-                                  g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
-        buffer->RenderString(Data().strings[CurrentGame().combat.has_value() ? 0x780 : 0x77f],
-                             g_wiz_text_font_secondary, false, GetFrameBufferSurface());
-        delete buffer;
+        W8TextBuffer buffer(&bounds, {}, g_wiz_text_font_secondary,
+                            g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
+        buffer.RenderString(Data().strings[CurrentGame().combat.has_value() ? 0x780 : 0x77f],
+                            g_wiz_text_font_secondary, false, GetFrameBufferSurface());
     }
 }
 
@@ -5856,35 +5852,30 @@ void OpenMonsterInfoDialog(int location_id)
         monster_info->hp_current == 0) {
         return;
     }
-    W8MonsterInfoDialog* dialog = new W8MonsterInfoDialog(location_id);
+    auto dialog = std::make_unique<W8MonsterInfoDialog>(location_id);
     dialog->SetText("");
     dialog->on_close = [] {
         if (auto* hud = MainGameHud()) hud->repaint.everything = true;
     };
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
+    OpenModal(std::move(dialog));
 }
 
 /* Open the assay dialog over the main game screen. A live modal dialog is
    parked in the pending slot so it resumes when this one closes. */
 void OpenAssayDialog(const W8ItemInstance& item, int character_slot)
 {
-    W8DialogBase* dialog;
-
     if (g_modal_owner != 0) {
         g_pending_main_game_dialog = std::move(g_modal_owner);
     }
-    if (character_slot != -1) {
-        dialog = new W8AssayDialog(item, &CurrentGame().party.characters[character_slot],
-                                   {kInfoDialogX, 0x48});
-    } else {
-        dialog = new W8AssayDialog(item, 0, {kInfoDialogX, 0x48});
-    }
+    auto dialog = std::make_unique<W8AssayDialog>(
+        item, character_slot != -1 ? &CurrentGame().party.characters[character_slot] : nullptr,
+        SDL_Point{kInfoDialogX, 0x48});
     dialog->SetText("");
 
     dialog->on_close = [] {
         if (auto* hud = MainGameHud()) hud->repaint.everything = true;
     };
-    OpenModal(std::unique_ptr<ModalContent>(dialog));
+    OpenModal(std::move(dialog));
 }
 
 /* Queue `party_slot` for the pending screen and unwind whichever main-game

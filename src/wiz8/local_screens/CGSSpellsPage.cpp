@@ -380,7 +380,7 @@ void W8CharacterSpellsPage::ShowSpellInfo(unsigned int entry)
     m_screen->ShowSpellInfo(m_SpellData[entry].spell);
 }
 
-W8CharacterSpellsPage* CreateCharacterSpellsPage()
+std::unique_ptr<W8CharacterPage> CreateCharacterSpellsPage()
 {
-    return new W8CharacterSpellsPage();
+    return std::make_unique<W8CharacterSpellsPage>();
 }
