@@ -179,11 +179,18 @@ catch_discover_tests(native_audio_test
 
 add_executable(native_gpu_rendering_test native/gpu_rendering_test.cpp)
 target_link_libraries(native_gpu_rendering_test PRIVATE wiz8_engine wiz8_native_settings SDL3::SDL3)
-# Linux CI provides an X11 Vulkan surface under Xvfb. Other platforms use
-# SDL's native video driver.
+# On Linux, SDL's offscreen driver provides a headless Vulkan surface: graphics
+# tests need no display server, open no windows and receive no desktop input.
+# Mesa's software driver renders them as CI does, so pixel checks do not depend
+# on the developer's GPU. Other platforms use SDL's native video driver.
 set(WIZ8_GRAPHICS_TEST_ENVIRONMENT)
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    list(APPEND WIZ8_GRAPHICS_TEST_ENVIRONMENT "SDL_VIDEODRIVER=x11")
+    list(APPEND WIZ8_GRAPHICS_TEST_ENVIRONMENT "SDL_VIDEODRIVER=offscreen")
+    find_file(WIZ8_LAVAPIPE_ICD lvp_icd.json
+        PATHS /usr/share/vulkan/icd.d /usr/local/share/vulkan/icd.d NO_DEFAULT_PATH)
+    if(WIZ8_LAVAPIPE_ICD)
+        list(APPEND WIZ8_GRAPHICS_TEST_ENVIRONMENT "VK_DRIVER_FILES=${WIZ8_LAVAPIPE_ICD}")
+    endif()
 endif()
 add_test(NAME native_gpu_rendering COMMAND native_gpu_rendering_test)
 set_tests_properties(native_gpu_rendering PROPERTIES
@@ -223,7 +230,14 @@ target_link_libraries(native_world_graphics PRIVATE wiz8_engine SDL3::SDL3)
 # (WIZ8_ASSET_ROOT); skipped when it is unset. movie.cpp is recompiled
 # with WIZ8_RUNTIME_TESTS (as is platform/timer.cpp, the game clock) so their test
 # hooks replace the archives' objects.
-add_executable(native_runtime_test runtime/runtime_test.cpp
+add_executable(native_runtime_test
+    runtime/harness.cpp
+    runtime/menus_test.cpp
+    runtime/saves_test.cpp
+    runtime/world_test.cpp
+    runtime/combat_test.cpp
+    runtime/dialogue_test.cpp
+    runtime/play_test.cpp
     "${PROJECT_SOURCE_DIR}/src/native/movie.cpp"
     "${PROJECT_SOURCE_DIR}/src/platform/timer.cpp")
 target_compile_definitions(native_runtime_test PRIVATE WIZ8_RUNTIME_TESTS=1)
@@ -245,11 +259,11 @@ else()
 endif()
 set(WIZ8_DOWNLOAD_CACHE "${wiz8_download_cache}" CACHE PATH
     "Directory caching downloaded runtime test inputs")
-target_compile_definitions(native_runtime_test PRIVATE
-    WIZ8_RUNTIME_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
-    WIZ8_RUNTIME_SAVE_FIXTURE="${WIZ8_RUNTIME_SAVE_FIXTURE}"
-    WIZ8_RUNTIME_DOWNLOADS="${WIZ8_DOWNLOAD_CACHE}")
-set(WIZ8_RUNTIME_TEST_ENVIRONMENT ${WIZ8_GRAPHICS_TEST_ENVIRONMENT} "SDL_AUDIO_DRIVER=dummy")
+# Scenario inputs reach the executable through the environment (see RuntimeInput).
+set(WIZ8_RUNTIME_TEST_ENVIRONMENT ${WIZ8_GRAPHICS_TEST_ENVIRONMENT} "SDL_AUDIO_DRIVER=dummy"
+    "WIZ8_RUNTIME_FIXTURES=${CMAKE_CURRENT_SOURCE_DIR}/runtime/fixtures"
+    "WIZ8_RUNTIME_SAVE_FIXTURE=${WIZ8_RUNTIME_SAVE_FIXTURE}"
+    "WIZ8_RUNTIME_DOWNLOADS=${WIZ8_DOWNLOAD_CACHE}")
 foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-lifecycle inventory-chest camp-spells quick-save combat npc-dialogue load-game retail-save random-play menu-save)
     # A fixed seed makes the game's random rolls repeatable.
     add_test(NAME runtime_${scenario} COMMAND native_runtime_test ${scenario} --rng-seed 1)

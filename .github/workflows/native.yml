@@ -81,7 +81,7 @@ jobs:
       - name: Install Clang 23, libstdc++ 16, CMake 4.4.4 and Conan 2
         run: |
           tools/install-llvm.sh 23 clang
-          sudo apt-get install -y g++-16 ninja-build ccache python3-venv libvulkan-dev mesa-vulkan-drivers vulkan-validationlayers xvfb xauth
+          sudo apt-get install -y g++-16 ninja-build ccache python3-venv libvulkan-dev mesa-vulkan-drivers vulkan-validationlayers
           python3 -m venv "$RUNNER_TEMP/conan-venv"
           "$RUNNER_TEMP/conan-venv/bin/pip" install 'conan==2.33.0' 'cmake==4.4.4'
           echo "$RUNNER_TEMP/conan-venv/bin" >> "$GITHUB_PATH"
@@ -257,7 +257,7 @@ jobs:
             export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
             export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so
           fi
-          xvfb-run -a ctest --preset ${{ matrix.preset }} --output-on-failure --parallel "$(nproc)"
+          ctest --preset ${{ matrix.preset }} --output-on-failure --parallel "$(nproc)"
 
       - name: Save downloaded runtime inputs
         if: always() && steps.downloads-cache.outputs.cache-hit != 'true' && hashFiles('build/downloads/*.sav') != ''

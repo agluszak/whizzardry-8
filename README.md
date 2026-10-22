@@ -70,9 +70,9 @@ After building, run the tests with:
 ctest --preset linux
 ```
 
-On a headless Linux host, run CTest under `xvfb-run -a`; the graphics scenarios use
-SDL's X11 Vulkan surface. CI also enables the Khronos validation layer and fails
-graphics tests on validation errors.
+Graphics tests and runtime scenarios render through SDL's offscreen video driver, so
+they need no display, open no windows and receive no desktop input. CI also enables
+the Khronos validation layer and fails graphics tests on validation errors.
 
 Some runtime tests also need prepared retail assets:
 
