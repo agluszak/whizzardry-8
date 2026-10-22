@@ -471,7 +471,7 @@ try {
     if (info == nullptr || info->hFile == nullptr || world == nullptr) return false;
     auto& file = *info->hFile;
     int count;
-    if (!ReadRecordCount(file, count) || (count && !info->build_state)) return false;
+    if (!ReadRecordCount(file, count)) return false;
 
     for (int index = 0; index < count; ++index) {
         std::array<char, 20> name;
@@ -494,9 +494,8 @@ try {
         if (*item_id < 0) continue;
         position *= kWorldScale;
         auto& item = world->items.add(
-            world->items.spawn(info->build_state->rng, info->build_state->next_item_id, *item_id,
-                               position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-        world->items.activate(info->build_state->rng, item);
+            world->items.spawn(*item_id, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+        world->items.activate(item);
         if (trigger != nullptr) {
             trigger->m_bRepType = W8_TRIGGER_REP_ITEM;
             item.trigger = trigger;
@@ -840,7 +839,7 @@ try {
     }
 
 unsigned char ReadLevel(World* world, wiz8::File* handle,
-                        const std::filesystem::path& texture_directory, LevelBuildState& state)
+                        const std::filesystem::path& texture_directory)
 try {
     LevelLoadContext info;
     std::unique_ptr<MeshInstance> level_mesh;
@@ -866,7 +865,6 @@ try {
     }
 
     info.world = world;
-    info.build_state = &state;
     info.hFile = handle;
     info.bitmap_folder = texture_directory;
 
@@ -1595,9 +1593,10 @@ void LevelSpatialIndex::adoptCollisionData(LevelSpatialIndex&& source)
     collision_available = source.collision_available;
 }
 
-std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, LevelBuildState& state)
+std::unique_ptr<World> LoadWorld(Rng& rng, int& next_item_id, int level_id,
+                                 std::string source_path)
 {
-    auto owner = std::make_unique<World>(level_id, std::move(source_path));
+    auto owner = std::make_unique<World>(rng, next_item_id, level_id, std::move(source_path));
     auto* world = owner.get();
     const auto& resource_path = world->source_path;
     const auto path = wiz8::path_from_utf8(resource_path);
@@ -1652,7 +1651,7 @@ std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, LevelBui
     }
 
     auto handle = wiz8::open_file(wiz8::asset_path(level_path), wiz8::OpenMode::read);
-    if (!ReadLevel(world, handle.get(), wiz8::asset_path(material_folder), state))
+    if (!ReadLevel(world, handle.get(), wiz8::asset_path(material_folder)))
         throw std::runtime_error("cannot read level " + level_path);
     return owner;
 }

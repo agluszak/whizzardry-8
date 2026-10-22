@@ -1,5 +1,4 @@
 #pragma once
-class Rng;
 #include <memory>
 #include <string_view>
 #include <vector>
@@ -180,5 +179,5 @@ struct W8PreparedNpcBinding {
 struct W8PreparedNpcBindings {
     std::vector<W8PreparedNpcBinding> records;
 };
-W8PreparedNpcBindings PrepareNpcBindings(World& world, Rng& rng);
+W8PreparedNpcBindings PrepareNpcBindings(World& world);
 void InstallNpcBindings(W8PreparedNpcBindings pending);

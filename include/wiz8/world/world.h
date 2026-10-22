@@ -43,6 +43,7 @@ class Material;
 
 class FogParams;
 class Camera3D;
+class Rng;
 class MeshInstance;
 class WorldScene;
 class LevelSpatialIndex;
@@ -71,7 +72,9 @@ struct W8AutomapCells {
 // Resources and borrowed indexes precede their consumers. Reverse member
 // destruction removes entities before their scene, spatial, audio and population.
 struct World {
-    explicit World(int level_id = -1, std::string source_path = {});
+    /* A world draws from its game's random stream and numbers new items from its game's
+       counter, so building one advances them exactly as playing it does. */
+    World(Rng& rng, int& next_item_id, int level_id = -1, std::string source_path = {});
     ~World();
     World(const World&) = delete;
     World& operator=(const World&) = delete;
@@ -95,7 +98,7 @@ struct World {
     AmbientAudioSystem audio;
     PartyCamera party_camera;
     std::unique_ptr<W8LevelPopulation> population;
-    WorldItems items{*this};
+    WorldItems items;
     W8AutomapCells automap;
     // These indexes borrow resources owned below or by the scene.
     Camera3D* camera{};
@@ -147,8 +150,10 @@ struct World {
        item, monster, missile and spell visual the world loads takes one, in load
        order, whether or not it keeps it. */
     int takeLegacyPropSaveId() { return ++next_legacy_prop_save_id_; }
+    Rng& rng() const { return rng_; }
 
 private:
+    Rng& rng_;
     int next_legacy_prop_save_id_ = 1;
 };
 
@@ -186,8 +191,8 @@ class Prop;
 World* GetWorld(void);
 World* GetSecondaryWorld(void);
 
-struct LevelBuildState;
-std::unique_ptr<World> LoadWorld(int level_id, std::string source_path, LevelBuildState& state);
+std::unique_ptr<World> LoadWorld(Rng& rng, int& next_item_id, int level_id,
+                                 std::string source_path);
 void DetachAllWorldItems(void);
 // Run the worlds over the step's `elapsed` time.
 void UpdateWorlds(std::chrono::milliseconds elapsed);

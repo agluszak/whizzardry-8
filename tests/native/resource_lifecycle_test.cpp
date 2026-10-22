@@ -22,6 +22,7 @@
 #include "scoped_game.h"
 #include "scoped_game_data.h"
 #include "temporary_directory.h"
+#include "test_worlds.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
@@ -194,7 +195,7 @@ TEST_CASE("A new game releases the previous game's queued events", "[resources][
     CurrentGame().speech.pending_events.push_back(
         std::make_unique<W8CharacterEvent>(&character, 0, 0, 0));
     CurrentGame().autosave_due = std::chrono::seconds{1};
-    CurrentGame().level.replacePrimary(std::make_unique<World>());
+    CurrentGame().level.replacePrimary(MakeWorld());
 
     // Beginning a game destroys the old one, including its nested events and its worlds.
     game.session.begin();
@@ -207,7 +208,7 @@ TEST_CASE("A new game releases the previous game's queued events", "[resources][
 
 static World& PublishEmptyWorld(Game& game)
 {
-    game.level.replacePrimary(std::make_unique<World>());
+    game.level.replacePrimary(MakeWorld());
     return *game.level.primary;
 }
 
@@ -482,7 +483,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
                  "World teardown destroys cycle particles without retiring them",
                  "[resources][world]")
 {
-    auto previous = game.game.level.replacePrimary(std::make_unique<World>());
+    auto previous = game.game.level.replacePrimary(MakeWorld());
     auto* retiring = GetWorld();
     auto visual = std::make_unique<SpellVisual>(retiring);
     auto particle = std::make_unique<ParticleSystem>(retiring->scene.get(), 1);
@@ -512,7 +513,8 @@ TEST_CASE("Monster light copies need no source scene attachment", "[lights][owne
 TEST_CASE("A destroyed navigator leaves no mover targeting or following it",
           "[resources][navigation]")
 {
-    World world;
+    StandaloneWorld standalone_world;
+    World& world = standalone_world.world;
     Navigator follower(&world);
     {
         Navigator leader(&world);
@@ -534,7 +536,8 @@ TEST_CASE_METHOD(SpellVisualFixture,
     published.movement.location_id = 7;
     world.compiledIndex()->registry.cells->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, 8,
                                                               {0, 0, 0});
-    World replacement;
+    StandaloneWorld standalone_replacement;
+    World& replacement = standalone_replacement.world;
     replacement.camera = &replacement.scene->camera;
     CameraPose prepared_pose;
     prepared_pose.position = {10, 20, 30};
@@ -579,7 +582,8 @@ TEST_CASE_METHOD(
 {
     world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
     world.spatial->collision_available = true;
-    World replacement;
+    StandaloneWorld standalone_replacement;
+    World& replacement = standalone_replacement.world;
     replacement.spatial = std::make_unique<LevelSpatialIndex>("", &replacement);
     replacement.spatial->collision_available = true;
     auto& spatial = replacement.compiledIndex()->m_spatial;
@@ -599,7 +603,8 @@ TEST_CASE_METHOD(SpellVisualFixture,
     active->location_id = 7;
     active->within_viewing_distance = false;
     world.population->monster_roster.add(std::move(active), false);
-    World replacement;
+    StandaloneWorld standalone_replacement;
+    World& replacement = standalone_replacement.world;
     auto record = std::make_unique<W8MonsterInfo>();
     record->location_id = 7;
     record->within_viewing_distance = true;
@@ -733,7 +738,8 @@ TEST_CASE("Rendering derives the views from the party and changes nothing it rea
     world.camera = &world.scene->camera;
     Light light(nullptr);
     world.camera_light = &light;
-    World sky;
+    StandaloneWorld standalone_sky;
+    World& sky = standalone_sky.world;
     sky.camera = &sky.scene->camera;
     placeParty(world, {10, 20, 30});
     world.party_camera.SetOrientation(.5f, -.25f);

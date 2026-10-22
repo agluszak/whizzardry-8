@@ -10,7 +10,6 @@
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
-#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
@@ -120,9 +119,7 @@ bool MeatMaker(Trigger* pTrigger)
         position = entity_position;
         auto& items = GetWorld()->items;
         items.activate(
-            CurrentGame().rng,
-            items.add(items.spawn(CurrentGame().rng, CurrentGame().status.next_world_item_id, 0x1b4,
-                                  position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
+            items.add(items.spawn(0x1b4, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
     }
     return true;
 }

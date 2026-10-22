@@ -204,10 +204,9 @@ bool SwampScript::gasFireItemDrop(int command)
             drop_position = position;
             auto& items = GetWorld()->items;
             auto& item = items.add(
-                items.spawn(CurrentGame().rng, CurrentGame().status.next_world_item_id, 0x264,
-                            drop_position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                items.spawn(0x264, drop_position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             item.item.identified = false;
-            items.activate(CurrentGame().rng, item);
+            items.activate(item);
             spawned->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
         return true;

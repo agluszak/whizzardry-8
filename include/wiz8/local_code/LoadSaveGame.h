@@ -1,5 +1,4 @@
 #pragma once
-class Rng;
 
 #include <filesystem>
 #include <memory>
@@ -71,12 +70,11 @@ struct W8LoadedLevelStatus {
 };
 std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world,
                                                      const std::filesystem::path& path, int level,
-                                                     bool from_assets, Rng& rng);
+                                                     bool from_assets = false);
 // The level's state as the party left it, or null when it never left the level.
-std::unique_ptr<W8LoadedLevelStatus> ReadLeftLevelStatus(World& world, const Game& game, int level,
-                                                         Rng& rng);
-void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status, Rng& rng);
-void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status, int next_item_id);
+std::unique_ptr<W8LoadedLevelStatus> ReadLeftLevelStatus(World& world, const Game& game, int level);
+void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status);
+void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status);
 void BeginRestoredLevelActivity(World& world, W8LoadedLevelStatus* status);
 std::string BuildLevelStatusPath(unsigned int level);
 bool SaveStatusHeader(W8Chunk* chunks);

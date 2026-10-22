@@ -171,6 +171,9 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
 
 - Level reconstruction builds a replacement world completely before it is
   published; entry then starts clocks, music, dialogue and first-visit effects.
+  A world borrows its game's random stream and item-id counter (`World::rng`,
+  `WorldItems`), so building it draws exactly as retail did. A build that fails puts
+  both back (`LoadLevel`, `LoadSkyWorld`).
 - Departure ends combat and captures script state into location variables before
   resources are released. Destruction does no departure bookkeeping.
 - Monster and world-item records link to their scene entity through an

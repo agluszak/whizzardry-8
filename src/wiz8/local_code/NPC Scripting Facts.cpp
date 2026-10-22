@@ -153,10 +153,8 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value != 0 && FindEntityByName("NP_BlueFlowers", &position, 0, 0)) {
             auto& items = GetWorld()->items;
             for (int flowers = 0; flowers < 2; ++flowers)
-                items.activate(CurrentGame().rng,
-                               items.add(items.spawn(
-                                   CurrentGame().rng, CurrentGame().status.next_world_item_id,
-                                   0x2eb, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
+                items.activate(items.add(
+                    items.spawn(0x2eb, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
         }
         return;
     case W8_FACT_CROCK_BREKEK_ASSIGN:

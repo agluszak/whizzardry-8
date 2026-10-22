@@ -13,9 +13,11 @@ struct W8ItemInstance;
 // The item records lying in one world and their placement in it: resting on the
 // ground, listed by the collidable prop beneath them, and with a scene entity while
 // they are near the camera. A world being loaded owns its items before it is published.
+// Rolling and placing items draws from the game's random stream, and every new record
+// takes the game's next item id; both belong to the game and outlive the world.
 class WorldItems {
 public:
-    explicit WorldItems(World& world);
+    WorldItems(World& world, Rng& rng, int& next_item_id);
     ~WorldItems();
     WorldItems(const WorldItems&) = delete;
     WorldItems& operator=(const WorldItems&) = delete;
@@ -23,13 +25,11 @@ public:
     const std::vector<std::unique_ptr<W8WorldItem>>& records() const { return items_; }
     W8WorldItem* find(int runtime_id) const;
 
-    // Creation uses the live game or candidate build inputs without retaining them.
     // A record holding `item` (taken from it; none when null), settled below `position`.
-    std::unique_ptr<W8WorldItem> create(int& next_item_id, W8ItemInstance* item,
-                                        const glm::vec3& position, int entity_flags);
+    std::unique_ptr<W8WorldItem> create(W8ItemInstance* item, const glm::vec3& position,
+                                        int entity_flags);
     // A record holding a newly rolled instance of `item_id`.
-    std::unique_ptr<W8WorldItem> spawn(Rng& rng, int& next_item_id, int item_id,
-                                       const glm::vec3& position, int entity_flags);
+    std::unique_ptr<W8WorldItem> spawn(int item_id, const glm::vec3& position, int entity_flags);
     W8WorldItem& add(std::unique_ptr<W8WorldItem> item);
     // Install restored records, which are not yet in a sector or the scene.
     void restore(std::vector<std::unique_ptr<W8WorldItem>> items);
@@ -37,7 +37,7 @@ public:
     void remove(int runtime_id);
     void clear();
 
-    void activate(Rng& rng, W8WorldItem& item);
+    void activate(W8WorldItem& item);
     void deactivate(W8WorldItem& item);
     // Drop the item onto the ground below it; false when there is no ground.
     bool settle(W8WorldItem& item);
@@ -49,5 +49,7 @@ private:
     void unplace(W8WorldItem& item);
 
     World& world_;
+    Rng& rng_;
+    int& next_item_id_;
     std::vector<std::unique_ptr<W8WorldItem>> items_;
 };

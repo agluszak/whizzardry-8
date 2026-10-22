@@ -157,15 +157,14 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
     if (!monster_info || monster_info->fActive) return;
     ActivateMonster(monster_info);
     PrepareMonsterInWorld(*GetWorld(), *monster_info,
-                          CurrentLevelPopulation().monster_roster.isUnborn(monster_info),
-                          CurrentGame().rng);
+                          CurrentLevelPopulation().monster_roster.isUnborn(monster_info));
     RequestRefreshPartyState();
     RefreshFlaggedMainGameState();
     BindNpcToMonster(MonsterDBFromSpecies(monster_info->monster_species)->npc_kind, true,
                      monster_info->location_id);
 }
 
-void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn, Rng& rng)
+void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
 {
     auto* monster_info = &info;
     const W8MonsterRecord* record;
@@ -198,7 +197,8 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn, Rng& 
             monster.SetCycle(1);
             monster.visual.SetBehaviour(W8_ANIMATION_NEVER_STOP);
             assert(monster.Query(W8_MONSTER_QUERY_FRAME_COUNT) != -1);
-            monster.visual.SetSubCycle(rng.below(monster.Query(W8_MONSTER_QUERY_FRAME_COUNT)));
+            monster.visual.SetSubCycle(
+                world.rng().below(monster.Query(W8_MONSTER_QUERY_FRAME_COUNT)));
             monster.SetAnimating(!monster_info->fMotionless);
         }
 
@@ -228,24 +228,22 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn, Rng& 
     }
 }
 
-std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info,
-                                                   Rng& rng)
+std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info)
 {
     const W8MonsterRecord* record;
     record = GetMonsterDataForInfo(monster_info);
 
-    auto monster =
-        Monster::ReadAllCycles(&world, record->cycle_name, monster_info->location_id, rng);
+    auto monster = Monster::ReadAllCycles(&world, record->cycle_name, monster_info->location_id);
     assert(monster);
     return monster;
 }
 
-void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info, Rng& rng)
+void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info)
 {
     if (monster_info->scale < 0.0f ||
         CurrentGame().status.level_progress[world.level_id].visited == 0) {
         monster_info->saved_mirror_x = monster_info->entity->visual.mirror_x;
-        monster_info->scale = CalculateMonsterScale(monster_info, rng);
+        monster_info->scale = CalculateMonsterScale(monster_info, world.rng());
         monster_info->entity->scale = monster_info->scale;
     } else {
         monster_info->entity->scale = monster_info->scale;
@@ -261,10 +259,10 @@ void ActivateMonster(W8MonsterInfo* monster_info)
 {
     assert(monster_info && !monster_info->fActive);
     if (monster_info->entity) return;
-    auto monster = ReadMonsterRepresentation(*GetWorld(), monster_info, CurrentGame().rng);
+    auto monster = ReadMonsterRepresentation(*GetWorld(), monster_info);
     monster_info->entity.attach(*monster);
     GetWorld()->monsters.push_back(std::move(monster));
-    ConfigureMonsterRepresentation(*GetWorld(), monster_info, CurrentGame().rng);
+    ConfigureMonsterRepresentation(*GetWorld(), monster_info);
 }
 
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info)

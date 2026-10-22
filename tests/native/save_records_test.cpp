@@ -77,6 +77,7 @@
 #include "glm/ext/vector_double3.hpp"
 #include "scoped_asset_roots.h"
 #include "temporary_directory.h"
+#include "test_worlds.h"
 #include "wiz8/audio/SoundEvent.h"
 #include "wiz8/chunk.h"
 #include "wiz8/combat/combat.h"
@@ -1238,7 +1239,9 @@ TEST_CASE_METHOD(SaveFixture, "Ambient sound states read the records retail stor
     REQUIRE(states.size() == 1);
     REQUIRE((states[0].name == "soundWaterfall01" && states[0].stopped));
 
-    World world;
+    StandaloneWorld standalone_world;
+
+    World& world = standalone_world.world;
     world.audio.emitters.push_back(std::make_unique<W8AmbientSound>());
     world.audio.emitters[0]->name = "SOUNDWATERFALL01";
     ApplyAmbientSoundStates(world, states);

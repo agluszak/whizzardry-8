@@ -10,6 +10,7 @@
 #include "scoped_combat.h"
 #include "scoped_game.h"
 #include "scoped_game_data.h"
+#include "test_worlds.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/game.h"
@@ -38,7 +39,7 @@ struct PartyFixture {
 
     PartyFixture()
     {
-        game.level.replacePrimary(std::make_unique<World>());
+        game.level.replacePrimary(MakeWorld());
         game.party.members[0].emplace();
         auto& character = member();
         character.fInParty = true;

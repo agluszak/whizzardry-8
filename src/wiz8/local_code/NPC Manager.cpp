@@ -1152,7 +1152,7 @@ W8NpcState* CreateNpcRuntimeNode(int npc_id)
     return npc;
 }
 
-W8PreparedNpcBindings PrepareNpcBindings(World& world, Rng& rng)
+W8PreparedNpcBindings PrepareNpcBindings(World& world)
 {
     W8PreparedNpcBindings pending;
     std::vector<bool> reserved(CurrentGame().story.npcs.size(), false);
@@ -1189,7 +1189,7 @@ W8PreparedNpcBindings PrepareNpcBindings(World& world, Rng& rng)
         auto existing = std::ranges::find(pending.records, slot, &W8PreparedNpcBinding::slot);
         if (existing == pending.records.end()) {
             pending.records.push_back({.slot = slot});
-            if (!source) pending.records.back().created = MakeNpcRuntimeNode(kind, rng);
+            if (!source) pending.records.back().created = MakeNpcRuntimeNode(kind, world.rng());
             existing = pending.records.end() - 1;
         }
         reserved[slot] = true;
@@ -2129,16 +2129,12 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
         if (monster_info != 0) {
             position = monster_info->entity->nav.GetPosition();
             auto& items = GetWorld()->items;
-            items.activate(CurrentGame().rng,
-                           items.add(items.spawn(
-                               CurrentGame().rng, CurrentGame().status.next_world_item_id, 0x1e6,
-                               position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
+            items.activate(items.add(
+                items.spawn(0x1e6, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
         } else if (FindEntityByName("NP_Glumph", &position, 0, 0)) {
             auto& items = GetWorld()->items;
-            items.activate(CurrentGame().rng,
-                           items.add(items.spawn(
-                               CurrentGame().rng, CurrentGame().status.next_world_item_id, 0x1e6,
-                               position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
+            items.activate(items.add(
+                items.spawn(0x1e6, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
         }
     }
     if (mode == W8MarkedNpcEventMode::release_companion) {

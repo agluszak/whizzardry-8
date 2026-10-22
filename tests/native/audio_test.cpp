@@ -36,6 +36,7 @@
 #include "scoped_asset_roots.h"
 #include "slf.h"
 #include "temporary_directory.h"
+#include "test_worlds.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/audio_test.h"
 #include "wiz8/audio/movie_audio.h"
@@ -204,9 +205,10 @@ TEST_CASE_METHOD(AudioFixture, "Ambient commands operate on their supplied world
                  "[audio][ambient]")
 {
     startOfflineAudio();
-    game.game.level.replacePrimary(std::make_unique<World>());
+    game.game.level.replacePrimary(MakeWorld());
     auto& active = *GetWorld();
-    World candidate;
+    StandaloneWorld standalone_candidate;
+    World& candidate = standalone_candidate.world;
     placeParty(active, glm::vec3(1000));
     placeParty(candidate, glm::vec3(0));
     for (auto* world : {&active, &candidate}) {
@@ -233,7 +235,8 @@ TEST_CASE_METHOD(AudioFixture, "Ambient rows do not inherit a previous row's mod
                  "[audio][ambient]")
 {
     startOfflineAudio();
-    World candidate;
+    StandaloneWorld standalone_candidate;
+    World& candidate = standalone_candidate.world;
     // The first row uses random replay; the malformed second row must not inherit it.
     std::ofstream(asset / "ambience.scf") << ".\n"
                                           << "tone.wav -1 -1 0 127 10 20 -1\n"
@@ -242,7 +245,8 @@ TEST_CASE_METHOD(AudioFixture, "Ambient rows do not inherit a previous row's mod
     REQUIRE(candidate.audio.tracks.size() == 1);
     REQUIRE_FALSE(candidate.audio.tracks.front()->loops);
     std::ofstream(asset / "ambience.scf") << ".\n" << "tone.wav -1 -1 -1 -1 -1 -1 0\n";
-    World direct;
+    StandaloneWorld standalone_direct;
+    World& direct = standalone_direct.world;
     REQUIRE(ReadAmbientSoundListFile(direct, "ambience.scf"));
     REQUIRE(direct.audio.tracks.size() == 1);
     REQUIRE(direct.audio.tracks.front()->loops == 0);
@@ -845,7 +849,8 @@ TEST_CASE_METHOD(AudioFixture,
 {
     startOfflineAudio();
     std::ofstream(asset / "ambient.scf") << ".\nTone.wav 0 0 127 127 -1 -1 0\n";
-    World active;
+    StandaloneWorld standalone_active;
+    World& active = standalone_active.world;
     REQUIRE(ReadAmbientSoundListFile(active, "ambient.scf"));
     REQUIRE(active.audio.tracks.size() == 1);
     REQUIRE_FALSE(active.audio.tracks.front()->instance);
@@ -854,7 +859,8 @@ TEST_CASE_METHOD(AudioFixture,
     REQUIRE(wiz8::sound::is_playing(previous_voice));
     wiz8::sound::Playback candidate_voice;
     {
-        World pending;
+        StandaloneWorld standalone_pending;
+        World& pending = standalone_pending.world;
         REQUIRE(ReadAmbientSoundListFile(pending, "ambient.scf"));
         REQUIRE_FALSE(pending.audio.tracks.front()->instance);
         REQUIRE(wiz8::sound::is_playing(previous_voice));
@@ -909,7 +915,7 @@ TEST_CASE_METHOD(AudioFixture, "Volume settings preserve source gain and ambient
 {
     startOfflineAudio();
     using wiz8::sound::VolumeChannel;
-    game.game.level.replacePrimary(std::make_unique<World>());
+    game.game.level.replacePrimary(MakeWorld());
     auto emitter = std::make_unique<W8AmbientSound>();
     emitter->in_range = 1;
     emitter->current_volume = 73;

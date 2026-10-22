@@ -20,6 +20,7 @@
 #include "scoped_game.h"
 #include "scoped_game_data.h"
 #include "temporary_directory.h"
+#include "test_worlds.h"
 #include "wiz8/chunk.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/game_data.h"
@@ -57,8 +58,8 @@ Trigger* AddTrigger(World& world, const char* name)
 
 bool triggers()
 {
-    CurrentGame().level.replacePrimary(std::make_unique<World>());
-    CurrentGame().level.replaceSky(std::make_unique<World>());
+    CurrentGame().level.replacePrimary(MakeWorld());
+    CurrentGame().level.replaceSky(MakeWorld());
     auto& level = *GetWorld();
     auto& sky = *GetSecondaryWorld();
     Trigger* first = AddTrigger(level, "DOOR");
@@ -91,8 +92,8 @@ bool triggers()
 
 bool nodes(const std::filesystem::path& directory)
 {
-    CurrentGame().level.replacePrimary(std::make_unique<World>());
-    CurrentGame().level.replaceSky(std::make_unique<World>());
+    CurrentGame().level.replacePrimary(MakeWorld());
+    CurrentGame().level.replaceSky(MakeWorld());
     auto& level = *GetWorld();
     auto& sky = *GetSecondaryWorld();
 
@@ -186,7 +187,7 @@ TEST_CASE("world_lookup_test")
     // Empty worlds need no collection initialization and can be torn down
     // without ever loading a level or publishing them as the active world.
     for (int iteration = 0; iteration < 3; ++iteration) {
-        const auto world = std::make_unique<World>();
+        const auto world = MakeWorld();
         REQUIRE(world->scene != nullptr);
         REQUIRE(GetWorldProp(world.get(), 0) == nullptr);
         REQUIRE(GetWorldCameraPath(world.get(), -1) == nullptr);
@@ -209,9 +210,9 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
     ScopedAssetRoots roots({assets.generic_string(), user.generic_string()});
 
     // Both owners remain usable while replacements are constructed locally.
-    game.game.level.replacePrimary(std::make_unique<World>(8));
+    game.game.level.replacePrimary(MakeWorld(8));
     auto* primary = GetWorld();
-    game.game.level.replaceSky(std::make_unique<World>(-1, "ExistingSky.LVL"));
+    game.game.level.replaceSky(MakeWorld(-1, "ExistingSky.LVL"));
     auto* sky = GetSecondaryWorld();
     for (int attempt = 0; attempt < 2; ++attempt) {
         REQUIRE_THROWS_WITH(LoadSkyWorld("MissingSky.LVL"),
@@ -249,7 +250,7 @@ TEST_CASE("Malformed level status cannot change the active level or session coun
           "[levels][records]")
 {
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>(8));
+    game.game.level.replacePrimary(MakeWorld(8));
     ScopedTemporaryDirectory directory("wiz8-unpublished-status");
     const auto path = directory.path / "level.sts";
     std::array<std::byte, 0x314> header{};
@@ -267,8 +268,8 @@ TEST_CASE("Malformed level status cannot change the active level or session coun
     });
     output.Close();
     CurrentGame().status.next_group_id = 42;
-    auto pending = std::make_unique<World>(3);
-    REQUIRE_THROWS(ReadLevelStatus(*pending, path, 3, true, CurrentGame().rng));
+    auto pending = MakeWorld(3);
+    REQUIRE_THROWS(ReadLevelStatus(*pending, path, 3, true));
     REQUIRE(CurrentGame().status.next_group_id == 42);
     REQUIRE(GetLoadedLevelID() == 8);
 }
@@ -276,8 +277,8 @@ TEST_CASE("Malformed level status cannot change the active level or session coun
 TEST_CASE("Only published worlds schedule their trigger events", "[levels][events]")
 {
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>(8));
-    auto pending = std::make_unique<World>(3);
+    game.game.level.replacePrimary(MakeWorld(8));
+    auto pending = MakeWorld(3);
     const auto schedule = [](World& world) {
         auto trigger = std::make_unique<Trigger>(&world);
         auto& action = world.addTimedAction(trigger.get());
@@ -308,7 +309,7 @@ TEST_CASE("Reward accounting follows the owned world, not a pending save destina
     CurrentGame().party.members[0].emplace();
     characters[0].hp_current = 1;
     CurrentGame().status.resume_level = 8;
-    game.game.level.replacePrimary(std::make_unique<World>(3));
+    game.game.level.replacePrimary(MakeWorld(3));
     AddPartyGold(CurrentGame(), 1, false);
     AwardPartyExperience(1, 0);
     REQUIRE(CurrentGame().status.level_progress[3].gold_collected == 1);
@@ -329,7 +330,7 @@ TEST_CASE("Reward accounting follows the owned world, not a pending save destina
 TEST_CASE("An unloaded monster target has no position", "[levels][targeting]")
 {
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>(8));
+    game.game.level.replacePrimary(MakeWorld(8));
     W8CombatSlot target{};
     target.iType = W8_TARGET_KIND_MONSTER;
     target.iMonsterID = 42;
@@ -366,7 +367,7 @@ TEST_CASE("Replacing a timed action keeps the executing action alive until the s
           "[levels][events]")
 {
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>(8));
+    game.game.level.replacePrimary(MakeWorld(8));
     auto& world = *GetWorld();
     auto* trigger = AddTrigger(world, "TIMER");
     auto& previous = world.addTimedAction(trigger);

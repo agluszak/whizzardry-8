@@ -406,11 +406,10 @@ struct W8MonsterInfo {
     unsigned char unknown_37d[0xa8];
 };
 
-void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn, Rng& rng);
+void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn);
 void ActivateMonsterInWorld(W8MonsterInfo* monster_info);
-std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info,
-                                                   Rng& rng);
-void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info, Rng& rng);
+std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info);
+void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info);
 void ActivateMonster(W8MonsterInfo* monster_info);
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);

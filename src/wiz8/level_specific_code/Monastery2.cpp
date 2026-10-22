@@ -7,9 +7,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
-#include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
@@ -39,9 +37,7 @@ bool MicroDoor2(Trigger* pTrigger)
     position = glm::vec3(13085.0f, -80.0f, -49440.0f);
     auto& items = GetWorld()->items;
     items.activate(
-        CurrentGame().rng,
-        items.add(items.spawn(CurrentGame().rng, CurrentGame().status.next_world_item_id, 0x2d7,
-                              position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
+        items.add(items.spawn(0x2d7, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)));
     return true;
 }
 

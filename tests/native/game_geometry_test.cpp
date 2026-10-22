@@ -54,6 +54,7 @@
 #include "scoped_asset_roots.h"
 #include "scoped_game.h"
 #include "temporary_directory.h"
+#include "test_worlds.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/SoundEvent.h"
 #include "wiz8/audio/sound3d.h"
@@ -275,7 +276,8 @@ static void camera_and_throw()
     camera.m_pitch = -.5f;
     // A world's pose is its party's, with or without a render camera; the render camera
     // never contributes to it.
-    World world{};
+    StandaloneWorld standalone_world;
+    World& world = standalone_world.world;
     placeParty(world, {1.25f, -2.5f, 3.75f});
     world.party_camera.SetOrientation(.25f, -.5f);
     const auto location = cameraLocation(world);
@@ -635,7 +637,7 @@ TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
           "[geometry][octree]")
 {
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>());
+    game.game.level.replacePrimary(MakeWorld());
     auto& world = *GetWorld();
     constexpr unsigned faces = 42;
     auto mesh = std::make_shared<Mesh>(faces, 3);
@@ -694,7 +696,8 @@ TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry]
     }
     // The shadow's own world, not the primary one, supplies its terrain.
     const ScopedGame game;
-    World world;
+    StandaloneWorld standalone_world;
+    World& world = standalone_world.world;
     REQUIRE(GetWorld() == nullptr);
     auto mesh = std::make_shared<Mesh>(1, 4);
     mesh->getVertexLoc()[0] = {-1, 0, -1};
@@ -2080,7 +2083,8 @@ TEST_CASE("Environment ambient scales scenes and lights while retaining the sour
           "[geometry]")
 {
     Light light(nullptr);
-    World world{};
+    StandaloneWorld standalone_world;
+    World& world = standalone_world.world;
     world.environment.lights = {&light};
     world.scene = std::make_unique<WorldScene>();
     auto& scene = *world.scene;
@@ -2154,7 +2158,8 @@ TEST_CASE("Movement searches score approach and retreat independently", "[geomet
 
 TEST_CASE("Movement traces use each search's source and target heights", "[geometry][pathing]")
 {
-    World world;
+    StandaloneWorld standalone_world;
+    World& world = standalone_world.world;
     world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
     world.spatial->collision_available = true;
     auto& data = *world.collisionIndex();
@@ -2191,7 +2196,8 @@ TEST_CASE("Movement traces use each search's source and target heights", "[geome
 TEST_CASE("Ground probes report the level surface they settle on, including surface zero",
           "[geometry][octree]")
 {
-    World world;
+    StandaloneWorld standalone_world;
+    World& world = standalone_world.world;
     world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
     world.spatial->collision_available = true;
     auto& data = *world.collisionIndex();
@@ -2334,7 +2340,7 @@ TEST_CASE("Native world objects activate through graph identity and game activit
 {
     ScopedGame scope;
     auto& game = scope.game;
-    game.level.replacePrimary(std::make_unique<World>());
+    game.level.replacePrimary(MakeWorld());
     auto& world = *game.level.primary;
     world.camera = &world.scene->camera;
     world.camera->setClipRange(1, 10);
@@ -2383,7 +2389,8 @@ TEST_CASE("Resolved prop picks retain occlusion and the closed-door combat excep
           "[geometry][picking]")
 {
     ScopedGame game;
-    World world;
+    StandaloneWorld standalone_world;
+    World& world = standalone_world.world;
     placeParty(world, {0, 0, 0});
     Trigger trigger(&world);
     trigger.flags = W8_TRIGGER_ENABLED;

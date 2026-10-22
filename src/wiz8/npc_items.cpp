@@ -619,8 +619,7 @@ static W8TradeResult CompleteNpcItemPurchase(Game& game, W8NpcState* npc, int in
             if (!drop_position) return {W8TradeOutcome::Refused};
             for (auto& item : overflow)
                 drops.push_back(GetWorld()->items.create(
-                    CurrentGame().status.next_world_item_id, &item, *drop_position,
-                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                    &item, *drop_position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
         }
     }
     // Publish the complete transfer before encumbrance, reactions or presentation.

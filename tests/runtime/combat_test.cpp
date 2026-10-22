@@ -13,6 +13,7 @@
 #include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include "../native/test_worlds.h"
 #include "harness.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
@@ -190,8 +191,7 @@ void CombatScenario()
         // Keep the queried world alive while another, empty world is active.
         // Ground probes and monster lookups must still use the queried octree.
         struct RestoreWorld {
-            std::unique_ptr<World> previous =
-                CurrentGame().level.replacePrimary(std::make_unique<World>());
+            std::unique_ptr<World> previous = CurrentGame().level.replacePrimary(MakeWorld());
             ~RestoreWorld() { CurrentGame().level.replacePrimary(std::move(previous)); }
         } restore;
         REQUIRE(

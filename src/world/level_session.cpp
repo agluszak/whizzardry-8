@@ -58,7 +58,6 @@
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
-#include "wiz8/world/level_loader.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
@@ -214,14 +213,36 @@ std::string_view GetLevelFolderName(int level_id)
     return g_level_folders[level_id].folder_name;
 }
 
+/* Building a world draws from the game's random stream and numbers its items from the
+   game's counter, as playing it does. A build that fails puts both back, so a refused load
+   leaves later draws and item ids as they were. */
+template<class Prepare> static bool PrepareRestoringDraws(Game& game, Prepare prepare)
+{
+    const Rng rng = game.rng;
+    const int next_item_id = game.status.next_world_item_id;
+    const auto restore = [&] {
+        game.rng = rng;
+        game.status.next_world_item_id = next_item_id;
+    };
+    try {
+        if (prepare()) return true;
+    } catch (...) {
+        restore();
+        throw;
+    }
+    restore();
+    return false;
+}
+
 /* Reuse the sky with the same canonical resource path. An empty path removes
    the previous sky. A replacement receives the animated-cloud material:
    its cloud meshes are marked for the renderer's
    control bits and every CloudsN prop's mesh chain is rebound to it. */
-static std::unique_ptr<World> PrepareSkyWorld(std::string_view sky_path, LevelBuildState& state)
+static std::unique_ptr<World> PrepareSkyWorld(Rng& rng, int& next_item_id,
+                                              std::string_view sky_path)
 {
     if (sky_path.empty()) return nullptr;
-    auto replacement = LoadWorld(-1, std::string(sky_path), state);
+    auto replacement = LoadWorld(rng, next_item_id, -1, std::string(sky_path));
     if (!replacement) return nullptr;
     auto* sky = replacement.get();
 
@@ -272,11 +293,12 @@ bool LoadSkyWorld(std::string_view sky_path)
         level.sky->source_path == wiz8::normalize_asset_path(sky_path).generic_string())
         return true;
     auto& game = CurrentGame();
-    LevelBuildState state{game.rng, game.status.next_world_item_id};
-    auto replacement = PrepareSkyWorld(sky_path, state);
-    if (!sky_path.empty() && !replacement) return false;
-    game.rng = state.rng;
-    game.status.next_world_item_id = state.next_item_id;
+    std::unique_ptr<World> replacement;
+    if (!PrepareRestoringDraws(game, [&] {
+            replacement = PrepareSkyWorld(game.rng, game.status.next_world_item_id, sky_path);
+            return sky_path.empty() || replacement;
+        }))
+        return false;
     level.replaceSky(std::move(replacement));
     if (!level.sky) ResetEnvironment();
     return true;
@@ -504,28 +526,36 @@ bool LoadLevel(int requested_level, int entrance, bool restoring_game)
         return false;
     }
 
-    LevelBuildState state{CurrentGame().rng, CurrentGame().status.next_world_item_id};
-    auto replacement = LoadWorld(level, level_info.level_path, state);
-    if (!replacement) return false;
-    auto ambient_path = wiz8::path_from_utf8(level_info.level_path);
-    ambient_path.replace_extension(".SCF");
-    ReadAmbientSoundListFile(*replacement, wiz8::path_to_utf8(ambient_path).c_str());
+    auto& game = CurrentGame();
     Level& current = CurrentLevel();
-    const bool reuse_sky =
-        current.sky && current.sky->source_path ==
-                           wiz8::normalize_asset_path(level_info.sky_path).generic_string();
-    auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(level_info.sky_path, state);
-    if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return false;
-    if (GetWorld() && !StoreLeftLevel(CurrentGame())) return false;
-    auto status = ReadLeftLevelStatus(*replacement, CurrentGame(), level, state.rng);
-    if (!status)
-        status = ReadLevelStatus(*replacement, wiz8::asset_path(BuildLevelStatusPath(level)), level,
-                                 true, state.rng);
-    CurrentGame().rng = state.rng;
+    bool reuse_sky = false;
+    std::unique_ptr<World> replacement, replacement_sky;
+    std::unique_ptr<W8LoadedLevelStatus> status;
+    const bool prepared = PrepareRestoringDraws(game, [&] {
+        auto& next_item_id = game.status.next_world_item_id;
+        replacement = LoadWorld(game.rng, next_item_id, level, level_info.level_path);
+        if (!replacement) return false;
+        auto ambient_path = wiz8::path_from_utf8(level_info.level_path);
+        ambient_path.replace_extension(".SCF");
+        ReadAmbientSoundListFile(*replacement, wiz8::path_to_utf8(ambient_path).c_str());
+        reuse_sky =
+            current.sky && current.sky->source_path ==
+                               wiz8::normalize_asset_path(level_info.sky_path).generic_string();
+        if (!reuse_sky)
+            replacement_sky = PrepareSkyWorld(game.rng, next_item_id, level_info.sky_path);
+        if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return false;
+        if (GetWorld() && !StoreLeftLevel(game)) return false;
+        status = ReadLeftLevelStatus(*replacement, game, level);
+        if (!status)
+            status = ReadLevelStatus(*replacement, wiz8::asset_path(BuildLevelStatusPath(level)),
+                                     level, true);
+        return true;
+    });
+    if (!prepared) return false;
     if (GetWorld()) LeaveLevel();
     current.replacePrimary(std::move(replacement));
     if (!reuse_sky) current.replaceSky(std::move(replacement_sky));
-    InstallLevelSessionState(*GetWorld(), status.get(), state.next_item_id);
+    InstallLevelSessionState(*GetWorld(), status.get());
     EnterLevel(level, entrance, restoring_game, status.get());
     return true;
 }

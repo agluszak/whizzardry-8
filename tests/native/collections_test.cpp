@@ -21,6 +21,7 @@
 #include "scoped_game_data.h"
 #include "sight_state.h"
 #include "temporary_directory.h"
+#include "test_worlds.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/chunk.h"
 #include "wiz8/combat/combat.h"
@@ -91,7 +92,7 @@
 
 // A game in progress with an empty level world.
 struct LevelWorldFixture : ScopedGame {
-    LevelWorldFixture() { game.level.replacePrimary(std::make_unique<World>()); }
+    LevelWorldFixture() { game.level.replacePrimary(MakeWorld()); }
 };
 
 TEST_CASE("World-clock rollover preserves seconds and NPC cooldowns", "[timers][npc]")
@@ -301,7 +302,8 @@ static bool gameplayCollectionLifetime()
     // Preparing and abandoning another population cannot publish its identities.
     live->location_id = 7;
     {
-        World replacement;
+        StandaloneWorld standalone_replacement;
+        World& replacement = standalone_replacement.world;
         auto* candidate =
             replacement.population->monster_roster.add(std::make_unique<W8MonsterInfo>(), false);
         candidate->location_id = 7;
@@ -832,7 +834,7 @@ TEST_CASE("Encounter retirement spends one budget unit per formation, without re
           "[groups]")
 {
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>(0));
+    game.game.level.replacePrimary(MakeWorld(0));
     const ScopedCombat combat{true};
     const ScopedGameData installed(EncounterLevelData());
     GetWorld()->encounters.random_budget = 8;
@@ -870,7 +872,7 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
           "[groups][save]")
 {
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>(0));
+    game.game.level.replacePrimary(MakeWorld(0));
     GameData data;
     data.levels.resize(2);
     data.levels[1].minimum_encounter_budget = 2;
@@ -884,7 +886,8 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
     live.default_interval = 17;
     live.interval_max = 44;
     live.save_flag = 1;
-    World replacement(1);
+    StandaloneWorld standalone_replacement(1);
+    World& replacement = standalone_replacement.world;
     replacement.encounters.random_budget = 100;
     StartLevelEncounters(replacement);
     REQUIRE(replacement.encounters.random_budget == 9);
@@ -927,7 +930,7 @@ TEST_CASE_METHOD(LevelWorldFixture, "Full formations reject a link before detach
 TEST_CASE("Allied leader election preserves one encounter with zero leadership ranks", "[groups]")
 {
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>(0));
+    game.game.level.replacePrimary(MakeWorld(0));
     const ScopedCombat combat{true};
     const ScopedGameData installed(EncounterLevelData());
     GetWorld()->encounters.random_budget = 8;

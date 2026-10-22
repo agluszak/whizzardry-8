@@ -177,7 +177,7 @@ public:
     int Query(W8MonsterQueryKind query);         /* 0x004C4660 */
     // Monster operations that were free Monster* wrappers around this object.
     static std::unique_ptr<Monster> ReadAllCycles(World* world, std::string_view monster_name,
-                                                  int location_id, Rng& rng);
+                                                  int location_id);
     std::optional<BoundingBox> GetWorldAnimationBounds();
     glm::vec3 GetRepresentationLocation() const;
     glm::vec3 GetRepresentationLocalLocation() const;

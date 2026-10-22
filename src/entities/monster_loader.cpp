@@ -501,7 +501,7 @@ static void WithdrawMonsterDefinition(World& world, Monster& definition)
    own appearance roll. The definition is loaded on first use and kept for the
    world's lifetime, so creating an actor never depends on another actor. */
 std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view monster_name,
-                                                int location_id, Rng& rng)
+                                                int location_id)
 {
     auto& definitions = world->monster_definitions;
     auto definition = std::ranges::find_if(definitions, [&](const auto& candidate) {
@@ -515,7 +515,7 @@ std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view m
         definition = definitions.end() - 1;
     }
     auto monster = std::make_unique<Monster>(**definition, world);
-    monster->RandomizeAppearanceAndMotion(rng);
+    monster->RandomizeAppearanceAndMotion(world->rng());
     // Retail gave the MLS script only to an actor created while none of its
     // species was alive; the others were copied without one.
     if ((*definition)->script && std::ranges::none_of(world->monsters, [&](const auto& live) {
