@@ -605,20 +605,12 @@ unsigned char Monster::ReadCycleData(LevelLoadContext* info, int cycle_index)
         visual.current_cycle = cycle;
     }
 
-    if (animation->path_lists == 1) {
-        signed char list;
-
-        for (list = 0; list < 3; ++list) {
-            signed char entry;
-            signed char count = static_cast<signed char>(AnimObjListCount(animation, list));
-
-            for (entry = 0; entry < count; ++entry) {
-                KeyframeTrack* path = AnimObjListEntry(animation, list, entry);
-                if (path != 0) {
-                    path->looping = true;
-                    path->discrete_mode = true;
-                    path->speed = animation->playback_scale;
-                }
+    for (auto& group : animation->parts) {
+        for (auto& part : group) {
+            if (part.path) {
+                part.path->looping = true;
+                part.path->discrete_mode = true;
+                part.path->speed = animation->playback_scale;
             }
         }
     }

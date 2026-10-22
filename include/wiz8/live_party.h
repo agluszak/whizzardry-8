@@ -64,4 +64,4 @@ void RefreshConditionModifiers(Game& game, unsigned int slot);
 void RecalculateCharacterDerivedStats(Game& game, W8Character& character);
 /* The calculation for a draft outside the party from the effective attributes and skill
    levels it holds, which the creation editor edits directly. */
-void RecalculateEditedCharacterStats(W8Character& draft);
+void RecalculateEditedCharacterStats(Game& game, W8Character& draft);
