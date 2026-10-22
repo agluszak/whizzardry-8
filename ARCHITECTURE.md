@@ -720,3 +720,14 @@ There are no separate HUD/per-character open flags or ambient selected slot.
 Deferred actions capture the screen, slot and selected action, not the menu being
 closed, so picker handoff does not read a destroyed menu. Input is constructed
 ready to use and disappears with the menu; no build/enable protocol is required.
+
+## Radar presentation
+
+The main screen owns an optional RadarMap; its presence is visibility. Radar owns
+its artwork, deferred backdrop capture, zoom/hover state and one reusable blip
+sequence. Each update consumes slots in traversal order and reattaches active
+quads in that order, so categories, elevation shades and overlap ordering stay
+unchanged. Highlight phase remains tied to the presentation clock. Zoom captures
+the party radius once; ordinary redraws derive ranges from that snapshot rather
+than resampling it. A growing blip sequence cannot reuse the newly allocated slot
+for a second marker in the same pass, unlike the former eighteen cursor pools.

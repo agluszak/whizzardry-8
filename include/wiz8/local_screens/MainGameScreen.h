@@ -19,6 +19,7 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 
+class RadarMap;
 class KeyboardActionMenu;
 class Pointer;
 class Trigger;
@@ -42,6 +43,8 @@ struct MainGameScreen final : Screen {
     // The game this main game belongs to; it is discarded before the game ends.
     Game& game;
     std::unique_ptr<KeyboardActionMenu> keyboard_menu;
+    std::unique_ptr<RadarMap> radar_map;
+    void setRadarVisible(bool visible);
     bool keyboardMenuForSlot(int slot) const;
     void openKeyboardMenu(int slot);
     void closeKeyboardMenu();
@@ -555,7 +558,6 @@ void RunMGSActionKey(unsigned short command);
 void LoadMainGameCursorResources(void);
 W8ViewportMode GetMainGameViewportMode(void);
 void CloseMainGameOverlays(void);
-void SetRadarMapVisible(bool visible);
 void SetActionPanelVisible(bool visible);
 void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag);
 void RebuildNpcTradeItemList(bool scroll_to_top);
