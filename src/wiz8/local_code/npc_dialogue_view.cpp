@@ -118,7 +118,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(const ScriptContext& context, const W8NpcS
         display_text = quote->subquotes[subquote_index];
         if (!notice_only) {
             MainGame()->dialogue.presentation = W8NpcPresentation::portrait_message;
-            SetNpcQuoteBubbleVisible(true, display_text, 0, -1, -1);
+            SetNpcQuoteBubbleVisible(*MainGame(), true, display_text, 0, -1, -1);
             HoldNpcSpeech(MainGame()->dialogue.speech,
                           wiz8::text::grapheme_count(display_text) * 60 + 2000);
             return W8NpcSubquoteOutcome::presented;
@@ -177,7 +177,7 @@ W8NpcSubquoteOutcome SpeakNpcSubquote(const ScriptContext& context, const W8NpcS
             if (!context.activity.conversation && speaker->record->voice_script == 0) {
                 display_text = fmt::format("{}: {}", speaker->record->source_name, display_text);
             }
-            SetNpcQuoteBubbleVisible(true, display_text, 0, current_quote, -1, {},
+            SetNpcQuoteBubbleVisible(*MainGame(), true, display_text, 0, current_quote, -1, {},
                                      speaker->partner_index);
         }
         const bool voiced =
@@ -221,7 +221,7 @@ static void FinishNpcVoicePlayback(MainGameScreen& screen, bool resume_script)
     const int current_quote = screen.game.npc_dialogue.current_quote();
     if (screen.dialogue.presentation == W8NpcPresentation::portrait_message) {
         screen.dialogue.presentation = W8NpcPresentation::none;
-        SetNpcQuoteBubbleVisible(false, {}, 0, -1, -1);
+        SetNpcQuoteBubbleVisible(screen, false, {}, 0, -1, -1);
         screen.game.npc_dialogue.SpeechFinished();
         return;
     }
@@ -235,7 +235,7 @@ static void FinishNpcVoicePlayback(MainGameScreen& screen, bool resume_script)
     }
     if (GetNpcGroupEntry(speaker) != 0) {
         FinishPortraitSpeech(speaker->group_index);
-        SetNpcQuoteBubbleVisible(false, {}, 0, -1, -1);
+        SetNpcQuoteBubbleVisible(screen, false, {}, 0, -1, -1);
     }
     screen.dialogue.presentation = W8NpcPresentation::none;
     screen.game.npc_dialogue.SpeechFinished();
@@ -243,8 +243,9 @@ static void FinishNpcVoicePlayback(MainGameScreen& screen, bool resume_script)
         if (speaker != 0 && screen.game.npc_dialogue.binding().script != 0 &&
             current_quote < screen.game.npc_dialogue.binding().script->quote_count) {
             SetNpcQuoteBubbleVisible(
-                false, {}, &screen.game.npc_dialogue.binding().script->quotes[current_quote],
-                current_quote, -1);
+                screen, false, {},
+                &screen.game.npc_dialogue.binding().script->quotes[current_quote], current_quote,
+                -1);
             return;
         }
     }
@@ -267,7 +268,7 @@ void TryFinishNpcVoicePlayback(const GameStatus& status, bool force)
 void ShowNpcPortraitMessage(std::string_view text, W8QuoteNotice notice)
 {
     MainGame()->dialogue.presentation = W8NpcPresentation::portrait_message;
-    SetNpcQuoteBubbleVisible(true, text, 0, -1, -1, notice, -1);
+    SetNpcQuoteBubbleVisible(*MainGame(), true, text, 0, -1, -1, notice, -1);
     HoldNpcSpeech(MainGame()->dialogue.speech, ComputePortraitMessageDuration(text));
 }
 
@@ -280,18 +281,18 @@ void RestoreCurrentNpcQuoteBubble(void)
     const W8NpcScriptFile* script_file =
         speaker != 0 ? CurrentGame().npc_dialogue.binding().script.get() : 0;
     if (script_file != 0 && current_quote < static_cast<int>(script_file->quote_count)) {
-        SetNpcQuoteBubbleVisible(false, {}, script_file->quotes.data() + current_quote,
+        SetNpcQuoteBubbleVisible(*MainGame(), false, {}, script_file->quotes.data() + current_quote,
                                  current_quote, 0xffffffff);
         return;
     }
-    SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
+    SetNpcQuoteBubbleVisible(*MainGame(), false, {}, 0, -1, 0xffffffff);
 }
 
 /* Raise the quote bubble over `text` and, when `play_sound` is set, kick off
    the generic start-game click that accompanies a silent text notice. */
 void DisplayNpcQuote(std::string_view text, bool play_sound)
 {
-    SetNpcQuoteBubbleVisible(true, text, 0, -1, 0x47);
+    SetNpcQuoteBubbleVisible(*MainGame(), true, text, 0, -1, 0x47);
     auto& speech = MainGame()->dialogue.speech;
     speech.voice_playing = false;
     speech.voice_started_at = MonotonicMilliseconds();

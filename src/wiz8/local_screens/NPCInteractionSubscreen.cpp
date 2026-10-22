@@ -3546,11 +3546,11 @@ void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, const W8NpcQuo
     ScreenPointer().showSlot(W8_CURSOR_NONE);
 }
 
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
-                              int quote_id, unsigned int font_palette, W8QuoteNotice notice,
-                              int npc_kind)
+void SetNpcQuoteBubbleVisible(MainGameScreen& screen, bool visible, std::string_view text,
+                              const W8NpcScriptQuote* quote, int quote_id,
+                              unsigned int font_palette, W8QuoteNotice notice, int npc_kind)
 {
-    if (visible == MainGame()->dialogue.active_quote.has_value()) {
+    if (visible == screen.dialogue.active_quote.has_value()) {
         return;
     }
     if (visible) {
@@ -3565,22 +3565,22 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
             }
             normalized += text[index];
         }
-        auto& active = MainGame()->dialogue.active_quote.emplace();
+        auto& active = screen.dialogue.active_quote.emplace();
         auto& bubble = active.bubble;
         bubble = QuoteBubble::layout(
             normalized, 280,
             font_palette == 0xffffffff ? std::nullopt : std::optional<std::uint8_t>(font_palette));
         if (!bubble) {
-            if (CurrentGame().npc_interaction.dialogue_npc != 0) {
+            if (screen.game.npc_interaction.dialogue_npc != 0) {
                 error_text = fmt::format(
                     "Error creating box - most likely text too large: NPC {}, quote {:d}",
-                    CurrentGame().npc_interaction.dialogue_npc->record->source_name, quote_id);
+                    screen.game.npc_interaction.dialogue_npc->record->source_name, quote_id);
             } else {
                 error_text = "Error creating box - most likely text too large";
             }
             bubble = QuoteBubble::layout(error_text, 300, std::nullopt);
             ShowNotice(W8_FONT_PALETTE_BEIGE, error_text, 0,
-                       (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
+                       (screen.hud->text_box_right - screen.hud->text_box_left));
         }
         active.origin = {320 - active.bounds().w / 2, quote_id < 0 ? 350 - active.bounds().h : 20};
         const auto bounds = active.bounds();
@@ -3594,7 +3594,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
                 return UiResult::Handled;
             });
         if (std::holds_alternative<std::monostate>(notice)) {
-            CurrentGame().npc_interaction.pending_notice_lines.push_back({normalized, npc_kind});
+            screen.game.npc_interaction.pending_notice_lines.push_back({normalized, npc_kind});
         }
         bool level_up = std::holds_alternative<W8LevelUpNotice>(notice);
         active.notice = notice;
@@ -3606,7 +3606,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
         return;
     }
 
-    auto& active = *MainGame()->dialogue.active_quote;
+    auto& active = *screen.dialogue.active_quote;
     bool flush_notices =
         (quote_id == 0x12 || quote_id < 0) && std::holds_alternative<std::monostate>(active.notice);
     W8QuoteNotice dismissed = active.notice;
@@ -3616,7 +3616,7 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
                                 experience->amount),
                    0);
     } else if (const auto* skills = std::get_if<W8SkillNoticePayload>(&dismissed)) {
-        PostSkillIncreaseNotices(CurrentGame(), skills);
+        PostSkillIncreaseNotices(screen.game, skills);
     } else if (const auto* level_up = std::get_if<W8LevelUpNotice>(&dismissed)) {
         PostCharacterNotice(level_up->party_slot, Data().strings[0x773]);
     }
@@ -3638,13 +3638,13 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
     }
     const auto bounds = active.bounds();
     const bool had_bubble = active.bubble.has_value();
-    MainGame()->dialogue.active_quote.reset();
+    screen.dialogue.active_quote.reset();
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         if (had_bubble) {
             ClearSurfaceRect(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
             InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
         }
-        if (auto* hud = MainGameHud()) {
+        if (auto* hud = screen.hud.get()) {
             hud->repaint.layout = true;
             hud->repaint.portraits.set();
             hud->repaint.portrait_panel = true;
