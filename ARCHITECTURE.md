@@ -506,13 +506,14 @@ Unlayered code may use the layers.
   changed ceilings and the fatigue band follows stamina; an exhausted hit-point pool
   and a crossed carrying capacity are reported, and settlement turns them into death
   and the overload notice ("Conditions"). An operation captures one `CharacterBaseline`; the transitions
-  compare against it and swings read its damage bonuses (retail scores swings with
-  the bonus its previous calculation left), so a second pass, as after a fatigue-band
-  change, cannot change the result. Every change a statistic depends on settles the
-  party (`SettleActiveParty`). The creation editor, which edits effective
-  attributes and skill levels itself, recalculates without re-evaluating them
-  (`RecalculateEditedCharacterStats`), and learning a spell rebuilds the realm
-  ceilings for every profession, as retail does, and lets the pools follow.
+  compare against it, so a second pass, as after a fatigue-band change, cannot
+  reapply them. Derived values read only current inputs: swings use the damage bonus
+  the current equipment gives, not the one a previous calculation left (as retail did).
+  Every change a statistic depends on settles the party (`SettleActiveParty`). The
+  creation editor, which edits effective attributes and skill levels itself,
+  recalculates without re-evaluating them (`RecalculateEditedCharacterStats`), and
+  learning a spell rebuilds the realm ceilings for every profession, as retail does,
+  and lets the pools follow.
 - **Conditions.** `live_party.h` holds a member's conditions and enchantments, death
   and the party's settlement as game operations on an explicit `Game&`
   (`InflictCondition(game, …)`, `LiftCondition`, `SettleActiveParty`, …). Each reads
