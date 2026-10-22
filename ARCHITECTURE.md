@@ -220,7 +220,8 @@ code has a subclass whose members are that state. Trigger callbacks are
 - **Controls and painting.** Controls paint into an explicit `SDL_Surface&`.
   `Draw` never commits; `Refresh` commits a dirty rectangle. Screens record which
   parts the next draw repaints. One `Pointer`, owned by the router, holds the cursor
-  and the targeting request.
+  and the targeting request. The notebook view derives its rows from
+  `Game::story.keywords`; information dialogs own separate append-only paragraphs.
 
 ## Tests
 
