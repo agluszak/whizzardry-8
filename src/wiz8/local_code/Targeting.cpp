@@ -1003,7 +1003,7 @@ bool IsTargetSourceInRangeOfGroup(const W8TargetSource* source, W8MonsterGroup* 
             distance = member->GetDistanceToPlayer();
         } else if (source->iType == W8_TARGET_SOURCE_MONSTER) {
             assert(source->iMonsterID != BAD_INDEX);
-            distance = member->GetDistanceToMonster(source_monster);
+            distance = member->GetDistanceToMonster(*source_monster);
         }
         if (distance <= max_distance) {
             return true;

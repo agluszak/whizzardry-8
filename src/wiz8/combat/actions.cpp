@@ -544,7 +544,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
                         approach_distance =
                             CalcRangeDistance(W8_RANGE_SHORT) * g_prepath_link_height;
                     }
-                    GetMonsterAttackSourceOffset(monster_info->entity.find(), sight, &position);
+                    position = GetMonsterAttackSourceOffset(*monster_info->entity, sight);
                     engage_distance = CalcRangeDistance(range);
                     MonsterChooseTarget(monster_info, &monster_info->Target,
                                         W8VisibilityCondition::SightState);
@@ -552,8 +552,8 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
                     if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
                         target_info = FindMonster(monster_info->Target.iMonsterID);
                         move_result = monster_info->entity->ConfigureMovementToMonster(
-                            target_info->entity.find(), approach_distance, engage_distance,
-                            position, sight, &move_flag);
+                            *target_info->entity, approach_distance, engage_distance, position,
+                            sight, &move_flag);
                     } else {
                         if (monster_info->ubDisposition != W8_DISPOSITION_HOSTILE) {
                             break;
@@ -791,8 +791,6 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
 {
     W8MonsterInfo* monster_info = &monster;
     ActionStep outcome;
-    /* MonsterChooseTarget fills the target kind and the chosen monster's id. */
-    W8CombatSlot chosen;
     int progress_pct;
     const W8MonsterRecord* record;
     W8MonsterCombatState* combat;
@@ -810,18 +808,9 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
             outcome = ActionStep::resolving;
             break;
         }
-        if ((monster_info->action_kind == W8_MONSTER_ACTION_APPROACH ||
-             monster_info->action_kind == W8_MONSTER_ACTION_BACK_OFF) &&
-            monster_info->hp_current != 0 &&
-            monster_info->highest_condition < W8_CONDITION_WEBBED &&
-            monster_info->uiCondition[W8_CONDITION_BLIND] == 0) {
-            MonsterChooseTarget(monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
-            if (chosen.iType == W8_TARGET_KIND_PARTY) {
-                monster_info->entity->ForwardReferencePosition(0);
-            } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
-                monster_info->entity->AimAtMonster(GetMonsterByLocationID(chosen.iMonsterID),
-                                                   false);
-            }
+        if (monster_info->action_kind == W8_MONSTER_ACTION_APPROACH ||
+            monster_info->action_kind == W8_MONSTER_ACTION_BACK_OFF) {
+            TurnMonsterToNewTarget(*monster_info);
         }
         RefreshAllSight();
         entity = monster_info->entity.find();

@@ -411,7 +411,7 @@ Monster::Monster(const Monster& rhs, World* owner)
 Monster::~Monster()
 {
     visual.SetLights(0);
-    ClearMonsterSpellIcons(this);
+    ClearMonsterSpellIcons(*this);
     script.reset();
     runtime_flags &= ~W8_MONSTER_SCRIPT_WAIT;
     script_line = 0;
@@ -920,15 +920,14 @@ bool Monster::HasLineOfSightFromPoint(glm::vec3 point)
     return !GetWorldSpatialIndex()->traceSight(point, monster_position);
 }
 
-bool Monster::IsFacingMonster(Monster* monster)
+bool Monster::IsFacingMonster(const Monster& monster)
 {
     float bearing;
     float facing;
     glm::vec3 from;
     glm::vec3 to;
 
-    assert(monster != 0);
-    to = monster->nav.GetPosition();
+    to = monster.nav.GetPosition();
     from = nav.GetPosition();
     bearing = NormalizeAngle(GetHeadingAngle(&from, &to));
     facing = NormalizeAngle(nav.GetYaw());
@@ -1197,12 +1196,12 @@ float Monster::GetPointDistanceToPlayer(glm::vec3 point)
     return distance;
 }
 
-float Monster::GetDistanceToMonster(Monster* monster)
+float Monster::GetDistanceToMonster(const Monster& monster)
 {
     glm::vec3 position = nav.GetPosition();
-    glm::vec3 other_position = monster->nav.GetPosition();
+    glm::vec3 other_position = monster.nav.GetPosition();
     float distance = glm::length((position - other_position)) - nav.movement.alternate_radius -
-                     monster->nav.movement.alternate_radius;
+                     monster.nav.movement.alternate_radius;
 
     if (distance < 0.0f) {
         distance = 0.0f;
@@ -2207,14 +2206,11 @@ unsigned short Monster::ConfigureMovementToPlayer(float separation, float maximu
                                             trace_mode, nav.GetYaw(), probe_result);
 }
 
-unsigned short Monster::ConfigureMovementToMonster(Monster* target, float separation,
+unsigned short Monster::ConfigureMovementToMonster(Monster& target, float separation,
                                                    float maximum_distance, glm::vec3 position,
                                                    int trace_mode, unsigned char* probe_result)
 {
-    if (target == 0) {
-        return 0;
-    }
-    return nav.ConfigureMovementToNavigator(&(target)->nav, separation, maximum_distance, position,
+    return nav.ConfigureMovementToNavigator(&target.nav, separation, maximum_distance, position,
                                             trace_mode, nav.GetYaw(), probe_result);
 }
 
@@ -2247,23 +2243,14 @@ void Monster::ForwardReferencePosition(signed char alternate)
 /* Aim one live Monster at another unless the source is controlled directly.
    The alternate path uses Navigator's second position sink, matching the
    corresponding player-position helper above. */
-void Monster::AimAtMonster(Monster* target, bool alternate)
+void Monster::AimAtMonster(const Monster& target, bool alternate)
 {
-    W8MonsterInfo* monster_info;
-    glm::vec3 target_position;
-    glm::vec3 position;
-
-    if (target != 0) {
-        monster_info = FindMonster(location_id);
-        if (monster_info->control_state != W8_MONSTER_CONTROL_LURED) {
-            target_position = target->nav.GetPosition();
-            position = target_position;
-            if (alternate) {
-                nav.SetFacingToward(&position);
-            } else {
-                nav.AimAtPosition(&position);
-            }
-        }
+    if (FindMonster(location_id)->control_state == W8_MONSTER_CONTROL_LURED) return;
+    glm::vec3 position = target.nav.GetPosition();
+    if (alternate) {
+        nav.SetFacingToward(&position);
+    } else {
+        nav.AimAtPosition(&position);
     }
 }
 
@@ -2591,30 +2578,12 @@ std::unique_ptr<WorldItemEntity> CreateMonsterIconItem(World& world, std::string
     return item;
 }
 
-void ApplyMonsterRepresentationScale(Monster* target)
+void DestroyWorldMonster(Monster& monster)
 {
-    target->ApplyRepresentationScale();
-}
-
-void DestroyWorldMonster(Monster* monster)
-{
-    std::erase(GetWorld()->active_monsters, monster);
-    std::erase_if(GetWorld()->monsters,
-                  [monster](const auto& owner) { return owner.get() == monster; });
-}
-
-void DetachMonsterRepresentation(Monster* monster)
-{
-    if (monster != 0 && GetWorld() != nullptr) {
-        monster->visual.DetachRepresentation(GetWorld());
-    }
-}
-
-void RefreshMonsterStandingHeight(Monster* monster)
-{
-    if (monster != 0) {
-        monster->RefreshStandingHeight();
-    }
+    World& world = *GetWorld();
+    monster.visual.DetachRepresentation(&world);
+    std::erase(world.active_monsters, &monster);
+    std::erase_if(world.monsters, [&](const auto& owner) { return owner.get() == &monster; });
 }
 
 void Monster::TickAnimation(float time_scale)

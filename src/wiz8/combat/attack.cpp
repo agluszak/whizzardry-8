@@ -1695,7 +1695,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
                         event_ids[CurrentGame().rng.below(3)], 0, kCharacterEventFullVolume);
                 }
                 if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_MONSTER &&
-                    target_info->entity->IsFacingMonster(monster_info->entity.find()) != 0 &&
+                    target_info->entity->IsFacingMonster(*monster_info->entity) != 0 &&
                     !target_info->fMotionless) {
                     StartMonsterCycle(target_info, W8_MONSTER_CYCLE_DODGE, W8_ANIMATION_PLAY_ONCE);
                 }
@@ -2059,7 +2059,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
                 }
                 ++second_combat->spot_attempts;
                 if (notices) {
-                    second->entity->AimAtMonster(monster_info->entity.find(), false);
+                    second->entity->AimAtMonster(*monster_info->entity, false);
                 }
             }
             if (!notices) {

@@ -566,7 +566,7 @@ struct SavedMonsterOrders {
 
 /* Rebuild the icons for the conditions, enchantments and effects a loaded
    monster carries. */
-void RestoreMonsterSpellIcons(World& world, const W8MonsterInfo& info, Monster* monster)
+void RestoreMonsterSpellIcons(World& world, const W8MonsterInfo& info, Monster& monster)
 {
     if (info.highest_condition != W8_CONDITION_NONE) {
         for (int index = 0; index < W8_CONDITION_COUNT; ++index) {
@@ -1234,7 +1234,7 @@ std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world, W8Chunk& chun
         auto model = ReadMonsterRepresentation(world, &info);
         info.entity.attach(*model);
         world.monsters.push_back(std::move(model));
-        RestoreMonsterSpellIcons(world, info, info.entity.find());
+        RestoreMonsterSpellIcons(world, info, *info.entity);
         // Keep the encounter default script cached until activation assigns it.
         if (group->group->encounter_registered && !info.entity->script && !data.default_script)
             data.default_script = LoadMonsterScript("Default.MSF");

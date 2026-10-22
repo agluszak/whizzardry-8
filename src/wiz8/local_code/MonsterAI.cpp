@@ -2138,8 +2138,8 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
                     record = FindMonToMonVisibility(monster_info, other);
                     if (record != 0 && record->sight_state == W8_SIGHT_SEEN &&
                         record->los_flags[2]) {
-                        if (!within_reach || monster_info->entity->GetDistanceToMonster(
-                                                 other->entity.find()) <= reach) {
+                        if (!within_reach ||
+                            monster_info->entity->GetDistanceToMonster(*other->entity) <= reach) {
                             return true;
                         }
                     }
@@ -2380,7 +2380,7 @@ bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group)
                 other->pCombat && other->hp_current != 0 &&
                 other->ubDisposition == W8_DISPOSITION_HOSTILE) {
                 other_distance = other->entity->GetDistanceToPlayer();
-                monster_distance = member->entity->GetDistanceToMonster(other->entity.find());
+                monster_distance = member->entity->GetDistanceToMonster(*other->entity);
                 if (monster_distance + member_distance <
                         other_distance * kReinforcementDistanceSlack &&
                     (member_distance < other_distance || monster_distance < other_distance)) {

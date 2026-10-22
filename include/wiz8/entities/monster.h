@@ -188,10 +188,10 @@ public:
     unsigned short ConfigureMovementToPlayer(float separation, float maximum_distance,
                                              glm::vec3 position, int trace_mode,
                                              unsigned char* probe_result);
-    unsigned short ConfigureMovementToMonster(Monster* target, float separation,
+    unsigned short ConfigureMovementToMonster(Monster& target, float separation,
                                               float maximum_distance, glm::vec3 position,
                                               int trace_mode, unsigned char* probe_result);
-    void AimAtMonster(Monster* target, bool alternate);
+    void AimAtMonster(const Monster& target, bool alternate);
     void SetActive(bool state);
     unsigned char SetAnimating(bool animating);
     unsigned char IsAnimating();
@@ -233,7 +233,7 @@ public:
     void TrackSound(wiz8::sound::Playback playback);
     float GetDistanceToPlayer();
     float GetPointDistanceToPlayer(glm::vec3 point);
-    float GetDistanceToMonster(Monster* monster);
+    float GetDistanceToMonster(const Monster& monster);
     float GetPointDistanceToMonster(Monster* monster, glm::vec3 point);
     bool SetScript(std::string script_name, bool reset_orders);
     void UseScript(std::shared_ptr<Script> loaded, bool reset_orders);
@@ -254,7 +254,7 @@ public:
     bool HasLineOfSightToMonster(Monster* monster);
     void GetMonsterSightFlags(Monster* monster, bool* primary, bool* secondary);
     bool HasLineOfSightFromPoint(glm::vec3 point);
-    bool IsFacingMonster(Monster* monster);
+    bool IsFacingMonster(const Monster& monster);
     bool IsFacingPlayer();
     void ApplyRepresentationScale();
     glm::vec3 CycleModelScale() const;
@@ -360,7 +360,6 @@ unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction
 std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_name, int cycle);
 
 void UpdateNearestMonsterGroupMembers();
-void ApplyMonsterRepresentationScale(Monster* monster);
 
 /* Secondary vftable 0x005ed218 keeps the Navigator subobject at +0x18. */
 
@@ -373,9 +372,9 @@ struct W8MonsterShakeCallback {
     W8AnimationFrameMethod saved_frame_method{};
 };
 
-void DetachMonsterRepresentation(Monster* monster);
-void DestroyWorldMonster(Monster* monster);
-void RefreshMonsterStandingHeight(Monster* monster);
+/* Take a monster's representation out of the scene and destroy it. Whatever
+   links to it must already be cleared. */
+void DestroyWorldMonster(Monster& monster);
 /* The shared forwarder four call sites use to advance a cycle's
    representation; it stays free because its callers pass the object on the
    stack. */

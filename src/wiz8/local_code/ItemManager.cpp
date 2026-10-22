@@ -502,10 +502,10 @@ void DeactivateWorldItem(W8WorldItem* item)
     item->position = position;
     item->entity_flags = item->entity->flags;
 
-    item->entity->DetachMesh();
-    std::erase_if(GetWorld()->plsItems,
-                  [item](const auto& owner) { return owner.get() == item->entity.find(); });
+    WorldItemEntity& entity = *item->entity;
     item->entity.detach();
+    entity.DetachMesh();
+    std::erase_if(GetWorld()->plsItems, [&](const auto& owner) { return owner.get() == &entity; });
     item->fActive = false;
     --CurrentGame().item_manager_pending;
 }

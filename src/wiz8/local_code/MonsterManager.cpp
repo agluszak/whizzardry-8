@@ -250,15 +250,15 @@ void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info)
         monster_info->entity->visual.mirror_x = monster_info->saved_mirror_x;
     }
 
-    ApplyMonsterRepresentationScale(monster_info->entity.find());
+    monster_info->entity->ApplyRepresentationScale();
     monster_info->entity->SetCycle(1);
-    RefreshMonsterStandingHeight(monster_info->entity.find());
+    monster_info->entity->RefreshStandingHeight();
 }
 
 void ActivateMonster(W8MonsterInfo* monster_info)
 {
     assert(monster_info && !monster_info->fActive);
-    if (monster_info->entity.find()) return;
+    if (monster_info->entity) return;
     auto monster = ReadMonsterRepresentation(*GetWorld(), monster_info);
     monster_info->entity.attach(*monster);
     GetWorld()->monsters.push_back(std::move(monster));
@@ -695,8 +695,8 @@ static void InitializeMonsterRuntimeStatsFor(W8MonsterInfo* monster_info)
     monster_info->fatigue_band = CalculateMonsterFatigueBand(value, value);
     monster_info->scale = CalculateMonsterScale(monster_info);
     monster_info->entity->scale = monster_info->scale;
-    ApplyMonsterRepresentationScale(monster_info->entity.find());
-    RefreshMonsterStandingHeight(monster_info->entity.find());
+    monster_info->entity->ApplyRepresentationScale();
+    monster_info->entity->RefreshStandingHeight();
 }
 
 void InitializeMonsterRuntimeStats(void)
@@ -866,12 +866,11 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
         CurrentGame().combat->endTurnOf(MonsterActor{monster_info->location_id});
     }
     if (removal == W8MonsterRemoval::Deactivate) return true;
-    if (monster_info->entity.find()) {
+    if (Monster* monster = monster_info->entity.find()) {
         if (removal == W8MonsterRemoval::Despawn)
-            monster_info->entity->visual.RetireParticles(*monster_info->entity->owner_world);
-        DetachMonsterRepresentation(monster_info->entity.find());
-        DestroyWorldMonster(monster_info->entity.find());
+            monster->visual.RetireParticles(*monster->owner_world);
         monster_info->entity.detach();
+        DestroyWorldMonster(*monster);
     }
     // Inactive and unborn records also own visibility/NPC relationships.
     ReleaseMonToMonVisibilityList(monster_info);
@@ -900,7 +899,7 @@ void DeactivateMonster(W8MonsterInfo* monster_info)
         monster_info->stamina = 0;
         monster_info->entity->nav.active = false;
         monster_info->entity->nav.flags = 0x200000;
-        ClearMonsterSpellIcons(monster_info->entity.find());
+        ClearMonsterSpellIcons(*monster_info->entity);
         ReleaseMonToMonVisibilityList(monster_info);
         position = monster_info->entity->GetRepresentationLocalLocation();
         monster_info->position = position;

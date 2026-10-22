@@ -23,9 +23,11 @@ own their resources and entities. Its ownership and API tail:
 - **Actor entity links.** Records reach their entities through `EntityLink`
   (ARCHITECTURE.md, "Worlds and levels"), but the migration was mechanical: callers that
   dereferenced the link now require an entity, and those that passed it on look it up.
-  About 105 `entity.find()` calls hand a possibly null entity to helpers such as
-  `SetMonsterSpellIcon` or `AimAtMonster`; each such helper should take the record or a
-  reference, as its callers' guarantees allow.
+  Spell icons, monster aiming, distance and movement helpers now take `Monster&`, and
+  monster/item teardown clears the link before destroying the entity. About 60
+  `entity.find()` calls remain (sight, targeting, navigation, NPC and map code); each
+  should resolve once at an operation boundary, after which `EntityLink` can go if it no
+  longer adds policy.
 
 ## Target architecture
 

@@ -147,7 +147,7 @@ bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8Visibi
     } else {
         penalty_modifier = 0;
     }
-    distance = source_monster->GetDistanceToMonster(target_monster);
+    distance = source_monster->GetDistanceToMonster(*target_monster);
     source_record = GetMonsterDataForInfo(source);
     if (source_record->kind == 4) {
         ranged_bonus = source_record->effective_level * 5;
@@ -406,7 +406,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                     entry->line_of_sight = false;
                     bool can_see = false;
 
-                    distance = monster->GetDistanceToMonster(other->entity.find());
+                    distance = monster->GetDistanceToMonster(*other_monster);
                     if (viewing_distance >= distance) {
                         bool line_of_sight = monster->HasLineOfSightToMonster(other_monster);
 
@@ -790,7 +790,7 @@ bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
     source_monster = source_info->entity.find();
     target_monster = target_info->entity.find();
     if (!target_info->pCombat) {
-        distance = source_monster->GetDistanceToMonster(target_monster);
+        distance = source_monster->GetDistanceToMonster(*target_monster);
         world = GetWorld();
         far_clip = WorldGetFarClip(world);
         if (distance <= far_clip) {
