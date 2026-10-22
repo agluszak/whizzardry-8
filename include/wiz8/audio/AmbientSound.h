@@ -53,9 +53,9 @@ public:
     /* 0x004790D0: true when listener is inside the rotated/scaled min-max region */
     bool IsInsideRegion(const glm::vec3* listener);
     /* 0x00479350: listener-relative range test, group handoff, 3D re-aim, fade retarget */
-    void UpdatePosition(const glm::vec3* listener);
+    void UpdatePosition(World& world);
     /* 0x00479970: per-frame service while in range; 'entered' forces an immediate roll */
-    void Service(bool entered);
+    void Service(World& world, bool entered);
     SharedAmbientGroup* group = nullptr; // Borrowed from the owning world.
 
     std::string name;
@@ -166,9 +166,9 @@ void RepositionAmbientSounds();
 unsigned char ReadAmbientSoundListFile(World& world, std::string_view filename);
 void StartAmbientSoundList(World& world);
 
-void PositionAmbientSoundByName(World* /* unused */, std::string_view name);
-void StopAmbientSoundByName(World* /* unused */, std::string_view name);
-void ToggleAmbientSoundByName(std::string_view name);
+void PositionAmbientSoundByName(World& world, std::string_view name);
+void StopAmbientSoundByName(World& world, std::string_view name);
+void ToggleAmbientSoundByName(World& world, std::string_view name);
 bool AddAmbientSound(World* world, std::string_view name, const W8AmbientSoundConfig* config,
                      const glm::vec3* position, const glm::vec3* region_min,
                      const glm::vec3* region_max, int volume_min, int volume_max, int time_min,

@@ -1776,11 +1776,11 @@ void Trigger::Run(int source)
         for (const auto& recipient : recipients) {
             const auto& name = recipient;
             if (action == 0x41) {
-                PositionAmbientSoundByName(GetWorld(), name.c_str());
+                PositionAmbientSoundByName(*m_pWorld, name.c_str());
             } else if (action == 0x42) {
-                StopAmbientSoundByName(GetWorld(), name.c_str());
+                StopAmbientSoundByName(*m_pWorld, name.c_str());
             } else {
-                ToggleAmbientSoundByName(name.c_str());
+                ToggleAmbientSoundByName(*m_pWorld, name.c_str());
             }
             action_succeeded = true;
         }
