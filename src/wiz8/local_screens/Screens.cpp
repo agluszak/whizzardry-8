@@ -212,7 +212,8 @@ void ShowNoticeLine(std::string_view text, std::function<void(bool)> callback, b
 {
     switch (CurrentScreenState().id) {
     case W8_SCREEN_CAMP:
-        ShowCampNoticeLine(text, callback, confirmation, cancel);
+        FindScreen<CampScreen>()->dialogs.ShowNotice(text, std::move(callback), confirmation,
+                                                     cancel);
         break;
     case W8_SCREEN_MAIN_GAME:
         ShowMainGameNoticeLine(text, callback, confirmation, cancel);

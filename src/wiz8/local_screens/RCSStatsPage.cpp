@@ -26,6 +26,7 @@
 #include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/character_tables.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -164,22 +165,24 @@ void W8CampStatsControls::SelectFilter(int index)
    delta bars, the profession's bonus skill, the trait grid, then the effect
    list region when its redraw flag is up. */
 // FUNCTION: WIZ8 0x005c48b0
-void W8CampStatsPage::DrawCampStatsPage(const W8Character& character, bool full)
+void W8CampStatsPage::DrawCampStatsPage(bool full)
 {
+    const auto& data = camp.game.rules().data;
+    const auto& character = *camp.reviewed;
     std::string formatted;
     if (full) {
         CatalogArtwork::Load(0x142, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0, 0xa5);
         constexpr int origin_x = 0;
         constexpr int origin_y = 0xa5;
         int index;
-        std::string text = Data().strings[0x937];
+        std::string text = data.strings[0x937];
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                  {origin_x + 10 + ((0x11f - g_wiz_text_font_secondary.textWidth(text)) >> 1),
                   origin_y + 10},
                  text);
         int row_y = 0xbf;
         for (index = 0; index < 7; ++index) {
-            const std::string& label = Data().strings[g_attribute_label_ids[index]];
+            const std::string& label = data.strings[g_attribute_label_ids[index]];
             DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                      {origin_x + 10 + ((0x7b - g_wiz_text_font_secondary.textWidth(label)) >> 1),
                       row_y - 0xa6 + origin_y},
@@ -194,16 +197,16 @@ void W8CampStatsPage::DrawCampStatsPage(const W8Character& character, bool full)
                 formatted);
             row_y += 0xe;
         }
-        text = Data().strings[0x938];
+        text = data.strings[0x938];
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                  {origin_x + 10 + ((0x11f - g_wiz_text_font_secondary.textWidth(text)) >> 1),
                   origin_y + 0x8d},
                  text);
         formatted = fmt::format(
             "{} {}",
-            Data().strings
+            data.strings
                 [g_character_skill_name_ids[g_profession_bonus_skills[character.iProfession]]],
-            Data().strings[0x8c5]);
+            data.strings[0x8c5]);
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x10, 0x142}, formatted);
         int trait_count = 0;
         bool traits[0x20];
@@ -220,11 +223,11 @@ void W8CampStatsPage::DrawCampStatsPage(const W8Character& character, bool full)
         for (index = 0; index < 0x20; ++index) {
             if (traits[index]) {
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary, {0x10, trait_y},
-                         Data().strings[g_character_trait_name_ids[index]]);
+                         data.strings[g_character_trait_name_ids[index]]);
                 trait_y += step + 0xc;
             }
         }
-        text = Data().strings[0x939];
+        text = data.strings[0x939];
         DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                  {origin_x + 0x13b + ((0x13b - g_wiz_text_font_secondary.textWidth(text)) >> 1),
                   origin_y + 10},
@@ -617,9 +620,8 @@ void W8CampStatsPage::DrawCampEffectList(const W8Character& character)
    them at the list handler. Category 4 is the overflow block under the right
    column. */
 // FUNCTION: WIZ8 0x005c5cd0
-void W8CampSkillsPage::Activate(W8Character& character)
+void W8CampSkillsPage::Activate()
 {
-    this->character = &character;
     skill_input = std::make_unique<UiLayer>();
     for (auto category :
          {W8_SKILL_CATEGORY_WEAPON, W8_SKILL_CATEGORY_MISCELLANEOUS, W8_SKILL_CATEGORY_COMBAT,
@@ -637,8 +639,9 @@ void W8CampSkillsPage::Activate(W8Character& character)
             [this, category](const UiPointerEvent& event) {
                 return HandleCampSkillList(event, category);
             });
-        target.setTooltip(
-            [this] { return skill_hover_row < 0 ? std::string{} : Data().strings[0x958]; });
+        target.setTooltip([this] {
+            return skill_hover_row < 0 ? std::string{} : camp.game.rules().data.strings[0x958];
+        });
     }
 }
 
@@ -646,7 +649,7 @@ void W8CampSkillsPage::Activate(W8Character& character)
 void W8CampSkillsPage::Deactivate()
 {
     skill_input.reset();
-    for (auto& skill : character->skills) skill.improved = false;
+    for (auto& skill : camp.reviewed->skills) skill.improved = false;
 }
 
 /* Unlike the gameplay best-skill query, the camp display includes every
@@ -668,11 +671,12 @@ static bool IsBestCampSkillLevel(W8Skill skill, unsigned int level)
 // FUNCTION: WIZ8 0x005c5d80
 void W8CampSkillsPage::DrawCampSkillsPage(bool full)
 {
+    const auto& data = camp.game.rules().data;
     if (full) {
         bool has_fifth = false;
         int skill;
         for (skill = 0; skill < 0x29; ++skill) {
-            if ((character->skills[skill].active || character->skills[skill].level != 0) &&
+            if ((camp.reviewed->skills[skill].active || camp.reviewed->skills[skill].level != 0) &&
                 g_skill_attributes[skill].category == W8_SKILL_CATEGORY_EXPERT) {
                 has_fifth = true;
                 break;
@@ -699,7 +703,7 @@ void W8CampSkillsPage::DrawCampSkillsPage(bool full)
         }
         int category_count[5] = {0, 0, 0, 0, 0};
         for (skill = 0; skill < 0x29; ++skill) {
-            W8CharacterSkill* value = &character->skills[skill];
+            W8CharacterSkill* value = &camp.reviewed->skills[skill];
             if (value->active || value->points != 0 || value->level != 0) {
                 W8SkillCategory category = g_skill_attributes[skill].category;
                 const int category_index = static_cast<int>(category);
@@ -750,7 +754,7 @@ void W8CampSkillsPage::DrawCampSkillsPage(bool full)
                                                         top + 2);
                 }
                 Palette16 palette;
-                if (!GameStarted() || value->level == 0) {
+                if (!camp.game.status.game_started || value->level == 0) {
                     palette = g_font_state_palettes[W8_FONT_PALETTE_GRAY];
                     if (value->active) {
                         palette = g_wiz_text_font_secondary.glyphs->colors;
@@ -771,10 +775,10 @@ void W8CampSkillsPage::DrawCampSkillsPage(bool full)
                 }
                 g_wiz_text_font_secondary.setPalette(palette);
                 short width = g_wiz_text_font_secondary.textWidth(
-                    Data().strings[g_character_skill_name_ids[skill]]);
+                    data.strings[g_character_skill_name_ids[skill]]);
                 DrawText(GetFrameBufferSurface(), g_wiz_text_font_secondary,
                          {(0x6b - width) / 2 + 2 + left, top + 1},
-                         Data().strings[g_character_skill_name_ids[skill]]);
+                         data.strings[g_character_skill_name_ids[skill]]);
                 palette = g_wiz_text_font_secondary.glyphs->colors;
                 if (value->improved) {
                     palette = g_font_state_palettes[W8_FONT_PALETTE_GREEN];
@@ -806,7 +810,7 @@ UiResult W8CampSkillsPage::HandleCampSkillList(const UiPointerEvent& event,
     int occurrence = 0;
     for (int index = 0; index < 0x29; ++index) {
         if (g_skill_attributes[index].category == category &&
-            (character->skills[index].active || character->skills[index].level != 0)) {
+            (camp.reviewed->skills[index].active || camp.reviewed->skills[index].level != 0)) {
             if (occurrence == row) {
                 skill = index;
                 break;
@@ -828,14 +832,14 @@ UiResult W8CampSkillsPage::HandleCampSkillList(const UiPointerEvent& event,
         skill != -1) {
         AfterUiDispatch([this, skill] {
             bool best = false;
-            if (GameStarted() && character->skills[skill].level != 0) {
+            if (camp.game.status.game_started && camp.reviewed->skills[skill].level != 0) {
                 best = IsBestCampSkillLevel(static_cast<W8Skill>(skill),
-                                            character->skills[skill].level);
+                                            camp.reviewed->skills[skill].level);
             }
             auto dialog = std::make_unique<W8SkillInfoDialog>(
-                static_cast<W8Skill>(skill), best, !character->skills[skill].active,
-                skill == g_profession_bonus_skills[character->iProfession]);
-            dialogs.Display(std::move(dialog));
+                static_cast<W8Skill>(skill), best, !camp.reviewed->skills[skill].active,
+                skill == g_profession_bonus_skills[camp.reviewed->iProfession]);
+            camp.dialogs.Display(std::move(dialog));
         });
     }
     return UiResult::Handled;
@@ -1344,36 +1348,33 @@ void W8CharacterSkillsPage::Refresh()
     m_force_redraw = true;
 }
 
-void W8CampStatsPage::CreateControls(UiLayer& scroll_input)
+W8CampStatsPage::W8CampStatsPage(CampScreen& owner) : camp(owner)
 {
-    effect_list.clear();
-    effect_items_only = true;
-    effect_filter = W8_CAMP_EFFECT_FILTER_ALL;
-    stats_range = std::make_unique<W8RangeControl>(scroll_input, 0x264, 0xbe, 0x276, 0x1b5);
+    stats_range = std::make_unique<W8RangeControl>(camp.scroll_input, 0x264, 0xbe, 0x276, 0x1b5);
     stats_range->on_change = [this](auto*) { effect_list_dirty = true; };
     stats_controls = std::make_unique<W8CampStatsControls>(*this);
 }
 
-void W8CampStatsPage::Activate(const W8Character& character)
+void W8CampStatsPage::Activate()
 {
+    const auto& character = *camp.reviewed;
     RebuildCampEffectList(character);
     stats_range->SetActive(true);
     stats_controls->input.setEnabled(true);
-    character_info.SetActive(true);
 }
 
 void W8CampStatsPage::Deactivate()
 {
     stats_range->SetActive(false);
     stats_controls->input.setEnabled(false);
-    character_info.SetActive(false);
     effect_list.clear();
 }
 
-void W8CampStatsPage::ReviewedCharacterChanged(const W8Character& character)
+void W8CampStatsPage::RefreshCharacter()
 {
+    const auto& character = *camp.reviewed;
     RebuildCampEffectList(character);
-    character_info.InvalidateAll();
+    camp.character_info.InvalidateAll();
 }
 
 void W8CampStatsPage::DrawControls()

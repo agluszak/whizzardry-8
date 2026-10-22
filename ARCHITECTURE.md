@@ -671,6 +671,17 @@ without publishing an untargeted event to whichever screen is current. Its pages
 their screen from construction. Choice rows derive selection and eligibility from the
 draft; repainting them does not reapply character rules or modify shared choice tables.
 
+## Camp interactions
+
+The camp owns its reviewed-character selection, shared character-info panel and dialogs.
+Its pages borrow that owner, rather than synchronizing separate character pointers or
+rediscovering it through global UI helpers. Controls are built with their owners; the
+visit's animation clock and random phase still start at the original entry boundary.
+`RefreshControls` projects the active page, item action, filters and weapon-lock preference
+into enabled/selected controls before painting. A captured pointer press remains transient
+feedback; it is not overwritten by that projection. Buttons change the model, not each
+other's flags, and painting the bottom panel no longer updates interaction state.
+
 ## Tests
 
 CTest contains asset-independent fixtures and licensed runtime scenarios (label
