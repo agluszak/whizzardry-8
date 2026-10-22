@@ -69,7 +69,6 @@
 #include "wiz8/world/world.h"
 
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
-extern SDLSurfaceOwner g_automap_surface;
 
 static void source_resource_owners()
 {
@@ -83,8 +82,6 @@ static void source_resource_owners()
     g_mouse_surface = std::shared_ptr<SDL_Surface>(
         CreateCpuStorage(2, 2, SDL_PIXELFORMAT_INDEX8).release(), SDL_DestroySurface);
     REQUIRE(SDL_SetSurfacePalette(g_mouse_surface.get(), palette.get()));
-    g_automap_surface = CreateCpuStorage(2, 2, SDL_PIXELFORMAT_INDEX8);
-    REQUIRE(SDL_SetSurfacePalette(g_automap_surface.get(), palette.get()));
 
     REQUIRE_THROWS_AS(
         [&] {
@@ -95,10 +92,9 @@ static void source_resource_owners()
         }(),
         std::runtime_error);
 
-    // These are the actual global owners used by mouse and automap rendering.
+    // This is the actual global owner used by mouse rendering.
     REQUIRE(SDL_FillSurfaceRect(g_mouse_surface.get(), nullptr, 17));
     REQUIRE(*static_cast<unsigned char*>(g_mouse_surface->pixels) == 17);
-    g_automap_surface.reset();
     model.reset();
     survivor.reset();
     g_mouse_surface.reset();

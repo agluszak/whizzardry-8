@@ -90,6 +90,7 @@ target_sources(wiz8_engine PRIVATE
     ../spatial/collision.cpp
     ../spatial/level_spatial_index.cpp
     ../spatial/navigation.cpp
+    ../world/automap.cpp
     ../world/level_session.cpp
     ../world/level_loader.cpp
     ../render/resources/mesh_loader.cpp

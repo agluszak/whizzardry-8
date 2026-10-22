@@ -126,7 +126,11 @@ Unlayered code may use the layers.
   textures, with map-owned index and colour arrays. It has no actors, effects,
   lights, fog or ambient light. The layer is the map camera's near clip. Opening
   the map changes no gameplay camera, lighting, picking or mesh state, so
-  gameplay needs nothing restored afterwards.
+  gameplay needs nothing restored afterwards. What persists with the level is
+  `World::automap` (`W8Automap`): the cells, the visited and revealed bits, the
+  notes and the last map view. The router builds `AutomapScreen` with the level's
+  world on every visit; it owns only its controls, markers, surface and the note
+  being edited, so no suspended map outlives its level.
 - **Materials.** Wizardry lighting, fog, material operations and generated UVs
   run in shaders. The descriptor layout is scoped to Wizardry geometry.
   Animated retail faces retain their authored integer-frame polygon normals

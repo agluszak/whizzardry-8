@@ -7,7 +7,6 @@
 #include <initializer_list>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -20,6 +19,7 @@
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/retail_opaque_records.h"
+#include "wiz8/world/automap.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
@@ -58,14 +58,6 @@ class ParticleSystem;
 struct KeyframeTrack;
 class LevelSpatialIndex;
 
-struct W8AutomapCells {
-    float grid_cell_size = 2000.0f;
-    std::vector<bool> visited;
-    std::vector<bool> lit;
-    std::vector<unsigned int> keys;
-    std::unordered_map<unsigned int, int> index;
-};
-
 // Resources and borrowed indexes precede their consumers. Reverse member
 // destruction removes entities before their scene, spatial, audio and population.
 struct World {
@@ -86,7 +78,7 @@ struct World {
     AmbientAudioSystem audio;
     PartyCamera party_camera;
     std::unique_ptr<W8LevelPopulation> population;
-    W8AutomapCells automap;
+    W8Automap automap;
     // These indexes borrow resources owned below or by the scene.
     Camera3D* camera{};
     Light* camera_light{};

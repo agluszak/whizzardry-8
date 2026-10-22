@@ -68,10 +68,10 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/startup_world.h"
+#include "wiz8/world/automap.h"
 
 constexpr double kAutomapRefreshDistanceSquared = 250000.0;
 
@@ -187,7 +187,7 @@ void updatePartyMovement(World& world, unsigned int flags)
 {
     auto& party = world.party_camera;
 
-    RefreshDirtyAutomap();
+    RevealAutomapCells(world, 10);
     if (auto* collision = world.collisionIndex()) {
         party.motion.flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
         const glm::mat3 movement_basis = party.turn(flags);
@@ -198,8 +198,7 @@ void updatePartyMovement(World& world, unsigned int flags)
             const auto refresh_offset = party.m_position - party.last_automap_refresh_position;
             if (glm::dot(refresh_offset, refresh_offset) > kAutomapRefreshDistanceSquared) {
                 party.last_automap_refresh_position = party.m_position;
-                const glm::vec3 automap_position = navigationPosition(party.m_position);
-                if (AutomapHasCellAt(&automap_position)) UpdateAutomapBounds();
+                VisitAutomapCell(world, navigationPosition(party.m_position));
             }
             DispatchWorldCursorNodeCommand(0, 0, 0);
         }

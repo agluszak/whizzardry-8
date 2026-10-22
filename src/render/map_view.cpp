@@ -248,11 +248,6 @@ MapView::Surface& MapView::surface(const Mesh& mesh)
     return *owned;
 }
 
-void MapView::forgetExplored()
-{
-    surfaces.clear();
-}
-
 vsg::ref_ptr<vsg::Group> MapView::prepare(render::RenderContext& context,
                                           std::span<const std::unique_ptr<MeshInstance>> instances,
                                           const ScenePass& pass)

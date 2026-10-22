@@ -50,7 +50,6 @@
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/navigation_flags.h"
 #include "wiz8/packed_bits.h"
@@ -66,6 +65,7 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/spatial/surface_index.h"
+#include "wiz8/world/automap.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_loader.h"
@@ -941,6 +941,31 @@ TEST_CASE("Automap notes say whether a visited-cell bitmap precedes them", "[loa
     REQUIRE(section(nullptr).visited.empty());
     const std::vector<bool> visited{true, false, true};
     REQUIRE(section(&visited).visited == visited);
+}
+
+TEST_CASE("A level's map notes and visited cells travel with that level's map", "[loader][automap]")
+{
+    // A save captures the notes from the level's own map, and a load hands them to the
+    // map of the level being built.
+    W8Automap left;
+    left.keys.resize(3);
+    left.visited = {false, true, true};
+    left.notes.push_back(std::make_unique<W8AutomapNote>(W8AutomapNote{{1.5f, -2.0f}, 1, "Ж"}));
+
+    auto writer = wiz8::open_memory_writer();
+    WriteAutomapNotes(*writer, CaptureAutomapNotes(left));
+    auto file = wiz8::open_memory(writer->written_memory());
+    W8Automap entered;
+    entered.keys.resize(3);
+    entered.visited.resize(3);
+    ApplyAutomapNotes(
+        entered, ReadSavePayload(*file, [](W8Chunk& chunk) { return ReadAutomapNotes(chunk); }));
+
+    REQUIRE(entered.visited == left.visited);
+    REQUIRE(entered.notes.size() == 1);
+    CHECK(entered.notes[0]->position == glm::vec2(1.5f, -2.0f));
+    CHECK(entered.notes[0]->layer == 1);
+    CHECK(entered.notes[0]->text == "Ж");
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Nested item write failure aborts a staged trigger save",

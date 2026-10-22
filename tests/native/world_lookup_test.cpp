@@ -43,7 +43,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/light.h"
@@ -51,6 +50,7 @@
 #include "wiz8/render/world_scene.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/targeting.h"
+#include "wiz8/world/automap.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
@@ -523,7 +523,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
     note->layer = 2;
     note->text = "Hello Ж";
     notes.notes.push_back(std::move(note));
-    ApplyAutomapNotes(world, std::move(notes));
+    ApplyAutomapNotes(world.automap, std::move(notes));
     REQUIRE(StoreLeftLevel(CurrentGame()));
     const auto stored = CurrentGame().left_levels.at(GetLoadedLevelID());
     auto state = DecodeLeftLevelState(CurrentGame(), GetLoadedLevelID());

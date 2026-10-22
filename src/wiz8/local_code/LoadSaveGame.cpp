@@ -73,7 +73,6 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/message_log.h"
@@ -98,6 +97,7 @@
 #include "wiz8/story.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
+#include "wiz8/world/automap.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
@@ -1059,7 +1059,7 @@ LevelState CaptureLevelState(World& world, int level, const GameStatus& status)
                 state.monsters.push_back(SavedMonster::Capture(
                     *monster, population.monster_roster.isUnborn(monster.get())));
     for (const auto& item : population.world_items) state.items.push_back(CaptureWorldItem(*item));
-    state.automap = CaptureAutomapNotes(world);
+    state.automap = CaptureAutomapNotes(world.automap);
     if (!world.triggers.empty()) state.world_sections.emplace_back(CaptureSavedTriggers(world));
     state.world_sections.emplace_back(CaptureSavedProps(world));
     state.cursor_states = CaptureWorldCursorNodeStates(world);
@@ -1407,7 +1407,7 @@ void PrepareLevelPopulation(World& world, LevelState::Data& data,
         }
     }
     if (data.encounters) world.encounters = std::move(*data.encounters);
-    if (data.automap) ApplyAutomapNotes(world, std::move(*data.automap));
+    if (data.automap) ApplyAutomapNotes(world.automap, std::move(*data.automap));
     ApplyAmbientSoundStates(world, data.ambient);
     ApplyParticleStates(world, data.particles);
     ApplyLightStates(world, data.lights);
