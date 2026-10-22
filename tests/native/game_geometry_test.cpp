@@ -718,6 +718,25 @@ TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry]
     } setting;
     g_settings.monster_shadows = true;
     GroundShadow shadow;
+    // Scene membership, not frame preparation, puts the shadow in the graph.
+    const auto in_scene = [&] {
+        struct Find : vsg::ConstVisitor {
+            const vsg::Node* node;
+            bool found = false;
+            void apply(const vsg::Node& visited) override
+            {
+                found = found || &visited == node;
+                visited.traverse(*this);
+            }
+        } find;
+        find.node = shadow.renderNode().get();
+        world.scene->root->accept(find);
+        return find.found;
+    };
+    shadow.setWorld(&world);
+    REQUIRE(in_scene());
+    shadow.setWorld(nullptr);
+    REQUIRE(!in_scene());
     shadow.setWorld(&world);
     std::optional<render::RenderContext> context;
     context.emplace(VkExtent2D{640, 480});
@@ -760,8 +779,8 @@ TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry]
     context.reset();
     context.emplace(VkExtent2D{640, 480});
     REQUIRE(&*context == address);
-    REQUIRE(shadow.renderNode(*context) == previous_root);
     shadow.updateRenderNode(*context, {}, 1);
+    REQUIRE(shadow.renderNode() == previous_root);
     requireEffectLayout(*previous_root, context->layout.get());
     ShadingBounds recreated;
     shadow.renderNode()->accept(recreated);
@@ -1449,8 +1468,8 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     context.reset();
     context.emplace(VkExtent2D{640, 480});
     REQUIRE(&*context == address);
-    REQUIRE(particles.renderNode(*context) == previous_root);
     particles.updateRenderNode(*context, {}, 1);
+    REQUIRE(particles.renderNode() == previous_root);
     requireEffectLayout(*previous_root, context->layout.get());
     draws.index_count = 0;
     particles.renderNode()->accept(draws);

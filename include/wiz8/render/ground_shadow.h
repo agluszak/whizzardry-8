@@ -6,6 +6,7 @@
 #include <utility>
 
 #include <vsg/core/ref_ptr.h>
+#include <vsg/nodes/Group.h>
 #include <vsg/nodes/Node.h>
 
 #include "glm/ext/matrix_float2x2.hpp"
@@ -58,13 +59,14 @@ public:
     float width = 500;
 
 public:
-    vsg::ref_ptr<vsg::Node> renderNode(render::RenderContext& context);
+    // The effect's scene member; the scene inserts it on attach and removes it on detach.
     vsg::ref_ptr<vsg::Node> renderNode() const;
     void updateRenderNode(render::RenderContext& context, const SceneFrame& frame,
                           std::uint64_t frame_number);
 
 private:
     std::shared_ptr<GroundShadowAsset> asset;
+    vsg::ref_ptr<vsg::Group> root = vsg::Group::create();
     std::unique_ptr<ShadowRenderData> render_data;
 
 public:
