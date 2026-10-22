@@ -29,7 +29,7 @@ RUN curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key \
       > /etc/apt/sources.list.d/llvm.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-      clang-23 clang-tidy-23 clang-format-23 \
+      clang-23 clang-tidy-23 clang-format-23 libclang-rt-23-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/build-tools \
