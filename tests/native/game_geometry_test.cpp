@@ -2084,21 +2084,21 @@ TEST_CASE("Environment ambient scales scenes and lights while retaining the sour
 {
     Light light(nullptr);
     World world{};
-    world.environment.lights = {&light};
+    world.environment.addLight(&light);
     world.scene = std::make_unique<WorldScene>();
     auto& scene = *world.scene;
     const glm::vec3 colour(-0.5f, 0.5f, 2.0f);
-    ApplyEnvironmentColour(world, 0.75f, colour);
+    world.environment.applyColour(0.75f, colour);
     REQUIRE(scene.getAmbientLight() == glm::vec3(0, 0.375f, 1));
     REQUIRE(light.ambient == scene.getAmbientLight());
-    REQUIRE(world.environment.colour == colour);
-    REQUIRE(world.environment.intensity == 0.75f);
-    REQUIRE(SetWorldEnvironmentIntensity(world, 0.5f) == 0.5f);
+    REQUIRE(world.environment.colour() == colour);
+    REQUIRE(world.environment.intensity() == 0.75f);
+    REQUIRE(world.environment.setIntensity(0.5f) == 0.5f);
     REQUIRE(scene.getAmbientLight() == glm::vec3(0, 0.25f, 1));
     REQUIRE(light.ambient == scene.getAmbientLight());
-    REQUIRE(world.environment.colour == colour);
+    REQUIRE(world.environment.colour() == colour);
     world.scene = nullptr;
-    REQUIRE(WorldLightValue(world) == glm::vec3(0));
+    REQUIRE(world.environment.ambient() == glm::vec3(0));
 }
 
 TEST_CASE("Environment operations change only the level they are given", "[geometry]")
@@ -2116,11 +2116,11 @@ TEST_CASE("Environment operations change only the level they are given", "[geome
     other.sky->scene = std::make_unique<WorldScene>();
     other.sky->scene->setFogColor(glm::vec3(1.0f));
 
-    BeginWorldLightingFade(other, -1000.0f);
-    DisableSky(other);
-    REQUIRE(other.primary->environment.lighting_mode == W8EnvironmentLightingMode::Transition);
+    other.beginLightingFade(-1000.0f);
+    other.disableSky();
+    REQUIRE(other.primary->environment.lightingMode() == W8EnvironmentLightingMode::Transition);
     REQUIRE(other.sky->scene->getFogColor() == glm::vec3(0));
-    REQUIRE(installed.primary->environment.lighting_mode == W8EnvironmentLightingMode::DayNight);
+    REQUIRE(installed.primary->environment.lightingMode() == W8EnvironmentLightingMode::DayNight);
     REQUIRE(installed.primary->scene->getFogColor() == glm::vec3(0.5f));
 }
 

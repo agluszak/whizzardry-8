@@ -438,8 +438,8 @@ void RenderFrame(void)
                           g_camera_shake_active ? g_camera_shake_offset : glm::vec3(0));
     }
     if (const World* world = GetWorld()) {
-        if (!world->environment.sky_enabled) {
-            clear_color = WorldLightValue(*world);
+        if (!world->environment.skyEnabled()) {
+            clear_color = world->environment.ambient();
         } else {
             clear_color =
                 // NOLINTNEXTLINE(misc-include-cleaner)
@@ -531,8 +531,8 @@ bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect)
     if (!g_renderer || !g_renderer->isOpen() || !GetWorld() || !target) return false;
     glm::vec3 clear_color{1.0f};
     const World& world = *GetWorld();
-    clear_color =
-        world.environment.fog_enabled ? world.environment.light_direction : WorldLightValue(world);
+    clear_color = world.environment.fogConfigured() ? world.environment.lightDirection()
+                                                    : world.environment.ambient();
     g_renderer->beginFrame(glm::vec4(clear_color, 1.0f));
     const DesignRect bounds = rect ? *rect : g_viewport;
     // A steady view of the party's pose; the frame's shake belongs to the presented frame.

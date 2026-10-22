@@ -132,7 +132,7 @@ void UpdateWorlds(Game& game, std::chrono::milliseconds elapsed)
 
     UpdateTimedTriggerEvents();
     UpdateShakeEffects();
-    UpdateEnvironment(game);
+    game.updateEnvironment();
     UpdateNpcEvents();
 }
 
@@ -330,10 +330,10 @@ void ApplyWorldUpdateFlags(World* world, unsigned int flags)
         WorldSetRenderRange(world, static_cast<float>(WorldGetFarClip(world)) * scale);
     }
     if ((flags & W8_WORLD_INCREASE_ENVIRONMENT) != 0) {
-        SetWorldEnvironmentIntensity(*world, world->environment.intensity + 0.02f);
+        world->environment.setIntensity(world->environment.intensity() + 0.02f);
     }
     if ((flags & W8_WORLD_DECREASE_ENVIRONMENT) != 0) {
-        SetWorldEnvironmentIntensity(*world, world->environment.intensity - 0.02f);
+        world->environment.setIntensity(world->environment.intensity() - 0.02f);
     }
 }
 

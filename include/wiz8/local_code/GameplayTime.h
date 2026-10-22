@@ -31,6 +31,9 @@ struct WorldAdvancement {
     bool held = true;
     // As last applied: the environment clock runs, as nothing holds the world or fights.
     bool time_passes = false;
+    /* The calendar's multiplier: each catch-up scales the step time by it, 12 normally
+       and 2880 while the party rests. Sight and encounters compare it as well. */
+    float time_scale = 12.0f;
     // The world the environment state was applied to; a new world takes it up again.
     const World* world = nullptr;
     // The pause the move timer was last suspended or resumed for.

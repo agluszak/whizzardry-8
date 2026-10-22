@@ -55,7 +55,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
 {
     time += elapsed;
     // Time that passed while the world ran reaches its clock before the new hold applies.
-    PassEnvironmentTime(*this, elapsed);
+    passCalendarTime(elapsed);
     ApplyWorldAdvancement(*this, hold.world);
     if (!hold.speech) {
         speech.ProcessDeferredCharacterEvents();

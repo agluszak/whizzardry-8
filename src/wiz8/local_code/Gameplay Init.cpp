@@ -31,7 +31,6 @@
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
-#include "wiz8/world/environment.h"
 /* TU attribution follows the 2001-08-14 demo __FILE__ and link-order evidence. */
 
 namespace {
@@ -69,7 +68,7 @@ void RunNewGameOpeningSequence(bool notify, std::string_view target)
     }
     CurrentGame().status.difficulty = g_settings.difficulty;
     CurrentGame().party.redistribution_pending = true;
-    SetGameTimeMilliseconds(CurrentGame(), 0x2932e00);
+    CurrentGame().status.game_time_ms = 0x2932e00;
     CurrentGame().status.game_time_days = 1;
     if (notify) {
         ReturnToPreviousScreen();

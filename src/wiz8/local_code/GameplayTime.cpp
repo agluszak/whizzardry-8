@@ -95,7 +95,7 @@ void ApplyWorldAdvancement(Game& game, WorldHold hold)
     }
     if (!world) return;
     if (time_changed) {
-        SetEnvironmentTimeEnabled(game, !time_stopped);
+        game.setCalendarRunning(!time_stopped);
         if (time_stopped) {
             StopAllNavigators();
             ResetLevelDataVectors();
@@ -301,7 +301,7 @@ void UpdateSurpriseMode(Game& game)
         if (UpdateSurpriseFade() != 0) {
             surprise.deadline_turns = game.status.world_clock + 0x7080;
             DestroyUngroupedMonsters();
-            SetViewDistance(2880.0f);
+            game.advancement.time_scale = 2880.0f;
             SetNavigatorLinkMode(W8_NAVIGATOR_LINK_MODE_STOPPED);
             level_scale = Data().levels[GetLoadedLevelID()].gameplay_time_scale;
             scale = 1.0f / level_scale;
@@ -314,8 +314,7 @@ void UpdateSurpriseMode(Game& game)
         if (!surprise.unengaged &&
             static_cast<unsigned int>(game.status.world_clock) >= surprise.deadline_turns) {
             ResetSight();
-            UpdateEnvironmentLight(game);
-            RefreshEnvironment(game);
+            game.showDayPhase();
             ReverseSurpriseFade();
             surprise.phase = SurprisePhase::fade_out_and_resolve;
             ReleaseMarkedNpcBindings();
@@ -499,7 +498,7 @@ static bool AgePartyEffectSlot(W8EffectSlot* slot, unsigned int minutes)
     }
     ShowNotice(W8_FONT_PALETTE_BEIGE,
                fmt::sprintf(Data().strings[0x1b4], Data().spells[slot->effect_id].display_name));
-    if (GetViewDistance() != g_encounter_culling_rate) {
+    if (CurrentGame().advancement.time_scale != g_encounter_culling_rate) {
         wiz8::sound::play("Data\\Sound\\Misc\\Spell Expiry.wav");
     }
     ResetPartyEffectBlock(slot);
@@ -969,7 +968,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
         }
         return;
     }
-    if (GetViewDistance() != g_sight_default) {
+    if (CurrentGame().advancement.time_scale != g_sight_default) {
         return;
     }
     if ((monster.nav.linked_navigator == 0 && !monster.nav.halted) &&

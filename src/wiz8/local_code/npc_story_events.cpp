@@ -249,7 +249,7 @@ void UpdateSedexusScene(const ScriptContext& context)
     }
     const World* world = context.world;
     const W8EnvironmentLightingMode environment =
-        world ? world->environment.lighting_mode : W8EnvironmentLightingMode::DayNight;
+        world ? world->environment.lightingMode() : W8EnvironmentLightingMode::DayNight;
     if (environment != W8EnvironmentLightingMode::FadedOut &&
         environment != W8EnvironmentLightingMode::DayNight) {
         return;
@@ -295,7 +295,7 @@ void BeginSedexusCapture(const ScriptContext& context)
     BeginScriptedWorldAction();
     CurrentGame().sedexus_scene.capture_pending = true;
     CurrentGame().sedexus_scene.capture_active = true;
-    BeginWorldLightingFade(context.game.level, -1000.0f);
+    context.game.level.beginLightingFade(-1000.0f);
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (context.party.members[party_slot].has_value() &&
             (context.party.characters[party_slot].hp_current > 0 ||
@@ -334,7 +334,7 @@ static void ResolveSedexusCapture(Level& level)
     }
     CurrentGame().npc_dialogue.HoldForScene();
     CurrentGame().sedexus_scene.release_pending = true;
-    BeginWorldLightingFade(level, 1000.0f);
+    level.beginLightingFade(1000.0f);
     RunNamedTrigger("al-seduxusgate", -1);
     RunNamedTrigger("templargate14", -1);
 }

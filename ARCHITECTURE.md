@@ -87,7 +87,7 @@ Unlayered code may use the layers.
 | `audio/` | The sound service (`Playback` values), positional `Sound3D`, `AmbientAudioSystem`, sound events and mouth-gap lip sync. |
 | `render/` | VSG scene topology, shared mesh assets and instance poses, material state, views, Vulkan resources and presentation; SDL CPU canvas publication and overlay composition. SDL owns the platform window. |
 | `spatial/` | `LevelSpatialIndex` (compiled octree and collision banks), `SurfaceIndex`, collision, the navigation mesh and `Navigator`. Traces, sight lines and ground probes take explicit segments and filters, own per-query scratch and return optional typed hits. |
-| `world/` | `World` (scene, environment, spatial index, audio, population, entities), `PartyCamera` and `PartyMotion`, `EnvironmentState`, encounters, `level_loader` and `level_session`. |
+| `world/` | `World` (scene, environment, spatial index, audio, population, entities), `PartyCamera` and `PartyMotion`, `Environment`, encounters, `level_loader` and `level_session`. |
 | `entities/` | Concrete `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks, composed from `CyclePlayer`, `Navigator` and `KeyframeTrack` values. A monster species, missile kind or spell visual is loaded once into a never-live definition (`World::*_definitions`), which every live entity is copied from. Animations hold shared frame meshes (`AnimationMesh`) and never enter a scene; a `CyclePlayer` or `Prop` owns the model instance for each part it draws and shows the current frame on it. An actor's appearance (skin and damage stage, light scale, glow, model scale) is on its `CyclePlayer`, which applies it to that instance; a damage stage is the skin table named for the species and stage on whichever mesh is drawn. Entities report missile hits, missile landings and release frames to their world's `SimulationSink` instead of resolving them, and monster scripts and triggers act on the fight through `Game` commands (`setMonsterGroupDisposition`, `startGolemAttack`, `castTriggerSpell`). |
 | `native/` | Application loop, game events, key bindings, FFmpeg movie playback. |
 | `wiz8/` | Gameplay rules not yet in `rules`, screens, dialogs and level scripts. `wiz8/combat/` is the fight: starting, ending and pacing it (`fight`), attack resolution (`attack`), hostility, range, the party's move in a round, group attacks and combat sounds; it resolves what the world's entities report (`CombatEntitySignals`), installed by the game's level into its primary world, and defines the commands scripts and triggers issue. |
@@ -206,11 +206,11 @@ Unlayered code may use the layers.
   are transitional forwarders to the slots, null with no game in progress. World
   identity and resource paths are immutable, and live level queries use the
   primary world. `resume_level` is decoded save data, filled in save snapshots.
-- Each world's `EnvironmentState` holds its lighting, fog, fade and sky state.
-  Environment operations name what they change: per-world helpers take the
-  `World`, fades and fog take the `Level` (they change the primary world and fog
-  colour the sky behind it), and the clock-driven updates take the `Game`, whose
-  calendar supplies the time of day and whose level they apply it to.
+- Each world owns an `Environment`, built with that world: its lighting, fog,
+  fade and sky state is private, and its methods change only that world. `Level`
+  coordinates its primary world with the sky (fades, fog, the day phase's light
+  direction, which both take as their fog colour), and `Game` owns the calendar and
+  its time scale, advancing it and handing its level the time of day.
 - `World` member order is its teardown order. Destruction stops activity and drops
   borrowed indexes, then releases entities, geometry, the spatial index and
   finally the scene. Replacing the primary world stops callbacks before ownership

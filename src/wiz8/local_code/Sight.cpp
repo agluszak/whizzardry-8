@@ -58,7 +58,7 @@ const float g_sight_default = 12.0f;
 /* Put the sight subsystem back to its starting state. */
 void ResetSight(void)
 {
-    SetViewDistance(12.0f);
+    CurrentGame().advancement.time_scale = g_sight_default;
     SetNavigatorLinkMode(W8_NAVIGATOR_LINK_MODE_DEFAULT);
     GameTimeAccumulator().ResetTimeScale();
     ResetMonsterGeneratorTimers();
@@ -67,7 +67,7 @@ void ResetSight(void)
 /* Whether the view distance has been moved off its default. */
 bool IsSightRangeOverridden(void)
 {
-    return GetViewDistance() != g_sight_default;
+    return CurrentGame().advancement.time_scale != g_sight_default;
 }
 
 /* Re-run both directions of the sight update for one monster. */
@@ -643,7 +643,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 }
                 monster_info->party_threat.party_detected = seen_by_party;
                 if (seen_by_party) {
-                    if (GetViewDistance() == g_sight_default) {
+                    if (CurrentGame().advancement.time_scale == g_sight_default) {
                         if (record == 0 ||
                             (SetFactionFlag(static_cast<signed char>(record->faction_id), true),
                              (record->flags & W8_MONSTER_FLAG_NPC) == 0)) {

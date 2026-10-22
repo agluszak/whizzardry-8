@@ -225,7 +225,7 @@ static std::unique_ptr<World> PrepareSkyWorld(std::string_view sky_path)
 
     auto material = std::make_shared<Material>();
     material->setName("AnimatedCloudMaterial");
-    sky->environment.cloud_material = material;
+    sky->environment.setCloudMaterial(material);
     glm::vec4 colour;
     colour = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     material->setAmbient(colour);
@@ -356,12 +356,11 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
     StartLevelMusic(1, 1);
     CurrentGame().status.next_trigger_id = GetWorld()->next_trigger_id;
     UpdateGameDataRuntime();
-    if (GetWorld()->environment.fog_enabled) UpdateEnvironmentLight(CurrentGame());
     ApplyCameraRotation(&GetWorld()->initial_camera_rotation);
     GetWorld()->party_camera.applySway(*GetWorld()->camera, GetWorld()->initial_camera_sway
                                                                 ? CameraSwayMode::Start
                                                                 : CameraSwayMode::Stop);
-    SetCameraLightVisible(*GetWorld(), false);
+    if (Light* light = GetWorld()->camera_light) light->visible = false;
     ResetAutomapView();
     BeginRestoredLevelActivity(*GetWorld(), status);
 
@@ -420,7 +419,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
         ResetCurrentEnvironment();
     }
     g_camera_path_active = false;
-    InitializeLevelEnvironment(CurrentGame());
+    CurrentGame().enterLevelEnvironment();
     World& world = *GetWorld();
     world.script = MakeLevelScript(level, MakeScriptContext(CurrentGame()));
     world.script->enter();
@@ -545,7 +544,7 @@ void LeaveLevel()
     }
 
     ReleaseWorldCursor();
-    DisableSky(CurrentLevel());
+    CurrentLevel().disableSky();
     EndCameraSway();
     ResetGameTimeAccumulator();
     CurrentLevel().replacePrimary(nullptr);

@@ -59,9 +59,10 @@ void RebuildPartyEffectBlock(void)
     SettleActiveParty(CurrentGame());
     World* world = CurrentGame().level.primary.get();
     if (!world) return;
-    SetCameraLightVisible(*world, modifiers.light != 0);
-    if (modifiers.light != 0)
-        SetCameraLightIntensity(*world, modifiers.light + kEnvironmentNearScale);
+    Light* light = world->camera_light;
+    if (!light) return;
+    light->visible = modifiers.light != 0;
+    if (modifiers.light != 0) light->intensity = modifiers.light + kEnvironmentNearScale;
 }
 
 /* Fold the party's twelve effect slots into the shared modifier block. */
