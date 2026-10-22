@@ -11,7 +11,6 @@
 #include <filesystem>
 #include <functional>
 #include <iterator>
-#include <limits>
 #include <memory>
 #include <optional>
 #include <span>
@@ -59,6 +58,7 @@
 #include "wiz8/layouts/save_screenshot.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/level_script.h"
+#include "wiz8/level_state.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
@@ -728,7 +728,7 @@ struct LevelState::Data {
     std::vector<SavedWorldSection> world_sections;
 };
 
-LevelState::LevelState() : data(std::make_unique<Data>()) {}
+LevelState::LevelState() : data_(std::make_unique<Data>()) {}
 LevelState::LevelState(LevelState&&) noexcept = default;
 LevelState& LevelState::operator=(LevelState&&) noexcept = default;
 LevelState::~LevelState() = default;
@@ -831,9 +831,9 @@ std::vector<std::byte> CopyLevelGroupImage(W8Chunk& source)
 }
 
 // Open a level image for reading.
-void OpenLevelImage(W8Chunk& chunk, const std::vector<std::byte>& image)
+void OpenLevelImage(W8Chunk& chunk, std::span<const std::byte> image)
 {
-    RequireSection(chunk.OpenRead(wiz8::open_memory(image)), "level image");
+    RequireSection(chunk.OpenRead(wiz8::open_memory({image.begin(), image.end()})), "level image");
 }
 
 /* Autosaves wait for a quiet moment: no world-cursor lock, nobody dying, no
@@ -1035,11 +1035,12 @@ static wiz8::save::GameState CaptureStateForSave(const Game& game, const wiz8::F
     return snapshot;
 }
 
-LevelState CaptureLevelState(World& world, int level, const GameStatus& status)
+LevelState LevelState::capture(const Level& level, const GameStatus& status)
 {
+    const World& world = *level.primary;
     LevelState captured;
-    auto& state = *captured.data;
-    state.level = level;
+    auto& state = *captured.data_;
+    state.level = world.level_id;
     state.header = CaptureStatusHeader(status);
     auto& population = *world.population;
     // Live list entries come first, then encounter groups and unborn monsters.
@@ -1059,15 +1060,37 @@ LevelState CaptureLevelState(World& world, int level, const GameStatus& status)
                 state.monsters.push_back(SavedMonster::Capture(
                     *monster, population.monster_roster.isUnborn(monster.get())));
     for (const auto& item : population.world_items) state.items.push_back(CaptureWorldItem(*item));
-    state.automap = CaptureAutomapNotes(world);
-    if (!world.triggers.empty()) state.world_sections.emplace_back(CaptureSavedTriggers(world));
-    state.world_sections.emplace_back(CaptureSavedProps(world));
-    state.cursor_states = CaptureWorldCursorNodeStates(world);
-    state.generator_states = CaptureMonsterGeneratorStates(world.encounters);
-    state.world_sections.emplace_back(CaptureSavedTriggerLocks(world));
-    state.ambient = CaptureAmbientSoundStates(world);
-    state.particles = CaptureParticleStates(world);
-    state.lights = CaptureLightStates();
+    state.automap = CaptureAutomapNotes(world.automap);
+    if (!world.triggers.empty()) {
+        auto& triggers = state.world_sections.emplace_back(std::vector<SavedTrigger>{});
+        for (const auto& trigger : world.triggers)
+            std::get<std::vector<SavedTrigger>>(triggers).push_back(trigger->Capture());
+    }
+    auto& props = std::get<std::vector<SavedProp>>(
+        state.world_sections.emplace_back(std::vector<SavedProp>{}));
+    for (const auto& prop : world.plsProps)
+        props.push_back({prop->name, prop->CaptureAnimationState()});
+    auto& cursor_states = state.cursor_states.emplace();
+    for (const auto& node : world.cursor_nodes) {
+        auto& entry = cursor_states.entries.emplace_back();
+        std::ranges::copy(node->name, entry.name.begin());
+        entry.userdata = node->userdata;
+    }
+    state.generator_states = world.encounters.savedGeneratorStates();
+    auto& locks =
+        std::get<SavedTriggerLocks>(state.world_sections.emplace_back(SavedTriggerLocks{}));
+    for (const auto& trigger : world.triggers)
+        if (auto lock = trigger->CaptureLock()) locks.locks.push_back(std::move(*lock));
+    state.ambient = world.audio.savedStates();
+    for (const auto& particle : world.particles)
+        if (particle->persisted)
+            state.particles.push_back({particle->getName(), particle->emitting});
+    // A trigger can toggle a light of the sky as well as of the level.
+    for (const auto* lit : {level.primary.get(), level.sky.get()})
+        if (lit && lit->scene)
+            for (const auto* light : lit->scene->lights)
+                if (light->m_save_marked)
+                    state.lights.push_back({light->getName(), light->visible});
     return captured;
 }
 
@@ -1075,9 +1098,14 @@ LevelState CaptureLevelState(World& world, int level, const GameStatus& status)
    prop sections, the cursor node and generator states, the lock and action sections, and
    the ambient sounds, particles and lights, in the order retail writes them. A save does
    not repeat the asset status's cursor nodes and encounters. */
-void EncodeLevelState(W8Chunk& chunks, const LevelState& level)
+int LevelState::level() const
 {
-    const auto& state = *level.data;
+    return data_->level;
+}
+
+void LevelState::encode(W8Chunk& chunks) const
+{
+    const auto& state = *data_;
     auto& file = chunks.WriteStream();
     const auto sections = [&]<class Section>(unsigned int id) {
         for (const auto& section : state.world_sections)
@@ -1127,15 +1155,6 @@ void EncodeLevelState(W8Chunk& chunks, const LevelState& level)
     });
 }
 
-namespace {
-// The current level's group, captured from its world.
-void WriteCurrentLevel(W8Chunk& chunks)
-{
-    EncodeLevelState(chunks,
-                     CaptureLevelState(*GetWorld(), GetLoadedLevelID(), CurrentGame().status));
-}
-} // namespace
-
 /* Write one whole save: the CHAR and other-level chunks carried over from
    CurrentGame (unless this is CurrentGame), the status, version, screenshot
    (captured now when the caller has none), the message, location, NPC, fact,
@@ -1145,16 +1164,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
 {
     auto& game = CurrentGame();
     // The levels the party left, as they were left; the current level is written live below.
-    for (const auto& [level, image] : game.left_levels) {
-        if (level == GetLoadedLevelID()) continue;
-        W8Chunk source;
-        OpenLevelImage(source, image);
-        source.ForEachChunk([&](unsigned int id) {
-            if (id == W8_CHUNK_LEVEL_STATUS)
-                RequireSection(chunks.CopyCurrentChunkFrom(&source), "save chunk copy");
-        });
-        source.Close();
-    }
+    game.left_levels.write(chunks, game.level.primary->level_id);
     for (const auto& stored : game.stored_characters)
         WriteChunkPayload(chunks, W8_CHUNK_CHARACTER, wiz8::save::encode(stored));
     {
@@ -1192,7 +1202,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
     WriteChunkPayload(chunks, W8_CHUNK_JOURNAL, wiz8::save::encode(story.journal));
     if (const auto* control = FindMonsterControlSpellEffect())
         WriteChunkPayload(chunks, W8_CHUNK_MONSTER_CONTROL, wiz8::save::encode(*control));
-    WriteCurrentLevel(chunks);
+    LevelState::capture(game.level, game.status).encode(chunks);
 }
 
 bool SaveGame(std::string_view name, const W8SaveScreenshot* screenshot)
@@ -1220,26 +1230,48 @@ std::string BuildLevelStatusPath(unsigned int level)
     return fmt::format("Levels\\Test\\Level{:c}.STS", static_cast<char>(level - 56));
 }
 
-bool StoreLeftLevel(Game& game)
-try {
+void LeftLevels::store(const LevelState& state)
+{
     const std::shared_ptr<wiz8::File> file = wiz8::open_memory_writer();
     W8Chunk image;
-    if (!image.OpenWrite(file)) return false;
-    WriteCurrentLevel(image);
+    RequireSection(image.OpenWrite(file), "level image");
+    state.encode(image);
     image.Close();
-    game.left_levels[GetLoadedLevelID()] = file->written_memory();
-    return true;
-} catch (const std::exception&) {
-    return false;
+    images_[state.level()] = file->written_memory();
 }
 
-namespace {
-/* Decode level `level`'s group from `chunk`, or nothing when the file has none. Group and
-   monster identities must be unique. */
-std::optional<LevelState> DecodeLevelState(W8Chunk& chunk, int level, bool from_assets)
+void LeftLevels::keep(int level, std::vector<std::byte> image)
+{
+    images_[level] = std::move(image);
+}
+
+std::optional<LevelState> LeftLevels::decode(int level) const
+{
+    const auto left = images_.find(level);
+    if (left == images_.end()) return std::nullopt;
+    return LevelState::decode(left->second, level);
+}
+
+void LeftLevels::write(W8Chunk& chunks, int current) const
+{
+    for (const auto& [level, image] : images_) {
+        if (level == current) continue;
+        W8Chunk source;
+        OpenLevelImage(source, image);
+        source.ForEachChunk([&](unsigned int id) {
+            if (id == W8_CHUNK_LEVEL_STATUS)
+                RequireSection(chunks.CopyCurrentChunkFrom(&source), "save chunk copy");
+        });
+        source.Close();
+    }
+}
+
+/* Level `level`'s group in `chunk`, or nothing when the file has none. Group and monster
+   identities must be unique. */
+std::optional<LevelState> LevelState::decode(W8Chunk& chunk, int level, bool from_assets)
 {
     LevelState decoded;
-    auto& state = *decoded.data;
+    auto& state = *decoded.data_;
     state.level = level;
     state.from_assets = from_assets;
     const bool found = WithLevelGroup(chunk, level, [&] {
@@ -1257,6 +1289,7 @@ std::optional<LevelState> DecodeLevelState(W8Chunk& chunk, int level, bool from_
     return decoded;
 }
 
+namespace {
 /* A saved level takes the sections a save does not repeat (locks, cursor nodes, encounters
    and trigger actions) from the level's asset status, ahead of its own; then the saved
    cursor node and generator states update the nodes and generators. */
@@ -1286,26 +1319,7 @@ void ApplyLevelBase(LevelState::Data& state)
     }
     if (state.generator_states) {
         if (!state.encounters) state.encounters.emplace();
-        ApplyMonsterGeneratorStates(*state.encounters, *state.generator_states);
-    }
-}
-
-/* Check the species a decoded level names against the monster database. A monster of a
-   deleted species is dropped, so only the others need their group. */
-void CheckLevelSpecies(const LevelState::Data& state)
-{
-    for (const auto& group : state.groups)
-        if (!MonsterDBFromSpecies(group.image.monster_id))
-            throw std::runtime_error("missing saved monster group species");
-    for (const auto& saved : state.monsters) {
-        const auto* record = MonsterDBFromSpecies(saved.image.monster_species);
-        if (!record) throw std::runtime_error("missing saved monster species");
-        if (record->deleted) continue;
-        const auto group = std::ranges::find_if(state.groups, [&](const auto& saved_group) {
-            return saved_group.image.group_id == saved.image.monster_group_id;
-        });
-        if (group == state.groups.end() || MonsterDBFromSpecies(group->image.monster_id)->deleted)
-            throw std::runtime_error("missing saved monster group");
+        state.encounters->applyGeneratorStates(*state.generator_states);
     }
 }
 
@@ -1413,30 +1427,54 @@ void PrepareLevelPopulation(World& world, LevelState::Data& data,
 }
 } // namespace
 
-std::optional<LevelState> DecodeLevelState(const std::filesystem::path& path, int level,
-                                           bool from_assets)
+std::optional<LevelState> LevelState::decode(const std::filesystem::path& path, int level,
+                                             bool from_assets)
 {
     W8Chunk chunk;
     if (!chunk.OpenRead(path)) return std::nullopt;
-    return DecodeLevelState(chunk, level, from_assets);
+    return decode(chunk, level, from_assets);
 }
 
-std::optional<LevelState> DecodeLeftLevelState(const Game& game, int level)
+std::optional<LevelState> LevelState::decode(std::span<const std::byte> image, int level)
 {
-    const auto left = game.left_levels.find(level);
-    if (left == game.left_levels.end()) return std::nullopt;
     W8Chunk chunk;
-    OpenLevelImage(chunk, left->second);
-    return DecodeLevelState(chunk, level, false);
+    OpenLevelImage(chunk, image);
+    return decode(chunk, level, false);
 }
 
-std::unique_ptr<W8LoadedLevelStatus> BuildLevel(World& world, LevelState level)
+std::vector<std::unique_ptr<W8WorldItem>> LevelState::buildItems() const
 {
-    auto& state = *level.data;
+    std::vector<std::unique_ptr<W8WorldItem>> items;
+    for (const auto& item : data_->items) items.push_back(BuildWorldItem(item));
+    return items;
+}
+
+// A monster of a deleted species is dropped, so only the others need their group.
+void LevelState::checkSpecies() const
+{
+    const auto& state = *data_;
+    for (const auto& group : state.groups)
+        if (!MonsterDBFromSpecies(group.image.monster_id))
+            throw std::runtime_error("missing saved monster group species");
+    for (const auto& saved : state.monsters) {
+        const auto* record = MonsterDBFromSpecies(saved.image.monster_species);
+        if (!record) throw std::runtime_error("missing saved monster species");
+        if (record->deleted) continue;
+        const auto group = std::ranges::find_if(state.groups, [&](const auto& saved_group) {
+            return saved_group.image.group_id == saved.image.monster_group_id;
+        });
+        if (group == state.groups.end() || MonsterDBFromSpecies(group->image.monster_id)->deleted)
+            throw std::runtime_error("missing saved monster group");
+    }
+}
+
+std::unique_ptr<W8LoadedLevelStatus> LevelState::build(World& world) &&
+{
+    auto& state = *data_;
     ApplyLevelBase(state);
-    CheckLevelSpecies(state);
+    checkSpecies();
     // Retail drew the generators' jittered intervals as it read them, before building anything.
-    if (state.encounters) RearmDecodedGenerators(*state.encounters);
+    if (state.encounters) state.encounters->rearmDecodedGenerators();
     auto status = std::make_unique<W8LoadedLevelStatus>();
     status->data->header = state.header;
     for (auto& section : state.world_sections) ApplySavedSection(world, section);
@@ -1701,25 +1739,10 @@ try {
 /* Load the world items of a level the party left, without listing them. */
 bool LoadSavedLevelItems(int level, std::vector<std::unique_ptr<W8WorldItem>>& items)
 try {
-    const auto& left = CurrentGame().left_levels;
-    const auto image = left.find(level);
-    if (image == left.end()) return false;
-    W8Chunk chunk;
-    OpenLevelImage(chunk, image->second);
-    const bool found = WithLevelGroup(chunk, level, [&] {
-        chunk.ForEachChunk([&](unsigned int section) {
-            if (section != W8_CHUNK_WORLD_ITEMS) return;
-            const auto count = ReadWorldItemCount(chunk);
-            if (count > static_cast<unsigned int>(std::numeric_limits<int>::max() - items.size()))
-                throw std::runtime_error("too many world items");
-            items.reserve(items.size() + count);
-            for (unsigned int index = 0; index < count; ++index) {
-                items.push_back(BuildWorldItem(ReadSavedWorldItem(chunk)));
-            }
-        });
-    });
-    chunk.Close();
-    return found;
+    auto state = CurrentGame().left_levels.decode(level);
+    if (!state) return false;
+    std::ranges::move(state->buildItems(), std::back_inserter(items));
+    return true;
 } catch (const std::exception&) {
     return false;
 }
@@ -1752,11 +1775,9 @@ try {
         case W8_CHUNK_LEVEL_STATUS: {
             const int level = PeekGroupLevel(chunks);
             auto image = CopyLevelGroupImage(chunks);
-            W8Chunk group;
-            OpenLevelImage(group, image);
-            if (auto state = DecodeLevelState(group, level, false)) CheckLevelSpecies(*state->data);
+            if (auto state = LevelState::decode(image, level)) state->checkSpecies();
             prepared.sections.emplace_back([level, image = std::move(image)](Game& game) mutable {
-                game.left_levels[level] = std::move(image);
+                game.left_levels.keep(level, std::move(image));
             });
             break;
         }

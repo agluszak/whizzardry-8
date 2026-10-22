@@ -55,7 +55,6 @@ struct W8SavedCursorNodeStates {
     std::vector<Entry> entries;
 };
 W8SavedCursorNodes ReadWorldCursorNodes(W8Chunk& file);
-W8SavedCursorNodeStates CaptureWorldCursorNodeStates(const World& world);
 W8SavedCursorNodeStates ReadWorldCursorNodeStates(W8Chunk& file);
 void WriteWorldCursorNodeStates(wiz8::File& handle, const W8SavedCursorNodeStates& states);
 void ApplyWorldCursorNodeStates(W8SavedCursorNodes& nodes, W8SavedCursorNodeStates states);

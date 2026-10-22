@@ -631,7 +631,7 @@ unsigned short Navigator::SetMovementTargetToAnchor(const glm::vec3& anchor, dou
     movement.target_location_id = -1;
     movement_target = glm::vec3(0);
     collision_margin = separation;
-    PathAIClearOwned(path_ai ? &*path_ai : nullptr);
+    if (path_ai) path_ai->geometry.reset();
     if (NavigationCombatActive(*this)) movement.attachment->flags |= W8_NAV_ATTACHMENT_FOLLOW_PATH;
     unsigned short result = 0;
     if (SetMovementTarget(&anchor, false) == 0) {
@@ -657,7 +657,7 @@ unsigned short Navigator::SetMovementTargetToNavigator(Navigator* target, double
     } else {
         movement.target_location_id = -1;
     }
-    PathAIClearOwned((path_ai ? &*path_ai : nullptr));
+    if (path_ai) path_ai->geometry.reset();
     if (NavigationCombatActive(*this)) {
         movement.attachment->flags |= W8_NAV_ATTACHMENT_FOLLOW_PATH;
     }
@@ -1206,7 +1206,7 @@ unsigned char Navigator::ConfigureMovementToPosition(const glm::vec3* position)
     collision_margin = 0.0;
     target_navigator = 0;
     if (movement_stopped) {
-        PathAIClearOwned((path_ai ? &*path_ai : nullptr));
+        if (path_ai) path_ai->geometry.reset();
     }
     glm::vec3 target = *position;
     flags = 6;
@@ -1252,7 +1252,7 @@ unsigned char Navigator::LinkToNavigator(Navigator* target, double separation)
     flags = 0;
     target_navigator = target;
     movement.target_location_id = target->movement.location_id;
-    PathAIClearOwned((path_ai ? &*path_ai : nullptr));
+    if (path_ai) path_ai->geometry.reset();
     movement.attachment->InitializeSegment(&movement.position, &target->movement.position);
     if (NavigationCombatActive(*this)) {
         movement.attachment->flags |= W8_NAV_ATTACHMENT_FOLLOW_PATH;
@@ -1295,7 +1295,7 @@ unsigned short Navigator::ConfigureMovementToNavigator(Navigator* target, float 
     target_navigator = target;
     movement.target_location_id = target->movement.location_id;
     movement.target_position = target->movement.position;
-    PathAIClearOwned((path_ai ? &*path_ai : nullptr));
+    if (path_ai) path_ai->geometry.reset();
     radius = movement.alternate_radius;
     unsigned short result = octree->pathing->ConfigureMovementSearch(
         path_search, &movement, radius, separation,
@@ -1494,7 +1494,7 @@ void Navigator::ClearMovement()
 {
     SetMovementStopped();
 
-    PathAIClearOwned((path_ai ? &*path_ai : nullptr));
+    if (path_ai) path_ai->geometry.reset();
     movement.velocity = glm::vec3(0);
     if ((movement.attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0) {
         flags &= 0xff000000;
@@ -1919,7 +1919,7 @@ int Navigator::ResolveMovement()
             }
 
             SetMovementStopped();
-            PathAIClearOwned((path_ai ? &*path_ai : nullptr));
+            if (path_ai) path_ai->geometry.reset();
             movement.velocity = glm::vec3(0);
             if ((movement.attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0) {
                 flags &= 0xff000000;

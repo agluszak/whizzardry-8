@@ -1091,9 +1091,9 @@ bool ShowAutomapNoteTooltip(W8AutomapNote* note)
     return false;
 }
 
-W8SavedAutomapNotes CaptureAutomapNotes(const World& world)
+W8SavedAutomapNotes CaptureAutomapNotes(const W8AutomapCells& cells)
 {
-    W8SavedAutomapNotes records{.visited = world.automap.visited};
+    W8SavedAutomapNotes records{.visited = cells.visited};
     for (const auto& note : g_automap_notes)
         records.notes.push_back(std::make_unique<W8AutomapNote>(*note));
     return records;

@@ -228,17 +228,6 @@ void ApplyWorldCursorNodeStates(W8SavedCursorNodes& table, W8SavedCursorNodeStat
     }
 }
 
-W8SavedCursorNodeStates CaptureWorldCursorNodeStates(const World& world)
-{
-    W8SavedCursorNodeStates states;
-    for (const auto& node : world.cursor_nodes) {
-        auto& entry = states.entries.emplace_back();
-        std::ranges::copy(node->name, entry.name.begin());
-        entry.userdata = node->userdata;
-    }
-    return states;
-}
-
 void WriteWorldCursorNodeStates(wiz8::File& handle, const W8SavedCursorNodeStates& states)
 {
     const auto count = static_cast<std::uint32_t>(states.entries.size());

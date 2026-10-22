@@ -715,8 +715,8 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
     REQUIRE(second->path->entry_index == 1);
     REQUIRE(first->path->speed == 15.f);
     REQUIRE(second->path->speed == 7.5f);
-    REQUIRE(first->path->nodes.size() == 2);
-    REQUIRE(first->path->nodes[1].x == 500.f);
+    REQUIRE(first->path->points().size() == 2);
+    REQUIRE(first->path->points()[1].position.x == 500.f);
     world.plsCameras.resize(1);
     for (std::size_t operation = 1; operation <= operations; ++operation) {
         auto file = wiz8::open_file(wiz8::asset_path("cameras.bin"));
@@ -967,8 +967,9 @@ TEST_CASE_METHOD(LoaderFixture, "Nested item write failure aborts a staged trigg
             wiz8::testing::FileOperationHook previous;
             ~RestoreHook() { wiz8::testing::set_file_operation_hook(previous); }
         } restore{previous};
-        REQUIRE_THROWS_WITH(WriteSavedTriggers(*writer, CaptureSavedTriggers(*GetWorld())),
-                            "fixture item write failure");
+        std::vector<SavedTrigger> section;
+        for (const auto& trigger : GetWorld()->triggers) section.push_back(trigger->Capture());
+        REQUIRE_THROWS_WITH(WriteSavedTriggers(*writer, section), "fixture item write failure");
         REQUIRE(fired);
     }
     REQUIRE(wiz8::open_file(path)->read_text() == "old");
@@ -1013,7 +1014,7 @@ TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat g
             });
         });
         chunks.Close();
-        game.game.left_levels[0x26] = file->written_memory();
+        game.game.left_levels.keep(0x26, file->written_memory());
     };
     write_items(true);
     LoadAwayCampChest(*GetWorld());

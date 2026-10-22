@@ -1,5 +1,6 @@
 #pragma once
 struct W8Chunk;
+struct SavedLock;
 struct SavedTrigger;
 
 #include <cassert>
@@ -188,6 +189,8 @@ public:
     void Activate();
     // The trigger's save record, and restoring the trigger from one.
     SavedTrigger Capture() const;
+    // The lock's save record, or nothing when the trigger has no lock.
+    std::optional<SavedLock> CaptureLock() const;
     void Restore(SavedTrigger saved);
     void RunLinkedTriggers();
     void FinishAction();
