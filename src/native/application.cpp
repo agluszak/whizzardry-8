@@ -43,25 +43,24 @@ LaunchOptions ParseArguments(std::span<const std::string_view> arguments)
     for (size_t index = 0; index < arguments.size(); ++index) {
         const auto separator = arguments[index].find('=');
         const std::string option(arguments[index].substr(0, separator));
-        if (SDL_strcasecmp(option.c_str(), "/NOSOUND") == 0)
+        const auto is = [&](const char* name) { return SDL_strcasecmp(option.c_str(), name) == 0; };
+        if (is("/NOSOUND"))
             options.sound = false;
-        else if (SDL_strcasecmp(option.c_str(), "/INSPECTOR") == 0)
+        else if (is("/INSPECTOR"))
             options.inspector = true;
-        else if (SDL_strcasecmp(option.c_str(), "/LOAD") == 0)
+        else if (is("/LOAD"))
             options.load_at_startup = true;
-        else if (SDL_strcasecmp(option.c_str(), "/WINDOW") == 0)
+        else if (is("/WINDOW"))
             options.windowed = true;
-        else if (SDL_strcasecmp(option.c_str(), "/STRINGDATA") == 0 ||
-                 SDL_strcasecmp(option.c_str(), "/NATIVEOBJECT") == 0) {
+        else if (auto* file = is("/STRINGDATA")     ? &options.string_data
+                              : is("/NATIVEOBJECT") ? &options.native_object
+                                                    : nullptr) {
             const auto value = separator != std::string_view::npos
                                    ? arguments[index].substr(separator + 1)
                                : ++index < arguments.size() ? arguments[index]
                                                             : std::string_view{};
             if (value.empty()) throw std::invalid_argument(option + " requires a filename");
-            if (SDL_strcasecmp(option.c_str(), "/NATIVEOBJECT") == 0)
-                options.native_object = value;
-            else
-                options.string_data = value;
+            *file = value;
         }
     }
     return options;

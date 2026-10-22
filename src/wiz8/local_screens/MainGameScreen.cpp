@@ -60,7 +60,6 @@
 #include "wiz8/difficulty.h"
 #include "wiz8/entities/cursor.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/entities/native_object.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/spell_visual.h"
 #include "wiz8/entities/trigger.h"
@@ -5144,8 +5143,7 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
                 ScreenPointer().showSlot(cursor);
                 return;
             }
-            if (SelectedNativeObject(*GetWorld()) && !CurrentGame().advancement.held &&
-                CurrentGame().party.held.item.iItemNo == -1) {
+            if (CurrentGame().interactiveNativeObject()) {
                 ScreenPointer().showSlot(13);
                 return;
             }

@@ -69,11 +69,16 @@ void LoadNativeLevelObject(Game& game)
     world.native_objects.push_back(std::make_unique<NativeObject>(world, game.native_object_file));
 }
 
-bool Game::activateSelectedNativeObject()
+NativeObject* Game::interactiveNativeObject()
 {
     if (!activity.in_world() || advancement.held || party.held.item.iItemNo != -1 || !level.primary)
-        return false;
-    auto* object = SelectedNativeObject(*level.primary);
+        return nullptr;
+    return SelectedNativeObject(*level.primary);
+}
+
+bool Game::activateSelectedNativeObject()
+{
+    auto* object = interactiveNativeObject();
     if (!object) return false;
     object->activate();
     events.push(TextNotice{W8_FONT_PALETTE_BEIGE,
