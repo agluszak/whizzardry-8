@@ -27,7 +27,6 @@
 #include <vsg/app/ProjectionMatrix.h>
 #include <vsg/app/RecordAndSubmitTask.h>
 #include <vsg/app/RenderGraph.h>
-#include <vsg/app/TransferTask.h>
 #include <vsg/app/View.h>
 #include <vsg/app/ViewMatrix.h>
 #include <vsg/app/Viewer.h>
@@ -287,7 +286,14 @@ Renderer::Impl::Impl(SDL_Window* platform_window) : platform_window(platform_win
     graphics_family = commands->queueFamily;
     commands->addChild(render_graph);
     viewer->assignRecordAndSubmitTaskAndPresentation({commands});
-    compiler = FrameCompiler::create(window->getOrCreateDevice());
+    auto device = window->getOrCreateDevice();
+    compiler = FrameCompiler::create(device);
+    offscreen_viewer->assignRecordAndSubmitTaskAndPresentation(
+        {vsg::CommandGraph::create(device, graphics_family)});
+    // Both targets draw the same graph, so they share the transfer task that
+    // compilation registered its buffers and images with.
+    offscreen_viewer->recordAndSubmitTasks.front()->transferTask =
+        viewer->recordAndSubmitTasks.front()->transferTask;
     createOffscreen();
 }
 
@@ -327,17 +333,10 @@ void Renderer::Impl::createOffscreen()
     offscreen_graph->windowResizeHandler = {};
     offscreen_graph->clearValues = render_graph->clearValues;
     offscreen_graph->addChild(frame_root);
-    auto commands = vsg::CommandGraph::create(device, graphics_family);
-    commands->addChild(offscreen_graph);
-    offscreen_viewer->assignRecordAndSubmitTaskAndPresentation({commands});
-    // Both targets draw the same graph, so they share the transfer task that
-    // compilation registered its buffers and images with.
-    auto& transfer = viewer->recordAndSubmitTasks.front()->transferTask;
-    offscreen_viewer->recordAndSubmitTasks.front()->transferTask = transfer;
-    // The next transfer would wait on a semaphore the replaced task signalled
-    // and release it during that submission. Every frame ends idle, so there
-    // is nothing left to wait for.
-    transfer->assignTransferConsumedCompletedSemaphore(vsg::TransferTask::TRANSFER_ALL, {});
+    // The offscreen task outlives its targets: the transfer task it shares
+    // with the window holds the semaphores this task signals.
+    auto& commands = offscreen_viewer->recordAndSubmitTasks.front()->commandGraphs.front();
+    commands->children = {offscreen_graph};
 }
 
 void Renderer::Impl::syncTargets()
