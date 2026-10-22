@@ -7,7 +7,6 @@
 #include <functional>
 #include <iterator>
 #include <optional>
-#include <span>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -125,7 +124,7 @@ static void NormalizeItemStack(const GameData& data, W8Party& party, W8ItemInsta
         unsigned char quantity = item.stack_count - record.maximum_quantity;
         if (quantity > record.maximum_quantity) quantity = record.maximum_quantity;
         split.stack_count = quantity;
-        if (!party.insertIntoPool(party.item_count, split)) {
+        if (!party.insertIntoPool(party.item_pool.size(), split)) {
             item.stack_count = record.maximum_quantity;
             return;
         }
@@ -246,7 +245,7 @@ W8ItemLocation FindPartyItem(const W8Party& party, W8ItemMatch match, W8ItemReac
                 found.storage != W8ItemStorage::None)
                 return found;
     if (reach != W8ItemReach::Party) return {};
-    const auto pool = std::span{party.item_pool}.first(party.item_count);
+    const auto& pool = party.item_pool;
     const auto found = std::ranges::find_if(pool, match);
     if (found == pool.end()) return {};
     return {W8ItemStorage::Pool, 0, static_cast<unsigned int>(found - pool.begin())};
@@ -280,7 +279,7 @@ unsigned int CountPartyItem(const W8Party& party, int item_id)
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (party.members[slot].has_value())
             total += CountCharacterItem(party.characters[slot], item_id, W8ItemReach::Carried);
-    for (const auto& item : std::span{party.item_pool}.first(party.item_count))
+    for (const auto& item : party.item_pool)
         if (item.iItemNo == item_id) total += item.stack_count == 0 ? 1 : item.stack_count;
     return total;
 }
@@ -307,8 +306,6 @@ W8ItemUse ItemUseAt(const W8Party& party, W8ItemLocation location)
 
 W8ItemInstance* ResolveItemUse(W8Party& party, const W8ItemUse& use)
 {
-    if (use.item.storage == W8ItemStorage::Pool && use.item.slot >= party.item_count)
-        return nullptr;
     auto* item = party.itemAt(use.item);
     return item && item->iItemNo != -1 && item->iItemNo == use.item_id ? item : nullptr;
 }
@@ -471,7 +468,7 @@ std::optional<ItemPlacement> PlaceInPool(const RuleContext& rules, ItemSource so
     bool merged = false;
 
     if (data.items[source.item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK && !skip_stacking) {
-        for (; index < party.item_count; ++index) {
+        for (; index < party.item_pool.size(); ++index) {
             if (MergeStack(data, party, party.item_pool[index], source, &partially_merged)) {
                 merged = true;
                 break;
@@ -480,7 +477,7 @@ std::optional<ItemPlacement> PlaceInPool(const RuleContext& rules, ItemSource so
     }
 
     if (!merged) {
-        if (party.item_count >= std::size(party.item_pool)) return std::nullopt;
+        if (party.item_pool.size() >= party.item_pool.capacity()) return std::nullopt;
         index = 0;
         W8ItemInstance entry{};
         MoveInto(party, entry, std::nullopt, source);
@@ -556,7 +553,7 @@ InventoryEdit RemovePartyItemByID(const RuleContext& rules, int item_id, bool re
         party.take(found);
         if (!remove_all) return edit;
     }
-    for (unsigned int index = 0; index < party.item_count; ++index) {
+    for (unsigned int index = 0; index < party.item_pool.size(); ++index) {
         if (party.item_pool[index].iItemNo != item_id) continue;
         removed.push_back({W8ItemStorage::Pool, 0, index});
         party.take(removed.back());
@@ -583,8 +580,6 @@ std::optional<InventoryEdit> RemoveInventoryQuantity(const RuleContext& rules,
 std::optional<W8ItemInstance> TakeInventoryItem(const RuleContext& rules, W8ItemLocation location)
 {
     auto& party = rules.party;
-    if (location.storage == W8ItemStorage::Pool && location.slot >= party.item_count)
-        return std::nullopt;
     if (!party.itemAt(location)) return std::nullopt;
     return party.take(location);
 }
@@ -605,8 +600,6 @@ std::optional<InventoryEdit> SplitItemStack(const RuleContext& rules,
 {
     auto& data = rules.data;
     auto& party = rules.party;
-    if (source_location.storage == W8ItemStorage::Pool && source_location.slot >= party.item_count)
-        return std::nullopt;
     auto* source = party.itemAt(source_location);
     if (!source || source->iItemNo < 0 || actor >= W8_PARTY_SLOT_COUNT || amount == 0 ||
         amount > source->stack_count ||
@@ -645,8 +638,9 @@ std::optional<InventoryEdit> SplitItemStack(const RuleContext& rules,
                 }
             }
             if (destination_location.storage == W8ItemStorage::None) {
-                if (party.item_count == std::size(party.item_pool)) return std::nullopt;
-                destination_location = {W8ItemStorage::Pool, 0, party.item_count};
+                if (party.item_pool.size() == party.item_pool.capacity()) return std::nullopt;
+                destination_location = {W8ItemStorage::Pool, 0,
+                                        static_cast<unsigned int>(party.item_pool.size())};
             }
         }
     }
@@ -678,10 +672,6 @@ std::optional<InventoryEdit> ExchangeInventoryItems(const RuleContext& rules,
 {
     auto& data = rules.data;
     auto& party = rules.party;
-    if (second_location.storage == W8ItemStorage::Pool && second_location.slot >= party.item_count)
-        return std::nullopt;
-    if (first_location.storage == W8ItemStorage::Pool && first_location.slot >= party.item_count)
-        return std::nullopt;
     auto* first = party.itemAt(first_location);
     auto* second = party.itemAt(second_location);
     if (!first || !second || first == second || actor >= W8_PARTY_SLOT_COUNT) return std::nullopt;
@@ -732,7 +722,7 @@ EquipHeldItemAndStowPartner(const RuleContext& rules, unsigned actor, W8EquipSlo
             }
         }
         if (storage.storage == W8ItemStorage::None) {
-            if (npc_keeps(partner) || party.item_count >= std::size(party.item_pool))
+            if (npc_keeps(partner) || party.item_pool.size() >= party.item_pool.capacity())
                 return std::nullopt;
             storage = {W8ItemStorage::Pool, 0, 0};
         }
@@ -772,11 +762,6 @@ std::optional<StackMerge> MergeInventoryStacks(const RuleContext& rules,
 {
     auto& data = rules.data;
     auto& party = rules.party;
-    if (source_location.storage == W8ItemStorage::Pool && source_location.slot >= party.item_count)
-        return std::nullopt;
-    if (destination_location.storage == W8ItemStorage::Pool &&
-        destination_location.slot >= party.item_count)
-        return std::nullopt;
     auto* destination = party.itemAt(destination_location);
     auto* source = party.itemAt(source_location);
     if (!destination || !source || destination == source || destination->iItemNo == -1 ||
@@ -798,10 +783,9 @@ std::optional<StackMerge> MergeInventoryStacks(const RuleContext& rules,
 std::optional<InventoryEdit> InsertHeldItemInPool(const RuleContext& rules, unsigned index)
 {
     auto& party = rules.party;
-    if (party.held.item.iItemNo == -1 || index > party.item_count ||
-        party.item_count >= std::size(party.item_pool))
+    if (party.held.item.iItemNo == -1 || !party.insertIntoPool(index, party.held.item))
         return std::nullopt;
-    party.insertIntoPool(index, party.take({W8ItemStorage::Hand}));
+    party.held = {};
     return InventoryEdit{{{W8ItemStorage::Hand}, {W8ItemStorage::Pool, 0, index}}};
 }
 
@@ -947,11 +931,9 @@ void SortPartyItemPool(const RuleContext& rules)
 {
     if (!rules.game_started) throw std::logic_error("SortPartyItemPool: before play");
     auto& party = rules.party;
-    if (party.item_count > 1)
-        std::sort(party.item_pool, party.item_pool + party.item_count,
-                  [&](const W8ItemInstance& a, const W8ItemInstance& b) {
-                      return ItemPrecedesInPool(rules.data, a, b);
-                  });
+    std::ranges::sort(party.item_pool, [&](const W8ItemInstance& a, const W8ItemInstance& b) {
+        return ItemPrecedesInPool(rules.data, a, b);
+    });
 }
 
 // ---- Weapon sets and ammunition

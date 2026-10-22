@@ -146,9 +146,7 @@ void InventoryChestScenario()
     const auto click_button = [&](int index) { game.click("picker", *picker->m_buttons[index]); };
     // A full pool can still absorb part of an ammunition stack. The picker
     // must retain only the remainder, including after a second failed attempt.
-    const auto pool = std::vector<W8ItemInstance>(std::begin(CurrentGame().party.item_pool),
-                                                  std::end(CurrentGame().party.item_pool));
-    const auto pool_count = CurrentGame().party.item_count;
+    const auto pool = CurrentGame().party.item_pool;
     const auto original_item = picker->entries.front().item->item;
     const auto picker_count = picker->entries.size();
     int stack_id = -1, nonstack_id = -1;
@@ -167,9 +165,7 @@ void InventoryChestScenario()
     remainder.stack_count = 5;
     W8ItemInstance filler{};
     filler = MakeItem(Data(), CurrentGame().rng, nonstack_id, true, false, false);
-    std::fill(std::begin(CurrentGame().party.item_pool), std::end(CurrentGame().party.item_pool),
-              filler);
-    CurrentGame().party.item_count = 500;
+    CurrentGame().party.item_pool.assign(500, filler);
     CurrentGame().party.item_pool[0] = remainder;
     const auto maximum = Data().items[stack_id].maximum_quantity;
     CurrentGame().party.item_pool[0].stack_count = maximum - 2;
@@ -177,14 +173,13 @@ void InventoryChestScenario()
     picker->entries.front().selected = true;
     click_button(1);
     REQUIRE(picker->entries.size() == picker_count);
-    REQUIRE(CurrentGame().party.item_count == 500);
+    REQUIRE(CurrentGame().party.item_pool.size() == 500);
     REQUIRE(CurrentGame().party.item_pool[0].stack_count == maximum);
     REQUIRE(remainder.stack_count == 3);
     click_button(1);
     REQUIRE(remainder.stack_count == 3);
     remainder = original_item;
-    std::copy(pool.begin(), pool.end(), std::begin(CurrentGame().party.item_pool));
-    CurrentGame().party.item_count = pool_count;
+    CurrentGame().party.item_pool = pool;
     SettleActiveParty(CurrentGame());
     for (auto& entry : picker->entries) entry.selected = false;
     click_button(0); // Select all.
@@ -197,7 +192,7 @@ void InventoryChestScenario()
     REQUIRE(g_camera_motion_divisor == motion_divisor);
     Walk(game, "walk-after-chest", 5);
     int potion_slot = -1;
-    for (int i = 0; i < 500; ++i)
+    for (unsigned int i = 0; i < CurrentGame().party.item_pool.size(); ++i)
         if (CurrentGame().party.item_pool[i].iItemNo >= 0 &&
             Data().items[CurrentGame().party.item_pool[i].iItemNo].unidentified_name_index == 102) {
             potion_slot = i;

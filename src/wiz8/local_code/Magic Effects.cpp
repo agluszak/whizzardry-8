@@ -2140,7 +2140,7 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
                                    chance, totals);
     }
     if (!effect->target_indices.empty()) {
-        for (index = 0; static_cast<unsigned int>(index) < CurrentGame().party.item_count;
+        for (index = 0; static_cast<unsigned int>(index) < CurrentGame().party.item_pool.size();
              ++index) {
             DestroyItemConsumables({W8ItemStorage::Pool, 0, static_cast<unsigned>(index)}, chance,
                                    totals);

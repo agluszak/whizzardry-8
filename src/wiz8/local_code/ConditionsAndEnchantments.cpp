@@ -182,7 +182,7 @@ void SanitizeLoadedItems(void)
             }
         }
     }
-    for (index = 0; index < CurrentGame().party.item_count; ++index) {
+    for (index = 0; index < CurrentGame().party.item_pool.size(); ++index) {
         if (CurrentGame().party.item_pool[index].iItemNo != -1) {
             NormalizeItemQuantityKind(&CurrentGame().party.item_pool[index]);
         }

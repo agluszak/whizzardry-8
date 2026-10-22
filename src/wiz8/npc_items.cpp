@@ -457,7 +457,8 @@ W8ItemInstance* ResolveTradeSelection(Game& game, W8NpcState* npc,
         item = &game.party.characters[selection.character].backpack[selection.slot];
         break;
     case W8TradeSource::PartyPool:
-        if (selection.slot < 0 || std::cmp_greater_equal(selection.slot, game.party.item_count))
+        if (selection.slot < 0 ||
+            std::cmp_greater_equal(selection.slot, game.party.item_pool.size()))
             return nullptr;
         item = &game.party.item_pool[selection.slot];
         break;
@@ -563,8 +564,7 @@ static W8TradeResult CompleteNpcItemPurchase(Game& game, W8NpcState* npc, int in
 
     // Plan the destination too. No acquisition callback can observe paid-for
     // stock that has not yet reached its final pool, cursor or world location.
-    std::vector<W8ItemInstance> pool(game.party.item_pool,
-                                     game.party.item_pool + game.party.item_count);
+    auto pool = game.party.item_pool;
     std::vector<std::size_t> acquired;
     std::vector<W8ItemInstance> overflow;
     unsigned int moved = 0;
@@ -596,7 +596,7 @@ static W8TradeResult CompleteNpcItemPurchase(Game& game, W8NpcState* npc, int in
             hand.uses_or_charges = stock.uses_or_charges;
         }
         if (record.quantity_kind != W8_ITEM_QUANTITY_STACK || hand.stack_count) {
-            if (pool.size() < 500) {
+            if (pool.size() < pool.capacity()) {
                 for (auto& slot : acquired) ++slot;
                 pool.insert(pool.begin(), hand);
                 acquired.push_back(0);
@@ -626,8 +626,7 @@ static W8TradeResult CompleteNpcItemPurchase(Game& game, W8NpcState* npc, int in
         items.reserve(items.size() + drops.size());
     }
     // Publish the complete transfer before encumbrance, reactions or presentation.
-    std::ranges::copy(pool, game.party.item_pool);
-    game.party.item_count = static_cast<unsigned int>(pool.size());
+    game.party.item_pool = std::move(pool);
     ConsumeNpcItemQuantity(npc, index, quantity);
     RemoveDepletedNpcStock(npc);
     if (!no_payment) SpendPartyGold(game.party, price);

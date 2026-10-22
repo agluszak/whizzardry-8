@@ -44,7 +44,6 @@ Game& BeginNewGame(GameSession& games)
                                                                    0x15a, 0x15b, 0x155};
     auto& game = games.begin();
     game.party.held.item = W8ItemInstance{.iItemNo = -1};
-    std::ranges::fill(game.party.item_pool, W8ItemInstance{.iItemNo = -1});
     for (const auto id : starting_items) {
         auto item = MakeItem(Data(), CurrentGame().rng, id, true, true, true);
         item.stack_count = 1;

@@ -21,6 +21,8 @@ struct MonsterGroupOpaque {
    the turn counter, and unidentified runs. */
 struct GlobalStatusOpaque {
     float save_version = 0;
+    // Unknown bytes from unused disk slots; not live inventory or mutation history.
+    std::array<unsigned char, 500> unused_pool_unknown{};
     std::array<std::array<unsigned int, 3>, 2> legacy_text_box_lines{};
     std::array<unsigned char, 0x55> unknown_187b{};
     std::array<unsigned char, 0xd4> status_header_prefix{};

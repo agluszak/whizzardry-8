@@ -182,7 +182,7 @@ void UpdateGameClock(int elapsed)
                 }
             }
         }
-        for (unsigned int index = 0; index < CurrentGame().party.item_count; ++index) {
+        for (unsigned int index = 0; index < CurrentGame().party.item_pool.size(); ++index) {
             W8ItemInstance* item = &CurrentGame().party.item_pool[index];
             if (item->iItemNo == 0x266) {
                 AddItemUses(Data(), *item, static_cast<signed char>(hours));

@@ -1,7 +1,5 @@
 #include "wiz8/rules/party.h"
 
-#include <algorithm>
-#include <iterator>
 #include <optional>
 #include <utility>
 
@@ -15,7 +13,7 @@ const W8ItemInstance* W8Party::itemAt(W8ItemLocation location) const
     case W8ItemStorage::Hand:
         return &held.item;
     case W8ItemStorage::Pool:
-        return location.slot < 500 ? &item_pool[location.slot] : nullptr;
+        return location.slot < item_pool.size() ? &item_pool[location.slot] : nullptr;
     case W8ItemStorage::Equipment:
         return location.character < W8_PARTY_SLOT_COUNT && location.slot < 12
                    ? &characters[location.character].EquippedItem[location.slot]
@@ -58,10 +56,7 @@ W8ItemInstance W8Party::take(W8ItemLocation location)
     if (!item) return {};
     auto result = std::exchange(*item, W8ItemInstance{});
     if (location.storage == W8ItemStorage::Hand) held = {};
-    if (location.storage == W8ItemStorage::Pool && location.slot < item_count) {
-        std::move(item + 1, item_pool + item_count, item);
-        item_pool[--item_count] = {};
-    }
+    if (location.storage == W8ItemStorage::Pool) item_pool.erase(item_pool.begin() + location.slot);
     return result;
 }
 
@@ -82,16 +77,14 @@ void W8Party::exchange(W8ItemLocation first, W8ItemLocation second, int actor)
         first.slot < second.slot)
         std::swap(first, second);
     for (const auto location : {first, second})
-        if (location.storage == W8ItemStorage::Pool && location.slot < item_count &&
+        if (location.storage == W8ItemStorage::Pool && location.slot < item_pool.size() &&
             item_pool[location.slot].iItemNo == -1)
             take(location);
 }
 
 bool W8Party::insertIntoPool(unsigned int index, W8ItemInstance item)
 {
-    if (item_count >= std::size(item_pool) || index > item_count) return false;
-    std::move_backward(item_pool + index, item_pool + item_count, item_pool + item_count + 1);
-    item_pool[index] = item;
-    ++item_count;
+    if (item_pool.size() == item_pool.capacity() || index > item_pool.size()) return false;
+    item_pool.insert(item_pool.begin() + index, item);
     return true;
 }

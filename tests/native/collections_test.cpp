@@ -794,8 +794,7 @@ TEST_CASE("A refused purchase leaves stock, payment and a full destination uncha
     data.items[0].value = 10;
     const ScopedGameData installed(std::move(data));
     CurrentGame().party.gold = 100;
-    CurrentGame().party.item_count = 500;
-    for (auto& item : CurrentGame().party.item_pool) item = {.iItemNo = 1};
+    CurrentGame().party.item_pool.assign(500, W8ItemInstance{.iItemNo = 1});
 
     CurrentGame().party.held.item = {.iItemNo = 1};
     W8NpcDatabaseRecord record{};
@@ -810,19 +809,19 @@ TEST_CASE("A refused purchase leaves stock, payment and a full destination uncha
     const auto result = CompleteNpcTrade(CurrentGame(), &npc, 0, stock, 1, W8TradeAction::Exchange);
     REQUIRE(result.outcome == W8TradeOutcome::Refused);
     REQUIRE(CurrentGame().party.gold == 100);
-    REQUIRE(CurrentGame().party.item_count == 500);
+    REQUIRE(CurrentGame().party.item_pool.size() == 500);
     REQUIRE(CurrentGame().party.item_pool[0].iItemNo == 1);
     REQUIRE(CurrentGame().party.held.item.iItemNo == 1);
     REQUIRE(npc.items.size() == 1);
     REQUIRE(npc.items[0].quantity == 1);
-    CurrentGame().party.item_count = 1;
+    CurrentGame().party.item_pool.resize(1);
     CurrentGame().party.item_pool[0] = {.iItemNo = 0, .stack_count = 8, .identified = true};
     npc.items[0].item.stack_count = 2;
     const W8TradeSelection stack{W8TradeSource::NpcStock, -1, 0, npc.items[0].item, 1};
     REQUIRE(CompleteNpcTrade(CurrentGame(), &npc, 0, stack, 2, W8TradeAction::Exchange).outcome ==
             W8TradeOutcome::Complete);
     REQUIRE(CurrentGame().party.gold == 80);
-    REQUIRE(CurrentGame().party.item_count == 1);
+    REQUIRE(CurrentGame().party.item_pool.size() == 1);
     REQUIRE(CurrentGame().party.item_pool[0].stack_count == 10);
     REQUIRE(npc.items.empty());
 }
@@ -1108,8 +1107,7 @@ TEST_CASE("Shared party weight uses stable slot ties and drops the odd half-unit
         party.members[slot].emplace();
         party.characters[slot] = MakeFighter();
     }
-    party.item_pool[0] = {.iItemNo = 0, .stack_count = 1};
-    party.item_count = 1;
+    party.item_pool = {{.iItemNo = 0, .stack_count = 1}};
     REQUIRE(UpdatePartyStats(Data(), party, {}).load_redistributed);
     REQUIRE(party.characters[0].party_weight_share == 2);
     REQUIRE(party.characters[1].party_weight_share == 1);
@@ -1154,8 +1152,7 @@ TEST_CASE("Party load follows supplied rules independently of the live combat an
     character.fInParty = true;
     character.iRace = W8_RACE_ANDROID;
     character.party_weight_share = 4;
-    party.item_pool[0] = {.iItemNo = 0, .stack_count = 1};
-    party.item_count = 1;
+    party.item_pool = {{.iItemNo = 0, .stack_count = 1}};
     PartyStatRules rules;
     rules.load_timing = PartyLoadTiming::AfterCombat;
     REQUIRE_FALSE(UpdatePartyStats(Data(), party, rules).load_redistributed);
@@ -1443,11 +1440,10 @@ TEST_CASE("A held stack refuses an unstorable split without losing or duplicatin
     party.held = {W8ItemInstance{.iItemNo = 0, .stack_count = 10}, {}, 0};
     for (auto& item : party.characters[0].backpack)
         item = W8ItemInstance{.iItemNo = 0, .stack_count = 100};
-    for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 0, .stack_count = 100};
-    party.item_count = 500;
+    party.item_pool.assign(500, W8ItemInstance{.iItemNo = 0, .stack_count = 100});
     REQUIRE_FALSE(SplitItemStack(CurrentGame(), {W8ItemStorage::Hand}, 4, 0));
     REQUIRE(party.held.item.stack_count == 10);
-    REQUIRE(party.item_count == 500);
+    REQUIRE(party.item_pool.size() == 500);
     REQUIRE(party.characters[0].backpack[0].stack_count == 100);
     REQUIRE_FALSE(SplitItemStack(CurrentGame(), {W8ItemStorage::Hand}, 11, 0));
     REQUIRE_FALSE(SplitItemStack(CurrentGame(), {W8ItemStorage::Hand}, 0, 0));
@@ -1481,8 +1477,7 @@ TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
     auto& party = CurrentGame().party;
     const ScopedGameData no_discard(std::move(undiscardable));
     for (auto& item : character.backpack) item = W8ItemInstance{.iItemNo = 2};
-    for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 2};
-    party.item_count = 500;
+    party.item_pool.assign(500, W8ItemInstance{.iItemNo = 2});
     character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo = 1;
     SettleActiveParty(CurrentGame());
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo == -1);
@@ -1499,8 +1494,7 @@ TEST_CASE("Unusable equipment that nothing can take stays equipped until there i
     auto& character = PrepareMember(0);
     auto& party = CurrentGame().party;
     for (auto& item : character.backpack) item = W8ItemInstance{.iItemNo = 1};
-    for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 1};
-    party.item_count = 500;
+    party.item_pool.assign(500, W8ItemInstance{.iItemNo = 1});
     party.held.item = W8ItemInstance{.iItemNo = 2};
     character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo = 0;
 
@@ -1508,7 +1502,7 @@ TEST_CASE("Unusable equipment that nothing can take stays equipped until there i
     SettleActiveParty(CurrentGame());
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo == 0);
     REQUIRE(party.held.item.iItemNo == 2);
-    REQUIRE(party.item_count == 500);
+    REQUIRE(party.item_pool.size() == 500);
 
     character.backpack[7] = {};
     SettleActiveParty(CurrentGame());

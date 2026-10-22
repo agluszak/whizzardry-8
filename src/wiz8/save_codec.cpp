@@ -415,11 +415,34 @@ template<> struct Record<save::GameState> {
               bytes.subspan(offsetof(Disk, party_gold), sizeof(Disk::party_gold)));
         value(&runtime.status.selected_character,
               bytes.subspan(offsetof(Disk, selected_character), sizeof(Disk::selected_character)));
-        item_run(runtime.party.item_pool,
-                 bytes.subspan(offsetof(Disk, party_item_pool), sizeof(Disk::party_item_pool)),
-                 value, text);
-        value(&runtime.party.item_count,
-              bytes.subspan(offsetof(Disk, party_item_count), sizeof(Disk::party_item_count)));
+        unsigned int count = runtime.party.item_pool.size();
+        value(&count, bytes.subspan(offsetof(Disk, party_item_count), sizeof(count)));
+        if constexpr (!std::is_const_v<R>) {
+            if (count > runtime.party.item_pool.capacity())
+                throw std::runtime_error("invalid party inventory count");
+            runtime.party.item_pool.resize(count);
+        }
+        // The fixed retail block is a disk format, not 500 live runtime items.
+        // Known fields outside the live prefix are canonical empty records;
+        // uninterpreted bytes from unused disk slots remain round-trippable.
+        for (std::size_t index = 0; index < runtime.party.item_pool.capacity(); ++index) {
+            using Item =
+                std::conditional_t<std::is_const_v<R>, const W8ItemInstance, W8ItemInstance>;
+            Item item = index < count
+                            ? runtime.party.item_pool[index]
+                            : W8ItemInstance{.unknown_08 =
+                                                 runtime.status.retail.unused_pool_unknown[index]};
+            Record<W8ItemInstance>::fields(
+                item,
+                bytes.subspan(offsetof(Disk, party_item_pool) + index * sizeof(ItemInstance),
+                              sizeof(ItemInstance)),
+                value, text);
+            if constexpr (!std::is_const_v<R>) {
+                if (index < count) runtime.party.item_pool[index] = item;
+                runtime.status.retail.unused_pool_unknown[index] =
+                    index < count ? 0 : item.unknown_08;
+            }
+        }
         value(&runtime.status.text_line_cursor,
               bytes.subspan(offsetof(Disk, text_line_cursor), sizeof(Disk::text_line_cursor)));
         value(&runtime.status.retail.legacy_text_box_lines,
@@ -763,8 +786,6 @@ GameState decode_game_state(std::span<const std::byte> payload)
     GameState state{};
     retail::decode(records.sized(), state);
     auto& [status, party] = state;
-    if (party.item_count > std::size(party.item_pool))
-        throw std::runtime_error("invalid party inventory count");
     if (status.retail.save_version < 1.1f) {
         // Before 1.1 there were three message boxes, stored in a legacy pair.
         for (std::size_t box = 0; box < 3; ++box) {

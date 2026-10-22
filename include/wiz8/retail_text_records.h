@@ -163,7 +163,7 @@ template<> struct Record<W8ItemInstance> {
         byte_boolean(&runtime.bound, bytes.subspan(offsetof(Disk, bound), sizeof(Disk::bound)));
     }
 };
-/* A run of item records, as character equipment and the party pool store them. */
+/* A fixed run of item records in character equipment or backpacks. */
 template<class Items, class Bytes, class Value, class Text>
 void item_run(Items& items, Bytes bytes, Value value, Text text)
 {

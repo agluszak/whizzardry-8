@@ -951,7 +951,7 @@ bool CharacterHasServiceItem(W8Character* character)
             return true;
         }
     }
-    for (index = 0; index < CurrentGame().party.item_count; ++index) {
+    for (index = 0; index < CurrentGame().party.item_pool.size(); ++index) {
         if (IsActivatableServiceItem(character, &CurrentGame().party.item_pool[index])) {
             return true;
         }

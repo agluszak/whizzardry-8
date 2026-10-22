@@ -375,7 +375,7 @@ static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select)
         for (unsigned int slot = 0; slot < 8; ++slot)
             AppendUseItemListEntry({W8ItemStorage::Backpack, owner, slot});
     } else {
-        for (unsigned int i = 0; i < CurrentGame().party.item_count; ++i)
+        for (unsigned int i = 0; i < CurrentGame().party.item_pool.size(); ++i)
             AppendUseItemListEntry({W8ItemStorage::Pool, 0, i});
     }
     ShowUseItemList(select);
@@ -649,13 +649,14 @@ void TakeUseItemIntoHand(void)
     auto& selected = use_item->draft.detail_block.item_use.item;
     if (CurrentGame().party.held.item.iItemNo != -1) {
         assert(use_item->owner != -1);
-        const auto old_count = CurrentGame().party.item_count;
+        const auto old_count = CurrentGame().party.item_pool.size();
         GiveItemToCharacterOrParty(CurrentGame(), use_item->owner,
                                    PartyItem(CurrentGame().party, {W8ItemStorage::Hand}), true);
         // A new pool entry goes to the front and moves the selection down one row.
-        if (use_item->pool == ItemPool::Party && old_count != CurrentGame().party.item_count &&
+        if (use_item->pool == ItemPool::Party &&
+            old_count != CurrentGame().party.item_pool.size() &&
             selected.storage == W8ItemStorage::Pool &&
-            selected.slot < CurrentGame().party.item_count)
+            selected.slot < CurrentGame().party.item_pool.size())
             ++selected.slot;
     }
     ExchangeInventoryItems(CurrentGame(), selected, {W8ItemStorage::Hand},

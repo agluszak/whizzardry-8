@@ -281,7 +281,7 @@ void RemoveNpcScriptItem(const ScriptContext& context, W8ItemInstance* item, int
             }
         }
     }
-    for (slot = 0; slot < context.party.item_count; ++slot) {
+    for (slot = 0; slot < context.party.item_pool.size(); ++slot) {
         slot_item = &context.party.item_pool[slot];
         if (slot_item->iItemNo != -1 &&
             (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {

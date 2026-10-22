@@ -6178,7 +6178,7 @@ void PopulateNpcTradeList(void)
         MainGame()->dialogue.trade_rows.push_back({W8TradeSource::Gold});
     }
     if (!MainGame()->dialogue.trade_pc_items) {
-        for (unsigned int index = 0; index < CurrentGame().party.item_count; ++index) {
+        for (unsigned int index = 0; index < CurrentGame().party.item_pool.size(); ++index) {
             W8ItemInstance* item = &CurrentGame().party.item_pool[index];
             bool acceptable = true;
             unsigned int font_palette;

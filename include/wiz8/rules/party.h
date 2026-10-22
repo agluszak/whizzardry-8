@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <inplace_vector>
 #include <optional>
 
 #include "wiz8/rules/character.h"
@@ -22,8 +23,7 @@ struct W8Party {
     unsigned int order_slots[W8_PARTY_SLOT_COUNT]{};
     unsigned int gold = 0;
     W8GameplayModifierBlock modifiers{};
-    W8ItemInstance item_pool[500]{};
-    unsigned int item_count = 0;
+    std::inplace_vector<W8ItemInstance, 500> item_pool;
     W8HeldItem held{};
 
     W8ItemInstance* itemAt(W8ItemLocation location);

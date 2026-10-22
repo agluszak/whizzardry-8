@@ -921,8 +921,7 @@ static wiz8::save::GameState populated_game_state()
     status.world_clock = 0x80000003u;
     status.search_mode = true;
     party.gold = 0x12345678;
-    party.item_pool[0] = {.iItemNo = 12, .stack_count = 3, .identified = true};
-    party.item_count = 1;
+    party.item_pool = {{.iItemNo = 12, .stack_count = 3, .identified = true}};
     status.uiTurnsElapsed = 0x87654321;
     status.pending_move_location.position = glm::vec3(1, 2, 3);
     status.pending_move_location.orientation = {.yaw = 0.5f, .pitch = 0.25f};
@@ -986,7 +985,7 @@ static void global_status_record()
     REQUIRE(wiz8::save::encode(restored) == payload);
     REQUIRE(restored.party.gold == saved.party.gold);
     REQUIRE(restored.party.item_pool[0] == saved.party.item_pool[0]);
-    REQUIRE(restored.party.item_count == 1);
+    REQUIRE(restored.party.item_pool.size() == 1);
     const auto& restored_rows = restored.party.rows;
     for (int slot = 0; slot < 8; ++slot) {
         REQUIRE(restored.party.members[slot].has_value());
@@ -1708,4 +1707,30 @@ TEST_CASE("Level asset paths select preprocessed levels and sky fallbacks", "[le
     touch("Levels/Bayjin/Bayjin1.LVL");
     REQUIRE(LevelBuildInfoByID(2, &info));
     REQUIRE(info.sky_path.empty());
+}
+
+TEST_CASE_METHOD(SaveFixture, "Party inventory has live items, not a writable disk suffix",
+                 "[save][records]")
+{
+    auto payload = wiz8::save::encode(populated_game_state());
+    constexpr std::size_t second = 4 + 0x21 + 12;
+    std::fill_n(payload.begin() + second, 12, std::byte{0x6d});
+    payload[second + 8] = std::byte{0xa5};
+    auto restored = wiz8::save::decode_game_state(payload);
+    REQUIRE(restored.party.item_pool.size() == 1);
+    REQUIRE(restored.party.itemAt({W8ItemStorage::Pool, 0, 1}) == nullptr);
+    REQUIRE(restored.party.insertIntoPool(1, {.iItemNo = 77, .unknown_08 = 0x56}));
+    restored.party.exchange({W8ItemStorage::Pool, 0, 0}, {W8ItemStorage::Pool, 0, 1}, -1);
+    REQUIRE(restored.party.take({W8ItemStorage::Pool, 0, 1}).iItemNo == 12);
+    const auto encoded = wiz8::save::encode(restored);
+    REQUIRE(payload_word(encoded, 4 + 0x21) == 77);
+    REQUIRE(encoded[4 + 0x21 + 8] == std::byte{0x56});
+    REQUIRE(payload_word(encoded, second) == 0xffffffffu);
+    REQUIRE(encoded[second + 8] == std::byte{0xa5});
+    for (std::size_t field = 4; field < 12; ++field)
+        if (field != 8) REQUIRE(encoded[second + field] == std::byte{});
+
+    const unsigned int invalid_count = 501;
+    std::memcpy(payload.data() + 4 + 0x1791, &invalid_count, sizeof(invalid_count));
+    REQUIRE_THROWS_AS(wiz8::save::decode_game_state(payload), std::runtime_error);
 }

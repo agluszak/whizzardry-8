@@ -1,7 +1,6 @@
 #include "wiz8/rules/party_stats.h"
 
 #include <array>
-#include <span>
 
 #include "wiz8/data/game_data.h"
 #include "wiz8/rules/character.h"
@@ -36,7 +35,7 @@ static void DistributePartyWeight(const GameData& data, W8Party& party)
     }
 
     unsigned int party_weight = 0;
-    for (const auto& item : std::span{party.item_pool}.first(party.item_count)) {
+    for (const auto& item : party.item_pool) {
         party_weight += GetItemStackWeight(data, &item);
     }
 

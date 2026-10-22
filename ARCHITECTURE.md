@@ -683,3 +683,13 @@ player could: the control is shown and enabled, the pointer over it reaches it, 
 the presented frame shows what the UI painted there. On every frame the harness also
 requires a newly active modal input scope to be shown within four frames, so input
 can never be captured by a prompt the player cannot see.
+
+## Party inventory extent
+
+The party pool is a `std::inplace_vector<W8ItemInstance, 500>`: its live extent,
+capacity and contiguous storage are one value. There is no separately writable
+count or live-prefix convention. Item location resolution rejects absent rows.
+Trade preparation copies the complete pool value and publishes it in one step.
+The retail codec alone expands it to 500 disk records. Known fields of unused
+records are canonical empty values; unknown bytes from unused loaded records
+remain opaque provenance, never live inventory or mutation-history counters.

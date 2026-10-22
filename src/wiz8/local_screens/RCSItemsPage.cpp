@@ -550,7 +550,7 @@ W8ItemLocation W8CampItemsPage::CampItemAt(int slot, W8ItemStorage storage) cons
     const auto index = visible < item_list.size() &&
                                CurrentGame().party.item_pool[item_list[visible]].iItemNo != -1
                            ? item_list[visible]
-                           : CurrentGame().party.item_count;
+                           : CurrentGame().party.item_pool.size();
     return {W8ItemStorage::Pool, 0, static_cast<unsigned int>(index)};
 }
 
@@ -1492,8 +1492,7 @@ void W8CampItemsPage::InvalidateChangedCells()
     for (unsigned int slot = 0; slot < 12; ++slot)
         if (!same_character || shown.equipment[slot] != character->EquippedItem[slot])
             cell_redraw.equipment.set(slot);
-    const auto pool =
-        std::span{CurrentGame().party.item_pool}.first(CurrentGame().party.item_count);
+    const auto& pool = CurrentGame().party.item_pool;
     if (!std::ranges::equal(shown.pool, pool)) cell_redraw.InvalidatePool();
     shown.character = character;
     std::ranges::copy(character->backpack, shown.backpack.begin());
@@ -1507,7 +1506,7 @@ void W8CampItemsPage::RebuildCampItemList()
     constexpr std::array groups{W8_ITEM_EQUIP_GROUP_HAND, W8_ITEM_EQUIP_GROUP_BODY,
                                 W8_ITEM_EQUIP_GROUP_OTHER, W8_ITEM_EQUIP_GROUP_ACCESSORY};
     item_list.clear();
-    for (unsigned int index = 0; index < CurrentGame().party.item_count; ++index) {
+    for (unsigned int index = 0; index < CurrentGame().party.item_pool.size(); ++index) {
         const auto& item = CurrentGame().party.item_pool[index];
         if (item.iItemNo != -1 &&
             (!usable_only || CanCharacterUseItem(Data(), character, item.iItemNo)) &&
@@ -1667,7 +1666,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
             return;
         }
         assert(pending_item_action.identifying_character != 0);
-        old_pool_count = CurrentGame().party.item_count;
+        old_pool_count = CurrentGame().party.item_pool.size();
         reidentify = false;
         ResetCombatSlot(&target);
         target.iType = W8_TARGET_KIND_ITEM;
@@ -1685,10 +1684,9 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
             result = CommitPartySlotSpell(party_slot, W8_SPELL_IDENTIFY_ITEM, 8, &target);
         }
         if (origin == W8ItemStorage::Pool && reidentify &&
-            old_pool_count != CurrentGame().party.item_count) {
-            item =
-                &CurrentGame()
-                     .party.item_pool[CurrentGame().party.item_count - old_pool_count + slot_index];
+            old_pool_count != CurrentGame().party.item_pool.size()) {
+            item = &CurrentGame().party.item_pool[CurrentGame().party.item_pool.size() -
+                                                  old_pool_count + slot_index];
             RebuildCampItemList();
 
             character_info_dirty = true;
@@ -1782,7 +1780,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                 merge_tried = true;
             }
             if (!merged && origin == W8ItemStorage::Pool) {
-                for (index = 0; index < CurrentGame().party.item_count; ++index) {
+                for (index = 0; index < CurrentGame().party.item_pool.size(); ++index) {
                     const auto outcome = MergeInventoryStacks(
                         CurrentGame(), {W8ItemStorage::Pool, 0, index}, {W8ItemStorage::Hand});
                     partially_merged |= outcome.changed && !outcome.complete;
@@ -1805,7 +1803,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
                         text = Data().strings[0x90c];
                         dialogs.ShowNotice(text, 0, true, false);
                     }
-                } else if (slot_index < CurrentGame().party.item_count) {
+                } else if (slot_index < CurrentGame().party.item_pool.size()) {
                     /* An empty hand picks the clicked pool row up. */
                     ExchangeInventoryItems(
                         CurrentGame(), location, {W8ItemStorage::Hand},
