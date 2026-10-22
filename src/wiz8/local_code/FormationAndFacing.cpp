@@ -20,6 +20,7 @@
 #include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -134,7 +135,7 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
     *live = working;
     *edited = working;
     RefreshFormationBoard();
-    RefreshRadarMap();
+    if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->refresh();
 }
 
 /* Which of the four quadrants around the party a world position falls in.
@@ -194,7 +195,7 @@ void RestoreCombatFormation(void)
     if (CurrentGame().combat->saved_formation != CurrentGame().party.formation) {
         CurrentGame().party.formation = CurrentGame().combat->saved_formation;
         RefreshFormationBoard();
-        RefreshRadarMap();
+        if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->refresh();
         ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x24b], 0);
     }
 }
@@ -456,7 +457,7 @@ static void RefreshFormationDisplays(const W8PartyFormationState* formation)
         g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR &&
         formation == &CurrentGame().party.formation) {
         RefreshFormationBoard();
-        RefreshRadarMap();
+        if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->refresh();
     }
 }
 
