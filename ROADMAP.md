@@ -222,6 +222,11 @@ the licensed runtime scenarios after every step.
      combat panel (`RequestRefreshPartyState` in `Combat Hostility.cpp`,
      `MonsterManager.cpp`, `world.cpp` and `entities/cursor.cpp`, which the existing
      `CombatPanelChanged` event already presents).
+   - Music is module state in `music_playlist.cpp` (the parsed playlist, its playback,
+     fade and pause) that game code drives directly (`StartMusicResource` from combat,
+     camping and the monster manager) and that reads `CurrentGame()` to suppress pauses
+     in a fight. It should be a player the Application owns and the screens receive,
+     with game code asking for music through events.
 6. **Conditions, magic and combat in `rules`.**
    - `Combat` is owned by the game (`std::optional<Combat>`, `beginCombat`/`endCombat`)
      and its turn is a value stepped by `Combat::step`, with the scheduler and the
@@ -361,8 +366,6 @@ Questions to settle, usually against the retail executable, traces or saves,
 before the related refactoring changes behavior.
 
 - **Retail semantics to confirm.**
-  - Whether swings really use the previous pass's damage bonus in observable play,
-    and how many stat passes retail runs per operation.
   - Whether `GiveHeldItemToCharacterOrParty`'s party-first refusal discards the
     held item.
   - Whether `CountCharacterItem`'s backpack count (which reads the equipment slot
