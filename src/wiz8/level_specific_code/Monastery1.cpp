@@ -141,7 +141,7 @@ bool Monastery1Script::wheelStar(Trigger* trigger)
         g_trigger_feedback = true;
         return false;
     }
-    ctx.game.inventory.removeById(ctx.inventory.heldItemId(), false);
+    ctx.inventory.removeById(ctx.inventory.heldItemId(), false);
     return true;
 }
 

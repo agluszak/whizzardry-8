@@ -274,7 +274,7 @@ void RemoveNpcScriptItem(const ScriptContext& context, const W8ItemInstance* ite
             slot_item = &context.party.characters[slot].backpack[index];
             if (slot_item->iItemNo != -1 &&
                 (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
-                context.game.inventory.removeQuantity({W8ItemStorage::Backpack, slot, index}, 1);
+                context.inventory.removeQuantity({W8ItemStorage::Backpack, slot, index}, 1);
                 text = fmt::sprintf(Data().strings[0x7ec], context.party.characters[slot].name);
                 ShowConsumedItemQuote(text);
                 return;
@@ -285,7 +285,7 @@ void RemoveNpcScriptItem(const ScriptContext& context, const W8ItemInstance* ite
         slot_item = &context.inventory.pool()[slot];
         if (slot_item->iItemNo != -1 &&
             (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
-            context.game.inventory.removeQuantity({W8ItemStorage::Pool, 0, slot}, 1);
+            context.inventory.removeQuantity({W8ItemStorage::Pool, 0, slot}, 1);
             text = Data().strings[0x7ed];
             ShowConsumedItemQuote(text);
             return;

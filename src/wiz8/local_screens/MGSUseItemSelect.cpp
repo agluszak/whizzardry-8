@@ -340,7 +340,7 @@ static void UseItemSelectAssayButton(void)
 void CommitSelectedItemUse(void)
 {
     const auto draft = use_item->draft;
-    auto* item = CurrentGame().inventory.itemAt(draft.detail_block.item_use.item);
+    const auto* item = CurrentGame().inventory.itemAt(draft.detail_block.item_use.item);
     const int slot = use_item->owner;
     if (!item || !CanUseItemForAction(slot, item) || !IsItemTargetOfNeededKind(&draft.target, item))
         return;

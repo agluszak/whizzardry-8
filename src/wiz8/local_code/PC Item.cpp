@@ -980,7 +980,7 @@ unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
    opens its second selection step instead of executing immediately. */
 void SetCharacterItemUse(int party_slot, const W8Action& action)
 {
-    auto* item = CurrentGame().inventory.itemAt(action.detail_block.item_use.item);
+    const auto* item = CurrentGame().inventory.itemAt(action.detail_block.item_use.item);
     auto detail = action.detail_block;
     detail.item_use.kind = -1;
     StagePartySlotItemUse(party_slot, action.detail_block.item_use.item, &action.target);

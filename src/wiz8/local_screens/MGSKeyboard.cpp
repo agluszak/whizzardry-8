@@ -684,7 +684,8 @@ std::string KeyboardActionMenu::tooltip(const Row& row) const
     if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
         if (!row.enabled) return Data().strings[0x5d];
         const auto& party = screen_.game.party.rows[slot];
-        auto* item = screen_.game.inventory.itemAt(party.remembered.item_detail.item_use.item);
+        const auto* item =
+            screen_.game.inventory.itemAt(party.remembered.item_detail.item_use.item);
         return fmt::format("{}: {}", Data().strings[0x5d],
                            FormatItemDisplayName(Data(), item, false));
     }

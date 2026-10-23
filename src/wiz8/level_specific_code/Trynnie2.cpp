@@ -168,7 +168,7 @@ bool Trynnie2Script::meatBox(Trigger* pTrigger)
             CreateLocationVar("HogarDruggedGivenExp", 1);
         }
     }
-    (void)ctx.game.inventory.take({W8ItemStorage::Hand});
+    (void)ctx.inventory.take({W8ItemStorage::Hand});
     BeginScriptedWorldAction();
     return true;
 }

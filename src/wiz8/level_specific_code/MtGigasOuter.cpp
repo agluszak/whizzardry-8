@@ -155,7 +155,7 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
         position.y = kLiftParkedY;
         prop->SetPosition(&position);
         SetTriggerVariableByName("FlagPosition", 1000);
-        ctx.game.inventory.replaceHeld(MakeItem(Data(), ctx.game.rng, 0x290, false, false, false));
+        ctx.inventory.replaceHeld(MakeItem(Data(), ctx.game.rng, 0x290, false, false, false));
         npc = GetNpcStateByKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x18, true, 0);
         ResumeNpc(npc, 1);

@@ -1830,7 +1830,7 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
 bool ItemUseNeedsTarget(int party_slot)
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-    W8ItemInstance* item =
+    const W8ItemInstance* item =
         CurrentGame().inventory.itemAt(row->remembered.item_detail.item_use.item);
     bool normalize = ItemClassNormalizesTarget(&Data().items[item->iItemNo]);
     switch (GetSpellTargetType(GetItemSpell(item), normalize)) {

@@ -976,7 +976,7 @@ int ArnikaScript::pedestalItem(int* previous_item)
     }
     FindRequiredTriggerByName("ChaosMolori");
     if (item > -1) {
-        (void)ctx.game.inventory.take({W8ItemStorage::Hand});
+        (void)ctx.inventory.take({W8ItemStorage::Hand});
     }
     if (GetLocationVarIDByName("PedestalItem") != -1 &&
         GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
@@ -996,7 +996,7 @@ int ArnikaScript::pedestalItem(int* previous_item)
         CreateLocationVar("PedestalItem", -1);
         previous = 0x244;
         if (item == -1) {
-            ctx.game.inventory.replaceHeld(
+            ctx.inventory.replaceHeld(
                 MakeItem(Data(), ctx.game.rng, previous, false, false, false));
         }
     } else {
@@ -1006,7 +1006,7 @@ int ArnikaScript::pedestalItem(int* previous_item)
                 return -2;
             }
         } else if (item == -1) {
-            ctx.game.inventory.replaceHeld(
+            ctx.inventory.replaceHeld(
                 MakeItem(Data(), ctx.game.rng, previous, false, false, false));
         }
     }
