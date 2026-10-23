@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -1621,4 +1622,48 @@ TEST_CASE("Pool rows close up, and a use is abandoned once its row moves", "[par
     inventory.take({W8ItemStorage::Pool, 0, 0});
     REQUIRE_FALSE(inventory.holds(use));
     REQUIRE_FALSE(inventory.take({W8ItemStorage::Pool, 0, 1}));
+}
+
+TEST_CASE("Nested operations present settled outcomes before observer follow-ups", "[events]")
+{
+    Events events;
+    std::vector<unsigned int> seen;
+    events.observe([&](const Event& event) {
+        const auto slot = std::get<PartySlotChanged>(event).party_slot;
+        seen.push_back(slot);
+        if (slot == 1) events.push(PartySlotChanged{3});
+    });
+    {
+        Events::Operation outer{events};
+        events.push(PartySlotChanged{1});
+        {
+            Events::Operation inner{events};
+            events.push(PartySlotChanged{2});
+        }
+        REQUIRE(seen.empty());
+    }
+    REQUIRE(seen == std::vector<unsigned int>{1, 2, 3});
+    events.push(PartySlotChanged{4});
+    REQUIRE(seen.back() == 4); // Unmigrated commands still deliver immediately.
+}
+
+TEST_CASE("Failed operations do not publish completion or consume older pending outcomes", "[events]")
+{
+    Events events;
+    events.push(PartySlotChanged{1});
+    REQUIRE_THROWS_AS([&] {
+        Events::Operation operation{events};
+        events.push(PartySlotChanged{2});
+        throw std::runtime_error("failed operation");
+    }(), std::runtime_error);
+    std::vector<unsigned int> seen;
+    {
+        Events::Operation operation{events};
+        events.observe([&](const Event& event) {
+            seen.push_back(std::get<PartySlotChanged>(event).party_slot);
+        });
+        events.push(PartySlotChanged{3});
+        REQUIRE(seen.empty());
+    }
+    REQUIRE(seen == std::vector<unsigned int>{1, 3});
 }

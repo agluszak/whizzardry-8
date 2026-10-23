@@ -29,7 +29,7 @@ short GetCombatPortraitImage(W8ActionKind action, int detail, W8CombatPortraitSt
                              short slot);
 void SyncPartyPortraitVitalsBars(void);
 void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled);
-void RecordCharacterDamage(int party_slot, unsigned int amount);
+void PresentCharacterDamage(int party_slot, unsigned int amount, bool fatal);
 /* Advance per-slot portrait FX counters on a 100ms clock and dirty redraw. */
 void TickPartyPortraitFx(void);
 /* Clear each occupied slot's damage-splat/effect-icon portrait overlays and

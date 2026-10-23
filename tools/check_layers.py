@@ -86,6 +86,12 @@ def check_includes():
             if target_layer not in allowed:
                 problems.append(f'{where}:{line}: {layer} may not include "{name}" '
                                 f'({target_layer or "unlayered"})')
+    # Complete migrated flows cannot reacquire direct screen dependencies.
+    for relative in ('src/wiz8/live_party.cpp',):
+        path = ROOT / relative
+        for match in INCLUDE.finditer(path.read_text(encoding='utf-8')):
+            if any(part in match.group(2) for part in ('local_screens/', 'screen.h', 'pointer.h')):
+                problems.append(f'{relative}: gameplay may not include "{match.group(2)}"')
     return problems
 
 

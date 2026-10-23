@@ -83,7 +83,8 @@ TEST_CASE_METHOD(PartyFixture, "A ceiling that exhausts hit points kills the mem
     REQUIRE((deaths() == 1 && member().death_count == 1));
 }
 
-TEST_CASE_METHOD(PartyFixture, "Death settles the party fight before returning", "[conditions][events]")
+TEST_CASE_METHOD(PartyFixture, "Death settles the party fight before returning",
+                 "[conditions][events]")
 {
     ScopedCombat fight{true};
     game.party.rows[0].executing.kind = W8_ACTION_ATTACK;
@@ -91,8 +92,8 @@ TEST_CASE_METHOD(PartyFixture, "Death settles the party fight before returning",
     member().uiCondition[W8_CONDITION_POISONED] = 30;
     member().condition_argument = 4;
 
-    REQUIRE(InflictCondition(game, 0, {.condition = W8_CONDITION_DEAD,
-                                     .duration = W8_CONDITION_INDEFINITE}));
+    REQUIRE(InflictCondition(
+        game, 0, {.condition = W8_CONDITION_DEAD, .duration = W8_CONDITION_INDEFINITE}));
     REQUIRE(game.combat->pending_death_count == 1);
     REQUIRE(game.combat->characters[0].dead);
     REQUIRE(game.combat->characters[0].phase == 0);
@@ -101,6 +102,34 @@ TEST_CASE_METHOD(PartyFixture, "Death settles the party fight before returning",
     REQUIRE(member().stamina == 0);
     REQUIRE(member().uiCondition[W8_CONDITION_POISONED] == 0);
     REQUIRE(deaths() == 1);
+}
+
+TEST_CASE_METHOD(PartyFixture, "Death observers see completed combat and condition consequences",
+                 "[conditions][events]")
+{
+    ScopedCombat fight{true};
+    game.party.rows[0].executing.kind = W8_ACTION_ATTACK;
+    game.combat->characters[0].phase = 2;
+    member().uiCondition[W8_CONDITION_POISONED] = 30;
+    member().condition_argument = 4;
+    unsigned int notifications = 0;
+    unsigned int death_notifications = 0;
+    game.events.observe([&](const Event& event) {
+        ++notifications;
+        if (std::holds_alternative<CharacterDied>(event)) ++death_notifications;
+        REQUIRE(game.combat->pending_death_count == 1);
+        REQUIRE(game.combat->characters[0].dead);
+        REQUIRE(game.combat->characters[0].phase == 0);
+        REQUIRE(game.party.rows[0].executing.kind == W8_ACTION_NONE);
+        REQUIRE(member().hp_current == 0);
+        REQUIRE(member().stamina == 0);
+        REQUIRE(member().uiCondition[W8_CONDITION_POISONED] == 0);
+    });
+    REQUIRE(InflictCondition(
+        game, 0, {.condition = W8_CONDITION_DEAD, .duration = W8_CONDITION_INDEFINITE}));
+    REQUIRE(notifications > 1);
+    REQUIRE(death_notifications == 1);
+    REQUIRE(game.events.pending().empty());
 }
 
 TEST_CASE_METHOD(PartyFixture, "Cheating death leaves the member unconscious instead",

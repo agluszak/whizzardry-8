@@ -23,9 +23,11 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/local_code/FormationAndFacing.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/rules/action_choices.h"
 #include "wiz8/rules/activity.h"
@@ -213,6 +215,7 @@ void Die(Game& game, unsigned int slot)
 
 void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hands)
 {
+    Events::Operation outcomes{game.events};
     auto& party = game.party;
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (party.members[slot].has_value() && IsCharacterDefined(party.characters[slot]) &&
@@ -243,6 +246,7 @@ void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hand
 
 bool InflictCondition(Game& game, unsigned int slot, const ConditionInfliction& infliction)
 {
+    Events::Operation outcomes{game.events};
     auto& character = game.party.characters[slot];
     const auto& strings = game.data.strings;
     const auto condition = infliction.condition;
@@ -307,6 +311,7 @@ bool InflictCondition(Game& game, unsigned int slot, const ConditionInfliction& 
 
 void LiftCondition(Game& game, unsigned int slot, W8Condition condition, bool announce)
 {
+    Events::Operation outcomes{game.events};
     if (!ClearCondition(game, slot, condition, announce)) return;
     RefreshConditionModifiers(game, slot);
     QueueConditionClearedReaction(&game.party.characters[slot], condition);
@@ -345,6 +350,7 @@ void LiftAllConditionsFromParty(Game& game)
 
 void ReviveByCheatingDeath(Game& game, unsigned int slot)
 {
+    Events::Operation outcomes{game.events};
     auto& character = game.party.characters[slot];
     game.events.push(CharacterNotice{slot, game.data.strings[0x173]});
     InflictCondition(
@@ -411,4 +417,110 @@ void RecalculateEditedCharacterStats(Game& game, W8Character& draft)
     draft.party_weight_share = 0;
     const auto update = UpdateCharacterStatsFromInputs(game.data, draft, {});
     if (update.became_overloaded) PresentOverload(game, draft);
+}
+
+unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool quiet, bool announce,
+                                    bool short_notice, W8SpellEffectResult* result_stats,
+                                    bool detailed)
+{
+    auto& game = CurrentGame();
+    Events::Operation outcomes{game.events};
+    W8Character* character = &game.party.characters[party_slot];
+    unsigned int absorbed;
+    unsigned int applied;
+
+    assert(game.party.members[party_slot].has_value());
+    if (character->hp_current == 0) {
+        return 0;
+    }
+    if (game.status.world_suspended) {
+        game.events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
+                                         fmt::sprintf(game.data.strings[0x253], amount)});
+        return 0;
+    }
+
+    if (character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].turns != 0) {
+        absorbed = character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude;
+        if (amount <= absorbed) {
+            game.events.push(
+                CharacterNotice{static_cast<unsigned int>(party_slot),
+                                fmt::sprintf(game.data.strings[0x193 - (quiet)], amount)});
+            character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude =
+                static_cast<unsigned short>(absorbed - amount);
+            if (result_stats != 0) {
+                ++result_stats->count;
+            }
+            return 0;
+        }
+
+        game.events.push(
+            CharacterNotice{static_cast<unsigned int>(party_slot),
+                            fmt::sprintf(game.data.strings[0x193 - (quiet)], absorbed)});
+        amount -= absorbed;
+        Disenchant(game, party_slot, W8_ENCHANTMENT_GUARDIAN_ANGEL);
+        game.events.push(
+            CharacterNotice{static_cast<unsigned int>(party_slot), game.data.strings[0x194]});
+    }
+
+    FatigueCharacter(party_slot, (amount * 2) / 3, false, result_stats);
+    if (result_stats != 0) {
+        result_stats->amount += amount;
+        ++result_stats->count;
+    }
+
+    if (announce) {
+        if (detailed) {
+            game.events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
+                                             fmt::sprintf(game.data.strings[0x268], amount)});
+        } else if (short_notice) {
+            game.events.push(
+                TextNotice{W8_FONT_PALETTE_RUST, fmt::sprintf(game.data.strings[0x254], amount)});
+        } else {
+            game.events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
+                                             fmt::sprintf(game.data.strings[0x255], amount,
+                                                          quiet ? game.data.strings[0x257] : "")});
+        }
+    }
+
+    applied = character->hp_current;
+    if (applied <= amount) {
+        if (CharacterHasTrait(character, W8_TRAIT_CHEAT_DEATH) &&
+            character->uiCondition[W8_CONDITION_UNCONSCIOUS] < 7) {
+            ReviveByCheatingDeath(game, party_slot);
+            if (!game.surprise_possible)
+                game.events.push(CharacterDamaged{static_cast<unsigned int>(party_slot), amount,
+                                                  character->hp_current == 0});
+            return applied;
+        }
+        if (applied < amount) {
+            amount = applied;
+        }
+    }
+
+    character->hp_current = applied - amount;
+    if (!game.surprise_possible)
+        game.events.push(CharacterDamaged{static_cast<unsigned int>(party_slot), amount,
+                                          character->hp_current == 0});
+    if (character->hp_current != 0) {
+        if (!game.surprise_possible) {
+            QueueDamageReactionEvents(character);
+        }
+    } else {
+        if (result_stats != 0) {
+            auto report = std::make_unique<W8SpellDamageReport>();
+            report->kind = W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH;
+            report->value = party_slot;
+            result_stats->reports.push_back(std::move(report));
+        }
+        InflictCondition(game, party_slot,
+                         {.condition = W8_CONDITION_DEAD,
+                          .duration = W8_CONDITION_INDEFINITE,
+                          .announce = result_stats == 0});
+    }
+
+    if (character->uiCondition[W8_CONDITION_ASLEEP] != 0 && !quiet &&
+        game.rng.below(100) < (character->attributes[W8_ATTRIBUTE_SENSES].effective >> 1) + 0x32) {
+        LiftCondition(game, party_slot, W8_CONDITION_ASLEEP, true);
+    }
+    return amount;
 }

@@ -185,6 +185,10 @@ struct GameEventPresentation {
         QueueCharacterEvent(&CurrentGame().party.characters[speech.party_slot], speech.event_type,
                             0, kCharacterEventFullVolume);
     }
+    void operator()(const CharacterDamaged& damage) const
+    {
+        PresentCharacterDamage(static_cast<int>(damage.party_slot), damage.amount, damage.fatal);
+    }
     void operator()(const CharacterDied&) const
     {
         wiz8::sound::play("Data\\Sound\\Misc\\CharacterDead.wav");
