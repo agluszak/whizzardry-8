@@ -996,9 +996,9 @@ try {
    camera, the status version, the difficulty and an Iron Man save's file time. */
 static wiz8::save::GameState CaptureStateForSave(const Game& game, const wiz8::File& file)
 {
-    wiz8::save::GameState snapshot{game.status, game.party};
+    wiz8::save::GameState snapshot{game.status, game.party, game.search.requested()};
     auto& status = snapshot.status;
-    status.pending_move_location = partyPose(*GetWorld());
+    status.pending_move_location = game.level.primary->party.pose();
     status.retail.save_version = 1.1f;
     status.difficulty = g_settings.difficulty;
     if (status.iron_man) {
@@ -1646,6 +1646,7 @@ try {
             installs.emplace_back([saved = std::move(saved)](Game& game) mutable {
                 game.status = std::move(saved.status);
                 game.party = std::move(saved.party);
+                game.search.restore(saved.search_mode);
             });
             break;
         }

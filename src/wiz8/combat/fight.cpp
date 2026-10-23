@@ -57,7 +57,6 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/Noise.h"
 #include "wiz8/local_code/PC_Item.h"
-#include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
@@ -212,10 +211,7 @@ bool Game::beginCombat(int surprise)
     CurrentGame().events.push(MonstersChanged{});
     planned_formation = party.formation;
     SaveCombatFormation();
-    fight.search_mode_saved = status.search_mode;
-    if (status.search_mode != 0) {
-        ToggleSearchMode();
-    }
+    search.fightBegan();
     if (IsLevelFastMovement()) {
         ClearLevelFastMovement();
     }
@@ -994,11 +990,8 @@ void Game::endCombat(bool forced_cleanup)
     RestoreCombatFormation();
     ReconcilePartyEquipmentAfterCombat();
     // The fight is over; what follows restores the world around it.
-    const bool search_mode_saved = combat->search_mode_saved;
     combat.reset();
-    if (search_mode_saved) {
-        ToggleSearchMode();
-    }
+    search.fightEnded();
     if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->setZoom(false);
     events.push(CombatEnded{});
     if (!activity.conversation && !gpSCSV && !ItemUseDraft()) {
@@ -1736,7 +1729,7 @@ void RollCombatSurprise(signed char party_cannot_be_surprised)
                     CurrentGame().combat->party_surprised = true;
                     level_surprise = true;
                 }
-            } else if (CurrentGame().status.search_mode != 0 &&
+            } else if (CurrentGame().search.requested() /* searching as the fight began */ &&
                        CurrentGame().rng.below(100) < 0x14) {
                 CurrentGame().combat->party_surprised = true;
                 search_surprise = true;

@@ -527,7 +527,7 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
 void UpdateNearbyWorldItems(void)
 {
     auto& items = GetWorld()->items;
-    const glm::vec3 camera = cameraLocation(*GetWorld());
+    const glm::vec3 camera = GetWorld()->party.eye();
     const float frame_seconds = GameTimeAccumulator().GetFrameDelta();
     // Activation can append records, so walk by index.
     for (std::size_t index = 0; index < items.records().size(); ++index) {
@@ -568,7 +568,7 @@ std::optional<glm::vec3> FindItemDropPosition()
     auto* const index = GetWorldSpatialIndex();
     if (!index) return std::nullopt;
     glm::mat3 rotation;
-    rotation = cameraRotation(*GetWorld());
+    rotation = GetWorld()->party.rotation();
     glm::vec3 direction = ItemThrowDirection(GetCursorScaledPosition(), rotation);
 
     glm::vec3 camera = cameraLocation();

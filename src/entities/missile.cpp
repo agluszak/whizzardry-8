@@ -49,10 +49,8 @@
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/targeting.h"
-#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/party_camera.h"
@@ -166,11 +164,12 @@ float AdvanceMissileAI(MissileFlight* record, glm::vec3* out, unsigned int steps
     position = record->missile->nav.GetPosition();
     (*out) = glm::vec3(position.x + direction.x * advance, position.y + direction.y * advance,
                        position.z + direction.z * advance);
-    if (GetWorld()->compiledIndex() != 0) {
-        if (const auto hit = GetWorld()->compiledIndex()->traceProps(position, (*out), {})) {
+    World& world = record->missile->owner_world;
+    if (world.compiledIndex() != 0) {
+        if (const auto hit = world.compiledIndex()->traceProps(position, (*out), {})) {
             *out = hit->position;
             record->limit = 1.0f;
-            prop = GetWorld()->collidable_props[hit->prop_id];
+            prop = world.collidable_props[hit->prop_id];
             prop->RunMissileTrigger(record);
         }
     }
@@ -272,18 +271,13 @@ void UpdateWorldMissiles(World* world)
     while (index < count) {
         Missile* missile = world->missiles[index].get();
         if (missile != 0) {
-            missile->visual.DetachRepresentation(world);
+            missile->visual.DetachRepresentation();
             if (!missile->flight_done || missile->block_released == 0) {
                 missile->StartIfHostActive();
-                missile->visual.UpdateRepresentation(world, missile->nav);
-                missile->nav.UpdateNavigation(
-                    0, false,
-                    world == GetWorld()
-                        ? std::optional{BoundingSphere{PartyNavigator()->movement.position,
-                                                       PartyNavigator()->movement.alternate_radius}}
-                        : std::nullopt);
+                missile->visual.UpdateRepresentation(missile->nav);
+                missile->nav.UpdateNavigation(0, false, world->party.collisionSphere());
             } else {
-                missile->visual.RetireParticles(*world);
+                missile->visual.RetireParticles();
                 world->missiles.erase(world->missiles.begin() + index);
                 --index;
                 --count;
@@ -328,11 +322,13 @@ Missile* AllocateMissile(int missile_table_index)
    parsed - its align/explode/gravity/velocity keywords set the missile's tail
    flags - and the cycle lines load through the ordinary GrCycle path. Without
    a script the name itself is loaded as the cycle. */
-static std::unique_ptr<Missile> LoadMissileDefinition(World* world, std::string_view name)
+static std::unique_ptr<MissileDefinition> LoadMissileDefinition(std::string_view name)
 {
     PauseSharedGameTimers();
-    auto output = std::make_unique<Missile>(world);
-    output->visual.current_cycle = -1;
+    auto output = std::make_unique<MissileDefinition>();
+    const auto read_cycle = [&](LevelLoadContext& read_info, int cycle) {
+        return ReadEmitterCycle(output->resources.cycles, read_info, cycle);
+    };
     auto handle = [&] {
         try {
             return wiz8::open_file(wiz8::asset_path(fmt::format("data/missiles/{}.mls", name)));
@@ -341,12 +337,8 @@ static std::unique_ptr<Missile> LoadMissileDefinition(World* world, std::string_
         }
     }();
     if (!handle) {
-        const bool success = loadAnimationCycle(
-            name, output.get()->visual, 0, "Data\\Missiles",
-            [&](LevelLoadContext& read_info, int read_cycle) {
-                return output.get()->ReadCycleData(&read_info, read_cycle) != 0;
-            },
-            "Data\\Spells\\Bitmaps");
+        const bool success = loadAnimationCycle(name, output->events, 0, "Data\\Missiles",
+                                                read_cycle, "Data\\Spells\\Bitmaps");
         if (success) {
             output->asset_name = name;
         }
@@ -386,12 +378,8 @@ static std::unique_ptr<Missile> LoadMissileDefinition(World* world, std::string_
                         break;
                     }
 
-                    success = loadAnimationCycle(
-                        resource, output.get()->visual, cycle, "Data\\Missiles",
-                        [&](LevelLoadContext& read_info, int read_cycle) {
-                            return output.get()->ReadCycleData(&read_info, read_cycle) != 0;
-                        },
-                        "Data\\Spells\\Bitmaps");
+                    success = loadAnimationCycle(resource, output->events, cycle, "Data\\Missiles",
+                                                 read_cycle, "Data\\Spells\\Bitmaps");
                     cycle_line = true;
                     break;
                 }
@@ -400,7 +388,7 @@ static std::unique_ptr<Missile> LoadMissileDefinition(World* world, std::string_
             std::string cycle_name;
             int frame = 0;
             if (SDL_strcasecmp(command.c_str(), "SHAKE_FRAME") == 0) {
-                if (!output || !(fields >> cycle_name >> frame)) {
+                if (!(fields >> cycle_name >> frame)) {
                     success = false;
                     break;
                 }
@@ -410,7 +398,7 @@ static std::unique_ptr<Missile> LoadMissileDefinition(World* world, std::string_
                 effect.cycle = missileCycleIndex(cycle_name.c_str());
                 effect.frame = frame;
                 effect.subcycle = 0;
-                output->visual.AddShakeEffect(effect);
+                output->events.shake_events.push_back(effect);
                 continue;
             }
             W8SoundEventKind kind;
@@ -421,33 +409,30 @@ static std::unique_ptr<Missile> LoadMissileDefinition(World* world, std::string_
             else
                 continue;
             std::string resource, loop;
-            if (!output || !(fields >> cycle_name >> frame >> resource)) {
+            if (!(fields >> cycle_name >> frame >> resource)) {
                 success = false;
                 break;
             }
             fields >> loop;
             const auto wave = fmt::format("data/missiles/sounds/{}.WAV", resource);
-            output->visual.AddSoundEvent(W8SoundEvent(kind, missileCycleIndex(cycle_name.c_str()),
-                                                      frame, 0, wave.c_str(),
-                                                      SDL_strcasecmp(loop.c_str(), "LOOP") == 0));
+            output->events.sound_events.emplace_back(kind, missileCycleIndex(cycle_name.c_str()),
+                                                     frame, 0, wave.c_str(),
+                                                     SDL_strcasecmp(loop.c_str(), "LOOP") == 0);
         }
     }
-    if (output) {
-        output->gravity = gravity;
-        output->align_camera = align_camera;
-        output->explode_ground = explode_ground;
-        output->align_explosion = align_explosion;
-        output->lifetime = velocity * kWorldScale;
-        if (success) output->asset_name = name;
-    } else
-        success = false;
+    output->gravity = gravity;
+    output->align_camera = align_camera;
+    output->explode_ground = explode_ground;
+    output->align_explosion = align_explosion;
+    output->lifetime = velocity * kWorldScale;
+    output->asset_name = name;
     ResumeSharedGameTimers();
     return success ? std::move(output) : nullptr;
 }
 
-/* A new missile of the named kind, copied from the kind's definition. The
-   definition is loaded on first use and kept, withdrawn from the scene, for
-   the world's lifetime, so a missile never inherits another one's flight.
+/* A new missile of the named kind, created from the kind's definition. The
+   definition is loaded on first use and kept for the world's lifetime, so a
+   missile never inherits another one's flight.
    Every request takes one legacy prop save id, as retail's did whether it
    loaded, cloned or failed. */
 std::unique_ptr<Missile> LoadMissileCycle(World* world, std::string_view name)
@@ -458,16 +443,12 @@ std::unique_ptr<Missile> LoadMissileCycle(World* world, std::string_view name)
         return CompareTextIgnoreAsciiCase(candidate->asset_name, name) == 0;
     });
     if (definition == definitions.end()) {
-        auto loaded = LoadMissileDefinition(world, name);
+        auto loaded = LoadMissileDefinition(name);
         if (!loaded) return nullptr;
-        for (auto& cycle : loaded->resources.cycles)
-            for (auto& light : cycle.lights.lights) light->setScene(nullptr);
-        loaded->visual.WithdrawFromScene();
-        std::erase(world->navigators, &loaded->nav);
         definitions.push_back(std::move(loaded));
         definition = definitions.end() - 1;
     }
-    auto missile = std::make_unique<Missile>(**definition, world);
+    auto missile = std::make_unique<Missile>(**definition, *world);
     missile->asset_name = name;
     return missile;
 }
@@ -508,7 +489,7 @@ Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, floa
         missile->visual.SetRotation(&aim);
         missile->nav.SetAngles(heading);
         missile->nav.SetPitch(pitch);
-        octree = GetWorld()->compiledIndex();
+        octree = missile->owner_world.compiledIndex();
         if (octree != 0) {
             end = glm::vec3(direction.x * duration, direction.y * duration, direction.z * duration);
             end = end + *source;
@@ -547,17 +528,11 @@ unsigned int Missile::ApplyEmitterSetting(signed char emitter)
     return target->frameCount(visual.m_bLOD);
 }
 
-unsigned char Missile::ReadCycleData(LevelLoadContext* info, int cycle_index)
-{
-    assert(info != 0 && info->hFile != 0);
-    return ReadEmitterCycle(visual, resources.cycles, info, cycle_index, true);
-}
-
 /* Retail constructs the +0x2d8 growable vector normally, then clears the
    complete +0x280..+0x321 tail after allocating the representation.  That
    overwrites the vector and leaks its initial five-pointer allocation; the
    ordering is preserved because it is present explicitly in the product. */
-Missile::Missile(World* owner)
+Missile::Missile(World& owner)
     : owner_world(owner), nav(owner), visual(owner), missile_table_index(-1), flight_done(0),
       impacting(0), block_released(1), gravity(0), align_camera(0), explode_ground(0),
       align_explosion(0), flag(1), lifetime(15000.0f), flags0(0), retargeted(false)
@@ -571,21 +546,22 @@ Missile::Missile(World* owner)
     ResetCombatSlot(&combat_slot);
 }
 
-/* A new missile from its kind's definition: the flight configuration is
-   copied; the in-flight state (detonate/hit flags, duration, flight AI)
-   starts fresh. */
-Missile::Missile(const Missile& other, World* owner)
-    : owner_world(owner), nav(other.nav, owner), visual(other.visual, owner),
-      missile_table_index(other.missile_table_index), resources(other.resources), flight_done(0),
-      impacting(0), block_released(other.block_released), gravity(other.gravity),
-      align_camera(other.align_camera), explode_ground(other.explode_ground),
-      align_explosion(other.align_explosion), flag(other.flag), lifetime(other.lifetime),
-      flags0(other.flags0), duration(0.0f), retargeted(false)
+Missile::Missile(const MissileDefinition& definition, World& owner)
+    : owner_world(owner), nav(owner), visual(definition.events, owner),
+      asset_name(definition.asset_name), missile_table_index(-1), resources(definition.resources),
+      flight_done(0), impacting(0), block_released(1), gravity(definition.gravity),
+      align_camera(definition.align_camera), explode_ground(definition.explode_ground),
+      align_explosion(definition.align_explosion), flag(1), lifetime(definition.lifetime),
+      flags0(0), duration(0.0f), retargeted(false)
 {
+    nav.radius = 1.0f;
+    nav.movement.collision_radius = 1.0f;
+    nav.movement.alternate_radius = 1.0f;
     nav.collision = [this](Navigator* other) { return OnCollision(other); };
-    asset_name = other.asset_name;
-    if (resources.cycles[visual.current_cycle].animation)
-        visual.active_animation = resources.cycles[visual.current_cycle].animation.get();
+    if (auto* animation = resources.cycles[0].animation.get()) {
+        StartEmitterCycle(visual, *animation, 0);
+        visual.animation_behaviour = animation->behaviour;
+    }
 
     result = {};
     ResetCombatSlot(&combat_slot);
@@ -746,7 +722,7 @@ void Missile::AnnounceCollisionTarget()
     text = fmt::format("{} ", Data().strings[0x1bf]);
     target_start = text.size();
     if (combat_slot.iType == W8_TARGET_KIND_MONSTER) {
-        W8MonsterInfo* monster_info = FindMonster(combat_slot.iMonsterID);
+        W8MonsterInfo* monster_info = owner_world.population->findMonster(combat_slot.iMonsterID);
         text += GetMonsterName(monster_info, 0, 0);
     } else {
         text += CurrentGame().party.characters[combat_slot.iChar].name;
@@ -782,13 +758,12 @@ void Missile::EnterImpactCycle()
 void Missile::Land()
 {
     flight_done = true;
-    if (owner_world && owner_world->simulation) owner_world->simulation->missileLanded(*this);
+    if (owner_world.simulation) owner_world.simulation->missileLanded(*this);
 }
 
 bool Missile::OnCollision(Navigator* other)
 {
-    if (!owner_world || !owner_world->simulation ||
-        !owner_world->simulation->missileReached(*this, *other)) {
+    if (!owner_world.simulation || !owner_world.simulation->missileReached(*this, *other)) {
         return false;
     }
     EnterImpactCycle();
