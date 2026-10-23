@@ -1063,7 +1063,7 @@ int CommitPartySlotItemUse(int party_slot, W8ItemUse use, W8CombatSlot* target)
     const W8ItemInstance* item = CurrentGame().inventory.itemAt(use.item);
     int result;
     W8PartySlotRow* row;
-    W8ItemInstance* used;
+    const W8ItemInstance* used;
 
     StartBreathCycle(party_slot, false);
     row = &CurrentGame().party.rows[party_slot];
