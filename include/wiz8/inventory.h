@@ -59,7 +59,8 @@ class Inventory {
 public:
     static constexpr std::size_t kPoolLimit = 500;
 
-    explicit Inventory(Game& game) : game_(game) {}
+    // The pool keeps its capacity, so an item's address only changes when rows move.
+    explicit Inventory(Game& game) : game_(game) { pool_.reserve(kPoolLimit); }
     Inventory(const Inventory&) = delete;
     Inventory& operator=(const Inventory&) = delete;
 
@@ -70,7 +71,8 @@ public:
     const W8HeldItem* held() const { return held_ ? &*held_ : nullptr; }
     // The held item's id; -1 when the hand is empty.
     int heldItemId() const { return held_ ? held_->item.iItemNo : -1; }
-    // The item at a location; none for an empty pool row past the end or a bad address.
+    /* The item at a location. An empty hand and a free pool row (below the limit) read as
+       an empty item, as an emptied slot does; only an address no party has is none. */
     const W8ItemInstance* itemAt(W8ItemLocation location) const;
     // The first match: the hand, each member, then the pool.
     W8ItemLocation find(W8ItemMatch match, W8ItemReach reach = W8ItemReach::Party) const;
@@ -99,9 +101,6 @@ public:
                bool equip);
     // The pool, else the party's feet, else an empty hand.
     bool storeOrDrop(W8ItemInstance& item, bool announce);
-    /* A member and the pool in the order asked for; a member who cannot take items leaves
-       only the pool, and only when the pool comes first. */
-    bool give(unsigned int party_slot, W8ItemInstance& item, StoreOrder order);
     // The held item with a member: merged into its stacks or put in a free backpack slot.
     bool storeHeld(unsigned int party_slot);
     /* The held item, to a member and the pool in the order asked for. A refusal keeps the

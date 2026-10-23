@@ -1710,28 +1710,26 @@ TEST_CASE("Level asset paths select preprocessed levels and sky fallbacks", "[le
     REQUIRE(info.sky_path.empty());
 }
 
-TEST_CASE("The pool saves its live items and keeps unused records' unknown bytes",
+TEST_CASE("The pool saves its live items and keeps a loaded save's unused records",
           "[save][records]")
 {
     constexpr std::size_t pool_offset = 4 + 0x21;
     constexpr std::size_t second = pool_offset + 12;
+    // A game that loaded no save writes empty records past the count.
     auto payload = wiz8::save::encode(populated_game_state());
+    REQUIRE(payload_word(payload, second) == 0xffffffffu);
     std::fill_n(payload.begin() + second, 12, std::byte{0x6d});
-    payload[second + 8] = std::byte{0xa5};
     auto restored = wiz8::save::decode_game_state(payload);
     REQUIRE(restored.pool.size() == 1);
+    REQUIRE(wiz8::save::encode(restored) == payload);
 
-    // A second live item takes the record; once it goes, the unused record is canonical again.
+    // A live item takes the record; once it goes, the loaded record is written again.
     restored.pool.push_back({.iItemNo = 77, .unknown_08 = 0x56});
     auto encoded = wiz8::save::encode(restored);
     REQUIRE(payload_word(encoded, second) == 77);
     REQUIRE(encoded[second + 8] == std::byte{0x56});
     restored.pool.pop_back();
-    encoded = wiz8::save::encode(restored);
-    REQUIRE(payload_word(encoded, second) == 0xffffffffu);
-    REQUIRE(encoded[second + 8] == std::byte{0xa5});
-    for (std::size_t field = 4; field < 12; ++field)
-        if (field != 8) REQUIRE(encoded[second + field] == std::byte{});
+    REQUIRE(wiz8::save::encode(restored) == payload);
 
     const unsigned int invalid_count = 501;
     std::memcpy(payload.data() + 4 + 0x1791, &invalid_count, sizeof(invalid_count));

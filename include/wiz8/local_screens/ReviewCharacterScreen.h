@@ -320,7 +320,6 @@ private:
     void ToggleCampItemFilter(W8CampItemFilterButton tab);
     void ShowCampItemInfo(W8ItemLocation location);
     W8ItemLocation CampItemAt(int slot, W8ItemStorage storage) const;
-    const W8ItemInstance* CellItem(W8ItemLocation location) const;
     std::string CampItemTooltip(int slot, W8ItemStorage storage);
     void DrawCampItemLabel(const W8ItemInstance* item, int left, int top, signed char flag);
     void OpenSplitStackDialog(W8ItemLocation location);

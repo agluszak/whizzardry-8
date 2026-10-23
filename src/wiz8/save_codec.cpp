@@ -428,16 +428,22 @@ template<> struct Record<save::GameState> {
         const auto pool_bytes =
             bytes.subspan(offsetof(Disk, party_item_pool), sizeof(Disk::party_item_pool));
         item_run(runtime.pool, pool_bytes, value, text);
-        // Unused records are empty items; only their unidentified byte is kept.
-        auto& unused = runtime.status.retail.unused_pool_unknown;
+        // Records past the count are not items; a loaded save's are kept as they were.
+        static_assert(sizeof(ItemInstance) == 12);
+        auto& unused = runtime.status.retail.unused_pool_records;
+        if constexpr (!std::is_const_v<R>) unused.emplace();
         for (std::size_t index = count; index < pool_records; ++index) {
             const auto record =
                 pool_bytes.subspan(index * sizeof(ItemInstance), sizeof(ItemInstance));
             if constexpr (std::is_const_v<R>) {
-                const W8ItemInstance empty{.unknown_08 = unused[index]};
-                nested(empty, record, value, text);
+                if (unused) {
+                    value(&(*unused)[index], record);
+                } else {
+                    const W8ItemInstance empty{};
+                    nested(empty, record, value, text);
+                }
             } else {
-                value(&unused[index], record.subspan(offsetof(ItemInstance, unknown_08), 1));
+                value(&(*unused)[index], record);
             }
         }
         value(&runtime.status.text_line_cursor,

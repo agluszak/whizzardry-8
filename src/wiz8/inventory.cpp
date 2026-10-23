@@ -94,6 +94,10 @@ static constexpr W8ItemLocation kHand{W8ItemStorage::Hand};
 
 const W8ItemInstance* Inventory::itemAt(W8ItemLocation location) const
 {
+    static constexpr W8ItemInstance kEmpty{};
+    if (location.storage == W8ItemStorage::Hand && !held_) return &kEmpty;
+    if (location.storage == W8ItemStorage::Pool && location.slot >= pool_.size())
+        return location.slot < kPoolLimit ? &kEmpty : nullptr;
     return const_cast<Inventory&>(*this).slotAt(location);
 }
 
@@ -192,7 +196,10 @@ void Inventory::editItem(W8ItemLocation location, std::function_ref<void(W8ItemI
 
 void Inventory::restore(std::vector<W8ItemInstance> pool, std::optional<W8ItemInstance> held)
 {
+    // An empty record inside a saved pool holds nothing; the pool stays packed.
+    std::erase_if(pool, [](const W8ItemInstance& item) { return item.iItemNo == -1; });
     pool_ = std::move(pool);
+    pool_.reserve(kPoolLimit);
     held_.reset();
     if (held && held->iItemNo != -1) held_ = W8HeldItem{*held};
 }
@@ -424,20 +431,6 @@ bool Inventory::storeOrDrop(W8ItemInstance& item, bool announce)
     acquire(placed);
     if (!placed) dropUnstored(item);
     settle({placed ? placed->stored : kHand});
-    return placed.has_value();
-}
-
-bool Inventory::give(unsigned int party_slot, W8ItemInstance& item, StoreOrder order)
-{
-    assert(game_.status.game_started);
-    assert(game_.party.members[party_slot].has_value());
-    std::optional<Placement> placed;
-    if (IsPartySlotEligible(static_cast<int>(party_slot)))
-        placed = placeEither(member(party_slot), item, order, true, false);
-    else if (order == StoreOrder::PoolFirst)
-        placed = placeInPool(item, true, true);
-    acquire(placed);
-    settle({Stored(placed)});
     return placed.has_value();
 }
 

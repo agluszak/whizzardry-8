@@ -544,21 +544,10 @@ W8ItemLocation W8CampItemsPage::CampItemAt(int slot, W8ItemStorage storage) cons
     return {W8ItemStorage::Pool, 0, static_cast<unsigned int>(index)};
 }
 
-/* The item a cell shows: a free pool cell past the list's end is an insertion position and
-   shows nothing; a full pool has no such cell. */
-const W8ItemInstance* W8CampItemsPage::CellItem(W8ItemLocation location) const
-{
-    static constexpr W8ItemInstance kNothing{};
-    const auto& inventory = camp.game.inventory;
-    if (location.storage == W8ItemStorage::Pool && location.slot == inventory.pool().size())
-        return inventory.pool().size() < Inventory::kPoolLimit ? &kNothing : nullptr;
-    return inventory.itemAt(location);
-}
-
 std::string W8CampItemsPage::CampItemTooltip(int slot, W8ItemStorage storage)
 {
     const auto& data = camp.game.data;
-    const auto* item = CellItem(CampItemAt(slot, storage));
+    const auto* item = camp.game.inventory.itemAt(CampItemAt(slot, storage));
     if (!item) return {};
     std::string text =
         item->iItemNo == -1 ? std::string{} : FormatItemDisplayName(data, item, false);
@@ -579,7 +568,7 @@ UiResult W8CampItemsPage::HandleCampItem(const UiPointerEvent& event, int slot,
                                          W8ItemStorage storage)
 {
     const auto location = CampItemAt(slot, storage);
-    const auto* item = CellItem(location);
+    const auto* item = camp.game.inventory.itemAt(location);
     // A full pool has no free row to show past the end of its list.
     if (!item) return UiResult::Handled;
     const bool equipped = storage == W8ItemStorage::Equipment;
@@ -1404,7 +1393,11 @@ void W8CampItemsPage::InvalidateChangedCells()
         if (!same_character || shown.equipment[slot] != camp.reviewed->EquippedItem[slot])
             cell_redraw.equipment.set(slot);
     const auto pool = camp.game.inventory.pool();
-    if (!std::ranges::equal(shown.pool, pool)) cell_redraw.InvalidatePool();
+    // The list holds pool rows, so any change to the pool rebuilds it.
+    if (!std::ranges::equal(shown.pool, pool)) {
+        RebuildCampItemList();
+        cell_redraw.InvalidatePool();
+    }
     shown.character = camp.reviewed;
     std::ranges::copy(camp.reviewed->backpack, shown.backpack.begin());
     std::ranges::copy(camp.reviewed->EquippedItem, shown.equipment.begin());
@@ -1461,7 +1454,7 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
 {
     auto& inventory = camp.game.inventory;
     const auto& data = camp.game.data;
-    const W8ItemInstance* item = CellItem(location);
+    const W8ItemInstance* item = camp.game.inventory.itemAt(location);
     const auto origin = location.storage;
     const unsigned int slot_index = location.slot;
     const auto equip_slot = static_cast<W8EquipSlot>(slot_index);
