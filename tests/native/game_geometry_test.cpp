@@ -73,6 +73,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -2095,23 +2096,44 @@ TEST_CASE("Environment ambient scales scenes and lights while retaining the sour
 {
     Light light(nullptr);
     World world{};
-    world.environment.lights = {&light};
+    world.environment.addLight(&light);
     world.scene = std::make_unique<WorldScene>();
     auto& scene = *world.scene;
     const glm::vec3 colour(-0.5f, 0.5f, 2.0f);
-    ApplyEnvironmentColour(&world, 0.75f, &colour);
+    world.environment.applyColour(0.75f, colour);
     REQUIRE(scene.getAmbientLight() == glm::vec3(0, 0.375f, 1));
     REQUIRE(light.ambient == scene.getAmbientLight());
-    REQUIRE(world.environment.colour == colour);
-    REQUIRE(world.environment.intensity == 0.75f);
-    SetWorldEnvironmentIntensity(&world, 0.5f);
+    REQUIRE(world.environment.colour() == colour);
+    REQUIRE(world.environment.intensity() == 0.75f);
+    REQUIRE(world.environment.setIntensity(0.5f) == 0.5f);
     REQUIRE(scene.getAmbientLight() == glm::vec3(0, 0.25f, 1));
     REQUIRE(light.ambient == scene.getAmbientLight());
-    REQUIRE(world.environment.colour == colour);
+    REQUIRE(world.environment.colour() == colour);
     world.scene = nullptr;
-    glm::vec3 ambient(1);
-    GetWorldLightValue(&world, &ambient);
-    REQUIRE(ambient == glm::vec3(0));
+    REQUIRE(world.environment.ambient() == glm::vec3(0));
+}
+
+TEST_CASE("Environment operations change only the level they are given", "[geometry]")
+{
+    const ScopedGame scope;
+    Level& installed = scope.game.level;
+    installed.replacePrimary(std::make_unique<World>());
+    installed.primary->scene = std::make_unique<WorldScene>();
+    installed.primary->scene->setFogColor(glm::vec3(0.5f));
+
+    Level other;
+    other.replacePrimary(std::make_unique<World>());
+    other.replaceSky(std::make_unique<World>());
+    other.primary->scene = std::make_unique<WorldScene>();
+    other.sky->scene = std::make_unique<WorldScene>();
+    other.sky->scene->setFogColor(glm::vec3(1.0f));
+
+    other.beginLightingFade(-1000.0f);
+    other.disableSky();
+    REQUIRE(other.primary->environment.lightingMode() == W8EnvironmentLightingMode::Transition);
+    REQUIRE(other.sky->scene->getFogColor() == glm::vec3(0));
+    REQUIRE(installed.primary->environment.lightingMode() == W8EnvironmentLightingMode::DayNight);
+    REQUIRE(installed.primary->scene->getFogColor() == glm::vec3(0.5f));
 }
 
 TEST_CASE("Positional sound copies keep placement without sharing playback", "[sound]")

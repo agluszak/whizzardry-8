@@ -141,8 +141,6 @@ void UpdateWorlds(std::chrono::milliseconds elapsed)
 
     UpdateTimedTriggerEvents();
     UpdateShakeEffects();
-    UpdateEnvironment();
-    UpdateNpcEvents();
 }
 
 /* Detach the item meshes in the level and sky worlds before the renderer-side
@@ -330,10 +328,10 @@ void ApplyWorldUpdateFlags(World* world, unsigned int flags)
         WorldSetRenderRange(world, static_cast<float>(WorldGetFarClip(world)) * scale);
     }
     if ((flags & W8_WORLD_INCREASE_ENVIRONMENT) != 0) {
-        SetWorldEnvironmentIntensity(GetWorld(), GetWorld()->environment.intensity + 0.02f);
+        world->environment.setIntensity(world->environment.intensity() + 0.02f);
     }
     if ((flags & W8_WORLD_DECREASE_ENVIRONMENT) != 0) {
-        SetWorldEnvironmentIntensity(GetWorld(), GetWorld()->environment.intensity - 0.02f);
+        world->environment.setIntensity(world->environment.intensity() - 0.02f);
     }
 }
 

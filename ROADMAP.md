@@ -365,6 +365,11 @@ Substantial but contained work.
   `Magic Effects.cpp`, …). Move the remaining code into named modules, as
   `inventory`, `party`, `party_stats`, `live_party` and `combat/` already are. `PC Item.cpp`
   should split into item rules, identification/binding and display.
+- **Calendar callers.** `Calendar` owns the time of day, whether it runs and its
+  time scale, but sight, surprise, timed effects and the combat round still reach it
+  through `CurrentGame().calendar`, and the game clock it runs (`UpdateGameClock`)
+  reads the game the same way. They take the calendar from their owners as sight,
+  surprise and the round become classes; the round belongs on `Combat`.
 
 ## Needs research
 

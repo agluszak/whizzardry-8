@@ -2,7 +2,6 @@
 
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
-#include "wiz8/world/environment.h"
 
 class Prop;
 class Texture;
@@ -23,13 +22,4 @@ void UpdateRenderElapsedTime(void)
 double RenderClockSeconds()
 {
     return render_clock_seconds;
-}
-
-float g_view_distance = 12.0f;
-
-bool InitializeEnvironmentColours(void)
-{
-    ResetEnvironment();
-    g_view_distance = 12.0f;
-    return true;
 }

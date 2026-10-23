@@ -149,7 +149,7 @@ constexpr std::chrono::milliseconds kSweepInterval{500};
 
 static void RunSearchPulse(bool searching)
 {
-    if (CurrentGame().advancement.time_passes && !CurrentGame().advancement.held &&
+    if (CurrentGame().calendar.running() && !CurrentGame().advancement.held &&
         !CurrentGame().surprise_possible && !IsLockInteractionActive() &&
         !LockInteractionSuspended() && !IsTrapInteractionActive() && !TrapInteractionSuspended()) {
         if (IsLevelFastMovement() && searching) {

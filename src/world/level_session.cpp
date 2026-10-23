@@ -164,7 +164,6 @@ void StartLevelMusic(int fade, int replace_current)
 void UnloadSkyWorld(void)
 {
     CurrentLevel().replaceSky(nullptr);
-    ResetEnvironment();
 }
 
 static int LevelFindIDByLocationCode(std::string_view location_code)
@@ -226,7 +225,7 @@ static std::unique_ptr<World> PrepareSkyWorld(std::string_view sky_path)
 
     auto material = std::make_shared<Material>();
     material->setName("AnimatedCloudMaterial");
-    sky->environment.cloud_material = material;
+    sky->environment.setCloudMaterial(material);
     glm::vec4 colour;
     colour = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
     material->setAmbient(colour);
@@ -273,7 +272,6 @@ bool LoadSkyWorld(std::string_view sky_path)
     auto replacement = PrepareSkyWorld(sky_path);
     if (!sky_path.empty() && !replacement) return false;
     level.replaceSky(std::move(replacement));
-    if (!level.sky) ResetEnvironment();
     return true;
 }
 
@@ -359,11 +357,10 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
     StartLevelMusic(1, 1);
     CurrentGame().status.next_trigger_id = world.next_trigger_id;
     UpdateGameDataRuntime();
-    if (world.environment.fog_enabled) UpdateEnvironmentLight();
     ApplyCameraRotation(&world.initial_camera_rotation);
     world.party.camera.applySway(*world.camera, world.initial_camera_sway ? CameraSwayMode::Start
                                                                           : CameraSwayMode::Stop);
-    SetSkyNodeVisible(false);
+    if (Light* light = world.camera_light) light->visible = false;
     ResetAutomapView();
     BeginRestoredLevelActivity(world, status);
 
@@ -422,7 +419,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
         ResetCurrentEnvironment();
     }
     g_camera_path_active = false;
-    InitializeLevelEnvironment();
+    CurrentGame().calendar.enterLevel();
     world.script = MakeLevelScript(level, MakeScriptContext(CurrentGame()));
     world.script->enter();
     LoadNativeLevelObject(CurrentGame());
@@ -546,7 +543,7 @@ void LeaveLevel()
     }
 
     ReleaseWorldCursor();
-    DisableSky();
+    CurrentLevel().disableSky();
     EndCameraSway();
     ResetGameTimeAccumulator();
     CurrentLevel().replacePrimary(nullptr);

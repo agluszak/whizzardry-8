@@ -26,7 +26,6 @@
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
-#include <glm/common.hpp>
 #include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 #include <glm/gtc/quaternion.hpp>
@@ -129,7 +128,7 @@ static_assert(sizeof(W8LevelLightRecord) == 40);
 
 glm::vec3 CurrentEnvironmentOffset()
 {
-    return GetWorld() ? GetWorld()->environment.offset : glm::vec3(0.0f);
+    return GetWorld() ? GetWorld()->environment.offset() : glm::vec3(0.0f);
 }
 
 void AssociateWorldLights(World* world)
@@ -246,7 +245,7 @@ try {
                 light->diffuse = glm::vec3(0);
                 light->ambient = {record.colour.x, record.colour.y, record.colour.z};
                 light->setGroupMask(light->getGroupMask() | 4);
-                world->environment.lights.push_back(light);
+                world->environment.addLight(light);
             } else {
                 light->diffuse = {record.colour.x, record.colour.y, record.colour.z};
                 light->ambient = glm::vec3(0);
@@ -271,7 +270,6 @@ try {
     /* Retail read these uninitialised when a FileRead chain short-circuited;
        natively the scalars start at zero. */
     glm::vec3 environment_range;
-    glm::vec3 white{1.0f};
     glm::vec3 position{0.0f};
     wiz8::retail::Vec3f stored_position{};
     glm::vec3 axis;
@@ -333,25 +331,22 @@ try {
     const auto read_flag = [&](unsigned char& flag) {
         return pInfo->hFile->read(&flag, sizeof(flag)).bytes == sizeof(flag);
     };
+    EnvironmentSettings settings{.intensity = intensity,
+                                 .view_distance = view_distance * kWorldScale,
+                                 .range_start = environment_range.x,
+                                 .range_end = environment_range.y,
+                                 .fog = fog_enabled != 0};
     success = success && read_flag(has_light_colours);
     if (has_light_colours != 0)
-        success =
-            success && ReadEnvironmentColours(pInfo->hFile, pWorld->environment.light_colours);
+        success = success && ReadEnvironmentColours(pInfo->hFile, settings.light_colours);
     success = success && read_flag(has_environment_colours);
     if (has_environment_colours != 0)
-        success = success && ReadEnvironmentColours(pInfo->hFile, pWorld->environment.colours);
+        success = success && ReadEnvironmentColours(pInfo->hFile, settings.colours);
 
-    pWorld->environment.view_distance = view_distance * kWorldScale;
-    pWorld->environment.intensity = intensity;
-    pWorld->environment.colour = white;
-    pWorld->scene->setAmbientLight(glm::clamp(white * intensity, 0.0f, 1.0f));
-    WorldSetFarClip(pWorld, pWorld->environment.view_distance);
+    pWorld->environment.configure(settings);
+    WorldSetFarClip(pWorld, settings.view_distance);
     distance_scale = view_distance < g_octree_cell_scale ? kEnvironmentNearScale : 1.5f;
-    WorldSetRenderRange(pWorld, distance_scale * pWorld->environment.view_distance);
-    pWorld->environment.range_start = environment_range.x;
-    pWorld->environment.range_end = environment_range.y;
-
-    pWorld->environment.fog_enabled = fog_enabled != 0;
+    WorldSetRenderRange(pWorld, distance_scale * settings.view_distance);
     return success;
 } catch (const std::exception&) {
     return false;
@@ -1006,7 +1001,7 @@ try {
     success = success && ReadAutomapNodes(handle, world->automap);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after automap nodes.");
 
-    world->environment.offset = environment_offset;
+    world->environment.setOffset(environment_offset);
 
     prop_count = world->plsProps.size();
     for (index = 0; index < static_cast<int>(prop_count); ++index) {

@@ -11,6 +11,7 @@
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/character_events.h"
@@ -54,7 +55,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
 {
     time += elapsed;
     // Time that passed while the world ran reaches its clock before the new hold applies.
-    PassEnvironmentTime(elapsed);
+    calendar.passTime(elapsed);
     ApplyWorldAdvancement(*this, hold.world);
     if (!hold.speech) {
         speech.ProcessDeferredCharacterEvents();
@@ -101,7 +102,11 @@ void Game::advance(milliseconds elapsed, StepHold hold)
         UpdateNearbyWorldItems();
         DetachAllWorldItems();
     }
-    if (!advancement.paused || combat.has_value()) UpdateWorlds(elapsed);
+    if (!advancement.paused || combat.has_value()) {
+        UpdateWorlds(elapsed);
+        calendar.update();
+        UpdateNpcEvents();
+    }
     // Preserve the game's scene-activity gates and sky-before-world order.
     // Particle clocks keep running while world advancement is held; additional
     // camera views consume these results without advancing them again.

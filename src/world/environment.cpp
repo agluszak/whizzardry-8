@@ -1,12 +1,11 @@
 #include "wiz8/world/environment.h"
 
 #include <array>
-#include <cassert>
-#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include <glm/common.hpp>
@@ -23,7 +22,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/game_status.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera.h"
@@ -32,174 +31,14 @@
 #include "wiz8/render/light.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/texture.h"
-#include "wiz8/render/vertex_channels.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
-/* 0x00659AB4: the world being rendered. Its sky node is the one field these
-   two bodies reach, and it is the same World the 3d code walks. */
-
-/* Camera-light intensity ceiling for SetCameraLightMode; the linker
-   folds it into the shared 50.0f constant Octree.cpp emits at 0x005EC02C. */
-static const float CAMERA_LIGHT_MAXIMUM_INTENSITY = 50.0f;
-
-/* 1/duration while the transition body at 0x00484300 runs, zero when idle.
-   BeginWorldLightingFade stores 1/duration and sets the lighting mode to 1;
-   UpdateEnvironmentLighting stores zero again once it completes. */
-
-/* Tick baseline for the active lighting transition; rewritten every frame the
-   transition body advances the light scale. */
-
-/* The mapper starts its scroll rate at 0.002 texture units per second on x
-   only and reseeds the shared frame clock, so the first scrolled frame uses
-   the interval since this object's construction rather than since startup. */
-
-/* Add the frame-scaled rate to each axis and keep only the fractional part,
-   then shift the first texture coordinate set of every vertex by it. */
-
-static void RefreshCloudMaterial(World& world)
+// The 8-bit day phase the colour tables and sky gradients are indexed by.
+static unsigned int DayPhase(unsigned int time_of_day)
 {
-    if (!world.environment.cloud_material) return;
-    auto& material = *world.environment.cloud_material;
-    const double brightness =
-        1.0 - std::abs(CurrentGame().status.game_time_ms - 43200000.0) / 43200000.0;
-    material.parms.ambient = glm::vec4(static_cast<float>(brightness));
-    material.parms.diffuse.w = static_cast<float>(brightness * 0.75 + 0.25);
-    material.dirty = 1;
-}
-
-/* Drop every per-level environment object: the sky gradients, the Sun/Moon
-   props and the orbit radius reset, then release the two fog objects and
-   empty the registered-light list without freeing its storage. */
-void ClearEnvironmentObjects(void)
-{
-    ResetEnvironment();
-    if (GetWorld()) {
-        GetWorld()->environment.static_fog.reset();
-        GetWorld()->environment.dynamic_fog.reset();
-    }
-}
-
-/* Advance the authoritative game clock and place the two celestial props on
-   opposite sides of the world's recovered sky origin: the day's prop sits one
-   orbit radius away in the rotated direction, the other rests on the origin.
-   The three animated sky gradients consume the same 8-bit day phase, so the
-   clock, prop placement, and gradient animation remain one update rather than
-   parallel timers. */
-void AdvanceEnvironmentTime(int elapsed)
-{
-    unsigned int time = CurrentGame().status.game_time_ms + elapsed;
-    if (time > 86399999U) {
-        ++CurrentGame().status.game_time_days;
-    }
-    CurrentGame().status.game_time_ms = time % 86400000U;
-
-    /* The game clock (turns, aging, recharges, fatigue, stamina, camping) runs only while
-       the party is in the world. Time reaches it from the environment clock while nothing
-       holds the world and no fight is on, and from the rounds of a fight there. */
-    if (CurrentGame().activity.in_world()) {
-        UpdateGameClock(elapsed);
-    }
-    if (GetWorld()) GetWorld()->environment.untaken_time = {};
-
-    if (!GetSecondaryWorld()) return;
-    auto& sky = GetSecondaryWorld()->environment;
-    RefreshCloudMaterial(*GetSecondaryWorld());
-    const double arc = 3.141592653589793 * (1.0f / 180.0f) * 80.0;
-    bool day;
-    double angle;
-    if (CurrentGame().status.game_time_ms < 18000001U) {
-        day = false;
-        angle = (CurrentGame().status.game_time_ms + 7200000) * arc * 3.9682539682539686e-08;
-    } else if (CurrentGame().status.game_time_ms < 79200001U) {
-        day = true;
-        angle = (CurrentGame().status.game_time_ms - 18000000) * arc * 1.633986928104575e-08;
-    } else {
-        day = false;
-        angle = (CurrentGame().status.game_time_ms - 79200000) * arc * 3.9682539682539686e-08;
-    }
-
-    glm::vec3 direction;
-    direction = glm::vec3(0.0, sky.orbit_radius, 0.0);
-
-    glm::mat3 rotation;
-    rotation = glm::mat3(1);
-
-    angle -= 3.141592653589793 * (1.0f / 180.0f) * 40.0;
-    rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 0, 1)));
-
-    glm::vec3 position = rotation * direction + sky.celestial_origin;
-
-    Prop* moving = day ? sky.sun : sky.moon;
-    Prop* opposite = day ? sky.moon : sky.sun;
-    if (moving != 0) {
-        moving->SetLocation(&position);
-    }
-    if (opposite != 0) {
-        opposite->SetLocation(&sky.celestial_origin);
-    }
-
-    unsigned int phase = ((CurrentGame().status.game_time_ms / 1000U) << 8) / 86400U;
-    for (const auto& sky_gradient_animation : sky.gradients) {
-        if (auto animation = sky_gradient_animation.lock()) {
-            animation->playback->frame = static_cast<int>(phase);
-        }
-    }
-}
-
-/* Move the world clock on by the game-clock multiplier's share of the step time it has
-   not taken up yet. */
-static void AdvanceEnvironmentClock(void)
-{
-    if (!CurrentGame().advancement.time_passes || !GetWorld()) return;
-    const auto elapsed = std::exchange(GetWorld()->environment.untaken_time, {});
-    if (elapsed.count() != 0) {
-        AdvanceEnvironmentTime(
-            static_cast<int>(static_cast<double>(elapsed.count()) * g_view_distance));
-    }
-}
-
-/* Turn environment time progression on or off. While it is off, no step time reaches
-   it, so it resumes from the moment it is enabled. */
-void SetEnvironmentTimeEnabled(bool enabled)
-{
-    CurrentGame().advancement.time_passes = enabled;
-    if (enabled && GetWorld()) GetWorld()->environment.untaken_time = {};
-}
-
-void PassEnvironmentTime(std::chrono::milliseconds elapsed)
-{
-    if (CurrentGame().advancement.time_passes && GetWorld())
-        GetWorld()->environment.untaken_time += elapsed;
-}
-
-/* The environment's per-frame update. A running transition short-circuits to
-   the transition body. Otherwise, in day/night mode the sky consumes the day
-   phase to pick the light direction, and the world colour table is refreshed
-   from the same phase whenever the colour-refresh flag is set; any other mode
-   just advances the clock. Every path that advances the clock scales the
-   elapsed ticks by the game-clock multiplier. */
-void UpdateEnvironment(void)
-{
-    if (!GetWorld()) return;
-    if (GetWorld()->environment.transition_rate != 0.0f) {
-        UpdateEnvironmentLighting();
-        return;
-    }
-    if (!CurrentGame().advancement.time_passes) {
-        return;
-    }
-    if (GetWorld()->environment.lighting_mode == W8EnvironmentLightingMode::DayNight) {
-        if (GetWorld()->environment.sky_enabled) {
-            UpdateEnvironmentLight();
-        }
-        {
-            RefreshEnvironment();
-        }
-    } else {
-        AdvanceEnvironmentClock();
-    }
+    return ((time_of_day / 1000U) << 8) / 86400U;
 }
 
 /* Repeated component clamps share one helper. Preserve the comparison order:
@@ -245,470 +84,320 @@ std::array<glm::vec3, 256> EnvironmentColourRamp()
     return colours;
 }
 
-/* Refresh the light direction from the day-phase table when the phase turns
-   over; used after level load once fog is on. */
-void UpdateEnvironmentLight(void)
+Environment::Environment(World& world) : world_(world) {}
+Environment::~Environment() = default;
+
+void Environment::configure(const EnvironmentSettings& settings)
 {
-    if (!GetWorld()) return;
-    AdvanceEnvironmentClock();
-    unsigned int phase = ((CurrentGame().status.game_time_ms / 1000U) << 8) / 86400U;
-    if (phase != static_cast<unsigned int>(GetWorld()->environment.last_light_phase)) {
-        GetWorld()->environment.light_direction = GetWorld()->environment.light_colours[phase];
-        PublishLightDirection(&GetWorld()->environment.light_colours[phase]);
-        GetWorld()->environment.last_light_phase = static_cast<int>(phase);
+    settings_ = settings;
+    intensity_ = settings.intensity;
+    colour_ = glm::vec3(1.0f);
+    world_.scene->setAmbientLight(glm::clamp(colour_ * intensity_, 0.0f, 1.0f));
+}
+
+void Environment::removeLight(Light* light)
+{
+    std::erase(lights_, light);
+}
+
+void Environment::setCloudMaterial(std::shared_ptr<Material> material)
+{
+    cloud_material_ = std::move(material);
+}
+
+void Environment::applyColour(float value, glm::vec3 value_colour)
+{
+    if (world_.scene) {
+        world_.scene->setAmbientLight(glm::clamp(value_colour * value, 0.0f, 1.0f));
+        colour_ = value_colour;
+        intensity_ = value;
+    }
+    for (Light* light : lights_) {
+        glm::vec3 scaled(glm::dvec3(value_colour) * static_cast<double>(value));
+        light->ambient = glm::clamp(scaled, 0.0f, 1.0f);
     }
 }
 
-void SetSkyEnabled(bool enabled)
+float Environment::setIntensity(float value)
 {
-    if (!GetWorld()) return;
-    if (enabled) {
-        if (GetWorld() == 0 || !GetWorld()->scene || GetWorld()->environment.static_fog != 0) {
-            return;
-        }
-
-        GetWorld()->environment.static_fog = std::make_unique<FogParams>(GetWorld()->scene.get());
-        GetWorld()->environment.dynamic_fog = std::make_unique<FogParams>(GetWorld()->scene.get());
-        GetWorld()->environment.static_fog->density = 1.0f;
-        GetWorld()->environment.dynamic_fog->density = 1.0f;
-
-        RefreshFogRanges(*GetWorld());
-
-        PublishLightDirection(&GetWorld()->environment.light_direction);
-        if (GetWorld() == 0 || GetWorld()->camera == 0) {
-            return;
-        }
-        GetWorld()->camera->setEnvironmentRange(
-            static_cast<float>(WorldGetFarClip(GetWorld())) * GetWorld()->environment.range_start,
-            static_cast<float>(WorldGetFarClip(GetWorld())) * GetWorld()->environment.range_end);
-        return;
-    }
-
-    GetWorld()->environment.static_fog.reset();
-    GetWorld()->environment.dynamic_fog.reset();
-
-    glm::vec3 direction(0);
-    PublishLightDirection(&direction);
-    if (GetWorld() == 0 || GetWorld()->camera == 0) {
-        return;
-    }
-    GetWorld()->camera->setEnvironmentRange(0.0f, static_cast<float>(WorldGetFarClip(GetWorld())));
+    value = value >= 1.0f ? 1.0f : (value > 0.0f ? value : 0.0f);
+    applyColour(value, ambient());
+    return value;
 }
 
-/* The far plane the world is drawn to. */
-void SetViewDistance(float distance)
+glm::vec3 Environment::ambient() const
 {
-    g_view_distance = distance;
+    return world_.scene ? colour_ : glm::vec3(0);
 }
 
-float GetViewDistance(void)
+bool Environment::showLightPhase(unsigned int time_of_day)
 {
-    return g_view_distance;
+    const unsigned int phase = DayPhase(time_of_day);
+    if (std::exchange(last_light_phase_, static_cast<int>(phase)) == static_cast<int>(phase))
+        return false;
+    light_direction_ = settings_.light_colours[phase];
+    return true;
 }
 
-/* Turn the sky on, then catch the light direction up: advance the clock by the
-   elapsed ticks' share and publish the day phase's light direction if it moved
-   on. The phase tracker is the same one the per-frame update keeps, so enabling
-   the sky does not restart the cycle. */
-void EnableSky(void)
+void Environment::showColourPhase(unsigned int time_of_day)
 {
-    if (!GetWorld()) return;
-    SetSkyEnabled(true);
-    GetWorld()->environment.sky_enabled = true;
-    UpdateEnvironmentLight();
+    const unsigned int phase = DayPhase(time_of_day);
+    if (std::exchange(last_colour_phase_, static_cast<int>(phase)) != static_cast<int>(phase))
+        applyColour(intensity_, settings_.colours[phase]);
 }
 
-/* Advance the clock-driven sky and refresh the world's environment colour
-   from the day-phase table when the phase turns over. */
-void RefreshEnvironment(void)
+void Environment::showDayPhase(unsigned int time_of_day)
 {
-    if (!GetWorld()) return;
-    AdvanceEnvironmentClock();
-    unsigned int phase = ((CurrentGame().status.game_time_ms / 1000U) << 8) / 86400U;
-    if (phase != static_cast<unsigned int>(GetWorld()->environment.last_colour_phase)) {
-        glm::vec3 colour = GetWorld()->environment.colours[phase];
-        SetWorldEnvironmentColour(colour);
-        GetWorld()->environment.last_colour_phase = static_cast<int>(phase);
+    const unsigned int phase = DayPhase(time_of_day);
+    applyColour(intensity_, settings_.colours[phase]);
+    light_direction_ = settings_.light_colours[phase];
+}
+
+void Environment::setFogColour(glm::vec3 value)
+{
+    world_.scene->setFogColor(value);
+}
+
+void Environment::enableFog()
+{
+    if (!world_.scene || static_fog_) return;
+    static_fog_ = std::make_unique<FogParams>(world_.scene.get());
+    dynamic_fog_ = std::make_unique<FogParams>(world_.scene.get());
+    static_fog_->density = 1.0f;
+    dynamic_fog_->density = 1.0f;
+    refreshFogRanges();
+    if (world_.camera) {
+        const auto far_clip = static_cast<float>(WorldGetFarClip(&world_));
+        world_.camera->setEnvironmentRange(far_clip * settings_.range_start,
+                                           far_clip * settings_.range_end);
     }
 }
 
-/* Set the world's environment intensity, clamped to the unit range, keeping
-   its current colour unless the world has no static scene to take it from. */
-void SetWorldEnvironmentIntensity(World* world, float value)
+void Environment::disableFog()
 {
-    glm::vec3 colour{1.0f};
-
-    assert(world != 0);
-    if (1.0 <= value || 0.0 < value) {
-        if (1.0 <= value) {
-            value = static_cast<float>(1.0);
-        }
-    } else {
-        value = static_cast<float>(0.0);
-    }
-    if (world->scene == 0) {
-        colour = glm::vec3(0);
-        ApplyEnvironmentColour(world, value, &colour);
-        return;
-    }
-    ApplyEnvironmentColour(world, value, &world->environment.colour);
+    static_fog_.reset();
+    dynamic_fog_.reset();
+    if (world_.camera)
+        world_.camera->setEnvironmentRange(0.0f, static_cast<float>(WorldGetFarClip(&world_)));
 }
 
-static float ApplyWorldLightingIntensity(World* world, float intensity)
+void Environment::refreshFogRanges()
 {
-    glm::vec3 colour{1.0f};
-    if (1.0 <= intensity || 0.0 < intensity) {
-        if (1.0 <= intensity) {
-            intensity = static_cast<float>(1.0);
-        }
-    } else {
-        intensity = static_cast<float>(0.0);
-    }
-    if (world->scene == 0) {
-        colour = glm::vec3(0);
-        ApplyEnvironmentColour(world, intensity, &colour);
-    } else {
-        ApplyEnvironmentColour(world, intensity, &world->environment.colour);
-    }
-    return intensity;
+    if (!static_fog_) return;
+    const auto far_clip = WorldGetFarClip(&world_);
+    static_fog_->fog_start = dynamic_fog_->fog_start = far_clip * settings_.range_start;
+    static_fog_->fog_end = dynamic_fog_->fog_end = far_clip * settings_.range_end;
 }
 
-/* Arm or complete a lighting fade. A zero duration snaps back to day/night
-   lighting with the current base intensity; any other duration stores
-   1/duration as the per-millisecond rate and, for a fade-out, snapshots the
-   live intensity into the world's base field. */
-void BeginWorldLightingFade(float duration)
+void Environment::beginFade(float duration)
 {
-    if (!GetWorld()) return;
-    World* world;
-    float intensity;
-    glm::vec3 direction{1.0f};
-
     if (duration == 0.0f) {
-        GetWorld()->environment.lighting_mode = W8EnvironmentLightingMode::DayNight;
-        GetWorld()->environment.transition_rate = 0.0f;
-        g_world_render_enabled = 1;
-        g_monster_shadow_updates_enabled = 1;
-        g_world_blacked_out = false;
-        g_monster_light_scale = 1.0f;
-
-        world = GetWorld();
-        assert(world != 0);
-        intensity = world->environment.base_intensity;
-        intensity = ApplyWorldLightingIntensity(world, intensity);
-
-        world = GetSecondaryWorld();
-        if (world != 0) {
-            intensity = world->environment.base_intensity;
-            intensity = ApplyWorldLightingIntensity(world, intensity);
-        }
-
-        direction = GetWorld()->environment.light_direction;
-        direction = glm::clamp(direction, 0.0f, 1.0f);
-        PublishLightDirection(&direction);
+        lighting_mode_ = W8EnvironmentLightingMode::DayNight;
+        transition_rate_ = 0.0f;
+        fadeTo(1.0f);
         return;
     }
-
-    GetWorld()->environment.transition_rate = 1.0f / duration;
-    GetWorld()->environment.transition_tick = WorldClockMilliseconds();
-    GetWorld()->environment.lighting_mode = W8EnvironmentLightingMode::Transition;
-    if (duration < 0.0f) {
-        GetWorld()->environment.base_intensity = GetWorld()->environment.intensity;
-        if (GetSecondaryWorld() != 0) {
-            GetSecondaryWorld()->environment.base_intensity =
-                GetSecondaryWorld()->environment.intensity;
-        }
-    }
+    transition_rate_ = 1.0f / duration;
+    transition_tick_ = WorldClockMilliseconds();
+    lighting_mode_ = W8EnvironmentLightingMode::Transition;
+    if (duration < 0.0f) holdIntensity();
 }
 
-/* Advance an armed lighting transition by the milliseconds since its tick
-   baseline: update the shared light scale, reapply both worlds' ambient from
-   scale times each world's base intensity, and publish a scale-modulated light
-   direction. Completing a fade-out leaves mode 0; completing a fade-in returns
-   to day/night mode 2. */
-void UpdateEnvironmentLighting(void)
+std::optional<float> Environment::advanceFade(float scale)
 {
-    if (!GetWorld()) return;
-    std::uint64_t now = WorldClockMilliseconds();
-    std::uint64_t elapsed = now - GetWorld()->environment.transition_tick;
-    World* world;
-    float scale;
-    float intensity;
-    glm::vec3 direction{1.0f};
+    const std::uint64_t now = WorldClockMilliseconds();
+    const std::uint64_t elapsed = now - transition_tick_;
+    if (elapsed == 0) return std::nullopt;
+    transition_tick_ = now;
 
-    if (elapsed == 0) {
-        return;
-    }
-
-    scale = elapsed * GetWorld()->environment.transition_rate + g_monster_light_scale;
+    scale += elapsed * transition_rate_;
     if (1.0f < scale) {
         scale = 1.0f;
     } else if (scale < 0.0f) {
         scale = 0.0f;
     }
-    g_monster_light_scale = scale;
-
-    world = GetWorld();
-    assert(world != 0);
-    intensity = scale * world->environment.base_intensity;
-    intensity = ApplyWorldLightingIntensity(world, intensity);
-
-    world = GetSecondaryWorld();
-    if (world != 0) {
-        float secondary = scale * world->environment.base_intensity;
-        secondary = ApplyWorldLightingIntensity(world, secondary);
-    }
-
-    direction = GetWorld()->environment.light_direction;
-    direction *= scale;
-    direction = glm::clamp(direction, 0.0f, 1.0f);
-    PublishLightDirection(&direction);
-
-    if (intensity == 0.0f) {
-        GetWorld()->environment.lighting_mode = W8EnvironmentLightingMode::FadedOut;
-        g_world_render_enabled = 0;
-        g_monster_shadow_updates_enabled = 0;
-        g_world_blacked_out = true;
-        GetWorld()->environment.transition_rate = 0.0f;
-        GetWorld()->environment.transition_tick = now;
-        return;
-    }
-    if (scale == 1.0f) {
-        GetWorld()->environment.lighting_mode = W8EnvironmentLightingMode::DayNight;
-        g_world_render_enabled = 1;
-        g_monster_shadow_updates_enabled = 1;
-        g_world_blacked_out = false;
-        GetWorld()->environment.transition_rate = 0.0f;
-        GetWorld()->environment.transition_tick = now;
-        return;
-    }
-    g_world_blacked_out = false;
-    GetWorld()->environment.transition_tick = now;
-    GetWorld()->environment.lighting_mode = W8EnvironmentLightingMode::Transition;
-    g_world_render_enabled = 1;
-    g_monster_shadow_updates_enabled = 1;
-}
-
-void DisableSky(void)
-{
-    if (!GetWorld()) return;
-    SetSkyEnabled(false);
-    GetWorld()->environment.sky_enabled = false;
-}
-
-/* Refresh the two fog objects' ranges from the world's far clip. Runs after
-   the camera's clip range moves, so the fog tracks the same plane. */
-void RefreshFogRanges(World& world)
-{
-    if (world.environment.static_fog != nullptr) {
-        world.environment.static_fog->fog_end =
-            WorldGetFarClip(&world) * world.environment.range_end;
-        world.environment.static_fog->fog_start =
-            WorldGetFarClip(&world) * world.environment.range_start;
-        world.environment.dynamic_fog->fog_start =
-            WorldGetFarClip(&world) * world.environment.range_start;
-        world.environment.dynamic_fog->fog_end =
-            WorldGetFarClip(&world) * world.environment.range_end;
-    }
-}
-
-/* Clear the whole ambient block. The six stores together are what makes them one
-   group; the orbit radius last, at minus one, which is the "not measured yet"
-   value InitializeLevelEnvironment tests before re-deriving the sky. */
-void ResetEnvironment(void)
-{
-    if (!GetSecondaryWorld()) return;
-    auto& sky = GetSecondaryWorld()->environment;
-    sky.gradients[0].reset();
-    sky.gradients[1].reset();
-    sky.gradients[2].reset();
-    sky.sun = 0;
-    sky.moon = 0;
-    sky.orbit_radius = -1.0f;
-}
-
-/* The direction light comes from. Setting it also hands the new direction to
-   the renderer, so the two are not a plain field pair. */
-void SetLightDirection(const glm::vec3* direction)
-{
-    if (GetWorld()) GetWorld()->environment.light_direction = *direction;
-    PublishLightDirection(direction);
-}
-
-/* The ambient light the world contributes, or nothing at all when the world's
-   own gate at 0x3c is clear. Both assertions belong to this body: line 616
-   names the world and line 617 names the out-parameter pLightValue. */
-void GetWorldLightValue(const World* world, glm::vec3* pLightValue)
-{
-    assert(world != 0);
-    assert(pLightValue != 0);
-    if (world->scene != 0) {
-        *pLightValue = world->environment.colour;
+    if (fadeTo(scale) == 0.0f) {
+        lighting_mode_ = W8EnvironmentLightingMode::FadedOut;
+        transition_rate_ = 0.0f;
+    } else if (scale == 1.0f) {
+        lighting_mode_ = W8EnvironmentLightingMode::DayNight;
+        transition_rate_ = 0.0f;
     } else {
-        *pLightValue = glm::vec3(0);
+        lighting_mode_ = W8EnvironmentLightingMode::Transition;
+    }
+    return scale;
+}
+
+static const char* const g_sky_gradient_names[3] = {"SkyGrad0000.ifl", "Skytop0000.ifl",
+                                                    "Horizon0000.ifl"};
+
+/* The orbit is measured once per sky world from the authored distance between the Sun
+   and the Moon; a sky kept across levels keeps it. */
+void Environment::locateCelestialBodies()
+{
+    sun_ = FindPropByName(&world_, "Sun");
+    moon_ = FindPropByName(&world_, "Moon");
+    if (orbit_radius_ >= 0.0f) return;
+    if (!sun_ || !moon_) {
+        sun_ = nullptr;
+        moon_ = nullptr;
+        return;
+    }
+    const glm::vec3 sun_position = sun_->GetLocation();
+    const glm::vec3 moon_position = moon_->GetLocation();
+    orbit_radius_ = glm::length(sun_position - moon_position) * 0.5f;
+    celestial_origin_ = (sun_position + moon_position) * 0.5f;
+    for (int index = 0; index < 3; ++index) {
+        std::shared_ptr<Texture> animation = g_texture_animations.find(g_sky_gradient_names[index]);
+        gradients_[index] = animation;
+        if (animation) animation->playback->animation_mode = W8_TEXTURE_ANIM_MANUAL;
     }
 }
 
-/* Drops the two renderer objects the environment holds and clears the count
-   that goes with them. Both releases run through one loaded import address,
-   which is what makes the two globals the same class rather than two. */
-
-/* Retain the world's current intensity while replacing its environment
-   colour. Retail takes the colour triple by value and forwards its address to
-   SetWorldEnvironment. */
-void SetWorldEnvironmentColour(glm::vec3 colour)
+/* The day's celestial prop sits one orbit radius from the sky origin in the rotated
+   direction and the other rests on the origin. The three animated gradients consume the
+   same 8-bit day phase, so prop placement and gradient animation stay one update. */
+void Environment::placeSky(unsigned int time_of_day)
 {
-    assert(GetWorld() != nullptr);
-    ApplyEnvironmentColour(GetWorld(), GetWorld()->environment.intensity, &colour);
-}
-
-/* Push one day-phase colour and intensity into the world's static scene, every
-   registered environment light, and the animated cloud material. */
-void ApplyEnvironmentColour(World* world, float intensity, const glm::vec3* colour)
-{
-    assert(world != 0);
-    if (world->scene != 0) {
-        const auto ambient = glm::clamp(*colour * intensity, 0.0f, 1.0f);
-        world->scene->setAmbientLight(ambient);
-        world->environment.colour = *colour;
-        world->environment.intensity = intensity;
+    if (cloud_material_) {
+        auto& material = *cloud_material_;
+        const double brightness = 1.0 - std::abs(time_of_day - 43200000.0) / 43200000.0;
+        material.parms.ambient = glm::vec4(static_cast<float>(brightness));
+        material.parms.diffuse.w = static_cast<float>(brightness * 0.75 + 0.25);
+        material.dirty = 1;
     }
-    for (Light* light : world->environment.lights) {
-        glm::vec3 scaled(glm::dvec3(*colour) * static_cast<double>(intensity));
-        light->ambient = glm::clamp(scaled, 0.0f, 1.0f);
+
+    const double arc = 3.141592653589793 * (1.0f / 180.0f) * 80.0;
+    bool day;
+    double angle;
+    if (time_of_day < 18000001U) {
+        day = false;
+        angle = (time_of_day + 7200000) * arc * 3.9682539682539686e-08;
+    } else if (time_of_day < 79200001U) {
+        day = true;
+        angle = (time_of_day - 18000000) * arc * 1.633986928104575e-08;
+    } else {
+        day = false;
+        angle = (time_of_day - 79200000) * arc * 3.9682539682539686e-08;
     }
-    RefreshCloudMaterial(*world);
-}
+    angle -= 3.141592653589793 * (1.0f / 180.0f) * 40.0;
+    const glm::mat3 rotation = glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 0, 1)));
+    glm::vec3 position = rotation * glm::vec3(0.0, orbit_radius_, 0.0) + celestial_origin_;
 
-/* Write the camera light's intensity, if the world has one. */
-void SetCameraLightIntensity(float value)
-{
-    if (GetWorld()->camera_light != 0) {
-        GetWorld()->camera_light->intensity = value;
-    }
-}
+    Prop* moving = day ? sun_ : moon_;
+    Prop* opposite = day ? moon_ : sun_;
+    if (moving) moving->SetLocation(&position);
+    if (opposite) opposite->SetLocation(&celestial_origin_);
 
-/* Show or hide the world's camera light, which is the renderer's flag zero the
-   other way round: showing it clears the flag. 0x00483E50 loads the light from
-   GetWorld() at offset 0x54 and reaches the same two imported flag thunks, so the
-   node here is the camera light the world setup creates, never a sky node. */
-void SetSkyNodeVisible(bool visible)
-{
-    Light* camera_light = GetWorld()->camera_light;
-
-    if (camera_light != 0) {
-        if (visible) {
-            camera_light->visible = true;
-        } else {
-            camera_light->visible = false;
-        }
+    const auto phase = static_cast<int>(DayPhase(time_of_day));
+    for (const auto& gradient : gradients_) {
+        if (auto animation = gradient.lock()) animation->playback->frame = phase;
     }
 }
 
-/* Raise or lower the camera light by one step, disable it, or enable it. */
-// FUNCTION: WIZ8 0x00483E80
-void SetCameraLightMode(W8CameraLightMode mode)
+// Both static scenes take the light direction as their fog colour.
+static void ShowLightDirection(Level& level, glm::vec3 direction)
 {
-    Light* camera_light;
-    float intensity;
+    level.primary->environment.setFogColour(direction);
+    if (level.sky) level.sky->environment.setFogColour(direction);
+}
 
-    if (GetWorld() != 0 && (camera_light = GetWorld()->camera_light) != 0) {
-        switch (mode) {
-        case W8CameraLightMode::Increase:
-            camera_light->visible = true;
-            camera_light = GetWorld()->camera_light;
-            intensity = 0.0f;
-            if (camera_light != 0) {
-                intensity = camera_light->intensity;
-            }
-            intensity += 0.5f;
-            if (CAMERA_LIGHT_MAXIMUM_INTENSITY < intensity) {
-                intensity = CAMERA_LIGHT_MAXIMUM_INTENSITY;
-            }
-            if (camera_light != 0) {
-                camera_light->intensity = intensity;
-            }
-            return;
-        case W8CameraLightMode::Decrease:
-            intensity = camera_light->intensity - 0.5f;
-            if (0.0f < intensity) {
-                camera_light->intensity = intensity;
-                return;
-            }
-            [[fallthrough]];
-        case W8CameraLightMode::Disable:
-            camera_light->visible = false;
-            return;
-        case W8CameraLightMode::Enable:
-            camera_light->visible = true;
-            return;
-        }
+static void ShowDayPhaseLight(Level& level, unsigned int time_of_day)
+{
+    auto& environment = level.primary->environment;
+    if (environment.showLightPhase(time_of_day))
+        ShowLightDirection(level, environment.lightDirection());
+}
+
+void Level::placeSky(unsigned int time_of_day)
+{
+    if (sky) sky->environment.placeSky(time_of_day);
+}
+
+void Level::enterEnvironment(unsigned int time_of_day)
+{
+    if (sky) sky->environment.locateCelestialBodies();
+    primary->environment.showDayPhase(time_of_day);
+    ShowLightDirection(*this, primary->environment.lightDirection());
+}
+
+void Level::showDayPhase(unsigned int time_of_day)
+{
+    ShowDayPhaseLight(*this, time_of_day);
+    primary->environment.showColourPhase(time_of_day);
+}
+
+void Level::showDayNight(unsigned int time_of_day)
+{
+    auto& environment = primary->environment;
+    if (environment.lightingMode() != W8EnvironmentLightingMode::DayNight) return;
+    if (environment.skyEnabled()) ShowDayPhaseLight(*this, time_of_day);
+    environment.showColourPhase(time_of_day);
+}
+
+bool Level::fading() const
+{
+    return primary->environment.fading();
+}
+
+void Level::enableSky(unsigned int time_of_day)
+{
+    auto& environment = primary->environment;
+    if (primary->scene && !environment.fogEnabled()) {
+        environment.enableFog();
+        ShowLightDirection(*this, environment.lightDirection());
     }
+    environment.setSkyEnabled(true);
+    ShowDayPhaseLight(*this, time_of_day);
 }
 
-void SetGameTimeMilliseconds(int value)
+void Level::disableSky()
 {
-    CurrentGame().status.game_time_ms = value;
-    if (GetWorld()) GetWorld()->environment.untaken_time = {};
+    if (!primary) return;
+    primary->environment.disableFog();
+    ShowLightDirection(*this, glm::vec3(0));
+    primary->environment.setSkyEnabled(false);
 }
 
-const char* g_sky_gradient_names[3] = {"SkyGrad0000.ifl", "Skytop0000.ifl", "Horizon0000.ifl"};
-
-/* Level-entry environment setup: locate the level's Sun and Moon props, derive
-   the celestial origin and orbit radius from the distance between them, register
-   the three sky gradient textures, advance the day clock and publish the current
-   day phase's colour and light direction. */
-void InitializeLevelEnvironment(void)
+void Level::showPartyLight(int light)
 {
-    if (!GetWorld()) return;
-    if (GetSecondaryWorld()) {
-        auto& sky = GetSecondaryWorld()->environment;
-        sky.sun = FindPropByName(GetSecondaryWorld(), "Sun");
-        sky.moon = FindPropByName(GetSecondaryWorld(), "Moon");
-        if (sky.orbit_radius < 0.0f) {
-            if (sky.sun == 0 || sky.moon == 0) {
-                sky.sun = 0;
-                sky.moon = 0;
-            } else {
-                glm::vec3 sun;
-                glm::vec3 moon;
+    if (!primary || !primary->camera_light) return;
+    primary->camera_light->visible = light != 0;
+    if (light != 0) primary->camera_light->intensity = light + kEnvironmentNearScale;
+}
 
-                sun = sky.sun->GetLocation();
-                moon = sky.moon->GetLocation();
-                glm::vec3 delta = sun - moon;
-                glm::vec3 midpoint = (sun + moon) * 0.5f;
-                sky.orbit_radius = glm::length(delta) * 0.5f;
-                sky.celestial_origin = midpoint;
-                for (int index = 0; index < 3; ++index) {
-                    const char* name = g_sky_gradient_names[index];
-                    std::shared_ptr<Texture> animation = g_texture_animations.find(name);
-                    sky.gradients[index] = animation;
-                    if (animation != 0) {
-                        animation->playback->animation_mode = W8_TEXTURE_ANIM_MANUAL;
-                    }
-                }
-            }
-        }
+/* The primary world's transition drives both worlds; the shared light scale also
+   brightens monsters, and a faded-out level stops drawing. */
+static void ShowFadeState(W8EnvironmentLightingMode mode)
+{
+    const bool faded_out = mode == W8EnvironmentLightingMode::FadedOut;
+    g_world_render_enabled = !faded_out;
+    g_monster_shadow_updates_enabled = !faded_out;
+    g_world_blacked_out = faded_out;
+}
+
+void Level::beginLightingFade(float duration)
+{
+    auto& environment = primary->environment;
+    if (duration == 0.0f) {
+        environment.beginFade(0.0f);
+        ShowFadeState(environment.lightingMode());
+        g_monster_light_scale = 1.0f;
+        if (sky) sky->environment.fadeTo(1.0f);
+        ShowLightDirection(*this, glm::clamp(environment.lightDirection(), 0.0f, 1.0f));
+        return;
     }
-    AdvanceEnvironmentClock();
-    unsigned int phase = ((CurrentGame().status.game_time_ms / 1000U) << 8) / 86400U;
-    SetWorldEnvironmentColour(GetWorld()->environment.colours[phase]);
-    GetWorld()->environment.light_direction = GetWorld()->environment.light_colours[phase];
-    PublishLightDirection(&GetWorld()->environment.light_colours[phase]);
+    environment.beginFade(duration);
+    if (duration < 0.0f && sky) sky->environment.holdIntensity();
 }
 
-EnvironmentState::EnvironmentState() = default;
-EnvironmentState::~EnvironmentState() = default;
-
-glm::vec3 EnvironmentLightDirection()
+void Level::advanceLightingFade()
 {
-    return GetWorld() ? GetWorld()->environment.light_direction : glm::vec3(1.0f);
-}
-bool IsSkyEnabled()
-{
-    return GetWorld() && GetWorld()->environment.sky_enabled;
-}
-W8EnvironmentLightingMode EnvironmentLightingMode()
-{
-    return GetWorld() ? GetWorld()->environment.lighting_mode : W8EnvironmentLightingMode::DayNight;
+    auto& environment = primary->environment;
+    const auto scale = environment.advanceFade(g_monster_light_scale);
+    if (!scale) return;
+    g_monster_light_scale = *scale;
+    if (sky) sky->environment.fadeTo(*scale);
+    ShowLightDirection(*this, glm::clamp(environment.lightDirection() * *scale, 0.0f, 1.0f));
+    ShowFadeState(environment.lightingMode());
 }

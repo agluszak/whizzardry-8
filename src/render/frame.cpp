@@ -158,7 +158,6 @@ bool InitializeVideoManager(void)
     if (!RestoreVideoManager()) return false;
     SetViewport({0, 0, 0x281, 0x1e1});
     InitializeRenderQuality();
-    InitializeEnvironmentColours();
     EnableAllRenderOptions();
     return InitializeMouseCursorScene();
 }
@@ -167,7 +166,6 @@ void ShutdownVideoManager(void)
 {
     FreeMouseCursor();
     ShutdownVideoScenes();
-    ClearEnvironmentObjects();
     SuspendVideoManager();
     SDL_Window* native_window = ghWindow;
     ReleasePrimarySurface();
@@ -433,13 +431,13 @@ void RenderFrame(void)
         placeWorldCameras(*world, GetSecondaryWorld(),
                           g_camera_shake_active ? g_camera_shake_offset : glm::vec3(0));
     }
-    if (GetWorld() != 0) {
-        if (!IsSkyEnabled()) {
-            GetWorldLightValue(GetWorld(), &clear_color);
+    if (const World* world = GetWorld()) {
+        if (!world->environment.skyEnabled()) {
+            clear_color = world->environment.ambient();
         } else {
             clear_color =
                 // NOLINTNEXTLINE(misc-include-cleaner)
-                glm::clamp(GetWorld()->scene->getFogColor(), 0.0f, 1.0f);
+                glm::clamp(world->scene->getFogColor(), 0.0f, 1.0f);
         }
     }
 
@@ -523,10 +521,9 @@ bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect)
 {
     if (!g_renderer || !g_renderer->isOpen() || !GetWorld() || !target) return false;
     glm::vec3 clear_color{1.0f};
-    if (GetWorld() && GetWorld()->environment.fog_enabled)
-        clear_color = EnvironmentLightDirection();
-    else
-        GetWorldLightValue(GetWorld(), &clear_color);
+    const World& world = *GetWorld();
+    clear_color = world.environment.fogConfigured() ? world.environment.lightDirection()
+                                                    : world.environment.ambient();
     g_renderer->beginFrame(glm::vec4(clear_color, 1.0f));
     const DesignRect bounds = rect ? *rect : g_viewport;
     // A steady view of the party's pose; the frame's shake belongs to the presented frame.
@@ -549,17 +546,6 @@ bool RenderMapToSurface(SDL_Surface& target, const DesignRect& rect)
         g_renderer->context(), frame, vsg::ViewportState::create(area.x, area.y, area.w, area.h),
         g_renderer->frameNumber()));
     return ReadFrameInto(target);
-}
-
-/* Both static scenes take the light direction as their fog colour. */
-void PublishLightDirection(const glm::vec3* direction)
-{
-    if (GetWorld() != 0) {
-        GetWorld()->scene->setFogColor(*direction);
-    }
-    if (GetSecondaryWorld() != 0) {
-        GetSecondaryWorld()->scene->setFogColor(*direction);
-    }
 }
 
 void SetWorldModelPickingEnabled(bool enabled)

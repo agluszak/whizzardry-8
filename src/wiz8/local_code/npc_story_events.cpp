@@ -60,7 +60,7 @@
 #include "wiz8/world/environment.h"
 #include "wiz8/world/world.h"
 
-static void ResolveSedexusCapture(void);
+static void ResolveSedexusCapture(Level& level);
 static void NpcScriptHenchmanArrives(Monster* monster);
 static void NpcScriptHenchmanDeparted(Monster* monster);
 static void NpcScriptSavantHackDone(Monster* monster);
@@ -247,7 +247,9 @@ void UpdateSedexusScene(const ScriptContext& context)
         !CurrentGame().sedexus_scene.release_pending) {
         return;
     }
-    const W8EnvironmentLightingMode environment = EnvironmentLightingMode();
+    const World* world = context.world;
+    const W8EnvironmentLightingMode environment =
+        world ? world->environment.lightingMode() : W8EnvironmentLightingMode::DayNight;
     if (environment != W8EnvironmentLightingMode::FadedOut &&
         environment != W8EnvironmentLightingMode::DayNight) {
         return;
@@ -293,7 +295,7 @@ void BeginSedexusCapture(const ScriptContext& context)
     BeginScriptedWorldAction();
     CurrentGame().sedexus_scene.capture_pending = true;
     CurrentGame().sedexus_scene.capture_active = true;
-    BeginWorldLightingFade(-1000.0f);
+    context.game.level.beginLightingFade(-1000.0f);
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (context.party.members[party_slot].has_value() &&
             (context.party.characters[party_slot].hp_current > 0 ||
@@ -310,7 +312,7 @@ void BeginSedexusCapture(const ScriptContext& context)
    released, the LezboDemonAppeared trigger variable drops, monster 0xd8 is
    spawned on np_al-adryian51 and given proximitytemplar.msf, and the two
    gate triggers fire while the lighting fades back up. */
-static void ResolveSedexusCapture(void)
+static void ResolveSedexusCapture(Level& level)
 {
     W8MonsterGroup* group;
     glm::vec3 position;
@@ -332,7 +334,7 @@ static void ResolveSedexusCapture(void)
     }
     CurrentGame().npc_dialogue.HoldForScene();
     CurrentGame().sedexus_scene.release_pending = true;
-    BeginWorldLightingFade(1000.0f);
+    level.beginLightingFade(1000.0f);
     RunNamedTrigger("al-seduxusgate", -1);
     RunNamedTrigger("templargate14", -1);
 }
@@ -483,7 +485,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         break;
     }
     case W8NpcStoryAction::sedexus_passout:
-        ResolveSedexusCapture();
+        ResolveSedexusCapture(context.game.level);
         break;
     case W8NpcStoryAction::henchman_leaves: {
         EndNpcDialogueSession(false);

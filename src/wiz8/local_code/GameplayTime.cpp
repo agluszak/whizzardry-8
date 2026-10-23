@@ -84,9 +84,9 @@ void ApplyWorldAdvancement(Game& game, WorldHold hold)
     advancement.hold = hold;
     const bool held = advancement.paused || hold.covered || hold.world;
     const bool time_stopped = held || game.combat.has_value();
-    const World* world = GetWorld();
+    const World* world = game.level.primary.get();
     const bool hold_changed = held != advancement.held;
-    const bool time_changed = world != advancement.world || time_stopped == advancement.time_passes;
+    const bool time_changed = world != advancement.world || time_stopped == game.calendar.running();
     advancement.held = held;
     advancement.world = world;
     if (advancement.timer_paused != advancement.paused) {
@@ -95,7 +95,7 @@ void ApplyWorldAdvancement(Game& game, WorldHold hold)
     }
     if (!world) return;
     if (time_changed) {
-        SetEnvironmentTimeEnabled(!time_stopped);
+        game.calendar.setRunning(!time_stopped);
         if (time_stopped) {
             StopAllNavigators();
             ResetLevelDataVectors();
@@ -302,7 +302,7 @@ void UpdateSurpriseMode(void)
         if (UpdateSurpriseFade() != 0) {
             surprise.deadline_turns = CurrentGame().status.world_clock + 0x7080;
             DestroyUngroupedMonsters();
-            SetViewDistance(2880.0f);
+            CurrentGame().calendar.setTimeScale(2880.0f);
             SetNavigatorLinkMode(W8_NAVIGATOR_LINK_MODE_STOPPED);
             level_scale = Data().levels[GetLoadedLevelID()].gameplay_time_scale;
             scale = 1.0f / level_scale;
@@ -315,8 +315,7 @@ void UpdateSurpriseMode(void)
         if (!surprise.unengaged && static_cast<unsigned int>(CurrentGame().status.world_clock) >=
                                        surprise.deadline_turns) {
             ResetSight();
-            UpdateEnvironmentLight();
-            RefreshEnvironment();
+            CurrentGame().calendar.showDayPhase();
             ReverseSurpriseFade();
             surprise.phase = SurprisePhase::fade_out_and_resolve;
             ReleaseMarkedNpcBindings();
@@ -500,7 +499,7 @@ static bool AgePartyEffectSlot(W8EffectSlot* slot, unsigned int minutes)
     }
     ShowNotice(W8_FONT_PALETTE_BEIGE,
                fmt::sprintf(Data().strings[0x1b4], Data().spells[slot->effect_id].display_name));
-    if (GetViewDistance() != g_encounter_culling_rate) {
+    if (CurrentGame().calendar.timeScale() != g_encounter_culling_rate) {
         wiz8::sound::play("Data\\Sound\\Misc\\Spell Expiry.wav");
     }
     ResetPartyEffectBlock(slot);
@@ -970,7 +969,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
         }
         return;
     }
-    if (GetViewDistance() != g_sight_default) {
+    if (CurrentGame().calendar.timeScale() != g_sight_default) {
         return;
     }
     if ((monster.nav.linked_navigator == 0 && !monster.nav.halted) &&

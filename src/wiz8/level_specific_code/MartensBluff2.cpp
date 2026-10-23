@@ -637,7 +637,7 @@ bool MartensBluff2Script::idolGas(int command)
 
     if (command != 0) {
         idol_gas_armed_ = true;
-        BeginWorldLightingFade(-3000.0f);
+        ctx.game.level.beginLightingFade(-3000.0f);
         if (idol_gas_gate_) {
             idol_gas_gate_->Arm();
             return false;
@@ -661,7 +661,7 @@ bool MartensBluff2Script::idolGas(int command)
     if (FindNpcOfKind(0x1e) == 0) {
         idolGasVictim();
     }
-    BeginWorldLightingFade(3000.0f);
+    ctx.game.level.beginLightingFade(3000.0f);
     particle = FindParticleByName("IdolGas");
     if (particle != 0) {
         particle->SetActive(false);

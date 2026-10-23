@@ -119,7 +119,7 @@ struct World {
     Prop* selectedProp() const;
     NativeObject* selectedNativeObject() const;
     std::vector<std::unique_ptr<NativeObject>> native_objects;
-    EnvironmentState environment;
+    Environment environment{*this};
     std::unique_ptr<LevelSpatialIndex> spatial;
     LevelSpatialIndex* compiledIndex() const;
     LevelSpatialIndex* collisionIndex() const;

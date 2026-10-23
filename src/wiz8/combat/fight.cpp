@@ -85,7 +85,6 @@
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_paths.h"
-#include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
 
 constexpr unsigned int kFleeChance = 15;
@@ -155,7 +154,7 @@ bool Game::beginCombat(int surprise)
     if (surprise_possible) {
         ResolveSurpriseHold();
     }
-    if (GetViewDistance() != g_sight_default) {
+    if (calendar.timeScale() != g_sight_default) {
         ResetSight();
     }
     UpdateScreenOverlays(0);
@@ -1541,7 +1540,7 @@ void AdvanceCombatRound(void)
             ++CurrentGame().combat->unengaged_rounds;
         }
     }
-    AdvanceEnvironmentTime(120000);
+    CurrentGame().calendar.advance(120000);
     if (g_camera_sway_active) {
         UpdateCampFatigue(10);
     }

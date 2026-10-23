@@ -266,7 +266,7 @@ void WorldRemoveLight(World* world, Light* light)
 {
     assert(world != 0);
     assert(light != 0);
-    std::erase(world->environment.lights, light);
+    world->environment.removeLight(light);
     // The world owns the light: erasing it from the list destroys it.
     std::erase_if(world->transient_lights,
                   [light](const std::unique_ptr<Light>& owned) { return owned.get() == light; });
@@ -407,7 +407,7 @@ void WorldSetFarClip(World* world, float distance)
     assert(world);
     if (distance > 5.9604644775390625e-008) {
         world->camera->setClipRange(62.5, distance);
-        RefreshFogRanges(*world);
+        world->environment.refreshFogRanges();
     }
 }
 

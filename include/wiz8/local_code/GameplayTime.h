@@ -29,8 +29,6 @@ struct WorldAdvancement {
     WorldHold hold{.covered = true};
     // As last applied: paused or held by the interface, so the world's simulation waits.
     bool held = true;
-    // As last applied: the environment clock runs, as nothing holds the world or fights.
-    bool time_passes = false;
     // The world the environment state was applied to; a new world takes it up again.
     const World* world = nullptr;
     // The pause the move timer was last suspended or resumed for.
