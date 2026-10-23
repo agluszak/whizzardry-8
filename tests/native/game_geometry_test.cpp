@@ -277,16 +277,16 @@ static void camera_and_throw()
     // A world's pose is its party's, with or without a render camera; the render camera
     // never contributes to it.
     World world{};
-    placeParty(world, {1.25f, -2.5f, 3.75f});
-    world.party_camera.SetOrientation(.25f, -.5f);
-    const auto location = cameraLocation(world);
-    const auto state = partyPose(world);
-    const auto rotation = cameraRotation(world);
+    world.party.place({1.25f, -2.5f, 3.75f});
+    world.party.camera.SetOrientation(.25f, -.5f);
+    const auto location = world.party.eye();
+    const auto state = world.party.pose();
+    const auto rotation = world.party.rotation();
     Camera3D node;
     node.transform.setLocation(7, 8, 9);
     world.camera = &node;
     const auto live_location = cameraLocation();
-    const auto with_node = partyPose(world);
+    const auto with_node = world.party.pose();
     partyCamera() = previous_camera;
     REQUIRE(live_location == glm::vec3(3, 4, 5));
     REQUIRE(location == glm::vec3(1.25f, -2.5f, 3.75f));
@@ -295,7 +295,7 @@ static void camera_and_throw()
     REQUIRE((state.orientation.yaw == .25f && state.orientation.pitch == -.5f));
     REQUIRE(state.retail.yaw == wiz8::retail::CameraPoseOpaque{}.yaw);
     REQUIRE(state.retail.pitch == wiz8::retail::CameraPoseOpaque{}.pitch);
-    REQUIRE(rotation == world.party_camera.rotationMatrix());
+    REQUIRE(rotation == world.party.camera.rotationMatrix());
     REQUIRE(rotation != glm::mat3(1));
     camera.SetOrientation(glm::half_pi<float>(), 0);
     glm::vec3 forward;
@@ -1057,7 +1057,8 @@ TEST_CASE("Viewport bounds normalize each edge into an independent value", "[geo
 TEST_CASE("Representation transform queries preserve local and parent coordinates",
           "[geometry][transform]")
 {
-    Monster rep;
+    World owner;
+    Monster rep(owner);
     rep.visual.parent_location = {10, 20, 30};
     const glm::vec3 local(1, 2, 3);
     rep.visual.SetLocation(&local);
@@ -1080,7 +1081,8 @@ TEST_CASE("Representation transform queries preserve local and parent coordinate
 
 TEST_CASE("Navigator owns its replaceable path", "[geometry][navigation]")
 {
-    Navigator navigator;
+    World owner;
+    Navigator navigator(owner);
     auto first = std::optional<KeyframeTrack>(std::in_place);
     navigator.SetPathAI(std::move(first));
     REQUIRE(navigator.GetPathAI() != nullptr);
@@ -1124,7 +1126,8 @@ TEST_CASE("Light copies retain independent animation and path state", "[geometry
 
 TEST_CASE("Movement queries return velocity and waypoint snapshots", "[geometry][navigation]")
 {
-    Navigator navigator;
+    World owner;
+    Navigator navigator(owner);
     navigator.movement.velocity = {1, 2, 3};
     const auto velocity = navigator.GetVelocity();
     navigator.movement.velocity = {4, 5, 6};
@@ -1254,7 +1257,8 @@ TEST_CASE("Monster bounds scale and translate independent optional values", "[ge
 {
     Animation animation;
     animation.frame_bounds = {{true, {-1, -2, -3}, {4, 5, 6}}};
-    Monster monster;
+    World owner;
+    Monster monster(owner);
     monster.visual.active_animation = &animation;
     monster.visual.m_bLOD = 2;
     monster.visual.subcycle = 0;
@@ -1396,7 +1400,8 @@ TEST_CASE("Attached particle orientation follows rotations independently of mode
     model.attachTo(parent);
     parent.transform.setRotation(.2, -.3, .4);
     model.transform.setRotation(-.4, .1, -.2);
-    CyclePlayer cycle;
+    World owner;
+    CyclePlayer cycle(owner);
     cycle.current_model_instance = &model;
     auto& attachment = cycle.particles.emplace_back();
     attachment.position = {1, 2, 3};
@@ -2369,7 +2374,7 @@ TEST_CASE("Native world objects activate through graph identity and game activit
     auto& world = *game.level.primary;
     world.camera = &world.scene->camera;
     world.camera->setClipRange(1, 10);
-    placeParty(world, {0, 0, 0});
+    world.party.place({0, 0, 0});
     game.native_object_file = WIZ8_NATIVE_DEMO_FILE;
     LoadNativeLevelObject(game);
     REQUIRE(world.native_objects.size() == 1);
@@ -2399,9 +2404,9 @@ TEST_CASE("Native world objects activate through graph identity and game activit
     // The render view may move independently; gameplay reach follows the party.
     world.camera->transform.setLocation(0, 0, -6000);
     REQUIRE(world.selectedNativeObject() == &object);
-    placeParty(world, {0, 0, -6000});
+    world.party.place({0, 0, -6000});
     REQUIRE_FALSE(game.activateSelectedNativeObject());
-    placeParty(world, {0, 0, 0});
+    world.party.place({0, 0, 0});
     REQUIRE(game.activateSelectedNativeObject());
     REQUIRE_FALSE(object.illuminated);
     REQUIRE(std::get<TextNotice>(game.events.pending().back()).text == "The prism dims.");
@@ -2415,7 +2420,7 @@ TEST_CASE("Resolved prop picks retain occlusion and the closed-door combat excep
 {
     ScopedGame game;
     World world;
-    placeParty(world, {0, 0, 0});
+    world.party.place({0, 0, 0});
     Trigger trigger(&world);
     trigger.flags = W8_TRIGGER_ENABLED;
     trigger.range_minimum = trigger.range_maximum = 100;

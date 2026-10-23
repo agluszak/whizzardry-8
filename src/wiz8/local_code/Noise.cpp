@@ -16,7 +16,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
+#include "wiz8/world/world.h"
 
 /* Retail Local Code\Noise.cpp. */
 
@@ -89,7 +89,7 @@ void AlertMonsterGroupsToNoise(const glm::vec3* position, int radius, int flag)
 
 void AlertWorldNoise(void)
 {
-    glm::vec3 position = PartyNavigator()->GetPosition();
+    glm::vec3 position = GetWorld()->party.position();
     AlertMonsterGroupsToNoise(&position, 50000, 1);
 }
 
@@ -98,6 +98,6 @@ void AlertCombatNoise(bool large_radius)
     if (CurrentGame().status.world_suspended) {
         return;
     }
-    glm::vec3 position = PartyNavigator()->GetPosition();
+    glm::vec3 position = GetWorld()->party.position();
     AlertMonsterGroupsToNoise(&position, large_radius ? 0x927c : 25000, 0);
 }

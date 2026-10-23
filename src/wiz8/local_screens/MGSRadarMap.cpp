@@ -32,8 +32,8 @@
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/targeting_presentation.h"
+#include "wiz8/world/world.h"
 
 // Six classes with three elevation shades; highlights cycle from dim to bright.
 constexpr std::array<glm::vec3, 18> radar_blip_colors = {{
@@ -151,8 +151,9 @@ void RadarMap::update(const W8TargetingPresentation& presentation)
         frame_->rotation = static_cast<float>((game_.status.party_facing) * -0.017453292519943295);
     }
     detect_all = PartyHasCondition(0x40);
+    const World& world = *game_.level.primary;
 
-    for (const auto& world_item : CurrentLevelPopulation().world_items) {
+    for (const auto& world_item : world.population->world_items) {
         WorldItemEntity* item = world_item->entity.find();
 
         if (item != 0) {
@@ -161,7 +162,7 @@ void RadarMap::update(const W8TargetingPresentation& presentation)
                 const auto bounds = item->GetCachedLocalBounds();
                 center = bounds.center();
                 position += center;
-                party = PartyNavigator()->GetPosition();
+                party = world.party.position();
                 delta = position - party;
                 if ((detect_all || (item->flags & W8_ITEM_ENTITY_RADAR_SEEN) != 0 ||
                      hasCameraLineOfSight(position)) &&
@@ -173,7 +174,7 @@ void RadarMap::update(const W8TargetingPresentation& presentation)
         }
     }
 
-    for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
+    for (const auto& monster_owner : world.population->monster_roster.live()) {
         auto* info = monster_owner.get();
         Monster* monster = info->entity.find();
 
@@ -198,7 +199,7 @@ void RadarMap::update(const W8TargetingPresentation& presentation)
                     }
                     center = bounds->center();
                     position = center + info->party_threat.own_position;
-                    party = PartyNavigator()->GetPosition();
+                    party = world.party.position();
                     delta = position - party;
                     float distance = glm::length(delta);
                     if (distance - monster->nav.radius < outerRadius()) {
@@ -226,7 +227,7 @@ void RadarMap::update(const W8TargetingPresentation& presentation)
                 center = bounds->center();
                 party = monster->nav.GetPosition();
                 position = center + party;
-                party = PartyNavigator()->GetPosition();
+                party = world.party.position();
                 delta = position - party;
                 float distance = glm::length(delta);
                 if (distance - monster->nav.radius < outerRadius()) {
@@ -261,7 +262,7 @@ void RadarMap::update(const W8TargetingPresentation& presentation)
             center = bounds->center();
             party = missile->nav.GetPosition();
             position = center + party;
-            party = PartyNavigator()->GetPosition();
+            party = world.party.position();
             delta = position - party;
             if (glm::length(delta) < outerRadius()) {
                 placeBlip(delta, W8_RADAR_BLIP_MISSILE, false, next_blip++);
@@ -334,7 +335,7 @@ void RadarMap::placeBlip(glm::vec3 delta, W8RadarBlipClass group, bool lit, std:
 void RadarMap::setZoom(bool zoomed)
 {
     zoomed_ = zoomed;
-    party_radius_ = PartyNavigator()->radius;
+    party_radius_ = game_.level.primary->party.radius();
     refresh();
 }
 

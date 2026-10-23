@@ -352,17 +352,17 @@ bool LevelBuildInfoByID(int level, W8LevelInfo* info)
 
 static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLevelStatus* status)
 {
+    World& world = *GetWorld();
     bool first_visit = false;
     StartLevelMusic(1, 1);
-    CurrentGame().status.next_trigger_id = GetWorld()->next_trigger_id;
+    CurrentGame().status.next_trigger_id = world.next_trigger_id;
     UpdateGameDataRuntime();
-    ApplyCameraRotation(&GetWorld()->initial_camera_rotation);
-    GetWorld()->party_camera.applySway(*GetWorld()->camera, GetWorld()->initial_camera_sway
-                                                                ? CameraSwayMode::Start
-                                                                : CameraSwayMode::Stop);
-    if (Light* light = GetWorld()->camera_light) light->visible = false;
+    ApplyCameraRotation(&world.initial_camera_rotation);
+    world.party.camera.applySway(*world.camera, world.initial_camera_sway ? CameraSwayMode::Start
+                                                                          : CameraSwayMode::Stop);
+    if (Light* light = world.camera_light) light->visible = false;
     ResetAutomapView();
-    BeginRestoredLevelActivity(*GetWorld(), status);
+    BeginRestoredLevelActivity(world, status);
 
     if (!restoring_game && entrance != -1) {
         Trigger* trigger = 0;
@@ -382,7 +382,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             if (fabs(position.y - trigger_position.y) > g_position_height_epsilon) {
                 position.y = trigger_position.y;
             }
-            placeParty(*GetWorld(), position);
+            world.party.place(position);
 
             if (trigger->trigger_kind == W8TriggerKind::prop) {
                 glm::vec3 axis;
@@ -401,10 +401,10 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             glm::vec3 position;
 
             position = glm::vec3(0.0f, g_default_world_height, 0.0f);
-            placeParty(*GetWorld(), position);
+            world.party.place(position);
         }
     } else {
-        restorePartyPose(*GetWorld(), CurrentGame().status.pending_move_location);
+        world.party.restore(CurrentGame().status.pending_move_location);
     }
 
     if (level < W8_LEVEL_COUNT && !CurrentGame().status.level_progress[level].visited) {
@@ -414,13 +414,12 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
         first_visit = true;
     }
 
-    StartAmbientSoundList(*GetWorld());
+    StartAmbientSoundList(world);
     if (!g_environment_load_flag) {
         ResetCurrentEnvironment();
     }
     g_camera_path_active = false;
     CurrentGame().calendar.enterLevel();
-    World& world = *GetWorld();
     world.script = MakeLevelScript(level, MakeScriptContext(CurrentGame()));
     world.script->enter();
     LoadNativeLevelObject(CurrentGame());
@@ -560,10 +559,10 @@ void LeaveLevel()
 bool ReloadLevelPreservingCamera(int level, int entrance)
 {
     std::optional<CameraPose> saved;
-    if (entrance == -1 && level == GetLoadedLevelID()) saved = partyPose(*GetWorld());
+    if (entrance == -1 && level == GetLoadedLevelID()) saved = GetWorld()->party.pose();
     if (LoadLevel(level, entrance, false) == 0) {
         return false;
     }
-    if (saved) restorePartyPose(*GetWorld(), *saved);
+    if (saved) GetWorld()->party.restore(*saved);
     return true;
 }
