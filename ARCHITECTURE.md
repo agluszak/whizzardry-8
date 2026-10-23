@@ -239,6 +239,10 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
 
 ## The game
 
+- **Session ownership.** `GameSession` keeps the current game in a `unique_ptr`.
+  Beginning a game constructs its basic owners before ending the outgoing game;
+  installation preserves the new object's address. Saved-level resource preparation
+  is not yet independent of the current game (see "Worlds and levels").
 - **Randomness.** All gameplay draws come from `Game::rng`, retail's MSVC
   `rand()` sequence (`rules/random.h`), in retail order. A session draws one
   sequence from one seed: each game continues the stream of the one before it

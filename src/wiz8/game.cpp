@@ -71,12 +71,15 @@ GameSession::~GameSession()
 
 Game& GameSession::begin()
 {
+    // Allocate the next owner before departure. Its address remains stable when
+    // published, and failure to construct it leaves the outgoing game intact.
+    auto candidate = std::make_unique<Game>(data_);
+    candidate->native_object_file = native_object_file;
     end();
-    auto& game = game_.emplace(data_);
-    game.rng = next_stream_;
-    game.native_object_file = native_object_file;
-    game.events.observe(observer_);
-    return game;
+    candidate->rng = next_stream_;
+    game_ = std::move(candidate);
+    game_->events.observe(observer_);
+    return *game_;
 }
 
 void GameSession::load(SavedGame saved, std::function_ref<void()> release_presentation)

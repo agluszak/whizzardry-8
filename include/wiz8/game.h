@@ -211,7 +211,7 @@ public:
     GameSession& operator=(const GameSession&) = delete;
 
     // The game in progress, or null.
-    Game* game() { return game_ ? &*game_ : nullptr; }
+    Game* game() { return game_.get(); }
     std::filesystem::path native_object_file;
     /* Begin a new game, ending any in progress. It continues the previous game's random
        stream, and its events go to the observer. */
@@ -235,7 +235,7 @@ private:
     // Release the game in progress without leaving its level.
     void discard();
     const GameData& data_;
-    std::optional<Game> game_;
+    std::unique_ptr<Game> game_;
     Rng next_stream_;
     std::function<void(const Event&)> observer_;
 };
