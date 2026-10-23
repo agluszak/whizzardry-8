@@ -14,6 +14,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/script_context.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 namespace {
@@ -34,6 +35,12 @@ std::unique_ptr<World> Level::replacePrimary(std::unique_ptr<World> world)
 {
     if (world) world->simulation = &CombatEntitySignals();
     return std::exchange(primary, std::move(world));
+}
+
+World& Level::loaded() const
+{
+    if (!primary) throw std::logic_error("a level screen was requested with no level loaded");
+    return *primary;
 }
 
 std::unique_ptr<World> Level::replaceSky(std::unique_ptr<World> world)
@@ -57,9 +64,10 @@ GameSession::GameSession(const GameData& data)
     current_session = this;
 }
 
+// Destruction discards the game without departure bookkeeping; callers end it explicitly.
 GameSession::~GameSession()
 {
-    end();
+    discard();
     current_session = nullptr;
 }
 
@@ -74,6 +82,15 @@ Game& GameSession::begin()
 }
 
 void GameSession::end()
+{
+    if (!game_) return;
+    // Finish character voices while their game and world are still current.
+    game_->speech.DestroyAllEvents();
+    LeaveLevel();
+    discard();
+}
+
+void GameSession::discard()
 {
     if (!game_) return;
     next_stream_ = game_->rng;

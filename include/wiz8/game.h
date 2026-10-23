@@ -2,11 +2,9 @@
 
 #include <array>
 #include <chrono>
-#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <functional>
-#include <map>
 #include <memory>
 #include <optional>
 #include <vector>
@@ -18,6 +16,7 @@
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/level_state.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -51,6 +50,8 @@ struct Level {
 
     std::unique_ptr<World> replacePrimary(std::unique_ptr<World> world);
     std::unique_ptr<World> replaceSky(std::unique_ptr<World> world);
+    // The loaded level; a screen that shows it is built only while one is loaded.
+    World& loaded() const;
 
     std::unique_ptr<World> primary;
     std::unique_ptr<World> sky;
@@ -192,10 +193,9 @@ public:
     // What happened, in order, for the UI to present.
     Events events;
     Search search{combat, events, level};
-    /* The saved state of each level the party has left (or a load brought), kept undecoded:
-       its LVLS group as a RIFF image of its own. Leaving a level stores its group here,
-       entering one reads it back, and a save writes them beside the current level's. */
-    std::map<int, std::vector<std::byte>> left_levels;
+    /* Leaving a level stores its state here, entering one reads it back, and a save writes
+       them beside the current level's. */
+    LeftLevels left_levels;
     /* Last, so its worlds are destroyed first, while combat and speech still exist.
        The main game leaves the level when it is discarded, before a game that ends in
        play is destroyed; destroying a world does no departure bookkeeping. */
@@ -220,7 +220,8 @@ public:
     /* Begin a new game, ending any in progress. It continues the previous game's random
        stream, and its events go to the observer. */
     Game& begin();
-    // End the game in progress, if any; the next game continues its random stream.
+    /* End the game in progress, if any, leaving its level (departure bookkeeping); the next
+       game continues its random stream. */
     void end();
     /* Seed the random stream of the game in progress, or of the next game when none is.
        The stream starts from the clock. */
@@ -230,6 +231,8 @@ public:
     void observe(std::function<void(const Event&)> observer);
 
 private:
+    // Release the game in progress without leaving its level.
+    void discard();
     const GameData& data_;
     std::optional<Game> game_;
     Rng next_stream_;

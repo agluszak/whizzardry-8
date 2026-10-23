@@ -191,11 +191,10 @@ the licensed runtime scenarios after every step.
      most in `MainGameScreen.cpp` and `MGSTextBox.cpp`) reach the HUD through
      `MainGameHud()`, including to mark repaint parts; they should receive it from the
      screen, as its members or as parameters, and `MainGameHud()` then goes. Outside
-     the screens three readers remain: `Targeting.cpp` reads whether a main game exists,
-     and `SelectCombatAction` reads the spell and item drafts the screens own;
+     the screens two readers remain: `Targeting.cpp` reads whether a main game exists,
+     and `SelectCombatAction` reads the spell and item drafts the screens own; and
      `QuoteManager.cpp`'s portrait bubbles read the review transition and pending
-     portrait refreshes; and `PartyCamera::ComputeTrackingOrientation` reads the
-     viewport mode, which the screen should hand the camera when it changes.
+     portrait refreshes.
    - The main game, camp and character screens are built with their game and use it in
      their members, but their free helpers (most of `local_screens`) still reach it and
      the HUD globally. Finish one whole flow first, the main game's HUD and dialogue:
@@ -209,20 +208,21 @@ the licensed runtime scenarios after every step.
      (`AutoAdvanceSelectedCharacter`, which asks whether a target is being picked) still
      reach it through `ScreenPointer()`. They should receive it with
      the HUD, and the accessor then goes.
+   - The main game owns the spell and item pickers (`spell_picker`, `item_picker`) and
+     opens, closes and dismisses them. About 35 free functions still ask
+     `SpellPicker()`/`UseItemPicker()` whether one is open, or reach the screen through
+     `MainGame()->openSpellPicker(…)`. These are the world, portrait, monster-list and
+     combat-slot input handlers, the keyboard dispatch (`DispatchMGSCommand`,
+     `TryMGSActionKey`), the submenu buttons, the text box module, the lock/trap
+     interactions and the NPC services. Game code calls the screen as well:
+     `FallbackFromUnreachableAction` from `Magic.cpp`, `SelectPartyCharacter`,
+     `MainGameScreen::dismissOverlays` and `AutoAdvanceSelectedCharacter` from combat, `IsScreenIdle`
+     from `GameplayTime.cpp`, `EditedDraft` from `Targeting.cpp`, and `StartBreathCycle`.
+     Each group should become members of its owner, or take the screen's state as events
+     or `advance` inputs. Delete both accessors when the last caller goes.
    - The HUD panels below `ApplyMainGameRepaint` (portraits and their bars, the text box,
      submenu, formation board, monster list, radar) still read the HUD, the game and
      module state themselves; give each the values it draws.
-   - Painting still updates: the main game's frame now updates its facing, targeting
-     presentation, radar blips, text-box request and repaint dependencies before
-     `DrawMainGameScreen` (`UpdateMainGamePresentation`). Vitals panels have one
-     screen-owned invalidation and publish their complete bounds; portrait bounds
-     no longer have a second dispatch table. The draw still refreshes the portrait,
-     condition, submenu and HUD buttons, which repaint as they change. Make the frame
-     "update presentation state, paint the 640×480 canvas, commit it".
-     Once painting is free of updates, try a full paint or coarse per-panel
-     invalidation, and keep `MainGameRepaint`'s remaining finer invalidation
-     (a separate pass mapping bottom panels to rectangles, per-panel shadow state) only
-     where it earns its complexity.
    - Game code still calls presentation for the
      combat panel (`RequestRefreshPartyState` in `Combat Hostility.cpp`,
      `MonsterManager.cpp`, `world.cpp` and `entities/cursor.cpp`, which the existing
@@ -296,20 +296,8 @@ the licensed runtime scenarios after every step.
      belongs in `rules`, taking the party.
 8. **Saves over values.** Every game section (GSTA, TEXT, TVAR, NPCI, NPCT, NPCF, FATA,
    JRNL, HYPN, CHAR) and the STAT record are codecs over values (`save_codec.h`;
-   ARCHITECTURE.md, "Saves"), and the game owns its stored characters. What remains:
-   - A level's LVLS group (MONS, ITEM, AUTO, TRIG, APST, CUBS, MGNS, LCKS, AMBS, PART,
-     LGHT) decodes into a `LevelState` without the level's world (`LoadSaveGame.cpp`), but
-     decoding is not yet pure: an encounter generator draws its jittered interval from the
-     game's random stream as it is read (`MonGen::Reset`), so a load cannot decode the
-     groups before the game exists without changing the stream. Draw it when the level is
-     entered instead, then decode every group with the rest of the save. The other
-     direction remains too: `SaveStatusHeader` writes the sections from live objects. Capture a
-     `LevelState` from the world and encode it, so leaving a level and saving go through
-     the value; then the game can hold `LevelState`s for the levels it has left instead
-     of their bytes (`Game::left_levels`), keeping the groups of levels it never decoded
-     intact, and the world can be built from its level's assets and that value alone.
-     The encoder has to reproduce the retail records byte for byte, so it needs retail
-     saves to check against (see "Needs research").
+   ARCHITECTURE.md, "Saves"), a level's LVLS group is a `LevelState` (`level_state.h`),
+   and the game owns its stored characters. What remains:
    - `GameStatus` still has retail-era names (`uiTurnsElapsed`, `status_ints`) and holds
      interface state (`text_line_cursor`, `selected_party_member`, `world_cursor_gate`).
      Split it by owner.

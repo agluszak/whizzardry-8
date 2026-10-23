@@ -214,8 +214,8 @@ void W8CampItemsPage::OpenSplitStackDialog(W8ItemLocation location)
 // FUNCTION: WIZ8 0x005BA4F0
 void W8CampItemsPage::UseCampItem(W8ItemLocation location)
 {
-    const auto* item = camp.game.inventory.itemAt(location);
-    if (ValidateItemSpellUse(PartySlot(), item, 0)) {
+    auto* item = camp.game.inventory.itemAt(location);
+    if (ValidateItemSpellUse(PartySlot(), item, 0, false)) {
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
         return;
     }

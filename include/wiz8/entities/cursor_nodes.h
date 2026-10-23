@@ -33,8 +33,6 @@ std::unique_ptr<W8WorldCursorNode> CreateWorldCursorCube();
 /* Answer the next table node after `after` whose world-space bounds contain
    `point`; a null `after` starts the walk at the head of the table. */
 W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, glm::vec3* point);
-void SaveWorldCursorNodeStates(wiz8::File& handle);
-void SaveWorldCursorNodes(wiz8::File& handle);
 struct W8SavedCursorNode {
     std::array<char, 32> name{};
     std::array<int, 3> parameters{};
@@ -46,6 +44,18 @@ struct W8SavedCursorNodes {
     int next_serial = 100;
     std::vector<W8SavedCursorNode> nodes;
 };
+/* The saved bytes of a level's cursor nodes (CUBS), matched to the nodes by name or, in
+   version 1, by position. */
+struct W8SavedCursorNodeStates {
+    struct Entry {
+        std::array<char, 32> name{};
+        std::vector<std::byte> userdata;
+    };
+    std::int32_t version = 2;
+    std::vector<Entry> entries;
+};
 W8SavedCursorNodes ReadWorldCursorNodes(W8Chunk& file);
-void ReadWorldCursorNodeStates(W8Chunk& file, W8SavedCursorNodes& nodes);
+W8SavedCursorNodeStates ReadWorldCursorNodeStates(W8Chunk& file);
+void WriteWorldCursorNodeStates(wiz8::File& handle, const W8SavedCursorNodeStates& states);
+void ApplyWorldCursorNodeStates(W8SavedCursorNodes& nodes, W8SavedCursorNodeStates states);
 void BuildWorldCursorNodes(World& world, W8SavedCursorNodes nodes);

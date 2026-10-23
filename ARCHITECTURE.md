@@ -286,6 +286,11 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   published; entry then starts clocks, music, dialogue and first-visit effects.
 - Departure ends combat and captures script state into location variables before
   resources are released. Destruction does no departure bookkeeping.
+- Loading a save decodes every section, each level group included, before the game
+  in progress or its screens are released, into a plain `SavedGame` (`ReadSavedGame`)
+  that `SavedGame::install` writes into the game it begins; a rejected save resumes
+  that game. If the resume level then fails to build, the new game ends and the menu
+  shows the error.
 - Monster and world-item records link to their scene entity through an
   `EntityLink`. An inactive record may have none. Anything that keeps an actor
   past the current call keeps its id and looks it up again when used.
@@ -311,7 +316,8 @@ code has a subclass whose members are that state. Trigger callbacks are
   drawable subgraph; its model owns shared topology and materials. Poses are
   sampled on the CPU once per frame and shared by every view, picking and
   attachments. The automap is a separate view of the same scene that changes no
-  gameplay state.
+  gameplay state. Its cells, notes and last view are the level's `World::automap`;
+  `AutomapScreen` is rebuilt with that world on every visit.
 - Wizardry lighting, fog and material operations run in GLSL shaders compiled to
   SPIR-V. VSG uses Vulkan (MoltenVK on macOS).
 - `endFrame` waits for submitted work: graph mutations and object destruction
@@ -333,11 +339,24 @@ code has a subclass whose members are that state. Trigger callbacks are
   640×480 design space. A `UiTransaction` spans one input step; objects retired
   during it are destroyed when the outermost transaction ends
   (`DestroyAfterUiDispatch`), so nothing is freed while its own callback runs.
+  In the main game, `MainGameScreen::refreshLayout` decides one `MainGameLayout`
+  (shown mode, panels, world viewport) from the open interaction and the player's
+  preferences and changes only the panels that differ; an interaction overrides
+  the layout, never the preference.
+  Spell and item pickers own private controls and drafts; the screen commits a copied
+  choice inside the same retirement boundary. Explicit completion returns to the opener;
+  replacement and screen/combat teardown abandon it. Dismissal also retires the picker's
+  modal so an old confirmation or cursor-restoration callback cannot affect a replacement.
+  Camp suspension keeps the dormant parent interaction; replacement, combat and screen
+  discard release it. Item rows and their detail selection store inventory locations,
+  not duplicate item pointers.
 - **Controls and painting.** Controls paint into an explicit `SDL_Surface&`.
   `Draw` never commits; `Refresh` commits a dirty rectangle. Screens record which
-  parts the next draw repaints. One `Pointer`, owned by the router, holds the cursor
-  and the targeting request. The notebook view derives its rows from
-  `Game::story.keywords`; information dialogs own separate append-only paragraphs.
+  parts the next draw repaints; the main game's `MainGameRepaint` record is resolved
+  by `MainGameScreen::updatePresentation` before `MainGameScreen::draw` paints. One
+  `Pointer`, owned by the router, holds the cursor and the targeting request. The
+  notebook view derives its rows from `Game::story.keywords`; information dialogs
+  own separate append-only paragraphs.
 
 ## Tests
 

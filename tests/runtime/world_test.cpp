@@ -270,13 +270,13 @@ void InventoryChestScenario()
     game.click("use-potion", kCampBackpackCells[1]);
     game.wait_screen("use-potion-return", W8_SCREEN_MAIN_GAME);
     const bool healed = game.within_frames(600, [&] { return caster.hp_current > 1; });
-    CAPTURE(ItemUseDraft(), ScreenPointer().targeting(), CurrentGame().inventory.held(),
+    CAPTURE(UseItemPicker(), ScreenPointer().targeting(), CurrentGame().inventory.held(),
             potion.stack_count, CurrentGame().party.rows[slot].executing.kind);
     Snapshot("potion-use", game.read_frame());
     REQUIRE(healed);
     REQUIRE(potion.iItemNo == healing_potion);
     REQUIRE(potion.stack_count == 1);
-    REQUIRE_FALSE(ItemUseDraft());
+    REQUIRE_FALSE(UseItemPicker());
     Walk(game, "walk-after-inventory", 5);
     const auto start = PartyPosition();
     game.hold_key(SDLK_DOWN, true);
@@ -518,30 +518,87 @@ void CheckGameplayUi(GameHarness& game)
     const auto realm = Data().spells[W8_SPELL_LIGHT].realm;
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
     CurrentGame().advancement.paused = true;
-    REQUIRE(OpenSpellCastingView(slot));
+    int returns = 0;
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
     game.frame();
-    const auto realm_bounds = gpSCSV->realm_buttons[realm]->Bounds();
+    constexpr SDL_Point realm_buttons[] = {{0x35, 0x173}, {0x88, 0x173}, {0x29, 0x189},
+                                           {0x94, 0x189}, {0x35, 0x19f}, {0x88, 0x19f}};
+    const auto realm_button = realm_buttons[realm];
     game.move_pointer(0, 200);
     VideoRemoveToolTip();
-    game.move_pointer(realm_bounds.x + 5, realm_bounds.y + 5);
+    game.move_pointer(realm_button.x + 5, realm_button.y + 5);
     ResetUiHelp(false);
     REQUIRE(HasScreenTransitionObjects());
-    game.click("realm", *gpSCSV->realm_buttons[realm]);
-    REQUIRE(gpSCSV->iSpellRealm == realm);
-    REQUIRE(gpSCSV->spells.size() == 1);
+    game.click("realm", SDL_Point{realm_button.x + 5, realm_button.y + 5});
     game.click("choose-spell", kSpellListFirstRow);
-    REQUIRE(gpSCSV->draft.detail == W8_SPELL_LIGHT);
-    game.click("power-pip", *gpSCSV->power_controls[1]);
-    if (gpSCSV) {
-        REQUIRE(gpSCSV->draft.detail_block.spell.power_level == 2);
-        game.click("cancel-cast", *gpSCSV->cancel);
-        REQUIRE(!gpSCSV);
+    REQUIRE(SpellPicker()->action().detail == W8_SPELL_LIGHT);
+    game.click("power-pip", SDL_Point{0x1f4, 0x172});
+    if (SpellPicker()) {
+        REQUIRE(SpellPicker()->action().detail_block.spell.power_level == 2);
+        game.click("cancel-cast", SDL_Point{0x23f, 0x171});
+        REQUIRE(!SpellPicker());
     } else {
         // Target-free spells may commit in the same frame as power selection.
         REQUIRE(CurrentGame().party.rows[slot].remembered.spell.detail == W8_SPELL_LIGHT);
         REQUIRE(CurrentGame().party.rows[slot].remembered.spell.detail_block.spell.power_level ==
                 2);
     }
+    // Committing or cancelling returns to the opener once; abandoning never does.
+    REQUIRE(returns == 1);
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
+    MainGame()->dismissSpellPicker();
+    REQUIRE_FALSE(SpellPicker());
+    REQUIRE(returns == 1);
+    // Replacement abandons the old return; it must not reopen a suspended interaction.
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
+    REQUIRE(MainGame()->openItemPicker(slot, [&] { ++returns; }));
+    REQUIRE_FALSE(SpellPicker());
+    REQUIRE(UseItemPicker());
+    REQUIRE(returns == 1);
+    MainGame()->closeItemPicker();
+    REQUIRE(returns == 2);
+    // Combat/screen transitions discard the return rather than resuming its opener.
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
+    MainGame()->dismissOverlays(false);
+    REQUIRE_FALSE(SpellPicker());
+    REQUIRE(returns == 2);
+    // A pending confirmation belongs to the picker being replaced, not its successor.
+    LearnSpell(&character, W8_SPELL_SET_PORTAL, false);
+    const auto portal_realm = Data().spells[W8_SPELL_SET_PORTAL].realm;
+    character.sp_max[portal_realm] = character.iSPLeft[portal_realm] = 100;
+    character.has_saved_location = true;
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
+    SpellPicker()->SelectSpell(W8_SPELL_SET_PORTAL);
+    REQUIRE(SpellPicker()->action().detail == W8_SPELL_SET_PORTAL);
+    game.frame();
+    REQUIRE(IsModalOpen());
+    REQUIRE(MainGame()->openItemPicker(slot, [&] { ++returns; }));
+    REQUIRE_FALSE(IsModalOpen());
+    REQUIRE(UseItemPicker());
+    REQUIRE(UseItemPicker()->action().kind == W8_ACTION_USE_ITEM);
+    REQUIRE(returns == 2);
+    MainGame()->closeItemPicker();
+    REQUIRE(returns == 3);
+    // Keep a new detour's parent, but do not strand it when that picker is replaced.
+    Trigger trigger;
+    REQUIRE(OpenLockInteraction(&trigger) == 1);
+    auto* lock = MainGame()->lock_interaction.get();
+    REQUIRE(lock);
+    EndLockInteractMode(true);
+    REQUIRE(MainGame()->openItemPicker(slot));
+    REQUIRE(MainGame()->lock_interaction.get() == lock);
+    REQUIRE_FALSE(IsLockInteractionActive());
+    REQUIRE(MainGame()->openSpellPicker(slot));
+    REQUIRE_FALSE(MainGame()->lock_interaction);
+    MainGame()->dismissSpellPicker();
+    REQUIRE(OpenLockInteraction(&trigger) == 1);
+    REQUIRE(IsLockInteractionActive());
+    lock = MainGame()->lock_interaction.get();
+    MainGame()->dismissOverlays(true);
+    REQUIRE(MainGame()->lock_interaction.get() == lock);
+    REQUIRE_FALSE(IsLockInteractionActive());
+    MainGame()->dismissOverlays(false);
+    REQUIRE_FALSE(MainGame()->lock_interaction);
     REQUIRE(CurrentGame().advancement.paused);
     REQUIRE(CurrentGame().advancement.held);
     ToggleMainGamePause();
@@ -591,28 +648,31 @@ void ResourceLifecycleScenario()
     REQUIRE(GetWorld()->native_objects.size() == 1);
     // Exercise the retail scene and UI before the imported-object interaction.
     GetWorld()->native_objects.clear();
-    // Radar redraws replace artwork without leaking overlays, and hiding its
-    // screen-owned value removes the backdrop and every retained blip together.
-    const bool radar_was_visible = bool(MainGame()->radar_map);
-    MainGame()->setRadarVisible(false);
+    // Radar redraws replace artwork without leaking overlays, and dropping it from
+    // the layout removes the backdrop and every retained blip together.
+    auto& screen = *MainGame();
+    const auto preferred = g_settings.main_ui_mode;
+    screen.setPreferredMode(W8_MAIN_UI_MODE_PORTRAITS);
+    screen.closeOverlays();
     const auto overlay_counts = [] {
         return std::array{g_compositor.layerGroup(OverlayLayer::OverUi).children.size(),
                           g_compositor.layerGroup(OverlayLayer::SquareAspect).children.size()};
     };
     const auto without_radar = overlay_counts();
-    MainGame()->setRadarVisible(true);
-    MainGame()->radar_map->captureBackdrop();
+    screen.refreshLayout();
+    REQUIRE(screen.radar_map);
+    screen.radar_map->captureBackdrop();
     const auto with_radar = overlay_counts();
     REQUIRE(with_radar[0] > without_radar[0]);
     REQUIRE(with_radar[1] > without_radar[1]);
     for (int refresh = 0; refresh < 2; ++refresh) {
-        MainGame()->radar_map->refresh();
-        MainGame()->radar_map->captureBackdrop();
+        screen.radar_map->refresh();
+        screen.radar_map->captureBackdrop();
         REQUIRE(overlay_counts() == with_radar);
     }
-    MainGame()->setRadarVisible(false);
+    screen.closeOverlays();
     REQUIRE(overlay_counts() == without_radar);
-    if (radar_was_visible) MainGame()->setRadarVisible(true);
+    screen.setPreferredMode(preferred);
     REQUIRE(g_renderer);
     REQUIRE(g_renderer->isOpen());
     int original_width = 0, original_height = 0;
@@ -698,17 +758,19 @@ void ResourceLifecycleScenario()
     for (int visit = 0; visit != 2; ++visit) {
         game.command(W8_MGS_COMMAND_AUTOMAP);
         game.wait_screen("automap-buttons", W8_SCREEN_AUTOMAP);
-        REQUIRE(g_automap_buttons);
-        for (int index = 0; index != 16; ++index) {
-            REQUIRE(g_automap_buttons->buttons[index]);
-            REQUIRE(g_automap_buttons->buttons[index]->Bounds().w > 0);
-            REQUIRE(g_automap_buttons->buttons[index]->Bounds().h > 0);
-            g_automap_buttons->buttons[index]->m_dirty = true;
-            g_automap_buttons->buttons[index]->Draw(GetFrameBufferSurface());
+        const auto* automap = FindScreen<AutomapScreen>();
+        REQUIRE(automap);
+        REQUIRE(automap->buttons());
+        for (const auto& button : automap->buttons()->buttons) {
+            REQUIRE(button);
+            REQUIRE(button->Bounds().w > 0);
+            REQUIRE(button->Bounds().h > 0);
+            button->m_dirty = true;
+            button->Draw(GetFrameBufferSurface());
         }
         game.key(SDLK_ESCAPE);
         game.wait_screen("automap-buttons-released", W8_SCREEN_MAIN_GAME);
-        REQUIRE(!g_automap_buttons);
+        REQUIRE(!FindScreen<AutomapScreen>());
     }
     game.command(W8_MGS_COMMAND_OPTIONS);
     game.wait_screen("options-menu", W8_SCREEN_OPTIONS);

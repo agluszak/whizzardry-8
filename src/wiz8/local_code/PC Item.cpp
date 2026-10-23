@@ -860,7 +860,7 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
 /* Validate an item's embedded spell for use now; nonzero reports use blocked
    with the reason notice queued through the callback. */
 bool ValidateItemSpellUse(int character_index, const W8ItemInstance* item,
-                          std::function<void(bool)> callback)
+                          std::function<void(bool)> callback, bool needs_target)
 {
     const W8ItemDatabaseRecord* record = &Data().items[item->iItemNo];
     W8Character* character = &CurrentGame().party.characters[character_index];
@@ -879,12 +879,10 @@ bool ValidateItemSpellUse(int character_index, const W8ItemInstance* item,
         ShowNoticeLine(Data().strings[0x7a7], callback, true, false);
         return true;
     }
-    if (ItemUseDraft()) {
-        if (!SpellHasAnyValidTarget(character_index, record->spell_id,
-                                    ItemClassNormalizesTarget(record))) {
-            ShowNoticeLine(Data().strings[0x7a8], callback, true, false);
-            return true;
-        }
+    if (needs_target && !SpellHasAnyValidTarget(character_index, record->spell_id,
+                                                ItemClassNormalizesTarget(record))) {
+        ShowNoticeLine(Data().strings[0x7a8], callback, true, false);
+        return true;
     }
     if (!SpellUsableNow(record->spell_id, false)) {
         ShowNoticeLine(Data().strings[0x7a6], callback, true, false);

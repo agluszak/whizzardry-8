@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <ios>
 #include <istream>
 #include <limits>
 #include <memory>
@@ -22,6 +23,7 @@
 
 #include "harness.h"
 #include "wiz8/asset_paths.h"
+#include "wiz8/chunk.h"
 #include "wiz8/data/records.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
@@ -77,6 +79,34 @@ void QuickSaveScenario()
        the world before its selection state is reset; a fresh level block must
        not name item 0 as the selected world item. */
     game.move_pointer(320, 180);
+
+    // Reject a malformed save through the loading screen while the fight is suspended.
+    const auto saved_bytes = wiz8::open_file(save)->read_text();
+    auto* running = &CurrentGame();
+    auto* world = running->level.primary.get();
+    std::ofstream(save, std::ios::binary).write("bad", 3);
+    game.command(W8_MGS_COMMAND_QUICK_LOAD);
+    game.wait_screen("rejected-load", W8_SCREEN_MAIN_GAME);
+    REQUIRE(&CurrentGame() == running);
+    REQUIRE(CurrentGame().level.primary.get() == world);
+    REQUIRE(CurrentGame().combat.has_value());
+    // A valid RIFF with a truncated nested generator section must fail before departure too.
+    W8Chunk malformed;
+    REQUIRE(malformed.OpenWrite(save));
+    malformed.WriteGroup(W8ChunkId("LVLS"), [&] {
+        malformed.WriteValue(level);
+        malformed.WriteChunk(W8ChunkId("MGNS"), [&] { malformed.WriteValue(2); });
+    });
+    malformed.Close();
+    game.command(W8_MGS_COMMAND_QUICK_LOAD);
+    game.wait_screen("rejected-level-state", W8_SCREEN_MAIN_GAME);
+    REQUIRE(g_logged_errors.size() == 1);
+    REQUIRE(g_logged_errors.back() == "Cannot load save Quick 1: read past RIFF chunk");
+    g_logged_errors.pop_back(); // Consume only the diagnostic required by this rejection.
+    REQUIRE(&CurrentGame() == running);
+    REQUIRE(CurrentGame().level.primary.get() == world);
+    REQUIRE(CurrentGame().combat.has_value());
+    std::ofstream(save, std::ios::binary).write(saved_bytes.data(), saved_bytes.size());
 
     QuickLoad(game);
     ExpectAt("quick-load", anchor);

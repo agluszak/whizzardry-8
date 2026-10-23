@@ -488,7 +488,7 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
 
     RecalculateCharacterDerivedStats(CurrentGame(), *destination);
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-        RefreshPartySlotRegions();
+        MainGame()->refreshPartySlotRegions();
     }
     return slot;
 }
@@ -520,7 +520,7 @@ void RemoveCharacterFromParty(int party_slot)
     if (member) CurrentGame().party.order_slots[member->order_index] = -1;
     member.reset();
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-        RefreshPartySlotRegions();
+        MainGame()->refreshPartySlotRegions();
     }
     if (CurrentGame().status.selected_character == party_slot) {
         CurrentGame().status.selected_character = GetNextCharacter(1, 1, -1);
@@ -572,7 +572,7 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
         AddCharacterStartingEquipment(CurrentGame(), character);
     }
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-        RefreshPartySlotRegions();
+        MainGame()->refreshPartySlotRegions();
     }
     return slot;
 }

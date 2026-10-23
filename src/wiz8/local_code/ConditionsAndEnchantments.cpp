@@ -157,39 +157,6 @@ void NormalizeItemQuantityKind(W8ItemInstance* item)
     }
 }
 
-/* The load tail: drop equipment the loaded character can no longer wear, then
-   normalize the quantity byte on every worn and packed item and on the shared
-   party pool. */
-void SanitizeLoadedItems(void)
-{
-    unsigned int slot;
-    unsigned int index;
-    W8Character* character;
-
-    SettleActiveParty(CurrentGame());
-    for (slot = 0; slot < 8; ++slot) {
-        if (!CurrentGame().party.members[slot].has_value()) {
-            continue;
-        }
-        character = &CurrentGame().party.characters[slot];
-        for (index = 0; index < 12; ++index) {
-            if (character->EquippedItem[index].iItemNo != -1) {
-                NormalizeItemQuantityKind(&character->EquippedItem[index]);
-            }
-        }
-        for (index = 0; index < 8; ++index) {
-            if (character->backpack[index].iItemNo != -1) {
-                NormalizeItemQuantityKind(&character->backpack[index]);
-            }
-        }
-    }
-    for (index = 0; index < CurrentGame().inventory.pool().size(); ++index) {
-        CurrentGame().inventory.editItem({W8ItemStorage::Pool, 0, index}, [](W8ItemInstance& item) {
-            NormalizeItemQuantityKind(&item);
-        });
-    }
-}
-
 /* Condition immunity sets by monster kind, from the retail table at
    0x006171A8. */
 static constexpr std::array<W8ConditionImmunity, 3> kConditionImmunities = {{

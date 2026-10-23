@@ -62,7 +62,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/math.h"
 #include "wiz8/monster_generators.h"
@@ -90,6 +89,7 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/spatial/surface_index.h"
+#include "wiz8/world/automap.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
@@ -1003,7 +1003,7 @@ try {
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after particles.");
     success = success && ReadNamedPositions(info.hFile, world->named_positions);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after named position points.");
-    success = success && ReadAutomapNodes(handle, world->automap);
+    success = success && world->automap.readCells(*handle);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after automap nodes.");
 
     world->environment.offset = environment_offset;

@@ -106,8 +106,9 @@ void BindEveryPartyItem(void);
 /* Whether the item's equip class is directly usable (0x17/0x19). */
 bool IsUsableItemClass(const W8ItemInstance* item);
 /* Validate an item's embedded spell for use now; nonzero reports
-   use blocked with the reason notice queued through the callback. */
+   use blocked with the reason notice queued through the callback. A use that
+   aims at once (the use-item picker's) also needs a valid target. */
 bool ValidateItemSpellUse(int character_index, const W8ItemInstance* item,
-                          std::function<void(bool)> callback);
+                          std::function<void(bool)> callback, bool needs_target);
 bool CharacterHasServiceItem(W8Character* character);
 int CountUsableCharacterItems(W8Character* character);

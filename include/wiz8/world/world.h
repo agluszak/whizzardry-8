@@ -7,7 +7,6 @@
 #include <initializer_list>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -22,6 +21,7 @@
 #include "wiz8/render/world_scene.h"
 #include "wiz8/retail_opaque_records.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/world/automap.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
@@ -62,14 +62,6 @@ class TriggerEvent;
 class ParticleSystem;
 struct KeyframeTrack;
 class LevelSpatialIndex;
-
-struct W8AutomapCells {
-    float grid_cell_size = 2000.0f;
-    std::vector<bool> visited;
-    std::vector<bool> lit;
-    std::vector<unsigned int> keys;
-    std::unordered_map<unsigned int, int> index;
-};
 
 /* The party's presence in one world: its pose (the eye position and orientation, with
    the retail pose bytes the save keeps) and its collision and pathing proxy there, at
@@ -125,7 +117,7 @@ struct World {
     LevelSpatialIndex* collisionIndex() const;
     AmbientAudioSystem audio;
     std::unique_ptr<W8LevelPopulation> population;
-    W8AutomapCells automap;
+    Automap automap{*this};
     // These indexes borrow resources owned below or by the scene.
     Camera3D* camera{};
     Light* camera_light{};
@@ -232,7 +224,6 @@ void ForEachWorldLight(std::function_ref<void(Light*)> visit);
 
 /* APST chunk: serialize every world prop's animation state. The record is a
    fixed 64-byte name plus the six saved animation bytes. */
-void SaveWorldProps(wiz8::File& handle);
 /* APST chunk: restore saved prop animation state. The 0xDEADD00D signature
    selects the name-keyed format; older saves carry a bare count plus the
    object's id key. Unmatched records are decoded and ignored. */

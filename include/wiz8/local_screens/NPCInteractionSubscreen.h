@@ -13,6 +13,7 @@ void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2);
 void HideNpcQuoteBubbleRegion();
 
 #include <array>
+#include <bitset>
 #include <functional>
 
 #include "wiz8/button_interaction.h"
@@ -44,7 +45,7 @@ struct NpcDialogueUi {
     struct Panel {
         SDL_Point origin;
         int background;
-        bool active = false, dirty = true;
+        bool active = false;
     };
     std::array<Panel, 7> panels{{{{0x17, 0x166}, 0},
                                  {{0xa4, 0x166}, 1},
@@ -64,7 +65,7 @@ struct NpcDialogueUi {
         ButtonInteraction interaction;
         ButtonPolicy policy{.input_rule = ButtonInputRule::PrimaryPressedState};
         std::function<void()> primary, secondary, down;
-        bool visible = true, enabled = true, dirty = true;
+        bool visible = true, enabled = true;
     };
     std::array<Action, 39> actions;
     std::shared_ptr<const SpriteSheet> item_preview;
@@ -175,8 +176,6 @@ unsigned char IsNpcDialogueCursorActive(void);
 void TryNpcDialoguePickpocket(int party_slot);
 std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& font);
 void SetDialogueFieldKeyword(std::string keyword, bool append);
-void ActivateNpcDialoguePanels(bool active);
-bool HasNpcDialogueDirtyPanels(void);
 UiResult HandleNpcTextBox(const UiPointerEvent& event);
 void NpcDialogueTextBoxWheelAt(short x, unsigned short y, bool flag);
 /* True when an NPC quote/portrait session is active: finish voice playback and
