@@ -27,15 +27,17 @@ ScreenRouter (file-scope in screen_router.cpp)
   still a file-scope object, not owned by the Application.
 - **`GameSession`** (`game.h`) holds the game in progress, the random stream the
   next game continues, and the event presenter. A game begins in party creation
-  (`BeginNewGame`) or when a save is loaded (`LoadGame`); either replaces any game in
+  (`BeginNewGame`) or when a prepared save is installed; either replaces any game in
   progress. It ends when the main menu is entered and at shutdown. Nothing is reset
-  field by field: a new game is a new `Game`.
+  field by field: a new game is a new `Game`. Ending a session only disposes resources.
+  Replacement explicitly departs the old level before installing the new game;
+  a screen's `leave` disposes presentation without ending the game.
 - **`Game`** owns one play-through: the party and status record, the random stream,
   the story (facts, factions, journal, NPC states, location variables), the message
   log, combat, the activity and advancement, the speech queue, the NPC
   conversation, spell cooldowns, the event log, stored characters, the byte images
   of levels the party has left, and the `Level`. Destroying a game does no
-  departure bookkeeping; the main game leaves the level before its game ends.
+  departure bookkeeping; gameplay departure happens explicitly while the game is live.
 - **`Level`** owns the primary and sky `World`s. Queries borrow those owners, so no
   world outlives its game; replacing a slot hands back the previous owner.
 - **`World`** (`world/world.h`) owns a loaded level: the VSG scene, environment,
@@ -124,10 +126,10 @@ saves we write must load in retail.
 
 `save_codec.h` holds the save sections as pure functions between bytes and values
 (GSTA, TEXT, TVAR, NPCI, NPCT, NPCF, FATA, JRNL, HYPN, CHAR, and a level group's
-STAT header). A load decodes every section before it begins the replacement game,
-so a malformed section fails the load and leaves the game in progress untouched.
-Level groups decode into a `LevelState` without a world, and the replacement
-world is built from it. The game keeps the groups of levels the party has left as
+STAT header). Loading validates the RIFF and game sections before departure and
+presentation disposal; rejection resumes the suspended game. Level groups decode
+into a `LevelState` during replacement-world construction, so malformed nested
+level data is not yet covered by that recoverable preflight. The game keeps the groups of levels the party has left as
 in-memory RIFF images (`Game::left_levels`); no working file sits beside the saves.
 The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
 

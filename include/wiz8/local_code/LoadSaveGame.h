@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -53,11 +54,13 @@ bool LoadCharacter(std::string_view name, W8Character* character, int slot);
 std::string BuildCharacterFilePath(std::string_view filename, int slot);
 std::string BuildCharacterPath(std::string_view name, int slot);
 bool SaveGameExists(void);
-/* Load a save slot by name into a new game of `games`, replacing any in progress; the
-   Please Wait screen drives it. */
-bool LoadGame(GameSession& games, std::string_view slot_name);
-
 class Game;
+// Decoded game sections, before the current session or its presentation is released.
+struct PreparedGame {
+    std::vector<std::move_only_function<void(Game&)>> sections;
+    void install(GameSession& games) &&;
+};
+std::optional<PreparedGame> ReadSavedGame(std::string_view slot_name);
 struct World;
 // Store the current level's group among the levels the game has left (Game::left_levels).
 bool StoreLeftLevel(Game& game);

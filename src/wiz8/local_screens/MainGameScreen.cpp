@@ -2529,8 +2529,7 @@ void MainGameScreen::frame()
     DrawMainGameScreen(*hud, UpdateMainGamePresentation(*hud));
 }
 
-/* Suspension retains the allocation and resource strip. A full leave also
-   unloads the level and releases the per-screen block. */
+// Suspension retains the presentation; discarding releases its resources.
 bool MainGameScreen::leave(ScreenDeparture departure)
 {
     const bool leaving = departure == ScreenDeparture::Discard;
@@ -2539,10 +2538,6 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     if (leaving) {
         OpenModal(nullptr);
         RetireModal(std::move(g_pending_main_game_dialog), false);
-        // End a fight while the interface it updates still exists.
-        if (game.combat.has_value()) {
-            game.endCombat(true);
-        }
     }
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
 
@@ -2578,10 +2573,6 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     CloseMainGameOverlays();
 
     if (leaving) {
-        if (GetLoadedLevelID() != -1) {
-            UnloadSkyWorld();
-            LeaveLevel();
-        }
         if (PartyMovementPanelShown()) {
             ReleasePartyMovement();
         }
@@ -5188,22 +5179,6 @@ void OpenAutomapScreen(void)
 {
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
     RequestScreen({.id = W8_SCREEN_AUTOMAP});
-}
-
-/* Load the level the party is on. With no level yet there is nothing to load
-   and the answer is yes; otherwise the loading flag is up for the duration so
-   whatever watches it knows. */
-bool LoadCurrentLevelData(void)
-{
-    if (GetLoadedLevelID() != -1) {
-        ScreenPointer().showSlot(W8_CURSOR_MAP_LOAD);
-        g_world_cleanup_flag = true;
-        UnloadSkyWorld();
-        LeaveLevel();
-        g_world_cleanup_flag = false;
-        ScreenPointer().reset();
-    }
-    return true;
 }
 
 /* Put the seven combat regions into their inactive mode, and the eighth with

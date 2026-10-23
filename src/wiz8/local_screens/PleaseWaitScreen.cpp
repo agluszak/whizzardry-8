@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_log.h>
@@ -29,6 +30,7 @@
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
@@ -91,9 +93,6 @@ bool PleaseWaitScreen::enter(const ScreenRequest& request)
     case W8_PLEASE_WAIT_LOAD_GAME:
         parameter = request.parameter;
         name = request.name;
-        /* The loaded game replaces the one in progress, so that game's screens go first:
-           a suspended main game leaves its level as it is discarded. */
-        DiscardSuspendedScreensAbove(W8_SCREEN_MAIN_MENU);
         break;
     case W8_PLEASE_WAIT_SAVE_GAME:
         parameter = GetLoadedLevelID();
@@ -169,14 +168,28 @@ void PleaseWaitScreen::frame()
         PostNewGameLoad();
 
         break;
-    case W8_PLEASE_WAIT_LOAD_GAME:
-        if (!LoadGame(games, name))
-            throw std::runtime_error(fmt::format("cannot load saved game {}", name));
-        if (!LoadLevel(CurrentGame().status.resume_level, -1, true))
-            throw std::runtime_error(
-                fmt::format("cannot load level {}", CurrentGame().status.resume_level));
-
+    case W8_PLEASE_WAIT_LOAD_GAME: {
+        auto prepared = ReadSavedGame(name);
+        if (!prepared) {
+            ReturnToPreviousScreen();
+            return;
+        }
+        // Finish combat while its controls exist; release the world after they leave.
+        if (GameInProgress() && CurrentGame().combat) CurrentGame().endCombat(true);
+        DiscardSuspendedScreensAbove(W8_SCREEN_MAIN_MENU);
+        try {
+            std::move(*prepared).install(games);
+            if (!LoadLevel(CurrentGame().status.resume_level, -1, true))
+                throw std::runtime_error("cannot construct saved level");
+        } catch (const std::exception& error) {
+            // Resource failure ends the replacement; never expose a partial session.
+            games.end();
+            g_pending_main_menu_message = fmt::format("Cannot load {}: {}", name, error.what());
+            RequestScreen({.id = W8_SCREEN_MAIN_MENU}, ScreenDeparture::Discard);
+            return;
+        }
         break;
+    }
     case W8_PLEASE_WAIT_SAVE_GAME: {
         const auto& screenshot = save_screenshot;
         const bool saved = SaveGame(name, screenshot ? &*screenshot : nullptr);

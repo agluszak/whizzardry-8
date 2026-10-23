@@ -20,7 +20,6 @@ bool LoadSkyWorld(std::string_view sky_path);
 bool LoadLevel(int requested_level, int entrance, bool restoring_game);
 void LeaveLevel();
 
-void UnloadSkyWorld(void);
 signed char GetLevelBand(int saved_level);
 
 extern bool g_camera_path_active;

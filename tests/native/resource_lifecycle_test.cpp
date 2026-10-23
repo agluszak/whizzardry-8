@@ -43,6 +43,7 @@
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -162,6 +163,35 @@ TEST_CASE("NPC message queues release their contents", "[resources][lifecycle]")
 {
     ScopedGame game;
     queued_state_teardown(game.session);
+}
+
+TEST_CASE("Session disposal does not replay level departure", "[resources][lifecycle]")
+{
+    struct CaptureProbe final : LevelScript {
+        CaptureProbe(const ScriptContext& context, int& captures) : LevelScript(context)
+        {
+            addMaster([](int) { return false; }, [&captures](auto&) { ++captures; });
+        }
+    };
+    int captures = 0;
+    ScopedGame scope;
+    scope.game.level.replacePrimary(std::make_unique<World>());
+    scope.game.level.primary->script =
+        std::make_unique<CaptureProbe>(MakeScriptContext(scope.game), captures);
+
+    SECTION("Disposal is not departure")
+    {
+        scope.session.end();
+        REQUIRE(captures == 0);
+    }
+    SECTION("Explicit departure runs once")
+    {
+        LeaveLevel();
+        REQUIRE(captures == 1);
+        scope.session.end();
+        REQUIRE(captures == 1);
+    }
+    REQUIRE_FALSE(scope.session.game());
 }
 
 TEST_CASE("A dead character's events leave every queue", "[resources][lifecycle]")

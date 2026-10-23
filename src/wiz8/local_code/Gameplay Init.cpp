@@ -32,6 +32,7 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/world/environment.h"
+#include "wiz8/world/level_session.h"
 /* TU attribution follows the 2001-08-14 demo __FILE__ and link-order evidence. */
 
 namespace {
@@ -42,6 +43,7 @@ Game& BeginNewGame(GameSession& games)
 {
     static constexpr std::array<unsigned int, 6> starting_items = {0x14f, 0x14f, 0x15a,
                                                                    0x15a, 0x15b, 0x155};
+    if (games.game()) LeaveLevel();
     auto& game = games.begin();
     game.party.held.item = W8ItemInstance{.iItemNo = -1};
     std::ranges::fill(game.party.item_pool, W8ItemInstance{.iItemNo = -1});

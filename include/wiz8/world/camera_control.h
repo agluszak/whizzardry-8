@@ -4,7 +4,6 @@
 
 struct World;
 
-extern bool g_world_cleanup_flag;
 extern bool g_navigator_vertical_enabled;
 
 /* One frame of party movement in the primary world under the frame's motion flags

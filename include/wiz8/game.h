@@ -194,8 +194,7 @@ public:
        entering one reads it back, and a save writes them beside the current level's. */
     std::map<int, std::vector<std::byte>> left_levels;
     /* Last, so its worlds are destroyed first, while combat and speech still exist.
-       The main game leaves the level when it is discarded, before a game that ends in
-       play is destroyed; destroying a world does no departure bookkeeping. */
+       Gameplay departure is explicit; destroying a world does no departure bookkeeping. */
     Level level;
 };
 
