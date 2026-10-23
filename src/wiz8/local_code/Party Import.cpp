@@ -34,6 +34,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_stats.h"
+#include "wiz8/story.h"
 #include "wiz8/utility.h"
 
 enum class W8Wiz7CharacterStatus : unsigned char {
