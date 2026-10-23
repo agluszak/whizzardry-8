@@ -153,7 +153,7 @@ void RadarMap::update(const W8TargetingPresentation& presentation)
     detect_all = PartyHasCondition(0x40);
     const World& world = *game_.level.primary;
 
-    for (const auto& world_item : world.population->world_items) {
+    for (const auto& world_item : world.items.records()) {
         WorldItemEntity* item = world_item->entity.find();
 
         if (item != 0) {

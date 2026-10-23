@@ -1,5 +1,6 @@
 #include "wiz8/local_code/ItemManager.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -39,7 +40,6 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_tables.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -53,6 +53,7 @@
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigation.h"
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/party_camera.h"
@@ -150,9 +151,9 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
         if (table->entries[entry_index].selector != 0) {
             item_record = &Data().items[table->entries[entry_index].item_id];
             if (table->entries[entry_index].weight == 0) {
-                output_items.push_back(
-                    SpawnItem(Data().item_tables[table_id].entries[entry_index].item_id, &position,
-                              W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                output_items.push_back(GetWorld()->items.spawn(
+                    Data().item_tables[table_id].entries[entry_index].item_id, position,
+                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             } else if (table->level_scaled == 0) {
                 candidates.push_back(entry_index);
             } else {
@@ -196,8 +197,8 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
         entry = &table->entries[entry_index];
         random_value = CurrentGame().rng.below(total_weight);
         if (random_value <= entry->weight) {
-            output_items.push_back(
-                SpawnItem(entry->item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+            output_items.push_back(GetWorld()->items.spawn(
+                entry->item_id, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             candidates.erase(candidates.begin() + position_index);
             ++selected_count;
         }
@@ -245,34 +246,10 @@ void SetWorldItemFalling(W8WorldItem* item, bool enabled)
     }
 }
 
-/* The world item at one list position. */
-W8WorldItem* ItemInfo(unsigned int item_list_index)
-{
-    W8WorldItem* item;
-
-    assert(item_list_index < CurrentLevelPopulation().world_items.size());
-    item = GetWorldItemListEntry(item_list_index);
-    assert(item != 0);
-    return item;
-}
-
-unsigned int ItemIndex(int runtime_id)
-{
-    unsigned int index;
-
-    for (index = 0; index < CurrentLevelPopulation().world_items.size(); ++index) {
-        if (ItemInfo(index)->runtime_id == runtime_id) {
-            return index;
-        }
-    }
-    assert(false && "unknown world item id");
-    return 0;
-}
-
 /* The level runtime block, which also carries the interface
    selection the item manager resets. */
 
-/* The generic 3D model names ActivateItem falls back to when a
+/* The generic 3D model names WorldItems::activate falls back to when a
    record's internal_name is blank, indexed by unidentified_name_index. */
 static char g_item_model_fallback_names[145][0x1e] = {"Dagger",
                                                       "Long Sword",
@@ -423,8 +400,9 @@ static char g_item_model_fallback_names[145][0x1e] = {"Dagger",
 /* Put one spawned item into the world: load its 3D model from
    Data\Items3D\Bitmaps, drop it at the item's position with a random yaw,
    attach and register it, then scale it by whether the sun reaches it. */
-void ActivateItem(W8WorldItem* item)
+void WorldItems::activate(W8WorldItem& record)
 {
+    auto* const item = &record;
     glm::vec3 position;
     glm::vec3 sun_position;
     std::string zItemName;
@@ -465,17 +443,17 @@ void ActivateItem(W8WorldItem* item)
     item->entity->SetYaw(static_cast<float>(CurrentGame().rng.below(0x168) * 2 * g_camera_pi *
                                             kInverseFullTurnDegrees));
     item->entity->flags |= item->entity_flags;
-    item->entity->AttachMesh(GetWorld());
-    GetWorld()->plsItems.push_back(std::move(entity));
+    item->entity->AttachMesh(&world_);
+    world_.plsItems.push_back(std::move(entity));
     item->fActive = true;
     ++CurrentGame().item_manager_pending;
 
-    sun = FindWorldLight("SUN");
-    if (sun != 0) {
+    sun = FindWorldLight(world_, "SUN");
+    if (sun != nullptr && world_.compiledIndex()) {
         sun_position = glm::vec3(sun->transform.getLocation());
         mesh = static_cast<MeshInstance*>(item->entity->GetMesh());
         if (mesh != 0) {
-            if (GetWorldSpatialIndex()->hasLineOfSight(position, sun_position)) {
+            if (world_.compiledIndex()->hasLineOfSight(position, sun_position)) {
                 mesh->light_scale = glm::vec3(1);
             } else {
                 mesh->light_scale = glm::vec3(0);
@@ -487,8 +465,9 @@ void ActivateItem(W8WorldItem* item)
 /* Take one item out of the world. Its three assertions name the two fields
    they guard - fActive and the entity link - and the item keeps its last position and
    entity flags so it can be put back. */
-void DeactivateWorldItem(W8WorldItem* item)
+void WorldItems::deactivate(W8WorldItem& record)
 {
+    auto* const item = &record;
     glm::vec3 position;
 
     assert(item != 0);
@@ -504,7 +483,7 @@ void DeactivateWorldItem(W8WorldItem* item)
     WorldItemEntity& entity = *item->entity;
     item->entity.detach();
     entity.DetachMesh();
-    std::erase_if(GetWorld()->plsItems, [&](const auto& owner) { return owner.get() == &entity; });
+    std::erase_if(world_.plsItems, [&](const auto& owner) { return owner.get() == &entity; });
     item->fActive = false;
     --CurrentGame().item_manager_pending;
 }
@@ -516,12 +495,11 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
 {
     int result;
     float best_distance;
-    unsigned int index;
 
     result = -1;
     best_distance = 999999.0f;
-    for (index = 0; index < CurrentLevelPopulation().world_items.size(); ++index) {
-        W8WorldItem* item = ItemInfo(index);
+    for (const auto& owned : GetWorld()->items.records()) {
+        W8WorldItem* item = owned.get();
         float distance;
 
         if (!item->fActive) {
@@ -547,41 +525,25 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
    drifted beyond the far range. */
 void UpdateNearbyWorldItems(void)
 {
-    glm::vec3 camera;
-    unsigned int index;
-    std::size_t count;
+    auto& items = GetWorld()->items;
+    const glm::vec3 camera = GetWorld()->party.eye();
+    const float frame_seconds = GameTimeAccumulator().GetFrameDelta();
+    // Activation can append records, so walk by index.
+    for (std::size_t index = 0; index < items.records().size(); ++index) {
+        W8WorldItem& item = *items.records()[index];
 
-    camera = GetWorld()->party.eye();
-    count = CurrentLevelPopulation().world_items.size();
-    for (index = 0; index < count; ++index) {
-        W8WorldItem* item = ItemInfo(index);
-
-        if (item->sector_id < -1) {
-            item->sector_id = -1;
-            SettleWorldItem(item);
+        if (item.sector_id < -1) {
+            item.sector_id = -1;
+            items.settle(item);
         }
-        if (ItemHasFlags(item, W8_WORLD_ITEM_FALLING)) {
-            AdvanceFallingWorldItem(item);
+        if (ItemHasFlags(&item, W8_WORLD_ITEM_FALLING)) items.fall(item, frame_seconds);
+        if (!item.fActive) {
+            if (glm::distance(item.position, camera) < g_item_camera_cull_distance &&
+                !(g_hide_invisible_items && ItemHasFlags(&item, W8_WORLD_ITEM_HIDDEN)))
+                items.activate(item);
+        } else if (glm::distance(item.entity->GetLocation(), camera) > 2.5e+04f) {
+            items.deactivate(item);
         }
-        if (!item->fActive) {
-            if (glm::distance(item->position, camera) < g_item_camera_cull_distance) {
-                if (g_hide_invisible_items) {
-                    if (ItemHasFlags(item, W8_WORLD_ITEM_HIDDEN)) {
-                        goto next_item;
-                    }
-                }
-                ActivateItem(item);
-            }
-        } else {
-            glm::vec3 location;
-
-            location = item->entity->GetLocation();
-            if (glm::distance(location, camera) > 2.5e+04f) {
-                DeactivateWorldItem(item);
-            }
-        }
-    next_item:
-        count = CurrentLevelPopulation().world_items.size();
     }
 }
 
@@ -627,8 +589,9 @@ std::optional<glm::vec3> FindItemDropPosition()
 void DropHeldItem(int)
 {
     if (const auto position = FindItemDropPosition()) {
-        AddWorldItem(CreateWorldItem(&CurrentGame().party.held.item, &*position,
-                                     W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+        auto& items = GetWorld()->items;
+        items.add(items.create(&CurrentGame().party.held.item, *position,
+                               W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
     } else
         wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
 }
@@ -639,30 +602,17 @@ void DropHeldItem(int)
    of its sector, deactivated, freed and removed from the list. */
 static void OnItemPickerClosed(W8WorldItem* group)
 {
-    W8WorldItem* item;
-    unsigned int index;
-
+    auto& items = GetWorld()->items;
     if (group->contents.size() == 1) {
-        item = group->contents.front().get();
-        item->position = group->position;
-        if (!item->entity) {
-            ActivateItem(item);
-        }
-        AddWorldItem(std::move(group->contents.front()));
+        W8WorldItem& item = *group->contents.front();
+        item.position = group->position;
+        if (!item.entity) items.activate(item);
+        items.add(std::move(group->contents.front()));
         group->contents.clear();
     } else if (!group->contents.empty()) {
         return;
     }
-    index = ItemIndex(group->runtime_id);
-    item = ItemInfo(index);
-    if (item->sector_id > -1) {
-        RemoveItemFromSector(item->sector_id, item);
-    }
-    if (item->fActive) {
-        DeactivateWorldItem(item);
-    }
-    CurrentLevelPopulation().world_items.erase(CurrentLevelPopulation().world_items.begin() +
-                                               index);
+    items.remove(group->runtime_id);
 }
 
 /* Interact with one world item by runtime id. Records flagged 0x20 open the
@@ -671,9 +621,8 @@ static void OnItemPickerClosed(W8WorldItem* group)
    stripped back out of its sector and the list. */
 unsigned char InteractWithWorldItem(int runtime_id)
 {
-    unsigned char result = 1;
-    int index = ItemIndex(runtime_id);
-    W8WorldItem* item = ItemInfo(index);
+    auto& items = GetWorld()->items;
+    W8WorldItem* item = items.find(runtime_id);
 
     assert(item != 0);
     if (Data().items[item->item.iItemNo].flags & W8_ITEM_FLAG_CONTAINER) {
@@ -693,28 +642,8 @@ unsigned char InteractWithWorldItem(int runtime_id)
     if ((item->entity->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
         ReceiveItemInHand(CurrentGame(), item->item);
     }
-    index = ItemIndex(runtime_id);
-    item = ItemInfo(index);
-    if (item->sector_id > -1) {
-        RemoveItemFromSector(item->sector_id, item);
-    }
-    if (item->fActive) {
-        DeactivateWorldItem(item);
-    }
-    CurrentLevelPopulation().world_items.erase(CurrentLevelPopulation().world_items.begin() +
-                                               index);
-    return result;
-}
-
-/* Detach and release all world item groups. */
-void ReleaseItemLists()
-{
-    for (const auto& owned : CurrentLevelPopulation().world_items) {
-        auto* item = owned.get();
-        if (item->sector_id >= 0) RemoveItemFromSector(item->sector_id, item);
-        if (item->fActive) DeactivateWorldItem(item);
-    }
-    CurrentLevelPopulation().world_items.clear();
+    items.remove(runtime_id);
+    return 1;
 }
 
 /* plsItemList index that last satisfied AnyWorldItemVisible. */
@@ -750,15 +679,16 @@ bool AnyWorldItemVisible(void)
         return false;
     }
     camera = cameraLocation();
-    count = CurrentLevelPopulation().world_items.size();
+    const auto& records = GetWorld()->items.records();
+    count = std::ssize(records);
     if (0 <= g_last_visible_world_item && g_last_visible_world_item < count) {
-        W8WorldItem* item = GetWorldItemListEntry(g_last_visible_world_item);
+        W8WorldItem* item = records[g_last_visible_world_item].get();
         if (IsWorldItemMarkerVisible(item, camera)) {
             return true;
         }
     }
     for (index = 0; index < count; ++index) {
-        W8WorldItem* item = GetWorldItemListEntry(index);
+        W8WorldItem* item = records[index].get();
 
         if (IsWorldItemMarkerVisible(item, camera)) {
             g_last_visible_world_item = index;
@@ -770,13 +700,12 @@ bool AnyWorldItemVisible(void)
 
 /* Advance one falling world item (flag bit 1) toward the ground for this
    frame. Clears the falling flag once it has landed or the settle misses. */
-bool AdvanceFallingWorldItem(W8WorldItem* item)
+bool WorldItems::fall(W8WorldItem& record, float dt)
 {
+    auto* const item = &record;
     glm::vec3 probe;
     float ground;
     float previous_y;
-    float dt;
-    int sector;
 
     if (!ItemHasFlags(item, W8_WORLD_ITEM_FALLING)) {
         return false;
@@ -784,12 +713,12 @@ bool AdvanceFallingWorldItem(W8WorldItem* item)
 
     previous_y = item->position.y;
     probe = glm::vec3(item->position.x, previous_y + kWorldScale, item->position.z);
-    dt = GameTimeAccumulator().GetFrameDelta();
     if (kCameraSnapEpsilon < item->vertical_velocity) {
         probe.y = dt * item->vertical_velocity + probe.y;
     }
 
-    const auto ground_probe = GetWorldSpatialIndex()->settleToGround(probe, 1, 250.0f);
+    if (!world_.compiledIndex()) return false;
+    const auto ground_probe = world_.compiledIndex()->settleToGround(probe, 1, 250.0f);
     probe = ground_probe.position;
     ground = ground_probe.position.y;
     if (!ground_probe.contact || fabs(ground - previous_y) < kCameraSnapEpsilon) {
@@ -798,16 +727,7 @@ bool AdvanceFallingWorldItem(W8WorldItem* item)
         return false;
     }
 
-    sector = ground_probe.prop().value_or(-1);
-    if (sector != item->sector_id) {
-        if (item->sector_id >= 0) {
-            RemoveItemFromSector(item->sector_id, item);
-        }
-        if (sector >= 0) {
-            AddItemToSector(sector, item);
-        }
-        item->sector_id = sector;
-    }
+    moveToSector(record, ground_probe.prop().value_or(-1));
 
     if (previous_y <= ground) {
         item->vertical_velocity = (ground - previous_y) / dt;
@@ -830,32 +750,24 @@ bool AdvanceFallingWorldItem(W8WorldItem* item)
 /* Drop one item onto the ground below where it is. The search starts one world
    unit up so an item already resting does not settle into the floor; landing
    moves it between sectors and clears its saved-marker flag. */
-bool SettleWorldItem(W8WorldItem* item)
+bool WorldItems::settle(W8WorldItem& record)
 {
+    auto* const item = &record;
     glm::vec3 start;
-    int sector;
 
     start = glm::vec3(item->position.x, item->position.y + kWorldScale, item->position.z);
 
     item->flags &= ~W8_WORLD_ITEM_FALLING;
     item->vertical_velocity = 0.0f;
 
-    const auto ground_probe = GetWorldSpatialIndex()->settleToGround(start, 1, 250.0f);
+    if (!world_.compiledIndex()) return false;
+    const auto ground_probe = world_.compiledIndex()->settleToGround(start, 1, 250.0f);
     start = ground_probe.position;
     if (!ground_probe.contact) {
         return false;
     }
 
-    sector = ground_probe.prop().value_or(-1);
-    if (sector != item->sector_id) {
-        if (item->sector_id >= 0) {
-            RemoveItemFromSector(item->sector_id, item);
-        }
-        if (sector >= 0) {
-            AddItemToSector(sector, item);
-        }
-        item->sector_id = sector;
-    }
+    moveToSector(record, ground_probe.prop().value_or(-1));
     if (item->entity) {
         item->entity->SetLocation(&start);
     }
@@ -867,52 +779,81 @@ bool SettleWorldItem(W8WorldItem* item)
    re-rolls whatever the record decides rather than keeping what was there. */
 void RebuildAllWorldItemInstances(void)
 {
-    unsigned int index;
-    W8WorldItem* item;
-
-    for (index = 0; index < CurrentLevelPopulation().world_items.size(); ++index) {
-        item = ItemInfo(index);
+    for (const auto& item : GetWorld()->items.records())
         item->item = MakeItem(Data(), CurrentGame().rng, item->item.iItemNo, false, false, false);
-    }
 }
 
-std::unique_ptr<W8WorldItem> CreateWorldItem(W8ItemInstance* item, const glm::vec3* position,
-                                             int entity_flags)
+WorldItems::WorldItems(World& world) : world_(world) {}
+
+WorldItems::~WorldItems() = default;
+
+W8WorldItem* WorldItems::find(int runtime_id) const
+{
+    const auto found = std::ranges::find(items_, runtime_id, &W8WorldItem::runtime_id);
+    return found == items_.end() ? nullptr : found->get();
+}
+
+std::unique_ptr<W8WorldItem> WorldItems::create(W8ItemInstance* item, const glm::vec3& position,
+                                                int entity_flags)
 {
     auto result = std::make_unique<W8WorldItem>();
-    *(&result->item) = W8ItemInstance{.iItemNo = -1};
+    result->item = W8ItemInstance{.iItemNo = -1};
     result->runtime_id = CurrentGame().status.next_world_item_id++;
-    result->position = *position;
+    result->position = position;
     result->sector_id = -1;
-    SettleWorldItem(result.get());
+    settle(*result);
     result->entity_flags = entity_flags;
-    if (item) *(&result->item) = std::exchange(*(item), W8ItemInstance{.iItemNo = -1});
+    if (item) result->item = std::exchange(*item, W8ItemInstance{.iItemNo = -1});
     return result;
 }
 
-W8WorldItem* AddWorldItem(std::unique_ptr<W8WorldItem> item)
+std::unique_ptr<W8WorldItem> WorldItems::spawn(int item_id, const glm::vec3& position,
+                                               int entity_flags)
 {
-    auto* result = item.get();
-    if (item) CurrentLevelPopulation().world_items.push_back(std::move(item));
-    return result;
+    if (item_id == -1) return create(nullptr, position, entity_flags);
+    auto item = MakeItem(Data(), CurrentGame().rng, item_id, false, false, false);
+    return create(&item, position, entity_flags);
 }
 
-std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, int entity_flags)
+W8WorldItem& WorldItems::add(std::unique_ptr<W8WorldItem> item)
 {
-    W8ItemInstance local_item;
-    W8ItemInstance* item;
-    std::unique_ptr<W8WorldItem> result;
+    assert(item);
+    return *items_.emplace_back(std::move(item));
+}
 
-    if (item_id == -1) {
-        item = 0;
-    } else {
-        local_item = MakeItem(Data(), CurrentGame().rng, item_id, false, false, false);
-        item = &local_item;
-    }
+void WorldItems::restore(std::vector<std::unique_ptr<W8WorldItem>> items)
+{
+    assert(items_.empty());
+    items_ = std::move(items);
+}
 
-    result = CreateWorldItem(item, position, entity_flags);
-    assert(result != 0);
-    return result;
+void WorldItems::remove(int runtime_id)
+{
+    const auto found = std::ranges::find(items_, runtime_id, &W8WorldItem::runtime_id);
+    assert(found != items_.end());
+    unplace(**found);
+    items_.erase(found);
+}
+
+void WorldItems::clear()
+{
+    for (const auto& item : items_) unplace(*item);
+    items_.clear();
+}
+
+void WorldItems::unplace(W8WorldItem& item)
+{
+    if (item.sector_id >= 0) world_.collidable_props[item.sector_id]->releaseItem(item);
+    if (item.fActive) deactivate(item);
+}
+
+/* Move the item's listing to the collidable prop it now rests on, if any. */
+void WorldItems::moveToSector(W8WorldItem& item, int sector)
+{
+    if (sector == item.sector_id) return;
+    if (item.sector_id >= 0) world_.collidable_props[item.sector_id]->releaseItem(item);
+    if (sector >= 0) world_.collidable_props[sector]->supportItem(item, WorldPathing(world_));
+    item.sector_id = sector;
 }
 
 /* Monster loot drop, driven by the death switch in MonsterManager. Non-NPC
@@ -923,7 +864,7 @@ std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, i
    rolls item_count_dice items out of what remains; the NPC's gold field
    pays out directly. One drop is adopted into plsItemList at the death
    position; two or more are owned by a container spawned with
-   SpawnItem - 0x23c by default, or value when the caller names one. */
+   WorldItems::spawn - 0x23c by default, or value when the caller names one. */
 void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
 {
     std::vector<std::unique_ptr<W8WorldItem>> items;
@@ -947,8 +888,9 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                     int rolls = RollDice(&entry->dice);
                     for (roll = 0; roll < rolls; ++roll) {
                         if (entry->type == 0) {
-                            item = SpawnItem(entry->item_id, &position,
-                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
+                            item = GetWorld()->items.spawn(entry->item_id, position,
+                                                           W8_ITEM_ENTITY_PULSE |
+                                                               W8_ITEM_ENTITY_ROTATE);
                             if (item != 0) {
                                 items.push_back(std::move(item));
                             }
@@ -966,8 +908,8 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                     fmt::format("NPC monster {} has no NPC state", monster_info->monster_species));
             for (index = 0; index < 40; ++index) {
                 if (npc->item_ids[index] != -1 && npc->item_weights[index] == 0) {
-                    item = SpawnItem(npc->item_ids[index], &position,
-                                     W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
+                    item = GetWorld()->items.spawn(npc->item_ids[index], position,
+                                                   W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
                     if (item != 0) {
                         items.push_back(std::move(item));
                     }
@@ -997,8 +939,9 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                     if (npc->item_ids[pick] != -1 &&
                         static_cast<short>(CurrentGame().rng.below(total_weight)) <=
                             static_cast<short>(static_cast<signed char>(npc->item_weights[pick]))) {
-                        item = SpawnItem(npc->item_ids[pick], &position,
-                                         W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
+                        item =
+                            GetWorld()->items.spawn(npc->item_ids[pick], position,
+                                                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
                         if (item != 0) {
                             items.push_back(std::move(item));
                         }
@@ -1012,27 +955,16 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
         if (gold != 0) {
             AddPartyGold(CurrentGame(), gold, true);
         }
+        auto& world_items = GetWorld()->items;
         if (items.size() == 1) {
-            auto* dropped = AddWorldItem(std::move(items[0]));
-            dropped->position = position;
+            world_items.add(std::move(items[0])).position = position;
         } else if (items.size() > 1) {
-            W8WorldItem* container;
-            if (value == -1) {
-                container = AddWorldItem(SpawnItem(0x23c, &position, W8_ITEM_ENTITY_ROTATE));
-            } else {
-                container = AddWorldItem(
-                    SpawnItem(value, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-            }
+            auto container = value == -1
+                                 ? world_items.spawn(0x23c, position, W8_ITEM_ENTITY_ROTATE)
+                                 : world_items.spawn(value, position,
+                                                     W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
             container->contents = std::move(items);
+            world_items.add(std::move(container));
         }
     }
-}
-
-W8WorldItem* GetWorldItemListEntry(int index)
-{
-    if (!GetWorld() || index < 0 ||
-        std::cmp_greater_equal(index, CurrentLevelPopulation().world_items.size())) {
-        return nullptr;
-    }
-    return CurrentLevelPopulation().world_items[index].get();
 }

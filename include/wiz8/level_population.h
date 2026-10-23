@@ -15,7 +15,6 @@ struct W8LevelPopulation {
     W8MonsterRoster monster_roster;
     std::vector<std::unique_ptr<W8MonsterGroup>> monster_groups;
     std::vector<std::unique_ptr<W8MonsterGroup>> encounter_groups;
-    std::vector<std::unique_ptr<W8WorldItem>> world_items;
     // A traversal snapshot, never a second registry to update. A formation
     // consumes one encounter slot regardless of the number of allied groups.
     std::vector<W8MonsterGroup*> activeEncounterLeaders() const
@@ -61,4 +60,3 @@ W8LevelPopulation& CurrentLevelPopulation();
 /* Bounded queries into the current level; absent levels resolve to null. */
 W8MonsterInfo* GetMonsterListEntry(std::ptrdiff_t index);
 W8MonsterInfo* GetUnbornMonsterEntry(int index);
-W8WorldItem* GetWorldItemListEntry(int index);

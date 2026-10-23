@@ -536,7 +536,7 @@ void LeaveLevel()
         RenderFrame();
     }
 
-    ReleaseItemLists();
+    GetWorld()->items.clear();
     if (g_world_cleanup_flag) {
         RenderFrame();
     }

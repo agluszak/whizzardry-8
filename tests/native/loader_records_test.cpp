@@ -13,6 +13,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -753,7 +754,8 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
     }
 }
 
-TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed counts",
+TEST_CASE_METHOD(LoaderFixture,
+                 "World item records reject incomplete data without touching the active world",
                  "[loader][records]")
 {
     World world{};
@@ -766,9 +768,93 @@ TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed count
         REQUIRE(bool(ReadWorldItems(&info, &world)) == (count == 0));
     }
     store("items.bin", std::string(3, '\0'));
+    {
+        auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
+        LevelLoadContext info{&world, file.get(), {}};
+        REQUIRE_FALSE(ReadWorldItems(&info, &world));
+    }
+
+    // The loader owns a separate candidate, never the active world.
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>());
+    World& current = *game.game.level.primary;
+    GameData data;
+    data.items.resize(1);
+    const ScopedGameData installed(std::move(data));
+    const auto record = [](std::string_view name, std::uint8_t has_trigger = 0) {
+        std::string bytes(20, '\0');
+        bytes.replace(0, std::min(name.size(), bytes.size()), name.substr(0, bytes.size()));
+        append(bytes, glm::vec3(1, 2, 3));
+        for (int field = 0; field < 4; ++field) append(bytes, 0);
+        append(bytes, has_trigger);
+        if (has_trigger == 0) {
+            bytes.append(3, '\0');
+            for (int field = 0; field < 4; ++field) append(bytes, 0);
+        }
+        return bytes;
+    };
+    // Unknown named items are skipped, but later records must still decode exactly.
+    std::string second;
+    SECTION("Short tail")
+    {
+        second = record("0").substr(0, 67);
+    }
+    SECTION("Missing trigger")
+    {
+        second = record("0", 1);
+    }
+    SECTION("Unterminated name")
+    {
+        second = record(std::string(20, '1'));
+    }
+    SECTION("Trailing text after an id")
+    {
+        second = record("0x");
+    }
+    SECTION("Id past the item table")
+    {
+        second = record("1");
+    }
+    std::string bytes;
+    append(bytes, 2);
+    bytes += record("unknown-item") + second;
+    store("items.bin", bytes);
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
     LevelLoadContext info{&world, file.get(), {}};
     REQUIRE_FALSE(ReadWorldItems(&info, &world));
+    REQUIRE(world.items.records().empty());
+    REQUIRE(current.items.records().empty());
+    REQUIRE(current.triggers.empty());
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Failed item activation stays inside the candidate world",
+                 "[loader][items]")
+{
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>());
+    auto& active = *game.game.level.primary;
+    GameData data;
+    data.items.resize(1);
+    data.items[0].internal_name = "missing-model";
+    const ScopedGameData installed(std::move(data));
+    {
+        World candidate;
+        std::string bytes;
+        append(bytes, 1);
+        bytes += std::string("0") + std::string(19, '\0');
+        append(bytes, glm::vec3(1, 2, 3));
+        bytes.append(36, '\0'); // Unknown fields, no trigger, and the record tail.
+        store("candidate-items.bin", bytes);
+        auto file = wiz8::open_file(wiz8::asset_path("candidate-items.bin"));
+        LevelLoadContext info{&candidate, file.get(), {}};
+        REQUIRE_FALSE(ReadWorldItems(&info, &candidate)); // The model is deliberately absent.
+        REQUIRE(candidate.items.records().size() == 1);
+        REQUIRE(candidate.items.records().front()->item.iItemNo == 0);
+        REQUIRE(active.items.records().empty());
+        REQUIRE(active.plsItems.empty());
+    }
+    REQUIRE(active.items.records().empty());
+    REQUIRE(active.plsItems.empty());
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without runtime vector layout",

@@ -149,7 +149,7 @@ void ApplyTargetingPresentation(const W8TargetingPresentation& presentation)
         monster->UpdateAttachedObjects(mark.hovered);
         monster->visual.SetPresentationColour(monster->IsDying() ? glm::vec4{0} : mark.tint);
     }
-    for (const auto& item : CurrentLevelPopulation().world_items) {
+    for (const auto& item : GetWorld()->items.records()) {
         if (item->fActive && item->entity) {
             const bool hovered = presentation.hovered_item == item->runtime_id;
             item->entity->SetHighlight(true, hovered);

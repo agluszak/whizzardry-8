@@ -1357,7 +1357,7 @@ void RenderAutomapMarkers(void)
             positionOverlay(marker, x, y, false);
         }
     }
-    for (const auto& world_item : CurrentLevelPopulation().world_items) {
+    for (const auto& world_item : GetWorld()->items.records()) {
         WorldItemEntity* item = world_item->entity.find();
         if (item == 0) {
             continue;

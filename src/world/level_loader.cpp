@@ -44,6 +44,7 @@
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/binary_reader.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/cycle_player.h"
@@ -57,6 +58,7 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/legacy_prop_save_ids.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/MonsterGenerator.h" // IWYU pragma: keep
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -101,15 +103,6 @@
 class Texture;
 
 namespace {
-
-struct W8LevelItemRecord {
-    int positional0;
-    glm::vec3 position;
-    int positional2;
-    int positional3;
-    int positional4;
-    char item_name[20];
-};
 
 #pragma pack(push, 1)
 struct W8LevelLightRecord {
@@ -357,66 +350,49 @@ try {
     return false;
 }
 
-static unsigned char ReadWorldClipPlanes(LevelLoadContext* pInfo, World* pWorld)
-try {
-    std::vector<ClipPlane*> clip_planes;
-    glm::vec4 plane;
-    struct {
-        float x, y, z, w;
-    } serialized_position;
-    glm::dvec3 position;
-    ClipPlane* clip_plane;
-    char name[64];
-    int count;
-    int index;
-    unsigned char version;
-    unsigned char success;
-
-    assert(pInfo != 0);
-    assert(pInfo->hFile != 0);
-    assert(pWorld != 0);
-
-    success = (pInfo->hFile->read(&count, sizeof(count)).bytes ==
-               static_cast<std::size_t>(sizeof(count)));
-    if (!success) {
-        return 0;
-    }
-    if (count == 0) {
-        return 1;
-    }
-
-    pInfo->hFile->read(&version, sizeof(version));
-    plane = glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
-    for (index = 0; index < count; ++index) {
-        pWorld->scene->clip_planes.push_back(std::make_unique<ClipPlane>());
-        clip_plane = pWorld->scene->clip_planes.back().get();
-        assert(clip_plane != 0);
-
-        pInfo->hFile->read(name, sizeof(name));
-        pInfo->hFile->read(&serialized_position, sizeof(serialized_position));
-        SDL_strupr(name);
-        clip_plane->setName(name);
-        clip_plane->setClipPlane(plane);
-
-        position =
-            glm::dvec3(serialized_position.x * kWorldScale, serialized_position.y * kWorldScale,
-                       serialized_position.z * kWorldScale);
-        clip_plane->transform.setLocation(position);
-
-        clip_plane->setClipType(ClipPlane::CLIP_POSITIONAL_0);
-        clip_plane->visible = false;
-    }
-    return 1;
-} catch (const std::exception&) {
-    return false;
-}
-
 /* Validate a signed count before publishing records from the section. */
 static bool ReadRecordCount(wiz8::File& file, int& count)
 {
     const bool read =
         file.read(&count, sizeof(count)).bytes == static_cast<std::size_t>(sizeof(count));
     return read && count >= 0 && count < 100000;
+}
+
+static unsigned char ReadWorldClipPlanes(LevelLoadContext* info, World* world)
+try {
+    assert(info != nullptr && info->hFile != nullptr && world != nullptr);
+    auto& file = *info->hFile;
+    int count;
+    if (!ReadRecordCount(file, count)) return false;
+    if (count == 0) return true;
+
+    unsigned char version;
+    file.read_exact(&version, sizeof(version));
+    // Attach nothing to the scene until every plane has decoded.
+    std::vector<std::unique_ptr<ClipPlane>> pending;
+    for (int index = 0; index < count; ++index) {
+        std::array<char, 64> name;
+        glm::vec3 position;
+        float unknown_w;
+        file.read_exact(name.data(), name.size());
+        wiz8::retail::read_exact(file, position);
+        file.read_exact(&unknown_w, sizeof(unknown_w));
+        if (std::find(name.begin(), name.end(), '\0') == name.end()) return false;
+        if (!std::isfinite(position.x) || !std::isfinite(position.y) || !std::isfinite(position.z))
+            return false;
+        SDL_strupr(name.data());
+
+        auto& clip_plane = *pending.emplace_back(std::make_unique<ClipPlane>());
+        clip_plane.setName(name.data());
+        clip_plane.setClipPlane(glm::vec4(0.0f, 1.0f, 0.0f, 0.0f));
+        clip_plane.transform.setLocation(glm::dvec3(position) * double{kWorldScale});
+        clip_plane.setClipType(ClipPlane::CLIP_POSITIONAL_0);
+        clip_plane.visible = false;
+    }
+    std::ranges::move(pending, std::back_inserter(world->scene->clip_planes));
+    return true;
+} catch (const std::exception&) {
+    return false;
 }
 
 static unsigned char ReadWorldProps(LevelLoadContext* pInfo, World* pWorld,
@@ -475,73 +451,57 @@ try {
     return false;
 }
 
-unsigned char ReadWorldItems(LevelLoadContext* pInfo, World* pWorld)
-try {
-    unsigned char has_trigger;
-    int positional_value;
-    int index;
-    int count;
-    W8LevelItemRecord record;
-    unsigned char positional_byte;
-    unsigned char success;
-    Trigger* trigger;
+/* Resolve a level item name: digits name a record index, anything else its internal name.
+   Returns -1 for a name no record carries, which retail skips; nullopt rejects the record. */
+static std::optional<int> ResolveLevelItemName(const std::array<char, 20>& name)
+{
+    const auto terminator = std::find(name.begin(), name.end(), '\0');
+    if (terminator == name.end()) return std::nullopt;
+    if (name[0] < '0' || name[0] > '9') return FindItemRecordByName(name.data());
     int item_id;
-    W8WorldItem* world_item;
+    const auto parsed = std::from_chars(name.data(), terminator, item_id);
+    if (parsed.ec != std::errc{} || parsed.ptr != terminator ||
+        item_id >= static_cast<int>(Data().items.size()))
+        return std::nullopt;
+    return item_id;
+}
 
-    if (pInfo == 0 || pInfo->hFile == 0 || pWorld == 0) {
-        return 0;
-    }
-    if (!ReadRecordCount(*pInfo->hFile, count)) {
-        return 0;
-    }
-    if (count == 0) {
-        return 1;
-    }
+unsigned char ReadWorldItems(LevelLoadContext* info, World* world)
+try {
+    if (info == nullptr || info->hFile == nullptr || world == nullptr) return false;
+    auto& file = *info->hFile;
+    int count;
+    if (!ReadRecordCount(file, count)) return false;
 
-    for (index = 0; index < count; ++index) {
-        world_item = nullptr;
-        trigger = 0;
-        success = (pInfo->hFile->read(record.item_name, sizeof(record.item_name)).bytes ==
-                   static_cast<std::size_t>(sizeof(record.item_name)));
-        if (success) {
-            wiz8::retail::read_exact(*pInfo->hFile, record.position);
-            record.position *= kWorldScale;
-            pInfo->hFile->read(&record.positional0, sizeof(int));
-            pInfo->hFile->read(&record.positional2, sizeof(int));
-            pInfo->hFile->read(&record.positional3, sizeof(int));
-            pInfo->hFile->read(&record.positional4, sizeof(int));
-            pInfo->hFile->read(&has_trigger, sizeof(has_trigger));
-            if (has_trigger != 0) {
-                trigger = Trigger::CreateAndLoadLevelTrigger(pInfo->hFile, pInfo->world);
-            }
-            pInfo->hFile->read(&positional_byte, sizeof(positional_byte));
-            pInfo->hFile->read(&positional_byte, sizeof(positional_byte));
-            pInfo->hFile->read(&positional_byte, sizeof(positional_byte));
-            pInfo->hFile->read(&positional_value, sizeof(positional_value));
-            pInfo->hFile->read(&positional_value, sizeof(positional_value));
-            pInfo->hFile->read(&positional_value, sizeof(positional_value));
-            pInfo->hFile->read(&positional_value, sizeof(positional_value));
-
-            if (record.item_name[0] >= '0' && record.item_name[0] <= '9') {
-                item_id = atoi(record.item_name);
-            } else {
-                item_id = FindItemRecordByName(record.item_name);
-            }
-            if (item_id >= 0) {
-                world_item = AddWorldItem(SpawnItem(item_id, &record.position,
-                                                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-                if (world_item != 0) {
-                    success = 1;
-                    ActivateItem(world_item);
-                }
-            }
-            if (trigger != 0 && world_item != 0) {
-                trigger->m_bRepType = W8_TRIGGER_REP_ITEM;
-                world_item->trigger = trigger;
-            }
+    for (int index = 0; index < count; ++index) {
+        std::array<char, 20> name;
+        glm::vec3 position;
+        std::array<std::int32_t, 4> unknown_fields;
+        unsigned char has_trigger;
+        file.read_exact(name.data(), name.size());
+        // Reject the name before its trigger is created.
+        const auto item_id = ResolveLevelItemName(name);
+        if (!item_id) return false;
+        wiz8::retail::read_exact(file, position);
+        file.read_exact(unknown_fields.data(), sizeof(unknown_fields));
+        file.read_exact(&has_trigger, sizeof(has_trigger));
+        Trigger* trigger =
+            has_trigger != 0 ? Trigger::CreateAndLoadLevelTrigger(&file, world) : nullptr;
+        std::array<unsigned char, 3> unknown_bytes;
+        std::array<std::int32_t, 4> unknown_tail;
+        file.read_exact(unknown_bytes.data(), unknown_bytes.size());
+        file.read_exact(unknown_tail.data(), sizeof(unknown_tail));
+        if (*item_id < 0) continue;
+        position *= kWorldScale;
+        auto& item = world->items.add(
+            world->items.spawn(*item_id, position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+        world->items.activate(item);
+        if (trigger != nullptr) {
+            trigger->m_bRepType = W8_TRIGGER_REP_ITEM;
+            item.trigger = trigger;
         }
     }
-    return success;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
