@@ -56,6 +56,7 @@ public:
        conversation, which resumes once the queue drains. */
     void Begin(W8NpcState* npc, bool suspend_current, bool script_event = false);
     const W8NpcScriptBinding& binding() const { return session_.binding; }
+    std::optional<int> FindKeywordQuote(std::string_view keyword) const;
     /* One frame: unless a quote is on screen, a scene holds the queue or a
        reply dialog is open, run the next queued action; once the queue
        drains, resume a suspended conversation. */
@@ -100,9 +101,7 @@ private:
     void RunNextAction(const ScriptContext& context);
     void RunQuoteEntry(const ScriptContext& context, const W8NpcQuoteEntry* entry,
                        int continuation_quote);
-    int SelectResponse(const ScriptContext& context, const W8NpcQuoteEntry* entry, int quote,
-                       int entry_index);
-    int FindReplyQuote(std::string_view text) const;
+    std::optional<int> FindReplyQuote(std::string_view text) const;
     void RunDeclineActions(const ScriptContext& context, int quote);
 
     Session session_{};
@@ -121,8 +120,6 @@ private:
 std::string GetNpcScriptRegionName(int region);
 void StripNpcKeywordPunctuation(std::string& text);
 void TryFinishNpcVoicePlayback(bool force);
-int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
-                                short* sub_entry_index);
 /* What presenting a subquote asks of the conversation: script sentinels
    UNKNOWN and CLASSIFIED stand for the NPC's stock "don't know" and
    "won't say" quotes. */
@@ -146,8 +143,8 @@ struct W8NpcScriptItemQuote {
 std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id);
 void UpdateNpcDialogueVoiceAndCursor(const ScriptContext& context);
 /* Resolves NPC-name, named-person, and region keywords to a quote
-   id; returns -1 when nothing matches. */
-int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text);
+   id, if the keyword is known in the current location. */
+std::optional<int> FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text);
 void RestoreCurrentNpcQuoteBubble(void);
 /* Show the NPC quote bubble for the formatted line; a nonzero
    second argument also plays the startup jingle. */

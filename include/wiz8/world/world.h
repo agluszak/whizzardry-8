@@ -138,7 +138,6 @@ struct World {
     std::vector<Monster*> active_monsters;
     SpellVisual* target_cone = nullptr;
     unsigned int next_trigger_id = 1;
-    int last_visible_prop_index = -1;
     int cursor_serial = 100;
     float render_range{};
     bool initial_camera_sway = false;

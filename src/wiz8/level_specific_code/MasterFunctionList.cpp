@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -245,14 +246,14 @@ bool LevelScript::runCursorNodeHandler(int command, W8WorldCursorNode* node, int
     case 4:
         // Entering applies the node's item effect to a random party member.
         if (command == 1) {
-            ApplyItemEffectToRandomCharacter(kCursorNodeEffectEvent, -1, 0);
+            ApplyItemEffectToRandomCharacter(kCursorNodeEffectEvent, std::nullopt, 0);
         }
         return true;
     case 5:
         return seenBodies(command);
     case 6:
         if (command == 1) {
-            ApplyItemEffectToRandomCharacter(kCursorNodeRelicEvent, -1, 0);
+            ApplyItemEffectToRandomCharacter(kCursorNodeRelicEvent, std::nullopt, 0);
         }
         return true;
     case 7:
@@ -358,11 +359,11 @@ bool LevelScript::maleCharacterEvent(int command)
 bool LevelScript::seenBodies(int command)
 {
     if (command == 1) {
-        if (GetLocationVarIDByName("AP_SeenBodies") == -1) {
+        if (!GetLocationVarIDByName("AP_SeenBodies")) {
             if (CountAscensionPeakItems(ctx.party) == 3) {
                 if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
                     GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
-                    ApplyItemEffectToRandomCharacter(kCursorNodeRelicEvent, -1, 0);
+                    ApplyItemEffectToRandomCharacter(kCursorNodeRelicEvent, std::nullopt, 0);
                     CreateLocationVar("AP_SeenBodies", 1);
                     if (GetFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
                         SetFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0, false);
@@ -389,9 +390,9 @@ bool LevelScript::partyVoice(int command, W8WorldCursorNode* node)
         std::byte* shown = node->userdata.data();
         if (*shown == std::byte{}) {
             *shown = std::byte{1};
-            const int slot = PickRandomPartySpeaker(event_type, 0xff);
-            if (slot != -1) {
-                QueueCharacterEvent(ctx.party.characters + slot, event_type, 0,
+            const auto slot = PickRandomPartySpeaker(event_type);
+            if (slot) {
+                QueueCharacterEvent(ctx.party.characters + *slot, event_type, 0,
                                     kCharacterEventFullVolume);
             }
         }

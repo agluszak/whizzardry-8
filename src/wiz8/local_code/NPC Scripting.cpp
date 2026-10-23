@@ -157,24 +157,41 @@ static W8NpcNamedQuote g_npc_named_quotes[] = {
    FindNpcNameOrPlaceQuote reads one row past the end, where the following
    zero word happens to terminate the loop. */
 
-/* Region-by-level-band quote table: one 0x12-int row per
+/* Region-by-level-band quote table: one row per
    g_npc_script_region_names region id; band 0 is unused. */
-static int g_npc_region_quotes[15][0x12] = {
-    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
-    {-1, 117, 210, 210, 210, 210, 210, 213, 210, 211, 211, 211, 211, 213, 210, -1, 210, 213},
-    {-1, 211, 117, 210, 210, 210, 210, 213, 210, 213, 213, 211, 211, 213, 210, -1, 210, 213},
-    {-1, 211, 211, 117, 213, 213, 213, 213, 213, 213, 213, 211, 211, 213, 213, -1, 212, 213},
-    {-1, 211, 212, 212, 117, 210, 213, 213, 211, 211, 211, 211, 211, 213, 211, -1, 212, 211},
-    {-1, 211, 212, 212, 211, 117, 211, 213, 211, 211, 211, 211, 211, 213, 211, -1, 212, 211},
-    {-1, 211, 212, 212, 212, 212, 117, 213, 212, 211, 211, 211, 211, 213, 212, -1, 212, 211},
-    {-1, 213, 212, 212, 212, 212, 212, 117, 212, 211, 211, 211, 211, 213, 212, -1, 212, 211},
-    {-1, 211, 212, 212, 210, 210, 210, 213, 117, 211, 211, 212, 212, 213, 210, -1, 212, 213},
-    {-1, 212, 212, 210, 210, 210, 210, 210, 212, 117, 210, 212, 212, 210, 210, -1, 212, 211},
-    {-1, 212, 212, 210, 210, 210, 210, 210, 210, 211, 117, 212, 212, 210, 210, -1, 212, 211},
-    {-1, 210, 210, 210, 210, 210, 210, 210, 210, 213, 213, 117, 213, 210, 210, -1, 210, 210},
-    {-1, 212, 210, 210, 210, 210, 210, 210, 210, 213, 213, 212, 117, 210, 210, -1, 212, 212},
-    {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 211, 211, 211, 117, -1, -1, 212, 211},
-    {-1, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 212, 212},
+static constexpr std::optional<int> g_npc_region_quotes[15][0x12] = {
+    {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt,
+     std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt,
+     std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt},
+    {std::nullopt, 117, 210, 210, 210, 210, 210, 213, 210, 211, 211, 211, 211, 213, 210,
+     std::nullopt, 210, 213},
+    {std::nullopt, 211, 117, 210, 210, 210, 210, 213, 210, 213, 213, 211, 211, 213, 210,
+     std::nullopt, 210, 213},
+    {std::nullopt, 211, 211, 117, 213, 213, 213, 213, 213, 213, 213, 211, 211, 213, 213,
+     std::nullopt, 212, 213},
+    {std::nullopt, 211, 212, 212, 117, 210, 213, 213, 211, 211, 211, 211, 211, 213, 211,
+     std::nullopt, 212, 211},
+    {std::nullopt, 211, 212, 212, 211, 117, 211, 213, 211, 211, 211, 211, 211, 213, 211,
+     std::nullopt, 212, 211},
+    {std::nullopt, 211, 212, 212, 212, 212, 117, 213, 212, 211, 211, 211, 211, 213, 212,
+     std::nullopt, 212, 211},
+    {std::nullopt, 213, 212, 212, 212, 212, 212, 117, 212, 211, 211, 211, 211, 213, 212,
+     std::nullopt, 212, 211},
+    {std::nullopt, 211, 212, 212, 210, 210, 210, 213, 117, 211, 211, 212, 212, 213, 210,
+     std::nullopt, 212, 213},
+    {std::nullopt, 212, 212, 210, 210, 210, 210, 210, 212, 117, 210, 212, 212, 210, 210,
+     std::nullopt, 212, 211},
+    {std::nullopt, 212, 212, 210, 210, 210, 210, 210, 210, 211, 117, 212, 212, 210, 210,
+     std::nullopt, 212, 211},
+    {std::nullopt, 210, 210, 210, 210, 210, 210, 210, 210, 213, 213, 117, 213, 210, 210,
+     std::nullopt, 210, 210},
+    {std::nullopt, 212, 210, 210, 210, 210, 210, 210, 210, 213, 213, 212, 117, 210, 210,
+     std::nullopt, 212, 212},
+    {std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt, std::nullopt,
+     std::nullopt, std::nullopt, std::nullopt, std::nullopt, 211, 211, 211, 117, std::nullopt,
+     std::nullopt, 212, 211},
+    {std::nullopt, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 118, 212,
+     212},
 };
 
 /* Kind 0x0b consumes the item; kind 0x0f only mentions it. */
@@ -201,7 +218,7 @@ std::optional<W8NpcScriptItemQuote> FindNpcScriptItemQuote(int item_id)
 /* Resolve an NPC-name, named-person, or region keyword to the quote id the
    speaker answers with; -1 when nothing applies. The record's alias mask
    selects which named persons this NPC will speak for. */
-int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text)
+std::optional<int> FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text)
 {
     int index;
     int band;
@@ -212,7 +229,7 @@ int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text)
     for (index = 0; g_npc_named_quotes[index].name[0] != 0; ++index) {
         if (CompareTextIgnoreAsciiCase(text, g_npc_named_quotes[index].name) == 0) {
             if ((npc->record->name_alias_mask & g_npc_named_quotes[index].mask) == 0) {
-                return -1;
+                return std::nullopt;
             }
             return g_npc_named_quotes[index].quote;
         }
@@ -237,7 +254,7 @@ int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text)
         return g_npc_region_quotes[4][band];
     }
     if (CompareTextIgnoreAsciiCase(text, "the Monastery") != 0) {
-        return -1;
+        return std::nullopt;
     }
     band = GetLevelBand(GetLoadedLevelID());
     return g_npc_region_quotes[1][band];
@@ -705,11 +722,11 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
         }
         void operator()(W8NpcPartySpeakerEvent event) const
         {
-            int party_slot =
+            const auto party_slot =
                 PickRandomPartySpeaker(event.event_type, context.status.selected_party_member);
-            if (party_slot != -1) {
-                context.status.selected_party_member = static_cast<unsigned char>(party_slot);
-                QueueCharacterEvent(&context.party.characters[party_slot], event.event_type,
+            if (party_slot) {
+                context.status.selected_party_member = static_cast<unsigned char>(*party_slot);
+                QueueCharacterEvent(&context.party.characters[*party_slot], event.event_type,
                                     kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
                 SetNpcDialoguePanelVisible(0);
                 if (CurrentGame().npc_interaction.modal_dialog_open) {

@@ -12,6 +12,8 @@
 
 class Rng;
 
+enum class PartySelectionFallback { None, Living, AnyMember };
+
 struct W8HeldItem {
     W8ItemInstance item{.iItemNo = -1};
     W8ItemLocation origin{};
@@ -31,17 +33,20 @@ struct W8Party {
     W8ItemInstance* itemAt(W8ItemLocation location);
     const W8ItemInstance* itemAt(W8ItemLocation location) const;
     std::optional<unsigned int> slotOf(const W8Character& character) const;
+    // Prefer the first awake living member, then a living member, then any member.
+    std::optional<unsigned int> firstSelectableSlot() const;
+    // Prefer awake living members; relax eligibility only when none can be selected.
+    std::optional<int> randomSlot(Rng& rng,
+                                  PartySelectionFallback fallback = PartySelectionFallback::None,
+                                  std::optional<int> excluded_slot = {}) const;
+    // Uniform among living members; a sole candidate consumes no random draw.
+    std::optional<int> randomLivingSlot(Rng& rng, std::optional<int> excluded_slot = {},
+                                        bool skip_first_two = false) const;
     // The NPC state index of the slot's member; -1 for an empty slot or a created character.
     int npcIndex(unsigned int slot) const;
     /* The slot's place in the marching order; an empty slot reads as the first place, as a
        cleared retail row did. */
     int orderIndexOf(unsigned int slot) const;
-    /* A random slot other than `excluded_slot` whose member is not of `excluded_gender`
-       (-1 for any), alive unless `require_primary` is 2 and awake unless
-       `require_secondary` is 2. A requirement of 1 is waived when nobody meets it; -1 when
-       nobody qualifies. Draws from `rng`. */
-    int randomSlot(Rng& rng, int require_primary, int require_secondary, int excluded_slot,
-                   signed char excluded_gender) const;
 
     // Storage only: no legality checks and no gameplay consequences. An emptied pool
     // entry closes up; an emptied hand forgets where its item came from.

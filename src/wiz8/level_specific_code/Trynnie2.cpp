@@ -81,7 +81,7 @@ void Trynnie2Script::enter()
 void EnsureKilledVar(World& world)
 {
     if (GetFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
-        if (GetLocationVarIDByName("Trynnie2Killed") == -1) {
+        if (!GetLocationVarIDByName("Trynnie2Killed")) {
             KillTrynnieGroups(world);
             CreateLocationVar("Trynnie2Killed", 1);
         }
@@ -141,7 +141,7 @@ bool Trynnie2Script::meatBox(Trigger* pTrigger)
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, Data().strings[0x964]);
         return true;
     }
-    item_id = GetItemInHand(ctx.party);
+    item_id = ctx.party.held.item.iItemNo;
     if (item_id != 0x1b4 && item_id != 0x1c2) {
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, Data().strings[0x964]);
         return true;
@@ -154,7 +154,7 @@ bool Trynnie2Script::meatBox(Trigger* pTrigger)
         info->entity->SetScript("MoveHogar.msf", true);
     } else {
         info->entity->SetScript("MoveHogarDrugged.msf", true);
-        if (GetLocationVarIDByName("HogarDruggedGivenExp") == -1) {
+        if (!GetLocationVarIDByName("HogarDruggedGivenExp")) {
             AwardPartyExperience(500, false);
             CreateLocationVar("HogarDruggedGivenExp", 1);
         }

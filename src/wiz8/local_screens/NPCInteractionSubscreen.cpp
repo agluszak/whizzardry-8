@@ -97,6 +97,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -695,8 +696,7 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool for
     }
     CurrentGame().npc_interaction.dialogue_panel_hidden = false;
     state->scripted_dialogue = false;
-    Panel().last_mouse_x = -1;
-    Panel().last_mouse_y = -1;
+    Panel().last_mouse.reset();
     Panel().hovered_text_line = -1;
     Panel().trade_filter = W8_NPC_TRADE_FILTER_NONE;
     Panel().where_is_query = false;
@@ -1145,10 +1145,11 @@ void EndNpcDialogueSession(bool skip_exit_actions)
         W8NpcState* npc = CurrentGame().npc_interaction.dialogue_npc.get();
         if (!CurrentGame().npc_interaction.suppress_parting_reaction &&
             npc->record->merchant == 0 && !npc->is_grouped && GetNpcMonsterInfo(npc) != 0) {
-            int slot = CurrentGame().party.randomSlot(CurrentGame().rng, 1, 1, -1, -1);
-            if (slot != -1) {
+            const auto slot = CurrentGame().party.randomSlot(CurrentGame().rng,
+                                                             PartySelectionFallback::AnyMember);
+            if (slot) {
                 W8CharacterEvent* event =
-                    QueueCharacterEvent(&CurrentGame().party.characters[slot], g_special_event8,
+                    QueueCharacterEvent(&CurrentGame().party.characters[*slot], g_special_event8,
                                         kCharacterEventNoPreempt, kCharacterEventFullVolume);
                 if (event != 0) {
                     event->DelayDispatch(std::chrono::milliseconds{1000});
@@ -1305,9 +1306,9 @@ UiResult HandleNpcTextBox(const UiPointerEvent& event)
         ClearHoveredTextLine(2);
         return UiResult::Handled;
     }
+    auto& last_mouse = MainGame()->dialogue.last_mouse;
     if (event.action == UiPointerAction::Enter) {
-        MainGame()->dialogue.last_mouse_x = event.position.x;
-        MainGame()->dialogue.last_mouse_y = event.position.y;
+        last_mouse = event.position;
         if (CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
             y = event.position.y;
             if (y >= MainGameHud()->text_box_top && y <= MainGameHud()->text_box_bottom) {
@@ -1318,12 +1319,10 @@ UiResult HandleNpcTextBox(const UiPointerEvent& event)
         }
         return UiResult::Handled;
     }
-    if (event.position.x == MainGame()->dialogue.last_mouse_x &&
-        event.position.y == MainGame()->dialogue.last_mouse_y) {
+    if (last_mouse && event.position.x == last_mouse->x && event.position.y == last_mouse->y) {
         return UiResult::Handled;
     }
-    MainGame()->dialogue.last_mouse_x = event.position.x;
-    MainGame()->dialogue.last_mouse_y = event.position.y;
+    last_mouse = event.position;
     if (CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
         HighlightNoticeWordAt(3, event.position.x, event.position.y);
         return UiResult::Handled;
@@ -1630,7 +1629,7 @@ void ResetNpcDialogueItemEditor(void)
         "", g_wiz_text_font_secondary);
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_31, false);
     MainGame()->dialogue.trade_quantity = 1;
-    MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetFontStateIndex(-1);
+    MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetFontStateIndex(std::nullopt);
     MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_37].text.SetGeometryDirty();
 }
 
@@ -1957,16 +1956,13 @@ static void CloseNpcDialogueTranscriptLayout(void)
 
 static void RequestNpcJoinParty(void)
 {
-    unsigned int slot;
-
     ShowNotice(W8_FONT_PALETTE_BRONZE, Data().strings[0x748], 3,
                (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
     if (CurrentGame().npc_interaction.dialogue_hidden != 0) {
         SetNpcDialogueHidden(0);
     }
     if (CurrentGame().npc_interaction.dialogue_npc->record->has_group != 0) {
-        slot = FindFreePartySlot(0, 2);
-        if (slot == 0xffffffff) {
+        if (!FindFreePartySlot(0, 2)) {
             CurrentGame().npc_dialogue.QueueQuote(0xc, false, false, false);
             return;
         }
@@ -2149,7 +2145,7 @@ static void SelectNpcTradePoolControls(W8NpcDialogueControlSlot previous,
                                        W8NpcDialogueControlSlot selected)
 {
     SetNpcActionPressed(previous, false);
-    MainGame()->dialogue.ui->actions[previous].text.SetFontStateIndex(-1);
+    MainGame()->dialogue.ui->actions[previous].text.SetFontStateIndex(std::nullopt);
     MainGame()->dialogue.ui->actions[previous].text.SetGeometryDirty();
     SetNpcActionPressed(selected, true);
     MainGame()->dialogue.ui->actions[selected].text.SetFontStateIndex(3);
@@ -2241,11 +2237,11 @@ void CloseNpcDialogueOptionLayout(void)
     SetNpcActionPressed(W8_NPC_CONTROL_TEXT_4, false);
     SetNpcActionPressed(W8_NPC_CONTROL_TEXT_5, false);
     text = &MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_5].text;
-    text->SetFontStateIndex(-1);
+    text->SetFontStateIndex(std::nullopt);
     text->SetGeometryDirty();
     SetNpcActionPressed(W8_NPC_CONTROL_TEXT_6, false);
     text = &MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_6].text;
-    text->SetFontStateIndex(-1);
+    text->SetFontStateIndex(std::nullopt);
     text->SetGeometryDirty();
     MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_1].policy.primary_toggle =
         ButtonToggle::None;
@@ -2730,7 +2726,7 @@ static bool ReadNextWord(std::string_view& text, std::string& word)
    words, and resolves the text to one or two quote ids: the "join"-style
    keywords go straight to RequestNpcJoinParty, name/place prefixes are stripped
    and resolved through FindNpcNameOrPlaceQuote, and otherwise every word pair
-   then every single word is tried through FindNpcScriptQuoteByKeyword. Unresolved input
+   then every single word is tried through the dialogue's keyword lookup. Unresolved input
    shows a fallback notice built from the random reply tables; resolved input
    queues the script line(s). */
 void HandleNpcDialogueInput(void)
@@ -2742,12 +2738,12 @@ void HandleNpcDialogueInput(void)
     std::string notice;
     std::string_view cursor;
     bool has_word;
-    int quote_id = -1;
-    int second_quote_id = -1;
+    std::optional<int> quote_id;
+    std::optional<int> second_quote_id;
     bool show_fallback = true;
     bool plain_text = true;
     bool echo = false;
-    int quote;
+    std::optional<int> quote;
     int word_count;
     int matches;
 
@@ -2801,20 +2797,20 @@ void HandleNpcDialogueInput(void)
         } else {
             buf = fmt::sprintf(Data().strings[0x76a], field_text);
         }
-        quote = FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(buf), 0, 0);
-        if (quote != -1) {
+        quote = CurrentGame().npc_dialogue.FindKeywordQuote(TranslateDialogueKeyword(buf));
+        if (quote) {
             plain_text = false;
             quote_id = quote;
         }
     } else {
         buf = field_text;
-        quote = FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(buf), 0, 0);
-        if (quote != -1) {
+        quote = CurrentGame().npc_dialogue.FindKeywordQuote(TranslateDialogueKeyword(buf));
+        if (quote) {
             quote_id = quote;
         }
     }
 
-    if (quote_id == -1) {
+    if (!quote_id) {
         buf = field_text;
         if (CompareTextIgnoreAsciiCase(
                 std::string_view(buf).substr(0, wiz8::text::codepoint_prefix(buf, 0xb)),
@@ -2842,14 +2838,14 @@ void HandleNpcDialogueInput(void)
             show_fallback = false;
             quote_id = FindNpcNameOrPlaceQuote(CurrentGame().npc_interaction.dialogue_npc.get(),
                                                field_text);
-            if (quote_id == -1) {
+            if (!quote_id) {
                 quote_id = 0x76;
             }
         } else if (MainGame()->dialogue.where_is_query) {
             plain_text = false;
             quote_id = FindNpcNameOrPlaceQuote(CurrentGame().npc_interaction.dialogue_npc.get(),
                                                field_text);
-            if (quote_id == -1) {
+            if (!quote_id) {
                 quote_id = 0x76;
             }
         } else {
@@ -2858,13 +2854,13 @@ void HandleNpcDialogueInput(void)
     }
 
     /* Try each adjacent word pair. */
-    if (quote_id == -1) {
+    if (!quote_id) {
         cursor = field_text;
         has_word = ReadNextWord(cursor, word);
         while (has_word && ReadNextWord(cursor, word2)) {
             buf = fmt::format("{} {}", word, word2);
-            quote = FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(buf), 0, 0);
-            if (quote != -1) {
+            quote = CurrentGame().npc_dialogue.FindKeywordQuote(TranslateDialogueKeyword(buf));
+            if (quote) {
                 quote_id = quote;
                 break;
             }
@@ -2874,13 +2870,13 @@ void HandleNpcDialogueInput(void)
 
     /* Then each single word: more than two hits echoes the text, otherwise the
        first hit (and a different second one) answer. */
-    if (quote_id == -1) {
+    if (!quote_id) {
         matches = 0;
         cursor = field_text;
         while (!cursor.empty()) {
             has_word = ReadNextWord(cursor, word);
             if (has_word &&
-                FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(word), 0, 0) != -1) {
+                CurrentGame().npc_dialogue.FindKeywordQuote(TranslateDialogueKeyword(word))) {
                 ++matches;
             }
         }
@@ -2895,8 +2891,8 @@ void HandleNpcDialogueInput(void)
                 if (!has_word) {
                     break;
                 }
-                quote = FindNpcScriptQuoteByKeyword(TranslateDialogueKeyword(word), 0, 0);
-                if (quote == -1) {
+                quote = CurrentGame().npc_dialogue.FindKeywordQuote(TranslateDialogueKeyword(word));
+                if (!quote) {
                     continue;
                 }
                 ++found_count;
@@ -2912,7 +2908,7 @@ void HandleNpcDialogueInput(void)
         }
     }
 
-    if (quote_id >= 0x59 && quote_id < 0x69 && second_quote_id == -1) {
+    if (quote_id && *quote_id >= 0x59 && *quote_id < 0x69 && !second_quote_id) {
         echo = true;
     }
     if (!echo && show_fallback) {
@@ -2926,7 +2922,7 @@ void HandleNpcDialogueInput(void)
         ShowNotice(W8_FONT_PALETTE_BRONZE, field_text, 3,
                    (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
     }
-    if (quote_id == -1) {
+    if (!quote_id) {
         CurrentGame().npc_dialogue.QueueQuote(CurrentGame().rng.below(2) + 0x23, false, false,
                                               false);
         return;
@@ -2935,12 +2931,12 @@ void HandleNpcDialogueInput(void)
         CurrentGame().npc_dialogue.QueueQuote(0x59, true, false, false);
         return;
     }
-    CurrentGame().npc_dialogue.QueueQuote(quote_id, true, false, false);
-    if (second_quote_id == -1) {
+    CurrentGame().npc_dialogue.QueueQuote(*quote_id, true, false, false);
+    if (!second_quote_id) {
         return;
     }
     CurrentGame().npc_dialogue.QueueQuote(0x21, false, false, false);
-    CurrentGame().npc_dialogue.QueueQuote(second_quote_id, true, false, false);
+    CurrentGame().npc_dialogue.QueueQuote(*second_quote_id, true, false, false);
 }
 
 void HandleNpcDialogueKeyEvent(const InputEvent* event)
@@ -3392,7 +3388,7 @@ void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, const W8NpcQuo
         if (monster_info != 0) {
             price -= static_cast<int>(monster_info->charm_strength * 0.01f * price);
         }
-        price -= GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, 0) * price / 500;
+        price -= GetBestPartySkill(W8_SKILL_COMMUNICATION).level * price / 500;
         if (price < 1) {
             price = 1;
         }
@@ -3408,70 +3404,65 @@ void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, const W8NpcQuo
     ScreenPointer().showSlot(W8_CURSOR_NONE);
 }
 
-void W8NpcDialoguePanel::setQuoteBubbleVisible(bool visible, std::string_view text,
-                                               const W8NpcScriptQuote* quote, int quote_id,
-                                               unsigned int font_palette, W8QuoteNotice notice,
-                                               int npc_kind)
+void W8NpcDialoguePanel::showQuoteBubble(std::string_view text, std::optional<int> quote_id,
+                                         std::optional<std::uint8_t> font_palette,
+                                         W8QuoteNotice notice, std::optional<int> npc_kind)
 {
-    if (visible == active_quote.has_value()) {
-        return;
+    if (active_quote) return;
+    std::string normalized;
+
+    CancelMouselook();
+
+    for (unsigned int index = 0; index < text.size(); ++index) {
+        if (text[index] == '\n' && index > 0 && text[index - 1] != ' ') {
+            normalized += ' ';
+        }
+        normalized += text[index];
     }
-    if (visible) {
-        std::string normalized;
+    auto& active = active_quote.emplace();
+    auto& bubble = active.bubble;
+    bubble = QuoteBubble::layout(normalized, 280, font_palette);
+    if (!bubble) {
         std::string error_text;
-
-        CancelMouselook();
-
-        for (unsigned int index = 0; index < text.size(); ++index) {
-            if (text[index] == '\n' && index > 0 && text[index - 1] != ' ') {
-                normalized += ' ';
-            }
-            normalized += text[index];
+        if (screen_.game.npc_interaction.dialogue_npc != 0) {
+            error_text =
+                fmt::format("Error creating box - most likely text too large: NPC {}, quote {:d}",
+                            screen_.game.npc_interaction.dialogue_npc->record->source_name,
+                            quote_id.value_or(-1));
+        } else {
+            error_text = "Error creating box - most likely text too large";
         }
-        auto& active = active_quote.emplace();
-        auto& bubble = active.bubble;
-        bubble = QuoteBubble::layout(
-            normalized, 280,
-            font_palette == 0xffffffff ? std::nullopt : std::optional<std::uint8_t>(font_palette));
-        if (!bubble) {
-            if (screen_.game.npc_interaction.dialogue_npc != 0) {
-                error_text = fmt::format(
-                    "Error creating box - most likely text too large: NPC {}, quote {:d}",
-                    screen_.game.npc_interaction.dialogue_npc->record->source_name, quote_id);
-            } else {
-                error_text = "Error creating box - most likely text too large";
-            }
-            bubble = QuoteBubble::layout(error_text, 300, std::nullopt);
-            ShowNotice(W8_FONT_PALETTE_BEIGE, error_text, 0,
-                       (screen_.hud->text_box_right - screen_.hud->text_box_left));
-        }
-        active.origin = {320 - active.bounds().w / 2, quote_id < 0 ? 350 - active.bounds().h : 20};
-        const auto bounds = active.bounds();
-        active.input.add(SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1},
-                         [this](const UiPointerEvent& event) {
-                             if (event.action != UiPointerAction::Up || event.captured_buttons)
-                                 PlayButtonSound(event.action);
-                             if (event.action == UiPointerAction::Down &&
-                                 event.button == UiPointerButton::Left)
-                                 AfterUiDispatch([this] { tryFinishVoice(true); });
-                             return UiResult::Handled;
-                         });
-        if (std::holds_alternative<std::monostate>(notice)) {
-            screen_.game.npc_interaction.pending_notice_lines.push_back({normalized, npc_kind});
-        }
-        bool level_up = std::holds_alternative<W8LevelUpNotice>(notice);
-        active.notice = notice;
-        if (level_up) {
-            wiz8::sound::play(
-                reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
-                    "Data\\Sound\\Misc\\GainLevel.wav")));
-        }
-        return;
+        bubble = QuoteBubble::layout(error_text, 300, std::nullopt);
+        ShowNotice(W8_FONT_PALETTE_BEIGE, error_text, 0,
+                   (screen_.hud->text_box_right - screen_.hud->text_box_left));
     }
+    active.origin = {320 - active.bounds().w / 2, quote_id ? 20 : 350 - active.bounds().h};
+    const auto bounds = active.bounds();
+    active.input.add(SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1},
+                     [this](const UiPointerEvent& event) {
+                         if (event.action != UiPointerAction::Up || event.captured_buttons)
+                             PlayButtonSound(event.action);
+                         if (event.action == UiPointerAction::Down &&
+                             event.button == UiPointerButton::Left)
+                             AfterUiDispatch([this] { tryFinishVoice(true); });
+                         return UiResult::Handled;
+                     });
+    if (std::holds_alternative<std::monostate>(notice)) {
+        screen_.game.npc_interaction.pending_notice_lines.push_back({normalized, npc_kind});
+    }
+    active.notice = std::move(notice);
+    if (std::holds_alternative<W8LevelUpNotice>(active.notice)) {
+        wiz8::sound::play("Data\\Sound\\Misc\\GainLevel.wav");
+    }
+}
 
+void W8NpcDialoguePanel::dismissQuoteBubble(const W8NpcScriptQuote* quote,
+                                            std::optional<int> quote_id)
+{
+    if (!active_quote) return;
     auto& active = *active_quote;
     bool flush_notices =
-        (quote_id == 0x12 || quote_id < 0) && std::holds_alternative<std::monostate>(active.notice);
+        (quote_id == 0x12 || !quote_id) && std::holds_alternative<std::monostate>(active.notice);
     W8QuoteNotice dismissed = active.notice;
     if (const auto* experience = std::get_if<W8ExperienceNoticePayload>(&dismissed)) {
         ShowNotice(W8_FONT_PALETTE_BEIGE,
@@ -3528,16 +3519,16 @@ void FlushPendingNoticeLines(void)
          index < static_cast<int>(CurrentGame().npc_interaction.pending_notice_lines.size());
          ++index) {
         const auto* line = &CurrentGame().npc_interaction.pending_notice_lines[index];
-        if (line->npc_kind != -1 &&
+        if (line->npc_kind &&
             line->npc_kind != CurrentGame().npc_interaction.last_notice_npc_kind) {
-            W8NpcState* npc = GetNpcState(line->npc_kind);
+            W8NpcState* npc = GetNpcState(*line->npc_kind);
             if (npc != 0) {
                 npc_name = npc->record->source_name;
                 ShowNotice(W8_FONT_PALETTE_GREEN, npc_name, 3);
-                CurrentGame().npc_interaction.last_notice_npc_kind = line->npc_kind;
+                CurrentGame().npc_interaction.last_notice_npc_kind = *line->npc_kind;
             }
         }
-        ShowNotice(line->npc_kind == -1 ? 0xb : 0xf, line->text, 3,
+        ShowNotice(line->npc_kind ? 0xf : 0xb, line->text, 3,
                    (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
     }
     CurrentGame().npc_interaction.pending_notice_lines.clear();

@@ -125,7 +125,7 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
         } else if (selected != -1) {
             const auto id =
                 PickNextTargetableGroupMember(selected, group, action, IsSighting(selected));
-            if (id != -1) result.monsters[id].tint = tint;
+            if (id) result.monsters[*id].tint = tint;
         }
     }
     return result;

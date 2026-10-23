@@ -139,6 +139,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
@@ -298,7 +299,7 @@ void CancelMouselook()
 static void QueueInteractionNotice(int event_type)
 {
     W8CharacterEvent* event =
-        ApplyItemEffectToRandomCharacter(event_type, -1, kCharacterEventNoPreempt);
+        ApplyItemEffectToRandomCharacter(event_type, std::nullopt, kCharacterEventNoPreempt);
     if (event != 0) {
         event->DelayDispatch(std::chrono::milliseconds{600});
     }
@@ -437,9 +438,10 @@ static std::optional<int> PercentOrNothing(int value)
 }
 
 /* Show a percentage in an info line, or the dimmed dash when there is none. */
-static void ShowPercent(W8TextBuffer& line, std::optional<int> percent, int font_state = -1)
+static void ShowPercent(W8TextBuffer& line, std::optional<int> percent,
+                        std::optional<int> font_state = {})
 {
-    line.SetFontStateIndex(percent ? font_state : 0);
+    line.SetFontStateIndex(percent ? font_state : std::optional{0});
     line.SetText(percent ? fmt::format("{:d}%", *percent) : std::string(g_dash),
                  g_wiz_text_font_secondary);
 }
@@ -1342,7 +1344,7 @@ void W8MainGameStatusPanel::RefreshStatusTexts()
 
     m_text[0].SetText(CurrentGame().party.characters[slot].name, g_wiz_text_font_secondary);
     ShowPercent(m_text[2], PercentOrNothing(level < 0 ? level : level + m_target * 6),
-                m_target < 1 ? -1 : 3);
+                m_target < 1 ? std::nullopt : std::optional{3});
     ShowPercent(m_text[4], PercentOrNothing(LearnedSpellPower(slot, W8_SPELL_KNOCK_KNOCK)));
     ShowPercent(m_text[6], PercentOrNothing(LearnedSpellPower(slot, W8_SPELL_DIVINE_TRAP)));
     m_text[1].SetGeometryDirty();
@@ -2521,9 +2523,9 @@ void MainGameScreen::frame()
             RefreshLevelUpReadyNotices();
         }
         if (game.status.selected_character == -1) {
-            int next = GetNextCharacter(1, 1, -1);
-            assert(next != -1);
-            SelectPartyCharacter(next);
+            const auto next = game.party.firstSelectableSlot();
+            assert(next);
+            SelectPartyCharacter(static_cast<int>(*next));
         }
     }
     DrawMainGameScreen(*hud, UpdateMainGamePresentation(*hud));

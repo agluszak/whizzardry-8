@@ -397,26 +397,26 @@ char g_formation_row_names[5][20] = {
     "Front", "Right", "Rear", "Left", "Center",
 };
 
-/* Make room in `row` for one more character and return the column it should
-   take: an empty row, or one whose lead column is already open, seats it in
-   column 0; a lone leader moves over to column 1 and the newcomer takes column
-   2. A full row has no room (-1). */
-static int MakeRoomInFormationRow(W8PartyFormationState* formation, int row)
+/* Make room in `row` and return the newcomer's cell. An empty lead column
+   takes the newcomer; a lone leader moves to column 1, leaving column 2 free.
+   A full row has no available cell. */
+static std::optional<W8FormationCell> MakeRoomInFormationRow(W8PartyFormationState* formation,
+                                                             int row)
 {
     switch (formation->rowOccupants(row)) {
     case 0:
-        return 0;
+        return W8FormationCell{row, 0};
     case 1: {
         const auto leader = formation->occupant(row, 0);
         assert(leader);
         SetFormationPosition(formation, *leader, W8FormationCell{row, 1}, false, false, true);
-        return 2;
+        return W8FormationCell{row, 2};
     }
     case 2:
         assert(!formation->occupant(row, 0));
-        return 0;
+        return W8FormationCell{row, 0};
     default:
-        return -1;
+        return std::nullopt;
     }
 }
 
@@ -431,9 +431,9 @@ void PlaceCharacterInFormation(W8PartyFormationState* formation, int slot)
 
     formation->setPosition(slot, std::nullopt, false, false);
     for (int row : row_order) {
-        const int seat = MakeRoomInFormationRow(formation, row);
-        if (seat != -1) {
-            SetFormationPosition(formation, slot, W8FormationCell{row, seat}, true, true, true);
+        const auto cell = MakeRoomInFormationRow(formation, row);
+        if (cell) {
+            SetFormationPosition(formation, slot, cell, true, true, true);
             return;
         }
     }
@@ -507,18 +507,18 @@ void UpdateFormationSlotState(W8PartyFormationState* formation, int slot)
     }
     const int revival_row = position->revival_row;
     if (revival_row != -1) {
-        const int seat = MakeRoomInFormationRow(formation, revival_row);
-        if (seat != -1) {
-            SetFormationPosition(formation, slot, W8FormationCell{revival_row, seat},
-                                 formation == &CurrentGame().party.formation, true, true);
+        const auto cell = MakeRoomInFormationRow(formation, revival_row);
+        if (cell) {
+            SetFormationPosition(formation, slot, cell, formation == &CurrentGame().party.formation,
+                                 true, true);
             position->revival_row = -1;
             return;
         }
     }
     for (int row : row_order) {
-        const int seat = MakeRoomInFormationRow(formation, row);
-        if (seat != -1) {
-            SetFormationPosition(formation, slot, W8FormationCell{row, seat}, true, true, true);
+        const auto cell = MakeRoomInFormationRow(formation, row);
+        if (cell) {
+            SetFormationPosition(formation, slot, cell, true, true, true);
             break;
         }
     }
@@ -532,10 +532,10 @@ void UpdateFormationSlotState(W8PartyFormationState* formation, int slot)
    notice naming the row. */
 void SeatFormationSlotInRow(W8PartyFormationState* formation, int slot, int row)
 {
-    const int seat = MakeRoomInFormationRow(formation, row);
+    const auto cell = MakeRoomInFormationRow(formation, row);
 
-    if (seat != -1) {
-        SetFormationPosition(formation, slot, W8FormationCell{row, seat}, false, true, true);
+    if (cell) {
+        SetFormationPosition(formation, slot, cell, false, true, true);
         return;
     }
     PostCharacterNotice(slot, fmt::sprintf(Data().strings[0x24e], &g_formation_row_names[row][0]));
@@ -555,9 +555,9 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
     if (row == -1) {
         return;
     }
-    const int seat = MakeRoomInFormationRow(formation, row);
-    if (seat != -1) {
-        SetFormationPosition(formation, slot_a, W8FormationCell{row, seat}, false, true, true);
+    const auto cell = MakeRoomInFormationRow(formation, row);
+    if (cell) {
+        SetFormationPosition(formation, slot_a, cell, false, true, true);
         return;
     }
     PostCharacterNotice(slot_a,

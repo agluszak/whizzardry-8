@@ -10,6 +10,7 @@
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
 
@@ -50,7 +51,7 @@ bool OnRoachTriggerActivated(Trigger* trigger)
 {
     glm::vec3 positions[3];
 
-    if (GetLocationVarIDByName("RoachesSpawned") != -1) {
+    if (GetLocationVarIDByName("RoachesSpawned")) {
         return false;
     }
     if (!FindEntityByName("location_roach01", &positions[0], 0, 0)) {
@@ -102,7 +103,7 @@ bool OnCoffinlideActivated(Trigger* trigger)
 {
     glm::vec3 position;
 
-    if (GetLocationVarIDByName("HeadSpawned") == -1 && FindEntityByName("Head", &position, 0, 0)) {
+    if (!GetLocationVarIDByName("HeadSpawned") && FindEntityByName("Head", &position, 0, 0)) {
         SpawnMonsters(0x12d, 1, &position, 1, true, false);
         CreateLocationVar("HeadSpawned", 1);
     }
@@ -136,12 +137,12 @@ bool Monastery1Script::coffinlidg(Trigger* trigger)
    armed. */
 bool Monastery1Script::wheelStar(Trigger* trigger)
 {
-    if (GetItemInHand(ctx.party) != 0x24c) {
+    if (ctx.party.held.item.iItemNo != 0x24c) {
         ShowLevelMessage(0x22);
         g_trigger_feedback = true;
         return false;
     }
-    RemovePartyItemByID(ctx.game, GetItemInHand(ctx.party), false);
+    RemovePartyItemByID(ctx.game, 0x24c, false);
     return true;
 }
 

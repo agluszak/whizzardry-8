@@ -149,20 +149,16 @@ static bool MeshNameEquals(std::string_view left, std::string_view right)
                                                      });
 }
 
-/* The active-polygon table selects which polygons a texture-table draw
-   submits. Skin scans drop textures whose name starts with "blank"; a table
-   not found among the skins uses the base selection. */
-Mesh::PolygonSelection Mesh::GetActivePolygons(int table, bool check_blanking)
+/* Textures whose names start with "blank" omit their polygons.
+   A null skin selects the authored textures. */
+Mesh::PolygonSelection Mesh::GetActivePolygons(Skin* skin, bool check_blanking)
 {
-    auto skin = std::find_if(skins.begin(), skins.end(),
-                             [table](const auto& skin) { return skin.id == table; });
-    auto& selection = skin != skins.end() ? skin->active_polygons : base_polygons;
-    auto& checked = skin != skins.end() ? skin->blanking_checked : base_blanking_checked;
+    auto& selection = skin ? skin->active_polygons : base_polygons;
+    auto& checked = skin ? skin->blanking_checked : base_blanking_checked;
     if (!checked && check_blanking) {
         std::vector<std::uint32_t> active;
         active.reserve(polygon_count);
-        auto* textures =
-            skin != skins.end() ? &skin->textures : getPolygonTextureTable(0, 0, false);
+        auto* textures = skin ? &skin->textures : getPolygonTextureTable(0, 0, false);
         if (textures != nullptr) {
             for (unsigned int polygon = 0; polygon < static_cast<unsigned int>(polygon_count);
                  ++polygon) {
@@ -189,13 +185,12 @@ void Mesh::SetMappedVertex(int vertex, short key)
     mapped_vertices.insert_or_assign(key, vertex);
 }
 
-int Mesh::FindMappedIndex(short key) const
+std::optional<int> Mesh::FindMappedIndex(short key) const
 {
-    if (key < 0) {
-        return -1;
-    }
-    auto entry = mapped_vertices.find(key);
-    return entry != mapped_vertices.end() ? entry->second : -1;
+    if (key < 0) return {};
+    const auto entry = mapped_vertices.find(key);
+    if (entry == mapped_vertices.end()) return {};
+    return entry->second;
 }
 
 void Mesh::AddPart(std::unique_ptr<Mesh> part)
@@ -208,8 +203,8 @@ std::optional<MappedVertex> findMappedVertex(Mesh* model, int key)
 {
     if (key < 0) return std::nullopt;
     for (auto* part : meshParts(model)) {
-        if (const int index = part->FindMappedIndex(static_cast<short>(key)); index >= 0)
-            return MappedVertex{part, index};
+        if (const auto index = part->FindMappedIndex(static_cast<short>(key)))
+            return MappedVertex{part, *index};
     }
     return std::nullopt;
 }
@@ -238,70 +233,42 @@ void Mesh::InitializeVertexFrames(int count)
     flags |= W8_MESH_HAS_FRAME_STORAGE;
 }
 
-int Mesh::FindSkinTable(std::string_view name)
+Mesh::Skin* Mesh::findSkin(std::string_view name)
 {
-    for (const auto& skin : skins) {
-        if (MeshNameEquals(name, skin.name)) {
-            // Damage stages store this as the GetTextureTable ID,
-            // not the record's changing position after another skin is removed.
-            return skin.id;
-        }
-    }
-    return -1;
+    for (auto& skin : skins)
+        if (MeshNameEquals(name, skin.name)) return &skin;
+    return nullptr;
 }
 
-std::vector<std::shared_ptr<Texture>>* Mesh::GetTextureTable(int table)
+/* A skin owns its cloned texture assignments. Appending another skin leaves
+   existing skins and their polygon selections at stable addresses. */
+Mesh::Skin* Mesh::createSkin(std::string_view name, const Skin* base)
 {
-    auto skin = std::find_if(skins.begin(), skins.end(),
-                             [table](const auto& skin) { return skin.id == table; });
-    return skin != skins.end() ? &skin->textures : nullptr;
+    if (findSkin(name)) return nullptr;
+    const auto* source = base ? &base->textures : getPolygonTextureTable(0, 0, false);
+    if (!source) return nullptr;
+    return &skins.emplace_back(Skin{.name = std::string(name), .textures = *source});
 }
 
-/* Clone one polygon-texture table under an owned name. Skins are never removed,
-   so a table's id is its creation index. */
-int Mesh::CreateSkinTable(std::string_view name, int base_table)
+bool Mesh::Skin::replaceTexture(std::string_view old_name,
+                                const std::shared_ptr<Texture>& replacement)
 {
-    if (FindSkinTable(name) != -1) {
-        return -1;
-    }
-    auto* source = GetTextureTable(base_table);
-    if (source == nullptr) {
-        source = getPolygonTextureTable(0, 0, false);
-    }
-    if (source == nullptr) {
-        return -1;
-    }
-    const int table = wiz8::checked_integer<int>(skins.size());
-    Skin skin{table, std::string(name), *source, std::nullopt, false};
-    // A clone splits no batch its source table did not already split.
-    skins.push_back(std::move(skin));
-    return table;
-}
-
-bool Mesh::replaceSkinTexture(int table, std::string_view old_name,
-                              const std::shared_ptr<Texture>& replacement)
-{
-    auto skin = std::find_if(skins.begin(), skins.end(),
-                             [table](const auto& entry) { return entry.id == table; });
-    if (skin == skins.end()) return false;
     bool matched = false;
     bool changed = false;
-    for (std::size_t polygon = 0; polygon < skin->textures.size(); ++polygon) {
-        const auto& texture = skin->textures[polygon];
+    for (auto& texture : textures) {
         if (!texture || (texture->source_path.empty() && !texture->playback) ||
             !MeshNameEquals(texture->getName(), old_name))
             continue;
         matched = true;
         if (texture != replacement) {
-            skin->textures[polygon] = replacement;
+            texture = replacement;
             changed = true;
         }
     }
     if (changed) {
-        skin->active_polygons.reset();
-        // Polygons sharing a texture stay together, so the shared batches
-        // still separate every differing assignment.
-        skin->blanking_checked = false;
+        active_polygons.reset();
+        // A replacement changes the blanking selection, not the shared mesh batches.
+        blanking_checked = false;
     }
     return matched;
 }

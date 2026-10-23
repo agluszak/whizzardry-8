@@ -12,8 +12,10 @@
 #include "scoped_game_data.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/game.h"
 #include "wiz8/live_party.h"
+#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
@@ -129,4 +131,37 @@ TEST_CASE_METHOD(PartyFixture, "A longer condition is not shortened, and aging l
     AgeCondition(game, 0, W8_CONDITION_ASLEEP, 5);
     REQUIRE(member().uiCondition[W8_CONDITION_ASLEEP] == 0);
     REQUIRE(member().highest_condition == W8_CONDITION_NONE);
+}
+
+TEST_CASE("Party skill selection preserves zero-skill winners and first-on-tie order", "[party]")
+{
+    ScopedGame scope;
+    auto& party = scope.game.party;
+    auto best = GetBestPartySkill(W8_SKILL_COMMUNICATION);
+    REQUIRE(best.level == 0);
+    REQUIRE(best.character == nullptr);
+
+    for (int slot = 0; slot < 3; ++slot) {
+        if (slot < 2) party.members[slot].emplace();
+        party.characters[slot].hp_current = 1;
+        party.characters[slot].highest_condition = W8_CONDITION_NONE;
+        party.characters[slot].skills[W8_SKILL_COMMUNICATION].level = 0;
+    }
+    best = GetBestPartySkill(W8_SKILL_COMMUNICATION);
+    REQUIRE(best.level == 0);
+    REQUIRE(best.character == &party.characters[0]);
+
+    party.characters[0].skills[W8_SKILL_COMMUNICATION].level = 40;
+    party.characters[1].skills[W8_SKILL_COMMUNICATION].level = 40;
+    party.characters[2].skills[W8_SKILL_COMMUNICATION].level = 100;
+    best = GetBestPartySkill(W8_SKILL_COMMUNICATION);
+    REQUIRE(best.level == 40);
+    REQUIRE(best.character == &party.characters[0]);
+
+    party.characters[0].hp_current = 0;
+    REQUIRE(GetBestPartySkill(W8_SKILL_COMMUNICATION).character == &party.characters[1]);
+    party.characters[1].highest_condition = W8_CONDITION_TURNCOAT;
+    best = GetBestPartySkill(W8_SKILL_COMMUNICATION);
+    REQUIRE(best.level == 0);
+    REQUIRE(best.character == nullptr);
 }

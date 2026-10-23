@@ -163,18 +163,26 @@ public:
        to each mesh via Mesh::setBounds. */
     void calculateCompoundBounds();                 /* 0x00471e10 */
 
-    int FindMappedIndex(short key) const; /* 0x004712D0 */
+    std::optional<int> FindMappedIndex(short key) const; /* 0x004712D0 */
     void SetMappedVertex(int vertex, short key);
     void AddPart(std::unique_ptr<Mesh> part);
     short* GetVertex(unsigned int frame); /* 0x00471AA0 */
-    int FindSkinTable(std::string_view name);
-    int CreateSkinTable(std::string_view name, int base_table);
-    bool replaceSkinTexture(int table, std::string_view old_name,
-                            const std::shared_ptr<Texture>& replacement);
-    std::vector<std::shared_ptr<Texture>>* GetTextureTable(int table); /* 0x00473720 */
+    struct Skin {
+        std::string name;
+        std::vector<std::shared_ptr<Texture>> textures;
+        // An absent selection draws all polygons; an engaged empty selection
+        // draws none. The checked bit distinguishes that from a pending scan.
+        std::optional<std::vector<std::uint32_t>> active_polygons;
+        bool blanking_checked = false;
+
+        bool replaceTexture(std::string_view old_name, const std::shared_ptr<Texture>& replacement);
+    };
+
+    Skin* findSkin(std::string_view name);
+    Skin* createSkin(std::string_view name, const Skin* base = nullptr);
     /* No selection draws all polygons; an engaged empty span draws none.
        The view is borrowed until its skin is changed. */
-    PolygonSelection GetActivePolygons(int table, bool check_blanking);
+    PolygonSelection GetActivePolygons(Skin* skin, bool check_blanking);
     /* One animation frame decoded from its compressed tables. Positions
        interpolate toward the next frame; normals are this frame's own. */
     struct FrameGeometry {
@@ -210,15 +218,6 @@ public:
         std::vector<unsigned char> compressed_polygon_normals;
     };
 
-    struct Skin {
-        int id;
-        std::string name{"anonymous"};
-        std::vector<std::shared_ptr<Texture>> textures;
-        // An absent selection draws all polygons; an engaged empty selection
-        // draws none. The checked bit distinguishes that from a pending scan.
-        std::optional<std::vector<std::uint32_t>> active_polygons;
-        bool blanking_checked = false;
-    };
     unsigned int flags;
     glm::vec3 ambient_color;
     glm::vec3 environment_offset{0};

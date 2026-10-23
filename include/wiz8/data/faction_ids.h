@@ -1,7 +1,7 @@
 #pragma once
 
 /* The factions. The name table, the runtime score array and the relationship
-   matrix keep one row per id. The last two ids name no faction. */
+   matrix keep one row per id. The final constant is the row count. */
 enum W8Faction : signed char {
     W8_FACTION_UNALIGNED = 0,
     W8_FACTION_PARTY = 1,
@@ -25,6 +25,4 @@ enum W8Faction : signed char {
     W8_FACTION_FILLER_19 = 19,
     W8_FACTION_FILLER_20 = 20,
     W8_FACTION_COUNT = 21,
-    /* FindFactionByName answers this for a name no faction carries. */
-    W8_FACTION_INVALID = -1
 };

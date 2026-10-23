@@ -8,6 +8,7 @@
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -111,14 +112,12 @@ void ShowSpellCastingError(int spell_id);
    spell-name label and the cancel button. */
 static void CreateSpellCastingViewControls(void)
 {
-    const auto make_button = [](int artwork, const std::array<int, 5>& frames, SDL_Rect bounds,
-                                int help, std::function<void()> action,
+    const auto make_button = [](ButtonImage image, SDL_Rect bounds, int help,
+                                std::function<void()> action,
                                 std::function<void(bool)> on_hover = {}) {
         auto button = std::make_unique<W8ButtonWidget>(gpSCSV->input);
 
-        button->Configure(ButtonGraphics::Load(CatalogArtwork::Load(artwork, 0).spriteSheet(),
-                                               frames[0], frames[1], frames[2], frames[3],
-                                               frames[4]),
+        button->Configure(std::move(image),
                           {.on_click = [action](auto*) { AfterUiDispatch(action); },
                            .on_hover = std::move(on_hover),
                            .policy = {.primary_toggle = ButtonToggle::Release,
@@ -138,7 +137,8 @@ static void CreateSpellCastingViewControls(void)
         const auto pos = realm_positions[realm];
         auto& button = gpSCSV->realm_buttons[realm];
         button = make_button(
-            0x191, {frame + 2, frame, frame + 1, frame + 3, frame + 3},
+            ButtonGraphics::Load(CatalogArtwork::Load(0x191, 0).spriteSheet(), frame + 2, frame,
+                                 frame + 1, frame + 3, frame + 3),
             {0x17 + pos.x, 0x166 + pos.y, 75, 22}, -1,
             [realm] { SelectSpellCastingRealm(static_cast<W8SpellRealm>(realm)); },
             [](bool) { gpSCSV->dirty[0] = true; });
@@ -174,7 +174,8 @@ static void CreateSpellCastingViewControls(void)
         const int radius = 7 + std::min(pip, 7);
         auto& button = gpSCSV->power_controls[pip];
         button = make_button(
-            0x192, frames,
+            ButtonGraphics::Load(CatalogArtwork::Load(0x192, 0).spriteSheet(), frames[0], frames[1],
+                                 frames[2], frames[3], frames[4]),
             {0x1a4 + pip_positions[pip].x, 0x166 + pip_positions[pip].y, radius * 2 + 1,
              radius * 2 + 1},
             46 + pip,
@@ -202,8 +203,9 @@ static void CreateSpellCastingViewControls(void)
         gpSCSV->name_target->setPassive();
         gpSCSV->name_target->setTooltip([] { return std::string(Data().strings[55]); });
     }
-    gpSCSV->cancel =
-        make_button(0x8e, {7, 4, 5, -1, 6}, {0x23a, 0x16c, 27, 27}, 17, ResetSpellCastingSelection);
+    gpSCSV->cancel = make_button(
+        ButtonGraphics::Load(CatalogArtwork::Load(0x8e, 0).spriteSheet(), 7, 4, 5, std::nullopt, 6),
+        {0x23a, 0x16c, 27, 27}, 17, ResetSpellCastingSelection);
     gpSCSV->cancel->Policy().primary_toggle = ButtonToggle::None;
     gpSCSV->dirty.fill(true);
 
@@ -371,7 +373,7 @@ void UpdateSpellRealmPointDisplays(void)
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         bool has_realm = gpSCSV->caster->sp_max[realm] != 0;
         gpSCSV->realm_buttons[realm]->SetEnabled(has_realm);
-        gpSCSV->realm_text[realm].SetFontStateIndex(has_realm ? -1 : 0);
+        gpSCSV->realm_text[realm].SetFontStateIndex(has_realm ? std::nullopt : std::optional{0});
         gpSCSV->dirty[0] = true;
         gpSCSV->realm_text[realm].SetText(
             fmt::format(

@@ -142,10 +142,11 @@ TEST_CASE("Static instances share ordinary position and normal arrays", "[render
     positions[1] = {1, 0, 0};
     positions[2] = {0, 1, 0};
     mesh.getPolygonTextureTable(0, 0, true);
-    const int blank_skin = mesh.CreateSkinTable("blank", -1);
+    auto* blank_skin = mesh.createSkin("blank");
+    REQUIRE(blank_skin);
     auto blank = std::make_shared<Texture>();
     blank->setName("BLANK-hidden");
-    (*mesh.GetTextureTable(blank_skin))[0] = blank;
+    blank_skin->textures[0] = blank;
     render::MeshPose first(mesh), second(mesh);
     first.update(mesh, 0, 0);
     second.update(mesh, 0, 0);
@@ -221,39 +222,43 @@ TEST_CASE("Replacing a damage texture keeps the shared asset and refreshes blank
     auto body = texture("Body");
     auto* base = mesh->getPolygonTextureTable(0, 0, true);
     (*base)[0] = body;
-    const int skin = mesh->CreateSkinTable("damaged0", -1);
+    auto* skin = mesh->createSkin("damaged0");
+    REQUIRE(skin);
     MeshInstance instance;
     instance.setModel(mesh);
     // An instance draws the table named for its skin and stage.
     instance.skin = "damaged";
+    REQUIRE_FALSE(instance.selectedSkin(*mesh));
     instance.damage_stage = 0;
-    REQUIRE(instance.skinTable(*mesh) == skin);
+    REQUIRE(instance.selectedSkin(*mesh) == skin);
     instance.damage_stage = 1;
-    REQUIRE(instance.skinTable(*mesh) == -1);
+    REQUIRE_FALSE(instance.selectedSkin(*mesh));
     render::MeshPose pose(*mesh);
     pose.update(*mesh, 0, 0, skin);
     REQUIRE(pose.passes[0].draws[0]->indexCount == 3);
     const auto asset = pose.asset;
 
     auto scarred = texture("Scarred");
-    REQUIRE(mesh->replaceSkinTexture(skin, "BODY", scarred));
+    REQUIRE(skin->replaceTexture("BODY", scarred));
     pose.update(*mesh, 0, 0, skin);
     REQUIRE(pose.asset == asset);
-    REQUIRE(pose.texture(*mesh, 0, 0, skin) == scarred);
+    REQUIRE(pose.texture(0, 0, skin) == scarred);
     REQUIRE(pose.passes[0].draws[0]->indexCount == 3);
 
-    REQUIRE(mesh->replaceSkinTexture(skin, "SCARRED", texture("blank-body")));
+    REQUIRE(skin->replaceTexture("SCARRED", texture("blank-body")));
     pose.update(*mesh, 0, 0, skin);
     REQUIRE(pose.asset == asset);
     REQUIRE(pose.passes[0].draws[0]->indexCount == 0);
     REQUIRE(mesh->GetActivePolygons(skin, true).value().empty());
 
-    REQUIRE(mesh->replaceSkinTexture(skin, "BLANK-BODY", body));
+    REQUIRE(skin->replaceTexture("BLANK-BODY", body));
     pose.update(*mesh, 0, 0, skin);
     REQUIRE(pose.asset == asset);
     REQUIRE(pose.passes[0].draws[0]->indexCount == 3);
-    REQUIRE(pose.texture(*mesh, 0, 0, skin) == body);
+    REQUIRE(pose.texture(0, 0, skin) == body);
     REQUIRE((*base)[0] == body);
+    // Matching an already-installed texture still succeeds, without a particle fallback.
+    REQUIRE(skin->replaceTexture("BODY", body));
 }
 
 TEST_CASE("Mapped vertices use the current interpolated pose before the first render",

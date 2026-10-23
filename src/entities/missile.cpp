@@ -205,7 +205,8 @@ float AdvanceMissileAI(MissileFlight* record, glm::vec3* out, unsigned int steps
 
 const char* g_missile_cycle_names[] = {"FLY", "EXPLODE"};
 
-/* Index of the cycle whose name starts the PAC name, or -1 when none does. */
+/* Index of the cycle whose name starts the PAC name, or -1 when none does.
+   Frame sound events deliberately interpret -1 as an all-cycle wildcard. */
 static int missileCycleIndex(const char* pac_name)
 {
     for (int index = 0; index < 2; ++index) {
@@ -370,23 +371,16 @@ static std::unique_ptr<MissileDefinition> LoadMissileDefinition(std::string_view
                 break;
             }
         } else {
-            bool cycle_line = false;
-            for (int cycle = 0; cycle < 2; ++cycle) {
-                if (SDL_strncasecmp(command.c_str(), g_missile_cycle_names[cycle],
-                                    strlen(g_missile_cycle_names[cycle])) == 0) {
-                    std::string resource;
-                    if (!(fields >> resource)) {
-                        success = false;
-                        break;
-                    }
-
-                    success = loadAnimationCycle(resource, output->events, cycle, "Data\\Missiles",
-                                                 read_cycle, "Data\\Spells\\Bitmaps");
-                    cycle_line = true;
+            if (const int cycle = missileCycleIndex(command.c_str()); cycle >= 0) {
+                std::string resource;
+                if (!(fields >> resource)) {
+                    success = false;
                     break;
                 }
+                success = loadAnimationCycle(resource, output->events, cycle, "Data\\Missiles",
+                                             read_cycle, "Data\\Spells\\Bitmaps");
+                continue;
             }
-            if (cycle_line || !success) continue;
             std::string cycle_name;
             int frame = 0;
             if (SDL_strcasecmp(command.c_str(), "SHAKE_FRAME") == 0) {

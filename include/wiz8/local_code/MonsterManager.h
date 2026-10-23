@@ -436,9 +436,13 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info);
 unsigned int GetMonsterExperience(const W8MonsterRecord* record);
 bool AnyMonsterDying(void);
 float GetAveragePartyMemberLevel(void);
-/* The highest `skills[skill_index].level` among live party members;
-   `party_slot` receives the best member's slot. */
-unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot);
+struct BestPartySkill {
+    unsigned int level = 0;
+    W8Character* character = nullptr;
+};
+
+/* The first eligible member with the highest skill, or level zero without a winner. */
+BestPartySkill GetBestPartySkill(W8Skill skill_index);
 
 void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehaviour behavior);
 void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info);
@@ -462,6 +466,6 @@ void EvaluateCombatDifficulty(void);
    faction fallout, and bank the kill count and experience when it fought. */
 void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce);
 /* Record a kill fact for a monster record and the killer party slot. */
-void MonsterKilled(const ScriptContext& context, int record_id, int killer_party_slot);
+void MonsterKilled(const ScriptContext& context, int record_id);
 
 #endif

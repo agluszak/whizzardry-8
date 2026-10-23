@@ -78,6 +78,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -143,7 +144,7 @@ bool Game::beginCombat(int surprise)
         }
     }
     if (g_npc_combat_notice_pending) {
-        if (activity.conversation || CurrentGame().npc_dialogue.DefersCharacterEvents(false)) {
+        if (activity.conversation || npc_dialogue.DefersCharacterEvents(false)) {
             return false;
         }
         g_npc_combat_notice_pending = false;
@@ -424,9 +425,9 @@ void ApplyCombatEndEffects(void)
                 W8Character* character = &CurrentGame().party.characters[slot];
                 if (character->highest_condition == W8_CONDITION_DEAD) {
                     if (npc->healer_assist) {
-                        ApplyItemEffectToRandomCharacter(13, -1, 0);
+                        ApplyItemEffectToRandomCharacter(13, std::nullopt, 0);
                     } else if (npc->item_assist) {
-                        ApplyItemEffectToRandomCharacter(20, -1, 0);
+                        ApplyItemEffectToRandomCharacter(20, std::nullopt, 0);
                     }
                 }
             }
@@ -1047,7 +1048,7 @@ void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8Actio
         return;
     case W8_ACTION_WALK:
     case W8_ACTION_RUN:
-        ApplyItemEffectToRandomCharacter(g_special_event2, -1, 0);
+        ApplyItemEffectToRandomCharacter(g_special_event2, std::nullopt, 0);
         break;
     default:
         break;
@@ -1300,50 +1301,38 @@ bool CharacterCanChooseAction(int party_slot, W8ActionKind candidate)
    animated turn. */
 void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
 {
-    W8MonsterInfo* target;
-    int location_id;
-    glm::vec3 point;
-
+    W8MonsterInfo* target = nullptr;
     switch (monster_info->Target.iType) {
     case W8_TARGET_KIND_NONE:
     case W8_TARGET_KIND_ALL_ENEMIES:
-        break;
+        return;
     default:
-        if (IsMonsterFacingParty(monster_info) == 0) {
+        if (!IsMonsterFacingParty(monster_info)) {
             monster_info->entity->ForwardReferencePosition(alternate);
         }
-        break;
+        return;
     case W8_TARGET_KIND_MONSTER:
-        location_id = monster_info->Target.iMonsterID;
-        if (monster_info->location_id != location_id) {
-            target = FindMonster(location_id);
-            if (IsMonsterFacingMonster(monster_info, target) == 0) {
-                monster_info->entity->AimAtMonster(*target->entity, alternate);
-                return;
-            }
-        }
+        if (monster_info->location_id == monster_info->Target.iMonsterID) return;
+        target = FindMonster(monster_info->Target.iMonsterID);
         break;
     case W8_TARGET_KIND_GROUP:
-        location_id = FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID,
-                                                     W8VisibilityCondition::ThirdLineOfSightFlag);
-        if (location_id != -1) {
-            target = FindMonster(location_id);
-            if (IsMonsterFacingMonster(monster_info, target) == 0) {
-                monster_info->entity->AimAtMonster(*target->entity, alternate);
-                return;
-            }
-        }
+        target = FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID,
+                                                W8VisibilityCondition::ThirdLineOfSightFlag);
         break;
-    case W8_TARGET_KIND_PLACE:
-        point = monster_info->Target.point;
+    case W8_TARGET_KIND_PLACE: {
+        glm::vec3 point = monster_info->Target.point;
         if (!IsPartyLookingAt(monster_info, point)) {
             if (alternate) {
                 monster_info->entity->nav.SetFacingToward(&point);
-                return;
+            } else {
+                monster_info->entity->nav.AimAtPosition(&point);
             }
-            monster_info->entity->nav.AimAtPosition(&point);
-            return;
         }
+        return;
+    }
+    }
+    if (target && !IsMonsterFacingMonster(monster_info, target)) {
+        monster_info->entity->AimAtMonster(*target->entity, alternate);
     }
 }
 
@@ -1408,9 +1397,8 @@ void AssignCombatPhases(void)
             int value = CurrentGame().rng.below(4) + character->initiative;
             W8ActionKind action = party_row->committed.kind;
             if (action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) {
-                int hand = ChooseCharacterAttackHand(party_slot);
-                if (hand != -1) {
-                    value += character->Hand[hand].damage_bonus;
+                if (const auto hand = ChooseCharacterAttackHand(party_slot)) {
+                    value += character->Hand[*hand].damage_bonus;
                 }
             }
             value = std::clamp(value, -10, 0x59);
@@ -1663,25 +1651,23 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
                 return 1;
             }
         } else {
-            unsigned int party_slot;
-            W8CharacterEvent* event;
-            CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x22c], 0});
-            CurrentGame().events.push(TextNotice{
-                W8_FONT_PALETTE_BEIGE,
-                fmt::sprintf(Data().strings[0x22d], CurrentGame().combat->combat_result,
-                             CurrentGame().combat->combat_result == 1 ? "kill" : "kills"),
-                0});
+            Game& game = CurrentGame();
+            game.events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x22c], 0});
+            game.events.push(
+                TextNotice{W8_FONT_PALETTE_BEIGE,
+                           fmt::sprintf(Data().strings[0x22d], game.combat->combat_result,
+                                        game.combat->combat_result == 1 ? "kill" : "kills"),
+                           0});
             StartMusicResource("CombatWin.MPL", 0, 1);
             ServiceMusicPlaylist();
             StartLevelMusic(1, 0);
-            if (LastCombatDifficulty() != W8_DIFFICULTY_NOVICE &&
-                GetRandomPartySlots(0, 0, -1, &party_slot, 1, false) != 0 &&
-                (event = QueueCharacterEvent(&CurrentGame().party.characters[party_slot], 35, 2,
-                                             kCharacterEventFullVolume),
-                 event != 0)) {
-                event->DelayDispatch(std::chrono::milliseconds{1500});
-                CurrentGame().endCombat(false);
-                return 1;
+            if (LastCombatDifficulty() != W8_DIFFICULTY_NOVICE) {
+                if (const auto slot = game.party.randomLivingSlot(game.rng)) {
+                    if (auto* event = game.speech.Queue(&game.party.characters[*slot], 35, 2,
+                                                        kCharacterEventFullVolume)) {
+                        event->DelayDispatch(std::chrono::milliseconds{1500});
+                    }
+                }
             }
         }
     }
@@ -1777,7 +1763,7 @@ void RollCombatSurprise(signed char party_cannot_be_surprised)
    nausea fit, a webbed actor's break-out check, blindness, insanity, fear,
    control and turncoat. Returns the interrupt category the action scheduler
    substitutes, -1 when the action proceeds. */
-int GetConditionInterrupt(W8TargetSource* source)
+std::optional<int> GetConditionInterrupt(W8TargetSource* source)
 {
     int party_slot;
     W8Character* character;
@@ -1855,7 +1841,7 @@ int GetConditionInterrupt(W8TargetSource* source)
         return 0xb;
     }
     if (condition_turns[W8_CONDITION_TURNCOAT] == 0) {
-        return -1;
+        return std::nullopt;
     }
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
         if (!can_attack) {
@@ -1875,7 +1861,7 @@ int GetConditionInterrupt(W8TargetSource* source)
         }
     } else if (!MonsterActionTargetsEnemies(monster_info->action_kind, monster_info->action_detail,
                                             &monster_info->spell_power_level)) {
-        return -1;
+        return std::nullopt;
     }
     return 9;
 }

@@ -12,9 +12,9 @@
 #include <vsg/nodes/VertexIndexDraw.h>
 
 #include "wiz8/render/draw_shader.h"
+#include "wiz8/render/mesh.h"
 
 class Material;
-class Mesh;
 class Texture;
 
 namespace render {
@@ -91,10 +91,10 @@ public:
     };
 
     explicit MeshPose(Mesh& mesh);
-    void update(Mesh& mesh, unsigned frame, float interpolation, int skin = -1,
+    void update(Mesh& mesh, unsigned frame, float interpolation, Mesh::Skin* skin = nullptr,
                 bool check_blanking = true);
-    std::shared_ptr<Texture> texture(const Mesh& mesh, std::size_t pass, std::size_t batch,
-                                     int skin, unsigned layer = 0) const;
+    std::shared_ptr<Texture> texture(std::size_t pass, std::size_t batch, const Mesh::Skin* skin,
+                                     unsigned layer = 0) const;
 
     std::shared_ptr<MeshAsset> asset;
     std::vector<Pass> passes;
@@ -104,7 +104,7 @@ public:
 
 private:
     void makeDraws();
-    void selectPolygons(Mesh& mesh, int skin, bool check_blanking);
+    void selectPolygons(Mesh& mesh, Mesh::Skin* skin, bool check_blanking);
     unsigned sampled_frame_ = ~0u;
     float sampled_interpolation_ = -1;
     std::vector<std::uint32_t> selected_polygons_;

@@ -737,7 +737,7 @@ KeyboardActionMenu::KeyboardActionMenu(MainGameScreen& screen, int selected_slot
         row.target->setTooltip([this, &row] { return tooltip(row); });
     }
     rows[12].appearance.quick_image = ButtonGraphics::Load(
-        CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd, 0xbf, 0xbd, 0xbf);
+        CatalogArtwork::Load(0x89, 0).spriteSheet(), std::nullopt, 0xbd, 0xbf, 0xbd, 0xbf);
     input.add(SDL_Rect{left + 0x17, top, 0x53, 0x4b}, [this](const UiPointerEvent& event) {
         if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right)
             AfterUiDispatch([owner = &screen_] { owner->closeKeyboardMenu(); });

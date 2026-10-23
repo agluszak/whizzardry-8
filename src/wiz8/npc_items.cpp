@@ -48,7 +48,7 @@ static W8NpcItemEntry MakeNpcItemEntry(int item_id)
     return entry;
 }
 
-static int FindNpcStockItem(W8NpcState* npc, int item_id)
+static std::optional<int> FindNpcStockItem(W8NpcState* npc, int item_id)
 {
     const auto count = npc->items.size();
     for (unsigned int index = 0; index < count; ++index) {
@@ -56,13 +56,13 @@ static int FindNpcStockItem(W8NpcState* npc, int item_id)
             return index;
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 static unsigned char GetNpcStockQuantity(W8NpcState* npc, int item_id)
 {
-    const int index = FindNpcStockItem(npc, item_id);
-    return index >= 0 ? npc->items[index].quantity : 0;
+    const auto index = FindNpcStockItem(npc, item_id);
+    return index ? npc->items[*index].quantity : 0;
 }
 
 static unsigned char GetNpcConfiguredStockQuantity(W8NpcState* npc, int item_id)
@@ -113,16 +113,16 @@ static void RemoveDepletedNpcStock(W8NpcState* npc)
     std::erase_if(npc->items, [](const W8NpcItemEntry& entry) { return entry.quantity == 0; });
 }
 
-int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity)
+std::optional<int> AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity)
 {
     const W8ItemDatabaseRecord* record;
     W8NpcItemEntry* entry;
     unsigned int repeats;
     unsigned int added;
-    int index;
+    std::optional<int> index;
 
     if (npc == 0) {
-        return -1;
+        return std::nullopt;
     }
     record = &Data().items[item_id];
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
@@ -131,19 +131,19 @@ int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity)
         repeats = 1;
     }
     if (repeats == 0) {
-        return item_id;
+        return std::nullopt;
     }
     added = 0;
     for (; added < repeats; ++added) {
-        index = -1;
+        index.reset();
         if (record->equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
             index = FindNpcStockItem(npc, item_id);
         }
-        if (index == -1) {
+        if (!index) {
             index = static_cast<int>(npc->items.size());
             npc->items.push_back(MakeNpcItemEntry(item_id));
         }
-        entry = &npc->items[index];
+        entry = &npc->items[*index];
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {
             entry->item.stack_count = 0x19;
             entry->quantity = 1;
@@ -281,41 +281,41 @@ void SortNpcItems(W8NpcState* npc)
    Equipment, equip_class four, always takes a new entry instead of merging. The
    quantity then lands in whichever of the two counts the item's quantity kind
    uses, and the other count is raised to one while it is still clear. */
-int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, signed char quantity)
+static void AddSoldNpcItem(W8NpcState* npc, const W8ItemInstance* item, signed char quantity)
 {
     W8NpcItemEntry* entry;
     int item_id;
-    int index;
+    std::optional<int> index;
 
     if (npc == 0) {
-        return -1;
+        return;
     }
     if (item->iItemNo < 0) {
-        return -1;
+        return;
     }
     item_id = item->iItemNo;
-    index = -1;
+    index.reset();
     if (Data().items[item_id].equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
         index = FindNpcStockItem(npc, item_id);
     }
-    if (index == -1) {
+    if (!index) {
         item_id = item->iItemNo;
         index = static_cast<int>(npc->items.size());
         npc->items.push_back(MakeNpcItemEntry(item_id));
     }
-    entry = &npc->items[index];
+    entry = &npc->items[*index];
     if (Data().items[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         if (entry->quantity == 0) {
             entry->quantity = 1;
         }
         entry->item.stack_count += quantity;
-        return index;
+        return;
     }
     if (entry->item.stack_count == 0) {
         entry->item.stack_count = 1;
     }
     entry->quantity += quantity;
-    return index;
+    return;
 }
 
 /* Top up an NPC's stock from its database rules. A rule restocks only while it
@@ -416,19 +416,11 @@ W8NpcStockChanceTier RateItemIdentifyDifficulty(W8NpcState* npc, int item_id)
 /* Add stock that only becomes ordinary trade stock once the world clock passes
    the given delay. This is what establishes the leading field as a clock stamp
    rather than a state enum. */
-int AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int delay)
+void AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int delay)
 {
-    int index;
-
-    if (npc == 0) {
-        return -1;
+    if (const auto index = AddNpcItem(npc, item_id, quantity)) {
+        npc->items[*index].available_at = CurrentGame().status.world_clock + delay;
     }
-    index = AddNpcItem(npc, item_id, quantity);
-    if (index == -1) {
-        return -1;
-    }
-    npc->items[index].available_at = CurrentGame().status.world_clock + delay;
-    return index;
 }
 
 W8NpcItemEntry* GetNpcItemAt(W8NpcState* npc, int index)
@@ -511,7 +503,7 @@ int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind p
 int CalculateTradeStackPrice(W8NpcState* npc, W8ItemInstance* item, W8TradePriceKind price_kind)
 {
     int stack_value = GetItemStackValue(item);
-    unsigned int skill = GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, 0);
+    unsigned int skill = GetBestPartySkill(W8_SKILL_COMMUNICATION).level;
     const W8NpcDatabaseRecord* record = npc->record;
     float scale = skill * 0.002f;
     if (scale > fabs(record->sell_price_factor - record->buy_price_factor) * 0.5) {
@@ -703,7 +695,7 @@ W8TradeResult CompleteNpcTrade(Game& game, W8NpcState* npc, int actor,
     const auto amount = CalculateTradeStackPrice(npc, &stack, W8_TRADE_PRICE_PARTY_SELLS);
     if (!wanted) AddPartyGold(game, amount, false);
     if (item->stack_count == 0) item->stack_count = 1;
-    AddNpcItemFromInstance(npc, item, quantity);
+    AddSoldNpcItem(npc, item, quantity);
     const W8ItemLocation sold =
         selection.source == W8TradeSource::Backpack
             ? W8ItemLocation{W8ItemStorage::Backpack, static_cast<unsigned>(selection.character),

@@ -59,12 +59,8 @@ private:
 
 bool Monastery2Script::bellButton(Trigger* pTrigger)
 {
-    Prop* prop;
-    int slot;
-
-    prop = FindPropByName(&world(), "dial1");
-    if (prop != 0) {
-        slot = prop->FindCurrentAnimationSlot();
+    if (const auto* prop = FindPropByName(&world(), "dial1")) {
+        const auto slot = prop->FindCurrentAnimationSlot();
         if (slot == 0) {
             wiz8::sound::play("Data\\Sound\\Ambients\\Mon2Bell1.wav");
         } else if (slot == 1) {

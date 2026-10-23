@@ -343,7 +343,7 @@ struct MonsterDefinition {
     std::array<std::deque<Monster::CycleSlot>, W8_MONSTER_CYCLE_COUNT> cycles;
     CycleDefinition events;
     std::string skin;
-    int damage_stage = -1;
+    std::optional<int> damage_stage;
     int damage_stage_count = 0;
     std::shared_ptr<Script> script;
 
@@ -391,7 +391,7 @@ struct MonsterDefinition {
     // Every distinct mesh the animations draw: what load-time skin setup reaches.
     std::vector<Mesh*> CollectModelMeshes();
     bool ReplaceSkinTexture(int stage, std::string_view old_name, std::string_view new_name);
-    int AddDamageStage(int stage);
+    std::optional<int> AddDamageStage(int stage);
 };
 
 W8MonsterCycle ParseMonsterCycleName(std::string_view name, signed char* subcycle = nullptr);

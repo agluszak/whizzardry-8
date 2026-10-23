@@ -1,3 +1,4 @@
+#include <array>
 #include <cstring>
 #include <exception>
 #include <memory>
@@ -12,6 +13,7 @@
 #include "layouts/learned_spells.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/data/character_tables.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -115,18 +117,14 @@ static int g_profession_starting_spells[15][6] = {
     {6, 12, 5, 11, 0, 0}, {10, 12, 11, 14, 0, 0}, {5, 12, 14, 4, 0, 0},
 };
 
-/* The item database index whose legacy item number matches the imported
-   one, or -1 when no record carries it. */
-static int FindItemByLegacyNumber(short item_number)
+/* The database ID is kept because imported items store that identity, not their
+   legacy number. */
+static std::optional<int> FindItemByLegacyNumber(const GameData& data, short item_number)
 {
-    unsigned int index = 0;
-    while (index < Data().items.size()) {
-        if (Data().items[index].legacy_item_number == item_number) {
-            return index;
-        }
-        ++index;
+    for (unsigned int index = 0; index < data.items.size(); ++index) {
+        if (data.items[index].legacy_item_number == item_number) return index;
     }
-    return -1;
+    return std::nullopt;
 }
 
 struct ImportedParty {
@@ -209,7 +207,7 @@ PartyImportResult ImportWizardry7Party(GameSession& games, std::string_view path
     for (auto& record : imported->characters) {
         W8Character character;
         ImportWizardry7Character(&character, &record);
-        if (AddCharacterToParty(character, -1) == -1) return PartyImportResult::Unreadable;
+        if (!AddCharacterToParty(character, -1)) return PartyImportResult::Unreadable;
     }
     // Conversion still precedes rejection, preserving its random draws.
     return imported->unsupported_ending ? PartyImportResult::UnsupportedEnding
@@ -423,139 +421,94 @@ static void GrantStartingSpells(W8Character* character, const W8Wiz7Character*)
 
 static void ImportEquipment(W8Character* character, const W8Wiz7Character* imported)
 {
-    W8ItemInstance item;
-    /* The worthiest imported items: band 0 keeps the two most valuable finds
-       (value above 3000), band 1 the next three (above 1000). */
-    W8Wiz7Item candidates[2][20];
-    const W8Wiz7Item empty_item{};
-    int maximum[2];
-    int counts[2];
-    const W8Wiz7Item* source;
-    const W8Wiz7Item* entry;
-    int slot;
-    int index;
-    int best_index;
-    int best_value;
-    int item_index;
-    int price;
-    int give;
-    int item_id;
-    W8EquipSlot equip_slot;
-    W8Profession profession;
-
-    counts[0] = 0;
-    counts[1] = 0;
-    EmptyAllCarriedItems(CurrentGame(), *character);
-    for (slot = 0; slot < 2; ++slot) {
-        source = imported->items[slot];
-        for (index = 0; index < 10; ++index) {
-            if (source->item_number != 0) {
-                item_index = FindItemByLegacyNumber(source->item_number);
-                if (item_index != -1) {
-                    if (item_index != 0x128) {
-                        if (Data().items[item_index].unidentified_name_index == 0x84 ||
-                            4999 < static_cast<int>(Data().items[item_index].value)) {
-                            source++;
-                            continue;
-                        }
-                        if (2999 < static_cast<int>(Data().items[item_index].value)) {
-                            candidates[0][counts[0]] = *source;
-                            ++counts[0];
-                            source++;
-                            continue;
-                        }
-                        if (999 < static_cast<int>(Data().items[item_index].value)) {
-                            candidates[1][counts[1]] = *source;
-                            ++counts[1];
-                            source++;
-                            continue;
-                        }
-                    }
-                    item = MakeItem(Data(), CurrentGame().rng, item_index, true, true, true);
-                    if (Data().items[item_index].binds_on_equip == 0) {
-                        StoreItemWithCharacterOrParty(CurrentGame(), Outsider(*character),
-                                                      OwnedItem(item), false, false,
-                                                      static_cast<unsigned int>(slot == 0));
-                    } else {
-                        AddItemToCharacter(CurrentGame(), Outsider(*character), OwnedItem(item),
-                                           false, false, false);
-                    }
+    auto& game = CurrentGame();
+    const auto& data = Data();
+    // Keep one imported item worth 3000–4999, and two worth 1000–2999.
+    std::array<std::vector<int>, 2> candidates;
+    EmptyAllCarriedItems(game, *character);
+    for (int source_slot = 0; source_slot < 2; ++source_slot) {
+        for (const auto& source : imported->items[source_slot]) {
+            if (source.item_number == 0) continue;
+            const auto item_id = FindItemByLegacyNumber(data, source.item_number);
+            if (!item_id) continue;
+            const auto& record = data.items[*item_id];
+            if (*item_id != 0x128) {
+                const int value = static_cast<int>(record.value);
+                if (record.unidentified_name_index == 0x84 || value > 4999) continue;
+                if (value > 999) {
+                    // Only positive legacy numbers participate in the valuable-item sweep.
+                    if (source.item_number > 0)
+                        candidates[value > 2999 ? 0 : 1].push_back(*item_id);
+                    continue;
                 }
             }
-            source++;
-        }
-    }
-    maximum[0] = 1;
-    if (counts[0] < 2) {
-        maximum[0] = counts[0];
-    }
-    maximum[1] = 2;
-    if (counts[1] < 3) {
-        maximum[1] = counts[1];
-    }
-    for (slot = 0; slot < 2; ++slot) {
-        while (0 < maximum[slot]) {
-            best_value = 0;
-            best_index = -1;
-            for (index = 0; index < counts[slot]; ++index) {
-                entry = &candidates[slot][index];
-                if (0 < entry->item_number) {
-                    item_index = FindItemByLegacyNumber(entry->item_number);
-                    price = Data().items[item_index].value;
-                    if (!ItemHasHiddenProperties(Data(), item_index)) {
-                        price /= 2;
-                    }
-                    if (best_value < price) {
-                        best_value = Data().items[item_index].value;
-                        best_index = index;
-                    }
-                }
-            }
-            if (best_index != -1) {
-                item_index = FindItemByLegacyNumber(candidates[slot][best_index].item_number);
-                item = MakeItem(Data(), CurrentGame().rng, item_index, true, true, true);
-                if (Data().items[item_index].binds_on_equip == 0) {
-                    StoreItemWithCharacterOrParty(CurrentGame(), Outsider(*character),
-                                                  OwnedItem(item), false, false, true);
-                } else {
-                    AddItemToCharacter(CurrentGame(), Outsider(*character), OwnedItem(item), false,
-                                       false, false);
-                }
-                --maximum[slot];
-                candidates[slot][best_index] = empty_item;
+            auto item = MakeItem(data, game.rng, *item_id, true, true, true);
+            if (record.binds_on_equip == 0) {
+                StoreItemWithCharacterOrParty(game, Outsider(*character), OwnedItem(item), false,
+                                              false, source_slot == 0);
+            } else {
+                AddItemToCharacter(game, Outsider(*character), OwnedItem(item), false, false,
+                                   false);
             }
         }
     }
-    profession = W8_PROFESSION_COUNT;
+    for (unsigned int band = 0; band < candidates.size(); ++band) {
+        auto& pool = candidates[band];
+        for (unsigned int remaining = band + 1; remaining != 0 && !pool.empty(); --remaining) {
+            auto best = pool.end();
+            int best_value = 0;
+            for (auto candidate = pool.begin(); candidate != pool.end(); ++candidate) {
+                const auto& record = data.items[*candidate];
+                int price = record.value;
+                if (!ItemHasHiddenProperties(data, *candidate)) price /= 2;
+                if (best_value < price) {
+                    // The comparison uses discounted price, but its threshold is full value.
+                    best_value = record.value;
+                    best = candidate;
+                }
+            }
+            if (best == pool.end()) break;
+            const int item_id = *best;
+            auto item = MakeItem(data, game.rng, item_id, true, true, true);
+            if (data.items[item_id].binds_on_equip == 0) {
+                StoreItemWithCharacterOrParty(game, Outsider(*character), OwnedItem(item), false,
+                                              false, true);
+            } else {
+                AddItemToCharacter(game, Outsider(*character), OwnedItem(item), false, false,
+                                   false);
+            }
+            pool.erase(best);
+        }
+    }
+    auto profession = W8_PROFESSION_COUNT;
     if (character->iRace != W8_RACE_FAERIE) {
         profession = character->iProfession;
     }
-    for (slot = 0; slot < 6; ++slot) {
-        item_id = g_starting_equipment[profession][slot];
+    for (int slot = 0; slot < 6; ++slot) {
+        const int item_id = g_starting_equipment[profession][slot];
         if (item_id != -1) {
-            item = MakeItem(Data(), CurrentGame().rng, item_id, true, true, true);
-            equip_slot = GetItemDefaultEquipSlot(Data(), item_id, GameStarted());
+            auto item = MakeItem(data, game.rng, item_id, true, true, true);
+            auto equip_slot = GetItemDefaultEquipSlot(data, item_id, GameStarted());
             if (equip_slot == W8_EQUIP_SLOT_NONE) {
                 if (!FindCharacterItem(
-                        *character,
-                        ItemOfKind(Data(), Data().items[item_id].unidentified_name_index),
+                        *character, ItemOfKind(data, data.items[item_id].unidentified_name_index),
                         W8ItemReach::Carried)) {
-                    AddItemToCharacter(CurrentGame(), Outsider(*character), OwnedItem(item), true,
-                                       false, false);
+                    AddItemToCharacter(game, Outsider(*character), OwnedItem(item), true, false,
+                                       false);
                 }
             } else {
                 if (equip_slot == W8_EQUIP_SLOT_PRIMARY_WEAPON &&
-                    (Data().items[item_id].flags & W8_ITEM_FLAG_OFF_HAND_ALLOWED) != 0) {
+                    (data.items[item_id].flags & W8_ITEM_FLAG_OFF_HAND_ALLOWED) != 0) {
                     equip_slot = W8_EQUIP_SLOT_SECONDARY_WEAPON;
                 }
                 if (character->EquippedItem[equip_slot].iItemNo == -1) {
-                    AddItemToCharacter(CurrentGame(), Outsider(*character), OwnedItem(item), true,
-                                       false, false);
+                    AddItemToCharacter(game, Outsider(*character), OwnedItem(item), true, false,
+                                       false);
                 }
             }
         }
     }
-    give = -1;
+    std::optional<int> give;
     if (character->EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == -1) {
         if (character->iProfession == W8_PROFESSION_FIGHTER) {
             if (character->skills[W8_SKILL_SWORD].level < character->skills[W8_SKILL_AXE].level) {
@@ -571,13 +524,12 @@ static void ImportEquipment(W8Character* character, const W8Wiz7Character* impor
                 give = 0x16;
             }
         }
-        if (give != -1) {
-            item = MakeItem(Data(), CurrentGame().rng, give, true, true, true);
-            AddItemToCharacter(CurrentGame(), Outsider(*character), OwnedItem(item), true, false,
-                               false);
+        if (give) {
+            auto item = MakeItem(data, game.rng, *give, true, true, true);
+            AddItemToCharacter(game, Outsider(*character), OwnedItem(item), true, false, false);
         }
     }
-    RecalculateCharacterDerivedStats(CurrentGame(), *(character));
+    RecalculateCharacterDerivedStats(game, *character);
 }
 
 /* Retail fell through the failed assert and read `imported->skills` by

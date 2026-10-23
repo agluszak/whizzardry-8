@@ -881,18 +881,19 @@ Navigator* Navigator::ResolveBlockingNavigator(const glm::vec3* from, glm::vec3*
     return 0;
 }
 
-double Navigator::MeasurePathDistance(const glm::vec3* target, float max_range, int location_id)
+std::optional<float> Navigator::FindNavigatorPathDistance(float max_range)
 {
+    const auto& target = owner_world.party.position();
     NavigatorMovement movement;
     auto& attachment = *movement.attachment;
     unsigned char ready;
 
     movement.CopySettingsFrom(this->movement);
-    movement.target_location_id = location_id;
+    movement.target_location_id = 0;
     movement.basis = this->movement.basis;
     movement.position = this->movement.position;
-    movement.target_position = *target;
-    attachment.InitializeSegment(&this->movement.position, target);
+    movement.target_position = target;
+    attachment.InitializeSegment(&this->movement.position, &target);
     if (NavigationCombatActive(*this)) {
         attachment.flags |= 0xc010000;
     } else {
@@ -903,19 +904,7 @@ double Navigator::MeasurePathDistance(const glm::vec3* target, float max_range, 
         ((attachment.flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0 || (attachment.flags & 7) != 3)) {
         return attachment.MeasurePathLength();
     }
-    return -1.0;
-}
-
-int Navigator::FindNavigatorPathDistance(float max_range, float* out_distance)
-{
-    const glm::vec3 party = owner_world.party.position();
-    double distance = MeasurePathDistance(&party, max_range, 0);
-
-    *out_distance = static_cast<float>(distance);
-    if (distance != g_negative_one) {
-        return 1;
-    }
-    return 0;
+    return std::nullopt;
 }
 
 void Navigator::SetVelocity(const glm::vec3* velocity)

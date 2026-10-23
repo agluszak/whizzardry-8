@@ -7,6 +7,7 @@
 #include <exception>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -715,17 +716,18 @@ void PartySelectionScreen::Setup()
     m_reset_button->Policy().primary_toggle = ButtonToggle::Release;
     for (int index = 0; index < 3; ++index) {
         auto& button = difficulty_buttons[index] = std::make_unique<W8ButtonWidget>(input);
-        button->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(0xf1, 0).spriteSheet(), -1, 4, 5, 6, 7),
-            {.on_click =
-                 [this, index](auto*) {
-                     difficulty = index;
-                     for (int i = 0; i < 3; ++i) difficulty_buttons[i]->SetPressed(i == index);
-                 },
-             .policy = {.primary_toggle = ButtonToggle::StayLatched,
-                        .input_rule = ButtonInputRule::PrimaryPressedState},
-             .priority = UI_PRIORITY_LOWEST,
-             .menu_artwork = true});
+        button->Configure(ButtonGraphics::Load(CatalogArtwork::Load(0xf1, 0).spriteSheet(),
+                                               std::nullopt, 4, 5, 6, 7),
+                          {.on_click =
+                               [this, index](auto*) {
+                                   difficulty = index;
+                                   for (int i = 0; i < 3; ++i)
+                                       difficulty_buttons[i]->SetPressed(i == index);
+                               },
+                           .policy = {.primary_toggle = ButtonToggle::StayLatched,
+                                      .input_rule = ButtonInputRule::PrimaryPressedState},
+                           .priority = UI_PRIORITY_LOWEST,
+                           .menu_artwork = true});
 
         button->SetPosition(0x1d7, 0x3b + index * 22);
         button->SetPressed(index == difficulty);
@@ -733,12 +735,12 @@ void PartySelectionScreen::Setup()
     npc_toggle = std::make_unique<W8ButtonWidget>(input);
     ironman_toggle = std::make_unique<W8ButtonWidget>(input);
     for (auto* button : {npc_toggle.get(), ironman_toggle.get()}) {
-        button->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(0xf1, 0).spriteSheet(), -1, 2, 3, 0, 1),
-            {.policy = {.primary_toggle = ButtonToggle::Release,
-                        .input_rule = ButtonInputRule::PrimaryPressedState},
-             .priority = UI_PRIORITY_LOWEST,
-             .menu_artwork = true});
+        button->Configure(ButtonGraphics::Load(CatalogArtwork::Load(0xf1, 0).spriteSheet(),
+                                               std::nullopt, 2, 3, 0, 1),
+                          {.policy = {.primary_toggle = ButtonToggle::Release,
+                                      .input_rule = ButtonInputRule::PrimaryPressedState},
+                           .priority = UI_PRIORITY_LOWEST,
+                           .menu_artwork = true});
 
         button->SetPosition(0x1d3, button == npc_toggle.get() ? 0x93 : 0xfe);
     }
@@ -832,8 +834,7 @@ void PartySelectionScreen::SetSelection(int selection, bool party_slot)
     const auto* character = SelectedCharacter();
     const bool in_party = SelectedPartySlot() >= 0;
     m_add_remove_button->SetText(Data().strings[(in_party ? 0x1b1c : 0x1b18) / 4]);
-    m_add_remove_button->SetEnabled(character &&
-                                    (in_party || FindFreePartySlot(2, 8) != 0xffffffff));
+    m_add_remove_button->SetEnabled(character && (in_party || FindFreePartySlot(2, 8).has_value()));
     m_delete_button->SetEnabled(character != nullptr);
     m_review_button->SetEnabled(character != nullptr);
 }
@@ -1117,9 +1118,8 @@ void PartySelectionScreen::TogglePartyMemberSelection()
     W8Character* character = collection->GetCharacter(selected);
     if (!character) return;
     if (collection->FindPartySlot(selected) < 0) {
-        int slot = AddCharacterToParty(*character, -1);
-        if (slot != -1) {
-            collection->characters[selected] = static_cast<unsigned>(slot);
+        if (const auto slot = AddCharacterToParty(*character, -1)) {
+            collection->characters[selected] = *slot;
         }
         if (selected < static_cast<int>(collection->characters.size()) - 1) {
             ++selected;

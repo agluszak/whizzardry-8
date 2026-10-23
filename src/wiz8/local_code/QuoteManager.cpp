@@ -66,6 +66,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
@@ -112,7 +113,7 @@ void StartBreathCycle(int party_slot, bool force)
 
 /* Collect every occupied living slot other than `excluded_slot` whose
    character can actually speak `event_type`, then pick one at random. */
-int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot)
+std::optional<int> PickRandomPartySpeaker(unsigned int event_type, std::optional<int> excluded_slot)
 {
     int eligible[8];
     unsigned int count = 0;
@@ -128,7 +129,7 @@ int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot)
     if (count != 0) {
         return eligible[CurrentGame().rng.below(count)];
     }
-    return -1;
+    return std::nullopt;
 }
 
 /* Character-event subsystem: the event descriptor table, event object, and the
@@ -981,9 +982,9 @@ void W8CharacterEventQueue::SetPortraitEventState(unsigned int party_slot, bool 
 void W8CharacterEventQueue::RestartFollowUpClock(W8CharacterEvent* entry)
 {
     if (follow_up && entry->IsAmbientExchange()) {
-        follow_up->ready_at = MonotonicMilliseconds() + (follow_up->excluded_slot != -1
-                                                             ? game.rng.below(6000) + 2000
-                                                             : game.rng.below(60000) + 300000);
+        follow_up->ready_at =
+            MonotonicMilliseconds() + (follow_up->excluded_slot ? game.rng.below(6000) + 2000
+                                                                : game.rng.below(60000) + 300000);
     }
 }
 
@@ -996,10 +997,11 @@ void W8CharacterEventQueue::ProcessFollowUpEvents()
         if (std::ranges::any_of(*events, ambient)) return;
     if (TimeUntilDeadline(follow_up->ready_at) != 0) return;
 
-    const int speaker = game.party.randomSlot(game.rng, 0, 0, follow_up->excluded_slot, -1);
-    if (speaker == -1) return;
-    if (!Queue(&game.party.characters[speaker], game.rng.below(2) + 0xe, 1, 0x7f)) return;
-    follow_up->excluded_slot = follow_up->excluded_slot == -1 ? speaker : -1;
+    const auto speaker =
+        game.party.randomSlot(game.rng, PartySelectionFallback::None, follow_up->excluded_slot);
+    if (!speaker) return;
+    if (!Queue(&game.party.characters[*speaker], game.rng.below(2) + 0xe, 1, 0x7f)) return;
+    follow_up->excluded_slot = follow_up->excluded_slot ? std::nullopt : speaker;
 }
 
 W8CharacterEvent* W8CharacterEventQueue::QueueEntry(std::unique_ptr<W8CharacterEvent> entry)
@@ -1203,33 +1205,25 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
 /* Queue `effect` on a random eligible party member. When the first pick cannot
    receive the event the draw retries up to fifty times; exhaustion returns
    zero without queueing anything. */
-W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int excluded_slot,
+W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type,
+                                                   std::optional<int> excluded_slot,
                                                    unsigned int flags)
 {
-    int character_slot;
-    int attempts;
-
     if (event_type >= g_normal_event_count &&
         (event_type < kFirstRemappedEvent ||
-         event_type >= kRemappedEventCount + kFirstRemappedEvent)) {
-        return 0;
-    }
+         event_type >= kRemappedEventCount + kFirstRemappedEvent))
+        return nullptr;
+
     Game& game = CurrentGame();
-    character_slot = game.party.randomSlot(game.rng, 0, 0, excluded_slot, -1);
-    if (character_slot == -1) {
-        return 0;
-    }
-    attempts = 0;
-    bool can_dispatch = game.speech.CanDispatch(character_slot, event_type);
-    while (!can_dispatch && attempts < 0x32) {
-        character_slot = game.party.randomSlot(game.rng, 0, 0, excluded_slot, -1);
+    auto slot = game.party.randomSlot(game.rng, PartySelectionFallback::None, excluded_slot);
+    int attempts = 0;
+    while (slot && !game.speech.CanDispatch(*slot, event_type) && attempts < 0x32) {
+        slot = game.party.randomSlot(game.rng, PartySelectionFallback::None, excluded_slot);
         ++attempts;
-        can_dispatch = game.speech.CanDispatch(character_slot, event_type);
     }
-    if (attempts == 0x32) {
-        return 0;
-    }
-    return game.speech.Queue(&game.party.characters[character_slot], event_type, flags,
+    // This path rejects the fiftieth retry even if that pick can dispatch.
+    if (!slot || attempts == 0x32) return nullptr;
+    return game.speech.Queue(&game.party.characters[*slot], event_type, flags,
                              kCharacterEventFullVolume);
 }
 
@@ -1302,27 +1296,13 @@ void MaybeStartIncapacitationEvent(unsigned int party_slot)
    by gender - with a three-second clock on the queued entry. */
 void QueuePartyDeathReaction(unsigned int party_slot)
 {
-    W8CharacterEvent* entry;
-    unsigned int selected[1];
-    unsigned int remaining;
-    unsigned int index;
-    bool skip_first_two = false;
-    int effect;
-
-    if (party_slot < 2) {
-        skip_first_two = true;
-        effect = 20;
-    } else {
-        effect = 18;
-        if (CurrentGame().party.characters[party_slot].gender != W8_GENDER_MALE) {
-            effect = 19;
-        }
-    }
-    remaining = GetRandomPartySlots(0, 0, party_slot, selected, 1, skip_first_two);
-    for (index = 0; index < remaining; ++index) {
-        entry = QueueCharacterEvent(&CurrentGame().party.characters[selected[index]], effect, 0,
-                                    kCharacterEventFullVolume);
-        if (entry != 0) {
+    Game& game = CurrentGame();
+    int effect = 20;
+    if (party_slot >= 2)
+        effect = game.party.characters[party_slot].gender == W8_GENDER_MALE ? 18 : 19;
+    if (const auto slot = game.party.randomLivingSlot(game.rng, party_slot, party_slot < 2)) {
+        if (auto* entry = game.speech.Queue(&game.party.characters[*slot], effect, 0,
+                                            kCharacterEventFullVolume)) {
             entry->DelayDispatch(std::chrono::milliseconds{3000});
         }
     }
@@ -1374,16 +1354,11 @@ queue_follow_up_event:
 
 /* Turn-begin path for several surviving party members: queue event 0x15 on
    one random eligible character. */
-void QueueTurnReactionEvent(void)
+void QueueTurnReactionEvent()
 {
-    unsigned int selected[1];
-    unsigned int index;
-    unsigned int remaining;
-
-    remaining = GetRandomPartySlots(0, 0, -1, selected, 1, false);
-    for (index = 0; index < remaining; ++index) {
-        QueueCharacterEvent(&CurrentGame().party.characters[selected[index]], 0x15, 0,
-                            kCharacterEventFullVolume);
+    Game& game = CurrentGame();
+    if (const auto slot = game.party.randomLivingSlot(game.rng)) {
+        game.speech.Queue(&game.party.characters[*slot], 0x15, 0, kCharacterEventFullVolume);
     }
 }
 
@@ -1414,9 +1389,6 @@ void QueueLastSurvivorEvent(void)
 void QueueConditionChangeReaction(W8Character* character)
 {
     int events[3];
-    int excluded_slot;
-    int slot;
-    int attempts;
     unsigned int reaction;
 
     if (IsSedexusCaptureActive()) {
@@ -1469,27 +1441,30 @@ void QueueConditionChangeReaction(W8Character* character)
     case 0x10:
         QueueCharacterEvent(character, 9, 0, kCharacterEventFullVolume);
         return;
-    case 0x13:
-        excluded_slot = CharacterPointerToPartySlot(character);
+    case 0x13: {
+        Game& game = CurrentGame();
+        const auto excluded_slot = CharacterPointerToPartySlot(character);
         reaction = 40;
         if ((reaction < g_normal_event_count ||
              (kFirstRemappedEvent <= reaction &&
-              reaction < kRemappedEventCount + kFirstRemappedEvent)) &&
-            (slot = CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, excluded_slot, -1)) !=
-                -1) {
-            attempts = 0;
-            while (!CurrentGame().speech.CanDispatch(slot, reaction)) {
+              reaction < kRemappedEventCount + kFirstRemappedEvent))) {
+            auto slot =
+                game.party.randomSlot(game.rng, PartySelectionFallback::None, excluded_slot);
+            int attempts = 0;
+            while (slot && !game.speech.CanDispatch(*slot, reaction)) {
                 if (attempts >= 0x32) {
                     return;
                 }
-                slot = CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, excluded_slot, -1);
+                slot = game.party.randomSlot(game.rng, PartySelectionFallback::None, excluded_slot);
                 ++attempts;
             }
-            QueueCharacterEvent(&CurrentGame().party.characters[slot], reaction, 0,
-                                kCharacterEventFullVolume);
+            if (slot)
+                game.speech.Queue(&game.party.characters[*slot], reaction, 0,
+                                  kCharacterEventFullVolume);
             return;
         }
         break;
+    }
     case 6:
         QueueCharacterEvent(character, g_special_event3, 0, kCharacterEventFullVolume);
         return;
@@ -1745,100 +1720,54 @@ bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int
 }
 
 bool BlitPortraitAnimation(SDL_Surface& target, int portrait, int left, int top, SpriteDraw options,
-                           W8PortraitAnimation& animation, bool animate,
-                           W8PortraitCondition condition)
+                           W8PortraitAnimation& state, bool animate, W8PortraitCondition condition)
 {
-    auto* state = &animation;
+    if (g_portrait_frame_flags[portrait] == 0) return false;
+    const auto artwork = CatalogArtwork::Load(0x12, portrait);
     const bool shadow = condition.dead || condition.surprised || condition.missing;
     const auto draw_base = [&] {
-        CatalogArtwork::Load(0x12, portrait).draw(target, 0, left, top, options);
+        artwork.draw(target, 0, left, top, options);
         if (shadow) ShadowRect(target, {left, top, 0x5a, 0x48});
     };
-    DesignRect rect;
-    DesignRect other;
-    short width;
-    short height;
-    short image_x;
-    short image_y;
     bool drawn = false;
 
-    if (g_portrait_frame_flags[portrait] == 0) {
-        return drawn;
-    }
-    const auto artwork = CatalogArtwork::Load(0x12, portrait);
-    if (state->pose_dirty || state->pose != state->rendered_pose || (animate && state->pose != 1)) {
-        const SDL_Point pose_size = artwork.size(state->pose);
-        width = pose_size.x;
-        height = pose_size.y;
-        const SDL_Point image_position = artwork.position(state->pose);
-        image_x = image_position.x;
-        image_y = image_position.y;
-        rect.left = image_x + left;
-        rect.top = image_y + top;
-        rect.right = width + rect.left;
-        rect.bottom = height + rect.top;
+    const auto bounds = [&](int image) {
+        const auto size = artwork.size(image);
+        const auto position = artwork.position(image);
+        return DesignRect{left + position.x, top + position.y, left + position.x + size.x,
+                          top + position.y + size.y};
+    };
+    if (state.pose_dirty || state.pose != state.rendered_pose || (animate && state.pose != 1)) {
+        auto rect = bounds(state.pose);
         if (!animate && (condition.dead || condition.surprised)) {
             draw_base();
         }
         if (condition.zero_hp) {
             return true;
         }
-        artwork.draw(target, state->pose, left, top, options);
+        artwork.draw(target, state.pose, left, top, options);
         drawn = true;
-        if (state->rendered_pose != -1) {
-            const SDL_Point previous_size = artwork.size(state->rendered_pose);
-            width = previous_size.x;
-            height = previous_size.y;
-            const SDL_Point image_position = artwork.position(state->rendered_pose);
-            image_x = image_position.x;
-            image_y = image_position.y;
-            other.left = image_x + left;
-            other.top = image_y + top;
-            other.right = width + other.left;
-            other.bottom = height + other.top;
-            rect = UnionScreenRects(other, rect);
-        }
+        if (state.rendered_pose) rect = UnionScreenRects(bounds(*state.rendered_pose), rect);
         InvalidateScreenRects(&rect, 1);
-        state->rendered_pose = state->pose;
-        state->pose_dirty = false;
+        state.rendered_pose = state.pose;
+        state.pose_dirty = false;
     }
-    if (!state->frame_dirty && state->frame == state->rendered_frame &&
-        (!animate || state->frame == 6)) {
+    if (!state.frame_dirty && state.frame == state.rendered_frame &&
+        (!animate || state.frame == 6)) {
         if (!drawn) {
             return false;
         }
     } else {
-        const SDL_Point frame_size = artwork.size(state->frame);
-        width = frame_size.x;
-        height = frame_size.y;
-        const SDL_Point image_position = artwork.position(state->frame);
-        image_x = image_position.x;
-        image_y = image_position.y;
+        auto rect = bounds(state.frame);
         if (!animate && !drawn && condition.dead) {
             draw_base();
         }
-        artwork.draw(target, state->frame, left, top, options);
-        rect.left = image_x + left;
-        rect.top = image_y + top;
-        rect.right = width + rect.left;
-        rect.bottom = height + rect.top;
+        artwork.draw(target, state.frame, left, top, options);
         drawn = true;
-        if (state->rendered_frame != -1) {
-            const SDL_Point previous_size = artwork.size(state->rendered_frame);
-            width = previous_size.x;
-            height = previous_size.y;
-            const SDL_Point image_position = artwork.position(state->rendered_frame);
-            image_x = image_position.x;
-            image_y = image_position.y;
-            other.left = image_x + left;
-            other.top = image_y + top;
-            other.right = width + other.left;
-            other.bottom = height + other.top;
-            rect = UnionScreenRects(other, rect);
-        }
+        if (state.rendered_frame) rect = UnionScreenRects(bounds(*state.rendered_frame), rect);
         InvalidateScreenRects(&rect, 1);
-        state->rendered_frame = state->frame;
-        state->frame_dirty = false;
+        state.rendered_frame = state.frame;
+        state.frame_dirty = false;
     }
     if (shadow) {
         ShadowRect(target, {left, top, 0x5a, 0x48});

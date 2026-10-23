@@ -2,18 +2,19 @@
 
 #include <chrono>
 #include <cstdint>
+#include <optional>
 
 struct SDL_Surface;
 struct SpriteDraw;
 
 /* Animation state belongs to the portrait being shown, independently of party membership. */
 struct W8PortraitAnimation {
-    int rendered_frame = -1;
+    std::optional<int> rendered_frame;
     int frame = 6;
     // When the next mouth frame is due, on the clock its caller passes to AdvancePortraitSpeech.
     std::chrono::milliseconds frame_due{};
     std::uint64_t voice_remaining_ms = 0;
-    int rendered_pose = -1;
+    std::optional<int> rendered_pose;
     int pose = 1;
     int target_pose = 1;
     uint64_t pose_clock = 0;

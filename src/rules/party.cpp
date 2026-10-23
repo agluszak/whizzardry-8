@@ -1,6 +1,7 @@
 #include "wiz8/rules/party.h"
 
 #include <algorithm>
+#include <array>
 #include <iterator>
 #include <optional>
 #include <utility>
@@ -42,6 +43,65 @@ std::optional<unsigned int> W8Party::slotOf(const W8Character& character) const
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (&characters[slot] == &character) return slot;
     return {};
+}
+
+std::optional<int> W8Party::randomSlot(Rng& rng, PartySelectionFallback fallback,
+                                       std::optional<int> excluded_slot) const
+{
+    const auto pick = [&](bool require_living, bool require_awake) -> std::optional<int> {
+        // Retail walks the eligible slots cyclically after a draw from eight, not
+        // uniformly from the candidate count. Empty stages still consume a draw.
+        const auto draw = rng.below(8);
+        std::array<int, W8_PARTY_SLOT_COUNT> candidates;
+        unsigned int count = 0;
+        for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+            if (!members[slot] || slot == excluded_slot) continue;
+            const auto& character = characters[slot];
+            if (require_living &&
+                (character.hp_current <= 0 || character.highest_condition >= W8_CONDITION_DEAD))
+                continue;
+            if (require_awake && character.highest_condition >= W8_CONDITION_ASLEEP) continue;
+            candidates[count++] = slot;
+        }
+        if (count == 0) return {};
+        return candidates[draw % count];
+    };
+    auto selected = pick(true, true);
+    if (selected || fallback == PartySelectionFallback::None) return selected;
+    selected = pick(true, false);
+    if (selected || fallback == PartySelectionFallback::Living) return selected;
+    return pick(false, false);
+}
+
+std::optional<int> W8Party::randomLivingSlot(Rng& rng, std::optional<int> excluded_slot,
+                                             bool skip_first_two) const
+{
+    std::array<int, W8_PARTY_SLOT_COUNT> candidates;
+    unsigned int count = 0;
+    for (int slot = skip_first_two ? 2 : 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        const auto& character = characters[slot];
+        if (members[slot] && slot != excluded_slot && character.hp_current != 0 &&
+            character.highest_condition < W8_CONDITION_DEAD)
+            candidates[count++] = slot;
+    }
+    if (count == 0) return {};
+    return candidates[count == 1 ? 0 : rng.below(count)];
+}
+
+std::optional<unsigned int> W8Party::firstSelectableSlot() const
+{
+    std::optional<unsigned int> first_occupied;
+    std::optional<unsigned int> first_living;
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        if (!members[slot]) continue;
+        if (!first_occupied) first_occupied = slot;
+        const auto& character = characters[slot];
+        if (character.hp_current > 0 && character.highest_condition < W8_CONDITION_DEAD) {
+            if (character.highest_condition < W8_CONDITION_ASLEEP) return slot;
+            if (!first_living) first_living = slot;
+        }
+    }
+    return first_living ? first_living : first_occupied;
 }
 
 int W8Party::npcIndex(unsigned int slot) const
@@ -96,57 +156,4 @@ bool W8Party::insertIntoPool(unsigned int index, W8ItemInstance item)
     item_pool[index] = item;
     ++item_count;
     return true;
-}
-
-int W8Party::randomSlot(Rng& rng, int require_primary, int require_secondary, int excluded_slot,
-                        signed char excluded_gender) const
-{
-    int skip;
-    unsigned int slot;
-    unsigned int scanned;
-    bool matched;
-    const W8Character* character;
-
-retry:
-    skip = rng.below(8);
-    scanned = 0;
-    slot = 0;
-    do {
-        matched = false;
-        if (members[slot].has_value() && static_cast<int>(slot) != excluded_slot) {
-            character = &characters[slot];
-            if ((character->hp_current > 0 && character->highest_condition < W8_CONDITION_DEAD) ||
-                require_primary == 2) {
-                if (excluded_gender == -1 || excluded_gender != character->gender) {
-                    if (character->highest_condition < W8_CONDITION_ASLEEP ||
-                        require_secondary == 2) {
-                        matched = true;
-                        if (skip == 0) {
-                            return slot;
-                        }
-                        skip--;
-                        scanned = 0;
-                    }
-                }
-            }
-        }
-        slot++;
-        if (slot == 8) {
-            slot = 0;
-        }
-        scanned++;
-    } while (scanned <= 8);
-
-    if (matched) {
-        return slot;
-    }
-    if (require_secondary == 1) {
-        require_secondary = 2;
-        goto retry;
-    }
-    if (require_primary == 1) {
-        require_primary = 2;
-        goto retry;
-    }
-    return -1;
 }

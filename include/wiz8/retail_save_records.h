@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <optional>
 #include <span>
 #include <type_traits>
 
@@ -420,8 +421,14 @@ template<> struct Record<W8MonsterGroup> {
         value(&runtime.alternate_name,
               field(offsetof(Disk, alternate_name), sizeof(Disk::alternate_name)));
         value(&runtime.group_state, field(offsetof(Disk, group_state), sizeof(Disk::group_state)));
-        value(&runtime.highlighted_member,
+        // Absence is encoded as -1 only at the retail save boundary.
+        int highlighted_member = runtime.highlighted_member.value_or(-1);
+        value(&highlighted_member,
               field(offsetof(Disk, highlighted_member), sizeof(Disk::highlighted_member)));
+        if constexpr (!std::is_const_v<Runtime>) {
+            runtime.highlighted_member =
+                highlighted_member == -1 ? std::nullopt : std::optional(highlighted_member);
+        }
         value(&runtime.leader_location_id,
               field(offsetof(Disk, leader_location_id), sizeof(Disk::leader_location_id)));
         // Retail saves can contain VC6's uninitialized leader word. No live

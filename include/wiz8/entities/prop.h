@@ -90,7 +90,7 @@ public:
     // The instance that draws part `index` of the animation; the prop owns one per part.
     MeshInstance& model(std::size_t index = 0);
     bool SelectAnimationSlot(unsigned char tag);
-    int FindCurrentAnimationSlot();
+    std::optional<std::size_t> FindCurrentAnimationSlot() const;
     unsigned char AdvanceAnimationSegment();
     bool LoadProp(LevelLoadContext* info, Prop* prop);
 
@@ -132,7 +132,6 @@ public:
     void activate();
     bool TriggerHasActionMessage();
     bool TriggerRequiresItem();
-    int GetAnimationState() const;
     void AttachAnimationInstances(World* world);
     unsigned char GetActivationState() const;
     std::optional<BoundingBox> GetFrameBounds();

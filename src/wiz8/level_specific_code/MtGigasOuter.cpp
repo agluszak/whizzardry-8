@@ -106,7 +106,7 @@ void MtGigasOuterScript::enter()
    runs. */
 void MtGigasOuterScript::processFlagPosition()
 {
-    if (GetLocationVarIDByName("FlagPosition") != -1) {
+    if (GetLocationVarIDByName("FlagPosition")) {
         int value = GetLocationVarValueByName("FlagPosition");
         liftGate(value);
         if (value >= 1000) {
@@ -133,7 +133,7 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
     if ((ctx.party.held.item.iItemNo != -1)) {
         return false;
     }
-    if (GetLocationVarIDByName("FlagPosition") == -1) {
+    if (!GetLocationVarIDByName("FlagPosition")) {
         CreateLocationVar("FlagPosition", 0);
         npc = GetNpcStateByKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x90, true, 0);
@@ -237,7 +237,7 @@ bool MtGigasOuterScript::liftGate(int command)
 bool MtGigasOuterScript::securityButton(Trigger* trigger)
 {
     g_trigger_feedback = true;
-    if (GetLocationVarIDByName("UmpaniCampAlarm") != -1) {
+    if (GetLocationVarIDByName("UmpaniCampAlarm")) {
         return false;
     }
     SetFactionDispositionBand(4, W8_FACTION_HOSTILE);
@@ -254,8 +254,7 @@ bool MtGigasOuterScript::campAlarm(int command)
     glm::vec3 position;
 
     if (command != 0) {
-        if (GetLocationVarIDByName("UmpaniCampAlarm") == -1)
-            CreateLocationVar("UmpaniCampAlarm", 30);
+        if (!GetLocationVarIDByName("UmpaniCampAlarm")) CreateLocationVar("UmpaniCampAlarm", 30);
         position = world().party.eye();
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
@@ -287,7 +286,7 @@ bool MtGigasOuterScript::campAlarm(int command)
 bool MtGigasOuterScript::ewaxxDoor03(Trigger* trigger)
 {
     if ((ctx.party.held.item.iItemNo != -1)) {
-        int item_id = GetItemInHand(ctx.party);
+        int item_id = ctx.party.held.item.iItemNo;
         if (item_id >= 0x268 && item_id <= 0x26e) {
             return true;
         }

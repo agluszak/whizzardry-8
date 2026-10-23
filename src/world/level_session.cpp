@@ -178,29 +178,29 @@ static int LevelFindIDByLocationCode(std::string_view location_code)
     return -1;
 }
 
-int FindLevelIdByLocationCode(std::string_view location_code)
+std::optional<int> FindLevelIdByLocationCode(std::string_view location_code)
 {
     W8LevelInfo info;
     int level_id;
 
     if (location_code.empty()) {
-        return -1;
+        return std::nullopt;
     }
     level_id = LevelFindIDByLocationCode(location_code);
     if (level_id == -1) {
-        return level_id;
+        return std::nullopt;
     }
     if (level_id >= 57) {
-        return -1;
+        return std::nullopt;
     }
     if (level_id < W8_LEVEL_COUNT) {
         if (strlen(g_level_folders[level_id].folder_name) == 0 ||
             strlen(g_level_folders[level_id].level_name) == 0) {
-            return -1;
+            return std::nullopt;
         }
     }
     if (!LevelBuildInfoByID(level_id, &info)) {
-        return -1;
+        return std::nullopt;
     }
     return level_id;
 }

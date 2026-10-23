@@ -237,8 +237,8 @@ void W8TextBuffer::PaintLines(SDL_Surface& target, SDL_Point offset, bool highli
                   m_clipBounds.bottom - m_clipBounds.top};
     ScopedClipRect clipping(target, clip);
     const auto previous_state = m_font->palette();
-    if (m_fontStateIndex != -1) {
-        m_font->setPalette(g_font_state_palettes[m_fontStateIndex]);
+    if (m_fontStateIndex) {
+        m_font->setPalette(g_font_state_palettes[*m_fontStateIndex]);
     }
     if (highlighted) {
         m_font->setPalette(g_font_state_palettes[W8_FONT_PALETTE_GREEN]);

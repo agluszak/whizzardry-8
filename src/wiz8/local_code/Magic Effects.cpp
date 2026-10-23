@@ -1813,7 +1813,6 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
     W8EffectSlot* slot;
     unsigned int duration;
     const int* table;
-    int source_character = -1;
     int spell_id;
     int slot_index;
     int index;
@@ -1821,9 +1820,6 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
     spell_id = effect->kind;
     assert(CurrentGame().combat.has_value());
     duration = RollEffectDuration(&effect->definition);
-    if (TargetSourceIsCharacter(&effect->Source, 1)) {
-        source_character = effect->Source.iChar;
-    }
     slot_index = 0;
     table = g_combat_effect_slot_spells;
     while (spell_id != *table) {
@@ -1860,9 +1856,9 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
             }
             slot->Activate(spell_id, effect->definition.duration_scale, duration);
             RebuildMonsterDerivedStats(monster_info->location_id);
-            if (source_character != -1) {
+            if (TargetSourceIsCharacter(&effect->Source, 1)) {
                 const W8MonsterRecord* monster = GetMonsterDataForInfo(monster_info);
-                monster_info->pCombat->character_hate[source_character] +=
+                monster_info->pCombat->character_hate[effect->Source.iChar] +=
                     monster->effective_level * effect->definition.duration_scale;
             }
             effect->applied = true;

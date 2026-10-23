@@ -37,7 +37,7 @@ bool Rift1Sexspawn(Trigger* pTrigger)
     W8MonsterInfo* monster_info;
 
     if (GetFact(W8_FACT_TEMPLAR) != 0) {
-        if (GetLocationVarIDByName("AlSedexusSwapped") == -1) {
+        if (!GetLocationVarIDByName("AlSedexusSwapped")) {
             CreateLocationVar("AlSedexusSwapped", 1);
             monster_info = FindMonsterInfoBySpecies(0xd9);
             if (monster_info != 0) {

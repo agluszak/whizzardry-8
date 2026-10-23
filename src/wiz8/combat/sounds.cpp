@@ -172,20 +172,18 @@ void MakePCAttackSound(W8CombatCharacterRow* row, const W8HandAttack* hand_attac
     PlayCombatSound(g_weapon_attack_sounds[weapon_class], 1, store_handle, volume);
 }
 
-static int GetCombatTargetMaterial(W8CombatSlot* target, int hit_location, int assertion_line)
+static int GetCombatTargetMaterial(const W8CombatSlot& target, int hit_location)
 {
-    int target_material = -1;
-    if (target->iType == W8_TARGET_KIND_CHARACTER) {
-        const W8Character* character = &CurrentGame().party.characters[target->iChar];
-        int item = PCItemInACSlot(character, hit_location);
-        target_material = item == -1 ? 0 : Data().items[item].material;
-    } else if (target->iType == W8_TARGET_KIND_MONSTER) {
-        const W8MonsterRecord* record = GetMonsterDataByLocationID(target->iMonsterID);
-        target_material = record == 0 ? 0 : record->material;
-    } else {
-        target_material = 0;
+    if (target.iType == W8_TARGET_KIND_CHARACTER) {
+        const auto& character = CurrentGame().party.characters[target.iChar];
+        const int item = PCItemInACSlot(&character, hit_location);
+        return item == -1 ? 0 : Data().items[item].material;
     }
-    return target_material;
+    if (target.iType == W8_TARGET_KIND_MONSTER) {
+        const auto* record = GetMonsterDataByLocationID(target.iMonsterID);
+        return record ? record->material : 0;
+    }
+    return 0;
 }
 
 void MakePCMeleeHitSound(int iChar, const W8HandAttack* hand_attack, W8CombatSlot* target,
@@ -199,7 +197,7 @@ void MakePCMeleeHitSound(int iChar, const W8HandAttack* hand_attack, W8CombatSlo
         weapon_class =
             Data().items[CurrentGame().combat->characters[iChar].paired_item_id].weapon_sound_class;
     }
-    int target_material = GetCombatTargetMaterial(target, hit_location, 415);
+    int target_material = GetCombatTargetMaterial(*target, hit_location);
     PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
 }
 
@@ -207,7 +205,7 @@ void MakePCHitSound(Missile* missile, W8CombatSlot* target, int hit_location, in
 {
     int weapon_class = Data().missiles[missile->missile_table_index].weapon_sound_class;
 
-    int target_material = GetCombatTargetMaterial(target, hit_location, 465);
+    int target_material = GetCombatTargetMaterial(*target, hit_location);
     PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
 }
 
@@ -223,6 +221,6 @@ void MakeMonsterHitSound(const W8MonsterAttack* attack, W8CombatSlot* target, in
         return;
     }
     weapon_class = attack->weapon_class;
-    int target_material = GetCombatTargetMaterial(target, hit_location, 504);
+    int target_material = GetCombatTargetMaterial(*target, hit_location);
     PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
 }

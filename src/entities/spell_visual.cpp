@@ -50,7 +50,7 @@
 
 /* Names of the seven bitmap cycles in each of the four spell-visual groups,
    in load order: FLASH, EXPLOSION, TARGET and CONE. */
-const char* g_spell_cycle_names[28] = {
+constexpr const char* g_spell_cycle_names[SPELL_NUM_CYCLES] = {
     "FLASH1",     "FLASH2",     "FLASH3",     "FLASH4",     "FLASH5",     "FLASH6",
     "FLASH7",     "EXPLOSION1", "EXPLOSION2", "EXPLOSION3", "EXPLOSION4", "EXPLOSION5",
     "EXPLOSION6", "EXPLOSION7", "TARGET1",    "TARGET2",    "TARGET3",    "TARGET4",
@@ -68,21 +68,6 @@ Animation* SpellVisual::GetCurrentAnimation()
 float SpellVisual::GetCurrentAnimationScale()
 {
     return this->resources.cycles[this->visual.current_cycle].animation->playback_scale;
-}
-
-/* How many emitters the host has, counted by testing each for null. */
-signed char SpellVisual::GetTotalAnimationCount()
-{
-    signed char count = 0;
-
-    if (this->resources.cycles[0].animation != 0) {
-        count = 1;
-    }
-
-    if (this->resources.cycles[1].animation != 0) {
-        ++count;
-    }
-    return count;
 }
 
 /* Hand the host's LOD to the current animation. */
@@ -107,7 +92,7 @@ void SpellVisual::SetCycle(signed char cycle)
 {
     std::vector<std::unique_ptr<Light>>* lights;
 
-    assert(cycle >= SPELL_CYCLE_FIRST && cycle <= SPELL_CYCLE_LAST);
+    assert(cycle >= 0 && cycle < SPELL_NUM_CYCLES);
 
     lights = this->resources.cycles[this->visual.current_cycle].lightView();
     visual.DetachCycleLights(lights);
@@ -251,7 +236,7 @@ void UpdateWorldSpellVisuals(World* world)
     }
 }
 
-static int FindSpellCycleByName(const char* name)
+static std::optional<int> FindSpellCycleByName(const char* name)
 {
     for (int index = 0; index < SPELL_NUM_CYCLES; ++index) {
         if (SDL_strncasecmp(name, g_spell_cycle_names[index], strlen(g_spell_cycle_names[index])) ==
@@ -259,7 +244,7 @@ static int FindSpellCycleByName(const char* name)
             return index;
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 /* Load one cycle group of a spell visual definition from its .mls text
@@ -292,9 +277,9 @@ static std::unique_ptr<SpellVisualDefinition> LoadSpellVisualDefinition(std::str
             std::istringstream fields(line);
             std::string command;
             if (!(fields >> command) || command.starts_with('#') || line.size() <= 2) continue;
-            const int cycle = FindSpellCycleByName(command.c_str());
-            if (cycle != -1) {
-                if (cycle / SPELL_CYCLES_PER_GROUP == group) {
+            const auto cycle = FindSpellCycleByName(command.c_str());
+            if (cycle) {
+                if (*cycle / SPELL_CYCLES_PER_GROUP == group) {
                     std::string resource;
                     if (!(fields >> resource)) {
                         success = false;
@@ -302,7 +287,7 @@ static std::unique_ptr<SpellVisualDefinition> LoadSpellVisualDefinition(std::str
                     }
 
                     success =
-                        loadAnimationCycle(resource, visual->events, cycle, "Data\\Spells",
+                        loadAnimationCycle(resource, visual->events, *cycle, "Data\\Spells",
                                            [&](LevelLoadContext& read_info, int read_cycle) {
                                                return ReadEmitterCycle(visual->resources.cycles,
                                                                        read_info, read_cycle);
@@ -319,8 +304,10 @@ static std::unique_ptr<SpellVisualDefinition> LoadSpellVisualDefinition(std::str
                 }
                 float intensity = 1.0f, duration = 1.0f, distance = 10.0f;
                 fields >> intensity >> duration >> distance;
+                const auto shake_cycle = FindSpellCycleByName(cycle_name.c_str());
+                if (!shake_cycle) continue;
                 ShakeDefinition effect(duration, true, intensity, distance * kWorldScale, 0);
-                effect.cycle = FindSpellCycleByName(cycle_name.c_str());
+                effect.cycle = *shake_cycle;
                 effect.frame = frame;
                 effect.subcycle = 0;
                 visual->events.shake_events.push_back(effect);
@@ -340,9 +327,9 @@ static std::unique_ptr<SpellVisualDefinition> LoadSpellVisualDefinition(std::str
             }
             fields >> loop;
             const auto sound_cycle = FindSpellCycleByName(cycle_name.c_str());
-            if (sound_cycle >= 0 && visual->resources.cycles[sound_cycle].animation) {
+            if (sound_cycle && visual->resources.cycles[*sound_cycle].animation) {
                 const auto wave = fmt::format("data/spells/sounds/{}.WAV", resource);
-                visual->events.sound_events.emplace_back(kind, sound_cycle, frame, 0, wave.c_str(),
+                visual->events.sound_events.emplace_back(kind, *sound_cycle, frame, 0, wave.c_str(),
                                                          SDL_strcasecmp(loop.c_str(), "LOOP") == 0);
             }
         }
@@ -407,95 +394,45 @@ SpellVisual::~SpellVisual()
     visual.SetLights(0);
 }
 
-/* Tick the visual's animation, but only while the host is live. When the
-   kind-7 query reports the current animation needs no tick, the visual is
-   finished instead. */
+// Advance a live visual; a stopped animation finishes it without another tick.
 void SpellVisual::StartIfHostActive()
 {
-    if (!this->visual.rep_active) {
-        return;
-    }
-    if (QueryHostState(W8SpellVisualHostStateQuery::AnimationStopped) != 0) {
-        this->finished = true;
+    if (!visual.rep_active) return;
+    if (!visual.animation_playing) {
+        finished = true;
         return;
     }
     TickAnimation(1.0f);
 }
 
-/* Search backward from a subcycle for the first cycle this visual supports,
-   seven cycles per group; -1 when none does. */
-int SpellVisual::FindSupportedCycle(int group, int subcycle)
-{
-    for (int index = subcycle; index >= 0; --index) {
-        int cycle = group * SPELL_CYCLES_PER_GROUP + index;
-
-        if (IsCycleSupported(static_cast<signed char>(cycle))) {
-            return cycle;
-        }
-    }
-    return -1;
-}
-
-/* Query one host-side property of the spell visual. */
-int SpellVisual::QueryHostState(W8SpellVisualHostStateQuery query)
-{
-    switch (query) {
-    case W8SpellVisualHostStateQuery::EmitterSetting:
-        return this->ApplyEmitterSetting(this->visual.current_cycle);
-    case W8SpellVisualHostStateQuery::AnimationCount:
-        return GetTotalAnimationCount();
-    case W8SpellVisualHostStateQuery::AtLastSubcycle:
-        return this->visual.subcycle == this->ApplyEmitterSetting(this->visual.current_cycle) - 1;
-    case W8SpellVisualHostStateQuery::IsFirstSubcycle:
-        return this->visual.subcycle == 0;
-    case W8SpellVisualHostStateQuery::Subcycle:
-        return this->visual.subcycle;
-    case W8SpellVisualHostStateQuery::HasEmitterSetting:
-        return this->ApplyEmitterSetting(this->visual.current_cycle) != 0xffffffff;
-    case W8SpellVisualHostStateQuery::CurrentCycle:
-        return this->visual.current_cycle;
-    case W8SpellVisualHostStateQuery::AnimationStopped:
-        return this->visual.animation_playing == 0;
-    default:
-        return -1;
-    }
-}
-
+/* Publish only a fully configured visual with a supported cycle. Failed named
+   candidates and unsupported Generic resources remain temporary owners. */
 static SpellVisual* CreateSpellVisual(std::string_view name, W8SpellVisualMode mode,
                                       int power_level, int value, int flags)
 {
-    const auto load = [&](std::string_view resource) -> SpellVisual* {
-        auto owner = LoadSpellVisualResource(GetWorld(), resource, mode);
-        auto* visual = owner.get();
-        if (!visual) {
-            return nullptr;
+    World& world = *GetWorld();
+    const auto load = [&](std::string_view resource) -> std::unique_ptr<SpellVisual> {
+        auto visual = LoadSpellVisualResource(&world, resource, mode);
+        if (!visual) return nullptr;
+        for (int subcycle = power_level - 1; subcycle >= 0; --subcycle) {
+            const auto cycle = static_cast<signed char>(mode * SPELL_CYCLES_PER_GROUP + subcycle);
+            if (!visual->IsCycleSupported(cycle)) continue;
+            visual->nav.SetNavigationMode(W8_NAVIGATOR_MODE_PATH_ONLY);
+            visual->nav.active = false;
+            visual->nav.SetPitchRollEnabled(true, true);
+            visual->mode = mode;
+            visual->visual.pending_cycle = cycle;
+            visual->effect_value = value;
+            visual->flags0 = flags;
+            return visual;
         }
-        visual->nav.SetNavigationMode(W8_NAVIGATOR_MODE_PATH_ONLY);
-        visual->nav.active = false;
-        visual->nav.SetPitchRollEnabled(true, true);
-        GetWorld()->spell_visuals.push_back(std::move(owner));
-        return visual;
+        return nullptr;
     };
 
-    SpellVisual* visual = name.empty() ? nullptr : load(name);
-    int cycle = visual ? visual->FindSupportedCycle(mode, power_level - 1) : -1;
-    if (visual && cycle == -1) {
-        DestroySpellVisual(GetWorld(), visual);
-        visual = nullptr;
-    }
-    if (!visual) {
-        visual = load("Generic");
-        if (visual) {
-            cycle = visual->FindSupportedCycle(mode, power_level - 1);
-        }
-    }
-    if (visual) {
-        visual->mode = mode;
-        visual->visual.pending_cycle = static_cast<signed char>(cycle);
-        visual->effect_value = value;
-        visual->flags0 = flags;
-    }
-    return visual;
+    auto visual = name.empty() ? nullptr : load(name);
+    if (!visual) visual = load("Generic");
+    if (!visual) return nullptr;
+    return world.spell_visuals.emplace_back(std::move(visual)).get();
 }
 
 /* Create one spell visual from a named bitmap resource, falling back to the
@@ -656,16 +593,6 @@ void SetTargetConeEnabled(bool enabled)
     if (world->target_cone != 0) {
         DestroySpellVisual(world, world->target_cone);
     }
-}
-
-/* Apply the host setting to one required emitter.  The source assertion names
-   that local pointer `pao`; assertions do not replace the following call. */
-unsigned int SpellVisual::ApplyEmitterSetting(signed char emitter)
-{
-    Animation* target = this->resources.cycles[emitter].animation.get();
-
-    assert(target != 0);
-    return target->frameCount(this->visual.m_bLOD);
 }
 
 void SpellVisual::TickAnimation(float time_scale)

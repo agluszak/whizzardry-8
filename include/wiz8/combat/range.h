@@ -51,10 +51,10 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source);
 bool RangeCategoryUsesSightCondition(const W8MonsterInfo* monster, W8RangeCategory range_category);
 bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                                 unsigned int attack, W8CombatSlot* target);
-/* The location id of the nearest live, in-combat group member visible under
-   the selected condition, or -1 when none qualify. */
-int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
-                                   W8VisibilityCondition condition);
+/* The nearest live, in-combat group member visible under the selected condition,
+   borrowed from the roster, or nullptr when none qualify. */
+W8MonsterInfo* FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
+                                              W8VisibilityCondition condition);
 /* The furthest range band the monster can act at: its attacks first, then its
    castable spells. `skip_capability_checks` (callers pass 1 for reach/info)
    bypasses prefer-ranged/flee/usability gates; otherwise those gates apply.
@@ -95,8 +95,8 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
 bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot,
                                 const W8Action& selected);
 /* Collect the party slots the slot could reach and strike under
-   `relationship`, and pick one at random; -1 when none qualify. */
-int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship);
+   `relationship`, and pick one at random; none when nobody qualifies. */
+std::optional<int> PickReachableSlotByDisposition(int party_slot, W8Disposition relationship);
 /* Write `out` the offset from the monster's feet to the origin of
    its attack for `kind` - 1 the projectile muzzle, 3 the spell hand. */
 glm::vec3 GetMonsterAttackSourceOffset(Monster& monster, int kind);

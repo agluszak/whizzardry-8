@@ -59,7 +59,7 @@ static constexpr bool g_monster_gib_option = true;
 static constexpr double g_monster_light_color_scale = 1.0 / 255.0;
 /* Both skin directives ensure the base damage stage exists exactly once. */
 static void EnsureMonsterBaseSkin(MonsterDefinition& monster, std::string_view monster_name,
-                                  int& damage_stage, bool& skins_started)
+                                  std::optional<int>& damage_stage, bool& skins_started)
 {
     if (skins_started) return;
     monster.skin = monster_name;
@@ -108,8 +108,9 @@ bool MonsterDefinition::ReplaceSkinTexture(int stage, std::string_view old_name,
     const auto table_name = fmt::format("{}{}", skin, stage);
     for (Mesh* model : CollectModelMeshes()) {
         for (auto* mesh : meshParts(model)) {
-            const int table = mesh->FindSkinTable(table_name);
-            if (table != -1 && mesh->replaceSkinTexture(table, old_name, texture)) replaced = true;
+            if (auto* table = mesh->findSkin(table_name);
+                table && table->replaceTexture(old_name, texture))
+                replaced = true;
         }
     }
 
@@ -128,16 +129,16 @@ bool MonsterDefinition::ReplaceSkinTexture(int stage, std::string_view old_name,
    skin and the stage number, so meshes shared with another species keep that
    species' stages apart. Stage 0 starts from the authored textures and later
    stages from stage 0. Meshes that already have the stage keep it. */
-int MonsterDefinition::AddDamageStage(int stage)
+std::optional<int> MonsterDefinition::AddDamageStage(int stage)
 {
     const auto name = fmt::format("{}{}", skin, stage);
     const auto base = fmt::format("{}0", skin);
     const auto models = CollectModelMeshes();
-    if (models.empty()) return -1;
+    if (models.empty()) return std::nullopt;
     for (Mesh* model : models) {
         for (auto* mesh : meshParts(model)) {
-            if (mesh->FindSkinTable(name) == -1)
-                mesh->CreateSkinTable(name, stage > 0 ? mesh->FindSkinTable(base) : -1);
+            if (!mesh->findSkin(name))
+                mesh->createSkin(name, stage > 0 ? mesh->findSkin(base) : nullptr);
         }
     }
     ++damage_stage_count;
@@ -193,7 +194,7 @@ static std::unique_ptr<MonsterDefinition> LoadMonsterDefinition(std::string_view
     glm::vec3 light_first;
     glm::vec3 light_second;
     W8SoundEvent* last_sound = 0;
-    int damage_stage = -1;
+    std::optional<int> damage_stage;
     int skin_stage = 0;
     bool skins_started = false;
 
@@ -319,8 +320,8 @@ static std::unique_ptr<MonsterDefinition> LoadMonsterDefinition(std::string_view
                    creates the base stage first, then swaps into that stage. */
                 EnsureMonsterBaseSkin(*monster, monster_name, damage_stage, skins_started);
                 fields >> old_name >> new_name;
-                if (damage_stage != -1 && !monster->ReplaceSkinTexture(
-                                              damage_stage, old_name.c_str(), new_name.c_str())) {
+                if (damage_stage && !monster->ReplaceSkinTexture(*damage_stage, old_name.c_str(),
+                                                                 new_name.c_str())) {
                     ShutdownWithErrorBox(fmt::format("The skin texture {} not found in monster {}!",
                                                      old_name, monster_name));
                 }

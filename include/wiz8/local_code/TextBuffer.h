@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -64,7 +65,7 @@ public:
 
     void SetGeometryDirty() { m_geometryDirty = true; }
     void SetRenderMode(int mode) { m_renderMode = mode; }
-    void SetFontStateIndex(int index) { m_fontStateIndex = index; }
+    void SetFontStateIndex(std::optional<int> index) { m_fontStateIndex = index; }
     void MarkGeometryDirty(unsigned int mode)
     {
         m_geometryDirty = true;
@@ -100,6 +101,6 @@ public:
     bool m_geometryDirty = false;
     unsigned char m_alternateRenderer = 0;
     int m_renderMode = 4;     /* 4 initially */
-    int m_fontStateIndex = -1; /* -1 skips the state-table override */
+    std::optional<int> m_fontStateIndex;
     bool m_highlighted = false;
 };

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
@@ -122,7 +123,7 @@ int ApplyDamageReduction(const W8MonsterInfo* monster_info, const W8MonsterRecor
    taken the same way, and having the damage-reduction skill practises it. */
 int ApplyCharacterDamageReduction(W8Character* character, int damage);
 
-int ChooseCharacterAttackHand(int party_slot);
+std::optional<unsigned int> ChooseCharacterAttackHand(int party_slot);
 void PrepareCharacterAttacks(int party_slot);
 int GetTargetArmorClassModifier(W8CombatSlot* target, W8AttackMode attack_mode);
 W8AttackMode CharChooseHandAttackMode(W8Character* character, int hand);

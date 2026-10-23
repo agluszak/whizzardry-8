@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 struct W8Character;
 
 void AdvanceCharacterToLevel(W8Character* character, unsigned int level);
@@ -8,10 +10,10 @@ void CalcCharacterLevelBand(W8Character* character);
 
 void CalcCharacterTableValue(W8Character* character);
 int CountActiveCharacters(void);
-unsigned int FindFreePartySlot(unsigned int first, unsigned int last);
+std::optional<unsigned int> FindFreePartySlot(unsigned int first, unsigned int last);
 
 void RefreshLevelUpReadyNotices(void);
-int AddCharacterToParty(W8Character& character, int slot);
+std::optional<unsigned int> AddCharacterToParty(W8Character& character, int slot);
 /* Remove a slot's character from the party; fSaveCharData
    persists it back to its NPC record first. */
 void RemoveCharacterFromParty(int party_slot);

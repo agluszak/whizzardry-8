@@ -79,9 +79,8 @@ public:
     enum { RENDER_SHADOW = 0x08u, RENDER_NO_PICK = 0x10u };
 
     Texture* FindMouthTexture(); /* 0x00481080 */
-    // The skin table this instance draws `mesh` with: the one named skin + damage_stage, or
-    // -1 for the authored textures.
-    int skinTable(Mesh& mesh) const;
+    // Resolve this mesh's skin and damage stage; null selects its authored textures.
+    Mesh::Skin* selectedSkin(Mesh& mesh) const;
 
 public:
     glm::vec4 highlight_colour;
@@ -91,7 +90,7 @@ public:
     std::uint32_t render_flags;
     std::int32_t mesh_index;
     unsigned int frame_index;
-    int damage_stage;
+    std::optional<int> damage_stage;
     std::string skin;
     // The models whose vertex lighting has been baked for this instance's placement.
     std::vector<const Mesh*> baked_models;

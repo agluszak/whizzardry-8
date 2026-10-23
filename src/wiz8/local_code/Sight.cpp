@@ -41,6 +41,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
@@ -660,17 +661,17 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                  monster_info->ubDisposition == W8_DISPOSITION_NEUTRAL) &&
                                 (g_sight_marker_tick == 0 || now - g_sight_marker_tick > 199)) {
                                 g_sight_marker_tick = now;
-                                int party_slot =
-                                    CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, -1, -1);
+                                const auto party_slot =
+                                    CurrentGame().party.randomSlot(CurrentGame().rng);
 
-                                if (party_slot != -1) {
+                                if (party_slot) {
                                     int effect = 0x43;
 
                                     if (CurrentGame().rng.below(2) == 0) {
                                         effect = 0x44;
                                     }
                                     W8CharacterEvent* notice = QueueCharacterEvent(
-                                        &CurrentGame().party.characters[party_slot], effect, 0,
+                                        &CurrentGame().party.characters[*party_slot], effect, 0,
                                         kCharacterEventFullVolume);
 
                                     if (notice != 0) {
@@ -689,10 +690,10 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 if (glm::length(delta) < 25000.0f &&
                                     (npc->party_noticed = true, !CurrentGame().surprise_possible) &&
                                     GetLoadedLevelID() != 4) {
-                                    int party_slot = CurrentGame().party.randomSlot(
-                                        CurrentGame().rng, 0, 0, -1, -1);
+                                    const auto party_slot =
+                                        CurrentGame().party.randomSlot(CurrentGame().rng);
 
-                                    if (party_slot != -1) {
+                                    if (party_slot) {
                                         int effect = 0x26;
 
                                         if (npc->name_style == W8_NPC_VI_DOMINA &&
@@ -700,7 +701,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                             effect = 0x39;
                                         }
                                         W8CharacterEvent* notice = QueueCharacterEvent(
-                                            &CurrentGame().party.characters[party_slot], effect, 0,
+                                            &CurrentGame().party.characters[*party_slot], effect, 0,
                                             kCharacterEventFullVolume);
 
                                         if (notice != 0) {

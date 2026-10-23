@@ -1,6 +1,7 @@
 #include "wiz8/rules/party_stats.h"
 
 #include <array>
+#include <optional>
 #include <span>
 
 #include "wiz8/data/game_data.h"
@@ -41,7 +42,7 @@ static void DistributePartyWeight(const GameData& data, W8Party& party)
     }
 
     for (party_weight >>= 1; party_weight != 0; --party_weight) {
-        unsigned int best_slot = static_cast<unsigned int>(-1);
+        std::optional<unsigned> best_slot;
         float best_ratio = -999999.0f;
         for (slot = 0; slot < 8; ++slot) {
             W8Character* character = &characters[slot];
@@ -51,11 +52,11 @@ static void DistributePartyWeight(const GameData& data, W8Party& party)
                 best_slot = slot;
             }
         }
-        if (best_slot == static_cast<unsigned int>(-1)) break;
-        W8Character* character = &characters[best_slot];
+        if (!best_slot) break;
+        W8Character* character = &characters[*best_slot];
         ++character->party_weight_share;
-        --unassigned[best_slot];
-        load_ratio[best_slot] = unassigned[best_slot] * 100.0f / capacity[best_slot];
+        --unassigned[*best_slot];
+        load_ratio[*best_slot] = unassigned[*best_slot] * 100.0f / capacity[*best_slot];
     }
 }
 

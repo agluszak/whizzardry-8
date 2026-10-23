@@ -115,7 +115,7 @@ static W8ItemLevelScaleRange g_item_level_scale_ranges[7] = {
     {21, 600, 10000}, {26, 800, 20000}, {31, 1000, 1000000},
 };
 
-int FindItemTableByName(const char* name)
+std::optional<int> FindItemTableByName(const char* name)
 {
     int index;
 
@@ -124,7 +124,7 @@ int FindItemTableByName(const char* name)
             return index;
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_items,
@@ -209,7 +209,7 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
 /* Look an item record up by its internal name. The name sits at 0x8d in the
    record; a record whose name is empty is matched against the display name
    converted down from wide instead. */
-int FindItemRecordByName(const char* name)
+std::optional<int> FindItemRecordByName(const char* name)
 {
     int index;
     std::string internal_name;
@@ -224,7 +224,7 @@ int FindItemRecordByName(const char* name)
             return index;
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 // FUNCTION: WIZ8 0x004f91e0

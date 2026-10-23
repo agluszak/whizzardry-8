@@ -27,7 +27,7 @@ namespace {
    DeactivatingBomb and queue the NPC-0x46 script notice. */
 bool Shape(Trigger* pTrigger)
 {
-    if (GetLocationVarIDByName("DeactivatingBomb") == -1) {
+    if (!GetLocationVarIDByName("DeactivatingBomb")) {
         CreateLocationVar("DeactivatingBomb", 1);
         QueueNpcScriptNotice(GetNpcStateByKind(0x46), 0, 0, false, 0);
     }

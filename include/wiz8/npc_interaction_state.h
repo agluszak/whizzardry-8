@@ -12,7 +12,7 @@ struct W8NpcState;
 
 struct W8PendingNoticeLine {
     std::string text;
-    int npc_kind;
+    std::optional<int> npc_kind;
 };
 
 /* An NPC script notice waiting for DispatchPendingNpcScriptNotice. */

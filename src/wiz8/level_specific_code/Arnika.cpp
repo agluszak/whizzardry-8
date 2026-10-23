@@ -123,7 +123,6 @@ private:
     void elevator1Setup();
     void elevator2Setup();
     void elevatorAdvance(W8ArnikaElevatorId which);
-    int pedestalItem(int* previous_item);
 
     bool lazerScanner(Trigger* pTrigger);
     bool laserScanMaster(int command);
@@ -257,7 +256,7 @@ void ArnikaScript::restoreElevator(W8Elevator& elevator, const ElevatorStateBind
     elevator.state = bindings.initial_state;
     elevator.moving = 0;
     elevator.button_down = 0;
-    if (GetLocationVarIDByName(bindings.state_variable) == -1) {
+    if (!GetLocationVarIDByName(bindings.state_variable)) {
         CreateLocationVar(bindings.state_variable, elevator.state);
         if (bindings.open_bottom_on_first_load) {
             elevator.pBottomDoor->Run(-1);
@@ -267,13 +266,13 @@ void ArnikaScript::restoreElevator(W8Elevator& elevator, const ElevatorStateBind
         elevator.state =
             static_cast<W8ArnikaElevatorState>(GetLocationVarValueByName(bindings.state_variable));
     }
-    if (GetLocationVarIDByName(bindings.moving_variable) == -1) {
+    if (!GetLocationVarIDByName(bindings.moving_variable)) {
         CreateLocationVar(bindings.moving_variable, elevator.moving);
     } else {
         elevator.moving = GetLocationVarValueByName(bindings.moving_variable);
     }
     SetTriggerVariableByName(bindings.moving_variable, 0);
-    if (GetLocationVarIDByName(bindings.button_variable) == -1) {
+    if (!GetLocationVarIDByName(bindings.button_variable)) {
         CreateLocationVar(bindings.button_variable, elevator.button_down);
     } else {
         elevator.button_down = GetLocationVarValueByName(bindings.button_variable);
@@ -362,7 +361,7 @@ void ArnikaScript::setup()
 
     elevator1Setup();
     elevator2Setup();
-    if (GetLocationVarIDByName("LaserScanning") != -1 &&
+    if (GetLocationVarIDByName("LaserScanning") &&
         GetLocationVarValueByName("LaserScanning") != 0) {
         pTrigger = FindTriggerByName("LazerScanner");
         if (pTrigger != 0) {
@@ -372,14 +371,13 @@ void ArnikaScript::setup()
             addMaster(&ArnikaScript::laserScanMaster, &ArnikaScript::captureLaserScan);
         }
     }
-    if (GetLocationVarIDByName("WarningSound") != -1) {
+    if (GetLocationVarIDByName("WarningSound")) {
         int value = GetLocationVarValueByName("WarningSound");
         if (value != 0) {
             warningSound(value);
         }
     }
-    if (GetLocationVarIDByName("ScregActive") != -1 &&
-        GetLocationVarValueByName("ScregActive") == 1) {
+    if (GetLocationVarIDByName("ScregActive") && GetLocationVarValueByName("ScregActive") == 1) {
         npc = GetNpcStateByKind(0x17);
         if (npc != 0 && (monster_info = GetNpcMonsterInfo(npc)) != 0 && monster_info->entity) {
             return;
@@ -406,7 +404,7 @@ bool ArnikaScript::lazerScanner(Trigger* pTrigger)
     if (lazer_prop_->animation_playing != 0) {
         return false;
     }
-    if (GetLocationVarIDByName("HLLDoorOpen") != -1) {
+    if (GetLocationVarIDByName("HLLDoorOpen")) {
         return false;
     }
     laser_scanning_ = 1;
@@ -443,7 +441,7 @@ bool ArnikaScript::scannerDoor(Trigger* pTrigger)
     if (!PartyHasItem(ctx.party, 0x27b)) {
         return false;
     }
-    if (GetLocationVarIDByName("HLLDoorOpen") == -1) {
+    if (!GetLocationVarIDByName("HLLDoorOpen")) {
         CreateLocationVar("HLLDoorOpen", 1);
     }
     return true;
@@ -457,7 +455,7 @@ bool ArnikaScript::warningSound(int command)
     glm::vec3 position;
 
     if (command != 0) {
-        if (GetLocationVarIDByName("WarningSound") == -1) {
+        if (!GetLocationVarIDByName("WarningSound")) {
             CreateLocationVar("WarningSound", 0x1e);
         }
         if (!FindEntityByName("ULLspawn", &position, 0, 0)) {
@@ -511,17 +509,15 @@ bool ArnikaScript::mookholo(Trigger* pTrigger)
     if (ctx.combat.has_value()) {
         return false;
     }
-    if (GetLocationVarIDByName("ScregActive") != -1 &&
-        GetLocationVarValueByName("ScregActive") != 0) {
+    if (GetLocationVarIDByName("ScregActive") && GetLocationVarValueByName("ScregActive") != 0) {
         return false;
     }
-    if (GetLocationVarIDByName("MookDoorOpen") != -1 &&
-        GetLocationVarValueByName("MookDoorOpen") != 0) {
+    if (GetLocationVarIDByName("MookDoorOpen") && GetLocationVarValueByName("MookDoorOpen") != 0) {
         return false;
     }
     if (FindEntityByName("Mookholo", &position, 0, 0)) {
         group = SpawnMonsters(0xb, 1, &position, 0, true, false);
-        if (GetLocationVarIDByName("ScregActive") != -1) {
+        if (GetLocationVarIDByName("ScregActive")) {
             SetTriggerVariableByName("ScregActive", 1);
         } else {
             CreateLocationVar("ScregActive", 1);
@@ -565,7 +561,7 @@ bool ArnikaScript::mookholoWatch(int command)
 bool ArnikaScript::mookFrontDoor(Trigger* pTrigger)
 {
     FindRequiredTriggerByName("Mookholo");
-    if (GetLocationVarIDByName("MookDoorOpen") != -1) {
+    if (GetLocationVarIDByName("MookDoorOpen")) {
         SetTriggerVariableByName("MookDoorOpen", 1);
     } else {
         CreateLocationVar("MookDoorOpen", 1);
@@ -616,7 +612,7 @@ bool ArnikaScript::exitButton(Trigger* pTrigger)
 {
     exit_door_trigger_ = pTrigger;
     exit_door_prop_ = pTrigger->GetProp();
-    if (GetLocationVarIDByName("Teleporting") != -1) {
+    if (GetLocationVarIDByName("Teleporting")) {
         if (GetLocationVarValueByName("Teleporting") == 0) {
             SetTriggerVariableByName("Teleporting", 1);
             addMaster(&ArnikaScript::teleportWatch);
@@ -653,7 +649,7 @@ bool ArnikaScript::genVaultDoor(Trigger* pTrigger)
     glm::vec3 position;
 
     if (FindEntityByName("Golem", &position, 0, 0)) {
-        if (GetLocationVarIDByName("GolemSpawned") != -1) {
+        if (GetLocationVarIDByName("GolemSpawned")) {
             return false;
         }
         CreateLocationVar("GolemSpawned", 1);
@@ -904,7 +900,7 @@ bool ArnikaScript::chaosMolori(Trigger* pTrigger)
    script notice and drops the faction band. */
 bool ArnikaScript::maddmook(Trigger* pTrigger)
 {
-    if (GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
+    if (GetLocationVarIDByName("WarnedAboutEntry") &&
         GetLocationVarValueByName("WarnedAboutEntry") == 1 &&
         GetFactionDisposition(W8_FACTION_MOOK) != W8_FACTION_NEUTRAL) {
         W8NpcState* npc = GetNpcStateByKind(0x69);
@@ -928,105 +924,57 @@ bool ArnikaScript::astralDominae(Trigger* pTrigger)
     return true;
 }
 
-/* "CMbox": places the held relic on the pedestal through pedestalItem, then
-   runs the matching trigger itself so the pedestal callbacks stay quiet. */
-bool ArnikaScript::cmBox(Trigger* pTrigger)
+/* The first pedestal interaction raises the entry warning; only a later
+   warned interaction stores an offered relic. Keep the matching trigger run
+   inside the recursion guard because its callbacks can revisit CMbox. */
+bool ArnikaScript::cmBox(Trigger*)
 {
-    int previous = -1;
-    int item;
+    if (running_trigger_from_script_) return false;
 
-    if (running_trigger_from_script_) {
-        return false;
-    }
-    item = pedestalItem(&previous);
-    if (item < -1) {
-        return false;
-    }
-    if (item == 0x244) {
-        pTrigger = FindRequiredTriggerByName("ChaosMolori");
-    } else if (item == 0x242 || item == 0x264) {
-        pTrigger = FindRequiredTriggerByName("AstralDominae");
-    } else {
-        return previous != -1;
-    }
-    running_trigger_from_script_ = true;
-    pTrigger->Run(-1);
-    running_trigger_from_script_ = false;
-    return true;
-}
-
-/* Pedestal item exchange: when a relic (0x242/0x244/0x264) is on the cursor
-   it is consumed into the PedestalItem location variable and the stored item
-   comes back to the cursor; on the first exchange it also aims the camera at
-   the mook and posts the entry notice. Answers the item placed, -1 when the
-   pedestal already held one, or -2 when the cursor item was not a relic. */
-int ArnikaScript::pedestalItem(int* previous_item)
-{
-    W8NpcState* npc;
-    W8MonsterInfo* info;
-    glm::vec3 position;
-    int item = -1;
-    int previous;
-
-    if ((ctx.party.held.item.iItemNo != -1)) {
-        item = GetItemInHand(ctx.party);
-        if (item != 0x244 && item != 0x242 && item != 0x264) {
-            return -2;
-        }
+    std::optional<int> offered;
+    if (const int held = ctx.party.held.item.iItemNo; held != -1) {
+        if (held != 0x244 && held != 0x242 && held != 0x264) return false;
+        offered = held;
     }
     FindRequiredTriggerByName("ChaosMolori");
-    if (item > -1) {
-        (void)TakeInventoryItem(ctx.game, {W8ItemStorage::Hand});
-    }
-    if (GetLocationVarIDByName("PedestalItem") != -1 &&
-        GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
+    if (offered) (void)TakeInventoryItem(ctx.game, {W8ItemStorage::Hand});
+
+    const auto pedestal = GetLocationVarIDByName("PedestalItem");
+    if (pedestal && GetLocationVarIDByName("WarnedAboutEntry") &&
         GetLocationVarValueByName("WarnedAboutEntry") == 1) {
-        previous = GetLocationVarValueByName("PedestalItem");
-        if (item == -1) {
-            return previous | item;
-        }
-        SetTriggerVariableByName("PedestalItem", item);
-        if (GetLocationVarIDByName("WarnedAboutEntry") != -1) {
-            SetTriggerVariableByName("WarnedAboutEntry", 0);
-        }
-        *previous_item = previous;
-        return item;
-    }
-    if (GetLocationVarIDByName("PedestalItem") == -1) {
-        CreateLocationVar("PedestalItem", -1);
-        previous = 0x244;
-        if (item == -1) {
+        if (!offered) return false;
+        SetTriggerVariableByName("PedestalItem", *offered);
+        SetTriggerVariableByName("WarnedAboutEntry", 0);
+    } else {
+        if (!pedestal) CreateLocationVar("PedestalItem", -1);
+        if (!offered) {
+            // A missing record starts with the Chaos relic; a stored -1 means empty.
+            const int previous = pedestal ? GetLocationVarValueByName("PedestalItem") : 0x244;
+            if (previous == -1) return false;
             ReplaceHeldItem(ctx.game,
                             MakeItem(Data(), ctx.game.rng, previous, false, false, false));
         }
-    } else {
-        previous = GetLocationVarValueByName("PedestalItem");
-        if (previous == -1) {
-            if (item == previous) {
-                return -2;
+        if (auto* npc = GetNpcStateByKind(0x69)) {
+            if (auto* info = GetNpcMonsterInfo(npc)) {
+                auto position = info->entity->nav.movement.position;
+                position.y += info->entity->nav.movement.height_offset;
+                partyCamera().LookAt(&position, false);
             }
-        } else if (item == -1) {
-            ReplaceHeldItem(ctx.game,
-                            MakeItem(Data(), ctx.game.rng, previous, false, false, false));
+            QueueNpcScriptNotice(npc, 0, 8, false, 0);
+        }
+        if (!GetLocationVarIDByName("WarnedAboutEntry")) {
+            CreateLocationVar("WarnedAboutEntry", 1);
+        } else {
+            SetTriggerVariableByName("WarnedAboutEntry", 1);
         }
     }
-    npc = GetNpcStateByKind(0x69);
-    if (npc != 0) {
-        info = GetNpcMonsterInfo(npc);
-        if (info != 0) {
-            position = info->entity->nav.movement.position;
-            position.y += info->entity->nav.movement.height_offset;
-            partyCamera().LookAt(&position, false);
-        }
-        QueueNpcScriptNotice(npc, 0, 8, false, 0);
-    }
-    if (GetLocationVarIDByName("WarnedAboutEntry") == -1) {
-        CreateLocationVar("WarnedAboutEntry", 1);
-    } else {
-        SetTriggerVariableByName("WarnedAboutEntry", 1);
-    }
-    *previous_item = previous;
-    return item;
+    if (!offered) return true;
+
+    auto* trigger = FindRequiredTriggerByName(*offered == 0x244 ? "ChaosMolori" : "AstralDominae");
+    running_trigger_from_script_ = true;
+    trigger->Run(-1);
+    running_trigger_from_script_ = false;
+    return true;
 }
 
 /* The "BallSlot" activation callback: on the first ball insert it creates
@@ -1036,7 +984,7 @@ bool ArnikaScript::ballSlot(Trigger* pTrigger)
     W8ItemInstance item;
     W8NpcState* npc;
 
-    if (GetLocationVarIDByName("BallInserted") == -1) {
+    if (!GetLocationVarIDByName("BallInserted")) {
         CreateLocationVar("BallInserted", 1);
         npc = GetNpcStateByKind(0x16);
         item = MakeItem(Data(), ctx.game.rng, 0x240, true, true, false);

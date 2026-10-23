@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstddef>
 #include <iterator>
 #include <list>
 #include <optional>
@@ -36,77 +37,32 @@ constexpr int kWorldActionQuoteMin = 'F';
    continuations on the queue. The queue's frame step lives in
    NPC Scripting.cpp; presentation and speech in npc_dialogue_view.cpp. */
 
-/* Evaluate a kind-3 quote entry: each sub-entry pair is a (fact, expected)
-   guard that must all hold, then the entry selects the response - operand0
-   directly, randomly in [operand0, operand2] when operand1 is 2, or a
-   queued QUOTE_ENTRY continuation line when operand2 is 4. Returns the
-   response index, -1 when a guard fails, and -2 after queueing. */
-int W8NpcDialogue::SelectResponse(const ScriptContext& context, const W8NpcQuoteEntry* entry,
-                                  int quote_index, int entry_index)
+/* Kind-3 response guards are (fact, expected) pairs. A queued continuation
+   keeps its continuation data in the first subentry, before those guards. */
+static bool ResponseConditionsMatch(const W8NpcQuoteEntry& entry)
 {
-    int index;
-    unsigned char expected;
-    signed char response_count;
-
-    index = 0;
-    if (entry->operand2 == 4 && entry->operand1 != 2) {
-        index = 1;
+    const std::size_t first = entry.operand2 == 4 && entry.operand1 != 2 ? 1 : 0;
+    for (std::size_t index = first; index < entry.sub_entries.size(); index += 2) {
+        const auto expected = static_cast<unsigned char>(entry.sub_entries[index + 1].operand);
+        if (GetFact(static_cast<W8FactId>(entry.sub_entries[index].operand)) != expected)
+            return false;
     }
-    while (index < std::ssize(entry->sub_entries)) {
-        expected = static_cast<unsigned char>(
-            entry->sub_entries[index + 1].operand) /* c-style-cast-ok: packed byte operand */;
-        if (GetFact(static_cast<W8FactId>(entry->sub_entries[index].operand)) != expected) {
-            return -1;
-        }
-        index += 2;
-    }
-    if (entry->operand2 == 4 && entry->operand1 != 2) {
-        QueueQuoteEntry(quote_index, entry_index, 0, false);
-        return -2;
-    }
-    if (entry->operand1 == 2) {
-        response_count = entry->operand2 - entry->operand0 + 1;
-        return context.game.rng.below(response_count) + entry->operand0;
-    }
-    return entry->operand0;
+    return true;
 }
 
-/* Kind-4 entries carry the keyword strings a dialogue keyword can select;
-   scan every quote for a subentry whose text
-   matches, reporting the entry and subentry indices through the out-pointers. */
-int FindNpcScriptQuoteByKeyword(std::string_view keyword, short* entry_index,
-                                short* sub_entry_index)
+std::optional<int> W8NpcDialogue::FindKeywordQuote(std::string_view keyword) const
 {
-    const W8NpcScriptFile* script;
-    const W8NpcScriptQuote* quote;
-    const W8NpcQuoteEntry* entry;
-    std::string text;
-    int quote_index;
-    int item_index;
-    int sub_index;
-
-    script = CurrentGame().npc_dialogue.binding().script.get();
-    for (quote_index = 0; quote_index < std::ssize(script->quotes); quote_index++) {
-        quote = &script->quotes[quote_index];
-        for (item_index = 0; item_index < std::ssize(quote->entries); item_index++) {
-            entry = &quote->entries[item_index];
-            if (entry->kind == W8_NPC_ENTRY_KEYWORD) {
-                for (sub_index = 0; sub_index < std::ssize(entry->sub_entries); sub_index++) {
-                    text = entry->sub_entries[sub_index].text.c_str();
-                    if (CompareTextIgnoreAsciiCase(text, keyword) == 0) {
-                        if (entry_index != 0) {
-                            *entry_index = static_cast<short>(item_index);
-                        }
-                        if (sub_entry_index != 0) {
-                            *sub_entry_index = static_cast<short>(sub_index);
-                        }
-                        return quote_index;
-                    }
-                }
-            }
-        }
+    const auto& quotes = session_.binding.script->quotes;
+    for (int index = 0; index < std::ssize(quotes); ++index) {
+        if (std::ranges::any_of(quotes[index].entries, [keyword](const auto& entry) {
+                return entry.kind == W8_NPC_ENTRY_KEYWORD &&
+                       std::ranges::any_of(entry.sub_entries, [keyword](const auto& sub) {
+                           return CompareTextIgnoreAsciiCase(sub.text, keyword) == 0;
+                       });
+            }))
+            return index;
     }
-    return -1;
+    return std::nullopt;
 }
 
 /* Run one script quote line: stage it as current, and when the last subquote
@@ -120,9 +76,7 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
     const W8NpcQuoteEntry* entry;
     Monster* monster;
     W8NpcState* target;
-    signed char faction;
     signed char response_count;
-    int response;
     int entry_index;
     bool finished;
 
@@ -139,18 +93,20 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
         if (session_.subquote_index == std::ssize(quote->subquotes)) {
             session_.subquote_index = 0;
         }
-        response = -1;
+        std::optional<int> response;
         finished = false;
         if (session_.subquote_index + 1 == std::ssize(quote->subquotes) &&
             !quote->entries.empty()) {
             for (entry_index = 0; entry_index < std::ssize(quote->entries); entry_index++) {
                 entry = &quote->entries[entry_index];
                 switch (entry->kind) {
+                case W8_NPC_ENTRY_FACT_CONDITIONAL_QUOTE:
+                    if (!ResponseConditionsMatch(*entry)) break;
+                    [[fallthrough]];
                 case W8_NPC_ENTRY_NEXT_QUOTE:
                     if (entry->operand2 == 4) {
                         if (entry->operand1 != 2) {
                             QueueQuoteEntry(script_line, entry_index, 0, false);
-                            response = -1;
                             finished = true;
                             break;
                         }
@@ -163,13 +119,6 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
                         static_cast<signed char>(entry->operand2 - entry->operand0 + 1);
                     response = context.game.rng.below(response_count) + entry->operand0;
                     finished = true;
-                    break;
-                case W8_NPC_ENTRY_FACT_CONDITIONAL_QUOTE:
-                    response = SelectResponse(context, entry, script_line, entry_index);
-                    if (response != -1) {
-                        finished = true;
-                        break;
-                    }
                     break;
                 case W8_NPC_ENTRY_OPTIONS:
                     reply_ = W8NpcReplyState::pending;
@@ -239,9 +188,9 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
                     }
                 } break;
                 case W8_NPC_ENTRY_FACTION_CHANGE:
-                    faction = FindFactionByName(entry->sub_entries[0].text.c_str());
-                    if (faction != -1) {
-                        ApplyFactionChange(3, 1, faction, entry->operand0);
+                    if (const auto faction =
+                            FindFactionByName(entry->sub_entries[0].text.c_str())) {
+                        ApplyFactionChange(3, 1, *faction, entry->operand0);
                     }
                     break;
                 case W8_NPC_ENTRY_PARTY_SPEAKER_EVENT:
@@ -272,8 +221,8 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
         if (cancellation_generation != cancellation_generation_) {
             return;
         }
-        if (response >= 0) {
-            QueueQuote(response, false, false, false);
+        if (response) {
+            QueueQuote(*response, false, false, false);
         }
         switch (SpeakNpcSubquote(context, quote, session_.subquote_index, false, force_npc_voice)) {
         case W8NpcSubquoteOutcome::presented:
@@ -328,7 +277,7 @@ void W8NpcDialogue::QueuePortraitMessage(std::string text, W8QuoteNotice notice)
    entries - role 3 supplies the per-keyword answer list, role 1 the generic
    answer. No keyword match at all falls back to the role-2 entry. -1 when the
    quote has no usable reply. */
-int W8NpcDialogue::FindReplyQuote(std::string_view text) const
+std::optional<int> W8NpcDialogue::FindReplyQuote(std::string_view text) const
 {
     const auto& entries = session_.binding.script->quotes[session_.current_quote_index].entries;
     const auto matches = [text](const W8NpcQuoteEntry& entry) {
@@ -353,7 +302,7 @@ int W8NpcDialogue::FindReplyQuote(std::string_view text) const
             return entry.operand0;
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 std::string GetNpcQuoteText(W8NpcState* npc, int type)
@@ -404,9 +353,8 @@ void W8NpcDialogue::Answer(const ScriptContext& context, std::string_view text)
         reply_session_.reset();
     }
     if (!price_check_) {
-        const int line = FindReplyQuote(text);
-        if (line != -1) {
-            QueueQuote(line, false, false, false);
+        if (const auto line = FindReplyQuote(text)) {
+            QueueQuote(*line, false, false, false);
         }
     } else {
         const W8NpcPriceCheck check = *price_check_;

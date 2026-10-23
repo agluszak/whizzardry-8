@@ -1,12 +1,16 @@
 // Links only the rules layer: a rules dependency on the engine fails to link here.
+#include <array>
 #include <initializer_list>
+#include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 
 #include "wiz8/rules/action_choices.h"
+#include "wiz8/rules/conditions.h"
 #include "wiz8/rules/inventory.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/rules/targeting.h"
 
 namespace {
@@ -93,4 +97,119 @@ TEST_CASE("A berserk choice yields to attack while the member cannot berserk", "
     ReconcileBerserkChoice(choices, committed, true);
     REQUIRE(choices.basic_kind == W8_ACTION_ATTACK);
     REQUIRE(committed.kind == W8_ACTION_DEFEND);
+}
+
+TEST_CASE("Party selection prefers awake members but falls back to any occupied slot", "[party]")
+{
+    W8Party party;
+    REQUIRE_FALSE(party.firstSelectableSlot());
+    for (const auto slot : {0, 2, 5}) party.members[slot].emplace();
+    party.characters[0].hp_current = 0;
+    party.characters[2].hp_current = 1;
+    party.characters[2].highest_condition = W8_CONDITION_ASLEEP;
+    party.characters[5].hp_current = 1;
+    party.characters[5].highest_condition = W8_CONDITION_NONE;
+    REQUIRE(party.firstSelectableSlot() == 5);
+
+    party.characters[5].hp_current = 0;
+    party.characters[5].highest_condition = W8_CONDITION_DEAD;
+    REQUIRE(party.firstSelectableSlot() == 2);
+    party.characters[2].hp_current = 0;
+    party.characters[2].highest_condition = W8_CONDITION_DEAD;
+    REQUIRE(party.firstSelectableSlot() == 0);
+    party.members[0].reset();
+    REQUIRE(party.firstSelectableSlot() == 2);
+}
+
+TEST_CASE("Random party selection keeps cyclic weighting and the gameplay draw", "[party][rng]")
+{
+    W8Party party;
+    const std::array slots{0, 3, 7};
+    for (const int slot : slots) {
+        party.members[slot].emplace();
+        party.characters[slot].hp_current = 1;
+        party.characters[slot].highest_condition = W8_CONDITION_NONE;
+    }
+    std::vector<Rng::Draw> draws;
+    Rng rng{2433};
+    rng.trace(&draws);
+    Rng expected{2433};
+    const auto ordinal = expected.below(8);
+    REQUIRE(party.randomSlot(rng) == slots[ordinal % slots.size()]);
+    REQUIRE(draws.size() == 1);
+    REQUIRE(draws.front().range == 8);
+    REQUIRE(rng.next() == expected.next());
+}
+
+TEST_CASE("Random party selection only relaxes an empty eligibility stage", "[party][rng]")
+{
+    W8Party party;
+    std::vector<Rng::Draw> draws;
+    Rng rng;
+    rng.trace(&draws);
+    unsigned int expected_draws = 0;
+    for (const auto fallback : {PartySelectionFallback::None, PartySelectionFallback::Living,
+                                PartySelectionFallback::AnyMember}) {
+        draws.clear();
+        REQUIRE_FALSE(party.randomSlot(rng, fallback));
+        ++expected_draws;
+        REQUIRE(draws.size() == expected_draws);
+        for (const auto& draw : draws) REQUIRE(draw.range == 8);
+    }
+
+    for (const int slot : {0, 2, 5}) party.members[slot].emplace();
+    party.characters[0].hp_current = 0;
+    party.characters[0].highest_condition = W8_CONDITION_DEAD;
+    party.characters[2].hp_current = 1;
+    party.characters[2].highest_condition = W8_CONDITION_ASLEEP;
+    party.characters[5].hp_current = 1;
+    party.characters[5].highest_condition = W8_CONDITION_NONE;
+    draws.clear();
+    REQUIRE(party.randomSlot(rng, PartySelectionFallback::AnyMember) == 5);
+    REQUIRE(draws.size() == 1);
+    draws.clear();
+    REQUIRE_FALSE(party.randomSlot(rng, PartySelectionFallback::None, 5));
+    REQUIRE(draws.size() == 1);
+    draws.clear();
+    REQUIRE(party.randomSlot(rng, PartySelectionFallback::Living, 5) == 2);
+    REQUIRE(draws.size() == 2);
+    party.members[2].reset();
+    draws.clear();
+    REQUIRE(party.randomSlot(rng, PartySelectionFallback::AnyMember, 5) == 0);
+    REQUIRE(draws.size() == 3);
+}
+
+TEST_CASE("Living-party reactions draw uniformly only when there is a choice", "[party][rng]")
+{
+    W8Party party;
+    std::vector<Rng::Draw> draws;
+    Rng rng{2433};
+    rng.trace(&draws);
+    REQUIRE_FALSE(party.randomLivingSlot(rng));
+    party.members[0].emplace();
+    party.characters[0].hp_current = 1;
+    party.characters[0].highest_condition = W8_CONDITION_ASLEEP;
+    REQUIRE(party.randomLivingSlot(rng) == 0);
+    REQUIRE_FALSE(party.randomLivingSlot(rng, 0));
+    REQUIRE(draws.empty());
+
+    for (const int slot : {2, 7}) {
+        party.members[slot].emplace();
+        party.characters[slot].hp_current = 1;
+        party.characters[slot].highest_condition = W8_CONDITION_NONE;
+    }
+    Rng expected{2433};
+    const std::array slots{0, 2, 7};
+    REQUIRE(party.randomLivingSlot(rng) == slots[expected.below(3)]);
+    REQUIRE(draws.size() == 1);
+    REQUIRE(draws.front().range == 3);
+    draws.clear();
+    REQUIRE(party.randomLivingSlot(rng, 2, true) == 7);
+    REQUIRE(draws.empty());
+    party.characters[7].hp_current = 0;
+    REQUIRE_FALSE(party.randomLivingSlot(rng, 2, true));
+    party.characters[2].highest_condition = W8_CONDITION_DEAD;
+    REQUIRE(party.randomLivingSlot(rng) == 0);
+    REQUIRE(draws.empty());
+    REQUIRE(rng.next() == expected.next());
 }

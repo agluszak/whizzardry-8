@@ -5,6 +5,7 @@
 #include <exception>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -90,14 +91,32 @@ void W8OptionsPanel::AddChoices(int label, int count, const int* choices, T* val
 static int g_last_options_panel = 5;
 
 static W8OptionsMenuRow g_options_menu_rows[8] = {
-    {1, {{20, 51, 69, 137}, {-1, -1, -1, -1}}, {16, 194, 0, 0}, {0, 2, 1, -1, -1}},
-    {4, {{90, 72, 117, 117}, {217, 72, 244, 117}}, {16, 220, 0, 0}, {3, 5, 4, -1, -1}},
-    {3, {{132, 29, 201, 102}, {-1, -1, -1, -1}}, {16, 246, 0, 0}, {6, 8, 7, -1, -1}},
-    {2, {{124, 141, 194, 172}, {-1, -1, -1, -1}}, {16, 272, 0, 0}, {9, 11, 10, -1, -1}},
-    {0, {{-1, -1, -1, -1}, {-1, -1, -1, -1}}, {7, 322, 0, 0}, {12, 14, 13, -1, 25}},
-    {0, {{-1, -1, -1, -1}, {-1, -1, -1, -1}}, {7, 360, 0, 0}, {15, 17, 16, -1, 24}},
-    {0, {{-1, -1, -1, -1}, {-1, -1, -1, -1}}, {7, 398, 0, 0}, {18, 20, 19, -1, -1}},
-    {0, {{-1, -1, -1, -1}, {-1, -1, -1, -1}}, {7, 436, 0, 0}, {21, 23, 22, -1, -1}}};
+    {1,
+     {{20, 51, 69, 137}, {-1, -1, -1, -1}},
+     {16, 194, 0, 0},
+     {0, 2, 1, std::nullopt, std::nullopt}},
+    {4,
+     {{90, 72, 117, 117}, {217, 72, 244, 117}},
+     {16, 220, 0, 0},
+     {3, 5, 4, std::nullopt, std::nullopt}},
+    {3,
+     {{132, 29, 201, 102}, {-1, -1, -1, -1}},
+     {16, 246, 0, 0},
+     {6, 8, 7, std::nullopt, std::nullopt}},
+    {2,
+     {{124, 141, 194, 172}, {-1, -1, -1, -1}},
+     {16, 272, 0, 0},
+     {9, 11, 10, std::nullopt, std::nullopt}},
+    {0, {{-1, -1, -1, -1}, {-1, -1, -1, -1}}, {7, 322, 0, 0}, {12, 14, 13, std::nullopt, 25}},
+    {0, {{-1, -1, -1, -1}, {-1, -1, -1, -1}}, {7, 360, 0, 0}, {15, 17, 16, std::nullopt, 24}},
+    {0,
+     {{-1, -1, -1, -1}, {-1, -1, -1, -1}},
+     {7, 398, 0, 0},
+     {18, 20, 19, std::nullopt, std::nullopt}},
+    {0,
+     {{-1, -1, -1, -1}, {-1, -1, -1, -1}},
+     {7, 436, 0, 0},
+     {21, 23, 22, std::nullopt, std::nullopt}}};
 
 static W8OptionsPanelRange g_options_panel_ranges[8] = {{0, 2},   {3, 3},   {4, 5}, {6, 10},
                                                         {11, 11}, {12, 12}, {0, 0}, {0, 0}};
@@ -277,17 +296,19 @@ void W8OptionsSaveLoadPanel::Populate()
     }
 
     if (m_panel == 11) {
-        m_delete_button = AddButton(0xd, 0x1b0, 0xf8, 6, 8, 7, -1, -1, [this](auto* button) {
-            AfterUiDispatch([this, button] { OnPrimary(button); });
-        });
+        m_delete_button =
+            AddButton(0xd, 0x1b0, 0xf8, 6, 8, 7, std::nullopt, std::nullopt, [this](auto* button) {
+                AfterUiDispatch([this, button] { OnPrimary(button); });
+            });
     } else {
         m_delete_button = 0;
     }
 
     int first_sprite = m_panel == 11 ? 3 : 0;
-    m_action_button =
-        AddButton(0xf5, 0x1b0, 0xf8, first_sprite, first_sprite + 2, first_sprite + 1, -1, -1,
-                  [this](auto* button) { AfterUiDispatch([this, button] { OnPrimary(button); }); });
+    m_action_button = AddButton(0xf5, 0x1b0, 0xf8, first_sprite, first_sprite + 2, first_sprite + 1,
+                                std::nullopt, std::nullopt, [this](auto* button) {
+                                    AfterUiDispatch([this, button] { OnPrimary(button); });
+                                });
 
     if (m_panel == 11 && static_cast<int>(screen.m_save_slots.size()) == 1) {
         m_delete_button->SetEnabled(false);
@@ -564,7 +585,7 @@ W8OptionsSaveRow::W8OptionsSaveRow(UiLayer& layer, W8OptionsSaveLoadPanel& owner
     auto art = CatalogArtwork::Load(0xf9, 0);
     const int normal = save_mode ? 0 : 2;
     button.Configure(
-        ButtonGraphics::Load(art.spriteSheet(), 4, normal, -1, normal + 1, -1),
+        ButtonGraphics::Load(art.spriteSheet(), 4, normal, std::nullopt, normal + 1, std::nullopt),
         {.on_click =
              [&owner, this, index, save_mode](auto*) {
                  AfterUiDispatch([&owner, this, index, save_mode] {
@@ -768,9 +789,9 @@ void W8OptionsKeyboardPanel::Redraw(SDL_Surface& target, bool full_redraw)
     W8OptionsPanel::Redraw(target, full_redraw);
     if (repaint)
         for (auto& key : m_keys) {
-            key->text.SetFontStateIndex(key->interaction.pressed ? 13
-                                        : key->target->hovered() ? 14
-                                                                 : -1);
+            key->text.SetFontStateIndex(key->interaction.pressed ? std::optional{13}
+                                        : key->target->hovered() ? std::optional{14}
+                                                                 : std::nullopt);
             key->text.RenderToTarget(0, true, target);
         }
 }
@@ -1151,8 +1172,8 @@ void OptionsScreen::CreateControls()
     for (int item = 0; item < 8; ++item) {
         const auto& row = g_options_menu_rows[item];
         const auto& frames = row.image_indices;
-        const auto frame = [&](int index) {
-            return index < 0 ? -1 : index + artwork.imageOffset();
+        const auto frame = [&](std::optional<int> index) {
+            return index.transform([&](int value) { return value + artwork.imageOffset(); });
         };
         auto& button = m_menu_buttons[item];
         button = std::make_unique<W8ButtonWidget>(m_menu_input);
@@ -1167,7 +1188,7 @@ void OptionsScreen::CreateControls()
                         .input_rule = ButtonInputRule::PrimaryPressedState},
              .priority = UI_PRIORITY_LOWEST,
              .menu_artwork = true});
-        const auto size = artwork.size(frames[0]);
+        const auto size = artwork.size(*frames[0]);
         button->SetPosition(row.bounds.left, row.bounds.top);
         button->Resize(size.x, size.y);
 
@@ -1199,18 +1220,18 @@ void OptionsScreen::CreateControls()
         const int frame = arrows.imageOffset() + direction * 4;
         auto& button = m_navigation[direction];
         button = std::make_unique<W8ButtonWidget>(m_menu_input);
-        button->Configure(
-            ButtonGraphics::Load(arrows.spriteSheet(), frame + 3, frame, frame + 1, frame + 2, -1),
-            {.on_click =
-                 [this, direction](W8ButtonWidget*) {
-                     AfterUiDispatch([this, direction] {
-                         Scroll(direction == 0 ? -1 : 1);
-                         UpdateNavigation();
-                     });
-                 },
-             .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
-             .priority = UI_PRIORITY_LOWEST,
-             .menu_artwork = true});
+        button->Configure(ButtonGraphics::Load(arrows.spriteSheet(), frame + 3, frame, frame + 1,
+                                               frame + 2, std::nullopt),
+                          {.on_click =
+                               [this, direction](W8ButtonWidget*) {
+                                   AfterUiDispatch([this, direction] {
+                                       Scroll(direction == 0 ? -1 : 1);
+                                       UpdateNavigation();
+                                   });
+                               },
+                           .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+                           .priority = UI_PRIORITY_LOWEST,
+                           .menu_artwork = true});
         const auto size = arrows.size(direction * 4);
         button->Resize(size.x, size.y);
     }
@@ -1530,9 +1551,10 @@ void W8OptionsSlider::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-W8ButtonWidget* W8OptionsPanel::AddButton(int x, int y, int artwork, int normal, int pressed,
-                                          int hover, int pressed_hover, int disabled,
-                                          W8ButtonCallback callback)
+W8ButtonWidget* W8OptionsPanel::AddButton(int x, int y, int artwork, int normal,
+                                          std::optional<int> pressed, std::optional<int> hover,
+                                          std::optional<int> pressed_hover,
+                                          std::optional<int> disabled, W8ButtonCallback callback)
 {
     const auto art = CatalogArtwork::Load(artwork, 0);
     auto& button = m_buttons.emplace_back(std::make_unique<W8ButtonWidget>(m_input));
@@ -1563,7 +1585,7 @@ static void AddOptionsLabel(W8OptionsPanel& panel, int label)
 void W8OptionsPanel::AddCheckbox(int label, bool* value)
 {
     AddOptionsLabel(*this, label);
-    auto* checkbox = AddButton(0x14d, m_content_top - 2, 0xf1, 2, 0, 3, 1, -1,
+    auto* checkbox = AddButton(0x14d, m_content_top - 2, 0xf1, 2, 0, 3, 1, std::nullopt,
                                [value](auto* button) { *value = button->IsPressed(); });
     checkbox->Policy().primary_toggle = ButtonToggle::Release;
     checkbox->SetPressed(*value);
@@ -1577,7 +1599,8 @@ W8ButtonWidget* W8OptionsPanel::AddChoiceButton(int label, W8ButtonCallback call
     m_text_buffers.emplace_back(
         std::make_unique<W8TextBuffer>(&bounds, Data().strings[label], g_options_detail_font,
                                        g_W8TextBufferAlignTop | g_W8TextBufferAlignRight, 4));
-    auto* button = AddButton(0x151, m_content_top + 1, 0xf1, 4, 6, 5, 7, -1, std::move(callback));
+    auto* button =
+        AddButton(0x151, m_content_top + 1, 0xf1, 4, 6, 5, 7, std::nullopt, std::move(callback));
     button->Policy().primary_toggle = ButtonToggle::Release;
     m_content_top += 22;
     return button;

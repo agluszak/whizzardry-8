@@ -6,6 +6,7 @@
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -793,7 +794,7 @@ void MonGen::SetEncounterTable(int index)
 
 /* Return the first table whose name starts with the complete caller string,
    ignoring case as the retail _strnicmp import does. */
-int FindEncounterTableByName(const char* name)
+std::optional<int> FindEncounterTableByName(const char* name)
 {
     const auto& tables = Data().encounter_tables;
     for (int index = 0; index < static_cast<int>(tables.size()); ++index) {
@@ -801,5 +802,5 @@ int FindEncounterTableByName(const char* name)
             return index;
         }
     }
-    return -1;
+    return std::nullopt;
 }

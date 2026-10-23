@@ -166,7 +166,7 @@ struct NavigatorMovement {
     float vertical_amplitude;
     float vertical_phase;
     /* Reset installs the identity here; the constructor starts every row at
-       zero before the owner calls Reset. MeasurePathDistance copies it as
+       zero before the owner calls Reset. FindNavigatorPathDistance copies it as
        one 36-byte object (0x0045333F). */
     glm::mat3 basis;
     std::unique_ptr<NavigatorRoute> attachment;
@@ -238,8 +238,7 @@ public:
     /* Copies this navigator's movement state into a scratch probe, asks the
        octree to route toward `target`, and returns the measured path length or
        -1 when no route inside `max_range` exists. */
-    double MeasurePathDistance(const glm::vec3* target, float max_range,
-                               int location_id); /* 0x00453300 */
+ /* 0x00453300 */
     /* Find the navigator occupying `to`; the move collides when both sides'
        OnCollision accept it. */
     bool CheckNavigatorCollision(const glm::vec3* from, const glm::vec3* to);
@@ -270,7 +269,7 @@ public:
     /* The world-path reachability probe the group engagement check runs:
        fills `out_distance` with the route length and returns nonzero when a
        route inside `max_range` exists. */
-    int FindNavigatorPathDistance(float max_range, float* out_distance);          /* 0x00453480 */
+    std::optional<float> FindNavigatorPathDistance(float max_range);          /* 0x00453480 */
     void SetMovementScale(float value);                                           /* 0x00453C50 */
     void SetMonsterTurnSpeed(float speed);                                        /* 0x00453C70 */
     unsigned char ConfigureMovementToPosition(const glm::vec3* position); /* 0x00452630 */

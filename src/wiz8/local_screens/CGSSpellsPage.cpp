@@ -2,6 +2,7 @@
 #include <array>
 #include <cassert>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -232,7 +233,7 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
             text.SetFontStateIndex(1);
             text.RenderString(fmt::format("{}:", Data().strings[0xf2]), g_wiz_text_font_secondary,
                               false, target);
-            text.SetFontStateIndex(-1);
+            text.SetFontStateIndex(std::nullopt);
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(
                 fmt::format("{:d}",
@@ -247,7 +248,7 @@ void W8CharacterSpellsPage::Redraw(SDL_Surface& target, bool full_redraw)
             text.SetFontStateIndex(1);
             text.RenderString(fmt::format("{}:", Data().strings[0xf3]), g_wiz_text_font_secondary,
                               false, target);
-            text.SetFontStateIndex(-1);
+            text.SetFontStateIndex(std::nullopt);
             text.SetLayoutMode(g_W8TextBufferAlignRight | g_W8TextBufferAlignMiddle);
             text.RenderString(
                 fmt::format("{:d}/{:d}",

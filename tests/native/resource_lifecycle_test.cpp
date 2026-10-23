@@ -716,8 +716,8 @@ TEST_CASE_METHOD(SpellVisualFixture, "Target cone is removed through its world o
         *world.spell_visual_definitions.emplace_back(std::make_unique<SpellVisualDefinition>());
     source.asset_name = "TargetCone";
     source.mode = W8_SPELL_VISUAL_CONE;
-    source.resources.cycles[static_cast<int>(W8_SPELL_VISUAL_CONE) * SPELL_CYCLES_PER_GROUP]
-        .animation = std::make_unique<Animation>();
+    source.resources.cycles[W8_SPELL_VISUAL_CONE * SPELL_CYCLES_PER_GROUP].animation =
+        std::make_unique<Animation>();
     for (int attempt = 0; attempt < 2; ++attempt) {
         SetTargetConeEnabled(true);
         REQUIRE(world.target_cone);
@@ -793,6 +793,8 @@ TEST_CASE("Queued dialogue keeps its script and voice when the NPC is rebound", 
     script->quotes.resize(1);
 
     script->quotes[0].subquotes.emplace_back("");
+    script->quotes[0].entries.push_back(
+        {.kind = W8_NPC_ENTRY_KEYWORD, .sub_entries = {{.text = "topic"}}});
     npc->script_file = script;
     auto& dialogue = scope.game.npc_dialogue;
     dialogue.Begin(npc.get(), false);
@@ -802,6 +804,8 @@ TEST_CASE("Queued dialogue keeps its script and voice when the NPC is rebound", 
     dialogue.Begin(npc.get(), false);
     dialogue.Advance(MakeScriptContext(scope.game));
     REQUIRE(dialogue.binding().script == script);
+    REQUIRE(dialogue.FindKeywordQuote("TOPIC") == 0);
+    REQUIRE_FALSE(dialogue.FindKeywordQuote("missing"));
     REQUIRE(dialogue.binding().voice_stem == "NPC_Test");
     REQUIRE(dialogue.binding().npc_voice);
     REQUIRE_FALSE(dialogue.has_queued_actions());

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -17,8 +18,6 @@ inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_OFF = "Data\\Message Bo
 inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_ON = "Data\\Message Box\\GENBUTN2.STI";
 inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_OFF_HI = "Data\\Message Box\\GENBUTN3.STI";
 inline constexpr std::string_view DEFAULT_GENERIC_BUTTON_ON_HI = "Data\\Message Box\\GENBUTN4.STI";
-
-inline constexpr int BUTTON_NO_IMAGE = -1;
 
 struct ButtonGraphics;
 struct GenericButtonImages;
@@ -45,12 +44,12 @@ struct ButtonVisualState {
 };
 
 struct ButtonGraphics {
-    static ButtonImage Load(std::string_view filename, std::int32_t grayed, std::int32_t off_normal,
-                            std::int32_t off_hilite, std::int32_t on_normal,
-                            std::int32_t on_hilite);
-    static ButtonImage Load(std::shared_ptr<const SpriteSheet> sprites, std::int32_t grayed,
-                            std::int32_t off_normal, std::int32_t off_hilite,
-                            std::int32_t on_normal, std::int32_t on_hilite);
+    static ButtonImage Load(std::string_view filename, std::optional<int> grayed,
+                            std::optional<int> off_normal, std::optional<int> off_hilite,
+                            std::optional<int> on_normal, std::optional<int> on_hilite);
+    static ButtonImage Load(std::shared_ptr<const SpriteSheet> sprites, std::optional<int> grayed,
+                            std::optional<int> off_normal, std::optional<int> off_hilite,
+                            std::optional<int> on_normal, std::optional<int> on_hilite);
 
     const SpriteSheet& object() const { return *sprites; }
 
@@ -58,11 +57,11 @@ private:
     std::shared_ptr<const SpriteSheet> sprites;
 
 public:
-    std::int32_t Grayed = BUTTON_NO_IMAGE;
-    std::int32_t OffNormal = BUTTON_NO_IMAGE;
-    std::int32_t OffHilite = BUTTON_NO_IMAGE;
-    std::int32_t OnNormal = BUTTON_NO_IMAGE;
-    std::int32_t OnHilite = BUTTON_NO_IMAGE;
+    std::optional<int> Grayed;
+    std::optional<int> OffNormal;
+    std::optional<int> OffHilite;
+    std::optional<int> OnNormal;
+    std::optional<int> OnHilite;
     std::uint32_t MaxWidth = 0;
     std::uint32_t MaxHeight = 0;
 };

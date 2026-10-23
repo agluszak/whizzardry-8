@@ -122,46 +122,50 @@ static bool skins_and_mapped_vertices()
             (*base)[1] = visible;
             std::string cycle(400, 'c');
             std::string first_name = cycle + '0';
-            const int first = mesh.CreateSkinTable(first_name, -1);
-            REQUIRE(first == 0);
+            auto* first = mesh.createSkin(first_name);
+            REQUIRE(first);
             first_name[0] = 'x';
-            REQUIRE(mesh.skins.front().name ==
-                    cycle + '0'); // Owned, not the caller's mutable name.
-            REQUIRE(mesh.CreateSkinTable(cycle + '0', -1) == -1);
-            const int second = mesh.CreateSkinTable("second1", first);
-            auto* second_textures = mesh.GetTextureTable(second);
-            REQUIRE((second == 1 && (*second_textures)[0] == blank));
-            const int third = mesh.CreateSkinTable("third2", second);
+            REQUIRE(first->name == cycle + '0'); // Owned, not the caller's mutable name.
+            REQUIRE_FALSE(mesh.createSkin(cycle + '0'));
+            auto* second = mesh.createSkin("second1", first);
+            REQUIRE(second);
+            REQUIRE(second->textures[0] == blank);
+            auto* third = mesh.createSkin("third2", second);
+            REQUIRE(third);
             REQUIRE(!mesh.GetActivePolygons(second, false));
             auto selection = mesh.GetActivePolygons(second, true);
             REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 1 &&
                      (*selection)[1] == 2));
             REQUIRE(mesh.GetActivePolygons(second, true).value().data() ==
                     selection.value().data());
-            REQUIRE(mesh.FindSkinTable("SECOND1") == second);
+            REQUIRE(mesh.findSkin("SECOND1") == second);
             const std::array<char, 9> bounded_name{'t', 'h', 'i', 'r', 'd', '2', 'X', 'X', 'X'};
-            REQUIRE(mesh.FindSkinTable(std::string_view(bounded_name.data(), 6)) == third);
-            REQUIRE(mesh.CreateSkinTable("added3", -1) == 3);
+            REQUIRE(mesh.findSkin(std::string_view(bounded_name.data(), 6)) == third);
+            REQUIRE(mesh.createSkin("added3"));
             // Adding another skin moves neither tables nor their selections.
-            REQUIRE(mesh.GetTextureTable(second) == second_textures);
+            REQUIRE(mesh.findSkin("second1") == second);
             REQUIRE(mesh.GetActivePolygons(second, true).value().data() ==
                     selection.value().data());
-            REQUIRE(mesh.CreateSkinTable("", -1) == 4);
-            REQUIRE(mesh.CreateSkinTable(cycle + '1', -1) == 5);
-            REQUIRE(!mesh.GetActivePolygons(-1, false));
-            selection = mesh.GetActivePolygons(-1, true);
+            REQUIRE(mesh.createSkin(""));
+            REQUIRE(mesh.createSkin(cycle + '1'));
+            REQUIRE(!mesh.GetActivePolygons(nullptr, false));
+            selection = mesh.GetActivePolygons(nullptr, true);
             REQUIRE((selection && selection->size() == 2 && (*selection)[0] == 1 &&
                      (*selection)[1] == 2));
             (*base)[1] = blank;
             (*base)[2] = blank;
-            const int all_blank = mesh.CreateSkinTable("all-blank", -1);
+            auto* all_blank = mesh.createSkin("all-blank");
+            REQUIRE(all_blank);
             const auto empty_skin = mesh.GetActivePolygons(all_blank, true);
             REQUIRE(empty_skin);
             REQUIRE(empty_skin.value().empty());
+            mesh.SetMappedVertex(0, 10);
+            REQUIRE(mesh.FindMappedIndex(10) == 0);
             mesh.SetMappedVertex(7, 10);
             mesh.SetMappedVertex(9, 10);
             REQUIRE((mesh.FindMappedIndex(10) == 9 && mesh.mapped_vertices.size() == 1));
-            REQUIRE((mesh.FindMappedIndex(-1) == -1 && mesh.FindMappedIndex(11) == -1));
+            REQUIRE_FALSE(mesh.FindMappedIndex(-1));
+            REQUIRE_FALSE(mesh.FindMappedIndex(11));
             auto& part = *mesh.parts.emplace_back(std::make_unique<Mesh>(0, 1));
             part.SetMappedVertex(0, 11);
             const auto child_marker = findMappedVertex(&mesh, 11);

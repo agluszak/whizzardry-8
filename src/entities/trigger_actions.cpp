@@ -220,9 +220,10 @@ void UpdateWorldTriggers(World* world)
     int count = static_cast<int>(world->triggers.size());
     for (int index = 0; index < count; ++index) {
         Trigger* trigger = world->triggers[index].get();
-        if ((trigger->flags & W8_TRIGGER_ITEM_PICKER) != 0 && trigger->m_pProp != 0 &&
-            (trigger->m_pProp->GetAnimationState() < 2 ||
-             trigger->m_pProp->animation_playing == 0)) {
+        if (const auto* prop = trigger->m_pProp;
+            (trigger->flags & W8_TRIGGER_ITEM_PICKER) != 0 && prop &&
+            (!prop->animation || prop->animation->frameCount(2) < 2 ||
+             prop->animation_playing == 0)) {
             trigger->GenerateItemGroup();
             if (g_modal_owner == 0 && trigger->world_item_group != 0) {
                 auto dialog = std::make_unique<W8TriggerItemPickerDialog>();
@@ -553,9 +554,9 @@ void InitializeStateDrivenPropVariables(Trigger* trigger)
 
 void SetTriggerVariableByName(std::string_view name, int value)
 {
-    const int index = GetLocationVarIDByName(name);
-    if (index < 0) throw std::out_of_range(fmt::format("unknown location variable {}", name));
-    CurrentGame().story.location_variables[index].value = value;
+    const auto index = GetLocationVarIDByName(name);
+    if (!index) throw std::out_of_range(fmt::format("unknown location variable {}", name));
+    CurrentGame().story.location_variables[*index].value = value;
 }
 
 /* Clear the running bit and run every comma-separated recipient trigger once
@@ -774,9 +775,9 @@ reactivate_linked_triggers:
 /* The location variable a state-changing action writes; the level must define it. */
 static int FindModifiedLocationVar(const char* name)
 {
-    const int id = GetLocationVarIDByName(name);
-    if (id == -1) throw std::out_of_range(fmt::format("unknown location variable {}", name));
-    return id;
+    const auto id = GetLocationVarIDByName(name);
+    if (!id) throw std::out_of_range(fmt::format("unknown location variable {}", name));
+    return *id;
 }
 
 void Trigger::CommitActionResult(bool apply_state_changes)
@@ -878,10 +879,9 @@ void Trigger::RunDestination(std::string_view destination)
         if (destination.size() < 5) {
             return;
         }
-        location_id = FindLevelIdByLocationCode(destination.substr(0, 3));
-        if (location_id == -1) {
-            return;
-        }
+        const auto resolved = FindLevelIdByLocationCode(destination.substr(0, 3));
+        if (!resolved) return;
+        location_id = *resolved;
         entrance = atoi(std::string(destination.substr(3, 2)).c_str());
     }
     ResetInactiveLevelDataVectors();
@@ -918,7 +918,6 @@ void Trigger::RunDestination(std::string_view destination)
 void Trigger::GenerateItemGroup()
 {
     std::vector<std::unique_ptr<W8WorldItem>> items;
-    unsigned int table_id;
     unsigned int maximum_items;
     int index;
 
@@ -927,20 +926,20 @@ void Trigger::GenerateItemGroup()
     }
 
     CurrentGame().rng.seed(item_group_seed);
-    table_id = FindItemTableByName(inline_action_data);
-    if (table_id == static_cast<unsigned int>(-1)) {
+    const auto table_id = FindItemTableByName(inline_action_data);
+    if (!table_id) {
         return;
     }
 
-    maximum_items = RollDice(&Data().item_tables[table_id].item_count_dice);
-    GenerateItemsFromTable(items, table_id, maximum_items, position);
+    maximum_items = RollDice(&Data().item_tables[*table_id].item_count_dice);
+    GenerateItemsFromTable(items, *table_id, maximum_items, position);
     if (world_item_group == 0) {
         world_item_group = SpawnItem(0x23c, &position, 0);
     }
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         world_item_group->contents.push_back(std::move(items[index]));
     }
-    gold = RollDice(&Data().item_tables[table_id].gold_dice);
+    gold = RollDice(&Data().item_tables[*table_id].gold_dice);
     items_generated = 1;
 }
 
@@ -1085,8 +1084,8 @@ void Trigger::Run(int source)
                 break;
             }
             ApplyItemEffectToRandomCharacter(
-                CurrentGame().rng.below(2) != 0 ? kConditionReaction : kConditionReactionAlt, -1,
-                0);
+                CurrentGame().rng.below(2) != 0 ? kConditionReaction : kConditionReactionAlt,
+                std::nullopt, 0);
             flags |= W8_TRIGGER_RUNNING;
             goto commit_action;
 
@@ -1409,7 +1408,7 @@ void Trigger::Run(int source)
                         ApplyItemEffectToRandomCharacter(CurrentGame().rng.below(2) != 0
                                                              ? g_container_event
                                                              : g_container_event_alt,
-                                                         -1, 0);
+                                                         std::nullopt, 0);
                     }
                 } else if (item_count == 1 && !(CurrentGame().party.held.item.iItemNo != -1)) {
                     item = world_item_group->contents.front().get();
@@ -1924,7 +1923,7 @@ bool Trigger::SelectAction()
 
     if (auto* action_data = doorData(); action_data == nullptr) {
         if (required_item_id >= 0) {
-            if (GetItemInHand(CurrentGame().party) == required_item_id) {
+            if (CurrentGame().party.held.item.iItemNo == required_item_id) {
                 if ((flags & W8_TRIGGER_CONSUME_ITEM) != 0) {
                     RemovePartyItemByID(CurrentGame(), required_item_id, false);
                     required_item_id = -1;
@@ -1968,7 +1967,7 @@ bool Trigger::SelectAction()
         }
 
         if (action_data->locked && action_data->item != -1) {
-            if (GetItemInHand(CurrentGame().party) != action_data->item) {
+            if (CurrentGame().party.held.item.iItemNo != action_data->item) {
                 if (m_lData2 == 1 && activation_callback) {
                     activation_callback(this);
                 }
@@ -2040,20 +2039,21 @@ int ResetNextTriggerId(void)
     return 1;
 }
 
-int GetLocationVarIDByName(std::string_view name)
+std::optional<int> GetLocationVarIDByName(std::string_view name)
 {
     const auto& variables = CurrentGame().story.location_variables;
     const auto found = std::ranges::find_if(variables, [name](const auto& variable) {
         return variable.level == GetLoadedLevelID() &&
                CompareTextIgnoreAsciiCase(variable.name, name) == 0;
     });
-    return found == variables.end() ? -1 : static_cast<int>(found - variables.begin());
+    if (found == variables.end()) return std::nullopt;
+    return static_cast<int>(found - variables.begin());
 }
 
 void CreateLocationVar(std::string_view name, int value)
 {
     if (name.empty()) throw std::invalid_argument("empty location variable name");
-    if (GetLocationVarIDByName(name) >= 0) return;
+    if (GetLocationVarIDByName(name)) return;
     auto& variables = CurrentGame().story.location_variables;
     if (variables.size() >= std::numeric_limits<std::int32_t>::max())
         throw std::length_error("Too many location variables");
@@ -2062,41 +2062,17 @@ void CreateLocationVar(std::string_view name, int value)
 
 int GetLocationVarValueByName(std::string_view name)
 {
-    const int index = GetLocationVarIDByName(name);
-    if (index < 0) throw std::out_of_range(fmt::format("unknown location variable {}", name));
-    return CurrentGame().story.location_variables[index].value;
+    const auto index = GetLocationVarIDByName(name);
+    if (!index) throw std::out_of_range(fmt::format("unknown location variable {}", name));
+    return CurrentGame().story.location_variables[*index].value;
 }
 
-/* Index of the prop whose trigger last tested in view; -1 until a prop
-   matches. */
-
 /* Report whether any world prop's trigger representation is within its
-   activation range and projects onto the screen. The remembered index is
-   checked first so consecutive frames start at the prop that matched. */
+   activation range and projects onto the screen. */
 bool AnyPropTriggerInView()
 {
-    glm::vec3 position;
-    std::size_t prop_count;
-    int index;
-
     assert(GetWorld() != nullptr);
-    position = cameraLocation();
-    prop_count = GetWorld()->plsProps.size();
-    if (0 <= GetWorld()->last_visible_prop_index &&
-        GetWorld()->last_visible_prop_index < static_cast<int>(prop_count)) {
-        Prop* prop = GetWorldProp(GetWorld(), GetWorld()->last_visible_prop_index);
-
-        if (prop->IsTriggerInView(&position)) {
-            return true;
-        }
-    }
-    for (index = 0; index < static_cast<int>(prop_count); ++index) {
-        Prop* prop = GetWorldProp(GetWorld(), index);
-
-        if (prop->IsTriggerInView(&position)) {
-            GetWorld()->last_visible_prop_index = index;
-            return true;
-        }
-    }
-    return false;
+    glm::vec3 position = cameraLocation();
+    return std::ranges::any_of(GetWorld()->plsProps,
+                               [&](const auto& prop) { return prop->IsTriggerInView(&position); });
 }

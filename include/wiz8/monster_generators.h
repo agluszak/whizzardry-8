@@ -3,6 +3,7 @@ struct W8Chunk;
 
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "wiz8/filesystem.h"
@@ -13,7 +14,7 @@ struct MonGen;
 
 /* The loaded encounter tables, by index and by name prefix. */
 const W8EncounterTable* GetEncounterTable(int index); /* 0x0048AD00 */
-int FindEncounterTableByName(const char* name);       /* 0x0048CCA0 */
+std::optional<int> FindEncounterTableByName(const char* name);       /* 0x0048CCA0 */
 
 void SaveEncounterState(wiz8::File& handle);
 void SaveMonsterGenerators(wiz8::File& handle);

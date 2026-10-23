@@ -2,6 +2,7 @@
 #define WIZ8_NPC_ITEMS_H
 
 #include <cstddef>
+#include <optional>
 
 #include "wiz8/npc_trade_price.h"
 #include "wiz8/rules/item_instance.h"
@@ -53,9 +54,8 @@ W8TradeResult CompleteNpcTrade(Game& game, W8NpcState* npc, int actor,
                                const W8TradeSelection& selection, int quantity,
                                W8TradeAction action);
 
-int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity);
-int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, signed char quantity);
-int AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int delay);
+std::optional<int> AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity);
+void AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int delay);
 W8NpcStockChanceTier RateItemIdentifyDifficulty(W8NpcState* npc, int item_id);
 int RestockNpcItems(W8NpcState* npc);
 void SortNpcItems(W8NpcState* npc);

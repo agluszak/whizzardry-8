@@ -2,6 +2,7 @@
 
 #include <array>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -254,14 +255,15 @@ void JournalScreen::DrawContent(SDL_Surface& target)
 JournalScreen::JournalScreen()
 {
     auto add = [&](JournalAction action, int artwork_id, SDL_Point origin,
-                   std::array<int, 5> frames, ButtonToggle toggle = ButtonToggle::None) {
+                   std::array<std::optional<int>, 5> frames,
+                   ButtonToggle toggle = ButtonToggle::None) {
         auto artwork = CatalogArtwork::Load(artwork_id, 0);
-        const auto size = artwork.size(frames[0]);
+        const auto size = artwork.size(*frames[0]);
         const SDL_Rect bounds{origin.x, origin.y, size.x, size.y};
         auto& button = m_buttons[action];
         button = std::make_unique<W8ButtonWidget>(m_input);
-        const auto frame = [&](int index) {
-            return index < 0 ? -1 : index + artwork.imageOffset();
+        const auto frame = [&](std::optional<int> index) {
+            return index.transform([&](int value) { return value + artwork.imageOffset(); });
         };
         button->Configure(ButtonGraphics::Load(artwork.spriteSheet(), frame(frames[4]),
                                                frame(frames[0]), frame(frames[2]), frame(frames[1]),
@@ -277,10 +279,10 @@ JournalScreen::JournalScreen()
         button->SetPosition(bounds.x, bounds.y);
         button->Resize(bounds.w, bounds.h);
     };
-    add(Previous, 0xf4, {0x69, 0x1be}, {0, 2, 1, -1, 3});
-    add(Next, 0xf4, {0x185, 0x1be}, {4, 6, 5, -1, 7});
+    add(Previous, 0xf4, {0x69, 0x1be}, {0, 2, 1, std::nullopt, 3});
+    add(Next, 0xf4, {0x185, 0x1be}, {4, 6, 5, std::nullopt, 7});
     add(Mode, 0x1bb, {0x216, 0x1b9}, {0, 2, 1, 2, 3}, ButtonToggle::Release);
-    add(Close, 0x106, {0x250, 0x1b9}, {0x10, -1, 0x11, 0x12, 0x13});
+    add(Close, 0x106, {0x250, 0x1b9}, {0x10, std::nullopt, 0x11, 0x12, 0x13});
     m_buttons[Mode]->SetTooltipIndex(0x6eb);
     m_buttons[Close]->SetTooltipIndex(0x6ed);
     const auto size = m_bar.size(0);

@@ -4,6 +4,7 @@
 #include <cassert>
 #include <chrono>
 #include <cmath>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -76,6 +77,7 @@
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -964,9 +966,9 @@ void ResolveMissileHit(Missile* missile, bool deflected)
 /* Which hand a character attacks with: the hand carrying the most attacks
    wins, ties go to the bigger damage bonus, and a hand that cannot reach is
    not a candidate. */
-int ChooseCharacterAttackHand(int party_slot)
+std::optional<unsigned int> ChooseCharacterAttackHand(int party_slot)
 {
-    int best_hand = -1;
+    std::optional<unsigned int> best_hand;
     unsigned int best_attacks = 0;
     int best_damage_bonus = -999;
     unsigned int hand;
@@ -993,14 +995,14 @@ int ChooseCharacterAttackHand(int party_slot)
    usable hand cannot be attacking. */
 void PrepareCharacterAttacks(int party_slot)
 {
-    int best_hand = ChooseCharacterAttackHand(party_slot);
+    const auto best_hand = ChooseCharacterAttackHand(party_slot);
     unsigned int hand;
     int value;
 
-    if (best_hand == -1) {
+    if (!best_hand) {
         return;
     }
-    CurrentGame().combat->characters[party_slot].current_hand = best_hand;
+    CurrentGame().combat->characters[party_slot].current_hand = *best_hand;
     for (hand = 0; hand < W8_HAND_COUNT; ++hand) {
         assert(hand < W8_HAND_COUNT);
         if (!CurrentGame().party.characters[party_slot].Hand[hand].in_play ||
@@ -2936,23 +2938,21 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
    member when the victim is gone or incapacitated. */
 void QueueFumbleReaction(int party_slot)
 {
-    int slot;
-    if (CurrentGame().rng.below(2) != 0) {
-        QueueCharacterEvent(&CurrentGame().party.characters[party_slot], 16, 0,
-                            kCharacterEventFullVolume);
+    Game& game = CurrentGame();
+    if (game.rng.below(2) != 0) {
+        game.speech.Queue(&game.party.characters[party_slot], 16, 0, kCharacterEventFullVolume);
         return;
     }
-    if (CurrentGame().combat->TargetHit.iType != W8_TARGET_KIND_CHARACTER ||
-        party_slot == CurrentGame().combat->TargetHit.iChar ||
-        !IsTargetStillPresent(&CurrentGame().combat->TargetHit) ||
-        (slot = CurrentGame().combat->TargetHit.iChar,
-         CurrentGame().party.characters[slot].highest_condition > W8_CONDITION_WEBBED)) {
-        slot = CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, party_slot, -1);
+    auto& target = game.combat->TargetHit;
+    std::optional<int> slot;
+    if (target.iType == W8_TARGET_KIND_CHARACTER && party_slot != target.iChar &&
+        IsTargetStillPresent(&target) &&
+        game.party.characters[target.iChar].highest_condition <= W8_CONDITION_WEBBED) {
+        slot = target.iChar;
+    } else {
+        slot = game.party.randomSlot(game.rng, PartySelectionFallback::None, party_slot);
     }
-    if (slot == -1) {
-        return;
-    }
-    QueueCharacterEvent(&CurrentGame().party.characters[slot], 17, 0, kCharacterEventFullVolume);
+    if (slot) game.speech.Queue(&game.party.characters[*slot], 17, 0, kCharacterEventFullVolume);
 }
 
 /* When GetMonsterByLocationID returns NULL the sight-flag call is skipped and

@@ -11,7 +11,7 @@ int GetLoadedLevelID(void);
 
 extern W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT];
 std::string_view GetLevelFolderName(int level_id);
-int FindLevelIdByLocationCode(std::string_view location_code);
+std::optional<int> FindLevelIdByLocationCode(std::string_view location_code);
 
 extern unsigned short g_level_name_indices[W8_LEVEL_COUNT];
 

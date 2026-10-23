@@ -1,4 +1,5 @@
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -151,7 +152,7 @@ void W8CharacterPageEntry::Redraw(SDL_Surface& target)
     m_increment->m_dirty = m_decrement->m_dirty = false;
 }
 
-void W8CharacterPageEntry::SetLabelFontState(int state)
+void W8CharacterPageEntry::SetLabelFontState(std::optional<int> state)
 {
     m_label.SetFontStateIndex(state);
 }

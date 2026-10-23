@@ -144,8 +144,10 @@ protected:
     bool m_active = false;
     bool m_dirty = true;
     SDL_Rect m_bounds;
-    W8ButtonWidget* AddButton(int x, int y, int artwork, int normal, int pressed, int hover = -1,
-                              int pressed_hover = -1, int disabled = -1,
+    W8ButtonWidget* AddButton(int x, int y, int artwork, int normal, std::optional<int> pressed,
+                              std::optional<int> hover = std::nullopt,
+                              std::optional<int> pressed_hover = std::nullopt,
+                              std::optional<int> disabled = std::nullopt,
                               W8ButtonCallback callback = {});
 
 public:
@@ -289,7 +291,7 @@ struct W8OptionsMenuRow {
     int item_id;
     W8ControlsRect child_bounds[2];
     W8ControlsRect bounds;
-    int image_indices[5];
+    std::optional<int> image_indices[5];
 };
 
 /* Inclusive range of CreateOptionsPanel indices shown by one menu item. */

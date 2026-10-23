@@ -57,6 +57,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
@@ -795,11 +796,11 @@ void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
         return;
     }
     if (choose_character) {
-        int party_slot = CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, -1, -1);
-        if (party_slot == -1) {
+        const auto party_slot = CurrentGame().party.randomSlot(CurrentGame().rng);
+        if (!party_slot) {
             return;
         }
-        character = &CurrentGame().party.characters[party_slot];
+        character = &CurrentGame().party.characters[*party_slot];
     }
     if ((item->effect_used & 1) != 0) {
         return;

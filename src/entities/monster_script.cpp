@@ -267,9 +267,9 @@ void Monster::ProcessScript()
 
         const auto resolveNamedPosition = [&](glm::vec3& position) {
             if (ResolveScriptPosition(token.c_str(), &position)) return true;
-            ShutdownWithErrorBox(fmt::format("MonScript {} Line {:d}: Unknown location {}",
-                                             script->getName(),
-                                             script->GetSourceLine(script_line - 1), token));
+            ShutdownWithErrorBox(
+                fmt::format("MonScript {} Line {:d}: Unknown location {}", script->getName(),
+                            script->GetSourceLine(script_line - 1).value_or(-1), token));
             return false;
         };
 
@@ -278,10 +278,9 @@ void Monster::ProcessScript()
             case MONSCR_GOTO: {
                 tokens >> token;
                 if (tokens) {
-                    int line_number = script->FindLabelLine(token);
-                    if (line_number != -1) {
+                    if (const auto line_number = script->FindLabelLine(token)) {
                         script_conditions.clear();
-                        script_line = line_number;
+                        script_line = *line_number;
                     }
                 }
                 stop = true;
@@ -377,7 +376,7 @@ void Monster::ProcessScript()
                     } else {
                         ShutdownWithErrorBox(fmt::format(
                             "MonScript {} Line {:d}: Unknown cycle {}", script->getName(),
-                            script->GetSourceLine(script_line - 1), token));
+                            script->GetSourceLine(script_line - 1).value_or(-1), token));
                     }
                 }
                 break;
@@ -406,9 +405,8 @@ void Monster::ProcessScript()
             case MONSCR_GIVE:
                 tokens >> token;
                 if (tokens) {
-                    int item = FindItemRecordByName(token.c_str());
-                    if (item != -1) {
-                        ReplaceHeldItemWithNew(CurrentGame(), item, true);
+                    if (const auto item = FindItemRecordByName(token.c_str())) {
+                        ReplaceHeldItemWithNew(CurrentGame(), *item, true);
                     }
                 }
                 break;
@@ -455,18 +453,18 @@ void Monster::ProcessScript()
                 if (!script_conditions.empty()) {
                     script_conditions[0] = !(script_conditions[0]);
                 } else {
-                    ShutdownWithErrorBox(
-                        fmt::format("MonScript {} Line {:d}: ELSE without matching IF",
-                                    script->getName(), script->GetSourceLine(script_line - 1)));
+                    ShutdownWithErrorBox(fmt::format(
+                        "MonScript {} Line {:d}: ELSE without matching IF", script->getName(),
+                        script->GetSourceLine(script_line - 1).value_or(-1)));
                 }
                 break;
             case MONSCR_ENDIF:
                 if (!script_conditions.empty()) {
                     script_conditions.erase(script_conditions.begin());
                 } else {
-                    ShutdownWithErrorBox(
-                        fmt::format("MonScript {} Line {:d}: ENDIF without matching IF",
-                                    script->getName(), script->GetSourceLine(script_line - 1)));
+                    ShutdownWithErrorBox(fmt::format(
+                        "MonScript {} Line {:d}: ENDIF without matching IF", script->getName(),
+                        script->GetSourceLine(script_line - 1).value_or(-1)));
                 }
                 break;
             case MONSCR_DISPOSITION: {
@@ -638,7 +636,7 @@ void Monster::ProcessScript()
                     } else {
                         ShutdownWithErrorBox(fmt::format(
                             "MonScript {} Line {:d}: Unknown direction {}", script->getName(),
-                            script->GetSourceLine(script_line - 1), token));
+                            script->GetSourceLine(script_line - 1).value_or(-1), token));
                     }
                 }
                 break;
@@ -712,14 +710,14 @@ void Monster::ProcessScript()
                     if (tokens) {
                         look_duration = atoi(token.c_str());
                     } else {
-                        ShutdownWithErrorBox(
-                            fmt::format("MonScript {} Line {:d}: Missing lookabout duration",
-                                        script->getName(), script->GetSourceLine(script_line - 1)));
+                        ShutdownWithErrorBox(fmt::format(
+                            "MonScript {} Line {:d}: Missing lookabout duration", script->getName(),
+                            script->GetSourceLine(script_line - 1).value_or(-1)));
                     }
                 } else {
-                    ShutdownWithErrorBox(
-                        fmt::format("MonScript {} Line {:d}: Missing lookabout frequency",
-                                    script->getName(), script->GetSourceLine(script_line - 1)));
+                    ShutdownWithErrorBox(fmt::format(
+                        "MonScript {} Line {:d}: Missing lookabout frequency", script->getName(),
+                        script->GetSourceLine(script_line - 1).value_or(-1)));
                 }
                 break;
             case MONSCR_STAYHOME:
@@ -803,12 +801,9 @@ bool Monster::CanContinueScript()
 
 bool Monster::SetScriptLabel(std::string_view label)
 {
-    int line;
-
-    if (script != 0) {
-        line = script->FindLabelLine(label);
-        if (line >= 0) {
-            script_line = line;
+    if (script) {
+        if (const auto line = script->FindLabelLine(label)) {
+            script_line = *line;
             return true;
         }
     }

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -527,7 +528,7 @@ void LoadMonsterGroupMembers(W8MonsterGroup* monster_group)
     unsigned int index;
     W8MonsterInfo* monster_info;
 
-    monster_group->highlighted_member = -1;
+    monster_group->highlighted_member.reset();
     for (index = 0; index < monster_group->MemberIds().size(); ++index) {
         monster_info = FindMonster(monster_group->MemberLocationId(index));
         if (!monster_info->fActive) {
@@ -754,7 +755,7 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
     }
 
     group->leader_location_id = CurrentGame().status.next_monster_location_id - 1;
-    group->highlighted_member = -1;
+    group->highlighted_member.reset();
 
     index = 0;
     while (index < group->MemberIds().size()) {
@@ -994,7 +995,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                     ++group_list_index;
                 }
                 if (live_groups > 1) {
-                    ApplyItemEffectToRandomCharacter(33, -1, 0);
+                    ApplyItemEffectToRandomCharacter(33, std::nullopt, 0);
                 }
             }
             int* allies = monster_group->allied_group_ids;

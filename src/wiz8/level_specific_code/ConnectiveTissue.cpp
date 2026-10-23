@@ -3,12 +3,12 @@
 #include <memory>
 
 #include "wiz8/entities/trigger.h"
-#include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 
 /* Level Specific Code\ConnectiveTissue.cpp (level 0x1b, the Arnika-Trynton
@@ -46,13 +46,13 @@ private:
    time) and enables the six UNDEAD spawn generators. */
 bool ConnectiveTissueScript::liche(Trigger* pTrigger)
 {
-    if (GetItemInHand(ctx.party) != 0x15d && pTrigger->action == 0) {
+    if (ctx.party.held.item.iItemNo != 0x15d && pTrigger->action == 0) {
         ShowLevelMessage(6);
         g_trigger_feedback = true;
         return false;
     }
     ShowLevelMessage(7);
-    if (GetLocationVarIDByName("LicheDead") == -1) {
+    if (!GetLocationVarIDByName("LicheDead")) {
         CreateLocationVar("LicheDead", 1);
         AwardPartyExperience(0x3e8, false);
     }

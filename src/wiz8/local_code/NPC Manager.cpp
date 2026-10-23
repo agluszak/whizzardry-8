@@ -550,10 +550,9 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
     if (npc->record->has_group == 0 || !npc->character) {
         return false;
     }
-    int party_slot = AddCharacterToParty(*npc->character, npc->partner_index);
-    if (party_slot == -1) {
-        return false;
-    }
+    const auto available = AddCharacterToParty(*npc->character, npc->partner_index);
+    if (!available) return false;
+    const auto party_slot = *available;
     int index;
     for (index = 0; index < 0x29; ++index) {
         if (CurrentGame().party.characters[party_slot].skills[index].points > 0) {
@@ -1034,7 +1033,7 @@ static void SelectStartNpcGreeting(void)
 
     value = GetFact(W8_FACT_VIRGIN);
     if (value != 0) {
-        ApplyItemEffectToRandomCharacter(g_fact_check_event, -1, 0);
+        ApplyItemEffectToRandomCharacter(g_fact_check_event, std::nullopt, 0);
         return;
     }
 
@@ -1166,18 +1165,15 @@ W8PreparedNpcBindings PrepareNpcBindings(World& world)
                 candidate->name_style == kind)
                 source = candidate;
         }
-        int slot = source ? source->partner_index : -1;
-        if (slot == -1) {
+        int slot = source ? source->partner_index : static_cast<int>(reserved.size());
+        if (!source) {
             for (size_t index = 0; index < reserved.size(); ++index) {
                 if (!reserved[index] && CurrentGame().story.npcs[index]->binding_unavailable) {
                     slot = static_cast<int>(index);
                     break;
                 }
             }
-            if (slot == -1) {
-                slot = static_cast<int>(reserved.size());
-                reserved.push_back(false);
-            }
+            if (static_cast<size_t>(slot) == reserved.size()) reserved.push_back(false);
         }
         if (slot > 255) throw std::runtime_error("too many NPC bindings");
         auto existing = std::ranges::find(pending.records, slot, &W8PreparedNpcBinding::slot);
@@ -1460,7 +1456,7 @@ static void AdjustNpcDisposition(W8NpcState* npc, signed char delta)
 
 static void DebitNpcTradePool(W8NpcState* npc, unsigned int price)
 {
-    int level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, 0));
+    int level = static_cast<int>(GetBestPartySkill(W8_SKILL_COMMUNICATION).level);
     unsigned int adjusted = price + level * (static_cast<int>(price & 0xffff) / 5) / 100;
     if (static_cast<int>(npc->trade_pool - (adjusted & 0xffff)) < 0) {
         npc->trade_pool = 0;
@@ -1487,9 +1483,7 @@ static void DebitNpcTradePool(W8NpcState* npc, unsigned int price)
    talking and the level-scaled charm shift disposition through the record's
    signed scale bytes, paying gold and selling an item draw the record's trade
    pool down by the party's Communication-adjusted price, and the scripted
-   kind adds its operand straight to disposition. Kinds 0 and 1 reuse an
-   argument's stack slot as the best-skill out-parameter; kind 2 and 3 fall
-   into the shared disposition refresh at the tail. */
+   kind adds its operand straight to disposition. */
 void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* item,
                          unsigned int gold)
 {
@@ -1502,17 +1496,14 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
 
         npc->talk_cooldown_active = true;
         npc->talk_cooldown_clock = CurrentGame().status.world_clock;
-        if (scale < 1) {
-            level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &kind));
-            quotient = -scale / 5;
-        } else {
-            level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &kind));
-            quotient = scale / 5;
-        }
+        const auto best = GetBestPartySkill(W8_SKILL_COMMUNICATION);
+        level = static_cast<int>(best.level);
+        quotient = std::abs(scale) / 5;
         delta = scale + level * quotient / 100;
         AdjustNpcDisposition(npc, static_cast<signed char>(delta));
-        PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[kind],
-                               W8_SKILL_COMMUNICATION, 8, false);
+        if (best.character) {
+            PracticeCharacterSkill(CurrentGame(), best.character, W8_SKILL_COMMUNICATION, 8, false);
+        }
         GetNpcDisposition(npc);
         return;
     }
@@ -1555,20 +1546,17 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* i
             average_level = total_level / count;
         }
         scale = npc->record->charm_scale;
-        if (scale < 1) {
-            level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &value));
-            quotient = -scale / 5;
-        } else {
-            level = static_cast<int>(GetBestPartySkillLevel(W8_SKILL_COMMUNICATION, &value));
-            quotient = scale / 5;
-        }
+        const auto best = GetBestPartySkill(W8_SKILL_COMMUNICATION);
+        level = static_cast<int>(best.level);
+        quotient = std::abs(scale) / 5;
         delta = scale + level * quotient / 100;
         if (delta > 0) {
             delta = static_cast<int>(average_level * delta / monster_level);
         }
         AdjustNpcDisposition(npc, static_cast<signed char>(delta));
-        PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[value],
-                               W8_SKILL_COMMUNICATION, 5, false);
+        if (best.character) {
+            PracticeCharacterSkill(CurrentGame(), best.character, W8_SKILL_COMMUNICATION, 5, false);
+        }
         GetNpcDisposition(npc);
         return;
     }
@@ -2089,11 +2077,11 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
     if (npc->name_style == ')' && GetLoadedLevelID() == 0xd) {
         glm::vec3 position;
 
-        if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1 ||
+        if (!GetLocationVarIDByName("CODESgtRubbleTeleport") ||
             GetLocationVarValueByName("CODESgtRubbleTeleport") == 0) {
             if (monster_info != nullptr && FindEntityByName("RubbleCovert", &position, 0, 0)) {
                 monster_info->entity->SetPosition(&position);
-                if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1) {
+                if (!GetLocationVarIDByName("CODESgtRubbleTeleport")) {
                     CreateLocationVar("CODESgtRubbleTeleport", 1);
                 } else {
                     SetTriggerVariableByName("CODESgtRubbleTeleport", 1);

@@ -222,7 +222,7 @@ static void wgd_banks()
     REQUIRE((data.m_pVertices[1].x == 3 * kWorldScale && data.m_pVertices[2].z == 3 * kWorldScale));
     REQUIRE((load("secondary.wgd", 1)));
     REQUIRE((data.VerticesCount() == 6 && data.SurfacesCount() == 2));
-    REQUIRE((data.FindPointerByName("Door") == 1 && data.StatesCount() == 2));
+    REQUIRE((data.InterfacesCount() == 2 && data.StatesCount() == 2));
     std::size_t operations;
     {
         FileFaults trace;
@@ -1154,7 +1154,7 @@ TEST_CASE_METHOD(LoaderFixture, "Location variables retain level-scoped names an
     REQUIRE(GetLocationVarValueByName("switch") == 17);
     SetTriggerVariableByName("switch", 23);
     game.game.level.replacePrimary(std::make_unique<World>(4));
-    REQUIRE(GetLocationVarIDByName("Switch") == -1);
+    REQUIRE(!GetLocationVarIDByName("Switch"));
     CreateLocationVar("Switch", 31);
 
     std::string expected;

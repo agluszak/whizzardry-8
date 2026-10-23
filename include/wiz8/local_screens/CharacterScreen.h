@@ -45,7 +45,7 @@ public:
     void SetEnabled(bool enabled);
     void SetIncrementAllowed(bool allowed);
     void Redraw(SDL_Surface& target);
-    void SetLabelFontState(int state);
+    void SetLabelFontState(std::optional<int> state);
     void MarkDirty();
     void UpdateButtons();
     void SetHelpActive(bool active);

@@ -43,6 +43,7 @@
 #include "wiz8/local_code/CharGeneration.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
+#include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/GameplayTime.h"
@@ -783,6 +784,24 @@ TEST_CASE("A picker constrains layout without restoring an obsolete preference",
     REQUIRE(GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS);
 }
 
+TEST_CASE("Empty ammunition restocks do not schedule a nonexistent stock entry", "[trade]")
+{
+    const ScopedGame game;
+    GameData data;
+    data.items.resize(2);
+    data.items[1].equip_class = W8_ITEM_EQUIP_CLASS_AMMUNITION;
+    const ScopedGameData installed(std::move(data));
+    W8NpcState npc{};
+    REQUIRE_FALSE(AddNpcItem(&npc, 1, 0));
+    AddNpcItemWithDelay(&npc, 1, 0, 100);
+    REQUIRE(npc.items.empty());
+    npc.items.push_back({42, {.iItemNo = 0}, 3});
+    AddNpcItemWithDelay(&npc, 1, 0, 100);
+    REQUIRE(npc.items.size() == 1);
+    REQUIRE(npc.items[0].available_at == 42);
+    REQUIRE(npc.items[0].quantity == 3);
+}
+
 TEST_CASE("A refused purchase leaves stock, payment and a full destination unchanged", "[trade]")
 {
     const ScopedGame game;
@@ -1166,10 +1185,30 @@ TEST_CASE("Shared party weight uses stable slot ties and drops the odd half-unit
     REQUIRE(party.characters[1].party_weight_share == 1);
     REQUIRE(party.characters[0].total_carried_weight == 2);
     REQUIRE(party.characters[1].total_carried_weight == 1);
-    party.members[0].reset();
-    REQUIRE(UpdatePartyStats(Data(), party, {}).load_redistributed);
-    REQUIRE(party.characters[0].party_weight_share == 0);
-    REQUIRE(party.characters[1].party_weight_share == 3);
+    SECTION("Unoccupied members carry no shared weight")
+    {
+        party.members[0].reset();
+        REQUIRE(UpdatePartyStats(Data(), party, {}).load_redistributed);
+        REQUIRE(party.characters[0].party_weight_share == 0);
+        REQUIRE(party.characters[1].party_weight_share == 3);
+    }
+    SECTION("Dead members carry no shared weight")
+    {
+        party.characters[0].hp_current = 0;
+        party.characters[0].uiCondition[W8_CONDITION_DEAD] = W8_CONDITION_INDEFINITE;
+        party.characters[0].highest_condition = W8_CONDITION_DEAD;
+        REQUIRE(UpdatePartyStats(Data(), party, {}).load_redistributed);
+        REQUIRE(party.characters[0].party_weight_share == 0);
+        REQUIRE(party.characters[1].party_weight_share == 3);
+    }
+    SECTION("No eligible member leaves no stale shares")
+    {
+        party.members[0].reset();
+        party.members[1].reset();
+        REQUIRE(UpdatePartyStats(Data(), party, {}).load_redistributed);
+        REQUIRE(party.characters[0].party_weight_share == 0);
+        REQUIRE(party.characters[1].party_weight_share == 0);
+    }
 }
 
 TEST_CASE("A recalculation reports crossing the carrying capacity once", "[party][encumbrance]")
@@ -1264,6 +1303,21 @@ TEST_CASE("Rebinding an NPC to a new level keeps its state", "[npc]")
     REQUIRE(npc->bound_level == 7);
     REQUIRE(npc->is_present);
     REQUIRE(npc->binding_unavailable == 0);
+}
+
+TEST_CASE("Formation seating preserves the lead cell and skips full rows", "[party][formation]")
+{
+    const ScopedGame scope;
+    auto& formation = scope.game.party.formation;
+    PlaceCharacterInFormation(&formation, 0);
+    REQUIRE(formation.cellOf(0) == W8FormationCell{0, 0});
+    PlaceCharacterInFormation(&formation, 1);
+    REQUIRE(formation.cellOf(0) == W8FormationCell{0, 1});
+    REQUIRE(formation.cellOf(1) == W8FormationCell{0, 2});
+    PlaceCharacterInFormation(&formation, 2);
+    REQUIRE(formation.cellOf(2) == W8FormationCell{0, 0});
+    PlaceCharacterInFormation(&formation, 3);
+    REQUIRE(formation.cellOf(3) == W8FormationCell{4, 0});
 }
 
 TEST_CASE("Formation reconciliation repairs only its owning party", "[party][formation]")

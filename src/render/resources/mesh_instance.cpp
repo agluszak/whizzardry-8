@@ -133,31 +133,22 @@ void MeshInstance::setExclusionMask(std::uint32_t mask)
    ordinary instances use the mesh's active polygon texture table. */
 Texture* MeshInstance::FindMouthTexture()
 {
-    Mesh* mesh = static_cast<Mesh*>(getModel());
-    for (auto* mesh_part : meshParts(mesh)) {
-        const int table = skinTable(*mesh_part);
-        std::vector<std::shared_ptr<Texture>>* textures =
-            table == -1 ? mesh_part->getPolygonTextureTable(0, 0, false)
-                        : mesh_part->GetTextureTable(table);
-        if (textures != nullptr) {
-            for (int polygon = 0; polygon < mesh_part->polygon_count; ++polygon) {
-                auto* animation =
-                    (((*textures)[polygon].get() && (*textures)[polygon].get()->playback)
-                         ? (*textures)[polygon].get()
-                         : nullptr);
-                if (animation != nullptr && animation->getName().starts_with("mouth")) {
-                    return animation;
-                }
-            }
-        }
+    for (auto* mesh : meshParts(getModel())) {
+        const auto* selected = selectedSkin(*mesh);
+        const auto* textures =
+            selected ? &selected->textures : mesh->getPolygonTextureTable(0, 0, false);
+        if (!textures) continue;
+        for (const auto& texture : *textures)
+            if (texture && texture->playback && texture->getName().starts_with("mouth"))
+                return texture.get();
     }
     return nullptr;
 }
 
-int MeshInstance::skinTable(Mesh& mesh) const
+Mesh::Skin* MeshInstance::selectedSkin(Mesh& mesh) const
 {
-    if (damage_stage < 0 || skin.empty()) return -1;
-    return mesh.FindSkinTable(fmt::format("{}{}", skin, damage_stage));
+    if (!damage_stage || skin.empty()) return nullptr;
+    return mesh.findSkin(fmt::format("{}{}", skin, *damage_stage));
 }
 
 MeshInstance::MeshInstance(WorldScene* scene)
@@ -174,7 +165,6 @@ MeshInstance::MeshInstance(WorldScene* scene)
     frame_index = 0;
     highlight_pass_mode = 0;
     setScene(scene);
-    damage_stage = -1;
     light_scale = glm::vec3(1);
     diffuse_scale_enabled = false;
     diffuse_scale = 0.0f;
@@ -335,7 +325,7 @@ std::optional<glm::vec3> InstanceNode::sampledPosition(const Mesh& mesh, std::si
     for (const auto& part : parts)
         if (part->mesh == &mesh) {
             part->pose.update(*part->mesh, instance->frame_index, instance->frame_interpolation,
-                              instance->skinTable(*part->mesh));
+                              instance->selectedSkin(*part->mesh));
             if (index < part->pose.positions.size()) return part->pose.positions[index];
             break;
         }
@@ -419,7 +409,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
     };
     for (auto& part : parts) {
         auto& mesh = *part->mesh;
-        const int skin = instance->skinTable(mesh);
+        auto* skin = instance->selectedSkin(mesh);
         mesh.SetAmbientColor(glm::vec3(pass.ambient_light), pass.frame.environment_offset,
                              pass.frame.brightness);
         part->pose.update(mesh, instance->frame_index, instance->frame_interpolation, skin,
@@ -542,8 +532,8 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                 leaf.sorted = sorted;
                 leaf.pickable = !(instance->render_flags & MeshInstance::RENDER_NO_PICK) &&
                                 !(static_geometry && asset.sorted);
-                auto texture = pose.texture(mesh, pass_index, batch_index, skin);
-                auto texture2 = pose.texture(mesh, pass_index, batch_index, skin, 1);
+                auto texture = pose.texture(pass_index, batch_index, skin);
+                auto texture2 = pose.texture(pass_index, batch_index, skin, 1);
                 auto image = context.texture(texture.get(), pass.frame.texture_reduction);
                 auto detail = context.texture(texture2.get(), pass.frame.texture_reduction);
                 const bool shader_changed = state.shader != shader;

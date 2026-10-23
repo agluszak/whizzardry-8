@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -703,22 +704,22 @@ static void CreateLayoutArrowButtons()
     int index;
 
     MainGame()->hud_buttons.layout_arrows[0].Configure(
-        ButtonGraphics::Load(g_layout_arrows_path, 6, 0, 1, BUTTON_NO_IMAGE, 2),
+        ButtonGraphics::Load(g_layout_arrows_path, 6, 0, 1, std::nullopt, 2),
         {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3e});
     MainGame()->hud_buttons.layout_arrows[1].Configure(
-        ButtonGraphics::Load(g_layout_arrows_path, 0xe, 8, 9, BUTTON_NO_IMAGE, 10),
+        ButtonGraphics::Load(g_layout_arrows_path, 0xe, 8, 9, std::nullopt, 10),
         {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3f});
     MainGame()->hud_buttons.layout_arrows[2].Configure(
-        ButtonGraphics::Load(g_layout_arrows_path, 0x16, 0x10, 0x11, BUTTON_NO_IMAGE, 0x12),
+        ButtonGraphics::Load(g_layout_arrows_path, 0x16, 0x10, 0x11, std::nullopt, 0x12),
         {.on_click = MainGameLayoutFormationButton, .tooltip = 0x40});
     MainGame()->hud_buttons.layout_arrows[3].Configure(
-        ButtonGraphics::Load(g_layout_arrows_path, 7, 3, 4, BUTTON_NO_IMAGE, 5),
+        ButtonGraphics::Load(g_layout_arrows_path, 7, 3, 4, std::nullopt, 5),
         {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3b});
     MainGame()->hud_buttons.layout_arrows[4].Configure(
-        ButtonGraphics::Load(g_layout_arrows_path, 0xf, 0xb, 0xc, BUTTON_NO_IMAGE, 0xd),
+        ButtonGraphics::Load(g_layout_arrows_path, 0xf, 0xb, 0xc, std::nullopt, 0xd),
         {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3c});
     MainGame()->hud_buttons.layout_arrows[5].Configure(
-        ButtonGraphics::Load(g_layout_arrows_path, 0x17, 0x13, 0x14, BUTTON_NO_IMAGE, 0x15),
+        ButtonGraphics::Load(g_layout_arrows_path, 0x17, 0x13, 0x14, std::nullopt, 0x15),
         {.on_click = MainGameLayoutFormationButton, .tooltip = 0x3d});
     for (index = 0; index < 6; ++index) {
         MainGame()->hud_buttons.layout_arrows[index].SetPosition(g_layout_arrow_positions[index].x,
@@ -1198,7 +1199,7 @@ bool BuildSubMenuPanel(short notification)
         auto button = std::make_unique<W8ButtonWidget>(submenu->input);
 
         button->Configure(
-            ButtonGraphics::Load(CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, message,
+            ButtonGraphics::Load(CatalogArtwork::Load(0x89, 0).spriteSheet(), std::nullopt, message,
                                  message + icon_delta, message, message + icon_delta),
             {.on_click = [action = actions[menu][entry]](auto*) { AfterUiDispatch(action); },
              .on_right_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); },
@@ -1229,8 +1230,8 @@ bool BuildSubMenuPanel(short notification)
     }
     auto cancel = std::make_unique<W8ButtonWidget>(submenu->input);
 
-    cancel->Configure(ButtonGraphics::Load(CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd,
-                                           0xbf, 0xbd, 0xbf),
+    cancel->Configure(ButtonGraphics::Load(CatalogArtwork::Load(0x89, 0).spriteSheet(),
+                                           std::nullopt, 0xbd, 0xbf, 0xbd, 0xbf),
                       {.on_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); },
                        .on_right_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); },
                        .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},

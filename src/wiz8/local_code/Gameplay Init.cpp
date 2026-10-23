@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <array>
-#include <memory>
 #include <string_view>
 
 #include "wiz8/character_event_queue.h"
@@ -20,7 +19,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/quality.h"
@@ -28,6 +26,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
@@ -51,7 +50,8 @@ Game& BeginNewGame(GameSession& games)
         AddItemToParty(game, OwnedItem(item), false, false);
     }
     game.party.gold = 500;
-    game.status.selected_character = GetNextCharacter(1, 1, -1);
+    const auto selected = game.party.firstSelectableSlot();
+    game.status.selected_character = selected ? static_cast<int>(*selected) : -1;
     InitializePartyFormation(&game.party.formation);
     std::ranges::fill(game.party.order_slots, 0xffffffff);
     return game;
@@ -87,59 +87,22 @@ void ResetTargetingState(void)
     ResetTargetPicks();
 }
 
-/* Resets one 0x118-byte slot. The tier it stores twice comes from the character
-   the slot belongs to: the status block's first buffer is an array of
-   W8Character at the 0x1862 stride, and the field at 0x0b01 - the same one
-   party-member selection thresholds against 0x12 and 0x0f - decides between 1
-   and 2 here. The five countdown clocks and the Random call share one stack
-   cleanup, as consecutive cdecl calls do. */
+// Start the portrait in its current condition's pose and schedule the first idle animation.
 void ResetGameplaySlot(unsigned int slot)
 {
-    W8MonsterManagerEntry* record = &CurrentGame().monster_manager_entries[slot];
-    int tier;
-
-    *record = {};
-    record->portrait_event_active = false;
-    record->voice_sound_handle = nullptr;
-    record->portrait.rendered_frame = -1;
-    record->portrait.frame = 6;
-    record->portrait.blink_closing = false;
-    tier = 1;
-    if (CurrentGame().party.characters[slot].highest_condition >= W8_CONDITION_ASLEEP) {
-        tier = 2;
-    }
-    record->portrait.pose = tier;
-    record->portrait.target_pose = tier;
-    record->portrait.rendered_pose = -1;
-    record->portrait.pose_dirty = false;
-    record->portrait.frame_dirty = false;
-    record->portrait.frame_due = {};
-    record->portrait.voice_remaining_ms = 0;
-    record->portrait.pose_clock = MonotonicMilliseconds() + (0);
-    record->portrait.idle_clock = MonotonicMilliseconds() + (CurrentGame().rng.below(5000) + 5000);
-    record->portrait_fx_clock = MonotonicMilliseconds() + (0);
-    record->damage_splat_active = false;
-    record->damage_splat_death_variant = false;
-    record->dead_portrait_revealed = false;
-    record->damage_splat_amount = 0;
-    record->damage_splat_frame = -1;
-    record->damage_splat_end_frame = 0;
-    record->damage_splat_catalog = 0x90;
-    record->effect_icon_active = false;
-    record->effect_icon_catalog = -1;
-    record->effect_icon_frame = -1;
-    record->effect_icon_end_frame = 0;
-    record->active_character_event = 0;
-    record->cached_hp_bar = 0;
-    record->cached_stamina_bar = 0;
-    record->cached_hp = 0;
-    record->cached_spell_bar = 0;
-    record->portrait_refresh_pinned = false;
-    record->auto_portrait_refresh = false;
-    record->combat_portrait_dirty = false;
-    record->acting_portrait_pulse = 0;
-    record->level_up_ready = false;
-    record->acting_portrait_pulse_clock = MonotonicMilliseconds() + (0);
+    Game& game = CurrentGame();
+    auto& record = game.monster_manager_entries[slot];
+    record = {};
+    record.portrait.pose = record.portrait.target_pose =
+        game.party.characters[slot].highest_condition >= W8_CONDITION_ASLEEP ? 2 : 1;
+    record.portrait.pose_clock = MonotonicMilliseconds();
+    record.portrait.idle_clock = MonotonicMilliseconds() + game.rng.below(5000) + 5000;
+    record.portrait_fx_clock = MonotonicMilliseconds();
+    record.damage_splat_frame = -1;
+    record.damage_splat_catalog = 0x90;
+    record.effect_icon_catalog = -1;
+    record.effect_icon_frame = -1;
+    record.acting_portrait_pulse_clock = MonotonicMilliseconds();
 }
 
 /* The static initializer constructs the manager's entries and vector before

@@ -1,6 +1,7 @@
 #include "wiz8/audio/SoundEvent.h"
 
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -39,7 +40,7 @@ W8SoundEvent::W8SoundEvent(W8SoundEventKind kind, int cycle, int frame, int subc
 {
 }
 
-static int g_last_sound_event = -1;
+static std::optional<int> g_last_sound_event;
 
 static int g_previous_footstep_variant;
 

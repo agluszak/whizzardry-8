@@ -379,8 +379,6 @@ public:
     void AddTriggerTriangle(int trigger_index, int vertex_0, int vertex_1, int vertex_2);
     void IntegrateTriggers();
     void AddTriggerPlane(const glm::vec3* vertices, Trigger* trigger);
-    /* 1-based ordinal of the interface_names entry whose name matches, else -1. */
-    int FindPointerByName(std::string_view name);
     struct PropTraceHit {
         glm::vec3 position;
         int prop_id;

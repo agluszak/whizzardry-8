@@ -1,6 +1,7 @@
 #include "wiz8/dialog_code/DialogScrollBar.h"
 
 #include <algorithm>
+#include <optional>
 #include <stdexcept>
 #include <utility>
 
@@ -32,8 +33,8 @@ W8DialogScrollBar::W8DialogScrollBar(UiLayer& layer, Resources resources)
         m_thumb_button.Configure(ButtonGraphics::Load(resources.arrows_path, 7, 4, 5, 6, 6),
                                  {.priority = UI_PRIORITY_HIGHEST - 2}) &&
         m_track_button.Configure(
-            ButtonGraphics::Load(resources.track_path, BUTTON_NO_IMAGE, resources.track_frame,
-                                 BUTTON_NO_IMAGE, resources.track_frame, BUTTON_NO_IMAGE),
+            ButtonGraphics::Load(resources.track_path, std::nullopt, resources.track_frame,
+                                 std::nullopt, resources.track_frame, std::nullopt),
             {.on_click =
                  [this](W8ButtonWidget* button) { ScrollToMouse(button->GetMousePosition().y); },
              .priority = UI_PRIORITY_HIGHEST - 2});

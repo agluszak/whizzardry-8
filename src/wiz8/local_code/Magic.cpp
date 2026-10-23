@@ -80,6 +80,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -89,8 +90,6 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/party_motion.h"
 #include "wiz8/world/world.h"
-
-constexpr float kGroundSettleFail = -1000000.0f;
 
 int GetProfessionCasterLevel(const W8Character* character, W8Profession profession_id)
 {
@@ -1317,7 +1316,9 @@ int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level)
     case W8_TARGET_TYPE_ALLY:
     case W8_TARGET_TYPE_ENEMY:
         target.iType = W8_TARGET_KIND_CHARACTER;
-        target.iChar = CurrentGame().party.randomSlot(CurrentGame().rng, 0, 1, -1, -1);
+        target.iChar = CurrentGame()
+                           .party.randomSlot(CurrentGame().rng, PartySelectionFallback::Living)
+                           .value_or(-1);
         break;
     case W8_TARGET_TYPE_RADIUS:
     case W8_TARGET_TYPE_POINT:
@@ -3253,10 +3254,10 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
             origin.z);
         point.y = CurrentGame().rng.below(0x3e9) * range * 0.001 + origin.y;
         if (const auto hit = GetWorldSpatialIndex()->traceSight(origin, point)) point = hit->point;
-        point.y = probeGround(point).position.y;
-        if (point.y != kGroundSettleFail) {
-            break;
-        }
+        const auto ground = probeGround(point);
+        if (!ground.contact) continue;
+        point = ground.position;
+        break;
     }
     delta = origin - point;
     if (range < glm::length(delta)) {

@@ -67,41 +67,35 @@ constexpr int kBreathNoticeId = 0x65b;
 void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
 {
     if (!monster_info || !monster_info->entity) return;
-    glm::vec3 position;
-    int location_id;
-    Monster* target_monster;
-    bool no_target;
+    Monster* target_monster = nullptr;
 
     switch (monster_info->Target.iType) {
     case W8_TARGET_KIND_MONSTER:
-        location_id = monster_info->Target.iMonsterID;
-        no_target = monster_info->location_id == location_id;
+        if (monster_info->location_id == monster_info->Target.iMonsterID) return;
+        target_monster = GetMonsterByLocationID(monster_info->Target.iMonsterID);
         break;
     case W8_TARGET_KIND_PLACE:
         monster_info->entity->visual.m_axis = monster_info->Target.point;
         monster_info->entity->visual.aim_set = true;
         return;
     case W8_TARGET_KIND_GROUP:
-        location_id = FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID,
-                                                     W8VisibilityCondition::ThirdLineOfSightFlag);
-        no_target = location_id == -1;
+        if (auto* target =
+                FindNearestVisibleGroupMonster(monster_info, monster_info->Target.iGroupID,
+                                               W8VisibilityCondition::ThirdLineOfSightFlag)) {
+            target_monster = target->entity.find();
+        }
         break;
     case W8_TARGET_KIND_NONE:
     case W8_TARGET_KIND_ALL_ENEMIES:
         return;
     default:
-        position = cameraLocation();
-        monster_info->entity->visual.m_axis = position;
+        monster_info->entity->visual.m_axis = cameraLocation();
         monster_info->entity->visual.aim_set = true;
         return;
     }
-    if (!no_target) {
-        target_monster = GetMonsterByLocationID(location_id);
-        if (!target_monster) return;
-        monster_info->entity->visual.m_axis.x = target_monster->nav.movement.position.x;
-        monster_info->entity->visual.m_axis.y =
-            target_monster->nav.movement.position.y + target_monster->nav.movement.height_offset;
-        monster_info->entity->visual.m_axis.z = target_monster->nav.movement.position.z;
+    if (target_monster) {
+        monster_info->entity->visual.m_axis = target_monster->nav.movement.position;
+        monster_info->entity->visual.m_axis.y += target_monster->nav.movement.height_offset;
         monster_info->entity->visual.aim_set = true;
     }
 }
@@ -180,7 +174,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
     W8PartySlotRow* slot = &game.party.rows[party_slot];
     W8TargetSource source;
     W8TargetSource enemy_source;
-    int interrupt = -1;
+    std::optional<int> interrupt;
     // What the action cost in stamina; without one, its kind's ordinary cost is charged.
     std::optional<int> fatigue_cost;
     unsigned char result = 1;
@@ -231,12 +225,12 @@ void ExecuteCharacterAction(Game& game, int party_slot)
         }
         SetTargetSourceToCharacter(party_slot, &source);
         interrupt = GetConditionInterrupt(&source);
-        if (interrupt != -1) {
+        if (interrupt.has_value()) {
             W8Disposition relationship = W8_DISPOSITION_NEUTRAL;
             game.events.push(
                 CharacterNotice{static_cast<unsigned int>(party_slot),
-                                Data().strings[g_condition_interrupt_notices[interrupt]]});
-            switch (interrupt) {
+                                Data().strings[g_condition_interrupt_notices[*interrupt]]});
+            switch (*interrupt) {
             case 0:
             case 1:
             case 2:
@@ -264,8 +258,6 @@ void ExecuteCharacterAction(Game& game, int party_slot)
             /* Berserk and confused characters turn on a reachable character:
                berserk ones with their ranged attack when it reaches far enough. */
             if (interrupt == 8 || interrupt == 9) {
-                int target;
-
                 if (interrupt == 8 && GetBestHandRangeCategory(character) < W8_RANGE_LONG) {
                     action = W8_ACTION_BERSERK;
                     slot->executing.kind = W8_ACTION_BERSERK;
@@ -273,8 +265,8 @@ void ExecuteCharacterAction(Game& game, int party_slot)
                     action = W8_ACTION_ATTACK;
                     slot->executing.kind = W8_ACTION_ATTACK;
                 }
-                target = PickReachableSlotByDisposition(party_slot, relationship);
-                if (target == -1) {
+                const auto target = PickReachableSlotByDisposition(party_slot, relationship);
+                if (!target) {
                     slot->executing.kind = W8_ACTION_NONE;
                     action = W8_ACTION_NONE;
                 } else {
@@ -282,7 +274,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
                         PrepareCharacterAttacks(party_slot);
                     }
                     AimStoredAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
-                                    CharacterTarget(target));
+                                    CharacterTarget(*target));
                 }
             }
         }
@@ -295,7 +287,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
     if (CharacterActionTargetsEnemies(game.party, character, action, detail,
                                       &slot->executing.detail_block) &&
         (!game.combat.has_value() ||
-         (interrupt == -1 && !game.combat->characters[party_slot].berserk))) {
+         (!interrupt && !game.combat->characters[party_slot].berserk))) {
         SetTargetSourceToCharacter(party_slot, &enemy_source);
         MakeTargetGroupHostile(&enemy_source, &slot->executing.target);
     }
@@ -369,7 +361,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
        it or the slot had already acted. */
     if (result == 0) {
         action = W8_ACTION_NONE;
-        if (interrupt == -1 && !saved_dead) {
+        if (!interrupt && !saved_dead) {
             action = W8_ACTION_DEFEND;
             slot->executing.kind = W8_ACTION_DEFEND;
             if (g_settings.verbose_combat_messages != 0) {
@@ -466,7 +458,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
     unsigned char result = 0;
     unsigned char move_flag = 0;
     bool berserked = false;
-    int interrupt;
+    std::optional<int> interrupt;
     int sight;
     W8RangeCategory range;
     float approach_distance;
@@ -482,12 +474,12 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
     PointCameraAtMonster(monster_info, false, true);
     SetTargetSourceToMonster(monster_info, &source);
     interrupt = GetConditionInterrupt(&source);
-    if (interrupt != -1) {
+    if (interrupt.has_value()) {
         game.events.push(
             TextNotice{W8_FONT_PALETTE_RUST,
                        fmt::format("{} {}", GetMonsterName(monster_info, nullptr, 0),
-                                   Data().strings[g_condition_interrupt_notices[interrupt]])});
-        switch (interrupt) {
+                                   Data().strings[g_condition_interrupt_notices[*interrupt]])});
+        switch (*interrupt) {
         case 0:
         case 1:
         case 2:
@@ -528,7 +520,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
         }
         if (MonsterActionTargetsEnemies(monster_info->action_kind, monster_info->action_detail,
                                         &monster_info->spell_power_level) &&
-            interrupt == -1 && !monster_info->pCombat->berserk) {
+            !interrupt && !monster_info->pCombat->berserk) {
             SetTargetSourceToMonster(monster_info, &monster_source);
             MakeTargetGroupHostile(&monster_source, &monster_info->Target);
         }
@@ -674,7 +666,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
             }
             break;
         }
-        if (interrupt != -1 || monster_info->pCombat->active ||
+        if (interrupt.has_value() || monster_info->pCombat->active ||
             monster_info->action_kind == W8_MONSTER_ACTION_CONTROLLED_MOVE) {
             monster_info->action_kind = W8_MONSTER_ACTION_NONE;
             break;

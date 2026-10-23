@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -62,10 +63,10 @@ struct W8MonsterGroup {
        the MIPE-written tail byte. */
     unsigned char group_state[0x6e];
     /* Which member of the group the party currently has picked out,
-       by location id, and -1 when none - which is how the group loads. Cycling
+       by location id, or absent when none - which is how the group loads. Cycling
        through the group's targetable members reads it to know where it is and
        writes back where it got to. */
-    int highlighted_member;
+    std::optional<int> highlighted_member;
     /* The location id of the member that leads the group. RemoveMonster
        compares it against the departing member's before handing leadership on. */
     int leader_location_id;

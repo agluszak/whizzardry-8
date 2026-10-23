@@ -70,7 +70,6 @@ unsigned int CountCharacterItem(const W8Character& character, int item_id, W8Ite
 unsigned int CountPartyItem(const W8Party& party, int item_id);
 bool EveryCharacterHasItem(const W8Party& party, int item_id, W8ItemReach reach);
 // The held item's id, or -1.
-int GetItemInHand(const W8Party& party);
 // A use of the item at a location, expecting the item that is there now.
 W8ItemUse ItemUseAt(const W8Party& party, W8ItemLocation location);
 // The item a use names, while its location still holds the item the use was chosen for.

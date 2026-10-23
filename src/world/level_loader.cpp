@@ -485,7 +485,7 @@ try {
     unsigned char positional_byte;
     unsigned char success;
     Trigger* trigger;
-    int item_id;
+    std::optional<int> item_id;
     W8WorldItem* world_item;
 
     if (pInfo == 0 || pInfo->hFile == 0 || pWorld == 0) {
@@ -527,8 +527,8 @@ try {
             } else {
                 item_id = FindItemRecordByName(record.item_name);
             }
-            if (item_id >= 0) {
-                world_item = AddWorldItem(SpawnItem(item_id, &record.position,
+            if (item_id && *item_id >= 0) {
+                world_item = AddWorldItem(SpawnItem(*item_id, &record.position,
                                                     W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
                 if (world_item != 0) {
                     success = 1;
@@ -1272,14 +1272,6 @@ bool LevelSpatialIndex::ReadWGDList(wiz8::File& file, int poly_type)
     minimum = bank_min;
     maximum = bank_max;
     return true;
-}
-
-/* Answers the 1-based ordinal of the name-table entry matching `name`,
-   else -1. */
-int LevelSpatialIndex::FindPointerByName(std::string_view name)
-{
-    const auto found = std::find(interface_names.begin(), interface_names.end(), name);
-    return found == interface_names.end() ? -1 : int(found - interface_names.begin()) + 1;
 }
 
 void LevelSpatialIndex::AddTriggerTriangle(int trigger_index, int vertex_0, int vertex_1,

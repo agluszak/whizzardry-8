@@ -55,7 +55,7 @@ W8MeshMaterial LoadMaterial(const std::filesystem::path& texture_directory,
     std::shared_ptr<Texture>& texture = result.texture;
     DrawShader* render_flags = &result.render_flags;
     std::filesystem::path texture_path;
-    int texture_index = -1;
+    std::optional<int> texture_index;
     bool has_alpha = false;
     int index;
 
@@ -97,8 +97,8 @@ W8MeshMaterial LoadMaterial(const std::filesystem::path& texture_directory,
             if (animation->Prepare()) {
                 has_alpha = true;
             }
-            if (source->version > 3 && source->texture_modes[texture_index] > 0.0f) {
-                float mode = source->texture_modes[texture_index];
+            if (source->version > 3 && source->texture_modes[*texture_index] > 0.0f) {
+                float mode = source->texture_modes[*texture_index];
                 if (mode <= 1.0f) {
                     animation->playback->trigger_mode = W8_TEXTURE_TRIGGER_RANDOM_FRAME;
                 } else {

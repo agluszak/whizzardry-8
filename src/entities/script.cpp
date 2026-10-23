@@ -4,6 +4,7 @@
 #include <exception>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -38,7 +39,7 @@ try {
                                (stop == text.npos ? text.size() : stop) - start);
         if (token.ends_with(':')) {
             token.remove_suffix(1);
-            if (FindLabelLine(token) == -1 && pending.FindLabelLine(token) == -1)
+            if (!FindLabelLine(token) && !pending.FindLabelLine(token))
                 pending.labels.push_back(
                     {std::string(token), static_cast<int>(lines.size() + pending.lines.size())});
         } else {
@@ -57,15 +58,15 @@ try {
     return false;
 }
 
-int Script::FindLabelLine(std::string_view label) const
+std::optional<int> Script::FindLabelLine(std::string_view label) const
 {
     for (const auto& entry : labels)
         if (CompareTextIgnoreAsciiCase(entry.name, label) == 0) return entry.line;
-    return -1;
+    return std::nullopt;
 }
 
-int Script::GetSourceLine(int line) const
+std::optional<int> Script::GetSourceLine(int line) const
 {
-    return line >= 0 && static_cast<std::size_t>(line) < lines.size() ? lines[line].source_line
-                                                                      : -1;
+    if (line < 0 || static_cast<std::size_t>(line) >= lines.size()) return std::nullopt;
+    return lines[line].source_line;
 }

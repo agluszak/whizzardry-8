@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: format-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -16,6 +20,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Install clang-format 23
+        timeout-minutes: 5
         run: tools/install-llvm.sh 23 clang-format
       - name: Check C and C++ files
         run: |

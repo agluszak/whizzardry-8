@@ -98,7 +98,7 @@ void MtGigas1Script::setup()
             plate_prop_ = (prop->collision_ready ? prop : nullptr);
         }
     }
-    if (GetLocationVarIDByName("PPlateDown") == -1) {
+    if (!GetLocationVarIDByName("PPlateDown")) {
         CreateLocationVar("PPlateDown", 0);
         return;
     }

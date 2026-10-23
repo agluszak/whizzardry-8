@@ -1,5 +1,6 @@
 #include "wiz8/combat/hostility.h"
 
+#include <optional>
 #include <span>
 #include <variant>
 #include <vector>
@@ -160,18 +161,15 @@ W8Disposition GetOppositeDisposition(W8TargetSource* source)
 
 void ProvokeListedMonsterGroups(W8TargetSource* source, const std::vector<int>& monsters)
 {
-    int own_monster_id = -1;
     if (GetOppositeDisposition(source) == W8_DISPOSITION_NEUTRAL) {
         return;
     }
-    if (TargetSourceIsMonster(source, 0)) {
-        own_monster_id = source->iMonsterID;
-    }
+    const bool source_is_monster = TargetSourceIsMonster(source, 0);
     W8CombatSlot target;
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_MONSTER;
     for (int monster_id : monsters) {
-        if (monster_id == own_monster_id) {
+        if (source_is_monster && monster_id == source->iMonsterID) {
             continue;
         }
         W8MonsterInfo* monster_info = FindMonster(monster_id);
@@ -530,7 +528,6 @@ int CharacterPrayAction(int party_slot)
     unsigned int index;
     int action;
     int pick;
-    int best;
 
     if (!CanPartySlotPray(party_slot)) {
         return 0;
@@ -677,7 +674,7 @@ int CharacterPrayAction(int party_slot)
                 }
             }
             break;
-        case 4:
+        case 4: {
             if (power_level > 7) {
                 if ((power_level & ~1u) < 14) {
                     power_level >>= 1;
@@ -692,26 +689,27 @@ int CharacterPrayAction(int party_slot)
                 prayed = true;
                 break;
             }
-            best = -1;
+            std::optional<unsigned> best;
             for (index = 0; index < 8; ++index) {
                 W8Character* member = &CurrentGame().party.characters[index];
                 if (CanPartySlotParticipate(index) &&
                     member->hp_current < static_cast<unsigned int>(member->uiHPMax) &&
-                    (best == -1 ||
-                     member->hp_current < CurrentGame().party.characters[best].hp_current)) {
+                    (!best ||
+                     member->hp_current < CurrentGame().party.characters[*best].hp_current)) {
                     best = index;
                 }
             }
-            if (best != -1) {
+            if (best) {
                 ResetCombatSlot(&target);
                 target.iType = W8_TARGET_KIND_CHARACTER;
-                target.iChar = best;
+                target.iChar = static_cast<int>(*best);
                 AppendToLastTextLine(Data().strings[0x179], -1);
                 CastSpellFromSource(W8_SPELL_HEAL_WOUNDS, &source, &target, power_level, 0, 0,
                                     false, &outcome, W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
             }
             break;
+        }
         case 5:
             found = false;
             for (index = 0; index < 6; ++index) {

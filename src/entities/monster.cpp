@@ -2069,14 +2069,12 @@ void Monster::GetMappedPosition(glm::vec3* position)
     if (instance != 0) {
         Mesh* mesh = static_cast<Mesh*>(instance->getModel());
         for (auto* mesh_part : meshParts(mesh)) {
-            int index = mesh_part->FindMappedIndex(0);
-
-            if (index >= 0) {
+            if (const auto index = mesh_part->FindMappedIndex(0)) {
                 std::optional<glm::vec3> vertex;
                 if ((mesh_part->flags & W8_MESH_HAS_FRAME_STORAGE) == 0) {
-                    if (const auto* vertices = mesh_part->getVertexLoc()) vertex = vertices[index];
+                    if (const auto* vertices = mesh_part->getVertexLoc()) vertex = vertices[*index];
                 } else {
-                    vertex = mesh_part->framePosition(0, index);
+                    vertex = mesh_part->framePosition(0, *index);
                 }
                 if (vertex) {
                     const auto matrix = instance->transform.matrix<glm::mat4>();

@@ -21,23 +21,8 @@ enum W8SpellVisualMode : int {
    Spells.cpp's own assertions: four groups of SPELL_CYCLES_PER_GROUP rows
    indexed by g_spell_cycle_names. The cast's power level picks the row
    within the group. */
-enum {
-    SPELL_CYCLE_FIRST = 0,
-    SPELL_CYCLE_LAST = 27,
-    SPELL_NUM_CYCLES = 28,
-    SPELL_CYCLES_PER_GROUP = 7
-};
-
-enum class W8SpellVisualHostStateQuery : unsigned char {
-    EmitterSetting,
-    AnimationCount,
-    AtLastSubcycle,
-    IsFirstSubcycle,
-    Subcycle,
-    HasEmitterSetting,
-    CurrentCycle,
-    AnimationStopped,
-};
+inline constexpr int SPELL_CYCLES_PER_GROUP = 7;
+inline constexpr int SPELL_NUM_CYCLES = (W8_SPELL_VISUAL_CONE + 1) * SPELL_CYCLES_PER_GROUP;
 
 /* What a spell visual's MLS and .mon files author for one cycle group, loaded
    once per world: the group's cycles with their lights outside any scene and
@@ -72,24 +57,16 @@ public:
     void UpdateRepresentation();
     signed char GetNumSubCycles();
     bool IsCycleSupported(signed char cycle);
-    signed char GetTotalAnimationCount();
     float GetCurrentAnimationScale();
     void SetCycle(signed char cycle);
     Animation* GetCurrentAnimation();
 
-    unsigned int ApplyEmitterSetting(signed char emitter);
-
     void StartIfHostActive(); /* 0x004ABDC0 */
-    /* Search backward from a subcycle for the first cycle this visual
-       supports; returns -1 when none does. */
-    int FindSupportedCycle(int group, int subcycle);
-    /* Typed query over the emitter host's current state. */
-    int QueryHostState(W8SpellVisualHostStateQuery query);
 
     /* Selects the update mode and the cycle group the resource loader
        matches shared visuals by. */
     W8SpellVisualMode mode;
-    EmitterResources<28> resources;
+    EmitterResources<SPELL_NUM_CYCLES> resources;
     /* Set for spawned visuals: UpdateRepresentation then adds the camera-facing yaw
        rotation on top of the mode's orientation. */
     bool billboard{};

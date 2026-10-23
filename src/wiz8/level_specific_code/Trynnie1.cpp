@@ -52,8 +52,6 @@ void KillTrynnieGroups(World& world)
     W8MonsterGroup* group;
     const W8MonsterRecord* record;
     MonGen* generator;
-    int iOldTable;
-    int iNewTable;
     int index;
 
     for (index = 0; index < static_cast<int>(CurrentLevelPopulation().monster_groups.size());
@@ -65,14 +63,13 @@ void KillTrynnieGroups(World& world)
             RemoveAllGroupMembers(group);
         }
     }
-    iOldTable = FindEncounterTableByName("Trynnies");
-    iNewTable = FindEncounterTableByName("Dead Trynnies");
-    if (iOldTable == -1 || iNewTable == -1)
-        throw std::runtime_error("Trynnie encounter tables are missing");
+    const auto old_table = FindEncounterTableByName("Trynnies");
+    const auto new_table = FindEncounterTableByName("Dead Trynnies");
+    if (!old_table || !new_table) throw std::runtime_error("Trynnie encounter tables are missing");
     for (index = 0; index < static_cast<int>(world.encounters.generators.size()); ++index) {
         generator = world.encounters.generators[index].get();
-        if (generator->encounter_table_index == iOldTable) {
-            generator->SetEncounterTable(iNewTable);
+        if (generator->encounter_table_index == *old_table) {
+            generator->SetEncounterTable(*new_table);
         }
     }
 }
@@ -99,7 +96,7 @@ void Trynnie1Script::enter()
 
     bindTrigger("Fount_randomFX", &Trynnie1Script::fountRandomFX);
     if (GetFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
-        if (GetLocationVarIDByName("Trynnie1Killed") == -1) {
+        if (!GetLocationVarIDByName("Trynnie1Killed")) {
             KillTrynnieGroups(world());
             if (!FindEntityByName("VOC_SHAMAN_DYING", &vPos, 0, 0))
                 throw std::runtime_error("level lacks VOC_SHAMAN_DYING");
@@ -117,14 +114,12 @@ void Trynnie1Script::enter()
 bool Trynnie1Script::fountRandomFX(Trigger* pTrigger)
 {
     unsigned int roll;
-    int slot;
     int i;
 
     roll = ctx.game.rng.below(100);
     if (roll < 25) {
-        slot = CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, -1, -1);
-        if (slot != -1) {
-            InflictCondition(ctx.game, slot,
+        if (const auto slot = ctx.party.randomSlot(ctx.game.rng)) {
+            InflictCondition(ctx.game, *slot,
                              {.condition = W8_CONDITION_HEXED,
                               .duration = static_cast<int>(ctx.game.rng.below(5)) + 10});
             wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");

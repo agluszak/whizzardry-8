@@ -8,6 +8,7 @@ void ResetTargetPicks(void);
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/combat/fight.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/inventory.h"
 #include "wiz8/local_code/PC_Item.h"
@@ -174,12 +175,11 @@ bool CandidateHasAnyValidTarget(int party_slot, W8ActionKind candidate);
    targeting mode that admits one. */
 bool IsDeadCharacterTargetable(int party_slot);
 
-/* The faction table index for a name, -1 when none matches. */
-signed char FindFactionByName(const char* name);
+std::optional<W8Faction> FindFactionByName(const char* name);
 void RepickInvalidCombatTargets(void);
 
 // Remember a committed target for the action kind that repeats it.
 void RememberActionTarget(ActionChoices& remembered, W8ActionKind kind, const W8CombatSlot& target);
 
-int PickNextTargetableGroupMember(int party_slot, const W8MonsterGroup* group,
-                                  const W8Action& action, bool sighting);
+std::optional<int> PickNextTargetableGroupMember(int party_slot, const W8MonsterGroup* group,
+                                                 const W8Action& action, bool sighting);

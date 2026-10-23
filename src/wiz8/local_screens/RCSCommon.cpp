@@ -712,7 +712,7 @@ void CampScreen::DrawCampVitals(void)
         bounds.bottom = 0x51;
         text.SetClipBounds(bounds);
         text.SetLayoutBounds(&bounds, false);
-        text.SetFontStateIndex(-1);
+        text.SetFontStateIndex(std::nullopt);
         formatted = fmt::format("{:d}", reviewed->hp_current);
         text.RenderString(formatted, g_smfnt_font, false, GetFrameBufferSurface());
     }
@@ -811,8 +811,8 @@ void CampScreen::CreateCampButtonPanel()
     auto& exit = page_buttons.pages[4];
     exit = button(0x106, 16, 0x254, 2368, false, [this] { DismissSelectedPartyCharacter(); });
     exit->Policy().primary_toggle = ButtonToggle::None;
-    exit->SetImage(
-        ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(), 19, 16, 17, -1, 18));
+    exit->SetImage(ButtonGraphics::Load(CatalogArtwork::Load(0x106, 0).spriteSheet(), 19, 16, 17,
+                                        std::nullopt, 18));
     page_buttons.pages[0]->SetPressed(true);
 }
 

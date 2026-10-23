@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <memory>
 #include <utility>
 #include <variant>
@@ -9,22 +10,28 @@
 #include "scoped_game.h"
 #include "scoped_game_data.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/range.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/missile_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entity_link.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/Factions.h"
+#include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/monster_roster.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/rules/targeting.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/simulation_sink.h"
 #include "wiz8/world/world.h"
@@ -82,6 +89,15 @@ struct InventoryCombatFixture : CombatFixture {
 };
 
 } // namespace
+
+TEST_CASE("An absent reachable party target consumes no random draw", "[combat][targeting]")
+{
+    std::vector<Rng::Draw> draws;
+    const ScopedGame scope;
+    scope.game.rng.trace(&draws);
+    REQUIRE_FALSE(PickReachableSlotByDisposition(0, W8_DISPOSITION_HOSTILE));
+    CHECK(draws.empty());
+}
 
 TEST_CASE_METHOD(CombatFixture, "The party acts before a monster on the same phase")
 {
@@ -166,6 +182,42 @@ TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed 
     REQUIRE(backpack[1].uses_or_charges == 5);
     REQUIRE(committed.kind == W8_ACTION_USE_ITEM);
     REQUIRE(committed.detail_block.item_use.item == source);
+}
+
+TEST_CASE("Spell scattering retries all five ground misses", "[combat][magic]")
+{
+    std::vector<Rng::Draw> draws;
+    const ScopedGame scope;
+    auto& game = scope.game;
+    GameData data;
+    data.spells.resize(1);
+    data.spells[0].range_category = W8_RANGE_SHORT;
+    const ScopedGameData installed(std::move(data));
+    game.level.replacePrimary(std::make_unique<World>());
+    auto& world = *game.level.primary;
+    world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
+    world.spatial->m_spatial.m_node_extent = 1000;
+    world.spatial->registry.cells = std::make_unique<W8OctreeObjectRegistry>();
+    auto caster = std::make_unique<Monster>(world);
+    caster->location_id = 7;
+    caster->nav.movement.position = {0, 0, 0};
+    auto info = std::make_unique<W8MonsterInfo>();
+    info->location_id = caster->location_id;
+    info->entity.attach(*caster);
+    world.population->monster_roster.add(std::move(info), false);
+    world.monsters.push_back(std::move(caster));
+    W8TargetSource source{.iType = W8_TARGET_SOURCE_MONSTER, .iMonsterID = 7};
+    W8CombatSlot target{};
+    game.rng.trace(&draws);
+
+    ScatterSpellPointTarget(0, &source, &target);
+
+    REQUIRE(draws.size() == 15);
+    for (std::size_t index = 0; index < draws.size(); index += 3) {
+        CHECK(draws[index].range == 0x7d1);
+        CHECK(draws[index + 1].range == 0x7d1);
+        CHECK(draws[index + 2].range == 0x3e9);
+    }
 }
 
 TEST_CASE("A deflected stored-spell missile keeps its outcome outside combat")

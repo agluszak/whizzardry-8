@@ -86,7 +86,6 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
     glm::vec3 position;
     unsigned char fact_value;
     unsigned int added;
-    int location_id;
     int slot;
     const char* trigger_name;
 
@@ -664,8 +663,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         RunNamedTrigger("Door18", -1);
         RunNamedTrigger("greenLightEwaxx02", -1);
         RunNamedTrigger("greenLightEwaxx03", -1);
-        location_id = GetLocationVarIDByName("ObstacleDoors");
-        if (location_id != -1) {
+        if (GetLocationVarIDByName("ObstacleDoors")) {
             SetTriggerVariableByName("ObstacleDoors",
                                      GetLocationVarValueByName("ObstacleDoors") | 2);
             return;
@@ -679,8 +677,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         RunNamedTrigger("Door19", -1);
         RunNamedTrigger("greenLightEwaxx", -1);
         RunNamedTrigger("greenLightEwaxx01", -1);
-        location_id = GetLocationVarIDByName("ObstacleDoors");
-        if (location_id != -1) {
+        if (GetLocationVarIDByName("ObstacleDoors")) {
             SetTriggerVariableByName("ObstacleDoors",
                                      GetLocationVarValueByName("ObstacleDoors") | 1);
             return;
@@ -854,13 +851,8 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
     if (record->record_id != 0x234) {
         return;
     }
-    int lead_index = -1;
-    if (NpcLeadHasNameStyle(W8_NPC_VI_DOMINA)) {
-        W8NpcState* lead = GetNpcStateByKind(W8_NPC_VI_DOMINA);
-        if (lead != 0) {
-            lead_index = lead->group_index;
-        }
-    }
+    const W8NpcState* preferred_lead =
+        NpcLeadHasNameStyle(W8_NPC_VI_DOMINA) ? GetNpcStateByKind(W8_NPC_VI_DOMINA) : nullptr;
     BeginScriptedWorldAction();
     int eligible_slots[8];
     /* 0x00508F08 and 0x00508F58 test the eligible count unsigned. */
@@ -877,7 +869,7 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
         }
     }
     for (index = 0; index < eligible_count; ++index) {
-        if (eligible_slots[index] == lead_index) {
+        if (preferred_lead && eligible_slots[index] == preferred_lead->group_index) {
             QueueCharacterEvent(&context.party.characters[eligible_slots[index]], 36,
                                 kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
         }
@@ -885,7 +877,7 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
     if (eligible_count > 2) {
         do {
             pick = context.game.rng.below(eligible_count);
-        } while (eligible_slots[pick] == lead_index);
+        } while (preferred_lead && eligible_slots[pick] == preferred_lead->group_index);
         QueueCharacterEvent(&context.party.characters[eligible_slots[pick]], 36,
                             kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
     }
@@ -918,7 +910,7 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
    changes for the special kills, the Rattkin breeder location-variable count,
    and the 0x22b cleanup that clears the victim's condition and queues the
    death event on the recorded party slot. */
-void MonsterKilled(const ScriptContext& context, int record_id, int killer_party_slot)
+void MonsterKilled(const ScriptContext& context, int record_id)
 {
     unsigned char value;
 
@@ -932,7 +924,7 @@ void MonsterKilled(const ScriptContext& context, int record_id, int killer_party
         return;
     }
     if (record_id == 0x14f || record_id == 0xdd) {
-        if (GetLocationVarIDByName("NumberRattkinBreedersKilled") == -1) {
+        if (!GetLocationVarIDByName("NumberRattkinBreedersKilled")) {
             CreateLocationVar("NumberRattkinBreedersKilled", 1);
             return;
         }

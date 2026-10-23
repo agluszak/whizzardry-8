@@ -20,7 +20,6 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/loaded_game_data.h"
@@ -155,7 +154,7 @@ void MartensBluff1Script::setup()
 
     FindTriggerByName("Gas-Switch");
     door_controller_ = FindTriggerByName("J-Doorcontroller");
-    if (door_controller_ != 0 && GetLocationVarIDByName("DialState") == -1) {
+    if (door_controller_ != 0 && !GetLocationVarIDByName("DialState")) {
         ctx.game.rng.below(8);
         ctx.game.rng.below(8);
         ctx.game.rng.below(8);
@@ -168,7 +167,7 @@ void MartensBluff1Script::setup()
         pTrigger->GetPosition(&trigger_position);
         if (glm::length((trigger_position - position)) < 500.0) {
             FindTriggerByName("Lift2Marten2");
-            if (GetLocationVarIDByName("LiftArrived") == -1) {
+            if (!GetLocationVarIDByName("LiftArrived")) {
                 CreateLocationVar("LiftArrived", 1);
                 ShowString(Data().strings[0x71b]);
             }
@@ -176,7 +175,7 @@ void MartensBluff1Script::setup()
     }
     if (door_controller_ != 0) {
         dial_state = 0;
-        if (GetLocationVarIDByName("DialState") != -1) {
+        if (GetLocationVarIDByName("DialState")) {
             dial_state = GetLocationVarValueByName("DialState");
         }
         particle = FindParticleByName("GasSpray-00");
@@ -213,7 +212,7 @@ bool MartensBluff1Script::fHandlock(Trigger* pTrigger)
     if (pTrigger->running) {
         return true;
     }
-    if ((ctx.party.held.item.iItemNo != -1) && GetItemInHand(ctx.party) == 0x26f) {
+    if (ctx.party.held.item.iItemNo == 0x26f) {
         return true;
     }
     SetDice(&dice, 2, 4, 1);
@@ -379,7 +378,7 @@ bool MartensBluff1Script::transporter(int command)
             } else {
                 transport_gate_.emplace(60.0f, TimerClock::World, true);
             }
-            if (GetLocationVarIDByName("TransportSpawn") != -1) {
+            if (GetLocationVarIDByName("TransportSpawn")) {
                 transport_gate_->SetProgress(GetLocationVarValueByName("TransportSpawn") *
                                              kMovementSpeedStep);
             }
@@ -408,7 +407,7 @@ bool MartensBluff1Script::teleporter(Trigger* pTrigger)
 {
     MartensBluff1TeleporterPad state;
 
-    if (GetLocationVarIDByName("TeleporterState") == -1) {
+    if (!GetLocationVarIDByName("TeleporterState")) {
         CreateLocationVar("TeleporterState", 0);
         state = MartensBluff1TeleporterPad::none;
     } else {
@@ -457,7 +456,7 @@ bool MartensBluff1Script::teleportState(MartensBluff1TeleporterPad new_state)
     MartensBluff1TeleporterPad state;
 
     FindRequiredTriggerByName("MR109");
-    if (GetLocationVarIDByName("TeleporterState") == -1) {
+    if (!GetLocationVarIDByName("TeleporterState")) {
         CreateLocationVar("TeleporterState", 0);
         return false;
     }
@@ -502,7 +501,7 @@ bool MartensBluff1Script::wireTrigger(Trigger* pTrigger)
 
     g_trigger_feedback = true;
     pTelTrigger = FindRequiredTriggerByName("MR109");
-    if (GetLocationVarIDByName("TeleporterState") == -1) {
+    if (!GetLocationVarIDByName("TeleporterState")) {
         CreateLocationVar("TeleporterState", static_cast<int>(MartensBluff1TeleporterPad::gigas));
     } else {
         if (GetLocationVarValueByName("TeleporterState") !=

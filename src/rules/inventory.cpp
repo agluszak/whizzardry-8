@@ -294,11 +294,6 @@ bool EveryCharacterHasItem(const W8Party& party, int item_id, W8ItemReach reach)
     return true;
 }
 
-int GetItemInHand(const W8Party& party)
-{
-    return party.held.item.iItemNo;
-}
-
 W8ItemUse ItemUseAt(const W8Party& party, W8ItemLocation location)
 {
     const auto* item = party.itemAt(location);

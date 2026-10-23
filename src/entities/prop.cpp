@@ -293,16 +293,11 @@ bool Prop::SelectAnimationSlot(unsigned char tag)
 /* Which slot carries the current tag. The tag is matched against each slot's
    own leading byte rather than used as an index, so the slots need not be in
    tag order. */
-int Prop::FindCurrentAnimationSlot()
+std::optional<std::size_t> Prop::FindCurrentAnimationSlot() const
 {
-    int index;
-
-    for (index = 0; index < static_cast<int>(slots.size()); ++index) {
-        if (slots[index].frame == first_frame) {
-            return index;
-        }
-    }
-    return -1;
+    for (std::size_t index = 0; index < slots.size(); ++index)
+        if (slots[index].frame == first_frame) return index;
+    return std::nullopt;
 }
 
 unsigned char Prop::AdvanceAnimationSegment()
@@ -1291,17 +1286,6 @@ try {
     return result;
 } catch (const std::exception&) {
     return false;
-}
-
-/* The prop representation's current animation value, or -1 while it owns no
-   animation. */
-int Prop::GetAnimationState() const
-{
-    const Animation* animation = this->currentAnimation();
-    if (animation != 0) {
-        return static_cast<int>(animation->frameCount(2));
-    }
-    return -1;
 }
 
 /* APST chunk writer: a 0xDEADD00D signature, the format version and the prop

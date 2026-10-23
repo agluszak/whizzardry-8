@@ -46,9 +46,9 @@ bool DoorDone(Trigger* pTrigger)
     W8WorldItem* world_item;
     int item_id;
 
-    if (GetLocationVarIDByName("TMakeTreasure") != -1) {
+    if (GetLocationVarIDByName("TMakeTreasure")) {
         if (GetLocationVarValueByName("TMakeTreasure") != 0) {
-            if (GetLocationVarIDByName("TdoorOpen") != -1) {
+            if (GetLocationVarIDByName("TdoorOpen")) {
                 if (GetLocationVarValueByName("TdoorOpen") == 0) {
                     item_id = GetLocationVarValueByName("TMakeTreasureNumber");
                     if (FindEntityByName("NP_SlipItem", &entity_position, 0, 0)) {
@@ -93,10 +93,9 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
     glm::vec3 position;
     W8WorldItem* world_item;
     int item_id;
-    int var_id;
 
     if ((ctx.party.held.item.iItemNo != -1)) {
-        item_id = GetItemInHand(ctx.party);
+        item_id = ctx.party.held.item.iItemNo;
         if (item_id == 0x1cb || item_id == 0x1cd || item_id == 0x1cc || item_id == 0x1ce) {
             SetFact(W8_FACT_RAPAX_TREASURY_RAIDED, 1, false);
             SetFactionDispositionBand(0x12, W8_FACTION_HOSTILE);
@@ -108,8 +107,8 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
             } else {
                 item_id = (item_id == 0x1cc) ? 0x1ca : 0x51;
             }
-            var_id = GetLocationVarIDByName("TdoorOpen");
-            if (var_id == -1 || GetLocationVarValueByName("TdoorOpen") == 0) {
+            if (!GetLocationVarIDByName("TdoorOpen") ||
+                GetLocationVarValueByName("TdoorOpen") == 0) {
                 if (FindEntityByName("NP_SlipItem", &entity_position, 0, 0)) {
                     position = entity_position;
                     world_item = AddWorldItem(SpawnItem(
@@ -122,14 +121,12 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
                 return true;
             }
             RunTreasureDoor();
-            var_id = GetLocationVarIDByName("TMakeTreasure");
-            if (var_id == -1) {
+            if (!GetLocationVarIDByName("TMakeTreasure")) {
                 CreateLocationVar("TMakeTreasure", 1);
             } else {
                 SetTriggerVariableByName("TMakeTreasure", 1);
             }
-            var_id = GetLocationVarIDByName("TMakeTreasureNumber");
-            if (var_id == -1) {
+            if (!GetLocationVarIDByName("TMakeTreasureNumber")) {
                 CreateLocationVar("TMakeTreasureNumber", item_id);
                 return true;
             }

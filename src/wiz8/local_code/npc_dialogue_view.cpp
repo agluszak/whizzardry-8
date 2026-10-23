@@ -1,6 +1,7 @@
 #include "wiz8/local_code/npc_dialogue_view.h"
 
 #include <iterator>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -160,7 +161,7 @@ W8NpcSubquoteOutcome W8NpcDialoguePanel::speakSubquote(const ScriptContext& cont
         display_text = quote->subquotes[subquote_index];
         if (!notice_only) {
             presentation = W8NpcPresentation::portrait_message;
-            setQuoteBubbleVisible(true, display_text, 0, -1, -1);
+            showQuoteBubble(display_text);
             HoldNpcSpeech(speech, wiz8::text::grapheme_count(display_text) * 60 + 2000);
             return W8NpcSubquoteOutcome::presented;
         }
@@ -218,8 +219,7 @@ W8NpcSubquoteOutcome W8NpcDialoguePanel::speakSubquote(const ScriptContext& cont
             if (!context.activity.conversation && speaker->record->voice_script == 0) {
                 display_text = fmt::format("{}: {}", speaker->record->source_name, display_text);
             }
-            setQuoteBubbleVisible(true, display_text, 0, current_quote, -1, {},
-                                  speaker->partner_index);
+            showQuoteBubble(display_text, current_quote, std::nullopt, {}, speaker->partner_index);
         }
         const bool voiced = PlayNpcVoice(speech, voice_path, [this] {
             finishVoice(false);
@@ -262,7 +262,7 @@ void W8NpcDialoguePanel::finishVoice(bool resume_script)
     const int current_quote = dialogue.current_quote();
     if (presentation == W8NpcPresentation::portrait_message) {
         presentation = W8NpcPresentation::none;
-        setQuoteBubbleVisible(false, {}, 0, -1, -1);
+        dismissQuoteBubble();
         dialogue.SpeechFinished();
         return;
     }
@@ -276,15 +276,14 @@ void W8NpcDialoguePanel::finishVoice(bool resume_script)
     }
     if (GetNpcGroupEntry(speaker) != 0) {
         screen_.game.speech.FinishPortraitSpeech(speaker->group_index);
-        setQuoteBubbleVisible(false, {}, 0, -1, -1);
+        dismissQuoteBubble();
     }
     presentation = W8NpcPresentation::none;
     dialogue.SpeechFinished();
     if (dialogue.reply() == W8NpcReplyState::none && resume_script) {
         if (speaker != 0 && dialogue.binding().script != 0 &&
             current_quote < std::ssize(dialogue.binding().script->quotes)) {
-            setQuoteBubbleVisible(false, {}, &dialogue.binding().script->quotes[current_quote],
-                                  current_quote, -1);
+            dismissQuoteBubble(&dialogue.binding().script->quotes[current_quote], current_quote);
             return;
         }
     }
@@ -303,7 +302,7 @@ void W8NpcDialoguePanel::tryFinishVoice(bool force)
 void W8NpcDialoguePanel::showPortraitMessage(std::string_view text, W8QuoteNotice notice)
 {
     presentation = W8NpcPresentation::portrait_message;
-    setQuoteBubbleVisible(true, text, 0, -1, -1, notice, -1);
+    showQuoteBubble(text, std::nullopt, std::nullopt, notice);
     HoldNpcSpeech(speech, ComputePortraitMessageDuration(text));
 }
 
@@ -314,16 +313,15 @@ void W8NpcDialoguePanel::restoreQuoteBubble()
     const W8NpcScriptFile* script_file =
         dialogue.speaker() != 0 ? dialogue.binding().script.get() : 0;
     if (script_file != 0 && current_quote < std::ssize(script_file->quotes)) {
-        setQuoteBubbleVisible(false, {}, script_file->quotes.data() + current_quote, current_quote,
-                              0xffffffff);
+        dismissQuoteBubble(script_file->quotes.data() + current_quote, current_quote);
         return;
     }
-    setQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
+    dismissQuoteBubble();
 }
 
 void W8NpcDialoguePanel::displayQuote(std::string_view text, bool play_sound)
 {
-    setQuoteBubbleVisible(true, text, 0, -1, 0x47);
+    showQuoteBubble(text, std::nullopt, 0x47);
     speech.voice_playing = false;
     speech.voice_started_at = MonotonicMilliseconds();
     HoldNpcSpeech(speech, 2000);

@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <utility>
@@ -247,7 +248,9 @@ static void DrawStatRecord(SDL_Surface& target, const W8CharacterStatsRecord& re
     W8TextBuffer text;
     text.SetLayoutBounds(x + 0x19, y, x + 0x7e, y + 0x16);
     text.SetLayoutMode(g_W8TextBufferAlignMiddle | g_W8TextBufferAlignLeft);
-    text.SetFontStateIndex(enabled ? (hovered ? 0xd : -1) : 0);
+    text.SetFontStateIndex(!enabled  ? std::optional{0}
+                           : hovered ? std::optional{13}
+                                     : std::nullopt);
     text.SetText(Data().strings[record.name_id], g_options_detail_font);
     text.RenderToTarget(0, true, target);
     CatalogArtwork::Load(record.object, 0)

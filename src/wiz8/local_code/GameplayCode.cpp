@@ -46,6 +46,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -274,8 +275,8 @@ bool IsCharacterReadyToAdvance(int party_slot)
     return character->experience >= character->experience_goal;
 }
 
-/* The first free party slot in a range, or -1 when the range is full. */
-unsigned int FindFreePartySlot(unsigned int first, unsigned int last)
+/* The first free party slot in a range. */
+std::optional<unsigned int> FindFreePartySlot(unsigned int first, unsigned int last)
 {
     unsigned int slot;
 
@@ -284,7 +285,7 @@ unsigned int FindFreePartySlot(unsigned int first, unsigned int last)
             return slot;
         }
     }
-    return static_cast<unsigned int>(-1);
+    return std::nullopt;
 }
 
 /* Recompute the eight-band ladder over the character's level in their current
@@ -440,30 +441,11 @@ unsigned int GetAveragePartyLevel(void)
    copy the record, mark it in party, rebuild its row and formation position
    and enter it in the marching order. The band is 2..7 for a regular member
    and 0..1 for the two auxiliary slots. */
-int AddCharacterToParty(W8Character& character, int slot_kind)
+std::optional<unsigned int> AddCharacterToParty(W8Character& character, int slot_kind)
 {
-    unsigned int slot;
-
-    if (slot_kind == -1) {
-        slot = 2;
-        while (CurrentGame().party.members[slot].has_value()) {
-            ++slot;
-            if (slot > 7) {
-                return -1;
-            }
-        }
-    } else {
-        slot = 0;
-        while (CurrentGame().party.members[slot].has_value()) {
-            ++slot;
-            if (slot > 1) {
-                return -1;
-            }
-        }
-    }
-    if (static_cast<int>(slot) < 0) {
-        return -1;
-    }
+    const auto available = slot_kind == -1 ? FindFreePartySlot(2, 8) : FindFreePartySlot(0, 2);
+    if (!available) return std::nullopt;
+    const unsigned int slot = *available;
 
     W8Character* destination = &CurrentGame().party.characters[slot];
     *destination = character;
@@ -524,7 +506,8 @@ void RemoveCharacterFromParty(int party_slot)
         RefreshPartySlotRegions();
     }
     if (CurrentGame().status.selected_character == party_slot) {
-        CurrentGame().status.selected_character = GetNextCharacter(1, 1, -1);
+        const auto selected = CurrentGame().party.firstSelectableSlot();
+        CurrentGame().status.selected_character = selected ? static_cast<int>(*selected) : -1;
     }
 }
 

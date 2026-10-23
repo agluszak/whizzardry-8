@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -120,21 +121,17 @@ bool W8SplitItemDialog::CreateButtons()
         ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", 7, 4, 5, 8, 6),
         {.on_click = [this](W8ButtonWidget*) { StepSplit(1); },
          .on_right_click = [this](W8ButtonWidget*) { StepSplit(5); }});
-    m_buttons[2].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
-                                                BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
-                                                BUTTON_NO_IMAGE),
+    m_buttons[2].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", std::nullopt,
+                                                3, std::nullopt, 3, std::nullopt),
                            {.priority = UI_PRIORITY_LOWEST});
-    m_buttons[3].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
-                                                BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
-                                                BUTTON_NO_IMAGE),
+    m_buttons[3].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", std::nullopt,
+                                                3, std::nullopt, 3, std::nullopt),
                            {.on_click = [this](W8ButtonWidget*) { OnCountFieldClick(); }});
-    m_buttons[4].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
-                                                BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
-                                                BUTTON_NO_IMAGE),
+    m_buttons[4].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", std::nullopt,
+                                                3, std::nullopt, 3, std::nullopt),
                            {.priority = UI_PRIORITY_LOWEST});
-    m_buttons[5].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
-                                                BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
-                                                BUTTON_NO_IMAGE),
+    m_buttons[5].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti", std::nullopt,
+                                                3, std::nullopt, 3, std::nullopt),
                            {.priority = UI_PRIORITY_LOWEST});
     m_buttons[6].Configure(
         ButtonGraphics::Load("Data\\Dialogs\\popup_confirmationbuttons.sti", 3, 0, 1, 4, 2),
@@ -144,12 +141,10 @@ bool W8SplitItemDialog::CreateButtons()
         {.on_click = [this](W8ButtonWidget*) { Finish(W8_SPLIT_RESULT_CANCELLED); }});
     if (m_mode == W8_ITEM_SPLIT_SELL || m_mode == W8_ITEM_SPLIT_BUY) {
         m_buttons[8].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
-                                                    BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
-                                                    BUTTON_NO_IMAGE),
+                                                    std::nullopt, 3, std::nullopt, 3, std::nullopt),
                                {.priority = UI_PRIORITY_LOWEST});
         m_buttons[9].Configure(ButtonGraphics::Load("Data\\Dialogs\\popup_splititem.sti",
-                                                    BUTTON_NO_IMAGE, 3, BUTTON_NO_IMAGE, 3,
-                                                    BUTTON_NO_IMAGE),
+                                                    std::nullopt, 3, std::nullopt, 3, std::nullopt),
                                {.priority = UI_PRIORITY_LOWEST});
     }
     m_buttons[0].Policy().repeat = true;

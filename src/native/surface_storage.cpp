@@ -14,19 +14,27 @@ void require_sdl(bool result)
 {
     if (!result) throw std::runtime_error(SDL_GetError());
 }
+
+SDLSurfaceOwner ConfigureCpuStorage(SDL_Surface* surface)
+{
+    SDLSurfaceOwner result{surface, SDL_DestroySurface};
+    require_sdl(bool(result));
+    require_sdl(SDL_SetSurfaceBlendMode(result.get(), SDL_BLENDMODE_NONE));
+    if (SDL_ISPIXELFORMAT_INDEXED(result->format))
+        require_sdl(SDL_CreateSurfacePalette(result.get()) != nullptr);
+    return result;
+}
 } // namespace
+
+SDLSurfaceOwner CreateCpuStorage(int width, int height, SDL_PixelFormat format)
+{
+    return ConfigureCpuStorage(SDL_CreateSurface(width, height, format));
+}
 
 SDLSurfaceOwner CreateCpuStorage(int width, int height, SDL_PixelFormat format, void* pixels,
                                  int pitch)
 {
-    SDLSurfaceOwner result{pitch >= 0 ? SDL_CreateSurfaceFrom(width, height, format, pixels, pitch)
-                                      : SDL_CreateSurface(width, height, format),
-                           SDL_DestroySurface};
-    require_sdl(bool(result));
-    require_sdl(SDL_SetSurfaceBlendMode(result.get(), SDL_BLENDMODE_NONE));
-    if (SDL_ISPIXELFORMAT_INDEXED(format))
-        require_sdl(SDL_CreateSurfacePalette(result.get()) != nullptr);
-    return result;
+    return ConfigureCpuStorage(SDL_CreateSurfaceFrom(width, height, format, pixels, pitch));
 }
 
 void StretchCpuSurface(SDL_Surface& source, SDL_Surface& destination, SDL_ScaleMode mode)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
@@ -53,4 +54,4 @@ void SetItemFlags(W8WorldItem* item, unsigned int mask, bool enabled);
 void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled);
 bool ItemInfoIsWorldPersistent(const W8WorldItem* item);
 void ActivateItem(W8WorldItem* item);
-int FindItemRecordByName(const char* name);
+std::optional<int> FindItemRecordByName(const char* name);

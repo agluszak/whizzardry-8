@@ -67,14 +67,14 @@
 
 namespace {
 /* The monster and group the target cycling keys last picked. */
-int picked_monster = -1;
-int picked_group = -1;
+std::optional<int> picked_monster;
+std::optional<int> picked_group;
 } // namespace
 
 void ResetTargetPicks()
 {
-    picked_monster = -1;
-    picked_group = -1;
+    picked_monster.reset();
+    picked_group.reset();
 }
 
 constexpr int BAD_INDEX = -1;
@@ -214,18 +214,17 @@ static char g_faction_names[W8_FACTION_COUNT][0x1e] = {
     "FACTION_filler4",
 };
 
-/* Look a faction up by name, case-insensitively. -1 for a name that is not one
-   of the twenty-one. */
-signed char FindFactionByName(const char* name)
+/* Look a faction up by name, case-insensitively. */
+std::optional<W8Faction> FindFactionByName(const char* name)
 {
     signed char faction;
 
     for (faction = 0; faction < W8_FACTION_COUNT; ++faction) {
         if (SDL_strcasecmp(g_faction_names[faction], name) == 0) {
-            return faction;
+            return static_cast<W8Faction>(faction);
         }
     }
-    return -1;
+    return std::nullopt;
 }
 
 void SetFactionFlag(signed char faction, bool flag)
@@ -1392,41 +1391,26 @@ struct W8GroupMemberByAngle {
    The angle is what makes this feel like cycling across the screen rather than
    jumping about, and it is why the sort buffer holds a pair per candidate
    rather than just the ids. */
-static int SelectNextGroupMemberByAngle(const std::vector<int>& candidates, int current)
+static std::optional<int> SelectNextGroupMemberByAngle(const std::vector<int>& candidates,
+                                                       std::optional<int> current)
 {
-    unsigned int count = static_cast<unsigned int>(candidates.size());
-    std::vector<W8GroupMemberByAngle> sorted(count);
-    glm::vec3 party;
-    unsigned int index;
-    int result;
-
-    if (count == 0) {
-        return BAD_INDEX;
-    }
-    party = cameraLocation();
-
-    for (index = 0; index < count; ++index) {
-        int location_id = candidates[static_cast<int>(index)];
-        W8MonsterInfo* monster_info = FindMonster(location_id);
-        glm::vec3 position = monster_info->entity->nav.GetPosition();
-
-        sorted[index].location_id = location_id;
+    if (candidates.empty()) return std::nullopt;
+    const glm::vec3 party = cameraLocation();
+    std::vector<W8GroupMemberByAngle> sorted;
+    sorted.reserve(candidates.size());
+    for (int location_id : candidates) {
+        const glm::vec3 position = FindMonster(location_id)->entity->nav.GetPosition();
         /* Whole degrees: sorting on the radian heading would leave seven buckets. */
-        sorted[index].angle =
-            static_cast<int>(NormalizeAngle(GetHeadingAngle(&party, &position)) * 57.295776f);
+        sorted.push_back({.angle = static_cast<int>(
+                              NormalizeAngle(GetHeadingAngle(&party, &position)) * 57.295776f),
+                          .location_id = location_id});
     }
     std::ranges::sort(sorted, {}, &W8GroupMemberByAngle::angle);
-
-    result = sorted[0].location_id;
-    if (current != BAD_INDEX) {
-        for (index = 0; index < count; ++index) {
-            if (sorted[index].location_id == current) {
-                result = sorted[index + 1 < count ? index + 1 : 0].location_id;
-                break;
-            }
-        }
+    if (current) {
+        auto picked = std::ranges::find(sorted, *current, &W8GroupMemberByAngle::location_id);
+        if (picked != sorted.end() && ++picked != sorted.end()) return picked->location_id;
     }
-    return result;
+    return sorted.front().location_id;
 }
 
 /* Which member of a group the party should pick out next. Every member the
@@ -1436,14 +1420,11 @@ static int SelectNextGroupMemberByAngle(const std::vector<int>& candidates, int 
 /* Which monster the party should pick out next when the action wants a single
    monster. Every live monster the slot could aim at becomes a candidate and
    the angular sweep steps on from whichever monster is currently picked. */
-static int PickNextTargetableMonster(int party_slot, const W8Action& edited_action, bool sighting)
+static std::optional<int> PickNextTargetableMonster(int party_slot, const W8Action& edited_action,
+                                                    bool sighting)
 {
     std::vector<int> targetable;
-    unsigned int index;
-
-    for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
-        W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-
+    for (const auto& monster_info : CurrentLevelPopulation().monster_roster.live()) {
         if (AssessMonsterTarget(party_slot, monster_info->location_id, edited_action, true,
                                 sighting)) {
             targetable.push_back(monster_info->location_id);
@@ -1452,15 +1433,11 @@ static int PickNextTargetableMonster(int party_slot, const W8Action& edited_acti
     return SelectNextGroupMemberByAngle(targetable, picked_monster);
 }
 
-int PickNextTargetableGroupMember(int party_slot, const W8MonsterGroup* group,
-                                  const W8Action& edited_action, bool sighting)
+std::optional<int> PickNextTargetableGroupMember(int party_slot, const W8MonsterGroup* group,
+                                                 const W8Action& edited_action, bool sighting)
 {
     std::vector<int> targetable;
-    unsigned int index;
-
-    for (index = 0; index < group->MemberIds().size(); ++index) {
-        int location_id = group->MemberLocationId(index);
-
+    for (int location_id : group->MemberIds()) {
         if (AssessMonsterTarget(party_slot, location_id, edited_action, true, sighting)) {
             targetable.push_back(location_id);
         }
@@ -1476,7 +1453,6 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
     const bool sighting = IsSighting(party_slot);
     W8CombatSlot target;
     W8TargetSource source;
-    int picked;
 
     if (!sighting) {
         if (GetTargetNeededForAction(CurrentGame().party, selected) == W8_TARGET_NEED_GROUP) {
@@ -1493,14 +1469,14 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
         }
     }
 
-    picked = PickNextTargetableGroupMember(party_slot, group, selected, sighting);
-    if (picked == BAD_INDEX) {
+    const auto picked = PickNextTargetableGroupMember(party_slot, group, selected, sighting);
+    if (!picked) {
         return;
     }
 
     ResetCombatSlot(&target);
     target.iType = W8_TARGET_KIND_MONSTER;
-    target.iMonsterID = picked;
+    target.iMonsterID = *picked;
     AimAtTarget(party_slot, target);
 
     group->highlighted_member = picked;
@@ -1511,33 +1487,32 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
     PointCameraAtCombatTarget(&source, &target);
 }
 
-/* The group the party currently has picked out, by id, and -1 when
-   none. It is where the sweep below starts from and wraps back to. The
-   declaration lives in targeting.h (C linkage); the definition is with the
-   other targeting globals near the top of this file. */
-
 /* Which monster group the party should pick out next. The sweep starts at the
    one after whichever is currently picked and goes round until it comes back
    to where it began, so the same group is only offered again when nothing else
    will do. A picked group that has since gone away resets the starting point
    rather than ending the sweep. */
-static int PickNextTargetableGroup(int party_slot, const W8Action& edited_action, bool sighting)
+static std::optional<int> PickNextTargetableGroup(int party_slot, const W8Action& edited_action,
+                                                  bool sighting)
 {
     const auto& groups = CurrentLevelPopulation().monster_groups;
-    if (groups.empty()) return BAD_INDEX;
-    const auto current = std::ranges::find_if(
+    if (groups.empty()) return std::nullopt;
+    auto next = std::ranges::find_if(
         groups, [](const auto& group) { return group->group_id == picked_group; });
-    std::size_t start = 0;
-    if (current == groups.end())
-        picked_group = BAD_INDEX;
-    else
-        start = (std::distance(groups.begin(), current) + 1) % groups.size();
-    for (std::size_t offset = 0; offset < groups.size(); ++offset) {
-        auto* group = groups[(start + offset) % groups.size()].get();
+    if (next == groups.end()) {
+        picked_group.reset();
+        next = groups.begin();
+    } else if (++next == groups.end()) {
+        next = groups.begin();
+    }
+    const auto first = next;
+    do {
+        auto* group = next->get();
         if (CanTargetMonsterGroup(party_slot, group, edited_action, sighting))
             return group->group_id;
-    }
-    return BAD_INDEX;
+        if (++next == groups.end()) next = groups.begin();
+    } while (next != first);
+    return std::nullopt;
 }
 
 /* The cycle-target key: step the party's pick to the next thing the slot's
@@ -1551,7 +1526,7 @@ void CycleToNextTarget(int party_slot)
     const bool sighting = IsSighting(party_slot);
     W8CombatSlot target;
     W8TargetSource source;
-    int pick;
+    std::optional<int> pick;
     bool pick_group = false;
 
     if (!sighting) {
@@ -1560,26 +1535,26 @@ void CycleToNextTarget(int party_slot)
     }
     if (pick_group) {
         pick = PickNextTargetableGroup(party_slot, selected, sighting);
-        if (pick == BAD_INDEX) {
+        if (!pick) {
             return;
         }
         target = {};
         target.iMonsterID = BAD_INDEX;
         target.iChar = BAD_INDEX;
         target.iType = W8_TARGET_KIND_GROUP;
-        target.iGroupID = pick;
+        target.iGroupID = *pick;
         AimAtTarget(party_slot, target);
         picked_group = pick;
     } else {
         pick = PickNextTargetableMonster(party_slot, selected, sighting);
-        if (pick == BAD_INDEX) {
+        if (!pick) {
             return;
         }
         target = {};
         target.iChar = BAD_INDEX;
         target.iGroupID = BAD_INDEX;
         target.iType = W8_TARGET_KIND_MONSTER;
-        target.iMonsterID = pick;
+        target.iMonsterID = *pick;
         AimAtTarget(party_slot, target);
         picked_monster = pick;
     }

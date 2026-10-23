@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <memory>
 #include <new>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -296,24 +297,21 @@ void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message)
    the kill count and experience for a monster that fought the party. */
 void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
 {
-    int killer_party_slot = -1;
-    assert(monster_info != 0);
-    unsigned int monster_species = monster_info->monster_species;
+    Game& game = CurrentGame();
+    W8Character* killer = nullptr;
+    assert(monster_info != nullptr);
+    const unsigned int monster_species = monster_info->monster_species;
     const W8MonsterRecord* record = MonsterDBFromSpecies(monster_species);
-    unsigned int notice_channel;
-    if (TargetSourceIsCharacter(&monster_info->condition_target, 0)) {
-        killer_party_slot = monster_info->condition_target.iChar;
-        assert(killer_party_slot == -1 ||
-               (killer_party_slot >= 0 && killer_party_slot < W8_PARTY_SLOT_COUNT &&
-                CurrentGame().party.members[killer_party_slot].has_value() &&
-                CurrentGame().party.characters[killer_party_slot].fInParty));
-        notice_channel = (killer_party_slot == -1) + 8;
-    } else {
-        notice_channel = 9;
+    if (TargetSourceIsCharacter(&monster_info->condition_target, 0) &&
+        monster_info->condition_target.iChar != -1) {
+        const int slot = monster_info->condition_target.iChar;
+        assert(slot >= 0 && slot < W8_PARTY_SLOT_COUNT && game.party.members[slot] &&
+               game.party.characters[slot].fInParty);
+        killer = &game.party.characters[slot];
     }
     if (announce && !monster_info->death_processed &&
         monster_info->party_threat.sight_state != W8_SIGHT_UNSEEN) {
-        ShowNotice(notice_channel,
+        ShowNotice(killer ? 8 : 9,
                    fmt::format("{} {}!", GetMonsterName(monster_info, 0, 0),
                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular]));
     }
@@ -324,40 +322,32 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
     if (monster_info->death_processed) {
         return;
     }
-    if (killer_party_slot == -1) {
-        if (!TargetSourceIsMonster(&monster_info->condition_target, 0)) {
-            goto done;
-        }
-        W8MonsterInfo* killer_info = FindMonster(monster_info->condition_target.iMonsterID, false);
-        if (killer_info == nullptr) {
-            goto done;
-        }
-        assert(killer_info != 0);
-        if (killer_info->ubDisposition != W8_DISPOSITION_FRIENDLY) {
-            goto done;
-        }
+    bool party_responsible = killer != nullptr;
+    if (!party_responsible && TargetSourceIsMonster(&monster_info->condition_target, 0)) {
+        const auto* killer_info = FindMonster(monster_info->condition_target.iMonsterID, false);
+        party_responsible = killer_info && killer_info->ubDisposition == W8_DISPOSITION_FRIENDLY;
     }
-    if (record->faction_id != W8_FACTION_UNALIGNED && record->faction_id != W8_FACTION_PARTY)
+    if (party_responsible && record->faction_id != W8_FACTION_UNALIGNED &&
+        record->faction_id != W8_FACTION_PARTY) {
         RecordFactionOffense(static_cast<signed char>(record->faction_id), monster_info);
-done:
-    MonsterKilled(MakeScriptContext(CurrentGame()), record->record_id, killer_party_slot);
+    }
+    MonsterKilled(MakeScriptContext(game), record->record_id);
     if (monster_info->pCombat && ((monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
                                    monster_info->uiCondition[W8_CONDITION_TURNCOAT] == 0) ||
                                   (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
                                    monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0))) {
-        ++CurrentGame().combat->combat_result;
+        ++game.combat->combat_result;
         if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
-            ++CurrentGame().status.level_progress[GetLoadedLevelID()].monster_kill_count;
+            ++game.status.level_progress[GetLoadedLevelID()].monster_kill_count;
         }
-        if (killer_party_slot != -1) {
-            W8Character* killer = &CurrentGame().party.characters[killer_party_slot];
+        if (killer) {
             ++killer->kill_count;
             if (record->significant_kill != 0) {
                 unsigned int level_total = 0;
                 int occupied = 0;
                 for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-                    if (CurrentGame().party.members[slot].has_value()) {
-                        level_total += CurrentGame().party.characters[slot].uiExpLevel;
+                    if (game.party.members[slot].has_value()) {
+                        level_total += game.party.characters[slot].uiExpLevel;
                         ++occupied;
                     }
                 }
@@ -373,9 +363,9 @@ done:
         if (experience == 0) {
             experience = record->experience;
         }
-        CurrentGame().combat->experience_pool += experience;
-        if (CurrentGame().status.status_ints[monster_species] == 0) {
-            CurrentGame().status.status_ints[monster_species] = 1;
+        game.combat->experience_pool += experience;
+        if (game.status.status_ints[monster_species] == 0) {
+            game.status.status_ints[monster_species] = 1;
         }
     }
 }
@@ -485,7 +475,9 @@ void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info)
     const int value =
         ((monster_info->uiHPMax - static_cast<int>(monster_info->hp_current)) * count) /
         monster_info->uiHPMax;
-    monster->visual.damage_stage = std::min(value, count - 1);
+    const int stage = std::min(value, count - 1);
+    // Negative stages select the authored textures.
+    monster->visual.damage_stage = stage < 0 ? std::nullopt : std::optional(stage);
 }
 
 int GetMonsterQuadrant(W8MonsterInfo* monster_info)
@@ -838,7 +830,7 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
 
         wiz8::erase_first(monster_group->monsters, monster_info->location_id);
         if (monster_group->highlighted_member == monster_info->location_id)
-            monster_group->highlighted_member = -1;
+            monster_group->highlighted_member.reset();
 
         CurrentGame().events.push(MonstersChanged{});
         if (monster_group->MemberCount() == 0) {
@@ -1219,21 +1211,18 @@ float GetAveragePartyMemberLevel(void)
     return total / count;
 }
 
-unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot)
+BestPartySkill GetBestPartySkill(W8Skill skill_index)
 {
-    unsigned int best_level = 0;
-    int best_slot = -1;
+    BestPartySkill best;
     for (int index = 0; index < 8; ++index) {
         W8Character* character = &CurrentGame().party.characters[index];
         if (CurrentGame().party.members[index].has_value() && character->hp_current != 0 &&
             character->highest_condition < W8_CONDITION_TURNCOAT &&
-            (character->skills[skill_index].level > best_level || best_slot == -1)) {
-            best_level = character->skills[skill_index].level;
-            best_slot = index;
+            (!best.character || character->skills[skill_index].level > best.level)) {
+            best = {character->skills[skill_index].level, character};
         }
     }
-    if (party_slot != 0) *party_slot = best_slot;
-    return best_level;
+    return best;
 }
 
 /* Format the health knowledge the party has earned for one monster. NPC-backed
@@ -1262,12 +1251,11 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
     } else {
         float average_party_level = GetAveragePartyMemberLevel();
         const W8MonsterRecord* record;
-        int best_party_slot;
         int monster_level;
 
         record = GetMonsterDataForInfo(monster_info);
         monster_level = record->display_level;
-        health_knowledge = GetBestPartySkillLevel(W8_SKILL_MYTHOLOGY, &best_party_slot);
+        health_knowledge = GetBestPartySkill(W8_SKILL_MYTHOLOGY).level;
         if (static_cast<int>(average_party_level) < monster_level) {
             float adjusted_knowledge =
                 health_knowledge - (monster_level - average_party_level) * 3.0f + 0.5f;
@@ -1310,7 +1298,7 @@ void DetectMonsterGroups(void)
         }
         if (!group->alternate_name) {
             const W8MonsterRecord* record = MonsterGroupGetRecord(group);
-            int best_slot = -1;
+            std::optional<int> best_slot;
             unsigned int best_margin = 0;
             for (unsigned int slot = 0; slot < 8; ++slot) {
                 if (!CanNoticeMonsterGroup(slot)) continue;
@@ -1333,9 +1321,9 @@ void DetectMonsterGroups(void)
                     best_margin = margin;
                 }
             }
-            if (best_slot != -1) {
+            if (best_slot) {
                 PostCharacterNotice(
-                    best_slot, fmt::sprintf(Data().strings[0x1ca], GetMonsterGroupName(group)));
+                    *best_slot, fmt::sprintf(Data().strings[0x1ca], GetMonsterGroupName(group)));
                 group->alternate_name = true;
                 bool vowel;
                 switch (toupper(static_cast<unsigned char>(GetMonsterGroupName(group).front()))) {
@@ -1476,7 +1464,7 @@ void EvaluateCombatDifficulty(void)
             event_type = 31;
             break;
         }
-        ApplyItemEffectToRandomCharacter(event_type, -1, 0);
+        ApplyItemEffectToRandomCharacter(event_type, std::nullopt, 0);
     }
     ++CurrentGame().status.combat_difficulty_counts[difficulty];
     recent_combat.difficulty = difficulty;

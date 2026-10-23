@@ -248,7 +248,7 @@ void MeshPose::makeDraws()
     selection_initialized_ = false;
 }
 
-void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, int skin,
+void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, Mesh::Skin* skin,
                       bool check_blanking)
 {
     mesh.applyPendingLighting();
@@ -299,7 +299,7 @@ void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, int skin,
                     toVsg(polygon_normals[pass.source_polygons[triangle]]);
 }
 
-void MeshPose::selectPolygons(Mesh& mesh, int skin, bool check_blanking)
+void MeshPose::selectPolygons(Mesh& mesh, Mesh::Skin* skin, bool check_blanking)
 {
     const auto polygon_count = static_cast<std::size_t>(mesh.polygon_count);
     const auto selection = mesh.GetActivePolygons(skin, check_blanking);
@@ -346,17 +346,13 @@ void MeshPose::selectPolygons(Mesh& mesh, int skin, bool check_blanking)
     }
 }
 
-std::shared_ptr<Texture> MeshPose::texture(const Mesh& mesh, std::size_t pass, std::size_t batch,
-                                           int skin, unsigned layer) const
+std::shared_ptr<Texture> MeshPose::texture(std::size_t pass, std::size_t batch,
+                                           const Mesh::Skin* skin, unsigned layer) const
 {
     const auto& source = asset->passes.at(pass);
     const auto& draw = source.batches.at(batch);
-    if (source.pass == 0 && layer == 0 && skin >= 0) {
-        const auto found = std::find_if(mesh.skins.begin(), mesh.skins.end(),
-                                        [skin](const auto& table) { return table.id == skin; });
-        if (found != mesh.skins.end() && !found->textures.empty())
-            return found->textures[draw.first_polygon];
-    }
+    if (source.pass == 0 && layer == 0 && skin && !skin->textures.empty())
+        return skin->textures[draw.first_polygon];
     return draw.textures.at(layer);
 }
 

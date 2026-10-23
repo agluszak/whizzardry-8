@@ -198,7 +198,7 @@ void MartensBluff2Script::setup()
     pTrigger = FindTriggerByName("PerfumeBox");
     quest_state = RavenQuestState::not_started;
     if (pTrigger != 0) {
-        if (GetLocationVarIDByName("RavenQuest") == -1) {
+        if (!GetLocationVarIDByName("RavenQuest")) {
             CreateLocationVar("RavenQuest", 0);
             running_trigger_from_script_ = true;
             FindTriggerByName("Dummy")->Run(-1);
@@ -234,13 +234,13 @@ void MartensBluff2Script::setup()
             pTrigger->flags &= ~W8_TRIGGER_ENABLED;
         }
     }
-    if (GetLocationVarIDByName("SpikedBallLauncher") != -1) {
+    if (GetLocationVarIDByName("SpikedBallLauncher")) {
         value = GetLocationVarValueByName("SpikedBallLauncher");
         if (value != 0) {
             spikeball(value);
         }
     }
-    if (GetLocationVarIDByName("MonsterCrusher") != -1) {
+    if (GetLocationVarIDByName("MonsterCrusher")) {
         value = GetLocationVarValueByName("MonsterCrusher");
         if (value != 0) {
             monsterCrusher(value);
@@ -371,7 +371,7 @@ bool MartensBluff2Script::spikeball(int command)
     }
     spikeball_gate_.reset();
     spikeball_count_ = 0;
-    if (GetLocationVarIDByName("SpikedBallLauncher") == -1) {
+    if (!GetLocationVarIDByName("SpikedBallLauncher")) {
         CreateLocationVar("SpikedBallLauncher", spikeball_count_);
     } else {
         SetTriggerVariableByName("SpikedBallLauncher", spikeball_count_);
@@ -409,7 +409,7 @@ bool MartensBluff2Script::perfumeBox(Trigger* pTrigger)
     if (!(ctx.party.held.item.iItemNo != -1)) {
         return false;
     }
-    if (GetItemInHand(ctx.party) != 0x2ea) {
+    if (ctx.party.held.item.iItemNo != 0x2ea) {
         return false;
     }
     g_trigger_feedback = true;

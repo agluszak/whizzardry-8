@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <span>
 #include <vector>
@@ -35,6 +36,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -800,37 +802,30 @@ bool FrontRankScreens(unsigned int from_position, unsigned int to_position)
 
 /* Every other seated, living party member whose side matches `relationship`
    and that the slot's chosen action could actually strike is collected; one of
-   them is picked at random, or -1 when nobody qualifies. The berserk and
+   them is picked at random, or none when nobody qualifies. The berserk and
    turncoat paths use it to pick a victim. */
-int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)
+std::optional<int> PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)
 {
-    int candidates[8];
-    int* next = candidates;
-    int count = 0;
+    std::vector<int> candidates;
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         if (slot == party_slot || !CanPartySlotParticipate(slot) ||
             CharacterVsCharacterDisposition(party_slot, slot) != relationship) {
             continue;
         }
         for (unsigned int hand = 0; hand < 2; ++hand) {
-            if (!CanHandReachTarget(party_slot, hand)) {
-                continue;
-            }
-            if (!CharacterActionReachesSlot(
+            if (CanHandReachTarget(party_slot, hand) &&
+                CharacterActionReachesSlot(
                     party_slot, hand, slot,
                     SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
-                continue;
+                candidates.push_back(slot);
+                break;
             }
-            ++count;
-            *next = slot;
-            ++next;
-            break;
         }
     }
-    if (count == 0) {
-        return -1;
+    if (candidates.empty()) {
+        return std::nullopt;
     }
-    return candidates[CurrentGame().rng.below(count)];
+    return candidates[CurrentGame().rng.below(static_cast<std::uint32_t>(candidates.size()))];
 }
 
 /* Two seven-byte constant readers the range rules share. */
@@ -942,8 +937,9 @@ bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, const W8MonsterReco
         W8MonsterInfo* target_monster = FindMonster(target->iMonsterID);
         return MonsterAttackReachesMonster(monster_info, record, attack, target_monster);
     } else if (target->iType == W8_TARGET_KIND_PARTY) {
-        int party_slot = CurrentGame().party.randomSlot(CurrentGame().rng, 1, 1, -1, -1);
-        range = GetMonsterPartyTargetRange(monster_info, record, attack, party_slot);
+        const auto party_slot =
+            CurrentGame().party.randomSlot(CurrentGame().rng, PartySelectionFallback::AnyMember);
+        range = GetMonsterPartyTargetRange(monster_info, record, attack, party_slot.value_or(-1));
         if (range == W8_RANGE_NONE) {
             return false;
         }
@@ -960,27 +956,27 @@ bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, const W8MonsterReco
 }
 
 // FUNCTION: WIZ8 0x0051ad60
-int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
-                                   W8VisibilityCondition condition)
+W8MonsterInfo* FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
+                                              W8VisibilityCondition condition)
 {
-    int best_id = -1;
+    W8MonsterInfo* nearest = nullptr;
     float best = 999999.0f;
-    W8MonsterGroup* group = FindMonsterGroup(group_id);
-    for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {
-        int location_id = group->MemberLocationId(index);
+    for (int location_id : FindMonsterGroup(group_id)->MemberIds()) {
         W8MonsterInfo* target = FindMonster(location_id);
-        if (target->fActive && target->hp_current != 0 && target->pCombat) {
-            W8VisibilityRecord* row = FindMonToMonVisibility(monster_info, target);
-            if (IsVisibleUnderConditions(monster_info, row, condition)) {
-                float distance = monster_info->entity->GetDistanceToMonster(*target->entity);
-                if (distance < best) {
-                    best_id = target->location_id;
-                    best = distance;
-                }
-            }
+        if (!target->fActive || target->hp_current == 0 || !target->pCombat) {
+            continue;
+        }
+        W8VisibilityRecord* row = FindMonToMonVisibility(monster_info, target);
+        if (!IsVisibleUnderConditions(monster_info, row, condition)) {
+            continue;
+        }
+        float distance = monster_info->entity->GetDistanceToMonster(*target->entity);
+        if (distance < best) {
+            nearest = target;
+            best = distance;
         }
     }
-    return best_id;
+    return nearest;
 }
 
 /* The attack-origin offset for `kind` 1 (projectile) or 3 (spell): the

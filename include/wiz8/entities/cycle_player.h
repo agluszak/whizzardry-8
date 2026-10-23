@@ -128,7 +128,7 @@ public:
     glm::vec4 highlight_colour{0.0f};
     // The actor's appearance, applied to whichever model instance is active.
     std::string skin;
-    int damage_stage = -1;
+    std::optional<int> damage_stage;
     float light_scale = 1.0f;
     std::optional<float> emissive_override;
     // Set by actors whose model is scaled (monsters, with mirroring); others leave the

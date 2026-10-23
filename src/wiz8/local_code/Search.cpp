@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -56,8 +57,8 @@ struct W8Searchable {
     // Apply discovery to the item or trigger itself.
     void Reveal();
     /* The best searching party member within range of this
-       searchable, or -1. Practices the searching skill on a qualified pick. */
-    int PickBestSearcher(bool searching);
+       searchable, or nullptr. Practices the searching skill on a qualified pick. */
+    W8Character* PickBestSearcher(bool searching);
 
     W8WorldItem* world_item = nullptr;
     Trigger* trigger = nullptr;
@@ -160,9 +161,7 @@ static void RunSearchPulse(bool searching)
         {
             for (auto& candidate : candidates) {
                 auto* searchable = &candidate;
-                int slot = searchable->PickBestSearcher(searching);
-                if (slot != -1) {
-                    W8Character* character = &CurrentGame().party.characters[slot];
+                if (auto* character = searchable->PickBestSearcher(searching)) {
                     if (searchable->world_item == 0) {
                         if (searchable->trigger == 0) {
                             QueueCharacterEvent(character, 0x1a, 0, kCharacterEventFullVolume);
@@ -207,33 +206,21 @@ static void RunSearchPulse(bool searching)
                 }
             }
         }
-        if (!searching || IsLevelFastMovement()) {
-            /* Retail scans the party for a live member carrying the
-               Scouting skill and then discards the result. */
-            for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-                W8Character* character = &CurrentGame().party.characters[slot];
-                if (CurrentGame().party.members[slot].has_value() && character->hp_current != 0 &&
-                    character->highest_condition < W8_CONDITION_TURNCOAT &&
-                    character->skills[W8_SKILL_SCOUTING].level != 0) {
-                    break;
-                }
-            }
-        }
         if (searching && !IsLevelFastMovement() && !found && CurrentGame().rng.below(100) == 0) {
-            ApplyItemEffectToRandomCharacter(g_container_event, -1, 0);
+            ApplyItemEffectToRandomCharacter(g_container_event, std::nullopt, 0);
         }
     }
 }
 
 /* Pick the best searching party member for this searchable: eligible members
    score their Scouting skill (halved, quartered in the special level state)
-   plus a Senses-derived bonus; the detect-secrets party effect instead
-   force-picks random eligible members without practicing the skill. The pick
-   must also reach this searchable's position. */
-int W8Searchable::PickBestSearcher(bool searching)
+   plus a Senses-derived bonus. Detect Secrets may replace that winner without
+   skill practice; a retained skill winner still earns practice. The pick must
+   also reach this searchable's position. */
+W8Character* W8Searchable::PickBestSearcher(bool searching)
 {
     unsigned int best_score = 0;
-    int best_slot = -1;
+    W8Character* best = nullptr;
     bool earned = false;
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         W8Character* character = &CurrentGame().party.characters[slot];
@@ -270,16 +257,16 @@ int W8Searchable::PickBestSearcher(bool searching)
             if (best_score < score) {
                 earned = true;
                 best_score = score;
-                best_slot = slot;
+                best = character;
             }
         }
         if (CurrentGame().party.modifiers.detect_secrets != 0) {
-            if (best_slot != -1 && CurrentGame().rng.below(2) == 0) {
+            if (best != nullptr && CurrentGame().rng.below(2) == 0) {
                 continue;
             }
             best_score = 100;
             earned = false;
-            best_slot = slot;
+            best = character;
         }
     }
     float range = best_score * g_search_radius * kMovementSpeedStep;
@@ -289,12 +276,11 @@ int W8Searchable::PickBestSearcher(bool searching)
     glm::vec3 delta = camera - position;
     if (glm::length(delta) < range) {
         if (earned) {
-            PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[best_slot],
-                                   W8_SKILL_SCOUTING, 5, false);
+            PracticeCharacterSkill(CurrentGame(), best, W8_SKILL_SCOUTING, 5, false);
         }
-        return best_slot;
+        return best;
     }
-    return -1;
+    return nullptr;
 }
 
 bool Search::active() const

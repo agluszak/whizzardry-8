@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -93,11 +94,12 @@ struct W8NpcDialoguePanel {
     /* Repost the speaker's current quote after a modal sub-dialog closes, or clear the
        bubble when the speaker or its script went away. */
     void restoreQuoteBubble();
-    /* Show the quote bubble over `text`, or dismiss it and deliver what it held back:
-       the notice it carried and, at the end of a quote, the pending notice lines. */
-    void setQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
-                               int quote_id, unsigned int font_palette, W8QuoteNotice notice = {},
-                               int npc_kind = -1);
+    void showQuoteBubble(std::string_view text, std::optional<int> quote_id = {},
+                         std::optional<std::uint8_t> font_palette = {}, W8QuoteNotice notice = {},
+                         std::optional<int> npc_kind = {});
+    // Dismiss the bubble and deliver its deferred notice and pending quote lines.
+    void dismissQuoteBubble(const W8NpcScriptQuote* quote = nullptr,
+                            std::optional<int> quote_id = {});
 
     W8NpcSpeech speech;
     W8NpcPresentation presentation = W8NpcPresentation::none;
@@ -109,8 +111,7 @@ struct W8NpcDialoguePanel {
     std::unique_ptr<NpcDialogueUi> ui{};
     /* The cursor position of the last mouse event the region handler acted
        on; repeat events at the same point are dropped. */
-    int last_mouse_x{};
-    int last_mouse_y{};
+    std::optional<SDL_Point> last_mouse;
     /* The text-box line the mouse/wheel handlers last selected, -1 for none. */
     int hovered_text_line{};
     W8NpcTradeFilter trade_filter = W8_NPC_TRADE_FILTER_NONE;

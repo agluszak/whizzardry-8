@@ -654,9 +654,11 @@ static void script_record_contracts()
     REQUIRE((script.lines[0].text == "  MOVE 10" && script.lines[3].text == "FINAL"));
     REQUIRE((script.FindLabelLine("START") == 0 && script.FindLabelLine(prefix + "first") == 2 &&
              script.FindLabelLine(prefix + "second") == 3));
-    REQUIRE((script.FindLabelLine("missing") == -1 && script.FindLabelLine({}) == -1));
+    REQUIRE_FALSE(script.FindLabelLine("missing"));
+    REQUIRE_FALSE(script.FindLabelLine({}));
     REQUIRE((script.GetSourceLine(0) == 4 && script.GetSourceLine(3) == 10));
-    REQUIRE((script.GetSourceLine(-1) == -1 && script.GetSourceLine(4) == -1));
+    REQUIRE_FALSE(script.GetSourceLine(-1));
+    REQUIRE_FALSE(script.GetSourceLine(4));
     // Copies own their text and remain valid after the original is cleared.
     auto copy = script;
     script.Clear();
@@ -1649,14 +1651,20 @@ TEST_CASE("Monster group opaque disk fields survive gameplay edits and old saves
 {
     W8MonsterGroup group{};
     group.spawn_time = 0x80000003u;
+    const auto no_pick = wiz8::retail::encode(group);
+    const auto highlighted_offset = offsetof(wiz8::retail::MonsterGroup, highlighted_member);
+    REQUIRE(payload_word(no_pick, highlighted_offset) == 0xffffffffu);
+    group.highlighted_member = 0;
     auto bytes = wiz8::retail::encode(group);
     REQUIRE(payload_word(bytes, offsetof(wiz8::retail::MonsterGroup, spawn_time)) == 0x80000003u);
+    REQUIRE(payload_word(bytes, highlighted_offset) == 0);
     REQUIRE(bytes[0x2b] == std::byte{3});
     bytes[0x2b] = std::byte{0xa5};
     bytes[offsetof(wiz8::retail::MonsterGroup, active_member_count)] = std::byte{7};
     for (std::size_t i = 0xd4; i < bytes.size(); ++i) bytes[i] = std::byte(i);
     wiz8::retail::decode<W8MonsterGroup>(bytes, group);
     REQUIRE(group.spawn_time == 0x80000003u);
+    REQUIRE(group.highlighted_member == 0);
     REQUIRE(wiz8::retail::encode(group) == bytes);
     auto copy = group;
     copy.group_id = 17;
@@ -1674,6 +1682,8 @@ TEST_CASE("Monster group opaque disk fields survive gameplay edits and old saves
     std::fill_n(bytes.begin() + leader_offset, 4, std::byte{0xcd});
     wiz8::retail::decode<W8MonsterGroup>(bytes, group);
     REQUIRE(group.leader_location_id == 0);
+    wiz8::retail::decode<W8MonsterGroup>(no_pick, group);
+    REQUIRE_FALSE(group.highlighted_member);
 }
 
 TEST_CASE("Level asset paths select preprocessed levels and sky fallbacks", "[levels][filesystem]")

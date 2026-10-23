@@ -2512,7 +2512,6 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
     int sight;
     float reach;
     float minimum;
-    float path_distance;
     glm::vec3 party;
 
     if (MonsterGroupAllMembersDying(monster_group) || !monster_group->members_active) {
@@ -2542,10 +2541,9 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                     reach = minimum;
                 }
                 party = leader->entity->owner_world.party.position();
-                if (glm::length((leader->entity->nav.movement.position - party)) <= reach &&
-                    leader->entity->nav.FindNavigatorPathDistance(750.0f, &path_distance) &&
-                    path_distance <= reach) {
-                    return true;
+                if (glm::length((leader->entity->nav.movement.position - party)) <= reach) {
+                    const auto distance = leader->entity->nav.FindNavigatorPathDistance(750.0f);
+                    if (distance && *distance <= reach) return true;
                 }
                 break;
             }

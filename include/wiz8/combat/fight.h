@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string_view>
 
 #include "wiz8/rules/targeting.h"
@@ -47,7 +48,7 @@ void PointCameraAtCombatTarget(W8TargetSource* source, const W8CombatSlot* targe
 void SetUpMonsterTurn(W8MonsterInfo* monster_info);
 /* The condition interrupt that fires before the actor's action;
    returns the interrupt kind, or -1 when none fires. */
-int GetConditionInterrupt(W8TargetSource* source);
+std::optional<int> GetConditionInterrupt(W8TargetSource* source);
 void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
                             const W8ActionDetailBlock* data, int notify);
 bool IsPartyEngaged(void);

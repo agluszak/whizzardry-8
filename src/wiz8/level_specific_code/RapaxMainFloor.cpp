@@ -103,13 +103,10 @@ private:
 bool RapaxMainFloorScript::altarBox(Trigger* pTrigger)
 {
     glm::vec3 position;
-    int var_id;
 
     if (!ctx.status.rpc_active) {
-        var_id = GetLocationVarIDByName("LezboDemonAppeared");
-        if (var_id != -1) {
-            var_id = GetLocationVarValueByName("LezboDemonAppeared");
-            if (var_id == 1) {
+        if (GetLocationVarIDByName("LezboDemonAppeared")) {
+            if (GetLocationVarValueByName("LezboDemonAppeared") == 1) {
                 return true;
             }
             SetTriggerVariableByName("LezboDemonAppeared", 1);
