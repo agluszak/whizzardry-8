@@ -2591,7 +2591,6 @@ bool MainGameScreen::leave(ScreenDeparture departure)
             ReleasePartyMovement();
         }
 
-
         HideNpcQuoteBubbleRegion();
         ShutdownTextBoxRegions();
         DestroyFormationPanel();
