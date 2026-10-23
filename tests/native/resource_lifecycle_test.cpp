@@ -44,6 +44,7 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
@@ -817,4 +818,24 @@ TEST_CASE("Skill notices stay with the supplied game", "[resources][notices]")
     PostSkillIncreaseNotices(detached, notices);
     REQUIRE(detached.events.pending().size() == 2);
     REQUIRE(active.game.events.pending().empty());
+}
+
+TEST_CASE("Session replacement releases outgoing presentation before construction and clears failure",
+          "[lifetime][save]")
+{
+    ScopedGame scope;
+    auto* outgoing = scope.session.game();
+    scope.session.seed(1);
+    REQUIRE(outgoing->rng.next() == 41);
+    SavedGame saved;
+    saved.state.status.resume_level = 100; // No such level: fail without requiring retail assets.
+    bool released = false;
+    REQUIRE_THROWS_WITH(scope.session.load(std::move(saved), [&] {
+        REQUIRE(scope.session.game() == outgoing);
+        released = true;
+    }), "cannot construct saved level");
+    REQUIRE(released);
+    REQUIRE(scope.session.game() == nullptr);
+    REQUIRE_FALSE(GameInProgress());
+    REQUIRE(scope.session.begin().rng.next() == 18467);
 }

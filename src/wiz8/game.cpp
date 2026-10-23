@@ -10,6 +10,7 @@
 
 #include "wiz8/audio/soundman.h"
 #include "wiz8/combat/entity_signals.h"
+#include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/script_context.h"
@@ -76,6 +77,22 @@ Game& GameSession::begin()
     game.native_object_file = native_object_file;
     game.events.observe(observer_);
     return game;
+}
+
+void GameSession::load(SavedGame saved, std::function_ref<void()> release_presentation)
+{
+    // Ending combat can still present outcomes through the outgoing screen.
+    if (game_ && game_->combat) game_->endCombat(true);
+    release_presentation();
+    try {
+        std::move(saved).install(*this);
+        if (!LoadLevel(game_->status.resume_level, -1, true))
+            throw std::runtime_error("cannot construct saved level");
+    } catch (...) {
+        // Never leave a partially entered replacement available to screens.
+        end();
+        throw;
+    }
 }
 
 void GameSession::end()

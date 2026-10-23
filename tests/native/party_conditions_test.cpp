@@ -13,6 +13,7 @@
 #include "wiz8/data/records.h"
 #include "wiz8/game.h"
 #include "wiz8/live_party.h"
+#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
@@ -177,4 +178,47 @@ TEST_CASE_METHOD(PartyFixture, "A longer condition is not shortened, and aging l
     AgeCondition(game, 0, W8_CONDITION_ASLEEP, 5);
     REQUIRE(member().uiCondition[W8_CONDITION_ASLEEP] == 0);
     REQUIRE(member().highest_condition == W8_CONDITION_NONE);
+}
+
+TEST_CASE_METHOD(PartyFixture, "Absorbed damage publishes its notice after spending the shield",
+                 "[conditions][damage][events]")
+{
+    auto& shield = member().enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL];
+    shield.turns = 1;
+    shield.magnitude = 20;
+    const auto hp = member().hp_current;
+    unsigned int notices = 0;
+    game.events.observe([&](const Event& event) {
+        REQUIRE(std::holds_alternative<CharacterNotice>(event));
+        REQUIRE(shield.magnitude == 15);
+        REQUIRE(member().hp_current == hp);
+        ++notices;
+    });
+    REQUIRE(ApplyDamageToCharacter(0, 5, false, true, false, nullptr, false) == 0);
+    REQUIRE(notices == 1);
+}
+
+TEST_CASE_METHOD(PartyFixture, "Lethal damage completes without a screen and publishes settled outcomes",
+                 "[conditions][damage][events]")
+{
+    ScopedCombat fight{true};
+    member().hp_current = 5;
+    member().stamina = member().uiStaminaMax = 500;
+    unsigned int hits = 0;
+    unsigned int deaths = 0;
+    game.events.observe([&](const Event& event) {
+        REQUIRE(member().hp_current == 0);
+        REQUIRE(member().stamina == 0);
+        REQUIRE(game.combat->characters[0].dead);
+        REQUIRE(game.combat->pending_death_count == 1);
+        if (const auto* hit = std::get_if<CharacterDamaged>(&event)) {
+            ++hits;
+            REQUIRE(hit->amount == 5);
+            REQUIRE(hit->fatal);
+        }
+        if (std::holds_alternative<CharacterDied>(event)) ++deaths;
+    });
+    REQUIRE(ApplyDamageToCharacter(0, 99, false, true, false, nullptr, false) == 5);
+    REQUIRE(hits == 1);
+    REQUIRE(deaths == 1);
 }

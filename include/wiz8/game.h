@@ -36,6 +36,7 @@
 
 class NativeObject;
 struct GameData;
+struct SavedGame;
 struct World;
 
 /* The worlds the party is in: the loaded level and the sky drawn behind it. Each slot
@@ -215,6 +216,11 @@ public:
     /* Begin a new game, ending any in progress. It continues the previous game's random
        stream, and its events go to the observer. */
     Game& begin();
+    /* Replace a decoded game at the presentation boundary: end combat while its views
+       exist, release those views, install the saved owners and enter the saved level.
+       A construction failure ends the replacement and propagates to the caller.
+       Resource construction still requires the installed game; decoding is independent. */
+    void load(SavedGame saved, std::function_ref<void()> release_presentation);
     /* End the game in progress, if any, leaving its level (departure bookkeeping); the next
        game continues its random stream. */
     void end();

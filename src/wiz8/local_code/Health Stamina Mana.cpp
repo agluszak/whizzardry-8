@@ -41,7 +41,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_cycles.h"

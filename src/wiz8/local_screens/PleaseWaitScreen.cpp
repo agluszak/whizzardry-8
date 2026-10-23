@@ -174,16 +174,11 @@ void PleaseWaitScreen::frame()
             ReturnToPreviousScreen();
             return;
         }
-        // Finish combat while its controls exist; release the world after they leave.
-        if (GameInProgress() && CurrentGame().combat) CurrentGame().endCombat(true);
-        DiscardSuspendedScreensAbove(W8_SCREEN_MAIN_MENU);
         try {
-            std::move(*saved).install(games);
-            if (!LoadLevel(CurrentGame().status.resume_level, -1, true))
-                throw std::runtime_error("cannot construct saved level");
+            games.load(std::move(*saved), [] {
+                DiscardSuspendedScreensAbove(W8_SCREEN_MAIN_MENU);
+            });
         } catch (const std::exception& error) {
-            // Resource failure ends the replacement; never expose a partial session.
-            games.end();
             g_pending_main_menu_message = fmt::format("Cannot load {}: {}", name, error.what());
             RequestScreen({.id = W8_SCREEN_MAIN_MENU}, ScreenDeparture::Discard);
             return;
