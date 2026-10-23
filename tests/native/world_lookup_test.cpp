@@ -428,7 +428,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         record->hp_current = 5 * index;
         record->position = {index * 10.0f, 1.0f, -2.0f};
         record->enchantments[1].turns = 3;
-        auto& model = models.emplace_back(std::make_unique<Monster>(&world));
+        auto& model = models.emplace_back(std::make_unique<Monster>(world));
         model->location_id = index + 1;
         model->defining_orders = index == 0;
         model->patrol_distance = 4.5f;
