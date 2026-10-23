@@ -4870,9 +4870,9 @@ UiResult WorldViewInput(const UiPointerEvent& event)
             AfterUiDispatch([=] { OpenMonsterInfoDialog(MainGameHud()->highlighted_item); });
             return UiResult::Handled;
         }
-        if (!(CurrentGame().inventory.held()) && MainGameHud()->selected_item != -1 &&
-            !gpSCSV && !CurrentGame().activity.conversation && !ItemUseDraft() &&
-            !IsLockInteractionActive() && !IsTrapInteractionActive() &&
+        if (!(CurrentGame().inventory.held()) && MainGameHud()->selected_item != -1 && !gpSCSV &&
+            !CurrentGame().activity.conversation && !ItemUseDraft() && !IsLockInteractionActive() &&
+            !IsTrapInteractionActive() &&
             (!g_settings.ctrl_right_click_info || ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
             W8WorldItem* world_item = ItemInfo(ItemIndex(MainGameHud()->selected_item));
             PartyAttemptsToIdentifyItem(&world_item->item, 0);
