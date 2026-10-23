@@ -51,7 +51,9 @@
       "inherits": "linux",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "BUILD_TESTING": "ON"
+        "BUILD_TESTING": "ON",
+        "CMAKE_C_FLAGS_DEBUG": "-O1 -g1",
+        "CMAKE_CXX_FLAGS_DEBUG": "-O1 -g1 -Xclang -fno-pch-timestamp"
       }
     },
     {
