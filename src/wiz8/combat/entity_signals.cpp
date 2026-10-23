@@ -26,7 +26,6 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/world/simulation_sink.h"
 
 namespace {
@@ -49,7 +48,7 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
     W8MissileHitResult hit_result;
     unsigned char deflect_chance;
 
-    if (PartyNavigator() == &struck) {
+    if (&missile.owner_world.party.navigator == &struck) {
         if (TargetSourceIsCharacter(&missile.m_Source, 0)) {
             return false;
         }

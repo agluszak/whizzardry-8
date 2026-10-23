@@ -200,12 +200,11 @@ struct NavigatorMovement {
    below. It is GrCycle's ordinary second base, not a representation object. */
 class Navigator {
 public:
-    explicit Navigator(World* owner = nullptr);                         /* 0x00451EC0 */
-    Navigator(const Navigator& other) : Navigator(other, other.owner_world) {}
-    Navigator(const Navigator& other, World* owner); /* 0x00452220 */
+    explicit Navigator(World& owner); /* 0x00451EC0 */
+    Navigator(const Navigator&) = delete;
     Navigator& operator=(const Navigator&) = delete;
     LevelSpatialIndex* NavigationOctree() const;
-    World* const owner_world; // Null for persistent navigation, such as the party.
+    World& owner_world; // Whose geometry, population and registry it uses.
     ~Navigator();                /* 0x00452120 */
     /* Takes ownership, releasing the previous path. Null clears it;
        assigning the current path preserves it. GetPathAI only borrows. */

@@ -131,7 +131,7 @@ bool MtGigas1Script::pressurePlate(Trigger* pTrigger)
     if (plate_prop_ == 0) {
         return false;
     }
-    const glm::vec3 camera_position = cameraLocation(world());
+    const glm::vec3 camera_position = world().party.eye();
     position.x = camera_position.x;
     position.z = camera_position.z;
     const auto bounds = plate_prop_->computeBounds();

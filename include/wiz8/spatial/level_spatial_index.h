@@ -448,6 +448,8 @@ public:
     /* Whether no visible mesh polygon or attached collidable prop blocks the
        segment. */
     bool hasLineOfSight(const glm::vec3& from, const glm::vec3& to) const;
+    // Whether any of `bounds`' visibility samples is in sight of `from`.
+    bool hasLineOfSight(const glm::vec3& from, const BoundingBox& bounds) const;
     /* The walkable route a noise travels from `from` to `to` within `budget`
        when it is positive; no value when none exists. */
     std::optional<MeasuredPath> measureNoisePath(const glm::vec3& from, const glm::vec3& to,
@@ -461,13 +463,11 @@ public:
     /* Reset the shared buffer and collect one cell's leaf object ids. */
     std::size_t ProbeCellForTrace(const glm::ivec3& cell,
                                   OctreeScratch& scratch) const; /* 0x00435B00 */
-    /* Reset vs append variants collecting one cell's leaf polygon references
-       (mapped through m_aulPolyLookup into (mesh<<16)|polygon keys). */
+    /* Collects one cell's leaf polygon references (mapped through
+       m_aulPolyLookup into (mesh<<16)|polygon keys). */
     std::size_t ProbeCellForBlockers(const glm::ivec3& cell,
                                      OctreeScratch& scratch) const; /* 0x00435C40 */
     void AppendBlockerStream(const std::uint32_t* stream, OctreeScratch& scratch) const;
-    std::size_t ProbeCellForBlockersAppend(const glm::ivec3& cell,
-                                           OctreeScratch& scratch) const; /* 0x00435DA0 */
     /* Whether the segment meets any visible (mesh<<16)|polygon key's
        triangle. */
     bool meshPolygonsBlock(const PlaneSegment& segment,

@@ -53,8 +53,6 @@
 #include "wiz8/dialog_code/DialogBase.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/dialog_code/DialogInterface.h"
-#include "wiz8/dialog_code/DialogTextArea.h"
-#include "wiz8/dialog_code/DialogTextEntry.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/MonsterInfoDialog.h"
 #include "wiz8/difficulty.h"
@@ -1827,16 +1825,12 @@ void RefreshMainGameActionPanel(void)
     TrapInteraction()->RefreshActionPanel();
 }
 
-W8NpcDialogueTextController::W8NpcDialogueTextController()
+W8NpcDialogueTextController::W8NpcDialogueTextController(Game& owner) : game(owner)
 {
     visible = 0;
     line_height = scroll_height = CatalogArtwork::Load(0x1a9, 0).size(3).y;
     margin = CatalogArtwork::Load(0x1a9, 0).size(4).y;
-    W8ControlsRect bounds{0x1e2, 0x12d - line_height, 0x258, 0x12d};
-    text_area.Configure(&bounds, g_wiz_text_font_secondary,
-                        g_W8DialogTextAreaShortenText | g_W8DialogTextAreaPointSelection |
-                            g_W8DialogTextAreaNoWrap);
-    text_area.SetLineHeight(scroll_height);
+    bounds = {0x1e2, 0x12d - line_height, 0x258, 0x12d};
     expanded_target = &input.add(SDL_Rect{0, 0, 1, 1}, [this](const UiPointerEvent& event) {
         if (event.action != UiPointerAction::Up || event.captured_buttons)
             PlayButtonSound(event.action);
@@ -1847,15 +1841,18 @@ W8NpcDialogueTextController::W8NpcDialogueTextController()
             });
         else if (event.action == UiPointerAction::Wheel) {
             if (event.wheel > 0)
-                text_area.ScrollUp(false);
+                HandleScrollUpCommand(false);
             else
-                text_area.ScrollDown(false);
+                HandleScrollDownCommand(false);
             InvalidateAll();
         } else if (event.action == UiPointerAction::Leave) {
-            if (text_area.ClearPointSelection()) InvalidateLayout();
+            ClearHover();
         } else if (event.action == UiPointerAction::Move) {
-            if (text_area.UpdateSelectionFromPoint(event.position.x, event.position.y))
+            const auto hit = HitKeyword(event.position.y);
+            if (hovered != hit) {
+                hovered = hit;
                 InvalidateLayout();
+            }
         }
         return UiResult::Handled;
     });
@@ -1880,33 +1877,84 @@ void W8NpcDialogueTextController::Redraw(SDL_Surface& target, bool full_redraw)
             artwork.drawAndInvalidate(target, 4, 0x1dc, line_height - margin + top);
         }
     }
-    const bool text_dirty = text_area.TakeDirty();
-    if (full_redraw || text_dirty) {
-        text_area.Paint(target);
-        const auto& bounds = text_area.m_bounds;
+    if (full_redraw) {
+        PaintKeywords(target);
         InvalidateRegion(bounds.left, bounds.top, bounds.right, bounds.bottom);
     }
     m_dirty = false;
 }
 
-void W8NpcDialogueTextController::AddTranscriptEntry(std::string_view text,
-                                                     W8DialogueCategory category, bool marked)
+void W8NpcDialogueTextController::MarkNewKeyword(std::string_view text)
 {
-    const int added = text_area.AddEntry({}, text, 0, 7, static_cast<unsigned char>(category));
+    marked.emplace(text);
+}
+
+std::vector<std::size_t> W8NpcDialogueTextController::VisibleKeywords() const
+{
+    std::vector<std::size_t> rows;
+    if (!showing_notebook) return rows;
+    const auto& notebook = game.story.keywords;
+    const auto category = game.npc_interaction.dialogue_category_filter;
+    for (std::size_t index = 0; index < notebook.size(); ++index)
+        if (category == W8_DIALOGUE_CATEGORY_ALL || notebook[index].category == category)
+            rows.push_back(index);
+    if (game.story.keywords_sorted)
+        std::stable_sort(rows.begin(), rows.end(), [&](auto a, auto b) {
+            return CompareTextIgnoreAsciiCase(notebook[a].text, notebook[b].text) < 0;
+        });
+    return rows;
+}
+
+std::optional<std::size_t> W8NpcDialogueTextController::HitKeyword(int y) const
+{
+    if (y < bounds.top || y >= bounds.bottom) return std::nullopt;
+    const auto rows = VisibleKeywords();
+    const auto row = first + (y - bounds.top) / line_height;
+    return row < rows.size() ? std::optional{rows[row]} : std::nullopt;
+}
+
+void W8NpcDialogueTextController::HighlightFirstEntry()
+{
+    const auto rows = VisibleKeywords();
+    hovered = first < rows.size() ? std::optional{rows[first]} : std::nullopt;
     InvalidateLayout();
-    if (marked) {
-        text_area.SetEntryMarked(added, true);
+}
+
+void W8NpcDialogueTextController::ClearHover()
+{
+    if (hovered) {
+        hovered.reset();
+        InvalidateLayout();
     }
-    if (text_area.m_all_lines.size() > 1) {
-        for (int index = 0; index < static_cast<int>(text_area.m_all_lines.size()); ++index) {
-            if (CompareTextIgnoreAsciiCase(text_area.GetEntryText(index).value(),
-                                           W8_NO_KEYWORDS_PLACEHOLDER) == 0) {
-                text_area.RemoveEntry(index);
-                InvalidateAll();
-                break;
-            }
-        }
+}
+
+void W8NpcDialogueTextController::PaintKeywords(SDL_Surface& target)
+{
+    auto& font = g_wiz_text_font_secondary;
+    const auto previous = font.palette();
+    const auto rows = VisibleKeywords();
+    const int width = bounds.right - bounds.left;
+    const int inset = line_height >= static_cast<int>(font.height())
+                          ? (line_height - static_cast<int>(font.height()) + 1) / 2
+                          : 0;
+    ScopedClipRect clip(target, {bounds.left, bounds.top, width, bounds.bottom - bounds.top});
+    int y = bounds.top + inset;
+    if (showing_notebook && game.story.keywords.empty()) {
+        font.setPalette(g_font_state_palettes[7]);
+        DrawText(target, font, {bounds.left, y},
+                 ShortenTextToWidth(W8_NO_KEYWORDS_PLACEHOLDER, width - 5, font));
     }
+    for (std::size_t row = first; row < rows.size() && y < bounds.bottom; ++row, y += line_height) {
+        const auto index = rows[row];
+        const auto& text = game.story.keywords[index].text;
+        const int palette = selected == index       ? W8_FONT_PALETTE_YELLOW
+                            : marked.contains(text) ? W8_FONT_PALETTE_GREEN
+                            : hovered == index      ? W8_FONT_PALETTE_WHITE
+                                                    : 7;
+        font.setPalette(g_font_state_palettes[palette]);
+        DrawText(target, font, {bounds.left, y}, ShortenTextToWidth(text, width - 5, font));
+    }
+    font.setPalette(previous);
 }
 
 bool W8NpcDialogueTextController::IsSlotPortraitTranscriptCovered(unsigned int party_slot)
@@ -1940,7 +1988,6 @@ bool W8NpcDialogueTextController::IsSlotPortraitTranscriptCovered(unsigned int p
 
 void W8NpcDialogueTextController::Collapse()
 {
-    W8ControlsRect bounds;
     int top;
 
     visible = 0;
@@ -1974,22 +2021,17 @@ void W8NpcDialogueTextController::Collapse()
     bounds.right = 0x1dc + 0x7c;
     bounds.bottom = 0x11b + 0x12;
     bounds.top = bounds.bottom - line_height;
-    text_area.Configure(&bounds, g_wiz_text_font_secondary,
-                        g_W8DialogTextAreaNoWrap | g_W8DialogTextAreaPointSelection |
-                            g_W8DialogTextAreaShortenText);
     expanded_target->setEnabled(false);
     MainGame()->dialogue.ui->panels[3].dirty = true;
 }
 
 void W8NpcDialogueTextController::Expand()
 {
-    W8ControlsRect bounds;
-    int line_height;
     int text_height;
 
     visible = 1;
-    line_height = text_area.GetLineHeight();
-    text_height = line_height * text_area.GetTotalLineCount();
+    text_height = line_height *
+                  (game.story.keywords.empty() ? 1 : static_cast<int>(VisibleKeywords().size()));
     if (text_height >= 0xff) {
         text_height = 0xff;
     }
@@ -1998,11 +2040,8 @@ void W8NpcDialogueTextController::Expand()
     bounds.bottom = 0x11b + 0x12;
     bounds.top = bounds.bottom - text_height;
     scroll_height = text_height;
-    text_area.Configure(&bounds, g_wiz_text_font_secondary,
-                        g_W8DialogTextAreaNoWrap | g_W8DialogTextAreaPointSelection |
-                            g_W8DialogTextAreaShortenText);
     if (scroll_height != 0xff) {
-        text_area.SetFirstVisibleEntry(0);
+        first = 0;
     }
     expanded_target->setShape(SDL_Rect{bounds.left, bounds.top, bounds.right - bounds.left + 1,
                                        bounds.bottom - bounds.top + 1});
@@ -2049,9 +2088,11 @@ bool W8NpcDialogueTextController::IsExpanded()
     return scroll_height == 0xff;
 }
 
-void W8NpcDialogueTextController::SetTranscriptCategoryFilter(W8DialogueCategory category)
+void W8NpcDialogueTextController::RefreshNotebook()
 {
-    text_area.SetCategoryFilter(category);
+    first = 0;
+    hovered.reset();
+    selected.reset();
     Collapse();
     Expand();
     SyncNpcDialogueTranscriptScrollButtons();
@@ -2059,16 +2100,13 @@ void W8NpcDialogueTextController::SetTranscriptCategoryFilter(W8DialogueCategory
 
 void W8NpcDialogueTextController::ShowTranscriptEntries()
 {
-    const auto& notebook = CurrentGame().story.keywords;
     showing_notebook = true;
-    for (const auto& record : notebook) AddTranscriptEntry(record.text, record.category, false);
-    InvalidateAll();
-    if (notebook.empty()) {
-        CurrentGame().npc_interaction.dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
-        SetTranscriptCategoryFilter(CurrentGame().npc_interaction.dialogue_category_filter);
+    marked.clear();
+    if (game.story.keywords.empty()) {
+        game.npc_interaction.dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
         SyncDialogueCategoryButtons();
-        AddTranscriptEntry(W8_NO_KEYWORDS_PLACEHOLDER, W8_DIALOGUE_CATEGORY_ALL, false);
     }
+    RefreshNotebook();
 }
 
 void RefreshFlaggedMainGameState(void)
@@ -3732,7 +3770,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
             question = fmt::format("Enter test level {:c} ?", normalized + 2);
         }
         if (QueueNpcDepartureEvents(normalized)) {
-            placeParty(*GetWorld(), g_trigger_camera);
+            GetWorld()->party.place(g_trigger_camera);
             return;
         }
         SetMainGameMode(W8_MAIN_GAME_MODAL);
@@ -3743,7 +3781,7 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
             if (accepted) {
                 BeginLevelTransition(level_id, entry);
             } else {
-                placeParty(*GetWorld(), g_trigger_camera);
+                GetWorld()->party.place(g_trigger_camera);
             }
         };
         OpenModal(std::move(dialog));
@@ -3805,7 +3843,7 @@ void UpdateCombatPortraitStatus(void)
                     } else {
                         status = CharacterCanSwitchTo(
                                      slot, SelectCombatAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
-                                     false, false)
+                                     false)
                                      ? W8_COMBAT_PORTRAIT_READY
                                      : W8_COMBAT_PORTRAIT_CANNOT_SWITCH;
                     }
@@ -5936,38 +5974,52 @@ void ClearHighlightOverlayRegion(void)
 void W8NpcDialogueTextController::ClearTranscriptEntries()
 {
     showing_notebook = false;
-    while (!text_area.m_all_lines.empty()) {
-        text_area.RemoveEntry(0);
-    }
+    marked.clear();
+    selected.reset();
+    hovered.reset();
+    first = 0;
     InvalidateAll();
 }
 
 /* Forget the keyword on the selected visible line and drop its line. */
 void W8NpcDialogueTextController::RemoveSelectedTranscriptEntry()
 {
-    if (text_area.m_highlighted_entry != -1) {
-        int index = text_area.GetOwningEntryIndex(text_area.m_highlighted_entry);
-        if (index != -1) {
-            const std::string_view text = text_area.GetEntryText(index).value();
-            std::erase_if(CurrentGame().story.keywords,
-                          [&](const W8DialogueTranscriptRecord& record) {
-                              return CompareTextIgnoreAsciiCase(record.text, text) == 0;
-                          });
-            text_area.RemoveEntry(index);
-            InvalidateAll();
-        }
-    }
+    if (!selected) return;
+    auto& notebook = game.story.keywords;
+    const std::string text = notebook[*selected].text;
+    marked.erase(text);
+    std::erase_if(notebook, [&](const auto& entry) {
+        return CompareTextIgnoreAsciiCase(entry.text, text) == 0;
+    });
+    RefreshNotebook();
 }
 
 int W8NpcDialogueTextController::GetSelectedTranscriptEntryIndex()
 {
-    return text_area.m_highlighted_entry;
+    return selected ? static_cast<int>(*selected) : -1;
 }
 
-void W8NpcDialogueTextController::SetTranscriptSorted(bool sorted)
+bool W8NpcDialogueTextController::HandleScrollDownCommand(bool check_only)
 {
-    text_area.SetSorted(sorted);
-    InvalidateAll();
+    const auto count = VisibleKeywords().size();
+    if (first >= count ||
+        (count - first) * line_height <= static_cast<unsigned>(bounds.bottom - bounds.top))
+        return false;
+    if (!check_only) {
+        ++first;
+        InvalidateAll();
+    }
+    return true;
+}
+
+bool W8NpcDialogueTextController::HandleScrollUpCommand(bool check_only)
+{
+    if (first == 0) return false;
+    if (!check_only) {
+        --first;
+        InvalidateAll();
+    }
+    return true;
 }
 
 // Finish the transfer and its consequences before presenting the result.
@@ -6250,34 +6302,19 @@ void RestockNpcTradeStock(void)
 /* Highlight a clicked transcript keyword; clicking it again submits it to
    the dialogue input handler and clears its marked-entry palette. */
 
-void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int x, int y)
+void W8NpcDialogueTextController::SelectTranscriptKeywordAtPoint(int, int y)
 {
-    unsigned int hit;
-
-    if (CurrentGame().npc_interaction.modal_dialog_open) {
-        return;
-    }
-
-    hit = text_area.HitTestEntry(x, y);
-    if (hit == static_cast<unsigned int>(-1)) {
-        return;
-    }
-    const auto keyword = text_area.GetVisibleEntryText(hit);
-    if (!keyword) return;
-
-    if (text_area.m_highlighted_entry == static_cast<int>(hit)) {
-        text_area.ClearEntryHighlight();
-        text_area.HighlightVisibleEntry(static_cast<int>(hit));
-        SetDialogueFieldKeyword(std::string(*keyword), false);
+    if (game.npc_interaction.modal_dialog_open) return;
+    const auto hit = HitKeyword(y);
+    if (!hit) return;
+    const std::string keyword = game.story.keywords[*hit].text;
+    const bool submit = selected == hit;
+    selected = hit;
+    SetDialogueFieldKeyword(keyword, false);
+    if (submit) {
         HandleNpcDialogueInput();
-        text_area.SetEntryMarked(text_area.GetOwningEntryIndex(static_cast<int>(hit)), false);
-        InvalidateLayout();
-        return;
+        marked.erase(keyword);
     }
-
-    text_area.ClearEntryHighlight();
-    text_area.HighlightVisibleEntry(static_cast<int>(hit));
-    SetDialogueFieldKeyword(std::string(*keyword), false);
     InvalidateLayout();
 }
 

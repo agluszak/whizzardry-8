@@ -322,7 +322,7 @@ bool MtGigas2Script::umpaniAlarm(int command)
         if (alarm_gate_ || alarm_sound_ != 0) {
             return false;
         }
-        position = cameraLocation(world());
+        position = world().party.eye();
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }

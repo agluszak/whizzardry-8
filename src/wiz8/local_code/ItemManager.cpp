@@ -551,7 +551,7 @@ void UpdateNearbyWorldItems(void)
     unsigned int index;
     std::size_t count;
 
-    camera = cameraLocation(*GetWorld());
+    camera = GetWorld()->party.eye();
     count = CurrentLevelPopulation().world_items.size();
     for (index = 0; index < count; ++index) {
         W8WorldItem* item = ItemInfo(index);
@@ -605,7 +605,7 @@ std::optional<glm::vec3> FindItemDropPosition()
     auto* const index = GetWorldSpatialIndex();
     if (!index) return std::nullopt;
     glm::mat3 rotation;
-    rotation = cameraRotation(*GetWorld());
+    rotation = GetWorld()->party.rotation();
     glm::vec3 direction = ItemThrowDirection(GetCursorScaledPosition(), rotation);
 
     glm::vec3 camera = cameraLocation();

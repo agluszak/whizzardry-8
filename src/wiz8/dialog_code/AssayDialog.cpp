@@ -169,7 +169,7 @@ void W8AssayDialog::PopulateText()
     bounds.top = m_y + g_assay_text_area_offsets.top;
     bounds.right = m_x + g_assay_text_area_offsets.right;
     bounds.bottom = m_y + g_assay_text_area_offsets.bottom;
-    m_text_area.Configure(&bounds, g_wiz_text_font_secondary, 0);
+    m_text_area.Configure(&bounds, g_wiz_text_font_secondary);
     m_text_area.SetEntrySpacing(1);
     record = &Data().items[m_item.iItemNo];
     if (m_item.identified && record->damage_dice.count + record->damage_dice.base > 0) {
@@ -180,15 +180,15 @@ void W8AssayDialog::PopulateText()
         } else {
             text = fmt::format("{:+d}%", record->damage_dice.base * 10);
         }
-        m_text_area.AddEntry(Data().strings[0x8e8], text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8e8], text, 10, 0xf);
     }
     if (record->attack_hit_bonus != 0 && m_item.identified) {
         m_text_area.AddEntry(Data().strings[0x8b7], fmt::format("{:+d}", record->attack_hit_bonus),
-                             10, 0xf, 0);
+                             10, 0xf);
     }
     if (record->attack_damage_bonus != 0 && m_item.identified) {
         m_text_area.AddEntry(Data().strings[0x8b1],
-                             fmt::format("{:+d}", record->attack_damage_bonus), 10, 0xf, 0);
+                             fmt::format("{:+d}", record->attack_damage_bonus), 10, 0xf);
     }
     slot_mask = GetItemEquipSlotMask(Data(), m_item.iItemNo, true, true, true, true);
     count = 0;
@@ -205,7 +205,7 @@ void W8AssayDialog::PopulateText()
         }
     }
     if (count != 0) {
-        m_text_area.AddEntry(Data().strings[0x8e5], g_assay_entry_text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8e5], g_assay_entry_text, 10, 0xf);
     }
     if (GetItemDefaultEquipSlot(Data(), m_item.iItemNo, GameStarted()) != -1 &&
         Data().items[m_item.iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_AMMUNITION) {
@@ -223,7 +223,7 @@ void W8AssayDialog::PopulateText()
             text = Data().strings[0x8f9];
             palette = 0xf;
         }
-        m_text_area.AddEntry(Data().strings[0x8fd], text, 10, palette, 0);
+        m_text_area.AddEntry(Data().strings[0x8fd], text, 10, palette);
     }
     count = 0;
     for (bit = 0; bit < 8; ++bit) {
@@ -240,7 +240,7 @@ void W8AssayDialog::PopulateText()
         }
     }
     if (count != 0) {
-        m_text_area.AddEntry(Data().strings[0x913], g_assay_entry_text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x913], g_assay_entry_text, 10, 0xf);
     }
     if (m_item.identified) {
         count = 0;
@@ -267,12 +267,12 @@ void W8AssayDialog::PopulateText()
             }
         }
         if (count != 0) {
-            m_text_area.AddEntry(Data().strings[0x8d6], g_assay_entry_text, 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[0x8d6], g_assay_entry_text, 10, 0xf);
         }
         if (record->slays_kind != 0xff) {
             m_text_area.AddEntry(Data().strings[0x8d8],
                                  Data().strings[g_special_category_name_ids[record->slays_kind]],
-                                 10, 0xf, 0);
+                                 10, 0xf);
         }
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_SHIELD && m_character != 0 && m_item_worn) {
             m_text_area.AddEntry(
@@ -281,17 +281,17 @@ void W8AssayDialog::PopulateText()
                             m_character->armor_class_components[W8_AC_COMPONENT_SHIELD] -
                                 record->armor_class_bonus,
                             Data().strings[0x428]),
-                10, 0xf, 0);
+                10, 0xf);
         } else if (record->armor_class_bonus != 0) {
             m_text_area.AddEntry(Data().strings[0x8df],
-                                 fmt::format("{:+d}", record->armor_class_bonus), 10, 0xf, 0);
+                                 fmt::format("{:+d}", record->armor_class_bonus), 10, 0xf);
         }
     }
     if (record->property != 0) {
         m_text_area.AddEntry(
             Data().strings[0x8e9],
             Data().strings[g_item_use_messages[W8_ITEM_PROPERTY_MESSAGE_FIRST + record->property]],
-            10, 0xf, 0);
+            10, 0xf);
     }
     switch (record->equip_class) {
     case W8_ITEM_EQUIP_CLASS_SHORT_WEAPON:
@@ -302,7 +302,7 @@ void W8AssayDialog::PopulateText()
     case W8_ITEM_EQUIP_CLASS_POWDER:
         m_text_area.AddEntry(Data().strings[0x8e7],
                              Data().strings[g_spell_range_name_ids[record->range_category]], 10,
-                             0xf, 0);
+                             0xf);
         break;
     default:
         break;
@@ -312,7 +312,7 @@ void W8AssayDialog::PopulateText()
         if (record->weapon_skill != W8_SKILL_NONE) {
             m_text_area.AddEntry(Data().strings[0x8c8],
                                  Data().strings[g_character_skill_name_ids[record->weapon_skill]],
-                                 10, 0xf, 0);
+                                 10, 0xf);
         }
     } else {
         if (record->weapon_skill == W8_SKILL_NONE) {
@@ -322,7 +322,7 @@ void W8AssayDialog::PopulateText()
                                Data().strings[g_character_skill_name_ids[presentation_skill]],
                                Data().strings[g_character_skill_name_ids[record->weapon_skill]]);
         }
-        m_text_area.AddEntry(Data().strings[0x8c8], text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8c8], text, 10, 0xf);
     }
     count = 0;
     for (bit = 0; bit < 9; ++bit) {
@@ -338,7 +338,7 @@ void W8AssayDialog::PopulateText()
         }
     }
     if (count != 0) {
-        m_text_area.AddEntry(Data().strings[0x8d7], g_assay_entry_text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8d7], g_assay_entry_text, 10, 0xf);
     }
     if ((m_item.identified || m_item.spell_hint) && record->spell_id != W8_SPELL_NONE) {
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_INSTRUMENT ||
@@ -349,74 +349,74 @@ void W8AssayDialog::PopulateText()
             text = fmt::format("{} (Pwr {:d})", Data().spells[record->spell_id].display_name,
                                record->spell_power);
         }
-        m_text_area.AddEntry(Data().strings[0x8ea], text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8ea], text, 10, 0xf);
         if (record->equip_class == W8_ITEM_EQUIP_CLASS_SPELLBOOK) {
             m_text_area.AddEntry(Data().strings[0x8eb],
                                  fmt::format("{:d}", Data().spells[record->spell_id].spell_level),
-                                 10, 0xf, 0);
+                                 10, 0xf);
         }
     }
     if (m_item.identified) {
         if (record->quantity_kind == W8_ITEM_QUANTITY_CHARGES) {
             m_text_area.AddEntry(Data().strings[g_quantity_kind_name_ids[record->quantity_kind]],
-                                 fmt::format("{:d}", m_item.uses_or_charges), 10, 0xf, 0);
+                                 fmt::format("{:d}", m_item.uses_or_charges), 10, 0xf);
         }
         if (record->quantity_kind == W8_ITEM_QUANTITY_USES ||
             record->quantity_kind == W8_ITEM_QUANTITY_SHOTS) {
             m_text_area.AddEntry(Data().strings[g_quantity_kind_name_ids[record->quantity_kind]],
                                  fmt::format("{:d}/{:d}", m_item.uses_or_charges,
                                              record->initial_quantity.Maximum()),
-                                 10, 0xf, 0);
+                                 10, 0xf);
         }
         if (record->health_regen_bonus > 0) {
             m_text_area.AddEntry(Data().strings[0x8d9],
-                                 fmt::format("{:+d}", record->health_regen_bonus), 10, 0xf, 0);
+                                 fmt::format("{:+d}", record->health_regen_bonus), 10, 0xf);
         }
         if (record->health_regen_bonus < 0) {
             m_text_area.AddEntry(Data().strings[0x8da],
-                                 fmt::format("{:d}", record->health_regen_bonus), 10, 0xf, 0);
+                                 fmt::format("{:d}", record->health_regen_bonus), 10, 0xf);
         }
         if (record->stamina_regen_bonus > 0) {
             m_text_area.AddEntry(Data().strings[0x8db],
-                                 fmt::format("{:+d}", record->stamina_regen_bonus), 10, 0xf, 0);
+                                 fmt::format("{:+d}", record->stamina_regen_bonus), 10, 0xf);
         }
         if (record->stamina_regen_bonus < 0) {
             m_text_area.AddEntry(Data().strings[0x8dc],
-                                 fmt::format("{:d}", record->stamina_regen_bonus), 10, 0xf, 0);
+                                 fmt::format("{:d}", record->stamina_regen_bonus), 10, 0xf);
         }
         if (record->spell_regen_bonus > 0) {
             m_text_area.AddEntry(Data().strings[0x8dd],
-                                 fmt::format("{:+d}", record->spell_regen_bonus), 10, 0xf, 0);
+                                 fmt::format("{:+d}", record->spell_regen_bonus), 10, 0xf);
         }
         if (record->spell_regen_bonus < 0) {
             m_text_area.AddEntry(Data().strings[0x8de],
-                                 fmt::format("{:d}", record->spell_regen_bonus), 10, 0xf, 0);
+                                 fmt::format("{:d}", record->spell_regen_bonus), 10, 0xf);
         }
         if (record->modifier_0b3_index != -1 && record->modifier_0b3_value > 0) {
             modifier_text = fmt::format(
                 "{} {:+d}",
                 Data().strings[g_character_description_first_ids[record->modifier_0b3_index]],
                 record->modifier_0b3_value);
-            m_text_area.AddEntry(Data().strings[0x8c3], modifier_text, 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[0x8c3], modifier_text, 10, 0xf);
         }
         if (record->modifier_0b3_index != -1 && record->modifier_0b3_value < 0) {
             modifier_text = fmt::format(
                 "{} {:d}",
                 Data().strings[g_character_description_first_ids[record->modifier_0b3_index]],
                 record->modifier_0b3_value);
-            m_text_area.AddEntry(Data().strings[0x8c4], modifier_text, 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[0x8c4], modifier_text, 10, 0xf);
         }
         if (record->modifier_0b1_index != -1 && record->modifier_0b1_value > 0) {
             modifier_text = fmt::format(
                 "{} {:+d}", Data().strings[g_character_skill_name_ids[record->modifier_0b1_index]],
                 record->modifier_0b1_value);
-            m_text_area.AddEntry(Data().strings[0x8c5], modifier_text, 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[0x8c5], modifier_text, 10, 0xf);
         }
         if (record->modifier_0b1_index != -1 && record->modifier_0b1_value < 0) {
             modifier_text = fmt::format(
                 "{} {:d}", Data().strings[g_character_skill_name_ids[record->modifier_0b1_index]],
                 record->modifier_0b1_value);
-            m_text_area.AddEntry(Data().strings[0x8c6], modifier_text, 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[0x8c6], modifier_text, 10, 0xf);
         }
         count = 0;
         for (index = 0; index < 6; ++index) {
@@ -435,7 +435,7 @@ void W8AssayDialog::PopulateText()
             }
         }
         if (count != 0) {
-            m_text_area.AddEntry(Data().strings[0x8cb], g_assay_entry_text, 10, 0xf, 0);
+            m_text_area.AddEntry(Data().strings[0x8cb], g_assay_entry_text, 10, 0xf);
         }
     }
     if (record->gender_mask != 3) {
@@ -446,7 +446,7 @@ void W8AssayDialog::PopulateText()
         } else {
             text = Data().strings[0x910];
         }
-        m_text_area.AddEntry(Data().strings[0x8f3], text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8f3], text, 10, 0xf);
     }
     count = 0;
     g_assay_entry_text = "";
@@ -468,25 +468,25 @@ void W8AssayDialog::PopulateText()
         AppendAssayEntryText(text);
     }
     if (count != 0) {
-        m_text_area.AddEntry(Data().strings[0x8f4], g_assay_entry_text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x8f4], g_assay_entry_text, 10, 0xf);
     }
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_SPELLBOOK &&
         (m_item.identified || m_item.spell_hint) && m_character != 0) {
         if (m_character->spell_learned[record->spell_id] == 1) {
-            m_text_area.AddEntry({}, Data().strings[0x8ed], 10, 1, 0);
+            m_text_area.AddEntry({}, Data().strings[0x8ed], 10, 1);
         } else if (!CanCharacterLearnSpell(m_character, record->spell_id) &&
                    CanCastFromItem(m_character, &m_item)) {
-            m_text_area.AddEntry({}, Data().strings[0x8ec], 10, 0, 0);
+            m_text_area.AddEntry({}, Data().strings[0x8ec], 10, 0);
         }
     }
     if (record->maximum_quantity != 0) {
         m_text_area.AddEntry(Data().strings[0x8f8], fmt::format("{:d}", record->maximum_quantity),
-                             10, 0xf, 0);
+                             10, 0xf);
     }
     strcpy(path, "Data\\Databases\\ItemDesc.dbs");
     description = GetStringFromStringDatabase(path, m_item.iItemNo, 0, 0);
     if (description.size() != 0 && m_item.identified) {
-        m_text_area.AddEntry(Data().strings[0x90f], description, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x90f], description, 10, 0xf);
     }
     m_text_area.m_dirty = true;
 }

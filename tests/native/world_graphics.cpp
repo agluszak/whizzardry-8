@@ -201,7 +201,7 @@ TEST_CASE("world graphics")
     }
 
     CameraPose state{};
-    state = partyPose(*world);
+    state = world->party.pose();
     fprintf(stderr, "world: camera (%g %g %g) yaw %g pitch %g\n", state.position.x,
             state.position.y, state.position.z, state.orientation.yaw, state.orientation.pitch);
     unsigned enabled = 0;

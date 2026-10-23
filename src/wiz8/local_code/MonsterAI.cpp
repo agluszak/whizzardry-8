@@ -50,7 +50,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
@@ -180,7 +179,7 @@ void UpdateMonsterGroups(bool staggered)
     if (!staggered) {
         UpdateMonsterSight();
     }
-    camera_position = cameraLocation(*GetWorld());
+    camera_position = GetWorld()->party.eye();
     for (group_list_index = 0; group_list_index < CurrentLevelPopulation().monster_groups.size();
          ++group_list_index) {
         if (staggered && group_list_index % 5 != g_monster_group_tick % 5) {
@@ -376,7 +375,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
             (!monster_info->entity->face_party || monster_info->pathing_cooldown != 0 ||
              mode != W8_RT_AI_FACE_DIRECTION || !monster_info->player_visibility.line_of_sight ||
              glm::length((((monster_info->entity->nav.movement.position -
-                            PartyNavigator()->GetPosition())))) >= 5e+03f)) {
+                            monster_info->entity->owner_world.party.position())))) >= 5e+03f)) {
             monster_info->ai_mode &= ~W8_MONSTER_AI_REAPPLY_MODE;
         }
         if (decision <= W8_RT_AI_LINK_TO_PARTY || decision == W8_RT_AI_FOLLOW_LURE) {
@@ -409,7 +408,7 @@ bool ChooseMonsterRTAIMode(W8MonsterInfo* monster_info, unsigned char* decision)
         monster_info->player_visibility.line_of_sight) {
         glm::vec3 delta;
 
-        delta = monster.nav.movement.position - PartyNavigator()->GetPosition();
+        delta = monster.nav.movement.position - monster.owner_world.party.position();
         if (glm::length(delta) < 5e+03f) {
             glm::vec3 camera;
             glm::vec3 position;
@@ -922,7 +921,7 @@ members:
                 if (!waypoint_checked) {
                     leader = FindMonster(monster_group->leader_location_id);
                     if (leader != 0 && leader->fActive) {
-                        destination = PartyNavigator()->GetPosition();
+                        destination = leader->entity->owner_world.party.position();
                         source = leader->entity->nav.GetPosition();
                         waypoint_result =
                             GetWorldSpatialIndex()
@@ -2541,7 +2540,7 @@ bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                 if (reach <= minimum) {
                     reach = minimum;
                 }
-                party = PartyNavigator()->GetPosition();
+                party = leader->entity->owner_world.party.position();
                 if (glm::length((leader->entity->nav.movement.position - party)) <= reach) {
                     const auto distance = leader->entity->nav.FindNavigatorPathDistance(750.0f);
                     if (distance && *distance <= reach) return true;

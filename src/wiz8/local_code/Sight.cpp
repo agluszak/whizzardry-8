@@ -45,7 +45,6 @@
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
@@ -374,10 +373,10 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         !monster_info->fActive || monster_info->hp_current == 0) {
         return;
     }
-    viewing_distance = static_cast<float>(WorldGetFarClip(GetWorld()));
-    assert(viewing_distance > 0.0f);
     record = GetMonsterDataForInfo(monster_info);
     Monster& monster = *monster_info->entity;
+    viewing_distance = static_cast<float>(WorldGetFarClip(&monster.owner_world));
+    assert(viewing_distance > 0.0f);
     own_position = monster.nav.movement.position;
     own_position.y += monster.nav.movement.height_offset;
 
@@ -441,7 +440,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             if (!found) {
                                 clear = false;
                             } else {
-                                const auto hit = GetWorldSpatialIndex()->traceSight(
+                                const auto hit = monster.owner_world.compiledIndex()->traceSight(
                                     trace_position, other_position,
                                     {.locations = SightLocations{monster_info->location_id,
                                                                  other->location_id, true}});
@@ -457,8 +456,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             if (!found) {
                                 entry->los_flags[3] = false;
                             } else {
-                                entry->los_flags[3] = !GetWorldSpatialIndex()->traceSight(
-                                    trace_position, other_position);
+                                entry->los_flags[3] =
+                                    !monster.owner_world.compiledIndex()->traceSight(
+                                        trace_position, other_position);
                             }
                         }
                     }
@@ -564,7 +564,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
             if (!found) {
                 clear = false;
             } else {
-                const auto hit = GetWorldSpatialIndex()->traceSight(
+                const auto hit = monster.owner_world.compiledIndex()->traceSight(
                     trace_position, camera_position,
                     {.locations = SightLocations{monster_info->location_id, -1, true}});
                 // The spell-origin trace ends where this one stopped.
@@ -580,7 +580,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 monster_info->player_visibility.los_flags[3] = false;
             } else {
                 monster_info->player_visibility.los_flags[3] =
-                    !GetWorldSpatialIndex()->traceSight(trace_position, camera_position);
+                    !monster.owner_world.compiledIndex()->traceSight(trace_position,
+                                                                     camera_position);
             }
         }
     }
@@ -633,7 +634,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             npc_fade_flag, static_cast<int>(monster_info->party_threat.sight_state),
                             CurrentGame().party.modifiers.sight_override, distance);
 
-                        if (CurrentGame().status.search_mode) {
+                        if (CurrentGame().search.active()) {
                             threshold *= g_sight_threat_scale;
                         }
                         if (threshold >= distance) {
@@ -685,7 +686,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 npc->record->monster_bound == 0 &&
                                 ShowMonsterTargetMarker(monster_info) != 0) {
                                 glm::vec3 delta;
-                                delta = own_position - PartyNavigator()->GetPosition();
+                                delta = own_position - monster.owner_world.party.position();
                                 if (glm::length(delta) < 25000.0f &&
                                     (npc->party_noticed = true, !CurrentGame().surprise_possible) &&
                                     GetLoadedLevelID() != 4) {

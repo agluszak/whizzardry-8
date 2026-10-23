@@ -788,7 +788,7 @@ void ReachMainMenu(GameHarness& game)
 glm::vec3 PartyPosition()
 {
     CameraPose state{};
-    state = partyPose(*GetWorld());
+    state = GetWorld()->party.pose();
     return state.position;
 }
 
@@ -967,7 +967,7 @@ void Approach(GameHarness& game, int location_id, float stop)
         held = key;
     };
     for (int frame = 0; frame < 60 * 120 && !CurrentGame().combat.has_value(); ++frame) {
-        const CameraPose camera = partyPose(*GetWorld());
+        const CameraPose camera = GetWorld()->party.pose();
         const glm::vec3 target = monster->entity->nav.GetPosition();
         if (HorizontalDistance(target, camera.position) < stop) break;
         const float wanted = std::atan2(target.x - camera.position.x, target.z - camera.position.z);
