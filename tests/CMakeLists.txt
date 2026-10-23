@@ -190,9 +190,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if(WIZ8_LAVAPIPE_ICD)
         list(APPEND WIZ8_GRAPHICS_TEST_ENVIRONMENT "VK_DRIVER_FILES=${WIZ8_LAVAPIPE_ICD}")
     endif()
-    # CTest already runs one graphics test per core; lavapipe's default of a
-    # rasterizer thread per core in every test oversubscribes them.
-    list(APPEND WIZ8_GRAPHICS_TEST_ENVIRONMENT "LP_NUM_THREADS=1")
 endif()
 add_test(NAME native_gpu_rendering COMMAND native_gpu_rendering_test)
 set_tests_properties(native_gpu_rendering PROPERTIES
