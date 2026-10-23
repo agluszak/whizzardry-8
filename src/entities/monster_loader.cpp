@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstdlib>
 #include <cstring>
@@ -22,7 +23,6 @@
 #include "wiz8/audio/SoundEvent.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
-#include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/cycle_resources.h"
 #include "wiz8/entities/keyframe_track.h"
@@ -31,6 +31,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -40,6 +41,8 @@
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/light.h"
+#include "wiz8/render/material_loader.h"
+#include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_loader.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/picking.h"
@@ -47,33 +50,108 @@
 #include "wiz8/rules/random.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/update.h"
+#include "wiz8/world/world.h"
 
 static constexpr bool g_monster_gib_option = true;
 static constexpr double g_monster_light_color_scale = 1.0 / 255.0;
 /* Both skin directives ensure the base damage stage exists exactly once. */
-static void EnsureMonsterBaseSkin(Monster* monster, std::string_view monster_name,
+static void EnsureMonsterBaseSkin(MonsterDefinition& monster, std::string_view monster_name,
                                   int& damage_stage, bool& skins_started)
 {
     if (skins_started) return;
-    monster->visual.skin = monster_name;
-    damage_stage = monster->AddDamageStage(0);
-    monster->visual.damage_stage = damage_stage;
+    monster.skin = monster_name;
+    damage_stage = monster.AddDamageStage(0);
+    monster.damage_stage = damage_stage;
     skins_started = true;
+}
+
+std::vector<Mesh*> MonsterDefinition::CollectModelMeshes()
+{
+    std::vector<Mesh*> meshes;
+    const auto add = [&](const AnimationMesh* mesh) {
+        if (!mesh) return;
+        for (const auto& frame : mesh->frames)
+            if (frame.mesh && std::ranges::find(meshes, frame.mesh.get()) == meshes.end())
+                meshes.push_back(frame.mesh.get());
+    };
+    for (const auto& cycle : cycles) {
+        for (const auto& slot : cycle) {
+            const Animation* animation = slot.animation.get();
+            if (!animation) continue;
+            for (int lod = 0; lod < 3; ++lod) {
+                for (auto& part : animation->parts[lod]) add(&part.mesh);
+            }
+        }
+    }
+    return meshes;
+}
+
+/* Replace one named texture in a damage stage. Model instances own the normal
+   skin tables; shake particles are the fallback when no model uses the name. */
+bool MonsterDefinition::ReplaceSkinTexture(int stage, std::string_view old_name,
+                                           std::string_view new_name)
+{
+    std::string path;
+    bool replaced = false;
+
+    path = fmt::format("Data\\Monsters\\Bitmaps\\{}", new_name);
+    auto texture = LoadTextureFromPath(wiz8::asset_path(path), nullptr, true);
+    if (texture == 0) {
+        ShutdownWithErrorBox(fmt::format("Missing skin texture: {}", new_name));
+        return false;
+    }
+
+    if (texture->playback) texture->Prepare();
+    const auto table_name = fmt::format("{}{}", skin, stage);
+    for (Mesh* model : CollectModelMeshes()) {
+        for (auto* mesh : meshParts(model)) {
+            const int table = mesh->FindSkinTable(table_name);
+            if (table != -1 && mesh->replaceSkinTexture(table, old_name, texture)) replaced = true;
+        }
+    }
+
+    if (!replaced && !events.particles.empty()) {
+        for (auto& attachment : events.particles) {
+            auto* event = &attachment;
+            if (event->m_pstParticles->ReplaceTexture(old_name, texture) != 0) {
+                replaced = true;
+            }
+        }
+    }
+    return replaced;
+}
+
+/* A damage stage is a skin table on every mesh the species draws, named for the
+   skin and the stage number, so meshes shared with another species keep that
+   species' stages apart. Stage 0 starts from the authored textures and later
+   stages from stage 0. Meshes that already have the stage keep it. */
+int MonsterDefinition::AddDamageStage(int stage)
+{
+    const auto name = fmt::format("{}{}", skin, stage);
+    const auto base = fmt::format("{}0", skin);
+    const auto models = CollectModelMeshes();
+    if (models.empty()) return -1;
+    for (Mesh* model : models) {
+        for (auto* mesh : meshParts(model)) {
+            if (mesh->FindSkinTable(name) == -1)
+                mesh->CreateSkinTable(name, stage > 0 ? mesh->FindSkinTable(base) : -1);
+        }
+    }
+    ++damage_stage_count;
+    return stage;
 }
 
 /* Read a species' text-side representation as its definition: the MLS file
    supplies scalar movement settings, visual flags, sound/shake events, skin
    stages, lights, and the list of binary .mon cycles. The definition is never
    randomized; each actor rolls its own appearance. */
-static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_view monster_name,
-                                                      int location_id)
+static std::unique_ptr<MonsterDefinition>
+LoadMonsterDefinition(World& world, std::string_view monster_name, int location_id)
 {
-    std::unique_ptr<Monster> monster;
     bool success = true;
     bool flies = false;
     bool swims = false;
@@ -123,9 +201,8 @@ static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_
     std::string path;
     path = fmt::format("data\\Monsters\\{}.mls", monster_name);
     auto handle = wiz8::open_file(wiz8::asset_path(path), wiz8::OpenMode::read);
-    monster = std::make_unique<Monster>(world);
-    world->takeLegacyPropSaveId();
-    monster->visual.current_cycle = -1;
+    auto monster = std::make_unique<MonsterDefinition>();
+    world.takeLegacyPropSaveId();
 
     {
         std::istringstream input(handle->read_text());
@@ -206,7 +283,7 @@ static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_
             } else if (SDL_strcasecmp(command.c_str(), "animscript") == 0) {
             } else if (SDL_strcasecmp(command.c_str(), "script") == 0) {
                 fields >> argument;
-                monster->SetScript(argument.c_str(), true);
+                monster->script = LoadMonsterScript(argument);
             } else if (SDL_strcasecmp(command.c_str(), "opacity") == 0) {
                 fields >> opacity;
             } else if (SDL_strcasecmp(command.c_str(), "glow") == 0) {
@@ -231,7 +308,7 @@ static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_
                 has_light = true;
             } else if (SDL_strcasecmp(command.c_str(), "skin") == 0) {
                 fields >> argument;
-                EnsureMonsterBaseSkin(monster.get(), monster_name, damage_stage, skins_started);
+                EnsureMonsterBaseSkin(*monster, monster_name, damage_stage, skins_started);
                 if (SDL_strcasecmp(argument.c_str(), "default") != 0) {
                     ++skin_stage;
                     damage_stage = monster->AddDamageStage(skin_stage);
@@ -241,7 +318,7 @@ static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_
                 std::string new_name;
                 /* 0x004C0FA8..0x004C1070: a SKINSWAP with no SKIN before it
                    creates the base stage first, then swaps into that stage. */
-                EnsureMonsterBaseSkin(monster.get(), monster_name, damage_stage, skins_started);
+                EnsureMonsterBaseSkin(*monster, monster_name, damage_stage, skins_started);
                 fields >> old_name >> new_name;
                 if (damage_stage != -1 && !monster->ReplaceSkinTexture(
                                               damage_stage, old_name.c_str(), new_name.c_str())) {
@@ -261,41 +338,33 @@ static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_
                         if (GetRenderOptionState(W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS) == 0) {
                             cycle = NormalizeMonsterCycle(cycle);
                         }
-                        if (!monster ||
-                            monster->IsCycleSupported(static_cast<signed char>(cycle)) == 0 ||
+                        auto& slots = monster->cycles[cycle];
+                        if (slots.empty() ||
                             GetRenderOptionState(W8_RENDER_OPTION_ADDITIONAL_ANIMATIONS) != 0) {
                             float animation_scale = -1.0f;
                             fields >> animation_scale;
 
                             success = loadAnimationCycle(
-                                argument, monster->visual, cycle, "data\\monsters",
+                                argument, monster->events, cycle, "data\\monsters",
                                 [&](LevelLoadContext& read_info, int read_cycle) {
-                                    return monster->ReadCycleData(&read_info, read_cycle) != 0;
+                                    return monster->ReadCycleData(read_info, read_cycle);
                                 });
-                            if (!monster->visual.particles.empty()) {
-                                for (int index = 0;
-                                     index < static_cast<int>(monster->visual.particles.size());
-                                     ++index) {
-                                    ParticleAttachment* event = &monster->visual.particles[index];
-                                    if (event->cycle == cycle && event->subcycle == -1) {
-                                        event->subcycle = monster->visual.current_subcycle;
-                                    }
+                            if (!slots.empty()) {
+                                const auto current = static_cast<signed char>(slots.size() - 1);
+                                for (auto& event : monster->events.particles) {
+                                    if (event.cycle == cycle && event.subcycle == -1)
+                                        event.subcycle = current;
                                 }
-                            }
-                            if (animation_scale > 0.0f) {
-                                Monster* rep = monster.get();
-                                int current = rep->visual.current_subcycle;
+                                if (animation_scale > 0.0f) {
+                                    slots.back().animation->playback_scale = animation_scale;
+                                    slots.back().playback_scale = animation_scale;
+                                }
+                            } else if (animation_scale > 0.0f) {
                                 /* 0x004C128A: a missing subcycle is fatal, as in
                                    every other retail cycle lookup. */
-                                if (static_cast<int>(rep->cycles[cycle].size()) <= current) {
-                                    ShutdownWithErrorBox(
-                                        fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
-                                                    rep->name, g_cycle_names[cycle].name, current));
-                                }
-                                Animation* animation =
-                                    monster->cycles[cycle][current].animation.get();
-                                animation->playback_scale = animation_scale;
-                                monster->cycles[cycle][current].playback_scale = animation_scale;
+                                ShutdownWithErrorBox(
+                                    fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
+                                                monster_name, g_cycle_names[cycle].name, 0));
                             }
                         }
                     }
@@ -327,7 +396,7 @@ static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_
                         auto sound = W8SoundEvent(sound_type, sound_cycle, frame, subcycle - 1,
                                                   wave_path.c_str(),
                                                   SDL_strcasecmp(loop_name.c_str(), "LOOP") == 0);
-                        last_sound = &monster->visual.AddSoundEvent(std::move(sound));
+                        last_sound = &monster->events.sound_events.emplace_back(std::move(sound));
                         if (last_sound != nullptr) {
                             last_sound->location_id = location_id;
                             last_sound->volume_min =
@@ -356,7 +425,7 @@ static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_
                         effect.frame = frame;
                         effect.cycle = shake_cycle;
                         effect.subcycle = subcycle - 1;
-                        monster->visual.AddShakeEffect(effect);
+                        monster->events.shake_events.push_back(effect);
                     } else {
                         throw std::runtime_error(
                             fmt::format("{}: unrecognized command \"{}\"", path, command));
@@ -368,136 +437,138 @@ static std::unique_ptr<Monster> LoadMonsterDefinition(World* world, std::string_
         handle.reset();
     }
 
-    Monster* representation = monster.get();
-    representation->name = monster_name;
+    monster->asset_name = monster_name;
     if (scale_range_start != -1.0f && scale_range_end != -1.0f) {
-        representation->minimum_scale = scale_range_start;
-        representation->maximum_scale = scale_range_end;
+        monster->minimum_scale = scale_range_start;
+        monster->maximum_scale = scale_range_end;
         scale_factor = (scale_range_end - scale_range_start) * 0.5f + scale_range_start;
     }
-    representation->scale = scale_factor;
-    representation->death_scale = death_scale;
+    monster->scale = scale_factor;
+    monster->death_scale = death_scale;
 
-    /* The world scale follows the largest radius any monster reaches. */
-    if (walk_radius != 0.0f) {
-        walk_radius *= kWorldScale;
-        monster->nav.movement.collision_radius = walk_radius;
-        if (world->compiledIndex() &&
-            world->compiledIndex()->registry.maximum_navigation_radius < walk_radius) {
-            world->compiledIndex()->registry.maximum_navigation_radius = walk_radius;
-        }
-    }
-    if (fight_radius != 0.0f) {
-        fight_radius *= kWorldScale;
-        monster->nav.movement.alternate_radius = fight_radius;
-        if (world->compiledIndex() &&
-            world->compiledIndex()->registry.maximum_navigation_radius < fight_radius) {
-            world->compiledIndex()->registry.maximum_navigation_radius = fight_radius;
-        }
-    }
-    if (target_height != 0.0f) {
-        target_height *= kWorldScale;
-        if (target_height < 250.0f) target_height = 250.0f;
-        monster->nav.movement.height_offset = target_height;
-    }
-    if (camera_height != 0.0f) {
-        monster->nav.movement.secondary_height_offset = camera_height * kWorldScale;
-    }
+    if (walk_radius != 0.0f) monster->collision_radius = walk_radius * kWorldScale;
+    if (fight_radius != 0.0f) monster->alternate_radius = fight_radius * kWorldScale;
+    if (target_height != 0.0f)
+        monster->height_offset = std::max(target_height * kWorldScale, 250.0f);
+    if (camera_height != 0.0f) monster->secondary_height_offset = camera_height * kWorldScale;
 
     if (!random_idle_range) {
         idle_fps_start = -3.0f;
         idle_fps_end = 3.0f;
     }
-    if (static_cast<int>(representation->cycles[1].size()) < 1) {
+    if (monster->cycles[W8_MONSTER_CYCLE_IDLE].empty()) {
         ShutdownWithErrorBox(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
-                                         representation->name, g_cycle_names[1].name, 0));
+                                         monster_name, g_cycle_names[1].name, 0));
     }
-    Animation* idle = representation->cycles[1][0].animation.get();
-    if (idle != 0) {
-        representation->random_idle = true;
-        representation->idle_playback_scale = idle->playback_scale;
-        representation->random_idle_fps_min = idle_fps_start;
-        representation->random_idle_fps_max = idle_fps_end;
-    }
+    Animation& idle = *monster->cycles[W8_MONSTER_CYCLE_IDLE].front().animation;
+    monster->random_idle = true;
+    monster->idle_playback_scale = idle.playback_scale;
+    monster->random_idle_fps_min = idle_fps_start;
+    monster->random_idle_fps_max = idle_fps_end;
     if (missile_start > 0) monster->missile_frame = missile_start;
     if (spell_start > 0) monster->spell_frame = spell_start;
-    if (has_lod_range) {
-        representation->visual.lod_near = lod_range_start * kWorldScale;
-        representation->visual.lod_far = lod_range_end * kWorldScale;
-    }
-    if (opacity >= 0.0f && opacity < 1.0f) {
-        monster->visual.opacity = opacity;
-    }
-    if (glow > 0.0f) monster->visual.emissive_override = glow;
+    if (has_lod_range)
+        monster->lod_range = {lod_range_start * kWorldScale, lod_range_end * kWorldScale};
+    if (opacity >= 0.0f && opacity < 1.0f) monster->opacity = opacity;
+    if (glow > 0.0f) monster->emissive_override = glow;
 
     monster->hover_base_min = hover_range_start;
     monster->hover_base_max = hover_range_end;
     monster->bob_amplitude_min = bob_range_start;
     monster->bob_amplitude_max = bob_range_end;
     if (shadow_width != 0.0f) {
-        if (shadow_width < 0.0f) {
-            shadow_width = monster->nav.movement.collision_radius * 0.002f;
-        }
+        if (shadow_width < 0.0f) shadow_width = monster->collision_radius * 0.002f;
         if (shadow_depth == 0.0f) shadow_depth = shadow_width;
-        monster->visual.CreateGroundShadow(shadow_width * kWorldScale, shadow_depth * kWorldScale);
+        monster->ground_shadow = {shadow_width * kWorldScale, shadow_depth * kWorldScale};
     }
-    representation->left_handed = left_handed;
-    representation->special_movement = (flies || swims || full_transition) ? 1 : 0;
+    monster->left_handed = left_handed;
+    monster->special_movement = flies || swims || full_transition;
 
-    if (has_light && representation->monster_light == 0) {
-        representation->monster_light = std::make_unique<Light>(
-            (world->scene.get()), light_pulsing, monster->nav.movement.collision_radius * 3.0f,
-            &light_first, &light_second);
-        std::get<MonsterLightAnim>(representation->monster_light->animator).vertical_offset =
-            monster->nav.movement.height_offset;
+    if (has_light) {
+        monster->light = std::make_unique<Light>(
+            nullptr, light_pulsing, monster->collision_radius * 3.0f, &light_first, &light_second);
+        std::get<MonsterLightAnim>(monster->light->animator).vertical_offset =
+            monster->height_offset;
     }
 
-    representation->visual.current_subcycle = 0;
-    monster->SetCycle(1);
-    monster->visual.SetSubCycle(0);
-    const auto bounds = monster->GetAnimationBounds();
+    /* The navigator's bounds are the idle pose's, at the finest level of detail
+       the animation has; the frame bounds .mon files record do not depend on it. */
+    const signed char lod = idle.frame(2, 0) ? 2 : idle.frame(1, 0) ? 1 : 0;
+    auto bounds = AnimObjGetBounds(&idle, lod, 0);
     if (!bounds) return nullptr;
-    monster->nav.SetBounds(*bounds);
+    bounds->minimum *= monster->scale;
+    bounds->maximum *= monster->scale;
+    monster->bounds = *bounds;
     if (movement_rate < 0.1f) movement_rate = 2.0f;
-    monster->nav.SetMovementScale(movement_rate);
-    monster->nav.SetTurnRate(rotation_rate * static_cast<float>(kMotionFullTurnRadians));
+    monster->movement_scale = movement_rate;
+    monster->turn_rate = rotation_rate * static_cast<float>(kMotionFullTurnRadians);
 
-    W8NavigatorMode navigation_mode = W8_NAVIGATOR_MODE_GROUNDED;
     if (flies)
-        navigation_mode = W8_NAVIGATOR_MODE_FLYING;
+        monster->navigation_mode = W8_NAVIGATOR_MODE_FLYING;
     else if (swims)
-        navigation_mode = W8_NAVIGATOR_MODE_SWIMMING;
+        monster->navigation_mode = W8_NAVIGATOR_MODE_SWIMMING;
     else if (quadruped)
-        navigation_mode = W8_NAVIGATOR_MODE_QUADRUPED;
+        monster->navigation_mode = W8_NAVIGATOR_MODE_QUADRUPED;
     else if (crawls)
-        navigation_mode = W8_NAVIGATOR_MODE_CRAWLING;
-    monster->nav.SetNavigationMode(navigation_mode);
-    if (spice_monster) {
-        /* 0x004C1CC5..0x004C1CD7: byte stores to +0x332, +0xa0 (navigator
-           active) and +0x14e (movement boundary_enabled). */
-        monster->hostility_preserved = true;
-        monster->nav.active = false;
-        monster->nav.movement.boundary_enabled = false;
-    }
+        monster->navigation_mode = W8_NAVIGATOR_MODE_CRAWLING;
+    else
+        monster->navigation_mode = W8_NAVIGATOR_MODE_GROUNDED;
+    /* 0x004C1CC5..0x004C1CD7: byte stores to +0x332, +0xa0 (navigator active)
+       and +0x14e (movement boundary_enabled). */
+    monster->hostility_preserved = spice_monster;
 
-    monster->asset_name = monster_name;
     return success ? std::move(monster) : nullptr;
 }
 
-/* Take a loaded definition out of the live world: nothing of it is drawn, lit,
-   baked or collided with. Actors copied from it attach their own lights and
-   particles and register their own navigators. */
-static void WithdrawMonsterDefinition(World& world, Monster& definition)
+/* Each new monster rolls its own handedness, size, idle pace and hover/bob
+   motion from the species' ranges, in that order. */
+static void RollAppearance(Monster& monster, const MonsterDefinition& species)
 {
-    for (auto& cycle : definition.cycles)
-        for (auto& slot : cycle)
-            for (auto& light : slot.lights.lights) light->setScene(nullptr);
-    definition.visual.WithdrawFromScene();
-    if (definition.monster_light) definition.monster_light->setScene(nullptr);
-    std::erase(world.navigators, &definition.nav);
+    auto& rng = monster.owner_world.rng();
+    /* 0x004C1D3D: cmp/setl - a signed test against the LEFTHANDED percent. */
+    monster.visual.mirror_x = static_cast<int>(rng.below(100)) < species.left_handed;
+
+    if (species.minimum_scale != 0.0f && species.maximum_scale != 0.0f) {
+        assert(species.minimum_scale <= species.maximum_scale);
+        monster.scale = (species.maximum_scale - species.minimum_scale) * rng.below(1000) * 0.001f +
+                        species.minimum_scale;
+    }
+
+    if (species.random_idle) {
+        const float playback_scale =
+            (species.random_idle_fps_max - species.random_idle_fps_min) * rng.below(1000) * 0.001f +
+            species.random_idle_fps_min;
+        const float scale = std::max(playback_scale + species.idle_playback_scale, 1.0f);
+        for (auto& slot : monster.cycles[W8_MONSTER_CYCLE_IDLE]) {
+            slot.animation->playback_scale = scale;
+            slot.playback_scale = scale;
+        }
+    }
+
+    auto& movement = monster.nav.movement;
+    movement.vertical_base = ((species.hover_base_max - species.hover_base_min) *
+                                  static_cast<float>(rng.below(1000)) * 0.001f +
+                              species.hover_base_min) *
+                             kWorldScale;
+    movement.vertical_amplitude = ((species.bob_amplitude_max - species.bob_amplitude_min) *
+                                       static_cast<float>(rng.below(1000)) * 0.001f +
+                                   species.bob_amplitude_min) *
+                                  kWorldScale;
+    movement.vertical_phase = rng.below(1000) * 0.001f;
+    movement.vertical_offset =
+        static_cast<float>(sin(movement.vertical_phase * kMotionFullTurnRadians)) *
+            movement.vertical_amplitude +
+        movement.vertical_base;
+    movement.height_offset += movement.vertical_base;
+    movement.secondary_height_offset += movement.vertical_base;
+
+    if (monster.visual.opacity < 1.0f) {
+        monster.visual.instance_scale = monster.visual.opacity;
+        monster.visual.apply_instance_scale = true;
+    }
 }
 
-/* A new actor of a species, copied from the species' definition and given its
+/* A new actor of a species, created from the species' definition and given its
    own appearance roll. The definition is loaded on first use and kept for the
    world's lifetime, so creating an actor never depends on another actor. */
 std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view monster_name,
@@ -508,14 +579,13 @@ std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view m
         return CompareTextIgnoreAsciiCase(candidate->asset_name, monster_name) == 0;
     });
     if (definition == definitions.end()) {
-        auto loaded = LoadMonsterDefinition(world, monster_name, location_id);
+        auto loaded = LoadMonsterDefinition(*world, monster_name, location_id);
         if (!loaded) return nullptr;
-        WithdrawMonsterDefinition(*world, *loaded);
         definitions.push_back(std::move(loaded));
         definition = definitions.end() - 1;
     }
-    auto monster = std::make_unique<Monster>(**definition, world);
-    monster->RandomizeAppearanceAndMotion(world->rng());
+    auto monster = std::make_unique<Monster>(**definition, *world);
+    RollAppearance(*monster, **definition);
     // Retail gave the MLS script only to an actor created while none of its
     // species was alive; the others were copied without one.
     if ((*definition)->script && std::ranges::none_of(world->monsters, [&](const auto& live) {
@@ -567,43 +637,16 @@ W8MonsterCycle ParseMonsterCycleName(std::string_view name, signed char* subcycl
     return cycle;
 }
 
-/* Read one animation/subcycle into the Monster representation.  The current
-   subcycle is the newly appended animation slot; its playback scale and light
-   list are owned by a single cycle slot. */
-unsigned char Monster::ReadCycleData(LevelLoadContext* info, int cycle_index)
+/* Append one animation to a cycle, keeping its lights in the slot that owns
+   it. A path-list animation's tracks loop discretely at the animation's pace. */
+bool MonsterDefinition::ReadCycleData(LevelLoadContext& info, int cycle_index)
 {
+    assert(info.hFile != 0);
     EmitterLights lights;
-    Animation* animation;
-    unsigned char success;
-    signed char cycle;
-
-    assert(info != 0 && info->hFile != 0);
-
-    auto owner = std::make_unique<Animation>();
-    animation = owner.get();
-    success = AnimObjReadFromFile(info, animation, &lights.lights);
-    if (!success) return 0;
-    if (cycle_index == W8_MONSTER_CYCLE_NONE) {
-        cycle_index = static_cast<signed char>(animation->cycle);
-    }
-    cycle = static_cast<signed char>(cycle_index);
-    assert(cycle >= W8_MONSTER_CYCLE_BIRTH && cycle < W8_MONSTER_CYCLE_COUNT);
-
-    auto& installed =
-        cycles[cycle].emplace_back(std::move(lights), std::move(owner), animation->playback_scale);
-    visual.active_animation = animation;
-    visual.current_subcycle = static_cast<signed char>(cycles[cycle].size() - 1);
-
-    visual.rep_active = true;
-    visual.frame_direction = W8_ANIMATION_FORWARD;
-    visual.m_bLOD = 2;
-    visual.timer = GameClockMilliseconds();
-    visual.animation_behaviour = animation->behaviour;
-    visual.frame_method = animation->frame_method;
-    visual.animation_playing = animation->animation_playing;
-    if (visual.current_cycle == -1) {
-        visual.current_cycle = cycle;
-    }
+    auto animation = std::make_unique<Animation>();
+    if (!AnimObjReadFromFile(&info, animation.get(), &lights.lights)) return false;
+    if (cycle_index == W8_MONSTER_CYCLE_NONE) cycle_index = animation->cycle;
+    assert(cycle_index >= W8_MONSTER_CYCLE_BIRTH && cycle_index < W8_MONSTER_CYCLE_COUNT);
 
     for (auto& group : animation->parts) {
         for (auto& part : group) {
@@ -614,26 +657,26 @@ unsigned char Monster::ReadCycleData(LevelLoadContext* info, int cycle_index)
             }
         }
     }
-
-    if (!installed.lights.lights.empty()) visual.SetLights(&installed.lights.lights);
-    return success;
+    const float playback_scale = animation->playback_scale;
+    cycles[cycle_index].emplace_back(std::move(lights), std::move(animation), playback_scale);
+    return true;
 }
 
+/* A monster made from one .mon file, as the 3D cursor is: no MLS settings and
+   no appearance roll. */
 std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_name, int cycle)
 {
-    auto monster = std::make_unique<Monster>(world);
+    MonsterDefinition definition;
     world->takeLegacyPropSaveId();
-    monster->visual.current_cycle = -1;
-    if (!loadAnimationCycle(mon_name, monster->visual, cycle, "data\\monsters",
+    if (!loadAnimationCycle(mon_name, definition.events, cycle, "data\\monsters",
                             [&](LevelLoadContext& read_info, int read_cycle) {
-                                return monster->ReadCycleData(&read_info, read_cycle) != 0;
+                                return definition.ReadCycleData(read_info, read_cycle);
                             }))
         return nullptr;
-    for (auto& event : monster->visual.particles) {
-        if (event.cycle == cycle && event.subcycle == -1)
-            event.subcycle = monster->visual.current_subcycle;
+    for (auto& event : definition.events.particles) {
+        if (event.cycle == cycle && event.subcycle == -1) event.subcycle = 0;
     }
-    return monster;
+    return std::make_unique<Monster>(definition, *world);
 }
 
 /* Pass a copied position through Navigator's collision adjustment and install

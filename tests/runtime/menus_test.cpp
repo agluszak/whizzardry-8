@@ -305,14 +305,14 @@ void GameStartScenario()
     GameHarness game(false);
     StartGame(game);
     CameraPose start{};
-    start = partyPose(*GetWorld());
+    start = GetWorld()->party.pose();
     // Hold the forward key until the camera has moved, through the real binding.
     game.hold_key(SDLK_UP, true);
     CameraPose now{};
     game.wait(
         "walk",
         [&] {
-            now = partyPose(*GetWorld());
+            now = GetWorld()->party.pose();
             const float dx = now.position.x - start.position.x,
                         dz = now.position.z - start.position.z;
             return std::sqrt(dx * dx + dz * dz) > 1.0f;

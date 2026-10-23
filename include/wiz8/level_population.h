@@ -33,6 +33,12 @@ struct W8LevelPopulation {
                 if (info->location_id == id) return info.get();
         return nullptr;
     }
+    // The live monster at `id`, if one is in the world.
+    Monster* findEntity(int id) const
+    {
+        const auto* info = findMonster(id);
+        return info ? info->entity.find() : nullptr;
+    }
     auto activeMemberCount(const W8MonsterGroup& group) const
     {
         return std::ranges::count_if(group.MemberIds(), [this](int id) {

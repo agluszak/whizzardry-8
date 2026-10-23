@@ -210,8 +210,8 @@ TEST_CASE_METHOD(AudioFixture, "Ambient commands operate on their supplied world
     auto& active = *GetWorld();
     StandaloneWorld standalone_candidate;
     World& candidate = standalone_candidate.world;
-    placeParty(active, glm::vec3(1000));
-    placeParty(candidate, glm::vec3(0));
+    active.party.place(glm::vec3(1000));
+    candidate.party.place(glm::vec3(0));
     for (auto* world : {&active, &candidate}) {
         auto sound = std::make_unique<W8AmbientSound>();
         sound->name = "shared-name";

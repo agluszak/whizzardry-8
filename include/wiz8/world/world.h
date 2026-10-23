@@ -21,6 +21,7 @@
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/retail_opaque_records.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
@@ -37,6 +38,7 @@ struct W8WorldCursorState;
 struct W8WorldCursorNode;
 struct WorldItemEntity;
 class Monster;
+struct MonsterDefinition;
 class Prop;
 class Light;
 class Material;
@@ -49,7 +51,9 @@ class WorldScene;
 class LevelSpatialIndex;
 class Navigator;
 class Missile;
+struct MissileDefinition;
 class SpellVisual;
+struct SpellVisualDefinition;
 class SimulationSink;
 struct MonGen;
 class Light;
@@ -67,6 +71,34 @@ struct W8AutomapCells {
     std::vector<bool> lit;
     std::vector<unsigned int> keys;
     std::unordered_map<unsigned int, int> index;
+};
+
+/* The party's presence in one world: its pose (the eye position and orientation, with
+   the retail pose bytes the save keeps) and its collision and pathing proxy there, at
+   navigation height below the eye. Gameplay queries, saves and the rendered views read
+   the pose; rendering never writes it. Every change through `place` and `restore` moves
+   the proxy with it. Characters and inventory stay with the game. */
+class WorldParty {
+public:
+    explicit WorldParty(World& world);
+    PartyCamera camera;
+    // Registered in the world's navigators like any other mover.
+    Navigator navigator;
+
+    CameraPose pose() const;
+    glm::vec3 eye() const { return camera.m_position; }
+    glm::mat3 rotation() const { return camera.rotationMatrix(); }
+    // The proxy's position at navigation height below the eye, and its body radius.
+    glm::vec3 position() const { return navigator.GetPosition(); }
+    float radius() const { return navigator.radius; }
+    // The sphere the world's other movers collide with.
+    BoundingSphere collisionSphere() const;
+    // Place the eye at `position`, as a level entrance, a portal or a reload does.
+    void place(const glm::vec3& position);
+    // Restore a saved pose: the position, the orientation and the retail pose bytes.
+    void restore(const CameraPose& pose);
+    // Move the proxy to the camera's pose after the camera moved by itself.
+    void followCamera();
 };
 
 // Resources and borrowed indexes precede their consumers. Reverse member
@@ -96,7 +128,6 @@ struct World {
     LevelSpatialIndex* compiledIndex() const;
     LevelSpatialIndex* collisionIndex() const;
     AmbientAudioSystem audio;
-    PartyCamera party_camera;
     std::unique_ptr<W8LevelPopulation> population;
     WorldItems items;
     W8AutomapCells automap;
@@ -107,6 +138,8 @@ struct World {
     std::vector<MeshInstance*> psrMeshes;
     std::vector<Prop*> collidable_props;
     std::vector<Navigator*> navigators;
+    // After the registry its navigator joins; destroyed before the spatial index.
+    WorldParty party{*this};
     std::vector<Monster*> active_monsters;
     SpellVisual* target_cone = nullptr;
     unsigned int next_trigger_id = 1;
@@ -125,19 +158,20 @@ struct World {
     std::vector<std::unique_ptr<TriggerEvent>> timed_events;
     TriggerEvent* findTimedAction(const Trigger* trigger) const;
     TriggerEvent& addTimedAction(Trigger* trigger);
+    // Detach one of this world's monsters from the scene and destroy it.
+    void destroyMonster(Monster& monster);
     std::vector<std::unique_ptr<Prop>> plsProps;
     std::vector<std::unique_ptr<WorldItemEntity>> plsItems;
     std::vector<std::unique_ptr<W8WorldCursorNode>> cursor_nodes;
     std::unique_ptr<W8WorldCursorState> cursor;
     W8WorldCursorRecall cursor_recall;
-    /* The *_definitions hold one loaded, never-live representation per monster
-       species, spell visual and missile kind. Live entities are copied from them;
-       they hold no scene attachments and no navigator registration. */
-    std::vector<std::unique_ptr<Monster>> monster_definitions;
+    /* The *_definitions hold the loaded resources of each monster species, spell
+       visual and missile kind; live entities are created from them. */
+    std::vector<std::unique_ptr<MonsterDefinition>> monster_definitions;
     std::vector<std::unique_ptr<Monster>> monsters;
-    std::vector<std::unique_ptr<SpellVisual>> spell_visual_definitions;
+    std::vector<std::unique_ptr<SpellVisualDefinition>> spell_visual_definitions;
     std::vector<std::unique_ptr<SpellVisual>> spell_visuals;
-    std::vector<std::unique_ptr<Missile>> missile_definitions;
+    std::vector<std::unique_ptr<MissileDefinition>> missile_definitions;
     std::vector<std::unique_ptr<Missile>> missiles;
     W8EncounterState encounters;
     // Where the entities report missile hits and release frames; null reports nowhere.
@@ -197,18 +231,6 @@ void DetachAllWorldItems(void);
 // Run the worlds over the step's `elapsed` time.
 void UpdateWorlds(std::chrono::milliseconds elapsed);
 void RefreshWorldView(void);
-/* The party's pose is `World::party_camera`: the eye position and the orientation,
-   with the retail pose bytes the save keeps. Gameplay queries, saves and the rendered
-   views all read it; rendering never writes it. */
-CameraPose partyPose(const World& world);
-glm::mat3 cameraRotation(const World& world);
-// The party's eye position.
-glm::vec3 cameraLocation(const World& world);
-/* Place the party's eye at `position`, as a level entrance, a portal or a reload does. The
-   party navigator follows when the world is the active one. */
-void placeParty(World& world, const glm::vec3& position);
-// Restore a saved pose: the position, the orientation and the retail pose bytes.
-void restorePartyPose(World& world, const CameraPose& pose);
 ParticleSystem* FindParticleByName(std::string_view name);
 bool FindEntityByName(std::string_view name, glm::vec3* position, float* angle,
                       glm::vec3* direction);

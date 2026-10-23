@@ -40,6 +40,7 @@ class Script;
 class Sound3D;
 class Trigger;
 class Monster;
+struct MonsterDefinition;
 
 enum W8MonsterFlag {
     W8_MONSTER_KEEP_FRAME_DIRECTION = 0x1,
@@ -82,23 +83,26 @@ struct W8MonsterSpellIcon {
    primary vtable 0x005ED22C and the Navigator secondary-base table at +0x18. */
 class Monster {
 public:
-    World* const owner_world;
+    World& owner_world;
     Navigator nav;
     CyclePlayer visual;
     std::string asset_name;
     typedef void (*CycleCallback)(Monster* monster);
 
-    explicit Monster(World* owner = nullptr);
+    explicit Monster(World& owner);
+    /* A new monster of a species: its own copies of the definition's animations,
+       lights, emitters and light, a registered navigator, and appearance still
+       to be rolled. */
+    Monster(const MonsterDefinition& definition, World& owner);
     void TickAnimation(float scale);
     bool ApplyPendingCycle();
     void SetCyclePosition(glm::vec3* position);
-    Monster(const Monster& rhs) : Monster(rhs, rhs.owner_world) {}
-    Monster(const Monster& rhs, World* owner);
+    Monster(const Monster&) = delete;
     Monster& operator=(const Monster&) = delete;
     ~Monster();
 
     bool CanEnterCycle(signed char cycle);
-    void UpdateRepresentation(World* world);
+    void UpdateRepresentation();
     signed char GetNumSubCycles();
     bool IsCycleSupported(signed char cycle);
     signed char GetTotalAnimationCount();
@@ -116,8 +120,7 @@ public:
     // Representation state that used to live in a separate Monster.
     unsigned int ApplyEmitterSetting(signed char cycle); /* 0x004BF970 */
     AnimationMesh* GetEmitterAniMesh(signed char cycle);     /* 0x004BF920 */
-    void CopyCycle(signed char cycle, const Monster* other, signed char other_cycle);
-    unsigned char ReadCycleData(LevelLoadContext* info, int cycle_index);
+    void CopyCycle(signed char cycle, signed char other_cycle);
 
     // Animation models must disappear before any cycle's registered lights.
     struct CycleSlot {
@@ -152,20 +155,9 @@ public:
     float maximum_scale = 0.0f;
     /* 0x5fc: death shrink factor multiplying scale on the death path. */
     float death_scale = 1.0f;
-    /* 0x600: the rep carries a random idle cycle - animations[1] gets a
-       per-update random playback scale. */
-    bool random_idle = false;
     /* 0x601: flies, swims or full-transitions - suppresses the grounded
        transition check at 0x004C0000. */
     bool special_movement = false;
-    /* 0x604: the idle cycle's own playback scale, added to the per-update
-       random roll. */
-    float idle_playback_scale = 10.0f;
-    float random_idle_fps_min = 0.0f;
-    float random_idle_fps_max = 0.0f;
-    /* 0x610: left-handed strike chance percent; Random(100) is rolled
-       against it for the mirrored attack anim. */
-    int left_handed = 0;
     std::vector<std::unique_ptr<MeshInstance>> linked_runtime_objects;
     std::unique_ptr<class Light> monster_light;
 
@@ -213,10 +205,6 @@ public:
     bool HoldsCombatTurn(bool resolving_own_action, bool missile_released, bool can_turn);
     bool IsCycleInterruptable(signed char cycle);
     void ApplyRemovalStateEffects();
-    std::vector<Mesh*> CollectModelMeshes();
-    bool ReplaceSkinTexture(int stage, std::string_view old_name, std::string_view new_name);
-    int AddDamageStage(int stage);
-    void RandomizeAppearanceAndMotion(Rng& rng);
     bool IsRenderable(bool alternate);
     void InitializeAnimatedTexture();
     void HandleAnimationFrame(unsigned char frame);
@@ -293,14 +281,6 @@ public:
     /* 0x217: suppresses rendering and radar/automap display. */
     bool disabled;
     bool nearest_to_party;
-    /* 0x21c/0x220: hover base-height random range (scaled by
-       kWorldScale into movement.vertical_base). */
-    float hover_base_min;
-    float hover_base_max;
-    /* 0x224/0x228: bob-amplitude random range (scaled into
-       movement.vertical_amplitude). */
-    float bob_amplitude_min;
-    float bob_amplitude_max;
     W8MonsterRemovalState removal_state;
     CycleCallback cycle_callback;
     int callback_cycle;
@@ -355,6 +335,66 @@ public:
     std::vector<wiz8::sound::Playback> sounds;
 };
 
+/* What a species' MLS and .mon files author, loaded once per world: the
+   animations with their lights outside any scene, the cycle events and
+   emitters, and the parameters each new monster starts from or rolls its
+   appearance from. Nothing in it plays, lights or navigates. */
+struct MonsterDefinition {
+    std::string asset_name;
+    std::array<std::deque<Monster::CycleSlot>, W8_MONSTER_CYCLE_COUNT> cycles;
+    CycleDefinition events;
+    std::string skin;
+    int damage_stage = -1;
+    int damage_stage_count = 0;
+    std::shared_ptr<Script> script;
+
+    float scale = 1.0f;
+    float minimum_scale = 0.0f;
+    float maximum_scale = 0.0f;
+    float death_scale = 1.0f;
+    /* The idle cycle's playback scale is rolled per monster in
+       [random_idle_fps_min, random_idle_fps_max] on top of the idle animation's own. */
+    bool random_idle = false;
+    float idle_playback_scale = 10.0f;
+    float random_idle_fps_min = 0.0f;
+    float random_idle_fps_max = 0.0f;
+    // Percent chance a monster is mirrored to strike left-handed.
+    int left_handed = 0;
+    bool special_movement = false;
+    int missile_frame = 0;
+    int spell_frame = 0;
+    // Hover base and bob amplitude ranges, before kWorldScale.
+    float hover_base_min = 0.0f;
+    float hover_base_max = 0.0f;
+    float bob_amplitude_min = 0.0f;
+    float bob_amplitude_max = 0.0f;
+    // A spice monster: hostility is never recomputed and it does not navigate.
+    bool hostility_preserved = false;
+
+    std::optional<std::pair<float, float>> lod_range;
+    std::optional<float> opacity;
+    std::optional<float> emissive_override;
+    std::optional<std::pair<float, float>> ground_shadow; // width, depth
+    std::unique_ptr<Light> light;                          // in no scene
+
+    // Navigator settings; the defaults are a new navigator's.
+    float collision_radius = 500.0f;
+    float alternate_radius = 500.0f;
+    float height_offset = 500.0f;
+    float secondary_height_offset = 500.0f;
+    BoundingBox bounds{glm::vec3(-500.0f), glm::vec3(500.0f)};
+    float movement_scale = 0.0f;
+    float turn_rate = 0.0f;
+    W8NavigatorMode navigation_mode = W8_NAVIGATOR_MODE_DEFAULT;
+
+    // Append one .mon animation to `cycle_index` (or the cycle it names, when NONE).
+    bool ReadCycleData(LevelLoadContext& info, int cycle_index);
+    // Every distinct mesh the animations draw: what load-time skin setup reaches.
+    std::vector<Mesh*> CollectModelMeshes();
+    bool ReplaceSkinTexture(int stage, std::string_view old_name, std::string_view new_name);
+    int AddDamageStage(int stage);
+};
+
 W8MonsterCycle ParseMonsterCycleName(std::string_view name, signed char* subcycle = nullptr);
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
 
@@ -372,13 +412,6 @@ struct W8MonsterShakeCallback {
     W8AnimationBehaviour saved_behaviour{};
     W8AnimationFrameMethod saved_frame_method{};
 };
-
-/* Take a monster's representation out of the scene and destroy it. Whatever
-   links to it must already be cleared. */
-void DestroyWorldMonster(Monster& monster);
-/* The shared forwarder four call sites use to advance a cycle's
-   representation; it stays free because its callers pass the object on the
-   stack. */
 
 void SetMonsterPartySlotMarker(int party_slot, int location_id, signed char on);
 

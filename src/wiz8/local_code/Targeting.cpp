@@ -60,7 +60,6 @@
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
@@ -608,9 +607,9 @@ bool IsItemTargetOfNeededKind(const W8CombatSlot* target, const W8ItemInstance* 
 static bool IsMonsterHoverSelectable(W8MonsterInfo* monster_info)
 {
     if (!monster_info->fActive || monster_info->entity->IsDying() ||
-        monster_info->entity->hostility_preserved || !monster_info->entity->owner_world ||
+        monster_info->entity->hostility_preserved ||
         monster_info->entity->visual.GetCurrentModelInstance() !=
-            monster_info->entity->owner_world->selectedModel()) {
+            monster_info->entity->owner_world.selectedModel()) {
         return false;
     }
     if (!monster_info->party_threat.use_bounds) {
@@ -666,7 +665,7 @@ bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe)
 
     if (target->iType == W8_TARGET_KIND_PARTY || target->iType == W8_TARGET_KIND_CHARACTER) {
         if (sight_probe) {
-            point = PartyNavigator()->GetPosition();
+            point = GetWorld()->party.position();
         } else {
             point = cameraLocation();
         }
@@ -1809,7 +1808,7 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
     int start_count = static_cast<int>(found.size());
     float radius;
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
-        radius = PartyNavigator()->radius;
+        radius = GetWorld()->party.radius();
     } else if (source->iType == W8_TARGET_SOURCE_MONSTER) {
         W8MonsterInfo* source_info = FindMonster(source->iMonsterID);
         radius = source_info->entity->nav.radius;
