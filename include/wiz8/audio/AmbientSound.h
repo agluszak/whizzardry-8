@@ -177,11 +177,11 @@ bool AddAmbientSound(World* world, std::string_view name, const W8AmbientSoundCo
                      const glm::vec3* region_axis, const glm::vec3* region_scale,
                      unsigned char shared);
 
-void SaveAmbientSoundList(wiz8::File& handle);
 struct W8AmbientSoundState {
     std::string name;
     bool stopped;
 };
+void WriteAmbientSoundStates(wiz8::File& handle, std::span<const W8AmbientSoundState> states);
 std::vector<W8AmbientSoundState> ReadAmbientSoundStates(W8Chunk& file);
 void ApplyAmbientSoundStates(World& world, std::span<const W8AmbientSoundState> states);
 
@@ -203,4 +203,6 @@ struct AmbientAudioSystem {
     std::vector<std::unique_ptr<Sound3D>> script_sounds;
     std::vector<std::unique_ptr<Sound3D>> one_shots;
     void update(const glm::vec3& listener, float yaw);
+    // Each emitter's name and whether it is stopped (AMBS).
+    std::vector<W8AmbientSoundState> savedStates() const;
 };

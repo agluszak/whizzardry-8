@@ -6,6 +6,7 @@
 #include <cstring>
 #include <exception>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -73,17 +74,9 @@ unsigned int GeneratorInterval::advance(std::chrono::milliseconds elapsed)
     return intervals;
 }
 
-void GeneratorInterval::save(wiz8::File& handle) const
+void GeneratorInterval::restore(float saved_progress, float scale)
 {
-    const float saved_progress = progress();
-    handle.write(&saved_progress, sizeof(saved_progress));
-    handle.write(&scale_, sizeof(scale_));
-}
-
-void GeneratorInterval::load(W8Chunk& handle)
-{
-    const auto saved_progress = handle.ReadValue<float>();
-    scale_ = handle.ReadValue<float>();
+    scale_ = scale;
     elapsed_ = saved_progress * length();
 }
 
@@ -535,36 +528,76 @@ W8EncounterState ReadEncounterState(W8Chunk& file)
     return state;
 }
 
-void ReadMonsterGeneratorStates(W8Chunk& file, W8EncounterState& state)
+W8MonsterGeneratorStates ReadMonsterGeneratorStates(W8Chunk& file)
 {
-    int version, count;
-    file.ReadBytes(&version, sizeof(version));
-    file.ReadBytes(&state.save_flag, sizeof(state.save_flag));
+    W8MonsterGeneratorStates states;
+    int count;
+    file.ReadBytes(&states.version, sizeof(states.version));
+    file.ReadBytes(&states.save_flag, sizeof(states.save_flag));
     file.ReadBytes(&count, sizeof(count));
     if (count < 0 || count > file.RemainingBytes() / 37)
         throw std::runtime_error("invalid generator state count");
-    for (int index = 0; index < count; ++index) {
-        char name[32];
-        unsigned char enabled;
-        unsigned int flags;
-        file.ReadBytes(name, sizeof(name));
-        file.ReadBytes(&enabled, sizeof(enabled));
-        file.ReadBytes(&flags, sizeof(flags));
-        MonGen* generator = nullptr;
-        for (const auto& candidate : state.generators)
-            if (std::strncmp(name, candidate->name, sizeof(name)) == 0) {
-                generator = candidate.get();
-                break;
-            }
-        if (generator) {
-            generator->generation_enabled = enabled != 0;
-            generator->flags = flags;
+    states.entries.resize(count);
+    for (auto& entry : states.entries) {
+        file.ReadBytes(entry.name.data(), entry.name.size());
+        entry.enabled = file.ReadValue<unsigned char>() != 0;
+        file.ReadBytes(&entry.flags, sizeof(entry.flags));
+        if (states.version > 1) {
+            const auto progress = file.ReadValue<float>();
+            entry.timer.emplace(progress, file.ReadValue<float>());
         }
-        if (version > 1) {
+    }
+    return states;
+}
+
+void W8EncounterState::applyGeneratorStates(const W8MonsterGeneratorStates& states)
+{
+    save_flag = states.save_flag;
+    for (const auto& entry : states.entries) {
+        const auto generator = std::ranges::find_if(generators, [&](const auto& candidate) {
+            return std::strncmp(entry.name.data(), candidate->name, entry.name.size()) == 0;
+        });
+        if (generator == generators.end()) continue;
+        (*generator)->generation_enabled = entry.enabled;
+        (*generator)->flags = entry.flags;
+        if (entry.timer) {
             // The record restores a one-second interval until the generator rearms.
             GeneratorInterval timer;
-            timer.load(file);
-            if (generator) generator->timer = timer;
+            timer.restore(entry.timer->first, entry.timer->second);
+            (*generator)->rearm.value().saved_timer = timer;
+        }
+    }
+}
+
+W8MonsterGeneratorStates W8EncounterState::savedGeneratorStates() const
+{
+    W8MonsterGeneratorStates states{.save_flag = save_flag};
+    for (const auto& generator : generators) {
+        auto& entry = states.entries.emplace_back();
+        std::ranges::copy(generator->name, entry.name.begin());
+        entry.enabled = generator->generation_enabled;
+        entry.flags = generator->flags;
+        entry.timer.emplace(generator->timer.progress(), generator->timer.scale());
+    }
+    return states;
+}
+
+/* The record version, a shared flag byte, the count, and then each generator as its name,
+   its trailing flag, its own flag word and its timer. */
+void WriteMonsterGeneratorStates(wiz8::File& handle, const W8MonsterGeneratorStates& states)
+{
+    const int count = static_cast<int>(states.entries.size());
+    handle.write(&states.version, 4);
+    handle.write(&states.save_flag, 1);
+    handle.write(&count, 4);
+    for (const auto& entry : states.entries) {
+        handle.write(entry.name.data(), entry.name.size());
+        const unsigned char enabled = entry.enabled;
+        handle.write(&enabled, 1);
+        handle.write(&entry.flags, 4);
+        if (states.version > 1) {
+            handle.write(&entry.timer.value().first, 4);
+            handle.write(&entry.timer.value().second, 4);
         }
     }
 }
@@ -610,60 +643,13 @@ void SpendRandomEncounterBudget()
     ClampEncounterBudget(*GetWorld());
 }
 
-/* Writes the world's generators to a save. The record version goes out first,
-   then a shared flag byte, then the count, and then each generator as its name,
-   its trailing flag, its own flag word and whatever 0x0043A770 appends. */
-void SaveMonsterGenerators(wiz8::File& handle)
-{
-    MonGen* generator;
-    int count;
-    int version;
-    int index;
-
-    version = 3;
-    count = static_cast<int>(GetWorld()->encounters.generators.size());
-    handle.write(&version, 4);
-    handle.write(&GetWorld()->encounters.save_flag, 1);
-    handle.write(&count, 4);
-    for (index = 0; index < count; ++index) {
-        generator = GetWorld()->encounters.generators[index].get();
-        handle.write(generator->name, 0x20);
-        const unsigned char enabled = generator->generation_enabled;
-        handle.write(&enabled, 1);
-        handle.write(&generator->flags, 4);
-        generator->timer.save(handle);
-    }
-}
-
-/* Writes one generator to a save, field by field rather than as a block: the
-   record on disk is narrower than the structure and skips +0x05, +0x0A and
-   +0x18. The leading byte is written uninitialised - a one-byte local the
-   original never assigns. Preserved as found. */
-void MonGen::Save(wiz8::File& handle)
-{
-    unsigned char version = 3;
-
-    handle.write(&version, 1);
-    handle.write(name, 0x20);
-    const unsigned char enabled = generation_enabled;
-    handle.write(&enabled, 1);
-    handle.write(&flags, 4);
-    handle.write(&custom_spawn_chance, 1);
-    handle.write(&custom_interval_seconds, 2);
-    handle.write(&unknown_08, 2);
-    handle.write(&spawn_position.x, 4);
-    handle.write(&spawn_position.y, 4);
-    handle.write(&spawn_position.z, 4);
-    handle.write(&encounter_table_index, 4);
-    timer.save(handle);
-}
-
 /* Reads one generator back. The leading byte is a record version: from 3 the
    name and its trailing flag are stored too, below that they are not, and the
    two paths converge on the same eight common fields. Every read is chained
    through the same conjunction, so the first failure abandons the rest and the
-   record is reported bad; the timer is rearmed either way, and the armed bit is
-   always cleared on the way out so a loaded generator starts disarmed. */
+   record is reported bad. The jittered rearm waits for the world to be built
+   (`W8EncounterState::rearmDecodedGenerators`), and the armed bit is always cleared on the
+   way out so a loaded generator starts disarmed. */
 unsigned char MonGen::Load(W8Chunk& handle, short default_interval)
 try {
     unsigned char version{};
@@ -683,9 +669,10 @@ try {
     handle.ReadBytes(&spawn_position.y, 4);
     handle.ReadBytes(&spawn_position.z, 4);
     handle.ReadBytes(&encounter_table_index, 4);
-    Reset(default_interval);
+    rearm = DecodedRearm{IntervalSeconds(default_interval), std::nullopt};
     if (static_cast<signed char>(version) > 1) {
-        timer.load(handle);
+        const auto saved_progress = handle.ReadValue<float>();
+        timer.restore(saved_progress, handle.ReadValue<float>());
         timer.arm();
     }
     flags &= ~static_cast<unsigned int>(W8_MONGEN_ARMED);
@@ -700,40 +687,30 @@ try {
    default interval; a clear bit uses the generator's custom +0x06 interval. */
 void MonGen::Reset(short default_interval)
 {
-    short interval;
-    float jitter;
+    Rearm(IntervalSeconds(default_interval));
+}
 
-    interval =
-        (flags & W8_MONGEN_USE_DEFAULT_SETTINGS) != 0 ? default_interval : custom_interval_seconds;
-    jitter = interval * g_generator_jitter_fraction;
+short MonGen::IntervalSeconds(short default_interval) const
+{
+    return (flags & W8_MONGEN_USE_DEFAULT_SETTINGS) != 0 ? default_interval
+                                                         : custom_interval_seconds;
+}
+
+void MonGen::Rearm(short interval)
+{
+    const float jitter = interval * g_generator_jitter_fraction;
     timer.setSeconds(static_cast<float>(CurrentGame().rng.below(static_cast<int>(jitter) * 2 + 1)) +
                      interval - jitter);
     timer.arm();
 }
 
-/* Writes the encounter subsystem's own state to a save, ahead of the generator
-   records themselves: the record version, the level's saved budget, the running
-   budget and culling span, the shared flag byte, three shared interval words,
-   and then the count followed by that many generator records. */
-void SaveEncounterState(wiz8::File& handle)
+void W8EncounterState::rearmDecodedGenerators()
 {
-    int count;
-    int version;
-    int index;
-
-    count = static_cast<int>(GetWorld()->encounters.generators.size());
-    version = 5;
-    handle.write(&version, 4);
-    handle.write(&GetWorld()->encounters.saved_budget, 4);
-    handle.write(&GetWorld()->encounters.random_budget, 4);
-    handle.write(&GetWorld()->encounters.culling_seconds, 4);
-    handle.write(&GetWorld()->encounters.save_flag, 1);
-    handle.write(&GetWorld()->encounters.interval_min, 2);
-    handle.write(&GetWorld()->encounters.default_interval, 2);
-    handle.write(&GetWorld()->encounters.interval_max, 2);
-    handle.write(&count, 4);
-    for (index = 0; index < count; ++index) {
-        GetWorld()->encounters.generators[index]->Save(handle);
+    for (const auto& generator : generators) {
+        if (!generator->rearm) continue;
+        auto rearm = *std::exchange(generator->rearm, std::nullopt);
+        generator->Rearm(rearm.interval);
+        if (rearm.saved_timer) generator->timer = *rearm.saved_timer;
     }
 }
 

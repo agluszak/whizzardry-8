@@ -57,33 +57,22 @@ bool SaveGameExists(void);
    Please Wait screen drives it. */
 bool LoadGame(GameSession& games, std::string_view slot_name);
 
-class Game;
 struct World;
-// Store the current level's group among the levels the game has left (Game::left_levels).
-bool StoreLeftLevel(Game& game);
-// Decoded level data. Its implementation stays with the existing retail codecs.
+// What entering a built level still installs (LevelState::build, InstallLevelSessionState).
 struct W8LoadedLevelStatus {
     struct Data;
     std::unique_ptr<Data> data;
     W8LoadedLevelStatus();
     ~W8LoadedLevelStatus();
 };
-std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world,
-                                                     const std::filesystem::path& path, int level,
-                                                     bool from_assets = false);
-// The level's state as the party left it, or null when it never left the level.
-std::unique_ptr<W8LoadedLevelStatus> ReadLeftLevelStatus(World& world, const Game& game, int level);
-void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status);
 void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status);
 void BeginRestoredLevelActivity(World& world, W8LoadedLevelStatus* status);
 std::string BuildLevelStatusPath(unsigned int level);
-bool SaveStatusHeader(W8Chunk* chunks);
 
 extern bool g_save_pending;
 
 /* Deferred main-game autosave: notice first, then SaveGame on the next tick. */
 void ProcessMainGameAutoSave(void);
-bool SaveMonsterStatus(W8Chunk* chunks);
 
 std::optional<std::string> SelectQuickSaveSlotForWrite();
 std::optional<std::string> FindFreeEndingSaveName();
