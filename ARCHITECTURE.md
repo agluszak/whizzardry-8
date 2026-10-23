@@ -36,7 +36,8 @@ ScreenRouter (file-scope in screen_router.cpp)
   log, combat, the activity and advancement, the speech queue, the NPC
   conversation, spell cooldowns, the event log, stored characters, the byte images
   of levels the party has left, and the `Level`. Destroying a game does no
-  departure bookkeeping; the main game leaves the level before its game ends.
+  departure bookkeeping; explicit session and level transitions leave the level before
+  releasing it.
 - **`Level`** owns the primary and sky `World`s. Queries borrow those owners, so no
   world outlives its game; replacing a slot hands back the previous owner.
 - **`World`** (`world/world.h`) owns a loaded level: the VSG scene, environment,
@@ -159,6 +160,18 @@ does not satisfy this contract.
   World-local continuing effects are cleared on ordinary entry or reconstructed
   from a save according to their actual lifetime. Combat exit alone does not
   necessarily end a cast.
+
+The transition contracts below constrain later ownership moves:
+
+| Transition | Behavior to preserve |
+| --- | --- |
+| A monster engages before party combat | World-owned engagement/readiness exists without a party `Combat`. |
+| The last group member dies | Group participation can end while the monster's death, script and fade work remains alive. |
+| Recruit, edit, save, dismiss | The active party character, retained NPC snapshot and world embodiment are distinct; save and copy-back retain their respective semantics and identities. |
+| Lure, combat exit, travel or restore | Combat exit does not clear the continuing cast. Normal entry clears it at its established point; saved entry reconstructs its runtime. |
+| Lock attempt, nested picker, return | The same attempt resumes after a picker. Genuine departure applies explicit cancellation rather than inferring it from widget destruction. |
+| Partly filled stack in a full inventory | Preserve transferred units and the held remainder. Identification and practice may occur even when placement cannot finish. |
+| Save during scripted fade | Decide settlement timing explicitly, then capture values and encode them. Encoding itself cannot run removal consequences or scripts. |
 
 A refactor is finished when the new authority and transition are clear, the
 original call path and redundant state are removed, and required behavior

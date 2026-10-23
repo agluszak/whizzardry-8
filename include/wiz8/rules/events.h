@@ -193,7 +193,7 @@ public:
     };
 
     void push(Event event);
-    // Install or clear the observer; an installed one first receives what is pending.
+    // Install or clear the observer. Pending outcomes wait for any active operation.
     void observe(Observer observer);
     const std::vector<Event>& pending() const { return pending_; }
 

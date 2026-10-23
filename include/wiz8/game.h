@@ -193,8 +193,8 @@ public:
        them beside the current level's. */
     LeftLevels left_levels;
     /* Last, so its worlds are destroyed first, while combat and speech still exist.
-       The main game leaves the level when it is discarded, before a game that ends in
-       play is destroyed; destroying a world does no departure bookkeeping. */
+       Session and level transitions perform departure before releasing the world;
+       screen disposal and world destruction do no departure bookkeeping. */
     Level level;
 };
 

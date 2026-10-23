@@ -1628,9 +1628,11 @@ TEST_CASE("Nested operations present settled outcomes before observer follow-ups
 {
     Events events;
     std::vector<unsigned int> seen;
-    events.observe([&](const Event& event) {
+    std::vector<unsigned int> ordinals;
+    events.observe([&, ordinal = 0u](const Event& event) mutable {
         const auto slot = std::get<PartySlotChanged>(event).party_slot;
         seen.push_back(slot);
+        ordinals.push_back(++ordinal);
         if (slot == 1) events.push(PartySlotChanged{3});
     });
     {
@@ -1643,6 +1645,7 @@ TEST_CASE("Nested operations present settled outcomes before observer follow-ups
         REQUIRE(seen.empty());
     }
     REQUIRE(seen == std::vector<unsigned int>{1, 2, 3});
+    REQUIRE(ordinals == std::vector<unsigned int>{1, 2, 3});
     events.push(PartySlotChanged{4});
     REQUIRE(seen.back() == 4); // Unmigrated commands still deliver immediately.
 }

@@ -185,9 +185,10 @@ the licensed runtime scenarios after every step.
      storage slot that has no member yet), the last two through `W8Party::slotOf`.
      Pass party slots, and give the camp and the creation editor a slot or an outsider
      value instead of a `W8Character*`.
-   - Presentation is synchronous: the observer shows each event as it is pushed, to keep
-     its order among the direct screen calls of unmigrated code. When those are gone,
-     the UI drains the log after each command and step instead.
+   - Remaining inventory flows still present synchronously among direct screen calls.
+     Pool deposits now hold their outcomes until pool and hand settle. Migrate each
+     remaining flow's complete presentation sequence before adding its operation boundary;
+     do not defer unrelated simulation callbacks or blanket-queue the entire frame.
 5. **Presentation owned by screens.** The main game repaints what its HUD's record
    (`MainGameRepaint`) holds, game code reports changes as events, the draw path
    receives the HUD, and the pointer derives the held-item cursor every frame

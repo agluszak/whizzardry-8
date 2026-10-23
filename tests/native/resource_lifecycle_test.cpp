@@ -13,6 +13,7 @@
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_surface.h>
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
 
 #include "asset_paths.h"
 #include "glm/ext/matrix_float3x3.hpp"

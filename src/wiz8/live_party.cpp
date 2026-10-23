@@ -2,6 +2,7 @@
 
 #include <bitset>
 #include <cassert>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -16,6 +17,7 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -26,8 +28,8 @@
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
+#include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/rules/action_choices.h"
 #include "wiz8/rules/activity.h"
