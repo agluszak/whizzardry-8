@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cassert>
 #include <cctype>
-#include <cmath>
 #include <cstddef>
 #include <string>
 

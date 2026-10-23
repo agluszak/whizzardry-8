@@ -15,7 +15,6 @@
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/hostility.h"
 #include "wiz8/data/records.h"
-#include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
