@@ -93,7 +93,7 @@ enforces this (the `layer_boundaries` test, and CI's clang-tidy job), and
 | `render/` | VSG scene graph, shared meshes and instance poses, materials, views, Vulkan resources and presentation; publication of the CPU UI canvas. |
 | `spatial/` | `LevelSpatialIndex` (compiled octree, collision), `SurfaceIndex`, the navigation mesh and `Navigator`. Queries take explicit segments and filters and return optional typed hits. |
 | `world/` | `World`, party camera and motion, environment, encounters, level loading. |
-| `entities/` | `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks. Each kind is loaded once into a definition that live entities copy. Entities report hits, landings and release frames to their world's `SimulationSink` rather than resolving them. |
+| `entities/` | `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks. Each kind is loaded once into a resource-only definition (animations and lights outside any scene, events, emitters and authored parameters) from which each live entity is constructed with its own copies, scene attachments and navigator. Entities report hits, landings and release frames to their world's `SimulationSink` rather than resolving them. |
 | `native/` | Application loop, game events, key bindings, FFmpeg movie playback. |
 | `wiz8/` | Gameplay not yet in `rules`, the game and session, saves, screens, dialogs and level scripts. `wiz8/combat/` is the fight. `local_code/`, `local_screens/`, `dialog_code/` and `level_specific_code/` hold the decompiled game code still being migrated. |
 

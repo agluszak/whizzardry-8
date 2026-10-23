@@ -51,17 +51,27 @@ public:
     glm::mat3 rotation;
 };
 
+/* What an actor kind's files author for its cycle player and every actor of the
+   kind starts from: the path, the timed sound and shake events, and particle
+   emitters that belong to no scene. */
+struct CycleDefinition {
+    std::optional<KeyframeTrack> path;
+    std::vector<W8SoundEvent> sound_events;
+    std::deque<ShakeDefinition> shake_events;
+    std::vector<ParticleAttachment> particles;
+};
+
 class CyclePlayer {
 public:
     World* const owner_world;
     explicit CyclePlayer(World* owner = nullptr);
-    // Borrowed lifetime: the world destroys its cycles before its scene.
-    CyclePlayer(const CyclePlayer& other) : CyclePlayer(other, other.owner_world) {}
-    CyclePlayer(const CyclePlayer& other, World* owner); /* 0x004A5F20 */
+    // A player of a kind's authored events with its own path, emitters in the
+    // owner's scene and playback that has not started.
+    CyclePlayer(const CycleDefinition& definition, World* owner);
+    CyclePlayer(const CyclePlayer&) = delete;
     CyclePlayer& operator=(const CyclePlayer&) = delete;
     ~CyclePlayer();
 
-    W8SoundEvent& AddSoundEvent(W8SoundEvent event);
     void SetLocation(const glm::vec3* new_location);
     glm::vec3 GetLocation() const;
     glm::vec3 GetLocalLocation() const;
@@ -71,9 +81,6 @@ public:
 
     // Gameplay despawning lets active particles finish; level destruction does not.
     void RetireParticles(World& world);
-    // Take this player's lights and particles out of the scene for good, as a
-    // never-drawn definition needs; its resources stay loaded for copying.
-    void WithdrawFromScene();
     void TickAnimation(float rate, const glm::vec3& position, bool reset_frame_bounds,
                        const std::function<bool(unsigned char)>& frame_event); /* 0x004A6E20 */
     void finishCycleSelection(const glm::vec3& position); /* 0x004A6FC0 */
@@ -90,7 +97,6 @@ public:
     void SetLights(std::vector<std::unique_ptr<Light>>* lights);
     void DetachCycleLights(std::vector<std::unique_ptr<Light>>* lights);
     void AttachCycleLights(std::vector<std::unique_ptr<Light>>* lights);
-    void AddShakeEffect(ShakeDefinition effect);
     void CreateGroundShadow(float width, float depth);
     void SetGroundShadowVisible(bool visible);
     void ResetRepresentation();
@@ -175,7 +181,9 @@ public:
     float frame_fraction;
 }; /* 0x1d8 */
 
-bool loadAnimationCycle(std::string_view name, CyclePlayer& player, int cycle_index,
+/* Read one .mon cycle file: its path and particles go to `definition`, the
+   payload to `read_payload`. Particles are loaded outside any scene. */
+bool loadAnimationCycle(std::string_view name, CycleDefinition& definition, int cycle_index,
                         std::string_view directory,
                         const std::function<bool(LevelLoadContext&, int)>& read_payload,
                         std::string_view bitmap_directory = {});

@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -51,7 +52,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/gameplay_constants.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
@@ -226,89 +226,12 @@ unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction
     }
 }
 
-/* A loaded Monster receives independent appearance, animation-speed, and
-   vertical-motion variation. The cycle-one animation and scale vectors are
-   updated together so the representation and its cached scalar values remain
-   synchronized. */
-void Monster::RandomizeAppearanceAndMotion()
+/* Give an empty cycle its own copies of another cycle's animations and lights;
+   the light copies stay out of the scene until SetCycle selects them. */
+void Monster::CopyCycle(signed char cycle, signed char other_cycle)
 {
-    unsigned int random_value;
-
-    /* 0x004C1D3D: cmp/setl - a signed test against the LEFTHANDED percent. */
-    visual.mirror_x = static_cast<int>(CurrentGame().rng.below(100)) < left_handed;
-
-    if (minimum_scale != 0.0f && maximum_scale != 0.0f) {
-        float minimum = minimum_scale;
-        float maximum = maximum_scale;
-
-        assert(minimum <= maximum);
-        random_value = CurrentGame().rng.below(1000);
-        scale = (maximum - minimum) * random_value * 0.001f + minimum;
-    }
-
-    if (random_idle) {
-        int subcycle;
-        float playback_scale =
-            (random_idle_fps_max - random_idle_fps_min) * CurrentGame().rng.below(1000) * 0.001f +
-            random_idle_fps_min;
-
-        for (subcycle = 0; subcycle < static_cast<signed char>(cycles[1].size()); ++subcycle) {
-            int animation_index = static_cast<signed char>(subcycle);
-            Animation* animation;
-            float scale = playback_scale + idle_playback_scale;
-
-            if (animation_index == -1) {
-                animation_index = visual.current_subcycle;
-            }
-            if (animation_index >= static_cast<int>(cycles[1].size())) {
-                ShutdownWithErrorBox(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
-                                                 name, g_cycle_names[1].name, animation_index));
-            }
-            animation = cycles[1][animation_index].animation.get();
-            if (scale < 1.0f) {
-                scale = 1.0f;
-            }
-            animation->playback_scale = scale;
-            if (subcycle < static_cast<int>(cycles[1].size())) {
-                cycles[1][subcycle].playback_scale = scale;
-            }
-        }
-    }
-
-    nav.movement.vertical_base = ((hover_base_max - hover_base_min) *
-                                      static_cast<float>(CurrentGame().rng.below(1000)) * 0.001f +
-                                  hover_base_min) *
-                                 kWorldScale;
-    nav.movement.vertical_amplitude =
-        ((bob_amplitude_max - bob_amplitude_min) *
-             static_cast<float>(CurrentGame().rng.below(1000)) * 0.001f +
-         bob_amplitude_min) *
-        kWorldScale;
-    nav.movement.vertical_phase = CurrentGame().rng.below(1000) * 0.001f;
-    nav.movement.vertical_offset =
-        static_cast<float>(sin(nav.movement.vertical_phase * kMotionFullTurnRadians)) *
-            nav.movement.vertical_amplitude +
-        nav.movement.vertical_base;
-    nav.movement.height_offset += nav.movement.vertical_base;
-    nav.movement.secondary_height_offset += nav.movement.vertical_base;
-
-    if (visual.opacity < 1.0f) {
-        visual.instance_scale = visual.opacity;
-        visual.apply_instance_scale = true;
-    }
+    for (const auto& source : cycles[other_cycle]) cycles[cycle].emplace_back(source);
 }
-
-/* Deep-copy one cycle's animation objects and render lights while retaining
-   its per-subcycle scalar values.  The light copies are new scene objects:
-   they are registered with the world's light list and detached until the
-   owning GrCycle selects this cycle. */
-void Monster::CopyCycle(signed char cycle, const Monster* other, signed char other_cycle)
-{
-    for (const auto& source : other->cycles[other_cycle]) cycles[cycle].emplace_back(source);
-}
-
-/* cvdump preserves a terminal space in this generated thunk's demangled name;
-   the explicit name reference must preserve it too. */
 
 Monster::Monster(World* owner)
     : owner_world(owner), nav(owner), visual(owner), runtime_flags(0), location_id(-1),
@@ -342,49 +265,71 @@ Monster::Monster(World* owner)
     order_mode = W8_MONSTER_ORDER_NONE;
 }
 
-Monster::Monster(const Monster& rhs, World* owner)
-    : owner_world(owner), nav(rhs.nav, owner), visual(rhs.visual, owner),
-      runtime_flags(rhs.runtime_flags), location_id(rhs.location_id),
-      missile_frame(rhs.missile_frame), spell_frame(rhs.spell_frame), talking(0),
-      animate_mouth(false), mouth_frame_clock(0), mouth_frame(0), talk_start(0),
-      inactive(rhs.inactive), pending_finalize(1), disabled(0), nearest_to_party(false),
-      hover_base_min(rhs.hover_base_min), hover_base_max(rhs.hover_base_max),
-      bob_amplitude_min(rhs.bob_amplitude_min), bob_amplitude_max(rhs.bob_amplitude_max), script(0),
-      script_wait(MONSCR_NONE), trigger(0), spell_effect_armed(0), sector_mesh(0), sound(nullptr)
+Monster::Monster(const MonsterDefinition& definition, World* owner)
+    : owner_world(owner), nav(owner), visual(definition.events, owner),
+      asset_name(definition.asset_name), cycles(definition.cycles),
+      damage_stage_count(definition.damage_stage_count), name(definition.asset_name),
+      scale(definition.scale), minimum_scale(definition.minimum_scale),
+      maximum_scale(definition.maximum_scale), death_scale(definition.death_scale),
+      special_movement(definition.special_movement), runtime_flags(0), location_id(-1),
+      missile_frame(definition.missile_frame), spell_frame(definition.spell_frame), talking(0),
+      animate_mouth(false), mouth_frame_clock(0), mouth_frame(0), talk_start(0), inactive(false),
+      pending_finalize(1), disabled(0), nearest_to_party(false), script(0),
+      script_wait(MONSCR_NONE), trigger(0), spell_effect_armed(0), sector_mesh(0),
+      fade_state(W8_MONSTER_FADE_IDLE), hostility_preserved(definition.hostility_preserved),
+      sound(nullptr)
 {
     nav.monster_owner = this;
+    nav.trace_mask = 2;
+    nav.movement.collision_radius = definition.collision_radius;
+    nav.movement.alternate_radius = definition.alternate_radius;
+    nav.configureStartupDepth(definition.height_offset, definition.secondary_height_offset);
+    nav.SetBounds(definition.bounds);
+    nav.SetMovementScale(definition.movement_scale);
+    nav.SetTurnRate(definition.turn_rate);
+    nav.SetNavigationMode(definition.navigation_mode);
+    if (hostility_preserved) {
+        nav.active = false;
+        nav.movement.boundary_enabled = false;
+    }
+    if (owner && owner->compiledIndex())
+        owner->compiledIndex()->registry.maximum_navigation_radius =
+            std::max({owner->compiledIndex()->registry.maximum_navigation_radius,
+                      nav.movement.collision_radius, nav.movement.alternate_radius, nav.radius});
+
+    visual.skin = definition.skin;
+    visual.damage_stage = definition.damage_stage;
+    if (definition.lod_range) std::tie(visual.lod_near, visual.lod_far) = *definition.lod_range;
+    if (definition.opacity) visual.opacity = *definition.opacity;
+    visual.emissive_override = definition.emissive_override;
+    if (definition.ground_shadow)
+        visual.CreateGroundShadow(definition.ground_shadow->first,
+                                  definition.ground_shadow->second);
+    // Stand on the first authored animation until the spawn selects a cycle.
+    if (const auto first =
+            std::ranges::find_if(cycles, [](const auto& cycle) { return !cycle.empty(); });
+        first != cycles.end()) {
+        Animation& animation = *first->front().animation;
+        visual.active_animation = &animation;
+        visual.current_cycle = static_cast<signed char>(first - cycles.begin());
+        visual.animation_behaviour = animation.behaviour;
+        visual.frame_method = animation.frame_method;
+        visual.animation_playing = animation.animation_playing;
+    }
+    visual.rep_active = true;
+    visual.frame_direction = W8_ANIMATION_FORWARD;
+    visual.m_bLOD = 2;
+    if (definition.light) {
+        monster_light = std::make_unique<Light>(*definition.light);
+        monster_light->setScene(owner ? owner->scene.get() : nullptr);
+    }
+
     formation = glm::vec3(0);
-    fade_state = W8_MONSTER_FADE_IDLE;
-    hostility_preserved = rhs.hostility_preserved;
-
-    asset_name = rhs.asset_name;
-    name = rhs.name;
-    standing_height = rhs.standing_height;
-    scale = rhs.scale;
-    minimum_scale = rhs.minimum_scale;
-    maximum_scale = rhs.maximum_scale;
-    death_scale = rhs.death_scale;
-    random_idle = rhs.random_idle;
-    special_movement = rhs.special_movement;
-    idle_playback_scale = rhs.idle_playback_scale;
-    random_idle_fps_min = rhs.random_idle_fps_min;
-    random_idle_fps_max = rhs.random_idle_fps_max;
-    left_handed = rhs.left_handed;
-    damage_stage_count = rhs.damage_stage_count;
-    for (signed char cycle = W8_MONSTER_CYCLE_BIRTH; cycle < W8_MONSTER_CYCLE_COUNT; ++cycle) {
-        CopyCycle(cycle, &rhs, cycle);
-    }
-    if (visual.current_cycle >= 0 && !cycles[visual.current_cycle].empty())
-        visual.active_animation =
-            cycles[visual.current_cycle][visual.current_subcycle].animation.get();
-    if (rhs.monster_light != 0) {
-        monster_light = std::make_unique<Light>(*rhs.monster_light);
-    }
-    if (monster_light) monster_light->setScene((owner->scene.get()));
-
-    defining_orders = false;
+    target_scale = 1.0f;
+    current_scale = 1.0f;
+    sunlit_state = W8_MONSTER_SUNLIGHT_UNKNOWN;
     orders_finished = false;
-    order_mode = W8_MONSTER_ORDER_NONE;
+    defining_orders = false;
     deaf = false;
     face_party = false;
     stay_home = false;
@@ -394,17 +339,10 @@ Monster::Monster(const Monster& rhs, World* owner)
     direction_z = 0;
     look_frequency = 0;
     look_duration = 0;
-    sunlit_state = W8_MONSTER_SUNLIGHT_UNKNOWN;
-    move_dirty = true;
-    target_scale = 1.0f;
-    current_scale = 1.0f;
-    runtime_flags &= ~(W8_MONSTER_KEEP_FRAME_DIRECTION | W8_MONSTER_PARKED |
-                       W8_MONSTER_REMOVE_AFTER_FADE | W8_MONSTER_REMOVE_NOW);
     removal_state = W8_MONSTER_REMOVAL_NONE;
     cycle_callback = 0;
-    if (hostility_preserved) {
-        nav.active = false;
-    }
+    move_dirty = true;
+    order_mode = W8_MONSTER_ORDER_NONE;
 }
 
 Monster::~Monster()
@@ -1511,7 +1449,7 @@ void Monster::SetCycle(signed char cycle)
             throw std::runtime_error(fmt::format("monster {} has no idle cycle", name));
         }
 
-        CopyCycle(cycle, this, 1);
+        CopyCycle(cycle, 1);
         count = static_cast<int>(cycle_animations.size());
         if (count == 0) {
             return;
@@ -2250,83 +2188,6 @@ void Monster::AimAtMonster(const Monster& target, bool alternate)
     } else {
         nav.AimAtPosition(&position);
     }
-}
-
-/* Every distinct mesh this monster's animations draw, over every cycle, LOD and
-   frame: what load-time skin setup has to reach. */
-std::vector<Mesh*> Monster::CollectModelMeshes()
-{
-    std::vector<Mesh*> meshes;
-    const auto add = [&](const AnimationMesh* mesh) {
-        if (!mesh) return;
-        for (const auto& frame : mesh->frames)
-            if (frame.mesh && std::ranges::find(meshes, frame.mesh.get()) == meshes.end())
-                meshes.push_back(frame.mesh.get());
-    };
-    for (const auto& cycle : cycles) {
-        for (const auto& slot : cycle) {
-            const Animation* animation = slot.animation.get();
-            if (!animation) continue;
-            for (int lod = 0; lod < 3; ++lod) {
-                for (auto& part : animation->parts[lod]) add(&part.mesh);
-            }
-        }
-    }
-    return meshes;
-}
-
-/* Replace one named texture in a damage stage. Model instances own the normal
-   skin tables; shake particles are the fallback when no model uses the name. */
-bool Monster::ReplaceSkinTexture(int stage, std::string_view old_name, std::string_view new_name)
-{
-    std::string path;
-    bool replaced = false;
-
-    path = fmt::format("Data\\Monsters\\Bitmaps\\{}", new_name);
-    auto texture = LoadTextureFromPath(wiz8::asset_path(path), nullptr, true);
-    if (texture == 0) {
-        ShutdownWithErrorBox(fmt::format("Missing skin texture: {}", new_name));
-        return false;
-    }
-
-    if (texture->playback) texture->Prepare();
-    const auto table_name = fmt::format("{}{}", visual.skin, stage);
-    for (Mesh* model : CollectModelMeshes()) {
-        for (auto* mesh : meshParts(model)) {
-            const int table = mesh->FindSkinTable(table_name);
-            if (table != -1 && mesh->replaceSkinTexture(table, old_name, texture)) replaced = true;
-        }
-    }
-
-    if (!replaced && !visual.particles.empty()) {
-        for (auto& attachment : visual.particles) {
-            auto* event = &attachment;
-            if (event->m_pstParticles->ReplaceTexture(old_name, texture) != 0) {
-                replaced = true;
-            }
-        }
-    }
-    return replaced;
-}
-
-/* A damage stage is a skin table on every mesh the species draws, named for the
-   skin and the stage number, so meshes shared with another species keep that
-   species' stages apart. Stage 0 starts from the authored textures and later
-   stages from stage 0. Meshes that already have the stage keep it. */
-int Monster::AddDamageStage(int stage)
-{
-    const auto name = fmt::format("{}{}", visual.skin, stage);
-    const auto base = fmt::format("{}0", visual.skin);
-    const auto models = CollectModelMeshes();
-    if (models.empty()) return -1;
-    for (Mesh* model : models) {
-        for (auto* mesh : meshParts(model)) {
-            if (mesh->FindSkinTable(name) == -1)
-                mesh->CreateSkinTable(name, stage > 0 ? mesh->FindSkinTable(base) : -1);
-        }
-    }
-    ++damage_stage_count;
-    return stage;
 }
 
 /* Floating damage feedback: render the amount into a scratch ARGB1555

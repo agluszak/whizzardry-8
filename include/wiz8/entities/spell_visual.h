@@ -39,6 +39,16 @@ enum class W8SpellVisualHostStateQuery : unsigned char {
     AnimationStopped,
 };
 
+/* What a spell visual's MLS and .mon files author for one cycle group, loaded
+   once per world: the group's cycles with their lights outside any scene and
+   the cycle events. */
+struct SpellVisualDefinition {
+    std::string asset_name;
+    W8SpellVisualMode mode = W8_SPELL_VISUAL_NONE;
+    CycleDefinition events;
+    EmitterResources<28> resources;
+};
+
 /* Engine Code\Spells.cpp's 0x1f8-byte GrCycle specialization.  Construction
    installs the primary 0x005ECF40 table and the ordinary Navigator secondary
    table at +0x18, then owns one 0x37c-byte emitter host at +0x1e0. */
@@ -52,12 +62,10 @@ public:
     void TickAnimation(float scale);
     bool ApplyPendingCycle();
     void SetCyclePosition(glm::vec3* position);
-    /* Cloned from a registered shared visual: keeps the cycle type, the saved
-       flags and the idle pacing, restarts the transient state, and gets its
-       own emitter host and identity counter. Inlined at the 0x004AB580 clone
-       site; no out-of-line copy constructor exists in the image. */
-    SpellVisual(const SpellVisual& other) : SpellVisual(other, other.owner_world) {}
-    SpellVisual(const SpellVisual& other, World* owner);
+    /* A new visual of a definition's cycle group, with its own cycles, set to
+       play its next cycle once. */
+    SpellVisual(const SpellVisualDefinition& definition, World* owner);
+    SpellVisual(const SpellVisual&) = delete;
     SpellVisual& operator=(const SpellVisual&) = delete;
     ~SpellVisual();
 
@@ -70,7 +78,6 @@ public:
     Animation* GetCurrentAnimation();
 
     unsigned int ApplyEmitterSetting(signed char emitter);
-    unsigned char ReadCycleData(LevelLoadContext* info, int cycle_index);
 
     void StartIfHostActive(); /* 0x004ABDC0 */
     /* Search backward from a subcycle for the first cycle this visual
@@ -105,24 +112,6 @@ public:
 };
 
 /* Secondary vftable 0x005ecf2c keeps the Navigator subobject at +0x18. */
-
-inline SpellVisual::SpellVisual(const SpellVisual& other, World* owner)
-    : owner_world(owner), nav(other.nav, owner), visual(other.visual, owner),
-      resources(other.resources), billboard(other.billboard)
-{
-    asset_name = other.asset_name;
-    mode = other.mode;
-    finished = false;
-    flag = false;
-    auto_release = other.auto_release;
-    fixed_transform = other.fixed_transform;
-    scale0 = other.scale0;
-    location_id = 0;
-    visual.rep_active = true;
-    visual.current_cycle = other.visual.current_cycle;
-    if (visual.current_cycle >= 0 && resources.cycles[visual.current_cycle].animation)
-        visual.active_animation = resources.cycles[visual.current_cycle].animation.get();
-}
 
 SpellVisual* CreateMonsterSpellEffect(std::string_view mls_name, int power_level, Monster* monster,
                                       int value, int flags); /* 0x004AD630 */

@@ -257,12 +257,6 @@ void UpdateWorldSpellVisuals(World* world)
     }
 }
 
-unsigned char SpellVisual::ReadCycleData(LevelLoadContext* info, int cycle_index)
-{
-    assert(info != 0 && info->hFile != 0);
-    return ReadEmitterCycle(visual, resources.cycles, info, cycle_index, true);
-}
-
 static int FindSpellCycleByName(const char* name)
 {
     for (int index = 0; index < SPELL_NUM_CYCLES; ++index) {
@@ -278,8 +272,8 @@ static int FindSpellCycleByName(const char* name)
    resource: each of the seven cycle rows of the group loads its bitmaps,
    SOUND_FRAME/SOUND_CYCLE rows attach timed sound events, and SHAKE_FRAME rows
    attach camera-shake effects. */
-static std::unique_ptr<SpellVisual> LoadSpellVisualDefinition(World* world, std::string_view name,
-                                                              W8SpellVisualMode group)
+static std::unique_ptr<SpellVisualDefinition> LoadSpellVisualDefinition(std::string_view name,
+                                                                        W8SpellVisualMode group)
 {
     PauseSharedGameTimers();
 
@@ -292,10 +286,9 @@ static std::unique_ptr<SpellVisual> LoadSpellVisualDefinition(World* world, std:
             return std::unique_ptr<wiz8::File>{};
         }
     }();
-    auto visual = std::make_unique<SpellVisual>(world);
+    auto visual = std::make_unique<SpellVisualDefinition>();
     visual->asset_name = name;
     visual->mode = group;
-    visual->visual.current_cycle = -1;
     if (handle == 0) {
         success = false;
     } else {
@@ -314,11 +307,12 @@ static std::unique_ptr<SpellVisual> LoadSpellVisualDefinition(World* world, std:
                         break;
                     }
 
-                    success = loadAnimationCycle(
-                        resource, visual.get()->visual, cycle, "Data\\Spells",
-                        [&](LevelLoadContext& read_info, int read_cycle) {
-                            return visual.get()->ReadCycleData(&read_info, read_cycle) != 0;
-                        });
+                    success =
+                        loadAnimationCycle(resource, visual->events, cycle, "Data\\Spells",
+                                           [&](LevelLoadContext& read_info, int read_cycle) {
+                                               return ReadEmitterCycle(visual->resources.cycles,
+                                                                       read_info, read_cycle);
+                                           });
                 }
                 continue;
             }
@@ -335,7 +329,7 @@ static std::unique_ptr<SpellVisual> LoadSpellVisualDefinition(World* world, std:
                 effect.cycle = FindSpellCycleByName(cycle_name.c_str());
                 effect.frame = frame;
                 effect.subcycle = 0;
-                visual->visual.AddShakeEffect(effect);
+                visual->events.shake_events.push_back(effect);
                 continue;
             }
             W8SoundEventKind kind;
@@ -352,25 +346,21 @@ static std::unique_ptr<SpellVisual> LoadSpellVisualDefinition(World* world, std:
             }
             fields >> loop;
             const auto sound_cycle = FindSpellCycleByName(cycle_name.c_str());
-            if (visual && visual->IsCycleSupported(static_cast<signed char>(sound_cycle))) {
+            if (sound_cycle >= 0 && visual->resources.cycles[sound_cycle].animation) {
                 const auto wave = fmt::format("data/spells/sounds/{}.WAV", resource);
-                visual->visual.AddSoundEvent(
-                    W8SoundEvent(kind, sound_cycle, frame, 0, wave.c_str(),
-                                 SDL_strcasecmp(loop.c_str(), "LOOP") == 0));
+                visual->events.sound_events.emplace_back(kind, sound_cycle, frame, 0, wave.c_str(),
+                                                         SDL_strcasecmp(loop.c_str(), "LOOP") == 0);
             }
         }
-        visual->billboard = false;
-        visual->visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
     }
 
     ResumeSharedGameTimers();
     return success ? std::move(visual) : nullptr;
 }
 
-/* A new spell visual copied from the definition of the named resource's cycle
-   group. The definition is loaded on first use and kept, withdrawn from the
-   scene, for the world's lifetime, so a visual never inherits another one's
-   playback. Every request takes one legacy prop save id, as retail's did
+/* A new spell visual created from the definition of the named resource's cycle
+   group. The definition is loaded on first use and kept for the world's
+   lifetime, so a visual never inherits another one's playback. Every request takes one legacy prop save id, as retail's did
    whether it loaded, cloned or failed. */
 std::unique_ptr<SpellVisual> LoadSpellVisualResource(World* world, std::string_view name,
                                                      W8SpellVisualMode group)
@@ -382,12 +372,8 @@ std::unique_ptr<SpellVisual> LoadSpellVisualResource(World* world, std::string_v
                CompareTextIgnoreAsciiCase(candidate->asset_name, name) == 0;
     });
     if (definition == definitions.end()) {
-        auto loaded = LoadSpellVisualDefinition(world, name, group);
+        auto loaded = LoadSpellVisualDefinition(name, group);
         if (!loaded) return nullptr;
-        for (auto& cycle : loaded->resources.cycles)
-            for (auto& light : cycle.lights.lights) light->setScene(nullptr);
-        loaded->visual.WithdrawFromScene();
-        std::erase(world->navigators, &loaded->nav);
         definitions.push_back(std::move(loaded));
         definition = definitions.end() - 1;
     }
@@ -400,6 +386,23 @@ SpellVisual::SpellVisual(World* owner)
     : owner_world(owner), nav(owner), visual(owner), mode(W8_SPELL_VISUAL_NONE), finished(0),
       flag(0), auto_release(1), fixed_transform(0), scale0(1.0f), location_id(0)
 {
+}
+
+SpellVisual::SpellVisual(const SpellVisualDefinition& definition, World* owner)
+    : owner_world(owner), nav(owner), visual(definition.events, owner),
+      asset_name(definition.asset_name), mode(definition.mode), resources(definition.resources),
+      finished(0), flag(0), auto_release(1), fixed_transform(0), scale0(1.0f), location_id(0)
+{
+    visual.rep_active = true;
+    visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
+    // Stand ready on the first cycle the group has until a pending cycle starts.
+    const auto first = std::ranges::find_if(
+        resources.cycles, [](const auto& cycle) { return cycle.animation != nullptr; });
+    if (first != resources.cycles.end()) {
+        StartEmitterCycle(visual, *first->animation,
+                          static_cast<signed char>(first - resources.cycles.begin()));
+        visual.animation_behaviour = first->animation->behaviour;
+    }
 }
 
 /* Release the emitter host, leave the world's spell collection, and unregister

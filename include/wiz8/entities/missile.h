@@ -54,9 +54,21 @@ struct MissileFlight {
 bool UpdateMissileAI(MissileFlight* record);
 float AdvanceMissileAI(MissileFlight* record, glm::vec3* out, unsigned int steps);
 
-/* The copy path allocates 0x328 bytes and invokes CyclePlayer's copy constructor
-   on the same receiver before installing the missile's primary and navigator
-   tables. The source assertion for its AI names the object `pMissile`. */
+/* What a missile kind's MLS and .mon files author, loaded once per world: its
+   cycles with their lights outside any scene, the cycle events, and the flight
+   settings each missile of the kind starts with. */
+struct MissileDefinition {
+    std::string asset_name;
+    CycleDefinition events;
+    EmitterResources<2> resources;
+    bool gravity = false;
+    bool align_camera = false;
+    bool explode_ground = false;
+    bool align_explosion = false;
+    float lifetime = 15000.0f;
+};
+
+/* The source assertion for its AI names the object `pMissile`. */
 class Missile {
 public:
     World* const owner_world;
@@ -67,8 +79,9 @@ public:
     void TickAnimation(float scale);
     bool ApplyPendingCycle();
     void SetCyclePosition(glm::vec3* position);
-    Missile(const Missile& other) : Missile(other, other.owner_world) {}
-    Missile(const Missile& other, World* owner); /* 0x004A3E50 */
+    // A new missile of a kind, with its own cycles and nothing of a flight yet.
+    Missile(const MissileDefinition& definition, World* owner); /* 0x004A3E50 */
+    Missile(const Missile&) = delete;
     Missile& operator=(const Missile&) = delete;
     ~Missile();
 
@@ -80,7 +93,6 @@ public:
     Animation* GetCurrentAnimation();
 
     unsigned int ApplyEmitterSetting(signed char emitter);
-    unsigned char ReadCycleData(LevelLoadContext* info, int cycle_index);
     void StartIfHostActive(); /* 0x004A4050 */
     /* Decide what the missile struck - the party or a live monster - record it
        in combat_slot, roll the target's missile deflection and either hand
