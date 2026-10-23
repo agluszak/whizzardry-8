@@ -639,7 +639,7 @@ void W8CampItemsPage::DrawCampItemIcons(void)
     unsigned int count;
     int y;
     const W8CampScreenRegion* region;
-    W8ItemInstance* item;
+    const W8ItemInstance* item;
 
     for (index = 0; index < 8; ++index) {
         item = &camp.reviewed->backpack[index];
@@ -1278,7 +1278,7 @@ void W8CampItemsPage::DrawCampItemPool(void)
     int top;
     int right;
     int bottom;
-    W8ItemInstance* item;
+    const W8ItemInstance* item;
 
     if (cell_redraw.pool_header) {
         CatalogArtwork::Load(0x114, 0).drawAndInvalidate(GetFrameBufferSurface(), 3, 0x1de, 0xa5);
