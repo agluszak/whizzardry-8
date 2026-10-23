@@ -227,12 +227,12 @@ void DispatchMGSCommand(W8MGSCommand command)
             ToggleWorldCursor();
         } else if (CurrentGame().surprise_possible) {
             AcknowledgeSurprise();
-        } else if (gpSCSV) {
-            ResetSpellCastingSelection();
+        } else if (auto* picker = SpellPicker()) {
+            picker->Cancel();
         } else if (IsLockInteractionActive()) {
-            EndLockInteractMode(0);
-        } else if (ItemUseDraft()) {
-            CloseUseItemSelection();
+            EndLockInteractMode(false);
+        } else if (UseItemPicker()) {
+            MainGame()->closeItemPicker();
         } else if (ScreenPointer().targeting() != W8_TARGET_NEED_NONE) {
             SetTargetingMode(W8_TARGET_NEED_NONE);
         } else if (FormationPanelOpen()) {
@@ -358,18 +358,10 @@ void DispatchMGSCommand(W8MGSCommand command)
         if (CurrentGame().activity.conversation || CurrentGame().activity.conversation_aside) {
             break;
         }
-        if (IsScreenInputBlocked() != 0) {
-            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() - 1) & 1));
-        } else {
-            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() + 1) % 3));
-        }
+        MainGame()->stepLayoutMode(1);
         break;
     case W8_MGS_COMMAND_PREV_LAYOUT:
-        if (IsScreenInputBlocked() != 0) {
-            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() - 1) & 1));
-        } else {
-            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() + 2) % 3));
-        }
+        MainGame()->stepLayoutMode(-1);
         break;
     case W8_MGS_COMMAND_AUTOMAP:
         if (IsScreenInputBlocked() == 0) {
@@ -465,7 +457,6 @@ void DispatchMGSCommand(W8MGSCommand command)
             request.mode = W8_PLEASE_WAIT_LOAD_GAME;
             request.name = *slot_name;
             request.parameter = GetSaveGameLevel(request.name);
-            CloseMainGameOverlays();
             SetMainGameMode(W8_MAIN_GAME_DEFAULT);
             request.id = W8_SCREEN_PLEASE_WAIT;
             RequestScreen(std::move(request));
@@ -508,7 +499,7 @@ void DispatchMGSCommand(W8MGSCommand command)
             SelectPartyCharacter(slot);
             break;
         }
-        if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
+        if (MainGame()->layout().mode == W8_MAIN_UI_MODE_PORTRAITS) {
             break;
         }
         if (MainGameHud()->portrait_refresh_pending[slot] != 0) {
@@ -532,12 +523,12 @@ void DispatchMGSCommand(W8MGSCommand command)
         ScrollDialogueTextBoxToLine();
         break;
     case W8_MGS_COMMAND_TEXTBOX_CLEAR:
-        if (!gpSCSV && !ItemUseDraft()) {
+        if (!SpellPicker() && !UseItemPicker()) {
             ResetEditorStatusLine(-1);
         }
         break;
     case W8_MGS_COMMAND_START_COMBAT_ROUND:
-        if (!CurrentGame().combat.has_value() || gpSCSV || ItemUseDraft()) {
+        if (!CurrentGame().combat.has_value() || SpellPicker() || UseItemPicker()) {
             break;
         }
         if (CurrentGame().combat->execution_active == 0) {
@@ -642,7 +633,7 @@ void MainGameScreen::openKeyboardMenu(int slot)
     keyboard_menu.reset();
     SelectPartyCharacter(slot);
     keyboard_menu = std::make_unique<KeyboardActionMenu>(*this, slot);
-    UpdateScreenOverlays(0);
+    dismissOverlays(false);
     DisableMainGamePortraitSlot(slot);
     edge_targets[slot]->setEnabled(false);
     combat_targets[slot]->setEnabled(false);
@@ -657,7 +648,7 @@ void MainGameScreen::closeKeyboardMenu()
     state.combat_slot = -1;
     state.hover_combat_slot = slot;
     state.cursor_grace = 0;
-    RefreshPartySlotRegions();
+    refreshPartySlotRegions();
     combat.setEnabled(game.combat.has_value());
     if (menu && !state.portrait_refresh_pending[slot]) {
         ClearSurfaceRect(menu->origin.x, menu->origin.y, menu->origin.x + 0x52,
@@ -707,7 +698,7 @@ KeyboardActionMenu::KeyboardActionMenu(MainGameScreen& screen, int selected_slot
             SDL_Rect{left + 0x17 + keyboard_row_positions[i].x, top + keyboard_row_positions[i].y,
                      19, 19},
             [this, &row](const UiPointerEvent& event) {
-                dirty = true;
+                requestRedraw();
                 const ButtonPolicy policy{.input_rule = ButtonInputRule::PrimaryPressedState};
                 if (event.action == UiPointerAction::Leave) row.press.leave(policy);
                 if (event.action == UiPointerAction::Enter &&
@@ -789,12 +780,16 @@ void KeyboardActionMenu::refresh()
             ButtonGraphics::Load(art.spriteSheet(), base + 6, normal + offset, hover + offset,
                                  normal + offset, hover + offset);
     }
-    dirty = true;
+    requestRedraw();
 }
 
-void KeyboardActionMenu::redraw(bool invalidate)
+void KeyboardActionMenu::requestRedraw()
 {
-    if (!invalidate && !dirty) return;
+    screen_.hud->repaint.keyboard_menu = true;
+}
+
+void KeyboardActionMenu::paint() const
+{
     const auto [x, y] = origin;
     auto& target = GetFrameBufferSurface();
     CatalogArtwork::Load(0xa6, 0).drawAndInvalidate(target, 0, x, y);
@@ -808,7 +803,6 @@ void KeyboardActionMenu::redraw(bool invalidate)
              .hovered = row.target->hovered(),
              .menu_artwork = true});
     }
-    dirty = false;
 }
 
 void MainGameScreen::chooseKeyboardMenuAction(int slot, int menu, int item)
@@ -832,14 +826,14 @@ void MainGameScreen::chooseKeyboardMenuAction(int slot, int menu, int item)
     closeKeyboardMenu();
     if (menu == W8_SUBMENU_SPELLS) {
         if (item == 0) {
-            if (!gpSCSV) OpenSpellCastingView(slot);
+            if (!spell_picker) openSpellPicker(slot);
         } else if (CanPartySlotCastRecordedSpell(slot)) {
             StartCharacterSpellCast(slot, 0);
             hud->repaint.character_action = true;
         }
     } else if (menu == W8_SUBMENU_ITEMS) {
         if (item == 1) {
-            if (!ItemUseDraft()) OpenUseItemSelectView(slot);
+            if (!item_picker) openItemPicker(slot);
         } else {
             StartCharacterItemUse(slot);
             hud->repaint.character_action = true;

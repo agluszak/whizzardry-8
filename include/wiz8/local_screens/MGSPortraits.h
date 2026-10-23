@@ -1,4 +1,7 @@
 #pragma once
+
+#include <bitset>
+
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/records.h"
 #include "wiz8/design_rect.h"
@@ -6,6 +9,15 @@
 #include "wiz8/rules/targeting.h"
 
 extern char s_general_magic_sound[];
+
+/* What a portrait band repaint painted over, so the widgets drawn on top of the
+   band are painted again in the same draw. */
+struct PortraitBandPaint {
+    // The complete band, under the condition icon.
+    bool band = false;
+    // The combat side-strip portrait's place: the band or a damage splat.
+    bool side_strip = false;
+};
 
 void ReleasePortraitControls(void);
 void ReleaseConditionButtons(void);
@@ -30,10 +42,9 @@ void EnablePortraitAdvanceRegions(void);
 /* The portrait controls exist while the main game is entered (not suspended). */
 bool PortraitControlsExist(void);
 void InvalidatePortraitControl(unsigned int party_slot);
-/* The DrawMainGameScreen portrait tick: combat slots redraw their strip,
-   non-combat slots keep their level-advance buttons in sync, and the
-   condition buttons track each slot's highest condition or enchantment. */
-void RedrawCombatPortraits(void);
+/* The presentation update keeps the level-advance buttons (outside combat) and
+   the condition buttons (each slot's highest condition or enchantment) in sync;
+   a condition-icon change requests its repaint. */
 void UpdatePortraitAdvanceButtons(void);
 void UpdateConditionButtons(void);
 /* Stage the casting icon on a monster-manager entry; the spell's
@@ -49,8 +60,8 @@ void EnableConditionButtons(void);
 
 /* Main-game portrait overlay helpers used when a party slot refreshes. */
 bool PreparePartyPortraitOverlay(unsigned int party_slot, unsigned int flags, unsigned int top);
-void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool overlay_ready,
-                                bool slot_enabled);
+PortraitBandPaint RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted,
+                                             bool overlay_ready, bool slot_enabled);
 
 DesignRect PartyPortraitBounds(unsigned int slot, int offset = 0);
 

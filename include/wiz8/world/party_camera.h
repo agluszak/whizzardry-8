@@ -53,6 +53,9 @@ public:
     ActiveEnvironment environment;
     bool motion_started = false;
     int saved_environment_flag = 1;
+    /* A HUD panel covers the bottom of the view, so tracking keeps targets higher.
+       The main game screen sets it whenever its viewport changes. */
+    bool bottom_panel_view = false;
     /* One frame of movement. `turn` applies the frame's turn and look input and returns the
        basis the movement input is taken in; `move` advances the party under that input
        against the collision index and reports the displacement. */
