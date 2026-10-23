@@ -3,7 +3,9 @@ name: Format
 on:
   push:
     branches: [main]
+    paths-ignore: ["**.md", "docs/**", LICENSE, .gitignore]
   pull_request:
+    paths-ignore: ["**.md", "docs/**", LICENSE, .gitignore]
 
 concurrency:
   group: format-${{ github.event.pull_request.number || github.ref }}
