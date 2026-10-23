@@ -208,8 +208,7 @@ void PresentCharacterDamage(int party_slot, unsigned int amount, bool fatal)
     } else {
         entry->damage_splat_amount += amount;
         entry->damage_splat_frame = 0;
-        if (fatal &&
-            !entry->damage_splat_death_variant) {
+        if (fatal && !entry->damage_splat_death_variant) {
             entry->damage_splat_death_variant = true;
             entry->damage_splat_end_frame = 0x1e;
         }

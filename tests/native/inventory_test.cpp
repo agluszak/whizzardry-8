@@ -80,8 +80,7 @@ TEST_CASE("A full pool reports partial deposits and retains every unplaced unit"
     data.items[0].maximum_quantity = 100;
     ScopedGame scope{data};
     auto& inventory = scope.game.inventory;
-    std::vector<W8ItemInstance> pool(Inventory::kPoolLimit,
-                                   {.iItemNo = 0, .stack_count = 100});
+    std::vector<W8ItemInstance> pool(Inventory::kPoolLimit, {.iItemNo = 0, .stack_count = 100});
     pool[0].stack_count = 95;
     inventory.restore(std::move(pool), W8ItemInstance{.iItemNo = 0, .stack_count = 20});
     const auto before = inventory.count(0);

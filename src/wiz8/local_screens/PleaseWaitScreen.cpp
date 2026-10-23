@@ -175,9 +175,8 @@ void PleaseWaitScreen::frame()
             return;
         }
         try {
-            games.load(std::move(*saved), [] {
-                DiscardSuspendedScreensAbove(W8_SCREEN_MAIN_MENU);
-            });
+            games.load(std::move(*saved),
+                       [] { DiscardSuspendedScreensAbove(W8_SCREEN_MAIN_MENU); });
         } catch (const std::exception& error) {
             g_pending_main_menu_message = fmt::format("Cannot load {}: {}", name, error.what());
             RequestScreen({.id = W8_SCREEN_MAIN_MENU}, ScreenDeparture::Discard);

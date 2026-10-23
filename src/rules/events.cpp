@@ -24,8 +24,7 @@ Events::Operation::~Operation() noexcept(false)
 void Events::push(Event event)
 {
     if (observer_ && !operations_ && !delivering_ && pending_.empty()) {
-        auto observer = observer_;
-        observer(event);
+        observer_(event);
         return;
     }
     pending_.push_back(std::move(event));
@@ -47,8 +46,7 @@ void Events::deliver()
         while (observer_ && !pending_.empty()) {
             auto event = std::move(pending_.front());
             pending_.erase(pending_.begin());
-            auto observer = observer_;
-            observer(event);
+            observer_(event);
         }
     } catch (...) {
         delivering_ = false;

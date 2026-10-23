@@ -1647,15 +1647,18 @@ TEST_CASE("Nested operations present settled outcomes before observer follow-ups
     REQUIRE(seen.back() == 4); // Unmigrated commands still deliver immediately.
 }
 
-TEST_CASE("Failed operations do not publish completion or consume older pending outcomes", "[events]")
+TEST_CASE("Failed operations do not publish completion or consume older pending outcomes",
+          "[events]")
 {
     Events events;
     events.push(PartySlotChanged{1});
-    REQUIRE_THROWS_AS([&] {
-        Events::Operation operation{events};
-        events.push(PartySlotChanged{2});
-        throw std::runtime_error("failed operation");
-    }(), std::runtime_error);
+    REQUIRE_THROWS_AS(
+        [&] {
+            Events::Operation operation{events};
+            events.push(PartySlotChanged{2});
+            throw std::runtime_error("failed operation");
+        }(),
+        std::runtime_error);
     std::vector<unsigned int> seen;
     {
         Events::Operation operation{events};

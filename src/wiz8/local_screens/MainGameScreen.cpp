@@ -2530,6 +2530,7 @@ void MainGameScreen::frame()
             active = 1;
         }
         SetWorldModelPickingEnabled(active);
+        if (!active) game.level.loaded().acceptPick({}, game.combat.has_value());
         if (game.level_up_check_due && !game.activity.conversation && !game.combat.has_value()) {
             RefreshLevelUpReadyNotices();
         }
@@ -2547,6 +2548,9 @@ bool MainGameScreen::leave(ScreenDeparture departure)
 {
     const bool leaving = departure == ScreenDeparture::Discard;
     int index;
+
+    // Covering this interaction invalidates its old aim even if no new view is rendered.
+    if (auto* world = game.level.primary.get()) world->acceptPick({}, game.combat.has_value());
 
     if (leaving) {
         OpenModal(nullptr);

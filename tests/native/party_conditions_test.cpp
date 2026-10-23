@@ -198,7 +198,8 @@ TEST_CASE_METHOD(PartyFixture, "Absorbed damage publishes its notice after spend
     REQUIRE(notices == 1);
 }
 
-TEST_CASE_METHOD(PartyFixture, "Lethal damage completes without a screen and publishes settled outcomes",
+TEST_CASE_METHOD(PartyFixture,
+                 "Lethal damage completes without a screen and publishes settled outcomes",
                  "[conditions][damage][events]")
 {
     ScopedCombat fight{true};
