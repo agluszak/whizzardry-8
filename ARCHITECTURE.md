@@ -257,7 +257,13 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
 - **Events.** Rules push typed events onto `Game::events` (notices, display
   changes, combat progress, speech) and never ask for repaints. The session's
   presenter (`PresentGameEvent`) maps each to the active screen. A game without an
-  observer keeps events pending, which is how tests inspect them.
+  observer keeps events pending, which is how tests inspect them. Party damage,
+  condition infliction/lifting, revival and settlement hold delivery with
+  `Events::Operation`: nested operations complete before the outer boundary presents
+  their ordered outcomes. Damage narration and splats use that same stream; mandatory
+  combat, story and speech consequences remain explicit calls. Unmigrated commands
+  continue to deliver immediately. Failed operations discard their unpublished outcomes,
+  without implying gameplay rollback.
 - **Combat.** `Combat::turn()` is idle or one actor's turn, stepped once per frame
   once nothing is waited on (camera, animation, sound, missile, script). Actors are
   held by slot or location id and looked up when used. Combat is not saved.
@@ -268,7 +274,9 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   and the hand, and is the only thing that moves items between any of them. Each
   operation is complete when it returns: restrictions, the move, acquisition and
   settling the party. A transfer's `item` argument is what remains with the giver, so
-  a refused or partial transfer never loses units. `MergeStack` is the one stacking
+  a refused or partial transfer never loses units. Pool deposits explicitly distinguish
+  refusal, partial placement and completion; their outcomes are delivered after both
+  pool and hand settle. `MergeStack` is the one stacking
   rule and changes nothing but the two values. A `W8ItemLocation` addresses a slot
   for one call (an empty hand or free pool row reads as an empty item); anything kept
   longer (a queued use, a trade selection) is checked against its expected item when
@@ -288,9 +296,13 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   resources are released. Destruction does no departure bookkeeping.
 - Loading a save decodes every section, each level group included, before the game
   in progress or its screens are released, into a plain `SavedGame` (`ReadSavedGame`)
-  that `SavedGame::install` writes into the game it begins; a rejected save resumes
-  that game. If the resume level then fails to build, the new game ends and the menu
-  shows the error.
+  that `GameSession::load` installs at an explicit presentation-release boundary.
+  A rejected decode resumes the outgoing game. The session ends combat while its
+  controls exist, asks the caller to release borrowing screens, installs the saved
+  game, and constructs and enters its level. If construction fails, the session ends
+  the replacement and the caller presents the error. Resource preparation still uses
+  the installed game; retaining the outgoing game on construction failure is a target,
+  not a guarantee of this implementation.
 - Monster and world-item records link to their scene entity through an
   `EntityLink`. An inactive record may have none. Anything that keeps an actor
   past the current call keeps its id and looks it up again when used.
@@ -320,6 +332,11 @@ code has a subclass whose members are that state. Trigger callbacks are
   `AutomapScreen` is rebuilt with that world on every visit.
 - Wizardry lighting, fog and material operations run in GLSL shaders compiled to
   SPIR-V. VSG uses Vulkan (MoltenVK on macOS).
+- `RenderFrame` returns the raw intersection (or a miss) without changing the world's
+  accepted selection. The main screen applies it using the current combat context.
+  Rendering auxiliary views cannot replace the interaction's accepted pick. Scene-frame
+  composition still queries current world/time state; full explicit render inputs remain
+  migration work.
 - `endFrame` waits for submitted work: graph mutations and object destruction
   happen on the game thread between completed frames.
 - The UI is drawn on a fixed ARGB1555 CPU canvas and published to a dynamic VSG
