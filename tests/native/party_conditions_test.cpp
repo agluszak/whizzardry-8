@@ -83,6 +83,26 @@ TEST_CASE_METHOD(PartyFixture, "A ceiling that exhausts hit points kills the mem
     REQUIRE((deaths() == 1 && member().death_count == 1));
 }
 
+TEST_CASE_METHOD(PartyFixture, "Death settles the party fight before returning", "[conditions][events]")
+{
+    ScopedCombat fight{true};
+    game.party.rows[0].executing.kind = W8_ACTION_ATTACK;
+    game.combat->characters[0].phase = 2;
+    member().uiCondition[W8_CONDITION_POISONED] = 30;
+    member().condition_argument = 4;
+
+    REQUIRE(InflictCondition(game, 0, {.condition = W8_CONDITION_DEAD,
+                                     .duration = W8_CONDITION_INDEFINITE}));
+    REQUIRE(game.combat->pending_death_count == 1);
+    REQUIRE(game.combat->characters[0].dead);
+    REQUIRE(game.combat->characters[0].phase == 0);
+    REQUIRE(game.party.rows[0].executing.kind == W8_ACTION_NONE);
+    REQUIRE(member().hp_current == 0);
+    REQUIRE(member().stamina == 0);
+    REQUIRE(member().uiCondition[W8_CONDITION_POISONED] == 0);
+    REQUIRE(deaths() == 1);
+}
+
 TEST_CASE_METHOD(PartyFixture, "Cheating death leaves the member unconscious instead",
                  "[conditions]")
 {
