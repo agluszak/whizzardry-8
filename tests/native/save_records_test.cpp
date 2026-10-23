@@ -616,24 +616,25 @@ static void animation_record_contracts()
 
 static void graphical_object_ownership_contracts()
 {
-    Missile original;
-    original.visual.m_pAI.emplace(std::vector<KeyframePoint>{{{1, 2, 3}}});
+    MissileDefinition definition;
+    definition.events.path.emplace(std::vector<KeyframePoint>{{{1, 2, 3}}});
     auto event = W8SoundEvent(W8_SOUND_EVENT_FRAME, 1, 2, 3, "step.wav", true);
     event.pitch = 3;
-    original.visual.AddSoundEvent(std::move(event));
+    definition.events.sound_events.push_back(std::move(event));
     for (int i = 0; i < 20; ++i) {
-        original.visual.AddSoundEvent(
-            W8SoundEvent(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
+        definition.events.sound_events.emplace_back(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav",
+                                                    false);
     }
-    Missile copy(original);
-    REQUIRE((copy.visual.m_pAI->geometry == original.visual.m_pAI->geometry));
+    World owner;
+    Missile copy(definition, owner);
+    REQUIRE((copy.visual.m_pAI->geometry == definition.events.path->geometry));
     REQUIRE((copy.visual.m_pAI->points()[0].position.y == 2));
-    REQUIRE((copy.visual.sound_events.size() == original.visual.sound_events.size()));
+    REQUIRE((copy.visual.sound_events.size() == definition.events.sound_events.size()));
     REQUIRE(copy.visual.sound_events.front().pitch == 3);
     REQUIRE((copy.visual.sound_events.front().wave_name == "step.wav"));
     REQUIRE((copy.visual.sound_events.front().looping &&
              copy.visual.sound_events.front().sound_handle == nullptr));
-    original.visual.sound_events.clear();
+    definition.events.sound_events.clear();
     REQUIRE((copy.visual.sound_events.front().wave_name == "step.wav"));
 }
 

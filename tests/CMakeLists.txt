@@ -155,7 +155,7 @@ if(UNIX)
             -P "${CMAKE_CURRENT_SOURCE_DIR}/no_host_wide_strings.cmake")
 endif()
 
-add_executable(native_game_graphics "${PROJECT_SOURCE_DIR}/tests/native/game_graphics.cpp")
+add_executable(native_game_graphics EXCLUDE_FROM_ALL "${PROJECT_SOURCE_DIR}/tests/native/game_graphics.cpp")
 target_compile_definitions(native_game_graphics PRIVATE
     WIZ8_MOVIE_FIXTURE="${PROJECT_SOURCE_DIR}/tests/native/movie.mkv")
 target_link_libraries(native_game_graphics PRIVATE wiz8_engine SDL3::SDL3 SDL3_image::SDL3_image)
@@ -222,7 +222,7 @@ add_test(NAME native_application COMMAND native_application_test)
 set_tests_properties(native_application PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy" TIMEOUT 10)
 
 # Installed level/character integration; supplied assets and a display are required.
-add_executable(native_world_graphics "${PROJECT_SOURCE_DIR}/tests/native/world_graphics.cpp")
+add_executable(native_world_graphics EXCLUDE_FROM_ALL "${PROJECT_SOURCE_DIR}/tests/native/world_graphics.cpp")
 target_link_libraries(native_world_graphics PRIVATE wiz8_engine SDL3::SDL3)
 
 # Scenarios through the real game loop against installed retail assets

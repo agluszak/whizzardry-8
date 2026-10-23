@@ -1000,7 +1000,7 @@ static wiz8::save::GameState CaptureStateForSave(const Game& game, const wiz8::F
 {
     wiz8::save::GameState snapshot{game.status, game.party, game.search.requested()};
     auto& status = snapshot.status;
-    status.pending_move_location = partyPose(*GetWorld());
+    status.pending_move_location = game.level.primary->party.pose();
     status.retail.save_version = 1.1f;
     status.difficulty = g_settings.difficulty;
     if (status.iron_man) {

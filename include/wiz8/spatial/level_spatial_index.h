@@ -450,6 +450,8 @@ public:
     /* Whether no visible mesh polygon or attached collidable prop blocks the
        segment. */
     bool hasLineOfSight(const glm::vec3& from, const glm::vec3& to) const;
+    // Whether any of `bounds`' visibility samples is in sight of `from`.
+    bool hasLineOfSight(const glm::vec3& from, const BoundingBox& bounds) const;
     /* The walkable route a noise travels from `from` to `to` within `budget`
        when it is positive; no value when none exists. */
     std::optional<MeasuredPath> measureNoisePath(const glm::vec3& from, const glm::vec3& to,
