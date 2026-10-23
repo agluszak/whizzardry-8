@@ -1,6 +1,7 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
@@ -44,7 +45,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
-#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/light.h"
@@ -52,6 +52,7 @@
 #include "wiz8/render/world_scene.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/targeting.h"
+#include "wiz8/world/automap.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
@@ -520,7 +521,14 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
     lamp->setName("LAMP");
     lamp->m_save_marked = true;
     lamp->visible = false;
-    world.automap.keys.resize(5);
+    {
+        auto cells = wiz8::open_memory_writer();
+        const float size = 2000.0f;
+        const std::array<std::uint32_t, 6> count_and_keys{5, 1, 2, 3, 4, 5};
+        cells->write(&size, sizeof(size));
+        cells->write(count_and_keys.data(), sizeof(count_and_keys));
+        REQUIRE(world.automap.readCells(*wiz8::open_memory(cells->written_memory())));
+    }
     W8SavedAutomapNotes notes;
     notes.visited = {true, false, true, true, false};
     auto note = std::make_unique<W8AutomapNote>();
@@ -528,7 +536,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
     note->layer = 2;
     note->text = "Hello Ж";
     notes.notes.push_back(std::move(note));
-    ApplyAutomapNotes(world, std::move(notes));
+    world.automap.restore(std::move(notes));
     const auto encode = [](const LevelState& state) {
         const std::shared_ptr<wiz8::File> file = wiz8::open_memory_writer();
         W8Chunk image;

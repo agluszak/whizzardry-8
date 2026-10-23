@@ -79,6 +79,7 @@ class MeshInstance;
 class Texture;
 struct OverlayQuad;
 class UiCanvasTexture;
+class WorldScene;
 
 std::unique_ptr<MeshInstance> MakePosterQuad(std::shared_ptr<Texture> texture, float width,
                                              float height, bool additive);
@@ -87,8 +88,8 @@ std::unique_ptr<OverlayQuad> makeOverlayFromTexture(std::shared_ptr<Texture> tex
 /* 0x00426F80: render the world into a caller-owned color surface through a
    scissored viewport, then blit the locked frame buffer onto the target. */
 bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect);
-/* Render the current world's map view into a caller-owned surface the same way. */
-bool RenderMapToSurface(SDL_Surface& target, const DesignRect& rect);
+/* Render a world scene's map view into a caller-owned surface the same way. */
+bool RenderMapToSurface(SDL_Surface& target, WorldScene& scene, const DesignRect& rect);
 
 struct W8ControlsRect;
 
@@ -111,8 +112,7 @@ bool ClearMouseSurface(void);
 void DrawVideoInspector(int left, unsigned int top);
 /* 0x00428830: the option-4-suppressed render probe - draws the node between
    the dynamic scene's bracketing passes and returns the sampled statistic. */
-/* 0x00424EB0: build the 2D polygon-brush model instance over a surface;
-   RenderAutomapMarkers' item-marker factory calls it cross-TU. */
+/* 0x00424EB0: build the 2D polygon-brush model instance over a surface. */
 /* 0x00484A40: blit one frame of a video object into a color surface. */
 bool BlitVideoObjectToColorSurface(const SpriteSheet& sprites, std::uint16_t region,
                                    SDL_Surface& destination, int x, int y);
@@ -131,7 +131,6 @@ void WarpSystemCursor(int x, int y); /* 0x004280C0: fullscreen-safe */
 class Camera3D;
 class Renderer;
 class Material;
-class WorldScene;
 class UiCanvasTexture;
 
 extern unsigned char g_fullscreen;

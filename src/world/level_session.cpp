@@ -39,7 +39,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/math.h"
@@ -358,7 +357,6 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
     world.party.camera.applySway(*world.camera, world.initial_camera_sway ? CameraSwayMode::Start
                                                                           : CameraSwayMode::Stop);
     SetSkyNodeVisible(false);
-    ResetAutomapView();
     BeginRestoredLevelActivity(world, status);
 
     if (!restoring_game && entrance != -1) {

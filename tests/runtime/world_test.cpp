@@ -762,17 +762,19 @@ void ResourceLifecycleScenario()
     for (int visit = 0; visit != 2; ++visit) {
         game.command(W8_MGS_COMMAND_AUTOMAP);
         game.wait_screen("automap-buttons", W8_SCREEN_AUTOMAP);
-        REQUIRE(g_automap_buttons);
-        for (int index = 0; index != 16; ++index) {
-            REQUIRE(g_automap_buttons->buttons[index]);
-            REQUIRE(g_automap_buttons->buttons[index]->Bounds().w > 0);
-            REQUIRE(g_automap_buttons->buttons[index]->Bounds().h > 0);
-            g_automap_buttons->buttons[index]->m_dirty = true;
-            g_automap_buttons->buttons[index]->Draw(GetFrameBufferSurface());
+        const auto* automap = FindScreen<AutomapScreen>();
+        REQUIRE(automap);
+        REQUIRE(automap->buttons());
+        for (const auto& button : automap->buttons()->buttons) {
+            REQUIRE(button);
+            REQUIRE(button->Bounds().w > 0);
+            REQUIRE(button->Bounds().h > 0);
+            button->m_dirty = true;
+            button->Draw(GetFrameBufferSurface());
         }
         game.key(SDLK_ESCAPE);
         game.wait_screen("automap-buttons-released", W8_SCREEN_MAIN_GAME);
-        REQUIRE(!g_automap_buttons);
+        REQUIRE(!FindScreen<AutomapScreen>());
     }
     game.command(W8_MGS_COMMAND_OPTIONS);
     game.wait_screen("options-menu", W8_SCREEN_OPTIONS);

@@ -39,7 +39,6 @@ public:
     void excludeTextures(std::vector<std::string> names);
     // Light every vertex of a static instance within `range` of `center`.
     void reveal(const MeshInstance& instance, const glm::vec3& center, float range);
-    void forgetExplored();
 
     // The map graph over these static instances, updated for this pass.
     vsg::ref_ptr<vsg::Group> prepare(render::RenderContext& context,

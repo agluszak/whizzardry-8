@@ -39,6 +39,12 @@ std::unique_ptr<World> Level::replacePrimary(std::unique_ptr<World> world)
     return std::exchange(primary, std::move(world));
 }
 
+World& Level::loaded() const
+{
+    if (!primary) throw std::logic_error("a level screen was requested with no level loaded");
+    return *primary;
+}
+
 std::unique_ptr<World> Level::replaceSky(std::unique_ptr<World> world)
 {
     return std::exchange(sky, std::move(world));

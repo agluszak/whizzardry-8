@@ -53,7 +53,6 @@ public:
     ActiveEnvironment environment;
     bool motion_started = false;
     int saved_environment_flag = 1;
-    glm::vec3 last_automap_refresh_position{0};
     /* A HUD panel covers the bottom of the view, so tracking keeps targets higher.
        The main game screen sets it whenever its viewport changes. */
     bool bottom_panel_view = false;

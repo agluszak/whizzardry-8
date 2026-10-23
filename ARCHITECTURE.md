@@ -308,7 +308,8 @@ code has a subclass whose members are that state. Trigger callbacks are
   drawable subgraph; its model owns shared topology and materials. Poses are
   sampled on the CPU once per frame and shared by every view, picking and
   attachments. The automap is a separate view of the same scene that changes no
-  gameplay state.
+  gameplay state. Its cells, notes and last view are the level's `World::automap`;
+  `AutomapScreen` is rebuilt with that world on every visit.
 - Wizardry lighting, fog and material operations run in GLSL shaders compiled to
   SPIR-V. VSG uses Vulkan (MoltenVK on macOS).
 - `endFrame` waits for submitted work: graph mutations and object destruction

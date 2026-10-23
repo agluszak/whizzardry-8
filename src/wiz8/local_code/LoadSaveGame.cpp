@@ -75,7 +75,6 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/message_log.h"
@@ -102,6 +101,7 @@
 #include "wiz8/story.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
+#include "wiz8/world/automap.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
@@ -800,7 +800,7 @@ void ReadLevelSection(LevelState::Data& data, W8Chunk& chunk, unsigned int chunk
         data.world_sections.emplace_back(DecodeSavedTriggerActions(chunk));
         break;
     case W8_CHUNK_AUTOMAP_NOTES:
-        data.automap = ReadAutomapNotes(chunk);
+        data.automap = W8SavedAutomapNotes::read(chunk);
         break;
     case W8_CHUNK_TRIGGERS:
         data.world_sections.emplace_back(DecodeSavedTriggers(chunk, from_assets));
@@ -1067,7 +1067,7 @@ LevelState LevelState::capture(const Level& level, const GameStatus& status)
                 state.monsters.push_back(SavedMonster::Capture(
                     *monster, population.monster_roster.isUnborn(monster.get())));
     for (const auto& item : population.world_items) state.items.push_back(CaptureWorldItem(*item));
-    state.automap = CaptureAutomapNotes(world.automap);
+    state.automap = world.automap.capture();
     if (!world.triggers.empty()) {
         auto& triggers = state.world_sections.emplace_back(std::vector<SavedTrigger>{});
         for (const auto& trigger : world.triggers)
@@ -1143,8 +1143,7 @@ void LevelState::encode(W8Chunk& chunks) const
             for (const auto& item : state.items) WriteSavedWorldItem(file, item);
         });
         if (state.automap)
-            chunks.WriteChunk(W8_CHUNK_AUTOMAP_NOTES,
-                              [&] { WriteAutomapNotes(file, *state.automap); });
+            chunks.WriteChunk(W8_CHUNK_AUTOMAP_NOTES, [&] { state.automap->write(file); });
         sections.operator()<std::vector<SavedTrigger>>(W8_CHUNK_TRIGGERS);
         sections.operator()<std::vector<SavedProp>>(W8_CHUNK_PROPS);
         if (state.cursor_states)
@@ -1427,7 +1426,7 @@ void PrepareLevelPopulation(World& world, LevelState::Data& data,
         }
     }
     if (data.encounters) world.encounters = std::move(*data.encounters);
-    if (data.automap) ApplyAutomapNotes(world, std::move(*data.automap));
+    if (data.automap) world.automap.restore(std::move(*data.automap));
     ApplyAmbientSoundStates(world, data.ambient);
     ApplyParticleStates(world, data.particles);
     ApplyLightStates(world, data.lights);
