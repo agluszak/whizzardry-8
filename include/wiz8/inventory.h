@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <expected>
 #include <functional>
+#include <initializer_list>
 #include <optional>
 #include <span>
 #include <vector>
@@ -244,7 +245,18 @@ private:
 
     // What every operation owes after changing items.
     void settle(std::span<const W8ItemLocation> changed);
+    // A short fixed list, which lives through the call.
+    void settle(std::initializer_list<W8ItemLocation> changed)
+    {
+        settle(std::span<const W8ItemLocation>(changed.begin(), changed.size()));
+    }
     void settleOutsider(const ItemRecipient& recipient, std::span<const W8ItemLocation> changed);
+    void settleOutsider(const ItemRecipient& recipient,
+                        std::initializer_list<W8ItemLocation> changed)
+    {
+        settleOutsider(recipient,
+                       std::span<const W8ItemLocation>(changed.begin(), changed.size()));
+    }
 
     Game& game_;
     std::vector<W8ItemInstance> pool_;
