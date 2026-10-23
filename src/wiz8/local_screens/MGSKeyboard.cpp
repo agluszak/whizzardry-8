@@ -707,7 +707,7 @@ KeyboardActionMenu::KeyboardActionMenu(MainGameScreen& screen, int selected_slot
             SDL_Rect{left + 0x17 + keyboard_row_positions[i].x, top + keyboard_row_positions[i].y,
                      19, 19},
             [this, &row](const UiPointerEvent& event) {
-                dirty = true;
+                requestRedraw();
                 const ButtonPolicy policy{.input_rule = ButtonInputRule::PrimaryPressedState};
                 if (event.action == UiPointerAction::Leave) row.press.leave(policy);
                 if (event.action == UiPointerAction::Enter &&
@@ -789,12 +789,16 @@ void KeyboardActionMenu::refresh()
             ButtonGraphics::Load(art.spriteSheet(), base + 6, normal + offset, hover + offset,
                                  normal + offset, hover + offset);
     }
-    dirty = true;
+    requestRedraw();
 }
 
-void KeyboardActionMenu::redraw(bool invalidate)
+void KeyboardActionMenu::requestRedraw()
 {
-    if (!invalidate && !dirty) return;
+    screen_.hud->repaint.keyboard_menu = true;
+}
+
+void KeyboardActionMenu::paint() const
+{
     const auto [x, y] = origin;
     auto& target = GetFrameBufferSurface();
     CatalogArtwork::Load(0xa6, 0).drawAndInvalidate(target, 0, x, y);
@@ -808,7 +812,6 @@ void KeyboardActionMenu::redraw(bool invalidate)
              .hovered = row.target->hovered(),
              .menu_artwork = true});
     }
-    dirty = false;
 }
 
 void MainGameScreen::chooseKeyboardMenuAction(int slot, int menu, int item)

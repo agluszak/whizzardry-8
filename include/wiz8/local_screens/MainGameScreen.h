@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <bitset>
 #include <cstddef>
 #include <memory>
 #include <optional>
@@ -24,6 +25,10 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 
+class PartyMovementPanel;
+struct PortraitBandPaint;
+struct RepaintedPortraitBands;
+struct W8TargetingPresentation;
 class RadarMap;
 class KeyboardActionMenu;
 class Pointer;
@@ -44,6 +49,17 @@ struct MainGameScreen final : Screen {
     void frame() override;
     void resetStepClock() override { step_timer.restart(); }
     bool leave(ScreenDeparture departure) override;
+
+    /* A frame updates what it shows, then paints it. The update brings the party's
+       facing, the targeting presentation, panel and button state and the repaint
+       record in line with the game; the draw paints the recorded parts and changes
+       no state. */
+    W8TargetingPresentation updatePresentation();
+    void draw(const W8TargetingPresentation& presentation);
+    /* Lay the tracked portrait plate out again when the draw repaints what it sits
+       over; the draw paints the laid-out plate. */
+    void updatePortraitPlate();
+    void paintPortraitPlate() const;
 
     // The game this main game belongs to; it is discarded before the game ends.
     Game& game;
@@ -79,8 +95,8 @@ struct MainGameScreen final : Screen {
     std::optional<ItemDrag> item_drag;
     // The formation panel is open.
     bool formation_panel_open = false;
-    // The combat party-movement panel is shown.
-    bool party_movement_panel = false;
+    // The combat party-movement panel, while it is shown.
+    std::unique_ptr<PartyMovementPanel> party_movement;
     /* The HUD's presentation state; created on the first entry and released when the
        screen is discarded. */
     std::unique_ptr<W8LevelRuntimeBlock> hud;
@@ -95,6 +111,30 @@ struct MainGameScreen final : Screen {
     std::array<std::array<HitTarget*, 6>, 8> portrait_targets{};
     std::array<HitTarget*, 8> combat_targets{}, edge_targets{};
     HitTarget *radar_target = nullptr, *monster_list = nullptr, *world_view = nullptr;
+
+private:
+    /* The presentation update's button sync: bank buttons, scroll arrows,
+       panel/options/stance/roof buttons and the layout arrows. */
+    void updateHudButtons();
+    /* Show one arrow of each raise/lower pair against the action-panel,
+       formation-board and radar-map visibility; modal modes hide them all. */
+    void updateLayoutArrows();
+    /* The draw's per-frame button refresh: every changed button except the
+       layout arrows, which the layout repaint draws. */
+    void refreshHudButtons();
+    void paintRequested(const W8TargetingPresentation& presentation,
+                        RepaintedPortraitBands& bands) const;
+    /* The widgets over the portrait bands: the given combat side-strip portraits,
+       the level-advance buttons (forced over repainted bands), and the condition
+       icons that were requested or whose band was repainted. */
+    void paintCombatPortraits(std::bitset<8> slots) const;
+    void refreshPortraitAdvanceButtons(std::bitset<8> repainted) const;
+    void paintConditionIcons(std::bitset<8> requested, std::bitset<8> repainted_bands) const;
+    // A party slot's next animated portrait frame, as the portrait animation asked.
+    PortraitBandPaint paintPartyPortraitFrame(unsigned int party_slot) const;
+    /* Whether painting the slot's requested animation frame repaints its complete
+       band too, as it does for a character dead in combat, surprised or missing. */
+    bool partyPortraitFrameCoversBand(unsigned int party_slot) const;
 };
 /* The main game screen, current or suspended, or null. */
 inline MainGameScreen* MainGame()
@@ -427,7 +467,6 @@ void OnLeaveGameConfirmClosed(bool accepted);
 // Show that the world was held or released, or that its time stopped or resumed.
 void PresentWorldAdvancement(bool held, bool hold_changed);
 
-void RefreshTrackedPortraitOverlay(void);
 /* Which party portrait the pointer is over, if any. */
 void ClearCombatSelection(void);
 void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_needed);
@@ -436,13 +475,6 @@ void RefreshFlaggedMainGameState(void);
 bool IsScreenIdle(void);
 bool IsModalOpen(void);
 
-struct W8TargetingPresentation;
-void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation);
-/* A main-game frame updates what it shows, then paints it: the update brings the party's
-   facing, the targeting presentation, the radar blips and the text box's repaint in line
-   with the game; the draw paints the recorded repaint parts and presents. */
-W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud);
-void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation);
 void CancelMouselook();
 void SetTooltipSubject(W8PortraitHighlightKind kind, int subject);
 bool IsScreenInputBlocked(void);
@@ -478,15 +510,10 @@ void RefreshPartySlotRegions(void);
 /* Re-sync mouse hotspot, region enables and viewport after a
    main-game mode change. */
 void SyncMainGameModeInput(void);
+/* Forget the shown plate and, while the overlay mode is up, have the next draw
+   erase its rectangle and repaint the roof or text box it crossed. */
 void ClearHighlightOverlayRegion(void);
 void DismissHighlightOverlay(void);
-/* The portrait-hover panel's producer; the four hover entry
-   points hand it the slot, a content row count and a minimum plate width. */
-void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int min_width);
-void DrawPortraitVitalsOverlay(int party_slot);
-void DrawPortraitConditionOverlay(int party_slot);
-void DrawPortraitStatusOverlay(int party_slot);
-void DrawPortraitEnchantmentOverlay(int party_slot);
 void SelectPartyCharacter(int party_slot);
 void RefreshMainGameActionPanel(void);
 void OpenAutomapScreen(void);
@@ -566,7 +593,8 @@ void PopulateNpcTradeList(void);
    fails when the NPC declines the item or the party cannot pay. */
 /* Run one NPC trade offer; the result selects the accepted,
    refused or offended script path. */
-void RefreshFormationPanel(bool show_portraits);
+// Redraw the formation panel when asked or when one of its buttons changed.
+void RefreshFormationPanel(bool force);
 void EndLockInteractMode(signed char suspend);
 void UpdateTrapInteraction(void);
 void EndTrapInteractMode(signed char suspend);

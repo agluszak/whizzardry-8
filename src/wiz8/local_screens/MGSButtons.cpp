@@ -119,15 +119,11 @@ void RefreshSubMenuPanel(bool invalidate)
 {
     auto& submenu = MainGame()->submenu;
     if (!submenu) return;
-    submenu->dirty |= invalidate;
-    auto& target = GetFrameBufferSurface();
-    if (submenu->dirty) {
-        CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(target, submenu->background,
-                                                        submenu->bounds.x, 0x1c3);
-        for (auto& button : submenu->buttons) button->m_dirty = true;
-        submenu->dirty = false;
+    if (invalidate) {
+        CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(
+            GetFrameBufferSurface(), submenu->background, submenu->bounds.x, 0x1c3);
     }
-    for (auto& button : submenu->buttons) button->Refresh();
+    for (auto& button : submenu->buttons) button->Refresh(invalidate);
 }
 
 static void ChooseSubMenuAction(W8ActionKind action)
@@ -305,23 +301,12 @@ static void CreateOptionsDiskButton()
    trap / camp interact modes. */
 void RedrawOptionsDiskButton(void)
 {
-    bool enabled;
-
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 2, 0, 0x1c2);
-    MainGame()->hud_buttons.options_disk.m_dirty = true;
-    if (!CurrentGame().activity.conversation && !IsLockInteractionActive() &&
-        !IsTrapInteractionActive() && !CurrentGame().activity.conversation_aside &&
-        !LockInteractionSuspended() && !TrapInteractionSuspended()) {
-        enabled = true;
-    } else {
-        enabled = false;
-    }
-    MainGame()->hud_buttons.options_disk.SetEnabled(enabled);
-    MainGame()->hud_buttons.options_disk.Refresh();
+    MainGame()->hud_buttons.options_disk.Refresh(true);
 }
 
 /* Pick which of the five combat-stance buttons is visible for the live combat
-   / continuous-combat state, then enable and Draw that one. */
+   / continuous-combat state, and enable that one. */
 void UpdateCombatStanceButtons(void)
 {
     unsigned int stance;
@@ -354,17 +339,13 @@ void UpdateCombatStanceButtons(void)
         enabled = false;
     }
     MainGame()->hud_buttons.combat_stance[stance].SetEnabled(enabled);
-    MainGame()->hud_buttons.combat_stance[stance].Refresh();
 }
 
-/* Dirties the five combat-stance buttons and refreshes which one is live. */
+// Draw the combat-stance chrome and the live stance button.
 void RedrawCombatStanceButtons(void)
 {
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 3, 0x262, 0x1c2);
-    for (int index = 0; index < 5; ++index) {
-        MainGame()->hud_buttons.combat_stance[index].m_dirty = true;
-    }
-    UpdateCombatStanceButtons();
+    for (auto& button : MainGame()->hud_buttons.combat_stance) button.Refresh(true);
 }
 
 static void MainGameCombatConfirmButton(W8ButtonWidget* button)
@@ -489,14 +470,10 @@ static void CreateRoofButtons()
 void RedrawRoofButtons(void)
 {
     CatalogArtwork::Load(0x85, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
-    for (int index = 0; index < 3; ++index) {
-        MainGame()->hud_buttons.roof[index].m_dirty = true;
-    }
-    UpdateRoofButtons();
-    if (auto* hud = MainGameHud()) hud->repaint.combat_progress = true;
+    for (auto& button : MainGame()->hud_buttons.roof) button.Refresh(true);
 }
 
-/* Visibility and enablement for the three roof buttons, then Draw. The third
+/* Visibility and enablement for the three roof buttons. The third
    button (radar) hides under NPC/spell/item/lock/trap modes; the first two
    disable under NPC dialogue or camp. */
 void UpdateRoofButtons(void)
@@ -520,9 +497,6 @@ void UpdateRoofButtons(void)
     }
     MainGame()->hud_buttons.roof[1].SetEnabled(enabled);
     SyncRoofButtonPressedState();
-    for (auto& button : MainGame()->hud_buttons.roof) {
-        button.Refresh();
-    }
 }
 
 /* Mirror GetEffectiveMainUiMode() onto the three roof buttons' pressed
@@ -637,65 +611,35 @@ static void MainGameLayoutFormationButton(W8ButtonWidget* button)
     RefreshMainGameLayout();
 }
 
-/* Draw the left layout-arrow strip, mark each arrow dirty, then raise/lower
-   the paired arrows from the live action-panel / formation / radar flags.
-   Modal NPC/spell/item/lock/trap modes hide the whole bank. */
+// Draw the left layout-arrow strip and its visible arrows.
 void RedrawLayoutArrowButtons(void)
 {
-    bool enabled;
-    W8ButtonWidget* draw_button;
-
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0, 0x166);
-    for (auto& button : MainGame()->hud_buttons.layout_arrows) {
-        button.m_dirty = true;
-    }
-    if (CurrentGame().activity.conversation || gpSCSV || ItemUseDraft() ||
-        IsLockInteractionActive() || IsTrapInteractionActive()) {
-        for (auto& button : MainGame()->hud_buttons.layout_arrows) {
-            button.SetVisible(false);
-        }
+    for (auto& button : MainGame()->hud_buttons.layout_arrows) button.Refresh(true);
+}
+
+/* Show one arrow of each raise/lower pair against the action-panel,
+   formation-board and radar-map visibility; modal modes hide them all. */
+void MainGameScreen::updateLayoutArrows()
+{
+    auto& arrows = hud_buttons.layout_arrows;
+    if (game.activity.conversation || gpSCSV || ItemUseDraft() || IsLockInteractionActive() ||
+        IsTrapInteractionActive()) {
+        for (auto& button : arrows) button.SetVisible(false);
         return;
     }
-
-    enabled = GetEffectiveMainUiMode() != 0;
-    if (enabled) {
-        MainGame()->hud_buttons.layout_arrows[0].SetEnabled(true);
-    } else {
-        MainGame()->hud_buttons.layout_arrows[0].SetEnabled(false);
-    }
-    MainGame()->hud_buttons.layout_arrows[2].SetEnabled(enabled);
-
-    if (!MainGame()->radar_map) {
-        MainGame()->hud_buttons.layout_arrows[3].SetVisible(true);
-        MainGame()->hud_buttons.layout_arrows[0].SetVisible(false);
-        draw_button = &MainGame()->hud_buttons.layout_arrows[3];
-    } else {
-        MainGame()->hud_buttons.layout_arrows[0].SetVisible(true);
-        MainGame()->hud_buttons.layout_arrows[3].SetVisible(false);
-        draw_button = &MainGame()->hud_buttons.layout_arrows[0];
-    }
-    draw_button->Refresh();
-
-    if (MainGameHud()->action_panel_visible == 0) {
-        MainGame()->hud_buttons.layout_arrows[4].SetVisible(true);
-        MainGame()->hud_buttons.layout_arrows[1].SetVisible(false);
-        draw_button = &MainGame()->hud_buttons.layout_arrows[4];
-    } else {
-        MainGame()->hud_buttons.layout_arrows[1].SetVisible(true);
-        MainGame()->hud_buttons.layout_arrows[4].SetVisible(false);
-        draw_button = &MainGame()->hud_buttons.layout_arrows[1];
-    }
-    draw_button->Refresh();
-
-    if (MainGameHud()->formation_board_visible) {
-        MainGame()->hud_buttons.layout_arrows[2].SetVisible(true);
-        MainGame()->hud_buttons.layout_arrows[5].SetVisible(false);
-        MainGame()->hud_buttons.layout_arrows[2].Refresh();
-        return;
-    }
-    MainGame()->hud_buttons.layout_arrows[5].SetVisible(true);
-    MainGame()->hud_buttons.layout_arrows[2].SetVisible(false);
-    MainGame()->hud_buttons.layout_arrows[5].Refresh();
+    const bool enabled = GetEffectiveMainUiMode() != 0;
+    arrows[0].SetEnabled(enabled);
+    arrows[2].SetEnabled(enabled);
+    const bool radar = radar_map != nullptr;
+    arrows[0].SetVisible(radar);
+    arrows[3].SetVisible(!radar);
+    const bool action_panel = hud->action_panel_visible != 0;
+    arrows[1].SetVisible(action_panel);
+    arrows[4].SetVisible(!action_panel);
+    const bool formation = hud->formation_board_visible;
+    arrows[2].SetVisible(formation);
+    arrows[5].SetVisible(!formation);
 }
 
 static void CreateLayoutArrowButtons()
@@ -874,7 +818,7 @@ void DrawSubMenuCharacterAction(void)
 }
 
 /* Enable the fight/review panel buttons from combat engagement and mode
-   flags, then Draw both. */
+   flags. */
 void UpdateSubMenuPanelButtons(void)
 {
     bool enabled;
@@ -903,10 +847,6 @@ void UpdateSubMenuPanelButtons(void)
     } else {
         MainGame()->hud_buttons.submenu_panel[1].SetEnabled(false);
     }
-
-    for (auto& button : MainGame()->hud_buttons.submenu_panel) {
-        button.Refresh();
-    }
 }
 
 static void UpdateSubMenuScrollButtons()
@@ -917,36 +857,22 @@ static void UpdateSubMenuScrollButtons()
     for (auto& button : MainGame()->hud_buttons.submenu_scroll) {
         button.SetEnabled(enabled);
     }
-    for (auto& button : MainGame()->hud_buttons.submenu_scroll) {
-        button.Refresh();
-    }
 }
 
 /* Redraw the bottom sub-menu strip: bank chrome, the nine bank buttons, panel
    chrome/buttons, character-action caption, and the scroll arrows. */
 void RedrawSubMenuButtons(void)
 {
-    int index;
     int frame;
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 4, 0x1e, 0x1c2);
     frame = !CurrentGame().combat.has_value() ? 8 : 9;
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), frame, 0xc4, 0x1c2);
 
-    for (auto& button : MainGame()->hud_buttons.submenu) {
-        button.m_dirty = true;
-    }
-    for (index = 0; index < 9; ++index) {
-        auto& button = MainGame()->hud_buttons.submenu[index];
-        UpdateSubMenuButton(index);
-        button.Refresh();
-    }
+    for (auto& button : MainGame()->hud_buttons.submenu) button.Refresh(true);
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 7, 0x210, 0x1c2);
-    for (auto& button : MainGame()->hud_buttons.submenu_panel) {
-        button.m_dirty = true;
-    }
-    UpdateSubMenuPanelButtons();
+    for (auto& button : MainGame()->hud_buttons.submenu_panel) button.Refresh(true);
 
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 5, 0x124, 0x1c2);
     CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 6, 0x157, 0x1c2);
@@ -954,10 +880,7 @@ void RedrawSubMenuButtons(void)
         DrawSubMenuCharacterAction();
     }
 
-    for (auto& button : MainGame()->hud_buttons.submenu_scroll) {
-        button.m_dirty = true;
-    }
-    UpdateSubMenuScrollButtons();
+    for (auto& button : MainGame()->hud_buttons.submenu_scroll) button.Refresh(true);
 }
 
 /* The eligible-slot scan runs in two halves per direction: from the current
@@ -1037,29 +960,33 @@ void SetSubMenuButtonTooltips(int enabled)
     }
 }
 
-/* Per-frame button refresh from DrawMainGameScreen: restate and draw the nine
-   bank buttons, gate the scroll arrows on an idle submenu, enable the
-   options/disk button outside modal modes, then refresh the panel, stance,
-   roof and layout-arrow sets. */
-void UpdateMainGameButtons(void)
+/* Restate every HUD button from the game: the nine bank buttons, the scroll
+   arrows (idle submenu only), the options/disk button outside modal modes, and
+   the panel, stance, roof and layout-arrow sets. */
+void MainGameScreen::updateHudButtons()
 {
-    int index;
-    bool enabled;
-
-    for (index = 0; index < 9; ++index) {
-        auto& button = MainGame()->hud_buttons.submenu[index];
-        UpdateSubMenuButton(index);
-        button.Refresh();
-    }
+    for (int index = 0; index < 9; ++index) UpdateSubMenuButton(index);
     UpdateSubMenuScrollButtons();
     UpdateSubMenuPanelButtons();
-    enabled = !CurrentGame().activity.conversation && !IsLockInteractionActive() &&
-              !IsTrapInteractionActive() && !CurrentGame().activity.conversation_aside &&
-              !LockInteractionSuspended() && !TrapInteractionSuspended();
-    MainGame()->hud_buttons.options_disk.SetEnabled(enabled);
-    MainGame()->hud_buttons.options_disk.Refresh();
+    const bool enabled = !game.activity.conversation && !IsLockInteractionActive() &&
+                         !IsTrapInteractionActive() && !game.activity.conversation_aside &&
+                         !LockInteractionSuspended() && !TrapInteractionSuspended();
+    hud_buttons.options_disk.SetEnabled(enabled);
     UpdateCombatStanceButtons();
     UpdateRoofButtons();
+    updateLayoutArrows();
+}
+
+// Draw the HUD buttons whose state or hover changed since they were last drawn.
+void MainGameScreen::refreshHudButtons()
+{
+    auto& buttons = hud_buttons;
+    for (auto& button : buttons.submenu) button.Refresh();
+    for (auto& button : buttons.submenu_scroll) button.Refresh();
+    for (auto& button : buttons.submenu_panel) button.Refresh();
+    buttons.options_disk.Refresh();
+    for (auto& button : buttons.combat_stance) button.Refresh();
+    for (auto& button : buttons.roof) button.Refresh();
 }
 
 /* While the combat-end submenu is up and the cursor has left its row band,
@@ -1139,6 +1066,7 @@ bool BuildSubMenuPanel(short notification)
     W8_ASSERT(entries.size() <= widths.size());
     const int built = static_cast<int>(entries.size()) + 1;
     submenu = std::make_unique<MainGameSubMenu>();
+    if (auto* hud = MainGameHud()) hud->repaint.submenu_panel = true;
     submenu->bounds = {left, 0x1c3, widths[entries.size() - 1] + 1, 0x1d};
     submenu->background = static_cast<int>(entries.size()) - 1;
     submenu->input.add(

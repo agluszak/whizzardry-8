@@ -60,7 +60,8 @@ public:
     const int slot;
     bool containsCursor() const;
     void refresh();
-    void redraw(bool invalidate);
+    // Paint the panel and its rows; the HUD repaint record says when.
+    void paint() const;
 
 private:
     friend struct MainGameScreen;
@@ -73,10 +74,10 @@ private:
         ButtonAppearance appearance;
     };
     std::string tooltip(const Row& row) const;
+    void requestRedraw();
     MainGameScreen& screen_;
     SDL_Point origin;
     std::array<Row, 13> rows;
-    bool dirty = true;
     UiLayer input{UiLayerOrder::KeyboardMenu};
 };
 

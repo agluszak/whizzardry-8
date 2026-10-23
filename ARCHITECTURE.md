@@ -327,9 +327,11 @@ code has a subclass whose members are that state. Trigger callbacks are
   (`DestroyAfterUiDispatch`), so nothing is freed while its own callback runs.
 - **Controls and painting.** Controls paint into an explicit `SDL_Surface&`.
   `Draw` never commits; `Refresh` commits a dirty rectangle. Screens record which
-  parts the next draw repaints. One `Pointer`, owned by the router, holds the cursor
-  and the targeting request. The notebook view derives its rows from
-  `Game::story.keywords`; information dialogs own separate append-only paragraphs.
+  parts the next draw repaints; the main game's `MainGameRepaint` record is resolved
+  by `MainGameScreen::updatePresentation` before `MainGameScreen::draw` paints. One
+  `Pointer`, owned by the router, holds the cursor and the targeting request. The
+  notebook view derives its rows from `Game::story.keywords`; information dialogs
+  own separate append-only paragraphs.
 
 ## Tests
 

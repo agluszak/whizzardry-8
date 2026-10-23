@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <bitset>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -38,7 +39,6 @@ struct W8SpellCastingView {
     std::array<std::array<int, 5>, 9> power_frames;
     std::unique_ptr<W8ButtonWidget> cancel;
     W8TextBuffer spell_name;
-    std::array<bool, 3> dirty{true, true, true};
     W8NpcDialogueLayout interact_id;
     int location_id;
     struct SpellRow {
@@ -54,7 +54,10 @@ void CloseSpellCastingView(void);
 void RestoreSpellCastingRegions(void);
 void SelectSpellCastingCharacter(int party_slot);
 void BeginSpellCast(int spell_id, int location_id, W8NpcDialogueLayout interact_id);
-void SetSpellCastingPanelsActive(bool active);
+/* Before the draw, add the panels whose widgets changed to `panels`; the draw then
+   paints the requested ones. */
+void UpdateSpellCastingPanels(std::bitset<7>& panels);
+void PaintSpellCastingPanels(std::bitset<7> panels);
 void SelectSpellPowerLevel(int power_level);
 void ResetSpellCastingSelection(void);
 void CommitSpellCastingSelection(void);
