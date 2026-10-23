@@ -788,7 +788,7 @@ void ReachMainMenu(GameHarness& game)
 glm::vec3 PartyPosition()
 {
     CameraPose state{};
-    state = partyPose(*GetWorld());
+    state = GetWorld()->party.pose();
     return state.position;
 }
 
@@ -918,12 +918,9 @@ void LoadFromMenu(GameHarness& game, const fs::path& save)
         if (CurrentScreenState().id != W8_SCREEN_OPTIONS || !game.settled() ||
             !FindScreen<OptionsScreen>() || FindScreen<OptionsScreen>()->m_selected_panel != 4)
             return false;
-        // Panel set 4 holds the single load panel (W8OptionsSaveLoadPanel 11).
-        W8OptionsPanelSet* set = FindScreen<OptionsScreen>()->m_panel[4].get();
-        if (!set || set->m_current < 0 ||
-            static_cast<std::size_t>(set->m_current) >= set->m_panels.size())
-            return false;
-        panel = static_cast<W8OptionsSaveLoadPanel*>(set->m_panels[set->m_current].get());
+        const auto& panels = FindScreen<OptionsScreen>()->m_panels;
+        if (panels.empty()) return false;
+        panel = static_cast<W8OptionsSaveLoadPanel*>(panels.front().get());
         return panel->m_panel == 11 && !panel->m_rows.empty();
     });
     // The only save is the first row; select it, then press Load.
@@ -967,7 +964,7 @@ void Approach(GameHarness& game, int location_id, float stop)
         held = key;
     };
     for (int frame = 0; frame < 60 * 120 && !CurrentGame().combat.has_value(); ++frame) {
-        const CameraPose camera = partyPose(*GetWorld());
+        const CameraPose camera = GetWorld()->party.pose();
         const glm::vec3 target = monster->entity->nav.GetPosition();
         if (HorizontalDistance(target, camera.position) < stop) break;
         const float wanted = std::atan2(target.x - camera.position.x, target.z - camera.position.z);

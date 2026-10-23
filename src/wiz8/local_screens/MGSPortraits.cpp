@@ -162,7 +162,7 @@ void SyncPartyPortraitVitalsBars(void)
             if (hp_bar != static_cast<unsigned int>(entry->cached_hp_bar) ||
                 stamina_bar != static_cast<unsigned int>(entry->cached_stamina_bar) ||
                 spell_bar != static_cast<unsigned int>(entry->cached_spell_bar) ||
-                (g_settings.numeric_hit_points != 0 &&
+                (g_settings.numeric_hit_points &&
                  static_cast<int>(character->hp_current) != entry->cached_hp)) {
                 if (auto* hud = MainGameHud()) hud->repaint.portrait_bars.set(slot);
             }
@@ -423,7 +423,7 @@ void RedrawCombatPortraits(void)
         CatalogArtwork::Load(0x8a, 0).drawAndInvalidate(GetFrameBufferSurface(), portrait_image,
                                                         portrait_x, row_y + 0x44);
         if (!CharacterCanSwitchTo(slot, SelectCombatAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
-                                  false, false)) {
+                                  false)) {
             CatalogArtwork::Load(0x8b, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, badge_x,
                                                             row_y + 0x37);
         } else if (party_row->committed.target.iType == W8_TARGET_KIND_CHARACTER) {
@@ -440,7 +440,7 @@ void RedrawCombatPortraits(void)
    eight slot masks so the new mode repaints everywhere. */
 void ToggleNumericHitPoints(void)
 {
-    g_settings.numeric_hit_points = g_settings.numeric_hit_points == 0;
+    g_settings.numeric_hit_points = !g_settings.numeric_hit_points;
     for (unsigned int slot = 0; slot < 8; slot++) {
         if (auto* hud = MainGameHud()) hud->repaint.portrait(slot);
     }
@@ -513,7 +513,7 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
     if (character->hp_current != 0) {
         GetPartySlotMenuAnchor(party_slot, &menu_x, &menu_y, &band_menu_edge, &band_portrait_edge,
                                &grid_row, &column_x, slot_enabled);
-        if (g_settings.numeric_hit_points != 0) {
+        if (g_settings.numeric_hit_points) {
             bar_y = 0x11;
             hp_bar_x = 3;
             stamina_bar_x = 9;
@@ -530,7 +530,7 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
             stamina_catalog = 0x50;
             spell_catalog = 0x51;
         }
-        numeric_hp_mode = g_settings.numeric_hit_points != 0;
+        numeric_hp_mode = g_settings.numeric_hit_points;
 
         CatalogArtwork::Load(hp_catalog, 0)
             .draw(GetFrameBufferSurface(), 0, band_portrait_edge + hp_bar_x, bar_y + menu_y);
@@ -549,7 +549,7 @@ void RedrawPartyPortraitBars(unsigned int party_slot, bool slot_enabled)
                               bar_y - numeric_hp_mode + menu_y);
         }
 
-        if (g_settings.numeric_hit_points != 0) {
+        if (g_settings.numeric_hit_points) {
             W8TextBuffer text;
             W8ControlsRect bounds;
 
@@ -800,7 +800,7 @@ void RedrawPartyPortraitOverlay(unsigned int party_slot, bool highlighted, bool 
                 }
             }
 
-            hp_bar_frame = g_settings.numeric_hit_points == 0 ? 1 : 3;
+            hp_bar_frame = !g_settings.numeric_hit_points ? 1 : 3;
             CatalogArtwork::Load(0x80, 0).draw(GetFrameBufferSurface(),
                                                static_cast<short>(hp_bar_frame), band_portrait_edge,
                                                menu_y);
@@ -986,7 +986,7 @@ portrait_fx:
         int hp_overlay_x;
         int hp_overlay_catalog;
 
-        if (g_settings.numeric_hit_points == 0) {
+        if (!g_settings.numeric_hit_points) {
             hp_overlay_y = menu_y + 0x15;
             hp_overlay_x = band_portrait_edge + 3;
             hp_overlay_catalog = 100;
@@ -1038,7 +1038,7 @@ portrait_fx:
 void ShadeStatusBarGap(int length, int left, int top)
 {
     if (length != 0) {
-        int rows = (g_settings.numeric_hit_points != 0 ? 2 : 0) + 3;
+        int rows = (g_settings.numeric_hit_points ? 2 : 0) + 3;
         auto& framebuffer = GetFrameBufferSurface();
         while (rows != 0) {
             short color = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});

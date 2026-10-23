@@ -29,8 +29,8 @@
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/world.h"
 
 /* Original translation unit: Local Code\Formation & Facing.cpp. */
 
@@ -336,7 +336,7 @@ bool PositionFacesOppositeToDecided(int target_position, int position)
 bool IsPartyLookingAwayFrom(int, W8MonsterInfo* monster_info)
 {
     glm::vec3 monster_position = monster_info->entity->nav.GetPosition();
-    glm::vec3 party_position = PartyNavigator()->GetPosition();
+    glm::vec3 party_position = monster_info->entity->owner_world.party.position();
     float bearing = NormalizeAngle(GetHeadingAngle(&monster_position, &party_position));
     float facing = monster_info->entity->nav.GetYaw();
 
@@ -568,7 +568,7 @@ void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b
    usual facing tolerance - the mirror of IsPartyLookingAt. */
 int IsMonsterFacingParty(W8MonsterInfo* monster_info)
 {
-    glm::vec3 party_position = PartyNavigator()->GetPosition();
+    glm::vec3 party_position = monster_info->entity->owner_world.party.position();
     return IsPartyLookingAt(monster_info, party_position);
 }
 

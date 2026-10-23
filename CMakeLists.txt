@@ -153,6 +153,12 @@ get_property(wiz8_compile_options DIRECTORY PROPERTY COMPILE_OPTIONS)
 set_property(DIRECTORY PROPERTY COMPILE_OPTIONS "")
 set(CMAKE_CXX_STANDARD 17)
 FetchContent_MakeAvailable(vsg)
+# Every frame compiles, updates and records the whole render graph through VSG's
+# visitors. Unoptimized, they take much of the CPU time of Debug runs of the
+# game and its runtime scenarios; the game's own code keeps the build type's flags.
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+    target_compile_options(vsg PRIVATE $<$<CONFIG:Debug>:-O2>)
+endif()
 set(CMAKE_CXX_STANDARD 26)
 set_property(DIRECTORY PROPERTY COMPILE_OPTIONS "${wiz8_compile_options}")
 

@@ -240,8 +240,8 @@ TEST_CASE_METHOD(SpellVisualFixture,
                  "[resources][spell]")
 {
     auto& definitions = world.spell_visual_definitions;
-    auto& named = *definitions.emplace_back(std::make_unique<SpellVisual>(&world));
-    auto& generic = *definitions.emplace_back(std::make_unique<SpellVisual>(&world));
+    auto& named = *definitions.emplace_back(std::make_unique<SpellVisualDefinition>());
+    auto& generic = *definitions.emplace_back(std::make_unique<SpellVisualDefinition>());
     named.mode = generic.mode = W8_SPELL_VISUAL_EXPLOSION;
     named.asset_name = "Named";
     generic.asset_name = "Generic";
@@ -285,11 +285,11 @@ TEST_CASE_METHOD(SpellVisualFixture, "Missing spell visual fallback", "[resource
     REQUIRE(visuals.empty());
 }
 
-// A cloned resource must own its animations and light vectors after its source is released.
-template<class Host>
+// An actor must own its animations and light vectors after its definition is released.
+template<class Definition, class Host>
 static void CheckEmitterCloneLifetime()
 {
-    auto source = std::make_unique<Host>();
+    auto source = std::make_unique<Definition>();
     const int cycle = static_cast<int>(source->resources.cycles.size()) - 1;
     source->resources.cycles[cycle].animation = std::make_unique<Animation>();
     source->resources.cycles[cycle].animation->playback_scale = 3.5f;
@@ -298,7 +298,8 @@ static void CheckEmitterCloneLifetime()
     light->transform.setLocation(11, 22, 33);
     light->m_position = {11, 22, 33};
     source->resources.cycles[cycle].lights.lights.push_back(std::move(owned_light));
-    auto copy = std::make_unique<Host>(*source);
+    World owner;
+    auto copy = std::make_unique<Host>(*source, owner);
     REQUIRE(copy->resources.cycles[cycle].animation != source->resources.cycles[cycle].animation);
     REQUIRE(copy->resources.cycles[cycle].lights.lights.front().get() != light);
     source.reset();
@@ -311,8 +312,8 @@ static void CheckEmitterCloneLifetime()
 
 TEST_CASE_METHOD(SpellVisualFixture, "Emitter clones outlive their source", "[resources][spell]")
 {
-    CheckEmitterCloneLifetime<Missile>();
-    CheckEmitterCloneLifetime<SpellVisual>();
+    CheckEmitterCloneLifetime<MissileDefinition, Missile>();
+    CheckEmitterCloneLifetime<SpellVisualDefinition, SpellVisual>();
 }
 
 // Valid retail animation header and light; optionally truncate after the light
@@ -349,22 +350,16 @@ static void WriteEmitterFixture(unsigned char cycle, bool truncate)
 TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid cycles",
                  "[resources][spell]")
 {
-    SpellVisual visual;
-    auto& host = visual;
-    host.visual.current_cycle = 2;
+    SpellVisualDefinition host;
     host.resources.cycles[2].animation = std::make_unique<Animation>();
     auto* original = host.resources.cycles[2].animation.get();
-    const auto original_timer = host.visual.timer;
     for (const auto [cycle, truncate] : {std::pair<unsigned char, bool>{2, true}, {255, false}}) {
         WriteEmitterFixture(cycle, truncate);
         auto file = wiz8::open_file(wiz8::asset_path("emitter.dat"));
         LevelLoadContext info{};
         info.hFile = file.get();
-        REQUIRE_FALSE(ReadEmitterCycle(visual.visual, host.resources.cycles, &info, -1, false));
-        REQUIRE(host.visual.current_cycle == 2);
-        REQUIRE(host.visual.timer == original_timer);
+        REQUIRE_FALSE(ReadEmitterCycle(host.resources.cycles, info, -1));
         REQUIRE(host.resources.cycles[2].animation.get() == original);
-        REQUIRE(visual.visual.m_plsLights == nullptr);
         REQUIRE(GetWorld()->transient_lights.empty());
     }
     WriteEmitterFixture(2, false);
@@ -372,9 +367,9 @@ TEST_CASE_METHOD(SpellVisualFixture, "Emitter loads publish only complete valid 
         auto file = wiz8::open_file(wiz8::asset_path("emitter.dat"));
         LevelLoadContext info{};
         info.hFile = file.get();
-        REQUIRE(ReadEmitterCycle(visual.visual, host.resources.cycles, &info, -1, false));
-        REQUIRE(visual.visual.m_plsLights == host.resources.cycles[2].lightView());
-        REQUIRE(visual.visual.m_plsLights->size() == 1);
+        REQUIRE(ReadEmitterCycle(host.resources.cycles, info, -1));
+        REQUIRE(host.resources.cycles[2].lights.lights.size() == 1);
+        REQUIRE(host.resources.cycles[2].lights.lights.front()->scene == nullptr);
     }
 }
 
@@ -404,7 +399,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Spell visual rows load into their named cy
 }
 
 // Animations hold shared frame meshes; each player shows every frame on a model of
-// its own, so copies of one source animate independently.
+// its own, so players of one animation animate independently.
 TEST_CASE("A cycle player shows every frame on its own model", "[resources][animation]")
 {
     Animation animation;
@@ -415,9 +410,10 @@ TEST_CASE("A cycle player shows every frame on its own model", "[resources][anim
     const auto* first_frame = animation.parts[2][0].mesh.frames[0].mesh.get();
     const auto* second_frame = animation.parts[2][0].mesh.frames[1].mesh.get();
 
-    CyclePlayer first;
+    World owner;
+    CyclePlayer first(owner);
     first.active_animation = &animation;
-    CyclePlayer second(first);
+    CyclePlayer second(owner);
     second.active_animation = &animation;
     auto* shown = first.SelectCycleFrameLod(0, 2);
     REQUIRE(first.SelectCycleFrameLod(1, 2) == shown);
@@ -467,12 +463,12 @@ TEST_CASE_METHOD(SpellVisualFixture, "Retiring a cycle cancels borrowed monster 
                  "[resources][particles]")
 {
     {
-        SpellVisual cycle(&world);
+        SpellVisual cycle(world);
         auto particle = std::make_unique<ParticleSystem>((world.scene.get()), 1);
-        particle->active_particle_count = 1;
+        particle->particles[0].active = true;
         particle->callback = std::make_unique<W8MonsterShakeCallback>();
         cycle.visual.particles.emplace_back().m_pstParticles = std::move(particle);
-        cycle.visual.RetireParticles(world);
+        cycle.visual.RetireParticles();
     }
     REQUIRE(world.retired_particles.size() == 1);
     REQUIRE_FALSE(world.retired_particles.front()->callback);
@@ -484,9 +480,9 @@ TEST_CASE_METHOD(SpellVisualFixture,
 {
     auto previous = game.game.level.replacePrimary(std::make_unique<World>());
     auto* retiring = GetWorld();
-    auto visual = std::make_unique<SpellVisual>(retiring);
+    auto visual = std::make_unique<SpellVisual>(*retiring);
     auto particle = std::make_unique<ParticleSystem>(retiring->scene.get(), 1);
-    particle->active_particle_count = 1;
+    particle->particles[0].active = true;
     auto texture = std::make_shared<Texture>();
     const std::weak_ptr<Texture> released = texture;
     particle->SetTexture(texture);
@@ -513,9 +509,9 @@ TEST_CASE("A destroyed navigator leaves no mover targeting or following it",
           "[resources][navigation]")
 {
     World world;
-    Navigator follower(&world);
+    Navigator follower(world);
     {
-        Navigator leader(&world);
+        Navigator leader(world);
         follower.target_navigator = &leader;
         follower.linked_navigator = &leader;
     }
@@ -528,9 +524,9 @@ TEST_CASE_METHOD(SpellVisualFixture,
                  "[resources][levels][navigation]")
 {
     world.compiledIndex()->registry.cells = std::make_unique<W8OctreeObjectRegistry>();
-    Navigator published(&world);
-    world.party_camera.SetOrientation(0.25f, 0.1f);
-    world.party_camera.motion.movement_override = true;
+    Navigator published(world);
+    world.party.camera.SetOrientation(0.25f, 0.1f);
+    world.party.camera.motion.movement_override = true;
     published.movement.location_id = 7;
     world.compiledIndex()->registry.cells->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, 8,
                                                               {0, 0, 0});
@@ -541,19 +537,22 @@ TEST_CASE_METHOD(SpellVisualFixture,
     prepared_pose.orientation = {0.5f, 0.2f};
     prepared_pose.retail.yaw.fill(std::byte{0x7b});
     prepared_pose.retail.pitch.fill(std::byte{0x45});
-    restorePartyPose(replacement, prepared_pose);
-    REQUIRE(replacement.party_camera.m_position == prepared_pose.position);
-    const auto snapshot = partyPose(replacement);
+    replacement.party.restore(prepared_pose);
+    REQUIRE(replacement.party.camera.m_position == prepared_pose.position);
+    // The prepared world's party proxy follows its own pose; the active one stays put.
+    REQUIRE(replacement.party.position() == navigationPosition(prepared_pose.position));
+    REQUIRE(world.party.position() == glm::vec3(0));
+    const auto snapshot = replacement.party.pose();
     REQUIRE(snapshot.orientation.yaw == 0.5f);
     REQUIRE(snapshot.retail.yaw == prepared_pose.retail.yaw);
     REQUIRE(snapshot.retail.pitch == prepared_pose.retail.pitch);
-    REQUIRE(world.party_camera.m_yaw == 0.25f);
-    REQUIRE(world.party_camera.motion.movement_override);
-    REQUIRE_FALSE(replacement.party_camera.motion.movement_override);
+    REQUIRE(world.party.camera.m_yaw == 0.25f);
+    REQUIRE(world.party.camera.motion.movement_override);
+    REQUIRE_FALSE(replacement.party.camera.motion.movement_override);
     replacement.spatial = std::make_unique<LevelSpatialIndex>("", &replacement);
     replacement.compiledIndex()->registry.cells = std::make_unique<W8OctreeObjectRegistry>();
     {
-        Navigator prepared(&replacement);
+        Navigator prepared(replacement);
         prepared.movement.location_id = 7;
         replacement.compiledIndex()->registry.cells->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, 8,
                                                                         {0, 0, 0});
@@ -562,7 +561,9 @@ TEST_CASE_METHOD(SpellVisualFixture,
         REQUIRE(world.compiledIndex()->registry.maximum_navigation_radius == 500.0f);
         StopAllNavigators();
         REQUIRE(published.halted);
+        REQUIRE(world.party.navigator.halted);
         REQUIRE_FALSE(prepared.halted);
+        REQUIRE_FALSE(replacement.party.navigator.halted);
         prepared.halted = true;
         ResumeAllNavigators();
         REQUIRE_FALSE(published.halted);
@@ -605,7 +606,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
     record->within_viewing_distance = true;
     record->party_threat.visible_to_player = false;
     replacement.population->monster_roster.add(std::move(record), false);
-    Monster prepared(&replacement);
+    Monster prepared(replacement);
     prepared.location_id = 7;
     REQUIRE(prepared.IsRenderable(false));
     REQUIRE_FALSE(prepared.IsRenderable(true));
@@ -682,7 +683,8 @@ TEST_CASE("Cycle frame callbacks observe advances and can stop queued steps",
     Animation animation;
     animation.positioned_parts = true;
     animation.frame_count = 4;
-    CyclePlayer player;
+    World owner;
+    CyclePlayer player(owner);
     player.active_animation = &animation;
     player.animation_playing = true;
     player.frame_direction = W8_ANIMATION_FORWARD;
@@ -707,7 +709,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Target cone is removed through its world o
 {
     world.camera = &world.scene->camera;
     auto& source =
-        *world.spell_visual_definitions.emplace_back(std::make_unique<SpellVisual>(&world));
+        *world.spell_visual_definitions.emplace_back(std::make_unique<SpellVisualDefinition>());
     source.asset_name = "TargetCone";
     source.mode = W8_SPELL_VISUAL_CONE;
     source.resources.cycles[static_cast<int>(W8_SPELL_VISUAL_CONE) * SPELL_CYCLES_PER_GROUP]
@@ -735,10 +737,10 @@ TEST_CASE("Rendering derives the views from the party and changes nothing it rea
     world.camera_light = &light;
     World sky;
     sky.camera = &sky.scene->camera;
-    placeParty(world, {10, 20, 30});
-    world.party_camera.SetOrientation(.5f, -.25f);
+    world.party.place({10, 20, 30});
+    world.party.camera.SetOrientation(.5f, -.25f);
     world.camera->setViewPlane(1.0, 0.75);
-    const auto pose = partyPose(world);
+    const auto pose = world.party.pose();
     const glm::vec3 shake{1, 2, 3};
     // Two shaken frames, as an extra render or a second view would place.
     for (int frame = 0; frame < 2; ++frame) {
@@ -746,15 +748,15 @@ TEST_CASE("Rendering derives the views from the party and changes nothing it rea
         REQUIRE(world.camera->transform.getLocation() == glm::dvec3(11, 22, 33));
         REQUIRE(light.transform.getLocation() == glm::dvec3(11, 22, 33));
         REQUIRE(world.camera->transform.getRotation<glm::mat3>() ==
-                world.party_camera.rotationMatrix());
+                world.party.camera.rotationMatrix());
         REQUIRE(sky.camera->transform.getLocation() == glm::dvec3(0));
         REQUIRE(sky.camera->transform.getRotation<glm::mat3>() ==
-                world.party_camera.rotationMatrix());
+                world.party.camera.rotationMatrix());
         REQUIRE(sky.camera->getViewPlane().rectangle.right ==
                 world.camera->getViewPlane().rectangle.right);
         REQUIRE(sky.camera->getViewPlane().rectangle.top ==
                 world.camera->getViewPlane().rectangle.top);
-        REQUIRE(partyPose(world) == pose);
+        REQUIRE(world.party.pose() == pose);
         REQUIRE(cameraLocation() == glm::vec3(10, 20, 30));
     }
     placeWorldCameras(world, nullptr, {});
@@ -765,13 +767,12 @@ TEST_CASE("Rendering derives the views from the party and changes nothing it rea
 TEST_CASE("The party navigator stands the world height below the eye",
           "[resources][camera][navigation]")
 {
-    PartyCamera camera;
-    camera.m_position = {100, 200, 300};
-    camera.SetOrientation(.5f, -.25f);
-    Navigator navigator;
-    mirrorPartyNavigator(navigator, camera);
+    World world;
+    world.party.camera.SetOrientation(.5f, -.25f);
+    world.party.place({100, 200, 300});
+    const auto& navigator = world.party.navigator;
     REQUIRE(navigator.GetPosition() == glm::vec3(100, 200 - g_default_world_height, 300));
-    REQUIRE(navigator.GetPosition() == navigationPosition(camera.m_position));
+    REQUIRE(navigator.GetPosition() == navigationPosition(world.party.eye()));
     REQUIRE(navigationPosition({0, g_default_world_height, 0}) == glm::vec3(0));
 }
 

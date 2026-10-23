@@ -30,7 +30,6 @@
 namespace {
 using std::chrono::milliseconds;
 
-constexpr milliseconds kSearchSweepInterval{500};
 constexpr milliseconds kSightInterval{500};
 constexpr milliseconds kWorldItemsInterval{50};
 
@@ -68,7 +67,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
             if (world) world->scene->advanceVisuals(visual_time);
     }
 
-    search_sweep_due -= elapsed;
+    search.passTime(elapsed);
     sight_due -= elapsed;
     world_items_due -= elapsed;
     if (combat) combat->passTime(elapsed);
@@ -83,7 +82,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
     ProcessMonsterManagerFrame();
     if (!combat.has_value()) {
         AccumulateMovementFatigue(*this);
-        if (Due(search_sweep_due, kSearchSweepInterval)) RunSearchPulse();
+        search.sweepIfDue();
     } else if (!hold.combat && !activity.conversation) {
         combat->step(*this);
     }

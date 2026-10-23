@@ -87,7 +87,7 @@ bool PleaseWaitScreen::enter(const ScreenRequest& request)
     mode = std::get<W8PleaseWaitMode>(request.mode);
     switch (mode) {
     case W8_PLEASE_WAIT_NEW_GAME:
-        SeedNewGameFacts(CurrentGame().status);
+        SeedNewGameFacts(games.game()->story);
         parameter = SelectNewGameStartLevel();
         break;
     case W8_PLEASE_WAIT_LOAD_GAME:

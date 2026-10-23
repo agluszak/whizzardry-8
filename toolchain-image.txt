@@ -1,0 +1,1 @@
+ghcr.io/agluszak/whizzardry-8-toolchain@sha256:91ba9899126e3d9205b2cfd9b177714406ffb93082d4ee6a08bb9a851e98481a

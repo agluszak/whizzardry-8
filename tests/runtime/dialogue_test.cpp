@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdio>
 #include <functional>
 #include <memory>
@@ -14,6 +15,7 @@
 #include "wiz8/data/skills.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/game.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/npc_dialogue_view.h"
@@ -136,6 +138,26 @@ void NpcDialogueScenario()
     CurrentGame().party.gold = 200;
 
     StartConversation(game, "greeting", burz);
+    // Filtering/sorting changes the view, not notebook identity. Removing the
+    // first displayed topic must remove that topic from the actual notebook.
+    auto& controller = *MainGame()->dialogue.ui->transcript;
+    const bool sorted = CurrentGame().story.keywords_sorted;
+    LearnDialogueKeyword("000NotebookProbe", W8_DIALOGUE_CATEGORY_PEOPLE, false);
+    CurrentGame().story.keywords_sorted = true;
+    CurrentGame().npc_interaction.dialogue_category_filter = W8_DIALOGUE_CATEGORY_PEOPLE;
+    controller.RefreshNotebook();
+    controller.SelectTranscriptKeywordAtPoint(0x1e3, 0x12d - controller.scroll_height + 1);
+    const int selected = controller.GetSelectedTranscriptEntryIndex();
+    REQUIRE(selected >= 0);
+    REQUIRE(CurrentGame().story.keywords[selected].text == "000NotebookProbe");
+    controller.RemoveSelectedTranscriptEntry();
+    REQUIRE(std::ranges::none_of(CurrentGame().story.keywords, [](const auto& entry) {
+        return entry.text == "000NotebookProbe";
+    }));
+    CurrentGame().story.keywords_sorted = sorted;
+    CurrentGame().npc_interaction.dialogue_category_filter = W8_DIALOGUE_CATEGORY_ALL;
+    controller.RefreshNotebook();
+
     Ask(game, "messenger");
     ChooseFirstReply(game, "messenger-options");
     BuyAnswer(game, "messenger-price", W8_FACT_QUEST_BURZ_MARTEN_TRYNTON);
