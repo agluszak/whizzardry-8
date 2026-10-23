@@ -369,8 +369,8 @@ void UpdateAmbientSounds(World* world)
 {
     if (!world) return;
     ServiceRandomAmbients(*world);
-    const auto listener = cameraLocation(*world);
-    const float yaw = world->party_camera.m_yaw;
+    const auto listener = world->party.eye();
+    const float yaw = world->party.camera.m_yaw;
     for (const auto& sound : world->audio.emitters)
         if (sound) sound->Service(listener, yaw, false);
     for (auto& group : world->audio.shared_groups) group->updateFade();
@@ -460,8 +460,8 @@ void RepositionAmbientSounds(World* world)
 {
     if (!world) return;
     ServiceRandomAmbients(*world);
-    const auto listener = cameraLocation(*world);
-    const float yaw = world->party_camera.m_yaw;
+    const auto listener = world->party.eye();
+    const float yaw = world->party.camera.m_yaw;
     for (const auto& sound : world->audio.emitters)
         if (sound) sound->UpdatePosition(listener, yaw);
 }
@@ -532,7 +532,7 @@ static W8AmbientSound* FindAmbientSoundByName(World& world, std::string_view nam
 static void StartAmbientSoundAtCamera(World& world, W8AmbientSound* sound)
 {
     sound->stopped = 0;
-    sound->UpdatePosition(cameraLocation(world), world.party_camera.m_yaw);
+    sound->UpdatePosition(world.party.eye(), world.party.camera.m_yaw);
 }
 
 static void StopAmbientSound(W8AmbientSound* sound)
@@ -639,15 +639,23 @@ void SetSoundEffectsMuted(unsigned char muted)
     }
 }
 
-void SaveAmbientSoundList(wiz8::File& handle)
+std::vector<W8AmbientSoundState> AmbientAudioSystem::savedStates() const
+{
+    std::vector<W8AmbientSoundState> states;
+    for (const auto& sound : emitters) states.push_back({sound->name, sound->stopped != 0});
+    return states;
+}
+
+void WriteAmbientSoundStates(wiz8::File& handle, std::span<const W8AmbientSoundState> states)
 {
     const unsigned char version = 1;
-    const auto count = static_cast<std::uint32_t>(GetWorld()->audio.emitters.size());
+    const auto count = static_cast<std::uint32_t>(states.size());
     handle.write(&version, sizeof(version));
     handle.write(&count, sizeof(count));
-    for (const auto& sound : GetWorld()->audio.emitters) {
-        handle.write_padded(sound->name, 128);
-        handle.write(&sound->stopped, 1);
+    for (const auto& [name, stopped] : states) {
+        handle.write_padded(name, 128);
+        const unsigned char flag = stopped;
+        handle.write(&flag, 1);
     }
 }
 

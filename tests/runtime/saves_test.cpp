@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <ios>
 #include <istream>
 #include <limits>
 #include <memory>
@@ -22,6 +23,7 @@
 
 #include "harness.h"
 #include "wiz8/asset_paths.h"
+#include "wiz8/chunk.h"
 #include "wiz8/data/records.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
@@ -77,6 +79,34 @@ void QuickSaveScenario()
        the world before its selection state is reset; a fresh level block must
        not name item 0 as the selected world item. */
     game.move_pointer(320, 180);
+
+    // Reject a malformed save through the loading screen while the fight is suspended.
+    const auto saved_bytes = wiz8::open_file(save)->read_text();
+    auto* running = &CurrentGame();
+    auto* world = running->level.primary.get();
+    std::ofstream(save, std::ios::binary).write("bad", 3);
+    game.command(W8_MGS_COMMAND_QUICK_LOAD);
+    game.wait_screen("rejected-load", W8_SCREEN_MAIN_GAME);
+    REQUIRE(&CurrentGame() == running);
+    REQUIRE(CurrentGame().level.primary.get() == world);
+    REQUIRE(CurrentGame().combat.has_value());
+    // A valid RIFF with a truncated nested generator section must fail before departure too.
+    W8Chunk malformed;
+    REQUIRE(malformed.OpenWrite(save));
+    malformed.WriteGroup(W8ChunkId("LVLS"), [&] {
+        malformed.WriteValue(level);
+        malformed.WriteChunk(W8ChunkId("MGNS"), [&] { malformed.WriteValue(2); });
+    });
+    malformed.Close();
+    game.command(W8_MGS_COMMAND_QUICK_LOAD);
+    game.wait_screen("rejected-level-state", W8_SCREEN_MAIN_GAME);
+    REQUIRE(g_logged_errors.size() == 1);
+    REQUIRE(g_logged_errors.back() == "Cannot load save Quick 1: read past RIFF chunk");
+    g_logged_errors.pop_back(); // Consume only the diagnostic required by this rejection.
+    REQUIRE(&CurrentGame() == running);
+    REQUIRE(CurrentGame().level.primary.get() == world);
+    REQUIRE(CurrentGame().combat.has_value());
+    std::ofstream(save, std::ios::binary).write(saved_bytes.data(), saved_bytes.size());
 
     QuickLoad(game);
     ExpectAt("quick-load", anchor);
@@ -230,6 +260,7 @@ void ImportScenario(const char* file, const std::vector<ImportedMember>* party,
     REQUIRE(game.within_frames(2, [] { return CountActiveCharacters() == 6; }));
     REQUIRE_FALSE(UiModalActive());
     REQUIRE(ImportedParty() == *party);
+    REQUIRE(CurrentGame().story.imported_origin);
     for (const auto& character : CurrentGame().party.characters)
         if (character.fInParty)
             REQUIRE((character.uiExpLevel == 1 && character.experience == 13000));
@@ -238,6 +269,7 @@ void ImportScenario(const char* file, const std::vector<ImportedMember>* party,
     game.click("start-game", kPartyConfirmButton);
     WaitMainGame(game, "imported-game");
     REQUIRE(Data().levels[GetLoadedLevelID()].display_name == start_level);
+    REQUIRE_FALSE(CurrentGame().story.imported_origin);
     REQUIRE(ImportedParty() == *party);
     Snapshot(file, game.read_frame());
     std::printf("import: %s started on %s after %lu frames\n", file,
@@ -262,10 +294,14 @@ void MenuSaveScenario()
         REQUIRE(FindScreen<OptionsScreen>());
         click(*FindScreen<OptionsScreen>()->m_menu_buttons[save ? 5 : 4]);
         REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == (save ? 5 : 4));
-        return static_cast<W8OptionsSaveLoadPanel&>(
-            *FindScreen<OptionsScreen>()->m_panel[save ? 5 : 4]->m_panels.front());
+        return static_cast<W8OptionsSaveLoadPanel&>(*FindScreen<OptionsScreen>()->m_panels.front());
     };
 
+    open(true);
+    REQUIRE(FindScreen<OptionsScreen>()->m_text_editor);
+    game.enter_text("Abandoned");
+    click(*FindScreen<OptionsScreen>()->m_menu_buttons[0]);
+    REQUIRE_FALSE(FindScreen<OptionsScreen>()->m_text_editor);
     auto& create = open(true);
     REQUIRE(FindScreen<OptionsScreen>()->m_text_editor);
     game.enter_text("MenuOne");

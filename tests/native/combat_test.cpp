@@ -36,10 +36,11 @@ struct ScopedSettings {
     ~ScopedSettings() { g_settings = previous; }
 };
 
-// A fight in an empty level with two conscious party members.
+// A fight in an empty level with two conscious party members, reading the fixture's data.
 struct CombatFixture {
     ScopedSettings settings;
-    ScopedGame game_scope;
+    GameData data;
+    ScopedGame game_scope{data};
     ScopedCombat combat_scope{true};
     Game& game = game_scope.game;
     Combat& combat = *game.combat;
@@ -69,10 +70,9 @@ struct CombatFixture {
 /* The fight in a started game with two item records, so inventory edits settle the
    party. No profession or race data is loaded, so the members derive no statistics. */
 struct InventoryCombatFixture : CombatFixture {
-    ScopedGameData item_data{GameData{.items = std::vector<W8ItemDatabaseRecord>(2)}};
-
     InventoryCombatFixture()
     {
+        data.items.resize(2);
         game.status.game_started = true;
         for (int slot = 0; slot < 2; ++slot) {
             game.party.characters[slot].fInParty = true;
@@ -136,7 +136,7 @@ TEST_CASE_METHOD(InventoryCombatFixture,
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo = 1;
 
-    CommitWeaponSetSwap(game, 0, {.primary = true, .secondary = true});
+    game.inventory.commitWeaponSwap(0, {.primary = true, .secondary = true});
 
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo == 0);
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo == 1);
@@ -145,14 +145,12 @@ TEST_CASE_METHOD(InventoryCombatFixture,
 
 TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed use of the item")
 {
-    GameData wands{.items = std::vector<W8ItemDatabaseRecord>(2)};
-    wands.items[0].quantity_kind = W8_ITEM_QUANTITY_CHARGES;
-    wands.items[0].initial_quantity = {.base = 0, .count = 1, .sides = 5};
-    const ScopedGameData installed(std::move(wands));
-    const W8ItemLocation source{W8ItemStorage::Backpack, 0, 0};
+    data.items[0].quantity_kind = W8_ITEM_QUANTITY_CHARGES;
+    data.items[0].initial_quantity = {.base = 0, .count = 1, .sides = 5};
+    const W8ItemLocation source{W8ItemStorage::Hand};
     const W8ItemLocation destination{W8ItemStorage::Backpack, 0, 1};
     auto& backpack = game.party.characters[0].backpack;
-    backpack[0] = {.iItemNo = 0, .uses_or_charges = 3};
+    game.inventory.restore({}, W8ItemInstance{.iItemNo = 0, .uses_or_charges = 3});
     backpack[1] = {.iItemNo = 0, .uses_or_charges = 4};
     auto& committed = game.party.rows[0].committed;
     committed.kind = W8_ACTION_USE_ITEM;
@@ -160,9 +158,9 @@ TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed 
     // The member has acted this round; the use waits for the next one.
     combat.characters[0].dead = true;
 
-    MergeItemUses(game, 0, destination, source);
+    game.inventory.pourHeldUses(0, destination);
 
-    REQUIRE(backpack[0].uses_or_charges == 2);
+    REQUIRE(game.inventory.held()->item.uses_or_charges == 2);
     REQUIRE(backpack[1].uses_or_charges == 5);
     REQUIRE(committed.kind == W8_ACTION_USE_ITEM);
     REQUIRE(committed.detail_block.item_use.item == source);
@@ -175,7 +173,7 @@ TEST_CASE("A deflected stored-spell missile keeps its outcome outside combat")
     const ScopedGameData missile_data{GameData{.missiles = std::vector<W8MissileTableRecord>(36)}};
     game.level.replacePrimary(std::make_unique<World>());
     World& world = *game.level.primary;
-    Monster target(&world);
+    Monster target(world);
     target.location_id = 7;
     target.nav.movement.location_id = target.location_id;
     auto info = std::make_unique<W8MonsterInfo>();
@@ -184,7 +182,7 @@ TEST_CASE("A deflected stored-spell missile keeps its outcome outside combat")
     info->modifiers.missile_deflect_chance = 100;
     world.population->monster_roster.add(std::move(info), false);
 
-    Missile missile(&world);
+    Missile missile(world);
     missile.missile_table_index = 0x23;
     missile.m_Source = {.iType = W8_TARGET_SOURCE_CHARACTER, .iChar = 0};
     missile.combat_slot.iType = W8_TARGET_KIND_MONSTER;

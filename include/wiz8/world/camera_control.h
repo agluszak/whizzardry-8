@@ -2,19 +2,14 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/world/party_camera.h"
 
-class Navigator;
 struct World;
 
-extern bool g_world_cleanup_flag;
 extern bool g_navigator_vertical_enabled;
 
 /* One frame of party movement in the primary world under the frame's motion flags
    (camera_motion.h): turning and looking, motion against the collision index, the
    automap's visited cells and the camera paths. */
 void updatePartyMovement(World& world, unsigned int flags);
-/* Place the party navigator at the party's pose: `navigationPosition` of the eye, with
-   the camera's angles. */
-void mirrorPartyNavigator(Navigator& navigator, const PartyCamera& camera);
 /* Derive the rendered views from the party: the primary world's camera and its light at
    the eye plus `view_offset` (the frame's shake), and the sky camera with the same
    orientation and field of view. Rendering changes nothing else. */

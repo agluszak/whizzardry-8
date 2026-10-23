@@ -32,7 +32,6 @@
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/particle_system.h"
-#include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/string_database.h"
@@ -162,7 +161,7 @@ void MartensBluff1Script::setup()
         CreateLocationVar("DialState", 0x470111);
     }
     transporter(kMasterToggle);
-    position = cameraLocation(world());
+    position = world().party.eye();
     pTrigger = FindTriggerByName("MR101");
     if (pTrigger != 0 && (pTrigger->flags & W8_TRIGGER_POSITIONED) != 0) {
         pTrigger->GetPosition(&trigger_position);
@@ -213,7 +212,7 @@ bool MartensBluff1Script::fHandlock(Trigger* pTrigger)
     if (pTrigger->running) {
         return true;
     }
-    if ((ctx.party.held.item.iItemNo != -1) && GetItemInHand(ctx.party) == 0x26f) {
+    if ((ctx.inventory.held()) && ctx.inventory.heldItemId() == 0x26f) {
         return true;
     }
     SetDice(&dice, 2, 4, 1);
@@ -311,7 +310,7 @@ bool MartensBluff1Script::jDoorController(Trigger* pTrigger)
         gas_sound1_ = CreateAndPlaySoundNode(
             world(), "Data\\Sound\\Ambients\\Air_Escaping_Loop.wav", position, 0.3f, 30.0f, true);
     }
-    position = cameraLocation(world());
+    position = world().party.eye();
     PointCastSpell(position, W8_SPELL_FREEZE_FLESH, 5);
     state |= 0x10000000;
     SetTriggerVariableByName("DialState", state);

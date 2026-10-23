@@ -1,5 +1,6 @@
 #pragma once
 struct W8Chunk;
+struct SavedLock;
 struct SavedTrigger;
 
 #include <cassert>
@@ -186,7 +187,10 @@ public:
     void CommitActionResult(bool apply_state_changes);
     void CompleteItemInteraction();
     void Activate();
-    void Save(wiz8::File& hFile);
+    // The trigger's save record, and restoring the trigger from one.
+    SavedTrigger Capture() const;
+    // The lock's save record, or nothing when the trigger has no lock.
+    std::optional<SavedLock> CaptureLock() const;
     void Restore(SavedTrigger saved);
     void RunLinkedTriggers();
     void FinishAction();
@@ -285,12 +289,7 @@ inline void RunNamedTrigger(std::string_view name, int source)
 }
 
 W8DoorTriggerActionData ReadDoorTriggerActionData(wiz8::File* handle);
-/* The TRES save chunk: the world's triggers, their runtime states, and their
-   action data. */
 int ResetNextTriggerId(void);
-void SaveWorldTriggers(wiz8::File& handle);
-void SaveTriggerRuntimeStates(wiz8::File& handle);
-void SaveTriggerActionData(wiz8::File& handle);
 
 extern bool g_trigger_feedback;
 /* Camera position cached by the per-frame trigger walk. */

@@ -603,7 +603,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
         }
     }
     if (static_cast<int>(interposers.size()) == 0) {
-        if (g_settings.verbose_combat_messages != 0 && static_cast<int>(candidates.size()) != 0) {
+        if (g_settings.verbose_combat_messages && static_cast<int>(candidates.size()) != 0) {
             for (i = 0; i < static_cast<int>(candidates.size()); ++i) {
                 W8TargetSource* candidate = &candidates[i];
                 CurrentGame().combat->attack_message =
@@ -779,8 +779,8 @@ void ResolveSpellMissileHit(Missile* missile)
             monster_info = FindMonster(target->iMonsterID);
             DamageMonstersInRadius(monster_info->entity->nav.GetPosition(), definition->radius,
                                    &definition->magnitude, source, &missile->result);
-            announce = g_settings.verbose_combat_messages != 0;
-            verbose = g_settings.verbose_combat_messages != 0;
+            announce = g_settings.verbose_combat_messages;
+            verbose = g_settings.verbose_combat_messages;
             glm::vec3 center = monster_info->entity->nav.GetPosition();
             ResetCombatSlot(&struck);
             struck.iType = W8_TARGET_KIND_MONSTER;
@@ -798,8 +798,8 @@ void ResolveSpellMissileHit(Missile* missile)
             }
         } else {
             ApplyRolledHealthChangeToParty(&definition->magnitude, &missile->result, 1);
-            announce = g_settings.verbose_combat_messages != 0;
-            verbose = g_settings.verbose_combat_messages != 0;
+            announce = g_settings.verbose_combat_messages;
+            verbose = g_settings.verbose_combat_messages;
             ResetCombatSlot(&struck);
             struck.iType = W8_TARGET_KIND_CHARACTER;
             for (index = 0; index < 8; ++index) {
@@ -931,7 +931,7 @@ void ResolveMissileHit(Missile* missile, bool deflected)
         hit_location = RollCharacterHitLocation();
         location_name = Data().strings[g_pc_hit_location_labels[hit_location][0]];
     }
-    if (g_settings.verbose_combat_messages != 0) {
+    if (g_settings.verbose_combat_messages) {
         CurrentGame().events.push(TextNotice{static_cast<unsigned int>(source_color),
                                              fmt::sprintf(Data().strings[0x20c], location_name)});
     }
@@ -950,7 +950,7 @@ void ResolveMissileHit(Missile* missile, bool deflected)
                 ApplyDamageToCharacter(target->iChar, magnitude, false, true, true, 0, false);
             }
             ApplyEffectConditions(source, target, &missile->definition, true, false, 0);
-        } else if (g_settings.verbose_combat_messages != 0) {
+        } else if (g_settings.verbose_combat_messages) {
             CurrentGame().events.push(
                 TextNotice{static_cast<unsigned int>(source_color), Data().strings[0x20e]});
         }
@@ -1135,7 +1135,7 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
     case W8_TARGET_KIND_ITEM:
         return fmt::sprintf(
             Data().strings[0x1e6],
-            FormatItemDisplayName(Data(), CurrentGame().party.itemAt(target->item), false));
+            FormatItemDisplayName(Data(), CurrentGame().inventory.itemAt(target->item), false));
     default:
         return {};
     }
@@ -1242,7 +1242,7 @@ bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_
     } else {
         return false;
     }
-    if (g_settings.verbose_combat_messages != 0) {
+    if (g_settings.verbose_combat_messages) {
         CurrentGame().events.push(
             TextNotice{static_cast<unsigned int>(palette), Data().strings[0x213]});
     }
@@ -1555,7 +1555,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
     W8SpellEffectDefinition effect;
     int event_ids[3];
     std::string location_name;
-    bool verbose = g_settings.verbose_combat_messages != 0;
+    bool verbose = g_settings.verbose_combat_messages;
     bool swing_missed = false;
     bool deflected = false;
     bool guaranteed_hit = false;
@@ -1624,12 +1624,12 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
         report->deferred = true;
     }
     if (swing_missed) {
-        if (g_settings.verbose_combat_messages != 0) {
+        if (g_settings.verbose_combat_messages) {
             CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_RUST, Data().strings[0x209]});
         }
         ResetCombatSlot(&CurrentGame().combat->TargetHit);
     } else if (deflected) {
-        if (g_settings.verbose_combat_messages == 0) {
+        if (!g_settings.verbose_combat_messages) {
             report->missed = true;
         } else {
             CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_RUST, Data().strings[0x20a]});
@@ -1701,7 +1701,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
                 }
             }
         } else {
-            if (g_settings.verbose_combat_messages == 0) {
+            if (!g_settings.verbose_combat_messages) {
                 report->target = CurrentGame().combat->TargetHit;
             } else {
                 CurrentGame().events.push(TextNotice{
@@ -1947,7 +1947,7 @@ bool CharacterNoticesAttacker(int party_slot)
    target's name and turn the monster toward what it is striking. */
 static void AppendAttackWeaponName(std::string_view name, int mode)
 {
-    if (g_settings.verbose_combat_messages != 0) {
+    if (g_settings.verbose_combat_messages) {
         if (CurrentGame().combat->natural_attack != 0) {
             CurrentGame().combat->attack_message += " ";
             CurrentGame().combat->attack_message += Data().strings[0x215];
@@ -2005,7 +2005,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
         CurrentGame().combat->attack_message += " ";
     }
     if (CurrentGame().combat->natural_attack == 0 && pAttack->ubWeaponNameIndex != 0) {
-        if (g_settings.verbose_combat_messages == 0) {
+        if (!g_settings.verbose_combat_messages) {
             switch (action_detail) {
             case W8_ATTACK_MODE_SWING:
             case W8_ATTACK_MODE_THRUST:
@@ -3231,7 +3231,7 @@ void ScatterMissileAimPoint(const glm::vec3* from, glm::vec3* to, int accuracy, 
    wielded missile weapon or queues the melee swing event. */
 static void AppendAttackMessageSuffix(int mode)
 {
-    if (g_settings.verbose_combat_messages != 0 && CurrentGame().combat->natural_attack == 0) {
+    if (g_settings.verbose_combat_messages && CurrentGame().combat->natural_attack == 0) {
         CurrentGame().combat->attack_message += Data().strings[0x216];
     } else if (CurrentGame().combat->natural_attack == 0) {
         switch (mode) {
@@ -3454,10 +3454,10 @@ ActionStep ResolveCharacterAttack(int party_slot)
     W8MonsterInfo* monster_info = nullptr;
     W8TargetSource source;
     W8TargetSource target_source;
-    W8CombatSlot target;
+    W8CombatSlot target = party_row->executing.target;
     W8SpellEffectDefinition effect;
     std::string location_name;
-    bool verbose = g_settings.verbose_combat_messages != 0;
+    bool verbose = g_settings.verbose_combat_messages;
     bool special_item = false;
     bool staged_miss = false;
     bool swing_missed = false;
@@ -3566,7 +3566,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
             report->deferred = true;
         }
         if (swing_missed) {
-            if (g_settings.verbose_combat_messages != 0) {
+            if (g_settings.verbose_combat_messages) {
                 CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x209]});
             }
             ResetCombatSlot(&CurrentGame().combat->TargetHit);
@@ -3613,7 +3613,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                 }
                 if (!BlockedForSpecialReason(weapon_class, &CurrentGame().combat->TargetHit, roll,
                                              to_hit, 8)) {
-                    if (g_settings.verbose_combat_messages != 0) {
+                    if (g_settings.verbose_combat_messages) {
                         CurrentGame().events.push(
                             TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x209]});
                     }
@@ -3634,7 +3634,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                     }
                 }
             } else {
-                if (g_settings.verbose_combat_messages == 0) {
+                if (!g_settings.verbose_combat_messages) {
                     report->target = CurrentGame().combat->TargetHit;
                 } else {
                     CurrentGame().events.push(TextNotice{
@@ -3872,8 +3872,8 @@ ActionStep ResolveCharacterAttack(int party_slot)
     }
     FatigueCharacter(party_slot, CharacterActionFatigueCost(party_slot, party_row->executing.kind),
                      true, 0);
-    if (ConsumeAttackItems(CurrentGame(), party_slot, hand, row->current_equip_slot,
-                           row->paired_equip_slot))
+    if (CurrentGame().inventory.consumeAttackItems(party_slot, hand, row->current_equip_slot,
+                                                   row->paired_equip_slot))
         row->uiSwingsRemaining = 1;
     assert(row->uiSwingsRemaining != 0);
     --row->uiSwingsRemaining;

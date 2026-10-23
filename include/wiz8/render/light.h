@@ -196,11 +196,12 @@ public:
     void setGroupMask(std::uint32_t value) { group_mask = value; }
     std::uint32_t getGroupMask() const { return group_mask; }
 };
-void SaveLightStates(wiz8::File& handle);
 struct W8LightState {
     std::string name;
     unsigned char enabled;
 };
+// The trigger-toggled lights of the loaded worlds.
+void WriteLightStates(wiz8::File& handle, std::span<const W8LightState> states);
 std::vector<W8LightState> ReadLightStates(W8Chunk& file);
 void ApplyLightStates(World& world, std::span<const W8LightState> states);
 

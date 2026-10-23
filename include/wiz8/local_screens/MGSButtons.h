@@ -49,7 +49,6 @@ struct MainGameSubMenu {
     UiLayer input{UiLayerOrder::Submenu};
     SDL_Rect bounds{};
     int background = 0;
-    bool dirty = true;
     std::optional<uint64_t> close_deadline;
     std::vector<std::unique_ptr<W8ButtonWidget>> buttons;
 };
@@ -57,19 +56,15 @@ struct MainGameSubMenu {
 /* The action-kind message indexes the caption draw maps through. */
 extern unsigned short g_action_kind_message_ids[12];
 
-/* Invalidate (when asked) then redraw the sub-menu panel. */
+/* Redraw the sub-menu panel when its repaint was requested; otherwise only its
+   changed buttons. */
 void RefreshSubMenuPanel(bool invalidate);
 /* Close and rebuild the sub menu around the saved combat-end notification. */
 void ResetSubMenuPanel(void);
-/* Draw roof chrome, mark the three buttons dirty and sync state; the same repaint
-   draws the combat progress gauge. */
+/* Draw roof chrome and the three buttons; the same repaint draws the combat
+   progress gauge. */
 void RedrawRoofButtons(void);
-/* Sync roof-button visibility/enabled/pressed state and Draw each button. */
-void UpdateRoofButtons(void);
-/* Press the roof button that matches g_settings.main_ui_mode. */
-void SyncRoofButtonPressedState(void);
-/* Draw layout-arrow chrome and sync the six raise/lower arrows against the
-   live action-panel / formation-board / radar-map visibility flags. */
+// Draw layout-arrow chrome and the visible raise/lower arrows.
 void RedrawLayoutArrowButtons(void);
 /* MainGameScreenEnter's interface-button bank: submenu, scroll, panel,
    options disk, combat stance, roof, and layout arrows. */
@@ -77,20 +72,17 @@ void ConfigureMainGameHudButtons(void);
 /* Draw the selected character's name/profession line and the caption for
    their queued action. */
 void DrawSubMenuCharacterAction(void);
-/* Sync enable/press of the two sub-menu panel buttons, then Draw them. */
+// Sync enable/press of the two sub-menu panel buttons.
 void UpdateSubMenuPanelButtons(void);
 /* Redraw the bottom sub-menu chrome, bank buttons, panel buttons, character
    action caption, and scroll arrows. */
 void RedrawSubMenuButtons(void);
 // Redraw the options-disk button.
 void RedrawOptionsDiskButton(void);
-// Mark combat-stance buttons dirty and refresh which stance is shown.
+// Draw the combat-stance chrome and the live stance button.
 void RedrawCombatStanceButtons(void);
 /* Show the active continuous/manual combat-stance button for the live mode. */
 void UpdateCombatStanceButtons(void);
-/* Per-frame button refresh from DrawMainGameScreen: bank buttons, scroll
-   arrows, panel/options/stance/roof buttons and the layout-arrow pair. */
-void UpdateMainGameButtons(void);
 /* While the combat-end submenu is up and the cursor has left its row band,
    run a 500 ms countdown, then tear the panel and rows down. */
 void UpdateSubMenuAutoClose(void);

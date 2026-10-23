@@ -1,11 +1,13 @@
 #pragma once
 
+#include <bitset>
 #include <memory>
 #include <optional>
 #include <string_view>
 #include <vector>
 
 #include <SDL3/SDL_rect.h>
+#include <SDL3/SDL_surface.h>
 
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/layouts/npc_dialogue.h"
@@ -142,8 +144,20 @@ struct W8NpcDialoguePanel {
        fresh; cleared when the next transcript line scrolls. */
     bool text_box_collapsed{};
 
-private:
-    void finishVoice(bool resume_script);
+    // Request a dialogue panel's repaint.
+    void requestRepaint(int panel);
+    /* Before the draw, add the panels whose transcript or action text changed to
+       `panels`; the draw then paints the requested ones. */
+    void updatePanels(std::bitset<7>& panels);
+    void paintPanels(std::bitset<7> panels) const;
+    // Show and expand the transcript panel, without repainting the layout.
+    void showTranscript();
+    /* A repainted portrait band covers the open transcript: show it again while
+       the transcript layout is up, unhidden and not waiting on a reply. */
+    void keepTranscriptOverPortraits();
 
+private:
+    void paintPanel(int index, SDL_Surface& target, bool force) const;
+    void finishVoice(bool resume_script);
     MainGameScreen& screen_;
 };

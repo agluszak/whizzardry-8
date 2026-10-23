@@ -30,7 +30,6 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
-#include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
 
@@ -47,17 +46,17 @@
 /* Count how many of the three Ascension Peak relic items (0x242, 0x243,
    0x244) are on the party; the world-cursor "seen bodies" handler requires
    all three. */
-int CountAscensionPeakItems(const W8Party& party)
+int CountAscensionPeakItems(const Inventory& inventory)
 {
     int count = 0;
 
-    if (PartyHasItem(party, 0x242)) {
+    if (inventory.has(0x242)) {
         count = 1;
     }
-    if (PartyHasItem(party, 0x243)) {
+    if (inventory.has(0x243)) {
         ++count;
     }
-    if (PartyHasItem(party, 0x244)) {
+    if (inventory.has(0x244)) {
         ++count;
     }
     return count;
@@ -157,7 +156,7 @@ void AscensionScript::enter()
 void AscensionScript::peakInit()
 {
     glm::vec3 position;
-    int count = CountAscensionPeakItems(ctx.party);
+    int count = CountAscensionPeakItems(ctx.inventory);
 
     if (count > 1) {
         if (GetLocationVarIDByName("AP_AtLeast2of3Items") == -1) {
@@ -216,7 +215,7 @@ void AscensionScript::avalanche(bool command)
         glm::vec3 position;
         glm::vec3 trigger_position;
 
-        position = cameraLocation(world());
+        position = world().party.eye();
         FindTriggerByName("ASC40")->GetPosition(&trigger_position);
         if (glm::length((position - trigger_position)) < 2500.0) {
             SetFact(W8_FACT_LANDSLIDE_RAPAX_SIDE, 1, false);
@@ -266,7 +265,7 @@ bool AscensionScript::answerAletheides(Trigger* pTrigger, const char* active_var
     }
     CurrentGame().npc_dialogue.Queue(W8NpcCommand::begin_scripted_world_action);
     CurrentGame().npc_dialogue.Queue(W8NpcPortraitString{0x71e});
-    if (!PartyHasItem(ctx.party, relic_item)) {
+    if (!ctx.inventory.has(relic_item)) {
         CurrentGame().npc_dialogue.Queue(W8NpcPortraitString{0x71f});
     } else {
         SetTriggerVariableByName(active_var, 1);
@@ -390,9 +389,9 @@ std::unique_ptr<LevelScript> MakeAscensionScript(const ScriptContext& context)
 
 /* Spawn the Alfie "chaos" monster (0xae) at the NP_AlfieChaos entity once the
    party carries the Astral Dominae (0x244). */
-void SpawnAlfieChaos(const W8Party& party)
+void SpawnAlfieChaos(const Inventory& inventory)
 {
-    if (PartyHasItem(party, 0x244)) {
+    if (inventory.has(0x244)) {
         SpawnAlfieAt("NP_AlfieChaos", 0xae);
     }
 }

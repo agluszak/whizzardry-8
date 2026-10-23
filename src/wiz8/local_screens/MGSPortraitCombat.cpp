@@ -11,7 +11,6 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Search.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
@@ -137,11 +136,11 @@ void UpdateSubMenuButton(int index)
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
-    if (ItemUseDraft() && index != 3) {
+    if (UseItemPicker() && index != 3) {
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
-    if (gpSCSV && index != 4) {
+    if (SpellPicker() && index != 4) {
         MainGame()->hud_buttons.submenu[index].SetEnabled(false);
         return;
     }
@@ -183,7 +182,7 @@ void UpdateSubMenuButton(int index)
            IsPressed and two SetPressed calls for this case alone
            (0x00594E92/0x00594EA7 under search_mode, 0x00594EAE/0x00594EC3
            under its negation). */
-        if (CurrentGame().status.search_mode) {
+        if (CurrentGame().search.active()) {
             if (MainGame()->hud_buttons.submenu[2].IsPressed() == 0) {
                 MainGame()->hud_buttons.submenu[2].SetPressed(true);
             }
@@ -201,7 +200,7 @@ void UpdateSubMenuButton(int index)
         MainGame()->hud_buttons.submenu[3].SetEnabled(true);
         /* As case 2, with an item draft: 0x00594F07/0x00594F1C then
            0x00594F23/0x00594F38. */
-        if (ItemUseDraft()) {
+        if (UseItemPicker()) {
             if (MainGame()->hud_buttons.submenu[3].IsPressed() == 0) {
                 MainGame()->hud_buttons.submenu[3].SetPressed(true);
             }
@@ -219,7 +218,7 @@ void UpdateSubMenuButton(int index)
         /* As case 2, with the spell picker open: 0x00594FA0/0x00594FB5 then
            0x00594FBC/0x00594FCD. This case's SetEnabled stays a single call -
            the retail's `? :` collapses into one at 0x00594F8C. */
-        if (gpSCSV) {
+        if (SpellPicker()) {
             if (MainGame()->hud_buttons.submenu[4].IsPressed() == 0) {
                 MainGame()->hud_buttons.submenu[4].SetPressed(true);
             }
@@ -272,16 +271,16 @@ static void SubMenuButtonSurprise(W8ButtonWidget* button)
 
 static void SubMenuButtonToggleFlag(W8ButtonWidget* button)
 {
-    ToggleSearchMode();
-    button->SetPressed(CurrentGame().status.search_mode ? 1 : 0);
+    CurrentGame().search.toggle();
+    button->SetPressed(CurrentGame().search.active());
     if (auto* hud = MainGameHud()) hud->repaint.layout = true;
     DrawSubMenuCharacterAction();
 }
 
 static void SubMenuButtonUseItem(W8ButtonWidget* button)
 {
-    if (ItemUseDraft()) {
-        CloseUseItemSelectView();
+    if (UseItemPicker()) {
+        MainGame()->closeItemPicker();
         return;
     }
     if (CurrentGame().combat.has_value()) {
@@ -289,17 +288,17 @@ static void SubMenuButtonUseItem(W8ButtonWidget* button)
         ReleaseUiCapture();
         return;
     }
-    OpenUseItemSelectView(CurrentGame().status.selected_character);
+    MainGame()->openItemPicker(CurrentGame().status.selected_character);
 }
 
 static void SubMenuButtonSpellView(W8ButtonWidget* button)
 {
     if (CharacterHasCastableSpell(
             &CurrentGame().party.characters[CurrentGame().status.selected_character])) {
-        if (gpSCSV) {
-            CloseSpellCastingView();
+        if (SpellPicker()) {
+            MainGame()->closeSpellPicker();
         } else {
-            OpenSpellCastingView(CurrentGame().status.selected_character);
+            MainGame()->openSpellPicker(CurrentGame().status.selected_character);
         }
     }
 }

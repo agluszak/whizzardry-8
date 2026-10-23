@@ -62,7 +62,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/math.h"
 #include "wiz8/monster_generators.h"
@@ -90,7 +89,7 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/spatial/surface_index.h"
-#include "wiz8/startup_world.h"
+#include "wiz8/world/automap.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
@@ -306,7 +305,7 @@ try {
         success = success && (pInfo->hFile->read(&stored_position, sizeof(stored_position)).bytes ==
                               static_cast<std::size_t>(sizeof(stored_position)));
         position = glm::vec3(stored_position.x, stored_position.y, stored_position.z) * kWorldScale;
-        pWorld->party_camera.m_position = position;
+        pWorld->party.camera.m_position = position;
     } else if (camera_mode == 2) {
         success = success &&
                   (pInfo->hFile->read(&stored_position, sizeof(stored_position)).bytes ==
@@ -320,7 +319,7 @@ try {
                   (pInfo->hFile->read(&axis.z, sizeof(axis.z)).bytes ==
                    static_cast<std::size_t>(sizeof(axis.z)));
         position = glm::vec3(stored_position.x, stored_position.y, stored_position.z) * kWorldScale;
-        pWorld->party_camera.m_position = position;
+        pWorld->party.camera.m_position = position;
 
         rotation = glm::mat3(1);
         if (angle != 0.0f) {
@@ -581,7 +580,7 @@ try {
         auto* monster_info = FindMonster(group->MemberLocationId(0));
         ActivateMonster(monster_info);
         Monster& monster = *monster_info->entity;
-        const glm::vec3 camera_position = cameraLocation(*world);
+        const glm::vec3 camera_position = monster.owner_world.party.eye();
         monster.visual.SelectLOD(&camera_position);
         monster.nav.SetPathAI(std::move(path));
         if (has_options) {
@@ -591,7 +590,7 @@ try {
             }
             if (options[0] == '0' || options[0] == '\0') continue;
         }
-        monster.UpdateRepresentation(world);
+        monster.UpdateRepresentation();
     }
     return true;
 } catch (const std::exception&) {
@@ -1004,7 +1003,7 @@ try {
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after particles.");
     success = success && ReadNamedPositions(info.hFile, world->named_positions);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after named position points.");
-    success = success && ReadAutomapNodes(handle, world->automap);
+    success = success && world->automap.readCells(*handle);
     CHECK_PVL_OFFSET("Wrong offset in .pvl file after automap nodes.");
 
     world->environment.offset = environment_offset;
@@ -1668,8 +1667,8 @@ std::unique_ptr<World> LoadWorld(int level_id, std::string source_path)
     }
 
     if (auto* spatial = world->collisionIndex(); spatial && !spatial->environments.empty()) {
-        world->party_camera.environment.value = spatial->environments.front();
-        world->party_camera.environment.index = 0;
+        world->party.camera.environment.value = spatial->environments.front();
+        world->party.camera.environment.index = 0;
     }
     world->camera = &world->scene->camera;
     world->camera->setName("Sirtech Camera");

@@ -24,22 +24,38 @@ void SetMusicMuted(unsigned char muted);
 /* The persisted configuration. The configuration file's CNFG chunk stores it as a fixed
    0xa4-byte record (EncodeGameSettings); unnamed slots keep their bytes. */
 struct W8GameSettings {
-    unsigned char field_000;
-    unsigned char numeric_hit_points;
-    unsigned char unknown_002[0x4];
-    /* The main-game layout RefreshMainGameLayout selects. NONE is the
-       transient park Screens uses while it re-raises panels on main-game
-       enter. */
-    W8MainUiMode main_ui_mode;
-    unsigned char continuous_combat;
-    unsigned char auto_advance_character;
-    bool tooltips_enabled;
+    bool mouselook_toggle;
+    bool mouselook_smoothing;
+    bool invert_mouse_y;
+    bool ctrl_right_click_info;
     W8Difficulty difficulty;
-    unsigned int text_display_delay_ms;
-    int combat_delay_ms;
-    int continuous_combat_start_delay_ms;
     W8CameraRotationMode camera_rotation_mode;
     W8CameraRotationStyle camera_rotation_style;
+    bool continuous_combat;
+    bool numeric_hit_points;
+    bool autoscroll_combat_messages;
+    bool simplified_npc_interaction;
+    bool verbose_combat_messages;
+    bool autoswap_weapons;
+    bool auto_advance_character;
+    bool autotarget_spells;
+    bool skill_increase_messages;
+    int combat_delay_ms;
+    float monster_movement_speed;
+    unsigned int text_display_delay_ms;
+    bool auto_save;
+    bool monster_shadows;           /* options string 0x818 */
+    bool smooth_monster_animations; /* options string 0x819 */
+    bool smooth_world_animations;   /* options string 0x81a */
+    bool pc_confirmations; /* options string 0x823 */
+    bool pc_subtitles; /* options string 0x824 */
+    unsigned char field_000;
+    unsigned char unknown_002[0x4];
+    /* The player's preferred main-game layout. An open interaction overrides
+       it in the applied MainGameLayout without changing it. */
+    W8MainUiMode main_ui_mode;
+    bool tooltips_enabled;
+    int continuous_combat_start_delay_ms;
     int tooltip_delay_ms;
     unsigned char formation_action_panel_preference;
     unsigned char formation_radar_map_preference;
@@ -54,27 +70,10 @@ struct W8GameSettings {
     unsigned char muted_music_volume;
     unsigned char muted_voice_volume;
     unsigned char field_035;
-    unsigned char invert_mouse_y;
-    float monster_movement_speed;
     unsigned char field_03b;
     float legacy_gamma; // Retained CNFG slot; gamma is not a runtime setting.
-    unsigned char pc_confirmations; /* options string 0x823 */
-    unsigned char mouselook_toggle;
-    unsigned char pc_subtitles; /* options string 0x824 */
-    unsigned char mouselook_smoothing;
-    unsigned char verbose_combat_messages;
-    unsigned char auto_save;
     bool intro_seen;
     unsigned char field_047;
-    unsigned char monster_shadows;           /* options string 0x818 */
-    unsigned char smooth_monster_animations; /* options string 0x819 */
-    unsigned char smooth_world_animations;   /* options string 0x81a */
-    unsigned char skill_increase_messages;
-    unsigned char ctrl_right_click_info;
-    unsigned char autoswap_weapons;
-    unsigned char autotarget_spells;
-    unsigned char autoscroll_combat_messages;
-    unsigned char simplified_npc_interaction;
     unsigned char unknown_051[0x53];
 };
 

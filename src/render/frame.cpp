@@ -67,7 +67,6 @@
 #include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/level_spatial_index.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/world/camera_control.h"
@@ -158,9 +157,8 @@ bool InitializeVideoManager(void)
     InitializeRendererSceneObjects();
     if (!RestoreVideoManager()) return false;
     SetViewport({0, 0, 0x281, 0x1e1});
-    if (!InitializeStartupNavigation()) {
-        return 0;
-    }
+    InitializeRenderQuality();
+    InitializeEnvironmentColours();
     EnableAllRenderOptions();
     return InitializeMouseCursorScene();
 }
@@ -169,7 +167,7 @@ void ShutdownVideoManager(void)
 {
     FreeMouseCursor();
     ShutdownVideoScenes();
-    ShutdownStartupNavigation();
+    ClearEnvironmentObjects();
     SuspendVideoManager();
     SDL_Window* native_window = ghWindow;
     ReleasePrimarySurface();
@@ -539,15 +537,15 @@ bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect)
     return ReadFrameInto(*target);
 }
 
-bool RenderMapToSurface(SDL_Surface& target, const DesignRect& rect)
+bool RenderMapToSurface(SDL_Surface& target, WorldScene& scene, const DesignRect& rect)
 {
-    if (!g_renderer || !g_renderer->isOpen() || !GetWorld()) return false;
+    if (!g_renderer || !g_renderer->isOpen()) return false;
     g_renderer->beginFrame(glm::vec4(0, 0, 0, 1));
     auto frame = CurrentSceneFrame();
     // The map keeps the retail automap's reduced texture detail.
     frame.texture_reduction = 3;
     const auto area = ToSurfaceRect(rect, g_renderer->width(), g_renderer->height());
-    g_renderer->addView(GetWorld()->scene->createMapView(
+    g_renderer->addView(scene.createMapView(
         g_renderer->context(), frame, vsg::ViewportState::create(area.x, area.y, area.w, area.h),
         g_renderer->frameNumber()));
     return ReadFrameInto(target);
@@ -820,7 +818,7 @@ bool GetCursorPositionInViewport(glm::vec2* position)
     return false;
 }
 
-/* The tracked cursor tip (hotspot + size) in pixel-scale units. DropHeldItem
+/* The tracked cursor tip (hotspot + size) in pixel-scale units. Dropping an item
    turns it into the toss direction. */
 glm::vec2 GetCursorScaledPosition()
 {
@@ -957,7 +955,7 @@ void SetViewport(const DesignRect& bounds)
             GetSecondaryWorld()->camera->setViewPlane(plane, 1.0);
         }
         if (g_camera_sway_active) {
-            GetWorld()->party_camera.applySway(*GetWorld()->camera, CameraSwayMode::Start);
+            GetWorld()->party.camera.applySway(*GetWorld()->camera, CameraSwayMode::Start);
         }
     }
 }

@@ -14,8 +14,6 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_rules.h"
-#include "wiz8/spatial/bounding_sphere.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/world/party_camera.h"
 // Some libstdc++ 16 releases use deprecated is_trivial_v in _M_init.
 // Limit the workaround to diagnostics originating in that library header.
@@ -27,7 +25,6 @@
 #if defined(__clang__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE == 16
 #pragma clang diagnostic pop
 #endif
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -81,6 +78,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
@@ -110,9 +108,8 @@ enum { W8_NPC_DISPOSITION_HOSTILE = 0x21, W8_NPC_DISPOSITION_FRIENDLY = 0x42 };
 void QueueNpcHeldItemNotice(int npc_kind)
 {
     auto* npc = GetNpcStateByKind(npc_kind);
-    auto* item =
-        (CurrentGame().party.held.item.iItemNo != -1) ? &CurrentGame().party.held.item : nullptr;
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    const auto* held = CurrentGame().inventory.held();
+    QueueNpcScriptNotice(npc, held ? &held->item : nullptr, -1, false, 0);
 }
 
 bool NpcRecordHasTradePool(W8NpcState* npc)
@@ -315,7 +312,7 @@ W8Character* GetNpcGroupCharacter(W8NpcState* npc)
 /* Whether an NPC would take one item in trade. The kind that trades in nothing
    refuses outright, one particular item is always taken, and everything else
    has to be worth enough. */
-bool WillNpcTradeForItem(W8NpcState* npc, W8ItemInstance* item)
+bool WillNpcTradeForItem(W8NpcState* npc, const W8ItemInstance* item)
 {
     if (npc->record->kind == W8_NPC_KIND_NO_TRADE) {
         return false;
@@ -416,7 +413,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
         if (item->iItemNo != -1 &&
             CanUnequipSlotItem(Data(), &character, static_cast<W8EquipSlot>(slot)) &&
             !NpcWantsItem(npc, item)) {
-            if (AddItemToPartyOrDrop(CurrentGame(), OwnedItem(*item), false)) {
+            if (CurrentGame().inventory.storeOrDrop(*item, false)) {
                 returned = true;
             } else if (item->iItemNo == -1) {
                 dropped = true;
@@ -426,7 +423,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
     for (slot = 0; slot < 8; ++slot) {
         W8ItemInstance* item = &character.backpack[slot];
         if (item->iItemNo != -1 && !NpcWantsItem(npc, item)) {
-            if (AddItemToPartyOrDrop(CurrentGame(), OwnedItem(*item), false)) {
+            if (CurrentGame().inventory.storeOrDrop(*item, false)) {
                 returned = true;
             } else if (item->iItemNo == -1) {
                 dropped = true;
@@ -523,7 +520,7 @@ void UpdateNpcPartyMember(int party_slot)
 
     if (character->highest_condition == W8_CONDITION_DEAD) {
         ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(Data().strings[0x7d4], character->name));
-        StashDepartingCharacterItems(CurrentGame(), party_slot);
+        CurrentGame().inventory.stashDeparting(party_slot);
         RemoveCharacterFromParty(party_slot);
         return;
     }
@@ -1101,7 +1098,7 @@ void CreateNewGameNpcStates(void)
 {
     for (unsigned int npc_id = 0; npc_id < Data().npcs.size(); ++npc_id) {
         if (Data().npcs[npc_id].monster_bound == 0) {
-            CreateNpcRuntimeNode(npc_id);
+            CreateNpcRuntimeNode(CurrentGame().story, npc_id);
         }
     }
 }
@@ -1131,11 +1128,10 @@ static std::unique_ptr<W8NpcState> MakeNpcRuntimeNode(int npc_id)
     return owner;
 }
 
-W8NpcState* CreateNpcRuntimeNode(int npc_id)
+W8NpcState* CreateNpcRuntimeNode(Story& story, int npc_id)
 {
     auto owner = MakeNpcRuntimeNode(npc_id);
     auto* npc = owner.get();
-    auto& story = CurrentGame().story;
     W8NpcState* released;
     int index;
     for (index = 0; index < static_cast<int>(story.npcs.size()); ++index) {
@@ -1258,7 +1254,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
                 }
             }
             if (npc == 0) {
-                npc = CreateNpcRuntimeNode(npc_id);
+                npc = CreateNpcRuntimeNode(CurrentGame().story, npc_id);
             }
         }
         monster_info->bound_npc_index = npc->partner_index;
@@ -1387,35 +1383,6 @@ void ReleaseNpcBinding(int value)
     }
 }
 
-/* Install the states a save's NPCT section holds, bound to their database records.
-   Grouped NPCs re-bind to the loaded level, and runtime nodes are created for the
-   unflagged records no loaded state claims. */
-void InstallNpcStates(std::vector<std::unique_ptr<W8NpcState>> npcs)
-{
-    auto& states = CurrentGame().story.npcs;
-    states.assign(std::make_move_iterator(npcs.begin()), std::make_move_iterator(npcs.end()));
-    for (std::size_t index = 0; index < states.size(); ++index) {
-        auto* npc = states[index].get();
-        npc->partner_index = static_cast<unsigned char>(index);
-        npc->script_file.reset();
-        npc->has_monster = false;
-        npc->record = &Data().npcs[npc->name_style];
-        if (npc->is_grouped) {
-            npc->is_present = false;
-            npc->has_monster = true;
-            npc->level_band = GetLevelBand(GetLoadedLevelID());
-            npc->bound_level = GetLoadedLevelID();
-            ReloadNpcScriptResources(npc);
-        }
-        if (npc->spawned == 0xffff) npc->spawned = 0;
-    }
-    for (unsigned int npc_id = 0; npc_id < Data().npcs.size(); ++npc_id) {
-        if (Data().npcs[npc_id].monster_bound == 0 && GetNpcStateByKind(npc_id) == 0) {
-            CreateNpcRuntimeNode(npc_id);
-        }
-    }
-}
-
 /* Hand back the NPC binding selected by a monster-list index, or null when
    the monster's record is missing, is not NPC-routed, binds no NPC, or the
    binding has been released. */
@@ -1495,7 +1462,7 @@ static void DebitNpcTradePool(W8NpcState* npc, unsigned int price)
    kind adds its operand straight to disposition. Kinds 0 and 1 reuse an
    argument's stack slot as the best-skill out-parameter; kind 2 and 3 fall
    into the shared disposition refresh at the tail. */
-void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* item,
+void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, const W8ItemInstance* item,
                          unsigned int gold)
 {
     switch (static_cast<signed char>(kind)) {
@@ -1763,8 +1730,7 @@ static bool ProbeNpcPlacementNearParty(int /*party_slot*/, int /*mode*/, glm::ve
     for (const int mode : {10, 20, 30}) {
         const auto placement = GetWorldSpatialIndex()->navigatorPositions(
             party_position, yaw, 1000.0f, 1, true, false, true, mode, false,
-            BoundingSphere{PartyNavigator()->movement.position,
-                           PartyNavigator()->movement.alternate_radius});
+            GetWorld()->party.collisionSphere());
         party_position = placement.source;
         if (!placement.positions.empty()) {
             *position_out = placement.positions.front();
@@ -1955,7 +1921,7 @@ void RestoreNamedNpcAtLevel(int kind, signed char level, std::string_view entity
 {
     auto* npc = GetNpcStateByKind(kind);
     if (npc == 0) {
-        npc = CreateNpcRuntimeNode(kind);
+        npc = CreateNpcRuntimeNode(CurrentGame().story, kind);
     }
     if (level == GetLoadedLevelID()) {
         RestoreNpcMonster(npc, std::string(entity_name).c_str());
@@ -2186,14 +2152,14 @@ void ReleaseMarkedNpcBindings(void)
    when the trigger's 0x100 flag or the NPC's '{' naming style asks for it. */
 bool NotifyNpcTriggerActivation(Trigger* trigger)
 {
-    W8ItemInstance* item = 0;
+    const W8ItemInstance* item = 0;
 
     if (!CurrentGame().activity.conversation) {
         W8NpcState* npc = CurrentGame().story.npcs[trigger->m_lData1].get();
 
         if ((trigger->flags & W8_TRIGGER_ENABLED) != 0 || npc->name_style == '{') {
-            if ((CurrentGame().party.held.item.iItemNo != -1)) {
-                item = &CurrentGame().party.held.item;
+            if (const auto* held = CurrentGame().inventory.held()) {
+                item = &held->item;
             }
         }
         QueueNpcScriptNotice(npc, item, -1, false, 0);

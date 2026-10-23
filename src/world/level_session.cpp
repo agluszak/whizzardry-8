@@ -30,6 +30,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
+#include "wiz8/level_state.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/LoadSaveGame.h"
@@ -38,7 +39,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/math.h"
@@ -46,7 +46,6 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/render/camera.h"
-#include "wiz8/render/frame.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
@@ -159,12 +158,6 @@ void StartLevelMusic(int fade, int replace_current)
                                                                         : "Adventure.MPL",
                        fade, replace_current);
     ServiceMusicPlaylist();
-}
-
-void UnloadSkyWorld(void)
-{
-    CurrentLevel().replaceSky(nullptr);
-    ResetEnvironment();
 }
 
 static int LevelFindIDByLocationCode(std::string_view location_code)
@@ -354,18 +347,17 @@ bool LevelBuildInfoByID(int level, W8LevelInfo* info)
 
 static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLevelStatus* status)
 {
+    World& world = *GetWorld();
     bool first_visit = false;
     StartLevelMusic(1, 1);
-    CurrentGame().status.next_trigger_id = GetWorld()->next_trigger_id;
+    CurrentGame().status.next_trigger_id = world.next_trigger_id;
     UpdateGameDataRuntime();
-    if (GetWorld()->environment.fog_enabled) UpdateEnvironmentLight();
-    ApplyCameraRotation(&GetWorld()->initial_camera_rotation);
-    GetWorld()->party_camera.applySway(*GetWorld()->camera, GetWorld()->initial_camera_sway
-                                                                ? CameraSwayMode::Start
-                                                                : CameraSwayMode::Stop);
+    if (world.environment.fog_enabled) UpdateEnvironmentLight();
+    ApplyCameraRotation(&world.initial_camera_rotation);
+    world.party.camera.applySway(*world.camera, world.initial_camera_sway ? CameraSwayMode::Start
+                                                                          : CameraSwayMode::Stop);
     SetSkyNodeVisible(false);
-    ResetAutomapView();
-    BeginRestoredLevelActivity(*GetWorld(), status);
+    BeginRestoredLevelActivity(world, status);
 
     if (!restoring_game && entrance != -1) {
         Trigger* trigger = 0;
@@ -385,7 +377,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             if (fabs(position.y - trigger_position.y) > g_position_height_epsilon) {
                 position.y = trigger_position.y;
             }
-            placeParty(*GetWorld(), position);
+            world.party.place(position);
 
             if (trigger->trigger_kind == W8TriggerKind::prop) {
                 glm::vec3 axis;
@@ -404,10 +396,10 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             glm::vec3 position;
 
             position = glm::vec3(0.0f, g_default_world_height, 0.0f);
-            placeParty(*GetWorld(), position);
+            world.party.place(position);
         }
     } else {
-        restorePartyPose(*GetWorld(), CurrentGame().status.pending_move_location);
+        world.party.restore(CurrentGame().status.pending_move_location);
     }
 
     if (level < W8_LEVEL_COUNT && !CurrentGame().status.level_progress[level].visited) {
@@ -417,13 +409,12 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
         first_visit = true;
     }
 
-    StartAmbientSoundList(*GetWorld());
+    StartAmbientSoundList(world);
     if (!g_environment_load_flag) {
         ResetCurrentEnvironment();
     }
     g_camera_path_active = false;
     InitializeLevelEnvironment();
-    World& world = *GetWorld();
     world.script = MakeLevelScript(level, MakeScriptContext(CurrentGame()));
     world.script->enter();
     LoadNativeLevelObject(CurrentGame());
@@ -510,11 +501,12 @@ bool LoadLevel(int requested_level, int entrance, bool restoring_game)
                            wiz8::normalize_asset_path(level_info.sky_path).generic_string();
     auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(level_info.sky_path);
     if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return false;
-    if (GetWorld() && !StoreLeftLevel(CurrentGame())) return false;
-    auto status = ReadLeftLevelStatus(*replacement, CurrentGame(), level);
-    if (!status)
-        status = ReadLevelStatus(*replacement, wiz8::asset_path(BuildLevelStatusPath(level)), level,
-                                 true);
+    auto& game = CurrentGame();
+    if (current.primary) game.left_levels.store(LevelState::capture(current, game.status));
+    auto state = game.left_levels.decode(level);
+    if (!state)
+        state = LevelState::decode(wiz8::asset_path(BuildLevelStatusPath(level)), level, true);
+    auto status = state ? std::move(*state).build(*replacement) : nullptr;
     if (GetWorld()) LeaveLevel();
     current.replacePrimary(std::move(replacement));
     if (!reuse_sky) current.replaceSky(std::move(replacement_sky));
@@ -527,34 +519,16 @@ void LeaveLevel()
 {
     if (!GetWorld()) return;
     FinishLevelDeparture();
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
 
     ReleaseMarkedNpcBindings();
-
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
-
     ReleaseItemLists();
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
     ShutdownMonsterManager();
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
 
     ReleaseWorldCursor();
     DisableSky();
     EndCameraSway();
     ResetGameTimeAccumulator();
     CurrentLevel().replacePrimary(nullptr);
-
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
 }
 
 /* Unload the current level and load `level` at `entrance`. When the request
@@ -563,10 +537,10 @@ void LeaveLevel()
 bool ReloadLevelPreservingCamera(int level, int entrance)
 {
     std::optional<CameraPose> saved;
-    if (entrance == -1 && level == GetLoadedLevelID()) saved = partyPose(*GetWorld());
+    if (entrance == -1 && level == GetLoadedLevelID()) saved = GetWorld()->party.pose();
     if (LoadLevel(level, entrance, false) == 0) {
         return false;
     }
-    if (saved) restorePartyPose(*GetWorld(), *saved);
+    if (saved) GetWorld()->party.restore(*saved);
     return true;
 }

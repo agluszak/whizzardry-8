@@ -47,7 +47,7 @@ bool CharacterDraft::skillsComplete() const
 
 void CharacterDraft::refreshSkillAvailability()
 {
-    const auto changed = RefreshCharacterSkillAvailability(game.rules().data, &character);
+    const auto changed = RefreshCharacterSkillAvailability(game.data, &character);
     for (int index = 0; index < W8_SKILL_COUNT; ++index) {
         if (!changed[index]) continue;
         const auto skill = static_cast<W8Skill>(index);
@@ -140,7 +140,7 @@ void CharacterDraft::beginCreation()
     character.unknown_007d = -1;
     character.personality = -1;
     allocation = {};
-    EmptyAllCarriedItems(game, character);
+    game.inventory.emptyCharacter(character);
 
     initializeCharacterPointPools();
 }
@@ -801,7 +801,7 @@ int ComputeStartingEquipmentCost(Game& game, W8Character* character)
             total += GetItemStackValue(&character->backpack[count]);
         }
     }
-    EmptyAllCarriedItems(game, *character);
+    game.inventory.emptyCharacter(*character);
     return total;
 }
 
@@ -921,7 +921,7 @@ void CharacterDraft::applyRaceProfessionTables()
             }
             refreshSkillAvailability();
             finalizeSpellPointPool();
-            RecountLearnedSpellsByRealm(game.rules().data, &character);
+            RecountLearnedSpellsByRealm(game.data, &character);
             recountSpellPoints();
             refreshSkillAvailability();
             recomputeSkillLimits();
@@ -1010,16 +1010,16 @@ void CharacterDraft::finish(bool give_starting_equipment)
         for (realm = 0x18; realm <= 0x1b; ++realm) {
             switch (realm) {
             case 0x18:
-                if (game.rules().data.spells[spell].wizardry_spell == 0) continue;
+                if (game.data.spells[spell].wizardry_spell == 0) continue;
                 break;
             case 0x19:
-                if (game.rules().data.spells[spell].divinity_spell == 0) continue;
+                if (game.data.spells[spell].divinity_spell == 0) continue;
                 break;
             case 0x1a:
-                if (game.rules().data.spells[spell].alchemy_spell == 0) continue;
+                if (game.data.spells[spell].alchemy_spell == 0) continue;
                 break;
             case 0x1b:
-                if (game.rules().data.spells[spell].psionics_spell == 0) continue;
+                if (game.data.spells[spell].psionics_spell == 0) continue;
                 break;
             }
             if (character.skills[realm].active && character.skill_costs[realm - 0x18] > 0) {
@@ -1047,7 +1047,7 @@ void CharacterDraft::finish(bool give_starting_equipment)
     }
 
     const auto spell_point_ceilings = std::to_array(character.sp_max);
-    RebuildRealmSpellPointCeilings(game.rules().data, &character);
+    RebuildRealmSpellPointCeilings(game.data, &character);
     FollowSpellPointCeilings(character, spell_point_ceilings);
     character.experience_previous_goal = character.experience_goal;
     CalcXPGoal(&character);
@@ -1074,44 +1074,43 @@ void AddCharacterStartingEquipment(Game& game, W8Character* character)
     unsigned int slot;
     unsigned int set;
 
-    EmptyAllCarriedItems(game, *character);
+    game.inventory.emptyCharacter(*character);
 
     set = character->iRace == W8_RACE_FAERIE ? 15 : character->iProfession;
     for (slot = 0; slot < 6; ++slot) {
         if (g_starting_equipment[set][slot] == -1) {
             continue;
         }
-        item = MakeItem(game.rules().data, game.rng, g_starting_equipment[set][slot], true, true,
-                        true);
-        AddItemToCharacter(game, Outsider(*character), OwnedItem(item), true, false, false);
+        item = MakeItem(game.data, game.rng, g_starting_equipment[set][slot], true, true, true);
+        game.inventory.storeWithCharacter(Outsider(*character), item, true, false);
     }
 
     switch (character->iProfession) {
     case W8_PROFESSION_PRIEST:
         if (character->skills[W8_SKILL_MACE_FLAIL].level >
             character->skills[W8_SKILL_STAFF_WAND].level) {
-            item = MakeItem(game.rules().data, game.rng, 0x16, true, true, true);
+            item = MakeItem(game.data, game.rng, 0x16, true, true, true);
         } else {
-            item = MakeItem(game.rules().data, game.rng, 0x52, true, true, true);
+            item = MakeItem(game.data, game.rng, 0x52, true, true, true);
         }
         break;
     case W8_PROFESSION_FIGHTER:
         if (character->skills[W8_SKILL_AXE].level > character->skills[W8_SKILL_SWORD].level) {
-            item = MakeItem(game.rules().data, game.rng, 0x12, true, true, true);
+            item = MakeItem(game.data, game.rng, 0x12, true, true, true);
         } else {
-            item = MakeItem(game.rules().data, game.rng, 7, true, true, true);
+            item = MakeItem(game.data, game.rng, 7, true, true, true);
         }
         break;
     case W8_PROFESSION_GADGETEER:
-        item = MakeItem(game.rules().data, game.rng, 599, true, true, true);
+        item = MakeItem(game.data, game.rng, 599, true, true, true);
         break;
     case W8_PROFESSION_BARD:
-        item = MakeItem(game.rules().data, game.rng, 0x144, true, true, true);
+        item = MakeItem(game.data, game.rng, 0x144, true, true, true);
         break;
     default:
         RecalculateCharacterDerivedStats(game, *(character));
         return;
     }
-    AddItemToCharacter(game, Outsider(*character), OwnedItem(item), true, false, false);
+    game.inventory.storeWithCharacter(Outsider(*character), item, true, false);
     RecalculateCharacterDerivedStats(game, *(character));
 }

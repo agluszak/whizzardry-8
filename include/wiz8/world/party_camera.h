@@ -53,7 +53,9 @@ public:
     ActiveEnvironment environment;
     bool motion_started = false;
     int saved_environment_flag = 1;
-    glm::vec3 last_automap_refresh_position{0};
+    /* A HUD panel covers the bottom of the view, so tracking keeps targets higher.
+       The main game screen sets it whenever its viewport changes. */
+    bool bottom_panel_view = false;
     /* One frame of movement. `turn` applies the frame's turn and look input and returns the
        basis the movement input is taken in; `move` advances the party under that input
        against the collision index and reports the displacement. */
@@ -106,7 +108,7 @@ public:
     bool m_forced_transition;
     /* The party's eye position: the one position gameplay, saves and the rendered views
        read. Movement writes it here; everything else places the party through
-       `placeParty` and `restorePartyPose` (world.h), which keep the party navigator in
+       `WorldParty::place` and `restore` (world.h), which keep the party navigator in
        step. */
     glm::vec3 m_position;
     float m_target_yaw; /* 0x098 */

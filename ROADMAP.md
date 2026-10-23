@@ -27,7 +27,7 @@ of it:
 
 - **Shared mutable state.** About 250 mutable `extern` globals remain, and unlayered code
   reaches the game through `CurrentGame()` (about 4,500 uses) and the data through
-  `Data()` (about 1,650). The Application owns both, and the game's state has moved
+  `Data()` (about 1,580). The Application owns both, and the game's state has moved
   into `Game`, but ownership is not the same as explicit dependencies: thousands of
   functions still find their owner through these accessors. The remaining steps migrate
   whole operations and their consumers, so the accessors disappear with their last
@@ -47,7 +47,7 @@ The target is five layers. Each may depend only on the layers listed above it.
 | Layer | Owns | May not |
 |---|---|---|
 | `data` | `GameData`: the string table; item, spell, monster, NPC, fact and level databases; missile and encounter tables; profession, race and skill tables. Immutable after loading. Retail record codecs. | change after loading |
-| `rules` | Functions over explicit state: inventory, character derivation and settlement, conditions, spell and attack resolution, facts, factions, trade, NPC script evaluation. They take a `RuleContext` (`const GameData&`, the state they change, `Rng&`, `Events&`), return values, and report refusals as `std::expected`. | include SDL, render, audio, world or screen headers; touch a mutable namespace-scope variable |
+| `rules` | Functions over explicit state: item rules, character derivation and settlement, conditions, spell and attack resolution, facts, factions, trade, NPC script evaluation. They take what they read and change (`const GameData&`, the state they change, `Rng&`, `Events&`), return values, and report refusals as `std::expected`. | include SDL, render, audio, world or screen headers; touch a mutable namespace-scope variable |
 | `game` | `Game`, one play-through. It owns the saved `GameState` value (party, story, clock, message log, level progress), `Rng`, the `Level` (primary and sky worlds, monsters, triggers, encounters), `std::optional<Combat>`, the `Activity`, the speech scheduler and the event log. Commands are its member functions. `Game::advance(elapsed)` is the only simulation step. | include screen headers or call presentation |
 | `ui` | The router and screens. A screen borrows `const GameData&` and `Game*`. It draws from state, issues commands and presents events (notices, voices, portrait flashes, camera cues). It owns all presentation state: the main game's HUD (`MainGameScreen::hud`), text boxes, cursor, targeting mode, the edited formation and the item drag. | change game state except through commands |
 | `app` | The platform (window, GPU, audio device, input), `GameData`, `std::optional<Game>` and the UI. | |
@@ -134,8 +134,8 @@ the licensed runtime scenarios after every step.
      (62), `dialog_code` (18), `spatial` (13), `combat` (13), `level_specific_code`,
      `platform` and `audio`. The router hands the session to every screen it builds, but
      only the main menu, party selection and the Please Wait screen keep it; the other
-     screens should take the game from it, and the code below them the game or a
-     `RuleContext` (steps 3, 6 and 7).
+     screens should take the game from it, and the code below them the game or the
+     parts they act on (steps 3, 6 and 7).
    - The dialogue's interface (layouts, trade table, quote bubble, `NpcDialogueUi`) is the
      main game's `W8NpcDialoguePanel`; `Game::npc_interaction` keeps the conversation
      (who speaks with whom, the offered item, the staged notice) and four interface facts
@@ -151,21 +151,26 @@ the licensed runtime scenarios after every step.
 2. **Finish `GameData`.** The databases and the string table are one immutable value
    (ARCHITECTURE.md, "Layers"), which the Application owns.
    - `Data()` reads the data the Application installs (`InstallGameData`). It has about
-     1,650 uses in 92 unlayered files: 758 in 37 `local_code` files, 535 in 25
-     `local_screens` files, 198 in 11 `dialog_code` files, 122 in `src/wiz8`, and the rest
+     1,580 uses in 89 unlayered files: 756 in 37 `local_code` files, 535 in 25
+     `local_screens` files, 198 in 11 `dialog_code` files, 78 in `src/wiz8`, and the rest
      in `level_specific_code`, `entities`, `world` and `combat`. They reach the data from
-     code that receives neither the data nor the game, and go as screens receive it
-     from the router and rules receive a `RuleContext` (steps 3 and 6). Message-id
+     code that receives neither the data nor the game. A `Game` reads the data its
+     session was given; the inventory and the live party's settlement and conditions
+     already read it there. The rest go as screens receive it from the router and
+     rules receive it explicitly (steps 3 and 6). Message-id
      names ("Named strings") travel with the same migrations.
-3. **Inventory and party in `rules`.** The storage and item rules are behind the
-   boundary and take a `RuleContext` (ARCHITECTURE.md, "Inventory"). What remains:
-   - The commands in `wiz8/inventory.h` (about 30) still take `Game&`, because what
-     they owe after a rule reaches unmigrated code: settlement's host applies
-     combat's hand and death bookkeeping (ARCHITECTURE.md, "Conditions"), acquisition
-     updates story facts and runs
-     exceptional-item reactions, an unstored item drops into the world, and `UseItem`
-     and `BindCharacterItems` run per-item effects in `PC Item.cpp`. They become `Game`
-     members once conditions (step 6) and facts (step 7) take explicit state.
+3. **Inventory and party in `rules`.** The item rules are behind the boundary
+   (ARCHITECTURE.md, "Inventory"). What remains:
+   - `Inventory` holds its `Game&`, because what an operation owes reaches unmigrated
+     code: settlement applies combat's hand and death bookkeeping (ARCHITECTURE.md,
+     "Conditions"), acquisition updates story facts and runs exceptional-item
+     reactions (`PC Item.cpp`), an unstored item drops into the world, and `use` casts
+     through the spell engine. It takes those parts directly once conditions (step 6)
+     and facts (step 7) take explicit state.
+   - Character equipment and backpack slots are still public `W8ItemInstance` arrays
+     whose empty value is an id of -1; screens and spells write item properties there
+     directly. They become private slots (`std::optional<W8ItemInstance>`) that only
+     the inventory moves.
    - Unmigrated code still finds a member's slot from its address:
      `CharacterPointerToPartySlot` (35 uses in 16 files), the camp's reviewed
      character (`CampPartySlot`, since the camp also shows characters outside the
@@ -184,11 +189,10 @@ the licensed runtime scenarios after every step.
      most in `MainGameScreen.cpp` and `MGSTextBox.cpp`) reach the HUD through
      `MainGameHud()`, including to mark repaint parts; they should receive it from the
      screen, as its members or as parameters, and `MainGameHud()` then goes. Outside
-     the screens three readers remain: `Targeting.cpp` reads whether a main game exists,
-     and `SelectCombatAction` reads the spell and item drafts the screens own;
+     the screens two readers remain: `Targeting.cpp` reads whether a main game exists,
+     and `SelectCombatAction` reads the spell and item drafts the screens own; and
      `QuoteManager.cpp`'s portrait bubbles read the review transition and pending
-     portrait refreshes; and `PartyCamera::ComputeTrackingOrientation` reads the
-     viewport mode, which the screen should hand the camera when it changes.
+     portrait refreshes.
    - The main game, camp and character screens are built with their game and use it in
      their members, but their free helpers (most of `local_screens`) still reach it and
      the HUD globally. Finish one whole flow first, the main game's HUD and dialogue:
@@ -198,28 +202,34 @@ the licensed runtime scenarios after every step.
      from its members and explicit inputs.
    - The main game, the camp and the camp's items page borrow the router's `Pointer`,
      but the free functions in `local_screens`, the dialogs and text entry, the targeting
-     presentation, the world cursor (`entities/cursor.cpp`) and two readers in combat
-     (`GateActionSwitch`, `AutoAdvanceSelectedCharacter`, which ask whether a target is
-     being picked) still reach it through `ScreenPointer()`. They should receive it with
+     presentation, the world cursor (`entities/cursor.cpp`) and one reader in combat
+     (`AutoAdvanceSelectedCharacter`, which asks whether a target is being picked) still
+     reach it through `ScreenPointer()`. They should receive it with
      the HUD, and the accessor then goes.
+   - The main game owns the spell and item pickers (`spell_picker`, `item_picker`) and
+     opens, closes and dismisses them. About 35 free functions still ask
+     `SpellPicker()`/`UseItemPicker()` whether one is open, or reach the screen through
+     `MainGame()->openSpellPicker(…)`. These are the world, portrait, monster-list and
+     combat-slot input handlers, the keyboard dispatch (`DispatchMGSCommand`,
+     `TryMGSActionKey`), the submenu buttons, the text box module, the lock/trap
+     interactions and the NPC services. Game code calls the screen as well:
+     `FallbackFromUnreachableAction` from `Magic.cpp`, `SelectPartyCharacter`,
+     `MainGameScreen::dismissOverlays` and `AutoAdvanceSelectedCharacter` from combat, `IsScreenIdle`
+     from `GameplayTime.cpp`, `EditedDraft` from `Targeting.cpp`, and `StartBreathCycle`.
+     Each group should become members of its owner, or take the screen's state as events
+     or `advance` inputs. Delete both accessors when the last caller goes.
    - The HUD panels below `ApplyMainGameRepaint` (portraits and their bars, the text box,
      submenu, formation board, monster list, radar) still read the HUD, the game and
      module state themselves; give each the values it draws.
-   - Painting still updates: the main game's frame now updates its facing, targeting
-     presentation, radar blips, text-box request and repaint dependencies before
-     `DrawMainGameScreen` (`UpdateMainGamePresentation`). Vitals panels have one
-     screen-owned invalidation and publish their complete bounds; portrait bounds
-     no longer have a second dispatch table. The draw still refreshes the portrait,
-     condition, submenu and HUD buttons, which repaint as they change. Make the frame
-     "update presentation state, paint the 640×480 canvas, commit it".
-     Once painting is free of updates, try a full paint or coarse per-panel
-     invalidation, and keep `MainGameRepaint`'s remaining finer invalidation
-     (a separate pass mapping bottom panels to rectangles, per-panel shadow state) only
-     where it earns its complexity.
    - Game code still calls presentation for the
      combat panel (`RequestRefreshPartyState` in `Combat Hostility.cpp`,
      `MonsterManager.cpp`, `world.cpp` and `entities/cursor.cpp`, which the existing
      `CombatPanelChanged` event already presents).
+   - Music is module state in `music_playlist.cpp` (the parsed playlist, its playback,
+     fade and pause) that game code drives directly (`StartMusicResource` from combat,
+     camping and the monster manager) and that reads `CurrentGame()` to suppress pauses
+     in a fight. It should be a player the Application owns and the screens receive,
+     with game code asking for music through events.
 6. **Conditions, magic and combat in `rules`.**
    - `Combat` is owned by the game (`std::optional<Combat>`, `beginCombat`/`endCombat`)
      and its turn is a value stepped by `Combat::step`, with the scheduler and the
@@ -242,8 +252,8 @@ the licensed runtime scenarios after every step.
        `StartMonsterAttack`, `ContinueMonsterAttack`), conditions and spells are free
        functions that reach the game through `CurrentGame()`; so do the fight's other
        operations in `combat/fight.cpp` (rounds, surprise, the end check, action
-       choices). They should take the game, then a `RuleContext`, and return what
-       happened instead of reporting it.
+       choices). They should take the game, then the parts they act on, and return
+       what happened instead of reporting it.
      - `Combat::waitingOn` still polls each step: the camera's transition, each combat
        monster (`Monster::HoldsCombatTurn`, which keeps the cycle, frame-threshold and
        facing rules inside the entity) and the missiles in flight (`BlocksEndingCombat`,
@@ -284,20 +294,8 @@ the licensed runtime scenarios after every step.
      belongs in `rules`, taking the party.
 8. **Saves over values.** Every game section (GSTA, TEXT, TVAR, NPCI, NPCT, NPCF, FATA,
    JRNL, HYPN, CHAR) and the STAT record are codecs over values (`save_codec.h`;
-   ARCHITECTURE.md, "Saves"), and the game owns its stored characters. What remains:
-   - A level's LVLS group (MONS, ITEM, AUTO, TRIG, APST, CUBS, MGNS, LCKS, AMBS, PART,
-     LGHT) decodes into a `LevelState` without the level's world (`LoadSaveGame.cpp`), but
-     decoding is not yet pure: an encounter generator draws its jittered interval from the
-     game's random stream as it is read (`MonGen::Reset`), so a load cannot decode the
-     groups before the game exists without changing the stream. Draw it when the level is
-     entered instead, then decode every group with the rest of the save. The other
-     direction remains too: `SaveStatusHeader` writes the sections from live objects. Capture a
-     `LevelState` from the world and encode it, so leaving a level and saving go through
-     the value; then the game can hold `LevelState`s for the levels it has left instead
-     of their bytes (`Game::left_levels`), keeping the groups of levels it never decoded
-     intact, and the world can be built from its level's assets and that value alone.
-     The encoder has to reproduce the retail records byte for byte, so it needs retail
-     saves to check against (see "Needs research").
+   ARCHITECTURE.md, "Saves"), a level's LVLS group is a `LevelState` (`level_state.h`),
+   and the game owns its stored characters. What remains:
    - `GameStatus` still has retail-era names (`uiTurnsElapsed`, `status_ints`) and holds
      interface state (`text_line_cursor`, `selected_party_member`, `world_cursor_gate`).
      Split it by owner.
@@ -330,6 +328,12 @@ each.
 
 Substantial but contained work.
 
+- **The party outside its world.** Actors use their own world's `WorldParty`, but
+  about 40 calls in free game modules (magic, targeting, range, monster groups, noise,
+  traps, the cursor, level entry and transitions) still reach it through
+  `GetWorld()->party`. Each module should become an object that its world or game
+  owns and constructs with that owner, as the actors and `RadarMap` are, rather than
+  taking a `World&` parameter.
 - **Named strings.** About 1,000 `Data().strings[0x…]` lookups use bare
   indices. Give message ids names (an enum generated from or checked against the
   string table) so rules and screens say which text they show.
@@ -359,10 +363,6 @@ Questions to settle, usually against the retail executable, traces or saves,
 before the related refactoring changes behavior.
 
 - **Retail semantics to confirm.**
-  - Whether swings really use the previous pass's damage bonus in observable play,
-    and how many stat passes retail runs per operation.
-  - Whether `GiveHeldItemToCharacterOrParty`'s party-first refusal discards the
-    held item.
   - Whether `CountCharacterItem`'s backpack count (which reads the equipment slot
     with the same index) affects any quest.
   - Whether conjuring an item into an occupied hand destroys the held item.

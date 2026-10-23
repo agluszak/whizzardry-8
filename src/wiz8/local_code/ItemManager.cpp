@@ -23,7 +23,6 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/npc_state.h"
-#include "wiz8/audio/soundman.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -551,7 +550,7 @@ void UpdateNearbyWorldItems(void)
     unsigned int index;
     std::size_t count;
 
-    camera = cameraLocation(*GetWorld());
+    camera = GetWorld()->party.eye();
     count = CurrentLevelPopulation().world_items.size();
     for (index = 0; index < count; ++index) {
         W8WorldItem* item = ItemInfo(index);
@@ -605,7 +604,7 @@ std::optional<glm::vec3> FindItemDropPosition()
     auto* const index = GetWorldSpatialIndex();
     if (!index) return std::nullopt;
     glm::mat3 rotation;
-    rotation = cameraRotation(*GetWorld());
+    rotation = GetWorld()->party.rotation();
     glm::vec3 direction = ItemThrowDirection(GetCursorScaledPosition(), rotation);
 
     glm::vec3 camera = cameraLocation();
@@ -622,15 +621,6 @@ std::optional<glm::vec3> FindItemDropPosition()
     position.y = index->settleToGround(position, true, 250).position.y + 125.0f;
     if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) return position;
     return std::nullopt;
-}
-
-void DropHeldItem(int)
-{
-    if (const auto position = FindItemDropPosition()) {
-        AddWorldItem(CreateWorldItem(&CurrentGame().party.held.item, &*position,
-                                     W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-    } else
-        wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
 }
 
 /* The item picker returns its remaining items as group contents. A two-item group returns the picked
@@ -691,7 +681,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
         }
     }
     if ((item->entity->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
-        ReceiveItemInHand(CurrentGame(), item->item);
+        CurrentGame().inventory.hold(item->item);
     }
     index = ItemIndex(runtime_id);
     item = ItemInfo(index);

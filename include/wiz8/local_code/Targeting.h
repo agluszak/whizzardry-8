@@ -14,7 +14,7 @@ void ResetTargetPicks(void);
 #include "wiz8/rules/action_choices.h"
 #include "wiz8/rules/targeting.h"
 
-struct W8Party;
+class Inventory;
 struct W8MonsterInfo;
 struct W8MonsterGroup;
 struct W8ItemInstance;
@@ -38,6 +38,9 @@ void RefreshAllPartyTargets(void);
    holds. Both return whether a monster was found; otherwise the target is cleared. */
 bool RepickActionTarget(int party_slot, W8TargetingContext stored, int arg);
 bool RepickDraftTarget(int party_slot, W8Action& draft);
+/* The best monster for a live attack, spell or item action that needs an enemy in
+   combat, reached with the weapons in hand; it never changes equipment. */
+std::optional<W8CombatSlot> ChooseEquippedMonsterTarget(int party_slot, const W8Action& action);
 /* Commit a target and refresh the presentation of the choice: into the action the slot is
    editing (see EditedAction), a stored action, or a picker's draft. Only a committed in-combat
    target is also remembered for its action kind. */
@@ -77,7 +80,7 @@ void SetTargetingMode(W8TargetNeed state);
 int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y);
 
 bool ActionNeedsExplicitTarget(const W8Action& action, bool conversation_aside);
-unsigned int GetActionSpellLikeId(const W8Party& party, const W8Action& selected);
+unsigned int GetActionSpellLikeId(const Inventory& inventory, const W8Action& selected);
 void ResetTargetSource(W8TargetSource* source);
 void SetTargetSourceToMonster(const W8MonsterInfo* monster_info, W8TargetSource* source);
 bool TargetMatchesNeeded(const W8CombatSlot* target, W8TargetNeed needed);
@@ -152,7 +155,7 @@ bool CanPartySlotParticipate(int party_slot);
 void SetTargetSourceToCharacter(int party_slot, W8TargetSource* source);
 /* What the interface has to ask the player to pick for one
    action - a fixed kind for most, the spell's answer for casts and item use. */
-W8TargetNeed GetTargetNeededForAction(const W8Party& party, const W8Action& action,
+W8TargetNeed GetTargetNeededForAction(const Inventory& inventory, const W8Action& action,
                                       bool needs_item_target = true);
 W8TargetNeed GetTargetNeededForItem(const W8ItemInstance* item, bool needs_item_target);
 

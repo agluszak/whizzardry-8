@@ -132,8 +132,8 @@ void ApplyScriptedDialogueKeyword(const ScriptContext& context, W8NpcQuoteEntryK
                                   const char* text);
 /* The first argument is a pointer into a character or party item
    slot - the slot whose address matches is the one removed. */
-void RemoveNpcScriptItem(const ScriptContext& context, W8ItemInstance* item, int match_item_id,
-                         int item_id);
+void RemoveNpcScriptItem(const ScriptContext& context, const W8ItemInstance* item,
+                         int match_item_id, int item_id);
 /* Find the script quote matching an item and whether the NPC consumes it. */
 struct W8NpcScriptItemQuote {
     int quote_index;

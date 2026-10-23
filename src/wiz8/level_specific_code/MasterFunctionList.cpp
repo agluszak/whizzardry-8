@@ -20,6 +20,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/Arnika.h"
@@ -274,7 +275,7 @@ bool LevelScript::showMessageOnce(int command, W8WorldCursorNode* node)
     const int message_id = node->parameters[0];
     const int type = node->parameters[2];
     const auto enabled = static_cast<unsigned char>(node->parameters[1]);
-    if (enabled != 0 && !ctx.status.search_mode && ctx.party.modifiers.detect_secrets == 0) {
+    if (enabled != 0 && !ctx.game.search.active() && ctx.party.modifiers.detect_secrets == 0) {
         bool searcher = false;
         for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
             if (ctx.party.members[slot].has_value() &&
@@ -358,7 +359,7 @@ bool LevelScript::seenBodies(int command)
 {
     if (command == 1) {
         if (GetLocationVarIDByName("AP_SeenBodies") == -1) {
-            if (CountAscensionPeakItems(ctx.party) == 3) {
+            if (CountAscensionPeakItems(ctx.inventory) == 3) {
                 if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
                     GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
                     ApplyItemEffectToRandomCharacter(kCursorNodeRelicEvent, -1, 0);

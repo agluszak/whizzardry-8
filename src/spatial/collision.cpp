@@ -1000,7 +1000,7 @@ bool W8GDSurface::ResolveCollision(PartyMotion& level, LevelEnvironment& environ
         const World* world = GetWorld();
         if ((flags & W8_GD_SURFACE_EXPLICIT_SLOPE) != 0 && world != nullptr && world->script &&
             world->script->slopeOverrideActive() &&
-            PartyHasItem(CurrentGame().party, kSlopeOverrideItem, W8ItemReach::Worn)) {
+            CurrentGame().inventory.has(kSlopeOverrideItem, W8ItemReach::Worn)) {
             environ.motion_factor = 1.0f;
         } else if (environ.motion_factor < slope) {
             environ.motion_factor = slope;
@@ -1405,13 +1405,13 @@ bool HasLevelDataVector(void)
 PartyMotion* LevelMotion()
 {
     auto* data = GetWorldCollision();
-    return data ? &GetWorld()->party_camera.motion : nullptr;
+    return data ? &GetWorld()->party.camera.motion : nullptr;
 }
 
 LevelEnvironment* LevelEnviron()
 {
     auto* data = GetWorldCollision();
-    return data ? &GetWorld()->party_camera.environment.value : nullptr;
+    return data ? &GetWorld()->party.camera.environment.value : nullptr;
 }
 
 /* The camera-sway mode halves navigator gravity, mirrors it into the active
@@ -1449,7 +1449,7 @@ void ResetCurrentEnvironment(void)
 {
     auto* data = GetWorldCollision();
     if (data != 0) {
-        auto& active = GetWorld()->party_camera.environment;
+        auto& active = GetWorld()->party.camera.environment;
         selectEnvironment(active, data->environments.front(), 0);
         active.value.vector = glm::vec3(0);
         if (g_environment_load_flag != 0) {

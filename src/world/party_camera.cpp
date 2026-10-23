@@ -96,7 +96,7 @@ float g_camera_forward_scale = 750.0f;
 PartyCamera& partyCamera()
 {
     static PartyCamera startup_camera;
-    if (auto* world = GetWorld()) return world->party_camera;
+    if (auto* world = GetWorld()) return world->party.camera;
     return startup_camera;
 }
 
@@ -213,8 +213,7 @@ unsigned char PartyCamera::LookAt(const glm::vec3* target, bool preserve_pitch)
 bool PartyCamera::ComputeTrackingOrientation(const glm::vec3* target, float* angle, float* pitch)
 {
     float lower_margin = -g_camera_vertical_margin;
-    if (MainGameHud()->camera_mode == W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL ||
-        MainGameHud()->camera_mode == W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL) {
+    if (bottom_panel_view) {
         lower_margin = -g_camera_vertical_margin * 0.5f;
     }
 
@@ -732,7 +731,7 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
         PathAIResetTick((path->path ? &*path->path : nullptr));
         path->path->distance_travelled = 0.0f;
         path->path->upright = 1;
-        world->party_camera.saved_environment_flag = SetEnvironmentLoadFlag(0);
+        world->party.camera.saved_environment_flag = SetEnvironmentLoadFlag(0);
         return;
     }
     if (!path->active || active != 0) {
@@ -740,10 +739,10 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
     }
     g_camera_path_active = false;
     target = glm::vec3(0.0f, 0.0f, 1.0f);
-    rotation = world->party_camera.rotationMatrix();
+    rotation = world->party.camera.rotationMatrix();
     ApplyCameraRotation(&rotation);
     path->active = false;
-    SetEnvironmentLoadFlag(world->party_camera.saved_environment_flag);
+    SetEnvironmentLoadFlag(world->party.camera.saved_environment_flag);
     if (GetLoadedLevelID() == 1) {
         if (SDL_strcasecmp(path->name0, "Camera01") == 0) {
             CurrentGame().npc_dialogue.Queue(W8NpcPortraitString{0x721});

@@ -1,14 +1,22 @@
 #pragma once
 #include <array>
+#include <bitset>
+#include <cstddef>
+#include <functional>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
+#include <unordered_set>
+#include <vector>
 
 #include <SDL3/SDL_keycode.h>
 
 #include "wiz8/audio_resources.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/layouts/main_game_screen.h"
+#include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/npc_dialogue_panel.h"
 #include "wiz8/modal_content.h"
@@ -19,13 +27,19 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 
+class PartyMovementPanel;
+struct PortraitBandPaint;
+struct RepaintedPortraitBands;
+struct W8TargetingPresentation;
 class RadarMap;
 class KeyboardActionMenu;
 class Pointer;
 class Trigger;
 class W8LockInteraction;
 class W8TrapInteraction;
+class W8UseItemView;
 struct W8LevelRuntimeBlock;
+struct W8SpellCastingView;
 
 /* The world view with its HUD, portraits, text box and overlays. The level
    block, cursor resources and HUD are created on first entry and survive the
@@ -40,11 +54,61 @@ struct MainGameScreen final : Screen {
     void resetStepClock() override { step_timer.restart(); }
     bool leave(ScreenDeparture departure) override;
 
+    /* Open the spell or use-item picker for a party slot, replacing the other one.
+       `on_return` runs once the picker closes with a choice made or cancelled. */
+    bool openSpellPicker(int party_slot, std::move_only_function<void()> on_return = {});
+    bool openItemPicker(int party_slot, std::move_only_function<void()> on_return = {});
+    // Open the spell picker for the selected character with one spell preselected.
+    void beginSpellCast(int spell_id, std::move_only_function<void()> on_return);
+    // Discard the picker, then run its opener's return.
+    void closeSpellPicker();
+    void closeItemPicker();
+    // Abandon overlays for a replacement or screen/combat transition.
+    void dismissOverlays(bool suspend_interaction);
+    // Discard the picker without returning to its opener.
+    void dismissSpellPicker();
+    void dismissItemPicker();
+    /* Decide the layout from the open interaction and the player's preferences, and
+       apply it once. Only the panels and viewport that change are touched; an
+       unchanged layout keeps its panels, hover and tooltip state. */
+    void refreshLayout();
+    // Store the player's preferred mode and apply the layout it gives.
+    void setPreferredMode(W8MainUiMode mode);
+    /* Drop the formation board, radar map and bottom panel while the screen is
+       covered; the next refreshLayout raises what its layout wants. */
+    void closeOverlays();
+    /* Re-sync the party slots' portrait and edge hit regions with occupancy, the
+       keyboard menu and the shown mode. */
+    void refreshPartySlotRegions();
+    // Raise or lower one panel of the formation layout, as the layout arrows do.
+    void toggleRadarMap();
+    void toggleBottomPanel();
+    void toggleFormationBoard();
+    // Step the preferred mode forward (1) or back (-1), as the layout keys do.
+    void stepLayoutMode(int step);
+    // Build the roof mode buttons and the layout arrows.
+    void createLayoutButtons();
+    // Restate the roof buttons and layout arrows from the applied layout.
+    void updateLayoutButtons();
+    // The layout the panels, viewport and input currently follow.
+    const MainGameLayout& layout() const { return applied_layout; }
+
+    /* A frame updates what it shows, then paints it. The update brings the party's
+       facing, the targeting presentation, panel and button state and the repaint
+       record in line with the game; the draw paints the recorded parts and changes
+       no state. */
+    W8TargetingPresentation updatePresentation();
+    void draw(const W8TargetingPresentation& presentation);
+    /* Lay the tracked portrait plate out again when the draw repaints what it sits
+       over; the draw paints the laid-out plate. */
+    void updatePortraitPlate();
+    void paintPortraitPlate() const;
+
     // The game this main game belongs to; it is discarded before the game ends.
     Game& game;
     std::unique_ptr<KeyboardActionMenu> keyboard_menu;
+    // The radar map panel, present exactly while the applied layout shows it.
     std::unique_ptr<RadarMap> radar_map;
-    void setRadarVisible(bool visible);
     bool keyboardMenuForSlot(int slot) const;
     void openKeyboardMenu(int slot);
     void closeKeyboardMenu();
@@ -57,6 +121,10 @@ struct MainGameScreen final : Screen {
     std::unique_ptr<W8TrapInteraction> trap_interaction;
     bool lock_active = false;
     bool trap_active = false;
+    /* The open spell or use-item picker. Closing one returns to whatever opened it;
+       leaving the screen discards it without that return. */
+    std::unique_ptr<W8SpellCastingView> spell_picker;
+    std::unique_ptr<W8UseItemView> item_picker;
     bool resume_world = false;
     /* The camp closed over a conversation set aside to open it; the next frame takes the
        conversation up again. */
@@ -74,8 +142,8 @@ struct MainGameScreen final : Screen {
     std::optional<ItemDrag> item_drag;
     // The formation panel is open.
     bool formation_panel_open = false;
-    // The combat party-movement panel is shown.
-    bool party_movement_panel = false;
+    // The combat party-movement panel, while it is shown.
+    std::unique_ptr<PartyMovementPanel> party_movement;
     /* The HUD's presentation state; created on the first entry and released when the
        screen is discarded. */
     std::unique_ptr<W8LevelRuntimeBlock> hud;
@@ -90,6 +158,37 @@ struct MainGameScreen final : Screen {
     std::array<std::array<HitTarget*, 6>, 8> portrait_targets{};
     std::array<HitTarget*, 8> combat_targets{}, edge_targets{};
     HitTarget *radar_target = nullptr, *monster_list = nullptr, *world_view = nullptr;
+
+private:
+    // Advance choices and commit them from their owner, not from a retiring view.
+    void updateSpellPicker();
+    void updateItemPicker();
+    MainGameLayout applied_layout;
+
+    void chooseRoofMode(W8MainUiMode mode);
+    void showRadarMap(bool visible);
+    void showFormationBoard(bool visible);
+    void syncInput(const MainGameLayout& layout);
+
+    /* The presentation update's button sync: bank buttons, scroll arrows,
+       panel/options/stance/roof buttons and the layout arrows. */
+    void updateHudButtons();
+    /* The draw's per-frame button refresh: every changed button except the
+       layout arrows, which the layout repaint draws. */
+    void refreshHudButtons();
+    void paintRequested(const W8TargetingPresentation& presentation,
+                        RepaintedPortraitBands& bands) const;
+    /* The widgets over the portrait bands: the given combat side-strip portraits,
+       the level-advance buttons (forced over repainted bands), and the condition
+       icons that were requested or whose band was repainted. */
+    void paintCombatPortraits(std::bitset<8> slots) const;
+    void refreshPortraitAdvanceButtons(std::bitset<8> repainted) const;
+    void paintConditionIcons(std::bitset<8> requested, std::bitset<8> repainted_bands) const;
+    // A party slot's next animated portrait frame, as the portrait animation asked.
+    PortraitBandPaint paintPartyPortraitFrame(unsigned int party_slot) const;
+    /* Whether painting the slot's requested animation frame repaints its complete
+       band too, as it does for a character dead in combat, surprised or missing. */
+    bool partyPortraitFrameCoversBand(unsigned int party_slot) const;
 };
 /* The main game screen, current or suspended, or null. */
 inline MainGameScreen* MainGame()
@@ -109,17 +208,13 @@ void RedrawCombatMonsterList(bool subject_valid);
 void RefreshSelectedPartyPortrait(unsigned int party_slot);
 void ClearHighlightIfItIs(const int* item);
 
-#include "wiz8/layouts/main_game_screen.h"
-
 extern W8MainGameResourceSlot g_main_game_resource_slots[17];
 extern DesignRect g_viewport_modes[];
 /* String-list ids naming each trap row; Traps.cpp indexes it with the
    trigger's trap type for the disarm/spring notices. */
 extern unsigned short g_trap_name_string_ids[];
-#include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/RangeControl.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/Screens.h"
@@ -200,10 +295,10 @@ private:
     bool m_dirty = true;
 };
 
-/* The NPC dialogue keyword transcript. */
+// A view of the owning game's notebook, not a second keyword collection.
 class W8NpcDialogueTextController {
 public:
-    W8NpcDialogueTextController();
+    explicit W8NpcDialogueTextController(Game& game);
     void Redraw(SDL_Surface& target, bool full_redraw);
     void InvalidateAll() { m_dirty = true; }
     void InvalidateLayout() { m_dirty = true; }
@@ -212,44 +307,35 @@ public:
     bool m_active = false, m_dirty = true;
     bool HandleScrollDownCommand(bool check_only);
     bool HandleScrollUpCommand(bool check_only);
-    /* Show one notebook keyword as a line; a marked line is drawn as new, and
-       any leftover "[No Keywords]" placeholder is removed afterwards. */
-    void AddTranscriptEntry(std::string_view text, W8DialogueCategory category, bool marked);
-    /* Whether the expanded transcript's top edge reaches above the portrait
-       band for an odd party slot (1 -> 0x67, 3 -> 0xbc, 5 -> 0x111, 7 ->
-       always covered). Callers use it to skip portrait work on rows the
-       open transcript covers. */
+    void MarkNewKeyword(std::string_view text);
     bool IsSlotPortraitTranscriptCovered(unsigned int party_slot);
-    /* Re-apply the category filter, rebuild the expansion and restate the
-       scroll widgets. */
-    void SetTranscriptCategoryFilter(W8DialogueCategory category);
-    /* Show every notebook keyword as a line, adding the "[No Keywords]"
-       placeholder and forcing the all filter when the notebook is empty. */
+    void RefreshNotebook();
     void ShowTranscriptEntries();
-    void HighlightFirstEntry() { text_area.SelectEntry(text_area.m_first_visible_entry); }
-    /* Drop every transcript line from the text area and invalidate. */
+    void HighlightFirstEntry();
+    void ClearHover();
     void ClearTranscriptEntries();
-    /* Whether the lines currently show the notebook, between
-       ShowTranscriptEntries and ClearTranscriptEntries. */
     bool showing_notebook = false;
     int GetSelectedTranscriptEntryIndex();
-    void SetTranscriptSorted(bool sorted);
     void RemoveSelectedTranscriptEntry();
-    /* Open the transcript upward to fit its lines (capped at 0xff pixels)
-       and enable its scroll region. */
     void Expand();
-    /* Shrink the transcript back to one line, clearing and redrawing the
-       area it covered. */
     void Collapse();
-    /* Clear and redraw the backdrop the transcript covers. */
     void ClearBackground();
     bool IsExpanded();
     int visible;
     int line_height;
     int margin;
     int scroll_height;
-    W8DialogTextArea text_area;
     void SelectTranscriptKeywordAtPoint(int x, int y);
+
+private:
+    std::vector<std::size_t> VisibleKeywords() const;
+    std::optional<std::size_t> HitKeyword(int y) const;
+    void PaintKeywords(SDL_Surface& target);
+    Game& game;
+    W8ControlsRect bounds{};
+    std::size_t first = 0;
+    std::optional<std::size_t> hovered, selected;
+    std::unordered_set<std::string> marked;
 };
 
 class W8LockInteraction;
@@ -433,7 +519,6 @@ void OnLeaveGameConfirmClosed(bool accepted);
 // Show that the world was held or released, or that its time stopped or resumed.
 void PresentWorldAdvancement(bool held, bool hold_changed);
 
-void RefreshTrackedPortraitOverlay(void);
 /* Which party portrait the pointer is over, if any. */
 void ClearCombatSelection(void);
 void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_needed);
@@ -442,17 +527,9 @@ void RefreshFlaggedMainGameState(void);
 bool IsScreenIdle(void);
 bool IsModalOpen(void);
 
-struct W8TargetingPresentation;
-void ApplyMainGameRepaint(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation);
-/* A main-game frame updates what it shows, then paints it: the update brings the party's
-   facing, the targeting presentation, the radar blips and the text box's repaint in line
-   with the game; the draw paints the recorded repaint parts and presents. */
-W8TargetingPresentation UpdateMainGamePresentation(W8LevelRuntimeBlock& hud);
-void DrawMainGameScreen(W8LevelRuntimeBlock& hud, const W8TargetingPresentation& presentation);
 void CancelMouselook();
 void SetTooltipSubject(W8PortraitHighlightKind kind, int subject);
 bool IsScreenInputBlocked(void);
-void DisableCombatRegions(void);
 
 extern bool g_mouselook_active;
 extern bool g_mouselook_left_held;
@@ -468,31 +545,12 @@ extern W8MainGameMode g_main_game_mode;
 void RequestLevelTransition(int level, int entry, unsigned char flag);
 // Change to `level`, arriving at `entry` (-1 for a saved location).
 void BeginLevelTransition(int level, int entry);
-void SetViewportMode(W8ViewportMode mode);
-/* Apply a main-game UI mode (0=portraits, 1=formation, 2=radar): drop raised
-   panels, optionally re-raise them from settings prefs, refresh tooltip and
-   region state, and sync both settings and the level-block mode field. */
-W8MainUiMode GetEffectiveMainUiMode();
-void SetMainUiPreference(W8MainUiMode mode);
-void RefreshMainGameLayout();
 bool ProcessMainGameInput(void);
 void TickAmbientFollowUpIdle(unsigned char input_handled);
-/* Re-sync the eight party slots' region sets and portrait hit
-   regions with occupancy, the monster-entry flag and the display mode; the
-   party add/remove entries and the keyboard menu's close run it. */
-void RefreshPartySlotRegions(void);
-/* Re-sync mouse hotspot, region enables and viewport after a
-   main-game mode change. */
-void SyncMainGameModeInput(void);
+/* Forget the shown plate and, while the overlay mode is up, have the next draw
+   erase its rectangle and repaint the roof or text box it crossed. */
 void ClearHighlightOverlayRegion(void);
 void DismissHighlightOverlay(void);
-/* The portrait-hover panel's producer; the four hover entry
-   points hand it the slot, a content row count and a minimum plate width. */
-void DrawHighlightOverlay(unsigned int party_slot, int row_count, unsigned int min_width);
-void DrawPortraitVitalsOverlay(int party_slot);
-void DrawPortraitConditionOverlay(int party_slot);
-void DrawPortraitStatusOverlay(int party_slot);
-void DrawPortraitEnchantmentOverlay(int party_slot);
 void SelectPartyCharacter(int party_slot);
 void RefreshMainGameActionPanel(void);
 void OpenAutomapScreen(void);
@@ -525,7 +583,6 @@ UiResult WorldViewInput(const UiPointerEvent& event);
 /* Help 36: combat monster-list hit rows beside the radar map. */
 UiResult MonsterListInput(const UiPointerEvent& event);
 void SetMainGameMode(W8MainGameMode mode);
-void SetFormationBoardVisible(bool visible);
 void ToggleMainGamePause(void);
 /* The numbered action-key space IsMGSActionKeyEnabled, RunMGSActionKey and
    TryMGSActionKey share: the interface commands map to views and recorded
@@ -556,9 +613,6 @@ void TryMGSActionKey(W8MGSAction command);
 bool IsMGSActionKeyEnabled(unsigned short command);
 void RunMGSActionKey(unsigned short command);
 void LoadMainGameCursorResources(void);
-W8ViewportMode GetMainGameViewportMode(void);
-void CloseMainGameOverlays(void);
-void SetActionPanelVisible(bool visible);
 void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag);
 void RebuildNpcTradeItemList(bool scroll_to_top);
 /* The trade-stock index behind a visible NPC item row. */
@@ -572,10 +626,11 @@ void PopulateNpcTradeList(void);
    fails when the NPC declines the item or the party cannot pay. */
 /* Run one NPC trade offer; the result selects the accepted,
    refused or offended script path. */
-void RefreshFormationPanel(bool show_portraits);
-void EndLockInteractMode(signed char suspend);
+// Redraw the formation panel when asked or when one of its buttons changed.
+void RefreshFormationPanel(bool force);
+void EndLockInteractMode(bool suspend);
 void UpdateTrapInteraction(void);
-void EndTrapInteractMode(signed char suspend);
+void EndTrapInteractMode(bool suspend);
 int GetPartySlotLocksTrapsLevel(int slot);
 int OpenLockInteraction(Trigger* trigger);
 int OpenTrapInteraction(Trigger* trigger);
@@ -589,14 +644,11 @@ void SetCombatAction(int value);
 void SetCombatSelection(int value);
 void SetCombatTarget(int value);
 
-void UpdateScreenOverlays(int frame);
-bool LoadCurrentLevelData(void);
 void ResetMainGameMode(void);
 void CreateSurpriseFade(void);
 void ReverseSurpriseFade(void);
 void DestroySurpriseFade(void);
 unsigned char UpdateSurpriseFade(void);
-bool OpenUseItemSelectView(int slot);
 
 void ShowMainGameNoticeLine(std::string_view text, std::function<void(bool)> callback,
                             bool confirmation, bool cancel);

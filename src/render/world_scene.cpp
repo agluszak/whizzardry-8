@@ -11,6 +11,7 @@
 #include <optional>
 #include <span>
 #include <stdexcept>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -487,7 +488,8 @@ vsg::StateCommands DrawNode::recordState(vsg::RecordTraversal& traversal) const
 void DrawNode::traverse(vsg::Visitor& visitor)
 {
     vsg::StateGroup::traverse(visitor);
-    vertices->accept(visitor);
+    // Only recordSorted binds these copies of the draw's arrays.
+    if (sorted || authored_normals) vertices->accept(visitor);
     if (reflected_pipeline) reflected_pipeline->accept(visitor);
 }
 void DrawNode::traverse(vsg::ConstVisitor& visitor) const
@@ -895,6 +897,13 @@ void MeshInstance::attachTo(MeshInstance& parent, std::optional<short> mapped_ke
     render_parent_ = parent.node_;
     render::updateMembership(*node_, parent.scene);
 }
+ClipPlane* WorldScene::clipPlane(std::string_view name) const
+{
+    const auto found = std::find_if(clip_planes.rbegin(), clip_planes.rend(),
+                                    [&](const auto& plane) { return plane->name == name; });
+    return found != clip_planes.rend() ? found->get() : nullptr;
+}
+
 void WorldScene::attach(Light& item)
 {
     if (item.scene == this) return;

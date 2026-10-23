@@ -50,7 +50,6 @@
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/navigation_flags.h"
 #include "wiz8/packed_bits.h"
@@ -66,6 +65,7 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/spatial/surface_index.h"
+#include "wiz8/world/automap.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_loader.h"
@@ -871,18 +871,20 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     append(bytes, third);
     store("items.bin", bytes.substr(0, bytes.size() - 1));
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    REQUIRE_THROWS(ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk); }));
+    REQUIRE_THROWS(
+        ReadSavePayload(*file, [](W8Chunk& chunk) { return ReadSavedWorldItem(chunk); }));
     file.reset();
     store("items.bin", bytes);
     file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    auto group = ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk); });
+    auto group = BuildWorldItem(
+        ReadSavePayload(*file, [](W8Chunk& chunk) { return ReadSavedWorldItem(chunk); }));
     REQUIRE(group);
     REQUIRE(group->contents.size() == 2);
     REQUIRE(group->contents[0]->runtime_id == 29);
     REQUIRE(group->contents[1]->runtime_id == 31);
     const auto roundtrip_path = wiz8::user_path("items-roundtrip.bin");
     auto output = wiz8::open_file(roundtrip_path, wiz8::OpenMode::replace);
-    REQUIRE_NOTHROW(SaveItemFile(*output, *group));
+    REQUIRE_NOTHROW(WriteSavedWorldItem(*output, CaptureWorldItem(*group)));
     output.reset();
     auto encoded = wiz8::open_file(roundtrip_path);
     std::string roundtrip(encoded->size(), '\0');
@@ -890,7 +892,8 @@ TEST_CASE_METHOD(LoaderFixture, "World item groups transfer ownership and preser
     REQUIRE(roundtrip.size() == bytes.size());
     REQUIRE(std::equal(roundtrip.begin(), roundtrip.end(), bytes.begin()));
     file->seek(0, wiz8::SeekOrigin::begin);
-    auto defaults = ReadSavePayload(*file, [](W8Chunk& chunk) { return LoadItem(chunk, true); });
+    auto defaults = BuildWorldItem(
+        ReadSavePayload(*file, [](W8Chunk& chunk) { return ReadSavedWorldItem(chunk, true); }));
     REQUIRE(defaults);
     REQUIRE((defaults->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
     REQUIRE((defaults->contents.front()->entity_flags & W8_ITEM_ENTITY_RADAR_SEEN) == 0);
@@ -929,11 +932,47 @@ TEST_CASE("Automap notes say whether a visited-cell bitmap precedes them", "[loa
         writer->write(&count, sizeof(count));
         writer->write(&signature, sizeof(signature));
         auto file = wiz8::open_memory(writer->written_memory());
-        return ReadSavePayload(*file, [](W8Chunk& chunk) { return ReadAutomapNotes(chunk); });
+        return ReadSavePayload(*file,
+                               [](W8Chunk& chunk) { return W8SavedAutomapNotes::read(chunk); });
     };
     REQUIRE(section(nullptr).visited.empty());
     const std::vector<bool> visited{true, false, true};
     REQUIRE(section(&visited).visited == visited);
+}
+
+TEST_CASE("A level's map notes and visited cells travel with that level's map", "[loader][automap]")
+{
+    // A save captures the notes from the level's own map, and a load hands them to the
+    // map of the level being built.
+    const auto give_cells = [](Automap& automap) {
+        auto cells = wiz8::open_memory_writer();
+        const float size = 2000.0f;
+        const std::array<std::uint32_t, 4> header_and_keys{3, 1, 2, 3};
+        cells->write(&size, sizeof(size));
+        cells->write(header_and_keys.data(), sizeof(header_and_keys));
+        REQUIRE(automap.readCells(*wiz8::open_memory(cells->written_memory())));
+    };
+    World left;
+    give_cells(left.automap);
+    W8SavedAutomapNotes saved{.visited = {false, true, true}};
+    saved.notes.push_back(std::make_unique<W8AutomapNote>(W8AutomapNote{{1.5f, -2.0f}, 1, "Ж"}));
+    left.automap.restore(std::move(saved));
+
+    auto writer = wiz8::open_memory_writer();
+    left.automap.capture().write(*writer);
+    auto file = wiz8::open_memory(writer->written_memory());
+    World entered;
+    give_cells(entered.automap);
+    entered.automap.restore(
+        ReadSavePayload(*file, [](W8Chunk& chunk) { return W8SavedAutomapNotes::read(chunk); }));
+
+    for (std::size_t cell = 0; cell != 3; ++cell)
+        CHECK(entered.automap.visited(cell) == left.automap.visited(cell));
+    CHECK(entered.automap.visited(2));
+    REQUIRE(entered.automap.notes().size() == 1);
+    CHECK(entered.automap.notes()[0]->position == glm::vec2(1.5f, -2.0f));
+    CHECK(entered.automap.notes()[0]->layer == 1);
+    CHECK(entered.automap.notes()[0]->text == "Ж");
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Nested item write failure aborts a staged trigger save",
@@ -964,7 +1003,9 @@ TEST_CASE_METHOD(LoaderFixture, "Nested item write failure aborts a staged trigg
             wiz8::testing::FileOperationHook previous;
             ~RestoreHook() { wiz8::testing::set_file_operation_hook(previous); }
         } restore{previous};
-        REQUIRE_THROWS_WITH(SaveWorldTriggers(*writer), "fixture item write failure");
+        std::vector<SavedTrigger> section;
+        for (const auto& trigger : GetWorld()->triggers) section.push_back(trigger->Capture());
+        REQUIRE_THROWS_WITH(WriteSavedTriggers(*writer, section), "fixture item write failure");
         REQUIRE(fired);
     }
     REQUIRE(wiz8::open_file(path)->read_text() == "old");
@@ -1009,7 +1050,7 @@ TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat g
             });
         });
         chunks.Close();
-        game.game.left_levels[0x26] = file->written_memory();
+        game.game.left_levels.keep(0x26, file->written_memory());
     };
     write_items(true);
     LoadAwayCampChest(*GetWorld());
@@ -1234,7 +1275,7 @@ TEST_CASE_METHOD(LoaderFixture, "Particle record versions initialize omitted fie
         REQUIRE(ReadWorldParticles(&info, &scene, &particles));
         REQUIRE(particles.size() == 2);
         for (const auto& particle : particles) {
-            REQUIRE(particle->particle_count == 2);
+            REQUIRE(particle->particles.size() == 2);
             REQUIRE(particle->getName() == "EMITTER");
             REQUIRE(particle->attachment_key == (version < 2 ? -1 : 7));
             REQUIRE(particle->start_frame == (version < 4 ? -1 : 4));
@@ -1329,7 +1370,9 @@ TEST_CASE_METHOD(LoaderFixture, "Cursor scratch replacement validates complete s
     const auto load = [&](const std::string& data) {
         store("cursor-state.dat", data);
         auto file = wiz8::open_file(wiz8::asset_path("cursor-state.dat"));
-        ReadSavePayload(*file, [&](W8Chunk& chunk) { ReadWorldCursorNodeStates(chunk, table); });
+        ReadSavePayload(*file, [&](W8Chunk& chunk) {
+            ApplyWorldCursorNodeStates(table, ReadWorldCursorNodeStates(chunk));
+        });
     };
     REQUIRE_THROWS(load(bytes.substr(0, bytes.size() - 1)));
     REQUIRE(table.nodes[0].userdata == std::vector{std::byte{7}});

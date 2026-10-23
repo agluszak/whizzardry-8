@@ -25,7 +25,6 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
-#include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
@@ -103,9 +102,9 @@ void SwampScript::enter()
    armed for another try. */
 bool SwampScript::oilPool(Trigger* pTrigger)
 {
-    if ((ctx.party.held.item.iItemNo != -1) && GetItemInHand(ctx.party) == 0x2d0) {
-        (void)TakeInventoryItem(ctx.game, {W8ItemStorage::Hand});
-        ReplaceHeldItem(ctx.game, MakeItem(Data(), ctx.game.rng, 0x15e, false, true, false));
+    if ((ctx.inventory.held()) && ctx.inventory.heldItemId() == 0x2d0) {
+        (void)ctx.inventory.take({W8ItemStorage::Hand});
+        ctx.inventory.replaceHeld(MakeItem(Data(), ctx.game.rng, 0x15e, false, true, false));
         g_trigger_feedback = true;
     }
     return false;
@@ -121,7 +120,7 @@ bool SwampScript::castPlaneSpell(Trigger* pTrigger, int spell_id)
         gasFireSpawn(pTrigger);
         return false;
     }
-    position = cameraLocation(world());
+    position = world().party.eye();
     PointCastSpell(position, spell_id, 4);
     return true;
 }

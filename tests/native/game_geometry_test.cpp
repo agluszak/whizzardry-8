@@ -276,16 +276,16 @@ static void camera_and_throw()
     // A world's pose is its party's, with or without a render camera; the render camera
     // never contributes to it.
     World world{};
-    placeParty(world, {1.25f, -2.5f, 3.75f});
-    world.party_camera.SetOrientation(.25f, -.5f);
-    const auto location = cameraLocation(world);
-    const auto state = partyPose(world);
-    const auto rotation = cameraRotation(world);
+    world.party.place({1.25f, -2.5f, 3.75f});
+    world.party.camera.SetOrientation(.25f, -.5f);
+    const auto location = world.party.eye();
+    const auto state = world.party.pose();
+    const auto rotation = world.party.rotation();
     Camera3D node;
     node.transform.setLocation(7, 8, 9);
     world.camera = &node;
     const auto live_location = cameraLocation();
-    const auto with_node = partyPose(world);
+    const auto with_node = world.party.pose();
     partyCamera() = previous_camera;
     REQUIRE(live_location == glm::vec3(3, 4, 5));
     REQUIRE(location == glm::vec3(1.25f, -2.5f, 3.75f));
@@ -294,7 +294,7 @@ static void camera_and_throw()
     REQUIRE((state.orientation.yaw == .25f && state.orientation.pitch == -.5f));
     REQUIRE(state.retail.yaw == wiz8::retail::CameraPoseOpaque{}.yaw);
     REQUIRE(state.retail.pitch == wiz8::retail::CameraPoseOpaque{}.pitch);
-    REQUIRE(rotation == world.party_camera.rotationMatrix());
+    REQUIRE(rotation == world.party.camera.rotationMatrix());
     REQUIRE(rotation != glm::mat3(1));
     camera.SetOrientation(glm::half_pi<float>(), 0);
     glm::vec3 forward;
@@ -1056,7 +1056,8 @@ TEST_CASE("Viewport bounds normalize each edge into an independent value", "[geo
 TEST_CASE("Representation transform queries preserve local and parent coordinates",
           "[geometry][transform]")
 {
-    Monster rep;
+    World owner;
+    Monster rep(owner);
     rep.visual.parent_location = {10, 20, 30};
     const glm::vec3 local(1, 2, 3);
     rep.visual.SetLocation(&local);
@@ -1079,7 +1080,8 @@ TEST_CASE("Representation transform queries preserve local and parent coordinate
 
 TEST_CASE("Navigator owns its replaceable path", "[geometry][navigation]")
 {
-    Navigator navigator;
+    World owner;
+    Navigator navigator(owner);
     auto first = std::optional<KeyframeTrack>(std::in_place);
     navigator.SetPathAI(std::move(first));
     REQUIRE(navigator.GetPathAI() != nullptr);
@@ -1123,7 +1125,8 @@ TEST_CASE("Light copies retain independent animation and path state", "[geometry
 
 TEST_CASE("Movement queries return velocity and waypoint snapshots", "[geometry][navigation]")
 {
-    Navigator navigator;
+    World owner;
+    Navigator navigator(owner);
     navigator.movement.velocity = {1, 2, 3};
     const auto velocity = navigator.GetVelocity();
     navigator.movement.velocity = {4, 5, 6};
@@ -1253,7 +1256,8 @@ TEST_CASE("Monster bounds scale and translate independent optional values", "[ge
 {
     Animation animation;
     animation.frame_bounds = {{true, {-1, -2, -3}, {4, 5, 6}}};
-    Monster monster;
+    World owner;
+    Monster monster(owner);
     monster.visual.active_animation = &animation;
     monster.visual.m_bLOD = 2;
     monster.visual.subcycle = 0;
@@ -1358,26 +1362,33 @@ TEST_CASE("Particle activation preserves emission limits and world placement", "
     particles.direction_mode = W8_PARTICLE_DIRECTION_FIXED;
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.initial_speed = 5;
-    const auto first = particles.activateParticle(false);
-    REQUIRE(first);
-    REQUIRE(first.value() == 0);
-    REQUIRE(particles.velocities[first.value()] == glm::vec3(0, -5, 0));
+    const auto* first = particles.activateParticle(false);
+    REQUIRE(first == &particles.particles[0]);
+    REQUIRE(first->velocity == glm::vec3(0, -5, 0));
     REQUIRE(particles.activateParticle(false));
     REQUIRE(!particles.activateParticle(false));
-    const auto replaced = particles.activateParticle(true);
-    REQUIRE(replaced);
-    REQUIRE(replaced.value() == 0);
-    REQUIRE(particles.active_particle_count == 2);
+    REQUIRE(particles.activateParticle(true) == first);
+    // The old pool compared absolute unsigned ticks, even across wraparound.
+    particles.particles[0].birth_tick = 0xfffffffeu;
+    particles.particles[1].birth_tick = 2;
+    REQUIRE(particles.activateParticle(true) == &particles.particles[1]);
+    REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 2);
     particles.emission_limit = particles.emission_count;
     REQUIRE(!particles.activateParticle(true));
-    particles.DeactivateParticle(0);
-    particles.DeactivateParticle(0);
-    REQUIRE(particles.active_particle_count == 1);
+    particles.particles[0].active = false;
+    REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 1);
 
     particles.emission_minimum = particles.emission_maximum = {1, 2, 3};
     particles.size_scale = 2;
     particles.transform.setLocation(100, 200, 300);
     REQUIRE(particles.emissionPosition() == glm::vec3(102, 204, 306));
+    particles.SetFlutter(W8_PARTICLE_FLUTTER_VELOCITY_SCALED);
+    particles.particles[0].flutter_angle = 1;
+    particles.SetFlutter(W8_PARTICLE_FLUTTER_VELOCITY_SCALED);
+    REQUIRE(particles.particles[0].flutter_angle == 1);
+    particles.SetFlutter(W8_PARTICLE_FLUTTER_NONE);
+    particles.SetFlutter(W8_PARTICLE_FLUTTER_VELOCITY_SCALED);
+    REQUIRE(particles.particles[0].flutter_angle == 0);
 }
 
 TEST_CASE("Attached particle orientation follows rotations independently of model scale",
@@ -1388,7 +1399,8 @@ TEST_CASE("Attached particle orientation follows rotations independently of mode
     model.attachTo(parent);
     parent.transform.setRotation(.2, -.3, .4);
     model.transform.setRotation(-.4, .1, -.2);
-    CyclePlayer cycle;
+    World owner;
+    CyclePlayer cycle(owner);
     cycle.current_model_instance = &model;
     auto& attachment = cycle.particles.emplace_back();
     attachment.position = {1, 2, 3};
@@ -1432,21 +1444,23 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.AdvanceSimulation(std::chrono::milliseconds{0});
     REQUIRE(particles.emission_count == 1);
     particles.AdvanceSimulation(std::chrono::milliseconds{0});
-    REQUIRE(particles.active_particle_count == 2);
-    particles.DeactivateParticle(0);
+    REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 2);
+    particles.particles[0].active = false;
     particles.SetActive(false);
     particles.AdvanceSimulation(std::chrono::milliseconds{0});
-    REQUIRE_FALSE(particles.particle_active[0]);
-    REQUIRE(particles.particle_active[1]);
+    REQUIRE_FALSE(particles.particles[0].active);
+    REQUIRE(particles.particles[1].active);
 
-    const auto centers = particles.particle_positions;
+    std::vector<glm::vec3> centers;
+    for (const auto& particle : particles.particles) centers.push_back(particle.position);
     // Constructing VSG state and arrays needs no graphics device. Preparing
     // additional views must consume the current simulation without advancing it.
     std::optional<render::RenderContext> context;
     context.emplace(VkExtent2D{640, 480});
     particles.updateRenderNode(*context, {}, 0);
     particles.updateRenderNode(*context, {}, 1);
-    REQUIRE(particles.particle_positions == centers);
+    REQUIRE(
+        std::ranges::equal(particles.particles, centers, {}, &ParticleSystem::Particle::position));
     REQUIRE(particles.emission_count == 2);
     struct CheckParticleDraws : vsg::ConstVisitor {
         std::uint32_t index_count = 0;
@@ -1481,7 +1495,7 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.lifetime_ms = 0;
     game.game.time += std::chrono::milliseconds{1};
     particles.AdvanceSimulation(std::chrono::milliseconds{0});
-    REQUIRE(particles.active_particle_count == 0);
+    REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 0);
     REQUIRE(particles.finished);
     particles.updateRenderNode(*context, {}, 2);
     draws.index_count = 0;
@@ -1509,12 +1523,12 @@ TEST_CASE("Particle simulation resolves nested animation before views consume it
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.SetTexture(outer);
     REQUIRE(particles.activateParticle(false));
-    auto& prepared = *particles.texture_frames.front()->playback->textures.front();
+    auto& prepared = *particles.particles.front().animation->playback->textures.front();
     REQUIRE(&prepared != inner.get());
-    REQUIRE(particles.texture_frames.front()->currentFrame() == first.get());
+    REQUIRE(particles.particles.front().animation->currentFrame() == first.get());
     game.game.time += std::chrono::milliseconds{1000};
     particles.AdvanceSimulation(game.game.time);
-    REQUIRE(particles.texture_frames.front()->currentFrame() == last.get());
+    REQUIRE(particles.particles.front().animation->currentFrame() == last.get());
 
     // Time may elapse before another view. Only simulation advances playback.
     REQUIRE(inner->currentFrame() == first.get());
@@ -1523,7 +1537,7 @@ TEST_CASE("Particle simulation resolves nested animation before views consume it
     render::RenderContext context({640, 480});
     particles.updateRenderNode(context, {}, 0);
     particles.updateRenderNode(context, {}, 1);
-    REQUIRE(particles.texture_frames.front()->currentFrame() == first.get());
+    REQUIRE(particles.particles.front().animation->currentFrame() == first.get());
 }
 
 TEST_CASE("Bounds probes retain ordering across reversed and degenerate extents", "[geometry]")
@@ -2288,13 +2302,13 @@ TEST_CASE("Recycled particles restart texture playback at their new birth", "[ge
     particles.SetTexture(std::make_shared<Texture>(std::move(playback)));
     REQUIRE(particles.activateParticle(false));
     particles.AdvanceSimulation(game.game.time);
-    particles.DeactivateParticle(0);
+    particles.particles[0].active = false;
     game.game.time = std::chrono::milliseconds{10000};
     REQUIRE(particles.activateParticle(false));
     game.game.time += std::chrono::milliseconds{1000};
     particles.AdvanceSimulation(game.game.time);
-    REQUIRE(particles.active_particle_count == 1);
-    REQUIRE(particles.texture_frames.front()->playback->frame == 1);
+    REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 1);
+    REQUIRE(particles.particles.front().animation->playback->frame == 1);
 }
 
 TEST_CASE("Route advancement keeps waypoint metadata and never reads past the endpoint",
@@ -2338,7 +2352,7 @@ TEST_CASE("Native world objects activate through graph identity and game activit
     auto& world = *game.level.primary;
     world.camera = &world.scene->camera;
     world.camera->setClipRange(1, 10);
-    placeParty(world, {0, 0, 0});
+    world.party.place({0, 0, 0});
     game.native_object_file = WIZ8_NATIVE_DEMO_FILE;
     LoadNativeLevelObject(game);
     REQUIRE(world.native_objects.size() == 1);
@@ -2359,18 +2373,18 @@ TEST_CASE("Native world objects activate through graph identity and game activit
     game.advancement.held = true;
     REQUIRE_FALSE(game.activateSelectedNativeObject());
     game.advancement.held = false;
-    game.party.held.item.iItemNo = 5;
+    game.inventory.restore({}, W8ItemInstance{.iItemNo = 5});
     REQUIRE_FALSE(game.activateSelectedNativeObject());
-    game.party.held.item.iItemNo = -1;
+    game.inventory.restore({}, std::nullopt);
     game.activity.place = Activity::Place::Camp;
     REQUIRE_FALSE(game.activateSelectedNativeObject());
     game.activity.place = Activity::Place::World;
     // The render view may move independently; gameplay reach follows the party.
     world.camera->transform.setLocation(0, 0, -6000);
     REQUIRE(world.selectedNativeObject() == &object);
-    placeParty(world, {0, 0, -6000});
+    world.party.place({0, 0, -6000});
     REQUIRE_FALSE(game.activateSelectedNativeObject());
-    placeParty(world, {0, 0, 0});
+    world.party.place({0, 0, 0});
     REQUIRE(game.activateSelectedNativeObject());
     REQUIRE_FALSE(object.illuminated);
     REQUIRE(std::get<TextNotice>(game.events.pending().back()).text == "The prism dims.");
@@ -2384,7 +2398,7 @@ TEST_CASE("Resolved prop picks retain occlusion and the closed-door combat excep
 {
     ScopedGame game;
     World world;
-    placeParty(world, {0, 0, 0});
+    world.party.place({0, 0, 0});
     Trigger trigger(&world);
     trigger.flags = W8_TRIGGER_ENABLED;
     trigger.range_minimum = trigger.range_maximum = 100;

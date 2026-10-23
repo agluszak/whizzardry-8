@@ -40,9 +40,9 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 int g_event_sight_blocked = kFirstRemappedEvent + 30;
 
@@ -154,7 +154,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
         camera = cameraLocation();
         camera_top = cameraLocation();
         point = target->point;
-        unsigned int spell_id = GetActionSpellLikeId(CurrentGame().party, selected);
+        unsigned int spell_id = GetActionSpellLikeId(CurrentGame().inventory, selected);
         assert(spell_id != W8_SPELL_NONE);
         W8SpellTargetType target_type = GetSpellTargetType(spell_id, false);
         if (target_type == W8_TARGET_TYPE_CONE) {
@@ -172,7 +172,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
         float dz = point.z - camera.z;
         if (distance + 1.0f <
             sqrtf(dx * dx + (point.y - camera.y) * (point.y - camera.y) + dz * dz) -
-                PartyNavigator()->radius) {
+                GetWorld()->party.radius()) {
             return false;
         }
         if (trace) {
@@ -279,7 +279,8 @@ W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& sel
         }
         break;
     case W8_ACTION_USE_ITEM:
-        return GetItemSpellRange(CurrentGame().party.itemAt(selected.detail_block.item_use.item));
+        return GetItemSpellRange(
+            CurrentGame().inventory.itemAt(selected.detail_block.item_use.item));
     case W8_ACTION_PROTECT:
         return W8_RANGE_TOUCH;
     case W8_ACTION_BREATHE:
@@ -643,7 +644,7 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
 {
     float distance = CalcRangeDistance(range_category);
     if (TargetSourceIsCharacter(source, 0)) {
-        return PartyNavigator()->movement.alternate_radius + distance;
+        return GetWorld()->party.collisionSphere().radius + distance;
     }
     if (TargetSourceIsMonster(source, 0)) {
         assert(source->iMonsterID != -1);
@@ -657,7 +658,8 @@ float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
    CalcRangeDistance, then add the startup navigator's movement collision_radius. */
 float CalcRangeDistanceFromParty(W8RangeCategory range_category)
 {
-    return CalcRangeDistance(range_category) + PartyNavigator()->movement.collision_radius;
+    return CalcRangeDistance(range_category) +
+           GetWorld()->party.navigator.movement.collision_radius;
 }
 
 /* Shrink a short-range category by the formation rows CountRowsBetween says

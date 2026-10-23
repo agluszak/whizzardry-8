@@ -27,10 +27,7 @@ ClipPlane* FindWorldClipPlane(std::string_view name)
 {
     for (auto* world : {GetWorld(), GetSecondaryWorld()}) {
         if (!world || !world->scene) continue;
-        const auto& planes = world->scene->clip_planes;
-        const auto found = std::find_if(planes.rbegin(), planes.rend(),
-                                        [&](const auto& plane) { return plane->name == name; });
-        if (found != planes.rend()) return found->get();
+        if (auto* plane = world->scene->clipPlane(name)) return plane;
     }
     return nullptr;
 }

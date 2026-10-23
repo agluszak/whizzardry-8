@@ -8,6 +8,7 @@
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
@@ -17,7 +18,8 @@
    Capacities and inventory weights come from the members' evaluated inputs; only
    the shares are assigned. */
 // FUNCTION: WIZ8 0x004edd20
-static void DistributePartyWeight(const GameData& data, W8Party& party)
+static void DistributePartyWeight(const GameData& data, W8Party& party,
+                                  std::span<const W8ItemInstance> pool)
 {
     int capacity[8];
     int unassigned[8];
@@ -36,7 +38,7 @@ static void DistributePartyWeight(const GameData& data, W8Party& party)
     }
 
     unsigned int party_weight = 0;
-    for (const auto& item : std::span{party.item_pool}.first(party.item_count)) {
+    for (const auto& item : pool) {
         party_weight += GetItemStackWeight(data, &item);
     }
 
@@ -59,34 +61,17 @@ static void DistributePartyWeight(const GameData& data, W8Party& party)
     }
 }
 
-// Apply the load timing: false when shared weight was not redistributed now.
-static bool AssignPartyLoad(const GameData& data, W8Party& party, const PartyStatRules& rules)
-{
-    switch (rules.load_timing) {
-    case PartyLoadTiming::Disabled:
-        return false;
-    case PartyLoadTiming::AfterCombat:
-        party.redistribution_pending = true;
-        return false;
-    case PartyLoadTiming::Immediate:
-        break;
-    }
-    DistributePartyWeight(data, party);
-    party.redistribution_pending = false;
-    return true;
-}
-
 /* Derive, let the pools follow their new ceilings, and derive again when the fatigue band
-   moved, because armor class reads it. Both passes read the same baseline. */
+   moved, because armor class reads it. Both passes compare with the same baseline. */
 static CharacterStatsUpdate SettleCharacterStats(const GameData& data, W8Character& character,
                                                  CharacterStatRules rules,
                                                  const CharacterBaseline& baseline)
 {
-    DeriveCharacterStats(data, character, rules, baseline);
+    DeriveCharacterStats(data, character, rules);
     const bool hp_exhausted = FollowHitPointCeiling(character, baseline.hp_max);
     const bool band_changed = FollowStaminaCeiling(character, baseline.stamina_max);
     FollowSpellPointCeilings(character, baseline.sp_max);
-    if (band_changed) DeriveCharacterStats(data, character, rules, baseline);
+    if (band_changed) DeriveCharacterStats(data, character, rules);
     return {.valid = true,
             .became_overloaded = BecameOverloaded(baseline.inventory_weight, character),
             .hp_exhausted = hp_exhausted};
@@ -108,7 +93,8 @@ CharacterStatsUpdate UpdateStandaloneCharacterStats(const GameData& data, W8Char
     return SettleCharacterStats(data, character, rules, baseline);
 }
 
-W8PartyStats UpdatePartyStats(const GameData& data, W8Party& party, const PartyStatRules& rules)
+W8PartyStats UpdatePartyStats(const GameData& data, W8Party& party,
+                              std::span<const W8ItemInstance> pool, const PartyStatRules& rules)
 {
     W8PartyStats result;
     std::array<CharacterBaseline, W8_PARTY_SLOT_COUNT> baselines{};
@@ -122,7 +108,8 @@ W8PartyStats UpdatePartyStats(const GameData& data, W8Party& party, const PartyS
         if (rules.load_timing == PartyLoadTiming::Disabled) characters[slot].party_weight_share = 0;
         result.characters[slot].valid = true;
     }
-    result.load_redistributed = AssignPartyLoad(data, party, rules);
+    result.load_redistributed = rules.load_timing == PartyLoadTiming::Immediate;
+    if (result.load_redistributed) DistributePartyWeight(data, party, pool);
     for (unsigned slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (result.characters[slot].valid)
             result.characters[slot] = SettleCharacterStats(data, characters[slot],

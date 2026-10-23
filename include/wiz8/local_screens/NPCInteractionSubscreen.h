@@ -11,6 +11,7 @@ void SyncNpcDialogueTranscriptScrollButtons();
 void SetNpcDialogueInputEnabled(int group, bool enabled);
 
 #include <array>
+#include <bitset>
 #include <functional>
 
 #include "wiz8/button_interaction.h"
@@ -42,7 +43,7 @@ struct NpcDialogueUi {
     struct Panel {
         SDL_Point origin;
         int background;
-        bool active = false, dirty = true;
+        bool active = false;
     };
     std::array<Panel, 7> panels{{{{0x17, 0x166}, 0},
                                  {{0xa4, 0x166}, 1},
@@ -62,7 +63,7 @@ struct NpcDialogueUi {
         ButtonInteraction interaction;
         ButtonPolicy policy{.input_rule = ButtonInputRule::PrimaryPressedState};
         std::function<void()> primary, secondary, down;
-        bool visible = true, enabled = true, dirty = true;
+        bool visible = true, enabled = true;
     };
     std::array<Action, 39> actions;
     std::shared_ptr<const SpriteSheet> item_preview;
@@ -103,8 +104,8 @@ enum W8NpcDialogueControlSlot {
     W8_NPC_CONTROL_TEXT_38 = 38,
 };
 
-void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress);
-void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress,
+void ForwardNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line, bool suppress);
+void QueueNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line, bool suppress,
                           unsigned char arg);
 void FlushPendingNoticeLines(void);
 
@@ -126,7 +127,7 @@ bool ProcessPendingEvent(void);
 void SyncDialogueNpcStateAndMarkPending(void);
 void SyncNpcServiceButtons(int party_slot);
 void SwitchNpcDialogueLayout(W8NpcDialogueLayout layout);
-void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
+void BeginNpcDialogue(W8NpcState* npc, const W8ItemInstance* item, int quote, unsigned char flags,
                       unsigned char force);
 void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags);
 void InvalidateMainGameActionPanelRect(const W8ControlsRect* rect);
@@ -168,15 +169,13 @@ unsigned char IsNpcDialogueCursorActive(void);
 void TryNpcDialoguePickpocket(int party_slot);
 std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& font);
 void SetDialogueFieldKeyword(std::string keyword, bool append);
-void ActivateNpcDialoguePanels(bool active);
-bool HasNpcDialogueDirtyPanels(void);
 UiResult HandleNpcTextBox(const UiPointerEvent& event);
 void NpcDialogueTextBoxWheelAt(short x, unsigned short y, bool flag);
 /* True when an NPC quote/portrait session is active: finish voice playback and
    report that the click was consumed. */
 bool FinishNpcVoiceIfSessionActive(void);
 void UpdateNpcTradeSelection(int index, int, int);
-bool NpcTradeItemAllowed(W8ItemInstance* item);
+bool NpcTradeItemAllowed(const W8ItemInstance* item);
 void EnableNpcTradeFilterButtons(void);
 void HandleNpcDialogueKeyEvent(const InputEvent* event);
 void HandleNpcDialogueItemChoice(void);

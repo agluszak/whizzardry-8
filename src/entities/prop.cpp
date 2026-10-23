@@ -12,6 +12,7 @@
 #include <exception>
 #include <memory>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -786,7 +787,7 @@ void Prop::AttachAnimationInstances(World* world)
             instance->visible = true;
             instance->setScene((world->scene.get()));
             instance->light_scale = glm::vec3(0);
-            if (g_settings.smooth_world_animations != 0) {
+            if (g_settings.smooth_world_animations) {
                 instance->frame_interpolation = anim_frame_fraction;
             } else {
                 instance->frame_interpolation = 0.0f;
@@ -846,7 +847,7 @@ void Prop::AttachAnimationInstances(World* world)
         instance->visible = true;
         instance->setScene((world->scene.get()));
         instance->light_scale = glm::vec3(0);
-        if (g_settings.smooth_world_animations != 0) {
+        if (g_settings.smooth_world_animations) {
             instance->frame_interpolation = anim_frame_fraction;
         } else {
             instance->frame_interpolation = 0.0f;
@@ -1304,35 +1305,31 @@ int Prop::GetAnimationState() const
     return -1;
 }
 
-/* APST chunk writer: a 0xDEADD00D signature, the format version and the prop
-   count, then one record per prop - a fixed 64-byte name plus the six rep
-   bytes that LoadAnimationState reads back (frame, counters, direction
-   flags and the active byte). The per-prop byte writes only run while the
-   previous writes succeed. */
-void SaveWorldProps(wiz8::File& handle)
+// The animation a save keeps; the active byte rides in the record's spare slot.
+Prop::SavedAnimationState Prop::CaptureAnimationState() const
 {
-    int index;
-    int count;
-    unsigned int signature;
-    unsigned int version;
-    Prop* prop;
+    return {subcycle, first_frame, last_frame, frame_direction, animation_playing, active};
+}
 
-    signature = 0xDEADD00D;
-    version = 1;
-    handle.write(&signature, 4);
-    handle.write(&version, 4);
-    count = static_cast<int>(GetWorld()->plsProps.size());
+/* The named form: a 0xDEADD00D signature, the format version and the prop count, then one
+   record per prop - a fixed 64-byte name plus the six animation bytes (frame, counters,
+   direction flags and the active byte). The older form keys each record by its legacy id. */
+void WriteSavedProps(wiz8::File& handle, std::span<const SavedProp> section)
+{
+    const bool named = section.empty() || std::holds_alternative<std::string>(section[0].key);
+    const auto count = static_cast<unsigned int>(section.size());
+    if (named) {
+        const unsigned int signature = 0xDEADD00D, version = 1;
+        handle.write(&signature, 4);
+        handle.write(&version, 4);
+    }
     handle.write(&count, 4);
-    for (index = 0; index < count; ++index) {
-        prop = GetWorldProp(GetWorld(), index);
-        handle.write_padded(prop->name.c_str(), 0x40);
-        if ((handle.write(&prop->subcycle, 1), true) != 0 &&
-            (handle.write(&prop->first_frame, 1), true) != 0 &&
-            (handle.write(&prop->last_frame, 1), true) != 0 &&
-            (handle.write(&prop->frame_direction, 1), true) != 0 &&
-            (handle.write(&prop->animation_playing, 1), true) != 0) {
-            handle.write(&prop->active, 1);
-        }
+    for (const auto& prop : section) {
+        if (named)
+            handle.write_padded(std::get<std::string>(prop.key), 0x40);
+        else
+            handle.write(&std::get<int>(prop.key), sizeof(int));
+        handle.write(&prop.state, sizeof(prop.state));
     }
 }
 

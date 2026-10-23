@@ -122,7 +122,7 @@ TEST_CASE("world graphics")
     REQUIRE((world && world->compiledIndex() && world->camera && world->scene &&
              !world->psrMeshes.empty()));
     if (mode && strcmp(mode, "ui") == 0) {
-        SetMainUiPreference(W8_MAIN_UI_MODE_PORTRAITS);
+        MainGame()->setPreferredMode(W8_MAIN_UI_MODE_PORTRAITS);
         for (int frame = 0; frame < 100; ++frame) {
             SDL_Delay(16);
             GameLoop();
@@ -200,7 +200,7 @@ TEST_CASE("world graphics")
     }
 
     CameraPose state{};
-    state = partyPose(*world);
+    state = world->party.pose();
     fprintf(stderr, "world: camera (%g %g %g) yaw %g pitch %g\n", state.position.x,
             state.position.y, state.position.z, state.orientation.yaw, state.orientation.pitch);
     unsigned enabled = 0;

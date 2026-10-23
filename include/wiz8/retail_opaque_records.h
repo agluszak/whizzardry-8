@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstddef>
+#include <optional>
 
 namespace wiz8::retail {
 struct CameraPoseOpaque {
@@ -21,6 +22,9 @@ struct MonsterGroupOpaque {
    the turn counter, and unidentified runs. */
 struct GlobalStatusOpaque {
     float save_version = 0;
+    /* The loaded save's pool records past the live count, kept verbatim; a game that
+       loaded none writes empty records there. */
+    std::optional<std::array<std::array<unsigned char, 12>, 500>> unused_pool_records;
     std::array<std::array<unsigned int, 3>, 2> legacy_text_box_lines{};
     std::array<unsigned char, 0x55> unknown_187b{};
     std::array<unsigned char, 0xd4> status_header_prefix{};

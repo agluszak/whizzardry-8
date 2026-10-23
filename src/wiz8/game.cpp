@@ -10,11 +10,10 @@
 
 #include "wiz8/audio/soundman.h"
 #include "wiz8/combat/entity_signals.h"
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/random.h"
-#include "wiz8/rules/rule_context.h"
 #include "wiz8/script_context.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 namespace {
@@ -37,6 +36,12 @@ std::unique_ptr<World> Level::replacePrimary(std::unique_ptr<World> world)
     return std::exchange(primary, std::move(world));
 }
 
+World& Level::loaded() const
+{
+    if (!primary) throw std::logic_error("a level screen was requested with no level loaded");
+    return *primary;
+}
+
 std::unique_ptr<World> Level::replaceSky(std::unique_ptr<World> world)
 {
     return std::exchange(sky, std::move(world));
@@ -50,22 +55,24 @@ Game::~Game()
     wiz8::sound::stop(sedexus_scene.moaning);
 }
 
-GameSession::GameSession() : next_stream_(static_cast<std::uint32_t>(std::time(nullptr)))
+GameSession::GameSession(const GameData& data)
+    : data_(data), next_stream_(static_cast<std::uint32_t>(std::time(nullptr)))
 {
     if (current_session) throw std::logic_error("A game session already exists");
     current_session = this;
 }
 
+// Destruction discards the game without departure bookkeeping; callers end it explicitly.
 GameSession::~GameSession()
 {
-    end();
+    discard();
     current_session = nullptr;
 }
 
 Game& GameSession::begin()
 {
     end();
-    auto& game = game_.emplace();
+    auto& game = game_.emplace(data_);
     game.rng = next_stream_;
     game.native_object_file = native_object_file;
     game.events.observe(observer_);
@@ -73,6 +80,15 @@ Game& GameSession::begin()
 }
 
 void GameSession::end()
+{
+    if (!game_) return;
+    // Finish character voices while their game and world are still current.
+    game_->speech.DestroyAllEvents();
+    LeaveLevel();
+    discard();
+}
+
+void GameSession::discard()
 {
     if (!game_) return;
     next_stream_ = game_->rng;
@@ -110,18 +126,10 @@ bool GameStarted()
     return GameInProgress() && CurrentGame().status.game_started;
 }
 
-RuleContext Game::rules()
-{
-    return {.data = Data(),
-            .party = party,
-            .rng = rng,
-            .events = events,
-            .game_started = status.game_started};
-}
-
 ScriptContext MakeScriptContext(Game& game)
 {
     return {.party = game.party,
+            .inventory = game.inventory,
             .story = game.story,
             .status = game.status,
             .activity = game.activity,
