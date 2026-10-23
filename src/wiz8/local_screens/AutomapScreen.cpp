@@ -47,6 +47,7 @@
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/index_algorithms.h"
 #include "wiz8/item_spawning.h"
@@ -923,7 +924,7 @@ void RefreshDirtyAutomap(void)
 void UpdateAutomapBounds(void)
 {
     std::vector<MeshInstance*> models;
-    PartyHasCondition(0x40);
+    CurrentGame().spellcasting.partyHasCondition(0x40);
     if (GetWorld()->compiledIndex() != 0) {
         if (g_automap_bounds_dirty) {
             ResetAutomapLighting();
@@ -1290,7 +1291,7 @@ static bool MapCameraSees(const glm::vec3& location)
    surface. */
 void RenderAutomapMarkers(void)
 {
-    bool detect_all = PartyHasCondition(0x40);
+    bool detect_all = CurrentGame().spellcasting.partyHasCondition(0x40);
     ClearAutomapMarkers();
     float left = g_automap_position.x - g_automap_zoom * 0.5f;
     const auto party = cameraLocation();

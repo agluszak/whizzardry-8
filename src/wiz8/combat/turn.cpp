@@ -66,7 +66,7 @@ CombatWait Combat::waitingOn(const Game& game) const
     if (hit_sound) {
         return CombatWait::hit_sound;
     }
-    if (!AllSpellEffectsStillRunning()) {
+    if (!game.spellcasting.allSpellEffectsStillRunning()) {
         return CombatWait::spell_effect;
     }
     for (Missile* missile = NextMissile(true); missile != 0; missile = NextMissile(false)) {
@@ -313,13 +313,11 @@ void Combat::scheduleNextActor(Game& game)
                 if ((action == W8_ACTION_DEFEND || action == W8_ACTION_PROTECT ||
                      action == W8_ACTION_NONE) &&
                     (g_settings.continuous_combat == 0 ||
-                     CharacterCanSwitchTo(*slot, SelectCombatAction(*slot, context), false,
-                                          false))) {
+                     CharacterCanSwitchTo(*slot, SelectCombatAction(*slot, context), false))) {
                     interruptible = true;
                 }
                 if ((g_settings.continuous_combat != 0 ||
-                     CharacterCanSwitchTo(*slot, SelectCombatAction(*slot, context), false,
-                                          false)) &&
+                     CharacterCanSwitchTo(*slot, SelectCombatAction(*slot, context), false)) &&
                     !interruptible) {
                     apply_delay = true;
                 }

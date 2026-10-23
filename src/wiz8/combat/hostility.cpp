@@ -461,8 +461,9 @@ int TurnUndead(int party_slot, bool check)
 
     W8CombatSlot target;
     ResetCombatSlot(&target);
-    PopulateSpellTargetMarkers(W8_SPELL_DISPEL_UNDEAD, 1, &source, &target, monsters, party,
-                               W8AreaSightRule::RequireLineOfSight);
+    CurrentGame().spellcasting.populateSpellTargetMarkers(W8_SPELL_DISPEL_UNDEAD, 1, &source,
+                                                          &target, monsters, party,
+                                                          W8AreaSightRule::RequireLineOfSight);
     if (monsters.empty()) {
         return 0;
     }
@@ -477,8 +478,9 @@ int TurnUndead(int party_slot, bool check)
     } else if (spell_power > 6) {
         spell_power = 7;
     }
-    CastSpellFromSource(W8_SPELL_DISPEL_UNDEAD, &source, &target, spell_power, 0, 0, false, 0,
-                        W8SpellCastKind::Standard, 0, &monsters);
+    CurrentGame().spellcasting.castSpellFromSource(W8_SPELL_DISPEL_UNDEAD, &source, &target,
+                                                   spell_power, 0, 0, false, 0,
+                                                   W8SpellCastKind::Standard, 0, &monsters);
     return static_cast<int>(monsters.size());
 }
 
@@ -550,7 +552,7 @@ int CharacterPrayAction(int party_slot)
     ResetCombatSlot(&target);
     CurrentGame().events.push(
         CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x174]});
-    cost = CharacterActionFatigueCost(party_slot, W8_ACTION_PRAY);
+    cost = CurrentGame().vitality.characterActionFatigueCost(party_slot, W8_ACTION_PRAY);
     if (character->stamina < static_cast<int>(cost) &&
         character->stamina < static_cast<int>(CurrentGame().rng.below(cost))) {
         CurrentGame().events.push(
@@ -602,8 +604,9 @@ int CharacterPrayAction(int party_slot)
                 if (CurrentGame().party.members[index].has_value() && member->hp_current != 0 &&
                     member->stamina < member->uiStaminaMax) {
                     AppendToLastTextLine(Data().strings[0x179], -1);
-                    CastSpellFromSource(W8_SPELL_REST_ALL, &source, &target, 7, 0, 0, true,
-                                        &outcome, W8SpellCastKind::Standard, 0, 0);
+                    CurrentGame().spellcasting.castSpellFromSource(W8_SPELL_REST_ALL, &source,
+                                                                   &target, 7, 0, 0, true, &outcome,
+                                                                   W8SpellCastKind::Standard, 0, 0);
                     prayed = true;
                     break;
                 }
@@ -634,8 +637,9 @@ int CharacterPrayAction(int party_slot)
                             power_level = 7;
                         }
                         target.iChar = index;
-                        CastSpellFromSource(W8_SPELL_GUARDIAN_ANGEL, &source, &target, power_level,
-                                            0, 0, false, &outcome, W8SpellCastKind::Standard, 0, 0);
+                        CurrentGame().spellcasting.castSpellFromSource(
+                            W8_SPELL_GUARDIAN_ANGEL, &source, &target, power_level, 0, 0, false,
+                            &outcome, W8SpellCastKind::Standard, 0, 0);
                         prayed = true;
                         break;
                     }
@@ -669,8 +673,9 @@ int CharacterPrayAction(int party_slot)
                             power_level = 7;
                         }
                         target.iChar = index;
-                        CastSpellFromSource(W8_SPELL_SANE_MIND, &source, &target, power_level, 0, 0,
-                                            capped, &outcome, W8SpellCastKind::Standard, 0, 0);
+                        CurrentGame().spellcasting.castSpellFromSource(
+                            W8_SPELL_SANE_MIND, &source, &target, power_level, 0, 0, capped,
+                            &outcome, W8SpellCastKind::Standard, 0, 0);
                         prayed = true;
                         break;
                     }
@@ -687,8 +692,9 @@ int CharacterPrayAction(int party_slot)
                 ResetCombatSlot(&target);
                 target.iType = W8_TARGET_KIND_PARTY;
                 AppendToLastTextLine(Data().strings[0x179], -1);
-                CastSpellFromSource(W8_SPELL_HEAL_ALL, &source, &target, power_level, 0, 0, true,
-                                    &outcome, W8SpellCastKind::Standard, 0, 0);
+                CurrentGame().spellcasting.castSpellFromSource(W8_SPELL_HEAL_ALL, &source, &target,
+                                                               power_level, 0, 0, true, &outcome,
+                                                               W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
                 break;
             }
@@ -707,8 +713,9 @@ int CharacterPrayAction(int party_slot)
                 target.iType = W8_TARGET_KIND_CHARACTER;
                 target.iChar = best;
                 AppendToLastTextLine(Data().strings[0x179], -1);
-                CastSpellFromSource(W8_SPELL_HEAL_WOUNDS, &source, &target, power_level, 0, 0,
-                                    false, &outcome, W8SpellCastKind::Standard, 0, 0);
+                CurrentGame().spellcasting.castSpellFromSource(
+                    W8_SPELL_HEAL_WOUNDS, &source, &target, power_level, 0, 0, false, &outcome,
+                    W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
             }
             break;
@@ -723,8 +730,9 @@ int CharacterPrayAction(int party_slot)
             }
             if (!found) {
                 AppendToLastTextLine(Data().strings[0x17b], -1);
-                CastSpellFromSource(W8_SPELL_BLESS, &source, &target, power_level, 0, 0, false,
-                                    &outcome, W8SpellCastKind::Standard, 0, 0);
+                CurrentGame().spellcasting.castSpellFromSource(W8_SPELL_BLESS, &source, &target,
+                                                               power_level, 0, 0, false, &outcome,
+                                                               W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
             }
             break;
@@ -760,9 +768,9 @@ int CharacterPrayAction(int party_slot)
                         break;
                     }
                 }
-                CastSpellFromSource(W8_SPELL_MAGIC_MISSILES, &source, &target, power_level, 0, 0,
-                                    false, &outcome, W8SpellCastKind::Standard, 0,
-                                    &monster_targets);
+                CurrentGame().spellcasting.castSpellFromSource(
+                    W8_SPELL_MAGIC_MISSILES, &source, &target, power_level, 0, 0, false, &outcome,
+                    W8SpellCastKind::Standard, 0, &monster_targets);
                 prayed = true;
             }
             break;
@@ -785,31 +793,40 @@ int CharacterPrayAction(int party_slot)
             prayed = true;
             break;
         case 9:
-            if (!CombatHasCondition(0x3b) || !CombatHasCondition(0x35)) {
+            if (!CurrentGame().spellcasting.combatHasCondition(0x3b) ||
+                !CurrentGame().spellcasting.combatHasCondition(0x35)) {
                 target.iType = W8_TARGET_KIND_PARTY;
                 target.iChar = -1;
                 AppendToLastTextLine(Data().strings[0x17b], -1);
-                CastSpellFromSource(W8_SPELL_SOUL_SHIELD, &source, &target, power_level, 0, 0,
-                                    false, &outcome, W8SpellCastKind::Standard, 0, 0);
-                CastSpellFromSource(W8_SPELL_ELEMENT_SHIELD, &source, &target, power_level, 0, 0,
-                                    false, &outcome, W8SpellCastKind::Standard, 0, 0);
+                CurrentGame().spellcasting.castSpellFromSource(
+                    W8_SPELL_SOUL_SHIELD, &source, &target, power_level, 0, 0, false, &outcome,
+                    W8SpellCastKind::Standard, 0, 0);
+                CurrentGame().spellcasting.castSpellFromSource(
+                    W8_SPELL_ELEMENT_SHIELD, &source, &target, power_level, 0, 0, false, &outcome,
+                    W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
             }
             break;
         case 10:
-            if (!PartyHasCondition(0x28) || !PartyHasCondition(0x14) || !PartyHasCondition(0x20) ||
-                !PartyHasCondition(0x1a)) {
+            if (!CurrentGame().spellcasting.partyHasCondition(0x28) ||
+                !CurrentGame().spellcasting.partyHasCondition(0x14) ||
+                !CurrentGame().spellcasting.partyHasCondition(0x20) ||
+                !CurrentGame().spellcasting.partyHasCondition(0x1a)) {
                 target.iType = W8_TARGET_KIND_PARTY;
                 target.iChar = -1;
                 AppendToLastTextLine(Data().strings[0x17b], -1);
-                CastSpellFromSource(W8_SPELL_MAGIC_SCREEN, &source, &target, power_level, 0, 0,
-                                    false, &outcome, W8SpellCastKind::Standard, 0, 0);
-                CastSpellFromSource(W8_SPELL_ENCHANTED_BLADE, &source, &target, power_level, 0, 0,
-                                    false, &outcome, W8SpellCastKind::Standard, 0, 0);
-                CastSpellFromSource(W8_SPELL_ARMORPLATE, &source, &target, power_level, 0, 0, false,
-                                    &outcome, W8SpellCastKind::Standard, 0, 0);
-                CastSpellFromSource(W8_SPELL_MISSILE_SHIELD, &source, &target, power_level, 0, 0,
-                                    false, &outcome, W8SpellCastKind::Standard, 0, 0);
+                CurrentGame().spellcasting.castSpellFromSource(
+                    W8_SPELL_MAGIC_SCREEN, &source, &target, power_level, 0, 0, false, &outcome,
+                    W8SpellCastKind::Standard, 0, 0);
+                CurrentGame().spellcasting.castSpellFromSource(
+                    W8_SPELL_ENCHANTED_BLADE, &source, &target, power_level, 0, 0, false, &outcome,
+                    W8SpellCastKind::Standard, 0, 0);
+                CurrentGame().spellcasting.castSpellFromSource(
+                    W8_SPELL_ARMORPLATE, &source, &target, power_level, 0, 0, false, &outcome,
+                    W8SpellCastKind::Standard, 0, 0);
+                CurrentGame().spellcasting.castSpellFromSource(
+                    W8_SPELL_MISSILE_SHIELD, &source, &target, power_level, 0, 0, false, &outcome,
+                    W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
             }
             break;
@@ -826,8 +843,9 @@ int CharacterPrayAction(int party_slot)
                             Data().strings[g_gender_name_message_rows[character->gender][2]], -1),
                         -1);
                     target.iType = W8_TARGET_KIND_ALL_ENEMIES;
-                    CastSpellFromSource(W8_SPELL_ROUT, &source, &target, power_level, 0, 0, false,
-                                        &outcome, W8SpellCastKind::Standard, 0, 0);
+                    CurrentGame().spellcasting.castSpellFromSource(
+                        W8_SPELL_ROUT, &source, &target, power_level, 0, 0, false, &outcome,
+                        W8SpellCastKind::Standard, 0, 0);
                     prayed = true;
                     break;
                 }
@@ -847,8 +865,9 @@ int CharacterPrayAction(int party_slot)
                         monster->entity->GetDistanceToPlayer() <= range) {
                         AppendToLastTextLine(Data().strings[0x179], -1);
                         ResetCombatSlot(&target);
-                        CastSpellFromSource(W8_SPELL_FALLING_STARS, &source, &target, power_level,
-                                            0, 0, false, &outcome, W8SpellCastKind::Standard, 0, 0);
+                        CurrentGame().spellcasting.castSpellFromSource(
+                            W8_SPELL_FALLING_STARS, &source, &target, power_level, 0, 0, false,
+                            &outcome, W8SpellCastKind::Standard, 0, 0);
                         break;
                     }
                 }

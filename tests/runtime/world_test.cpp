@@ -328,7 +328,7 @@ void CampSpellsScenario()
     caster.profession_levels[W8_PROFESSION_BISHOP] = 4;
     for (const auto skill : {W8_SKILL_SPELLBOOK_WIZARDRY, W8_SKILL_MENTAL_MAGIC})
         caster.skills[skill].base_level = caster.skills[skill].level = 100;
-    LearnSpell(&caster, W8_SPELL_IDENTIFY_ITEM, false);
+    CurrentGame().spellcasting.learnSpell(&caster, W8_SPELL_IDENTIFY_ITEM, false);
     const auto realm = Data().spells[W8_SPELL_IDENTIFY_ITEM].realm;
     caster.sp_max[realm] = caster.iSPLeft[realm] = 100;
     auto& sword = caster.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
@@ -342,7 +342,8 @@ void CampSpellsScenario()
     CAPTURE(caster.profession_levels[W8_PROFESSION_BISHOP],
             caster.skills[W8_SKILL_SPELLBOOK_WIZARDRY].level,
             caster.skills[W8_SKILL_MENTAL_MAGIC].level,
-            GetSpellCastRating(&caster, W8_SPELL_IDENTIFY_ITEM, 2), caster.iSPLeft[realm]);
+            CurrentGame().spellcasting.getSpellCastRating(&caster, W8_SPELL_IDENTIFY_ITEM, 2),
+            caster.iSPLeft[realm]);
     REQUIRE(sword.identified);
     REQUIRE(caster.iSPLeft[realm] < 100);
     REQUIRE(game.within_frames(4, [] {
@@ -354,7 +355,7 @@ void CampSpellsScenario()
 
     // The next automatic cast targets a character, not the remembered item.
     // Automatic power and immediate retries must respect the mana budget.
-    LearnSpell(&caster, W8_SPELL_REMOVE_CURSE, false);
+    CurrentGame().spellcasting.learnSpell(&caster, W8_SPELL_REMOVE_CURSE, false);
     caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].base_level =
         caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].level = 100;
     const auto curse_realm = Data().spells[W8_SPELL_REMOVE_CURSE].realm;
@@ -416,14 +417,22 @@ void CheckTwoWorldViews(GameHarness& game)
     auto& scene = *GetWorld()->scene;
     struct ParticleState {
         ParticleSystem* system;
-        unsigned active, emitted, integration_tick, emission_tick;
+        std::ptrdiff_t active;
+        unsigned emitted, integration_tick, emission_tick;
         std::vector<glm::vec3> positions;
     };
     std::vector<ParticleState> particles;
-    for (auto* system : scene.particles)
-        particles.push_back({system, system->active_particle_count, system->emission_count,
-                             system->last_integration_tick, system->last_emission_tick,
-                             system->particle_positions});
+    for (auto* system : scene.particles) {
+        particles.push_back(
+            {system,
+             std::ranges::count(system->particles, true, &ParticleSystem::Particle::active),
+             system->emission_count,
+             system->last_integration_tick,
+             system->last_emission_tick,
+             {}});
+        for (const auto& particle : system->particles)
+            particles.back().positions.push_back(particle.position);
+    }
     std::vector<std::pair<MeshInstance*, std::pair<unsigned, float>>> poses;
     for (auto* mesh : scene.dynamic_meshes)
         poses.push_back({mesh, {mesh->frame_index, mesh->frame_interpolation}});
@@ -453,11 +462,13 @@ void CheckTwoWorldViews(GameHarness& game)
     REQUIRE(max_channel_difference <= 1);
     REQUIRE(colored > SCREEN_WIDTH * SCREEN_HEIGHT / 16);
     for (const auto& saved : particles) {
-        REQUIRE(saved.system->active_particle_count == saved.active);
+        REQUIRE(std::ranges::count(saved.system->particles, true,
+                                   &ParticleSystem::Particle::active) == saved.active);
         REQUIRE(saved.system->emission_count == saved.emitted);
         REQUIRE(saved.system->last_integration_tick == saved.integration_tick);
         REQUIRE(saved.system->last_emission_tick == saved.emission_tick);
-        REQUIRE(saved.system->particle_positions == saved.positions);
+        REQUIRE(std::ranges::equal(saved.system->particles, saved.positions, {},
+                                   &ParticleSystem::Particle::position));
     }
     for (const auto& [mesh, pose] : poses) {
         REQUIRE(mesh->frame_index == pose.first);
@@ -508,7 +519,7 @@ void CheckGameplayUi(GameHarness& game)
     const auto original_character = character;
     character.iProfession = W8_PROFESSION_MAGE;
     character.skills[W8_SKILL_FIRE_MAGIC].level = 100;
-    LearnSpell(&character, W8_SPELL_LIGHT, false);
+    CurrentGame().spellcasting.learnSpell(&character, W8_SPELL_LIGHT, false);
     const auto realm = Data().spells[W8_SPELL_LIGHT].realm;
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
     CurrentGame().advancement.paused = true;

@@ -122,7 +122,7 @@ bool SwampScript::castPlaneSpell(Trigger* pTrigger, int spell_id)
         return false;
     }
     position = cameraLocation(world());
-    PointCastSpell(position, spell_id, 4);
+    CurrentGame().spellcasting.pointCastSpell(position, spell_id, 4);
     return true;
 }
 

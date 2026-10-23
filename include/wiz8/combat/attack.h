@@ -43,30 +43,9 @@ extern unsigned short g_attack_flag_name_ids[9][2];
    editor's category selector. */
 extern unsigned short g_special_category_name_ids[42];
 
-/* The missile attack paths hand FireMissileSourceToTarget the W8SpellEffectDefinition
-   the fired missile stores: the weapon or monster attack's dice magnitude and
-   per-condition chances ride the same record a spell effect definition does. */
-Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8CombatSlot* target,
-                                   W8SpellEffectDefinition* attack, bool use_default_accuracy,
-                                   W8RangeCategory range_category, int accuracy);
-void ScatterMissileAimPoint(const glm::vec3* from, glm::vec3* to, int accuracy, bool blind);
-
-/* A physical missile reached its combat target - announce the
-   hit, roll penetration against the target's armour and apply the damage.
-   `deflected` reports the target's missile-deflection roll succeeded. */
-void ResolveMissileHit(Missile* missile, bool deflected);
-/* A spell missile reached its combat target - play its impact
-   sound and apply the carried spell effect to the target or the area. */
-void ResolveSpellMissileHit(Missile* missile);
 /* The armour class a hit at one location must beat, for the
    attack mode used. */
 int TargetArmorClassAtLocation(W8CombatSlot* target, W8AttackMode attack_mode, int hit_location);
-/* Roll the effect definition's condition chances against the
-   target and apply the ones that take, reporting into `result` when one is
-   given. */
-void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
-                           W8SpellEffectDefinition* definition, bool announce, bool verbose,
-                           W8SpellEffectResult* result);
 
 struct W8MonsterRecord;
 struct W8MonsterAttack;
@@ -182,5 +161,45 @@ void QueueFumbleReaction(int party_slot);
 /* A defender guarding the attack's target may interpose and
    become the struck target instead; answers whether the target changed. */
 int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target);
-void FireCharacterItemMissile(int party_slot, W8Character* pc, W8CombatCharacterRow* row,
-                              W8RangeCategory range_category);
+
+class Game;
+
+/* One game's secondary attack effects: an effect definition's condition chances rolled
+   against a target. The game owns it. */
+class EffectConditions {
+public:
+    explicit EffectConditions(Game& game) : game_(game) {}
+    EffectConditions(const EffectConditions&) = delete;
+    EffectConditions& operator=(const EffectConditions&) = delete;
+
+    /* Roll the effect definition's condition chances against the
+       target and apply the ones that take, reporting into `result` when one is
+       given. */
+    void apply(W8TargetSource* source, W8CombatSlot* target, W8SpellEffectDefinition* definition,
+               bool announce, bool verbose, W8SpellEffectResult* result);
+
+private:
+    Game& game_;
+};
+
+/* One game's missile launches: aiming and firing a missile from a source at a combat
+   target. The game owns it. */
+class MissileFiring {
+public:
+    explicit MissileFiring(Game& game) : game_(game) {}
+    MissileFiring(const MissileFiring&) = delete;
+    MissileFiring& operator=(const MissileFiring&) = delete;
+
+    /* The missile attack paths hand FireMissileSourceToTarget the W8SpellEffectDefinition
+       the fired missile stores: the weapon or monster attack's dice magnitude and
+       per-condition chances ride the same record a spell effect definition does. */
+    Missile* fire(int missile_type, W8TargetSource* source, W8CombatSlot* target,
+                  W8SpellEffectDefinition* attack, bool use_default_accuracy,
+                  W8RangeCategory range_category, int accuracy);
+    void scatterAimPoint(const glm::vec3* from, glm::vec3* to, int accuracy, bool blind);
+    void fireCharacterItem(int party_slot, W8Character* pc, W8CombatCharacterRow* row,
+                           W8RangeCategory range_category);
+
+private:
+    Game& game_;
+};

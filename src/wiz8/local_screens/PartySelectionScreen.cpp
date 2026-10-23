@@ -39,7 +39,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/ButtonWidget.h"
@@ -1091,11 +1090,13 @@ void PartySelectionScreen::LoadImportedPartyFile(int selection)
     if (selection >= 0 && selection < static_cast<int>(collection->names.size())) {
         std::string path;
         path = fmt::format("{}\\{}", "saves\\import", collection->names[selection]);
-        int result = ImportWizardry7Party(games, path);
-        if (result != 0) {
+        const auto result = ImportWizardry7Party(games, path);
+        if (result != PartyImportResult::Success) {
             BeginNewGame(games);
-            OpenNotification(Data().strings[(result == 2 ? 0x1b60 : 0x1b5c) / 4], false,
-                             W8_PARTY_CONFIRM_NONE);
+            OpenNotification(
+                Data().strings[(result == PartyImportResult::UnsupportedEnding ? 0x1b60 : 0x1b5c) /
+                               4],
+                false, W8_PARTY_CONFIRM_NONE);
         }
     }
 
@@ -1288,14 +1289,14 @@ void GameStartRouterScreen::frame()
     W8IntroVideo code;
 
     ReturnToPreviousScreen();
-    if (!CurrentGame().status.skip_loose_character_check) {
+    if (!CurrentGame().story.imported_origin) {
         code = W8_INTRO_VIDEO_VIRGIN;
     } else {
-        switch (g_wiz7_ending) {
-        case 1:
+        switch (CurrentGame().story.imported_origin->alignment) {
+        case Story::ImportedOrigin::Alignment::Umpani:
             code = W8_INTRO_VIDEO_UMPANI;
             break;
-        case 2:
+        case Story::ImportedOrigin::Alignment::Trang:
             code = W8_INTRO_VIDEO_TRANG;
             break;
         default:

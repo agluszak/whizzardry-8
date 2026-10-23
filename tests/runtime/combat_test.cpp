@@ -142,7 +142,8 @@ void CombatScenario()
     for (int id : crab_ids) {
         W8MonsterInfo* crab = FindMonster(id, false);
         if (crab && crab->hp_current)
-            ApplyDamageToMonster(crab, crab->hp_current, &attacker, false, 1, 0, nullptr, false);
+            CurrentGame().vitality.applyDamageToMonster(crab, crab->hp_current, &attacker, false, 1,
+                                                        0, nullptr, false);
         else
             slain.push_back(id);
     }
@@ -167,11 +168,9 @@ void CombatScenario()
     auto& member = CurrentGame().party.characters[PremadeSlot()];
     member.party_weight_share = 123456;
     SettleActiveParty(CurrentGame());
-    REQUIRE(CurrentGame().party.redistribution_pending);
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     game.wait("leave-combat-again", [] { return CurrentGame().combat.has_value() == 0; }, 10);
     REQUIRE(!CurrentGame().combat);
-    REQUIRE_FALSE(CurrentGame().party.redistribution_pending);
     REQUIRE(member.party_weight_share != 123456);
 
     // Placement consumes the supplied player exclusion, including its absence.

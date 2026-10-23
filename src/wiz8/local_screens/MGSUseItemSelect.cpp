@@ -244,7 +244,7 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         ScrollTextBoxTo(use_item->selected_line);
         return;
     }
-    if (CanPartySlotUseRecordedItem(party_slot)) {
+    if (CurrentGame().spellcasting.canPartySlotUseRecordedItem(party_slot)) {
         MainGame()->item_drag.reset();
         item = CurrentGame().party.itemAt(
             CurrentGame().party.rows[party_slot].remembered.item_detail.item_use.item);
@@ -455,7 +455,7 @@ static bool IsUseItemFilteredOut(W8ItemInstance* item)
     }
     if (!CanCharacterActivateItem(
             &CurrentGame().party.characters[CurrentGame().status.selected_character], item)) {
-        if (CanCastFromItem(
+        if (CurrentGame().spellcasting.canCastFromItem(
                 &CurrentGame().party.characters[CurrentGame().status.selected_character], item)) {
             return false;
         }
@@ -574,10 +574,10 @@ void SelectUseItemLine(int iTextLine)
         CloseUseItemSelectView();
         return;
     }
-    if (CanCastFromItem(&CurrentGame().party.characters[CurrentGame().status.selected_character],
-                        item)) {
-        LearnSpellFromItem(&CurrentGame().party.characters[CurrentGame().status.selected_character],
-                           location);
+    if (CurrentGame().spellcasting.canCastFromItem(
+            &CurrentGame().party.characters[CurrentGame().status.selected_character], item)) {
+        CurrentGame().spellcasting.learnSpellFromItem(
+            &CurrentGame().party.characters[CurrentGame().status.selected_character], location);
         CloseUseItemSelectView();
         return;
     }

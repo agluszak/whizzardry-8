@@ -186,7 +186,7 @@ void SubMenuOpenUseItemView(void)
 void SubMenuUseRecordedItem(void)
 {
     DestroySubMenuControls();
-    StartCharacterItemUse(CurrentGame().status.selected_character);
+    CurrentGame().spellcasting.startCharacterItemUse(CurrentGame().status.selected_character);
 }
 
 void SubMenuOpenSpellView(void)
@@ -198,7 +198,7 @@ void SubMenuOpenSpellView(void)
 void SubMenuCastRecordedSpell(void)
 {
     DestroySubMenuControls();
-    StartCharacterSpellCast(CurrentGame().status.selected_character, 0);
+    CurrentGame().spellcasting.startCharacterSpellCast(CurrentGame().status.selected_character, 0);
 }
 
 void SubMenuSelectRun(void)
@@ -1217,7 +1217,8 @@ bool BuildSubMenuPanel(short notification)
         if (menu == W8_SUBMENU_ITEMS && entry == 2) {
             button->SetTooltip([] {
                 const int slot = CurrentGame().status.selected_character;
-                if (!CanPartySlotUseRecordedItem(slot)) return std::string(Data().strings[0x5d]);
+                if (!CurrentGame().spellcasting.canPartySlotUseRecordedItem(slot))
+                    return std::string(Data().strings[0x5d]);
                 const auto& row = CurrentGame().party.rows[slot];
                 const auto* item =
                     CurrentGame().party.itemAt(row.remembered.item_detail.item_use.item);
@@ -1305,8 +1306,9 @@ W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
                 return CheckSubMenuActionUsable(party_slot, W8_ACTION_USE_ITEM);
             }
         } else if (item == 2) {
-            return CanPartySlotUseRecordedItem(party_slot) ? W8_SUBMENU_ENTRY_USABLE
-                                                           : W8_SUBMENU_ENTRY_UNAVAILABLE;
+            return CurrentGame().spellcasting.canPartySlotUseRecordedItem(party_slot)
+                       ? W8_SUBMENU_ENTRY_USABLE
+                       : W8_SUBMENU_ENTRY_UNAVAILABLE;
         }
         break;
     case W8_SUBMENU_SPELLS:
@@ -1315,8 +1317,8 @@ W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
                 return CheckSubMenuActionUsable(party_slot, W8_ACTION_CAST_SPELL);
             }
         } else if (item == 1) {
-            if (CanPartySlotCastRecordedSpell(party_slot) ||
-                GetAffordableSpellPowerLevel(party_slot) != 0) {
+            if (CurrentGame().spellcasting.canPartySlotCastRecordedSpell(party_slot) ||
+                CurrentGame().spellcasting.getAffordableSpellPowerLevel(party_slot) != 0) {
                 return W8_SUBMENU_ENTRY_USABLE;
             }
         }

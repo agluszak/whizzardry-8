@@ -6,6 +6,7 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -60,7 +61,7 @@ bool PainActivator(Trigger* trigger)
     W8Dice dice;
 
     SetDice(&dice, 1, 0x28, 0x1e);
-    ApplyRolledHealthChangeToParty(&dice, 0, 1);
+    CurrentGame().vitality.applyRolledHealthChangeToParty(&dice, 0, 1);
     return false;
 }
 

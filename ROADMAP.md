@@ -202,9 +202,9 @@ the licensed runtime scenarios after every step.
      from its members and explicit inputs.
    - The main game, the camp and the camp's items page borrow the router's `Pointer`,
      but the free functions in `local_screens`, the dialogs and text entry, the targeting
-     presentation, the world cursor (`entities/cursor.cpp`) and two readers in combat
-     (`GateActionSwitch`, `AutoAdvanceSelectedCharacter`, which ask whether a target is
-     being picked) still reach it through `ScreenPointer()`. They should receive it with
+     presentation, the world cursor (`entities/cursor.cpp`) and one reader in combat
+     (`AutoAdvanceSelectedCharacter`, which asks whether a target is being picked) still
+     reach it through `ScreenPointer()`. They should receive it with
      the HUD, and the accessor then goes.
    - The HUD panels below `ApplyMainGameRepaint` (portraits and their bars, the text box,
      submenu, formation board, monster list, radar) still read the HUD, the game and
@@ -224,6 +224,11 @@ the licensed runtime scenarios after every step.
      combat panel (`RequestRefreshPartyState` in `Combat Hostility.cpp`,
      `MonsterManager.cpp`, `world.cpp` and `entities/cursor.cpp`, which the existing
      `CombatPanelChanged` event already presents).
+   - Music is module state in `music_playlist.cpp` (the parsed playlist, its playback,
+     fade and pause) that game code drives directly (`StartMusicResource` from combat,
+     camping and the monster manager) and that reads `CurrentGame()` to suppress pauses
+     in a fight. It should be a player the Application owns and the screens receive,
+     with game code asking for music through events.
 6. **Conditions, magic and combat in `rules`.**
    - `Combat` is owned by the game (`std::optional<Combat>`, `beginCombat`/`endCombat`)
      and its turn is a value stepped by `Combat::step`, with the scheduler and the
@@ -243,11 +248,16 @@ the licensed runtime scenarios after every step.
        auto-advance (`AutoAdvanceSelectedCharacter`). `Health Stamina Mana.cpp` still
        posts its notices directly.
      - Attack resolution (`StartCharacterAttack`, `ResolveCharacterAttack`,
-       `StartMonsterAttack`, `ContinueMonsterAttack`), conditions and spells are free
-       functions that reach the game through `CurrentGame()`; so do the fight's other
-       operations in `combat/fight.cpp` (rounds, surprise, the end check, action
-       choices). They should take the game, then a `RuleContext`, and return what
-       happened instead of reporting it.
+       `StartMonsterAttack`, `ContinueMonsterAttack`, `GetMonsterAttackScore`,
+       `ChooseAttackMode`), spell effects (`Magic Effects.cpp`) and monster conditions
+       (`ConditionsAndEnchantments.cpp`) are free functions that reach the game through
+       `CurrentGame()`; so do the fight's other operations in `combat/fight.cpp`
+       (rounds, surprise, the end check, action choices). They should become classes
+       constructed with the game they act on, like `Vitality`, `Spellcasting`,
+       `EffectConditions` and `MissileFiring`, with these free functions deleted rather
+       than given a `Game&` parameter, and return what happened instead of reporting it.
+       Callers that are still free functions reach those classes through
+       `CurrentGame()` until they become classes themselves.
      - `Combat::waitingOn` still polls each step: the camera's transition, each combat
        monster (`Monster::HoldsCombatTurn`, which keeps the cycle, frame-threshold and
        facing rules inside the entity) and the missiles in flight (`BlocksEndingCombat`,
@@ -363,8 +373,6 @@ Questions to settle, usually against the retail executable, traces or saves,
 before the related refactoring changes behavior.
 
 - **Retail semantics to confirm.**
-  - Whether swings really use the previous pass's damage bonus in observable play,
-    and how many stat passes retail runs per operation.
   - Whether `GiveHeldItemToCharacterOrParty`'s party-first refusal discards the
     held item.
   - Whether `CountCharacterItem`'s backpack count (which reads the equipment slot

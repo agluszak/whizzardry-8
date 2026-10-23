@@ -168,11 +168,14 @@ TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed 
 
 TEST_CASE("A deflected stored-spell missile keeps its outcome outside combat")
 {
-    const ScopedGame game_scope;
+    const GameData data{.missiles = std::vector<W8MissileTableRecord>(36)};
+    const ScopedGameData missile_data{data};
+    const ScopedGame game_scope(data);
     Game& game = game_scope.game;
-    const ScopedGameData missile_data{GameData{.missiles = std::vector<W8MissileTableRecord>(36)}};
     game.level.replacePrimary(std::make_unique<World>());
     World& world = *game.level.primary;
+    // The level's entities report to the game that owns it.
+    REQUIRE(world.simulation == &game.signals);
     Monster target(&world);
     target.location_id = 7;
     target.nav.movement.location_id = target.location_id;

@@ -132,13 +132,13 @@ bool Trynnie1Script::fountRandomFX(Trigger* pTrigger)
             return true;
         }
     } else if (roll < 50) {
-        RestorePartySpellPoints(-1);
+        CurrentGame().vitality.restorePartySpellPoints(-1);
         wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
         return true;
     } else if (roll < 75) {
         for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
             if (ctx.party.members[i].has_value()) {
-                HealCharacter(i, 100, false);
+                CurrentGame().vitality.healCharacter(i, 100, false);
             }
         }
         wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
@@ -146,7 +146,7 @@ bool Trynnie1Script::fountRandomFX(Trigger* pTrigger)
     } else {
         for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
             if (ctx.party.members[i].has_value()) {
-                RestoreCharacterStamina(i, 100, false);
+                CurrentGame().vitality.restoreCharacterStamina(i, 100, false);
             }
         }
     }

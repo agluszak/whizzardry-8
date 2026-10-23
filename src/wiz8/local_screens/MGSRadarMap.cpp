@@ -150,7 +150,7 @@ void RadarMap::update(const W8TargetingPresentation& presentation)
     if (frame_ != 0) {
         frame_->rotation = static_cast<float>((game_.status.party_facing) * -0.017453292519943295);
     }
-    detect_all = PartyHasCondition(0x40);
+    detect_all = game_.spellcasting.partyHasCondition(0x40);
 
     for (const auto& world_item : CurrentLevelPopulation().world_items) {
         WorldItemEntity* item = world_item->entity.find();

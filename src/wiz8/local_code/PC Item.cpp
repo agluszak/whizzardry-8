@@ -870,7 +870,8 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
     W8Character* character = &CurrentGame().party.characters[party_slot];
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
-        record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
+        record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER ||
+        CurrentGame().spellcasting.canCastFromItem(character, item)) {
         return !CurrentGame().combat.has_value() && !CurrentGame().activity.conversation_aside &&
                !LockInteractionSuspended() && !TrapInteractionSuspended();
     }
@@ -881,7 +882,7 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
 
     return SpellHasAnyValidTarget(party_slot, record->spell_id,
                                   ItemClassNormalizesTarget(record)) &&
-           SpellUsableNow(record->spell_id, false);
+           CurrentGame().spellcasting.spellUsableNow(record->spell_id, false);
 }
 
 /* Validate an item's embedded spell for use now; nonzero reports use blocked
@@ -893,7 +894,8 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
     W8Character* character = &CurrentGame().party.characters[character_index];
 
     if (record->equip_class == W8_ITEM_EQUIP_CLASS_KEY ||
-        record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER || CanCastFromItem(character, item)) {
+        record->equip_class == W8_ITEM_EQUIP_CLASS_OTHER ||
+        CurrentGame().spellcasting.canCastFromItem(character, item)) {
         if (CurrentGame().combat.has_value() || CurrentGame().activity.conversation_aside ||
             LockInteractionSuspended() || TrapInteractionSuspended()) {
             ShowNoticeLine(Data().strings[0x7a6], callback, true, false);
@@ -913,7 +915,7 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
             return true;
         }
     }
-    if (!SpellUsableNow(record->spell_id, false)) {
+    if (!CurrentGame().spellcasting.spellUsableNow(record->spell_id, false)) {
         ShowNoticeLine(Data().strings[0x7a6], callback, true, false);
         return true;
     }
@@ -970,7 +972,8 @@ unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
                                   unsigned int skill_level, unsigned int spell_id,
                                   unsigned int power)
 {
-    unsigned int failure = GetSpellFailureChance(skill_level, spell_id, power);
+    unsigned int failure =
+        CurrentGame().spellcasting.getSpellFailureChance(skill_level, spell_id, power);
     unsigned int shortfall;
     int minimum_caster_level;
     int caster_level;
@@ -1060,7 +1063,8 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
           record->equip_class < W8_ITEM_EQUIP_CLASS_KEY))
             ? 1
             : 0;
-    if (!ValidateSpellTarget(party_slot, spell_id, power, true, rejected_spell)) {
+    if (!CurrentGame().spellcasting.validateSpellTarget(party_slot, spell_id, power, true,
+                                                        rejected_spell)) {
         return 0;
     }
 
@@ -1073,7 +1077,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
         } else {
             difficulty = GetItemUseDifficulty(character, skill, character->skills[skill].level,
                                               spell_id, power);
-            ScaleByCombatPace(party_slot, &difficulty);
+            CurrentGame().spellcasting.scaleByCombatPace(party_slot, &difficulty);
             if (!item->identified) {
                 difficulty += 0x1e;
             }
@@ -1082,7 +1086,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
     SetTargetSourceToCharacter(party_slot, &target);
     target.item_cast = true;
-    TrackItemSpellSource(character, spell_id);
+    CurrentGame().spellcasting.trackItemSpellSource(character, spell_id);
 
     if (skill == W8_SKILL_THROWING_SLING) {
         difficulty_kind = W8SpellCastKind::ThrowingItemUse;
@@ -1097,8 +1101,8 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
         difficulty_kind = W8SpellCastKind::ItemUse;
         caster_figure = character->uiExpLevel;
     }
-    target.spell_difficulty =
-        static_cast<unsigned char>(GetSpellDifficulty(caster_figure, spell_id, power));
+    target.spell_difficulty = static_cast<unsigned char>(
+        CurrentGame().spellcasting.getSpellDifficulty(caster_figure, spell_id, power));
 
     if (record->sound_name.size() != 0) {
 
@@ -1107,9 +1111,9 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 
     {
         int power_out = static_cast<int>(power);
-        effect = CastSpellFromSource(spell_id, &target,
-                                     &CurrentGame().party.rows[party_slot].executing.target, power,
-                                     0, difficulty, false, &power_out, difficulty_kind, 0, 0);
+        effect = CurrentGame().spellcasting.castSpellFromSource(
+            spell_id, &target, &CurrentGame().party.rows[party_slot].executing.target, power, 0,
+            difficulty, false, &power_out, difficulty_kind, 0, 0);
         power = static_cast<unsigned int>(power_out);
     }
 
@@ -1130,8 +1134,9 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
     }
 
     if (skill != W8_SKILL_NONE) {
-        if (AttemptSpellPractice(spell_id, &CurrentGame().party.rows[party_slot].executing.target,
-                                 power, static_cast<std::uint64_t>(CurrentGame().time.count()))) {
+        if (CurrentGame().spellcasting.attemptSpellPractice(
+                spell_id, &CurrentGame().party.rows[party_slot].executing.target, power,
+                static_cast<std::uint64_t>(CurrentGame().time.count()))) {
             PracticeCharacterSkill(CurrentGame(), character, skill,
                                    Data().spells[spell_id].spell_level + (power >> 1), false);
         }

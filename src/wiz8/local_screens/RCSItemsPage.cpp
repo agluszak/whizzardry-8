@@ -216,8 +216,8 @@ void W8CampItemsPage::UseCampItem(W8ItemLocation location)
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
         return;
     }
-    if (CanCastFromItem(camp.reviewed, item)) {
-        LearnSpellFromItem(camp.reviewed, location);
+    if (CurrentGame().spellcasting.canCastFromItem(camp.reviewed, item)) {
+        CurrentGame().spellcasting.learnSpellFromItem(camp.reviewed, location);
     } else {
         if (!IsUsableItemClass(item) || IsSpecialItemId(item)) {
             if (auto* main_game = MainGame()) {
@@ -337,8 +337,8 @@ void W8CampItemsPage::TargetCharacterWithHeldItem(unsigned int uiTargetChar)
 
 bool CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item)
 {
-    if (CanCharacterActivateItem(character, item) || CanCastFromItem(character, item) ||
-        IsUsableItemClass(item)) {
+    if (CanCharacterActivateItem(character, item) ||
+        CurrentGame().spellcasting.canCastFromItem(character, item) || IsUsableItemClass(item)) {
         return true;
     }
     return false;
@@ -407,7 +407,8 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, W8ItemInstance* i
         }
         if (item_action == W8_CAMP_ITEM_ACTION_USE) {
             if (CanCharacterActivateItem(camp.reviewed, item) ||
-                CanCastFromItem(camp.reviewed, item) || IsUsableItemClass(item)) {
+                CurrentGame().spellcasting.canCastFromItem(camp.reviewed, item) ||
+                IsUsableItemClass(item)) {
                 camp.pointer.showSlot(camp.pointer.targetingSlot(alternate));
             }
             return;
@@ -2011,7 +2012,7 @@ void W8CampItemsPage::UpdateControls(bool shown)
                 if (spell->spell_point_cost > camp.reviewed->iSPLeft[spell->realm]) {
                     break;
                 }
-                if (!SpellUsableNow(W8_SPELL_IDENTIFY_ITEM, false)) {
+                if (!CurrentGame().spellcasting.spellUsableNow(W8_SPELL_IDENTIFY_ITEM, false)) {
                     break;
                 }
                 if (!(camp.game.party.held.item.iItemNo != -1)) {
@@ -2031,7 +2032,8 @@ void W8CampItemsPage::UpdateControls(bool shown)
                 if (spell->spell_point_cost > camp.reviewed->iSPLeft[spell->realm]) {
                     break;
                 }
-                control->SetEnabled(SpellUsableNow(W8_SPELL_REMOVE_CURSE, false));
+                control->SetEnabled(
+                    CurrentGame().spellcasting.spellUsableNow(W8_SPELL_REMOVE_CURSE, false));
                 continue;
             }
             control->SetEnabled(false);

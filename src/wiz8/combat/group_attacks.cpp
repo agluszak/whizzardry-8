@@ -225,7 +225,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        DamageCharacter(iChar, uiDamage, true);
+                        CurrentGame().vitality.damageCharacter(iChar, uiDamage, true);
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];
@@ -242,7 +242,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                         AnnounceEffectResisted(&target);
                     } else {
                         for (drain = 0; drain < 6; ++drain) {
-                            DrainCharacterRealmSpellPoints(
+                            CurrentGame().vitality.drainCharacterRealmSpellPoints(
                                 iChar, g_special_attack_realm_table[special_attack_kind], uiDamage,
                                 true);
                         }
@@ -261,7 +261,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        FatigueCharacter(iChar, uiDamage, false, 0);
+                        CurrentGame().vitality.fatigueCharacter(iChar, uiDamage, false, 0);
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];
@@ -279,7 +279,8 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        ApplyDamageToCharacter(iChar, uiDamage, false, announce, false, 0, false);
+                        CurrentGame().vitality.applyDamageToCharacter(iChar, uiDamage, false,
+                                                                      announce, false, 0, false);
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];
@@ -332,8 +333,8 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        ApplyDamageToMonster(monster_info, uiDamage, pSource, false, 1, 0, 0,
-                                             false);
+                        CurrentGame().vitality.applyDamageToMonster(monster_info, uiDamage, pSource,
+                                                                    false, 1, 0, 0, false);
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];
@@ -383,8 +384,8 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        ApplyDamageToMonster(monster_info, uiDamage, pSource, false, announce, 0, 0,
-                                             false);
+                        CurrentGame().vitality.applyDamageToMonster(monster_info, uiDamage, pSource,
+                                                                    false, announce, 0, 0, false);
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];

@@ -157,9 +157,9 @@ ActionStep ReleaseMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8Mons
     if (g_special_attack_table[record->special_attack_kind][0] != 6) {
         monster_info->entity->visual.aim_set = false;
         PointCameraAtCombatTarget(&source, &monster_info->Target);
-        PopulateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, &monster_info->Target,
-                                   monster_targets, char_targets,
-                                   W8AreaSightRule::RequireLineOfSight);
+        CurrentGame().spellcasting.populateSpellTargetMarkers(
+            W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, &monster_info->Target, monster_targets,
+            char_targets, W8AreaSightRule::RequireLineOfSight);
         ProvokeListedMonsterGroups(&source, monster_targets);
     }
     ResolveMonsterGroupAttack(record->special_attack_kind, &source, &monster_info->Target,
@@ -202,7 +202,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
                  slot->executing.kind == W8_ACTION_BERSERK) &&
                 CharacterCanSwitchTo(
                     party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
-                    false, false)) {
+                    false)) {
                 PrepareCharacterAttacks(party_slot);
             }
         } else if ((slot->executing.kind == W8_ACTION_ATTACK ||
@@ -225,7 +225,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
         }
         if (!CharacterCanSwitchTo(
                 party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
-                false, false)) {
+                false)) {
             slot->executing.kind = W8_ACTION_NONE;
             action = W8_ACTION_NONE;
         }
@@ -288,7 +288,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
         }
         if (CharacterCanSwitchTo(party_slot,
                                  SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
-                                 false, false)) {
+                                 false)) {
             FaceCharacterTowardCombatTarget(party_slot, &slot->executing.target);
         }
     }
@@ -306,13 +306,14 @@ void ExecuteCharacterAction(Game& game, int party_slot)
         int cast;
         int spent = 0;
         do {
-            cast = ExecuteCharacterSpellCast(party_slot, detail, power, &step_cost, false);
+            cast = game.spellcasting.executeCharacterSpellCast(party_slot, detail, power,
+                                                               &step_cost, false);
             if (cast == 0) {
                 result = 0;
             }
             spent += step_cost;
         } while (cast == 2 && power == 8 &&
-                 SpellCastFatigueCost(detail, 1) + spent <= character->stamina &&
+                 game.vitality.spellCastFatigueCost(detail, 1) + spent <= character->stamina &&
                  Data().spells[detail].spell_point_cost <=
                      character->iSPLeft[Data().spells[detail].realm]);
         fatigue_cost = spent;
@@ -330,7 +331,8 @@ void ExecuteCharacterAction(Game& game, int party_slot)
     case W8_ACTION_TURN_UNDEAD:
         if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 &&
             TurnUndead(party_slot, true) > 0) {
-            fatigue_cost = CharacterActionFatigueCost(party_slot, W8_ACTION_TURN_UNDEAD);
+            fatigue_cost =
+                game.vitality.characterActionFatigueCost(party_slot, W8_ACTION_TURN_UNDEAD);
         } else {
             result = 0;
         }
@@ -392,8 +394,9 @@ void ExecuteCharacterAction(Game& game, int party_slot)
         }
     }
     if (action != W8_ACTION_ATTACK && action != W8_ACTION_BERSERK) {
-        if (!fatigue_cost) fatigue_cost = CharacterActionFatigueCost(party_slot, action);
-        FatigueCharacter(party_slot, *fatigue_cost, true, nullptr);
+        if (!fatigue_cost)
+            fatigue_cost = game.vitality.characterActionFatigueCost(party_slot, action);
+        game.vitality.fatigueCharacter(party_slot, *fatigue_cost, true, nullptr);
     }
     if (game.combat.has_value()) {
         game.combat->setStepOf(PartyActor{party_slot}, ActionStep::resolving);
@@ -642,9 +645,10 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
             break;
         case W8_MONSTER_ACTION_SPELL: {
             int spell_id = monster_info->action_detail;
-            unsigned int power = ChooseMonsterSpellPowerLevel(monster_info, record, spell_id);
+            unsigned int power =
+                game.spellcasting.chooseMonsterSpellPowerLevel(monster_info, record, spell_id);
             if (!CanMonsterAimSpell(monster_info, spell_id) ||
-                !MonsterOKToCastSpell(monster_info, spell_id, power)) {
+                !game.spellcasting.monsterOKToCastSpell(monster_info, spell_id, power)) {
                 result = 0;
                 break;
             }
@@ -718,13 +722,13 @@ ActionStep Combat::releaseCharacterBreath(Game& game, int party_slot)
     }
     breath_visual->auto_release = true;
     SetTargetSourceToCharacter(party_slot, &source);
-    PopulateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source,
-                               &game.party.rows[party_slot].executing.target, monster_targets,
-                               char_targets, W8AreaSightRule::RequireLineOfSight);
+    game.spellcasting.populateSpellTargetMarkers(
+        W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, &game.party.rows[party_slot].executing.target,
+        monster_targets, char_targets, W8AreaSightRule::RequireLineOfSight);
     ProvokeListedMonsterGroups(&source, monster_targets);
     ResolveMonsterGroupAttack(0x1e, &source, &game.party.rows[party_slot].executing.target,
                               char_targets, monster_targets);
-    FatigueCharacter(
+    game.vitality.fatigueCharacter(
         party_slot,
         static_cast<int>(static_cast<unsigned int>(game.party.characters[party_slot].uiStaminaMax) /
                          5),
@@ -752,8 +756,9 @@ bool Combat::startCharacterBreath(Game& game, int party_slot)
 
     SetTargetSourceToCharacter(party_slot, &source);
     target = &game.party.rows[party_slot].executing.target;
-    PopulateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, target, monster_targets,
-                               char_targets, W8AreaSightRule::RequireLineOfSight);
+    game.spellcasting.populateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, target,
+                                                 monster_targets, char_targets,
+                                                 W8AreaSightRule::RequireLineOfSight);
     if (monster_targets.empty()) {
         game.events.push(
             CharacterNotice{static_cast<unsigned int>(party_slot),

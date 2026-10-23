@@ -690,7 +690,7 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
         }
         break;
     case W8_RT_AI_FOLLOW_LURE:
-        effect = FindMonsterControlSpellEffect();
+        effect = CurrentGame().spellcasting.findMonsterControlSpellEffect();
         if (!effect) break;
         if (monster.nav.SetMovementTargetToAnchor(effect->target.point, 2500.0) == 0) {
             position = effect->target.point;
@@ -1216,7 +1216,7 @@ bool IsSpellUsableByMonster(W8MonsterInfo* monster_info, int spell_id, bool need
     if (Data().spells[spell_id].monster_castable == 0) {
         return false;
     }
-    if (IsSpellBlockedForMonster(monster_info, spell_id)) {
+    if (CurrentGame().spellcasting.isSpellBlockedForMonster(monster_info, spell_id)) {
         return false;
     }
     if (DispatchWorldCursorNodeCommand(monster_info, 4, 0) != 0) {
@@ -1295,10 +1295,11 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
             unsigned int power_level;
 
             SetTargetSourceToMonster(monster_info, &source);
-            power_level = ChooseMonsterSpellPowerLevel(
+            power_level = CurrentGame().spellcasting.chooseMonsterSpellPowerLevel(
                 monster_info, GetMonsterDataForInfo(monster_info), spell_id);
-            PopulateSpellTargetMarkers(spell_id, power_level, &source, combat_slot, monster_markers,
-                                       party_markers, W8AreaSightRule::RequireLineOfSight);
+            CurrentGame().spellcasting.populateSpellTargetMarkers(
+                spell_id, power_level, &source, combat_slot, monster_markers, party_markers,
+                W8AreaSightRule::RequireLineOfSight);
             for (index = 0; index < static_cast<int>(party_markers.size()); ++index) {
                 ++total;
                 ResetCombatSlot(&probe);
@@ -1694,10 +1695,11 @@ bool SpellAreaHitsNeutralMonster(W8MonsterInfo* monster_info, int spell_id,
         return false;
     }
     SetTargetSourceToMonster(monster_info, &source);
-    power_level =
-        ChooseMonsterSpellPowerLevel(monster_info, GetMonsterDataForInfo(monster_info), spell_id);
-    PopulateSpellTargetMarkers(spell_id, power_level, &source, combat_slot, monster_markers,
-                               party_markers, W8AreaSightRule::RequireLineOfSight);
+    power_level = CurrentGame().spellcasting.chooseMonsterSpellPowerLevel(
+        monster_info, GetMonsterDataForInfo(monster_info), spell_id);
+    CurrentGame().spellcasting.populateSpellTargetMarkers(
+        spell_id, power_level, &source, combat_slot, monster_markers, party_markers,
+        W8AreaSightRule::RequireLineOfSight);
     for (index = 0; index < static_cast<int>(monster_markers.size()); ++index) {
         target = FindMonster(monster_markers[index]);
         if (target->ubDisposition == W8_DISPOSITION_NEUTRAL) {
@@ -2277,7 +2279,7 @@ float GetGroupNearestDistance(W8MonsterGroup* group)
 /* Follow the saved gameplay anchor even when no lure visual could be created. */
 short IsMonsterControlPointInRange(W8MonsterInfo* monster_info)
 {
-    const auto* effect = FindMonsterControlSpellEffect();
+    const auto* effect = CurrentGame().spellcasting.findMonsterControlSpellEffect();
     if (!effect) return 0;
     const auto& anchor = effect->target.point;
     auto& nav = monster_info->entity->nav;
@@ -2459,10 +2461,11 @@ bool MonsterSpellHasPartyTarget(W8MonsterInfo* monster_info, int spell_id, W8Com
     unsigned int power_level;
 
     SetTargetSourceToMonster(monster_info, &source);
-    power_level =
-        ChooseMonsterSpellPowerLevel(monster_info, GetMonsterDataForInfo(monster_info), spell_id);
-    PopulateSpellTargetMarkers(spell_id, power_level, &source, slot, monster_markers, party_markers,
-                               W8AreaSightRule::RequireLineOfSight);
+    power_level = CurrentGame().spellcasting.chooseMonsterSpellPowerLevel(
+        monster_info, GetMonsterDataForInfo(monster_info), spell_id);
+    CurrentGame().spellcasting.populateSpellTargetMarkers(spell_id, power_level, &source, slot,
+                                                          monster_markers, party_markers,
+                                                          W8AreaSightRule::RequireLineOfSight);
     return !party_markers.empty();
 }
 

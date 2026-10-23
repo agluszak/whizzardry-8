@@ -5,6 +5,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -127,7 +128,7 @@ bool Monastery1Script::coffinlidg(Trigger* trigger)
     glm::vec3 position;
 
     position = cameraLocation(world());
-    PointCastSpell(position, W8_SPELL_NOXIOUS_FUMES, 3);
+    CurrentGame().spellcasting.pointCastSpell(position, W8_SPELL_NOXIOUS_FUMES, 3);
     return true;
 }
 

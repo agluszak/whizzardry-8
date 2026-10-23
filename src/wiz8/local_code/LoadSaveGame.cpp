@@ -1065,7 +1065,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
         chunks, W8_CHUNK_FACTION_STATE,
         wiz8::save::encode(wiz8::save::Factions{story.faction_relations, story.factions}));
     WriteChunkPayload(chunks, W8_CHUNK_JOURNAL, wiz8::save::encode(story.journal));
-    if (const auto* control = FindMonsterControlSpellEffect())
+    if (const auto* control = CurrentGame().spellcasting.findMonsterControlSpellEffect())
         WriteChunkPayload(chunks, W8_CHUNK_MONSTER_CONTROL, wiz8::save::encode(*control));
     RequireSection(SaveStatusHeader(&chunks), "level status");
 }

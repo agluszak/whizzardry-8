@@ -585,9 +585,9 @@ void AdvanceTimedEffects(unsigned int minutes)
         CurrentGame().events.push(PartyPanelChanged{});
     }
     for (unsigned int remaining = minutes; remaining != 0; --remaining) {
-        TickSpellEffects();
+        CurrentGame().spellcasting.tickSpellEffects();
     }
-    W8SpellEffectEntry* control = FindMonsterControlSpellEffect();
+    W8SpellEffectEntry* control = CurrentGame().spellcasting.findMonsterControlSpellEffect();
     if (control != 0 && control->turns_remaining != 0) {
         ApplyMonsterControlToNearbyMonsters(control);
     }
@@ -619,8 +619,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
             CurrentGame().combat.has_value()) {
             damage += damage >> 1;
         }
-        ApplyDamageToCharacter(party_slot, damage, true, true, false,
-                               static_cast<W8SpellEffectResult*>(0), false);
+        CurrentGame().vitality.applyDamageToCharacter(party_slot, damage, true, true, false,
+                                                      static_cast<W8SpellEffectResult*>(0), false);
     }
 
     if (character->uiCondition[W8_CONDITION_DISEASED] != 0) {
@@ -733,8 +733,9 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                 }
             }
             if (hits != 0) {
-                ApplyDamageToCharacter(party_slot, hits, false, true, false,
-                                       static_cast<W8SpellEffectResult*>(0), false);
+                CurrentGame().vitality.applyDamageToCharacter(party_slot, hits, false, true, false,
+                                                              static_cast<W8SpellEffectResult*>(0),
+                                                              false);
             }
             if (character->uiCondition[W8_CONDITION_HEXED] == 0) {
                 InflictCondition(
@@ -764,36 +765,38 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     signed char health_mod = character->bonus.health_regen_adjustment;
     if (health_mod > 0) {
         if (character->hp_current < static_cast<unsigned int>(character->uiHPMax)) {
-            HealCharacter(party_slot, static_cast<int>(health_mod) * static_cast<int>(minutes),
-                          false);
+            CurrentGame().vitality.healCharacter(
+                party_slot, static_cast<int>(health_mod) * static_cast<int>(minutes), false);
         }
     } else if (health_mod < 0) {
-        ApplyDamageToCharacter(party_slot,
-                               -static_cast<int>(health_mod) * static_cast<int>(minutes), false,
-                               true, false, static_cast<W8SpellEffectResult*>(0), false);
+        CurrentGame().vitality.applyDamageToCharacter(
+            party_slot, -static_cast<int>(health_mod) * static_cast<int>(minutes), false, true,
+            false, static_cast<W8SpellEffectResult*>(0), false);
     }
 
     signed char stamina_mod = character->bonus.stamina_regen_adjustment;
     if (stamina_mod > 0) {
         if (character->stamina < character->uiStaminaMax) {
-            RestoreCharacterStamina(party_slot, stamina_mod * static_cast<int>(minutes), false);
+            CurrentGame().vitality.restoreCharacterStamina(
+                party_slot, stamina_mod * static_cast<int>(minutes), false);
         }
     } else if (stamina_mod < 0) {
-        FatigueCharacter(party_slot, -static_cast<int>(stamina_mod * minutes), false,
-                         static_cast<W8SpellEffectResult*>(0));
+        CurrentGame().vitality.fatigueCharacter(party_slot,
+                                                -static_cast<int>(stamina_mod * minutes), false,
+                                                static_cast<W8SpellEffectResult*>(0));
     }
 
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
         signed char spell_mod = character->bonus.spell_regen_adjustment;
         if (spell_mod > 0) {
             if (character->iSPLeft[realm] < character->sp_max[realm]) {
-                RestoreCharacterRealmSpellPoints(party_slot, static_cast<W8SpellRealm>(realm),
-                                                 static_cast<int>(spell_mod) *
-                                                     static_cast<int>(minutes));
+                CurrentGame().vitality.restoreCharacterRealmSpellPoints(
+                    party_slot, static_cast<W8SpellRealm>(realm),
+                    static_cast<int>(spell_mod) * static_cast<int>(minutes));
             }
         } else if (spell_mod < 0) {
-            DrainCharacterRealmSpellPoints(party_slot, static_cast<W8SpellRealm>(realm),
-                                           -static_cast<int>(spell_mod), true);
+            CurrentGame().vitality.drainCharacterRealmSpellPoints(
+                party_slot, static_cast<W8SpellRealm>(realm), -static_cast<int>(spell_mod), true);
         }
     }
 
@@ -842,7 +845,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
         character->health_regen_accumulator =
             minutes * character->health_regen_rate * health_scale +
             character->health_regen_accumulator;
-        HealCharacter(party_slot, static_cast<int>(character->health_regen_accumulator), false);
+        CurrentGame().vitality.healCharacter(
+            party_slot, static_cast<int>(character->health_regen_accumulator), false);
         character->health_regen_accumulator =
             character->health_regen_accumulator -
             static_cast<unsigned int>(character->health_regen_accumulator);
@@ -851,8 +855,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
         character->stamina_regen_accumulator =
             minutes * character->stamina_regen_rate * stamina_scale +
             character->stamina_regen_accumulator;
-        RestoreCharacterStamina(party_slot, static_cast<int>(character->stamina_regen_accumulator),
-                                false);
+        CurrentGame().vitality.restoreCharacterStamina(
+            party_slot, static_cast<int>(character->stamina_regen_accumulator), false);
         character->stamina_regen_accumulator =
             character->stamina_regen_accumulator -
             static_cast<unsigned int>(character->stamina_regen_accumulator);
@@ -863,7 +867,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                 character->spell_regen_rates[realm * 2 + 1] =
                     minutes * character->spell_regen_rates[realm * 2] * spell_scale +
                     character->spell_regen_rates[realm * 2 + 1];
-                RestoreCharacterRealmSpellPoints(
+                CurrentGame().vitality.restoreCharacterRealmSpellPoints(
                     party_slot, static_cast<W8SpellRealm>(realm),
                     static_cast<int>(character->spell_regen_rates[realm * 2 + 1]));
                 character->spell_regen_rates[realm * 2 + 1] =
@@ -1134,8 +1138,8 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 amount += amount >> 1;
             }
             ResetTargetSource(&source);
-            ApplyDamageToMonster(monster_info, amount, &source, true,
-                                 CurrentGame().combat.has_value(), 0, 0, false);
+            CurrentGame().vitality.applyDamageToMonster(
+                monster_info, amount, &source, true, CurrentGame().combat.has_value(), 0, 0, false);
         }
     }
     if (monster_info->uiCondition[W8_CONDITION_DISEASED] != 0) {
@@ -1152,10 +1156,11 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 W8TargetSource source;
 
                 ResetTargetSource(&source);
-                ApplyDamageToMonster(monster_info, -amount, &source, false, 0, 0, 0, false);
+                CurrentGame().vitality.applyDamageToMonster(monster_info, -amount, &source, false,
+                                                            0, 0, 0, false);
             }
         } else if (monster_info->hp_current < static_cast<unsigned int>(monster_info->uiHPMax)) {
-            HealMonster(monster_info, amount, false);
+            CurrentGame().vitality.healMonster(monster_info, amount, false);
         }
     }
     {
@@ -1168,7 +1173,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 FatigueMonster(monster_info, -amount, 0);
             }
         } else if (monster_info->stamina < monster_info->stamina_max) {
-            RestoreMonsterStamina(monster_info, amount, false);
+            CurrentGame().vitality.restoreMonsterStamina(monster_info, amount, false);
         }
     }
     {
@@ -1193,7 +1198,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                     monster_info->hp_regen_accumulator;
                 int healed = static_cast<int>(monster_info->hp_regen_accumulator);
 
-                HealMonster(monster_info, healed, false);
+                CurrentGame().vitality.healMonster(monster_info, healed, false);
                 monster_info->hp_regen_accumulator -= static_cast<float>(healed);
             }
             if (monster_info->stamina < monster_info->stamina_max) {
@@ -1202,7 +1207,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                     monster_info->stamina_regen_accumulator;
                 int restored = static_cast<int>(monster_info->stamina_regen_accumulator);
 
-                RestoreMonsterStamina(monster_info, restored, false);
+                CurrentGame().vitality.restoreMonsterStamina(monster_info, restored, false);
                 monster_info->stamina_regen_accumulator -= static_cast<float>(restored);
             }
         }
@@ -1305,18 +1310,19 @@ void UpdateCampFatigue(int ticks)
                 if (stamina < static_cast<int>(amount)) {
                     if (stamina > 0) {
                         amount -= stamina;
-                        FatigueCharacter(slot, stamina, false,
-                                         static_cast<W8SpellEffectResult*>(0));
+                        CurrentGame().vitality.fatigueCharacter(
+                            slot, stamina, false, static_cast<W8SpellEffectResult*>(0));
                     }
                     bool announce =
                         !CurrentGame().combat.has_value() || g_settings.verbose_combat_messages == 0
                             ? 0
                             : 1;
-                    ApplyDamageToCharacter(slot, amount, false, announce, false,
-                                           static_cast<W8SpellEffectResult*>(0), false);
+                    CurrentGame().vitality.applyDamageToCharacter(
+                        slot, amount, false, announce, false, static_cast<W8SpellEffectResult*>(0),
+                        false);
                 } else {
-                    FatigueCharacter(slot, static_cast<int>(amount), false,
-                                     static_cast<W8SpellEffectResult*>(0));
+                    CurrentGame().vitality.fatigueCharacter(slot, static_cast<int>(amount), false,
+                                                            static_cast<W8SpellEffectResult*>(0));
                 }
             }
             if (!CurrentGame().status.party_fatigued) {
@@ -1375,11 +1381,13 @@ void RegenCharacterStamina(int party_slot, unsigned int elapsed)
     signed char stamina_mod = character->bonus.stamina_regen_adjustment;
     if (stamina_mod < 1) {
         if (stamina_mod < 0) {
-            FatigueCharacter(party_slot, -static_cast<int>(stamina_mod * elapsed), false,
-                             static_cast<W8SpellEffectResult*>(0));
+            CurrentGame().vitality.fatigueCharacter(party_slot,
+                                                    -static_cast<int>(stamina_mod * elapsed), false,
+                                                    static_cast<W8SpellEffectResult*>(0));
         }
     } else if (character->stamina < character->uiStaminaMax) {
-        RestoreCharacterStamina(party_slot, stamina_mod * static_cast<int>(elapsed), false);
+        CurrentGame().vitality.restoreCharacterStamina(
+            party_slot, stamina_mod * static_cast<int>(elapsed), false);
     }
 
     float scale = 1.0f;
@@ -1408,7 +1416,7 @@ void RegenCharacterStamina(int party_slot, unsigned int elapsed)
     if (scale > 0.0f && character->stamina < character->uiStaminaMax) {
         character->stamina_regen_accumulator += elapsed * character->stamina_regen_rate * scale;
         int amount = static_cast<int>(character->stamina_regen_accumulator);
-        RestoreCharacterStamina(party_slot, amount, false);
+        CurrentGame().vitality.restoreCharacterStamina(party_slot, amount, false);
         character->stamina_regen_accumulator -=
             static_cast<float>(static_cast<int>(character->stamina_regen_accumulator));
     }

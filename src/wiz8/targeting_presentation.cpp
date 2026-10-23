@@ -70,8 +70,9 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
             W8TargetSource source;
             SetTargetSourceToCharacter(selected, &source);
             std::vector<int> party;
-            PopulateSpellTargetMarkers(spell, PreviewPower(action), &source, &target,
-                                       result.area_targets, party, W8AreaSightRule::GeometryOnly);
+            CurrentGame().spellcasting.populateSpellTargetMarkers(
+                spell, PreviewPower(action), &source, &target, result.area_targets, party,
+                W8AreaSightRule::GeometryOnly);
             for (int id : result.area_targets) result.monsters[id].tint = {0, 1, 0, 1};
         }
     }
@@ -85,8 +86,9 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
             W8TargetSource source;
             SetTargetSourceToCharacter(actor, &source);
             std::vector<int> party;
-            PopulateSpellTargetMarkers(spell, PreviewPower(action), &source, &action.target,
-                                       targets, party, W8AreaSightRule::RequireLineOfSight);
+            CurrentGame().spellcasting.populateSpellTargetMarkers(
+                spell, PreviewPower(action), &source, &action.target, targets, party,
+                W8AreaSightRule::RequireLineOfSight);
         } else if (action.target.iType == W8_TARGET_KIND_MONSTER) {
             if (FindMonster(action.target.iMonsterID, false))
                 targets.push_back(action.target.iMonsterID);

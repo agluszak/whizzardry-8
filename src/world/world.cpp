@@ -76,7 +76,6 @@
 #include "wiz8/local_code/MonsterGenerator.h" // IWYU pragma: keep
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
@@ -120,7 +119,7 @@ static void UpdateWorld(World& world, std::chrono::milliseconds elapsed)
         if (world.compiledIndex() != 0 && world.script) {
             world.script->runMasters();
         }
-        UpdateSpellEffects();
+        CurrentGame().spellcasting.updateSpellEffects();
     }
 
     SweepFinishedParticles(&world);

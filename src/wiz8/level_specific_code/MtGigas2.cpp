@@ -12,6 +12,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -78,7 +79,7 @@ void WireShock()
         prop->SetPendingAnimationSubcycle(0);
     }
     SetDice(&dice, 2, 4, 1);
-    ApplyRolledHealthChangeToParty(&dice, 0, 1);
+    CurrentGame().vitality.applyRolledHealthChangeToParty(&dice, 0, 1);
     wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 04.wav");
 }
 

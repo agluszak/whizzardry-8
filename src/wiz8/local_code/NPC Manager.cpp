@@ -1335,8 +1335,9 @@ static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character)
     RefreshCharacterSkillAvailability(Data(), &character);
     RecalculateCharacterDerivedStats(CurrentGame(), character);
     for (index = 1; index < 0x73; ++index) {
-        if (source->spells[index - 1] != 0 && CanCharacterLearnSpell(&character, index)) {
-            LearnSpell(&character, index, false);
+        if (source->spells[index - 1] != 0 &&
+            CurrentGame().spellcasting.canCharacterLearnSpell(&character, index)) {
+            CurrentGame().spellcasting.learnSpell(&character, index, false);
         } else {
             character.spell_learned[index] = 0;
         }
