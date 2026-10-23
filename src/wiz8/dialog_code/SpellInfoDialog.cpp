@@ -94,7 +94,7 @@ bool W8SpellInfoDialog::PopulateText()
     bounds.top = m_y + 0x43;
     bounds.right = m_x + 0x11f;
     bounds.bottom = m_y + 0xfc;
-    m_text_area.Configure(&bounds, g_wiz_text_font_secondary, 0);
+    m_text_area.Configure(&bounds, g_wiz_text_font_secondary);
     m_text_area.SetEntrySpacing(1);
 
     record = &Data().spells[m_spell];
@@ -113,19 +113,18 @@ bool W8SpellInfoDialog::PopulateText()
             ++count;
         }
     }
-    m_text_area.AddEntry(Data().strings[0x11c], text, 10, 0xf, 0);
+    m_text_area.AddEntry(Data().strings[0x11c], text, 10, 0xf);
     m_text_area.AddEntry(Data().strings[0x11d],
-                         Data().strings[g_spell_usage_name_ids[record->usable_when]], 10, 0xf, 0);
+                         Data().strings[g_spell_usage_name_ids[record->usable_when]], 10, 0xf);
 
     target_type = GetSpellTargetType(m_spell, false);
     m_text_area.AddEntry(Data().strings[0x11e],
                          fmt::format("{} {}",
                                      Data().strings[g_spell_target_type_name_ids[target_type]],
                                      g_spell_target_parentheticals[target_type]),
-                         10, 0xf, 0);
+                         10, 0xf);
     m_text_area.AddEntry(Data().strings[0x11f],
-                         Data().strings[g_spell_range_name_ids[record->range_category]], 10, 0xf,
-                         0);
+                         Data().strings[g_spell_range_name_ids[record->range_category]], 10, 0xf);
 
     if (record->show_effect_dice != 0 &&
         (record->effect_dice.base != 0 || record->effect_dice.count != 0)) {
@@ -133,14 +132,14 @@ bool W8SpellInfoDialog::PopulateText()
             m_text_area.AddEntry(Data().strings[0x120],
                                  fmt::format("{:d} {}", static_cast<int>(record->effect_dice.base),
                                              Data().strings[0x121]),
-                                 10, 0xf, 0);
+                                 10, 0xf);
         } else {
             m_text_area.AddEntry(
                 Data().strings[0x120],
                 fmt::format("{:d}-{:d} {}",
                             record->effect_dice.count + static_cast<int>(record->effect_dice.base),
                             record->effect_dice.Maximum(), Data().strings[0x121]),
-                10, 0xf, 0);
+                10, 0xf);
         }
     }
 
@@ -203,20 +202,20 @@ bool W8SpellInfoDialog::PopulateText()
         if (display_base > 0) {
             text += Data().strings[0x12a];
         }
-        m_text_area.AddEntry(Data().strings[0x122], text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x122], text, 10, 0xf);
     }
 
     text.clear();
     if ((!(text = GetStringFromStringDatabase(g_spell_effect_database_path, m_spell, 0, 0))
               .empty()) != 0 &&
         text[0] != '\0') {
-        m_text_area.AddEntry(Data().strings[0x12b], text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x12b], text, 10, 0xf);
     }
     text.clear();
     if ((!(text = GetStringFromStringDatabase(g_spell_desc_database_path, m_spell, 0, 0))
               .empty()) != 0 &&
         text[0] != '\0') {
-        m_text_area.AddEntry(Data().strings[0x12c], text, 10, 0xf, 0);
+        m_text_area.AddEntry(Data().strings[0x12c], text, 10, 0xf);
     }
     return true;
 }

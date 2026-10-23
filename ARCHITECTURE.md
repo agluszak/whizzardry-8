@@ -29,14 +29,15 @@ ScreenRouter (file-scope in screen_router.cpp)
   next game continues, and the event presenter. A game begins in party creation
   (`BeginNewGame`) or when a prepared save is installed; either replaces any game in
   progress. It ends when the main menu is entered and at shutdown. Nothing is reset
-  field by field: a new game is a new `Game`. Ending the session explicitly departs
-  its level; a screen's `leave` disposes presentation without ending the game.
+  field by field: a new game is a new `Game`. Ending a session only disposes resources.
+  Replacement explicitly departs the old level before installing the new game;
+  a screen's `leave` disposes presentation without ending the game.
 - **`Game`** owns one play-through: the party and status record, the random stream,
   the story (facts, factions, journal, NPC states, location variables), the message
   log, combat, the activity and advancement, the speech queue, the NPC
   conversation, spell cooldowns, the event log, stored characters, the byte images
   of levels the party has left, and the `Level`. Destroying a game does no
-  departure bookkeeping; the main game leaves the level before its game ends.
+  departure bookkeeping; gameplay departure happens explicitly while the game is live.
 - **`Level`** owns the primary and sky `World`s. Queries borrow those owners, so no
   world outlives its game; replacing a slot hands back the previous owner.
 - **`World`** (`world/world.h`) owns a loaded level: the VSG scene, environment,
@@ -94,7 +95,7 @@ enforces this (the `layer_boundaries` test, and CI's clang-tidy job), and
 | `render/` | VSG scene graph, shared meshes and instance poses, materials, views, Vulkan resources and presentation; publication of the CPU UI canvas. |
 | `spatial/` | `LevelSpatialIndex` (compiled octree, collision), `SurfaceIndex`, the navigation mesh and `Navigator`. Queries take explicit segments and filters and return optional typed hits. |
 | `world/` | `World`, party camera and motion, environment, encounters, level loading. |
-| `entities/` | `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks. Each kind is loaded once into a definition that live entities copy. Entities report hits, landings and release frames to their world's `SimulationSink` rather than resolving them. |
+| `entities/` | `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks. Each kind is loaded once into a resource-only definition (animations and lights outside any scene, events, emitters and authored parameters) from which each live entity is constructed with its own copies, scene attachments and navigator. Entities report hits, landings and release frames to their world's `SimulationSink` rather than resolving them. |
 | `native/` | Application loop, game events, key bindings, FFmpeg movie playback. |
 | `wiz8/` | Gameplay not yet in `rules`, the game and session, saves, screens, dialogs and level scripts. `wiz8/combat/` is the fight. `local_code/`, `local_screens/`, `dialog_code/` and `level_specific_code/` hold the decompiled game code still being migrated. |
 
@@ -110,7 +111,9 @@ saves we write must load in retail.
   and throws otherwise. Unknown and padding bytes live in `retail_opaque_records.h`
   and round-trip unchanged.
 - Runtime types don't mirror retail layout, though types still embedded in disk
-  records keep it until they get records of their own.
+  records keep it until they get records of their own. Wizardry 7 import records
+  are local decoded values; only alignment and two story choices remain on
+  `Game` until opening fact seeding consumes them.
 - Retail UTF-16LE text is decoded to and encoded from UTF-8 explicitly.
 - Four-byte words that were process addresses in retail are never trusted as
   addresses: each is a presence word, a framing word, or a dead constant.
@@ -177,8 +180,11 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   past the current call keeps its id and looks it up again when used.
 - Group counts, active-monster presence and combat membership are queries over
   ownership, not maintained counters.
-- The party's pose is the primary world's `party_camera`. Render cameras derive
-  from it each frame; rendering writes no gameplay state.
+- Each world has a `WorldParty` (`World::party`): the party's pose and its
+  navigator, registered with the world's other movers. Placing or restoring the
+  party moves both. Actors are constructed with their `World&` and use only that
+  world. Render cameras derive from the pose each frame; rendering writes no
+  gameplay state.
 
 ## Scripts
 
@@ -219,7 +225,8 @@ code has a subclass whose members are that state. Trigger callbacks are
 - **Controls and painting.** Controls paint into an explicit `SDL_Surface&`.
   `Draw` never commits; `Refresh` commits a dirty rectangle. Screens record which
   parts the next draw repaints. One `Pointer`, owned by the router, holds the cursor
-  and the targeting request.
+  and the targeting request. The notebook view derives its rows from
+  `Game::story.keywords`; information dialogs own separate append-only paragraphs.
 
 ## Tests
 

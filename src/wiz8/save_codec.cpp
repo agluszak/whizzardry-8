@@ -487,7 +487,7 @@ template<> struct Record<save::GameState> {
               bytes.subspan(offsetof(Disk, game_time_ms), sizeof(Disk::game_time_ms)));
         value(&runtime.status.aging_accumulator,
               bytes.subspan(offsetof(Disk, aging_accumulator), sizeof(Disk::aging_accumulator)));
-        byte_boolean(&runtime.status.search_mode,
+        byte_boolean(&runtime.search_mode,
                      bytes.subspan(offsetof(Disk, search_mode), sizeof(Disk::search_mode)));
         value(&runtime.status.world_suspended,
               bytes.subspan(offsetof(Disk, world_suspended), sizeof(Disk::world_suspended)));
@@ -762,7 +762,7 @@ GameState decode_game_state(std::span<const std::byte> payload)
     Reader records(payload);
     GameState state{};
     retail::decode(records.sized(), state);
-    auto& [status, party] = state;
+    auto& [status, party, search_mode] = state;
     if (party.item_count > std::size(party.item_pool))
         throw std::runtime_error("invalid party inventory count");
     if (status.retail.save_version < 1.1f) {

@@ -77,7 +77,6 @@
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/level_session.h"
@@ -869,7 +868,7 @@ void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
     caster = &CurrentGame().party.characters[pQueue->Source.iChar];
     if (caster->has_saved_location) {
         if (caster->saved_level == GetLoadedLevelID()) {
-            restorePartyPose(*GetWorld(), caster->saved_location);
+            GetWorld()->party.restore(caster->saved_location);
             return;
         }
         CurrentGame().status.pending_move_location = caster->saved_location;
@@ -2557,8 +2556,8 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
             CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             {
                 float reach = CalcRangeDistance(W8_RANGE_SHORT);
-                float radius = PartyNavigator()->radius;
-                glm::vec3 centre = PartyNavigator()->GetPosition();
+                float radius = GetWorld()->party.radius();
+                glm::vec3 centre = GetWorld()->party.position();
                 CollectMonstersWithinRadius(&centre, &centre, found, radius + reach, 1,
                                             W8AreaSightRule::RequireLineOfSight);
             }
@@ -3146,7 +3145,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         assert(TargetSourceIsCharacter(&effect->Source, 0));
         camera_state = &CurrentGame().party.characters[effect->Source.iChar].saved_location;
         world = GetWorld();
-        *camera_state = partyPose(*world);
+        *camera_state = world->party.pose();
         CurrentGame().party.characters[effect->Source.iChar].saved_level = GetLoadedLevelID();
         CurrentGame().party.characters[effect->Source.iChar].has_saved_location = true;
         effect->applied = true;
