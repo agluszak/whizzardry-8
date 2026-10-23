@@ -762,25 +762,41 @@ TEST_CASE("Trade confirmation rejects changed inventory and stock sources", "[tr
     REQUIRE(item == selected.expected);
 }
 
-TEST_CASE("A picker constrains layout without restoring an obsolete preference", "[layout]")
+TEST_CASE("An interaction overrides the layout without changing the preference", "[layout]")
 {
-    const ScopedGame game;
-    struct Restore {
-        std::unique_ptr<W8SpellCastingView> view = std::move(gpSCSV);
-        W8MainUiMode mode = g_settings.main_ui_mode;
-        ~Restore()
-        {
-            gpSCSV = std::move(view);
-            g_settings.main_ui_mode = mode;
-        }
-    } restore;
-    gpSCSV = std::make_unique<W8SpellCastingView>();
-    g_settings.main_ui_mode = W8_MAIN_UI_MODE_RADAR;
-    REQUIRE(GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION);
-    REQUIRE(g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR);
-    g_settings.main_ui_mode = W8_MAIN_UI_MODE_PORTRAITS;
-    gpSCSV.reset();
-    REQUIRE(GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS);
+    W8GameSettings settings{};
+    settings.main_ui_mode = W8_MAIN_UI_MODE_RADAR;
+    const auto picker = MainGameLayout::Decide(settings, true, false);
+    REQUIRE(picker.mode == W8_MAIN_UI_MODE_FORMATION);
+    REQUIRE(picker.interaction);
+    REQUIRE(picker.bottom_panel);
+    REQUIRE_FALSE(picker.formation_board);
+    REQUIRE_FALSE(picker.radar_map);
+    // The world keeps the preferred mode's viewport under the interaction's panel.
+    REQUIRE(picker.viewport == W8_VIEWPORT_MODE_FULL);
+    REQUIRE(settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR);
+    REQUIRE(MainGameLayout::Decide(settings, false, false) ==
+            MainGameLayout{.mode = W8_MAIN_UI_MODE_RADAR, .viewport = W8_VIEWPORT_MODE_FULL});
+
+    settings.main_ui_mode = W8_MAIN_UI_MODE_FORMATION;
+    settings.formation_board_preference = 1;
+    settings.formation_radar_map_preference = 1;
+    settings.formation_action_panel_preference = 1;
+    const auto dialogue = MainGameLayout::Decide(settings, false, true);
+    REQUIRE(dialogue.mode == W8_MAIN_UI_MODE_PORTRAITS);
+    REQUIRE(dialogue.viewport == W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL);
+    REQUIRE_FALSE(dialogue.formation_board);
+    const auto formation = MainGameLayout::Decide(settings, false, false);
+    REQUIRE((formation.formation_board && formation.radar_map && formation.bottom_panel));
+    REQUIRE(formation.viewport == W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL);
+    settings.formation_radar_map_preference = 0;
+    REQUIRE(MainGameLayout::Decide(settings, false, false).viewport == W8_VIEWPORT_MODE_FULL);
+
+    settings.main_ui_mode = W8_MAIN_UI_MODE_PORTRAITS;
+    settings.portraits_action_panel_preference = 0;
+    const auto portraits = MainGameLayout::Decide(settings, false, false);
+    REQUIRE((portraits.formation_board && portraits.radar_map && !portraits.bottom_panel));
+    REQUIRE(portraits.viewport == W8_VIEWPORT_MODE_CENTERED_FULL_HEIGHT);
 }
 
 TEST_CASE("A refused purchase leaves stock, payment and a full destination unchanged", "[trade]")

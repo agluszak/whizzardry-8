@@ -186,11 +186,10 @@ the licensed runtime scenarios after every step.
      most in `MainGameScreen.cpp` and `MGSTextBox.cpp`) reach the HUD through
      `MainGameHud()`, including to mark repaint parts; they should receive it from the
      screen, as its members or as parameters, and `MainGameHud()` then goes. Outside
-     the screens three readers remain: `Targeting.cpp` reads whether a main game exists,
-     and `SelectCombatAction` reads the spell and item drafts the screens own;
+     the screens two readers remain: `Targeting.cpp` reads whether a main game exists,
+     and `SelectCombatAction` reads the spell and item drafts the screens own; and
      `QuoteManager.cpp`'s portrait bubbles read the review transition and pending
-     portrait refreshes; and `PartyCamera::ComputeTrackingOrientation` reads the
-     viewport mode, which the screen should hand the camera when it changes.
+     portrait refreshes.
    - The main game, camp and character screens are built with their game and use it in
      their members, but their free helpers (most of `local_screens`) still reach it and
      the HUD globally. Finish one whole flow first, the main game's HUD and dialogue:

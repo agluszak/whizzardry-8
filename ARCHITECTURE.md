@@ -325,6 +325,10 @@ code has a subclass whose members are that state. Trigger callbacks are
   640×480 design space. A `UiTransaction` spans one input step; objects retired
   during it are destroyed when the outermost transaction ends
   (`DestroyAfterUiDispatch`), so nothing is freed while its own callback runs.
+  In the main game, `MainGameScreen::refreshLayout` decides one `MainGameLayout`
+  (shown mode, panels, world viewport) from the open interaction and the player's
+  preferences and changes only the panels that differ; an interaction overrides
+  the layout, never the preference.
 - **Controls and painting.** Controls paint into an explicit `SDL_Surface&`.
   `Draw` never commits; `Refresh` commits a dirty rectangle. Screens record which
   parts the next draw repaints; the main game's `MainGameRepaint` record is resolved

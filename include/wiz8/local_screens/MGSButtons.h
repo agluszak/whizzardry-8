@@ -64,10 +64,6 @@ void ResetSubMenuPanel(void);
 /* Draw roof chrome and the three buttons; the same repaint draws the combat
    progress gauge. */
 void RedrawRoofButtons(void);
-// Sync roof-button visibility/enabled/pressed state.
-void UpdateRoofButtons(void);
-/* Press the roof button that matches g_settings.main_ui_mode. */
-void SyncRoofButtonPressedState(void);
 // Draw layout-arrow chrome and the visible raise/lower arrows.
 void RedrawLayoutArrowButtons(void);
 /* MainGameScreenEnter's interface-button bank: submenu, scroll, panel,

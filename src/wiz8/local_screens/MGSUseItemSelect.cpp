@@ -173,9 +173,7 @@ bool OpenUseItemSelectView(int slot)
         DestroySubMenuControls();
     }
     CloseNpcDialogueIfActive();
-    CloseMainGameOverlays();
-    RefreshMainGameLayout();
-    RestoreSpellCastingRegions();
+    MainGame()->refreshLayout();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     MainGameHud()->text_box_visible = false;
@@ -195,13 +193,12 @@ void CloseUseItemSelectView(void)
     if (use_item) {
         SetTextBoxScrollInput(false);
         SetTextBoxEnabled(false);
-        MainGameHud()->action_panel_visible = 0;
         SetTargetingMode(W8_TARGET_NEED_NONE);
         ResetEditorStatusLine(-1);
         MainGameHud()->text_box_visible = true;
         SelectTextBox(CurrentGame().combat.has_value());
         use_item.reset();
-        RefreshMainGameLayout();
+        MainGame()->refreshLayout();
         if (auto* hud = MainGameHud()) {
             hud->repaint.layout = true;
             hud->repaint.roof_and_spell_icons = true;

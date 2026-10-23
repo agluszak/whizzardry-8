@@ -303,14 +303,13 @@ static void QueueInteractionNotice(int event_type)
     }
 }
 
-static void EnableActionPanelRegions()
+// The action bar's text box regions follow the bottom panel.
+static void SetActionPanelRegions(bool enabled)
 {
-    if (MainGameHud()->action_panel_visible != 0) {
-        SetTextBoxEnabled(true);
-        SetTextBoxMuteInput(true);
-        SetTextBoxScrollInput(true);
-        SetTextBoxChannelTabInput(true);
-    }
+    SetTextBoxEnabled(enabled);
+    SetTextBoxMuteInput(enabled);
+    SetTextBoxScrollInput(enabled);
+    SetTextBoxChannelTabInput(enabled);
 }
 
 bool LockInteractionSuspended()
@@ -354,8 +353,7 @@ int OpenLockInteraction(Trigger* trigger)
     if (MainGameHud()->open_submenu) {
         DestroySubMenuControls();
     }
-    CloseMainGameOverlays();
-    RefreshMainGameLayout();
+    MainGame()->refreshLayout();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     ResetLevelDataVectors();
@@ -402,7 +400,7 @@ void EndLockInteractMode(signed char suspend)
         ClearLevelMovementStopped();
     }
     SelectTextBox(0);
-    RefreshMainGameLayout();
+    MainGame()->refreshLayout();
     if (auto* hud = MainGameHud()) {
         hud->repaint.layout = true;
         hud->repaint.roof_and_spell_icons = true;
@@ -1758,8 +1756,7 @@ int OpenTrapInteraction(Trigger* trigger)
     if (MainGameHud()->open_submenu) {
         DestroySubMenuControls();
     }
-    CloseMainGameOverlays();
-    RefreshMainGameLayout();
+    MainGame()->refreshLayout();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     ResetLevelDataVectors();
@@ -1818,7 +1815,7 @@ void EndTrapInteractMode(signed char suspend)
         ClearLevelMovementStopped();
     }
     SelectTextBox(0);
-    RefreshMainGameLayout();
+    MainGame()->refreshLayout();
     if (auto* hud = MainGameHud()) {
         hud->repaint.layout = true;
         hud->repaint.roof_and_spell_icons = true;
@@ -2240,6 +2237,9 @@ bool MainGameScreen::enter(const ScreenRequest&)
     CreateLevelButtons();
     CreateConditionButtons();
     InitializeMainGameLevelBlock(*hud);
+    // The renderer starts each entry without a viewport.
+    applied_layout.viewport = W8_VIEWPORT_MODE_UNINITIALIZED;
+    refreshLayout();
     ScrollTextBoxToCursor();
     g_world_render_enabled = 1;
     g_monster_shadow_updates_enabled = 1;
@@ -2579,7 +2579,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     MainGameHud()->held_item_display = -1;
     pointer.reset();
 
-    CloseMainGameOverlays();
+    closeOverlays();
 
     if (leaving) {
         if (GetLoadedLevelID() != -1) {
@@ -2661,8 +2661,10 @@ void MainGameScreen::paintRequested(const W8TargetingPresentation& presentation,
 {
     const W8LevelRuntimeBlock& hud = *this->hud;
     const auto& repaint = hud.repaint;
-    const auto publish_chrome = [&hud](int left, int top, int right, int bottom) {
-        InvalidateRegion(left, top + hud.portrait_y_shift, right, bottom + hud.portrait_y_shift);
+    const auto& layout = applied_layout;
+    const auto publish_chrome = [&layout](int left, int top, int right, int bottom) {
+        InvalidateRegion(left, top + layout.PortraitYShift(), right,
+                         bottom + layout.PortraitYShift());
     };
     int party_slot;
     int text_box_variant;
@@ -2712,7 +2714,7 @@ void MainGameScreen::paintRequested(const W8TargetingPresentation& presentation,
                                           party_slot == hud.held_item_display,
                                       true, hud.portrait_refresh_pending[party_slot] == 0));
             auto rect = PartyPortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
-                                                            hud.portrait_hover_x_origin);
+                                                            layout.PortraitHoverXOrigin());
             if (hud.portrait_refresh_pending[party_slot]) {
                 auto backing = PartyPortraitBounds(party_slot);
                 --backing.right;
@@ -2757,7 +2759,7 @@ void MainGameScreen::paintRequested(const W8TargetingPresentation& presentation,
             CatalogArtwork::Load(0x84, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x17,
                                                             0x166);
         }
-        if (!repaint.text_box || hud.action_panel_visible == 0) {
+        if (!repaint.text_box || !layout.bottom_panel) {
             if (repaint.text_box) {
                 ClearSurfaceRect(0x80, 0x166, 0x200, 0x1c2);
             }
@@ -2777,7 +2779,7 @@ void MainGameScreen::paintRequested(const W8TargetingPresentation& presentation,
                                                             text_box_variant, 0x8a, 0x168);
         }
     draw_formation_panel:
-        if (!repaint.formation || !hud.formation_board_visible) {
+        if (!repaint.formation || !layout.formation_board) {
             if (repaint.formation) {
                 ClearSurfaceRect(0x200, 0x166, 0x268, 0x1c2);
             }
@@ -2825,8 +2827,8 @@ W8TargetingPresentation MainGameScreen::updatePresentation()
     auto presentation = BuildTargetingPresentation(hud);
     ApplyTargetingPresentation(presentation);
     if (MainGame()->radar_map) MainGame()->radar_map->update(presentation);
-    if (hud.action_panel_visible == 0 && !CurrentGame().activity.conversation &&
-        !IsLockInteractionActive() && !IsTrapInteractionActive() && !gpSCSV && !ItemUseDraft()) {
+    // Interactions hold the bottom panel up, so this is the plain text box.
+    if (!applied_layout.bottom_panel && !game.activity.conversation) {
         const int stopped_line = FindStoppedTextLine();
         if (stopped_line != -1 && hud.text_lines[4 + CurrentGame().status.text_line_cursor] !=
                                       static_cast<unsigned int>(stopped_line)) {
@@ -2934,7 +2936,7 @@ void MainGameScreen::draw(const W8TargetingPresentation& presentation)
         if (auto* text_fields = TextFieldGroup::Focused())
             text_fields->RenderAll(GetFrameBufferSurface());
         if (repaint.video_inspector) DrawVideoInspector(0xdc, 0x32);
-        if (MainGameHud()->formation_board_visible) {
+        if (applied_layout.formation_board) {
             CreateFormationBoardOverlay();
         }
         if (MainGame()->radar_map) {
@@ -3126,7 +3128,7 @@ void SelectPartyCharacter(int party_slot)
 
 void RefreshSelectedPartyPortrait(unsigned int party_slot)
 {
-    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
+    if (MainGame()->layout().mode == W8_MAIN_UI_MODE_PORTRAITS ||
         MainGameHud()->portrait_refresh_pending[party_slot] != 0) {
         return;
     }
@@ -3342,6 +3344,7 @@ static PortraitPlateContent MeasurePortraitPlate(PortraitPlate kind, int party_s
 static void LayOutPortraitPlate(W8LevelRuntimeBlock& hud, PortraitPlate kind, int party_slot)
 {
     const auto content = MeasurePortraitPlate(kind, party_slot);
+    const auto& layout = MainGame()->layout();
     DismissHighlightOverlay();
     SetMainGameMode(W8_MAIN_GAME_HIGHLIGHT_OVERLAY);
 
@@ -3357,17 +3360,17 @@ static void LayOutPortraitPlate(W8LevelRuntimeBlock& hud, PortraitPlate kind, in
     const bool shifted = pending == 0 && (hud.condition_highlight_party_slot != -1 ||
                                           hud.portrait_overlay_party_slot != -1);
     if ((party_slot & 1) == 0) {
-        left = hud.portrait_refresh_image[party_slot] - hud.portrait_hover_x_origin + 0x80;
+        left = hud.portrait_refresh_image[party_slot] - layout.PortraitHoverXOrigin() + 0x80;
         if (shifted) left += 0x18;
     } else {
-        left = hud.portrait_hover_x_origin - hud.portrait_refresh_image[party_slot] -
+        left = layout.PortraitHoverXOrigin() - hud.portrait_refresh_image[party_slot] -
                static_cast<int>(panel_width) + 0x200;
         if (shifted) left -= 0x18;
     }
 
     const unsigned int content_height = content.rows * 9 + 0x12;
     const int row_y = (party_slot >> 1) * 0x55;
-    int top = g_viewport_modes[static_cast<unsigned int>(hud.camera_mode)].top;
+    int top = g_viewport_modes[static_cast<unsigned int>(layout.viewport)].top;
     const int candidate = row_y - static_cast<int>(content_height) + 0x3c;
     if (candidate >= top) {
         if (candidate + content_height * 2 > 0x166) {
@@ -3582,7 +3585,7 @@ void MainGameScreen::updatePortraitPlate()
     const auto tracked = TrackedPortraitPlate(hud);
     if (!tracked) return;
     bool lay_out = repaint.portrait_panel && !party_movement;
-    const bool portraits_mode = GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS;
+    const bool portraits_mode = applied_layout.mode == W8_MAIN_UI_MODE_PORTRAITS;
     for (int slot = 0; slot < 8 && !lay_out; ++slot) {
         const bool band = repaint.portraits.test(slot) ||
                           (repaint.portrait_frames.test(slot) &&
@@ -3764,30 +3767,15 @@ void RequestLevelTransition(int level, int entry, unsigned char flag)
     BeginLevelTransition(level_id, entry);
 }
 
-/* Switch the 3D view to another viewport mode: resize the view region to the
-   inclusive rectangle and hand the renderer the exclusive one. */
-void SetViewportMode(W8ViewportMode mode)
-{
-    DesignRect* rect;
-
-    if (mode == MainGameHud()->camera_mode) {
-        return;
-    }
-    rect = &g_viewport_modes[static_cast<unsigned int>(mode)];
-    MainGame()->world_view->setShape(
-        SDL_Rect{rect->left, rect->top, rect->right - rect->left, rect->bottom - rect->top});
-    SetViewport({rect->left, rect->top, rect->right + 1, rect->bottom + 1});
-    MainGameHud()->camera_mode = mode;
-}
-
 /* True when the cursor hotspot lies in the formation-mode portrait rect for
    `party_slot`, accounting for the hover panel's x origin and the slot's
    mirrored even/odd layout. */
 static bool IsPartyPortraitUnderCursor(unsigned int party_slot)
 {
     const auto& hud = *MainGameHud();
-    const auto rect = PartyPortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
-                                                          hud.portrait_hover_x_origin);
+    const auto rect =
+        PartyPortraitBounds(party_slot, hud.portrait_refresh_image[party_slot] -
+                                            MainGame()->layout().PortraitHoverXOrigin());
     return rect.right > 0 &&
            IsCursorInRectangle(std::max(0, rect.left), rect.top, rect.right - 1, rect.bottom - 1);
 }
@@ -3965,69 +3953,171 @@ void SetTooltipSubject(W8PortraitHighlightKind kind, int subject)
     }
 }
 
-/* Apply a main-game UI mode: drop any raised formation/radar/action panels,
-   optionally re-raise them from settings prefs, clear portrait refresh when
-   entering portrait mode, refresh tooltip kind, and sync region/layout state. */
-W8MainUiMode GetEffectiveMainUiMode()
+// A conversation that is not scripted holds the NPC dialogue panel up.
+static bool NpcDialogueOpen(const Game& game)
 {
-    if (CurrentGame().activity.conversation && !CurrentGame().npc_interaction.scripted_dialogue)
-        return W8_MAIN_UI_MODE_PORTRAITS;
-    const bool picker =
-        gpSCSV || ItemUseDraft() || IsLockInteractionActive() || IsTrapInteractionActive();
-    return picker && g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR ? W8_MAIN_UI_MODE_FORMATION
-                                                                      : g_settings.main_ui_mode;
+    return game.activity.conversation && !game.npc_interaction.scripted_dialogue;
 }
 
-void SetMainUiPreference(W8MainUiMode mode)
+MainGameLayout MainGameLayout::Decide(const W8GameSettings& settings, bool picker,
+                                      bool npc_dialogue)
+{
+    const W8MainUiMode preferred = settings.main_ui_mode;
+    if (picker || npc_dialogue) {
+        /* The interaction supplies the bottom panel, and the world keeps the viewport
+           of the preferred mode. A picker shows the formation layout over radar mode. */
+        MainGameLayout layout{.mode = preferred, .interaction = true, .bottom_panel = true};
+        switch (preferred) {
+        case W8_MAIN_UI_MODE_RADAR:
+            layout.viewport = W8_VIEWPORT_MODE_FULL;
+            layout.mode = W8_MAIN_UI_MODE_FORMATION;
+            break;
+        case W8_MAIN_UI_MODE_FORMATION:
+            layout.viewport = W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL;
+            break;
+        default:
+            layout.viewport = W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL;
+            break;
+        }
+        if (npc_dialogue) layout.mode = W8_MAIN_UI_MODE_PORTRAITS;
+        return layout;
+    }
+    switch (preferred) {
+    case W8_MAIN_UI_MODE_RADAR:
+        return {.mode = preferred, .viewport = W8_VIEWPORT_MODE_FULL};
+    case W8_MAIN_UI_MODE_PORTRAITS: {
+        const bool action = settings.portraits_action_panel_preference != 0;
+        return {.mode = preferred,
+                .formation_board = true,
+                .radar_map = true,
+                .bottom_panel = action,
+                .viewport = action ? W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL
+                                   : W8_VIEWPORT_MODE_CENTERED_FULL_HEIGHT};
+    }
+    default: {
+        const bool board = settings.formation_board_preference != 0;
+        const bool radar = settings.formation_radar_map_preference != 0;
+        const bool action = settings.formation_action_panel_preference != 0;
+        return {.mode = preferred,
+                .formation_board = board,
+                .radar_map = radar,
+                .bottom_panel = action,
+                .viewport = board && radar && action ? W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL
+                                                     : W8_VIEWPORT_MODE_FULL};
+    }
+    }
+}
+
+void MainGameScreen::setPreferredMode(W8MainUiMode mode)
 {
     g_settings.main_ui_mode = mode;
-    RefreshMainGameLayout();
+    refreshLayout();
 }
 
-void RefreshMainGameLayout()
+// Build the radar map panel, zoomed for the current fight, or release it.
+void MainGameScreen::showRadarMap(bool visible)
 {
-    const auto mode = GetEffectiveMainUiMode();
-    const bool portraits = mode == W8_MAIN_UI_MODE_PORTRAITS;
-    const bool constrained =
-        gpSCSV || ItemUseDraft() || IsLockInteractionActive() || IsTrapInteractionActive() ||
-        (CurrentGame().activity.conversation && !CurrentGame().npc_interaction.scripted_dialogue);
-    SetTooltipSubject(portraits ? W8_HIGHLIGHT_TARGET : W8_HIGHLIGHT_VITALS, -1);
-    CloseMainGameOverlays();
-    if (portraits) {
-        for (unsigned int slot = 0; slot < 8; ++slot) ClearPortraitRefreshSlot(slot);
-    }
-    if (constrained) {
-        // The open interaction supplies the bottom panel instead of the action bar.
-        MainGameHud()->action_panel_visible = true;
-    } else if (mode != W8_MAIN_UI_MODE_RADAR) {
-        const bool formation = portraits || g_settings.formation_board_preference;
-        const bool radar = portraits || g_settings.formation_radar_map_preference;
-        const bool action = portraits ? g_settings.portraits_action_panel_preference
-                                      : g_settings.formation_action_panel_preference;
-        if (formation) SetFormationBoardVisible(true);
-        if (radar) MainGame()->setRadarVisible(true);
-        if (action) SetActionPanelVisible(true);
-    }
-    ClearUiHover();
-    if (!portraits) {
-        MainGameHud()->portrait_hover_x_origin = 0x69;
+    radar.setEnabled(visible);
+    radar_target->setEnabled(visible);
+    if (visible) {
+        radar_map = std::make_unique<RadarMap>(game, game.combat.has_value());
     } else {
-        MainGameHud()->portrait_hover_x_origin = 0;
+        radar_map.reset();
     }
-    if (MainGameHud()->action_panel_visible == 0) {
-        MainGameHud()->portrait_y_shift = 0x76;
+    hud->repaint.layout = true;
+    hud->repaint.portrait_panel = true;
+}
+
+// Build the formation board's sprites, or release them.
+void MainGameScreen::showFormationBoard(bool visible)
+{
+    formation.setEnabled(visible);
+    if (visible) {
+        hud->formation_board_alternate = 0;
+        RefreshFormationBoard();
     } else {
-        MainGameHud()->portrait_y_shift = 0;
+        ReleaseFormationBoard();
     }
-    if (auto* hud = MainGameHud()) hud->repaint.everything = true;
-    SetMouseCursorHotspot(0, 0);
-    SyncSystemCursor();
-    SetViewportMode(GetMainGameViewportMode());
-    if (CurrentGame().combat.has_value()) {
-        MainGameHud()->refresh_combat_panel = 1;
+    hud->repaint.layout = true;
+    hud->repaint.portrait_panel = true;
+}
+
+/* Set which controls take part in input under `layout` and the open interaction. */
+void MainGameScreen::syncInput(const MainGameLayout& layout)
+{
+    const bool npc_dialogue = NpcDialogueOpen(game);
+    world.setEnabled(true);
+    hud_buttons.input.setEnabled(true);
+    monster_list->setEnabled(hud->group_list_rows != 0);
+    edges.setEnabled(layout.mode != W8_MAIN_UI_MODE_PORTRAITS);
+    refreshPartySlotRegions();
+    combat.setEnabled(game.combat.has_value());
+    if (game.combat.has_value()) {
+        DisablePortraitControls();
+    } else {
+        EnablePortraitAdvanceRegions();
     }
-    if (auto* hud = MainGameHud()) hud->repaint.roof_and_spell_icons = true;
-    SyncMainGameModeInput();
+    if (layout.mode == W8_MAIN_UI_MODE_PORTRAITS) {
+        DisableConditionButtons();
+    } else {
+        EnableConditionButtons();
+    }
+
+    // Spell and item pickers always raise the text box; otherwise it follows the bottom panel.
+    if (gpSCSV || (!npc_dialogue && ItemUseDraft())) {
+        RestoreSpellCastingRegions();
+    } else {
+        SetActionPanelRegions(layout.bottom_panel);
+    }
+    if (gpSCSV) gpSCSV->input.setEnabled(true);
+    if (npc_dialogue) SetNpcDialogueInputEnabled(2, true);
+    if (ItemUseDraft()) SetUseItemSelectInputEnabled(true);
+    // A lock or trap being opened is only created after its layout is applied.
+    if (lock_active && lock_interaction) lock_interaction->EnablePanels(true);
+    if (trap_active && trap_interaction) trap_interaction->EnablePanelInput(true);
+    formation.setEnabled(layout.formation_board);
+    radar.setEnabled(layout.radar_map);
+
+    if (party_movement) {
+        if (game.advancement.held)
+            party_movement->disableInput();
+        else
+            party_movement->enableInput();
+    }
+}
+
+void MainGameScreen::refreshLayout()
+{
+    const bool picker = gpSCSV || ItemUseDraft() || lock_active || trap_active;
+    const auto layout = MainGameLayout::Decide(g_settings, picker, NpcDialogueOpen(game));
+    const auto previous = std::exchange(applied_layout, layout);
+    if (layout != previous) {
+        const bool portraits = layout.mode == W8_MAIN_UI_MODE_PORTRAITS;
+        SetTooltipSubject(portraits ? W8_HIGHLIGHT_TARGET : W8_HIGHLIGHT_VITALS, -1);
+        if (portraits) {
+            for (unsigned int slot = 0; slot < 8; ++slot) ClearPortraitRefreshSlot(slot);
+        }
+        if (layout.formation_board != previous.formation_board) {
+            showFormationBoard(layout.formation_board);
+        }
+        if (layout.radar_map != previous.radar_map) showRadarMap(layout.radar_map);
+        if (layout.viewport != previous.viewport) {
+            const auto& rect = g_viewport_modes[static_cast<unsigned int>(layout.viewport)];
+            world_view->setShape(
+                SDL_Rect{rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top});
+            SetViewport({rect.left, rect.top, rect.right + 1, rect.bottom + 1});
+            partyCamera().bottom_panel_view =
+                layout.viewport == W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL ||
+                layout.viewport == W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL;
+        }
+        ClearUiHover();
+        SetMouseCursorHotspot(0, 0);
+        SyncSystemCursor();
+    }
+    hud->repaint.everything = true;
+    hud->repaint.roof_and_spell_icons = true;
+    if (game.combat.has_value()) hud->refresh_combat_panel = 1;
+    syncInput(layout);
 }
 
 void RetireModal(std::unique_ptr<ModalContent> owner, bool completed)
@@ -4060,75 +4150,14 @@ void OpenModal(std::unique_ptr<ModalContent> owner)
     RetireModal(std::exchange(g_modal_owner, std::move(owner)), false);
 }
 
-/* Re-sync each party slot's region set and portrait hit region with the
-   slot's occupancy, its action menu and the display mode - the party
-   add/remove entries and the keyboard menu's close run it after slot state
-   changes. */
-void RefreshPartySlotRegions(void)
+void MainGameScreen::refreshPartySlotRegions()
 {
-    if (!MainGame()) return;
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        const bool available =
-            CurrentGame().party.members[slot].has_value() && !MainGame()->keyboardMenuForSlot(slot);
-        const bool full = GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
-                          MainGameHud()->portrait_refresh_pending[slot] != 0;
-        MainGame()->portraits[slot]->setEnabled(available && full);
-        MainGame()->edge_targets[slot]->setEnabled(available && !full);
-    }
-}
-
-/* Set which main-game controls take part in input for the current UI mode
-   and open view. Radar mode hides the action panel and every overlay view. */
-void SyncMainGameModeInput(void)
-{
-    auto& state = *MainGame();
-    const W8MainUiMode mode = GetEffectiveMainUiMode();
-    const bool panels = mode != W8_MAIN_UI_MODE_RADAR;
-    const bool npc_view =
-        CurrentGame().activity.conversation &&
-        !(CurrentGame().activity.conversation && CurrentGame().npc_interaction.scripted_dialogue);
-    const bool view_open = gpSCSV || npc_view || ItemUseDraft() || IsLockInteractionActive() ||
-                           IsTrapInteractionActive();
-
-    state.world.setEnabled(true);
-    state.hud_buttons.input.setEnabled(true);
-    state.monster_list->setEnabled(MainGameHud()->group_list_rows != 0);
-    state.edges.setEnabled(mode != W8_MAIN_UI_MODE_PORTRAITS);
-    RefreshPartySlotRegions();
-    state.combat.setEnabled(CurrentGame().combat.has_value());
-    if (CurrentGame().combat.has_value()) {
-        DisablePortraitControls();
-    } else {
-        EnablePortraitAdvanceRegions();
-    }
-    if (mode == W8_MAIN_UI_MODE_PORTRAITS) {
-        DisableConditionButtons();
-    } else {
-        EnableConditionButtons();
-    }
-
-    // Spell and item views always raise the text box; otherwise it follows the action panel.
-    const bool spell_text_box = gpSCSV || (!npc_view && ItemUseDraft());
-    if (panels && spell_text_box) {
-        RestoreSpellCastingRegions();
-    } else if (panels && MainGameHud()->action_panel_visible != 0) {
-        EnableActionPanelRegions();
-    } else {
-        SetTextBoxEnabled(false);
-    }
-    if (gpSCSV) gpSCSV->input.setEnabled(panels);
-    if (npc_view) SetNpcDialogueInputEnabled(2, panels);
-    if (ItemUseDraft()) SetUseItemSelectInputEnabled(panels);
-    if (IsLockInteractionActive()) LockInteraction()->EnablePanels(panels);
-    if (IsTrapInteractionActive()) TrapInteraction()->EnablePanelInput(panels);
-    state.formation.setEnabled(panels && !view_open && MainGameHud()->formation_board_visible);
-    state.radar.setEnabled(panels && !view_open && MainGame()->radar_map);
-
-    if (auto& movement = MainGame()->party_movement) {
-        if (CurrentGame().advancement.held)
-            movement->disableInput();
-        else
-            movement->enableInput();
+        const bool available = game.party.members[slot].has_value() && !keyboardMenuForSlot(slot);
+        const bool full = applied_layout.mode == W8_MAIN_UI_MODE_PORTRAITS ||
+                          hud->portrait_refresh_pending[slot] != 0;
+        portraits[slot]->setEnabled(available && full);
+        edge_targets[slot]->setEnabled(available && !full);
     }
 }
 
@@ -5179,18 +5208,6 @@ bool LoadCurrentLevelData(void)
     return true;
 }
 
-/* Put the seven combat regions into their inactive mode, and the eighth with
-   its whole set only when the screen says it is not needed. */
-void DisableCombatRegions(void)
-{
-    SetTextBoxScrollInput(false);
-    SetTextBoxChannelTabInput(false);
-    if (MainGameHud()->action_panel_visible == 0) {
-        SetTextBoxMuteInput(false);
-        SetTextBoxEnabled(false);
-    }
-}
-
 /* Drain the pending mouselook yaw/pitch into the camera, optionally scaling
    mid-range deltas by frame time when mouselook smoothing is enabled. */
 static void ApplyPendingMouselook(void)
@@ -5407,72 +5424,6 @@ static void DrawMainGamePrompt(void)
                             g_W8TextBufferAlignMiddle | g_W8TextBufferAlignCenter, 4);
         buffer.RenderString(Data().strings[CurrentGame().combat.has_value() ? 0x780 : 0x77f],
                             g_wiz_text_font_secondary, false, GetFrameBufferSurface());
-    }
-}
-
-/* Raise or drop the radar map panel and restore the viewport mode when the
-   raise latch changes. */
-void MainGameScreen::setRadarVisible(bool visible)
-{
-    const bool was_visible = bool(radar_map);
-    radar.setEnabled(visible);
-    radar_target->setEnabled(visible);
-    if (visible) {
-        radar_map = std::make_unique<RadarMap>(game, game.combat.has_value());
-    } else {
-        radar_map.reset();
-    }
-    hud->repaint.layout = true;
-    hud->repaint.portrait_panel = true;
-    if (visible != was_visible) SetViewportMode(GetMainGameViewportMode());
-}
-
-/* Raise or drop the combat action panel and restore the viewport mode when the
-   raise latch changes. */
-void SetActionPanelVisible(bool visible)
-{
-    const bool was_visible = MainGameHud()->action_panel_visible;
-    if (visible) {
-        MainGameHud()->action_panel_visible = visible;
-        EnableActionPanelRegions();
-        if (auto* hud = MainGameHud()) {
-            hud->repaint.layout = true;
-            hud->repaint.portrait_panel = true;
-        }
-    } else {
-        MainGameHud()->action_panel_visible = 0;
-        DisableCombatRegions();
-        if (auto* hud = MainGameHud()) {
-            hud->repaint.layout = true;
-            hud->repaint.portrait_panel = true;
-        }
-    }
-    if (visible != was_visible) {
-        SetViewportMode(GetMainGameViewportMode());
-    }
-}
-
-/* Raise or drop the formation board and restore the viewport mode when the
-   raise latch changes. */
-void SetFormationBoardVisible(bool visible)
-{
-    const bool was_visible = MainGameHud()->formation_board_visible;
-    if (visible) {
-        MainGameHud()->formation_board_visible = true;
-        MainGameHud()->formation_board_alternate = 0;
-        MainGame()->formation.setEnabled(true);
-        RefreshFormationBoard();
-    } else {
-        MainGameHud()->formation_board_visible = false;
-        MainGame()->formation.setEnabled(false);
-        ReleaseFormationBoard();
-    }
-    if (auto* hud = MainGameHud()) {
-        hud->repaint.layout = true;
-        hud->repaint.portrait_panel = true;
-    }
-    if (visible != was_visible) {
-        SetViewportMode(GetMainGameViewportMode());
     }
 }
 
@@ -5875,54 +5826,12 @@ void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag)
     SetUiCanvasAlphaTestEnabled(false);
 }
 
-/* The viewport mode the screen falls back to after a raised overlay drops:
-   full-3d while every overlay flag is clear and no main-game mode override is
-   set, the plain mode when any of the board, radar or combat latches is still
-   down, and otherwise the override field's own mapping. */
-W8ViewportMode GetMainGameViewportMode(void)
+void MainGameScreen::closeOverlays()
 {
-    if (!gpSCSV &&
-        (!CurrentGame().activity.conversation ||
-         (CurrentGame().activity.conversation &&
-          CurrentGame().npc_interaction.scripted_dialogue)) &&
-        !IsLockInteractionActive() && !IsTrapInteractionActive() && !ItemUseDraft() &&
-        MainGameHud()->action_panel_visible == 0 && MainGameHud()->formation_board_visible &&
-        MainGame()->radar_map && GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
-        return W8_VIEWPORT_MODE_CENTERED_FULL_HEIGHT;
-    }
-    if (!gpSCSV &&
-        (!CurrentGame().activity.conversation ||
-         (CurrentGame().activity.conversation &&
-          CurrentGame().npc_interaction.scripted_dialogue)) &&
-        !IsLockInteractionActive() && !IsTrapInteractionActive() && !ItemUseDraft() &&
-        (!MainGameHud()->formation_board_visible || !MainGame()->radar_map ||
-         MainGameHud()->action_panel_visible == 0)) {
-        return W8_VIEWPORT_MODE_FULL;
-    }
-    switch (g_settings.main_ui_mode) {
-    case W8_MAIN_UI_MODE_RADAR:
-        return W8_VIEWPORT_MODE_FULL;
-    case W8_MAIN_UI_MODE_FORMATION:
-        return W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL;
-    case W8_MAIN_UI_MODE_PORTRAITS:
-    default:
-        return W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL;
-    }
-}
-
-/* Drop whichever of the formation board, the radar map and the combat bar is
-   up, restoring the viewport mode that was in effect when each was raised. */
-void CloseMainGameOverlays(void)
-{
-    if (MainGameHud()->formation_board_visible) {
-        SetFormationBoardVisible(false);
-    }
-    if (MainGame()->radar_map) {
-        MainGame()->setRadarVisible(false);
-    }
-    if (MainGameHud()->action_panel_visible != 0) {
-        SetActionPanelVisible(false);
-    }
+    auto& layout = applied_layout;
+    if (std::exchange(layout.formation_board, false)) showFormationBoard(false);
+    if (std::exchange(layout.radar_map, false)) showRadarMap(false);
+    if (std::exchange(layout.bottom_panel, false)) SetActionPanelRegions(false);
 }
 
 void ClearHighlightOverlayRegion(void)
@@ -5936,7 +5845,8 @@ void ClearHighlightOverlayRegion(void)
     hud.repaint.plate_erase =
         hud.repaint.plate_erase ? UnionScreenRects(*hud.repaint.plate_erase, plate) : plate;
     if (hud.dialogue_y <
-        static_cast<unsigned int>(g_viewport_modes[static_cast<unsigned int>(hud.camera_mode)].top))
+        static_cast<unsigned int>(
+            g_viewport_modes[static_cast<unsigned int>(MainGame()->layout().viewport)].top))
         hud.repaint.roof_and_spell_icons = true;
     if (hud.dialogue_y + hud.dialogue_height > 0x166) hud.repaint.text_box = true;
 }

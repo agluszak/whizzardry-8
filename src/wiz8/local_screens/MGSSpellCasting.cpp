@@ -240,10 +240,8 @@ bool OpenSpellCastingView(int party_slot)
     }
     gpSCSV->location_id = -1;
     gpSCSV->interact_id = W8_DIALOGUE_LAYOUT_UNSET;
-    CloseMainGameOverlays();
-    RefreshMainGameLayout();
+    MainGame()->refreshLayout();
     CreateSpellCastingViewControls();
-    RestoreSpellCastingRegions();
     gpSCSV->input.setEnabled(true);
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
@@ -272,7 +270,6 @@ void CloseSpellCastingView(void)
     if (!gpSCSV) return;
     gpSCSV->input.setEnabled(false);
     SetTextBoxScrollInput(false);
-    MainGameHud()->action_panel_visible = 0;
     SetTargetingMode(W8_TARGET_NEED_NONE);
     if (!CurrentGame().activity.conversation_aside) {
         ResetEditorStatusLine(-1);
@@ -283,7 +280,7 @@ void CloseSpellCastingView(void)
     location_id = gpSCSV->location_id;
     interact_id = gpSCSV->interact_id;
     gpSCSV.reset();
-    RefreshMainGameLayout();
+    MainGame()->refreshLayout();
     if (auto* hud = MainGameHud()) {
         hud->repaint.layout = true;
         hud->repaint.roof_and_spell_icons = true;
@@ -310,7 +307,6 @@ void RestoreSpellCastingRegions(void)
 {
     SetTextBoxEnabled(true);
     SetTextBoxScrollInput(true);
-    MainGameHud()->action_panel_visible = 1;
     SetTextBoxMuteInput(false);
     SetTextBoxChannelTabInput(false);
 }

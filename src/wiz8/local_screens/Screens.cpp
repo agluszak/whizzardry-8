@@ -342,7 +342,6 @@ void InitializeMainGameLevelBlock(W8LevelRuntimeBlock& hud)
     int slot;
 
     hud.repaint.everything = true;
-    hud.camera_mode = W8_VIEWPORT_MODE_UNINITIALIZED;
     hud.highlight = {};
     hud.combat_action_hover_party_slot = -1;
     hud.portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_NONE;
@@ -367,7 +366,6 @@ void InitializeMainGameLevelBlock(W8LevelRuntimeBlock& hud)
         hud.portrait_refresh_image[slot] = 0;
     }
     hud.open_submenu.reset();
-    RefreshMainGameLayout();
     hud.countdown0 = MonotonicMilliseconds() + (60000);
     hud.countdown1 = MonotonicMilliseconds() + (0);
     hud.text_box_visible = true;

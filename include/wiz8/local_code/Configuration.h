@@ -51,9 +51,8 @@ struct W8GameSettings {
     bool pc_subtitles; /* options string 0x824 */
     unsigned char field_000;
     unsigned char unknown_002[0x4];
-    /* The main-game layout RefreshMainGameLayout selects. NONE is the
-       transient park Screens uses while it re-raises panels on main-game
-       enter. */
+    /* The player's preferred main-game layout. An open interaction overrides
+       it in the applied MainGameLayout without changing it. */
     W8MainUiMode main_ui_mode;
     bool tooltips_enabled;
     int continuous_combat_start_delay_ms;

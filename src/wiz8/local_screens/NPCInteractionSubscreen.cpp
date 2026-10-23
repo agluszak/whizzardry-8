@@ -685,7 +685,6 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool for
 
     UpdateScreenOverlays(0);
     CurrentGame().activity.conversation = true;
-    CloseMainGameOverlays();
     if (npc->record->owns_stock != 0) {
         RestockNpcInventory(npc);
     }
@@ -710,12 +709,11 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool for
     Panel().pending_layout = W8_DIALOGUE_LAYOUT_NONE;
     state->suppress_parting_reaction = true;
     Panel().transcript_open_count = 0;
-    RefreshMainGameLayout();
+    MainGame()->refreshLayout();
     CreateNpcDialogueControls();
     MainGameHud()->text_box_visible = false;
     EnableDialogueTextBoxRegions();
     SetTextBoxScrollInput(true);
-    MainGameHud()->action_panel_visible = 1;
     CurrentGame().activity.conversation_aside = false;
     greet = !force;
     if (item != 0) {
@@ -1020,7 +1018,6 @@ void ServiceNpcDialogue(void)
         MainGameHud()->text_box_visible = false;
         EnableDialogueTextBoxRegions();
         SetTextBoxScrollInput(true);
-        MainGameHud()->action_panel_visible = 1;
         W8NpcDialogueLayout layout = MainGame()->dialogue.pending_layout;
         SwitchNpcDialogueLayout(W8_DIALOGUE_LAYOUT_NONE);
         OpenNpcDialogueLayout(layout);
@@ -1119,14 +1116,13 @@ void EndNpcDialogueSession(bool skip_exit_actions)
         npc->dismissed_timer = 0;
     }
     CurrentGame().activity.conversation = false;
-    MainGameHud()->action_panel_visible = 0;
     DisableDialogueTextBoxRegions();
     SetTextBoxScrollInput(false);
     CloseActiveNpcDialogueLayout();
     SetNpcDialogueInputEnabled(2, false);
     SelectTextBox(0);
     MainGameHud()->text_box_visible = true;
-    RefreshMainGameLayout();
+    MainGame()->refreshLayout();
     g_npc_text_fields.reset();
     MainGame()->dialogue.ui.reset();
     if (auto* hud = MainGameHud()) {
@@ -3568,7 +3564,7 @@ static void SetNpcDialogueHidden(signed char value)
     int index;
 
     if (value != 0) {
-        RefreshMainGameLayout();
+        MainGame()->refreshLayout();
         SetNpcPanelActive(2, false);
         MainGame()->dialogue.ui->transcript->Collapse();
         SetNpcPanelActive(3, false);
@@ -3591,7 +3587,7 @@ static void SetNpcDialogueHidden(signed char value)
         DisableNpcTradeActions();
         SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_6, false);
     } else {
-        RefreshMainGameLayout();
+        MainGame()->refreshLayout();
         for (index = 0; index < 8; ++index) {
             if (CurrentGame().party.members[index].has_value()) {
                 DisableMainGamePortraitSlot(index);
@@ -3601,7 +3597,6 @@ static void SetNpcDialogueHidden(signed char value)
         SetNpcDialogueInputEnabled(2, true);
         EnableDialogueTextBoxRegions();
         SetTextBoxScrollInput(true);
-        MainGameHud()->action_panel_visible = 1;
         SetNpcPanelActive(2, true);
         SetNpcPanelActive(3, true);
         MainGame()->dialogue.ui->transcript->Expand();
