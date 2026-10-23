@@ -42,6 +42,8 @@ public:
        representations and scripts. Throws when the state names what the game data lacks;
        the world is then discarded. */
     std::unique_ptr<W8LoadedLevelStatus> build(World& world) &&;
+    // Throws when a monster or group names a species the monster database lacks.
+    void checkSpecies() const;
     // The world items alone, unlisted (the camp chest takes them from another level).
     std::vector<std::unique_ptr<W8WorldItem>> buildItems() const;
 
