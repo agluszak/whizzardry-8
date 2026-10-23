@@ -2944,7 +2944,8 @@ void MainGameScreen::draw(const W8TargetingPresentation& presentation)
         if (MainGame()->radar_map) {
             MainGame()->radar_map->captureBackdrop();
         }
-        RenderFrame();
+        if (auto pick = RenderFrame())
+            game.level.loaded().acceptPick(std::move(*pick), game.combat.has_value());
     }
 }
 

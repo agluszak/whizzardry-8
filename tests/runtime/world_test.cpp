@@ -381,15 +381,24 @@ void CheckWorldRender(GameHarness& game)
         if (world->psrMeshes[i] && world->psrMeshes[i]->visible) ++enabled;
     REQUIRE(enabled > 0);
 
+    // Rendering another view must not replace the interaction's last accepted pick.
+    const auto previous_selection = world->picked;
+    world->picked.intersection.position = {.25f, .75f, 1};
+    const auto accepted_position = world->picked.intersection.position;
     // The same scene and UI with only the world pass switched off is the control.
     REQUIRE((g_world_render_enabled && !g_world_blacked_out));
-    RenderFrame();
+    REQUIRE(RenderFrame().has_value());
+    REQUIRE(world->picked.intersection.position == accepted_position);
     const unsigned polygons = world->scene->submitted_polygons;
     const auto visible = game.read_frame();
     g_world_render_enabled = 0;
-    RenderFrame();
+    const auto unrendered_world = RenderFrame();
+    REQUIRE(unrendered_world.has_value());
+    REQUIRE_FALSE(unrendered_world->hit);
+    REQUIRE(world->picked.intersection.position == accepted_position);
     const auto control = game.read_frame();
     g_world_render_enabled = 1;
+    world->picked = previous_selection;
 
     Snapshot("world", visible);
     Snapshot("world-control", control);

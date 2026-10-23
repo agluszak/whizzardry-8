@@ -414,11 +414,11 @@ void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport
 /* The central renderer frame transaction. It owns presentation, every scene
    pass, optional world picking, transient-node retirement, and frame timing;
    callers do not reproduce any subset of that lifecycle. */
-void RenderFrame(void)
+std::optional<Pick> RenderFrame()
 {
     /* The movie adapter owns presentation until FinishVideoPresentation. */
     if (!g_flush_pending) {
-        return;
+        return std::nullopt;
     }
     glm::vec3 clear_color(0);
     std::uint64_t now;
@@ -426,7 +426,7 @@ void RenderFrame(void)
     float frames_per_second;
 
     if (!g_video_active) {
-        return;
+        return std::nullopt;
     }
 
     if (auto* world = GetWorld()) {
@@ -455,7 +455,7 @@ void RenderFrame(void)
         RenderScene(GetSecondaryWorld()->scene.get(), GetSecondaryWorld()->camera, &g_viewport,
                     false);
     }
-    if (GetWorld()) GetWorld()->picked = {};
+    Pick pick;
     if (GetWorld() != 0 && g_world_render_enabled) {
         if (!g_world_pick_enabled || g_cursor_hotspot_x + g_cursor_width < g_viewport.left ||
             g_cursor_hotspot_y + g_cursor_height < g_viewport.top ||
@@ -465,7 +465,6 @@ void RenderFrame(void)
         } else {
             int half_width = (g_viewport.right - g_viewport.left) / 2;
             int half_height = (g_viewport.bottom - g_viewport.top) / 2;
-            Pick pick;
             pick.position.x = (g_cursor_hotspot_x - half_width - g_viewport.left + g_cursor_width) /
                               static_cast<float>(half_width);
             pick.position.y = -static_cast<float>(g_cursor_hotspot_y - half_height -
@@ -473,7 +472,6 @@ void RenderFrame(void)
                               half_height;
             RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &g_viewport, true,
                         std::span{&pick, 1});
-            GetWorld()->acceptPick(std::move(pick), CurrentGame().combat.has_value());
         }
     }
 
@@ -503,6 +501,7 @@ void RenderFrame(void)
         g_fps_frame_count = 0;
     }
     g_frames_per_second = frames_per_second;
+    return pick;
 }
 
 /* Finish an offscreen frame and copy its image into a caller-owned surface. */
@@ -565,9 +564,6 @@ void PublishLightDirection(const glm::vec3* direction)
 void SetWorldModelPickingEnabled(bool enabled)
 {
     g_world_pick_enabled = enabled;
-    if (!enabled) {
-        if (GetWorld()) GetWorld()->picked = {};
-    }
 }
 
 /* Mouse cursor scene and rendering. */

@@ -92,6 +92,10 @@ def check_includes():
         for match in INCLUDE.finditer(path.read_text(encoding='utf-8')):
             if any(part in match.group(2) for part in ('local_screens/', 'screen.h', 'pointer.h')):
                 problems.append(f'{relative}: gameplay may not include "{match.group(2)}"')
+    # Picking interpretation belongs to interaction code, never frame rendering.
+    frame = ROOT / 'src/render/frame.cpp'
+    if re.search(r'\bacceptPick\s*\(|->picked\b', frame.read_text(encoding='utf-8')):
+        problems.append('src/render/frame.cpp: rendering may not commit gameplay selections')
     return problems
 
 

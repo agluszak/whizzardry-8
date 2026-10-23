@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string_view>
 
@@ -175,7 +176,9 @@ double RenderClockSeconds();
 // Draws one scene pass; `picks` are tested against its pickable triangles.
 void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport, bool preserve_fog,
                  std::span<Pick> picks = {});
-void RenderFrame(void);
+// A rendered frame returns its raw pick (possibly a miss). No frame returns nullopt.
+// The interaction owner interprets it against gameplay state.
+std::optional<Pick> RenderFrame();
 /* The native presentation shell also owns this opaque surface entry point. */
 SDL_Surface* BeginVideoPresentation(void);
 bool FinishVideoPresentation(void);
