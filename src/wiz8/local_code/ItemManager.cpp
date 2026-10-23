@@ -23,7 +23,6 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/npc_state.h"
-#include "wiz8/audio/soundman.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
