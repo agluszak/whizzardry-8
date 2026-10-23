@@ -93,15 +93,15 @@ template<> struct Record<W8GameSettings> {
             return bytes.subspan(offset, size);
         };
         value(&runtime.field_000, at(offsetof(Disk, field_000), sizeof(Disk::field_000)));
-        value(&runtime.numeric_hit_points,
-              at(offsetof(Disk, numeric_hit_points), sizeof(Disk::numeric_hit_points)));
+        byte_boolean(&runtime.numeric_hit_points,
+                     at(offsetof(Disk, numeric_hit_points), sizeof(Disk::numeric_hit_points)));
         value(&runtime.unknown_002, at(offsetof(Disk, unknown_002), sizeof(Disk::unknown_002)));
         enum_value<std::int32_t>(&runtime.main_ui_mode,
                                  at(offsetof(Disk, main_ui_mode), sizeof(Disk::main_ui_mode)));
-        value(&runtime.continuous_combat,
-              at(offsetof(Disk, continuous_combat), sizeof(Disk::continuous_combat)));
-        value(&runtime.auto_advance_character,
-              at(offsetof(Disk, auto_advance_character), sizeof(Disk::auto_advance_character)));
+        byte_boolean(&runtime.continuous_combat,
+                     at(offsetof(Disk, continuous_combat), sizeof(Disk::continuous_combat)));
+        byte_boolean(&runtime.auto_advance_character, at(offsetof(Disk, auto_advance_character),
+                                                         sizeof(Disk::auto_advance_character)));
         byte_boolean(&runtime.tooltips_enabled,
                      at(offsetof(Disk, tooltips_enabled), sizeof(Disk::tooltips_enabled)));
         enum_value<std::int32_t>(&runtime.difficulty,
@@ -146,42 +146,46 @@ template<> struct Record<W8GameSettings> {
         value(&runtime.muted_voice_volume,
               at(offsetof(Disk, muted_voice_volume), sizeof(Disk::muted_voice_volume)));
         value(&runtime.field_035, at(offsetof(Disk, field_035), sizeof(Disk::field_035)));
-        value(&runtime.invert_mouse_y,
-              at(offsetof(Disk, invert_mouse_y), sizeof(Disk::invert_mouse_y)));
+        byte_boolean(&runtime.invert_mouse_y,
+                     at(offsetof(Disk, invert_mouse_y), sizeof(Disk::invert_mouse_y)));
         value(&runtime.monster_movement_speed,
               at(offsetof(Disk, monster_movement_speed), sizeof(Disk::monster_movement_speed)));
         value(&runtime.field_03b, at(offsetof(Disk, field_03b), sizeof(Disk::field_03b)));
         value(&runtime.legacy_gamma, at(offsetof(Disk, legacy_gamma), sizeof(Disk::legacy_gamma)));
-        value(&runtime.pc_confirmations,
-              at(offsetof(Disk, pc_confirmations), sizeof(Disk::pc_confirmations)));
-        value(&runtime.mouselook_toggle,
-              at(offsetof(Disk, mouselook_toggle), sizeof(Disk::mouselook_toggle)));
-        value(&runtime.pc_subtitles, at(offsetof(Disk, pc_subtitles), sizeof(Disk::pc_subtitles)));
-        value(&runtime.mouselook_smoothing,
-              at(offsetof(Disk, mouselook_smoothing), sizeof(Disk::mouselook_smoothing)));
-        value(&runtime.verbose_combat_messages,
-              at(offsetof(Disk, verbose_combat_messages), sizeof(Disk::verbose_combat_messages)));
-        value(&runtime.auto_save, at(offsetof(Disk, auto_save), sizeof(Disk::auto_save)));
+        byte_boolean(&runtime.pc_confirmations,
+                     at(offsetof(Disk, pc_confirmations), sizeof(Disk::pc_confirmations)));
+        byte_boolean(&runtime.mouselook_toggle,
+                     at(offsetof(Disk, mouselook_toggle), sizeof(Disk::mouselook_toggle)));
+        byte_boolean(&runtime.pc_subtitles,
+                     at(offsetof(Disk, pc_subtitles), sizeof(Disk::pc_subtitles)));
+        byte_boolean(&runtime.mouselook_smoothing,
+                     at(offsetof(Disk, mouselook_smoothing), sizeof(Disk::mouselook_smoothing)));
+        byte_boolean(&runtime.verbose_combat_messages, at(offsetof(Disk, verbose_combat_messages),
+                                                          sizeof(Disk::verbose_combat_messages)));
+        byte_boolean(&runtime.auto_save, at(offsetof(Disk, auto_save), sizeof(Disk::auto_save)));
         byte_boolean(&runtime.intro_seen, at(offsetof(Disk, intro_seen), sizeof(Disk::intro_seen)));
         value(&runtime.field_047, at(offsetof(Disk, field_047), sizeof(Disk::field_047)));
-        value(&runtime.monster_shadows,
-              at(offsetof(Disk, monster_shadows), sizeof(Disk::monster_shadows)));
-        value(&runtime.smooth_monster_animations, at(offsetof(Disk, smooth_monster_animations),
-                                                     sizeof(Disk::smooth_monster_animations)));
-        value(&runtime.smooth_world_animations,
-              at(offsetof(Disk, smooth_world_animations), sizeof(Disk::smooth_world_animations)));
-        value(&runtime.skill_increase_messages,
-              at(offsetof(Disk, skill_increase_messages), sizeof(Disk::skill_increase_messages)));
-        value(&runtime.ctrl_right_click_info,
-              at(offsetof(Disk, ctrl_right_click_info), sizeof(Disk::ctrl_right_click_info)));
-        value(&runtime.autoswap_weapons,
-              at(offsetof(Disk, autoswap_weapons), sizeof(Disk::autoswap_weapons)));
-        value(&runtime.autotarget_spells,
-              at(offsetof(Disk, autotarget_spells), sizeof(Disk::autotarget_spells)));
-        value(&runtime.autoscroll_combat_messages, at(offsetof(Disk, autoscroll_combat_messages),
-                                                      sizeof(Disk::autoscroll_combat_messages)));
-        value(&runtime.simplified_npc_interaction, at(offsetof(Disk, simplified_npc_interaction),
-                                                      sizeof(Disk::simplified_npc_interaction)));
+        byte_boolean(&runtime.monster_shadows,
+                     at(offsetof(Disk, monster_shadows), sizeof(Disk::monster_shadows)));
+        byte_boolean(
+            &runtime.smooth_monster_animations,
+            at(offsetof(Disk, smooth_monster_animations), sizeof(Disk::smooth_monster_animations)));
+        byte_boolean(&runtime.smooth_world_animations, at(offsetof(Disk, smooth_world_animations),
+                                                          sizeof(Disk::smooth_world_animations)));
+        byte_boolean(&runtime.skill_increase_messages, at(offsetof(Disk, skill_increase_messages),
+                                                          sizeof(Disk::skill_increase_messages)));
+        byte_boolean(&runtime.ctrl_right_click_info, at(offsetof(Disk, ctrl_right_click_info),
+                                                        sizeof(Disk::ctrl_right_click_info)));
+        byte_boolean(&runtime.autoswap_weapons,
+                     at(offsetof(Disk, autoswap_weapons), sizeof(Disk::autoswap_weapons)));
+        byte_boolean(&runtime.autotarget_spells,
+                     at(offsetof(Disk, autotarget_spells), sizeof(Disk::autotarget_spells)));
+        byte_boolean(&runtime.autoscroll_combat_messages,
+                     at(offsetof(Disk, autoscroll_combat_messages),
+                        sizeof(Disk::autoscroll_combat_messages)));
+        byte_boolean(&runtime.simplified_npc_interaction,
+                     at(offsetof(Disk, simplified_npc_interaction),
+                        sizeof(Disk::simplified_npc_interaction)));
         value(&runtime.unknown_051, at(offsetof(Disk, unknown_051), sizeof(Disk::unknown_051)));
     }
 };

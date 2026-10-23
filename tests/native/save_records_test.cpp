@@ -1317,6 +1317,10 @@ TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][c
     W8GameSettings settings{};
     settings.tooltips_enabled = true;
     settings.difficulty = W8_DIFFICULTY_EXPERT;
+    settings.combat_delay_ms = 1234;
+    settings.text_display_delay_ms = 4321;
+    settings.camera_rotation_mode = W8_CAMERA_ROTATION_SELECTED_CHARACTER;
+    settings.camera_rotation_style = W8_CAMERA_ROTATION_SMOOTH;
     settings.music_volume = 77;
     settings.intro_seen = true;
     settings.unknown_051[0] = 0x5a;
@@ -1328,7 +1332,18 @@ TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][c
     const auto decoded = DecodeGameSettings(record);
     REQUIRE((decoded.difficulty == W8_DIFFICULTY_EXPERT && decoded.music_volume == 77 &&
              decoded.intro_seen && decoded.unknown_051[0] == 0x5a));
+    REQUIRE(decoded.combat_delay_ms == 1234);
+    REQUIRE(decoded.text_display_delay_ms == 4321);
+    REQUIRE(decoded.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER);
+    REQUIRE(decoded.camera_rotation_style == W8_CAMERA_ROTATION_SMOOTH);
     REQUIRE(EncodeGameSettings(decoded) == record);
+    // Retail flag bytes are truth values, not native bool object representations.
+    auto noncanonical = record;
+    noncanonical[0x01] = std::byte{0x80};
+    const auto normalized = DecodeGameSettings(noncanonical);
+    REQUIRE(normalized.numeric_hit_points);
+    noncanonical[0x01] = std::byte{1};
+    REQUIRE(EncodeGameSettings(normalized) == noncanonical);
     REQUIRE_THROWS(DecodeGameSettings(std::span(record).first(0xa3)));
 }
 

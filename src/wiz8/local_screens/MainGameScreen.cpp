@@ -3140,7 +3140,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
         !CurrentGame().monster_manager_entries[party_slot].effect_icon_active &&
         !CurrentGame().monster_manager_entries[party_slot].damage_splat_active) {
         if (!CurrentGame().monster_manager_entries[party_slot].quote.bubble ||
-            g_settings.pc_subtitles == 0) {
+            !g_settings.pc_subtitles) {
             return;
         }
     }
@@ -4807,7 +4807,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     if (!(event.button == UiPointerButton::Left) &&
         !(event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
         if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Up)) {
-            if (g_mouselook_active && g_settings.mouselook_toggle == 0) {
+            if (g_mouselook_active && !g_settings.mouselook_toggle) {
                 StopWorldMouseLook();
                 return UiResult::Handled;
             }
@@ -4862,23 +4862,21 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         if (MainGameHud()->highlighted_item != -1 && !gpSCSV &&
             !CurrentGame().activity.conversation && !ItemUseDraft() && !IsLockInteractionActive() &&
             !IsTrapInteractionActive() &&
-            (g_settings.ctrl_right_click_info == 0 ||
-             ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
+            (!g_settings.ctrl_right_click_info || ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
             AfterUiDispatch([=] { OpenMonsterInfoDialog(MainGameHud()->highlighted_item); });
             return UiResult::Handled;
         }
         if (!(CurrentGame().party.held.item.iItemNo != -1) && MainGameHud()->selected_item != -1 &&
             !gpSCSV && !CurrentGame().activity.conversation && !ItemUseDraft() &&
             !IsLockInteractionActive() && !IsTrapInteractionActive() &&
-            (g_settings.ctrl_right_click_info == 0 ||
-             ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
+            (!g_settings.ctrl_right_click_info || ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
             W8WorldItem* world_item = ItemInfo(ItemIndex(MainGameHud()->selected_item));
             PartyAttemptsToIdentifyItem(&world_item->item, 0);
             OpenAssayDialog(world_item->item, -1);
             return UiResult::Handled;
         }
         if (!IsWorldCursorVisible() && !CurrentGame().activity.conversation) {
-            if (g_settings.mouselook_toggle != 0) {
+            if (g_settings.mouselook_toggle) {
                 if (g_mouselook_active) {
                     StopWorldMouseLook();
                     return UiResult::Handled;
@@ -5245,7 +5243,7 @@ static void ApplyPendingMouselook(void)
     if (g_mouselook_pending_pitch == 0.0f && g_mouselook_pending_yaw == 0.0f) {
         return;
     }
-    if (g_settings.mouselook_smoothing == 0) {
+    if (!g_settings.mouselook_smoothing) {
         pitch_step = g_mouselook_pending_pitch;
         yaw_step = g_mouselook_pending_yaw;
     } else {
@@ -5809,10 +5807,10 @@ bool HandleMouselookInput(const InputEvent* input)
                 (input->position.x - 0x140) * g_mouselook_yaw_scale + g_mouselook_pending_yaw;
             g_mouselook_pending_pitch =
                 g_mouselook_pending_pitch + (input->position.y - 0xf0) *
-                                                (g_settings.invert_mouse_y != 0 ? -1 : 1) *
+                                                (g_settings.invert_mouse_y ? -1 : 1) *
                                                 g_mouselook_pitch_scale;
             WarpSystemCursor(0x140, 0xf0);
-            if (g_settings.mouselook_smoothing == 0) {
+            if (!g_settings.mouselook_smoothing) {
                 ApplyPendingMouselook();
             }
             return true;
@@ -6585,8 +6583,7 @@ void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed need
             target.iMonsterID = CurrentGame().npc_interaction.target_location_id;
             AimAtTarget(selected, target);
             needed_kind = W8_TARGET_NEED_NONE;
-        } else if (g_settings.autotarget_spells != 0 && draft &&
-                   RepickDraftTarget(selected, *draft)) {
+        } else if (g_settings.autotarget_spells && draft && RepickDraftTarget(selected, *draft)) {
             W8TargetSource source;
             SetTargetSourceToCharacter(selected, &source);
             PointCameraAtCombatTarget(&source,
