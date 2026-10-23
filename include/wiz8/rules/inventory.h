@@ -6,6 +6,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "wiz8/data/skills.h"
@@ -92,17 +93,23 @@ struct ItemRecipient {
 };
 /* Reference an item by party location, or borrow a value outside the pool. Pool
    references resolve after edits; no address is retained across vector mutations. */
-struct ItemReference {
-    // Borrow an external value, or resolve a party location after storage mutations.
-    W8ItemInstance* value = nullptr;
+class ItemReference {
+public:
+    explicit ItemReference(W8ItemInstance& item) : item_(std::ref(item)) {}
+    explicit ItemReference(W8ItemLocation location) : item_(location) {}
     W8ItemInstance& get(W8Party& party) const;
-    // Where the item is in the party; none for a value the caller owns.
-    std::optional<W8ItemLocation> location;
+    const W8ItemLocation* location() const { return std::get_if<W8ItemLocation>(&item_); }
+
+private:
+    std::variant<std::reference_wrapper<W8ItemInstance>, W8ItemLocation> item_;
 };
-ItemReference PartyItem(W8ItemLocation location);
+inline ItemReference PartyItem(W8ItemLocation location)
+{
+    return ItemReference{location};
+}
 inline ItemReference OwnedItem(W8ItemInstance& item)
 {
-    return {&item, std::nullopt};
+    return ItemReference{item};
 }
 /* The new slot a placement filled (None after merging or for an outsider), and the
    item whose acquisition the command reports. Party items are resolved by location;

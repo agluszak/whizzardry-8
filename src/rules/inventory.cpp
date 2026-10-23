@@ -12,6 +12,7 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <fmt/printf.h>
@@ -50,19 +51,15 @@ static bool IsCarried(W8ItemLocation location)
 
 W8ItemInstance& ItemReference::get(W8Party& party) const
 {
-    return location ? *party.itemAt(*location) : *value;
-}
-
-ItemReference PartyItem(W8ItemLocation location)
-{
-    return {nullptr, location};
+    if (const auto* stored = location()) return *party.itemAt(*stored);
+    return std::get<std::reference_wrapper<W8ItemInstance>>(item_).get();
 }
 
 // Empty a source: a party location gives its item up, closing up the pool; a value clears.
 static void Discard(W8Party& party, ItemReference source)
 {
-    if (source.location)
-        party.take(*source.location);
+    if (source.location())
+        party.take(*source.location());
     else
         source.get(party) = {};
 }
@@ -73,14 +70,14 @@ static void Discard(W8Party& party, ItemReference source)
 static void MoveInto(W8Party& party, W8ItemInstance& destination,
                      std::optional<W8ItemLocation> destination_location, ItemReference source)
 {
-    if (destination_location && source.location) {
-        party.exchange(*destination_location, *source.location,
-                       IsCarried(*source.location) ? static_cast<int>(source.location->character)
-                                                   : -1);
+    if (destination_location && source.location()) {
+        party.exchange(
+            *destination_location, *source.location(),
+            IsCarried(*source.location()) ? static_cast<int>(source.location()->character) : -1);
         return;
     }
-    destination = source.location ? party.take(*source.location)
-                                  : std::exchange(source.get(party), W8ItemInstance{});
+    destination = source.location() ? party.take(*source.location())
+                                    : std::exchange(source.get(party), W8ItemInstance{});
     destination.bind_announced = false;
     if (destination_location && destination_location->storage == W8ItemStorage::Hand)
         party.held = {destination, {}, -1};
@@ -163,8 +160,8 @@ static std::optional<StackMerge> MergeStack(const GameData& data, W8Party& party
     incoming.stack_count -= moved;
     const bool complete = incoming.stack_count == 0;
     if (complete) Discard(party, source);
-    return StackMerge{complete, InventoryEdit{{complete && source.location ? *source.location
-                                                                           : W8ItemLocation{}}}};
+    return StackMerge{complete, InventoryEdit{{complete && source.location() ? *source.location()
+                                                                             : W8ItemLocation{}}}};
 }
 
 /* Take one of an item's uses away, and when that was the last one, empty the source. A
@@ -465,7 +462,7 @@ std::optional<ItemPlacement> PartyStorage::placeInPool(ItemReference source, boo
         const W8ItemLocation location{W8ItemStorage::Pool, 0, index};
         return ItemPlacement{inserted ? location : W8ItemLocation{}, PartyItem(location)};
     };
-    const bool from_pool = source.location && source.location->storage == W8ItemStorage::Pool;
+    const bool from_pool = source.location() && source.location()->storage == W8ItemStorage::Pool;
     if (!skip_stacking &&
         data_.items[source.get(party_).iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
         for (unsigned int index = 0; index < party_.item_pool.size(); ++index) {
@@ -473,7 +470,7 @@ std::optional<ItemPlacement> PartyStorage::placeInPool(ItemReference source, boo
                     MergeStack(data_, party_, PartyItem({W8ItemStorage::Pool, 0, index}), source);
                 merge && merge->complete) {
                 // Consuming an earlier pooled source shifts the receiving row down.
-                if (from_pool && source.location->slot < index) --index;
+                if (from_pool && source.location()->slot < index) --index;
                 return received(index, false);
             }
         }

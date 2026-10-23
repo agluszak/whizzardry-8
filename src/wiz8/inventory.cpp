@@ -141,8 +141,8 @@ void Inventory::acquire(const std::optional<ItemPlacement>& placement, W8Charact
 {
     if (!placement || !placement->received) return;
     const auto& received = *placement->received;
-    if (received.location) {
-        const auto location = *received.location;
+    if (received.location()) {
+        const auto location = *received.location();
         receiver = location.storage == W8ItemStorage::Pool
                        ? nullptr
                        : &game_.party.characters[location.character];
@@ -254,7 +254,7 @@ Inventory::storeWithCharacterOrPoolFirst(ItemRecipient recipient, ItemReference 
 // The source's location when a store took the item, and where a new entry went.
 static W8ItemLocation From(const ItemReference& source, bool stored)
 {
-    return stored && source.location ? *source.location : W8ItemLocation{};
+    return stored && source.location() ? *source.location() : W8ItemLocation{};
 }
 
 static W8ItemLocation To(const std::optional<ItemPlacement>& placement)

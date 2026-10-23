@@ -171,7 +171,8 @@ TEST_CASE("Pool placement preserves stack quantities across growth and refusal",
         REQUIRE(placed);
         REQUIRE(placed->stored.storage == W8ItemStorage::None);
         REQUIRE(placed->received);
-        REQUIRE(placed->received->location == W8ItemLocation{W8ItemStorage::Equipment, 0, 8});
+        REQUIRE(placed->received->location());
+        REQUIRE(*placed->received->location() == W8ItemLocation{W8ItemStorage::Equipment, 0, 8});
         REQUIRE(&placed->received->get(party) == &character.EquippedItem[8]);
         REQUIRE(character.EquippedItem[8].stack_count == 95);
     }
@@ -185,7 +186,7 @@ TEST_CASE("Pool placement preserves stack quantities across growth and refusal",
                                        false, PlayPhase::Creation);
         REQUIRE(placed);
         REQUIRE(placed->received);
-        REQUIRE_FALSE(placed->received->location);
+        REQUIRE_FALSE(placed->received->location());
         REQUIRE(&placed->received->get(party) == &outsider.EquippedItem[10]);
         REQUIRE(outsider.EquippedItem[10].stack_count == 95);
     }
@@ -197,7 +198,8 @@ TEST_CASE("Pool placement preserves stack quantities across growth and refusal",
         REQUIRE(placed);
         REQUIRE(party.item_pool.size() == 1);
         REQUIRE(party.item_pool[0].stack_count == 95);
-        REQUIRE(placed->received->location == W8ItemLocation{W8ItemStorage::Pool, 0, 0});
+        REQUIRE(placed->received->location());
+        REQUIRE(*placed->received->location() == W8ItemLocation{W8ItemStorage::Pool, 0, 0});
         party.item_pool.reserve(1000);
         REQUIRE(&placed->received->get(party) == &party.item_pool[0]);
     }
