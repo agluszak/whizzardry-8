@@ -8,55 +8,47 @@ Linux is the only platform currently tested in CI. macOS and Windows builds are 
 
 This repository does **not** include retail game assets. You'll need your own retail copy of Wizardry 8.
 
-## Build on Linux
+## Build and play (Linux)
 
-You'll need Clang 23, GCC 16 (including libstdc++ development headers), CMake 4.4.4 or newer, Ninja, Python 3.11 or newer, [Conan 2](https://conan.io/), Vulkan development headers and loader (`libvulkan-dev` on Debian/Ubuntu), and a working Vulkan driver. Conan handles the other C/C++ library dependencies; CMake fetches the pinned VulkanSceneGraph source.
-
-On Ubuntu, `tools/setup-linux.sh` does all of the following in one step (it is safe to
-re-run, and adds the toolchain PPA for libstdc++ 16 on releases older than 26.04). For
-Claude Code cloud sessions, paste `tools/cloud-setup.sh` into the cloud environment's
-setup script so the toolchain is part of the cached environment; sessions then run
-`tools/cloud-deps.sh` (see `CLAUDE.md`), which reuses Conan packages a previous project
-thread saved. To do it by hand, from the repository root:
+Install Docker and run:
 
 ```sh
-python3 -m pip install 'conan==2.33.0' 'cmake==4.4.4'
-conan export conan/recipes/libalsa
-
-CC=clang-23 CXX=clang++-23 conan install . \
-    -pr:h conan/profiles/linux-clang23 -pr:b conan/profiles/linux-gcc16 \
-    -s:h build_type=Release --build=missing -of build/linux/conan
-
-. build/linux/conan/conanbuild.sh
-cmake --preset linux \
-    -DCMAKE_TOOLCHAIN_FILE="$PWD/build/linux/conan/conan_toolchain.cmake" \
-    -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23
-cmake --build --preset linux
-. build/linux/conan/conanrun.sh
+./build.sh
 ```
 
-The first build may take a while because Conan needs to build some dependencies.
+The first run pulls the published image pinned by digest in `toolchain-image.txt`
+and resolves the pinned Conan dependencies. Subsequent builds reuse that image,
+Conan binaries and ccache. CI uses the same entry point and image; ordinary builds
+never install system packages. The host does not need Clang, CMake or Conan.
 
-The renderer uses Vulkan on all platforms. Windows builds require the Vulkan SDK;
-macOS builds require the Vulkan SDK with MoltenVK. Set `VULKAN_SDK` as instructed
-by the SDK installer. SDL continues to provide windows, input, audio and CPU
-surfaces. Linux is the platform covered by CI.
+The Toolchain image workflow publishes compiler and system-dependency changes.
+After it succeeds, update `toolchain-image.txt` with the digest from its
+`toolchain-image` artifact and validate the consumers before merging.
+The image contains no game assets. A missing system dependency is an image
+problem: fix the Dockerfile rather than enabling Conan package installation.
 
-## Play
-
-First, prepare the data from your retail installation:
+Prepare assets from a retail installation once:
 
 ```sh
-build/linux/wiz8_prepare_assets /path/to/prepared-assets /path/to/retail-install
+./run.sh --prepare-assets /path/to/prepared-assets /path/to/retail-install
 ```
 
-Choose a **new directory** for `prepared-assets`, outside the retail installation. The preparation tool extracts the game data and applies the installed patches.
-
-Then launch the game:
+Choose a new directory outside the retail installation, then play:
 
 ```sh
 WIZ8_ASSET_ROOT=/path/to/prepared-assets ./run.sh
 ```
+
+Conan runtime paths are activated automatically by the launcher. The game runs
+on the host without Docker, provided its C++ runtime and Vulkan driver are
+compatible with the build environment. Saves, settings and logs use the
+per-user application directory; override it with `WIZ8_USER_ROOT`.
+
+Use `./build.sh linux-ci` for the assertion-enabled, optimized Debug CI build, `./build.sh linux-dev`, `./build.sh linux-asan` or
+`./build.sh linux-integer-audit` for other configurations, and set
+`WIZ8_BUILD_DIR` to select the resulting executable in `run.sh`.
+`./build.sh -- <command>` runs a command in the same build container.
+macOS and Windows builds are not yet verified.
 
 To try an imported, interactive VSG object in a retail world:
 
@@ -70,7 +62,6 @@ log describes the action. It uses the world's lights and fog. This optional samp
 is recreated at each level entry, with no changes to retail assets or save records.
 The same option accepts other static indexed VSG position/normal/UV geometry.
 
-Saves, settings and logs go into the system's per-user application directory, separate from the game assets. Set `WIZ8_USER_ROOT` if you'd rather choose that directory yourself.
 
 ## Contributing
 
@@ -78,10 +69,10 @@ This is a modernization project, not an exercise in preserving the original engi
 
 For the current technical direction, see [AGENTS.md](AGENTS.md), [the architecture](ARCHITECTURE.md) and [the roadmap](ROADMAP.md).
 
-After building, run the tests with:
+After building, run tests in the same environment as CI:
 
 ```sh
-ctest --preset linux
+./build.sh -- bash -c 'source build/linux/conan/conanrun.sh; ctest --preset linux'
 ```
 
 Graphics tests and runtime scenarios render through SDL's offscreen video driver, so
@@ -91,7 +82,7 @@ the Khronos validation layer and fails graphics tests on validation errors.
 Some runtime tests also need prepared retail assets:
 
 ```sh
-WIZ8_ASSET_ROOT=/path/to/prepared-assets ctest --preset linux -L runtime
+./build.sh -- bash -c 'source build/linux/conan/conanrun.sh; ctest --preset linux -L runtime'
 ```
 
 A failing scenario saves the game's frame under `tests/runtime-artifacts/` in the
@@ -117,15 +108,13 @@ numbers use `signed char` or `std::int8_t`, so no build sets `-fsigned-char`.
 
 The normal tidy allowlist includes assignment-in-condition, string-view C API
 misuse, allocation ownership, dangling string buffers and last-use moves.
-Configure an analysis build with `WIZ8_PRECOMPILE_HEADERS=OFF`, then run:
+Configure the analysis preset and run its checks inside the same container:
 
 ```sh
-CLANG_TIDY=clang-tidy-23 RUN_CLANG_TIDY=run-clang-tidy-23 \
-    tools/run-clang-tidy.sh build/linux-tidy
-CLANG_TIDY_CONFIG="$PWD/.clang-tidy-audit" \
-    CLANG_TIDY=clang-tidy-23 RUN_CLANG_TIDY=run-clang-tidy-23 \
-    tools/run-clang-tidy.sh build/linux-tidy
-python3 tools/run-diagnostic-audit.py build/linux-tidy
+./build.sh linux-tidy --configure-only
+./build.sh -- bash -c 'source build/linux-tidy/conan/conanbuild.sh; cmake --build build/linux-tidy --target wiz8_shader_headers'
+./build.sh -- bash -c 'CLANG_TIDY=clang-tidy-23 RUN_CLANG_TIDY=run-clang-tidy-23 tools/run-clang-tidy.sh build/linux-tidy'
+./build.sh -- python3 tools/run-diagnostic-audit.py build/linux-tidy
 ```
 
 The separate audit checks unchecked optional dereferences (intentional `.value()`
@@ -150,19 +139,18 @@ the cache. Failed scans and analyses are always retried; clean files remain
 cached when another file fails. To use this locally:
 
 ```sh
-CLANG_TIDY_CACHE_DIR="$PWD/build/tidy-cache" \
-    CLANG_TIDY=clang-tidy-23 RUN_CLANG_TIDY=run-clang-tidy-23 \
-    tools/run-clang-tidy.sh build/linux-tidy
+CLANG_TIDY_CACHE_DIR="$PWD/build/tidy-cache" ./build.sh -- bash -c \
+    'CLANG_TIDY=clang-tidy-23 RUN_CLANG_TIDY=run-clang-tidy-23 tools/run-clang-tidy.sh build/linux-tidy'
 ```
 
 Unset `CLANG_TIDY_CACHE_DIR` for an uncached run. CI prints hit/miss counts and
-elapsed times, skips native jobs for documentation-only changes, and regenerates
+elapsed times, skips Native and Format for documentation-only changes, and regenerates
 offline shaders when their sources, tools, dependencies or build settings change.
 Weekly/manual runs retain the full source scope; their integer-sanitizer job
 includes ASan and UBSan, replacing the duplicate ordinary sanitizer run.
 
-Analysis runs in four stable partitions so cold repository-wide checks also run
-concurrently. Header dependency discovery stays within each partition, and the
-required `clang-tidy` check aggregates all four results. The workflow's manual
-`full_scan` option bypasses the tidy cache for both regular and ownership checks;
-manual runs also include the compiler audit and integer-sanitizer build.
+Analysis runs in two stable partitions with a direct check for each; there are no
+separate scope or aggregation jobs. Header dependency discovery stays within each
+partition. A manual Native run always runs the checks; its `full_scan` option also
+bypasses the tidy cache for regular and ownership checks. Manual runs include the
+compiler audit and integer-sanitizer build.

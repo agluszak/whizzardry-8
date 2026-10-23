@@ -557,7 +557,7 @@ int CharacterPrayAction(int party_slot)
             CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x175]});
         return cost;
     }
-    if (g_settings.verbose_combat_messages == 0) {
+    if (!g_settings.verbose_combat_messages) {
         CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         AppendToLastTextLine(g_pray_dash, -1);
         CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});

@@ -7,4 +7,5 @@ compiler.libcxx=libstdc++11
 compiler.cppstd=26
 
 [conf]
+tools.build:compiler_executables={"c": "clang-23", "cpp": "clang++-23"}
 tools.cmake.cmaketoolchain:generator=Ninja
