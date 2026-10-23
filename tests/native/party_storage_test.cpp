@@ -1,9 +1,11 @@
 // Links only the rules layer: a rules dependency on the engine fails to link here.
 #include <initializer_list>
+#include <optional>
 
 #include <catch2/catch_test_macros.hpp>
 
 #include "wiz8/data/game_data.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/rules/action_choices.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/inventory.h"
