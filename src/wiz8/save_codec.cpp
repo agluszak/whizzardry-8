@@ -415,11 +415,30 @@ template<> struct Record<save::GameState> {
               bytes.subspan(offsetof(Disk, party_gold), sizeof(Disk::party_gold)));
         value(&runtime.status.selected_character,
               bytes.subspan(offsetof(Disk, selected_character), sizeof(Disk::selected_character)));
-        item_run(runtime.party.item_pool,
-                 bytes.subspan(offsetof(Disk, party_item_pool), sizeof(Disk::party_item_pool)),
-                 value, text);
-        value(&runtime.party.item_count,
-              bytes.subspan(offsetof(Disk, party_item_count), sizeof(Disk::party_item_count)));
+        constexpr auto pool_records = std::extent_v<decltype(Disk::party_item_pool)>;
+        if (runtime.pool.size() > pool_records)
+            throw std::runtime_error("party inventory exceeds the retail save's capacity");
+        auto count = static_cast<std::uint32_t>(runtime.pool.size());
+        value(&count, bytes.subspan(offsetof(Disk, party_item_count), sizeof(count)));
+        if constexpr (!std::is_const_v<R>) {
+            if (count > pool_records) throw std::runtime_error("invalid party inventory count");
+            runtime.pool.resize(count);
+        }
+        const auto pool_bytes =
+            bytes.subspan(offsetof(Disk, party_item_pool), sizeof(Disk::party_item_pool));
+        item_run(runtime.pool, pool_bytes, value, text);
+        // Unused records are empty items; only their unidentified byte is kept.
+        auto& unused = runtime.status.retail.unused_pool_unknown;
+        for (std::size_t index = count; index < pool_records; ++index) {
+            const auto record =
+                pool_bytes.subspan(index * sizeof(ItemInstance), sizeof(ItemInstance));
+            if constexpr (std::is_const_v<R>) {
+                const W8ItemInstance empty{.unknown_08 = unused[index]};
+                nested(empty, record, value, text);
+            } else {
+                value(&unused[index], record.subspan(offsetof(ItemInstance, unknown_08), 1));
+            }
+        }
         value(&runtime.status.text_line_cursor,
               bytes.subspan(offsetof(Disk, text_line_cursor), sizeof(Disk::text_line_cursor)));
         value(&runtime.status.retail.legacy_text_box_lines,
@@ -476,12 +495,20 @@ template<> struct Record<save::GameState> {
               bytes.subspan(offsetof(Disk, next_world_item_id), sizeof(Disk::next_world_item_id)));
         value(&runtime.status.next_trigger_id,
               bytes.subspan(offsetof(Disk, next_trigger_id), sizeof(Disk::next_trigger_id)));
-        bool held_present = runtime.party.held.item.iItemNo != -1;
+        bool held_present = runtime.held.has_value();
         value(&held_present,
               bytes.subspan(offsetof(Disk, item_in_cursor), sizeof(Disk::item_in_cursor)));
-        nested(runtime.party.held.item,
-               bytes.subspan(offsetof(Disk, item_in_hand), sizeof(Disk::item_in_hand)), value,
-               text);
+        const auto hand_bytes =
+            bytes.subspan(offsetof(Disk, item_in_hand), sizeof(Disk::item_in_hand));
+        if constexpr (std::is_const_v<R>) {
+            const auto held = runtime.held.value_or(W8ItemInstance{});
+            nested(held, hand_bytes, value, text);
+        } else {
+            W8ItemInstance held{};
+            nested(held, hand_bytes, value, text);
+            runtime.held.reset();
+            if (held.iItemNo != -1) runtime.held = held;
+        }
         value(&runtime.status.flags, bytes.subspan(offsetof(Disk, flags), sizeof(Disk::flags)));
         value(&runtime.status.game_time_ms,
               bytes.subspan(offsetof(Disk, game_time_ms), sizeof(Disk::game_time_ms)));
@@ -757,14 +784,31 @@ std::vector<std::byte> encode(const GameState& state)
     return out.take();
 }
 
+// Whether a remembered item use names a slot a party can have.
+static bool Addressable(W8ItemLocation location)
+{
+    switch (location.storage) {
+    case W8ItemStorage::Hand:
+        return true;
+    case W8ItemStorage::Pool:
+        return location.slot < std::extent_v<decltype(retail::GlobalStatus::party_item_pool)>;
+    case W8ItemStorage::Equipment:
+        return location.character < W8_PARTY_SLOT_COUNT && location.slot < W8_EQUIP_SLOT_COUNT;
+    case W8ItemStorage::Backpack:
+        return location.character < W8_PARTY_SLOT_COUNT && location.slot < 8;
+    case W8ItemStorage::None:
+        return false;
+    }
+    return false;
+}
+
 GameState decode_game_state(std::span<const std::byte> payload)
 {
     Reader records(payload);
     GameState state{};
     retail::decode(records.sized(), state);
-    auto& [status, party] = state;
-    if (party.item_count > std::size(party.item_pool))
-        throw std::runtime_error("invalid party inventory count");
+    auto& status = state.status;
+    auto& party = state.party;
     if (status.retail.save_version < 1.1f) {
         // Before 1.1 there were three message boxes, stored in a legacy pair.
         for (std::size_t box = 0; box < 3; ++box) {
@@ -793,7 +837,7 @@ GameState decode_game_state(std::span<const std::byte> payload)
         party.members[slot] = saved.member;
         auto& item = row.remembered.item_detail.item_use.item;
         item.character = slot;
-        if (!party.members[slot] || !party.itemAt(item)) item = {};
+        if (!party.members[slot] || !Addressable(item)) item = {};
         if (row.executing.kind == W8_ACTION_USE_ITEM) {
             row.executing.detail_block.item_use.item = item;
             row.executing.detail_block.item_use.item_id =

@@ -292,7 +292,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
             FaceCharacterTowardCombatTarget(party_slot, &slot->executing.target);
         }
     }
-    if (CharacterActionTargetsEnemies(game.party, character, action, detail,
+    if (CharacterActionTargetsEnemies(game.inventory, character, action, detail,
                                       &slot->executing.detail_block) &&
         (!game.combat.has_value() ||
          (interrupt == -1 && !game.combat->characters[party_slot].berserk))) {
@@ -355,7 +355,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
         result = CanCharacterAttackItsTarget(party_slot);
         break;
     case W8_ACTION_USE_ITEM: {
-        const auto use = UseItem(game, party_slot, slot->executing.detail_block.item_use);
+        const auto use = game.inventory.use(party_slot, slot->executing.detail_block.item_use);
         fatigue_cost = use.fatigue_cost;
         if (use.effect == 0) {
             result = 0;
@@ -384,7 +384,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
         if (action != W8_ACTION_DEFEND && action != W8_ACTION_PROTECT) {
             game.combat->passive_round = 0;
         }
-        if (CharacterActionTargetsEnemies(game.party, character, action, detail,
+        if (CharacterActionTargetsEnemies(game.inventory, character, action, detail,
                                           &slot->executing.detail_block) &&
             slot->executing.target.iType >= W8_TARGET_KIND_MONSTER &&
             slot->executing.target.iType <= W8_TARGET_KIND_PLACE) {

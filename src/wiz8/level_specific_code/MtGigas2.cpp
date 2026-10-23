@@ -223,7 +223,7 @@ void MtGigas2Script::setup()
 bool MtGigas2Script::train(Trigger* pTrigger)
 {
     W8NpcState* npc;
-    W8ItemInstance* item;
+    const W8ItemInstance* item;
     int item_id;
     int value;
 
@@ -233,9 +233,9 @@ bool MtGigas2Script::train(Trigger* pTrigger)
     npc = GetNpcStateByKind(0x5b);
     item = 0;
     item_id = 0;
-    if ((ctx.party.held.item.iItemNo != -1)) {
-        item = &ctx.party.held.item;
-        item_id = GetItemInHand(ctx.party);
+    if (const auto* held = ctx.inventory.held()) {
+        item = &held->item;
+        item_id = held->item.iItemNo;
     }
     QueueNpcScriptNotice(npc, item, -1, false, 0);
     g_trigger_feedback = true;

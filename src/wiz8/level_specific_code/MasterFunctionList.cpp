@@ -358,7 +358,7 @@ bool LevelScript::seenBodies(int command)
 {
     if (command == 1) {
         if (GetLocationVarIDByName("AP_SeenBodies") == -1) {
-            if (CountAscensionPeakItems(ctx.party) == 3) {
+            if (CountAscensionPeakItems(ctx.inventory) == 3) {
                 if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
                     GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
                     ApplyItemEffectToRandomCharacter(kCursorNodeRelicEvent, -1, 0);

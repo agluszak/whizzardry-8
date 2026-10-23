@@ -74,11 +74,11 @@ unsigned char EvaluateFact(W8FactId fact_id)
 
     if (fact_id == W8_FACT_DEVICE_ONE || fact_id == W8_FACT_DEVICE_TWO ||
         fact_id == W8_FACT_DEVICE_THREE) {
-        count = PartyHasItem(CurrentGame().party, 0x243);
-        if (PartyHasItem(CurrentGame().party, 0x242)) {
+        count = CurrentGame().inventory.has(0x243);
+        if (CurrentGame().inventory.has(0x242)) {
             ++count;
         }
-        if (PartyHasItem(CurrentGame().party, 0x244)) {
+        if (CurrentGame().inventory.has(0x244)) {
             ++count;
         }
         if (fact_id == W8_FACT_DEVICE_ONE) {
@@ -96,7 +96,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
         }
         switch (fact_id) {
         case W8_FACT_ARNIKA_PARTY_HAS_MARTEN_BADGE:
-            return PartyHasItem(CurrentGame().party, 0x27b);
+            return CurrentGame().inventory.has(0x27b);
         case W8_FACT_FACTION_HIGARDI_COMMON_FRIENDLY:
             return GetFactionDisposition(W8_FACTION_HIGARDI_COMMON) == W8_FACTION_FRIENDLY;
         case W8_FACT_ALIGNMENT_NONE:
@@ -146,15 +146,15 @@ unsigned char EvaluateFact(W8FactId fact_id)
             value = GetFact(W8_FACT_UMISSION_TRAIN_COVERT_ASSIGN);
             if (value == 0) {
                 value = GetFact(W8_FACT_UMISSION_TRAIN_FIRE_ASSIGN);
-                if (value != 0 && !PartyHasItem(CurrentGame().party, 0x271) &&
-                    !PartyHasItem(CurrentGame().party, 0x272)) {
+                if (value != 0 && !CurrentGame().inventory.has(0x271) &&
+                    !CurrentGame().inventory.has(0x272)) {
                     return 1;
                 }
             }
             return 0;
         case W8_FACT_UMISSION_TRAIN_COVERT_DONE:
             if (!CurrentGame().status.fact_88_latch) {
-                if (CountPartyItem(CurrentGame().party, 0x1c4) < 5) {
+                if (CurrentGame().inventory.count(0x1c4) < 5) {
                     return 0;
                 }
                 CurrentGame().status.fact_88_latch = true;
@@ -164,13 +164,13 @@ unsigned char EvaluateFact(W8FactId fact_id)
         case W8_FACT_UMISSION_TRAIN_WETSUIT:
             return EveryCharacterHasItem(CurrentGame().party, 0x1e5, W8ItemReach::Worn);
         case W8_FACT_UMISSION_IUFPASS_LEVEL2:
-            return PartyHasItem(CurrentGame().party, 0x268);
+            return CurrentGame().inventory.has(0x268);
         case W8_FACT_RAPAX_AWAY_CAMP_EXISTS:
-            count = PartyHasItem(CurrentGame().party, 0x242);
-            if (PartyHasItem(CurrentGame().party, 0x243)) {
+            count = CurrentGame().inventory.has(0x242);
+            if (CurrentGame().inventory.has(0x243)) {
                 ++count;
             }
-            if (PartyHasItem(CurrentGame().party, 0x244)) {
+            if (CurrentGame().inventory.has(0x244)) {
                 ++count;
             }
             return count >= 2;
@@ -183,7 +183,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
         }
         switch (fact_id) {
         case W8_FACT_TRYNNIE_PC_HAS_HELM:
-            return PartyHasItem(CurrentGame().party, 0x239);
+            return CurrentGame().inventory.has(0x239);
         case W8_FACT_FACTION_UMPANI_COMMON_FRIENDLY:
             return GetFactionDisposition(W8_FACTION_UMPANI) == W8_FACTION_FRIENDLY;
         case W8_FACT_FACTION_TRANG_COMMON_FRIENDLY:
@@ -204,7 +204,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
             }
             return 0;
         case W8_FACT_PARTY_HAS_BLOODLUST_SWORD:
-            return PartyHasItem(CurrentGame().party, 0x294);
+            return CurrentGame().inventory.has(0x294);
         case W8_FACT_RAPAX_SAVANT_ALLIANCE:
             value = GetFact(W8_FACT_ASTRAL_POSSESS);
             if (value != 0) {
@@ -224,7 +224,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
         }
     } else if (fact_id < W8_FACT_QUEST_SHAMAN_BRIDGE_EASY) {
         if (fact_id == W8_FACT_QUEST_SHAMAN_GET_HELM) {
-            return !PartyHasItem(CurrentGame().party, 0x239);
+            return !CurrentGame().inventory.has(0x239);
         }
         switch (fact_id) {
         case W8_FACT_FACTION_RAPAX_COMMON_FRIENDLY:

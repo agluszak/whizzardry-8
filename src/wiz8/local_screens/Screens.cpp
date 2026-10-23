@@ -198,11 +198,10 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
     }
 }
 
-/* Empty the hand and drop whatever cursor a screen asked for. Inventory operations own the
-   held item. */
+/* Drop whatever cursor a screen asked for before the game is left or replaced; the held
+   item goes with its game. */
 void ClearHeldItemDisplay(void)
 {
-    CurrentGame().party.held.item = {};
     ScreenPointer().reset();
 }
 

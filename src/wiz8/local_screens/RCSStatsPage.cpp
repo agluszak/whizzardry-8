@@ -167,7 +167,7 @@ void W8CampStatsControls::SelectFilter(int index)
 // FUNCTION: WIZ8 0x005c48b0
 void W8CampStatsPage::DrawCampStatsPage(bool full)
 {
-    const auto& data = camp.game.rules().data;
+    const auto& data = camp.game.data;
     const auto& character = *camp.reviewed;
     std::string formatted;
     if (full) {
@@ -639,9 +639,8 @@ void W8CampSkillsPage::Activate()
             [this, category](const UiPointerEvent& event) {
                 return HandleCampSkillList(event, category);
             });
-        target.setTooltip([this] {
-            return skill_hover_row < 0 ? std::string{} : camp.game.rules().data.strings[0x958];
-        });
+        target.setTooltip(
+            [this] { return skill_hover_row < 0 ? std::string{} : camp.game.data.strings[0x958]; });
     }
 }
 
@@ -671,7 +670,7 @@ static bool IsBestCampSkillLevel(W8Skill skill, unsigned int level)
 // FUNCTION: WIZ8 0x005c5d80
 void W8CampSkillsPage::DrawCampSkillsPage(bool full)
 {
-    const auto& data = camp.game.rules().data;
+    const auto& data = camp.game.data;
     if (full) {
         bool has_fifth = false;
         int skill;

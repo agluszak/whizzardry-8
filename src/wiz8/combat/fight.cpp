@@ -292,7 +292,7 @@ bool CombatMayAdvanceContinuously(void)
         if (CurrentGame().party.members[slot].has_value() && character->hp_current != 0 &&
             CharacterCanSwitchTo(slot, SelectCombatAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
                                  false, false) &&
-            CharacterActionTargetsEnemies(CurrentGame().party, character, row->committed.kind,
+            CharacterActionTargetsEnemies(CurrentGame().inventory, character, row->committed.kind,
                                           row->committed.detail, &row->committed.detail_block)) {
             return true;
         }
@@ -1236,7 +1236,7 @@ bool CanPerformAction(int party_slot, const W8Action& selected, bool allow_missi
             if (!allow_equipment_changes) {
                 return false;
             }
-            ReadyPrimaryWeapon(CurrentGame(), party_slot);
+            CurrentGame().inventory.readyPrimaryWeapon(party_slot);
             if (!CanAnyHandReachTarget(party_slot)) {
                 return false;
             }
@@ -1247,7 +1247,7 @@ bool CanPerformAction(int party_slot, const W8Action& selected, bool allow_missi
             if (!allow_equipment_changes) {
                 return false;
             }
-            ReadyPrimaryWeapon(CurrentGame(), party_slot);
+            CurrentGame().inventory.readyPrimaryWeapon(party_slot);
             if (!CanCharacterBerserk(party_slot)) {
                 return false;
             }
@@ -1267,11 +1267,11 @@ bool CanPerformAction(int party_slot, const W8Action& selected, bool allow_missi
         }
         break;
     case W8_ACTION_USE_ITEM:
-        if (CurrentGame().party.itemAt(selected.detail_block.item_use.item) == 0) {
+        if (CurrentGame().inventory.itemAt(selected.detail_block.item_use.item) == 0) {
             return false;
         }
         if (!CanCharacterActivateItem(
-                character, CurrentGame().party.itemAt(selected.detail_block.item_use.item))) {
+                character, CurrentGame().inventory.itemAt(selected.detail_block.item_use.item))) {
             return false;
         }
         break;
@@ -1890,14 +1890,14 @@ int GetConditionInterrupt(W8TargetSource* source)
             if (!AreAllHandSlotsEmpty(&CurrentGame().party.characters[party_slot]) &&
                 CanUnequipSlotItem(Data(), character, W8_EQUIP_SLOT_PRIMARY_WEAPON) &&
                 CanUnequipSlotItem(Data(), character, W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
-                SwapWeaponSetSlots(CurrentGame(), party_slot, false);
+                CurrentGame().inventory.swapWeaponSets(party_slot, false);
                 if (CanAnyHandReachTarget(party_slot) &&
                     CanPartySlotAttackAnyTarget(party_slot, 1, false)) {
                     CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
                                                               Data().strings[0x23d]});
                     return 9;
                 }
-                SwapWeaponSetSlots(CurrentGame(), party_slot, false);
+                CurrentGame().inventory.swapWeaponSets(party_slot, false);
             }
             return 10;
         }

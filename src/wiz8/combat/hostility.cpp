@@ -233,7 +233,7 @@ void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
 
 /* Whether a party action aims at enemies: the four melee kinds do, as do
    spells (and item-spells) whose target type sits in the enemy band. */
-bool CharacterActionTargetsEnemies(const W8Party& party, W8Character* character,
+bool CharacterActionTargetsEnemies(const Inventory& inventory, W8Character* character,
                                    W8ActionKind action_kind, int action_detail,
                                    W8ActionDetailBlock* detail)
 {
@@ -257,7 +257,7 @@ bool CharacterActionTargetsEnemies(const W8Party& party, W8Character* character,
         }
         break;
     case W8_ACTION_USE_ITEM:
-        item = party.itemAt(detail->item_use.item);
+        item = inventory.itemAt(detail->item_use.item);
         if (CanCharacterActivateItem(character, item)) {
             spell_id = Data().items[item->iItemNo].spell_id;
             if (spell_id != W8_SPELL_NONE) {

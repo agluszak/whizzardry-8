@@ -542,18 +542,12 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
 
     for (index = 0; index < 12; ++index) {
         if (character->EquippedItem[index].iItemNo != -1) {
-            AddItemToParty(CurrentGame(),
-                           PartyItem(CurrentGame().party, {W8ItemStorage::Equipment, slot,
-                                                           static_cast<unsigned>(index)}),
-                           false, false);
+            CurrentGame().inventory.storeInPool(character->EquippedItem[index], false);
         }
     }
     for (index = 0; index < 8; ++index) {
         if (character->backpack[index].iItemNo != -1) {
-            AddItemToParty(CurrentGame(),
-                           PartyItem(CurrentGame().party,
-                                     {W8ItemStorage::Backpack, slot, static_cast<unsigned>(index)}),
-                           false, false);
+            CurrentGame().inventory.storeInPool(character->backpack[index], false);
         }
     }
     RemoveCharacterFromParty(slot);

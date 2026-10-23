@@ -2086,7 +2086,7 @@ void DamageTargetsAndReport(W8SpellEffectEntry* effect)
 
 static void DestroyItemConsumables(W8ItemLocation location, unsigned int chance, int* totals)
 {
-    const W8ItemInstance* item = CurrentGame().party.itemAt(location);
+    const W8ItemInstance* item = CurrentGame().inventory.itemAt(location);
     unsigned int destroyed;
     unsigned int unit;
     if (item->iItemNo != -1 &&
@@ -2107,7 +2107,7 @@ static void DestroyItemConsumables(W8ItemLocation location, unsigned int chance,
         } else if (equip_class == W8_ITEM_EQUIP_CLASS_SCROLL) {
             totals[1] += destroyed;
         }
-        RemoveInventoryQuantity(CurrentGame(), location, destroyed);
+        CurrentGame().inventory.removeQuantity(location, destroyed);
     }
 }
 
@@ -2140,7 +2140,7 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
                                    chance, totals);
     }
     if (!effect->target_indices.empty()) {
-        for (index = 0; static_cast<unsigned int>(index) < CurrentGame().party.item_count;
+        for (index = 0; static_cast<std::size_t>(index) < CurrentGame().inventory.pool().size();
              ++index) {
             DestroyItemConsumables({W8ItemStorage::Pool, 0, static_cast<unsigned>(index)}, chance,
                                    totals);
@@ -2860,7 +2860,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
     int index;
     int cost;
     W8Character* character;
-    W8ItemInstance* item;
+    const W8ItemInstance* item;
     W8EffectSlot* slot;
 
     spell_id = effect->kind;
@@ -3020,9 +3020,11 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         break;
     case W8_SPELL_IDENTIFY_ITEM:
         assert(TargetSourceIsCharacter(&effect->Source, 0));
-        ApplyIdentifyAttempt(CurrentGame().party.itemAt(effect->target.item),
-                             effect->definition.duration_scale, effect->definition.percent);
-        item = CurrentGame().party.itemAt(effect->target.item);
+        CurrentGame().inventory.editItem(effect->target.item, [&](W8ItemInstance& target) {
+            ApplyIdentifyAttempt(&target, effect->definition.duration_scale,
+                                 effect->definition.percent);
+        });
+        item = CurrentGame().inventory.itemAt(effect->target.item);
         if (item->identified && item->bound) {
             effect->applied = true;
         }

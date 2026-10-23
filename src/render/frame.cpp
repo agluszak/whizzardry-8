@@ -820,7 +820,7 @@ bool GetCursorPositionInViewport(glm::vec2* position)
     return false;
 }
 
-/* The tracked cursor tip (hotspot + size) in pixel-scale units. DropHeldItem
+/* The tracked cursor tip (hotspot + size) in pixel-scale units. Dropping an item
    turns it into the toss direction. */
 glm::vec2 GetCursorScaledPosition()
 {

@@ -72,11 +72,11 @@ Two layers are enforced:
   tables, dialogue keyword lists). `LoadGameData` reads it once; a malformed
   database throws.
 - **`rules`** (`include/wiz8/rules/`, `src/rules/`): the character and party model,
-  party storage (`W8Party`, formation), item rules, inventory storage rules,
-  character derivation, conditions and enchantments (`party_conditions.h`), the
-  event log and the `Activity`. Functions that only read databases take
-  `const GameData&`; those that change the party, draw random numbers or report
-  events take a `RuleContext` (`rule_context.h`), which `Game::rules()` builds.
+  party storage (`W8Party`, formation), item rules over values and characters
+  (`rules/inventory.h`), character derivation, conditions and enchantments
+  (`party_conditions.h`), the event log and the `Activity`. Functions take what they
+  read and change explicitly: `const GameData&`, the character, party or item values,
+  `Rng&`, `Events&`.
 
 A layer file includes only its own layer, the layers below it, the standard
 library, glm, fmt and three stateless headers (`math.h`, `world/camera_pose.h`,
@@ -156,9 +156,15 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   held by slot or location id and looked up when used. Combat is not saved.
 - **Membership.** `W8Party::members` holds an optional member per slot, so nothing
   tells members apart by flags or addresses.
-- **Inventory.** Inventory rules (`rules/inventory.h`) address members by slot and items by
-  location or as owned values; the game's commands (`wiz8/inventory.h`) apply a
-  rule and then its consequences, settling the party once per command.
+- **Inventory.** Characters own their equipment and backpack slots; `Game::inventory`
+  (`wiz8/inventory.h`) owns the shared pool (a packed vector of at most 500 entries)
+  and the hand, and is the only thing that moves items between any of them. Each
+  operation is complete when it returns: restrictions, the move, acquisition and
+  settling the party. A transfer's `item` argument is what remains with the giver, so
+  a refused or partial transfer never loses units. `MergeStack` is the one stacking
+  rule and changes nothing but the two values. A `W8ItemLocation` addresses a slot
+  for one call; anything kept longer (a queued use, a trade selection) is checked
+  against its expected item when used.
 - **Character derivation.** Every statistic is derived in one place,
   `DeriveCharacterStats`, from evaluated inputs; any change a statistic depends on
   settles the party (`SettleActiveParty`).

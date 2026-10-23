@@ -130,7 +130,7 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
     Prop* prop;
     int value;
 
-    if ((ctx.party.held.item.iItemNo != -1)) {
+    if ((ctx.inventory.held())) {
         return false;
     }
     if (GetLocationVarIDByName("FlagPosition") == -1) {
@@ -155,7 +155,7 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
         position.y = kLiftParkedY;
         prop->SetPosition(&position);
         SetTriggerVariableByName("FlagPosition", 1000);
-        ReplaceHeldItem(ctx.game, MakeItem(Data(), ctx.game.rng, 0x290, false, false, false));
+        ctx.game.inventory.replaceHeld(MakeItem(Data(), ctx.game.rng, 0x290, false, false, false));
         npc = GetNpcStateByKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x18, true, 0);
         ResumeNpc(npc, 1);
@@ -286,8 +286,8 @@ bool MtGigasOuterScript::campAlarm(int command)
    item in the 0x268-0x26e key range sits in the player's hand. */
 bool MtGigasOuterScript::ewaxxDoor03(Trigger* trigger)
 {
-    if ((ctx.party.held.item.iItemNo != -1)) {
-        int item_id = GetItemInHand(ctx.party);
+    if ((ctx.inventory.held())) {
+        int item_id = ctx.inventory.heldItemId();
         if (item_id >= 0x268 && item_id <= 0x26e) {
             return true;
         }

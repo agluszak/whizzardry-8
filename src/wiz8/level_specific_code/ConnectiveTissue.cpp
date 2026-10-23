@@ -46,7 +46,7 @@ private:
    time) and enables the six UNDEAD spawn generators. */
 bool ConnectiveTissueScript::liche(Trigger* pTrigger)
 {
-    if (GetItemInHand(ctx.party) != 0x15d && pTrigger->action == 0) {
+    if (ctx.inventory.heldItemId() != 0x15d && pTrigger->action == 0) {
         ShowLevelMessage(6);
         g_trigger_feedback = true;
         return false;

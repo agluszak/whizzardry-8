@@ -55,7 +55,7 @@ void LoadNativeLevelObject(Game& game)
 
 NativeObject* Game::interactiveNativeObject()
 {
-    if (!activity.in_world() || advancement.held || party.held.item.iItemNo != -1 || !level.primary)
+    if (!activity.in_world() || advancement.held || inventory.held() || !level.primary)
         return nullptr;
     return level.primary->selectedNativeObject();
 }

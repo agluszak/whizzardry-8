@@ -110,9 +110,8 @@ enum { W8_NPC_DISPOSITION_HOSTILE = 0x21, W8_NPC_DISPOSITION_FRIENDLY = 0x42 };
 void QueueNpcHeldItemNotice(int npc_kind)
 {
     auto* npc = GetNpcStateByKind(npc_kind);
-    auto* item =
-        (CurrentGame().party.held.item.iItemNo != -1) ? &CurrentGame().party.held.item : nullptr;
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    const auto* held = CurrentGame().inventory.held();
+    QueueNpcScriptNotice(npc, held ? &held->item : nullptr, -1, false, 0);
 }
 
 bool NpcRecordHasTradePool(W8NpcState* npc)
@@ -416,7 +415,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
         if (item->iItemNo != -1 &&
             CanUnequipSlotItem(Data(), &character, static_cast<W8EquipSlot>(slot)) &&
             !NpcWantsItem(npc, item)) {
-            if (AddItemToPartyOrDrop(CurrentGame(), OwnedItem(*item), false)) {
+            if (CurrentGame().inventory.storeOrDrop(*item, false)) {
                 returned = true;
             } else if (item->iItemNo == -1) {
                 dropped = true;
@@ -426,7 +425,7 @@ static void ReturnDismissedNpcItems(W8NpcState* npc, W8Character& character)
     for (slot = 0; slot < 8; ++slot) {
         W8ItemInstance* item = &character.backpack[slot];
         if (item->iItemNo != -1 && !NpcWantsItem(npc, item)) {
-            if (AddItemToPartyOrDrop(CurrentGame(), OwnedItem(*item), false)) {
+            if (CurrentGame().inventory.storeOrDrop(*item, false)) {
                 returned = true;
             } else if (item->iItemNo == -1) {
                 dropped = true;
@@ -523,7 +522,7 @@ void UpdateNpcPartyMember(int party_slot)
 
     if (character->highest_condition == W8_CONDITION_DEAD) {
         ShowNotice(W8_FONT_PALETTE_RED, fmt::sprintf(Data().strings[0x7d4], character->name));
-        StashDepartingCharacterItems(CurrentGame(), party_slot);
+        CurrentGame().inventory.stashDeparting(party_slot);
         RemoveCharacterFromParty(party_slot);
         return;
     }
@@ -2186,14 +2185,14 @@ void ReleaseMarkedNpcBindings(void)
    when the trigger's 0x100 flag or the NPC's '{' naming style asks for it. */
 bool NotifyNpcTriggerActivation(Trigger* trigger)
 {
-    W8ItemInstance* item = 0;
+    const W8ItemInstance* item = 0;
 
     if (!CurrentGame().activity.conversation) {
         W8NpcState* npc = CurrentGame().story.npcs[trigger->m_lData1].get();
 
         if ((trigger->flags & W8_TRIGGER_ENABLED) != 0 || npc->name_style == '{') {
-            if ((CurrentGame().party.held.item.iItemNo != -1)) {
-                item = &CurrentGame().party.held.item;
+            if (const auto* held = CurrentGame().inventory.held()) {
+                item = &held->item;
             }
         }
         QueueNpcScriptNotice(npc, item, -1, false, 0);

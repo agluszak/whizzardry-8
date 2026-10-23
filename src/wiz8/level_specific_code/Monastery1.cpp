@@ -136,12 +136,12 @@ bool Monastery1Script::coffinlidg(Trigger* trigger)
    armed. */
 bool Monastery1Script::wheelStar(Trigger* trigger)
 {
-    if (GetItemInHand(ctx.party) != 0x24c) {
+    if (ctx.inventory.heldItemId() != 0x24c) {
         ShowLevelMessage(0x22);
         g_trigger_feedback = true;
         return false;
     }
-    RemovePartyItemByID(ctx.game, GetItemInHand(ctx.party), false);
+    ctx.game.inventory.removeById(ctx.inventory.heldItemId(), false);
     return true;
 }
 

@@ -182,10 +182,10 @@ void SanitizeLoadedItems(void)
             }
         }
     }
-    for (index = 0; index < CurrentGame().party.item_count; ++index) {
-        if (CurrentGame().party.item_pool[index].iItemNo != -1) {
-            NormalizeItemQuantityKind(&CurrentGame().party.item_pool[index]);
-        }
+    for (index = 0; index < CurrentGame().inventory.pool().size(); ++index) {
+        CurrentGame().inventory.editItem({W8ItemStorage::Pool, 0, index}, [](W8ItemInstance& item) {
+            NormalizeItemQuantityKind(&item);
+        });
     }
 }
 

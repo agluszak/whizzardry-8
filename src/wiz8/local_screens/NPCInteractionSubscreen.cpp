@@ -167,8 +167,8 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item);
 static W8ItemInstance* OfferNpcDialogueItem(const W8ItemInstance& item, W8ItemInstance& described)
 {
     auto& offer = CurrentGame().npc_interaction.offered_item;
-    if (CurrentGame().party.held.item.iItemNo != -1) {
-        offer = TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
+    if (CurrentGame().inventory.held()) {
+        offer = CurrentGame().inventory.take({W8ItemStorage::Hand});
         return &*offer;
     }
     described = item;
@@ -180,8 +180,8 @@ static W8ItemInstance* OfferNpcDialogueItem(const W8ItemInstance& item, W8ItemIn
 static void ReturnOfferedItem()
 {
     auto offer = std::exchange(CurrentGame().npc_interaction.offered_item, std::nullopt);
-    if (offer && !ReceiveItemInHand(CurrentGame(), *offer)) {
-        AddItemToPartyOrDrop(CurrentGame(), OwnedItem(*offer), false);
+    if (offer && !CurrentGame().inventory.hold(*offer)) {
+        CurrentGame().inventory.storeOrDrop(*offer, false);
     }
 }
 static void HandleNpcDialogueDeparture(unsigned char value);
@@ -528,7 +528,7 @@ void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, boo
    takes none, and a pending notice blocks the next until it drains. Kind
    0x10/0x11 NPCs with fact 0xbf substitute their own notice line and raise
    the flag byte. */
-void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress,
+void QueueNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line, bool suppress,
                           unsigned char arg)
 {
     W8MonsterInfo* info;
@@ -3238,7 +3238,7 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                 if (offer && offer->iItemNo == item->iItemNo) {
                     // Shown, not taken: the offer goes back into the party.
                     auto shown = *std::exchange(offer, std::nullopt);
-                    AddItemToParty(CurrentGame(), OwnedItem(shown), true, false);
+                    CurrentGame().inventory.storeInPool(shown, true);
                     return 0;
                 }
             }
@@ -3663,13 +3663,13 @@ static void ResolveNpcPickpocket(int party_slot)
             fmt::sprintf(Data().strings[0x74d], character->name, GetItemDisplayName(Data(), &item));
         for (slot = 0; slot < 8; ++slot) {
             if (character->backpack[slot].iItemNo == -1) {
-                AddItemToCharacter(CurrentGame(), PartyMember(CurrentGame(), party_slot),
-                                   OwnedItem(item), false, false, false);
+                CurrentGame().inventory.storeWithCharacter(
+                    CurrentGame().inventory.member(party_slot), item, false, false);
                 DisplayNpcQuote(text, true);
                 return;
             }
         }
-        AddItemToParty(CurrentGame(), OwnedItem(item), false, false);
+        CurrentGame().inventory.storeInPool(item, false);
         DisplayNpcQuote(text, true);
         return;
     case W8_PICKPOCKET_GOLD_TAKEN:
