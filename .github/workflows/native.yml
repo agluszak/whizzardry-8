@@ -109,10 +109,10 @@ jobs:
         id: native-build
         run: ./build.sh "$CMAKE_PRESET"
       - name: Clean Conan build intermediates
-        if: always() && steps.conan-cache.outputs.cache-hit != 'true'
+        if: always() && steps.toolchain.outcome == 'success' && steps.conan-cache.outputs.cache-hit != 'true'
         run: ./build.sh -- conan cache clean '*'
       - name: Save Conan packages
-        if: always() && steps.conan-cache.outputs.cache-hit != 'true'
+        if: always() && steps.conan-cache.outcome == 'success' && steps.conan-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: build/cache
@@ -244,7 +244,7 @@ jobs:
         if: always() && steps.game-assets.outputs.enabled == 'true'
         run: rm -rf "$RUNNER_TEMP/wiz8-native-game"
       - name: Show compiler cache stats
-        if: always()
+        if: always() && steps.toolchain.outcome == 'success'
         run: |
           echo '### ccache (${{ matrix.preset }})' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
@@ -332,7 +332,7 @@ jobs:
           CLANG_TIDY_JOBS: "2"
         run: ./build.sh -- ./tools/run-clang-tidy.sh build/linux-tidy
       - name: Audit strict lifetime, enums and parser buffers
-        if: always() && matrix.shard == 0 && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        if: always() && steps.toolchain.outcome == 'success' && matrix.shard == 0 && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         run: ./build.sh -- python3 tools/run-diagnostic-audit.py build/linux-tidy --output build/diagnostic-audit.log
       - name: Upload experimental compiler diagnostics
         if: always() && matrix.shard == 0 && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
