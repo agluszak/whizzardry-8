@@ -224,7 +224,7 @@ void W8CampSpellsPage::DrawCampSpellPages(bool full, bool dialog_open)
     unsigned int visible;
     Palette16 palette;
 
-    if (full && !gpSCSV) {
+    if (full && !SpellPicker()) {
         DrawCampResistances();
     }
     if (full) {

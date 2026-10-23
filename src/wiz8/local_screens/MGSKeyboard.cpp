@@ -227,12 +227,12 @@ void DispatchMGSCommand(W8MGSCommand command)
             ToggleWorldCursor();
         } else if (CurrentGame().surprise_possible) {
             AcknowledgeSurprise();
-        } else if (gpSCSV) {
-            ResetSpellCastingSelection();
+        } else if (auto* picker = SpellPicker()) {
+            picker->Cancel();
         } else if (IsLockInteractionActive()) {
-            EndLockInteractMode(0);
-        } else if (ItemUseDraft()) {
-            CloseUseItemSelection();
+            EndLockInteractMode(false);
+        } else if (UseItemPicker()) {
+            MainGame()->closeItemPicker();
         } else if (ScreenPointer().targeting() != W8_TARGET_NEED_NONE) {
             SetTargetingMode(W8_TARGET_NEED_NONE);
         } else if (FormationPanelOpen()) {
@@ -523,12 +523,12 @@ void DispatchMGSCommand(W8MGSCommand command)
         ScrollDialogueTextBoxToLine();
         break;
     case W8_MGS_COMMAND_TEXTBOX_CLEAR:
-        if (!gpSCSV && !ItemUseDraft()) {
+        if (!SpellPicker() && !UseItemPicker()) {
             ResetEditorStatusLine(-1);
         }
         break;
     case W8_MGS_COMMAND_START_COMBAT_ROUND:
-        if (!CurrentGame().combat.has_value() || gpSCSV || ItemUseDraft()) {
+        if (!CurrentGame().combat.has_value() || SpellPicker() || UseItemPicker()) {
             break;
         }
         if (CurrentGame().combat->execution_active == 0) {
@@ -633,7 +633,7 @@ void MainGameScreen::openKeyboardMenu(int slot)
     keyboard_menu.reset();
     SelectPartyCharacter(slot);
     keyboard_menu = std::make_unique<KeyboardActionMenu>(*this, slot);
-    UpdateScreenOverlays(0);
+    dismissOverlays(false);
     DisableMainGamePortraitSlot(slot);
     edge_targets[slot]->setEnabled(false);
     combat_targets[slot]->setEnabled(false);
@@ -826,14 +826,14 @@ void MainGameScreen::chooseKeyboardMenuAction(int slot, int menu, int item)
     closeKeyboardMenu();
     if (menu == W8_SUBMENU_SPELLS) {
         if (item == 0) {
-            if (!gpSCSV) OpenSpellCastingView(slot);
+            if (!spell_picker) openSpellPicker(slot);
         } else if (CanPartySlotCastRecordedSpell(slot)) {
             StartCharacterSpellCast(slot, 0);
             hud->repaint.character_action = true;
         }
     } else if (menu == W8_SUBMENU_ITEMS) {
         if (item == 1) {
-            if (!ItemUseDraft()) OpenUseItemSelectView(slot);
+            if (!item_picker) openItemPicker(slot);
         } else {
             StartCharacterItemUse(slot);
             hud->repaint.character_action = true;

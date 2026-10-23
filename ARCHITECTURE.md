@@ -329,6 +329,13 @@ code has a subclass whose members are that state. Trigger callbacks are
   (shown mode, panels, world viewport) from the open interaction and the player's
   preferences and changes only the panels that differ; an interaction overrides
   the layout, never the preference.
+  Spell and item pickers own private controls and drafts; the screen commits a copied
+  choice inside the same retirement boundary. Explicit completion returns to the opener;
+  replacement and screen/combat teardown abandon it. Dismissal also retires the picker's
+  modal so an old confirmation or cursor-restoration callback cannot affect a replacement.
+  Camp suspension keeps the dormant parent interaction; replacement, combat and screen
+  discard release it. Item rows and their detail selection store inventory locations,
+  not duplicate item pointers.
 - **Controls and painting.** Controls paint into an explicit `SDL_Surface&`.
   `Draw` never commits; `Refresh` commits a dirty rectangle. Screens record which
   parts the next draw repaints; the main game's `MainGameRepaint` record is resolved

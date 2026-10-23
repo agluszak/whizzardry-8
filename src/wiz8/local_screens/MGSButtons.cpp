@@ -170,7 +170,7 @@ void SubMenuSelectEquip(void)
 void SubMenuOpenUseItemView(void)
 {
     DestroySubMenuControls();
-    OpenUseItemSelectView(CurrentGame().status.selected_character);
+    MainGame()->openItemPicker(CurrentGame().status.selected_character);
 }
 
 void SubMenuUseRecordedItem(void)
@@ -182,7 +182,7 @@ void SubMenuUseRecordedItem(void)
 void SubMenuOpenSpellView(void)
 {
     DestroySubMenuControls();
-    OpenSpellCastingView(CurrentGame().status.selected_character);
+    MainGame()->openSpellPicker(CurrentGame().status.selected_character);
 }
 
 void SubMenuCastRecordedSpell(void)
@@ -212,7 +212,7 @@ void OpenSubMenuPanel(short notification)
     if (MainGameHud()->open_submenu) {
         DestroySubMenuControls();
     }
-    UpdateScreenOverlays(0);
+    MainGame()->dismissOverlays(false);
     if (!BuildSubMenuPanel(notification)) {
         DestroySubMenuControls();
     }
@@ -327,7 +327,7 @@ void UpdateCombatStanceButtons(void)
     for (index = 0; index < 5; ++index) {
         MainGame()->hud_buttons.combat_stance[index].SetVisible(index == stance);
     }
-    if (!gpSCSV && !ItemUseDraft() && !FormationPanelOpen()) {
+    if (!SpellPicker() && !UseItemPicker() && !FormationPanelOpen()) {
         enabled = true;
     } else {
         enabled = false;
@@ -737,7 +737,7 @@ void UpdateSubMenuPanelButtons(void)
 
     if (!CurrentGame().combat.has_value() || !CurrentGame().combat->round_active ||
         CurrentGame().surprise_possible || IsLockInteractionActive() || IsTrapInteractionActive() ||
-        CurrentGame().activity.conversation || gpSCSV || ItemUseDraft() ||
+        CurrentGame().activity.conversation || SpellPicker() || UseItemPicker() ||
         MainGameHud()->open_submenu) {
         enabled = false;
     } else {
@@ -746,8 +746,8 @@ void UpdateSubMenuPanelButtons(void)
     MainGame()->hud_buttons.submenu_panel[0].SetEnabled(enabled);
 
     if (!CurrentGame().surprise_possible && !IsLockInteractionActive() &&
-        !IsTrapInteractionActive() && !CurrentGame().activity.conversation && !gpSCSV &&
-        !ItemUseDraft() && !MainGameHud()->open_submenu && AnyCharacterEngaged()) {
+        !IsTrapInteractionActive() && !CurrentGame().activity.conversation && !SpellPicker() &&
+        !UseItemPicker() && !MainGameHud()->open_submenu && AnyCharacterEngaged()) {
         MainGame()->hud_buttons.submenu_panel[1].SetEnabled(true);
         if (!FormationPanelOpen()) {
             if (MainGame()->hud_buttons.submenu_panel[1].IsPressed()) {

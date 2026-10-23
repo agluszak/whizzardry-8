@@ -212,7 +212,7 @@ void W8CampItemsPage::OpenSplitStackDialog(W8ItemLocation location)
 void W8CampItemsPage::UseCampItem(W8ItemLocation location)
 {
     auto* item = camp.game.party.itemAt(location);
-    if (ValidateItemSpellUse(PartySlot(), item, 0)) {
+    if (ValidateItemSpellUse(PartySlot(), item, 0, false)) {
         SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
         return;
     }

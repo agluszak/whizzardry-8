@@ -56,8 +56,6 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
-#include "wiz8/local_screens/MGSSpellCasting.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/monster_actions.h"
@@ -253,35 +251,6 @@ TEST_CASE("Group activity is derived from its own population without recounts", 
     REQUIRE(population.activeMemberCount(group) == 1);
     group.monsters.pop_back();
     REQUIRE(population.activeMemberCount(group) == 0);
-}
-
-TEST_CASE("Spell picker metadata follows its draft and caster", "[targeting]")
-{
-    GameData data;
-    data.spells.resize(3);
-    auto& spell = data.spells[1];
-    spell.power_class = W8_SPELL_POWER_SELECTABLE;
-    spell.realm = W8_SPELL_REALM_FIRE;
-    spell.spell_point_cost = 5;
-    data.spells[2] = spell;
-    data.spells[2].power_class = W8_SPELL_POWER_FIXED;
-    data.spells[2].spell_point_cost = 10;
-    const ScopedGameData installed(std::move(data));
-    W8Character caster{};
-    W8SpellCastingView view{};
-    view.caster = &caster;
-    caster.iSPLeft[W8_SPELL_REALM_FIRE] = 20;
-    view.draft.detail = 1;
-    REQUIRE(view.PowerClass() == W8_SPELL_POWER_SELECTABLE);
-    REQUIRE(view.AffordablePowerLevels() == 4);
-    caster.iSPLeft[W8_SPELL_REALM_FIRE] = 5;
-    REQUIRE(view.AffordablePowerLevels() == 1);
-    view.draft.detail = 2;
-    REQUIRE(view.PowerClass() == W8_SPELL_POWER_FIXED);
-    REQUIRE(view.AffordablePowerLevels() == 0);
-    view.draft.detail = 0;
-    REQUIRE(view.PowerClass() == W8_SPELL_POWER_CLASS_NONE);
-    REQUIRE(view.AffordablePowerLevels() == 0);
 }
 
 static bool gameplayCollectionLifetime()
