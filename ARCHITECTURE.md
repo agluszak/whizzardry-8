@@ -61,6 +61,110 @@ migration target (AGENTS.md, "What we are doing") and must not gain new callers:
 
 Tests own their own instances (`ScopedGame`, `ScopedGameData`).
 
+## Design contracts
+
+The ownership tree describes the current code; the contracts here are the direction
+for migrations. They are not permission to rewrite retail behavior. Check the decomp
+when a lifetime, ordering or apparent duplication is unclear. Migrate complete
+operations and delete their old path, rather than adding a parallel architecture.
+
+### Authority and lifetime
+
+| Authority | State and responsibility |
+| :--- | :--- |
+| `Application` / `GameSession` | Devices, immutable content and screens; installing and ending a game; the RNG stream that continues across games. |
+| `Game` | One play-through, its clocks and gameplay RNG; explicit operations that coordinate party, story, world and combat. Not a forwarding API for every rule. |
+| `Party` / characters / inventory | Active characters, their conditions and equipment, shared storage and held item, formation and accepted action choices. Transfers preserve any unplaced remainder. |
+| `Story` / NPC state | Facts, factions, journal, persistent NPC identities, stock, history and retained character snapshots. |
+| `Level` / `World` | Primary and independently reusable sky worlds; loaded monster records and runtime, groups, encounters, world items, triggers, navigation, scripts and their local lifetimes. |
+| `Combat` | The **party's** fight: rounds, turn order, current action execution and waits. Monsters may have engagement state even with no party combat. |
+| Ongoing sequences | Conversation/script continuation, voice holds, travelling missiles and continuing casts; each lasts as long as the activity or level that sustains it, not merely the screen showing it. |
+| Screens / panels | UI controls, hover, selection drafts, modal and suspension state, painting and playback. They request gameplay operations and present results; they do not own live inventory items or monsters. |
+| Codecs | Conversion between live values and retail disk records. Not a second live game model. |
+
+Some current fields do not yet live at these boundaries (for example,
+`Game::spell_effects` and UI-owned gameplay transitions). Moving one must also
+move its actual lifecycle and consumers; a new container or `Game&` wrapper alone
+does not satisfy this contract.
+
+- **One authority per current fact, not one object per concept.** A recruited NPC's
+  active party character and the NPC's retained snapshot are distinct; the snapshot
+  has defined copy-back/save behavior. A UI draft, accepted action and executing
+  action are likewise different stages, not redundant mirrors. Never keep parallel
+  mutable representations that require routine synchronization.
+- **Ownership is not membership.** A world owns its monsters; groups, combat,
+  indexes and VSG scene attachments reference them. A monster record may exist
+  without a body, a loaded body may be inactive, and death may leave a fading body.
+  Neither scene attachment nor combat participation decides destruction. Deferred
+  work identifies its original actor/session, never whichever one is current later.
+- **Borrow according to lifetime.** A live actor can retain its `World&`; a party
+  character, saved item or persistent NPC cannot, because it crosses level changes.
+  Constructors retain dependencies that define a continuing object's identity or
+  lifetime. Changing inputs go on the operation; no general `Game&` service locator
+  as a substitute for a real boundary.
+
+### Operations and observation
+
+- **Local operation:** the state owner performs a mutation and restores its
+  invariant before returning. Do not expose an update protocol that callers must
+  finish (repair equipment, reindex entities, recalculate derived stats, etc.).
+- **Cross-owner operation:** one readable game-level coordinator calls the
+  necessary owners in a deliberate order (death, recruitment, combat entry/exit,
+  travel, save preparation). `Game` coordinates; it does not reimplement their
+  internal rules. Do not add a trivial forwarding method for an already complete
+  local operation.
+- **Calculations and queries:** stateless formulas can be ordinary free functions
+  over explicit inputs; not everything needs a class. Queries do not mutate game
+  state, consume gameplay RNG or issue presentation work. A class earns its
+  existence by owning state, a resource, an invariant or a continuing operation.
+- **Commands return what actually happened.** Some retail operations succeed
+  partially (stack merging) or have effects even when final placement fails
+  (identification). Do not impose transactional/all-or-nothing semantics unless
+  gameplay requires them. Preserve remainders and distinguish refusal from
+  completion.
+- **Required consequences are explicit.** Damage/death, item acquisition, NPC
+  dismissal and combat changes must not depend on presentation subscribers being
+  installed. Observers report an outcome after the operation's relevant
+  invariants are settled; they must not re-enter half-mutated gameplay.
+- **Preserve simulation milestones and waits.** Missile hits, animation release
+  frames and script completions can affect the same simulation step and its RNG
+  order. Keep their synchronous/ordered effects where required; do not blindly
+  defer all events to the end of a frame. Combat owns its decision to wait, while
+  playback owns actual audio/animation progress and reports completion to the
+  originating operation. Polling a read-only readiness query is acceptable when
+  it is simpler than subscriptions or cached busy counts.
+- **Presentation is an output, not an authority over game state.** Render and
+  paint do not mutate gameplay or draw gameplay RNG. Picking returns a semantic
+  selection for the interaction owner to interpret. UI notifications may still
+  be delivered synchronously in unmigrated flows; change their delivery only
+  with the complete flow that depends on them. No universal event bus, ECS
+  mirror or generic command-replay framework is needed.
+
+### Transitions and saves
+
+- **Name the transition:** suspend/resume a screen, cancel an interaction,
+  finish a cast, leave a level, end a game, and replace a session have different
+  semantics. Screen destruction releases presentation; gameplay departure and
+  pending-interaction cancellation run through explicit operations before release.
+  A suspended lock/trap attempt must not be mistaken for an abandoned one.
+- **Prepare, then publish:** decode/validate saved values and prepare a candidate
+  before installing it where possible. Entry, script callbacks and first-visit
+  consequences happen at the correct activation point, in retail RNG order.
+  Loading failure must not leave a half-published world. Do not add general
+  rollback machinery merely to compensate for constructing into the live world.
+- **Prepare, capture, encode:** save preparation may have gameplay consequences
+  (the decomp settles pending monster removals); make these explicit. Capture
+  reads the authoritative state; codecs encode values without invoking gameplay.
+  World-local continuing effects are cleared on ordinary entry or reconstructed
+  from a save according to their actual lifetime. Combat exit alone does not
+  necessarily end a cast.
+
+A refactor is finished when the new authority and transition are clear, the
+original call path and redundant state are removed, and required behavior
+(including timing, RNG, save representation and UI sequencing) remains intact.
+Prefer fewer owners and obligations over more classes or stronger-looking
+encapsulation.
+
 ## Layers
 
 Two layers are enforced:
@@ -93,14 +197,15 @@ enforces this (the `layer_boundaries` test, and CI's clang-tidy job), and
 | `render/` | VSG scene graph, shared meshes and instance poses, materials, views, Vulkan resources and presentation; publication of the CPU UI canvas. |
 | `spatial/` | `LevelSpatialIndex` (compiled octree, collision), `SurfaceIndex`, the navigation mesh and `Navigator`. Queries take explicit segments and filters and return optional typed hits. |
 | `world/` | `World`, party camera and motion, environment, encounters, level loading. |
-| `entities/` | `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks. Each kind is loaded once into a definition that live entities copy. Entities report hits, landings and release frames to their world's `SimulationSink` rather than resolving them. |
+| `entities/` | `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks. Each kind is loaded once into a resource-only definition (animations and lights outside any scene, events, emitters and authored parameters) from which each live entity is constructed with its own copies, scene attachments and navigator. Entities report hits, landings and release frames to their world's `SimulationSink` rather than resolving them. |
 | `native/` | Application loop, game events, key bindings, FFmpeg movie playback. |
 | `wiz8/` | Gameplay not yet in `rules`, the game and session, saves, screens, dialogs and level scripts. `wiz8/combat/` is the fight. `local_code/`, `local_screens/`, `dialog_code/` and `level_specific_code/` hold the decompiled game code still being migrated. |
 
 ## Compatibility boundary
 
-Only serialized formats are compatibility contracts: retail saves must load, and
-saves we write must load in retail.
+Only serialized formats require **binary** compatibility: retail saves must load,
+and saves we write must load in retail. Gameplay timing, content and visuals must
+still match retail behavior.
 
 - Save and game-data records are fixed-width disk images with
   `wiz8::retail::Record` codecs (`retail_save_records.h`,
@@ -178,8 +283,11 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   past the current call keeps its id and looks it up again when used.
 - Group counts, active-monster presence and combat membership are queries over
   ownership, not maintained counters.
-- The party's pose is the primary world's `party_camera`. Render cameras derive
-  from it each frame; rendering writes no gameplay state.
+- Each world has a `WorldParty` (`World::party`): the party's pose and its
+  navigator, registered with the world's other movers. Placing or restoring the
+  party moves both. Actors are constructed with their `World&` and use only that
+  world. Render cameras derive from the pose each frame; rendering writes no
+  gameplay state.
 
 ## Scripts
 
