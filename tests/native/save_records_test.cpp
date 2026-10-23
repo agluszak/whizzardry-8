@@ -1410,7 +1410,9 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
     const auto install_npcs = [&](std::vector<std::unique_ptr<W8NpcState>> npcs) {
         SavedGame saved;
         saved.npcs = std::move(npcs);
+        saved.state.search_mode = true;
         std::move(saved).install(globals.game.session);
+        REQUIRE(CurrentGame().search.requested());
     };
     // A small word that a process-local handle table could have resolved.
     const unsigned int live_handle = 1;
