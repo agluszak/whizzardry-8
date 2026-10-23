@@ -82,14 +82,13 @@
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
-#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/party_motion.h"
+#include "wiz8/world/world.h"
 
 constexpr float kGroundSettleFail = -1000000.0f;
 
@@ -608,7 +607,7 @@ void UpdateSpellEffects(void)
             !IsCombatEffectSlotSpell(effect.kind)) {
             W8SpellTargetType target_type = GetSpellTargetType(effect.kind, false);
             if (target_type != W8_TARGET_TYPE_RADIUS && target_type != W8_TARGET_TYPE_PARTY) {
-                if (g_settings.verbose_combat_messages == 0) {
+                if (!g_settings.verbose_combat_messages) {
                     ReportSpellResult(&effect);
                 }
                 FinishSpellEffectTargets(&effect);
@@ -735,7 +734,7 @@ void FinishSpellEffect(W8SpellEffectEntry* effect)
             CurrentGame().events.push(CharacterNotice{
                 static_cast<unsigned int>(effect->target.iChar), Data().strings[0x195]});
         }
-        if (g_settings.verbose_combat_messages == 0) {
+        if (!g_settings.verbose_combat_messages) {
             CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
         target.point = position;
@@ -1814,7 +1813,7 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
 
     SetTargetSourceToMonster(monster_info, &source);
 
-    if (g_settings.verbose_combat_messages == 0) {
+    if (!g_settings.verbose_combat_messages) {
         CurrentGame().events.push(TextNotice{
             W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[W8_MESSAGE_MONSTER_CAST / 4],
                                                GetMonsterName(monster_info, record, 0),
@@ -2382,7 +2381,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
             power_level = character->iSPLeft[realm] / sp_cost;
         }
     }
-    if (g_settings.verbose_combat_messages == 0) {
+    if (!g_settings.verbose_combat_messages) {
         if (!continue_cast) {
             CurrentGame().events.push(
                 CharacterNotice{static_cast<unsigned int>(party_slot),
@@ -2631,9 +2630,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                             g_world_cursor_extent_table
                                 [g_spell_power_extent_index[power_level - 1] * 6 + 3]) +
                             kWorldScale,
-                        1, true, false, false, 5, true,
-                        BoundingSphere{PartyNavigator()->movement.position,
-                                       PartyNavigator()->movement.alternate_radius});
+                        1, true, false, false, 5, true, GetWorld()->party.collisionSphere());
                     ground_point = placement.source;
                     if (!placement.positions.empty()) target->point = placement.positions.front();
                 }
@@ -2942,7 +2939,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         if (source->fBackfire) {
             if (quiet) {
                 owner.reported = true;
-            } else if (g_settings.verbose_combat_messages != 0) {
+            } else if (g_settings.verbose_combat_messages) {
                 CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x197]});
             } else {
                 AppendToLastTextLine(fmt::format(" -- {}", Data().strings[0x197]), -1);
@@ -2969,7 +2966,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             if (cast_kind == W8SpellCastKind::EngineeringItemUse) {
                 message = 0x1ab;
             }
-            if (g_settings.verbose_combat_messages != 0) {
+            if (g_settings.verbose_combat_messages) {
                 CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(source->iChar),
                                                           Data().strings[message]});
             } else {
@@ -2977,7 +2974,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             }
             break;
         default:
-            if (g_settings.verbose_combat_messages != 0) {
+            if (g_settings.verbose_combat_messages) {
                 CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x196]});
             } else {
                 AppendToLastTextLine(fmt::format(" -- {}", Data().strings[0x196]), -1);
@@ -3147,7 +3144,7 @@ void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     saved = source->point;
     source->point = target->point;
     if (TargetSourceIsCharacter(source, 0)) {
-        navigator = PartyNavigator();
+        navigator = &GetWorld()->party.navigator;
     } else if (monster_source) {
         navigator = &monster_info->entity->nav;
     } else {
@@ -3240,7 +3237,7 @@ void ScatterSpellPointTarget(int spell_id, W8TargetSource* source, W8CombatSlot*
     int attempt;
 
     range = CalcRangeDistance(Data().spells[spell_id].range_category);
-    navigator = PartyNavigator();
+    navigator = &GetWorld()->party.navigator;
     if (source->iType != W8_TARGET_SOURCE_CHARACTER) {
         assert(source->iType == W8_TARGET_SOURCE_MONSTER);
         monster_info = FindMonster(source->iMonsterID);
@@ -3379,7 +3376,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                                    W8Action{W8_ACTION_CAST_SPELL, spell_id, *target, {}})) {
         return;
     }
-    player_pos = PartyNavigator()->GetPosition();
+    player_pos = GetWorld()->party.position();
     camera = cameraLocation();
     if (TargetSourceIsMonster(source, 1)) {
         if (source->iMonsterID == -1) {
@@ -3448,7 +3445,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             marked = true;
             side = 2;
             if (0.0f < radius) {
-                radius += PartyNavigator()->radius;
+                radius += GetWorld()->party.radius();
             }
         } else if (direct_monster_source) {
             if (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY) {
@@ -3507,7 +3504,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                 side = 1;
             } else if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
                 side = 2;
-                if (TargetInRangeAndArcs(&camera, PartyNavigator()->radius, &eye,
+                if (TargetInRangeAndArcs(&camera, GetWorld()->party.radius(), &eye,
                                          monster->nav.radius, heading, elevation, cone_range) &&
                     monster_info->player_visibility.los_flags[sight_flag] != '\0') {
                     marked = true;
@@ -3530,7 +3527,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             }
         }
         if (!marked &&
-            TargetInRangeAndArcs(&camera, PartyNavigator()->radius, &eye, 0, heading, elevation,
+            TargetInRangeAndArcs(&camera, GetWorld()->party.radius(), &eye, 0, heading, elevation,
                                  cone_range) &&
             !GetWorldSpatialIndex()->traceSight(eye, camera)) {
             marked = true;

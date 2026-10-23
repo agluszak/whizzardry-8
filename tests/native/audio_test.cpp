@@ -28,6 +28,7 @@
 #include "prepared_assets.h"
 #include "scoped_game.h"
 #include "wiz8/checked_integer.h"
+#include "wiz8/music_playlist.h"
 
 /* Native sound service -> SDL3_mixer, with deterministic offline mixing. */
 #include <glm/ext/vector_float3.hpp>
@@ -207,8 +208,8 @@ TEST_CASE_METHOD(AudioFixture, "Ambient commands operate on their supplied world
     game.game.level.replacePrimary(std::make_unique<World>());
     auto& active = *GetWorld();
     World candidate;
-    placeParty(active, glm::vec3(1000));
-    placeParty(candidate, glm::vec3(0));
+    active.party.place(glm::vec3(1000));
+    candidate.party.place(glm::vec3(0));
     for (auto* world : {&active, &candidate}) {
         auto sound = std::make_unique<W8AmbientSound>();
         sound->name = "shared-name";
@@ -936,4 +937,69 @@ TEST_CASE_METHOD(AudioFixture, "Volume settings preserve source gain and ambient
     SetSoundEffectsVolume(127);
     REQUIRE(wiz8::sound::volume(effect) == 100);
     REQUIRE(wiz8::sound::volume(positional) == 2);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Playlist parsing drives only playable tracks", "[audio][playlist]")
+{
+    startOfflineAudio();
+    const auto music = asset / "data" / "music";
+    std::filesystem::create_directories(music);
+    write(music / "a.wav", wave);
+    write(music / "b.wav", wave);
+    std::string playlist;
+    unsigned int range;
+    SECTION("Weighted tracks after indented directives")
+    {
+        playlist = "  #PAUSEMIN=5\r\n\t#PAUSEMAX=8\r\n * comment\nlabel:\na.wav(2)\nb.wav(3)\n";
+        range = 5;
+    }
+    SECTION("An unweighted track makes selection uniform")
+    {
+        playlist = "a.wav(2)\nb.wav\n";
+        range = 2;
+    }
+    std::ofstream(music / "test.mpl") << playlist;
+    InitializeMusicPlaylist();
+    StopMusicPlaylist(false);
+    auto expected = PresentationRng();
+    const auto draw = expected.below(range);
+    REQUIRE(StartMusicResource("test.mpl", 0, true));
+    ServiceMusicPlaylist();
+    REQUIRE(wiz8::sound::is_file_playing(
+        range == 5 ? (draw < 2 ? "Data\\Music\\a.wav" : "Data\\Music\\b.wav")
+                   : (draw == 0 ? "Data\\Music\\a.wav" : "Data\\Music\\b.wav")));
+    REQUIRE(PresentationRng().next() == expected.next());
+    StopMusicPlaylist(false);
+}
+
+TEST_CASE_METHOD(AudioFixture,
+                 "Stopped playlists restart and invalid replacements preserve playback",
+                 "[audio][playlist]")
+{
+    startOfflineAudio();
+    const auto music = asset / "data" / "music";
+    std::filesystem::create_directories(music);
+    write(music / "a.wav", wave);
+    std::ofstream(music / "good.mpl") << "a.wav\n";
+    InitializeMusicPlaylist();
+    StopMusicPlaylist(false);
+    REQUIRE(StartMusicResource("good.mpl", 0, true));
+    ServiceMusicPlaylist();
+    REQUIRE(wiz8::sound::is_playing(g_music_sample_handle));
+    StopMusicPlaylist(false);
+    REQUIRE(StartMusicResource("good.mpl", 0, true));
+    REQUIRE(g_music_playlist_active);
+    ServiceMusicPlaylist();
+    const auto playback = g_music_sample_handle;
+    REQUIRE(wiz8::sound::is_playing(playback));
+    for (const auto* invalid :
+         {"a.wav(-1)\n", "a.wav(2147483648)\n", "a.wav(1\n", "#PAUSEMIN=8\n#PAUSEMAX=5\na.wav\n",
+          "#PAUSECHANCE=101\na.wav\n", "#PAUSEMAX=2147483647\na.wav\n", ""}) {
+        std::ofstream(music / "bad.mpl") << invalid;
+        REQUIRE_FALSE(StartMusicResource("bad.mpl", 1, true));
+        REQUIRE(IsCurrentMusicPlaylist("good.mpl"));
+        REQUIRE(g_music_sample_handle == playback);
+        REQUIRE(wiz8::sound::is_playing(playback));
+    }
+    StopMusicPlaylist(false);
 }

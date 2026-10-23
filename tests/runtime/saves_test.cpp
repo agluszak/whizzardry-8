@@ -230,6 +230,7 @@ void ImportScenario(const char* file, const std::vector<ImportedMember>* party,
     REQUIRE(game.within_frames(2, [] { return CountActiveCharacters() == 6; }));
     REQUIRE_FALSE(UiModalActive());
     REQUIRE(ImportedParty() == *party);
+    REQUIRE(CurrentGame().story.imported_origin);
     for (const auto& character : CurrentGame().party.characters)
         if (character.fInParty)
             REQUIRE((character.uiExpLevel == 1 && character.experience == 13000));
@@ -238,6 +239,7 @@ void ImportScenario(const char* file, const std::vector<ImportedMember>* party,
     game.click("start-game", kPartyConfirmButton);
     WaitMainGame(game, "imported-game");
     REQUIRE(Data().levels[GetLoadedLevelID()].display_name == start_level);
+    REQUIRE_FALSE(CurrentGame().story.imported_origin);
     REQUIRE(ImportedParty() == *party);
     Snapshot(file, game.read_frame());
     std::printf("import: %s started on %s after %lu frames\n", file,
@@ -262,10 +264,14 @@ void MenuSaveScenario()
         REQUIRE(FindScreen<OptionsScreen>());
         click(*FindScreen<OptionsScreen>()->m_menu_buttons[save ? 5 : 4]);
         REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == (save ? 5 : 4));
-        return static_cast<W8OptionsSaveLoadPanel&>(
-            *FindScreen<OptionsScreen>()->m_panel[save ? 5 : 4]->m_panels.front());
+        return static_cast<W8OptionsSaveLoadPanel&>(*FindScreen<OptionsScreen>()->m_panels.front());
     };
 
+    open(true);
+    REQUIRE(FindScreen<OptionsScreen>()->m_text_editor);
+    game.enter_text("Abandoned");
+    click(*FindScreen<OptionsScreen>()->m_menu_buttons[0]);
+    REQUIRE_FALSE(FindScreen<OptionsScreen>()->m_text_editor);
     auto& create = open(true);
     REQUIRE(FindScreen<OptionsScreen>()->m_text_editor);
     game.enter_text("MenuOne");

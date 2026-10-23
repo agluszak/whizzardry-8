@@ -255,7 +255,7 @@ bool MtGigasOuterScript::campAlarm(int command)
     if (command != 0) {
         if (GetLocationVarIDByName("UmpaniCampAlarm") == -1)
             CreateLocationVar("UmpaniCampAlarm", 30);
-        position = cameraLocation(world());
+        position = world().party.eye();
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }

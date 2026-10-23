@@ -22,7 +22,6 @@ struct W8Party {
        cleared retail row did. */
     int orderIndexOf(unsigned int slot) const;
 
-    bool redistribution_pending = false;
     std::optional<int> companion_inventory;
     W8Character characters[W8_PARTY_SLOT_COUNT]{};
     // The members by slot; an empty slot has none.

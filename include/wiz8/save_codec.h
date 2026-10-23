@@ -30,6 +30,8 @@ struct GameState {
     W8Party party;
     std::vector<W8ItemInstance> pool;
     std::optional<W8ItemInstance> held;
+    // The player's search-mode choice.
+    bool search_mode = false;
 };
 
 /* The GSTA payload: the status record, each character and each party row, every record

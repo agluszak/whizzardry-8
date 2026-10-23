@@ -13,8 +13,6 @@
 #include "wiz8/canvas/Font.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/cursor.h"
-#include "wiz8/dialog_code/DialogBase.h"
-#include "wiz8/dialog_code/DialogTextArea.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -87,29 +85,6 @@ std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games, Pointer&
         break;
     }
     std::unreachable();
-}
-
-/* Query whether scrolling is possible, or scroll and invalidate the transcript. */
-bool W8NpcDialogueTextController::HandleScrollDownCommand(bool check_only)
-{
-    if (text_area.ScrollDown(check_only)) {
-        if (!check_only) {
-            InvalidateAll();
-        }
-        return true;
-    }
-    return false;
-}
-
-bool W8NpcDialogueTextController::HandleScrollUpCommand(bool check_only)
-{
-    if (text_area.ScrollUp(check_only)) {
-        if (!check_only) {
-            InvalidateAll();
-        }
-        return true;
-    }
-    return false;
 }
 
 namespace {
@@ -279,13 +254,13 @@ struct GameEventPresentation {
     {
         if (auto* main_game = MainGame();
             main_game && main_game->hud && main_game->hud->open_submenu) {
-            if (g_settings.continuous_combat == 0) {
+            if (!g_settings.continuous_combat) {
                 DestroySubMenuControls();
             } else {
                 ReopenSubMenuPanel();
             }
         }
-        if (g_settings.continuous_combat == 0 && ScreenPointer().targeting() != W8_TARGET_NEED_NONE)
+        if (!g_settings.continuous_combat && ScreenPointer().targeting() != W8_TARGET_NEED_NONE)
             SetTargetingMode(W8_TARGET_NEED_NONE);
     }
     void operator()(const CombatCalledOff&) const

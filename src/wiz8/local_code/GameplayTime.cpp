@@ -1312,7 +1312,7 @@ void UpdateCampFatigue(int ticks)
                                          static_cast<W8SpellEffectResult*>(0));
                     }
                     bool announce =
-                        !CurrentGame().combat.has_value() || g_settings.verbose_combat_messages == 0
+                        !CurrentGame().combat.has_value() || !g_settings.verbose_combat_messages
                             ? 0
                             : 1;
                     ApplyDamageToCharacter(slot, amount, false, announce, false,

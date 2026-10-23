@@ -285,12 +285,12 @@ void InventoryChestScenario()
         20);
     game.hold_key(SDLK_DOWN, false);
     CameraPose before{}, after{};
-    before = partyPose(*GetWorld());
+    before = GetWorld()->party.pose();
     game.hold_key(SDLK_LEFT, true);
     game.wait(
         "turn-left-after-inventory",
         [&] {
-            after = partyPose(*GetWorld());
+            after = GetWorld()->party.pose();
             return std::abs(after.orientation.yaw - before.orientation.yaw) > 0.1f;
         },
         20);
@@ -412,14 +412,22 @@ void CheckTwoWorldViews(GameHarness& game)
     auto& scene = *GetWorld()->scene;
     struct ParticleState {
         ParticleSystem* system;
-        unsigned active, emitted, integration_tick, emission_tick;
+        std::ptrdiff_t active;
+        unsigned emitted, integration_tick, emission_tick;
         std::vector<glm::vec3> positions;
     };
     std::vector<ParticleState> particles;
-    for (auto* system : scene.particles)
-        particles.push_back({system, system->active_particle_count, system->emission_count,
-                             system->last_integration_tick, system->last_emission_tick,
-                             system->particle_positions});
+    for (auto* system : scene.particles) {
+        particles.push_back(
+            {system,
+             std::ranges::count(system->particles, true, &ParticleSystem::Particle::active),
+             system->emission_count,
+             system->last_integration_tick,
+             system->last_emission_tick,
+             {}});
+        for (const auto& particle : system->particles)
+            particles.back().positions.push_back(particle.position);
+    }
     std::vector<std::pair<MeshInstance*, std::pair<unsigned, float>>> poses;
     for (auto* mesh : scene.dynamic_meshes)
         poses.push_back({mesh, {mesh->frame_index, mesh->frame_interpolation}});
@@ -449,11 +457,13 @@ void CheckTwoWorldViews(GameHarness& game)
     REQUIRE(max_channel_difference <= 1);
     REQUIRE(colored > SCREEN_WIDTH * SCREEN_HEIGHT / 16);
     for (const auto& saved : particles) {
-        REQUIRE(saved.system->active_particle_count == saved.active);
+        REQUIRE(std::ranges::count(saved.system->particles, true,
+                                   &ParticleSystem::Particle::active) == saved.active);
         REQUIRE(saved.system->emission_count == saved.emitted);
         REQUIRE(saved.system->last_integration_tick == saved.integration_tick);
         REQUIRE(saved.system->last_emission_tick == saved.emission_tick);
-        REQUIRE(saved.system->particle_positions == saved.positions);
+        REQUIRE(std::ranges::equal(saved.system->particles, saved.positions, {},
+                                   &ParticleSystem::Particle::position));
     }
     for (const auto& [mesh, pose] : poses) {
         REQUIRE(mesh->frame_index == pose.first);
@@ -702,36 +712,48 @@ void ResourceLifecycleScenario()
     }
     game.command(W8_MGS_COMMAND_OPTIONS);
     game.wait_screen("options-menu", W8_SCREEN_OPTIONS);
-    game.click("options-panel", *FindScreen<OptionsScreen>()->m_menu_buttons[2]);
-    REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 2);
+    game.click("options-panel", *FindScreen<OptionsScreen>()->m_menu_buttons[3]);
+    REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 3);
     game.click("options-next", *FindScreen<OptionsScreen>()->m_navigation[1]);
-    REQUIRE(FindScreen<OptionsScreen>()->m_panel[2]->m_current == 1);
+    REQUIRE(FindScreen<OptionsScreen>()->m_current_page == 1);
     game.click("options-previous", *FindScreen<OptionsScreen>()->m_navigation[0]);
-    REQUIRE(FindScreen<OptionsScreen>()->m_panel[2]->m_current == 0);
+    REQUIRE(FindScreen<OptionsScreen>()->m_current_page == 0);
+    auto* keyboard =
+        dynamic_cast<W8OptionsKeyboardPanel*>(FindScreen<OptionsScreen>()->m_panels.front().get());
+    REQUIRE(keyboard);
+    game.click("options-key-capture", *keyboard->m_keys.front()->target);
+    REQUIRE(FindScreen<OptionsScreen>()->m_key_capture == keyboard);
     game.press_at(30, 60);
     game.release_at(200, 190);
-    REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 2);
+    REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 3);
     // The artwork hotspot selects the same panel as its button.
     game.click("options-artwork", {30, 60});
     REQUIRE(FindScreen<OptionsScreen>()->m_selected_panel == 0);
-    const float combat_speed = FindScreen<OptionsScreen>()->values.combat_speed;
+    REQUIRE_FALSE(FindScreen<OptionsScreen>()->m_key_capture);
+    REQUIRE(FindScreen<OptionsScreen>()->m_panels.size() == 3);
+    const int combat_delay = g_settings.combat_delay_ms;
     game.click_at(480, 50);
-    const float clicked_speed = FindScreen<OptionsScreen>()->values.combat_speed;
-    REQUIRE(clicked_speed < 0.5f);
+    const int clicked_delay = g_settings.combat_delay_ms;
+    REQUIRE(clicked_delay > 2500);
     game.press_at(480, 50);
     game.move_pointer(520, 50);
-    REQUIRE(FindScreen<OptionsScreen>()->values.combat_speed > clicked_speed);
+    REQUIRE(g_settings.combat_delay_ms < clicked_delay);
     game.release_at(200, 190); // Captured release outside ends the drag.
-    const float released_speed = FindScreen<OptionsScreen>()->values.combat_speed;
+    const int released_delay = g_settings.combat_delay_ms;
+    REQUIRE(released_delay != combat_delay); // Slider changes are immediately live.
     game.move_pointer(490, 50);
-    REQUIRE(FindScreen<OptionsScreen>()->values.combat_speed == released_speed);
-    // An inactive panel must not retain slider input.
-    game.click("options-panel", *FindScreen<OptionsScreen>()->m_menu_buttons[2]);
+    REQUIRE(g_settings.combat_delay_ms == released_delay);
+    game.click_at(30, 250); // An inactive panel must not retain slider input.
     game.click_at(480, 50);
-    REQUIRE(FindScreen<OptionsScreen>()->values.combat_speed == released_speed);
-    FindScreen<OptionsScreen>()->values.combat_speed = combat_speed;
-    game.click("options-return", *FindScreen<OptionsScreen>()->m_menu_buttons[7]);
+    REQUIRE(g_settings.combat_delay_ms == released_delay);
+    game.click_at(30, 60); // Rebuild the game menu from its live settings.
+    REQUIRE(g_settings.combat_delay_ms == released_delay);
+    game.click_at(480, 50); // The rebuilt slider writes through too.
+    REQUIRE(g_settings.combat_delay_ms > 2500);
+    g_settings.combat_delay_ms = combat_delay;
+    game.click_at(20, 445);
     game.wait_screen("options-menu-return", W8_SCREEN_MAIN_GAME);
+    REQUIRE(g_settings.combat_delay_ms == combat_delay);
     // Exercise a second screen's input, teardown and return-stack lifecycle.
     const std::size_t return_depth = SuspendedScreenCount();
     // Retail saves can retain entries whose fact no longer exists. Opening,

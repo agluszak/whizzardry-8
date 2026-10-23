@@ -27,8 +27,8 @@ NativeObject::NativeObject(World& world, const std::filesystem::path& file)
     node = render::loadGameContent(file, material);
     // A world-fixed object ahead of the party at entry, clear of the view near plane.
     const auto near = world.camera->getClipRange().first;
-    const auto camera = glm::translate(glm::dmat4(1), glm::dvec3(cameraLocation(world))) *
-                        glm::dmat4(cameraRotation(world));
+    const auto camera = glm::translate(glm::dmat4(1), glm::dvec3(world.party.eye())) *
+                        glm::dmat4(world.party.rotation());
     node->matrix = render::toVsg(
         glm::scale(glm::translate(camera, glm::dvec3(0, 0, near * 2)), glm::dvec3(near * .5)));
     world.scene->root->addChild(node);

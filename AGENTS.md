@@ -28,17 +28,18 @@ owners. Every change should move the code toward this:
   shared ownership. No manual teardown, `Init`/`Destroy` pairs, global resource
   slots, integer handles, or register/unregister protocols where a lifetime can do
   the work.
-- **Encapsulation.** Extract focused classes that keep their state private and
-  expose methods that change it. Callers ask the object to do something; they do not
-  reach through it into another object's members. A class that only holds fields for
-  free functions to edit is not encapsulated.
-- **Explicit dependencies, given once.** A class receives what it depends on in its
-  constructor and holds it. Prefer an `Automap{world}` with `visit`, `reveal` and
-  `addNote` over free functions that each look the world up, and over free
-  functions that each take a `World&`.
-- **No global state or global functions.** Do not add globals, singletons or
-  `Current*()` accessors. When you touch code that uses one, move that operation
-  to the object that owns the state.
+- **Encapsulation.** State owners expose complete operations that maintain their
+  invariants; callers must not edit another owner's internals. Stateless
+  calculations over explicit values can be free functions. Do not create a class
+  merely to give old functions a receiver.
+- **Explicit dependencies, matched to lifetime.** Retain dependencies in
+  constructors when they define a continuing object's identity or lifetime
+  (`Automap{world}`, a live actor's `World&`). Pass inputs that vary per
+  operation. A stored `Game&` does not justify unrestricted access to everything
+  the game owns.
+- **No global mutable state or global accessors.** Do not add globals, singletons
+  or `Current*()` lookups for gameplay. Move mutations to their real owner
+  and cross-owner sequences to explicit coordinators (ARCHITECTURE.md).
 
 What does **not** count as progress:
 
@@ -95,11 +96,12 @@ What does **not** count as progress:
 1. **Check for existing work.** Before starting an issue, search open PRs for
    `#N`; some drafts mention an issue without linking it.
 2. **Understand the owner first.** Find the actual invariant and who should own it.
-   Trace the whole creation, use and destruction path, not just the function where a
-   problem surfaced. Design the owning class (private state, operations as methods,
-   dependencies in the constructor) before moving code. A lifecycle problem usually
-   calls for changing when work happens or who owns it, not for a new state type or
-   cleanup protocol.
+   Trace creation, use, suspension, replacement and destruction, not just the
+   function where a problem surfaced. Decide whether this is an owner's operation,
+   a cross-owner sequence or a stateless calculation before choosing a class.
+   Preserve the behavioral distinctions in ARCHITECTURE.md. A lifecycle problem
+   usually calls for changing when work happens or who owns it, not for a new
+   state type or cleanup protocol.
 3. **Pin behavior before refactoring.** When a refactor touches behavior that no
    test covers, first add a small characterization test that passes on the current
    code, then refactor against it. Gameplay rules, random draw order, save
@@ -144,8 +146,8 @@ contract it protects.
 
 ## Documentation
 
-- `ARCHITECTURE.md` describes the structure as it is: owners, layers and the
-  contracts code relies on. Update it when you change one of those. It is not a
+- `ARCHITECTURE.md` describes current owners and layers plus the target
+  ownership, operation and transition contracts. Update it when those change. It is not a
   change log: no per-PR notes, history of what used to be, or descriptions of a
   single class's internals that the code already says.
 - `ROADMAP.md` lists remaining migration work. Delete an item when you finish it;

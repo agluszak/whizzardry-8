@@ -205,9 +205,9 @@ the licensed runtime scenarios after every step.
      from its members and explicit inputs.
    - The main game, the camp and the camp's items page borrow the router's `Pointer`,
      but the free functions in `local_screens`, the dialogs and text entry, the targeting
-     presentation, the world cursor (`entities/cursor.cpp`) and two readers in combat
-     (`GateActionSwitch`, `AutoAdvanceSelectedCharacter`, which ask whether a target is
-     being picked) still reach it through `ScreenPointer()`. They should receive it with
+     presentation, the world cursor (`entities/cursor.cpp`) and one reader in combat
+     (`AutoAdvanceSelectedCharacter`, which asks whether a target is being picked) still
+     reach it through `ScreenPointer()`. They should receive it with
      the HUD, and the accessor then goes.
    - The HUD panels below `ApplyMainGameRepaint` (portraits and their bars, the text box,
      submenu, formation board, monster list, radar) still read the HUD, the game and
@@ -227,6 +227,11 @@ the licensed runtime scenarios after every step.
      combat panel (`RequestRefreshPartyState` in `Combat Hostility.cpp`,
      `MonsterManager.cpp`, `world.cpp` and `entities/cursor.cpp`, which the existing
      `CombatPanelChanged` event already presents).
+   - Music is module state in `music_playlist.cpp` (the parsed playlist, its playback,
+     fade and pause) that game code drives directly (`StartMusicResource` from combat,
+     camping and the monster manager) and that reads `CurrentGame()` to suppress pauses
+     in a fight. It should be a player the Application owns and the screens receive,
+     with game code asking for music through events.
 6. **Conditions, magic and combat in `rules`.**
    - `Combat` is owned by the game (`std::optional<Combat>`, `beginCombat`/`endCombat`)
      and its turn is a value stepped by `Combat::step`, with the scheduler and the
@@ -337,6 +342,12 @@ each.
 
 Substantial but contained work.
 
+- **The party outside its world.** Actors use their own world's `WorldParty`, but
+  about 40 calls in free game modules (magic, targeting, range, monster groups, noise,
+  traps, the cursor, level entry and transitions) still reach it through
+  `GetWorld()->party`. Each module should become an object that its world or game
+  owns and constructs with that owner, as the actors and `RadarMap` are, rather than
+  taking a `World&` parameter.
 - **Named strings.** About 1,000 `Data().strings[0x…]` lookups use bare
   indices. Give message ids names (an enum generated from or checked against the
   string table) so rules and screens say which text they show.
@@ -366,8 +377,6 @@ Questions to settle, usually against the retail executable, traces or saves,
 before the related refactoring changes behavior.
 
 - **Retail semantics to confirm.**
-  - Whether swings really use the previous pass's damage bonus in observable play,
-    and how many stat passes retail runs per operation.
   - Whether `CountCharacterItem`'s backpack count (which reads the equipment slot
     with the same index) affects any quest.
   - Whether conjuring an item into an occupied hand destroys the held item.

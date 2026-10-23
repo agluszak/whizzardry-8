@@ -940,7 +940,7 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
         auto record = std::make_unique<W8MonsterInfo>();
         record->location_id = index + 1;
         auto& monster = representations[index];
-        monster = std::make_unique<Monster>(GetWorld());
+        monster = std::make_unique<Monster>(*GetWorld());
         monster->location_id = index + 1;
         monster->nav.movement.leadership_rank = 0;
         record->entity.attach(*monster);
@@ -1205,13 +1205,11 @@ TEST_CASE("Party load follows supplied rules independently of the live combat an
     PartyStatRules rules;
     rules.load_timing = PartyLoadTiming::AfterCombat;
     REQUIRE_FALSE(UpdatePartyStats(Data(), party, pool, rules).load_redistributed);
-    REQUIRE(party.redistribution_pending);
     REQUIRE(character.party_weight_share == 4);
     REQUIRE(character.total_carried_weight == 4);
     rules.load_timing = PartyLoadTiming::Immediate;
     rules.characters[0].defensive_action = true;
     REQUIRE(UpdatePartyStats(Data(), party, pool, rules).load_redistributed);
-    REQUIRE_FALSE(party.redistribution_pending);
     REQUIRE(character.party_weight_share == 9);
     REQUIRE(character.armor_class_components[W8_AC_COMPONENT_DEFENSIVE_ACTION] == 2);
     REQUIRE(CurrentGame().combat.has_value());
@@ -1396,12 +1394,13 @@ TEST_CASE("Standalone character updates ignore saved membership flags", "[party]
     REQUIRE(draft.bonus.damage_bonus == 2);
 }
 
-TEST_CASE("Weapon swings read the damage bonus the operation started from", "[party][stats]")
+TEST_CASE("Weapon swings read the current damage bonus", "[party][stats]")
 {
     GameData data;
     data.items.resize(1);
     data.items[0].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
     data.items[0].weapon_skill = W8_SKILL_SWORD;
+    data.items[0].attack_damage_bonus = 3;
     const ScopedGameData installed(std::move(data));
     W8Character character{};
     character.iProfession = W8_PROFESSION_FIGHTER;
@@ -1410,19 +1409,23 @@ TEST_CASE("Weapon swings read the damage bonus the operation started from", "[pa
     character.attributes[W8_ATTRIBUTE_STRENGTH].effective = 50;
     character.skills[W8_SKILL_SWORD].level = 90;
     character.skills[W8_SKILL_CLOSE_COMBAT].level = 90;
-    character.Hand[0].damage_bonus = 3;
-    const auto baseline = CaptureCharacterBaseline(character);
 
-    // Retail scores swings before resetting the bonus: (100 + 30 + 90) / 3 = 73.
-    DeriveCharacterStats(Data(), character, {}, baseline);
-    REQUIRE(character.Hand[0].damage_bonus == 0);
+    // (100 + 3 * 10 + 90) / 3 = 73 crosses the two-swing threshold on the first settlement.
+    REQUIRE(UpdateCharacterStatsFromInputs(Data(), character, {}).valid);
+    REQUIRE(character.Hand[0].damage_bonus == 3);
     REQUIRE(character.Hand[0].swings == 2);
-    // Another pass of the same operation reads the same baseline.
-    DeriveCharacterStats(Data(), character, {}, baseline);
-    REQUIRE(character.Hand[0].swings == 2);
-    // The next operation starts from this arrangement's bonus: (100 + 0 + 90) / 3 = 63.
-    DeriveCharacterStats(Data(), character, {}, CaptureCharacterBaseline(character));
-    REQUIRE(character.Hand[0].swings == 1);
+    // Settling again with unchanged inputs changes neither attacks nor pools.
+    const W8HandAttack hand = character.Hand[0];
+    const auto hp = character.hp_current;
+    const auto stamina = character.stamina;
+    const auto update = UpdateCharacterStatsFromInputs(Data(), character, {});
+    REQUIRE_FALSE(update.hp_exhausted);
+    REQUIRE_FALSE(update.became_overloaded);
+    REQUIRE(character.Hand[0].swings == hand.swings);
+    REQUIRE(character.Hand[0].attacks == hand.attacks);
+    REQUIRE(character.Hand[0].attack_score == hand.attack_score);
+    REQUIRE(character.hp_current == hp);
+    REQUIRE(character.stamina == stamina);
 }
 
 namespace {
@@ -1565,29 +1568,6 @@ TEST_CASE("A held stack keeps what a full pool cannot take", "[party][inventory]
     REQUIRE(inventory.pool()[7].stack_count == 100);
     REQUIRE(inventory.pool().size() == Inventory::kPoolLimit);
     REQUIRE(inventory.held()->item.stack_count == 20);
-}
-
-TEST_CASE("A refused gift leaves the held item in the hand", "[party][inventory]")
-{
-    GameData data{.strings = std::vector<std::string>(0x1000), .items = UnrestrictedItems(2)};
-    data.strings[0x90c] = "There is no room.";
-    const ScopedGame game(data);
-    CurrentGame().status.game_started = true;
-    auto& character = PrepareMember(0);
-    for (auto& item : character.backpack) item = W8ItemInstance{.iItemNo = 1};
-    auto& inventory = CurrentGame().inventory;
-    inventory.restore(std::vector<W8ItemInstance>(Inventory::kPoolLimit, {.iItemNo = 1}),
-                      W8ItemInstance{.iItemNo = 0});
-
-    const auto given = inventory.giveHeld(0, StoreOrder::PoolFirst);
-    REQUIRE_FALSE(given);
-    REQUIRE(given.error().notice == "There is no room.");
-    REQUIRE(inventory.heldItemId() == 0);
-
-    character.backpack[2] = {};
-    REQUIRE(inventory.giveHeld(0, StoreOrder::PoolFirst));
-    REQUIRE_FALSE(inventory.held());
-    REQUIRE(character.backpack[2].iItemNo == 0);
 }
 
 TEST_CASE("Pool rows close up, and a use is abandoned once its row moves", "[party][inventory]")

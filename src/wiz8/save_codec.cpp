@@ -521,7 +521,7 @@ template<> struct Record<save::GameState> {
               bytes.subspan(offsetof(Disk, game_time_ms), sizeof(Disk::game_time_ms)));
         value(&runtime.status.aging_accumulator,
               bytes.subspan(offsetof(Disk, aging_accumulator), sizeof(Disk::aging_accumulator)));
-        byte_boolean(&runtime.status.search_mode,
+        byte_boolean(&runtime.search_mode,
                      bytes.subspan(offsetof(Disk, search_mode), sizeof(Disk::search_mode)));
         value(&runtime.status.world_suspended,
               bytes.subspan(offsetof(Disk, world_suspended), sizeof(Disk::world_suspended)));

@@ -1002,9 +1002,10 @@ static wiz8::save::GameState CaptureStateForSave(const Game& game, const wiz8::F
     wiz8::save::GameState snapshot{game.status,
                                    game.party,
                                    {game.inventory.pool().begin(), game.inventory.pool().end()},
-                                   held ? std::optional{held->item} : std::nullopt};
+                                   held ? std::optional{held->item} : std::nullopt,
+                                   game.search.requested()};
     auto& status = snapshot.status;
-    status.pending_move_location = partyPose(*GetWorld());
+    status.pending_move_location = game.level.primary->party.pose();
     status.retail.save_version = 1.1f;
     status.difficulty = g_settings.difficulty;
     if (status.iron_man) {
@@ -1506,7 +1507,7 @@ void DeleteCurrentSaveFiles(void)
 bool AutoSaveIfAllowed(bool forced)
 {
     CurrentGame().save_notice_shown = false;
-    const bool wanted = (g_settings.auto_save != 0 && !forced) || CurrentGame().status.iron_man;
+    const bool wanted = (g_settings.auto_save && !forced) || CurrentGame().status.iron_man;
     if (!wanted || !CanAutoSaveNow()) return true;
     return SaveGame(AutoSaveSlotName(), nullptr);
 }
@@ -1535,7 +1536,7 @@ void ReportSaveFailed(bool quiet)
    frame saves and reports the result. */
 void ProcessMainGameAutoSave(void)
 {
-    if ((g_settings.auto_save == 0 && !CurrentGame().status.iron_man) || !CanAutoSaveNow()) return;
+    if ((!g_settings.auto_save && !CurrentGame().status.iron_man) || !CanAutoSaveNow()) return;
     if (!CurrentGame().save_notice_shown) {
         if (CurrentGame().autosave_due >= std::chrono::milliseconds::zero()) return;
         CurrentGame().save_notice_shown = true;
@@ -1652,6 +1653,7 @@ try {
                 game.status = std::move(saved.status);
                 game.party = std::move(saved.party);
                 game.inventory.restore(std::move(saved.pool), saved.held);
+                game.search.restore(saved.search_mode);
             });
             break;
         }

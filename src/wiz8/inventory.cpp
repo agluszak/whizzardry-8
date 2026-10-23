@@ -1557,7 +1557,7 @@ Inventory::UseOutcome Inventory::useOnce(unsigned int party_slot, W8ItemLocation
                                GetItemDisplayName(game.data, item))});
         }
 
-        if (g_settings.verbose_combat_messages == 0) {
+        if (!g_settings.verbose_combat_messages) {
             game.events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         }
         // A usable item without a spell does nothing.

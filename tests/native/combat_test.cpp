@@ -173,7 +173,7 @@ TEST_CASE("A deflected stored-spell missile keeps its outcome outside combat")
     const ScopedGameData missile_data{GameData{.missiles = std::vector<W8MissileTableRecord>(36)}};
     game.level.replacePrimary(std::make_unique<World>());
     World& world = *game.level.primary;
-    Monster target(&world);
+    Monster target(world);
     target.location_id = 7;
     target.nav.movement.location_id = target.location_id;
     auto info = std::make_unique<W8MonsterInfo>();
@@ -182,7 +182,7 @@ TEST_CASE("A deflected stored-spell missile keeps its outcome outside combat")
     info->modifiers.missile_deflect_chance = 100;
     world.population->monster_roster.add(std::move(info), false);
 
-    Missile missile(&world);
+    Missile missile(world);
     missile.missile_table_index = 0x23;
     missile.m_Source = {.iType = W8_TARGET_SOURCE_CHARACTER, .iChar = 0};
     missile.combat_slot.iType = W8_TARGET_KIND_MONSTER;
