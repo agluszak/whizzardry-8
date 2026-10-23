@@ -33,7 +33,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -54,6 +53,7 @@
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/update.h"
+#include "wiz8/world/world.h"
 
 static constexpr bool g_monster_gib_option = true;
 static constexpr double g_monster_light_color_scale = 1.0 / 255.0;
@@ -148,8 +148,8 @@ int MonsterDefinition::AddDamageStage(int stage)
    supplies scalar movement settings, visual flags, sound/shake events, skin
    stages, lights, and the list of binary .mon cycles. The definition is never
    randomized; each actor rolls its own appearance. */
-static std::unique_ptr<MonsterDefinition> LoadMonsterDefinition(std::string_view monster_name,
-                                                                int location_id)
+static std::unique_ptr<MonsterDefinition>
+LoadMonsterDefinition(World& world, std::string_view monster_name, int location_id)
 {
     bool success = true;
     bool flies = false;
@@ -201,7 +201,7 @@ static std::unique_ptr<MonsterDefinition> LoadMonsterDefinition(std::string_view
     path = fmt::format("data\\Monsters\\{}.mls", monster_name);
     auto handle = wiz8::open_file(wiz8::asset_path(path), wiz8::OpenMode::read);
     auto monster = std::make_unique<MonsterDefinition>();
-    AllocateLegacyPropSaveId();
+    world.takeLegacyPropSaveId();
 
     {
         std::istringstream input(handle->read_text());
@@ -578,7 +578,7 @@ std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view m
         return CompareTextIgnoreAsciiCase(candidate->asset_name, monster_name) == 0;
     });
     if (definition == definitions.end()) {
-        auto loaded = LoadMonsterDefinition(monster_name, location_id);
+        auto loaded = LoadMonsterDefinition(*world, monster_name, location_id);
         if (!loaded) return nullptr;
         definitions.push_back(std::move(loaded));
         definition = definitions.end() - 1;
@@ -666,7 +666,7 @@ bool MonsterDefinition::ReadCycleData(LevelLoadContext& info, int cycle_index)
 std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_name, int cycle)
 {
     MonsterDefinition definition;
-    AllocateLegacyPropSaveId();
+    world->takeLegacyPropSaveId();
     if (!loadAnimationCycle(mon_name, definition.events, cycle, "data\\monsters",
                             [&](LevelLoadContext& read_info, int read_cycle) {
                                 return definition.ReadCycleData(read_info, read_cycle);

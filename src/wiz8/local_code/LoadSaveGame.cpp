@@ -1359,6 +1359,7 @@ void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status)
 // already owns every record, representation, membership and identity link.
 void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status)
 {
+    CurrentGame().story.addTriggerVariableDefaults(world);
     CurrentGame().status.next_group_id = CurrentGame().status.next_monster_location_id =
         CurrentGame().status.next_world_item_id = 1;
     CurrentGame().status.next_trigger_id = world.next_trigger_id;

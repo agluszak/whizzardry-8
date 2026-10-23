@@ -1484,10 +1484,8 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
     const ScopedGame game;
     game.game.level.replacePrimary(std::make_unique<World>());
     World& world = *GetWorld();
-    Prop first;
-    WorldItemEntity item; // Items consume the same legacy sequence as props.
     auto prop = std::make_unique<Prop>();
-    REQUIRE(prop->legacy_save_id == first.legacy_save_id + 2);
+    prop->legacy_save_id = 4;
     const int saved_id = prop->legacy_save_id;
     prop->name = "Present";
     auto* present = prop.get();
@@ -1536,4 +1534,36 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
         });
         REQUIRE(present->subcycle == 3);
     }
+}
+
+TEST_CASE_METHOD(LoaderFixture,
+                 "World construction keeps legacy identities and trigger defaults local",
+                 "[loader][ownership]")
+{
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>(1));
+    World candidate(2);
+    const auto old_id = GetWorld()->takeLegacyPropSaveId();
+    store("short-prop.bin", "");
+    auto file = wiz8::open_file(wiz8::asset_path("short-prop.bin"));
+    LevelLoadContext info{&candidate, file.get(), {}};
+    REQUIRE_FALSE(CreateAndLoadProp(&info));
+    // The failed prop took the candidate's first identity, and none of the live world's.
+    REQUIRE(candidate.takeLegacyPropSaveId() == 3);
+    REQUIRE(GetWorld()->takeLegacyPropSaveId() == old_id + 1);
+    auto trigger = std::make_unique<Trigger>(&candidate);
+    trigger->state_to_modify = "door";
+    trigger->initial_location_value = 1;
+    candidate.triggers.push_back(std::move(trigger));
+    REQUIRE(game.game.story.location_variables.empty());
+    game.game.story.location_variables.push_back({"door", 0, 1});
+    game.game.story.addTriggerVariableDefaults(candidate);
+    REQUIRE(game.game.story.location_variables.size() == 2);
+    REQUIRE(game.game.story.location_variables[0].value == 0);
+    REQUIRE(game.game.story.location_variables[1].level == 2);
+    REQUIRE(game.game.story.location_variables[1].value == 1);
+    game.game.story.location_variables[1].value = 7;
+    game.game.story.addTriggerVariableDefaults(candidate);
+    REQUIRE(game.game.story.location_variables.size() == 2);
+    REQUIRE(game.game.story.location_variables[1].value == 7);
 }

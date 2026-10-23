@@ -68,4 +68,6 @@ struct WorldItemEntity {
 };
 
 BoundingBox GetItemWorldBounds(const WorldItemEntity& item);
+/* Load an item model. A loaded model takes the next legacy save identity of the world
+   it is placed in (World::takeLegacyPropSaveId). */
 std::unique_ptr<WorldItemEntity> LoadItemFromFile(std::string_view name);

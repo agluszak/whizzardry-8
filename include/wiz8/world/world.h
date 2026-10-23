@@ -176,6 +176,14 @@ struct World {
     /* The level's script, installed when the level is entered. Last, so it goes first:
        it borrows the entities above and its trigger callbacks refer to it. */
     std::unique_ptr<LevelScript> script;
+
+    /* Allocate the next save identity of retail's shared prop sequence. Every prop,
+       item, monster, missile and spell visual the world loads takes one, in load
+       order, whether or not it keeps it. */
+    int takeLegacyPropSaveId() { return ++next_legacy_prop_save_id_; }
+
+private:
+    int next_legacy_prop_save_id_ = 1;
 };
 
 /* Typed element access for the homogeneous world lists. */

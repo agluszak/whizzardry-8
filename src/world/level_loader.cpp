@@ -57,7 +57,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
-#include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/MonsterGenerator.h" // IWYU pragma: keep
 #include "wiz8/local_code/MonsterGroup.h"
@@ -1598,7 +1597,6 @@ std::unique_ptr<World> LoadWorld(int level_id, std::string source_path)
     auto owner = std::make_unique<World>(level_id, std::move(source_path));
     auto* world = owner.get();
     const auto& resource_path = world->source_path;
-    ResetLegacyPropSaveIds();
     const auto path = wiz8::path_from_utf8(resource_path);
     std::string level_path(resource_path);
     const auto sibling = [&](const char* extension) {
