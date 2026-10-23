@@ -232,7 +232,6 @@ void ForEachWorldLight(std::function_ref<void(Light*)> visit);
 
 /* APST chunk: serialize every world prop's animation state. The record is a
    fixed 64-byte name plus the six saved animation bytes. */
-void SaveWorldProps(wiz8::File& handle);
 /* APST chunk: restore saved prop animation state. The 0xDEADD00D signature
    selects the name-keyed format; older saves carry a bare count plus the
    object's id key. Unmatched records are decoded and ignored. */

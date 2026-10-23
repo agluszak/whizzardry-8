@@ -1,8 +1,11 @@
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <unordered_map>
@@ -11,6 +14,7 @@
 #include <vector>
 
 #include <SDL3/SDL_keycode.h>
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_message.hpp>
 #include <catch2/catch_test_macros.hpp>
 
@@ -869,6 +873,8 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
     live.default_interval = 17;
     live.interval_max = 44;
     live.save_flag = 1;
+    auto& generator = *live.generators.emplace_back(std::make_unique<MonGen>());
+    std::strcpy(generator.name, "gate");
     World replacement(1);
     replacement.encounters.random_budget = 100;
     StartLevelEncounters(replacement);
@@ -880,11 +886,56 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
     const ScopedTemporaryDirectory directory("encounter-state");
     W8Chunk chunk;
     REQUIRE(chunk.OpenWrite(directory.path / "state.riff"));
-    chunk.WriteChunk(W8ChunkId("ENCT"), [&] { SaveEncounterState(chunk.WriteStream()); });
+    // A version 5 MONG section with one version 3 generator record, as retail wrote them.
+    chunk.WriteChunk(W8ChunkId("MONG"), [&] {
+        chunk.WriteValue(5);
+        chunk.WriteValue(live.saved_budget);
+        chunk.WriteValue(live.random_budget);
+        chunk.WriteValue(live.culling_seconds);
+        chunk.WriteValue(live.save_flag);
+        chunk.WriteValue(live.interval_min);
+        chunk.WriteValue(live.default_interval);
+        chunk.WriteValue(live.interval_max);
+        chunk.WriteValue(1);
+        chunk.WriteValue(std::uint8_t{3});
+        chunk.WriteBytes(generator.name, sizeof(generator.name));
+        chunk.WriteValue(std::uint8_t{1});
+        chunk.WriteValue(generator.flags);
+        chunk.WriteValue(generator.custom_spawn_chance);
+        chunk.WriteValue(generator.custom_interval_seconds);
+        chunk.WriteValue(generator.unknown_08);
+        for (int axis = 0; axis < 3; ++axis) chunk.WriteValue(0.0f);
+        chunk.WriteValue(generator.encounter_table_index);
+        chunk.WriteValue(0.0f);
+        chunk.WriteValue(1.0f);
+    });
+    // The generator states a save keeps put back the saved timer after the rearm's draw.
+    generator.timer.setSeconds(4.0f);
+    generator.timer.setScale(0.5f);
+    generator.timer.advance(std::chrono::milliseconds{500});
+    chunk.WriteChunk(W8ChunkId("MGNS"), [&] {
+        WriteMonsterGeneratorStates(chunk.WriteStream(), live.savedGeneratorStates());
+    });
     chunk.Close();
     REQUIRE(chunk.OpenRead(directory.path / "state.riff"));
-    chunk.ForEachChunk([&](unsigned) {
-        const auto loaded = ReadEncounterState(chunk);
+    std::vector<Rng::Draw> draws;
+    game.game.rng.trace(&draws);
+    std::optional<W8EncounterState> loaded_state;
+    chunk.ForEachChunk([&](unsigned id) {
+        if (id == W8ChunkId("MGNS")) {
+            loaded_state->applyGeneratorStates(ReadMonsterGeneratorStates(chunk));
+            // Decoding draws nothing; building the world draws each generator's jitter once.
+            REQUIRE(draws.empty());
+            loaded_state->rearmDecodedGenerators();
+            REQUIRE(draws.size() == 1);
+            REQUIRE(draws[0].range == 41);
+            const auto& timer = loaded_state->generators.front()->timer;
+            REQUIRE(timer.progress() == Catch::Approx(0.25f));
+            REQUIRE(timer.scale() == 0.5f);
+            REQUIRE(chunk.RemainingBytes() == 0);
+            return;
+        }
+        auto& loaded = loaded_state.emplace(ReadEncounterState(chunk));
         REQUIRE(loaded.random_budget == 6);
         REQUIRE(loaded.saved_budget == 77);
         REQUIRE(loaded.culling_seconds == 180);
@@ -894,6 +945,7 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
         REQUIRE(loaded.save_flag == 1);
         REQUIRE(chunk.RemainingBytes() == 0);
     });
+    game.game.rng.trace(nullptr);
 }
 
 TEST_CASE_METHOD(LevelWorldFixture, "Full formations reject a link before detaching its source",

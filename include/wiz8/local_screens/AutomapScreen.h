@@ -54,11 +54,13 @@ void RefreshDirtyAutomap(void);
 bool AutomapHasCellAt(const glm::vec3* position);
 
 void ResetAutomapView(void);
-void SaveAutomapNotes(wiz8::File& handle);
 struct W8SavedAutomapNotes {
     std::vector<bool> visited;
     std::vector<std::unique_ptr<W8AutomapNote>> notes;
 };
+// The world's visited cells and the automap's notes.
+W8SavedAutomapNotes CaptureAutomapNotes(const W8AutomapCells& cells);
+void WriteAutomapNotes(wiz8::File& handle, const W8SavedAutomapNotes& records);
 W8SavedAutomapNotes ReadAutomapNotes(W8Chunk& file);
 void ApplyAutomapNotes(World& world, W8SavedAutomapNotes notes);
 bool GetAutomapPositionUnderCursor(glm::vec3* position);

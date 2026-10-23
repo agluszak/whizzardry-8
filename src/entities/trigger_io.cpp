@@ -9,6 +9,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -59,40 +60,54 @@ template<std::size_t N> static void ReadTriggerText(W8Chunk& file, char (&text)[
 
 const float g_trigger_progress_limit = 64.0f;
 
-void SaveTriggerRuntimeStates(wiz8::File& handle)
+std::optional<SavedLock> Trigger::CaptureLock() const
 {
-    const auto& triggers = GetWorld()->triggers;
-    const int version = 2;
-    const int saved_count =
-        static_cast<int>(std::ranges::count_if(triggers, [](const auto& trigger) {
-            return trigger->lock_state.lock_type != LockType::none;
-        }));
-    const int restoring = 0;
-    handle.write(&version, sizeof(version));
+    if (lock_state.lock_type == LockType::none) return std::nullopt;
+    return SavedLock{.trigger = name,
+                     .record_version = 2,
+                     .device_state = lock_state.device_state,
+                     .lock_countdown = lock_state.lock_countdown,
+                     .last_interaction_clock = lock_state.last_interaction_clock};
+}
+
+void WriteSavedTriggerLocks(wiz8::File& handle, const SavedTriggerLocks& section)
+{
+    const int saved_count = static_cast<int>(section.locks.size());
+    const int restoring = section.restoring;
+    handle.write(&section.version, sizeof(section.version));
     handle.write(&saved_count, sizeof(saved_count));
     handle.write(&restoring, sizeof(restoring));
-
-    for (const auto& trigger : triggers) {
-        auto& lock = trigger->lock_state;
-        if (lock.lock_type == LockType::none) continue;
-        handle.write(trigger->name, 0x80);
-        handle.write(&version, sizeof(version));
-        handle.write(&lock.device_state.completed, sizeof(lock.device_state.completed));
-        handle.write(lock.device_state.pins, sizeof(lock.device_state.pins));
-        handle.write(&lock.lock_countdown, sizeof(lock.lock_countdown));
-        handle.write(&lock.last_interaction_clock, sizeof(lock.last_interaction_clock));
+    for (const auto& lock : section.locks) {
+        handle.write_padded(lock.trigger, 0x80);
+        handle.write(&lock.record_version, sizeof(lock.record_version));
+        if (!lock.full) {
+            handle.write(&lock.device_state.completed, sizeof(lock.device_state.completed));
+            handle.write(lock.device_state.pins, sizeof(lock.device_state.pins));
+            handle.write(&lock.lock_countdown.value(), sizeof(int));
+            if (lock.record_version > 1)
+                handle.write(&lock.last_interaction_clock.value(), sizeof(int));
+        } else {
+            const auto lock_type = static_cast<int>(lock.lock_type);
+            handle.write(&lock_type, sizeof(lock_type));
+            handle.write(&lock.difficulty, sizeof(lock.difficulty));
+            handle.write(&lock.device_state.completed, sizeof(lock.device_state.completed));
+            handle.write(lock.device_state.pins, sizeof(lock.device_state.pins));
+            handle.write(&lock.device_id, sizeof(lock.device_id));
+            handle.write(&lock.key_id, sizeof(lock.key_id));
+            if (lock.record_version > 1) handle.write(&lock.lock_countdown.value(), sizeof(int));
+        }
     }
 }
 
-/* The runtime-state records written by SaveTriggerRuntimeStates. A record's form
-   depends on the section: a restoring section, or one before version two, stores the
-   lock as the level authored it. */
+/* The runtime-state records written by WriteSavedTriggerLocks. A record's form depends
+   on the section: a restoring section, or one before version two, stores the lock as the
+   level authored it. */
 SavedTriggerLocks DecodeSavedTriggerLocks(W8Chunk& handle)
 {
     const auto version = handle.ReadValue<int>();
     const auto saved_count = handle.ReadValue<int>();
     const auto restoring = handle.ReadValue<int>();
-    SavedTriggerLocks section{.restoring = restoring != 0};
+    SavedTriggerLocks section{.version = version, .restoring = restoring != 0};
     for (int index = 0; index < saved_count; ++index) {
         auto& lock = section.locks.emplace_back();
         char name[0x80];
@@ -138,71 +153,51 @@ static void ApplySavedLocks(World& world, const SavedTriggerLocks& section)
    attached, with its flag bits packed and the timed-event delay resolved from
    the live event queue. I/O failures propagate to the staged save. */
 // FUNCTION: WIZ8 0x0043BE60
-void Trigger::Save(wiz8::File& hFile)
+/* A version 5 record: the trigger's name, state and action, a door's packed state with its
+   timed reopening's progress, and the trigger's items, seed, gold and uses. */
+SavedTrigger Trigger::Capture() const
 {
     auto* timed_action = m_pWorld ? m_pWorld->findTimedAction(this) : nullptr;
-    unsigned char version = 5;
-    int trigger_count = static_cast<int>(GetWorld()->triggers.size());
-    unsigned char has_action_data;
-    unsigned char action_type;
-    unsigned short action_flags;
-    unsigned char action_kind;
-    unsigned int progress_delay;
-    unsigned char has_world_item;
-
-    hFile.write(&version, sizeof(version));
-    hFile.write(&trigger_count, sizeof(trigger_count));
-    hFile.write(name, 0x80);
-    hFile.write(&flags, sizeof(flags));
-    hFile.write(&state_index, sizeof(state_index));
-    hFile.write(&state_direction, sizeof(state_direction));
-    hFile.write(&action, sizeof(action));
-    hFile.write(&action_state, sizeof(action_state));
-    hFile.write(&required_item_id, sizeof(required_item_id));
-    has_action_data = hasActionPayload();
-    hFile.write(&has_action_data, sizeof(has_action_data));
-    if (has_action_data != 0) {
-        action_type = static_cast<unsigned char>(actionPayloadKind());
-        hFile.write(&action_type, sizeof(action_type));
+    SavedTrigger saved{.version = 5,
+                       .name = name,
+                       .flags = flags,
+                       .state_index = state_index,
+                       .state_direction = state_direction,
+                       .action = action,
+                       .action_state = action_state,
+                       .required_item_id = required_item_id};
+    if (hasActionPayload()) {
+        saved.payload_kind = static_cast<std::uint8_t>(actionPayloadKind());
         if (const auto* door = doorData()) {
-            action_flags = 0;
-            progress_delay = 0;
-            action_kind = 2;
-            hFile.write(&action_kind, sizeof(action_kind));
-            action_flags = static_cast<decltype(action_flags)>(
-                (door->open ? 1u : 0u) | (door->lockable ? 2u : 0u) | (door->locked ? 4u : 0u) |
-                (door->auto_locking ? 8u : 0u) | (door->one_way ? 0x10u : 0u) |
-                (door->secret ? 0x20u : 0u) | (door->found ? 0x40u : 0u) |
-                (door->jammable ? 0x80u : 0u) | (door->jammed ? 0x100u : 0u));
-            if (door->item != 0) {
-                action_flags |= 0x200;
-            }
-            hFile.write(&action_flags, sizeof(action_flags));
+            auto& state = saved.door.emplace(SavedDoorState{.open = door->open,
+                                                            .lockable = door->lockable,
+                                                            .locked = door->locked,
+                                                            .auto_locking = door->auto_locking,
+                                                            .one_way = door->one_way,
+                                                            .secret = door->secret,
+                                                            .found = door->found,
+                                                            .jammable = door->jammable,
+                                                            .jammed = door->jammed,
+                                                            .packed = true});
             if (m_lData1 != 0 && timed_action != nullptr) {
-                float progress = timed_action->timer.GetProgress();
-                if (progress <= g_trigger_progress_limit) {
-                    progress_delay = static_cast<unsigned int>(
-                        timed_action->timer.GetProgress() * 1e+03f + 1.0f);
-                } else {
-                    progress_delay = 64000;
-                }
+                const float progress = timed_action->timer.GetProgress();
+                state.progress_delay = static_cast<std::uint16_t>(
+                    progress <= g_trigger_progress_limit
+                        ? static_cast<unsigned int>(timed_action->timer.GetProgress() * 1e+03f +
+                                                    1.0f)
+                        : 64000u);
             }
-            hFile.write(&progress_delay, 2);
-            {
-                unsigned int item = static_cast<unsigned short>(door->item);
-                hFile.write(&item, 2);
-            }
+            state.item = static_cast<std::uint16_t>(door->item);
         }
     }
-    has_world_item = world_item_group != 0;
-    hFile.write(&has_world_item, sizeof(has_world_item));
-    if (has_world_item != 0) {
-        SaveItemFile(hFile, *world_item_group);
-    }
-    hFile.write(&items_generated, sizeof(items_generated));
-    hFile.write(&item_group_seed, sizeof(item_group_seed));
-    hFile.write(&gold, sizeof(gold));
-    hFile.write(&uses_remaining, sizeof(uses_remaining));
+    saved.loot = SavedTriggerLoot{
+        .item_group =
+            world_item_group ? std::optional(CaptureWorldItem(*world_item_group)) : std::nullopt,
+        .items_generated = items_generated,
+        .item_group_seed = item_group_seed,
+        .gold = gold,
+        .uses_remaining = uses_remaining};
+    return saved;
 }
 
 /* One door flag is stored as a byte whose low bit is the flag. */
@@ -263,7 +258,8 @@ static SavedTrigger DecodeSavedTrigger(W8Chunk& file, std::uint8_t version, bool
     }
     if (version > 1) {
         auto& loot = saved.loot.emplace();
-        if (file.ReadValue<unsigned char>() != 0) loot.item_group = LoadItem(file, from_assets);
+        if (file.ReadValue<unsigned char>() != 0)
+            loot.item_group = ReadSavedWorldItem(file, from_assets);
         file.ReadValue(loot.items_generated);
         file.ReadValue(loot.item_group_seed);
         file.ReadValue(loot.gold);
@@ -315,7 +311,8 @@ void Trigger::Restore(SavedTrigger saved)
         }
     }
     if (saved.loot) {
-        world_item_group = std::move(saved.loot->item_group);
+        world_item_group =
+            saved.loot->item_group ? BuildWorldItem(*saved.loot->item_group) : nullptr;
         items_generated = saved.loot->items_generated;
         item_group_seed = saved.loot->item_group_seed;
         gold = saved.loot->gold;
@@ -358,41 +355,78 @@ static void ApplySavedTriggers(World& world, std::vector<SavedTrigger>& section)
     }
 }
 
-/* Write each trigger; failures propagate to the staged save. */
-// FUNCTION: WIZ8 0x0043C810
-void SaveWorldTriggers(wiz8::File& hFile)
+/* Each record in the form its version tag names. A door's packed flags add 0x200 when it
+   has a key; a version 3 record ends in 0x1d unused bytes. */
+void WriteSavedTriggers(wiz8::File& file, std::span<const SavedTrigger> section)
 {
-    for (const auto& trigger : GetWorld()->triggers) trigger->Save(hFile);
-}
-
-void SaveTriggerActionData(wiz8::File& handle)
-{
-    int trigger_count = static_cast<int>(GetWorld()->triggers.size());
-    int saved_count = 0;
-    int index;
-    int version = 1;
-
-    for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = GetWorld()->triggers[index].get();
-        if (trigger->inline_action_data[0] != '\0') {
-            ++saved_count;
+    const int count = static_cast<int>(section.size());
+    for (const auto& saved : section) {
+        file.write(&saved.version, sizeof(saved.version));
+        if (saved.version == 5) {
+            file.write(&count, sizeof(count));
+            file.write_padded(saved.name.value(), 0x80);
+        }
+        file.write(&saved.flags, sizeof(saved.flags));
+        file.write(&saved.state_index, sizeof(saved.state_index));
+        file.write(&saved.state_direction, sizeof(saved.state_direction));
+        file.write(&saved.action, sizeof(saved.action));
+        file.write(&saved.action_state, sizeof(saved.action_state));
+        file.write(&saved.required_item_id, sizeof(saved.required_item_id));
+        const unsigned char has_payload = saved.payload_kind.has_value();
+        file.write(&has_payload, sizeof(has_payload));
+        if (saved.payload_kind) {
+            file.write(&*saved.payload_kind, sizeof(*saved.payload_kind));
+            if (const auto& door = saved.door) {
+                const unsigned char form = door->packed ? 2 : 1;
+                file.write(&form, sizeof(form));
+                const bool flags[]{door->open,         door->lockable, door->locked,
+                                   door->auto_locking, door->one_way,  door->secret,
+                                   door->found,        door->jammable, door->jammed};
+                if (door->packed) {
+                    std::uint16_t packed = door->item != 0 ? 0x200 : 0;
+                    for (std::size_t bit = 0; bit < std::size(flags); ++bit)
+                        if (flags[bit]) packed |= 1u << bit;
+                    file.write(&packed, sizeof(packed));
+                    file.write(&door->progress_delay, sizeof(door->progress_delay));
+                    file.write(&door->item, sizeof(door->item));
+                } else {
+                    for (const bool flag : flags) {
+                        const unsigned char byte = flag;
+                        file.write(&byte, sizeof(byte));
+                    }
+                }
+            }
+        }
+        if (const auto& loot = saved.loot) {
+            const unsigned char has_world_item = loot->item_group.has_value();
+            file.write(&has_world_item, sizeof(has_world_item));
+            if (loot->item_group) WriteSavedWorldItem(file, *loot->item_group);
+            file.write(&loot->items_generated, sizeof(loot->items_generated));
+            file.write(&loot->item_group_seed, sizeof(loot->item_group_seed));
+            file.write(&loot->gold, sizeof(loot->gold));
+            file.write(&loot->uses_remaining, sizeof(loot->uses_remaining));
+        }
+        if (saved.version == 3) {
+            const std::byte unused[0x1d]{};
+            file.write(unused, sizeof(unused));
         }
     }
+}
 
-    handle.write(&version, sizeof(version));
-    handle.write(&saved_count, sizeof(saved_count));
-
-    for (index = 0; index < trigger_count; ++index) {
-        Trigger* trigger = GetWorld()->triggers[index].get();
-        if (trigger->inline_action_data[0] != '\0') {
-            handle.write(trigger->name, 0x80);
-            handle.write(trigger->inline_action_data, sizeof(trigger->inline_action_data));
-        }
+void WriteSavedTriggerActions(wiz8::File& file, std::span<const SavedTriggerAction> section)
+{
+    const std::int32_t version = 1;
+    const auto count = static_cast<std::int32_t>(section.size());
+    file.write(&version, sizeof(version));
+    file.write(&count, sizeof(count));
+    for (const auto& saved : section) {
+        file.write_padded(saved.trigger, 0x80);
+        file.write(saved.action.data(), saved.action.size());
     }
 }
 
-/* The trigger action-data chunk written by SaveTriggerActionData: a version/count
-   header, then per record the trigger name and its 0x100-byte payload. */
+/* The trigger action-data chunk: a version/count header, then per record the trigger name
+   and its 0x100-byte payload. */
 std::vector<SavedTriggerAction> DecodeSavedTriggerActions(W8Chunk& handle)
 {
     handle.ReadValue<std::int32_t>(); // version

@@ -1091,23 +1091,31 @@ bool ShowAutomapNoteTooltip(W8AutomapNote* note)
     return false;
 }
 
-/* Persist the visited-cell bitmap and every note's position, layer and text.
-   A 0xF00DF00D signature brackets the note records. Write failures throw. */
-void SaveAutomapNotes(wiz8::File& handle)
+W8SavedAutomapNotes CaptureAutomapNotes(const W8AutomapCells& cells)
+{
+    W8SavedAutomapNotes records{.visited = cells.visited};
+    for (const auto& note : g_automap_notes)
+        records.notes.push_back(std::make_unique<W8AutomapNote>(*note));
+    return records;
+}
+
+/* The visited-cell bitmap, when the automap has cells, then every note's position, layer
+   and text between two 0xF00DF00D signatures. */
+void WriteAutomapNotes(wiz8::File& handle, const W8SavedAutomapNotes& records)
 {
     const std::uint32_t signature = 0xf00df00d;
-    if (!GetWorld()->automap.visited.empty()) SavePackedBits(handle, GetWorld()->automap.visited);
+    if (!records.visited.empty()) SavePackedBits(handle, records.visited);
     handle.write(&signature, sizeof(signature));
-    const auto count = wiz8::checked_integer<std::uint32_t>(g_automap_notes.size());
+    const auto count = wiz8::checked_integer<std::uint32_t>(records.notes.size());
     handle.write(&count, sizeof(count));
-    for (const auto& note : g_automap_notes) {
+    for (const auto& note : records.notes) {
+        handle.write(&note->position.x, sizeof(note->position.x));
+        handle.write(&note->position.y, sizeof(note->position.y));
+        handle.write(&note->layer, sizeof(note->layer));
         const auto length =
             wiz8::checked_integer<std::uint32_t>(wiz8::text::to_utf16(note->text).size() + 1);
         std::vector<std::byte> bytes(length * 2);
         wiz8::text::to_utf16le(note->text, bytes);
-        handle.write(&note->position.x, sizeof(note->position.x));
-        handle.write(&note->position.y, sizeof(note->position.y));
-        handle.write(&note->layer, sizeof(note->layer));
         handle.write(&length, sizeof(length));
         handle.write(bytes.data(), bytes.size());
     }

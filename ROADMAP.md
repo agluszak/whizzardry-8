@@ -291,20 +291,8 @@ the licensed runtime scenarios after every step.
      belongs in `rules`, taking the party.
 8. **Saves over values.** Every game section (GSTA, TEXT, TVAR, NPCI, NPCT, NPCF, FATA,
    JRNL, HYPN, CHAR) and the STAT record are codecs over values (`save_codec.h`;
-   ARCHITECTURE.md, "Saves"), and the game owns its stored characters. What remains:
-   - A level's LVLS group (MONS, ITEM, AUTO, TRIG, APST, CUBS, MGNS, LCKS, AMBS, PART,
-     LGHT) decodes into a `LevelState` without the level's world (`LoadSaveGame.cpp`), but
-     decoding is not yet pure: an encounter generator draws its jittered interval from the
-     game's random stream as it is read (`MonGen::Reset`), so a load cannot decode the
-     groups before the game exists without changing the stream. Draw it when the level is
-     entered instead, then decode every group with the rest of the save. The other
-     direction remains too: `SaveStatusHeader` writes the sections from live objects. Capture a
-     `LevelState` from the world and encode it, so leaving a level and saving go through
-     the value; then the game can hold `LevelState`s for the levels it has left instead
-     of their bytes (`Game::left_levels`), keeping the groups of levels it never decoded
-     intact, and the world can be built from its level's assets and that value alone.
-     The encoder has to reproduce the retail records byte for byte, so it needs retail
-     saves to check against (see "Needs research").
+   ARCHITECTURE.md, "Saves"), a level's LVLS group is a `LevelState` (`level_state.h`),
+   and the game owns its stored characters. What remains:
    - `GameStatus` still has retail-era names (`uiTurnsElapsed`, `status_ints`) and holds
      interface state (`text_line_cursor`, `selected_party_member`, `world_cursor_gate`).
      Split it by owner.
