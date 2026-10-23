@@ -107,7 +107,7 @@ jobs:
         id: ccache-cache
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ steps.toolchain.outputs.key }}-${{ matrix.preset }}-${{ github.run_id }}
+          key: ccache-${{ steps.toolchain.outputs.key }}-${{ matrix.preset }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             ccache-${{ steps.toolchain.outputs.key }}-${{ matrix.preset }}-
       - name: Reset compiler cache statistics
@@ -129,7 +129,7 @@ jobs:
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ steps.toolchain.outputs.key }}-${{ matrix.preset }}-${{ github.run_id }}
+          key: ccache-${{ steps.toolchain.outputs.key }}-${{ matrix.preset }}-${{ github.run_id }}-${{ github.run_attempt }}
       # The canonical GOG installer is stored in the decomp project's private
       # wiz8-ci-inputs release. Never put decrypted game files in Actions cache.
       - name: Check access to licensed game assets
@@ -315,7 +315,6 @@ jobs:
           key: tidy-cxx26-clang23-cmake444-shard${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             tidy-cxx26-clang23-cmake444-shard${{ matrix.shard }}-
-            tidy-cxx26-clang23-cmake444-
       - name: Run clang-tidy
         env:
           CLANG_TIDY: clang-tidy-23

@@ -5,12 +5,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Conan's */system dependencies come from this image, not the host.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential ca-certificates ccache curl git gnupg ninja-build \
-    pkg-config python3-venv xz-utils unzip \
+    pkg-config python3-venv xz-utils unzip innoextract \
     g++-16 libstdc++-16-dev \
     libvulkan-dev mesa-vulkan-drivers vulkan-validationlayers xvfb xauth \
     libasound2-dev libegl-dev libgl-dev libudev-dev \
-    libwayland-dev wayland-protocols libxkbcommon-dev \
+    libwayland-dev wayland-protocols libxkbcommon-dev xkb-data \
     libx11-dev libx11-xcb-dev libfontenc-dev libice-dev libsm-dev \
+    uuid-dev libxdmcp-dev libxext-dev libxfixes-dev libxt-dev \
     libxau-dev libxaw7-dev libxcomposite-dev libxdamage-dev libxkbfile-dev \
     libxmu-dev libxmuu-dev libxpm-dev libxres-dev \
     libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev libxrender-dev \

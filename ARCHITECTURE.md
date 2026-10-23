@@ -93,7 +93,7 @@ enforces this (the `layer_boundaries` test, and CI's clang-tidy job), and
 | `render/` | VSG scene graph, shared meshes and instance poses, materials, views, Vulkan resources and presentation; publication of the CPU UI canvas. |
 | `spatial/` | `LevelSpatialIndex` (compiled octree, collision), `SurfaceIndex`, the navigation mesh and `Navigator`. Queries take explicit segments and filters and return optional typed hits. |
 | `world/` | `World`, party camera and motion, environment, encounters, level loading. |
-| `entities/` | `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks. Each kind is loaded once into a definition that live entities copy. Entities report hits, landings and release frames to their world's `SimulationSink` rather than resolving them. |
+| `entities/` | `Monster`, `Missile`, `SpellVisual`, `Prop`, `WorldItemEntity`, triggers and locks. Each kind is loaded once into a resource-only definition (animations and lights outside any scene, events, emitters and authored parameters) from which each live entity is constructed with its own copies, scene attachments and navigator. Entities report hits, landings and release frames to their world's `SimulationSink` rather than resolving them. |
 | `native/` | Application loop, game events, key bindings, FFmpeg movie playback. |
 | `wiz8/` | Gameplay not yet in `rules`, the game and session, saves, screens, dialogs and level scripts. `wiz8/combat/` is the fight. `local_code/`, `local_screens/`, `dialog_code/` and `level_specific_code/` hold the decompiled game code still being migrated. |
 
@@ -109,7 +109,9 @@ saves we write must load in retail.
   and throws otherwise. Unknown and padding bytes live in `retail_opaque_records.h`
   and round-trip unchanged.
 - Runtime types don't mirror retail layout, though types still embedded in disk
-  records keep it until they get records of their own.
+  records keep it until they get records of their own. Wizardry 7 import records
+  are local decoded values; only alignment and two story choices remain on
+  `Game` until opening fact seeding consumes them.
 - Retail UTF-16LE text is decoded to and encoded from UTF-8 explicitly.
 - Four-byte words that were process addresses in retail are never trusted as
   addresses: each is a presence word, a framing word, or a dead constant.
@@ -176,8 +178,11 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   past the current call keeps its id and looks it up again when used.
 - Group counts, active-monster presence and combat membership are queries over
   ownership, not maintained counters.
-- The party's pose is the primary world's `party_camera`. Render cameras derive
-  from it each frame; rendering writes no gameplay state.
+- Each world has a `WorldParty` (`World::party`): the party's pose and its
+  navigator, registered with the world's other movers. Placing or restoring the
+  party moves both. Actors are constructed with their `World&` and use only that
+  world. Render cameras derive from the pose each frame; rendering writes no
+  gameplay state.
 
 ## Scripts
 
@@ -218,7 +223,8 @@ code has a subclass whose members are that state. Trigger callbacks are
 - **Controls and painting.** Controls paint into an explicit `SDL_Surface&`.
   `Draw` never commits; `Refresh` commits a dirty rectangle. Screens record which
   parts the next draw repaints. One `Pointer`, owned by the router, holds the cursor
-  and the targeting request.
+  and the targeting request. The notebook view derives its rows from
+  `Game::story.keywords`; information dialogs own separate append-only paragraphs.
 
 ## Tests
 
