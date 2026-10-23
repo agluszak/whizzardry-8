@@ -159,7 +159,6 @@ target_sources(wiz8_engine PRIVATE
     level_specific_code/Arnika.cpp
     ../render/quality.cpp
     startup_render_state.cpp
-    startup_world.cpp
     startup_subsystems.cpp
     startup_ui_state.cpp
     ../render/frame.cpp

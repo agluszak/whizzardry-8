@@ -1029,9 +1029,9 @@ try {
    camera, the status version, the difficulty and an Iron Man save's file time. */
 static wiz8::save::GameState CaptureStateForSave(const Game& game, const wiz8::File& file)
 {
-    wiz8::save::GameState snapshot{game.status, game.party};
+    wiz8::save::GameState snapshot{game.status, game.party, game.search.requested()};
     auto& status = snapshot.status;
-    status.pending_move_location = partyPose(*GetWorld());
+    status.pending_move_location = game.level.primary->party.pose();
     status.retail.save_version = 1.1f;
     status.difficulty = g_settings.difficulty;
     if (status.iron_man) {
@@ -1663,7 +1663,7 @@ void DeleteCurrentSaveFiles(void)
 bool AutoSaveIfAllowed(bool forced)
 {
     CurrentGame().save_notice_shown = false;
-    const bool wanted = (g_settings.auto_save != 0 && !forced) || CurrentGame().status.iron_man;
+    const bool wanted = (g_settings.auto_save && !forced) || CurrentGame().status.iron_man;
     if (!wanted || !CanAutoSaveNow()) return true;
     return SaveGame(AutoSaveSlotName(), nullptr);
 }
@@ -1692,7 +1692,7 @@ void ReportSaveFailed(bool quiet)
    frame saves and reports the result. */
 void ProcessMainGameAutoSave(void)
 {
-    if ((g_settings.auto_save == 0 && !CurrentGame().status.iron_man) || !CanAutoSaveNow()) return;
+    if ((!g_settings.auto_save && !CurrentGame().status.iron_man) || !CanAutoSaveNow()) return;
     if (!CurrentGame().save_notice_shown) {
         if (CurrentGame().autosave_due >= std::chrono::milliseconds::zero()) return;
         CurrentGame().save_notice_shown = true;
@@ -1846,6 +1846,7 @@ void SavedGame::install(GameSession& games) &&
     game.stored_characters = std::move(characters);
     game.status = std::move(state.status);
     game.party = std::move(state.party);
+    game.search.restore(state.search_mode);
     if (messages) InstallMessageBoxes(std::move(*messages), game);
     game.story.location_variables = std::move(location_variables);
     if (transcript)

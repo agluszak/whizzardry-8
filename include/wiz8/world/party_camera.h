@@ -105,7 +105,7 @@ public:
     bool m_forced_transition;
     /* The party's eye position: the one position gameplay, saves and the rendered views
        read. Movement writes it here; everything else places the party through
-       `placeParty` and `restorePartyPose` (world.h), which keep the party navigator in
+       `WorldParty::place` and `restore` (world.h), which keep the party navigator in
        step. */
     glm::vec3 m_position;
     float m_target_yaw; /* 0x098 */

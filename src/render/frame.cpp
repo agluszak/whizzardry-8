@@ -67,7 +67,6 @@
 #include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/level_spatial_index.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/world/camera_control.h"
@@ -158,9 +157,8 @@ bool InitializeVideoManager(void)
     InitializeRendererSceneObjects();
     if (!RestoreVideoManager()) return false;
     SetViewport({0, 0, 0x281, 0x1e1});
-    if (!InitializeStartupNavigation()) {
-        return 0;
-    }
+    InitializeRenderQuality();
+    InitializeEnvironmentColours();
     EnableAllRenderOptions();
     return InitializeMouseCursorScene();
 }
@@ -169,7 +167,7 @@ void ShutdownVideoManager(void)
 {
     FreeMouseCursor();
     ShutdownVideoScenes();
-    ShutdownStartupNavigation();
+    ClearEnvironmentObjects();
     SuspendVideoManager();
     SDL_Window* native_window = ghWindow;
     ReleasePrimarySurface();
@@ -957,7 +955,7 @@ void SetViewport(const DesignRect& bounds)
             GetSecondaryWorld()->camera->setViewPlane(plane, 1.0);
         }
         if (g_camera_sway_active) {
-            GetWorld()->party_camera.applySway(*GetWorld()->camera, CameraSwayMode::Start);
+            GetWorld()->party.camera.applySway(*GetWorld()->camera, CameraSwayMode::Start);
         }
     }
 }

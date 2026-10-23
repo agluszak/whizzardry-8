@@ -617,24 +617,25 @@ static void animation_record_contracts()
 
 static void graphical_object_ownership_contracts()
 {
-    Missile original;
-    original.visual.m_pAI.emplace(std::vector<KeyframePoint>{{{1, 2, 3}}});
+    MissileDefinition definition;
+    definition.events.path.emplace(std::vector<KeyframePoint>{{{1, 2, 3}}});
     auto event = W8SoundEvent(W8_SOUND_EVENT_FRAME, 1, 2, 3, "step.wav", true);
     event.pitch = 3;
-    original.visual.AddSoundEvent(std::move(event));
+    definition.events.sound_events.push_back(std::move(event));
     for (int i = 0; i < 20; ++i) {
-        original.visual.AddSoundEvent(
-            W8SoundEvent(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav", false));
+        definition.events.sound_events.emplace_back(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav",
+                                                    false);
     }
-    Missile copy(original);
-    REQUIRE((copy.visual.m_pAI->geometry == original.visual.m_pAI->geometry));
+    World owner;
+    Missile copy(definition, owner);
+    REQUIRE((copy.visual.m_pAI->geometry == definition.events.path->geometry));
     REQUIRE((copy.visual.m_pAI->points()[0].position.y == 2));
-    REQUIRE((copy.visual.sound_events.size() == original.visual.sound_events.size()));
+    REQUIRE((copy.visual.sound_events.size() == definition.events.sound_events.size()));
     REQUIRE(copy.visual.sound_events.front().pitch == 3);
     REQUIRE((copy.visual.sound_events.front().wave_name == "step.wav"));
     REQUIRE((copy.visual.sound_events.front().looping &&
              copy.visual.sound_events.front().sound_handle == nullptr));
-    original.visual.sound_events.clear();
+    definition.events.sound_events.clear();
     REQUIRE((copy.visual.sound_events.front().wave_name == "step.wav"));
 }
 
@@ -892,7 +893,7 @@ constexpr std::size_t kFirstRowOffset =
 static wiz8::save::GameState populated_game_state()
 {
     wiz8::save::GameState saved{};
-    auto& [status, party] = saved;
+    auto& [status, party, search_mode] = saved;
     auto& rows = party.rows;
     for (int slot = 0; slot < 8; ++slot) {
         party.members[slot].emplace().npc_index = slot < 2 ? slot : -1;
@@ -922,7 +923,7 @@ static wiz8::save::GameState populated_game_state()
     status.item_spell_usage[7].usable_cast_count = 9;
     status.wait_state = W8_GAME_WAIT_STATE_RESTING;
     status.world_clock = 0x80000003u;
-    status.search_mode = true;
+    search_mode = true;
     party.gold = 0x12345678;
     party.item_pool[0] = {.iItemNo = 12, .stack_count = 3, .identified = true};
     party.item_count = 1;
@@ -986,6 +987,7 @@ static void global_status_record()
     // decode(encode(x)) == x, and the decoded state encodes to the same bytes.
     const auto restored = wiz8::save::decode_game_state(payload);
     REQUIRE(restored.status == saved.status);
+    REQUIRE(restored.search_mode);
     REQUIRE(wiz8::save::encode(restored) == payload);
     REQUIRE(restored.party.gold == saved.party.gold);
     REQUIRE(restored.party.item_pool[0] == saved.party.item_pool[0]);
@@ -1316,6 +1318,10 @@ TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][c
     W8GameSettings settings{};
     settings.tooltips_enabled = true;
     settings.difficulty = W8_DIFFICULTY_EXPERT;
+    settings.combat_delay_ms = 1234;
+    settings.text_display_delay_ms = 4321;
+    settings.camera_rotation_mode = W8_CAMERA_ROTATION_SELECTED_CHARACTER;
+    settings.camera_rotation_style = W8_CAMERA_ROTATION_SMOOTH;
     settings.music_volume = 77;
     settings.intro_seen = true;
     settings.unknown_051[0] = 0x5a;
@@ -1327,7 +1333,18 @@ TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][c
     const auto decoded = DecodeGameSettings(record);
     REQUIRE((decoded.difficulty == W8_DIFFICULTY_EXPERT && decoded.music_volume == 77 &&
              decoded.intro_seen && decoded.unknown_051[0] == 0x5a));
+    REQUIRE(decoded.combat_delay_ms == 1234);
+    REQUIRE(decoded.text_display_delay_ms == 4321);
+    REQUIRE(decoded.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER);
+    REQUIRE(decoded.camera_rotation_style == W8_CAMERA_ROTATION_SMOOTH);
     REQUIRE(EncodeGameSettings(decoded) == record);
+    // Retail flag bytes are truth values, not native bool object representations.
+    auto noncanonical = record;
+    noncanonical[0x01] = std::byte{0x80};
+    const auto normalized = DecodeGameSettings(noncanonical);
+    REQUIRE(normalized.numeric_hit_points);
+    noncanonical[0x01] = std::byte{1};
+    REQUIRE(EncodeGameSettings(normalized) == noncanonical);
     REQUIRE_THROWS(DecodeGameSettings(std::span(record).first(0xa3)));
 }
 

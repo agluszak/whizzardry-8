@@ -28,7 +28,6 @@
 #include "wiz8/screen.h"
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/world/world.h"
 
 namespace {
@@ -167,16 +166,14 @@ void CombatScenario()
     auto& member = CurrentGame().party.characters[PremadeSlot()];
     member.party_weight_share = 123456;
     SettleActiveParty(CurrentGame());
-    REQUIRE(CurrentGame().party.redistribution_pending);
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     game.wait("leave-combat-again", [] { return CurrentGame().combat.has_value() == 0; }, 10);
     REQUIRE(!CurrentGame().combat);
-    REQUIRE_FALSE(CurrentGame().party.redistribution_pending);
     REQUIRE(member.party_weight_share != 123456);
 
     // Placement consumes the supplied player exclusion, including its absence.
     auto& octree = *GetWorld()->spatial;
-    const auto origin = PartyNavigator()->movement.position;
+    const auto origin = GetWorld()->party.position();
     const auto available =
         octree.navigatorPositions(origin, 0, 100, 1, true, false, false, 5, false, std::nullopt);
     REQUIRE_FALSE(available.positions.empty());

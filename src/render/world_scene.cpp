@@ -488,7 +488,8 @@ vsg::StateCommands DrawNode::recordState(vsg::RecordTraversal& traversal) const
 void DrawNode::traverse(vsg::Visitor& visitor)
 {
     vsg::StateGroup::traverse(visitor);
-    vertices->accept(visitor);
+    // Only recordSorted binds these copies of the draw's arrays.
+    if (sorted || authored_normals) vertices->accept(visitor);
     if (reflected_pipeline) reflected_pipeline->accept(visitor);
 }
 void DrawNode::traverse(vsg::ConstVisitor& visitor) const

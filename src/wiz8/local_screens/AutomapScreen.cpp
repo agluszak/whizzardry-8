@@ -769,7 +769,7 @@ void AutomapScreen::RenderMarkers()
         const unsigned short height = m_party_marker->scaledSize().y;
         positionOverlay(m_party_marker.get(), point.x - (width >> 1), point.y - (height >> 1),
                         false);
-        m_party_marker->rotation = m_world.party_camera.m_yaw;
+        m_party_marker->rotation = m_world.party.camera.m_yaw;
         m_party_marker->visible = true;
         m_party_marker->detach();
         g_compositor.attach(*m_party_marker, OverlayLayer::SquareAspect);
