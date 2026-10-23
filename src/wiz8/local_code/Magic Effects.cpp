@@ -77,7 +77,6 @@
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/level_session.h"
@@ -588,7 +587,7 @@ signed char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition
    character one, which is what splits the two here. */
 void AnnounceEffectResisted(W8CombatSlot* target)
 {
-    if (g_settings.verbose_combat_messages == 0) {
+    if (!g_settings.verbose_combat_messages) {
         return;
     }
     if (target->iType == W8_TARGET_KIND_MONSTER) {
@@ -713,7 +712,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
 
     if (TargetSourceIsCharacter(&effect->Source, 0) &&
         GetConditionRecordFlag(effect->Source.iChar, W8_DEPENDENCE_SUMMON)) {
-        if (g_settings.verbose_combat_messages != 0) {
+        if (g_settings.verbose_combat_messages) {
             CurrentGame().events.push(CharacterNotice{
                 static_cast<unsigned int>(effect->Source.iChar), Data().strings[0x1a8]});
         } else {
@@ -869,7 +868,7 @@ void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
     caster = &CurrentGame().party.characters[pQueue->Source.iChar];
     if (caster->has_saved_location) {
         if (caster->saved_level == GetLoadedLevelID()) {
-            restorePartyPose(*GetWorld(), caster->saved_location);
+            GetWorld()->party.restore(caster->saved_location);
             return;
         }
         CurrentGame().status.pending_move_location = caster->saved_location;
@@ -1088,7 +1087,7 @@ void ReportSpellEffectResult(W8SpellEffectEntry* effect)
     int condition;
     std::string condition_name;
 
-    if (g_settings.verbose_combat_messages != 0) {
+    if (g_settings.verbose_combat_messages) {
         return;
     }
     if (effect->result.count != 0) {
@@ -1198,7 +1197,7 @@ enum class RestoredResource { health, stamina };
 static signed char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredResource resource)
 {
     const bool stamina = resource == RestoredResource::stamina;
-    const bool verbose = g_settings.verbose_combat_messages != 0;
+    const bool verbose = g_settings.verbose_combat_messages;
     bool all_full = true;
     unsigned int total = 0;
     unsigned int count = 0;
@@ -1313,7 +1312,7 @@ void ApplyDamageToTargets(W8SpellEffectEntry* effect)
     int power_level;
     int index;
 
-    verbose = g_settings.verbose_combat_messages != 0;
+    verbose = g_settings.verbose_combat_messages;
     realm = Data().spells[effect->kind].realm;
     power_level = effect->definition.power_level;
     TargetSourceIsCharacter(&effect->Source, 1);
@@ -1374,7 +1373,7 @@ void DrainTargetsLife(W8SpellEffectEntry* effect)
     int power_level;
     int index;
 
-    announce = g_settings.verbose_combat_messages != 0;
+    announce = g_settings.verbose_combat_messages;
     realm = Data().spells[effect->kind].realm;
     power_level = effect->definition.power_level;
     drained = 0;
@@ -1525,7 +1524,7 @@ signed char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition co
                 } else {
                     ++remaining_count;
                     all_cured = false;
-                    if (g_settings.verbose_combat_messages != 0) {
+                    if (g_settings.verbose_combat_messages) {
                         CurrentGame().events.push(CharacterNotice{
                             static_cast<unsigned int>(character_index),
                             fmt::sprintf(Data().strings[0x1b1],
@@ -1563,7 +1562,7 @@ signed char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition co
             }
         }
     }
-    if (g_settings.verbose_combat_messages == 0 && remaining_count != 0) {
+    if (!g_settings.verbose_combat_messages && remaining_count != 0) {
         if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
             AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
             CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
@@ -1660,7 +1659,7 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
     int index;
     std::string notice;
 
-    verbose = g_settings.verbose_combat_messages != 0;
+    verbose = g_settings.verbose_combat_messages;
     affected = 0;
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         if (CurrentGame().rng.below(100) >= static_cast<unsigned int>(chance)) {
@@ -1990,7 +1989,7 @@ void ResolveAfflictionAgainstTargets(W8SpellEffectEntry* effect)
 
     realm = Data().spells[effect->kind].realm;
     power_level = effect->definition.power_level;
-    verbose = g_settings.verbose_combat_messages != 0;
+    verbose = g_settings.verbose_combat_messages;
     TargetSourceIsCharacter(&effect->Source, 1);
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
         unsigned int duration = RollEffectDuration(&effect->definition);
@@ -2031,7 +2030,7 @@ void DamageTargetsAndReport(W8SpellEffectEntry* effect)
     W8CombatSlot target;
 
     result = &effect->result;
-    verbose = g_settings.verbose_combat_messages != 0;
+    verbose = g_settings.verbose_combat_messages;
     total = 0;
     hits = 0;
     for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
@@ -2123,7 +2122,7 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
     int index;
     int slot;
 
-    verbose = g_settings.verbose_combat_messages != 0;
+    verbose = g_settings.verbose_combat_messages;
     chance = effect->definition.duration_scale * 10;
     totals[2] = 0;
     totals[1] = 0;
@@ -2254,7 +2253,7 @@ signed char RevealItemBindingsToTarget(W8SpellEffectEntry* effect)
     signed char applied; // bool-byte-ok: forwards the unnormalized byte-valued cure result
     int result;
 
-    verbose = g_settings.verbose_combat_messages != 0;
+    verbose = g_settings.verbose_combat_messages;
     applied = TryCureConditionOnTargets(effect, W8_CONDITION_HEXED, false);
     if (effect->target.iType == W8_TARGET_KIND_CHARACTER) {
         result = RevealCharacterItemBindings(
@@ -2332,7 +2331,7 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
         SetMonsterSpellIcon(*monster_info->entity, SPELL_ICON_CHARMED, true);
     }
     monster_info->charm_strength = static_cast<signed char>(magnitude);
-    if (g_settings.verbose_combat_messages != 0) {
+    if (g_settings.verbose_combat_messages) {
         PostMonsterNotice(monster_info, Data().strings[0x1ac]);
     } else {
         effect->applied = true;
@@ -2544,7 +2543,7 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
     bool verbose;
     int index;
 
-    verbose = g_settings.verbose_combat_messages != 0;
+    verbose = g_settings.verbose_combat_messages;
     ResetTargetSource(&source);
     local_result = {};
     target = {};
@@ -2557,8 +2556,8 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
             CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             {
                 float reach = CalcRangeDistance(W8_RANGE_SHORT);
-                float radius = PartyNavigator()->radius;
-                glm::vec3 centre = PartyNavigator()->GetPosition();
+                float radius = GetWorld()->party.radius();
+                glm::vec3 centre = GetWorld()->party.position();
                 CollectMonstersWithinRadius(&centre, &centre, found, radius + reach, 1,
                                             W8AreaSightRule::RequireLineOfSight);
             }
@@ -2650,7 +2649,7 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
     bool sleep_type;
     bool verbose;
 
-    verbose = g_settings.verbose_combat_messages != 0;
+    verbose = g_settings.verbose_combat_messages;
     ResetTargetSource(&source);
     index = 0;
     do {
@@ -3146,7 +3145,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         assert(TargetSourceIsCharacter(&effect->Source, 0));
         camera_state = &CurrentGame().party.characters[effect->Source.iChar].saved_location;
         world = GetWorld();
-        *camera_state = partyPose(*world);
+        *camera_state = world->party.pose();
         CurrentGame().party.characters[effect->Source.iChar].saved_level = GetLoadedLevelID();
         CurrentGame().party.characters[effect->Source.iChar].has_saved_location = true;
         effect->applied = true;
@@ -3265,7 +3264,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
             }
             CurrentGame().party.gold =
                 CurrentGame().party.gold - (percent_roll * CurrentGame().party.gold) / 100;
-            if (g_settings.verbose_combat_messages == 0 &&
+            if (!g_settings.verbose_combat_messages &&
                 GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
                 AppendToLastTextLine(" -- ", -1);
                 CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
@@ -3317,7 +3316,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
                                                           Data().spells[spell_id].display_name)});
         break;
     }
-    if (g_settings.verbose_combat_messages == 0 && !effect->reported && !effect->Source.fBackfire) {
+    if (!g_settings.verbose_combat_messages && !effect->reported && !effect->Source.fBackfire) {
         if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
             AppendToLastTextLine(" -- ", -1);
             CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
@@ -3365,7 +3364,7 @@ static void QueueCombatDamageReports(W8SpellEffectResult* result)
    queue on the combat state for the message pass. */
 void ApplyDiceDamageToCharacter(int party_slot, W8TargetSource* source, W8Enchantment* enchantment)
 {
-    bool verbose = g_settings.verbose_combat_messages != 0;
+    bool verbose = g_settings.verbose_combat_messages;
     W8SpellEffectResult result;
     W8Dice dice;
     unsigned int amount;
@@ -3390,7 +3389,7 @@ void ApplyDiceDamageToCharacter(int party_slot, W8TargetSource* source, W8Enchan
 void ApplyDiceDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* source,
                               W8Enchantment* enchantment)
 {
-    bool verbose = g_settings.verbose_combat_messages != 0;
+    bool verbose = g_settings.verbose_combat_messages;
     const W8MonsterRecord* record;
     W8Dice dice;
     int damage;
@@ -3415,7 +3414,7 @@ void ApplyDiceDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* sourc
    is verbose the damage is applied with the announced flags instead. */
 void ApplyDirectDamageToCharacter(int party_slot, W8TargetSource* source, int damage)
 {
-    bool verbose = g_settings.verbose_combat_messages != 0;
+    bool verbose = g_settings.verbose_combat_messages;
     W8SpellEffectResult result;
     unsigned int amount;
 
@@ -3437,7 +3436,7 @@ void ApplyDirectDamageToCharacter(int party_slot, W8TargetSource* source, int da
    mode or the announced apply in verbose mode. */
 void ApplyDirectDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* source, int damage)
 {
-    bool verbose = g_settings.verbose_combat_messages != 0;
+    bool verbose = g_settings.verbose_combat_messages;
     W8SpellEffectResult result;
     const W8MonsterRecord* record;
     unsigned int amount;
