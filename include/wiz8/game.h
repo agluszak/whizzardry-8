@@ -21,6 +21,7 @@
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/local_code/Search.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/message_log.h"
@@ -176,9 +177,7 @@ public:
        which has not taken it yet. The screens set it. */
     bool aging_held = false;
     SurpriseSequence surprise;
-    /* The step time left until the next search sweep, and until monster sight and the
-       nearby world items are next refreshed. */
-    std::chrono::milliseconds search_sweep_due{};
+    // The step time left until monster sight and the nearby world items are next refreshed.
     std::chrono::milliseconds sight_due{};
     std::chrono::milliseconds world_items_due{};
     /* Experience was awarded or the main game entered, so the level-up-ready notices are
@@ -189,6 +188,7 @@ public:
 
     // What happened, in order, for the UI to present.
     Events events;
+    Search search{combat, events, level};
     /* The saved state of each level the party has left (or a load brought), kept undecoded:
        its LVLS group as a RIFF image of its own. Leaving a level stores its group here,
        entering one reads it back, and a save writes them beside the current level's. */

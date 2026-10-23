@@ -70,7 +70,6 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/string_database.h"
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
@@ -390,7 +389,7 @@ bool Trigger::HasActorWithinRadius(float radius, bool include_party)
     }
 
     if (include_party) {
-        glm::vec3 party_position = PartyNavigator()->GetPosition();
+        glm::vec3 party_position = GetWorld()->party.position();
         if (glm::length((party_position - center)) <= radius) {
             return true;
         }
@@ -901,7 +900,7 @@ void Trigger::RunDestination(std::string_view destination)
         destination_direction = target->direction;
     }
 
-    placeParty(*GetWorld(), destination_position);
+    GetWorld()->party.place(destination_position);
 
     rotation = glm::mat3(1);
     if (angle != 0.0f) {
@@ -1486,7 +1485,7 @@ void Trigger::Run(int source)
     }
 
     case 0x10:
-        m_pWorld->party_camera.applySway(*m_pWorld->camera,
+        m_pWorld->party.camera.applySway(*m_pWorld->camera,
                                          source > 0 ? CameraSwayMode::Start : CameraSwayMode::Stop);
         return;
 
