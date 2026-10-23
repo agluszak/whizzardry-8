@@ -431,6 +431,8 @@ template<> struct Record<save::GameState> {
         // Records past the count are not items; a loaded save's are kept as they were.
         static_assert(sizeof(ItemInstance) == 12);
         auto& unused = runtime.status.retail.unused_pool_records;
+        // An empty record: no item id, every other field clear.
+        static constexpr std::array<unsigned char, 12> kEmptyRecord{0xff, 0xff, 0xff, 0xff};
         if constexpr (!std::is_const_v<R>) unused.emplace();
         for (std::size_t index = count; index < pool_records; ++index) {
             const auto record =
@@ -446,6 +448,11 @@ template<> struct Record<save::GameState> {
                 value(&(*unused)[index], record);
             }
         }
+        // Only records that differ from empty ones are worth keeping.
+        if constexpr (!std::is_const_v<R>)
+            if (std::ranges::all_of(std::span{*unused}.subspan(count),
+                                    [](const auto& record) { return record == kEmptyRecord; }))
+                unused.reset();
         value(&runtime.status.text_line_cursor,
               bytes.subspan(offsetof(Disk, text_line_cursor), sizeof(Disk::text_line_cursor)));
         value(&runtime.status.retail.legacy_text_box_lines,
