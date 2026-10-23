@@ -298,9 +298,10 @@ void W8CampItemsPage::UseHeldItemOnItem(W8ItemLocation location)
             ResetCombatSlot(&target);
             target.iType = W8_TARGET_KIND_ITEM;
             target.item = location;
-            if (CommitPartySlotSpell(pending_item_action.caster_slot, W8_SPELL_IDENTIFY_ITEM, 8,
-                                     &target) == 1 &&
-                (item = camp.game.inventory.itemAt(location))) {
+            const bool identified = CommitPartySlotSpell(pending_item_action.caster_slot,
+                                                         W8_SPELL_IDENTIFY_ITEM, 8, &target) == 1;
+            item = camp.game.inventory.itemAt(location);
+            if (identified && item) {
                 OpenItemInfoDialog(item);
                 if (!item->identified) {
                     QueueCharacterEvent(camp.game.party.characters +

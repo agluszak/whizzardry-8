@@ -4,8 +4,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <memory>
-#include <optional>
 #include <utility>
 #include <vector>
 
@@ -17,14 +15,11 @@
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
-#include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
-#include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Factions.h"
@@ -37,6 +32,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
 

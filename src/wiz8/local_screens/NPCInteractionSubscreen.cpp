@@ -97,6 +97,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -529,8 +530,8 @@ void ForwardNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int lin
    takes none, and a pending notice blocks the next until it drains. Kind
    0x10/0x11 NPCs with fact 0xbf substitute their own notice line and raise
    the flag byte. */
-void QueueNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line,
-                          bool suppress, unsigned char arg)
+void QueueNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line, bool suppress,
+                          unsigned char arg)
 {
     W8MonsterInfo* info;
     bool flag;

@@ -32,7 +32,6 @@
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/particle_system.h"
-#include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/string_database.h"

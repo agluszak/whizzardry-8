@@ -29,7 +29,6 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
-#include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/world.h"

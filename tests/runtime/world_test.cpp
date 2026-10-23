@@ -6,12 +6,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -70,6 +68,7 @@
 #include "wiz8/render/vsg_scene.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/runtime_test_hooks.h"
