@@ -401,8 +401,8 @@ void EndPartyMovementPhase(void)
         CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x21c]});
     }
     ResetLevelDataVectors();
-    DisableFreeTurnButton();
-    InvalidatePartyMovementPanel();
+    SetFreeTurnEnabled(false);
+    RepaintPartyMovementPanel();
     RefreshOutwardSightForAllMonsters();
     CurrentGame().combat->uiCurrentPartyActionStatus = W8_PARTY_ACTION_PHASE_ENDED;
 }
@@ -483,8 +483,8 @@ void FinishPartyMovementAction(void)
     if (CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
         SetLevelFastMovement();
     }
-    EnableFreeTurnButton();
-    InvalidatePartyMovementPanel();
+    SetFreeTurnEnabled(true);
+    RepaintPartyMovementPanel();
     if (g_settings.continuous_combat) {
         CurrentGame().combat->party_movement_delay = kSyntheticMoveInterval;
     }
