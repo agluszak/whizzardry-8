@@ -60,7 +60,6 @@
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
@@ -271,7 +270,7 @@ bool IsSpellTargetOfNeededKind(const W8CombatSlot* target, int spell_id, bool ne
 {
     W8TargetNeed needed = GetTargetNeededForSpellFriendly(spell_id, false, needs_item_target);
 
-    if (needed == W8_TARGET_NEED_ENEMY && g_settings.autotarget_spells != 0) {
+    if (needed == W8_TARGET_NEED_ENEMY && g_settings.autotarget_spells) {
         return true;
     }
     return TargetMatchesNeeded(target, needed);
@@ -597,7 +596,7 @@ bool IsItemTargetOfNeededKind(const W8CombatSlot* target, const W8ItemInstance* 
         if (record->spell_id != W8_SPELL_NONE) {
             needed = GetTargetNeededForSpellFriendly(record->spell_id,
                                                      ItemClassNormalizesTarget(record), true);
-            if (needed == W8_TARGET_NEED_ENEMY && g_settings.autotarget_spells != 0) {
+            if (needed == W8_TARGET_NEED_ENEMY && g_settings.autotarget_spells) {
                 return true;
             }
         }
@@ -608,9 +607,9 @@ bool IsItemTargetOfNeededKind(const W8CombatSlot* target, const W8ItemInstance* 
 static bool IsMonsterHoverSelectable(W8MonsterInfo* monster_info)
 {
     if (!monster_info->fActive || monster_info->entity->IsDying() ||
-        monster_info->entity->hostility_preserved || !monster_info->entity->owner_world ||
+        monster_info->entity->hostility_preserved ||
         monster_info->entity->visual.GetCurrentModelInstance() !=
-            monster_info->entity->owner_world->selectedModel()) {
+            monster_info->entity->owner_world.selectedModel()) {
         return false;
     }
     if (!monster_info->party_threat.use_bounds) {
@@ -666,7 +665,7 @@ bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe)
 
     if (target->iType == W8_TARGET_KIND_PARTY || target->iType == W8_TARGET_KIND_CHARACTER) {
         if (sight_probe) {
-            point = PartyNavigator()->GetPosition();
+            point = GetWorld()->party.position();
         } else {
             point = cameraLocation();
         }
@@ -887,7 +886,7 @@ bool ActionNeedsExplicitTarget(const W8Action& action, bool conversation_aside)
         if (conversation_aside) {
             return false;
         }
-        return g_settings.autotarget_spells == 0;
+        return !g_settings.autotarget_spells;
     case W8_TARGET_TYPE_CASTER:
     case W8_TARGET_TYPE_PARTY:
     case W8_TARGET_TYPE_ALL_ENEMIES:
@@ -1156,7 +1155,7 @@ bool RepickActionTarget(int party_slot, W8TargetingContext stored, int arg)
             StartBreathCycle(party_slot, false);
         }
         if (stored == W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
-            if (g_settings.verbose_combat_messages != 0) {
+            if (g_settings.verbose_combat_messages) {
                 PostCharacterNotice(party_slot, Data().strings[0x26b]);
             }
             const auto committed = SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
@@ -1337,7 +1336,7 @@ bool SpellHasAnyValidTarget(int party_slot, int spell_id, bool normalize)
 
     switch (GetTargetNeededForSpellFriendly(spell_id, normalize, true)) {
     case W8_TARGET_NEED_ENEMY:
-        if (g_settings.autotarget_spells != 0) {
+        if (g_settings.autotarget_spells) {
             return true;
         }
         for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
@@ -1809,7 +1808,7 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
     int start_count = static_cast<int>(found.size());
     float radius;
     if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
-        radius = PartyNavigator()->radius;
+        radius = GetWorld()->party.radius();
     } else if (source->iType == W8_TARGET_SOURCE_MONSTER) {
         W8MonsterInfo* source_info = FindMonster(source->iMonsterID);
         radius = source_info->entity->nav.radius;
@@ -1853,7 +1852,7 @@ bool ItemUseNeedsTarget(int party_slot)
         if (CurrentGame().activity.conversation_aside) {
             return false;
         }
-        return g_settings.autotarget_spells == 0;
+        return !g_settings.autotarget_spells;
     case 0:
     case 2:
     case 7:
@@ -1924,7 +1923,7 @@ void ReconcilePartyEquipmentAfterCombat(void)
         W8Character* character = &CurrentGame().party.characters[party_slot];
         if (CurrentGame().party.members[party_slot].has_value() &&
             (character->hp_current != 0 || character->highest_condition < W8_CONDITION_TURNCOAT) &&
-            row->weapon_swap_pending && g_settings.autoswap_weapons != 0 &&
+            row->weapon_swap_pending && g_settings.autoswap_weapons &&
             !CurrentGame().party.rows[party_slot].remembered.weapon_sets_locked) {
             SwapWeaponSetSlots(CurrentGame(), party_slot, false);
             row->weapon_swap_pending = false;

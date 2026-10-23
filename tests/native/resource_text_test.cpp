@@ -51,7 +51,8 @@ TEST_CASE("resource_text_test")
 
     {
         const ScopedGame game; // Script conditions draw from the game's stream.
-        Monster monster;
+        World owner;
+        Monster monster(owner);
         REQUIRE((monster.EvaluateScriptCondition("random(100)")));
         REQUIRE((!monster.EvaluateScriptCondition("RANDOM(0)")));
         REQUIRE((!monster.EvaluateScriptCondition("RANDOM(0," + std::string(1000, 'x') + ")")));

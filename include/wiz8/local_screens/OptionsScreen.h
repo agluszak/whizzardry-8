@@ -12,13 +12,11 @@
 
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
-#include "wiz8/difficulty.h"
 #include "wiz8/fonts.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/mgs_commands.h"
 #include "wiz8/platform/input.h"
-#include "wiz8/render/quality.h"
 #include "wiz8/screen.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_layer.h"
@@ -32,8 +30,6 @@ struct W8SaveSlot;
 
 class W8OptionsSaveLoadPanel;
 class W8OptionsKeyboardPanel;
-
-enum class W8OptionsCameraRotation : unsigned char { snap, smooth, disabled };
 
 struct W8OptionsTextEditor {
     W8OptionsSaveLoadPanel* owner;
@@ -54,58 +50,11 @@ struct W8OptionsSaveRow {
     W8SaveSlot* m_save = nullptr;
 };
 
-/* The settings transfer routines at 005A6E20/005A72F0/005A7320 share this
-   receiver. The trailing direction flag is part of the record, not a global.
-   Float loads/stores distinguish the slider values from the integer options. */
-struct W8OptionsValues {
-    void TransferSettings();
-    void TransferByte(bool* value, unsigned char* setting);
-    void TransferRenderOption(bool* value, W8RenderOption option);
-
-    bool mouselook_toggle;
-    bool mouselook_smoothing;
-    bool invert_mouse_y;
-    bool ctrl_right_click_info;
-    W8Difficulty difficulty;
-    W8OptionsCameraRotation camera_auto_rotation;
-    bool continuous_combat;
-    bool numeric_hit_points;
-    bool autoscroll_combat_messages;
-    bool simplified_npc_interaction;
-    bool verbose_combat_messages;
-    bool autoswap_weapons;
-    bool auto_advance_character;
-    bool autotarget_spells;
-    bool stop_movement_for_events; /* UI checkbox 0x801; TransferSettings does not persist it */
-    bool skill_increase_messages;
-    float combat_speed;
-    float monster_movement_speed;
-    float text_display_delay_ms;
-    bool auto_save;
-    bool render_options[6];
-    bool monster_shadows;
-    bool smooth_monster_animations;
-    bool smooth_world_animations;
-    bool pc_confirmations;
-    bool pc_subtitles;
-    bool applying;
-};
-
-/* A set of option panels; it owns the panels in its vector. */
-class W8OptionsPanelSet {
-public:
-    W8OptionsPanelSet();
-    ~W8OptionsPanelSet();
-    unsigned char m_compact_layout;
-    unsigned char m_hide_navigation;
-    int m_current;
-    std::vector<std::unique_ptr<W8OptionsPanel>> m_panels;
-};
-
 // Options own slider input and painting; no visual parent or listener hierarchy.
 class W8OptionsSlider {
 public:
-    W8OptionsSlider(UiLayer& layer, SDL_Point origin, float* value, bool alternate);
+    W8OptionsSlider(UiLayer& layer, SDL_Point origin, float position, float minimum, float maximum,
+                    bool alternate);
     void Redraw(SDL_Surface& target, bool full_redraw);
     void UpdatePixelPosition();
     void SetEnabled(bool enabled);
@@ -121,7 +70,6 @@ private:
     CatalogArtwork m_artwork = CatalogArtwork::Load(0xf5);
     SDL_Point m_origin;
     HitTarget* m_target;
-    float* m_value;
     int m_backgroundSprite;
     int m_trackLength;
     int m_thumbWidth;
@@ -152,73 +100,21 @@ public:
     W8OptionsPanel();
     virtual ~W8OptionsPanel() = default;
     virtual void Redraw(SDL_Surface& target, bool full_redraw);
-    virtual void Populate() = 0;
     virtual void SetActive(bool active);
     virtual void SetCurrent(int current);
     virtual void InvalidateAll() { m_dirty = true; }
     const SDL_Rect& ScreenBounds() const { return m_bounds; }
+    void AddCheckbox(int label, bool selected, std::function<void(bool)> changed = {});
     void AddCheckbox(int label, bool* value);
     W8ButtonWidget* AddChoiceButton(int label, W8ButtonCallback callback);
-    W8OptionsSlider* AddSlider(int label, float* value, bool alternate);
+    W8OptionsSlider* AddSlider(int label, float value, float minimum, float maximum,
+                               std::function<void(float)> changed = {}, bool alternate = false);
     template<typename T> void AddChoices(int label, int count, const int* choices, T* value);
+    void AddChoices(int label, int count, const int* choices, int selected,
+                    std::function<void(int)> changed);
     int m_current = 0;
     int m_content_top = 0x18;
     std::vector<std::unique_ptr<W8TextBuffer>> m_text_buffers;
-};
-
-class W8OptionsGamePanel : public W8OptionsPanel {
-    W8OptionsValues& values;
-
-public:
-    explicit W8OptionsGamePanel(W8OptionsValues& values) : values(values) {}
-    virtual void Populate() override;
-};
-
-class W8OptionsMousePanel : public W8OptionsPanel {
-    W8OptionsValues& values;
-
-public:
-    explicit W8OptionsMousePanel(W8OptionsValues& values) : values(values) {}
-    virtual void Populate() override;
-};
-
-class W8OptionsInterfacePanel : public W8OptionsPanel {
-    W8OptionsValues& values;
-
-public:
-    explicit W8OptionsInterfacePanel(W8OptionsValues& values) : values(values) {}
-    virtual void Populate() override;
-    void OnPrimary(W8ButtonWidget* control);
-    W8OptionsSlider* m_tooltip_delay;
-};
-
-class W8OptionsAudioPanel : public W8OptionsPanel {
-    W8OptionsValues& values;
-
-public:
-    explicit W8OptionsAudioPanel(W8OptionsValues& values) : values(values) {}
-    virtual void Populate() override;
-    void OnPrimary(W8ButtonWidget* control);
-    void ChangeVolume(int index, float value);
-    void PreviewVolume(int index);
-    W8OptionsSlider* m_sliders[4];
-    W8ButtonWidget* m_mute_buttons[4];
-};
-
-class W8OptionsGraphicsPanel : public W8OptionsPanel {
-    W8OptionsValues& values;
-
-public:
-    explicit W8OptionsGraphicsPanel(W8OptionsValues& values) : values(values) {}
-    virtual void Populate() override;
-};
-
-class W8OptionsAdvancedGraphicsPanel : public W8OptionsPanel {
-    W8OptionsValues& values;
-
-public:
-    explicit W8OptionsAdvancedGraphicsPanel(W8OptionsValues& values) : values(values) {}
-    virtual void Populate() override;
 };
 
 struct W8OptionsKeyButton {
@@ -235,8 +131,7 @@ class W8OptionsKeyboardPanel : public W8OptionsPanel {
     OptionsScreen& screen;
 
 public:
-    W8OptionsKeyboardPanel(OptionsScreen& screen, int panel);
-    void Populate() override;
+    W8OptionsKeyboardPanel(OptionsScreen& owner, int panel);
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     void SetActive(bool active) override;
     void SelectKey(W8OptionsKeyButton* key);
@@ -249,19 +144,11 @@ public:
     W8OptionsKeyButton* m_captured_button = nullptr;
 };
 
-class W8OptionsUnavailablePanel : public W8OptionsPanel {
-public:
-    explicit W8OptionsUnavailablePanel(int message);
-    virtual void Populate() override;
-    int m_message;
-};
-
 class W8OptionsSaveLoadPanel : public W8OptionsPanel {
     OptionsScreen& screen;
 
 public:
-    W8OptionsSaveLoadPanel(OptionsScreen& screen, int panel);
-    void Populate() override;
+    W8OptionsSaveLoadPanel(OptionsScreen& owner, int panel);
     void Redraw(SDL_Surface& target, bool full_redraw) override;
     void SetActive(bool active) override;
     void SetCurrent(int current) override;
@@ -298,8 +185,7 @@ struct W8OptionsPanelRange {
     int last;
 };
 
-/* Settings, key bindings and the save and load lists. The panels are rebuilt
-   from the live settings on every visit and applied when the screen leaves. */
+// Settings are edited live; only the selected menu owns panels.
 class OptionsScreen final : public Screen {
     UiLayer m_menu_input;
 
@@ -330,7 +216,6 @@ public:
     void FinishTextEdit(bool cancelled);
     void OnDialogClosed(bool accepted, int value);
 
-    W8OptionsValues values{};
     std::vector<std::unique_ptr<W8SaveSlot>> m_save_slots;
     bool m_redraw_pending = true;
     std::function<void(bool)> m_notification_closed;
@@ -341,7 +226,8 @@ public:
     int m_navigation_y = 0x1a8;
     bool m_navigation_visible = false;
     bool m_navigation_dirty = true;
-    std::unique_ptr<W8OptionsPanelSet> m_panel[8];
+    std::vector<std::unique_ptr<W8OptionsPanel>> m_panels;
+    int m_current_page = 0;
     std::unique_ptr<W8MessageDialogBase> m_active_modal;
     std::unique_ptr<W8OptionsTextEditor> m_text_editor;
     W8OptionsKeyboardPanel* m_key_capture = nullptr;

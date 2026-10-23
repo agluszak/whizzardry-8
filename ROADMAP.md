@@ -326,6 +326,12 @@ each.
 
 Substantial but contained work.
 
+- **The party outside its world.** Actors use their own world's `WorldParty`, but
+  about 40 calls in free game modules (magic, targeting, range, monster groups, noise,
+  traps, the cursor, level entry and transitions) still reach it through
+  `GetWorld()->party`. Each module should become an object that its world or game
+  owns and constructs with that owner, as the actors and `RadarMap` are, rather than
+  taking a `World&` parameter.
 - **Named strings.** About 1,000 `Data().strings[0x…]` lookups use bare
   indices. Give message ids names (an enum generated from or checked against the
   string table) so rules and screens say which text they show.

@@ -287,9 +287,6 @@ struct Combat {
        BeginCombatExecution, it suppresses a second action delay for
        a monster's turn and caps the armed delay at 800 ms. */
     bool pacing_latch;
-    /* Historical offset 0xa61: remembered search-mode state; the combat teardown toggles search
-       mode back on when it reads nonzero. */
-    bool search_mode_saved;
     bool combat_ready;
 
     /* Run the countdowns down by the time the step passed. */

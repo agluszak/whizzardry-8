@@ -18,18 +18,27 @@ esac
 build_dir=${WIZ8_BUILD_DIR:-"$repo_dir/build/$preset"}
 executable="$build_dir/Wiz8Native"
 if [[ -x "$executable.exe" ]]; then executable="$executable.exe"; fi
-asset_root=${WIZ8_ASSET_ROOT:-}
 if [[ ! -x "$executable" ]]; then
-    printf 'Missing native executable: %s\nBuild it with: cmake --build %q\n' \
-        "$executable" "$build_dir" >&2
-    exit 1
-fi
-if [[ -z "$asset_root" || ! -d "$asset_root/data" ]]; then
-    printf 'Set WIZ8_ASSET_ROOT to your prepared Wizardry 8 asset directory (containing data/).\n' >&2
+    printf 'Missing native executable: %s\nBuild it with: ./build.sh (or set WIZ8_BUILD_DIR for a different preset)\n' \
+        "$executable" >&2
     exit 1
 fi
 build_dir=$(cd -- "$build_dir" && pwd)
 executable="$build_dir/$(basename -- "$executable")"
+# Use the shared libraries resolved for this build, even outside Docker.
+if [[ -f "$build_dir/conan/conanrun.sh" ]]; then
+    # shellcheck disable=SC1090
+    source "$build_dir/conan/conanrun.sh"
+fi
+if [[ ${1:-} == --prepare-assets ]]; then
+    shift
+    exec "$build_dir/wiz8_prepare_assets" "$@"
+fi
+asset_root=${WIZ8_ASSET_ROOT:-}
+if [[ -z "$asset_root" || ! -d "$asset_root/data" ]]; then
+    printf 'Set WIZ8_ASSET_ROOT to your prepared Wizardry 8 asset directory (containing data/).\n' >&2
+    exit 1
+fi
 WIZ8_ASSET_ROOT=$(cd -- "$asset_root" && pwd)
 export WIZ8_ASSET_ROOT
 user_root=${WIZ8_USER_ROOT:-$("$executable" --print-user-root)}
