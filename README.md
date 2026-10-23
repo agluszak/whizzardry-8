@@ -144,13 +144,13 @@ CLANG_TIDY_CACHE_DIR="$PWD/build/tidy-cache" ./build.sh -- bash -c \
 ```
 
 Unset `CLANG_TIDY_CACHE_DIR` for an uncached run. CI prints hit/miss counts and
-elapsed times, skips native jobs for documentation-only changes, and regenerates
+elapsed times, skips Native and Format for documentation-only changes, and regenerates
 offline shaders when their sources, tools, dependencies or build settings change.
 Weekly/manual runs retain the full source scope; their integer-sanitizer job
 includes ASan and UBSan, replacing the duplicate ordinary sanitizer run.
 
-Analysis runs in four stable partitions so cold repository-wide checks also run
-concurrently. Header dependency discovery stays within each partition, and the
-required `clang-tidy` check aggregates all four results. The workflow's manual
-`full_scan` option bypasses the tidy cache for both regular and ownership checks;
-manual runs also include the compiler audit and integer-sanitizer build.
+Analysis runs in two stable partitions with a direct check for each; there are no
+separate scope or aggregation jobs. Header dependency discovery stays within each
+partition. A manual Native run always runs the checks; its `full_scan` option also
+bypasses the tidy cache for regular and ownership checks. Manual runs include the
+compiler audit and integer-sanitizer build.
