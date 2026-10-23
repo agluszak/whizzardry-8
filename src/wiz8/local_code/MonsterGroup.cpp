@@ -45,7 +45,6 @@
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/world.h"
 
@@ -105,14 +104,12 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
         positions =
             GetWorldSpatialIndex()
                 ->navigatorPositions(target, yaw, radius + radius, count, proximity_check,
-                                     flatten_y, false, 5, true,
-                                     BoundingSphere{PartyNavigator()->movement.position,
-                                                    PartyNavigator()->movement.alternate_radius})
+                                     flatten_y, false, 5, true, GetWorld()->party.collisionSphere())
                 .positions;
     } else {
         positions = GetWorldSpatialIndex()->scatterPositions(
             target, yaw, radius + radius, count, proximity_check, flatten_y,
-            BoundingSphere{PartyNavigator()->movement.position, PartyNavigator()->radius});
+            BoundingSphere{GetWorld()->party.position(), GetWorld()->party.radius()});
     }
     const auto found = positions.size();
     if (found == 0) {
@@ -944,7 +941,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
             }
             ++index;
         }
-        if (PartyNavigator()->position_dirty) {
+        if (GetWorld()->party.navigator.position_dirty) {
             return;
         }
         assert(monster_group != 0);
@@ -1038,7 +1035,7 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
     float angle;
     unsigned int index;
 
-    camera = PartyNavigator()->GetPosition();
+    camera = GetWorld()->party.position();
     if (!flag) {
         target = camera;
         return MoveMonsterGroupToPosition(group, &target, 0.0f, true, true, false, true);
@@ -1058,7 +1055,7 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
         }
     }
     if (distance <= 0.0f) {
-        distance = PartyNavigator()->radius + radius + 1.0f;
+        distance = GetWorld()->party.radius() + radius + 1.0f;
     }
     target.y = camera.y;
     target.x = camera.x + distance * sin(angle);

@@ -123,7 +123,7 @@ bool StartMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8MonsterRecor
     }
     monster_info->pCombat->special_ready = false;
     StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL, W8_ANIMATION_PLAY_ONCE);
-    if (g_settings.verbose_combat_messages != 0) {
+    if (g_settings.verbose_combat_messages) {
         CurrentGame().events.push(TextNotice{
             9,
             fmt::format(
@@ -202,7 +202,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
                  slot->executing.kind == W8_ACTION_BERSERK) &&
                 CharacterCanSwitchTo(
                     party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
-                    false, false)) {
+                    false)) {
                 PrepareCharacterAttacks(party_slot);
             }
         } else if ((slot->executing.kind == W8_ACTION_ATTACK ||
@@ -225,7 +225,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
         }
         if (!CharacterCanSwitchTo(
                 party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
-                false, false)) {
+                false)) {
             slot->executing.kind = W8_ACTION_NONE;
             action = W8_ACTION_NONE;
         }
@@ -288,7 +288,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
         }
         if (CharacterCanSwitchTo(party_slot,
                                  SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
-                                 false, false)) {
+                                 false)) {
             FaceCharacterTowardCombatTarget(party_slot, &slot->executing.target);
         }
     }
@@ -346,7 +346,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
         break;
     case W8_ACTION_DEFEND:
         if (game.combat->characters[party_slot].defend_switched &&
-            g_settings.verbose_combat_messages != 0) {
+            g_settings.verbose_combat_messages) {
             game.events.push(
                 CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x234]});
         }
@@ -372,7 +372,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
         if (interrupt == -1 && !saved_dead) {
             action = W8_ACTION_DEFEND;
             slot->executing.kind = W8_ACTION_DEFEND;
-            if (g_settings.verbose_combat_messages != 0) {
+            if (g_settings.verbose_combat_messages) {
                 game.events.push(
                     CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x234]});
             }
@@ -569,7 +569,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
                     }
                     if (move_result == 1 || (move_result == 3 && move_flag != 0)) {
                         if (monster_info->action_kind == W8_MONSTER_ACTION_APPROACH) {
-                            if (g_settings.verbose_combat_messages != 0) {
+                            if (g_settings.verbose_combat_messages) {
                                 if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
                                     PostMonsterNotice(
                                         monster_info,
@@ -777,7 +777,7 @@ bool Combat::startCharacterBreath(Game& game, int party_slot)
     if (breath_visual == 0) {
         return false;
     }
-    if (g_settings.verbose_combat_messages != 0) {
+    if (g_settings.verbose_combat_messages) {
         game.events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
                                          fmt::format("{}!", Data().strings[kBreathNoticeId])});
     } else {

@@ -3,7 +3,13 @@ name: Format
 on:
   push:
     branches: [main]
+    paths-ignore: ["**.md", "docs/**", LICENSE, .gitignore]
   pull_request:
+    paths-ignore: ["**.md", "docs/**", LICENSE, .gitignore]
+
+concurrency:
+  group: format-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -15,10 +21,11 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: Install clang-format 23
-        run: tools/install-llvm.sh 23 clang-format
+      - name: Pull pinned toolchain
+        timeout-minutes: 5
+        run: docker pull "$(<toolchain-image.txt)"
       - name: Check C and C++ files
         run: |
           git ls-files -z -- include src tests tools \
             | grep -zE '\.(c|cc|cxx|cpp|h|hpp)$' \
-            | xargs -0 clang-format-23 --dry-run --Werror
+            | xargs -0 ./build.sh -- clang-format-23 --dry-run --Werror

@@ -121,7 +121,7 @@ bool SwampScript::castPlaneSpell(Trigger* pTrigger, int spell_id)
         gasFireSpawn(pTrigger);
         return false;
     }
-    position = cameraLocation(world());
+    position = world().party.eye();
     PointCastSpell(position, spell_id, 4);
     return true;
 }

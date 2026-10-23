@@ -79,7 +79,7 @@ void PrintState(GameHarness& game)
                         character.hp_current, character.experience, character.kill_count);
         }
     if (GetWorld()) {
-        const CameraPose camera = partyPose(*GetWorld());
+        const CameraPose camera = GetWorld()->party.pose();
         const glm::vec3 at = camera.position;
         std::printf("  party at (%g %g %g) yaw %g\n", at.x, at.y, at.z, camera.orientation.yaw);
         std::vector<std::pair<float, W8MonsterInfo*>> nearby;
