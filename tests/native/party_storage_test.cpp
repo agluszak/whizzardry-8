@@ -1,76 +1,70 @@
 // Links only the rules layer: a rules dependency on the engine fails to link here.
-#include <initializer_list>
-
 #include <catch2/catch_test_macros.hpp>
 
+#include "wiz8/data/game_data.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/rules/action_choices.h"
+#include "wiz8/rules/character.h"
 #include "wiz8/rules/inventory.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
-#include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 
 namespace {
-W8Party PartyWithPool(std::initializer_list<int> item_ids)
+// One stacking item with room for ten.
+GameData StackOfTen()
 {
-    W8Party party;
-    for (const int id : item_ids) REQUIRE(party.insertIntoPool(party.item_count, {.iItemNo = id}));
-    return party;
+    GameData data;
+    auto& record = data.items.emplace_back();
+    record.quantity_kind = W8_ITEM_QUANTITY_STACK;
+    record.maximum_quantity = 10;
+    return data;
 }
 
-int PoolItem(const W8Party& party, unsigned int slot)
+W8Character EmptyCharacter()
 {
-    return party.item_pool[slot].iItemNo;
+    W8Character character{};
+    for (auto& item : character.EquippedItem) item = {};
+    for (auto& item : character.backpack) item = {};
+    return character;
 }
 } // namespace
 
-TEST_CASE("Taking or emptying a pool entry closes the pool up", "[party][storage]")
+TEST_CASE("A merge moves only what fits and touches nothing else", "[inventory][rules]")
 {
-    auto party = PartyWithPool({10, 11, 12});
-    REQUIRE(party.take({W8ItemStorage::Pool, 0, 1}).iItemNo == 11);
-    REQUIRE(party.item_count == 2);
-    REQUIRE((PoolItem(party, 0) == 10 && PoolItem(party, 1) == 12 && PoolItem(party, 2) == -1));
+    const auto data = StackOfTen();
+    W8ItemInstance destination{.iItemNo = 0, .stack_count = 7};
+    W8ItemInstance source{.iItemNo = 0, .stack_count = 5};
+    REQUIRE(MergeStack(data, destination, source) == 3);
+    REQUIRE((destination.stack_count == 10 && source.stack_count == 2));
 
-    // Moving a pool entry into an empty backpack slot closes the pool too.
-    party.exchange({W8ItemStorage::Pool, 0, 0}, {W8ItemStorage::Backpack, 0, 0}, -1);
-    REQUIRE((party.item_count == 1 && PoolItem(party, 0) == 12));
-    REQUIRE(party.characters[0].backpack[0].iItemNo == 10);
+    // Identification has to agree, and a legacy overfull stack takes nothing more.
+    W8ItemInstance unidentified{.iItemNo = 0, .stack_count = 1, .identified = true};
+    REQUIRE(MergeStack(data, unidentified, source) == 0);
+    W8ItemInstance overfull{.iItemNo = 0, .stack_count = 14};
+    REQUIRE(MergeStack(data, overfull, source) == 0);
+    REQUIRE((overfull.stack_count == 14 && source.stack_count == 2));
 }
 
-TEST_CASE("An exchange that empties two pool entries closes both", "[party][storage]")
+TEST_CASE("A character keeps what it cannot place with the giver", "[inventory][rules]")
 {
-    auto party = PartyWithPool({10, 11, 12, 13});
-    party.item_pool[1] = party.item_pool[2] = {};
-    // Closing the earlier entry first would shift item 13 into the later index.
-    party.exchange({W8ItemStorage::Pool, 0, 1}, {W8ItemStorage::Pool, 0, 2}, -1);
-    REQUIRE(party.item_count == 2);
-    REQUIRE((PoolItem(party, 0) == 10 && PoolItem(party, 1) == 13));
-}
+    const auto data = StackOfTen();
+    auto character = EmptyCharacter();
+    for (auto& item : character.backpack) item = {.iItemNo = 0, .stack_count = 10};
+    character.backpack[3].stack_count = 6;
+    W8ItemInstance item{.iItemNo = 0, .stack_count = 9};
 
-TEST_CASE("The hand forgets where its item came from once it is emptied", "[party][storage]")
-{
-    auto party = PartyWithPool({10});
-    party.exchange({W8ItemStorage::Pool, 0, 0}, {W8ItemStorage::Hand}, 3);
-    REQUIRE(party.held.item.iItemNo == 10);
-    REQUIRE(
-        (party.held.origin == W8ItemLocation{W8ItemStorage::Pool, 0, 0} && party.held.actor == 3));
-    REQUIRE(party.item_count == 0);
+    // Four units fit in the one open stack; the rest has no free slot.
+    REQUIRE_FALSE(PlaceWithCharacter(data, character, item, false, true, true));
+    REQUIRE(character.backpack[3].stack_count == 10);
+    REQUIRE(item.stack_count == 5);
 
-    REQUIRE(party.take({W8ItemStorage::Hand}).iItemNo == 10);
-    REQUIRE(party.held.item.iItemNo == -1);
-    REQUIRE((party.held.origin == W8ItemLocation{} && party.held.actor == -1));
-}
-
-TEST_CASE("An item use is abandoned once its pool entry moves", "[party][actions]")
-{
-    auto party = PartyWithPool({10, 11, 12});
-    const auto use = ItemUseAt(party, {W8ItemStorage::Pool, 0, 1});
-    REQUIRE(ResolveItemUse(party, use) == &party.item_pool[1]);
-    // A change of quantity keeps the use.
-    party.item_pool[1].stack_count = 3;
-    REQUIRE(ResolveItemUse(party, use) == &party.item_pool[1]);
-    // Taking an earlier entry closes the pool up and moves item 12 into the use's location.
-    party.take({W8ItemStorage::Pool, 0, 0});
-    REQUIRE(ResolveItemUse(party, use) == nullptr);
+    character.backpack[5] = {};
+    const auto placed = PlaceWithCharacter(data, character, item, false, true, true);
+    REQUIRE(placed);
+    REQUIRE((placed->storage == W8ItemStorage::Backpack && placed->slot == 5 && !placed->merged));
+    REQUIRE(character.backpack[5].stack_count == 5);
+    REQUIRE(item.iItemNo == -1);
 }
 
 TEST_CASE("A berserk choice yields to attack while the member cannot berserk", "[party][actions]")

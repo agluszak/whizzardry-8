@@ -72,7 +72,7 @@ enum W8ItemEquipSlotGroup {
 };
 W8ItemEquipSlotGroup GetItemEquipSlotGroup(int item_id);
 
-unsigned int CountIdentifyAttemptsNeeded(W8ItemInstance* item, unsigned int percent);
+unsigned int CountIdentifyAttemptsNeeded(const W8ItemInstance* item, unsigned int percent);
 
 bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record);
 
@@ -93,7 +93,6 @@ bool IsItemBoundToWearer(const W8ItemInstance* item);
 bool CanUseItemForAction(int party_slot, const W8ItemInstance* item);
 
 /* Whether the held item can share a hand pair with what the other hand holds. */
-bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot);
 
 /* How hard one attempt at an item's spell is for a character of this skill
    level. */
@@ -105,10 +104,10 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 void SetCharacterItemUse(int party_slot, const W8Action& action);
 void BindEveryPartyItem(void);
 /* Whether the item's equip class is directly usable (0x17/0x19). */
-bool IsUsableItemClass(W8ItemInstance* item);
+bool IsUsableItemClass(const W8ItemInstance* item);
 /* Validate an item's embedded spell for use now; nonzero reports
    use blocked with the reason notice queued through the callback. */
-bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
+bool ValidateItemSpellUse(int character_index, const W8ItemInstance* item,
                           std::function<void(bool)> callback);
 bool CharacterHasServiceItem(W8Character* character);
 int CountUsableCharacterItems(W8Character* character);

@@ -2359,9 +2359,9 @@ TEST_CASE("Native world objects activate through graph identity and game activit
     game.advancement.held = true;
     REQUIRE_FALSE(game.activateSelectedNativeObject());
     game.advancement.held = false;
-    game.party.held.item.iItemNo = 5;
+    game.inventory.restore({}, W8ItemInstance{.iItemNo = 5});
     REQUIRE_FALSE(game.activateSelectedNativeObject());
-    game.party.held.item.iItemNo = -1;
+    game.inventory.restore({}, std::nullopt);
     game.activity.place = Activity::Place::Camp;
     REQUIRE_FALSE(game.activateSelectedNativeObject());
     game.activity.place = Activity::Place::World;

@@ -105,8 +105,8 @@ enum W8NpcDialogueControlSlot {
     W8_NPC_CONTROL_TEXT_38 = 38,
 };
 
-void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress);
-void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress,
+void ForwardNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line, bool suppress);
+void QueueNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line, bool suppress,
                           unsigned char arg);
 void FlushPendingNoticeLines(void);
 
@@ -133,7 +133,7 @@ bool ProcessPendingEvent(void);
 void SyncDialogueNpcStateAndMarkPending(void);
 void SyncNpcServiceButtons(int party_slot);
 void SwitchNpcDialogueLayout(W8NpcDialogueLayout layout);
-void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
+void BeginNpcDialogue(W8NpcState* npc, const W8ItemInstance* item, int quote, unsigned char flags,
                       unsigned char force);
 void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags);
 void InvalidateMainGameActionPanelRect(const W8ControlsRect* rect);
@@ -183,7 +183,7 @@ void NpcDialogueTextBoxWheelAt(short x, unsigned short y, bool flag);
    report that the click was consumed. */
 bool FinishNpcVoiceIfSessionActive(void);
 void UpdateNpcTradeSelection(int index, int, int);
-bool NpcTradeItemAllowed(W8ItemInstance* item);
+bool NpcTradeItemAllowed(const W8ItemInstance* item);
 void EnableNpcTradeFilterButtons(void);
 void HandleNpcDialogueKeyEvent(const InputEvent* event);
 void HandleNpcDialogueItemChoice(void);

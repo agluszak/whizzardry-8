@@ -37,18 +37,16 @@
 namespace {
 }
 
-/* The hand and the carried pool start empty, then take the six starting item stacks. */
+/* The pool takes the six starting item stacks. */
 Game& BeginNewGame(GameSession& games)
 {
     static constexpr std::array<unsigned int, 6> starting_items = {0x14f, 0x14f, 0x15a,
                                                                    0x15a, 0x15b, 0x155};
     auto& game = games.begin();
-    game.party.held.item = W8ItemInstance{.iItemNo = -1};
-    std::ranges::fill(game.party.item_pool, W8ItemInstance{.iItemNo = -1});
     for (const auto id : starting_items) {
         auto item = MakeItem(Data(), CurrentGame().rng, id, true, true, true);
         item.stack_count = 1;
-        AddItemToParty(game, OwnedItem(item), false, false);
+        game.inventory.storeInPool(item, false);
     }
     game.party.gold = 500;
     game.status.selected_character = GetNextCharacter(1, 1, -1);

@@ -22,8 +22,8 @@ void SelectCurrentUseItemLine(void);
 
 void CommitSelectedItemUse(void); /* FItemSelectMode per-frame commit */
 void SelectUseItemLine(int line);
-void OpenUseItemAssayDialog(W8ItemInstance* item);
-void UpdateUseItemDetailPanel(W8ItemInstance* item);
+void OpenUseItemAssayDialog(const W8ItemInstance* item);
+void UpdateUseItemDetailPanel(const W8ItemInstance* item);
 void TakeUseItemIntoHand(void);
 
 void CloseUseItemSelectView(void);

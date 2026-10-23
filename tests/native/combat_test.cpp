@@ -136,7 +136,7 @@ TEST_CASE_METHOD(InventoryCombatFixture,
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo = 1;
 
-    CommitWeaponSetSwap(game, 0, {.primary = true, .secondary = true});
+    game.inventory.commitWeaponSwap(0, {.primary = true, .secondary = true});
 
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo == 0);
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON].iItemNo == 1);
@@ -147,10 +147,10 @@ TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed 
 {
     data.items[0].quantity_kind = W8_ITEM_QUANTITY_CHARGES;
     data.items[0].initial_quantity = {.base = 0, .count = 1, .sides = 5};
-    const W8ItemLocation source{W8ItemStorage::Backpack, 0, 0};
+    const W8ItemLocation source{W8ItemStorage::Hand};
     const W8ItemLocation destination{W8ItemStorage::Backpack, 0, 1};
     auto& backpack = game.party.characters[0].backpack;
-    backpack[0] = {.iItemNo = 0, .uses_or_charges = 3};
+    game.inventory.restore({}, W8ItemInstance{.iItemNo = 0, .uses_or_charges = 3});
     backpack[1] = {.iItemNo = 0, .uses_or_charges = 4};
     auto& committed = game.party.rows[0].committed;
     committed.kind = W8_ACTION_USE_ITEM;
@@ -158,9 +158,9 @@ TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed 
     // The member has acted this round; the use waits for the next one.
     combat.characters[0].dead = true;
 
-    MergeItemUses(game, 0, destination, source);
+    game.inventory.pourHeldUses(0, destination);
 
-    REQUIRE(backpack[0].uses_or_charges == 2);
+    REQUIRE(game.inventory.held()->item.uses_or_charges == 2);
     REQUIRE(backpack[1].uses_or_charges == 5);
     REQUIRE(committed.kind == W8_ACTION_USE_ITEM);
     REQUIRE(committed.detail_block.item_use.item == source);

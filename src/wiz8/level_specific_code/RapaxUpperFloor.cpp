@@ -14,7 +14,6 @@
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/rules/item_location.h"
-#include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/world.h"
@@ -95,12 +94,12 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
     int item_id;
     int var_id;
 
-    if ((ctx.party.held.item.iItemNo != -1)) {
-        item_id = GetItemInHand(ctx.party);
+    if ((ctx.inventory.held())) {
+        item_id = ctx.inventory.heldItemId();
         if (item_id == 0x1cb || item_id == 0x1cd || item_id == 0x1cc || item_id == 0x1ce) {
             SetFact(W8_FACT_RAPAX_TREASURY_RAIDED, 1, false);
             SetFactionDispositionBand(0x12, W8_FACTION_HOSTILE);
-            (void)TakeInventoryItem(ctx.game, {W8ItemStorage::Hand});
+            (void)ctx.inventory.take({W8ItemStorage::Hand});
             if (item_id == 0x1cb) {
                 item_id = 0x1c7;
             } else if (item_id == 0x1cd) {

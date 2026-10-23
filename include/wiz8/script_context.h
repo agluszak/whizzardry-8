@@ -4,6 +4,7 @@
 
 class Events;
 class Game;
+class Inventory;
 struct Activity;
 struct Combat;
 struct Story;
@@ -16,6 +17,7 @@ struct World;
    and lives no longer than that game. */
 struct ScriptContext {
     W8Party& party;
+    Inventory& inventory;
     Story& story;
     GameStatus& status;
     Activity& activity;
@@ -23,8 +25,8 @@ struct ScriptContext {
     Events& events;
     // The loaded level's world; null while no level is loaded (new-game fact seeding).
     World* world;
-    /* For commands that still take the whole game (inventory, gold, skill and attribute
-       changes, speech) until they take a rule context (ROADMAP.md, "Migration"). */
+    /* For commands that still take the whole game (gold, skill and attribute changes,
+       speech) until they take the parts they act on (ROADMAP.md, "Migration"). */
     Game& game;
 };
 

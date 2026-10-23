@@ -11,9 +11,9 @@
 struct W8Character;
 struct W8ItemInstance;
 
-bool CanCharacterUseItemEntry(W8Character* character, W8ItemInstance* item);
+bool CanCharacterUseItemEntry(W8Character* character, const W8ItemInstance* item);
 bool CanSplitItemStack(const W8ItemInstance* item);
-bool IsSpecialItemId(W8ItemInstance* item);
+bool IsSpecialItemId(const W8ItemInstance* item);
 
 /* The twelve equip-slot label message ids indexed by region id. */
 extern unsigned short g_equip_slot_label_ids[12];

@@ -27,7 +27,6 @@ void RebuildAllWorldItemInstances(void);
 void ReleaseItemLists();
 
 std::optional<glm::vec3> FindItemDropPosition();
-void DropHeldItem(int);
 void UpdateNearbyWorldItems(void);
 bool AdvanceFallingWorldItem(W8WorldItem* item);
 bool AnyWorldItemVisible(void);

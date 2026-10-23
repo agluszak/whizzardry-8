@@ -6,12 +6,10 @@
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
-#include <iterator>
 #include <memory>
 #include <optional>
 #include <span>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -70,6 +68,7 @@
 #include "wiz8/render/vsg_scene.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/runtime_test_hooks.h"
@@ -149,9 +148,9 @@ void InventoryChestScenario()
     const auto click_button = [&](int index) { game.click("picker", *picker->m_buttons[index]); };
     // A full pool can still absorb part of an ammunition stack. The picker
     // must retain only the remainder, including after a second failed attempt.
-    const auto pool = std::vector<W8ItemInstance>(std::begin(CurrentGame().party.item_pool),
-                                                  std::end(CurrentGame().party.item_pool));
-    const auto pool_count = CurrentGame().party.item_count;
+    auto& inventory = CurrentGame().inventory;
+    const auto pool = std::vector<W8ItemInstance>(inventory.pool().begin(), inventory.pool().end());
+    const auto held = inventory.held() ? std::optional{inventory.held()->item} : std::nullopt;
     const auto original_item = picker->entries.front().item->item;
     const auto picker_count = picker->entries.size();
     int stack_id = -1, nonstack_id = -1;
@@ -170,24 +169,22 @@ void InventoryChestScenario()
     remainder.stack_count = 5;
     W8ItemInstance filler{};
     filler = MakeItem(Data(), CurrentGame().rng, nonstack_id, true, false, false);
-    std::fill(std::begin(CurrentGame().party.item_pool), std::end(CurrentGame().party.item_pool),
-              filler);
-    CurrentGame().party.item_count = 500;
-    CurrentGame().party.item_pool[0] = remainder;
     const auto maximum = Data().items[stack_id].maximum_quantity;
-    CurrentGame().party.item_pool[0].stack_count = maximum - 2;
+    std::vector<W8ItemInstance> full(Inventory::kPoolLimit, filler);
+    full[0] = remainder;
+    full[0].stack_count = maximum - 2;
+    inventory.restore(std::move(full), held);
     for (auto& entry : picker->entries) entry.selected = false;
     picker->entries.front().selected = true;
     click_button(1);
     REQUIRE(picker->entries.size() == picker_count);
-    REQUIRE(CurrentGame().party.item_count == 500);
-    REQUIRE(CurrentGame().party.item_pool[0].stack_count == maximum);
+    REQUIRE(inventory.pool().size() == Inventory::kPoolLimit);
+    REQUIRE(inventory.pool()[0].stack_count == maximum);
     REQUIRE(remainder.stack_count == 3);
     click_button(1);
     REQUIRE(remainder.stack_count == 3);
     remainder = original_item;
-    std::copy(pool.begin(), pool.end(), std::begin(CurrentGame().party.item_pool));
-    CurrentGame().party.item_count = pool_count;
+    inventory.restore(pool, held);
     SettleActiveParty(CurrentGame());
     for (auto& entry : picker->entries) entry.selected = false;
     click_button(0); // Select all.
@@ -200,15 +197,15 @@ void InventoryChestScenario()
     REQUIRE(g_camera_motion_divisor == motion_divisor);
     Walk(game, "walk-after-chest", 5);
     int potion_slot = -1;
-    for (int i = 0; i < 500; ++i)
-        if (CurrentGame().party.item_pool[i].iItemNo >= 0 &&
-            Data().items[CurrentGame().party.item_pool[i].iItemNo].unidentified_name_index == 102) {
+    for (int i = 0; i < static_cast<int>(inventory.pool().size()); ++i)
+        if (Data().items[inventory.pool()[i].iItemNo].unidentified_name_index == 102) {
             potion_slot = i;
             break;
         }
     REQUIRE(potion_slot >= 0);
     // Exercise the purple-potion icon with the unidentified overlay as well.
-    CurrentGame().party.item_pool[potion_slot].identified = false;
+    inventory.editItem({W8ItemStorage::Pool, 0, static_cast<unsigned>(potion_slot)},
+                       [](W8ItemInstance& item) { item.identified = false; });
     game.command(W8_MGS_COMMAND_INVENTORY);
     game.wait_screen("inventory", W8_SCREEN_CAMP);
     REQUIRE(g_camera_motion_clamp == motion_clamp);
@@ -221,9 +218,9 @@ void InventoryChestScenario()
     REQUIRE(potion_cell >= 0);
     game.click("pick-up-potion", {kCampPoolCell.x + (potion_cell & 1) * 49,
                                   kCampPoolCell.y + (potion_cell >> 1) * 57});
-    REQUIRE((CurrentGame().party.held.item.iItemNo != -1));
+    REQUIRE(CurrentGame().inventory.held());
     game.click("drop-potion", kCampBackpackCells[0]);
-    REQUIRE_FALSE((CurrentGame().party.held.item.iItemNo != -1));
+    REQUIRE_FALSE(CurrentGame().inventory.held());
     game.click_at(320, 170); // Keep the cursor outside the grids for pixel comparisons.
     const auto rendered = game.read_frame();
     const auto expected = FrameBufferPixels();
@@ -273,9 +270,8 @@ void InventoryChestScenario()
     game.click("use-potion", kCampBackpackCells[1]);
     game.wait_screen("use-potion-return", W8_SCREEN_MAIN_GAME);
     const bool healed = game.within_frames(600, [&] { return caster.hp_current > 1; });
-    CAPTURE(ItemUseDraft(), ScreenPointer().targeting(),
-            (CurrentGame().party.held.item.iItemNo != -1), potion.stack_count,
-            CurrentGame().party.rows[slot].executing.kind);
+    CAPTURE(ItemUseDraft(), ScreenPointer().targeting(), CurrentGame().inventory.held(),
+            potion.stack_count, CurrentGame().party.rows[slot].executing.kind);
     Snapshot("potion-use", game.read_frame());
     REQUIRE(healed);
     REQUIRE(potion.iItemNo == healing_potion);

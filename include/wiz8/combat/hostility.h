@@ -6,7 +6,7 @@
 #include "wiz8/monster_actions.h"
 #include "wiz8/rules/targeting.h"
 
-struct W8Party;
+class Inventory;
 struct W8MonsterInfo;
 struct W8MonsterGroup;
 struct W8TargetSource;
@@ -18,7 +18,7 @@ struct W8ActionDetailBlock;
 W8Disposition MonsterHostility(W8MonsterInfo* first, W8MonsterInfo* second);
 /* Whether a party action aims at enemies (melee kinds, or a spell /
    item-spell whose target type is an enemy band). */
-bool CharacterActionTargetsEnemies(const W8Party& party, W8Character* character,
+bool CharacterActionTargetsEnemies(const Inventory& inventory, W8Character* character,
                                    W8ActionKind action_kind, int action_detail,
                                    W8ActionDetailBlock* detail);
 /* The monster-side counterpart; action kinds 0 and 3 always count,

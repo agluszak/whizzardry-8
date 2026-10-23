@@ -485,7 +485,8 @@ void DispatchMGSCommand(W8MGSCommand command)
         break;
     case W8_MGS_COMMAND_SWAP_WEAPONS:
         if (IsScreenInputBlocked() == 0 && CurrentGame().status.selected_character != -1) {
-            BindCharacterItems(CurrentGame(), CurrentGame().status.selected_character, true);
+            CurrentGame().inventory.requestWeaponSwap(CurrentGame().status.selected_character,
+                                                      true);
         }
         break;
     case W8_MGS_COMMAND_SWAP_ALL_WEAPONS:
@@ -683,7 +684,8 @@ std::string KeyboardActionMenu::tooltip(const Row& row) const
     if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
         if (!row.enabled) return Data().strings[0x5d];
         const auto& party = screen_.game.party.rows[slot];
-        auto* item = screen_.game.party.itemAt(party.remembered.item_detail.item_use.item);
+        const auto* item =
+            screen_.game.inventory.itemAt(party.remembered.item_detail.item_use.item);
         return fmt::format("{}: {}", Data().strings[0x5d],
                            FormatItemDisplayName(Data(), item, false));
     }

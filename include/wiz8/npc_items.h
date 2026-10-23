@@ -30,8 +30,8 @@ struct W8TradeSelection {
     unsigned char stock_quantity = 0;
     bool operator==(const W8TradeSelection&) const = default;
 };
-W8ItemInstance* ResolveTradeSelection(Game& game, W8NpcState* npc,
-                                      const W8TradeSelection& selection);
+const W8ItemInstance* ResolveTradeSelection(Game& game, W8NpcState* npc,
+                                            const W8TradeSelection& selection);
 enum class W8TradeOutcome : unsigned char {
     Complete,
     InvalidSelection,
@@ -65,7 +65,7 @@ void MatureNpcDelayedItems(W8NpcState* npc);
 void RestockNpcInventory(W8NpcState* npc); /* 0x0055BCC0 */
 W8NpcItemEntry* GetNpcItemAt(W8NpcState* npc, int index);
 std::size_t GetNpcItemCount(W8NpcState* npc);
-bool NpcAcceptsTradeItem(W8NpcState* npc, W8ItemInstance* item);
+bool NpcAcceptsTradeItem(W8NpcState* npc, const W8ItemInstance* item);
 bool NpcAcceptsTradeItemClass(const W8NpcState* npc, const W8ItemInstance* item); /* 0x0055B290 */
 int CalculateNpcTradeStackPrice(W8NpcState* npc, int item_id, W8TradePriceKind price_kind,
                                 unsigned char stack_count, bool identified);

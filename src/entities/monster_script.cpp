@@ -49,6 +49,7 @@
 #include "wiz8/render/picking.h"
 #include "wiz8/resource_cache.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
@@ -406,7 +407,9 @@ void Monster::ProcessScript()
                 if (tokens) {
                     int item = FindItemRecordByName(token.c_str());
                     if (item != -1) {
-                        ReplaceHeldItemWithNew(CurrentGame(), item, true);
+                        auto& game = CurrentGame();
+                        game.inventory.replaceHeld(
+                            MakeItem(game.data, game.rng, item, true, true, false));
                     }
                 }
                 break;

@@ -136,7 +136,9 @@ bool ClearCondition(Game& game, unsigned int slot, W8Condition condition, bool a
     if (condition == W8_CONDITION_HEXED &&
         InfatuationHoldsHex(character, GetLevelBand(GetLoadedLevelID())))
         return false;
-    if (condition == W8_CONDITION_INSANE && MadnessRingHoldsInsanity(game.party, slot))
+    if (condition == W8_CONDITION_INSANE &&
+        MadnessRingHoldsInsanity(game.party, game.inventory.find(ItemWithId(kItemMadnessRing)),
+                                 slot))
         return false;
     const auto& strings = game.data.strings;
     if (announce) {
@@ -214,9 +216,10 @@ void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hand
     auto& party = game.party;
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (party.members[slot].has_value() && IsCharacterDefined(party.characters[slot]) &&
-            UnequipUnusableItems(game, slot))
+            game.inventory.unequipUnusable(slot))
             changed_hands.set(slot);
-    const auto stats = UpdatePartyStats(game.data, party, CaptureLivePartyStatRules(game));
+    const auto stats =
+        UpdatePartyStats(game.data, party, game.inventory.pool(), CaptureLivePartyStatRules(game));
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         if (!party.members[slot].has_value()) continue;
         auto& character = party.characters[slot];
@@ -406,6 +409,6 @@ void RecalculateCharacterDerivedStats(Game& game, W8Character& character)
 void RecalculateEditedCharacterStats(Game& game, W8Character& draft)
 {
     draft.party_weight_share = 0;
-    const auto update = UpdateCharacterStatsFromInputs(game.rules().data, draft, {});
+    const auto update = UpdateCharacterStatsFromInputs(game.data, draft, {});
     if (update.became_overloaded) PresentOverload(game, draft);
 }

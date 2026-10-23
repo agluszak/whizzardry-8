@@ -65,7 +65,7 @@ namespace {
 enum class ItemPool { Character, Party, Hand };
 struct UseItemView {
     struct Row {
-        W8ItemInstance* item;
+        const W8ItemInstance* item;
         W8ItemLocation location;
         bool usable;
     };
@@ -74,7 +74,7 @@ struct UseItemView {
     int selected_line = -1;
     int owner = -1;
     int hover_row = -1;
-    W8ItemInstance* detail_item = nullptr;
+    const W8ItemInstance* detail_item = nullptr;
     std::vector<Row> rows;
     UiLayer input{UiLayerOrder::ItemSelection};
     std::array<std::unique_ptr<W8ButtonWidget>, 2> pools;
@@ -100,10 +100,10 @@ void SetUseItemSelectInputEnabled(bool enabled)
 
 void UpdateUseItemScrollButtons(void);
 static void SelectUseItemPool(ItemPool pool);
-static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select);
+static void RebuildUseItemSelectList(ItemPool pool, const W8ItemInstance* select);
 static void AppendUseItemListEntry(W8ItemLocation location);
-static void ShowUseItemList(W8ItemInstance* select);
-static bool IsUseItemFilteredOut(W8ItemInstance* item);
+static void ShowUseItemList(const W8ItemInstance* select);
+static bool IsUseItemFilteredOut(const W8ItemInstance* item);
 static void UseItemSelectAssayButton(void);
 static void CreateUseItemSelectControls(void);
 
@@ -221,7 +221,7 @@ void CloseUseItemSelectView(void)
 // Retarget the picker, preferring a dragged item or the character's remembered use.
 void RefreshUseItemSelectionForSlot(int party_slot)
 {
-    W8ItemInstance* item;
+    const W8ItemInstance* item;
 
     if (!IsPartySlotEligible(party_slot)) {
         CloseUseItemSelectView();
@@ -232,13 +232,13 @@ void RefreshUseItemSelectionForSlot(int party_slot)
         MainGame()->item_drag->pending = false;
         CurrentGame().aging_held = false;
         const auto dragged = MainGame()->item_drag->item;
-        if (CurrentGame().party.held.item.iItemNo == -1) {
+        if (!CurrentGame().inventory.held()) {
             const bool party_pool = dragged.storage == W8ItemStorage::Pool;
             assert(!party_pool || !CurrentGame().combat.has_value());
             RebuildUseItemSelectList(party_pool ? ItemPool::Party : ItemPool::Character,
-                                     CurrentGame().party.itemAt(dragged));
+                                     CurrentGame().inventory.itemAt(dragged));
         } else {
-            RebuildUseItemSelectList(ItemPool::Hand, &CurrentGame().party.held.item);
+            RebuildUseItemSelectList(ItemPool::Hand, &CurrentGame().inventory.held()->item);
         }
         assert(use_item->selected_line != -1);
         ScrollTextBoxTo(use_item->selected_line);
@@ -246,7 +246,7 @@ void RefreshUseItemSelectionForSlot(int party_slot)
     }
     if (CanPartySlotUseRecordedItem(party_slot)) {
         MainGame()->item_drag.reset();
-        item = CurrentGame().party.itemAt(
+        item = CurrentGame().inventory.itemAt(
             CurrentGame().party.rows[party_slot].remembered.item_detail.item_use.item);
         if (CanUseItemForAction(use_item->owner, item)) {
             const bool party_pool =
@@ -340,7 +340,7 @@ static void UseItemSelectAssayButton(void)
 void CommitSelectedItemUse(void)
 {
     const auto draft = use_item->draft;
-    auto* item = CurrentGame().party.itemAt(draft.detail_block.item_use.item);
+    const auto* item = CurrentGame().inventory.itemAt(draft.detail_block.item_use.item);
     const int slot = use_item->owner;
     if (!item || !CanUseItemForAction(slot, item) || !IsItemTargetOfNeededKind(&draft.target, item))
         return;
@@ -352,7 +352,7 @@ void CommitSelectedItemUse(void)
 }
 
 // Rebuild from the selected inventory source; usable entries retain inventory order.
-static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select)
+static void RebuildUseItemSelectList(ItemPool pool, const W8ItemInstance* select)
 {
     ResetEditorStatusLine(2);
     ClearSelectedTextLine(2);
@@ -375,7 +375,7 @@ static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select)
         for (unsigned int slot = 0; slot < 8; ++slot)
             AppendUseItemListEntry({W8ItemStorage::Backpack, owner, slot});
     } else {
-        for (unsigned int i = 0; i < CurrentGame().party.item_count; ++i)
+        for (unsigned int i = 0; i < CurrentGame().inventory.pool().size(); ++i)
             AppendUseItemListEntry({W8ItemStorage::Pool, 0, i});
     }
     ShowUseItemList(select);
@@ -387,8 +387,8 @@ static void RebuildUseItemSelectList(ItemPool pool, W8ItemInstance* select)
 // Classify once; stable partition preserves inventory order within each band.
 static void AppendUseItemListEntry(W8ItemLocation location)
 {
-    W8ItemInstance* item = CurrentGame().party.itemAt(location);
-    if (item->iItemNo == -1 || IsUseItemFilteredOut(item)) return;
+    const W8ItemInstance* item = CurrentGame().inventory.itemAt(location);
+    if (!item || item->iItemNo == -1 || IsUseItemFilteredOut(item)) return;
     const bool usable = CanUseItemForAction(use_item->owner, item);
     if (!usable && (CurrentGame().activity.conversation_aside || LockInteractionSuspended() ||
                     TrapInteractionSuspended()))
@@ -396,7 +396,7 @@ static void AppendUseItemListEntry(W8ItemLocation location)
     use_item->rows.push_back({item, location, usable});
 }
 
-static void ShowUseItemList(W8ItemInstance* select)
+static void ShowUseItemList(const W8ItemInstance* select)
 {
     auto& rows = use_item->rows;
     std::stable_partition(rows.begin(), rows.end(), [](const auto& row) { return row.usable; });
@@ -446,7 +446,7 @@ static void ShowUseItemList(W8ItemInstance* select)
 /* Entries the character cannot activate or cast from are dropped,
    except usable-class items stay unless the slot's bound NPC wants the
    item. */
-static bool IsUseItemFilteredOut(W8ItemInstance* item)
+static bool IsUseItemFilteredOut(const W8ItemInstance* item)
 {
     W8NpcState* npc;
 
@@ -484,7 +484,7 @@ void RefreshUseItemSelection(void)
 
 /* Right release on the use-item text box: open the assay dialog for the item
    on the clicked row. Cleanup restores the saved target cursor. */
-void OpenUseItemAssayDialog(W8ItemInstance* item)
+void OpenUseItemAssayDialog(const W8ItemInstance* item)
 {
     auto dialog = std::make_unique<W8AssayDialog>(
         *item, &CurrentGame().party.characters[use_item->owner], SDL_Point{kInfoDialogX, 0x48});
@@ -593,7 +593,7 @@ void SelectUseItemLine(int iTextLine)
 /* Show the item in the detail control: its catalog icon plus a quantity line -
    stack counts only past one, uses/charges always once the item is identified,
    '?' while it still is not. */
-void UpdateUseItemDetailPanel(W8ItemInstance* item)
+void UpdateUseItemDetailPanel(const W8ItemInstance* item)
 {
     std::string text;
     std::string value;
@@ -647,17 +647,16 @@ void SelectCurrentUseItemLine(void)
 void TakeUseItemIntoHand(void)
 {
     auto& selected = use_item->draft.detail_block.item_use.item;
-    if (CurrentGame().party.held.item.iItemNo != -1) {
+    auto& inventory = CurrentGame().inventory;
+    if (inventory.held()) {
         assert(use_item->owner != -1);
-        const auto old_count = CurrentGame().party.item_count;
-        GiveItemToCharacterOrParty(CurrentGame(), use_item->owner,
-                                   PartyItem(CurrentGame().party, {W8ItemStorage::Hand}), true);
+        const auto old_count = inventory.pool().size();
+        (void)inventory.giveHeld(static_cast<unsigned int>(use_item->owner), StoreOrder::PoolFirst);
         // A new pool entry goes to the front and moves the selection down one row.
-        if (use_item->pool == ItemPool::Party && old_count != CurrentGame().party.item_count &&
-            selected.storage == W8ItemStorage::Pool &&
-            selected.slot < CurrentGame().party.item_count)
+        if (use_item->pool == ItemPool::Party && old_count != inventory.pool().size() &&
+            selected.storage == W8ItemStorage::Pool && selected.slot < inventory.pool().size())
             ++selected.slot;
     }
-    ExchangeInventoryItems(CurrentGame(), selected, {W8ItemStorage::Hand},
+    inventory.swapWithHand(selected,
                            static_cast<unsigned>(CurrentGame().status.selected_character));
 }

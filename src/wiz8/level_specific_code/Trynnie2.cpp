@@ -10,6 +10,7 @@
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
@@ -27,7 +28,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
-#include "wiz8/rules/party.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/script_context.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/world.h"
@@ -59,6 +60,8 @@ private:
     bool goodaVineB(Trigger* pTrigger);
     bool giveZulu(Trigger* pTrigger);
     bool meatBox(Trigger* pTrigger);
+    // A new item in the hand, refused while the hand holds something.
+    bool putOnCursor(int item_id);
 };
 
 void Trynnie2Script::enter()
@@ -88,25 +91,32 @@ void EnsureKilledVar(World& world)
     }
 }
 
+bool Trynnie2Script::putOnCursor(int item_id)
+{
+    if (ctx.inventory.held()) return false;
+    auto item = MakeItem(Data(), ctx.game.rng, item_id, true, true, false);
+    return ctx.inventory.hold(item);
+}
+
 /* "GoodaVine_A": place the vine item on the cursor, refusing while the cursor
    already holds an item. */
 bool Trynnie2Script::goodaVineA(Trigger* pTrigger)
 {
-    return PlaceItemOnCursor(ctx.game, 0x16d, true, true, false);
+    return putOnCursor(0x16d);
 }
 
 /* "GoodaVine_B": place the second vine item on the cursor, refusing while the
    cursor already holds an item. */
 bool Trynnie2Script::goodaVineB(Trigger* pTrigger)
 {
-    return PlaceItemOnCursor(ctx.game, 0x16e, true, true, false);
+    return putOnCursor(0x16e);
 }
 
 /* "Give_Zulu": place item 0x1b3 on the cursor, refusing while the cursor
    already holds an item. */
 bool Trynnie2Script::giveZulu(Trigger* pTrigger)
 {
-    return PlaceItemOnCursor(ctx.game, 0x1b3, true, true, false);
+    return putOnCursor(0x1b3);
 }
 
 /* "Meat_Maker": spawn the meat item at the Meat_Position entity. */
@@ -137,11 +147,11 @@ bool Trynnie2Script::meatBox(Trigger* pTrigger)
     int item_id;
 
     group = FindFirstMonsterByID(0x1d4);
-    if (group == 0 || !(ctx.party.held.item.iItemNo != -1)) {
+    if (group == 0 || !(ctx.inventory.held())) {
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, Data().strings[0x964]);
         return true;
     }
-    item_id = GetItemInHand(ctx.party);
+    item_id = ctx.inventory.heldItemId();
     if (item_id != 0x1b4 && item_id != 0x1c2) {
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, Data().strings[0x964]);
         return true;
@@ -159,7 +169,7 @@ bool Trynnie2Script::meatBox(Trigger* pTrigger)
             CreateLocationVar("HogarDruggedGivenExp", 1);
         }
     }
-    (void)TakeInventoryItem(ctx.game, {W8ItemStorage::Hand});
+    (void)ctx.inventory.take({W8ItemStorage::Hand});
     BeginScriptedWorldAction();
     return true;
 }
@@ -214,9 +224,8 @@ std::unique_ptr<LevelScript> MakeTrynnie2Script(const ScriptContext& context)
    uninitialized stack slot there. */
 bool Trynnie2UseItem(const ScriptContext& context, W8ItemLocation location)
 {
-    const W8ItemInstance* item = context.party.itemAt(location);
+    const W8ItemInstance* item = context.inventory.itemAt(location);
     glm::vec3 position;
-    W8ItemInstance destination;
 
     if (item->iItemNo != 0x1b3 && item->iItemNo != 0x1c3) {
         return false;
@@ -238,7 +247,6 @@ bool Trynnie2UseItem(const ScriptContext& context, W8ItemLocation location)
             SpawnMonsters(0xec, 1, &position, 0, true, false);
         }
     }
-    destination.iItemNo = -1;
-    destination = TakeInventoryItem(context.game, location);
+    context.inventory.take(location);
     return true;
 }

@@ -32,7 +32,6 @@
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/particle_system.h"
-#include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/string_database.h"
@@ -213,7 +212,7 @@ bool MartensBluff1Script::fHandlock(Trigger* pTrigger)
     if (pTrigger->running) {
         return true;
     }
-    if ((ctx.party.held.item.iItemNo != -1) && GetItemInHand(ctx.party) == 0x26f) {
+    if ((ctx.inventory.held()) && ctx.inventory.heldItemId() == 0x26f) {
         return true;
     }
     SetDice(&dice, 2, 4, 1);

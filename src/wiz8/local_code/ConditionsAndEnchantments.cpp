@@ -43,6 +43,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/utility.h"
@@ -182,10 +183,10 @@ void SanitizeLoadedItems(void)
             }
         }
     }
-    for (index = 0; index < CurrentGame().party.item_count; ++index) {
-        if (CurrentGame().party.item_pool[index].iItemNo != -1) {
-            NormalizeItemQuantityKind(&CurrentGame().party.item_pool[index]);
-        }
+    for (index = 0; index < CurrentGame().inventory.pool().size(); ++index) {
+        CurrentGame().inventory.editItem({W8ItemStorage::Pool, 0, index}, [](W8ItemInstance& item) {
+            NormalizeItemQuantityKind(&item);
+        });
     }
 }
 

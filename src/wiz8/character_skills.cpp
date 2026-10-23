@@ -189,8 +189,8 @@ void BrewAlchemistPotion(Game& game, W8Character* character)
         game.events.push(
             TextNotice{slot, fmt::sprintf(Data().strings[0x183], character->name,
                                           FormatItemDisplayName(Data(), &item, true))});
-        StoreItemWithCharacterOrParty(game, PartyMember(game, slot), OwnedItem(item), false, false,
-                                      false);
+        game.inventory.store(game.inventory.member(slot), item, StoreOrder::CharacterFirst, false,
+                             false);
         made = 1;
     }
     if (made != 0) {
@@ -312,7 +312,7 @@ void ApplyAttributeChange(Game& game, W8Character* character, W8Attribute attrib
    ResetCharacterSkills. */
 void ApplySkillChange(Game& game, W8Character* character, W8Skill skill_id)
 {
-    RefreshCharacterSkillAvailability(game.rules().data, character);
+    RefreshCharacterSkillAvailability(game.data, character);
 
     character->skills[skill_id].level = GetEffectiveSkillLevel(character, skill_id);
     RecalculateCharacterDerivedStats(game, *character);
@@ -395,7 +395,7 @@ void PracticeCharacterSkill(Game& game, W8Character* character, W8Skill skill_id
                 }
             } while (--usage_points != 0);
             if (improved) {
-                RefreshCharacterSkillAvailability(game.rules().data, character);
+                RefreshCharacterSkillAvailability(game.data, character);
                 skill->level = GetEffectiveSkillLevel(character, skill_id);
                 RecalculateCharacterDerivedStats(game, *character);
                 game.events.push(SkillImproved{CharacterPointerToPartySlot(character), skill_id,

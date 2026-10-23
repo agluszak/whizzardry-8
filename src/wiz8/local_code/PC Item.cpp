@@ -317,33 +317,6 @@ bool IsItemBoundToWearer(const W8ItemInstance* item)
     return false;
 }
 
-bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot)
-{
-    assert(party_slot != -1);
-    assert(static_cast<unsigned int>(equip_slot) < W8_EQUIP_SLOT_COUNT);
-
-    W8EquipSlot paired_slot;
-    switch (equip_slot) {
-    case W8_EQUIP_SLOT_PRIMARY_WEAPON:
-        paired_slot = W8_EQUIP_SLOT_SECONDARY_WEAPON;
-        break;
-    case W8_EQUIP_SLOT_SECONDARY_WEAPON:
-        paired_slot = W8_EQUIP_SLOT_PRIMARY_WEAPON;
-        break;
-    case W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON:
-        paired_slot = W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON;
-        break;
-    case W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON:
-        paired_slot = W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON;
-        break;
-    default:
-        return true;
-    }
-    return CanHoldItemsTogether(
-        Data(), CurrentGame().party.held.item.iItemNo,
-        CurrentGame().party.characters[party_slot].EquippedItem[paired_slot].iItemNo);
-}
-
 /* Whether anybody in the party could use this item. Only occupied slots with a
    character who is conscious enough to act are asked. */
 bool AnyPartyMemberCanUseItem(int item_id)
@@ -589,7 +562,7 @@ void ApplyIdentifyAttempt(W8ItemInstance* item, unsigned int strength, unsigned 
 /* How many attempts of a given strength it takes to clear an item's
    difficulty. Counted downwards from the ceiling division, so the answer is
    the smallest count that still clears it. */
-unsigned int CountIdentifyAttemptsNeeded(W8ItemInstance* item, unsigned int percent)
+unsigned int CountIdentifyAttemptsNeeded(const W8ItemInstance* item, unsigned int percent)
 {
     unsigned int attempts;
     unsigned int candidate;
@@ -704,7 +677,7 @@ void BindEveryPartyItem(void)
     }
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (!CurrentGame().party.rows[party_slot].remembered.weapon_sets_locked) {
-            BindCharacterItems(CurrentGame(), party_slot, false);
+            CurrentGame().inventory.requestWeaponSwap(party_slot, false);
         }
     }
     ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x1ed]);
@@ -849,7 +822,7 @@ void DeliverExceptionalItemReaction(Game& game, W8ItemInstance* item, bool choos
 }
 
 /* Whether the item's equip class is directly usable (0x17/0x19). */
-bool IsUsableItemClass(W8ItemInstance* item)
+bool IsUsableItemClass(const W8ItemInstance* item)
 {
     if (Data().items[item->iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_KEY &&
         Data().items[item->iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_OTHER) {
@@ -886,7 +859,7 @@ bool CanUseItemForAction(int party_slot, const W8ItemInstance* item)
 
 /* Validate an item's embedded spell for use now; nonzero reports use blocked
    with the reason notice queued through the callback. */
-bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
+bool ValidateItemSpellUse(int character_index, const W8ItemInstance* item,
                           std::function<void(bool)> callback)
 {
     const W8ItemDatabaseRecord* record = &Data().items[item->iItemNo];
@@ -922,7 +895,7 @@ bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
 
 /* An identified casting item the character can activate whose record holds
    a service spell (0x03/0x29). Every carried location applies this test. */
-static bool IsActivatableServiceItem(W8Character* character, W8ItemInstance* item)
+static bool IsActivatableServiceItem(W8Character* character, const W8ItemInstance* item)
 {
     if (item->iItemNo != -1 && CanCharacterActivateItem(character, item)) {
         const W8ItemDatabaseRecord* record = &Data().items[item->iItemNo];
@@ -951,8 +924,8 @@ bool CharacterHasServiceItem(W8Character* character)
             return true;
         }
     }
-    for (index = 0; index < CurrentGame().party.item_count; ++index) {
-        if (IsActivatableServiceItem(character, &CurrentGame().party.item_pool[index])) {
+    for (const auto& item : CurrentGame().inventory.pool()) {
+        if (IsActivatableServiceItem(character, &item)) {
             return true;
         }
     }
@@ -1007,7 +980,7 @@ unsigned int GetItemUseDifficulty(const W8Character* character, W8Skill skill,
    opens its second selection step instead of executing immediately. */
 void SetCharacterItemUse(int party_slot, const W8Action& action)
 {
-    auto* item = CurrentGame().party.itemAt(action.detail_block.item_use.item);
+    const auto* item = CurrentGame().inventory.itemAt(action.detail_block.item_use.item);
     auto detail = action.detail_block;
     detail.item_use.kind = -1;
     StagePartySlotItemUse(party_slot, action.detail_block.item_use.item, &action.target);
@@ -1029,7 +1002,7 @@ void StagePartySlotItemUse(int party_slot, W8ItemLocation location, const W8Comb
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
 
-    row->remembered.item_detail.item_use = ItemUseAt(CurrentGame().party, location);
+    row->remembered.item_detail.item_use = CurrentGame().inventory.useAt(location);
     row->remembered.item_target = *target;
 }
 

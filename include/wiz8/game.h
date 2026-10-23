@@ -16,6 +16,7 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/spell_ids.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayTime.h"
@@ -31,7 +32,6 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/random.h"
-#include "wiz8/rules/rule_context.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/story.h"
 
@@ -109,8 +109,6 @@ public:
        from the party. */
     void castTriggerSpell(glm::vec3 position, W8SpellId spell, unsigned int power_level);
 
-    // The context the rules act on: the game's data, party, random stream and events.
-    RuleContext rules();
     const GameData& data;
     // The picked imported object, while the party is free to interact with the world.
     NativeObject* interactiveNativeObject();
@@ -120,6 +118,8 @@ public:
     std::filesystem::path native_object_file;
 
     W8Party party{};
+    // The party's shared pool and hand, and every move of an item.
+    Inventory inventory{*this};
     GameStatus status{};
     /* Every gameplay draw, party creation's included. A game continues the stream of the
        game it replaces or that ended before it, so a session draws one sequence from one

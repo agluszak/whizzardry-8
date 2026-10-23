@@ -154,7 +154,7 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
         camera = cameraLocation();
         camera_top = cameraLocation();
         point = target->point;
-        unsigned int spell_id = GetActionSpellLikeId(CurrentGame().party, selected);
+        unsigned int spell_id = GetActionSpellLikeId(CurrentGame().inventory, selected);
         assert(spell_id != W8_SPELL_NONE);
         W8SpellTargetType target_type = GetSpellTargetType(spell_id, false);
         if (target_type == W8_TARGET_TYPE_CONE) {
@@ -279,7 +279,8 @@ W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& sel
         }
         break;
     case W8_ACTION_USE_ITEM:
-        return GetItemSpellRange(CurrentGame().party.itemAt(selected.detail_block.item_use.item));
+        return GetItemSpellRange(
+            CurrentGame().inventory.itemAt(selected.detail_block.item_use.item));
     case W8_ACTION_PROTECT:
         return W8_RANGE_TOUCH;
     case W8_ACTION_BREATHE:
