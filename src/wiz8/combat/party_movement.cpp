@@ -146,7 +146,7 @@ void UpdateActivePartyMovement(void)
     bool moved = true;
     if (const auto elapsed = AccumulateMovementFatigue(CurrentGame())) {
         party_move_distance += elapsed->real + elapsed->frame;
-    } else if (g_settings.continuous_combat != 0 &&
+    } else if (g_settings.continuous_combat &&
                combat.party_movement_delay == std::chrono::milliseconds::zero()) {
         unsigned int step_count = g_settings.combat_delay_ms / 200 + 10;
         step_count = std::clamp(step_count, 10u, 60u);
@@ -161,7 +161,7 @@ void UpdateActivePartyMovement(void)
             static_cast<int>(100.0f - party_move_distance * 100.0f / party_move_limit + 0.5);
         combat.party_move_percent = std::clamp(percent, 0, 100);
         ShowPartyMovementGauge(false);
-        if (g_settings.continuous_combat != 0) {
+        if (g_settings.continuous_combat) {
             combat.party_movement_delay = kSyntheticMoveInterval;
         }
     }
@@ -401,8 +401,8 @@ void EndPartyMovementPhase(void)
         CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x21c]});
     }
     ResetLevelDataVectors();
-    DisableFreeTurnButton();
-    InvalidatePartyMovementPanel();
+    SetFreeTurnEnabled(false);
+    RepaintPartyMovementPanel();
     RefreshOutwardSightForAllMonsters();
     CurrentGame().combat->uiCurrentPartyActionStatus = W8_PARTY_ACTION_PHASE_ENDED;
 }
@@ -483,9 +483,9 @@ void FinishPartyMovementAction(void)
     if (CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
         SetLevelFastMovement();
     }
-    EnableFreeTurnButton();
-    InvalidatePartyMovementPanel();
-    if (g_settings.continuous_combat != 0) {
+    SetFreeTurnEnabled(true);
+    RepaintPartyMovementPanel();
+    if (g_settings.continuous_combat) {
         CurrentGame().combat->party_movement_delay = kSyntheticMoveInterval;
     }
     TurnPartyTo(CurrentGame().status.party_heading);

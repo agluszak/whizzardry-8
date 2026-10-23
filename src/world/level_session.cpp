@@ -30,6 +30,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
+#include "wiz8/level_state.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/LoadSaveGame.h"
@@ -38,7 +39,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/SpellEffect.h"
-#include "wiz8/local_screens/AutomapScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/math.h"
@@ -46,7 +46,6 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/render/camera.h"
-#include "wiz8/render/frame.h"
 #include "wiz8/render/material.h"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/render/mesh.h"
@@ -159,12 +158,6 @@ void StartLevelMusic(int fade, int replace_current)
                                                                         : "Adventure.MPL",
                        fade, replace_current);
     ServiceMusicPlaylist();
-}
-
-void UnloadSkyWorld(void)
-{
-    CurrentLevel().replaceSky(nullptr);
-    ResetEnvironment();
 }
 
 static int LevelFindIDByLocationCode(std::string_view location_code)
@@ -364,7 +357,6 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
     world.party.camera.applySway(*world.camera, world.initial_camera_sway ? CameraSwayMode::Start
                                                                           : CameraSwayMode::Stop);
     SetSkyNodeVisible(false);
-    ResetAutomapView();
     BeginRestoredLevelActivity(world, status);
 
     if (!restoring_game && entrance != -1) {
@@ -509,11 +501,12 @@ bool LoadLevel(int requested_level, int entrance, bool restoring_game)
                            wiz8::normalize_asset_path(level_info.sky_path).generic_string();
     auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(level_info.sky_path);
     if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return false;
-    if (GetWorld() && !StoreLeftLevel(CurrentGame())) return false;
-    auto status = ReadLeftLevelStatus(*replacement, CurrentGame(), level);
-    if (!status)
-        status = ReadLevelStatus(*replacement, wiz8::asset_path(BuildLevelStatusPath(level)), level,
-                                 true);
+    auto& game = CurrentGame();
+    if (current.primary) game.left_levels.store(LevelState::capture(current, game.status));
+    auto state = game.left_levels.decode(level);
+    if (!state)
+        state = LevelState::decode(wiz8::asset_path(BuildLevelStatusPath(level)), level, true);
+    auto status = state ? std::move(*state).build(*replacement) : nullptr;
     if (GetWorld()) LeaveLevel();
     current.replacePrimary(std::move(replacement));
     if (!reuse_sky) current.replaceSky(std::move(replacement_sky));
@@ -526,34 +519,16 @@ void LeaveLevel()
 {
     if (!GetWorld()) return;
     FinishLevelDeparture();
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
 
     ReleaseMarkedNpcBindings();
-
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
-
     ReleaseItemLists();
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
     ShutdownMonsterManager();
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
 
     ReleaseWorldCursor();
     DisableSky();
     EndCameraSway();
     ResetGameTimeAccumulator();
     CurrentLevel().replacePrimary(nullptr);
-
-    if (g_world_cleanup_flag) {
-        RenderFrame();
-    }
 }
 
 /* Unload the current level and load `level` at `entrance`. When the request

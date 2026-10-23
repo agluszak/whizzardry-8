@@ -40,7 +40,7 @@ class Trigger;
 
 /* Item ids 0x1b3 and 0x1c3 route the use-item action down the origin/equip
    path instead of activating, the same as a non-usable equip class. */
-bool IsSpecialItemId(W8ItemInstance* item)
+bool IsSpecialItemId(const W8ItemInstance* item)
 {
     return item->iItemNo == 0x1b3 || item->iItemNo == 0x1c3;
 }

@@ -472,8 +472,8 @@ template<> struct Record<W8WorldItem> {
         value(&runtime.entity_flags,
               field(offsetof(Disk, entity_flags), sizeof(Disk::entity_flags)));
         value(&runtime.flags, field(offsetof(Disk, flags), sizeof(Disk::flags)));
-        // saved_marker and next frame the flat sequence SaveItemFile writes and LoadItem
-        // reads; they are not item state.
+        // saved_marker and next frame the flat sequence WriteSavedWorldItem writes and
+        // ReadSavedWorldItem reads; they are not item state.
         value(&runtime.vertical_velocity,
               field(offsetof(Disk, vertical_velocity), sizeof(Disk::vertical_velocity)));
         value(&runtime.sector_id, field(offsetof(Disk, sector_id), sizeof(Disk::sector_id)));

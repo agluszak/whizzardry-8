@@ -20,7 +20,6 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/AutomapScreen.h"
@@ -28,6 +27,7 @@
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/JournalScreen.h"
+#include "wiz8/local_screens/MGSPartyMovement.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSTextBox.h"
@@ -41,7 +41,6 @@
 #include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/events.h"
-#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 
@@ -72,7 +71,7 @@ std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games, Pointer&
     case W8_SCREEN_MAIN_GAME:
         return std::make_unique<MainGameScreen>(GameOf(games), pointer);
     case W8_SCREEN_AUTOMAP:
-        return CreateAutomapScreen();
+        return std::make_unique<AutomapScreen>(GameOf(games).level.loaded());
     case W8_SCREEN_CREDITS:
         return CreateCreditsScreen();
     case W8_SCREEN_OPTIONS:
@@ -110,13 +109,9 @@ void RequestPartySlotRedraw(int bit)
 
 /* Refresh one party slot's on-screen presentation for the active screen:
    party selection forwards into its portrait helper; camp marks
-   the review panels dirty; main game redraws the portrait overlay. */
+   the review panels dirty; main game requests the portrait's next frame. */
 void RefreshPartySlotDisplay(unsigned int party_slot)
 {
-    unsigned int top;
-    bool overlay_ready;
-    bool highlighted;
-
     switch (CurrentScreenState().id) {
     case W8_SCREEN_CHARACTER:
         return;
@@ -128,56 +123,18 @@ void RefreshPartySlotDisplay(unsigned int party_slot)
     case W8_SCREEN_CAMP:
         FindScreen<CampScreen>()->RefreshPartySlot(static_cast<int>(party_slot));
         return;
-    case W8_SCREEN_MAIN_GAME: {
-        const auto* hud = ShownHud();
-        if (hud && (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS ||
-                    hud->portrait_refresh_pending[party_slot] != 0)) {
-            switch (party_slot) {
-            case 0:
-            case 1:
-                top = 0x12;
-                break;
-            case 2:
-            case 3:
-                top = 0x67;
-                break;
-            case 4:
-            case 5:
-                top = 0xbc;
-                break;
-            case 6:
-            case 7:
-                top = 0x111;
-                break;
-            default:
-                top = party_slot;
-                break;
-            }
-            overlay_ready =
-                PreparePartyPortraitOverlay(party_slot, (party_slot & 1) << 9 | 0x14, top);
-            highlighted = false;
-            if (hud->highlight.LightsPortrait(static_cast<int>(party_slot)) ||
-                party_slot == static_cast<unsigned int>(hud->held_item_display)) {
-                highlighted = true;
-            }
-            RedrawPartyPortraitOverlay(party_slot, highlighted, overlay_ready,
-                                       hud->portrait_refresh_pending[party_slot] == 0);
-            CurrentGame().monster_manager_entries[party_slot].combat_portrait_dirty = true;
-            InvalidatePortraitControl(party_slot);
-            return;
-        }
+    case W8_SCREEN_MAIN_GAME:
+        if (auto* hud = ShownHud()) hud->repaint.portrait_frames.set(party_slot);
         break;
-    }
     default:
         break;
     }
 }
 
-/* Empty the hand and drop whatever cursor a screen asked for. Inventory operations own the
-   held item. */
+/* Drop whatever cursor a screen asked for before the game is left or replaced; the held
+   item goes with its game. */
 void ClearHeldItemDisplay(void)
 {
-    CurrentGame().party.held.item = {};
     ScreenPointer().reset();
 }
 
@@ -256,13 +213,13 @@ struct GameEventPresentation {
     {
         if (auto* main_game = MainGame();
             main_game && main_game->hud && main_game->hud->open_submenu) {
-            if (g_settings.continuous_combat == 0) {
+            if (!g_settings.continuous_combat) {
                 DestroySubMenuControls();
             } else {
                 ReopenSubMenuPanel();
             }
         }
-        if (g_settings.continuous_combat == 0 && ScreenPointer().targeting() != W8_TARGET_NEED_NONE)
+        if (!g_settings.continuous_combat && ScreenPointer().targeting() != W8_TARGET_NEED_NONE)
             SetTargetingMode(W8_TARGET_NEED_NONE);
     }
     void operator()(const CombatCalledOff&) const
@@ -275,7 +232,7 @@ struct GameEventPresentation {
     {
         ScreenPointer().reset();
         auto* main_game = MainGame();
-        if (main_game) main_game->party_movement_panel = false;
+        if (main_game) main_game->party_movement.reset();
         DisablePortraitControls();
         if (main_game) main_game->combat.setEnabled(true);
         if (auto* hud = ShownHud()) {
@@ -383,7 +340,6 @@ void InitializeMainGameLevelBlock(W8LevelRuntimeBlock& hud)
     int slot;
 
     hud.repaint.everything = true;
-    hud.camera_mode = W8_VIEWPORT_MODE_UNINITIALIZED;
     hud.highlight = {};
     hud.combat_action_hover_party_slot = -1;
     hud.portrait_assay_hover_mode = W8_PORTRAIT_ASSAY_HOVER_NONE;
@@ -408,7 +364,6 @@ void InitializeMainGameLevelBlock(W8LevelRuntimeBlock& hud)
         hud.portrait_refresh_image[slot] = 0;
     }
     hud.open_submenu.reset();
-    RefreshMainGameLayout();
     hud.countdown0 = MonotonicMilliseconds() + (60000);
     hud.countdown1 = MonotonicMilliseconds() + (0);
     hud.text_box_visible = true;

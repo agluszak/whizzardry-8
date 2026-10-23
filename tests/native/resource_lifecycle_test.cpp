@@ -73,7 +73,6 @@
 #include "wiz8/world/world.h"
 
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
-extern SDLSurfaceOwner g_automap_surface;
 
 static void source_resource_owners()
 {
@@ -87,8 +86,6 @@ static void source_resource_owners()
     g_mouse_surface = std::shared_ptr<SDL_Surface>(
         CreateCpuStorage(2, 2, SDL_PIXELFORMAT_INDEX8).release(), SDL_DestroySurface);
     REQUIRE(SDL_SetSurfacePalette(g_mouse_surface.get(), palette.get()));
-    g_automap_surface = CreateCpuStorage(2, 2, SDL_PIXELFORMAT_INDEX8);
-    REQUIRE(SDL_SetSurfacePalette(g_automap_surface.get(), palette.get()));
 
     REQUIRE_THROWS_AS(
         [&] {
@@ -99,10 +96,9 @@ static void source_resource_owners()
         }(),
         std::runtime_error);
 
-    // These are the actual global owners used by mouse and automap rendering.
+    // This is the actual global owner used by mouse rendering.
     REQUIRE(SDL_FillSurfaceRect(g_mouse_surface.get(), nullptr, 17));
     REQUIRE(*static_cast<unsigned char*>(g_mouse_surface->pixels) == 17);
-    g_automap_surface.reset();
     model.reset();
     survivor.reset();
     g_mouse_surface.reset();
@@ -168,7 +164,7 @@ TEST_CASE("A dead character's events leave every queue of their own game", "[res
 {
     const ScopedGame current;
     // The queue's game is not the current one: completion must act on its owner.
-    Game owner;
+    Game owner{current.game.data};
     auto& party = owner.party.characters;
     party[0].fInParty = party[1].fInParty = true;
     auto& queue = owner.speech;
@@ -810,11 +806,10 @@ TEST_CASE("Queued dialogue keeps its script and voice when the NPC is rebound", 
 TEST_CASE("Skill notices stay with the supplied game", "[resources][notices]")
 {
     const ScopedGame active;
-    Game detached;
     GameData data;
     data.strings.resize(1024);
     data.strings[0x1d9] = data.strings[0x1db] = "%s %u";
-    const ScopedGameData installed(std::move(data));
+    Game detached(data);
     AnnounceSkillIncrease(detached, 0, W8_SKILL_COMMUNICATION, true);
     REQUIRE(detached.npc_dialogue.has_queued_actions());
     REQUIRE_FALSE(active.game.npc_dialogue.has_queued_actions());

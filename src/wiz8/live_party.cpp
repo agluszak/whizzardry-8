@@ -14,6 +14,7 @@
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/game.h"
@@ -21,7 +22,6 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -136,9 +136,11 @@ bool ClearCondition(Game& game, unsigned int slot, W8Condition condition, bool a
     if (condition == W8_CONDITION_HEXED &&
         InfatuationHoldsHex(character, GetLevelBand(GetLoadedLevelID())))
         return false;
-    if (condition == W8_CONDITION_INSANE && MadnessRingHoldsInsanity(game.party, slot))
+    if (condition == W8_CONDITION_INSANE &&
+        MadnessRingHoldsInsanity(game.party, game.inventory.find(ItemWithId(kItemMadnessRing)),
+                                 slot))
         return false;
-    const auto& strings = Data().strings;
+    const auto& strings = game.data.strings;
     if (announce) {
         game.events.push(CharacterNotice{
             slot, fmt::sprintf(strings[0x243], strings[kConditionNotices[condition].name])});
@@ -214,9 +216,10 @@ void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hand
     auto& party = game.party;
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (party.members[slot].has_value() && IsCharacterDefined(party.characters[slot]) &&
-            UnequipUnusableItems(game, slot))
+            game.inventory.unequipUnusable(slot))
             changed_hands.set(slot);
-    const auto stats = UpdatePartyStats(Data(), party, CaptureLivePartyStatRules(game));
+    const auto stats =
+        UpdatePartyStats(game.data, party, game.inventory.pool(), CaptureLivePartyStatRules(game));
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         if (!party.members[slot].has_value()) continue;
         auto& character = party.characters[slot];
@@ -241,7 +244,7 @@ void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hand
 bool InflictCondition(Game& game, unsigned int slot, const ConditionInfliction& infliction)
 {
     auto& character = game.party.characters[slot];
-    const auto& strings = Data().strings;
+    const auto& strings = game.data.strings;
     const auto condition = infliction.condition;
     assert(game.party.members[slot].has_value());
     assert(infliction.poison_strength == 0 || condition == W8_CONDITION_POISONED);
@@ -343,7 +346,7 @@ void LiftAllConditionsFromParty(Game& game)
 void ReviveByCheatingDeath(Game& game, unsigned int slot)
 {
     auto& character = game.party.characters[slot];
-    game.events.push(CharacterNotice{slot, Data().strings[0x173]});
+    game.events.push(CharacterNotice{slot, game.data.strings[0x173]});
     InflictCondition(
         game, slot,
         {.condition = W8_CONDITION_UNCONSCIOUS, .duration = CheatDeathUnconsciousTurns(character)});
@@ -354,7 +357,7 @@ void ReviveByCheatingDeath(Game& game, unsigned int slot)
 void Enchant(Game& game, unsigned int slot, W8EnchantmentSlot enchantment, int power,
              unsigned int turns, unsigned int percent)
 {
-    if (StrengthenEnchantment(game.rng, Data(), game.party.characters[slot], enchantment, power,
+    if (StrengthenEnchantment(game.rng, game.data, game.party.characters[slot], enchantment, power,
                               turns, percent)) {
         PushSlotDisplayChanged(game.events, slot);
         if (enchantment == W8_ENCHANTMENT_SUPERMAN) game.sight_refresh_pending = true;
@@ -400,12 +403,12 @@ void RecalculateCharacterDerivedStats(Game& game, W8Character& character)
         SettleActiveParty(game);
         return;
     }
-    UpdateStandaloneCharacterStats(Data(), character, {});
+    UpdateStandaloneCharacterStats(game.data, character, {});
 }
 
 void RecalculateEditedCharacterStats(Game& game, W8Character& draft)
 {
     draft.party_weight_share = 0;
-    const auto update = UpdateCharacterStatsFromInputs(game.rules().data, draft, {});
+    const auto update = UpdateCharacterStatsFromInputs(game.data, draft, {});
     if (update.became_overloaded) PresentOverload(game, draft);
 }

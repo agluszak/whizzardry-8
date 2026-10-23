@@ -4,6 +4,7 @@
 struct W8Chunk;
 
 #include <chrono>
+#include <optional>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/filesystem.h"
@@ -30,9 +31,8 @@ public:
     unsigned int advance(std::chrono::milliseconds elapsed);
     [[nodiscard]] float progress() const { return elapsed_ / length(); }
     [[nodiscard]] float scale() const { return scale_; }
-    // The retail pair: progress, then scale.
-    void save(wiz8::File& handle) const;
-    void load(W8Chunk& handle);
+    // Restore the retail pair: progress through the interval, then scale.
+    void restore(float progress, float scale);
 
 private:
     [[nodiscard]] std::chrono::duration<float> length() const
@@ -57,8 +57,20 @@ struct MonGen {
     char name[32]{};
     bool generation_enabled; /* MIPE "Toggle Active"; gates CanGenerate */
 
+    /* A generator read from a save rearms when its world is built, drawing its jittered
+       interval there rather than as it is read; a saved generator state then puts back
+       its own timer. */
+    struct DecodedRearm {
+        short interval;
+        std::optional<GeneratorInterval> saved_timer;
+    };
+    std::optional<DecodedRearm> rearm;
+
     MonGen();
+    // Rearm the timer for the configured interval, jittered by one draw.
     void Reset(short default_interval);
+    [[nodiscard]] short IntervalSeconds(short default_interval) const;
+    void Rearm(short interval);
     /* Tests global encounter gates, range/LOS/occupancy constraints and this
        generator's chance. */
     bool CanGenerateEncounter(bool force);
@@ -68,8 +80,6 @@ struct MonGen {
     const W8EncounterEntry* SelectEncounterCandidate(const W8EncounterTable& table);
     /* Difficulty-aware group-size roll for one monster database record. */
     int RollEncounterGroupSize(const W8MonsterRecord* record);
-    /* The save pair. Both are __thiscall in the image. */
-    void Save(wiz8::File& handle);
     unsigned char Load(W8Chunk& handle, short default_interval);
     /* The MONG chunk loader. */
     /* Select one loaded encounter table and apply its HARASSMENT flag. */

@@ -22,8 +22,6 @@ void HandleScriptedNpcDeath(const ScriptContext& context,
                             unsigned int monster_list_index); /* 0x00508D70 */
 void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects);
 void SeedNewGameFacts(Story& story);
-/* Install a save's facts, then re-apply the consequences that do not survive a save. */
-void InstallFacts(const std::array<unsigned char, W8_FACT_SLOT_COUNT>& facts);
 
 void PostNewGameLoad(void);
 

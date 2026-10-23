@@ -391,7 +391,9 @@ void ScrollDialogueTextBoxToLine(void)
     if (CurrentGame().activity.conversation) {
         offset = MainGame()->dialogue.text_box_collapsed ? 1 : 7;
     } else {
-        offset = !gpSCSV && !ItemUseDraft() && !CurrentGame().activity.conversation_aside ? 1 : 7;
+        offset = !SpellPicker() && !UseItemPicker() && !CurrentGame().activity.conversation_aside
+                     ? 1
+                     : 7;
     }
     ScrollTextBoxTo(
         CurrentGame().status.text_box_lines_shown[CurrentGame().status.text_line_cursor] - offset);
@@ -504,7 +506,8 @@ int GetTextBoxVisibleLineCount(void)
             return 1;
         }
     }
-    if (!gpSCSV && !dialogue && !ItemUseDraft() && !CurrentGame().activity.conversation_aside) {
+    if (!SpellPicker() && !dialogue && !UseItemPicker() &&
+        !CurrentGame().activity.conversation_aside) {
         return 1;
     }
     return 7;
@@ -555,7 +558,7 @@ void AdvanceNoticeLine(short text_box)
         if (CurrentGame().activity.conversation && MainGame()->dialogue.text_box_collapsed) {
             ScrollTextBoxTo(shown);
             MainGame()->dialogue.text_box_collapsed = false;
-        } else if (!gpSCSV && !CurrentGame().activity.conversation && !ItemUseDraft() &&
+        } else if (!SpellPicker() && !CurrentGame().activity.conversation && !UseItemPicker() &&
                    !CurrentGame().activity.conversation_aside) {
             if (CurrentGame().combat.has_value() && CurrentGame().combat->notice_scroll_pending) {
                 ScrollTextBoxTo(shown);
@@ -736,13 +739,13 @@ UiResult HandleTextBody(const UiPointerEvent& event)
             ScrollTextBoxUp(event.wheel);
         if (CurrentGame().activity.conversation)
             NpcDialogueTextBoxWheelAt(event.position.x, event.position.y, true);
-        else if (ItemUseDraft())
-            UseItemSelectTextBoxWheelAt(event.position.x, event.position.y, true);
+        else if (auto* picker = UseItemPicker())
+            picker->TextBoxWheelAt(event.position.y);
         return UiResult::Handled;
     }
     if (CurrentGame().activity.conversation) return HandleNpcTextBox(event);
-    if (gpSCSV) return HandleSpellTextBox(event);
-    if (ItemUseDraft()) return HandleUseItemTextBox(event);
+    if (auto* picker = SpellPicker()) return picker->HandleTextBox(event);
+    if (auto* picker = UseItemPicker()) return picker->HandleTextBox(event);
     return UiResult::Handled;
 }
 
@@ -868,7 +871,7 @@ void RedrawTextBoxBody(bool skip_invalidate)
         rows = 7;
     }
 
-    if (MainGameHud()->action_panel_visible == 0) {
+    if (!MainGame()->layout().bottom_panel) {
         can_scroll_down = scroll + static_cast<unsigned int>(GetTextBoxVisibleLineCount()) <
                           CurrentGame().status.text_box_lines_shown[text_box];
         if (!can_scroll_down &&
@@ -928,7 +931,7 @@ void RedrawTextBoxScrollChrome(void)
     clip.h = (0x1db) - clip.y;
     ScopedClipRect clipped(framebuffer, clip);
 
-    if (MainGameHud()->action_panel_visible != 0) {
+    if (MainGame()->layout().bottom_panel) {
         text_box = CurrentGame().status.text_line_cursor;
         scroll = MainGameHud()->text_lines[text_box];
         if (scroll == 0) {
@@ -995,16 +998,6 @@ void RedrawTextBoxScrollChrome(void)
     InvalidateRegion(MainGameHud()->text_box_right + 5, 0x16b, MainGameHud()->text_box_right + 0x1e,
                      0x1c1);
     RedrawTextBoxBody(false);
-}
-
-/* Invalidate the text and action panels around a status-panel text refresh. */
-void RedrawTextBoxComplete(void)
-{
-    W8TrapInteraction* screen = TrapInteraction();
-
-    screen->m_text_panel->InvalidateAll();
-    screen->m_status_panel->RefreshStatusTexts();
-    screen->actions_dirty = true;
 }
 
 /* The last message on the current line whose clock has stopped, searched from

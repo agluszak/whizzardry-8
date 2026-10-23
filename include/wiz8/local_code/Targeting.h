@@ -14,7 +14,7 @@ void ResetTargetPicks(void);
 #include "wiz8/rules/action_choices.h"
 #include "wiz8/rules/targeting.h"
 
-struct W8Party;
+class Inventory;
 struct W8MonsterInfo;
 struct W8MonsterGroup;
 struct W8ItemInstance;
@@ -80,7 +80,7 @@ void SetTargetingMode(W8TargetNeed state);
 int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y);
 
 bool ActionNeedsExplicitTarget(const W8Action& action, bool conversation_aside);
-unsigned int GetActionSpellLikeId(const W8Party& party, const W8Action& selected);
+unsigned int GetActionSpellLikeId(const Inventory& inventory, const W8Action& selected);
 void ResetTargetSource(W8TargetSource* source);
 void SetTargetSourceToMonster(const W8MonsterInfo* monster_info, W8TargetSource* source);
 bool TargetMatchesNeeded(const W8CombatSlot* target, W8TargetNeed needed);
@@ -155,7 +155,7 @@ bool CanPartySlotParticipate(int party_slot);
 void SetTargetSourceToCharacter(int party_slot, W8TargetSource* source);
 /* What the interface has to ask the player to pick for one
    action - a fixed kind for most, the spell's answer for casts and item use. */
-W8TargetNeed GetTargetNeededForAction(const W8Party& party, const W8Action& action,
+W8TargetNeed GetTargetNeededForAction(const Inventory& inventory, const W8Action& action,
                                       bool needs_item_target = true);
 W8TargetNeed GetTargetNeededForItem(const W8ItemInstance* item, bool needs_item_target);
 

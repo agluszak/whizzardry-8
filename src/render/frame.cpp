@@ -537,15 +537,15 @@ bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect)
     return ReadFrameInto(*target);
 }
 
-bool RenderMapToSurface(SDL_Surface& target, const DesignRect& rect)
+bool RenderMapToSurface(SDL_Surface& target, WorldScene& scene, const DesignRect& rect)
 {
-    if (!g_renderer || !g_renderer->isOpen() || !GetWorld()) return false;
+    if (!g_renderer || !g_renderer->isOpen()) return false;
     g_renderer->beginFrame(glm::vec4(0, 0, 0, 1));
     auto frame = CurrentSceneFrame();
     // The map keeps the retail automap's reduced texture detail.
     frame.texture_reduction = 3;
     const auto area = ToSurfaceRect(rect, g_renderer->width(), g_renderer->height());
-    g_renderer->addView(GetWorld()->scene->createMapView(
+    g_renderer->addView(scene.createMapView(
         g_renderer->context(), frame, vsg::ViewportState::create(area.x, area.y, area.w, area.h),
         g_renderer->frameNumber()));
     return ReadFrameInto(target);
@@ -818,7 +818,7 @@ bool GetCursorPositionInViewport(glm::vec2* position)
     return false;
 }
 
-/* The tracked cursor tip (hotspot + size) in pixel-scale units. DropHeldItem
+/* The tracked cursor tip (hotspot + size) in pixel-scale units. Dropping an item
    turns it into the toss direction. */
 glm::vec2 GetCursorScaledPosition()
 {

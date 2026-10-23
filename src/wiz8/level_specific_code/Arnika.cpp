@@ -34,7 +34,6 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
-#include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/party_camera.h"
@@ -440,7 +439,7 @@ bool ArnikaScript::laserScanMaster(int command)
 /* ScannerDoor trigger: the 0x27b key item opens the HLL door once. */
 bool ArnikaScript::scannerDoor(Trigger* pTrigger)
 {
-    if (!PartyHasItem(ctx.party, 0x27b)) {
+    if (!ctx.inventory.has(0x27b)) {
         return false;
     }
     if (GetLocationVarIDByName("HLLDoorOpen") == -1) {
@@ -894,7 +893,7 @@ void ArnikaScript::elevatorAdvance(W8ArnikaElevatorId which)
    pedestal runs it. */
 bool ArnikaScript::chaosMolori(Trigger* pTrigger)
 {
-    if (!running_trigger_from_script_ && (ctx.party.held.item.iItemNo != -1)) {
+    if (!running_trigger_from_script_ && (ctx.inventory.held())) {
         return false;
     }
     return true;
@@ -920,7 +919,7 @@ bool ArnikaScript::maddmook(Trigger* pTrigger)
    activation to the CMBox trigger. */
 bool ArnikaScript::astralDominae(Trigger* pTrigger)
 {
-    if (!running_trigger_from_script_ && (ctx.party.held.item.iItemNo != -1)) {
+    if (!running_trigger_from_script_ && (ctx.inventory.held())) {
         return false;
     }
     pTrigger = FindRequiredTriggerByName("CMBox");
@@ -968,15 +967,15 @@ int ArnikaScript::pedestalItem(int* previous_item)
     int item = -1;
     int previous;
 
-    if ((ctx.party.held.item.iItemNo != -1)) {
-        item = GetItemInHand(ctx.party);
+    if ((ctx.inventory.held())) {
+        item = ctx.inventory.heldItemId();
         if (item != 0x244 && item != 0x242 && item != 0x264) {
             return -2;
         }
     }
     FindRequiredTriggerByName("ChaosMolori");
     if (item > -1) {
-        (void)TakeInventoryItem(ctx.game, {W8ItemStorage::Hand});
+        (void)ctx.inventory.take({W8ItemStorage::Hand});
     }
     if (GetLocationVarIDByName("PedestalItem") != -1 &&
         GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
@@ -996,8 +995,8 @@ int ArnikaScript::pedestalItem(int* previous_item)
         CreateLocationVar("PedestalItem", -1);
         previous = 0x244;
         if (item == -1) {
-            ReplaceHeldItem(ctx.game,
-                            MakeItem(Data(), ctx.game.rng, previous, false, false, false));
+            ctx.inventory.replaceHeld(
+                MakeItem(Data(), ctx.game.rng, previous, false, false, false));
         }
     } else {
         previous = GetLocationVarValueByName("PedestalItem");
@@ -1006,8 +1005,8 @@ int ArnikaScript::pedestalItem(int* previous_item)
                 return -2;
             }
         } else if (item == -1) {
-            ReplaceHeldItem(ctx.game,
-                            MakeItem(Data(), ctx.game.rng, previous, false, false, false));
+            ctx.inventory.replaceHeld(
+                MakeItem(Data(), ctx.game.rng, previous, false, false, false));
         }
     }
     npc = GetNpcStateByKind(0x69);
@@ -1051,7 +1050,7 @@ bool ArnikaScript::ballSlot(Trigger* pTrigger)
    cursor holds one. */
 bool ArnikaScript::flightRecorder(Trigger* pTrigger)
 {
-    W8ItemInstance* item;
+    const W8ItemInstance* item;
     W8NpcState* npc;
 
     if (ctx.activity.conversation) {
@@ -1060,8 +1059,8 @@ bool ArnikaScript::flightRecorder(Trigger* pTrigger)
     g_trigger_feedback = true;
     npc = GetNpcStateByKind(0x14);
     item = 0;
-    if ((ctx.party.held.item.iItemNo != -1)) {
-        item = &ctx.party.held.item;
+    if (const auto* held = ctx.inventory.held()) {
+        item = &held->item;
     }
     QueueNpcScriptNotice(npc, item, -1, false, 0);
     return false;

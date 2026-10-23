@@ -155,7 +155,7 @@ if(UNIX)
             -P "${CMAKE_CURRENT_SOURCE_DIR}/no_host_wide_strings.cmake")
 endif()
 
-add_executable(native_game_graphics "${PROJECT_SOURCE_DIR}/tests/native/game_graphics.cpp")
+add_executable(native_game_graphics EXCLUDE_FROM_ALL "${PROJECT_SOURCE_DIR}/tests/native/game_graphics.cpp")
 target_compile_definitions(native_game_graphics PRIVATE
     WIZ8_MOVIE_FIXTURE="${PROJECT_SOURCE_DIR}/tests/native/movie.mkv")
 target_link_libraries(native_game_graphics PRIVATE wiz8_engine SDL3::SDL3 SDL3_image::SDL3_image)
@@ -190,6 +190,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if(WIZ8_LAVAPIPE_ICD)
         list(APPEND WIZ8_GRAPHICS_TEST_ENVIRONMENT "VK_DRIVER_FILES=${WIZ8_LAVAPIPE_ICD}")
     endif()
+    # CTest already runs one graphics test per core; lavapipe's default of a
+    # rasterizer thread per core in every test oversubscribes them.
+    list(APPEND WIZ8_GRAPHICS_TEST_ENVIRONMENT "LP_NUM_THREADS=1")
 endif()
 add_test(NAME native_gpu_rendering COMMAND native_gpu_rendering_test)
 set_tests_properties(native_gpu_rendering PROPERTIES
@@ -222,7 +225,7 @@ add_test(NAME native_application COMMAND native_application_test)
 set_tests_properties(native_application PROPERTIES ENVIRONMENT "SDL_VIDEODRIVER=dummy" TIMEOUT 10)
 
 # Installed level/character integration; supplied assets and a display are required.
-add_executable(native_world_graphics "${PROJECT_SOURCE_DIR}/tests/native/world_graphics.cpp")
+add_executable(native_world_graphics EXCLUDE_FROM_ALL "${PROJECT_SOURCE_DIR}/tests/native/world_graphics.cpp")
 target_link_libraries(native_world_graphics PRIVATE wiz8_engine SDL3::SDL3)
 
 # Scenarios through the real game loop against installed retail assets
@@ -277,11 +280,13 @@ foreach(scenario video video-seen main-menu-ui formation-ui game-start resource-
 endforeach()
 # Each scenario is its own process with its own user directory, so they run in
 # parallel; only the save fixture below orders two of them.
-# These scenarios advance many simulated frames of the main-game rendering the
-# shorter scenarios already validate, so they run without the validation layer
-# CI enables, and with more wall time for software Vulkan.
-set_tests_properties(runtime_combat runtime_random-play PROPERTIES TIMEOUT 600
+# These scenarios advance many simulated frames of the main-game world and
+# interface overlay, which the shorter scenarios already render under the
+# validation layer CI enables. They run without it, and with more wall time for
+# software Vulkan.
+set_tests_properties(runtime_combat runtime_random-play runtime_npc-dialogue PROPERTIES
     ENVIRONMENT_MODIFICATION "VK_INSTANCE_LAYERS=unset:")
+set_tests_properties(runtime_combat runtime_random-play PROPERTIES TIMEOUT 600)
 set_tests_properties(runtime_npc-dialogue PROPERTIES TIMEOUT 300)
 # The quick-save scenario writes a fixture consumed by the menu-driven load test.
 # CTest arranges the dependency even when only runtime_load-game is selected.

@@ -45,7 +45,6 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
-#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -489,7 +488,7 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
 
     RecalculateCharacterDerivedStats(CurrentGame(), *destination);
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-        RefreshPartySlotRegions();
+        MainGame()->refreshPartySlotRegions();
     }
     return slot;
 }
@@ -521,7 +520,7 @@ void RemoveCharacterFromParty(int party_slot)
     if (member) CurrentGame().party.order_slots[member->order_index] = -1;
     member.reset();
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-        RefreshPartySlotRegions();
+        MainGame()->refreshPartySlotRegions();
     }
     if (CurrentGame().status.selected_character == party_slot) {
         CurrentGame().status.selected_character = GetNextCharacter(1, 1, -1);
@@ -542,18 +541,12 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
 
     for (index = 0; index < 12; ++index) {
         if (character->EquippedItem[index].iItemNo != -1) {
-            AddItemToParty(CurrentGame(),
-                           PartyItem(CurrentGame().party, {W8ItemStorage::Equipment, slot,
-                                                           static_cast<unsigned>(index)}),
-                           false, false);
+            CurrentGame().inventory.storeInPool(character->EquippedItem[index], false);
         }
     }
     for (index = 0; index < 8; ++index) {
         if (character->backpack[index].iItemNo != -1) {
-            AddItemToParty(CurrentGame(),
-                           PartyItem(CurrentGame().party,
-                                     {W8ItemStorage::Backpack, slot, static_cast<unsigned>(index)}),
-                           false, false);
+            CurrentGame().inventory.storeInPool(character->backpack[index], false);
         }
     }
     RemoveCharacterFromParty(slot);
@@ -579,7 +572,7 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
         AddCharacterStartingEquipment(CurrentGame(), character);
     }
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-        RefreshPartySlotRegions();
+        MainGame()->refreshPartySlotRegions();
     }
     return slot;
 }

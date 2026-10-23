@@ -16,8 +16,6 @@
 #include "wiz8/rules/random.h"
 
 namespace {
-constexpr int kItemMadnessRing = 0x243;
-constexpr int kItemMadnessCharm = 0x239;
 // The cheat-death revival leaves a member unconscious for at least this long.
 constexpr unsigned int kCheatDeathUnconsciousLimit = 7;
 
@@ -85,9 +83,8 @@ bool InfatuationHoldsHex(const W8Character& character, int level_band)
            level_band != 10;
 }
 
-bool MadnessRingHoldsInsanity(const W8Party& party, unsigned int slot)
+bool MadnessRingHoldsInsanity(const W8Party& party, W8ItemLocation found, unsigned int slot)
 {
-    const auto found = FindPartyItem(party, ItemWithId(kItemMadnessRing), W8ItemReach::Party);
     if (found.storage == W8ItemStorage::None || found.storage == W8ItemStorage::Hand) return false;
     const auto bearer = found.storage == W8ItemStorage::Pool ? LowestMentalResistanceSlot(party)
                                                              : std::optional{found.character};

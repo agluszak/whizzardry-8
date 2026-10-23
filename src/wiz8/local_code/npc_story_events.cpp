@@ -421,7 +421,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         break;
     }
     case W8NpcStoryAction::spawn_alfie_chaos:
-        SpawnAlfieChaos(context.party);
+        SpawnAlfieChaos(context.inventory);
         break;
     case W8NpcStoryAction::spawn_alfie_life:
         SpawnAlfieLife();

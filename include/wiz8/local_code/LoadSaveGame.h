@@ -10,6 +10,8 @@
 #include <SDL3/SDL_time.h>
 
 #include "wiz8/layouts/save_screenshot.h"
+#include "wiz8/level_state.h"
+#include "wiz8/save_codec.h"
 
 bool VerifyDataSubdirs(void);
 std::optional<std::string> FindStartupQuickSave();
@@ -53,37 +55,44 @@ bool LoadCharacter(std::string_view name, W8Character* character, int slot);
 std::string BuildCharacterFilePath(std::string_view filename, int slot);
 std::string BuildCharacterPath(std::string_view name, int slot);
 bool SaveGameExists(void);
-/* Load a save slot by name into a new game of `games`, replacing any in progress; the
-   Please Wait screen drives it. */
-bool LoadGame(GameSession& games, std::string_view slot_name);
-
 class Game;
+/* A save's game sections, decoded and checked. A repeated section keeps its last record
+   (a character, the last under its name) or, for location variables and monster control,
+   accumulates; a missing one leaves the new game's default. */
+struct SavedGame {
+    wiz8::save::GameState state;
+    std::vector<wiz8::save::StoredCharacter> characters;
+    // Each level's group as bytes, which a save copies and entering the level decodes.
+    LeftLevels levels;
+    std::optional<wiz8::save::MessageBoxes> messages;
+    std::vector<W8LocationVariable> location_variables;
+    std::optional<wiz8::save::DialogueTranscript> transcript;
+    std::optional<std::vector<std::unique_ptr<W8NpcState>>> npcs;
+    std::optional<wiz8::save::Facts> facts;
+    std::optional<wiz8::save::Factions> factions;
+    std::optional<std::vector<W8JournalEntry>> journal;
+    std::vector<std::unique_ptr<W8SpellEffectEntry>> spell_effects;
+    // Begin `games`'s replacement game from this state, in the order a save writes it.
+    void install(GameSession& games) &&;
+};
+// Decode a save slot, or nothing (logged) when it is missing or malformed.
+std::optional<SavedGame> ReadSavedGame(std::string_view slot_name);
 struct World;
-// Store the current level's group among the levels the game has left (Game::left_levels).
-bool StoreLeftLevel(Game& game);
-// Decoded level data. Its implementation stays with the existing retail codecs.
+// What entering a built level still installs (LevelState::build, InstallLevelSessionState).
 struct W8LoadedLevelStatus {
     struct Data;
     std::unique_ptr<Data> data;
     W8LoadedLevelStatus();
     ~W8LoadedLevelStatus();
 };
-std::unique_ptr<W8LoadedLevelStatus> ReadLevelStatus(World& world,
-                                                     const std::filesystem::path& path, int level,
-                                                     bool from_assets = false);
-// The level's state as the party left it, or null when it never left the level.
-std::unique_ptr<W8LoadedLevelStatus> ReadLeftLevelStatus(World& world, const Game& game, int level);
-void PrepareLevelPopulation(World& world, W8LoadedLevelStatus& status);
 void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status);
 void BeginRestoredLevelActivity(World& world, W8LoadedLevelStatus* status);
 std::string BuildLevelStatusPath(unsigned int level);
-bool SaveStatusHeader(W8Chunk* chunks);
 
 extern bool g_save_pending;
 
 /* Deferred main-game autosave: notice first, then SaveGame on the next tick. */
 void ProcessMainGameAutoSave(void);
-bool SaveMonsterStatus(W8Chunk* chunks);
 
 std::optional<std::string> SelectQuickSaveSlotForWrite();
 std::optional<std::string> FindFreeEndingSaveName();

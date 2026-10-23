@@ -158,10 +158,10 @@ bool Game::beginCombat(int surprise)
     if (GetViewDistance() != g_sight_default) {
         ResetSight();
     }
-    UpdateScreenOverlays(0);
+    if (auto* screen = MainGame()) screen->dismissOverlays(false);
     AutoSaveIfAllowed(true);
     ResetLevelDataVectors();
-    if (!activity.conversation && !gpSCSV && !ItemUseDraft()) {
+    if (!activity.conversation) {
         SelectTextBox(1);
     }
     ResetEditorStatusLine(1);
@@ -215,7 +215,7 @@ bool Game::beginCombat(int surprise)
     if (IsLevelFastMovement()) {
         ClearLevelFastMovement();
     }
-    if (g_settings.continuous_combat != 0 && !fight.party_surprised) {
+    if (g_settings.continuous_combat && !fight.party_surprised) {
         fight.continuous_start_delay =
             std::chrono::milliseconds{g_settings.continuous_combat_start_delay_ms};
     }
@@ -287,7 +287,7 @@ bool CombatMayAdvanceContinuously(void)
         if (CurrentGame().party.members[slot].has_value() && character->hp_current != 0 &&
             CharacterCanSwitchTo(slot, SelectCombatAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
                                  false) &&
-            CharacterActionTargetsEnemies(CurrentGame().party, character, row->committed.kind,
+            CharacterActionTargetsEnemies(CurrentGame().inventory, character, row->committed.kind,
                                           row->committed.detail, &row->committed.detail_block)) {
             return true;
         }
@@ -464,7 +464,7 @@ void BeginCombatExecution(void)
     if (CurrentGame().combat->uiNextPartyAction != W8_PARTY_ACTION_NONE) {
         ClearPendingPartyMovement();
     }
-    if (g_settings.continuous_combat == 0) {
+    if (!g_settings.continuous_combat) {
         CurrentGame().combat->round_active = false;
         ClearCombatSelection();
     }
@@ -533,7 +533,7 @@ void BeginCombatExecution(void)
     CurrentGame().events.push(CombatProgressChanged{.whole_party = true});
     CurrentGame().events.push(CombatStanceChanged{});
 
-    if (g_settings.verbose_combat_messages != 0 &&
+    if (g_settings.verbose_combat_messages &&
         CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_NONE) {
         for (slot = 0; slot < 8; ++slot) {
             W8PartySlotRow* party = &CurrentGame().party.rows[slot];
@@ -951,9 +951,7 @@ void Game::endCombat(bool forced_cleanup)
     if (party_movement_mode) {
         BeginFreeTurnPhase();
     }
-    if (PartyMovementPanelShown()) {
-        ReleasePartyMovement();
-    }
+    ReleasePartyMovement();
     CurrentGame().events.push(PartyEffectsChanged{});
 
     CurrentGame().events.push(TargetingRequested{});
@@ -986,7 +984,7 @@ void Game::endCombat(bool forced_cleanup)
     if (combat->uiNextPartyAction != W8_PARTY_ACTION_NONE) {
         ClearPendingPartyMovement();
     }
-    UpdateScreenOverlays(0);
+    if (auto* screen = MainGame()) screen->dismissOverlays(false);
     RestoreCombatFormation();
     ReconcilePartyEquipmentAfterCombat();
     // The fight is over; what follows restores the world around it.
@@ -994,7 +992,7 @@ void Game::endCombat(bool forced_cleanup)
     search.fightEnded();
     if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->setZoom(false);
     events.push(CombatEnded{});
-    if (!activity.conversation && !gpSCSV && !ItemUseDraft()) {
+    if (!activity.conversation) {
         SelectTextBox(0);
     }
     ApplyWorldAdvancement(*this, advancement.hold);
@@ -1100,12 +1098,7 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
                                                               : W8_PARTY_ACTION_RUN);
         }
     }
-    if (!PartyMovementPanelShown()) {
-        CreatePartyMovementPanel();
-        CurrentGame().events.push(TargetingRequested{});
-        return;
-    }
-    InvalidatePartyMovementPanel();
+    ShowPartyMovementPanel();
     CurrentGame().events.push(TargetingRequested{});
 }
 
@@ -1115,7 +1108,7 @@ static void ReadyWeaponForAction(int party_slot, W8ActionKind action)
 {
     if ((action == W8_ACTION_ATTACK && !CanAnyHandReachTarget(party_slot)) ||
         (action == W8_ACTION_BERSERK && !CanCharacterBerserk(party_slot))) {
-        ReadyPrimaryWeapon(CurrentGame(), party_slot);
+        CurrentGame().inventory.readyPrimaryWeapon(party_slot);
     }
 }
 
@@ -1245,11 +1238,11 @@ bool CanPerformAction(int party_slot, const W8Action& selected, bool allow_missi
         }
         break;
     case W8_ACTION_USE_ITEM:
-        if (CurrentGame().party.itemAt(selected.detail_block.item_use.item) == 0) {
+        if (CurrentGame().inventory.itemAt(selected.detail_block.item_use.item) == 0) {
             return false;
         }
         if (!CanCharacterActivateItem(
-                character, CurrentGame().party.itemAt(selected.detail_block.item_use.item))) {
+                character, CurrentGame().inventory.itemAt(selected.detail_block.item_use.item))) {
             return false;
         }
         break;
@@ -1352,9 +1345,9 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
    live member without a combat action to take. */
 void AutoAdvanceSelectedCharacter(void)
 {
-    if (g_settings.auto_advance_character == 0 || CurrentGame().combat->target_picked ||
+    if (!g_settings.auto_advance_character || CurrentGame().combat->target_picked ||
         !CurrentGame().combat->round_active || ScreenPointer().targeting() != W8_TARGET_NEED_NONE ||
-        gpSCSV || ItemUseDraft()) {
+        SpellPicker() || UseItemPicker()) {
         return;
     }
     int selected = CurrentGame().status.selected_character;
@@ -1511,7 +1504,7 @@ void AdvanceCombatRound(void)
     if (CurrentGame().party_movement_mode) {
         BeginFreeTurnPhase();
     }
-    if (g_settings.continuous_combat == 0 &&
+    if (!g_settings.continuous_combat &&
         CurrentGame().combat->uiNextPartyAction != W8_PARTY_ACTION_NONE) {
         ClearPendingPartyMovement();
     }
@@ -1862,14 +1855,14 @@ int GetConditionInterrupt(W8TargetSource* source)
             if (!AreAllHandSlotsEmpty(&CurrentGame().party.characters[party_slot]) &&
                 CanUnequipSlotItem(Data(), character, W8_EQUIP_SLOT_PRIMARY_WEAPON) &&
                 CanUnequipSlotItem(Data(), character, W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
-                SwapWeaponSetSlots(CurrentGame(), party_slot, false);
+                CurrentGame().inventory.swapWeaponSets(party_slot, false);
                 if (CanAnyHandReachTarget(party_slot) &&
                     CanPartySlotAttackAnyTarget(party_slot, 1, false)) {
                     CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
                                                               Data().strings[0x23d]});
                     return 9;
                 }
-                SwapWeaponSetSlots(CurrentGame(), party_slot, false);
+                CurrentGame().inventory.swapWeaponSets(party_slot, false);
             }
             return 10;
         }

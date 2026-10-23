@@ -104,7 +104,7 @@ void RedrawPortraitQuoteBubbles(void)
 
 void StartBreathCycle(int party_slot, bool force)
 {
-    if ((!gpSCSV && !ItemUseDraft()) || force) {
+    if ((!SpellPicker() && !UseItemPicker()) || force) {
         QueueCharacterEvent(&CurrentGame().party.characters[party_slot], g_special_event2, 0,
                             kCharacterEventFullVolume);
     }
@@ -931,7 +931,7 @@ void W8CharacterEventQueue::SetPortraitEventState(unsigned int party_slot, bool 
         if (use_modal_gate && CurrentScreenState().id == W8_SCREEN_MAIN_GAME && !IsModalOpen()) {
             layout_quote = true;
         }
-        if (!layout_quote || g_settings.pc_subtitles == 0) {
+        if (!layout_quote || !g_settings.pc_subtitles) {
             quote->bubble.reset();
         } else {
             quote->bubble = QuoteBubble::layout(quote_text, 200, std::nullopt);
@@ -1242,7 +1242,7 @@ W8CharacterEvent* QueueCharacterEvent(W8Character* character, int event_type, un
 W8CharacterEvent* W8CharacterEventQueue::Queue(W8Character* character, int event_type,
                                                unsigned int flags, unsigned int volume)
 {
-    if (g_settings.pc_confirmations == 0 &&
+    if (!g_settings.pc_confirmations &&
         (event_type == g_special_event2 || event_type == g_special_event17)) {
         return 0;
     }

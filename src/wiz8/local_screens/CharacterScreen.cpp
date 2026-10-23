@@ -455,9 +455,9 @@ bool CharacterScreen::CommitCharacter()
         *m_original = draft.character;
         if (was_in_party) m_original->fInParty = true;
         if (m_original->iProfession == W8_PROFESSION_GADGETEER)
-            UpgradeProfessionClassItem(
-                m_game, was_in_party ? PartyMember(m_game, CharacterPointerToPartySlot(m_original))
-                                     : Outsider(*m_original));
+            m_game.inventory.upgradeClassItem(
+                was_in_party ? m_game.inventory.member(CharacterPointerToPartySlot(m_original))
+                             : Outsider(*m_original));
         RecalculateCharacterDerivedStats(m_game, *m_original);
     }
     return true;

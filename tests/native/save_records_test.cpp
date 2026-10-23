@@ -41,11 +41,11 @@
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
-#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
+#include "wiz8/story.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/world.h"
 /* Exercise recovered NPCT loading with retail addresses and native handles as
@@ -892,7 +892,9 @@ constexpr std::size_t kFirstRowOffset =
 static wiz8::save::GameState populated_game_state()
 {
     wiz8::save::GameState saved{};
-    auto& [status, party, search_mode] = saved;
+    auto& status = saved.status;
+    auto& party = saved.party;
+    auto& search_mode = saved.search_mode;
     auto& rows = party.rows;
     for (int slot = 0; slot < 8; ++slot) {
         party.members[slot].emplace().npc_index = slot < 2 ? slot : -1;
@@ -924,8 +926,7 @@ static wiz8::save::GameState populated_game_state()
     status.world_clock = 0x80000003u;
     search_mode = true;
     party.gold = 0x12345678;
-    party.item_pool[0] = {.iItemNo = 12, .stack_count = 3, .identified = true};
-    party.item_count = 1;
+    saved.pool = {{.iItemNo = 12, .stack_count = 3, .identified = true}};
     status.uiTurnsElapsed = 0x87654321;
     status.pending_move_location.position = glm::vec3(1, 2, 3);
     status.pending_move_location.orientation = {.yaw = 0.5f, .pitch = 0.25f};
@@ -989,8 +990,7 @@ static void global_status_record()
     REQUIRE(restored.search_mode);
     REQUIRE(wiz8::save::encode(restored) == payload);
     REQUIRE(restored.party.gold == saved.party.gold);
-    REQUIRE(restored.party.item_pool[0] == saved.party.item_pool[0]);
-    REQUIRE(restored.party.item_count == 1);
+    REQUIRE(restored.pool == saved.pool);
     const auto& restored_rows = restored.party.rows;
     for (int slot = 0; slot < 8; ++slot) {
         REQUIRE(restored.party.members[slot].has_value());
@@ -1006,8 +1006,8 @@ static void global_status_record()
         REQUIRE(restored.party.members[slot]->movement_fatigue == 1.25f + slot);
         REQUIRE(restored_rows[slot].weapon_swap_pending == bool(slot % 2));
     }
-    const auto location = restored.party.rows[0].executing.detail_block.item_use.item;
-    REQUIRE(restored.party.itemAt(location) == &restored.party.characters[0].backpack[3]);
+    REQUIRE(restored.party.rows[0].executing.detail_block.item_use.item ==
+            W8ItemLocation{W8ItemStorage::Backpack, 0, 3});
 
     // Unidentified bytes and a fixture character survive decode and encode unchanged.
     auto edited = payload;
@@ -1097,7 +1097,7 @@ static GameData ThreeNpcs()
 
 struct NpcGlobalGuard {
     const ScopedGameData data{ThreeNpcs()};
-    const ScopedGame game;
+    ScopedGame game;
 };
 
 // The spell table, with Sleep aimed at enemies.
@@ -1317,6 +1317,10 @@ TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][c
     W8GameSettings settings{};
     settings.tooltips_enabled = true;
     settings.difficulty = W8_DIFFICULTY_EXPERT;
+    settings.combat_delay_ms = 1234;
+    settings.text_display_delay_ms = 4321;
+    settings.camera_rotation_mode = W8_CAMERA_ROTATION_SELECTED_CHARACTER;
+    settings.camera_rotation_style = W8_CAMERA_ROTATION_SMOOTH;
     settings.music_volume = 77;
     settings.intro_seen = true;
     settings.unknown_051[0] = 0x5a;
@@ -1328,7 +1332,18 @@ TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][c
     const auto decoded = DecodeGameSettings(record);
     REQUIRE((decoded.difficulty == W8_DIFFICULTY_EXPERT && decoded.music_volume == 77 &&
              decoded.intro_seen && decoded.unknown_051[0] == 0x5a));
+    REQUIRE(decoded.combat_delay_ms == 1234);
+    REQUIRE(decoded.text_display_delay_ms == 4321);
+    REQUIRE(decoded.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER);
+    REQUIRE(decoded.camera_rotation_style == W8_CAMERA_ROTATION_SMOOTH);
     REQUIRE(EncodeGameSettings(decoded) == record);
+    // Retail flag bytes are truth values, not native bool object representations.
+    auto noncanonical = record;
+    noncanonical[0x01] = std::byte{0x80};
+    const auto normalized = DecodeGameSettings(noncanonical);
+    REQUIRE(normalized.numeric_hit_points);
+    noncanonical[0x01] = std::byte{1};
+    REQUIRE(EncodeGameSettings(normalized) == noncanonical);
     REQUIRE_THROWS(DecodeGameSettings(std::span(record).first(0xa3)));
 }
 
@@ -1390,6 +1405,14 @@ template<class T> static void append_bytes(std::vector<std::byte>& bytes, const 
 TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[save][npc]")
 {
     NpcGlobalGuard globals;
+    // Load a game holding only these NPC states.
+    const auto install_npcs = [&](std::vector<std::unique_ptr<W8NpcState>> npcs) {
+        SavedGame saved;
+        saved.npcs = std::move(npcs);
+        saved.state.search_mode = true;
+        std::move(saved).install(globals.game.session);
+        REQUIRE(CurrentGame().search.requested());
+    };
     // A small word that a process-local handle table could have resolved.
     const unsigned int live_handle = 1;
     const unsigned char version =
@@ -1418,7 +1441,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
         }
         // Version >= 2 follows the states with an item count for each NPC.
         for (unsigned int i = 0; i < 3; ++i) append_bytes(bytes, 0u);
-        InstallNpcStates(wiz8::save::decode_npc_states(bytes, Data().npcs.size()));
+        install_npcs(wiz8::save::decode_npc_states(bytes, Data().npcs.size()));
         REQUIRE(static_cast<int>(CurrentGame().story.npcs.size()) == 3);
         for (unsigned int i = 0; i < 3; ++i) {
             W8NpcState* npc = CurrentGame().story.npcs[i].get();
@@ -1434,8 +1457,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
         // Round-trip the current version through its encoder.
         CurrentGame().story.npcs[1]->items.push_back(
             {.available_at = 7, .item = {}, .quantity = 2});
-        InstallNpcStates(wiz8::save::decode_npc_states(wiz8::save::encode(CurrentGame().story.npcs),
-                                                       Data().npcs.size()));
+        install_npcs(wiz8::save::decode_npc_states(wiz8::save::encode(CurrentGame().story.npcs),
+                                                   Data().npcs.size()));
         REQUIRE(CurrentGame().story.npcs.size() == 3);
         for (int index = 0; index < 3; ++index) {
             auto* npc = CurrentGame().story.npcs[index].get();
@@ -1465,7 +1488,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
         const auto retired = CurrentGame().story.npcs[0];
         retired->binding_unavailable = true;
         REQUIRE(!GetNpcState(0));
-        auto* replacement = CreateNpcRuntimeNode(0);
+        auto* replacement = CreateNpcRuntimeNode(CurrentGame().story, 0);
         REQUIRE((CurrentGame().story.npcs.size() == 3 && GetNpcState(0) == replacement));
         REQUIRE((replacement->partner_index == 0 && GetNpcState(1) == kept));
         REQUIRE((retired->binding_unavailable && retired->character.value().name[0] == L'A'));
@@ -1558,6 +1581,51 @@ TEST_CASE_METHOD(SaveFixture, "NPC script records and truncated streams", "[save
             REQUIRE(LoadNpcScriptFile(filename) == nullptr);
         }
     }
+}
+
+TEST_CASE_METHOD(SaveFixture, "A save decodes to a game state before any session begins",
+                 "[save][records]")
+{
+    const auto path = user / "saves" / "candidate.SAV";
+    const auto write_save = [&](bool with_status) {
+        W8Chunk save;
+        REQUIRE(save.OpenWrite(path));
+        const auto section = [&](unsigned int id, const std::vector<std::byte>& payload) {
+            save.WriteChunk(id, [&] { save.WriteBytes(payload.data(), payload.size()); });
+        };
+        W8Character character{};
+        character.uiExpLevel = 7;
+        section(W8ChunkId("CHAR"), wiz8::save::encode({"Vi.CHR", character}));
+        character.uiExpLevel = 8;
+        section(W8ChunkId("CHAR"), wiz8::save::encode({"VI.chr", character}));
+        if (with_status) {
+            wiz8::save::GameState state;
+            state.status.resume_level = 5;
+            section(W8ChunkId("GSTA"), wiz8::save::encode(state));
+        }
+        section(W8ChunkId("TVAR"),
+                wiz8::save::encode(std::vector<W8LocationVariable>{{"door", 1, 3}}));
+        section(W8ChunkId("TVAR"),
+                wiz8::save::encode(std::vector<W8LocationVariable>{{"lever", 2, 4}}));
+        section(W8ChunkId("FATA"), wiz8::save::encode(wiz8::save::Factions{}));
+        save.Close();
+    };
+
+    write_save(true);
+    auto saved = ReadSavedGame("candidate");
+    REQUIRE(!GameInProgress());
+    REQUIRE(saved);
+    REQUIRE(saved->state.status.resume_level == 5);
+    // The last character under a name wins; location variables accumulate.
+    REQUIRE((saved->characters.size() == 1 && saved->characters[0].file_name == "VI.chr" &&
+             saved->characters[0].character.uiExpLevel == 8));
+    REQUIRE(saved->location_variables.size() == 2);
+    REQUIRE(saved->location_variables[1].name == "lever");
+    REQUIRE(saved->factions->states[W8_FACTION_PARTY].disposition_score == 100);
+    REQUIRE((!saved->npcs && !saved->facts && !saved->journal));
+
+    write_save(false);
+    REQUIRE(!ReadSavedGame("candidate"));
 }
 
 TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][records]")
@@ -1712,4 +1780,32 @@ TEST_CASE("Level asset paths select preprocessed levels and sky fallbacks", "[le
     touch("Levels/Bayjin/Bayjin1.LVL");
     REQUIRE(LevelBuildInfoByID(2, &info));
     REQUIRE(info.sky_path.empty());
+}
+
+TEST_CASE("The pool saves its live items and keeps a loaded save's unused records",
+          "[save][records]")
+{
+    constexpr std::size_t pool_offset = 4 + 0x21;
+    constexpr std::size_t second = pool_offset + 12;
+    // A game that loaded no save writes empty records past the count.
+    auto payload = wiz8::save::encode(populated_game_state());
+    REQUIRE(payload_word(payload, second) == 0xffffffffu);
+    std::fill_n(payload.begin() + second, 12, std::byte{0x6d});
+    auto restored = wiz8::save::decode_game_state(payload);
+    REQUIRE(restored.pool.size() == 1);
+    REQUIRE(wiz8::save::encode(restored) == payload);
+
+    // A live item takes the record; once it goes, the loaded record is written again.
+    restored.pool.push_back({.iItemNo = 77, .unknown_08 = 0x56});
+    auto encoded = wiz8::save::encode(restored);
+    REQUIRE(payload_word(encoded, second) == 77);
+    REQUIRE(encoded[second + 8] == std::byte{0x56});
+    restored.pool.pop_back();
+    REQUIRE(wiz8::save::encode(restored) == payload);
+
+    const unsigned int invalid_count = 501;
+    std::memcpy(payload.data() + 4 + 0x1791, &invalid_count, sizeof(invalid_count));
+    REQUIRE_THROWS_AS(wiz8::save::decode_game_state(payload), std::runtime_error);
+    restored.pool.resize(501);
+    REQUIRE_THROWS_AS(wiz8::save::encode(restored), std::runtime_error);
 }

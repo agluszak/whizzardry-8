@@ -87,7 +87,7 @@ struct ItemEffects {
     signed char modifier_0b3_index;
     signed char modifier_0b3_value;
     unsigned char unknown_0b5[4]; /* 0x0b5 .. 0x0b8 */
-    int merge_component_a;        /* 0x0b9: first item kind MergeItems combines into this one */
+    int merge_component_a;        /* 0x0b9: first item kind a recipe combines into this one */
     int merge_component_b;        /* 0x0bd: the other kind; either order is accepted */
     /* 0x0c1: the item's material index; combat sound reads it on the struck
        item to pick the impact table's material column (0..11). */

@@ -23,7 +23,6 @@
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/npc_state.h"
-#include "wiz8/audio/soundman.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -624,15 +623,6 @@ std::optional<glm::vec3> FindItemDropPosition()
     return std::nullopt;
 }
 
-void DropHeldItem(int)
-{
-    if (const auto position = FindItemDropPosition()) {
-        AddWorldItem(CreateWorldItem(&CurrentGame().party.held.item, &*position,
-                                     W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-    } else
-        wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
-}
-
 /* The item picker returns its remaining items as group contents. A two-item group returns the picked
    extra to the world at the group's position; a lone item is simply dropped.
    Either way the group's own world entry is found by runtime id, pulled out
@@ -691,7 +681,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
         }
     }
     if ((item->entity->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
-        ReceiveItemInHand(CurrentGame(), item->item);
+        CurrentGame().inventory.hold(item->item);
     }
     index = ItemIndex(runtime_id);
     item = ItemInfo(index);

@@ -35,8 +35,8 @@ private:
     void shutdown() noexcept;
     bool sdl_initialized_ = false;
     bool game_started_ = false;
-    // Declared before the games, which read it, so it outlives them.
-    std::unique_ptr<GameData> data_;
+    // Loaded before the games and declared before them, which read it, so it outlives them.
+    std::unique_ptr<const GameData> data_;
     std::unique_ptr<GameSession> games_;
 };
 }

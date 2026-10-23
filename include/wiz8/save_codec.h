@@ -17,16 +17,19 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/message_log.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/story.h"
 
 namespace wiz8::save {
 
-/* What the GSTA section stores: the game's status and its party. A save snapshot is a
-   copy of this value. */
+/* What the GSTA section stores: the game's status, its party, the party's shared pool (at
+   most 500 entries) and the item in the hand. A save snapshot is a copy of this value. */
 struct GameState {
     GameStatus status;
     W8Party party;
+    std::vector<W8ItemInstance> pool;
+    std::optional<W8ItemInstance> held;
     // The player's search-mode choice.
     bool search_mode = false;
 };

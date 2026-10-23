@@ -11,7 +11,7 @@
 #include "wiz8/data/records.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/rules/party.h"
+#include "wiz8/rules/item_instance.h"
 
 namespace {
 
@@ -19,10 +19,11 @@ namespace {
    the inventory notices. No profession or race data is loaded, so the member derives no
    statistics. */
 struct HeldItemFixture {
-    ScopedGame game_scope;
+    GameData data{.strings = std::vector<std::string>(0x910),
+                  .items = std::vector<W8ItemDatabaseRecord>(1)};
+    ScopedGame game_scope{data};
     Game& game = game_scope.game;
-    ScopedGameData data{GameData{.strings = std::vector<std::string>(0x910),
-                                 .items = std::vector<W8ItemDatabaseRecord>(1)}};
+    ScopedGameData installed{GameData{data}};
 
     HeldItemFixture()
     {
@@ -32,7 +33,7 @@ struct HeldItemFixture {
         game.party.characters[0].gender = W8_GENDER_UNSET;
         game.party.characters[0].hp_current = 10;
         game.party.characters[0].uiExpLevel = 1;
-        game.party.held.item = {.iItemNo = 0, .identified = true};
+        game.inventory.restore({}, W8ItemInstance{.iItemNo = 0, .identified = true});
     }
 
     void FillBackpack()
@@ -42,8 +43,8 @@ struct HeldItemFixture {
 
     void FillPool()
     {
-        while (game.party.insertIntoPool(game.party.item_count, {.iItemNo = 0})) {
-        }
+        game.inventory.restore(std::vector<W8ItemInstance>(Inventory::kPoolLimit, {.iItemNo = 0}),
+                               game.inventory.held()->item);
     }
 };
 
@@ -55,10 +56,10 @@ TEST_CASE_METHOD(HeldItemFixture, "A held item the member and the pool refuse st
     FillPool();
 
     // The portrait right-click path: the pool first, then the member.
-    const auto given = GiveHeldItemToCharacterOrParty(game, 0, true);
+    const auto given = game.inventory.giveHeld(0, StoreOrder::PoolFirst);
 
     REQUIRE_FALSE(given.has_value());
-    REQUIRE(game.party.held.item.iItemNo == 0);
+    REQUIRE(game.inventory.heldItemId() == 0);
     REQUIRE(game.party.characters[0].backpack[7].iItemNo == 0);
 }
 
@@ -66,8 +67,8 @@ TEST_CASE_METHOD(HeldItemFixture, "A stored held item leaves the hand")
 {
     FillPool();
 
-    REQUIRE(GiveHeldItemToCharacterOrParty(game, 0, true).has_value());
+    REQUIRE(game.inventory.giveHeld(0, StoreOrder::PoolFirst).has_value());
 
-    REQUIRE(game.party.held.item.iItemNo == -1);
+    REQUIRE(!game.inventory.held());
     REQUIRE(game.party.characters[0].backpack[0].iItemNo == 0);
 }

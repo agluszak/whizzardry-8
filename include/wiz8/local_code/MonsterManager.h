@@ -100,9 +100,6 @@ struct W8MonsterManagerEntry {
        in-flight splat/icon animation or portrait event, so the formation sync
        may release it even while the slot is under the cursor. */
     bool auto_portrait_refresh;
-    /* The combat side-strip portrait needs redrawing; set by hover and
-       combat-state changes, cleared by the combat portrait redraw. */
-    bool combat_portrait_dirty;
     /* The acting combatant's portrait pulse - a countdown clock that rearms
        the 1..0xc brightness phase. */
     uint64_t acting_portrait_pulse_clock;

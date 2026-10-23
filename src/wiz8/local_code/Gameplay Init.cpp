@@ -37,18 +37,16 @@
 namespace {
 }
 
-/* The hand and the carried pool start empty, then take the six starting item stacks. */
+/* The pool takes the six starting item stacks. */
 Game& BeginNewGame(GameSession& games)
 {
     static constexpr std::array<unsigned int, 6> starting_items = {0x14f, 0x14f, 0x15a,
                                                                    0x15a, 0x15b, 0x155};
     auto& game = games.begin();
-    game.party.held.item = W8ItemInstance{.iItemNo = -1};
-    std::ranges::fill(game.party.item_pool, W8ItemInstance{.iItemNo = -1});
     for (const auto id : starting_items) {
         auto item = MakeItem(Data(), CurrentGame().rng, id, true, true, true);
         item.stack_count = 1;
-        AddItemToParty(game, OwnedItem(item), false, false);
+        game.inventory.storeInPool(item, false);
     }
     game.party.gold = 500;
     game.status.selected_character = GetNextCharacter(1, 1, -1);
@@ -136,7 +134,6 @@ void ResetGameplaySlot(unsigned int slot)
     record->cached_spell_bar = 0;
     record->portrait_refresh_pinned = false;
     record->auto_portrait_refresh = false;
-    record->combat_portrait_dirty = false;
     record->acting_portrait_pulse = 0;
     record->level_up_ready = false;
     record->acting_portrait_pulse_clock = MonotonicMilliseconds() + (0);
@@ -174,15 +171,15 @@ void ResetGameplaySettings(void)
     g_settings.sound_effects_volume = 0x40;
     g_settings.voice_volume = 0x40;
     g_settings.main_ui_mode = W8_MAIN_UI_MODE_FORMATION;
-    g_settings.continuous_combat = 0;
-    g_settings.auto_advance_character = 0;
+    g_settings.continuous_combat = false;
+    g_settings.auto_advance_character = false;
     g_settings.tooltips_enabled = true;
     g_settings.formation_action_panel_preference = 1;
     g_settings.formation_radar_map_preference = 1;
     g_settings.formation_board_preference = 1;
     g_settings.portraits_action_panel_preference = 1;
     g_settings.field_000 = 0;
-    g_settings.invert_mouse_y = 0;
+    g_settings.invert_mouse_y = false;
     g_settings.field_03b = 0;
     g_settings.difficulty = W8_DIFFICULTY_NORMAL;
     g_settings.text_display_delay_ms = 0x9c4;
@@ -199,21 +196,21 @@ void ResetGameplaySettings(void)
     g_settings.field_035 = 0xff;
     g_settings.monster_movement_speed = 2.5f;
     g_settings.legacy_gamma = 1.0f;
-    g_settings.pc_confirmations = 1;
-    g_settings.pc_subtitles = 1;
-    g_settings.mouselook_toggle = 0;
-    g_settings.mouselook_smoothing = 1;
-    g_settings.numeric_hit_points = 1;
-    g_settings.auto_save = 0;
+    g_settings.pc_confirmations = true;
+    g_settings.pc_subtitles = true;
+    g_settings.mouselook_toggle = false;
+    g_settings.mouselook_smoothing = true;
+    g_settings.numeric_hit_points = true;
+    g_settings.auto_save = false;
     g_settings.field_047 = 0;
-    g_settings.monster_shadows = 1;
-    g_settings.smooth_monster_animations = 1;
-    g_settings.smooth_world_animations = 1;
-    g_settings.skill_increase_messages = 1;
-    g_settings.ctrl_right_click_info = 0;
-    g_settings.autoswap_weapons = 1;
-    g_settings.autotarget_spells = 1;
-    g_settings.autoscroll_combat_messages = 0;
-    g_settings.simplified_npc_interaction = 1;
+    g_settings.monster_shadows = true;
+    g_settings.smooth_monster_animations = true;
+    g_settings.smooth_world_animations = true;
+    g_settings.skill_increase_messages = true;
+    g_settings.ctrl_right_click_info = false;
+    g_settings.autoswap_weapons = true;
+    g_settings.autotarget_spells = true;
+    g_settings.autoscroll_combat_messages = false;
+    g_settings.simplified_npc_interaction = true;
     EnableAllRenderOptions();
 }

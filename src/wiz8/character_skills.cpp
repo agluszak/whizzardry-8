@@ -54,23 +54,25 @@ void PostSkillIncreaseNotices(Game& game, const W8SkillNoticePayload& notices)
         W8Character* character = &game.party.characters[slot];
         unsigned int value = GetCharacterSkillNoticeValue(character, skill);
         game.events.push(CharacterNotice{
-            slot, fmt::sprintf(Data().strings[0x1d9],
-                               Data().strings[g_character_skill_name_ids[skill]], value)});
+            slot, fmt::sprintf(game.data.strings[0x1d9],
+                               game.data.strings[g_character_skill_name_ids[skill]], value)});
     }
 }
 
-std::string FormatSkillIncreaseNoticeText(const W8Party& party, int party_slot, bool continue_line,
-                                          W8Skill skill_id)
+/* 0x00554170: append one "race-icon Name's skill +level" clause to a notice
+   buffer; when continue_line is set, insert a line break first. */
+static std::string FormatSkillIncreaseNoticeText(const Game& game, int party_slot,
+                                                 bool continue_line, W8Skill skill_id)
 {
-    const auto& character = party.characters[party_slot];
+    const auto& character = game.party.characters[party_slot];
     std::string text = continue_line ? " \n  " : " ";
     wiz8::text::append(text, 0xb4);
-    wiz8::text::append(
-        text, GetPartyOrderTextColor(static_cast<signed char>(party.orderIndexOf(party_slot))));
+    wiz8::text::append(text, GetPartyOrderTextColor(
+                                 static_cast<signed char>(game.party.orderIndexOf(party_slot))));
     text += " " + fmt::format("{}'s", character.name) + " ";
     wiz8::text::append(text, 0xb5);
-    text += " " + fmt::sprintf(Data().strings[0x1db],
-                               Data().strings[g_character_skill_name_ids[skill_id]],
+    text += " " + fmt::sprintf(game.data.strings[0x1db],
+                               game.data.strings[g_character_skill_name_ids[skill_id]],
                                GetCharacterSkillNoticeValue(&character, skill_id));
     return text;
 }
@@ -82,7 +84,7 @@ void AnnounceSkillIncrease(Game& game, unsigned int party_slot, W8Skill skill_id
         return;
     }
     game.npc_dialogue.QueuePortraitMessage(
-        FormatSkillIncreaseNoticeText(game.party, static_cast<int>(party_slot), false, skill_id),
+        FormatSkillIncreaseNoticeText(game, static_cast<int>(party_slot), false, skill_id),
         W8SkillNoticePayload{{{party_slot, skill_id}}});
 }
 
@@ -101,8 +103,7 @@ void FlushDeferredSkillNotices(Game& game)
                 continue;
             }
             const auto skill_id = static_cast<W8Skill>(skill);
-            text +=
-                FormatSkillIncreaseNoticeText(game.party, slot, !notice.entries.empty(), skill_id);
+            text += FormatSkillIncreaseNoticeText(game, slot, !notice.entries.empty(), skill_id);
             notice.entries.push_back({slot, skill_id});
             if (notice.entries.size() == 8) {
                 game.npc_dialogue.QueuePortraitMessage(std::move(text), std::move(notice));
@@ -188,8 +189,8 @@ void BrewAlchemistPotion(Game& game, W8Character* character)
         game.events.push(
             TextNotice{slot, fmt::sprintf(Data().strings[0x183], character->name,
                                           FormatItemDisplayName(Data(), &item, true))});
-        StoreItemWithCharacterOrParty(game, PartyMember(game, slot), OwnedItem(item), false, false,
-                                      false);
+        game.inventory.store(game.inventory.member(slot), item, StoreOrder::CharacterFirst, false,
+                             false);
         made = 1;
     }
     if (made != 0) {
@@ -311,7 +312,7 @@ void ApplyAttributeChange(Game& game, W8Character* character, W8Attribute attrib
    ResetCharacterSkills. */
 void ApplySkillChange(Game& game, W8Character* character, W8Skill skill_id)
 {
-    RefreshCharacterSkillAvailability(game.rules().data, character);
+    RefreshCharacterSkillAvailability(game.data, character);
 
     character->skills[skill_id].level = GetEffectiveSkillLevel(character, skill_id);
     RecalculateCharacterDerivedStats(game, *character);
@@ -394,7 +395,7 @@ void PracticeCharacterSkill(Game& game, W8Character* character, W8Skill skill_id
                 }
             } while (--usage_points != 0);
             if (improved) {
-                RefreshCharacterSkillAvailability(game.rules().data, character);
+                RefreshCharacterSkillAvailability(game.data, character);
                 skill->level = GetEffectiveSkillLevel(character, skill_id);
                 RecalculateCharacterDerivedStats(game, *character);
                 game.events.push(SkillImproved{CharacterPointerToPartySlot(character), skill_id,

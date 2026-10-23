@@ -8,6 +8,7 @@
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
@@ -17,7 +18,8 @@
    Capacities and inventory weights come from the members' evaluated inputs; only
    the shares are assigned. */
 // FUNCTION: WIZ8 0x004edd20
-static void DistributePartyWeight(const GameData& data, W8Party& party)
+static void DistributePartyWeight(const GameData& data, W8Party& party,
+                                  std::span<const W8ItemInstance> pool)
 {
     int capacity[8];
     int unassigned[8];
@@ -36,7 +38,7 @@ static void DistributePartyWeight(const GameData& data, W8Party& party)
     }
 
     unsigned int party_weight = 0;
-    for (const auto& item : std::span{party.item_pool}.first(party.item_count)) {
+    for (const auto& item : pool) {
         party_weight += GetItemStackWeight(data, &item);
     }
 
@@ -91,7 +93,8 @@ CharacterStatsUpdate UpdateStandaloneCharacterStats(const GameData& data, W8Char
     return SettleCharacterStats(data, character, rules, baseline);
 }
 
-W8PartyStats UpdatePartyStats(const GameData& data, W8Party& party, const PartyStatRules& rules)
+W8PartyStats UpdatePartyStats(const GameData& data, W8Party& party,
+                              std::span<const W8ItemInstance> pool, const PartyStatRules& rules)
 {
     W8PartyStats result;
     std::array<CharacterBaseline, W8_PARTY_SLOT_COUNT> baselines{};
@@ -106,7 +109,7 @@ W8PartyStats UpdatePartyStats(const GameData& data, W8Party& party, const PartyS
         result.characters[slot].valid = true;
     }
     result.load_redistributed = rules.load_timing == PartyLoadTiming::Immediate;
-    if (result.load_redistributed) DistributePartyWeight(data, party);
+    if (result.load_redistributed) DistributePartyWeight(data, party, pool);
     for (unsigned slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (result.characters[slot].valid)
             result.characters[slot] = SettleCharacterStats(data, characters[slot],

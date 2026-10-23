@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string_view>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -67,6 +68,8 @@ public:
     void detach(GroundShadow&);
     void detach(FogParams&);
     MeshInstance* addStaticMesh(std::unique_ptr<MeshInstance> mesh);
+    // The last clip plane with this name, or null.
+    ClipPlane* clipPlane(std::string_view name) const;
     vsg::ref_ptr<vsg::View> createView(render::RenderContext&, Camera3D*, const SceneFrame&,
                                        vsg::ref_ptr<vsg::ViewportState>,
                                        std::uint64_t frame_number);
