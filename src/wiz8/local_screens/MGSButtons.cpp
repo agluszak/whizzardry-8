@@ -73,12 +73,6 @@ static void SubMenuPanelFormationButton(W8ButtonWidget* button);
 static void MainGameOptionsDiskButton(W8ButtonWidget* button);
 static void MainGameCombatConfirmButton(W8ButtonWidget* button);
 static void MainGameCombatStanceSecondary(W8ButtonWidget* button);
-static void MainGameRoofButton0(W8ButtonWidget* button);
-static void MainGameRoofButton1(W8ButtonWidget* button);
-static void MainGameRoofButton2(W8ButtonWidget* button);
-static void MainGameLayoutRadarButton(W8ButtonWidget* button);
-static void MainGameLayoutActionPanelButton(W8ButtonWidget* button);
-static void MainGameLayoutFormationButton(W8ButtonWidget* button);
 
 int GetAttackMenuWeaponOffset(W8Skill skill)
 {
@@ -406,209 +400,12 @@ static void CreateCombatStanceButtons()
     }
 }
 
-static void MainGameRoofButton0(W8ButtonWidget* button)
-{
-    SetMainUiPreference(W8_MAIN_UI_MODE_PORTRAITS);
-    if (auto* hud = MainGameHud()) {
-        hud->repaint.roof_and_spell_icons = true;
-        hud->repaint.layout = true;
-    }
-}
-
-static void MainGameRoofButton1(W8ButtonWidget* button)
-{
-    SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
-    if (auto* hud = MainGameHud()) {
-        hud->repaint.roof_and_spell_icons = true;
-        hud->repaint.layout = true;
-    }
-}
-
-static void MainGameRoofButton2(W8ButtonWidget* button)
-{
-    SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
-    if (auto* hud = MainGameHud()) {
-        hud->repaint.roof_and_spell_icons = true;
-        hud->repaint.layout = true;
-    }
-}
-
-static void CreateRoofButtons()
-{
-    int index;
-
-    MainGame()->hud_buttons.roof[0].Configure(
-        ButtonGraphics::Load(g_roof_buttons_path, 9, 0, 6, 3, 6),
-        {.on_click = MainGameRoofButton0,
-         .policy = {.primary_toggle = ButtonToggle::Press},
-         .tooltip = 0x38});
-    MainGame()->hud_buttons.roof[1].Configure(
-        ButtonGraphics::Load(g_roof_buttons_path, 10, 1, 7, 4, 7),
-        {.on_click = MainGameRoofButton1,
-         .policy = {.primary_toggle = ButtonToggle::Press},
-         .tooltip = 0x39});
-    MainGame()->hud_buttons.roof[2].Configure(
-        ButtonGraphics::Load(g_roof_buttons_path, 0xb, 2, 8, 5, 8),
-        {.on_click = MainGameRoofButton2,
-         .policy = {.primary_toggle = ButtonToggle::Press},
-         .tooltip = 0x3a});
-    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
-        MainGame()->hud_buttons.roof[0].SetPressed(true);
-    } else if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION) {
-        MainGame()->hud_buttons.roof[1].SetPressed(true);
-    } else if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) {
-        MainGame()->hud_buttons.roof[2].SetPressed(true);
-    }
-    for (index = 0; index < 3; ++index) {
-        MainGame()->hud_buttons.roof[index].SetPosition(g_roof_button_positions[index].x,
-                                                        g_roof_button_positions[index].y);
-    }
-}
-
 /* Draw the roof chrome strip, mark each roof button dirty and sync enable/press
    state; the same repaint draws the combat progress gauge over it. */
 void RedrawRoofButtons(void)
 {
     CatalogArtwork::Load(0x85, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
     for (auto& button : MainGame()->hud_buttons.roof) button.Refresh(true);
-}
-
-/* Visibility and enablement for the three roof buttons. The third
-   button (radar) hides under NPC/spell/item/lock/trap modes; the first two
-   disable under NPC dialogue or camp. */
-void UpdateRoofButtons(void)
-{
-    bool visible;
-    bool enabled;
-
-    if (!CurrentGame().activity.conversation && !gpSCSV && !ItemUseDraft() &&
-        !IsLockInteractionActive() && !IsTrapInteractionActive()) {
-        visible = true;
-    } else {
-        visible = false;
-    }
-    MainGame()->hud_buttons.roof[2].SetVisible(visible);
-    if (!CurrentGame().activity.conversation && !CurrentGame().activity.conversation_aside) {
-        MainGame()->hud_buttons.roof[0].SetEnabled(true);
-        enabled = true;
-    } else {
-        MainGame()->hud_buttons.roof[0].SetEnabled(false);
-        enabled = false;
-    }
-    MainGame()->hud_buttons.roof[1].SetEnabled(enabled);
-    SyncRoofButtonPressedState();
-}
-
-/* Mirror GetEffectiveMainUiMode() onto the three roof buttons' pressed
-   state (portraits / formation / radar). */
-void SyncRoofButtonPressedState(void)
-{
-    if (GetEffectiveMainUiMode() == 0) {
-        if (MainGame()->hud_buttons.roof[0].IsPressed() == 0) {
-            MainGame()->hud_buttons.roof[0].SetPressed(true);
-        }
-        if (MainGame()->hud_buttons.roof[1].IsPressed()) {
-            MainGame()->hud_buttons.roof[1].SetPressed(false);
-        }
-        if (MainGame()->hud_buttons.roof[2].IsPressed()) {
-            MainGame()->hud_buttons.roof[2].SetPressed(false);
-        }
-    } else if (GetEffectiveMainUiMode() == 1) {
-        if (MainGame()->hud_buttons.roof[1].IsPressed() == 0) {
-            MainGame()->hud_buttons.roof[1].SetPressed(true);
-        }
-        if (MainGame()->hud_buttons.roof[0].IsPressed()) {
-            MainGame()->hud_buttons.roof[0].SetPressed(false);
-        }
-        if (MainGame()->hud_buttons.roof[2].IsPressed()) {
-            MainGame()->hud_buttons.roof[2].SetPressed(false);
-        }
-    } else if (GetEffectiveMainUiMode() == 2) {
-        if (MainGame()->hud_buttons.roof[2].IsPressed() == 0) {
-            MainGame()->hud_buttons.roof[2].SetPressed(true);
-        }
-        if (MainGame()->hud_buttons.roof[0].IsPressed()) {
-            MainGame()->hud_buttons.roof[0].SetPressed(false);
-        }
-        if (MainGame()->hud_buttons.roof[1].IsPressed()) {
-            MainGame()->hud_buttons.roof[1].SetPressed(false);
-        }
-    }
-}
-
-static void MainGameLayoutRadarButton(W8ButtonWidget* button)
-{
-    if (MainGame()->radar_map) {
-        if (!MainGameHud()->formation_board_visible && MainGameHud()->action_panel_visible == 0) {
-            SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
-            return;
-        }
-        g_settings.formation_radar_map_preference = 0;
-        RefreshMainGameLayout();
-        return;
-    }
-    g_settings.formation_radar_map_preference = 1;
-    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) {
-        g_settings.formation_action_panel_preference = 0;
-        g_settings.formation_board_preference = 0;
-        SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
-        return;
-    }
-    RefreshMainGameLayout();
-}
-
-static void MainGameLayoutActionPanelButton(W8ButtonWidget* button)
-{
-    if (MainGameHud()->action_panel_visible != 0) {
-        if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_FORMATION) {
-            if (!MainGame()->radar_map && !MainGameHud()->formation_board_visible) {
-                SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
-            }
-            g_settings.formation_action_panel_preference = 0;
-            RefreshMainGameLayout();
-            return;
-        }
-        if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
-            g_settings.portraits_action_panel_preference = 0;
-        }
-        RefreshMainGameLayout();
-        return;
-    }
-    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) {
-        g_settings.formation_radar_map_preference = 0;
-        g_settings.formation_action_panel_preference = 1;
-        g_settings.formation_board_preference = 0;
-        SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
-        return;
-    }
-    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
-        g_settings.portraits_action_panel_preference = 1;
-        RefreshMainGameLayout();
-        return;
-    }
-    g_settings.formation_action_panel_preference = 1;
-    RefreshMainGameLayout();
-}
-
-static void MainGameLayoutFormationButton(W8ButtonWidget* button)
-{
-    if (MainGameHud()->formation_board_visible) {
-        if (!MainGame()->radar_map && MainGameHud()->action_panel_visible == 0) {
-            SetMainUiPreference(W8_MAIN_UI_MODE_RADAR);
-            return;
-        }
-        g_settings.formation_board_preference = 0;
-        RefreshMainGameLayout();
-        return;
-    }
-    g_settings.formation_board_preference = 1;
-    if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_RADAR) {
-        g_settings.formation_radar_map_preference = 0;
-        g_settings.formation_action_panel_preference = 0;
-        SetMainUiPreference(W8_MAIN_UI_MODE_FORMATION);
-        return;
-    }
-    RefreshMainGameLayout();
 }
 
 // Draw the left layout-arrow strip and its visible arrows.
@@ -618,56 +415,172 @@ void RedrawLayoutArrowButtons(void)
     for (auto& button : MainGame()->hud_buttons.layout_arrows) button.Refresh(true);
 }
 
-/* Show one arrow of each raise/lower pair against the action-panel,
-   formation-board and radar-map visibility; modal modes hide them all. */
-void MainGameScreen::updateLayoutArrows()
+void MainGameScreen::chooseRoofMode(W8MainUiMode mode)
 {
+    setPreferredMode(mode);
+    hud->repaint.roof_and_spell_icons = true;
+    hud->repaint.layout = true;
+}
+
+/* The layout arrows raise or lower one panel of the formation layout. Lowering
+   the last one switches to radar mode; raising one from radar mode starts a
+   formation layout with only that panel. */
+void MainGameScreen::toggleRadarMap()
+{
+    if (applied_layout.radar_map) {
+        if (!applied_layout.formation_board && !applied_layout.bottom_panel) {
+            setPreferredMode(W8_MAIN_UI_MODE_RADAR);
+            return;
+        }
+        g_settings.formation_radar_map_preference = 0;
+        refreshLayout();
+        return;
+    }
+    g_settings.formation_radar_map_preference = 1;
+    if (applied_layout.mode == W8_MAIN_UI_MODE_RADAR) {
+        g_settings.formation_action_panel_preference = 0;
+        g_settings.formation_board_preference = 0;
+        setPreferredMode(W8_MAIN_UI_MODE_FORMATION);
+        return;
+    }
+    refreshLayout();
+}
+
+void MainGameScreen::toggleBottomPanel()
+{
+    if (applied_layout.bottom_panel) {
+        if (applied_layout.mode == W8_MAIN_UI_MODE_FORMATION) {
+            if (!applied_layout.radar_map && !applied_layout.formation_board) {
+                setPreferredMode(W8_MAIN_UI_MODE_RADAR);
+            }
+            g_settings.formation_action_panel_preference = 0;
+            refreshLayout();
+            return;
+        }
+        if (applied_layout.mode == W8_MAIN_UI_MODE_PORTRAITS) {
+            g_settings.portraits_action_panel_preference = 0;
+        }
+        refreshLayout();
+        return;
+    }
+    if (applied_layout.mode == W8_MAIN_UI_MODE_RADAR) {
+        g_settings.formation_radar_map_preference = 0;
+        g_settings.formation_action_panel_preference = 1;
+        g_settings.formation_board_preference = 0;
+        setPreferredMode(W8_MAIN_UI_MODE_FORMATION);
+        return;
+    }
+    if (applied_layout.mode == W8_MAIN_UI_MODE_PORTRAITS) {
+        g_settings.portraits_action_panel_preference = 1;
+        refreshLayout();
+        return;
+    }
+    g_settings.formation_action_panel_preference = 1;
+    refreshLayout();
+}
+
+void MainGameScreen::toggleFormationBoard()
+{
+    if (applied_layout.formation_board) {
+        if (!applied_layout.radar_map && !applied_layout.bottom_panel) {
+            setPreferredMode(W8_MAIN_UI_MODE_RADAR);
+            return;
+        }
+        g_settings.formation_board_preference = 0;
+        refreshLayout();
+        return;
+    }
+    g_settings.formation_board_preference = 1;
+    if (applied_layout.mode == W8_MAIN_UI_MODE_RADAR) {
+        g_settings.formation_radar_map_preference = 0;
+        g_settings.formation_action_panel_preference = 0;
+        setPreferredMode(W8_MAIN_UI_MODE_FORMATION);
+        return;
+    }
+    refreshLayout();
+}
+
+void MainGameScreen::stepLayoutMode(int step)
+{
+    // While input is blocked only the portraits and formation modes are offered.
+    const int mode = IsScreenInputBlocked() != 0 ? (applied_layout.mode - 1) & 1
+                                                 : (applied_layout.mode + step + 3) % 3;
+    setPreferredMode(static_cast<W8MainUiMode>(mode));
+}
+
+void MainGameScreen::createLayoutButtons()
+{
+    static constexpr std::array roof_modes{W8_MAIN_UI_MODE_PORTRAITS, W8_MAIN_UI_MODE_FORMATION,
+                                           W8_MAIN_UI_MODE_RADAR};
+    static constexpr std::array<std::array<int, 5>, 3> roof_frames{
+        {{9, 0, 6, 3, 6}, {10, 1, 7, 4, 7}, {0xb, 2, 8, 5, 8}}};
+    for (std::size_t index = 0; index < roof_modes.size(); ++index) {
+        const auto& frames = roof_frames[index];
+        auto& button = hud_buttons.roof[index];
+        button.Configure(ButtonGraphics::Load(g_roof_buttons_path, frames[0], frames[1], frames[2],
+                                              frames[3], frames[4]),
+                         {.on_click = [this, mode = roof_modes[index]](
+                                          W8ButtonWidget*) { chooseRoofMode(mode); },
+                          .policy = {.primary_toggle = ButtonToggle::Press},
+                          .tooltip = static_cast<int>(0x38 + index)});
+        button.SetPressed(applied_layout.mode == roof_modes[index]);
+        button.SetPosition(g_roof_button_positions[index].x, g_roof_button_positions[index].y);
+    }
+
     auto& arrows = hud_buttons.layout_arrows;
-    if (game.activity.conversation || gpSCSV || ItemUseDraft() || IsLockInteractionActive() ||
-        IsTrapInteractionActive()) {
+    const auto radar = [this](W8ButtonWidget*) { toggleRadarMap(); };
+    const auto bottom = [this](W8ButtonWidget*) { toggleBottomPanel(); };
+    const auto board = [this](W8ButtonWidget*) { toggleFormationBoard(); };
+    arrows[0].Configure(ButtonGraphics::Load(g_layout_arrows_path, 6, 0, 1, BUTTON_NO_IMAGE, 2),
+                        {.on_click = radar, .tooltip = 0x3e});
+    arrows[1].Configure(ButtonGraphics::Load(g_layout_arrows_path, 0xe, 8, 9, BUTTON_NO_IMAGE, 10),
+                        {.on_click = bottom, .tooltip = 0x3f});
+    arrows[2].Configure(
+        ButtonGraphics::Load(g_layout_arrows_path, 0x16, 0x10, 0x11, BUTTON_NO_IMAGE, 0x12),
+        {.on_click = board, .tooltip = 0x40});
+    arrows[3].Configure(ButtonGraphics::Load(g_layout_arrows_path, 7, 3, 4, BUTTON_NO_IMAGE, 5),
+                        {.on_click = radar, .tooltip = 0x3b});
+    arrows[4].Configure(
+        ButtonGraphics::Load(g_layout_arrows_path, 0xf, 0xb, 0xc, BUTTON_NO_IMAGE, 0xd),
+        {.on_click = bottom, .tooltip = 0x3c});
+    arrows[5].Configure(
+        ButtonGraphics::Load(g_layout_arrows_path, 0x17, 0x13, 0x14, BUTTON_NO_IMAGE, 0x15),
+        {.on_click = board, .tooltip = 0x3d});
+    for (std::size_t index = 0; index < arrows.size(); ++index) {
+        arrows[index].SetPosition(g_layout_arrow_positions[index].x,
+                                  g_layout_arrow_positions[index].y);
+    }
+}
+
+/* The roof buttons press the shown mode. An interaction hides the radar button and
+   every layout arrow, and a conversation disables the other two roof buttons. */
+void MainGameScreen::updateLayoutButtons()
+{
+    const bool interaction = game.activity.conversation || applied_layout.interaction;
+    auto& roof = hud_buttons.roof;
+    roof[2].SetVisible(!interaction);
+    const bool talking = game.activity.conversation || game.activity.conversation_aside;
+    roof[0].SetEnabled(!talking);
+    roof[1].SetEnabled(!talking);
+    for (std::size_t index = 0; index < roof.size(); ++index) {
+        const bool pressed = applied_layout.mode == static_cast<W8MainUiMode>(index);
+        if (roof[index].IsPressed() != pressed) roof[index].SetPressed(pressed);
+    }
+
+    auto& arrows = hud_buttons.layout_arrows;
+    if (interaction) {
         for (auto& button : arrows) button.SetVisible(false);
         return;
     }
-    const bool enabled = GetEffectiveMainUiMode() != 0;
+    const bool enabled = applied_layout.mode != W8_MAIN_UI_MODE_PORTRAITS;
     arrows[0].SetEnabled(enabled);
     arrows[2].SetEnabled(enabled);
-    const bool radar = radar_map != nullptr;
-    arrows[0].SetVisible(radar);
-    arrows[3].SetVisible(!radar);
-    const bool action_panel = hud->action_panel_visible != 0;
-    arrows[1].SetVisible(action_panel);
-    arrows[4].SetVisible(!action_panel);
-    const bool formation = hud->formation_board_visible;
-    arrows[2].SetVisible(formation);
-    arrows[5].SetVisible(!formation);
-}
-
-static void CreateLayoutArrowButtons()
-{
-    int index;
-
-    MainGame()->hud_buttons.layout_arrows[0].Configure(
-        ButtonGraphics::Load(g_layout_arrows_path, 6, 0, 1, BUTTON_NO_IMAGE, 2),
-        {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3e});
-    MainGame()->hud_buttons.layout_arrows[1].Configure(
-        ButtonGraphics::Load(g_layout_arrows_path, 0xe, 8, 9, BUTTON_NO_IMAGE, 10),
-        {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3f});
-    MainGame()->hud_buttons.layout_arrows[2].Configure(
-        ButtonGraphics::Load(g_layout_arrows_path, 0x16, 0x10, 0x11, BUTTON_NO_IMAGE, 0x12),
-        {.on_click = MainGameLayoutFormationButton, .tooltip = 0x40});
-    MainGame()->hud_buttons.layout_arrows[3].Configure(
-        ButtonGraphics::Load(g_layout_arrows_path, 7, 3, 4, BUTTON_NO_IMAGE, 5),
-        {.on_click = MainGameLayoutRadarButton, .tooltip = 0x3b});
-    MainGame()->hud_buttons.layout_arrows[4].Configure(
-        ButtonGraphics::Load(g_layout_arrows_path, 0xf, 0xb, 0xc, BUTTON_NO_IMAGE, 0xd),
-        {.on_click = MainGameLayoutActionPanelButton, .tooltip = 0x3c});
-    MainGame()->hud_buttons.layout_arrows[5].Configure(
-        ButtonGraphics::Load(g_layout_arrows_path, 0x17, 0x13, 0x14, BUTTON_NO_IMAGE, 0x15),
-        {.on_click = MainGameLayoutFormationButton, .tooltip = 0x3d});
-    for (index = 0; index < 6; ++index) {
-        MainGame()->hud_buttons.layout_arrows[index].SetPosition(g_layout_arrow_positions[index].x,
-                                                                 g_layout_arrow_positions[index].y);
-    }
+    arrows[0].SetVisible(applied_layout.radar_map);
+    arrows[3].SetVisible(!applied_layout.radar_map);
+    arrows[1].SetVisible(applied_layout.bottom_panel);
+    arrows[4].SetVisible(!applied_layout.bottom_panel);
+    arrows[2].SetVisible(applied_layout.formation_board);
+    arrows[5].SetVisible(!applied_layout.formation_board);
 }
 
 void ConfigureMainGameHudButtons(void)
@@ -677,8 +590,7 @@ void ConfigureMainGameHudButtons(void)
     CreateSubMenuPanelButtons();
     CreateOptionsDiskButton();
     CreateCombatStanceButtons();
-    CreateRoofButtons();
-    CreateLayoutArrowButtons();
+    MainGame()->createLayoutButtons();
 }
 
 static void SetMenuButtonBanksEnabled(bool enabled)
@@ -973,8 +885,7 @@ void MainGameScreen::updateHudButtons()
                          !LockInteractionSuspended() && !TrapInteractionSuspended();
     hud_buttons.options_disk.SetEnabled(enabled);
     UpdateCombatStanceButtons();
-    UpdateRoofButtons();
-    updateLayoutArrows();
+    updateLayoutButtons();
 }
 
 // Draw the HUD buttons whose state or hover changed since they were last drawn.

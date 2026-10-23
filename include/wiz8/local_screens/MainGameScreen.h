@@ -14,6 +14,7 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/DialogBase.h"
+#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/npc_dialogue_panel.h"
@@ -50,6 +51,31 @@ struct MainGameScreen final : Screen {
     void resetStepClock() override { step_timer.restart(); }
     bool leave(ScreenDeparture departure) override;
 
+    /* Decide the layout from the open interaction and the player's preferences, and
+       apply it once. Only the panels and viewport that change are touched; an
+       unchanged layout keeps its panels, hover and tooltip state. */
+    void refreshLayout();
+    // Store the player's preferred mode and apply the layout it gives.
+    void setPreferredMode(W8MainUiMode mode);
+    /* Drop the formation board, radar map and bottom panel while the screen is
+       covered; the next refreshLayout raises what its layout wants. */
+    void closeOverlays();
+    /* Re-sync the party slots' portrait and edge hit regions with occupancy, the
+       keyboard menu and the shown mode. */
+    void refreshPartySlotRegions();
+    // Raise or lower one panel of the formation layout, as the layout arrows do.
+    void toggleRadarMap();
+    void toggleBottomPanel();
+    void toggleFormationBoard();
+    // Step the preferred mode forward (1) or back (-1), as the layout keys do.
+    void stepLayoutMode(int step);
+    // Build the roof mode buttons and the layout arrows.
+    void createLayoutButtons();
+    // Restate the roof buttons and layout arrows from the applied layout.
+    void updateLayoutButtons();
+    // The layout the panels, viewport and input currently follow.
+    const MainGameLayout& layout() const { return applied_layout; }
+
     /* A frame updates what it shows, then paints it. The update brings the party's
        facing, the targeting presentation, panel and button state and the repaint
        record in line with the game; the draw paints the recorded parts and changes
@@ -64,8 +90,8 @@ struct MainGameScreen final : Screen {
     // The game this main game belongs to; it is discarded before the game ends.
     Game& game;
     std::unique_ptr<KeyboardActionMenu> keyboard_menu;
+    // The radar map panel, present exactly while the applied layout shows it.
     std::unique_ptr<RadarMap> radar_map;
-    void setRadarVisible(bool visible);
     bool keyboardMenuForSlot(int slot) const;
     void openKeyboardMenu(int slot);
     void closeKeyboardMenu();
@@ -113,12 +139,16 @@ struct MainGameScreen final : Screen {
     HitTarget *radar_target = nullptr, *monster_list = nullptr, *world_view = nullptr;
 
 private:
+    MainGameLayout applied_layout;
+
+    void chooseRoofMode(W8MainUiMode mode);
+    void showRadarMap(bool visible);
+    void showFormationBoard(bool visible);
+    void syncInput(const MainGameLayout& layout);
+
     /* The presentation update's button sync: bank buttons, scroll arrows,
        panel/options/stance/roof buttons and the layout arrows. */
     void updateHudButtons();
-    /* Show one arrow of each raise/lower pair against the action-panel,
-       formation-board and radar-map visibility; modal modes hide them all. */
-    void updateLayoutArrows();
     /* The draw's per-frame button refresh: every changed button except the
        layout arrows, which the layout repaint draws. */
     void refreshHudButtons();
@@ -153,8 +183,6 @@ void DisableMainGamePortraitSlot(unsigned int slot);
 void RedrawCombatMonsterList(bool subject_valid);
 void RefreshSelectedPartyPortrait(unsigned int party_slot);
 void ClearHighlightIfItIs(const int* item);
-
-#include "wiz8/layouts/main_game_screen.h"
 
 extern W8MainGameResourceSlot g_main_game_resource_slots[17];
 extern DesignRect g_viewport_modes[];
@@ -478,7 +506,6 @@ bool IsModalOpen(void);
 void CancelMouselook();
 void SetTooltipSubject(W8PortraitHighlightKind kind, int subject);
 bool IsScreenInputBlocked(void);
-void DisableCombatRegions(void);
 
 extern bool g_mouselook_active;
 extern bool g_mouselook_left_held;
@@ -494,22 +521,8 @@ extern W8MainGameMode g_main_game_mode;
 void RequestLevelTransition(int level, int entry, unsigned char flag);
 // Change to `level`, arriving at `entry` (-1 for a saved location).
 void BeginLevelTransition(int level, int entry);
-void SetViewportMode(W8ViewportMode mode);
-/* Apply a main-game UI mode (0=portraits, 1=formation, 2=radar): drop raised
-   panels, optionally re-raise them from settings prefs, refresh tooltip and
-   region state, and sync both settings and the level-block mode field. */
-W8MainUiMode GetEffectiveMainUiMode();
-void SetMainUiPreference(W8MainUiMode mode);
-void RefreshMainGameLayout();
 bool ProcessMainGameInput(void);
 void TickAmbientFollowUpIdle(unsigned char input_handled);
-/* Re-sync the eight party slots' region sets and portrait hit
-   regions with occupancy, the monster-entry flag and the display mode; the
-   party add/remove entries and the keyboard menu's close run it. */
-void RefreshPartySlotRegions(void);
-/* Re-sync mouse hotspot, region enables and viewport after a
-   main-game mode change. */
-void SyncMainGameModeInput(void);
 /* Forget the shown plate and, while the overlay mode is up, have the next draw
    erase its rectangle and repaint the roof or text box it crossed. */
 void ClearHighlightOverlayRegion(void);
@@ -546,7 +559,6 @@ UiResult WorldViewInput(const UiPointerEvent& event);
 /* Help 36: combat monster-list hit rows beside the radar map. */
 UiResult MonsterListInput(const UiPointerEvent& event);
 void SetMainGameMode(W8MainGameMode mode);
-void SetFormationBoardVisible(bool visible);
 void ToggleMainGamePause(void);
 /* The numbered action-key space IsMGSActionKeyEnabled, RunMGSActionKey and
    TryMGSActionKey share: the interface commands map to views and recorded
@@ -577,9 +589,6 @@ void TryMGSActionKey(W8MGSAction command);
 bool IsMGSActionKeyEnabled(unsigned short command);
 void RunMGSActionKey(unsigned short command);
 void LoadMainGameCursorResources(void);
-W8ViewportMode GetMainGameViewportMode(void);
-void CloseMainGameOverlays(void);
-void SetActionPanelVisible(bool visible);
 void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag);
 void RebuildNpcTradeItemList(bool scroll_to_top);
 /* The trade-stock index behind a visible NPC item row. */

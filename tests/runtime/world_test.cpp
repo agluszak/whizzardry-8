@@ -595,28 +595,31 @@ void ResourceLifecycleScenario()
     REQUIRE(GetWorld()->native_objects.size() == 1);
     // Exercise the retail scene and UI before the imported-object interaction.
     GetWorld()->native_objects.clear();
-    // Radar redraws replace artwork without leaking overlays, and hiding its
-    // screen-owned value removes the backdrop and every retained blip together.
-    const bool radar_was_visible = bool(MainGame()->radar_map);
-    MainGame()->setRadarVisible(false);
+    // Radar redraws replace artwork without leaking overlays, and dropping it from
+    // the layout removes the backdrop and every retained blip together.
+    auto& screen = *MainGame();
+    const auto preferred = g_settings.main_ui_mode;
+    screen.setPreferredMode(W8_MAIN_UI_MODE_PORTRAITS);
+    screen.closeOverlays();
     const auto overlay_counts = [] {
         return std::array{g_compositor.layerGroup(OverlayLayer::OverUi).children.size(),
                           g_compositor.layerGroup(OverlayLayer::SquareAspect).children.size()};
     };
     const auto without_radar = overlay_counts();
-    MainGame()->setRadarVisible(true);
-    MainGame()->radar_map->captureBackdrop();
+    screen.refreshLayout();
+    REQUIRE(screen.radar_map);
+    screen.radar_map->captureBackdrop();
     const auto with_radar = overlay_counts();
     REQUIRE(with_radar[0] > without_radar[0]);
     REQUIRE(with_radar[1] > without_radar[1]);
     for (int refresh = 0; refresh < 2; ++refresh) {
-        MainGame()->radar_map->refresh();
-        MainGame()->radar_map->captureBackdrop();
+        screen.radar_map->refresh();
+        screen.radar_map->captureBackdrop();
         REQUIRE(overlay_counts() == with_radar);
     }
-    MainGame()->setRadarVisible(false);
+    screen.closeOverlays();
     REQUIRE(overlay_counts() == without_radar);
-    if (radar_was_visible) MainGame()->setRadarVisible(true);
+    screen.setPreferredMode(preferred);
     REQUIRE(g_renderer);
     REQUIRE(g_renderer->isOpen());
     int original_width = 0, original_height = 0;

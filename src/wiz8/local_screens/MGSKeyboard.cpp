@@ -358,18 +358,10 @@ void DispatchMGSCommand(W8MGSCommand command)
         if (CurrentGame().activity.conversation || CurrentGame().activity.conversation_aside) {
             break;
         }
-        if (IsScreenInputBlocked() != 0) {
-            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() - 1) & 1));
-        } else {
-            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() + 1) % 3));
-        }
+        MainGame()->stepLayoutMode(1);
         break;
     case W8_MGS_COMMAND_PREV_LAYOUT:
-        if (IsScreenInputBlocked() != 0) {
-            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() - 1) & 1));
-        } else {
-            SetMainUiPreference(static_cast<W8MainUiMode>((GetEffectiveMainUiMode() + 2) % 3));
-        }
+        MainGame()->stepLayoutMode(-1);
         break;
     case W8_MGS_COMMAND_AUTOMAP:
         if (IsScreenInputBlocked() == 0) {
@@ -465,7 +457,6 @@ void DispatchMGSCommand(W8MGSCommand command)
             request.mode = W8_PLEASE_WAIT_LOAD_GAME;
             request.name = *slot_name;
             request.parameter = GetSaveGameLevel(request.name);
-            CloseMainGameOverlays();
             SetMainGameMode(W8_MAIN_GAME_DEFAULT);
             request.id = W8_SCREEN_PLEASE_WAIT;
             RequestScreen(std::move(request));
@@ -508,7 +499,7 @@ void DispatchMGSCommand(W8MGSCommand command)
             SelectPartyCharacter(slot);
             break;
         }
-        if (GetEffectiveMainUiMode() == W8_MAIN_UI_MODE_PORTRAITS) {
+        if (MainGame()->layout().mode == W8_MAIN_UI_MODE_PORTRAITS) {
             break;
         }
         if (MainGameHud()->portrait_refresh_pending[slot] != 0) {
@@ -657,7 +648,7 @@ void MainGameScreen::closeKeyboardMenu()
     state.combat_slot = -1;
     state.hover_combat_slot = slot;
     state.cursor_grace = 0;
-    RefreshPartySlotRegions();
+    refreshPartySlotRegions();
     combat.setEnabled(game.combat.has_value());
     if (menu && !state.portrait_refresh_pending[slot]) {
         ClearSurfaceRect(menu->origin.x, menu->origin.y, menu->origin.x + 0x52,
