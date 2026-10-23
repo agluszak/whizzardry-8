@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <array>
-#include <memory>
 #include <string_view>
 
 #include "wiz8/character_event_queue.h"

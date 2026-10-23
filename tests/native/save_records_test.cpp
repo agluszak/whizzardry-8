@@ -653,9 +653,11 @@ static void script_record_contracts()
     REQUIRE((script.lines[0].text == "  MOVE 10" && script.lines[3].text == "FINAL"));
     REQUIRE((script.FindLabelLine("START") == 0 && script.FindLabelLine(prefix + "first") == 2 &&
              script.FindLabelLine(prefix + "second") == 3));
-    REQUIRE((script.FindLabelLine("missing") == -1 && script.FindLabelLine({}) == -1));
+    REQUIRE_FALSE(script.FindLabelLine("missing"));
+    REQUIRE_FALSE(script.FindLabelLine({}));
     REQUIRE((script.GetSourceLine(0) == 4 && script.GetSourceLine(3) == 10));
-    REQUIRE((script.GetSourceLine(-1) == -1 && script.GetSourceLine(4) == -1));
+    REQUIRE_FALSE(script.GetSourceLine(-1));
+    REQUIRE_FALSE(script.GetSourceLine(4));
     // Copies own their text and remain valid after the original is cleared.
     auto copy = script;
     script.Clear();

@@ -432,7 +432,7 @@ void text_input_ownership()
         outer.Remove(first);
         outer.Remove(3);
         outer.Remove(last);
-        REQUIRE(outer.FocusedId() == -1);
+        REQUIRE_FALSE(outer.FocusedId());
     }
     REQUIRE(TextFieldGroup::Focused() == nullptr);
 }
