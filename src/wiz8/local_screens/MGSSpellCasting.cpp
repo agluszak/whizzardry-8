@@ -91,9 +91,9 @@ unsigned int W8SpellCastingView::AffordablePowerLevels() const
 /* Builds the three spell-casting panels and all of their controls: the six
    realm buttons with their animated icons, the nine power-level pips, the
    spell-name label and the cancel button. */
-W8SpellCastingView::W8SpellCastingView(MainGameScreen& screen, W8Character& caster,
+W8SpellCastingView::W8SpellCastingView(MainGameScreen& owner_screen, W8Character& acting,
                                        std::move_only_function<void()> on_return)
-    : screen(screen), caster(&caster), on_return(std::move(on_return))
+    : screen(owner_screen), caster(&acting), on_return(std::move(on_return))
 {
     const auto make_button = [this](int artwork, const std::array<int, 5>& frames, SDL_Rect bounds,
                                     int help, std::function<void()> action,

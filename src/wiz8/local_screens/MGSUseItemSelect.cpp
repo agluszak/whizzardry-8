@@ -71,9 +71,9 @@ W8UseItemView* UseItemPicker()
     return main_game ? main_game->item_picker.get() : nullptr;
 }
 
-W8UseItemView::W8UseItemView(MainGameScreen& screen, int party_slot,
+W8UseItemView::W8UseItemView(MainGameScreen& owner_screen, int party_slot,
                              std::move_only_function<void()> on_return)
-    : on_return(std::move(on_return)), screen(screen), owner(party_slot)
+    : on_return(std::move(on_return)), screen(owner_screen), owner(party_slot)
 {
     const auto make_button = [this](int artwork, int normal, int pressed, int hover,
                                     int pressed_hover, int disabled, SDL_Rect bounds, int help,
