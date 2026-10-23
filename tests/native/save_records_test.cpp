@@ -891,7 +891,7 @@ constexpr std::size_t kFirstRowOffset =
 static wiz8::save::GameState populated_game_state()
 {
     wiz8::save::GameState saved{};
-    auto& [status, party] = saved;
+    auto& [status, party, search_mode] = saved;
     auto& rows = party.rows;
     for (int slot = 0; slot < 8; ++slot) {
         party.members[slot].emplace().npc_index = slot < 2 ? slot : -1;
@@ -921,7 +921,7 @@ static wiz8::save::GameState populated_game_state()
     status.item_spell_usage[7].usable_cast_count = 9;
     status.wait_state = W8_GAME_WAIT_STATE_RESTING;
     status.world_clock = 0x80000003u;
-    status.search_mode = true;
+    search_mode = true;
     party.gold = 0x12345678;
     party.item_pool[0] = {.iItemNo = 12, .stack_count = 3, .identified = true};
     party.item_count = 1;
@@ -985,6 +985,7 @@ static void global_status_record()
     // decode(encode(x)) == x, and the decoded state encodes to the same bytes.
     const auto restored = wiz8::save::decode_game_state(payload);
     REQUIRE(restored.status == saved.status);
+    REQUIRE(restored.search_mode);
     REQUIRE(wiz8::save::encode(restored) == payload);
     REQUIRE(restored.party.gold == saved.party.gold);
     REQUIRE(restored.party.item_pool[0] == saved.party.item_pool[0]);
