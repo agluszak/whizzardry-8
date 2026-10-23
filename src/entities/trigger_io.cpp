@@ -30,6 +30,7 @@
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/save_game.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/world.h"
@@ -124,7 +125,7 @@ static void ApplySavedLocks(World& world, const SavedTriggerLocks& section)
         auto* trigger = FindTriggerInWorld(world, saved.trigger);
         if (!trigger) continue;
         trigger->lock_state.Restore(saved);
-        if (section.restoring) trigger->lock_state.Reset();
+        if (section.restoring) trigger->lock_state.Reset(world.rng());
         if (auto* door = trigger->doorData(); door && (!door->locked || door->item == -1)) {
             door->locked = trigger->lock_state.device_state.completed == 0;
             door->item = static_cast<short>(trigger->lock_state.key_id);

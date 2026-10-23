@@ -9,6 +9,7 @@
 
 #include "scoped_game.h"
 #include "temporary_directory.h"
+#include "test_worlds.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/combat/sounds.h"
 #include "wiz8/entities/monster.h"
@@ -51,7 +52,8 @@ TEST_CASE("resource_text_test")
 
     {
         const ScopedGame game; // Script conditions draw from the game's stream.
-        World owner;
+        StandaloneWorld standalone_owner;
+        World& owner = standalone_owner.world;
         Monster monster(owner);
         REQUIRE((monster.EvaluateScriptCondition("random(100)")));
         REQUIRE((!monster.EvaluateScriptCondition("RANDOM(0)")));

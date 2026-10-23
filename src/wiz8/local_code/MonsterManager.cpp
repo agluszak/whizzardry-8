@@ -74,6 +74,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -197,7 +198,7 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
             monster.visual.SetBehaviour(W8_ANIMATION_NEVER_STOP);
             assert(monster.Query(W8_MONSTER_QUERY_FRAME_COUNT) != -1);
             monster.visual.SetSubCycle(
-                CurrentGame().rng.below(monster.Query(W8_MONSTER_QUERY_FRAME_COUNT)));
+                world.rng().below(monster.Query(W8_MONSTER_QUERY_FRAME_COUNT)));
             monster.SetAnimating(!monster_info->fMotionless);
         }
 
@@ -242,7 +243,7 @@ void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info)
     if (monster_info->scale < 0.0f ||
         CurrentGame().status.level_progress[world.level_id].visited == 0) {
         monster_info->saved_mirror_x = monster_info->entity->visual.mirror_x;
-        monster_info->scale = CalculateMonsterScale(monster_info);
+        monster_info->scale = CalculateMonsterScale(monster_info, world.rng());
         monster_info->entity->scale = monster_info->scale;
     } else {
         monster_info->entity->scale = monster_info->scale;
@@ -685,7 +686,7 @@ static void InitializeMonsterRuntimeStatsFor(W8MonsterInfo* monster_info)
     monster_info->stamina_max = value;
     monster_info->stamina = value;
     monster_info->fatigue_band = CalculateMonsterFatigueBand(value, value);
-    monster_info->scale = CalculateMonsterScale(monster_info);
+    monster_info->scale = CalculateMonsterScale(monster_info, CurrentGame().rng);
     monster_info->entity->scale = monster_info->scale;
     monster_info->entity->ApplyRepresentationScale();
     monster_info->entity->RefreshStandingHeight();
@@ -704,7 +705,7 @@ void InitializeMonsterRuntimeStats(void)
     }
 }
 
-float CalculateMonsterScale(W8MonsterInfo* monster_info)
+float CalculateMonsterScale(W8MonsterInfo* monster_info, Rng& rng)
 {
     float minimum;
     float maximum;
@@ -722,7 +723,7 @@ float CalculateMonsterScale(W8MonsterInfo* monster_info)
         ((maximum - minimum) * (static_cast<unsigned int>(monster_info->uiHPMax) - minimum_hp)) /
             (maximum_hp - minimum_hp) +
         minimum;
-    float result = (maximum - minimum) * (CurrentGame().rng.below(1000) * 0.0004f - 0.2f) + scale;
+    float result = (maximum - minimum) * (rng.below(1000) * 0.0004f - 0.2f) + scale;
 
     if (result < minimum) {
         return minimum;

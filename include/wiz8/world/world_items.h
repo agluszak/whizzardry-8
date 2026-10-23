@@ -5,6 +5,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 
+class Rng;
 struct World;
 struct W8WorldItem;
 struct W8ItemInstance;
@@ -12,9 +13,11 @@ struct W8ItemInstance;
 // The item records lying in one world and their placement in it: resting on the
 // ground, listed by the collidable prop beneath them, and with a scene entity while
 // they are near the camera. A world being loaded owns its items before it is published.
+// Rolling and placing items draws from the game's random stream, and every new record
+// takes the game's next item id; both belong to the game and outlive the world.
 class WorldItems {
 public:
-    explicit WorldItems(World& world);
+    WorldItems(World& world, Rng& rng, int& next_item_id);
     ~WorldItems();
     WorldItems(const WorldItems&) = delete;
     WorldItems& operator=(const WorldItems&) = delete;
@@ -46,5 +49,7 @@ private:
     void unplace(W8WorldItem& item);
 
     World& world_;
+    Rng& rng_;
+    int& next_item_id_;
     std::vector<std::unique_ptr<W8WorldItem>> items_;
 };

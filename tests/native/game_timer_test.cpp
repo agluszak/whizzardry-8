@@ -12,6 +12,7 @@
 #include "scoped_game.h"
 #include "scoped_game_data.h"
 #include "temporary_directory.h"
+#include "test_worlds.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/chunk.h"
 #include "wiz8/data/game_data.h"
@@ -251,7 +252,7 @@ TEST_CASE_METHOD(TimerFixture, "A game steps deterministically on the times it i
     using std::chrono::milliseconds;
     // An empty level in view: each step runs the whole simulation over nothing.
     auto& game = CurrentGame();
-    game.level.replacePrimary(std::make_unique<World>());
+    game.level.replacePrimary(MakeWorld());
     game.level.primary->camera = &game.level.primary->scene->camera;
     const auto auto_save = std::exchange(g_settings.auto_save, 0);
     const auto step = [&](int ms) { game.advance(milliseconds{ms}, {}); };

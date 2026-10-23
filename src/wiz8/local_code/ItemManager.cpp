@@ -39,7 +39,6 @@
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_tables.h"
-#include "wiz8/layouts/game_status.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -51,6 +50,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
@@ -441,13 +441,12 @@ void WorldItems::activate(W8WorldItem& record)
     }
     position = item->position;
     item->entity->SetLocation(&position);
-    item->entity->SetYaw(static_cast<float>(CurrentGame().rng.below(0x168) * 2 * g_camera_pi *
-                                            kInverseFullTurnDegrees));
+    item->entity->SetYaw(
+        static_cast<float>(rng_.below(0x168) * 2 * g_camera_pi * kInverseFullTurnDegrees));
     item->entity->flags |= item->entity_flags;
     item->entity->AttachMesh(&world_);
     world_.plsItems.push_back(std::move(entity));
     item->fActive = true;
-    ++CurrentGame().item_manager_pending;
 
     sun = FindWorldLight(world_, "SUN");
     if (sun != nullptr && world_.compiledIndex()) {
@@ -486,7 +485,6 @@ void WorldItems::deactivate(W8WorldItem& record)
     entity.DetachMesh();
     std::erase_if(world_.plsItems, [&](const auto& owner) { return owner.get() == &entity; });
     item->fActive = false;
-    --CurrentGame().item_manager_pending;
 }
 
 /* The runtime id of the nearest active world item the cursor is hovering over
@@ -784,7 +782,10 @@ void RebuildAllWorldItemInstances(void)
         item->item = MakeItem(Data(), CurrentGame().rng, item->item.iItemNo, false, false, false);
 }
 
-WorldItems::WorldItems(World& world) : world_(world) {}
+WorldItems::WorldItems(World& world, Rng& rng, int& next_item_id)
+    : world_(world), rng_(rng), next_item_id_(next_item_id)
+{
+}
 
 WorldItems::~WorldItems() = default;
 
@@ -799,7 +800,7 @@ std::unique_ptr<W8WorldItem> WorldItems::create(W8ItemInstance* item, const glm:
 {
     auto result = std::make_unique<W8WorldItem>();
     result->item = W8ItemInstance{.iItemNo = -1};
-    result->runtime_id = CurrentGame().status.next_world_item_id++;
+    result->runtime_id = next_item_id_++;
     result->position = position;
     result->sector_id = -1;
     settle(*result);
@@ -812,7 +813,7 @@ std::unique_ptr<W8WorldItem> WorldItems::spawn(int item_id, const glm::vec3& pos
                                                int entity_flags)
 {
     if (item_id == -1) return create(nullptr, position, entity_flags);
-    auto item = MakeItem(Data(), CurrentGame().rng, item_id, false, false, false);
+    auto item = MakeItem(Data(), rng_, item_id, false, false, false);
     return create(&item, position, entity_flags);
 }
 

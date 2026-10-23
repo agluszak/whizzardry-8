@@ -1,4 +1,5 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
+class Rng;
 #define WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 
 #include <cstdint>
@@ -430,7 +431,7 @@ void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState c
 void MonsterInfoSetMotionless(W8MonsterInfo* monster_info, bool motionless);
 void MoveMonsterToLiveList(W8MonsterInfo* monster_info);
 void InitializeMonsterRuntimeStats(void);
-float CalculateMonsterScale(W8MonsterInfo* monster_info);
+float CalculateMonsterScale(W8MonsterInfo* monster_info, Rng& rng);
 void ProcessMonsterManagerFrame(void);
 std::string FormatMonsterHealth(W8MonsterInfo* monster_info);
 unsigned int GetMonsterExperience(const W8MonsterRecord* record);

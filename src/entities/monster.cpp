@@ -80,6 +80,7 @@
 #include "wiz8/render/picking.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"

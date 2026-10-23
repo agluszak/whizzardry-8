@@ -33,6 +33,7 @@
 #include "scoped_game.h"
 #include "scoped_game_data.h"
 #include "temporary_directory.h"
+#include "test_worlds.h"
 #include "wiz8/chunk.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
@@ -60,6 +61,7 @@
 #include "wiz8/retail_geometry_records.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/save_game.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -591,7 +593,8 @@ TEST_CASE_METHOD(LoaderFixture, "Named positions commit only complete sections",
             append(bytes, value);
         }
     }
-    World world{};
+    StandaloneWorld standalone_world;
+    World& world = standalone_world.world;
     world.named_positions.emplace_back();
     std::strcpy(world.named_positions.front().name, "EXISTING");
     auto unchanged = [&] {
@@ -678,7 +681,8 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
             for (float value : {x, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f}) append(bytes, value);
         }
     }
-    World world{};
+    StandaloneWorld standalone_world;
+    World& world = standalone_world.world;
     auto* existing = world.plsCameras.emplace_back(std::make_unique<W8CameraPath>()).get();
     std::strcpy(existing->name0, "EXISTING");
     auto unchanged = [&] {
@@ -758,7 +762,8 @@ TEST_CASE_METHOD(LoaderFixture,
                  "World item records reject incomplete data without touching the active world",
                  "[loader][records]")
 {
-    World world{};
+    StandaloneWorld standalone_world;
+    World& world = standalone_world.world;
     for (const int count : {-1, 100000, 0}) {
         std::string bytes;
         append(bytes, count);
@@ -776,7 +781,7 @@ TEST_CASE_METHOD(LoaderFixture,
 
     // The loader owns a separate candidate, never the active world.
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>());
+    game.game.level.replacePrimary(MakeWorld());
     World& current = *game.game.level.primary;
     GameData data;
     data.items.resize(1);
@@ -831,14 +836,22 @@ TEST_CASE_METHOD(LoaderFixture, "Failed item activation stays inside the candida
                  "[loader][items]")
 {
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>());
+    game.game.level.replacePrimary(MakeWorld());
     auto& active = *game.game.level.primary;
     GameData data;
     data.items.resize(1);
     data.items[0].internal_name = "missing-model";
+    data.items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
+    data.items[0].initial_quantity = {.base = 0, .count = 1, .sides = 6};
+    game.game.rng.seed(17);
+    game.game.status.next_world_item_id = 42;
+    auto expected_rng = game.game.rng;
+    const auto quantity = RollDice(expected_rng, data.items[0].initial_quantity);
     const ScopedGameData installed(std::move(data));
     {
-        World candidate;
+        // A world being built rolls and numbers its items from the game's stream and counter.
+        const auto owner = MakeWorld();
+        World& candidate = *owner;
         std::string bytes;
         append(bytes, 1);
         bytes += std::string("0") + std::string(19, '\0');
@@ -850,6 +863,9 @@ TEST_CASE_METHOD(LoaderFixture, "Failed item activation stays inside the candida
         REQUIRE_FALSE(ReadWorldItems(&info, &candidate)); // The model is deliberately absent.
         REQUIRE(candidate.items.records().size() == 1);
         REQUIRE(candidate.items.records().front()->item.iItemNo == 0);
+        REQUIRE(candidate.items.records().front()->item.stack_count == quantity);
+        REQUIRE(game.game.status.next_world_item_id == 43);
+        REQUIRE(game.game.rng.next() == expected_rng.next());
         REQUIRE(active.items.records().empty());
         REQUIRE(active.plsItems.empty());
     }
@@ -1026,7 +1042,7 @@ TEST_CASE_METHOD(LoaderFixture, "Nested item write failure aborts a staged trigg
                  "[loader][trigger][items]")
 {
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>());
+    game.game.level.replacePrimary(MakeWorld());
     auto trigger = std::make_unique<Trigger>(GetWorld());
     trigger->world_item_group = std::make_unique<W8WorldItem>();
     GetWorld()->triggers.push_back(std::move(trigger));
@@ -1060,7 +1076,7 @@ TEST_CASE_METHOD(LoaderFixture, "Camp chest retains every item from saved flat g
                  "[loader][items]")
 {
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>());
+    game.game.level.replacePrimary(MakeWorld());
     GameData data{.items = std::vector<W8ItemDatabaseRecord>(2)};
     data.items[0].flags = W8_ITEM_FLAG_CONTAINER;
     const ScopedGameData installed(std::move(data));
@@ -1234,12 +1250,12 @@ TEST_CASE_METHOD(LoaderFixture, "Location variables retain level-scoped names an
                  "[loader][records]")
 {
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>(3));
+    game.game.level.replacePrimary(MakeWorld(3));
     CreateLocationVar("Switch", 17);
     CreateLocationVar("SWITCH", 99);
     REQUIRE(GetLocationVarValueByName("switch") == 17);
     SetTriggerVariableByName("switch", 23);
-    game.game.level.replacePrimary(std::make_unique<World>(4));
+    game.game.level.replacePrimary(MakeWorld(4));
     REQUIRE(GetLocationVarIDByName("Switch") == -1);
     CreateLocationVar("Switch", 31);
 
@@ -1256,7 +1272,7 @@ TEST_CASE_METHOD(LoaderFixture, "Location variables retain level-scoped names an
     CurrentGame().story.location_variables =
         wiz8::save::decode_location_variables(payload_bytes(expected));
     REQUIRE(GetLocationVarValueByName("SWITCH") == 31);
-    game.game.level.replacePrimary(std::make_unique<World>(3));
+    game.game.level.replacePrimary(MakeWorld(3));
     REQUIRE(GetLocationVarValueByName("switch") == 23);
 }
 
@@ -1456,7 +1472,8 @@ TEST_CASE_METHOD(LoaderFixture, "Prop loader rejects an unterminated asset name"
 TEST_CASE_METHOD(LoaderFixture, "Trigger action loading rejects incomplete and unterminated text",
                  "[loader][trigger]")
 {
-    World world;
+    StandaloneWorld standalone_world;
+    World& world = standalone_world.world;
     std::string bytes;
     append(bytes, 1);
     append(bytes, 1);
@@ -1482,7 +1499,7 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
                  "[loader][records]")
 {
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>());
+    game.game.level.replacePrimary(MakeWorld());
     World& world = *GetWorld();
     auto prop = std::make_unique<Prop>();
     prop->legacy_save_id = 4;
@@ -1541,8 +1558,9 @@ TEST_CASE_METHOD(LoaderFixture,
                  "[loader][ownership]")
 {
     const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>(1));
-    World candidate(2);
+    game.game.level.replacePrimary(MakeWorld(1));
+    StandaloneWorld standalone_candidate(2);
+    World& candidate = standalone_candidate.world;
     const auto old_id = GetWorld()->takeLegacyPropSaveId();
     store("short-prop.bin", "");
     auto file = wiz8::open_file(wiz8::asset_path("short-prop.bin"));

@@ -27,6 +27,7 @@
 #include "glm/ext/vector_int3.hpp"
 #include "scoped_asset_roots.h"
 #include "temporary_directory.h"
+#include "test_worlds.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
@@ -156,7 +157,8 @@ bool LoadCycles(const std::filesystem::path& path)
 {
     for (int cycle = 0; cycle != 3; ++cycle) {
         auto file = wiz8::open_file(path);
-        World world{};
+        StandaloneWorld standalone_world;
+        World& world = standalone_world.world;
         {
             auto instances = ReadMultipleLevelMeshes(*file, 4, {});
             REQUIRE(instances.size() == 4);
@@ -240,7 +242,8 @@ TEST_CASE("serialized_mesh_test")
             instance->setModel(std::move(mesh));
             return instance;
         };
-        World world{};
+        StandaloneWorld standalone_world;
+        World& world = standalone_world.world;
         auto& scene = *world.scene;
         world.update_mesh_source = scene.addStaticMesh(trackedInstance());
         world.psrMeshes = {scene.addStaticMesh(trackedInstance()),
@@ -302,7 +305,8 @@ TEST_CASE("Level clip planes attach only complete sections")
     std::strcpy(second.name.data(), "Second");
     second.position = {4, 5, 6, 0};
     {
-        World world{};
+        StandaloneWorld standalone_world;
+        World& world = standalone_world.world;
         REQUIRE(load(2, {first, second}, false, world));
         const auto& planes = world.scene->clip_planes;
         REQUIRE(planes.size() == 2);
@@ -329,7 +333,8 @@ TEST_CASE("Level clip planes attach only complete sections")
     {
         invalid.position[1] = std::numeric_limits<float>::infinity();
     }
-    World world{};
+    StandaloneWorld standalone_world;
+    World& world = standalone_world.world;
     REQUIRE_FALSE(load(count, {first, invalid}, truncate, world));
     REQUIRE(world.scene->clip_planes.empty());
 }

@@ -36,6 +36,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/world/world.h"
 
 /* Original translation-unit ownership is unknown; surrounding anchors do not resolve it. */
@@ -218,7 +219,7 @@ bool MaintainNpcStock(W8NpcState* npc, bool force)
     return true;
 }
 
-bool PopulateNpcStock(W8NpcState* npc)
+bool PopulateNpcStock(W8NpcState* npc, Rng& rng)
 {
     const W8NpcItemStockRule* rule;
     std::size_t rule_count;
@@ -250,7 +251,7 @@ bool PopulateNpcStock(W8NpcState* npc)
                         tier = W8NpcStockChanceTier::always;
                     }
                     chance = NpcStockChanceForTier(tier);
-                    if (CurrentGame().rng.below(100) < static_cast<unsigned int>(chance)) {
+                    if (rng.below(100) < static_cast<unsigned int>(chance)) {
                         ++added;
                     }
                     --remaining;

@@ -1592,9 +1592,9 @@ void LevelSpatialIndex::adoptCollisionData(LevelSpatialIndex&& source)
     collision_available = source.collision_available;
 }
 
-std::unique_ptr<World> LoadWorld(int level_id, std::string source_path)
+std::unique_ptr<World> LoadWorld(Rng& rng, int& next_item_id, int level_id, std::string source_path)
 {
-    auto owner = std::make_unique<World>(level_id, std::move(source_path));
+    auto owner = std::make_unique<World>(rng, next_item_id, level_id, std::move(source_path));
     auto* world = owner.get();
     const auto& resource_path = world->source_path;
     const auto path = wiz8::path_from_utf8(resource_path);

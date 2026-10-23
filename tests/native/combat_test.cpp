@@ -8,6 +8,7 @@
 #include "scoped_combat.h"
 #include "scoped_game.h"
 #include "scoped_game_data.h"
+#include "test_worlds.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
@@ -46,7 +47,7 @@ struct CombatFixture {
 
     CombatFixture()
     {
-        game.level.replacePrimary(std::make_unique<World>());
+        game.level.replacePrimary(MakeWorld());
         g_settings.camera_rotation_mode = W8_CAMERA_ROTATION_DISABLED;
         g_settings.verbose_combat_messages = 0;
         for (int slot = 0; slot < 2; ++slot) {
@@ -173,7 +174,7 @@ TEST_CASE("A deflected stored-spell missile keeps its outcome outside combat")
     const ScopedGame game_scope;
     Game& game = game_scope.game;
     const ScopedGameData missile_data{GameData{.missiles = std::vector<W8MissileTableRecord>(36)}};
-    game.level.replacePrimary(std::make_unique<World>());
+    game.level.replacePrimary(MakeWorld());
     World& world = *game.level.primary;
     Monster target(world);
     target.location_id = 7;

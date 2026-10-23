@@ -1,6 +1,8 @@
 #ifndef WIZ8_NPC_ITEMS_H
 #define WIZ8_NPC_ITEMS_H
 
+class Rng;
+
 #include <cstddef>
 
 #include "wiz8/npc_trade_price.h"
@@ -59,7 +61,7 @@ int AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int
 W8NpcStockChanceTier RateItemIdentifyDifficulty(W8NpcState* npc, int item_id);
 int RestockNpcItems(W8NpcState* npc);
 void SortNpcItems(W8NpcState* npc);
-bool PopulateNpcStock(W8NpcState* npc);
+bool PopulateNpcStock(W8NpcState* npc, Rng& rng);
 bool MaintainNpcStock(W8NpcState* npc, bool force);
 void MatureNpcDelayedItems(W8NpcState* npc);
 void RestockNpcInventory(W8NpcState* npc); /* 0x0055BCC0 */

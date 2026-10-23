@@ -22,6 +22,7 @@
 #include "scoped_game.h"
 #include "scoped_game_data.h"
 #include "temporary_directory.h"
+#include "test_worlds.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
@@ -194,7 +195,7 @@ TEST_CASE("A new game releases the previous game's queued events", "[resources][
     CurrentGame().speech.pending_events.push_back(
         std::make_unique<W8CharacterEvent>(&character, 0, 0, 0));
     CurrentGame().autosave_due = std::chrono::seconds{1};
-    CurrentGame().level.replacePrimary(std::make_unique<World>());
+    CurrentGame().level.replacePrimary(MakeWorld());
 
     // Beginning a game destroys the old one, including its nested events and its worlds.
     game.session.begin();
@@ -207,7 +208,7 @@ TEST_CASE("A new game releases the previous game's queued events", "[resources][
 
 static World& PublishEmptyWorld(Game& game)
 {
-    game.level.replacePrimary(std::make_unique<World>());
+    game.level.replacePrimary(MakeWorld());
     return *game.level.primary;
 }
 
@@ -298,7 +299,8 @@ static void CheckEmitterCloneLifetime()
     light->transform.setLocation(11, 22, 33);
     light->m_position = {11, 22, 33};
     source->resources.cycles[cycle].lights.lights.push_back(std::move(owned_light));
-    World owner;
+    StandaloneWorld standalone_owner;
+    World& owner = standalone_owner.world;
     auto copy = std::make_unique<Host>(*source, owner);
     REQUIRE(copy->resources.cycles[cycle].animation != source->resources.cycles[cycle].animation);
     REQUIRE(copy->resources.cycles[cycle].lights.lights.front().get() != light);
@@ -410,7 +412,8 @@ TEST_CASE("A cycle player shows every frame on its own model", "[resources][anim
     const auto* first_frame = animation.parts[2][0].mesh.frames[0].mesh.get();
     const auto* second_frame = animation.parts[2][0].mesh.frames[1].mesh.get();
 
-    World owner;
+    StandaloneWorld standalone_owner;
+    World& owner = standalone_owner.world;
     CyclePlayer first(owner);
     first.active_animation = &animation;
     CyclePlayer second(owner);
@@ -478,7 +481,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
                  "World teardown destroys cycle particles without retiring them",
                  "[resources][world]")
 {
-    auto previous = game.game.level.replacePrimary(std::make_unique<World>());
+    auto previous = game.game.level.replacePrimary(MakeWorld());
     auto* retiring = GetWorld();
     auto visual = std::make_unique<SpellVisual>(*retiring);
     auto particle = std::make_unique<ParticleSystem>(retiring->scene.get(), 1);
@@ -508,7 +511,8 @@ TEST_CASE("Monster light copies need no source scene attachment", "[lights][owne
 TEST_CASE("A destroyed navigator leaves no mover targeting or following it",
           "[resources][navigation]")
 {
-    World world;
+    StandaloneWorld standalone_world;
+    World& world = standalone_world.world;
     Navigator follower(world);
     {
         Navigator leader(world);
@@ -530,7 +534,8 @@ TEST_CASE_METHOD(SpellVisualFixture,
     published.movement.location_id = 7;
     world.compiledIndex()->registry.cells->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, 8,
                                                               {0, 0, 0});
-    World replacement;
+    StandaloneWorld standalone_replacement;
+    World& replacement = standalone_replacement.world;
     replacement.camera = &replacement.scene->camera;
     CameraPose prepared_pose;
     prepared_pose.position = {10, 20, 30};
@@ -580,7 +585,8 @@ TEST_CASE_METHOD(
 {
     world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
     world.spatial->collision_available = true;
-    World replacement;
+    StandaloneWorld standalone_replacement;
+    World& replacement = standalone_replacement.world;
     replacement.spatial = std::make_unique<LevelSpatialIndex>("", &replacement);
     replacement.spatial->collision_available = true;
     auto& spatial = replacement.compiledIndex()->m_spatial;
@@ -600,7 +606,8 @@ TEST_CASE_METHOD(SpellVisualFixture,
     active->location_id = 7;
     active->within_viewing_distance = false;
     world.population->monster_roster.add(std::move(active), false);
-    World replacement;
+    StandaloneWorld standalone_replacement;
+    World& replacement = standalone_replacement.world;
     auto record = std::make_unique<W8MonsterInfo>();
     record->location_id = 7;
     record->within_viewing_distance = true;
@@ -683,7 +690,8 @@ TEST_CASE("Cycle frame callbacks observe advances and can stop queued steps",
     Animation animation;
     animation.positioned_parts = true;
     animation.frame_count = 4;
-    World owner;
+    StandaloneWorld standalone_owner;
+    World& owner = standalone_owner.world;
     CyclePlayer player(owner);
     player.active_animation = &animation;
     player.animation_playing = true;
@@ -735,7 +743,8 @@ TEST_CASE("Rendering derives the views from the party and changes nothing it rea
     world.camera = &world.scene->camera;
     Light light(nullptr);
     world.camera_light = &light;
-    World sky;
+    StandaloneWorld standalone_sky;
+    World& sky = standalone_sky.world;
     sky.camera = &sky.scene->camera;
     world.party.place({10, 20, 30});
     world.party.camera.SetOrientation(.5f, -.25f);
@@ -767,7 +776,8 @@ TEST_CASE("Rendering derives the views from the party and changes nothing it rea
 TEST_CASE("The party navigator stands the world height below the eye",
           "[resources][camera][navigation]")
 {
-    World world;
+    StandaloneWorld standalone_world;
+    World& world = standalone_world.world;
     world.party.camera.SetOrientation(.5f, -.25f);
     world.party.place({100, 200, 300});
     const auto& navigator = world.party.navigator;

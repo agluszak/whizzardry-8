@@ -1,4 +1,5 @@
 #ifndef WIZ8_ENGINE_CODE_MONSTER_H
+class Rng;
 #define WIZ8_ENGINE_CODE_MONSTER_H
 
 #include <array>

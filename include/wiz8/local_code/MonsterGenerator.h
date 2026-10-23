@@ -1,4 +1,5 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_GENERATOR_H
+class Rng;
 #define WIZ8_LOCAL_CODE_MONSTER_GENERATOR_H
 
 struct W8Chunk;
@@ -58,7 +59,7 @@ struct MonGen {
     bool generation_enabled; /* MIPE "Toggle Active"; gates CanGenerate */
 
     MonGen();
-    void Reset(short default_interval);
+    void Reset(short default_interval, Rng& rng);
     /* Tests global encounter gates, range/LOS/occupancy constraints and this
        generator's chance. */
     bool CanGenerateEncounter(bool force);
@@ -70,7 +71,7 @@ struct MonGen {
     int RollEncounterGroupSize(const W8MonsterRecord* record);
     /* The save pair. Both are __thiscall in the image. */
     void Save(wiz8::File& handle);
-    unsigned char Load(W8Chunk& handle, short default_interval);
+    unsigned char Load(W8Chunk& handle, short default_interval, Rng& rng);
     /* The MONG chunk loader. */
     /* Select one loaded encounter table and apply its HARASSMENT flag. */
     void SetEncounterTable(int index);

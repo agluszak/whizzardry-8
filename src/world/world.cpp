@@ -160,10 +160,11 @@ W8LevelPopulation& CurrentLevelPopulation()
     return *GetWorld()->population;
 }
 
-World::World(int level_id, std::string path)
+World::World(Rng& rng, int& next_item_id, int level_id, std::string path)
     : level_id(level_id),
       source_path(path.empty() ? std::string{} : wiz8::normalize_asset_path(path).generic_string()),
-      scene(std::make_unique<WorldScene>()), population(std::make_unique<W8LevelPopulation>())
+      scene(std::make_unique<WorldScene>()), population(std::make_unique<W8LevelPopulation>()),
+      items(*this, rng, next_item_id), rng_(rng)
 {
     SetSceneAmbientLightWhite(scene.get());
 }

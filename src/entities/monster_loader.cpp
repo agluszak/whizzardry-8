@@ -47,6 +47,7 @@
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/render/quality.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/unicode.h"
@@ -523,7 +524,7 @@ LoadMonsterDefinition(World& world, std::string_view monster_name, int location_
    motion from the species' ranges, in that order. */
 static void RollAppearance(Monster& monster, const MonsterDefinition& species)
 {
-    auto& rng = CurrentGame().rng;
+    auto& rng = monster.owner_world.rng();
     /* 0x004C1D3D: cmp/setl - a signed test against the LEFTHANDED percent. */
     monster.visual.mirror_x = static_cast<int>(rng.below(100)) < species.left_handed;
 

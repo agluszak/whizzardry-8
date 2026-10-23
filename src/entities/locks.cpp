@@ -1,15 +1,15 @@
 #include "wiz8/entities/locks.h"
 
 #include "wiz8/entities/saved_world_sections.h"
-#include "wiz8/game.h"
+#include "wiz8/rules/random.h"
 
-void LockState::Reset()
+void LockState::Reset(Rng& rng)
 {
     int pins;
 
     if (lock_type == LockType::pickable_lock) {
         for (int pin = 0; pin < 8; ++pin) {
-            device_state.pins[pin] = static_cast<unsigned char>(CurrentGame().rng.below(4));
+            device_state.pins[pin] = static_cast<unsigned char>(rng.below(4));
         }
         pins = difficulty < 8 ? (difficulty < 2 ? 2 : difficulty) : 8;
         lock_countdown = pins * 3;
