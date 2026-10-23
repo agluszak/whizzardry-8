@@ -1,7 +1,6 @@
 #include "wiz8/render/renderer.h"
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -42,10 +41,12 @@
 #include <vsg/core/Value.h>
 #include <vsg/core/observer_ptr.h>
 #include <vsg/core/ref_ptr.h>
+#include <vsg/maths/transform.h>
 #include <vsg/maths/vec2.h>
 #include <vsg/maths/vec3.h>
 #include <vsg/maths/vec4.h>
 #include <vsg/nodes/Group.h>
+#include <vsg/nodes/MatrixTransform.h>
 #include <vsg/nodes/Node.h>
 #include <vsg/nodes/StateGroup.h>
 #include <vsg/nodes/VertexIndexDraw.h>
@@ -235,6 +236,9 @@ struct Renderer::Impl {
     vsg::ref_ptr<vsg::View> current_overlay;
     std::size_t overlay_count = 0;
     vsg::ref_ptr<vsg::ImageInfo> white;
+    // Every overlay quad draws these corners through its own transform.
+    vsg::ref_ptr<vsg::vec3Array> unit_quad =
+        vsg::vec3Array::create({{-.5f, -.5f, 0}, {.5f, -.5f, 0}, {-.5f, .5f, 0}, {.5f, .5f, 0}});
     SDLSurfaceOwner captured{nullptr, SDL_DestroySurface};
     std::uint64_t frame_number = 0;
     int graphics_family = -1;
@@ -278,8 +282,9 @@ Renderer::Impl::Impl(SDL_Window* platform_window) : platform_window(platform_win
 
     overlay_set_layout = vsg::DescriptorSetLayout::create(vsg::DescriptorSetLayoutBindings{
         {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}});
-    overlay_layout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{overlay_set_layout},
-                                                 vsg::PushConstantRanges{});
+    overlay_layout =
+        vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{overlay_set_layout},
+                                    vsg::PushConstantRanges{{VK_SHADER_STAGE_VERTEX_BIT, 0, 128}});
     auto pixel = vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM});
     pixel->at(0, 0) = vsg::ubvec4(255, 255, 255, 255);
     white = vsg::ImageInfo::create(vsg::Sampler::create(), pixel);
@@ -418,8 +423,11 @@ vsg::ref_ptr<vsg::View> Renderer::Impl::overlayView()
 {
     if (current_overlay) return current_overlay;
     if (overlay_count == overlay_views.size()) {
-        auto camera = vsg::Camera::create(vsg::Perspective::create(), vsg::LookAt::create(),
-                                          vsg::ViewportState::create(window->extent2D()));
+        // The 640x480 design space, y down, over the whole target.
+        auto camera = vsg::Camera::create(
+            vsg::Orthographic::create(0, 640, 480, 0, -1, 1),
+            vsg::LookAt::create(vsg::dvec3(0, 0, 0), vsg::dvec3(0, 0, -1), vsg::dvec3(0, 1, 0)),
+            vsg::ViewportState::create(window->extent2D()));
         overlay_views.push_back(
             vsg::View::create(camera, vsg::Group::create(), static_cast<vsg::ViewFeatures>(0)));
     }
@@ -526,28 +534,28 @@ void Renderer::prepareOverlay(OverlayQuad& quad)
 {
     const auto size = quad.scaledSize();
     const bool visible = quad.visible && size.x > 0 && size.y > 0;
-    if (!quad.positions) {
-        quad.positions = vsg::vec3Array::create(4);
+    if (!quad.transform) {
         quad.texcoords = vsg::vec2Array::create(4);
         quad.colors = vsg::vec4Array::create(4);
-        quad.positions->properties.dataVariance = vsg::DYNAMIC_DATA;
         quad.texcoords->properties.dataVariance = vsg::DYNAMIC_DATA;
         quad.colors->properties.dataVariance = vsg::DYNAMIC_DATA;
         auto draw = vsg::VertexIndexDraw::create();
-        draw->assignArrays({quad.positions, quad.texcoords, quad.colors});
+        draw->assignArrays({impl->unit_quad, quad.texcoords, quad.colors});
         draw->assignIndices(vsg::ushortArray::create({0, 1, 2, 2, 1, 3}));
         draw->indexCount = 6;
         draw->instanceCount = 1;
         quad.state = vsg::StateGroup::create();
         quad.state->addChild(draw);
-        quad.node->addChild(vsg::MASK_ALL, quad.state);
+        quad.transform = vsg::MatrixTransform::create();
+        quad.transform->addChild(quad.state);
+        quad.node->addChild(vsg::MASK_ALL, quad.transform);
     }
     quad.node->children.front().mask = visible ? vsg::MASK_ALL : 0;
     if (!visible) return;
     const auto center = quad.position + size * .5f;
-    const auto cosine = std::cos(quad.rotation), sine = std::sin(quad.rotation);
-    constexpr std::array corners{glm::vec2(-.5f, -.5f), glm::vec2(.5f, -.5f), glm::vec2(-.5f, .5f),
-                                 glm::vec2(.5f, .5f)};
+    quad.transform->matrix = vsg::translate(double(center.x), double(center.y), 0.0) *
+                             vsg::rotate(double(quad.rotation), 0.0, 0.0, 1.0) *
+                             vsg::scale(double(size.x), double(size.y), 1.0);
     auto color = quad.color;
     if (quad.glow_enabled) {
         const auto period = std::max(quad.glow_period, 1u);
@@ -556,18 +564,11 @@ void Renderer::prepareOverlay(OverlayQuad& quad)
         color = quad.glow_colors[0] * (1 - weight) + quad.glow_colors[1] * weight;
         color.a = quad.color.a;
     }
-    bool positions_changed = false, uv_changed = false, colors_changed = false;
-    for (std::size_t i = 0; i < corners.size(); ++i) {
-        const auto offset = corners[i] * size;
-        const vsg::vec3 position{center.x + cosine * offset.x - sine * offset.y,
-                                 center.y + sine * offset.x + cosine * offset.y, 0};
+    bool uv_changed = false, colors_changed = false;
+    for (std::size_t i = 0; i < 4; ++i) {
         const vsg::vec2 uv{i % 2 ? quad.uv_max.x : quad.uv_min.x,
                            i / 2 ? quad.uv_max.y : quad.uv_min.y};
         const vsg::vec4 diffuse{color.r, color.g, color.b, color.a};
-        if (quad.positions->at(i) != position) {
-            quad.positions->at(i) = position;
-            positions_changed = true;
-        }
         if (quad.texcoords->at(i) != uv) {
             quad.texcoords->at(i) = uv;
             uv_changed = true;
@@ -577,7 +578,6 @@ void Renderer::prepareOverlay(OverlayQuad& quad)
             colors_changed = true;
         }
     }
-    if (positions_changed) quad.positions->dirty();
     if (uv_changed) quad.texcoords->dirty();
     if (colors_changed) quad.colors->dirty();
     auto image = quad.image ? quad.image : quad.texture ? quad.texture->imageInfo(0) : impl->white;

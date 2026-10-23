@@ -1,7 +1,9 @@
 #pragma once
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -45,6 +47,8 @@ public:
     glm::dmat3 worldRotation() const;
     void attachTo(MeshInstance& parent, std::optional<short> mapped_key = {});
     std::optional<glm::vec3> sampledPosition(const Mesh& mesh, std::size_t index) const;
+    // The vertex colours last baked for `mesh` at this placement; empty when unlit.
+    std::span<const glm::vec3> bakedColors(const Mesh& mesh) const;
 
     glm::vec3 getAlignAxis() const;
     std::uint32_t getExclusionMask() const;
@@ -95,6 +99,9 @@ public:
     std::string skin;
     // The models whose vertex lighting has been baked for this instance's placement.
     std::vector<const Mesh*> baked_models;
+    // Per-vertex light this placement receives, by the model part it lights.
+    // Parts that no light reaches have no entry.
+    std::map<const Mesh*, std::vector<glm::vec3>> baked_lights;
     int highlight_pass_mode;
     glm::vec3 light_scale;
     bool diffuse_scale_enabled;

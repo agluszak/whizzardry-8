@@ -48,6 +48,8 @@ template<class T> const T* tableOrNull(const std::vector<T>& table)
 std::uint32_t passFlags(const Mesh& mesh, int pass, int side)
 {
     std::uint32_t flags = 0;
+    // Each lit placement supplies its own baked first-pass colours.
+    if (pass == 0 && mesh.hasVertexLighting()) flags |= HasColors;
     if (!mesh.dcg[pass].empty()) flags |= HasDiffuseMultipliers;
     if (!mesh.scg[pass].empty()) flags |= HasSpecularMultipliers;
     if (!mesh.texcoords[pass][0].empty()) flags |= HasTexcoord0;
@@ -146,8 +148,6 @@ MeshAsset::Pass buildPass(Mesh& mesh, int pass, int side)
         auto array = vsg::vec4Array::create(attributes.size());
         for (std::size_t vertex = 0; vertex < attributes.size(); ++vertex)
             array->at(vertex) = toVsg(attributes[vertex][attribute]);
-        // Mesh lighting bakes into the colours while the topology stays shared.
-        if (attribute == 1) array->properties.dataVariance = vsg::DYNAMIC_DATA;
         result.attributes[attribute] = std::move(array);
     }
     if (mesh.frames.empty()) {
@@ -176,6 +176,7 @@ std::shared_ptr<MeshAsset> makeMeshAsset(Mesh& mesh)
     const auto control = mesh.render_control;
     asset->sorted = (control & (1u << Mesh::CONTROL_SORTED_RENDERING)) != 0;
     asset->animated = !mesh.frames.empty();
+    asset->lit = mesh.hasVertexLighting();
     for (int side = 1; side >= 0; --side) {
         if (!(control & (1u << side))) continue;
         for (int pass = 0; pass < mesh.pass_count; ++pass) {
@@ -230,9 +231,14 @@ void MeshPose::makeDraws()
             pass.positions = source.positions;
             pass.normals = source.normals;
         }
+        if (asset->lit && source.pass == 0) {
+            pass.colors = vsg::vec4Array::create(source.source_vertices.size());
+            pass.colors->properties.dataVariance = vsg::DYNAMIC_DATA;
+        }
         pass.source_polygons = source.polygons;
         vsg::DataList arrays{pass.positions, pass.normals};
         arrays.insert(arrays.end(), source.attributes.begin(), source.attributes.end());
+        if (pass.colors) arrays[3] = pass.colors;
         for (const auto& batch : source.batches) {
             auto draw = vsg::VertexIndexDraw::create();
             draw->assignArrays(arrays);
@@ -246,12 +252,34 @@ void MeshPose::makeDraws()
     }
     sampled_frame_ = ~0u;
     selection_initialized_ = false;
+    lighting_.reset();
+}
+
+void MeshPose::light(const Mesh& mesh, const VertexLighting& lighting)
+{
+    if (!asset->lit) {
+        colors.clear();
+        return;
+    }
+    if (lighting_ == lighting) return;
+    lighting_ = lighting;
+    colors = mesh.bakedLighting(lighting.ambient, lighting.environment, lighting.brightness,
+                                lighting.placement_lights);
+    for (std::size_t i = 0; i < passes.size(); ++i) {
+        auto& pass = passes[i];
+        if (!pass.colors) continue;
+        const auto& source = asset->passes[i];
+        for (std::size_t vertex = 0; vertex < source.source_vertices.size(); ++vertex) {
+            const auto& color = colors[source.source_vertices[vertex]];
+            pass.colors->at(vertex) = vsg::vec4(color.x, color.y, color.z, 0);
+        }
+        pass.colors->dirty();
+    }
 }
 
 void MeshPose::update(Mesh& mesh, unsigned frame, float interpolation, int skin,
                       bool check_blanking)
 {
-    mesh.applyPendingLighting();
     if (const auto current = mesh.renderAsset(); current != asset) {
         asset = current;
         makeDraws();
@@ -375,10 +403,7 @@ bool authoredFaceVisible(const vsg::vec3Array& normals, const vsg::vec3Array& po
 
 std::shared_ptr<render::MeshAsset> Mesh::renderAsset()
 {
-    if (!render_asset_) {
-        render_asset_ = render::makeMeshAsset(*this);
-        updateBakedLighting();
-    }
+    if (!render_asset_) render_asset_ = render::makeMeshAsset(*this);
     // Bounds follow the mesh without a rebuild. VSG needs the actual all-frame
     // model bound even where the draw controls mark the mesh's own bounds as
     // authored (the sky).

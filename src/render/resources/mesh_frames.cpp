@@ -23,7 +23,6 @@
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_math.h"
-#include "wiz8/render/render_mesh.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/spatial/bounding_box.h"
 
@@ -82,60 +81,49 @@ BoundingBox Mesh::GetFrameBounds(int frame) const
     return boundingBox(std::span<const glm::vec3>(locations));
 }
 
-/* Bake the sunlight, lights, ambient and environment terms into the colours of
-   the render asset's first-pass vertices. */
-void Mesh::updateBakedLighting()
+static glm::vec3 materialAmbient(const Material* material)
 {
-    const auto& lights = vertex_lights;
-    if (!render_asset_ || lights.empty() || vertex_sunlight.empty()) return;
+    return material ? glm::vec3(material->parms.ambient) : glm::vec3(1);
+}
+
+std::vector<glm::vec3> Mesh::bakedLighting(const glm::vec3& ambient, const glm::vec3& environment,
+                                           float brightness,
+                                           std::span<const glm::vec3> placement_lights) const
+{
     std::vector<glm::vec3> baked(static_cast<std::size_t>(vertex_location_count));
-    const auto* materials = getVertexMaterialTable(0, SIDE_FRONT, false);
-    const bool suppress_ambient = ambient_color == glm::vec3(0);
-    const glm::vec3 base_ambient =
-        materials || suppress_ambient
-            ? glm::vec3(0)
-            : ambient_color *
-                  glm::vec3(static_cast<Material*>(getMaterial(0, SIDE_FRONT))->parms.ambient);
-    const auto environment = environment_offset;
+    if (!hasVertexLighting()) return baked;
+    const auto& vertex_table = vertex_materials[0][SIDE_FRONT];
+    const auto* materials = vertex_table.empty() ? nullptr : &vertex_table;
+    const bool suppress_ambient = ambient == glm::vec3(0);
+    const glm::vec3 base_ambient = materials || suppress_ambient
+                                       ? glm::vec3(0)
+                                       : ambient * materialAmbient(getMaterial(0, SIDE_FRONT));
     const bool add_environment = environment != glm::vec3(0);
-    const float light_scale = brightness;
     const Material* previous_material = nullptr;
     glm::vec3 material_ambient(0);
 
     for (int vertex = 0; vertex < vertex_location_count; ++vertex) {
         glm::vec3 color;
         if (materials) {
-            color = suppress_ambient ? glm::vec3(0) : ambient_color * vertex_sunlight[vertex];
+            color = suppress_ambient ? glm::vec3(0) : ambient * vertex_sunlight[vertex];
             const auto* material = (*materials)[vertex].get();
             if (material) {
                 if (material != previous_material) {
-                    material_ambient =
-                        glm::vec3(static_cast<const Material*>(material)->parms.ambient);
+                    material_ambient = glm::vec3(material->parms.ambient);
                     previous_material = material;
                 }
                 color = material_ambient == glm::vec3(0) ? glm::vec3(0) : color * material_ambient;
             }
-            color += lights[vertex];
-        } else if (suppress_ambient) {
-            color = lights[vertex];
         } else {
-            color = base_ambient * vertex_sunlight[vertex];
-            color += lights[vertex];
+            color = suppress_ambient ? glm::vec3(0) : base_ambient * vertex_sunlight[vertex];
         }
+        color += vertex_lights[vertex];
+        if (!placement_lights.empty()) color += placement_lights[vertex];
         if (add_environment) color += environment;
-        if (light_scale != 1) color = light_scale == 0 ? glm::vec3(0) : color * light_scale;
+        if (brightness != 1) color = brightness == 0 ? glm::vec3(0) : color * brightness;
         baked[vertex] = color;
     }
-    for (auto& pass : render_asset_->passes) {
-        if (pass.pass != 0) continue;
-        auto& colors = *pass.attributes[1];
-        for (std::size_t vertex = 0; vertex < pass.source_vertices.size(); ++vertex) {
-            const auto& color = baked[pass.source_vertices[vertex]];
-            colors.at(vertex) = vsg::vec4(color.x, color.y, color.z, 0);
-        }
-        colors.dirty();
-        pass.draw_flags |= render::HasColors;
-    }
+    return baked;
 }
 
 /* Copy or translate `count` vertices: a zero offset is a plain copy and a
@@ -385,17 +373,6 @@ Mesh::FrameGeometry Mesh::frameGeometry(unsigned int frame, float interpolation)
     return geometry;
 }
 
-void Mesh::SetAmbientColor(const glm::vec3& color, const glm::vec3& environment, float brightness)
-{
-    if (ambient_color != color || environment_offset != environment ||
-        this->brightness != brightness) {
-        ambient_color = color;
-        environment_offset = environment;
-        this->brightness = brightness;
-        flags |= W8_MESH_VERTEX_LIGHTING_DIRTY;
-    }
-}
-
 static inline signed char CompressNormalByte(float value)
 {
     // Invalid imported geometry must not trigger an undefined float-to-byte cast.
@@ -456,6 +433,8 @@ std::span<glm::vec3> Mesh::GetVertexLights(bool initialize)
         if (!vertex_sunlight.empty()) {
             vertex_lighting_ready = true;
         }
+        // Lit assets give each placement its own first-pass colours.
+        invalidateRenderAsset();
     }
     return vertex_lights;
 }
@@ -465,6 +444,7 @@ std::span<float> Mesh::GetVertexSunlight(bool initialize)
     if (vertex_sunlight.empty() && initialize) {
         vertex_sunlight.resize(vertex_location_count, 1.0f);
         vertex_lighting_ready = true;
+        invalidateRenderAsset();
     }
     return vertex_sunlight;
 }
