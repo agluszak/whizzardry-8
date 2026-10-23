@@ -4873,8 +4873,8 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
 
         if (MainGameHud()->highlighted_item != -1 && !SpellPicker() &&
-            !CurrentGame().activity.conversation && !UseItemPicker() && !IsLockInteractionActive() &&
-            !IsTrapInteractionActive() &&
+            !CurrentGame().activity.conversation && !UseItemPicker() &&
+            !IsLockInteractionActive() && !IsTrapInteractionActive() &&
             (!g_settings.ctrl_right_click_info || ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
             AfterUiDispatch([=] { OpenMonsterInfoDialog(MainGameHud()->highlighted_item); });
             return UiResult::Handled;
