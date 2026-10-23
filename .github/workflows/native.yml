@@ -133,12 +133,14 @@ jobs:
         run: |
           build_type="$CONAN_BUILD_TYPE"
           source "build/${{ matrix.preset }}/conan/conanbuild.sh"
+          # Debug keeps assertions; -O1 keeps the runtime scenarios' frames
+          # from paying for unoptimized templates.
           cmake --preset "${{ matrix.preset }}" \
             -DCMAKE_TOOLCHAIN_FILE="$PWD/build/${{ matrix.preset }}/conan/conan_toolchain.cmake" \
             -DCMAKE_BUILD_TYPE="$build_type" \
             -DCMAKE_C_COMPILER=clang-23 -DCMAKE_CXX_COMPILER=clang++-23 \
-            -DCMAKE_C_FLAGS_DEBUG="-O0 -g1" \
-            -DCMAKE_CXX_FLAGS_DEBUG="-O0 -g1 -Xclang -fno-pch-timestamp" \
+            -DCMAKE_C_FLAGS_DEBUG="-O1 -g1" \
+            -DCMAKE_CXX_FLAGS_DEBUG="-O1 -g1 -Xclang -fno-pch-timestamp" \
             -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O1 -g1 -DNDEBUG -Xclang -fno-pch-timestamp" \
             -DWIZ8_RENDER_UNITY_BUILD=ON -DWIZ8_WARNINGS_AS_ERRORS=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
