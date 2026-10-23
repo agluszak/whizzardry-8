@@ -49,7 +49,6 @@ struct W8Party {
     void exchange(W8ItemLocation first, W8ItemLocation second, int actor);
     bool insertIntoPool(unsigned int index, W8ItemInstance item);
 
-    bool redistribution_pending = false;
     std::optional<int> companion_inventory;
     W8Character characters[W8_PARTY_SLOT_COUNT]{};
     // The members by slot; an empty slot has none.

@@ -142,7 +142,7 @@ bool W8ProfRaceInfoDialogBase::PopulateText()
     bounds.top = m_y + 0x29;
     bounds.right = m_x + 0x151;
     bounds.bottom = m_y + 0xe1;
-    m_text_area.Configure(&bounds, g_wiz_text_font_secondary, 0);
+    m_text_area.Configure(&bounds, g_wiz_text_font_secondary);
     m_text_area.SetEntrySpacing(0);
     return true;
 }
@@ -167,37 +167,37 @@ W8ProfessionInfoDialog::W8ProfessionInfoDialog(W8Profession uiIndex)
 bool W8ProfessionInfoDialog::PopulateText()
 {
     W8ProfRaceInfoDialogBase::PopulateText();
-    m_text_area.AddEntry(Data().strings[0x153], Data().strings[m_uiDetailId], 10, 0xf, 0);
-    m_text_area.AddEntry({}, "", 10, 0xf, 0);
-    m_text_area.AddEntry(Data().strings[0x14d], "", 10, 0xf, 0);
+    m_text_area.AddEntry(Data().strings[0x153], Data().strings[m_uiDetailId], 10, 0xf);
+    m_text_area.AddEntry({}, "", 10, 0xf);
+    m_text_area.AddEntry(Data().strings[0x14d], "", 10, 0xf);
     unsigned int index;
     for (index = 0; index < 3; ++index) {
         W8Trait ability = g_profession_abilities[m_uiIndex].ability_ids[index];
         if (ability == W8_TRAIT_NONE) {
             break;
         }
-        m_text_area.AddEntry({}, Data().strings[g_character_trait_name_ids[ability]], 10, 0xf, 0);
+        m_text_area.AddEntry({}, Data().strings[g_character_trait_name_ids[ability]], 10, 0xf);
     }
-    m_text_area.AddEntry({}, "", 10, 0xf, 0);
-    m_text_area.AddEntry(Data().strings[0x14e], "", 10, 0xf, 0);
+    m_text_area.AddEntry({}, "", 10, 0xf);
+    m_text_area.AddEntry(Data().strings[0x14e], "", 10, 0xf);
     m_text_area.AddEntry(
         {}, Data().strings[g_character_skill_name_ids[g_profession_bonus_skills[m_uiIndex]]], 10,
-        0xf, 0);
-    m_text_area.AddEntry({}, "", 10, 0xf, 0);
-    m_text_area.AddEntry(Data().strings[0x14f], "", 10, 0xf, 0);
+        0xf);
+    m_text_area.AddEntry({}, "", 10, 0xf);
+    m_text_area.AddEntry(Data().strings[0x14f], "", 10, 0xf);
     for (index = 0; index < 4; ++index) {
         W8Skill skill = g_profession_skills[m_uiIndex][index];
         if (skill == W8_SKILL_NONE) {
             break;
         }
-        m_text_area.AddEntry({}, Data().strings[g_character_skill_name_ids[skill]], 10, 0xf, 0);
+        m_text_area.AddEntry({}, Data().strings[g_character_skill_name_ids[skill]], 10, 0xf);
     }
-    m_text_area.AddEntry({}, "", 10, 0xf, 0);
-    m_text_area.AddEntry(Data().strings[0x150], "", 10, 0xf, 0);
+    m_text_area.AddEntry({}, "", 10, 0xf);
+    m_text_area.AddEntry(Data().strings[0x150], "", 10, 0xf);
     for (index = 0; index < 6; ++index) {
         int item = g_starting_equipment[m_uiIndex][index];
         if (item != -1) {
-            m_text_area.AddEntry({}, Data().items[item].display_name, 10, 0xf, 0);
+            m_text_area.AddEntry({}, Data().items[item].display_name, 10, 0xf);
         }
     }
     std::string first;
@@ -212,15 +212,15 @@ bool W8ProfessionInfoDialog::PopulateText()
         first = Data().items[18].display_name;
         break;
     case 8:
-        m_text_area.AddEntry({}, Data().items[599].display_name, 10, 0xf, 0);
+        m_text_area.AddEntry({}, Data().items[599].display_name, 10, 0xf);
         return true;
     case 9:
-        m_text_area.AddEntry({}, Data().items[324].display_name, 10, 0xf, 0);
+        m_text_area.AddEntry({}, Data().items[324].display_name, 10, 0xf);
         return true;
     default:
         return true;
     }
-    m_text_area.AddEntry({}, fmt::sprintf(Data().strings[0x151], first, second), 10, 0xf, 0);
+    m_text_area.AddEntry({}, fmt::sprintf(Data().strings[0x151], first, second), 10, 0xf);
     return true;
 }
 
@@ -249,18 +249,18 @@ W8RaceInfoDialog::W8RaceInfoDialog(W8Race uiIndex)
 bool W8RaceInfoDialog::PopulateText()
 {
     W8ProfRaceInfoDialogBase::PopulateText();
-    m_text_area.AddEntry(Data().strings[0x153], Data().strings[m_uiDetailId], 10, 0xf, 0);
-    m_text_area.AddEntry({}, "", 10, 0xf, 0);
-    m_text_area.AddEntry(Data().strings[0x14d], "", 10, 0xf, 0);
+    m_text_area.AddEntry(Data().strings[0x153], Data().strings[m_uiDetailId], 10, 0xf);
+    m_text_area.AddEntry({}, "", 10, 0xf);
+    m_text_area.AddEntry(Data().strings[0x14d], "", 10, 0xf);
     bool listed = false;
     for (auto ability : g_race_abilities[m_uiIndex].ability_ids) {
         if (ability == W8_TRAIT_NONE) {
             if (!listed) {
-                m_text_area.AddEntry({}, Data().strings[0x154], 10, 0xf, 0);
+                m_text_area.AddEntry({}, Data().strings[0x154], 10, 0xf);
             }
             return true;
         }
-        m_text_area.AddEntry({}, Data().strings[g_character_trait_name_ids[ability]], 10, 0xf, 0);
+        m_text_area.AddEntry({}, Data().strings[g_character_trait_name_ids[ability]], 10, 0xf);
         listed = true;
     }
     return true;

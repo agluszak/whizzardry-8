@@ -25,6 +25,7 @@ class LevelSpatialIndex;
 class MeshInstance;
 class Prop;
 class Monster;
+class Navigator;
 namespace wiz8 {
 class File;
 }
@@ -238,6 +239,9 @@ struct PathSearchScratch {
 class NavigationMesh {
 public:
     PathCellCoordinates pathCell(const glm::vec3& position) const;
+    // The live monster at `location` and the party proxy in the octree's world, if any.
+    Monster* findMonster(int location) const;
+    Navigator* partyNavigator() const;
     LevelSpatialIndex* const owner_octree;
     NavigationSettings settings;
     explicit NavigationMesh(LevelSpatialIndex* owner = nullptr); /* 0x004578E0 */
