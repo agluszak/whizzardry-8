@@ -232,7 +232,7 @@ void AutomapScreen::EraseNote(W8AutomapNote* note)
 /* Center the map over the party. */
 void AutomapScreen::CenterOnParty()
 {
-    const auto party = cameraLocation(m_world);
+    const auto party = m_world.party.eye();
     auto position = view().position;
     position.x = party.x;
     position.z = party.z;
@@ -460,7 +460,7 @@ void AutomapScreen::HandleViewportInput(const InputEvent& input)
             RenderMarkers();
         }
         if (const auto point = PositionUnderCursor()) {
-            const auto party = cameraLocation(m_world);
+            const auto party = m_world.party.eye();
             const glm::vec3 distance(point->x - party.x, 0.0f, point->z - party.z);
             if (glm::length(distance) < view().zoom * 0.05f && m_tool == W8AutomapTool::Select &&
                 m_zoom_mode != ZoomMode::ZoomOutOnly) {
@@ -753,7 +753,7 @@ void AutomapScreen::RenderMarkers()
         return glm::ivec2(0xc - static_cast<int>((x - left) / zoom * -455.0f),
                           0x20 - static_cast<int>((1.0f - (z - top) / zoom) * -435.0f));
     };
-    const auto party = cameraLocation(m_world);
+    const auto party = m_world.party.eye();
     if (!shown(party.x, party.z)) {
         m_party_marker->visible = false;
     } else {
