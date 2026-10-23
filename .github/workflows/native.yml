@@ -96,13 +96,14 @@ jobs:
         run: echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json" >> "$GITHUB_ENV"
       - name: Create cache directories
         run: mkdir -p "$CCACHE_DIR"
+      # Concrete presets keep linux-ci separate from linux-asan in prefix lookups.
       - uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         id: ccache-cache
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ steps.toolchain.outputs.key }}-${{ matrix.preset }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: ccache-${{ steps.toolchain.outputs.key }}-${{ env.CMAKE_PRESET }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            ccache-${{ steps.toolchain.outputs.key }}-${{ matrix.preset }}-
+            ccache-${{ steps.toolchain.outputs.key }}-${{ env.CMAKE_PRESET }}-
       - name: Reset compiler cache statistics
         run: ./build.sh -- ccache --zero-stats
       - name: Build native game and fixtures
@@ -122,7 +123,7 @@ jobs:
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ steps.toolchain.outputs.key }}-${{ matrix.preset }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: ccache-${{ steps.toolchain.outputs.key }}-${{ env.CMAKE_PRESET }}-${{ github.run_id }}-${{ github.run_attempt }}
       # The canonical GOG installer is stored in the decomp project's private
       # wiz8-ci-inputs release. Never put decrypted game files in Actions cache.
       - name: Check access to licensed game assets
