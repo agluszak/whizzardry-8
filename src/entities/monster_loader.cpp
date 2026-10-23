@@ -16,7 +16,6 @@
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 
-#include "application.h"
 #include "asset_paths.h"
 #include "glm/ext/vector_float3.hpp"
 #include "monster_cycles.h"
@@ -100,8 +99,7 @@ bool MonsterDefinition::ReplaceSkinTexture(int stage, std::string_view old_name,
     path = fmt::format("Data\\Monsters\\Bitmaps\\{}", new_name);
     auto texture = LoadTextureFromPath(wiz8::asset_path(path), nullptr, true);
     if (texture == 0) {
-        ShutdownWithErrorBox(fmt::format("Missing skin texture: {}", new_name));
-        return false;
+        throw std::runtime_error(fmt::format("Missing skin texture: {}", new_name));
     }
 
     if (texture->playback) texture->Prepare();
@@ -321,8 +319,8 @@ static std::unique_ptr<MonsterDefinition> LoadMonsterDefinition(std::string_view
                 fields >> old_name >> new_name;
                 if (damage_stage != -1 && !monster->ReplaceSkinTexture(
                                               damage_stage, old_name.c_str(), new_name.c_str())) {
-                    ShutdownWithErrorBox(fmt::format("The skin texture {} not found in monster {}!",
-                                                     old_name, monster_name));
+                    throw std::runtime_error(fmt::format(
+                        "The skin texture {} not found in monster {}!", old_name, monster_name));
                 }
             } else {
                 /* 0x004C10FB: the length test is on the whole line, not the argument. */
@@ -361,7 +359,7 @@ static std::unique_ptr<MonsterDefinition> LoadMonsterDefinition(std::string_view
                             } else if (animation_scale > 0.0f) {
                                 /* 0x004C128A: a missing subcycle is fatal, as in
                                    every other retail cycle lookup. */
-                                ShutdownWithErrorBox(
+                                throw std::runtime_error(
                                     fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
                                                 monster_name, g_cycle_names[cycle].name, 0));
                             }
@@ -456,8 +454,8 @@ static std::unique_ptr<MonsterDefinition> LoadMonsterDefinition(std::string_view
         idle_fps_end = 3.0f;
     }
     if (monster->cycles[W8_MONSTER_CYCLE_IDLE].empty()) {
-        ShutdownWithErrorBox(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
-                                         monster_name, g_cycle_names[1].name, 0));
+        throw std::runtime_error(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}",
+                                             monster_name, g_cycle_names[1].name, 0));
     }
     Animation& idle = *monster->cycles[W8_MONSTER_CYCLE_IDLE].front().animation;
     monster->random_idle = true;

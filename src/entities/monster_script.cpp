@@ -13,7 +13,6 @@
 #include <fmt/format.h>
 #include <glm/geometric.hpp>
 
-#include "application.h"
 #include "glm/ext/vector_float3.hpp"
 #include "monster_actions.h"
 #include "monster_cycles.h"
@@ -266,11 +265,10 @@ void Monster::ProcessScript()
         }
 
         const auto resolveNamedPosition = [&](glm::vec3& position) {
-            if (ResolveScriptPosition(token.c_str(), &position)) return true;
-            ShutdownWithErrorBox(fmt::format("MonScript {} Line {:d}: Unknown location {}",
-                                             script->getName(),
-                                             script->GetSourceLine(script_line - 1), token));
-            return false;
+            if (!ResolveScriptPosition(token.c_str(), &position))
+                throw std::runtime_error(
+                    fmt::format("MonScript {} Line {:d}: Unknown location {}", script->getName(),
+                                script->GetSourceLine(script_line - 1), token));
         };
 
         if (!defining_orders) {
@@ -293,9 +291,7 @@ void Monster::ProcessScript()
                 if (!tokens) {
                     break;
                 }
-                if (!resolveNamedPosition(position)) {
-                    break;
-                }
+                resolveNamedPosition(position);
                 if (SDL_strcasecmp(token.c_str(), "PARTY") == 0) {
                     nav.SetMovementTargetToNavigator(&owner_world.party.navigator, 5.0);
                 } else {
@@ -315,9 +311,7 @@ void Monster::ProcessScript()
                 if (!tokens) {
                     break;
                 }
-                if (!resolveNamedPosition(position)) {
-                    break;
-                }
+                resolveNamedPosition(position);
                 nav.AimAtPosition(&position);
                 tokens >> token;
                 if (!tokens || SDL_strcasecmp(token.c_str(), "NOBLOCK") != 0) {
@@ -375,7 +369,7 @@ void Monster::ProcessScript()
                             stop = true;
                         }
                     } else {
-                        ShutdownWithErrorBox(fmt::format(
+                        throw std::runtime_error(fmt::format(
                             "MonScript {} Line {:d}: Unknown cycle {}", script->getName(),
                             script->GetSourceLine(script_line - 1), token));
                     }
@@ -416,9 +410,7 @@ void Monster::ProcessScript()
                 glm::vec3 position;
                 tokens >> token;
                 if (tokens) {
-                    if (!resolveNamedPosition(position)) {
-                        break;
-                    }
+                    resolveNamedPosition(position);
                     nav.SetPositionInternal(&position);
                 }
                 break;
@@ -455,7 +447,7 @@ void Monster::ProcessScript()
                 if (!script_conditions.empty()) {
                     script_conditions[0] = !(script_conditions[0]);
                 } else {
-                    ShutdownWithErrorBox(
+                    throw std::runtime_error(
                         fmt::format("MonScript {} Line {:d}: ELSE without matching IF",
                                     script->getName(), script->GetSourceLine(script_line - 1)));
                 }
@@ -464,7 +456,7 @@ void Monster::ProcessScript()
                 if (!script_conditions.empty()) {
                     script_conditions.erase(script_conditions.begin());
                 } else {
-                    ShutdownWithErrorBox(
+                    throw std::runtime_error(
                         fmt::format("MonScript {} Line {:d}: ENDIF without matching IF",
                                     script->getName(), script->GetSourceLine(script_line - 1)));
                 }
@@ -636,7 +628,7 @@ void Monster::ProcessScript()
                         direction_y = 0.0f;
                         direction_z = static_cast<float>(sin(angle) * 500.0);
                     } else {
-                        ShutdownWithErrorBox(fmt::format(
+                        throw std::runtime_error(fmt::format(
                             "MonScript {} Line {:d}: Unknown direction {}", script->getName(),
                             script->GetSourceLine(script_line - 1), token));
                     }
@@ -669,9 +661,7 @@ void Monster::ProcessScript()
                 tokens >> token;
                 if (tokens) {
                     glm::vec3 position;
-                    if (!resolveNamedPosition(position)) {
-                        break;
-                    }
+                    resolveNamedPosition(position);
                     vector.clear();
                     vector.push_back(position);
                     order_mode = W8_MONSTER_ORDER_GUARD;
@@ -681,9 +671,7 @@ void Monster::ProcessScript()
             case MONSCR_RANDOMPOINTPATROL: {
                 while (tokens >> token) {
                     glm::vec3 position;
-                    if (!resolveNamedPosition(position)) {
-                        continue;
-                    }
+                    resolveNamedPosition(position);
                     if (patrol_points == 0) {
                         vector.clear();
                     }
@@ -712,12 +700,12 @@ void Monster::ProcessScript()
                     if (tokens) {
                         look_duration = atoi(token.c_str());
                     } else {
-                        ShutdownWithErrorBox(
+                        throw std::runtime_error(
                             fmt::format("MonScript {} Line {:d}: Missing lookabout duration",
                                         script->getName(), script->GetSourceLine(script_line - 1)));
                     }
                 } else {
-                    ShutdownWithErrorBox(
+                    throw std::runtime_error(
                         fmt::format("MonScript {} Line {:d}: Missing lookabout frequency",
                                     script->getName(), script->GetSourceLine(script_line - 1)));
                 }

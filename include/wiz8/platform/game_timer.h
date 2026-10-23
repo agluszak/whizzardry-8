@@ -2,6 +2,7 @@
 struct W8Chunk;
 
 #include <cstdint>
+#include <optional>
 
 namespace wiz8 {
 class File;
@@ -18,6 +19,10 @@ std::uint64_t WorldClockMilliseconds();
 /* The world's animation clock: the game's step time (`Game::time`), modulo 2^32; zero
    while no game is in progress. Cycles, monsters, missiles and particles stamp it. */
 std::uint32_t GameClockMilliseconds();
+
+/* A timer duration in whole ticks, or nullopt when `seconds * scale` is not a
+   non-negative duration an int can count. */
+std::optional<int> DurationTicks(float seconds, float scale);
 
 void PauseSharedGameTimers(void);
 void ResumeSharedGameTimers(void);

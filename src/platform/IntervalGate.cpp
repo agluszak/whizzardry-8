@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <exception>
+#include <stdexcept>
 
 #include "wiz8/chunk.h"
 #include "wiz8/filesystem.h"
@@ -34,7 +35,7 @@ unsigned int W8IntervalGate::PollElapsedIntervals()
         return 1;
     }
     unsigned int intervals = (ReadClock() - m_start) / static_cast<unsigned int>(m_duration);
-    if (static_cast<int>(intervals) > 0) {
+    if (intervals > 0) {
         if (m_flags.one_shot) {
             m_finished = true;
             return intervals;
@@ -49,8 +50,11 @@ try {
     if (!m_flags.one_shot) {
         return W8GameTimer::Load(handle);
     }
-    m_duration_seconds = handle.ReadValue<float>();
-    SetDuration(-1.0f);
+    const auto seconds = handle.ReadValue<float>();
+    const auto duration = DurationTicks(seconds, m_duration_scale);
+    if (!duration) throw std::runtime_error("invalid saved interval");
+    m_duration_seconds = seconds;
+    m_duration = *duration;
     Restart();
     return true;
 } catch (const std::exception&) {

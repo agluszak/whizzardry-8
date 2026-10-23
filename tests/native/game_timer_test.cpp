@@ -1,6 +1,7 @@
 #include <array>
 #include <chrono>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -169,6 +170,24 @@ TEST_CASE_METHOD(TimerFixture, "Interval gates retain catch-up, one-shot and sav
     REQUIRE(loaded.GetProgress() == Catch::Approx(0.25f));
     advance(250'000);
     REQUIRE(loaded.GetProgress() == Catch::Approx(0.5f));
+
+    // Saved floats reach integer tick conversions: a scale that leaves no countable
+    // duration is rejected, and progress that is not a number restarts the interval.
+    const auto load_pair = [&](float progress, float scale) {
+        {
+            auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
+            file->write(&progress, sizeof(progress));
+            file->write(&scale, sizeof(scale));
+        }
+        auto file = wiz8::open_file(path);
+        return ReadSavePayload(*file, [&](W8Chunk& chunk) { return loaded.LoadState(chunk); });
+    };
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    REQUIRE_FALSE(load_pair(0.25f, 0.0f));
+    REQUIRE_FALSE(load_pair(0.25f, nan));
+    REQUIRE_FALSE(load_pair(0.25f, std::numeric_limits<float>::infinity()));
+    REQUIRE(load_pair(nan, 1.0f));
+    REQUIRE(loaded.GetProgress() == 0.0f);
 
     // One-shot records store the time left, not the elapsed part. Completed gates
     // load as completed instead of dividing by a zero-duration interval.

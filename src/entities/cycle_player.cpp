@@ -11,6 +11,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -25,7 +26,6 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "wiz8/application.h"
 #include "wiz8/asset_paths.h"
 #include "wiz8/audio/SoundEvent.h"
 #include "wiz8/entities/animation.h"
@@ -267,7 +267,7 @@ try {
         }
     }();
     if (handle == 0) {
-        ShutdownWithErrorBox(fmt::format("Couldn't open {}", mon_path));
+        throw std::runtime_error(fmt::format("Couldn't open {}", mon_path));
     }
 
     info.hFile = handle.get();
@@ -821,7 +821,7 @@ void CyclePlayer::SelectLOD(const glm::vec3* position)
     bool has_lod_0 = static_cast<bool>(frameModel(0, 0));
 
     if (!has_lod_2 && !has_lod_1 && !has_lod_0) {
-        ShutdownWithErrorBox("Monster has no valid LODs!");
+        throw std::runtime_error("Monster has no valid LODs!");
     }
     if (g_render_brightness * lod_near > distance) {
         if (has_lod_2) {

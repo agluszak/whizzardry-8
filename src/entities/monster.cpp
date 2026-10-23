@@ -21,7 +21,6 @@
 #include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "application.h"
 #include "asset_paths.h"
 #include "audio_resources.h"
 #include "glm/ext/matrix_double3x3.hpp"
@@ -696,8 +695,8 @@ bool Monster::GetCycleMappedPosition(signed char cycle, int mapped_index, glm::v
     }
     auto& cycle_animations = cycles[cycle];
     if (static_cast<int>(cycle_animations.size()) <= subcycle) {
-        ShutdownWithErrorBox(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}", name,
-                                         g_cycle_names[cycle].name, subcycle));
+        throw std::runtime_error(fmt::format("Monster {}: Missing CYCLE_{}, sub-cycle {:d}", name,
+                                             g_cycle_names[cycle].name, subcycle));
     }
     animation = cycle_animations[subcycle].animation.get();
 

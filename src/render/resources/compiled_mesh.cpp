@@ -11,7 +11,6 @@
 #include <type_traits>
 #include <vector>
 
-#include "application.h"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -35,7 +34,7 @@ void ReadMeshArray(wiz8::File& file, std::span<T> values, const char* get_messag
                    const char* read_message)
 {
     static_assert(std::is_trivially_copyable_v<T>);
-    if (!values.data()) ShutdownWithErrorBox(get_message);
+    if (!values.data()) throw std::runtime_error(get_message);
     try {
         if constexpr (std::is_same_v<T, glm::ivec3>) {
             std::vector<std::array<std::int32_t, 3>> records(values.size());
@@ -54,7 +53,7 @@ void ReadMeshArray(wiz8::File& file, std::span<T> values, const char* get_messag
             file.read_exact(values.data(), values.size_bytes());
         }
     } catch (const std::exception&) {
-        ShutdownWithErrorBox(read_message);
+        throw std::runtime_error(read_message);
     }
 }
 
@@ -107,13 +106,13 @@ std::unique_ptr<Mesh> CompiledMesh::Read(wiz8::File* file,
 
     vertex_locations = model->getVertexLoc();
     ReadMeshArray(*file, std::span(vertex_locations, m_vertex_count),
-                  "CompiledMesh::Read -- Could not get vertex location array.\n",
-                  "CompiledMesh::Read -- Could not read Integer fields.\n");
+                  "CompiledMesh::Read -- Could not get vertex location array.",
+                  "CompiledMesh::Read -- Could not read Integer fields.");
 
     model->setUVCount(m_map_count);
     vertex_map = model->getVertexTexCoords(0, 0, 1);
     ReadMeshArray(*file, std::span(vertex_map, static_cast<std::size_t>(m_map_count)),
-                  "CompiledMesh::Read -- Could not get vertex mapping array.\n",
+                  "CompiledMesh::Read -- Could not get vertex mapping array.",
                   "CompiledMesh::Read -- Could not read m_psrMap.");
 
     int selected_material = m_material_index;
@@ -121,11 +120,11 @@ std::unique_ptr<Mesh> CompiledMesh::Read(wiz8::File* file,
     if (m_material_index < 0) {
         auto* vertex_materials = model->getVertexMaterialTable(0, Mesh::SIDE_FRONT, true);
         if (vertex_materials == 0) {
-            ShutdownWithErrorBox("CompiledMesh::Read -- Could not get vertex material array.\n");
+            throw std::runtime_error("CompiledMesh::Read -- Could not get vertex material array.");
         }
         if (!(file->read(indices, m_vertex_count * sizeof(int)).bytes ==
               static_cast<std::size_t>(m_vertex_count * sizeof(int)))) {
-            ShutdownWithErrorBox("CompiledMesh::Read -- Could not read m_plVertMats.\n");
+            throw std::runtime_error("CompiledMesh::Read -- Could not read m_plVertMats.");
         }
         selected_material = indices[0];
         for (index = 0; index < m_vertex_count; ++index) {
@@ -141,21 +140,21 @@ std::unique_ptr<Mesh> CompiledMesh::Read(wiz8::File* file,
 
     poly_uv_index = model->getPolyUVIndex(0, 1);
     ReadMeshArray(*file, std::span(poly_uv_index, static_cast<std::size_t>(m_polygon_count)),
-                  "CompiledMesh::Read -- Could not get poly-UV array.\n",
-                  "CompiledMesh::Read -- Could not read m_psrPolyUVIndex.\n");
+                  "CompiledMesh::Read -- Could not get poly-UV array.",
+                  "CompiledMesh::Read -- Could not read m_psrPolyUVIndex.");
 
     poly_vertices = model->getPolyVertex();
     ReadMeshArray(*file, std::span(poly_vertices, static_cast<std::size_t>(m_polygon_count)),
-                  "CompiledMesh::Read -- Could not get poly-vertex array.\n",
-                  "CompiledMesh::Read -- Could not read m_psrPolyVertex.\n");
+                  "CompiledMesh::Read -- Could not get poly-vertex array.",
+                  "CompiledMesh::Read -- Could not read m_psrPolyVertex.");
 
     auto* polygon_textures = model->getPolygonTextureTable(0, 0, true);
     if (polygon_textures == 0) {
-        ShutdownWithErrorBox("CompiledMesh::Read -- Could not get poly texture array.\n");
+        throw std::runtime_error("CompiledMesh::Read -- Could not get poly texture array.");
     }
     if (!(file->read(indices, m_polygon_count * sizeof(int)).bytes ==
           static_cast<std::size_t>(m_polygon_count * sizeof(int)))) {
-        ShutdownWithErrorBox("CompiledMesh::Read -- Could not read m_plPolyTextures.\n");
+        throw std::runtime_error("CompiledMesh::Read -- Could not read m_plPolyTextures.");
     }
     for (index = 0; index < m_polygon_count; ++index) {
         int texture_index = indices[index];
@@ -167,30 +166,30 @@ std::unique_ptr<Mesh> CompiledMesh::Read(wiz8::File* file,
 
     vertex_normals = model->getVertexNormal();
     ReadMeshArray(*file, std::span(vertex_normals, m_vertex_count),
-                  "CompiledMesh::Read -- Could not get vertex normal array.\n",
-                  "CompiledMesh::Read -- Could not read m_pVertNorms.\n");
+                  "CompiledMesh::Read -- Could not get vertex normal array.",
+                  "CompiledMesh::Read -- Could not read m_pVertNorms.");
 
     ReadMeshArray(*file, model->GetVertexLights(true),
-                  "CompiledMesh::Read -- Could not get static lighting array.\n",
-                  "CompiledMesh::Read -- Could not read m_pVertLights.\n");
+                  "CompiledMesh::Read -- Could not get static lighting array.",
+                  "CompiledMesh::Read -- Could not read m_pVertLights.");
 
     poly_equations = model->getPolyEq();
     ReadMeshArray(*file, std::span(poly_equations, static_cast<std::size_t>(m_polygon_count)),
-                  "CompiledMesh::Read -- Could not get poly equation array.\n",
-                  "CompiledMesh::Read -- Could not read m_psrPolyEqtns.\n");
+                  "CompiledMesh::Read -- Could not get poly equation array.",
+                  "CompiledMesh::Read -- Could not read m_psrPolyEqtns.");
 
     const auto weights = model->GetVertexSunlight(true);
     if (weights.empty()) {
-        ShutdownWithErrorBox("CompiledMesh::Read -- Could not allocate intensity array.\n");
+        throw std::runtime_error("CompiledMesh::Read -- Could not allocate intensity array.");
     }
     if (version != 0 && !(file->read(weights.data(), weights.size_bytes()).bytes ==
                           static_cast<std::size_t>(m_vertex_count * sizeof(float)))) {
-        ShutdownWithErrorBox("CompiledMesh::Read -- Could not read Sunlight array.\n");
+        throw std::runtime_error("CompiledMesh::Read -- Could not read Sunlight array.");
     }
 
     std::uint32_t* shade_indices = model->getVertexShadeIndex(1);
     if (vertex_locations == 0) {
-        ShutdownWithErrorBox("CompiledMesh::Read -- Could not get vertex location array.\n");
+        throw std::runtime_error("CompiledMesh::Read -- Could not get vertex location array.");
     }
     for (std::uint32_t shade_index = 0; shade_index < static_cast<std::uint32_t>(m_vertex_count);
          ++shade_index) {
@@ -200,14 +199,14 @@ std::unique_ptr<Mesh> CompiledMesh::Read(wiz8::File* file,
     int terminator;
     file->read_exact(&terminator, sizeof(terminator));
     if (terminator != -1) {
-        ShutdownWithErrorBox("Mesh Model in .pvl file is wrong length.");
+        throw std::runtime_error("Mesh Model in .pvl file is wrong length.");
     }
 
     const DrawShader render_flags = materials.at(selected_material).render_flags;
     model->setShader(render_flags, 0);
     if ((render_flags.value & 0x6000) == 0x4000) {
         if (unweighted) {
-            ShutdownWithErrorBox("CompiledMesh::Read -- Wrong shader type.\n");
+            throw std::runtime_error("CompiledMesh::Read -- Wrong shader type.");
         } else {
             model->enable(Mesh::CONTROL_SORTED_RENDERING);
         }

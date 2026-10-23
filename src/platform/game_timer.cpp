@@ -2,6 +2,9 @@
 
 #include <cstdint>
 #include <exception>
+#include <limits>
+#include <optional>
+#include <stdexcept>
 
 #include "wiz8/chunk.h"
 #include "wiz8/game.h"
@@ -16,6 +19,23 @@ std::uint64_t WorldClockMilliseconds()
 std::uint32_t GameClockMilliseconds()
 {
     return GameInProgress() ? static_cast<std::uint32_t>(CurrentGame().time.count()) : 0;
+}
+
+std::optional<int> DurationTicks(float seconds, float scale)
+{
+    // Keep the timer's float arithmetic, but validate before narrowing to ticks.
+    const float ticks = seconds * scale * W8_SHARED_TIMER_TICKS_PER_SECOND;
+    if (!(ticks >= 0.0f && static_cast<double>(ticks) <= std::numeric_limits<int>::max()))
+        return std::nullopt;
+    return static_cast<int>(ticks);
+}
+
+static std::uint32_t ProgressTicks(int duration, float progress)
+{
+    const float ticks = static_cast<float>(duration) * progress;
+    if (!(ticks >= 0.0f && static_cast<double>(ticks) <= std::numeric_limits<std::uint32_t>::max()))
+        return 0;
+    return static_cast<std::uint32_t>(ticks);
 }
 
 bool g_shared_timer_paused;
@@ -40,7 +60,7 @@ W8GameTimer::W8GameTimer(float duration, TimerClock clock)
     m_duration_scale = 1.0f;
     m_start = ReadClock();
     m_duration_seconds = duration;
-    m_duration = static_cast<int>(duration * 10000.0f);
+    m_duration = DurationTicks(duration, 1.0f).value_or(0);
 }
 
 void W8GameTimer::SetDuration(float duration)
@@ -49,7 +69,7 @@ void W8GameTimer::SetDuration(float duration)
     if (duration > 0.0f) {
         m_duration_seconds = duration;
     }
-    m_duration = static_cast<int>(m_duration_scale * m_duration_seconds * 10000.0f);
+    m_duration = DurationTicks(m_duration_seconds, m_duration_scale).value_or(0);
 }
 
 void W8GameTimer::SetMode(TimerClock mode)
@@ -117,8 +137,9 @@ float W8GameTimer::GetProgress()
 {
     if (Held()) return 0.0f;
     if (m_duration <= 0) return 1.0f;
-    const float progress = ElapsedTicks() / static_cast<float>(m_duration);
-    const auto completed = static_cast<std::uint32_t>(progress);
+    const auto elapsed = ElapsedTicks();
+    const float progress = elapsed / static_cast<float>(m_duration);
+    const auto completed = elapsed / static_cast<std::uint32_t>(m_duration);
     if (completed > 0) {
         m_start += completed * static_cast<std::uint32_t>(m_duration);
     }
@@ -127,15 +148,18 @@ float W8GameTimer::GetProgress()
 
 void W8GameTimer::SetProgress(float progress)
 {
-    paused_elapsed_ = static_cast<std::uint32_t>(m_duration * progress);
+    paused_elapsed_ = ProgressTicks(m_duration, progress);
     m_start = ReadClock() - paused_elapsed_;
 }
 
 bool W8GameTimer::Load(W8Chunk& handle)
 try {
     const auto progress = handle.ReadValue<float>();
-    m_duration_scale = handle.ReadValue<float>();
-    SetDuration(-1.0f);
+    const auto scale = handle.ReadValue<float>();
+    const auto duration = DurationTicks(m_duration_seconds, scale);
+    if (!duration || !(scale > 0.0f)) throw std::runtime_error("invalid saved timer scale");
+    m_duration_scale = scale;
+    m_duration = *duration;
     SetProgress(progress); // Unsigned interval subtraction also works at a new game epoch.
     return true;
 } catch (const std::exception&) {

@@ -19,7 +19,6 @@
 
 #include "asset_paths.h"
 #include "glm/ext/vector_float4.hpp"
-#include "wiz8/application.h"
 #include "wiz8/local_screens/PleaseWaitScreen.h"
 #include "wiz8/packed_bits.h"
 #include "wiz8/render/compiled_mesh.h"
@@ -257,8 +256,7 @@ std::shared_ptr<Texture> LoadTextureFromPath(const std::filesystem::path& path,
         g_texture_files.insert_or_assign(path, texture);
         return texture;
     }
-    ShutdownWithErrorBox(fmt::format("Missing texture file: {}", wiz8::path_to_utf8(path)));
-    return {};
+    throw std::runtime_error(fmt::format("Missing texture file: {}", wiz8::path_to_utf8(path)));
 }
 
 /* getPolyTexture selects the layer and table up front, then returns one smart

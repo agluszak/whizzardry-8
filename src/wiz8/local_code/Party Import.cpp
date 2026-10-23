@@ -1,5 +1,7 @@
+#include <algorithm>
 #include <cstring>
 #include <exception>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
@@ -51,7 +53,7 @@ struct W8Wiz7Item {
 
 /* The imported Wizardry 7 character record. */
 struct W8Wiz7Character {
-    char name[0x10]; /* ASCII name TitleCaseString reads */
+    char name[0x10]; /* ASCII, NUL-padded; a full-length name has no terminator */
     int kill_count;  /* stored verbatim to kill_count */
     unsigned char unknown_014[0x10];
     short level;  /* positive values import as level 1 */
@@ -82,7 +84,7 @@ static void GrantStartingSpells(W8Character* character, const W8Wiz7Character* i
 static void ImportEquipment(W8Character* character, const W8Wiz7Character* imported);
 static unsigned int ConvertSkill(W8Skill skill_id, W8Character* character,
                                  const W8Wiz7Character* imported);
-static void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported);
+static void ImportWizardry7Character(W8Character* character, const W8Wiz7Character* imported);
 
 /* Retail Local Code\Party Import.cpp: converts imported Wizardry 7
    characters into the Wizardry 8 layout. */
@@ -216,14 +218,16 @@ PartyImportResult ImportWizardry7Party(GameSession& games, std::string_view path
                                         : PartyImportResult::Success;
 }
 
-static void ImportWizardry7Character(W8Character* character, W8Wiz7Character* imported)
+static void ImportWizardry7Character(W8Character* character, const W8Wiz7Character* imported)
 {
     W8Profession profession;
     unsigned int level;
     unsigned int skill_id;
 
     *character = W8Character{};
-    character->name = TitleCaseString(imported->name);
+    // The name fills its field without a terminator when it is sixteen characters long.
+    character->name = TitleCaseString(
+        std::string_view(std::begin(imported->name), std::ranges::find(imported->name, '\0')));
     character->name_part_2 = character->name;
     character->iRace = static_cast<W8Race>(imported->race);
     character->gender = static_cast<W8Gender>(imported->gender);

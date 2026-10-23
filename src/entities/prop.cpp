@@ -25,7 +25,6 @@
 #include <glm/geometric.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "application.h"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/fwd.hpp"
@@ -951,10 +950,10 @@ int Prop::BuildOrRefreshPathingRepresentation(NavigationMesh* pathing)
         return 0;
     }
     if (!this->currentAnimation()->positioned_parts) {
-        ShutdownWithErrorBox("Collidable props can be of Transform type only.");
+        throw std::runtime_error("Collidable props can be of Transform type only.");
     }
     if (this->currentAnimation()->parts[2].size() != 1) {
-        ShutdownWithErrorBox("Collideable props should have a single LOD.");
+        throw std::runtime_error("Collideable props should have a single LOD.");
     }
     instance = &ShowPart(*this, this->currentAnimation(), 0);
 

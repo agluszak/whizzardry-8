@@ -2,7 +2,6 @@
 
 #include <memory>
 #include <span>
-#include <string>
 #include <string_view>
 
 extern "C" {
@@ -13,7 +12,6 @@ extern bool gfGameInitialized;
 union SDL_Event;
 void HandleGameEvent(const SDL_Event& event);
 bool PumpGameEvents(bool wait = false);
-[[noreturn]] void ShutdownWithErrorBox(std::string_view message);
 }
 
 struct GameData;
