@@ -644,7 +644,6 @@ void SetCombatAction(int value);
 void SetCombatSelection(int value);
 void SetCombatTarget(int value);
 
-bool LoadCurrentLevelData(void);
 void ResetMainGameMode(void);
 void CreateSurpriseFade(void);
 void ReverseSurpriseFade(void);

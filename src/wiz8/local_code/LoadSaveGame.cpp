@@ -1323,25 +1323,6 @@ void ApplyLevelBase(LevelState::Data& state)
     }
 }
 
-/* Check the species a decoded level names against the monster database. A monster of a
-   deleted species is dropped, so only the others need their group. */
-void CheckLevelSpecies(const LevelState::Data& state)
-{
-    for (const auto& group : state.groups)
-        if (!MonsterDBFromSpecies(group.image.monster_id))
-            throw std::runtime_error("missing saved monster group species");
-    for (const auto& saved : state.monsters) {
-        const auto* record = MonsterDBFromSpecies(saved.image.monster_species);
-        if (!record) throw std::runtime_error("missing saved monster species");
-        if (record->deleted) continue;
-        const auto group = std::ranges::find_if(state.groups, [&](const auto& saved_group) {
-            return saved_group.image.group_id == saved.image.monster_group_id;
-        });
-        if (group == state.groups.end() || MonsterDBFromSpecies(group->image.monster_id)->deleted)
-            throw std::runtime_error("missing saved monster group");
-    }
-}
-
 /* The scripts building a level loads for its monsters: the encounter default, kept until
    activation assigns it, and each saved monster's own, by the monster's index. */
 struct LevelScripts {
@@ -1468,11 +1449,30 @@ std::vector<std::unique_ptr<W8WorldItem>> LevelState::buildItems() const
     return items;
 }
 
+// A monster of a deleted species is dropped, so only the others need their group.
+void LevelState::checkSpecies() const
+{
+    const auto& state = *data_;
+    for (const auto& group : state.groups)
+        if (!MonsterDBFromSpecies(group.image.monster_id))
+            throw std::runtime_error("missing saved monster group species");
+    for (const auto& saved : state.monsters) {
+        const auto* record = MonsterDBFromSpecies(saved.image.monster_species);
+        if (!record) throw std::runtime_error("missing saved monster species");
+        if (record->deleted) continue;
+        const auto group = std::ranges::find_if(state.groups, [&](const auto& saved_group) {
+            return saved_group.image.group_id == saved.image.monster_group_id;
+        });
+        if (group == state.groups.end() || MonsterDBFromSpecies(group->image.monster_id)->deleted)
+            throw std::runtime_error("missing saved monster group");
+    }
+}
+
 std::unique_ptr<W8LoadedLevelStatus> LevelState::build(World& world) &&
 {
     auto& state = *data_;
     ApplyLevelBase(state);
-    CheckLevelSpecies(state);
+    checkSpecies();
     // Retail drew the generators' jittered intervals as it read them, before building anything.
     if (state.encounters) state.encounters->rearmDecodedGenerators();
     auto status = std::make_unique<W8LoadedLevelStatus>();
@@ -1759,16 +1759,15 @@ try {
     return {};
 }
 
-/* Load a save slot. Every game section is decoded first, so a malformed one fails the load
-   before the game in progress is replaced; then a new game begins and the sections are
-   installed in the order the file holds them. Each level's group is decoded to check it, and
-   the game keeps it as bytes, which a save copies and entering the level decodes again. The message countdowns, the gameplay
-   timer and the held item are re-armed and the loaded items normalized last. */
-bool LoadGame(GameSession& games, std::string_view slot_name)
+/* Decode a save slot before the game in progress or its presentation is released, so a
+   malformed section, nested level groups included, rejects the load and the current game
+   resumes. Each level's group is decoded and its species checked; the game keeps it as
+   bytes, which a save copies and entering the level decodes again. */
+std::optional<PreparedGame> ReadSavedGame(std::string_view slot_name)
 try {
     W8Chunk chunks;
-    if (!chunks.OpenRead(wiz8::user_path(SaveSlotPath(slot_name)))) return false;
-    std::vector<std::move_only_function<void(Game&)>> installs;
+    if (!chunks.OpenRead(wiz8::user_path(SaveSlotPath(slot_name)))) return std::nullopt;
+    PreparedGame prepared;
     // The message boxes' encoding follows the save version the status section names.
     auto save_version = GameStatus{}.retail.save_version;
     chunks.ForEachChunk([&](unsigned int id) {
@@ -1776,8 +1775,8 @@ try {
         case W8_CHUNK_LEVEL_STATUS: {
             const int level = PeekGroupLevel(chunks);
             auto image = CopyLevelGroupImage(chunks);
-            LevelState::decode(image, level);
-            installs.emplace_back([level, image = std::move(image)](Game& game) mutable {
+            if (auto state = LevelState::decode(image, level)) state->checkSpecies();
+            prepared.sections.emplace_back([level, image = std::move(image)](Game& game) mutable {
                 game.left_levels.keep(level, std::move(image));
             });
             break;
@@ -1785,7 +1784,7 @@ try {
         case W8_CHUNK_GAME_STATUS: {
             auto saved = wiz8::save::decode_game_state(ReadChunkPayload(chunks));
             save_version = saved.status.retail.save_version;
-            installs.emplace_back([saved = std::move(saved)](Game& game) mutable {
+            prepared.sections.emplace_back([saved = std::move(saved)](Game& game) mutable {
                 game.status = std::move(saved.status);
                 game.party = std::move(saved.party);
                 game.search.restore(saved.search_mode);
@@ -1795,40 +1794,41 @@ try {
         case W8_CHUNK_CHARACTER:
             // A malformed record is skipped; the last complete one under a name wins.
             try {
-                installs.emplace_back(
+                prepared.sections.emplace_back(
                     [stored = wiz8::save::decode_stored_character(ReadChunkPayload(chunks))](
                         Game& game) mutable { StoreCharacter(game, std::move(stored)); });
             } catch (const std::runtime_error&) {
             }
             break;
         case W8_CHUNK_MESSAGE_STORAGE:
-            installs.emplace_back(
+            prepared.sections.emplace_back(
                 [boxes = wiz8::save::decode_message_boxes(ReadChunkPayload(chunks), save_version)](
                     Game& game) mutable { InstallMessageBoxes(std::move(boxes), game); });
             break;
         case W8_CHUNK_LOCATION_VARIABLES:
-            installs.emplace_back([variables = wiz8::save::decode_location_variables(
-                                       ReadChunkPayload(chunks))](Game& game) mutable {
+            prepared.sections.emplace_back([variables = wiz8::save::decode_location_variables(
+                                                ReadChunkPayload(chunks))](Game& game) mutable {
                 std::ranges::move(variables, std::back_inserter(game.story.location_variables));
             });
             break;
         case W8_CHUNK_NPC_TRANSCRIPT:
-            installs.emplace_back([transcript = wiz8::save::decode_dialogue_transcript(
-                                       ReadChunkPayload(chunks))](Game& game) mutable {
+            prepared.sections.emplace_back([transcript = wiz8::save::decode_dialogue_transcript(
+                                                ReadChunkPayload(chunks))](Game& game) mutable {
                 InstallDialogueTranscript(std::move(transcript), game.story, game.npc_interaction);
             });
             break;
         case W8_CHUNK_NPC_STATES:
-            installs.emplace_back([npcs = wiz8::save::decode_npc_states(ReadChunkPayload(chunks),
-                                                                        Data().npcs.size())](
-                                      Game&) mutable { InstallNpcStates(std::move(npcs)); });
+            prepared.sections.emplace_back(
+                [npcs =
+                     wiz8::save::decode_npc_states(ReadChunkPayload(chunks), Data().npcs.size())](
+                    Game&) mutable { InstallNpcStates(std::move(npcs)); });
             break;
         case W8_CHUNK_FACT_STATE:
-            installs.emplace_back([facts = wiz8::save::decode_facts(ReadChunkPayload(chunks))](
-                                      Game&) { InstallFacts(facts); });
+            prepared.sections.emplace_back([facts = wiz8::save::decode_facts(ReadChunkPayload(
+                                                chunks))](Game&) { InstallFacts(facts); });
             break;
         case W8_CHUNK_FACTION_STATE:
-            installs.emplace_back(
+            prepared.sections.emplace_back(
                 [factions = wiz8::save::decode_factions(ReadChunkPayload(chunks))](Game& game) {
                     game.story.faction_relations = factions.relations;
                     game.story.factions = factions.states;
@@ -1836,13 +1836,13 @@ try {
                 });
             break;
         case W8_CHUNK_JOURNAL:
-            installs.emplace_back(
+            prepared.sections.emplace_back(
                 [journal = wiz8::save::decode_journal(ReadChunkPayload(chunks))](
                     Game& game) mutable { game.story.journal = std::move(journal); });
             break;
         case W8_CHUNK_MONSTER_CONTROL:
-            installs.emplace_back([control = wiz8::save::decode_monster_control(
-                                       ReadChunkPayload(chunks))](Game& game) mutable {
+            prepared.sections.emplace_back([control = wiz8::save::decode_monster_control(
+                                                ReadChunkPayload(chunks))](Game& game) mutable {
                 game.spell_effects.push_back(
                     std::make_unique<W8SpellEffectEntry>(std::move(control)));
             });
@@ -1850,19 +1850,22 @@ try {
         }
     });
     chunks.Close();
+    return prepared;
+} catch (const std::exception& error) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot load save %.*s: %s",
+                 static_cast<int>(slot_name.size()), slot_name.data(), error.what());
+    return std::nullopt;
+}
+
+void PreparedGame::install(GameSession& games) &&
+{
     auto& game = games.begin();
-    for (auto& install : installs) install(game);
+    for (auto& install : sections) install(game);
     for (std::size_t box = 0; box < game.message_log.size(); ++box) {
         for (std::size_t line = 0; line < game.status.text_box_lines_shown[box]; ++line) {
             auto& message = game.message_log[box][line];
             message.clock = MonotonicMilliseconds() + message.saved_remaining_ms;
         }
     }
-    game.autosave_due = Game::kAutosaveInterval;
     SanitizeLoadedItems();
-    return true;
-} catch (const std::exception& error) {
-    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Cannot load save %.*s: %s",
-                 static_cast<int>(slot_name.size()), slot_name.data(), error.what());
-    return false;
 }

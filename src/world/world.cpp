@@ -86,7 +86,6 @@ constexpr double kAutomapRefreshDistanceSquared = 250000.0;
 
 class MeshInstance;
 
-bool g_world_cleanup_flag;
 LevelSpatialIndex* GetWorldCollision()
 {
     return GetWorld() ? GetWorld()->collisionIndex() : nullptr;
