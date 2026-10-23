@@ -279,7 +279,8 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
 - Departure ends combat and captures script state into location variables before
   resources are released. Destruction does no departure bookkeeping.
 - Loading a save decodes every section, each level group included, before the game
-  in progress or its screens are released (`ReadSavedGame`); a rejected save resumes
+  in progress or its screens are released, into a plain `SavedGame` (`ReadSavedGame`)
+  that `SavedGame::install` writes into the game it begins; a rejected save resumes
   that game. If the resume level then fails to build, the new game ends and the menu
   shows the error.
 - Monster and world-item records link to their scene entity through an

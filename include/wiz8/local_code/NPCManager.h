@@ -32,6 +32,7 @@ enum class W8MarkedNpcEventMode : unsigned char { arm_restore, release_companion
 void QueueNpcHeldItemNotice(int npc_kind);
 
 class Game;
+struct Story;
 class Monster;
 class Trigger;
 struct W8GameplayModifierBlock;
@@ -103,7 +104,7 @@ void ProcessNpcPendingEvents(void);
 void CreateNewGameNpcStates(void);
 /* Build one runtime state from its database record and return it,
    reusing the slot of a released node when one is free. */
-W8NpcState* CreateNpcRuntimeNode(int npc_id);
+W8NpcState* CreateNpcRuntimeNode(Story& story, int npc_id);
 
 /* The NPC-side consequence pass the sight code runs when a marked NPC's
    binding is released. */
@@ -155,10 +156,6 @@ bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out);
 void ReleaseNpcMonsterByKind(int kind);
 /* Record that the NPC has told the party the given fact. */
 void TellNpcFact(W8NpcState* npc, short fact);
-/* Install the states a save's NPCT section holds, bound to their database records.
-   Grouped NPCs re-bind to the loaded level, and runtime nodes are created for the
-   unflagged records no loaded state claims. */
-void InstallNpcStates(std::vector<std::unique_ptr<W8NpcState>> npcs);
 W8NpcItemTheftResult AttemptNpcItemTheft(Game& game, W8Character* character, W8NpcState* npc,
                                          int item_id, int count);
 void UpdateNpcPartyMember(int party_slot);
