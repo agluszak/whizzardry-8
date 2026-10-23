@@ -53,17 +53,17 @@ void UpdateWorldMonsters(World* world)
 {
     assert(world != 0);
 
-    const glm::vec3 position = cameraLocation(*world);
+    const glm::vec3 position = world->party.eye();
 
     auto count = world->active_monsters.size();
     UpdateNearestMonsterGroupMembers();
     for (int index = 0; index < static_cast<int>(count); ++index) {
         Monster* monster = world->active_monsters[index];
         if (monster != 0) {
-            monster->visual.DetachRepresentation(world);
+            monster->visual.DetachRepresentation();
             monster->visual.SelectLOD(&position);
             monster->Update();
-            monster->UpdateRepresentation(world);
+            monster->UpdateRepresentation();
         }
     }
 }
@@ -200,14 +200,6 @@ bool traceLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds
     const glm::vec3 from(origin);
     return std::ranges::any_of(bounds.visibilitySamples(), [&](const auto& sample) {
         return !GetWorldSpatialIndex()->traceSight(from, glm::vec3(sample));
-    });
-}
-
-bool hasLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds)
-{
-    const glm::vec3 from(origin);
-    return std::ranges::any_of(bounds.visibilitySamples(), [&](const auto& sample) {
-        return GetWorldSpatialIndex()->hasLineOfSight(from, glm::vec3(sample));
     });
 }
 

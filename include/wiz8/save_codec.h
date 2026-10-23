@@ -27,6 +27,8 @@ namespace wiz8::save {
 struct GameState {
     GameStatus status;
     W8Party party;
+    // The player's search-mode choice.
+    bool search_mode = false;
 };
 
 /* The GSTA payload: the status record, each character and each party row, every record
