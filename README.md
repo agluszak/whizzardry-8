@@ -16,9 +16,16 @@ Install Docker and run:
 ./build.sh
 ```
 
-The first run builds the toolchain image and resolves the pinned Conan dependencies.
-Subsequent builds reuse Docker layers, Conan binaries and ccache. CI uses the same
-command and image. The host does not need Clang, CMake or Conan.
+The first run pulls the published image pinned by digest in `toolchain-image.txt`
+and resolves the pinned Conan dependencies. Subsequent builds reuse that image,
+Conan binaries and ccache. CI uses the same entry point and image; ordinary builds
+never install system packages. The host does not need Clang, CMake or Conan.
+
+The Toolchain image workflow publishes compiler and system-dependency changes.
+After it succeeds, update `toolchain-image.txt` with the digest from its
+`toolchain-image` artifact and validate the consumers before merging.
+The image contains no game assets. A missing system dependency is an image
+problem: fix the Dockerfile rather than enabling Conan package installation.
 
 Prepare assets from a retail installation once:
 
@@ -37,7 +44,7 @@ on the host without Docker, provided its C++ runtime and Vulkan driver are
 compatible with the build environment. Saves, settings and logs use the
 per-user application directory; override it with `WIZ8_USER_ROOT`.
 
-Use `./build.sh linux-dev`, `./build.sh linux-asan` or
+Use `./build.sh linux-ci` for the assertion-enabled CI build, `./build.sh linux-dev`, `./build.sh linux-asan` or
 `./build.sh linux-integer-audit` for other configurations, and set
 `WIZ8_BUILD_DIR` to select the resulting executable in `run.sh`.
 `./build.sh -- <command>` runs a command in the same build container.

@@ -14,7 +14,7 @@ if [[ ${WIZ8_BUILD_CONTAINER:-} == 1 ]]; then
     action=${2:-build}
     case $preset in
         linux) build_type=Release ;;
-        linux-dev|linux-tidy) build_type=Debug ;;
+        linux-ci|linux-dev|linux-tidy) build_type=Debug ;;
         linux-asan|linux-integer-audit) build_type=RelWithDebInfo ;;
         *) echo "Unknown Linux preset: $preset" >&2; exit 2 ;;
     esac
@@ -27,7 +27,8 @@ if [[ ${WIZ8_BUILD_CONTAINER:-} == 1 ]]; then
     CC=clang-23 CXX=clang++-23 conan install . \
         -pr:h conan/profiles/linux-clang23 -pr:b conan/profiles/linux-gcc16 \
         -s:h "build_type=$build_type" \
-        -c tools.system.package_manager:mode=check \
+        -c:h tools.system.package_manager:mode=check \
+        -c:b tools.system.package_manager:mode=check \
         --build=missing -of "build/$preset/conan"
 
     # shellcheck disable=SC1090
@@ -45,22 +46,24 @@ if [[ $(uname -s) != Linux ]]; then
     exit 2
 fi
 
-image=${WIZ8_BUILD_IMAGE:-"whizzardry-build:$(sha256sum Dockerfile | cut -c1-12)"}
-if ! docker image inspect "$image" >/dev/null 2>&1; then
-    docker build -t "$image" .
+image=$(<toolchain-image.txt)
+if [[ ! "$image" =~ ^ghcr.io/agluszak/whizzardry-8-toolchain@sha256:[a-f0-9]{64}$ ]]; then
+    echo "toolchain-image.txt must contain the published image digest." >&2
+    exit 2
 fi
-image_id=$(docker image inspect --format '{{.Id}}' "$image")
-key=${image_id#sha256:}
-key=${key:0:16}
+if ! docker image inspect "$image" >/dev/null 2>&1; then
+    docker pull "$image"
+fi
+key=${image##*@sha256:}
 cache="$root/build/cache/$key"
 mkdir -p "$cache/home" "$cache/conan" "$root/build/ccache"
 
 # The compiler and system headers may change when the image changes.
-if [[ ! -f build/.toolchain-id || $(<build/.toolchain-id) != "$image_id" ]]; then
-    rm -rf build/linux build/linux-dev build/linux-asan \
+if [[ ! -f build/.toolchain-id || $(<build/.toolchain-id) != "$image" ]]; then
+    rm -rf build/linux build/linux-ci build/linux-dev build/linux-asan \
         build/linux-integer-audit build/linux-tidy
 fi
-printf '%s\n' "$image_id" > build/.toolchain-id
+printf '%s\n' "$image" > build/.toolchain-id
 
 args=(--rm --init --user "$(id -u):$(id -g)"
     --volume "$root:$root" --workdir "$root"
@@ -78,7 +81,7 @@ fi
 if [[ -n ${WIZ8_ASSET_ROOT:-} ]]; then
     args+=(--volume "$WIZ8_ASSET_ROOT:$WIZ8_ASSET_ROOT:ro" --env WIZ8_ASSET_ROOT)
 fi
-for var in VK_DRIVER_FILES VK_INSTANCE_LAYERS UBSAN_OPTIONS LD_PRELOAD \
+for var in VK_DRIVER_FILES VK_INSTANCE_LAYERS UBSAN_OPTIONS \
     CLANG_TIDY CLANG_TIDY_CONFIG CLANG_TIDY_JOBS CLANG_TIDY_SHARD_INDEX \
     CLANG_TIDY_SHARD_COUNT CLANG_TIDY_CACHE_DIR CLANG_TIDY_DISABLE_CACHE \
     RUN_CLANG_TIDY PYTHONUNBUFFERED WIZ8_USER_ROOT WIZ8_DOWNLOAD_CACHE; do

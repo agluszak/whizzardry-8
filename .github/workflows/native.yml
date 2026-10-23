@@ -21,9 +21,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  WIZ8_BUILD_IMAGE: whizzardry-build:ci
-
 jobs:
   scope:
     runs-on: ubuntu-26.04
@@ -68,6 +65,7 @@ jobs:
       run:
         shell: bash
     env:
+      CMAKE_PRESET: ${{ matrix.preset == 'linux' && 'linux-ci' || matrix.preset }}
       VK_INSTANCE_LAYERS: VK_LAYER_KHRONOS_validation
       CCACHE_DIR: ${{ github.workspace }}/build/ccache
       CCACHE_BASEDIR: ${{ github.workspace }}
@@ -79,26 +77,21 @@ jobs:
       WIZ8_DOWNLOAD_CACHE: ${{ github.workspace }}/build/downloads
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: docker/setup-buildx-action@v4
-      - name: Restore or build toolchain image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          load: true
-          tags: ${{ env.WIZ8_BUILD_IMAGE }}
-          cache-from: type=gha,scope=wiz8-toolchain
-          cache-to: type=gha,mode=max,scope=wiz8-toolchain
-      - name: Identify exact toolchain image
+      - name: Pull pinned toolchain
         id: toolchain
-        run: echo "key=$(docker image inspect --format '{{.Id}}' "$WIZ8_BUILD_IMAGE" | cut -c8-23)" >> "$GITHUB_OUTPUT"
+        timeout-minutes: 5
+        run: |
+          image=$(<toolchain-image.txt)
+          docker pull "$image"
+          echo "key=${image##*@sha256:}" >> "$GITHUB_OUTPUT"
       - name: Restore Conan packages
         id: conan-cache
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: build/cache
-          key: conan-${{ steps.toolchain.outputs.key }}-${{ matrix.preset == 'linux' && 'Release' || 'RelWithDebInfo' }}-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*', 'conan/recipes/**') }}
+          key: conan-${{ steps.toolchain.outputs.key }}-${{ matrix.preset == 'linux' && 'Debug' || 'RelWithDebInfo' }}-${{ hashFiles('conanfile.py', 'conan.lock', 'conan/profiles/*', 'conan/recipes/**') }}
           restore-keys: |
-            conan-${{ steps.toolchain.outputs.key }}-${{ matrix.preset == 'linux' && 'Release' || 'RelWithDebInfo' }}-
+            conan-${{ steps.toolchain.outputs.key }}-${{ matrix.preset == 'linux' && 'Debug' || 'RelWithDebInfo' }}-
       - name: Select software Vulkan driver
         run: echo "VK_DRIVER_FILES=/usr/share/vulkan/icd.d/lvp_icd.json" >> "$GITHUB_ENV"
       - name: Create cache directories
@@ -114,7 +107,7 @@ jobs:
         run: ./build.sh -- ccache --zero-stats
       - name: Build native game and fixtures
         id: native-build
-        run: ./build.sh "${{ matrix.preset }}"
+        run: ./build.sh "$CMAKE_PRESET"
       - name: Clean Conan build intermediates
         if: always() && steps.conan-cache.outputs.cache-hit != 'true'
         run: ./build.sh -- conan cache clean '*'
@@ -160,7 +153,6 @@ jobs:
           WIZ8_CACHE_KEY: ${{ secrets.WIZ8_CACHE_KEY }}
         run: |
           set -euo pipefail
-          sudo apt-get install -y --no-install-recommends innoextract
           command -v gh
           download="$RUNNER_TEMP/wiz8-native-game-download"
           extracted="$RUNNER_TEMP/wiz8-native-game-extracted"
@@ -174,7 +166,7 @@ jobs:
             --pattern setup_wizardry_8_2001_12_23_.22306.exe \
             --dir "$download"
           echo "48e31728ef2615f4e1ee3e34c901feec8ea428a474fc9c7386cc11018311a68d  $installer" | sha256sum -c -
-          innoextract --output-dir "$extracted" "$installer"
+          ./build.sh -- innoextract --output-dir "$extracted" "$installer"
           game_exe="$(find "$extracted" -type f -iname 'Wiz8.exe' -print -quit)"
           test -n "$game_exe"
           game_root="$(dirname "$game_exe")"
@@ -208,7 +200,7 @@ jobs:
           test -d "$game_root/Data"
           test -d "$game_root/Levels"
           prepared_root="$RUNNER_TEMP/wiz8-native-prepared"
-          ./build.sh -- bash -c 'source "build/${{ matrix.preset }}/conan/conanrun.sh"; "build/${{ matrix.preset }}/wiz8_prepare_assets" "$1" "$2"' -- "$prepared_root" "$game_root"
+          ./build.sh -- bash -c 'source "build/${{ env.CMAKE_PRESET }}/conan/conanrun.sh"; "build/${{ env.CMAKE_PRESET }}/wiz8_prepare_assets" "$1" "$2"' -- "$prepared_root" "$game_root"
           echo "WIZ8_ASSET_ROOT=$prepared_root" >> "$GITHUB_ENV"
 
       # Third-party runtime inputs (tests/runtime/fetch_downloads.cmake) are
@@ -223,19 +215,22 @@ jobs:
       - name: Test native contracts and licensed runtime scenarios
         id: tests
         run: |
-          if [[ '${{ matrix.preset }}' != linux ]]; then
-            # SDL unloads the software Vulkan ICD before LSan scans globals.
-            export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
-            export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so
-          fi
-          ./build.sh -- bash -c 'source "build/${{ matrix.preset }}/conan/conanrun.sh"; ctest --preset "${{ matrix.preset }}" --output-on-failure --parallel "$(nproc)"'
+          ./build.sh -- bash -c '
+            source "build/${{ env.CMAKE_PRESET }}/conan/conanrun.sh"
+            if [[ "${{ matrix.preset }}" != linux ]]; then
+              # Keep the software Vulkan ICD loaded until LSan scans globals.
+              export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
+              export LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libvulkan_lvp.so
+            fi
+            ctest --preset "${{ env.CMAKE_PRESET }}" --output-on-failure --parallel "$(nproc)"
+          '
       # Frames saved by failing runtime scenarios and golden-image mismatches.
       - name: Upload runtime scenario images
         if: failure() && steps.tests.outcome == 'failure'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: runtime-artifacts-${{ matrix.preset }}
-          path: build/${{ matrix.preset }}/tests/runtime-artifacts
+          path: build/${{ env.CMAKE_PRESET }}/tests/runtime-artifacts
           retention-days: 7
           if-no-files-found: ignore
 
@@ -274,18 +269,13 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: docker/setup-buildx-action@v4
-      - name: Restore or build toolchain image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          load: true
-          tags: ${{ env.WIZ8_BUILD_IMAGE }}
-          cache-from: type=gha,scope=wiz8-toolchain
-          cache-to: type=gha,mode=max,scope=wiz8-toolchain
-      - name: Identify exact toolchain image
+      - name: Pull pinned toolchain
         id: toolchain
-        run: echo "key=$(docker image inspect --format '{{.Id}}' "$WIZ8_BUILD_IMAGE" | cut -c8-23)" >> "$GITHUB_OUTPUT"
+        timeout-minutes: 5
+        run: |
+          image=$(<toolchain-image.txt)
+          docker pull "$image"
+          echo "key=${image##*@sha256:}" >> "$GITHUB_OUTPUT"
       - name: Restore Conan packages
         id: conan-cache
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
@@ -312,9 +302,9 @@ jobs:
         uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ env.CLANG_TIDY_CACHE_DIR }}
-          key: tidy-cxx26-clang23-cmake444-shard${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: tidy-${{ steps.toolchain.outputs.key }}-4shards-shard${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            tidy-cxx26-clang23-cmake444-shard${{ matrix.shard }}-
+            tidy-${{ steps.toolchain.outputs.key }}-4shards-shard${{ matrix.shard }}-
       - name: Run clang-tidy
         env:
           CLANG_TIDY: clang-tidy-23
@@ -358,7 +348,7 @@ jobs:
         uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: ${{ env.CLANG_TIDY_CACHE_DIR }}
-          key: tidy-cxx26-clang23-cmake444-shard${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: tidy-${{ steps.toolchain.outputs.key }}-4shards-shard${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   # Keep the required check name stable while its work runs concurrently.
   clang-tidy:

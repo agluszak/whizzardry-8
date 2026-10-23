@@ -47,6 +47,14 @@
       }
     },
     {
+      "name": "linux-ci",
+      "inherits": "linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
       "name": "linux-asan",
       "inherits": "linux",
       "cacheVariables": {
@@ -124,6 +132,10 @@
       "configurePreset": "linux"
     },
     {
+      "name": "linux-ci",
+      "configurePreset": "linux-ci"
+    },
+    {
       "name": "linux-dev",
       "configurePreset": "linux-dev"
     },
@@ -156,6 +168,13 @@
     {
       "name": "linux",
       "configurePreset": "linux",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux-ci",
+      "configurePreset": "linux-ci",
       "output": {
         "outputOnFailure": true
       }
