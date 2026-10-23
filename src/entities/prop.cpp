@@ -786,7 +786,7 @@ void Prop::AttachAnimationInstances(World* world)
             instance->visible = true;
             instance->setScene((world->scene.get()));
             instance->light_scale = glm::vec3(0);
-            if (g_settings.smooth_world_animations != 0) {
+            if (g_settings.smooth_world_animations) {
                 instance->frame_interpolation = anim_frame_fraction;
             } else {
                 instance->frame_interpolation = 0.0f;
@@ -846,7 +846,7 @@ void Prop::AttachAnimationInstances(World* world)
         instance->visible = true;
         instance->setScene((world->scene.get()));
         instance->light_scale = glm::vec3(0);
-        if (g_settings.smooth_world_animations != 0) {
+        if (g_settings.smooth_world_animations) {
             instance->frame_interpolation = anim_frame_fraction;
         } else {
             instance->frame_interpolation = 0.0f;
