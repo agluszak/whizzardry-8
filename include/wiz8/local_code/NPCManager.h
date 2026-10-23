@@ -130,8 +130,8 @@ void ReleaseNpcBinding(int value);
 W8NpcState* FindNpcBindingForMonster(W8MonsterInfo* monster_info);
 unsigned char GetNpcDispositionBand(W8NpcState* npc);
 void SetNpcDispositionBand(W8NpcState* npc, signed char band);
-bool WillNpcTradeForItem(W8NpcState* npc, W8ItemInstance* item);
-void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* item,
+bool WillNpcTradeForItem(W8NpcState* npc, const W8ItemInstance* item);
+void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, const W8ItemInstance* item,
                          unsigned int gold);
 /* Whether the NPC's database entry carries the value at 0x002. */
 bool NpcRecordHasTradePool(W8NpcState* npc);

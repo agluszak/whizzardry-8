@@ -258,8 +258,8 @@ static void ShowConsumedItemQuote(std::string_view text)
    when `match_item_id` is set), then the party pool. The first hit announces
    the loss through the quote bubble or the layout-4 path and returns; failing
    those, one unit of a matching offered item is used up. */
-void RemoveNpcScriptItem(const ScriptContext& context, W8ItemInstance* item, int match_item_id,
-                         int item_id)
+void RemoveNpcScriptItem(const ScriptContext& context, const W8ItemInstance* item,
+                         int match_item_id, int item_id)
 {
     std::string text;
     unsigned int slot;

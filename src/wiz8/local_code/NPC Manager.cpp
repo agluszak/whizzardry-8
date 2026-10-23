@@ -314,7 +314,7 @@ W8Character* GetNpcGroupCharacter(W8NpcState* npc)
 /* Whether an NPC would take one item in trade. The kind that trades in nothing
    refuses outright, one particular item is always taken, and everything else
    has to be worth enough. */
-bool WillNpcTradeForItem(W8NpcState* npc, W8ItemInstance* item)
+bool WillNpcTradeForItem(W8NpcState* npc, const W8ItemInstance* item)
 {
     if (npc->record->kind == W8_NPC_KIND_NO_TRADE) {
         return false;
@@ -1494,7 +1494,7 @@ static void DebitNpcTradePool(W8NpcState* npc, unsigned int price)
    kind adds its operand straight to disposition. Kinds 0 and 1 reuse an
    argument's stack slot as the best-skill out-parameter; kind 2 and 3 fall
    into the shared disposition refresh at the tail. */
-void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, W8ItemInstance* item,
+void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, const W8ItemInstance* item,
                          unsigned int gold)
 {
     switch (static_cast<signed char>(kind)) {

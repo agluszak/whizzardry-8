@@ -6104,7 +6104,8 @@ void RebuildNpcTradeItemList(bool scroll_to_top)
     }
 }
 
-static void ShowNpcPlayerTradeItem(W8ItemInstance* item, bool acceptable, unsigned int font_palette)
+static void ShowNpcPlayerTradeItem(const W8ItemInstance* item, bool acceptable,
+                                   unsigned int font_palette)
 {
     if (MainGame()->dialogue.trade_mode == W8_NPC_TRADE_SELL) {
         unsigned char count =
