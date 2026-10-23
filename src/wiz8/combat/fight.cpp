@@ -158,10 +158,10 @@ bool Game::beginCombat(int surprise)
     if (GetViewDistance() != g_sight_default) {
         ResetSight();
     }
-    UpdateScreenOverlays(0);
+    if (auto* screen = MainGame()) screen->dismissOverlays(false);
     AutoSaveIfAllowed(true);
     ResetLevelDataVectors();
-    if (!activity.conversation && !gpSCSV && !ItemUseDraft()) {
+    if (!activity.conversation) {
         SelectTextBox(1);
     }
     ResetEditorStatusLine(1);
@@ -951,9 +951,7 @@ void Game::endCombat(bool forced_cleanup)
     if (party_movement_mode) {
         BeginFreeTurnPhase();
     }
-    if (PartyMovementPanelShown()) {
-        ReleasePartyMovement();
-    }
+    ReleasePartyMovement();
     CurrentGame().events.push(PartyEffectsChanged{});
 
     CurrentGame().events.push(TargetingRequested{});
@@ -986,7 +984,7 @@ void Game::endCombat(bool forced_cleanup)
     if (combat->uiNextPartyAction != W8_PARTY_ACTION_NONE) {
         ClearPendingPartyMovement();
     }
-    UpdateScreenOverlays(0);
+    if (auto* screen = MainGame()) screen->dismissOverlays(false);
     RestoreCombatFormation();
     ReconcilePartyEquipmentAfterCombat();
     // The fight is over; what follows restores the world around it.
@@ -994,7 +992,7 @@ void Game::endCombat(bool forced_cleanup)
     search.fightEnded();
     if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->setZoom(false);
     events.push(CombatEnded{});
-    if (!activity.conversation && !gpSCSV && !ItemUseDraft()) {
+    if (!activity.conversation) {
         SelectTextBox(0);
     }
     ApplyWorldAdvancement(*this, advancement.hold);
@@ -1100,12 +1098,7 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
                                                               : W8_PARTY_ACTION_RUN);
         }
     }
-    if (!PartyMovementPanelShown()) {
-        CreatePartyMovementPanel();
-        CurrentGame().events.push(TargetingRequested{});
-        return;
-    }
-    InvalidatePartyMovementPanel();
+    ShowPartyMovementPanel();
     CurrentGame().events.push(TargetingRequested{});
 }
 
@@ -1354,7 +1347,7 @@ void AutoAdvanceSelectedCharacter(void)
 {
     if (!g_settings.auto_advance_character || CurrentGame().combat->target_picked ||
         !CurrentGame().combat->round_active || ScreenPointer().targeting() != W8_TARGET_NEED_NONE ||
-        gpSCSV || ItemUseDraft()) {
+        SpellPicker() || UseItemPicker()) {
         return;
     }
     int selected = CurrentGame().status.selected_character;

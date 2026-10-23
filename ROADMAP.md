@@ -186,11 +186,10 @@ the licensed runtime scenarios after every step.
      most in `MainGameScreen.cpp` and `MGSTextBox.cpp`) reach the HUD through
      `MainGameHud()`, including to mark repaint parts; they should receive it from the
      screen, as its members or as parameters, and `MainGameHud()` then goes. Outside
-     the screens three readers remain: `Targeting.cpp` reads whether a main game exists,
-     and `SelectCombatAction` reads the spell and item drafts the screens own;
+     the screens two readers remain: `Targeting.cpp` reads whether a main game exists,
+     and `SelectCombatAction` reads the spell and item drafts the screens own; and
      `QuoteManager.cpp`'s portrait bubbles read the review transition and pending
-     portrait refreshes; and `PartyCamera::ComputeTrackingOrientation` reads the
-     viewport mode, which the screen should hand the camera when it changes.
+     portrait refreshes.
    - The main game, camp and character screens are built with their game and use it in
      their members, but their free helpers (most of `local_screens`) still reach it and
      the HUD globally. Finish one whole flow first, the main game's HUD and dialogue:
@@ -204,20 +203,21 @@ the licensed runtime scenarios after every step.
      (`AutoAdvanceSelectedCharacter`, which asks whether a target is being picked) still
      reach it through `ScreenPointer()`. They should receive it with
      the HUD, and the accessor then goes.
+   - The main game owns the spell and item pickers (`spell_picker`, `item_picker`) and
+     opens, closes and dismisses them. About 35 free functions still ask
+     `SpellPicker()`/`UseItemPicker()` whether one is open, or reach the screen through
+     `MainGame()->openSpellPicker(…)`. These are the world, portrait, monster-list and
+     combat-slot input handlers, the keyboard dispatch (`DispatchMGSCommand`,
+     `TryMGSActionKey`), the submenu buttons, the text box module, the lock/trap
+     interactions and the NPC services. Game code calls the screen as well:
+     `FallbackFromUnreachableAction` from `Magic.cpp`, `SelectPartyCharacter`,
+     `MainGameScreen::dismissOverlays` and `AutoAdvanceSelectedCharacter` from combat, `IsScreenIdle`
+     from `GameplayTime.cpp`, `EditedDraft` from `Targeting.cpp`, and `StartBreathCycle`.
+     Each group should become members of its owner, or take the screen's state as events
+     or `advance` inputs. Delete both accessors when the last caller goes.
    - The HUD panels below `ApplyMainGameRepaint` (portraits and their bars, the text box,
      submenu, formation board, monster list, radar) still read the HUD, the game and
      module state themselves; give each the values it draws.
-   - Painting still updates: the main game's frame now updates its facing, targeting
-     presentation, radar blips, text-box request and repaint dependencies before
-     `DrawMainGameScreen` (`UpdateMainGamePresentation`). Vitals panels have one
-     screen-owned invalidation and publish their complete bounds; portrait bounds
-     no longer have a second dispatch table. The draw still refreshes the portrait,
-     condition, submenu and HUD buttons, which repaint as they change. Make the frame
-     "update presentation state, paint the 640×480 canvas, commit it".
-     Once painting is free of updates, try a full paint or coarse per-panel
-     invalidation, and keep `MainGameRepaint`'s remaining finer invalidation
-     (a separate pass mapping bottom panels to rectangles, per-panel shadow state) only
-     where it earns its complexity.
    - Game code still calls presentation for the
      combat panel (`RequestRefreshPartyState` in `Combat Hostility.cpp`,
      `MonsterManager.cpp`, `world.cpp` and `entities/cursor.cpp`, which the existing
