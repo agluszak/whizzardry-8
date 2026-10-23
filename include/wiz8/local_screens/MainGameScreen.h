@@ -2,6 +2,7 @@
 #include <array>
 #include <bitset>
 #include <cstddef>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -36,7 +37,9 @@ class Pointer;
 class Trigger;
 class W8LockInteraction;
 class W8TrapInteraction;
+class W8UseItemView;
 struct W8LevelRuntimeBlock;
+struct W8SpellCastingView;
 
 /* The world view with its HUD, portraits, text box and overlays. The level
    block, cursor resources and HUD are created on first entry and survive the
@@ -51,6 +54,20 @@ struct MainGameScreen final : Screen {
     void resetStepClock() override { step_timer.restart(); }
     bool leave(ScreenDeparture departure) override;
 
+    /* Open the spell or use-item picker for a party slot, replacing the other one.
+       `on_return` runs once the picker closes with a choice made or cancelled. */
+    bool openSpellPicker(int party_slot, std::move_only_function<void()> on_return = {});
+    bool openItemPicker(int party_slot, std::move_only_function<void()> on_return = {});
+    // Open the spell picker for the selected character with one spell preselected.
+    void beginSpellCast(int spell_id, std::move_only_function<void()> on_return);
+    // Discard the picker, then run its opener's return.
+    void closeSpellPicker();
+    void closeItemPicker();
+    // Abandon overlays for a replacement or screen/combat transition.
+    void dismissOverlays(bool suspend_interaction);
+    // Discard the picker without returning to its opener.
+    void dismissSpellPicker();
+    void dismissItemPicker();
     /* Decide the layout from the open interaction and the player's preferences, and
        apply it once. Only the panels and viewport that change are touched; an
        unchanged layout keeps its panels, hover and tooltip state. */
@@ -104,6 +121,10 @@ struct MainGameScreen final : Screen {
     std::unique_ptr<W8TrapInteraction> trap_interaction;
     bool lock_active = false;
     bool trap_active = false;
+    /* The open spell or use-item picker. Closing one returns to whatever opened it;
+       leaving the screen discards it without that return. */
+    std::unique_ptr<W8SpellCastingView> spell_picker;
+    std::unique_ptr<W8UseItemView> item_picker;
     bool resume_world = false;
     /* The camp closed over a conversation set aside to open it; the next frame takes the
        conversation up again. */
@@ -139,6 +160,9 @@ struct MainGameScreen final : Screen {
     HitTarget *radar_target = nullptr, *monster_list = nullptr, *world_view = nullptr;
 
 private:
+    // Advance choices and commit them from their owner, not from a retiring view.
+    void updateSpellPicker();
+    void updateItemPicker();
     MainGameLayout applied_layout;
 
     void chooseRoofMode(W8MainUiMode mode);
@@ -604,9 +628,9 @@ void PopulateNpcTradeList(void);
    refused or offended script path. */
 // Redraw the formation panel when asked or when one of its buttons changed.
 void RefreshFormationPanel(bool force);
-void EndLockInteractMode(signed char suspend);
+void EndLockInteractMode(bool suspend);
 void UpdateTrapInteraction(void);
-void EndTrapInteractMode(signed char suspend);
+void EndTrapInteractMode(bool suspend);
 int GetPartySlotLocksTrapsLevel(int slot);
 int OpenLockInteraction(Trigger* trigger);
 int OpenTrapInteraction(Trigger* trigger);
@@ -620,14 +644,12 @@ void SetCombatAction(int value);
 void SetCombatSelection(int value);
 void SetCombatTarget(int value);
 
-void UpdateScreenOverlays(int frame);
 bool LoadCurrentLevelData(void);
 void ResetMainGameMode(void);
 void CreateSurpriseFade(void);
 void ReverseSurpriseFade(void);
 void DestroySurpriseFade(void);
 unsigned char UpdateSurpriseFade(void);
-bool OpenUseItemSelectView(int slot);
 
 void ShowMainGameNoticeLine(std::string_view text, std::function<void(bool)> callback,
                             bool confirmation, bool cancel);

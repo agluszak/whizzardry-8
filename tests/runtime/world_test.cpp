@@ -273,14 +273,14 @@ void InventoryChestScenario()
     game.click("use-potion", kCampBackpackCells[1]);
     game.wait_screen("use-potion-return", W8_SCREEN_MAIN_GAME);
     const bool healed = game.within_frames(600, [&] { return caster.hp_current > 1; });
-    CAPTURE(ItemUseDraft(), ScreenPointer().targeting(),
+    CAPTURE(UseItemPicker(), ScreenPointer().targeting(),
             (CurrentGame().party.held.item.iItemNo != -1), potion.stack_count,
             CurrentGame().party.rows[slot].executing.kind);
     Snapshot("potion-use", game.read_frame());
     REQUIRE(healed);
     REQUIRE(potion.iItemNo == healing_potion);
     REQUIRE(potion.stack_count == 1);
-    REQUIRE_FALSE(ItemUseDraft());
+    REQUIRE_FALSE(UseItemPicker());
     Walk(game, "walk-after-inventory", 5);
     const auto start = PartyPosition();
     game.hold_key(SDLK_DOWN, true);
@@ -522,30 +522,87 @@ void CheckGameplayUi(GameHarness& game)
     const auto realm = Data().spells[W8_SPELL_LIGHT].realm;
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
     CurrentGame().advancement.paused = true;
-    REQUIRE(OpenSpellCastingView(slot));
+    int returns = 0;
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
     game.frame();
-    const auto realm_bounds = gpSCSV->realm_buttons[realm]->Bounds();
+    constexpr SDL_Point realm_buttons[] = {{0x35, 0x173}, {0x88, 0x173}, {0x29, 0x189},
+                                           {0x94, 0x189}, {0x35, 0x19f}, {0x88, 0x19f}};
+    const auto realm_button = realm_buttons[realm];
     game.move_pointer(0, 200);
     VideoRemoveToolTip();
-    game.move_pointer(realm_bounds.x + 5, realm_bounds.y + 5);
+    game.move_pointer(realm_button.x + 5, realm_button.y + 5);
     ResetUiHelp(false);
     REQUIRE(HasScreenTransitionObjects());
-    game.click("realm", *gpSCSV->realm_buttons[realm]);
-    REQUIRE(gpSCSV->iSpellRealm == realm);
-    REQUIRE(gpSCSV->spells.size() == 1);
+    game.click("realm", SDL_Point{realm_button.x + 5, realm_button.y + 5});
     game.click("choose-spell", kSpellListFirstRow);
-    REQUIRE(gpSCSV->draft.detail == W8_SPELL_LIGHT);
-    game.click("power-pip", *gpSCSV->power_controls[1]);
-    if (gpSCSV) {
-        REQUIRE(gpSCSV->draft.detail_block.spell.power_level == 2);
-        game.click("cancel-cast", *gpSCSV->cancel);
-        REQUIRE(!gpSCSV);
+    REQUIRE(SpellPicker()->action().detail == W8_SPELL_LIGHT);
+    game.click("power-pip", SDL_Point{0x1f4, 0x172});
+    if (SpellPicker()) {
+        REQUIRE(SpellPicker()->action().detail_block.spell.power_level == 2);
+        game.click("cancel-cast", SDL_Point{0x23f, 0x171});
+        REQUIRE(!SpellPicker());
     } else {
         // Target-free spells may commit in the same frame as power selection.
         REQUIRE(CurrentGame().party.rows[slot].remembered.spell.detail == W8_SPELL_LIGHT);
         REQUIRE(CurrentGame().party.rows[slot].remembered.spell.detail_block.spell.power_level ==
                 2);
     }
+    // Committing or cancelling returns to the opener once; abandoning never does.
+    REQUIRE(returns == 1);
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
+    MainGame()->dismissSpellPicker();
+    REQUIRE_FALSE(SpellPicker());
+    REQUIRE(returns == 1);
+    // Replacement abandons the old return; it must not reopen a suspended interaction.
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
+    REQUIRE(MainGame()->openItemPicker(slot, [&] { ++returns; }));
+    REQUIRE_FALSE(SpellPicker());
+    REQUIRE(UseItemPicker());
+    REQUIRE(returns == 1);
+    MainGame()->closeItemPicker();
+    REQUIRE(returns == 2);
+    // Combat/screen transitions discard the return rather than resuming its opener.
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
+    MainGame()->dismissOverlays(false);
+    REQUIRE_FALSE(SpellPicker());
+    REQUIRE(returns == 2);
+    // A pending confirmation belongs to the picker being replaced, not its successor.
+    LearnSpell(&character, W8_SPELL_SET_PORTAL, false);
+    const auto portal_realm = Data().spells[W8_SPELL_SET_PORTAL].realm;
+    character.sp_max[portal_realm] = character.iSPLeft[portal_realm] = 100;
+    character.has_saved_location = true;
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
+    SpellPicker()->SelectSpell(W8_SPELL_SET_PORTAL);
+    REQUIRE(SpellPicker()->action().detail == W8_SPELL_SET_PORTAL);
+    game.frame();
+    REQUIRE(IsModalOpen());
+    REQUIRE(MainGame()->openItemPicker(slot, [&] { ++returns; }));
+    REQUIRE_FALSE(IsModalOpen());
+    REQUIRE(UseItemPicker());
+    REQUIRE(UseItemPicker()->action().kind == W8_ACTION_USE_ITEM);
+    REQUIRE(returns == 2);
+    MainGame()->closeItemPicker();
+    REQUIRE(returns == 3);
+    // Keep a new detour's parent, but do not strand it when that picker is replaced.
+    Trigger trigger;
+    REQUIRE(OpenLockInteraction(&trigger) == 1);
+    auto* lock = MainGame()->lock_interaction.get();
+    REQUIRE(lock);
+    EndLockInteractMode(true);
+    REQUIRE(MainGame()->openItemPicker(slot));
+    REQUIRE(MainGame()->lock_interaction.get() == lock);
+    REQUIRE_FALSE(IsLockInteractionActive());
+    REQUIRE(MainGame()->openSpellPicker(slot));
+    REQUIRE_FALSE(MainGame()->lock_interaction);
+    MainGame()->dismissSpellPicker();
+    REQUIRE(OpenLockInteraction(&trigger) == 1);
+    REQUIRE(IsLockInteractionActive());
+    lock = MainGame()->lock_interaction.get();
+    MainGame()->dismissOverlays(true);
+    REQUIRE(MainGame()->lock_interaction.get() == lock);
+    REQUIRE_FALSE(IsLockInteractionActive());
+    MainGame()->dismissOverlays(false);
+    REQUIRE_FALSE(MainGame()->lock_interaction);
     REQUIRE(CurrentGame().advancement.paused);
     REQUIRE(CurrentGame().advancement.held);
     ToggleMainGamePause();

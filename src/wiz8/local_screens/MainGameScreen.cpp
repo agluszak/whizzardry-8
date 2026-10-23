@@ -328,28 +328,15 @@ bool TrapInteractionSuspended()
 static bool InteractionBlocksWorldAdvancement()
 {
     return CurrentScreenState().id != W8_SCREEN_MAIN_GAME || IsScreenTransitionPending() ||
-           gpSCSV || ItemUseDraft() || CurrentGame().activity.conversation ||
+           SpellPicker() || UseItemPicker() || CurrentGame().activity.conversation ||
            FormationPanelOpen() || IsModalOpen() || !IsVideoActive() ||
            ScreenPointer().targeting() == W8_TARGET_NEED_CONE ||
            (MainGameHud() && MainGameHud()->review_transition_active);
 }
 
-/* Open the lock interaction over a trigger, or re-raise its panels while one
-   is suspended; outside those paths a random party member eats the trigger's
-   event and the failure sound plays. */
-int OpenLockInteraction(Trigger* trigger)
+/* The HUD gives the bottom panel to a lock or trap interaction. */
+static void TakeHudForInteraction()
 {
-    // A trap interaction, active or suspended, excludes a lock interaction.
-    if (TrapInteraction()) {
-        return 0;
-    }
-    const bool resume = LockInteractionSuspended();
-    if (IsLockInteractionActive() || (resume && trigger != 0) || CurrentGame().combat.has_value()) {
-        QueueInteractionNotice(g_lock_notice_event);
-        wiz8::sound::play(s_lock_open_fail);
-        return 1;
-    }
-    MainGame()->lock_active = true;
     if (MainGameHud()->open_submenu) {
         DestroySubMenuControls();
     }
@@ -361,16 +348,45 @@ int OpenLockInteraction(Trigger* trigger)
         hud->repaint.roof_and_spell_icons = true;
         hud->repaint.submenu_buttons = true;
     }
-    if (resume) {
-        LockInteraction()->EnablePanels(1);
-        LockInteraction()->m_tumbler_panel->InvalidateAll();
-        LockInteraction()->RefreshControls();
-    } else {
+}
+
+/* Open the lock interaction over a trigger. While any lock interaction exists,
+   or in combat, a random party member eats the trigger's event and the failure
+   sound plays instead. */
+int OpenLockInteraction(Trigger* trigger)
+{
+    // A trap interaction, active or suspended, excludes a lock interaction.
+    if (TrapInteraction()) {
+        return 0;
+    }
+    if (LockInteraction() || CurrentGame().combat.has_value()) {
         QueueInteractionNotice(g_lock_notice_event);
         wiz8::sound::play(s_lock_open_fail);
-        MainGame()->lock_interaction = std::make_unique<W8LockInteraction>(trigger);
+        return 1;
     }
+    MainGame()->lock_active = true;
+    TakeHudForInteraction();
+    QueueInteractionNotice(g_lock_notice_event);
+    wiz8::sound::play(s_lock_open_fail);
+    MainGame()->lock_interaction = std::make_unique<W8LockInteraction>(trigger);
     return 1;
+}
+
+/* Re-raise the lock interaction a detour suspended; combat keeps it down. */
+static void ResumeLockInteraction()
+{
+    auto* lock = LockInteraction();
+    if (!lock || IsLockInteractionActive()) return;
+    if (CurrentGame().combat.has_value()) {
+        QueueInteractionNotice(g_lock_notice_event);
+        wiz8::sound::play(s_lock_open_fail);
+        return;
+    }
+    MainGame()->lock_active = true;
+    TakeHudForInteraction();
+    lock->EnablePanels(1);
+    lock->m_tumbler_panel->InvalidateAll();
+    lock->RefreshControls();
 }
 
 void ProcessLockInteractMode(void)
@@ -390,13 +406,12 @@ void RedrawLockInteractionPanels(void)
    destroyed outright; otherwise it stays alive with its panels inactive so the
    session can resume. Either path returns to the UI mode the interaction was
    opened from and repaints the portrait, status and action regions. */
-void EndLockInteractMode(signed char suspend)
+void EndLockInteractMode(bool suspend)
 {
     MainGame()->lock_active = false;
-    if (suspend != 0) {
-        LockInteraction()->EnablePanels(0);
-    } else {
-        MainGame()->lock_interaction.reset();
+    LockInteraction()->EnablePanels(false);
+    if (!suspend) {
+        DestroyAfterUiDispatch(std::move(MainGame()->lock_interaction));
         ClearLevelMovementStopped();
     }
     SelectTextBox(0);
@@ -406,6 +421,23 @@ void EndLockInteractMode(signed char suspend)
         hud->repaint.roof_and_spell_icons = true;
         hud->repaint.submenu_buttons = true;
     }
+}
+
+/* Re-raise the trap interaction a detour suspended; combat keeps it down. */
+static void ResumeTrapInteraction()
+{
+    auto* trap = TrapInteraction();
+    if (!trap || IsTrapInteractionActive()) return;
+    if (CurrentGame().combat.has_value()) {
+        QueueInteractionNotice(g_trap_notice_event);
+        wiz8::sound::play(s_trap_detect);
+        return;
+    }
+    MainGame()->trap_active = true;
+    TakeHudForInteraction();
+    trap->EnablePanelInput(true);
+    trap->m_text_panel->InvalidateAll();
+    trap->RefreshActionPanel();
 }
 
 static bool CanSelectedCharacterCastKnockKnock()
@@ -755,7 +787,7 @@ void W8LockInteraction::Process()
         m_state = W8_LOCK_STATE_EXIT;
     }
     if (m_state == W8_LOCK_STATE_EXIT) {
-        EndLockInteractMode(0);
+        EndLockInteractMode(false);
         return;
     }
     m_tumbler_panel->UpdateTumblerAnimation();
@@ -782,8 +814,8 @@ void W8LockInteraction::Process()
     case W8_LOCK_STATE_RELEASE_FOR_SPELL:
         m_state = W8_LOCK_STATE_IDLE;
         if (CanSelectedCharacterCastKnockKnock()) {
-            EndLockInteractMode(1);
-            BeginSpellCast(W8_SPELL_KNOCK_KNOCK, -1, W8_DIALOGUE_LAYOUT_UNSET);
+            EndLockInteractMode(true);
+            MainGame()->beginSpellCast(W8_SPELL_KNOCK_KNOCK, ResumeLockInteraction);
             return;
         }
         break;
@@ -798,8 +830,8 @@ void W8LockInteraction::Process()
         break;
     case W8_LOCK_STATE_RELEASE_FOR_ITEM:
         m_state = W8_LOCK_STATE_IDLE;
-        EndLockInteractMode(1);
-        OpenUseItemSelectView(CurrentGame().status.selected_character);
+        EndLockInteractMode(true);
+        MainGame()->openItemPicker(CurrentGame().status.selected_character, ResumeLockInteraction);
         return;
     case W8_LOCK_STATE_CHECK_PICK_SUCCESS:
         m_state = W8_LOCK_STATE_IDLE;
@@ -1563,7 +1595,7 @@ void W8TrapInteraction::Update()
         m_disarm_state = W8_TRAP_DISARM_EXIT;
     }
     if (m_disarm_state == W8_TRAP_DISARM_EXIT) {
-        EndTrapInteractMode(0);
+        EndTrapInteractMode(false);
         return;
     }
 
@@ -1620,7 +1652,7 @@ void W8TrapInteraction::Update()
         panel->m_key_handler->m_range.SetActive(false);
         input.setEnabled(false);
         CompleteTrapDisarm(m_owner);
-        EndTrapInteractMode(0);
+        EndTrapInteractMode(false);
         return;
     case W8_TRAP_DISARM_SPRUNG:
         if (m_sound_handle != nullptr) {
@@ -1717,18 +1749,18 @@ void W8TrapInteraction::CastTrapSpell()
     const int spell =
         CanCharacterCastSpell(&CurrentGame().party.characters[slot], W8_SPELL_DIVINE_TRAP) ? 0x12
                                                                                            : 0x27;
-    EndTrapInteractMode(1);
-    BeginSpellCast(spell, -1, W8_DIALOGUE_LAYOUT_UNSET);
+    EndTrapInteractMode(true);
+    MainGame()->beginSpellCast(spell, ResumeTrapInteraction);
 }
 
 void W8TrapInteraction::UseTrapItem()
 {
-    EndTrapInteractMode(1);
-    OpenUseItemSelectView(CurrentGame().status.selected_character);
+    EndTrapInteractMode(true);
+    MainGame()->openItemPicker(CurrentGame().status.selected_character, ResumeTrapInteraction);
 }
 
-/* Open the trap interaction over a trigger, or re-raise its panels while one
-   is suspended; a trigger in state 9 is already open. Outside those paths a
+/* Open the trap interaction over a trigger; one already waiting for its trap
+   stays as it is. Otherwise, while any trap interaction exists or in combat, a
    random party member eats the detection event and the detect sound plays. */
 int OpenTrapInteraction(Trigger* trigger)
 {
@@ -1738,13 +1770,11 @@ int OpenTrapInteraction(Trigger* trigger)
     if (LockInteraction()) {
         return 0;
     }
-    const bool resume = TrapInteractionSuspended();
-    if (IsTrapInteractionActive() || (resume && trigger != 0)) {
-        if (TrapInteraction()->m_disarm_state == W8_TRAP_DISARM_WAIT_FOR_TRAP) {
-            return 1;
+    if (auto* trap = TrapInteraction()) {
+        if (trap->m_disarm_state != W8_TRAP_DISARM_WAIT_FOR_TRAP) {
+            QueueInteractionNotice(g_trap_notice_event);
+            wiz8::sound::play(s_trap_detect);
         }
-        QueueInteractionNotice(g_trap_notice_event);
-        wiz8::sound::play(s_trap_detect);
         return 1;
     }
     if (CurrentGame().combat.has_value()) {
@@ -1753,23 +1783,7 @@ int OpenTrapInteraction(Trigger* trigger)
         return 1;
     }
     MainGame()->trap_active = true;
-    if (MainGameHud()->open_submenu) {
-        DestroySubMenuControls();
-    }
-    MainGame()->refreshLayout();
-    SelectTextBox(2);
-    ResetEditorStatusLine(-1);
-    ResetLevelDataVectors();
-    if (auto* hud = MainGameHud()) {
-        hud->repaint.roof_and_spell_icons = true;
-        hud->repaint.submenu_buttons = true;
-    }
-    if (resume) {
-        TrapInteraction()->EnablePanelInput(true);
-        TrapInteraction()->m_text_panel->InvalidateAll();
-        TrapInteraction()->RefreshActionPanel();
-        return 1;
-    }
+    TakeHudForInteraction();
     if (trigger->lock_state.device_id == -1) {
         SelectTrapType(trigger);
     }
@@ -1805,13 +1819,12 @@ void RedrawTrapInteractionPanels(void)
    destroyed outright; otherwise it stays alive with its panels inactive so the
    session can resume. Either path returns to the UI mode the interaction was
    opened from and repaints the affected regions. */
-void EndTrapInteractMode(signed char suspend)
+void EndTrapInteractMode(bool suspend)
 {
     MainGame()->trap_active = false;
-    if (suspend != 0) {
-        TrapInteraction()->EnablePanelInput(false);
-    } else {
-        MainGame()->trap_interaction.reset();
+    TrapInteraction()->EnablePanelInput(false);
+    if (!suspend) {
+        DestroyAfterUiDispatch(std::move(MainGame()->trap_interaction));
         ClearLevelMovementStopped();
     }
     SelectTextBox(0);
@@ -2276,17 +2289,13 @@ bool MainGameScreen::enter(const ScreenRequest&)
     pointer.reset();
     SetTargetingMode(W8_TARGET_NEED_NONE);
     SetUiCanvasAlphaTestEnabled(true);
-    if (LockInteractionSuspended()) {
-        OpenLockInteraction(0);
-    }
-    if (TrapInteractionSuspended()) {
-        OpenTrapInteraction(0);
-    }
+    ResumeLockInteraction();
+    ResumeTrapInteraction();
     if (item_drag && item_drag->pending) {
         if (IsPartySlotEligible(item_drag->actor)) {
             SelectPartyCharacter(item_drag->actor);
-            OpenUseItemSelectView(item_drag->actor);
-            SelectCurrentUseItemLine();
+            openItemPicker(item_drag->actor);
+            if (auto* picker = item_picker.get()) picker->SelectCurrentLine();
         } else {
             item_drag.reset();
             game.aging_held = false;
@@ -2319,7 +2328,7 @@ void BeginLevelTransition(int level, int entry)
 
 void TickAmbientFollowUpIdle(unsigned char input_handled)
 {
-    if (!CurrentGame().combat.has_value() && !gpSCSV && !ItemUseDraft() &&
+    if (!CurrentGame().combat.has_value() && !SpellPicker() && !UseItemPicker() &&
         !CurrentGame().activity.conversation && !IsLockInteractionActive() &&
         !IsTrapInteractionActive() && !CurrentGame().surprise_possible) {
         if (input_handled == 0) {
@@ -2500,7 +2509,7 @@ void MainGameScreen::frame()
         if (!IsWorldCursorVisible() && !g_mouselook_active) pointer.animate();
         game.advance(step_timer.lap(), {.world = {.world = InteractionBlocksWorldAdvancement(),
                                                   .party = LockInteraction() || TrapInteraction()},
-                                        .combat = gpSCSV || ItemUseDraft()});
+                                        .combat = spell_picker || item_picker});
         AnimatePartyPortraits();
         if (game.combat.has_value() && MainGameHud()->refresh_combat_panel &&
             !TimeUntilDeadline(MainGameHud()->combat_panel_timer)) {
@@ -2508,8 +2517,8 @@ void MainGameScreen::frame()
             MainGameHud()->combat_panel_timer = MonotonicMilliseconds() + (500);
             MainGameHud()->refresh_combat_panel = 0;
         }
-        if (gpSCSV) CommitSpellCastingSelection();
-        if (ItemUseDraft()) CommitSelectedItemUse();
+        updateSpellPicker();
+        updateItemPicker();
         if (game.activity.conversation) ServiceNpcDialogue();
         if (IsLockInteractionActive()) ProcessLockInteractMode();
         if (IsTrapInteractionActive()) UpdateTrapInteraction();
@@ -2555,10 +2564,11 @@ bool MainGameScreen::leave(ScreenDeparture departure)
         ToggleWorldCursor();
     }
     ResetPartyPortraitFx();
-    if (IsLockInteractionActive()) EndLockInteractMode(0);
-    if (IsTrapInteractionActive()) EndTrapInteractMode(0);
-    if (gpSCSV) CloseSpellCastingView();
-    if (ItemUseDraft()) CloseUseItemSelectView();
+    if (lock_interaction && (leaving || lock_active)) EndLockInteractMode(false);
+    if (trap_interaction && (leaving || trap_active)) EndTrapInteractMode(false);
+    // Leaving abandons a picker: it does not return to whatever opened it.
+    dismissSpellPicker();
+    dismissItemPicker();
     if (FormationPanelOpen()) CloseFormationPanel();
     if (game.activity.conversation) EndNpcDialogueSession(false);
     if (MainGame()->keyboard_menu) MainGame()->closeKeyboardMenu();
@@ -2735,12 +2745,12 @@ void MainGameScreen::paintRequested(const W8TargetingPresentation& presentation,
         CatalogArtwork::Load(0x7e, 0).drawAndInvalidate(GetFrameBufferSurface(), 1, 0x269, 0x166);
         InvalidateRegion(0x269, 0x166, 0x27f, 0x1c1);
     }
-    if (gpSCSV) {
-        PaintSpellCastingPanels(repaint.mode_panels);
+    if (spell_picker) {
+        spell_picker->PaintPanels(repaint.mode_panels);
         goto finish_mode_overlays;
     }
-    if (ItemUseDraft()) {
-        PaintUseItemPanels(repaint.mode_panels);
+    if (item_picker) {
+        item_picker->PaintPanels(repaint.mode_panels);
         goto finish_mode_overlays;
     }
     if (!CurrentGame().activity.conversation ||
@@ -2835,7 +2845,7 @@ W8TargetingPresentation MainGameScreen::updatePresentation()
             hud.repaint.text_box = true;
         }
     }
-    if (!gpSCSV && ItemUseDraft()) UpdateUseItemScrollButtons();
+    if (!spell_picker && item_picker) item_picker->UpdatePoolButtons();
     if (!IsScreenTransitionPending()) {
         if (hud.open_submenu) UpdateSubMenuAutoClose();
         if (!CurrentGame().combat.has_value()) UpdatePortraitAdvanceButtons();
@@ -2843,8 +2853,8 @@ W8TargetingPresentation MainGameScreen::updatePresentation()
         updateHudButtons();
         if (party_movement && !game.advancement.held) party_movement->update();
         if (MonotonicMilliseconds() - hud.tick > 499) {
-            hud.repaint.video_inspector = g_video_inspector_enabled && !gpSCSV &&
-                                          !CurrentGame().activity.conversation && !ItemUseDraft() &&
+            hud.repaint.video_inspector = g_video_inspector_enabled && !spell_picker &&
+                                          !CurrentGame().activity.conversation && !item_picker &&
                                           !IsLockInteractionActive() && !IsTrapInteractionActive();
             hud.tick = MonotonicMilliseconds();
         }
@@ -2880,10 +2890,10 @@ W8TargetingPresentation MainGameScreen::updatePresentation()
     // The active mode's bottom panels repaint with the layout, and panel 1 with the text box.
     if (repaint.layout) repaint.mode_panels.set();
     if (repaint.text_box) repaint.mode_panels.set(1);
-    if (gpSCSV) {
-        UpdateSpellCastingPanels(repaint.mode_panels);
-    } else if (ItemUseDraft()) {
-        UpdateUseItemPanels(repaint.mode_panels);
+    if (spell_picker) {
+        spell_picker->UpdatePanels(repaint.mode_panels);
+    } else if (item_picker) {
+        item_picker->UpdatePanels(repaint.mode_panels);
     } else if (CurrentGame().activity.conversation &&
                !CurrentGame().npc_interaction.scripted_dialogue) {
         dialogue.updatePanels(repaint.mode_panels);
@@ -3082,7 +3092,7 @@ void SelectPartyCharacter(int party_slot)
     previous = CurrentGame().status.selected_character;
     CurrentGame().status.selected_character = party_slot;
     RequestPartySlotRedraw(party_slot);
-    if (previous != -1 && (gpSCSV || ItemUseDraft())) {
+    if (previous != -1 && (SpellPicker() || UseItemPicker())) {
         SetTargetingMode(W8_TARGET_NEED_NONE);
     }
     MainGameHud()->clock = MonotonicMilliseconds() + (500);
@@ -3093,12 +3103,8 @@ void SelectPartyCharacter(int party_slot)
         }
     }
     FaceCameraToSelection(party_slot);
-    if (gpSCSV) {
-        SelectSpellCastingCharacter(CurrentGame().status.selected_character);
-    }
-    if (ItemUseDraft()) {
-        RefreshUseItemSelectionForSlot(CurrentGame().status.selected_character);
-    }
+    if (auto* picker = SpellPicker()) picker->SelectCharacter(party_slot);
+    if (auto* picker = UseItemPicker()) picker->RefreshForSlot(party_slot);
     if (CurrentGame().activity.conversation) {
         SyncNpcServiceButtons(CurrentGame().status.selected_character);
     }
@@ -3677,11 +3683,12 @@ void FallbackFromUnreachableAction(int party_slot)
             SelectPartyCharacter(party_slot);
             if (party_slot == CurrentGame().status.selected_character) {
                 if (casting) {
-                    OpenSpellCastingView(party_slot);
-                    SelectSpellPowerLevel(row->committed.detail_block.spell.power_level - 1);
+                    MainGame()->openSpellPicker(party_slot);
+                    if (auto* picker = SpellPicker())
+                        picker->SelectPowerLevel(row->committed.detail_block.spell.power_level - 1);
                 } else {
-                    OpenUseItemSelectView(party_slot);
-                    SelectCurrentUseItemLine();
+                    MainGame()->openItemPicker(party_slot);
+                    if (auto* picker = UseItemPicker()) picker->SelectCurrentLine();
                 }
                 return;
             }
@@ -4064,14 +4071,17 @@ void MainGameScreen::syncInput(const MainGameLayout& layout)
     }
 
     // Spell and item pickers always raise the text box; otherwise it follows the bottom panel.
-    if (gpSCSV || (!npc_dialogue && ItemUseDraft())) {
-        RestoreSpellCastingRegions();
+    if (spell_picker || (!npc_dialogue && item_picker)) {
+        SetTextBoxEnabled(true);
+        SetTextBoxScrollInput(true);
+        SetTextBoxMuteInput(false);
+        SetTextBoxChannelTabInput(false);
     } else {
         SetActionPanelRegions(layout.bottom_panel);
     }
-    if (gpSCSV) gpSCSV->input.setEnabled(true);
+    if (spell_picker) spell_picker->input.setEnabled(true);
     if (npc_dialogue) SetNpcDialogueInputEnabled(2, true);
-    if (ItemUseDraft()) SetUseItemSelectInputEnabled(true);
+    if (item_picker) item_picker->SetInputEnabled(true);
     // A lock or trap being opened is only created after its layout is applied.
     if (lock_active && lock_interaction) lock_interaction->EnablePanels(true);
     if (trap_active && trap_interaction) trap_interaction->EnablePanelInput(true);
@@ -4088,7 +4098,7 @@ void MainGameScreen::syncInput(const MainGameLayout& layout)
 
 void MainGameScreen::refreshLayout()
 {
-    const bool picker = gpSCSV || ItemUseDraft() || lock_active || trap_active;
+    const bool picker = spell_picker || item_picker || lock_active || trap_active;
     const auto layout = MainGameLayout::Decide(g_settings, picker, NpcDialogueOpen(game));
     const auto previous = std::exchange(applied_layout, layout);
     if (layout != previous) {
@@ -4305,9 +4315,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                                 GiveHeldItemToCharacterOrParty(CurrentGame(), slot, force_to_party);
                             !given)
                             ShowRefusal(given.error());
-                        if (ItemUseDraft()) {
-                            RefreshUseItemSelection();
-                        }
+                        if (auto* picker = UseItemPicker()) picker->Refresh();
                     }
                 } else {
                     TryNpcDialoguePickpocket(slot);
@@ -4414,8 +4422,8 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
             }
             if (auto given = GiveHeldItemToCharacterOrParty(CurrentGame(), slot, true); !given)
                 ShowRefusal(given.error());
-            if (ItemUseDraft()) {
-                RefreshUseItemSelection();
+            if (auto* picker = UseItemPicker()) {
+                picker->Refresh();
                 return UiResult::Handled;
             }
         }
@@ -4680,7 +4688,8 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
         return UiResult::Handled;
     }
     if (event.button == UiPointerButton::Right && event.action == UiPointerAction::Up) {
-        if ((event.captured_buttons & SDL_BUTTON_RMASK) != 0 && !gpSCSV && !ItemUseDraft()) {
+        if ((event.captured_buttons & SDL_BUTTON_RMASK) != 0 && !SpellPicker() &&
+            !UseItemPicker()) {
             FallbackFromUnreachableAction(slot);
         }
         return UiResult::Handled;
@@ -4863,15 +4872,15 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     }
     if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
 
-        if (MainGameHud()->highlighted_item != -1 && !gpSCSV &&
-            !CurrentGame().activity.conversation && !ItemUseDraft() && !IsLockInteractionActive() &&
-            !IsTrapInteractionActive() &&
+        if (MainGameHud()->highlighted_item != -1 && !SpellPicker() &&
+            !CurrentGame().activity.conversation && !UseItemPicker() &&
+            !IsLockInteractionActive() && !IsTrapInteractionActive() &&
             (!g_settings.ctrl_right_click_info || ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
             AfterUiDispatch([=] { OpenMonsterInfoDialog(MainGameHud()->highlighted_item); });
             return UiResult::Handled;
         }
         if (!(CurrentGame().party.held.item.iItemNo != -1) && MainGameHud()->selected_item != -1 &&
-            !gpSCSV && !CurrentGame().activity.conversation && !ItemUseDraft() &&
+            !SpellPicker() && !CurrentGame().activity.conversation && !UseItemPicker() &&
             !IsLockInteractionActive() && !IsTrapInteractionActive() &&
             (!g_settings.ctrl_right_click_info || ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
             W8WorldItem* world_item = ItemInfo(ItemIndex(MainGameHud()->selected_item));
@@ -4926,15 +4935,15 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         }
         SetWorldCursorRange(CalcRangeDistanceFromParty(
             GetCharActionRange(CurrentGame().status.selected_character, 0, selected_action)));
-        if (gpSCSV && GetActionSpellLikeId(CurrentGame().party, selected_action) == 0x3c) {
+        if (SpellPicker() && GetActionSpellLikeId(CurrentGame().party, selected_action) == 0x3c) {
             signed char extent_index;
             glm::vec3 minimum;
             glm::vec3 maximum;
-            if (gpSCSV->draft.detail_block.spell.power_level == 0) {
+            if (SpellPicker()->action().detail_block.spell.power_level == 0) {
                 extent_index = 2;
             } else {
-                extent_index =
-                    g_spell_power_extent_index[gpSCSV->draft.detail_block.spell.power_level - 1];
+                extent_index = g_spell_power_extent_index
+                    [SpellPicker()->action().detail_block.spell.power_level - 1];
             }
             minimum =
                 glm::vec3(static_cast<float>(g_world_cursor_extent_table[extent_index * 6]),
@@ -5061,9 +5070,9 @@ UiResult MonsterListInput(const UiPointerEvent& event)
         return UiResult::Handled;
     }
     if (event.button == UiPointerButton::Right && event.action == UiPointerAction::Up) {
-        if ((event.captured_buttons & SDL_BUTTON_RMASK) != 0 && group_id != -1 && !gpSCSV &&
-            !CurrentGame().activity.conversation && !ItemUseDraft() && !IsLockInteractionActive() &&
-            !IsTrapInteractionActive()) {
+        if ((event.captured_buttons & SDL_BUTTON_RMASK) != 0 && group_id != -1 && !SpellPicker() &&
+            !CurrentGame().activity.conversation && !UseItemPicker() &&
+            !IsLockInteractionActive() && !IsTrapInteractionActive()) {
             ShowMonsterGroupInfoNotice(group_id);
         }
         return UiResult::Handled;
@@ -5132,9 +5141,9 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
             ScreenPointer().showSlot(cursor);
             return;
         }
-        if (target_needed == W8_TARGET_NEED_NONE && !CurrentGame().combat.has_value() && !gpSCSV &&
-            !ItemUseDraft() && !CurrentGame().activity.conversation && !IsLockInteractionActive() &&
-            !IsTrapInteractionActive()) {
+        if (target_needed == W8_TARGET_NEED_NONE && !CurrentGame().combat.has_value() &&
+            !SpellPicker() && !UseItemPicker() && !CurrentGame().activity.conversation &&
+            !IsLockInteractionActive() && !IsTrapInteractionActive()) {
             ScreenPointer().showSlot(W8_CURSOR_VALID_TARGET);
             return;
         }
@@ -5157,14 +5166,14 @@ void ClearHighlightIfItIs(const int* item)
    while a further check disagrees, and three more count on their own. */
 bool IsScreenInputBlocked(void)
 {
-    if (gpSCSV) {
+    if (SpellPicker()) {
         return true;
     }
     if (CurrentGame().activity.conversation &&
         !(CurrentGame().activity.conversation && CurrentGame().npc_interaction.scripted_dialogue)) {
         return true;
     }
-    if (!IsLockInteractionActive() && !IsTrapInteractionActive() && !ItemUseDraft()) {
+    if (!IsLockInteractionActive() && !IsTrapInteractionActive() && !UseItemPicker()) {
         return false;
     }
     return true;
@@ -5174,7 +5183,7 @@ bool IsScreenInputBlocked(void)
    flags the input block reads, but all of them and unconditionally. */
 bool IsScreenIdle(void)
 {
-    if (!CurrentGame().combat.has_value() && !gpSCSV && !ItemUseDraft() &&
+    if (!CurrentGame().combat.has_value() && !SpellPicker() && !UseItemPicker() &&
         !CurrentGame().activity.conversation && !IsLockInteractionActive() &&
         !IsTrapInteractionActive()) {
         return true;
@@ -5427,22 +5436,17 @@ static void DrawMainGamePrompt(void)
     }
 }
 
-/* Hand one frame to whichever overlays are up. Each is independent, so more
-   than one can take the same frame. */
-void UpdateScreenOverlays(int frame)
+/* Abandon overlays without resuming an interaction during its replacement. */
+void MainGameScreen::dismissOverlays(bool suspend_interaction)
 {
-    if (IsLockInteractionActive()) {
-        EndLockInteractMode(frame);
+    if (lock_interaction) {
+        EndLockInteractMode(suspend_interaction);
     }
-    if (IsTrapInteractionActive()) {
-        EndTrapInteractMode(frame);
+    if (trap_interaction) {
+        EndTrapInteractMode(suspend_interaction);
     }
-    if (gpSCSV) {
-        CloseSpellCastingView();
-    }
-    if (ItemUseDraft()) {
-        CloseUseItemSelectView();
-    }
+    dismissSpellPicker();
+    dismissItemPicker();
     if (FormationPanelOpen()) {
         CloseFormationPanel();
     }
@@ -5468,10 +5472,10 @@ bool IsMGSActionKeyEnabled(unsigned short command)
     if (IsLockInteractionActive() || IsTrapInteractionActive() || FormationPanelOpen()) {
         return false;
     }
-    if (ItemUseDraft() && command != W8_MGS_ACTION_USE_ITEM_VIEW) {
+    if (UseItemPicker() && command != W8_MGS_ACTION_USE_ITEM_VIEW) {
         return false;
     }
-    if (gpSCSV && command != W8_MGS_ACTION_SPELL_VIEW) {
+    if (SpellPicker() && command != W8_MGS_ACTION_SPELL_VIEW) {
         return false;
     }
     if (CurrentGame().surprise_possible || CurrentGame().activity.conversation_aside) {
@@ -5587,20 +5591,20 @@ void RunMGSActionKey(unsigned short command)
         RequestScreen({.id = W8_SCREEN_JOURNAL});
         break;
     case W8_MGS_ACTION_USE_ITEM_VIEW:
-        if (ItemUseDraft()) {
-            CloseUseItemSelectView();
+        if (UseItemPicker()) {
+            MainGame()->closeItemPicker();
         } else {
-            OpenUseItemSelectView(CurrentGame().status.selected_character);
+            MainGame()->openItemPicker(CurrentGame().status.selected_character);
         }
         break;
     case W8_MGS_ACTION_USE_RECORDED_ITEM:
         StartCharacterItemUse(CurrentGame().status.selected_character);
         break;
     case W8_MGS_ACTION_SPELL_VIEW:
-        if (gpSCSV) {
-            CloseSpellCastingView();
+        if (SpellPicker()) {
+            MainGame()->closeSpellPicker();
         } else {
-            OpenSpellCastingView(CurrentGame().status.selected_character);
+            MainGame()->openSpellPicker(CurrentGame().status.selected_character);
         }
         break;
     case W8_MGS_ACTION_CAST_RECORDED_SPELL:
@@ -5822,7 +5826,7 @@ void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag)
     CurrentGame().activity.place = Activity::Place::Camp;
     request.id = W8_SCREEN_CAMP;
     RequestScreen(std::move(request));
-    UpdateScreenOverlays(1);
+    MainGame()->dismissOverlays(true);
     SetUiCanvasAlphaTestEnabled(false);
 }
 
@@ -6359,8 +6363,9 @@ unsigned char UpdateSurpriseFade(void)
 W8Action* EditedDraft(int party_slot)
 {
     if (party_slot != CurrentGame().status.selected_character) return nullptr;
-    if (gpSCSV) return &gpSCSV->draft;
-    return ItemUseDraft();
+    if (auto* picker = SpellPicker()) return &picker->action();
+    if (auto* picker = UseItemPicker()) return &picker->action();
+    return nullptr;
 }
 
 W8Action EditedAction(int party_slot)

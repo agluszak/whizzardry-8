@@ -103,7 +103,7 @@ void RedrawPortraitQuoteBubbles(void)
 
 void StartBreathCycle(int party_slot, bool force)
 {
-    if ((!gpSCSV && !ItemUseDraft()) || force) {
+    if ((!SpellPicker() && !UseItemPicker()) || force) {
         QueueCharacterEvent(&CurrentGame().party.characters[party_slot], g_special_event2, 0,
                             kCharacterEventFullVolume);
     }

@@ -391,7 +391,9 @@ void ScrollDialogueTextBoxToLine(void)
     if (CurrentGame().activity.conversation) {
         offset = MainGame()->dialogue.text_box_collapsed ? 1 : 7;
     } else {
-        offset = !gpSCSV && !ItemUseDraft() && !CurrentGame().activity.conversation_aside ? 1 : 7;
+        offset = !SpellPicker() && !UseItemPicker() && !CurrentGame().activity.conversation_aside
+                     ? 1
+                     : 7;
     }
     ScrollTextBoxTo(
         CurrentGame().status.text_box_lines_shown[CurrentGame().status.text_line_cursor] - offset);
@@ -504,7 +506,8 @@ int GetTextBoxVisibleLineCount(void)
             return 1;
         }
     }
-    if (!gpSCSV && !dialogue && !ItemUseDraft() && !CurrentGame().activity.conversation_aside) {
+    if (!SpellPicker() && !dialogue && !UseItemPicker() &&
+        !CurrentGame().activity.conversation_aside) {
         return 1;
     }
     return 7;
@@ -555,7 +558,7 @@ void AdvanceNoticeLine(short text_box)
         if (CurrentGame().activity.conversation && MainGame()->dialogue.text_box_collapsed) {
             ScrollTextBoxTo(shown);
             MainGame()->dialogue.text_box_collapsed = false;
-        } else if (!gpSCSV && !CurrentGame().activity.conversation && !ItemUseDraft() &&
+        } else if (!SpellPicker() && !CurrentGame().activity.conversation && !UseItemPicker() &&
                    !CurrentGame().activity.conversation_aside) {
             if (CurrentGame().combat.has_value() && CurrentGame().combat->notice_scroll_pending) {
                 ScrollTextBoxTo(shown);
@@ -736,13 +739,13 @@ UiResult HandleTextBody(const UiPointerEvent& event)
             ScrollTextBoxUp(event.wheel);
         if (CurrentGame().activity.conversation)
             NpcDialogueTextBoxWheelAt(event.position.x, event.position.y, true);
-        else if (ItemUseDraft())
-            UseItemSelectTextBoxWheelAt(event.position.x, event.position.y, true);
+        else if (auto* picker = UseItemPicker())
+            picker->TextBoxWheelAt(event.position.y);
         return UiResult::Handled;
     }
     if (CurrentGame().activity.conversation) return HandleNpcTextBox(event);
-    if (gpSCSV) return HandleSpellTextBox(event);
-    if (ItemUseDraft()) return HandleUseItemTextBox(event);
+    if (auto* picker = SpellPicker()) return picker->HandleTextBox(event);
+    if (auto* picker = UseItemPicker()) return picker->HandleTextBox(event);
     return UiResult::Handled;
 }
 
