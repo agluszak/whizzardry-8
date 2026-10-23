@@ -12,6 +12,7 @@
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/game.h"
+#include "wiz8/layouts/npc_state.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/rules/character.h"
@@ -109,6 +110,11 @@ TEST_CASE_METHOD(PartyFixture, "Death observers see completed combat and conditi
                  "[conditions][events]")
 {
     ScopedCombat fight{true};
+    data.npcs.emplace_back();
+    auto npc = std::make_shared<W8NpcState>();
+    npc->record = &data.npcs.back();
+    game.story.npcs.push_back(npc);
+    game.party.members[0]->npc_index = 0;
     game.party.rows[0].executing.kind = W8_ACTION_ATTACK;
     game.combat->characters[0].phase = 2;
     member().uiCondition[W8_CONDITION_POISONED] = 30;
@@ -118,6 +124,7 @@ TEST_CASE_METHOD(PartyFixture, "Death observers see completed combat and conditi
     game.events.observe([&](const Event& event) {
         ++notifications;
         if (std::holds_alternative<CharacterDied>(event)) ++death_notifications;
+        REQUIRE(npc->spawned == 1);
         REQUIRE(game.combat->pending_death_count == 1);
         REQUIRE(game.combat->characters[0].dead);
         REQUIRE(game.combat->characters[0].phase == 0);

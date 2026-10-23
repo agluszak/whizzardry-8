@@ -1601,7 +1601,7 @@ TEST_CASE("A held stack keeps what a full pool cannot take", "[party][inventory]
     inventory.restore(std::move(pool), W8ItemInstance{.iItemNo = 0, .stack_count = 30});
 
     // Ten units merge; the other twenty stay in the hand rather than being lost.
-    REQUIRE(inventory.depositHeld(3, true) == Inventory::Deposit::Refused);
+    REQUIRE(inventory.depositHeld(3, true) == Inventory::Deposit::Partial);
     REQUIRE(inventory.pool()[7].stack_count == 100);
     REQUIRE(inventory.pool().size() == Inventory::kPoolLimit);
     REQUIRE(inventory.held()->item.stack_count == 20);

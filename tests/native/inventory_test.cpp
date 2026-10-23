@@ -1,5 +1,6 @@
 // Game-level inventory commands: the hand, the party pool and a member's backpack.
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
@@ -11,6 +12,7 @@
 #include "wiz8/data/records.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 
 namespace {
@@ -95,17 +97,18 @@ TEST_CASE("A full pool reports partial deposits and retains every unplaced unit"
     REQUIRE(inventory.count(0) == before);
 }
 
-TEST_CASE("A deposit reports completion only after its hand and pool settle", "[inventory][events]")
+TEST_CASE_METHOD(HeldItemFixture,
+                 "A deposit reports completion only after its hand and pool settle",
+                 "[inventory][events]")
 {
-    GameData data{.items = std::vector<W8ItemDatabaseRecord>(1)};
     data.items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
     data.items[0].maximum_quantity = 100;
-    ScopedGame scope{data};
-    auto& inventory = scope.game.inventory;
+    auto& inventory = game.inventory;
     inventory.restore({W8ItemInstance{.iItemNo = 0, .stack_count = 95}},
                       W8ItemInstance{.iItemNo = 0, .stack_count = 20});
     unsigned int notifications = 0;
-    scope.game.events.observe([&](const Event&) {
+    game.events = {};
+    game.events.observe([&](const Event&) {
         ++notifications;
         REQUIRE(inventory.held() == nullptr);
         REQUIRE(inventory.pool().size() == 2);

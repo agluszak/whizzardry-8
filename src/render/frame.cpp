@@ -11,6 +11,7 @@
 #include <ios>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <sstream>
 #include <stdexcept>
