@@ -54,22 +54,22 @@ struct SpellVisualDefinition {
    table at +0x18, then owns one 0x37c-byte emitter host at +0x1e0. */
 class SpellVisual {
 public:
-    World* const owner_world;
+    World& owner_world;
     Navigator nav;
     CyclePlayer visual;
     std::string asset_name;
-    explicit SpellVisual(World* owner = nullptr);
+    explicit SpellVisual(World& owner);
     void TickAnimation(float scale);
     bool ApplyPendingCycle();
     void SetCyclePosition(glm::vec3* position);
     /* A new visual of a definition's cycle group, with its own cycles, set to
        play its next cycle once. */
-    SpellVisual(const SpellVisualDefinition& definition, World* owner);
+    SpellVisual(const SpellVisualDefinition& definition, World& owner);
     SpellVisual(const SpellVisual&) = delete;
     SpellVisual& operator=(const SpellVisual&) = delete;
     ~SpellVisual();
 
-    void UpdateRepresentation(World* world);
+    void UpdateRepresentation();
     signed char GetNumSubCycles();
     bool IsCycleSupported(signed char cycle);
     signed char GetTotalAnimationCount();

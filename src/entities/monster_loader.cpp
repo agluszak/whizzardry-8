@@ -50,7 +50,6 @@
 #include "wiz8/render/quality.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/level_loader.h"
@@ -584,7 +583,7 @@ std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view m
         definitions.push_back(std::move(loaded));
         definition = definitions.end() - 1;
     }
-    auto monster = std::make_unique<Monster>(**definition, world);
+    auto monster = std::make_unique<Monster>(**definition, *world);
     RollAppearance(*monster, **definition);
     // Retail gave the MLS script only to an actor created while none of its
     // species was alive; the others were copied without one.
@@ -676,7 +675,7 @@ std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_nam
     for (auto& event : definition.events.particles) {
         if (event.cycle == cycle && event.subcycle == -1) event.subcycle = 0;
     }
-    return std::make_unique<Monster>(definition, world);
+    return std::make_unique<Monster>(definition, *world);
 }
 
 /* Pass a copied position through Navigator's collision adjustment and install

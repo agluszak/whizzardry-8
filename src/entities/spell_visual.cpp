@@ -32,6 +32,7 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/legacy_prop_save_ids.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/platform/game_timer.h"
@@ -39,10 +40,8 @@
 #include "wiz8/render/light.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/picking.h"
-#include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/startup_world.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/party_camera.h"
@@ -129,7 +128,7 @@ void SpellVisual::SetCycle(signed char cycle)
 
 /* Position and orient each live spell visual according to its attachment
    mode, then let the common GrCycle update submit the resulting state. */
-void SpellVisual::UpdateRepresentation(World* world)
+void SpellVisual::UpdateRepresentation()
 {
     glm::mat3 rotation;
     glm::vec3 camera_position;
@@ -140,16 +139,16 @@ void SpellVisual::UpdateRepresentation(World* world)
         float angle;
         float pitch;
 
-        position = cameraLocation();
+        position = owner_world.party.eye();
         SetCyclePosition(&position);
         rotation = glm::mat3(1);
-        angle = GetCameraYawRadians() - g_monster_rotation_offset;
+        angle = owner_world.party.camera.m_yaw - g_monster_rotation_offset;
         rotation *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
-        pitch = -partyCamera().m_pitch;
+        pitch = -owner_world.party.camera.m_pitch;
         rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
         apply_rotation = true;
     } else if (mode == W8_SPELL_VISUAL_TARGET) {
-        Monster* monster = GetMonsterByLocationID(location_id);
+        Monster* monster = owner_world.population->findEntity(location_id);
 
         if (monster != 0) {
             MeshInstance* instance = visual.GetCurrentModelInstance();
@@ -166,13 +165,13 @@ void SpellVisual::UpdateRepresentation(World* world)
     } else if (mode == W8_SPELL_VISUAL_CONE) {
         visual.GetCurrentModelInstance();
         if (!fixed_transform) {
-            camera_position = cameraLocation();
+            camera_position = owner_world.party.eye();
             if (location_id == 0) {
                 SetCyclePosition(&camera_position);
-                rotation = partyCamera().rotationMatrix();
+                rotation = owner_world.party.camera.rotationMatrix();
                 apply_rotation = true;
             } else {
-                Monster* monster = GetMonsterByLocationID(location_id);
+                Monster* monster = owner_world.population->findEntity(location_id);
 
                 if (monster != 0) {
                     if (monster->Query(W8_MONSTER_QUERY_CYCLE) == W8_MONSTER_CYCLE_SPELL &&
@@ -201,7 +200,7 @@ void SpellVisual::UpdateRepresentation(World* world)
         float angle;
 
         billboard = glm::mat3(1);
-        camera_position = cameraLocation();
+        camera_position = owner_world.party.eye();
         angle =
             GetHeadingAngle(&visual_position, &camera_position) + static_cast<float>(g_camera_pi);
         billboard *= glm::mat3_cast(glm::angleAxis(float(angle), glm::vec3(0, 1, 0)));
@@ -212,13 +211,13 @@ void SpellVisual::UpdateRepresentation(World* world)
     if (instance != 0) {
         static_cast<MeshInstance*>(instance)->render_flags |= MeshInstance::RENDER_NO_PICK;
     }
-    visual.UpdateRepresentation(world, nav);
+    visual.UpdateRepresentation(nav);
 }
 
 static void DestroySpellVisual(World* world, SpellVisual* visual)
 {
     if (world->target_cone == visual) world->target_cone = nullptr;
-    visual->visual.RetireParticles(*world);
+    visual->visual.RetireParticles();
     std::erase_if(world->spell_visuals,
                   [visual](const auto& owner) { return owner.get() == visual; });
 }
@@ -237,16 +236,11 @@ void UpdateWorldSpellVisuals(World* world)
     while (index < count) {
         SpellVisual* visual = world->spell_visuals[index].get();
         if (visual != 0) {
-            visual->visual.DetachRepresentation(world);
+            visual->visual.DetachRepresentation();
             if (!visual->finished || !visual->auto_release) {
                 visual->StartIfHostActive();
-                visual->UpdateRepresentation(world);
-                visual->nav.UpdateNavigation(
-                    0, false,
-                    world == GetWorld()
-                        ? std::optional{BoundingSphere{PartyNavigator()->movement.position,
-                                                       PartyNavigator()->movement.alternate_radius}}
-                        : std::nullopt);
+                visual->UpdateRepresentation();
+                visual->nav.UpdateNavigation(0, false, world->party.collisionSphere());
             } else {
                 DestroySpellVisual(world, visual);
                 --index;
@@ -377,18 +371,18 @@ std::unique_ptr<SpellVisual> LoadSpellVisualResource(World* world, std::string_v
         definitions.push_back(std::move(loaded));
         definition = definitions.end() - 1;
     }
-    auto visual = std::make_unique<SpellVisual>(**definition, world);
+    auto visual = std::make_unique<SpellVisual>(**definition, *world);
     visual->asset_name = name;
     return visual;
 }
 
-SpellVisual::SpellVisual(World* owner)
+SpellVisual::SpellVisual(World& owner)
     : owner_world(owner), nav(owner), visual(owner), mode(W8_SPELL_VISUAL_NONE), finished(0),
       flag(0), auto_release(1), fixed_transform(0), scale0(1.0f), location_id(0)
 {
 }
 
-SpellVisual::SpellVisual(const SpellVisualDefinition& definition, World* owner)
+SpellVisual::SpellVisual(const SpellVisualDefinition& definition, World& owner)
     : owner_world(owner), nav(owner), visual(definition.events, owner),
       asset_name(definition.asset_name), mode(definition.mode), resources(definition.resources),
       finished(0), flag(0), auto_release(1), fixed_transform(0), scale0(1.0f), location_id(0)
@@ -409,7 +403,7 @@ SpellVisual::SpellVisual(const SpellVisualDefinition& definition, World* owner)
    the common GrCycle identity before the base classes tear down. */
 SpellVisual::~SpellVisual()
 {
-    if (owner_world && owner_world->target_cone == this) owner_world->target_cone = nullptr;
+    if (owner_world.target_cone == this) owner_world.target_cone = nullptr;
     visual.SetLights(0);
 }
 

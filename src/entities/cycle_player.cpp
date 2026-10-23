@@ -291,7 +291,7 @@ try {
    representation payload.  A particle attachment keeps the source node plus
    its local transform; the live cycle owns the attachment record and vector,
    while the particle node remains scene-owned. */
-CyclePlayer::CyclePlayer(World* owner) : owner_world(owner)
+CyclePlayer::CyclePlayer(World& owner) : owner_world(owner)
 {
     timer = GameClockMilliseconds();
     lod_near = g_lod_range_default0;
@@ -307,7 +307,7 @@ CyclePlayer::CyclePlayer(World* owner) : owner_world(owner)
     opacity = 1.0f;
 }
 
-CyclePlayer::CyclePlayer(const CycleDefinition& definition, World* owner) : CyclePlayer(owner)
+CyclePlayer::CyclePlayer(const CycleDefinition& definition, World& owner) : CyclePlayer(owner)
 {
     m_pAI = definition.path;
     if (m_pAI) m_pAI->timed = false;
@@ -320,7 +320,7 @@ CyclePlayer::CyclePlayer(const CycleDefinition& definition, World* owner) : Cycl
         copy.subcycle = source.subcycle;
         if (source.m_pstParticles) {
             copy.m_pstParticles = std::make_unique<ParticleSystem>(*source.m_pstParticles);
-            copy.m_pstParticles->setScene(owner ? owner->scene.get() : nullptr);
+            copy.m_pstParticles->setScene(owner.scene.get());
         }
         copy.position = source.position;
         copy.rotation = source.rotation;
@@ -366,7 +366,7 @@ CyclePlayer::~CyclePlayer()
     }
 }
 
-void CyclePlayer::RetireParticles(World& world)
+void CyclePlayer::RetireParticles()
 {
     for (auto& event : particles) {
         auto owner = std::move(event.m_pstParticles);
@@ -374,7 +374,7 @@ void CyclePlayer::RetireParticles(World& world)
         if (owner && owner->hasActiveParticles()) {
             owner->SetActive(true);
             owner->emission_limit = 1;
-            RetireParticle(world, std::move(owner));
+            RetireParticle(owner_world, std::move(owner));
         }
     }
 }
@@ -492,7 +492,7 @@ void CyclePlayer::UpdateLights()
                 } else if ((subcycle == 0 && cycle_definition->subcycle_min == 0) ||
                            light->scene == nullptr) {
                     light->bake_into_mesh = true;
-                    light->setScene(owner_world ? (owner_world->scene.get()) : nullptr);
+                    light->setScene(owner_world.scene.get());
                     light->m_path_index = 0;
                     light->m_path_direction = 1;
                     light->Reset();
@@ -510,7 +510,7 @@ void CyclePlayer::UpdateLights()
                 }
             } else if (light->scene == nullptr) {
                 light->bake_into_mesh = true;
-                light->setScene(owner_world ? (owner_world->scene.get()) : nullptr);
+                light->setScene(owner_world.scene.get());
             }
         }
     }
@@ -633,7 +633,7 @@ static void ApplyAppearance(const CyclePlayer& player, MeshInstance& model)
     model.emissive_override = player.emissive_override.value_or(0.0f);
 }
 
-void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
+void CyclePlayer::UpdateRepresentation(const Navigator& nav)
 {
     Animation* animation;
     glm::mat3 rot;
@@ -641,7 +641,6 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
     glm::vec3 vecPos;
     int index;
 
-    assert(pWorld != 0);
     if (!rep_active) {
         return;
     }
@@ -659,7 +658,7 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
             ShowFrame(*psrMesh, frame);
             ApplyAppearance(*this, *psrMesh);
             psrMesh->visible = true;
-            psrMesh->setScene((pWorld->scene.get()));
+            psrMesh->setScene((owner_world.scene.get()));
             path = animation->partPath(m_bLOD, static_cast<signed char>(index));
             if (path != 0) {
                 (psrMesh)->transform = sampleKeyframeTrack(*(path), (psrMesh)->transform);
@@ -693,7 +692,7 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
 
         current_model_instance = psrMesh;
         psrMesh->draw_parts = true;
-        psrMesh->setScene((pWorld->scene.get()));
+        psrMesh->setScene((owner_world.scene.get()));
     }
     UpdateParticleAttachments();
     if (m_ground_shadow != 0) {
@@ -703,7 +702,7 @@ void CyclePlayer::UpdateRepresentation(World* pWorld, const Navigator& nav)
         m_ground_shadow->transform.setLocation(loc);
         m_ground_shadow->angle = nav.GetYaw();
 
-        m_ground_shadow->setWorld(pWorld);
+        m_ground_shadow->setWorld(&owner_world);
     }
     if (m_plsLights != 0) {
         int count = static_cast<int>(m_plsLights->size());
@@ -741,14 +740,13 @@ void CyclePlayer::hideModelsFrom(std::size_t first)
     }
 }
 
-void CyclePlayer::DetachRepresentation(World* world)
+void CyclePlayer::DetachRepresentation()
 {
     Animation* animation = active_animation;
 
     if (animation->positioned_parts) {
         hideModelsFrom(0);
     } else if (current_model_instance != 0) {
-        assert(world != 0);
         current_model_instance->draw_parts = false;
         hideModelsFrom(0);
         current_model_instance = 0;
@@ -955,13 +953,13 @@ void CyclePlayer::DetachCycleLights(std::vector<std::unique_ptr<Light>>* lights)
 
 void CyclePlayer::AttachCycleLights(std::vector<std::unique_ptr<Light>>* lights)
 {
-    if (owner_world && g_render_missile_lights && lights != 0) {
+    if (g_render_missile_lights && lights != 0) {
         for (const auto& owned : *lights) {
             auto* light = owned.get();
 
             light->bake_into_mesh = true;
 
-            light->setScene(owner_world ? (owner_world->scene.get()) : nullptr);
+            light->setScene(owner_world.scene.get());
         }
     }
 }

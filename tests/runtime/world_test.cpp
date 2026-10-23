@@ -289,12 +289,12 @@ void InventoryChestScenario()
         20);
     game.hold_key(SDLK_DOWN, false);
     CameraPose before{}, after{};
-    before = partyPose(*GetWorld());
+    before = GetWorld()->party.pose();
     game.hold_key(SDLK_LEFT, true);
     game.wait(
         "turn-left-after-inventory",
         [&] {
-            after = partyPose(*GetWorld());
+            after = GetWorld()->party.pose();
             return std::abs(after.orientation.yaw - before.orientation.yaw) > 0.1f;
         },
         20);

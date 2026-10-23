@@ -82,17 +82,17 @@ struct W8MonsterSpellIcon {
    primary vtable 0x005ED22C and the Navigator secondary-base table at +0x18. */
 class Monster {
 public:
-    World* const owner_world;
+    World& owner_world;
     Navigator nav;
     CyclePlayer visual;
     std::string asset_name;
     typedef void (*CycleCallback)(Monster* monster);
 
-    explicit Monster(World* owner = nullptr);
+    explicit Monster(World& owner);
     /* A new monster of a species: its own copies of the definition's animations,
        lights, emitters and light, a registered navigator, and appearance still
        to be rolled. */
-    Monster(const MonsterDefinition& definition, World* owner);
+    Monster(const MonsterDefinition& definition, World& owner);
     void TickAnimation(float scale);
     bool ApplyPendingCycle();
     void SetCyclePosition(glm::vec3* position);
@@ -101,7 +101,7 @@ public:
     ~Monster();
 
     bool CanEnterCycle(signed char cycle);
-    void UpdateRepresentation(World* world);
+    void UpdateRepresentation();
     signed char GetNumSubCycles();
     bool IsCycleSupported(signed char cycle);
     signed char GetTotalAnimationCount();
@@ -411,13 +411,6 @@ struct W8MonsterShakeCallback {
     W8AnimationBehaviour saved_behaviour{};
     W8AnimationFrameMethod saved_frame_method{};
 };
-
-/* Take a monster's representation out of the scene and destroy it. Whatever
-   links to it must already be cleared. */
-void DestroyWorldMonster(Monster& monster);
-/* The shared forwarder four call sites use to advance a cycle's
-   representation; it stays free because its callers pass the object on the
-   stack. */
 
 void SetMonsterPartySlotMarker(int party_slot, int location_id, signed char on);
 

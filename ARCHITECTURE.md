@@ -178,8 +178,11 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   past the current call keeps its id and looks it up again when used.
 - Group counts, active-monster presence and combat membership are queries over
   ownership, not maintained counters.
-- The party's pose is the primary world's `party_camera`. Render cameras derive
-  from it each frame; rendering writes no gameplay state.
+- Each world has a `WorldParty` (`World::party`): the party's pose and its
+  navigator, registered with the world's other movers. Placing or restoring the
+  party moves both. Actors are constructed with their `World&` and use only that
+  world. Render cameras derive from the pose each frame; rendering writes no
+  gameplay state.
 
 ## Scripts
 

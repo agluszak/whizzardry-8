@@ -625,7 +625,8 @@ static void graphical_object_ownership_contracts()
         definition.events.sound_events.emplace_back(W8_SOUND_EVENT_CYCLE, i, 0, 0, "other.wav",
                                                     false);
     }
-    Missile copy(definition, nullptr);
+    World owner;
+    Missile copy(definition, owner);
     REQUIRE((copy.visual.m_pAI->geometry == definition.events.path->geometry));
     REQUIRE((copy.visual.m_pAI->points()[0].position.y == 2));
     REQUIRE((copy.visual.sound_events.size() == definition.events.sound_events.size()));
