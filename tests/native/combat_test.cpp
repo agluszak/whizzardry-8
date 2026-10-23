@@ -198,7 +198,7 @@ TEST_CASE("Spell scattering retries all five ground misses", "[combat][magic]")
     world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
     world.spatial->m_spatial.m_node_extent = 1000;
     world.spatial->registry.cells = std::make_unique<W8OctreeObjectRegistry>();
-    auto caster = std::make_unique<Monster>(&world);
+    auto caster = std::make_unique<Monster>(world);
     caster->location_id = 7;
     caster->nav.movement.position = {0, 0, 0};
     auto info = std::make_unique<W8MonsterInfo>();
