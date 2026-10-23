@@ -14,7 +14,6 @@
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/rules/item_location.h"
-#include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/world.h"

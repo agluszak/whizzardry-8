@@ -43,7 +43,6 @@
 #include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/events.h"
-#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 

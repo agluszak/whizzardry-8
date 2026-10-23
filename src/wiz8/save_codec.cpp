@@ -33,6 +33,7 @@
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/action_choices.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"

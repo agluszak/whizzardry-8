@@ -2,6 +2,7 @@
 
 #include <optional>
 
+#include "wiz8/rules/character.h"
 #include "wiz8/rules/party_slot.h"
 
 std::optional<unsigned int> W8Party::slotOf(const W8Character& character) const

@@ -205,9 +205,9 @@ static void NpcDialogueTextBoxLeftUp(int x, int y);
 static void NpcDialogueTextBoxRightUp(int x, int y);
 static const W8ItemInstance* ResolveNpcTradeRow(int index, bool, signed char, signed char);
 static const W8ItemInstance* GetNpcTradeSlotItem(int index);
-static void ShowSelectedNpcTradeItem(const const W8ItemInstance* item);
+static void ShowSelectedNpcTradeItem(const W8ItemInstance* item);
 
-static const const W8ItemInstance* SelectedNpcTradeItem()
+static const W8ItemInstance* SelectedNpcTradeItem()
 {
     if (CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_SERVICES)
         return GetNpcTradeSlotItem(MainGameHud()->selected_text_lines[2]);
@@ -529,7 +529,7 @@ void ForwardNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int lin
    takes none, and a pending notice blocks the next until it drains. Kind
    0x10/0x11 NPCs with fact 0xbf substitute their own notice line and raise
    the flag byte. */
-void QueueNpcScriptNotice(W8NpcState* npc, const const W8ItemInstance* item, int line,
+void QueueNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line,
                           bool suppress, unsigned char arg)
 {
     W8MonsterInfo* info;
@@ -2393,7 +2393,7 @@ static void HighlightNpcTradeQuantity()
    selected character's backpack or the shared party item pool, and modes 4/5
    go through the NPC's own inventory. pick/commit drive quantity stepping,
    the click chime and the highlight tick. */
-static void ShowSelectedNpcTradeItem(const const W8ItemInstance* item)
+static void ShowSelectedNpcTradeItem(const W8ItemInstance* item)
 {
     std::string count_text;
     std::string_view text;
@@ -2409,7 +2409,7 @@ static void ShowSelectedNpcTradeItem(const const W8ItemInstance* item)
     MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_TEXT_24].dirty = true;
 }
 
-static void UpdatePartyTradeQuantity(const const W8ItemInstance* item, bool same_selection,
+static void UpdatePartyTradeQuantity(const W8ItemInstance* item, bool same_selection,
                                      bool decrement)
 {
     if (Data().items[item->iItemNo].equip_class == W8_ITEM_EQUIP_CLASS_AMMUNITION) {

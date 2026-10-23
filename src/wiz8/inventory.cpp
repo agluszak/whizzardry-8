@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <bitset>
 #include <cassert>
+#include <cstddef>
 #include <expected>
 #include <functional>
 #include <iterator>
