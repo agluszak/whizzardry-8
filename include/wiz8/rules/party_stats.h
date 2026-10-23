@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <span>
 
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/party_slot.h"
@@ -12,6 +13,7 @@
 
 struct GameData;
 struct W8Character;
+struct W8ItemInstance;
 struct W8Party;
 
 // Shared weight is redistributed now, after combat, or not at all before the game starts.
@@ -35,7 +37,9 @@ struct W8PartyStats {
 };
 // Recalculate every occupied member from its equipment, attributes and conditions, with the
 // shared load assigned between evaluating the members' inputs and deriving their statistics.
-W8PartyStats UpdatePartyStats(const GameData& data, W8Party& party, const PartyStatRules& rules);
+// `pool` is the shared pool whose weight the members carry.
+W8PartyStats UpdatePartyStats(const GameData& data, W8Party& party,
+                              std::span<const W8ItemInstance> pool, const PartyStatRules& rules);
 // A character outside any party: no party modifiers and no shared load.
 CharacterStatsUpdate UpdateStandaloneCharacterStats(const GameData& data, W8Character& character,
                                                     CharacterStatRules rules);

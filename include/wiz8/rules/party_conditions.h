@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/item_location.h"
 
 /* The calculations behind a party member's conditions, enchantments and death, over
    explicit inputs. The game's party commands (`live_party.h`) apply them in order with
@@ -25,9 +26,13 @@ ConditionResistance ResistCondition(const W8Character& character, W8Condition co
 
 // An infatuation keeps its hex outside the levels of band `level_band`.
 bool InfatuationHoldsHex(const W8Character& character, int level_band);
+// The ring that keeps a member insane, and the charm that counters it.
+inline constexpr int kItemMadnessRing = 0x243;
+inline constexpr int kItemMadnessCharm = 0x239;
 /* The madness ring keeps member `slot` insane: carried by them, or, from the pool, by
-   whoever resists least, unless they wear its counter-charm. */
-bool MadnessRingHoldsInsanity(const W8Party& party, unsigned int slot);
+   whoever resists least, unless they wear its counter-charm. `ring` is where the party's
+   first madness ring is. */
+bool MadnessRingHoldsInsanity(const W8Party& party, W8ItemLocation ring, unsigned int slot);
 
 // The highest condition with turns left, scanning down from the top.
 W8Condition HighestCondition(const W8Character& character);

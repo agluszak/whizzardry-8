@@ -96,6 +96,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -157,17 +158,18 @@ static void ToggleNpcTradeFilter(W8NpcTradeFilter filter);
 static constexpr std::array kTradeFilters{
     W8_NPC_TRADE_HAND, W8_NPC_TRADE_ACCESSORY, W8_NPC_TRADE_USABLE_BY_CHARACTER,
     W8_NPC_TRADE_BODY, W8_NPC_TRADE_OTHER,     W8_NPC_TRADE_USABLE_BY_PARTY};
-static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force);
-static unsigned char HandleNpcDialogueItem(W8ItemInstance* item);
+static bool OpenNpcDialoguePanel(W8NpcState* npc, const W8ItemInstance* item, bool force);
+static unsigned char HandleNpcDialogueItem(const W8ItemInstance* item);
 
 /* Offer the item a dialogue opens with. When the party holds one, it moves
    out of the hand into the offer; otherwise the notice only names the item and
    `described` carries it. Returns the item the dialogue inspects. */
-static W8ItemInstance* OfferNpcDialogueItem(const W8ItemInstance& item, W8ItemInstance& described)
+static const W8ItemInstance* OfferNpcDialogueItem(const W8ItemInstance& item,
+                                                  W8ItemInstance& described)
 {
     auto& offer = CurrentGame().npc_interaction.offered_item;
-    if (CurrentGame().party.held.item.iItemNo != -1) {
-        offer = TakeInventoryItem(CurrentGame(), {W8ItemStorage::Hand});
+    if (CurrentGame().inventory.held()) {
+        offer = CurrentGame().inventory.take({W8ItemStorage::Hand});
         return &*offer;
     }
     described = item;
@@ -179,8 +181,8 @@ static W8ItemInstance* OfferNpcDialogueItem(const W8ItemInstance& item, W8ItemIn
 static void ReturnOfferedItem()
 {
     auto offer = std::exchange(CurrentGame().npc_interaction.offered_item, std::nullopt);
-    if (offer && !ReceiveItemInHand(CurrentGame(), *offer)) {
-        AddItemToPartyOrDrop(CurrentGame(), OwnedItem(*offer), false);
+    if (offer && !CurrentGame().inventory.hold(*offer)) {
+        CurrentGame().inventory.storeOrDrop(*offer, false);
     }
 }
 static void HandleNpcDialogueDeparture(unsigned char value);
@@ -201,8 +203,8 @@ static void ResolveNpcPickpocket(int party_slot);
 static void NpcDialogueTextBoxDoubleClick(int x, int y);
 static void NpcDialogueTextBoxLeftUp(int x, int y);
 static void NpcDialogueTextBoxRightUp(int x, int y);
-static W8ItemInstance* ResolveNpcTradeRow(int index, bool, signed char, signed char);
-static W8ItemInstance* GetNpcTradeSlotItem(int index);
+static const W8ItemInstance* ResolveNpcTradeRow(int index, bool, signed char, signed char);
+static const W8ItemInstance* GetNpcTradeSlotItem(int index);
 static void ShowSelectedNpcTradeItem(const W8ItemInstance* item);
 
 static const W8ItemInstance* SelectedNpcTradeItem()
@@ -240,7 +242,7 @@ static void RequestNpcSpellService3(void);
 static void RequestNpcSpellService41(void);
 static void RequestNpcCharacterService(void);
 static void ConfirmNpcTradePurchase(void);
-static bool AcceptNpcDialogueItem(W8NpcState* npc, W8ItemInstance* item, int mode);
+static bool AcceptNpcDialogueItem(W8NpcState* npc, const W8ItemInstance* item, int mode);
 void OnNpcDialogClosed(W8NpcDialog& dialog);
 
 W8NpcDialoguePanel::W8NpcDialoguePanel(MainGameScreen& screen) : screen_(screen) {}
@@ -497,7 +499,7 @@ std::string TranslateDialogueKeyword(std::string_view source)
 
 /* Forward a monster-script notice to the targeting layer unless the screen is
    busy or this NPC kind suppresses it. */
-void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress)
+void ForwardNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line, bool suppress)
 {
     if (!CurrentGame().activity.conversation && !CurrentGame().combat.has_value() &&
         (npc->record->kind != 7 || GetFact(W8_FACT_ARNIKA_MYLES_MEET_ONCE) != 1)) {
@@ -511,7 +513,7 @@ void ForwardNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, boo
    takes none, and a pending notice blocks the next until it drains. Kind
    0x10/0x11 NPCs with fact 0xbf substitute their own notice line and raise
    the flag byte. */
-void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool suppress,
+void QueueNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line, bool suppress,
                           unsigned char arg)
 {
     W8MonsterInfo* info;
@@ -555,7 +557,7 @@ void QueueNpcScriptNotice(W8NpcState* npc, W8ItemInstance* item, int line, bool 
    between the item/quote branch and the plain quote branch; both end by
    pausing the world, raising the dialogue flags and pointing the camera at
    the NPC's monster. */
-static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int quote,
+static void BeginNpcDialogueInternal(W8NpcState* npc, const W8ItemInstance* item, int quote,
                                      unsigned char flags, unsigned char force)
 {
     W8NpcInteractionState* state;
@@ -644,7 +646,7 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, W8ItemInstance* item, int 
     partyCamera().LookAt(&position, false);
 }
 
-void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned char flags,
+void BeginNpcDialogue(W8NpcState* npc, const W8ItemInstance* item, int quote, unsigned char flags,
                       unsigned char force)
 {
     BeginNpcDialogueInternal(npc, item, quote, flags, force);
@@ -654,7 +656,7 @@ void BeginNpcDialogue(W8NpcState* npc, W8ItemInstance* item, int quote, unsigned
    still carries an id. The two notice flags remain independent byte values. */
 void DispatchPendingNpcScriptNotice(void)
 {
-    W8ItemInstance* item;
+    const W8ItemInstance* item;
 
     item = 0;
     if (CurrentGame().npc_interaction.pending_notice.item.iItemNo != -1) {
@@ -674,7 +676,7 @@ void DispatchPendingNpcScriptNotice(void)
    disposition band picks the hostile or friendly entry. */
 static void CloseActiveNpcDialogueLayout();
 
-static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool force)
+static bool OpenNpcDialoguePanel(W8NpcState* npc, const W8ItemInstance* item, bool force)
 {
     W8NpcInteractionState* state;
     W8MonsterInfo* info;
@@ -719,7 +721,7 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, W8ItemInstance* item, bool for
     greet = !force;
     if (item != 0) {
         W8ItemInstance described;
-        W8ItemInstance* offered = OfferNpcDialogueItem(*item, described);
+        const W8ItemInstance* offered = OfferNpcDialogueItem(*item, described);
         if (npc->record->merchant != 0) {
             if (HandleNpcDialogueItem(offered) == 0) {
                 OpenNpcDialogueTranscriptLayout();
@@ -1421,7 +1423,7 @@ static void NpcDialogueTextBoxRightUp(int x, int y)
     int line;
     W8NoticeWord* word;
     int slot;
-    W8ItemInstance* item;
+    const W8ItemInstance* item;
 
     switch (CurrentGame().npc_interaction.dialogue_layout) {
     case W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX: {
@@ -1530,7 +1532,7 @@ static void ShowNpcTradeGold()
    the trade lists; the mode-2 row zero additionally fills in the purse readout. */
 void UpdateNpcTradeSelection(int index, int increment, int commit)
 {
-    W8ItemInstance* item;
+    const W8ItemInstance* item;
     std::string text;
     std::string price_text;
     bool wants_item;
@@ -2405,8 +2407,8 @@ static void UpdatePartyTradeQuantity(const W8ItemInstance* item, bool same_selec
     }
 }
 
-static W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, signed char decrement,
-                                          signed char commit)
+static const W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, signed char decrement,
+                                                signed char commit)
 {
     auto& state = CurrentGame().npc_interaction;
     if (index < 0 || std::cmp_greater_equal(index, Panel().trade_rows.size())) return nullptr;
@@ -2439,7 +2441,7 @@ static W8ItemInstance* ResolveNpcTradeRow(int index, bool pick, signed char decr
 /* Whether the current trade filter rejects `item`: the Zant NPC hides item
    0x290 until fact 0x3c, the trade_filter low bits gate character/party
    usability, and bits 0x3c select the accepted equipment slot group. */
-bool NpcTradeItemAllowed(W8ItemInstance* item)
+bool NpcTradeItemAllowed(const W8ItemInstance* item)
 {
     W8ItemEquipSlotGroup group;
 
@@ -2683,7 +2685,7 @@ static void RequestNpcCharacterService(void)
 /* Pick the index-th activatable item on the dialogue character: the twelve
    equipment slots first, then the eight backpack slots. The hit refreshes the
    dialogue_text_16c preview image and its stack-count text. */
-static W8ItemInstance* GetNpcTradeSlotItem(int index)
+static const W8ItemInstance* GetNpcTradeSlotItem(int index)
 {
     if (!Panel().ui->actions[W8_NPC_CONTROL_TEXT_4].interaction.selected) return nullptr;
     auto& character = CurrentGame().party.characters[CurrentGame().status.selected_character];
@@ -3170,7 +3172,7 @@ static void ConfirmNpcTradePurchase(void)
     CurrentGame().npc_dialogue.QueueQuote(7, false, false, false);
 }
 
-static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
+static unsigned char HandleNpcDialogueItem(const W8ItemInstance* item)
 {
     std::string message;
     bool result;
@@ -3220,7 +3222,7 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
                 if (offer && offer->iItemNo == item->iItemNo) {
                     // Shown, not taken: the offer goes back into the party.
                     auto shown = *std::exchange(offer, std::nullopt);
-                    AddItemToParty(CurrentGame(), OwnedItem(shown), true, false);
+                    CurrentGame().inventory.storeInPool(shown, true);
                     return 0;
                 }
             }
@@ -3256,7 +3258,7 @@ static unsigned char HandleNpcDialogueItem(W8ItemInstance* item)
 
 /* Retail ICF shares this constant-return callback with the retained body at
    0x005b1740; this typed source callback has no separate address marker. */
-static bool AcceptNpcDialogueItem(W8NpcState*, W8ItemInstance*, int)
+static bool AcceptNpcDialogueItem(W8NpcState*, const W8ItemInstance*, int)
 {
     return true;
 }
@@ -3644,13 +3646,13 @@ static void ResolveNpcPickpocket(int party_slot)
             fmt::sprintf(Data().strings[0x74d], character->name, GetItemDisplayName(Data(), &item));
         for (slot = 0; slot < 8; ++slot) {
             if (character->backpack[slot].iItemNo == -1) {
-                AddItemToCharacter(CurrentGame(), PartyMember(CurrentGame(), party_slot),
-                                   OwnedItem(item), false, false, false);
+                CurrentGame().inventory.storeWithCharacter(
+                    CurrentGame().inventory.member(party_slot), item, false, false);
                 DisplayNpcQuote(text, true);
                 return;
             }
         }
-        AddItemToParty(CurrentGame(), OwnedItem(item), false, false);
+        CurrentGame().inventory.storeInPool(item, false);
         DisplayNpcQuote(text, true);
         return;
     case W8_PICKPOCKET_GOLD_TAKEN:

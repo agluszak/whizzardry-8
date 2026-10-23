@@ -3664,7 +3664,7 @@ void FallbackFromUnreachableAction(int party_slot)
                 (SelectPartyCharacter(party_slot),
                  party_slot == CurrentGame().status.selected_character)) {
                 const int spell_id = casting ? row->committed.detail
-                                             : GetItemSpell(CurrentGame().party.itemAt(
+                                             : GetItemSpell(CurrentGame().inventory.itemAt(
                                                    row->committed.detail_block.item_use.item));
                 const W8TargetNeed needed_kind =
                     GetTargetNeededForSpellFriendly(spell_id, false, MainGameHud() == nullptr);
@@ -4188,7 +4188,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                                      : EditedAction(CurrentGame().status.selected_character);
     needed = IsSighting(CurrentGame().status.selected_character)
                  ? W8_TARGET_NEED_NONE
-                 : GetTargetNeededForAction(CurrentGame().party, selected_action);
+                 : GetTargetNeededForAction(CurrentGame().inventory, selected_action);
     if (ScreenPointer().targeting() == W8_TARGET_NEED_ALLY ||
         (needed == W8_TARGET_NEED_ALLY && (event.modifiers & CTRL_DOWN) != 0)) {
         targeting = true;
@@ -4289,7 +4289,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                                      .party.characters[CurrentGame().status.selected_character],
                                 0x35, 0, kCharacterEventFullVolume);
                         }
-                    } else if (CurrentGame().party.held.item.iItemNo == -1 ||
+                    } else if (!CurrentGame().inventory.held() ||
                                ScreenPointer().shownSlot() != W8_CURSOR_INVALID_TARGET ||
                                (MainGame()->item_drag &&
                                 MainGame()->item_drag->item.storage == W8ItemStorage::Hand)) {
@@ -4304,8 +4304,11 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                         } else {
                             force_to_party = true;
                         }
-                        if (auto given =
-                                GiveHeldItemToCharacterOrParty(CurrentGame(), slot, force_to_party);
+                        auto& inventory = CurrentGame().inventory;
+                        inventory.identifyHeld();
+                        if (auto given = inventory.giveHeld(slot, force_to_party
+                                                                      ? StoreOrder::PoolFirst
+                                                                      : StoreOrder::CharacterFirst);
                             !given)
                             ShowRefusal(given.error());
                         if (auto* picker = UseItemPicker()) picker->Refresh();
@@ -4363,7 +4366,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                     }
                 } else {
                     if (MainGameHud()->portrait_refresh_pending[slot] == 0) {
-                        if (CurrentGame().party.held.item.iItemNo == -1 ||
+                        if (!CurrentGame().inventory.held() ||
                             ScreenPointer().shownSlot() != W8_CURSOR_INVALID_TARGET ||
                             (MainGame()->item_drag &&
                              MainGame()->item_drag->item.storage == W8ItemStorage::Hand)) {
@@ -4408,12 +4411,13 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
         if ((event.captured_buttons & SDL_BUTTON_RMASK) != 0 && !targeting &&
             IsNpcDialogueCursorActive() == 0 && !CurrentGame().activity.scripted_scene) {
             MainGameHud()->portrait_right_hold_armed = false;
-            if (!(CurrentGame().party.held.item.iItemNo != -1) ||
+            if (!(CurrentGame().inventory.held()) ||
                 ((GetInputState().modifiers & CTRL_DOWN) != 0)) {
                 AfterUiDispatch([=] { OpenCharacterScreenForPartySlot(slot, false); });
                 return UiResult::Handled;
             }
-            if (auto given = GiveHeldItemToCharacterOrParty(CurrentGame(), slot, true); !given)
+            CurrentGame().inventory.identifyHeld();
+            if (auto given = CurrentGame().inventory.giveHeld(slot, StoreOrder::PoolFirst); !given)
                 ShowRefusal(given.error());
             if (auto* picker = UseItemPicker()) {
                 picker->Refresh();
@@ -4555,7 +4559,7 @@ UiResult PortraitAssaySidebarInput(const UiPointerEvent& event, HitTarget& targe
             return UiResult::Handled;
         }
         if ((event.modifiers & SHIFT_DOWN) == 0) {
-            BindCharacterItems(CurrentGame(), slot, true);
+            CurrentGame().inventory.requestWeaponSwap(slot, true);
             return UiResult::Handled;
         }
         BindEveryPartyItem();
@@ -4724,10 +4728,10 @@ UiResult PartyCombatActionInput(const UiPointerEvent& event, HitTarget& target, 
                 target.setTooltip(
                     [text = fmt::format(
                          "{}: {}", Data().strings[0x69],
-                         FormatItemDisplayName(
-                             Data(),
-                             CurrentGame().party.itemAt(row->committed.detail_block.item_use.item),
-                             false))] { return std::string(text); });
+                         FormatItemDisplayName(Data(),
+                                               CurrentGame().inventory.itemAt(
+                                                   row->committed.detail_block.item_use.item),
+                                               false))] { return std::string(text); });
                 return UiResult::Pass;
             }
         }
@@ -4809,7 +4813,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                                      : EditedAction(CurrentGame().status.selected_character);
     needed = IsSighting(CurrentGame().status.selected_character)
                  ? W8_TARGET_NEED_NONE
-                 : GetTargetNeededForAction(CurrentGame().party, selected_action);
+                 : GetTargetNeededForAction(CurrentGame().inventory, selected_action);
     if (!(event.button == UiPointerButton::Left) &&
         !(event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
         if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Up)) {
@@ -4872,7 +4876,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
             AfterUiDispatch([=] { OpenMonsterInfoDialog(MainGameHud()->highlighted_item); });
             return UiResult::Handled;
         }
-        if (!(CurrentGame().party.held.item.iItemNo != -1) && MainGameHud()->selected_item != -1 &&
+        if (!CurrentGame().inventory.held() && MainGameHud()->selected_item != -1 &&
             !SpellPicker() && !CurrentGame().activity.conversation && !UseItemPicker() &&
             !IsLockInteractionActive() && !IsTrapInteractionActive() &&
             (!g_settings.ctrl_right_click_info || ((GetInputState().modifiers & CTRL_DOWN) != 0))) {
@@ -4928,7 +4932,8 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         }
         SetWorldCursorRange(CalcRangeDistanceFromParty(
             GetCharActionRange(CurrentGame().status.selected_character, 0, selected_action)));
-        if (SpellPicker() && GetActionSpellLikeId(CurrentGame().party, selected_action) == 0x3c) {
+        if (SpellPicker() &&
+            GetActionSpellLikeId(CurrentGame().inventory, selected_action) == 0x3c) {
             signed char extent_index;
             glm::vec3 minimum;
             glm::vec3 maximum;
@@ -4952,9 +4957,9 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                (needed == W8_TARGET_NEED_CONE && (event.modifiers & CTRL_DOWN) != 0)) {
         AimAtGroundTarget(CurrentGame().status.selected_character);
     } else if (MainGameHud()->highlighted_item == -1) {
-        if ((CurrentGame().party.held.item.iItemNo != -1) && !GetWorld()->selectedProp()) {
+        if ((CurrentGame().inventory.held()) && !GetWorld()->selectedProp()) {
             if (!CurrentGame().advancement.held) {
-                if (auto dropped = DropItemInHand(CurrentGame(), 1); !dropped)
+                if (auto dropped = CurrentGame().inventory.dropHeld(); !dropped)
                     ShowRefusal(dropped.error());
             }
         } else if (MainGameHud()->selected_item != -1) {
@@ -4977,17 +4982,15 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                 needed != W8_TARGET_NEED_GROUP) {
                 assign = false;
                 if ((ScreenPointer().shownSlot() == W8_CURSOR_VALID_TARGET ||
-                     (CurrentGame().party.held.item.iItemNo != -1)) &&
+                     (CurrentGame().inventory.held())) &&
                     CurrentGame().status.selected_character != -1 &&
                     AssessMonsterAim(CurrentGame().status.selected_character, 2, monster_info,
                                      EditedAction(CurrentGame().status.selected_character))) {
                     if ((GetMonsterDataForInfo(monster_info)->flags & W8_MONSTER_FLAG_NPC) == 0) {
                         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x7de]);
                     } else {
-                        W8ItemInstance* item = 0;
-                        if ((CurrentGame().party.held.item.iItemNo != -1)) {
-                            item = &CurrentGame().party.held.item;
-                        }
+                        const auto* held = CurrentGame().inventory.held();
+                        const W8ItemInstance* item = held ? &held->item : nullptr;
                         if (monster_info->highest_condition < W8_CONDITION_ASLEEP) {
                             W8NpcState* npc = FindNpcBindingForMonster(
                                 FindMonster(MainGameHud()->highlighted_item));
@@ -5114,8 +5117,7 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
             }
             if (auto* prop = GetWorld()->selectedProp()) {
                 if (!CurrentGame().advancement.held) {
-                    if (prop->TriggerRequiresItem() &&
-                        CurrentGame().party.held.item.iItemNo != -1) {
+                    if (prop->TriggerRequiresItem() && CurrentGame().inventory.held()) {
                         ScreenPointer().showSlot(0x10);
                         return;
                     }
@@ -6017,7 +6019,8 @@ void RebuildNpcTradeItemList(bool scroll_to_top)
     }
 }
 
-static void ShowNpcPlayerTradeItem(W8ItemInstance* item, bool acceptable, unsigned int font_palette)
+static void ShowNpcPlayerTradeItem(const W8ItemInstance* item, bool acceptable,
+                                   unsigned int font_palette)
 {
     if (MainGame()->dialogue.trade_mode == W8_NPC_TRADE_SELL) {
         unsigned char count =
@@ -6063,8 +6066,8 @@ void PopulateNpcTradeList(void)
         MainGame()->dialogue.trade_rows.push_back({W8TradeSource::Gold});
     }
     if (!MainGame()->dialogue.trade_pc_items) {
-        for (unsigned int index = 0; index < CurrentGame().party.item_count; ++index) {
-            W8ItemInstance* item = &CurrentGame().party.item_pool[index];
+        for (unsigned int index = 0; index < CurrentGame().inventory.pool().size(); ++index) {
+            const W8ItemInstance* item = &CurrentGame().inventory.pool()[index];
             bool acceptable = true;
             unsigned int font_palette;
             if (item->iItemNo == -1) {
@@ -6385,7 +6388,7 @@ void CommitAim(int actor, const W8Action& action, W8CombatSlot& stored_target, W
         const auto edited_action = EditedAction(actor);
         const auto needed = IsSighting(actor)
                                 ? W8_TARGET_NEED_NONE
-                                : GetTargetNeededForAction(CurrentGame().party, edited_action);
+                                : GetTargetNeededForAction(CurrentGame().inventory, edited_action);
         SetTargetingMode(TargetMatchesNeeded(&edited_action.target, needed) ? W8_TARGET_NEED_NONE
                                                                             : needed);
     }

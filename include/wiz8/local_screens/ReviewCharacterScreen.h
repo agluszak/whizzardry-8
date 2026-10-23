@@ -206,7 +206,7 @@ public:
     void SetCampInfoPageMode(W8CampInfoPage mode);
     void ReportCastResult(int party_slot);
     void TargetCharacterWithHeldItem(unsigned int uiTargetChar);
-    void UpdateItemCursorForState(bool alternate, W8ItemInstance* item, int slot);
+    void UpdateItemCursorForState(bool alternate, const W8ItemInstance* item, int slot);
     UiResult HandleCampItem(const UiPointerEvent& event, int slot, W8ItemStorage storage);
     void DrawCampItemIcons();
     void RefreshCampActionPanel(bool invalidate);
@@ -301,15 +301,15 @@ private:
     void DrawCampBackpackItems();
     void DrawCampEquipmentItems();
     void DrawCampItemPool();
-    void DrawCampItemQuantity(W8ItemInstance* item, int left, int top, int width);
+    void DrawCampItemQuantity(const W8ItemInstance* item, int left, int top, int width);
     void SelectPendingCampCharacter();
     void HandleCampItemClick(W8ItemLocation location);
     void TakeItemUnitToHand(W8ItemLocation source);
-    void MarkCampCharacterPending(W8ItemInstance* item);
-    void OpenItemInfoDialog(W8ItemInstance* item);
+    void MarkCampCharacterPending(const W8ItemInstance* item);
+    void OpenItemInfoDialog(const W8ItemInstance* item);
     void OpenAttributeInfoDialog(W8Attribute attribute);
     void OpenSecondaryAttributeInfoDialog(unsigned int uiIndex);
-    void IdentifyAndOpenItemInfo(W8ItemInstance* item);
+    void IdentifyAndOpenItemInfo(W8ItemLocation location);
     void DropHeldCampItem();
     void UseCampItem(W8ItemLocation location);
     void MergeItemStacksWithHeld(W8ItemLocation location);
@@ -318,10 +318,10 @@ private:
     void TogglePartyRowFlag();
     void SortCampItemPool();
     void ToggleCampItemFilter(W8CampItemFilterButton tab);
-    void ShowCampItemInfo(W8ItemInstance* item);
+    void ShowCampItemInfo(W8ItemLocation location);
     W8ItemLocation CampItemAt(int slot, W8ItemStorage storage) const;
     std::string CampItemTooltip(int slot, W8ItemStorage storage);
-    void DrawCampItemLabel(W8ItemInstance* item, int left, int top, signed char flag);
+    void DrawCampItemLabel(const W8ItemInstance* item, int left, int top, signed char flag);
     void OpenSplitStackDialog(W8ItemLocation location);
 };
 
@@ -565,7 +565,7 @@ extern int g_race_portrait_images[0x30];
 int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8CombatSlot* target);
 int CommitPartySlotItemUse(int party_slot, W8ItemUse use, W8CombatSlot* target);
 
-bool IsEquippableItemClass(W8ItemInstance* item);
+bool IsEquippableItemClass(const W8ItemInstance* item);
 
 /* Begin the timed screen fade and run `callback` when it
    finishes; `fade_to_black` selects the alpha ramp. */

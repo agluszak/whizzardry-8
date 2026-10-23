@@ -15,6 +15,7 @@ std::shared_ptr<const SpriteSheet> ItemSprites(int item_id);
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 
+class Game;
 struct W8ItemDatabaseRecord;
 struct W8NpcState;
 struct W8CombatSlot;
@@ -45,7 +46,7 @@ unsigned int GetItemUnitWeight(const W8ItemInstance* item);
 unsigned char GetItemEquipClass(const W8ItemInstance* item);
 W8Skill GetItemSpellPresentation(const W8ItemDatabaseRecord* record);
 void UpdateFactsAfterAcquiringItem(const W8ItemInstance* item);
-void DeliverExceptionalItemReaction(W8ItemInstance* item, bool choose_character,
+void DeliverExceptionalItemReaction(Game& game, W8ItemInstance* item, bool choose_character,
                                     W8Character* character);
 void StagePartySlotItemUse(int party_slot, W8ItemLocation location, const W8CombatSlot* target);
 bool PartyAttemptsToIdentifyItem(W8ItemInstance* item, int);
@@ -71,7 +72,7 @@ enum W8ItemEquipSlotGroup {
 };
 W8ItemEquipSlotGroup GetItemEquipSlotGroup(int item_id);
 
-unsigned int CountIdentifyAttemptsNeeded(W8ItemInstance* item, unsigned int percent);
+unsigned int CountIdentifyAttemptsNeeded(const W8ItemInstance* item, unsigned int percent);
 
 bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record);
 
@@ -92,7 +93,6 @@ bool IsItemBoundToWearer(const W8ItemInstance* item);
 bool CanUseItemForAction(int party_slot, const W8ItemInstance* item);
 
 /* Whether the held item can share a hand pair with what the other hand holds. */
-bool HeldItemFitsPairedSlot(int party_slot, W8EquipSlot equip_slot);
 
 /* How hard one attempt at an item's spell is for a character of this skill
    level. */
@@ -104,11 +104,11 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
 void SetCharacterItemUse(int party_slot, const W8Action& action);
 void BindEveryPartyItem(void);
 /* Whether the item's equip class is directly usable (0x17/0x19). */
-bool IsUsableItemClass(W8ItemInstance* item);
+bool IsUsableItemClass(const W8ItemInstance* item);
 /* Validate an item's embedded spell for use now; nonzero reports
    use blocked with the reason notice queued through the callback. A use that
    aims at once (the use-item picker's) also needs a valid target. */
-bool ValidateItemSpellUse(int character_index, W8ItemInstance* item,
+bool ValidateItemSpellUse(int character_index, const W8ItemInstance* item,
                           std::function<void(bool)> callback, bool needs_target);
 bool CharacterHasServiceItem(W8Character* character);
 int CountUsableCharacterItems(W8Character* character);

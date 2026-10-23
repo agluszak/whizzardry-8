@@ -180,7 +180,7 @@ void MainGameScreen::closeItemPicker()
 // Retarget the picker, preferring a dragged item or the character's remembered use.
 void W8UseItemView::RefreshForSlot(int party_slot)
 {
-    W8ItemInstance* item;
+    const W8ItemInstance* item;
 
     if (!IsPartySlotEligible(party_slot)) {
         screen.closeItemPicker();
@@ -191,12 +191,13 @@ void W8UseItemView::RefreshForSlot(int party_slot)
         screen.item_drag->pending = false;
         screen.game.aging_held = false;
         const auto dragged = screen.item_drag->item;
-        if (screen.game.party.held.item.iItemNo == -1) {
+        if (!screen.game.inventory.held()) {
             const bool party_pool = dragged.storage == W8ItemStorage::Pool;
             assert(!party_pool || !screen.game.combat.has_value());
-            Rebuild(party_pool ? Pool::Party : Pool::Character, screen.game.party.itemAt(dragged));
+            Rebuild(party_pool ? Pool::Party : Pool::Character,
+                    screen.game.inventory.itemAt(dragged));
         } else {
-            Rebuild(Pool::Hand, &screen.game.party.held.item);
+            Rebuild(Pool::Hand, &screen.game.inventory.held()->item);
         }
         assert(selected_line != -1);
         ScrollTextBoxTo(selected_line);
@@ -204,7 +205,7 @@ void W8UseItemView::RefreshForSlot(int party_slot)
     }
     if (CanPartySlotUseRecordedItem(party_slot)) {
         screen.item_drag.reset();
-        item = screen.game.party.itemAt(
+        item = screen.game.inventory.itemAt(
             screen.game.party.rows[party_slot].remembered.item_detail.item_use.item);
         if (CanUseItemForAction(owner, item)) {
             const bool party_pool =
@@ -290,7 +291,7 @@ void MainGameScreen::updateItemPicker()
     if (!picker) return;
     const UiTransaction transaction;
     const auto chosen = picker->draft;
-    auto* item = game.party.itemAt(chosen.detail_block.item_use.item);
+    auto* item = game.inventory.itemAt(chosen.detail_block.item_use.item);
     const int slot = picker->owner;
     if (!item || !CanUseItemForAction(slot, item) ||
         !IsItemTargetOfNeededKind(&chosen.target, item))
@@ -302,7 +303,7 @@ void MainGameScreen::updateItemPicker()
 }
 
 // Rebuild from the selected inventory source; usable entries retain inventory order.
-void W8UseItemView::Rebuild(Pool source, W8ItemInstance* select)
+void W8UseItemView::Rebuild(Pool source, const W8ItemInstance* select)
 {
     ResetEditorStatusLine(2);
     ClearSelectedTextLine(2);
@@ -325,7 +326,7 @@ void W8UseItemView::Rebuild(Pool source, W8ItemInstance* select)
         for (unsigned int slot = 0; slot < 8; ++slot)
             AppendEntry({W8ItemStorage::Backpack, character, slot});
     } else {
-        for (unsigned int i = 0; i < screen.game.party.item_count; ++i)
+        for (unsigned int i = 0; i < screen.game.inventory.pool().size(); ++i)
             AppendEntry({W8ItemStorage::Pool, 0, i});
     }
     ShowList(select);
@@ -337,8 +338,8 @@ void W8UseItemView::Rebuild(Pool source, W8ItemInstance* select)
 // Classify once; stable partition preserves inventory order within each band.
 void W8UseItemView::AppendEntry(W8ItemLocation location)
 {
-    W8ItemInstance* item = screen.game.party.itemAt(location);
-    if (item->iItemNo == -1 || IsFilteredOut(item)) return;
+    const W8ItemInstance* item = screen.game.inventory.itemAt(location);
+    if (!item || item->iItemNo == -1 || IsFilteredOut(item)) return;
     const bool usable = CanUseItemForAction(owner, item);
     if (!usable && (screen.game.activity.conversation_aside || LockInteractionSuspended() ||
                     TrapInteractionSuspended()))
@@ -346,7 +347,7 @@ void W8UseItemView::AppendEntry(W8ItemLocation location)
     rows.push_back({location, usable});
 }
 
-void W8UseItemView::ShowList(W8ItemInstance* select)
+void W8UseItemView::ShowList(const W8ItemInstance* select)
 {
     std::stable_partition(rows.begin(), rows.end(), [](const auto& row) { return row.usable; });
     // The shared text box stores at most 350 lines. Keep its rows and ours aligned.
@@ -354,7 +355,7 @@ void W8UseItemView::ShowList(W8ItemInstance* select)
     selected_line = -1;
     for (std::size_t index = 0; index < rows.size(); ++index) {
         const auto [location, usable] = rows[index];
-        auto* item = screen.game.party.itemAt(location);
+        auto* item = screen.game.inventory.itemAt(location);
         if (item == select) selected_line = static_cast<int>(index);
         if (!usable) {
             const bool silenced =
@@ -396,7 +397,7 @@ void W8UseItemView::ShowList(W8ItemInstance* select)
 /* Entries the character cannot activate or cast from are dropped,
    except usable-class items stay unless the slot's bound NPC wants the
    item. */
-bool W8UseItemView::IsFilteredOut(W8ItemInstance* item) const
+bool W8UseItemView::IsFilteredOut(const W8ItemInstance* item) const
 {
     W8NpcState* npc;
 
@@ -431,7 +432,7 @@ void W8UseItemView::Refresh()
    on the clicked row. Cleanup restores the saved target cursor. */
 void W8UseItemView::OpenAssayDialog(W8ItemLocation location)
 {
-    auto* item = screen.game.party.itemAt(location);
+    auto* item = screen.game.inventory.itemAt(location);
     if (!item || item->iItemNo == -1) return;
     auto dialog = std::make_unique<W8AssayDialog>(*item, &screen.game.party.characters[owner],
                                                   SDL_Point{kInfoDialogX, 0x48});
@@ -493,13 +494,13 @@ void W8UseItemView::SelectLine(int iTextLine)
     SetTargetingMode(W8_TARGET_NEED_NONE);
     UpdateDetailPanel(rows[iTextLine].location);
     if (ValidateItemSpellUse(
-            owner, screen.game.party.itemAt(rows[iTextLine].location),
+            owner, screen.game.inventory.itemAt(rows[iTextLine].location),
             [owner = &screen](bool) { owner->hud->repaint.layout = true; }, true)) {
         QueueCharacterEvent(&screen.game.party.characters[owner], 0x35, 0,
                             kCharacterEventFullVolume);
         return;
     }
-    auto* item = screen.game.party.itemAt(rows[iTextLine].location);
+    auto* item = screen.game.inventory.itemAt(rows[iTextLine].location);
     const auto location = rows[iTextLine].location;
     draft.detail_block.item_use.item = location;
     draft.detail_block.item_use.item_id = item->iItemNo;
@@ -530,7 +531,7 @@ void W8UseItemView::SelectLine(int iTextLine)
    '?' while it still is not. */
 void W8UseItemView::UpdateDetailPanel(W8ItemLocation location)
 {
-    auto* item = screen.game.party.itemAt(location);
+    auto* item = screen.game.inventory.itemAt(location);
     std::string text;
     std::string value;
     short count;
@@ -578,16 +579,15 @@ void W8UseItemView::UpdateDetailPanel(W8ItemLocation location)
 void W8UseItemView::TakeIntoHand()
 {
     auto& selected = draft.detail_block.item_use.item;
-    if (screen.game.party.held.item.iItemNo != -1) {
+    auto& inventory = screen.game.inventory;
+    if (inventory.held()) {
         assert(owner != -1);
-        const auto old_count = screen.game.party.item_count;
-        GiveItemToCharacterOrParty(screen.game, owner,
-                                   PartyItem(screen.game.party, {W8ItemStorage::Hand}), true);
+        const auto old_count = inventory.pool().size();
+        (void)inventory.giveHeld(static_cast<unsigned int>(owner), StoreOrder::PoolFirst);
         // A new pool entry goes to the front and moves the selection down one row.
-        if (pool == Pool::Party && old_count != screen.game.party.item_count &&
-            selected.storage == W8ItemStorage::Pool && selected.slot < screen.game.party.item_count)
+        if (pool == Pool::Party && old_count != inventory.pool().size() &&
+            selected.storage == W8ItemStorage::Pool && selected.slot < inventory.pool().size())
             ++selected.slot;
     }
-    ExchangeInventoryItems(screen.game, selected, {W8ItemStorage::Hand},
-                           static_cast<unsigned>(owner));
+    inventory.swapWithHand(selected, static_cast<unsigned>(owner));
 }

@@ -542,23 +542,22 @@ TEST_CASE("Proposed weapons use the same hand rules without changing equipment",
 
 TEST_CASE("Weapon-set replacement derives both hands from the completed arrangement", "[equipment]")
 {
-    const ScopedGame game;
-    auto& characters = CurrentGame().party.characters;
     GameData data{.items = UnrestrictedItems(3)};
     data.items[0].equip_class = W8_ITEM_EQUIP_CLASS_RANGED_WEAPON;
     data.items[0].unidentified_name_index = 0x83;
     data.items[1].equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
     data.items[2].equip_class = W8_ITEM_EQUIP_CLASS_THROWN_WEAPON;
-    const ScopedGameData installed(std::move(data));
+    const ScopedGame game(data);
+    auto& characters = CurrentGame().party.characters;
     CurrentGame().party.members[0].emplace();
     auto& character = characters[0];
     for (auto& item : character.EquippedItem) item.iItemNo = -1;
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo = 2;
     character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo = 1;
-    SetHandType(Data(), &character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
+    SetHandType(data, &character, W8_EQUIP_SLOT_SECONDARY_WEAPON);
     REQUIRE(character.Hand[1].uiHolds == 3);
-    CommitWeaponSetSwap(CurrentGame(), 0, {true, false});
+    CurrentGame().inventory.commitWeaponSwap(0, {true, false});
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == 1);
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo == 0);
     REQUIRE(character.Hand[0].uiHolds == 1);
@@ -568,12 +567,11 @@ TEST_CASE("Weapon-set replacement derives both hands from the completed arrangem
 TEST_CASE("An inventory command's notice follows its consequences in the game's events",
           "[equipment][events]")
 {
-    const ScopedGame scoped;
-    auto& game = scoped.game;
     GameData data{.strings = std::vector<std::string>(0x200), .items = UnrestrictedItems(2)};
     data.strings[0x1ec] = "changes weapons.";
     for (auto& record : data.items) record.equip_class = W8_ITEM_EQUIP_CLASS_SHORT_WEAPON;
-    const ScopedGameData installed(std::move(data));
+    const ScopedGame scoped(data);
+    auto& game = scoped.game;
     game.party.members[0].emplace();
     auto& character = game.party.characters[0];
     character.fInParty = true;
@@ -581,7 +579,7 @@ TEST_CASE("An inventory command's notice follows its consequences in the game's 
     character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo = 1;
 
-    REQUIRE(SwapWeaponSetSlots(game, 0, true));
+    REQUIRE(game.inventory.swapWeaponSets(0, true));
     const auto& pending = game.events.pending();
     REQUIRE(pending.size() == 3);
     REQUIRE(std::get<PartySlotChanged>(pending[0]).party_slot == 0);
@@ -774,7 +772,6 @@ TEST_CASE("An interaction overrides the layout without changing the preference",
 
 TEST_CASE("A refused purchase leaves stock, payment and a full destination unchanged", "[trade]")
 {
-    const ScopedGame game;
     GameData data;
     data.items.resize(2);
     data.items[0].flags = W8_ITEM_FLAG_NO_DISCARD;
@@ -782,12 +779,12 @@ TEST_CASE("A refused purchase leaves stock, payment and a full destination uncha
     data.items[0].maximum_quantity = 10;
     data.items[0].initial_quantity = {0, 1, 6};
     data.items[0].value = 10;
-    const ScopedGameData installed(std::move(data));
+    const ScopedGame game(data);
+    const ScopedGameData installed(GameData{data});
+    auto& inventory = CurrentGame().inventory;
     CurrentGame().party.gold = 100;
-    CurrentGame().party.item_count = 500;
-    for (auto& item : CurrentGame().party.item_pool) item = {.iItemNo = 1};
-
-    CurrentGame().party.held.item = {.iItemNo = 1};
+    inventory.restore(std::vector<W8ItemInstance>(Inventory::kPoolLimit, {.iItemNo = 1}),
+                      W8ItemInstance{.iItemNo = 1});
     W8NpcDatabaseRecord record{};
     record.sell_price_factor = 1.0f;
     W8NpcState npc{};
@@ -800,20 +797,19 @@ TEST_CASE("A refused purchase leaves stock, payment and a full destination uncha
     const auto result = CompleteNpcTrade(CurrentGame(), &npc, 0, stock, 1, W8TradeAction::Exchange);
     REQUIRE(result.outcome == W8TradeOutcome::Refused);
     REQUIRE(CurrentGame().party.gold == 100);
-    REQUIRE(CurrentGame().party.item_count == 500);
-    REQUIRE(CurrentGame().party.item_pool[0].iItemNo == 1);
-    REQUIRE(CurrentGame().party.held.item.iItemNo == 1);
+    REQUIRE(inventory.pool().size() == Inventory::kPoolLimit);
+    REQUIRE(inventory.pool()[0].iItemNo == 1);
+    REQUIRE(inventory.heldItemId() == 1);
     REQUIRE(npc.items.size() == 1);
     REQUIRE(npc.items[0].quantity == 1);
-    CurrentGame().party.item_count = 1;
-    CurrentGame().party.item_pool[0] = {.iItemNo = 0, .stack_count = 8, .identified = true};
+    inventory.restore({{.iItemNo = 0, .stack_count = 8, .identified = true}}, std::nullopt);
     npc.items[0].item.stack_count = 2;
     const W8TradeSelection stack{W8TradeSource::NpcStock, -1, 0, npc.items[0].item, 1};
     REQUIRE(CompleteNpcTrade(CurrentGame(), &npc, 0, stack, 2, W8TradeAction::Exchange).outcome ==
             W8TradeOutcome::Complete);
     REQUIRE(CurrentGame().party.gold == 80);
-    REQUIRE(CurrentGame().party.item_count == 1);
-    REQUIRE(CurrentGame().party.item_pool[0].stack_count == 10);
+    REQUIRE(inventory.pool().size() == 1);
+    REQUIRE(inventory.pool()[0].stack_count == 10);
     REQUIRE(npc.items.empty());
 }
 
@@ -1107,8 +1103,8 @@ TEST_CASE("Character drafts reconcile their own skill allocations without a scre
           "[character][creation]")
 {
     const ScopedGame current;
-    Game owner;
-    const ScopedGameData installed(GameData{.strings = std::vector<std::string>(0x1000)});
+    const GameData data{.strings = std::vector<std::string>(0x1000)};
+    Game owner(data);
     CharacterDraft draft(owner);
     draft.character = MakeFighter();
     draft.character.uiExpLevel = 2;
@@ -1138,8 +1134,8 @@ TEST_CASE("Character drafts reconcile their own skill allocations without a scre
 
 TEST_CASE("A second character draft cannot erase a forced-gender choice", "[character][creation]")
 {
-    const ScopedGame current;
-    const ScopedGameData installed(GameData{.strings = std::vector<std::string>(0x1000)});
+    const GameData data{.strings = std::vector<std::string>(0x1000)};
+    const ScopedGame current(data);
     CharacterDraft first(current.game);
     first.character = MakeFighter();
     first.character.profession_levels[W8_PROFESSION_FIGHTER] = 1;
@@ -1196,15 +1192,14 @@ TEST_CASE("Shared party weight uses stable slot ties and drops the odd half-unit
         party.members[slot].emplace();
         party.characters[slot] = MakeFighter();
     }
-    party.item_pool[0] = {.iItemNo = 0, .stack_count = 1};
-    party.item_count = 1;
-    REQUIRE(UpdatePartyStats(Data(), party, {}).load_redistributed);
+    const std::vector<W8ItemInstance> pool{{.iItemNo = 0, .stack_count = 1}};
+    REQUIRE(UpdatePartyStats(Data(), party, pool, {}).load_redistributed);
     REQUIRE(party.characters[0].party_weight_share == 2);
     REQUIRE(party.characters[1].party_weight_share == 1);
     REQUIRE(party.characters[0].total_carried_weight == 2);
     REQUIRE(party.characters[1].total_carried_weight == 1);
     party.members[0].reset();
-    REQUIRE(UpdatePartyStats(Data(), party, {}).load_redistributed);
+    REQUIRE(UpdatePartyStats(Data(), party, pool, {}).load_redistributed);
     REQUIRE(party.characters[0].party_weight_share == 0);
     REQUIRE(party.characters[1].party_weight_share == 3);
 }
@@ -1242,16 +1237,15 @@ TEST_CASE("Party load follows supplied rules independently of the live combat an
     character.fInParty = true;
     character.iRace = W8_RACE_ANDROID;
     character.party_weight_share = 4;
-    party.item_pool[0] = {.iItemNo = 0, .stack_count = 1};
-    party.item_count = 1;
+    const std::vector<W8ItemInstance> pool{{.iItemNo = 0, .stack_count = 1}};
     PartyStatRules rules;
     rules.load_timing = PartyLoadTiming::AfterCombat;
-    REQUIRE_FALSE(UpdatePartyStats(Data(), party, rules).load_redistributed);
+    REQUIRE_FALSE(UpdatePartyStats(Data(), party, pool, rules).load_redistributed);
     REQUIRE(character.party_weight_share == 4);
     REQUIRE(character.total_carried_weight == 4);
     rules.load_timing = PartyLoadTiming::Immediate;
     rules.characters[0].defensive_action = true;
-    REQUIRE(UpdatePartyStats(Data(), party, rules).load_redistributed);
+    REQUIRE(UpdatePartyStats(Data(), party, pool, rules).load_redistributed);
     REQUIRE(character.party_weight_share == 9);
     REQUIRE(character.armor_class_components[W8_AC_COMPONENT_DEFENSIVE_ACTION] == 2);
     REQUIRE(CurrentGame().combat.has_value());
@@ -1276,12 +1270,12 @@ TEST_CASE("Using up an offered item drains the offer and leaves the hand alone",
     const ScopedGame game;
     auto& offer = CurrentGame().npc_interaction.offered_item;
     offer = W8ItemInstance{.iItemNo = 7, .stack_count = 2};
-    CurrentGame().party.held.item = W8ItemInstance{.iItemNo = 9, .stack_count = 1};
+    CurrentGame().inventory.restore({}, W8ItemInstance{.iItemNo = 9, .stack_count = 1});
     RemoveNpcScriptItem(MakeScriptContext(CurrentGame()), &*offer, 0, -1);
     REQUIRE(offer->stack_count == 1);
     RemoveNpcScriptItem(MakeScriptContext(CurrentGame()), &*offer, 0, -1);
     REQUIRE_FALSE(offer);
-    REQUIRE(CurrentGame().party.held.item.iItemNo == 9);
+    REQUIRE(CurrentGame().inventory.heldItemId() == 9);
 }
 
 TEST_CASE("Rebinding an NPC to a new level keeps its state", "[npc]")
@@ -1471,10 +1465,6 @@ TEST_CASE("Weapon swings read the current damage bonus", "[party][stats]")
 }
 
 namespace {
-// The active party as an inventory command sees it outside a running game.
-struct ScopedActiveParty {
-    ScopedGame game;
-};
 
 W8Character& PrepareMember(unsigned int slot)
 {
@@ -1493,30 +1483,26 @@ W8Character& PrepareMember(unsigned int slot)
 
 TEST_CASE("A split stack travels through the hand and merges back", "[party][inventory]")
 {
-    const ScopedActiveParty active;
     GameData data;
     auto& record = data.items.emplace_back();
     record.quantity_kind = W8_ITEM_QUANTITY_STACK;
     record.maximum_quantity = 100;
     record.weight = 10;
-    const ScopedGameData installed(std::move(data));
+    const ScopedGame game(data);
     auto& actor = PrepareMember(0);
-    auto& party = CurrentGame().party;
+    auto& inventory = CurrentGame().inventory;
     actor.backpack[0] = W8ItemInstance{.iItemNo = 0, .stack_count = 10};
 
-    REQUIRE(SplitItemStack(CurrentGame(), {W8ItemStorage::Backpack, 0, 0}, 3, 0));
+    REQUIRE(inventory.pickUp({W8ItemStorage::Backpack, 0, 0}, 3, 0));
     REQUIRE(actor.backpack[0].stack_count == 7);
-    REQUIRE(party.held.item.stack_count == 3);
-    REQUIRE(party.held.origin == W8ItemLocation{W8ItemStorage::Backpack, 0, 0});
+    REQUIRE(inventory.held()->item.stack_count == 3);
+    REQUIRE(inventory.held()->origin == W8ItemLocation{W8ItemStorage::Backpack, 0, 0});
     REQUIRE(actor.inventory_weight == 70);
-    REQUIRE(SplitItemStack(CurrentGame(), {W8ItemStorage::Backpack, 0, 0}, 1, 0));
-    REQUIRE(party.held.item.stack_count == 4);
+    REQUIRE(inventory.pickUp({W8ItemStorage::Backpack, 0, 0}, 1, 0));
+    REQUIRE(inventory.held()->item.stack_count == 4);
     REQUIRE(actor.inventory_weight == 60);
-    const auto result =
-        MergeInventoryStacks(CurrentGame(), {W8ItemStorage::Backpack, 0, 0}, {W8ItemStorage::Hand});
-    REQUIRE(result.complete);
-    REQUIRE(party.held.item.iItemNo == -1);
-    REQUIRE(party.held.origin == W8ItemLocation{});
+    REQUIRE(inventory.mergeHeld({W8ItemStorage::Backpack, 0, 0}) == 4);
+    REQUIRE_FALSE(inventory.held());
     REQUIRE(actor.backpack[0].stack_count == 10);
     REQUIRE(actor.inventory_weight == 100);
 }
@@ -1524,39 +1510,36 @@ TEST_CASE("A split stack travels through the hand and merges back", "[party][inv
 TEST_CASE("A held stack refuses an unstorable split without losing or duplicating items",
           "[party][inventory]")
 {
-    const ScopedActiveParty active;
     GameData data;
     data.items.resize(1);
     data.items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
     data.items[0].maximum_quantity = 100;
-    const ScopedGameData installed(std::move(data));
+    const ScopedGame game(data);
     auto& party = CurrentGame().party;
-    party.held = {W8ItemInstance{.iItemNo = 0, .stack_count = 10}, {}, 0};
+    auto& inventory = CurrentGame().inventory;
+    inventory.restore(
+        std::vector<W8ItemInstance>(Inventory::kPoolLimit, {.iItemNo = 0, .stack_count = 100}),
+        W8ItemInstance{.iItemNo = 0, .stack_count = 10});
     for (auto& item : party.characters[0].backpack)
         item = W8ItemInstance{.iItemNo = 0, .stack_count = 100};
-    for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 0, .stack_count = 100};
-    party.item_count = 500;
-    REQUIRE_FALSE(SplitItemStack(CurrentGame(), {W8ItemStorage::Hand}, 4, 0));
-    REQUIRE(party.held.item.stack_count == 10);
-    REQUIRE(party.item_count == 500);
+    REQUIRE_FALSE(inventory.pickUp({W8ItemStorage::Hand}, 4, 0));
+    REQUIRE(inventory.held()->item.stack_count == 10);
+    REQUIRE(inventory.pool().size() == Inventory::kPoolLimit);
     REQUIRE(party.characters[0].backpack[0].stack_count == 100);
-    REQUIRE_FALSE(SplitItemStack(CurrentGame(), {W8ItemStorage::Hand}, 11, 0));
-    REQUIRE_FALSE(SplitItemStack(CurrentGame(), {W8ItemStorage::Hand}, 0, 0));
+    REQUIRE_FALSE(CurrentGame().inventory.pickUp({W8ItemStorage::Hand}, 11, 0));
+    REQUIRE_FALSE(CurrentGame().inventory.pickUp({W8ItemStorage::Hand}, 0, 0));
 }
 
 TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
           "[party][inventory][stats]")
 {
-    const ScopedActiveParty active;
     GameData data{.items = UnrestrictedItems(3)};
     // The first item supplies strength to the second, but itself requires speed.
     data.items[0].modifier_0b3_index = W8_ATTRIBUTE_STRENGTH;
     data.items[0].modifier_0b3_value = 20;
     data.items[0].attribute_requirements[0] = {W8_ATTRIBUTE_SPEED, 60};
     data.items[1].attribute_requirements[0] = {W8_ATTRIBUTE_STRENGTH, 60};
-    auto undiscardable = data;
-    undiscardable.items[1].flags |= W8_ITEM_FLAG_NO_DISCARD;
-    const ScopedGameData installed(std::move(data));
+    const ScopedGame game(data);
     auto& character = PrepareMember(0);
     character.EquippedItem[W8_EQUIP_SLOT_HEAD].iItemNo = 0;
     character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo = 1;
@@ -1569,40 +1552,73 @@ TEST_CASE("Unusable equipment comes off in slot order and never stays equipped",
     REQUIRE(character.attributes[W8_ATTRIBUTE_STRENGTH].effective == 50);
 
     // With no storage left, an item that may not be discarded falls into the hand.
-    auto& party = CurrentGame().party;
-    const ScopedGameData no_discard(std::move(undiscardable));
+    auto& inventory = CurrentGame().inventory;
+    data.items[1].flags |= W8_ITEM_FLAG_NO_DISCARD;
     for (auto& item : character.backpack) item = W8ItemInstance{.iItemNo = 2};
-    for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 2};
-    party.item_count = 500;
+    inventory.restore(std::vector<W8ItemInstance>(Inventory::kPoolLimit, {.iItemNo = 2}),
+                      std::nullopt);
     character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo = 1;
     SettleActiveParty(CurrentGame());
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo == -1);
-    REQUIRE(party.held.item.iItemNo == 1);
+    REQUIRE(inventory.heldItemId() == 1);
 }
 
 TEST_CASE("Unusable equipment that nothing can take stays equipped until there is room",
           "[party][inventory]")
 {
-    const ScopedActiveParty active;
     GameData data{.items = UnrestrictedItems(3)};
     data.items[0].attribute_requirements[0] = {W8_ATTRIBUTE_STRENGTH, 60};
-    const ScopedGameData installed(std::move(data));
+    const ScopedGame game(data);
     auto& character = PrepareMember(0);
-    auto& party = CurrentGame().party;
+    auto& inventory = CurrentGame().inventory;
     for (auto& item : character.backpack) item = W8ItemInstance{.iItemNo = 1};
-    for (auto& item : party.item_pool) item = W8ItemInstance{.iItemNo = 1};
-    party.item_count = 500;
-    party.held.item = W8ItemInstance{.iItemNo = 2};
+    inventory.restore(std::vector<W8ItemInstance>(Inventory::kPoolLimit, {.iItemNo = 1}),
+                      W8ItemInstance{.iItemNo = 2});
     character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo = 0;
 
     // No level is loaded, so there is nowhere to drop it either.
     SettleActiveParty(CurrentGame());
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo == 0);
-    REQUIRE(party.held.item.iItemNo == 2);
-    REQUIRE(party.item_count == 500);
+    REQUIRE(inventory.heldItemId() == 2);
+    REQUIRE(inventory.pool().size() == Inventory::kPoolLimit);
 
     character.backpack[7] = {};
     SettleActiveParty(CurrentGame());
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_TORSO].iItemNo == -1);
     REQUIRE(character.backpack[7].iItemNo == 0);
+}
+
+TEST_CASE("A held stack keeps what a full pool cannot take", "[party][inventory]")
+{
+    GameData data{.items = UnrestrictedItems(2)};
+    data.items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
+    data.items[0].maximum_quantity = 100;
+    const ScopedGame game(data);
+    auto& inventory = CurrentGame().inventory;
+    std::vector<W8ItemInstance> pool(Inventory::kPoolLimit, {.iItemNo = 1});
+    pool[7] = {.iItemNo = 0, .stack_count = 90};
+    inventory.restore(std::move(pool), W8ItemInstance{.iItemNo = 0, .stack_count = 30});
+
+    // Ten units merge; the other twenty stay in the hand rather than being lost.
+    REQUIRE_FALSE(inventory.depositHeld(3, true));
+    REQUIRE(inventory.pool()[7].stack_count == 100);
+    REQUIRE(inventory.pool().size() == Inventory::kPoolLimit);
+    REQUIRE(inventory.held()->item.stack_count == 20);
+}
+
+TEST_CASE("Pool rows close up, and a use is abandoned once its row moves", "[party][inventory]")
+{
+    const GameData data{.items = UnrestrictedItems(13)};
+    const ScopedGame game(data);
+    auto& inventory = CurrentGame().inventory;
+    inventory.restore({{.iItemNo = 10}, {.iItemNo = 11}, {.iItemNo = 12}}, std::nullopt);
+
+    REQUIRE(inventory.take({W8ItemStorage::Pool, 0, 1})->iItemNo == 11);
+    REQUIRE(inventory.pool().size() == 2);
+    const auto use = inventory.useAt({W8ItemStorage::Pool, 0, 1});
+    REQUIRE(inventory.holds(use));
+    // Taking an earlier row moves item 12 out of the use's row.
+    inventory.take({W8ItemStorage::Pool, 0, 0});
+    REQUIRE_FALSE(inventory.holds(use));
+    REQUIRE_FALSE(inventory.take({W8ItemStorage::Pool, 0, 1}));
 }

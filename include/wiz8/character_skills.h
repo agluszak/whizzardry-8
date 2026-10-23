@@ -1,6 +1,5 @@
 #pragma once
 #include <bitset>
-#include <string>
 
 #include "wiz8/data/skills.h"
 
@@ -17,11 +16,6 @@ void PracticeCharacterSkill(Game& game, W8Character* character, W8Skill skill_id
 
 unsigned int GetCharacterSkillNoticeValue(const W8Character* character, W8Skill skill_id);
 void PostSkillIncreaseNotices(Game& game, const W8SkillNoticePayload& notices);
-
-/* 0x00554170: append one "race-icon Name's skill +level" clause to a notice
-   buffer; when continue_line is set, insert a line break first. */
-std::string FormatSkillIncreaseNoticeText(const W8Party& party, int party_slot, bool continue_line,
-                                          W8Skill skill_id);
 
 /* Show a member's skill increase as a portrait message now, or keep it in the slot's
    per-skill flags for FlushDeferredSkillNotices. */

@@ -60,10 +60,10 @@ private:
     // Request a panel's repaint.
     void Repaint(int panel);
     void SelectPool(Pool pool);
-    void Rebuild(Pool pool, W8ItemInstance* select);
+    void Rebuild(Pool pool, const W8ItemInstance* select);
     void AppendEntry(W8ItemLocation location);
-    void ShowList(W8ItemInstance* select);
-    bool IsFilteredOut(W8ItemInstance* item) const;
+    void ShowList(const W8ItemInstance* select);
+    bool IsFilteredOut(const W8ItemInstance* item) const;
     void SelectLine(int line);
     void OpenAssayDialog(W8ItemLocation location);
     void UpdateDetailPanel(W8ItemLocation location);

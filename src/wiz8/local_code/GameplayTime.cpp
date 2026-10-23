@@ -64,6 +64,7 @@
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/party_conditions.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -182,10 +183,12 @@ void UpdateGameClock(int elapsed)
                 }
             }
         }
-        for (unsigned int index = 0; index < CurrentGame().party.item_count; ++index) {
-            W8ItemInstance* item = &CurrentGame().party.item_pool[index];
-            if (item->iItemNo == 0x266) {
-                AddItemUses(Data(), *item, static_cast<signed char>(hours));
+        for (unsigned int index = 0; index < CurrentGame().inventory.pool().size(); ++index) {
+            if (CurrentGame().inventory.pool()[index].iItemNo == 0x266) {
+                CurrentGame().inventory.editItem(
+                    {W8ItemStorage::Pool, 0, index}, [&](W8ItemInstance& item) {
+                        AddItemUses(Data(), item, static_cast<signed char>(hours));
+                    });
             }
         }
     }
@@ -744,13 +747,13 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
         }
     }
 
-    if (const auto found =
-            FindPartyItem(CurrentGame().party, ItemWithId(0x243), W8ItemReach::Party);
+    if (const auto found = CurrentGame().inventory.find(ItemWithId(kItemMadnessRing));
         found.storage != W8ItemStorage::None && found.storage != W8ItemStorage::Hand) {
         auto* holder = found.storage == W8ItemStorage::Pool
                            ? nullptr
                            : &CurrentGame().party.characters[found.character];
-        if (!holder || !FindCharacterItem(*holder, ItemWithId(0x239), W8ItemReach::Worn)) {
+        if (!holder ||
+            !FindCharacterItem(*holder, ItemWithId(kItemMadnessCharm), W8ItemReach::Worn)) {
             if (character->uiCondition[W8_CONDITION_INSANE] < W8_CONDITION_INDEFINITE) {
                 InflictCondition(
                     CurrentGame(), party_slot,

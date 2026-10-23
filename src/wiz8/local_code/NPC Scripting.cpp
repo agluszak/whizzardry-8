@@ -258,13 +258,13 @@ static void ShowConsumedItemQuote(std::string_view text)
    when `match_item_id` is set), then the party pool. The first hit announces
    the loss through the quote bubble or the layout-4 path and returns; failing
    those, one unit of a matching offered item is used up. */
-void RemoveNpcScriptItem(const ScriptContext& context, W8ItemInstance* item, int match_item_id,
-                         int item_id)
+void RemoveNpcScriptItem(const ScriptContext& context, const W8ItemInstance* item,
+                         int match_item_id, int item_id)
 {
     std::string text;
     unsigned int slot;
     unsigned int index;
-    W8ItemInstance* slot_item;
+    const W8ItemInstance* slot_item;
 
     for (slot = 0; slot < 8; ++slot) {
         if (!context.party.members[slot].has_value()) {
@@ -274,18 +274,18 @@ void RemoveNpcScriptItem(const ScriptContext& context, W8ItemInstance* item, int
             slot_item = &context.party.characters[slot].backpack[index];
             if (slot_item->iItemNo != -1 &&
                 (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
-                RemoveInventoryQuantity(context.game, {W8ItemStorage::Backpack, slot, index}, 1);
+                context.inventory.removeQuantity({W8ItemStorage::Backpack, slot, index}, 1);
                 text = fmt::sprintf(Data().strings[0x7ec], context.party.characters[slot].name);
                 ShowConsumedItemQuote(text);
                 return;
             }
         }
     }
-    for (slot = 0; slot < context.party.item_count; ++slot) {
-        slot_item = &context.party.item_pool[slot];
+    for (slot = 0; slot < context.inventory.pool().size(); ++slot) {
+        slot_item = &context.inventory.pool()[slot];
         if (slot_item->iItemNo != -1 &&
             (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
-            RemoveInventoryQuantity(context.game, {W8ItemStorage::Pool, 0, slot}, 1);
+            context.inventory.removeQuantity({W8ItemStorage::Pool, 0, slot}, 1);
             text = Data().strings[0x7ed];
             ShowConsumedItemQuote(text);
             return;
@@ -472,10 +472,10 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
     case W8_NPC_ENTRY_GIVE_ITEM:
         item = MakeItem(Data(), context.game.rng, entry->operand0, true, true, false);
         notice_text = fmt::sprintf(Data().strings[0x7ea], GetItemDisplayName(Data(), &item));
-        if (!context.activity.conversation && context.party.held.item.iItemNo == -1) {
-            context.party.held.item = item;
+        if (!context.activity.conversation && !context.inventory.held()) {
+            context.inventory.hold(item);
         } else {
-            AddItemToPartyOrDrop(context.game, OwnedItem(item), false);
+            context.inventory.storeOrDrop(item, false);
             if (item.iItemNo != -1) break;
             if (context.activity.conversation) DisplayNpcQuote(notice_text, true);
         }

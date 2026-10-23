@@ -68,6 +68,7 @@
 #include "wiz8/render/light.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/string_database.h"
@@ -1140,7 +1141,7 @@ void Trigger::Run(int source)
             }
             W8DoorTriggerActionData* action_data = doorData();
             if (action_data != 0 && action_data->locked && action_data->item != -1) {
-                if (!PartyHasItem(CurrentGame().party, action_data->item)) {
+                if (!CurrentGame().inventory.has(action_data->item)) {
                     ShowNotice(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
                     break;
                 }
@@ -1203,7 +1204,7 @@ void Trigger::Run(int source)
             bool was_active;
 
             if (action_data != 0 && action_data->locked && action_data->item != -1) {
-                if (!PartyHasItem(CurrentGame().party, action_data->item)) {
+                if (!CurrentGame().inventory.has(action_data->item)) {
                     ShowNotice(W8_FONT_PALETTE_BLUE, "Your party doesn't have required key.");
                     break;
                 }
@@ -1359,9 +1360,9 @@ void Trigger::Run(int source)
         was_active = m_pProp->animation_playing;
 
         if (inline_action_data[0] != '\0') {
-            if ((CurrentGame().party.held.item.iItemNo != -1)) {
+            if (auto held = CurrentGame().inventory.take({W8ItemStorage::Hand})) {
                 glm::vec3 item_position;
-                auto item = CreateWorldItem(&CurrentGame().party.held.item, &item_position,
+                auto item = CreateWorldItem(&*held, &item_position,
                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
 
                 if (item != 0) {
@@ -1411,9 +1412,9 @@ void Trigger::Run(int source)
                                                              : g_container_event_alt,
                                                          -1, 0);
                     }
-                } else if (item_count == 1 && !(CurrentGame().party.held.item.iItemNo != -1)) {
+                } else if (item_count == 1 && !(CurrentGame().inventory.held())) {
                     item = world_item_group->contents.front().get();
-                    ReceiveItemInHand(CurrentGame(), item->item);
+                    CurrentGame().inventory.hold(item->item);
                     world_item_group->contents.clear();
                     if (m_pProp->subcycle != 0) {
                         goto toggle_item_prop;
@@ -1924,9 +1925,9 @@ bool Trigger::SelectAction()
 
     if (auto* action_data = doorData(); action_data == nullptr) {
         if (required_item_id >= 0) {
-            if (GetItemInHand(CurrentGame().party) == required_item_id) {
+            if (CurrentGame().inventory.heldItemId() == required_item_id) {
                 if ((flags & W8_TRIGGER_CONSUME_ITEM) != 0) {
-                    RemovePartyItemByID(CurrentGame(), required_item_id, false);
+                    CurrentGame().inventory.removeById(required_item_id, false);
                     required_item_id = -1;
                 }
             } else {
@@ -1968,7 +1969,7 @@ bool Trigger::SelectAction()
         }
 
         if (action_data->locked && action_data->item != -1) {
-            if (GetItemInHand(CurrentGame().party) != action_data->item) {
+            if (CurrentGame().inventory.heldItemId() != action_data->item) {
                 if (m_lData2 == 1 && activation_callback) {
                     activation_callback(this);
                 }

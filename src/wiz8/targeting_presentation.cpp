@@ -59,7 +59,7 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
         (ScreenPointer().targeting() == W8_TARGET_NEED_CONE ||
          (ScreenPointer().targeting() == W8_TARGET_NEED_PLACE && IsWorldCursorVisible()))) {
         const auto action = EditedAction(selected);
-        const auto spell = GetActionSpellLikeId(CurrentGame().party, action);
+        const auto spell = GetActionSpellLikeId(CurrentGame().inventory, action);
         if (spell != 0) {
             area_preview = true;
             W8CombatSlot target{W8_TARGET_KIND_PLACE, -1, -1, -1, {}, {}};
@@ -77,7 +77,7 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
     }
     const auto add_targets = [&](int actor, W8Action action) {
         std::vector<int> targets;
-        const auto spell = GetActionSpellLikeId(CurrentGame().party, action);
+        const auto spell = GetActionSpellLikeId(CurrentGame().inventory, action);
         if (actor == selected && area_preview) {
             targets = result.area_targets;
         } else if (spell != 0) {
@@ -112,7 +112,7 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
         result.monsters[info->location_id].hovered = true;
         const auto action = selected == -1 ? W8Action{} : EditedAction(selected);
         if (selected != -1 &&
-            GetTargetNeededForAction(CurrentGame().party, action) == W8_TARGET_NEED_GROUP) {
+            GetTargetNeededForAction(CurrentGame().inventory, action) == W8_TARGET_NEED_GROUP) {
             if (auto* group = FindMonsterGroup(info->monster_group_id, false))
                 for (int id : group->MemberIds()) result.monsters[id].tint = tint;
         } else
@@ -120,7 +120,7 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
     } else if (auto* group = FindMonsterGroup(hud.action_group, false)) {
         const auto action = selected == -1 ? W8Action{} : EditedAction(selected);
         if (selected != -1 &&
-            GetTargetNeededForAction(CurrentGame().party, action) == W8_TARGET_NEED_GROUP) {
+            GetTargetNeededForAction(CurrentGame().inventory, action) == W8_TARGET_NEED_GROUP) {
             for (int id : group->MemberIds()) result.monsters[id].tint = tint;
         } else if (selected != -1) {
             const auto id =

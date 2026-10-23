@@ -27,7 +27,7 @@ of it:
 
 - **Shared mutable state.** About 250 mutable `extern` globals remain, and unlayered code
   reaches the game through `CurrentGame()` (about 4,500 uses) and the data through
-  `Data()` (about 1,650). The Application owns both, and the game's state has moved
+  `Data()` (about 1,580). The Application owns both, and the game's state has moved
   into `Game`, but ownership is not the same as explicit dependencies: thousands of
   functions still find their owner through these accessors. The remaining steps migrate
   whole operations and their consumers, so the accessors disappear with their last
@@ -47,7 +47,7 @@ The target is five layers. Each may depend only on the layers listed above it.
 | Layer | Owns | May not |
 |---|---|---|
 | `data` | `GameData`: the string table; item, spell, monster, NPC, fact and level databases; missile and encounter tables; profession, race and skill tables. Immutable after loading. Retail record codecs. | change after loading |
-| `rules` | Functions over explicit state: inventory, character derivation and settlement, conditions, spell and attack resolution, facts, factions, trade, NPC script evaluation. They take a `RuleContext` (`const GameData&`, the state they change, `Rng&`, `Events&`), return values, and report refusals as `std::expected`. | include SDL, render, audio, world or screen headers; touch a mutable namespace-scope variable |
+| `rules` | Functions over explicit state: item rules, character derivation and settlement, conditions, spell and attack resolution, facts, factions, trade, NPC script evaluation. They take what they read and change (`const GameData&`, the state they change, `Rng&`, `Events&`), return values, and report refusals as `std::expected`. | include SDL, render, audio, world or screen headers; touch a mutable namespace-scope variable |
 | `game` | `Game`, one play-through. It owns the saved `GameState` value (party, story, clock, message log, level progress), `Rng`, the `Level` (primary and sky worlds, monsters, triggers, encounters), `std::optional<Combat>`, the `Activity`, the speech scheduler and the event log. Commands are its member functions. `Game::advance(elapsed)` is the only simulation step. | include screen headers or call presentation |
 | `ui` | The router and screens. A screen borrows `const GameData&` and `Game*`. It draws from state, issues commands and presents events (notices, voices, portrait flashes, camera cues). It owns all presentation state: the main game's HUD (`MainGameScreen::hud`), text boxes, cursor, targeting mode, the edited formation and the item drag. | change game state except through commands |
 | `app` | The platform (window, GPU, audio device, input), `GameData`, `std::optional<Game>` and the UI. | |
@@ -134,8 +134,8 @@ the licensed runtime scenarios after every step.
      (62), `dialog_code` (18), `spatial` (13), `combat` (13), `level_specific_code`,
      `platform` and `audio`. The router hands the session to every screen it builds, but
      only the main menu, party selection and the Please Wait screen keep it; the other
-     screens should take the game from it, and the code below them the game or a
-     `RuleContext` (steps 3, 6 and 7).
+     screens should take the game from it, and the code below them the game or the
+     parts they act on (steps 3, 6 and 7).
    - The dialogue's interface (layouts, trade table, quote bubble, `NpcDialogueUi`) is the
      main game's `W8NpcDialoguePanel`; `Game::npc_interaction` keeps the conversation
      (who speaks with whom, the offered item, the staged notice) and four interface facts
@@ -153,21 +153,26 @@ the licensed runtime scenarios after every step.
 2. **Finish `GameData`.** The databases and the string table are one immutable value
    (ARCHITECTURE.md, "Layers"), which the Application owns.
    - `Data()` reads the data the Application installs (`InstallGameData`). It has about
-     1,650 uses in 92 unlayered files: 758 in 37 `local_code` files, 535 in 25
-     `local_screens` files, 198 in 11 `dialog_code` files, 122 in `src/wiz8`, and the rest
+     1,580 uses in 89 unlayered files: 756 in 37 `local_code` files, 535 in 25
+     `local_screens` files, 198 in 11 `dialog_code` files, 78 in `src/wiz8`, and the rest
      in `level_specific_code`, `entities`, `world` and `combat`. They reach the data from
-     code that receives neither the data nor the game, and go as screens receive it
-     from the router and rules receive a `RuleContext` (steps 3 and 6). Message-id
+     code that receives neither the data nor the game. A `Game` reads the data its
+     session was given; the inventory and the live party's settlement and conditions
+     already read it there. The rest go as screens receive it from the router and
+     rules receive it explicitly (steps 3 and 6). Message-id
      names ("Named strings") travel with the same migrations.
-3. **Inventory and party in `rules`.** The storage and item rules are behind the
-   boundary and take a `RuleContext` (ARCHITECTURE.md, "Inventory"). What remains:
-   - The commands in `wiz8/inventory.h` (about 30) still take `Game&`, because what
-     they owe after a rule reaches unmigrated code: settlement's host applies
-     combat's hand and death bookkeeping (ARCHITECTURE.md, "Conditions"), acquisition
-     updates story facts and runs
-     exceptional-item reactions, an unstored item drops into the world, and `UseItem`
-     and `BindCharacterItems` run per-item effects in `PC Item.cpp`. They become `Game`
-     members once conditions (step 6) and facts (step 7) take explicit state.
+3. **Inventory and party in `rules`.** The item rules are behind the boundary
+   (ARCHITECTURE.md, "Inventory"). What remains:
+   - `Inventory` holds its `Game&`, because what an operation owes reaches unmigrated
+     code: settlement applies combat's hand and death bookkeeping (ARCHITECTURE.md,
+     "Conditions"), acquisition updates story facts and runs exceptional-item
+     reactions (`PC Item.cpp`), an unstored item drops into the world, and `use` casts
+     through the spell engine. It takes those parts directly once conditions (step 6)
+     and facts (step 7) take explicit state.
+   - Character equipment and backpack slots are still public `W8ItemInstance` arrays
+     whose empty value is an id of -1; screens and spells write item properties there
+     directly. They become private slots (`std::optional<W8ItemInstance>`) that only
+     the inventory moves.
    - Unmigrated code still finds a member's slot from its address:
      `CharacterPointerToPartySlot` (35 uses in 16 files), the camp's reviewed
      character (`CampPartySlot`, since the camp also shows characters outside the
@@ -249,8 +254,8 @@ the licensed runtime scenarios after every step.
        `StartMonsterAttack`, `ContinueMonsterAttack`), conditions and spells are free
        functions that reach the game through `CurrentGame()`; so do the fight's other
        operations in `combat/fight.cpp` (rounds, surprise, the end check, action
-       choices). They should take the game, then a `RuleContext`, and return what
-       happened instead of reporting it.
+       choices). They should take the game, then the parts they act on, and return
+       what happened instead of reporting it.
      - `Combat::waitingOn` still polls each step: the camera's transition, each combat
        monster (`Monster::HoldsCombatTurn`, which keeps the cycle, frame-threshold and
        facing rules inside the entity) and the missiles in flight (`BlocksEndingCombat`,
@@ -360,8 +365,6 @@ Questions to settle, usually against the retail executable, traces or saves,
 before the related refactoring changes behavior.
 
 - **Retail semantics to confirm.**
-  - Whether `GiveHeldItemToCharacterOrParty`'s party-first refusal discards the
-    held item.
   - Whether `CountCharacterItem`'s backpack count (which reads the equipment slot
     with the same index) affects any quest.
   - Whether conjuring an item into an occupied hand destroys the held item.

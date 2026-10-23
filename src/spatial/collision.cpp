@@ -1000,7 +1000,7 @@ bool W8GDSurface::ResolveCollision(PartyMotion& level, LevelEnvironment& environ
         const World* world = GetWorld();
         if ((flags & W8_GD_SURFACE_EXPLICIT_SLOPE) != 0 && world != nullptr && world->script &&
             world->script->slopeOverrideActive() &&
-            PartyHasItem(CurrentGame().party, kSlopeOverrideItem, W8ItemReach::Worn)) {
+            CurrentGame().inventory.has(kSlopeOverrideItem, W8ItemReach::Worn)) {
             environ.motion_factor = 1.0f;
         } else if (environ.motion_factor < slope) {
             environ.motion_factor = slope;

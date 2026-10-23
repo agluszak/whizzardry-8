@@ -13,7 +13,7 @@
 namespace {
 int HeldItemId()
 {
-    return GameInProgress() ? CurrentGame().party.held.item.iItemNo : -1;
+    return GameInProgress() ? CurrentGame().inventory.heldItemId() : -1;
 }
 
 } // namespace

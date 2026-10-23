@@ -91,6 +91,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
@@ -1029,7 +1030,12 @@ try {
    camera, the status version, the difficulty and an Iron Man save's file time. */
 static wiz8::save::GameState CaptureStateForSave(const Game& game, const wiz8::File& file)
 {
-    wiz8::save::GameState snapshot{game.status, game.party, game.search.requested()};
+    const auto* held = game.inventory.held();
+    wiz8::save::GameState snapshot{game.status,
+                                   game.party,
+                                   {game.inventory.pool().begin(), game.inventory.pool().end()},
+                                   held ? std::optional{held->item} : std::nullopt,
+                                   game.search.requested()};
     auto& status = snapshot.status;
     status.pending_move_location = game.level.primary->party.pose();
     status.retail.save_version = 1.1f;
@@ -1846,6 +1852,7 @@ void SavedGame::install(GameSession& games) &&
     game.stored_characters = std::move(characters);
     game.status = std::move(state.status);
     game.party = std::move(state.party);
+    game.inventory.restore(std::move(state.pool), state.held);
     game.search.restore(state.search_mode);
     if (messages) InstallMessageBoxes(std::move(*messages), game);
     game.story.location_variables = std::move(location_variables);
@@ -1917,5 +1924,8 @@ void SavedGame::install(GameSession& games) &&
         normalize(game.party.characters[slot].EquippedItem);
         normalize(game.party.characters[slot].backpack);
     }
-    normalize(std::span(game.party.item_pool).first(game.party.item_count));
+    for (unsigned int index = 0; index < game.inventory.pool().size(); ++index) {
+        game.inventory.editItem({W8ItemStorage::Pool, 0, index},
+                                [](W8ItemInstance& item) { NormalizeItemQuantityKind(&item); });
+    }
 }

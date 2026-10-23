@@ -848,7 +848,7 @@ void StartCharacterItemUse(int party_slot)
 
     if (IsSpellTargetStillValid(
             party_slot,
-            GetItemSpell(CurrentGame().party.itemAt(row->remembered.item_detail.item_use.item)),
+            GetItemSpell(CurrentGame().inventory.itemAt(row->remembered.item_detail.item_use.item)),
             ParticipatingAction(party_slot, row->remembered.item()))) {
         StartBreathCycle(party_slot, false);
         return;
@@ -1025,7 +1025,7 @@ int g_learn_sound = kFirstRemappedEvent + 16;
    skill the spell belongs to at the same. */
 void LearnSpellFromItem(W8Character* character, W8ItemLocation location)
 {
-    const W8ItemInstance* item = CurrentGame().party.itemAt(location);
+    const W8ItemInstance* item = CurrentGame().inventory.itemAt(location);
     unsigned int spell_id;
     int usage_points;
     unsigned int skill_id;
@@ -1051,7 +1051,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemLocation location)
                                    usage_points, false);
         }
     }
-    (void)TakeInventoryItem(CurrentGame(), location);
+    (void)CurrentGame().inventory.take(location);
     QueueCharacterEvent(character, g_learn_sound, 0, kCharacterEventFullVolume);
 }
 
@@ -1170,7 +1170,7 @@ int GetAffordableSpellPowerLevel(int party_slot)
 bool CanPartySlotUseRecordedItem(int party_slot)
 {
     W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-    W8ItemInstance* item;
+    const W8ItemInstance* item;
     int spell_id;
     bool normalize;
 
@@ -1178,10 +1178,10 @@ bool CanPartySlotUseRecordedItem(int party_slot)
     if (use.item.storage == W8ItemStorage::None || use.item.storage == W8ItemStorage::Hand ||
         (use.item.storage == W8ItemStorage::Pool && CurrentGame().combat.has_value()))
         return false;
-    item = ResolveItemUse(CurrentGame().party, use);
-    if (item == 0) {
+    if (!CurrentGame().inventory.holds(use)) {
         return false;
     }
+    item = CurrentGame().inventory.itemAt(use.item);
     if (!CanUseItemForAction(party_slot, item)) {
         return false;
     }
@@ -1697,8 +1697,8 @@ static unsigned int ChooseSpellPowerLevelForTarget(W8Character* caster, int spel
         if (spell_id != W8_SPELL_IDENTIFY_ITEM) {
             return 1;
         }
-        power_level =
-            CountIdentifyAttemptsNeeded(CurrentGame().party.itemAt(target.item), identify_context);
+        power_level = CountIdentifyAttemptsNeeded(CurrentGame().inventory.itemAt(target.item),
+                                                  identify_context);
         break;
 
     default:
@@ -1779,7 +1779,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
     case 7:
         return fmt::sprintf(
             Data().strings[W8_MESSAGE_TARGET_ITEM / 4],
-            FormatItemDisplayName(Data(), CurrentGame().party.itemAt(target->item), false));
+            FormatItemDisplayName(Data(), CurrentGame().inventory.itemAt(target->item), false));
 
     case W8_TARGET_KIND_EIGHT:
         return Data().strings[W8_MESSAGE_TARGET_DIRECTION / 4];
@@ -2249,7 +2249,7 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
         }
         break;
     case W8_SPELL_IDENTIFY_ITEM:
-        if (CurrentGame().party.itemAt(aim->item)->identified) {
+        if (CurrentGame().inventory.itemAt(aim->item)->identified) {
             return false;
         }
         break;

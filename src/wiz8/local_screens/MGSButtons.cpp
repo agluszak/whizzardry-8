@@ -665,7 +665,8 @@ void DrawSubMenuCharacterAction(void)
                 Data()
                     .spells[Data()
                                 .items[CurrentGame()
-                                           .party.itemAt(row->committed.detail_block.item_use.item)
+                                           .inventory
+                                           .itemAt(row->committed.detail_block.item_use.item)
                                            ->iItemNo]
                                 .spell_id]
                     .display_name);
@@ -1059,7 +1060,7 @@ bool BuildSubMenuPanel(short notification)
                 if (!CanPartySlotUseRecordedItem(slot)) return std::string(Data().strings[0x5d]);
                 const auto& row = CurrentGame().party.rows[slot];
                 const auto* item =
-                    CurrentGame().party.itemAt(row.remembered.item_detail.item_use.item);
+                    CurrentGame().inventory.itemAt(row.remembered.item_detail.item_use.item);
                 return fmt::format("{}: {}", Data().strings[0x5d],
                                    FormatItemDisplayName(Data(), item, false));
             });

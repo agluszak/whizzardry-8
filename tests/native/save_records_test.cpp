@@ -41,7 +41,6 @@
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
-#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
@@ -893,7 +892,9 @@ constexpr std::size_t kFirstRowOffset =
 static wiz8::save::GameState populated_game_state()
 {
     wiz8::save::GameState saved{};
-    auto& [status, party, search_mode] = saved;
+    auto& status = saved.status;
+    auto& party = saved.party;
+    auto& search_mode = saved.search_mode;
     auto& rows = party.rows;
     for (int slot = 0; slot < 8; ++slot) {
         party.members[slot].emplace().npc_index = slot < 2 ? slot : -1;
@@ -925,8 +926,7 @@ static wiz8::save::GameState populated_game_state()
     status.world_clock = 0x80000003u;
     search_mode = true;
     party.gold = 0x12345678;
-    party.item_pool[0] = {.iItemNo = 12, .stack_count = 3, .identified = true};
-    party.item_count = 1;
+    saved.pool = {{.iItemNo = 12, .stack_count = 3, .identified = true}};
     status.uiTurnsElapsed = 0x87654321;
     status.pending_move_location.position = glm::vec3(1, 2, 3);
     status.pending_move_location.orientation = {.yaw = 0.5f, .pitch = 0.25f};
@@ -990,8 +990,7 @@ static void global_status_record()
     REQUIRE(restored.search_mode);
     REQUIRE(wiz8::save::encode(restored) == payload);
     REQUIRE(restored.party.gold == saved.party.gold);
-    REQUIRE(restored.party.item_pool[0] == saved.party.item_pool[0]);
-    REQUIRE(restored.party.item_count == 1);
+    REQUIRE(restored.pool == saved.pool);
     const auto& restored_rows = restored.party.rows;
     for (int slot = 0; slot < 8; ++slot) {
         REQUIRE(restored.party.members[slot].has_value());
@@ -1007,8 +1006,8 @@ static void global_status_record()
         REQUIRE(restored.party.members[slot]->movement_fatigue == 1.25f + slot);
         REQUIRE(restored_rows[slot].weapon_swap_pending == bool(slot % 2));
     }
-    const auto location = restored.party.rows[0].executing.detail_block.item_use.item;
-    REQUIRE(restored.party.itemAt(location) == &restored.party.characters[0].backpack[3]);
+    REQUIRE(restored.party.rows[0].executing.detail_block.item_use.item ==
+            W8ItemLocation{W8ItemStorage::Backpack, 0, 3});
 
     // Unidentified bytes and a fixture character survive decode and encode unchanged.
     auto edited = payload;
@@ -1781,4 +1780,32 @@ TEST_CASE("Level asset paths select preprocessed levels and sky fallbacks", "[le
     touch("Levels/Bayjin/Bayjin1.LVL");
     REQUIRE(LevelBuildInfoByID(2, &info));
     REQUIRE(info.sky_path.empty());
+}
+
+TEST_CASE("The pool saves its live items and keeps a loaded save's unused records",
+          "[save][records]")
+{
+    constexpr std::size_t pool_offset = 4 + 0x21;
+    constexpr std::size_t second = pool_offset + 12;
+    // A game that loaded no save writes empty records past the count.
+    auto payload = wiz8::save::encode(populated_game_state());
+    REQUIRE(payload_word(payload, second) == 0xffffffffu);
+    std::fill_n(payload.begin() + second, 12, std::byte{0x6d});
+    auto restored = wiz8::save::decode_game_state(payload);
+    REQUIRE(restored.pool.size() == 1);
+    REQUIRE(wiz8::save::encode(restored) == payload);
+
+    // A live item takes the record; once it goes, the loaded record is written again.
+    restored.pool.push_back({.iItemNo = 77, .unknown_08 = 0x56});
+    auto encoded = wiz8::save::encode(restored);
+    REQUIRE(payload_word(encoded, second) == 77);
+    REQUIRE(encoded[second + 8] == std::byte{0x56});
+    restored.pool.pop_back();
+    REQUIRE(wiz8::save::encode(restored) == payload);
+
+    const unsigned int invalid_count = 501;
+    std::memcpy(payload.data() + 4 + 0x1791, &invalid_count, sizeof(invalid_count));
+    REQUIRE_THROWS_AS(wiz8::save::decode_game_state(payload), std::runtime_error);
+    restored.pool.resize(501);
+    REQUIRE_THROWS_AS(wiz8::save::encode(restored), std::runtime_error);
 }
