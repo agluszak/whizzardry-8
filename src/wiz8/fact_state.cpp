@@ -40,27 +40,6 @@ void PostNewGameLoad(void)
     g_fact_notifications_suppressed = false;
 }
 
-/* Install a save's facts, then re-apply the consequences that do not survive a save. */
-void InstallFacts(const std::array<unsigned char, W8_FACT_SLOT_COUNT>& facts)
-{
-    W8NpcState* npc;
-
-    CurrentGame().story.facts = facts;
-    if (GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED)) {
-        npc = GetNpcStateByKind(0x20);
-        if (npc && npc->has_monster) {
-            ReloadNpcScriptResources(npc);
-        }
-    }
-    if (!GetFact(W8_FACT_IMPORT_TRANG)) {
-        if (!GetFact(W8_FACT_IMPORT_UMPANI)) {
-            if (!GetFact(W8_FACT_VIRGIN)) {
-                SetFact(W8_FACT_IMPORT_NOALIGN, 1, false);
-            }
-        }
-    }
-}
-
 /* Evaluate one derived fact from the party's live state. Most facts either
    read the stored fact array directly or combine a handful of primary facts;
    the hard-coded rules below are the original's. The helper evaluates

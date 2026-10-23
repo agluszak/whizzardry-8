@@ -3,6 +3,7 @@
 
 #include "wiz8/rules/conditions.h"
 
+class Game;
 struct W8ItemInstance;
 struct W8TargetSource;
 struct W8Character;
@@ -56,6 +57,3 @@ void RemoveConditionFromEveryone(W8Condition condition);
 void RemoveAllEnchantments(void);
 
 void NormalizeItemQuantityKind(W8ItemInstance* item);
-/* The post-load repair LoadGame runs - unequip unusable items on
-   every character and normalize quantity kinds on carried and pooled items. */
-void SanitizeLoadedItems(void);
