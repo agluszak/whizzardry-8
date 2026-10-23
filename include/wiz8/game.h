@@ -140,7 +140,7 @@ public:
        sustained monster control the HYPN section saves. */
     std::vector<std::unique_ptr<W8SpellEffectEntry>> spell_effects;
     // Voice barks and quotes waiting for, or holding, a speaker.
-    W8CharacterEventQueue speech;
+    W8CharacterEventQueue speech{*this};
     // The NPC conversation's progress: its speaker, queued script work and owed reply.
     W8NpcDialogue npc_dialogue;
     // The conversation participants, offered item, transcript and staged script notice.

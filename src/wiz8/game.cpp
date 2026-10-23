@@ -47,8 +47,7 @@ std::unique_ptr<World> Level::replaceSky(std::unique_ptr<World> world)
     return std::exchange(sky, std::move(world));
 }
 
-/* The session finishes character speech while this game is current. NPC voice
-   belongs to its screen presentation; the Al-Sedexus ambience belongs here. */
+// NPC voice belongs to its screen presentation; the Al-Sedexus ambience stops with the game.
 Game::~Game()
 {
     for (auto& entry : monster_manager_entries) entry.mouth_gap = {};
@@ -82,8 +81,6 @@ Game& GameSession::begin()
 void GameSession::end()
 {
     if (!game_) return;
-    // Finish character voices while their game and world are still current.
-    game_->speech.DestroyAllEvents();
     LeaveLevel();
     discard();
 }
@@ -92,9 +89,6 @@ void GameSession::discard()
 {
     if (!game_) return;
     next_stream_ = game_->rng;
-    // Voice events complete into the queue and the characters they name, which they find
-    // through the current game.
-    game_->speech.DestroyAllEvents();
     game_.reset();
 }
 

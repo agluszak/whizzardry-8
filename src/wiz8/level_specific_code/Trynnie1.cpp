@@ -26,7 +26,6 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/script_context.h"
-#include "wiz8/utility.h"
 #include "wiz8/world/world.h"
 
 class Trigger;
@@ -123,7 +122,7 @@ bool Trynnie1Script::fountRandomFX(Trigger* pTrigger)
 
     roll = ctx.game.rng.below(100);
     if (roll < 25) {
-        slot = GetRandomCharacter(0, 0, -1, -1);
+        slot = CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, -1, -1);
         if (slot != -1) {
             InflictCondition(ctx.game, slot,
                              {.condition = W8_CONDITION_HEXED,

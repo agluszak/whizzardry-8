@@ -233,13 +233,10 @@ bool NpcKnowsFact(W8NpcState* npc, W8FactId fact)
     return false;
 }
 
-/* The NPC state at one index, skipping released bindings and invalid indices. */
+// The current game's NPC state at one index (`Story::npc`).
 W8NpcState* GetNpcState(int index)
 {
-    if (index < 0 || static_cast<std::size_t>(index) >= CurrentGame().story.npcs.size())
-        return nullptr;
-    auto* npc = CurrentGame().story.npcs[index].get();
-    return npc && !npc->binding_unavailable ? npc : nullptr;
+    return CurrentGame().story.npc(index);
 }
 
 W8NpcState* GetNpcStateByKind(int kind)

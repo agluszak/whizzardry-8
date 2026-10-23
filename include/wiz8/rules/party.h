@@ -8,6 +8,8 @@
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
 
+class Rng;
+
 // Character and action storage have the same lifetime as their party.
 struct W8Party {
     W8PartyFormationState formation{};
@@ -21,6 +23,12 @@ struct W8Party {
     /* The slot's place in the marching order; an empty slot reads as the first place, as a
        cleared retail row did. */
     int orderIndexOf(unsigned int slot) const;
+    /* A random slot other than `excluded_slot` whose member is not of `excluded_gender`
+       (-1 for any), alive unless `require_primary` is 2 and awake unless
+       `require_secondary` is 2. A requirement of 1 is waived when nobody meets it; -1 when
+       nobody qualifies. Draws from `rng`. */
+    int randomSlot(Rng& rng, int require_primary, int require_secondary, int excluded_slot,
+                   signed char excluded_gender) const;
 
     std::optional<int> companion_inventory;
     W8Character characters[W8_PARTY_SLOT_COUNT]{};

@@ -229,60 +229,6 @@ unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
     return found;
 }
 
-int GetRandomCharacter(int require_primary, int require_secondary, int excluded_slot,
-                       signed char excluded_gender)
-{
-    int skip;
-    unsigned int slot;
-    unsigned int scanned;
-    bool matched;
-    W8Character* character;
-
-retry:
-    skip = CurrentGame().rng.below(8);
-    scanned = 0;
-    slot = 0;
-    do {
-        matched = false;
-        if (CurrentGame().party.members[slot].has_value() &&
-            static_cast<int>(slot) != excluded_slot) {
-            character = &CurrentGame().party.characters[slot];
-            if ((character->hp_current > 0 && character->highest_condition < W8_CONDITION_DEAD) ||
-                require_primary == 2) {
-                if (excluded_gender == -1 || excluded_gender != character->gender) {
-                    if (character->highest_condition < W8_CONDITION_ASLEEP ||
-                        require_secondary == 2) {
-                        matched = true;
-                        if (skip == 0) {
-                            return slot;
-                        }
-                        skip--;
-                        scanned = 0;
-                    }
-                }
-            }
-        }
-        slot++;
-        if (slot == 8) {
-            slot = 0;
-        }
-        scanned++;
-    } while (scanned <= 8);
-
-    if (matched) {
-        return slot;
-    }
-    if (require_secondary == 1) {
-        require_secondary = 2;
-        goto retry;
-    }
-    if (require_primary == 1) {
-        require_primary = 2;
-        goto retry;
-    }
-    return -1;
-}
-
 int GetNextCharacter(int require_primary, int require_secondary, int previous_slot)
 {
     int start_slot = (previous_slot + 1) % 8;

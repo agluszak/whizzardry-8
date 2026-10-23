@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -81,5 +82,12 @@ struct Story {
        slot can go to a different NPC; anything still working with the released one
        shares it, so it never starts referring to the slot's new occupant. */
     std::vector<std::shared_ptr<W8NpcState>> npcs;
+    // The NPC in slot `index`; null for an invalid index or a released binding.
+    W8NpcState* npc(int index) const
+    {
+        if (index < 0 || static_cast<std::size_t>(index) >= npcs.size()) return nullptr;
+        W8NpcState* state = npcs[static_cast<std::size_t>(index)].get();
+        return state && !state->binding_unavailable ? state : nullptr;
+    }
     std::vector<W8LocationVariable> location_variables;
 };

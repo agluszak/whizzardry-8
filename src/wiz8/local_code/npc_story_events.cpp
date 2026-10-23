@@ -243,8 +243,8 @@ bool IsSedexusCaptureActive(void)
 
 void UpdateSedexusScene(const ScriptContext& context)
 {
-    if (!CurrentGame().sedexus_scene.capture_pending &&
-        !CurrentGame().sedexus_scene.release_pending) {
+    if (!context.game.sedexus_scene.capture_pending &&
+        !context.game.sedexus_scene.release_pending) {
         return;
     }
     const W8EnvironmentLightingMode environment = EnvironmentLightingMode();
@@ -252,9 +252,9 @@ void UpdateSedexusScene(const ScriptContext& context)
         environment != W8EnvironmentLightingMode::DayNight) {
         return;
     }
-    CurrentGame().npc_dialogue.ReleaseScene();
-    if (!CurrentGame().sedexus_scene.release_pending) {
-        CurrentGame().sedexus_scene.moaning =
+    context.game.npc_dialogue.ReleaseScene();
+    if (!context.game.sedexus_scene.release_pending) {
+        context.game.sedexus_scene.moaning =
             wiz8::sound::stream("Data\\Sound\\Ambients\\Al_Sedexus Moaning.wav");
     } else {
         ClearMainGameTargetState();
@@ -264,22 +264,22 @@ void UpdateSedexusScene(const ScriptContext& context)
             if (context.party.members[party_slot].has_value() &&
                 (character.hp_current > 0 || character.highest_condition < W8_CONDITION_DEAD) &&
                 party_slot != sedexus_party_slot) {
-                LiftCondition(CurrentGame(), party_slot, W8_CONDITION_UNCONSCIOUS, false);
+                LiftCondition(context.game, party_slot, W8_CONDITION_UNCONSCIOUS, false);
                 sedexus_party_slot = context.status.sedexus_party_slot;
             }
         }
         W8Character* character = &context.party.characters[sedexus_party_slot];
         if (character->gender == W8_GENDER_MALE) {
-            QueueCharacterEvent(character, 43, 0, kCharacterEventFullVolume);
+            context.game.speech.Queue(character, 43, 0, kCharacterEventFullVolume);
         }
-        CurrentGame().sedexus_scene.capture_active = false;
-        if (CurrentGame().sedexus_scene.moaning != nullptr) {
-            wiz8::sound::stop(CurrentGame().sedexus_scene.moaning);
-            CurrentGame().sedexus_scene.moaning = nullptr;
+        context.game.sedexus_scene.capture_active = false;
+        if (context.game.sedexus_scene.moaning != nullptr) {
+            wiz8::sound::stop(context.game.sedexus_scene.moaning);
+            context.game.sedexus_scene.moaning = nullptr;
         }
     }
-    CurrentGame().sedexus_scene.capture_pending = false;
-    CurrentGame().sedexus_scene.release_pending = false;
+    context.game.sedexus_scene.capture_pending = false;
+    context.game.sedexus_scene.release_pending = false;
 }
 
 /* Al-Sedexus takes her pick: the scripted scene opens, the lighting fades,

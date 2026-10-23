@@ -40,7 +40,6 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
@@ -944,7 +943,7 @@ bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, const W8MonsterReco
         W8MonsterInfo* target_monster = FindMonster(target->iMonsterID);
         return MonsterAttackReachesMonster(monster_info, record, attack, target_monster);
     } else if (target->iType == W8_TARGET_KIND_PARTY) {
-        int party_slot = GetRandomCharacter(1, 1, -1, -1);
+        int party_slot = CurrentGame().party.randomSlot(CurrentGame().rng, 1, 1, -1, -1);
         range = GetMonsterPartyTargetRange(monster_info, record, attack, party_slot);
         if (range == W8_RANGE_NONE) {
             return false;

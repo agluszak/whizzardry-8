@@ -47,6 +47,10 @@ public:
     bool has_queued_actions() const { return !queue_.empty(); }
     /* A scripted scene holds the queue until it ends. */
     bool is_held_by_scene() const { return held_by_scene_; }
+    /* Party character events wait while a conversation line or queued script action
+       is pending for an ungrouped speaker (or any speaker, with `require_group_entry`),
+       unless a scripted scene holds the dialogue. */
+    bool DefersCharacterEvents(bool require_group_entry) const;
 
     /* Make `npc` the speaker. `suspend_current` keeps the current
        conversation, which resumes once the queue drains. */

@@ -660,7 +660,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                  monster_info->ubDisposition == W8_DISPOSITION_NEUTRAL) &&
                                 (g_sight_marker_tick == 0 || now - g_sight_marker_tick > 199)) {
                                 g_sight_marker_tick = now;
-                                int party_slot = GetRandomCharacter(0, 0, -1, -1);
+                                int party_slot =
+                                    CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, -1, -1);
 
                                 if (party_slot != -1) {
                                     int effect = 0x43;
@@ -688,7 +689,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 if (glm::length(delta) < 25000.0f &&
                                     (npc->party_noticed = true, !CurrentGame().surprise_possible) &&
                                     GetLoadedLevelID() != 4) {
-                                    int party_slot = GetRandomCharacter(0, 0, -1, -1);
+                                    int party_slot = CurrentGame().party.randomSlot(
+                                        CurrentGame().rng, 0, 0, -1, -1);
 
                                     if (party_slot != -1) {
                                         int effect = 0x26;

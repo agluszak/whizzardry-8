@@ -1898,7 +1898,8 @@ TEST_CASE("Modal confirmations and scrollbars dispatch through their native owne
         W8Character character{};
         character.fInParty = true; // Quote access must still use the previewed character directly.
         auto& queue = CurrentGame().speech;
-        queue.active_events.push_back(std::make_unique<W8CharacterEvent>(&character, 0, 0, 127));
+        queue.active_events.push_back(
+            std::make_unique<W8CharacterEvent>(queue, &character, 0, 0, 127));
         auto* unrelated = queue.active_events.front().get();
         CurrentGame().party = {};
         {
