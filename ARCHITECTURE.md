@@ -339,6 +339,8 @@ code has a subclass whose members are that state. Trigger callbacks are
   640×480 design space. A `UiTransaction` spans one input step; objects retired
   during it are destroyed when the outermost transaction ends
   (`DestroyAfterUiDispatch`), so nothing is freed while its own callback runs.
+  The main game's dialogue panel owns NPC voice playback and the active quote's
+  input; discarding the panel cancels pending voice completion.
   In the main game, `MainGameScreen::refreshLayout` decides one `MainGameLayout`
   (shown mode, panels, world viewport) from the open interaction and the player's
   preferences and changes only the panels that differ; an interaction overrides

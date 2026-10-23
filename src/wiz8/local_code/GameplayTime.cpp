@@ -49,7 +49,6 @@
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/monster_runtime.h"
 #include "wiz8/music_playlist.h"
@@ -130,7 +129,7 @@ static void BeginPartyCamping()
         surprise.unengaged = false;
         ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::sprintf(Data().strings[0x790], 8));
     }
-    SetNpcQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
+    MainGame()->dialogue.setQuoteBubbleVisible(false, {}, 0, -1, 0xffffffff);
     BeginSurprise();
     game.surprise_possible = true;
     SetWorldResumeInput(true);

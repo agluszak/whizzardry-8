@@ -26,7 +26,6 @@
 #include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/message_log.h"
 #include "wiz8/npc_interaction_state.h"
-#include "wiz8/npc_speech.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
@@ -144,12 +143,8 @@ public:
     W8CharacterEventQueue speech;
     // The NPC conversation's progress: its speaker, queued script work and owed reply.
     W8NpcDialogue npc_dialogue;
-    /* The conversation's interface: layouts, trade tables, the saved transcript and the
-       staged script notice. */
+    // The conversation participants, offered item, transcript and staged script notice.
     W8NpcInteractionState npc_interaction;
-    // The quote or portrait message on screen and the NPC voice that speaks it.
-    W8NpcPresentation npc_presentation = W8NpcPresentation::none;
-    W8NpcSpeech npc_speech;
     W8SedexusScene sedexus_scene;
     // The deadline of each shared three-minute spell cooldown (in `SpellPracticeCooldown`).
     std::array<std::uint64_t, 14> spell_cooldowns{};

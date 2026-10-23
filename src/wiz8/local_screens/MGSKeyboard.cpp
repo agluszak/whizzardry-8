@@ -238,7 +238,7 @@ void DispatchMGSCommand(W8MGSCommand command)
         } else if (FormationPanelOpen()) {
             CloseFormationPanel();
         } else if (IsNpcScriptSessionActive()) {
-            TryFinishNpcVoicePlayback(CurrentGame().status, true);
+            TryFinishNpcVoicePlayback(true);
         } else if (CurrentGame().speech.HasActiveEvents()) {
             CurrentGame().speech.CompleteFirstActiveEvent();
         } else {

@@ -2570,7 +2570,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     ReleasePortraitControls();
     ReleaseConditionButtons();
     if (party_movement) party_movement->disableInput();
-    RestoreCurrentNpcQuoteBubble();
+    dialogue.restoreQuoteBubble();
     MoveTimer(W8_MOVE_TIMER_SUSPEND);
     // The world stays covered, and held, until this screen steps it again.
     ApplyWorldAdvancement(game, {.covered = true});
@@ -2591,7 +2591,6 @@ bool MainGameScreen::leave(ScreenDeparture departure)
             ReleasePartyMovement();
         }
 
-        HideNpcQuoteBubbleRegion();
         ShutdownTextBoxRegions();
         DestroyFormationPanel();
         wiz8::sound::release_cache();

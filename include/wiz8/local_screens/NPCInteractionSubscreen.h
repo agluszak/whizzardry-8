@@ -9,8 +9,6 @@
 
 void SyncNpcDialogueTranscriptScrollButtons();
 void SetNpcDialogueInputEnabled(int group, bool enabled);
-void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2);
-void HideNpcQuoteBubbleRegion();
 
 #include <array>
 #include <bitset>
@@ -117,11 +115,6 @@ void SyncDialogueNpcState(void);
    place-name table. While the transcript shows the notebook the new line
    appears there too, marked and with the keyword chime when `chime` is set. */
 void LearnDialogueKeyword(std::string_view text, W8DialogueCategory category, bool chime);
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
-                              int quote_id, unsigned int font_palette);
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
-                              int quote_id, unsigned int font_palette, W8QuoteNotice notice,
-                              int npc_kind);
 void DrawNpcQuoteBubble(void);
 void LookAtDialogueNpc(void);
 void CloseNpcDialogueLayout(void);

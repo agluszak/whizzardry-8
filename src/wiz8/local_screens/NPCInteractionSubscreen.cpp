@@ -87,6 +87,7 @@
 #include "wiz8/npc_interaction_state.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/npc_speech.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/pointer.h"
@@ -133,26 +134,6 @@ bool NpcEditingText()
     return fields && fields->Editing();
 }
 } // namespace
-
-static std::unique_ptr<UiLayer> npc_quote_input;
-
-void ShowNpcQuoteBubbleRegion(int x1, int y1, int x2, int y2)
-{
-    npc_quote_input = std::make_unique<UiLayer>(UiLayerOrder::NpcQuoteBubble);
-    npc_quote_input->add(
-        SDL_Rect{x1, y1, x2 - x1 + 1, y2 - y1 + 1}, [](const UiPointerEvent& event) {
-            if (event.action != UiPointerAction::Up || event.captured_buttons)
-                PlayButtonSound(event.action);
-            if (event.action == UiPointerAction::Down && event.button == UiPointerButton::Left)
-                AfterUiDispatch([] { TryFinishNpcVoicePlayback(CurrentGame().status, true); });
-            return UiResult::Handled;
-        });
-}
-
-void HideNpcQuoteBubbleRegion()
-{
-    npc_quote_input.reset();
-}
 
 static void ToggleNpcTradeFilter(W8NpcTradeFilter filter);
 static constexpr std::array kTradeFilters{
@@ -2982,7 +2963,7 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
             return;
         }
         if (IsNpcScriptSessionActive()) {
-            TryFinishNpcVoicePlayback(CurrentGame().status, true);
+            TryFinishNpcVoicePlayback(true);
             return;
         }
         if (NpcEditingText()) {
@@ -3366,14 +3347,14 @@ void DrainNpcDialogueDeferralInput(void)
                             break;
                         }
                     } else {
-                        TryFinishNpcVoicePlayback(CurrentGame().status, false);
+                        TryFinishNpcVoicePlayback(false);
                     }
                 } else {
                     SetNpcDialogueHidden(0);
                 }
             }
         } else if (input.type == InputEventType::LeftButtonDown) {
-            TryFinishNpcVoicePlayback(CurrentGame().status, false);
+            TryFinishNpcVoicePlayback(false);
         }
     }
 }
@@ -3415,17 +3396,12 @@ void OpenNpcDialog(std::shared_ptr<const W8NpcScriptFile> script, const W8NpcQuo
     ScreenPointer().showSlot(W8_CURSOR_NONE);
 }
 
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
-                              int quote_id, unsigned int font_palette)
+void W8NpcDialoguePanel::setQuoteBubbleVisible(bool visible, std::string_view text,
+                                               const W8NpcScriptQuote* quote, int quote_id,
+                                               unsigned int font_palette, W8QuoteNotice notice,
+                                               int npc_kind)
 {
-    SetNpcQuoteBubbleVisible(visible, text, quote, quote_id, font_palette, {}, -1);
-}
-
-void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
-                              int quote_id, unsigned int font_palette, W8QuoteNotice notice,
-                              int npc_kind)
-{
-    if (visible == MainGame()->dialogue.quote_visible) {
+    if (visible == active_quote.has_value()) {
         return;
     }
     if (visible) {
@@ -3440,35 +3416,39 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
             }
             normalized += text[index];
         }
-        auto& bubble = MainGame()->dialogue.quote_bubble;
+        auto& active = active_quote.emplace();
+        auto& bubble = active.bubble;
         bubble = QuoteBubble::layout(
             normalized, 280,
             font_palette == 0xffffffff ? std::nullopt : std::optional<std::uint8_t>(font_palette));
         if (!bubble) {
-            if (CurrentGame().npc_interaction.dialogue_npc != 0) {
+            if (screen_.game.npc_interaction.dialogue_npc != 0) {
                 error_text = fmt::format(
                     "Error creating box - most likely text too large: NPC {}, quote {:d}",
-                    CurrentGame().npc_interaction.dialogue_npc->record->source_name, quote_id);
+                    screen_.game.npc_interaction.dialogue_npc->record->source_name, quote_id);
             } else {
                 error_text = "Error creating box - most likely text too large";
             }
             bubble = QuoteBubble::layout(error_text, 300, std::nullopt);
             ShowNotice(W8_FONT_PALETTE_BEIGE, error_text, 0,
-                       (MainGameHud()->text_box_right - MainGameHud()->text_box_left));
+                       (screen_.hud->text_box_right - screen_.hud->text_box_left));
         }
-        MainGame()->dialogue.quote_width = static_cast<short>(bubble ? bubble->width() : 0);
-        MainGame()->dialogue.quote_height = static_cast<short>(bubble ? bubble->height() : 0);
-        MainGame()->dialogue.quote_x = 320 - MainGame()->dialogue.quote_width / 2;
-        MainGame()->dialogue.quote_y = quote_id < 0 ? 350 - MainGame()->dialogue.quote_height : 20;
-        ShowNpcQuoteBubbleRegion(MainGame()->dialogue.quote_x, MainGame()->dialogue.quote_y,
-                                 MainGame()->dialogue.quote_x + MainGame()->dialogue.quote_width,
-                                 MainGame()->dialogue.quote_y + MainGame()->dialogue.quote_height);
-        MainGame()->dialogue.quote_visible = true;
+        active.origin = {320 - active.bounds().w / 2, quote_id < 0 ? 350 - active.bounds().h : 20};
+        const auto bounds = active.bounds();
+        active.input.add(SDL_Rect{bounds.x, bounds.y, bounds.w + 1, bounds.h + 1},
+                         [this](const UiPointerEvent& event) {
+                             if (event.action != UiPointerAction::Up || event.captured_buttons)
+                                 PlayButtonSound(event.action);
+                             if (event.action == UiPointerAction::Down &&
+                                 event.button == UiPointerButton::Left)
+                                 AfterUiDispatch([this] { tryFinishVoice(true); });
+                             return UiResult::Handled;
+                         });
         if (std::holds_alternative<std::monostate>(notice)) {
-            CurrentGame().npc_interaction.pending_notice_lines.push_back({normalized, npc_kind});
+            screen_.game.npc_interaction.pending_notice_lines.push_back({normalized, npc_kind});
         }
         bool level_up = std::holds_alternative<W8LevelUpNotice>(notice);
-        MainGame()->dialogue.quote_notice = notice;
+        active.notice = notice;
         if (level_up) {
             wiz8::sound::play(
                 reinterpret_cast<char*>(const_cast<char*>( // reinterpret-ok: SGP text ABI
@@ -3477,16 +3457,17 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
         return;
     }
 
-    bool flush_notices = (quote_id == 0x12 || quote_id < 0) &&
-                         std::holds_alternative<std::monostate>(MainGame()->dialogue.quote_notice);
-    W8QuoteNotice dismissed = std::exchange(MainGame()->dialogue.quote_notice, {});
+    auto& active = *active_quote;
+    bool flush_notices =
+        (quote_id == 0x12 || quote_id < 0) && std::holds_alternative<std::monostate>(active.notice);
+    W8QuoteNotice dismissed = active.notice;
     if (const auto* experience = std::get_if<W8ExperienceNoticePayload>(&dismissed)) {
         ShowNotice(W8_FONT_PALETTE_BEIGE,
                    fmt::sprintf(Data().strings[experience->alternate_message ? 0x231 : 0x232],
                                 experience->amount),
                    0);
     } else if (const auto* skills = std::get_if<W8SkillNoticePayload>(&dismissed)) {
-        PostSkillIncreaseNotices(CurrentGame(), *skills);
+        PostSkillIncreaseNotices(screen_.game, *skills);
     } else if (const auto* level_up = std::get_if<W8LevelUpNotice>(&dismissed)) {
         PostCharacterNotice(level_up->party_slot, Data().strings[0x773]);
     }
@@ -3500,20 +3481,15 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
     if (flush_notices) {
         FlushPendingNoticeLines();
     }
-    MainGame()->dialogue.quote_visible = false;
-    const bool had_bubble = MainGame()->dialogue.quote_bubble.has_value();
-    MainGame()->dialogue.quote_bubble.reset();
-    HideNpcQuoteBubbleRegion();
+    const auto bounds = active.bounds();
+    const bool had_bubble = active.bubble.has_value();
+    active_quote.reset();
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         if (had_bubble) {
-            ClearSurfaceRect(MainGame()->dialogue.quote_x, MainGame()->dialogue.quote_y,
-                             MainGame()->dialogue.quote_x + MainGame()->dialogue.quote_width,
-                             MainGame()->dialogue.quote_y + MainGame()->dialogue.quote_height);
-            InvalidateRegion(MainGame()->dialogue.quote_x, MainGame()->dialogue.quote_y,
-                             MainGame()->dialogue.quote_x + MainGame()->dialogue.quote_width,
-                             MainGame()->dialogue.quote_y + MainGame()->dialogue.quote_height);
+            ClearSurfaceRect(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
+            InvalidateRegion(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
         }
-        if (auto* hud = MainGameHud()) {
+        if (auto* hud = screen_.hud.get()) {
             hud->repaint.layout = true;
             hud->repaint.portraits.set();
             hud->repaint.portrait_panel = true;
@@ -3525,10 +3501,9 @@ void SetNpcQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcSc
 
 void DrawNpcQuoteBubble(void)
 {
-    IsModalOpen();
-    if (MainGame()->dialogue.quote_visible && MainGame()->dialogue.quote_bubble) {
-        MainGame()->dialogue.quote_bubble->draw(
-            GetFrameBufferSurface(), MainGame()->dialogue.quote_x, MainGame()->dialogue.quote_y);
+    const auto& active = MainGame()->dialogue.active_quote;
+    if (active && active->bubble) {
+        active->bubble->draw(GetFrameBufferSurface(), active->origin.x, active->origin.y);
     }
 }
 
@@ -4033,14 +4008,14 @@ bool FinishNpcVoiceIfSessionActive(void)
     if (!IsNpcScriptSessionActive()) {
         return false;
     }
-    TryFinishNpcVoicePlayback(CurrentGame().status, false);
+    TryFinishNpcVoicePlayback(false);
     return true;
 }
 
 bool ProcessPendingEvent(void)
 {
     if (IsNpcScriptSessionActive()) {
-        TryFinishNpcVoicePlayback(CurrentGame().status, true);
+        TryFinishNpcVoicePlayback(true);
         return true;
     }
     if (CurrentGame().speech.HasActiveEvents()) {

@@ -3,18 +3,25 @@
 #include <bitset>
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <vector>
 
+#include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
 
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_items.h"
+#include "wiz8/npc_speech.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/ui_layer.h"
 
 struct MainGameScreen;
 struct NpcDialogueUi;
+struct ScriptContext;
+struct W8NpcScriptQuote;
+enum class W8NpcSubquoteOutcome : unsigned char;
 
 /* Usability filters and the exclusive equipment categories in the trade UI.
    The category bits use the same positions as W8ItemEquipSlotGroup. */
@@ -42,10 +49,25 @@ enum W8NpcTradeMode : unsigned char {
     W8_NPC_TRADE_SHOPLIFT = 5
 };
 
+// An active quote may have no drawable bubble if both layout attempts fail.
+// Its input and dismissal payload still share the same lifetime.
+struct W8ActiveNpcQuote {
+    std::optional<QuoteBubble> bubble;
+    SDL_Point origin{};
+    W8QuoteNotice notice{};
+    UiLayer input{UiLayerOrder::NpcQuoteBubble};
+
+    SDL_Rect bounds() const
+    {
+        return {origin.x, origin.y, bubble ? bubble->width() : 0, bubble ? bubble->height() : 0};
+    }
+};
+
 /* The NPC dialogue's interface on the main game: the layouts and their widgets, the trade
    table, the transcript view, the quote bubble and the camera turned toward the speaker.
    The main game owns it (`MainGameScreen::dialogue`); what the conversation itself keeps
-   is the game's (`W8NpcInteractionState`). */
+   is the game's (`W8NpcInteractionState`). It presents the conversation's quotes,
+   portrait messages and voice for its screen's game. */
 struct W8NpcDialoguePanel {
     // Out of line, where the dialogue's widgets are a complete type.
     explicit W8NpcDialoguePanel(MainGameScreen& screen);
@@ -53,6 +75,34 @@ struct W8NpcDialoguePanel {
     W8NpcDialoguePanel(const W8NpcDialoguePanel&) = delete;
     W8NpcDialoguePanel& operator=(const W8NpcDialoguePanel&) = delete;
 
+    // A quote or portrait message is on screen.
+    bool presenting() const { return presentation != W8NpcPresentation::none; }
+    bool voicePlaying() const { return speech.voice_playing; }
+    // Finish a message or quote whose time is up, and move the speaker's mouth.
+    void updateVoice();
+    /* Speak one subquote of the speaker's current quote; `notice_only` posts it to the
+       text box instead. */
+    W8NpcSubquoteOutcome speakSubquote(const ScriptContext& context, const W8NpcScriptQuote* quote,
+                                       unsigned char subquote_index, bool notice_only,
+                                       bool force_npc_voice);
+    /* Finish the voice on request. Suppressed while the level-4 gate is up; without
+       `force`, ignored within 500 ms of the voice starting. */
+    void tryFinishVoice(bool force);
+    void showPortraitMessage(std::string_view text, W8QuoteNotice notice = {});
+    /* Raise the quote bubble over `text`, with the start-game click when
+       `play_sound` is set. */
+    void displayQuote(std::string_view text, bool play_sound);
+    /* Repost the speaker's current quote after a modal sub-dialog closes, or clear the
+       bubble when the speaker or its script went away. */
+    void restoreQuoteBubble();
+    /* Show the quote bubble over `text`, or dismiss it and deliver what it held back:
+       the notice it carried and, at the end of a quote, the pending notice lines. */
+    void setQuoteBubbleVisible(bool visible, std::string_view text, const W8NpcScriptQuote* quote,
+                               int quote_id, unsigned int font_palette, W8QuoteNotice notice = {},
+                               int npc_kind = -1);
+
+    W8NpcSpeech speech;
+    W8NpcPresentation presentation = W8NpcPresentation::none;
     W8NpcTradeMode trade_mode{};
     /* The layout the current one replaced; back-out paths reopen it. */
     W8NpcDialogueLayout previous_dialogue_layout{};
@@ -69,12 +119,7 @@ struct W8NpcDialoguePanel {
     /* Raised while the "Where Is" submit path runs, so the typed text is
        wrapped in the "Where is %s" template instead of a plain keyword lookup. */
     bool where_is_query{};
-    std::optional<QuoteBubble> quote_bubble{};
-    short quote_x{};
-    short quote_y{};
-    short quote_width{};
-    short quote_height{};
-    bool quote_visible{};
+    std::optional<W8ActiveNpcQuote> active_quote;
     /* The option layout was reached through the Exit/farewell path, so backing
        out of it reopens the topic menu instead of the transcript. */
     bool reopen_topics{};
@@ -89,7 +134,6 @@ struct W8NpcDialoguePanel {
        the saved camera angles. */
     bool camera_redirected{};
     float saved_camera_pitch{};
-    W8QuoteNotice quote_notice{};
     int trade_quantity{};
     /* How many times the transcript layout has opened this session; the
        first open queues the greeting lines. */
@@ -114,5 +158,6 @@ struct W8NpcDialoguePanel {
 
 private:
     void paintPanel(int index, SDL_Surface& target, bool force) const;
+    void finishVoice(bool resume_script);
     MainGameScreen& screen_;
 };
