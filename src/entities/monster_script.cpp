@@ -526,6 +526,7 @@ void Monster::ProcessScript()
                     this->trigger = FindTriggerByName(token.c_str());
                     if (this->trigger != 0) {
                         this->trigger->Run(-1);
+                        if (owner_world.isRetiring(*this)) return;
                         script_wait = MONSCR_TRIGGER;
                     }
                 }
@@ -554,6 +555,7 @@ void Monster::ProcessScript()
                         runtime_flags |= W8_MONSTER_PARKED;
                         Trigger* trigger = FindTriggerByName("Path3Trigger");
                         if (trigger != 0) trigger->Run(-1);
+                        if (owner_world.isRetiring(*this)) return;
                     } else if (SDL_strcasecmp(token.c_str(), "UNLOCKUI") == 0 ||
                                SDL_strcasecmp(token.c_str(), "ENDGARIWALK") == 0) {
                         ClearMainGameTargetState();

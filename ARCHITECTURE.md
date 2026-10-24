@@ -142,7 +142,11 @@ does not satisfy this contract.
   defer all events to the end of a frame. Combat owns its decision to wait, while
   playback owns actual audio/animation progress and reports completion to the
   originating operation. Polling a read-only readiness query is acceptable when
-  it is simpler than subscriptions or cached busy counts.
+  it is simpler than subscriptions or cached busy counts. Monster update traversal
+  retains removed records until its script callbacks return. Removal immediately
+  retires targeting, navigation and scene relationships; it cannot reclaim the
+  actor whose update is on the stack. Newly spawned actors enter the next pass,
+  and removing another actor cannot skip surviving actors in the current pass.
 - **Presentation is an output, not an authority over game state.** Render and
   paint do not mutate gameplay or draw gameplay RNG. Picking returns a semantic
   selection for the interaction owner to interpret. UI notifications may still

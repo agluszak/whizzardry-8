@@ -99,6 +99,8 @@ public:
     Monster(const Monster&) = delete;
     Monster& operator=(const Monster&) = delete;
     ~Monster();
+    // Stop exposing this runtime to the world, without reclaiming in-flight storage.
+    void retire();
 
     bool CanEnterCycle(signed char cycle);
     void UpdateRepresentation();
@@ -398,8 +400,6 @@ W8MonsterCycle ParseMonsterCycleName(std::string_view name, signed char* subcycl
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
 
 std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_name, int cycle);
-
-void UpdateNearestMonsterGroupMembers();
 
 /* Secondary vftable 0x005ed218 keeps the Navigator subobject at +0x18. */
 

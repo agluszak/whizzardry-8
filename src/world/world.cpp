@@ -107,7 +107,7 @@ bool g_navigator_vertical_enabled = true;
 static void UpdateWorld(World& world, std::chrono::milliseconds elapsed)
 {
     if (&world != GetSecondaryWorld()) {
-        UpdateWorldMonsters(&world);
+        world.updateMonsters();
         UpdateWorldMissiles(&world);
         UpdateWorldSpellVisuals(&world);
         UpdateAmbientSounds(&world);

@@ -822,12 +822,15 @@ void ShutdownMonsterManager(void)
 
 bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
 {
-    auto& roster = CurrentLevelPopulation().monster_roster;
+    auto& world = CurrentGame().level.loaded();
+    auto& roster = world.population->monster_roster;
     const auto owns = [&](const auto& partition) {
         return std::ranges::any_of(partition,
                                    [&](const auto& entry) { return entry.get() == monster_info; });
     };
     if (!owns(roster.live()) && !owns(roster.unborn())) return false;
+    if (world.monster_retirements_ && removal != W8MonsterRemoval::Deactivate)
+        world.monster_retirements_->reserve(world.monster_retirements_->size() + 1);
 
     if (CurrentGame().combat.has_value() && monster_info->pCombat) {
         MonsterInfoLeaveCombat(monster_info);
@@ -859,15 +862,17 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
     if (removal == W8MonsterRemoval::Deactivate) return true;
     if (Monster* monster = monster_info->entity.get()) {
         if (removal == W8MonsterRemoval::Despawn) monster->visual.RetireParticles();
-        monster_info->entity.reset();
+        if (world.monster_retirements_)
+            monster->retire();
+        else
+            monster_info->entity.reset();
     }
     // Inactive and unborn records also own visibility/NPC relationships.
     ReleaseMonToMonVisibilityList(monster_info);
-    if (auto* world = GetWorld(); world && world->compiledIndex())
-        world->compiledIndex()->UnregisterLocationObjects(
-            static_cast<unsigned short>(monster_info->location_id));
+    if (auto* spatial = world.compiledIndex())
+        spatial->UnregisterLocationObjects(static_cast<unsigned short>(monster_info->location_id));
     ReleaseNpcBinding(monster_info->bound_npc_index);
-    return roster.erase(monster_info);
+    return roster.erase(monster_info, world.monster_retirements_);
 }
 
 /* Retires one entry from the live world: it parks the entry at the sentinel

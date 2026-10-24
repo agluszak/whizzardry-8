@@ -66,6 +66,7 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/render/camera_shake.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/ground_shadow.h"
@@ -345,15 +346,26 @@ Monster::Monster(const MonsterDefinition& definition, World& owner)
 
 Monster::~Monster()
 {
+    retire();
+}
+
+void Monster::retire()
+{
     if (visual.active_animation) visual.DetachRepresentation();
-    std::erase(owner_world.active_monsters, this);
-    visual.SetLights(0);
+    for (const auto& model : visual.models) model->setScene(nullptr);
+    for (const auto& model : linked_runtime_objects) model->setScene(nullptr);
+    for (const auto& cycle : cycles)
+        for (const auto& animation : cycle)
+            for (const auto& light : animation.lights.lights) light->setScene(nullptr);
+    if (monster_light) monster_light->setScene(nullptr);
+    visual.SetLights(nullptr);
     ClearMonsterSpellIcons(*this);
-    script.reset();
-    runtime_flags &= ~W8_MONSTER_SCRIPT_WAIT;
-    script_line = 0;
-    script_wait = MONSCR_NONE;
+    for (const auto& event : visual.shake_events) CameraShakes().Stop(event);
+    visual.shake_events.clear();
     sound.reset();
+    nav.detachFromWorld();
+    std::erase(owner_world.active_monsters, this);
+    // Script/cycle storage stays alive until the owning record is reclaimed.
 }
 
 /* Navigator is Monster's second base at +0x18. VC6 places this override in
@@ -498,6 +510,7 @@ void Monster::Update()
 
     if (cycle != W8_MONSTER_CYCLE_DIE && script != 0 && !CurrentGame().combat.has_value()) {
         ProcessScript();
+        if (owner_world.isRetiring(*this)) return;
         cycle = Query(W8_MONSTER_QUERY_CYCLE);
     }
 
@@ -1069,40 +1082,25 @@ void Monster::TrackSound(wiz8::sound::Playback playback)
 
 /* Mark the closest live member of each loaded group inside the selection
    range. Members that do not improve the current candidate are unmarked. */
-void UpdateNearestMonsterGroupMembers()
+void World::updateNearestMonsterGroupMembers()
 {
-    glm::vec3 player_position;
-    unsigned int group_index;
-
-    player_position = cameraLocation();
-    for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
-         ++group_index) {
-        W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
-
-        if (group != 0) {
-            double nearest_distance = 1e11;
-            W8MonsterInfo* nearest = 0;
-            unsigned int member_index;
-
-            for (member_index = 0; member_index < group->MemberIds().size(); ++member_index) {
-                W8MonsterInfo* member = FindMonster(group->MemberLocationId(member_index));
-
-                if (member != 0 && member->entity) {
-                    glm::vec3 position = member->entity->nav.GetPosition();
-                    float distance = glm::length((position - player_position));
-
-                    if (distance < g_monster_group_nearest_range && distance < nearest_distance) {
-                        nearest_distance = distance;
-                        nearest = member;
-                    } else {
-                        member->entity->nearest_to_party = false;
-                    }
-                }
-            }
-            if (nearest != 0) {
-                nearest->entity->nearest_to_party = true;
+    const auto player_position = party.camera.m_position;
+    for (const auto& group : population->monster_groups) {
+        if (!group) continue;
+        double nearest_distance = 1e11;
+        W8MonsterInfo* nearest = nullptr;
+        for (const auto id : group->MemberIds()) {
+            auto* member = population->findMonster(id);
+            if (!member || !member->entity) continue;
+            const auto distance = glm::length(member->entity->nav.GetPosition() - player_position);
+            if (distance < g_monster_group_nearest_range && distance < nearest_distance) {
+                nearest_distance = distance;
+                nearest = member;
+            } else {
+                member->entity->nearest_to_party = false;
             }
         }
+        if (nearest) nearest->entity->nearest_to_party = true;
     }
 }
 

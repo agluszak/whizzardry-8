@@ -7,6 +7,7 @@
 #include <memory>
 #include <ranges>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -28,6 +29,7 @@
 #include "wiz8/game.h"
 #include "wiz8/geometry.h"
 #include "wiz8/level_population.h"
+#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/math.h"
 #include "wiz8/render/camera.h"
@@ -51,23 +53,35 @@
 constexpr double kLightRangeAttenuationDenominator = 0.0019569471624266144;
 constexpr double kLightRangeAttenuationNumerator = 0.9980430528375734;
 
-void UpdateWorldMonsters(World* world)
+void World::updateMonsters()
 {
-    assert(world != 0);
-
-    const glm::vec3 position = world->party.eye();
-
-    auto count = world->active_monsters.size();
-    UpdateNearestMonsterGroupMembers();
-    for (int index = 0; index < static_cast<int>(count); ++index) {
-        Monster* monster = world->active_monsters[index];
-        if (monster != 0) {
+    if (monster_retirements_) throw std::logic_error("recursive monster update");
+    const auto updating = active_monsters;
+    std::vector<std::unique_ptr<W8MonsterInfo>> retired;
+    monster_retirements_ = &retired;
+    try {
+        const auto position = party.eye();
+        updateNearestMonsterGroupMembers();
+        for (Monster* monster : updating) {
+            if (!monster || !std::ranges::contains(active_monsters, monster)) continue;
             monster->visual.DetachRepresentation();
             monster->visual.SelectLOD(&position);
             monster->Update();
-            monster->UpdateRepresentation();
+            if (std::ranges::contains(active_monsters, monster)) monster->UpdateRepresentation();
         }
+    } catch (...) {
+        monster_retirements_ = nullptr;
+        throw;
     }
+    monster_retirements_ = nullptr;
+    // The batch is reclaimed after all update/callback stack frames have unwound.
+}
+
+bool World::isRetiring(const Monster& monster) const
+{
+    return monster_retirements_ &&
+           std::ranges::any_of(*monster_retirements_,
+                               [&](const auto& info) { return info->entity.get() == &monster; });
 }
 
 /* Animation changes the instances already attached to this world's scene. */

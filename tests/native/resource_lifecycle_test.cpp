@@ -1,6 +1,9 @@
+#include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdio>
 #include <filesystem>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <optional>
@@ -41,6 +44,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/script.h"
 #include "wiz8/entities/spell_visual.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
@@ -925,6 +929,121 @@ TEST_CASE("A monster record owns its loaded body independently of activation",
     // navigation and scene resources are still alive.
     info->entity = std::make_unique<Monster>(world);
     world.active_monsters.push_back(info->entity.get());
+}
+
+// Minimal authored cycles exercise the real update -> script -> trigger path without assets.
+TEST_CASE("Scripted removal retires relationships before reclaiming an updating monster",
+          "[resources][monsters]")
+{
+    ScopedGame scope;
+    auto& world = PublishEmptyWorld(scope.game);
+    world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
+    std::vector<int> calls;
+    const auto add = [&](int id, std::function<void()> action) {
+        auto record = std::make_unique<W8MonsterInfo>();
+        record->location_id = id;
+        record->bound_npc_index = -1;
+        record->entity = std::make_unique<Monster>(world);
+        auto& body = *record->entity;
+        body.location_id = id;
+        body.disabled = true;
+        body.nav.flags = 0x200000;
+        body.nav.halted = true;
+        body.nav.position_dirty = false;
+        body.nav.movement.position_adjusted = false;
+        auto& cycle = body.cycles[W8_MONSTER_CYCLE_IDLE].emplace_back();
+        cycle.animation = std::make_unique<Animation>();
+        AnimationMesh mesh;
+        mesh.frame_count = 1;
+        mesh.frames = {{std::make_shared<Mesh>(), {}}};
+        cycle.animation->parts[2].push_back({std::move(mesh), std::nullopt});
+        body.visual.active_animation = cycle.animation.get();
+        body.visual.current_cycle = W8_MONSTER_CYCLE_IDLE;
+        body.visual.current_subcycle = 0;
+        body.visual.animation_behaviour = W8_ANIMATION_NEVER_STOP;
+        body.visual.animation_playing = 0;
+        body.visual.rep_active = false;
+        body.script = std::make_shared<Script>();
+        body.script_line = 0;
+        const auto name = "Step" + std::to_string(id);
+        body.script->lines.push_back({"TRIGGER " + name, 1});
+        auto trigger = std::make_unique<Trigger>(&world);
+        std::snprintf(trigger->name, sizeof(trigger->name), "%s", name.c_str());
+        trigger->activation_callback = [&, id, action = std::move(action)](Trigger*) {
+            calls.push_back(id);
+            action();
+            return false;
+        };
+        world.triggers.push_back(std::move(trigger));
+        world.active_monsters.push_back(&body);
+        return world.population->monster_roster.add(std::move(record), false);
+    };
+
+    SECTION("self and later removal do not skip the surviving actor")
+    {
+        W8MonsterInfo* first = nullptr;
+        W8MonsterInfo* second = nullptr;
+        std::weak_ptr<Script> first_script, second_script;
+        world.compiledIndex()->registry.cells = std::make_unique<W8OctreeObjectRegistry>();
+        Navigator follower(world);
+        first = add(1, [&] {
+            REQUIRE(RemoveMonster(first, W8MonsterRemoval::Despawn));
+            REQUIRE(RemoveMonster(second, W8MonsterRemoval::Despawn));
+            REQUIRE_FALSE(world.population->findMonster(1));
+            REQUIRE_FALSE(world.population->findMonster(2));
+            REQUIRE_FALSE(follower.target_navigator);
+            REQUIRE_FALSE(follower.linked_navigator);
+            REQUIRE_FALSE(first_script.expired());
+            REQUIRE_FALSE(second_script.expired());
+            REQUIRE(world.isRetiring(*first->entity));
+            REQUIRE_FALSE(std::ranges::contains(world.navigators, &first->entity->nav));
+            REQUIRE(world.compiledIndex()->registry.cells->by_object.empty());
+            // The old navigator's deferred destructor must not erase a reused cell ID.
+            follower.movement.location_id = 7;
+            world.compiledIndex()->registry.cells->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, 8,
+                                                                      {0, 0, 0});
+        });
+        second = add(2, [] {});
+        auto* third = add(3, [] {});
+        first->entity->nav.movement.location_id = 7;
+        world.compiledIndex()->registry.cells->RegisterObjectCell(W8_OCTREE_KIND_NAVIGATOR, 8,
+                                                                  {0, 0, 0});
+        first_script = first->entity->script;
+        second_script = second->entity->script;
+        follower.target_navigator = &first->entity->nav;
+        follower.linked_navigator = &second->entity->nav;
+        std::vector<Rng::Draw> draws;
+        scope.game.rng.trace(&draws);
+        world.updateMonsters();
+        scope.game.rng.trace(nullptr);
+        REQUIRE(draws.empty());
+        REQUIRE(calls == std::vector<int>{1, 3});
+        REQUIRE(first_script.expired());
+        REQUIRE(second_script.expired());
+        REQUIRE(world.compiledIndex()->registry.cells->by_object.size() == 1);
+        REQUIRE(world.active_monsters == std::vector<Monster*>{third->entity.get()});
+        // A loaded inactive body is not a removed body.
+        REQUIRE_FALSE(third->fActive);
+        REQUIRE(world.population->findMonster(3) == third);
+    }
+    SECTION("exceptional callback exit reclaims retired storage and ends the boundary")
+    {
+        W8MonsterInfo* first = nullptr;
+        std::weak_ptr<Script> script;
+        first = add(1, [&] {
+            REQUIRE(RemoveMonster(first, W8MonsterRemoval::Despawn));
+            REQUIRE_FALSE(script.expired());
+            throw std::runtime_error("script failed");
+        });
+        script = first->entity->script;
+        REQUIRE_THROWS_WITH(world.updateMonsters(), "script failed");
+        REQUIRE(script.expired());
+        auto* next = add(2, [] {});
+        script = next->entity->script;
+        REQUIRE(RemoveMonster(next, W8MonsterRemoval::Despawn));
+        REQUIRE(script.expired()); // Outside an update, destruction is immediate again.
+        REQUIRE_NOTHROW(world.updateMonsters());
+    }
 }
 
 TEST_CASE("Only the first loaded actor of a species inherits its default script",

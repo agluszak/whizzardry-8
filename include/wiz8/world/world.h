@@ -33,6 +33,8 @@ class LevelScript;
 class W8AmbientSound;
 struct W8AmbientTrack;
 struct W8LevelPopulation;
+struct W8MonsterInfo;
+enum class W8MonsterRemoval : unsigned char;
 struct W8WorldCursorState;
 struct W8WorldCursorNode;
 struct WorldItemEntity;
@@ -127,6 +129,10 @@ struct World {
     // After the registry its navigator joins; destroyed before the spatial index.
     WorldParty party{*this};
     std::vector<Monster*> active_monsters;
+    // Commands remove relationships immediately; this pass retains removed owners
+    // until every script/update borrowing them has returned.
+    void updateMonsters();
+    bool isRetiring(const Monster& monster) const;
     SpellVisual* target_cone = nullptr;
     unsigned int next_trigger_id = 1;
     int last_visible_prop_index = -1;
@@ -164,6 +170,12 @@ struct World {
     /* The level's script, installed when the level is entered. Last, so it goes first:
        it borrows the entities above and its trigger callbacks refer to it. */
     std::unique_ptr<LevelScript> script;
+
+private:
+    void updateNearestMonsterGroupMembers();
+    friend bool RemoveMonster(W8MonsterInfo*, W8MonsterRemoval);
+    // Borrowed only during updateMonsters; the local batch is the temporary owner.
+    std::vector<std::unique_ptr<W8MonsterInfo>>* monster_retirements_ = nullptr;
 };
 
 /* Typed element access for the homogeneous world lists. */

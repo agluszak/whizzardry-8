@@ -56,12 +56,14 @@ public:
 
 private:
     friend bool RemoveMonster(W8MonsterInfo*, W8MonsterRemoval);
-    bool erase(W8MonsterInfo* info)
+    bool erase(W8MonsterInfo* info, std::vector<std::unique_ptr<W8MonsterInfo>>* retirements)
     {
         for (auto* partition : {&live_, &unborn_}) {
             const auto it =
                 std::ranges::find(*partition, info, &std::unique_ptr<W8MonsterInfo>::get);
             if (it != partition->end()) {
+                // Allocation happens before moving the owner. Failure leaves it retained.
+                if (retirements) retirements->push_back(std::move(*it));
                 partition->erase(it);
                 return true;
             }

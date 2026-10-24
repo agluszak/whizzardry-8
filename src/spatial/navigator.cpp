@@ -360,13 +360,20 @@ NavigatorMovement::~NavigatorMovement() = default;
    following it instead of reading freed memory. */
 Navigator::~Navigator()
 {
+    detachFromWorld();
+}
+
+void Navigator::detachFromWorld()
+{
+    active = false;
     wiz8::erase_first(owner_world.navigators, this);
     for (Navigator* other : owner_world.navigators) {
         if (other->target_navigator == this) other->target_navigator = nullptr;
         if (other->linked_navigator == this) other->linked_navigator = nullptr;
     }
-    if (auto* octree = NavigationOctree(); octree && movement.location_id != 0)
-        octree->UnregisterLocationObject(movement.location_id, W8_OCTREE_KIND_NAVIGATOR);
+    const auto location = std::exchange(movement.location_id, 0);
+    if (auto* octree = NavigationOctree(); octree && location != 0)
+        octree->UnregisterLocationObject(location, W8_OCTREE_KIND_NAVIGATOR);
 }
 
 bool Navigator::IsLinkedToNavigator(Navigator* other)
