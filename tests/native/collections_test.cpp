@@ -93,6 +93,7 @@
 #include "wiz8/script_context.h"
 #include "wiz8/sight_state.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
 #include "wiz8/world/world.h"
 
 // A game in progress with an empty level world.
