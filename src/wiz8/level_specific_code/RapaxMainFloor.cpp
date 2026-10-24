@@ -12,6 +12,8 @@
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code for RapaxMainFloor.LVL (level 0x12) — the Rapax castle
@@ -117,7 +119,7 @@ bool RapaxMainFloorScript::altarBox(Trigger* pTrigger)
             }
             SetTriggerVariableByName("LezboDemonAppeared", 1);
         } else {
-            CreateLocationVar("LezboDemonAppeared", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "LezboDemonAppeared", 1);
         }
         if (FindEntityByName("NP_Al-Sedexus", &position, 0, 0)) {
             SpawnMonsters(0x124, 1, &position, 0, true, false);

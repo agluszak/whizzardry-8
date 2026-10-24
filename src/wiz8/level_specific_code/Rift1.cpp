@@ -8,6 +8,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -15,6 +16,8 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code\Rift1.cpp (level 0x15).
@@ -38,7 +41,7 @@ bool Rift1Sexspawn(Trigger* pTrigger)
 
     if (GetFact(W8_FACT_TEMPLAR) != 0) {
         if (GetLocationVarIDByName("AlSedexusSwapped") == -1) {
-            CreateLocationVar("AlSedexusSwapped", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AlSedexusSwapped", 1);
             monster_info = FindMonsterInfoBySpecies(0xd9);
             if (monster_info != 0) {
                 RemoveMonster(monster_info, W8MonsterRemoval::Despawn);

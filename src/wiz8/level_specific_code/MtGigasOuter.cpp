@@ -23,6 +23,8 @@
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 struct W8NpcState;
@@ -133,7 +135,7 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
         return false;
     }
     if (GetLocationVarIDByName("FlagPosition") == -1) {
-        CreateLocationVar("FlagPosition", 0);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "FlagPosition", 0);
         npc = GetNpcStateByKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x90, true, 0);
         g_trigger_feedback = true;
@@ -254,7 +256,7 @@ bool MtGigasOuterScript::campAlarm(int command)
 
     if (command != 0) {
         if (GetLocationVarIDByName("UmpaniCampAlarm") == -1)
-            CreateLocationVar("UmpaniCampAlarm", 30);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "UmpaniCampAlarm", 30);
         position = world().party.eye();
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;

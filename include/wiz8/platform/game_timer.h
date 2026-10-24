@@ -35,6 +35,10 @@ public:
     {
     }
     std::uint32_t read(TimerClock clock) const;
+    std::uint64_t worldMilliseconds() const
+    {
+        return world_ ? static_cast<std::uint64_t>(world_->count()) : 0;
+    }
     float motionDelta() const;
     float motionElapsed() const;
     bool motionSlowed() const;

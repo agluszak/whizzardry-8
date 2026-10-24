@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -13,11 +14,13 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers.hpp>
 
@@ -53,11 +56,13 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/navigation_flags.h"
 #include "wiz8/packed_bits.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/render/mesh_loader.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/retail_geometry_records.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/save_game.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -65,10 +70,12 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/spatial/surface_index.h"
+#include "wiz8/story.h"
 #include "wiz8/world/automap.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_loader.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 static std::filesystem::path fixture_root;
@@ -1191,13 +1198,13 @@ TEST_CASE_METHOD(LoaderFixture, "Location variables retain level-scoped names an
 {
     const ScopedGame game;
     game.game.level.replacePrimary(std::make_unique<World>(3));
-    CreateLocationVar("Switch", 17);
-    CreateLocationVar("SWITCH", 99);
+    CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "Switch", 17);
+    CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "SWITCH", 99);
     REQUIRE(GetLocationVarValueByName("switch") == 17);
     SetTriggerVariableByName("switch", 23);
     game.game.level.replacePrimary(std::make_unique<World>(4));
     REQUIRE(GetLocationVarIDByName("Switch") == -1);
-    CreateLocationVar("Switch", 31);
+    CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "Switch", 31);
 
     std::string expected;
     append(expected, std::int32_t{2});
@@ -1208,9 +1215,9 @@ TEST_CASE_METHOD(LoaderFixture, "Location variables retain level-scoped names an
         append(expected, name);
         append(expected, std::int32_t{level});
     }
-    REQUIRE(wiz8::save::encode(CurrentGame().story.location_variables) == payload_bytes(expected));
-    CurrentGame().story.location_variables =
-        wiz8::save::decode_location_variables(payload_bytes(expected));
+    REQUIRE(wiz8::save::encode(CurrentGame().story.locationVariables()) == payload_bytes(expected));
+    CurrentGame().story.restoreLocationVariables(
+        wiz8::save::decode_location_variables(payload_bytes(expected)));
     REQUIRE(GetLocationVarValueByName("SWITCH") == 31);
     game.game.level.replacePrimary(std::make_unique<World>(3));
     REQUIRE(GetLocationVarValueByName("switch") == 23);
@@ -1407,7 +1414,8 @@ TEST_CASE_METHOD(LoaderFixture, "Prop loader rejects an unterminated asset name"
     info.hFile = file.get();
     Prop prop;
     prop.name = "previous";
-    REQUIRE_FALSE(prop.LoadProp(&info, &prop));
+    ScopedGame game;
+    REQUIRE_FALSE(prop.LoadProp(&info, game.game.data, game.game.rng, game.game.story));
     REQUIRE(prop.name == "previous");
 }
 
@@ -1494,4 +1502,93 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
         });
         REQUIRE(present->subcycle == 3);
     }
+}
+
+TEST_CASE_METHOD(LoaderFixture, "Trigger loading uses candidate definitions, story, RNG and clocks",
+                 "[loader][trigger][lifetime]")
+{
+    ScopedGame outgoing;
+    outgoing.game.level.replacePrimary(std::make_unique<World>(3));
+    outgoing.game.visual_time = std::chrono::seconds{90};
+    outgoing.game.timerClocks().pause();
+    outgoing.game.story.ensureLocationVariable(7, "SWITCH", 42);
+    GameData definitions;
+    definitions.missiles.resize(1);
+    Game candidate(definitions);
+    candidate.visual_time = std::chrono::milliseconds{1234};
+    World world(7, "", candidate.timerClocks());
+    std::vector<Rng::Draw> draws;
+    std::vector<Rng::Draw> outgoing_draws;
+    candidate.rng.trace(&draws);
+    outgoing.game.rng.trace(&outgoing_draws);
+
+    std::string bytes;
+    append(bytes, std::array<unsigned char, 3>{1, 4, 2}); // Outer version/type, inner version.
+    const auto text = [&](std::string_view value, std::size_t length) {
+        bytes.append(value);
+        bytes.append(length - value.size(), '\0');
+    };
+    text("CANDIDATE", 128);
+    append(bytes, std::array<unsigned char, 7>{1, 1, 0, 0, 0, 0, 0}); // Item representation.
+    append(bytes, std::array<int, 3>{0x0c, 0, 0}); // Timed missile action.
+    text("", 256);
+    append(bytes, static_cast<unsigned char>(0));
+    text("", 256);
+    append(bytes, static_cast<unsigned char>(0));
+    append(bytes, 0);
+    append(bytes, static_cast<unsigned char>(0));
+    text("", 128);
+    append(bytes, std::array<int, 3>{0, -1000, 0}); // Candidate has missile 0; outgoing does not.
+    append(bytes, 1.0f);
+    append(bytes, std::array<unsigned char, 4>{1, 0, 0, 0});
+    append(bytes, std::array<int, 4>{});
+    append(bytes, std::array<unsigned char, 3>{});
+    text("", 256);
+    text("switch", 256);
+    append(bytes, static_cast<unsigned char>(0));
+    append(bytes, std::array<float, 2>{});
+    text("", 256);
+    append(bytes, 0);
+    append(bytes, static_cast<unsigned char>(0)); // No extra action data.
+    const auto load = [&](const std::string& record) {
+        store("candidate-trigger.bin", record);
+        auto file = wiz8::open_file(wiz8::asset_path("candidate-trigger.bin"));
+        return world.loadTrigger(*file, definitions, candidate.rng, candidate.story);
+    };
+    auto* trigger = load(bytes);
+    REQUIRE(trigger);
+    REQUIRE(trigger->m_pWorld == &world);
+    REQUIRE(world.triggers.size() == 1);
+    REQUIRE(world.next_trigger_id == 3); // Preserve both legacy ID increments.
+    REQUIRE(draws.size() == 1);
+    REQUIRE(draws.front().range == 30000);
+    REQUIRE(trigger->item_group_seed == 1234 + draws.front().value);
+    REQUIRE(outgoing_draws.empty());
+    REQUIRE(candidate.story.locationVariables().size() == 1);
+    REQUIRE(candidate.story.locationVariables().front().level == 7);
+    REQUIRE(candidate.story.locationVariables().front().value == 1);
+    REQUIRE(outgoing.game.story.locationVariables().front().value == 42);
+    auto* action = world.findTimedAction(trigger);
+    REQUIRE(action);
+    candidate.visual_time += std::chrono::milliseconds{250};
+    REQUIRE(action->timer.GetProgress() == Catch::Approx(.25f));
+    candidate.story.ensureLocationVariable(7, "switch", 99);
+    REQUIRE(candidate.story.locationVariables().front().value == 1);
+    const auto snapshot = candidate.story.locationVariables();
+    candidate.story.setLocationVariable(7, "sWiTcH", 5);
+    REQUIRE(candidate.story.locationVariable(7, "SWITCH") == 5);
+    REQUIRE(snapshot.front().value == 1);
+    REQUIRE_THROWS(candidate.story.setLocationVariable(8, "SWITCH", 99));
+    REQUIRE_THROWS(candidate.story.locationVariable(8, "SWITCH"));
+    REQUIRE(candidate.story.locationVariables().size() == 1);
+
+    // Invalid types draw nothing; a recognized but truncated non-ambient record
+    // consumes its seed at the same point as a valid record, before decoding the body.
+    REQUIRE_THROWS(load(std::string{"\1\0", 2}));
+    REQUIRE(draws.size() == 1);
+    REQUIRE_THROWS(load(bytes.substr(0, 3)));
+    REQUIRE(draws.size() == 2);
+    REQUIRE(world.triggers.size() == 1);
+    REQUIRE_THROWS(load(std::string{"\1\3", 2}));
+    REQUIRE(draws.size() == 2); // Ambient records never allocate a trigger seed.
 }

@@ -18,6 +18,9 @@
 
 class NavigationMesh;
 struct LevelLoadContext;
+struct GameData;
+class Rng;
+struct Story;
 struct World;
 struct W8WorldItem;
 class MeshInstance;
@@ -92,7 +95,7 @@ public:
     bool SelectAnimationSlot(unsigned char tag);
     int FindCurrentAnimationSlot();
     unsigned char AdvanceAnimationSegment();
-    bool LoadProp(LevelLoadContext* info, Prop* prop);
+    bool LoadProp(LevelLoadContext* info, const GameData& data, Rng& rng, Story& story);
 
     std::optional<Animation> animation;
     Animation* currentAnimation() { return animation ? &*animation : nullptr; }
@@ -199,6 +202,7 @@ public:
 };
 
 Prop* FindPropByName(World* world, std::string_view name);
-std::unique_ptr<Prop> CreateAndLoadProp(LevelLoadContext* info);
+std::unique_ptr<Prop> CreateAndLoadProp(LevelLoadContext* info, const GameData& data, Rng& rng,
+                                        Story& story);
 
 void UpdateWorldProps(World* world);

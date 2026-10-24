@@ -6,11 +6,14 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code\SavantTower.cpp (level 0x24, the Savant's tower on
@@ -28,7 +31,7 @@ namespace {
 bool Shape(Trigger* pTrigger)
 {
     if (GetLocationVarIDByName("DeactivatingBomb") == -1) {
-        CreateLocationVar("DeactivatingBomb", 1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "DeactivatingBomb", 1);
         QueueNpcScriptNotice(GetNpcStateByKind(0x46), 0, 0, false, 0);
     }
     return true;

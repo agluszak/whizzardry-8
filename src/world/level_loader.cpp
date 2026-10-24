@@ -405,7 +405,7 @@ static bool ReadRecordCount(wiz8::File& file, int& count)
     return read && count >= 0 && count < 100000;
 }
 
-static unsigned char ReadWorldProps(LevelLoadContext* pInfo, World* pWorld,
+static unsigned char ReadWorldProps(Game& game, LevelLoadContext* pInfo, World* pWorld,
                                     bool mark_model_instances)
 try {
     Prop* prop;
@@ -426,7 +426,7 @@ try {
     }
 
     for (index = 0; index < count; ++index) {
-        auto owner = success ? CreateAndLoadProp(pInfo) : nullptr;
+        auto owner = success ? CreateAndLoadProp(pInfo, game.data, game.rng, game.story) : nullptr;
         prop = owner.get();
         if (!prop) {
             success = 0;
@@ -478,7 +478,8 @@ try {
         file.read_exact(unused.data(), sizeof(unused));
         unsigned char has_trigger;
         file.read_exact(&has_trigger, sizeof(has_trigger));
-        auto* trigger = has_trigger ? Trigger::CreateAndLoadLevelTrigger(&file, &world) : nullptr;
+        auto* trigger =
+            has_trigger ? world.loadTrigger(file, game.data, game.rng, game.story) : nullptr;
         std::array<unsigned char, 3> flags;
         file.read_exact(flags.data(), sizeof(flags));
         file.read_exact(unused.data(), sizeof(unused));
@@ -893,9 +894,9 @@ try {
         success = 0;
     }
     if (!section_ended()) return false;
-    success = success && ReadWorldProps(&info, world, false);
+    success = success && ReadWorldProps(game, &info, world, false);
     if (!section_ended()) return false;
-    success = success && ReadWorldProps(&info, world, true);
+    success = success && ReadWorldProps(game, &info, world, true);
     if (!section_ended()) return false;
     success = success && ReadWorldCameras(&info, world);
     if (!section_ended()) return false;
@@ -917,7 +918,7 @@ try {
         info.hFile->read(&section_count, sizeof(section_count));
         if (section_count != 0) {
             for (index = 0; index < section_count; ++index) {
-                Trigger::CreateAndLoadLevelTrigger(info.hFile, world);
+                world->loadTrigger(*info.hFile, game.data, game.rng, game.story);
             }
             /* Retail 0x004bb565 integrates whenever the world has game data;
                IntegrateTriggers returns at once when the octree path took the

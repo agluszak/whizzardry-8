@@ -52,8 +52,10 @@
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/environment.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code\MartensBluff2.cpp (level 6).
@@ -199,7 +201,7 @@ void MartensBluff2Script::setup()
     quest_state = RavenQuestState::not_started;
     if (pTrigger != 0) {
         if (GetLocationVarIDByName("RavenQuest") == -1) {
-            CreateLocationVar("RavenQuest", 0);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "RavenQuest", 0);
             running_trigger_from_script_ = true;
             FindTriggerByName("Dummy")->Run(-1);
             running_trigger_from_script_ = false;
@@ -372,7 +374,8 @@ bool MartensBluff2Script::spikeball(int command)
     spikeball_gate_.reset();
     spikeball_count_ = 0;
     if (GetLocationVarIDByName("SpikedBallLauncher") == -1) {
-        CreateLocationVar("SpikedBallLauncher", spikeball_count_);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "SpikedBallLauncher",
+                                                   spikeball_count_);
     } else {
         SetTriggerVariableByName("SpikedBallLauncher", spikeball_count_);
     }

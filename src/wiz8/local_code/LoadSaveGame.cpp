@@ -350,9 +350,9 @@ void InstallMessageBoxes(wiz8::save::MessageBoxes boxes, Game& game)
    the level would record. */
 std::vector<W8LocationVariable> CaptureLocationVariables(const Game& game, const World* world)
 {
-    auto variables = game.story.location_variables;
+    auto variables = game.story.locationVariables();
     if (!world || !world->script) return variables;
-    const int level = GetLoadedLevelID();
+    const int level = world->level_id;
     for (const auto& [name, value] : world->script->captureState()) {
         const auto found = std::ranges::find_if(variables, [&](const auto& variable) {
             return variable.level == level && CompareTextIgnoreAsciiCase(variable.name, name) == 0;
@@ -1852,7 +1852,7 @@ void SavedGame::install(Game& game) &&
     game.inventory.restore(std::move(state.pool), state.held);
     game.search.restore(state.search_mode);
     if (messages) InstallMessageBoxes(std::move(*messages), game);
-    game.story.location_variables = std::move(location_variables);
+    game.story.restoreLocationVariables(std::move(location_variables));
     if (transcript)
         InstallDialogueTranscript(std::move(*transcript), game.story, game.npc_interaction);
     if (npcs) {

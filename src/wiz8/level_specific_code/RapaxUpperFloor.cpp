@@ -16,7 +16,9 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
 #include "wiz8/string_database.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code for RapaxUpperFloor.LVL (level 0x13) — the Rapax
@@ -127,13 +129,14 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
             RunTreasureDoor();
             var_id = GetLocationVarIDByName("TMakeTreasure");
             if (var_id == -1) {
-                CreateLocationVar("TMakeTreasure", 1);
+                CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "TMakeTreasure", 1);
             } else {
                 SetTriggerVariableByName("TMakeTreasure", 1);
             }
             var_id = GetLocationVarIDByName("TMakeTreasureNumber");
             if (var_id == -1) {
-                CreateLocationVar("TMakeTreasureNumber", item_id);
+                CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(),
+                                                           "TMakeTreasureNumber", item_id);
                 return true;
             }
             SetTriggerVariableByName("TMakeTreasureNumber", item_id);

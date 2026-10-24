@@ -100,6 +100,8 @@ public:
     void followCamera();
 };
 
+struct Story;
+
 // Resources and borrowed indexes precede their consumers. Reverse member
 // destruction removes population-owned bodies before their resources and indexes.
 struct World {
@@ -145,6 +147,7 @@ struct World {
     void updateMonsters();
     W8WorldItem* adoptItem(std::unique_ptr<W8WorldItem> item);
     bool settleItem(W8WorldItem* item);
+    Trigger* loadTrigger(wiz8::File& file, const GameData& data, Rng& rng, Story& story);
     void updateNearbyItems(const GameData& data, Rng& rng, Events& events, float gravity);
     void activateItem(const GameData& data, Rng& rng, W8WorldItem* item);
     void addItemToSector(int sector, W8WorldItem* item);

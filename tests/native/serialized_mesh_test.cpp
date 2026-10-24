@@ -719,7 +719,8 @@ TEST_CASE("Raw level items and their triggers belong to the candidate world",
     ScopedGame scope(data);
     scope.game.level.replacePrimary(std::make_unique<World>());
     auto& installed = scope.game.level.loaded();
-    World candidate;
+    Game candidate_game(data);
+    World candidate(7, "", candidate_game.timerClocks());
     const auto floorAt = [](World& world, float height) {
         world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
         auto& spatial = *world.spatial;
@@ -764,12 +765,12 @@ TEST_CASE("Raw level items and their triggers belong to the candidate world",
     }
     Prop preceding;
     std::vector<Rng::Draw> draws;
-    scope.game.rng.seed(1);
-    scope.game.rng.trace(&draws);
+    candidate_game.rng.seed(1);
+    candidate_game.rng.trace(&draws);
     auto file = wiz8::open_file(items_path);
     LevelLoadContext info{&candidate, file.get(), {}};
-    const auto loaded = ReadWorldItems(scope.game, info);
-    scope.game.rng.trace(nullptr);
+    const auto loaded = ReadWorldItems(candidate_game, info);
+    candidate_game.rng.trace(nullptr);
     REQUIRE(loaded);
     REQUIRE(draws.size() == 3);
     REQUIRE(draws[0].range == 30000);

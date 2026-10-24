@@ -31,6 +31,8 @@
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code\Ascension.cpp.
@@ -176,7 +178,8 @@ void AscensionScript::peakInit()
                 }
             }
             SpawnAscensionAmbush();
-            CreateLocationVar("AP_AtLeast2of3Items", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_AtLeast2of3Items",
+                                                       1);
         }
         if (GetLocationVarIDByName("AP_SpawnDaughter") == -1) {
             W8NpcState* npc = GetNpcStateByKind(0x31);
@@ -187,7 +190,8 @@ void AscensionScript::peakInit()
                     SpawnMonsters(0x18d, 1, &position, 0, true, false);
                     SetFact(static_cast<W8FactId>(0x327), 1, false);
                 }
-                CreateLocationVar("AP_SpawnDaughter", 1);
+                CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_SpawnDaughter",
+                                                           1);
             }
         }
     }
@@ -200,7 +204,7 @@ void AscensionScript::peakInit()
                 GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
                 RunNamedTrigger("Bodies", -1);
             }
-            CreateLocationVar("AP_All3Items", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_All3Items", 1);
         }
     }
 }
@@ -258,7 +262,7 @@ bool AscensionScript::answerAletheides(Trigger* pTrigger, const char* active_var
                                        W8NpcStoryAction spawn)
 {
     if (GetLocationVarIDByName(active_var) == -1) {
-        CreateLocationVar(active_var, 0);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), active_var, 0);
     }
     if (GetLocationVarValueByName(active_var) != 0) {
         return false;
@@ -342,7 +346,7 @@ bool AscensionScript::darkSavantSpawn(Trigger* pTrigger)
         SpawnMonsters(0x18c, 1, &position, 0, true, false);
     }
     if (GetLocationVarIDByName("AP_DSSpawned") == -1) {
-        CreateLocationVar("AP_DSSpawned", 1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_DSSpawned", 1);
     }
     return true;
 }

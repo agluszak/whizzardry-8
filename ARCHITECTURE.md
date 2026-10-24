@@ -482,3 +482,19 @@ CTest runs asset-independent tests and licensed runtime scenarios (label
 `runtime`), which need `WIZ8_ASSET_ROOT` and a usable Vulkan backend; CI provides
 both. Scenarios click controls through `GameHarness::click`, which first checks a
 player could: the control is shown, enabled and reachable under the pointer.
+
+### Candidate trigger construction
+
+`World::loadTrigger` decodes and adopts triggers in its destination world, with
+explicit definitions, RNG and story inputs. Seeds use that world's bound clock;
+invalid types draw nothing, non-ambient records draw before their body is decoded,
+and ambient records draw nothing. Timed actions retain the destination clock.
+Raw state declarations and prop animation-slot variables use the destination level
+identity and Story's ensure operation, which preserves existing values and the
+case-insensitive, level-scoped name contract. Story keeps the mutable variable
+collection private; updates require a defined name in the specified level, while
+saving reads a snapshot and loading explicitly installs decoded values. Decoding
+does not run entry actions.
+This does not promise rollback of RNG, variable declarations or partially loaded
+resources on malformed input; candidate construction still needs the remaining
+monster/NPC dependencies removed before replacement can become transactional.

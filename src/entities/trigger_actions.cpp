@@ -6,7 +6,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <limits>
 #include <memory>
 #include <optional>
 #include <ranges>
@@ -537,30 +536,9 @@ void TriggerEvent::Update()
     }
 }
 
-/* A state-driven Prop has one location variable per animation slot.  Ensure
-   the complete set exists for the loaded level and select slot zero as the
-   initial active state. */
-void InitializeStateDrivenPropVariables(Trigger* trigger)
-{
-    int slot;
-
-    if (trigger->state_to_modify.empty()) {
-        return;
-    }
-    for (slot = 0; slot < static_cast<signed char>(trigger->m_pProp->slots.size()); ++slot) {
-        char name[132];
-
-        assert(trigger->m_bRepType == W8_TRIGGER_REP_PROP);
-        snprintf(name, sizeof(name), "%s%d", trigger->state_to_modify.c_str(), slot);
-        CreateLocationVar(name, slot == 0);
-    }
-}
-
 void SetTriggerVariableByName(std::string_view name, int value)
 {
-    const int index = GetLocationVarIDByName(name);
-    if (index < 0) throw std::out_of_range(fmt::format("unknown location variable {}", name));
-    CurrentGame().story.location_variables[index].value = value;
+    CurrentGame().story.setLocationVariable(GetLoadedLevelID(), name, value);
 }
 
 /* Clear the running bit and run every comma-separated recipient trigger once
@@ -603,7 +581,7 @@ bool Trigger::RequiresItem()
 
 Trigger::~Trigger() = default;
 
-Trigger::Trigger(World* world)
+Trigger::Trigger(World* world, unsigned int item_seed)
 {
     trigger_kind = W8TriggerKind::none;
     trigger_id = 0;
@@ -641,8 +619,7 @@ Trigger::Trigger(World* world)
     position = glm::vec3(0);
     action_data[0] = 0;
     action_data_mode = W8TriggerActionDataMode::toggle_alternate;
-    item_group_seed =
-        static_cast<unsigned int>(WorldClockMilliseconds() + CurrentGame().rng.below(30000));
+    item_group_seed = item_seed;
     gold = 0;
     uses_remaining = 0;
     trigger_id = world ? world->next_trigger_id++ : 0;
@@ -776,14 +753,6 @@ reactivate_linked_triggers:
     }
 }
 
-/* The location variable a state-changing action writes; the level must define it. */
-static int FindModifiedLocationVar(const char* name)
-{
-    const int id = GetLocationVarIDByName(name);
-    if (id == -1) throw std::out_of_range(fmt::format("unknown location variable {}", name));
-    return id;
-}
-
 void Trigger::CommitActionResult(bool apply_state_changes)
 {
 
@@ -803,23 +772,17 @@ void Trigger::CommitActionResult(bool apply_state_changes)
     }
 
     if (!state_to_modify.empty() && apply_state_changes) {
-        int state_id;
         int state_value;
-
         if (state_mod_mode == W8TriggerStateModificationMode::set) {
-            state_id = FindModifiedLocationVar(state_to_modify.c_str());
             state_value = 1;
         } else if (state_mod_mode == W8TriggerStateModificationMode::clear) {
-            state_id = FindModifiedLocationVar(state_to_modify.c_str());
             state_value = 0;
         } else if (state_mod_mode == W8TriggerStateModificationMode::toggle) {
-            state_id = FindModifiedLocationVar(state_to_modify.c_str());
-            state_value = CurrentGame().story.location_variables[state_id].value == 0;
-            state_id = FindModifiedLocationVar(state_to_modify.c_str());
+            state_value = GetLocationVarValueByName(state_to_modify) == 0;
         } else {
             goto show_action_message;
         }
-        CurrentGame().story.location_variables[state_id].value = state_value;
+        SetTriggerVariableByName(state_to_modify, state_value);
     }
 
 show_action_message:
@@ -1921,8 +1884,7 @@ bool Trigger::SelectAction()
 
     if (!required_states.empty()) {
         for (const auto& state_name : required_states) {
-            const int state_id = FindModifiedLocationVar(state_name.c_str());
-            if (CurrentGame().story.location_variables[state_id].value == 0) {
+            if (GetLocationVarValueByName(state_name) == 0) {
                 action = fallback_action;
                 action_state = W8TriggerActionState::fallback_action;
                 fallback_selected = true;
@@ -2051,7 +2013,7 @@ int ResetNextTriggerId(void)
 
 int GetLocationVarIDByName(std::string_view name)
 {
-    const auto& variables = CurrentGame().story.location_variables;
+    const auto& variables = CurrentGame().story.locationVariables();
     const auto found = std::ranges::find_if(variables, [name](const auto& variable) {
         return variable.level == GetLoadedLevelID() &&
                CompareTextIgnoreAsciiCase(variable.name, name) == 0;
@@ -2059,21 +2021,9 @@ int GetLocationVarIDByName(std::string_view name)
     return found == variables.end() ? -1 : static_cast<int>(found - variables.begin());
 }
 
-void CreateLocationVar(std::string_view name, int value)
-{
-    if (name.empty()) throw std::invalid_argument("empty location variable name");
-    if (GetLocationVarIDByName(name) >= 0) return;
-    auto& variables = CurrentGame().story.location_variables;
-    if (variables.size() >= std::numeric_limits<std::int32_t>::max())
-        throw std::length_error("Too many location variables");
-    variables.push_back({std::string(name), value, GetLoadedLevelID()});
-}
-
 int GetLocationVarValueByName(std::string_view name)
 {
-    const int index = GetLocationVarIDByName(name);
-    if (index < 0) throw std::out_of_range(fmt::format("unknown location variable {}", name));
-    return CurrentGame().story.location_variables[index].value;
+    return CurrentGame().story.locationVariable(GetLoadedLevelID(), name);
 }
 
 /* Index of the prop whose trigger last tested in view; -1 until a prop

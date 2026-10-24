@@ -55,6 +55,7 @@
 #include "wiz8/render/mesh_loader.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/story.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/camera_pose.h"
@@ -454,8 +455,8 @@ static void FinishLevelDeparture(Game& game)
     const World& world = *game.level.primary;
     for (const auto& [name, value] :
          world.script ? world.script->captureState() : W8SavedLocationState{}) {
-        CreateLocationVar(name.c_str(), value);
-        SetTriggerVariableByName(name.c_str(), value);
+        game.story.ensureLocationVariable(world.level_id, name, value);
+        game.story.setLocationVariable(world.level_id, name, value);
     }
     const int level = world.level_id;
     if (level >= 0 && level < W8_LEVEL_COUNT)

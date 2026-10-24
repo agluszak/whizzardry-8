@@ -14,6 +14,7 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/story.h"
 #include "wiz8/world/party_camera.h"
 // Some libstdc++ 16 releases use deprecated is_trivial_v in _M_init.
 // Limit the workaround to diagnostics originating in that library header.
@@ -2063,7 +2064,8 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
             if (monster_info != nullptr && FindEntityByName("RubbleCovert", &position, 0, 0)) {
                 monster_info->entity->SetPosition(&position);
                 if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1) {
-                    CreateLocationVar("CODESgtRubbleTeleport", 1);
+                    CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(),
+                                                               "CODESgtRubbleTeleport", 1);
                 } else {
                     SetTriggerVariableByName("CODESgtRubbleTeleport", 1);
                 }

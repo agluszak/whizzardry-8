@@ -36,6 +36,8 @@
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
 
@@ -257,7 +259,8 @@ void ArnikaScript::restoreElevator(W8Elevator& elevator, const ElevatorStateBind
     elevator.moving = 0;
     elevator.button_down = 0;
     if (GetLocationVarIDByName(bindings.state_variable) == -1) {
-        CreateLocationVar(bindings.state_variable, elevator.state);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), bindings.state_variable,
+                                                   elevator.state);
         if (bindings.open_bottom_on_first_load) {
             elevator.pBottomDoor->Run(-1);
             elevator.pBottomDoorCollide->Run(-1);
@@ -267,13 +270,15 @@ void ArnikaScript::restoreElevator(W8Elevator& elevator, const ElevatorStateBind
             static_cast<W8ArnikaElevatorState>(GetLocationVarValueByName(bindings.state_variable));
     }
     if (GetLocationVarIDByName(bindings.moving_variable) == -1) {
-        CreateLocationVar(bindings.moving_variable, elevator.moving);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), bindings.moving_variable,
+                                                   elevator.moving);
     } else {
         elevator.moving = GetLocationVarValueByName(bindings.moving_variable);
     }
     SetTriggerVariableByName(bindings.moving_variable, 0);
     if (GetLocationVarIDByName(bindings.button_variable) == -1) {
-        CreateLocationVar(bindings.button_variable, elevator.button_down);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), bindings.button_variable,
+                                                   elevator.button_down);
     } else {
         elevator.button_down = GetLocationVarValueByName(bindings.button_variable);
     }
@@ -443,7 +448,7 @@ bool ArnikaScript::scannerDoor(Trigger* pTrigger)
         return false;
     }
     if (GetLocationVarIDByName("HLLDoorOpen") == -1) {
-        CreateLocationVar("HLLDoorOpen", 1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "HLLDoorOpen", 1);
     }
     return true;
 }
@@ -457,7 +462,7 @@ bool ArnikaScript::warningSound(int command)
 
     if (command != 0) {
         if (GetLocationVarIDByName("WarningSound") == -1) {
-            CreateLocationVar("WarningSound", 0x1e);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "WarningSound", 0x1e);
         }
         if (!FindEntityByName("ULLspawn", &position, 0, 0)) {
             return false;
@@ -524,7 +529,7 @@ bool ArnikaScript::mookholo(Trigger* pTrigger)
         if (GetLocationVarIDByName("ScregActive") != -1) {
             SetTriggerVariableByName("ScregActive", 1);
         } else {
-            CreateLocationVar("ScregActive", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "ScregActive", 1);
         }
         location_id = group->MemberLocationId(0);
         if (location_id != 0) {
@@ -568,7 +573,7 @@ bool ArnikaScript::mookFrontDoor(Trigger* pTrigger)
     if (GetLocationVarIDByName("MookDoorOpen") != -1) {
         SetTriggerVariableByName("MookDoorOpen", 1);
     } else {
-        CreateLocationVar("MookDoorOpen", 1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "MookDoorOpen", 1);
     }
     return true;
 }
@@ -624,7 +629,7 @@ bool ArnikaScript::exitButton(Trigger* pTrigger)
             SetTriggerVariableByName("Teleporting", 0);
         }
     } else {
-        CreateLocationVar("Teleporting", 1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "Teleporting", 1);
         addMaster(&ArnikaScript::teleportWatch);
     }
     g_trigger_feedback = true;
@@ -656,7 +661,7 @@ bool ArnikaScript::genVaultDoor(Trigger* pTrigger)
         if (GetLocationVarIDByName("GolemSpawned") != -1) {
             return false;
         }
-        CreateLocationVar("GolemSpawned", 1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "GolemSpawned", 1);
         SpawnMonsters(0x31, 1, &position, 1, true, false);
         wiz8::sound::play("Data\\Sound\\Ambients\\Temp Transporting.wav");
     }
@@ -993,7 +998,7 @@ int ArnikaScript::pedestalItem(int* previous_item)
         return item;
     }
     if (GetLocationVarIDByName("PedestalItem") == -1) {
-        CreateLocationVar("PedestalItem", -1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "PedestalItem", -1);
         previous = 0x244;
         if (item == -1) {
             ctx.inventory.replaceHeld(
@@ -1021,7 +1026,7 @@ int ArnikaScript::pedestalItem(int* previous_item)
         QueueNpcScriptNotice(npc, 0, 8, false, 0);
     }
     if (GetLocationVarIDByName("WarnedAboutEntry") == -1) {
-        CreateLocationVar("WarnedAboutEntry", 1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "WarnedAboutEntry", 1);
     } else {
         SetTriggerVariableByName("WarnedAboutEntry", 1);
     }
@@ -1037,7 +1042,7 @@ bool ArnikaScript::ballSlot(Trigger* pTrigger)
     W8NpcState* npc;
 
     if (GetLocationVarIDByName("BallInserted") == -1) {
-        CreateLocationVar("BallInserted", 1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "BallInserted", 1);
         npc = GetNpcStateByKind(0x16);
         item = MakeItem(Data(), ctx.game.rng, 0x240, true, true, false);
         QueueNpcScriptNotice(npc, &item, -1, false, 0);

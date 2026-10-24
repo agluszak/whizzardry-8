@@ -26,6 +26,8 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 class Trigger;
@@ -106,7 +108,7 @@ void Trynnie1Script::enter()
             vPos2 = vPos;
             [[maybe_unused]] auto* group = CreateGroup(0xcd, 1, &vPos2, true, true);
             assert(group != 0);
-            CreateLocationVar("Trynnie1Killed", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "Trynnie1Killed", 1);
         }
     }
 }

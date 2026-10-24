@@ -54,6 +54,7 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/update.h"
@@ -1031,20 +1032,19 @@ bool Prop::IsTriggerInView(glm::vec3* position)
     return GetWorld()->camera->projectsAny(points);
 }
 
-std::unique_ptr<Prop> CreateAndLoadProp(LevelLoadContext* info)
+std::unique_ptr<Prop> CreateAndLoadProp(LevelLoadContext* info, const GameData& data, Rng& rng,
+                                        Story& story)
 {
     if (!info) throw std::invalid_argument("missing prop load context");
     auto prop = std::make_unique<Prop>();
-    if (!prop->LoadProp(info, prop.get())) return nullptr;
+    if (!prop->LoadProp(info, data, rng, story)) return nullptr;
     prop->UpdateAnimationFrameLength();
     prop->ApplyAnimationFrame(info->world ? WorldPathing(*info->world) : nullptr);
     return prop;
 }
 
-/* Resource loader rooted at CreateAndLoadProp.  The call site loads
-   the prop representation into ECX before the two stack arguments, so this is a
-   PropRep method: LoadProp(pInfo, pProp). */
-bool Prop::LoadProp(LevelLoadContext* info, Prop* prop)
+/* Decode this prop and bind its trigger in the destination world. */
+bool Prop::LoadProp(LevelLoadContext* info, const GameData& data, Rng& rng, Story& story)
 try {
     wiz8::File* hFile;
     bool success;
@@ -1057,7 +1057,7 @@ try {
     Animation* animation = 0;
     bool result = false;
 
-    assert(info != 0 && info->hFile != 0 && prop != 0);
+    assert(info != 0 && info->hFile != 0);
     hFile = info->hFile;
     success = (hFile->read(&version, 1).bytes == static_cast<std::size_t>(1));
     if (version < 4) {
@@ -1133,7 +1133,7 @@ try {
         }
         if (version > 5) {
             hFile->read_exact(&flag_bits, 4);
-            prop->flags |= flag_bits;
+            this->flags |= flag_bits;
         }
         if (version > 6) {
             std::array<char, 64> name;
@@ -1141,7 +1141,7 @@ try {
             const auto end = std::find(name.begin(), name.end(), '\0');
             if (end == name.end()) throw std::runtime_error("unterminated prop name");
             if (end != name.begin()) {
-                prop->name.assign(name.data(), end - name.begin());
+                this->name.assign(name.data(), end - name.begin());
             }
         }
         if (version > 7) {
@@ -1158,7 +1158,7 @@ try {
                 slot.tag = static_cast<unsigned char>(tag_tmp);
                 if (frame_tmp >= frame_count)
                     throw std::runtime_error(fmt::format("prop {} segment {} frame {} out of range",
-                                                         prop->name, tag_tmp, frame_tmp));
+                                                         this->name, tag_tmp, frame_tmp));
                 this->slots.push_back(slot);
             }
         }
@@ -1223,13 +1223,20 @@ try {
         if (attach_flag != 0) {
             Trigger* trigger;
 
-            trigger = Trigger::CreateAndLoadLevelTrigger(hFile, info->world);
+            trigger = info->world->loadTrigger(*hFile, data, rng, story);
             /* Retail writes the attach fields first, then tests type at +0x22a
                (the stores do not touch that word). */
             trigger->m_bRepType = W8_TRIGGER_REP_PROP;
-            trigger->m_pProp = prop;
+            trigger->m_pProp = this;
             if (trigger->initial_action == 0x40) {
-                InitializeStateDrivenPropVariables(trigger);
+                for (int slot = 0; slot < static_cast<signed char>(slots.size()); ++slot) {
+                    if (!trigger->state_to_modify.empty()) {
+                        char variable[132];
+                        snprintf(variable, sizeof(variable), "%s%d",
+                                 trigger->state_to_modify.c_str(), slot);
+                        story.ensureLocationVariable(info->world->level_id, variable, slot == 0);
+                    }
+                }
             }
             if (trigger->trigger_kind == W8TriggerKind::item && trigger->initial_action == 8) {
                 std::size_t path_count;
@@ -1256,7 +1263,7 @@ try {
                 this->animation_playing = 0;
                 break;
             }
-            prop->trigger = trigger;
+            this->trigger = trigger;
             hFile = info->hFile;
         }
     }

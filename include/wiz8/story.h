@@ -6,6 +6,8 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "wiz8/data/fact_ids.h"
@@ -89,5 +91,15 @@ struct Story {
         W8NpcState* state = npcs[static_cast<std::size_t>(index)].get();
         return state && !state->binding_unavailable ? state : nullptr;
     }
+    void ensureLocationVariable(int level, std::string_view name, int initial_value);
+    int locationVariable(int level, std::string_view name) const;
+    void setLocationVariable(int level, std::string_view name, int value);
+    const std::vector<W8LocationVariable>& locationVariables() const { return location_variables; }
+    void restoreLocationVariables(std::vector<W8LocationVariable> saved)
+    {
+        location_variables = std::move(saved);
+    }
+
+private:
     std::vector<W8LocationVariable> location_variables;
 };

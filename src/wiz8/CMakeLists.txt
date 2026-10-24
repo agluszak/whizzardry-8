@@ -172,6 +172,7 @@ target_sources(wiz8_engine PRIVATE
     combat/entity_signals.cpp
     combat/script_commands.cpp
     fact_state.cpp
+    story.cpp
     ../world/party_camera.cpp
     ../world/party_motion.cpp
     ../world/selection.cpp

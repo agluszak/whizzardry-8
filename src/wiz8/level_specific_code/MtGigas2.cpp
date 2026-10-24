@@ -12,6 +12,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -25,7 +26,9 @@
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 struct W8ItemInstance;
@@ -188,7 +191,7 @@ void MtGigas2Script::setup()
             RunNamedTrigger("yellowwire", -1);
         }
     } else {
-        CreateLocationVar("WirePanel", -1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "WirePanel", -1);
     }
     if (GetLocationVarIDByName("UmpaniAlarm") != -1) {
         int alarm = GetLocationVarValueByName("UmpaniAlarm");
@@ -318,7 +321,8 @@ bool MtGigas2Script::umpaniAlarm(int command)
     glm::vec3 position;
 
     if (command != 0) {
-        if (GetLocationVarIDByName("UmpaniAlarm") == -1) CreateLocationVar("UmpaniAlarm", 30);
+        if (GetLocationVarIDByName("UmpaniAlarm") == -1)
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "UmpaniAlarm", 30);
         if (alarm_gate_ || alarm_sound_ != 0) {
             return false;
         }

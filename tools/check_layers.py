@@ -112,6 +112,13 @@ def check_includes():
     for match in INCLUDE.finditer(source):
         if match.group(2) == 'wiz8/game.h' or 'local_screens/' in match.group(2):
             problems.append('src/world/items.cpp: world item operations may not depend on game or screens')
+    for relative in ('src/entities/trigger_io.cpp', 'src/wiz8/story.cpp'):
+        source = (ROOT / relative).read_text(encoding='utf-8')
+        if re.search(r'\b(CurrentGame|GameInProgress|GetWorld|GetLoadedLevelID|Data|WorldClockMilliseconds)\s*\(', source):
+            problems.append(f'{relative}: loading and story values require explicit owners')
+        for match in INCLUDE.finditer(source):
+            if match.group(2) in ('wiz8/game.h', 'wiz8/loaded_game_data.h') or 'local_screens/' in match.group(2):
+                problems.append(f'{relative}: loading and story values may not find the installed game')
     # Picking interpretation belongs to interaction code, never frame rendering.
     frame = ROOT / 'src/render/frame.cpp'
     source = frame.read_text(encoding='utf-8')

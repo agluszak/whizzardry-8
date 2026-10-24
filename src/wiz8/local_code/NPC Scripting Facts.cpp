@@ -58,6 +58,7 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/story.h"
 #include "wiz8/string_database.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Potion explosion completion callback: retail stores this JMP thunk rather than
@@ -239,7 +240,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
     case W8_FACT_LOCATION_GIGAS_MOTION_SENSORS_OFF:
         if (value != 0) {
             RunNamedTrigger("SecurityLasers", -1);
-            CreateLocationVar("LasersOff", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "LasersOff", 1);
         }
         return;
     case W8_FACT_LOCATION_GIGAS_OUTER_GATE_OPEN:
@@ -672,7 +673,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
                                      GetLocationVarValueByName("ObstacleDoors") | 2);
             return;
         }
-        CreateLocationVar("ObstacleDoors", 2);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "ObstacleDoors", 2);
         return;
     case W8_FACT_LOCATION_GIGAS_OFFICERS_QUARTERS_GATE_OPEN1:
         if (value == 0) {
@@ -687,7 +688,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
                                      GetLocationVarValueByName("ObstacleDoors") | 1);
             return;
         }
-        CreateLocationVar("ObstacleDoors", 1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "ObstacleDoors", 1);
         return;
     case W8_FACT_LOCATION_GIGAS_TOP_DOOR_OPEN1:
     case W8_FACT_LOCATION_GIGAS_TOP_DOOR_OPEN2:
@@ -935,7 +936,8 @@ void MonsterKilled(const ScriptContext& context, int record_id, int killer_party
     }
     if (record_id == 0x14f || record_id == 0xdd) {
         if (GetLocationVarIDByName("NumberRattkinBreedersKilled") == -1) {
-            CreateLocationVar("NumberRattkinBreedersKilled", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(),
+                                                       "NumberRattkinBreedersKilled", 1);
             return;
         }
         SetTriggerVariableByName("NumberRattkinBreedersKilled", 2);

@@ -5,12 +5,15 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code\Monastery1.cpp (level 8).
@@ -68,7 +71,7 @@ bool OnRoachTriggerActivated(Trigger* trigger)
     SpawnMonsters(0x138, 3, &positions[0], 1, false, false);
     SpawnMonsters(0x138, 3, &positions[1], 1, false, false);
     SpawnMonsters(0x138, 3, &positions[2], 1, false, false);
-    CreateLocationVar("RoachesSpawned", 1);
+    CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "RoachesSpawned", 1);
     return true;
 }
 
@@ -104,7 +107,7 @@ bool OnCoffinlideActivated(Trigger* trigger)
 
     if (GetLocationVarIDByName("HeadSpawned") == -1 && FindEntityByName("Head", &position, 0, 0)) {
         SpawnMonsters(0x12d, 1, &position, 1, true, false);
-        CreateLocationVar("HeadSpawned", 1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "HeadSpawned", 1);
     }
     return true;
 }
