@@ -26,6 +26,7 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/render/segment_math.h"
 #include "wiz8/spatial/bounding_box.h"
@@ -679,7 +680,7 @@ void Navigator::UpdateLinkedNavigator(std::optional<BoundingSphere> player)
         UpdateLinkedPosition(player);
         return;
     }
-    int tick = static_cast<int>(GameTimeAccumulator().GetElapsed());
+    int tick = static_cast<int>(owner_world.clocks.motionElapsed());
     if (static_cast<unsigned int>(tick - linked_update_time) <= 50) {
         return;
     }
@@ -774,17 +775,15 @@ glm::vec3* Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* current
                     glm::vec3 falling = *current;
                     float distance;
                     if (NavigationCombatActive(*this)) {
-                        movement.vertical_velocity += GameTimeAccumulator().GetFrameDelta() *
+                        movement.vertical_velocity += owner_world.clocks.motionDelta() *
                                                       g_settings.monster_movement_speed *
                                                       g_navigator_gravity * acceleration_scale;
-                        distance = movement.vertical_velocity *
-                                   GameTimeAccumulator().GetFrameDelta() *
+                        distance = movement.vertical_velocity * owner_world.clocks.motionDelta() *
                                    g_settings.monster_movement_speed;
                     } else {
-                        movement.vertical_velocity += GameTimeAccumulator().GetFrameDelta() *
+                        movement.vertical_velocity += owner_world.clocks.motionDelta() *
                                                       g_navigator_gravity * acceleration_scale;
-                        distance =
-                            movement.vertical_velocity * GameTimeAccumulator().GetFrameDelta();
+                        distance = movement.vertical_velocity * owner_world.clocks.motionDelta();
                     }
                     falling.y -= distance;
                     if (falling.y >= ground) {
@@ -1470,7 +1469,7 @@ void Navigator::UpdateAngles()
     if (!CurrentGame().combat.has_value()) {
         step = movement.turn_rate;
     }
-    step *= g_rate * GameTimeAccumulator().GetFrameDelta();
+    step *= g_rate * owner_world.clocks.motionDelta();
 
     if (movement.yaw != movement.target_yaw) {
         distance = NormalizeAngle(movement.yaw - movement.target_yaw);
@@ -1612,7 +1611,7 @@ void Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed,
         if (!g_navigator_vertical_enabled) {
             movement.vertical_offset = movement.vertical_base;
         } else {
-            float phase = movement.vertical_phase + g_rate * GameTimeAccumulator().GetFrameDelta() *
+            float phase = movement.vertical_phase + g_rate * owner_world.clocks.motionDelta() *
                                                         g_navigator_vertical_phase_step;
             phase -= static_cast<float>(floor(phase));
             movement.vertical_phase = phase;
@@ -1783,7 +1782,7 @@ void Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed,
             }
             /* Two frames within one clock tick have no elapsed time; dividing by it
                made movement_speed NaN, which then stuck (NaN fails every comparison). */
-            const float frame_time = g_rate * GameTimeAccumulator().GetFrameDelta();
+            const float frame_time = g_rate * owner_world.clocks.motionDelta();
             velocity.y = frame_time > 0.0f ? (movement.position.y - previous.y) / frame_time : 0.0f;
             const auto* spatial = NavigationOctree();
             const auto tuning =
@@ -1805,7 +1804,7 @@ void Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed,
     UpdateAngles();
     if (!movement_stopped && NavigationCombatActive(*this) && !movement_complete && flags != 0) {
         movement.callback_progress +=
-            GameTimeAccumulator().GetFrameDelta() * movement.movement_scale * g_rate * kWorldScale;
+            owner_world.clocks.motionDelta() * movement.movement_scale * g_rate * kWorldScale;
         if (movement.callback_threshold <= movement.callback_progress) {
             if (movement_callback != 0) {
                 movement_callback(this);

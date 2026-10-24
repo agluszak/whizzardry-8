@@ -97,7 +97,8 @@ def check_includes():
         for match in INCLUDE.finditer(path.read_text(encoding='utf-8')):
             if any(part in match.group(2) for part in ('local_screens/', 'screen.h', 'pointer.h')):
                 problems.append(f'{relative}: gameplay may not include "{match.group(2)}"')
-    for relative in ('src/platform/game_timer.cpp', 'src/render/effects/camera_shake.cpp'):
+    for relative in ('src/platform/game_timer.cpp', 'src/platform/GameTimeAccumulator.cpp',
+                     'src/render/effects/camera_shake.cpp'):
         source = (ROOT / relative).read_text(encoding='utf-8')
         if re.search(r'\b(CurrentGame|GameInProgress|WorldClockMilliseconds|GameClockMilliseconds)\s*\(', source):
             problems.append(f'{relative}: timed operations must retain their originating clock')

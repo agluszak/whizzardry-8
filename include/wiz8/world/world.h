@@ -38,6 +38,7 @@ struct W8LevelPopulation;
 struct W8MonsterInfo;
 struct W8WorldItem;
 struct GameData;
+class Events;
 class Rng;
 struct W8SpellEffectEntry;
 enum class W8MonsterRemoval : unsigned char;
@@ -144,6 +145,7 @@ struct World {
     void updateMonsters();
     W8WorldItem* adoptItem(std::unique_ptr<W8WorldItem> item);
     bool settleItem(W8WorldItem* item);
+    void updateNearbyItems(const GameData& data, Rng& rng, Events& events, float gravity);
     void activateItem(const GameData& data, Rng& rng, W8WorldItem* item);
     void addItemToSector(int sector, W8WorldItem* item);
     void removeItemFromSector(int sector, W8WorldItem* item);
@@ -196,6 +198,7 @@ struct World {
 
 private:
     void updateNearestMonsterGroupMembers();
+    bool advanceFallingItem(W8WorldItem& item, float gravity);
     friend bool RemoveMonster(W8MonsterInfo*, W8MonsterRemoval);
     // Borrowed only during updateMonsters; the local batch is the temporary owner.
     std::vector<std::unique_ptr<W8MonsterInfo>>* monster_retirements_ = nullptr;

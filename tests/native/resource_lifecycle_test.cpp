@@ -1145,7 +1145,7 @@ TEST_CASE("An item's runtime ownership settles before removal is presented", "[r
         REQUIRE_FALSE(placed->entity);
         REQUIRE(world.scene->dynamic_meshes.empty());
     });
-    DeactivateWorldItem(placed);
+    placed->deactivate(scope.game.events);
     REQUIRE(presented);
     REQUIRE_FALSE(CaptureWorldItem(*placed).front().fActive);
 }

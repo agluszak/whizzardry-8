@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <cmath>
+#include <cstddef>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -10,6 +12,7 @@
 #include <SDL3/SDL_filesystem.h>
 #include <fmt/format.h>
 #include <glm/ext/vector_float3.hpp>
+#include <glm/geometric.hpp>
 
 #include "wiz8/asset_paths.h"
 #include "wiz8/containers.h"
@@ -20,8 +23,10 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/level_population.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/mesh_instance.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
@@ -268,4 +273,93 @@ void World::removeItemFromSector(int sector, W8WorldItem* item)
             wiz8::erase_first(prop->m_supported_items, item);
         }
     }
+}
+
+void W8WorldItem::deactivate(Events& events)
+{
+    assert(entity);
+    position = entity->GetLocation();
+    entity_flags = entity->flags;
+    entity.reset();
+    events.push(WorldItemRemoved{runtime_id});
+}
+
+void World::updateNearbyItems(const GameData& data, Rng& rng, Events& events, float gravity)
+{
+    const auto camera = party.eye();
+    // Outcome observers can change this collection; retain the existing live-index order.
+    for (std::size_t index = 0; index < population->world_items.size(); ++index) {
+        auto& item = *population->world_items[index];
+        if (item.sector_id < -1) {
+            item.sector_id = -1;
+            settleItem(&item);
+        }
+        if (ItemHasFlags(&item, W8_WORLD_ITEM_FALLING)) advanceFallingItem(item, gravity);
+        if (!item.entity) {
+            if (!ItemHasFlags(&item, W8_WORLD_ITEM_HIDDEN) &&
+                glm::distance(item.position, camera) < 20000.0f)
+                activateItem(data, rng, &item);
+        } else if (glm::distance(item.entity->GetLocation(), camera) > 25000.0f) {
+            item.deactivate(events);
+        }
+    }
+}
+
+/* Advance one falling world item (flag bit 1) toward the ground for this
+   frame. Clears the falling flag once it has landed or the settle misses. */
+bool World::advanceFallingItem(W8WorldItem& item, float gravity)
+{
+    glm::vec3 probe;
+    float ground;
+    float previous_y;
+    float dt;
+    int sector;
+
+    if (!ItemHasFlags(&item, W8_WORLD_ITEM_FALLING)) {
+        return false;
+    }
+
+    previous_y = item.position.y;
+    probe = glm::vec3(item.position.x, previous_y + kWorldScale, item.position.z);
+    dt = clocks.motionDelta();
+    if (kCameraSnapEpsilon < item.vertical_velocity) {
+        probe.y = dt * item.vertical_velocity + probe.y;
+    }
+
+    const auto ground_probe = compiledIndex()->settleToGround(probe, 1, 250.0f);
+    probe = ground_probe.position;
+    ground = ground_probe.position.y;
+    if (!ground_probe.contact || fabs(ground - previous_y) < kCameraSnapEpsilon) {
+        item.flags &= ~W8_WORLD_ITEM_FALLING;
+        item.vertical_velocity = 0.0f;
+        return false;
+    }
+
+    sector = ground_probe.prop().value_or(-1);
+    if (sector != item.sector_id) {
+        if (item.sector_id >= 0) {
+            removeItemFromSector(item.sector_id, &item);
+        }
+        if (sector >= 0) {
+            addItemToSector(sector, &item);
+        }
+        item.sector_id = sector;
+    }
+
+    if (previous_y <= ground) {
+        item.vertical_velocity = (ground - previous_y) / dt;
+        probe.y = ground;
+    } else {
+        item.vertical_velocity = dt * gravity * 0.5f + item.vertical_velocity;
+        probe.y = probe.y - dt * item.vertical_velocity;
+        if (probe.y < ground) {
+            probe.y = ground;
+        }
+    }
+
+    if (item.entity) {
+        item.entity->SetLocation(&probe);
+    }
+    item.position = probe;
+    return true;
 }

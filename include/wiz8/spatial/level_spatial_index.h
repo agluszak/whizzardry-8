@@ -679,7 +679,6 @@ int GetCameraYawDegrees(void);
    world, true for a loaded world without an octree. */
 bool hasCameraLineOfSight(const glm::vec3& position);
 /* 0x00420E20: start/stop the sustained movement footstep loop. */
-void UpdateLevelMovementAudio(void);
 /* 0x004EF9A0: fall-impact override handler owned by GameplayCode.cpp;
    declared in wiz8/local_code/GameplayCode.h. */
 

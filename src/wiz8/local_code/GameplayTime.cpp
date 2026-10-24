@@ -233,7 +233,7 @@ void UpdateGameClock(int elapsed)
     }
     auto& surprise = CurrentGame().surprise;
     if (surprise.unengaged && AnyCharacterEngaged() && surprise.phase == SurprisePhase::hold) {
-        ResetSight();
+        CurrentGame().resetSight();
         ReverseSurpriseFade();
         surprise.phase = SurprisePhase::fade_out_and_resolve;
         ReleaseMarkedNpcBindings();
@@ -290,33 +290,32 @@ void BeginSurprise(void)
    world clock reaches the deadline (unless surprise started unengaged);
    phase 2 waits for the fade-out helper, then ends surprise and forwards
    combat if needed. */
-void UpdateSurpriseMode(void)
+void Game::updateSurpriseMode()
 {
     float scale;
     float level_scale;
 
-    if (!CurrentGame().surprise_possible) {
+    if (!surprise_possible) {
         return;
     }
-    auto& surprise = CurrentGame().surprise;
     switch (surprise.phase) {
     case SurprisePhase::fade_in:
         if (UpdateSurpriseFade() != 0) {
-            surprise.deadline_turns = CurrentGame().status.world_clock + 0x7080;
+            surprise.deadline_turns = status.world_clock + 0x7080;
             DestroyUngroupedMonsters();
             SetViewDistance(2880.0f);
             SetNavigatorLinkMode(W8_NAVIGATOR_LINK_MODE_STOPPED);
-            level_scale = Data().levels[GetLoadedLevelID()].gameplay_time_scale;
+            level_scale = data.levels[level.loaded().level_id].gameplay_time_scale;
             scale = 1.0f / level_scale;
-            GameTimeAccumulator().SetTimeScale(scale);
+            motion_clock.SetTimeScale(scale);
             SetMonsterGeneratorDurationScale(scale);
             surprise.phase = SurprisePhase::hold;
         }
         break;
     case SurprisePhase::hold:
-        if (!surprise.unengaged && static_cast<unsigned int>(CurrentGame().status.world_clock) >=
-                                       surprise.deadline_turns) {
-            ResetSight();
+        if (!surprise.unengaged &&
+            static_cast<unsigned int>(status.world_clock) >= surprise.deadline_turns) {
+            resetSight();
             UpdateEnvironmentLight();
             RefreshEnvironment();
             ReverseSurpriseFade();
@@ -328,7 +327,7 @@ void UpdateSurpriseMode(void)
     case SurprisePhase::fade_out_and_resolve:
         if (UpdateSurpriseFade() != 0) {
             EndSurprise();
-            if (CurrentGame().combat.has_value()) {
+            if (combat.has_value()) {
                 StopAllNavigators();
             }
         }
@@ -356,7 +355,7 @@ void AcknowledgeSurprise(void)
 void ResolveSurpriseHold(void)
 {
     if (CurrentGame().surprise.phase == SurprisePhase::hold) {
-        ResetSight();
+        CurrentGame().resetSight();
         ReverseSurpriseFade();
         CurrentGame().surprise.phase = SurprisePhase::fade_out_and_resolve;
         ReleaseMarkedNpcBindings();
@@ -410,7 +409,7 @@ void RestoreSurpriseView(void)
 {
     CurrentGame().surprise_possible = false;
     CurrentGame().surprise.unengaged = false;
-    ResetSight();
+    CurrentGame().resetSight();
     DestroySurpriseFade();
 }
 

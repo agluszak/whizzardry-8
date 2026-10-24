@@ -26,6 +26,7 @@
 #include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/message_log.h"
 #include "wiz8/npc_interaction_state.h"
+#include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/rules/activity.h"
@@ -112,9 +113,11 @@ public:
     std::chrono::milliseconds visual_time{};
     bool timers_paused = false;
     bool move_timer_suspended = false;
+    W8GameTimeAccumulator motion_clock;
     TimerClockView timerClocks()
     {
-        return {time, visual_time, status.game_time_days, status.game_time_ms, timers_paused};
+        return {time,          visual_time,  status.game_time_days, status.game_time_ms,
+                timers_paused, motion_clock, move_timer_suspended};
     }
 
     /* Start a fight with the monsters hostile to the party; `surprise` says the party
@@ -125,6 +128,7 @@ public:
        destroy the combat. A forced end (a departure or a scripted end) neither announces
        nor kills the summoned monsters. */
     void endCombat(bool forced_cleanup);
+    void resetSight();
 
     // Commands the level's monster scripts and triggers issue.
     // A monster's script turns the group of the monster at `location_id` to `disposition`.
@@ -221,6 +225,7 @@ public:
     Level level;
 
 private:
+    void updateSurpriseMode();
     void advanceWorlds(std::chrono::milliseconds elapsed);
     void advanceSpellEffects(World& world);
 };

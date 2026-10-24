@@ -431,6 +431,14 @@ code has a subclass whose members are that state. Trigger callbacks are
   happen on the game thread between completed frames.
 - The UI is drawn on a fixed ARGB1555 CPU canvas and published to a dynamic VSG
   image.
+- `Game::motion_clock` owns the scaled, clamped motion delta and accumulated
+  motion timestamp. Worlds, navigators and their camera borrow it through their
+  originating clock view; replacing the installed session cannot redirect them.
+  Level departure resets this value in place at the existing transition boundary,
+  after ending camera sway. Scale changes preserve elapsed motion; timer holds
+  and the camera-sway suspension latch remain separate inputs. World item falling
+  and proximity updates use the owning world, including its collision geometry,
+  clock and item appearances, with gravity and activation inputs supplied explicitly.
 - Particles and other effects advance in the game step, never in render
   traversal. World animation uses `Game::visual_time`, which stops while the world
   is held; UI animation uses presentation time.

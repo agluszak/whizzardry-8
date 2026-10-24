@@ -21,6 +21,7 @@
 #include "layouts/main_game_screen.h"
 #include "message_box.h"
 #include "wiz8/audio/AmbientSound.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/combat/fight.h"
 #include "wiz8/direction_angles.h"
 #include "wiz8/entities/keyframe_track.h"
@@ -40,7 +41,6 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera.h"
@@ -527,7 +527,7 @@ glm::mat3 PartyCamera::turn(unsigned int flags)
     float yaw_input;
 
     // Held time leaves the orientation alone, and movement takes the whole rotation.
-    if (clocks.held() || GameTimeAccumulator().slow_scale) {
+    if (clocks.held() || clocks.motionSlowed()) {
         return m_rotation;
     }
 
@@ -568,7 +568,7 @@ glm::mat3 PartyCamera::turn(unsigned int flags)
     }
     this->ApplyPitchInput(pitch_input);
     this->ApplyYawInput(yaw_input);
-    this->Update(GameTimeAccumulator().GetFrameDelta());
+    this->Update(clocks.motionDelta());
     return m_yaw_rotation;
 }
 
@@ -604,7 +604,7 @@ CameraMotion PartyCamera::move(LevelSpatialIndex& collision, unsigned int flags,
     if ((((level_flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) != 0 &&
           (level_flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) != 0) &&
          ((level_flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0 && !g_animated_prop_present)) ||
-        GameTimeAccumulator().slow_scale) {
+        clocks.motionSlowed()) {
         return result;
     }
 
@@ -614,7 +614,7 @@ CameraMotion PartyCamera::move(LevelSpatialIndex& collision, unsigned int flags,
     forward_scale = g_camera_level_forward_scale;
     level->flags &= ~(W8_LEVEL_FLAG_PROP_CONTACT | W8_LEVEL_FLAG_PROP_NORMAL_MISMATCH |
                       W8_LEVEL_FLAG_WALKABLE_CONTACT);
-    level->camera_scale = GameTimeAccumulator().GetFrameDelta();
+    level->camera_scale = clocks.motionDelta();
     level->camera_position = m_position;
     level->motion_velocity = glm::vec3(0);
     level->motion_displacement = glm::vec3(0);
@@ -671,7 +671,7 @@ after_move:
         }
         footstep_pending = false;
     }
-    UpdateLevelMovementAudio();
+    if (collision.owner_world) updateMovementAudio(*collision.owner_world);
     if (moved == 0) {
         motion.flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
     } else {
@@ -889,7 +889,7 @@ void PointCameraAtTarget(glm::vec3* position, bool force, bool animate)
 
 void PartyCamera::applySway(Camera3D& camera, CameraSwayMode mode)
 {
-    float elapsed = MoveTimer(W8_MOVE_TIMER_FRAME_DELTA);
+    const float elapsed = clocks.motionSuspended() ? 0.0f : clocks.motionDelta();
 
     if (mode != CameraSwayMode::Reset) {
         if (mode == CameraSwayMode::Start) {
@@ -926,4 +926,25 @@ void PartyCamera::applySway(Camera3D& camera, CameraSwayMode mode)
     camera.setViewPlane((sin(radians * sway_horizontal_phase) * 0.75 + base_horizontal_fov) *
                             radians,
                         (sin(radians * sway_vertical_phase) * 0.63f + base_vertical_fov) * radians);
+}
+
+void PartyCamera::updateMovementAudio(World& world)
+{
+    auto& loop = world.audio.footstep_loop;
+    if ((m_orientation_flags & W8_CAMERA_YAW_MOVING) == 0 ||
+        (motion.flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) == 0 ||
+        motion.motion_velocity != glm::vec3(0)) {
+        if (loop) {
+            wiz8::sound::stop(loop, 500);
+            loop = nullptr;
+        }
+        return;
+    }
+    const auto now = clocks.motionElapsed();
+    if (g_facing_tolerance0 < now - footstep_time) {
+        footstep_time = now;
+        if (!loop || !wiz8::sound::is_playing(loop))
+            loop = PlayFootstep(motion.sound_environment, motion.sound_environment_alt,
+                                W8_FOOTSTEP_KIND_SCUFF);
+    }
 }

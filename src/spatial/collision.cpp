@@ -283,7 +283,7 @@ unsigned char LevelSpatialIndex::ProbeMonstersAlongMotion(glm::vec3* direction, 
         monster_info = owner_world->population->findMonster(objects[index]);
         if (monster_info != 0 && monster_info->entity && monster_info->entity->nav.active) {
             Monster& monster = *monster_info->entity;
-            time_scale = g_rate * GameTimeAccumulator().GetFrameDelta();
+            time_scale = g_rate * owner_world->clocks.motionDelta();
             velocity = monster.nav.GetVelocity();
             adjusted.x = direction->x - velocity.x * static_cast<float>(time_scale);
             adjusted.y = direction->z - velocity.z * static_cast<float>(time_scale);
@@ -1508,7 +1508,7 @@ float MoveTimer(W8MoveTimerAction action)
         game.timerClocks().pause();
         game.move_timer_suspended = true;
     }
-    return GameTimeAccumulator().GetFrameDelta();
+    return game.motion_clock.GetFrameDelta();
 }
 
 float GetCameraYawRadians()
@@ -1608,31 +1608,4 @@ bool hasCameraLineOfSight(const glm::vec3& position)
         return spatial->hasLineOfSight(cameraLocation(), position);
     }
     return true;
-}
-
-void UpdateLevelMovementAudio(void)
-{
-    PartyMotion* level = LevelMotion();
-    float now;
-
-    if (level == 0) {
-        return;
-    }
-    if ((partyCamera().m_orientation_flags & W8_CAMERA_YAW_MOVING) == 0 ||
-        (level->flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) == 0 || level->motion_velocity.x != 0.0f ||
-        level->motion_velocity.y != 0.0f || level->motion_velocity.z != 0.0f) {
-        if (GetWorld()->audio.footstep_loop != nullptr) {
-            wiz8::sound::stop(GetWorld()->audio.footstep_loop, 500);
-            GetWorld()->audio.footstep_loop = nullptr;
-        }
-        return;
-    }
-    now = GameTimeAccumulator().GetElapsed();
-    if (g_facing_tolerance0 < now - partyCamera().footstep_time &&
-        (partyCamera().footstep_time = now,
-         GetWorld()->audio.footstep_loop == nullptr ||
-             !wiz8::sound::is_playing(GetWorld()->audio.footstep_loop))) {
-        GetWorld()->audio.footstep_loop = PlayFootstep(
-            level->sound_environment, level->sound_environment_alt, W8_FOOTSTEP_KIND_SCUFF);
-    }
 }

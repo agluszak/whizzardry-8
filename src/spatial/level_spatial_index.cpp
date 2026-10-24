@@ -54,6 +54,7 @@
 #include "wiz8/packed_bits.h"
 #include "wiz8/placement_math.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/compiled_mesh.h"
 #include "wiz8/render/frame.h"
@@ -2025,7 +2026,8 @@ unsigned int LevelSpatialIndex::AdvanceNavigator(NavigatorMovement* movement, fl
     vecDir = movement->target_position - movement->position;
     vecDir.y = 0.0f;
     distance = glm::length(((glm::vec2(vecDir.x, vecDir.z))));
-    step = GameTimeAccumulator().GetFrameDelta() * movement->movement_scale * g_rate * kWorldScale;
+    step = (owner_world ? owner_world->clocks.motionDelta() : 0.0f) * movement->movement_scale *
+           g_rate * kWorldScale;
     if (step >= distance) {
         step = distance;
     } else {

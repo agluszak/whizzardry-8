@@ -156,7 +156,7 @@ bool Game::beginCombat(int surprise)
         ResolveSurpriseHold();
     }
     if (GetViewDistance() != g_sight_default) {
-        ResetSight();
+        resetSight();
     }
     if (auto* screen = MainGame()) screen->dismissOverlays(false);
     AutoSaveIfAllowed(true);

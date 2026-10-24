@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <cmath>
-#include <cstddef>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -41,7 +40,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
@@ -58,13 +56,6 @@ constexpr float kDropItemPitchScale = 71.0f;
 constexpr float kDropItemYawScale = 85.0f;
 
 class W8DialogBase;
-
-/* Camera distance inside which inactive world items are activated. */
-const float g_item_camera_cull_distance = 20000.0f;
-
-/* When set, skip activating world items that already carry flag
-   bit 0. */
-bool g_hide_invisible_items = true;
 
 // FUNCTION: WIZ8 0x004f8130
 bool ItemHasFlags(const W8WorldItem* item, unsigned int mask)
@@ -263,23 +254,6 @@ unsigned int ItemIndex(int runtime_id)
     return 0;
 }
 
-/* Unload the appearance, retaining position and flags for its next activation.
-   Presentation observes removal only after the scene and owner agree. */
-void DeactivateWorldItem(W8WorldItem* item)
-{
-    glm::vec3 position;
-
-    assert(item != 0);
-    assert(item->entity);
-
-    position = item->entity->GetLocation();
-    item->position = position;
-    item->entity_flags = item->entity->flags;
-
-    item->entity.reset();
-    if (GameInProgress()) CurrentGame().events.push(WorldItemRemoved{item->runtime_id});
-}
-
 /* The runtime id of the nearest active world item the cursor is hovering over
    and whose screen distance stays inside `max_distance`, or -1. The cursor
    coordinates are carried but unused - the hover test is IsSelected. */
@@ -311,49 +285,6 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
         }
     }
     return result;
-}
-
-/* Walk every world item: repair invalid sectors, advance falling ones, then
-   activate inactive items near the camera and deactivate active ones that have
-   drifted beyond the far range. */
-void UpdateNearbyWorldItems(void)
-{
-    glm::vec3 camera;
-    unsigned int index;
-    std::size_t count;
-
-    camera = GetWorld()->party.eye();
-    count = CurrentLevelPopulation().world_items.size();
-    for (index = 0; index < count; ++index) {
-        W8WorldItem* item = ItemInfo(index);
-
-        if (item->sector_id < -1) {
-            item->sector_id = -1;
-            CurrentGame().level.loaded().settleItem(item);
-        }
-        if (ItemHasFlags(item, W8_WORLD_ITEM_FALLING)) {
-            AdvanceFallingWorldItem(item);
-        }
-        if (!item->entity) {
-            if (glm::distance(item->position, camera) < g_item_camera_cull_distance) {
-                if (g_hide_invisible_items) {
-                    if (ItemHasFlags(item, W8_WORLD_ITEM_HIDDEN)) {
-                        goto next_item;
-                    }
-                }
-                CurrentGame().level.loaded().activateItem(Data(), CurrentGame().rng, item);
-            }
-        } else {
-            glm::vec3 location;
-
-            location = item->entity->GetLocation();
-            if (glm::distance(location, camera) > 2.5e+04f) {
-                DeactivateWorldItem(item);
-            }
-        }
-    next_item:
-        count = CurrentLevelPopulation().world_items.size();
-    }
 }
 
 glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_rotation)
@@ -421,7 +352,7 @@ static void OnItemPickerClosed(W8WorldItem* group)
         CurrentGame().level.loaded().removeItemFromSector(item->sector_id, item);
     }
     if (item->entity) {
-        DeactivateWorldItem(item);
+        item->deactivate(CurrentGame().events);
     }
     CurrentLevelPopulation().world_items.erase(CurrentLevelPopulation().world_items.begin() +
                                                index);
@@ -461,7 +392,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
         CurrentGame().level.loaded().removeItemFromSector(item->sector_id, item);
     }
     if (item->entity) {
-        DeactivateWorldItem(item);
+        item->deactivate(CurrentGame().events);
     }
     CurrentLevelPopulation().world_items.erase(CurrentLevelPopulation().world_items.begin() +
                                                index);
@@ -475,7 +406,7 @@ void ReleaseItemLists()
         auto* item = owned.get();
         if (item->sector_id >= 0)
             CurrentGame().level.loaded().removeItemFromSector(item->sector_id, item);
-        if (item->entity) DeactivateWorldItem(item);
+        if (item->entity) item->deactivate(CurrentGame().events);
     }
     CurrentLevelPopulation().world_items.clear();
 }
@@ -529,65 +460,6 @@ bool AnyWorldItemVisible(void)
         }
     }
     return false;
-}
-
-/* Advance one falling world item (flag bit 1) toward the ground for this
-   frame. Clears the falling flag once it has landed or the settle misses. */
-bool AdvanceFallingWorldItem(W8WorldItem* item)
-{
-    glm::vec3 probe;
-    float ground;
-    float previous_y;
-    float dt;
-    int sector;
-
-    if (!ItemHasFlags(item, W8_WORLD_ITEM_FALLING)) {
-        return false;
-    }
-
-    previous_y = item->position.y;
-    probe = glm::vec3(item->position.x, previous_y + kWorldScale, item->position.z);
-    dt = GameTimeAccumulator().GetFrameDelta();
-    if (kCameraSnapEpsilon < item->vertical_velocity) {
-        probe.y = dt * item->vertical_velocity + probe.y;
-    }
-
-    const auto ground_probe = GetWorldSpatialIndex()->settleToGround(probe, 1, 250.0f);
-    probe = ground_probe.position;
-    ground = ground_probe.position.y;
-    if (!ground_probe.contact || fabs(ground - previous_y) < kCameraSnapEpsilon) {
-        item->flags &= ~W8_WORLD_ITEM_FALLING;
-        item->vertical_velocity = 0.0f;
-        return false;
-    }
-
-    sector = ground_probe.prop().value_or(-1);
-    if (sector != item->sector_id) {
-        if (item->sector_id >= 0) {
-            CurrentGame().level.loaded().removeItemFromSector(item->sector_id, item);
-        }
-        if (sector >= 0) {
-            CurrentGame().level.loaded().addItemToSector(sector, item);
-        }
-        item->sector_id = sector;
-    }
-
-    if (previous_y <= ground) {
-        item->vertical_velocity = (ground - previous_y) / dt;
-        probe.y = ground;
-    } else {
-        item->vertical_velocity = dt * g_navigator_gravity * 0.5f + item->vertical_velocity;
-        probe.y = probe.y - dt * item->vertical_velocity;
-        if (probe.y < ground) {
-            probe.y = ground;
-        }
-    }
-
-    if (item->entity) {
-        item->entity->SetLocation(&probe);
-    }
-    item->position = probe;
-    return true;
 }
 
 /* Rebuild every world item's carried instance from its own item id, which

@@ -337,7 +337,7 @@ static void EnterLevel(Game& game, World& world, int level, int entrance, bool r
         game.timerClocks().resume();
         game.move_timer_suspended = false;
     }
-    GameTimeAccumulator().Update(std::chrono::milliseconds{0}, game.timerClocks().held());
+    game.motion_clock.Update(std::chrono::milliseconds{0}, game.timerClocks().held());
     if (world.environment.fog_enabled) UpdateEnvironmentLight();
     ApplyCameraRotation(&world.initial_camera_rotation);
     world.party.camera.applySway(*world.camera, world.initial_camera_sway ? CameraSwayMode::Start
@@ -476,7 +476,7 @@ static void LeaveLoadedLevel(Game& game)
     ReleaseWorldCursor();
     DisableSky();
     EndCameraSway();
-    ResetGameTimeAccumulator();
+    game.motion_clock = {};
     game.level.replacePrimary(nullptr);
 }
 

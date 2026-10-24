@@ -1,5 +1,6 @@
 #pragma once
 struct W8Chunk;
+class W8GameTimeAccumulator;
 
 #include <chrono>
 #include <cstdint>
@@ -27,11 +28,17 @@ class TimerClockView {
 public:
     TimerClockView() = default;
     TimerClockView(const std::chrono::milliseconds& step, const std::chrono::milliseconds& world,
-                   const int& days, const unsigned& calendar_ms, bool& paused)
-        : step_(&step), world_(&world), days_(&days), calendar_ms_(&calendar_ms), paused_(&paused)
+                   const int& days, const unsigned& calendar_ms, bool& paused,
+                   const W8GameTimeAccumulator& motion, const bool& motion_suspended)
+        : step_(&step), world_(&world), days_(&days), calendar_ms_(&calendar_ms), paused_(&paused),
+          motion_(&motion), motion_suspended_(&motion_suspended)
     {
     }
     std::uint32_t read(TimerClock clock) const;
+    float motionDelta() const;
+    float motionElapsed() const;
+    bool motionSlowed() const;
+    bool motionSuspended() const { return motion_suspended_ && *motion_suspended_; }
     bool held() const { return paused_ && *paused_; }
     void pause() const
     {
@@ -48,6 +55,8 @@ private:
     const int* days_ = nullptr;
     const unsigned* calendar_ms_ = nullptr;
     bool* paused_ = nullptr;
+    const W8GameTimeAccumulator* motion_ = nullptr;
+    const bool* motion_suspended_ = nullptr;
 };
 
 class W8GameTimer {

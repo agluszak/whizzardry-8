@@ -4,6 +4,7 @@
 #include <exception>
 
 #include "wiz8/chunk.h"
+#include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/timer.h"
 
 W8GameTimer::W8GameTimer(TimerClockView clocks, float duration, TimerClock clock) : clocks_(clocks)
@@ -134,4 +135,19 @@ std::uint32_t TimerClockView::read(TimerClock clock) const
         return world_ ? static_cast<std::uint32_t>(world_->count()) * 10u : 0;
     }
     return 0;
+}
+
+float TimerClockView::motionDelta() const
+{
+    return motion_ ? motion_->GetFrameDelta() : 0.0f;
+}
+
+float TimerClockView::motionElapsed() const
+{
+    return motion_ ? motion_->GetElapsed() : 0.0f;
+}
+
+bool TimerClockView::motionSlowed() const
+{
+    return motion_ && motion_->slow_scale;
 }

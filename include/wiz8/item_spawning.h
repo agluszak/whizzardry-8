@@ -10,6 +10,7 @@
 
 class Trigger;
 struct GameData;
+class Events;
 
 /* Bit masks in W8WorldItem::flags; preserve combinations in unsigned int. */
 enum {
@@ -20,6 +21,7 @@ enum {
 
 /* A world item. Saves store it as wiz8::retail::WorldItem. */
 struct W8WorldItem {
+    void deactivate(Events& events);
     int runtime_id;      /* 0x00 */
     // A nearby item owns its loaded appearance; absence means it is unloaded.
     std::unique_ptr<WorldItemEntity> entity;

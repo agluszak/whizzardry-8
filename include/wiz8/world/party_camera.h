@@ -37,6 +37,8 @@ enum W8CameraOrientationFlag {
 
 enum class CameraSwayMode : signed char { Stop = -1, Reset = 0, Start = 1 };
 
+struct World;
+
 class PartyCamera {
 public:
     TimerClockView clocks;
@@ -124,6 +126,7 @@ public:
     W8IntervalGate m_manual_input_timer;
 
 private:
+    void updateMovementAudio(World& world);
     bool CanTrackTarget();
 };
 

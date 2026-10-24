@@ -72,9 +72,9 @@ void Game::advance(milliseconds elapsed, StepHold hold)
     world_items_due -= elapsed;
     if (combat) combat->passTime(elapsed);
     if (!timerClocks().held()) autosave_due -= elapsed;
-    UpdateSurpriseMode();
+    updateSurpriseMode();
     ProcessMainGameAutoSave();
-    GameTimeAccumulator().Update(elapsed, timerClocks().held());
+    motion_clock.Update(elapsed, timerClocks().held());
     g_animated_prop_present = false;
     WorldUpdateProps(level.primary.get(), elapsed);
     if (level.sky) WorldUpdateProps(level.sky.get(), elapsed);
@@ -98,7 +98,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
         }
     }
     if (Due(world_items_due, kWorldItemsInterval)) {
-        UpdateNearbyWorldItems();
+        level.loaded().updateNearbyItems(data, rng, events, g_navigator_gravity);
         for (auto* world : {level.primary.get(), level.sky.get()})
             if (world) AnimateWorldItems(*world);
     }

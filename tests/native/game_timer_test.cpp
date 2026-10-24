@@ -54,7 +54,6 @@ struct TimerFixture {
         CurrentGame().status.game_time_days = 0;
         CurrentGame().status.game_time_ms = 0;
     }
-    ~TimerFixture() { ResetGameTimeAccumulator(); }
     void advance(unsigned long long micros)
     {
         g_runtime_test_hooks.clock_us += micros;
@@ -118,8 +117,8 @@ TEST_CASE_METHOD(TimerFixture, "Game-day time and accelerated frame deltas keep 
     REQUIRE(game.GetProgress() == Catch::Approx(0.125f));
 
     // The frame delta follows the elapsed time the step passes, not the clock.
-    ResetGameTimeAccumulator();
-    auto& accumulator = GameTimeAccumulator();
+    CurrentGame().motion_clock = {};
+    auto& accumulator = CurrentGame().motion_clock;
     accumulator.SetTimeScale(0.5f);
     REQUIRE(accumulator.Update(std::chrono::milliseconds{25}, CurrentGame().timerClocks().held()) ==
             Catch::Approx(0.5f));
@@ -422,7 +421,7 @@ TEST_CASE_METHOD(TimerFixture, "Unkeyed shakes survive level changes but not the
 TEST_CASE_METHOD(TimerFixture, "First camera motion resumes its clock only once",
                  "[timers][camera]")
 {
-    ResetGameTimeAccumulator(); // Zero movement delta: this test needs no collision geometry.
+    CurrentGame().motion_clock = {}; // Zero movement delta: this test needs no collision geometry.
     auto clocks = game.game.timerClocks();
     PartyCamera camera(clocks);
     LevelSpatialIndex geometry;
@@ -432,5 +431,66 @@ TEST_CASE_METHOD(TimerFixture, "First camera motion resumes its clock only once"
     REQUIRE_FALSE(clocks.held());
     clocks.pause();
     REQUIRE_FALSE(camera.move(geometry, W8_CAMERA_MOTION_FORWARD, glm::mat3(1)).moved);
+    REQUIRE(clocks.held());
+}
+
+TEST_CASE_METHOD(TimerFixture, "Motion clocks belong to their game and survive level resets",
+                 "[timers][lifetime][motion]")
+{
+    Game candidate(game.game.data);
+    World world(-1, "", candidate.timerClocks());
+    const auto clocks = world.clocks;
+    game.game.motion_clock.Update(std::chrono::milliseconds{100}, false);
+    candidate.motion_clock.SetTimeScale(.25f);
+    candidate.motion_clock.Update(std::chrono::milliseconds{25}, false);
+    REQUIRE(clocks.motionDelta() == Catch::Approx(1));
+    REQUIRE(clocks.motionSlowed());
+    REQUIRE(clocks.motionElapsed() == Catch::Approx(1));
+
+    // Changing scale restarts the interval, not its accumulated motion timestamp.
+    candidate.motion_clock.SetTimeScale(1);
+    REQUIRE(clocks.motionDelta() == 0);
+    REQUIRE(clocks.motionSlowed()); // Only ResetTimeScale clears the sticky slow mode.
+    REQUIRE(clocks.motionElapsed() == Catch::Approx(1));
+    candidate.motion_clock.ResetTimeScale();
+    REQUIRE_FALSE(clocks.motionSlowed());
+    candidate.motion_clock.Update(std::chrono::seconds{1}, false);
+    REQUIRE(clocks.motionDelta() == Catch::Approx(2)); // Clamp in motion units.
+    REQUIRE(clocks.motionElapsed() == Catch::Approx(3));
+    candidate.motion_clock.Update(std::chrono::seconds{1}, true);
+    REQUIRE(clocks.motionDelta() == 0);
+    REQUIRE(clocks.motionElapsed() == Catch::Approx(3));
+
+    // Both existing and prepared worlds borrow the same stable clock object.
+    candidate.motion_clock = {};
+    REQUIRE(clocks.motionElapsed() == 0);
+    candidate.motion_clock.Update(std::chrono::milliseconds{50}, false);
+    REQUIRE(clocks.motionDelta() == Catch::Approx(.5f));
+    auto& replacement = game.session.begin();
+    replacement.motion_clock.Update(std::chrono::seconds{1}, false);
+    REQUIRE(clocks.motionDelta() == Catch::Approx(.5f));
+    REQUIRE(clocks.motionElapsed() == Catch::Approx(.5f));
+    const TimerClockView disconnected;
+    REQUIRE(disconnected.motionDelta() == 0);
+    REQUIRE(disconnected.motionElapsed() == 0);
+    REQUIRE_FALSE(disconnected.motionSlowed());
+}
+
+TEST_CASE_METHOD(TimerFixture, "Motion suspension and timer holds remain distinct inputs",
+                 "[timers][motion]")
+{
+    auto& owner = game.game;
+    const auto clocks = owner.timerClocks();
+    owner.motion_clock.SetTimeScale(.3333f);
+    // The old timer quantizes the scaled duration to an integer number of ticks.
+    REQUIRE(owner.motion_clock.Update(std::chrono::milliseconds{10}, false) ==
+            Catch::Approx(100.0f / 333.0f));
+    owner.move_timer_suspended = true;
+    REQUIRE(clocks.motionSuspended());
+    REQUIRE_FALSE(clocks.held());
+    REQUIRE(clocks.motionDelta() > 0); // Camera sway suppresses it; physical motion owns its hold.
+    owner.move_timer_suspended = false;
+    clocks.pause();
+    REQUIRE_FALSE(clocks.motionSuspended());
     REQUIRE(clocks.held());
 }
