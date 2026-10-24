@@ -79,6 +79,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/party_quote_input.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
@@ -625,7 +626,7 @@ bool CampScreen::enter(const ScreenRequest& request)
     }
     if (auto* main_game = MainGame()) main_game->item_drag.reset();
     game.aging_held = false;
-    CreatePartyPortraitEventRegions();
+    party_quotes = AcquirePartyQuoteInput(game);
     CreateCampInput();
     if (request.parameter_4) items.IdentifyWithSpell(*request.parameter_4);
     CreateCampButtonPanel();

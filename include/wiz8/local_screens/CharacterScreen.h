@@ -21,6 +21,8 @@
 #include "wiz8/text_input.h"
 #include "wiz8/ui_layer.h"
 
+struct PartyQuoteInput;
+
 class Game;
 
 class W8DialogBase;
@@ -307,6 +309,7 @@ public:
     void DrawNavigation(SDL_Surface& target);
 
     Game& m_game;
+    std::shared_ptr<PartyQuoteInput> party_quotes;
     W8CharacterScreenMode m_mode = W8_CHARACTER_CREATE;
     int m_page_index = -1;
     bool m_header_dirty = false;

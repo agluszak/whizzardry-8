@@ -123,6 +123,7 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_interaction_state.h"
 #include "wiz8/npc_items.h"
+#include "wiz8/party_quote_input.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
@@ -2244,7 +2245,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
         LoadMainGameCursorResources();
     }
     game.level_up_check_due = true;
-    CreatePartyPortraitEventRegions();
+    party_quotes = AcquirePartyQuoteInput(game);
 
     InitTextBoxRegions();
     ConfigureMainGameHudButtons();

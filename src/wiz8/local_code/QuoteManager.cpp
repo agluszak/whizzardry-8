@@ -39,7 +39,6 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -58,6 +57,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_speech.h"
+#include "wiz8/party_quote_input.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/portrait_animation.h"
 #include "wiz8/render/frame.h"
@@ -401,12 +401,8 @@ std::string W8CharacterEventQueue::QuoteText(const W8Character& character,
     return GetCharacterQuoteText(character, event_type);
 }
 
-static void ReleasePartyQuoteInput();
-// The events' destruction stops their voices, so none completes into the ended game.
-W8CharacterEventQueue::~W8CharacterEventQueue()
-{
-    ReleasePartyQuoteInput();
-}
+// Event owners stop their voices; screen-owned quote input has a separate lifetime.
+W8CharacterEventQueue::~W8CharacterEventQueue() = default;
 
 void W8CharacterEventQueue::DestroyAllEvents()
 {
@@ -730,66 +726,60 @@ finish_without_dispatch:
     return false;
 }
 
-namespace {
-struct PartyQuoteInput {
+struct PartyQuoteInput : std::enable_shared_from_this<PartyQuoteInput> {
+    Game& game;
     UiLayer input{UiLayerOrder::PartyQuotes, UiLayerScope::Shared};
     std::array<HitTarget*, 8> targets;
-    PartyQuoteInput()
+
+    explicit PartyQuoteInput(Game& owner) : game(owner)
     {
         for (int slot = 0; slot < 8; ++slot) {
-            targets[slot] = &input.add(SDL_Rect{0, 0, 1, 1}, [slot](const UiPointerEvent& event) {
-                if (event.action != UiPointerAction::Up || event.captured_buttons)
-                    PlayButtonSound(event.action);
-                if (event.action == UiPointerAction::Up && event.inside &&
-                    event.button == UiPointerButton::Left &&
-                    (event.captured_buttons & SDL_BUTTON_LMASK)) {
-                    AfterUiDispatch([slot] {
-                        auto* active =
-                            CurrentGame().monster_manager_entries[slot].active_character_event;
-                        if (slot > 1 && active)
-                            CurrentGame().speech.CompleteActiveEvent(active);
-                        else
-                            TryFinishNpcVoicePlayback(true);
-                    });
-                }
-                return UiResult::Handled;
-            });
-            targets[slot]->setEnabled(false);
+            const auto& record = game.monster_manager_entries[slot];
+            const auto& quote = record.quote;
+            targets[slot] = &input.add(
+                SDL_Rect{quote.x, quote.y, quote.width + 1, quote.height + 1},
+                [this, slot](const UiPointerEvent& event) {
+                    if (event.action != UiPointerAction::Up || event.captured_buttons)
+                        PlayButtonSound(event.action);
+                    if (event.action == UiPointerAction::Up && event.inside &&
+                        event.button == UiPointerButton::Left &&
+                        (event.captured_buttons & SDL_BUTTON_LMASK)) {
+                        AfterUiDispatch([weak = weak_from_this(), slot] {
+                            const auto shown = weak.lock();
+                            if (!shown) return;
+                            auto& game = shown->game;
+                            auto* active =
+                                game.monster_manager_entries[slot].active_character_event;
+                            if (slot > 1 && active) {
+                                game.speech.CompleteActiveEvent(active);
+                            } else if (auto* main = MainGame(); main && &main->game == &game) {
+                                main->dialogue.tryFinishVoice(true);
+                            }
+                        });
+                    }
+                    return UiResult::Handled;
+                });
+            targets[slot]->setEnabled(record.portrait_event_active && quote.bubble.has_value());
         }
     }
 };
-// Quotes persist while switching between camp and the live game.
-std::unique_ptr<PartyQuoteInput> party_quote_input;
+
+namespace {
+std::weak_ptr<PartyQuoteInput> shown_party_quotes;
+
+std::shared_ptr<PartyQuoteInput> ShownPartyQuotes(const Game& game)
+{
+    auto shown = shown_party_quotes.lock();
+    return shown && &shown->game == &game ? shown : nullptr;
+}
 }
 
-static void ReleasePartyQuoteInput()
+std::shared_ptr<PartyQuoteInput> AcquirePartyQuoteInput(Game& game)
 {
-    party_quote_input.reset();
-}
-
-void CreatePartyPortraitEventRegions()
-{
-    if (!party_quote_input) party_quote_input = std::make_unique<PartyQuoteInput>();
-}
-
-void SetPartyPortraitEventBounds(unsigned int slot, unsigned short x, unsigned short y,
-                                 unsigned short right, unsigned short bottom)
-{
-    CreatePartyPortraitEventRegions();
-    if (slot < 8)
-        party_quote_input->targets[slot]->setShape(SDL_Rect{x, y, right - x + 1, bottom - y + 1});
-}
-
-void EnablePartyPortraitEvent(unsigned int slot)
-{
-    CreatePartyPortraitEventRegions();
-    party_quote_input->input.setEnabled(true);
-    if (slot < 8) party_quote_input->targets[slot]->setEnabled(true);
-}
-
-void DisablePartyPortraitEvent(unsigned int slot)
-{
-    if (party_quote_input && slot < 8) party_quote_input->targets[slot]->setEnabled(false);
+    if (auto shown = ShownPartyQuotes(game)) return shown;
+    auto shown = std::make_shared<PartyQuoteInput>(game);
+    shown_party_quotes = shown;
+    return shown;
 }
 
 void W8CharacterEventQueue::BeginPortraitVoice(unsigned int party_slot,
@@ -824,6 +814,10 @@ void W8CharacterEventQueue::SetPortraitEventState(unsigned int party_slot, bool 
                                                   unsigned int event_type,
                                                   std::string_view quote_text, int show_quote)
 {
+    const auto shown = ShownPartyQuotes(game);
+    const auto screen_id = shown ? CurrentScreenState().id : W8_SCREEN_NONE;
+    auto* main = MainGame();
+    if (main && &main->game != &game) main = nullptr;
     W8MonsterManagerEntry* record = &game.monster_manager_entries[party_slot];
     W8PortraitQuoteState* quote = &record->quote;
 
@@ -849,6 +843,10 @@ void W8CharacterEventQueue::SetPortraitEventState(unsigned int party_slot, bool 
         }
         unsigned int stored_event = record->pending_event_type;
         unsigned int mapped_event = stored_event;
+        if (!shown) {
+            quote->bubble.reset();
+            return;
+        }
         if (static_cast<int>(g_normal_event_count) < static_cast<int>(mapped_event)) {
         show_deactivate_quote:
             std::string formatted;
@@ -868,21 +866,21 @@ void W8CharacterEventQueue::SetPortraitEventState(unsigned int party_slot, bool 
             }
         }
         quote->bubble.reset();
-        if (CurrentScreenState().id == W8_SCREEN_CAMP ||
-            (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
-             !MainGameHud()->review_transition_active)) {
+        if (screen_id == W8_SCREEN_CAMP || (screen_id == W8_SCREEN_MAIN_GAME && main && main->hud &&
+                                            !main->hud->review_transition_active)) {
             int left = quote->x;
             int top = quote->y;
             EraseRegion(left, top, quote->width + left, quote->height + top);
         }
-        DisablePartyPortraitEvent(party_slot);
-        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
+        shown->targets[party_slot]->setEnabled(false);
+        if (screen_id == W8_SCREEN_MAIN_GAME) {
             game.events.push(PartyPanelChanged{});
             game.events.push(MonstersChanged{});
             record->portrait_event_active = false;
             return;
         }
-        if (auto* camp = FindScreen<CampScreen>()) camp->InvalidateAll();
+        if (auto* camp = FindScreen<CampScreen>(); shown && camp && &camp->game == &game)
+            camp->InvalidateAll();
         record->portrait_event_active = active;
         return;
     }
@@ -910,7 +908,7 @@ void W8CharacterEventQueue::SetPortraitEventState(unsigned int party_slot, bool 
     } else {
         record->portrait.target_pose = 2;
     }
-    if (quote_text.empty() || show_quote == 0) {
+    if (!shown || quote_text.empty() || show_quote == 0) {
         quote->bubble.reset();
     } else {
         bool layout_quote = false;
@@ -923,13 +921,13 @@ void W8CharacterEventQueue::SetPortraitEventState(unsigned int party_slot, bool 
                 mapped_event = g_normal_event_count - kFirstRemappedEvent + event_type;
             }
             if (g_character_event_descriptors[mapped_event].defer_outside_main_game != 0 ||
-                CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
+                screen_id == W8_SCREEN_MAIN_GAME) {
                 use_modal_gate = true;
             } else {
                 layout_quote = true;
             }
         }
-        if (use_modal_gate && CurrentScreenState().id == W8_SCREEN_MAIN_GAME && !IsModalOpen()) {
+        if (use_modal_gate && screen_id == W8_SCREEN_MAIN_GAME && !IsModalOpen()) {
             layout_quote = true;
         }
         if (!layout_quote || !g_settings.pc_subtitles) {
@@ -939,7 +937,7 @@ void W8CharacterEventQueue::SetPortraitEventState(unsigned int party_slot, bool 
             quote->width = static_cast<unsigned short>(quote->bubble ? quote->bubble->width() : 0);
             quote->height =
                 static_cast<unsigned short>(quote->bubble ? quote->bubble->height() : 0);
-            if (auto* camp = FindScreen<CampScreen>()) {
+            if (auto* camp = FindScreen<CampScreen>(); shown && camp && &camp->game == &game) {
                 if (static_cast<int>(party_slot) == camp->ReviewedPartySlot()) {
                     quote->x = 10;
                     quote->y = 8;
@@ -961,13 +959,13 @@ void W8CharacterEventQueue::SetPortraitEventState(unsigned int party_slot, bool 
             }
             unsigned short x = quote->x;
             unsigned short y = quote->y;
-            SetPartyPortraitEventBounds(party_slot, x, y, x + quote->width, quote->height + y);
-            EnablePartyPortraitEvent(party_slot);
+            shown->targets[party_slot]->setShape(
+                SDL_Rect{x, y, quote->width + 1, quote->height + 1});
+            shown->targets[party_slot]->setEnabled(true);
         }
     }
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
-        g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
-        MainGameHud()->portrait_refresh_pending[party_slot] == 0 &&
+    if (screen_id == W8_SCREEN_MAIN_GAME && g_settings.main_ui_mode != W8_MAIN_UI_MODE_PORTRAITS &&
+        main && main->hud && main->hud->portrait_refresh_pending[party_slot] == 0 &&
         event_type != static_cast<unsigned int>(g_special_event17)) {
         RefreshSelectedPartyPortrait(party_slot);
         record->auto_portrait_refresh = true;

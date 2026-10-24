@@ -548,8 +548,14 @@ selection draws only when more than one member qualifies; the separate awake-mem
 selector retains its different rules. Speech completion reads its own content and
 Story, including an event preempted synchronously by a special reaction.
 
-This does not make portrait presentation candidate-safe: shared quote input and
-layout still need screen/router ownership rather than speech-destructor cleanup.
+Main, camp and character screens share quote input for their game. Model updates
+can only find the matching presentation and cannot create it. A rebuilt screen
+recovers hit bounds from retained quote state when no main screen spans the
+transition. Deferred clicks hold a weak presentation identity; expired screens
+cannot finish a later game's speech. Destroying a speech queue does not touch UI.
+Portrait layout and invalidation require matching presentation ownership. Voice
+playback still begins inside dispatch, so full silent candidate preparation is
+not yet guaranteed.
 
 ### NPC construction and binding publication
 

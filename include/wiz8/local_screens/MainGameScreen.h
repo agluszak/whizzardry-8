@@ -106,6 +106,7 @@ struct MainGameScreen final : Screen {
 
     // The game this main game belongs to; it is discarded before the game ends.
     Game& game;
+    std::shared_ptr<PartyQuoteInput> party_quotes;
     bool world_pick_enabled = true;
     std::unique_ptr<KeyboardActionMenu> keyboard_menu;
     // The radar map panel, present exactly while the applied layout shows it.
@@ -221,6 +222,8 @@ extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/ui_layer.h"
+
+struct PartyQuoteInput;
 
 class Game;
 

@@ -68,6 +68,7 @@
 #include "wiz8/navigation_flags.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/party_quote_input.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/camera_shake.h"
@@ -77,6 +78,7 @@
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/random.h"
@@ -86,6 +88,7 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/story.h"
 #include "wiz8/surface_storage.h"
+#include "wiz8/ui_input.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
@@ -1711,4 +1714,28 @@ TEST_CASE("Speech completion notices use the originating game's content", "[life
     REQUIRE(std::get<CharacterNotice>(candidate.events.pending().front()).text ==
             "candidate completion");
     REQUIRE(outgoing.game.events.pending().empty());
+}
+
+TEST_CASE("Quote input belongs to screens rather than any speech queue's destruction",
+          "[lifetime][speech][ui]")
+{
+    GameData data;
+    Game shown(data);
+    const auto targets = LiveUiTargetCount();
+    auto main_view = AcquirePartyQuoteInput(shown);
+    REQUIRE(LiveUiTargetCount() == targets + 8);
+    auto camp_view = AcquirePartyQuoteInput(shown);
+    REQUIRE(camp_view == main_view);
+    {
+        Game discarded_candidate(data);
+    }
+    REQUIRE(LiveUiTargetCount() == targets + 8);
+    main_view.reset();
+    REQUIRE(LiveUiTargetCount() == targets + 8);
+    camp_view.reset();
+    REQUIRE(LiveUiTargetCount() == targets);
+    auto rebuilt = AcquirePartyQuoteInput(shown);
+    REQUIRE(LiveUiTargetCount() == targets + 8);
+    rebuilt.reset();
+    REQUIRE(LiveUiTargetCount() == targets);
 }

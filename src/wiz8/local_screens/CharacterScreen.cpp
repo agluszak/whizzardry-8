@@ -50,6 +50,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/party_quote_input.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
@@ -564,6 +565,7 @@ W8Character* CharacterScreen::GetOriginalCharacter()
 
 bool CharacterScreen::enter(const ScreenRequest& request)
 {
+    party_quotes = AcquirePartyQuoteInput(m_game);
     const W8CharacterScreenMode mode = std::get<W8CharacterScreenMode>(request.mode);
     SetWorldViewport(&m_game, {0, 0, 0x281, 0x1e1});
     SetUiCanvasAlphaTestEnabled(false);

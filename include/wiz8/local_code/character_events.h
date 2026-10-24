@@ -66,7 +66,6 @@ void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, S
 bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int top,
                                 SpriteDraw options, int party_slot, bool animate);
 
-void CreatePartyPortraitEventRegions();
 extern int g_special_event2;
 extern unsigned int g_event_range_max;
 extern int g_special_event18; /* One of the three melee

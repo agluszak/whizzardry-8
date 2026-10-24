@@ -30,6 +30,8 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
+struct PartyQuoteInput;
+
 class Game;
 class Pointer;
 class CampScreen;
@@ -460,6 +462,7 @@ public:
     void GiveHeldItemToPortrait(int slot);
 
     Game& game;
+    std::shared_ptr<PartyQuoteInput> party_quotes;
     W8Character* reviewed = nullptr;
     W8CampPage page = W8_CAMP_PAGE_ITEMS;
 
