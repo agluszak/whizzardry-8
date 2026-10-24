@@ -73,8 +73,11 @@ void UpdateWorldMonsters(World* world)
 /* Animation changes the instances already attached to this world's scene. */
 void AnimateWorldItems(World& world)
 {
-    for (const auto& item : world.population->world_items)
-        if (item->entity) item->entity->UpdateAnimation();
+    for (const auto& item : world.population->world_items) {
+        if (!item->entity) continue;
+        item->entity->UpdateAnimation();
+        item->entity->ApplyRepTransform();
+    }
 }
 
 /* Five-byte tail-jump thunk to GameData.cpp's GetCameraYawRadians. */

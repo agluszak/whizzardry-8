@@ -18,6 +18,7 @@
 
 #include "asset_paths.h"
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/NPCScripting.h"
 #include "scoped_asset_roots.h"
@@ -963,6 +964,11 @@ TEST_CASE("An item's runtime ownership settles before removal is presented", "[r
     auto* placed = item.get();
     world.population->world_items.push_back(std::move(item));
     REQUIRE(world.scene->dynamic_meshes.size() == 1);
+    const glm::vec3 settled_position{1, 2, 3};
+    placed->entity->SetLocation(&settled_position);
+    AnimateWorldItems(world);
+    REQUIRE(placed->entity->m_psrMesh->transform.getLocation() == glm::dvec3(1, 2, 3));
+    REQUIRE(world.scene->dynamic_meshes.front() == placed->entity->m_psrMesh.get());
     const auto saved = CaptureWorldItem(*placed);
     REQUIRE(saved.front().fActive);
     REQUIRE(saved.front().p3D != 0);
