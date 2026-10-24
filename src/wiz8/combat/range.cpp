@@ -81,8 +81,11 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
                     if ((GetCharAttackRange(CurrentGame().data,
                                             &CurrentGame().party.characters[first],
                                             reach_hand) != W8_RANGE_NONE) &&
-                        AssessMonsterAim(first, reach_hand, monster_info,
-                                         W8Action{W8_ACTION_ATTACK, -1, {}, {}})) {
+                        CurrentGame().assessActionReach(
+                            first, reach_hand,
+                            (W8Action{W8_ACTION_ATTACK, -1, {}, {}})
+                                .aimedAt(W8CombatSlot::monster(
+                                    monster_info ? monster_info->location_id : -1)))) {
                         return true;
                     }
                 }
@@ -126,77 +129,6 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
    front-rank screen on melee), a point on the ground must sit inside the
    spell's distance and its line of sight, and a group target defers to the
    shared group range test. */
-bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& selected)
-{
-    const W8CombatSlot* target = &selected.target;
-    if (!target) return false;
-    if (target->iType == W8_TARGET_KIND_MONSTER) {
-        W8MonsterInfo* monster_info = FindMonster(target->iMonsterID, false);
-        if (monster_info == nullptr) {
-            return false;
-        }
-        GetMonsterDataForInfo(monster_info);
-        return AssessMonsterAim(party_slot, hand, monster_info, selected);
-    }
-    if (target->iType == W8_TARGET_KIND_CHARACTER) {
-        int target_slot = target->iChar;
-        if (static_cast<signed char>(party_slot) != target_slot) {
-            W8RangeCategory range = GetCharActionRange(party_slot, hand, selected);
-            if (range == W8_RANGE_NONE) {
-                return false;
-            }
-            if (range == W8_RANGE_TOUCH &&
-                FormationScreens(CurrentGame().party, party_slot, target_slot)) {
-                return false;
-            }
-        }
-    } else if (target->iType == W8_TARGET_KIND_PLACE) {
-        glm::vec3 camera;
-        glm::vec3 camera_top;
-        glm::vec3 point;
-        float distance;
-        bool trace;
-
-        camera = cameraLocation();
-        camera_top = cameraLocation();
-        point = target->point;
-        unsigned int spell_id = GetActionSpellLikeId(CurrentGame().inventory, selected);
-        assert(spell_id != W8_SPELL_NONE);
-        W8SpellTargetType target_type = GetSpellTargetType(spell_id, false);
-        if (target_type == W8_TARGET_TYPE_CONE) {
-            trace = false;
-            distance = 1.25e+04f;
-        } else {
-            assert(target_type == W8_TARGET_TYPE_RADIUS || target_type == W8_TARGET_TYPE_POINT);
-
-            trace = true;
-            camera.y -= g_default_world_height;
-            point.y -= 1e+03f;
-            distance = CalcRangeDistance(Data().spells[spell_id].range_category);
-        }
-        float dx = point.x - camera.x;
-        float dz = point.z - camera.z;
-        if (distance + 1.0f <
-            sqrtf(dx * dx + (point.y - camera.y) * (point.y - camera.y) + dz * dz) -
-                GetWorld()->party.radius()) {
-            return false;
-        }
-        if (trace) {
-            return !GetWorldSpatialIndex()->traceSight(camera_top, point);
-        }
-    } else if (target->iType == W8_TARGET_KIND_GROUP) {
-        W8MonsterGroup* group = FindMonsterGroup(target->iGroupID, false);
-        if (group == nullptr) {
-            return false;
-        }
-        assert(group != 0);
-        W8TargetSource source;
-        SetTargetSourceToCharacter(party_slot, &source);
-        return IsTargetSourceInRangeOfGroup(&source, group,
-                                            GetCharActionRange(party_slot, 0, selected));
-    }
-    return true;
-}
 
 /* Whether `party_slot` may aim at `monster_info`. The monster must be a live
    threat; with no targeting/combat/spell/item mode outstanding the pick is a
@@ -204,97 +136,18 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
    action supplies the range category (a combat melee band loses the formation
    rows between slot and monster) and selects the aim flag. An allowed aim
    then has to pass the band distance to the monster. */
-W8TargetAssessment AssessMonsterAim(int party_slot, int hand, W8MonsterInfo* monster_info,
-                                    const W8Action& selected,
-                                    std::optional<W8RangeCategory> attack_range, bool sighting)
-{
-    if (!monster_info || monster_info->party_threat.sight_state != W8_SIGHT_SEEN)
-        return {W8TargetFailure::Unavailable};
-    bool spell_sight = true;
-    auto range = W8_RANGE_TOUCH;
-    if (!sighting) {
-        range = GetCharActionRange(party_slot, hand, selected, attack_range);
-        if (range == W8_RANGE_NONE) return {W8TargetFailure::Unavailable};
-        spell_sight = selected.kind == W8_ACTION_TURN_UNDEAD ||
-                      (selected.kind > W8_ACTION_PROTECT && selected.kind < W8_ACTION_EQUIP);
-        if (CurrentGame().combat.has_value() && range >= 0 && range < 2) {
-            range = ShortenFormationReach(range,
-                                          BlockingFormationRows(CurrentGame().party, party_slot,
-                                                                GetMonsterQuadrant(monster_info)));
-            if (range == W8_RANGE_NONE) return {W8TargetFailure::OutOfRange};
-        }
-    }
-    if (!monster_info->party_threat.los_flags[spell_sight]) return {W8TargetFailure::SightBlocked};
-    if (CalcRangeDistance(range) < monster_info->entity->GetDistanceToPlayer())
-        return {W8TargetFailure::OutOfRange};
-    return {};
-}
 
 /* The slot-vs-slot reach check the target-list builders share: the slot's
    chosen action has to have a range, and melee range additionally has to get
    past the front rank. */
-bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot, const W8Action& selected)
-{
-    if (static_cast<signed char>(party_slot) == target_slot) {
-        return true;
-    }
-    if (selected.kind == W8_ACTION_BREATHE) return true;
-    const auto range = GetCharActionRange(party_slot, hand, selected);
-    if (range == W8_RANGE_NONE) {
-        return false;
-    }
-    if (range != W8_RANGE_TOUCH) {
-        return true;
-    }
-    if (FormationScreens(CurrentGame().party, party_slot, target_slot)) {
-        return false;
-    }
-    return true;
-}
 
 /* Whether `party_slot`'s action can reach any member of `group_id` at all.
    The character becomes the source for the shared range test; a miss can
    queue the character's complaint event when `notify` asks for it. */
-W8TargetAssessment AssessGroupRange(int party_slot, int group_id, const W8Action& selected)
-{
-    auto* group = FindMonsterGroup(group_id, false);
-    if (!group) return {W8TargetFailure::Unavailable};
-    W8TargetSource source;
-    SetTargetSourceToCharacter(party_slot, &source);
-    if (!IsTargetSourceInRangeOfGroup(&source, group, GetCharActionRange(party_slot, 0, selected)))
-        return {W8TargetFailure::OutOfRange};
-    return {};
-}
 
 /* The range category the slot's chosen action works at. Attacks take the
    weapon's reach for the asked hand, a move acts at long range, spells and
    item uses ask their spell record, and anything unknown has no range. */
-W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& selected,
-                                   std::optional<W8RangeCategory> attack_range)
-{
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-
-    switch (selected.kind) {
-    case W8_ACTION_ATTACK:
-    case W8_ACTION_BERSERK:
-        return attack_range ? *attack_range : GetCharAttackRange(Data(), character, hand);
-    case W8_ACTION_CAST_SPELL:
-        if (selected.detail != 0) {
-            return Data().spells[selected.detail].range_category;
-        }
-        break;
-    case W8_ACTION_USE_ITEM:
-        return GetItemSpellRange(
-            CurrentGame().inventory.itemAt(selected.detail_block.item_use.item));
-    case W8_ACTION_PROTECT:
-        return W8_RANGE_TOUCH;
-    case W8_ACTION_BREATHE:
-        return W8_RANGE_LONG;
-    default:
-        break;
-    }
-    return W8_RANGE_NONE;
-}
 
 /* The furthest range category any of this character's hands can reach at. */
 
@@ -655,9 +508,10 @@ int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)
                                      hand) != W8_RANGE_NONE)) {
                 continue;
             }
-            if (!CharacterActionReachesSlot(
-                    party_slot, hand, slot,
-                    CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
+            if (!CurrentGame().assessActionReach(
+                    party_slot, hand,
+                    (CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))
+                        .aimedAt(W8CombatSlot::character(slot)))) {
                 continue;
             }
             ++count;
@@ -839,7 +693,7 @@ glm::vec3 GetMonsterAttackSourceOffset(Monster& monster, int kind)
 bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target, const W8Action& action)
 {
     if (TargetSourceIsCharacter(source, 0)) {
-        return CharacterActionReachesTarget(source->iChar, 0, action);
+        return CurrentGame().assessActionReach(source->iChar, 0, action);
     }
     if (TargetSourceIsMonster(source, 0)) {
         W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);

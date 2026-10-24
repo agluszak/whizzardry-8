@@ -84,6 +84,12 @@ public:
     void fatigueCharacter(unsigned int slot, int amount, bool scale_by_load,
                           W8SpellEffectResult* report = nullptr);
     void aimStoredAction(unsigned int slot, W8TargetingContext stored, const W8CombatSlot& target);
+    W8RangeCategory actionRange(unsigned int slot, unsigned int hand, const W8Action& action,
+                                std::optional<W8RangeCategory> attack_range = {}) const;
+    W8TargetAssessment assessActionReach(unsigned int slot, unsigned int hand,
+                                         const W8Action& action,
+                                         std::optional<W8RangeCategory> attack_range = {},
+                                         bool sighting = false) const;
     bool targetPresent(const W8CombatSlot& target) const;
     bool targetMatches(const W8CombatSlot& target, W8TargetNeed needed) const;
     bool actionTargetsEnemies(unsigned int slot, const W8Action& action) const;

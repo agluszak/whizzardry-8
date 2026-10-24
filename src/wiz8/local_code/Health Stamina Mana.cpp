@@ -25,7 +25,6 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"

@@ -1767,3 +1767,27 @@ TEST_CASE("Formation reach uses occupied rows rather than party headcounts", "[p
     REQUIRE(ShortenFormationReach(W8_RANGE_SHORT, 1) == W8_RANGE_TOUCH);
     REQUIRE(ShortenFormationReach(W8_RANGE_LONG, 2) == W8_RANGE_LONG);
 }
+
+TEST_CASE("Action reach uses its game and resolves range only when needed", "[party][targeting]")
+{
+    GameData outgoing_data{.spells = std::vector<W8SpellRuntimeRecord>(2)};
+    outgoing_data.spells[1].range_category = W8_RANGE_LONG;
+    ScopedGame outgoing{outgoing_data};
+    GameData candidate_data = outgoing_data;
+    candidate_data.spells[1].range_category = W8_RANGE_NONE;
+    Game candidate{candidate_data};
+    const W8Action spell{W8_ACTION_CAST_SPELL, 1, W8CombatSlot::character(1)};
+    std::vector<Rng::Draw> draws;
+    candidate.rng.trace(&draws);
+    REQUIRE(outgoing.game.assessActionReach(0, 2, spell));
+    REQUIRE_FALSE(candidate.assessActionReach(0, 2, spell));
+    // Self-targeting and missing world targets must not consult an absent item's spell record.
+    const W8Action item{W8_ACTION_USE_ITEM, -1, W8CombatSlot::character(0)};
+    REQUIRE(candidate.assessActionReach(0, 2, item));
+    REQUIRE(candidate.assessActionReach(0, 2, item.aimedAt(W8CombatSlot::monster(1))).failure ==
+            W8TargetFailure::Unavailable);
+    REQUIRE(candidate.assessActionReach(0, 2, item.aimedAt(W8CombatSlot::group(1))).failure ==
+            W8TargetFailure::Unavailable);
+    REQUIRE(draws.empty());
+    candidate.rng.trace(nullptr);
+}

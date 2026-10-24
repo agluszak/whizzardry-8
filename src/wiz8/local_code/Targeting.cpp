@@ -228,7 +228,7 @@ bool IsSpellTargetStillValid(int party_slot, int spell_id, const W8Action& selec
 {
     const auto needed = GetTargetNeededForSpellFriendly(spell_id, false, true);
     return CurrentGame().targetMatches(selected.target, needed) &&
-           CharacterActionReachesTarget(party_slot, 0, selected);
+           CurrentGame().assessActionReach(party_slot, 0, selected);
 }
 
 /* The same check without the range half, and with one target kind that a
@@ -523,7 +523,10 @@ static int ChooseMonsterTarget(int party_slot, const W8Action& action,
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
         if (!monster_info->fActive || !monster_info->pCombat || monster_info->hp_current == 0 ||
             MonsterVsCharDisposition(party_slot, monster_info) != W8_DISPOSITION_HOSTILE ||
-            !AssessMonsterAim(party_slot, 2, monster_info, action, attack_range)) {
+            !CurrentGame().assessActionReach(party_slot, 2,
+                                             (action).aimedAt(W8CombatSlot::monster(
+                                                 monster_info ? monster_info->location_id : -1)),
+                                             attack_range)) {
             continue;
         }
         W8MonsterTargetCandidate candidate{monster_info->location_id,
@@ -800,7 +803,7 @@ bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group, const W8Action
 
     if (needed == W8_TARGET_NEED_GROUP) {
         return IsTargetSourceInRangeOfGroup(&source, group,
-                                            GetCharActionRange(party_slot, 0, selected));
+                                            CurrentGame().actionRange(party_slot, 0, selected));
     }
     if (needed != W8_TARGET_NEED_ENEMY && needed != W8_TARGET_NEED_ALLY) {
         return false;
@@ -810,7 +813,9 @@ bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group, const W8Action
     for (index = 0; index < group->MemberIds().size(); ++index) {
         W8MonsterInfo* monster_info = FindMonster(group->MemberLocationId(index));
 
-        if (AssessMonsterAim(party_slot, 2, monster_info, selected)) {
+        if (CurrentGame().assessActionReach(party_slot, 2,
+                                            (selected).aimedAt(W8CombatSlot::monster(
+                                                monster_info ? monster_info->location_id : -1)))) {
             ++reachable;
         }
     }
@@ -929,7 +934,7 @@ bool TargetIsInPlay(int party_slot, int hand, const W8Action& selected)
 {
     return CurrentGame().targetMatches(
                selected.target, GetTargetNeededForAction(CurrentGame().inventory, selected)) &&
-           CharacterActionReachesTarget(party_slot, hand, selected);
+           CurrentGame().assessActionReach(party_slot, hand, selected);
 }
 
 /* Whether the supplied action can be aimed at a live, standing and reachable
@@ -986,9 +991,13 @@ W8TargetAssessment AssessMonsterTarget(int party_slot, int location_id, const W8
         return {W8TargetFailure::Unavailable};
     }
     if (needed == W8_TARGET_NEED_GROUP) {
-        return AssessGroupRange(party_slot, monster_info->monster_group_id, selected);
+        return CurrentGame().assessActionReach(
+            party_slot, 0, (selected).aimedAt(W8CombatSlot::group(monster_info->monster_group_id)));
     }
-    return AssessMonsterAim(party_slot, 2, monster_info, selected, {}, sighting);
+    return CurrentGame().assessActionReach(
+        party_slot, 2,
+        (selected).aimedAt(W8CombatSlot::monster(monster_info ? monster_info->location_id : -1)),
+        {}, sighting);
 }
 
 /* Whether a submenu candidate has anything at all to aim at. An attack looks
@@ -1416,8 +1425,11 @@ void RefreshMonsterTargetCounts(void)
                 on_screen_count += 1;
             }
             if (CurrentGame().status.selected_character == -1 ||
-                AssessMonsterAim(CurrentGame().status.selected_character, 2, monster_info,
-                                 EditedAction(CurrentGame().status.selected_character))) {
+                CurrentGame().assessActionReach(
+                    CurrentGame().status.selected_character, 2,
+                    (EditedAction(CurrentGame().status.selected_character))
+                        .aimedAt(W8CombatSlot::monster(monster_info ? monster_info->location_id
+                                                                    : -1)))) {
                 selectable_count += 1;
             }
         }
@@ -1623,7 +1635,11 @@ std::optional<W8WeaponTarget> ChooseFallbackMonsterTarget(int party_slot, const 
     if (target == -1) return {};
     if (action.target.iType == W8_TARGET_KIND_MONSTER) {
         auto* remembered = FindMonster(action.target.iMonsterID, false);
-        if (remembered && AssessMonsterAim(party_slot, 2, remembered, action, range))
+        if (remembered &&
+            CurrentGame().assessActionReach(
+                party_slot, 2,
+                (action).aimedAt(W8CombatSlot::monster(remembered ? remembered->location_id : -1)),
+                range))
             target = remembered->location_id;
     }
     return W8WeaponTarget{target, *choice};

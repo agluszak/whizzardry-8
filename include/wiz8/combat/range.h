@@ -28,10 +28,7 @@ unsigned char TraceModeRejectsNoHit(int mode);
    resolved action's range category (less the rows between in combat), the
    info's aim flag for the action's ranged-ness, and the band distance. Assessment
    returns a reason; the controller decides whether to report it. */
-W8TargetAssessment AssessMonsterAim(int party_slot, int hand, W8MonsterInfo* monster_info,
-                                    const W8Action& selected,
-                                    std::optional<W8RangeCategory> attack_range = {},
-                                    bool sighting = false);
+
 /* Whether the front rank stands between two formation positions. */
 
 /* Whether the monster's attack `attack` reaches the character in `party_slot`,
@@ -62,9 +59,7 @@ int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
 W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
                                             bool skip_capability_checks, int* out_sight);
 /* The range category the slot's chosen action works at. */
-W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& selected,
-                                   std::optional<W8RangeCategory> attack_range = {});
-W8TargetAssessment AssessGroupRange(int party_slot, int group_id, const W8Action& selected);
+
 float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out,
                           W8VisibilityCondition condition);
 float GetGroundTargetRange(void);
@@ -86,11 +81,10 @@ W8RangeCategory GetMonsterActionRangeCategory(const W8MonsterInfo* monster_info,
    selected target - character range and front-rank screen, monster aim, place
    distance and line of sight, or group reach. `hand` selects the attack side;
    2 asks the range helpers to use the better hand. */
-bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& selected);
+
 /* The slot-vs-slot form the target-list builder uses: whether the
    slot's chosen action in `context` can strike `target_slot`. */
-bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot,
-                                const W8Action& selected);
+
 /* Collect the party slots the slot could reach and strike under
    `relationship`, and pick one at random; -1 when none qualify. */
 int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship);

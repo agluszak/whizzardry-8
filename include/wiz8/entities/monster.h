@@ -220,8 +220,8 @@ public:
     void SetCycleCallback(int cycle, CycleCallback callback);
     bool GetPatrolPoint(glm::vec3* point);
     void TrackSound(wiz8::sound::Playback playback);
-    float GetDistanceToPlayer();
-    float GetPointDistanceToPlayer(glm::vec3 point);
+    float GetDistanceToPlayer() const;
+    float GetPointDistanceToPlayer(glm::vec3 point) const;
     float GetDistanceToMonster(const Monster& monster);
     float GetPointDistanceToMonster(Monster* monster, glm::vec3 point);
     bool SetScript(std::string script_name, bool reset_orders);

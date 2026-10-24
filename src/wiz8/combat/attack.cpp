@@ -336,11 +336,14 @@ bool CharacterHasAttackOn(int party_slot, W8CombatSlot* target)
         if (GetMonsterDataForInfo(monster_info)->untargetable != 0) {
             return false;
         }
-        if (!AssessMonsterAim(party_slot, 0, monster_info,
-                              CurrentGame().party.action(
-                                  party_slot, !CurrentGame().combat->characters[party_slot].dead
-                                                  ? W8_TARGETING_CONTEXT_IN_COMBAT
-                                                  : W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
+        if (!CurrentGame().assessActionReach(
+                party_slot, 0,
+                (CurrentGame().party.action(party_slot,
+                                            !CurrentGame().combat->characters[party_slot].dead
+                                                ? W8_TARGETING_CONTEXT_IN_COMBAT
+                                                : W8_TARGETING_CONTEXT_OUT_OF_COMBAT))
+                    .aimedAt(
+                        W8CombatSlot::monster(monster_info ? monster_info->location_id : -1)))) {
             return false;
         }
     } else {
@@ -2773,10 +2776,10 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
             } else {
                 if ((row->executing.target.iType == W8_TARGET_KIND_CHARACTER &&
                      row->executing.target.iChar == i) ||
-                    !CharacterActionReachesSlot(
-                        party_slot, action, i,
-                        CurrentGame().party.action(party_slot,
-                                                   W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
+                    !CurrentGame().assessActionReach(
+                        party_slot, action,
+                        (CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))
+                            .aimedAt(W8CombatSlot::character(i)))) {
                     continue;
                 }
                 AppendCombatTargetEntry(out_list, W8_TARGET_KIND_CHARACTER, i, -1);
@@ -2790,9 +2793,11 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
                  W8_TARGET_KIND_MONSTER ||
              CurrentGame().party.rows[party_slot].executing.target.iMonsterID !=
                  monster_info->location_id) &&
-            AssessMonsterAim(
-                party_slot, action, monster_info,
-                CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
+            CurrentGame().assessActionReach(
+                party_slot, action,
+                (CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))
+                    .aimedAt(
+                        W8CombatSlot::monster(monster_info ? monster_info->location_id : -1)))) {
             AppendCombatTargetEntry(out_list, W8_TARGET_KIND_MONSTER, -1,
                                     monster_info->location_id);
         }

@@ -1108,13 +1108,13 @@ void World::updateNearestMonsterGroupMembers()
     }
 }
 
-float Monster::GetDistanceToPlayer()
+float Monster::GetDistanceToPlayer() const
 {
     glm::vec3 position = nav.GetPosition();
     return GetPointDistanceToPlayer(position);
 }
 
-float Monster::GetPointDistanceToPlayer(glm::vec3 point)
+float Monster::GetPointDistanceToPlayer(glm::vec3 point) const
 {
     glm::vec3 player_position;
     float distance;

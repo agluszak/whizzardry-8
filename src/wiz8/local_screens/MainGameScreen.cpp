@@ -4935,8 +4935,8 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         if (!IsWorldCursorVisible()) {
             InitializeWorldCursor();
         }
-        SetWorldCursorRange(CalcRangeDistanceFromParty(
-            GetCharActionRange(CurrentGame().status.selected_character, 0, selected_action)));
+        SetWorldCursorRange(CalcRangeDistanceFromParty(CurrentGame().actionRange(
+            CurrentGame().status.selected_character, 0, selected_action)));
         if (SpellPicker() &&
             GetActionSpellLikeId(CurrentGame().inventory, selected_action) == 0x3c) {
             signed char extent_index;
@@ -4992,8 +4992,11 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                 if ((ScreenPointer().shownSlot() == W8_CURSOR_VALID_TARGET ||
                      (CurrentGame().inventory.held())) &&
                     CurrentGame().status.selected_character != -1 &&
-                    AssessMonsterAim(CurrentGame().status.selected_character, 2, monster_info,
-                                     EditedAction(CurrentGame().status.selected_character))) {
+                    CurrentGame().assessActionReach(
+                        CurrentGame().status.selected_character, 2,
+                        (EditedAction(CurrentGame().status.selected_character))
+                            .aimedAt(W8CombatSlot::monster(monster_info ? monster_info->location_id
+                                                                        : -1)))) {
                     if ((GetMonsterDataForInfo(monster_info)->flags & W8_MONSTER_FLAG_NPC) == 0) {
                         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x7de]);
                     } else {

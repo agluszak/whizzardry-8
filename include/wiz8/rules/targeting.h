@@ -173,6 +173,12 @@ struct W8Action {
     int detail = -1;
     W8CombatSlot target{W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}};
     W8ActionDetailBlock detail_block{.item_use = {-1, {}}};
+    W8Action aimedAt(const W8CombatSlot& aim) const
+    {
+        auto result = *this;
+        result.target = aim;
+        return result;
+    }
 };
 
 enum class W8AreaSightRule : std::uint8_t { RequireLineOfSight, GeometryOnly };

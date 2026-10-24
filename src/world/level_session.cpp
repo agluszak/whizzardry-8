@@ -266,8 +266,6 @@ unsigned short g_level_name_indices[W8_LEVEL_COUNT] = {
     0x716, 0x717, 0x706, 0x718, 0x719, 0x719, 0x719, 0x719, 0x719, 0x719, 0x719,
 };
 
-float g_default_world_height = 1000.0f;
-
 const float g_position_height_epsilon = 2500.0f;
 
 unsigned char g_environment_load_flag = 1;

@@ -18,7 +18,7 @@ extern unsigned short g_level_name_indices[W8_LEVEL_COUNT];
 bool LevelBuildInfoByID(int level_id, W8LevelInfo* info);
 
 extern bool g_camera_path_active;
-extern float g_default_world_height;
+inline constexpr float g_default_world_height = 1000.0f;
 extern const float g_position_height_epsilon;
 extern unsigned char g_environment_load_flag;
 
