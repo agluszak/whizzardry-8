@@ -586,12 +586,11 @@ void AdvanceTimedEffects(unsigned int minutes)
     if (combat_changed) {
         CurrentGame().events.push(PartyPanelChanged{});
     }
-    for (unsigned int remaining = minutes; remaining != 0; --remaining) {
-        TickSpellEffects();
-    }
-    W8SpellEffectEntry* control = FindMonsterControlSpellEffect(CurrentGame());
-    if (control != 0 && control->turns_remaining != 0) {
-        ApplyMonsterControlToNearbyMonsters(control);
+    if (auto* world = CurrentGame().level.primary.get()) {
+        for (unsigned int remaining = minutes; remaining != 0; --remaining)
+            world->tickSpellEffects();
+        if (auto* control = world->monsterControlEffect())
+            ApplyMonsterControlToNearbyMonsters(control);
     }
     if (party_changed || combat_changed) {
         wiz8::sound::play("Data\\Sound\\Misc\\GeneralMagic.wav");

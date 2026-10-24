@@ -26,6 +26,7 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/simulation_sink.h"
+#include "wiz8/world/world.h"
 
 namespace {
 // The missile table row of a stored-spell missile, which casts its spell where it lands.
@@ -159,7 +160,7 @@ void CombatSignals::missileLanded(Missile& missile)
         DetonateStoredSpell(missile);
     }
     if (Data().missiles[missile.missile_table_index].spell_missile != 0) {
-        AbsorbMissileDamage(&missile);
+        missile.owner_world.absorbMissileDamage(missile);
     }
 }
 

@@ -689,7 +689,7 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
         }
         break;
     case W8_RT_AI_FOLLOW_LURE:
-        effect = FindMonsterControlSpellEffect(CurrentGame());
+        effect = monster.owner_world.monsterControlEffect();
         if (!effect) break;
         if (monster.nav.SetMovementTargetToAnchor(effect->target.point, 2500.0) == 0) {
             position = effect->target.point;
@@ -2276,7 +2276,7 @@ float GetGroupNearestDistance(W8MonsterGroup* group)
 /* Follow the saved gameplay anchor even when no lure visual could be created. */
 short IsMonsterControlPointInRange(W8MonsterInfo* monster_info)
 {
-    const auto* effect = FindMonsterControlSpellEffect(CurrentGame());
+    const auto* effect = monster_info->entity->owner_world.monsterControlEffect();
     if (!effect) return 0;
     const auto& anchor = effect->target.point;
     auto& nav = monster_info->entity->nav;

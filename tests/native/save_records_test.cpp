@@ -1290,8 +1290,8 @@ TEST_CASE("Monster-control sections keep the retail record", "[save][records]")
 
 TEST_CASE("The newest unexpired lure is the active monster-control effect", "[effects]")
 {
-    const ScopedGame game;
-    auto& effects = CurrentGame().spell_effects;
+    World world;
+    auto& effects = world.spell_effects;
 
     auto previous = std::make_unique<W8SpellEffectEntry>();
     previous->kind = W8_SPELL_HYPNOTIC_LURE;
@@ -1305,11 +1305,14 @@ TEST_CASE("The newest unexpired lure is the active monster-control effect", "[ef
     auto* replacement_ptr = replacement.get();
     effects.push_back(std::move(replacement));
 
-    REQUIRE(FindMonsterControlSpellEffect(CurrentGame()) == replacement_ptr);
+    REQUIRE(world.monsterControlEffect() == replacement_ptr);
+    REQUIRE_FALSE(world.hasPendingSpellEffects());
     previous_ptr->turns_remaining = 0;
-    REQUIRE(FindMonsterControlSpellEffect(CurrentGame()) == replacement_ptr);
+    REQUIRE(world.hasPendingSpellEffects());
+    REQUIRE(world.monsterControlEffect() == replacement_ptr);
     replacement_ptr->turns_remaining = 0;
-    REQUIRE(FindMonsterControlSpellEffect(CurrentGame()) == nullptr);
+    REQUIRE(world.monsterControlEffect() == nullptr);
+    REQUIRE(world.hasPendingSpellEffects());
 }
 
 TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][configuration]")

@@ -24,8 +24,6 @@ struct W8ItemInstance;
 struct W8MonsterInfo;
 class Missile;
 
-void TickSpellEffects(void);
-
 extern int g_learn_sound;
 
 /* Whether the spell may be cast in the current situation. */
@@ -161,8 +159,5 @@ bool AttemptSpellPractice(int spell_id, const W8CombatSlot* aim, unsigned int po
 void TrackItemSpellSource(W8Character* character, int spell_id);
 bool IsTeleportCastMissingAnchor(W8Character* character, int spell_id);
 extern unsigned short g_realm_message_offsets[W8_SPELL_REALM_COUNT];
-
-void DetachMissileReferences(Missile* missile);
-bool AllSpellEffectsStillRunning(void);
 
 #endif

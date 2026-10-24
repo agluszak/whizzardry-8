@@ -102,7 +102,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
         for (auto* world : {level.primary.get(), level.sky.get()})
             if (world) AnimateWorldItems(*world);
     }
-    if (!advancement.paused || combat.has_value()) UpdateWorlds(elapsed);
+    if (!advancement.paused || combat.has_value()) advanceWorlds(elapsed);
     // Preserve the game's scene-activity gates and sky-before-world order.
     // Particle clocks keep running while world advancement is held; additional
     // camera views consume these results without advancing them again.

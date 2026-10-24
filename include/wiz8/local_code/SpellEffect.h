@@ -14,7 +14,6 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/targeting.h"
 
-class Game;
 class SpellVisual;
 class Missile;
 
@@ -102,8 +101,7 @@ struct W8SpellEffectEntry {
        indices depending on the effect path. */
     std::vector<int> monster_ids;
     std::vector<int> target_indices;
-    /* Spawned visuals and owned missiles. Their constructors
-       install a base vector table followed by the derived table. */
+    // Borrowed from the same world that owns this continuing cast.
     std::vector<SpellVisual*> spell_visuals;
     std::vector<Missile*> missiles;
     /* When the effect ends without having applied, the tick re-casts
@@ -123,12 +121,6 @@ struct W8SpellEffectEntry {
     W8SpellEffectResult result{};
 };
 
-W8SpellEffectEntry* FindMonsterControlSpellEffect(Game& game);
-/* Advance every queued spell effect one frame. */
-void UpdateSpellEffects(void);
-/* Fold one missile's accumulated damage and reports into the queued effect
-   that owns it. */
-void AbsorbMissileDamage(Missile* missile);
 void ReportSpellResult(W8SpellEffectEntry* effect);
 void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, const W8CombatSlot* target);
 

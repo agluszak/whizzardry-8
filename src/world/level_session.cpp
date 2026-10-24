@@ -440,9 +440,9 @@ static void EnterLevel(Game& game, World& world, int level, int entrance, bool r
             ResetAndRefreshAllSight();
             AgeAllMonsterSight();
         }
-        game.spell_effects.clear();
+        world.spell_effects.clear();
     } else {
-        W8SpellEffectEntry* effect = FindMonsterControlSpellEffect(game);
+        W8SpellEffectEntry* effect = world.monsterControlEffect();
 
         if (effect != 0) {
             SpawnLureEffects(effect, effect->definition.duration_scale, &effect->target);
@@ -496,7 +496,8 @@ static void LeaveLoadedLevel(Game& game)
 
 /* Construct level and sky resources before leaving the current level. The
    remaining work activates gameplay against the completed scenes. */
-static bool TravelToLevel(Game& game, int requested_level, int entrance, bool restoring_game)
+static bool TravelToLevel(Game& game, int requested_level, int entrance, bool restoring_game,
+                          std::vector<std::unique_ptr<W8SpellEffectEntry>> restored_casts = {})
 {
     int level = NormalizeMasterFunctionValue(requested_level);
     W8LevelInfo level_info;
@@ -524,6 +525,7 @@ static bool TravelToLevel(Game& game, int requested_level, int entrance, bool re
     auto status = state ? std::move(*state).build(*replacement) : nullptr;
     LeaveLoadedLevel(game);
     current.replacePrimary(std::move(replacement));
+    current.primary->spell_effects = std::move(restored_casts);
     if (!reuse_sky) current.replaceSky(std::move(replacement_sky));
     InstallLevelSessionState(game, *current.primary, status.get());
     EnterLevel(game, *current.primary, level, entrance, restoring_game, status.get());
@@ -540,9 +542,10 @@ bool Game::travelToLevel(int level_id, int entrance)
     return true;
 }
 
-bool Game::enterSavedLevel(int level_id)
+bool Game::enterSavedLevel(int level_id,
+                           std::vector<std::unique_ptr<W8SpellEffectEntry>> restored_casts)
 {
-    return TravelToLevel(*this, level_id, -1, true);
+    return TravelToLevel(*this, level_id, -1, true, std::move(restored_casts));
 }
 
 void Game::leaveLevel()

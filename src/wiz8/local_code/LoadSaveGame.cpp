@@ -1213,7 +1213,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
         chunks, W8_CHUNK_FACTION_STATE,
         wiz8::save::encode(wiz8::save::Factions{story.faction_relations, story.factions}));
     WriteChunkPayload(chunks, W8_CHUNK_JOURNAL, wiz8::save::encode(story.journal));
-    if (const auto* control = FindMonsterControlSpellEffect(CurrentGame()))
+    if (const auto* control = game.level.loaded().monsterControlEffect())
         WriteChunkPayload(chunks, W8_CHUNK_MONSTER_CONTROL, wiz8::save::encode(*control));
     LevelState::capture(game.level, game.status).encode(chunks);
 }
@@ -1902,7 +1902,6 @@ void SavedGame::install(Game& game) &&
         game.story.factions = factions->states;
     }
     if (journal) game.story.journal = std::move(*journal);
-    std::ranges::move(spell_effects, std::back_inserter(game.spell_effects));
     for (std::size_t box = 0; box < game.message_log.size(); ++box) {
         for (std::size_t line = 0; line < game.status.text_box_lines_shown[box]; ++line) {
             auto& message = game.message_log[box][line];

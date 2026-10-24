@@ -85,7 +85,7 @@ operations and delete their old path, rather than adding a parallel architecture
 | Codecs | Conversion between live values and retail disk records. Not a second live game model. |
 
 Some current fields do not yet live at these boundaries (for example,
-`Game::spell_effects` and UI-owned gameplay transitions). Moving one must also
+layout-specific dialogue requests and current-game dependencies in level preparation). Moving one must also
 move its actual lifecycle and consumers; a new container or `Game&` wrapper alone
 does not satisfy this contract.
 
@@ -105,6 +105,13 @@ does not satisfy this contract.
   activation, with no separate active flag, body owner or active-item counter.
   Item animation updates attached instances instead of detaching and rebuilding
   scene membership each tick.
+  Continuing casts belong to their gameplay world, alongside their borrowed
+  missiles and visuals. Missile completion and destruction use that original
+  world, even after another world or session has become current. Saved casts
+  remain decoded values until installation into the destination; normal entry
+  clears entry-created casts at its established point, while restore rebuilds
+  the saved lure's visuals without moving its semantic anchor. Combat exit does
+  not end these world-owned casts.
   Neither scene attachment nor combat participation decides destruction. Deferred
   work identifies its original actor/session, never whichever one is current later.
 - **Borrow according to lifetime.** A live actor can retain its `World&`; a party

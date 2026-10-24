@@ -34,6 +34,7 @@ class W8AmbientSound;
 struct W8AmbientTrack;
 struct W8LevelPopulation;
 struct W8MonsterInfo;
+struct W8SpellEffectEntry;
 enum class W8MonsterRemoval : unsigned char;
 struct W8WorldCursorState;
 struct W8WorldCursorNode;
@@ -157,6 +158,14 @@ struct World {
        visual and missile kind; live entities are created from them. */
     std::vector<std::unique_ptr<MonsterDefinition>> monster_definitions;
     std::vector<std::unique_ptr<SpellVisualDefinition>> spell_visual_definitions;
+    // Continuing casts borrow this world's visuals and missiles. Missile teardown
+    // removes its references while this queue is still alive.
+    std::vector<std::unique_ptr<W8SpellEffectEntry>> spell_effects;
+    bool hasPendingSpellEffects() const;
+    W8SpellEffectEntry* monsterControlEffect() const;
+    void tickSpellEffects();
+    void absorbMissileDamage(Missile& missile);
+    void detachMissile(Missile& missile);
     std::vector<std::unique_ptr<SpellVisual>> spell_visuals;
     std::vector<std::unique_ptr<MissileDefinition>> missile_definitions;
     std::vector<std::unique_ptr<Missile>> missiles;
@@ -214,7 +223,6 @@ World* GetSecondaryWorld(void);
 
 std::unique_ptr<World> LoadWorld(int level_id, std::string source_path);
 // Run the worlds over the step's `elapsed` time.
-void UpdateWorlds(std::chrono::milliseconds elapsed);
 void RefreshWorldView(void);
 ParticleSystem* FindParticleByName(std::string_view name);
 bool FindEntityByName(std::string_view name, glm::vec3* position, float* angle,

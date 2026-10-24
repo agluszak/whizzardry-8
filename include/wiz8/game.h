@@ -89,7 +89,8 @@ public:
        the current level through the -1 entrance restores the party's camera pose. */
     [[nodiscard]] bool travelToLevel(int level_id, int entrance);
     /* Enter the level a decoded save resumes at. */
-    [[nodiscard]] bool enterSavedLevel(int level_id);
+    [[nodiscard]] bool
+    enterSavedLevel(int level_id, std::vector<std::unique_ptr<W8SpellEffectEntry>> restored_casts);
     /* End level-bound activity, capture the outgoing level's state and release its
        world. The game, its party and its rng remain; ending the game is the session's
        operation. */
@@ -147,9 +148,6 @@ public:
     /* What the party is doing. The camp commands set the place; dialogue and story scenes
        set the rest. */
     Activity activity;
-    /* Spells still taking effect: casts whose missiles are in flight, and the
-       sustained monster control the HYPN section saves. */
-    std::vector<std::unique_ptr<W8SpellEffectEntry>> spell_effects;
     // Voice barks and quotes waiting for, or holding, a speaker.
     W8CharacterEventQueue speech{*this};
     // The NPC conversation's progress: its speaker, queued script work and owed reply.
@@ -205,6 +203,10 @@ public:
        Session and level transitions perform departure before releasing the world;
        screen disposal and world destruction do no departure bookkeeping. */
     Level level;
+
+private:
+    void advanceWorlds(std::chrono::milliseconds elapsed);
+    void advanceSpellEffects(World& world);
 };
 
 /* The games of one run of the program: the game in progress, if any, and the random

@@ -28,6 +28,7 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/party_camera.h"
+#include "wiz8/world/world.h"
 
 /* The fight's turn: what it waits on, the scheduler that picks who acts next, and the
    step that moves the turn through its phases. */
@@ -66,7 +67,7 @@ CombatWait Combat::waitingOn(const Game& game) const
     if (hit_sound) {
         return CombatWait::hit_sound;
     }
-    if (!AllSpellEffectsStillRunning()) {
+    if (game.level.primary && game.level.primary->hasPendingSpellEffects()) {
         return CombatWait::spell_effect;
     }
     for (Missile* missile = NextMissile(true); missile != 0; missile = NextMissile(false)) {

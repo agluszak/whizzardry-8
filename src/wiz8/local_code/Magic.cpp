@@ -4,10 +4,12 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <iterator>
 #include <memory>
+#include <ranges>
 #include <span>
 #include <string>
 #include <utility>
@@ -357,26 +359,18 @@ enum { W8_PARTY_CONDITION_SLOTS = 12, W8_COMBAT_CONDITION_SLOTS = 9 };
 /* Debug switch: when set, every cast except 0x76 fizzles on a forced 100
    percent failure chance. */
 bool g_force_spell_failure;
-/* Whether every queued effect still has time left on it. */
-bool AllSpellEffectsStillRunning(void)
+bool World::hasPendingSpellEffects() const
 {
-    int index;
-
-    for (index = 0; index < static_cast<int>(CurrentGame().spell_effects.size()); ++index) {
-        if (CurrentGame().spell_effects[index]->turns_remaining == 0) {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::any_of(spell_effects,
+                               [](const auto& effect) { return effect->turns_remaining == 0; });
 }
 
-W8SpellEffectEntry* FindMonsterControlSpellEffect(Game& game)
+W8SpellEffectEntry* World::monsterControlEffect() const
 {
     // Replaced lures remain queued until their visuals are retired.
-    auto& effects = game.spell_effects;
-    for (auto it = effects.rbegin(); it != effects.rend(); ++it) {
-        const auto& effect = **it;
-        if (effect.kind == W8_SPELL_HYPNOTIC_LURE && effect.turns_remaining > 0) return it->get();
+    for (const auto& effect : std::views::reverse(spell_effects)) {
+        if (effect->kind == W8_SPELL_HYPNOTIC_LURE && effect->turns_remaining > 0)
+            return effect.get();
     }
     return nullptr;
 }
@@ -385,23 +379,22 @@ W8SpellEffectEntry* FindMonsterControlSpellEffect(Game& game)
    running out is the one with a consequence: every monster that is still alive
    goes back to controlling itself. */
 /* An expired or replaced hypnotic lure releases every living monster. */
-static void ReleaseHypnoticLureControl()
+static void ReleaseHypnoticLureControl(World& world)
 {
-    for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
-         ++index) {
-        W8MonsterInfo* monster = GetMonsterListEntry(index);
+    for (std::size_t index = 0; index < world.population->monster_roster.live().size(); ++index) {
+        auto* monster = world.population->monster_roster.live()[index].get();
         if (monster && !monster->entity->IsDying())
             SetMonsterControlState(monster, W8_MONSTER_CONTROL_NONE);
     }
 }
 
-void TickSpellEffects(void)
+void World::tickSpellEffects()
 {
-    for (const auto& effect : CurrentGame().spell_effects) {
+    for (const auto& effect : spell_effects) {
         if (effect->turns_remaining != 0) {
             --effect->turns_remaining;
             if (effect->turns_remaining == 0 && effect->kind == W8_SPELL_HYPNOTIC_LURE)
-                ReleaseHypnoticLureControl();
+                ReleaseHypnoticLureControl(*this);
         }
     }
 }
@@ -479,27 +472,20 @@ void StartCharacterBreathAttack(int party_slot)
 /* Fold one missile's accumulated damage and reports into the queued effect
    that owns it. The owning effect is the one whose missile list still names
    the missile; nothing happens if it has already been detached. */
-void AbsorbMissileDamage(Missile* missile)
+void World::absorbMissileDamage(Missile& missile)
 {
-    for (const auto& effect : CurrentGame().spell_effects) {
-        for (int missile_index = 0; missile_index < static_cast<int>(effect->missiles.size());
-             ++missile_index) {
-            if (effect->missiles[missile_index] == missile) {
-                effect->result.count += missile->result.count;
-                effect->result.amount += missile->result.amount;
-                for (int condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
-                    effect->result.condition_counts[condition] +=
-                        missile->result.condition_counts[condition];
-                }
-                auto& source_reports = missile->result.reports;
-                auto& destination_reports = effect->result.reports;
-                destination_reports.insert(destination_reports.end(),
-                                           std::make_move_iterator(source_reports.begin()),
-                                           std::make_move_iterator(source_reports.end()));
-                source_reports.clear();
-                return;
-            }
-        }
+    for (const auto& effect : spell_effects) {
+        if (!std::ranges::contains(effect->missiles, &missile)) continue;
+        effect->result.count += missile.result.count;
+        effect->result.amount += missile.result.amount;
+        for (int condition = 0; condition < W8_CONDITION_COUNT; ++condition)
+            effect->result.condition_counts[condition] +=
+                missile.result.condition_counts[condition];
+        auto& reports = effect->result.reports;
+        reports.insert(reports.end(), std::make_move_iterator(missile.result.reports.begin()),
+                       std::make_move_iterator(missile.result.reports.end()));
+        missile.result.reports.clear();
+        return;
     }
 }
 
@@ -514,44 +500,22 @@ void FinishSpellEffect(W8SpellEffectEntry* effect);
    run out is finalized: a spell that needed aiming and is not in the singled
    out set reports itself, its visuals and missiles are released, and the entry
    is removed from the queue and deleted. */
-void UpdateSpellEffects(void)
+void Game::advanceSpellEffects(World& world)
 {
     bool handled = false;
-    int index;
-
-    if (static_cast<int>(CurrentGame().spell_effects.size()) <= 0) {
-        return;
-    }
-    for (index = 0; index < static_cast<int>(CurrentGame().spell_effects.size()); ++index) {
-        auto& effect = *CurrentGame().spell_effects[index];
-        bool alive = true;
-
-        for (int visual_index = 0;
-             visual_index < static_cast<int>(effect.spell_visuals.size()) && alive;
-             ++visual_index) {
-            SpellVisual* visual = effect.spell_visuals[visual_index];
-            if (!visual->finished) {
-                alive = false;
-            }
-        }
-        for (int missile_index = 0;
-             missile_index < static_cast<int>(effect.missiles.size()) && alive; ++missile_index) {
-            Missile* missile = effect.missiles[missile_index];
-            if (!missile->flight_done) {
-                alive = false;
-            }
-        }
-        for (int monster_index = 0;
-             monster_index < static_cast<int>(effect.target_indices.size()) && alive;
-             ++monster_index) {
-            int entry = effect.target_indices[monster_index];
-            if (CurrentGame().monster_manager_entries[entry].effect_icon_active) {
-                alive = false;
-            }
-        }
+    for (int index = 0; index < static_cast<int>(world.spell_effects.size()); ++index) {
+        auto& effect = *world.spell_effects[index];
+        bool alive =
+            std::ranges::all_of(effect.spell_visuals,
+                                [](const auto* visual) { return visual->finished; }) &&
+            std::ranges::all_of(effect.missiles,
+                                [](const auto* missile) { return missile->flight_done; }) &&
+            std::ranges::none_of(effect.target_indices, [&](int entry) {
+                return monster_manager_entries[entry].effect_icon_active;
+            });
 
         bool process =
-            ((Data().spells[effect.kind].missile_delivered == 0 && !effect.missiles_pending) ||
+            ((data.spells[effect.kind].missile_delivered == 0 && !effect.missiles_pending) ||
              effect.kind == W8_SPELL_HYPNOTIC_LURE || alive) &&
             !effect.targets_resolved;
         if (process) {
@@ -569,7 +533,7 @@ void UpdateSpellEffects(void)
                     glm::vec3 position = missile->nav.GetPosition();
                     position.y -= 1e+03f;
                     SpellVisual* visual =
-                        SpawnSpellEffect(&position, Data().spells[effect.kind].resource_name,
+                        SpawnSpellEffect(&position, data.spells[effect.kind].resource_name,
                                          missile->definition.duration_scale, 0, 0);
                     if (visual != 0) {
                         visual->auto_release = false;
@@ -589,9 +553,9 @@ void UpdateSpellEffects(void)
                 if (TargetSourceIsMonster(&effect.OrigSource, 0)) {
                     assert(effect.OrigSource.iMonsterID != -1);
                     /* The casting monster's turn finishes with its spell. */
-                    if (CurrentGame().combat.has_value()) {
-                        CurrentGame().combat->setStepOf(MonsterActor{effect.OrigSource.iMonsterID},
-                                                        ActionStep::finishing);
+                    if (combat.has_value()) {
+                        combat->setStepOf(MonsterActor{effect.OrigSource.iMonsterID},
+                                          ActionStep::finishing);
                     }
                 }
             }
@@ -603,7 +567,7 @@ void UpdateSpellEffects(void)
             continue;
         }
 
-        if (!handled && Data().spells[effect.kind].needs_aim != 0 &&
+        if (!handled && data.spells[effect.kind].needs_aim != 0 &&
             !IsCombatEffectSlotSpell(effect.kind)) {
             W8SpellTargetType target_type = GetSpellTargetType(effect.kind, false);
             if (target_type != W8_TARGET_TYPE_RADIUS && target_type != W8_TARGET_TYPE_PARTY) {
@@ -616,9 +580,7 @@ void UpdateSpellEffects(void)
         if (effect.kind == W8_SPELL_BOILING_BLOOD) {
             FinishSpellEffect(&effect);
         }
-        for (int release_visual = 0; release_visual < static_cast<int>(effect.spell_visuals.size());
-             ++release_visual) {
-            SpellVisual* visual = effect.spell_visuals[release_visual];
+        for (auto* visual : effect.spell_visuals) {
             visual->auto_release = true;
             if (effect.kind == W8_SPELL_HYPNOTIC_LURE) {
                 visual->finished = true;
@@ -627,23 +589,17 @@ void UpdateSpellEffects(void)
         for (auto* missile : effect.missiles) {
             missile->block_released = 1;
         }
-        CurrentGame().spell_effects.erase(CurrentGame().spell_effects.begin() + index);
+        world.spell_effects.erase(world.spell_effects.begin() + index);
         --index;
     }
 }
 
 /* Take one missile back off the spell effect that owns it. The first effect
    whose missile list contains it drops the entry and stops the walk. */
-void DetachMissileReferences(Missile* missile)
+void World::detachMissile(Missile& missile)
 {
-    // The spell effects end with their game; a missile may outlive it.
-    if (!GameInProgress()) return;
-    for (const auto& effect : CurrentGame().spell_effects) {
-        const bool was_removed = wiz8::erase_first(effect->missiles, missile);
-        if (was_removed) {
-            return;
-        }
-    }
+    for (const auto& effect : spell_effects)
+        if (wiz8::erase_first(effect->missiles, &missile)) return;
 }
 
 /* Which spell a missile type carries, for the missile kinds that are spells
@@ -2919,17 +2875,17 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         if (spell_id == W8_SPELL_HYPNOTIC_LURE) {
             owner.turns_remaining = RollEffectDuration(&owner.definition);
             bool replaced = false;
-            for (const auto& previous : CurrentGame().spell_effects) {
+            for (const auto& previous : CurrentGame().level.loaded().spell_effects) {
                 if (previous->kind == W8_SPELL_HYPNOTIC_LURE && previous->turns_remaining > 0) {
                     previous->turns_remaining = 0;
                     replaced = true;
                 }
             }
-            if (replaced) ReleaseHypnoticLureControl();
+            if (replaced) ReleaseHypnoticLureControl(CurrentGame().level.loaded());
         }
         if (CurrentGame().activity.in_world() && !CurrentGame().activity.conversation &&
             !CurrentGame().activity.conversation_aside) {
-            CurrentGame().spell_effects.push_back(std::move(pending));
+            CurrentGame().level.loaded().spell_effects.push_back(std::move(pending));
         } else {
             ProcessSpellEffectTargets(&owner);
             // Immediate casts have no queued owner to retire their visuals later.

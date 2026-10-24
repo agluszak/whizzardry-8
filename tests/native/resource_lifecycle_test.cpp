@@ -56,6 +56,7 @@
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
@@ -1045,6 +1046,46 @@ TEST_CASE("Scripted removal retires relationships before reclaiming an updating 
         REQUIRE(script.expired()); // Outside an update, destruction is immediate again.
         REQUIRE_NOTHROW(world.updateMonsters());
     }
+}
+
+TEST_CASE("A missile reports and detaches only from its original world's casts",
+          "[resources][spell]")
+{
+    ScopedGame scope;
+    auto outgoing = std::make_unique<World>();
+    auto incoming = std::make_unique<World>();
+    auto old_cast = std::make_unique<W8SpellEffectEntry>();
+    auto new_cast = std::make_unique<W8SpellEffectEntry>();
+    auto old_missile = std::make_unique<Missile>(*outgoing);
+    auto new_missile = std::make_unique<Missile>(*incoming);
+    old_cast->missiles.push_back(old_missile.get());
+    new_cast->missiles.push_back(new_missile.get());
+    auto* old_result = old_cast.get();
+    auto* new_result = new_cast.get();
+    outgoing->spell_effects.push_back(std::move(old_cast));
+    incoming->spell_effects.push_back(std::move(new_cast));
+    incoming->missiles.push_back(std::move(new_missile));
+    scope.game.level.replacePrimary(std::move(incoming));
+
+    old_missile->result.amount = 12;
+    old_missile->result.count = 1;
+    old_missile->result.reports.push_back(std::make_unique<W8SpellDamageReport>());
+    outgoing->absorbMissileDamage(*old_missile);
+    REQUIRE(old_result->result.amount == 12);
+    REQUIRE(old_result->result.reports.size() == 1);
+    REQUIRE(old_missile->result.reports.empty());
+    REQUIRE(new_result->result.amount == 0);
+    old_missile.reset();
+    REQUIRE(old_result->missiles.empty());
+    REQUIRE(new_result->missiles.size() == 1);
+
+    // The entire old world can also be reclaimed after its session has ended.
+    auto remaining = std::make_unique<Missile>(*outgoing);
+    old_result->missiles.push_back(remaining.get());
+    outgoing->missiles.push_back(std::move(remaining));
+    scope.session.end();
+    REQUIRE_FALSE(GameInProgress());
+    outgoing.reset();
 }
 
 TEST_CASE("Only the first loaded actor of a species inherits its default script",

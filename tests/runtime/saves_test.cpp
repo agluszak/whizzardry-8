@@ -14,6 +14,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_keycode.h>
@@ -25,17 +26,20 @@
 #include "wiz8/asset_paths.h"
 #include "wiz8/chunk.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/mgs_commands.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 namespace {
 
@@ -65,6 +69,16 @@ void QuickSaveScenario()
     const unsigned experience = CurrentGame().party.characters[PremadeSlot()].experience;
     const auto health = CurrentGame().party.characters[PremadeSlot()].hp_current;
     REQUIRE(health > 1);
+    // A sustained cast survives fight exit and save/load, but belongs to this level.
+    // Keep its anchor away from the scenario's actors, so this tests persistence only.
+    const glm::vec3 lure_anchor{1000000, -1000, 1000000};
+    auto lure = std::make_unique<W8SpellEffectEntry>();
+    lure->kind = W8_SPELL_HYPNOTIC_LURE;
+    lure->turns_remaining = 100;
+    lure->targets_resolved = true;
+    lure->target.point = lure_anchor;
+    lure->definition.duration_scale = 1;
+    CurrentGame().level.loaded().spell_effects.push_back(std::move(lure));
     const fs::path save = QuickSave(game);
     WriteSaveFixture(RuntimeOutput("WIZ8_RUNTIME_SAVE_FIXTURE"), save, anchor);
     Walk(game, "walk-away", 4.0f);
@@ -115,6 +129,11 @@ void QuickSaveScenario()
     REQUIRE(CurrentGame().party.characters[PremadeSlot()].experience == experience);
     REQUIRE(CurrentGame().party.characters[PremadeSlot()].hp_current == health);
     REQUIRE(!CurrentGame().combat.has_value());
+    const auto* restored_lure = CurrentGame().level.loaded().monsterControlEffect();
+    REQUIRE(restored_lure);
+    REQUIRE(restored_lure->target.point == lure_anchor);
+    REQUIRE(restored_lure->turns_remaining > 0);
+    REQUIRE_FALSE(restored_lure->spell_visuals.empty());
     std::printf("quick-save: %s round-tripped after %lu frames\n", save.filename().string().c_str(),
                 game.frames());
 }

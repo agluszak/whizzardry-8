@@ -102,11 +102,16 @@ NavigationMesh* GetWorldPathing()
 }
 bool g_navigator_vertical_enabled = true;
 
-/* Build scene resources under a local owner. No active world is required;
-   malformed resources destroy only this unpublished result. */
-static void UpdateWorld(World& world, std::chrono::milliseconds elapsed)
+// Keep the authored update points: sky particles first, then primary simulation;
+// continuing casts resolve after level scripts, before the primary particle sweep.
+void Game::advanceWorlds(std::chrono::milliseconds elapsed)
 {
-    if (&world != GetSecondaryWorld()) {
+    g_navigator_vertical_enabled =
+        !(((GetInputState().modifiers & CTRL_DOWN) != 0) && combat.has_value() &&
+          (combat->round_active || party_movement_mode));
+    if (level.sky) SweepFinishedParticles(level.sky.get());
+    if (level.primary) {
+        auto& world = *level.primary;
         world.updateMonsters();
         UpdateWorldMissiles(&world);
         UpdateWorldSpellVisuals(&world);
@@ -114,28 +119,11 @@ static void UpdateWorld(World& world, std::chrono::milliseconds elapsed)
         WorldUpdateLights(&world);
         RunMonsterGenerators(elapsed);
         UpdateWorldTriggers(&world);
-        if (world.compiledIndex() != 0 && world.script) {
-            world.script->runMasters();
-        }
-        UpdateSpellEffects();
+        if (world.compiledIndex() && world.script) world.script->runMasters();
+        advanceSpellEffects(world);
+        SweepFinishedParticles(&world);
     }
-
-    SweepFinishedParticles(&world);
-}
-
-void UpdateWorlds(std::chrono::milliseconds elapsed)
-{
-    g_navigator_vertical_enabled =
-        !(((GetInputState().modifiers & CTRL_DOWN) != 0) && CurrentGame().combat.has_value() &&
-          (CurrentGame().combat->round_active || CurrentGame().party_movement_mode));
-
-    // Loading registered the sky first; preserve that update order.
-    for (World* world : {GetSecondaryWorld(), GetWorld()}) {
-        if (world) UpdateWorld(*world, elapsed);
-    }
-
     RefreshWorldView();
-
     UpdateTimedTriggerEvents();
     UpdateShakeEffects();
     UpdateEnvironment();
