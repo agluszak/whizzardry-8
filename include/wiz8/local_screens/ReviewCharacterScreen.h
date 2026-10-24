@@ -1,5 +1,7 @@
 #pragma once
 
+struct PartyQuoteInput;
+
 #include <array>
 #include <bitset>
 #include <cstddef>
@@ -29,8 +31,6 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-
-struct PartyQuoteInput;
 
 class Game;
 class Pointer;

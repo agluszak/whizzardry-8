@@ -47,10 +47,6 @@ void MaybeStartIncapacitationEvent(unsigned int party_slot);
 void QueueLastSurvivorEvent(void);
 /* Requeue the selected character's stored portrait event. */
 void RequeueSelectedPortraitEvent(void);
-/* Set the pose a party-slot portrait animates toward; clears any
-   pose animation in progress and forces the incapacitated pose when the
-   character is too far gone or the party is surprised. */
-void SetPortraitTargetPose(struct W8MonsterManagerEntry* slot, int pose);
 /* Left-click on a party portrait completes that slot's active
    event, or finishes the NPC voice playback for the player portraits. */
 /* Re-blit each active portrait quote bubble when the screen comes

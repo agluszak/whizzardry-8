@@ -15,6 +15,7 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/portrait_animation.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
@@ -69,12 +70,15 @@ TEST_CASE_METHOD(PartyFixture, "A ceiling that exhausts hit points kills the mem
 {
     member().uiCondition[W8_CONDITION_POISONED] = 30;
     member().condition_argument = 4;
+    game.monster_manager_entries[0].portrait.blink_closing = true;
     // The pool was under a higher ceiling than the member's state now supports.
     member().uiHPMax += member().hp_current;
 
     SettleActiveParty(game);
     REQUIRE(member().uiCondition[W8_CONDITION_DEAD] == W8_CONDITION_INDEFINITE);
     REQUIRE(member().highest_condition == W8_CONDITION_DEAD);
+    REQUIRE(game.monster_manager_entries[0].portrait.target_pose == 2);
+    REQUIRE_FALSE(game.monster_manager_entries[0].portrait.blink_closing);
     REQUIRE(member().uiCondition[W8_CONDITION_POISONED] == 0);
     REQUIRE((member().hp_current == 0 && member().stamina == 0 && member().death_count == 1));
     REQUIRE(deaths() == 1);

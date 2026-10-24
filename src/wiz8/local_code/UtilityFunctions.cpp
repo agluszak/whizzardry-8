@@ -13,7 +13,6 @@
 #include "wiz8/data/dice.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/game.h"
-#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/random.h"
@@ -205,19 +204,4 @@ retry:
         goto retry;
     }
     return -1;
-}
-
-int RPCPtrToPCSlot(const W8MonsterManagerEntry* rpc)
-{
-    int slot = 0;
-
-    for (const W8MonsterManagerEntry* current = CurrentGame().monster_manager_entries;
-         current < &CurrentGame().monster_manager_entries[8]; ++current) {
-        if (rpc == current) {
-            return slot;
-        }
-        ++slot;
-    }
-    assert(false && "entry is not a monster manager slot");
-    return 0;
 }

@@ -91,6 +91,7 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/pointer.h"
+#include "wiz8/portrait_animation.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -815,7 +816,9 @@ void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags)
     CurrentGame().npc_interaction.dialogue_speaker = speaker;
     for (slot = 0; slot < 8; ++slot) {
         if (CurrentGame().party.members[slot].has_value()) {
-            SetPortraitTargetPose(&CurrentGame().monster_manager_entries[slot], 1);
+            CurrentGame().monster_manager_entries[slot].portrait.setTargetPose(
+                1, CurrentGame().party.characters[slot].highest_condition >= W8_CONDITION_ASLEEP ||
+                       CurrentGame().surprise_possible);
         }
     }
     selected = CurrentGame().npc_interaction.dialogue_npc.get();

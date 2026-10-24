@@ -30,6 +30,7 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
+#include "wiz8/portrait_animation.h"
 #include "wiz8/rules/action_choices.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
@@ -106,7 +107,7 @@ void RecomputeHighestCondition(Game& game, unsigned int slot)
     auto& entry = game.monster_manager_entries[slot];
     const bool lying = character.highest_condition >= W8_CONDITION_ASLEEP;
     const bool lies = entry.portrait.target_pose == 2;
-    if (lying != lies) SetPortraitTargetPose(&entry, lying ? 2 : 1);
+    if (lying != lies) entry.portrait.setTargetPose(lying ? 2 : 1, lying || game.surprise_possible);
     PushSlotDisplayChanged(game.events, slot);
 }
 

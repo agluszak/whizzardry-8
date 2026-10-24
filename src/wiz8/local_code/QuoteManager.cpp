@@ -28,6 +28,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/design_rect.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
@@ -1253,25 +1254,6 @@ W8CharacterEvent* W8CharacterEventQueue::Queue(W8Character* character, int event
     }
     return QueueEntry(
         std::make_unique<W8CharacterEvent>(*this, character, event_type, flags, volume));
-}
-
-/* Set the pose a party-slot portrait is animating toward. The request drops
-   any pose animation already in progress; a slot whose character is dead or
-   in a severe condition - or a party caught surprised - is forced to the
-   incapacitated pose instead. */
-void SetPortraitTargetPose(W8MonsterManagerEntry* slot, int pose)
-{
-    int party_slot = RPCPtrToPCSlot(slot);
-
-    slot->portrait.blink_closing = false;
-    if (CurrentGame().party.characters[party_slot].highest_condition < W8_CONDITION_ASLEEP &&
-        !CurrentGame().surprise_possible) {
-        if (slot->portrait.target_pose != pose) {
-            slot->portrait.target_pose = pose;
-        }
-        return;
-    }
-    slot->portrait.target_pose = 2;
 }
 
 /* A character at zero percent hit points may start one of the three recovered

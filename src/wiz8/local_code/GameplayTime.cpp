@@ -54,6 +54,7 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/portrait_animation.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
@@ -277,7 +278,7 @@ void BeginSurprise(void)
     CurrentGame().speech.CompleteAllActiveEvents();
     for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
         if (CurrentGame().party.members[i].has_value()) {
-            SetPortraitTargetPose(&CurrentGame().monster_manager_entries[i], 2);
+            CurrentGame().monster_manager_entries[i].portrait.setTargetPose(2, true);
         }
     }
     DisableMenuButtonBanks();
@@ -448,7 +449,9 @@ void ResolveSurpriseWake(void)
             continue;
         }
         W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[slot];
-        SetPortraitTargetPose(entry, 1);
+        entry->portrait.setTargetPose(1, CurrentGame().party.characters[slot].highest_condition >=
+                                                 W8_CONDITION_ASLEEP ||
+                                             CurrentGame().surprise_possible);
         // Portraits belong to the UI: their next idle pose uses presentation time.
         if (CurrentGame().rng.below(2) != 0) {
             entry->portrait.idle_clock =

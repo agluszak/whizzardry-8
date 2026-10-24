@@ -1,4 +1,6 @@
 #pragma once
+
+struct PartyQuoteInput;
 #include <array>
 #include <bitset>
 #include <cstddef>
@@ -222,8 +224,6 @@ extern unsigned short g_trap_name_string_ids[];
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/ui_layer.h"
-
-struct PartyQuoteInput;
 
 class Game;
 
