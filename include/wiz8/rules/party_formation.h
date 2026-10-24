@@ -47,7 +47,6 @@ struct W8PartyFormationState {
     // Complete seating operations own row packing and facing together.
     bool seatInRow(int slot, int row);
     void placeCharacter(int slot);
-    bool swapOrRestore(int slot, int other);
     void updateLiveness(int slot, bool dead);
     /* Exchange two slots' cells; each seated slot faces the way its new row does. */
     void swap(int slot_a, int slot_b);

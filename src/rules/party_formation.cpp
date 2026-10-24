@@ -130,17 +130,6 @@ void W8PartyFormationState::placeCharacter(int slot)
     throw std::logic_error("A party formation has no free seat");
 }
 
-bool W8PartyFormationState::swapOrRestore(int slot, int other)
-{
-    assert(slot != other);
-    if (cellOf(other)) {
-        swap(slot, other);
-        return true;
-    }
-    const int row = positions[other].revival_row;
-    return row == -1 || seatInRow(slot, row);
-}
-
 void W8PartyFormationState::updateLiveness(int slot, bool dead)
 {
     const int row = rowOf(slot);

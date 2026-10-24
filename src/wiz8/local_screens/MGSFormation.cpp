@@ -500,13 +500,7 @@ static void DropFormationSlot(int cell)
         } else if (!CanHoldFormationPlace(FormationCellSlot(cell))) {
             cell = -1;
         } else {
-            auto& proposal = CurrentGame().planned_formation;
-            const int other = FormationCellSlot(cell);
-            if (!proposal.swapOrRestore(g_formation_drag_slot, other))
-                PostCharacterNotice(
-                    g_formation_drag_slot,
-                    fmt::sprintf(Data().strings[0x24e],
-                                 kFormationRowNames[proposal.positions[other].revival_row]));
+            CurrentGame().planned_formation.swap(g_formation_drag_slot, FormationCellSlot(cell));
         }
     }
     const int dragged_from = std::exchange(g_formation_drag_cell, -1);
