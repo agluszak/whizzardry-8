@@ -7,10 +7,16 @@
 #include <stdexcept>
 #include <utility>
 
+#include <fmt/printf.h>
+
 #include "wiz8/audio/soundman.h"
 #include "wiz8/combat/entity_signals.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/party.h"
+#include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
@@ -161,4 +167,37 @@ std::uint64_t WorldClockMilliseconds()
 std::uint32_t GameClockMilliseconds()
 {
     return GameInProgress() ? static_cast<std::uint32_t>(CurrentGame().time.count()) : 0;
+}
+
+void Game::commitFormation()
+{
+    Events::Operation outcomes{events};
+    const auto previous = party.formation;
+    party.applyFormation(planned_formation);
+    const auto notice = [&](unsigned int slot, unsigned int text, int row) {
+        events.push(
+            CharacterNotice{slot, fmt::sprintf(data.strings[text], kFormationRowNames[row])});
+    };
+    // Movable members announce first; immobile members then explain refusals and displacement.
+    if (status.game_started && !activity.conversation) {
+        for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+            const int row = party.formation.rowOf(slot);
+            if (party.canChangeFormation(slot) && row != -1 && row != previous.rowOf(slot))
+                notice(slot, 0x24c, row);
+        }
+    }
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        if (!party.members[slot] || party.canChangeFormation(slot) ||
+            party.characters[slot].highest_condition >= W8_CONDITION_DEAD)
+            continue;
+        const int row = party.formation.rowOf(slot);
+        const bool refused = planned_formation.rowOf(slot) != previous.rowOf(slot);
+        if (refused) events.push(CharacterNotice{slot, data.strings[0x248]});
+        if (row != previous.rowOf(slot))
+            notice(slot, 0x24a, row);
+        else if (refused)
+            notice(slot, 0x249, row);
+    }
+    planned_formation = party.formation;
+    events.push(FormationChanged{});
 }

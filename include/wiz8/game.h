@@ -77,6 +77,8 @@ public:
     // Script fact tests can consume a one-shot latch; this is not a pure state query.
     unsigned char testFact(W8FactId fact);
     bool hasLeadingNpc(W8NpcId kind) const;
+    // Settle the pending formation and publish its accepted or refused moves.
+    void commitFormation();
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
 

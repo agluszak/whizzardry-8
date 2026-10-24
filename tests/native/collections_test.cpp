@@ -1717,7 +1717,10 @@ TEST_CASE("Formation acceptance settles immobile members before notifying observ
     GameData data{.strings = std::vector<std::string>(0x250)};
     data.strings[0x248] = "Cannot move";
     data.strings[0x249] = "Remains %s";
-    W8Party party;
+    data.strings[0x24c] = "Moves %s";
+    Game game{data};
+    game.status.game_started = true;
+    auto& party = game.party;
     for (unsigned int slot = 0; slot < 2; ++slot) {
         party.members[slot].emplace();
         party.characters[slot].hp_current = 1;
@@ -1726,18 +1729,21 @@ TEST_CASE("Formation acceptance settles immobile members before notifying observ
     party.characters[0].highest_condition = W8_CONDITION_UNCONSCIOUS;
     party.formation.positions[0].unknown_04[0] = 42;
     party.formation.unknown_74[0] = 9;
-    auto proposal = party.formation;
+    auto& proposal = game.planned_formation;
+    proposal = party.formation;
     proposal.setPosition(0, W8FormationCell{2, 0}, true, true);
-    Events events;
-    unsigned int notices = 0;
+    proposal.setPosition(1, W8FormationCell{4, 0}, true, true);
+    auto& events = game.events;
+    std::vector<std::string> notices;
     events.observe([&](const Event& event) {
         REQUIRE(party.formation == proposal);
         REQUIRE(party.formation.rowOf(0) == 0);
         REQUIRE(party.formation.positions[0].unknown_04[0] == 42);
         REQUIRE(party.formation.unknown_74[0] == 9);
-        if (std::holds_alternative<CharacterNotice>(event)) ++notices;
+        if (const auto* notice = std::get_if<CharacterNotice>(&event))
+            notices.push_back(notice->text);
     });
-    party.acceptFormation(proposal, data, events, true);
-    REQUIRE(notices == 2);
+    game.commitFormation();
+    REQUIRE(notices == std::vector<std::string>{"Moves Center", "Cannot move", "Remains Front"});
     REQUIRE_FALSE(party.canChangeFormation(8));
 }

@@ -1514,9 +1514,7 @@ void AdvanceCombatRound(void)
         CurrentGame().combat->uiNextPartyAction != W8_PARTY_ACTION_NONE) {
         ClearPendingPartyMovement();
     }
-    CurrentGame().party.acceptFormation(
-        CurrentGame().planned_formation, CurrentGame().data, CurrentGame().events,
-        CurrentGame().status.game_started && !CurrentGame().activity.conversation);
+    CurrentGame().commitFormation();
     if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0) {
         CurrentGame().events.push(
             TextNotice{W8_FONT_PALETTE_BEIGE,

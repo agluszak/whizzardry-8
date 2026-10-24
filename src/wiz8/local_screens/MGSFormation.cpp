@@ -344,9 +344,7 @@ static void AcceptFormationChanges(void)
         }
     }
     if (!CurrentGame().combat.has_value()) {
-        CurrentGame().party.acceptFormation(
-            CurrentGame().planned_formation, CurrentGame().data, CurrentGame().events,
-            CurrentGame().status.game_started && !CurrentGame().activity.conversation);
+        CurrentGame().commitFormation();
     } else if (CurrentGame().party.formation != CurrentGame().planned_formation) {
         ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x7d9]);
     }
