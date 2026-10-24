@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -92,3 +93,7 @@ struct World;
 
 std::unique_ptr<LevelSpatialIndex> ReadCollisionGeometry(std::string_view path, World* owner);
 bool BuildCollisionIndex(LevelSpatialIndex* game_data);
+
+// Temporary PR 664 metadata probe; remove after the retail census.
+std::optional<int> InspectRawPvlMonsterCount(wiz8::File& file,
+                                             const std::filesystem::path& textures);

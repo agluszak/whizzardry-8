@@ -252,6 +252,27 @@ try {
     return false;
 }
 
+// Temporary PR 664 metadata probe: use the production readers, but stop before
+// any monster/item/prop creation, gameplay RNG or NPC binding can run.
+std::optional<int> InspectRawPvlMonsterCount(wiz8::File& file,
+                                             const std::filesystem::path& textures)
+try {
+    unsigned int mesh_count;
+    file.read_exact(&mesh_count, sizeof(mesh_count));
+    file.seek(0, wiz8::SeekOrigin::begin);
+    auto meshes = ReadMultipleLevelMeshes(file, mesh_count, textures);
+    if (meshes.empty()) return std::nullopt;
+    World world;
+    if (!ReadWorldLights(&world, &file)) return std::nullopt;
+    int end, count;
+    file.read_exact(&end, sizeof(end));
+    file.read_exact(&count, sizeof(count));
+    if (end != -1 || count < 0 || count >= 100000) return std::nullopt;
+    return count;
+} catch (const std::exception&) {
+    return std::nullopt;
+}
+
 unsigned char ReadWorldEnvironment(LevelLoadContext* pInfo, World* pWorld)
 try {
     /* Retail read these uninitialised when a FileRead chain short-circuited;
