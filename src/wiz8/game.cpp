@@ -17,6 +17,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
+#include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/script_context.h"
 #include "wiz8/world/world.h"
