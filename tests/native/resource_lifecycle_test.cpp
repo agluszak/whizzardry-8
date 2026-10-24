@@ -2,7 +2,6 @@
 #include <array>
 #include <cstddef>
 #include <cstdio>
-#include <deque>
 #include <filesystem>
 #include <functional>
 #include <limits>
@@ -940,6 +939,7 @@ TEST_CASE("Scripted removal retires relationships before reclaiming an updating 
     ScopedGame scope;
     auto& world = PublishEmptyWorld(scope.game);
     world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
+    world.compiledIndex()->registry.cells = std::make_unique<W8OctreeObjectRegistry>();
     std::vector<int> calls;
     const auto add = [&](int id, std::function<void()> action) {
         auto record = std::make_unique<W8MonsterInfo>();
@@ -986,7 +986,6 @@ TEST_CASE("Scripted removal retires relationships before reclaiming an updating 
         W8MonsterInfo* first = nullptr;
         W8MonsterInfo* second = nullptr;
         std::weak_ptr<Script> first_script, second_script;
-        world.compiledIndex()->registry.cells = std::make_unique<W8OctreeObjectRegistry>();
         Navigator follower(world);
         first = add(1, [&] {
             REQUIRE(RemoveMonster(first, W8MonsterRemoval::Despawn));
