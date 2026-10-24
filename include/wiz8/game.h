@@ -95,16 +95,28 @@ public:
     // Script fact tests can consume a one-shot latch; this is not a pure state query.
     unsigned char testFact(W8FactId fact);
     void setFact(W8FactId fact, unsigned char value, bool notify = true);
+    void setFact(W8FactId fact_id, unsigned char value, bool notify, std::vector<Event>& outcomes);
     void seedNewGameFacts();
+    void reactToItem(W8ItemInstance& item, W8Character* receiver = nullptr);
+    void reactToItem(W8ItemInstance& item, W8Character* receiver, std::vector<Event>& outcomes);
     void acquireItemFacts(const W8ItemInstance& item);
+    void acquireItemFacts(const W8ItemInstance& item, std::vector<Event>& outcomes);
     bool hasLeadingNpc(W8NpcId kind) const;
     // Settle the pending formation and publish its accepted or refused moves.
     void commitFormation();
+    void reconcileCombatHands(unsigned int party_slot, std::vector<Event>& outcomes);
     unsigned int damageCharacter(unsigned int slot, unsigned int amount, DamageOptions options = {},
                                  W8SpellEffectResult* report = nullptr);
+    unsigned int damageCharacter(unsigned int party_slot, unsigned int amount,
+                                 DamageOptions options, W8SpellEffectResult* result_stats,
+                                 std::vector<Event>& outcomes);
     void fatigueCharacter(unsigned int slot, int amount, bool scale_by_load,
                           W8SpellEffectResult* report = nullptr);
+    void fatigueCharacter(unsigned int slot, int amount, bool scale_by_load,
+                          W8SpellEffectResult* report, std::vector<Event>& outcomes);
     void aimStoredAction(unsigned int slot, W8TargetingContext stored, const W8CombatSlot& target);
+    void aimStoredAction(unsigned int slot, W8TargetingContext stored, const W8CombatSlot& target,
+                         std::vector<Event>& outcomes);
     W8RangeCategory actionRange(unsigned int slot, unsigned int hand, const W8Action& action,
                                 std::optional<W8RangeCategory> attack_range = {}) const;
     W8TargetAssessment assessActionReach(unsigned int slot, unsigned int hand,
@@ -118,7 +130,11 @@ public:
     std::optional<TargetChoice> chooseFallbackTarget(unsigned int slot,
                                                      const W8Action& action) const;
     bool repickActionTarget(unsigned int slot, W8TargetingContext stored, bool breathe = false);
+    bool repickActionTarget(unsigned int slot, W8TargetingContext stored, bool breathe,
+                            std::vector<Event>& outcomes);
     void commitWeaponChoice(unsigned int slot, W8WeaponSwap equipment);
+    void commitWeaponChoice(unsigned int slot, W8WeaponSwap equipment,
+                            std::vector<Event>& outcomes);
     bool canPerformAction(unsigned int slot, const W8Action& action,
                           bool allow_missing_target) const;
     bool canReactWith(unsigned int slot, W8ActionKind action) const;
@@ -128,11 +144,16 @@ public:
     void pointCameraAtCombatTarget(const W8TargetSource* source, const W8CombatSlot* target);
     void setCombatAction(unsigned int slot, W8Action action,
                          ActionOrigin origin = ActionOrigin::Automatic, bool cue_ready = false);
+    void setCombatAction(unsigned int slot, W8Action next, ActionOrigin origin, bool cue_ready,
+                         std::vector<Event>& outcomes);
     void resetCombatChoice(unsigned int slot);
+    void resetCombatChoice(unsigned int slot, std::vector<Event>& outcomes);
     bool targetPresent(const W8CombatSlot& target) const;
     bool targetMatches(const W8CombatSlot& target, W8TargetNeed needed) const;
     bool actionTargetsEnemies(unsigned int slot, const W8Action& action) const;
     void invalidateAimsAt(const W8CombatSlot& target, TargetChange change);
+    void invalidateAimsAt(const W8CombatSlot& target, TargetChange change,
+                          std::vector<Event>& outcomes);
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
 
@@ -294,7 +315,10 @@ public:
 private:
     unsigned char testFact(W8FactId fact, std::vector<Event>& outcomes);
     unsigned char evaluateFact(W8FactId fact, std::vector<Event>& outcomes);
-    void recordFactChange(W8FactId fact, bool notify);
+    void writeFact(W8FactId fact_id, unsigned char value, bool notify,
+                   std::function_ref<void(std::vector<Event>)> publish);
+    void recordFactChange(W8FactId fact_id, bool notify,
+                          std::function_ref<void(std::vector<Event>)> publish);
     std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
     void updateSurpriseMode();
     void advanceWorlds(std::chrono::milliseconds elapsed);

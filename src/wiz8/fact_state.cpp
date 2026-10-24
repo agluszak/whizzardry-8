@@ -1,5 +1,6 @@
 #include "wiz8/fact_state.h"
 
+#include <functional>
 #include <utility>
 #include <vector>
 
@@ -277,24 +278,46 @@ unsigned char Game::evaluateFact(W8FactId fact_id, std::vector<Event>& outcomes)
 
 void Game::setFact(W8FactId fact_id, unsigned char value, bool notify)
 {
+    // Unmigrated script commands retain their existing journal-before-consequences delivery.
+    writeFact(fact_id, value, notify,
+              [this](std::vector<Event> batch) { events.publish(std::move(batch)); });
+}
+
+void Game::setFact(W8FactId fact_id, unsigned char value, bool notify, std::vector<Event>& outcomes)
+{
+    writeFact(fact_id, value, notify, [&](std::vector<Event> batch) {
+        for (auto& event : batch) outcomes.push_back(std::move(event));
+    });
+}
+
+void Game::writeFact(W8FactId fact_id, unsigned char value, bool notify,
+                     std::function_ref<void(std::vector<Event>)> publish)
+{
     if (static_cast<unsigned>(fact_id) >= W8_FACT_SLOT_COUNT) return;
     const auto previous = story.facts[fact_id];
     story.facts[fact_id] = value;
-    if (value != previous) recordFactChange(fact_id, notify);
+    if (value != previous) recordFactChange(fact_id, notify, publish);
     // Repeated writes still run mandatory consequences, without another journal entry.
     HandleFactChange(MakeScriptContext(*this), fact_id, value);
     if (status.log_fact_checks && static_cast<unsigned>(fact_id) < data.facts.size()) {
-        events.push(TextNotice{W8_FONT_PALETTE_YELLOW,
-                               fmt::format("{} set to {}", data.facts[fact_id].symbolic_name,
-                                           value ? "TRUE" : "FALSE")});
+        publish({TextNotice{W8_FONT_PALETTE_YELLOW,
+                            fmt::format("{} set to {}", data.facts[fact_id].symbolic_name,
+                                        value ? "TRUE" : "FALSE")}});
     }
 }
 
-void Game::recordFactChange(W8FactId fact_id, bool notify)
+void Game::recordFactChange(W8FactId fact_id, bool notify,
+                            std::function_ref<void(std::vector<Event>)> publish)
 {
+    const auto evaluated = [&] {
+        std::vector<Event> diagnostics;
+        const auto value = testFact(fact_id, diagnostics);
+        publish(std::move(diagnostics));
+        return value;
+    };
     story.journal.push_back({.level = level.primary ? level.primary->level_id : -1,
                              .fact = fact_id,
-                             .alternate_text = testFact(fact_id) != 0});
+                             .alternate_text = evaluated() != 0});
     if (!notify || static_cast<unsigned>(fact_id) >= data.facts.size()) return;
     const int visibility = status.difficulty == W8_DIFFICULTY_NOVICE   ? 2
                            : status.difficulty == W8_DIFFICULTY_NORMAL ? 1
@@ -303,12 +326,12 @@ void Game::recordFactChange(W8FactId fact_id, bool notify)
     const auto& record = data.facts[fact_id];
     if (record.visibility > visibility) return;
     // Evaluation may consume a one-shot latch, so retain both original evaluation points.
-    const auto& description = testFact(fact_id) ? record.alternate_description : record.description;
+    const auto& description = evaluated() ? record.alternate_description : record.description;
     if (description.empty()) return;
     if (activity.conversation)
         npc_dialogue.Queue(W8NpcCommand::journal_quote);
     else
-        events.push(JournalEntryAdded{data.strings[0x74a]});
+        publish({JournalEntryAdded{data.strings[0x74a]}});
 }
 
 /* The opening sequence consumes only the imported story choices. The decoded
@@ -345,48 +368,55 @@ void Game::seedNewGameFacts()
 
 void Game::acquireItemFacts(const W8ItemInstance& item)
 {
+    std::vector<Event> outcomes;
+    acquireItemFacts(item, outcomes);
+    events.publish(std::move(outcomes));
+}
+
+void Game::acquireItemFacts(const W8ItemInstance& item, std::vector<Event>& outcomes)
+{
     switch (item.iItemNo) {
     case 0x243:
-        if (!testFact(W8_FACT_DESTINAE_POSSESS)) {
-            setFact(W8_FACT_DESTINAE_POSSESS, 1);
+        if (!testFact(W8_FACT_DESTINAE_POSSESS, outcomes)) {
+            setFact(W8_FACT_DESTINAE_POSSESS, 1, true, outcomes);
         }
-        if (testFact(W8_FACT_QUEST_GET_DD)) {
-            setFact(W8_FACT_QUEST_GET_DD, 0);
+        if (testFact(W8_FACT_QUEST_GET_DD, outcomes)) {
+            setFact(W8_FACT_QUEST_GET_DD, 0, true, outcomes);
         }
         break;
     case 0x242:
-        if (!testFact(W8_FACT_ASTRAL_POSSESS)) {
-            setFact(W8_FACT_ASTRAL_POSSESS, 1);
+        if (!testFact(W8_FACT_ASTRAL_POSSESS, outcomes)) {
+            setFact(W8_FACT_ASTRAL_POSSESS, 1, true, outcomes);
         }
-        if (testFact(W8_FACT_QUEST_GET_AD)) {
-            setFact(W8_FACT_QUEST_GET_AD, 0);
+        if (testFact(W8_FACT_QUEST_GET_AD, outcomes)) {
+            setFact(W8_FACT_QUEST_GET_AD, 0, true, outcomes);
         }
         break;
     case 0x244:
-        if (!testFact(W8_FACT_CHAOS_POSSESS)) {
-            setFact(W8_FACT_CHAOS_POSSESS, 1);
+        if (!testFact(W8_FACT_CHAOS_POSSESS, outcomes)) {
+            setFact(W8_FACT_CHAOS_POSSESS, 1, true, outcomes);
         }
-        if (testFact(W8_FACT_QUEST_GET_CM)) {
-            setFact(W8_FACT_QUEST_GET_CM, 0);
+        if (testFact(W8_FACT_QUEST_GET_CM, outcomes)) {
+            setFact(W8_FACT_QUEST_GET_CM, 0, true, outcomes);
         }
         status.fact_b8_pending = true;
         status.fact_b8_clock = status.world_clock;
         break;
     case 0x264:
-        if (!testFact(W8_FACT_ASTRAL_FAKE_POSSESS)) {
-            setFact(W8_FACT_ASTRAL_FAKE_POSSESS, 1);
-            setFact(W8_FACT_ASTRAL_FAKE_POSSESS1, 1);
+        if (!testFact(W8_FACT_ASTRAL_FAKE_POSSESS, outcomes)) {
+            setFact(W8_FACT_ASTRAL_FAKE_POSSESS, 1, true, outcomes);
+            setFact(W8_FACT_ASTRAL_FAKE_POSSESS1, 1, true, outcomes);
         }
         break;
     case 0x201:
-        setFact(W8_FACT_QUEST_BRAFFIT_CIERDAN, 0);
+        setFact(W8_FACT_QUEST_BRAFFIT_CIERDAN, 0, true, outcomes);
         break;
     case 0x27c:
-        setFact(W8_FACT_QUEST_MYLES_FIND_DIAMOND, 0);
+        setFact(W8_FACT_QUEST_MYLES_FIND_DIAMOND, 0, true, outcomes);
         break;
     case 0x1d2:
-        if (testFact(W8_FACT_QUEST_MYLES_WEAPONS_CACHE)) {
-            setFact(W8_FACT_QUEST_MYLES_WEAPONS_CACHE, 0);
+        if (testFact(W8_FACT_QUEST_MYLES_WEAPONS_CACHE, outcomes)) {
+            setFact(W8_FACT_QUEST_MYLES_WEAPONS_CACHE, 0, true, outcomes);
         }
         break;
     }

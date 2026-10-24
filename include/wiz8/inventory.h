@@ -10,6 +10,7 @@
 
 #include "glm/ext/vector_float2.hpp"
 #include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/inventory.h" // IWYU pragma: export - the item rules operations use.
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
@@ -169,6 +170,7 @@ public:
        partial progress is distinct from refusal. */
     enum class Deposit { Refused, Partial, Complete };
     Deposit depositHeld(unsigned int row, bool insert_rest);
+    Deposit depositHeld(unsigned int row, bool insert_rest, std::vector<Event>& outcomes);
     /* Combine the held item with another: a recipe makes a new item and practises its
        skill; two stacks of one item merge. Returns whether anything changed. */
     std::expected<bool, InventoryRefusal> combineHeld(unsigned int actor, W8ItemLocation target);
@@ -184,7 +186,10 @@ public:
 
     // Bind the active hands' items, announcing a binding that takes hold.
     void bindHands(unsigned int party_slot);
+    void bindHands(unsigned int party_slot, std::vector<Event>& outcomes);
     void commitWeaponSwap(unsigned int party_slot, W8WeaponSwap choice);
+    void commitWeaponSwap(unsigned int party_slot, W8WeaponSwap choice,
+                          std::vector<Event>& outcomes);
     /* Swap a member's weapon sets now, when they can: the hands bind first, and when
        announcing, the notice says why they cannot. */
     bool swapWeaponSets(unsigned int party_slot, bool announce);
@@ -195,7 +200,7 @@ public:
     bool consumeAttackItems(unsigned int actor, unsigned int hand, W8EquipSlot used,
                             W8EquipSlot paired);
     // Equip the primary weapon's off-hand partner and refill its shots before attacking.
-    void readyPrimaryWeapon(unsigned int party_slot);
+    void readyPrimaryWeapon(unsigned int party_slot, std::vector<Event>& outcomes);
 
     // Use one item as a member's action; a use whose item has moved does nothing.
     W8ItemUseResult use(unsigned int actor, const W8ItemUse& use);
@@ -203,7 +208,8 @@ public:
     /* Part of settling the party: equipment a member can no longer use comes off and is
        stored like a received item; what nothing takes stays equipped. Returns whether a
        weapon hand changed. */
-    bool unequipUnusable(unsigned int party_slot, ItemReactions reactions);
+    bool unequipUnusable(unsigned int party_slot, ItemReactions reactions,
+                         std::vector<Event>& outcomes);
 
     // ---- Saves
 
@@ -232,14 +238,21 @@ private:
                                          StoreOrder order, bool announce, bool equip);
     void acquire(const std::optional<Placement>& placement,
                  ItemReactions reactions = ItemReactions::Normal);
+    void acquire(const std::optional<Placement>& placement, ItemReactions reactions,
+                 std::vector<Event>& outcomes);
     bool dropUnstored(W8ItemInstance& item, W8ItemLocation origin = {}, int actor = -1);
     bool stowPartner(unsigned int actor, W8EquipSlot slot);
     void supersedeQueuedSwap(W8ItemLocation location);
 
     void bind(unsigned int party_slot, W8EquipSlot equip_slot);
+    void bind(unsigned int party_slot, W8EquipSlot equip_slot, std::vector<Event>& outcomes);
     W8ItemLocation equipPartner(unsigned int party_slot, const W8ItemInstance& item, int item_id,
                                 W8EquipSlot equip_slot);
+    W8ItemLocation equipPartner(unsigned int party_slot, const W8ItemInstance& item, int item_id,
+                                W8EquipSlot equip_slot, std::vector<Event>& outcomes);
     W8ItemLocation mergePartnerUses(unsigned int party_slot, W8ItemInstance& item);
+    W8ItemLocation mergePartnerUses(unsigned int party_slot, W8ItemInstance& item,
+                                    std::vector<Event>& outcomes);
     void splitThrowableStack(unsigned int party_slot, W8EquipSlot equip_slot);
     bool pourUses(W8ItemInstance& into, W8ItemLocation from);
     struct UseOutcome {
@@ -251,6 +264,14 @@ private:
     // What every operation owes after changing items.
     void settle(std::span<const W8ItemLocation> changed,
                 ItemReactions reactions = ItemReactions::Normal);
+    void settle(std::span<const W8ItemLocation> changed, ItemReactions reactions,
+                std::vector<Event>& outcomes);
+    void settle(std::initializer_list<W8ItemLocation> changed, ItemReactions reactions,
+                std::vector<Event>& outcomes)
+    {
+        settle(std::span<const W8ItemLocation>(changed.begin(), changed.size()), reactions,
+               outcomes);
+    }
     // A short fixed list, which lives through the call.
     void settle(std::initializer_list<W8ItemLocation> changed,
                 ItemReactions reactions = ItemReactions::Normal)

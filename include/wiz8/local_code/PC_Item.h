@@ -43,8 +43,6 @@ unsigned int GetItemStackValue(const W8ItemInstance* item);
 unsigned int GetItemUnitWeight(const W8ItemInstance* item);
 unsigned char GetItemEquipClass(const W8ItemInstance* item);
 W8Skill GetItemSpellPresentation(const W8ItemDatabaseRecord* record);
-void DeliverExceptionalItemReaction(Game& game, W8ItemInstance* item, bool choose_character,
-                                    W8Character* character);
 void StagePartySlotItemUse(int party_slot, W8ItemLocation location, const W8CombatSlot* target);
 bool PartyAttemptsToIdentifyItem(W8ItemInstance* item, int);
 

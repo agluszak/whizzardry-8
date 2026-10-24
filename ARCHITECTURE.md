@@ -324,7 +324,10 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   that same party/Story pair. Diagnostics are ordered outcomes of the test, not direct
   UI calls. This is a legacy script operation, not universally a pure query: covert
   training consumes a one-shot latch. Recursive evaluation and its diagnostics retain
-  their order. Fact changes and journal/world consequences remain a separate migration.
+  their order. Fact changes share one coordinator: changed values are journaled, and
+  repeated writes still execute their mandatory consequences. Acquisition appends its
+  diagnostics and journal notices to the enclosing operation; unmigrated script handlers
+  retain their existing publication points. Their world helpers remain a migration.
 - **Activity.** Rules branch on `Game::activity` (place, conversation, scripted
   scene), never on a screen id or UI flag. Combat is `Game::combat`, a
   `std::optional<Combat>` engaged exactly while the party fights.
@@ -354,16 +357,17 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   is the game's one step: it applies the interface's hold, runs speech, and in the
   world runs the simulation in retail order. `Game::time` is the step time that
   deadlines below the step use. Only the main game and the camp step the game.
-- **Events.** Rules push typed events onto `Game::events` (notices, display
-  changes, combat progress, speech) and never ask for repaints. The session's
-  presenter (`PresentGameEvent`) maps each to the active screen. A game without an
-  observer keeps events pending, which is how tests inspect them. Party damage,
-  condition infliction/lifting, revival and settlement hold delivery with
-  `Events::Operation`: nested operations complete before the outer boundary presents
-  their ordered outcomes. Damage narration and splats use that same stream; mandatory
-  combat, story and speech consequences remain explicit calls. Unmigrated commands
-  continue to deliver immediately. Failed operations discard their unpublished outcomes,
-  without implying gameplay rollback.
+- **Events.** Completed commands publish ordered presentation outcomes to `Game::events`.
+  A command collects an ordinary local vector; its internal calls append to the same
+  vector and the command publishes it explicitly after its invariants and mandatory
+  consequences are settled. Damage, conditions, settlement, formation and pool deposits
+  use this boundary. Speech preemption completes its queue and portrait state in place;
+  widgets, subtitles and portrait refresh consume the resulting transitions afterward.
+  The session's presenter receives the source game explicitly. Without an observer,
+  completed outcomes remain pending. Observer-generated follow-ups join the tail of a
+  published batch. Unmigrated flows retain immediate delivery; simulation milestones
+  remain immediate calls, not notifications. A failed command discards its unpublished
+  local outcomes without implying gameplay rollback.
 - **Combat.** `Combat::turn()` is idle or one actor's turn, stepped once per frame
   once nothing is waited on (camera, animation, sound, missile, script). Actors are
   held by slot or location id and looked up when used. Combat is not saved.

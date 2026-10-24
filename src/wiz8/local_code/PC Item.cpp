@@ -13,13 +13,10 @@
 
 #include "wiz8/audio/soundman.h"
 #include "wiz8/canvas/image_assets.h"
-#include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
-#include "wiz8/data/fact_ids.h"
-#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -643,67 +640,6 @@ unsigned int GetEquipmentBindingDifficulty(int character_index)
         ++level;
     }
     return level;
-}
-
-/* Acquisition of a handful of plot items updates their paired facts. */
-/* Deliver the one-time character reaction associated with exceptional items. */
-void DeliverExceptionalItemReaction(Game& game, W8ItemInstance* item, bool choose_character,
-                                    W8Character* character)
-{
-    int message;
-
-    if (choose_character) {
-        int party_slot = game.party.randomSlot(game.rng, 0, 0, -1, -1);
-        if (party_slot == -1) {
-            return;
-        }
-        character = &game.party.characters[party_slot];
-    }
-    if ((item->effect_used & 1) != 0) {
-        return;
-    }
-
-    switch (item->iItemNo) {
-    case 0x239:
-        message = 132;
-        break;
-    case 0x242:
-        message = 46;
-        break;
-    case 0x243:
-        message = 47;
-        break;
-    case 0x244:
-        message = game.story.factions[W8_FACTION_MOOK].disposition_score != 0 ? 48 : 49;
-        break;
-    case 0x264:
-        message = 66;
-        break;
-    case 0x27c: {
-        game.setFact(W8_FACT_DIAMOND_FOUND, 1);
-        if (!game.hasLeadingNpc(W8_NPC_MYLES) || !game.testFact(W8_FACT_QUEST_MYLES_FIND_DIAMOND)) {
-            return;
-        }
-        W8NpcState* npc = game.story.npcOfKind(7);
-        if (npc == 0) {
-            return;
-        }
-        signed char npc_slot = npc->group_index;
-        game.speech.Queue(&game.party.characters[npc_slot], 65, 0, kCharacterEventFullVolume);
-        return;
-    }
-    default:
-        if (choose_character || !CanCharacterUseItem(game.data, character, item->iItemNo) ||
-            game.data.items[item->iItemNo].value / character->uiExpLevel <= 500 ||
-            !item->identified) {
-            return;
-        }
-        message = 55;
-        break;
-    }
-
-    game.speech.Queue(character, message, 0, kCharacterEventFullVolume);
-    item->effect_used |= 1;
 }
 
 /* Whether the item's equip class is directly usable (0x17/0x19). */

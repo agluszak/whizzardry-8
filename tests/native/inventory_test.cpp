@@ -2,6 +2,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
@@ -232,4 +233,25 @@ TEST_CASE("Repeated pool acquisitions preserve reaction draws and Chaos timing",
     REQUIRE(draws.size() == 3);
     for (const auto& draw : draws) REQUIRE(draw.range == 8);
     game.rng.trace(nullptr);
+}
+
+TEST_CASE("Unmigrated fact handlers retain journal and nested diagnostic ordering",
+          "[facts][events]")
+{
+    GameData data;
+    data.facts.resize(W8_FACT_SLOT_COUNT);
+    data.facts[W8_FACT_MOOK_MOOK_PC_SWAP_COMPLETE].symbolic_name = "Parent";
+    data.facts[W8_FACT_QUEST_MOOK_BUDDY_TELLS_OF_CM].symbolic_name = "Child";
+    Game game{data};
+    game.status.log_fact_checks = true;
+    std::vector<std::string> notices;
+    game.events.observe(
+        [&](const Event& event) { notices.push_back(std::get<TextNotice>(event).text); });
+    game.setFact(W8_FACT_MOOK_MOOK_PC_SWAP_COMPLETE, 1);
+    REQUIRE(notices == std::vector<std::string>{"Checking fact Parent which is TRUE",
+                                                "Checking fact Parent which is TRUE",
+                                                "Checking fact Child which is TRUE",
+                                                "Checking fact Child which is TRUE",
+                                                "Child set to TRUE", "Parent set to TRUE"});
+    game.events.observe({});
 }

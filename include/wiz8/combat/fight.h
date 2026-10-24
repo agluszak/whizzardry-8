@@ -9,10 +9,6 @@ class Game;
 void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8ActionDetailBlock* data,
                   bool defer_execution, int notify);
 
-/* In combat, a member's committed action follows a change of the weapons in hand: an
-   attack keeps a reachable target, and the alternate-hand toggle flips so the
-   hand-attack values are rebuilt. Outside combat it does nothing. */
-void ReconcileCombatHandChange(Game& game, unsigned int party_slot);
 /* Run a party slot's action, in a fight (its committed choice, when its turn comes) or in
    the world (its executing action): a condition interrupt can cancel or redirect it
    first; the action kind is dispatched and the fatigue charged. */

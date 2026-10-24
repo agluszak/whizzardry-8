@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -12,6 +13,7 @@
 #include "scoped_combat.h"
 #include "scoped_game.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/game.h"
@@ -382,5 +384,27 @@ TEST_CASE_METHOD(PartyFixture, "Damage preemption publishes speech completion af
     REQUIRE(game.damageCharacter(0, 1) == 1);
     REQUIRE(item_completions == 1);
     REQUIRE(portrait_completions == 1);
+    game.events.observe({});
+}
+
+TEST_CASE_METHOD(PartyFixture, "Acquisition diagnostics wait for the enclosing death settlement",
+                 "[conditions][inventory][events]")
+{
+    data.items.resize(0x245);
+    data.facts.resize(W8_FACT_SLOT_COUNT);
+    game.status.log_fact_checks = true;
+    member().EquippedItem[0] = {.iItemNo = 0x244};
+    for (auto& item : member().backpack) item = {.iItemNo = 0};
+    member().uiHPMax += member().hp_current;
+    unsigned int diagnostics = 0;
+    game.events.observe([&](const Event& event) {
+        REQUIRE(member().hp_current == 0);
+        REQUIRE(member().highest_condition == W8_CONDITION_DEAD);
+        REQUIRE(game.story.facts[W8_FACT_CHAOS_POSSESS] == 1);
+        REQUIRE(game.inventory.pool().size() == 1);
+        if (std::holds_alternative<TextNotice>(event)) ++diagnostics;
+    });
+    SettleActiveParty(game);
+    REQUIRE(diagnostics > 0);
     game.events.observe({});
 }

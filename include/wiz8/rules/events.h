@@ -191,31 +191,15 @@ class Events {
 public:
     using Observer = std::function<void(const Event&)>;
 
-    // Migrated commands hold their outcomes until the outermost operation completes.
-    // Simulation callbacks remain immediate; only presentation delivery is held.
-    class Operation {
-    public:
-        explicit Operation(Events& events);
-        ~Operation() noexcept(false);
-        Operation(const Operation&) = delete;
-        Operation& operator=(const Operation&) = delete;
-
-    private:
-        Events& events_;
-        std::size_t pending_start_;
-        int exceptions_;
-    };
-
     void push(Event event);
     // Publish all outcomes of a completed command before delivering any of them.
     void publish(std::vector<Event> outcomes);
-    // Install or clear the observer. Pending outcomes wait for any active operation.
+    // Install or clear the observer; installing one presents pending completed outcomes.
     void observe(Observer observer);
     const std::vector<Event>& pending() const { return pending_; }
 
 private:
     void deliver();
-    unsigned int operations_ = 0;
     bool delivering_ = false;
     Observer observer_;
     std::vector<Event> pending_;

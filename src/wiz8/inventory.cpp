@@ -30,8 +30,10 @@
 #include "wiz8/cursor.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
+#include "wiz8/data/npc_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
@@ -268,6 +270,14 @@ bool Inventory::heldFitsBeside(unsigned int party_slot, W8EquipSlot equip_slot) 
    hand reconciles combat choices, and any changed location is reported. */
 void Inventory::settle(std::span<const W8ItemLocation> changed, ItemReactions reactions)
 {
+    std::vector<Event> outcomes;
+    settle(changed, reactions, outcomes);
+    game_.events.publish(std::move(outcomes));
+}
+
+void Inventory::settle(std::span<const W8ItemLocation> changed, ItemReactions reactions,
+                       std::vector<Event>& outcomes)
+{
     auto& party = game_.party;
     std::bitset<W8_PARTY_SLOT_COUNT> changed_hands;
     bool any = false;
@@ -283,10 +293,10 @@ void Inventory::settle(std::span<const W8ItemLocation> changed, ItemReactions re
         if (game_.status.game_started && party.members[slot].has_value() &&
             action.kind == W8_ACTION_USE_ITEM && use.item.storage != W8ItemStorage::None &&
             !holds(use))
-            game_.resetCombatChoice(static_cast<int>(slot));
+            game_.resetCombatChoice(static_cast<int>(slot), outcomes);
     }
-    SettleActiveParty(game_, changed_hands, reactions);
-    if (any) game_.events.push(EquipmentSettled{});
+    SettleActiveParty(game_, changed_hands, reactions, outcomes);
+    if (any) outcomes.emplace_back(EquipmentSettled{});
 }
 
 // A character outside the party is also brought up to date on its own.
@@ -372,13 +382,86 @@ std::optional<Inventory::Placement> Inventory::placeEither(ItemRecipient recipie
 /* What acquiring an item sets off: a handful of plot items update their facts, and an
    exceptional one draws a remark, from the receiver or from a random member when the pool
    took it. */
+/* Deliver the one-time character reaction associated with exceptional items. */
+void Game::reactToItem(W8ItemInstance& item, W8Character* character)
+{
+    std::vector<Event> outcomes;
+    reactToItem(item, character, outcomes);
+    events.publish(std::move(outcomes));
+}
+
+void Game::reactToItem(W8ItemInstance& item, W8Character* character, std::vector<Event>& outcomes)
+{
+    const bool choose_character = character == nullptr;
+    int message;
+
+    if (choose_character) {
+        int party_slot = party.randomSlot(rng, 0, 0, -1, -1);
+        if (party_slot == -1) {
+            return;
+        }
+        character = &party.characters[party_slot];
+    }
+    if ((item.effect_used & 1) != 0) {
+        return;
+    }
+
+    switch (item.iItemNo) {
+    case 0x239:
+        message = 132;
+        break;
+    case 0x242:
+        message = 46;
+        break;
+    case 0x243:
+        message = 47;
+        break;
+    case 0x244:
+        message = story.factions[W8_FACTION_MOOK].disposition_score != 0 ? 48 : 49;
+        break;
+    case 0x264:
+        message = 66;
+        break;
+    case 0x27c: {
+        setFact(W8_FACT_DIAMOND_FOUND, 1, true, outcomes);
+        if (!hasLeadingNpc(W8_NPC_MYLES) || !testFact(W8_FACT_QUEST_MYLES_FIND_DIAMOND, outcomes)) {
+            return;
+        }
+        W8NpcState* npc = story.npcOfKind(7);
+        if (npc == 0) {
+            return;
+        }
+        signed char npc_slot = npc->group_index;
+        speech.Queue(&party.characters[npc_slot], 65, 0, kCharacterEventFullVolume, outcomes);
+        return;
+    }
+    default:
+        if (choose_character || !CanCharacterUseItem(data, character, item.iItemNo) ||
+            data.items[item.iItemNo].value / character->uiExpLevel <= 500 || !item.identified) {
+            return;
+        }
+        message = 55;
+        break;
+    }
+
+    speech.Queue(character, message, 0, kCharacterEventFullVolume, outcomes);
+    item.effect_used |= 1;
+}
+
 void Inventory::acquire(const std::optional<Placement>& placement, ItemReactions reactions)
 {
+    std::vector<Event> outcomes;
+    acquire(placement, reactions, outcomes);
+    game_.events.publish(std::move(outcomes));
+}
+
+void Inventory::acquire(const std::optional<Placement>& placement, ItemReactions reactions,
+                        std::vector<Event>& outcomes)
+{
     if (!placement || !placement->received) return;
-    game_.acquireItemFacts(*placement->received);
+    game_.acquireItemFacts(*placement->received, outcomes);
     if (reactions == ItemReactions::Normal)
-        DeliverExceptionalItemReaction(game_, placement->received, placement->receiver == nullptr,
-                                       placement->receiver);
+        game_.reactToItem(*placement->received, placement->receiver, outcomes);
 }
 
 /* What no store takes is dropped at the party's feet unless it may not be discarded, and
@@ -536,7 +619,7 @@ Inventory::Receipt Inventory::receiveAll(std::span<const W8ItemInstance> items,
     settle({});
     for (const auto row : received) {
         game_.acquireItemFacts(pool_[row]);
-        DeliverExceptionalItemReaction(game_, &pool_[row], true, nullptr);
+        game_.reactToItem(pool_[row]);
     }
     return drops.empty() ? Receipt::Stored : Receipt::Dropped;
 }
@@ -947,7 +1030,7 @@ std::expected<void, InventoryRefusal> Inventory::placeHeld(unsigned int actor,
     assert(location.storage == W8ItemStorage::Equipment ||
            location.storage == W8ItemStorage::Backpack);
     auto& character = game_.party.characters[actor];
-    DeliverExceptionalItemReaction(game_, &held_->item, held_->actor == -1, &character);
+    game_.reactToItem(held_->item, held_->actor == -1 ? nullptr : &character);
     const auto equip_slot = static_cast<W8EquipSlot>(location.slot);
     if (location.storage == W8ItemStorage::Equipment && !heldFitsBeside(actor, equip_slot)) {
         const auto partner = GetPairedEquipSlot(equip_slot);
@@ -981,7 +1064,15 @@ unsigned int Inventory::mergeHeld(W8ItemLocation location)
 
 Inventory::Deposit Inventory::depositHeld(unsigned int row, bool insert_rest)
 {
-    Events::Operation outcomes{game_.events};
+    std::vector<Event> outcomes;
+    const auto result = depositHeld(row, insert_rest, outcomes);
+    game_.events.publish(std::move(outcomes));
+    return result;
+}
+
+Inventory::Deposit Inventory::depositHeld(unsigned int row, bool insert_rest,
+                                          std::vector<Event>& outcomes)
+{
     if (!held_) return Deposit::Refused;
     unsigned int moved = 0;
     const auto& data = game_.data;
@@ -993,14 +1084,15 @@ Inventory::Deposit Inventory::depositHeld(unsigned int row, bool insert_rest)
         }
         const bool complete = held_->item.stack_count == 0;
         if (complete) held_.reset();
-        if (moved != 0) settle({complete ? kHand : W8ItemLocation{}});
+        if (moved != 0)
+            settle({complete ? kHand : W8ItemLocation{}}, ItemReactions::Normal, outcomes);
         if (complete) return Deposit::Complete;
     }
     if (!insert_rest || row > pool_.size() || pool_.size() >= kPoolLimit)
         return moved ? Deposit::Partial : Deposit::Refused;
     pool_.insert(pool_.begin() + row, held_->item);
     held_.reset();
-    settle({kHand, PoolRow(row)});
+    settle({kHand, PoolRow(row)}, ItemReactions::Normal, outcomes);
     return Deposit::Complete;
 }
 
@@ -1123,21 +1215,43 @@ void Inventory::sortPool()
 
 void Inventory::bind(unsigned int party_slot, W8EquipSlot equip_slot)
 {
+    std::vector<Event> outcomes;
+    bind(party_slot, equip_slot, outcomes);
+    game_.events.publish(std::move(outcomes));
+}
+
+void Inventory::bind(unsigned int party_slot, W8EquipSlot equip_slot, std::vector<Event>& outcomes)
+{
     if (auto notice = BindEquippedItem(game_.data, game_.party.characters[party_slot], equip_slot))
-        game_.events.push(TextNotice{W8_FONT_PALETTE_WHITE, std::move(*notice)});
+        outcomes.emplace_back(TextNotice{W8_FONT_PALETTE_WHITE, std::move(*notice)});
 }
 
 void Inventory::bindHands(unsigned int party_slot)
 {
-    bind(party_slot, W8_EQUIP_SLOT_PRIMARY_WEAPON);
-    bind(party_slot, W8_EQUIP_SLOT_SECONDARY_WEAPON);
+    std::vector<Event> outcomes;
+    bindHands(party_slot, outcomes);
+    game_.events.publish(std::move(outcomes));
+}
+
+void Inventory::bindHands(unsigned int party_slot, std::vector<Event>& outcomes)
+{
+    bind(party_slot, W8_EQUIP_SLOT_PRIMARY_WEAPON, outcomes);
+    bind(party_slot, W8_EQUIP_SLOT_SECONDARY_WEAPON, outcomes);
 }
 
 // Bind the hands' items, then swap each chosen hand with its alternate.
 void Inventory::commitWeaponSwap(unsigned int party_slot, W8WeaponSwap choice)
 {
+    std::vector<Event> outcomes;
+    commitWeaponSwap(party_slot, choice, outcomes);
+    game_.events.publish(std::move(outcomes));
+}
+
+void Inventory::commitWeaponSwap(unsigned int party_slot, W8WeaponSwap choice,
+                                 std::vector<Event>& outcomes)
+{
     auto& character = game_.party.characters[party_slot];
-    bindHands(party_slot);
+    bindHands(party_slot, outcomes);
     for (auto [swap, active, alternate] :
          {std::tuple{choice.primary, W8_EQUIP_SLOT_PRIMARY_WEAPON,
                      W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON},
@@ -1155,7 +1269,8 @@ void Inventory::commitWeaponSwap(unsigned int party_slot, W8WeaponSwap choice)
     settle({hand(choice.primary, W8_EQUIP_SLOT_PRIMARY_WEAPON),
             hand(choice.primary, W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON),
             hand(choice.secondary, W8_EQUIP_SLOT_SECONDARY_WEAPON),
-            hand(choice.secondary, W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON)});
+            hand(choice.secondary, W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON)},
+           ItemReactions::Normal, outcomes);
 }
 
 /* A member holding nothing at all has nothing to swap and is told so, and a weapon bound to
@@ -1223,6 +1338,16 @@ void Inventory::requestWeaponSwap(unsigned int party_slot, bool announce)
 W8ItemLocation Inventory::equipPartner(unsigned int party_slot, const W8ItemInstance& item,
                                        int item_id, W8EquipSlot equip_slot)
 {
+    std::vector<Event> outcomes;
+    const auto result = equipPartner(party_slot, item, item_id, equip_slot, outcomes);
+    game_.events.publish(std::move(outcomes));
+    return result;
+}
+
+W8ItemLocation Inventory::equipPartner(unsigned int party_slot, const W8ItemInstance& item,
+                                       int item_id, W8EquipSlot equip_slot,
+                                       std::vector<Event>& outcomes)
+{
     const auto& data = game_.data;
     auto& party = game_.party;
     auto& character = party.characters[party_slot];
@@ -1238,11 +1363,11 @@ W8ItemLocation Inventory::equipPartner(unsigned int party_slot, const W8ItemInst
         pair = FindMemberItem(party, party_slot, ItemWithId(item_id), W8ItemReach::Carried);
     if (pair.storage == W8ItemStorage::None) {
         game_.speech.Queue(&game_.party.characters[party_slot], W8_SPEECH_NO_AMMUNITION, 0,
-                           kCharacterEventFullVolume);
+                           kCharacterEventFullVolume, outcomes);
         return {};
     }
     exchange(pair, Equipment(party_slot, equip_slot), -1);
-    game_.events.push(CharacterNotice{party_slot, data.strings[0x1d4]});
+    outcomes.emplace_back(CharacterNotice{party_slot, data.strings[0x1d4]});
     return pair;
 }
 
@@ -1251,6 +1376,15 @@ W8ItemLocation Inventory::equipPartner(unsigned int party_slot, const W8ItemInst
    the member gives its uses. With no partner the member only voices the attempt. Returns
    the partner's location when its uses ran out. */
 W8ItemLocation Inventory::mergePartnerUses(unsigned int party_slot, W8ItemInstance& item)
+{
+    std::vector<Event> outcomes;
+    const auto result = mergePartnerUses(party_slot, item, outcomes);
+    game_.events.publish(std::move(outcomes));
+    return result;
+}
+
+W8ItemLocation Inventory::mergePartnerUses(unsigned int party_slot, W8ItemInstance& item,
+                                           std::vector<Event>& outcomes)
 {
     const auto& data = game_.data;
     const int item_id = item.iItemNo;
@@ -1262,11 +1396,11 @@ W8ItemLocation Inventory::mergePartnerUses(unsigned int party_slot, W8ItemInstan
                                         W8ItemReach::Carried);
     if (partner.storage != W8ItemStorage::None) {
         const bool emptied = pourUses(item, partner);
-        game_.events.push(CharacterNotice{party_slot, data.strings[0x1d4]});
+        outcomes.emplace_back(CharacterNotice{party_slot, data.strings[0x1d4]});
         return emptied ? partner : W8ItemLocation{};
     }
     game_.speech.Queue(&game_.party.characters[party_slot], W8_SPEECH_NO_AMMUNITION, 0,
-                       kCharacterEventFullVolume);
+                       kCharacterEventFullVolume, outcomes);
     return {};
 }
 
@@ -1352,23 +1486,25 @@ bool Inventory::consumeAttackItems(unsigned int actor, unsigned int hand, W8Equi
 
 /* Equip the off-hand partner the primary weapon needs and draw uses for an empty shot
    weapon. */
-void Inventory::readyPrimaryWeapon(unsigned int party_slot)
+void Inventory::readyPrimaryWeapon(unsigned int party_slot, std::vector<Event>& outcomes)
 {
     auto& character = game_.party.characters[party_slot];
     auto& weapon = character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
     if (weapon.iItemNo == -1) return;
     W8ItemLocation partner{};
     if (character.EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo == -1)
-        partner = equipPartner(party_slot, weapon, -1, W8_EQUIP_SLOT_SECONDARY_WEAPON);
+        partner = equipPartner(party_slot, weapon, -1, W8_EQUIP_SLOT_SECONDARY_WEAPON, outcomes);
     W8ItemLocation spent{};
-    if (weapon.uses_or_charges == 0) spent = mergePartnerUses(party_slot, weapon);
+    if (weapon.uses_or_charges == 0) spent = mergePartnerUses(party_slot, weapon, outcomes);
     const auto off_hand = Equipment(party_slot, W8_EQUIP_SLOT_SECONDARY_WEAPON);
-    settle({partner.storage != W8ItemStorage::None ? off_hand : W8ItemLocation{}, partner, spent});
+    settle({partner.storage != W8ItemStorage::None ? off_hand : W8ItemLocation{}, partner, spent},
+           ItemReactions::Normal, outcomes);
 }
 
 /* Each unusable piece is stored like a received item: on the member, then in the pool, and
    otherwise at the party's feet. Settling the party calls this, so nothing here settles. */
-bool Inventory::unequipUnusable(unsigned int party_slot, ItemReactions reactions)
+bool Inventory::unequipUnusable(unsigned int party_slot, ItemReactions reactions,
+                                std::vector<Event>& outcomes)
 {
     const auto& data = game_.data;
     auto& party = game_.party;
@@ -1384,10 +1520,10 @@ bool Inventory::unequipUnusable(unsigned int party_slot, ItemReactions reactions
                 : std::string{};
         auto item = std::exchange(character.EquippedItem[*equip_slot], W8ItemInstance{});
         auto placed = placeWithCharacter(member(party_slot), item, false, false, true);
-        acquire(placed, reactions);
+        acquire(placed, reactions, outcomes);
         if (!placed) {
             placed = placeInPool(item, false, true);
-            acquire(placed, reactions);
+            acquire(placed, reactions, outcomes);
         }
         if (!placed && !dropUnstored(item)) {
             character.EquippedItem[*equip_slot] = item;
@@ -1395,7 +1531,7 @@ bool Inventory::unequipUnusable(unsigned int party_slot, ItemReactions reactions
             continue;
         }
         hands_changed |= IsHandSlot(*equip_slot);
-        if (!notice.empty()) game_.events.push(CharacterNotice{party_slot, notice});
+        if (!notice.empty()) outcomes.emplace_back(CharacterNotice{party_slot, notice});
     }
     return hands_changed;
 }

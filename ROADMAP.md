@@ -109,7 +109,8 @@ The decisions behind it:
      - domain facts (`ItemReceived`, `ConditionChanged`, `CharacterDied`,
        `RoundStarted`, `GoldChanged`);
      - narration (`Message{text, speaker}`);
-     - speech requests.
+   - Speech commands perform their required sequencing directly; playback transitions
+     report completed state to presentation.
    - Each migrated operation delivers its presentation outcomes after required
      consequences settle, in their original order. Unmigrated flows retain immediate
      delivery until their direct presentation work moves with them. Simulation release
@@ -309,12 +310,10 @@ the licensed runtime scenarios after every step.
      (`SetMonsterCondition` and its siblings) still act on the world's records.
 7. **Story state.** `Game::story` and `Game::message_log` hold it, and NPC scripting and
    the level scripts act on a `ScriptContext` (ARCHITECTURE.md, "Scripts").
-   - Fact tests use their game and emit diagnostic outcomes. `SetFact` still obtains
-     the installed game and runs journal/world consequences through legacy helpers.
-     Replace it with one explicit fact-change coordinator, preserving changed-only
-     journaling and mandatory same-value consequences, rather than adding a second
-     acquisition-only setter. Keep ordinary stored facts distinct from script tests
-     that consume one-shot state.
+   - Fact tests, storage and journaling use their game. Move the remaining world-fact
+     consequence helpers behind their actual world/story owners, preserving the existing
+     order of script effects and publication. Keep same-value consequences and one-shot
+     script tests distinct from plain stored values.
    - `NPC Manager.cpp` (NPC states, bindings, notices; about 160 `CurrentGame()` uses)
      and the helpers scripts call (trigger, entity and NPC lookups, location
      variables, `SpawnMonsters`) still reach the world and story through globals.

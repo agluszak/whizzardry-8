@@ -1051,29 +1051,6 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
    then aim and validate that choice for a still-active character. A notified
    choice is the player's selection, which readies the weapon it needs first. */
 
-void ReconcileCombatHandChange(Game& game, unsigned int party_slot)
-{
-    if (!game.combat.has_value()) return;
-    const W8ActionKind kind = game.party.rows[party_slot].committed.kind;
-    if (kind == W8_ACTION_ATTACK || kind == W8_ACTION_BERSERK) {
-        // The new hands keep or re-aim the attack; picking another weapon set is
-        // left to the commands that prepare an action, so settling never swaps.
-        const auto action = game.party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
-        W8CombatSlot none;
-        ResetCombatSlot(&none);
-        if (!game.canPerformAction(party_slot, action, true)) {
-            game.aimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, none);
-        } else if (!game.targetInPlay(party_slot, 2, action)) {
-            const auto choice = game.chooseTarget(party_slot, action, false);
-            game.aimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT,
-                                 choice ? choice->target : none);
-        }
-    }
-    game.combat->characters[party_slot].alternate_hand ^= 1;
-    if (party_slot == static_cast<unsigned int>(game.status.selected_character))
-        game.events.push(CombatPanelChanged{});
-}
-
 namespace {
 /* The checks that come before the action itself: the slot has to be able to
    act at all. */
