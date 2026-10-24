@@ -208,6 +208,34 @@ TEST_CASE("A new game releases the previous game's queued events", "[resources][
     REQUIRE_FALSE(GameInProgress());
 }
 
+TEST_CASE("Level departure belongs to the game, not screen teardown", "[lifetime][level]")
+{
+    ScopedGame scope;
+    auto replacement = std::make_unique<World>();
+    World* world = replacement.get();
+    scope.game.level.replacePrimary(std::move(replacement));
+    REQUIRE(GetWorld() == world);
+
+    scope.game.leaveLevel();
+
+    REQUIRE(GetWorld() == nullptr);
+    REQUIRE(scope.session.game() == &scope.game);
+}
+
+TEST_CASE("A rejected destination leaves the loaded world current", "[lifetime][level]")
+{
+    ScopedGame scope;
+    auto replacement = std::make_unique<World>();
+    World* world = replacement.get();
+    scope.game.level.replacePrimary(std::move(replacement));
+
+    REQUIRE_FALSE(scope.game.travelToLevel(999, -1));
+
+    REQUIRE(scope.game.level.primary.get() == world);
+    REQUIRE(GetWorld() == world);
+    REQUIRE_FALSE(scope.game.level.sky);
+}
+
 static World& PublishEmptyWorld(Game& game)
 {
     game.level.replacePrimary(std::make_unique<World>());

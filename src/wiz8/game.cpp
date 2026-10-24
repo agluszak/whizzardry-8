@@ -14,7 +14,6 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/script_context.h"
-#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 namespace {
@@ -88,8 +87,9 @@ void GameSession::load(SavedGame saved, std::function_ref<void()> release_presen
     if (game_ && game_->combat) game_->endCombat(true);
     release_presentation();
     try {
-        std::move(saved).install(*this);
-        if (!LoadLevel(game_->status.resume_level, -1, true))
+        auto& game = begin();
+        std::move(saved).install(game);
+        if (!game.enterSavedLevel(game.status.resume_level))
             throw std::runtime_error("cannot construct saved level");
     } catch (...) {
         // Never leave a partially entered replacement available to screens.
@@ -101,7 +101,7 @@ void GameSession::load(SavedGame saved, std::function_ref<void()> release_presen
 void GameSession::end()
 {
     if (!game_) return;
-    LeaveLevel();
+    game_->leaveLevel();
     discard();
 }
 

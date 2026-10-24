@@ -1305,11 +1305,11 @@ TEST_CASE("The newest unexpired lure is the active monster-control effect", "[ef
     auto* replacement_ptr = replacement.get();
     effects.push_back(std::move(replacement));
 
-    REQUIRE(FindMonsterControlSpellEffect() == replacement_ptr);
+    REQUIRE(FindMonsterControlSpellEffect(CurrentGame()) == replacement_ptr);
     previous_ptr->turns_remaining = 0;
-    REQUIRE(FindMonsterControlSpellEffect() == replacement_ptr);
+    REQUIRE(FindMonsterControlSpellEffect(CurrentGame()) == replacement_ptr);
     replacement_ptr->turns_remaining = 0;
-    REQUIRE(FindMonsterControlSpellEffect() == nullptr);
+    REQUIRE(FindMonsterControlSpellEffect(CurrentGame()) == nullptr);
 }
 
 TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][configuration]")
@@ -1410,7 +1410,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
         SavedGame saved;
         saved.npcs = std::move(npcs);
         saved.state.search_mode = true;
-        std::move(saved).install(globals.game.session);
+        auto& game = globals.game.session.begin();
+        std::move(saved).install(game);
         REQUIRE(CurrentGame().search.requested());
     };
     // A small word that a process-local handle table could have resolved.

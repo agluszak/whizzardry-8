@@ -14,6 +14,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/targeting.h"
 
+class Game;
 class SpellVisual;
 class Missile;
 
@@ -122,7 +123,7 @@ struct W8SpellEffectEntry {
     W8SpellEffectResult result{};
 };
 
-W8SpellEffectEntry* FindMonsterControlSpellEffect(void);
+W8SpellEffectEntry* FindMonsterControlSpellEffect(Game& game);
 /* Advance every queued spell effect one frame. */
 void UpdateSpellEffects(void);
 /* Fold one missile's accumulated damage and reports into the queued effect

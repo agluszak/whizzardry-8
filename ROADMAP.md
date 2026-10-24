@@ -35,10 +35,13 @@ of it:
 - **Rules drive presentation directly.** Inventory and party report events, but other
   rules still call presentation (notices, targeting, the combat panel, screen ids), and 33 of the 57
   `local_code` files include screen headers.
-- **Level preparation still needs the installed game.** Session replacement coordinates
-  departure and failure cleanup, and screen disposal does not unload the level. World
-  construction and entry still reach current-game state. Separate resource preparation
-  from entry before promising that a failed candidate leaves the outgoing game intact.
+- **Level transition internals still reach the current game.** `Game::travelToLevel`
+  and `Game::leaveLevel` own the transition boundary, and screens no longer load or
+  unload levels. The helpers they call (monster manager, NPC bindings, item lists,
+  world cursor, sky/camera release and entry scripts) still use current-game lookups;
+  pass the game, world and level-local owners as each helper migrates. Resource
+  preparation still uses the installed game, so retaining the outgoing game on a
+  construction failure remains a target.
 - **Combat waits on presentation.** Each step, combat reads the camera, monster
   animations and missiles in flight to decide whether its turn may advance.
 
@@ -81,6 +84,10 @@ The decisions behind it:
      separate, stable-address candidate with explicit dependencies, then release outgoing
      presentation and install it. Entry consequences retain their established RNG order;
      resource preparation must not run them early.
+   - Travel and departure are game operations (`travelToLevel`, `leaveLevel`), not
+     screen teardown. The session invokes them for load and end; screens request them
+     and present loading. The outgoing world is released after the destination and its
+     saved status are prepared.
 2. **Rules emit events; the UI presents them.**
    - Rules append, in order:
      - domain facts (`ItemReceived`, `ConditionChanged`, `CharacterDied`,

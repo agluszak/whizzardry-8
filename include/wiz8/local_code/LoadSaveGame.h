@@ -39,7 +39,6 @@ bool EnumerateSaveSlots(std::vector<std::unique_ptr<W8SaveSlot>>& slots);
 
 bool SaveGame(std::string_view name, const W8SaveScreenshot* screenshot);
 
-class GameSession;
 struct W8Character;
 
 bool SaveCharacter(const W8Character* character, int slot);
@@ -72,8 +71,9 @@ struct SavedGame {
     std::optional<wiz8::save::Factions> factions;
     std::optional<std::vector<W8JournalEntry>> journal;
     std::vector<std::unique_ptr<W8SpellEffectEntry>> spell_effects;
-    // Begin `games`'s replacement game from this state, in the order a save writes it.
-    void install(GameSession& games) &&;
+    // Fill `game`, in the order a save writes its sections. The session owns replacing
+    // any game in progress; installing a value cannot begin or end one.
+    void install(Game& game) &&;
 };
 // Decode a save slot, or nothing (logged) when it is missing or malformed.
 std::optional<SavedGame> ReadSavedGame(std::string_view slot_name);
@@ -85,7 +85,7 @@ struct W8LoadedLevelStatus {
     W8LoadedLevelStatus();
     ~W8LoadedLevelStatus();
 };
-void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status);
+void InstallLevelSessionState(Game& game, World& world, W8LoadedLevelStatus* status);
 void BeginRestoredLevelActivity(World& world, W8LoadedLevelStatus* status);
 std::string BuildLevelStatusPath(unsigned int level);
 

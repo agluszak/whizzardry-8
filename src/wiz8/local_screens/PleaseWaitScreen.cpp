@@ -163,7 +163,7 @@ void PleaseWaitScreen::frame()
         int level;
         int entrance;
         ChooseNewGameStartLocation(&level, &entrance);
-        if (!LoadLevel(level, entrance, false))
+        if (!games.game()->travelToLevel(level, entrance))
             throw std::runtime_error(fmt::format("cannot load level {}", level));
         PostNewGameLoad();
 
@@ -206,7 +206,7 @@ void PleaseWaitScreen::frame()
         break;
     }
     case W8_PLEASE_WAIT_CHANGE_LEVEL:
-        if (!ReloadLevelPreservingCamera(parameter, parameter_2))
+        if (!games.game()->travelToLevel(parameter, parameter_2))
             throw std::runtime_error(fmt::format("cannot load level {}", parameter));
         AutoSaveIfAllowed(true);
     }

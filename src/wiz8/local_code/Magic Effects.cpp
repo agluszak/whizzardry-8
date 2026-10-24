@@ -859,7 +859,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
 
 /* Return the casting character to the pose spell 0x4b stored. Nothing happens unless
    the anchor was ever set. On the same level the pose is restored in place; on any
-   other level it is staged into pending_move_location for LoadLevel. */
+   other level it is staged into pending_move_location for Game::travelToLevel. */
 void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
 {
     W8Character* caster;

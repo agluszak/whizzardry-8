@@ -17,8 +17,6 @@ extern unsigned short g_level_name_indices[W8_LEVEL_COUNT];
 
 bool LevelBuildInfoByID(int level_id, W8LevelInfo* info);
 bool LoadSkyWorld(std::string_view sky_path);
-bool LoadLevel(int requested_level, int entrance, bool restoring_game);
-void LeaveLevel();
 
 signed char GetLevelBand(int saved_level);
 
@@ -26,8 +24,6 @@ extern bool g_camera_path_active;
 extern float g_default_world_height;
 extern const float g_position_height_epsilon;
 extern unsigned char g_environment_load_flag;
-
-bool ReloadLevelPreservingCamera(int level, int entrance);
 
 /* 0x0042B770: start the saved level's music playlist, falling back to
    Adventure.MPL when the level-specific playlist does not exist. */

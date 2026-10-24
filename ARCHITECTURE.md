@@ -256,6 +256,14 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   Beginning a game constructs its basic owners before ending the outgoing game;
   installation preserves the new object's address. Saved-level resource preparation
   is not yet independent of the current game (see "Worlds and levels").
+- **Level transitions.** `Game::travelToLevel` prepares the destination, captures
+  the outgoing level, ends its level-bound activity, publishes the replacement and
+  enters it. `Game::leaveLevel` performs the same departure and releases the loaded
+  world without ending the game. The session uses these operations when a game ends
+  or a save is installed; screens request travel and present loading, but neither
+  their teardown nor their destructors load or unload levels. Entry and resource
+  preparation still reach current-game helpers (monster manager, NPC bindings, item
+  lists and sky/camera release); moving those internals is remaining work.
 - **Randomness.** All gameplay draws come from `Game::rng`, retail's MSVC
   `rand()` sequence (`rules/random.h`), in retail order. A session draws one
   sequence from one seed: each game continues the stream of the one before it
@@ -309,17 +317,23 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
 
 - Level reconstruction builds a replacement world completely before it is
   published; entry then starts clocks, music, dialogue and first-visit effects.
+  `Game::travelToLevel` owns that sequence and leaves the outgoing level only after
+  the destination and its saved status have been prepared. A failed destination
+  leaves the current world loaded.
 - Departure ends combat and captures script state into location variables before
-  resources are released. Destruction does no departure bookkeeping.
+  resources are released. Destruction does no departure bookkeeping. `Game::leaveLevel`
+  is the departure operation; the session calls it when ending a game, and a screen
+  requests it rather than implementing it in teardown.
 - Loading a save decodes every section, each level group included, before the game
   in progress or its screens are released, into a plain `SavedGame` (`ReadSavedGame`)
   that `GameSession::load` installs at an explicit presentation-release boundary.
   A rejected decode resumes the outgoing game. The session ends combat while its
-  controls exist, asks the caller to release borrowing screens, installs the saved
-  game, and constructs and enters its level. If construction fails, the session ends
-  the replacement and the caller presents the error. Resource preparation still uses
-  the installed game; retaining the outgoing game on construction failure is a target,
-  not a guarantee of this implementation.
+  controls exist, begins the replacement game, has `SavedGame::install(Game&)` fill
+  it, and constructs and enters its level through `Game::enterSavedLevel`. The saved
+  value cannot begin or end a game itself. If construction fails, the session ends the
+  replacement and the caller presents the error. Resource preparation still uses the
+  installed game; retaining the outgoing game on construction failure is a target, not
+  a guarantee of this implementation.
 - Monster and world-item records link to their scene entity through an
   `EntityLink`. An inactive record may have none. Anything that keeps an actor
   past the current call keeps its id and looks it up again when used.

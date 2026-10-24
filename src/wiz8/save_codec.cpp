@@ -111,7 +111,7 @@ struct GlobalStatus {
     LevelProgress level_progress[W8_LEVEL_COUNT];
     unsigned char unknown_2013[0x294];
     /* 0x22a7: CamPos staged by recall when the anchor is on another level;
-       LoadLevel restores it after the new world exists. */
+       Game::travelToLevel restores it after the new world exists. */
     CameraState pending_move_location;
     /* 0x22e3: the party-wide modifier block the effect rebuild clears and
        refills. Its +0x4a flag is the light gate the monster-sight threshold

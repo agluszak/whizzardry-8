@@ -370,10 +370,10 @@ bool AllSpellEffectsStillRunning(void)
     return true;
 }
 
-W8SpellEffectEntry* FindMonsterControlSpellEffect(void)
+W8SpellEffectEntry* FindMonsterControlSpellEffect(Game& game)
 {
     // Replaced lures remain queued until their visuals are retired.
-    auto& effects = CurrentGame().spell_effects;
+    auto& effects = game.spell_effects;
     for (auto it = effects.rbegin(); it != effects.rend(); ++it) {
         const auto& effect = **it;
         if (effect.kind == W8_SPELL_HYPNOTIC_LURE && effect.turns_remaining > 0) return it->get();

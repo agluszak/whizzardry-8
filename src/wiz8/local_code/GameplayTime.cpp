@@ -589,7 +589,7 @@ void AdvanceTimedEffects(unsigned int minutes)
     for (unsigned int remaining = minutes; remaining != 0; --remaining) {
         TickSpellEffects();
     }
-    W8SpellEffectEntry* control = FindMonsterControlSpellEffect();
+    W8SpellEffectEntry* control = FindMonsterControlSpellEffect(CurrentGame());
     if (control != 0 && control->turns_remaining != 0) {
         ApplyMonsterControlToNearbyMonsters(control);
     }

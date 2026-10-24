@@ -1212,7 +1212,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
         chunks, W8_CHUNK_FACTION_STATE,
         wiz8::save::encode(wiz8::save::Factions{story.faction_relations, story.factions}));
     WriteChunkPayload(chunks, W8_CHUNK_JOURNAL, wiz8::save::encode(story.journal));
-    if (const auto* control = FindMonsterControlSpellEffect())
+    if (const auto* control = FindMonsterControlSpellEffect(CurrentGame()))
         WriteChunkPayload(chunks, W8_CHUNK_MONSTER_CONTROL, wiz8::save::encode(*control));
     LevelState::capture(game.level, game.status).encode(chunks);
 }
@@ -1516,15 +1516,15 @@ std::unique_ptr<W8LoadedLevelStatus> LevelState::build(World& world) &&
 
 // Publish shared session references and scalar state only. The replacement
 // already owns every record, representation, membership and identity link.
-void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status)
+void InstallLevelSessionState(Game& game, World& world, W8LoadedLevelStatus* status)
 {
-    CurrentGame().status.next_group_id = CurrentGame().status.next_monster_location_id =
-        CurrentGame().status.next_world_item_id = 1;
-    CurrentGame().status.next_trigger_id = world.next_trigger_id;
-    CurrentGame().item_manager_pending = 0;
+    game.status.next_group_id = game.status.next_monster_location_id =
+        game.status.next_world_item_id = 1;
+    game.status.next_trigger_id = world.next_trigger_id;
+    game.item_manager_pending = 0;
     if (!status) return;
     auto& data = *status->data;
-    if (data.header) ApplyStatusHeader(*data.header, CurrentGame().status);
+    if (data.header) ApplyStatusHeader(*data.header, game.status);
     InstallNpcBindings(std::move(data.npc_bindings));
 }
 
@@ -1845,9 +1845,8 @@ try {
     return std::nullopt;
 }
 
-void SavedGame::install(GameSession& games) &&
+void SavedGame::install(Game& game) &&
 {
-    auto& game = games.begin();
     game.left_levels = std::move(levels);
     game.stored_characters = std::move(characters);
     game.status = std::move(state.status);

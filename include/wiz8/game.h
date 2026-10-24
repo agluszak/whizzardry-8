@@ -84,6 +84,16 @@ public:
         bool speech = false;
     };
     void advance(std::chrono::milliseconds elapsed, StepHold hold);
+    /* Replace the loaded level with `level_id` entered at `entrance`. The destination
+       is prepared before departure; failure leaves the current world loaded. Reloading
+       the current level through the -1 entrance restores the party's camera pose. */
+    [[nodiscard]] bool travelToLevel(int level_id, int entrance);
+    /* Enter the level a decoded save resumes at. */
+    [[nodiscard]] bool enterSavedLevel(int level_id);
+    /* End level-bound activity, capture the outgoing level's state and release its
+       world. The game, its party and its rng remain; ending the game is the session's
+       operation. */
+    void leaveLevel();
     /* The step time this game has run: the sum of the elapsed times its steps were given.
        Game-step deadlines use this clock; world holds use visual_time, while UI
        presentation and the saved game-day calendar are explicit timer domains. */

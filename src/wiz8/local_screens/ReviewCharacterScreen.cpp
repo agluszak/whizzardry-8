@@ -1229,7 +1229,7 @@ void PumpReviewTransition(void)
         }
         g_ending_autosave = false;
     }
-    LeaveLevel();
+    CurrentGame().leaveLevel();
     exit_review = false;
     while (auto next_input = PollInputEvent()) {
         input = *next_input;
