@@ -932,7 +932,7 @@ void Game::endCombat(bool forced_cleanup)
         SelectTextBox(0);
     }
     ApplyWorldAdvancement(*this, advancement.hold);
-    ResetLivingMonstersAfterCombat();
+    level.loaded().resumeMonstersAfterCombat();
     // Armor without the combat actions, and the shared load deferred during combat.
     SettleActiveParty(*this);
     if (auto* world = level.primary.get()) world->party.camera.motion.clearMovementState();

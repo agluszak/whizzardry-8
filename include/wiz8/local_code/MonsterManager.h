@@ -419,7 +419,6 @@ void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info);
 int GetMonsterQuadrant(W8MonsterInfo* monster_info);
 void ProcessMonstersAtCombatEnd(bool forced_cleanup);
 W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species);
-void ResetLivingMonstersAfterCombat(void);
 void DestroyUngroupedMonsters(void);
 void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState control_state);
 void MoveMonsterToLiveList(W8MonsterInfo* monster_info);

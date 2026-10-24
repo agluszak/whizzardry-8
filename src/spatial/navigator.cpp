@@ -467,10 +467,10 @@ void Navigator::SetMovementStopped()
 /* Clear the stop flag and, outside combat, clear it for the collected
    unlinked group too. This operation repeats through movement setup/loading
    and propagation; ClearMovementStopped is a descriptive recovered name. */
-void Navigator::ClearMovementStopped()
+void Navigator::ClearMovementStopped(bool combat_active)
 {
     movement_stopped = false;
-    if (!NavigationCombatActive(*this) && linked_navigator == 0) {
+    if (!combat_active && linked_navigator == 0) {
         for (auto* navigator : CollectGroupNavigators()) {
             navigator->movement_stopped = false;
         }
@@ -491,15 +491,15 @@ void Navigator::CopyPathToGroup()
 
 /* Push this navigator's path and position onto every navigator in its group,
    and let the whole group move again if this one may. */
-void Navigator::PropagateGroupPosition()
+void Navigator::PropagateGroupPosition(bool combat_active)
 {
-    if (!NavigationCombatActive(*this)) {
+    if (!combat_active) {
         CopyPathToGroup();
     }
     if (!movement_stopped) {
         /* Retail writes the zero the caller already proved; the store is dead
            but faithful. */
-        ClearMovementStopped();
+        ClearMovementStopped(combat_active);
     }
 }
 
@@ -693,7 +693,7 @@ void Navigator::UpdateLinkedNavigator(std::optional<BoundingSphere> player)
 follow_path:
     if (NavigationOctree()->pathing->PrepareLinkedNavigator(path_search, &movement)) {
         if (movement_stopped) {
-            ClearMovementStopped();
+            ClearMovementStopped(NavigationCombatActive(*this));
         }
     } else {
         SetMovementStopped();
@@ -1216,12 +1216,12 @@ unsigned char Navigator::LinkToNavigator(Navigator* target, double separation)
         flags = 9;
         target_last_position = target->movement.position;
         result = static_cast<unsigned char>(movement.attachment->flags & 7);
-        ClearMovementStopped();
+        ClearMovementStopped(NavigationCombatActive(*this));
     } else if (NavigationOctree()->LinkNavigatorTarget(&movement, &target->movement.position,
                                                        static_cast<float>(separation)) != 0) {
         flags = 9;
         target_last_position = target->movement.position;
-        ClearMovementStopped();
+        ClearMovementStopped(NavigationCombatActive(*this));
         result = 1;
     }
     return result;
@@ -1266,7 +1266,7 @@ unsigned short Navigator::ConfigureMovementToNavigator(Navigator* target, float 
     }
     if (movement_stopped) {
         movement_complete = false;
-        ClearMovementStopped();
+        ClearMovementStopped(NavigationCombatActive(*this));
     }
     return result;
 }
@@ -1296,32 +1296,23 @@ void Navigator::LinkGroupNavigator(Navigator* target, bool combat_active)
     }
 }
 
-void Navigator::ResetMovementAndGroupState()
+void Navigator::finishCombat()
 {
-    movement_target = glm::vec3(0);
-    Navigator* linked = linked_navigator;
+    movement_target = {};
     collision_margin = 0.0;
-    target_navigator = 0;
-    if (linked != 0) {
+    target_navigator = nullptr;
+    if (linked_navigator) {
         movement.flags |= 2;
-        if (NavigationCombatActive(*this)) {
-            return;
-        }
         flags = 0x201;
     } else {
-        if (NavigationCombatActive(*this)) {
-            return;
-        }
         flags &= 0xfffffdfe;
         if (flags == 0) {
             movement.attachment->InitializeSegment(&movement.position, &movement.position);
             SetMovementStopped();
         }
-        PropagateGroupPosition();
+        PropagateGroupPosition(false);
     }
-    if (!NavigationCombatActive(*this)) {
-        movement.attachment->flags &= ~W8_NAV_ATTACHMENT_FOLLOW_PATH;
-    }
+    movement.attachment->flags &= ~W8_NAV_ATTACHMENT_FOLLOW_PATH;
 }
 
 bool Navigator::ConfigureMovement(float minimum, float maximum)
@@ -1339,7 +1330,7 @@ bool Navigator::ConfigureMovement(float minimum, float maximum)
         if (NavigationOctree()->PrepareNavigatorPatrol(&movement, minimum_height, maximum_height) !=
             0) {
             flags |= 6;
-            ClearMovementStopped();
+            ClearMovementStopped(NavigationCombatActive(*this));
             halted = false;
             movement_target = movement.attachment->path_destination;
             movement.attachment->separation = 0.0f;
@@ -1379,7 +1370,7 @@ unsigned char Navigator::SetMovementTarget(const glm::vec3* target, bool propaga
         ClearMovement();
     } else if (movement_stopped) {
         movement_complete = false;
-        ClearMovementStopped();
+        ClearMovementStopped(NavigationCombatActive(*this));
     }
     if (!propagate && result != 0 && movement.attachment != 0 &&
         (movement.attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0 &&

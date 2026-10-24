@@ -486,7 +486,7 @@ struct SavedMonsterMovement {
         monster.nav.movement.target_position = patrol_home;
         if (monster.nav.SetMovementTarget(&monster.nav.movement_target, true)) {
             monster.nav.flags |= 0x6;
-            monster.nav.ClearMovementStopped();
+            monster.nav.ClearMovementStopped(false);
             monster.nav.halted = false;
             monster.nav.movement_target = monster.nav.movement.attachment->path_destination;
         }

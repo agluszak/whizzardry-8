@@ -530,20 +530,13 @@ W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species)
     return 0;
 }
 
-void ResetLivingMonstersAfterCombat(void)
+void World::resumeMonstersAfterCombat()
 {
-    unsigned int index;
-
-    for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
-        W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-
-        if (monster_info->hp_current > 0) {
-            monster_info->entity->nav.ResetMovementAndGroupState();
-            if (monster_info->ai_mode > W8_RT_AI_IDLE &&
-                monster_info->ai_mode <= W8_RT_AI_APPROACH_PARTY) {
-                monster_info->ai_mode = W8_RT_AI_IDLE;
-            }
-        }
+    for (const auto& monster : population->monster_roster.live()) {
+        if (monster->hp_current == 0) continue;
+        monster->entity->nav.finishCombat();
+        if (monster->ai_mode > W8_RT_AI_IDLE && monster->ai_mode <= W8_RT_AI_APPROACH_PARTY)
+            monster->ai_mode = W8_RT_AI_IDLE;
     }
 }
 

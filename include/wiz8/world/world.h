@@ -114,6 +114,7 @@ struct World {
                    ShakeSystem* shakes = nullptr, float reference_gravity = kDefaultGravity);
     ~World();
     void setPartyLight(unsigned int intensity);
+    void resumeMonstersAfterCombat();
     bool projectsToCamera(const glm::vec3& point) const;
     bool targetMarkerVisible(const BoundingBox& bounds) const;
     bool hasLineOfSightTo(const BoundingBox& bounds) const;

@@ -364,7 +364,7 @@ void RefreshMonsterGroupAndAllies(W8MonsterGroup* monster_group)
         }
     }
     if (auto* leader = GetMonsterByLocationID(monster_group->leader_location_id))
-        leader->nav.PropagateGroupPosition();
+        leader->nav.PropagateGroupPosition(CurrentGame().combat.has_value());
 }
 
 /* Detaches a group from whatever is tracking it and marks it no longer loaded. */

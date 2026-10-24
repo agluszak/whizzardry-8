@@ -287,7 +287,7 @@ public:
     bool IsLinkedToNavigator(Navigator* other); /* 0x00452E10 */
     /* Stop this navigator, clear its movement/target state, and either mark
        the linked movement stopped or re-sync the collected group. */
-    void ResetMovementAndGroupState();               /* 0x00452C90 */
+    void finishCombat();               /* 0x00452C90 */
     void SetPitchRollEnabled(bool pitch, bool roll); /* 0x00453CA0 */
     unsigned short ConfigureMovementToNavigator(Navigator* target, float separation,
                                                 float maximum_distance, glm::vec3 position,
@@ -302,9 +302,9 @@ public:
     void SetHeightRange(float minimum, float maximum); /* 0x00453EF0 */
     void SetHalted(bool value);                        /* 0x004531F0 */
     void SetMovementStopped();                         /* 0x00453880 */
-    void ClearMovementStopped();
+    void ClearMovementStopped(bool combat_active);
     void CopyPathToGroup();
-    void PropagateGroupPosition();                        /* 0x00454C80 */
+    void PropagateGroupPosition(bool combat_active);                        /* 0x00454C80 */
     void UpdateAngles();                                  /* 0x00453990 */
     bool ConfigureMovement(float minimum, float maximum); /* 0x00453D20 */
     unsigned char SetMovementTarget(const glm::vec3* target, bool propagate); /* 0x00454170 */
