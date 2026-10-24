@@ -1106,7 +1106,9 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
    ammunition) when the hands as equipped cannot carry the action out. */
 static void ReadyWeaponForAction(int party_slot, W8ActionKind action)
 {
-    if ((action == W8_ACTION_ATTACK && !CanAnyHandReachTarget(party_slot)) ||
+    if ((action == W8_ACTION_ATTACK &&
+         !(GetCharAttackRange(CurrentGame().data, &CurrentGame().party.characters[party_slot], 2) !=
+           W8_RANGE_NONE)) ||
         (action == W8_ACTION_BERSERK &&
          !CanCharacterBerserk(Data(), &CurrentGame().party.characters[party_slot]))) {
         CurrentGame().inventory.readyPrimaryWeapon(party_slot);
@@ -1218,7 +1220,8 @@ bool CanPerformAction(int party_slot, const W8Action& selected, bool allow_missi
     case W8_ACTION_NONE:
         return false;
     case W8_ACTION_ATTACK:
-        if (!CanAnyHandReachTarget(party_slot)) {
+        if (!(GetCharAttackRange(CurrentGame().data, &CurrentGame().party.characters[party_slot],
+                                 2) != W8_RANGE_NONE)) {
             return false;
         }
         break;
@@ -1228,7 +1231,7 @@ bool CanPerformAction(int party_slot, const W8Action& selected, bool allow_missi
         }
         break;
     case W8_ACTION_PROTECT:
-        if (!CanCharacterAttack(party_slot)) {
+        if (!CurrentGame().party.canAttack(party_slot)) {
             return false;
         }
         break;
@@ -1799,7 +1802,8 @@ int GetConditionInterrupt(W8TargetSource* source)
         character = &CurrentGame().party.characters[party_slot];
         condition_turns = character->uiCondition;
         moving = CurrentGame().party.rows[party_slot].executing.kind == W8_ACTION_RUN;
-        if (CanAnyHandReachTarget(party_slot)) {
+        if ((GetCharAttackRange(CurrentGame().data, &CurrentGame().party.characters[party_slot],
+                                2) != W8_RANGE_NONE)) {
             can_attack = CanPartySlotAttackAnyTarget(party_slot, 1, false);
             second_hand_attack = CanPartySlotAttackAnyTarget(party_slot, 1, true);
         }
@@ -1862,7 +1866,9 @@ int GetConditionInterrupt(W8TargetSource* source)
                 CanUnequipSlotItem(Data(), character, W8_EQUIP_SLOT_PRIMARY_WEAPON) &&
                 CanUnequipSlotItem(Data(), character, W8_EQUIP_SLOT_SECONDARY_WEAPON)) {
                 CurrentGame().inventory.swapWeaponSets(party_slot, false);
-                if (CanAnyHandReachTarget(party_slot) &&
+                if ((GetCharAttackRange(CurrentGame().data,
+                                        &CurrentGame().party.characters[party_slot],
+                                        2) != W8_RANGE_NONE) &&
                     CanPartySlotAttackAnyTarget(party_slot, 1, false)) {
                     CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(party_slot),
                                                               Data().strings[0x23d]});

@@ -48,6 +48,7 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/action_choices.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
@@ -532,7 +533,8 @@ static int ChooseMonsterTarget(int party_slot, const W8Action& action,
         if (GetBestMonsterAttackRange(record, true) != -1) {
             const auto quadrant = static_cast<unsigned char>(GetMonsterQuadrant(monster_info));
             candidate.in_reach =
-                quadrant == 2 || (!AnyoneStandsAhead(quadrant) && AnyoneStandsAhead(4));
+                quadrant == 2 || (!FormationRowOccupied(CurrentGame().party, quadrant) &&
+                                  FormationRowOccupied(CurrentGame().party, 4));
         }
         assert(monster_info->uiHPMax != 0);
         if (!best || priority(candidate) < priority(*best)) best = candidate;

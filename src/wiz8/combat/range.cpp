@@ -78,7 +78,9 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
                 monster_info->highest_condition < W8_CONDITION_DEAD &&
                 (live_groups || MonsterVsCharDisposition(first, monster_info) == side)) {
                 for (unsigned int reach_hand = 0; reach_hand < 2; ++reach_hand) {
-                    if (CanHandReachTarget(first, reach_hand) &&
+                    if ((GetCharAttackRange(CurrentGame().data,
+                                            &CurrentGame().party.characters[first],
+                                            reach_hand) != W8_RANGE_NONE) &&
                         AssessMonsterAim(first, reach_hand, monster_info,
                                          W8Action{W8_ACTION_ATTACK, -1, {}, {}})) {
                         return true;
@@ -93,7 +95,9 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
             if (slot != first && CurrentGame().party.participates(slot) &&
                 CharacterVsCharacterDisposition(first, slot) == side) {
                 for (unsigned int reach_hand = 0; reach_hand < 2; ++reach_hand) {
-                    if (!CanHandReachTarget(first, reach_hand)) {
+                    if (!(GetCharAttackRange(CurrentGame().data,
+                                             &CurrentGame().party.characters[first],
+                                             reach_hand) != W8_RANGE_NONE)) {
                         continue;
                     }
                     if (static_cast<signed char>(first) == slot) {
@@ -106,7 +110,7 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
                     if (range != W8_RANGE_TOUCH) {
                         return true;
                     }
-                    if (!FrontRankScreens(first, slot)) {
+                    if (!FormationScreens(CurrentGame().party, first, slot)) {
                         return true;
                     }
                 }
@@ -141,7 +145,8 @@ bool CharacterActionReachesTarget(int party_slot, int hand, const W8Action& sele
             if (range == W8_RANGE_NONE) {
                 return false;
             }
-            if (range == W8_RANGE_TOUCH && FrontRankScreens(party_slot, target_slot)) {
+            if (range == W8_RANGE_TOUCH &&
+                FormationScreens(CurrentGame().party, party_slot, target_slot)) {
                 return false;
             }
         }
@@ -213,10 +218,9 @@ W8TargetAssessment AssessMonsterAim(int party_slot, int hand, W8MonsterInfo* mon
         spell_sight = selected.kind == W8_ACTION_TURN_UNDEAD ||
                       (selected.kind > W8_ACTION_PROTECT && selected.kind < W8_ACTION_EQUIP);
         if (CurrentGame().combat.has_value() && range >= 0 && range < 2) {
-            int rows = CountRowsBetween(party_slot, monster_info);
-            while (rows-- > 0 && range != W8_RANGE_NONE)
-                range = range == W8_RANGE_TOUCH ? W8_RANGE_NONE
-                                                : static_cast<W8RangeCategory>(range - 1);
+            range = ShortenFormationReach(range,
+                                          BlockingFormationRows(CurrentGame().party, party_slot,
+                                                                GetMonsterQuadrant(monster_info)));
             if (range == W8_RANGE_NONE) return {W8TargetFailure::OutOfRange};
         }
     }
@@ -242,7 +246,7 @@ bool CharacterActionReachesSlot(int party_slot, int hand, int target_slot, const
     if (range != W8_RANGE_TOUCH) {
         return true;
     }
-    if (FrontRankScreens(party_slot, target_slot)) {
+    if (FormationScreens(CurrentGame().party, party_slot, target_slot)) {
         return false;
     }
     return true;
@@ -293,22 +297,6 @@ W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& sel
 }
 
 /* The furthest range category any of this character's hands can reach at. */
-W8RangeCategory GetBestHandRangeCategory(const W8Character* character)
-{
-    W8RangeCategory best = W8_RANGE_NONE;
-    W8RangeCategory category;
-    unsigned int hand;
-
-    for (hand = 0; hand < 2; ++hand) {
-        if (character->Hand[hand].in_play) {
-            category = GetCharAttackRange(Data(), character, hand);
-            if (category > best) {
-                best = category;
-            }
-        }
-    }
-    return best;
-}
 
 /* Whether the first lighting condition applies at distant or extreme range. */
 bool RangeCategoryUsesSightCondition(const W8MonsterInfo* monster, W8RangeCategory range_category)
@@ -407,7 +395,10 @@ static W8RangeCategory GetMonsterPartyTargetRange(W8MonsterInfo* monster_info,
     if (range == W8_RANGE_NONE) {
         return W8_RANGE_NONE;
     }
-    CloseFormationGap(monster_info, party_slot, &range);
+    if (CurrentGame().combat)
+        range =
+            ShortenFormationReach(range, BlockingFormationRows(CurrentGame().party, party_slot,
+                                                               GetMonsterQuadrant(monster_info)));
     if (range == W8_RANGE_NONE) {
         return W8_RANGE_NONE;
     }
@@ -633,140 +624,16 @@ float CalcRangeDistanceFromParty(W8RangeCategory range_category)
 /* Shrink a short-range category by the formation rows CountRowsBetween says
    stand between the monster and `party_slot`. Exhausting the category marks it
    unreachable (-1). */
-void CloseFormationGap(W8MonsterInfo* monster_info, int party_slot, W8RangeCategory* range_category)
-{
-    signed char crossable;
-
-    if (!CurrentGame().combat.has_value()) {
-        return;
-    }
-    if (*range_category < W8_RANGE_TOUCH || *range_category >= W8_RANGE_LONG) {
-        return;
-    }
-    crossable = CountRowsBetween(party_slot, monster_info);
-    if (crossable == 0) {
-        return;
-    }
-    while (*range_category != W8_RANGE_TOUCH) {
-        --crossable;
-        *range_category = static_cast<W8RangeCategory>(*range_category - 1);
-        if (crossable == 0) {
-            return;
-        }
-    }
-    *range_category = W8_RANGE_NONE;
-}
 
 /* Whether anybody standing ahead of this position is still in formation. */
-bool AnyoneStandsAhead(unsigned char position)
-{
-    unsigned char found = 0;
-    unsigned int index;
-    signed char slot;
-
-    for (index = 0; index < W8_FORMATION_COLUMNS; ++index) {
-        slot = CurrentGame().party.formation.cells[position][index];
-        if (slot != -1 && CurrentGame().party.characters[slot].bonus.out_of_formation == 0) {
-            ++found;
-        }
-    }
-    return found > 0;
-}
 
 /* How many formation rows between `party_slot` and the monster block a short
    reach. Same row answers zero; otherwise one when the monster's row is
    occupied, plus one more when the gap is exactly two rows and either that
    row or the front rank screens. */
-signed char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info)
-{
-    unsigned char monster_quadrant = static_cast<unsigned char>(GetMonsterQuadrant(monster_info));
-    signed char party_quadrant =
-        static_cast<signed char>(CurrentGame().party.formation.rowOf(party_slot));
-    signed char rows = 0;
-    unsigned int index;
-    signed char slot;
-    int gap;
-    signed char found_front;
-
-    if (monster_quadrant == static_cast<unsigned char>(party_quadrant)) {
-        return 0;
-    }
-
-    for (index = 0; index < W8_FORMATION_COLUMNS; ++index) {
-        slot = CurrentGame().party.formation.cells[monster_quadrant][index];
-        if (slot != -1 && CurrentGame().party.characters[slot].bonus.out_of_formation == 0) {
-            ++rows;
-        }
-    }
-    if (rows != 0) {
-        rows = 1;
-    }
-
-    assert(monster_quadrant != 4);
-    if (party_quadrant == 4) {
-        return rows;
-    }
-
-    gap = static_cast<int>(monster_quadrant) - party_quadrant;
-    if (gap < 0) {
-        gap = -gap;
-    }
-    if (gap != 2) {
-        return rows;
-    }
-    if (rows != 0) {
-        return static_cast<signed char>(rows + 1);
-    }
-
-    found_front = 0;
-    for (index = 0; index < W8_FORMATION_COLUMNS; ++index) {
-        slot = CurrentGame().party.formation.cells[4][index];
-        if (slot != -1 && CurrentGame().party.characters[slot].bonus.out_of_formation == 0) {
-            ++found_front;
-        }
-    }
-    if (found_front != 0) {
-        return static_cast<signed char>(rows + 1);
-    }
-    return rows;
-}
 
 /* Whether the front rank stands between two positions. Only positions exactly
    two rows apart can be screened, and the fifth row is never in the way. */
-bool FrontRankScreens(unsigned int from_position, unsigned int to_position)
-{
-    unsigned char from_row =
-        static_cast<unsigned char>(CurrentGame().party.formation.rowOf(from_position));
-    unsigned char to_row =
-        static_cast<unsigned char>(CurrentGame().party.formation.rowOf(to_position));
-    int rows_apart;
-    int found;
-    unsigned int index;
-    signed char slot;
-
-    if (from_row == to_row) {
-        return false;
-    }
-    if (from_row == 4 || to_row == 4) {
-        return false;
-    }
-    rows_apart = from_row - static_cast<signed char>(to_row);
-    if (rows_apart < 0) {
-        rows_apart = -rows_apart;
-    }
-    if (rows_apart != 2) {
-        return false;
-    }
-
-    found = 0;
-    for (index = 0; index < W8_FORMATION_COLUMNS; ++index) {
-        slot = CurrentGame().party.formation.cells[4][index];
-        if (slot != -1 && CurrentGame().party.characters[slot].bonus.out_of_formation == 0) {
-            ++found;
-        }
-    }
-    return found != 0;
-}
 
 /* Every other seated, living party member whose side matches `relationship`
    and that the slot's chosen action could actually strike is collected; one of
@@ -783,7 +650,9 @@ int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)
             continue;
         }
         for (unsigned int hand = 0; hand < 2; ++hand) {
-            if (!CanHandReachTarget(party_slot, hand)) {
+            if (!(GetCharAttackRange(CurrentGame().data,
+                                     &CurrentGame().party.characters[party_slot],
+                                     hand) != W8_RANGE_NONE)) {
                 continue;
             }
             if (!CharacterActionReachesSlot(

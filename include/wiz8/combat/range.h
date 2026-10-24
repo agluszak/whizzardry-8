@@ -21,9 +21,9 @@ unsigned char TraceModeRejectsNoHit(int mode);
 /* How many formation rows between `party_slot` and the monster block a short
    reach: zero when they share a row, otherwise occupants ahead of the monster
    and (when the gap is exactly two rows) the front rank. */
-signed char CountRowsBetween(int party_slot, W8MonsterInfo* monster_info);
+
 /* Shorten the action range by intervening formation rows in combat. */
-void CloseFormationGap(W8MonsterInfo* monster_info, int party_slot, W8RangeCategory* range);
+
 /* Whether `party_slot` may aim at `monster_info`: live threat, the
    resolved action's range category (less the rows between in combat), the
    info's aim flag for the action's ranged-ness, and the band distance. Assessment
@@ -33,7 +33,7 @@ W8TargetAssessment AssessMonsterAim(int party_slot, int hand, W8MonsterInfo* mon
                                     std::optional<W8RangeCategory> attack_range = {},
                                     bool sighting = false);
 /* Whether the front rank stands between two formation positions. */
-bool FrontRankScreens(unsigned int from_position, unsigned int to_position);
+
 /* Whether the monster's attack `attack` reaches the character in `party_slot`,
    or the monster `target`, given what it can see and how far away they stand. */
 bool MonsterAttackReachesCharacter(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
@@ -69,7 +69,7 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out,
                           W8VisibilityCondition condition);
 float GetGroundTargetRange(void);
 float GetMonsterEngagementRange(void);
-bool AnyoneStandsAhead(unsigned char position);
+
 void InitializeMonsterRangeCapabilities(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
 W8RangeCategory GetBestMonsterAttackRange(const W8MonsterRecord* record, bool close_quarters_only);
 float CalcRangeDistance(W8RangeCategory range_category);
@@ -81,7 +81,7 @@ W8RangeCategory GetMonsterActionRangeCategory(const W8MonsterInfo* monster_info,
                                               const W8MonsterRecord* record, unsigned int attack);
 /* The furthest range category any of the character's hands can
    reach at. */
-W8RangeCategory GetBestHandRangeCategory(const W8Character* character);
+
 /* Whether the slot's chosen action in `context` still reaches its
    selected target - character range and front-rank screen, monster aim, place
    distance and line of sight, or group reach. `hand` selects the attack side;

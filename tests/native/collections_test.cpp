@@ -72,6 +72,7 @@
 #include "wiz8/resource_cache.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
@@ -1746,4 +1747,23 @@ TEST_CASE("Formation acceptance settles immobile members before notifying observ
     game.commitFormation();
     REQUIRE(notices == std::vector<std::string>{"Moves Center", "Cannot move", "Remains Front"});
     REQUIRE_FALSE(party.canChangeFormation(8));
+}
+
+TEST_CASE("Formation reach uses occupied rows rather than party headcounts", "[party][targeting]")
+{
+    W8Party party;
+    party.formation.setPosition(0, W8FormationCell{0, 0}, false, true);
+    party.formation.setPosition(1, W8FormationCell{2, 0}, false, true);
+    party.formation.setPosition(2, W8FormationCell{4, 0}, false, true);
+    REQUIRE(BlockingFormationRows(party, 0, 2) == 2);
+    REQUIRE(FormationScreens(party, 0, 1));
+    party.characters[1].bonus.out_of_formation = 1;
+    REQUIRE(BlockingFormationRows(party, 0, 2) == 1);
+    party.characters[2].bonus.out_of_formation = 1;
+    REQUIRE(BlockingFormationRows(party, 0, 2) == 0);
+    REQUIRE_FALSE(FormationScreens(party, 0, 1));
+    REQUIRE(BlockingFormationRows(party, 0, 0) == 0);
+    REQUIRE(ShortenFormationReach(W8_RANGE_TOUCH, 1) == W8_RANGE_NONE);
+    REQUIRE(ShortenFormationReach(W8_RANGE_SHORT, 1) == W8_RANGE_TOUCH);
+    REQUIRE(ShortenFormationReach(W8_RANGE_LONG, 2) == W8_RANGE_LONG);
 }

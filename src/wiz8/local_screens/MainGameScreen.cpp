@@ -132,6 +132,7 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/texture.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -3643,7 +3644,8 @@ void FallbackFromUnreachableAction(int party_slot)
     switch (row->committed.kind) {
     case W8_ACTION_ATTACK:
     case W8_ACTION_BERSERK:
-        if (CanAnyHandReachTarget(party_slot) &&
+        if ((GetCharAttackRange(CurrentGame().data, &CurrentGame().party.characters[party_slot],
+                                2) != W8_RANGE_NONE) &&
             (CurrentGame().combat->round_active || CurrentGame().party_movement_mode)) {
             SelectPartyCharacter(party_slot);
             if (party_slot == CurrentGame().status.selected_character) {
@@ -3691,7 +3693,7 @@ void FallbackFromUnreachableAction(int party_slot)
         break;
     }
     case W8_ACTION_PROTECT:
-        if (CanCharacterAttack(party_slot) &&
+        if (CurrentGame().party.canAttack(party_slot) &&
             (CurrentGame().combat->round_active || CurrentGame().party_movement_mode)) {
             SelectPartyCharacter(party_slot);
             if (party_slot == CurrentGame().status.selected_character) {
@@ -4202,7 +4204,8 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                 if (CurrentGame().status.selected_character == slot) {
                     front_rank = false;
                     aim_ok = false;
-                } else if (FrontRankScreens(CurrentGame().status.selected_character, slot)) {
+                } else if (FormationScreens(CurrentGame().party,
+                                            CurrentGame().status.selected_character, slot)) {
                     front_rank = true;
                     aim_ok = true;
                 }

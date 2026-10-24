@@ -17,6 +17,7 @@ struct W8Party {
     unsigned int gold = 0;
     W8GameplayModifierBlock modifiers{};
 
+    bool canAttack(unsigned int slot) const;
     bool participates(unsigned int slot) const;
     W8Action availableAction(unsigned int slot, W8Action action) const;
     W8Action action(unsigned int slot, W8TargetingContext stored) const;

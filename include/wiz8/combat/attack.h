@@ -97,10 +97,9 @@ unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterReco
                                 unsigned int attack, int, bool friendly_targets);
 unsigned char RateMonsterBestAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                                     bool friendly_targets);
-bool CanAnyHandReachTarget(int party_slot);
+
 /* Whether `hand` is in play and has a range category at all. */
-bool CanHandReachTarget(int party_slot, unsigned int hand);
-bool CanCharacterAttack(int party_slot);
+
 struct W8Character;
 
 void GetCharacterHandDamageDice(const W8Character* character, int hand, W8Dice* dice);

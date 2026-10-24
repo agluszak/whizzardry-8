@@ -9,6 +9,7 @@
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/random.h"
+#include "wiz8/rules/targeting.h"
 
 std::optional<unsigned int> W8Party::slotOf(const W8Character& character) const
 {
@@ -201,4 +202,11 @@ bool W8Party::aimAction(unsigned int slot, W8TargetingContext stored, const W8Co
         }
     }
     return true;
+}
+
+bool W8Party::canAttack(unsigned int slot) const
+{
+    return slot < W8_PARTY_SLOT_COUNT && members[slot] && characters[slot].hp_current != 0 &&
+           characters[slot].highest_condition <= W8_CONDITION_INSANE &&
+           characters[slot].Hand[0].in_play;
 }

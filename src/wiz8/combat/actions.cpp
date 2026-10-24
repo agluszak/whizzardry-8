@@ -48,6 +48,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -268,7 +269,8 @@ void ExecuteCharacterAction(Game& game, int party_slot)
             if (interrupt == 8 || interrupt == 9) {
                 int target;
 
-                if (interrupt == 8 && GetBestHandRangeCategory(character) < W8_RANGE_LONG) {
+                if (interrupt == 8 &&
+                    GetCharAttackRange(CurrentGame().data, character, 2) < W8_RANGE_LONG) {
                     action = W8_ACTION_BERSERK;
                     slot->executing.kind = W8_ACTION_BERSERK;
                 } else {
@@ -412,7 +414,8 @@ void Combat::settleCharacterPhase(Game& game, int party_slot)
     W8CombatCharacterRow* row = &characters[party_slot];
     W8ActionKind action = game.party.rows[party_slot].executing.kind;
     if ((action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) &&
-        CanAnyHandReachTarget(party_slot) &&
+        (GetCharAttackRange(CurrentGame().data, &CurrentGame().party.characters[party_slot], 2) !=
+         W8_RANGE_NONE) &&
         TargetIsInPlay(party_slot, 2,
                        game.party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
         W8Character* character = &game.party.characters[party_slot];

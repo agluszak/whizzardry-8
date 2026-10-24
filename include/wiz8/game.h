@@ -1,5 +1,4 @@
 #pragma once
-
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -36,6 +35,7 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/random.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/story.h"
 

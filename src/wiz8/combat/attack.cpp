@@ -66,6 +66,7 @@
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/render/picking.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
@@ -187,18 +188,6 @@ W8AttackMode ChooseAttackMode(unsigned int attack_modes)
 
 /* Whether one character can swing this round: engaged, in better shape than
    the attack threshold, and with the first hand in play. */
-bool CanCharacterAttack(int party_slot)
-{
-    const W8Character* character = &CurrentGame().party.characters[party_slot];
-
-    if (!IsPartySlotEligible(party_slot)) {
-        return false;
-    }
-    if (character->highest_condition > W8_CONDITION_INSANE) {
-        return false;
-    }
-    return character->Hand[0].in_play;
-}
 
 /* Whether a bodyguard can protect another combatant: active, alive, able
    to act and equipped with a natural attack. The AI uses this for action 8. */
@@ -293,33 +282,14 @@ enum { W8_HAND_COUNT = 2 };
 
 /* Whether one of a character's hands can reach the target it is aimed at: the
    hand has to be in play and to have a range category at all. */
-bool CanHandReachTarget(int party_slot, unsigned int hand)
-{
-    assert(hand < W8_HAND_COUNT);
-    if (!CurrentGame().party.characters[party_slot].Hand[hand].in_play) {
-        return false;
-    }
-    return GetCharAttackRange(Data(), &CurrentGame().party.characters[party_slot], hand) !=
-           W8_RANGE_NONE;
-}
 
 /* Whether either hand can. */
-bool CanAnyHandReachTarget(int party_slot)
-{
-    unsigned int hand;
-
-    for (hand = 0; hand < W8_HAND_COUNT; ++hand) {
-        if (CanHandReachTarget(party_slot, hand)) {
-            return true;
-        }
-    }
-    return false;
-}
 
 /* What one hand's attack is worth, or nothing when it cannot reach. */
 int GetHandAttackValue(int party_slot, unsigned int hand)
 {
-    if (CanHandReachTarget(party_slot, hand)) {
+    if ((GetCharAttackRange(CurrentGame().data, &CurrentGame().party.characters[party_slot],
+                            hand) != W8_RANGE_NONE)) {
         return CurrentGame().party.characters[party_slot].Hand[hand].attacks;
     }
     return 0;
@@ -355,7 +325,7 @@ bool CharacterHasAttackOn(int party_slot, W8CombatSlot* target)
         if (!CurrentGame().party.participates(target_slot)) {
             return false;
         }
-        if (FrontRankScreens(party_slot, target_slot) > 0) {
+        if (FormationScreens(CurrentGame().party, party_slot, target_slot) > 0) {
             return false;
         }
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
