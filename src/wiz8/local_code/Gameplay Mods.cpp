@@ -1,5 +1,10 @@
+#include <algorithm>
+#include <array>
+#include <cstddef>
+
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -158,10 +163,11 @@ void ApplyCombatEffectSlots(const W8EffectSlot* source, W8GameplayModifierBlock*
    attributes and regeneration rates. */
 void RebuildMonsterDerivedStats(int location_id)
 {
-    RebuildMonsterDerivedStats(*FindMonster(location_id));
+    auto& monster = *FindMonster(location_id);
+    RebuildMonsterDerivedStats(monster, *GetMonsterDataForInfo(&monster));
 }
 
-void RebuildMonsterDerivedStats(W8MonsterInfo& monster)
+void RebuildMonsterDerivedStats(W8MonsterInfo& monster, const W8MonsterRecord& record)
 {
     auto* monster_info = &monster;
     W8GameplayModifierBlock* modifiers = &monster_info->modifiers;
@@ -180,6 +186,14 @@ void RebuildMonsterDerivedStats(W8MonsterInfo& monster)
         }
         ApplyCombatEffectSlots(monster_info->pCombat->combat_effects_2, modifiers);
     }
-    ConvertMonsterAttributes(monster_info);
+    constexpr std::array attributes{W8_ATTRIBUTE_STRENGTH, W8_ATTRIBUTE_INTELLIGENCE,
+                                    W8_ATTRIBUTE_DEXTERITY, W8_ATTRIBUTE_SPEED,
+                                    W8_ATTRIBUTE_SENSES};
+    static_assert(attributes.size() == W8_MONSTER_ATTR_COUNT);
+    for (std::size_t index = 0; index < attributes.size(); ++index) {
+        const int value =
+            record.attribute_values[index] + modifiers->attribute_adjustments[attributes[index]];
+        monster.attributes[index] = static_cast<unsigned char>(std::clamp(value, 1, 125));
+    }
     RebuildMonsterRegenRates(monster_info);
 }

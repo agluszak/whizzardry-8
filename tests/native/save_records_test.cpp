@@ -1616,7 +1616,7 @@ TEST_CASE_METHOD(SaveFixture, "A save decodes to a game state before any session
     };
 
     write_save(true);
-    auto saved = ReadSavedGame("candidate");
+    auto saved = ReadSavedGame(GameData{}, "candidate");
     REQUIRE(!GameInProgress());
     REQUIRE(saved);
     REQUIRE(saved->state.status.resume_level == 5);
@@ -1629,7 +1629,7 @@ TEST_CASE_METHOD(SaveFixture, "A save decodes to a game state before any session
     REQUIRE((!saved->npcs && !saved->facts && !saved->journal));
 
     write_save(false);
-    REQUIRE(!ReadSavedGame("candidate"));
+    REQUIRE(!ReadSavedGame(GameData{}, "candidate"));
 }
 
 TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][records]")

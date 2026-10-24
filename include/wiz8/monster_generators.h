@@ -1,5 +1,6 @@
 #pragma once
 struct W8Chunk;
+class Rng;
 
 #include <array>
 #include <chrono>
@@ -47,7 +48,7 @@ struct W8EncounterState {
     void applyGeneratorStates(const W8MonsterGeneratorStates& states);
     /* Rearm decoded generators in the order they were read, drawing each one's jittered
        interval from the game's stream as retail did while it read the level. */
-    void rearmDecodedGenerators();
+    void rearmDecodedGenerators(Rng& rng);
 };
 W8EncounterState ReadEncounterState(W8Chunk& file);
 W8MonsterGeneratorStates ReadMonsterGeneratorStates(W8Chunk& file);

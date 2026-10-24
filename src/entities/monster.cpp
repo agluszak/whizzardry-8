@@ -231,14 +231,15 @@ void Monster::CopyCycle(signed char cycle, signed char other_cycle)
     for (const auto& source : cycles[other_cycle]) cycles[cycle].emplace_back(source);
 }
 
-Monster::Monster(World& owner)
+Monster::Monster(World& owner, const W8MonsterRecord* species)
     : owner_world(owner), nav(owner), visual(owner), runtime_flags(0), location_id(-1),
       missile_frame(0), spell_frame(0), talking(0), animate_mouth(false), mouth_frame_clock(0),
       mouth_frame(0), talk_start(0), inactive(false), pending_finalize(1), disabled(0),
       nearest_to_party(false), script(0), script_wait(MONSCR_NONE),
       script_delay_timer(owner.clocks), trigger(0), light_scale_timer(owner.clocks),
       spell_effect_armed(0), sector_mesh(0), fade_timer(owner.clocks),
-      fade_state(W8_MONSTER_FADE_IDLE), hostility_preserved(false), sound(nullptr)
+      fade_state(W8_MONSTER_FADE_IDLE), hostility_preserved(false), sound(nullptr),
+      species_definition_(species)
 {
     nav.monster_owner = this;
     formation = glm::vec3(0);
@@ -264,7 +265,7 @@ Monster::Monster(World& owner)
     order_mode = W8_MONSTER_ORDER_NONE;
 }
 
-Monster::Monster(const MonsterDefinition& definition, World& owner)
+Monster::Monster(const MonsterDefinition& definition, World& owner, const W8MonsterRecord* species)
     : owner_world(owner), nav(owner), visual(definition.events, owner),
       asset_name(definition.asset_name), cycles(definition.cycles),
       damage_stage_count(definition.damage_stage_count), name(definition.asset_name),
@@ -277,7 +278,8 @@ Monster::Monster(const MonsterDefinition& definition, World& owner)
       script_wait(MONSCR_NONE), script_delay_timer(owner.clocks), trigger(0),
       light_scale_timer(owner.clocks), spell_effect_armed(0), sector_mesh(0),
       fade_timer(owner.clocks), fade_state(W8_MONSTER_FADE_IDLE),
-      hostility_preserved(definition.hostility_preserved), sound(nullptr)
+      hostility_preserved(definition.hostility_preserved), sound(nullptr),
+      species_definition_(species)
 {
     nav.monster_owner = this;
     nav.trace_mask = 2;
@@ -2008,14 +2010,6 @@ void Monster::SetFacing(float angle)
     visual.SetRotation(&rotation);
 }
 
-void Monster::GetScaleRange(float* minimum, float* maximum)
-{
-    Monster* runtime = this;
-
-    *minimum = runtime->minimum_scale;
-    *maximum = runtime->maximum_scale;
-}
-
 /* Returns the previous animation state and timestamps every update through the
    recovered shared SurRender timer. */
 unsigned char Monster::SetAnimating(bool animating)
@@ -2294,6 +2288,12 @@ void Monster::SpawnDamageNumber(unsigned int amount)
 /* Resolve the database-controlled render gate after the Monster's transient
    runtime overrides. The alternate argument selects the secondary live-info
    flag used by the world-update path. */
+const W8MonsterRecord& Monster::species() const
+{
+    if (!species_definition_) throw std::logic_error("gameplay monster has no species definition");
+    return *species_definition_;
+}
+
 bool Monster::IsRenderable(bool alternate)
 {
     bool disabled = this->disabled;
@@ -2318,7 +2318,7 @@ bool Monster::IsRenderable(bool alternate)
     }
 
     monster_info = owner_world.population->findMonster(location_id);
-    record = GetMonsterDataForInfo(monster_info);
+    record = &species();
     if (record->camouflage0 > 0) {
         return monster_info->party_threat.party_detected;
     }

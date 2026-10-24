@@ -509,7 +509,7 @@ static bool TravelToLevel(Game& game, int requested_level, int entrance, bool re
     auto state = game.left_levels.decode(level);
     if (!state)
         state = LevelState::decode(wiz8::asset_path(BuildLevelStatusPath(level)), level, true);
-    auto status = state ? std::move(*state).build(*replacement) : nullptr;
+    auto status = state ? std::move(*state).build(game, *replacement) : nullptr;
     LeaveLoadedLevel(game);
     current.replacePrimary(std::move(replacement));
     current.primary->spell_effects = std::move(restored_casts);

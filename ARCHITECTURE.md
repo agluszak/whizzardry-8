@@ -512,3 +512,18 @@ appearances attach only to their constructor-bound world.
 A particle's resource lifetime does not choose its simulation inputs. In particular,
 sky particles still use the primary world's camera and collision geometry, supplied
 by the game step. Additional views only consume the completed particle state.
+
+### Monster representation preparation
+
+The world loads and caches authored monster resources, and constructs each body
+with an explicit appearance RNG and a borrowed immutable species definition.
+The logical record configures its owned body's saved/fresh scale; the world
+finalizes navigation, active membership and visibility using that bound definition.
+A cursor-only body has no gameplay species. Rendering eligibility must not resolve
+a candidate's species through the installed game.
+
+Saved reconstruction still rearms generators first, reads all bodies before any
+configuration/finalization, and prepares NPC bindings only afterward. Definition
+validation, body appearance, scale and idle-frame draws now use the supplied game.
+NPC binding and raw embedded-group creation remain separate migration work; this
+is not yet a guarantee of fully isolated candidate construction.

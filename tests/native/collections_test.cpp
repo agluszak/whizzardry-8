@@ -923,7 +923,7 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
             loaded_state->applyGeneratorStates(ReadMonsterGeneratorStates(chunk));
             // Decoding draws nothing; building the world draws each generator's jitter once.
             REQUIRE(draws.empty());
-            loaded_state->rearmDecodedGenerators();
+            loaded_state->rearmDecodedGenerators(game.game.rng);
             REQUIRE(draws.size() == 1);
             REQUIRE(draws[0].range == 41);
             const auto& timer = loaded_state->generators.front()->timer;

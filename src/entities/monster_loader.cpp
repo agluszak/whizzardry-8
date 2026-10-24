@@ -21,6 +21,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "monster_cycles.h"
 #include "wiz8/audio/SoundEvent.h"
+#include "wiz8/data/records.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
 #include "wiz8/entities/cycle_player.h"
@@ -31,7 +32,6 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -48,12 +48,14 @@
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/render/quality.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/update.h"
+#include "wiz8/world/world.h"
 
 static constexpr bool g_monster_gib_option = true;
 static constexpr double g_monster_light_color_scale = 1.0 / 255.0;
@@ -521,9 +523,8 @@ static std::unique_ptr<MonsterDefinition> LoadMonsterDefinition(std::string_view
 
 /* Each new monster rolls its own handedness, size, idle pace and hover/bob
    motion from the species' ranges, in that order. */
-static void RollAppearance(Monster& monster, const MonsterDefinition& species)
+static void RollAppearance(Monster& monster, const MonsterDefinition& species, Rng& rng)
 {
-    auto& rng = CurrentGame().rng;
     /* 0x004C1D3D: cmp/setl - a signed test against the LEFTHANDED percent. */
     monster.visual.mirror_x = static_cast<int>(rng.below(100)) < species.left_handed;
 
@@ -570,10 +571,11 @@ static void RollAppearance(Monster& monster, const MonsterDefinition& species)
 /* A new actor of a species, created from the species' definition and given its
    own appearance roll. The definition is loaded on first use and kept for the
    world's lifetime, so creating an actor never depends on another actor. */
-std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view monster_name,
-                                                int location_id)
+std::unique_ptr<Monster> World::loadMonsterBody(const W8MonsterRecord& record, int location_id,
+                                                Rng& rng)
 {
-    auto& definitions = world->monster_definitions;
+    const std::string_view monster_name = record.cycle_name;
+    auto& definitions = monster_definitions;
     auto definition = std::ranges::find_if(definitions, [&](const auto& candidate) {
         return CompareTextIgnoreAsciiCase(candidate->asset_name, monster_name) == 0;
     });
@@ -583,12 +585,11 @@ std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view m
         definitions.push_back(std::move(loaded));
         definition = definitions.end() - 1;
     }
-    auto monster = std::make_unique<Monster>(**definition, *world);
-    RollAppearance(*monster, **definition);
+    auto monster = std::make_unique<Monster>(**definition, *this, &record);
+    RollAppearance(*monster, **definition, rng);
     // Retail gave the MLS script only to an actor created while none of its
     // species was alive; the others were copied without one.
-    if ((*definition)->script &&
-        std::ranges::none_of(world->navigators, [&](const Navigator* navigator) {
+    if ((*definition)->script && std::ranges::none_of(navigators, [&](const Navigator* navigator) {
             const auto* live = navigator->monster_owner;
             return live && live != monster.get() &&
                    CompareTextIgnoreAsciiCase(live->asset_name, monster_name) == 0;

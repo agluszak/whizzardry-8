@@ -48,7 +48,7 @@ bool g_navigator_position_changed;
 namespace {
 bool NavigationCombatActive(const Navigator& navigator)
 {
-    return CurrentGame().combat.has_value() && &navigator.owner_world == GetWorld();
+    return &navigator.owner_world == GetWorld() && CurrentGame().combat.has_value();
 }
 
 // A copy of the active world's registry, party included, to walk while it changes.

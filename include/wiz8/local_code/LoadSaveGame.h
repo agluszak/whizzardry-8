@@ -1,4 +1,5 @@
 #pragma once
+struct GameData;
 
 #include <filesystem>
 #include <memory>
@@ -77,7 +78,7 @@ struct SavedGame {
     void install(Game& game) &&;
 };
 // Decode a save slot, or nothing (logged) when it is missing or malformed.
-std::optional<SavedGame> ReadSavedGame(std::string_view slot_name);
+std::optional<SavedGame> ReadSavedGame(const GameData& data, std::string_view slot_name);
 struct World;
 // What entering a built level still installs (LevelState::build, InstallLevelSessionState).
 struct W8LoadedLevelStatus {

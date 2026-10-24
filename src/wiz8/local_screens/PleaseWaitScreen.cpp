@@ -170,7 +170,7 @@ void PleaseWaitScreen::frame()
 
         break;
     case W8_PLEASE_WAIT_LOAD_GAME: {
-        auto saved = ReadSavedGame(name);
+        auto saved = ReadSavedGame(Data(), name);
         if (!saved) {
             ReturnToPreviousScreen();
             return;

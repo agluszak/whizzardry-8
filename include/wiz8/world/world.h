@@ -7,6 +7,7 @@
 #include <initializer_list>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -36,6 +37,7 @@ class W8AmbientSound;
 struct W8AmbientTrack;
 struct W8LevelPopulation;
 struct W8MonsterInfo;
+struct W8MonsterRecord;
 struct W8WorldItem;
 struct GameData;
 class Events;
@@ -145,6 +147,9 @@ struct World {
     // Commands remove relationships immediately; this pass retains removed owners
     // until every script/update borrowing them has returned.
     void updateMonsters();
+    void prepareMonsterBody(W8MonsterInfo& info, Rng& rng, bool unborn);
+    std::unique_ptr<Monster> loadMonsterBody(const W8MonsterRecord& record, int location_id,
+                                             Rng& rng);
     W8WorldItem* adoptItem(std::unique_ptr<W8WorldItem> item);
     bool settleItem(W8WorldItem* item);
     Trigger* loadTrigger(wiz8::File& file, const GameData& data, Rng& rng, Story& story);

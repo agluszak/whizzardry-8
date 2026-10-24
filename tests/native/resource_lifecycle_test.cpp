@@ -61,6 +61,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
 #include "wiz8/monster_cycles.h"
+#include "wiz8/navigation_flags.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
@@ -665,7 +666,8 @@ TEST_CASE_METHOD(SpellVisualFixture,
     record->within_viewing_distance = true;
     record->party_threat.visible_to_player = false;
     replacement.population->monster_roster.add(std::move(record), false);
-    Monster prepared(replacement);
+    W8MonsterRecord species{};
+    Monster prepared(replacement, &species);
     prepared.location_id = 7;
     REQUIRE(prepared.IsRenderable(false));
     REQUIRE_FALSE(prepared.IsRenderable(true));
@@ -1094,24 +1096,34 @@ TEST_CASE("A missile reports and detaches only from its original world's casts",
 TEST_CASE("Only the first loaded actor of a species inherits its default script",
           "[resources][monsters]")
 {
-    const ScopedGame scope;
+    Rng rng(17);
+    std::vector<Rng::Draw> draws;
+    rng.trace(&draws);
     World world;
+    W8MonsterRecord species{};
+    species.cycle_name = "Test";
     auto definition = std::make_unique<MonsterDefinition>();
     definition->asset_name = "Test";
     const auto script = definition->script = std::make_shared<Script>();
     world.monster_definitions.push_back(std::move(definition));
 
-    auto first = Monster::ReadAllCycles(&world, "Test", 1);
+    auto first = world.loadMonsterBody(species, 1, rng);
     REQUIRE(first->script == script);
-    auto second = Monster::ReadAllCycles(&world, "Test", 2);
+    auto second = world.loadMonsterBody(species, 2, rng);
     REQUIRE_FALSE(second->script);
     first.reset();
-    auto third = Monster::ReadAllCycles(&world, "Test", 3);
+    auto third = world.loadMonsterBody(species, 3, rng);
     REQUIRE_FALSE(third->script);
     second.reset();
     third.reset();
-    auto last = Monster::ReadAllCycles(&world, "Test", 4);
+    auto last = world.loadMonsterBody(species, 4, rng);
     REQUIRE(last->script == script);
+    REQUIRE(draws.size() == 16); // Handedness, hover, amplitude and phase per actor.
+    Rng expected(17);
+    for (std::size_t index = 0; index < draws.size(); ++index) {
+        REQUIRE(draws[index].range == (index % 4 == 0 ? 100u : 1000u));
+        REQUIRE(draws[index].value == expected.below(draws[index].range));
+    }
 }
 
 TEST_CASE("An item's runtime ownership settles before removal is presented", "[resources][items]")
@@ -1279,4 +1291,80 @@ TEST_CASE("Utterance completion follows its suspended or reply session", "[dialo
     scope.game.rng.trace(nullptr);
     REQUIRE(draws.size() == 1); // Finishing A did not mark whichever quote B was running.
     REQUIRE(draws.front().range == 2);
+}
+
+TEST_CASE("Prepared monster bodies use their definition and RNG without an installed game",
+          "[resources][monsters][lifetime]")
+{
+    REQUIRE_FALSE(GameInProgress());
+    W8MonsterRecord species{};
+    species.cycle_name = "Candidate";
+    species.can_open_doors = true;
+    species.camouflage0 = 1;
+    species.effective_level = 4;
+    species.hit_points = {.base = 10, .count = 1, .sides = 10};
+    std::ranges::fill(species.attribute_values, 55);
+    World world(7);
+    world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
+    world.spatial->compiled_available = true;
+    world.spatial->registry.cells = std::make_unique<W8OctreeObjectRegistry>();
+    auto& spatial = world.spatial->m_spatial;
+    spatial.m_bounds.minimum = glm::vec3(-5000);
+    spatial.m_clipped_bounds.maximum = glm::vec3(5000);
+    spatial.m_node_extent = 1000;
+    spatial.m_region_grid_cell = 1000;
+    spatial.m_region_cells_per_axis = 0; // Valid empty geometry, with no assigned sector.
+    auto definition = std::make_unique<MonsterDefinition>();
+    definition->asset_name = species.cycle_name;
+    definition->minimum_scale = 1;
+    definition->maximum_scale = 2;
+    for (int index : {W8_MONSTER_CYCLE_BIRTH, W8_MONSTER_CYCLE_IDLE}) {
+        auto& cycle = definition->cycles[index].emplace_back(EmitterLights{},
+                                                             std::make_unique<Animation>(), 1.0f);
+        AnimationMesh mesh;
+        mesh.frame_count = 1;
+        mesh.frames = {{std::make_shared<Mesh>(), {}}};
+        cycle.animation->parts[2].push_back({std::move(mesh), std::nullopt});
+    }
+    world.monster_definitions.push_back(std::move(definition));
+    Rng rng(17);
+    std::vector<Rng::Draw> draws;
+    rng.trace(&draws);
+    const auto prepare = [&](int id, bool unborn, bool visited) -> W8MonsterInfo& {
+        auto info = std::make_unique<W8MonsterInfo>();
+        info->location_id = id;
+        info->monster_species = 123; // Deliberately no installed database with this species.
+        info->uiHPMax = info->hp_current = 15;
+        info->stamina_max = info->stamina = 10;
+        info->scale = 1.75f;
+        info->saved_mirror_x = true;
+        info->entity = world.loadMonsterBody(species, id, rng);
+        auto& adopted = *world.population->monster_roster.add(std::move(info), unborn);
+        adopted.configureBody(rng, visited);
+        world.prepareMonsterBody(adopted, rng, unborn);
+        return adopted;
+    };
+    auto& live = prepare(1, false, true);
+    REQUIRE(live.scale == 1.75f);
+    REQUIRE(live.entity->visual.mirror_x);
+    REQUIRE(live.fActive);
+    REQUIRE_FALSE(live.entity->pending_finalize);
+    REQUIRE(std::ranges::all_of(live.attributes, [](auto value) { return value == 55; }));
+    REQUIRE((live.entity->nav.movement.navigation_filter & W8_NAV_THROUGH_DOORS) != 0);
+    REQUIRE(draws.size() == 6); // Five appearance draws, then the live idle-frame choice.
+    REQUIRE(draws.back().range == 1);
+    REQUIRE_FALSE(live.entity->IsRenderable(false));
+    live.party_threat.party_detected = true;
+    REQUIRE(live.entity->IsRenderable(false));
+    world.prepareMonsterBody(live, rng, false);
+    REQUIRE(draws.size() == 6); // Already active: no second preparation or idle draw.
+
+    const auto before_unborn = draws.size();
+    auto& unborn = prepare(2, true, false);
+    REQUIRE(unborn.fActive); // Logical preparation is distinct from active navigation/animation.
+    REQUIRE(unborn.entity->inactive);
+    REQUIRE_FALSE(unborn.entity->nav.active);
+    REQUIRE_FALSE(unborn.entity->visual.animation_playing);
+    REQUIRE(draws.size() == before_unborn + 6); // Appearance and fresh scale, but no idle draw.
+    REQUIRE(world.active_monsters.size() == 2);
 }

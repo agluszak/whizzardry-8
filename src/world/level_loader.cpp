@@ -534,7 +534,7 @@ try {
         auto* group = CreateGroup(monster_id, 1, &origin, true, true);
         if (!group) return false;
         auto* monster_info = FindMonster(group->MemberLocationId(0));
-        ActivateMonster(monster_info);
+        // CreateGroup already prepares its members; reactivating asserted in Debug.
         Monster& monster = *monster_info->entity;
         const glm::vec3 camera_position = monster.owner_world.party.eye();
         monster.visual.SelectLOD(&camera_position);
