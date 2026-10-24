@@ -58,23 +58,23 @@ struct W8SpellEffectDefinition {
    handed to the message pass. Both the missile and the effect embed this at
    their own offset. */
 struct W8SpellEffectResult {
-    unsigned int amount;
-    unsigned int count;
-    unsigned int condition_counts[W8_CONDITION_COUNT];
+    unsigned int amount = 0;
+    unsigned int count = 0;
+    unsigned int condition_counts[W8_CONDITION_COUNT]{};
     std::vector<std::unique_ptr<W8SpellDamageReport>> reports;
     /* The per-kind totals the notice pass folds into its messages;
        [3] and [4] are the running damage totals the character and monster
        damage paths add to. */
-    unsigned int notice_values[6];
+    unsigned int notice_values[6]{};
     /* The report came from a non-verbose resolution pass and still
        needs to be folded into the shared attack report. */
-    bool deferred;
+    bool deferred = false;
     /* Raised when the swing missed entirely, which is what lets the
        notice pass distinguish "missed" from "no effect". */
-    bool missed;
+    bool missed = false;
     /* The target the attack actually struck - the accidental-fire path
        replaces it with the rerolled victim. */
-    W8CombatSlot target;
+    W8CombatSlot target{};
 };
 
 struct W8SpellEffectEntry {

@@ -3377,7 +3377,6 @@ void ApplyDiceDamageToCharacter(int party_slot, W8TargetSource* source, W8Enchan
     if (enchantment->power == 0) {
         return;
     }
-    result = {};
     dice = Data().spells[W8_SPELL_RAZOR_CLOAK].effect_dice;
     dice.count = static_cast<unsigned char>(enchantment->power) * dice.count;
     amount =
