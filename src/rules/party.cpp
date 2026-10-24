@@ -5,12 +5,14 @@
 #include <cassert>
 #include <limits>
 #include <optional>
+#include <span>
 
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/random.h"

@@ -796,7 +796,8 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
     ReleaseMonToMonVisibilityList(monster_info);
     if (auto* spatial = world.compiledIndex())
         spatial->UnregisterLocationObjects(static_cast<unsigned short>(monster_info->location_id));
-    ReleaseNpcBinding(monster_info->bound_npc_index);
+    if (auto* binding = CurrentGame().story.npc(monster_info->bound_npc_index))
+        binding->releaseWorldBinding();
     return roster.erase(monster_info, world.monster_retirements_);
 }
 

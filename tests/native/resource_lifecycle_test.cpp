@@ -1642,6 +1642,25 @@ TEST_CASE("NPC preparation keeps story identity and publishes only into its supp
         REQUIRE(candidate.story.npcs[2] != candidate.story.npcs[3]);
         REQUIRE(active.game.story.npcs.size() == 1);
         REQUIRE(active.game.story.npcs.front() == active_npc);
+        const auto instance = candidate.story.npcs[1];
+        const auto instance_script = instance->script_file;
+        const auto retained_gold = instance->gold;
+        instance->releaseWorldBinding();
+        singleton->releaseWorldBinding();
+        REQUIRE_FALSE(instance->has_monster);
+        REQUIRE_FALSE(instance->script_file);
+        REQUIRE(instance->binding_unavailable);
+        REQUIRE(candidate.story.npc(1) == nullptr);
+        REQUIRE(instance_script); // Outstanding continuations keep their script alive.
+        REQUIRE(instance->gold == retained_gold);
+        REQUIRE_FALSE(singleton->has_monster);
+        REQUIRE_FALSE(singleton->script_file);
+        REQUIRE_FALSE(singleton->binding_unavailable);
+        REQUIRE(candidate.story.npc(0) == singleton.get());
+        REQUIRE(singleton->gold == 777);
+        REQUIRE(singleton->character->name == "Retained snapshot");
+        REQUIRE(singleton->items.front().quantity == 9);
+        REQUIRE(draws.size() == 9);
     }
     W8NpcState rfs{};
     rfs.name_style = W8_NPC_RFS81_A;

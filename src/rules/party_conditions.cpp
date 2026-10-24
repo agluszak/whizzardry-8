@@ -1,6 +1,7 @@
 #include "wiz8/rules/party_conditions.h"
 
 #include <optional>
+#include <span>
 
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/skills.h"

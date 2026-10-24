@@ -29,6 +29,13 @@ struct W8NpcState : std::enable_shared_from_this<W8NpcState> {
     W8NpcState() = default;
     // A fact consumes one scheduled copy, not every duplicate slot.
     void clearScheduledItem(int item_id);
+    // Release the level embodiment, retaining campaign history, stock and character snapshot.
+    void releaseWorldBinding()
+    {
+        has_monster = false;
+        script_file.reset();
+        if (record->monster_bound) binding_unavailable = true;
+    }
 
     /* The NPC's current script. A reply dialog showing one of its entries shares it, so
        replacing or releasing the script leaves the open dialog valid. */

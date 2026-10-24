@@ -1013,18 +1013,6 @@ void CreateNewGameNpcStates(void)
     }
 }
 
-/* Release the monster binding and script held by an active NPC slot. */
-void ReleaseNpcBinding(int value)
-{
-    auto* npc = GetNpcState(value);
-    if (!npc) return;
-    npc->has_monster = false;
-    npc->script_file.reset();
-    if (npc->record->monster_bound != 0) {
-        npc->binding_unavailable = 1;
-    }
-}
-
 /* Hand back the NPC binding selected by a monster-list index, or null when
    the monster's record is missing, is not NPC-routed, binds no NPC, or the
    binding has been released. */
@@ -1466,7 +1454,8 @@ void UpdateNpcEvents(void)
                     RemoveMonster(monster_info, W8MonsterRemoval::Despawn);
                 }
             }
-            ReleaseNpcBinding(partner->partner_index);
+            if (auto* binding = CurrentGame().story.npc(partner->partner_index))
+                binding->releaseWorldBinding();
             CurrentGame().status.npc_restore_pending = false;
         }
     }
@@ -1601,7 +1590,8 @@ static void ReleaseNpcCompanionMonster(W8NpcState* npc)
                 RemoveMonster(monster, W8MonsterRemoval::Despawn);
             }
         }
-        ReleaseNpcBinding(npc->partner_index);
+        if (auto* binding = CurrentGame().story.npc(npc->partner_index))
+            binding->releaseWorldBinding();
     }
 }
 
@@ -1826,11 +1816,7 @@ void RebindNpcLevelTriggers(void)
         auto* npc = CurrentGame().story.npcs[index].get();
         if (npc->has_monster &&
             (npc->record->merchant != 0 || (npc->record->voice_script != 0 && !npc->is_present))) {
-            npc->has_monster = false;
-            npc->script_file.reset();
-            if (npc->record->monster_bound != 0) {
-                npc->binding_unavailable = 1;
-            }
+            npc->releaseWorldBinding();
         }
     }
 

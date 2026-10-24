@@ -102,7 +102,6 @@ bool NpcWantsItem(W8NpcState* npc, const W8ItemInstance* item);
 bool NpcHasTopic(W8NpcState* npc, int topic);
 /* Clear one NPC binding's monster link and hand the handle to the
    owned item-list teardown. */
-void ReleaseNpcBinding(int value);
 /* The NPC binding selected by a monster-list index, or null. */
 W8NpcState* FindNpcBindingForMonster(W8MonsterInfo* monster_info);
 unsigned char GetNpcDispositionBand(W8NpcState* npc);
