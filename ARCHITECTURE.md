@@ -283,6 +283,16 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
 - **Activity.** Rules branch on `Game::activity` (place, conversation, scripted
   scene), never on a screen id or UI flag. Combat is `Game::combat`, a
   `std::optional<Combat>` engaged exactly while the party fights.
+- **Dialogue continuation.** `W8NpcDialogue` owns the active utterance: its originating
+  conversation, NPC/script/quote snapshot, serviced-voice wait and timed hold. The panel
+  owns playback, mouth and bubble resources, not another busy flag or hold clock.
+  Natural voice completion records the original quote and retains its 700 ms hold;
+  a scoped utterance identity prevents late completion from affecting a replacement.
+  Holds are serviced at the existing speech-queue update point before portrait-idle
+  and dialogue advancement, not by rendering. Replacement completes the old utterance
+  and its notice before starting the next; suspension retains it and explicit discard
+  abandons it without completing scripts. Headless presentation creates no wait, and
+  another game's panel cannot satisfy a presentation request.
 - **Advancement and stepping.** `Game::advance(elapsed, hold)` (`game_advance.cpp`)
   is the game's one step: it applies the interface's hold, runs speech, and in the
   world runs the simulation in retail order. `Game::time` is the step time that
@@ -405,7 +415,8 @@ code has a subclass whose members are that state. Trigger callbacks are
   during it are destroyed when the outermost transaction ends
   (`DestroyAfterUiDispatch`), so nothing is freed while its own callback runs.
   The main game's dialogue panel owns NPC voice playback and the active quote's
-  input; discarding the panel cancels pending voice completion.
+  input; explicit screen discard abandons its logical utterance and cancels pending
+  voice completion. Destructors release playback resources only.
   In the main game, `MainGameScreen::refreshLayout` decides one `MainGameLayout`
   (shown mode, panels, world viewport) from the open interaction and the player's
   preferences and changes only the panels that differ; an interaction overrides

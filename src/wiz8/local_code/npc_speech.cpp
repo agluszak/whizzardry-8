@@ -1,6 +1,5 @@
 #include "wiz8/npc_speech.h"
 
-#include <cstdint>
 #include <functional>
 #include <string_view>
 #include <utility>
@@ -8,7 +7,6 @@
 #include "wiz8/audio/mouth_gap.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/platform/timer.h"
 #include "wiz8/unicode.h"
 
 bool PlayNpcVoice(W8NpcSpeech& speech, std::string_view path, std::function<void()> on_finished)
@@ -17,9 +15,7 @@ bool PlayNpcVoice(W8NpcSpeech& speech, std::string_view path, std::function<void
     speech.voice_handle = wiz8::sound::play(path, {.channel = wiz8::sound::VolumeChannel::voice,
                                                    .gain_scale = 0.7f,
                                                    .on_finished = std::move(on_finished)});
-    speech.voice_started_at = MonotonicMilliseconds();
-    speech.voice_playing = speech.voice_handle != nullptr;
-    return speech.voice_playing;
+    return speech.voice_handle != nullptr;
 }
 
 W8NpcSpeech::~W8NpcSpeech()
@@ -29,7 +25,6 @@ W8NpcSpeech::~W8NpcSpeech()
 
 void StopNpcVoice(W8NpcSpeech& speech)
 {
-    speech.voice_playing = false;
     wiz8::sound::stop(speech.voice_handle);
     speech.voice_handle.reset();
     speech.gap_track = {};
@@ -38,17 +33,6 @@ void StopNpcVoice(W8NpcSpeech& speech)
 int ComputePortraitMessageDuration(std::string_view text)
 {
     return static_cast<int>(wiz8::text::to_utf16(text).size() * 0x3c + 2000);
-}
-
-void HoldNpcSpeech(W8NpcSpeech& speech, std::uint64_t hold_ms)
-{
-    speech.hold_ms = hold_ms;
-    speech.hold_started_at = MonotonicMilliseconds();
-}
-
-bool IsNpcSpeechHoldOver(const W8NpcSpeech& speech)
-{
-    return speech.hold_ms < MonotonicMilliseconds() - speech.hold_started_at;
 }
 
 void UpdateNpcMouth(W8NpcSpeech& speech, Monster* monster)

@@ -2339,7 +2339,7 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
     notice = Data().strings[0x1ac];
     name = GetMonsterName(monster_info, 0, 0);
     formatted = fmt::format("{} {}", name, notice);
-    DisplayNpcQuote(formatted, false);
+    DisplayNpcQuote(CurrentGame(), formatted, false);
 }
 
 /* The tame/refuse spell: a monster target that fails its resistance check

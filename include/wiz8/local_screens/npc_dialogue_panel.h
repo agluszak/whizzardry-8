@@ -1,6 +1,7 @@
 #pragma once
 
 #include <bitset>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string_view>
@@ -11,6 +12,7 @@
 
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/layouts/npc_dialogue.h"
+#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_speech.h"
@@ -75,16 +77,15 @@ struct W8NpcDialoguePanel {
     W8NpcDialoguePanel(const W8NpcDialoguePanel&) = delete;
     W8NpcDialoguePanel& operator=(const W8NpcDialoguePanel&) = delete;
 
-    // A quote or portrait message is on screen.
-    bool presenting() const { return presentation != W8NpcPresentation::none; }
-    bool voicePlaying() const { return speech.voice_playing; }
+    bool showingQuote() const;
+    // Explicit screen discard abandons continuation; suspension retains it.
+    void discardSpeech();
     // Finish a message or quote whose time is up, and move the speaker's mouth.
     void updateVoice();
     /* Speak one subquote of the speaker's current quote; `notice_only` posts it to the
        text box instead. */
-    W8NpcSubquoteOutcome speakSubquote(const ScriptContext& context, const W8NpcScriptQuote* quote,
-                                       unsigned char subquote_index, bool notice_only,
-                                       bool force_npc_voice);
+    W8NpcSubquoteOutcome speakSubquote(const W8NpcScriptQuote* quote, unsigned char subquote_index,
+                                       bool notice_only, bool force_npc_voice);
     /* Finish the voice on request. Suppressed while the level-4 gate is up; without
        `force`, ignored within 500 ms of the voice starting. */
     void tryFinishVoice(bool force);
@@ -102,7 +103,7 @@ struct W8NpcDialoguePanel {
                                int npc_kind = -1);
 
     W8NpcSpeech speech;
-    W8NpcPresentation presentation = W8NpcPresentation::none;
+    std::optional<std::uint64_t> utterance_identity;
     W8NpcTradeMode trade_mode{};
     /* The layout the current one replaced; back-out paths reopen it. */
     W8NpcDialogueLayout previous_dialogue_layout{};
@@ -158,6 +159,8 @@ struct W8NpcDialoguePanel {
 
 private:
     void paintPanel(int index, SDL_Surface& target, bool force) const;
-    void finishVoice(bool resume_script);
+    const W8NpcDialogue::Utterance* utterance() const;
+    void finishPreviousUtterance();
+    void finishVoice(std::uint64_t identity, bool resume_script);
     MainGameScreen& screen_;
 };

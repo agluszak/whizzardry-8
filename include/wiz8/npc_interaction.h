@@ -7,9 +7,6 @@
 /* The NPC-scripting gates NPC Scripting.cpp sets and npc_interaction.cpp
    reads. */
 
-/* Whether a quote or portrait message is on screen (npc_dialogue_view.cpp);
-   the conversation does not advance while one is. */
-bool IsNpcScriptSessionActive(void);
 /* Raise / drop the world-cursor gate around a scripted world action. */
 void BeginScriptedWorldAction(void);
 void ClearMainGameTargetState(void);

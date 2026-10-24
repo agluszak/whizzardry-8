@@ -158,10 +158,10 @@ the licensed runtime scenarios after every step.
    - The dialogue's interface (layouts, trade table, quote bubble, `NpcDialogueUi`) is the
      main game's `W8NpcDialoguePanel`; `Game::npc_interaction` keeps the conversation
      (who speaks with whom, the offered item, the staged notice) and four interface facts
-     the conversation's progress waits on (the open layout, the hidden panel or dialogue,
-     a modal dialog), which `W8NpcDialogue::Advance` and the NPC script read every step.
-     Those go once the dialogue's progress hears from its interface instead of reading
-     it. The portrait animation in `monster_manager_entries`, which combat and magic
+     that NPC scripts still consult for layout-specific UI requests (the open layout,
+     the hidden panel or dialogue and a modal dialog). Move those requests behind the
+     panel boundary without moving its state into the conversation. Utterance completion
+     already belongs to the dialogue rather than a query of the current screen. The portrait animation in `monster_manager_entries`, which combat and magic
      drive directly, still belongs on the screen with step 5, behind events.
    - The main game's first entry starts the world running, resets the autosave interval,
      clears the aging hold and readies the portrait slots (`ResetTargetingState`, whose
@@ -306,10 +306,6 @@ the licensed runtime scenarios after every step.
      variables, `SpawnMonsters`) still reach the world and story through globals.
    - The fade and monster-cycle completions are plain function pointers, so the NPC
      story callbacks they run read `CurrentGame()`.
-   - The game owns the dialogue's progress (`Game::npc_dialogue`) and the Al-Sedexus
-     scene, but the quote presentation (`npc_dialogue_view.cpp`) is still module state
-     and keeps its state in `Game` (step 1). The presentation belongs to the dialogue's
-     screen.
    - `IsPartySlotEligible` (about 50 callers) is a party query that reads the game; it
      belongs in `rules`, taking the party.
 8. **Saves over values.** Every game section (GSTA, TEXT, TVAR, NPCI, NPCT, NPCF, FATA,

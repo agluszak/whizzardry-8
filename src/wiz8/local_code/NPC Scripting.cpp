@@ -243,13 +243,13 @@ int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text)
     return g_npc_region_quotes[1][band];
 }
 
-static void ShowConsumedItemQuote(std::string_view text)
+static void ShowConsumedItemQuote(Game& game, std::string_view text)
 {
-    if (CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
+    if (game.npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
         RebuildNpcTradeItemList(false);
         return;
     }
-    DisplayNpcQuote(text, true);
+    DisplayNpcQuote(game, text, true);
     return;
 }
 
@@ -276,7 +276,7 @@ void RemoveNpcScriptItem(const ScriptContext& context, const W8ItemInstance* ite
                 (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
                 context.inventory.removeQuantity({W8ItemStorage::Backpack, slot, index}, 1);
                 text = fmt::sprintf(Data().strings[0x7ec], context.party.characters[slot].name);
-                ShowConsumedItemQuote(text);
+                ShowConsumedItemQuote(context.game, text);
                 return;
             }
         }
@@ -287,7 +287,7 @@ void RemoveNpcScriptItem(const ScriptContext& context, const W8ItemInstance* ite
             (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
             context.inventory.removeQuantity({W8ItemStorage::Pool, 0, slot}, 1);
             text = Data().strings[0x7ed];
-            ShowConsumedItemQuote(text);
+            ShowConsumedItemQuote(context.game, text);
             return;
         }
     }
@@ -337,12 +337,12 @@ void ReloadNpcScriptResources(W8NpcState* npc)
 
 void W8NpcDialogue::Advance(const ScriptContext& context)
 {
-    if (held_by_scene_ || IsNpcScriptSessionActive()) {
+    if (held_by_scene_ || has_active_utterance()) {
         return;
     }
     if (reply_ != W8NpcReplyState::dialog_open) {
         RunNextAction(context);
-        if (IsNpcScriptSessionActive()) {
+        if (has_active_utterance()) {
             return;
         }
     }
@@ -355,10 +355,10 @@ void W8NpcDialogue::Advance(const ScriptContext& context)
     }
     if (context.activity.conversation && context.status.world_cursor_gate == 0 &&
         !context.activity.scripted_scene && reply_ == W8NpcReplyState::none &&
-        (context.activity.conversation && CurrentGame().npc_interaction.scripted_dialogue)) {
+        (context.activity.conversation && context.game.npc_interaction.scripted_dialogue)) {
         EndNpcDialogueSession(false);
     }
-    if (reply_ == W8NpcReplyState::none && CurrentGame().npc_interaction.dialogue_panel_hidden &&
+    if (reply_ == W8NpcReplyState::none && context.game.npc_interaction.dialogue_panel_hidden &&
         context.game.speech.IsMainQueueEmpty()) {
         SetNpcDialoguePanelVisible(1);
     }
@@ -372,6 +372,7 @@ void W8NpcDialogue::Begin(W8NpcState* npc, bool suspend_current, bool script_eve
     if (!npc->has_monster) {
         BindNpcToMonster(npc->name_style, false, -1);
     }
+    session_.identity = ++session_identity_;
     session_.finished_quote_index = -1;
     session_.npc = npc->shared_from_this();
     session_.binding = {npc->script_file, FormatNpcVoiceSoundPath(npc, script_event),
@@ -388,14 +389,15 @@ bool W8NpcDialogue::DefersCharacterEvents(bool require_group_entry) const
     if (is_held_by_scene()) {
         return false;
     }
-    if (!IsNpcScriptSessionActive() && !has_queued_actions()) {
+    if (!has_active_utterance() && !has_queued_actions()) {
         return false;
     }
     W8NpcState* speaker = this->speaker();
     if (speaker == 0) {
         return false;
     }
-    if (GetNpcGroupEntry(speaker) != 0 && !require_group_entry) {
+    if (speaker->record->has_group && speaker->character && speaker->is_grouped &&
+        !require_group_entry) {
         return false;
     }
     return true;
@@ -477,7 +479,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
         } else {
             context.inventory.storeOrDrop(item, false);
             if (item.iItemNo != -1) break;
-            if (context.activity.conversation) DisplayNpcQuote(notice_text, true);
+            if (context.activity.conversation) DisplayNpcQuote(context.game, notice_text, true);
         }
         ClearNpcItemId(session_.npc.get(), entry->operand0);
         if (CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
@@ -491,7 +493,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
         notice_text =
             fmt::sprintf(Data().strings[0x7e9], session_.npc->record->source_name, entry->operand0);
         AddPartyGold(context.game, entry->operand0, false);
-        DisplayNpcQuote(notice_text, true);
+        DisplayNpcQuote(context.game, notice_text, true);
         break;
     case W8_NPC_ENTRY_GIVE_EXPERIENCE:
         AwardPartyExperience(entry->operand0, false);
@@ -626,7 +628,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
                     return;
                 }
             }
-            ShowNpcPortraitMessage(message.text, message.notice);
+            ShowNpcPortraitMessage(context.game, message.text, message.notice);
         }
         void operator()(W8NpcStoryAction action) const { RunNpcStoryAction(context, action); }
         void operator()(W8NpcCommand command) const
@@ -649,7 +651,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
                 OpenNpcDialogueTranscriptLayout();
                 break;
             case W8NpcCommand::journal_quote:
-                DisplayNpcQuote(Data().strings[0x74a], false);
+                DisplayNpcQuote(context.game, Data().strings[0x74a], false);
                 wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
                 break;
             case W8NpcCommand::dispatch_pending_notice:
@@ -730,7 +732,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
         }
         void operator()(W8NpcPortraitString message) const
         {
-            ShowNpcPortraitMessage(Data().strings[message.string_index]);
+            ShowNpcPortraitMessage(context.game, Data().strings[message.string_index]);
         }
         void operator()(W8NpcMarkMissing missing) const
         {

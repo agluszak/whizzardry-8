@@ -67,6 +67,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/save_game.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -983,4 +984,135 @@ TEST_CASE("An item's runtime ownership settles before removal is presented", "[r
     DeactivateWorldItem(placed);
     REQUIRE(presented);
     REQUIRE_FALSE(CaptureWorldItem(*placed).front().fActive);
+}
+
+TEST_CASE("Dialogue owns voice completion, strict holds and stale completion rejection",
+          "[dialogue][lifetime]")
+{
+    W8NpcDialogue dialogue;
+    const auto first = dialogue.BeginVoiceQuote();
+    dialogue.VoiceStarted(first, 1000, true, 2000);
+    REQUIRE(dialogue.voice_pending());
+    REQUIRE_FALSE(dialogue.CanSkipUtterance(1500));
+    REQUIRE(dialogue.CanSkipUtterance(1501));
+    REQUIRE_FALSE(dialogue.UtteranceHoldOver(first, 10000)); // EOS must be reported, not polled.
+    dialogue.VoiceFinished(first, 2000);
+    REQUIRE_FALSE(dialogue.voice_pending());
+    REQUIRE(dialogue.has_active_utterance());
+    REQUIRE_FALSE(dialogue.UtteranceHoldOver(first, 2700));
+    REQUIRE(dialogue.UtteranceHoldOver(first, 2701));
+    dialogue.VoiceFinished(first, 3000); // Duplicate EOS cannot restart the hold.
+    REQUIRE(dialogue.UtteranceHoldOver(first, 3000));
+
+    const auto replacement = dialogue.BeginHeldQuote(4000, 2000);
+    dialogue.VoiceFinished(first, 5000);
+    dialogue.AbandonUtterance(first);
+    int completions = 0;
+    const auto release = [&](const auto&) {
+        REQUIRE_FALSE(dialogue.has_active_utterance());
+        ++completions;
+    };
+    dialogue.FinishUtterance(first, release);
+    REQUIRE(completions == 0);
+    REQUIRE(dialogue.utterance(replacement));
+    REQUIRE_FALSE(dialogue.UtteranceHoldOver(replacement, 6000));
+    REQUIRE(dialogue.UtteranceHoldOver(replacement, 6001));
+    dialogue.FinishUtterance(replacement, release);
+    dialogue.FinishUtterance(replacement, release);
+    REQUIRE(completions == 1);
+
+    const auto portrait = dialogue.BeginPortraitMessage(7000, 1000);
+    dialogue.AbandonUtterance(portrait); // Discard performs no completion/presentation.
+    REQUIRE_FALSE(dialogue.has_active_utterance());
+    REQUIRE(completions == 1);
+}
+
+TEST_CASE("A completed NPC subquote waits for its hold before continuing", "[dialogue][lifetime]")
+{
+    ScopedGame scope;
+    W8NpcDatabaseRecord record{};
+    record.voice_script = 1;
+    auto npc = std::make_shared<W8NpcState>();
+    npc->record = &record;
+    npc->has_monster = true;
+    auto script = std::make_shared<W8NpcScriptFile>();
+    script->quotes.resize(1);
+    script->quotes[0].subquotes = {"", ""};
+    npc->script_file = script;
+    auto& dialogue = scope.game.npc_dialogue;
+    dialogue.Begin(npc.get(), false);
+    dialogue.QueueQuote(0, false, false, false);
+    dialogue.Advance(MakeScriptContext(scope.game));
+    REQUIRE(dialogue.has_queued_actions());
+    const auto utterance = dialogue.BeginVoiceQuote();
+    dialogue.VoiceStarted(utterance, 1000, true, 2000);
+    dialogue.VoiceFinished(utterance, 2000);
+    dialogue.Advance(MakeScriptContext(scope.game));
+    REQUIRE(dialogue.has_queued_actions());
+    REQUIRE(dialogue.UtteranceHoldOver(utterance, 2701));
+    dialogue.FinishUtterance(utterance, [](const auto&) {});
+    dialogue.Advance(MakeScriptContext(scope.game));
+    REQUIRE_FALSE(dialogue.has_queued_actions()); // Continue, rather than replaying subquote zero.
+}
+
+TEST_CASE("Utterance completion follows its suspended or reply session", "[dialogue][lifetime]")
+{
+    ScopedGame scope;
+    W8NpcDatabaseRecord record{};
+    record.voice_script = 1;
+    auto script = std::make_shared<W8NpcScriptFile>();
+    script->quotes.resize(1);
+    auto& quote = script->quotes[0];
+    quote.subquotes = {"", ""};
+    // Only the second subquote draws its response. This observes the resumed cursor
+    // without exposing implementation-only getters or running a rendered conversation.
+    quote.entries.push_back(
+        {.kind = W8_NPC_ENTRY_NEXT_QUOTE, .operand0 = 100, .operand1 = 2, .operand2 = 101});
+    auto first = std::make_shared<W8NpcState>();
+    first->record = &record;
+    first->has_monster = true;
+    first->script_file = script;
+    auto second = std::make_shared<W8NpcState>();
+    second->record = &record;
+    second->has_monster = true;
+    second->script_file = script;
+    auto& dialogue = scope.game.npc_dialogue;
+    const auto context = MakeScriptContext(scope.game);
+    dialogue.Begin(first.get(), false);
+    dialogue.Speak(context, 0, false);
+    const auto identity = dialogue.BeginVoiceQuote();
+    dialogue.VoiceStarted(identity, 1000, true, 2000);
+
+    bool reply = false;
+    SECTION("suspended conversation")
+    {
+        dialogue.Begin(second.get(), true);
+    }
+    SECTION("reply session")
+    {
+        dialogue.ReplyDialogOpened(std::nullopt);
+        dialogue.Begin(second.get(), false);
+        reply = true;
+    }
+    dialogue.Speak(context, 1, false); // No such quote; establish a different current cursor.
+    dialogue.VoiceFinished(identity, 2000);
+    dialogue.FinishUtterance(identity, [&](const auto& finished) {
+        REQUIRE(finished.npc == first);
+        REQUIRE(finished.quote == 0);
+        REQUIRE(dialogue.speaker() == second.get());
+    });
+    if (reply) {
+        dialogue.Answer(context, "");
+    } else {
+        // The queued continuation and its out-of-range response drain before resume.
+        for (int step = 0; step < 3 && dialogue.speaker() != first.get(); ++step)
+            dialogue.Advance(context);
+    }
+    REQUIRE(dialogue.speaker() == first.get());
+    std::vector<Rng::Draw> draws;
+    scope.game.rng.trace(&draws);
+    dialogue.Speak(context, 0, false);
+    scope.game.rng.trace(nullptr);
+    REQUIRE(draws.size() == 1); // Finishing A did not mark whichever quote B was running.
+    REQUIRE(draws.front().range == 2);
 }

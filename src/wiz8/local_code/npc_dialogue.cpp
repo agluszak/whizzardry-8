@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <cstdint>
+#include <functional>
 #include <iterator>
 #include <list>
 #include <optional>
@@ -428,9 +430,100 @@ void W8NpcDialogue::Answer(const ScriptContext& context, std::string_view text)
     reply_ = W8NpcReplyState::none;
 }
 
-void W8NpcDialogue::SpeechFinished()
+const W8NpcDialogue::Utterance* W8NpcDialogue::utterance(std::uint64_t identity) const
 {
-    session_.finished_quote_index = session_.current_quote_index;
+    return utterance_ && utterance_->identity == identity ? &*utterance_ : nullptr;
+}
+
+std::uint64_t W8NpcDialogue::BeginUtterance(Utterance::Phase phase, std::uint64_t now,
+                                            std::uint64_t duration)
+{
+    utterance_ = Utterance{++utterance_identity_,
+                           session_.identity,
+                           phase,
+                           session_.npc,
+                           session_.binding,
+                           session_.current_quote_index,
+                           now,
+                           duration};
+    return utterance_->identity;
+}
+
+std::uint64_t W8NpcDialogue::BeginVoiceQuote()
+{
+    return BeginUtterance(Utterance::Phase::voice, 0, 0);
+}
+
+void W8NpcDialogue::VoiceStarted(std::uint64_t identity, std::uint64_t now, bool voiced,
+                                 std::uint64_t unvoiced_ms)
+{
+    if (!utterance(identity)) return;
+    voice_started_at_ = now;
+    if (!voiced) {
+        utterance_->phase = Utterance::Phase::quote_hold;
+        utterance_->hold_started = now;
+        utterance_->hold_ms = unvoiced_ms;
+    }
+}
+
+std::uint64_t W8NpcDialogue::BeginHeldQuote(std::uint64_t now, std::uint64_t duration)
+{
+    voice_started_at_ = now;
+    return BeginUtterance(Utterance::Phase::quote_hold, now, duration);
+}
+
+std::uint64_t W8NpcDialogue::BeginPortraitMessage(std::uint64_t now, std::uint64_t duration)
+{
+    return BeginUtterance(Utterance::Phase::portrait_message, now, duration);
+}
+
+bool W8NpcDialogue::UtteranceHoldOver(std::uint64_t identity, std::uint64_t now) const
+{
+    const auto* pending = utterance(identity);
+    return pending && pending->phase != Utterance::Phase::voice &&
+           pending->hold_ms < now - pending->hold_started;
+}
+
+bool W8NpcDialogue::CanSkipUtterance(std::uint64_t now) const
+{
+    return now - voice_started_at_ > 500;
+}
+
+void W8NpcDialogue::MarkUtteranceFinished(const Utterance& finished)
+{
+    const auto mark = [&](Session& session) {
+        if (session.identity == finished.session) session.finished_quote_index = finished.quote;
+    };
+    mark(session_);
+    if (suspended_) mark(*suspended_);
+    if (reply_session_) mark(*reply_session_);
+}
+
+void W8NpcDialogue::VoiceFinished(std::uint64_t identity, std::uint64_t now)
+{
+    const auto* pending = utterance(identity);
+    if (!pending || pending->phase != Utterance::Phase::voice) return;
+    MarkUtteranceFinished(*pending);
+    utterance_->phase = Utterance::Phase::quote_hold;
+    utterance_->hold_started = now;
+    utterance_->hold_ms = 700;
+}
+
+void W8NpcDialogue::FinishUtterance(std::uint64_t identity,
+                                    std::function_ref<void(const Utterance&)> release_presentation)
+{
+    if (!utterance(identity)) return;
+    auto finished = std::move(*utterance_);
+    utterance_.reset();
+    // Notice observers may issue follow-up commands. They must see the completed
+    // cursor and no outstanding wait, never a half-finished utterance.
+    MarkUtteranceFinished(finished);
+    release_presentation(finished);
+}
+
+void W8NpcDialogue::AbandonUtterance(std::uint64_t identity)
+{
+    if (utterance(identity)) utterance_.reset();
 }
 
 void W8NpcDialogue::ReplyDialogOpened(std::optional<W8NpcPriceCheck> price_check)

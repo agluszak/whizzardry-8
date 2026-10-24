@@ -2590,6 +2590,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
             ReleasePartyMovement();
         }
 
+        dialogue.discardSpeech();
         ShutdownTextBoxRegions();
         DestroyFormationPanel();
         wiz8::sound::release_cache();
@@ -5898,7 +5899,8 @@ void ConfirmNpcTradeItem(void)
                                                                     : W8TradeAction::Exchange;
     const auto result = CompleteNpcTrade(game, npc, actor, selection, panel.trade_quantity, action);
     if (result.theft_succeeded)
-        DisplayNpcQuote(fmt::sprintf(Data().strings[0x74d], game.party.characters[actor].name,
+        DisplayNpcQuote(game,
+                        fmt::sprintf(Data().strings[0x74d], game.party.characters[actor].name,
                                      GetItemDisplayName(Data(), &selection.expected)),
                         true);
     switch (result.outcome) {
@@ -5907,7 +5909,7 @@ void ConfirmNpcTradeItem(void)
         break;
     case W8TradeOutcome::Complete:
         wiz8::sound::play("Data\\Sound\\misc\\Cash Transaction.wav");
-        if (result.dropped_overflow) DisplayNpcQuote(Data().strings[0x6b1], false);
+        if (result.dropped_overflow) DisplayNpcQuote(game, Data().strings[0x6b1], false);
         if (!result.theft_succeeded) SortNpcItems(npc);
         RebuildNpcTradeItemList(false);
         if (!result.theft_succeeded) {
@@ -5917,8 +5919,8 @@ void ConfirmNpcTradeItem(void)
         if (result.accepted_topic) game.npc_dialogue.QueueQuote(0x15, false, false, false);
         break;
     case W8TradeOutcome::TheftFailed:
-        DisplayNpcQuote(fmt::sprintf(Data().strings[0x74f], game.party.characters[actor].name),
-                        false);
+        DisplayNpcQuote(
+            game, fmt::sprintf(Data().strings[0x74f], game.party.characters[actor].name), false);
         break;
     case W8TradeOutcome::TheftCaught:
         game.npc_dialogue.QueueQuote(0x17, false, false, false);

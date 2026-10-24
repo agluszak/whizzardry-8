@@ -1028,7 +1028,8 @@ W8CharacterEvent* W8CharacterEventQueue::QueueEntry(std::unique_ptr<W8CharacterE
             return nullptr;
         }
     }
-    if ((game.npc_dialogue.DefersCharacterEvents(false) || IsNpcScriptSessionActive()) &&
+    if ((game.npc_dialogue.DefersCharacterEvents(false) ||
+         game.npc_dialogue.has_active_utterance()) &&
         (entry->flags & W8_EVENT_NO_NPC_DEFER) == 0) {
         return npc_deferred_events.emplace_back(std::move(entry)).get();
     }
@@ -1112,7 +1113,7 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
     }
 
     if (!npc_deferred_events.empty() && !game.npc_dialogue.DefersCharacterEvents(false) &&
-        !IsNpcScriptSessionActive()) {
+        !game.npc_dialogue.has_active_utterance()) {
         /* Requeueing can dispatch, so detach the batch first; anything
            deferred again lands in the emptied list. */
         auto deferred = std::move(npc_deferred_events);
