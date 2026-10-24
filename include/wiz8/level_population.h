@@ -38,7 +38,7 @@ struct W8LevelPopulation {
     Monster* findEntity(int id) const
     {
         const auto* info = findMonster(id);
-        return info ? info->entity.find() : nullptr;
+        return info ? info->entity.get() : nullptr;
     }
     auto activeMemberCount(const W8MonsterGroup& group) const
     {

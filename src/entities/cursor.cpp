@@ -74,9 +74,7 @@ void InitializeWorldCursor(void)
         cursor.detached = false;
         cursor.march_enabled = true;
         cursor.footprint_mode = false;
-        auto monster = LoadMonsterCycle(GetWorld(), "3DCursor", -1);
-        cursor.monster = monster.get();
-        GetWorld()->monsters.push_back(std::move(monster));
+        cursor.monster = LoadMonsterCycle(GetWorld(), "3DCursor", -1);
         cursor.monster->SetCycle(0);
         cursor.last_published = glm::vec3(-100000000.0f);
         cursor.position = glm::vec3(0);
@@ -88,7 +86,7 @@ void InitializeWorldCursor(void)
         cursor.input_delta.z = 0;
         position = cursor.position;
         cursor.monster->SetAdjustedPosition(&position);
-        GetWorld()->active_monsters.push_back(cursor.monster);
+        GetWorld()->active_monsters.push_back(cursor.monster.get());
         cursor.monster->UpdateRepresentation();
         cursor.monster->SetActive(false);
         cursor.light = CreateRangedWorldLight(GetWorld(), "3D Cursor Light");
@@ -140,7 +138,7 @@ void ReleaseWorldCursor(void)
     delta = cursor->position - camera;
     GetWorld()->cursor_recall.projection_distance = glm::length(delta);
 
-    if (cursor->monster) cursor->monster->owner_world.destroyMonster(*cursor->monster);
+    cursor->monster.reset();
     if (cursor->light != 0) {
         WorldRemoveLight(GetWorld(), cursor->light);
         cursor->light = 0;

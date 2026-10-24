@@ -94,9 +94,13 @@ does not satisfy this contract.
   has defined copy-back/save behavior. A UI draft, accepted action and executing
   action are likewise different stages, not redundant mirrors. Never keep parallel
   mutable representations that require routine synchronization.
-- **Ownership is not membership.** A world owns its monsters; groups, combat,
+- **Ownership is not membership.** A world owns its monster records, and each record
+  exclusively owns its optional loaded runtime. The world cursor owns its own
+  animation body; it is not a gameplay monster. Groups, combat,
   indexes and VSG scene attachments reference them. A monster record may exist
   without a body, a loaded body may be inactive, and death may leave a fading body.
+  The existing navigator index borrows loaded bodies in construction order; there
+  is no second owning body collection or attach/detach protocol.
   Neither scene attachment nor combat participation decides destruction. Deferred
   work identifies its original actor/session, never whichever one is current later.
 - **Borrow according to lifetime.** A live actor can retain its `World&`; a party

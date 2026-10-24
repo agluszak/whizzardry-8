@@ -259,8 +259,7 @@ void ActivateMonster(W8MonsterInfo* monster_info)
     assert(monster_info && !monster_info->fActive);
     if (monster_info->entity) return;
     auto monster = ReadMonsterRepresentation(*GetWorld(), monster_info);
-    monster_info->entity.attach(*monster);
-    GetWorld()->monsters.push_back(std::move(monster));
+    monster_info->entity = std::move(monster);
     ConfigureMonsterRepresentation(*GetWorld(), monster_info);
 }
 
@@ -457,7 +456,7 @@ Monster* GetMonsterByLocationID(int location_id)
 {
     if (location_id != -1) {
         if (W8MonsterInfo* monster_info = FindMonster(location_id, false)) {
-            return monster_info->entity.find();
+            return monster_info->entity.get();
         }
     }
     return 0;
@@ -479,7 +478,7 @@ float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info)
 
 void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info)
 {
-    Monster* monster = monster_info->entity.find();
+    Monster* monster = monster_info->entity.get();
     if (!monster || monster->damage_stage_count <= 1) return;
     const int count = monster->damage_stage_count;
     const int value =
@@ -597,7 +596,7 @@ void DestroyUngroupedMonsters(void)
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
 
         if (monster_info->monster_group_id == 0) {
-            Monster* monster = monster_info->entity.find();
+            Monster* monster = monster_info->entity.get();
 
             if (monster != 0) {
                 if ((monster->runtime_flags & W8_MONSTER_REMOVE_AFTER_FADE) != 0 &&
@@ -858,10 +857,9 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
         CurrentGame().combat->endTurnOf(MonsterActor{monster_info->location_id});
     }
     if (removal == W8MonsterRemoval::Deactivate) return true;
-    if (Monster* monster = monster_info->entity.find()) {
+    if (Monster* monster = monster_info->entity.get()) {
         if (removal == W8MonsterRemoval::Despawn) monster->visual.RetireParticles();
-        monster_info->entity.detach();
-        monster->owner_world.destroyMonster(*monster);
+        monster_info->entity.reset();
     }
     // Inactive and unborn records also own visibility/NPC relationships.
     ReleaseMonToMonVisibilityList(monster_info);

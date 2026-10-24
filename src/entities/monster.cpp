@@ -345,6 +345,8 @@ Monster::Monster(const MonsterDefinition& definition, World& owner)
 
 Monster::~Monster()
 {
+    if (visual.active_animation) visual.DetachRepresentation();
+    std::erase(owner_world.active_monsters, this);
     visual.SetLights(0);
     ClearMonsterSpellIcons(*this);
     script.reset();
@@ -2431,13 +2433,6 @@ std::unique_ptr<WorldItemEntity> CreateMonsterIconItem(World& world, std::string
     item->AttachMesh(&world);
     instance->light_scale = glm::vec3(0);
     return item;
-}
-
-void World::destroyMonster(Monster& monster)
-{
-    monster.visual.DetachRepresentation();
-    std::erase(active_monsters, &monster);
-    std::erase_if(monsters, [&monster](const auto& owner) { return owner.get() == &monster; });
 }
 
 void Monster::TickAnimation(float time_scale)

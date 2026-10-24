@@ -1033,7 +1033,7 @@ no_probes:;
                 W8MonsterInfo* info =
                     (owner_world ? owner_world->population->findMonster(id) : nullptr);
                 if (info != 0) {
-                    Monster* monster = info->entity.find();
+                    Monster* monster = info->entity.get();
                     if (monster != 0 && monster->nav.active &&
                         (monster->nav.trace_mask & flags) == 0) {
                         const glm::vec3 center(monster->nav.movement.position.x,
@@ -2076,7 +2076,7 @@ static bool OverlapsNearbyMonster(const World* world, const glm::vec3& point, fl
 {
     return std::ranges::any_of(locations, [&](std::uint32_t id) {
         auto* info = world && world->population ? world->population->findMonster(id) : nullptr;
-        auto* monster = info ? info->entity.find() : nullptr;
+        auto* monster = info ? info->entity.get() : nullptr;
         if (!monster) return false;
         const auto delta = monster->nav.GetPosition() - point;
         const float clearance =

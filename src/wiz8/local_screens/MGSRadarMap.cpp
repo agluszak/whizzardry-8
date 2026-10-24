@@ -176,7 +176,7 @@ void RadarMap::update(const W8TargetingPresentation& presentation)
 
     for (const auto& monster_owner : world.population->monster_roster.live()) {
         auto* info = monster_owner.get();
-        Monster* monster = info->entity.find();
+        Monster* monster = info->entity.get();
 
         if (monster != 0 && info->fActive && info->within_viewing_distance &&
             (!monster->disabled || detect_all)) {

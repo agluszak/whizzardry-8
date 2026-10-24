@@ -966,7 +966,6 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
     const ScopedGameData installed(EncounterLevelData());
     GetWorld()->encounters.random_budget = 8;
     auto& population = CurrentLevelPopulation();
-    std::array<std::unique_ptr<Monster>, 3> representations;
     for (int index = 0; index < 3; ++index) {
         auto group = std::make_unique<W8MonsterGroup>();
         group->group_id = index + 1;
@@ -976,11 +975,9 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
         population.monster_groups.push_back(std::move(group));
         auto record = std::make_unique<W8MonsterInfo>();
         record->location_id = index + 1;
-        auto& monster = representations[index];
-        monster = std::make_unique<Monster>(*GetWorld());
+        auto& monster = record->entity = std::make_unique<Monster>(*GetWorld());
         monster->location_id = index + 1;
         monster->nav.movement.leadership_rank = 0;
-        record->entity.attach(*monster);
         population.monster_roster.add(std::move(record), false);
     }
     auto* old = population.monster_groups[0].get();
@@ -996,7 +993,8 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
     REQUIRE(first->leader_group_id == 0);
     REQUIRE(first->allied_group_ids[0] == 3);
     REQUIRE(second->leader_group_id == 2);
-    REQUIRE(representations[2]->nav.linked_navigator == &(representations[1].get())->nav);
+    REQUIRE(population.findMonster(3)->entity->nav.linked_navigator ==
+            &population.findMonster(2)->entity->nav);
 }
 
 TEST_CASE_METHOD(LevelWorldFixture,

@@ -5329,7 +5329,7 @@ void SetCombatSelection(int value)
     MainGameHud()->highlighted_item = -1;
     if (value != -1) {
         auto* info = FindMonster(value, false);
-        if (Monster* monster = info ? info->entity.find() : nullptr) {
+        if (Monster* monster = info ? info->entity.get() : nullptr) {
             const auto bounds = monster->GetWorldAnimationBounds();
             if (bounds && traceLineOfSightToBounds(cameraLocation(), *bounds))
                 MainGameHud()->highlighted_item = value;

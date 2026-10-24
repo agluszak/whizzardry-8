@@ -92,7 +92,7 @@ public:
 };
 
 // Resources and borrowed indexes precede their consumers. Reverse member
-// destruction removes entities before their scene, spatial, audio and population.
+// destruction removes population-owned bodies before their resources and indexes.
 struct World {
     explicit World(int level_id = -1, std::string source_path = {});
     ~World();
@@ -116,7 +116,6 @@ struct World {
     LevelSpatialIndex* compiledIndex() const;
     LevelSpatialIndex* collisionIndex() const;
     AmbientAudioSystem audio;
-    std::unique_ptr<W8LevelPopulation> population;
     Automap automap{*this};
     // These indexes borrow resources owned below or by the scene.
     Camera3D* camera{};
@@ -145,21 +144,21 @@ struct World {
     std::vector<std::unique_ptr<TriggerEvent>> timed_events;
     TriggerEvent* findTimedAction(const Trigger* trigger) const;
     TriggerEvent& addTimedAction(Trigger* trigger);
-    // Detach one of this world's monsters from the scene and destroy it.
-    void destroyMonster(Monster& monster);
     std::vector<std::unique_ptr<Prop>> plsProps;
     std::vector<std::unique_ptr<WorldItemEntity>> plsItems;
     std::vector<std::unique_ptr<W8WorldCursorNode>> cursor_nodes;
-    std::unique_ptr<W8WorldCursorState> cursor;
     W8WorldCursorRecall cursor_recall;
     /* The *_definitions hold the loaded resources of each monster species, spell
        visual and missile kind; live entities are created from them. */
     std::vector<std::unique_ptr<MonsterDefinition>> monster_definitions;
-    std::vector<std::unique_ptr<Monster>> monsters;
     std::vector<std::unique_ptr<SpellVisualDefinition>> spell_visual_definitions;
     std::vector<std::unique_ptr<SpellVisual>> spell_visuals;
     std::vector<std::unique_ptr<MissileDefinition>> missile_definitions;
     std::vector<std::unique_ptr<Missile>> missiles;
+    // Records own their loaded bodies. Both these owners go before the resource
+    // definitions, particles, navigation index and scene their bodies borrow.
+    std::unique_ptr<W8LevelPopulation> population;
+    std::unique_ptr<W8WorldCursorState> cursor;
     W8EncounterState encounters;
     // Where the entities report missile hits and release frames; null reports nowhere.
     SimulationSink* simulation = nullptr;

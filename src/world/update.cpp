@@ -41,6 +41,7 @@
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/environment.h"
@@ -308,18 +309,17 @@ void WorldUpdateLights(World* world)
     for (const auto& light : world->transient_lights)
         if (!std::holds_alternative<std::monostate>(light->animator))
             light->Update(std::chrono::duration<float>(CurrentGame().visual_time).count());
-    const auto update_cycles = [&](const auto& cycles) {
-        for (const auto& cycle : cycles) {
-            if (!cycle->visual.m_plsLights) continue;
-            for (const auto& light : *cycle->visual.m_plsLights)
-                if (!std::holds_alternative<std::monostate>(light->animator) &&
-                    light->scene == (world->scene.get()))
-                    light->Update(std::chrono::duration<float>(CurrentGame().visual_time).count());
-        }
+    const auto update_cycle = [&](const auto& cycle) {
+        if (!cycle.visual.m_plsLights) return;
+        for (const auto& light : *cycle.visual.m_plsLights)
+            if (!std::holds_alternative<std::monostate>(light->animator) &&
+                light->scene == world->scene.get())
+                light->Update(std::chrono::duration<float>(CurrentGame().visual_time).count());
     };
-    update_cycles(world->monsters);
-    update_cycles(world->missiles);
-    update_cycles(world->spell_visuals);
+    for (const auto* navigator : world->navigators)
+        if (navigator->monster_owner) update_cycle(*navigator->monster_owner);
+    for (const auto& missile : world->missiles) update_cycle(*missile);
+    for (const auto& visual : world->spell_visuals) update_cycle(*visual);
 }
 
 void SetWorldSceneMeshShaderLowBits(World* owner, int argument)

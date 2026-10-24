@@ -37,6 +37,7 @@
 #include "wiz8/entities/emitter_cycles.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entities/script.h"
 #include "wiz8/entities/spell_visual.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
@@ -882,4 +883,62 @@ TEST_CASE(
     REQUIRE(scope.session.game() == nullptr);
     REQUIRE_FALSE(GameInProgress());
     REQUIRE(scope.session.begin().rng.next() == 18467);
+}
+
+TEST_CASE("A monster record owns its loaded body independently of activation",
+          "[resources][monsters]")
+{
+    World world;
+    auto record = std::make_unique<W8MonsterInfo>();
+    record->location_id = 7;
+    record->entity = std::make_unique<Monster>(world);
+    auto* body = record->entity.get();
+    body->inactive = true;
+    world.active_monsters.push_back(body);
+    Navigator follower(world);
+    follower.target_navigator = &body->nav;
+    follower.linked_navigator = &body->nav;
+    auto* info = world.population->monster_roster.add(std::move(record), true);
+
+    REQUIRE_FALSE(info->fActive);
+    REQUIRE(world.population->monster_roster.promote(info));
+    REQUIRE(world.population->findEntity(7) == body);
+    REQUIRE(body->inactive);
+
+    // Unloading the runtime leaves the logical record, but no dangling update,
+    // targeting or formation references to its former body.
+    info->entity.reset();
+    REQUIRE(world.population->findMonster(7) == info);
+    REQUIRE(world.active_monsters.empty());
+    REQUIRE(follower.target_navigator == nullptr);
+    REQUIRE(follower.linked_navigator == nullptr);
+    REQUIRE(world.navigators.size() == 2); // Party and follower only.
+
+    // A later body is released by population teardown, while its world's
+    // navigation and scene resources are still alive.
+    info->entity = std::make_unique<Monster>(world);
+    world.active_monsters.push_back(info->entity.get());
+}
+
+TEST_CASE("Only the first loaded actor of a species inherits its default script",
+          "[resources][monsters]")
+{
+    const ScopedGame scope;
+    World world;
+    auto definition = std::make_unique<MonsterDefinition>();
+    definition->asset_name = "Test";
+    const auto script = definition->script = std::make_shared<Script>();
+    world.monster_definitions.push_back(std::move(definition));
+
+    auto first = Monster::ReadAllCycles(&world, "Test", 1);
+    REQUIRE(first->script == script);
+    auto second = Monster::ReadAllCycles(&world, "Test", 2);
+    REQUIRE_FALSE(second->script);
+    first.reset();
+    auto third = Monster::ReadAllCycles(&world, "Test", 3);
+    REQUIRE_FALSE(third->script);
+    second.reset();
+    third.reset();
+    auto last = Monster::ReadAllCycles(&world, "Test", 4);
+    REQUIRE(last->script == script);
 }

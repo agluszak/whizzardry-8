@@ -938,7 +938,7 @@ W8MonsterInfo* EnterCombat(GameHarness& game)
     REQUIRE(CurrentGame().combat);
     W8MonsterInfo* monster = nullptr;
     for (const auto& candidate : CurrentLevelPopulation().monster_roster.live()) {
-        if (candidate->fActive && candidate->entity.find() && candidate->hp_current &&
+        if (candidate->fActive && candidate->entity.get() && candidate->hp_current &&
             candidate->ubDisposition == W8_DISPOSITION_HOSTILE) {
             monster = candidate.get();
             break;

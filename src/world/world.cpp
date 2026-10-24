@@ -423,7 +423,7 @@ bool AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_
     if (check_monsters) {
         for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
             auto* info = monster_owner.get();
-            Monster* monster = info->entity.find();
+            Monster* monster = info->entity.get();
             if (monster != 0) {
                 const auto center = monster->GetAnimationCenter();
                 float other_radius;

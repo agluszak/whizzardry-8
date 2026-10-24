@@ -407,7 +407,6 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
     status.next_group_id = 77;
     status.world_clock = 123456;
     auto& population = *world.population;
-    std::vector<std::unique_ptr<Monster>> models;
     for (int index = 0; index < 4; ++index) {
         auto group = std::make_unique<W8MonsterGroup>();
         group->group_id = index + 1;
@@ -429,7 +428,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         record->hp_current = 5 * index;
         record->position = {index * 10.0f, 1.0f, -2.0f};
         record->enchantments[1].turns = 3;
-        auto& model = models.emplace_back(std::make_unique<Monster>(world));
+        auto& model = record->entity = std::make_unique<Monster>(world);
         model->location_id = index + 1;
         model->defining_orders = index == 0;
         model->patrol_distance = 4.5f;
@@ -437,7 +436,6 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         model->vector = {{1, 2, 3}, {4, 5, 6}};
         model->direction_x = 0.25f;
         model->face_party = true;
-        record->entity.attach(*model);
         population.monster_roster.add(std::move(record), index == 2);
     }
     for (int index = 0; index < 2; ++index) {

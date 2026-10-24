@@ -135,7 +135,7 @@ void ApplyTargetingPresentation(const W8TargetingPresentation& presentation)
 {
     if (!GetWorld()) return;
     for (const auto& info : CurrentLevelPopulation().monster_roster.live()) {
-        auto* monster = info->entity.find();
+        auto* monster = info->entity.get();
         if (!monster) continue;
         const auto found = presentation.monsters.find(info->location_id);
         const auto mark =

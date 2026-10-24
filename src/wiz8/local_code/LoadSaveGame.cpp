@@ -652,7 +652,7 @@ struct SavedMonster {
     static SavedMonster Capture(const W8MonsterInfo& info, bool unborn)
     {
         if (!info.entity) throw std::runtime_error("missing monster");
-        Monster& monster = *info.entity.find();
+        Monster& monster = *info.entity.get();
         SavedMonster saved{.image = wiz8::retail::encode_image(info), .unborn = unborn};
         if (info.fActive) {
             auto position = monster.GetRepresentationLocation();
@@ -1501,8 +1501,7 @@ std::unique_ptr<W8LoadedLevelStatus> LevelState::build(World& world) &&
             return saved_group.image.group_id == info.monster_group_id;
         });
         auto model = ReadMonsterRepresentation(world, &info);
-        info.entity.attach(*model);
-        world.monsters.push_back(std::move(model));
+        info.entity = std::move(model);
         RestoreMonsterSpellIcons(world, info, *info.entity);
         if (!info.entity->script && !scripts.default_script && group->image.encounter_registered)
             scripts.default_script = LoadMonsterScript("Default.MSF");

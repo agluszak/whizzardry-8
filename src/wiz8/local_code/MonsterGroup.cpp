@@ -840,7 +840,7 @@ void ElectGroupLeaderMember(W8MonsterGroup* monster_group)
     assert(monster_group != 0);
     assert(!monster_group->MemberIds().empty());
     W8MonsterInfo* old_info = FindMonster(monster_group->leader_location_id);
-    Monster* old_monster = old_info->entity.find();
+    Monster* old_monster = old_info->entity.get();
     int leader_id = 0;
     unsigned int best = 0;
     if (!monster_group->MemberIds().empty()) {
@@ -866,7 +866,7 @@ void ElectGroupLeaderMember(W8MonsterGroup* monster_group)
 done:
     W8MonsterInfo* leader_info = FindMonster(monster_group->leader_location_id);
     Script* script = old_monster ? old_monster->script.get() : nullptr;
-    Monster* leader_monster = leader_info->entity.find();
+    Monster* leader_monster = leader_info->entity.get();
     if (script && leader_monster) {
         leader_monster->SetScript(script->getName(), true);
     }

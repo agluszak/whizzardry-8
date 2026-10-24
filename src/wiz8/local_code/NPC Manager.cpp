@@ -621,7 +621,7 @@ Monster* GetNpcMonster(W8NpcState* npc)
     if (monster_info == 0) {
         return 0;
     }
-    return monster_info->entity.find();
+    return monster_info->entity.get();
 }
 
 /* Move the NPC into one disposition band. Each band is written as one
@@ -1190,7 +1190,7 @@ W8PreparedNpcBindings PrepareNpcBindings(World& world)
         existing->bound_level = static_cast<unsigned char>(world.level_id);
         // Without a created state the slot holds the story's own NPC (source).
         W8NpcState& npc = existing->created ? *existing->created : *CurrentGame().story.npcs[slot];
-        existing->script = LoadNpcScriptResources(npc, info.entity.find());
+        existing->script = LoadNpcScriptResources(npc, info.entity.get());
         info.bound_npc_index = slot;
     };
     for (const auto* list :

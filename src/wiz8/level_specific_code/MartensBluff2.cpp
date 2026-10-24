@@ -565,7 +565,7 @@ bool MartensBluff2Script::monsterCrusher(int command)
     }
     for (i = 0; i < count; i++) {
         info = FindMonster(location_ids[i]);
-        Monster* monster = info ? info->entity.find() : nullptr;
+        Monster* monster = info ? info->entity.get() : nullptr;
         if (monster && monster->nav.flags != 0x200000) {
             position = monster->nav.GetPosition();
             radius = monster->nav.movement.alternate_radius;

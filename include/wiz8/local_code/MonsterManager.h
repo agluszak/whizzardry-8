@@ -10,7 +10,7 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/data/records.h"
 #include "wiz8/difficulty.h"
-#include "wiz8/entity_link.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/targeting.h"
 
@@ -287,9 +287,10 @@ struct W8MonsterInfo {
     int location_id;
     int monster_group_id;
     unsigned int monster_species;
-    // The monster's scene entity while the record is active.
-    EntityLink<Monster> entity;
-    /* Combat state exists only during the fight, and owns its action queue. */
+    // The optional loaded runtime, including navigation, scripts and presentation.
+    // A loaded body can be inactive or dying; presence is not activation.
+    std::unique_ptr<Monster> entity;
+    /* Engagement state can exist before the party enters combat. */
     std::unique_ptr<W8MonsterCombatState> pCombat;
     bool fActive;
     /* Copied from the group's ubDisposition when the entry is created. */

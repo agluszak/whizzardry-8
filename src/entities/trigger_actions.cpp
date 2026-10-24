@@ -988,7 +988,7 @@ void WakeMonsterGroup(int monster_id)
     if (monster_info == nullptr) return;
 
     group.members_active = true;
-    Monster* monster = monster_info->entity.find();
+    Monster* monster = monster_info->entity.get();
     if (monster == nullptr) return;
     monster->visual.rep_active = true;
     monster->visual.animation_playing = 1;

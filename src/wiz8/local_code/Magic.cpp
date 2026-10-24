@@ -3387,7 +3387,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             return;
         }
         GetMonsterDataForInfo(monster_info);
-        monster = monster_info->entity.find();
+        monster = monster_info->entity.get();
     }
     /* A monster source, direct or (for backfire and reflection) indirect, was
        resolved above; a direct one is also where the spell starts from. */

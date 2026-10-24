@@ -587,8 +587,11 @@ std::unique_ptr<Monster> Monster::ReadAllCycles(World* world, std::string_view m
     RollAppearance(*monster, **definition);
     // Retail gave the MLS script only to an actor created while none of its
     // species was alive; the others were copied without one.
-    if ((*definition)->script && std::ranges::none_of(world->monsters, [&](const auto& live) {
-            return CompareTextIgnoreAsciiCase(live->asset_name, monster_name) == 0;
+    if ((*definition)->script &&
+        std::ranges::none_of(world->navigators, [&](const Navigator* navigator) {
+            const auto* live = navigator->monster_owner;
+            return live && live != monster.get() &&
+                   CompareTextIgnoreAsciiCase(live->asset_name, monster_name) == 0;
         })) {
         monster->UseScript((*definition)->script, true);
     }
