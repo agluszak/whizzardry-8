@@ -58,6 +58,7 @@
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
@@ -1577,7 +1578,7 @@ TEST_CASE("Recruitable NPC construction uses standalone spell and character rule
     REQUIRE(character.spell_learned[W8_SPELL_LIGHT] == 1);
     REQUIRE(character.party_weight_share == 0);
     REQUIRE(character.bonus.damage_bonus == 0);
-    REQUIRE(character.hp_current == character.uiHPMax);
+    REQUIRE(std::cmp_equal(character.hp_current, character.uiHPMax));
     REQUIRE(std::ranges::all_of(character.EquippedItem,
                                 [](const auto& item) { return item.iItemNo == -1; }));
 }
