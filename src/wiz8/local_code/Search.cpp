@@ -220,7 +220,7 @@ static void RunSearchPulse(bool searching)
             }
         }
         if (searching && !IsLevelFastMovement() && !found && CurrentGame().rng.below(100) == 0) {
-            ApplyItemEffectToRandomCharacter(g_container_event, -1, 0);
+            CurrentGame().speech.QueueRandom(g_container_event, -1, 0);
         }
     }
 }

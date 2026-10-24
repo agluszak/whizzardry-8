@@ -170,7 +170,7 @@ void UpdateMonsterGroups(bool staggered)
     float nearest_distance;
     unsigned int group_list_index;
 
-    if (!AnyCharacterActive()) {
+    if (!(CurrentGame().party.participantCount() != 0)) {
         return;
     }
     if ((CurrentLevelPopulation().monster_groups.empty())) {

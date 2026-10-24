@@ -25,6 +25,8 @@ struct W8Party {
     void beginDefensiveAction(unsigned int slot, W8ActionKind action);
     bool canAttack(unsigned int slot) const;
     bool participates(unsigned int slot) const;
+    unsigned int participantCount() const;
+    unsigned int awardExperience(unsigned int amount);
     W8Action availableAction(unsigned int slot, W8Action action) const;
     W8Action action(unsigned int slot, W8TargetingContext stored) const;
     bool aimAction(unsigned int slot, W8TargetingContext stored, const W8CombatSlot& target,

@@ -21,6 +21,7 @@
 #include "monster_actions.h"
 #include "navigation_flags.h"
 #include "sight_state.h"
+#include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
@@ -401,30 +402,6 @@ done:
             CurrentGame().status.status_ints[monster_species] = 1;
         }
     }
-}
-
-namespace {
-struct RecentCombat {
-    // The game's step time at which the last fight stops counting as recent.
-    std::chrono::milliseconds until{};
-    W8Difficulty difficulty = W8_DIFFICULTY_NOVICE;
-};
-RecentCombat recent_combat;
-} // namespace
-
-void RecordCombatStart()
-{
-    recent_combat.until = CurrentGame().time + std::chrono::minutes{2};
-}
-
-void ForgetRecentCombat()
-{
-    recent_combat.until = {};
-}
-
-W8Difficulty LastCombatDifficulty()
-{
-    return recent_combat.difficulty;
 }
 
 /* A species' record, or null for a species the database does not hold. */
@@ -1423,7 +1400,8 @@ void EvaluateCombatDifficulty(void)
         break;
     }
     if ((CurrentGame().combat.has_value() && CurrentGame().combat->party_surprised) ||
-        CurrentGame().time >= recent_combat.until || difficulty != recent_combat.difficulty) {
+        CurrentGame().time >= CurrentGame().recent_combat.until ||
+        difficulty != CurrentGame().recent_combat.difficulty) {
         unsigned int event_type;
         switch (difficulty) {
         case W8_DIFFICULTY_NOVICE:
@@ -1436,10 +1414,10 @@ void EvaluateCombatDifficulty(void)
             event_type = 31;
             break;
         }
-        ApplyItemEffectToRandomCharacter(event_type, -1, 0);
+        CurrentGame().speech.QueueRandom(event_type, -1, 0);
     }
     ++CurrentGame().status.combat_difficulty_counts[difficulty];
-    recent_combat.difficulty = difficulty;
+    CurrentGame().recent_combat.difficulty = difficulty;
 
     for (slot = 0; slot < 2; ++slot) {
         if (CurrentGame().party.members[slot].has_value()) {

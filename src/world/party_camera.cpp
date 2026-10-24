@@ -7,6 +7,7 @@
 #include <numbers>
 #include <optional>
 #include <string_view>
+#include <utility>
 
 #include <SDL3/SDL_stdinc.h>
 #include <glm/common.hpp>

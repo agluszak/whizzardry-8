@@ -16,7 +16,6 @@ void ExecuteCharacterAction(Game& game, int party_slot);
 void BeginCombatExecution(void);
 void AssignCombatPhases(void);
 
-void ApplyCombatEndEffects(void);
 bool CombatHasContinuingEffects(void);
 /* Whether continuous-combat stance may advance past the pending
    NPC-script / engagement gate. */

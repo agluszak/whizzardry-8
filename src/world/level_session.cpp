@@ -419,7 +419,7 @@ static void EnterLevel(Game& game, World& world, int level, int entrance, bool r
             ClearPendingNpcLevelFlags();
             ReleaseNpcMonsterBindings();
             RecordLevelEntryDialogueState();
-            ForgetRecentCombat();
+            game.recent_combat.until = {};
         }
         if (game.status.greeting_pending &&
             (game.testFact(W8_FACT_IMPORT_UMPANI) || game.testFact(W8_FACT_IMPORT_TRANG))) {

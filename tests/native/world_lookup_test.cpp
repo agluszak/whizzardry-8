@@ -6,6 +6,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -312,33 +313,44 @@ TEST_CASE("Only published worlds schedule their trigger events", "[levels][event
     REQUIRE(GetWorld()->timed_events.empty());
 }
 
-TEST_CASE("Reward accounting follows the owned world, not a pending save destination",
+TEST_CASE("Reward accounting follows its game and world, not installed state or save destination",
           "[levels][rewards]")
 {
-    const ScopedGame game;
+    const ScopedGame outgoing;
+    const ScopedGameData installed{GameData{}};
     GameData data{.strings = std::vector<std::string>(0x233)};
     data.strings[0x232] = "%d";
-    const ScopedGameData installed(std::move(data));
-    auto& characters = CurrentGame().party.characters;
-    CurrentGame().party.members[0].emplace();
-    characters[0].hp_current = 1;
-    CurrentGame().status.resume_level = 8;
-    game.game.level.replacePrimary(std::make_unique<World>(3));
-    AddPartyGold(CurrentGame(), 1, false);
-    AwardPartyExperience(1, 0);
-    REQUIRE(CurrentGame().status.level_progress[3].gold_collected == 1);
-    REQUIRE(CurrentGame().status.level_progress[3].experience_gained == 1);
-    REQUIRE(CurrentGame().status.level_progress[8].gold_collected == 0);
-    REQUIRE(CurrentGame().status.level_progress[8].experience_gained == 0);
-    game.game.level.replacePrimary(nullptr);
-    const auto suffix = CurrentGame().status.retail.status_header_suffix;
-    AddPartyGold(CurrentGame(), 1, false);
-    AwardPartyExperience(1, 0);
-    REQUIRE(CurrentGame().party.gold == 2);
-    REQUIRE(characters[0].experience == 2);
-    REQUIRE(CurrentGame().status.level_progress[3].gold_collected == 1);
-    REQUIRE(CurrentGame().status.level_progress[3].experience_gained == 1);
-    REQUIRE(CurrentGame().status.retail.status_header_suffix == suffix);
+    Game game{data};
+    auto& characters = game.party.characters;
+    for (unsigned int slot : {0u, 2u, 3u}) game.party.members[slot].emplace();
+    characters[0].hp_current = characters[2].hp_current = 1;
+    characters[0].experience = std::numeric_limits<unsigned int>::max() - 1;
+    game.status.resume_level = 8;
+    game.level.replacePrimary(std::make_unique<World>(3));
+    AddPartyGold(game, 1, false);
+    game.awardExperience(1, false);
+    REQUIRE(game.status.level_progress[3].gold_collected == 1);
+    REQUIRE(game.status.level_progress[3].experience_gained == 2);
+    REQUIRE(game.status.level_progress[8].experience_gained == 0);
+    REQUIRE(characters[0].experience == std::numeric_limits<unsigned int>::max());
+    REQUIRE(characters[2].experience == 1);
+    REQUIRE(characters[3].experience == 0);
+    REQUIRE(game.level_up_check_due);
+    REQUIRE(game.npc_dialogue.has_queued_actions());
+    game.level.replacePrimary(nullptr);
+    const auto suffix = game.status.retail.status_header_suffix;
+    AddPartyGold(game, 1, false);
+    game.awardExperience(1, false);
+    REQUIRE(game.party.gold == 2);
+    REQUIRE(characters[0].experience == std::numeric_limits<unsigned int>::max());
+    REQUIRE(characters[2].experience == 2);
+    REQUIRE(game.status.level_progress[3].gold_collected == 1);
+    REQUIRE(game.status.level_progress[3].experience_gained == 2);
+    REQUIRE(game.status.retail.status_header_suffix == suffix);
+    REQUIRE(outgoing.game.party.gold == 0);
+    REQUIRE(outgoing.game.party.characters[0].experience == 0);
+    REQUIRE(outgoing.game.status.level_progress[3].experience_gained == 0);
+    REQUIRE_FALSE(outgoing.game.npc_dialogue.has_queued_actions());
 }
 
 TEST_CASE("An unloaded monster target has no position", "[levels][targeting]")

@@ -43,8 +43,6 @@ std::string GetCharacterVoicePath(const W8Character& character, unsigned int eve
 extern const int g_fact_check_event;
 
 int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot);
-W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int excluded_slot,
-                                                   unsigned int flags);
 void MaybeStartIncapacitationEvent(unsigned int party_slot);
 /* Only one occupied member still standing at turn begin. */
 void QueueLastSurvivorEvent(void);

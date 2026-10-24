@@ -124,12 +124,6 @@ const W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
    its current attack cycle made to it. */
 W8RangeCategory MonsterAttackRange(const W8MonsterInfo& monster_info, const W8MonsterRecord& record,
                                    unsigned int attack);
-/* Combat started: for two minutes a new fight at the same difficulty skips
-   the combat-start character reaction. */
-void RecordCombatStart(void);
-/* Forget the recent combat, so the next fight reacts again. */
-void ForgetRecentCombat(void);
-W8Difficulty LastCombatDifficulty(void);
 W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* record,
                                  glm::vec3* position);
 

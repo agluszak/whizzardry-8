@@ -120,7 +120,7 @@ bool Game::beginCombat(int surprise)
     float nearest_distance;
     unsigned int index;
 
-    if (!AnyCharacterActive()) {
+    if (party.participantCount() == 0) {
         return false;
     }
     if (!HasLevelWalkableContact()) {
@@ -416,33 +416,31 @@ bool CombatHasContinuingEffects(void)
     return false;
 }
 
-void ApplyCombatEndEffects(void)
+void Game::applyCombatEndEffects()
 {
     int slot;
     for (slot = 0; slot < 2; ++slot) {
-        if (CurrentGame().party.members[slot].has_value()) {
-            W8NpcState* npc = GetNpcState(CurrentGame().party.npcIndex(slot));
+        if (party.members[slot].has_value()) {
+            W8NpcState* npc = story.npc(party.npcIndex(slot));
             if (npc != 0) {
-                W8Character* character = &CurrentGame().party.characters[slot];
+                W8Character* character = &party.characters[slot];
                 if (character->highest_condition == W8_CONDITION_DEAD) {
                     if (npc->healer_assist) {
-                        ApplyItemEffectToRandomCharacter(13, -1, 0);
+                        speech.QueueRandom(13, -1, 0);
                     } else if (npc->item_assist) {
-                        ApplyItemEffectToRandomCharacter(20, -1, 0);
+                        speech.QueueRandom(20, -1, 0);
                     }
                 }
             }
         }
     }
     for (slot = 0; slot < 8; ++slot) {
-        W8Character* character = &CurrentGame().party.characters[slot];
-        if (CurrentGame().party.members[slot].has_value() &&
-            character->uiCondition[W8_CONDITION_DEAD] == 0 &&
+        W8Character* character = &party.characters[slot];
+        if (party.members[slot].has_value() && character->uiCondition[W8_CONDITION_DEAD] == 0 &&
             character->uiCondition[W8_CONDITION_MISSING] != 0 &&
-            !CurrentGame().monster_manager_entries[slot].condition_19_latch &&
-            (!CurrentGame().status.condition13_clock ||
-             CurrentGame().status.pending_condition_party_slot != slot)) {
-            ApplyItemEffectToRandomCharacter(40, slot, 0);
+            !monster_manager_entries[slot].condition_19_latch &&
+            (!status.condition13_clock || status.pending_condition_party_slot != slot)) {
+            speech.QueueRandom(40, slot, 0);
         }
     }
 }
@@ -906,18 +904,18 @@ void Game::endCombat(bool forced_cleanup)
         group_count = CurrentLevelPopulation().monster_groups.size();
     }
     if (combat->enemies_engaged) {
-        events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x233], 1});
+        events.push(TextNotice{W8_FONT_PALETTE_BEIGE, data.strings[0x233], 1});
     }
-    unsigned int active = CountActiveCharacters();
+    const auto active = party.participantCount();
     if (active != 0 && combat->experience_pool != 0) {
-        if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
-            status.level_progress[GetLoadedLevelID()].combat_end_count += 1;
-        }
+        if (level.primary && level.primary->level_id >= 0 &&
+            level.primary->level_id < W8_LEVEL_COUNT)
+            ++status.level_progress[level.primary->level_id].combat_end_count;
         combat->experience_pool /= active;
-        AwardPartyExperience(combat->experience_bonus + combat->experience_pool, true);
+        awardExperience(combat->experience_bonus + combat->experience_pool, true);
         std::ranges::replace(status.status_ints, 1, 2);
     }
-    RecordCombatStart();
+    recent_combat.until = time + std::chrono::minutes{2};
     if (combat->uiNextPartyAction != W8_PARTY_ACTION_NONE) {
         ClearPendingPartyMovement();
     }
@@ -927,7 +925,7 @@ void Game::endCombat(bool forced_cleanup)
         events.push(FormationChanged{});
         events.push(TextNotice{W8_FONT_PALETTE_WHITE, data.strings[0x24b], 0});
     }
-    ReconcilePartyEquipmentAfterCombat();
+    restoreCombatEquipment(g_settings.autoswap_weapons);
     // The fight is over; what follows restores the world around it.
     combat.reset();
     search.fightEnded();
@@ -944,7 +942,7 @@ void Game::endCombat(bool forced_cleanup)
     CurrentGame().events.push(MonstersChanged{});
     if (auto* world = level.primary.get()) ResetWorldCursorDistance(*world);
     if (activity.in_world()) {
-        ApplyCombatEndEffects();
+        applyCombatEndEffects();
         ReportSaveFailed(true);
     }
 }
@@ -986,7 +984,7 @@ void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8Actio
         return;
     case W8_ACTION_WALK:
     case W8_ACTION_RUN:
-        ApplyItemEffectToRandomCharacter(g_special_event2, -1, 0);
+        CurrentGame().speech.QueueRandom(g_special_event2, -1, 0);
         break;
     default:
         break;
@@ -1334,7 +1332,7 @@ void AdvanceCombatRound(void)
     CurrentGame().combat->execution_active = 0;
     CurrentGame().combat->round_active = true;
     if (CurrentGame().combat->pending_death_count != 0) {
-        int active_characters = CountActiveCharacters();
+        int active_characters = CurrentGame().party.participantCount();
         if (active_characters != 0) {
             if (active_characters == 1) {
                 QueueLastSurvivorEvent();
@@ -1414,7 +1412,7 @@ void AdvanceCombatRound(void)
    and 0 while it may continue. */
 int CheckCombatEnd(unsigned int end_if_no_hostiles)
 {
-    bool any_active = AnyCharacterActive();
+    bool any_active = (CurrentGame().party.participantCount() != 0);
     RefreshCombatEngagement();
     if (!any_active) {
         CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x230], 0});
@@ -1457,7 +1455,7 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
             StartMusicResource("CombatWin.MPL", 0, 1);
             ServiceMusicPlaylist();
             StartLevelMusic(1, 0);
-            if (LastCombatDifficulty() != W8_DIFFICULTY_NOVICE) {
+            if (CurrentGame().recent_combat.difficulty != W8_DIFFICULTY_NOVICE) {
                 auto& game = CurrentGame();
                 if (const auto speaker = game.party.randomLivingSlot(game.rng)) {
                     if (auto* event = game.speech.Queue(&game.party.characters[*speaker], 35, 2,

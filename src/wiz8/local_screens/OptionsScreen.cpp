@@ -56,6 +56,7 @@
 #include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/quality.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/screen.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/text_input.h"
@@ -1604,7 +1605,8 @@ void OptionsScreen::UpdateNavigation()
 void OptionsScreen::OnDialogClosed(bool accepted, int)
 {
     if (accepted) {
-        if (GameStarted() && !CurrentGame().combat.has_value() && AnyCharacterActive()) {
+        if (GameStarted() && !CurrentGame().combat.has_value() &&
+            (CurrentGame().party.participantCount() != 0)) {
             AutoSaveIfAllowed(true);
         }
         RequestExitScreen();

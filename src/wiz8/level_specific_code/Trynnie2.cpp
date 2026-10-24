@@ -168,7 +168,7 @@ bool Trynnie2Script::meatBox(Trigger* pTrigger)
     } else {
         info->entity->SetScript("MoveHogarDrugged.msf", true);
         if (GetLocationVarIDByName("HogarDruggedGivenExp") == -1) {
-            AwardPartyExperience(500, false);
+            ctx.game.awardExperience(500, false);
             CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "HogarDruggedGivenExp",
                                                        1);
         }

@@ -17,6 +17,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "monster_actions.h"
+#include "wiz8/character_event_queue.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/hostility.h"
 #include "wiz8/data/faction_ids.h"
@@ -998,7 +999,7 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                     ++group_list_index;
                 }
                 if (live_groups > 1) {
-                    ApplyItemEffectToRandomCharacter(33, -1, 0);
+                    CurrentGame().speech.QueueRandom(33, -1, 0);
                 }
             }
             int* allies = monster_group->allied_group_ids;

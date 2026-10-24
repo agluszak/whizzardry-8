@@ -137,8 +137,6 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
 /* Whether the pending item use needs a target picked. */
 bool ItemUseNeedsTarget(int party_slot);
 
-void ReconcilePartyEquipmentAfterCombat(void);
-
 /* Combat action-selection helpers used across the combat units. */
 
 void SetTargetSourceToCharacter(int party_slot, W8TargetSource* source);

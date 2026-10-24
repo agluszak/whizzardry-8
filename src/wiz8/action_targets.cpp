@@ -725,3 +725,18 @@ void Game::reconcileCombatHands(unsigned int party_slot, std::vector<Event>& out
     if (party_slot == static_cast<unsigned int>(status.selected_character))
         outcomes.emplace_back(CombatPanelChanged{});
 }
+
+void Game::restoreCombatEquipment(bool automatic)
+{
+    for (int party_slot = 0; party_slot < 8; ++party_slot) {
+        W8PartySlotRow* row = &party.rows[party_slot];
+        W8Character* character = &party.characters[party_slot];
+        if (party.members[party_slot].has_value() &&
+            (character->hp_current != 0 || character->highest_condition < W8_CONDITION_TURNCOAT) &&
+            row->weapon_swap_pending && automatic &&
+            !party.rows[party_slot].remembered.weapon_sets_locked) {
+            inventory.swapWeaponSets(party_slot, false);
+            row->weapon_swap_pending = false;
+        }
+    }
+}

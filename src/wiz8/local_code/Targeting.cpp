@@ -1430,17 +1430,3 @@ bool ItemUseNeedsTarget(int party_slot)
 /* When combat ends, swap each occupied, living slot whose pending swap flag is
    set back to its primary weapon set, provided auto-swap is on and nothing is
    already swapping. */
-void ReconcilePartyEquipmentAfterCombat(void)
-{
-    for (int party_slot = 0; party_slot < 8; ++party_slot) {
-        W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-        W8Character* character = &CurrentGame().party.characters[party_slot];
-        if (CurrentGame().party.members[party_slot].has_value() &&
-            (character->hp_current != 0 || character->highest_condition < W8_CONDITION_TURNCOAT) &&
-            row->weapon_swap_pending && g_settings.autoswap_weapons &&
-            !CurrentGame().party.rows[party_slot].remembered.weapon_sets_locked) {
-            CurrentGame().inventory.swapWeaponSets(party_slot, false);
-            row->weapon_swap_pending = false;
-        }
-    }
-}

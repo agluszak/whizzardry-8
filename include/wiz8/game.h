@@ -15,6 +15,7 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/npc_ids.h"
 #include "wiz8/data/spell_ids.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_state.h"
@@ -102,6 +103,7 @@ public:
     bool hasLeadingNpc(W8NpcId kind) const;
     // Settle the pending formation and publish its accepted or refused moves.
     void commitFormation();
+    void awardExperience(int amount, bool alternate_message);
     void setMotionPaused(bool paused);
     void resumeVisibleMotion();
     bool cameraSwayActive() const;
@@ -254,6 +256,10 @@ public:
     W8MessageLog message_log;
     // The fight in progress, if any.
     std::optional<Combat> combat;
+    struct RecentCombat {
+        std::chrono::milliseconds until{};
+        W8Difficulty difficulty = W8_DIFFICULTY_NOVICE;
+    } recent_combat;
     /* What the party is doing. The camp commands set the place; dialogue and story scenes
        set the rest. */
     Activity activity;
@@ -326,6 +332,8 @@ private:
     int prepareNpcBinding(World& world, W8MonsterInfo& info, W8PreparedNpcBindings& pending);
     std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
     void updateSurpriseMode();
+    void applyCombatEndEffects();
+    void restoreCombatEquipment(bool automatic);
     void advanceWorlds(std::chrono::milliseconds elapsed);
     void advanceSpellEffects(World& world);
 };

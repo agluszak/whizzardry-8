@@ -489,7 +489,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
         DisplayNpcQuote(context.game, notice_text, true);
         break;
     case W8_NPC_ENTRY_GIVE_EXPERIENCE:
-        AwardPartyExperience(entry->operand0, false);
+        context.game.awardExperience(entry->operand0, false);
         break;
     default:
         break;

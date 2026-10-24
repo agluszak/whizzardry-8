@@ -370,7 +370,11 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   local outcomes without implying gameplay rollback.
 - **Combat.** `Combat::turn()` is idle or one actor's turn, stepped once per frame
   once nothing is waited on (camera, animation, sound, missile, script). Actors are
-  held by slot or location id and looked up when used. Combat is not saved.
+  held by slot or location id and looked up when used. Combat is not saved. Recency and
+  difficulty history belong to the play-through, not the process. Party awards saturate
+  each participating character's experience; Game coordinates per-recipient level
+  accounting and the resulting notices. Equipment restoration runs while combat still
+  exists, before its destruction changes settlement rules.
 - **Membership.** `W8Party::members` holds an optional member per slot, so nothing
   tells members apart by flags or addresses.
 - **Inventory.** Characters own their equipment and backpack slots; `Game::inventory`

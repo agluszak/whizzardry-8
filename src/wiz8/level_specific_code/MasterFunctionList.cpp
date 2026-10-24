@@ -10,6 +10,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/sound3d.h"
+#include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/hostility.h"
@@ -245,14 +246,14 @@ bool LevelScript::runCursorNodeHandler(int command, W8WorldCursorNode* node, int
     case 4:
         // Entering applies the node's item effect to a random party member.
         if (command == 1) {
-            ApplyItemEffectToRandomCharacter(kCursorNodeEffectEvent, -1, 0);
+            ctx.game.speech.QueueRandom(kCursorNodeEffectEvent, -1, 0);
         }
         return true;
     case 5:
         return seenBodies(command);
     case 6:
         if (command == 1) {
-            ApplyItemEffectToRandomCharacter(kCursorNodeRelicEvent, -1, 0);
+            ctx.game.speech.QueueRandom(kCursorNodeRelicEvent, -1, 0);
         }
         return true;
     case 7:
@@ -362,7 +363,7 @@ bool LevelScript::seenBodies(int command)
             if (CountAscensionPeakItems(ctx.inventory) == 3) {
                 if (ctx.game.testFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
                     ctx.game.testFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
-                    ApplyItemEffectToRandomCharacter(kCursorNodeRelicEvent, -1, 0);
+                    ctx.game.speech.QueueRandom(kCursorNodeRelicEvent, -1, 0);
                     CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_SeenBodies",
                                                                1);
                     if (ctx.game.testFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {

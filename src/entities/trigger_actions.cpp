@@ -29,6 +29,7 @@
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/sound3d.h"
 #include "wiz8/audio/soundman.h"
+#include "wiz8/character_event_queue.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/spell_ids.h"
@@ -1054,7 +1055,7 @@ void Trigger::Run(int source)
             if (recipients.empty() || SDL_strcasecmp(recipient_name.c_str(), "party") != 0) {
                 break;
             }
-            ApplyItemEffectToRandomCharacter(
+            CurrentGame().speech.QueueRandom(
                 CurrentGame().rng.below(2) != 0 ? kConditionReaction : kConditionReactionAlt, -1,
                 0);
             flags |= W8_TRIGGER_RUNNING;
@@ -1379,7 +1380,7 @@ void Trigger::Run(int source)
 
                 if (item_count == 0) {
                     if (m_pProp->subcycle == 0) {
-                        ApplyItemEffectToRandomCharacter(CurrentGame().rng.below(2) != 0
+                        CurrentGame().speech.QueueRandom(CurrentGame().rng.below(2) != 0
                                                              ? g_container_event
                                                              : g_container_event_alt,
                                                          -1, 0);

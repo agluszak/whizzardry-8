@@ -1,7 +1,9 @@
 #include "wiz8/rules/party.h"
 
+#include <algorithm>
 #include <array>
 #include <cassert>
+#include <limits>
 #include <optional>
 
 #include "wiz8/data/faction_ids.h"
@@ -248,4 +250,25 @@ void W8Party::beginDefensiveAction(unsigned int slot, W8ActionKind action)
     auto& row = rows[slot];
     row.executing.start(action, -1);
     if (action == W8_ACTION_PROTECT) row.executing.target = row.committed.target;
+}
+
+unsigned int W8Party::awardExperience(unsigned int amount)
+{
+    if (!amount) return 0;
+    unsigned int recipients = 0;
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        if (!participates(slot)) continue;
+        auto& experience = characters[slot].experience;
+        experience += std::min(amount, std::numeric_limits<unsigned int>::max() - experience);
+        ++recipients;
+    }
+    return recipients;
+}
+
+unsigned int W8Party::participantCount() const
+{
+    unsigned int count = 0;
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
+        if (participates(slot)) ++count;
+    return count;
 }

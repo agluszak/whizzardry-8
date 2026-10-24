@@ -66,6 +66,7 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/renderer.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/runtime_test_hooks.h"
 #include "wiz8/screen.h"
@@ -830,7 +831,7 @@ glm::vec3 Walk(GameHarness& game, const char* step, float distance)
 
 int PremadeSlot()
 {
-    REQUIRE(CountActiveCharacters() == 1);
+    REQUIRE(CurrentGame().party.participantCount() == 1);
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (CurrentGame().party.members[slot].has_value()) {
             REQUIRE(CurrentGame().party.characters[slot].fInParty);
@@ -852,7 +853,7 @@ void StartPremadeGame(GameHarness& game)
              character.gender == W8_GENDER_MALE));
     REQUIRE((character.hp_current == 18 && character.experience == 0));
     REQUIRE(AddCharacterToParty(character, -1) >= 0);
-    REQUIRE(CountActiveCharacters() == 1);
+    REQUIRE(CurrentGame().party.participantCount() == 1);
     RunNewGameOpeningSequence(false, {});
     WaitMainGame(game, "premade-main-game");
 }

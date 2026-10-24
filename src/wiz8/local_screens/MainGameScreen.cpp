@@ -302,7 +302,7 @@ void CancelMouselook()
 static void QueueInteractionNotice(int event_type)
 {
     W8CharacterEvent* event =
-        ApplyItemEffectToRandomCharacter(event_type, -1, kCharacterEventNoPreempt);
+        CurrentGame().speech.QueueRandom(event_type, -1, kCharacterEventNoPreempt);
     if (event != 0) {
         event->DelayDispatch(std::chrono::milliseconds{600});
     }
@@ -2418,7 +2418,7 @@ void MainGameScreen::frame()
         return;
     }
     // Nobody left who can act, or the party fell out of the world: the game is lost.
-    if (!AnyCharacterActive() || game.party_moving) BeginPartyDeath();
+    if (game.party.participantCount() == 0 || game.party_moving) BeginPartyDeath();
     if (dismissed_npc_slot != -1) UpdateNpcPartyMember(std::exchange(dismissed_npc_slot, -1));
     if (std::exchange(resume_conversation, false)) SyncDialogueNpcStateAndMarkPending();
     if (SkillIncreasesShownNow(game)) FlushDeferredSkillNotices(game);
@@ -2618,7 +2618,7 @@ void OnLeaveGameConfirmClosed(bool accepted)
 void OnQuitGameDialogClosed(bool accepted)
 {
     if (accepted) {
-        if (AnyCharacterActive()) {
+        if ((CurrentGame().party.participantCount() != 0)) {
             AutoSaveIfAllowed(true);
         }
         RequestExitScreen();
@@ -6240,7 +6240,7 @@ void ResetMainGameMode(void)
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
     if (CurrentGame().combat.has_value()) {
         CurrentGame().endCombat(true);
-    } else if (AnyCharacterActive() && !CurrentGame().party_moving) {
+    } else if ((CurrentGame().party.participantCount() != 0) && !CurrentGame().party_moving) {
         AutoSaveIfAllowed(true);
     }
     if (CurrentGame().surprise_possible) {

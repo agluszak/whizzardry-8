@@ -95,28 +95,6 @@ bool AnyMonsterEngaged(void)
 }
 
 /* How many party members are still on their feet. */
-int CountActiveCharacters(void)
-{
-    int count = 0;
-    int party_slot;
-
-    for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (CurrentGame().party.participates(party_slot)) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-/* Whether anybody is. */
-bool AnyCharacterActive(void)
-{
-    return CountActiveCharacters() != 0;
-}
-
-/* Walk a character up to a level from scratch, recomputing the experience goal
-   at each step so the goals for the level below are the ones they actually
-   passed. */
 void AdvanceCharacterToLevel(W8Character* character, unsigned int level)
 {
     character->uiExpLevel = 1;
@@ -575,30 +553,19 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
 }
 
 // FUNCTION: WIZ8 0x004EEF10
-void AwardPartyExperience(int amount, bool alternate_message)
+void Game::awardExperience(int amount, bool alternate_message)
 {
-    for (int slot = 0; slot < 8; ++slot) {
-        W8Character* character = &CurrentGame().party.characters[slot];
-        if (CurrentGame().party.participates(slot) && amount != 0) {
-            unsigned int total = character->experience + static_cast<unsigned int>(amount);
-            if (total > character->experience) {
-                character->experience = total;
-            } else {
-                character->experience = static_cast<unsigned int>(-1);
-            }
-            if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
-                auto& progress = CurrentGame().status.level_progress[GetLoadedLevelID()];
-                const unsigned int gained = progress.experience_gained;
-                total = gained + static_cast<unsigned int>(amount);
-                if (total > gained) {
-                    progress.experience_gained = total;
-                }
-            }
-            CurrentGame().level_up_check_due = true;
+    const auto recipients = party.awardExperience(static_cast<unsigned int>(amount));
+    if (recipients) level_up_check_due = true;
+    if (level.primary && level.primary->level_id >= 0 && level.primary->level_id < W8_LEVEL_COUNT) {
+        auto& gained = status.level_progress[level.primary->level_id].experience_gained;
+        // Retail accounts once per participating recipient, even when their own XP saturated.
+        for (unsigned int recipient = 0; recipient < recipients; ++recipient) {
+            const auto total = gained + static_cast<unsigned int>(amount);
+            if (total > gained) gained = total;
         }
     }
-    auto text = fmt::sprintf(Data().strings[alternate_message ? 0x231 : 0x232], amount);
-    CurrentGame().npc_dialogue.QueuePortraitMessage(
-        std::move(text),
+    npc_dialogue.QueuePortraitMessage(
+        fmt::sprintf(data.strings[alternate_message ? 0x231 : 0x232], amount),
         W8ExperienceNoticePayload{static_cast<unsigned int>(amount), alternate_message});
 }

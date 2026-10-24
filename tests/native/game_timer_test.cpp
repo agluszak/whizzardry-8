@@ -27,7 +27,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/levels.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/Magic.h"
@@ -46,6 +45,7 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/party_camera.h"
+#include "wiz8/world/party_motion.h"
 #include "wiz8/world/world.h"
 
 W8RuntimeTestHooks g_runtime_test_hooks;

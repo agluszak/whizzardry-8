@@ -35,6 +35,7 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/mgs_commands.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
@@ -129,7 +130,7 @@ void QuickSaveScenario()
 
     QuickLoad(game);
     ExpectAt("quick-load", anchor);
-    REQUIRE(CountActiveCharacters() == 1);
+    REQUIRE(CurrentGame().party.participantCount() == 1);
     REQUIRE(GetLoadedLevelID() == level);
     REQUIRE(CurrentGame().party.characters[PremadeSlot()].experience == experience);
     REQUIRE(CurrentGame().party.characters[PremadeSlot()].hp_current == health);
@@ -159,7 +160,7 @@ void LoadGameScenario(const fs::path& fixture)
     REQUIRE(fs::is_regular_file(fixture / "fixture.SAV"));
     LoadFromMenu(game, fixture / "fixture.SAV");
     ExpectAt("loaded", anchor);
-    REQUIRE(CountActiveCharacters() == 1);
+    REQUIRE(CurrentGame().party.participantCount() == 1);
     REQUIRE(GetLoadedLevelID() == level);
     REQUIRE(CurrentGame().party.characters[PremadeSlot()].experience == experience);
     REQUIRE(CurrentGame().party.characters[PremadeSlot()].hp_current == health);
@@ -268,20 +269,20 @@ void ImportScenario(const char* file, const std::vector<ImportedMember>* party,
         return CurrentScreenState().id == W8_SCREEN_PARTY_SELECTION && game.settled() &&
                UiTargetAt(kImportButton) != nullptr;
     });
-    REQUIRE(CountActiveCharacters() == 0);
+    REQUIRE(CurrentGame().party.participantCount() == 0);
     game.click("import", kImportButton);
     if (!party) {
         REQUIRE(game.within_frames(2, [] { return UiModalActive(); }));
         game.frame();
         Snapshot(file, game.read_frame());
-        REQUIRE(CountActiveCharacters() == 0);
+        REQUIRE(CurrentGame().party.participantCount() == 0);
         game.key(SDLK_RETURN);
         REQUIRE(game.within_frames(2, [] { return !UiModalActive(); }));
         REQUIRE(CurrentScreenState().id == W8_SCREEN_PARTY_SELECTION);
-        REQUIRE(CountActiveCharacters() == 0);
+        REQUIRE(CurrentGame().party.participantCount() == 0);
         return;
     }
-    REQUIRE(game.within_frames(2, [] { return CountActiveCharacters() == 6; }));
+    REQUIRE(game.within_frames(2, [] { return CurrentGame().party.participantCount() == 6; }));
     REQUIRE_FALSE(UiModalActive());
     REQUIRE(ImportedParty() == *party);
     REQUIRE(CurrentGame().story.imported_origin);

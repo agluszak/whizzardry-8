@@ -26,6 +26,7 @@
 #include "wiz8/local_screens/MainMenuScreen.h"
 #include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/runtime_test_hooks.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
@@ -330,14 +331,14 @@ void StartGame(GameHarness& game)
     CreateCharacter(game);
     // Return toggles the selected roster row (the new character) into the party.
     game.key(SDLK_RETURN);
-    REQUIRE(game.within_frames(4, [] { return CountActiveCharacters() == 1; }));
+    REQUIRE(game.within_frames(4, [] { return CurrentGame().party.participantCount() == 1; }));
     const auto name = CurrentGame().party.characters[2].name;
     // Removing the last party member keeps the roster candidate selected. The
     // next click must resolve that owned candidate, not the vacated party slot.
     game.key(SDLK_RETURN);
-    REQUIRE(game.within_frames(4, [] { return CountActiveCharacters() == 0; }));
+    REQUIRE(game.within_frames(4, [] { return CurrentGame().party.participantCount() == 0; }));
     game.key(SDLK_RETURN);
-    REQUIRE(game.within_frames(4, [] { return CountActiveCharacters() == 1; }));
+    REQUIRE(game.within_frames(4, [] { return CurrentGame().party.participantCount() == 1; }));
     REQUIRE(CurrentGame().party.characters[2].name == name);
     game.frame();
     Snapshot("party-with-member", game.read_frame());

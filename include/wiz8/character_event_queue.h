@@ -142,6 +142,7 @@ struct W8CharacterEventQueue {
     void QueuePartyDeathReaction(unsigned int party_slot);
     void QueuePartyDeathReaction(unsigned int party_slot, std::vector<Event>& outcomes);
     void QueueTurnReactionEvent();
+    W8CharacterEvent* QueueRandom(unsigned int event_type, int excluded_slot, unsigned int flags);
     void QueueConditionChangeReaction(W8Character* character);
     void QueueConditionChangeReaction(W8Character* character, std::vector<Event>& outcomes);
     void QueueConditionClearedReaction(W8Character* character, W8Condition condition);

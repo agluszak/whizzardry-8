@@ -1757,6 +1757,24 @@ TEST_CASE("Condition and death reactions stay with their originating party and c
     REQUIRE(candidate.speech.pending_events.size() == 2);
     REQUIRE(candidate.speech.pending_events.back()->event_type == 0x55);
     REQUIRE(outgoing.game.speech.pending_events.empty());
+    // The generic random reaction retains its original one selection plus fifty retries.
+    draws.clear();
+    std::vector<Rng::Draw> outgoing_draws;
+    candidate.rng.trace(&draws);
+    outgoing.game.rng.trace(&outgoing_draws);
+    candidate.speech.SetEventCharacterMask(13, 2, true);
+    REQUIRE(candidate.speech.QueueRandom(13, -1, 0) == nullptr);
+    REQUIRE(draws.size() == 51);
+    for (const auto& draw : draws) REQUIRE(draw.range == 8);
+    candidate.speech.SetEventCharacterMask(13, 2, false);
+    const auto* selected = candidate.speech.QueueRandom(13, -1, 0);
+    REQUIRE(selected);
+    REQUIRE(selected->character == &candidate.party.characters[2]);
+    REQUIRE(selected->queued_at == candidate.time);
+    REQUIRE(draws.size() == 52);
+    REQUIRE(outgoing_draws.empty());
+    candidate.rng.trace(nullptr);
+    outgoing.game.rng.trace(nullptr);
 }
 
 TEST_CASE("Speech completion notices use the originating game's content", "[lifetime][speech]")

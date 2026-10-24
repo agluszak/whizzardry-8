@@ -1230,8 +1230,8 @@ void W8CharacterEventQueue::ProcessDeferredCharacterEvents()
 /* Queue `effect` on a random eligible party member. When the first pick cannot
    receive the event the draw retries up to fifty times; exhaustion returns
    zero without queueing anything. */
-W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int excluded_slot,
-                                                   unsigned int flags)
+W8CharacterEvent* W8CharacterEventQueue::QueueRandom(unsigned int event_type, int excluded_slot,
+                                                     unsigned int flags)
 {
     int character_slot;
     int attempts;
@@ -1241,23 +1241,22 @@ W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int 
          event_type >= kRemappedEventCount + kFirstRemappedEvent)) {
         return 0;
     }
-    Game& game = CurrentGame();
     character_slot = game.party.randomSlot(game.rng, 0, 0, excluded_slot, -1);
     if (character_slot == -1) {
         return 0;
     }
     attempts = 0;
-    bool can_dispatch = game.speech.CanDispatch(character_slot, event_type);
+    bool can_dispatch = CanDispatch(character_slot, event_type);
     while (!can_dispatch && attempts < 0x32) {
         character_slot = game.party.randomSlot(game.rng, 0, 0, excluded_slot, -1);
         ++attempts;
-        can_dispatch = game.speech.CanDispatch(character_slot, event_type);
+        can_dispatch = CanDispatch(character_slot, event_type);
     }
     if (attempts == 0x32) {
         return 0;
     }
-    return game.speech.Queue(&game.party.characters[character_slot], event_type, flags,
-                             kCharacterEventFullVolume);
+    return Queue(&game.party.characters[character_slot], event_type, flags,
+                 kCharacterEventFullVolume);
 }
 
 W8CharacterEvent* QueueCharacterEvent(W8Character* character, int event_type, unsigned int flags,

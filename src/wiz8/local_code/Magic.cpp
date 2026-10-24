@@ -26,6 +26,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "monster_actions.h"
 #include "wiz8/audio/soundman.h"
+#include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
@@ -2864,7 +2865,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                     QueueCharacterEvent(&CurrentGame().party.characters[caster_slot], 16, 0,
                                         kCharacterEventFullVolume);
                 } else {
-                    ApplyItemEffectToRandomCharacter(17, caster_slot, 0);
+                    CurrentGame().speech.QueueRandom(17, caster_slot, 0);
                 }
             }
         }

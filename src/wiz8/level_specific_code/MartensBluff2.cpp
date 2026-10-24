@@ -582,7 +582,7 @@ bool MartensBluff2Script::monsterCrusher(int command)
             } else {
                 MonsterStartsDying(info, true);
                 if (info->monster_species == 0x183) {
-                    AwardPartyExperience(10000, false);
+                    ctx.game.awardExperience(10000, false);
                 }
             }
         }

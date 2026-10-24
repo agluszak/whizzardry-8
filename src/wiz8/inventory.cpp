@@ -1544,8 +1544,9 @@ void AddPartyGold(Game& game, int amount, bool announce)
 {
     const std::string_view sound_path = "Data\\Sound\\Misc\\ChaChing.wav";
     game.party.gold += amount;
-    if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT)
-        game.status.level_progress[GetLoadedLevelID()].gold_collected += amount;
+    if (game.level.primary && game.level.primary->level_id >= 0 &&
+        game.level.primary->level_id < W8_LEVEL_COUNT)
+        game.status.level_progress[game.level.primary->level_id].gold_collected += amount;
     if (announce) {
         game.events.push(TextNotice{8, fmt::format("{} {:d} {}.", game.data.strings[0x15f], amount,
                                                    game.data.strings[0x160])});

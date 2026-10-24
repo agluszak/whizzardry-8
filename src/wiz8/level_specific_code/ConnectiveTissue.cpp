@@ -57,7 +57,7 @@ bool ConnectiveTissueScript::liche(Trigger* pTrigger)
     ShowLevelMessage(7);
     if (GetLocationVarIDByName("LicheDead") == -1) {
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "LicheDead", 1);
-        AwardPartyExperience(0x3e8, false);
+        ctx.game.awardExperience(0x3e8, false);
     }
     EnableMonGenerator("UNDEAD01");
     EnableMonGenerator("UNDEAD02");

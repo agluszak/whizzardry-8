@@ -62,6 +62,7 @@
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/inventory.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/screen.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -779,7 +780,7 @@ void PartySelectionScreen::SetMode(W8PartySelectionMode mode)
         m_range.SetRange(0, maximum);
         m_range.SetValue(characters ? collection.first_visible : import_selection);
         m_range.SetEnabled(maximum > 0);
-        m_confirm_button->SetEnabled(CountActiveCharacters() != 0);
+        m_confirm_button->SetEnabled(CurrentGame().party.participantCount() != 0);
         for (auto& button : difficulty_buttons) button->SetVisible(false);
         npc_toggle->SetVisible(false);
         ironman_toggle->SetVisible(false);
@@ -850,7 +851,7 @@ void PartySelectionScreen::OnPrimary(W8ButtonWidget* control)
         switch (m_mode) {
         case W8_PARTY_SELECT_CHARACTERS:
         case W8_PARTY_SELECT_IMPORT:
-            if (CountActiveCharacters() != 0) {
+            if (CurrentGame().party.participantCount() != 0) {
                 OpenNotification(Data().strings[0x6d3], true, W8_PARTY_CONFIRM_LEAVE);
                 return;
             }
@@ -891,9 +892,10 @@ void PartySelectionScreen::OnPrimary(W8ButtonWidget* control)
     if (control == m_confirm_button) {
         switch (m_mode) {
         case W8_PARTY_SELECT_CHARACTERS:
-            if (static_cast<unsigned int>(CountActiveCharacters()) < 6) {
-                OpenNotification(fmt::sprintf(Data().strings[0x6d9], CountActiveCharacters()), true,
-                                 W8_PARTY_CONFIRM_PROCEED_TO_OPTIONS);
+            if (CurrentGame().party.participantCount() < 6) {
+                OpenNotification(
+                    fmt::sprintf(Data().strings[0x6d9], CurrentGame().party.participantCount()),
+                    true, W8_PARTY_CONFIRM_PROCEED_TO_OPTIONS);
                 return;
             }
             [[fallthrough]];
@@ -931,7 +933,7 @@ void PartySelectionScreen::OnPrimary(W8ButtonWidget* control)
         SetSelection(0, false);
         return;
     }
-    if (CountActiveCharacters() != 0) {
+    if (CurrentGame().party.participantCount() != 0) {
         OpenNotification(Data().strings[0x6d6], true, W8_PARTY_CONFIRM_IMPORT);
         return;
     }
@@ -957,7 +959,7 @@ void PartySelectionScreen::OnDecision(bool accepted)
         switch (m_mode) {
         case W8_PARTY_SELECT_CHARACTERS:
         case W8_PARTY_SELECT_IMPORT:
-            if (CountActiveCharacters() == 0) {
+            if (CurrentGame().party.participantCount() == 0) {
                 ReturnToPreviousScreen();
                 return;
             }
@@ -1102,7 +1104,7 @@ void PartySelectionScreen::LoadImportedPartyFile(int selection)
         }
     }
 
-    m_confirm_button->SetEnabled(CountActiveCharacters() != 0);
+    m_confirm_button->SetEnabled(CurrentGame().party.participantCount() != 0);
     m_confirm_button->m_dirty = true;
     RefreshSlots();
     SetSelection(0, true);
@@ -1155,7 +1157,7 @@ void PartySelectionScreen::TogglePartyMemberSelection()
 
     RefreshSlots();
     RefreshRows();
-    m_confirm_button->SetEnabled(CountActiveCharacters() != 0);
+    m_confirm_button->SetEnabled(CurrentGame().party.participantCount() != 0);
     m_confirm_button->m_dirty = true;
 }
 
@@ -1223,7 +1225,7 @@ void PartySelectionScreen::frame()
                     switch (controller->m_mode) {
                     case W8_PARTY_SELECT_CHARACTERS:
                     case W8_PARTY_SELECT_IMPORT:
-                        if (CountActiveCharacters() == 0) {
+                        if (CurrentGame().party.participantCount() == 0) {
                             ReturnToPreviousScreen();
                         } else {
                             controller->OpenNotification(Data().strings[0x6d3], true,

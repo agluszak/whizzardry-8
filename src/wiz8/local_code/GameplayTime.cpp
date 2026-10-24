@@ -139,7 +139,7 @@ static void BeginPartyCamping()
     CreateSurpriseFade();
     surprise.phase = SurprisePhase::fade_in;
     StartMusicResource("Camping.MPL", 0, 1);
-    ForgetRecentCombat();
+    game.recent_combat.until = {};
 }
 
 /* The per-frame game-time driver: folds the elapsed milliseconds into the
@@ -224,9 +224,9 @@ void UpdateGameClock(int elapsed)
             UpdatePartyStamina(static_cast<int>(stamina_ticks));
         }
 
-        if (!CurrentGame().surprise_possible && !AnyCharacterEngaged() && AnyCharacterActive() &&
-            !CurrentGame().status.party_fatigued && !HasLevelDataVector() &&
-            HasLevelWalkableContact() && IsScreenIdle()) {
+        if (!CurrentGame().surprise_possible && !AnyCharacterEngaged() &&
+            (CurrentGame().party.participantCount() != 0) && !CurrentGame().status.party_fatigued &&
+            !HasLevelDataVector() && HasLevelWalkableContact() && IsScreenIdle()) {
             BeginPartyCamping();
         }
     }

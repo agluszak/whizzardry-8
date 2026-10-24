@@ -5,11 +5,9 @@
 struct W8Character;
 
 void AdvanceCharacterToLevel(W8Character* character, unsigned int level);
-bool AnyCharacterActive(void);
 void CalcCharacterLevelBand(W8Character* character);
 
 void CalcCharacterTableValue(W8Character* character);
-int CountActiveCharacters(void);
 unsigned int FindFreePartySlot(unsigned int first, unsigned int last);
 
 void RefreshLevelUpReadyNotices(void);
@@ -19,7 +17,6 @@ int AddCharacterToParty(W8Character& character, int slot,
    persists it back to its NPC record first. */
 void RemoveCharacterFromParty(int party_slot);
 
-void AwardPartyExperience(int value, bool alternate_message);
 bool IsCharacterReadyToAdvance(int party_slot);
 void CalcXPGoal(W8Character* character);
 void DeriveCharacterPersonality(W8Character* character);

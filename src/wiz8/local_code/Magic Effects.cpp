@@ -72,6 +72,7 @@
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -1844,7 +1845,7 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
             CurrentGame().events.push(PartyEffectsChanged{});
             CurrentGame().events.push(CombatEffectsChanged{});
             effect->applied = true;
-            effect->result.count += CountActiveCharacters();
+            effect->result.count += CurrentGame().party.participantCount();
         }
         for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
             monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x342, 0x343);

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstdlib>
 
+#include "wiz8/character_event_queue.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/skills.h"
@@ -945,7 +946,7 @@ static void SelectStartNpcGreeting(void)
 
     value = CurrentGame().testFact(W8_FACT_VIRGIN);
     if (value != 0) {
-        ApplyItemEffectToRandomCharacter(g_fact_check_event, -1, 0);
+        CurrentGame().speech.QueueRandom(g_fact_check_event, -1, 0);
         return;
     }
 
