@@ -360,36 +360,35 @@ TEST_CASE("Spell practice queries are pure and attempts restart even a running c
 TEST_CASE_METHOD(TimerFixture, "Candidate timers keep their game clocks across session replacement",
                  "[timers][lifetime]")
 {
-    using namespace std::chrono_literals;
     auto& outgoing = game.game;
-    outgoing.visual_time = 10s;
+    outgoing.visual_time = std::chrono::seconds{10};
     outgoing.timerClocks().pause();
     Game candidate(outgoing.data);
-    candidate.visual_time = 2s;
-    candidate.time = 3s;
+    candidate.visual_time = std::chrono::seconds{2};
+    candidate.time = std::chrono::seconds{3};
     World world(-1, "", candidate.timerClocks(), &candidate.camera_shakes);
     Trigger trigger(&world);
     auto& timer = world.addTimedAction(&trigger).timer;
     W8GameTimer step(candidate.timerClocks(), 1.0f, TimerClock::Game);
     W8GameTimer calendar(candidate.timerClocks(), 1.0f, TimerClock::Calendar);
 
-    outgoing.visual_time += 1s;
+    outgoing.visual_time += std::chrono::seconds{1};
     REQUIRE(timer.GetProgress() == 0);
-    candidate.visual_time += 250ms;
+    candidate.visual_time += std::chrono::milliseconds{250};
     REQUIRE(timer.GetProgress() == Catch::Approx(.25f));
     candidate.timerClocks().pause();
     REQUIRE(timer.GetProgress() == 0); // Holds report zero, not the previous fraction.
     candidate.status.game_time_ms += 250;
     REQUIRE(calendar.GetProgress() == 0);
-    candidate.time += 250ms;
+    candidate.time += std::chrono::milliseconds{250};
     REQUIRE(step.GetProgress() == Catch::Approx(.25f));
     candidate.timerClocks().resume();
     REQUIRE(calendar.GetProgress() == Catch::Approx(.25f));
 
     auto& replacement = game.session.begin();
     REQUIRE_FALSE(replacement.timerClocks().held());
-    replacement.visual_time = 60s;
-    candidate.visual_time += 250ms;
+    replacement.visual_time = std::chrono::seconds{60};
+    candidate.visual_time += std::chrono::milliseconds{250};
     REQUIRE(timer.GetProgress() == Catch::Approx(.5f));
     REQUIRE(calendar.GetProgress() == Catch::Approx(.25f));
     W8GameTimer disconnected({}, 1.0f, TimerClock::Calendar);
@@ -399,7 +398,6 @@ TEST_CASE_METHOD(TimerFixture, "Candidate timers keep their game clocks across s
 TEST_CASE_METHOD(TimerFixture, "Unkeyed shakes survive level changes but not their game",
                  "[timers][lifetime][shake]")
 {
-    using namespace std::chrono_literals;
     auto& owner = game.game;
     const auto world = [&] {
         return std::make_unique<World>(-1, "", owner.timerClocks(), &owner.camera_shakes);
@@ -410,13 +408,13 @@ TEST_CASE_METHOD(TimerFixture, "Unkeyed shakes survive level changes but not the
     shake.completion_callback = [&] { ++completed; };
     owner.camera_shakes.Start(shake);
     owner.level.replacePrimary(world());
-    owner.visual_time += 1100ms;
+    owner.visual_time += std::chrono::milliseconds{1100};
     owner.camera_shakes.Update({0, 0, 0});
     REQUIRE(completed == 1);
 
     owner.camera_shakes.Start(shake);
     auto& replacement = game.session.begin();
-    replacement.visual_time += 2s;
+    replacement.visual_time += std::chrono::seconds{2};
     REQUIRE(replacement.camera_shakes.Update({0, 0, 0}) == 0);
     REQUIRE(completed == 1); // A discarded game's continuation cannot run in its replacement.
 }
