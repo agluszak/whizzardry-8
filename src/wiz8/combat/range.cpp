@@ -344,15 +344,15 @@ float CalcRangeDistance(W8RangeCategory range_category)
 /* Source-relative action range: same band steps as CalcRangeDistance, then add
    the source's navigator radius - the party navigator for a character source,
    the individual monster's for a monster source. */
-float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source)
+float World::rangeFromSource(W8RangeCategory range_category, const W8TargetSource& source) const
 {
     float distance = CalcRangeDistance(range_category);
-    if (TargetSourceIsCharacter(source, 0)) {
-        return GetWorld()->party.collisionSphere().radius + distance;
+    if (TargetSourceIsCharacter(&source, 0)) {
+        return party.collisionSphere().radius + distance;
     }
-    if (TargetSourceIsMonster(source, 0)) {
-        assert(source->iMonsterID != -1);
-        W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);
+    if (TargetSourceIsMonster(&source, 0)) {
+        assert(source.iMonsterID != -1);
+        W8MonsterInfo* monster_info = population->findMonster(source.iMonsterID);
         return monster_info->entity->nav.movement.alternate_radius + distance;
     }
     return distance;
@@ -511,27 +511,26 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out,
    carries: its own line of sight has to hold for a character or the party, the
    target monster has to be reachable, and a group target is checked against
    every member. */
-bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, unsigned int attack,
-                                W8CombatSlot* target)
+bool Game::monsterActionReachesTarget(W8MonsterInfo* monster_info, unsigned int attack,
+                                      W8CombatSlot* target)
 {
 
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
         int party_slot = target->iChar;
-        return CurrentGame().monsterReachesPartyMember(*monster_info, attack, party_slot,
-                                                       monster_info->action_kind);
+        return monsterReachesPartyMember(*monster_info, attack, party_slot,
+                                         monster_info->action_kind);
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
-        W8MonsterInfo* target_monster = FindMonster(target->iMonsterID);
-        return monster_info->reaches(*target_monster, CurrentGame().data, attack,
-                                     monster_info->action_kind);
+        W8MonsterInfo* target_monster = level.loaded().population->findMonster(target->iMonsterID);
+        return monster_info->reaches(*target_monster, data, attack, monster_info->action_kind);
     } else if (target->iType == W8_TARGET_KIND_PARTY) {
-        int party_slot = CurrentGame().party.randomSlot(CurrentGame().rng, 1, 1, -1, -1);
-        return CurrentGame().monsterReachesPartyMember(*monster_info, attack, party_slot,
-                                                       monster_info->action_kind);
+        int party_slot = party.randomSlot(rng, 1, 1, -1, -1);
+        return monsterReachesPartyMember(*monster_info, attack, party_slot,
+                                         monster_info->action_kind);
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
         W8TargetSource source;
         SetTargetSourceToMonster(monster_info, &source);
-        W8MonsterGroup* group = FindMonsterGroup(target->iGroupID);
-        return IsTargetSourceInRangeOfGroup(&source, group, W8_RANGE_NONE);
+        W8MonsterGroup* group = level.loaded().population->findGroup(target->iGroupID);
+        return sourceReachesGroup(&source, group, W8_RANGE_NONE);
     }
     return true;
 }
@@ -574,14 +573,15 @@ glm::vec3 GetMonsterAttackSourceOffset(Monster& monster, int kind)
     return origin;
 }
 
-bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target, const W8Action& action)
+bool Game::sourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target,
+                                     const W8Action& action)
 {
     if (TargetSourceIsCharacter(source, 0)) {
-        return CurrentGame().assessActionReach(source->iChar, 0, action);
+        return assessActionReach(source->iChar, 0, action);
     }
     if (TargetSourceIsMonster(source, 0)) {
-        W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);
-        return MonsterActionReachesTarget(monster_info, 0, target);
+        W8MonsterInfo* monster_info = level.loaded().population->findMonster(source->iMonsterID);
+        return monsterActionReachesTarget(monster_info, 0, target);
     }
     return true;
 }

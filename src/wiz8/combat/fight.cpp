@@ -281,7 +281,7 @@ bool CombatMayAdvanceContinuously(void)
             }
         }
     }
-    if (AnyMonsterEngaged()) {
+    if (CurrentGame().level.loaded().population->monster_roster.hasEngagedHostile()) {
         return true;
     }
     for (int slot = 0; slot < 8; ++slot) {

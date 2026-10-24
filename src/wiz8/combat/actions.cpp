@@ -160,9 +160,9 @@ ActionStep ReleaseMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8Mons
     if (g_special_attack_table[record->special_attack_kind][0] != 6) {
         monster_info->entity->visual.aim_set = false;
         CurrentGame().pointCameraAtCombatTarget(&source, &monster_info->Target);
-        PopulateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, &monster_info->Target,
-                                   monster_targets, char_targets,
-                                   W8AreaSightRule::RequireLineOfSight);
+        CurrentGame().appendSpellTargets(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source,
+                                         &monster_info->Target, monster_targets, char_targets,
+                                         W8AreaSightRule::RequireLineOfSight);
         ProvokeListedMonsterGroups(&source, monster_targets);
     }
     ResolveMonsterGroupAttack(record->special_attack_kind, &source, &monster_info->Target,
@@ -720,9 +720,9 @@ ActionStep Combat::releaseCharacterBreath(Game& game, int party_slot)
     }
     breath_visual->auto_release = true;
     SetTargetSourceToCharacter(party_slot, &source);
-    PopulateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source,
-                               &game.party.rows[party_slot].executing.target, monster_targets,
-                               char_targets, W8AreaSightRule::RequireLineOfSight);
+    game.appendSpellTargets(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source,
+                            &game.party.rows[party_slot].executing.target, monster_targets,
+                            char_targets, W8AreaSightRule::RequireLineOfSight);
     ProvokeListedMonsterGroups(&source, monster_targets);
     ResolveMonsterGroupAttack(0x1e, &source, &game.party.rows[party_slot].executing.target,
                               char_targets, monster_targets);
@@ -754,8 +754,8 @@ bool Combat::startCharacterBreath(Game& game, int party_slot)
 
     SetTargetSourceToCharacter(party_slot, &source);
     target = &game.party.rows[party_slot].executing.target;
-    PopulateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, target, monster_targets,
-                               char_targets, W8AreaSightRule::RequireLineOfSight);
+    game.appendSpellTargets(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, target, monster_targets,
+                            char_targets, W8AreaSightRule::RequireLineOfSight);
     if (monster_targets.empty()) {
         game.events.push(
             CharacterNotice{static_cast<unsigned int>(party_slot),

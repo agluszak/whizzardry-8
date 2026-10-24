@@ -2537,8 +2537,8 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
                 float reach = CalcRangeDistance(W8_RANGE_SHORT);
                 float radius = GetWorld()->party.radius();
                 glm::vec3 centre = GetWorld()->party.position();
-                CollectMonstersWithinRadius(&centre, &centre, found, radius + reach, 1,
-                                            W8AreaSightRule::RequireLineOfSight);
+                CurrentGame().level.loaded().appendMonstersInRadius(
+                    centre, centre, found, radius + reach, 1, W8AreaSightRule::RequireLineOfSight);
             }
             for (index = 0; index < static_cast<int>(found.size()); ++index) {
                 monster_info = FindMonster(found[index]);

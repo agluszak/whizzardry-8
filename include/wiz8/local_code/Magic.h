@@ -84,16 +84,6 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
 /* Assert and route the source/target pair a cast is about to
    use; some target kinds have their own placement pass. */
 void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target);
-/* Resolve valid spell targets for one cast and append location ids to the
-   caller's vectors. The party and monster vectors are separate outputs; the
-   sight rule explicitly chooses geometry-only preview or line-of-sight
-   eligibility. The query never changes presentation. */
-void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* source,
-                                W8CombatSlot* target, std::vector<int>& monster_markers,
-                                std::vector<int>& party_markers, W8AreaSightRule sight_rule);
-/* Drop every marker that no longer names a live, targetable
-   monster; a few spell ids prune on extra monster-record rules. */
-void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers);
 int GetProfessionCasterLevel(const W8Character* character, W8Profession profession_id);
 extern unsigned char g_profession_spellbooks[W8_PROFESSION_COUNT];
 /* The spell a missile type carries, or W8_SPELL_NONE. */

@@ -151,7 +151,7 @@ struct SpellRuntimeRecord {
     /* 0x126: a monster may cast the spell at all. MonsterOKToCastSpell reports
        a spell without it by name and asserts. */
     unsigned char monster_castable;
-    /* 0x127: radius added per power level; PopulateSpellTargetMarkers scales
+    /* 0x127: radius added per power level; spell target resolution scales
        the pair as (radius_per_level * power + effect_radius) * 500. */
     float radius_per_level;
     /* 0x12b: the power class the spell-casting view copies into

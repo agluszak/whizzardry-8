@@ -34,13 +34,9 @@ unsigned char TraceModeRejectsNoHit(int mode);
 
 W8RangeCategory MonsterActionRange(const GameData& data, const W8MonsterInfo& monster,
                                    const W8MonsterRecord& record, unsigned int attack);
-/* The base missile speed a range category grants `source`, in world units. */
-float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source);
 /* The sight-condition slot a range band needs the observer's sight flags
    checked under: zero inside long range, the current condition beyond it. */
 bool RangeCategoryUsesSightCondition(const W8MonsterInfo* monster, W8RangeCategory range_category);
-bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, unsigned int attack,
-                                W8CombatSlot* target);
 /* The location id of the nearest live, in-combat group member visible under
    the selected condition, or -1 when none qualify. */
 int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
@@ -83,8 +79,6 @@ int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship);
 glm::vec3 GetMonsterAttackSourceOffset(Monster& monster, int kind);
 /* Whether `source`'s queued action still reaches `target` -
    characters check their own current target, monsters check `target`. */
-bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target,
-                               const W8Action& action);
 /* Whether the slot has any attack of `category` that reaches a
    valid target in the scanned groups for `hand`; the condition interrupt uses
    it to tell usable attacks from merely reachable ones. `flag` == 1 skips the

@@ -1994,6 +1994,32 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     actor.action_kind = W8_MONSTER_ACTION_SPELL;
     actor.action_detail = -1;
 
+    // Spell target collection uses the same unpublished world and definitions.
+    allied_data.spells.resize(2);
+    allied_data.spells[1].target_type = W8_TARGET_TYPE_ENEMY;
+    actor.action_kind = W8_MONSTER_ACTION_ATTACK;
+    W8TargetSource source;
+    SetTargetSourceToMonster(&actor, &source);
+    std::vector<int> monster_targets, party_targets;
+    candidate.appendSpellTargets(1, 1, &source, &actor.Target, monster_targets, party_targets,
+                                 W8AreaSightRule::RequireLineOfSight);
+    REQUIRE(monster_targets == std::vector<int>{2});
+    REQUIRE(party_targets.empty());
+    monster_targets.clear();
+    world.appendMonstersInRadius({}, {}, monster_targets, 1.0f, 3, W8AreaSightRule::GeometryOnly);
+    REQUIRE(monster_targets == std::vector<int>{1, 2});
+    REQUIRE(candidate_draws.size() == 3);
+    REQUIRE(draws.size() == 3);
+    actor.action_kind = W8_MONSTER_ACTION_SPELL;
+
+    // An unrestricted scan still rolls stealth for all eight slots, even when empty.
+    REQUIRE(candidate.chooseMonsterAction(actor, false, false, false));
+    REQUIRE(candidate_draws.size() == 14); // Eight stealth draws, two candidates, then selection.
+    REQUIRE(candidate_draws.back().range == 2);
+    REQUIRE(draws.size() == 3);
+    actor.action_kind = W8_MONSTER_ACTION_SPELL;
+    actor.action_detail = -1;
+
     // Self and unseen targets short-circuit before the deliberately absent spell.
     REQUIRE(actor.reaches(actor, allied_data, 0, W8_MONSTER_ACTION_SPELL));
     visible.sight_state = W8_SIGHT_UNSEEN;

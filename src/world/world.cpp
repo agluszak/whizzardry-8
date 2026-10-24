@@ -70,7 +70,6 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/party_motion.h"
 #include "wiz8/world/update.h"
-#include "wiz8/world_cursor.h"
 // Completes MonGen for templated world-registry destruction.
 #include "wiz8/local_code/MonsterGenerator.h" // IWYU pragma: keep
 #include "wiz8/local_code/MonsterManager.h"

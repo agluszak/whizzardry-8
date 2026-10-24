@@ -47,6 +47,14 @@ public:
         return std::ranges::any_of(live_, active) || std::ranges::any_of(unborn_, active);
     }
 
+    bool hasEngagedHostile() const
+    {
+        return std::ranges::any_of(live_, [](const auto& info) {
+            return info->pCombat && info->ubDisposition == W8_DISPOSITION_HOSTILE &&
+                   info->hp_current != 0 && info->highest_condition < W8_CONDITION_WEBBED;
+        });
+    }
+
     auto hostileCombatCount() const
     {
         return std::ranges::count_if(live_, [](const auto& info) {

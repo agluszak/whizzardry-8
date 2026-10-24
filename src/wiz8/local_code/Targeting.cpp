@@ -479,41 +479,23 @@ enum { W8_SIDE_ANY = 3 };
 
    Geometry-only preview and line-of-sight eligibility are explicit rules;
    collecting targets never changes their presentation. */
-void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
-                                 std::vector<int>& found, float radius, signed char side,
-                                 W8AreaSightRule sight_rule)
+void World::appendMonstersInRadius(const glm::vec3& centre, const glm::vec3& eye,
+                                   std::vector<int>& found, float radius, signed char side,
+                                   W8AreaSightRule sight_rule) const
 {
-    unsigned int index;
-
-    if (radius == 0.0f) {
-        return;
-    }
-
-    for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
-        W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-        const W8MonsterRecord* record;
-        glm::vec3 position;
-
-        if (!monster_info->fActive || monster_info->hp_current == 0 ||
-            monster_info->uiCondition[W8_CONDITION_REACHABLE_WHEN_DOWN] != 0) {
+    if (radius == 0.0f) return;
+    for (const auto& owned : population->monster_roster.live()) {
+        const auto& info = *owned;
+        if (!info.fActive || info.hp_current == 0 ||
+            info.uiCondition[W8_CONDITION_REACHABLE_WHEN_DOWN] != 0)
             continue;
-        }
-        record = GetMonsterDataForInfo(monster_info);
-        if (record->untargetable != 0) {
+        auto& monster = *info.entity;
+        if (monster.species().untargetable != 0 ||
+            (info.ubDisposition != side && side != W8_SIDE_ANY))
             continue;
-        }
-        if (monster_info->ubDisposition != side && side != W8_SIDE_ANY) {
-            continue;
-        }
-
-        Monster& monster = *monster_info->entity;
-        position = monster.nav.GetPosition();
-        if (radius < glm::length((*centre - position)) - monster.nav.radius) {
-            continue;
-        }
-        if (sight_rule == W8AreaSightRule::GeometryOnly || monster.HasLineOfSightFromPoint(*eye)) {
-            found.push_back(monster_info->location_id);
-        }
+        if (radius < glm::length(centre - monster.nav.GetPosition()) - monster.nav.radius) continue;
+        if (sight_rule == W8AreaSightRule::GeometryOnly || monster.HasLineOfSightFromPoint(eye))
+            found.push_back(info.location_id);
     }
 }
 
@@ -589,8 +571,8 @@ static int g_last_visible_monster = -1;
    members are then walked until one stands inside that distance - the source
    measures to the party for a character and to its own monster for a
    monster. */
-bool IsTargetSourceInRangeOfGroup(const W8TargetSource* source, W8MonsterGroup* group,
-                                  W8RangeCategory range)
+bool Game::sourceReachesGroup(const W8TargetSource* source, W8MonsterGroup* group,
+                              W8RangeCategory range) const
 {
     Monster* source_monster;
     W8MonsterInfo* monster_info;
@@ -606,15 +588,15 @@ bool IsTargetSourceInRangeOfGroup(const W8TargetSource* source, W8MonsterGroup* 
         assert(source->iType == W8_TARGET_SOURCE_MONSTER);
         assert(source->iMonsterID != BAD_INDEX);
         assert(source->iMonsterID != BAD_INDEX);
-        monster_info = FindMonster(source->iMonsterID);
-        source_monster = GetMonsterByLocationID(source->iMonsterID);
+        monster_info = level.loaded().population->findMonster(source->iMonsterID);
+        source_monster = level.loaded().population->findEntity(source->iMonsterID);
         if (!source_monster) return false;
-        record = GetMonsterDataForInfo(monster_info);
-        range = MonsterActionRange(CurrentGame().data, *monster_info, *record, 0);
+        record = &data.monsters[monster_info->monster_species];
+        range = MonsterActionRange(data, *monster_info, *record, 0);
     }
     max_distance = CalcRangeDistance(range);
     for (index = 0; index < group->MemberIds().size(); ++index) {
-        Monster* member = GetMonsterByLocationID(group->MemberLocationId(index));
+        Monster* member = level.loaded().population->findEntity(group->MemberLocationId(index));
         if (!member) continue;
 
         if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
@@ -689,8 +671,8 @@ bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group, const W8Action
     SetTargetSourceToCharacter(party_slot, &source);
 
     if (needed == W8_TARGET_NEED_GROUP) {
-        return IsTargetSourceInRangeOfGroup(&source, group,
-                                            CurrentGame().actionRange(party_slot, 0, selected));
+        return CurrentGame().sourceReachesGroup(&source, group,
+                                                CurrentGame().actionRange(party_slot, 0, selected));
     }
     if (needed != W8_TARGET_NEED_ENEMY && needed != W8_TARGET_NEED_ALLY) {
         return false;
@@ -1296,26 +1278,6 @@ bool AnyMonsterVisible(void)
 /* Whether `source` can currently see `monster_info`: the party threat record's
    sight flag for a character, the mon-to-mon visibility record for a monster
    source, and a point line-of-sight probe for an indirect source. */
-unsigned char SourceCanSeeMonster(const W8TargetSource* source, W8MonsterInfo* monster_info,
-                                  unsigned char flag_index, int sight_flag)
-{
-    if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
-        assert(source->iChar != -1);
-        return monster_info->party_threat.los_flags[flag_index];
-    }
-    if (source->iType == W8_TARGET_SOURCE_MONSTER) {
-        assert(source->iMonsterID != -1);
-        assert(source->iMonsterID != -1);
-        W8MonsterInfo* source_info = FindMonster(source->iMonsterID);
-        W8VisibilityRecord* visibility = FindMonToMonVisibility(source_info, monster_info);
-        if (visibility != 0 && visibility->los_flags[sight_flag]) {
-            return 1;
-        }
-        return 0;
-    }
-    assert(source->iType == W8_TARGET_SOURCE_INDIRECT);
-    return monster_info->entity->HasLineOfSightFromPoint(source->point);
-}
 
 /* Whether `target` is inside the aim cone: within `bonus` + `eye_radius` of
    `eye`, and within the heading and elevation arc bounds. */
@@ -1344,25 +1306,39 @@ bool TargetInRangeAndArcs(const glm::vec3* target, float bonus, const glm::vec3*
 /* Append the location ids of live targetable monsters inside the aim cone to
    `found`. `disposition` filters ubDisposition, with 3 admitting every
    disposition; `sight_flag` picks the visibility flag the source must have. */
-int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye, float heading,
-                              float elevation, std::vector<int>& found, unsigned char disposition,
-                              int sight_flag, float range)
+void World::appendMonstersInCone(const W8TargetSource& source, const glm::vec3& eye, float heading,
+                                 float elevation, std::vector<int>& found,
+                                 unsigned char disposition, int sight_flag, float range) const
 {
-    int start_count = static_cast<int>(found.size());
     float radius;
-    if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
-        radius = GetWorld()->party.radius();
-    } else if (source->iType == W8_TARGET_SOURCE_MONSTER) {
-        W8MonsterInfo* source_info = FindMonster(source->iMonsterID);
+    if (source.iType == W8_TARGET_SOURCE_CHARACTER) {
+        radius = party.radius();
+    } else if (source.iType == W8_TARGET_SOURCE_MONSTER) {
+        W8MonsterInfo* source_info = population->findMonster(source.iMonsterID);
         radius = source_info->entity->nav.radius;
     } else {
         radius = 0.0f;
     }
-    for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
+    const auto visible = [&](W8MonsterInfo& target) {
+        if (source.iType == W8_TARGET_SOURCE_CHARACTER) {
+            assert(source.iChar != -1);
+            return static_cast<bool>(target.party_threat.los_flags[1]);
+        }
+        if (source.iType == W8_TARGET_SOURCE_MONSTER) {
+            assert(source.iMonsterID != -1);
+            const auto* observer = population->findMonster(source.iMonsterID);
+            if (!observer->monster_visibility) return false;
+            const auto row = observer->monster_visibility->find(target.location_id);
+            return row != observer->monster_visibility->end() && row->second.los_flags[sight_flag];
+        }
+        assert(source.iType == W8_TARGET_SOURCE_INDIRECT);
+        return target.entity->HasLineOfSightFromPoint(source.point);
+    };
+    for (const auto& monster_owner : population->monster_roster.live()) {
         auto* monster_info = monster_owner.get();
         if (monster_info->fActive && monster_info->hp_current != 0 &&
             monster_info->uiCondition[W8_CONDITION_DEAD] == 0) {
-            const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+            const W8MonsterRecord* record = &monster_info->entity->species();
             if (record->untargetable == 0 &&
                 (monster_info->ubDisposition == disposition || disposition == 3)) {
                 Monster& monster = *monster_info->entity;
@@ -1371,15 +1347,14 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
                     glm::vec3(monster.nav.movement.position.x,
                               monster.nav.movement.position.y + monster.nav.movement.height_offset,
                               monster.nav.movement.position.z);
-                if (TargetInRangeAndArcs(&point, monster.nav.radius, eye, radius, heading,
+                if (TargetInRangeAndArcs(&point, monster.nav.radius, &eye, radius, heading,
                                          elevation, range) &&
-                    SourceCanSeeMonster(source, monster_info, 1, sight_flag) != 0) {
+                    visible(*monster_info)) {
                     found.push_back(monster_info->location_id);
                 }
             }
         }
     }
-    return static_cast<int>(found.size()) - start_count;
 }
 
 /* Whether the pending item use needs a target picked: most spell target types

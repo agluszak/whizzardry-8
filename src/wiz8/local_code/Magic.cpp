@@ -219,7 +219,7 @@ bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
     }
 
     combat_slot = &monster_info->Target;
-    if (!MonsterActionReachesTarget(monster_info, 0, combat_slot) &&
+    if (!CurrentGame().monsterActionReachesTarget(monster_info, 0, combat_slot) &&
         !ClearMonsterCombatSlot(monster_info)) {
         return false;
     }
@@ -1874,9 +1874,9 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
     std::vector<int> party;
     W8TargetSource source;
     SetTargetSourceToCharacter(party_slot, &source);
-    PopulateSpellTargetMarkers(spell_id, power, &source,
-                               &CurrentGame().party.rows[party_slot].executing.target, monsters,
-                               party, W8AreaSightRule::RequireLineOfSight);
+    CurrentGame().appendSpellTargets(spell_id, power, &source,
+                                     &CurrentGame().party.rows[party_slot].executing.target,
+                                     monsters, party, W8AreaSightRule::RequireLineOfSight);
 
     bool valid = true;
     bool has_targets = spell_id == W8_SPELL_SONIC_BOOM || !monsters.empty() || !party.empty();
@@ -2524,8 +2524,9 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         }
         if (party_targets == 0) {
             if (monster_targets == 0) {
-                PopulateSpellTargetMarkers(spell_id, power_level, source, target, monster_markers,
-                                           party_markers, W8AreaSightRule::RequireLineOfSight);
+                CurrentGame().appendSpellTargets(spell_id, power_level, source, target,
+                                                 monster_markers, party_markers,
+                                                 W8AreaSightRule::RequireLineOfSight);
                 if (spell_id == W8_SPELL_SUMMON_ELEMENTAL) {
                     ground_point.y = target->point.y - 1e+03f;
                     target->point.y = ground_point.y;
@@ -3253,9 +3254,9 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
    caller's vectors. The source's position and eye are picked per source kind,
    then the spell's target type decides whether the single aimed slot, a
    radius, a cone or a whole side goes into the vectors. */
-void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* source,
-                                W8CombatSlot* target, std::vector<int>& monster_markers,
-                                std::vector<int>& party_markers, W8AreaSightRule sight_rule)
+void Game::appendSpellTargets(int spell_id, int power_level, W8TargetSource* source,
+                              W8CombatSlot* target, std::vector<int>& monster_markers,
+                              std::vector<int>& party_markers, W8AreaSightRule sight_rule)
 {
     glm::vec3 player_pos;
     glm::vec3 camera;
@@ -3286,21 +3287,21 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
     monster_info = 0;
     sight_flag = 0;
     if (!source->fBackfire && !source->fReflection &&
-        !SourceActionReachesTarget(source, target,
+        !sourceActionReachesTarget(source, target,
                                    W8Action{W8_ACTION_CAST_SPELL, spell_id, *target, {}})) {
         return;
     }
-    player_pos = GetWorld()->party.position();
-    camera = cameraLocation();
+    auto& world = level.loaded();
+    player_pos = world.party.position();
+    camera = world.party.eye();
     if (TargetSourceIsMonster(source, 1)) {
         if (source->iMonsterID == -1) {
             return;
         }
-        monster_info = FindMonster(source->iMonsterID);
+        monster_info = world.population->findMonster(source->iMonsterID);
         if (monster_info == nullptr) {
             return;
         }
-        GetMonsterDataForInfo(monster_info);
         monster = monster_info->entity.get();
     }
     /* A monster source, direct or (for backfire and reflection) indirect, was
@@ -3329,7 +3330,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         centre = source->point;
     }
     target_point = target->point;
-    target_type = GetSpellTargetType(spell_id, false);
+    target_type = data.spells[spell_id].target_type;
     switch (target_type) {
     case W8_TARGET_TYPE_CASTER:
     case W8_TARGET_TYPE_ENEMY:
@@ -3352,14 +3353,14 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
         }
         break;
     case W8_TARGET_TYPE_PARTY:
-        radius = (Data().spells[spell_id].radius_per_level * power_level +
-                  Data().spells[spell_id].effect_radius) *
+        radius = (data.spells[spell_id].radius_per_level * power_level +
+                  data.spells[spell_id].effect_radius) *
                  kWorldScale;
         if (TargetSourceIsCharacter(source, 0)) {
             marked = true;
             side = 2;
             if (0.0f < radius) {
-                radius += GetWorld()->party.radius();
+                radius += world.party.radius();
             }
         } else if (direct_monster_source) {
             if (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY) {
@@ -3380,23 +3381,23 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             distance = (centre.x - player_pos.x) * (centre.x - player_pos.x) +
                        (centre.y - player_pos.y) * (centre.y - player_pos.y) +
                        (centre.z - player_pos.z) * (centre.z - player_pos.z);
-            if (sqrtf(distance) <= radius && !GetWorldSpatialIndex()->traceSight(eye, camera)) {
+            if (sqrtf(distance) <= radius && !world.compiledIndex()->traceSight(eye, camera)) {
                 marked = true;
             }
         }
-        CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius,
-                                    static_cast<signed char>(side), sight_rule);
+        world.appendMonstersInRadius(centre, eye, monster_markers, radius,
+                                     static_cast<signed char>(side), sight_rule);
         break;
     case W8_TARGET_TYPE_ENEMY_GROUP:
         if (target->iType == W8_TARGET_KIND_GROUP) {
-            group = FindMonsterGroup(target->iGroupID);
+            group = world.population->findGroup(target->iGroupID);
             if (group == 0) {
                 return;
             }
             index = 0;
             while (index < group->MemberIds().size()) {
                 slot = group->MemberLocationId(index);
-                member = FindMonster(slot);
+                member = world.population->findMonster(slot);
                 if (member->ubDisposition == group->ubDisposition) {
                     monster_markers.push_back(slot);
                 }
@@ -3418,8 +3419,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                 side = 1;
             } else if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
                 side = 2;
-                if (TargetInRangeAndArcs(&camera, GetWorld()->party.radius(), &eye,
-                                         monster->nav.radius, heading, elevation, cone_range) &&
+                if (TargetInRangeAndArcs(&camera, world.party.radius(), &eye, monster->nav.radius,
+                                         heading, elevation, cone_range) &&
                     monster_info->player_visibility.los_flags[sight_flag] != '\0') {
                     marked = true;
                 }
@@ -3432,7 +3433,8 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                 if (source->iChar != -1) {
                     side = 2;
                 } else if (source->iMonsterID != -1) {
-                    if (FindMonster(source->iMonsterID)->ubDisposition != W8_DISPOSITION_FRIENDLY) {
+                    if (world.population->findMonster(source->iMonsterID)->ubDisposition !=
+                        W8_DISPOSITION_FRIENDLY) {
                         side = 1;
                     } else {
                         side = 2;
@@ -3441,25 +3443,24 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             }
         }
         if (!marked &&
-            TargetInRangeAndArcs(&camera, GetWorld()->party.radius(), &eye, 0, heading, elevation,
+            TargetInRangeAndArcs(&camera, world.party.radius(), &eye, 0, heading, elevation,
                                  cone_range) &&
-            !GetWorldSpatialIndex()->traceSight(eye, camera)) {
+            !world.compiledIndex()->traceSight(eye, camera)) {
             marked = true;
         }
-        CollectConeMonsterTargets(source, &eye, heading, elevation, monster_markers,
-                                  static_cast<unsigned char>(side), sight_flag, cone_range);
-        if (monster_markers.empty() &&
-            (!CurrentGame().combat.has_value() || !CurrentGame().combat->enemies_engaged) &&
+        world.appendMonstersInCone(*source, eye, heading, elevation, monster_markers,
+                                   static_cast<unsigned char>(side), sight_flag, cone_range);
+        if (monster_markers.empty() && (!combat.has_value() || !combat->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<signed char>(side) == 1 &&
-            !AnyMonsterEngaged()) {
-            CollectConeMonsterTargets(source, &eye, heading, elevation, monster_markers, 3,
-                                      sight_flag, cone_range);
+            !world.population->monster_roster.hasEngagedHostile()) {
+            world.appendMonstersInCone(*source, eye, heading, elevation, monster_markers, 3,
+                                       sight_flag, cone_range);
         }
         break;
     case W8_TARGET_TYPE_RADIUS:
         trace = glm::vec3(target_point.x, target_point.y - 1e+03f, target_point.z);
-        radius = (Data().spells[spell_id].radius_per_level * power_level +
-                  Data().spells[spell_id].effect_radius) *
+        radius = (data.spells[spell_id].radius_per_level * power_level +
+                  data.spells[spell_id].effect_radius) *
                  kWorldScale;
         if (TargetSourceIsCharacter(source, 1)) {
             side = (source->fBackfire || source->fReflection) ? 1 : 2;
@@ -3477,23 +3478,22 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
                        (trace.y - player_pos.y) * (trace.y - player_pos.y) +
                        (trace.z - player_pos.z) * (trace.z - player_pos.z);
             if (sqrtf(distance) <= radius &&
-                !GetWorldSpatialIndex()->traceSight(target_point, camera)) {
+                !world.compiledIndex()->traceSight(target_point, camera)) {
                 marked = true;
             }
         }
-        CollectMonstersWithinRadius(&trace, &target_point, monster_markers, radius,
-                                    static_cast<signed char>(side), sight_rule);
-        if (monster_markers.empty() &&
-            (!CurrentGame().combat.has_value() || !CurrentGame().combat->enemies_engaged) &&
+        world.appendMonstersInRadius(trace, target_point, monster_markers, radius,
+                                     static_cast<signed char>(side), sight_rule);
+        if (monster_markers.empty() && (!combat.has_value() || !combat->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<signed char>(side) == 1 &&
-            !AnyMonsterEngaged()) {
-            CollectMonstersWithinRadius(&trace, &target_point, monster_markers, radius, 3,
-                                        sight_rule);
+            !world.population->monster_roster.hasEngagedHostile()) {
+            world.appendMonstersInRadius(trace, target_point, monster_markers, radius, 3,
+                                         sight_rule);
         }
         break;
     case W8_TARGET_TYPE_ALL_ENEMIES:
         target->point = eye;
-        radius = CalcRangeDistance(Data().spells[spell_id].range_category, source);
+        radius = world.rangeFromSource(data.spells[spell_id].range_category, *source);
         if (TargetSourceIsCharacter(source, 1) ||
             (monster_source && monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY)) {
             side = (source->fBackfire || source->fReflection) ? 2 : 1;
@@ -3506,17 +3506,16 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             distance = (centre.x - player_pos.x) * (centre.x - player_pos.x) +
                        (centre.y - player_pos.y) * (centre.y - player_pos.y) +
                        (centre.z - player_pos.z) * (centre.z - player_pos.z);
-            if (sqrtf(distance) <= radius && !GetWorldSpatialIndex()->traceSight(eye, camera)) {
+            if (sqrtf(distance) <= radius && !world.compiledIndex()->traceSight(eye, camera)) {
                 marked = true;
             }
         }
-        CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius,
-                                    static_cast<signed char>(side), sight_rule);
-        if (monster_markers.empty() &&
-            (!CurrentGame().combat.has_value() || !CurrentGame().combat->enemies_engaged) &&
+        world.appendMonstersInRadius(centre, eye, monster_markers, radius,
+                                     static_cast<signed char>(side), sight_rule);
+        if (monster_markers.empty() && (!combat.has_value() || !combat->enemies_engaged) &&
             TargetSourceIsCharacter(source, 0) && static_cast<signed char>(side) == 1 &&
-            !AnyMonsterEngaged()) {
-            CollectMonstersWithinRadius(&centre, &eye, monster_markers, radius, 3, sight_rule);
+            !world.population->monster_roster.hasEngagedHostile()) {
+            world.appendMonstersInRadius(centre, eye, monster_markers, radius, 3, sight_rule);
         }
         break;
     default:
@@ -3524,24 +3523,16 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
     }
     if (marked && spell_id != W8_SPELL_HOLY_WATER && spell_id != W8_SPELL_BANISH) {
         for (slot = 0; slot < 8; ++slot) {
-            if (CurrentGame().party.participates(slot) &&
-                (CurrentGame().party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] == 0 ||
-                 !SpellTargetsEnemies(CurrentGame().data, spell_id) ||
-                 static_cast<signed char>(side) == 3)) {
+            if (party.participates(slot) &&
+                (party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] == 0 ||
+                 !SpellTargetsEnemies(data, spell_id) || static_cast<signed char>(side) == 3)) {
                 party_markers.push_back(slot);
             }
         }
     }
-    PruneSpellTargetMarkers(spell_id, monster_markers);
-}
-
-/* Drop every marker that no longer names a live, targetable monster. Spells
-   0x16, 0x4d and 0x81 also drop markers whose monster kind they do not affect. */
-void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers)
-{
-    std::erase_if(monster_markers, [spell_id](int monster_id) {
-        W8MonsterInfo* monster = FindMonster(monster_id);
-        const W8MonsterRecord* record = GetMonsterDataForInfo(monster);
+    std::erase_if(monster_markers, [&](int monster_id) {
+        W8MonsterInfo* monster = world.population->findMonster(monster_id);
+        const W8MonsterRecord* record = &data.monsters[monster->monster_species];
         if (!monster->fActive || monster->hp_current == 0 ||
             monster->uiCondition[W8_CONDITION_DEAD] > 0 || record->untargetable != 0) {
             return true;

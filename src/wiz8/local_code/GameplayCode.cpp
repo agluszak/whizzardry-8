@@ -78,21 +78,6 @@ static int g_character_table[480] = {
 
 /* Whether any monster is engaged with the party right now: in combat, in the
    engaged state, still alive and not yet on its way out. */
-bool AnyMonsterEngaged(void)
-{
-    unsigned int index;
-    const W8MonsterInfo* monster_info;
-
-    for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
-        monster_info = GetMonsterListEntry(index);
-        if (monster_info->pCombat && monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
-            monster_info->hp_current != 0 &&
-            monster_info->highest_condition < W8_CONDITION_WEBBED) {
-            return true;
-        }
-    }
-    return false;
-}
 
 /* How many party members are still on their feet. */
 void AdvanceCharacterToLevel(W8Character* character, unsigned int level)

@@ -1001,23 +1001,7 @@ struct MonsterActionCandidate {
 std::vector<MonsterActionCandidate> BuildMonsterActions(Game& game, W8MonsterInfo* monster_info,
                                                         bool target_locked, bool attack_locked)
 {
-    W8MonsterInfo* locked_monster = nullptr;
-    const W8MonsterRecord* record;
-    unsigned int index;
-    unsigned int attack;
-    unsigned int mode_bit;
-    unsigned int char_lo;
-    unsigned int char_hi;
-    unsigned int attack_lo;
-    unsigned int attack_hi;
-    bool scan_chars = false;
-    bool scan_monsters = false;
-    unsigned char avoided[8] = {0};
-    unsigned char resisted[8] = {0};
-    bool friendly_targets;
-    W8Disposition disposition_needed;
-
-    record = &game.data.monsters[monster_info->monster_species];
+    const auto& record = game.data.monsters[monster_info->monster_species];
     std::vector<MonsterActionCandidate> actions;
     const auto append = [&](W8MonsterActionKind kind, int detail, int attack, W8CombatSlot target) {
         actions.push_back({kind, detail, attack, target});
@@ -1025,7 +1009,7 @@ std::vector<MonsterActionCandidate> BuildMonsterActions(Game& game, W8MonsterInf
         game.rng.below(100);
     };
     if (!target_locked && !attack_locked) {
-        if (CanProtect(*monster_info, *record) &&
+        if (CanProtect(*monster_info, record) &&
             game.rng.below(100) < monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
             monster_info->action_kind = W8_MONSTER_ACTION_PROTECT;
             for (const auto& owner : game.level.loaded().population->monster_roster.live()) {
@@ -1040,7 +1024,7 @@ std::vector<MonsterActionCandidate> BuildMonsterActions(Game& game, W8MonsterInf
                     }
                 }
             }
-            for (index = 0; index < 8; ++index) {
+            for (int index = 0; index < 8; ++index) {
                 ResetCombatSlot(&monster_info->Target);
                 monster_info->Target.iType = W8_TARGET_KIND_CHARACTER;
                 monster_info->Target.iChar = index;
@@ -1052,75 +1036,62 @@ std::vector<MonsterActionCandidate> BuildMonsterActions(Game& game, W8MonsterInf
                 return actions;
             }
         }
-        if (record->combat_morale == 2 && record->combat_behavior != 3 &&
+        if (record.combat_morale == 2 && record.combat_behavior != 3 &&
             game.rng.below(100) < monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
             append(W8_MONSTER_ACTION_WAIT, -1, 0, {W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}});
         }
     }
     monster_info->action_kind = W8_MONSTER_ACTION_ATTACK;
-    if (!attack_locked) {
-        attack_lo = 0;
-        attack_hi = W8_MAX_MONSTER_ATTACKS;
-    } else {
-        attack_lo = monster_info->pCombat->attack_index;
-        attack_hi = attack_lo + 1;
+    const auto attack_lo = attack_locked ? monster_info->pCombat->attack_index : 0u;
+    const auto attack_hi = attack_locked ? attack_lo + 1 : W8_MAX_MONSTER_ATTACKS;
+    const bool restrict_target = target_locked && !attack_locked &&
+                                 !monster_info->pCombat->berserk &&
+                                 monster_info->attributes[W8_MONSTER_ATTRIBUTE_DEXTERITY] < 75;
+    const auto& target = monster_info->Target;
+    if (restrict_target &&
+        (!game.targetPresent(target) ||
+         (target.iType != W8_TARGET_KIND_CHARACTER && target.iType != W8_TARGET_KIND_MONSTER)))
+        return actions;
+    const bool scan_chars = !restrict_target || target.iType == W8_TARGET_KIND_CHARACTER;
+    const bool scan_monsters = !restrict_target || target.iType == W8_TARGET_KIND_MONSTER;
+    assert(!restrict_target || (scan_chars ? target.iChar != -1 : target.iMonsterID != -1));
+    const int char_lo = restrict_target && scan_chars ? target.iChar : 0;
+    const int char_hi = scan_chars ? (restrict_target ? char_lo + 1 : W8_PARTY_SLOT_COUNT) : 0;
+    const auto* locked_monster =
+        restrict_target && scan_monsters
+            ? game.level.loaded().population->findMonster(target.iMonsterID)
+            : nullptr;
+    bool avoided[W8_PARTY_SLOT_COUNT]{}, resisted[W8_PARTY_SLOT_COUNT]{};
+    for (int index = char_lo; index < char_hi; ++index) {
+        avoided[index] = game.rng.below(100) <
+                         game.party.characters[index].skills[W8_SKILL_STEALTH].level * 75 / 100;
     }
-    if (!target_locked || attack_locked || monster_info->pCombat->berserk ||
-        monster_info->attributes[W8_MONSTER_ATTRIBUTE_DEXTERITY] >= 0x4b) {
-        char_lo = 0;
-        char_hi = 8;
-        scan_chars = true;
-        scan_monsters = true;
-    } else {
-        if (!game.targetPresent(monster_info->Target)) {
-            return actions;
+    const bool friendly_targets = monster_info->pCombat && monster_info->pCombat->berserk;
+    const auto disposition_needed =
+        friendly_targets ? W8_DISPOSITION_FRIENDLY : W8_DISPOSITION_HOSTILE;
+    const auto append_attack = [&](unsigned int attack, W8CombatSlot aimed) {
+        for (unsigned int mode = 0; mode < 9; ++mode) {
+            if ((record.attacks[attack].attack_modes & (1 << mode)) != 0)
+                append(W8_MONSTER_ACTION_ATTACK, mode, attack, aimed);
         }
-        if (monster_info->Target.iType == W8_TARGET_KIND_CHARACTER) {
-            assert(monster_info->Target.iChar != -1);
-            char_lo = monster_info->Target.iChar;
-            char_hi = char_lo + 1;
-            scan_chars = true;
-        } else if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
-            assert(monster_info->Target.iMonsterID != -1);
-            scan_monsters = true;
-            locked_monster =
-                game.level.loaded().population->findMonster(monster_info->Target.iMonsterID);
-            goto targets_chosen;
-        } else {
-            return actions;
-        }
-    }
-    for (index = char_lo; index < char_hi; ++index) {
-        if (game.rng.below(100) <
-            game.party.characters[index].skills[W8_SKILL_STEALTH].level * 75 / 100) {
-            avoided[index] = 1;
-        }
-    }
-targets_chosen:
-    friendly_targets = monster_info->pCombat && monster_info->pCombat->berserk;
-    disposition_needed = friendly_targets ? W8_DISPOSITION_FRIENDLY : W8_DISPOSITION_HOSTILE;
-    for (attack = attack_lo; attack < attack_hi; ++attack) {
+    };
+    for (unsigned int attack = attack_lo; attack < attack_hi; ++attack) {
         if (game.rateMonsterAttack(*monster_info, attack, friendly_targets) != 0) {
             continue;
         }
         if (scan_chars && monster_info->player_visibility.los_flags[RangeCategoryUsesSightCondition(
                               monster_info, static_cast<W8RangeCategory>(
-                                                record->attacks[attack].range_category))] != 0) {
-            for (index = char_lo; index < char_hi; ++index) {
+                                                record.attacks[attack].range_category))] != 0) {
+            for (int index = char_lo; index < char_hi; ++index) {
                 if (game.party.participates(index) &&
                     game.party.dispositionToward(index, (monster_info)->ubDisposition) ==
                         disposition_needed &&
                     game.monsterReachesPartyMember(*monster_info, attack, index,
                                                    monster_info->action_kind)) {
-                    if (avoided[index] == 0) {
-                        for (mode_bit = 0; mode_bit < 9; ++mode_bit) {
-                            if ((record->attacks[attack].attack_modes & (1 << mode_bit)) != 0) {
-                                append(W8_MONSTER_ACTION_ATTACK, mode_bit, attack,
-                                       W8CombatSlot::character(index));
-                            }
-                        }
+                    if (!avoided[index]) {
+                        append_attack(attack, W8CombatSlot::character(index));
                     } else {
-                        resisted[index] = 1;
+                        resisted[index] = true;
                     }
                 }
             }
@@ -1134,19 +1105,14 @@ targets_chosen:
                     other->pCombat &&
                     MonsterHostility(game.data, *monster_info, *other) == disposition_needed &&
                     monster_info->reaches(*other, game.data, attack, monster_info->action_kind)) {
-                    for (mode_bit = 0; mode_bit < 9; ++mode_bit) {
-                        if ((record->attacks[attack].attack_modes & (1 << mode_bit)) != 0) {
-                            append(W8_MONSTER_ACTION_ATTACK, mode_bit, attack,
-                                   W8CombatSlot::monster(other->location_id));
-                        }
-                    }
+                    append_attack(attack, W8CombatSlot::monster(other->location_id));
                 }
             }
         }
     }
     if (scan_chars) {
-        for (index = char_lo; index < char_hi; ++index) {
-            if (resisted[index] != 0 && game.rng.below(2) == 0) {
+        for (int index = char_lo; index < char_hi; ++index) {
+            if (resisted[index] && game.rng.below(2) == 0) {
                 PracticeCharacterSkill(game, &game.party.characters[index], W8_SKILL_STEALTH, 1,
                                        false);
             }
@@ -1283,8 +1249,9 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
             SetTargetSourceToMonster(monster_info, &source);
             power_level = ChooseMonsterSpellPowerLevel(
                 monster_info, GetMonsterDataForInfo(monster_info), spell_id);
-            PopulateSpellTargetMarkers(spell_id, power_level, &source, combat_slot, monster_markers,
-                                       party_markers, W8AreaSightRule::RequireLineOfSight);
+            CurrentGame().appendSpellTargets(spell_id, power_level, &source, combat_slot,
+                                             monster_markers, party_markers,
+                                             W8AreaSightRule::RequireLineOfSight);
             for (index = 0; index < static_cast<int>(party_markers.size()); ++index) {
                 ++total;
                 ResetCombatSlot(&probe);
@@ -1682,8 +1649,8 @@ bool SpellAreaHitsNeutralMonster(W8MonsterInfo* monster_info, int spell_id,
     SetTargetSourceToMonster(monster_info, &source);
     power_level =
         ChooseMonsterSpellPowerLevel(monster_info, GetMonsterDataForInfo(monster_info), spell_id);
-    PopulateSpellTargetMarkers(spell_id, power_level, &source, combat_slot, monster_markers,
-                               party_markers, W8AreaSightRule::RequireLineOfSight);
+    CurrentGame().appendSpellTargets(spell_id, power_level, &source, combat_slot, monster_markers,
+                                     party_markers, W8AreaSightRule::RequireLineOfSight);
     for (index = 0; index < static_cast<int>(monster_markers.size()); ++index) {
         target = FindMonster(monster_markers[index]);
         if (target->ubDisposition == W8_DISPOSITION_NEUTRAL) {
@@ -1835,7 +1802,7 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
                 ResetCombatSlot(&slot);
                 slot.iType = W8_TARGET_KIND_GROUP;
                 slot.iGroupID = monster_group->group_id;
-                if (MonsterActionReachesTarget(monster_info, 0, &slot)) {
+                if (CurrentGame().monsterActionReachesTarget(monster_info, 0, &slot)) {
                     targets.push_back(slot);
                 }
             }
@@ -1845,7 +1812,7 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         }
         ResetCombatSlot(&slot);
         slot.iType = W8_TARGET_KIND_PARTY;
-        if (!MonsterActionReachesTarget(monster_info, 0, &slot)) {
+        if (!CurrentGame().monsterActionReachesTarget(monster_info, 0, &slot)) {
             break;
         }
         targets.push_back(slot);
@@ -2457,8 +2424,8 @@ bool MonsterSpellHasPartyTarget(W8MonsterInfo* monster_info, int spell_id, W8Com
     SetTargetSourceToMonster(monster_info, &source);
     power_level =
         ChooseMonsterSpellPowerLevel(monster_info, GetMonsterDataForInfo(monster_info), spell_id);
-    PopulateSpellTargetMarkers(spell_id, power_level, &source, slot, monster_markers, party_markers,
-                               W8AreaSightRule::RequireLineOfSight);
+    CurrentGame().appendSpellTargets(spell_id, power_level, &source, slot, monster_markers,
+                                     party_markers, W8AreaSightRule::RequireLineOfSight);
     return !party_markers.empty();
 }
 

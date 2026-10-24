@@ -89,9 +89,6 @@ bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe);
    otherwise the actor and the applied target must agree on hostility with the
    action's enemy-aimed flag. */
 
-bool IsTargetSourceInRangeOfGroup(const W8TargetSource* source, W8MonsterGroup* group,
-                                  W8RangeCategory range);
-
 W8TargetAssessment AssessMonsterTarget(int party_slot, int location_id, const W8Action& selected,
                                        bool allow_single_target, bool sighting = false);
 bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group, const W8Action& selected,
@@ -111,12 +108,6 @@ void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed need
 void RefreshMonsterTargetCounts(void);
 bool AnyMonsterVisible(void);
 
-/* Collect eligible monsters within the radius, with an explicit choice
-   between line of sight and geometry-only preview rules. */
-void CollectMonstersWithinRadius(const glm::vec3* centre, const glm::vec3* eye,
-                                 std::vector<int>& found, float radius, signed char side,
-                                 W8AreaSightRule sight_rule);
-
 class Monster;
 
 /* Whether `monster` is within `max_distance` of the player and
@@ -127,12 +118,6 @@ bool IsMonsterVisibleWithinDistance(Monster& monster, float max_distance);
    `bonus`, inside the heading and elevation arcs. */
 bool TargetInRangeAndArcs(const glm::vec3* target, float bonus, const glm::vec3* eye,
                           float eye_radius, float heading, float elevation, float range);
-/* Append the location ids of live targetable monsters inside the
-   aim cone to `found`, filtered by disposition (3 admits all); returns how many
-   were added. */
-int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye, float heading,
-                              float elevation, std::vector<int>& found, unsigned char disposition,
-                              int sight_flag, float range);
 /* Whether the pending item use needs a target picked. */
 bool ItemUseNeedsTarget(int party_slot);
 

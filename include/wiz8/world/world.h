@@ -24,6 +24,7 @@
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/retail_opaque_records.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/automap.h"
 #include "wiz8/world/camera_paths.h"
@@ -165,6 +166,13 @@ struct World {
     bool settleItem(W8WorldItem* item);
     std::optional<glm::vec3> itemDropPosition(const glm::vec2& cursor) const;
     Trigger* loadTrigger(wiz8::File& file, const GameData& data, Rng& rng, Story& story);
+    float rangeFromSource(W8RangeCategory range, const W8TargetSource& source) const;
+    void appendMonstersInRadius(const glm::vec3& centre, const glm::vec3& eye,
+                                std::vector<int>& found, float radius, signed char side,
+                                W8AreaSightRule sight_rule) const;
+    void appendMonstersInCone(const W8TargetSource& source, const glm::vec3& eye, float heading,
+                              float elevation, std::vector<int>& found, unsigned char disposition,
+                              int sight_flag, float range) const;
     void updateNearbyItems(const GameData& data, Rng& rng, Events& events, float gravity);
     void activateItem(const GameData& data, Rng& rng, W8WorldItem* item);
     void addItemToSector(int sector, W8WorldItem* item);

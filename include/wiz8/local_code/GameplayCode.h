@@ -30,7 +30,6 @@ void EnsureUniquePartyVoice(W8Character* character);
 void CastSpellAtLockInteraction(unsigned int level, int flag, int backfire);
 unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* record,
                                         bool buy_equipment);
-bool AnyMonsterEngaged(void);
 /* On a level-motion override, roll `pow(8.0, fall + 0.7)` d6 of
    fall damage against the party with a notice and the fall-impact sound. */
 void HandleLevelOverride(float fall);

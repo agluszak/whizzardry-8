@@ -1842,7 +1842,7 @@ bool StartMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* reco
         return false;
     }
     if (!CurrentGame().targetMatches(monster_info->Target, W8_TARGET_NEED_ENEMY) ||
-        !MonsterActionReachesTarget(monster_info, attack, &monster_info->Target)) {
+        !CurrentGame().monsterActionReachesTarget(monster_info, attack, &monster_info->Target)) {
         if (!ClearMonsterCombatSlot(monster_info)) {
             return false;
         }
@@ -3026,8 +3026,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
                  (source_position.y - target_position.y) * (source_position.y - target_position.y) +
                  (source_position.z - target_position.z) * (source_position.z - target_position.z));
     if (range_category != W8_RANGE_NONE) {
-        CalcRangeDistance(range_category, source);
-        base_speed = CalcRangeDistance(range_category, source);
+        base_speed = CurrentGame().level.loaded().rangeFromSource(range_category, *source);
         if (base_speed <= speed) {
             base_speed = speed;
         }

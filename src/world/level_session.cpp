@@ -53,6 +53,7 @@
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
 #include "wiz8/render/world_scene.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/story.h"

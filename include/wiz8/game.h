@@ -219,6 +219,13 @@ public:
        destroy the combat. A forced end (a departure or a scripted end) neither announces
        nor kills the summoned monsters. */
     void endCombat(bool forced_cleanup);
+    void appendSpellTargets(int spell_id, int power_level, W8TargetSource* source,
+                            W8CombatSlot* target, std::vector<int>& monsters,
+                            std::vector<int>& party, W8AreaSightRule sight_rule);
+    bool monsterActionReachesTarget(W8MonsterInfo* monster, unsigned int attack,
+                                    W8CombatSlot* target);
+    bool sourceReachesGroup(const W8TargetSource* source, W8MonsterGroup* group,
+                            W8RangeCategory range) const;
     bool canMonsterProtect(const W8MonsterInfo& monster, const W8CombatSlot& target) const;
     bool chooseMonsterAction(W8MonsterInfo& monster, bool target_locked, bool attack_locked,
                              bool set_attack_rate);
@@ -361,6 +368,8 @@ private:
     std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
     void updateSurpriseMode();
     void applyCombatEndEffects();
+    bool sourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target,
+                                   const W8Action& action);
     std::string monsterName(const W8MonsterRecord& record, bool alternate, bool plural) const;
     void refreshCombatEngagement(std::vector<Event>& outcomes);
     void removeMonsterFromCombat(W8MonsterInfo& monster, std::vector<Event>& outcomes);
