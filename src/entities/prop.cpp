@@ -43,7 +43,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/random.h"
@@ -66,22 +65,9 @@
    updating while it is set. */
 bool g_animated_prop_present;
 
-static int g_legacy_prop_save_id = 1;
-
-int AllocateLegacyPropSaveId()
-{
-    return ++g_legacy_prop_save_id;
-}
-
-void ResetLegacyPropSaveIds()
-{
-    g_legacy_prop_save_id = 1;
-}
-
 Prop::Prop()
 {
     m_path_range.sentinel = -10000000.0f;
-    legacy_save_id = AllocateLegacyPropSaveId();
     trigger = 0;
     flags = 0;
     anim_frame_fraction = 0;
@@ -1376,10 +1362,12 @@ void ApplySavedProps(World& world, const std::vector<SavedProp>& section)
         if (const auto* name = std::get_if<std::string>(&saved.key)) {
             prop = FindPropByName(&world, *name);
         } else {
-            const auto found =
-                std::ranges::find(world.plsProps, std::get<int>(saved.key),
-                                  [](const auto& candidate) { return candidate->legacy_save_id; });
-            if (found != world.plsProps.end()) prop = found->get();
+            // Retail geometry has no embedded population before the two prop banks.
+            // Its old shared ID counter started at 1, so the first prop was ID 2.
+            const int id = std::get<int>(saved.key);
+            if (id >= 2 && std::cmp_less(id - 2, world.plsProps.size())) {
+                prop = world.plsProps[id - 2].get();
+            }
         }
         if (prop) prop->ApplyAnimationState(saved.state, WorldPathing(world));
     }

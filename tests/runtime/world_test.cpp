@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
-#include <filesystem>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -27,10 +26,7 @@
 #include <vsg/state/ViewportState.h>
 
 #include "harness.h"
-#include "scoped_asset_roots.h"
-#include "temporary_directory.h"
 #include "wiz8/application.h"
-#include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/item_records.h"
@@ -41,7 +37,6 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/entities/native_object.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/main_game_screen.h"
@@ -81,7 +76,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/world/camera_pose.h"
-#include "wiz8/world/level_loader.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_view.h"
@@ -939,71 +933,4 @@ TEST_CASE("inventory-chest", "[runtime]")
 TEST_CASE("camp-spells", "[runtime]")
 {
     RunScenario(CampSpellsScenario);
-}
-
-// Temporary, explicitly invoked metadata census. Not part of the runtime scenario list.
-TEST_CASE("asset-record-census", "[runtime][audit]")
-{
-    RequireAssets();
-    const auto assets = std::filesystem::path(std::getenv("WIZ8_ASSET_ROOT"));
-    ScopedTemporaryDirectory user{"wiz8-asset-census"};
-    ScopedAssetRoots roots;
-    roots.configure({assets.string(), user.path.string()});
-    std::vector<std::filesystem::path> levels;
-    for (const auto& entry : std::filesystem::recursive_directory_iterator(assets / "levels"))
-        if (entry.is_regular_file() &&
-            (entry.path().extension() == ".pvl" || entry.path().extension() == ".lvl"))
-            levels.push_back(entry.path());
-    std::ranges::sort(levels);
-    unsigned int unknown = 0, populated = 0, item_levels = 0, with_status = 0, unknown_status = 0,
-                 missing_status = 0, pvl_count = 0, lvl_count = 0;
-    for (const auto& path : levels) {
-        const bool compiled = path.extension() == ".pvl";
-        if (compiled)
-            ++pvl_count;
-        else
-            ++lvl_count;
-        auto file = wiz8::open_file(path);
-        const auto count = InspectRawLevelCounts(*file, path.parent_path() / "bitmaps", compiled);
-        auto status_path = path;
-        status_path.replace_extension(".sts");
-        int stat = -1, groups = 0;
-        W8Chunk chunks;
-        const bool status_exists = std::filesystem::is_regular_file(status_path);
-        if (status_exists && chunks.OpenRead(status_path)) {
-            stat = 0;
-            chunks.ForEachChunk([&](unsigned int id) {
-                if (id != W8ChunkId("LVLS")) return;
-                ++groups;
-                chunks.ReadGroup([&] {
-                    (void)chunks.ReadValue<int>(); // Level identity, before its sections.
-                    chunks.ForEachChunk([&](unsigned int section) {
-                        if (section == W8ChunkId("STAT")) stat = 1;
-                    });
-                });
-            });
-        }
-        if (!status_exists)
-            ++missing_status;
-        else if (stat == -1 || groups == 0)
-            ++unknown_status;
-        const auto relative = path.lexically_relative(assets).generic_string();
-        std::printf("RAW_ASSET_CENSUS %s raw_monsters=%d raw_items=%d STAT=%d groups=%d\n",
-                    relative.c_str(), count ? count->monsters : -1, count ? count->items : -1, stat,
-                    groups);
-        std::fflush(stdout);
-        if (!count) ++unknown;
-        if (count && count->monsters != 0) ++populated;
-        if (count && count->items != 0) ++item_levels;
-        if (stat == 1) ++with_status;
-    }
-    std::printf("RAW_ASSET_CENSUS_TOTAL files=%zu PVL=%u LVL=%u populated=%u item_levels=%u "
-                "with_STAT=%u unknown_geometry=%u "
-                "missing_STS=%u unknown_STS=%u\n",
-                levels.size(), pvl_count, lvl_count, populated, item_levels, with_status, unknown,
-                missing_status, unknown_status);
-    REQUIRE(pvl_count == 34);
-    REQUIRE(lvl_count > 0);
-    REQUIRE(unknown == 0);
-    REQUIRE(unknown_status == 0);
 }

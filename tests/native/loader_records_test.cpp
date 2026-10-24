@@ -760,25 +760,6 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
     }
 }
 
-TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed counts",
-                 "[loader][records]")
-{
-    ScopedGame game;
-    World world{};
-    for (const int count : {-1, 100000, 0}) {
-        std::string bytes;
-        append(bytes, count);
-        store("items.bin", bytes);
-        auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-        LevelLoadContext info{&world, file.get(), {}};
-        REQUIRE(bool(ReadWorldItems(game.game, info)) == (count == 0));
-    }
-    store("items.bin", std::string(3, '\0'));
-    auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
-    LevelLoadContext info{&world, file.get(), {}};
-    REQUIRE_FALSE(ReadWorldItems(game.game, info));
-}
-
 TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without runtime vector layout",
                  "[loader][records]")
 {
@@ -1451,14 +1432,17 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
     const ScopedGame game;
     game.game.level.replacePrimary(std::make_unique<World>());
     World& world = *GetWorld();
-    Prop first;
-    WorldItemEntity item(world); // Items consume the same legacy sequence as props.
+    world.plsProps.push_back(std::make_unique<Prop>());
+    WorldItemEntity item(world); // Runtime allocation must not affect old save keys.
     auto prop = std::make_unique<Prop>();
-    REQUIRE(prop->legacy_save_id == first.legacy_save_id + 2);
-    const int saved_id = prop->legacy_save_id;
+    const int saved_id = 3;
     prop->name = "Present";
     auto* present = prop.get();
     world.plsProps.push_back(std::move(prop));
+    for (int id : {std::numeric_limits<int>::min(), -1, 0, 1, std::numeric_limits<int>::max()}) {
+        ApplySavedProps(world, {{id, {7, 2, 9, 1, 1, 0}}});
+        REQUIRE(present->subcycle == 0);
+    }
     for (bool named : {false, true}) {
         std::string bytes;
         if (named) {

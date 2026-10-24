@@ -37,7 +37,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Magic.h"
@@ -432,11 +431,9 @@ static std::unique_ptr<MissileDefinition> LoadMissileDefinition(std::string_view
 /* A new missile of the named kind, created from the kind's definition. The
    definition is loaded on first use and kept for the world's lifetime, so a
    missile never inherits another one's flight.
-   Every request takes one legacy prop save id, as retail's did whether it
-   loaded, cloned or failed. */
+*/
 std::unique_ptr<Missile> LoadMissileCycle(World* world, std::string_view name)
 {
-    AllocateLegacyPropSaveId();
     auto& definitions = world->missile_definitions;
     auto definition = std::ranges::find_if(definitions, [&](const auto& candidate) {
         return CompareTextIgnoreAsciiCase(candidate->asset_name, name) == 0;

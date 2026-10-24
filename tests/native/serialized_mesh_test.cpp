@@ -31,8 +31,7 @@
 #include "wiz8/data/item_records.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
-#include "wiz8/entities/prop.h"
-#include "wiz8/entities/trigger.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/level_population.h"
@@ -687,6 +686,29 @@ TEST_CASE("Malformed compiled levels return failure instead of shutting down", "
     auto input = wiz8::open_file(path);
     REQUIRE_FALSE(ReadLevel(game.game, &world, input.get(), ""));
 
+    // Unsupported embedded populations fail at the count, without constructing actors
+    // against the installed game or consuming gameplay randomness.
+    for (int section : {0, 1}) {
+        for (int count : {-1, 1, 100000}) {
+            input.reset();
+            WriteFixture(path, false);
+            {
+                auto tail = wiz8::open_file(path, wiz8::OpenMode::append);
+                Write(*tail, short{0}); // Lights.
+                Write(*tail, -1);
+                if (section == 1) {
+                    Write(*tail, 0); // Monsters.
+                    Write(*tail, -1);
+                }
+                Write(*tail, count);
+            }
+            input = wiz8::open_file(path);
+            REQUIRE_FALSE(ReadLevel(game.game, &world, input.get(), ""));
+            REQUIRE(input->tell() == input->size());
+            REQUIRE(world.population->world_items.empty());
+        }
+    }
+
     // The same recoverable result applies before any scene mesh was built.
     input.reset();
     WriteFixture(path, false, true);
@@ -694,8 +716,7 @@ TEST_CASE("Malformed compiled levels return failure instead of shutting down", "
     REQUIRE_FALSE(ReadLevel(game.game, &world, input.get(), ""));
 }
 
-TEST_CASE("Raw level items and their triggers belong to the candidate world",
-          "[loader][lifetime][items]")
+TEST_CASE("World item creation and activation use the candidate world", "[loader][lifetime][items]")
 {
     ScopedTemporaryDirectory temporary{"wiz8-candidate-item"};
     ScopedAssetRoots roots;
@@ -744,38 +765,17 @@ TEST_CASE("Raw level items and their triggers belong to the candidate world",
     };
     floorAt(installed, 200);
     floorAt(candidate, 0);
-    const auto items_path = temporary.path / "items.bin";
-    {
-        auto file = wiz8::open_file(items_path, wiz8::OpenMode::replace);
-        Write(*file, 1);
-        file->write_padded("0", 20);
-        Write(*file, std::array<float, 3>{1, 2, 3});
-        Write(*file, std::array<int, 4>{});
-        Write(*file, std::uint8_t{1}); // Item has a trigger.
-        Write(*file, std::array<std::uint8_t, 3>{1, 1, 1}); // Outer version/type, inner version.
-        Write(*file, std::array<int, 2>{});
-        Write(*file, 0.0f);
-        Write(*file, std::array<int, 4>{});
-        Write(*file, std::array<std::uint8_t, 2>{0, 1});
-        file->write_padded("ITEM_TRIGGER", 128);
-        file->write_padded("", 256);
-        file->write_padded("", 128);
-        Write(*file, std::array<std::uint8_t, 3>{});
-        Write(*file, std::array<int, 4>{});
-    }
-    Prop preceding;
     std::vector<Rng::Draw> draws;
     candidate_game.rng.seed(1);
     candidate_game.rng.trace(&draws);
-    auto file = wiz8::open_file(items_path);
-    LevelLoadContext info{&candidate, file.get(), {}};
-    const auto loaded = ReadWorldItems(candidate_game, info);
+    const glm::vec3 position(500, 1000, 1500);
+    auto* created = candidate.adoptItem(candidate_game.spawnWorldItem(
+        candidate, 0, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+    candidate.activateItem(data, candidate_game.rng, created);
     candidate_game.rng.trace(nullptr);
-    REQUIRE(loaded);
-    REQUIRE(draws.size() == 3);
-    REQUIRE(draws[0].range == 30000);
-    REQUIRE(draws[1].range == 6);
-    REQUIRE(draws[2].range == 360);
+    REQUIRE(draws.size() == 2);
+    REQUIRE(draws[0].range == 6);
+    REQUIRE(draws[1].range == 360);
     Rng expected(1);
     for (const auto& draw : draws) REQUIRE(draw.value == expected.below(draw.range));
     REQUIRE(installed.population->world_items.empty());
@@ -785,9 +785,5 @@ TEST_CASE("Raw level items and their triggers belong to the candidate world",
     REQUIRE(item.entity);
     REQUIRE(item.entity->GetMesh()->scene == candidate.scene.get());
     REQUIRE(item.position == glm::vec3(500, 0, 1500));
-    REQUIRE(candidate.triggers.size() == 1);
-    REQUIRE(item.trigger == candidate.triggers.front().get());
-    REQUIRE(item.trigger->m_pWorld == &candidate);
-    Prop following;
-    REQUIRE(following.legacy_save_id == preceding.legacy_save_id + 2);
+    REQUIRE(candidate.triggers.empty());
 }

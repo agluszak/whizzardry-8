@@ -173,17 +173,6 @@ jobs:
           ./build.sh -- bash -c 'source "build/${{ env.CMAKE_PRESET }}/conan/conanrun.sh"; "build/${{ env.CMAKE_PRESET }}/wiz8_prepare_assets" "$1" "$2"' -- "$prepared_root" "$game_root"
           echo "WIZ8_ASSET_ROOT=$prepared_root" >> "$GITHUB_ENV"
 
-      # Temporary PR 664 characterization; metadata only, removed after the census.
-      - name: Census raw level population metadata
-        if: matrix.preset == 'linux' && steps.game-assets.outputs.enabled == 'true'
-        timeout-minutes: 5
-        continue-on-error: true
-        run: |
-          ./build.sh -- bash -c '
-            source "build/${{ env.CMAKE_PRESET }}/conan/conanrun.sh"
-            "build/${{ env.CMAKE_PRESET }}/native_runtime_test" asset-record-census --rng-seed 1
-          '
-
       # Third-party runtime inputs (tests/runtime/fetch_downloads.cmake) are
       # fetched once and verified by hash; the runtime_downloads test only
       # downloads what the restored cache lacks.

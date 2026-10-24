@@ -33,7 +33,6 @@
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -203,7 +202,6 @@ static std::unique_ptr<MonsterDefinition> LoadMonsterDefinition(std::string_view
     path = fmt::format("data\\Monsters\\{}.mls", monster_name);
     auto handle = wiz8::open_file(wiz8::asset_path(path), wiz8::OpenMode::read);
     auto monster = std::make_unique<MonsterDefinition>();
-    AllocateLegacyPropSaveId();
 
     {
         std::istringstream input(handle->read_text());
@@ -670,7 +668,6 @@ bool MonsterDefinition::ReadCycleData(LevelLoadContext& info, int cycle_index)
 std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_name, int cycle)
 {
     MonsterDefinition definition;
-    AllocateLegacyPropSaveId();
     if (!loadAnimationCycle(mon_name, definition.events, cycle, "data\\monsters",
                             [&](LevelLoadContext& read_info, int read_cycle) {
                                 return definition.ReadCycleData(read_info, read_cycle);

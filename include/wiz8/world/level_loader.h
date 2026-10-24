@@ -2,7 +2,6 @@
 
 #include <filesystem>
 #include <memory>
-#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -75,7 +74,6 @@ struct LevelLoadContext {
 
 unsigned char ReadLevel(Game& game, World* world, wiz8::File* handle,
                         const std::filesystem::path& texture_directory);
-bool ReadWorldItems(Game& game, LevelLoadContext& info);
 // The destination owns particles; scene attachment borrows them.
 unsigned char ReadWorldParticles(LevelLoadContext* info, World* owner,
                                  std::vector<std::unique_ptr<ParticleSystem>>* particles);
@@ -93,11 +91,3 @@ struct World;
 
 std::unique_ptr<LevelSpatialIndex> ReadCollisionGeometry(std::string_view path, World* owner);
 bool BuildCollisionIndex(LevelSpatialIndex* game_data);
-
-// Temporary PR 664 metadata probe; remove after the retail census.
-struct RawLevelCounts {
-    int monsters;
-    int items;
-};
-std::optional<RawLevelCounts>
-InspectRawLevelCounts(wiz8::File& file, const std::filesystem::path& textures, bool compiled);

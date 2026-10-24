@@ -3,12 +3,10 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <filesystem>
@@ -20,7 +18,6 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -37,7 +34,6 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "local_code/MonsterGroup.h"
 #include "named_position.h"
 #include "texture_animation.h"
 #include "wiz8/audio/AmbientSound.h"
@@ -49,17 +45,12 @@
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/missile.h"
-#include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/item_spawning.h"
-#include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/local_code/MonsterGenerator.h" // IWYU pragma: keep
-#include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/spell_database.h"
@@ -86,7 +77,6 @@
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
-#include "wiz8/spatial/navigator.h"
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/spatial/surface_index.h"
 #include "wiz8/world/automap.h"
@@ -250,47 +240,6 @@ try {
     return success;
 } catch (const std::exception&) {
     return false;
-}
-
-// Temporary PR 664 metadata probe: use the production readers, but stop before
-// any monster/item/prop creation, gameplay RNG or NPC binding can run.
-std::optional<RawLevelCounts>
-InspectRawLevelCounts(wiz8::File& file, const std::filesystem::path& textures, bool compiled)
-try {
-    if (compiled) {
-        unsigned int mesh_count;
-        file.read_exact(&mesh_count, sizeof(mesh_count));
-        file.seek(0, wiz8::SeekOrigin::begin);
-        auto meshes = ReadMultipleLevelMeshes(file, mesh_count, textures);
-        if (meshes.empty()) return std::nullopt;
-    } else if (!ReadSingleLevelMesh(file, textures)) {
-        return std::nullopt;
-    }
-    World world;
-    if (!ReadWorldLights(&world, &file)) return std::nullopt;
-    RawLevelCounts counts;
-    file.read_exact(&counts.monsters, sizeof(counts.monsters));
-    // A section marker is -1, which cannot be a valid record count. Some
-    // single-mesh worlds also have collision data and therefore these markers.
-    const bool terminated_sections = counts.monsters == -1;
-    if (terminated_sections) file.read_exact(&counts.monsters, sizeof(counts.monsters));
-    if (counts.monsters < 0 || counts.monsters >= 100000) return std::nullopt;
-    for (int index = 0; index < counts.monsters; ++index) {
-        std::array<char, 20> name;
-        file.read_exact(name.data(), name.size());
-        if (!std::ranges::contains(name, '\0')) return std::nullopt;
-        (void)LoadPathAI(file); // Decode only the authored path, never create its actor.
-    }
-    if (terminated_sections) {
-        int end;
-        file.read_exact(&end, sizeof(end));
-        if (end != -1) return std::nullopt;
-    }
-    file.read_exact(&counts.items, sizeof(counts.items));
-    if (counts.items < 0 || counts.items >= 100000) return std::nullopt;
-    return counts;
-} catch (const std::exception&) {
-    return std::nullopt;
 }
 
 unsigned char ReadWorldEnvironment(LevelLoadContext* pInfo, World* pWorld)
@@ -498,98 +447,6 @@ try {
         pWorld->compiledIndex()->TestPropSunBit(-1);
     }
     return success;
-} catch (const std::exception&) {
-    return false;
-}
-
-bool ReadWorldItems(Game& game, LevelLoadContext& info)
-try {
-    if (!info.hFile || !info.world) return false;
-    auto& file = *info.hFile;
-    auto& world = *info.world;
-    int count;
-    if (!ReadRecordCount(file, count)) return false;
-    for (int index = 0; index < count; ++index) {
-        std::array<char, 21> name{};
-        file.read_exact(name.data(), 20);
-        glm::vec3 position;
-        wiz8::retail::read_exact(file, position);
-        position *= kWorldScale;
-        std::array<std::int32_t, 4> unused;
-        file.read_exact(unused.data(), sizeof(unused));
-        unsigned char has_trigger;
-        file.read_exact(&has_trigger, sizeof(has_trigger));
-        auto* trigger =
-            has_trigger ? world.loadTrigger(file, game.data, game.rng, game.story) : nullptr;
-        std::array<unsigned char, 3> flags;
-        file.read_exact(flags.data(), sizeof(flags));
-        file.read_exact(unused.data(), sizeof(unused));
-
-        const int item_id = name[0] >= '0' && name[0] <= '9'
-                                ? std::atoi(name.data())
-                                : FindItemRecordByName(game.data, name.data());
-        if (item_id < 0) continue;
-        if (static_cast<std::size_t>(item_id) >= game.data.items.size()) return false;
-        auto* item = world.adoptItem(game.spawnWorldItem(
-            world, item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-        world.activateItem(game.data, game.rng, item);
-        if (trigger) {
-            trigger->m_bRepType = W8_TRIGGER_REP_ITEM;
-            item->trigger = trigger;
-        }
-    }
-    return true;
-} catch (const std::exception&) {
-    return false;
-}
-
-unsigned char ReadMonsterPaths(LevelLoadContext* info, World* world)
-try {
-    if (!info || !info->hFile || !world) return false;
-    auto& file = *info->hFile;
-    int count;
-    if (!ReadRecordCount(file, count)) return false;
-    // Retail options persist when the next record omits the colon.
-    std::array<char, 12> options{};
-    bool has_options = false;
-    for (int index = 0; index < count; ++index) {
-        std::array<char, 20> name;
-        file.read_exact(name.data(), name.size());
-        if (std::find(name.begin(), name.end(), '\0') == name.end()) return false;
-        if (auto* separator = std::strchr(name.data(), ':')) {
-            has_options = true;
-            SDL_strlcpy(options.data(), separator + 1, options.size());
-            *separator = '\0';
-        }
-        int monster_id;
-        const auto end = name.data() + std::strlen(name.data());
-        const auto parsed = std::from_chars(name.data(), end, monster_id);
-        if (parsed.ec != std::errc{} || parsed.ptr != end) return false;
-        auto path = LoadPathAI(file);
-        if (has_options && (options[2] == '1' || options[3] == '1')) {
-            if (!path) return false;
-            path->animated = options[2] == '1';
-            path->looping = options[3] == '1';
-        }
-        const glm::vec3 origin(0);
-        auto* group = CreateGroup(monster_id, 1, &origin, true, true);
-        if (!group) return false;
-        auto* monster_info = FindMonster(group->MemberLocationId(0));
-        // CreateGroup already prepares its members; reactivating asserted in Debug.
-        Monster& monster = *monster_info->entity;
-        const glm::vec3 camera_position = monster.owner_world.party.eye();
-        monster.visual.SelectLOD(&camera_position);
-        monster.nav.SetPathAI(std::move(path));
-        if (has_options) {
-            if (options[1] == '0' || options[1] == '\0') {
-                group->members_active = false;
-                monster.visual.rep_active = false;
-            }
-            if (options[0] == '0' || options[0] == '\0') continue;
-        }
-        monster.UpdateRepresentation();
-    }
-    return true;
 } catch (const std::exception&) {
     return false;
 }
@@ -926,10 +783,12 @@ try {
 
     success = ReadWorldLights(world, handle);
     if (!section_ended()) return false;
-    success = success && ReadMonsterPaths(&info, world);
-    if (!section_ended()) return false;
-    success = success && ReadWorldItems(game, info);
-    if (!section_ended()) return false;
+    // Retail worlds keep population in STS/saved values, not these geometry sections.
+    // Reject unsupported embedded actors instead of constructing a second population.
+    for (int section = 0; section < 2; ++section) {
+        if (!ReadRecordCount(*handle, section_count) || section_count != 0) return false;
+        if (!section_ended()) return false;
+    }
 
     if (!success || info.hFile == 0 || !ReadRecordCount(*info.hFile, section_count)) {
         success = 0;
@@ -1629,7 +1488,6 @@ std::unique_ptr<World> Game::loadWorld(int level_id, std::string source_path)
         std::make_unique<World>(level_id, std::move(source_path), timerClocks(), &camera_shakes);
     auto* world = owner.get();
     const auto& resource_path = world->source_path;
-    ResetLegacyPropSaveIds();
     const auto path = wiz8::path_from_utf8(resource_path);
     std::string level_path(resource_path);
     const auto sibling = [&](const char* extension) {

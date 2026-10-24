@@ -364,15 +364,21 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   `Game::travelToLevel` owns that sequence and leaves the outgoing level only after
   the destination and its saved status have been prepared. A failed destination
   leaves the current world loaded, but this is not yet an isolation guarantee:
-  embedded monster construction, trigger seeds and prop variables still touch
-  the installed game while parsing. Item creation uses the supplied game for its
-  data, RNG and continuing runtime IDs; its candidate world owns ground/sector
-  queries, the item record, scene attachment and lighting. Loading does not defer
-  item construction past later props: trigger/item/yaw random draws and legacy
-  APST identity allocation keep their established order. The world-item operation
-  implementation cannot include the game or screens or find the installed world;
-  the layer check enforces this boundary. Malformed compiled-level sections return a
-  loading failure rather than asking presentation to terminate the application.
+  trigger seeds and prop variables use the supplied game, which can also be the
+  outgoing game's owner during travel. Preparation is not RNG/story rollback.
+  Item creation uses explicit data and RNG; its world owns ground/sector queries,
+  the item record, scene attachment and lighting. The world-item operation cannot
+  include the game or screens or find the installed world; the layer check
+  enforces this boundary. Malformed level sections return a loading failure,
+  never a presentation shutdown.
+- Geometry is not a second population owner. The supported retail corpus has
+  empty embedded monster/item sections in all 34 PVLs and both sky LVLs. Nonempty
+  legacy sections are rejected; population comes from level status, saved values
+  and gameplay spawning. Supporting authored embedded populations would require
+  an explicit import contract, not a second live population later overwritten by
+  STAT. Old numeric APST keys are translated to prop-bank order at the save
+  boundary (first prop is 2, continuous across both banks). Runtime objects do not
+  allocate compatibility IDs; current saves use prop names.
 - Departure ends combat and captures script state into location variables before
   resources are released. Destruction does no departure bookkeeping. `Game::leaveLevel`
   is the departure operation; the session calls it when ending a game, and a screen
@@ -525,8 +531,8 @@ a candidate's species through the installed game.
 Saved reconstruction still rearms generators first, reads all bodies before any
 configuration/finalization, and prepares NPC bindings only afterward. Definition
 validation, body appearance, scale and idle-frame draws now use the supplied game.
-NPC binding and raw embedded-group creation remain separate migration work; this
-is not yet a guarantee of fully isolated candidate construction.
+NPC binding is prepared separately before publication; this is not yet a
+guarantee of fully isolated session replacement.
 
 ### NPC construction and binding publication
 
@@ -546,6 +552,6 @@ writes. Prepared script/state control blocks already exist, so publication does
 not allocate them midway through the operation. Work holding a retired NPC still
 refers to that NPC, not its slot's replacement.
 
-Live raw-level group creation still uses its existing immediate binding point and
-remains to be migrated. Candidate preparation advances its supplied RNG and may
+Gameplay spawning retains its immediate NPC-binding point. Candidate preparation
+advances its supplied RNG and may
 modify its own bodies; no rollback of those private construction effects is claimed.

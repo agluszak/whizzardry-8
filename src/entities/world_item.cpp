@@ -16,7 +16,6 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/filesystem.h"
-#include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
@@ -35,7 +34,6 @@ WorldItemEntity::WorldItemEntity(World& world) : owner_world(world)
 {
     flags = W8_ITEM_ENTITY_PULSE_INCREASING;
     pulse_level = static_cast<float>(PresentationRng().below(20) * 0.05);
-    AllocateLegacyPropSaveId();
     countdown = owner_world.clocks.worldMilliseconds();
 }
 
