@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -15,7 +16,24 @@
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
 
-struct W8PreparedNpcBindings;
+struct W8NpcScriptFile;
+
+/* One NPC slot's binding to the loaded level, staged so a failed load leaves the
+   story untouched. An NPC the story already has keeps its state and only takes the
+   new binding; `created` holds a state made for this level. */
+struct W8PreparedNpcBinding {
+    int slot;
+    std::shared_ptr<W8NpcState> created;
+    // The slot identity observed during preparation; null only for an appended slot.
+    std::shared_ptr<W8NpcState> previous;
+    int location_id = 0;
+    unsigned char level_band = 0;
+    unsigned char bound_level = 0;
+    std::shared_ptr<const W8NpcScriptFile> script;
+};
+struct W8PreparedNpcBindings {
+    std::vector<W8PreparedNpcBinding> records;
+};
 
 /* One fact change as the journal lists it. */
 struct W8JournalEntry {
@@ -96,6 +114,7 @@ struct Story {
         W8NpcState* state = npcs[static_cast<std::size_t>(index)].get();
         return state && !state->binding_unavailable ? state : nullptr;
     }
+    int availableNpcSlot(std::span<const W8PreparedNpcBinding> pending = {}) const;
     W8NpcState* adoptNpc(std::shared_ptr<W8NpcState> npc);
     W8NpcState* npcOfKind(int kind) const;
     std::string npcDisplayName(const W8NpcState& npc) const;

@@ -69,8 +69,6 @@ struct Level {
    the menu. Starting or loading a game replaces the whole object, so nothing is reset
    field by field. Its members keep their retail-era types for now; it moves into the
    `game` layer as they move into the lower layers (ROADMAP.md, "Migration"). */
-struct W8PreparedNpcBindings;
-
 struct W8SpellEffectResult;
 
 enum class ActionOrigin { Automatic, Player };
@@ -217,6 +215,8 @@ public:
     signed char levelBand(int requested) const;
     W8NpcState* createNpcRuntimeNode(int npc_id);
     W8PreparedNpcBindings prepareNpcBindings(World& world);
+    void bindMonsterNpc(World& world, W8MonsterInfo& monster);
+    void beginNpcDialogue(W8NpcState* npc, bool suspend_current, bool script_event = false);
 
     // Commands the level's monster scripts and triggers issue.
     // A monster's script turns the group of the monster at `location_id` to `disposition`.
@@ -319,6 +319,8 @@ private:
                    std::function_ref<void(std::vector<Event>)> publish);
     void recordFactChange(W8FactId fact_id, bool notify,
                           std::function_ref<void(std::vector<Event>)> publish);
+    void bindNpcDialogue(int kind);
+    int prepareNpcBinding(World& world, W8MonsterInfo& info, W8PreparedNpcBindings& pending);
     std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
     void updateSurpriseMode();
     void advanceWorlds(std::chrono::milliseconds elapsed);

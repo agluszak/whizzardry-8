@@ -1,7 +1,5 @@
 #pragma once
-#include <memory>
 #include <string_view>
-#include <vector>
 
 #include "wiz8/data/npc_ids.h" // IWYU pragma: export
 #include "wiz8/fact_state.h"
@@ -61,7 +59,6 @@ Monster* GetNpcMonster(W8NpcState* npc);
 
 void ChooseNewGameStartLocation(int* level, int* entrance);
 int SelectNewGameStartLevel(void);
-void BindNpcToMonster(unsigned char value, bool enabled, int location_id);
 bool RecruitNpcIntoParty(W8NpcState* npc);
 int DismissNpcFromParty(int party_slot, int, bool skip_spawn, bool neutral);
 bool NpcKnowsFact(W8NpcState* npc, W8FactId fact);
@@ -137,21 +134,3 @@ W8NpcItemTheftResult AttemptNpcItemTheft(Game& game, W8Character* character, W8N
                                          int item_id, int count);
 void UpdateNpcPartyMember(int party_slot);
 bool QueueNpcDepartureEvents(int destination_level);
-
-struct World;
-/* One NPC slot's binding to the loaded level, staged so a failed load leaves the
-   story untouched. An NPC the story already has keeps its state and only takes the
-   new binding; `created` holds a state made for this level. */
-struct W8PreparedNpcBinding {
-    int slot;
-    std::shared_ptr<W8NpcState> created;
-    // The slot identity observed during preparation; null only for an appended slot.
-    std::shared_ptr<W8NpcState> previous;
-    int location_id = 0;
-    unsigned char level_band = 0;
-    unsigned char bound_level = 0;
-    std::shared_ptr<const W8NpcScriptFile> script;
-};
-struct W8PreparedNpcBindings {
-    std::vector<W8PreparedNpcBinding> records;
-};

@@ -66,6 +66,7 @@
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
+#include "wiz8/monster_actions.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/navigation_flags.h"
 #include "wiz8/npc_interaction.h"
@@ -885,11 +886,11 @@ TEST_CASE("Queued dialogue keeps its script and voice when the NPC is rebound", 
     script->quotes[0].subquotes.emplace_back("");
     npc->script_file = script;
     auto& dialogue = scope.game.npc_dialogue;
-    dialogue.Begin(npc.get(), false);
+    scope.game.beginNpcDialogue(npc.get(), false);
     dialogue.QueueQuote(0, false, false, false);
     npc->script_file = std::make_shared<W8NpcScriptFile>();
     npc->is_grouped = true;
-    dialogue.Begin(npc.get(), false);
+    scope.game.beginNpcDialogue(npc.get(), false);
     dialogue.Advance(MakeScriptContext(scope.game));
     REQUIRE(dialogue.binding().script == script);
     REQUIRE(dialogue.binding().voice_stem == "NPC_Test");
@@ -1249,7 +1250,7 @@ TEST_CASE("A completed NPC subquote waits for its hold before continuing", "[dia
     script->quotes[0].subquotes = {"", ""};
     npc->script_file = script;
     auto& dialogue = scope.game.npc_dialogue;
-    dialogue.Begin(npc.get(), false);
+    scope.game.beginNpcDialogue(npc.get(), false);
     dialogue.QueueQuote(0, false, false, false);
     dialogue.Advance(MakeScriptContext(scope.game));
     REQUIRE(dialogue.has_queued_actions());
@@ -1287,7 +1288,7 @@ TEST_CASE("Utterance completion follows its suspended or reply session", "[dialo
     second->script_file = script;
     auto& dialogue = scope.game.npc_dialogue;
     const auto context = MakeScriptContext(scope.game);
-    dialogue.Begin(first.get(), false);
+    scope.game.beginNpcDialogue(first.get(), false);
     dialogue.Speak(context, 0, false);
     const auto identity = dialogue.BeginVoiceQuote();
     dialogue.VoiceStarted(identity, 1000, true, 2000);
@@ -1295,12 +1296,12 @@ TEST_CASE("Utterance completion follows its suspended or reply session", "[dialo
     bool reply = false;
     SECTION("suspended conversation")
     {
-        dialogue.Begin(second.get(), true);
+        scope.game.beginNpcDialogue(second.get(), true);
     }
     SECTION("reply session")
     {
         dialogue.ReplyDialogOpened(std::nullopt);
-        dialogue.Begin(second.get(), false);
+        scope.game.beginNpcDialogue(second.get(), false);
         reply = true;
     }
     dialogue.Speak(context, 1, false); // No such quote; establish a different current cursor.
@@ -1528,6 +1529,32 @@ TEST_CASE("NPC preparation keeps story identity and publishes only into its supp
         REQUIRE(singleton->script_file == old_script);
         REQUIRE(retired->gold == 999);
     }
+    SECTION("Live binding shares candidate identity and slot rules")
+    {
+        candidate.bindMonsterNpc(world, first);
+        REQUIRE(first.bound_npc_index == 1);
+        REQUIRE(draws.size() == 3);
+        auto identity = candidate.story.npcs[1];
+        identity->gold = 42;
+        candidate.bindMonsterNpc(world, first);
+        REQUIRE(candidate.story.npcs[1] == identity);
+        REQUIRE(identity->gold == 42);
+        REQUIRE(identity->bound_level == 7);
+        REQUIRE(identity->maintenance_clock == 77);
+        REQUIRE(draws.size() == 3); // Matching instance: no stock recreation.
+        second.bound_npc_index = first.bound_npc_index;
+        candidate.bindMonsterNpc(world, second);
+        REQUIRE(second.bound_npc_index == 2); // Location mismatch is a new instance.
+        REQUIRE(candidate.story.npcs[2] != identity);
+        REQUIRE(draws.size() == 6);
+        candidate.bindMonsterNpc(world, ordinary);
+        REQUIRE(ordinary.bound_npc_index == -1);
+        REQUIRE(draws.size() == 6);
+        REQUIRE(retired->gold == 999);
+        REQUIRE(active.game.story.npcs.front() == active_npc);
+        REQUIRE(active_npc->gold == 900);
+        REQUIRE(active_draws.empty());
+    }
     SECTION("Publication preserves old identities and separates monster-bound instances")
     {
         auto pending = candidate.prepareNpcBindings(world);
@@ -1542,7 +1569,15 @@ TEST_CASE("NPC preparation keeps story identity and publishes only into its supp
             REQUIRE(draw.range == 100);
             REQUIRE(draw.value == expected.below(100));
         }
+        auto& program = *world.population->findMonster(1)->entity;
+        program.script_line = 17;
+        program.script_wait = MONSCR_DELAY;
+        program.orders_finished = true;
         candidate.story.installNpcBindings(std::move(pending));
+        REQUIRE(program.script_line == 17);
+        REQUIRE(program.script_wait == MONSCR_DELAY);
+        REQUIRE(program.orders_finished);
+        REQUIRE(draws.size() == 9);
         REQUIRE(candidate.story.npcs.size() == 4);
         REQUIRE(candidate.story.npcs[0] == singleton);
         REQUIRE(singleton->location_id == 4);

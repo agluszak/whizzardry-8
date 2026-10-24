@@ -23,10 +23,8 @@
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/npc_state.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
@@ -59,7 +57,6 @@
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
-#include "wiz8/story.h"
 #include "wiz8/utility.h"
 
 /* Items of equipment class four are priced and carried by the bundle rather

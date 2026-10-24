@@ -793,7 +793,7 @@ void SelectNpcDialogueSpeaker(W8NpcState* npc, int flags)
     if (state->dialogue_npc->greeting_pending) {
         state->dialogue_npc->suspicion = 0;
     }
-    CurrentGame().npc_dialogue.Begin(state->dialogue_npc.get(), false);
+    CurrentGame().beginNpcDialogue(state->dialogue_npc.get(), false);
     if ((CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT ||
          CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_TOPIC_MENU) &&
         CurrentGame().activity.conversation) {

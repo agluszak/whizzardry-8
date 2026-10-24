@@ -435,8 +435,13 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   retains each prior slot identity; Story validates the whole plan and reserves before
   writing, rejecting stale slot reuse without partial changes. Shared states/scripts
   are allocated beforehand. Work retaining a retired NPC never follows a reused slot.
-  Gameplay spawning retains its immediate binding point. Preparation can advance its
-  supplied RNG and mutate its own bodies; it does not promise rollback.
+  Loaded and spawned monsters use the same identity, slot and script preparation
+  operation; live spawning publishes its resolved binding immediately. Story derives
+  available slots from existing states and pending bindings, with no second reservation
+  registry. Publication never reloads a body script or erases restored script progress.
+  Game prepares a dialogue's resource binding; the dialogue only changes its own speaker
+  and continuation. Preparation can advance its supplied RNG and mutate its own bodies;
+  it does not promise rollback.
 - Departure ends combat and captures script state into location variables before
   resources are released. Destruction does no departure bookkeeping. `Game::leaveLevel`
   is the departure operation; the session calls it when ending a game, and a screen

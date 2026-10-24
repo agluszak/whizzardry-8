@@ -163,8 +163,7 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
                                    CurrentLevelPopulation().monster_roster.isUnborn(monster_info));
     RequestRefreshPartyState();
     RefreshFlaggedMainGameState();
-    BindNpcToMonster(MonsterDBFromSpecies(monster_info->monster_species)->npc_kind, true,
-                     monster_info->location_id);
+    CurrentGame().bindMonsterNpc(monster_info->entity->owner_world, *monster_info);
 }
 
 void World::prepareMonsterBody(W8MonsterInfo& info, Rng& rng, bool unborn)

@@ -365,25 +365,14 @@ void W8NpcDialogue::Advance(const ScriptContext& context)
     }
 }
 
-void W8NpcDialogue::Begin(W8NpcState* npc, bool suspend_current, bool script_event)
+void W8NpcDialogue::Begin(std::shared_ptr<W8NpcState> npc, W8NpcScriptBinding binding,
+                          bool suspend_current)
 {
-    if (suspend_current) {
-        suspended_ = session_;
-    }
-    if (!npc->has_monster) {
-        BindNpcToMonster(npc->name_style, false, -1);
-    }
+    if (suspend_current) suspended_ = session_;
     session_.identity = ++session_identity_;
     session_.finished_quote_index = -1;
-    session_.npc = npc->shared_from_this();
-    session_.binding = {npc->script_file,
-                        FormatNpcVoiceSoundPath(CurrentGame().story, npc, script_event),
-                        script_event || !npc->is_grouped};
-    if (script_event) {
-        // Event resource selection does not change the monster's persistent .msf program.
-        session_.binding.script = LoadNpcScriptFile(
-            fmt::format("Data\\NPC Scripts\\{}.nsf", session_.binding.voice_stem));
-    }
+    session_.npc = std::move(npc);
+    session_.binding = std::move(binding);
 }
 
 bool W8NpcDialogue::DefersCharacterEvents(bool require_group_entry) const
@@ -601,7 +590,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
         {
             const auto& binding = queued.binding;
             const W8NpcScriptFile* script = binding.script.get();
-            if (npc && npc != dialogue.speaker()) dialogue.Begin(npc, true);
+            if (npc && npc != dialogue.speaker()) context.game.beginNpcDialogue(npc, true);
             if (dialogue.session_.binding.script != binding.script)
                 dialogue.session_.finished_quote_index = -1;
             dialogue.session_.binding = binding;

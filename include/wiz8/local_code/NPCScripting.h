@@ -64,7 +64,7 @@ public:
 
     /* Make `npc` the speaker. `suspend_current` keeps the current
        conversation, which resumes once the queue drains. */
-    void Begin(W8NpcState* npc, bool suspend_current, bool script_event = false);
+    void Begin(std::shared_ptr<W8NpcState> npc, W8NpcScriptBinding binding, bool suspend_current);
     const W8NpcScriptBinding& binding() const { return session_.binding; }
     /* One frame: unless a quote is on screen, a scene holds the queue or a
        reply dialog is open, run the next queued action; once the queue

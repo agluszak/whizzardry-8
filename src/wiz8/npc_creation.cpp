@@ -1,10 +1,13 @@
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <fmt/format.h>
 
 #include "wiz8/character_skills.h"
 #include "wiz8/data/fact_ids.h"
@@ -16,10 +19,11 @@
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/Magic.h"
-#include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/message_box.h"
 #include "wiz8/monster_roster.h"
 #include "wiz8/npc_items.h"
+#include "wiz8/npc_script_file.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_rules.h"
@@ -136,63 +140,91 @@ W8NpcState* Game::createNpcRuntimeNode(int npc_id)
     return story.adoptNpc(std::move(npc));
 }
 
+int Game::prepareNpcBinding(World& world, W8MonsterInfo& info, W8PreparedNpcBindings& pending)
+{
+    const auto& record = data.monsters.at(info.monster_species);
+    if ((record.flags & W8_MONSTER_FLAG_NPC) == 0) return -1;
+    const int kind = record.npc_kind;
+    const bool instance = data.npcs.at(kind).monster_bound;
+    W8NpcState* source = nullptr;
+    if (!instance)
+        source = story.npcOfKind(kind);
+    else if (info.bound_npc_index > 0) {
+        auto* candidate = story.npc(info.bound_npc_index);
+        if (candidate && candidate->location_id == info.location_id &&
+            candidate->name_style == kind)
+            source = candidate;
+    }
+    auto existing = pending.records.end();
+    if (!source && !instance) {
+        existing = std::ranges::find_if(pending.records, [kind](const auto& binding) {
+            return binding.created && binding.created->record->kind == kind;
+        });
+    }
+    const int slot = source                              ? source->partner_index
+                     : existing != pending.records.end() ? existing->slot
+                                                         : story.availableNpcSlot(pending.records);
+    if (existing == pending.records.end())
+        existing = std::ranges::find(pending.records, slot, &W8PreparedNpcBinding::slot);
+    if (existing == pending.records.end()) {
+        pending.records.push_back(
+            {.slot = slot,
+             .previous = std::cmp_less(slot, story.npcs.size()) ? story.npcs[slot] : nullptr});
+        if (!source) pending.records.back().created = makeNpcRuntimeNode(kind);
+        existing = pending.records.end() - 1;
+    }
+    existing->location_id = info.location_id;
+    existing->level_band = levelBand(world.level_id);
+    existing->bound_level = static_cast<unsigned char>(world.level_id);
+    auto& npc = existing->created ? *existing->created : *existing->previous;
+    // Every body gets its program now. Publication must not reset restored script progress.
+    existing->script = LoadNpcScriptResources(story, npc, info.entity.get());
+    return slot;
+}
+
 W8PreparedNpcBindings Game::prepareNpcBindings(World& world)
 {
     W8PreparedNpcBindings pending;
-    std::vector<bool> reserved(story.npcs.size(), false);
-    const auto prepare = [&](W8MonsterInfo& info) {
-        const auto* record = &info.entity->species();
-        if ((record->flags & W8_MONSTER_FLAG_NPC) == 0) {
-            info.bound_npc_index = -1;
-            return;
-        }
-        const int kind = record->npc_kind;
-        W8NpcState* source = nullptr;
-        if (!data.npcs.at(kind).monster_bound)
-            source = story.npcOfKind(kind);
-        else if (info.bound_npc_index > 0) {
-            auto* candidate = story.npc(info.bound_npc_index);
-            if (candidate && candidate->location_id == info.location_id &&
-                candidate->name_style == kind)
-                source = candidate;
-        }
-        int slot = source ? source->partner_index : -1;
-        if (slot == -1) {
-            for (size_t index = 0; index < reserved.size(); ++index) {
-                if (!reserved[index] && story.npcs[index] &&
-                    story.npcs[index]->binding_unavailable) {
-                    slot = static_cast<int>(index);
-                    break;
-                }
-            }
-            if (slot == -1) {
-                slot = static_cast<int>(reserved.size());
-                reserved.push_back(false);
-            }
-        }
-        if (slot > 255) throw std::runtime_error("too many NPC bindings");
-        auto existing = std::ranges::find(pending.records, slot, &W8PreparedNpcBinding::slot);
-        if (existing == pending.records.end()) {
-            pending.records.push_back(
-                {.slot = slot,
-                 .previous = static_cast<std::size_t>(slot) < story.npcs.size() ? story.npcs[slot]
-                                                                                : nullptr});
-            if (!source) pending.records.back().created = makeNpcRuntimeNode(kind);
-            existing = pending.records.end() - 1;
-        }
-        reserved[slot] = true;
-        existing->location_id = info.location_id;
-        existing->level_band = levelBand(world.level_id);
-        existing->bound_level = static_cast<unsigned char>(world.level_id);
-        // Without a created state the slot holds the story's own NPC (source).
-        W8NpcState& npc = existing->created ? *existing->created : *existing->previous;
-        existing->script = LoadNpcScriptResources(story, npc, info.entity.get());
-        info.bound_npc_index = slot;
-    };
     for (const auto* list :
          {&world.population->monster_roster.live(), &world.population->monster_roster.unborn()})
-        for (const auto& info : *list) prepare(*info);
+        for (const auto& info : *list)
+            info->bound_npc_index = prepareNpcBinding(world, *info, pending);
     return pending;
+}
+
+void Game::bindMonsterNpc(World& world, W8MonsterInfo& monster)
+{
+    W8PreparedNpcBindings pending;
+    const int slot = prepareNpcBinding(world, monster, pending);
+    story.installNpcBindings(std::move(pending));
+    monster.bound_npc_index = slot;
+}
+
+void Game::bindNpcDialogue(int kind)
+{
+    // Dialogue without an embodiment selects the persistent definition, not a monster slot.
+    auto* npc = story.npcOfKind(kind);
+    assert(npc);
+    const int level_id = level.primary ? level.primary->level_id : -1;
+    npc->location_id = -1;
+    npc->is_present = false;
+    npc->has_monster = true;
+    npc->level_band = levelBand(level_id);
+    npc->bound_level = static_cast<unsigned char>(level_id);
+    npc->script_file = LoadNpcScriptResources(story, *npc, nullptr);
+}
+
+void Game::beginNpcDialogue(W8NpcState* npc, bool suspend_current, bool script_event)
+{
+    if (!npc->has_monster) bindNpcDialogue(npc->name_style);
+    W8NpcScriptBinding binding{npc->script_file, FormatNpcVoiceSoundPath(story, npc, script_event),
+                               script_event || !npc->is_grouped};
+    if (script_event) {
+        // Event voice selection does not replace the monster's persistent program.
+        binding.script =
+            LoadNpcScriptFile(fmt::format("Data\\NPC Scripts\\{}.nsf", binding.voice_stem));
+    }
+    npc_dialogue.Begin(npc->shared_from_this(), std::move(binding), suspend_current);
 }
 
 void Story::installNpcBindings(W8PreparedNpcBindings pending)

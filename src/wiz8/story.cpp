@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -70,17 +71,25 @@ void Story::setLocationVariable(int level, std::string_view name, int value)
     found->value = value;
 }
 
+int Story::availableNpcSlot(std::span<const W8PreparedNpcBinding> pending) const
+{
+    for (int slot = 0; slot <= 255; ++slot) {
+        if (std::ranges::find(pending, slot, &W8PreparedNpcBinding::slot) != pending.end())
+            continue;
+        if (!std::cmp_less(slot, npcs.size()) || (npcs[slot] && npcs[slot]->binding_unavailable))
+            return slot;
+    }
+    throw std::runtime_error("too many NPC bindings");
+}
+
 W8NpcState* Story::adoptNpc(std::shared_ptr<W8NpcState> npc)
 {
-    const auto released = std::ranges::find_if(
-        npcs, [](const auto& state) { return state && state->binding_unavailable; });
-    const auto index = released - npcs.begin();
-    if (index > 255) throw std::runtime_error("too many NPC bindings");
+    const auto index = availableNpcSlot();
     npc->partner_index = static_cast<unsigned char>(index);
     auto* result = npc.get();
-    if (released == npcs.end())
+    if (std::cmp_equal(index, npcs.size()))
         npcs.push_back(std::move(npc));
     else
-        *released = std::move(npc);
+        npcs[index] = std::move(npc);
     return result;
 }

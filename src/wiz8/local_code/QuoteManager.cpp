@@ -715,7 +715,7 @@ bool W8CharacterEvent::Dispatch(std::vector<Event>& outcomes)
                 (game.level.primary ? game.level.primary->level_id : -1) != 0) {
                 return false;
             }
-            game.npc_dialogue.Begin(npc, true, (flags & W8_EVENT_NPC_SCRIPT) != 0);
+            game.beginNpcDialogue(npc, true, (flags & W8_EVENT_NPC_SCRIPT) != 0);
             game.npc_dialogue.Speak(MakeScriptContext(game), event_type,
                                     (flags & W8_EVENT_NPC_SCRIPT) != 0);
             slot->active_character_event = this;

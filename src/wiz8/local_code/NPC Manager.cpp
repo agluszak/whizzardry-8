@@ -1027,50 +1027,6 @@ void CreateNewGameNpcStates(void)
     }
 }
 
-/* Bind an NPC runtime state to a monster location, creating the state when the
-   database entry allows it. The dialogue path instead finds the existing state
-   by its database kind and only refreshes its presence fields. */
-void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
-{
-    W8NpcState* npc = 0;
-    W8MonsterInfo* monster_info = 0;
-
-    if (has_monster) {
-        monster_info = FindMonster(location_id);
-        const W8MonsterRecord* monster_record = GetMonsterDataForInfo(monster_info);
-        if (monster_record == 0 || (monster_record->flags & W8_MONSTER_FLAG_NPC) == 0) {
-            monster_info->bound_npc_index = -1;
-            return;
-        }
-
-        if (Data().npcs[npc_id].monster_bound == 0) {
-            npc = CurrentGame().story.npcOfKind(npc_id);
-        } else {
-            if (monster_info->bound_npc_index > 0) {
-                auto* candidate = GetNpcState(monster_info->bound_npc_index);
-                if (candidate && candidate->location_id == location_id &&
-                    candidate->name_style == npc_id) {
-                    npc = candidate;
-                }
-            }
-            if (npc == 0) {
-                npc = CurrentGame().createNpcRuntimeNode(npc_id);
-            }
-        }
-        monster_info->bound_npc_index = npc->partner_index;
-    } else {
-        npc = CurrentGame().story.npcOfKind(npc_id);
-    }
-
-    assert(npc != 0);
-    npc->location_id = location_id;
-    npc->is_present = has_monster;
-    npc->has_monster = true;
-    npc->level_band = CurrentGame().levelBand(GetLoadedLevelID());
-    npc->bound_level = static_cast<unsigned char>(GetLoadedLevelID());
-    ReloadNpcScriptResources(npc);
-}
-
 /* Release the monster binding and script held by an active NPC slot. */
 void ReleaseNpcBinding(int value)
 {
