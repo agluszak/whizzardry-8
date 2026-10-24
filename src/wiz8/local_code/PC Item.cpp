@@ -646,16 +646,12 @@ unsigned int GetEquipmentBindingDifficulty(int character_index)
 }
 
 /* Acquisition of a handful of plot items updates their paired facts. */
-/* Deliver the one-time character reaction associated with exceptional items.
-   Character creation (screen 5) deliberately suppresses every reaction. */
+/* Deliver the one-time character reaction associated with exceptional items. */
 void DeliverExceptionalItemReaction(Game& game, W8ItemInstance* item, bool choose_character,
                                     W8Character* character)
 {
     int message;
 
-    if (CurrentScreenState().id == W8_SCREEN_PARTY_SELECTION) {
-        return;
-    }
     if (choose_character) {
         int party_slot = game.party.randomSlot(game.rng, 0, 0, -1, -1);
         if (party_slot == -1) {

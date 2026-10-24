@@ -209,7 +209,8 @@ PartyImportResult ImportWizardry7Party(GameSession& games, std::string_view path
     for (auto& record : imported->characters) {
         W8Character character;
         ImportWizardry7Character(&character, &record);
-        if (AddCharacterToParty(character, -1) == -1) return PartyImportResult::Unreadable;
+        if (AddCharacterToParty(character, -1, ItemReactions::Suppressed) == -1)
+            return PartyImportResult::Unreadable;
     }
     // Conversion still precedes rejection, preserving its random draws.
     return imported->unsupported_ending ? PartyImportResult::UnsupportedEnding
@@ -304,7 +305,7 @@ static void ImportWizardry7Character(W8Character* character, W8Wiz7Character* im
     DeriveCharacterPersonality(character);
     EnsureUniquePartyVoice(character);
     CalcCharacterLevelBand(character);
-    RecalculateCharacterDerivedStats(CurrentGame(), *character);
+    RecalculateCharacterDerivedStats(CurrentGame(), *character, ItemReactions::Suppressed);
     character->stamina = character->uiStaminaMax;
     character->hp_current = character->uiHPMax;
     for (skill_id = 0; skill_id < 6; ++skill_id) {
@@ -445,7 +446,7 @@ static void ImportEquipment(W8Character* character, const W8Wiz7Character* impor
 
     counts[0] = 0;
     counts[1] = 0;
-    CurrentGame().inventory.emptyCharacter(*character);
+    CurrentGame().inventory.emptyCharacter(*character, ItemReactions::Suppressed);
     for (slot = 0; slot < 2; ++slot) {
         source = imported->items[slot];
         for (index = 0; index < 10; ++index) {
@@ -473,12 +474,13 @@ static void ImportEquipment(W8Character* character, const W8Wiz7Character* impor
                     }
                     item = MakeItem(Data(), CurrentGame().rng, item_index, true, true, true);
                     if (Data().items[item_index].binds_on_equip == 0) {
-                        CurrentGame().inventory.store(Outsider(*character), item,
-                                                      StoreOrder::CharacterFirst, false,
-                                                      static_cast<unsigned int>(slot == 0));
+                        CurrentGame().inventory.store(
+                            Outsider(*character), item, StoreOrder::CharacterFirst, false,
+                            static_cast<unsigned int>(slot == 0), ItemReactions::Suppressed);
                     } else {
                         CurrentGame().inventory.storeWithCharacter(Outsider(*character), item,
-                                                                   false, false);
+                                                                   false, false, true,
+                                                                   ItemReactions::Suppressed);
                     }
                 }
             }
@@ -516,10 +518,11 @@ static void ImportEquipment(W8Character* character, const W8Wiz7Character* impor
                 item = MakeItem(Data(), CurrentGame().rng, item_index, true, true, true);
                 if (Data().items[item_index].binds_on_equip == 0) {
                     CurrentGame().inventory.store(Outsider(*character), item,
-                                                  StoreOrder::CharacterFirst, false, true);
+                                                  StoreOrder::CharacterFirst, false, true,
+                                                  ItemReactions::Suppressed);
                 } else {
-                    CurrentGame().inventory.storeWithCharacter(Outsider(*character), item, false,
-                                                               false);
+                    CurrentGame().inventory.storeWithCharacter(
+                        Outsider(*character), item, false, false, true, ItemReactions::Suppressed);
                 }
                 --maximum[slot];
                 candidates[slot][best_index] = empty_item;
@@ -540,8 +543,8 @@ static void ImportEquipment(W8Character* character, const W8Wiz7Character* impor
                         *character,
                         ItemOfKind(Data(), Data().items[item_id].unidentified_name_index),
                         W8ItemReach::Carried)) {
-                    CurrentGame().inventory.storeWithCharacter(Outsider(*character), item, true,
-                                                               false);
+                    CurrentGame().inventory.storeWithCharacter(
+                        Outsider(*character), item, true, false, true, ItemReactions::Suppressed);
                 }
             } else {
                 if (equip_slot == W8_EQUIP_SLOT_PRIMARY_WEAPON &&
@@ -549,8 +552,8 @@ static void ImportEquipment(W8Character* character, const W8Wiz7Character* impor
                     equip_slot = W8_EQUIP_SLOT_SECONDARY_WEAPON;
                 }
                 if (character->EquippedItem[equip_slot].iItemNo == -1) {
-                    CurrentGame().inventory.storeWithCharacter(Outsider(*character), item, true,
-                                                               false);
+                    CurrentGame().inventory.storeWithCharacter(
+                        Outsider(*character), item, true, false, true, ItemReactions::Suppressed);
                 }
             }
         }
@@ -573,10 +576,11 @@ static void ImportEquipment(W8Character* character, const W8Wiz7Character* impor
         }
         if (give != -1) {
             item = MakeItem(Data(), CurrentGame().rng, give, true, true, true);
-            CurrentGame().inventory.storeWithCharacter(Outsider(*character), item, true, false);
+            CurrentGame().inventory.storeWithCharacter(Outsider(*character), item, true, false,
+                                                       true, ItemReactions::Suppressed);
         }
     }
-    RecalculateCharacterDerivedStats(CurrentGame(), *(character));
+    RecalculateCharacterDerivedStats(CurrentGame(), *character, ItemReactions::Suppressed);
 }
 
 /* Retail fell through the failed assert and read `imported->skills` by

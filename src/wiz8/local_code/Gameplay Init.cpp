@@ -45,7 +45,7 @@ Game& BeginNewGame(GameSession& games)
     for (const auto id : starting_items) {
         auto item = MakeItem(Data(), CurrentGame().rng, id, true, true, true);
         item.stack_count = 1;
-        game.inventory.storeInPool(item, false);
+        game.inventory.storeInPool(item, false, true, ItemReactions::Suppressed);
     }
     game.party.gold = 500;
     game.status.selected_character = GetNextCharacter(1, 1, -1);

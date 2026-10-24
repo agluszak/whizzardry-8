@@ -211,6 +211,13 @@ TEST_CASE("Repeated pool acquisitions preserve reaction draws and Chaos timing",
     auto& game = scope.game;
     std::vector<Rng::Draw> draws;
     game.rng.trace(&draws);
+    // Creation/import suppress only reactions: plot ownership still settles, without a draw.
+    game.status.world_clock = 50;
+    W8ItemInstance seeded{.iItemNo = 0x244};
+    REQUIRE(game.inventory.storeInPool(seeded, false, true, ItemReactions::Suppressed));
+    REQUIRE(draws.empty());
+    REQUIRE(game.story.facts[W8_FACT_CHAOS_POSSESS] == 1);
+    REQUIRE(game.status.fact_b8_clock == 50);
     for (int clock : {100, 200}) {
         game.status.world_clock = clock;
         game.status.fact_b8_pending = false;

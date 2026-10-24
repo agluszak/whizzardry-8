@@ -95,12 +95,14 @@ public:
        in its first free backpack slot. A character outside the party is brought up to date
        on its own. */
     bool storeWithCharacter(ItemRecipient recipient, W8ItemInstance& item, bool equip,
-                            bool announce, bool stack = true);
+                            bool announce, bool stack = true,
+                            ItemReactions reactions = ItemReactions::Normal);
     // Merged into the pool's stacks in order, and the rest added at the front of the pool.
-    bool storeInPool(W8ItemInstance& item, bool announce, bool stack = true);
+    bool storeInPool(W8ItemInstance& item, bool announce, bool stack = true,
+                     ItemReactions reactions = ItemReactions::Normal);
     // The character and the pool in the order asked for.
     bool store(ItemRecipient recipient, W8ItemInstance& item, StoreOrder order, bool announce,
-               bool equip);
+               bool equip, ItemReactions reactions = ItemReactions::Normal);
     // The pool, else the party's feet, else an empty hand.
     bool storeOrDrop(W8ItemInstance& item, bool announce);
     // The held item with a member: merged into its stacks or put in a free backpack slot.
@@ -118,7 +120,7 @@ public:
        announced, iconless or worn by the dead. */
     void stashDeparting(unsigned int party_slot);
     // Empty a character outside the party of everything it carries.
-    void emptyCharacter(W8Character& outsider);
+    void emptyCharacter(W8Character& outsider, ItemReactions reactions = ItemReactions::Normal);
     // Give or raise the class item the character's current profession level earns.
     void upgradeClassItem(ItemRecipient recipient);
 
@@ -201,7 +203,7 @@ public:
     /* Part of settling the party: equipment a member can no longer use comes off and is
        stored like a received item; what nothing takes stays equipped. Returns whether a
        weapon hand changed. */
-    bool unequipUnusable(unsigned int party_slot);
+    bool unequipUnusable(unsigned int party_slot, ItemReactions reactions);
 
     // ---- Saves
 
@@ -228,7 +230,8 @@ private:
     std::optional<Placement> placeInPool(W8ItemInstance& item, bool announce, bool stack);
     std::optional<Placement> placeEither(ItemRecipient recipient, W8ItemInstance& item,
                                          StoreOrder order, bool announce, bool equip);
-    void acquire(const std::optional<Placement>& placement);
+    void acquire(const std::optional<Placement>& placement,
+                 ItemReactions reactions = ItemReactions::Normal);
     bool dropUnstored(W8ItemInstance& item, W8ItemLocation origin = {}, int actor = -1);
     bool stowPartner(unsigned int actor, W8EquipSlot slot);
     void supersedeQueuedSwap(W8ItemLocation location);
@@ -246,17 +249,22 @@ private:
     UseOutcome useOnce(unsigned int party_slot, W8ItemLocation location);
 
     // What every operation owes after changing items.
-    void settle(std::span<const W8ItemLocation> changed);
+    void settle(std::span<const W8ItemLocation> changed,
+                ItemReactions reactions = ItemReactions::Normal);
     // A short fixed list, which lives through the call.
-    void settle(std::initializer_list<W8ItemLocation> changed)
+    void settle(std::initializer_list<W8ItemLocation> changed,
+                ItemReactions reactions = ItemReactions::Normal)
     {
-        settle(std::span<const W8ItemLocation>(changed.begin(), changed.size()));
+        settle(std::span<const W8ItemLocation>(changed.begin(), changed.size()), reactions);
     }
-    void settleOutsider(const ItemRecipient& recipient, std::span<const W8ItemLocation> changed);
+    void settleOutsider(const ItemRecipient& recipient, std::span<const W8ItemLocation> changed,
+                        ItemReactions reactions = ItemReactions::Normal);
     void settleOutsider(const ItemRecipient& recipient,
-                        std::initializer_list<W8ItemLocation> changed)
+                        std::initializer_list<W8ItemLocation> changed,
+                        ItemReactions reactions = ItemReactions::Normal)
     {
-        settleOutsider(recipient, std::span<const W8ItemLocation>(changed.begin(), changed.size()));
+        settleOutsider(recipient, std::span<const W8ItemLocation>(changed.begin(), changed.size()),
+                       reactions);
     }
 
     Game& game_;

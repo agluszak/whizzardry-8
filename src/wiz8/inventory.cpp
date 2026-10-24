@@ -265,7 +265,7 @@ bool Inventory::heldFitsBeside(unsigned int party_slot, W8EquipSlot equip_slot) 
 
 /* A committed item use whose item is gone or has moved is abandoned, a change of a weapon
    hand reconciles combat choices, and any changed location is reported. */
-void Inventory::settle(std::span<const W8ItemLocation> changed)
+void Inventory::settle(std::span<const W8ItemLocation> changed, ItemReactions reactions)
 {
     auto& party = game_.party;
     std::bitset<W8_PARTY_SLOT_COUNT> changed_hands;
@@ -284,15 +284,15 @@ void Inventory::settle(std::span<const W8ItemLocation> changed)
             !holds(use))
             game_.resetCombatChoice(static_cast<int>(slot));
     }
-    SettleActiveParty(game_, changed_hands);
+    SettleActiveParty(game_, changed_hands, reactions);
     if (any) game_.events.push(EquipmentSettled{});
 }
 
 // A character outside the party is also brought up to date on its own.
 void Inventory::settleOutsider(const ItemRecipient& recipient,
-                               std::span<const W8ItemLocation> changed)
+                               std::span<const W8ItemLocation> changed, ItemReactions reactions)
 {
-    settle(changed);
+    settle(changed, reactions);
     if (!recipient.slot) UpdateStandaloneCharacterStats(game_.data, recipient.character, {});
 }
 
@@ -371,12 +371,13 @@ std::optional<Inventory::Placement> Inventory::placeEither(ItemRecipient recipie
 /* What acquiring an item sets off: a handful of plot items update their facts, and an
    exceptional one draws a remark, from the receiver or from a random member when the pool
    took it. */
-void Inventory::acquire(const std::optional<Placement>& placement)
+void Inventory::acquire(const std::optional<Placement>& placement, ItemReactions reactions)
 {
     if (!placement || !placement->received) return;
     game_.acquireItemFacts(*placement->received);
-    DeliverExceptionalItemReaction(game_, placement->received, placement->receiver == nullptr,
-                                   placement->receiver);
+    if (reactions == ItemReactions::Normal)
+        DeliverExceptionalItemReaction(game_, placement->received, placement->receiver == nullptr,
+                                       placement->receiver);
 }
 
 /* What no store takes is dropped at the party's feet unless it may not be discarded, and
@@ -405,28 +406,29 @@ static W8ItemLocation Stored(const auto& placement)
 }
 
 bool Inventory::storeWithCharacter(ItemRecipient recipient, W8ItemInstance& item, bool equip,
-                                   bool announce, bool stack)
+                                   bool announce, bool stack, ItemReactions reactions)
 {
     const auto placed = placeWithCharacter(recipient, item, equip, announce, stack);
-    acquire(placed);
-    settleOutsider(recipient, {Stored(placed)});
+    acquire(placed, reactions);
+    settleOutsider(recipient, {Stored(placed)}, reactions);
     return placed.has_value();
 }
 
-bool Inventory::storeInPool(W8ItemInstance& item, bool announce, bool stack)
+bool Inventory::storeInPool(W8ItemInstance& item, bool announce, bool stack,
+                            ItemReactions reactions)
 {
     const auto placed = placeInPool(item, announce, stack);
-    acquire(placed);
-    settle({Stored(placed)});
+    acquire(placed, reactions);
+    settle({Stored(placed)}, reactions);
     return placed.has_value();
 }
 
 bool Inventory::store(ItemRecipient recipient, W8ItemInstance& item, StoreOrder order,
-                      bool announce, bool equip)
+                      bool announce, bool equip, ItemReactions reactions)
 {
     const auto placed = placeEither(recipient, item, order, announce, equip);
-    acquire(placed);
-    settleOutsider(recipient, {Stored(placed)});
+    acquire(placed, reactions);
+    settleOutsider(recipient, {Stored(placed)}, reactions);
     return placed.has_value();
 }
 
@@ -570,11 +572,11 @@ void Inventory::stashDeparting(unsigned int party_slot)
     settle({});
 }
 
-void Inventory::emptyCharacter(W8Character& outsider)
+void Inventory::emptyCharacter(W8Character& outsider, ItemReactions reactions)
 {
     for (auto& item : outsider.EquippedItem) item = {};
     for (auto& item : outsider.backpack) item = {};
-    settleOutsider(Outsider(outsider), {});
+    settleOutsider(Outsider(outsider), {}, reactions);
 }
 
 /* The ladder gives the item id and the notice to show; the first tier hands over the
@@ -1363,7 +1365,7 @@ void Inventory::readyPrimaryWeapon(unsigned int party_slot)
 
 /* Each unusable piece is stored like a received item: on the member, then in the pool, and
    otherwise at the party's feet. Settling the party calls this, so nothing here settles. */
-bool Inventory::unequipUnusable(unsigned int party_slot)
+bool Inventory::unequipUnusable(unsigned int party_slot, ItemReactions reactions)
 {
     const auto& data = game_.data;
     auto& party = game_.party;
@@ -1379,10 +1381,10 @@ bool Inventory::unequipUnusable(unsigned int party_slot)
                 : std::string{};
         auto item = std::exchange(character.EquippedItem[*equip_slot], W8ItemInstance{});
         auto placed = placeWithCharacter(member(party_slot), item, false, false, true);
-        acquire(placed);
+        acquire(placed, reactions);
         if (!placed) {
             placed = placeInPool(item, false, true);
-            acquire(placed);
+            acquire(placed, reactions);
         }
         if (!placed && !dropUnstored(item)) {
             character.EquippedItem[*equip_slot] = item;

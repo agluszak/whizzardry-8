@@ -202,7 +202,7 @@ bool ClearCondition(Game& game, unsigned int slot, W8Condition condition, bool a
 
 /* Death's own consequences, after the death condition took hold: its conditions clear,
    its pools empty, and its fight, its NPC and the party react. */
-void Die(Game& game, unsigned int slot)
+void Die(Game& game, unsigned int slot, ItemReactions reactions)
 {
     auto& character = game.party.characters[slot];
     assert(game.party.members[slot].has_value());
@@ -216,7 +216,7 @@ void Die(Game& game, unsigned int slot)
             lifted = true;
         }
     }
-    if (lifted) RefreshConditionModifiers(game, slot);
+    if (lifted) RefreshConditionModifiers(game, slot, reactions);
     character.hp_current = 0;
     character.stamina = 0;
     auto& row = game.party.rows[slot];
@@ -233,19 +233,20 @@ void Die(Game& game, unsigned int slot)
         if (slot == static_cast<unsigned int>(game.status.selected_character))
             game.events.push(MonstersChanged{});
         if (was_equipping) game.events.push(CharacterNotice{slot, game.data.strings[0x226]});
-        SettleActiveParty(game);
+        SettleActiveParty(game, {}, reactions);
     }
     if (auto* npc = game.story.npc(game.party.npcIndex(slot))) npc->spawned = 1;
 }
 } // namespace
 
-void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hands)
+void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hands,
+                       ItemReactions reactions)
 {
     Events::Operation outcomes{game.events};
     auto& party = game.party;
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (party.members[slot].has_value() && IsCharacterDefined(party.characters[slot]) &&
-            game.inventory.unequipUnusable(slot))
+            game.inventory.unequipUnusable(slot, reactions))
             changed_hands.set(slot);
     const auto stats =
         UpdatePartyStats(game.data, party, game.inventory.pool(), CaptureLivePartyStatRules(game));
@@ -268,10 +269,12 @@ void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hand
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (stats.characters[slot].hp_exhausted)
             InflictCondition(game, slot,
-                             {.condition = W8_CONDITION_DEAD, .duration = W8_CONDITION_INDEFINITE});
+                             {.condition = W8_CONDITION_DEAD, .duration = W8_CONDITION_INDEFINITE},
+                             reactions);
 }
 
-bool InflictCondition(Game& game, unsigned int slot, const ConditionInfliction& infliction)
+bool InflictCondition(Game& game, unsigned int slot, const ConditionInfliction& infliction,
+                      ItemReactions reactions)
 {
     Events::Operation outcomes{game.events};
     auto& character = game.party.characters[slot];
@@ -281,7 +284,7 @@ bool InflictCondition(Game& game, unsigned int slot, const ConditionInfliction& 
     assert(infliction.poison_strength == 0 || condition == W8_CONDITION_POISONED);
     if (condition == W8_CONDITION_POISONED && infliction.poison_strength == 0) return false;
     if (condition == W8_CONDITION_DEAD && CheatsDeath(character)) {
-        ReviveByCheatingDeath(game, slot);
+        ReviveByCheatingDeath(game, slot, reactions);
         return false;
     }
     const int duration = ConditionDuration(condition, infliction.duration);
@@ -319,9 +322,9 @@ bool InflictCondition(Game& game, unsigned int slot, const ConditionInfliction& 
         static_cast<unsigned int>(infliction.poison_strength)) {
         character.condition_argument = infliction.poison_strength;
     }
-    RefreshConditionModifiers(game, slot);
+    RefreshConditionModifiers(game, slot, reactions);
     if (!took_hold) return false;
-    if (condition == W8_CONDITION_DEAD) Die(game, slot);
+    if (condition == W8_CONDITION_DEAD) Die(game, slot, reactions);
     // A member who is dead or missing is no longer the party's target.
     if (condition >= W8_CONDITION_DEAD)
         game.invalidateAimsAt(W8CombatSlot::character(slot), TargetChange::removed);
@@ -377,14 +380,15 @@ void LiftAllConditionsFromParty(Game& game)
             LiftConditionFromParty(game, static_cast<W8Condition>(condition));
 }
 
-void ReviveByCheatingDeath(Game& game, unsigned int slot)
+void ReviveByCheatingDeath(Game& game, unsigned int slot, ItemReactions reactions)
 {
     Events::Operation outcomes{game.events};
     auto& character = game.party.characters[slot];
     game.events.push(CharacterNotice{slot, game.data.strings[0x173]});
     InflictCondition(
         game, slot,
-        {.condition = W8_CONDITION_UNCONSCIOUS, .duration = CheatDeathUnconsciousTurns(character)});
+        {.condition = W8_CONDITION_UNCONSCIOUS, .duration = CheatDeathUnconsciousTurns(character)},
+        reactions);
     const bool first_in_fight = SpendFirstCombatRevival(game, slot);
     character.hp_current = CheatDeathHitPoints(game.rng, character, first_in_fight);
 }
@@ -421,21 +425,21 @@ void AgeEnchantment(Game& game, unsigned int slot, W8EnchantmentSlot enchantment
     entry.turns -= turns;
 }
 
-void RefreshConditionModifiers(Game& game, unsigned int slot)
+void RefreshConditionModifiers(Game& game, unsigned int slot, ItemReactions reactions)
 {
     auto& character = game.party.characters[slot];
     const auto& member = game.party.members[slot];
     character.condition_modifiers =
         ConditionModifiers(character, member && member->npc_bound, SwallowerLevel(game, character));
-    SettleActiveParty(game);
+    SettleActiveParty(game, {}, reactions);
 }
 
-void RecalculateCharacterDerivedStats(Game& game, W8Character& character)
+void RecalculateCharacterDerivedStats(Game& game, W8Character& character, ItemReactions reactions)
 {
     if (!IsCharacterDefined(character)) return;
     // Character creation edits a party storage slot before the slot has a member.
     if (const auto slot = game.party.slotOf(character); slot && game.party.members[*slot]) {
-        SettleActiveParty(game);
+        SettleActiveParty(game, {}, reactions);
         return;
     }
     UpdateStandaloneCharacterStats(game.data, character, {});

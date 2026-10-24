@@ -425,7 +425,7 @@ void EnsureUniquePartyVoice(W8Character* character)
    copy the record, mark it in party, rebuild its row and formation position
    and enter it in the marching order. The band is 2..7 for a regular member
    and 0..1 for the two auxiliary slots. */
-int AddCharacterToParty(W8Character& character, int slot_kind)
+int AddCharacterToParty(W8Character& character, int slot_kind, ItemReactions reactions)
 {
     unsigned int slot;
 
@@ -478,7 +478,7 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
         PostCharacterNotice(slot, Data().strings[0x250]);
     }
 
-    RecalculateCharacterDerivedStats(CurrentGame(), *destination);
+    RecalculateCharacterDerivedStats(CurrentGame(), *destination, reactions);
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         MainGame()->refreshPartySlotRegions();
     }

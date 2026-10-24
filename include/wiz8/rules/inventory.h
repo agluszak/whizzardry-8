@@ -9,6 +9,9 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 
+// Creation and import seed possessions without acquisition speech or its random draws.
+enum class ItemReactions { Normal, Suppressed };
+
 struct GameData;
 struct W8Character;
 struct W8GameplayModifierBlock;

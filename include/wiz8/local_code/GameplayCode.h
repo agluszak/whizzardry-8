@@ -1,5 +1,7 @@
 #pragma once
 
+#include "wiz8/rules/inventory.h"
+
 struct W8Character;
 
 void AdvanceCharacterToLevel(W8Character* character, unsigned int level);
@@ -11,7 +13,8 @@ int CountActiveCharacters(void);
 unsigned int FindFreePartySlot(unsigned int first, unsigned int last);
 
 void RefreshLevelUpReadyNotices(void);
-int AddCharacterToParty(W8Character& character, int slot);
+int AddCharacterToParty(W8Character& character, int slot,
+                        ItemReactions reactions = ItemReactions::Normal);
 /* Remove a slot's character from the party; fSaveCharData
    persists it back to its NPC record first. */
 void RemoveCharacterFromParty(int party_slot);

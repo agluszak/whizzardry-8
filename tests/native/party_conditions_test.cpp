@@ -14,6 +14,7 @@
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/game.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/SpellEffect.h"
@@ -333,5 +334,20 @@ TEST_CASE_METHOD(PartyFixture,
     REQUIRE(notifications > 0);
     REQUIRE(game.events.pending().size() == outgoing_events);
     REQUIRE(outgoing_draws.empty());
+    game.rng.trace(nullptr);
+}
+
+TEST_CASE_METHOD(PartyFixture, "Creation settlement keeps acquisition reactions suppressed",
+                 "[conditions][inventory]")
+{
+    data.items.resize(1); // No profession can use the default record.
+    member().EquippedItem[0] = {.iItemNo = 0};
+    for (auto& item : member().backpack) item = {.iItemNo = 0};
+    std::vector<Rng::Draw> draws;
+    game.rng.trace(&draws);
+    RefreshConditionModifiers(game, 0, ItemReactions::Suppressed);
+    REQUIRE(member().EquippedItem[0].iItemNo == -1);
+    REQUIRE(game.inventory.pool().size() == 1);
+    REQUIRE(draws.empty());
     game.rng.trace(nullptr);
 }

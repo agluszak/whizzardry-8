@@ -61,6 +61,7 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/inventory.h"
 #include "wiz8/screen.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -1118,7 +1119,7 @@ void PartySelectionScreen::TogglePartyMemberSelection()
     W8Character* character = collection->GetCharacter(selected);
     if (!character) return;
     if (collection->FindPartySlot(selected) < 0) {
-        int slot = AddCharacterToParty(*character, -1);
+        int slot = AddCharacterToParty(*character, -1, ItemReactions::Suppressed);
         if (slot != -1) {
             collection->characters[selected] = static_cast<unsigned>(slot);
         }
