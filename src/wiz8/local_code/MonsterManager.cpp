@@ -76,6 +76,7 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/random.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"

@@ -1782,7 +1782,9 @@ TEST_CASE("Action reach uses its game and resolves range only when needed", "[pa
     REQUIRE(outgoing.game.assessActionReach(0, 2, spell));
     REQUIRE_FALSE(candidate.assessActionReach(0, 2, spell));
     // Self-targeting and missing world targets must not consult an absent item's spell record.
-    const W8Action item{W8_ACTION_USE_ITEM, -1, W8CombatSlot::character(0)};
+    W8Action item{W8_ACTION_USE_ITEM, -1, W8CombatSlot::character(0)};
+    item.detail_block.item_use.item = {W8ItemStorage::Equipment, 0, 0};
+    candidate.party.characters[0].EquippedItem[0].iItemNo = -1;
     REQUIRE(candidate.assessActionReach(0, 2, item));
     REQUIRE(candidate.assessActionReach(0, 2, item.aimedAt(W8CombatSlot::monster(1))).failure ==
             W8TargetFailure::Unavailable);

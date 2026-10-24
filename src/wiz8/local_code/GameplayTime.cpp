@@ -623,8 +623,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
             CurrentGame().combat.has_value()) {
             damage += damage >> 1;
         }
-        ApplyDamageToCharacter(party_slot, damage, true, true, false,
-                               static_cast<W8SpellEffectResult*>(0), false);
+        CurrentGame().damageCharacter(party_slot, damage, {.poison = true});
     }
 
     if (character->uiCondition[W8_CONDITION_DISEASED] != 0) {
@@ -738,8 +737,7 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                 }
             }
             if (hits != 0) {
-                ApplyDamageToCharacter(party_slot, hits, false, true, false,
-                                       static_cast<W8SpellEffectResult*>(0), false);
+                CurrentGame().damageCharacter(party_slot, hits);
             }
             if (character->uiCondition[W8_CONDITION_HEXED] == 0) {
                 InflictCondition(
@@ -773,9 +771,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
                           false);
         }
     } else if (health_mod < 0) {
-        ApplyDamageToCharacter(party_slot,
-                               -static_cast<int>(health_mod) * static_cast<int>(minutes), false,
-                               true, false, static_cast<W8SpellEffectResult*>(0), false);
+        CurrentGame().damageCharacter(party_slot,
+                                      -static_cast<int>(health_mod) * static_cast<int>(minutes));
     }
 
     signed char stamina_mod = character->bonus.stamina_regen_adjustment;
@@ -1317,8 +1314,9 @@ void UpdateCampFatigue(int ticks)
                         !CurrentGame().combat.has_value() || !g_settings.verbose_combat_messages
                             ? 0
                             : 1;
-                    ApplyDamageToCharacter(slot, amount, false, announce, false,
-                                           static_cast<W8SpellEffectResult*>(0), false);
+                    CurrentGame().damageCharacter(
+                        slot, amount,
+                        {.notice = announce ? DamageNotice::Standard : DamageNotice::None});
                 } else {
                     CurrentGame().fatigueCharacter(slot, static_cast<int>(amount), false,
                                                    static_cast<W8SpellEffectResult*>(0));

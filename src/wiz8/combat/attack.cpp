@@ -777,9 +777,11 @@ void ResolveSpellMissileHit(Missile* missile)
                                      g_settings.verbose_combat_messages, 0, &missile->result,
                                      false);
             } else {
-                ApplyDamageToCharacter(target->iChar, magnitude, false,
-                                       g_settings.verbose_combat_messages, false, &missile->result,
-                                       false);
+                CurrentGame().damageCharacter(target->iChar, magnitude,
+                                              {.notice = g_settings.verbose_combat_messages
+                                                             ? DamageNotice::Standard
+                                                             : DamageNotice::None},
+                                              &missile->result);
             }
         }
     }
@@ -902,7 +904,8 @@ void ResolveMissileHit(Missile* missile, bool deflected)
             if (target_is_monster) {
                 ApplyDamageToMonster(monster_info, magnitude, source, false, 1, 1, 0, false);
             } else {
-                ApplyDamageToCharacter(target->iChar, magnitude, false, true, true, 0, false);
+                CurrentGame().damageCharacter(target->iChar, magnitude,
+                                              {.notice = DamageNotice::AmountOnly});
             }
             ApplyEffectConditions(source, target, &missile->definition, true, false, 0);
         } else if (g_settings.verbose_combat_messages) {
@@ -1695,9 +1698,10 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
                     }
                     MakeMonsterHitSound(attack, &CurrentGame().combat->TargetHit, hit_location, -1);
                     if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_CHARACTER) {
-                        applied = ApplyDamageToCharacter(CurrentGame().combat->TargetHit.iChar,
-                                                         damage, false, verbose, verbose,
-                                                         verbose ? nullptr : report, false);
+                        applied = CurrentGame().damageCharacter(
+                            CurrentGame().combat->TargetHit.iChar, damage,
+                            {.notice = verbose ? DamageNotice::AmountOnly : DamageNotice::None},
+                            verbose ? nullptr : report);
                     } else {
                         applied = ApplyDamageToMonster(target_info, damage, &source, false, verbose,
                                                        verbose, verbose ? nullptr : report, false);
@@ -3650,9 +3654,10 @@ ActionStep ResolveCharacterAttack(int party_slot)
                                 }
                             }
                         } else {
-                            applied = ApplyDamageToCharacter(CurrentGame().combat->TargetHit.iChar,
-                                                             damage, false, verbose, verbose,
-                                                             verbose ? nullptr : report, false);
+                            applied = CurrentGame().damageCharacter(
+                                CurrentGame().combat->TargetHit.iChar, damage,
+                                {.notice = verbose ? DamageNotice::AmountOnly : DamageNotice::None},
+                                verbose ? nullptr : report);
                         }
                         if (fumbled) {
                             QueueFumbleReaction(party_slot);

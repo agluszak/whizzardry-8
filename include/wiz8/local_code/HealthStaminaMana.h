@@ -56,9 +56,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
    asleep. `announce` gates the damage notice, `short_notice` selects the terse
    ShowNotice form over the verbose PostCharacterNotice one, and `detailed`
    includes the character name in the message. */
-unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool quiet, bool announce,
-                                    bool short_notice, W8SpellEffectResult* result_stats,
-                                    bool detailed);
+
 extern char g_poison_suffix[];
 /* How a monster answers being struck - the struck cycle, a
    possible condition knock-on, and the hostility check toward the attacker. */

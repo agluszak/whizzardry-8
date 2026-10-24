@@ -279,7 +279,9 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        ApplyDamageToCharacter(iChar, uiDamage, false, announce, false, 0, false);
+                        CurrentGame().damageCharacter(
+                            iChar, uiDamage,
+                            {.notice = announce ? DamageNotice::Standard : DamageNotice::None});
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];

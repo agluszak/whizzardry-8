@@ -74,8 +74,9 @@ void ApplyRolledHealthChangeToParty(const W8Dice* dice, W8SpellEffectResult* res
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (CurrentGame().party.members[party_slot].has_value() &&
             CurrentGame().party.characters[party_slot].highest_condition < W8_CONDITION_DEAD) {
-            ApplyDamageToCharacter(party_slot, RollDice(dice), false, announce, false, result,
-                                   false);
+            CurrentGame().damageCharacter(
+                party_slot, RollDice(dice),
+                {.notice = announce ? DamageNotice::Standard : DamageNotice::None}, result);
         }
     }
 }

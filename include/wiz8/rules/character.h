@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include "wiz8/data/attack_modes.h"
@@ -122,6 +123,9 @@ struct W8CharacterConditionRecord {
 struct W8Character {
     // Spend stamina and recompute fatigue; true when derived statistics need settling.
     bool spendStamina(int amount, bool scale_by_load);
+    // An engaged result means Guardian Angel absorbed this amount, possibly zero.
+    std::optional<unsigned int> absorbDamage(unsigned int amount);
+    unsigned int takeDamage(unsigned int amount);
 
     /* Retail offset 0x0000: SaveCharacter stamps 1 here before writing the record, so the
        leading dword is a saved-record version rather than runtime state. */

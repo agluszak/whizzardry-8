@@ -14,7 +14,7 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/live_party.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/portrait_animation.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -199,16 +199,23 @@ TEST_CASE_METHOD(PartyFixture, "Absorbed damage publishes its notice after spend
 {
     auto& shield = member().enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL];
     shield.turns = 1;
-    shield.magnitude = 20;
+    unsigned int capacity = 20;
+    SECTION("Shield retains a remainder") {}
+    SECTION("Exact absorption leaves the enchantment active")
+    {
+        capacity = 5;
+    }
+    shield.magnitude = capacity;
     const auto hp = member().hp_current;
     unsigned int notices = 0;
     game.events.observe([&](const Event& event) {
         REQUIRE(std::holds_alternative<CharacterNotice>(event));
-        REQUIRE(shield.magnitude == 15);
+        REQUIRE(shield.magnitude == capacity - 5);
+        REQUIRE(shield.turns == 1);
         REQUIRE(member().hp_current == hp);
         ++notices;
     });
-    REQUIRE(ApplyDamageToCharacter(0, 5, false, true, false, nullptr, false) == 0);
+    REQUIRE(game.damageCharacter(0, 5) == 0);
     REQUIRE(notices == 1);
 }
 
@@ -233,7 +240,11 @@ TEST_CASE_METHOD(PartyFixture,
         }
         if (std::holds_alternative<CharacterDied>(event)) ++deaths;
     });
-    REQUIRE(ApplyDamageToCharacter(0, 99, false, true, false, nullptr, false) == 5);
+    W8SpellEffectResult report;
+    REQUIRE(game.damageCharacter(0, 99, {}, &report) == 5);
+    REQUIRE(report.amount == 99);
+    REQUIRE(report.count == 1);
+    REQUIRE(report.reports.size() == 1);
     REQUIRE(hits == 1);
     REQUIRE(deaths == 1);
 }

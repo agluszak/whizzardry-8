@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <functional>
+#include <optional>
 #include <stdexcept>
 
 #include "wiz8/data/attack_modes.h"
@@ -861,4 +862,20 @@ bool W8Character::spendStamina(int amount, bool scale_by_load)
     const int previous = fatigue_band;
     fatigue_band = FatigueBand(stamina, uiStaminaMax);
     return fatigue_band != previous;
+}
+
+std::optional<unsigned int> W8Character::absorbDamage(unsigned int amount)
+{
+    auto& shield = enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL];
+    if (shield.turns == 0) return std::nullopt;
+    const auto absorbed = std::min(amount, static_cast<unsigned int>(shield.magnitude));
+    shield.magnitude = static_cast<unsigned short>(shield.magnitude - absorbed);
+    return absorbed;
+}
+
+unsigned int W8Character::takeDamage(unsigned int amount)
+{
+    const auto applied = std::min(amount, hp_current);
+    hp_current -= applied;
+    return applied;
 }

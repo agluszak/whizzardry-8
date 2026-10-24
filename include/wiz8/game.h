@@ -71,6 +71,13 @@ struct W8PreparedNpcBindings;
 
 struct W8SpellEffectResult;
 
+enum class DamageNotice { None, Standard, AmountOnly, Detailed };
+struct DamageOptions {
+    // Poison-style damage uses its own wording and does not wake sleeping members.
+    bool poison = false;
+    DamageNotice notice = DamageNotice::Standard;
+};
+
 class Game {
 public:
     // The game reads `data`, which its session's owner keeps alive longer than the game.
@@ -81,6 +88,8 @@ public:
     bool hasLeadingNpc(W8NpcId kind) const;
     // Settle the pending formation and publish its accepted or refused moves.
     void commitFormation();
+    unsigned int damageCharacter(unsigned int slot, unsigned int amount, DamageOptions options = {},
+                                 W8SpellEffectResult* report = nullptr);
     void fatigueCharacter(unsigned int slot, int amount, bool scale_by_load,
                           W8SpellEffectResult* report = nullptr);
     void aimStoredAction(unsigned int slot, W8TargetingContext stored, const W8CombatSlot& target);

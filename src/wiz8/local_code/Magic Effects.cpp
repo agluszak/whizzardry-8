@@ -1329,8 +1329,9 @@ void ApplyDamageToTargets(W8SpellEffectEntry* effect)
             } else {
                 result = 0;
             }
-            ApplyDamageToCharacter(character_index, magnitude, false, verbose, false, result,
-                                   false);
+            CurrentGame().damageCharacter(
+                character_index, magnitude,
+                {.notice = verbose ? DamageNotice::Standard : DamageNotice::None}, result);
         }
     }
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
@@ -1394,8 +1395,9 @@ void DrainTargetsLife(W8SpellEffectEntry* effect)
             } else {
                 result = 0;
             }
-            ApplyDamageToCharacter(character_index, magnitude, false, announce, false, result,
-                                   false);
+            CurrentGame().damageCharacter(
+                character_index, magnitude,
+                {.notice = announce ? DamageNotice::Standard : DamageNotice::None}, result);
             drained += magnitude;
         }
     }
@@ -1968,7 +1970,9 @@ static void ResolveAfflictionForTarget(W8SpellEffectEntry* effect, W8CombatSlot*
     }
     W8SpellEffectResult* result = verbose ? nullptr : &effect->result;
     if (target->iType == W8_TARGET_KIND_CHARACTER)
-        ApplyDamageToCharacter(target->iChar, magnitude, false, verbose, false, result, false);
+        CurrentGame().damageCharacter(
+            target->iChar, magnitude,
+            {.notice = verbose ? DamageNotice::Standard : DamageNotice::None}, result);
     else
         ApplyDamageToMonster(monster_info, magnitude, &effect->Source, false, verbose, 0, result,
                              false);
@@ -2699,8 +2703,7 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                             ApplyEffectAndAnnounce(&amount, &char_target,
                                                    Data().spells[spell_id].realm, difficulty);
                             if (amount != 0) {
-                                ApplyDamageToCharacter(party_slot, amount, false, true, false, 0,
-                                                       false);
+                                CurrentGame().damageCharacter(party_slot, amount);
                                 resisted_total += amount;
                                 ++hit_count;
                                 if (spell_id == W8_SPELL_DRAINING_CLOUD) {
@@ -3380,7 +3383,9 @@ void ApplyDiceDamageToCharacter(int party_slot, W8TargetSource* source, W8Enchan
     amount =
         ApplyCharacterDamageReduction(&CurrentGame().party.characters[party_slot], RollDice(&dice));
     if (amount > 0) {
-        ApplyDamageToCharacter(party_slot, amount, false, verbose, verbose, &result, false);
+        CurrentGame().damageCharacter(
+            party_slot, amount, {.notice = verbose ? DamageNotice::AmountOnly : DamageNotice::None},
+            &result);
         CurrentGame().combat->attack_report.notice_values[3] += result.amount;
         QueueCombatDamageReports(&result);
     }
@@ -3423,10 +3428,10 @@ void ApplyDirectDamageToCharacter(int party_slot, W8TargetSource* source, int da
     amount = ApplyCharacterDamageReduction(&CurrentGame().party.characters[party_slot], damage);
     if (amount > 0) {
         if (verbose) {
-            ApplyDamageToCharacter(party_slot, amount, false, true, true, 0, true);
+            CurrentGame().damageCharacter(party_slot, amount, {.notice = DamageNotice::Detailed});
         } else {
-            amount =
-                ApplyDamageToCharacter(party_slot, amount, false, false, false, &result, false);
+            amount = CurrentGame().damageCharacter(party_slot, amount,
+                                                   {.notice = DamageNotice::None}, &result);
             CurrentGame().combat->attack_report.notice_values[4] += amount;
             QueueCombatDamageReports(&result);
         }
