@@ -93,3 +93,12 @@ W8NpcState* Story::adoptNpc(std::shared_ptr<W8NpcState> npc)
         npcs[index] = std::move(npc);
     return result;
 }
+
+W8NpcState* Story::npcByName(std::string_view name) const
+{
+    for (const auto& npc : npcs)
+        if (npc && !npc->binding_unavailable &&
+            CompareTextIgnoreAsciiCase(npcDisplayName(*npc), name) == 0)
+            return npc.get();
+    return nullptr;
+}

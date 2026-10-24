@@ -207,7 +207,7 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
                         std::string action_name;
                         BeginScriptedWorldAction();
                         action_name = entry->sub_entries[0].text.c_str() + 4;
-                        target = FindNpcStateByName(action_name);
+                        target = context.story.npcByName(action_name);
                         if (target != 0) {
                             if (!target->is_grouped) {
                                 ClearMainGameTargetState();
@@ -236,7 +236,7 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
                 case W8_NPC_ENTRY_NPC_INTERACTION: {
                     std::string action_name;
                     action_name = entry->sub_entries[0].text.c_str() + 4;
-                    target = FindNpcStateByName(action_name);
+                    target = context.story.npcByName(action_name);
                     if (target != 0) {
                         ApplyNpcInteraction(target, 4, 0, 0, entry->operand0);
                     }

@@ -117,6 +117,7 @@ struct Story {
     int availableNpcSlot(std::span<const W8PreparedNpcBinding> pending = {}) const;
     W8NpcState* adoptNpc(std::shared_ptr<W8NpcState> npc);
     W8NpcState* npcOfKind(int kind) const;
+    W8NpcState* npcByName(std::string_view name) const;
     std::string npcDisplayName(const W8NpcState& npc) const;
     void installNpcBindings(W8PreparedNpcBindings pending);
     void ensureLocationVariable(int level, std::string_view name, int initial_value);

@@ -143,7 +143,7 @@ void NpcDialogueScenario()
     GameHarness game(false);
     StartPremadeGame(game);
     Settle(game, "settle");
-    W8NpcState* burz = FindNpcStateByName("Burz");
+    W8NpcState* burz = CurrentGame().story.npcByName("Burz");
     REQUIRE(burz);
     CurrentGame().party.gold = 200;
 

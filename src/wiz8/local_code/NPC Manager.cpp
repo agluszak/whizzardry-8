@@ -721,22 +721,6 @@ void AddNpcTopic(W8NpcState* npc, int topic)
 
 /* The live NPC state whose display (or fact-substituted) name matches
    case-insensitively; released bindings and non-matches are skipped. */
-W8NpcState* FindNpcStateByName(std::string_view name)
-{
-    std::string candidate;
-
-    for (const auto& state_owner : CurrentGame().story.npcs) {
-        auto* npc = state_owner.get();
-        if (npc->binding_unavailable == 0) {
-            candidate = CurrentGame().story.npcDisplayName(*npc);
-            if (CompareTextIgnoreAsciiCase(candidate, name) == 0) {
-                return npc;
-            }
-        }
-    }
-    return 0;
-}
-
 /* Age every bound NPC's timeout state once per game-time pass. The caller
    feeds elapsed minutes times ten: a dismissed NPC's flag clears once its
    accumulator passes 0x3c of those units, and each dialogue cooldown flag

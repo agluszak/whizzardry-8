@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -411,7 +412,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
     case W8_NPC_ENTRY_NEXT_QUOTE:
         if (entry->operand2 == 4 && entry->operand1 != 2) {
             action_name = entry->sub_entries[0].text.c_str() + 4;
-            target = FindNpcStateByName(action_name);
+            target = context.story.npcByName(action_name);
             if (target != 0) {
                 if (target->name_style == W8_NPC_VI_DOMINA && entry->operand0 == 0) {
                     session_.subquote_index = 0;
@@ -422,7 +423,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
                         LookAtDialogueNpc();
                     }
                 } else {
-                    Begin(target, true);
+                    context.game.beginNpcDialogue(target, true);
                 }
                 QueueQuote(entry->operand0, false, false, false);
                 if (target->is_grouped) {
@@ -435,7 +436,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
     case W8_NPC_ENTRY_FACT_CONDITIONAL_QUOTE:
         if (entry->operand2 == 4 && entry->operand1 != 2) {
             action_name = entry->sub_entries[0].text.c_str() + 4;
-            target = FindNpcStateByName(action_name);
+            target = context.story.npcByName(action_name);
             if (target != 0) {
                 if (!target->is_grouped) {
                     SelectNpcDialogueSpeaker(target, 0);
@@ -443,7 +444,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
                         LookAtDialogueNpc();
                     }
                 } else {
-                    Begin(target, true);
+                    context.game.beginNpcDialogue(target, true);
                     SetNpcDialoguePanelVisible(0);
                 }
                 QueueQuote(entry->operand0, false, false, false);
@@ -512,10 +513,10 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
 
     auto current = queue_.begin();
     W8MessageBoxLine& line = *current;
-    npc = line.npc_kind != -1 ? CurrentGame().story.npcOfKind(line.npc_kind) : 0;
+    npc = line.npc_kind != -1 ? context.story.npcOfKind(line.npc_kind) : 0;
     if (auto* quote_line = std::get_if<W8NpcQueuedQuote>(&line.action)) {
         if (npc != 0 && npc != session_.npc.get()) {
-            Begin(npc, true);
+            context.game.beginNpcDialogue(npc, true);
         }
         if (session_.binding.script != quote_line->binding.script)
             session_.finished_quote_index = -1;
