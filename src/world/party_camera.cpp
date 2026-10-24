@@ -722,7 +722,7 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
         g_camera_path_active = true;
         path->active = true;
         PathAISetValue((path->path ? &*path->path : nullptr), 0.0f);
-        PathAIResetTick((path->path ? &*path->path : nullptr));
+        PathAIResetTick((path->path ? &*path->path : nullptr), clocks.worldMilliseconds());
         path->path->distance_travelled = 0.0f;
         path->path->upright = 1;
         world->party.camera.saved_environment_flag = SetEnvironmentLoadFlag(0);

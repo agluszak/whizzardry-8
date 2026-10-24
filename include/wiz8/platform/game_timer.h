@@ -35,9 +35,21 @@ public:
     {
     }
     std::uint32_t read(TimerClock clock) const;
+    std::chrono::milliseconds gameTime() const
+    {
+        return step_ ? *step_ : std::chrono::milliseconds{};
+    }
+    std::uint32_t gameMilliseconds() const
+    {
+        return static_cast<std::uint32_t>(gameTime().count());
+    }
+    std::chrono::milliseconds worldTime() const
+    {
+        return world_ ? *world_ : std::chrono::milliseconds{};
+    }
     std::uint64_t worldMilliseconds() const
     {
-        return world_ ? static_cast<std::uint64_t>(world_->count()) : 0;
+        return static_cast<std::uint64_t>(worldTime().count());
     }
     float motionDelta() const;
     float motionElapsed() const;

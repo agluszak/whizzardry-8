@@ -100,7 +100,7 @@ bool UpdateMissileAI(MissileFlight* record)
         return true;
     }
     position = missile->nav.GetPosition();
-    count = GameClockMilliseconds() >> 1;
+    count = missile->owner_world.clocks.gameMilliseconds() >> 1;
     delta = count - record->last_half_tick;
     if (delta > 0xfa) {
         delta = 0xfa;
@@ -507,7 +507,7 @@ Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, floa
         ai->speed_per_step = flight_speed * 0.001f;
         ai->gravity = missile->gravity;
         ai->limit = limit;
-        ai->last_half_tick = GameClockMilliseconds() >> 1;
+        ai->last_half_tick = missile->owner_world.clocks.gameMilliseconds() >> 1;
         ai->missile = missile;
         ai->fall_speed = static_cast<float>(sin(-pitch) * flight_speed * 0.001f);
         ai->limit = limit;
@@ -616,7 +616,8 @@ void Missile::StartIfHostActive()
         if (flight_ai) {
             UpdateMissileAI(&*flight_ai);
         } else if (visual.m_pAI.has_value()) {
-            PathAIUpdate((visual.m_pAI ? &*visual.m_pAI : nullptr), 1);
+            PathAIUpdate((visual.m_pAI ? &*visual.m_pAI : nullptr), 1,
+                         owner_world.clocks.worldMilliseconds());
         }
         TickAnimation(1.0f);
     } else {

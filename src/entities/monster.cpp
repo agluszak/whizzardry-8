@@ -520,7 +520,7 @@ void Monster::Update()
         switch (cycle) {
         case W8_MONSTER_CYCLE_TALK:
             if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
-                if (talk_duration < GameClockMilliseconds() - talk_start &&
+                if (talk_duration < owner_world.clocks.gameMilliseconds() - talk_start &&
                     IsCycleSupported(0x17)) {
                     visual.pending_cycle = 0x17;
                 } else {
@@ -529,7 +529,7 @@ void Monster::Update()
                 visual.frame_direction = W8_ANIMATION_FORWARD;
                 visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
                 visual.animation_playing = 1;
-                visual.timer = GameClockMilliseconds();
+                visual.timer = owner_world.clocks.gameMilliseconds();
                 visual.pending_subcycle = 0;
             }
             break;
@@ -539,17 +539,17 @@ void Monster::Update()
                     /* 0x004C276F..0x004C27D7: the talking path never stores
                            pending_subcycle, so TALK keeps the current frame
                            (clamped by ApplyPendingCycle) instead of frame 0. */
-                    talk_start = GameClockMilliseconds();
+                    talk_start = owner_world.clocks.gameMilliseconds();
                     talk_duration = CurrentGame().rng.below(2000) + 2000;
                     visual.pending_cycle = 0x18;
                     visual.frame_direction = W8_ANIMATION_FORWARD;
                     visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
                     visual.animation_playing = 1;
-                    visual.timer = GameClockMilliseconds();
+                    visual.timer = owner_world.clocks.gameMilliseconds();
                 } else {
                     visual.pending_cycle = 1;
                     visual.animation_playing = 1;
-                    visual.timer = GameClockMilliseconds();
+                    visual.timer = owner_world.clocks.gameMilliseconds();
                     visual.pending_subcycle = 0;
                 }
             }
@@ -559,7 +559,7 @@ void Monster::Update()
                 visual.pending_cycle = 1;
                 visual.frame_direction = W8_ANIMATION_FORWARD;
                 visual.animation_playing = 1;
-                visual.timer = GameClockMilliseconds();
+                visual.timer = owner_world.clocks.gameMilliseconds();
                 visual.pending_behaviour = W8_ANIMATION_NEVER_STOP;
                 visual.pending_subcycle = 0;
             }
@@ -588,7 +588,7 @@ void Monster::Update()
                         runtime_flags |= W8_MONSTER_KEEP_FRAME_DIRECTION;
                     }
                     visual.animation_playing = 1;
-                    visual.timer = GameClockMilliseconds();
+                    visual.timer = owner_world.clocks.gameMilliseconds();
                 }
             }
             break;
@@ -607,7 +607,7 @@ void Monster::Update()
                     visual.pending_subcycle = 0;
                 }
                 visual.animation_playing = 1;
-                visual.timer = GameClockMilliseconds();
+                visual.timer = owner_world.clocks.gameMilliseconds();
             }
             break;
         case W8_MONSTER_CYCLE_TRANSITION:
@@ -619,7 +619,7 @@ void Monster::Update()
                     visual.pending_cycle = 4;
                 }
                 visual.animation_playing = 1;
-                visual.timer = GameClockMilliseconds();
+                visual.timer = owner_world.clocks.gameMilliseconds();
                 visual.pending_behaviour = W8_ANIMATION_NEVER_STOP;
                 visual.pending_subcycle = 0;
             }
@@ -628,7 +628,7 @@ void Monster::Update()
             if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
                 visual.pending_cycle = 1;
                 visual.animation_playing = 1;
-                visual.timer = GameClockMilliseconds();
+                visual.timer = owner_world.clocks.gameMilliseconds();
                 visual.pending_behaviour = W8_ANIMATION_NEVER_STOP;
                 visual.pending_subcycle = 0;
             }
@@ -647,7 +647,7 @@ void Monster::Update()
         (cycle == W8_MONSTER_CYCLE_IDLE || cycle == W8_MONSTER_CYCLE_SPICE) &&
         (visual.pending_cycle == -1 || visual.pending_cycle == 1 || visual.pending_cycle == 2) &&
         !CurrentGame().combat->resolvingTurnOf(MonsterActor{location_id})) {
-        visual.timer = GameClockMilliseconds();
+        visual.timer = owner_world.clocks.gameMilliseconds();
     }
 
     if (monster_info != 0 && monster_info->uiCondition[W8_CONDITION_SLOWED] != 0) {
@@ -1002,9 +1002,9 @@ void Monster::StartTalking(bool animate_mouth)
 {
     talking = true;
     this->animate_mouth = animate_mouth;
-    mouth_frame_clock = GameClockMilliseconds();
+    mouth_frame_clock = owner_world.clocks.gameMilliseconds();
     mouth_open = false;
-    talk_start = GameClockMilliseconds();
+    talk_start = owner_world.clocks.gameMilliseconds();
     talk_duration = CurrentGame().rng.below(2000) + 2000;
     visual.pending_cycle = 0x18;
     visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
@@ -1294,9 +1294,9 @@ void Monster::UpdateRepresentation()
                 mouth->playback->animation_mode = W8_TEXTURE_ANIM_MANUAL;
                 mouth->SetFrame(0);
             }
-        } else if (GameClockMilliseconds() - mouth_frame_clock > 120) {
+        } else if (owner_world.clocks.gameMilliseconds() - mouth_frame_clock > 120) {
             unsigned short frame;
-            mouth_frame_clock = GameClockMilliseconds();
+            mouth_frame_clock = owner_world.clocks.gameMilliseconds();
             do {
                 frame = static_cast<unsigned short>(CurrentGame().rng.below(6));
                 if (frame > 3) {
@@ -1330,8 +1330,8 @@ void Monster::UpdateRepresentation()
             SetModelInstanceExclusionMask(model, 4);
         }
         if (monster_light != 0) {
-            monster_light->Update(&position,
-                                  std::chrono::duration<float>(CurrentGame().visual_time).count());
+            monster_light->Update(
+                &position, std::chrono::duration<float>(owner_world.clocks.worldTime()).count());
         }
         if (!visual.enabled) {
             visual.enabled = true;
@@ -1455,7 +1455,7 @@ void Monster::SetCycle(signed char cycle)
         subcycle = 0;
     } else if (visual.forced_subcycle == -1 || count <= visual.forced_subcycle) {
         if ((runtime_flags & W8_MONSTER_KEEP_SUBCYCLE) == 0) {
-            subcycle = static_cast<signed char>(GameClockMilliseconds() % count);
+            subcycle = static_cast<signed char>(owner_world.clocks.gameMilliseconds() % count);
         } else {
             runtime_flags &= ~W8_MONSTER_KEEP_SUBCYCLE;
             subcycle = visual.current_subcycle;
@@ -1547,7 +1547,7 @@ void Monster::SetCycle(signed char cycle)
         }
         if (monster_light != 0) {
             monster_light->StartFadeOut(
-                std::chrono::duration<float>(CurrentGame().visual_time).count());
+                std::chrono::duration<float>(owner_world.clocks.worldTime()).count());
         }
     }
 }
@@ -1620,7 +1620,7 @@ void Monster::UpdateAttachedObjects(bool hovered)
         return;
     }
 
-    elapsed = GameClockMilliseconds() - representation->visual.timer;
+    elapsed = owner_world.clocks.gameMilliseconds() - representation->visual.timer;
     camera_rotation = owner_world.party.rotation();
     base_position = nav.movement.position;
     base_position.y += nav.movement.vertical_base + nav.movement.vertical_amplitude;
@@ -2024,7 +2024,7 @@ unsigned char Monster::SetAnimating(bool animating)
     unsigned char previous = runtime->visual.animation_playing;
 
     runtime->visual.animation_playing = animating;
-    runtime->visual.timer = GameClockMilliseconds();
+    runtime->visual.timer = owner_world.clocks.gameMilliseconds();
     return previous;
 }
 
@@ -2251,7 +2251,7 @@ void Monster::SpawnDamageNumber(unsigned int amount)
             poster->setScene(owner_world.scene.get());
             linked_runtime_objects.push_back(std::move(poster));
 
-            auto owned_particle = std::make_unique<ParticleSystem>(owner_world.scene.get(), 0xa);
+            auto owned_particle = std::make_unique<ParticleSystem>(&owner_world, 0xa);
             particle = owned_particle.get();
             auto material = std::make_shared<Material>();
             colour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -2426,11 +2426,11 @@ std::unique_ptr<WorldItemEntity> CreateMonsterIconItem(World& world, std::string
     if (!mesh->vertex_locations.empty())
         mesh->relocateVertices(glm::vec3(0, -mesh->vertex_locations[0].y, 0));
     instance->setAlignment(1);
-    auto item = std::make_unique<WorldItemEntity>();
+    auto item = std::make_unique<WorldItemEntity>(world);
     item->flags |= W8_ITEM_ENTITY_MESH_LOADED;
     item->m_psrMesh = std::move(poster);
     item->RefreshBounds();
-    item->AttachMesh(&world);
+    item->AttachMesh();
     instance->light_scale = glm::vec3(0);
     return item;
 }

@@ -1278,9 +1278,9 @@ TEST_CASE_METHOD(LoaderFixture, "Particle record versions initialize omitted fie
         store("particles.bin", bytes);
         auto file = wiz8::open_file(wiz8::asset_path("particles.bin"));
         LevelLoadContext info{nullptr, file.get(), {}};
-        WorldScene scene;
+        World world;
         std::vector<std::unique_ptr<ParticleSystem>> particles;
-        REQUIRE(ReadWorldParticles(&info, &scene, &particles));
+        REQUIRE(ReadWorldParticles(&info, &world, &particles));
         REQUIRE(particles.size() == 2);
         for (const auto& particle : particles) {
             REQUIRE(particle->particles.size() == 2);
@@ -1334,11 +1334,12 @@ TEST_CASE_METHOD(LoaderFixture, "Malformed particle sections publish no scene ob
     store("particles.bin", bytes);
     auto file = wiz8::open_file(wiz8::asset_path("particles.bin"));
     LevelLoadContext info{nullptr, file.get(), {}};
-    WorldScene scene;
+    World world;
+    auto& scene = *world.scene;
     std::vector<std::unique_ptr<ParticleSystem>> particles;
     particles.push_back(std::make_unique<ParticleSystem>(nullptr, 0));
     const auto* existing = particles.front().get();
-    REQUIRE_FALSE(ReadWorldParticles(&info, &scene, &particles));
+    REQUIRE_FALSE(ReadWorldParticles(&info, &world, &particles));
     REQUIRE(particles.size() == 1);
     REQUIRE(particles.front().get() == existing);
     REQUIRE(scene.particles.empty());
@@ -1451,7 +1452,7 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
     game.game.level.replacePrimary(std::make_unique<World>());
     World& world = *GetWorld();
     Prop first;
-    WorldItemEntity item; // Items consume the same legacy sequence as props.
+    WorldItemEntity item(world); // Items consume the same legacy sequence as props.
     auto prop = std::make_unique<Prop>();
     REQUIRE(prop->legacy_save_id == first.legacy_save_id + 2);
     const int saved_id = prop->legacy_save_id;

@@ -523,7 +523,7 @@ TEST_CASE_METHOD(SpellVisualFixture, "Retiring a cycle cancels borrowed monster 
 {
     {
         SpellVisual cycle(world);
-        auto particle = std::make_unique<ParticleSystem>((world.scene.get()), 1);
+        auto particle = std::make_unique<ParticleSystem>(&world, 1);
         particle->particles[0].active = true;
         particle->callback = std::make_unique<W8MonsterShakeCallback>();
         cycle.visual.particles.emplace_back().m_pstParticles = std::move(particle);
@@ -540,7 +540,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
     auto previous = game.game.level.replacePrimary(std::make_unique<World>());
     auto* retiring = GetWorld();
     auto visual = std::make_unique<SpellVisual>(*retiring);
-    auto particle = std::make_unique<ParticleSystem>(retiring->scene.get(), 1);
+    auto particle = std::make_unique<ParticleSystem>(retiring, 1);
     particle->particles[0].active = true;
     auto texture = std::make_shared<Texture>();
     const std::weak_ptr<Texture> released = texture;
@@ -1121,10 +1121,10 @@ TEST_CASE("An item's runtime ownership settles before removal is presented", "[r
     auto& world = scope.game.level.loaded();
     auto item = std::make_unique<W8WorldItem>();
     item->runtime_id = 7;
-    item->entity = std::make_unique<WorldItemEntity>();
+    item->entity = std::make_unique<WorldItemEntity>(world);
     item->entity->m_psrMesh = std::make_unique<MeshInstance>(nullptr);
     item->entity->flags |= W8_ITEM_ENTITY_MESH_LOADED;
-    item->entity->AttachMesh(&world);
+    item->entity->AttachMesh();
     auto* placed = item.get();
     world.population->world_items.push_back(std::move(item));
     REQUIRE(world.scene->dynamic_meshes.size() == 1);

@@ -30,6 +30,7 @@
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
 #include "wiz8/entities/animation_types.h"
+#include "wiz8/entities/emitter_cycles.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
@@ -168,7 +169,7 @@ try {
    while the particle node remains scene-owned. */
 CyclePlayer::CyclePlayer(World& owner) : owner_world(owner)
 {
-    timer = GameClockMilliseconds();
+    timer = owner_world.clocks.gameMilliseconds();
     lod_near = g_lod_range_default0;
     lod_far = g_lod_range_default1;
     current_model_instance = 0;
@@ -194,8 +195,7 @@ CyclePlayer::CyclePlayer(const CycleDefinition& definition, World& owner) : Cycl
         copy.cycle = source.cycle;
         copy.subcycle = source.subcycle;
         if (source.m_pstParticles) {
-            copy.m_pstParticles = std::make_unique<ParticleSystem>(*source.m_pstParticles);
-            copy.m_pstParticles->setScene(owner.scene.get());
+            copy.m_pstParticles = std::make_unique<ParticleSystem>(*source.m_pstParticles, owner);
         }
         copy.position = source.position;
         copy.rotation = source.rotation;
@@ -261,7 +261,7 @@ void CyclePlayer::TickAnimation(float rate, const glm::vec3& position, bool rese
         signed char subcycle_count = frameCount();
 
         if (subcycle_count != 0) {
-            unsigned int now = GameClockMilliseconds();
+            unsigned int now = owner_world.clocks.gameMilliseconds();
             unsigned int elapsed = now - timer;
             float progress;
             int frames;
@@ -348,7 +348,7 @@ void CyclePlayer::finishCycleSelection(const glm::vec3& position)
         subcycle = subcycle_count - 1;
     }
     animation_playing = 1;
-    timer = GameClockMilliseconds();
+    timer = owner_world.clocks.gameMilliseconds();
 }
 
 void CyclePlayer::UpdateLights()
@@ -468,7 +468,7 @@ void CyclePlayer::ResetRepresentation()
     PathAIResetRecord((m_pAI ? &*m_pAI : nullptr));
     frame_direction = W8_ANIMATION_FORWARD;
     subcycle = 0;
-    timer = GameClockMilliseconds();
+    timer = owner_world.clocks.gameMilliseconds();
 }
 
 /* Push the cycle's animation state into the live scene.
@@ -872,4 +872,17 @@ AnimationFrame CyclePlayer::frameModel(signed char frame, signed char lod) const
 {
     if (!active_animation) return {};
     return active_animation->frame(lod, frame);
+}
+
+void StartEmitterCycle(CyclePlayer& visual, Animation& animation, signed char cycle)
+{
+    visual.active_animation = &animation;
+    visual.current_cycle = cycle;
+    visual.rep_active = true;
+    visual.frame_direction = W8_ANIMATION_FORWARD;
+    SelectInitialEmitterLod(visual);
+    visual.timer = visual.owner_world.clocks.gameMilliseconds();
+    visual.frame_method = animation.frame_method;
+    visual.animation_playing = animation.animation_playing;
+    visual.subcycle = 0;
 }

@@ -182,7 +182,8 @@ void SetNavigatorLinkMode(W8NavigatorLinkMode mode)
         for (auto navigator : activeNavigators()) {
             navigator->halted = false;
             if (navigator->path_ai.has_value()) {
-                PathAIResetTick((navigator->path_ai ? &*navigator->path_ai : nullptr));
+                PathAIResetTick((navigator->path_ai ? &*navigator->path_ai : nullptr),
+                                navigator->owner_world.clocks.worldMilliseconds());
             }
             if (navigator->group_linked) {
                 W8MonsterInfo* monster_info = FindMonster(navigator->movement.location_id);
@@ -228,10 +229,12 @@ void ResumeAllNavigators(void)
     for (auto* navigator : activeNavigators()) {
         navigator->halted = false;
         if (navigator->path_ai.has_value()) {
-            PathAIResetTick((navigator->path_ai ? &*navigator->path_ai : nullptr));
+            PathAIResetTick((navigator->path_ai ? &*navigator->path_ai : nullptr),
+                            navigator->owner_world.clocks.worldMilliseconds());
         }
         if (navigator->path_ai.has_value()) {
-            PathAIResetTick((navigator->path_ai ? &*navigator->path_ai : nullptr));
+            PathAIResetTick((navigator->path_ai ? &*navigator->path_ai : nullptr),
+                            navigator->owner_world.clocks.worldMilliseconds());
         }
     }
 }
@@ -573,7 +576,7 @@ void Navigator::ResetPathAI()
     if (path_ai.has_value()) {
         path_ai->position = 0.0f;
         path_ai->interpolation_fraction = 0.0f;
-        PathAIResetTick((path_ai ? &*path_ai : nullptr));
+        PathAIResetTick((path_ai ? &*path_ai : nullptr), owner_world.clocks.worldMilliseconds());
     }
 }
 
@@ -1178,7 +1181,8 @@ void Navigator::SetHalted(bool value)
     halted = value;
     if (!value) {
         if (path_ai.has_value()) {
-            PathAIResetTick((path_ai ? &*path_ai : nullptr));
+            PathAIResetTick((path_ai ? &*path_ai : nullptr),
+                            owner_world.clocks.worldMilliseconds());
         }
     } else {
         movement.velocity = glm::vec3(0);

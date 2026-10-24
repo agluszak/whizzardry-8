@@ -76,7 +76,7 @@ unsigned char ReadLevel(Game& game, World* world, wiz8::File* handle,
                         const std::filesystem::path& texture_directory);
 bool ReadWorldItems(Game& game, LevelLoadContext& info);
 // The destination owns particles; scene attachment borrows them.
-unsigned char ReadWorldParticles(LevelLoadContext* info, WorldScene* scene,
+unsigned char ReadWorldParticles(LevelLoadContext* info, World* owner,
                                  std::vector<std::unique_ptr<ParticleSystem>>* particles);
 
 // Append a complete named-position section; failure leaves the destination unchanged.

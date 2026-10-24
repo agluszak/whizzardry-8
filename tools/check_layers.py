@@ -119,6 +119,11 @@ def check_includes():
         for match in INCLUDE.finditer(source):
             if match.group(2) in ('wiz8/game.h', 'wiz8/loaded_game_data.h') or 'local_screens/' in match.group(2):
                 problems.append(f'{relative}: loading and story values may not find the installed game')
+    for relative in ('src/entities/cycle_player.cpp', 'src/entities/world_item.cpp',
+                     'src/entities/keyframe_track.cpp', 'src/render/effects/particle_system.cpp'):
+        source = (ROOT / relative).read_text(encoding='utf-8')
+        if re.search(r'\b(CurrentGame|GameInProgress|GetWorld|GameClockMilliseconds|WorldClockMilliseconds|cameraLocation)\s*\(', source):
+            problems.append(f'{relative}: animation must use its owner or explicit simulation inputs')
     # Picking interpretation belongs to interaction code, never frame rendering.
     frame = ROOT / 'src/render/frame.cpp'
     source = frame.read_text(encoding='utf-8')

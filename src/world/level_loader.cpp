@@ -597,7 +597,7 @@ try {
     return false;
 }
 
-unsigned char ReadWorldParticles(LevelLoadContext* pInfo, WorldScene* pScene,
+unsigned char ReadWorldParticles(LevelLoadContext* pInfo, World* owner,
                                  std::vector<std::unique_ptr<ParticleSystem>>* pParticles)
 try {
     if (!pInfo || !pInfo->hFile || !pParticles) return false;
@@ -648,7 +648,7 @@ try {
         glm::dvec3 axis;
         glm::dvec3 location;
         const auto particle_count = record.particle_count;
-        auto owned = std::make_unique<ParticleSystem>(pScene, particle_count);
+        auto owned = std::make_unique<ParticleSystem>(owner, particle_count);
         particle = owned.get();
 
         SDL_strupr(record.name);
@@ -949,7 +949,7 @@ try {
                         sizeof(environment_offset)) {
         success = 0;
     } else {
-        success = ReadWorldParticles(&info, (world->scene.get()), &world->particles);
+        success = ReadWorldParticles(&info, world, &world->particles);
     }
     if (!section_ended()) return false;
     success = success && ReadNamedPositions(info.hFile, world->named_positions);

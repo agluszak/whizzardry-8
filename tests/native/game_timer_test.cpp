@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -9,6 +10,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include "save_payload.h"
 #include "scoped_game.h"
 #include "scoped_game_data.h"
@@ -18,6 +20,7 @@
 #include "wiz8/chunk.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/spell_ids.h"
+#include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
@@ -31,6 +34,8 @@
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera_shake.h"
+#include "wiz8/render/particle_modes.h"
+#include "wiz8/render/particle_system.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/rules/conditions.h"
@@ -300,23 +305,24 @@ TEST_CASE_METHOD(TimerFixture, "World paths, item radar and ambient replay wait 
     KeyframeTrack path(std::vector<KeyframePoint>{{{0, 0, 0}}, {{10, 0, 0}}});
     path.speed = 1;
     PathAIEnableTimedMode(&path);
-    PathAIResetTick(&path);
-    WorldItemEntity item;
+    PathAIResetTick(&path, game.game.timerClocks().worldMilliseconds());
+    World world(-1, "", game.game.timerClocks());
+    WorldItemEntity item(world);
     item.LightRadarBlip();
     W8AmbientTrack ambient;
     ambient.time_min = ambient.time_max = 1000;
     ambient.Reschedule();
     g_runtime_test_hooks.clock_us += 20'000'000;
-    PathAITick(&path, 1);
+    PathAITick(&path, 1, game.game.timerClocks().worldMilliseconds());
     REQUIRE(path.position == 0);
     REQUIRE(item.IsRadarBlipLit());
     REQUIRE_FALSE(ambient.Due());
     advance(500'000);
-    REQUIRE(PathAITick(&path, 1));
+    REQUIRE(PathAITick(&path, 1, game.game.timerClocks().worldMilliseconds()));
     REQUIRE(path.position == Catch::Approx(.25f));
     CurrentGame().timerClocks().pause();
     advance(20'000'000);
-    PathAITick(&path, 1);
+    PathAITick(&path, 1, game.game.timerClocks().worldMilliseconds());
     REQUIRE(path.position == Catch::Approx(.25f));
     REQUIRE(item.IsRadarBlipLit());
     REQUIRE_FALSE(ambient.Due());
@@ -493,4 +499,56 @@ TEST_CASE_METHOD(TimerFixture, "Motion suspension and timer holds remain distinc
     clocks.pause();
     REQUIRE_FALSE(clocks.motionSuspended());
     REQUIRE(clocks.held());
+}
+
+TEST_CASE_METHOD(TimerFixture, "Actor clocks and particle clones retain their originating world",
+                 "[timers][lifetime][particles]")
+{
+    game.game.time = std::chrono::seconds{90};
+    game.game.visual_time = std::chrono::seconds{90};
+    Game candidate(game.game.data);
+    candidate.time = std::chrono::milliseconds{(1ull << 32) + 123};
+    candidate.visual_time = std::chrono::milliseconds{400};
+    World primary(7, "", candidate.timerClocks());
+    World sky(-1, "", candidate.timerClocks());
+    primary.party.camera.m_position = {10, 20, 30};
+    sky.party.camera.m_position = {100, 200, 300};
+    CyclePlayer cycle(primary);
+    REQUIRE(cycle.timer == 123); // Milliseconds wrap, not the 10,000-Hz timer ticks.
+    REQUIRE(candidate.timerClocks().gameTime() == candidate.time);
+
+    ParticleSystem empty(nullptr, 0);
+    ParticleSystem empty_clone(empty, sky);
+    REQUIRE(std::ranges::find(sky.scene->particles, &empty_clone) != sky.scene->particles.end());
+    ParticleSystem definition(nullptr, 1);
+    REQUIRE(definition.last_integration_tick == 0);
+    auto nested = std::make_shared<Texture>(TexturePlayback{});
+    nested->AddTexture(std::make_shared<Texture>());
+    auto texture = std::make_shared<Texture>(TexturePlayback{});
+    texture->AddTexture(nested);
+    definition.SetTexture(texture);
+    ParticleSystem live(definition, sky);
+    live.camera_relative = true;
+    live.camera_offset = {1, 2, 3};
+    live.speed_mode = W8_PARTICLE_SPEED_FIXED;
+    live.initial_speed = 0;
+    live.emission_gap = 0;
+    auto* particle = live.activateParticle(false);
+    REQUIRE(particle);
+    REQUIRE(particle->birth_tick == 123);
+    const auto& outer = particle->animation->playback;
+    REQUIRE(outer->last_update == candidate.time);
+    REQUIRE(outer->textures.front()->playback->last_update == candidate.time);
+
+    WorldItemEntity radar(primary);
+    radar.LightRadarBlip();
+    game.game.time += std::chrono::seconds{60};
+    game.game.visual_time += std::chrono::seconds{60};
+    REQUIRE(radar.IsRadarBlipLit());
+    candidate.time += std::chrono::milliseconds{1};
+    AdvanceWorldParticles(sky, primary);
+    REQUIRE(live.transform.getLocation() == glm::dvec3(11, 22, 33));
+    REQUIRE(live.last_integration_tick == 124);
+    candidate.visual_time += std::chrono::seconds{10};
+    REQUIRE_FALSE(radar.IsRadarBlipLit()); // The deadline is strict, on held world time.
 }

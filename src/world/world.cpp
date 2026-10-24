@@ -209,7 +209,7 @@ void updatePartyMovement(World& world, unsigned int flags)
     for (const auto& camera_path : world.plsCameras) {
         if (!camera_path->active) continue;
         KeyframeTrack* path = camera_path->path ? &*camera_path->path : nullptr;
-        PathAITick(path, 1);
+        PathAITick(path, 1, world.clocks.worldMilliseconds());
         Transform3D pose;
         pose.setLocation(glm::dvec3(party.m_position));
         pose.setRotation(party.rotationMatrix());

@@ -360,7 +360,7 @@ void Monster::ProcessScript()
                     if (cycle != W8_MONSTER_CYCLE_NONE) {
                         visual.pending_cycle = static_cast<signed char>(cycle);
                         visual.animation_playing = 1;
-                        visual.timer = GameClockMilliseconds();
+                        visual.timer = owner_world.clocks.gameMilliseconds();
                         visual.SetSubCycle(0);
                         visual.forced_subcycle = subcycle - 1;
                         if (visual.pending_cycle == -1) {
@@ -430,7 +430,7 @@ void Monster::ProcessScript()
                 visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
                 visual.pending_cycle = 0x15;
                 visual.animation_playing = 1;
-                visual.timer = GameClockMilliseconds();
+                visual.timer = owner_world.clocks.gameMilliseconds();
                 visual.SetSubCycle(0);
                 break;
             case MONSCR_END:

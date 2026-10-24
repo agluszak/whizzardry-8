@@ -1000,7 +1000,8 @@ TEST_CASE("Collision index expands level bounds locally", "[geometry][octree]")
 
 TEST_CASE("Item bounds preserve local extents", "[geometry][item]")
 {
-    WorldItemEntity item;
+    World world;
+    WorldItemEntity item(world);
     item.m_psrMesh = nullptr;
     item.bounds_minimum = {-5, -3, -1};
     item.bounds_maximum = {7, 9, 11};
@@ -1427,7 +1428,8 @@ TEST_CASE("Attached particle orientation follows rotations independently of mode
 TEST_CASE("Particle simulation respects activation and completes without a view", "[geometry]")
 {
     const ScopedGame game;
-    ParticleSystem particles(nullptr, 2);
+    World world(-1, "", game.game.timerClocks());
+    ParticleSystem particles(&world, 2);
     particles.emission_gap = 0;
     particles.emission_mode = W8_PARTICLE_EMISSION_SINGLE;
     particles.emission_interval = 0;
@@ -1435,21 +1437,21 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.initial_speed = 0;
     particles.visible = false;
-    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE(particles.emission_count == 0);
     particles.visible = true;
     particles.SetTraversalEnabled(false);
-    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE(particles.emission_count == 0);
 
     particles.SetTraversalEnabled(true);
-    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE(particles.emission_count == 1);
-    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 2);
     particles.particles[0].active = false;
     particles.SetActive(false);
-    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE_FALSE(particles.particles[0].active);
     REQUIRE(particles.particles[1].active);
 
@@ -1496,7 +1498,7 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.release_when_done = true;
     particles.lifetime_ms = 0;
     game.game.time += std::chrono::milliseconds{1};
-    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 0);
     REQUIRE(particles.finished);
     particles.updateRenderNode(*context, {}, 2);
@@ -1509,6 +1511,7 @@ TEST_CASE("Particle simulation resolves nested animation before views consume it
           "[geometry][particles]")
 {
     ScopedGame game;
+    World world(-1, "", game.game.timerClocks());
     auto first = std::make_shared<Texture>();
     auto last = std::make_shared<Texture>();
     auto inner = std::make_shared<Texture>(TexturePlayback{});
@@ -1519,7 +1522,7 @@ TEST_CASE("Particle simulation resolves nested animation before views consume it
     auto outer = std::make_shared<Texture>(TexturePlayback{});
     outer->playback->animation_mode = W8_TEXTURE_ANIM_MANUAL;
     outer->AddTexture(inner);
-    ParticleSystem particles(nullptr, 1);
+    ParticleSystem particles(&world, 1);
     particles.emission_gap = 0;
     particles.initial_speed = 0;
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
@@ -1529,7 +1532,7 @@ TEST_CASE("Particle simulation resolves nested animation before views consume it
     REQUIRE(&prepared != inner.get());
     REQUIRE(particles.particles.front().animation->currentFrame() == first.get());
     game.game.time += std::chrono::milliseconds{1000};
-    particles.AdvanceSimulation(game.game.time);
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE(particles.particles.front().animation->currentFrame() == last.get());
 
     // Time may elapse before another view. Only simulation advances playback.
@@ -2283,24 +2286,25 @@ TEST_CASE("Cursor animation keeps rectangular artwork without baking sprite offs
 TEST_CASE("Recycled particles restart texture playback at their new birth", "[geometry][particles]")
 {
     ScopedGame game;
+    World world(-1, "", game.game.timerClocks());
     TexturePlayback playback;
     playback.animation_mode = W8_TEXTURE_ANIM_PLAY_ONCE;
     playback.frame_rate = 1;
     playback.textures = {std::make_shared<Texture>(), std::make_shared<Texture>(),
                          std::make_shared<Texture>()};
-    ParticleSystem particles(nullptr, 1);
+    ParticleSystem particles(&world, 1);
     particles.emitting = false;
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.initial_speed = 0;
     particles.expiry_mode = W8_PARTICLE_EXPIRY_TEXTURE;
     particles.SetTexture(std::make_shared<Texture>(std::move(playback)));
     REQUIRE(particles.activateParticle(false));
-    particles.AdvanceSimulation(game.game.time);
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     particles.particles[0].active = false;
     game.game.time = std::chrono::milliseconds{10000};
     REQUIRE(particles.activateParticle(false));
     game.game.time += std::chrono::milliseconds{1000};
-    particles.AdvanceSimulation(game.game.time);
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 1);
     REQUIRE(particles.particles.front().animation->playback->frame == 1);
 }

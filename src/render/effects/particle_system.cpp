@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <memory>
@@ -37,7 +36,6 @@
 #include "wiz8/chunk.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/math.h"
 #include "wiz8/platform/game_timer.h"
@@ -168,21 +166,27 @@ void ParticleSystem::CancelAnimationCallback()
     callback.reset();
 }
 
-ParticleSystem::ParticleSystem(WorldScene* scene, int count)
+TimerClockView ParticleSystem::clocks() const
 {
-    setScene(scene);
+    return owner_world ? owner_world->clocks : TimerClockView{};
+}
+
+ParticleSystem::ParticleSystem(World* owner, int count) : owner_world(owner)
+{
     if (count == 0) {
+        setScene(owner ? owner->scene.get() : nullptr);
         return;
     }
     assert(count >= 0 && count < 10000);
     particles.resize(count);
-    last_integration_tick = GameClockMilliseconds();
+    last_integration_tick = clocks().gameMilliseconds();
     last_emission_tick = last_integration_tick;
+    setScene(owner ? owner->scene.get() : nullptr);
 }
 
 /* A copy shares material and static texture, but starts with no live
    particles, fresh animation frames and fresh timing. */
-ParticleSystem::ParticleSystem(const ParticleSystem& other)
+ParticleSystem::ParticleSystem(const ParticleSystem& other, World& owner) : owner_world(&owner)
 {
     persisted = other.persisted;
     start_frame = other.start_frame;
@@ -190,10 +194,10 @@ ParticleSystem::ParticleSystem(const ParticleSystem& other)
     emission_gap = other.emission_gap;
     size_scale = other.size_scale;
     if (other.particles.empty()) {
+        setScene(owner.scene.get());
         return;
     }
 
-    setScene(nullptr);
     transform = other.transform;
     name = other.name;
     visible = other.visible;
@@ -234,7 +238,7 @@ ParticleSystem::ParticleSystem(const ParticleSystem& other)
     lifetime_maximum = other.lifetime_maximum;
     bounds_origin = other.bounds_origin;
     bounds_radius = other.bounds_radius;
-    last_integration_tick = GameClockMilliseconds();
+    last_integration_tick = clocks().gameMilliseconds();
     last_emission_tick = last_integration_tick;
     attachment_key = other.attachment_key;
 
@@ -245,6 +249,7 @@ ParticleSystem::ParticleSystem(const ParticleSystem& other)
     auto source_world = other.transform.matrix<glm::mat4>();
     const glm::dmat4 world(source_world);
     this->transform.setMatrix(world);
+    setScene(owner.scene.get());
 }
 
 ParticleSystem::Particle* ParticleSystem::activateParticle(bool replaceWhenFull)
@@ -262,7 +267,7 @@ ParticleSystem::Particle* ParticleSystem::activateParticle(bool replaceWhenFull)
     auto& particle = *slot;
 
     particle.active = true;
-    particle.birth_tick = GameClockMilliseconds();
+    particle.birth_tick = clocks().gameMilliseconds();
 
     float magnitude = 0.0f;
     if (speed_mode == W8_PARTICLE_SPEED_FIXED) {
@@ -323,7 +328,7 @@ ParticleSystem::Particle* ParticleSystem::activateParticle(bool replaceWhenFull)
     if (particle.animation) {
         // A pool slot may have been inactive for a long time. Restart its
         // selected animation chain at this birth, including nested IFL frames.
-        const auto now = GameInProgress() ? CurrentGame().time : std::chrono::milliseconds{};
+        const auto now = clocks().gameTime();
         auto* animation = particle.animation.get();
         while (animation && animation->playback) {
             animation->SetFrame(0);
@@ -343,9 +348,9 @@ bool ParticleSystem::hasActiveParticles() const
     return std::ranges::any_of(particles, &Particle::active);
 }
 
-void ParticleSystem::Update()
+void ParticleSystem::Update(const LevelSpatialIndex* collision)
 {
-    unsigned int now = GameClockMilliseconds();
+    unsigned int now = clocks().gameMilliseconds();
     if (now - last_emitted_at < emission_gap) {
         return;
     }
@@ -420,8 +425,7 @@ void ParticleSystem::Update()
                 // The octree trace still accepts packed endpoint records.
                 const glm::vec3 from(particle.position);
                 glm::vec3 to(candidate);
-                if (GetWorld()->compiledIndex() == nullptr ||
-                    !GetWorld()->compiledIndex()->hasLineOfSight(from, to)) {
+                if (!collision || !collision->hasLineOfSight(from, to)) {
                     particle.active = false;
                     continue;
                 }
@@ -492,7 +496,7 @@ glm::vec3 ParticleSystem::emissionPosition()
 void ParticleSystem::SetTraversalEnabled(bool enabled)
 {
     if (enabled && !traversal_enabled) {
-        last_emission_tick = GameClockMilliseconds();
+        last_emission_tick = clocks().gameMilliseconds();
     }
     traversal_enabled = enabled;
 }
@@ -500,21 +504,21 @@ void ParticleSystem::SetTraversalEnabled(bool enabled)
 /* Keep the old activation gate and emission/integration/completion order in
    the game update. Frustum visibility only affects drawing: an enabled system
    still expires and restores its owner's animation when it is offscreen. */
-void ParticleSystem::AdvanceSimulation(std::chrono::milliseconds game_time)
+void ParticleSystem::AdvanceSimulation(const glm::vec3& camera, const LevelSpatialIndex* collision)
 {
     if (finished || !visible || !traversal_enabled || (!emitting && !hasActiveParticles())) {
         return;
     }
     if (camera_relative) {
-        transform.setLocation(glm::dvec3(cameraLocation() + camera_offset));
+        transform.setLocation(glm::dvec3(camera + camera_offset));
     }
 
     // An IFL frame can itself be animated. Resolve the selected chain here
     // so every view later consumes the same complete playback snapshot.
     for (auto& particle : particles)
         if (particle.active && particle.animation)
-            particle.animation->UpdateFrame(game_time, TextureClock::Game);
-    Update();
+            particle.animation->UpdateFrame(clocks().gameTime(), TextureClock::Game);
+    Update(collision);
 
     if (emission_limit != 0 && emission_count >= emission_limit) {
         emitting = false;
@@ -577,7 +581,7 @@ void ParticleSystem::updateRenderNode(render::RenderContext& context, const Scen
 
     float phase = 0;
     if (flutter_mode != W8_PARTICLE_FLUTTER_NONE && flutter_period != 0)
-        phase = float(GameClockMilliseconds() % flutter_period) / int(flutter_period) *
+        phase = float(clocks().gameMilliseconds() % flutter_period) / int(flutter_period) *
                 kCameraAnglePeriod;
     const float flutter = float(std::sin(phase)) * flutter_amplitude * size_scale;
     const bool enabled = visible && traversal_enabled && !finished;
@@ -647,7 +651,7 @@ void ParticleSystem::SetTexture(std::shared_ptr<Texture> texture)
 void ParticleSystem::SetActive(bool active)
 {
     if (active && !emitting) {
-        unsigned int now = GameClockMilliseconds();
+        unsigned int now = clocks().gameMilliseconds();
         last_integration_tick = now;
         last_emission_tick = now;
     }
@@ -683,12 +687,13 @@ void RetireParticle(World& world, std::unique_ptr<ParticleSystem> particle)
     world.retired_particles.push_back(std::move(particle));
 }
 
-void AdvanceWorldParticles(World& world, std::chrono::milliseconds game_time)
+void AdvanceWorldParticles(World& world, const World& gameplay)
 {
     // Completion can change a monster's animation. Newly attached systems wait
     // for the next step, just as they did in the scene's submission snapshot.
     const auto particles = world.scene->particles;
-    for (auto* particle : particles) particle->AdvanceSimulation(game_time);
+    for (auto* particle : particles)
+        particle->AdvanceSimulation(gameplay.party.eye(), gameplay.compiledIndex());
 }
 
 void SweepFinishedParticles(World* world)

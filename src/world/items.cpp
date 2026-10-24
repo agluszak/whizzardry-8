@@ -199,7 +199,7 @@ void World::activateItem(const GameData& data, Rng& rng, W8WorldItem* item)
     const auto status = wiz8::file_status(wiz8::asset_path(path));
     if (!status || status->info.type != SDL_PATHTYPE_FILE) name = "questionmark";
 
-    auto entity = LoadItemFromFile(name);
+    auto entity = LoadItemFromFile(*this, name);
     if (!entity) throw std::runtime_error(fmt::format("cannot load item model {}", name));
     item->entity = std::move(entity);
     if (ItemHasFlags(item, W8_WORLD_ITEM_RADAR_BLIP_LIT)) item->entity->LightRadarBlip();
@@ -207,7 +207,7 @@ void World::activateItem(const GameData& data, Rng& rng, W8WorldItem* item)
     item->entity->SetYaw(
         static_cast<float>(rng.below(0x168) * 2 * g_camera_pi * kInverseFullTurnDegrees));
     item->entity->flags |= item->entity_flags;
-    item->entity->AttachMesh(this);
+    item->entity->AttachMesh();
     if (auto* sun = FindWorldLight(*this, "SUN")) {
         if (auto* mesh = item->entity->GetMesh()) {
             const auto sun_position = glm::vec3(sun->transform.getLocation());

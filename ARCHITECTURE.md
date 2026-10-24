@@ -498,3 +498,17 @@ does not run entry actions.
 This does not promise rollback of RNG, variable declarations or partially loaded
 resources on malformed input; candidate construction still needs the remaining
 monster/NPC dependencies removed before replacement can become transactional.
+
+### Animation timing and simulation inputs
+
+Live cycles, monster animation, missiles, item radar and particles sample their
+originating world's clocks. Millisecond stamps retain their 32-bit wrap; texture
+playback retains full game time, while paths and radar use held 64-bit world time.
+Reusable keyframe geometry takes an explicit timestamp when advanced rather than
+retaining a session. Particle definitions have no world; a live clone explicitly
+binds its destination, including an empty definition's scene membership. Item
+appearances attach only to their constructor-bound world.
+
+A particle's resource lifetime does not choose its simulation inputs. In particular,
+sky particles still use the primary world's camera and collision geometry, supplied
+by the game step. Additional views only consume the completed particle state.

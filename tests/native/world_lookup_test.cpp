@@ -168,13 +168,9 @@ bool nodes(const std::filesystem::path& directory)
     REQUIRE(((!lamp->visible)));
     REQUIRE(((!torch->visible)));
 
-    auto* gas =
-        level.particles.emplace_back(std::make_unique<ParticleSystem>((level.scene.get()), 1))
-            .get();
+    auto* gas = level.particles.emplace_back(std::make_unique<ParticleSystem>(&level, 1)).get();
     gas->setName("GAS");
-    auto* idle =
-        level.particles.emplace_back(std::make_unique<ParticleSystem>((level.scene.get()), 1))
-            .get();
+    auto* idle = level.particles.emplace_back(std::make_unique<ParticleSystem>(&level, 1)).get();
     idle->setName("IDLE");
     gas->persisted = true;
     gas->SetActive(0);
@@ -515,8 +511,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         sound->stopped = static_cast<unsigned char>(index);
         world.audio.emitters.push_back(std::move(sound));
     }
-    auto* gas =
-        world.particles.emplace_back(std::make_unique<ParticleSystem>(world.scene.get(), 1)).get();
+    auto* gas = world.particles.emplace_back(std::make_unique<ParticleSystem>(&world, 1)).get();
     gas->setName("GAS");
     gas->persisted = true;
     auto* lamp = CreateWorldLight(&world, "LAMP");

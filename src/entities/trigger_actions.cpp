@@ -961,7 +961,7 @@ void WakeMonsterGroup(int monster_id)
     if (monster == nullptr) return;
     monster->visual.rep_active = true;
     monster->visual.animation_playing = 1;
-    monster->visual.timer = GameClockMilliseconds();
+    monster->visual.timer = monster->owner_world.clocks.gameMilliseconds();
     monster->visual.ResetRepresentation();
     monster->nav.ResetPathAI();
     monster->nav.reactivated = true;
@@ -1227,7 +1227,8 @@ void Trigger::Run(int source)
                 if (animation->positioned_parts) {
                     for (auto& part : animation->parts[2]) {
                         PathAIUpdate(part.path ? &*part.path : nullptr,
-                                     previous <= static_cast<signed char>(state_index) ? 1 : -1);
+                                     previous <= static_cast<signed char>(state_index) ? 1 : -1,
+                                     m_pWorld->clocks.worldMilliseconds());
                     }
                 } else {
                     m_pProp->SetPendingAnimationSubcycle(static_cast<signed char>(state_index));
