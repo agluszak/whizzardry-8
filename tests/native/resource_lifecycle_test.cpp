@@ -208,6 +208,18 @@ TEST_CASE("A new game releases the previous game's queued events", "[resources][
     REQUIRE_FALSE(GameInProgress());
 }
 
+TEST_CASE("Pending outcomes do not survive into a replacement game", "[lifetime][events]")
+{
+    ScopedGame scope;
+    scope.game.events.push(PartySlotChanged{2});
+    REQUIRE(scope.game.events.pending().size() == 1);
+
+    auto& next = scope.session.begin();
+
+    REQUIRE(next.events.pending().empty());
+    REQUIRE(scope.session.game() == &next);
+}
+
 TEST_CASE("Level departure belongs to the game, not screen teardown", "[lifetime][level]")
 {
     ScopedGame scope;
