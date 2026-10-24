@@ -303,6 +303,12 @@ struct GameEventPresentation {
     {
         if (auto* hud = ShownHud()) hud->repaint.everything = true;
     }
+    void operator()(const CastingBlockedNotice& notice) const
+    {
+        if (auto* main = MainGame();
+            main && &main->game == &game && CurrentScreenState().id == W8_SCREEN_MAIN_GAME)
+            game.queueWorldMessage(notice.text);
+    }
     void operator()(const LevelDeparted& departure) const
     {
         if (auto* main = MainGame(); main && &main->game == &game && main->hud &&

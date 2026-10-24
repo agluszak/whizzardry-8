@@ -313,6 +313,26 @@ void SetWorldCursorNodesVisible(bool visible)
     }
 }
 
+bool W8WorldCursorNode::contains(const glm::vec3& point) const
+{
+    const auto bounds = node->getModel()->getBounds().box;
+    const auto location = glm::vec3(node->transform.getLocation());
+    return BoundingBox{bounds.minimum + location, bounds.maximum + location}.contains(point);
+}
+
+std::vector<int> World::castingBlockMessagesAt(glm::vec3 position) const
+{
+    std::vector<int> messages;
+    if (!script) return messages;
+    if (auto* index = compiledIndex())
+        position.y = index->settleToGround(position, true, 500).position.y;
+    position.y += 125.0f;
+    for (const auto& entry : cursor_nodes)
+        if (entry->contains(position) && entry->parameters[2] == 2)
+            messages.push_back(entry->parameters[0]);
+    return messages;
+}
+
 /* Answer the next table node after `after` whose world-space bounds contain
    `point`; a null `after` starts the walk at the head of the table. When
    `after` is the last entry the walk answers null immediately. */
@@ -326,10 +346,7 @@ W8WorldCursorNode* FindWorldCursorNodeAtPoint(W8WorldCursorNode* after, glm::vec
     }
     for (; next != GetWorld()->cursor_nodes.end(); ++next) {
         const auto& entry = *next;
-        const auto bounds = entry->node->getModel()->getBounds().box;
-        const auto location = glm::vec3(entry->node->transform.getLocation());
-        const BoundingBox box{bounds.minimum + location, bounds.maximum + location};
-        if (box.contains(*point)) {
+        if (entry->contains(*point)) {
             return entry.get();
         }
     }

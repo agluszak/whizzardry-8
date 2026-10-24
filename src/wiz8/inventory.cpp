@@ -1694,7 +1694,7 @@ Inventory::UseOutcome Inventory::useOnce(unsigned int party_slot, W8ItemLocation
             game.data.items[item->iItemNo].equip_class != W8_ITEM_EQUIP_CLASS_GADGET &&
             (game.data.items[item->iItemNo].equip_class < W8_ITEM_EQUIP_CLASS_FOOD ||
              game.data.items[item->iItemNo].equip_class > W8_ITEM_EQUIP_CLASS_DRINK) &&
-            DispatchWorldCursorNodeCommand(0, 4, 1)) {
+            game.partyCastingBlocked()) {
             return {{0, 0}};
         }
 

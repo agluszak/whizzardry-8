@@ -34,7 +34,6 @@
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/story.h"
-#include "wiz8/string_database.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
@@ -170,7 +169,7 @@ void MartensBluff1Script::setup()
             FindTriggerByName("Lift2Marten2");
             if (GetLocationVarIDByName("LiftArrived") == -1) {
                 CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "LiftArrived", 1);
-                ShowString(Data().strings[0x71b]);
+                ctx.game.queueWorldMessage(Data().strings[0x71b]);
             }
         }
     }

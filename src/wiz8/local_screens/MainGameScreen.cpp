@@ -149,7 +149,6 @@
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/string_database.h"
 #include "wiz8/targeting_presentation.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -971,12 +970,13 @@ void W8LockInteraction::AttemptForce()
     CurrentGame().fatigueCharacter(CurrentGame().status.selected_character, 0x50, false, 0);
     if (static_cast<int>(CurrentGame().rng.below(100)) < *chance) {
         wiz8::sound::play(s_lock_forcing_success);
-        ShowString(fmt::format("{} {}", character->name, Data().strings[0x7ae]));
+        CurrentGame().queueWorldMessage(
+            fmt::format("{} {}", character->name, Data().strings[0x7ae]));
         BeginUnlock();
         return;
     }
     wiz8::sound::play(s_lock_forcing_fail);
-    ShowString(fmt::format("{} {}", character->name, Data().strings[0x7ad]));
+    CurrentGame().queueWorldMessage(fmt::format("{} {}", character->name, Data().strings[0x7ad]));
     RefreshControls();
 }
 

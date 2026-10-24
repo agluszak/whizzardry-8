@@ -16,7 +16,6 @@
 #include "wiz8/rules/item_location.h"
 #include "wiz8/script_context.h"
 #include "wiz8/story.h"
-#include "wiz8/string_database.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
@@ -141,9 +140,9 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
             SetTriggerVariableByName("TMakeTreasureNumber", item_id);
             return true;
         }
-        ShowString(Data().strings[0x96a]);
+        ctx.game.queueWorldMessage(Data().strings[0x96a]);
     }
-    ShowString(Data().strings[0x964]);
+    ctx.game.queueWorldMessage(Data().strings[0x964]);
     return true;
 }
 

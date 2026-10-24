@@ -1171,7 +1171,9 @@ bool IsSpellUsableByMonster(W8MonsterInfo* monster_info, int spell_id, bool need
     if (IsSpellBlockedForMonster(monster_info, spell_id)) {
         return false;
     }
-    if (DispatchWorldCursorNodeCommand(monster_info, 4, 0) != 0) {
+    if (!monster_info->entity->owner_world
+             .castingBlockMessagesAt(monster_info->entity->nav.GetPosition())
+             .empty()) {
         return false;
     }
     if (spell_id == W8_SPELL_SUMMON_ELEMENTAL && monster_info->elemental_summon != -1) {

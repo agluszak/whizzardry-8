@@ -52,7 +52,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/story.h"
-#include "wiz8/string_database.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
@@ -430,7 +429,7 @@ bool MartensBluff2Script::perfumeBox(Trigger* pTrigger)
         }
     }
     SetRavenQuestState(quest_state);
-    ShowString(Data().strings[0x71c]);
+    ctx.game.queueWorldMessage(Data().strings[0x71c]);
     return false;
 }
 
@@ -600,7 +599,7 @@ bool MartensBluff2Script::stoneIdol(Trigger* pTrigger)
         return false;
     }
     ctx.inventory.replaceHeld(MakeItem(Data(), ctx.game.rng, 0x291, false, false, false));
-    ShowString(Data().strings[0x71d]);
+    ctx.game.queueWorldMessage(Data().strings[0x71d]);
     particle = FindParticleByName("IdolGas");
     if (particle != 0) {
         particle->SetActive(true);

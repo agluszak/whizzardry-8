@@ -808,7 +808,7 @@ show_action_message:
             snprintf(path, sizeof(path), "Data\\Messages\\%.*s.msg",
                      static_cast<int>(level_folder.size()), level_folder.data());
             if ((!(text = GetStringFromStringDatabase(path, message_id, 0, 0)).empty()) != 0) {
-                ShowString(text);
+                CurrentGame().queueWorldMessage(text);
             }
         }
     }
@@ -1586,7 +1586,7 @@ void Trigger::Run(int source)
                 PlayActionSound("Data\\Sound\\misc\\fountain_magic.wav", 0);
             } else if (action == 0x27) {
                 RestorePartySpellPoints(m_lData3);
-                ShowString(Data().strings[0x722]);
+                CurrentGame().queueWorldMessage(Data().strings[0x722]);
                 PlayActionSound("Data\\Sound\\misc\\fountain_magic.wav", 0);
             } else {
                 W8SpellId spell_id;

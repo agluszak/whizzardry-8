@@ -181,7 +181,7 @@ static void RunSearchPulse(bool searching)
                                 std::string text;
                                 if ((!(text = GetStringFromStringDatabase(path, message, 0, 0))
                                           .empty()) != 0) {
-                                    ShowString(text);
+                                    CurrentGame().queueWorldMessage(text);
                                 }
                             }
                         }

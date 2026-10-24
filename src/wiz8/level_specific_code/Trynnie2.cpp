@@ -29,7 +29,6 @@
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/script_context.h"
 #include "wiz8/story.h"
-#include "wiz8/string_database.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
@@ -203,10 +202,10 @@ bool UrnTrigger(Trigger* pTrigger)
         if (generator != 0) {
             generator->generation_enabled = false;
         }
-        ShowLevelMessage(0x14);
+        CurrentGame().queueLevelMessage(0x14);
         return true;
     }
-    ShowLevelMessage(0x13);
+    CurrentGame().queueLevelMessage(0x13);
     return true;
 }
 
@@ -222,9 +221,7 @@ std::unique_ptr<LevelScript> MakeTrynnie2Script(const ScriptContext& context)
    reports the refusal string; the first handled use only latches the status
    flag, later uses show a second string and spawn the Mystical Shaman (0xec)
    at NP_MysticalShaman. Either way the used item is consumed into a scratch
-   instance. The retail DispatchWorldCursorNodeCommand call passes only two
-   arguments; arg is never dereferenced for command 8, so the callee reads an
-   uninitialized stack slot there. */
+   instance. */
 bool Trynnie2UseItem(const ScriptContext& context, W8ItemLocation location)
 {
     const W8ItemInstance* item = context.inventory.itemAt(location);
@@ -233,19 +230,19 @@ bool Trynnie2UseItem(const ScriptContext& context, W8ItemLocation location)
     if (item->iItemNo != 0x1b3 && item->iItemNo != 0x1c3) {
         return false;
     }
-    if (DispatchWorldCursorNodeCommand(0, 8, 0) == 0) {
-        ShowString(Data().strings[0x966]);
+    if (DispatchWorldCursorNodeCommand(8) == 0) {
+        context.game.queueWorldMessage(Data().strings[0x966]);
         return true;
     }
     if (item->iItemNo == 0x1b3) {
-        ShowString(Data().strings[0x968]);
+        context.game.queueWorldMessage(Data().strings[0x968]);
     } else {
-        ShowString(Data().strings[0x967]);
+        context.game.queueWorldMessage(Data().strings[0x967]);
     }
     if (!context.status.use_item_latch) {
         context.status.use_item_latch = true;
     } else {
-        ShowString(Data().strings[0x969]);
+        context.game.queueWorldMessage(Data().strings[0x969]);
         if (FindEntityByName("NP_MysticalShaman", &position, 0, 0)) {
             SpawnMonsters(0xec, 1, &position, 0, true, false);
         }

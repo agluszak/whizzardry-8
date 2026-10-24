@@ -258,7 +258,7 @@ void RequestCamp(void)
         return;
     }
     if (!HasLevelDataVector() && HasLevelWalkableContact()) {
-        if (DispatchWorldCursorNodeCommand(0, 3) != 0) {
+        if (DispatchWorldCursorNodeCommand(3) != 0) {
             return;
         }
         if (!IsScreenIdle()) {

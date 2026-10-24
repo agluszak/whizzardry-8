@@ -3026,7 +3026,8 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
                  (source_position.y - target_position.y) * (source_position.y - target_position.y) +
                  (source_position.z - target_position.z) * (source_position.z - target_position.z));
     if (range_category != W8_RANGE_NONE) {
-        base_speed = CurrentGame().level.loaded().rangeFromSource(range_category, *source);
+        base_speed =
+            CalcRangeDistance(range_category) + CurrentGame().level.loaded().sourceRadius(*source);
         if (base_speed <= speed) {
             base_speed = speed;
         }

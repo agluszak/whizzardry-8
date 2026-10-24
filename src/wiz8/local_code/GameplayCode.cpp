@@ -10,7 +10,6 @@
 #include <fmt/printf.h>
 
 #include "layouts/levels.h"
-#include "local_code/Factions.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
@@ -23,7 +22,6 @@
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CharGeneration.h"

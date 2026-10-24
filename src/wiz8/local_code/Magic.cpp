@@ -223,7 +223,9 @@ bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
         !ClearMonsterCombatSlot(monster_info)) {
         return false;
     }
-    if (DispatchWorldCursorNodeCommand(monster_info, 4, 0)) {
+    if (!monster_info->entity->owner_world
+             .castingBlockMessagesAt(monster_info->entity->nav.GetPosition())
+             .empty()) {
         return false;
     }
     if (!MonsterSpellTargetOK(monster_info, spell_id, combat_slot)) {
@@ -1895,7 +1897,7 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
                 CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x1b8]});
         }
         valid = false;
-    } else if (!skip_world_cursor && DispatchWorldCursorNodeCommand(0, 4, 1)) {
+    } else if (!skip_world_cursor && CurrentGame().partyCastingBlocked()) {
         valid = false;
     }
 
@@ -3493,7 +3495,8 @@ void Game::appendSpellTargets(int spell_id, int power_level, W8TargetSource* sou
         break;
     case W8_TARGET_TYPE_ALL_ENEMIES:
         target->point = eye;
-        radius = world.rangeFromSource(data.spells[spell_id].range_category, *source);
+        radius =
+            CalcRangeDistance(data.spells[spell_id].range_category) + world.sourceRadius(*source);
         if (TargetSourceIsCharacter(source, 1) ||
             (monster_source && monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY)) {
             side = (source->fBackfire || source->fReflection) ? 2 : 1;

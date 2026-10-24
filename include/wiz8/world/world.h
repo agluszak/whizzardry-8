@@ -166,7 +166,8 @@ struct World {
     bool settleItem(W8WorldItem* item);
     std::optional<glm::vec3> itemDropPosition(const glm::vec2& cursor) const;
     Trigger* loadTrigger(wiz8::File& file, const GameData& data, Rng& rng, Story& story);
-    float rangeFromSource(W8RangeCategory range, const W8TargetSource& source) const;
+    std::vector<int> castingBlockMessagesAt(glm::vec3 position) const;
+    float sourceRadius(const W8TargetSource& source) const;
     void appendMonstersInRadius(const glm::vec3& centre, const glm::vec3& eye,
                                 std::vector<int>& found, float radius, signed char side,
                                 W8AreaSightRule sight_rule) const;

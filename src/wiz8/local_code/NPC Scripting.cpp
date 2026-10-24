@@ -867,13 +867,12 @@ void AuditNpcScriptQuotes(GameStatus& status)
    queue owns it, and while the level-data flag is clear the message is
    bracketed by RESET_LEVEL_STATE markers so the dispatcher restores state
    around it. */
-void ShowString(std::string_view text)
+void Game::queueWorldMessage(std::string_view text)
 {
-    if (!IsLevelMovementStopped()) {
-        CurrentGame().npc_dialogue.Queue(W8NpcCommand::reset_level_data_vectors);
-    }
-    CurrentGame().npc_dialogue.QueuePortraitMessage(std::string(text));
-    if (!IsLevelMovementStopped()) {
-        CurrentGame().npc_dialogue.Queue(W8NpcCommand::clear_level_movement_stopped);
-    }
+    const bool hold =
+        !level.primary || !level.primary->collisionIndex() ||
+        (level.primary->party.camera.motion.flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) == 0;
+    if (hold) npc_dialogue.Queue(W8NpcCommand::reset_level_data_vectors);
+    npc_dialogue.QueuePortraitMessage(std::string(text));
+    if (hold) npc_dialogue.Queue(W8NpcCommand::clear_level_movement_stopped);
 }

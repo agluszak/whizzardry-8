@@ -54,7 +54,6 @@
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/story.h"
-#include "wiz8/string_database.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/party_motion.h"
 #include "wiz8/world/world.h"
@@ -451,7 +450,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
                 ApplyAttributeChange(context.game, character, W8_ATTRIBUTE_INTELLIGENCE);
             }
         }
-        ShowString(Data().strings[0x1dc]);
+        context.game.queueWorldMessage(Data().strings[0x1dc]);
         trigger = FindTriggerByName("FOUNT_RIDDLE");
         if (trigger == 0) {
             return;

@@ -83,7 +83,6 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/string_database.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
@@ -355,7 +354,8 @@ bool QueueNpcCombatScript(void)
         }
         if (hostile_group_present && CanPlaceNpcNearParty(slot)) {
             BeginScriptedWorldAction();
-            ShowString(fmt::format("{} {}", npc->record->source_name, Data().strings[0x272]));
+            CurrentGame().queueWorldMessage(
+                fmt::format("{} {}", npc->record->source_name, Data().strings[0x272]));
             CurrentGame().npc_dialogue.Queue(W8NpcPartyScriptLine{slot});
             CurrentGame().npc_dialogue.Queue(W8NpcLeaveCombat{slot});
             CurrentGame().combat->npc_combat_script_pending[slot] = true;

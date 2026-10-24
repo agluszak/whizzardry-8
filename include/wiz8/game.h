@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <glm/ext/vector_float3.hpp>
@@ -219,6 +220,9 @@ public:
        destroy the combat. A forced end (a departure or a scripted end) neither announces
        nor kills the summoned monsters. */
     void endCombat(bool forced_cleanup);
+    bool partyCastingBlocked();
+    void queueWorldMessage(std::string_view text);
+    void queueLevelMessage(int message_id);
     void appendSpellTargets(int spell_id, int power_level, W8TargetSource* source,
                             W8CombatSlot* target, std::vector<int>& monsters,
                             std::vector<int>& party, W8AreaSightRule sight_rule);

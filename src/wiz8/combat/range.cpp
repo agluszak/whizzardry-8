@@ -341,21 +341,18 @@ float CalcRangeDistance(W8RangeCategory range_category)
     return steps * kWorldScale;
 }
 
-/* Source-relative action range: same band steps as CalcRangeDistance, then add
-   the source's navigator radius - the party navigator for a character source,
-   the individual monster's for a monster source. */
-float World::rangeFromSource(W8RangeCategory range_category, const W8TargetSource& source) const
+// The source's collision radius is geometry, independent of the action's range rule.
+float World::sourceRadius(const W8TargetSource& source) const
 {
-    float distance = CalcRangeDistance(range_category);
     if (TargetSourceIsCharacter(&source, 0)) {
-        return party.collisionSphere().radius + distance;
+        return party.collisionSphere().radius;
     }
     if (TargetSourceIsMonster(&source, 0)) {
         assert(source.iMonsterID != -1);
         W8MonsterInfo* monster_info = population->findMonster(source.iMonsterID);
-        return monster_info->entity->nav.movement.alternate_radius + distance;
+        return monster_info->entity->nav.movement.alternate_radius;
     }
-    return distance;
+    return 0.0f;
 }
 
 /* Party-relative action range for the world cursor: same band steps as

@@ -26,7 +26,6 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/string_database.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
 
@@ -87,7 +86,7 @@ void CompleteTrapDisarm(Trigger* trigger)
     }
     text =
         fmt::format("{} {}", Data().strings[g_trap_name_string_ids[type]], Data().strings[0x7b2]);
-    ShowString(text);
+    CurrentGame().queueWorldMessage(text);
     trigger->Run(-1);
 }
 
@@ -155,7 +154,7 @@ void ResolveSprungTrap(Trigger* trigger)
         result = Data().strings[0x7b4];
     }
     text = fmt::format("{} {}", Data().strings[g_trap_name_string_ids[type]], result);
-    ShowString(text);
+    CurrentGame().queueWorldMessage(text);
     count = devices - static_cast<int>(CurrentGame().rng.below(devices / 2));
     power = 4;
     if (devices > g_trap_difficulty[type]) {

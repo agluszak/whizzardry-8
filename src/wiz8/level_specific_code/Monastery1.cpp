@@ -140,7 +140,7 @@ bool Monastery1Script::coffinlidg(Trigger* trigger)
 bool Monastery1Script::wheelStar(Trigger* trigger)
 {
     if (ctx.inventory.heldItemId() != 0x24c) {
-        ShowLevelMessage(0x22);
+        ctx.game.queueLevelMessage(0x22);
         g_trigger_feedback = true;
         return false;
     }

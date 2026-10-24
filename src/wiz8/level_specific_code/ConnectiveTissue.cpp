@@ -49,11 +49,11 @@ private:
 bool ConnectiveTissueScript::liche(Trigger* pTrigger)
 {
     if (ctx.inventory.heldItemId() != 0x15d && pTrigger->action == 0) {
-        ShowLevelMessage(6);
+        ctx.game.queueLevelMessage(6);
         g_trigger_feedback = true;
         return false;
     }
-    ShowLevelMessage(7);
+    ctx.game.queueLevelMessage(7);
     if (GetLocationVarIDByName("LicheDead") == -1) {
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "LicheDead", 1);
         ctx.game.awardExperience(0x3e8, false);

@@ -204,7 +204,7 @@ void updatePartyMovement(World& world, unsigned int flags)
         // A camera path flies the eye without moving the party.
         if (!g_camera_path_active) world.party.followCamera();
         world.automap.follow(navigationPosition(party.m_position));
-        if (motion.moved) DispatchWorldCursorNodeCommand(0, 0, 0);
+        if (motion.moved) DispatchWorldCursorNodeCommand(0);
     }
     party.applySway(*world.camera, CameraSwayMode::Reset);
     for (const auto& camera_path : world.plsCameras) {

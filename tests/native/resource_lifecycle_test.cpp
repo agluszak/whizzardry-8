@@ -41,6 +41,7 @@
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
 #include "wiz8/entities/animation_types.h"
+#include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/cycle_resources.h"
 #include "wiz8/entities/emitter_cycles.h"
@@ -58,6 +59,7 @@
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -159,6 +161,10 @@ static void npc_script_teardown()
 // A game's transcript and queued NPC messages end with it; the next game starts empty.
 static void queued_state_teardown(GameSession& session)
 {
+    Game candidate{CurrentGame().data};
+    candidate.queueWorldMessage("Candidate notice");
+    REQUIRE(candidate.npc_dialogue.has_queued_actions());
+    REQUIRE_FALSE(CurrentGame().npc_dialogue.has_queued_actions());
     LearnDialogueKeyword("Monastery", W8_DIALOGUE_CATEGORY_PLACES, false);
     LearnDialogueKeyword("Arnika", W8_DIALOGUE_CATEGORY_PLACES, false);
     REQUIRE((static_cast<int>(CurrentGame().story.keywords.size()) == 2));
@@ -279,6 +285,14 @@ TEST_CASE("Level departure belongs to the game, not screen teardown", "[lifetime
     REQUIRE(GetWorld() == world);
     world->cursor = std::make_unique<W8WorldCursorState>();
     world->cursor->light = std::make_unique<Light>(world->scene.get());
+    auto block = CreateWorldCursorCube();
+    block->parameters[0] = 12;
+    block->parameters[2] = 2;
+    world->cursor_nodes.push_back(std::move(block));
+    REQUIRE(world->castingBlockMessagesAt({}).empty()); // No level script, no casting block.
+    world->script = std::make_unique<LevelScript>(MakeScriptContext(scope.game));
+    REQUIRE(world->castingBlockMessagesAt({}) == std::vector<int>{12});
+    REQUIRE(world->castingBlockMessagesAt({1000, 0, 0}).empty());
     auto sky = std::make_unique<World>();
     auto* retained_sky = sky.get();
     sky->scene->setFogColor(glm::vec3(1));
