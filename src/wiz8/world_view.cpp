@@ -3,12 +3,17 @@
 #include <chrono>
 #include <optional>
 
+#include <SDL3/SDL_surface.h>
+
 #include "glm/common.hpp"
+#include "glm/ext/vector_float2.hpp"
 #include "wiz8/cursor.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/camera_shake.h"
+#include "wiz8/render/draw_inputs.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/render/quality.h"
 #include "wiz8/render/renderer.h"
 #include "wiz8/render/world_scene.h"

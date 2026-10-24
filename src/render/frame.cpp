@@ -30,6 +30,7 @@
 #include <wiz8/filesystem.h>
 
 #include "asset_paths.h"
+#include "glm/common.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
