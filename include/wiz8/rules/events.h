@@ -205,6 +205,8 @@ public:
     };
 
     void push(Event event);
+    // Publish all outcomes of a completed command before delivering any of them.
+    void publish(std::vector<Event> outcomes);
     // Install or clear the observer. Pending outcomes wait for any active operation.
     void observe(Observer observer);
     const std::vector<Event>& pending() const { return pending_; }

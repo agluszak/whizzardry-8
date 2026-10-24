@@ -1,5 +1,8 @@
 #include "wiz8/fact_state.h"
 
+#include <utility>
+#include <vector>
+
 #include <fmt/format.h>
 
 #include "wiz8/data/fact_ids.h"
@@ -38,13 +41,21 @@ bool Game::hasLeadingNpc(W8NpcId kind) const
 
 unsigned char Game::testFact(W8FactId fact)
 {
+    std::vector<Event> outcomes;
+    const auto value = testFact(fact, outcomes);
+    events.publish(std::move(outcomes));
+    return value;
+}
+
+unsigned char Game::testFact(W8FactId fact, std::vector<Event>& outcomes)
+{
     if (static_cast<unsigned>(fact) >= W8_FACT_SLOT_COUNT) return 0;
-    Events::Operation outcomes{events};
-    const auto value = evaluateFact(fact);
+    const auto value = evaluateFact(fact, outcomes);
     if (status.log_fact_checks && static_cast<unsigned>(fact) < data.facts.size())
-        events.push(TextNotice{W8_FONT_PALETTE_YELLOW, fmt::format("Checking fact {} which is {}",
-                                                                   data.facts[fact].symbolic_name,
-                                                                   value ? "TRUE" : "FALSE")});
+        outcomes.emplace_back(
+            TextNotice{W8_FONT_PALETTE_YELLOW,
+                       fmt::format("Checking fact {} which is {}", data.facts[fact].symbolic_name,
+                                   value ? "TRUE" : "FALSE")});
     return value;
 }
 
@@ -55,7 +66,7 @@ unsigned char Game::testFact(W8FactId fact)
    fact-check log is enabled. */
 // This legacy script test is not universally observational: covert-training success
 // consumes a one-shot latch. Preserve evaluation order until that command is separated.
-unsigned char Game::evaluateFact(W8FactId fact_id)
+unsigned char Game::evaluateFact(W8FactId fact_id, std::vector<Event>& outcomes)
 {
     unsigned char value;
     unsigned char count;
@@ -88,9 +99,9 @@ unsigned char Game::evaluateFact(W8FactId fact_id)
         case W8_FACT_FACTION_HIGARDI_COMMON_FRIENDLY:
             return story.factionDisposition(W8_FACTION_HIGARDI_COMMON) == W8_FACTION_FRIENDLY;
         case W8_FACT_ALIGNMENT_NONE:
-            value = testFact(W8_FACT_ALIGNMENT_TRANG);
+            value = testFact(W8_FACT_ALIGNMENT_TRANG, outcomes);
             if (value == 0) {
-                value = testFact(W8_FACT_ALIGNMENT_UMPANI);
+                value = testFact(W8_FACT_ALIGNMENT_UMPANI, outcomes);
                 if (value == 0) {
                     return 1;
                 }
@@ -131,9 +142,9 @@ unsigned char Game::evaluateFact(W8FactId fact_id)
             return static_cast<unsigned char>(npc->spawned);
         }
         case W8_FACT_UMISSION_TRAIN_FIRE_NOAMMO:
-            value = testFact(W8_FACT_UMISSION_TRAIN_COVERT_ASSIGN);
+            value = testFact(W8_FACT_UMISSION_TRAIN_COVERT_ASSIGN, outcomes);
             if (value == 0) {
-                value = testFact(W8_FACT_UMISSION_TRAIN_FIRE_ASSIGN);
+                value = testFact(W8_FACT_UMISSION_TRAIN_FIRE_ASSIGN, outcomes);
                 if (value != 0 && !inventory.has(0x271) && !inventory.has(0x272)) {
                     return 1;
                 }
@@ -192,15 +203,15 @@ unsigned char Game::evaluateFact(W8FactId fact_id)
         case W8_FACT_PARTY_HAS_BLOODLUST_SWORD:
             return inventory.has(0x294);
         case W8_FACT_RAPAX_SAVANT_ALLIANCE:
-            value = testFact(W8_FACT_ASTRAL_POSSESS);
+            value = testFact(W8_FACT_ASTRAL_POSSESS, outcomes);
             if (value != 0) {
                 return 1;
             }
-            value = testFact(W8_FACT_DESTINAE_POSSESS);
+            value = testFact(W8_FACT_DESTINAE_POSSESS, outcomes);
             if (value != 0) {
                 return 1;
             }
-            value = testFact(W8_FACT_CHAOS_POSSESS);
+            value = testFact(W8_FACT_CHAOS_POSSESS, outcomes);
             if (value != 0) {
                 return 1;
             }
@@ -229,11 +240,11 @@ unsigned char Game::evaluateFact(W8FactId fact_id)
             return 0;
         }
         case W8_FACT_QUEST_SHAMAN_DESTINY_TWO:
-            value = testFact(W8_FACT_QUEST_MARTEN_DIARY);
+            value = testFact(W8_FACT_QUEST_MARTEN_DIARY, outcomes);
             if (value == 0) {
                 return 1;
             }
-            value = testFact(W8_FACT_QUEST_MARTEN_IDOL);
+            value = testFact(W8_FACT_QUEST_MARTEN_IDOL, outcomes);
             if (value == 0) {
                 return 1;
             }
@@ -243,11 +254,11 @@ unsigned char Game::evaluateFact(W8FactId fact_id)
         }
     } else {
         if (fact_id == W8_FACT_QUEST_PEACE_UNLOCK_CAGES) {
-            value = testFact(W8_FACT_RODAN_LOCKED_IN_CAGE);
+            value = testFact(W8_FACT_RODAN_LOCKED_IN_CAGE, outcomes);
             if (value != 0) {
                 return 1;
             }
-            value = testFact(W8_FACT_DRAZIC_LOCKED_IN_CAGE);
+            value = testFact(W8_FACT_DRAZIC_LOCKED_IN_CAGE, outcomes);
             if (value != 0) {
                 return 1;
             }
@@ -257,7 +268,7 @@ unsigned char Game::evaluateFact(W8FactId fact_id)
             return story.factionDisposition(W8_FACTION_RAPAX_TEMPLAR) == W8_FACTION_FRIENDLY;
         }
         if (fact_id == W8_FACT_PARTY_DEACTIVATED_BOMB) {
-            value = testFact(W8_FACT_DS_BOMB_DEACTIVATED);
+            value = testFact(W8_FACT_DS_BOMB_DEACTIVATED, outcomes);
             return value;
         }
     }

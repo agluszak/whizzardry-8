@@ -11,13 +11,11 @@
 #include <SDL3/SDL_surface.h>
 #include <fmt/format.h>
 
-#include "message_box.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/himage.h"
 #include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
-#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
@@ -30,7 +28,6 @@
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"

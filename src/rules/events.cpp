@@ -31,6 +31,13 @@ void Events::push(Event event)
     deliver();
 }
 
+void Events::publish(std::vector<Event> outcomes)
+{
+    pending_.reserve(pending_.size() + outcomes.size());
+    for (auto& outcome : outcomes) pending_.push_back(std::move(outcome));
+    deliver();
+}
+
 void Events::observe(Observer observer)
 {
     observer_ = std::move(observer);

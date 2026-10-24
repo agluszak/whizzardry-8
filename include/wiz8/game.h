@@ -292,7 +292,8 @@ public:
     Level level;
 
 private:
-    unsigned char evaluateFact(W8FactId fact);
+    unsigned char testFact(W8FactId fact, std::vector<Event>& outcomes);
+    unsigned char evaluateFact(W8FactId fact, std::vector<Event>& outcomes);
     void recordFactChange(W8FactId fact, bool notify);
     std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
     void updateSurpriseMode();

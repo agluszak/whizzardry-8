@@ -6,6 +6,7 @@
 #include <memory>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 #include <fmt/printf.h>
 
@@ -172,11 +173,11 @@ std::uint32_t GameClockMilliseconds()
 
 void Game::commitFormation()
 {
-    Events::Operation outcomes{events};
+    std::vector<Event> outcomes;
     const auto previous = party.formation;
     party.applyFormation(planned_formation);
     const auto notice = [&](unsigned int slot, unsigned int text, int row) {
-        events.push(
+        outcomes.emplace_back(
             CharacterNotice{slot, fmt::sprintf(data.strings[text], kFormationRowNames[row])});
     };
     // Movable members announce first; immobile members then explain refusals and displacement.
@@ -193,12 +194,13 @@ void Game::commitFormation()
             continue;
         const int row = party.formation.rowOf(slot);
         const bool refused = planned_formation.rowOf(slot) != previous.rowOf(slot);
-        if (refused) events.push(CharacterNotice{slot, data.strings[0x248]});
+        if (refused) outcomes.emplace_back(CharacterNotice{slot, data.strings[0x248]});
         if (row != previous.rowOf(slot))
             notice(slot, 0x24a, row);
         else if (refused)
             notice(slot, 0x249, row);
     }
     planned_formation = party.formation;
-    events.push(FormationChanged{});
+    outcomes.emplace_back(FormationChanged{});
+    events.publish(std::move(outcomes));
 }
