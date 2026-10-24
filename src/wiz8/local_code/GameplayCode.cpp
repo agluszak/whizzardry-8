@@ -420,21 +420,6 @@ void EnsureUniquePartyVoice(W8Character* character)
     }
 }
 
-unsigned int GetAveragePartyLevel(void)
-{
-    unsigned int total_level = 0;
-    unsigned int occupied_slots = 0;
-    int slot;
-
-    for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.members[slot].has_value()) {
-            total_level += CurrentGame().party.characters[slot].uiExpLevel;
-            ++occupied_slots;
-        }
-    }
-    return total_level / occupied_slots;
-}
-
 /* Add one character to the party: find a free slot in the requested band,
    copy the record, mark it in party, rebuild its row and formation position
    and enter it in the marching order. The band is 2..7 for a regular member

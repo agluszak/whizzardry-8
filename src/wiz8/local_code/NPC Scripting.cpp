@@ -66,6 +66,7 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/story.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
@@ -312,17 +313,18 @@ void StripNpcKeywordPunctuation(std::string& text)
 /* Alternates between the two string-list ids SpeakNpcSubquote substitutes for
    an "EMPTY"/"BLANK" quote on the closing quotes it allows. */
 
-std::string FormatNpcVoiceSoundPath(W8NpcState* npc, bool script_event)
+std::string FormatNpcVoiceSoundPath(const Story& story, W8NpcState* npc, bool script_event)
 {
     const auto prefix = npc->is_grouped && !script_event ? "RPC_"
                         : npc->record->voice_script != 0 ? "VOC_"
                                                          : "NPC_";
-    return fmt::format("{}{}", prefix, GetNpcDisplayName(npc));
+    return fmt::format("{}{}", prefix, story.npcDisplayName(*npc));
 }
 
-std::unique_ptr<W8NpcScriptFile> LoadNpcScriptResources(W8NpcState& npc, Monster* monster)
+std::unique_ptr<W8NpcScriptFile> LoadNpcScriptResources(const Story& story, W8NpcState& npc,
+                                                        Monster* monster)
 {
-    const std::string script_name = FormatNpcVoiceSoundPath(&npc);
+    const std::string script_name = FormatNpcVoiceSoundPath(story, &npc);
     auto script = LoadNpcScriptFile(fmt::format("Data\\NPC Scripts\\{}.nsf", script_name));
     if (script != 0 && monster != 0) {
         monster->SetScript(fmt::format("{}.msf", script_name).c_str(), true);
@@ -332,7 +334,7 @@ std::unique_ptr<W8NpcScriptFile> LoadNpcScriptResources(W8NpcState& npc, Monster
 
 void ReloadNpcScriptResources(W8NpcState* npc)
 {
-    npc->script_file = LoadNpcScriptResources(*npc, GetNpcMonster(npc));
+    npc->script_file = LoadNpcScriptResources(CurrentGame().story, *npc, GetNpcMonster(npc));
 }
 
 void W8NpcDialogue::Advance(const ScriptContext& context)
@@ -375,7 +377,8 @@ void W8NpcDialogue::Begin(W8NpcState* npc, bool suspend_current, bool script_eve
     session_.identity = ++session_identity_;
     session_.finished_quote_index = -1;
     session_.npc = npc->shared_from_this();
-    session_.binding = {npc->script_file, FormatNpcVoiceSoundPath(npc, script_event),
+    session_.binding = {npc->script_file,
+                        FormatNpcVoiceSoundPath(CurrentGame().story, npc, script_event),
                         script_event || !npc->is_grouped};
     if (script_event) {
         // Event resource selection does not change the monster's persistent .msf program.
@@ -521,7 +524,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
 
     auto current = queue_.begin();
     W8MessageBoxLine& line = *current;
-    npc = line.npc_kind != -1 ? GetNpcStateByKind(line.npc_kind) : 0;
+    npc = line.npc_kind != -1 ? CurrentGame().story.npcOfKind(line.npc_kind) : 0;
     if (auto* quote_line = std::get_if<W8NpcQueuedQuote>(&line.action)) {
         if (npc != 0 && npc != session_.npc.get()) {
             Begin(npc, true);
@@ -687,7 +690,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
         }
         void operator()(W8NpcRecruit recruit) const
         {
-            if (W8NpcState* recruited = GetNpcStateByKind(recruit.npc_kind)) {
+            if (W8NpcState* recruited = CurrentGame().story.npcOfKind(recruit.npc_kind)) {
                 RecruitNpcIntoParty(recruited);
             }
             EndNpcDialogueSession(false);

@@ -31,9 +31,11 @@
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
 #include "wiz8/entities/animation_types.h"
@@ -62,6 +64,7 @@
 #include "wiz8/message_box.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/navigation_flags.h"
+#include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
@@ -79,6 +82,7 @@
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/camera_pose.h"
@@ -1367,4 +1371,222 @@ TEST_CASE("Prepared monster bodies use their definition and RNG without an insta
     REQUIRE_FALSE(unborn.entity->visual.animation_playing);
     REQUIRE(draws.size() == before_unborn + 6); // Appearance and fresh scale, but no idle draw.
     REQUIRE(world.active_monsters.size() == 2);
+}
+
+TEST_CASE("NPC preparation keeps story identity and publishes only into its supplied game",
+          "[resources][npc][lifetime]")
+{
+    ScopedTemporaryDirectory directory{"wiz8-npc-candidate"};
+    ScopedAssetRoots roots;
+    std::filesystem::create_directory(directory.path / "assets");
+    std::filesystem::create_directory(directory.path / "user");
+    const auto npc_scripts = directory.path / "assets/data/npc scripts";
+    const auto monster_scripts = directory.path / "assets/data/monsters/scripts";
+    std::filesystem::create_directories(npc_scripts);
+    std::filesystem::create_directories(monster_scripts);
+    for (const auto* name : {"NPC_Singleton.nsf", "NPC_RFS81B.nsf"}) {
+        auto file = wiz8::open_file(npc_scripts / name, wiz8::OpenMode::replace);
+        const wiz8::retail::nsf::Header header{};
+        file->write(&header, sizeof(header));
+    }
+    {
+        auto file = wiz8::open_file(monster_scripts / "NPC_Singleton.msf", wiz8::OpenMode::replace);
+        constexpr char source[] = "* candidate monster script\n";
+        file->write(source, sizeof(source) - 1);
+    }
+    roots.configure({(directory.path / "assets").string(), (directory.path / "user").string()});
+    GameData active_data;
+    active_data.npcs.resize(1);
+    active_data.npcs[0].kind = 0;
+    ScopedGame active(active_data);
+    auto active_npc = std::make_shared<W8NpcState>();
+    active_npc->record = &active_data.npcs[0];
+    active_npc->gold = 900;
+    active.game.story.npcs.push_back(active_npc);
+    active.game.status.world_clock = 9001;
+    active.game.party.members[0].emplace();
+    active.game.party.characters[0].uiExpLevel = 50;
+
+    GameData data;
+    data.npcs.resize(W8_NPC_RFS81_A + 1);
+    data.npcs[0].kind = 0;
+    data.npcs[0].display_name = "Singleton";
+    data.npcs[1].kind = 1;
+    data.npcs[1].display_name = "Bound";
+    data.npcs[1].monster_bound = true;
+    data.npcs[1].owns_stock = true;
+    data.npcs[1].item_stock_rules = {{0, 2, 1}, {1, 1, 0}};
+    data.npcs[W8_NPC_RFS81_A].display_name = "RFS81A";
+    data.items.resize(2);
+    data.items[1].identify_difficulty = 8;
+    data.monsters.resize(4);
+    for (int index : {0, 1, 3}) data.monsters[index].flags = W8_MONSTER_FLAG_NPC;
+    data.monsters[1].npc_kind = 1;
+    data.monsters[3].npc_kind = 255; // Invalid late binding, for failure-before-publication.
+    Game candidate(data);
+    candidate.status.world_clock = 77;
+    candidate.party.members[2].emplace();
+    candidate.party.characters[2].uiExpLevel = 10;
+    World world(7, "", candidate.timerClocks());
+    auto singleton = std::make_shared<W8NpcState>();
+    singleton->record = &data.npcs[0];
+    singleton->location_id = 101;
+    singleton->gold = 777;
+    singleton->character.emplace().name = "Retained snapshot";
+    singleton->items.push_back({.available_at = 88, .item = {.iItemNo = 0}, .quantity = 9});
+    auto old_script = std::make_shared<W8NpcScriptFile>();
+    singleton->script_file = old_script;
+    auto retired = std::make_shared<W8NpcState>();
+    retired->record = &data.npcs[1];
+    retired->partner_index = 1;
+    retired->binding_unavailable = true;
+    retired->gold = 999;
+    candidate.story.npcs = {singleton, retired};
+    const auto add = [&](int id, unsigned int species, bool unborn = false) -> W8MonsterInfo& {
+        auto info = std::make_unique<W8MonsterInfo>();
+        info->location_id = id;
+        info->monster_species = species;
+        info->bound_npc_index = -1;
+        info->entity = std::make_unique<Monster>(world, &data.monsters[species]);
+        return *world.population->monster_roster.add(std::move(info), unborn);
+    };
+    add(1, 0);
+    auto& first = add(2, 1);
+    auto& second = add(3, 1);
+    add(4, 0); // One singleton slot: the last binding wins, not a copied NPC.
+    auto& unborn = add(5, 1, true);
+    auto& ordinary = add(6, 2);
+    std::vector<Rng::Draw> draws, active_draws;
+    candidate.rng.seed(17);
+    candidate.rng.trace(&draws);
+    active.game.rng.trace(&active_draws);
+    const auto unchanged = [&] {
+        REQUIRE(candidate.story.npcs.size() == 2);
+        REQUIRE(candidate.story.npcs[0] == singleton);
+        REQUIRE(candidate.story.npcs[1] == retired);
+        REQUIRE(singleton->location_id == 101);
+        REQUIRE(singleton->gold == 777);
+        REQUIRE(singleton->script_file == old_script);
+        REQUIRE(singleton->character->name == "Retained snapshot");
+        REQUIRE(singleton->items.front().quantity == 9);
+        REQUIRE(active_npc->gold == 900);
+        REQUIRE(active_draws.empty());
+    };
+    SECTION("A later invalid NPC leaves existing story values untouched")
+    {
+        add(7, 3);
+        REQUIRE_THROWS(candidate.prepareNpcBindings(world));
+        unchanged();
+        REQUIRE(draws.size() == 6); // Live entries were prepared; unborn entries were not reached.
+    }
+    SECTION("A reused slot rejects publication before any earlier binding changes")
+    {
+        auto pending = candidate.prepareNpcBindings(world);
+        unchanged();
+        auto intervening = std::make_shared<W8NpcState>();
+        intervening->record = &data.npcs[1];
+        intervening->gold = 42;
+        candidate.story.npcs[1] = intervening;
+        REQUIRE_THROWS(candidate.story.installNpcBindings(std::move(pending)));
+        REQUIRE(candidate.story.npcs.size() == 2);
+        REQUIRE(candidate.story.npcs[1] == intervening);
+        REQUIRE(intervening->gold == 42);
+        REQUIRE(singleton->location_id == 101);
+        REQUIRE(singleton->script_file == old_script);
+        REQUIRE(retired->gold == 999);
+    }
+    SECTION("Publication preserves old identities and separates monster-bound instances")
+    {
+        auto pending = candidate.prepareNpcBindings(world);
+        unchanged();
+        REQUIRE(pending.records.size() == 4);
+        REQUIRE(world.population->findMonster(1)->entity->script);
+        REQUIRE(world.population->findMonster(4)->entity->script);
+        REQUIRE(ordinary.bound_npc_index == -1);
+        REQUIRE(draws.size() == 9);
+        Rng expected(17);
+        for (const auto& draw : draws) {
+            REQUIRE(draw.range == 100);
+            REQUIRE(draw.value == expected.below(100));
+        }
+        candidate.story.installNpcBindings(std::move(pending));
+        REQUIRE(candidate.story.npcs.size() == 4);
+        REQUIRE(candidate.story.npcs[0] == singleton);
+        REQUIRE(singleton->location_id == 4);
+        REQUIRE(singleton->gold == 777);
+        REQUIRE(singleton->character->name == "Retained snapshot");
+        REQUIRE(singleton->items.front().quantity == 9);
+        REQUIRE(singleton->script_file);
+        REQUIRE(singleton->script_file != old_script);
+        REQUIRE(candidate.story.npcs[1] != retired);
+        REQUIRE(retired->binding_unavailable);
+        REQUIRE(retired->gold == 999); // Outstanding work still owns the retired object.
+        REQUIRE(first.bound_npc_index == 1);
+        REQUIRE(second.bound_npc_index == 2);
+        REQUIRE(unborn.bound_npc_index == 3);
+        for (int slot = 1; slot <= 3; ++slot) {
+            const auto& npc = candidate.story.npcs[slot];
+            REQUIRE(npc->record == &data.npcs[1]);
+            REQUIRE(npc->bound_level == 7);
+            REQUIRE(npc->maintenance_clock == 77);
+            REQUIRE(npc->restock_clock == 77);
+            REQUIRE(npc->items.front().item.iItemNo == 0);
+            REQUIRE(npc->items.front().quantity == 2);
+            REQUIRE(npc->items.size() == (draws[slot * 3 - 1].value < 75 ? 2 : 1));
+        }
+        REQUIRE(candidate.story.npcs[1] != candidate.story.npcs[2]);
+        REQUIRE(candidate.story.npcs[2] != candidate.story.npcs[3]);
+        REQUIRE(active.game.story.npcs.size() == 1);
+        REQUIRE(active.game.story.npcs.front() == active_npc);
+    }
+    W8NpcState rfs{};
+    rfs.name_style = W8_NPC_RFS81_A;
+    rfs.record = &data.npcs[W8_NPC_RFS81_A];
+    candidate.story.facts[W8_FACT_RFS81_HAS_BEEN_FIXED] = 1;
+    REQUIRE(FormatNpcVoiceSoundPath(candidate.story, &rfs) == "NPC_RFS81B");
+    REQUIRE(FormatNpcVoiceSoundPath(active.game.story, &rfs) == "NPC_RFS81A");
+    REQUIRE(LoadNpcScriptResources(candidate.story, rfs, nullptr));
+    REQUIRE_FALSE(LoadNpcScriptResources(active.game.story, rfs, nullptr));
+}
+
+TEST_CASE("Recruitable NPC construction uses standalone spell and character rules",
+          "[resources][npc][character]")
+{
+    GameData data;
+    data.npcs.resize(1);
+    auto& record = data.npcs.front();
+    record.has_group = true;
+    auto& source = record.character;
+    source.name = "Candidate mage";
+    source.profession = W8_PROFESSION_MAGE;
+    source.race = W8_RACE_HUMAN;
+    source.level = 10;
+    std::ranges::fill(source.attributes, 60);
+    std::ranges::fill(source.skills, 100);
+    source.spells[W8_SPELL_LIGHT - 1] = 1;
+    data.spells.resize(W8_SPELL_COUNT);
+    data.spells[W8_SPELL_LIGHT].wizardry_spell = true;
+    data.spells[W8_SPELL_LIGHT].realm = W8_SPELL_REALM_FIRE;
+    data.spells[W8_SPELL_LIGHT].spell_level = 1;
+    Game candidate(data);
+    candidate.party.modifiers.damage_bonus = 123;
+    auto* npc = candidate.createNpcRuntimeNode(0);
+    REQUIRE(npc->character);
+    const auto& character = *npc->character;
+    REQUIRE(character.name == "Candidate mage");
+    REQUIRE(character.spell_learned[W8_SPELL_LIGHT] == 1);
+    REQUIRE(character.party_weight_share == 0);
+    REQUIRE(character.bonus.damage_bonus == 0);
+    REQUIRE(character.hp_current == character.uiHPMax);
+    REQUIRE(std::ranges::all_of(character.EquippedItem,
+                                [](const auto& item) { return item.iItemNo == -1; }));
+}
+
+TEST_CASE("Level-band queries need no installed session or fact evaluation", "[resources][levels]")
+{
+    REQUIRE_FALSE(GameInProgress());
+    REQUIRE(GetLevelBand(0x10) == 7);
+    REQUIRE(GetLevelBand(0x26) == 7);
+    REQUIRE(GetLevelBand(-1) == 0);
+    REQUIRE(GetLevelBand(W8_LEVEL_COUNT) == 0);
 }

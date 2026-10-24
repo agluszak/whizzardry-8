@@ -42,6 +42,7 @@
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/unicode.h"
@@ -112,7 +113,7 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
                            unsigned int table_id, unsigned int maximum_items,
                            const glm::vec3& position)
 {
-    unsigned int party_level = GetAveragePartyLevel();
+    unsigned int party_level = CurrentGame().party.averageLevel();
     std::vector<int> candidates;
     const W8ItemTableRecord* table;
     const W8ItemTableEntry* entry;

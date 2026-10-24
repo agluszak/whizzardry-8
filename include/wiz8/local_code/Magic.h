@@ -64,8 +64,8 @@ int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level);
 
 bool CanCastFromItem(const W8Character* caster, const W8ItemInstance* item);
 
-bool CanCharacterLearnSpell(W8Character* character, int spell_id);
-void LearnSpell(W8Character* character, int spell_id, bool announce);
+bool CanCharacterLearnSpell(const GameData& data, W8Character* character, int spell_id);
+void LearnSpell(const GameData& data, W8Character* character, int spell_id);
 /* Learns the spell a spell-source item holds and empties the
    item. */
 void LearnSpellFromItem(W8Character* character, W8ItemLocation location);

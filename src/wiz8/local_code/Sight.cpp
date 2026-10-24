@@ -45,6 +45,7 @@
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
@@ -680,7 +681,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 }
                             }
                         } else {
-                            W8NpcState* npc = GetNpcStateByKind(record->npc_kind);
+                            W8NpcState* npc = CurrentGame().story.npcOfKind(record->npc_kind);
 
                             if (npc != 0 && !npc->party_noticed &&
                                 npc->record->monster_bound == 0 &&
@@ -754,7 +755,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                         : W8_SIGHT_RECENT);
             }
             if (record != 0 && (record->flags & W8_MONSTER_FLAG_NPC) != 0) {
-                W8NpcState* npc = GetNpcStateByKind(record->npc_kind);
+                W8NpcState* npc = CurrentGame().story.npcOfKind(record->npc_kind);
 
                 if (npc != 0 && npc->event_pending != 0) {
                     HandleMarkedNpcEvent(npc, W8MarkedNpcEventMode::arm_restore);

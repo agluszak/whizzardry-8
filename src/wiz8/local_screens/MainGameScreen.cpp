@@ -5910,7 +5910,7 @@ void ConfirmNpcTradeItem(void)
     case W8TradeOutcome::Complete:
         wiz8::sound::play("Data\\Sound\\misc\\Cash Transaction.wav");
         if (result.dropped_overflow) DisplayNpcQuote(game, Data().strings[0x6b1], false);
-        if (!result.theft_succeeded) SortNpcItems(npc);
+        if (!result.theft_succeeded) SortNpcItems(Data(), npc);
         RebuildNpcTradeItemList(false);
         if (!result.theft_succeeded) {
             SetSelectedTextLine(row, 2);

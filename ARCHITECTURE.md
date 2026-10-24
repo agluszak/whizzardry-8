@@ -527,3 +527,25 @@ configuration/finalization, and prepares NPC bindings only afterward. Definition
 validation, body appearance, scale and idle-frame draws now use the supplied game.
 NPC binding and raw embedded-group creation remain separate migration work; this
 is not yet a guarantee of fully isolated candidate construction.
+
+### NPC construction and binding publication
+
+`Game` coordinates new NPC construction from its content, RNG, party-level query
+and world-clock stamp. Character setup uses standalone stats and explicit spell
+definitions; stock creation receives its own definitions and random stream. Story
+selects and owns NPC slots. Naming uses the specified Story's facts, not the
+installed session or a fact-checking presentation callback.
+
+Level preparation retains the existing NPC and character/stock snapshots, or owns
+a newly prepared shared state. It does not publish presence, scripts or replacement
+slots into Story. Saved restoration keeps the existing live-then-unborn order,
+after every monster body has been prepared. Each plan retains the previous shared
+slot identity. Publication validates every slot first and reserves append capacity
+before any binding changes; reused slots reject the stale plan without partial
+writes. Prepared script/state control blocks already exist, so publication does
+not allocate them midway through the operation. Work holding a retired NPC still
+refers to that NPC, not its slot's replacement.
+
+Live raw-level group creation still uses its existing immediate binding point and
+remains to be migrated. Candidate preparation advances its supplied RNG and may
+modify its own bodies; no rollback of those private construction effects is claimed.

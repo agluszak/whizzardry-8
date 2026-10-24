@@ -15,6 +15,8 @@
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
 
+struct W8PreparedNpcBindings;
+
 /* One fact change as the journal lists it. */
 struct W8JournalEntry {
     int level = 0;
@@ -91,6 +93,10 @@ struct Story {
         W8NpcState* state = npcs[static_cast<std::size_t>(index)].get();
         return state && !state->binding_unavailable ? state : nullptr;
     }
+    W8NpcState* adoptNpc(std::shared_ptr<W8NpcState> npc);
+    W8NpcState* npcOfKind(int kind) const;
+    std::string npcDisplayName(const W8NpcState& npc) const;
+    void installNpcBindings(W8PreparedNpcBindings pending);
     void ensureLocationVariable(int level, std::string_view name, int initial_value);
     int locationVariable(int level, std::string_view name) const;
     void setLocationVariable(int level, std::string_view name, int value);

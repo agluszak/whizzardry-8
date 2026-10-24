@@ -49,6 +49,7 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_control.h"
@@ -744,7 +745,7 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
             return;
         }
         if (SDL_strcasecmp(path->name0, "Camera02") == 0) {
-            npc = GetNpcStateByKind(0x33);
+            npc = CurrentGame().story.npcOfKind(0x33);
         } else {
             if (SDL_strcasecmp(path->name0, "Camera03") != 0) {
                 return;
@@ -769,7 +770,7 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
                 }
                 monster_info->entity->ForwardReferencePosition(0);
             }
-            npc = GetNpcStateByKind(0x34);
+            npc = CurrentGame().story.npcOfKind(0x34);
         }
         if (npc != 0) {
             QueueNpcScriptNotice(npc, 0, 0, true, 0);

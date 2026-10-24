@@ -1,4 +1,5 @@
 #pragma once
+struct Story;
 
 #include <cstdint>
 #include <functional>
@@ -205,4 +206,5 @@ void AuditNpcScriptQuotes(GameStatus& status);
 void ReloadNpcScriptResources(W8NpcState* npc);
 /* Load the NPC's .nsf script and give its monster the matching .msf script,
    without changing the NPC. */
-std::unique_ptr<W8NpcScriptFile> LoadNpcScriptResources(W8NpcState& npc, Monster* monster);
+std::unique_ptr<W8NpcScriptFile> LoadNpcScriptResources(const Story& story, W8NpcState& npc,
+                                                        Monster* monster);

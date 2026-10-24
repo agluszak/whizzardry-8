@@ -209,7 +209,7 @@ void MtGigas2Script::setup()
         SetTriggerVariableByName("CODESgtRubbleTeleport", 1);
         RunNamedTrigger("door08", -1);
         SetFact(W8_FACT_UMISSION_MOVE_RUBBLE_COVERT, 0, false);
-        npc = GetNpcStateByKind(0x29);
+        npc = CurrentGame().story.npcOfKind(0x29);
         if (npc != 0) {
             info = GetNpcMonsterInfo(npc);
             if (info != 0 && FindEntityByName("RubbleCovert", &position, 0, 0)) {
@@ -232,7 +232,7 @@ bool MtGigas2Script::train(Trigger* pTrigger)
     if (ctx.activity.conversation) {
         return false;
     }
-    npc = GetNpcStateByKind(0x5b);
+    npc = CurrentGame().story.npcOfKind(0x5b);
     item = 0;
     item_id = 0;
     if (const auto* held = ctx.inventory.held()) {

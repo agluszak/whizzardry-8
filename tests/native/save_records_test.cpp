@@ -1097,7 +1097,7 @@ static GameData ThreeNpcs()
 
 struct NpcGlobalGuard {
     const ScopedGameData data{ThreeNpcs()};
-    ScopedGame game;
+    ScopedGame game{Data()};
 };
 
 // The spell table, with Sleep aimed at enemies.
@@ -1492,7 +1492,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
         const auto retired = CurrentGame().story.npcs[0];
         retired->binding_unavailable = true;
         REQUIRE(!GetNpcState(0));
-        auto* replacement = CreateNpcRuntimeNode(CurrentGame().story, 0);
+        auto* replacement = CurrentGame().createNpcRuntimeNode(0);
         REQUIRE((CurrentGame().story.npcs.size() == 3 && GetNpcState(0) == replacement));
         REQUIRE((replacement->partner_index == 0 && GetNpcState(1) == kept));
         REQUIRE((retired->binding_unavailable && retired->character.value().name[0] == L'A'));

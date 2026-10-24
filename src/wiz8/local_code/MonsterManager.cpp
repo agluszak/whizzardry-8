@@ -79,6 +79,7 @@
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/update.h"
@@ -1201,7 +1202,7 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
 
         record = GetMonsterDataForInfo(monster_info);
         if ((record->flags & W8_MONSTER_FLAG_NPC) != 0) {
-            npc = GetNpcStateByKind(record->npc_kind);
+            npc = CurrentGame().story.npcOfKind(record->npc_kind);
             if (npc != 0 && npc->record->has_group != 0) {
                 suppress_exact_health = true;
             }

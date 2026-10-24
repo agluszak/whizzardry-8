@@ -61,6 +61,7 @@
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
+#include "wiz8/story.h"
 #include "wiz8/utility.h"
 
 /* Items of equipment class four are priced and carried by the bundle rather
@@ -799,7 +800,7 @@ void DeliverExceptionalItemReaction(Game& game, W8ItemInstance* item, bool choos
         if (!NpcLeadHasNameStyle(W8_NPC_MYLES) || !GetFact(W8_FACT_QUEST_MYLES_FIND_DIAMOND)) {
             return;
         }
-        W8NpcState* npc = GetNpcStateByKind(7);
+        W8NpcState* npc = CurrentGame().story.npcOfKind(7);
         if (npc == 0) {
             return;
         }

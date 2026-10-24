@@ -104,7 +104,6 @@ void ProcessNpcPendingEvents(void);
 void CreateNewGameNpcStates(void);
 /* Build one runtime state from its database record and return it,
    reusing the slot of a released node when one is free. */
-W8NpcState* CreateNpcRuntimeNode(Story& story, int npc_id);
 
 /* The NPC-side consequence pass the sight code runs when a marked NPC's
    binding is released. */
@@ -117,7 +116,6 @@ void ReleaseNpcMonsterBindings(void);
 void ReleaseMarkedNpcBindings(void);
 void RebindNpcLevelTriggers(void);
 W8NpcState* GetNpcState(int index);
-W8NpcState* GetNpcStateByKind(int kind);
 /* Whether the NPC wants the offered item - it matches one of the
    record's wanted entries by id or by the shared 0x83 name kind, and a grouped
    NPC whose member already carries more than one declines. */
@@ -149,7 +147,6 @@ void ClearNpcItemId(W8NpcState* npc, int item_id);
    matches case-insensitively; 0 when none does. */
 W8NpcState* FindNpcStateByName(std::string_view name);
 W8MonsterManagerEntry* GetNpcGroupEntry(W8NpcState* npc);
-std::string GetNpcDisplayName(W8NpcState* npc);
 void ReleaseNpcMonsterBinding(W8NpcState* npc, signed char level);
 void RestoreNamedNpcAtLevel(int kind, signed char level, std::string_view entity_name);
 bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out);
@@ -167,14 +164,14 @@ struct World;
    new binding; `created` holds a state made for this level. */
 struct W8PreparedNpcBinding {
     int slot;
-    std::unique_ptr<W8NpcState> created;
+    std::shared_ptr<W8NpcState> created;
+    // The slot identity observed during preparation; null only for an appended slot.
+    std::shared_ptr<W8NpcState> previous;
     int location_id = 0;
     unsigned char level_band = 0;
     unsigned char bound_level = 0;
-    std::unique_ptr<W8NpcScriptFile> script;
+    std::shared_ptr<const W8NpcScriptFile> script;
 };
 struct W8PreparedNpcBindings {
     std::vector<W8PreparedNpcBinding> records;
 };
-W8PreparedNpcBindings PrepareNpcBindings(World& world);
-void InstallNpcBindings(W8PreparedNpcBindings pending);

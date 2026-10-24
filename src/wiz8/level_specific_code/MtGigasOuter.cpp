@@ -136,7 +136,7 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
     }
     if (GetLocationVarIDByName("FlagPosition") == -1) {
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "FlagPosition", 0);
-        npc = GetNpcStateByKind(0x2a);
+        npc = CurrentGame().story.npcOfKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x90, true, 0);
         g_trigger_feedback = true;
         return false;
@@ -145,7 +145,7 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
     if (value == 0) {
         liftGate(kMasterToggle);
         trigger->flags &= ~W8_TRIGGER_ENABLED;
-        npc = GetNpcStateByKind(0x2a);
+        npc = CurrentGame().story.npcOfKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x16, true, 0);
         return true;
     }
@@ -157,7 +157,7 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
         prop->SetPosition(&position);
         SetTriggerVariableByName("FlagPosition", 1000);
         ctx.inventory.replaceHeld(MakeItem(Data(), ctx.game.rng, 0x290, false, false, false));
-        npc = GetNpcStateByKind(0x2a);
+        npc = CurrentGame().story.npcOfKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x18, true, 0);
         ResumeNpc(npc, 1);
         if (FindEntityByName("NP_catwalk", &position, 0, 0)) {

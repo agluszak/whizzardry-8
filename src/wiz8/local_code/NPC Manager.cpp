@@ -88,8 +88,6 @@
 #include "wiz8/world/world.h"
 
 static bool ProbeNpcPlacementNearParty(int party_slot, int mode, glm::vec3* position_out);
-static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character);
-static void InitializeNpcItemTable(W8NpcState* npc);
 static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name);
 static bool NpcOffersService(W8NpcState* npc, unsigned int service_id);
 
@@ -108,7 +106,7 @@ enum { W8_NPC_DISPOSITION_HOSTILE = 0x21, W8_NPC_DISPOSITION_FRIENDLY = 0x42 };
 /* Whether the NPC's database record names a trade pool. */
 void QueueNpcHeldItemNotice(int npc_kind)
 {
-    auto* npc = GetNpcStateByKind(npc_kind);
+    auto* npc = CurrentGame().story.npcOfKind(npc_kind);
     const auto* held = CurrentGame().inventory.held();
     QueueNpcScriptNotice(npc, held ? &held->item : nullptr, -1, false, 0);
 }
@@ -238,17 +236,6 @@ bool NpcKnowsFact(W8NpcState* npc, W8FactId fact)
 W8NpcState* GetNpcState(int index)
 {
     return CurrentGame().story.npc(index);
-}
-
-W8NpcState* GetNpcStateByKind(int kind)
-{
-    for (const auto& state_owner : CurrentGame().story.npcs) {
-        auto* npc = state_owner.get();
-        if (npc->record->kind == kind) {
-            return npc;
-        }
-    }
-    return 0;
 }
 
 /* Whether the NPC attached to either of the first two party rows carries the
@@ -602,11 +589,6 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
     return true;
 }
 
-/* The name a fact substitutes, and 0x00689F60 the buffer it is
-   copied into so the caller always gets a writable one. */
-char g_substituted_npc_name[] = "RFS81B";
-// The former fixed name scratch buffer is no longer needed by owned results.
-
 /* The name style that admits a substituted name: the unfixed RFS-81 record,
    renamed to RFS81B once the fix fact is set. */
 
@@ -675,14 +657,14 @@ void ResumeNpc(W8NpcState* npc, int enabled)
    indistinguishable from one whose byte is zero. */
 unsigned char FindNpcOfKind(int kind)
 {
-    auto* npc = GetNpcStateByKind(kind);
+    auto* npc = CurrentGame().story.npcOfKind(kind);
     return npc ? static_cast<unsigned char>(npc->spawned) : 0;
 }
 
 /* Mark the NPC of one kind, raising both of the two flags that go together. */
 void MarkNpcOfKind(int kind)
 {
-    if (auto* npc = GetNpcStateByKind(kind)) {
+    if (auto* npc = CurrentGame().story.npcOfKind(kind)) {
         npc->event_pending = true;
         npc->restore_done = true;
     }
@@ -779,17 +761,6 @@ void AddNpcTopic(W8NpcState* npc, int topic)
     npc->topics[0] = topic + 1;
 }
 
-/* What to call the NPC. One naming style takes a substituted name once the
-   party has learned it, copied into a shared buffer so the caller always gets
-   a writable string; everything else is named by its record. */
-std::string GetNpcDisplayName(W8NpcState* npc)
-{
-    if (npc->name_style == W8_NPC_RFS81_A && GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED) != 0) {
-        return g_substituted_npc_name;
-    }
-    return npc->record->display_name;
-}
-
 /* The live NPC state whose display (or fact-substituted) name matches
    case-insensitively; released bindings and non-matches are skipped. */
 W8NpcState* FindNpcStateByName(std::string_view name)
@@ -799,11 +770,7 @@ W8NpcState* FindNpcStateByName(std::string_view name)
     for (const auto& state_owner : CurrentGame().story.npcs) {
         auto* npc = state_owner.get();
         if (npc->binding_unavailable == 0) {
-            if (npc->name_style == W8_NPC_RFS81_A && GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED) != 0) {
-                candidate = g_substituted_npc_name;
-            } else {
-                candidate = npc->record->display_name;
-            }
+            candidate = CurrentGame().story.npcDisplayName(*npc);
             if (CompareTextIgnoreAsciiCase(candidate, name) == 0) {
                 return npc;
             }
@@ -1040,11 +1007,11 @@ static void SelectStartNpcGreeting(void)
 
     value = GetFact(W8_FACT_IMPORT_UMPANI);
     if (value != 0) {
-        npc = GetNpcStateByKind(0xc);
+        npc = CurrentGame().story.npcOfKind(0xc);
     } else {
         value = GetFact(W8_FACT_IMPORT_TRANG);
         if (value != 0) {
-            npc = GetNpcStateByKind(0x8c);
+            npc = CurrentGame().story.npcOfKind(0x8c);
             if (npc == 0) {
                 return;
             }
@@ -1060,7 +1027,7 @@ static void SelectStartNpcGreeting(void)
             partyCamera().LookAt(&head, false);
             return;
         }
-        npc = GetNpcStateByKind(0x18);
+        npc = CurrentGame().story.npcOfKind(0x18);
     }
     if (npc != 0) {
         QueueNpcScriptNotice(npc, 0, -1, false, 0);
@@ -1096,132 +1063,8 @@ void CreateNewGameNpcStates(void)
 {
     for (unsigned int npc_id = 0; npc_id < Data().npcs.size(); ++npc_id) {
         if (Data().npcs[npc_id].monster_bound == 0) {
-            CreateNpcRuntimeNode(CurrentGame().story, npc_id);
+            CurrentGame().createNpcRuntimeNode(npc_id);
         }
-    }
-}
-
-/* Build one runtime NPC state, reusing an unavailable slot or appending a new
-   one. Save records and monster bindings refer to these stable slot indices. */
-static std::unique_ptr<W8NpcState> MakeNpcRuntimeNode(int npc_id)
-{
-    auto owner = std::make_unique<W8NpcState>();
-    auto* npc = owner.get();
-    npc->name_style = npc_id;
-    npc->record = &Data().npcs[npc_id];
-    if (npc->record->has_group != 0) {
-        InitializeNpcCharacter(npc, npc->character.emplace());
-    }
-    if (npc->record->owns_stock != 0) {
-        PopulateNpcStock(npc);
-    }
-    InitializeNpcItemTable(npc);
-    npc->location_id = 0;
-    npc->is_present = false;
-    npc->disposition = Data().npcs[npc_id].disposition;
-    npc->gold = Data().npcs[npc_id].gold;
-    npc->greeting_pending = true;
-    npc->trade_pool = Data().npcs[npc_id].trade_pool;
-
-    return owner;
-}
-
-W8NpcState* CreateNpcRuntimeNode(Story& story, int npc_id)
-{
-    auto owner = MakeNpcRuntimeNode(npc_id);
-    auto* npc = owner.get();
-    W8NpcState* released;
-    int index;
-    for (index = 0; index < static_cast<int>(story.npcs.size()); ++index) {
-        released = story.npcs[index].get();
-        if (released != 0 && released->binding_unavailable != 0) {
-            story.npcs[index] = std::move(owner);
-            npc->partner_index = static_cast<unsigned char>(index);
-            return npc;
-        }
-    }
-    story.npcs.push_back(std::move(owner));
-    npc->partner_index = static_cast<unsigned char>(static_cast<int>(story.npcs.size()) - 1);
-    return npc;
-}
-
-W8PreparedNpcBindings PrepareNpcBindings(World& world)
-{
-    W8PreparedNpcBindings pending;
-    std::vector<bool> reserved(CurrentGame().story.npcs.size(), false);
-    const auto prepare = [&](W8MonsterInfo& info) {
-        const auto* record = GetMonsterDataForInfo(&info);
-        if ((record->flags & W8_MONSTER_FLAG_NPC) == 0) {
-            info.bound_npc_index = -1;
-            return;
-        }
-        const int kind = record->npc_kind;
-        W8NpcState* source = nullptr;
-        if (!Data().npcs[kind].monster_bound)
-            source = GetNpcStateByKind(kind);
-        else if (info.bound_npc_index > 0) {
-            auto* candidate = GetNpcState(info.bound_npc_index);
-            if (candidate && candidate->location_id == info.location_id &&
-                candidate->name_style == kind)
-                source = candidate;
-        }
-        int slot = source ? source->partner_index : -1;
-        if (slot == -1) {
-            for (size_t index = 0; index < reserved.size(); ++index) {
-                if (!reserved[index] && CurrentGame().story.npcs[index]->binding_unavailable) {
-                    slot = static_cast<int>(index);
-                    break;
-                }
-            }
-            if (slot == -1) {
-                slot = static_cast<int>(reserved.size());
-                reserved.push_back(false);
-            }
-        }
-        if (slot > 255) throw std::runtime_error("too many NPC bindings");
-        auto existing = std::ranges::find(pending.records, slot, &W8PreparedNpcBinding::slot);
-        if (existing == pending.records.end()) {
-            pending.records.push_back({.slot = slot});
-            if (!source) pending.records.back().created = MakeNpcRuntimeNode(kind);
-            existing = pending.records.end() - 1;
-        }
-        reserved[slot] = true;
-        existing->location_id = info.location_id;
-        existing->level_band = GetLevelBand(world.level_id);
-        existing->bound_level = static_cast<unsigned char>(world.level_id);
-        // Without a created state the slot holds the story's own NPC (source).
-        W8NpcState& npc = existing->created ? *existing->created : *CurrentGame().story.npcs[slot];
-        existing->script = LoadNpcScriptResources(npc, info.entity.get());
-        info.bound_npc_index = slot;
-    };
-    for (const auto* list :
-         {&world.population->monster_roster.live(), &world.population->monster_roster.unborn()})
-        for (const auto& info : *list) prepare(*info);
-    auto& story = CurrentGame().story;
-    story.npcs.reserve(reserved.size());
-    return pending;
-}
-
-void InstallNpcBindings(W8PreparedNpcBindings pending)
-{
-    auto& story = CurrentGame().story;
-    for (auto& binding : pending.records) {
-        if (binding.created) {
-            // A new NPC takes the slot; work still holding a released one there keeps it.
-            if (static_cast<size_t>(binding.slot) == story.npcs.size())
-                story.npcs.push_back(std::move(binding.created));
-            else
-                story.npcs[binding.slot] = std::move(binding.created);
-        }
-        W8NpcState& npc = *story.npcs[binding.slot];
-        npc.partner_index = static_cast<unsigned char>(binding.slot);
-        npc.location_id = binding.location_id;
-        npc.is_present = true;
-        npc.has_monster = true;
-        npc.binding_unavailable = false;
-        npc.level_band = binding.level_band;
-        npc.bound_level = binding.bound_level;
-        npc.script_file = std::move(binding.script);
     }
 }
 
@@ -1242,7 +1085,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
         }
 
         if (Data().npcs[npc_id].monster_bound == 0) {
-            npc = GetNpcStateByKind(npc_id);
+            npc = CurrentGame().story.npcOfKind(npc_id);
         } else {
             if (monster_info->bound_npc_index > 0) {
                 auto* candidate = GetNpcState(monster_info->bound_npc_index);
@@ -1252,12 +1095,12 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
                 }
             }
             if (npc == 0) {
-                npc = CreateNpcRuntimeNode(CurrentGame().story, npc_id);
+                npc = CurrentGame().createNpcRuntimeNode(npc_id);
             }
         }
         monster_info->bound_npc_index = npc->partner_index;
     } else {
-        npc = GetNpcStateByKind(npc_id);
+        npc = CurrentGame().story.npcOfKind(npc_id);
     }
 
     assert(npc != 0);
@@ -1267,106 +1110,6 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
     npc->level_band = GetLevelBand(GetLoadedLevelID());
     npc->bound_level = static_cast<unsigned char>(GetLoadedLevelID());
     ReloadNpcScriptResources(npc);
-}
-
-/* Expand the record's character block into a fresh group-member character:
-   the name, profession and starting level, attributes, skills, known spells
-   and worn/carried items, then the derived passes a level advance settles. */
-static bool InitializeNpcCharacter(W8NpcState* npc, W8Character& character)
-{
-    const W8NpcDatabaseRecord* record = npc->record;
-    const W8NpcCharacterTemplate* source;
-    W8ItemInstance item;
-    int index;
-
-    if (record->has_group == 0) {
-        return false;
-    }
-    source = &record->character;
-    character = W8Character{};
-    character.level_band_base = 0;
-    character.attribute_point_deficit = 0;
-    character.highest_condition = W8_CONDITION_NONE;
-    character.enchantment_top = W8_ENCHANTMENT_NONE;
-    character.unknown_007d = -1;
-    character.personality = -1;
-    for (index = 0; index < 12; ++index) {
-        *(&character.EquippedItem[index]) = W8ItemInstance{.iItemNo = -1};
-    }
-    for (index = 0; index < 8; ++index) {
-        *(&character.backpack[index]) = W8ItemInstance{.iItemNo = -1};
-    }
-    character.name = source->name;
-    character.name_part_2 = source->name_part_2;
-    character.iProfession = source->profession;
-    character.original_profession = source->profession;
-    character.profession_levels[source->profession] = source->level;
-    character.iRace = source->race;
-    character.gender = static_cast<W8Gender>(source->gender);
-    character.portrait_index = source->table_value;
-    for (index = 0; index < 7; ++index) {
-        character.attributes[index].base = source->attributes[index];
-    }
-    for (index = 0; index < 0x29; ++index) {
-        character.skills[index].points = source->skills[index];
-    }
-    for (index = 0; index < 12; ++index) {
-        if (source->equipment_present[index] != 0 && source->equipment_ids[index] != 0xffff) {
-            item = MakeItem(Data(), CurrentGame().rng,
-                            static_cast<short>(source->equipment_ids[index]), true, true, false);
-            character.EquippedItem[index] = item;
-        }
-    }
-    for (index = 0; index < 8; ++index) {
-        if (source->backpack_present[index] != 0 && source->backpack_ids[index] != 0xffff) {
-            item = MakeItem(Data(), CurrentGame().rng,
-                            static_cast<short>(source->backpack_ids[index]), true, true, false);
-            character.backpack[index] = item;
-        }
-    }
-    AdvanceCharacterToLevel(&character, source->level);
-    CalcCharacterLevelBand(&character);
-    RefreshCharacterSkillAvailability(Data(), &character);
-    RecalculateCharacterDerivedStats(CurrentGame(), character);
-    for (index = 1; index < 0x73; ++index) {
-        if (source->spells[index - 1] != 0 && CanCharacterLearnSpell(&character, index)) {
-            LearnSpell(&character, index, false);
-        } else {
-            character.spell_learned[index] = 0;
-        }
-    }
-    character.hp_current = character.uiHPMax;
-    character.stamina = character.uiStaminaMax;
-    for (index = 0; index < W8_SPELL_REALM_COUNT; ++index) {
-        character.iSPLeft[index] = character.sp_max[index];
-    }
-    return true;
-}
-
-/* Copy the record's one-based item table into the state's runtime arrays: the
-   forty entry item ids and weights, and the table's item-count dice. A record
-   whose table id is zero or past the table database keeps the -1 ids and
-   leaves the dice untouched. */
-static void InitializeNpcItemTable(W8NpcState* npc)
-{
-    unsigned int index;
-
-    std::ranges::fill(npc->item_ids, -1);
-    if (npc->record->item_table_id >= static_cast<int>(Data().item_tables.size())) {
-        return;
-    }
-    if (npc->record->item_table_id == 0) {
-        return;
-    }
-    for (index = 0; index < 40; ++index) {
-        if (Data().item_tables[npc->record->item_table_id - 1].entries[index].selector != 0) {
-            npc->item_ids[index] =
-                Data().item_tables[npc->record->item_table_id - 1].entries[index].item_id;
-            npc->item_weights[index] =
-                Data().item_tables[npc->record->item_table_id - 1].entries[index].weight;
-        }
-    }
-    npc->item_count_dice = Data().item_tables[npc->record->item_table_id - 1].item_count_dice;
 }
 
 /* Release the monster binding and script held by an active NPC slot. */
@@ -1752,7 +1495,7 @@ void TriggerBelaVoice(Monster* monster)
 
     W8NpcState* npc = 0;
 
-    npc = GetNpcStateByKind(0x89);
+    npc = CurrentGame().story.npcOfKind(0x89);
     if (npc == 0) throw std::runtime_error("Bela NPC state is missing");
     QueueNpcScriptNotice(npc, 0, -1, false, 0);
 }
@@ -1810,7 +1553,7 @@ void UpdateNpcEvents(void)
                 CurrentGame().status.npc_restore_pending = false;
                 continue;
             }
-            W8NpcState* partner = GetNpcStateByKind(npc->name_style);
+            W8NpcState* partner = CurrentGame().story.npcOfKind(npc->name_style);
             if (partner == nullptr || !partner->has_monster) {
                 CurrentGame().status.npc_restore_pending = false;
                 continue;
@@ -1917,9 +1660,9 @@ void ResetNpcBindingsForParty(void)
    record kind exists. */
 void RestoreNamedNpcAtLevel(int kind, signed char level, std::string_view entity_name)
 {
-    auto* npc = GetNpcStateByKind(kind);
+    auto* npc = CurrentGame().story.npcOfKind(kind);
     if (npc == 0) {
-        npc = CreateNpcRuntimeNode(CurrentGame().story, kind);
+        npc = CurrentGame().createNpcRuntimeNode(kind);
     }
     if (level == GetLoadedLevelID()) {
         RestoreNpcMonster(npc, std::string(entity_name).c_str());
@@ -1970,7 +1713,7 @@ void ReleaseNpcMonsterBindings(void)
         auto* npc = CurrentGame().story.npcs[index].get();
         if (npc->pending_release && npc->binding_unavailable == 0 &&
             npc->pending_release_level == GetLoadedLevelID()) {
-            W8NpcState* companion = GetNpcStateByKind(npc->name_style);
+            W8NpcState* companion = CurrentGame().story.npcOfKind(npc->name_style);
             ReleaseNpcCompanionMonster(companion);
         }
     }
@@ -1982,7 +1725,7 @@ void ReleaseNpcMonsterBindings(void)
 void ReleaseNpcMonsterBinding(W8NpcState* npc, signed char level)
 {
     if (level == GetLoadedLevelID()) {
-        W8NpcState* companion = GetNpcStateByKind(npc->name_style);
+        W8NpcState* companion = CurrentGame().story.npcOfKind(npc->name_style);
         ReleaseNpcCompanionMonster(companion);
     } else {
         npc->pending_release = true;
@@ -1995,7 +1738,7 @@ void ReleaseNpcMonsterBinding(W8NpcState* npc, signed char level)
    binding handed back. */
 void ReleaseNpcMonsterByKind(int kind)
 {
-    W8NpcState* npc = GetNpcStateByKind(kind);
+    W8NpcState* npc = CurrentGame().story.npcOfKind(kind);
     ReleaseNpcCompanionMonster(npc);
 }
 
@@ -2110,7 +1853,7 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
         }
     }
     if (mode == W8MarkedNpcEventMode::release_companion) {
-        W8NpcState* companion = GetNpcStateByKind(npc->name_style);
+        W8NpcState* companion = CurrentGame().story.npcOfKind(npc->name_style);
         ReleaseNpcCompanionMonster(companion);
     } else {
         npc->restored = true;
@@ -2141,7 +1884,7 @@ void ReleaseMarkedNpcBindings(void)
                 HandleMarkedNpcEvent(npc, W8MarkedNpcEventMode::release_companion);
             }
             if (npc->pending_restore) {
-                W8NpcState* companion = GetNpcStateByKind(npc->name_style);
+                W8NpcState* companion = CurrentGame().story.npcOfKind(npc->name_style);
                 ReleaseNpcCompanionMonster(companion);
             }
         }

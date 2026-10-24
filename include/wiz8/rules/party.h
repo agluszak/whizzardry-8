@@ -20,6 +20,7 @@ struct W8Party {
     std::optional<unsigned int> slotOf(const W8Character& character) const;
     // The NPC state index of the slot's member; -1 for an empty slot or a created character.
     int npcIndex(unsigned int slot) const;
+    unsigned int averageLevel() const;
     /* The slot's place in the marching order; an empty slot reads as the first place, as a
        cleared retail row did. */
     int orderIndexOf(unsigned int slot) const;

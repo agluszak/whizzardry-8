@@ -15,6 +15,8 @@ enum class W8NpcStockChanceTier : signed char {
 };
 
 class Game;
+struct GameData;
+class Rng;
 struct W8NpcItemEntry;
 struct W8NpcState;
 
@@ -53,13 +55,11 @@ W8TradeResult CompleteNpcTrade(Game& game, W8NpcState* npc, int actor,
                                const W8TradeSelection& selection, int quantity,
                                W8TradeAction action);
 
-int AddNpcItem(W8NpcState* npc, int item_id, unsigned int quantity);
-int AddNpcItemFromInstance(W8NpcState* npc, const W8ItemInstance* item, signed char quantity);
 int AddNpcItemWithDelay(W8NpcState* npc, int item_id, unsigned int quantity, int delay);
-W8NpcStockChanceTier RateItemIdentifyDifficulty(W8NpcState* npc, int item_id);
 int RestockNpcItems(W8NpcState* npc);
-void SortNpcItems(W8NpcState* npc);
-bool PopulateNpcStock(W8NpcState* npc);
+void SortNpcItems(const GameData& data, W8NpcState* npc);
+void PopulateNpcStock(const GameData& data, Rng& rng, unsigned int average_level, int world_clock,
+                      W8NpcState* npc);
 bool MaintainNpcStock(W8NpcState* npc, bool force);
 void MatureNpcDelayedItems(W8NpcState* npc);
 void RestockNpcInventory(W8NpcState* npc); /* 0x0055BCC0 */

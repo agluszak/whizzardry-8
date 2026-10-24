@@ -32,7 +32,7 @@ bool Shape(Trigger* pTrigger)
 {
     if (GetLocationVarIDByName("DeactivatingBomb") == -1) {
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "DeactivatingBomb", 1);
-        QueueNpcScriptNotice(GetNpcStateByKind(0x46), 0, 0, false, 0);
+        QueueNpcScriptNotice(CurrentGame().story.npcOfKind(0x46), 0, 0, false, 0);
     }
     return true;
 }
@@ -74,7 +74,7 @@ bool SavantTowerScript::buttonBlocker(Trigger* pTrigger)
     if (blocker != 0) {
         blocker->SetActivationState(true);
     }
-    QueueNpcScriptNotice(GetNpcStateByKind(0x46), 0, 1, false, 0);
+    QueueNpcScriptNotice(CurrentGame().story.npcOfKind(0x46), 0, 1, false, 0);
     SetFact(W8_FACT_DS_BOMB_DEACTIVATED, 1, false);
     return true;
 }

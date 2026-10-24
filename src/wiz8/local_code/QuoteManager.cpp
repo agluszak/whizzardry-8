@@ -614,7 +614,7 @@ bool W8CharacterEvent::PlayEventSound(std::string_view quote)
     } else {
         npc = game.story.npc(npc_index);
         if (npc != 0) {
-            npc_sound_name = FormatNpcVoiceSoundPath(npc);
+            npc_sound_name = FormatNpcVoiceSoundPath(CurrentGame().story, npc);
             sound_path = fmt::format("Data\\Sound\\PCs\\{}\\{}_{:03d}.wav", npc_sound_name,
                                      npc_sound_name, sound_event);
         }

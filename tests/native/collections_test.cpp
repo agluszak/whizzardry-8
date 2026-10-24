@@ -316,7 +316,7 @@ static bool npcStockOrdering()
     npc.items[1].item.iItemNo = 1;
     npc.items[2].item.iItemNo = 0;
     npc.items[2].available_at = 200;
-    SortNpcItems(&npc);
+    SortNpcItems(Data(), &npc);
     // Item 1 sorts first; the two item-0 entries keep their order.
     REQUIRE(npc.items[0].item.iItemNo == 1);
     REQUIRE((npc.items[1].available_at == 100 && npc.items[2].available_at == 200));
@@ -1286,8 +1286,12 @@ TEST_CASE("Rebinding an NPC to a new level keeps its state", "[npc]")
     npc->gold = 120;
     npc->binding_unavailable = 1;
     W8PreparedNpcBindings pending;
-    pending.records.push_back({.slot = 0, .location_id = 42, .level_band = 3, .bound_level = 7});
-    InstallNpcBindings(std::move(pending));
+    pending.records.push_back({.slot = 0,
+                               .previous = story.npcs[0],
+                               .location_id = 42,
+                               .level_band = 3,
+                               .bound_level = 7});
+    story.installNpcBindings(std::move(pending));
     REQUIRE(story.npcs[0].get() == npc);
     REQUIRE(npc->gold == 120);
     REQUIRE(npc->location_id == 42);

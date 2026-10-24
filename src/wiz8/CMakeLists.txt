@@ -173,6 +173,7 @@ target_sources(wiz8_engine PRIVATE
     combat/script_commands.cpp
     fact_state.cpp
     story.cpp
+    npc_creation.cpp
     ../world/party_camera.cpp
     ../world/party_motion.cpp
     ../world/selection.cpp

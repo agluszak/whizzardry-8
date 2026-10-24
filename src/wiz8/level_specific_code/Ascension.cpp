@@ -182,7 +182,7 @@ void AscensionScript::peakInit()
                                                        1);
         }
         if (GetLocationVarIDByName("AP_SpawnDaughter") == -1) {
-            W8NpcState* npc = GetNpcStateByKind(0x31);
+            W8NpcState* npc = CurrentGame().story.npcOfKind(0x31);
 
             if (npc != 0 && npc->greeting_pending && npc->spawned == 0 && !npc->party_noticed &&
                 GetFact(W8_FACT_TEMPLAR) != 0) {
@@ -418,7 +418,7 @@ void SpawnAlfieKnow(void)
    0x2f) is present, first match wins. */
 void RemoveAletheides(void)
 {
-    W8NpcState* npc = GetNpcStateByKind(0x2d);
+    W8NpcState* npc = CurrentGame().story.npcOfKind(0x2d);
     W8MonsterInfo* info;
 
     if (npc != 0) {
@@ -428,7 +428,7 @@ void RemoveAletheides(void)
             return;
         }
     }
-    npc = GetNpcStateByKind(0x2e);
+    npc = CurrentGame().story.npcOfKind(0x2e);
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
@@ -436,7 +436,7 @@ void RemoveAletheides(void)
             return;
         }
     }
-    npc = GetNpcStateByKind(0x2f);
+    npc = CurrentGame().story.npcOfKind(0x2f);
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {

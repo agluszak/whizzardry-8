@@ -325,7 +325,7 @@ void CampSpellsScenario()
     caster.profession_levels[W8_PROFESSION_BISHOP] = 4;
     for (const auto skill : {W8_SKILL_SPELLBOOK_WIZARDRY, W8_SKILL_MENTAL_MAGIC})
         caster.skills[skill].base_level = caster.skills[skill].level = 100;
-    LearnSpell(&caster, W8_SPELL_IDENTIFY_ITEM, false);
+    LearnSpell(Data(), &caster, W8_SPELL_IDENTIFY_ITEM);
     const auto realm = Data().spells[W8_SPELL_IDENTIFY_ITEM].realm;
     caster.sp_max[realm] = caster.iSPLeft[realm] = 100;
     auto& sword = caster.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
@@ -351,7 +351,7 @@ void CampSpellsScenario()
 
     // The next automatic cast targets a character, not the remembered item.
     // Automatic power and immediate retries must respect the mana budget.
-    LearnSpell(&caster, W8_SPELL_REMOVE_CURSE, false);
+    LearnSpell(Data(), &caster, W8_SPELL_REMOVE_CURSE);
     caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].base_level =
         caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].level = 100;
     const auto curse_realm = Data().spells[W8_SPELL_REMOVE_CURSE].realm;
@@ -550,7 +550,7 @@ void CheckGameplayUi(GameHarness& game)
     const auto original_character = character;
     character.iProfession = W8_PROFESSION_MAGE;
     character.skills[W8_SKILL_FIRE_MAGIC].level = 100;
-    LearnSpell(&character, W8_SPELL_LIGHT, false);
+    LearnSpell(Data(), &character, W8_SPELL_LIGHT);
     const auto realm = Data().spells[W8_SPELL_LIGHT].realm;
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
     CurrentGame().advancement.paused = true;
@@ -599,7 +599,7 @@ void CheckGameplayUi(GameHarness& game)
     REQUIRE_FALSE(SpellPicker());
     REQUIRE(returns == 2);
     // A pending confirmation belongs to the picker being replaced, not its successor.
-    LearnSpell(&character, W8_SPELL_SET_PORTAL, false);
+    LearnSpell(Data(), &character, W8_SPELL_SET_PORTAL);
     const auto portal_realm = Data().spells[W8_SPELL_SET_PORTAL].realm;
     character.sp_max[portal_realm] = character.iSPLeft[portal_realm] = 100;
     character.has_saved_location = true;

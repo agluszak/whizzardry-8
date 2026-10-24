@@ -65,6 +65,8 @@ struct Level {
    the menu. Starting or loading a game replaces the whole object, so nothing is reset
    field by field. Its members keep their retail-era types for now; it moves into the
    `game` layer as they move into the lower layers (ROADMAP.md, "Migration"). */
+struct W8PreparedNpcBindings;
+
 class Game {
 public:
     // The game reads `data`, which its session's owner keeps alive longer than the game.
@@ -129,6 +131,8 @@ public:
        nor kills the summoned monsters. */
     void endCombat(bool forced_cleanup);
     void resetSight();
+    W8NpcState* createNpcRuntimeNode(int npc_id);
+    W8PreparedNpcBindings prepareNpcBindings(World& world);
 
     // Commands the level's monster scripts and triggers issue.
     // A monster's script turns the group of the monster at `location_id` to `disposition`.
@@ -225,6 +229,7 @@ public:
     Level level;
 
 private:
+    std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
     void updateSurpriseMode();
     void advanceWorlds(std::chrono::milliseconds elapsed);
     void advanceSpellEffects(World& world);

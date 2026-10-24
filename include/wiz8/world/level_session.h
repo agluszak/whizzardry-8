@@ -9,7 +9,7 @@
 // The level id of the published level world, or -1 when none is loaded.
 int GetLoadedLevelID(void);
 
-extern W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT];
+extern const W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT];
 std::string_view GetLevelFolderName(int level_id);
 int FindLevelIdByLocationCode(std::string_view location_code);
 

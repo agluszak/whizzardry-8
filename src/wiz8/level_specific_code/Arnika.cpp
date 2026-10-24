@@ -384,14 +384,14 @@ void ArnikaScript::setup()
     }
     if (GetLocationVarIDByName("ScregActive") != -1 &&
         GetLocationVarValueByName("ScregActive") == 1) {
-        npc = GetNpcStateByKind(0x17);
+        npc = CurrentGame().story.npcOfKind(0x17);
         if (npc != 0 && (monster_info = GetNpcMonsterInfo(npc)) != 0 && monster_info->entity) {
             return;
         }
         SetTriggerVariableByName("ScregActive", 0);
     }
     if (GetFact(W8_FACT_VI_RESCUED) != 0) {
-        npc = GetNpcStateByKind(0x18);
+        npc = CurrentGame().story.npcOfKind(0x18);
         if (npc != 0) {
             monster_info = GetNpcMonsterInfo(npc);
             if (monster_info != 0 && monster_info->entity &&
@@ -912,7 +912,7 @@ bool ArnikaScript::maddmook(Trigger* pTrigger)
     if (GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
         GetLocationVarValueByName("WarnedAboutEntry") == 1 &&
         GetFactionDisposition(W8_FACTION_MOOK) != W8_FACTION_NEUTRAL) {
-        W8NpcState* npc = GetNpcStateByKind(0x69);
+        W8NpcState* npc = CurrentGame().story.npcOfKind(0x69);
         if (npc != 0) {
             QueueNpcScriptNotice(npc, 0, 7, false, 0);
             SetFactionDispositionBand(W8_FACTION_MOOK, W8_FACTION_HOSTILE);
@@ -1015,7 +1015,7 @@ int ArnikaScript::pedestalItem(int* previous_item)
                 MakeItem(Data(), ctx.game.rng, previous, false, false, false));
         }
     }
-    npc = GetNpcStateByKind(0x69);
+    npc = CurrentGame().story.npcOfKind(0x69);
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
@@ -1043,7 +1043,7 @@ bool ArnikaScript::ballSlot(Trigger* pTrigger)
 
     if (GetLocationVarIDByName("BallInserted") == -1) {
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "BallInserted", 1);
-        npc = GetNpcStateByKind(0x16);
+        npc = CurrentGame().story.npcOfKind(0x16);
         item = MakeItem(Data(), ctx.game.rng, 0x240, true, true, false);
         QueueNpcScriptNotice(npc, &item, -1, false, 0);
     }
@@ -1063,7 +1063,7 @@ bool ArnikaScript::flightRecorder(Trigger* pTrigger)
         return false;
     }
     g_trigger_feedback = true;
-    npc = GetNpcStateByKind(0x14);
+    npc = CurrentGame().story.npcOfKind(0x14);
     item = 0;
     if (const auto* held = ctx.inventory.held()) {
         item = &held->item;

@@ -125,6 +125,9 @@ def check_includes():
         source = (ROOT / relative).read_text(encoding='utf-8')
         if re.search(r'\b(CurrentGame|GameInProgress|GetWorld|GameClockMilliseconds|WorldClockMilliseconds|cameraLocation)\s*\(', source):
             problems.append(f'{relative}: animation must use its owner or explicit simulation inputs')
+    source = (ROOT / 'src/wiz8/npc_creation.cpp').read_text(encoding='utf-8')
+    if re.search(r'\b(CurrentGame|GameInProgress|GetWorld|Data|GetFact)\s*\(', source):
+        problems.append('src/wiz8/npc_creation.cpp: candidate NPC construction must use its supplied game')
     # Picking interpretation belongs to interaction code, never frame rendering.
     frame = ROOT / 'src/render/frame.cpp'
     source = frame.read_text(encoding='utf-8')

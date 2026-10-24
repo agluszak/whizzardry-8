@@ -1379,7 +1379,7 @@ void PrepareLevelPopulation(Game& game, World& world, LevelState::Data& data,
             world.prepareMonsterBody(*info, game.rng, data.monsters[index].unborn);
         }
     }
-    entry.npc_bindings = PrepareNpcBindings(world);
+    entry.npc_bindings = game.prepareNpcBindings(world);
     for (size_t index = 0; index < records.size(); ++index) {
         auto* info = records[index];
         if (!info) continue;
@@ -1527,7 +1527,7 @@ void InstallLevelSessionState(Game& game, World& world, W8LoadedLevelStatus* sta
     if (!status) return;
     auto& data = *status->data;
     if (data.header) ApplyStatusHeader(*data.header, game.status);
-    InstallNpcBindings(std::move(data.npc_bindings));
+    game.story.installNpcBindings(std::move(data.npc_bindings));
 }
 
 void BeginRestoredLevelActivity(World& world, W8LoadedLevelStatus* status)
@@ -1867,22 +1867,22 @@ void SavedGame::install(Game& game) &&
             npc.partner_index = static_cast<unsigned char>(index);
             npc.script_file.reset();
             npc.has_monster = npc.is_grouped;
-            npc.record = &Data().npcs[npc.name_style];
+            npc.record = &game.data.npcs[npc.name_style];
             if (npc.is_grouped) {
                 npc.is_present = false;
                 npc.level_band = GetLevelBand(-1);
                 npc.bound_level = -1;
-                npc.script_file = LoadNpcScriptResources(npc, nullptr);
+                npc.script_file = LoadNpcScriptResources(game.story, npc, nullptr);
             }
             if (npc.spawned == 0xffff) npc.spawned = 0;
         }
         // The unflagged records no saved state claims start as new runtime nodes.
-        for (unsigned int npc_id = 0; npc_id < Data().npcs.size(); ++npc_id) {
+        for (unsigned int npc_id = 0; npc_id < game.data.npcs.size(); ++npc_id) {
             const auto claimed = std::ranges::any_of(states, [&](const auto& npc) {
                 return npc->record->kind == static_cast<int>(npc_id);
             });
-            if (Data().npcs[npc_id].monster_bound == 0 && !claimed)
-                CreateNpcRuntimeNode(game.story, npc_id);
+            if (game.data.npcs[npc_id].monster_bound == 0 && !claimed)
+                game.createNpcRuntimeNode(npc_id);
         }
     }
     if (facts) {
@@ -1892,7 +1892,7 @@ void SavedGame::install(Game& game) &&
             const auto npc = std::ranges::find_if(
                 game.story.npcs, [](const auto& state) { return state->record->kind == 0x20; });
             if (npc != game.story.npcs.end() && (*npc)->has_monster)
-                (*npc)->script_file = LoadNpcScriptResources(**npc, nullptr);
+                (*npc)->script_file = LoadNpcScriptResources(game.story, **npc, nullptr);
         }
         // The derived import fact keeps its side effects, which act on the game just begun.
         if (!stored[W8_FACT_IMPORT_TRANG] && !stored[W8_FACT_IMPORT_UMPANI] &&

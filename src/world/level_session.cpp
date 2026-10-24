@@ -79,7 +79,7 @@ int GetLoadedLevelID()
     return world ? world->level_id : -1;
 }
 
-W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
+const W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
     {"Arnika", "Arnika2", "ARN", 1, 2},
     {"Ascension", "Ascension", "ASC", 0, 12},
     {"Bayjin", "Bayjin1", "BA1", -1, 8},
@@ -129,15 +129,9 @@ W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
     {"Spare20", "Spare20", "SPK", 0, 0},
 };
 
-signed char GetLevelBand(int saved_level)
+signed char GetLevelBand(int level)
 {
-    int level = NormalizeMasterFunctionValue(saved_level);
-    /* `<= 0x2f` is the retail bound: it admits the first test-level slot, one
-       past the W8_LEVEL_COUNT-entry table. */
-    if (level >= 0 && level <= 0x2f) {
-        return g_level_folders[level].level_band;
-    }
-    return 0;
+    return level >= 0 && level < W8_LEVEL_COUNT ? g_level_folders[level].level_band : 0;
 }
 
 /* Start the saved level's music playlist. Formats a path from the level's

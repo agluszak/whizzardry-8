@@ -844,13 +844,31 @@ int GetTotalCasterLevel(const W8Character* character, int spellbook, bool includ
 /* Which spellbooks a spell belongs to, as the mask the profession table is
    tested against. A spell in no book at all answers nothing, which is what
    makes the test below a membership test rather than a comparison. */
-static unsigned char SpellbookMaskForSpell(int spell_id)
+static unsigned char SpellbookMaskForSpell(const GameData& data, int spell_id)
 {
     return static_cast<unsigned char>(
-        (Data().spells[spell_id].wizardry_spell != 0) |
-        (Data().spells[spell_id].psionics_spell != 0 ? W8_SPELLBOOK_PSIONICS : W8_SPELLBOOK_NONE) |
-        (Data().spells[spell_id].divinity_spell != 0 ? W8_SPELLBOOK_DIVINITY : W8_SPELLBOOK_NONE) |
-        (Data().spells[spell_id].alchemy_spell != 0 ? W8_SPELLBOOK_ALCHEMY : W8_SPELLBOOK_NONE));
+        (data.spells[spell_id].wizardry_spell != 0) |
+        (data.spells[spell_id].psionics_spell != 0 ? W8_SPELLBOOK_PSIONICS : W8_SPELLBOOK_NONE) |
+        (data.spells[spell_id].divinity_spell != 0 ? W8_SPELLBOOK_DIVINITY : W8_SPELLBOOK_NONE) |
+        (data.spells[spell_id].alchemy_spell != 0 ? W8_SPELLBOOK_ALCHEMY : W8_SPELLBOOK_NONE));
+}
+
+// A pure choice over authored membership and the character's skill values.
+static W8Skill BestSpellbookSkill(const W8Character& character, unsigned char book,
+                                  bool active_only)
+{
+    W8Skill best = W8_SKILL_NONE;
+    unsigned int best_level = 0xffffffff;
+    unsigned char probe = 1;
+    for (unsigned int skill = W8_SKILL_SPELLBOOK_WIZARDRY; skill < W8_SKILL_FIRE_MAGIC; ++skill) {
+        if ((probe & book) != 0 && (!active_only || character.skills[skill].active) &&
+            static_cast<int>(best_level) < static_cast<int>(character.skills[skill].points)) {
+            best = static_cast<W8Skill>(skill);
+            best_level = character.skills[skill].points;
+        }
+        probe = static_cast<unsigned char>(probe << 1);
+    }
+    return best;
 }
 
 /* Whether the character knows any spell whose realm's remaining points still
@@ -876,9 +894,9 @@ bool CharacterHasCastableSpell(W8Character* character)
 
    The two ceilings are computed even when the first alone would settle it,
    which is what shows them as one rule rather than two guards. */
-bool CanCharacterLearnSpell(W8Character* character, int spell_id)
+bool CanCharacterLearnSpell(const GameData& data, W8Character* character, int spell_id)
 {
-    unsigned char book = SpellbookMaskForSpell(spell_id);
+    unsigned char book = SpellbookMaskForSpell(data, spell_id);
     int caster_level;
     int other;
     int other_level;
@@ -920,9 +938,10 @@ bool CanCharacterLearnSpell(W8Character* character, int spell_id)
         }
     }
 
-    spellbook_skill = GetBestSpellbookSkillForSpell(character, spell_id, false, false, 0);
+    spellbook_skill = BestSpellbookSkill(*character, book, false);
+    assert(spellbook_skill != W8_SKILL_NONE);
     skill_ceiling =
-        (character->skills[static_cast<int>(W8_SKILL_FIRE_MAGIC) + Data().spells[spell_id].realm]
+        (character->skills[static_cast<int>(W8_SKILL_FIRE_MAGIC) + data.spells[spell_id].realm]
                  .points /
              10 +
          character->skills[spellbook_skill].level) /
@@ -930,7 +949,7 @@ bool CanCharacterLearnSpell(W8Character* character, int spell_id)
         1;
     ceiling = skill_ceiling < level_ceiling ? skill_ceiling : level_ceiling;
 
-    return ceiling >= static_cast<unsigned int>(Data().spells[spell_id].spell_level);
+    return ceiling >= static_cast<unsigned int>(data.spells[spell_id].spell_level);
 }
 
 /* One message-table index per realm, for the realm's name. */
@@ -939,36 +958,18 @@ unsigned short g_realm_message_offsets[W8_SPELL_REALM_COUNT] = {
     0x30b, 0x30c, 0x30d, 0x30e, 0x30f, 0x310,
 };
 
-/* Take one spell on. The spell is marked known, its realm's known count goes
-   up, the spell-point pools are recomputed, and - when the caller asks for it -
-   the character says so in a line built from the character's name, the spell's
-   name and the realm's remaining points.
-
-   The line is assembled twice over: once only to measure the three pieces so
-   the buffer can be allocated, and once into it. */
-void LearnSpell(W8Character* character, int spell_id, bool announce)
+/* Learn the spell and recompute its realm pools. Presentation belongs to the
+   command that accepted the learning, not to standalone character construction. */
+void LearnSpell(const GameData& data, W8Character* character, int spell_id)
 {
     W8SpellRealm realm;
-    std::string realm_name;
 
     character->spell_learned[spell_id] = 1;
-    realm = Data().spells[spell_id].realm;
+    realm = data.spells[spell_id].realm;
     ++character->skill_unlocks[static_cast<int>(W8_SKILL_FIRE_MAGIC) + realm];
     const auto spell_point_ceilings = std::to_array(character->sp_max);
-    character->skill_unlocks[W8_SKILL_IRON_WILL] =
-        RebuildRealmSpellPointCeilings(Data(), character);
+    character->skill_unlocks[W8_SKILL_IRON_WILL] = RebuildRealmSpellPointCeilings(data, character);
     FollowSpellPointCeilings(*character, spell_point_ceilings);
-
-    if (!announce) {
-        return;
-    }
-
-    realm_name = Data().strings[g_realm_message_offsets[realm]];
-    const std::string line =
-        fmt::format("{}: \"{}\" - {}", fmt::sprintf(Data().strings[0x1b9], character->name),
-                    Data().spells[spell_id].display_name,
-                    fmt::sprintf(Data().strings[0x1ba], realm_name, character->sp_max[realm]));
-    ShowNoticeLine(line, 0, true, false);
 }
 
 int g_learn_sound = kFirstRemappedEvent + 16;
@@ -989,12 +990,19 @@ void LearnSpellFromItem(W8Character* character, W8ItemLocation location)
     assert(Data().items[item->iItemNo].spell_id != W8_SPELL_NONE);
     spell_id = Data().items[item->iItemNo].spell_id;
 
-    if (!CanCharacterLearnSpell(character, spell_id)) {
+    if (!CanCharacterLearnSpell(Data(), character, spell_id)) {
         ShowNoticeLine(fmt::sprintf(Data().strings[0x1bb], character->name), 0, true, false);
         return;
     }
 
-    LearnSpell(character, spell_id, true);
+    LearnSpell(Data(), character, spell_id);
+    const auto realm = Data().spells[spell_id].realm;
+    const auto realm_name = Data().strings[g_realm_message_offsets[realm]];
+    const std::string line =
+        fmt::format("{}: \"{}\" - {}", fmt::sprintf(Data().strings[0x1b9], character->name),
+                    Data().spells[spell_id].display_name,
+                    fmt::sprintf(Data().strings[0x1ba], realm_name, character->sp_max[realm]));
+    ShowNoticeLine(line, 0, true, false);
     usage_points = Data().spells[spell_id].spell_level;
     PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_ARTIFACTS, usage_points * 2, false);
     PracticeCharacterSkill(
@@ -1312,14 +1320,7 @@ unsigned int GetSpellCastingSkillLevel(const W8Character* character, W8Skill spe
 W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool pricing,
                                       bool prefer_unlocked, unsigned int power_level)
 {
-    unsigned char book = SpellbookMaskForSpell(spell_id);
-    unsigned char probe;
-    unsigned int skill_id;
-    W8Skill best_skill = W8_SKILL_NONE;
-    unsigned int best_level = 0xffffffff;
-    W8Skill unlocked_skill = W8_SKILL_NONE;
-    unsigned int unlocked_level = 0xffffffff;
-    unsigned int level;
+    unsigned char book = SpellbookMaskForSpell(Data(), spell_id);
     int party_slot;
 
     if (pricing && character->uiCondition[W8_CONDITION_SILENCED] != 0 &&
@@ -1327,22 +1328,9 @@ W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool
         return W8_SKILL_SPELLBOOK_ALCHEMY;
     }
 
-    probe = 1;
-    for (skill_id = W8_SKILL_SPELLBOOK_WIZARDRY; skill_id < W8_SKILL_FIRE_MAGIC; ++skill_id) {
-        if ((probe & book) != 0) {
-            level = character->skills[skill_id].points;
-            if (static_cast<int>(best_level) < static_cast<int>(level)) {
-                best_skill = static_cast<W8Skill>(skill_id);
-                best_level = level;
-            }
-            if (prefer_unlocked && character->skills[skill_id].active &&
-                static_cast<int>(unlocked_level) < static_cast<int>(level)) {
-                unlocked_skill = static_cast<W8Skill>(skill_id);
-                unlocked_level = level;
-            }
-        }
-        probe = static_cast<unsigned char>(probe << 1);
-    }
+    W8Skill best_skill = BestSpellbookSkill(*character, book, false);
+    const W8Skill unlocked_skill =
+        prefer_unlocked ? BestSpellbookSkill(*character, book, true) : W8_SKILL_NONE;
 
     if (prefer_unlocked && unlocked_skill != W8_SKILL_NONE && best_skill != unlocked_skill) {
         if (pricing) {
@@ -1390,7 +1378,7 @@ static unsigned int GetCastFailureChance(W8Character* character, int spell_id,
     int shortfall;
 
     chance = GetSpellFailureChance(skill_figure, spell_id, static_cast<int>(power_level));
-    book = SpellbookMaskForSpell(spell_id);
+    book = SpellbookMaskForSpell(Data(), spell_id);
     caster_level = GetTotalCasterLevel(character, book, true);
     shortfall = GetMinimumCasterLevelForSpell(spell_id) - caster_level - 1 + power_level;
     if (shortfall > 0) {
