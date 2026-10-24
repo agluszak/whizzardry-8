@@ -850,7 +850,7 @@ void EndMonsterAttack(W8MonsterInfo* monster_info)
         return;
     }
     if (monster_info->action_kind == W8_MONSTER_ACTION_ATTACK && combat->attacks_per_round != 0) {
-        if (ChooseRandomMonsterAction(monster_info, true, false, false)) {
+        if (CurrentGame().chooseMonsterAction(*monster_info, true, false, false)) {
             next = combat->phase +
                    (100 - CurrentGame().combat->round_counter) / (combat->attacks_per_round + 1);
             combat->phase = next;
@@ -1594,12 +1594,10 @@ int GetConditionInterrupt(W8TargetSource* source)
         monster_info = FindMonster(source->iMonsterID);
         moving = monster_info->action_kind == W8_MONSTER_ACTION_ADVANCE;
         condition_turns = monster_info->uiCondition;
-        can_attack =
-            RateMonsterBestAttack(monster_info, GetMonsterDataForInfo(monster_info), false) == 0;
+        can_attack = CurrentGame().rateMonsterBestAttack(*monster_info, false) == 0;
         secondary_flag = monster_info->pCombat->berserk;
         attribute = monster_info->attributes[W8_MONSTER_ATTRIBUTE_STRENGTH];
-        second_hand_attack =
-            RateMonsterBestAttack(monster_info, GetMonsterDataForInfo(monster_info), true) == 0;
+        second_hand_attack = CurrentGame().rateMonsterBestAttack(*monster_info, true) == 0;
         controlled = monster_info->control_state == W8_MONSTER_CONTROL_LURED;
     }
     if (condition_turns[W8_CONDITION_NAUSEATED] != 0 && CurrentGame().rng.below(100) < 0x19) {

@@ -27,9 +27,11 @@
 #include "temporary_directory.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/chunk.h"
+#include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/hostility.h"
 #include "wiz8/data/attack_modes.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -1961,7 +1963,7 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     game.rng.seed(1);
     std::vector<Rng::Draw> draws;
     game.rng.trace(&draws);
-    REQUIRE(ChooseRandomMonsterAction(&actor, true, false, true));
+    REQUIRE(game.chooseMonsterAction(actor, true, false, true));
     REQUIRE(draws.size() == 3); // Two candidate draws, then selection; no party stealth sweep.
     REQUIRE(draws[0].range == 100);
     REQUIRE(draws[1].range == 100);
@@ -1973,14 +1975,57 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     REQUIRE(actor.pCombat->attacks_per_round0 == 2);
     REQUIRE(actor.Target == W8CombatSlot::monster(2));
     actor.Target = W8CombatSlot::character(3);
-    REQUIRE_FALSE(ChooseRandomMonsterAction(&actor, true, false, false));
+    REQUIRE_FALSE(game.chooseMonsterAction(actor, true, false, false));
     REQUIRE(draws.size() == 3);
 
     GameData allied_data = data;
-    allied_data.monsters[0].faction_id = 1;
+    allied_data.monsters[0].faction_id = W8_FACTION_PARTY;
     auto& other = *world.population->findMonster(2);
     REQUIRE(MonsterHostility(allied_data, actor, other) == W8_DISPOSITION_NEUTRAL);
     other.uiCondition[W8_CONDITION_TURNCOAT] = 1;
     REQUIRE(MonsterHostility(allied_data, actor, other) == W8_DISPOSITION_HOSTILE);
     REQUIRE(draws.size() == 3);
+
+    // Rating an unpublished game must use its factions and population, without
+    // temporarily replacing the selected spell or consulting that spell's record.
+    Game candidate{allied_data};
+    candidate.level.replacePrimary(game.level.replacePrimary(nullptr));
+    actor.action_kind = W8_MONSTER_ACTION_SPELL;
+    actor.action_detail = -1;
+    other.uiCondition[W8_CONDITION_TURNCOAT] = 0;
+    REQUIRE(candidate.rateMonsterAttack(actor, 0, false) == W8_MONSTER_ATTACK_OUT_OF_REACH);
+    other.uiCondition[W8_CONDITION_TURNCOAT] = 1;
+    actor.pCombat->corrected_range = W8_RANGE_LONG;
+    actor.has_projectile_origin = true;
+    // Corrected distance does not switch the authored short attack's sight slot to 1.
+    REQUIRE(candidate.rateMonsterAttack(actor, 0, false) == W8_MONSTER_ATTACK_USABLE);
+    REQUIRE(actor.action_kind == W8_MONSTER_ACTION_SPELL);
+    REQUIRE(actor.action_detail == -1);
+    REQUIRE(draws.size() == 3);
+
+    std::vector<Rng::Draw> candidate_draws;
+    candidate.rng.seed(1);
+    candidate.rng.trace(&candidate_draws);
+    actor.Target = W8CombatSlot::monster(2);
+    REQUIRE(candidate.chooseMonsterAction(actor, true, false, true));
+    REQUIRE(candidate_draws.size() == 3);
+    REQUIRE(candidate_draws[0].range == 100);
+    REQUIRE(candidate_draws[1].range == 100);
+    REQUIRE(candidate_draws[2].range == 2);
+    REQUIRE(actor.action_detail == W8_ATTACK_MODE_SWING);
+    REQUIRE(draws.size() == 3);
+    actor.action_kind = W8_MONSTER_ACTION_SPELL;
+    actor.action_detail = -1;
+
+    // Self and unseen targets short-circuit before the deliberately absent spell.
+    REQUIRE(actor.reaches(actor, allied_data, 0, W8_MONSTER_ACTION_SPELL));
+    visible.sight_state = W8_SIGHT_UNSEEN;
+    REQUIRE_FALSE(actor.reaches(other, allied_data, 0, W8_MONSTER_ACTION_SPELL));
+    REQUIRE_FALSE(candidate.monsterReachesPartyMember(actor, 0, 0, W8_MONSTER_ACTION_SPELL));
+    // No-range actions must not inspect a body or formation, even during combat.
+    candidate.combat.emplace();
+    W8MonsterInfo inactive;
+    inactive.player_visibility.sight_state = W8_SIGHT_SEEN;
+    inactive.player_visibility.los_flags[0] = true;
+    REQUIRE_FALSE(candidate.monsterReachesPartyMember(inactive, 0, 0, W8_MONSTER_ACTION_WAIT));
 }

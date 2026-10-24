@@ -219,6 +219,15 @@ public:
        destroy the combat. A forced end (a departure or a scripted end) neither announces
        nor kills the summoned monsters. */
     void endCombat(bool forced_cleanup);
+    bool canMonsterProtect(const W8MonsterInfo& monster, const W8CombatSlot& target) const;
+    bool chooseMonsterAction(W8MonsterInfo& monster, bool target_locked, bool attack_locked,
+                             bool set_attack_rate);
+    int monsterQuadrant(const W8MonsterInfo& monster) const;
+    bool monsterReachesPartyMember(const W8MonsterInfo& monster, unsigned int attack, int slot,
+                                   W8MonsterActionKind action) const;
+    unsigned char rateMonsterAttack(const W8MonsterInfo& monster, unsigned int attack,
+                                    bool friendly_targets) const;
+    unsigned char rateMonsterBestAttack(const W8MonsterInfo& monster, bool friendly_targets) const;
     void resetSight();
     void refreshCombatEngagement();
     void removeMonsterFromCombat(W8MonsterInfo& monster);

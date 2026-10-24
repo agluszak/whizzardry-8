@@ -29,6 +29,7 @@
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -64,6 +65,7 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_cycles.h"
+#include "wiz8/monster_roster.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/action_rules.h"
@@ -84,6 +86,7 @@
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/party_camera.h"
+#include "wiz8/world/world.h"
 
 /* Shared combat attribute differential used by pre-hit and hit-location rolls. */
 static int SumCharacterCombatAttributes(const W8Character& character)
@@ -209,50 +212,62 @@ int ApplyDamageReduction(const W8MonsterInfo* monster_info, const W8MonsterRecor
 /* Why one of a monster's attacks cannot be made, or zero when it can. An
    attack the record lacks is simply not usable, and so is one whose data is
    broken, which is reported. Otherwise the attack is out of reach unless it
-   reaches anyone, judged with the monster's current action set aside. */
-unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                                unsigned int attack, bool friendly_targets)
+   reaches anyone. The query never changes the monster's selected action. */
+unsigned char Game::rateMonsterAttack(const W8MonsterInfo& monster, unsigned int attack,
+                                      bool friendly_targets) const
 {
-    W8MonsterActionKind action_kind;
-    bool reaches;
 
+    const auto& record = data.monsters[monster.monster_species];
     assert(attack < W8_MAX_MONSTER_ATTACKS);
-    if (record->attacks[attack].fHasAttack == 0) {
+    if (record.attacks[attack].fHasAttack == 0) {
         return W8_MONSTER_ATTACK_NOT_USABLE;
     }
-    if (record->attacks[attack].attack_modes == 0) {
+    if (record.attacks[attack].attack_modes == 0) {
         return W8_MONSTER_ATTACK_NOT_USABLE;
     }
-    if (record->attacks_per_round == 0) {
+    if (record.attacks_per_round == 0) {
         return W8_MONSTER_ATTACK_NOT_USABLE;
     }
-    if (record->swings_per_round == 0) {
+    if (record.swings_per_round == 0) {
         return W8_MONSTER_ATTACK_NOT_USABLE;
     }
-    action_kind = monster_info->action_kind;
-    monster_info->action_kind = W8_MONSTER_ACTION_ATTACK;
-    reaches = MonsterAttackReachesAnyone(monster_info, attack, friendly_targets);
-    monster_info->action_kind = action_kind;
-    return !reaches ? W8_MONSTER_ATTACK_OUT_OF_REACH : W8_MONSTER_ATTACK_USABLE;
+    const auto disposition = friendly_targets || (monster.pCombat && monster.pCombat->berserk)
+                                 ? W8_DISPOSITION_FRIENDLY
+                                 : W8_DISPOSITION_HOSTILE;
+    for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        const auto& character = party.characters[slot];
+        if (party.members[slot] && character.hp_current != 0 &&
+            character.highest_condition < W8_CONDITION_DEAD &&
+            party.dispositionToward(slot, monster.ubDisposition) == disposition &&
+            monsterReachesPartyMember(monster, attack, slot, W8_MONSTER_ACTION_ATTACK))
+            return W8_MONSTER_ATTACK_USABLE;
+    }
+    for (const auto& other : level.loaded().population->monster_roster.live()) {
+        if (other.get() != &monster && other->fActive && other->pCombat && other->hp_current != 0 &&
+            other->highest_condition < W8_CONDITION_DEAD &&
+            MonsterHostility(data, monster, *other) == disposition &&
+            monster.reaches(*other, data, attack, W8_MONSTER_ACTION_ATTACK))
+            return W8_MONSTER_ATTACK_USABLE;
+    }
+    return W8_MONSTER_ATTACK_OUT_OF_REACH;
 }
 
 /* Why a monster cannot attack at all, or zero when some attack is usable. A
    motionless monster is always rated at one; otherwise each of its three
    attacks is rated, a usable one answering at once and the highest reason
    otherwise kept. */
-unsigned char RateMonsterBestAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                                    bool friendly_targets)
+unsigned char Game::rateMonsterBestAttack(const W8MonsterInfo& monster, bool friendly_targets) const
 {
     unsigned char best;
     unsigned char rating;
     unsigned int attack;
 
-    if (monster_info->fMotionless) {
+    if (monster.fMotionless) {
         return 1;
     }
     best = 0;
     for (attack = 0; attack < W8_MAX_MONSTER_ATTACKS; ++attack) {
-        rating = RateMonsterAttack(monster_info, record, attack, friendly_targets);
+        rating = rateMonsterAttack(monster, attack, friendly_targets);
         if (rating == 0) {
             return 0;
         }
@@ -342,54 +357,53 @@ bool CharacterHasAttackOn(int party_slot, W8CombatSlot* target)
    bodyguard's first-attack range, higher level, and injured or out of
    formation. Preserve retail's use of the bodyguard's formation modifier
    for a monster target. */
-bool CanMonsterProtectCombatant(W8MonsterInfo* monster_info, W8CombatSlot* target)
+bool Game::canMonsterProtect(const W8MonsterInfo& monster, const W8CombatSlot& target) const
 {
-    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-    W8Character* character;
+    const auto& record = data.monsters[monster.monster_species];
+    const W8Character* character;
     W8MonsterInfo* target_info;
     int target_slot;
     unsigned int target_level;
     unsigned int hp_percent;
     unsigned char out_of_formation;
 
-    if (target->iType == W8_TARGET_KIND_CHARACTER) {
-        target_slot = target->iChar;
-        if (!CurrentGame().party.participates(target_slot)) {
+    if (target.iType == W8_TARGET_KIND_CHARACTER) {
+        target_slot = target.iChar;
+        if (!party.participates(target_slot)) {
             return false;
         }
-        if (CurrentGame().party.dispositionToward(target_slot, (monster_info)->ubDisposition) !=
+        if (party.dispositionToward(target_slot, monster.ubDisposition) !=
             W8_DISPOSITION_FRIENDLY) {
             return false;
         }
-        if (!MonsterAttackReachesCharacter(monster_info, record, 0, target_slot)) {
+        if (!monsterReachesPartyMember(monster, 0, target_slot, monster.action_kind)) {
             return false;
         }
-        character = &CurrentGame().party.characters[target_slot];
+        character = &party.characters[target_slot];
         hp_percent = character->hp_current * 100 / character->uiHPMax;
         target_level = character->uiExpLevel;
         out_of_formation = character->bonus.out_of_formation;
-    } else if (target->iType == W8_TARGET_KIND_MONSTER) {
-        target_info = FindMonster(target->iMonsterID);
+    } else if (target.iType == W8_TARGET_KIND_MONSTER) {
+        target_info = level.loaded().population->findMonster(target.iMonsterID);
         if (!target_info->fActive || target_info->hp_current == 0 || !target_info->pCombat) {
             return false;
         }
-        if (GetMonsterDataForInfo(target_info)->untargetable != 0) {
+        if (data.monsters[target_info->monster_species].untargetable != 0) {
             return false;
         }
-        if (MonsterHostility(CurrentGame().data, *monster_info, *target_info) !=
-            W8_DISPOSITION_FRIENDLY) {
+        if (MonsterHostility(data, monster, *target_info) != W8_DISPOSITION_FRIENDLY) {
             return false;
         }
-        if (!MonsterAttackReachesMonster(monster_info, record, 0, target_info)) {
+        if (!monster.reaches(*target_info, data, 0, monster.action_kind)) {
             return false;
         }
-        target_level = GetMonsterDataForInfo(target_info)->effective_level;
+        target_level = data.monsters[target_info->monster_species].effective_level;
         hp_percent = target_info->hp_current * 100 / target_info->uiHPMax;
-        out_of_formation = monster_info->modifiers.out_of_formation;
+        out_of_formation = monster.modifiers.out_of_formation;
     } else {
         return false;
     }
-    if (target_level > record->effective_level && (hp_percent < 40 || out_of_formation != 0)) {
+    if (target_level > record.effective_level && (hp_percent < 40 || out_of_formation != 0)) {
         return true;
     }
     return false;
@@ -404,7 +418,7 @@ bool CanMonsterProtectTarget(W8MonsterInfo* monster_info)
     if (monster_info->fActive && monster_info->pCombat && monster_info->hp_current != 0 &&
         monster_info->highest_condition < W8_CONDITION_BLIND &&
         (record->flags & W8_MONSTER_FLAG_BODYGUARD) != 0 && record->attacks[0].fHasAttack != 0) {
-        return CanMonsterProtectCombatant(monster_info, &monster_info->Target);
+        return CurrentGame().canMonsterProtect(*monster_info, monster_info->Target);
     }
     return false;
 }
@@ -491,7 +505,8 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             record->attacks[0].fHasAttack != 0 &&
             monster_info->action_kind == W8_MONSTER_ACTION_PROTECT &&
             monster_info->pCombat->interception_count < record->attacks_per_round &&
-            (*target == monster_info->Target) && CanMonsterProtectCombatant(monster_info, target)) {
+            (*target == monster_info->Target) &&
+            CurrentGame().canMonsterProtect(*monster_info, *target)) {
             SetTargetSourceToMonster(monster_info, &guardian);
             candidates.push_back(guardian);
         }
@@ -1292,7 +1307,7 @@ void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_de
     } else if (database_range >= W8_RANGE_LONG) {
         corrected_range = W8_RANGE_TOUCH;
     }
-    range = GetMonsterActionRangeCategory(monster_info, record, attack);
+    range = MonsterActionRange(CurrentGame().data, *monster_info, *record, attack);
     if (range >= W8_RANGE_LONG) {
         monster_info->fMissileReleased = false;
     }
@@ -1524,14 +1539,14 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
     if (entry_target.iType == W8_TARGET_KIND_CHARACTER) {
         MarkDefenderSkillUse(entry_target.iChar);
     }
-    range = GetMonsterActionRangeCategory(monster_info, record, attack_index);
+    range = MonsterActionRange(CurrentGame().data, *monster_info, *record, attack_index);
     if (range < W8_RANGE_LONG) {
         to_hit = GetMonsterAttackScore(monster_info, attack, action_detail, 0);
         roll = CurrentGame().rng.below(100) + 1;
         guaranteed_hit = roll <= 5;
         swing_missed = roll > 95;
         std::vector<W8CombatSlot> fumble_list;
-        BuildMonsterTargetList(monster_info, record, attack_index, fumble_list);
+        BuildMonsterTargetList(monster_info, attack_index, fumble_list);
         int redirect_chance = GetMonsterAttackScore(monster_info, attack, action_detail, 1);
         int fumble_chance = GetCombatFumbleChance(fumble_list, redirect_chance);
         fumbled = roll > 100 - fumble_chance;
@@ -1747,7 +1762,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
     if (combat->uiSwingsRemaining != 0) {
         if (record->attack_multiple_targets != 0 && range < W8_RANGE_LONG) {
             repick_target = monster_info->Target;
-            if (!ChooseRandomMonsterAction(monster_info, false, true, false) ||
+            if (!CurrentGame().chooseMonsterAction(*monster_info, false, true, false) ||
                 monster_info->action_kind != W8_MONSTER_ACTION_ATTACK) {
                 combat->uiSwingsRemaining = 0;
             } else {
@@ -1823,11 +1838,11 @@ bool StartMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* reco
     attack = combat->attack_index;
     --combat->attacks_per_round;
     W8AttackMode action_detail = static_cast<W8AttackMode>(monster_info->action_detail);
-    if (RateMonsterAttack(monster_info, record, attack, false) != 0) {
+    if (CurrentGame().rateMonsterAttack(*monster_info, attack, false) != 0) {
         return false;
     }
     if (!CurrentGame().targetMatches(monster_info->Target, W8_TARGET_NEED_ENEMY) ||
-        !MonsterActionReachesTarget(monster_info, record, attack, &monster_info->Target)) {
+        !MonsterActionReachesTarget(monster_info, attack, &monster_info->Target)) {
         if (!ClearMonsterCombatSlot(monster_info)) {
             return false;
         }
@@ -1912,7 +1927,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
     W8AttackMode action_detail = static_cast<W8AttackMode>(monster_info->action_detail);
     unsigned int attack = combat->attack_index;
     const W8MonsterAttack* pAttack = &record->attacks[attack];
-    W8RangeCategory range = GetMonsterActionRangeCategory(monster_info, record, attack);
+    W8RangeCategory range = MonsterActionRange(CurrentGame().data, *monster_info, *record, attack);
     W8MonsterCombatState* second_combat;
     W8MonsterInfo* second;
     std::string text;
@@ -2800,14 +2815,15 @@ void BuildCharacterTargetList(int party_slot, int action, std::vector<W8CombatSl
 /* The monster twin: candidates for the monster's next target. Retail's
    monster exclusion compares the aimed id with the acting monster's own id,
    rather than the candidate's id (0x005441aa..0x005441b2). */
-void BuildMonsterTargetList(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                            unsigned int attack, std::vector<W8CombatSlot>& out_list)
+void BuildMonsterTargetList(W8MonsterInfo* monster_info, unsigned int attack,
+                            std::vector<W8CombatSlot>& out_list)
 {
     for (int i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
         if (CurrentGame().party.participates(i) &&
             (monster_info->Target.iType != W8_TARGET_KIND_CHARACTER ||
              monster_info->Target.iChar != i) &&
-            MonsterAttackReachesCharacter(monster_info, record, attack, i)) {
+            CurrentGame().monsterReachesPartyMember(*monster_info, attack, i,
+                                                    monster_info->action_kind)) {
             AppendCombatTargetEntry(out_list, W8_TARGET_KIND_CHARACTER, i, -1);
         }
     }
@@ -2820,7 +2836,8 @@ void BuildMonsterTargetList(W8MonsterInfo* monster_info, const W8MonsterRecord* 
             } else {
                 if ((monster_info->Target.iType == W8_TARGET_KIND_MONSTER &&
                      monster_info->Target.iMonsterID == monster_info->location_id) ||
-                    !MonsterAttackReachesMonster(monster_info, record, attack, candidate)) {
+                    !monster_info->reaches(*candidate, CurrentGame().data, attack,
+                                           monster_info->action_kind)) {
 
                     continue;
                 }

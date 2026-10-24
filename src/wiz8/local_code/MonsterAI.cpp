@@ -296,7 +296,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
         record = GetMonsterDataForInfo(monster_info);
         best_range = 0;
         for (attack = 0; attack < W8_MAX_MONSTER_ATTACKS; ++attack) {
-            if (RateMonsterAttack(monster_info, record, attack, false) ==
+            if (CurrentGame().rateMonsterAttack(*monster_info, attack, false) ==
                     W8_MONSTER_ATTACK_OUT_OF_REACH &&
                 best_range < record->attacks[attack].range_category) {
                 best_range = record->attacks[attack].range_category;
@@ -610,7 +610,7 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
         assert(monster_info != 0);
         record = GetMonsterDataForInfo(monster_info);
         for (attack = 0; attack < 3; ++attack) {
-            if (RateMonsterAttack(monster_info, record, attack, false) == 3 &&
+            if (CurrentGame().rateMonsterAttack(*monster_info, attack, false) == 3 &&
                 best_range < record->attacks[attack].range_category) {
                 best_range = record->attacks[attack].range_category;
             }
@@ -783,7 +783,7 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
         monster_info->action_kind =
             backs_off ? W8_MONSTER_ACTION_BACK_OFF : W8_MONSTER_ACTION_APPROACH;
     } else {
-        rating = RateMonsterBestAttack(monster_info, record, false);
+        rating = CurrentGame().rateMonsterBestAttack(*monster_info, false);
         chance = record->flee_chance;
         if (chance != 0) {
             if (rating != 0) {
@@ -846,7 +846,7 @@ void UpdateMonsterAI(W8MonsterInfo* monster_info)
             } else {
                 monster_info->action_kind = W8_MONSTER_ACTION_RETURN_TO_START;
             }
-        } else if (!ChooseRandomMonsterAction(monster_info, false, false, true)) {
+        } else if (!CurrentGame().chooseMonsterAction(*monster_info, false, false, true)) {
             monster_info->action_kind = W8_MONSTER_ACTION_WAIT;
         }
     }
@@ -896,7 +896,7 @@ members:
             member->hp_current == 0 || member->highest_condition >= W8_CONDITION_BLIND) {
             continue;
         }
-        if (RateMonsterBestAttack(member, record, false) == 0) {
+        if (CurrentGame().rateMonsterBestAttack(*member, false) == 0) {
             return true;
         }
         if (record->spell_chance != 0) {
@@ -999,19 +999,16 @@ struct MonsterActionCandidate {
    sweeps every target. A character's evasion skill roll keeps attacks off it
    but flags the slot, and each flagged slot may practice that skill at the
    end. */
-std::vector<MonsterActionCandidate> BuildMonsterActions(W8MonsterInfo* monster_info,
+std::vector<MonsterActionCandidate> BuildMonsterActions(Game& game, W8MonsterInfo* monster_info,
                                                         bool target_locked, bool attack_locked)
 {
     W8MonsterInfo* locked_monster = nullptr;
-    W8MonsterInfo* other;
     const W8MonsterRecord* record;
     unsigned int index;
     unsigned int attack;
     unsigned int mode_bit;
     unsigned int char_lo;
     unsigned int char_hi;
-    std::size_t monster_lo;
-    std::size_t monster_hi;
     unsigned int attack_lo;
     unsigned int attack_hi;
     bool scan_chars = false;
@@ -1021,26 +1018,24 @@ std::vector<MonsterActionCandidate> BuildMonsterActions(W8MonsterInfo* monster_i
     bool friendly_targets;
     W8Disposition disposition_needed;
 
-    record = GetMonsterDataForInfo(monster_info);
+    record = &game.data.monsters[monster_info->monster_species];
     std::vector<MonsterActionCandidate> actions;
     const auto append = [&](W8MonsterActionKind kind, int detail, int attack, W8CombatSlot target) {
         actions.push_back({kind, detail, attack, target});
         // Retail drew an unused tie value for each candidate. Keep its place in the RNG stream.
-        CurrentGame().rng.below(100);
+        game.rng.below(100);
     };
     if (!target_locked && !attack_locked) {
         if (CanProtect(*monster_info, *record) &&
-            CurrentGame().rng.below(100) <
-                monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
+            game.rng.below(100) < monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
             monster_info->action_kind = W8_MONSTER_ACTION_PROTECT;
-            for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
-                 ++index) {
-                other = GetMonsterListEntry(index);
+            for (const auto& owner : game.level.loaded().population->monster_roster.live()) {
+                auto* other = owner.get();
                 if (other != monster_info) {
                     ResetCombatSlot(&monster_info->Target);
                     monster_info->Target.iType = W8_TARGET_KIND_MONSTER;
                     monster_info->Target.iMonsterID = other->location_id;
-                    if (CanMonsterProtectCombatant(monster_info, &monster_info->Target)) {
+                    if (game.canMonsterProtect(*monster_info, monster_info->Target)) {
                         append(W8_MONSTER_ACTION_PROTECT, 0, 0,
                                W8CombatSlot::monster(other->location_id));
                     }
@@ -1050,7 +1045,7 @@ std::vector<MonsterActionCandidate> BuildMonsterActions(W8MonsterInfo* monster_i
                 ResetCombatSlot(&monster_info->Target);
                 monster_info->Target.iType = W8_TARGET_KIND_CHARACTER;
                 monster_info->Target.iChar = index;
-                if (CanMonsterProtectCombatant(monster_info, &monster_info->Target)) {
+                if (game.canMonsterProtect(*monster_info, monster_info->Target)) {
                     append(W8_MONSTER_ACTION_PROTECT, 0, 0, W8CombatSlot::character(index));
                 }
             }
@@ -1059,8 +1054,7 @@ std::vector<MonsterActionCandidate> BuildMonsterActions(W8MonsterInfo* monster_i
             }
         }
         if (record->combat_morale == 2 && record->combat_behavior != 3 &&
-            CurrentGame().rng.below(100) <
-                monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
+            game.rng.below(100) < monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
             append(W8_MONSTER_ACTION_WAIT, -1, 0, {W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}});
         }
     }
@@ -1078,10 +1072,8 @@ std::vector<MonsterActionCandidate> BuildMonsterActions(W8MonsterInfo* monster_i
         char_hi = 8;
         scan_chars = true;
         scan_monsters = true;
-        monster_lo = 0;
-        monster_hi = CurrentLevelPopulation().monster_roster.live().size();
     } else {
-        if (!CurrentGame().targetPresent(monster_info->Target)) {
+        if (!game.targetPresent(monster_info->Target)) {
             return actions;
         }
         if (monster_info->Target.iType == W8_TARGET_KIND_CHARACTER) {
@@ -1092,17 +1084,16 @@ std::vector<MonsterActionCandidate> BuildMonsterActions(W8MonsterInfo* monster_i
         } else if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
             assert(monster_info->Target.iMonsterID != -1);
             scan_monsters = true;
-            locked_monster = FindMonster(monster_info->Target.iMonsterID);
-            monster_lo = 0;
-            monster_hi = CurrentLevelPopulation().monster_roster.live().size();
+            locked_monster =
+                game.level.loaded().population->findMonster(monster_info->Target.iMonsterID);
             goto targets_chosen;
         } else {
             return actions;
         }
     }
     for (index = char_lo; index < char_hi; ++index) {
-        if (CurrentGame().rng.below(100) <
-            CurrentGame().party.characters[index].skills[W8_SKILL_STEALTH].level * 75 / 100) {
+        if (game.rng.below(100) <
+            game.party.characters[index].skills[W8_SKILL_STEALTH].level * 75 / 100) {
             avoided[index] = 1;
         }
     }
@@ -1110,17 +1101,18 @@ targets_chosen:
     friendly_targets = monster_info->pCombat && monster_info->pCombat->berserk;
     disposition_needed = friendly_targets ? W8_DISPOSITION_FRIENDLY : W8_DISPOSITION_HOSTILE;
     for (attack = attack_lo; attack < attack_hi; ++attack) {
-        if (RateMonsterAttack(monster_info, record, attack, friendly_targets) != 0) {
+        if (game.rateMonsterAttack(*monster_info, attack, friendly_targets) != 0) {
             continue;
         }
         if (scan_chars && monster_info->player_visibility.los_flags[RangeCategoryUsesSightCondition(
                               monster_info, static_cast<W8RangeCategory>(
                                                 record->attacks[attack].range_category))] != 0) {
             for (index = char_lo; index < char_hi; ++index) {
-                if (CurrentGame().party.participates(index) &&
-                    CurrentGame().party.dispositionToward(index, (monster_info)->ubDisposition) ==
+                if (game.party.participates(index) &&
+                    game.party.dispositionToward(index, (monster_info)->ubDisposition) ==
                         disposition_needed &&
-                    MonsterAttackReachesCharacter(monster_info, record, attack, index)) {
+                    game.monsterReachesPartyMember(*monster_info, attack, index,
+                                                   monster_info->action_kind)) {
                     if (avoided[index] == 0) {
                         for (mode_bit = 0; mode_bit < 9; ++mode_bit) {
                             if ((record->attacks[attack].attack_modes & (1 << mode_bit)) != 0) {
@@ -1135,14 +1127,14 @@ targets_chosen:
             }
         }
         if (scan_monsters) {
-            for (auto monster_index = monster_lo; monster_index < monster_hi; ++monster_index) {
-                other = GetMonsterListEntry(monster_index);
+            for (const auto& owner : game.level.loaded().population->monster_roster.live()) {
+                auto* other = owner.get();
                 if (locked_monster && other != locked_monster) continue;
                 if (other != monster_info && other->fActive && other->hp_current != 0 &&
-                    GetMonsterDataForInfo(other)->untargetable == 0 && other->pCombat &&
-                    MonsterHostility(CurrentGame().data, *monster_info, *other) ==
-                        disposition_needed &&
-                    MonsterAttackReachesMonster(monster_info, record, attack, other)) {
+                    game.data.monsters[other->monster_species].untargetable == 0 &&
+                    other->pCombat &&
+                    MonsterHostility(game.data, *monster_info, *other) == disposition_needed &&
+                    monster_info->reaches(*other, game.data, attack, monster_info->action_kind)) {
                     for (mode_bit = 0; mode_bit < 9; ++mode_bit) {
                         if ((record->attacks[attack].attack_modes & (1 << mode_bit)) != 0) {
                             append(W8_MONSTER_ACTION_ATTACK, mode_bit, attack,
@@ -1155,9 +1147,9 @@ targets_chosen:
     }
     if (scan_chars) {
         for (index = char_lo; index < char_hi; ++index) {
-            if (resisted[index] != 0 && CurrentGame().rng.below(2) == 0) {
-                PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[index],
-                                       W8_SKILL_STEALTH, 1, false);
+            if (resisted[index] != 0 && game.rng.below(2) == 0) {
+                PracticeCharacterSkill(game, &game.party.characters[index], W8_SKILL_STEALTH, 1,
+                                       false);
             }
         }
     }
@@ -1170,35 +1162,32 @@ targets_chosen:
    random into its action fields and target. Committing a plain attack also
    commits its attack index and, when asked, restages the round's attack
    counts; a wait action keeps only its detail word. */
-bool ChooseRandomMonsterAction(W8MonsterInfo* monster_info, bool target_locked, bool attack_locked,
+bool Game::chooseMonsterAction(W8MonsterInfo& monster, bool target_locked, bool attack_locked,
                                bool set_attack_rate)
 {
-    const W8MonsterRecord* record;
-
-    record = GetMonsterDataForInfo(monster_info);
-    const auto actions = BuildMonsterActions(monster_info, target_locked, attack_locked);
+    const auto& record = data.monsters[monster.monster_species];
+    const auto actions = BuildMonsterActions(*this, &monster, target_locked, attack_locked);
     if (actions.empty()) {
         return false;
     }
-    const auto& entry =
-        actions[CurrentGame().rng.below(wiz8::checked_integer<std::uint32_t>(actions.size()))];
-    monster_info->action_kind = entry.action_kind;
+    const auto& entry = actions[rng.below(wiz8::checked_integer<std::uint32_t>(actions.size()))];
+    monster.action_kind = entry.action_kind;
     switch (entry.action_kind) {
     case W8_MONSTER_ACTION_ATTACK:
-        monster_info->pCombat->attack_index = entry.attack_index;
-        monster_info->action_detail = entry.action_detail;
+        monster.pCombat->attack_index = entry.attack_index;
+        monster.action_detail = entry.action_detail;
         if (set_attack_rate) {
-            monster_info->pCombat->attacks_per_round0 = record->attacks_per_round;
-            monster_info->pCombat->attacks_per_round = record->attacks_per_round;
+            monster.pCombat->attacks_per_round0 = record.attacks_per_round;
+            monster.pCombat->attacks_per_round = record.attacks_per_round;
         }
         break;
     case W8_MONSTER_ACTION_WAIT:
-        monster_info->action_detail = entry.action_detail;
+        monster.action_detail = entry.action_detail;
         break;
     default:
         break;
     }
-    monster_info->Target = entry.target;
+    monster.Target = entry.target;
     return true;
 }
 
@@ -1740,8 +1729,8 @@ int ChooseMonsterSpell(W8MonsterInfo* monster_info, const W8MonsterRecord* recor
 /* Adds each active monster in combat with the given disposition that can reach the
    caster and accept the spell. exclude_caster skips the caster itself. */
 static void addMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
-                                   const W8MonsterRecord* record, W8Disposition disposition,
-                                   bool exclude_caster, std::vector<W8CombatSlot>& targets)
+                                   W8Disposition disposition, bool exclude_caster,
+                                   std::vector<W8CombatSlot>& targets)
 {
     W8CombatSlot slot;
     W8MonsterInfo* member;
@@ -1753,7 +1742,7 @@ static void addMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
             member->hp_current != 0 && member->highest_condition < W8_CONDITION_DEAD &&
             member->pCombat &&
             MonsterHostility(CurrentGame().data, *monster_info, *member) == disposition &&
-            MonsterAttackReachesMonster(monster_info, record, 0, member)) {
+            monster_info->reaches(*member, CurrentGame().data, 0, monster_info->action_kind)) {
             ResetCombatSlot(&slot);
             slot.iType = W8_TARGET_KIND_MONSTER;
             slot.iMonsterID = member->location_id;
@@ -1771,7 +1760,6 @@ static void addMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
 void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
                                 std::vector<W8CombatSlot>& targets)
 {
-    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     int saved_detail = monster_info->action_detail;
     W8MonsterActionKind saved_kind = monster_info->action_kind;
     W8VisibilityCondition sight_kind;
@@ -1801,14 +1789,14 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         targets.push_back(slot);
         break;
     case W8_TARGET_TYPE_ALLY:
-        addMonsterSpellTargets(monster_info, spell_id, record, W8_DISPOSITION_FRIENDLY, false,
-                               targets);
+        addMonsterSpellTargets(monster_info, spell_id, W8_DISPOSITION_FRIENDLY, false, targets);
         if (IsVisibleUnderConditions(monster_info, &monster_info->player_visibility, sight_kind)) {
             for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
                 if (CurrentGame().party.participates(index) &&
                     CurrentGame().party.dispositionToward(index, (monster_info)->ubDisposition) ==
                         W8_DISPOSITION_FRIENDLY &&
-                    MonsterAttackReachesCharacter(monster_info, record, 0, index)) {
+                    CurrentGame().monsterReachesPartyMember(*monster_info, 0, index,
+                                                            monster_info->action_kind)) {
                     ResetCombatSlot(&slot);
                     slot.iType = W8_TARGET_KIND_CHARACTER;
                     slot.iChar = index;
@@ -1820,14 +1808,14 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         }
         break;
     case W8_TARGET_TYPE_ENEMY:
-        addMonsterSpellTargets(monster_info, spell_id, record, W8_DISPOSITION_HOSTILE, true,
-                               targets);
+        addMonsterSpellTargets(monster_info, spell_id, W8_DISPOSITION_HOSTILE, true, targets);
         if (IsVisibleUnderConditions(monster_info, &monster_info->player_visibility, sight_kind)) {
             for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
                 if (CurrentGame().party.participates(index) &&
                     CurrentGame().party.dispositionToward(index, (monster_info)->ubDisposition) ==
                         W8_DISPOSITION_HOSTILE &&
-                    MonsterAttackReachesCharacter(monster_info, record, 0, index)) {
+                    CurrentGame().monsterReachesPartyMember(*monster_info, 0, index,
+                                                            monster_info->action_kind)) {
                     ResetCombatSlot(&slot);
                     slot.iType = W8_TARGET_KIND_CHARACTER;
                     slot.iChar = index;
@@ -1848,7 +1836,7 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
                 ResetCombatSlot(&slot);
                 slot.iType = W8_TARGET_KIND_GROUP;
                 slot.iGroupID = monster_group->group_id;
-                if (MonsterActionReachesTarget(monster_info, record, 0, &slot)) {
+                if (MonsterActionReachesTarget(monster_info, 0, &slot)) {
                     targets.push_back(slot);
                 }
             }
@@ -1858,7 +1846,7 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         }
         ResetCombatSlot(&slot);
         slot.iType = W8_TARGET_KIND_PARTY;
-        if (!MonsterActionReachesTarget(monster_info, record, 0, &slot)) {
+        if (!MonsterActionReachesTarget(monster_info, 0, &slot)) {
             break;
         }
         targets.push_back(slot);
@@ -1871,7 +1859,7 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
                 member->highest_condition < W8_CONDITION_DEAD && member->pCombat &&
                 MonsterHostility(CurrentGame().data, *monster_info, *member) ==
                     W8_DISPOSITION_HOSTILE &&
-                MonsterAttackReachesMonster(monster_info, record, 0, member)) {
+                monster_info->reaches(*member, CurrentGame().data, 0, monster_info->action_kind)) {
                 ResetCombatSlot(&slot);
                 slot.iType = W8_TARGET_KIND_MONSTER;
                 slot.iMonsterID = member->location_id;
@@ -1894,7 +1882,8 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
                     if (CurrentGame().party.participates(index) &&
                         CurrentGame().party.dispositionToward(
                             index, (monster_info)->ubDisposition) == W8_DISPOSITION_HOSTILE &&
-                        MonsterAttackReachesCharacter(monster_info, record, 0, index)) {
+                        CurrentGame().monsterReachesPartyMember(*monster_info, 0, index,
+                                                                monster_info->action_kind)) {
                         targets.push_back(slot);
                     }
                 }

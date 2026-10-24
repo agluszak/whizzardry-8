@@ -8,6 +8,7 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/rules/targeting.h"
 
+struct GameData;
 struct W8MonsterInfo;
 struct W8MonsterRecord;
 struct W8CombatSlot;
@@ -31,23 +32,15 @@ unsigned char TraceModeRejectsNoHit(int mode);
 
 /* Whether the front rank stands between two formation positions. */
 
-/* Whether the monster's attack `attack` reaches the character in `party_slot`,
-   or the monster `target`, given what it can see and how far away they stand. */
-bool MonsterAttackReachesCharacter(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                                   unsigned int attack, int party_slot);
-bool MonsterAttackReachesMonster(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                                 unsigned int attack, W8MonsterInfo* target);
-/* Whether the monster's attack reaches friendly or hostile targets. Berserk
-   monsters always use friendly targets. */
-bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack,
-                                bool friendly_targets);
+W8RangeCategory MonsterActionRange(const GameData& data, const W8MonsterInfo& monster,
+                                   const W8MonsterRecord& record, unsigned int attack);
 /* The base missile speed a range category grants `source`, in world units. */
 float CalcRangeDistance(W8RangeCategory range_category, W8TargetSource* source);
 /* The sight-condition slot a range band needs the observer's sight flags
    checked under: zero inside long range, the current condition beyond it. */
 bool RangeCategoryUsesSightCondition(const W8MonsterInfo* monster, W8RangeCategory range_category);
-bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                                unsigned int attack, W8CombatSlot* target);
+bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, unsigned int attack,
+                                W8CombatSlot* target);
 /* The location id of the nearest live, in-combat group member visible under
    the selected condition, or -1 when none qualify. */
 int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
@@ -71,9 +64,6 @@ float CalcRangeDistance(W8RangeCategory range_category);
 /* Same band steps as CalcRangeDistance, then add the party navigator's
    movement collision_radius (camera/party radius offset used by the world cursor). */
 float CalcRangeDistanceFromParty(W8RangeCategory range_category);
-/* The range category one monster action works at. */
-W8RangeCategory GetMonsterActionRangeCategory(const W8MonsterInfo* monster_info,
-                                              const W8MonsterRecord* record, unsigned int attack);
 /* The furthest range category any of the character's hands can
    reach at. */
 

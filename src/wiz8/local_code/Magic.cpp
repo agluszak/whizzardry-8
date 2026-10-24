@@ -196,7 +196,6 @@ bool IsSpellBlockedForMonster(W8MonsterInfo* monster_info, int spell_id)
    two combat gates have to agree. */
 bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
 {
-    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
     W8CombatSlot* combat_slot;
     unsigned char kind;
 
@@ -220,7 +219,7 @@ bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
     }
 
     combat_slot = &monster_info->Target;
-    if (!MonsterActionReachesTarget(monster_info, record, 0, combat_slot) &&
+    if (!MonsterActionReachesTarget(monster_info, 0, combat_slot) &&
         !ClearMonsterCombatSlot(monster_info)) {
         return false;
     }

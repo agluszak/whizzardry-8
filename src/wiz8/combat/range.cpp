@@ -1,10 +1,6 @@
 #include "wiz8/combat/range.h"
 
 #include <cassert>
-#include <cstddef>
-#include <optional>
-#include <span>
-#include <vector>
 
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/Factions.h"
@@ -13,6 +9,7 @@
 #include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/hostility.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
@@ -156,162 +153,76 @@ bool RangeCategoryUsesSightCondition(const W8MonsterInfo* monster, W8RangeCatego
     return false;
 }
 
-/* Whether the monster's attack `attack` reaches anyone at all; `friendly_targets`
-   selects the friendly disposition band rather than the hostile band. In
-   combat, berserk forces the friendly band. Party members and other monsters defer to the corresponding
-   MonsterAttackReachesCharacter/Monster helpers. */
-bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack,
-                                bool friendly_targets)
+namespace {
+unsigned int MonsterActionSight(const W8MonsterInfo& monster, const W8MonsterRecord& record,
+                                unsigned int attack, W8MonsterActionKind action)
 {
-    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-    W8Disposition disposition_needed;
-    int party_slot;
-    unsigned int index;
-    std::size_t count;
-    W8MonsterInfo* other;
-
-    if (!monster_info->pCombat || !monster_info->pCombat->berserk) {
-        disposition_needed = friendly_targets ? W8_DISPOSITION_FRIENDLY : W8_DISPOSITION_HOSTILE;
-    } else {
-        disposition_needed = W8_DISPOSITION_FRIENDLY;
-    }
-
-    for (party_slot = 0; party_slot < W8_PARTY_SLOT_COUNT; ++party_slot) {
-        W8Character* character = &CurrentGame().party.characters[party_slot];
-
-        if (!CurrentGame().party.members[party_slot].has_value()) {
-            continue;
-        }
-        if (character->hp_current == 0) {
-            continue;
-        }
-        if (character->highest_condition >= W8_CONDITION_DEAD) {
-            continue;
-        }
-        if (CurrentGame().party.dispositionToward(party_slot, (monster_info)->ubDisposition) !=
-            disposition_needed) {
-            continue;
-        }
-        if (MonsterAttackReachesCharacter(monster_info, record, attack, party_slot)) {
-            return true;
-        }
-    }
-
-    count = CurrentLevelPopulation().monster_roster.live().size();
-    for (index = 0; index < count; ++index) {
-        other = GetMonsterListEntry(index);
-        if (other != monster_info && other->fActive && other->pCombat && other->hp_current != 0 &&
-            other->highest_condition < W8_CONDITION_DEAD &&
-            MonsterHostility(CurrentGame().data, *monster_info, *other) == disposition_needed &&
-            MonsterAttackReachesMonster(monster_info, record, attack, other)) {
-            return true;
-        }
-        count = CurrentLevelPopulation().monster_roster.live().size();
-    }
-    return false;
-}
-
-static int GetMonsterActionSightIndex(W8MonsterInfo* monster_info, unsigned int attack)
-{
-    if (monster_info->action_kind == W8_MONSTER_ACTION_ATTACK) {
-        const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
+    switch (action) {
+    case W8_MONSTER_ACTION_ATTACK:
         return RangeCategoryUsesSightCondition(
-            monster_info, static_cast<W8RangeCategory>(record->attacks[attack].range_category));
+            &monster, static_cast<W8RangeCategory>(record.attacks[attack].range_category));
+    case W8_MONSTER_ACTION_SPELL:
+        return 2u + monster.has_spell_origin;
+    case W8_MONSTER_ACTION_SPECIAL_ATTACK:
+        return 2;
+    default:
+        return 0;
     }
-    if (monster_info->action_kind == W8_MONSTER_ACTION_SPELL) {
-        return GetMonsterSpellSightIndex(monster_info);
-    }
-    return monster_info->action_kind == W8_MONSTER_ACTION_SPECIAL_ATTACK ? 2 : 0;
 }
 
-static W8RangeCategory GetMonsterPartyTargetRange(W8MonsterInfo* monster_info,
-                                                  const W8MonsterRecord* record,
-                                                  unsigned int attack, int party_slot)
+W8RangeCategory ActionRange(const GameData& data, const W8MonsterInfo& monster,
+                            const W8MonsterRecord& record, unsigned int attack,
+                            W8MonsterActionKind action)
 {
-    int sight_index;
-    W8RangeCategory range;
-
-    if (monster_info->player_visibility.sight_state != W8_SIGHT_SEEN) {
+    switch (action) {
+    case W8_MONSTER_ACTION_ATTACK:
+        assert(attack < W8_MAX_MONSTER_ATTACKS);
+        assert(record.attacks[attack].fHasAttack != 0);
+        return MonsterAttackRange(monster, record, attack);
+    case W8_MONSTER_ACTION_SPELL:
+        return data.spells[monster.action_detail].range_category;
+    case W8_MONSTER_ACTION_SPECIAL_ATTACK:
+        return W8_RANGE_LONG;
+    case W8_MONSTER_ACTION_PROTECT:
+        return W8_RANGE_TOUCH;
+    default:
         return W8_RANGE_NONE;
     }
-
-    sight_index = GetMonsterActionSightIndex(monster_info, attack);
-    if (!monster_info->player_visibility.los_flags[sight_index]) {
-        return W8_RANGE_NONE;
-    }
-
-    range = GetMonsterActionRangeCategory(monster_info, record, attack);
-    if (range == W8_RANGE_NONE) {
-        return W8_RANGE_NONE;
-    }
-    if (CurrentGame().combat)
-        range =
-            ShortenFormationReach(range, BlockingFormationRows(CurrentGame().party, party_slot,
-                                                               GetMonsterQuadrant(monster_info)));
-    if (range == W8_RANGE_NONE) {
-        return W8_RANGE_NONE;
-    }
-
-    return range;
+}
 }
 
-/* Whether the monster's attack `attack` reaches the character in `party_slot`,
-   given what it can see and how far away they stand. Combat mode shortens
-   touch/short reach by CountRowsBetween. */
-bool MonsterAttackReachesCharacter(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                                   unsigned int attack, int party_slot)
+bool Game::monsterReachesPartyMember(const W8MonsterInfo& monster, unsigned int attack, int slot,
+                                     W8MonsterActionKind action) const
 {
-    W8RangeCategory range = GetMonsterPartyTargetRange(monster_info, record, attack, party_slot);
-    if (range == W8_RANGE_NONE) {
+    if (monster.player_visibility.sight_state != W8_SIGHT_SEEN) return false;
+    const auto& record = data.monsters[monster.monster_species];
+    if (!monster.player_visibility.los_flags[MonsterActionSight(monster, record, attack, action)])
         return false;
-    }
-
-    float distance = CalcRangeDistance(range);
-    if (monster_info->entity->GetDistanceToPlayer() <= distance) {
-        return true;
-    }
-    return false;
+    auto range = ActionRange(data, monster, record, attack, action);
+    if (range == W8_RANGE_NONE) return false;
+    if (combat)
+        range = ShortenFormationReach(range,
+                                      BlockingFormationRows(party, slot, monsterQuadrant(monster)));
+    return range != W8_RANGE_NONE &&
+           monster.entity->GetDistanceToPlayer() <= CalcRangeDistance(range);
 }
 
-/* Whether the monster's attack `attack` reaches another monster. Untargetable
-   attackers never reach; the same monster always does. Sight comes from the
-   mon-to-mon visibility row rather than the party record. */
-bool MonsterAttackReachesMonster(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                                 unsigned int attack, W8MonsterInfo* target)
+bool W8MonsterInfo::reaches(const W8MonsterInfo& target, const GameData& data, unsigned int attack,
+                            W8MonsterActionKind action) const
 {
-    W8VisibilityRecord* visibility;
-    int sight_index;
-    W8RangeCategory range;
-
-    if (record->untargetable != 0) {
+    const auto& record = data.monsters[monster_species];
+    if (record.untargetable != 0) return false;
+    if (&target == this) return true;
+    if (!monster_visibility) return false;
+    const auto found = monster_visibility->find(target.location_id);
+    if (found == monster_visibility->end()) return false;
+    const auto& visibility = found->second;
+    if (visibility.sight_state != W8_SIGHT_SEEN ||
+        !visibility.los_flags[MonsterActionSight(*this, record, attack, action)])
         return false;
-    }
-    if (target == monster_info) {
-        return true;
-    }
-    visibility = FindMonToMonVisibility(monster_info, target);
-    if (visibility == 0) {
-        return false;
-    }
-    if (visibility->sight_state != W8_SIGHT_SEEN) {
-        return false;
-    }
-
-    sight_index = GetMonsterActionSightIndex(monster_info, attack);
-    if (!visibility->los_flags[sight_index]) {
-        return false;
-    }
-
-    range = GetMonsterActionRangeCategory(monster_info, record, attack);
-    if (range == W8_RANGE_NONE) {
-        return false;
-    }
-
-    float distance = CalcRangeDistance(range);
-    if (monster_info->entity->GetDistanceToMonster(*target->entity) <= distance) {
-        return true;
-    }
-    return false;
+    const auto range = ActionRange(data, *this, record, attack, action);
+    return range != W8_RANGE_NONE &&
+           entity->GetDistanceToMonster(*target.entity) <= CalcRangeDistance(range);
 }
 
 /* The furthest range category among a monster's three attacks. Asking for the
@@ -396,25 +307,10 @@ W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
 /* The range category one monster action works at. A spell takes the range off
    the spell record; two of the actions have a fixed answer and the rest have
    none. A plain attack takes it from the attack itself, which has to exist. */
-W8RangeCategory GetMonsterActionRangeCategory(const W8MonsterInfo* monster_info,
-                                              const W8MonsterRecord* record, unsigned int attack)
+W8RangeCategory MonsterActionRange(const GameData& data, const W8MonsterInfo& monster,
+                                   const W8MonsterRecord& record, unsigned int attack)
 {
-    switch (monster_info->action_kind) {
-    case W8_MONSTER_ACTION_ATTACK:
-        break;
-    case W8_MONSTER_ACTION_SPELL:
-        return Data().spells[monster_info->action_detail].range_category;
-    case W8_MONSTER_ACTION_SPECIAL_ATTACK:
-        return W8_RANGE_LONG;
-    case W8_MONSTER_ACTION_PROTECT:
-        return W8_RANGE_TOUCH;
-    default:
-        return W8_RANGE_NONE;
-    }
-
-    assert(attack < W8_MAX_MONSTER_ATTACKS);
-    assert(record->attacks[attack].fHasAttack != 0);
-    return MonsterAttackRange(*monster_info, *record, attack);
+    return ActionRange(data, monster, record, attack, monster.action_kind);
 }
 
 /* How far a range category actually is. The four categories step 2, 4, 25, 50
@@ -615,32 +511,22 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out,
    carries: its own line of sight has to hold for a character or the party, the
    target monster has to be reachable, and a group target is checked against
    every member. */
-bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                                unsigned int attack, W8CombatSlot* target)
+bool MonsterActionReachesTarget(W8MonsterInfo* monster_info, unsigned int attack,
+                                W8CombatSlot* target)
 {
-    W8RangeCategory range;
 
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
         int party_slot = target->iChar;
-        range = GetMonsterPartyTargetRange(monster_info, record, attack, party_slot);
-        if (range == W8_RANGE_NONE) {
-            return false;
-        }
-        if (CalcRangeDistance(range) < monster_info->entity->GetDistanceToPlayer()) {
-            return false;
-        }
+        return CurrentGame().monsterReachesPartyMember(*monster_info, attack, party_slot,
+                                                       monster_info->action_kind);
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
         W8MonsterInfo* target_monster = FindMonster(target->iMonsterID);
-        return MonsterAttackReachesMonster(monster_info, record, attack, target_monster);
+        return monster_info->reaches(*target_monster, CurrentGame().data, attack,
+                                     monster_info->action_kind);
     } else if (target->iType == W8_TARGET_KIND_PARTY) {
         int party_slot = CurrentGame().party.randomSlot(CurrentGame().rng, 1, 1, -1, -1);
-        range = GetMonsterPartyTargetRange(monster_info, record, attack, party_slot);
-        if (range == W8_RANGE_NONE) {
-            return false;
-        }
-        if (CalcRangeDistance(range) < monster_info->entity->GetDistanceToPlayer()) {
-            return false;
-        }
+        return CurrentGame().monsterReachesPartyMember(*monster_info, attack, party_slot,
+                                                       monster_info->action_kind);
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
         W8TargetSource source;
         SetTargetSourceToMonster(monster_info, &source);
@@ -695,8 +581,7 @@ bool SourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target, con
     }
     if (TargetSourceIsMonster(source, 0)) {
         W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);
-        const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-        return MonsterActionReachesTarget(monster_info, record, 0, target);
+        return MonsterActionReachesTarget(monster_info, 0, target);
     }
     return true;
 }

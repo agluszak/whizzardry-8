@@ -610,7 +610,7 @@ bool IsTargetSourceInRangeOfGroup(const W8TargetSource* source, W8MonsterGroup* 
         source_monster = GetMonsterByLocationID(source->iMonsterID);
         if (!source_monster) return false;
         record = GetMonsterDataForInfo(monster_info);
-        range = GetMonsterActionRangeCategory(monster_info, record, 0);
+        range = MonsterActionRange(CurrentGame().data, *monster_info, *record, 0);
     }
     max_distance = CalcRangeDistance(range);
     for (index = 0; index < group->MemberIds().size(); ++index) {

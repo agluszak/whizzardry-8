@@ -521,7 +521,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
         }
         if (monster_info->pCombat->berserk) {
             monster_info->action_kind = W8_MONSTER_ACTION_ATTACK;
-            if (!ChooseRandomMonsterAction(monster_info, true, false, berserked)) {
+            if (!CurrentGame().chooseMonsterAction(*monster_info, true, false, berserked)) {
                 monster_info->action_kind = W8_MONSTER_ACTION_NONE;
             }
         }

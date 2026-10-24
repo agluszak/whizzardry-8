@@ -485,12 +485,6 @@ void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info)
     monster->visual.damage_stage = std::min(value, count - 1);
 }
 
-int GetMonsterQuadrant(W8MonsterInfo* monster_info)
-{
-    assert(monster_info != 0);
-    return GetQuadrantForPosition(monster_info->entity->nav.GetPosition());
-}
-
 void ProcessMonstersAtCombatEnd(bool forced_cleanup)
 {
     unsigned int index;

@@ -219,15 +219,16 @@ int ActionSpell(const Game& game, const W8Action& action)
     return game.data.items[item->iItemNo].spell_id;
 }
 
-int MonsterQuadrant(const Game& game, const W8MonsterInfo& monster)
+}
+
+int Game::monsterQuadrant(const W8MonsterInfo& monster) const
 {
-    const auto eye = game.level.loaded().party.eye();
+    const auto eye = level.loaded().party.eye();
     const auto position = monster.entity->nav.GetPosition();
     int bearing = static_cast<int>(NormalizeAngle(GetHeadingAngle(&eye, &position)) * 57.295776f);
-    bearing -= game.status.party_facing;
+    bearing -= status.party_facing;
     if (bearing < 0) bearing += 360;
     return ((bearing + 45) % 360) / 90;
-}
 }
 
 W8RangeCategory Game::actionRange(unsigned int slot, unsigned int hand, const W8Action& action,
@@ -274,7 +275,7 @@ W8TargetAssessment Game::assessActionReach(unsigned int slot, unsigned int hand,
                           (action.kind > W8_ACTION_PROTECT && action.kind < W8_ACTION_EQUIP);
             if (combat && range >= W8_RANGE_TOUCH && range < W8_RANGE_LONG) {
                 range = ShortenFormationReach(
-                    range, BlockingFormationRows(party, slot, MonsterQuadrant(*this, *monster)));
+                    range, BlockingFormationRows(party, slot, monsterQuadrant(*monster)));
                 if (range == W8_RANGE_NONE) return {W8TargetFailure::OutOfRange};
             }
         }
@@ -370,7 +371,7 @@ std::optional<int> BestMonsterTarget(const Game& game, unsigned int slot, const 
         bool in_reach = false;
         if (GetBestMonsterAttackRange(&game.data.monsters[monster->monster_species], true) !=
             W8_RANGE_NONE) {
-            const int quadrant = MonsterQuadrant(game, *monster);
+            const int quadrant = game.monsterQuadrant(*monster);
             in_reach = quadrant == 2 || (!FormationRowOccupied(game.party, quadrant) &&
                                          FormationRowOccupied(game.party, 4));
         }

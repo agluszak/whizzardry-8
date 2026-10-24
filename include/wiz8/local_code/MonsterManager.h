@@ -265,6 +265,8 @@ using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
 /* A live monster. Saves store it as wiz8::retail::MonsterInfo. */
 struct W8MonsterInfo {
     void configureBody(Rng& rng, bool level_visited);
+    bool reaches(const W8MonsterInfo& target, const GameData& data, unsigned int attack,
+                 W8MonsterActionKind action) const;
     void setMotionless(bool motionless);
     void startCycle(int cycle, W8AnimationBehaviour behavior);
     void clearEffect(W8EffectSlot& effect, const W8MonsterRecord& record);
@@ -400,7 +402,6 @@ Monster* GetMonsterByLocationID(int location_id);
 float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info);
 void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info);
 
-int GetMonsterQuadrant(W8MonsterInfo* monster_info);
 void ProcessMonstersAtCombatEnd(bool forced_cleanup);
 W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species);
 void DestroyUngroupedMonsters(void);
