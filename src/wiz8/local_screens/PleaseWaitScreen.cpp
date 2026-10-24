@@ -37,6 +37,7 @@
 #include "wiz8/screen.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
+#include "wiz8/world_view.h"
 
 namespace {
 class PleaseWaitScreen final : public Screen {
@@ -154,8 +155,8 @@ void PleaseWaitScreen::frame()
     }
 
     draw();
-    RenderFrame();
-    RenderFrame();
+    PresentGameFrame(games.game());
+    PresentGameFrame(games.game());
     DisableCursorScene();
 
     switch (mode) {
@@ -236,7 +237,7 @@ void PleaseWaitScreen::animate()
         entered_tick = tick;
         CatalogArtwork::Load(0x1dd, 0).drawAndInvalidate(GetFrameBufferSurface(), caption_y, 0,
                                                          0x185);
-        RenderFrame();
+        PresentGameFrame(games.game());
     }
 }
 

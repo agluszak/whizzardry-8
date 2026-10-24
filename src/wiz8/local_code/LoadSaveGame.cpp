@@ -106,6 +106,7 @@
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
+#include "wiz8/world_view.h"
 
 bool g_save_pending;
 
@@ -928,7 +929,7 @@ void FillCurrentSaveSlot(W8SaveSlot& slot)
     slot.iron_man = CurrentGame().status.iron_man;
     const auto now = wiz8::current_local_time();
     slot.timestamp = now;
-    CaptureSaveScreenshot(slot.screenshot);
+    CaptureSaveScreenshot(CurrentGame(), slot.screenshot);
     slot.version_major = kCurrentSaveVersion.major;
     slot.version_minor = kCurrentSaveVersion.minor;
     slot.version_patch = kCurrentSaveVersion.patch;
@@ -1193,7 +1194,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
     });
     W8SaveScreenshot captured{};
     if (!screenshot) {
-        CaptureSaveScreenshot(captured);
+        CaptureSaveScreenshot(game, captured);
         screenshot = &captured;
     }
     chunks.WriteChunk(W8_CHUNK_SCREENSHOT, [&] { chunks.WriteValue(*screenshot); });
@@ -1641,7 +1642,7 @@ try {
 }
 
 /* Capture the world offscreen into the save's 80x60 ARGB1555 image. */
-void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
+void CaptureSaveScreenshot(Game& game, W8SaveScreenshot& screenshot)
 {
     screenshot.version = 1.0f;
     DesignRect rect;
@@ -1650,7 +1651,7 @@ void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
     rect.right = 640;
     rect.bottom = 480;
     auto surface = CreateCpuStorage(80, 60, SDL_PIXELFORMAT_ARGB1555, screenshot.pixels, 160);
-    screenshot.capture_result = RenderWorldToSurface(surface.get(), &rect)
+    screenshot.capture_result = CaptureGameView(game, *surface, rect)
                                     ? W8ScreenshotCaptureResult::succeeded
                                     : W8ScreenshotCaptureResult::failed;
 }

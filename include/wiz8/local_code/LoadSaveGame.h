@@ -13,6 +13,8 @@
 #include "wiz8/level_state.h"
 #include "wiz8/save_codec.h"
 
+class Game;
+
 bool VerifyDataSubdirs(void);
 std::optional<std::string> FindStartupQuickSave();
 int GetSaveGameLevel(std::string_view slot_name);
@@ -33,7 +35,7 @@ struct W8SaveSlot {
     unsigned int version_patch;
 };
 
-void CaptureSaveScreenshot(W8SaveScreenshot& screenshot);
+void CaptureSaveScreenshot(Game& game, W8SaveScreenshot& screenshot);
 void FillCurrentSaveSlot(W8SaveSlot& slot);
 bool EnumerateSaveSlots(std::vector<std::unique_ptr<W8SaveSlot>>& slots);
 
@@ -54,7 +56,6 @@ bool LoadCharacter(std::string_view name, W8Character* character, int slot);
 std::string BuildCharacterFilePath(std::string_view filename, int slot);
 std::string BuildCharacterPath(std::string_view name, int slot);
 bool SaveGameExists(void);
-class Game;
 /* A save's game sections, decoded and checked. A repeated section keeps its last record
    (a character, the last under its name) or, for location variables and monster control,
    accumulates; a missing one leaves the new game's default. */

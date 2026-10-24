@@ -39,6 +39,7 @@
 #include "wiz8/entities/script.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/level_population.h"
@@ -64,6 +65,7 @@
 #include "wiz8/unicode.h"
 #include "wiz8/world/automap.h"
 #include "wiz8/world/world.h"
+#include "wiz8/world_view.h"
 
 namespace {
 // UTF-16 units a note's text and its trailing cursor marker may take.
@@ -148,8 +150,9 @@ void ScaleMarker(OverlayQuad* marker, float factor)
 
 } // namespace
 
-AutomapScreen::AutomapScreen(World& world)
-    : m_world(world), m_automap(world.automap), m_grid(m_automap.grid())
+AutomapScreen::AutomapScreen(Game& game)
+    : m_game(game), m_world(game.level.loaded()), m_automap(m_world.automap),
+      m_grid(m_automap.grid())
 {
 }
 
@@ -352,8 +355,8 @@ bool AutomapScreen::enter(const ScreenRequest&)
         }
     }
     ResetTransientRenderScenes();
-    RenderFrame();
-    RenderFrame();
+    PresentGameFrame(&m_game);
+    PresentGameFrame(&m_game);
     EnableCursorScene();
     SetScaledViewport(kViewport);
     UpdateBounds();
@@ -611,7 +614,7 @@ void AutomapScreen::Present()
             const double half = view().zoom * 0.5f;
             camera.setViewPlane(Camera3D::Rect{-half, -half, half, half}, m_near_clip);
             camera.setClipRange(m_near_clip, 1500000.0);
-            RenderMapToSurface(*m_surface, *m_world.scene, kViewport);
+            RenderMapToSurface(*m_surface, *m_world.scene, GameSceneFrame(&m_game), kViewport);
             m_overlay_redraw = false;
         }
         SDL_BlitSurface(m_surface.get(), &kViewportRegion, &GetFrameBufferSurface(),
@@ -622,7 +625,7 @@ void AutomapScreen::Present()
     }
     for (auto& button : m_buttons->buttons)
         if (button) button->Draw(GetFrameBufferSurface());
-    RenderFrame();
+    PresentGameFrame(&m_game);
 }
 
 void AutomapScreen::UpdatePageButtons()

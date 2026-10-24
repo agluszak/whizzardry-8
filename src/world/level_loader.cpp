@@ -125,11 +125,6 @@ static_assert(sizeof(W8LevelLightRecord) == 40);
 
 } // namespace
 
-glm::vec3 CurrentEnvironmentOffset()
-{
-    return GetWorld() ? GetWorld()->environment.offset : glm::vec3(0.0f);
-}
-
 void AssociateWorldLights(World* world)
 {
     for (const auto& owned : world->transient_lights) {

@@ -99,6 +99,7 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
+#include "wiz8/world_view.h"
 
 struct W8NpcState;
 
@@ -830,7 +831,7 @@ void CampScreen::DrawCampScreen(void)
 done:
     RedrawPortraitQuoteBubbles();
     if (auto* dialog = dialogs.open()) dialog->RefreshModal();
-    RenderFrame();
+    PresentGameFrame(&game);
 }
 
 void CampScreen::SyncReviewCharInputRegion(void)
@@ -1161,8 +1162,8 @@ unsigned char UpdateScreenFade(void)
         MainGameHud()->screen_fade_running = false;
         if (g_fade_out == 0) {
             g_fade_overlay->color.a = 1.0f;
-            RenderFrame();
-            RenderFrame();
+            PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
+            PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
         }
         g_fade_overlay.reset();
         SetFullscreenSceneLast(0);
@@ -1179,7 +1180,7 @@ unsigned char UpdateScreenFade(void)
         material->color.a = 1.0f - progress;
     }
     if (g_fade_flag != 0) {
-        RenderFrame();
+        PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
     }
     return g_fade_flag;
 }
@@ -1245,7 +1246,7 @@ void PumpReviewTransition(void)
     if (exit_review) {
         BeginScreenFade(0, 0, 0x320, EndReviewTransition, true, 1);
     }
-    RenderFrame();
+    PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
 }
 
 /* Fade-completion callback for party death: draw the review backdrop and

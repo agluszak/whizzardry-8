@@ -9,8 +9,6 @@
 #include "wiz8/render/material_loader.h"
 #include "wiz8/retail_geometry_types.h"
 
-glm::vec3 CurrentEnvironmentOffset();
-
 namespace wiz8 {
 class File;
 }

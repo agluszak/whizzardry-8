@@ -99,8 +99,14 @@ def check_includes():
                 problems.append(f'{relative}: gameplay may not include "{match.group(2)}"')
     # Picking interpretation belongs to interaction code, never frame rendering.
     frame = ROOT / 'src/render/frame.cpp'
-    if re.search(r'\bacceptPick\s*\(|->picked\b', frame.read_text(encoding='utf-8')):
+    source = frame.read_text(encoding='utf-8')
+    if re.search(r'\bacceptPick\s*\(|->picked\b', source):
         problems.append('src/render/frame.cpp: rendering may not commit gameplay selections')
+    if re.search(r'\b(CurrentGame|GameInProgress|GetWorld|GetSecondaryWorld)\s*\(', source):
+        problems.append('src/render/frame.cpp: frame inputs must be explicit')
+    for match in INCLUDE.finditer(source):
+        if match.group(2) in ('wiz8/game.h', 'wiz8/world/world.h', 'wiz8/world_view.h'):
+            problems.append('src/render/frame.cpp: scene submission may not depend on gameplay')
     return problems
 
 

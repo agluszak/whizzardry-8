@@ -7,12 +7,14 @@
 #include "wiz8/application.h"
 #include "wiz8/canvas/himage.h"
 #include "wiz8/catalog_artwork.h"
+#include "wiz8/game.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
+#include "wiz8/world_view.h"
 
 void RequestExitScreen(void)
 {
@@ -38,7 +40,7 @@ public:
 
     void frame() override
     {
-        RenderFrame();
+        PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
         PumpUiInput({
             .unhandled =
                 [](const InputEvent& input) {
@@ -55,8 +57,8 @@ public:
         DisableCursorScene();
         ClearPrimarySurface();
         ResetTransientRenderScenes();
-        RenderFrame();
-        RenderFrame();
+        PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
+        PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
     }
 
     bool leave(ScreenDeparture) override

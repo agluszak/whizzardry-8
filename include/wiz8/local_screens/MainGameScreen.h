@@ -106,6 +106,7 @@ struct MainGameScreen final : Screen {
 
     // The game this main game belongs to; it is discarded before the game ends.
     Game& game;
+    bool world_pick_enabled = true;
     std::unique_ptr<KeyboardActionMenu> keyboard_menu;
     // The radar map panel, present exactly while the applied layout shows it.
     std::unique_ptr<RadarMap> radar_map;

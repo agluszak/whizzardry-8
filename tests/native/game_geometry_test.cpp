@@ -73,6 +73,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -119,6 +120,7 @@
 #include "wiz8/world/party_motion.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
+#include "wiz8/world_view.h"
 
 static bool close(const glm::vec3& actual, const glm::vec3& expected, float tolerance = 1e-4f)
 {
@@ -1039,7 +1041,7 @@ TEST_CASE("Viewport bounds normalize each edge into an independent value", "[geo
     REQUIRE(scaled.y == 22);
     REQUIRE(scaled.w == 743);
     REQUIRE(scaled.h == 540);
-    SetViewport({23, 18, 618, 451});
+    SetWorldViewport(GameInProgress() ? &CurrentGame() : nullptr, {23, 18, 618, 451});
     REQUIRE(g_viewport == DesignRect{23, 18, 618, 451});
     g_viewport = {80, 60, 560, 420};
     const auto bounds = GetScaledViewportBounds();

@@ -44,6 +44,7 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world_view.h"
 
 namespace {
 enum JournalAction { Previous, Next, Mode, Close };
@@ -334,7 +335,7 @@ bool JournalScreen::enter(const ScreenRequest&)
 {
     int maximum_visibility;
 
-    SetViewport({0, 0, 0x281, 0x1e1});
+    SetWorldViewport(GameInProgress() ? &CurrentGame() : nullptr, {0, 0, 0x281, 0x1e1});
     SetUiCanvasAlphaTestEnabled(false);
     ScreenPointer().reset();
     m_font = g_journal_font;
@@ -395,7 +396,7 @@ void JournalScreen::frame()
         return InputRoute::Handled;
     }});
     Draw(GetFrameBufferSurface());
-    RenderFrame();
+    PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
 }
 
 std::unique_ptr<Screen> CreateJournalScreen()

@@ -31,6 +31,7 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 #include "wiz8/version.h"
+#include "wiz8/world_view.h"
 
 std::string g_pending_main_menu_message;
 
@@ -147,7 +148,7 @@ bool MainMenuScreen::enter(const ScreenRequest&)
     const unsigned short colour = Get16BPPColor(SDL_Color{1, 1, 1, SDL_ALPHA_OPAQUE});
     const SDL_Rect bounds{0, 0, 0x280, 0x1e0};
     SDL_FillSurfaceRect(&GetFrameBufferSurface(), &bounds, colour);
-    SetViewport({0, 0, 0x281, 0x1e1});
+    SetWorldViewport(games_.game(), {0, 0, 0x281, 0x1e1});
     selected_item_ = 0;
     CatalogArtwork::Load(0xe8, 0).draw(GetFrameBufferSurface(), 0, 0, 0);
 
@@ -241,7 +242,7 @@ void MainMenuScreen::frame()
         ResetTransientRenderScenes();
         redraw_ = false;
     }
-    RenderFrame();
+    PresentGameFrame(games_.game());
 }
 
 bool MainMenuScreen::leave(ScreenDeparture)

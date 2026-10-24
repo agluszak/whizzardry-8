@@ -78,6 +78,7 @@
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
+#include "wiz8/world_view.h"
 
 namespace {
 
@@ -387,17 +388,27 @@ void CheckWorldRender(GameHarness& game)
     const auto accepted_position = world->picked.intersection.position;
     // The same scene and UI with only the world pass switched off is the control.
     REQUIRE((g_world_render_enabled && !g_world_blacked_out));
-    REQUIRE(RenderFrame().has_value());
+    REQUIRE(PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr).has_value());
     REQUIRE(world->picked.intersection.position == accepted_position);
     const unsigned polygons = world->scene->submitted_polygons;
     const auto visible = game.read_frame();
     g_world_render_enabled = 0;
-    const auto unrendered_world = RenderFrame();
+    const auto unrendered_world = PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
     REQUIRE(unrendered_world.has_value());
     REQUIRE_FALSE(unrendered_world->hit);
     REQUIRE(world->picked.intersection.position == accepted_position);
     const auto control = game.read_frame();
     g_world_render_enabled = 1;
+    world->scene->submitted_polygons = 0;
+    const auto empty_view = RenderFrame(FrameView{});
+    REQUIRE(empty_view.has_value());
+    REQUIRE_FALSE(empty_view->hit);
+    REQUIRE(world->scene->submitted_polygons == 0); // No current-world fallback.
+    REQUIRE(world->picked.intersection.position == accepted_position);
+    REQUIRE(BeginVideoPresentation());
+    const auto skipped = RenderFrame(FrameView{});
+    REQUIRE(FinishVideoPresentation());
+    REQUIRE_FALSE(skipped); // The movie owns presentation, not a rendered miss.
     world->picked = previous_selection;
 
     Snapshot("world", visible);
@@ -465,6 +476,22 @@ void CheckTwoWorldViews(GameHarness& game)
     // adjacent byte even with identical geometry and camera matrices.
     REQUIRE(max_channel_difference <= 1);
     REQUIRE(colored > SCREEN_WIDTH * SCREEN_HEIGHT / 16);
+    const auto simulation_time = CurrentGame().time;
+    const auto visual_time = CurrentGame().visual_time;
+    auto expected_rng = CurrentGame().rng;
+    expected_rng.trace(nullptr);
+    const auto selection = GetWorld()->picked.intersection.position;
+    REQUIRE(RenderFrame(FrameView{.world = &scene,
+                                  .camera = GetWorld()->camera,
+                                  .frame = GameSceneFrame(&CurrentGame())})
+                .has_value());
+    REQUIRE(scene.submitted_polygons > 0);
+    REQUIRE(CurrentGame().time == simulation_time);
+    REQUIRE(CurrentGame().visual_time == visual_time);
+    REQUIRE(GetWorld()->picked.intersection.position == selection);
+    auto actual_rng = CurrentGame().rng;
+    actual_rng.trace(nullptr);
+    REQUIRE(actual_rng.next() == expected_rng.next());
     for (const auto& saved : particles) {
         REQUIRE(std::ranges::count(saved.system->particles, true,
                                    &ParticleSystem::Particle::active) == saved.active);
@@ -874,7 +901,7 @@ void ResourceLifecycleScenario()
         REQUIRE(linked > 0);
         REQUIRE(animated > 0);
         for (int frame = 0; frame != 4; ++frame) game.frame();
-        RenderFrame();
+        PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
         REQUIRE(world->scene->submitted_polygons > 0);
         game.command(W8_MGS_COMMAND_QUICK_LOAD);
         bool loading = false;
@@ -887,7 +914,7 @@ void ResourceLifecycleScenario()
         REQUIRE(GetWorld()->native_objects.size() == 1);
         ExpectAt("reloaded-position", anchor);
     }
-    RenderFrame();
+    PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
     REQUIRE(GetWorld()->scene->submitted_polygons > 0);
 }
 

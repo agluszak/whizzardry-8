@@ -18,12 +18,14 @@
 #include "wiz8/checked_integer.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
+#include "wiz8/game.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
 #include "wiz8/unicode.h"
+#include "wiz8/world_view.h"
 
 namespace {
 class CreditsScreen final : public Screen {
@@ -70,7 +72,7 @@ try {
     std::unique_ptr<wiz8::File> handle;
     std::string line;
 
-    SetViewport({0, 0, 0x281, 0x1e1});
+    SetWorldViewport(GameInProgress() ? &CurrentGame() : nullptr, {0, 0, 0x281, 0x1e1});
     DisableCursorScene();
     std::vector<W8CreditLine> pending;
 
@@ -195,7 +197,7 @@ void CreditsScreen::frame()
     }
     ResetTransientRenderScenes();
     redraw_ = false;
-    RenderFrame();
+    PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
 }
 
 std::unique_ptr<Screen> CreateCreditsScreen()

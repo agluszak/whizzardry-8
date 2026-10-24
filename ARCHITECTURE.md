@@ -377,9 +377,14 @@ code has a subclass whose members are that state. Trigger callbacks are
   SPIR-V. VSG uses Vulkan (MoltenVK on macOS).
 - `RenderFrame` returns the raw intersection (or a miss) without changing the world's
   accepted selection. The main screen applies it using the current combat context.
-  Rendering auxiliary views cannot replace the interaction's accepted pick. Scene-frame
-  composition still queries current world/time state; full explicit render inputs remain
-  migration work.
+  Rendering auxiliary views cannot replace the interaction's accepted pick. Frame
+  submission receives a `FrameView` of explicit scenes, cameras, frame values and
+  background, plus an optional normalized pick request. An empty view never falls
+  back to the installed game. `world_view.cpp` composes these inputs from the game
+  supplied by presentation; the main screen owns whether it requests picking.
+  Screenshots use a steady view and do not advance clocks. The automap borrows its
+  game and level together, so its world, clock and lighting inputs agree. The layer
+  checker prevents frame submission from reacquiring gameplay headers or lookups.
 - `endFrame` waits for submitted work: graph mutations and object destruction
   happen on the game thread between completed frames.
 - The UI is drawn on a fixed ARGB1555 CPU canvas and published to a dynamic VSG

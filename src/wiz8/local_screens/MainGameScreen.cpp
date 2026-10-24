@@ -160,6 +160,7 @@
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
+#include "wiz8/world_view.h"
 
 struct SDL_Surface;
 
@@ -2522,15 +2523,9 @@ void MainGameScreen::frame()
         if (game.activity.conversation) ServiceNpcDialogue();
         if (IsLockInteractionActive()) ProcessLockInteractMode();
         if (IsTrapInteractionActive()) UpdateTrapInteraction();
-        int active;
-        if (!AnyPropTriggerInView() && !AnyMonsterVisible() && !AnyWorldItemVisible() &&
-            !SelectWorldCursorNode()) {
-            active = 0;
-        } else {
-            active = 1;
-        }
-        SetWorldModelPickingEnabled(active);
-        if (!active) game.level.loaded().acceptPick({}, game.combat.has_value());
+        world_pick_enabled = AnyPropTriggerInView() || AnyMonsterVisible() ||
+                             AnyWorldItemVisible() || SelectWorldCursorNode();
+        if (!world_pick_enabled) game.level.loaded().acceptPick({}, game.combat.has_value());
         if (game.level_up_check_due && !game.activity.conversation && !game.combat.has_value()) {
             RefreshLevelUpReadyNotices();
         }
@@ -2948,7 +2943,7 @@ void MainGameScreen::draw(const W8TargetingPresentation& presentation)
         if (MainGame()->radar_map) {
             MainGame()->radar_map->captureBackdrop();
         }
-        if (auto pick = RenderFrame())
+        if (auto pick = PresentGameFrame(&game, world_pick_enabled))
             game.level.loaded().acceptPick(std::move(*pick), game.combat.has_value());
     }
 }
@@ -4112,7 +4107,7 @@ void MainGameScreen::refreshLayout()
             const auto& rect = g_viewport_modes[static_cast<unsigned int>(layout.viewport)];
             world_view->setShape(
                 SDL_Rect{rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top});
-            SetViewport({rect.left, rect.top, rect.right + 1, rect.bottom + 1});
+            SetWorldViewport(&game, {rect.left, rect.top, rect.right + 1, rect.bottom + 1});
             partyCamera().bottom_panel_view =
                 layout.viewport == W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL ||
                 layout.viewport == W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL;

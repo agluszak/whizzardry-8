@@ -63,6 +63,7 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
+#include "wiz8/world_view.h"
 
 /* Shared zero-initialized wide string: binary-wide DATA references read it as
    empty text and as a sprintf format argument. No recovered writer exists. */
@@ -1626,7 +1627,7 @@ bool OptionsScreen::enter(const ScreenRequest& request)
     int selected;
     const W8OptionsMode mode = std::get<W8OptionsMode>(request.mode);
 
-    SetViewport({0, 0, 0x281, 0x1e1});
+    SetWorldViewport(GameInProgress() ? &CurrentGame() : nullptr, {0, 0, 0x281, 0x1e1});
     SetUiCanvasAlphaTestEnabled(false);
     ScreenPointer().reset();
     g_wiz_text_font_secondary.resetPalette();
@@ -1699,7 +1700,7 @@ void OptionsScreen::frame()
                 },
         });
     Redraw();
-    RenderFrame();
+    PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
 }
 std::string_view GetLastSaveName(void)
 {
