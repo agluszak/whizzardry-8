@@ -676,7 +676,7 @@ void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announc
    enemy, the disposition check decides whether being hit makes them one. */
 void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* attacker, bool quiet)
 {
-    StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
+    monster_info->startCycle(W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
 
     if (monster_info->uiCondition[W8_CONDITION_ASLEEP] != 0 && !quiet &&
         CurrentGame().rng.below(100) <

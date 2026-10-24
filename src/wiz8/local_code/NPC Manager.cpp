@@ -1442,7 +1442,7 @@ void UpdateNpcEvents(void)
         group = FindFirstMonsterByID(0x1b6);
         if (group != 0) {
             monster_info = FindMonster(group->leader_location_id);
-            StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_LASH, W8_ANIMATION_PLAY_ONCE);
+            monster_info->startCycle(W8_MONSTER_CYCLE_ATTACK_LASH, W8_ANIMATION_PLAY_ONCE);
             monster_info->entity->SetCycleCallback(0x10, TriggerBelaVoice);
         }
         CurrentGame().status.bela_cycle_tick = 0;

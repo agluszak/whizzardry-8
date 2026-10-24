@@ -125,7 +125,7 @@ bool StartMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8MonsterRecor
         AimMonsterBreathAtTarget(monster_info);
     }
     monster_info->pCombat->special_ready = false;
-    StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL, W8_ANIMATION_PLAY_ONCE);
+    monster_info->startCycle(W8_MONSTER_CYCLE_ATTACK_SPECIAL, W8_ANIMATION_PLAY_ONCE);
     if (g_settings.verbose_combat_messages) {
         CurrentGame().events.push(TextNotice{
             9,
@@ -655,7 +655,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
             monster_info->spell_power_level = power;
             OrientMonsterTowardTarget(monster_info, false);
             monster_info->fSpellReleased = false;
-            StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_SPELL, W8_ANIMATION_PLAY_ONCE);
+            monster_info->startCycle(W8_MONSTER_CYCLE_SPELL, W8_ANIMATION_PLAY_ONCE);
             result = 1;
             break;
         }

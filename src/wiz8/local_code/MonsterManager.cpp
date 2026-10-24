@@ -92,9 +92,6 @@
 
 const float g_monster_record_float_scale = 20.0f;
 
-/* The two cycles that always start regardless of the pending one: 0x14 is the
-   cycle a motionless monster is still allowed to enter, and 0x15 is death. */
-enum { W8_CYCLE_NONE = 0xff, W8_CYCLE_STOP = 0x14, W8_CYCLE_DEATH = 0x15 };
 /* The character array the alternate-name form indexes, and the slot it uses. */
 
 W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* record,
@@ -300,7 +297,7 @@ void ClearMonsterPathAndResume(W8MonsterInfo* monster_info)
     if (!monster_info->fMotionless) {
         result = monster_info->entity->Query(W8_MONSTER_QUERY_CYCLE);
         if (result != 1 && result != 2 && monster_info->entity->visual.pending_cycle == -1) {
-            StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_IDLE, W8_ANIMATION_NEVER_STOP);
+            monster_info->startCycle(W8_MONSTER_CYCLE_IDLE, W8_ANIMATION_NEVER_STOP);
         }
     }
 }
@@ -308,7 +305,7 @@ void ClearMonsterPathAndResume(W8MonsterInfo* monster_info)
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message)
 {
     if (!monster_info->entity->IsDying()) {
-        StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_DIE, W8_ANIMATION_PLAY_ONCE);
+        monster_info->startCycle(W8_MONSTER_CYCLE_DIE, W8_ANIMATION_PLAY_ONCE);
         DeactivateMonster(monster_info);
         RecordMonsterKill(monster_info, display_message);
         RemoveMonster(monster_info, W8MonsterRemoval::Deactivate);
@@ -592,29 +589,24 @@ void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState c
     CurrentGame().events.push(MonstersChanged{});
 }
 
-void MonsterInfoSetMotionless(W8MonsterInfo* monster_info, bool motionless)
+void W8MonsterInfo::setMotionless(bool motionless)
 {
-    bool previous = monster_info->fMotionless;
-    Monster& monster = *monster_info->entity;
-
-    monster_info->fMotionless = motionless;
+    const bool previous = fMotionless;
+    fMotionless = motionless;
     if (!motionless) {
         if (previous) {
-            monster.SetAnimating(true);
-            if (monster.visual.pending_cycle == -1) {
-                StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_IDLE, W8_ANIMATION_NEVER_STOP);
+            entity->SetAnimating(true);
+            if (entity->visual.pending_cycle == W8_MONSTER_CYCLE_NONE) {
+                startCycle(W8_MONSTER_CYCLE_IDLE, W8_ANIMATION_NEVER_STOP);
             }
         }
     } else if (!previous) {
-        signed char cycle_value = monster.visual.pending_cycle;
-
-        if (cycle_value != -1) {
-            if (cycle_value == 0x14) {
-                return;
-            }
-            monster.SetPendingCycle(-1);
+        const auto cycle = entity->visual.pending_cycle;
+        if (cycle != W8_MONSTER_CYCLE_NONE) {
+            if (cycle == W8_MONSTER_CYCLE_GET_HIT) return;
+            entity->SetPendingCycle(W8_MONSTER_CYCLE_NONE);
         }
-        monster.SetAnimating(false);
+        entity->SetAnimating(false);
     }
 }
 
@@ -689,7 +681,7 @@ static void TryStartMonsterCycle2(W8MonsterInfo* monster_info, W8MonsterCycle qu
                 unsigned int chance = group->MemberCount() * 20;
 
                 if (!CurrentGame().activity.conversation && CurrentGame().rng.below(chance) == 0) {
-                    StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_SPICE, W8_ANIMATION_PLAY_ONCE);
+                    monster_info->startCycle(W8_MONSTER_CYCLE_SPICE, W8_ANIMATION_PLAY_ONCE);
                 }
             }
         }
@@ -982,47 +974,33 @@ void ToggleCombatMode(void)
     CurrentGame().events.push(CombatCalledOff{});
 }
 
-/* Starts one animation cycle on a monster. Callers never request a NEVER_STOP
-   behaviour on an uninterruptable cycle, a new cycle while an uninterruptable
-   one is pending (a stop request is then ignored), or anything but stop, death
-   and cycle zero on a motionless monster.
-
-   The combat-mode query on the way in is made for its effect: its result is
-   discarded here. */
-// FUNCTION: WIZ8 0x004e4db0
-void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehaviour behavior)
+// A hit reaction may finish while immobilized; ordinary movement must wait.
+void W8MonsterInfo::startCycle(int cycle, W8AnimationBehaviour behavior)
 {
-    Monster& monster = *monster_info->entity;
-    unsigned char pending;
-
-    if (static_cast<signed char>(behavior) == W8_ANIMATION_NEVER_STOP &&
+    auto& monster = *entity;
+    if (behavior == W8_ANIMATION_NEVER_STOP &&
         !monster.IsCycleInterruptable(static_cast<signed char>(cycle))) {
         assert(false && "NEVER_STOP needs an interruptable cycle");
-    } else {
-        pending = monster.visual.pending_cycle;
-        if (CurrentGame().combat.has_value()) {
-            monster.Query(W8_MONSTER_QUERY_CYCLE);
-        }
-        if (pending != W8_CYCLE_STOP && pending != W8_CYCLE_NONE &&
-            !monster.IsCycleInterruptable(static_cast<signed char>(pending))) {
-            if (static_cast<signed char>(cycle) == W8_CYCLE_STOP) {
-                return;
-            }
-            assert(false && "an uninterruptable cycle is pending");
-            return;
-        }
-        if (static_cast<signed char>(cycle) == W8_CYCLE_STOP ||
-            static_cast<signed char>(cycle) == W8_CYCLE_DEATH ||
-            static_cast<signed char>(cycle) == 0 || !monster_info->fMotionless) {
-            monster.SetAnimating(true);
-            monster.SetRuntimeBehaviour(behavior);
-            monster.SetPendingCycle(cycle);
-            monster.visual.pending_subcycle = 0;
-            monster.visual.SubmitTargetValue();
-            return;
-        }
-        assert(false && "a motionless monster can only stop or die");
+        return;
     }
+    const auto pending = monster.visual.pending_cycle;
+    if (pending != W8_MONSTER_CYCLE_GET_HIT && pending != W8_MONSTER_CYCLE_NONE &&
+        !monster.IsCycleInterruptable(pending)) {
+        if (static_cast<signed char>(cycle) == W8_MONSTER_CYCLE_GET_HIT) return;
+        assert(false && "an uninterruptable cycle is pending");
+        return;
+    }
+    if (static_cast<signed char>(cycle) != W8_MONSTER_CYCLE_GET_HIT &&
+        static_cast<signed char>(cycle) != W8_MONSTER_CYCLE_DIE &&
+        static_cast<signed char>(cycle) != 0 && fMotionless) {
+        assert(false && "a motionless monster can only be born, react to a hit or die");
+        return;
+    }
+    monster.SetAnimating(true);
+    monster.SetRuntimeBehaviour(behavior);
+    monster.SetPendingCycle(cycle);
+    monster.visual.pending_subcycle = 0;
+    monster.visual.SubmitTargetValue();
 }
 
 /* Advance every live monster once. Removal is done in place, so each branch
@@ -1083,13 +1061,9 @@ void ProcessMonsterManagerFrame(void)
                         break;
                     default:
                         if (!monster_info->fMotionless) {
-                            /* pending_cycle is signed char; the rest of this
-                               unit and the representation compare the empty
-                               slot to -1. W8_CYCLE_NONE is 0xff as int 255,
-                               which a signed char never equals. */
-                            if (monster.visual.pending_cycle == -1) {
-                                StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_IDLE,
-                                                  W8_ANIMATION_NEVER_STOP);
+                            if (monster.visual.pending_cycle == W8_MONSTER_CYCLE_NONE) {
+                                monster_info->startCycle(W8_MONSTER_CYCLE_IDLE,
+                                                         W8_ANIMATION_NEVER_STOP);
                             }
                         } else if (monster.IsAnimating() != 0) {
                             monster.SetAnimating(false);

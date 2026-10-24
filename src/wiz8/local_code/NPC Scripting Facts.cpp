@@ -722,7 +722,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
                 monster_info->entity->visual.pending_cycle)) {
             return;
         }
-        StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
+        monster_info->startCycle(W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
         return;
     case W8_FACT_QUEST_SAVANT_BOMB_DEACTIVATED:
         npc = CurrentGame().story.npcOfKind(0x57);

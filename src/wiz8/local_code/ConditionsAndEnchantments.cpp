@@ -167,8 +167,7 @@ static void RefreshMonsterConditionState(W8MonsterInfo* monster_info)
     monster_info->highest_condition = static_cast<W8Condition>(slot);
     CurrentGame().events.push(MonstersChanged{});
     if (monster_info->fActive) {
-        MonsterInfoSetMotionless(monster_info,
-                                 monster_info->highest_condition < W8_CONDITION_WEBBED ? 0 : 1);
+        monster_info->setMotionless(monster_info->highest_condition >= W8_CONDITION_WEBBED);
     }
 }
 
@@ -270,7 +269,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
             fmt::format("{} {}!", name, Data().strings[kConditionNotices[condition].singular])});
     }
     if (monster_info->entity->IsCycleInterruptable(monster_info->entity->visual.pending_cycle)) {
-        StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
+        monster_info->startCycle(W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
     }
 }
 /* Clearing a monster's condition also re-derives its highest set condition

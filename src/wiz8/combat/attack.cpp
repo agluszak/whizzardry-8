@@ -1310,7 +1310,7 @@ void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_de
         monster_info->fMissileReleased = false;
     }
     ResetCombatSlot(&CurrentGame().combat->TargetHit);
-    StartMonsterCycle(monster_info, cycle, W8_ANIMATION_PLAY_ONCE);
+    monster_info->startCycle(cycle, W8_ANIMATION_PLAY_ONCE);
 }
 
 /* Release queued casualty notices and reset the attack result. */
@@ -1656,7 +1656,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
                 if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_MONSTER &&
                     target_info->entity->IsFacingMonster(*monster_info->entity) != 0 &&
                     !target_info->fMotionless) {
-                    StartMonsterCycle(target_info, W8_MONSTER_CYCLE_DODGE, W8_ANIMATION_PLAY_ONCE);
+                    target_info->startCycle(W8_MONSTER_CYCLE_DODGE, W8_ANIMATION_PLAY_ONCE);
                 }
             }
         } else {
@@ -3598,8 +3598,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                     }
                     if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_MONSTER &&
                         monster_info->entity->IsFacingPlayer() != 0 && !monster_info->fMotionless) {
-                        StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_DODGE,
-                                          W8_ANIMATION_PLAY_ONCE);
+                        monster_info->startCycle(W8_MONSTER_CYCLE_DODGE, W8_ANIMATION_PLAY_ONCE);
                     }
                 }
             } else {

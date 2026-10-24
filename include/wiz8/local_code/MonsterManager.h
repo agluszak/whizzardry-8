@@ -280,6 +280,8 @@ using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
 /* A live monster. Saves store it as wiz8::retail::MonsterInfo. */
 struct W8MonsterInfo {
     void configureBody(Rng& rng, bool level_visited);
+    void setMotionless(bool motionless);
+    void startCycle(int cycle, W8AnimationBehaviour behavior);
     void clearEffect(W8EffectSlot& effect, const W8MonsterRecord& record);
     int location_id;
     int monster_group_id;
@@ -418,7 +420,6 @@ W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species);
 void ResetLivingMonstersAfterCombat(void);
 void DestroyUngroupedMonsters(void);
 void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState control_state);
-void MonsterInfoSetMotionless(W8MonsterInfo* monster_info, bool motionless);
 void MoveMonsterToLiveList(W8MonsterInfo* monster_info);
 void InitializeMonsterRuntimeStats(void);
 void ProcessMonsterManagerFrame(void);
@@ -430,7 +431,6 @@ float GetAveragePartyMemberLevel(void);
    `party_slot` receives the best member's slot. */
 unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot);
 
-void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehaviour behavior);
 void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info);
 void ShutdownMonsterManager(void);
 

@@ -962,6 +962,28 @@ TEST_CASE("A monster record owns its loaded body independently of activation",
     REQUIRE(world.population->findEntity(7) == body);
     REQUIRE(body->inactive);
 
+    // Motion and authored-cycle invariants need no installed game or party fight.
+    Animation animation;
+    AnimationMesh mesh;
+    mesh.radius = 3.0f;
+    animation.parts[2].push_back({std::move(mesh), std::nullopt});
+    body->visual.active_animation = &animation;
+    body->visual.animation_playing = true;
+    body->visual.pending_cycle = W8_MONSTER_CYCLE_GET_HIT;
+    info->setMotionless(true);
+    REQUIRE(info->fMotionless);
+    REQUIRE(body->visual.animation_playing); // Do not interrupt the hit reaction.
+    info->setMotionless(false);
+    body->visual.pending_cycle = W8_MONSTER_CYCLE_IDLE;
+    info->setMotionless(true);
+    REQUIRE_FALSE(body->visual.animation_playing);
+    REQUIRE(body->visual.pending_cycle == W8_MONSTER_CYCLE_NONE);
+    info->setMotionless(false);
+    REQUIRE(body->visual.animation_playing);
+    REQUIRE(body->visual.pending_cycle == W8_MONSTER_CYCLE_IDLE);
+    REQUIRE(body->visual.pending_behaviour == W8_ANIMATION_NEVER_STOP);
+    REQUIRE(body->visual.animation_radius == 3.0f);
+
     // Unloading the runtime leaves the logical record, but no dangling update,
     // targeting or formation references to its former body.
     info->entity.reset();

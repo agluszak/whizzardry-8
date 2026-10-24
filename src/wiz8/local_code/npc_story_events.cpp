@@ -484,8 +484,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
     case W8NpcStoryAction::henchman_leaves: {
         EndNpcDialogueSession(false);
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0xdc)) {
-            StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL,
-                              W8_ANIMATION_PLAY_ONCE);
+            monster_info->startCycle(W8_MONSTER_CYCLE_ATTACK_SPECIAL, W8_ANIMATION_PLAY_ONCE);
             monster_info->entity->SetCycleCallback(0x12, NpcScriptHenchmanDeparted);
         }
         ClearMainGameTargetState();
@@ -536,8 +535,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         BeginScriptedWorldAction();
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0x112)) {
             monster_info->entity->SetCycleCallback(0x12, NpcScriptHenchmanArrives);
-            StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL,
-                              W8_ANIMATION_PLAY_ONCE);
+            monster_info->startCycle(W8_MONSTER_CYCLE_ATTACK_SPECIAL, W8_ANIMATION_PLAY_ONCE);
         }
         break;
     }
@@ -586,15 +584,14 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
     case W8NpcStoryAction::phoonzang_split: {
         W8MonsterInfo* monster_info = FindNpcKindMonster(0x84);
         if (monster_info != 0) {
-            StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_SPECIAL, W8_ANIMATION_PLAY_ONCE);
+            monster_info->startCycle(W8_MONSTER_CYCLE_SPECIAL, W8_ANIMATION_PLAY_ONCE);
         }
         glm::vec3 position;
         if (FindEntityByName("NP_PHOONZANGLEE", &position, 0, 0) &&
             (monster_info = FindMonsterGroupLeader(0x197)) != 0) {
             monster_info->entity->SetPosition(&position);
             monster_info->entity->ForwardReferencePosition(0);
-            StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL,
-                              W8_ANIMATION_PLAY_ONCE);
+            monster_info->startCycle(W8_MONSTER_CYCLE_ATTACK_SPECIAL, W8_ANIMATION_PLAY_ONCE);
         }
         npc = CurrentGame().story.npcOfKind(0x8d);
         if (npc != 0) {
@@ -629,7 +626,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
     }
     case W8NpcStoryAction::savant_hack: {
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0x1b6)) {
-            StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_SPELL, W8_ANIMATION_PLAY_ONCE);
+            monster_info->startCycle(W8_MONSTER_CYCLE_SPELL, W8_ANIMATION_PLAY_ONCE);
             monster_info->entity->SetCycleCallback(0x19, NpcScriptSavantHackDone);
         }
         break;
