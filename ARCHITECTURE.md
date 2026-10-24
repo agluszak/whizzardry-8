@@ -101,6 +101,10 @@ does not satisfy this contract.
   without a body, a loaded body may be inactive, and death may leave a fading body.
   The existing navigator index borrows loaded bodies in construction order; there
   is no second owning body collection or attach/detach protocol.
+  World items similarly own their optional loaded appearance: its presence is
+  activation, with no separate active flag, body owner or active-item counter.
+  Item animation updates attached instances instead of detaching and rebuilding
+  scene membership each tick.
   Neither scene attachment nor combat participation decides destruction. Deferred
   work identifies its original actor/session, never whichever one is current later.
 - **Borrow according to lifetime.** A live actor can retain its `World&`; a party

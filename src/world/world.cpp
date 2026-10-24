@@ -142,15 +142,6 @@ void UpdateWorlds(std::chrono::milliseconds elapsed)
     UpdateNpcEvents();
 }
 
-/* Detach the item meshes in the level and sky worlds before the renderer-side
-   resource transition. */
-void DetachAllWorldItems(void)
-{
-    for (World* world : {GetWorld(), GetSecondaryWorld()}) {
-        if (world != 0) DetachWorldItemMeshes(world);
-    }
-}
-
 W8LevelPopulation& CurrentLevelPopulation()
 {
     if (!GetWorld()) throw std::logic_error("no gameplay level is loaded");
@@ -407,7 +398,7 @@ bool AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_
 
     if (check_items) {
         for (const auto& item : CurrentLevelPopulation().world_items) {
-            WorldItemEntity* owner = item->entity.find();
+            WorldItemEntity* owner = item->entity.get();
             if (owner != 0) {
                 glm::vec3 center;
                 center = owner->GetSearchPosition();

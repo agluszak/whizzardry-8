@@ -1520,7 +1520,6 @@ void InstallLevelSessionState(Game& game, World& world, W8LoadedLevelStatus* sta
     game.status.next_group_id = game.status.next_monster_location_id =
         game.status.next_world_item_id = 1;
     game.status.next_trigger_id = world.next_trigger_id;
-    game.item_manager_pending = 0;
     if (!status) return;
     auto& data = *status->data;
     if (data.header) ApplyStatusHeader(*data.header, game.status);
@@ -1560,7 +1559,7 @@ SavedWorldItem CaptureWorldItem(const W8WorldItem& item_info)
         auto& image = records.emplace_back(wiz8::retail::encode_image(*item));
         image.saved_marker = 1;
         image.next = index < item_info.contents.size() ? 1 : 0;
-        if (item->fActive) {
+        if (item->entity) {
             const auto position = item->entity->GetLocation();
             image.position = {position.x, position.y, position.z};
             image.entity_flags = item->entity->flags;
@@ -1594,7 +1593,6 @@ std::unique_ptr<W8WorldItem> BuildWorldItem(const SavedWorldItem& records)
         auto entry = std::make_unique<W8WorldItem>();
         wiz8::retail::decode_image(image, *entry);
         entry->sector_id = -2;
-        entry->fActive = false;
         if (!head)
             head = std::move(entry);
         else

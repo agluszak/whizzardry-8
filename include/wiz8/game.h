@@ -178,7 +178,6 @@ public:
     /* A container offered more than one item, so the item-choice dialog is pending;
        blocks the magic-effects tick until it opens. */
     bool item_pick_pending = false;
-    int item_manager_pending = 0;
 
     /* Whether the world moves on. Each step applies what the interface holds
        (`ApplyWorldAdvancement`); rules read the result. */

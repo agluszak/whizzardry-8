@@ -145,7 +145,6 @@ struct World {
     TriggerEvent* findTimedAction(const Trigger* trigger) const;
     TriggerEvent& addTimedAction(Trigger* trigger);
     std::vector<std::unique_ptr<Prop>> plsProps;
-    std::vector<std::unique_ptr<WorldItemEntity>> plsItems;
     std::vector<std::unique_ptr<W8WorldCursorNode>> cursor_nodes;
     W8WorldCursorRecall cursor_recall;
     /* The *_definitions hold the loaded resources of each monster species, spell
@@ -202,7 +201,6 @@ World* GetWorld(void);
 World* GetSecondaryWorld(void);
 
 std::unique_ptr<World> LoadWorld(int level_id, std::string source_path);
-void DetachAllWorldItems(void);
 // Run the worlds over the step's `elapsed` time.
 void UpdateWorlds(std::chrono::milliseconds elapsed);
 void RefreshWorldView(void);

@@ -73,5 +73,5 @@ Light* AddWorldLight(World* world, std::unique_ptr<Light> light);
 Light* CreateRangedWorldLight(World* world, std::string_view name);
 void ConfigureWorldLight(Light* light, float range);
 void WorldRemoveLight(World* world, Light* light); /* 0x0046E250 */
-void DetachWorldItemMeshes(World* world);
+void AnimateWorldItems(World& world);
 LevelSpatialIndex* GetWorldCollision();

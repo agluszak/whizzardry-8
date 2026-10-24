@@ -4848,8 +4848,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         }
         SetCombatSelection(hover);
         if (MainGameHud()->highlighted_item == -1) {
-            if (CurrentGame().item_manager_pending != 0 && !IsWorldCursorVisible() &&
-                !g_mouselook_active) {
+            if (!IsWorldCursorVisible() && !g_mouselook_active) {
                 hover = PickNearestItemUnderCursor(cursor_x, cursor_y, 5000.0f);
             } else {
                 hover = -1;

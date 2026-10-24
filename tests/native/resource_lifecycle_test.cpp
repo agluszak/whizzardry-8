@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <SDL3/SDL_pixels.h>
@@ -39,12 +40,15 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/script.h"
 #include "wiz8/entities/spell_visual.h"
+#include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
+#include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
+#include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/spell_database.h"
@@ -59,9 +63,11 @@
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/world_scene.h"
+#include "wiz8/retail_save_records.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
+#include "wiz8/save_game.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
@@ -941,4 +947,35 @@ TEST_CASE("Only the first loaded actor of a species inherits its default script"
     third.reset();
     auto last = Monster::ReadAllCycles(&world, "Test", 4);
     REQUIRE(last->script == script);
+}
+
+TEST_CASE("An item's runtime ownership settles before removal is presented", "[resources][items]")
+{
+    ScopedGame scope;
+    scope.game.level.replacePrimary(std::make_unique<World>());
+    auto& world = scope.game.level.loaded();
+    auto item = std::make_unique<W8WorldItem>();
+    item->runtime_id = 7;
+    item->entity = std::make_unique<WorldItemEntity>();
+    item->entity->m_psrMesh = std::make_unique<MeshInstance>(nullptr);
+    item->entity->flags |= W8_ITEM_ENTITY_MESH_LOADED;
+    item->entity->AttachMesh(&world);
+    auto* placed = item.get();
+    world.population->world_items.push_back(std::move(item));
+    REQUIRE(world.scene->dynamic_meshes.size() == 1);
+    const auto saved = CaptureWorldItem(*placed);
+    REQUIRE(saved.front().fActive);
+    REQUIRE(saved.front().p3D != 0);
+    REQUIRE_FALSE(BuildWorldItem(saved)->entity); // A save never owns a process address.
+
+    bool presented = false;
+    scope.game.events.observe([&](const Event& event) {
+        if (!std::holds_alternative<WorldItemRemoved>(event)) return;
+        presented = true;
+        REQUIRE_FALSE(placed->entity);
+        REQUIRE(world.scene->dynamic_meshes.empty());
+    });
+    DeactivateWorldItem(placed);
+    REQUIRE(presented);
+    REQUIRE_FALSE(CaptureWorldItem(*placed).front().fActive);
 }

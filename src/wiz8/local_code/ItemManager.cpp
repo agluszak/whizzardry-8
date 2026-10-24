@@ -433,7 +433,7 @@ void ActivateItem(W8WorldItem* item)
     MeshInstance* mesh;
 
     assert(item != 0);
-    assert(!item->fActive);
+    assert(!item->entity);
 
     name = Data().items[item->item.iItemNo].internal_name;
     if (name.empty()) {
@@ -455,7 +455,7 @@ void ActivateItem(W8WorldItem* item)
 
     auto entity = LoadItemFromFile(zItemName);
     if (!entity) throw std::runtime_error(fmt::format("cannot load item model {}", zItemName));
-    item->entity.attach(*entity);
+    item->entity = std::move(entity);
     if (ItemHasFlags(item, W8_WORLD_ITEM_RADAR_BLIP_LIT)) {
         item->entity->LightRadarBlip();
     }
@@ -465,9 +465,6 @@ void ActivateItem(W8WorldItem* item)
                                             kInverseFullTurnDegrees));
     item->entity->flags |= item->entity_flags;
     item->entity->AttachMesh(GetWorld());
-    GetWorld()->plsItems.push_back(std::move(entity));
-    item->fActive = true;
-    ++CurrentGame().item_manager_pending;
 
     sun = FindWorldLight("SUN");
     if (sun != 0) {
@@ -483,29 +480,21 @@ void ActivateItem(W8WorldItem* item)
     }
 }
 
-/* Take one item out of the world. Its three assertions name the two fields
-   they guard - fActive and the entity link - and the item keeps its last position and
-   entity flags so it can be put back. */
+/* Unload the appearance, retaining position and flags for its next activation.
+   Presentation observes removal only after the scene and owner agree. */
 void DeactivateWorldItem(W8WorldItem* item)
 {
     glm::vec3 position;
 
     assert(item != 0);
-    assert(item->fActive);
     assert(item->entity);
-
-    if (GameInProgress()) CurrentGame().events.push(WorldItemRemoved{item->runtime_id});
 
     position = item->entity->GetLocation();
     item->position = position;
     item->entity_flags = item->entity->flags;
 
-    WorldItemEntity& entity = *item->entity;
-    item->entity.detach();
-    entity.DetachMesh();
-    std::erase_if(GetWorld()->plsItems, [&](const auto& owner) { return owner.get() == &entity; });
-    item->fActive = false;
-    --CurrentGame().item_manager_pending;
+    item->entity.reset();
+    if (GameInProgress()) CurrentGame().events.push(WorldItemRemoved{item->runtime_id});
 }
 
 /* The runtime id of the nearest active world item the cursor is hovering over
@@ -523,7 +512,7 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
         W8WorldItem* item = ItemInfo(index);
         float distance;
 
-        if (!item->fActive) {
+        if (!item->entity) {
             continue;
         }
         if (item->entity->flags & W8_ITEM_ENTITY_NO_PICKUP) {
@@ -562,7 +551,7 @@ void UpdateNearbyWorldItems(void)
         if (ItemHasFlags(item, W8_WORLD_ITEM_FALLING)) {
             AdvanceFallingWorldItem(item);
         }
-        if (!item->fActive) {
+        if (!item->entity) {
             if (glm::distance(item->position, camera) < g_item_camera_cull_distance) {
                 if (g_hide_invisible_items) {
                     if (ItemHasFlags(item, W8_WORLD_ITEM_HIDDEN)) {
@@ -648,7 +637,7 @@ static void OnItemPickerClosed(W8WorldItem* group)
     if (item->sector_id > -1) {
         RemoveItemFromSector(item->sector_id, item);
     }
-    if (item->fActive) {
+    if (item->entity) {
         DeactivateWorldItem(item);
     }
     CurrentLevelPopulation().world_items.erase(CurrentLevelPopulation().world_items.begin() +
@@ -688,7 +677,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
     if (item->sector_id > -1) {
         RemoveItemFromSector(item->sector_id, item);
     }
-    if (item->fActive) {
+    if (item->entity) {
         DeactivateWorldItem(item);
     }
     CurrentLevelPopulation().world_items.erase(CurrentLevelPopulation().world_items.begin() +
@@ -702,7 +691,7 @@ void ReleaseItemLists()
     for (const auto& owned : CurrentLevelPopulation().world_items) {
         auto* item = owned.get();
         if (item->sector_id >= 0) RemoveItemFromSector(item->sector_id, item);
-        if (item->fActive) DeactivateWorldItem(item);
+        if (item->entity) DeactivateWorldItem(item);
     }
     CurrentLevelPopulation().world_items.clear();
 }

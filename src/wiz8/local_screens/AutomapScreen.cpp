@@ -802,7 +802,7 @@ void AutomapScreen::RenderMarkers()
         positionOverlay(marker, point.x - (width >> 1), point.y - (height >> 1), false);
     }
     for (const auto& world_item : population.world_items) {
-        WorldItemEntity* item = world_item->entity.find();
+        WorldItemEntity* item = world_item->entity.get();
         if (!item) continue;
         const glm::vec3 location = item->GetSearchPosition();
         const int layer = LayerAtHeight(location.y);

@@ -154,7 +154,7 @@ void RadarMap::update(const W8TargetingPresentation& presentation)
     const World& world = *game_.level.primary;
 
     for (const auto& world_item : world.population->world_items) {
-        WorldItemEntity* item = world_item->entity.find();
+        WorldItemEntity* item = world_item->entity.get();
 
         if (item != 0) {
             if ((item->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {

@@ -99,7 +99,8 @@ void Game::advance(milliseconds elapsed, StepHold hold)
     }
     if (Due(world_items_due, kWorldItemsInterval)) {
         UpdateNearbyWorldItems();
-        DetachAllWorldItems();
+        for (auto* world : {level.primary.get(), level.sky.get()})
+            if (world) AnimateWorldItems(*world);
     }
     if (!advancement.paused || combat.has_value()) UpdateWorlds(elapsed);
     // Preserve the game's scene-activity gates and sky-before-world order.

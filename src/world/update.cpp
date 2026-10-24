@@ -27,6 +27,7 @@
 #include "wiz8/entities/world_item.h"
 #include "wiz8/game.h"
 #include "wiz8/geometry.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/math.h"
 #include "wiz8/render/camera.h"
@@ -69,20 +70,11 @@ void UpdateWorldMonsters(World* world)
     }
 }
 
-/* Detach every item mesh in one world, refresh its animation, and reattach it
-   to the world's dynamic scene before the renderer transition. */
-void DetachWorldItemMeshes(World* world)
+/* Animation changes the instances already attached to this world's scene. */
+void AnimateWorldItems(World& world)
 {
-    assert(world != 0);
-    auto count = world->plsItems.size();
-    for (int index = 0; index < static_cast<int>(count); ++index) {
-        WorldItemEntity* item = world->plsItems[index].get();
-        if (item != 0) {
-            item->DetachMesh();
-            item->UpdateAnimation();
-            item->AttachMesh(world);
-        }
-    }
+    for (const auto& item : world.population->world_items)
+        if (item->entity) item->entity->UpdateAnimation();
 }
 
 /* Five-byte tail-jump thunk to GameData.cpp's GetCameraYawRadians. */
