@@ -68,6 +68,9 @@ struct PartyMotion {
      * primary_contact_prop_id/secondary_contact_prop_id. */
     unsigned char ToggleBoundProps();
     /* 0x00420470: integrate camera_motion_velocity into motion_velocity/integrated_motion. */
+    void stop();
+    void resume();
+    void clearMovementState();
     unsigned int resolveMotionFlags(unsigned int input, bool engaged);
     bool IntegrateCameraForward(const LevelEnvironment& environ);
     /* 0x00420810: rotate motion_input by the saved yaw matrix and refresh

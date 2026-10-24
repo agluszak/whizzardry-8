@@ -70,6 +70,7 @@
 #include "wiz8/unicode.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/party_motion.h"
 #include "wiz8/world/world.h"
 
 constexpr unsigned int kCharacterEventNpcScript = 0x40;
@@ -665,12 +666,12 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
                 break;
             case W8NpcCommand::reset_level_data_vectors:
                 if (!context.combat.has_value() || context.game.party_movement_mode) {
-                    ResetLevelDataVectors();
+                    if (auto* world = context.world) world->party.camera.motion.stop();
                 }
                 break;
             case W8NpcCommand::clear_level_movement_stopped:
                 if (!context.combat.has_value() || context.game.party_movement_mode) {
-                    ClearLevelMovementStopped();
+                    if (auto* world = context.world) world->party.camera.motion.resume();
                 }
                 break;
             case W8NpcCommand::spacer:

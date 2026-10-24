@@ -102,6 +102,8 @@ public:
     bool hasLeadingNpc(W8NpcId kind) const;
     // Settle the pending formation and publish its accepted or refused moves.
     void commitFormation();
+    void setMotionPaused(bool paused);
+    void resumeVisibleMotion();
     bool cameraSwayActive() const;
     void reconcileCombatHands(unsigned int party_slot, std::vector<Event>& outcomes);
     unsigned int damageCharacter(unsigned int slot, unsigned int amount, DamageOptions options = {},

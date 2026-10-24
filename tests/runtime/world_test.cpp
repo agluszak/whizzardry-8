@@ -719,12 +719,12 @@ void ResourceLifecycleScenario()
     focus.window.windowID = SDL_GetWindowID(ghWindow);
     const auto before_focus_loss = CurrentGame().time;
     focus.type = SDL_EVENT_WINDOW_FOCUS_LOST;
-    HandleGameEvent(focus);
+    DispatchGameEvent(focus);
     g_runtime_test_hooks.clock_us += 30'000'000;
     REQUIRE(IsVideoActive());
     REQUIRE(g_renderer->isOpen());
     focus.type = SDL_EVENT_WINDOW_FOCUS_GAINED;
-    HandleGameEvent(focus);
+    DispatchGameEvent(focus);
     game.frame();
     REQUIRE(CurrentGame().time - before_focus_loss < std::chrono::milliseconds(100));
     g_renderer->close();

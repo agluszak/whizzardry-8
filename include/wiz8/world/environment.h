@@ -48,10 +48,8 @@ void InitializeLevelEnvironment(void);
 void ApplyEnvironmentColour(World* world, float intensity, const glm::vec3* colour);
 
 /* Turn the environment clock on or off; enabling drops the time it has not taken up. */
-void SetEnvironmentTimeEnabled(bool enabled);
 /* One step's elapsed time reaches the environment clock while it runs; the clock takes it
    up as it next advances. */
-void PassEnvironmentTime(std::chrono::milliseconds elapsed);
 float GetViewDistance(void);
 void SetGameTimeMilliseconds(int value);
 /* The per-frame environment update, and the alternate lighting transition it

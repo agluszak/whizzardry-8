@@ -114,6 +114,8 @@ struct World {
     ~World();
     World(const World&) = delete;
     World& operator=(const World&) = delete;
+    void setNavigatorsPaused(bool paused);
+    bool navigation_changed = false;
     const TimerClockView clocks;
     // Borrowed playthrough sequence owner; standalone geometry worlds have none.
     ShakeSystem* const shakes;

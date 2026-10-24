@@ -112,7 +112,16 @@ wiz8::Application::~Application()
 void wiz8::Application::run()
 {
     while (gfProgramIsRunning) {
-        PumpGameEvents(!gfApplicationActive);
+        PumpGameEvents(
+            [&](bool focused) {
+                if (auto* game = games_->game()) {
+                    if (focused)
+                        game->resumeVisibleMotion();
+                    else
+                        game->setMotionPaused(true);
+                }
+            },
+            !gfApplicationActive);
         if (!gfProgramIsRunning) break;
         if (gfApplicationActive) {
             GameLoop();

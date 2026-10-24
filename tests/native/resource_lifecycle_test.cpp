@@ -653,13 +653,18 @@ TEST_CASE_METHOD(SpellVisualFixture,
         prepared.SetScale(3.0f);
         REQUIRE(replacement.compiledIndex()->registry.maximum_navigation_radius == 1500.0f);
         REQUIRE(world.compiledIndex()->registry.maximum_navigation_radius == 500.0f);
-        StopAllNavigators();
+        world.setNavigatorsPaused(true);
         REQUIRE(published.halted);
         REQUIRE(world.party.navigator.halted);
         REQUIRE_FALSE(prepared.halted);
         REQUIRE_FALSE(replacement.party.navigator.halted);
+        world.navigation_changed = replacement.navigation_changed = false;
+        const glm::vec3 moved{100, 100, 100};
+        prepared.SetPositionInternal(&moved);
+        REQUIRE(replacement.navigation_changed);
+        REQUIRE_FALSE(world.navigation_changed);
         prepared.halted = true;
-        ResumeAllNavigators();
+        world.setNavigatorsPaused(false);
         REQUIRE_FALSE(published.halted);
         REQUIRE(prepared.halted);
     }

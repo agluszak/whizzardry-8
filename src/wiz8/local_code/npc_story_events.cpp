@@ -58,6 +58,7 @@
 #include "wiz8/story.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
+#include "wiz8/world/party_motion.h"
 #include "wiz8/world/world.h"
 
 static void ResolveSedexusCapture(void);
@@ -153,7 +154,7 @@ void BeginNpcScriptedScene(const ScriptContext& context)
     int party_slot;
 
     context.game.npc_dialogue.BeginScene();
-    ResetLevelDataVectors();
+    if (auto* world = context.world) world->party.camera.motion.stop();
     context.activity.scripted_scene = true;
     context.events.push(TargetingRequested{W8_TARGET_NEED_ALLY});
     for (party_slot = 0; party_slot < 8; ++party_slot) {
@@ -182,7 +183,7 @@ void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
         return;
     }
     if (!context.combat.has_value() || context.game.party_movement_mode) {
-        ClearLevelMovementStopped();
+        if (auto* world = context.world) world->party.camera.motion.resume();
     }
     context.events.push(TargetingRequested{});
     for (slot = 0; slot < 8; ++slot) {
@@ -447,7 +448,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
     }
     case W8NpcStoryAction::move_savant: {
         EndNpcDialogueSession(false);
-        ResetLevelDataVectors();
+        if (auto* world = context.world) world->party.camera.motion.stop();
         SetMonsterGroupScript(0xc2, "MoveSavant.msf");
         break;
     }
@@ -642,7 +643,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         break;
     case W8NpcStoryAction::move_bela: {
         EndNpcDialogueSession(false);
-        ResetLevelDataVectors();
+        if (auto* world = context.world) world->party.camera.motion.stop();
         SetMonsterGroupScript(0x18c, "MoveBela.msf");
         glm::vec3 position;
         if (FindEntityByName("NP_DSExit", &position, 0, 0)) {

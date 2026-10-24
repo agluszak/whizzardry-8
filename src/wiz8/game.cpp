@@ -216,3 +216,18 @@ bool Game::cameraSwayActive() const
 {
     return level.primary && level.primary->party.camera.swayActive();
 }
+
+void Game::setMotionPaused(bool paused)
+{
+    if (move_timer_suspended == paused) return;
+    if (paused)
+        timerClocks().pause();
+    else
+        timerClocks().resume();
+    move_timer_suspended = paused;
+}
+
+void Game::resumeVisibleMotion()
+{
+    if (activity.in_world() && !advancement.hold.covered) setMotionPaused(false);
+}

@@ -27,7 +27,9 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/levels.h"
 #include "wiz8/local_code/Configuration.h"
+#include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
@@ -42,6 +44,7 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/runtime_test_hooks.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
 
@@ -551,4 +554,41 @@ TEST_CASE_METHOD(TimerFixture, "Actor clocks and particle clones retain their or
     REQUIRE(live.last_integration_tick == 124);
     candidate.visual_time += std::chrono::seconds{10};
     REQUIRE_FALSE(radar.IsRadarBlipLit()); // The deadline is strict, on held world time.
+}
+
+TEST_CASE_METHOD(TimerFixture, "World holds pause only the supplied game's movement",
+                 "[timers][lifetime]")
+{
+    auto& outgoing = game.game;
+    outgoing.level.replacePrimary(std::make_unique<World>(-1, "", outgoing.timerClocks()));
+    Game candidate{outgoing.data};
+    candidate.level.replacePrimary(std::make_unique<World>(-1, "", candidate.timerClocks()));
+    auto& world = candidate.level.loaded();
+    auto& motion = world.party.camera.motion;
+    motion.motion_velocity = {1, 2, 3};
+    motion.flags |= W8_LEVEL_FLAG_FAST_MOVEMENT;
+    candidate.advancement.paused = true;
+    ApplyWorldAdvancement(candidate, {});
+    REQUIRE(candidate.move_timer_suspended);
+    REQUIRE(candidate.timerClocks().held());
+    REQUIRE(world.party.navigator.halted);
+    REQUIRE(motion.motion_velocity == glm::vec3(0));
+    REQUIRE((motion.flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) != 0);
+    REQUIRE((motion.flags & W8_LEVEL_FLAG_FAST_MOVEMENT) == 0);
+    REQUIRE_FALSE(outgoing.move_timer_suspended);
+    REQUIRE_FALSE(outgoing.level.loaded().party.navigator.halted);
+    REQUIRE(outgoing.events.pending().empty());
+    world.environment.untaken_time = std::chrono::milliseconds{77};
+    candidate.advancement.paused = false;
+    ApplyWorldAdvancement(candidate, {.party = true});
+    REQUIRE_FALSE(candidate.move_timer_suspended);
+    REQUIRE_FALSE(world.party.navigator.halted);
+    REQUIRE(candidate.advancement.time_passes);
+    REQUIRE(world.environment.untaken_time == std::chrono::milliseconds::zero());
+    REQUIRE((motion.flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) != 0);
+    candidate.advancement.paused = true;
+    ApplyWorldAdvancement(candidate, {});
+    candidate.advancement.paused = false;
+    ApplyWorldAdvancement(candidate, {});
+    REQUIRE((motion.flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) == 0);
 }

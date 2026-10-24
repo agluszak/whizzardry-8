@@ -45,7 +45,6 @@
 #include "wiz8/packed_bits.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/game_timer.h"
-#include "wiz8/render/frame.h"
 #include "wiz8/render/segment_math.h"
 #include "wiz8/render/triangle_projection.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -1313,14 +1312,6 @@ bool HasLevelWalkableContact(void)
 }
 
 /* Clear active, stopped and reset movement state together. */
-void ClearLevelMovementState(void)
-{
-    PartyMotion* level = LevelMotion();
-    if (level != 0) {
-        level->flags &= ~W8_LEVEL_MOVEMENT_STATE_MASK;
-    }
-}
-
 bool IsLevelMovementStopped(void)
 {
     PartyMotion* level = LevelMotion();
@@ -1328,14 +1319,6 @@ bool IsLevelMovementStopped(void)
         return (level->flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) != 0;
     }
     return false;
-}
-
-void ClearLevelMovementStopped(void)
-{
-    PartyMotion* level = LevelMotion();
-    if (level != 0) {
-        level->flags &= ~W8_LEVEL_FLAG_MOVEMENT_STOPPED;
-    }
 }
 
 /* Hand the level's pending real/frame elapsed times to the caller, fold them
@@ -1435,48 +1418,9 @@ unsigned char SetEnvironmentLoadFlag(unsigned char flag)
     return previous;
 }
 
-void ResetLevelDataVectors(void)
-{
-    PartyMotion* level = LevelMotion();
-    if (level != 0) {
-        level->flags |= W8_LEVEL_FLAG_MOVEMENT_STOPPED;
-        if ((level->flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0) {
-            level->motion_input = glm::vec3(0);
-            level->camera_motion_velocity = glm::vec3(0);
-            level->motion_velocity = glm::vec3(0);
-            level->integrated_motion = glm::vec3(0);
-            level->camera_motion_displacement = glm::vec3(0);
-            level->motion_displacement = glm::vec3(0);
-        }
-        level->flags &= ~W8_LEVEL_FLAG_FAST_MOVEMENT;
-    }
-}
-
 /* Camera facade, move timer and the party placement entry. */
 
 const double g_game_data_pi = 3.141592653589793;
-
-// FUNCTION: WIZ8 0x00420b40
-float MoveTimer(W8MoveTimerAction action)
-{
-    if (!GameInProgress()) return 0.0f;
-    auto& game = CurrentGame();
-    if (game.move_timer_suspended) {
-        if ((action == W8_MOVE_TIMER_RESUME_MAIN_GAME && game.activity.in_world() &&
-             !game.advancement.hold.covered) ||
-            action == W8_MOVE_TIMER_RESUME) {
-            game.timerClocks().resume();
-            game.move_timer_suspended = false;
-        } else {
-            return 0.0f;
-        }
-    }
-    if (action == W8_MOVE_TIMER_SUSPEND) {
-        game.timerClocks().pause();
-        game.move_timer_suspended = true;
-    }
-    return game.motion_clock.GetFrameDelta();
-}
 
 float GetCameraYawRadians()
 {

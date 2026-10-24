@@ -54,7 +54,6 @@
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/portrait_animation.h"
-#include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
@@ -73,6 +72,7 @@
 #include "wiz8/utility.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/party_motion.h"
 #include "wiz8/world/world.h"
 
 constexpr float kFastMagicRecoveryScale = 1.25f;
@@ -85,24 +85,25 @@ void ApplyWorldAdvancement(Game& game, WorldHold hold)
     advancement.hold = hold;
     const bool held = advancement.paused || hold.covered || hold.world;
     const bool time_stopped = held || game.combat.has_value();
-    const World* world = GetWorld();
+    auto* world = game.level.primary.get();
     const bool hold_changed = held != advancement.held;
     const bool time_changed = world != advancement.world || time_stopped == advancement.time_passes;
     advancement.held = held;
     advancement.world = world;
     if (advancement.timer_paused != advancement.paused) {
         advancement.timer_paused = advancement.paused;
-        MoveTimer(advancement.timer_paused ? W8_MOVE_TIMER_SUSPEND : W8_MOVE_TIMER_RESUME);
+        game.setMotionPaused(advancement.timer_paused);
     }
     if (!world) return;
     if (time_changed) {
-        SetEnvironmentTimeEnabled(!time_stopped);
+        advancement.time_passes = !time_stopped;
+        if (!time_stopped) world->environment.untaken_time = {};
         if (time_stopped) {
-            StopAllNavigators();
-            ResetLevelDataVectors();
+            world->setNavigatorsPaused(true);
+            world->party.camera.motion.stop();
         } else {
-            ResumeAllNavigators();
-            if (!hold.party) ClearLevelMovementStopped();
+            world->setNavigatorsPaused(false);
+            if (!hold.party) world->party.camera.motion.resume();
         }
     }
     if (hold_changed || time_changed)
@@ -330,7 +331,7 @@ void Game::updateSurpriseMode()
         if (UpdateSurpriseFade() != 0) {
             EndSurprise();
             if (combat.has_value()) {
-                StopAllNavigators();
+                if (auto* world = level.primary.get()) world->setNavigatorsPaused(true);
             }
         }
         break;

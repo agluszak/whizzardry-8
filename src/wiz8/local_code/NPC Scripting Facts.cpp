@@ -56,6 +56,7 @@
 #include "wiz8/story.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/party_motion.h"
 #include "wiz8/world/world.h"
 
 /* Camera-shake completion callback stored on ShakeDefinition::completion_callback. */
@@ -800,7 +801,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_ENDGAME_QUE_CONGRAT_FOUR:
         EndNpcDialogueSession(false);
-        ResetLevelDataVectors();
+        if (auto* world = context.world) world->party.camera.motion.stop();
         group = FindFirstMonsterByID(0xc2);
         if (group != 0) {
             monster_info = FindMonster(group->leader_location_id);

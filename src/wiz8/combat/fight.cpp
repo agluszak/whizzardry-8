@@ -70,7 +70,6 @@
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/pointer.h"
-#include "wiz8/render/frame.h"
 #include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
@@ -89,6 +88,8 @@
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/party_motion.h"
+#include "wiz8/world/world.h"
 
 constexpr unsigned int kFleeChance = 15;
 
@@ -162,7 +163,7 @@ bool Game::beginCombat(int surprise)
     }
     if (auto* screen = MainGame()) screen->dismissOverlays(false);
     AutoSaveIfAllowed(true);
-    ResetLevelDataVectors();
+    if (auto* world = level.primary.get()) world->party.camera.motion.stop();
     if (!activity.conversation) {
         SelectTextBox(1);
     }
@@ -939,7 +940,7 @@ void Game::endCombat(bool forced_cleanup)
     ResetLivingMonstersAfterCombat();
     // Armor without the combat actions, and the shared load deferred during combat.
     SettleActiveParty(*this);
-    ClearLevelMovementState();
+    if (auto* world = level.primary.get()) world->party.camera.motion.clearMovementState();
     CurrentGame().events.push(MonstersChanged{});
     if (auto* world = level.primary.get()) ResetWorldCursorDistance(*world);
     if (activity.in_world()) {

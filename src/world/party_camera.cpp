@@ -521,14 +521,14 @@ void PartyCamera::SetManualControlActive(bool enabled)
     m_orientation_flags &= ~W8_CAMERA_MANUAL_INPUT;
 }
 
-glm::mat3 PartyCamera::turn(unsigned int flags)
+std::pair<glm::mat3, bool> PartyCamera::turn(unsigned int flags)
 {
     float pitch_input;
     float yaw_input;
 
     // Held time leaves the orientation alone, and movement takes the whole rotation.
     if (clocks.held() || clocks.motionSlowed()) {
-        return m_rotation;
+        return {m_rotation, false};
     }
 
     if ((this->m_orientation_flags & W8_CAMERA_ORIENTATION_SNAPPED) != 0) {
@@ -559,17 +559,15 @@ glm::mat3 PartyCamera::turn(unsigned int flags)
         g_camera_max_yaw_velocity = 0.3490658700466156f;
     }
 
-    if ((pitch_input != 0.0f || yaw_input != 0.0f) &&
-        (motion.flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) == 0) {
-        g_navigator_position_changed = true;
-    }
+    const bool changed = (pitch_input != 0.0f || yaw_input != 0.0f) &&
+                         (motion.flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) == 0;
     if (manual_mouse_input) {
         BeginManualCameraControl();
     }
     this->ApplyPitchInput(pitch_input);
     this->ApplyYawInput(yaw_input);
     this->Update(clocks.motionDelta());
-    return m_yaw_rotation;
+    return {m_yaw_rotation, changed};
 }
 
 float g_camera_motion_clamp = 1125.0f;
@@ -789,7 +787,7 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
                 return;
             }
         } else if (SDL_strcasecmp(path->name0, "CameraPath4") == 0) {
-            ResetLevelDataVectors();
+            world->party.camera.motion.stop();
             return;
         }
     }

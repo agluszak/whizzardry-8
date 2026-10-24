@@ -22,7 +22,6 @@
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/Noise.h"
 #include "wiz8/math.h"
-#include "wiz8/render/frame.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
 #include "wiz8/spatial/navigator.h"
@@ -373,4 +372,23 @@ LevelEnvironment::LevelEnvironment(float gravity)
     motion_limit = g_default_motion_limit;
     momentum_scale = g_default_momentum_scale;
     value_40 = 1.0f;
+}
+
+void PartyMotion::stop()
+{
+    flags |= W8_LEVEL_FLAG_MOVEMENT_STOPPED;
+    if ((flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0) {
+        motion_input = camera_motion_velocity = motion_velocity = integrated_motion =
+            camera_motion_displacement = motion_displacement = glm::vec3(0);
+    }
+    flags &= ~W8_LEVEL_FLAG_FAST_MOVEMENT;
+}
+
+void PartyMotion::resume()
+{
+    flags &= ~W8_LEVEL_FLAG_MOVEMENT_STOPPED;
+}
+void PartyMotion::clearMovementState()
+{
+    flags &= ~W8_LEVEL_MOVEMENT_STATE_MASK;
 }

@@ -39,8 +39,6 @@
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
-bool g_navigator_position_changed;
-
 /* The world object the navigator notifies when it leaves a location, and
    the notification itself. 0x0042E880 sits outside every assertion-backed
    interval, so it keeps an address-qualified name. */
@@ -163,8 +161,7 @@ Navigator::Navigator(World& owner) : owner_world(owner), reactivated(0)
 /* The callback a navigator starts with: mark it and stop it dead. */
 void NavigatorDefaultCallback(Navigator* navigator)
 {
-    navigator->halted = true;
-    navigator->movement.velocity = glm::vec3(0);
+    navigator->setPaused(true);
 }
 
 /* Switch every registered navigator to the requested link mode. Mode zero
@@ -217,26 +214,18 @@ void SetNavigatorLinkMode(W8NavigatorLinkMode mode)
     }
 }
 
-void StopAllNavigators(void)
+void Navigator::setPaused(bool paused)
 {
-    for (auto* navigator : activeNavigators()) {
-        NavigatorDefaultCallback(navigator);
-    }
+    halted = paused;
+    if (paused)
+        movement.velocity = glm::vec3(0);
+    else if (path_ai)
+        PathAIResetTick(&*path_ai, owner_world.clocks.worldMilliseconds());
 }
 
-void ResumeAllNavigators(void)
+void World::setNavigatorsPaused(bool paused)
 {
-    for (auto* navigator : activeNavigators()) {
-        navigator->halted = false;
-        if (navigator->path_ai.has_value()) {
-            PathAIResetTick((navigator->path_ai ? &*navigator->path_ai : nullptr),
-                            navigator->owner_world.clocks.worldMilliseconds());
-        }
-        if (navigator->path_ai.has_value()) {
-            PathAIResetTick((navigator->path_ai ? &*navigator->path_ai : nullptr),
-                            navigator->owner_world.clocks.worldMilliseconds());
-        }
-    }
+    for (auto* navigator : navigators) navigator->setPaused(paused);
 }
 
 /* Start with ten route slots and clear per-position values. */
@@ -1442,9 +1431,8 @@ void Navigator::SetPositionInternal(const glm::vec3* position)
     if (position->x != movement.position.x || position->y != movement.position.y ||
         position->z != movement.position.z) {
         movement.position = *position;
-        if ((movement.location_id != 0 || isPartyNavigator(this)) && &owner_world == GetWorld()) {
-            g_navigator_position_changed = true;
-        }
+        if (movement.location_id != 0 || isPartyNavigator(this))
+            owner_world.navigation_changed = true;
         UpdateFacing(true);
         if (movement.attachment != 0) {
             movement.attachment->path_length_origin = movement.position;

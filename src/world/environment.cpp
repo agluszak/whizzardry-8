@@ -150,18 +150,6 @@ static void AdvanceEnvironmentClock(void)
 
 /* Turn environment time progression on or off. While it is off, no step time reaches
    it, so it resumes from the moment it is enabled. */
-void SetEnvironmentTimeEnabled(bool enabled)
-{
-    CurrentGame().advancement.time_passes = enabled;
-    if (enabled && GetWorld()) GetWorld()->environment.untaken_time = {};
-}
-
-void PassEnvironmentTime(std::chrono::milliseconds elapsed)
-{
-    if (CurrentGame().advancement.time_passes && GetWorld())
-        GetWorld()->environment.untaken_time += elapsed;
-}
-
 /* The environment's per-frame update. A running transition short-circuits to
    the transition body. Otherwise, in day/night mode the sky consumes the day
    phase to pick the light direction, and the world colour table is refreshed

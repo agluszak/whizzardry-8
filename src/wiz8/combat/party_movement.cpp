@@ -33,6 +33,8 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/party_motion.h"
+#include "wiz8/world/world.h"
 
 /* PHASES_PER_ROUND, named by the assertion that bounds the phase. */
 enum { W8_PHASES_PER_ROUND = 100 };
@@ -69,7 +71,7 @@ void ResetRoundPartyMovement()
 void BeginPartyMovement(void)
 {
     CurrentGame().party_moving = true;
-    MoveTimer(W8_MOVE_TIMER_SUSPEND);
+    CurrentGame().setMotionPaused(true);
 }
 
 /* Round one combatant's phase to the ten it belongs in and clamp it into the
@@ -392,7 +394,7 @@ void EndPartyMovementPhase(void)
     if (!IsLevelMovementStopped()) {
         CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x21c]});
     }
-    ResetLevelDataVectors();
+    if (auto* world = GetWorld()) world->party.camera.motion.stop();
     SetFreeTurnEnabled(false);
     RepaintPartyMovementPanel();
     RefreshOutwardSightForAllMonsters();
@@ -403,7 +405,7 @@ void EndPartyMovementPhase(void)
    the monsters are told, and movement control is settled. */
 void BeginFreeTurnPhase(void)
 {
-    ResetLevelDataVectors();
+    if (auto* world = GetWorld()) world->party.camera.motion.stop();
     CurrentGame().combat->uiCurrentPartyActionStatus = W8_PARTY_ACTION_FINISHED;
     CurrentGame().party_movement_mode = false;
     CheckMonsterGroupsEnterCombat();
@@ -471,7 +473,7 @@ void FinishPartyMovementAction(void)
         CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x21d]});
     }
     wiz8::sound::play("Data\\Sound\\Misc\\Movement_Bar_Pop_Up.wav");
-    ClearLevelMovementStopped();
+    if (auto* world = GetWorld()) world->party.camera.motion.resume();
     if (CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
         SetLevelFastMovement();
     }

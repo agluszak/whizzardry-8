@@ -160,6 +160,7 @@
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
+#include "wiz8/world/party_motion.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
@@ -347,7 +348,7 @@ static void TakeHudForInteraction()
     MainGame()->refreshLayout();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
-    ResetLevelDataVectors();
+    if (auto* world = GetWorld()) world->party.camera.motion.stop();
     if (auto* hud = MainGameHud()) {
         hud->repaint.roof_and_spell_icons = true;
         hud->repaint.submenu_buttons = true;
@@ -416,7 +417,7 @@ void EndLockInteractMode(bool suspend)
     LockInteraction()->EnablePanels(false);
     if (!suspend) {
         DestroyAfterUiDispatch(std::move(MainGame()->lock_interaction));
-        ClearLevelMovementStopped();
+        if (auto* world = GetWorld()) world->party.camera.motion.resume();
     }
     SelectTextBox(0);
     MainGame()->refreshLayout();
@@ -1832,7 +1833,7 @@ void EndTrapInteractMode(bool suspend)
     TrapInteraction()->EnablePanelInput(false);
     if (!suspend) {
         DestroyAfterUiDispatch(std::move(MainGame()->trap_interaction));
-        ClearLevelMovementStopped();
+        if (auto* world = GetWorld()) world->party.camera.motion.resume();
     }
     SelectTextBox(0);
     MainGame()->refreshLayout();
@@ -2289,7 +2290,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
                    fmt::sprintf(Data().strings[0x78c], Data().strings[display_mode]));
     }
     ResetTransientRenderScenes();
-    MoveTimer(W8_MOVE_TIMER_RESUME);
+    game.setMotionPaused(false);
     // Time spent under other screens does not reach the world.
     step_timer.restart();
     DrainInputEventQueue();
@@ -2566,7 +2567,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     ReleaseConditionButtons();
     if (party_movement) party_movement->disableInput();
     dialogue.restoreQuoteBubble();
-    MoveTimer(W8_MOVE_TIMER_SUSPEND);
+    game.setMotionPaused(true);
     // The world stays covered, and held, until this screen steps it again.
     ApplyWorldAdvancement(game, {.covered = true});
 

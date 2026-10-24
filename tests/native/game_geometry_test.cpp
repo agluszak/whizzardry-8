@@ -2078,7 +2078,8 @@ TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
     controller.m_position = {1, 2, 3};
     const auto before = controller.rotationMatrix();
     // Held time leaves the orientation alone and hands movement the whole rotation.
-    const auto basis = controller.turn(W8_CAMERA_MOTION_TURN_LEFT);
+    const auto [basis, turned] = controller.turn(W8_CAMERA_MOTION_TURN_LEFT);
+    REQUIRE_FALSE(turned);
     REQUIRE(basis == before);
     REQUIRE(controller.rotationMatrix() == before);
     const auto motion = controller.move(data, W8_CAMERA_MOTION_FORWARD, basis);

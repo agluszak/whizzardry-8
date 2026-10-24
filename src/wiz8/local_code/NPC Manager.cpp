@@ -16,6 +16,7 @@
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/story.h"
 #include "wiz8/world/party_camera.h"
+#include "wiz8/world/party_motion.h"
 // Some libstdc++ 16 releases use deprecated is_trivial_v in _M_init.
 // Limit the workaround to diagnostics originating in that library header.
 #if defined(__clang__) && defined(_GLIBCXX_RELEASE) && _GLIBCXX_RELEASE == 16
@@ -1960,7 +1961,7 @@ bool QueueNpcDepartureEvents(int destination_level)
     }
     if (queued) {
         CurrentGame().npc_dialogue.Queue(W8NpcTravelConfirm{destination_level});
-        ResetLevelDataVectors();
+        if (auto* world = GetWorld()) world->party.camera.motion.stop();
     }
     return queued;
 }
@@ -1970,7 +1971,7 @@ bool QueueNpcDepartureEvents(int destination_level)
    Drazic whose healthy partner is not also in the party does the same. */
 void QueueNpcTravelRefusals(int destination_level)
 {
-    ClearLevelMovementStopped();
+    if (auto* world = GetWorld()) world->party.camera.motion.resume();
     for (int slot = 0; slot < 2; ++slot) {
         W8Character* character = &CurrentGame().party.characters[slot];
 

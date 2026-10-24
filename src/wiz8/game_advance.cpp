@@ -55,7 +55,8 @@ void Game::advance(milliseconds elapsed, StepHold hold)
 {
     time += elapsed;
     // Time that passed while the world ran reaches its clock before the new hold applies.
-    PassEnvironmentTime(elapsed);
+    if (advancement.time_passes && level.primary)
+        level.primary->environment.untaken_time += elapsed;
     ApplyWorldAdvancement(*this, hold.world);
     if (!hold.speech) {
         speech.ProcessDeferredCharacterEvents();
@@ -92,8 +93,8 @@ void Game::advance(milliseconds elapsed, StepHold hold)
     if (!advancement.held) {
         UpdateMonsterGroups(true);
         if (HostilesEngage(*this) && !activity.conversation) beginCombat(0);
-        if (g_navigator_position_changed) {
-            g_navigator_position_changed = false;
+        if (level.loaded().navigation_changed) {
+            level.loaded().navigation_changed = false;
             if (combat.has_value()) events.push(CombatantsMoved{});
             sight_refresh_pending = true;
         }

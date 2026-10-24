@@ -109,6 +109,8 @@
 #include "wiz8/unicode.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
+#include "wiz8/world/party_motion.h"
+#include "wiz8/world/world.h"
 
 constexpr int kSplitDialogOriginX = 0x9f;
 constexpr int kSplitDialogOriginY = 0xb8;
@@ -3842,14 +3844,14 @@ std::string ShortenTextToWidth(std::string_view text, unsigned int width, Font& 
 void BeginScriptedWorldAction(void)
 {
     CurrentGame().status.world_cursor_gate = 1;
-    ResetLevelDataVectors();
+    if (auto* world = GetWorld()) world->party.camera.motion.stop();
     ScreenPointer().showSlot(W8_CURSOR_MAP_LOAD);
 }
 
 void ClearMainGameTargetState(void)
 {
     CurrentGame().status.world_cursor_gate = 0;
-    ClearLevelMovementStopped();
+    if (auto* world = GetWorld()) world->party.camera.motion.resume();
     ScreenPointer().showSlot(W8_CURSOR_NONE);
 }
 

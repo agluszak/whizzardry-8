@@ -40,14 +40,6 @@ class File;
    response; movement can stop at its distance limit or through a reset.
    Fast movement selects the running stamina/noise path. */
 
-enum W8MoveTimerAction {
-    W8_MOVE_TIMER_SUSPEND = 1,
-    W8_MOVE_TIMER_FRAME_DELTA = 2,
-    W8_MOVE_TIMER_RESUME = 4,
-    W8_MOVE_TIMER_RESUME_MAIN_GAME = 8
-};
-float MoveTimer(W8MoveTimerAction action);
-
 void ResetLevelMovement(float movement_limit, bool reset, bool fast_move); /* 0x0041EEE0 */
 
 extern float g_default_motion_limit;
@@ -632,8 +624,6 @@ LevelEnvironment* LevelEnviron();
 void ResetInactiveLevelDataVectors(void);
 // Resume the shared timers and restart the frame delta as a level is entered.
 
-void ClearLevelMovementStopped(void);
-void ResetLevelDataVectors(void);
 bool CanInterruptLevelMovement(void);
 bool HasLevelWalkableContact(void); /* 0x0041F070 */
 bool IsLevelFastMovement(void); /* 0x0041EFB0 */
@@ -651,8 +641,6 @@ unsigned char ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed)
    GameData geometry index. Without an octree, return the original position
    with no contact. */
 GroundProbe probeGround(const glm::vec3& position);
-
-void ClearLevelMovementState(void); /* 0x0041F0C0 */
 
 float GetCameraYawRadians();
 struct CameraOrientation;

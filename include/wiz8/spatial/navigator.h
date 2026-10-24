@@ -313,6 +313,7 @@ public:
                               LevelSpatialIndex& octree); /* 0x00454440 */
     glm::vec3* AdjustPosition(glm::vec3* result, const glm::vec3* current,
                               const glm::vec3* previous, LevelSpatialIndex& octree, float gravity);
+    void setPaused(bool paused);
     void UpdateFacing(bool immediate);                                    /* 0x00454780 */
     void UpdateLinkedNavigator(std::optional<BoundingSphere> player); /* 0x00454D70 */
     bool UpdateLinkedPosition(std::optional<BoundingSphere> player);
@@ -339,8 +340,7 @@ public:
        monster scripts wait on it: CanContinueScript blocks a WALKTO
        until it is set. */
     bool movement_stopped;
-    /* The stop latch the default callback and StopAllNavigators raise and
-       ResumeAllNavigators clears; distinct from movement_stopped, which
+    /* The simulation pause latch, distinct from movement_stopped, which
        reports motion actually halting. */
     bool halted;
     bool movement_complete;
@@ -390,8 +390,6 @@ public:
 }; /* 0x190 */
 
 void SetNavigatorLinkMode(W8NavigatorLinkMode mode);
-void StopAllNavigators(void);
-void ResumeAllNavigators(void);
 
 void NavigatorDefaultCallback(Navigator* navigator);
 
@@ -404,4 +402,3 @@ extern const float g_navigator_linked_radius_scale;
 extern float g_camera_sphere_radius_scale;
 /* A navigator moved since the game last refreshed monster sight and the combat
    panel; the game step consumes it. */
-extern bool g_navigator_position_changed;

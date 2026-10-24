@@ -199,7 +199,8 @@ void updatePartyMovement(World& world, unsigned int flags)
     world.automap.reveal(10);
     if (auto* collision = world.collisionIndex()) {
         party.motion.flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
-        const glm::mat3 movement_basis = party.turn(flags);
+        const auto [movement_basis, turned] = party.turn(flags);
+        world.navigation_changed |= turned;
         const auto motion = party.move(*collision, flags, movement_basis);
         // A camera path flies the eye without moving the party.
         if (!g_camera_path_active) world.party.followCamera();

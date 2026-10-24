@@ -302,3 +302,5 @@ void RunScenario(Scenario scenario)
     REQUIRE(g_renderer == nullptr);
     CheckGameErrors();
 }
+
+void DispatchGameEvent(const SDL_Event& event);

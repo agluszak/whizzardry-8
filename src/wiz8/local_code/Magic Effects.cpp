@@ -63,7 +63,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/render/camera_shake.h"
-#include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"

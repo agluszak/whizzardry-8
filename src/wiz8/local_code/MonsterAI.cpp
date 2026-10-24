@@ -41,7 +41,6 @@
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/render/frame.h"
 #include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"

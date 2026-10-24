@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <utility>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/euler_angles.hpp>
@@ -62,9 +63,9 @@ public:
        The main game screen sets it whenever its viewport changes. */
     bool bottom_panel_view = false;
     /* One frame of movement. `turn` applies the frame's turn and look input and returns the
-       basis the movement input is taken in; `move` advances the party under that input
+       basis and whether sight needs refreshing; `move` advances the party under that input
        against the collision index and reports the displacement. */
-    glm::mat3 turn(unsigned int flags);
+    std::pair<glm::mat3, bool> turn(unsigned int flags);
     CameraMotion move(LevelSpatialIndex& collision, unsigned int flags,
                       const glm::mat3& movement_basis);
     explicit PartyCamera(TimerClockView clocks = {}, float reference_gravity = kDefaultGravity);

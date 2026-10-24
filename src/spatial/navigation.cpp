@@ -2374,7 +2374,7 @@ unsigned int NavigationMesh::StepAlongPath(PathSearchScratch& path_search,
                                            NavigatorMovement* movement, float radius,
                                            float separation)
 {
-    g_navigator_position_changed = true;
+    if (auto* world = owner_octree->owner_world) world->navigation_changed = true;
     NavigatorRoute* attachment = movement->attachment.get();
     unsigned int flags = attachment->flags;
     bool arrived;
@@ -2619,7 +2619,7 @@ bool NavigationMesh::PrepareLinkedNavigator(PathSearchScratch& path_search,
 unsigned int NavigationMesh::StepMonsterAlongPath(NavigatorMovement* movement, float radius,
                                                   float separation)
 {
-    g_navigator_position_changed = true;
+    if (auto* world = owner_octree->owner_world) world->navigation_changed = true;
     bool arrived = false;
     NavigatorRoute* attachment = movement->attachment.get();
     W8MonsterInfo* monster_info =
