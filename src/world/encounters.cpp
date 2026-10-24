@@ -352,7 +352,7 @@ bool MonGen::CanGenerateEncounter(bool force)
         return true;
     }
 
-    if (g_encounter_culling_scale_fast == 1.0f) {
+    if (CurrentGame().encounter_duration_scale == 1.0f) {
         glm::vec3 lower(spawn_position.x - 5000.0f, spawn_position.y - 5000.0f,
                         spawn_position.z - 5000.0f);
         glm::vec3 upper(spawn_position.x + 5000.0f, spawn_position.y + 5000.0f,
@@ -422,23 +422,6 @@ void DespawnAllActiveMonsterGroups(void)
     }
 }
 
-/* Put the encounter-culling scale back to its fast default and rearm every
-   loaded generator's interval timer. */
-void ResetMonsterGeneratorTimers(void)
-{
-    g_encounter_culling_scale_fast = 1.0f;
-    auto* generators = &GetWorld()->encounters.generators;
-
-    for (const auto& generator : *generators) {
-
-        generator->timer.setScale(1.0f, GetWorld()->clocks.held());
-    }
-}
-
-float g_encounter_culling_scale_fast = 1.0f;
-
-const float g_encounter_culling_rate = 2880.0f;
-
 const double g_encounter_culling_distance = 50000.0;
 
 /* Retires random encounters that have outlived their welcome.
@@ -460,10 +443,10 @@ void CullExpiredEncounters(void)
 
     party = cameraLocation();
     if (!CurrentGame().accelerated_calendar) {
-        span = GetWorld()->encounters.culling_seconds * g_sight_default;
+        span = GetWorld()->encounters.culling_seconds * CurrentGame().calendarRate();
     } else {
-        span = GetWorld()->encounters.culling_seconds * g_encounter_culling_scale_fast *
-               g_encounter_culling_rate;
+        span = GetWorld()->encounters.culling_seconds * CurrentGame().encounter_duration_scale *
+               CurrentGame().calendarRate();
     }
     std::vector<int> expired;
     for (auto* group : CurrentLevelPopulation().activeEncounterLeaders()) {
@@ -748,16 +731,12 @@ void RollRandomEncounters(void)
     }
 }
 
-/* Apply one duration scale to the encounter culling clock and every loaded
-   generator timer. */
-void SetMonsterGeneratorDurationScale(float scale)
+void Game::setEncounterDurationScale(float scale)
 {
-    g_encounter_culling_scale_fast = scale;
-    auto* generators = &GetWorld()->encounters.generators;
-
-    for (auto& generator : *generators) {
-        generator->timer.setScale(scale, GetWorld()->clocks.held());
-    }
+    encounter_duration_scale = scale;
+    auto& world = level.loaded();
+    for (const auto& generator : world.encounters.generators)
+        generator->timer.setScale(scale, world.clocks.held());
 }
 
 /* Store the table index and mark HARASSMENT tables with bit 5. Retail never

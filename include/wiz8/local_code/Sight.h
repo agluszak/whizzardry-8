@@ -29,8 +29,6 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
 bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group);
 signed char GetMonsterSpellSightIndex(const W8MonsterInfo* monster);
 
-extern const float g_sight_default;
-
 bool IsVisibleUnderConditions(const W8MonsterInfo* monster, const W8VisibilityRecord* row,
                               W8VisibilityCondition condition);
 /* Whether one group's leader member can see the other's: far-clip distance

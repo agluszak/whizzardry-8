@@ -53,15 +53,13 @@
 
 struct World;
 
-const float g_sight_default = 12.0f;
-
 /* Put the sight subsystem back to its starting state. */
 void Game::resetSight()
 {
     accelerated_calendar = false;
     SetNavigatorLinkMode(W8_NAVIGATOR_LINK_MODE_DEFAULT);
     motion_clock.ResetTimeScale();
-    ResetMonsterGeneratorTimers();
+    setEncounterDurationScale(1.0f);
 }
 
 /* Re-run both directions of the sight update for one monster. */

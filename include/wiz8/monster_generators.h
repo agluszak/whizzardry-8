@@ -57,14 +57,10 @@ void StartLevelEncounters(World& world);
 // Roll the generators whose intervals passed in the step's `elapsed` time.
 void RunMonsterGenerators(std::chrono::milliseconds elapsed);
 void DespawnAllActiveMonsterGroups(void);
-void ResetMonsterGeneratorTimers(void);
-void SetMonsterGeneratorDurationScale(float scale); /* 0x0048CB80 */
 
 void SpendRandomEncounterBudget();
 
 void UpdateRandomEncounterBudget(bool reset_budget);
 
 extern const float g_generator_jitter_fraction;
-extern float g_encounter_culling_scale_fast;
-extern const float g_encounter_culling_rate;
 extern const double g_encounter_culling_distance;

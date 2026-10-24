@@ -312,7 +312,7 @@ void Game::updateSurpriseMode()
             level_scale = data.levels[level.loaded().level_id].gameplay_time_scale;
             scale = 1.0f / level_scale;
             motion_clock.SetTimeScale(scale);
-            SetMonsterGeneratorDurationScale(scale);
+            setEncounterDurationScale(scale);
             surprise.phase = SurprisePhase::hold;
         }
         break;

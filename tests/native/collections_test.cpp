@@ -947,6 +947,23 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
         REQUIRE(loaded.save_flag == 1);
         REQUIRE(chunk.RemainingBytes() == 0);
     });
+    Game candidate{game.game.data};
+    candidate.level.replacePrimary(std::make_unique<World>(1, "", candidate.timerClocks()));
+    candidate.level.loaded().encounters = std::move(*loaded_state);
+    std::vector<Rng::Draw> candidate_draws;
+    candidate.rng.trace(&candidate_draws);
+    const auto& timer = candidate.level.loaded().encounters.generators.front()->timer;
+    candidate.setEncounterDurationScale(2.0f);
+    REQUIRE(candidate.encounter_duration_scale == 2.0f);
+    REQUIRE(timer.progress() == Catch::Approx(0.25f));
+    REQUIRE(timer.scale() == 2.0f);
+    REQUIRE(game.game.encounter_duration_scale == 1.0f);
+    REQUIRE(generator.timer.scale() == 0.5f);
+    candidate.timers_paused = true;
+    candidate.setEncounterDurationScale(1.0f);
+    REQUIRE(timer.progress() == 0.0f);
+    REQUIRE(draws.size() == 1);
+    REQUIRE(candidate_draws.empty()); // Scaling never rerolls generator intervals.
     game.game.rng.trace(nullptr);
 }
 
@@ -1000,6 +1017,65 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
     REQUIRE(second->leader_group_id == 2);
     REQUIRE(population.findMonster(3)->entity->nav.linked_navigator ==
             &population.findMonster(2)->entity->nav);
+}
+
+TEST_CASE("Removing an allied leader settles allegiance even without a party fight",
+          "[groups][lifetime]")
+{
+    auto data = EncounterLevelData();
+    data.monsters.resize(1);
+    data.monsters[0].advance_chance = 100;
+    const ScopedGameData installed(data);
+    ScopedGame scope{data};
+    auto& game = scope.game;
+    game.level.replacePrimary(std::make_unique<World>(0));
+    auto& world = game.level.loaded();
+    auto& population = *world.population;
+    for (int id = 1; id <= 3; ++id) {
+        auto group = std::make_unique<W8MonsterGroup>();
+        group->group_id = group->leader_location_id = id;
+        group->monsters = {id};
+        group->members_active = true;
+        group->ubDisposition = id == 3 ? W8_DISPOSITION_HOSTILE : W8_DISPOSITION_FRIENDLY;
+        auto info = std::make_unique<W8MonsterInfo>();
+        info->location_id = info->monster_group_id = id;
+        info->bound_npc_index = -1;
+        info->hp_current = info->uiHPMax = 1;
+        info->fActive = true;
+        info->ubDisposition = group->ubDisposition;
+        info->entity = std::make_unique<Monster>(world, &data.monsters[0]);
+        info->entity->location_id = id;
+        population.monster_groups.push_back(std::move(group));
+        population.monster_roster.add(std::move(info), false);
+    }
+    auto* old = population.findGroup(1);
+    old->allied_group_ids[0] = 2;
+    old->allied_group_ids[2] = 3; // This ally can retain a different disposition.
+    population.findGroup(2)->leader_group_id = 1;
+    population.findGroup(3)->leader_group_id = 1;
+    game.party.members[0].emplace();
+    game.party.characters[0].hp_current = 1;
+    auto& action = game.party.rows[0].executing;
+    action.kind = W8_ACTION_ATTACK;
+    action.target = W8CombatSlot::monster(3);
+    bool engaged = false;
+    SECTION("No monster is engaged") {}
+    SECTION("An ally engaged before party combat")
+    {
+        engaged = true;
+        population.findGroup(3)->fInCombat = true;
+        population.findMonster(3)->pCombat = std::make_unique<W8MonsterCombatState>();
+    }
+    std::vector<Rng::Draw> draws;
+    game.rng.trace(&draws);
+    REQUIRE_FALSE(game.combat);
+    REQUIRE(RemoveMonster(population.findMonster(1), W8MonsterRemoval::Unload));
+    REQUIRE(population.findMonster(1) == nullptr);
+    REQUIRE(population.findGroup(3)->leader_group_id == 2);
+    REQUIRE(population.findMonster(3)->ubDisposition == W8_DISPOSITION_FRIENDLY);
+    REQUIRE(action.target.iType == W8_TARGET_KIND_NONE);
+    REQUIRE(draws.size() == (engaged ? 1 : 0));
+    if (engaged) REQUIRE(draws.front().range == 100);
 }
 
 TEST_CASE_METHOD(LevelWorldFixture,

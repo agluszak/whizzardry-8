@@ -219,6 +219,7 @@ public:
        nor kills the summoned monsters. */
     void endCombat(bool forced_cleanup);
     void resetSight();
+    void setEncounterDurationScale(float scale);
     int normalizeLevel(int requested) const;
     signed char levelBand(int requested) const;
     W8NpcState* createNpcRuntimeNode(int npc_id);
@@ -287,6 +288,7 @@ public:
     bool surprise_possible = false;
     // Surprise hold accelerates the calendar, not simulation or presentation clocks.
     bool accelerated_calendar = false;
+    float encounter_duration_scale = 1.0f;
     struct SightNotices {
         int marker = 0;
         int fade_in = 0;
