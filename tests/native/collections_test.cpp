@@ -1710,3 +1710,34 @@ TEST_CASE("Formation owns death, revival and full-row refusal", "[party][formati
     REQUIRE(formation.positions[0].revival_row == -1);
     REQUIRE(formation.positions[0].unknown_04[0] == 42);
 }
+
+TEST_CASE("Formation acceptance settles immobile members before notifying observers",
+          "[party][formation]")
+{
+    GameData data{.strings = std::vector<std::string>(0x250)};
+    data.strings[0x248] = "Cannot move";
+    data.strings[0x249] = "Remains %s";
+    W8Party party;
+    for (unsigned int slot = 0; slot < 2; ++slot) {
+        party.members[slot].emplace();
+        party.characters[slot].hp_current = 1;
+        party.formation.placeCharacter(slot);
+    }
+    party.characters[0].highest_condition = W8_CONDITION_UNCONSCIOUS;
+    party.formation.positions[0].unknown_04[0] = 42;
+    party.formation.unknown_74[0] = 9;
+    auto proposal = party.formation;
+    proposal.setPosition(0, W8FormationCell{2, 0}, true, true);
+    Events events;
+    unsigned int notices = 0;
+    events.observe([&](const Event& event) {
+        REQUIRE(party.formation == proposal);
+        REQUIRE(party.formation.rowOf(0) == 0);
+        REQUIRE(party.formation.positions[0].unknown_04[0] == 42);
+        REQUIRE(party.formation.unknown_74[0] == 9);
+        if (std::holds_alternative<CharacterNotice>(event)) ++notices;
+    });
+    party.acceptFormation(proposal, data, events, true);
+    REQUIRE(notices == 2);
+    REQUIRE_FALSE(party.canChangeFormation(8));
+}

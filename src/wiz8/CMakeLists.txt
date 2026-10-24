@@ -191,7 +191,6 @@ target_sources(wiz8_engine PRIVATE
     local_code/npc_story_events.cpp
     "local_code/NPC Scripting.cpp"
     "local_code/NPC Scripting Facts.cpp"
-    local_code/formation_state.cpp
     combat/group_attacks.cpp
     local_code/CharGeneration.cpp
     local_screens/AutomapScreen.cpp

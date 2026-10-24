@@ -216,7 +216,9 @@ Two layers are enforced:
 
 The formation model owns seating, row packing, death removal and remembered-row
 revival. Condition settlement updates the supplied game's live, planned and saved
-formations; presentation observes the settled live formation. Planned combat choices
+formations. The party accepts formation proposals against its current membership and
+conditions, preserving immobile members and saved metadata before emitting outcomes.
+Presentation observes settled placement. Planned combat choices
 and the restoration formation remain distinct from current placement.
 
 A layer file includes only its own layer, the layers below it, the standard

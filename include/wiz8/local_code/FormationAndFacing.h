@@ -1,6 +1,5 @@
 #pragma once
 
-
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/rules/party_formation.h"
 
@@ -30,17 +29,6 @@ bool PositionFacesOppositeToDecided(int target_position, int position);
 /* Whether the party's world position looks away from the
    monster. */
 bool IsPartyLookingAwayFrom(int party_slot, W8MonsterInfo* monster_info);
-/* Whether the character can hold a formation place at all: alive
-   and in better shape than the hostile conditions. */
-bool CanHoldFormationPlace(int party_slot);
-void RestoreCombatFormation(void);
-void InitializePartyFormation(W8PartyFormationState* state);
-/* Remember the formation combat started with. */
-void SaveCombatFormation(void);
-/* Reconcile an edited formation against the live one, re-seating
-   characters that can no longer hold their edited place and writing the
-   result back into both formations. */
-void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationState* live);
 /* Re-aim party_heading at the selected character's formation
    facing and swing the camera to match, while the camera is not being
    rotated by hand. */

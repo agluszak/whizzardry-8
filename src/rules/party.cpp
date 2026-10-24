@@ -1,10 +1,16 @@
 #include "wiz8/rules/party.h"
 
 #include <array>
+#include <cassert>
 #include <optional>
 
+#include <fmt/printf.h>
+
+#include "wiz8/data/game_data.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
+#include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/random.h"
 
@@ -108,4 +114,64 @@ std::optional<unsigned int> W8Party::randomLivingSlot(Rng& rng, int excluded_slo
     }
     if (count == 0) return std::nullopt;
     return eligible[count == 1 ? 0 : rng.below(count)];
+}
+
+bool W8Party::canChangeFormation(unsigned int slot) const
+{
+    return slot < W8_PARTY_SLOT_COUNT && members[slot] && characters[slot].hp_current > 0 &&
+           characters[slot].highest_condition < W8_CONDITION_TURNCOAT;
+}
+
+void W8Party::acceptFormation(W8PartyFormationState& proposal, const GameData& data, Events& events,
+                              bool announce_moves)
+{
+    Events::Operation outcomes{events};
+    W8PartyFormationState accepted;
+    accepted.positions = formation.positions;
+    accepted.unknown_74 = formation.unknown_74;
+    const auto notice = [&](unsigned int slot, unsigned int text, int row) {
+        events.push(
+            CharacterNotice{slot, fmt::sprintf(data.strings[text], kFormationRowNames[row])});
+    };
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        if (!canChangeFormation(slot)) continue;
+        const auto cell = proposal.cellOf(slot);
+        const bool moved = proposal.rowOf(slot) != formation.rowOf(slot);
+        accepted.setPosition(slot, cell, false, moved);
+        if (moved && cell && announce_moves) notice(slot, 0x24c, cell->row);
+    }
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        if (!members[slot] || canChangeFormation(slot) ||
+            characters[slot].highest_condition >= W8_CONDITION_DEAD)
+            continue;
+        const auto previous = formation.cellOf(slot);
+        assert(previous);
+        const bool moved = proposal.rowOf(slot) != previous->row;
+        if (moved) events.push(CharacterNotice{slot, data.strings[0x248]});
+        if (accepted.rowOccupants(previous->row) < W8_FORMATION_COLUMNS) {
+            auto cell = *previous;
+            if (accepted.occupant(cell.row, cell.column)) {
+                cell.column = 0;
+                while (accepted.occupant(cell.row, cell.column)) ++cell.column;
+            }
+            accepted.setPosition(slot, cell, false, false);
+            if (moved) notice(slot, 0x249, cell.row);
+            continue;
+        }
+        bool placed = false;
+        for (int row : {4, 2, 3}) {
+            for (int column = 0; column < W8_FORMATION_COLUMNS; ++column) {
+                if (accepted.occupant(row, column)) continue;
+                accepted.setPosition(slot, W8FormationCell{row, column}, false, true);
+                notice(slot, 0x24a, row);
+                placed = true;
+                break;
+            }
+            if (placed) break;
+        }
+        assert(placed);
+    }
+    for (int row = 0; row < W8_FORMATION_ROWS; ++row) accepted.compactRow(row);
+    formation = proposal = accepted;
+    events.push(FormationChanged{});
 }

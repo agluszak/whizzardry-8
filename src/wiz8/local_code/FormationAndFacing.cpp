@@ -3,29 +3,18 @@
 #include <cassert>
 #include <cmath>
 
-#include <fmt/printf.h>
-
 #include "glm/ext/vector_float3.hpp"
-#include "layouts/main_game_screen.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MGSFormation.h"
-#include "wiz8/local_screens/MGSRadarMap.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
-#include "wiz8/rules/conditions.h"
-#include "wiz8/rules/events.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/targeting.h"
-#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/utility.h"
@@ -37,107 +26,6 @@
 /* A full turn, and the half-quadrant the bearing is biased by so that a
    quadrant is centred on its facing rather than starting at it. */
 enum { W8_DEGREES_PER_TURN = 360, W8_DEGREES_PER_QUADRANT = 90 };
-
-/* Reconcile an edited formation against the live one. Characters still able
-   to hold a place take their edited seat - a moved slot announces its new row
-   and picks up the row's facing - while characters that can no longer hold a
-   place are returned to their live row when it still has room, or pushed into
-   a fallback row with a notice. Dead characters keep the live position record
-   verbatim. The reconciled state is written back into both formations. */
-void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationState* live)
-{
-    W8PartyFormationState working;
-    int slot;
-    int index;
-    int row;
-    int column;
-
-    InitializePartyFormation(&working);
-    working.positions = live->positions;
-    working.unknown_74 = live->unknown_74;
-    for (slot = 0; slot < 8; ++slot) {
-        const W8Character* character = &CurrentGame().party.characters[slot];
-
-        if (!CurrentGame().party.members[slot].has_value() || character->hp_current <= 0 ||
-            character->highest_condition >= W8_CONDITION_TURNCOAT) {
-            continue;
-        }
-        const auto cell = edited->cellOf(slot);
-        const bool row_changed = edited->rowOf(slot) != live->rowOf(slot);
-        working.setPosition(slot, cell, false, row_changed);
-        if (row_changed && cell && GameStarted() && !CurrentGame().activity.conversation)
-            CurrentGame().events.push(CharacterNotice{
-                static_cast<unsigned int>(slot),
-                fmt::sprintf(Data().strings[0x24c], kFormationRowNames[cell->row])});
-        if (!row_changed) {
-            working.positions[slot].facing = live->positions[slot].facing;
-        }
-    }
-    for (slot = 0; slot < 8; ++slot) {
-        const W8Character* character = &CurrentGame().party.characters[slot];
-        W8PartyFormationPosition* live_position = &live->positions[slot];
-
-        if (!CurrentGame().party.members[slot].has_value() ||
-            (character->hp_current > 0 && character->highest_condition < W8_CONDITION_TURNCOAT)) {
-            continue;
-        }
-        if (character->highest_condition >= W8_CONDITION_DEAD) {
-            working.positions[slot] = *live_position;
-            continue;
-        }
-        if (edited->rowOf(slot) != live->rowOf(slot)) {
-            PostCharacterNotice(slot, Data().strings[0x248]);
-        }
-        const auto live_cell = live->cellOf(slot);
-        assert(live_cell);
-        row = live_cell->row;
-        if (working.rowOccupants(row) < 3) {
-            if (!working.occupant(row, live_cell->column)) {
-                column = live_cell->column;
-            } else {
-                column = -1;
-                for (index = 0; index < 3; ++index) {
-                    if (!working.occupant(row, index)) {
-                        column = index;
-                        break;
-                    }
-                }
-                assert(column != -1);
-            }
-            working.setPosition(slot, W8FormationCell{row, column}, false, false);
-            working.positions[slot].facing = live_position->facing;
-            if (edited->rowOf(slot) != row) {
-                PostCharacterNotice(slot,
-                                    fmt::sprintf(Data().strings[0x249], kFormationRowNames[row]));
-            }
-        } else {
-            const int new_rows[3] = {4, 2, 3};
-            bool placed = false;
-
-            for (index = 0; !placed && index < 3; ++index) {
-                const int new_row = new_rows[index];
-
-                for (column = 0; column < 3; ++column) {
-                    if (!working.occupant(new_row, column)) {
-                        working.setPosition(slot, W8FormationCell{new_row, column}, false, true);
-                        PostCharacterNotice(
-                            slot, fmt::sprintf(Data().strings[0x24a], kFormationRowNames[new_row]));
-                        placed = true;
-                        break;
-                    }
-                }
-            }
-            assert(placed);
-        }
-    }
-    for (row = 0; row < 5; ++row) {
-        working.compactRow(row);
-    }
-    *live = working;
-    *edited = working;
-    RefreshFormationBoard();
-    if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->refresh();
-}
 
 /* Which of the four quadrants around the party a world position falls in.
    The bearing to the position is taken relative to the party's facing, wrapped
@@ -164,42 +52,9 @@ int GetQuadrantForPosition(glm::vec3 position)
    whatever a position is already facing. */
 enum { W8_FACING_ANY = 4 };
 
-/* The state a character has to be under to hold a place in the formation:
-   highest_condition below HOSTILE, tighter than the party-wide death window. */
-
 const double g_facing_tolerance1 = 2.3561944500000003;
 
 const float g_facing_tolerance0 = 0.05f;
-
-/* Whether one character can hold a place in the formation at all: they have to
-   be alive and in better shape than the party sweeps demand. */
-bool CanHoldFormationPlace(int party_slot)
-{
-    const W8Character* character = &CurrentGame().party.characters[party_slot];
-
-    return character->hp_current > 0 && character->highest_condition < W8_CONDITION_TURNCOAT;
-}
-
-/* Remember the formation combat started with. */
-void SaveCombatFormation(void)
-{
-    assert(CurrentGame().combat.has_value());
-    CurrentGame().combat->saved_formation = CurrentGame().party.formation;
-}
-
-/* Put the formation combat started with back, if anything moved. Comparing the
-   whole block is what makes it one object rather than a set of tables. */
-void RestoreCombatFormation(void)
-{
-    assert(CurrentGame().combat.has_value());
-
-    if (CurrentGame().combat->saved_formation != CurrentGame().party.formation) {
-        CurrentGame().party.formation = CurrentGame().combat->saved_formation;
-        RefreshFormationBoard();
-        if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->refresh();
-        ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x24b], 0);
-    }
-}
 
 /* When set during combat, camera yaw updates party_heading only and leaves
    party_facing alone. Cleared, the free-look path also writes party_facing. */

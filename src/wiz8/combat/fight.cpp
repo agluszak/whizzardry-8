@@ -78,6 +78,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -210,7 +211,7 @@ bool Game::beginCombat(int surprise)
     DetectMonsterGroups();
     CurrentGame().events.push(MonstersChanged{});
     planned_formation = party.formation;
-    SaveCombatFormation();
+    fight.saved_formation = party.formation;
     search.fightBegan();
     if (IsLevelFastMovement()) {
         ClearLevelFastMovement();
@@ -985,7 +986,11 @@ void Game::endCombat(bool forced_cleanup)
         ClearPendingPartyMovement();
     }
     if (auto* screen = MainGame()) screen->dismissOverlays(false);
-    RestoreCombatFormation();
+    if (party.formation != combat->saved_formation) {
+        party.formation = combat->saved_formation;
+        events.push(FormationChanged{});
+        events.push(TextNotice{W8_FONT_PALETTE_WHITE, data.strings[0x24b], 0});
+    }
     ReconcilePartyEquipmentAfterCombat();
     // The fight is over; what follows restores the world around it.
     combat.reset();
@@ -1509,7 +1514,9 @@ void AdvanceCombatRound(void)
         CurrentGame().combat->uiNextPartyAction != W8_PARTY_ACTION_NONE) {
         ClearPendingPartyMovement();
     }
-    ReconcilePartyFormation(&CurrentGame().planned_formation, &CurrentGame().party.formation);
+    CurrentGame().party.acceptFormation(
+        CurrentGame().planned_formation, CurrentGame().data, CurrentGame().events,
+        CurrentGame().status.game_started && !CurrentGame().activity.conversation);
     if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0) {
         CurrentGame().events.push(
             TextNotice{W8_FONT_PALETTE_BEIGE,

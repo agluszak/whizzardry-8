@@ -22,7 +22,7 @@ struct W8PartyFormationPosition {
     /* The row remembered while the slot is unseated by death; the revival
        path re-seats into it and then clears it. */
     signed char revival_row = -1;
-    signed char facing = 0;
+    signed char facing = 4; // Unseated: no preferred facing.
     /* Saved bytes with no known meaning, kept for round trips. */
     std::array<unsigned char, 8> unknown_04{};
 

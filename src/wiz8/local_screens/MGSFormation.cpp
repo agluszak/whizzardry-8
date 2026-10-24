@@ -34,6 +34,7 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/ui_input.h"
@@ -280,7 +281,7 @@ void RefreshFormationPanel(bool force)
         const int slot = FormationCellSlot(cell);
         if (slot == -1) continue;
         const auto position = g_formation_cell_positions[cell];
-        const bool disabled = !CanHoldFormationPlace(slot);
+        const bool disabled = !CurrentGame().party.canChangeFormation(slot);
         const int arrow = CurrentGame().planned_formation.positions[slot].facing * 3 +
                           (disabled                         ? 2
                            : formation->cells[cell].pressed ? 1
@@ -322,7 +323,7 @@ static void UpdateFormationCells(void)
 static void SelectFormationCell(void)
 {
     const int slot = FormationCellSlot(g_formation_active_cell);
-    if (CanHoldFormationPlace(slot)) {
+    if (CurrentGame().party.canChangeFormation(slot)) {
         SelectFormationSlotCell(slot);
         SelectPartyCharacter(slot);
     }
@@ -336,14 +337,16 @@ static void AcceptFormationChanges(void)
     unsigned int slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.members[slot].has_value() && CanHoldFormationPlace(slot) &&
+        if (CurrentGame().party.canChangeFormation(slot) &&
             CurrentGame().planned_formation.rowOf(slot) !=
                 CurrentGame().party.formation.rowOf(slot)) {
             StartBreathCycle(slot, false);
         }
     }
     if (!CurrentGame().combat.has_value()) {
-        ReconcilePartyFormation(&CurrentGame().planned_formation, &CurrentGame().party.formation);
+        CurrentGame().party.acceptFormation(
+            CurrentGame().planned_formation, CurrentGame().data, CurrentGame().events,
+            CurrentGame().status.game_started && !CurrentGame().activity.conversation);
     } else if (CurrentGame().party.formation != CurrentGame().planned_formation) {
         ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x7d9]);
     }
@@ -384,7 +387,7 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
             if ((event.captured_buttons & SDL_BUTTON_LMASK) &&
                 TimeUntilDeadline(g_formation_drag_clock) == 0 && g_formation_drag_cell == -1 &&
                 g_formation_active_cell != -1) {
-                if (!CanHoldFormationPlace(FormationCellSlot(id))) {
+                if (!CurrentGame().party.canChangeFormation(FormationCellSlot(id))) {
                     formation->targets[id]->releaseCapture();
                     return UiResult::Handled;
                 }
@@ -415,7 +418,7 @@ static UiResult HandleFormationCell(const UiPointerEvent& event, int id)
         formation->highlighted[id] = false;
         RepaintFormationPanel();
         if ((event.buttons & SDL_BUTTON_LMASK) && g_formation_drag_cell == -1 &&
-            CanHoldFormationPlace(FormationCellSlot(id))) {
+            CurrentGame().party.canChangeFormation(FormationCellSlot(id))) {
             g_formation_active_cell = id;
             BeginFormationDrag();
             RepaintFormationPanel();
@@ -497,7 +500,7 @@ static void DropFormationSlot(int cell)
                 PostCharacterNotice(
                     g_formation_drag_slot,
                     fmt::sprintf(Data().strings[0x24e], kFormationRowNames[cell / 3]));
-        } else if (!CanHoldFormationPlace(FormationCellSlot(cell))) {
+        } else if (!CurrentGame().party.canChangeFormation(FormationCellSlot(cell))) {
             cell = -1;
         } else {
             CurrentGame().planned_formation.swap(g_formation_drag_slot, FormationCellSlot(cell));

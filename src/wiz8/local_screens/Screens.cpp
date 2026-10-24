@@ -315,9 +315,7 @@ struct GameEventPresentation {
     }
     void operator()(const FormationChanged&) const
     {
-        if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME ||
-            g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR)
-            return;
+        if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) return;
         if (auto* screen = MainGame()) {
             RefreshFormationBoard();
             if (screen->radar_map) screen->radar_map->refresh();

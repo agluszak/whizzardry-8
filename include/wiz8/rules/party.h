@@ -9,6 +9,8 @@
 #include "wiz8/rules/party_slot.h"
 
 class Rng;
+class Events;
+struct GameData;
 
 // Character and action storage have the same lifetime as their party.
 struct W8Party {
@@ -16,6 +18,11 @@ struct W8Party {
     unsigned int order_slots[W8_PARTY_SLOT_COUNT]{};
     unsigned int gold = 0;
     W8GameplayModifierBlock modifiers{};
+
+    bool canChangeFormation(unsigned int slot) const;
+    // Accept a proposal against current members and conditions, then publish settled outcomes.
+    void acceptFormation(W8PartyFormationState& proposal, const GameData& data, Events& events,
+                         bool announce_moves);
 
     std::optional<unsigned int> slotOf(const W8Character& character) const;
     // The NPC state index of the slot's member; -1 for an empty slot or a created character.
