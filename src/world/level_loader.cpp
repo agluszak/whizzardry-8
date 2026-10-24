@@ -43,6 +43,7 @@
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/binary_reader.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/cycle_player.h"

@@ -42,7 +42,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
-#include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
@@ -52,6 +51,7 @@
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/party_camera.h"
+#include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
 constexpr float kDropItemPitchScale = 71.0f;
