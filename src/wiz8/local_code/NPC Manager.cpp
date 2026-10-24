@@ -31,7 +31,6 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <utility>
 #include <vector>
 
 #include <fmt/format.h>
@@ -42,8 +41,6 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/hostility.h"
-#include "wiz8/data/dice.h"
-#include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/monster.h"
@@ -55,7 +52,6 @@
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
-#include "wiz8/level_population.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/GameplayCode.h"

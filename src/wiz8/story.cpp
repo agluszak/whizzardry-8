@@ -9,6 +9,7 @@
 #include <string_view>
 #include <utility>
 
+#include "wiz8/layouts/npc_state.h"
 #include "wiz8/unicode.h"
 
 namespace {
