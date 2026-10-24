@@ -250,7 +250,7 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bo
     group->forced_neutral = false;
     if (MonsterGroupHasVisibleThreat(group)) {
         CurrentGame().events.push(
-            TextNotice{9, fmt::format("{} {} {}!", GetMonsterGroupName(group),
+            TextNotice{9, fmt::format("{} {} {}!", CurrentGame().monsterGroupName(*group),
                                       Data().strings[0x1d7 + (group->MemberCount() != 1)],
                                       Data().strings[g_group_hostility_notice_ids[hostility]])});
     }

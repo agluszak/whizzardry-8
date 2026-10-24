@@ -42,6 +42,15 @@ struct W8LevelPopulation {
                 monster->monster_visibility->erase(removed.location_id);
         }
     }
+    void releaseElementalSummon(int id)
+    {
+        for (const auto& monster : monster_roster.live()) {
+            if (monster->elemental_summon == id) {
+                monster->elemental_summon = -1;
+                break;
+            }
+        }
+    }
     // The live monster at `id`, if one is in the world.
     Monster* findEntity(int id) const
     {

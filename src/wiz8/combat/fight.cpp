@@ -558,7 +558,7 @@ void BeginCombatExecution(void)
                     W8MonsterInfo* target = FindMonster(party->committed.target.iMonsterID);
                     CurrentGame().events.push(CharacterNotice{
                         static_cast<unsigned int>(slot),
-                        fmt::sprintf(Data().strings[0x229], GetMonsterName(target, 0, 0))});
+                        fmt::sprintf(Data().strings[0x229], CurrentGame().monsterName(*target))});
                 }
             }
         }
@@ -575,8 +575,8 @@ void BeginCombatExecution(void)
         if (monster->action_kind == W8_MONSTER_ACTION_PROTECT) {
             if (monster->Target.iType == W8_TARGET_KIND_MONSTER) {
                 W8MonsterInfo* target = FindMonster(monster->Target.iMonsterID);
-                PostMonsterNotice(
-                    monster, fmt::sprintf(Data().strings[0x229], GetMonsterName(target, 0, 0)));
+                PostMonsterNotice(monster, fmt::sprintf(Data().strings[0x229],
+                                                        CurrentGame().monsterName(*target)));
             } else if (monster->Target.iType == W8_TARGET_KIND_CHARACTER) {
                 PostMonsterNotice(
                     monster,

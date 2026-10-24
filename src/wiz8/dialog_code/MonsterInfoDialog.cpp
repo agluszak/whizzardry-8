@@ -369,7 +369,7 @@ void W8MonsterInfoDialog::Draw(SDL_Surface& target)
     W8DialogBase::Draw(target);
     g_wiz_text_font_secondary.resetPalette();
     W8MonsterInfo* monster_info = FindMonster(m_location_id);
-    auto name = GetMonsterName(monster_info, 0, 0);
+    auto name = CurrentGame().monsterName(*monster_info);
     std::int16_t width = g_wiz_text_font_secondary.textWidth(name);
     DrawText(target, g_wiz_text_font_secondary, {m_x + 0xe + (0x112 - width) / 2, m_y + 0x11},
              name);

@@ -130,14 +130,14 @@ bool StartMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8MonsterRecor
         CurrentGame().events.push(TextNotice{
             9,
             fmt::format(
-                "{} {}!", GetMonsterName(monster_info, nullptr, 0),
+                "{} {}!", CurrentGame().monsterName(*monster_info),
                 Data().strings[g_monster_special_attack_name_ids[record->special_attack_kind]])});
         return true;
     }
     CurrentGame().events.push(TextNotice{
         W8_FONT_PALETTE_RUST,
         fmt::format(
-            "{} {}", GetMonsterName(monster_info, nullptr, 0),
+            "{} {}", CurrentGame().monsterName(*monster_info),
             Data().strings[g_monster_special_attack_name_ids[record->special_attack_kind]])});
     return true;
 }
@@ -489,7 +489,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
     if (interrupt != -1) {
         game.events.push(
             TextNotice{W8_FONT_PALETTE_RUST,
-                       fmt::format("{} {}", GetMonsterName(monster_info, nullptr, 0),
+                       fmt::format("{} {}", game.monsterName(*monster_info),
                                    Data().strings[g_condition_interrupt_notices[interrupt]])});
         switch (interrupt) {
         case 0:
@@ -575,19 +575,17 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
                         if (monster_info->action_kind == W8_MONSTER_ACTION_APPROACH) {
                             if (g_settings.verbose_combat_messages) {
                                 if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
-                                    PostMonsterNotice(
-                                        monster_info,
-                                        fmt::sprintf(Data().strings[0x238],
-                                                     GetMonsterName(target_info, nullptr, 0)));
+                                    PostMonsterNotice(monster_info,
+                                                      fmt::sprintf(Data().strings[0x238],
+                                                                   game.monsterName(*target_info)));
                                 } else {
                                     PostMonsterNotice(monster_info, Data().strings[0x236]);
                                 }
                             }
                         } else if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
-                            PostMonsterNotice(
-                                monster_info,
-                                fmt::sprintf(Data().strings[0x239],
-                                             GetMonsterName(target_info, nullptr, 0)));
+                            PostMonsterNotice(monster_info,
+                                              fmt::sprintf(Data().strings[0x239],
+                                                           game.monsterName(*target_info)));
                         } else {
                             PostMonsterNotice(monster_info, Data().strings[0x237]);
                         }
@@ -612,7 +610,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
                  CurrentLevelPopulation().monster_roster.hostileCombatCount() == 0)) {
                 game.events.push(TextNotice{
                     W8_FONT_PALETTE_RUST,
-                    fmt::sprintf(Data().strings[0x23c], GetMonsterName(monster_info, nullptr, 0))});
+                    fmt::sprintf(Data().strings[0x23c], game.monsterName(*monster_info))});
                 monster_info->action_kind = W8_MONSTER_ACTION_WAIT;
                 continue;
             }
@@ -621,7 +619,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
             if (result != 0) {
                 game.events.push(TextNotice{
                     W8_FONT_PALETTE_RUST,
-                    fmt::sprintf(Data().strings[0x23a], GetMonsterName(monster_info, nullptr, 0))});
+                    fmt::sprintf(Data().strings[0x23a], game.monsterName(*monster_info))});
             }
             break;
         case W8_MONSTER_ACTION_ADVANCE:
@@ -632,7 +630,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
                 if (interrupt != 0xc) {
                     game.events.push(TextNotice{
                         9, fmt::sprintf(
-                               Data().strings[0x23b], GetMonsterName(monster_info, nullptr, 0),
+                               Data().strings[0x23b], game.monsterName(*monster_info),
                                Data().strings[g_gender_name_message_rows[record->name_group][2]])});
                 }
             }
@@ -689,9 +687,9 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
             monster_info->action_kind = W8_MONSTER_ACTION_WAIT;
         }
         if (monster_info->action_kind == W8_MONSTER_ACTION_WAIT) {
-            game.events.push(TextNotice{
-                W8_FONT_PALETTE_RUST,
-                fmt::sprintf(Data().strings[0x23c], GetMonsterName(monster_info, nullptr, 0))});
+            game.events.push(
+                TextNotice{W8_FONT_PALETTE_RUST,
+                           fmt::sprintf(Data().strings[0x23c], game.monsterName(*monster_info))});
             break;
         }
     }

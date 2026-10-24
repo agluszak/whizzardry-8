@@ -93,7 +93,7 @@ void PrintState(GameHarness& game)
         if (nearby.size() > 6) nearby.resize(6);
         for (const auto& [distance, monster] : nearby)
             std::printf("  monster %d %s hp=%u disposition=%d combat=%d at %.0f (%g %g)\n",
-                        monster->location_id, GetMonsterName(monster, nullptr, false).c_str(),
+                        monster->location_id, CurrentGame().monsterName(*monster).c_str(),
                         monster->hp_current, int(monster->ubDisposition), bool(monster->pCombat),
                         distance, monster->entity->nav.GetPosition().x,
                         monster->entity->nav.GetPosition().z);

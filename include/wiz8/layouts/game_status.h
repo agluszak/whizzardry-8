@@ -3,7 +3,6 @@
 
 #include <array>
 #include <cstdint>
-#include <string>
 
 #include "wiz8/data/records.h"
 #include "wiz8/difficulty.h"
@@ -111,7 +110,6 @@ struct GameStatus {
     bool use_item_latch = false;
     bool infatuation_pending = false;
     W8Difficulty difficulty = W8_DIFFICULTY_NOVICE;
-    std::string monster_name_buffer;
     /* Party slot selected by the Sedexus path before rpc_active is armed; later capture,
        fact and death handling reuse the same slot. */
     int sedexus_party_slot = 0;

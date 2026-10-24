@@ -1859,10 +1859,10 @@ void OpenNpcDialogueTranscriptLayout(void)
     SetNpcDialogueInputEnabled(2, true);
     SetNpcDialogueInputEnabled(0, true);
     if (CurrentGame().npc_interaction.dialogue_npc->name_style == 0x32) {
-        CurrentGame().status.monster_name_buffer = fmt::format(
+        const auto name = fmt::format(
             "Al-{}", CurrentGame().party.characters[CurrentGame().status.sedexus_party_slot].name);
         MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_NPC_NAME].text.SetText(
-            CurrentGame().status.monster_name_buffer, g_wiz_text_bold_font);
+            name, g_wiz_text_bold_font);
     } else {
         MainGame()->dialogue.ui->actions[W8_NPC_CONTROL_NPC_NAME].text.SetText(
             CurrentGame().npc_interaction.dialogue_npc->record->source_name, g_wiz_text_bold_font);

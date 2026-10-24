@@ -13,13 +13,17 @@
 #include "scoped_combat.h"
 #include "scoped_game.h"
 #include "wiz8/character_event_queue.h"
+#include "wiz8/character_skills.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
+#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/portrait_animation.h"
 #include "wiz8/rules/character.h"
@@ -407,4 +411,83 @@ TEST_CASE_METHOD(PartyFixture, "Acquisition diagnostics wait for the enclosing d
     SettleActiveParty(game);
     REQUIRE(diagnostics > 0);
     game.events.observe({});
+}
+
+TEST_CASE_METHOD(PartyFixture, "A monster releases its own party dependents before publishing",
+                 "[conditions][lifetime]")
+{
+    Game candidate{data};
+    candidate.level.replacePrimary(std::make_unique<World>(7));
+    candidate.party.members[0].emplace();
+    auto& character = candidate.party.characters[0] = member();
+    auto& summoned = character.conditions[W8_DEPENDENCE_SUMMON];
+    summoned.level_acquired = 7;
+    summoned.source_monster = 42;
+    summoned.active = false; // Matching records count even when already inactive.
+    auto& swallowed = character.conditions[W8_DEPENDENCE_SWALLOWED];
+    swallowed.level_acquired = 7;
+    swallowed.source_monster = 42;
+    swallowed.active = true;
+    swallowed.unknown_09[0] = 77;
+    character.uiCondition[W8_CONDITION_MISSING] = 1;
+    character.highest_condition = W8_CONDITION_MISSING;
+    auto& roster = candidate.level.loaded().population->monster_roster;
+    auto source = std::make_unique<W8MonsterInfo>();
+    source->location_id = 42;
+    source->condition_binding_mask = (1 << W8_DEPENDENCE_SUMMON) | (1 << W8_DEPENDENCE_SWALLOWED);
+    auto& monster = *roster.add(std::move(source), false);
+    for (int id : {9, 10}) {
+        auto bound = std::make_unique<W8MonsterInfo>();
+        bound->location_id = id;
+        bound->elemental_summon = 42;
+        roster.add(std::move(bound), false);
+    }
+    member().conditions[W8_DEPENDENCE_SWALLOWED] = swallowed;
+    std::vector<Rng::Draw> outgoing_draws;
+    game.rng.trace(&outgoing_draws);
+    unsigned int notices = 0;
+    candidate.events.observe([&](const Event&) {
+        ++notices;
+        REQUIRE(summoned.source_monster == 0);
+        REQUIRE_FALSE(swallowed.active);
+        REQUIRE(character.uiCondition[W8_CONDITION_MISSING] == 0);
+    });
+    candidate.releaseMonsterDependents(monster);
+    REQUIRE(notices > 0);
+    REQUIRE(swallowed.unknown_09[0] == 77);
+    REQUIRE(candidate.level.loaded().population->findMonster(9)->elemental_summon == 42);
+    REQUIRE(member().conditions[W8_DEPENDENCE_SWALLOWED].active);
+    REQUIRE(outgoing_draws.empty());
+    // With no matching character binding, only the first live monster link is released.
+    candidate.releaseMonsterDependents(monster);
+    REQUIRE(candidate.level.loaded().population->findMonster(9)->elemental_summon == -1);
+    REQUIRE(candidate.level.loaded().population->findMonster(10)->elemental_summon == 42);
+}
+
+TEST_CASE_METHOD(PartyFixture, "Practicing a skill identifies the member in its supplied party",
+                 "[conditions][skills][lifetime]")
+{
+    Game candidate{data};
+    candidate.party.members[3].emplace();
+    auto& character = candidate.party.characters[3] = member();
+    auto& sword = character.skills[W8_SKILL_SWORD];
+    sword.active = true;
+    sword.base_level = 100;
+    sword.points = 0;
+    sword.practice_count = 7;
+    std::vector<Rng::Draw> candidate_draws, outgoing_draws;
+    candidate.rng.trace(&candidate_draws);
+    game.rng.trace(&outgoing_draws);
+    PracticeCharacterSkill(candidate, &character, W8_SKILL_SWORD, 1, true);
+    REQUIRE(sword.points == 1);
+    REQUIRE(sword.practice_count == 0);
+    REQUIRE(candidate_draws.size() == 1);
+    REQUIRE(candidate_draws.front().range == 100);
+    REQUIRE(outgoing_draws.empty());
+    REQUIRE(game.events.pending().empty());
+    REQUIRE(std::ranges::count_if(candidate.events.pending(), [](const Event& event) {
+                const auto* improvement = std::get_if<SkillImproved>(&event);
+                return improvement && improvement->party_slot == 3 &&
+                       improvement->skill == W8_SKILL_SWORD;
+            }) == 1);
 }

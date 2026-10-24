@@ -587,9 +587,9 @@ template<> struct Record<save::GameState> {
               bytes.subspan(offsetof(Disk, difficulty), sizeof(Disk::difficulty)));
         value(&runtime.status.retail.save_filetime_xor,
               bytes.subspan(offsetof(Disk, save_filetime_xor), sizeof(Disk::save_filetime_xor)));
-        text(runtime.status.monster_name_buffer,
-             bytes.subspan(offsetof(Disk, monster_name_buffer), sizeof(Disk::monster_name_buffer)),
-             Encoding::utf16);
+        value(
+            &runtime.status.retail.monster_name_cache,
+            bytes.subspan(offsetof(Disk, monster_name_buffer), sizeof(Disk::monster_name_buffer)));
         value(&runtime.status.sedexus_party_slot,
               bytes.subspan(offsetof(Disk, sedexus_party_slot), sizeof(Disk::sedexus_party_slot)));
         value(&runtime.status.stamina_tick_ms,

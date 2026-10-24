@@ -713,6 +713,8 @@ TEST_CASE_METHOD(SpellVisualFixture,
     REQUIRE_FALSE(prepared.IsRenderable(true));
     REQUIRE_FALSE(world.population->findMonster(7)->within_viewing_distance);
 
+    world.camera = &world.scene->camera;
+    replacement.camera = &replacement.scene->camera;
     for (auto* camera : {world.camera, replacement.camera}) {
         camera->setClipRange(1, 100);
         camera->setViewPlane(Camera3D::Rect{-1, -1, 1, 1}, 1);
@@ -990,6 +992,7 @@ TEST_CASE("A monster record owns its loaded body independently of activation",
     mesh.radius = 3.0f;
     animation.parts[2].push_back({std::move(mesh), std::nullopt});
     body->visual.active_animation = &animation;
+    body->visual.m_bLOD = 2;
     body->visual.animation_playing = true;
     body->visual.pending_cycle = W8_MONSTER_CYCLE_GET_HIT;
     info->setMotionless(true);
@@ -1656,7 +1659,7 @@ TEST_CASE("NPC preparation keeps story identity and publishes only into its supp
         REQUIRE(active.game.story.npcs.size() == 1);
         REQUIRE(active.game.story.npcs.front() == active_npc);
         const auto instance = candidate.story.npcs[1];
-        const auto instance_script = instance->script_file;
+        const auto retained_script = singleton->script_file;
         const auto retained_gold = instance->gold;
         instance->releaseWorldBinding();
         singleton->releaseWorldBinding();
@@ -1664,7 +1667,7 @@ TEST_CASE("NPC preparation keeps story identity and publishes only into its supp
         REQUIRE_FALSE(instance->script_file);
         REQUIRE(instance->binding_unavailable);
         REQUIRE(candidate.story.npc(1) == nullptr);
-        REQUIRE(instance_script); // Outstanding continuations keep their script alive.
+        REQUIRE(retained_script); // Outstanding continuations keep their script alive.
         REQUIRE(instance->gold == retained_gold);
         REQUIRE_FALSE(singleton->has_monster);
         REQUIRE_FALSE(singleton->script_file);
@@ -2090,4 +2093,51 @@ TEST_CASE("A group leaves only its own game fight and releases its engagement ef
     REQUIRE(following.flags == 0x201);
     REQUIRE((following.movement.attachment->flags & W8_NAV_ATTACHMENT_FOLLOW_PATH) == 0);
     REQUIRE(outgoing.game.combat->holdsTurn(MonsterActor{7}));
+}
+
+TEST_CASE("Monster names query their owning game without maintaining a display cache",
+          "[lifetime][names]")
+{
+    ScopedGame outgoing;
+    GameData data;
+    data.monsters.resize(3);
+    data.monsters[0].name0 = "Hidden rat";
+    data.monsters[0].name2 = "Rat";
+    data.monsters[1].name0 = "Hidden wolf";
+    data.monsters[1].name1 = "Hidden wolves";
+    data.monsters[1].name2 = "Wolf";
+    data.monsters[1].name3 = "Wolves";
+    data.monsters[2].record_id = W8_MONSTER_RECORD_ALTERNATE_NAME;
+    Game candidate{data};
+    candidate.level.replacePrimary(std::make_unique<World>());
+    candidate.status.retail.monster_name_cache.fill(std::byte{0xa5});
+    const auto cache = candidate.status.retail.monster_name_cache;
+    auto& group = *candidate.level.loaded().population->monster_groups.emplace_back(
+        std::make_unique<W8MonsterGroup>());
+    group.group_id = group.monster_id = 1;
+    group.monsters = {7};
+    W8MonsterInfo monster{};
+    monster.monster_group_id = 1;
+    const Game& query = candidate;
+    REQUIRE(query.monsterName(monster) == "Rat");
+    REQUIRE(query.monsterGroupName(group) == "Wolf");
+    group.monsters.push_back(8);
+    REQUIRE(query.monsterGroupName(group) == "Wolves");
+    group.alternate_name = true;
+    REQUIRE(query.monsterName(monster) == "Hidden rat");
+    REQUIRE(query.monsterGroupName(group) == "Hidden wolves");
+    group.monsters.clear();
+    REQUIRE(query.monsterGroupName(group) == "Hidden wolves"); // Only one is singular.
+    monster.monster_species = 2;
+    monster.monster_group_id = 999; // Al-name selection never needs a group lookup.
+    candidate.status.sedexus_party_slot = 1;
+    candidate.party.characters[1].name = "Ada";
+    REQUIRE(query.monsterName(monster) == "Al-Ada");
+    candidate.party.characters[1].name = "Bea";
+    group.monster_id = 2;
+    REQUIRE(query.monsterName(monster) == "Al-Bea");
+    REQUIRE(query.monsterGroupName(group) == "Al-Bea");
+    REQUIRE(candidate.status.retail.monster_name_cache == cache);
+    REQUIRE(candidate.events.pending().empty());
+    REQUIRE(outgoing.game.events.pending().empty());
 }

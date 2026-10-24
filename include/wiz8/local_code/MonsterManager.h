@@ -434,8 +434,6 @@ unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot);
 
 void ShutdownMonsterManager(void);
 
-std::string GetMonsterName(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                           unsigned char name_form);
 /* Report the monster's line, "Name text" in the monster colour; text that opens with a
    quote or a colon follows the name directly. */
 void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text);

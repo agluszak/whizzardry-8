@@ -919,7 +919,12 @@ static wiz8::save::GameState populated_game_state()
     status.retail.save_filetime_xor = {0x01234567, 0x89abcdef};
     status.text_box_lines_used = {1, 2, 3, 4};
     status.text_box_lines_shown = {1, 1, 2, 3};
-    status.monster_name_buffer = "Rattkin";
+    // A valid short UTF-16 name, then nonzero scratch bytes after its terminator.
+    status.retail.monster_name_cache.fill(std::byte{0xa5});
+    status.retail.monster_name_cache[0] = std::byte{'R'};
+    status.retail.monster_name_cache[1] = std::byte{0};
+    status.retail.monster_name_cache[2] = std::byte{0};
+    status.retail.monster_name_cache[3] = std::byte{0};
     status.flags[3] = 1;
     status.spell_usage[2].cast_count = 5;
     status.item_spell_usage[7].usable_cast_count = 9;
@@ -1014,7 +1019,7 @@ static void global_status_record()
     auto edited = payload;
     constexpr std::pair<unsigned, unsigned> unknown_runs[] = {
         {0x187b, 0x55}, {0x1904, 0xd4},  {0x19dc, 0x28}, {0x243f, 5},
-        {0x40c2, 0xc},  {0x47de, 0x194}, {0x497b, 4}};
+        {0x40c2, 0xc},  {0x47de, 0x194}, {0x497b, 4},    {0x2453, 44}};
     for (const auto& [offset, size] : unknown_runs)
         for (unsigned index = 0; index < size; ++index)
             edited[4 + offset + index] = std::byte(0x40 + index % 0x31);

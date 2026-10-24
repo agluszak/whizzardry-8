@@ -6,6 +6,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include <glm/ext/vector_float3.hpp>
@@ -222,6 +223,9 @@ public:
     void refreshCombatEngagement();
     void removeMonsterFromCombat(W8MonsterInfo& monster);
     void endGroupCombat(W8MonsterGroup& group);
+    void releaseMonsterDependents(const W8MonsterInfo& monster);
+    std::string monsterName(const W8MonsterInfo& monster) const;
+    std::string monsterGroupName(const W8MonsterGroup& group) const;
     void setEncounterDurationScale(float scale);
     int normalizeLevel(int requested) const;
     signed char levelBand(int requested) const;
@@ -348,6 +352,7 @@ private:
     std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
     void updateSurpriseMode();
     void applyCombatEndEffects();
+    std::string monsterName(const W8MonsterRecord& record, bool alternate, bool plural) const;
     void refreshCombatEngagement(std::vector<Event>& outcomes);
     void removeMonsterFromCombat(W8MonsterInfo& monster, std::vector<Event>& outcomes);
     void resetCombatEffects();

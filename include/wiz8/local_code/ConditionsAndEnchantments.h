@@ -47,10 +47,5 @@ bool GetConditionRecordFlag(int party_slot, W8CharacterDependence dependence);
 void BindMonsterToCharacterDependence(unsigned int party_slot, unsigned int dependence_slot,
                                       int monster_id);
 
-/* Clear the character condition records a dead monster sourced,
-   over both dependence slots and the per-character tables; RecordMonsterKill
-   runs it before the faction fallout. */
-void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info);
-
 void RemoveConditionFromEveryone(W8Condition condition);
 void RemoveAllEnchantments(void);

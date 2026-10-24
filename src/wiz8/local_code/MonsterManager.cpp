@@ -335,10 +335,10 @@ void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce)
     if (announce && !monster_info->death_processed &&
         monster_info->party_threat.sight_state != W8_SIGHT_UNSEEN) {
         ShowNotice(notice_channel,
-                   fmt::format("{} {}!", GetMonsterName(monster_info, 0, 0),
+                   fmt::format("{} {}!", CurrentGame().monsterName(*monster_info),
                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular]));
     }
-    ReleaseMonsterConditionBindings(monster_info);
+    CurrentGame().releaseMonsterDependents(*monster_info);
     if (monster_info->summoned == W8_MONSTER_SUMMON_FRIENDLY) {
         return;
     }
@@ -504,10 +504,10 @@ void ProcessMonstersAtCombatEnd(bool forced_cleanup)
             if (!forced_cleanup) {
                 ShowNotice(W8_FONT_PALETTE_RUST,
                            fmt::sprintf(Data().strings[W8_NOTICE_MONSTER_SLAIN],
-                                        GetMonsterName(monster_info, 0, 0)),
+                                        CurrentGame().monsterName(*monster_info)),
                            0);
             }
-            ReleaseMonsterConditionBindings(monster_info);
+            CurrentGame().releaseMonsterDependents(*monster_info);
             if (!forced_cleanup) {
                 monster_info->death_processed = true;
                 MonsterStartsDying(monster_info, true);
@@ -1064,47 +1064,39 @@ void ProcessMonsterManagerFrame(void)
     }
 }
 
-/* The display name for one monster. Three things decide it.
-
-   Without a record, GetMonsterDataForInfo fetches the species' cached database row.
-
-   One record id is special-cased entirely: it is shown as a party character's
-   name with a prefix, formatted into a shared buffer.
-
-   Otherwise the monster's group decides which of the record's two name sets is
-   used, and name_form picks the variant within it - the sets are twenty-four
-   wide characters apart. A monster with no group at all is a bug unless it is
-   already dying, and says so on the debug channel rather than asserting. */
 void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text)
 {
     const std::string_view separator =
         (text.starts_with("'") || text.starts_with(":")) ? std::string_view{} : g_W8TextSeparator;
     CurrentGame().events.push(TextNotice{
         W8_FONT_PALETTE_RUST,
-        fmt::format("{}{}{}", GetMonsterName(monster_info, nullptr, 0), separator, text)});
+        fmt::format("{}{}{}", CurrentGame().monsterName(*monster_info), separator, text)});
 }
 
-std::string GetMonsterName(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                           unsigned char name_form)
+std::string Game::monsterName(const W8MonsterRecord& record, bool alternate, bool plural) const
 {
-    W8MonsterGroup* monster_group;
+    if (record.record_id == W8_MONSTER_RECORD_ALTERNATE_NAME)
+        return fmt::format("Al-{}", party.characters[status.sedexus_party_slot].name);
+    if (alternate) return plural ? record.name1 : record.name0;
+    return plural ? record.name3 : record.name2;
+}
 
-    if (record == 0) {
-        record = GetMonsterDataForInfo(monster_info);
+std::string Game::monsterName(const W8MonsterInfo& monster) const
+{
+    const auto& record = data.monsters[monster.monster_species];
+    bool alternate = false;
+    if (record.record_id != W8_MONSTER_RECORD_ALTERNATE_NAME && monster.monster_group_id != 0) {
+        const auto* group = level.loaded().population->findGroup(monster.monster_group_id);
+        assert(group);
+        alternate = group->alternate_name;
     }
-    if (record->record_id == W8_MONSTER_RECORD_ALTERNATE_NAME) {
-        CurrentGame().status.monster_name_buffer = fmt::format(
-            "Al-{}", CurrentGame().party.characters[CurrentGame().status.sedexus_party_slot].name);
-        return CurrentGame().status.monster_name_buffer;
-    }
-    if (monster_info->monster_group_id != 0) {
-        monster_group = FindMonsterGroup(monster_info->monster_group_id);
-        assert(monster_group != 0);
-        if (monster_group->alternate_name) {
-            return (name_form ? record->name1 : record->name0);
-        }
-    }
-    return (name_form ? record->name3 : record->name2);
+    return monsterName(record, alternate, false);
+}
+
+std::string Game::monsterGroupName(const W8MonsterGroup& group) const
+{
+    return monsterName(data.monsters[group.monster_id], group.alternate_name,
+                       group.MemberCount() != 1);
 }
 
 float GetAveragePartyMemberLevel(void)
@@ -1237,10 +1229,12 @@ void DetectMonsterGroups(void)
             }
             if (best_slot != -1) {
                 PostCharacterNotice(
-                    best_slot, fmt::sprintf(Data().strings[0x1ca], GetMonsterGroupName(group)));
+                    best_slot,
+                    fmt::sprintf(Data().strings[0x1ca], CurrentGame().monsterGroupName(*group)));
                 group->alternate_name = true;
                 bool vowel;
-                switch (toupper(static_cast<unsigned char>(GetMonsterGroupName(group).front()))) {
+                switch (toupper(
+                    static_cast<unsigned char>(CurrentGame().monsterGroupName(*group).front()))) {
                 case 'A':
                 case 'E':
                 case 'I':
@@ -1259,7 +1253,7 @@ void DetectMonsterGroups(void)
                     article = Data().strings[0x1cd];
                 }
                 ShowNotice(W8_FONT_PALETTE_WHITE,
-                           fmt::format("{} {}!", article, GetMonsterGroupName(group)));
+                           fmt::format("{} {}!", article, CurrentGame().monsterGroupName(*group)));
                 noticed = true;
             }
         }

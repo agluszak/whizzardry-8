@@ -2984,7 +2984,7 @@ void RedrawCombatMonsterList(bool subject_valid)
                 if (IsMonsterGroupLive(monster_group)) {
                     scratch_text =
                         fmt::format("{:d} {} ({:d}/{:d}/{:d})", monster_group->MemberCount(),
-                                    GetMonsterGroupName(monster_group),
+                                    CurrentGame().monsterGroupName(*monster_group),
                                     CurrentLevelPopulation().activeMemberCount(*monster_group),
                                     monster_group->selectable_member_count,
                                     monster_group->visible_member_count);
@@ -5317,7 +5317,7 @@ void SetCombatSelection(int value)
             point = CursorPosition();
             W8MonsterInfo* monster_info = FindMonster(MainGameHud()->highlighted_item);
             if (monster_info != 0) {
-                text = GetMonsterName(monster_info, 0, 0);
+                text = CurrentGame().monsterName(*monster_info);
                 text += " (";
                 health = FormatMonsterHealth(monster_info);
                 text += health;

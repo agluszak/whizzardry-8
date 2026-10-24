@@ -720,7 +720,7 @@ void Missile::AnnounceCollisionTarget()
     target_start = text.size();
     if (combat_slot.iType == W8_TARGET_KIND_MONSTER) {
         W8MonsterInfo* monster_info = owner_world.population->findMonster(combat_slot.iMonsterID);
-        text += GetMonsterName(monster_info, 0, 0);
+        text += CurrentGame().monsterName(*monster_info);
     } else {
         text += CurrentGame().party.characters[combat_slot.iChar].name;
     }

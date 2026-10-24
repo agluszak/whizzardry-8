@@ -249,14 +249,15 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
             }
             if (in_combat != 0) {
                 if (c) {
-                    ShowNotice(category, fmt::format("{} {}", GetMonsterName(monster_info, 0, 0),
-                                                     Data().strings[0x268]));
+                    ShowNotice(category,
+                               fmt::format("{} {}", CurrentGame().monsterName(*monster_info),
+                                           Data().strings[0x268]));
                 } else if (a != 0) {
                     ShowNotice(category, fmt::sprintf(Data().strings[0x254], amount));
                 } else {
                     ShowNotice(category, fmt::sprintf(Data().strings[0x256],
-                                                      GetMonsterName(monster_info, 0, 0), amount,
-                                                      quiet ? g_poison_suffix : ""));
+                                                      CurrentGame().monsterName(*monster_info),
+                                                      amount, quiet ? g_poison_suffix : ""));
                 }
             }
         }
@@ -277,7 +278,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
             if (result_stats != 0) {
                 auto death_report = std::make_unique<W8SpellDamageReport>();
                 death_report->kind = W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH;
-                death_report->text = GetMonsterName(monster_info, 0, 0);
+                death_report->text = CurrentGame().monsterName(*monster_info);
                 result_stats->reports.push_back(std::move(death_report));
             }
             MonsterStartsDying(monster_info, result_stats == 0);
@@ -310,12 +311,13 @@ void HealMonster(W8MonsterInfo* monster_info, unsigned int amount, bool announce
 
     if (announce) {
         if (monster_info->hp_current == static_cast<unsigned int>(monster_info->uiHPMax)) {
-            ShowNotice(W8_FONT_PALETTE_RUST,
-                       fmt::sprintf(Data().strings[0x259], GetMonsterName(monster_info, 0, 0)));
-        } else {
             ShowNotice(
                 W8_FONT_PALETTE_RUST,
-                fmt::sprintf(Data().strings[0x25b], GetMonsterName(monster_info, 0, 0), amount));
+                fmt::sprintf(Data().strings[0x259], CurrentGame().monsterName(*monster_info)));
+        } else {
+            ShowNotice(W8_FONT_PALETTE_RUST,
+                       fmt::sprintf(Data().strings[0x25b], CurrentGame().monsterName(*monster_info),
+                                    amount));
         }
     }
 }
@@ -652,12 +654,13 @@ void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announc
     }
     if (announce) {
         if (static_cast<unsigned int>(monster_info->stamina) == stamina_max) {
-            ShowNotice(W8_FONT_PALETTE_RUST,
-                       fmt::sprintf(Data().strings[0x25d], GetMonsterName(monster_info, 0, 0)));
-        } else {
             ShowNotice(
                 W8_FONT_PALETTE_RUST,
-                fmt::sprintf(Data().strings[0x25f], GetMonsterName(monster_info, 0, 0), amount));
+                fmt::sprintf(Data().strings[0x25d], CurrentGame().monsterName(*monster_info)));
+        } else {
+            ShowNotice(W8_FONT_PALETTE_RUST,
+                       fmt::sprintf(Data().strings[0x25f], CurrentGame().monsterName(*monster_info),
+                                    amount));
         }
     }
 

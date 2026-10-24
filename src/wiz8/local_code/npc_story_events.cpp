@@ -1,10 +1,6 @@
 #include "wiz8/local_code/npc_story_events.h"
 
 #include <cstdint>
-#include <string>
-
-#include <fmt/chrono.h> // IWYU pragma: keep - std::tm formatter specialization.
-#include <fmt/format.h>
 
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/MonsterManager.h"
@@ -218,7 +214,6 @@ void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
             FindCharacterItem(*character, ItemWithId(0x1fe), W8ItemReach::Worn) &&
             FindCharacterItem(*character, ItemWithId(0x1ff), W8ItemReach::Worn)) {
             context.game.setFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 0);
-            context.status.monster_name_buffer = fmt::format("Al-{}", character->name);
             context.status.sedexus_party_slot = party_slot;
             context.status.rpc_active = true;
             context.status.infatuation_pending = true;

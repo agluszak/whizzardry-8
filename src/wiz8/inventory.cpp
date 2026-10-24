@@ -45,6 +45,7 @@
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/Configuration.h"
@@ -1706,7 +1707,9 @@ Inventory::UseOutcome Inventory::useOnce(unsigned int party_slot, W8ItemLocation
                             GetItemDisplayName(game.data, item))});
         } else if (announced && TargetSourceIsMonster(&target, 0)) {
             game.events.push(TextNotice{
-                9, fmt::format("{} {} {}", GetMonsterName(FindMonster(target.iMonsterID), 0, 0),
+                9, fmt::format("{} {} {}",
+                               game.monsterName(
+                                   *game.level.loaded().population->findMonster(target.iMonsterID)),
                                game.data.strings[g_item_use_messages[record->category * 2]],
                                GetItemDisplayName(game.data, item))});
         }

@@ -126,6 +126,7 @@ struct W8Character {
     // An engaged result means Guardian Angel absorbed this amount, possibly zero.
     std::optional<unsigned int> absorbDamage(unsigned int amount);
     unsigned int takeDamage(unsigned int amount);
+    bool releaseDependence(W8CharacterDependence kind, int level, int source_monster);
 
     /* Retail offset 0x0000: SaveCharacter stamps 1 here before writing the record, so the
        leading dword is a saved-record version rather than runtime state. */

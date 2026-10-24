@@ -516,7 +516,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
         target_name = CurrentGame().party.characters[target->iChar].name;
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
         W8MonsterInfo* target_info = FindMonster(target->iMonsterID);
-        target_name = GetMonsterName(target_info, nullptr, 0);
+        target_name = CurrentGame().monsterName(*target_info);
     }
     for (i = 0; i < static_cast<int>(candidates.size()); ++i) {
         W8TargetSource* candidate = &candidates[i];
@@ -855,7 +855,7 @@ void ResolveMissileHit(Missile* missile, bool deflected)
     text = fmt::format("{} ", Data().strings[0x1bf]);
     target_start = text.size();
     if (target_is_monster) {
-        text += GetMonsterName(monster_info, 0, 0);
+        text += CurrentGame().monsterName(*monster_info);
     } else {
         text += CurrentGame().party.characters[target->iChar].name;
     }
@@ -1083,10 +1083,10 @@ static std::string CombatTargetName(const W8TargetSource* source, const W8Combat
         if (TargetSourceIsMonster(source, 0) && source->iMonsterID == target->iMonsterID) {
             return std::string(Data().strings[g_gender_name_message_rows[record->name_group][3]]);
         }
-        return std::string(GetMonsterName(monster_info, record, 0));
+        return std::string(CurrentGame().monsterName(*monster_info));
     case W8_TARGET_KIND_GROUP:
         monster_group = FindMonsterGroup(target->iGroupID);
-        return std::string(GetMonsterGroupName(monster_group));
+        return std::string(CurrentGame().monsterGroupName(*monster_group));
     case W8_TARGET_KIND_ALL_ENEMIES:
         return Data().strings[0x1e4];
     case W8_TARGET_KIND_EIGHT:
@@ -1344,7 +1344,7 @@ static void AnnounceCombatTargetCondition(const W8SpellEffectResult* report, uns
     if (report->target.iType == W8_TARGET_KIND_MONSTER) {
         CurrentGame().events.push(
             TextNotice{W8_FONT_PALETTE_RUST,
-                       fmt::format("{} {}!", GetMonsterName(monster_info, nullptr, 0), name)});
+                       fmt::format("{} {}!", CurrentGame().monsterName(*monster_info), name)});
     } else if (report->target.iType == W8_TARGET_KIND_CHARACTER) {
         CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(report->target.iChar),
                                                   fmt::format("{}!", name)});
@@ -1943,7 +1943,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
         CurrentGame().combat->natural_attack = 0;
     }
     CurrentGame().combat->attack_message =
-        fmt::format("{} ", GetMonsterName(monster_info, record, 0));
+        fmt::format("{} ", CurrentGame().monsterName(*monster_info));
     if (target_changed != 0) {
         CurrentGame().combat->attack_message += Data().strings[0x211];
         CurrentGame().combat->attack_message += " ";
@@ -1999,7 +1999,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
         assert(monster_info->Target.iType == W8_TARGET_KIND_MONSTER);
         second = FindMonster(monster_info->Target.iMonsterID);
         MonsterHostility(monster_info, second);
-        CurrentGame().combat->attack_message += GetMonsterName(second, 0, 0);
+        CurrentGame().combat->attack_message += CurrentGame().monsterName(*second);
         palette = 9;
         if (range <= W8_RANGE_SHORT && IsMonsterFacingMonster(second, monster_info) == 0) {
             second_combat = second->pCombat.get();
@@ -2870,14 +2870,14 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
             }
         } else {
             W8MonsterInfo* monster_info = FindMonster(target->iMonsterID);
-            message += GetMonsterName(monster_info, nullptr, 0);
+            message += CurrentGame().monsterName(*monster_info);
         }
     } else {
         assert(TargetSourceIsMonster(source, 0));
         W8MonsterInfo* monster_info = FindMonster(source->iMonsterID);
         const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
         message =
-            fmt::format("{} {} ", GetMonsterName(monster_info, record, 0), "accidentally strikes");
+            fmt::format("{} {} ", CurrentGame().monsterName(*monster_info), "accidentally strikes");
         color = GetTargetNoticeColor(source, target);
         highlight_start = static_cast<unsigned char>(message.size());
         if (target->iType == W8_TARGET_KIND_MONSTER && source->iMonsterID == target->iMonsterID) {
@@ -2886,7 +2886,7 @@ void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target)
             message += CurrentGame().party.characters[target->iChar].name.c_str();
         } else {
             W8MonsterInfo* target_info = FindMonster(target->iMonsterID);
-            message += GetMonsterName(target_info, nullptr, 0);
+            message += CurrentGame().monsterName(*target_info);
         }
     }
     if (!TargetSourceIsCharacter(source, 0)) {
@@ -3333,7 +3333,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     }
     if (party_row->executing.target.iType == W8_TARGET_KIND_MONSTER) {
         monster_info = FindMonster(party_row->executing.target.iMonsterID);
-        CurrentGame().combat->attack_message += GetMonsterName(monster_info, 0, 0);
+        CurrentGame().combat->attack_message += CurrentGame().monsterName(*monster_info);
         CurrentGame().pointCameraAtMonster(*monster_info, false, true);
         if (range <= W8_RANGE_SHORT && !IsMonsterFacingParty(monster_info)) {
             if (monster_info->hp_current != 0 && monster_info->stamina != 0 &&

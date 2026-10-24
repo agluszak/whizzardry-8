@@ -1676,7 +1676,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
         record = GetMonsterDataForInfo(monster_info);
         if (!TargetSourceIsMonster(source, 0) || source->iMonsterID != target->iMonsterID) {
             return fmt::sprintf(Data().strings[W8_MESSAGE_TARGET_AT / 4],
-                                GetMonsterName(monster_info, record, 0));
+                                CurrentGame().monsterName(*monster_info));
         }
         name_prefix = g_name_prefix_messages[record->name_group * 4];
         break;
@@ -1684,7 +1684,7 @@ static std::string SpellTargetString(const W8TargetSource* source, const W8Comba
 
     case 4:
         return fmt::sprintf(Data().strings[W8_MESSAGE_TARGET_AT / 4],
-                            GetMonsterGroupName(FindMonsterGroup(target->iGroupID)));
+                            CurrentGame().monsterGroupName(*FindMonsterGroup(target->iGroupID)));
 
     case W8_TARGET_KIND_ALL_ENEMIES:
         return Data().strings[W8_MESSAGE_TARGET_PLACE / 4];
@@ -1729,14 +1729,14 @@ unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsign
     if (!g_settings.verbose_combat_messages) {
         CurrentGame().events.push(TextNotice{
             W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[W8_MESSAGE_MONSTER_CAST / 4],
-                                               GetMonsterName(monster_info, record, 0),
+                                               CurrentGame().monsterName(*monster_info),
                                                Data().spells[spell_id].display_name,
                                                SpellTargetString(&source, &monster_info->Target))});
         CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, 9});
     } else {
         CurrentGame().events.push(TextNotice{
             W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[W8_MESSAGE_MONSTER_CAST_VERBOSE / 4],
-                                               GetMonsterName(monster_info, record, 0),
+                                               CurrentGame().monsterName(*monster_info),
                                                Data().spells[spell_id].display_name, power_level,
                                                SpellTargetString(&source, &monster_info->Target))});
     }
@@ -1826,7 +1826,7 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
                     W8MonsterInfo* monster_info = FindMonster(effect->target.iMonsterID);
                     if (monster_info != 0) {
                         AppendToLastTextLine(
-                            fmt::format("{} {}", GetMonsterName(monster_info, 0, 0),
+                            fmt::format("{} {}", CurrentGame().monsterName(*monster_info),
                                         Data().strings[kConditionNotices[condition].singular]),
                             -1);
                     }

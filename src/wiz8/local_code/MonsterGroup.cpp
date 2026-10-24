@@ -56,10 +56,6 @@ constexpr float kMonsterScatterHeadingRandomScale = 0.001600000075995922f;
 
 struct W8NpcState;
 
-/* A group of one is named in the singular; any other count uses the plural
-   form, which is the second entry of each name set. */
-enum { W8_MONSTER_GROUP_SINGULAR = 1, W8_MONSTER_NAME_STRIDE = 24 };
-
 enum { W8_MONSTER_GROUP_ALLY_COUNT = 4 };
 
 bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position, float yaw,
@@ -460,31 +456,6 @@ void RetireMonsterGroupAndAllies(W8MonsterGroup* monster_group)
             }
         }
     }
-}
-
-/* The display name for a whole group, which is GetMonsterName's shape one level
-   up: the same special-cased record id, the same choice between the record's
-   two name sets, but the variant comes from the member count rather than a
-   caller - a group of exactly one is named in the singular.
-
-   Its opening assertion is followed immediately by MonsterGroupGetRecord's own. */
-std::string GetMonsterGroupName(W8MonsterGroup* monster_group)
-{
-    const W8MonsterRecord* record;
-    unsigned int name_form;
-
-    assert(monster_group != 0);
-    record = MonsterGroupGetRecord(monster_group);
-    name_form = monster_group->MemberCount() != W8_MONSTER_GROUP_SINGULAR;
-    if (record->record_id == W8_MONSTER_RECORD_ALTERNATE_NAME) {
-        CurrentGame().status.monster_name_buffer = fmt::format(
-            "Al-{}", CurrentGame().party.characters[CurrentGame().status.sedexus_party_slot].name);
-        return CurrentGame().status.monster_name_buffer;
-    }
-    if (monster_group->alternate_name) {
-        return (name_form ? record->name1 : record->name0);
-    }
-    return (name_form ? record->name3 : record->name2);
 }
 
 void Game::endGroupCombat(W8MonsterGroup& group)
@@ -1074,7 +1045,7 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
 void ShowMonsterGroupInfoNotice(int group_id)
 {
     W8MonsterGroup* group = FindMonsterGroup(group_id);
-    auto name = GetMonsterGroupName(group);
+    auto name = CurrentGame().monsterGroupName(*group);
 
     ShowNotice(W8_FONT_PALETTE_BEIGE, fmt::format("{:d} {}", group->MemberCount(), name));
     if (!group->alternate_name) {

@@ -529,7 +529,7 @@ signed char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition
                         if (announce) {
                             CurrentGame().events.push(TextNotice{
                                 W8_FONT_PALETTE_RUST,
-                                fmt::format("{} {}!", GetMonsterName(monster_info, 0, 0),
+                                fmt::format("{} {}!", CurrentGame().monsterName(*monster_info),
                                             Data().strings[kConditionNotices[W8_CONDITION_SLOWED]
                                                                .singular])});
                         }
@@ -1243,7 +1243,7 @@ static signed char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredRes
         if (count == 1) {
             const std::string name = target_is_character
                                          ? CurrentGame().party.characters[target_id].name
-                                         : GetMonsterName(FindMonster(target_id), 0, 0);
+                                         : CurrentGame().monsterName(*FindMonster(target_id));
             const int format = stamina ? (target_is_character ? (total != 1) + 0x1a1 : 0x1a2)
                                        : (total != 1) + 0x19d;
             AppendToLastTextLine(fmt::sprintf(Data().strings[format], name, total, -1), -1);
@@ -1689,8 +1689,8 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
                 -1);
         } else if (target.iType == W8_TARGET_KIND_MONSTER) {
             monster_info = FindMonster(target.iMonsterID);
-            AppendToLastTextLine(fmt::format("{} {}", GetMonsterName(monster_info, 0, 0), notice),
-                                 -1);
+            AppendToLastTextLine(
+                fmt::format("{} {}", CurrentGame().monsterName(*monster_info), notice), -1);
         } else {
             AppendToLastTextLine(fmt::format("{:d} {}", affected, notice), -1);
         }
@@ -2315,7 +2315,7 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
         effect->applied = true;
     }
     notice = Data().strings[0x1ac];
-    name = GetMonsterName(monster_info, 0, 0);
+    name = CurrentGame().monsterName(*monster_info);
     formatted = fmt::format("{} {}", name, notice);
     DisplayNpcQuote(CurrentGame(), formatted, false);
 }

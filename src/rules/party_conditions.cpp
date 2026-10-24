@@ -378,3 +378,15 @@ void ApplyCombatEffectSlots(std::span<const W8EffectSlot> source, W8GameplayModi
         }
     }
 }
+
+bool W8Character::releaseDependence(W8CharacterDependence kind, int level, int source_monster)
+{
+    auto& record = conditions[kind];
+    if ((kind == W8_DEPENDENCE_SWALLOWED && uiCondition[W8_CONDITION_MISSING] == 0) ||
+        record.level_acquired != level || record.source_monster != source_monster)
+        return false;
+    record.active = false;
+    record.level_acquired = 0;
+    record.source_monster = 0;
+    return true;
+}

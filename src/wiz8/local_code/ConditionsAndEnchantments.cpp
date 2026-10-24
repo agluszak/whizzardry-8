@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <utility>
 #include <vector>
 
 #include <fmt/format.h>
@@ -41,10 +42,12 @@
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 /* Enchantment-slot names, indexed by W8EnchantmentSlot. */
 unsigned short g_enchantment_notices[16] = {
@@ -63,47 +66,24 @@ bool GetConditionRecordFlag(int party_slot, W8CharacterDependence dependence)
     return CurrentGame().party.characters[party_slot].conditions[dependence].active;
 }
 
-void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
+void Game::releaseMonsterDependents(const W8MonsterInfo& monster)
 {
-    for (unsigned int slot_kind = 0; slot_kind < W8_DEPENDENCE_COUNT; ++slot_kind) {
+    auto& world = level.loaded();
+    std::vector<Event> outcomes;
+    for (auto kind : {W8_DEPENDENCE_SUMMON, W8_DEPENDENCE_SWALLOWED}) {
+        if ((monster.condition_binding_mask & (1 << kind)) == 0) continue;
         bool cleared = false;
-        if ((monster_info->condition_binding_mask & (1 << slot_kind)) != 0) {
-            W8Condition condition;
-            switch (slot_kind) {
-            case W8_DEPENDENCE_SUMMON:
-                condition = W8_CONDITION_NONE;
-                break;
-            case W8_DEPENDENCE_SWALLOWED:
-                condition = W8_CONDITION_MISSING;
-                break;
-            }
-            for (unsigned int party_slot = 0; party_slot < 8; ++party_slot) {
-                W8Character* character = &CurrentGame().party.characters[party_slot];
-                W8CharacterConditionRecord* record = &character->conditions[slot_kind];
-                if ((condition == W8_CONDITION_NONE || character->uiCondition[condition] != 0) &&
-                    record->level_acquired == GetLoadedLevelID() &&
-                    record->source_monster == monster_info->location_id) {
-                    cleared = true;
-                    record->active = false;
-                    record->level_acquired = 0;
-                    record->source_monster = 0;
-                    if (condition != W8_CONDITION_NONE && character->fInParty) {
-                        LiftCondition(CurrentGame(), party_slot, condition, true);
-                    }
-                }
-            }
-            if (!cleared && slot_kind == 0) {
-                for (unsigned int index = 0;
-                     index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
-                    W8MonsterInfo* bound = GetMonsterListEntry(index);
-                    if (bound->elemental_summon == monster_info->location_id) {
-                        bound->elemental_summon = -1;
-                        break;
-                    }
-                }
-            }
+        for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+            auto& character = party.characters[slot];
+            if (!character.releaseDependence(kind, world.level_id, monster.location_id)) continue;
+            cleared = true;
+            if (kind == W8_DEPENDENCE_SWALLOWED && character.fInParty)
+                LiftCondition(*this, slot, W8_CONDITION_MISSING, true, outcomes);
         }
+        if (!cleared && kind == W8_DEPENDENCE_SUMMON)
+            world.population->releaseElementalSummon(monster.location_id);
     }
+    events.publish(std::move(outcomes));
 }
 
 /*
@@ -263,7 +243,7 @@ void SetMonsterCondition(int location_id, W8Condition condition, int duration, i
     }
     if (announce &&
         (CurrentGame().combat.has_value() || monster_info->party_threat.visible_to_player)) {
-        auto name = GetMonsterName(monster_info, 0, 0);
+        auto name = CurrentGame().monsterName(*monster_info);
         CurrentGame().events.push(TextNotice{
             W8_FONT_PALETTE_RUST,
             fmt::format("{} {}!", name, Data().strings[kConditionNotices[condition].singular])});
@@ -288,10 +268,10 @@ void ClearMonsterCondition(int location_id, W8Condition condition)
             SetMonsterHostility(monster_info, monster_group->ubDisposition);
         }
         if (CurrentGame().combat.has_value() || monster_info->party_threat.visible_to_player) {
-            CurrentGame().events.push(
-                TextNotice{W8_FONT_PALETTE_RUST,
-                           fmt::sprintf(Data().strings[0x244], GetMonsterName(monster_info, 0, 0),
-                                        Data().strings[kConditionNotices[condition].name])});
+            CurrentGame().events.push(TextNotice{
+                W8_FONT_PALETTE_RUST,
+                fmt::sprintf(Data().strings[0x244], CurrentGame().monsterName(*monster_info),
+                             Data().strings[kConditionNotices[condition].name])});
         }
         monster_info->uiCondition[condition] = 0;
         RefreshMonsterConditionState(monster_info);
