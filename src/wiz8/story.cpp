@@ -12,6 +12,19 @@
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/unicode.h"
 
+void Story::restoreFacts(const decltype(facts)& saved, int level)
+{
+    facts = saved;
+    if (!facts[W8_FACT_IMPORT_TRANG] && !facts[W8_FACT_IMPORT_UMPANI] && !facts[W8_FACT_VIRGIN]) {
+        // This derived fact has no gameplay side effects. A missing saved journal
+        // retains its change entry; an explicit journal snapshot replaces it later.
+        if (facts[W8_FACT_IMPORT_NOALIGN] != 1)
+            journal.push_back(
+                {.level = level, .fact = W8_FACT_IMPORT_NOALIGN, .alternate_text = true});
+        facts[W8_FACT_IMPORT_NOALIGN] = 1;
+    }
+}
+
 namespace {
 auto findLocationVariable(auto& variables, int level, std::string_view name)
 {

@@ -32,6 +32,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/cursor.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -177,10 +178,12 @@ void W8CampItemsPage::IdentifyAndOpenItemInfo(W8ItemLocation location)
 void W8CampItemsPage::DropHeldCampItem(void)
 {
     if (ResolvePendingCampCharacter(true)) {
-        if (auto dropped = camp.game.inventory.dropHeld(); !dropped)
+        if (auto dropped = camp.game.inventory.dropHeld(GetCursorScaledPosition()); !dropped) {
             camp.dialogs.ShowNotice(dropped.error().notice, {}, true, false);
-        else
+        } else {
+            if (!*dropped) wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
             SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
+        }
     }
 }
 

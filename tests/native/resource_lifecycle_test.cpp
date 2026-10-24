@@ -1611,3 +1611,35 @@ TEST_CASE("Level variants and bands use the supplied game's inventory and facts"
     REQUIRE(game.levelBand(-1) == 0);
     REQUIRE(game.levelBand(W8_LEVEL_COUNT) == 0);
 }
+
+TEST_CASE("Saved facts restore their own story without changing the outgoing game",
+          "[lifetime][save][story]")
+{
+    ScopedGame outgoing;
+    outgoing.game.story.facts[W8_FACT_IMPORT_NOALIGN] = 7;
+    Game candidate(outgoing.game.data);
+    SavedGame saved;
+    saved.facts.emplace();
+    std::move(saved).install(candidate);
+    REQUIRE(candidate.story.facts[W8_FACT_IMPORT_NOALIGN] == 1);
+    REQUIRE(candidate.story.journal.size() == 1);
+    REQUIRE(candidate.story.journal.front().level == -1);
+    REQUIRE(candidate.story.journal.front().fact == W8_FACT_IMPORT_NOALIGN);
+    REQUIRE(candidate.story.journal.front().alternate_text);
+    REQUIRE(outgoing.game.story.facts[W8_FACT_IMPORT_NOALIGN] == 7);
+    REQUIRE(outgoing.game.story.journal.empty());
+
+    SavedGame with_journal;
+    with_journal.facts.emplace();
+    with_journal.journal.emplace();
+    std::move(with_journal).install(candidate);
+    REQUIRE(candidate.story.facts[W8_FACT_IMPORT_NOALIGN] == 1);
+    REQUIRE(candidate.story.journal.empty());
+
+    auto aligned = candidate.story.facts;
+    aligned[W8_FACT_IMPORT_NOALIGN] = 0;
+    aligned[W8_FACT_IMPORT_TRANG] = 1;
+    candidate.story.restoreFacts(aligned, 3);
+    REQUIRE(candidate.story.facts[W8_FACT_IMPORT_NOALIGN] == 0);
+    REQUIRE(candidate.story.journal.empty());
+}

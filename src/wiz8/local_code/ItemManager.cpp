@@ -3,7 +3,6 @@
 #include <cassert>
 #include <cstddef>
 #include <memory>
-#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -11,16 +10,10 @@
 
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
-#include <glm/common.hpp> // NOLINT(misc-include-cleaner)
 #include <glm/geometric.hpp>
-#include <glm/gtx/rotate_vector.hpp>
-#include <glm/trigonometric.hpp> // NOLINT(misc-include-cleaner)
 
-#include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/npc_state.h"
-#include "wiz8/cursor.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
@@ -49,9 +42,6 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-
-constexpr float kDropItemPitchScale = 71.0f;
-constexpr float kDropItemYawScale = 85.0f;
 
 class W8DialogBase;
 
@@ -283,45 +273,6 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
         }
     }
     return result;
-}
-
-glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_rotation)
-{
-    const auto offset = (cursor - 0.5f) * 0.9f;
-    const float yaw = glm::radians(offset.x * kDropItemYawScale);
-    const float pitch = glm::radians(5.0f + offset.y * kDropItemPitchScale);
-    const auto forward = glm::vec3(0, 0, 2500.0);
-    return camera_rotation * glm::rotateY(glm::rotateX(forward, pitch), yaw);
-}
-
-/* Toss the cursor-held item into the world. The tracked cursor position is
-   turned into a 2500-unit direction through the camera rotation, traced to
-   the first obstruction, shortened by the item radius, settled onto the
-   ground and lifted back up. When the spot is free the held instance becomes
-   a world item; otherwise the refusal sound plays. Without a loaded level there is no
-   drop position. */
-std::optional<glm::vec3> FindItemDropPosition()
-{
-    auto* const index = GetWorldSpatialIndex();
-    if (!index) return std::nullopt;
-    glm::mat3 rotation;
-    rotation = GetWorld()->party.rotation();
-    glm::vec3 direction = ItemThrowDirection(GetCursorScaledPosition(), rotation);
-
-    glm::vec3 camera = cameraLocation();
-    direction += camera;
-    if (const auto hit = index->traceSight(camera, direction)) direction = hit->point;
-
-    glm::vec3 delta = direction - camera;
-    delta = glm::dot(delta, delta) == 0
-                ? delta
-                : glm::normalize(delta) *
-                      static_cast<float>(glm::max(glm::length(delta) - 125.0f, 0.0f));
-
-    glm::vec3 position = camera + delta;
-    position.y = index->settleToGround(position, true, 250).position.y + 125.0f;
-    if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) return position;
-    return std::nullopt;
 }
 
 /* The item picker returns its remaining items as group contents. A two-item group returns the picked

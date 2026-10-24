@@ -74,6 +74,8 @@ struct Story {
     // Set by the import and consumed when the opening sequence seeds the facts.
     std::optional<ImportedOrigin> imported_origin;
     std::array<unsigned char, W8_FACT_SLOT_COUNT> facts{};
+    // Restore facts and their derived import alignment without running live script/UI callbacks.
+    void restoreFacts(const decltype(facts)& saved, int level);
     W8FactionStates factions = StartingFactions();
     W8FactionRelations faction_relations = StartingFactionRelations();
     std::vector<W8JournalEntry> journal;

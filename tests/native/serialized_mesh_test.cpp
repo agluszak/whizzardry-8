@@ -33,6 +33,7 @@
 #include "wiz8/entities/animation_mesh.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/game.h"
+#include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/level_population.h"
 #include "wiz8/render/compiled_mesh.h"
@@ -765,6 +766,23 @@ TEST_CASE("World item creation and activation use the candidate world", "[loader
     };
     floorAt(installed, 200);
     floorAt(candidate, 0);
+    installed.party.camera.m_position = candidate.party.camera.m_position = {250, 1000, 250};
+    const auto candidate_drop = candidate.itemDropPosition({0.5f, 0.5f});
+    const auto installed_drop = installed.itemDropPosition({0.5f, 0.5f});
+    REQUIRE(candidate_drop);
+    REQUIRE(installed_drop);
+    REQUIRE(candidate_drop->y == 125);
+    REQUIRE(installed_drop->y == 325);
+    REQUIRE(candidate_drop->x == installed_drop->x);
+    REQUIRE(candidate_drop->z == installed_drop->z);
+
+    // An uninstalled candidate with no level cannot borrow the outgoing floor.
+    candidate_game.inventory.restore({}, W8ItemInstance{.iItemNo = 0, .stack_count = 3});
+    const auto refused = candidate_game.inventory.dropHeld({0.5f, 0.5f});
+    REQUIRE(refused.has_value());
+    REQUIRE_FALSE(*refused);
+    REQUIRE(candidate_game.inventory.held()->item.stack_count == 3);
+    REQUIRE(installed.population->world_items.empty());
     std::vector<Rng::Draw> draws;
     candidate_game.rng.seed(1);
     candidate_game.rng.trace(&draws);

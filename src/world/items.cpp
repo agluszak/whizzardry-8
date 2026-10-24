@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -14,15 +15,24 @@
 #include <glm/ext/vector_float3.hpp>
 #include <glm/geometric.hpp>
 
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/quaternion_trigonometric.hpp"
+#include "glm/ext/vector_double3.hpp"
+#include "glm/ext/vector_float2.hpp"
+#include "glm/gtx/rotate_vector.hpp"
+#include "glm/trigonometric.hpp"
 #include "wiz8/asset_paths.h"
 #include "wiz8/containers.h"
 #include "wiz8/data/game_data.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/level_population.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/monster_roster.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/mesh_instance.h"
@@ -30,6 +40,7 @@
 #include "wiz8/rules/random.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
+#include "wiz8/world/level_loader.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
 
@@ -362,4 +373,130 @@ bool World::advanceFallingItem(W8WorldItem& item, float gravity)
     }
     item.position = probe;
     return true;
+}
+
+/* Push a candidate position clear of static geometry, then reject it when it
+   overlaps another world item or monster. */
+std::optional<glm::vec3> World::adjustItemDropPosition(glm::vec3 position) const
+{
+    constexpr float radius = 250.0f;
+    float threshold = radius * g_path_endpoint_scale;
+    float angle = 0.0f;
+
+    do {
+        glm::vec3 first(0.0f, 0.0f, radius);
+        first =
+            glm::vec3(glm::angleAxis(std::atan2(std::sin(double(angle)), std::cos(double(angle))),
+                                     glm::dvec3(0, 1, 0)) *
+                      glm::dvec3(first));
+        first += position;
+
+        double opposite_angle = angle + g_camera_pi;
+        glm::vec3 second(0.0f, 0.0f, radius);
+        second = glm::vec3(glm::angleAxis(std::atan2(sin(opposite_angle), cos(opposite_angle)),
+                                          glm::dvec3(0, 1, 0)) *
+                           glm::dvec3(second));
+        second += position;
+
+        if (const auto hit = compiledIndex()->traceSight(position, first)) first = hit->point;
+        if (const auto hit = compiledIndex()->traceSight(position, second)) second = hit->point;
+
+        first -= position;
+        second -= position;
+        float first_distance = glm::length(first);
+        if (first_distance < threshold && glm::length(second) < threshold) {
+            return std::nullopt;
+        }
+        if (first_distance < threshold) {
+            first = glm::dot(first, first) == 0
+                        ? first
+                        : glm::normalize(first) * static_cast<float>(radius - first_distance);
+            position -= first;
+        } else {
+            second =
+                glm::dot(second, second) == 0
+                    ? second
+                    : glm::normalize(second) * static_cast<float>(radius - glm::length(second));
+            position -= second;
+        }
+        angle += 0.7853981256484985f;
+    } while (angle < g_camera_pi);
+
+    for (const auto& item : population->world_items) {
+        WorldItemEntity* owner = item->entity.get();
+        if (owner != 0) {
+            glm::vec3 center;
+            center = owner->GetSearchPosition();
+            const auto other_radius = owner->GetBoundsRadius();
+            glm::vec3 delta = center - position;
+            if (glm::length(delta) < other_radius + radius) {
+                return std::nullopt;
+            }
+        }
+    }
+
+    for (const auto& monster_owner : population->monster_roster.live()) {
+        auto* info = monster_owner.get();
+        Monster* monster = info->entity.get();
+        if (monster != 0) {
+            const auto center = monster->GetAnimationCenter();
+            float other_radius;
+            if (center && monster->GetAnimationRadius(&other_radius) &&
+                glm::length((*center - position)) < other_radius + radius) {
+                return std::nullopt;
+            }
+        }
+    }
+
+    return position;
+}
+
+glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_rotation)
+{
+    const auto offset = (cursor - 0.5f) * 0.9f;
+    const float yaw = glm::radians(offset.x * 85.0f);
+    const float pitch = glm::radians(5.0f + offset.y * 71.0f);
+    const auto forward = glm::vec3(0, 0, 2500.0);
+    return camera_rotation * glm::rotateY(glm::rotateX(forward, pitch), yaw);
+}
+
+// A drop queries this world's pose, geometry and population. It neither mutates
+// inventory nor plays feedback; the command and presentation own those decisions.
+std::optional<glm::vec3> World::itemDropPosition(const glm::vec2& cursor) const
+{
+    auto* const index = compiledIndex();
+    if (!index) return std::nullopt;
+    glm::mat3 rotation;
+    rotation = party.rotation();
+    glm::vec3 direction = ItemThrowDirection(cursor, rotation);
+
+    glm::vec3 camera = party.eye();
+    direction += camera;
+    if (const auto hit = index->traceSight(camera, direction)) direction = hit->point;
+
+    glm::vec3 delta = direction - camera;
+    delta = glm::dot(delta, delta) == 0
+                ? delta
+                : glm::normalize(delta) *
+                      static_cast<float>(glm::max(glm::length(delta) - 125.0f, 0.0f));
+
+    glm::vec3 position = camera + delta;
+    position.y = index->settleToGround(position, true, 250).position.y + 125.0f;
+    if (const auto adjusted = adjustItemDropPosition(position)) return adjusted;
+    // Try the same two authored probes, in order, only when their paths are clear.
+    float angle = 0.0f;
+    do {
+        glm::vec3 offset(0.0f, 0.0f, 500.0f);
+        offset =
+            glm::vec3(glm::angleAxis(std::atan2(std::sin(double(angle)), std::cos(double(angle))),
+                                     glm::dvec3(0, 1, 0)) *
+                      glm::dvec3(offset));
+        const glm::vec3 candidate = position + offset;
+        const auto hit = index->traceSight(position, candidate);
+        if (!hit || hit->point == candidate) {
+            if (const auto adjusted = adjustItemDropPosition(candidate)) return adjusted;
+        }
+        angle += kQuarterTurn;
+    } while (angle < g_camera_pi);
+    return std::nullopt;
 }

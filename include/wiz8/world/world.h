@@ -6,12 +6,14 @@
 #include <functional>
 #include <initializer_list>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
 
+#include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/filesystem.h"
@@ -152,6 +154,7 @@ struct World {
                                              Rng& rng);
     W8WorldItem* adoptItem(std::unique_ptr<W8WorldItem> item);
     bool settleItem(W8WorldItem* item);
+    std::optional<glm::vec3> itemDropPosition(const glm::vec2& cursor) const;
     Trigger* loadTrigger(wiz8::File& file, const GameData& data, Rng& rng, Story& story);
     void updateNearbyItems(const GameData& data, Rng& rng, Events& events, float gravity);
     void activateItem(const GameData& data, Rng& rng, W8WorldItem* item);
@@ -205,6 +208,7 @@ struct World {
     std::unique_ptr<LevelScript> script;
 
 private:
+    std::optional<glm::vec3> adjustItemDropPosition(glm::vec3 position) const;
     void updateNearestMonsterGroupMembers();
     bool advanceFallingItem(W8WorldItem& item, float gravity);
     friend bool RemoveMonster(W8MonsterInfo*, W8MonsterRemoval);
@@ -250,10 +254,8 @@ void RefreshWorldView(void);
 ParticleSystem* FindParticleByName(std::string_view name);
 bool FindEntityByName(std::string_view name, glm::vec3* position, float* angle,
                       glm::vec3* direction);
-bool AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_items,
-                                  bool check_monsters);
-bool FindNearbyFreePosition(float radius, glm::vec3* position, bool check_items,
-                            bool check_monsters);
+// World-space throw vector from normalized screen coordinates.
+glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_rotation);
 
 // Loaded-level lookup precedes the sky; names retain their exact asset spelling.
 Light* FindWorldLight(World& world, std::string_view name);

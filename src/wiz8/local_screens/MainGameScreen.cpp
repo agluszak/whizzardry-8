@@ -4958,8 +4958,11 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     } else if (MainGameHud()->highlighted_item == -1) {
         if ((CurrentGame().inventory.held()) && !GetWorld()->selectedProp()) {
             if (!CurrentGame().advancement.held) {
-                if (auto dropped = CurrentGame().inventory.dropHeld(); !dropped)
+                if (auto dropped = CurrentGame().inventory.dropHeld(GetCursorScaledPosition());
+                    !dropped)
                     ShowRefusal(dropped.error());
+                else if (!*dropped)
+                    wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
             }
         } else if (MainGameHud()->selected_item != -1) {
             if (!CurrentGame().advancement.held &&

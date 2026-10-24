@@ -8,6 +8,7 @@
 #include <span>
 #include <vector>
 
+#include "glm/ext/vector_float2.hpp"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/inventory.h" // IWYU pragma: export - the item rules operations use.
 #include "wiz8/rules/item_instance.h"
@@ -142,7 +143,8 @@ public:
     // Put an item into an empty hand; false (keeping the item) when the hand is full.
     bool hold(W8ItemInstance& item);
     // Drop the held item at the party's feet unless it may not be discarded.
-    std::expected<void, InventoryRefusal> dropHeld();
+    // False means geometry refused the drop; the hand keeps its item.
+    std::expected<bool, InventoryRefusal> dropHeld(const glm::vec2& cursor);
 
     // ---- The player's moves
 

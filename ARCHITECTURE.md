@@ -372,7 +372,10 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   Item creation uses explicit data and RNG; its world owns ground/sector queries,
   the item record, scene attachment and lighting. The world-item operation cannot
   include the game or screens or find the installed world; the layer check
-  enforces this boundary. Malformed level sections return a loading failure,
+  enforces this boundary. Drop placement is a read-only world query over its own
+  pose, geometry and population. A held-item drop receives the pointer position
+  explicitly, keeps the item on refusal, and returns the outcome for screen-owned
+  feedback. A game with no level cannot drop into the installed game's world. Malformed level sections return a loading failure,
   never a presentation shutdown.
 - Geometry is not a second population owner. The supported retail corpus has
   empty embedded monster/item sections in all 34 PVLs and both sky LVLs. Nonempty

@@ -107,10 +107,10 @@ def check_includes():
                 problems.append(f'{relative}: timed operations may not depend on game or screens')
     items = ROOT / 'src/world/items.cpp'
     source = items.read_text(encoding='utf-8')
-    if re.search(r'\b(CurrentGame|GetWorld|GetWorldSpatialIndex|GetWorldPathing|Data)\s*\(', source):
+    if re.search(r'\b(CurrentGame|GetWorld|GetWorldSpatialIndex|GetWorldPathing|GetCursorScaledPosition|Data)\s*\(', source):
         problems.append('src/world/items.cpp: item operations must use their world and explicit inputs')
     for match in INCLUDE.finditer(source):
-        if match.group(2) == 'wiz8/game.h' or 'local_screens/' in match.group(2):
+        if match.group(2) in ('wiz8/game.h', 'wiz8/cursor.h') or 'local_screens/' in match.group(2):
             problems.append('src/world/items.cpp: world item operations may not depend on game or screens')
     for relative in ('src/entities/trigger_io.cpp', 'src/wiz8/story.cpp'):
         source = (ROOT / relative).read_text(encoding='utf-8')

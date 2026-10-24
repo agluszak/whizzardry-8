@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
-#include <cmath>
 #include <cstddef>
 #include <filesystem>
 #include <memory>
@@ -15,7 +14,6 @@
 #include <variant>
 #include <vector>
 
-#include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 #include <glm/trigonometric.hpp>
 
@@ -332,121 +330,6 @@ bool FindEntityByName(std::string_view name, glm::vec3* position, float* angle,
             return true;
         }
     }
-    return false;
-}
-
-/* Push a candidate position clear of static geometry, then reject it when it
-   overlaps another world item or monster. */
-bool AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_items,
-                                  bool check_monsters)
-{
-    float threshold = radius * g_path_endpoint_scale;
-    float angle = 0.0f;
-
-    do {
-        glm::vec3 first(0.0f, 0.0f, radius);
-        first =
-            glm::vec3(glm::angleAxis(std::atan2(std::sin(double(angle)), std::cos(double(angle))),
-                                     glm::dvec3(0, 1, 0)) *
-                      glm::dvec3(first));
-        first += *position;
-
-        double opposite_angle = angle + g_camera_pi;
-        glm::vec3 second(0.0f, 0.0f, radius);
-        second = glm::vec3(glm::angleAxis(std::atan2(sin(opposite_angle), cos(opposite_angle)),
-                                          glm::dvec3(0, 1, 0)) *
-                           glm::dvec3(second));
-        second += *position;
-
-        if (const auto hit = GetWorldSpatialIndex()->traceSight(*position, first))
-            first = hit->point;
-        if (const auto hit = GetWorldSpatialIndex()->traceSight(*position, second))
-            second = hit->point;
-
-        first -= *position;
-        second -= *position;
-        float first_distance = glm::length(first);
-        if (first_distance < threshold && glm::length(second) < threshold) {
-            return false;
-        }
-        if (first_distance < threshold) {
-            first = glm::dot(first, first) == 0
-                        ? first
-                        : glm::normalize(first) * static_cast<float>(radius - first_distance);
-            *position -= first;
-        } else {
-            second =
-                glm::dot(second, second) == 0
-                    ? second
-                    : glm::normalize(second) * static_cast<float>(radius - glm::length(second));
-            *position -= second;
-        }
-        angle += 0.7853981256484985f;
-    } while (angle < g_camera_pi);
-
-    if (check_items) {
-        for (const auto& item : CurrentLevelPopulation().world_items) {
-            WorldItemEntity* owner = item->entity.get();
-            if (owner != 0) {
-                glm::vec3 center;
-                center = owner->GetSearchPosition();
-                const auto other_radius = owner->GetBoundsRadius();
-                glm::vec3 delta = center - *position;
-                if (glm::length(delta) < other_radius + radius) {
-                    return false;
-                }
-            }
-        }
-    }
-
-    if (check_monsters) {
-        for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
-            auto* info = monster_owner.get();
-            Monster* monster = info->entity.get();
-            if (monster != 0) {
-                const auto center = monster->GetAnimationCenter();
-                float other_radius;
-                if (center && monster->GetAnimationRadius(&other_radius) &&
-                    glm::length((*center - *position)) < other_radius + radius) {
-                    return false;
-                }
-            }
-        }
-    }
-    return true;
-}
-
-/* Try the requested point first, then the two retail half-turn probe points
-   around it; only an unobstructed probe is handed to the overlap resolver. */
-bool FindNearbyFreePosition(float radius, glm::vec3* position, bool check_items,
-                            bool check_monsters)
-{
-    glm::vec3 candidate = *position;
-    if (AdjustWorldCollisionPosition(radius, &candidate, check_items, check_monsters)) {
-        *position = candidate;
-        return true;
-    }
-
-    float angle = 0.0f;
-    float diameter = radius + radius;
-    do {
-        glm::vec3 offset(0.0f, 0.0f, diameter);
-        offset =
-            glm::vec3(glm::angleAxis(std::atan2(std::sin(double(angle)), std::cos(double(angle))),
-                                     glm::dvec3(0, 1, 0)) *
-                      glm::dvec3(offset));
-        candidate = offset + *position;
-        glm::vec3 unblocked = candidate;
-
-        if (const auto hit = GetWorldSpatialIndex()->traceSight(*position, candidate))
-            candidate = hit->point;
-        if (candidate == unblocked &&
-            AdjustWorldCollisionPosition(radius, &candidate, check_items, check_monsters)) {
-            *position = candidate;
-            return true;
-        }
-        angle += kQuarterTurn;
-    } while (angle < g_camera_pi);
     return false;
 }
 

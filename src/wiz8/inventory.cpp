@@ -25,6 +25,7 @@
 #include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
+#include "wiz8/cursor.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/game_data.h"
@@ -383,7 +384,9 @@ void Inventory::acquire(const std::optional<Placement>& placement)
 bool Inventory::dropUnstored(W8ItemInstance& item, W8ItemLocation origin, int actor)
 {
     if ((game_.data.items[item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
-        if (const auto position = FindItemDropPosition()) {
+        if (const auto position = (game_.level.primary ? game_.level.primary->itemDropPosition(
+                                                             GetCursorScaledPosition())
+                                                       : std::nullopt)) {
             game_.level.loaded().adoptItem(
                 game_.createWorldItem(game_.level.loaded(), &item, &*position,
                                       W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
@@ -512,7 +515,10 @@ Inventory::Receipt Inventory::receiveAll(std::span<const W8ItemInstance> items,
             if (held_ || overflow.size() != 1) return Receipt::Refused;
             held = overflow.front();
         } else {
-            const auto position = FindItemDropPosition();
+            const auto position =
+                (game_.level.primary
+                     ? game_.level.primary->itemDropPosition(GetCursorScaledPosition())
+                     : std::nullopt);
             if (!position) return Receipt::Refused;
             for (auto& item : overflow)
                 drops.push_back(
@@ -755,21 +761,21 @@ bool Inventory::hold(W8ItemInstance& item)
     return true;
 }
 
-std::expected<void, InventoryRefusal> Inventory::dropHeld()
+std::expected<bool, InventoryRefusal> Inventory::dropHeld(const glm::vec2& cursor)
 {
-    if (!held_) return {};
+    if (!held_) return true;
     if ((game_.data.items[held_->item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) != 0)
         return std::unexpected(InventoryRefusal{game_.data.strings[0x4ef]});
-    if (const auto position = FindItemDropPosition()) {
+    auto* world = game_.level.primary.get();
+    const auto position = world ? world->itemDropPosition(cursor) : std::nullopt;
+    if (position) {
         auto item = held_->item;
+        world->adoptItem(game_.createWorldItem(*world, &item, &*position,
+                                               W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
         held_.reset();
-        game_.level.loaded().adoptItem(game_.createWorldItem(
-            game_.level.loaded(), &item, &*position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-    } else {
-        wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
     }
     settle({kHand});
-    return {};
+    return position.has_value();
 }
 
 // ---- The player's moves

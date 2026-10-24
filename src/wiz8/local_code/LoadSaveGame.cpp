@@ -48,7 +48,6 @@
 #include "wiz8/entities/script.h" // IWYU pragma: keep - complete script type used through the owned pointer.
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/file_time.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
@@ -1887,17 +1886,14 @@ void SavedGame::install(Game& game) &&
     }
     if (facts) {
         // Re-apply the consequences of the facts that do not survive a save.
-        const auto& stored = game.story.facts = *facts;
+        game.story.restoreFacts(*facts, game.level.primary ? game.level.primary->level_id : -1);
+        const auto& stored = game.story.facts;
         if (stored[W8_FACT_RFS81_HAS_BEEN_FIXED]) {
             const auto npc = std::ranges::find_if(
                 game.story.npcs, [](const auto& state) { return state->record->kind == 0x20; });
             if (npc != game.story.npcs.end() && (*npc)->has_monster)
                 (*npc)->script_file = LoadNpcScriptResources(game.story, **npc, nullptr);
         }
-        // The derived import fact keeps its side effects, which act on the game just begun.
-        if (!stored[W8_FACT_IMPORT_TRANG] && !stored[W8_FACT_IMPORT_UMPANI] &&
-            !stored[W8_FACT_VIRGIN])
-            SetFact(W8_FACT_IMPORT_NOALIGN, 1, false);
     }
     if (factions) {
         game.story.faction_relations = factions->relations;
