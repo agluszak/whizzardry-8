@@ -42,12 +42,14 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_cycles.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/utility.h"
@@ -692,8 +694,8 @@ void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* att
     if (!attacker->fBackfire && !attacker->fReflection && !attacker->target_diverted && !quiet &&
         monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
         if (TargetSourceIsCharacter(attacker, 0)) {
-            if (MonsterVsCharDisposition(attacker->iChar, monster_info) ==
-                W8_DISPOSITION_FRIENDLY) {
+            if (CurrentGame().party.dispositionToward(
+                    attacker->iChar, (monster_info)->ubDisposition) == W8_DISPOSITION_FRIENDLY) {
                 TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
             }
         } else if (MonsterHostility(FindMonster(attacker->iMonsterID), monster_info) ==

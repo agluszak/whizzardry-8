@@ -226,7 +226,7 @@ bool ClearMonsterCombatSlot(W8MonsterInfo* monster_info)
 /* Eligibility and range both use the caller's selected action and target. */
 bool IsSpellTargetStillValid(int party_slot, int spell_id, const W8Action& selected)
 {
-    const auto needed = GetTargetNeededForSpellFriendly(spell_id, false, true);
+    const auto needed = SpellTargetNeed(CurrentGame().data, spell_id, false, true);
     return CurrentGame().targetMatches(selected.target, needed) &&
            CurrentGame().assessActionReach(party_slot, 0, selected);
 }
@@ -235,7 +235,7 @@ bool IsSpellTargetStillValid(int party_slot, int spell_id, const W8Action& selec
    global override always accepts. */
 bool IsSpellTargetOfNeededKind(const W8CombatSlot* target, int spell_id, bool needs_item_target)
 {
-    W8TargetNeed needed = GetTargetNeededForSpellFriendly(spell_id, false, needs_item_target);
+    W8TargetNeed needed = SpellTargetNeed(CurrentGame().data, spell_id, false, needs_item_target);
 
     if (needed == W8_TARGET_NEED_ENEMY && g_settings.autotarget_spells) {
         return true;
@@ -245,20 +245,6 @@ bool IsSpellTargetOfNeededKind(const W8CombatSlot* target, int spell_id, bool ne
 
 /* What an item's spell needs picked before it can be cast. An item with no
    spell needs nothing. */
-W8TargetNeed GetTargetNeededForItem(const W8ItemInstance* item, bool needs_item_target)
-{
-    const W8ItemDatabaseRecord* record;
-
-    if (item == 0 || item->iItemNo == -1) {
-        return W8_TARGET_NEED_NONE;
-    }
-    record = &Data().items[item->iItemNo];
-    if (record->spell_id == W8_SPELL_NONE) {
-        return W8_TARGET_NEED_NONE;
-    }
-    return GetTargetNeededForSpellFriendly(record->spell_id, ItemClassNormalizesTarget(record),
-                                           needs_item_target);
-}
 
 /* Aim one party slot at a clicked monster location. The pending action's
    needed target kind decides between the single monster and its whole group:
@@ -286,7 +272,7 @@ void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_tar
     if (assessment) {
         needed = W8_TARGET_NEED_UNSET;
         if (!sighting) {
-            needed = GetTargetNeededForAction(CurrentGame().inventory, edited_action);
+            needed = CurrentGame().targetNeed(edited_action);
             if (needed == W8_TARGET_NEED_GROUP) {
                 target = {};
                 target.iMonsterID = BAD_INDEX;
@@ -381,28 +367,6 @@ void RepickInvalidCombatTargets(void)
     }
 }
 
-W8TargetNeed GetTargetNeededForAction(const Inventory& inventory, const W8Action& selected,
-                                      bool needs_item_target)
-{
-    switch (selected.kind) {
-    case W8_ACTION_ATTACK:
-    case W8_ACTION_BERSERK:
-        return W8_TARGET_NEED_ENEMY;
-    case W8_ACTION_CAST_SPELL:
-        return GetTargetNeededForSpellFriendly(selected.detail, false, needs_item_target);
-    case W8_ACTION_BREATHE:
-        return W8_TARGET_NEED_CONE;
-    case W8_ACTION_PROTECT:
-        return W8_TARGET_NEED_ALLY;
-    case W8_ACTION_USE_ITEM:
-        return GetTargetNeededForItem(inventory.itemAt(selected.detail_block.item_use.item),
-                                      needs_item_target);
-    default:
-        break;
-    }
-    return W8_TARGET_NEED_NONE;
-}
-
 /* Whether a slot's recorded target suits the item it would be used with. An
    item with no spell needs nothing picked, and one target kind a global
    override always accepts. */
@@ -414,8 +378,8 @@ bool IsItemTargetOfNeededKind(const W8CombatSlot* target, const W8ItemInstance* 
     if (item != 0 && item->iItemNo != -1) {
         record = &Data().items[item->iItemNo];
         if (record->spell_id != W8_SPELL_NONE) {
-            needed = GetTargetNeededForSpellFriendly(record->spell_id,
-                                                     ItemClassNormalizesTarget(record), true);
+            needed = SpellTargetNeed(CurrentGame().data, record->spell_id,
+                                     ItemClassNormalizesTarget(record), true);
             if (needed == W8_TARGET_NEED_ENEMY && g_settings.autotarget_spells) {
                 return true;
             }
@@ -522,7 +486,8 @@ static int ChooseMonsterTarget(int party_slot, const W8Action& action,
          ++index) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
         if (!monster_info->fActive || !monster_info->pCombat || monster_info->hp_current == 0 ||
-            MonsterVsCharDisposition(party_slot, monster_info) != W8_DISPOSITION_HOSTILE ||
+            CurrentGame().party.dispositionToward(party_slot, (monster_info)->ubDisposition) !=
+                W8_DISPOSITION_HOSTILE ||
             !CurrentGame().assessActionReach(party_slot, 2,
                                              (action).aimedAt(W8CombatSlot::monster(
                                                  monster_info ? monster_info->location_id : -1)),
@@ -689,8 +654,7 @@ void RevalidateSelectedTarget(int party_slot)
     }
     needed = W8_TARGET_NEED_NONE;
     if (!IsSighting(party_slot)) {
-        needed =
-            GetTargetNeededForAction(CurrentGame().inventory, selected, MainGameHud() == nullptr);
+        needed = CurrentGame().targetNeed(selected, MainGameHud() == nullptr);
     }
     CurrentGame().events.push(TargetingRequested{
         CurrentGame().targetMatches(selected.target, needed) ? W8_TARGET_NEED_NONE : needed});
@@ -796,7 +760,7 @@ bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group, const W8Action
     if (sighting) {
         needed = W8_TARGET_NEED_NONE;
     } else {
-        needed = GetTargetNeededForAction(CurrentGame().inventory, selected);
+        needed = CurrentGame().targetNeed(selected);
     }
 
     SetTargetSourceToCharacter(party_slot, &source);
@@ -828,7 +792,7 @@ static bool NeedsMonsterTarget(const W8Action& action)
     return CurrentGame().combat.has_value() &&
            (kind == W8_ACTION_ATTACK || kind == W8_ACTION_BERSERK || kind == W8_ACTION_CAST_SPELL ||
             kind == W8_ACTION_USE_ITEM) &&
-           GetTargetNeededForAction(CurrentGame().inventory, action) == W8_TARGET_NEED_ENEMY;
+           CurrentGame().targetNeed(action) == W8_TARGET_NEED_ENEMY;
 }
 
 std::optional<W8CombatSlot> ChooseEquippedMonsterTarget(int party_slot, const W8Action& action)
@@ -932,8 +896,7 @@ bool RepickDraftTarget(int party_slot, W8Action& draft)
 // Eligibility and reach use the same action and target selected by the caller.
 bool TargetIsInPlay(int party_slot, int hand, const W8Action& selected)
 {
-    return CurrentGame().targetMatches(
-               selected.target, GetTargetNeededForAction(CurrentGame().inventory, selected)) &&
+    return CurrentGame().targetMatches(selected.target, CurrentGame().targetNeed(selected)) &&
            CurrentGame().assessActionReach(party_slot, hand, selected);
 }
 
@@ -968,7 +931,7 @@ W8TargetAssessment AssessMonsterTarget(int party_slot, int location_id, const W8
             return {W8TargetFailure::Unavailable};
         }
     } else {
-        needed = GetTargetNeededForAction(CurrentGame().inventory, selected);
+        needed = CurrentGame().targetNeed(selected);
 
         if (needed != W8_TARGET_NEED_ENEMY && needed != W8_TARGET_NEED_GROUP) {
             if (needed == W8_TARGET_NEED_ALLY) {
@@ -1082,7 +1045,7 @@ bool SpellHasAnyValidTarget(int party_slot, int spell_id, bool normalize)
 
     unsigned int index;
 
-    switch (GetTargetNeededForSpellFriendly(spell_id, normalize, true)) {
+    switch (SpellTargetNeed(CurrentGame().data, spell_id, normalize, true)) {
     case W8_TARGET_NEED_ENEMY:
         if (g_settings.autotarget_spells) {
             return true;
@@ -1227,7 +1190,7 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
     int picked;
 
     if (!sighting) {
-        if (GetTargetNeededForAction(CurrentGame().inventory, selected) == W8_TARGET_NEED_GROUP) {
+        if (CurrentGame().targetNeed(selected) == W8_TARGET_NEED_GROUP) {
             target = {};
             target.iChar = BAD_INDEX;
             target.iMonsterID = BAD_INDEX;
@@ -1303,8 +1266,8 @@ void CycleToNextTarget(int party_slot)
     bool pick_group = false;
 
     if (!sighting) {
-        pick_group = GetTargetNeededForAction(CurrentGame().inventory, selected,
-                                              MainGameHud() == nullptr) == W8_TARGET_NEED_GROUP;
+        pick_group =
+            CurrentGame().targetNeed(selected, MainGameHud() == nullptr) == W8_TARGET_NEED_GROUP;
     }
     if (pick_group) {
         pick = PickNextTargetableGroup(party_slot, selected, sighting);

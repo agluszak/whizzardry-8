@@ -1,11 +1,13 @@
 #include <cassert>
 #include <cmath>
+#include <optional>
 
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
 #include "wiz8/combat/hostility.h"
 #include "wiz8/combat/range.h"
 #include "wiz8/data/game_data.h"
+#include "wiz8/data/records.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
@@ -300,4 +302,25 @@ W8TargetAssessment Game::assessActionReach(unsigned int slot, unsigned int hand,
     default:
         return {};
     }
+}
+
+W8TargetNeed Game::targetNeed(const W8Action& selected, bool needs_item_target) const
+{
+    switch (selected.kind) {
+    case W8_ACTION_ATTACK:
+    case W8_ACTION_BERSERK:
+        return W8_TARGET_NEED_ENEMY;
+    case W8_ACTION_CAST_SPELL:
+        return SpellTargetNeed(data, selected.detail, false, needs_item_target);
+    case W8_ACTION_BREATHE:
+        return W8_TARGET_NEED_CONE;
+    case W8_ACTION_PROTECT:
+        return W8_TARGET_NEED_ALLY;
+    case W8_ACTION_USE_ITEM:
+        return ItemTargetNeed(data, inventory.itemAt(selected.detail_block.item_use.item),
+                              needs_item_target);
+    default:
+        break;
+    }
+    return W8_TARGET_NEED_NONE;
 }

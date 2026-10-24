@@ -3,6 +3,7 @@
 #include <array>
 #include <optional>
 
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/party_formation.h"
@@ -17,6 +18,8 @@ struct W8Party {
     unsigned int gold = 0;
     W8GameplayModifierBlock modifiers{};
 
+    W8Disposition dispositionToward(unsigned int slot, W8Disposition other) const;
+    W8Disposition dispositionBetween(unsigned int first, unsigned int second) const;
     bool canAttack(unsigned int slot) const;
     bool participates(unsigned int slot) const;
     W8Action availableAction(unsigned int slot, W8Action action) const;

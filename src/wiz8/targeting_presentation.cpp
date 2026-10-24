@@ -18,6 +18,7 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/pointer.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/world/party_camera.h"
@@ -112,16 +113,14 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
     if (auto* info = FindMonster(hud.highlighted_item, false)) {
         result.monsters[info->location_id].hovered = true;
         const auto action = selected == -1 ? W8Action{} : EditedAction(selected);
-        if (selected != -1 &&
-            GetTargetNeededForAction(CurrentGame().inventory, action) == W8_TARGET_NEED_GROUP) {
+        if (selected != -1 && CurrentGame().targetNeed(action) == W8_TARGET_NEED_GROUP) {
             if (auto* group = FindMonsterGroup(info->monster_group_id, false))
                 for (int id : group->MemberIds()) result.monsters[id].tint = tint;
         } else
             result.monsters[info->location_id].tint = tint;
     } else if (auto* group = FindMonsterGroup(hud.action_group, false)) {
         const auto action = selected == -1 ? W8Action{} : EditedAction(selected);
-        if (selected != -1 &&
-            GetTargetNeededForAction(CurrentGame().inventory, action) == W8_TARGET_NEED_GROUP) {
+        if (selected != -1 && CurrentGame().targetNeed(action) == W8_TARGET_NEED_GROUP) {
             for (int id : group->MemberIds()) result.monsters[id].tint = tint;
         } else if (selected != -1) {
             const auto id =

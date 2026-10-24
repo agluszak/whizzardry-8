@@ -1,7 +1,6 @@
 #include "wiz8/combat/range.h"
 
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <optional>
 #include <span>
@@ -15,7 +14,6 @@
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/hostility.h"
 #include "wiz8/data/records.h"
-#include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -40,7 +38,6 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 int g_event_sight_blocked = kFirstRemappedEvent + 30;
@@ -74,7 +71,8 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
             W8MonsterInfo* monster_info = GetMonsterListEntry(index);
             if (monster_info->fActive && monster_info->hp_current != 0 &&
                 monster_info->highest_condition < W8_CONDITION_DEAD &&
-                (live_groups || MonsterVsCharDisposition(first, monster_info) == side)) {
+                (live_groups || CurrentGame().party.dispositionToward(
+                                    first, (monster_info)->ubDisposition) == side)) {
                 for (unsigned int reach_hand = 0; reach_hand < 2; ++reach_hand) {
                     if ((GetCharAttackRange(CurrentGame().data,
                                             &CurrentGame().party.characters[first],
@@ -94,7 +92,7 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
         W8Character* character = &CurrentGame().party.characters[first];
         for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
             if (slot != first && CurrentGame().party.participates(slot) &&
-                CharacterVsCharacterDisposition(first, slot) == side) {
+                CurrentGame().party.dispositionBetween(first, slot) == side) {
                 for (unsigned int reach_hand = 0; reach_hand < 2; ++reach_hand) {
                     if (!(GetCharAttackRange(CurrentGame().data,
                                              &CurrentGame().party.characters[first],
@@ -190,7 +188,8 @@ bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack
         if (character->highest_condition >= W8_CONDITION_DEAD) {
             continue;
         }
-        if (MonsterVsCharDisposition(party_slot, monster_info) != disposition_needed) {
+        if (CurrentGame().party.dispositionToward(party_slot, (monster_info)->ubDisposition) !=
+            disposition_needed) {
             continue;
         }
         if (MonsterAttackReachesCharacter(monster_info, record, attack, party_slot)) {
@@ -497,7 +496,7 @@ int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)
     int count = 0;
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         if (slot == party_slot || !CurrentGame().party.participates(slot) ||
-            CharacterVsCharacterDisposition(party_slot, slot) != relationship) {
+            CurrentGame().party.dispositionBetween(party_slot, slot) != relationship) {
             continue;
         }
         for (unsigned int hand = 0; hand < 2; ++hand) {

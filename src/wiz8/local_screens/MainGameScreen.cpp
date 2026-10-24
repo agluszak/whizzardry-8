@@ -448,7 +448,8 @@ static bool CanSelectedCharacterCastKnockKnock()
 {
     const int slot = CurrentGame().status.selected_character;
     return LearnedSpellPower(slot, W8_SPELL_KNOCK_KNOCK) > -1 &&
-           CanCharacterCastSpell(&CurrentGame().party.characters[slot], W8_SPELL_KNOCK_KNOCK);
+           CanCharacterCastSpell(CurrentGame().data, &CurrentGame().party.characters[slot],
+                                 W8_SPELL_KNOCK_KNOCK);
 }
 
 /* The selected character's percent chance to force a lock with
@@ -460,8 +461,8 @@ static bool CanCastTrapSpell(int slot)
     W8Character* character = &CurrentGame().party.characters[slot];
     return (LearnedSpellPower(slot, W8_SPELL_KNOCK_KNOCK) > -1 ||
             LearnedSpellPower(slot, W8_SPELL_DIVINE_TRAP) > -1) &&
-           (CanCharacterCastSpell(character, W8_SPELL_KNOCK_KNOCK) ||
-            CanCharacterCastSpell(character, W8_SPELL_DIVINE_TRAP));
+           (CanCharacterCastSpell(CurrentGame().data, character, W8_SPELL_KNOCK_KNOCK) ||
+            CanCharacterCastSpell(CurrentGame().data, character, W8_SPELL_DIVINE_TRAP));
 }
 
 static std::optional<int> PercentOrNothing(int value)
@@ -1751,8 +1752,10 @@ void W8TrapInteraction::CastTrapSpell()
         return;
     }
     const int spell =
-        CanCharacterCastSpell(&CurrentGame().party.characters[slot], W8_SPELL_DIVINE_TRAP) ? 0x12
-                                                                                           : 0x27;
+        CanCharacterCastSpell(CurrentGame().data, &CurrentGame().party.characters[slot],
+                              W8_SPELL_DIVINE_TRAP)
+            ? 0x12
+            : 0x27;
     EndTrapInteractMode(true);
     MainGame()->beginSpellCast(spell, ResumeTrapInteraction);
 }
@@ -3657,7 +3660,8 @@ void FallbackFromUnreachableAction(int party_slot)
     case W8_ACTION_CAST_SPELL:
     case W8_ACTION_USE_ITEM: {
         const bool casting = row->committed.kind == W8_ACTION_CAST_SPELL;
-        if (!(casting ? CharacterHasCastableSpell(&CurrentGame().party.characters[party_slot]) &&
+        if (!(casting ? CharacterHasCastableSpell(CurrentGame().data,
+                                                  &CurrentGame().party.characters[party_slot]) &&
                             ActionNeedsExplicitTarget(row->committed,
                                                       CurrentGame().activity.conversation_aside)
                       : ItemUseNeedsTarget(party_slot))) {
@@ -3671,7 +3675,7 @@ void FallbackFromUnreachableAction(int party_slot)
                                              : GetItemSpell(CurrentGame().inventory.itemAt(
                                                    row->committed.detail_block.item_use.item));
                 const W8TargetNeed needed_kind =
-                    GetTargetNeededForSpellFriendly(spell_id, false, MainGameHud() == nullptr);
+                    SpellTargetNeed(CurrentGame().data, spell_id, false, MainGameHud() == nullptr);
                 ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind,
                                            nullptr);
                 return;
@@ -4193,7 +4197,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                                      : EditedAction(CurrentGame().status.selected_character);
     needed = IsSighting(CurrentGame().status.selected_character)
                  ? W8_TARGET_NEED_NONE
-                 : GetTargetNeededForAction(CurrentGame().inventory, selected_action);
+                 : CurrentGame().targetNeed(selected_action);
     if (ScreenPointer().targeting() == W8_TARGET_NEED_ALLY ||
         (needed == W8_TARGET_NEED_ALLY && (event.modifiers & CTRL_DOWN) != 0)) {
         targeting = true;
@@ -4819,7 +4823,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                                      : EditedAction(CurrentGame().status.selected_character);
     needed = IsSighting(CurrentGame().status.selected_character)
                  ? W8_TARGET_NEED_NONE
-                 : GetTargetNeededForAction(CurrentGame().inventory, selected_action);
+                 : CurrentGame().targetNeed(selected_action);
     if (!(event.button == UiPointerButton::Left) &&
         !(event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
         if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Up)) {
@@ -4984,6 +4988,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         }
     } else {
         W8MonsterInfo* monster_info = FindMonster(MainGameHud()->highlighted_item);
+        if (!monster_info) return UiResult::Handled;
         bool assign = true;
         if (!CurrentGame().combat.has_value()) {
             if (needed != W8_TARGET_NEED_ENEMY && needed != W8_TARGET_NEED_ALLY &&
@@ -6385,9 +6390,7 @@ void RefreshAim(unsigned int actor, const W8CombatSlot& target)
     }
     if (target.iType == W8_TARGET_KIND_NONE) return;
     const auto edited = EditedAction(actor);
-    const auto needed = IsSighting(actor)
-                            ? W8_TARGET_NEED_NONE
-                            : GetTargetNeededForAction(CurrentGame().inventory, edited);
+    const auto needed = IsSighting(actor) ? W8_TARGET_NEED_NONE : CurrentGame().targetNeed(edited);
     SetTargetingMode(CurrentGame().targetMatches(edited.target, needed) ? W8_TARGET_NEED_NONE
                                                                         : needed);
 }

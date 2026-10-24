@@ -1239,7 +1239,7 @@ bool CanPerformAction(int party_slot, const W8Action& selected, bool allow_missi
         if (selected.detail == 0) {
             return false;
         }
-        if (!CanCharacterCastSpell(character, selected.detail)) {
+        if (!CanCharacterCastSpell(CurrentGame().data, character, selected.detail)) {
             return false;
         }
         break;
@@ -1287,7 +1287,8 @@ bool CharacterCanChooseAction(int party_slot, W8ActionKind candidate)
     }
     switch (candidate) {
     case W8_ACTION_CAST_SPELL:
-        return CharacterHasCastableSpell(&CurrentGame().party.characters[party_slot]);
+        return CharacterHasCastableSpell(CurrentGame().data,
+                                         &CurrentGame().party.characters[party_slot]);
     case W8_ACTION_USE_ITEM:
         return true;
     default:

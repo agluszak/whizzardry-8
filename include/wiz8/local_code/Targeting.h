@@ -149,9 +149,6 @@ bool TargetIsInPlay(int party_slot, int hand, const W8Action& selected);
 void SetTargetSourceToCharacter(int party_slot, W8TargetSource* source);
 /* What the interface has to ask the player to pick for one
    action - a fixed kind for most, the spell's answer for casts and item use. */
-W8TargetNeed GetTargetNeededForAction(const Inventory& inventory, const W8Action& action,
-                                      bool needs_item_target = true);
-W8TargetNeed GetTargetNeededForItem(const W8ItemInstance* item, bool needs_item_target);
 
 /* After the selected character's action changes, drop back to no
    targeting when its recorded target still fits, or enter the mode the action

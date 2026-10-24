@@ -33,6 +33,7 @@
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
@@ -1792,4 +1793,30 @@ TEST_CASE("Action reach uses its game and resolves range only when needed", "[pa
             W8TargetFailure::Unavailable);
     REQUIRE(draws.empty());
     candidate.rng.trace(nullptr);
+}
+
+TEST_CASE("Spell and item target rules use supplied content", "[party][targeting]")
+{
+    GameData data;
+    data.spells.resize(W8_SPELL_RESURRECTION + 1);
+    data.items.resize(1);
+    data.spells[W8_SPELL_RESURRECTION].target_type = W8_TARGET_TYPE_ALLY;
+    REQUIRE(SpellTargetNeed(data, W8_SPELL_RESURRECTION, false, true) ==
+            W8_TARGET_NEED_CHARACTER_INDIRECT);
+    REQUIRE(SpellTargetNeed(data, W8_SPELL_RESURRECTION, true, true) == W8_TARGET_NEED_CASTER);
+    data.spells[1].target_type = W8_TARGET_TYPE_ITEM;
+    REQUIRE(SpellTargetNeed(data, 1, false, false) == W8_TARGET_NEED_NONE);
+    REQUIRE(SpellTargetNeed(data, 1, false, true) == W8_TARGET_NEED_ITEM);
+    data.items[0].spell_id = W8_SPELL_RESURRECTION;
+    data.items[0].equip_class = W8_ITEM_EQUIP_CLASS_POTION;
+    W8ItemInstance item{};
+    item.iItemNo = 0;
+    REQUIRE(ItemTargetNeed(data, &item, true) == W8_TARGET_NEED_CASTER);
+    W8Character character{};
+    character.spell_learned[1] = 1;
+    data.spells[1].spell_point_cost = 10;
+    character.iSPLeft[data.spells[1].realm] = 9;
+    REQUIRE_FALSE(CanCharacterCastSpell(data, &character, 1));
+    character.iSPLeft[data.spells[1].realm] = 10;
+    REQUIRE(CanCharacterCastSpell(data, &character, 1));
 }

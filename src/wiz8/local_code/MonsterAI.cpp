@@ -1101,7 +1101,8 @@ targets_chosen:
                                                 record->attacks[attack].range_category))] != 0) {
             for (index = char_lo; index < char_hi; ++index) {
                 if (CurrentGame().party.participates(index) &&
-                    MonsterVsCharDisposition(index, monster_info) == disposition_needed &&
+                    CurrentGame().party.dispositionToward(index, (monster_info)->ubDisposition) ==
+                        disposition_needed &&
                     MonsterAttackReachesCharacter(monster_info, record, attack, index)) {
                     if (avoided[index] == 0) {
                         for (mode_bit = 0; mode_bit < 9; ++mode_bit) {
@@ -1808,7 +1809,8 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         if (IsVisibleUnderConditions(monster_info, &monster_info->player_visibility, sight_kind)) {
             for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
                 if (CurrentGame().party.participates(index) &&
-                    MonsterVsCharDisposition(index, monster_info) == W8_DISPOSITION_FRIENDLY &&
+                    CurrentGame().party.dispositionToward(index, (monster_info)->ubDisposition) ==
+                        W8_DISPOSITION_FRIENDLY &&
                     MonsterAttackReachesCharacter(monster_info, record, 0, index)) {
                     ResetCombatSlot(&slot);
                     slot.iType = W8_TARGET_KIND_CHARACTER;
@@ -1826,7 +1828,8 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         if (IsVisibleUnderConditions(monster_info, &monster_info->player_visibility, sight_kind)) {
             for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
                 if (CurrentGame().party.participates(index) &&
-                    MonsterVsCharDisposition(index, monster_info) == W8_DISPOSITION_HOSTILE &&
+                    CurrentGame().party.dispositionToward(index, (monster_info)->ubDisposition) ==
+                        W8_DISPOSITION_HOSTILE &&
                     MonsterAttackReachesCharacter(monster_info, record, 0, index)) {
                     ResetCombatSlot(&slot);
                     slot.iType = W8_TARGET_KIND_CHARACTER;
@@ -1891,7 +1894,8 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
                 !SpellAreaHitsNeutralMonster(monster_info, spell_id, &slot)) {
                 for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
                     if (CurrentGame().party.participates(index) &&
-                        MonsterVsCharDisposition(index, monster_info) == W8_DISPOSITION_HOSTILE &&
+                        CurrentGame().party.dispositionToward(
+                            index, (monster_info)->ubDisposition) == W8_DISPOSITION_HOSTILE &&
                         MonsterAttackReachesCharacter(monster_info, record, 0, index)) {
                         targets.push_back(slot);
                     }
@@ -2043,7 +2047,8 @@ bool MonsterHasNoVisibleEnemy(W8MonsterInfo* monster_info, bool party_only)
     if (monster_info->player_visibility.sight_state != W8_SIGHT_UNSEEN) {
         for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
             if (CurrentGame().party.participates(index) &&
-                MonsterVsCharDisposition(index, monster_info) == W8_DISPOSITION_HOSTILE) {
+                CurrentGame().party.dispositionToward(index, (monster_info)->ubDisposition) ==
+                    W8_DISPOSITION_HOSTILE) {
                 return false;
             }
         }
@@ -2109,7 +2114,8 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
         (!within_reach || monster_info->entity->GetDistanceToPlayer() <= reach)) {
         for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
             if (CurrentGame().party.participates(index)) {
-                disposition = MonsterVsCharDisposition(index, monster_info);
+                disposition =
+                    CurrentGame().party.dispositionToward(index, (monster_info)->ubDisposition);
                 if (hostility == W8_VISIBLE_TARGET_ANY) {
                     return true;
                 }
@@ -2329,7 +2335,8 @@ bool PartyHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id)
 
     for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
         if (CurrentGame().party.participates(index) &&
-            MonsterVsCharDisposition(index, monster_info) == W8_DISPOSITION_HOSTILE) {
+            CurrentGame().party.dispositionToward(index, (monster_info)->ubDisposition) ==
+                W8_DISPOSITION_HOSTILE) {
             ++eligible;
             ResetCombatSlot(&slot);
             slot.iType = W8_TARGET_KIND_CHARACTER;

@@ -371,7 +371,8 @@ bool CanMonsterProtectCombatant(W8MonsterInfo* monster_info, W8CombatSlot* targe
         if (!CurrentGame().party.participates(target_slot)) {
             return false;
         }
-        if (MonsterVsCharDisposition(target_slot, monster_info) != W8_DISPOSITION_FRIENDLY) {
+        if (CurrentGame().party.dispositionToward(target_slot, (monster_info)->ubDisposition) !=
+            W8_DISPOSITION_FRIENDLY) {
             return false;
         }
         if (!MonsterAttackReachesCharacter(monster_info, record, 0, target_slot)) {
@@ -1984,7 +1985,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
     highlight_start = CurrentGame().combat->attack_message.size();
     if (monster_info->Target.iType == W8_TARGET_KIND_CHARACTER) {
         int party_slot = monster_info->Target.iChar;
-        MonsterVsCharDisposition(party_slot, monster_info);
+        CurrentGame().party.dispositionToward(party_slot, (monster_info)->ubDisposition);
         CurrentGame().combat->attack_message += CurrentGame().party.characters[party_slot].name;
         palette = CurrentGame().party.orderIndexOf(party_slot);
         if (range <= W8_RANGE_SHORT && !IsCharacterFacingMonster(party_slot, monster_info)) {

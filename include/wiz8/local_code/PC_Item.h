@@ -71,8 +71,6 @@ W8ItemEquipSlotGroup GetItemEquipSlotGroup(int item_id);
 
 unsigned int CountIdentifyAttemptsNeeded(const W8ItemInstance* item, unsigned int percent);
 
-bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record);
-
 /* Per-item-class notice index into Data().strings used for the
    unidentified ("Uncursed item" style) display name. */
 unsigned short GetItemUnidentifiedNameIndex(const W8ItemInstance* item);

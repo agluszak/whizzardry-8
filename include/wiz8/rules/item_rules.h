@@ -94,3 +94,5 @@ int MinimumCasterLevelForSpellLevel(int spell_level);
 bool CanCharacterActivateItem(const GameData& data, const W8Character* character,
                               const W8ItemInstance* item, bool game_started);
 bool IsItemWornByCharacter(const W8Character* character, const W8ItemInstance* item);
+
+bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record);

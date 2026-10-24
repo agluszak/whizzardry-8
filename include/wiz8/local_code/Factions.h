@@ -3,12 +3,6 @@
 
 #include "wiz8/data/faction_ids.h" // IWYU pragma: export
 
-enum W8Disposition : unsigned char {
-    W8_DISPOSITION_NEUTRAL = 0,
-    W8_DISPOSITION_HOSTILE = 1,
-    W8_DISPOSITION_FRIENDLY = 2
-};
-
 /* `other` as the party reads the live score band; any other
    target is answered by the static relation matrix. */
 W8FactionDisposition GetFactionDispositionToward(signed char faction, signed char other);

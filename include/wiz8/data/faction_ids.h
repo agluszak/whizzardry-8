@@ -34,3 +34,9 @@ enum W8FactionDisposition : unsigned char {
     W8_FACTION_NEUTRAL = 1,
     W8_FACTION_FRIENDLY = 2
 };
+
+enum W8Disposition : unsigned char {
+    W8_DISPOSITION_NEUTRAL = 0,
+    W8_DISPOSITION_HOSTILE = 1,
+    W8_DISPOSITION_FRIENDLY = 2
+};

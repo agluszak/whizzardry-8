@@ -293,35 +293,6 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
    be cast. Nine target types map onto seven answers; the one that depends on
    the selection owner only needs a pick when there is nothing selected already
    and the caller is not in one of the two contexts that supply it. */
-W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize, bool needs_item_target)
-{
-    if (spell_id != W8_SPELL_NONE) {
-        switch (GetSpellTargetType(spell_id, normalize)) {
-        case W8_TARGET_TYPE_ALLY:
-            return spell_id != W8_SPELL_RESURRECTION ? W8_TARGET_NEED_ALLY
-                                                     : W8_TARGET_NEED_CHARACTER_INDIRECT;
-        case W8_TARGET_TYPE_CASTER:
-            return W8_TARGET_NEED_CASTER;
-        case W8_TARGET_TYPE_ENEMY:
-            return W8_TARGET_NEED_ENEMY;
-        case W8_TARGET_TYPE_ENEMY_GROUP:
-            return W8_TARGET_NEED_GROUP;
-        case W8_TARGET_TYPE_CONE:
-            return W8_TARGET_NEED_CONE;
-        case W8_TARGET_TYPE_RADIUS:
-        case W8_TARGET_TYPE_POINT:
-            return W8_TARGET_NEED_PLACE;
-        case W8_TARGET_TYPE_ITEM:
-            if (needs_item_target) {
-                return W8_TARGET_NEED_ITEM;
-            }
-            break;
-        default:
-            break;
-        }
-    }
-    return W8_TARGET_NEED_NONE;
-}
 
 /* The same question for a hostile spell, which has fewer answers because a
    hostile spell never targets the party's own belongings. */
@@ -877,17 +848,6 @@ static W8Skill BestSpellbookSkill(const W8Character& character, unsigned char bo
 
 /* Whether the character knows any spell whose realm's remaining points still
    cover that spell's cost. */
-bool CharacterHasCastableSpell(W8Character* character)
-{
-    int spell_id;
-
-    for (spell_id = W8_SPELL_NONE; spell_id < 0x72; ++spell_id) {
-        if (CanCharacterCastSpell(character, spell_id)) {
-            return true;
-        }
-    }
-    return false;
-}
 
 /* Whether a character is far enough along to take one spell on. Their whole
    caster level - the current profession's plus every other one that shares the

@@ -4,6 +4,7 @@
 #include <cassert>
 #include <optional>
 
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/party_formation.h"
@@ -209,4 +210,19 @@ bool W8Party::canAttack(unsigned int slot) const
     return slot < W8_PARTY_SLOT_COUNT && members[slot] && characters[slot].hp_current != 0 &&
            characters[slot].highest_condition <= W8_CONDITION_INSANE &&
            characters[slot].Hand[0].in_play;
+}
+
+W8Disposition W8Party::dispositionToward(unsigned int slot, W8Disposition other) const
+{
+    if (characters[slot].uiCondition[W8_CONDITION_TURNCOAT] == 0) return other;
+    if (other == W8_DISPOSITION_HOSTILE) return W8_DISPOSITION_FRIENDLY;
+    if (other == W8_DISPOSITION_FRIENDLY) return W8_DISPOSITION_HOSTILE;
+    return other;
+}
+W8Disposition W8Party::dispositionBetween(unsigned int first, unsigned int second) const
+{
+    return (characters[first].uiCondition[W8_CONDITION_TURNCOAT] != 0) ==
+                   (characters[second].uiCondition[W8_CONDITION_TURNCOAT] != 0)
+               ? W8_DISPOSITION_FRIENDLY
+               : W8_DISPOSITION_HOSTILE;
 }

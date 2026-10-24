@@ -105,38 +105,6 @@ W8Disposition MonsterHostility(W8MonsterInfo* first, W8MonsterInfo* second)
 /* Map a monster's disposition band onto the party character: while the
    character carries condition thirteen the hostile and friendly bands swap;
    otherwise the monster's band is returned unchanged. */
-W8Disposition MonsterVsCharDisposition(int character_slot, W8MonsterInfo* monster_info)
-{
-    W8Disposition disposition;
-
-    if (CurrentGame().party.characters[character_slot].uiCondition[W8_CONDITION_TURNCOAT] == 0) {
-        return monster_info->ubDisposition;
-    }
-    disposition = monster_info->ubDisposition;
-    switch (disposition) {
-    case W8_DISPOSITION_NEUTRAL:
-        return W8_DISPOSITION_NEUTRAL;
-    case W8_DISPOSITION_HOSTILE:
-        return W8_DISPOSITION_FRIENDLY;
-    case W8_DISPOSITION_FRIENDLY:
-        return W8_DISPOSITION_HOSTILE;
-    default:
-        return disposition;
-    }
-}
-
-W8Disposition CharacterVsCharacterDisposition(int first, int second)
-{
-    W8Character* characters = CurrentGame().party.characters;
-    unsigned int first_turns = characters[first].uiCondition[W8_CONDITION_TURNCOAT];
-    if (first_turns == 0 && characters[second].uiCondition[W8_CONDITION_TURNCOAT] == 0) {
-        return W8_DISPOSITION_FRIENDLY;
-    }
-    if (first_turns == 0 || characters[second].uiCondition[W8_CONDITION_TURNCOAT] == 0) {
-        return W8_DISPOSITION_HOSTILE;
-    }
-    return W8_DISPOSITION_FRIENDLY;
-}
 
 W8Disposition GetOppositeDisposition(W8TargetSource* source)
 {

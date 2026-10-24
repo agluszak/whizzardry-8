@@ -29,7 +29,6 @@ extern int g_learn_sound;
 /* Whether the spell may be cast in the current situation. */
 bool SpellUsableNow(int spell_id, bool allow_out_of_combat);
 
-W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize, bool needs_item_target);
 W8TargetNeed GetTargetNeededForSpellHostile(int spell_id);
 /* Whether the monster's spellcasting-blocked condition stops it
    casting this spell - everything except alchemy, and alchemy only for the
@@ -72,15 +71,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemLocation location);
 
 /* Learned, and the remaining points in the spell's realm cover its cost.
    CharacterHasCastableSpell expands this body for every spell. */
-inline bool CanCharacterCastSpell(W8Character* character, int spell_id)
-{
-    if (spell_id != W8_SPELL_NONE && character->spell_learned[spell_id] == 1 &&
-        Data().spells[spell_id].spell_point_cost <=
-            character->iSPLeft[Data().spells[spell_id].realm]) {
-        return true;
-    }
-    return false;
-}
+
 unsigned int GetSpellCastingSkillLevel(const W8Character* character, W8Skill spellbook_skill,
                                        W8SpellRealm realm);
 W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool pricing,

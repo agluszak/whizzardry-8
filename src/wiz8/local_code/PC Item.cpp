@@ -429,16 +429,6 @@ int CountUsableCharacterItems(W8Character* character)
 /* Whether an item's class is one of the three the target rules normalize for.
    The classes here are above the thirteen the equip-slot switch enumerates,
    so the class domain is wider than that switch covers. */
-bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record)
-{
-    unsigned char equip_class = record->equip_class;
-
-    if (equip_class != W8_ITEM_EQUIP_CLASS_POTION &&
-        (equip_class < W8_ITEM_EQUIP_CLASS_FOOD || equip_class > W8_ITEM_EQUIP_CLASS_DRINK)) {
-        return false;
-    }
-    return true;
-}
 
 /* Whether one item sits in a character's equipment, excluding the two
    alternate-set hand slots - a slot in that set answers no even though the

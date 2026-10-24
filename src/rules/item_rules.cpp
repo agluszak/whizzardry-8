@@ -701,3 +701,14 @@ bool IsItemWornByCharacter(const W8Character* character, const W8ItemInstance* i
     }
     return false;
 }
+
+bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record)
+{
+    unsigned char equip_class = record->equip_class;
+
+    if (equip_class != W8_ITEM_EQUIP_CLASS_POTION &&
+        (equip_class < W8_ITEM_EQUIP_CLASS_FOOD || equip_class > W8_ITEM_EQUIP_CLASS_DRINK)) {
+        return false;
+    }
+    return true;
+}

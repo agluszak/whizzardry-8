@@ -29,7 +29,7 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bo
 
 /* The disposition two party slots hold toward each other from
    their turncoat state - same side is friendly, split is hostile. */
-W8Disposition CharacterVsCharacterDisposition(int first, int second);
+
 /* The disposition opposite to the target source's side - a normal
    party member answers hostile, a monster answers its band flipped, and a
    turncoated target has no opposite. */
@@ -37,7 +37,7 @@ W8Disposition GetOppositeDisposition(W8TargetSource* source);
 /* Run the listed monster ids (skipping the source itself) through
    MakeTargetGroupHostile so each one's group turns on the source. */
 void ProvokeListedMonsterGroups(W8TargetSource* source, const std::vector<int>& monsters);
-W8Disposition MonsterVsCharDisposition(int character_slot, W8MonsterInfo* monster_info);
+
 /* Give every other same-faction group that can see this one its disposition -
    one group going hostile brings the rest of its faction with it. */
 void AlertSameFactionGroups(W8MonsterGroup* monster_group);

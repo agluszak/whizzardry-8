@@ -93,6 +93,7 @@
 #include "wiz8/pointer.h"
 #include "wiz8/portrait_animation.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/item_instance.h"
@@ -1208,13 +1209,15 @@ static void SetNpcDialogueLayoutMode(W8NpcDialogueLayout value)
 
 static void RefreshNpcServiceAvailability(int party_slot)
 {
-    SetNpcActionEnabled(
-        W8_NPC_CONTROL_TEXT_1,
-        CanCharacterCastSpell(&CurrentGame().party.characters[party_slot], W8_SPELL_CHARM));
+    SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_1,
+                        CanCharacterCastSpell(CurrentGame().data,
+                                              &CurrentGame().party.characters[party_slot],
+                                              W8_SPELL_CHARM));
     Panel().requestRepaint(Panel().ui->actions[W8_NPC_CONTROL_TEXT_1].panel);
-    SetNpcActionEnabled(
-        W8_NPC_CONTROL_TEXT_2,
-        CanCharacterCastSpell(&CurrentGame().party.characters[party_slot], W8_SPELL_MINDREAD));
+    SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_2,
+                        CanCharacterCastSpell(CurrentGame().data,
+                                              &CurrentGame().party.characters[party_slot],
+                                              W8_SPELL_MINDREAD));
     Panel().requestRepaint(Panel().ui->actions[W8_NPC_CONTROL_TEXT_2].panel);
     SetNpcActionEnabled(W8_NPC_CONTROL_TEXT_4,
                         CharacterHasServiceItem(&CurrentGame().party.characters[party_slot]));

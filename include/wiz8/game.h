@@ -99,6 +99,7 @@ public:
                                          const W8Action& action,
                                          std::optional<W8RangeCategory> attack_range = {},
                                          bool sighting = false) const;
+    W8TargetNeed targetNeed(const W8Action& action, bool needs_item_target = true) const;
     bool targetPresent(const W8CombatSlot& target) const;
     bool targetMatches(const W8CombatSlot& target, W8TargetNeed needed) const;
     bool actionTargetsEnemies(unsigned int slot, const W8Action& action) const;
