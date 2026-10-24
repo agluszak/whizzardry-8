@@ -652,7 +652,7 @@ struct SavedMonster {
     static SavedMonster Capture(const W8MonsterInfo& info, bool unborn)
     {
         if (!info.entity) throw std::runtime_error("missing monster");
-        Monster& monster = *info.entity.get();
+        Monster& monster = *info.entity;
         SavedMonster saved{.image = wiz8::retail::encode_image(info), .unborn = unborn};
         if (info.fActive) {
             auto position = monster.GetRepresentationLocation();

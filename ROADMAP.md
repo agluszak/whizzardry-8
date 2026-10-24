@@ -83,7 +83,12 @@ The decisions behind it:
    - Decode and validate before replacement. The remaining target is to construct a
      separate, stable-address candidate with explicit dependencies, then release outgoing
      presentation and install it. Entry consequences retain their established RNG order;
-     resource preparation must not run them early.
+     resource preparation must not run them early. Raw level parsing still creates
+     embedded monsters/items, seeds triggers and initializes prop story variables.
+     Decode their values separately, then initialize in file order: monster paths,
+     each item trigger followed by that item, prop triggers, standalone triggers,
+     saved population and entry. Preserve the pre-prop legacy numeric-ID prefix;
+     moving only monster/item creation changes both trigger RNG and APST keys.
    - Travel and departure are game operations (`travelToLevel`, `leaveLevel`), not
      screen teardown. The session invokes them for load and end; screens request them
      and present loading. The outgoing world is released after the destination and its

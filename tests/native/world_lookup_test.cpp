@@ -237,7 +237,8 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
         REQUIRE(GetSecondaryWorld() == sky);
         REQUIRE(GetWorld() == primary);
         // Traversal must derive from the live owners after the failed load.
-        DetachAllWorldItems();
+        AnimateWorldItems(*primary);
+        AnimateWorldItems(*sky);
     }
 
     const auto level_path = wiz8::asset_path("Levels/Test/level1.LVL");
@@ -259,7 +260,8 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
         REQUIRE(GetLoadedLevelID() == 8);
         REQUIRE(CurrentGame().status.resume_level == 8);
         REQUIRE(GetWorld()->scene != nullptr);
-        DetachAllWorldItems();
+        AnimateWorldItems(*primary);
+        AnimateWorldItems(*sky);
     }
 }
 

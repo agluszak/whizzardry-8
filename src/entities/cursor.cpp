@@ -4,7 +4,6 @@
 #include <cmath>
 #include <memory>
 #include <string>
-#include <utility>
 
 #include <SDL3/SDL_rect.h>
 #include <glm/ext/quaternion_trigonometric.hpp>

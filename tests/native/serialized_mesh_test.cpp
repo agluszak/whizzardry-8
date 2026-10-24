@@ -37,6 +37,7 @@
 #include "wiz8/render/mesh_loader.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
@@ -650,4 +651,33 @@ TEST_CASE("Texture sharing and lazy reads retain the resolved asset directory")
     REQUIRE_FALSE(MeshHasAnimatedTexture(head));
     REQUIRE(MeshHasAnimatedTexture(head->parts[0].get()));
     REQUIRE(animated_first->getModel() != animated_second->getModel());
+}
+
+TEST_CASE("Malformed compiled levels return failure instead of shutting down", "[loader][lifetime]")
+{
+    ScopedTemporaryDirectory temporary{"wiz8-invalid-level"};
+    const auto path = temporary.path / "broken.pvl";
+    WriteFixture(path, false);
+    {
+        std::ofstream tail(path, std::ios::binary | std::ios::app);
+        const int no_lights = 0;
+        const int invalid_section_end = 0;
+        tail.write(reinterpret_cast<const char*>(&no_lights), sizeof(no_lights));
+        tail.write(reinterpret_cast<const char*>(&invalid_section_end),
+                   sizeof(invalid_section_end));
+    }
+    World world;
+    world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
+    world.spatial->compiled_available = true;
+    world.spatial->m_spatial.submesh_count = 4;
+    world.spatial->m_meshCount = 4;
+    world.psrMeshes.resize(5);
+    auto input = wiz8::open_file(path);
+    REQUIRE_FALSE(ReadLevel(&world, input.get(), ""));
+
+    // The same recoverable result applies before any scene mesh was built.
+    input.reset();
+    WriteFixture(path, false, true);
+    input = wiz8::open_file(path);
+    REQUIRE_FALSE(ReadLevel(&world, input.get(), ""));
 }

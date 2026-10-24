@@ -31,7 +31,6 @@
 #include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 #include <glm/gtc/quaternion.hpp>
 
-#include "application.h"
 #include "asset_paths.h"
 #include "geometry.h"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -62,7 +61,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/math.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/render/camera.h"
@@ -870,22 +868,12 @@ try {
     return false;
 }
 
-#define CHECK_PVL_OFFSET(message)                                                                  \
-    if (world->compiledIndex() != 0 && (!(handle->read(&section_end, sizeof(section_end)).bytes == \
-                                          static_cast<std::size_t>(sizeof(section_end))) ||        \
-                                        section_end != -1)) {                                      \
-        sprintf(error_message, "%s\nTry deleting .PVL file and reloading.", message);              \
-        ShutdownWithErrorBox(error_message);                                                       \
-    }
-
 unsigned char ReadLevel(World* world, wiz8::File* handle,
                         const std::filesystem::path& texture_directory)
 try {
     LevelLoadContext info;
     std::unique_ptr<MeshInstance> level_mesh;
     glm::vec3 environment_offset;
-    char error_message[512];
-    int section_end;
     int section_count;
     int camera_mode;
     int index;
@@ -895,6 +883,13 @@ try {
     if (world == nullptr || world->scene == nullptr || handle == nullptr) {
         return false;
     }
+
+    const auto section_ended = [&] {
+        if (!world->compiledIndex()) return true;
+        int end;
+        handle->read_exact(&end, sizeof(end));
+        return end == -1;
+    };
 
     level_mesh = nullptr;
     world->update_mesh_source = nullptr;
@@ -919,9 +914,7 @@ try {
     } else {
         auto meshes = ReadMultipleLevelMeshes(*handle, world->compiledIndex()->GetMeshCount(),
                                               texture_directory);
-        if (meshes.empty()) {
-            ShutdownWithErrorBox("ReadLevel: Error reading multi-meshes.");
-        }
+        if (meshes.empty()) return false;
         for (unsigned int mesh_index = 0; mesh_index < world->compiledIndex()->m_meshCount;
              ++mesh_index) {
             if (meshes[mesh_index]) {
@@ -933,22 +926,22 @@ try {
     }
 
     success = ReadWorldLights(world, handle);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after lights.");
+    if (!section_ended()) return false;
     success = success && ReadMonsterPaths(&info, world);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after monsters.");
+    if (!section_ended()) return false;
     success = success && ReadWorldItems(&info, world);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after items.");
+    if (!section_ended()) return false;
 
     if (!success || info.hFile == 0 || !ReadRecordCount(*info.hFile, section_count)) {
         success = 0;
     }
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after missiles.");
+    if (!section_ended()) return false;
     success = success && ReadWorldProps(&info, world, false);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after props.");
+    if (!section_ended()) return false;
     success = success && ReadWorldProps(&info, world, true);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after bitmaps.");
+    if (!section_ended()) return false;
     success = success && ReadWorldCameras(&info, world);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after cameras.");
+    if (!section_ended()) return false;
     AssociateWorldLights(world);
     if (!success) {
         return 0;
@@ -961,7 +954,7 @@ try {
     } else {
         success = ReadWorldEnvironment(&info, world);
     }
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after fog options.");
+    if (!section_ended()) return false;
 
     if (success && info.hFile != 0) {
         info.hFile->read(&section_count, sizeof(section_count));
@@ -977,7 +970,7 @@ try {
             }
         }
     }
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after triggers.");
+    if (!section_ended()) return false;
 
     UpdateWorldProps(world);
     info.hFile->read(&camera_mode, sizeof(camera_mode));
@@ -990,7 +983,7 @@ try {
     if (!success) {
         return 0;
     }
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after Clipping Planes.");
+    if (!section_ended()) return false;
 
     FinalizeStaticScene(*world);
 
@@ -1000,11 +993,11 @@ try {
     } else {
         success = ReadWorldParticles(&info, (world->scene.get()), &world->particles);
     }
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after particles.");
+    if (!section_ended()) return false;
     success = success && ReadNamedPositions(info.hFile, world->named_positions);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after named position points.");
+    if (!section_ended()) return false;
     success = success && world->automap.readCells(*handle);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after automap nodes.");
+    if (!section_ended()) return false;
 
     world->environment.offset = environment_offset;
 
@@ -1044,8 +1037,6 @@ try {
 } catch (const std::exception&) {
     return false;
 }
-
-#undef CHECK_PVL_OFFSET
 
 constexpr float kSurfaceFlatNormalThreshold = 0.9959999918937683f;
 

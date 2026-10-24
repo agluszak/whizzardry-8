@@ -327,7 +327,10 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   published; entry then starts clocks, music, dialogue and first-visit effects.
   `Game::travelToLevel` owns that sequence and leaves the outgoing level only after
   the destination and its saved status have been prepared. A failed destination
-  leaves the current world loaded.
+  leaves the current world loaded, but this is not yet an isolation guarantee:
+  embedded monster/item construction, trigger seeds and prop variables still touch
+  the installed game while parsing. Malformed compiled-level sections return a
+  loading failure rather than asking presentation to terminate the application.
 - Departure ends combat and captures script state into location variables before
   resources are released. Destruction does no departure bookkeeping. `Game::leaveLevel`
   is the departure operation; the session calls it when ending a game, and a screen
@@ -342,9 +345,10 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   replacement and the caller presents the error. Resource preparation still uses the
   installed game; retaining the outgoing game on construction failure is a target, not
   a guarantee of this implementation.
-- Monster and world-item records link to their scene entity through an
-  `EntityLink`. An inactive record may have none. Anything that keeps an actor
-  past the current call keeps its id and looks it up again when used.
+- Monster and world-item records own their optional loaded runtime directly.
+  Monster activation is separate from runtime presence; a world item's activation
+  is its appearance's presence. Borrowed indexes and rendering relationships never
+  decide their lifetime. Work that outlives an actor uses its scoped identity.
 - Group counts, active-monster presence and combat membership are queries over
   ownership, not maintained counters.
 - Each world has a `WorldParty` (`World::party`): the party's pose and its
