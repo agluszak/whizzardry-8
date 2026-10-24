@@ -887,21 +887,18 @@ void Game::endCombat(bool forced_cleanup)
         BeginFreeTurnPhase();
     }
     ReleasePartyMovement();
-    CurrentGame().events.push(PartyEffectsChanged{});
+    events.push(PartyEffectsChanged{});
 
-    CurrentGame().events.push(TargetingRequested{});
+    events.push(TargetingRequested{});
     RemoveConditionFromEveryone(W8_CONDITION_SLOWED);
     LiftConditionFromParty(*this, W8_CONDITION_TURNCOAT);
     RemoveAllEnchantments();
     resetCombatEffects();
     ProcessMonstersAtCombatEnd(forced_cleanup);
-    auto group_count = CurrentLevelPopulation().monster_groups.size();
-    for (unsigned int group_index = 0; group_index < group_count; ++group_index) {
-        W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
-        if (group->fInCombat) {
-            MonsterGroupLeaveCombat(group);
-        }
-        group_count = CurrentLevelPopulation().monster_groups.size();
+    auto& groups = level.loaded().population->monster_groups;
+    for (unsigned int index = 0; index < groups.size(); ++index) {
+        auto& group = *groups[index];
+        if (group.fInCombat) endGroupCombat(group);
     }
     if (combat->enemies_engaged) {
         events.push(TextNotice{W8_FONT_PALETTE_BEIGE, data.strings[0x233], 1});
@@ -939,7 +936,7 @@ void Game::endCombat(bool forced_cleanup)
     // Armor without the combat actions, and the shared load deferred during combat.
     SettleActiveParty(*this);
     if (auto* world = level.primary.get()) world->party.camera.motion.clearMovementState();
-    CurrentGame().events.push(MonstersChanged{});
+    events.push(MonstersChanged{});
     if (auto* world = level.primary.get()) ResetWorldCursorDistance(*world);
     if (activity.in_world()) {
         applyCombatEndEffects();
@@ -1413,7 +1410,7 @@ void AdvanceCombatRound(void)
 int CheckCombatEnd(unsigned int end_if_no_hostiles)
 {
     bool any_active = (CurrentGame().party.participantCount() != 0);
-    RefreshCombatEngagement();
+    CurrentGame().refreshCombatEngagement();
     if (!any_active) {
         CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x230], 0});
         for (int party_slot = 0; party_slot < 8; ++party_slot) {

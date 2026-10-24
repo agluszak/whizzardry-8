@@ -16,7 +16,6 @@ enum class W8VisibilityCondition : unsigned char {
     GeneralLineOfSight = 6
 };
 
-void ReleaseMonToMonVisibilityList(W8MonsterInfo* monster_info);
 void RefreshAllSight(void);
 /* Put the sight subsystem back to its starting state. */
 void RefreshOutwardSightForAllMonsters(void);

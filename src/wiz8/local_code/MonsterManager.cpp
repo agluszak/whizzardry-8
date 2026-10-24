@@ -758,7 +758,7 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
         world.monster_retirements_->reserve(world.monster_retirements_->size() + 1);
 
     if (CurrentGame().combat.has_value() && monster_info->pCombat) {
-        MonsterInfoLeaveCombat(monster_info);
+        CurrentGame().removeMonsterFromCombat(*monster_info);
     }
     if (monster_info->monster_group_id != 0) {
         W8MonsterGroup* monster_group = FindMonsterGroup(monster_info->monster_group_id);
@@ -793,7 +793,7 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
             monster_info->entity.reset();
     }
     // Inactive and unborn records also own visibility/NPC relationships.
-    ReleaseMonToMonVisibilityList(monster_info);
+    world.population->releaseMonsterVisibility(*monster_info);
     if (auto* spatial = world.compiledIndex())
         spatial->UnregisterLocationObjects(static_cast<unsigned short>(monster_info->location_id));
     if (auto* binding = CurrentGame().story.npc(monster_info->bound_npc_index))
@@ -820,7 +820,7 @@ void DeactivateMonster(W8MonsterInfo* monster_info)
         monster_info->entity->nav.active = false;
         monster_info->entity->nav.flags = 0x200000;
         ClearMonsterSpellIcons(*monster_info->entity);
-        ReleaseMonToMonVisibilityList(monster_info);
+        monster_info->entity->owner_world.population->releaseMonsterVisibility(*monster_info);
         position = monster_info->entity->GetRepresentationLocalLocation();
         monster_info->position = position;
         monster_info->fActive = false;
@@ -829,7 +829,7 @@ void DeactivateMonster(W8MonsterInfo* monster_info)
             CurrentGame().invalidateAimsAt(W8CombatSlot::monster(monster_info->location_id),
                                            TargetChange::removed);
             RefreshFlaggedMainGameState();
-            RefreshCombatEngagement();
+            CurrentGame().refreshCombatEngagement();
             CurrentGame().combat->endTurnOf(MonsterActor{monster_info->location_id});
         }
     }
@@ -849,41 +849,36 @@ void MonsterInfoEnterCombat(W8MonsterInfo* monster_info)
     ResetCombatSlot(&monster_info->Target);
     monster_info->entity->nav.flags = 0;
     if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
-        RefreshCombatEngagement();
+        CurrentGame().refreshCombatEngagement();
     }
     if (CurrentGame().combat.has_value()) {
         EndMonsterTurn(monster_info);
     }
 }
 
-/* Release active combat effects before destroying the state and its action queue. */
-void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info)
+void W8MonsterInfo::endEngagement(const GameData& data)
 {
-    unsigned int index;
-    W8EffectSlot* entry;
+    assert(pCombat);
+    for (auto& effect : pCombat->combat_effects)
+        if (effect.active) clearEffect(effect, data.monsters[monster_species]);
+    for (auto& effect : pCombat->combat_effects_2)
+        if (effect.active) clearEffect(effect, data.monsters[monster_species]);
+    pCombat.reset();
+}
 
-    assert(CurrentGame().combat.has_value());
-    assert(monster_info != 0);
-    assert(monster_info->pCombat);
-    CurrentGame().combat->endTurnOf(MonsterActor{monster_info->location_id});
-    for (index = 0; index < 9; ++index) {
-        entry = &monster_info->pCombat->combat_effects[index];
-        if (entry->active) {
-            monster_info->clearEffect(*entry,
-                                      CurrentGame().data.monsters[monster_info->monster_species]);
-        }
-    }
-    for (index = 0; index < 6; ++index) {
-        entry = &monster_info->pCombat->combat_effects_2[index];
-        if (entry->active) {
-            monster_info->clearEffect(*entry,
-                                      CurrentGame().data.monsters[monster_info->monster_species]);
-        }
-    }
-    monster_info->pCombat.reset();
-    if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE) {
-        RefreshCombatEngagement();
-    }
+void Game::removeMonsterFromCombat(W8MonsterInfo& monster)
+{
+    std::vector<Event> outcomes;
+    removeMonsterFromCombat(monster, outcomes);
+    events.publish(std::move(outcomes));
+}
+
+void Game::removeMonsterFromCombat(W8MonsterInfo& monster, std::vector<Event>& outcomes)
+{
+    assert(combat);
+    combat->endTurnOf(MonsterActor{monster.location_id});
+    monster.endEngagement(data);
+    if (monster.ubDisposition == W8_DISPOSITION_HOSTILE) refreshCombatEngagement(outcomes);
 }
 
 /* Toggles the party's combat-ready posture. Outside combat it only flips the

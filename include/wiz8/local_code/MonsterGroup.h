@@ -186,8 +186,6 @@ bool MonsterGroupHasIncapacitatedMember(int group_id);
 void RetireMonsterGroupAndAllies(W8MonsterGroup* monster_group);
 bool LinkMonsterGroupToLeader(W8MonsterGroup* leader, W8MonsterGroup* group);
 
-void MonsterGroupLeaveCombat(W8MonsterGroup* monster_group);
-
 void SetMonsterGroupFormation(W8MonsterGroup* monster_group, const glm::vec3* formation);
 
 #endif

@@ -1,6 +1,7 @@
 #include "wiz8/combat/hostility.h"
 
 #include <span>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -49,18 +50,25 @@
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
+#include "wiz8/world/world.h"
 
 /* Species 0x224 never counts: both directions answer zero before anything
    else is read. */
 enum { W8_NEUTRAL_SPECIES_224 = 0x224 };
 
-void RefreshCombatEngagement(void)
+void Game::refreshCombatEngagement()
 {
-    if (CurrentGame().combat.has_value() &&
-        CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0) {
-        CurrentGame().combat->enemies_engaged = true;
-    }
-    RequestRefreshPartyState();
+    std::vector<Event> outcomes;
+    refreshCombatEngagement(outcomes);
+    events.publish(std::move(outcomes));
+}
+
+void Game::refreshCombatEngagement(std::vector<Event>& outcomes)
+{
+    if (!combat) return;
+    if (level.loaded().population->monster_roster.hostileCombatCount() != 0)
+        combat->enemies_engaged = true;
+    outcomes.emplace_back(CombatPanelChanged{});
 }
 
 /* Compare two monsters for hostility. Equal disposition bands answer two;
@@ -280,7 +288,7 @@ void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
     monster->ubDisposition = hostility;
     if (monster->pCombat &&
         (hostility == W8_DISPOSITION_HOSTILE || previous == W8_DISPOSITION_HOSTILE)) {
-        RefreshCombatEngagement();
+        CurrentGame().refreshCombatEngagement();
     }
     if (previous != W8_DISPOSITION_NEUTRAL) {
         CurrentGame().invalidateAimsAt(W8CombatSlot::monster(monster->location_id),

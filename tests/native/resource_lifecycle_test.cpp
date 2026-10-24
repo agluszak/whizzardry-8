@@ -60,6 +60,7 @@
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/SpellEffect.h"
@@ -720,6 +721,18 @@ TEST_CASE_METHOD(SpellVisualFixture,
     replacement.camera->transform.setLocation(0, 0, 0);
     REQUIRE(replacement.projectsToCamera({0, 0, 10}));
     REQUIRE_FALSE(world.projectsToCamera({0, 0, 10}));
+
+    for (auto* owner : {&world, &replacement}) {
+        auto observer = std::make_unique<W8MonsterInfo>();
+        observer->location_id = 8;
+        observer->fActive = true;
+        observer->monster_visibility = std::make_unique<W8MonsterVisibility>();
+        (*observer->monster_visibility)[7] = {};
+        owner->population->monster_roster.add(std::move(observer), false);
+    }
+    replacement.population->releaseMonsterVisibility(*replacement.population->findMonster(7));
+    REQUIRE(replacement.population->findMonster(8)->monster_visibility->empty());
+    REQUIRE(world.population->findMonster(8)->monster_visibility->contains(7));
 }
 
 TEST_CASE("Ambient exchanges wait for completion and choose a different respondent", "[events]")
@@ -1988,4 +2001,58 @@ TEST_CASE("Party effect expiry settles and lights only its originating world",
     REQUIRE(outgoing.game.events.pending().empty());
     candidate.level.loaded().camera_light = nullptr;
     outgoing.game.level.loaded().camera_light = nullptr;
+}
+
+TEST_CASE("A group leaves only its own game fight and releases its engagement effects",
+          "[lifetime][combat]")
+{
+    ScopedGame outgoing;
+    outgoing.game.combat.emplace().schedule(MonsterActor{7});
+    GameData data;
+    data.monsters.resize(1);
+    Game candidate{data};
+    candidate.combat.emplace().schedule(MonsterActor{7});
+    candidate.level.replacePrimary(std::make_unique<World>());
+    auto& world = candidate.level.loaded();
+    auto monster = std::make_unique<W8MonsterInfo>();
+    monster->location_id = 7;
+    monster->monster_group_id = 1;
+    monster->hp_current = monster->uiHPMax = 1;
+    monster->fActive = true;
+    monster->ubDisposition = W8_DISPOSITION_HOSTILE;
+    monster->entity = std::make_unique<Monster>(world, &data.monsters[0]);
+    monster->pCombat = std::make_unique<W8MonsterCombatState>();
+    monster->pCombat->combat_effects[0].Activate(2, 1, 10);
+    monster->pCombat->combat_effects_2[0].Activate(2, 1, 10);
+    monster->modifiers.hit_bonus = monster->modifiers.armor_flat = 2;
+    auto& member = *world.population->monster_roster.add(std::move(monster), false);
+    auto& group =
+        *world.population->monster_groups.emplace_back(std::make_unique<W8MonsterGroup>());
+    group.group_id = 1;
+    group.fInCombat = true;
+    group.leader_location_id = 7;
+    group.monsters = {7};
+    candidate.refreshCombatEngagement();
+    REQUIRE(candidate.combat->enemies_engaged);
+    candidate.events = {};
+    unsigned int outcomes = 0;
+    candidate.events.observe([&](const Event&) {
+        ++outcomes;
+        REQUIRE_FALSE(group.fInCombat);
+        REQUIRE_FALSE(member.pCombat);
+        REQUIRE_FALSE(candidate.combat->holdsTurn(MonsterActor{7}));
+        REQUIRE((member.ai_mode & W8_MONSTER_AI_REAPPLY_MODE) != 0);
+    });
+    candidate.endGroupCombat(group);
+    REQUIRE(outcomes == 2);
+    REQUIRE_FALSE(group.fInCombat);
+    REQUIRE_FALSE(member.pCombat);
+    REQUIRE_FALSE(candidate.combat->holdsTurn(MonsterActor{7}));
+    REQUIRE(candidate.combat->enemies_engaged); // Encounter history is sticky, not a live count.
+    REQUIRE((member.ai_mode & W8_MONSTER_AI_REAPPLY_MODE) != 0);
+    REQUIRE(member.modifiers.hit_bonus == 0);
+    REQUIRE(member.modifiers.armor_flat == 0);
+    REQUIRE(outgoing.game.combat->holdsTurn(MonsterActor{7}));
+    REQUIRE_FALSE(outgoing.game.combat->enemies_engaged);
+    REQUIRE(outgoing.game.events.pending().empty());
 }

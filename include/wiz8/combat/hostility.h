@@ -24,7 +24,6 @@ W8Disposition MonsterHostility(W8MonsterInfo* first, W8MonsterInfo* second);
 
 bool CombatAllowsLiveGroups(void);
 void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility);
-void RefreshCombatEngagement(void);
 void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bool recurse);
 
 /* The disposition two party slots hold toward each other from

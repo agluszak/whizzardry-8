@@ -209,7 +209,12 @@ struct GameEventPresentation {
             camp->RefreshPartyLoad();
         }
     }
-    void operator()(const CombatPanelChanged&) const { RequestRefreshPartyState(); }
+    void operator()(const CombatPanelChanged&) const
+    {
+        if (game.combat) {
+            if (auto* hud = MainGameHud()) hud->refresh_combat_panel = true;
+        }
+    }
     void operator()(const CombatantsMoved&) const
     {
         if (auto* main_game = MainGame(); main_game && main_game->hud)

@@ -451,12 +451,12 @@ static bool visibilityRecordLifetime()
     for (int id = 1000; id < 2000; ++id) records[id].about_location_id = id;
     REQUIRE(FindMonToMonVisibility(&observer, &target) == original);
     REQUIRE(original->sight_state == W8_SIGHT_SEEN);
-    ReleaseMonToMonVisibilityList(&target);
+    CurrentLevelPopulation().releaseMonsterVisibility(target);
     REQUIRE(!FindMonToMonVisibility(&observer, &target));
     REQUIRE(records.size() == 1000);
-    ReleaseMonToMonVisibilityList(&observer);
+    CurrentLevelPopulation().releaseMonsterVisibility(observer);
     REQUIRE(!observer.monster_visibility);
-    ReleaseMonToMonVisibilityList(&observer);
+    CurrentLevelPopulation().releaseMonsterVisibility(observer);
     return true;
 }
 

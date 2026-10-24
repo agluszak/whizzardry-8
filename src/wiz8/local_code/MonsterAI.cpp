@@ -1975,7 +1975,7 @@ void CheckMonsterGroupsLeaveCombat(void)
         }
         if (group->ubDisposition == W8_DISPOSITION_NEUTRAL) {
             if (!MonsterGroupHasReinforcement(group)) {
-                MonsterGroupLeaveCombat(group);
+                CurrentGame().endGroupCombat(*group);
             }
             continue;
         }
@@ -2000,7 +2000,7 @@ void CheckMonsterGroupsLeaveCombat(void)
                     reach = minimum;
                 }
                 if (reach < nearest && !MonsterGroupCanEngage(group)) {
-                    MonsterGroupLeaveCombat(group);
+                    CurrentGame().endGroupCombat(*group);
                     break;
                 }
             }
@@ -2017,7 +2017,7 @@ void CheckMonsterGroupsLeaveCombat(void)
             break;
         }
         if (index >= group->MemberIds().size()) {
-            MonsterGroupLeaveCombat(group);
+            CurrentGame().endGroupCombat(*group);
         }
     }
     if (engaged != 0) {
@@ -2027,7 +2027,7 @@ void CheckMonsterGroupsLeaveCombat(void)
          ++group_index) {
         group = CurrentLevelPopulation().monster_groups[group_index].get();
         if (group->members_active && group->fInCombat && !MonsterGroupAllMembersDying(group)) {
-            MonsterGroupLeaveCombat(group);
+            CurrentGame().endGroupCombat(*group);
         }
     }
 }

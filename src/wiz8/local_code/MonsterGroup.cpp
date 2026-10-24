@@ -487,25 +487,23 @@ std::string GetMonsterGroupName(W8MonsterGroup* monster_group)
     return (name_form ? record->name3 : record->name2);
 }
 
-/* Takes a whole group out of combat: every member leaves individually, the
-   group's own fInCombat is lowered, and the lead member is marked. The member
-   list length is re-read each iteration because leaving combat can change it.
-   Both assertions name what they guard - the global combat mode and the group's
-   own fInCombat, which is what gives +0x29 its name. */
-void MonsterGroupLeaveCombat(W8MonsterGroup* monster_group)
+void Game::endGroupCombat(W8MonsterGroup& group)
 {
-    unsigned int index;
-    W8MonsterInfo* lead;
-
-    assert(CurrentGame().combat.has_value());
-    assert(monster_group->fInCombat);
-    for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        MonsterInfoLeaveCombat(FindMonster(monster_group->MemberLocationId(index)));
+    assert(combat);
+    assert(group.fInCombat);
+    std::vector<Event> outcomes;
+    auto& population = *level.loaded().population;
+    for (unsigned int index = 0; index < group.MemberIds().size(); ++index) {
+        auto* monster = population.findMonster(group.MemberLocationId(index));
+        assert(monster);
+        removeMonsterFromCombat(*monster, outcomes);
     }
-    monster_group->fInCombat = false;
-    CurrentGame().events.push(MonstersChanged{});
-    lead = FindMonster(monster_group->leader_location_id);
-    lead->ai_mode |= W8_MONSTER_AI_REAPPLY_MODE;
+    group.fInCombat = false;
+    outcomes.emplace_back(MonstersChanged{});
+    auto* leader = population.findMonster(group.leader_location_id);
+    assert(leader);
+    leader->ai_mode |= W8_MONSTER_AI_REAPPLY_MODE;
+    events.publish(std::move(outcomes));
 }
 
 /* Removes a group and everything allied to it from the world. Each ally is

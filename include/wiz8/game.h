@@ -219,6 +219,9 @@ public:
        nor kills the summoned monsters. */
     void endCombat(bool forced_cleanup);
     void resetSight();
+    void refreshCombatEngagement();
+    void removeMonsterFromCombat(W8MonsterInfo& monster);
+    void endGroupCombat(W8MonsterGroup& group);
     void setEncounterDurationScale(float scale);
     int normalizeLevel(int requested) const;
     signed char levelBand(int requested) const;
@@ -345,6 +348,8 @@ private:
     std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
     void updateSurpriseMode();
     void applyCombatEndEffects();
+    void refreshCombatEngagement(std::vector<Event>& outcomes);
+    void removeMonsterFromCombat(W8MonsterInfo& monster, std::vector<Event>& outcomes);
     void resetCombatEffects();
     void restoreCombatEquipment(bool automatic);
     void advanceWorlds(std::chrono::milliseconds elapsed);

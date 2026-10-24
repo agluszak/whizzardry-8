@@ -207,25 +207,6 @@ static bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target,
     return true;
 }
 
-/* Drop every visibility record anyone held about one departing monster. */
-void ReleaseMonToMonVisibilityInfoAbout(int location_id)
-{
-    for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
-        auto* monster = monster_owner.get();
-        if (monster->fActive && monster->monster_visibility) {
-            monster->monster_visibility->erase(location_id);
-        }
-    }
-}
-
-/* Empty and destroy one monster's whole visibility list, then drop what
-   everybody else held about it. */
-void ReleaseMonToMonVisibilityList(W8MonsterInfo* monster_info)
-{
-    monster_info->monster_visibility.reset();
-    ReleaseMonToMonVisibilityInfoAbout(monster_info->location_id);
-}
-
 /* Whether a monster group still has anybody in it worth seeing: alive, not
    dying, not too far gone, and marked as a threat. */
 bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group)

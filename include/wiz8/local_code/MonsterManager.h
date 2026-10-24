@@ -22,6 +22,7 @@ struct W8MonsterGroup;
 struct W8MonsterInfo;
 struct World;
 struct W8MonsterRecord;
+struct GameData;
 
 #include <string_view>
 #include <unordered_map>
@@ -283,6 +284,7 @@ struct W8MonsterInfo {
     void setMotionless(bool motionless);
     void startCycle(int cycle, W8AnimationBehaviour behavior);
     void clearEffect(W8EffectSlot& effect, const W8MonsterRecord& record);
+    void endEngagement(const GameData& data);
     int location_id;
     int monster_group_id;
     unsigned int monster_species;
@@ -431,7 +433,6 @@ float GetAveragePartyMemberLevel(void);
    `party_slot` receives the best member's slot. */
 unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot);
 
-void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info);
 void ShutdownMonsterManager(void);
 
 std::string GetMonsterName(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
