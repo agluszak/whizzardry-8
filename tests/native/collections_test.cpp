@@ -91,6 +91,7 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/script_context.h"
+#include "wiz8/sight_state.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/world.h"
 
@@ -603,12 +604,9 @@ TEST_CASE("An inventory command's notice follows its consequences in the game's 
     REQUIRE(game.events.pending().empty());
 }
 
-TEST_CASE_METHOD(LevelWorldFixture,
-                 "A failed alternate-weapon search leaves equipment and binding state untouched",
-                 "[equipment]")
+TEST_CASE("A failed alternate-weapon search leaves equipment and binding state untouched",
+          "[equipment]")
 {
-    auto& characters = CurrentGame().party.characters;
-    auto& rows = CurrentGame().party.rows;
     GameData data;
     auto& records = data.items;
     records.resize(2);
@@ -618,7 +616,11 @@ TEST_CASE_METHOD(LevelWorldFixture,
     records[1].weapon_skill = W8_SKILL_THROWING_SLING;
     records[1].range_category = W8_RANGE_LONG;
     records[1].binds_on_equip = 1;
-    const ScopedGameData installed(std::move(data));
+    ScopedGame scope{data};
+    auto& game = scope.game;
+    game.level.replacePrimary(std::make_unique<World>());
+    auto& characters = game.party.characters;
+    auto& rows = game.party.rows;
     struct RestoreState {
         unsigned char autoswap = g_settings.autoswap_weapons;
         ScopedCombat combat;
@@ -632,7 +634,7 @@ TEST_CASE_METHOD(LevelWorldFixture,
     character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo = 1;
     W8CombatSlot target{};
     const W8Action action{W8_ACTION_ATTACK, -1, target, {}};
-    REQUIRE_FALSE(ChooseFallbackMonsterTarget(0, action));
+    REQUIRE_FALSE(game.chooseFallbackTarget(0, action));
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == 0);
     const auto& alternate = character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON];
     REQUIRE(alternate.iItemNo == 1);
@@ -656,11 +658,11 @@ TEST_CASE("Target eligibility uses the supplied action and target without a scre
     target.iType = W8_TARGET_KIND_CHARACTER;
     target.iChar = 0;
     W8Action action{W8_ACTION_PROTECT, -1, target, {}};
-    REQUIRE(TargetIsInPlay(0, 0, action));
+    REQUIRE(CurrentGame().targetInPlay(0, 0, action));
     target.iType = W8_TARGET_KIND_NONE;
-    REQUIRE(TargetIsInPlay(0, 0, action)); // The supplied action owns its target.
+    REQUIRE(CurrentGame().targetInPlay(0, 0, action)); // The supplied action owns its target.
     action.target.iType = W8_TARGET_KIND_NONE;
-    REQUIRE_FALSE(TargetIsInPlay(0, 0, action));
+    REQUIRE_FALSE(CurrentGame().targetInPlay(0, 0, action));
 }
 
 TEST_CASE("Spell drafts cancel without changing committed or remembered choices", "[targeting]")
@@ -1819,4 +1821,60 @@ TEST_CASE("Spell and item target rules use supplied content", "[party][targeting
     REQUIRE_FALSE(CanCharacterCastSpell(data, &character, 1));
     character.iSPLeft[data.spells[1].realm] = 10;
     REQUIRE(CanCharacterCastSpell(data, &character, 1));
+}
+
+TEST_CASE("Target selection and repicking stay in their originating game", "[targeting]")
+{
+    GameData data;
+    data.monsters.resize(1);
+    ScopedGame outgoing{data};
+    Game candidate{data};
+    const auto prepare = [&](Game& game, int id) {
+        game.level.replacePrimary(std::make_unique<World>());
+        auto& world = game.level.loaded();
+        world.party.place({0, 1000, 0});
+        game.combat.emplace();
+        game.party.members[0].emplace();
+        auto& character = game.party.characters[0];
+        character.hp_current = 10;
+        character.Hand[0].in_play = true;
+        character.Hand[0].uiHolds = HOLDS_NOTHING;
+        game.party.formation.seatInRow(0, 4);
+        game.party.commitAction(0, W8Action{W8_ACTION_ATTACK});
+        const auto add = [&](int location) {
+            auto monster = std::make_unique<W8MonsterInfo>();
+            monster->location_id = location;
+            monster->monster_species = 0;
+            monster->fActive = true;
+            monster->ubDisposition = W8_DISPOSITION_HOSTILE;
+            monster->hp_current = monster->uiHPMax = 10;
+            monster->pCombat = std::make_unique<W8MonsterCombatState>();
+            monster->party_threat.sight_state = W8_SIGHT_SEEN;
+            monster->party_threat.los_flags[0] = true;
+            monster->entity = std::make_unique<Monster>(world, &data.monsters[0]);
+            monster->entity->nav.movement.position = {0, 0, 500};
+            world.population->monster_roster.add(std::move(monster), false);
+        };
+        add(id);
+        add(id + 1); // Equal priority retains the earlier roster entry.
+    };
+    prepare(outgoing.game, 10);
+    prepare(candidate, 20);
+    outgoing.game.party.rows[0].committed.target = W8CombatSlot::monster(10);
+    const auto outgoing_events = outgoing.game.events.pending().size();
+    std::vector<Rng::Draw> draws, outgoing_draws;
+    candidate.rng.trace(&draws);
+    outgoing.game.rng.trace(&outgoing_draws);
+    const auto choice = candidate.chooseTarget(0, W8Action{W8_ACTION_ATTACK}, false);
+    REQUIRE(choice);
+    REQUIRE(choice->target == W8CombatSlot::monster(20));
+    REQUIRE_FALSE(choice->equipment);
+    REQUIRE(candidate.repickActionTarget(0, W8_TARGETING_CONTEXT_IN_COMBAT));
+    REQUIRE(candidate.party.rows[0].committed.target == W8CombatSlot::monster(20));
+    REQUIRE(outgoing.game.party.rows[0].committed.target == W8CombatSlot::monster(10));
+    REQUIRE(outgoing.game.events.pending().size() == outgoing_events);
+    REQUIRE(draws.empty());
+    REQUIRE(outgoing_draws.empty());
+    candidate.rng.trace(nullptr);
+    outgoing.game.rng.trace(nullptr);
 }

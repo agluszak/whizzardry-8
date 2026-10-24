@@ -358,6 +358,12 @@ struct Combat {
         }
     }
 
+    void beginReaction(unsigned int slot, bool fallback_defend)
+    {
+        characters[slot].dead = true;
+        if (fallback_defend) characters[slot].defend_switched = true;
+    }
+
     // Retire participation and scheduling together, without owning the party character.
     void retirePartyMember(unsigned int slot)
     {

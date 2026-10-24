@@ -32,6 +32,7 @@
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/inventory.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/random.h"
@@ -78,6 +79,11 @@ struct DamageOptions {
     DamageNotice notice = DamageNotice::Standard;
 };
 
+struct TargetChoice {
+    W8CombatSlot target;
+    std::optional<W8WeaponSwap> equipment;
+};
+
 class Game {
 public:
     // The game reads `data`, which its session's owner keeps alive longer than the game.
@@ -100,6 +106,17 @@ public:
                                          std::optional<W8RangeCategory> attack_range = {},
                                          bool sighting = false) const;
     W8TargetNeed targetNeed(const W8Action& action, bool needs_item_target = true) const;
+    bool targetInPlay(unsigned int slot, unsigned int hand, const W8Action& action) const;
+    std::optional<TargetChoice> chooseTarget(unsigned int slot, const W8Action& action,
+                                             bool allow_weapon_swap = true) const;
+    std::optional<TargetChoice> chooseFallbackTarget(unsigned int slot,
+                                                     const W8Action& action) const;
+    bool repickActionTarget(unsigned int slot, W8TargetingContext stored, bool breathe = false);
+    void commitWeaponChoice(unsigned int slot, W8WeaponSwap equipment);
+    bool canPerformAction(unsigned int slot, const W8Action& action,
+                          bool allow_missing_target) const;
+    bool canReactWith(unsigned int slot, W8ActionKind action) const;
+    bool reactDefensively(unsigned int slot, W8ActionKind action);
     bool targetPresent(const W8CombatSlot& target) const;
     bool targetMatches(const W8CombatSlot& target, W8TargetNeed needed) const;
     bool actionTargetsEnemies(unsigned int slot, const W8Action& action) const;

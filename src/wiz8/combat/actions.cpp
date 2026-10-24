@@ -203,7 +203,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
             game.combat->characters[party_slot].action_changed = false;
             if ((slot->executing.kind == W8_ACTION_ATTACK ||
                  slot->executing.kind == W8_ACTION_BERSERK) &&
-                CharacterCanSwitchTo(
+                game.canPerformAction(
                     party_slot, game.party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
                     false)) {
                 PrepareCharacterAttacks(party_slot);
@@ -226,9 +226,9 @@ void ExecuteCharacterAction(Game& game, int party_slot)
             CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
             CurrentGame().events.push(CombatProgressChanged{});
         }
-        if (!CharacterCanSwitchTo(party_slot,
-                                  game.party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
-                                  false)) {
+        if (!game.canPerformAction(
+                party_slot, game.party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
+                false)) {
             slot->executing.kind = W8_ACTION_NONE;
             action = W8_ACTION_NONE;
         }
@@ -290,9 +290,9 @@ void ExecuteCharacterAction(Game& game, int party_slot)
                 }
             }
         }
-        if (CharacterCanSwitchTo(party_slot,
-                                 game.party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
-                                 false)) {
+        if (game.canPerformAction(party_slot,
+                                  game.party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
+                                  false)) {
             FaceCharacterTowardCombatTarget(party_slot, &slot->executing.target);
         }
     }
@@ -416,8 +416,8 @@ void Combat::settleCharacterPhase(Game& game, int party_slot)
     if ((action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) &&
         (GetCharAttackRange(CurrentGame().data, &CurrentGame().party.characters[party_slot], 2) !=
          W8_RANGE_NONE) &&
-        TargetIsInPlay(party_slot, 2,
-                       game.party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
+        game.targetInPlay(party_slot, 2,
+                          game.party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
         W8Character* character = &game.party.characters[party_slot];
         int current = row->current_hand;
         int other = current == 0;

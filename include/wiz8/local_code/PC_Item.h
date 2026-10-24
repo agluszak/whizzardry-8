@@ -83,7 +83,6 @@ bool AnyPartyMemberCanUseItem(int item_id);
 
 /* Whether an item is bound to whoever is wearing it, which is what stops it
    being taken off or swapped away. */
-bool IsItemBoundToWearer(const W8ItemInstance* item);
 
 bool CanUseItemForAction(int party_slot, const W8ItemInstance* item);
 

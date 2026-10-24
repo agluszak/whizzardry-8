@@ -226,3 +226,26 @@ W8Disposition W8Party::dispositionBetween(unsigned int first, unsigned int secon
                ? W8_DISPOSITION_FRIENDLY
                : W8_DISPOSITION_HOSTILE;
 }
+
+bool W8Party::canAct(unsigned int slot) const
+{
+    return participates(slot) && characters[slot].highest_condition <= W8_CONDITION_TURNCOAT;
+}
+W8ActionKind W8Party::commitAction(unsigned int slot, W8Action action)
+{
+    assert(action.kind <= W8_ACTION_RUN);
+    const auto previous = rows[slot].committed.kind;
+    rows[slot].committed = action;
+    if (action.kind != W8_ACTION_ATTACK && action.kind != W8_ACTION_BERSERK &&
+        action.kind != W8_ACTION_DEFEND && action.kind != W8_ACTION_PROTECT &&
+        action.kind != W8_ACTION_WALK && action.kind != W8_ACTION_RUN)
+        rows[slot].remembered.repeat_action = action.kind;
+    return previous;
+}
+void W8Party::beginDefensiveAction(unsigned int slot, W8ActionKind action)
+{
+    assert(action == W8_ACTION_DEFEND || action == W8_ACTION_PROTECT);
+    auto& row = rows[slot];
+    row.executing.start(action, -1);
+    if (action == W8_ACTION_PROTECT) row.executing.target = row.committed.target;
+}

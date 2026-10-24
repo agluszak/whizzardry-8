@@ -53,8 +53,8 @@ static CharacterStatRules CaptureLiveCharacterStatRules(const Game& game, unsign
     CharacterStatRules rules;
     const auto& character = game.party.characters[slot];
     if (game.combat.has_value())
-        rules.defensive_action = TryCharacterAction(slot, W8_ACTION_DEFEND, false) ||
-                                 TryCharacterAction(slot, W8_ACTION_PROTECT, false);
+        rules.defensive_action =
+            game.canReactWith(slot, W8_ACTION_DEFEND) || game.canReactWith(slot, W8_ACTION_PROTECT);
     if (character.fInParty && character.iRace == W8_RACE_ANDROID) {
         const auto* npc = game.story.npc(game.party.npcIndex(slot));
         rules.damaged_android = npc && npc->name_style == W8_NPC_RFS81_A &&
@@ -191,8 +191,8 @@ bool ClearCondition(Game& game, unsigned int slot, W8Condition condition, bool a
         break;
     case W8_CONDITION_TURNCOAT:
         game.invalidateAimsAt(W8CombatSlot::character(slot), TargetChange::allegiance);
-        RepickActionTarget(slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, 0);
-        RepickActionTarget(slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
+        game.repickActionTarget(slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
+        game.repickActionTarget(slot, W8_TARGETING_CONTEXT_IN_COMBAT);
         break;
     default:
         break;
@@ -226,9 +226,9 @@ void Die(Game& game, unsigned int slot)
     if (game.combat) game.combat->retirePartyMember(slot);
     game.speech.QueuePartyDeathReaction(slot);
     if (game.combat.has_value()) {
-        const bool was_equipping = row.committed.kind == W8_ACTION_EQUIP;
         row.executing.kind = W8_ACTION_NONE;
-        row.committed = row.remembered.basic();
+        const bool was_equipping =
+            game.party.commitAction(slot, row.remembered.basic()) == W8_ACTION_EQUIP;
         game.events.push(PartySlotChanged{slot});
         if (slot == static_cast<unsigned int>(game.status.selected_character))
             game.events.push(MonstersChanged{});

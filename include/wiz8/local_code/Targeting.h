@@ -36,11 +36,11 @@ bool MonsterTargetMatchesSpell(W8MonsterInfo* monster_info, int spell_id);
 void RefreshAllPartyTargets(void);
 /* Repick a stored action's target, or a picker's draft target, when the old one no longer
    holds. Both return whether a monster was found; otherwise the target is cleared. */
-bool RepickActionTarget(int party_slot, W8TargetingContext stored, int arg);
+
 bool RepickDraftTarget(int party_slot, W8Action& draft);
 /* The best monster for a live attack, spell or item action that needs an enemy in
    combat, reached with the weapons in hand; it never changes equipment. */
-std::optional<W8CombatSlot> ChooseEquippedMonsterTarget(int party_slot, const W8Action& action);
+
 /* Commit a target and refresh the presentation of the choice: into the action the slot is
    editing (see EditedAction), a stored action, or a picker's draft. Only a committed in-combat
    target is also remembered for its action kind. */
@@ -55,11 +55,7 @@ void AimAtGroundTarget(int party_slot);
 
 /* Pick an attack fallback, allowing the character's alternate weapon set when
    the ordinary group selection has no usable monster. */
-struct W8WeaponTarget {
-    int location_id;
-    W8WeaponSwap equipment;
-};
-std::optional<W8WeaponTarget> ChooseFallbackMonsterTarget(int party_slot, const W8Action& action);
+
 void SetFactionFlag(signed char faction, bool flag);
 unsigned char ShowMonsterTargetMarker(W8MonsterInfo* monster_info);
 bool IsSpellTargetStillValid(int party_slot, int spell_id, const W8Action& selected);
@@ -142,7 +138,6 @@ int CollectConeMonsterTargets(const W8TargetSource* source, const glm::vec3* eye
 bool ItemUseNeedsTarget(int party_slot);
 
 void ReconcilePartyEquipmentAfterCombat(void);
-bool TargetIsInPlay(int party_slot, int hand, const W8Action& selected);
 
 /* Combat action-selection helpers used across the combat units. */
 

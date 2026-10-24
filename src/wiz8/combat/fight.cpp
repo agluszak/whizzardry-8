@@ -287,7 +287,7 @@ bool CombatMayAdvanceContinuously(void)
         W8PartySlotRow* row = &CurrentGame().party.rows[slot];
         W8Character* character = &CurrentGame().party.characters[slot];
         if (CurrentGame().party.members[slot].has_value() && character->hp_current != 0 &&
-            CharacterCanSwitchTo(
+            CurrentGame().canPerformAction(
                 slot, CurrentGame().party.action(slot, W8_TARGETING_CONTEXT_IN_COMBAT), false) &&
             CurrentGame().actionTargetsEnemies(slot, row->committed)) {
             return true;
@@ -539,7 +539,7 @@ void BeginCombatExecution(void)
         for (slot = 0; slot < 8; ++slot) {
             W8PartySlotRow* party = &CurrentGame().party.rows[slot];
             if (!IsPartySlotEligible(slot) ||
-                !CharacterCanSwitchTo(
+                !CurrentGame().canPerformAction(
                     slot, CurrentGame().party.action(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
                     false)) {
                 continue;
@@ -888,53 +888,12 @@ void EndMonsterAttack(W8MonsterInfo* monster_info)
    whose turn combat has set up already only agrees to the action they are
    already on; anyone else may switch, except into the fourth action while
    something else forbids it. */
-bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit)
-{
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-
-    if (character->hp_current == 0 || character->highest_condition >= W8_CONDITION_ASLEEP) {
-        return false;
-    }
-    if (CurrentGame().combat->characters[party_slot].dead) {
-        return CurrentGame().party.rows[party_slot].executing.kind == action;
-    }
-    if (CurrentGame().party.rows[party_slot].committed.kind != action) {
-        if (action != W8_ACTION_DEFEND) {
-            return false;
-        }
-        if (CharacterCanSwitchTo(
-                party_slot, CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
-                false)) {
-            return false;
-        }
-    }
-    if (commit) {
-        SwitchCharacterTo(party_slot, action);
-    }
-    return true;
-}
 
 /* Put one character on the defend or protect action: record the action on the
    slot row, clear both hands' chosen attack modes, and mark the combat row so
    the target display rebuilds. Protect additionally copies the current target
    into the out-of-combat target slot, and a switch to defend raises the
    combat row's attack flag unless the row is already on that action. */
-void SwitchCharacterTo(int party_slot, W8ActionKind action)
-{
-    assert(action == W8_ACTION_DEFEND || action == W8_ACTION_PROTECT);
-    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-
-    row->executing.start(action, -1);
-    if (action == W8_ACTION_PROTECT) {
-        row->executing.target = row->committed.target;
-    }
-    CurrentGame().combat->characters[party_slot].dead = true;
-    CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
-    CurrentGame().events.push(CombatProgressChanged{});
-    if (action == W8_ACTION_DEFEND && row->committed.kind != action) {
-        CurrentGame().combat->characters[party_slot].defend_switched = true;
-    }
-}
 
 /* Take the party out of combat: end the free-turn phase and the current round,
    drop the temporary conditions, finish every engaged monster group, fold the
@@ -1120,18 +1079,12 @@ static void ReadyWeaponForAction(int party_slot, W8ActionKind action)
    choice is the player's selection, which readies the weapon it needs first. */
 void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
 {
-    auto& committed = CurrentGame().party.rows[party_slot].committed;
-    const auto previous_action = committed.kind;
+    const auto previous_action = CurrentGame().party.commitAction(party_slot, next);
     const auto action_kind = next.kind;
     W8TargetSource source;
     W8CombatCharacterRow* row = &CurrentGame().combat->characters[party_slot];
     SetTargetSourceToCharacter(party_slot, &source);
     assert(action_kind <= W8_ACTION_RUN);
-    committed = next;
-    if (action_kind != W8_ACTION_ATTACK && action_kind != W8_ACTION_BERSERK &&
-        action_kind != W8_ACTION_DEFEND && action_kind != W8_ACTION_PROTECT &&
-        action_kind != W8_ACTION_WALK && action_kind != W8_ACTION_RUN)
-        CurrentGame().party.rows[party_slot].remembered.repeat_action = action_kind;
     row->action_changed = true;
     W8Character* character = &CurrentGame().party.characters[party_slot];
     if (character->hp_current != 0 && character->highest_condition < W8_CONDITION_TURNCOAT &&
@@ -1139,17 +1092,19 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
         if (notify != 0) {
             ReadyWeaponForAction(party_slot, action_kind);
         }
-        if (!CharacterCanSwitchTo(
+        if (!CurrentGame().canPerformAction(
                 party_slot, CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
                 true)) {
             W8CombatSlot none;
             ResetCombatSlot(&none);
             CurrentGame().aimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, none);
         } else {
-            if (!TargetIsInPlay(
+            if (!CurrentGame().targetInPlay(
                     party_slot, 2,
                     CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT)) &&
-                RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, notify)) {
+                CurrentGame().repickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT,
+                                                 notify != 0 && !SpellPicker() &&
+                                                     !UseItemPicker())) {
                 PointCameraAtCombatTarget(&source,
                                           &CurrentGame().party.rows[party_slot].committed.target);
             }
@@ -1189,11 +1144,12 @@ void ReconcileCombatHandChange(Game& game, unsigned int party_slot)
         const auto action = game.party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
         W8CombatSlot none;
         ResetCombatSlot(&none);
-        if (!CharacterCanSwitchTo(party_slot, action, true)) {
+        if (!game.canPerformAction(party_slot, action, true)) {
             game.aimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, none);
-        } else if (!TargetIsInPlay(party_slot, 2, action)) {
+        } else if (!game.targetInPlay(party_slot, 2, action)) {
+            const auto choice = game.chooseTarget(party_slot, action, false);
             game.aimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT,
-                                 ChooseEquippedMonsterTarget(party_slot, action).value_or(none));
+                                 choice ? choice->target : none);
         }
     }
     game.combat->characters[party_slot].alternate_hand ^= 1;
@@ -1204,85 +1160,15 @@ void ReconcileCombatHandChange(Game& game, unsigned int party_slot)
 namespace {
 /* The checks that come before the action itself: the slot has to be able to
    act at all. */
-bool CanSlotAct(int party_slot)
-{
-    return CurrentGame().party.participates(party_slot) &&
-           CurrentGame().party.characters[party_slot].highest_condition <= W8_CONDITION_TURNCOAT;
-}
 
 /* Whether the slot can carry out a fully specified action with its equipment
    as it is. */
-bool CanPerformAction(int party_slot, const W8Action& selected, bool allow_missing_target)
-{
-    W8Character* character = &CurrentGame().party.characters[party_slot];
 
-    switch (selected.kind) {
-    case W8_ACTION_NONE:
-        return false;
-    case W8_ACTION_ATTACK:
-        if (!(GetCharAttackRange(CurrentGame().data, &CurrentGame().party.characters[party_slot],
-                                 2) != W8_RANGE_NONE)) {
-            return false;
-        }
-        break;
-    case W8_ACTION_BERSERK:
-        if (!CanCharacterBerserk(Data(), &CurrentGame().party.characters[party_slot])) {
-            return false;
-        }
-        break;
-    case W8_ACTION_PROTECT:
-        if (!CurrentGame().party.canAttack(party_slot)) {
-            return false;
-        }
-        break;
-    case W8_ACTION_CAST_SPELL:
-        if (selected.detail == 0) {
-            return false;
-        }
-        if (!CanCharacterCastSpell(CurrentGame().data, character, selected.detail)) {
-            return false;
-        }
-        break;
-    case W8_ACTION_USE_ITEM:
-        if (CurrentGame().inventory.itemAt(selected.detail_block.item_use.item) == 0) {
-            return false;
-        }
-        if (!CanCharacterActivateItem(
-                CurrentGame().data, character,
-                CurrentGame().inventory.itemAt(selected.detail_block.item_use.item),
-                CurrentGame().status.game_started)) {
-            return false;
-        }
-        break;
-    case W8_ACTION_BREATHE:
-        if (!CharacterHasTrait(character, W8_TRAIT_BREATHE) ||
-            character->stamina <
-                static_cast<int>(static_cast<unsigned int>(character->uiStaminaMax) / 5)) {
-            return false;
-        }
-        break;
-    case W8_ACTION_DEFEND:
-        return true;
-    default:
-        break;
-    }
-    if (!allow_missing_target) {
-        if (!TargetIsInPlay(party_slot, 2, selected)) {
-            return false;
-        }
-    }
-    return true;
-}
 } // namespace
-
-bool CharacterCanSwitchTo(int party_slot, const W8Action& action, bool allow_missing_target)
-{
-    return CanSlotAct(party_slot) && CanPerformAction(party_slot, action, allow_missing_target);
-}
 
 bool CharacterCanChooseAction(int party_slot, W8ActionKind candidate)
 {
-    if (!CanSlotAct(party_slot)) {
+    if (!CurrentGame().party.canAct(party_slot)) {
         return false;
     }
     switch (candidate) {
@@ -1292,7 +1178,7 @@ bool CharacterCanChooseAction(int party_slot, W8ActionKind candidate)
     case W8_ACTION_USE_ITEM:
         return true;
     default:
-        return CanPerformAction(party_slot, W8Action{candidate}, true);
+        return CurrentGame().canPerformAction(party_slot, W8Action{candidate}, true);
     }
 }
 
@@ -1360,9 +1246,9 @@ void AutoAdvanceSelectedCharacter(void)
         return;
     }
     int selected = CurrentGame().status.selected_character;
-    if (!CharacterCanSwitchTo(selected,
-                              CurrentGame().party.action(selected, W8_TARGETING_CONTEXT_IN_COMBAT),
-                              false) &&
+    if (!CurrentGame().canPerformAction(
+            selected, CurrentGame().party.action(selected, W8_TARGETING_CONTEXT_IN_COMBAT),
+            false) &&
         IsPartySlotEligible(selected)) {
         return;
     }
@@ -1375,7 +1261,7 @@ void AutoAdvanceSelectedCharacter(void)
         return;
     }
     do {
-        if (!CharacterCanSwitchTo(
+        if (!CurrentGame().canPerformAction(
                 party_slot, CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
                 false) &&
             IsPartySlotEligible(party_slot)) {
@@ -1944,9 +1830,9 @@ short GetCombatActionProgress(int* out_total)
             W8Character* character = &CurrentGame().party.characters[party_slot];
             if (CurrentGame().party.members[party_slot].has_value() && character->hp_current != 0 &&
                 character->highest_condition < W8_CONDITION_ASLEEP &&
-                !TryCharacterAction(party_slot, W8_ACTION_DEFEND, false) &&
-                !TryCharacterAction(party_slot, W8_ACTION_PROTECT, false) &&
-                !TryCharacterAction(party_slot, W8_ACTION_NONE, false)) {
+                !CurrentGame().canReactWith(party_slot, W8_ACTION_DEFEND) &&
+                !CurrentGame().canReactWith(party_slot, W8_ACTION_PROTECT) &&
+                !CurrentGame().canReactWith(party_slot, W8_ACTION_NONE)) {
                 total += GetCharacterTurnValue(party_slot);
                 W8CombatCharacterRow* row = &CurrentGame().combat->characters[party_slot];
                 if (row->dead) {

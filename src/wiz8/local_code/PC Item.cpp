@@ -311,13 +311,6 @@ bool ItemsShareUnidentifiedName(const W8ItemInstance* first, const W8ItemInstanc
 
 /* Whether an item is bound to whoever is wearing it, which is what stops it
    being taken off or swapped away. */
-bool IsItemBoundToWearer(const W8ItemInstance* item)
-{
-    if (item->iItemNo != -1 && Data().items[item->iItemNo].binds_on_equip != 0 && item->bound) {
-        return true;
-    }
-    return false;
-}
 
 /* Whether anybody in the party could use this item. Only occupied slots with a
    character who is conscious enough to act are asked. */

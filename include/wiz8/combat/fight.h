@@ -20,7 +20,7 @@ void ReconcileCombatHandChange(Game& game, unsigned int party_slot);
 void ExecuteCharacterAction(Game& game, int party_slot);
 void BeginCombatExecution(void);
 void AssignCombatPhases(void);
-void SwitchCharacterTo(int party_slot, W8ActionKind action);
+
 void ApplyCombatEndEffects(void);
 bool CombatHasContinuingEffects(void);
 /* Whether continuous-combat stance may advance past the pending
@@ -56,11 +56,11 @@ W8PartyAction GetEffectivePartyAction(void);
 void DropCharacterFromRound(int party_slot);
 /* Whether one party slot can carry out the given action with its equipment as
    it is, optionally before a target has been chosen. Asking changes nothing. */
-bool CharacterCanSwitchTo(int party_slot, const W8Action& action, bool allow_missing_target);
+
 /* Whether one party slot may pick an action kind from the combat submenu,
    before any spell, item or target has been chosen for it. */
 bool CharacterCanChooseAction(int party_slot, W8ActionKind candidate);
-bool TryCharacterAction(int party_slot, W8ActionKind action, bool commit);
+
 void NotifyNearbyMonsters(int what);
 void BeginCombatRound(void);
 void EndMonsterTurn(W8MonsterInfo* monster_info);

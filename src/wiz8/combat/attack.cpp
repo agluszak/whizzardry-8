@@ -481,7 +481,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
         W8CombatCharacterRow* row = &CurrentGame().combat->characters[slot];
         W8PartySlotRow* party_row = &CurrentGame().party.rows[slot];
         if (IsPartySlotEligible(slot) && character->highest_condition < W8_CONDITION_BLIND &&
-            character->Hand[0].in_play && TryCharacterAction(slot, W8_ACTION_PROTECT, false) &&
+            character->Hand[0].in_play && CurrentGame().canReactWith(slot, W8_ACTION_PROTECT) &&
             row->interception_count < character->Hand[0].attacks) {
             W8CombatSlot* guarded =
                 !row->dead ? &party_row->committed.target : &party_row->executing.target;
@@ -489,7 +489,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
                 SetTargetSourceToCharacter(slot, &guardian);
                 candidates.push_back(guardian);
                 if (!row->dead) {
-                    SwitchCharacterTo(slot, W8_ACTION_PROTECT);
+                    CurrentGame().reactDefensively(slot, W8_ACTION_PROTECT);
                 }
             }
         }
@@ -616,7 +616,7 @@ bool CanCharacterAttackItsTarget(int party_slot)
 {
     W8Character* character;
 
-    if (!TargetIsInPlay(
+    if (!CurrentGame().targetInPlay(
             party_slot, 0,
             CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
         return false;
@@ -1020,7 +1020,7 @@ int GetTargetArmorClassModifier(W8CombatSlot* target, W8AttackMode attack_mode)
                 }
             }
             if (GetEffectivePartyAction() == W8_PARTY_ACTION_NONE &&
-                TryCharacterAction(target->iChar, W8_ACTION_PRAY, false)) {
+                CurrentGame().canReactWith(target->iChar, W8_ACTION_PRAY)) {
                 modifier -= 4;
             }
             distracted = GetEffectivePartyAction() == W8_PARTY_ACTION_RUN;
@@ -1886,8 +1886,8 @@ bool CharacterNoticesAttacker(int party_slot)
         CurrentGame().party.characters[party_slot].uiCondition[W8_CONDITION_BLIND] != 0) {
         return false;
     }
-    if (!TryCharacterAction(party_slot, W8_ACTION_DEFEND, true) &&
-        !TryCharacterAction(party_slot, W8_ACTION_PROTECT, true)) {
+    if (!CurrentGame().reactDefensively(party_slot, W8_ACTION_DEFEND) &&
+        !CurrentGame().reactDefensively(party_slot, W8_ACTION_PROTECT)) {
         return false;
     }
     if (row->spot_attempts == 0) {
@@ -2184,9 +2184,10 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
         W8PartyAction party_action = GetEffectivePartyAction();
         out_of_formation = target->bonus.out_of_formation;
         target_moving = party_action == W8_PARTY_ACTION_RUN;
-        target_defending =
-            TryCharacterAction(CurrentGame().combat->TargetHit.iChar, W8_ACTION_DEFEND, true) ||
-            TryCharacterAction(CurrentGame().combat->TargetHit.iChar, W8_ACTION_PROTECT, true);
+        target_defending = CurrentGame().reactDefensively(CurrentGame().combat->TargetHit.iChar,
+                                                          W8_ACTION_DEFEND) ||
+                           CurrentGame().reactDefensively(CurrentGame().combat->TargetHit.iChar,
+                                                          W8_ACTION_PROTECT);
     }
 
     unsigned int dice_count = 1;
@@ -2405,9 +2406,10 @@ int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, const W8MonsterAttac
         W8PartyAction party_action = GetEffectivePartyAction();
         out_of_formation = target->bonus.out_of_formation;
         target_moving = party_action == W8_PARTY_ACTION_RUN;
-        target_defending =
-            TryCharacterAction(CurrentGame().combat->TargetHit.iChar, W8_ACTION_DEFEND, true) ||
-            TryCharacterAction(CurrentGame().combat->TargetHit.iChar, W8_ACTION_PROTECT, true);
+        target_defending = CurrentGame().reactDefensively(CurrentGame().combat->TargetHit.iChar,
+                                                          W8_ACTION_DEFEND) ||
+                           CurrentGame().reactDefensively(CurrentGame().combat->TargetHit.iChar,
+                                                          W8_ACTION_PROTECT);
     } else {
         assert(CurrentGame().combat->TargetHit.iMonsterID != -1);
         target_info = FindMonster(CurrentGame().combat->TargetHit.iMonsterID);
@@ -3252,7 +3254,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     row->hand_attack_values[hand]--;
     CurrentGame().combat->unaware = 0;
     CurrentGame().combat->natural_attack = 0;
-    if (!TargetIsInPlay(
+    if (!CurrentGame().targetInPlay(
             party_slot, hand,
             CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
         return false;
@@ -3456,7 +3458,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
         } else {
             outcome = 2;
         }
-    } else if (!TargetIsInPlay(
+    } else if (!CurrentGame().targetInPlay(
                    party_slot, hand,
                    CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
         return ActionStep::finishing;
@@ -3853,7 +3855,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
         if (character->Hand[hand].in_play &&
             GetCharAttackRange(Data(), character, hand) != W8_RANGE_NONE &&
             (target == party_row->executing.target) &&
-            TargetIsInPlay(
+            CurrentGame().targetInPlay(
                 party_slot, hand,
                 CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
             if (!verbose && (fumbled || source.target_diverted)) {

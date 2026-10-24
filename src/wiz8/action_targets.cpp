@@ -1,27 +1,38 @@
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <optional>
+#include <tuple>
+#include <utility>
 
+#include "wiz8/character_event_queue.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
 #include "wiz8/combat/hostility.h"
 #include "wiz8/combat/range.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_population.h"
+#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Targeting.h"
+#include "wiz8/local_code/character_events.h"
 #include "wiz8/monster_roster.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/inventory.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
@@ -161,12 +172,12 @@ void Game::invalidateAimsAt(const W8CombatSlot& target, TargetChange change)
             if (row.committed.kind == W8_ACTION_PROTECT)
                 DropCharacterFromRound(slot);
             else
-                RepickActionTarget(slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
+                repickActionTarget(slot, W8_TARGETING_CONTEXT_IN_COMBAT);
         }
         if (row.executing.target == target &&
             invalid(party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] != 0,
                     actionTargetsEnemies(slot, row.executing.action())))
-            RepickActionTarget(slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, 0);
+            repickActionTarget(slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
     }
     if (!level.primary || !level.primary->population) return;
     for (const auto& monster : level.primary->population->monster_roster.live()) {
@@ -323,4 +334,215 @@ W8TargetNeed Game::targetNeed(const W8Action& selected, bool needs_item_target) 
         break;
     }
     return W8_TARGET_NEED_NONE;
+}
+
+namespace {
+std::optional<int> BestMonsterTarget(const Game& game, unsigned int slot, const W8Action& action,
+                                     std::optional<W8RangeCategory> attack_range = {})
+{
+    if (!game.level.primary || !game.level.primary->population) return {};
+    using Priority = std::tuple<W8Condition, bool, float>;
+    std::optional<std::pair<Priority, int>> best;
+    for (const auto& monster : game.level.primary->population->monster_roster.live()) {
+        if (!monster->fActive || !monster->pCombat || monster->hp_current == 0 ||
+            game.party.dispositionToward(slot, monster->ubDisposition) != W8_DISPOSITION_HOSTILE ||
+            !game.assessActionReach(
+                slot, 2, action.aimedAt(W8CombatSlot::monster(monster->location_id)), attack_range))
+            continue;
+        bool in_reach = false;
+        if (GetBestMonsterAttackRange(&game.data.monsters[monster->monster_species], true) !=
+            W8_RANGE_NONE) {
+            const int quadrant = MonsterQuadrant(game, *monster);
+            in_reach = quadrant == 2 || (!FormationRowOccupied(game.party, quadrant) &&
+                                         FormationRowOccupied(game.party, 4));
+        }
+        assert(monster->uiHPMax != 0);
+        const Priority priority{monster->highest_condition, !in_reach,
+                                monster->entity->GetDistanceToPlayer()};
+        if (!best || priority < best->first) best = std::pair{priority, monster->location_id};
+    }
+    return best ? std::optional{best->second} : std::nullopt;
+}
+}
+
+bool Game::targetInPlay(unsigned int slot, unsigned int hand, const W8Action& action) const
+{
+    return targetMatches(action.target, targetNeed(action)) &&
+           assessActionReach(slot, hand, action);
+}
+
+std::optional<TargetChoice> Game::chooseTarget(unsigned int slot, const W8Action& action,
+                                               bool allow_weapon_swap) const
+{
+    const auto kind = action.kind;
+    if (!combat ||
+        (kind != W8_ACTION_ATTACK && kind != W8_ACTION_BERSERK && kind != W8_ACTION_CAST_SPELL &&
+         kind != W8_ACTION_USE_ITEM) ||
+        targetNeed(action) != W8_TARGET_NEED_ENEMY)
+        return {};
+    if (const auto target = BestMonsterTarget(*this, slot, action))
+        return TargetChoice{W8CombatSlot::monster(*target), std::nullopt};
+    if (!allow_weapon_swap || (kind != W8_ACTION_ATTACK && kind != W8_ACTION_BERSERK)) return {};
+    return chooseFallbackTarget(slot, action);
+}
+
+std::optional<TargetChoice> Game::chooseFallbackTarget(unsigned int slot,
+                                                       const W8Action& action) const
+{
+    const auto& row = party.rows[slot];
+    const auto& character = party.characters[slot];
+    const auto bound = [&](W8EquipSlot equip_slot) {
+        const auto& item = character.EquippedItem[equip_slot];
+        return item.iItemNo != -1 && data.items[item.iItemNo].binds_on_equip && item.bound;
+    };
+    if (!g_settings.autoswap_weapons || row.remembered.weapon_sets_locked ||
+        (combat && combat->execution_active && combat->characters[slot].dead &&
+         combat->characters[slot].phase != 0) ||
+        bound(W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON) ||
+        bound(W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON))
+        return {};
+    const auto equipment = PlanWeaponSetSwap(data, character);
+    if (!equipment) return {};
+    const auto& primary =
+        character.EquippedItem[equipment->primary ? W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON
+                                                  : W8_EQUIP_SLOT_PRIMARY_WEAPON];
+    const auto& secondary =
+        character.EquippedItem[equipment->secondary ? W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON
+                                                    : W8_EQUIP_SLOT_SECONDARY_WEAPON];
+    const auto hands = EvaluateWeaponHands(data, primary, secondary);
+    W8RangeCategory range = W8_RANGE_NONE;
+    for (unsigned int hand = 0; hand < 2; ++hand) {
+        if (!hands[hand].in_play) continue;
+        const auto& item = hand == 0 ? primary : secondary;
+        const auto reach =
+            hands[hand].uiHolds == 1 || hands[hand].uiHolds == 3
+                ? static_cast<W8RangeCategory>(data.items[item.iItemNo].range_category)
+                : W8_RANGE_TOUCH;
+        range = std::max(range, reach);
+    }
+    auto target = BestMonsterTarget(*this, slot, action, range);
+    if (!target) return {};
+    if (action.target.iType == W8_TARGET_KIND_MONSTER && assessActionReach(slot, 2, action, range))
+        target = action.target.iMonsterID;
+    return TargetChoice{W8CombatSlot::monster(*target), equipment};
+}
+
+void Game::commitWeaponChoice(unsigned int slot, W8WeaponSwap equipment)
+{
+    party.rows[slot].weapon_swap_pending ^= 1;
+    inventory.commitWeaponSwap(slot, equipment);
+    events.push(CharacterNotice{slot, data.strings[0x26d]});
+}
+
+bool Game::repickActionTarget(unsigned int slot, W8TargetingContext stored, bool breathe)
+{
+    if (!party.participates(slot)) return false;
+    const auto action = party.action(slot, stored);
+    if (combat && stored == W8_TARGETING_CONTEXT_OUT_OF_COMBAT)
+        ++combat->characters[slot].pending_action_repick_count;
+    const auto choice = chooseTarget(slot, action);
+    const auto target =
+        choice ? choice->target : W8CombatSlot{W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}};
+    aimStoredAction(slot, stored, target);
+    if (choice) {
+        if (breathe)
+            speech.Queue(&party.characters[slot], g_special_event2, 0, kCharacterEventFullVolume);
+        if (stored == W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
+            if (g_settings.verbose_combat_messages)
+                events.push(CharacterNotice{slot, data.strings[0x26b]});
+            if (!targetInPlay(slot, 2, party.action(slot, W8_TARGETING_CONTEXT_IN_COMBAT)))
+                aimStoredAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT, target);
+        }
+    }
+    if (combat && stored == W8_TARGETING_CONTEXT_IN_COMBAT && target.iType != action.target.iType)
+        events.push(PartySlotChanged{slot});
+    if (choice && choice->equipment) commitWeaponChoice(slot, *choice->equipment);
+    return choice.has_value();
+}
+
+bool Game::canPerformAction(unsigned int party_slot, const W8Action& selected,
+                            bool allow_missing_target) const
+{
+    if (!party.canAct(party_slot)) return false;
+    const W8Character* character = &party.characters[party_slot];
+
+    switch (selected.kind) {
+    case W8_ACTION_NONE:
+        return false;
+    case W8_ACTION_ATTACK:
+        if (!(GetCharAttackRange(data, &party.characters[party_slot], 2) != W8_RANGE_NONE)) {
+            return false;
+        }
+        break;
+    case W8_ACTION_BERSERK:
+        if (!CanCharacterBerserk(data, &party.characters[party_slot])) {
+            return false;
+        }
+        break;
+    case W8_ACTION_PROTECT:
+        if (!party.canAttack(party_slot)) {
+            return false;
+        }
+        break;
+    case W8_ACTION_CAST_SPELL:
+        if (selected.detail == 0) {
+            return false;
+        }
+        if (!CanCharacterCastSpell(data, character, selected.detail)) {
+            return false;
+        }
+        break;
+    case W8_ACTION_USE_ITEM:
+        if (inventory.itemAt(selected.detail_block.item_use.item) == 0) {
+            return false;
+        }
+        if (!CanCharacterActivateItem(data, character,
+                                      inventory.itemAt(selected.detail_block.item_use.item),
+                                      status.game_started)) {
+            return false;
+        }
+        break;
+    case W8_ACTION_BREATHE:
+        if (!CharacterHasTrait(character, W8_TRAIT_BREATHE) ||
+            character->stamina <
+                static_cast<int>(static_cast<unsigned int>(character->uiStaminaMax) / 5)) {
+            return false;
+        }
+        break;
+    case W8_ACTION_DEFEND:
+        return true;
+    default:
+        break;
+    }
+    if (!allow_missing_target) {
+        if (!targetInPlay(party_slot, 2, selected)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool Game::canReactWith(unsigned int slot, W8ActionKind action) const
+{
+    if (!combat) return false;
+    const auto& character = party.characters[slot];
+    if (character.hp_current == 0 || character.highest_condition >= W8_CONDITION_ASLEEP)
+        return false;
+    if (combat->characters[slot].dead) return party.rows[slot].executing.kind == action;
+    if (party.rows[slot].committed.kind == action) return true;
+    return action == W8_ACTION_DEFEND &&
+           !canPerformAction(slot, party.action(slot, W8_TARGETING_CONTEXT_IN_COMBAT), false);
+}
+
+bool Game::reactDefensively(unsigned int slot, W8ActionKind action)
+{
+    assert(action == W8_ACTION_DEFEND || action == W8_ACTION_PROTECT);
+    if (!canReactWith(slot, action)) return false;
+    if (combat->characters[slot].dead) return true;
+    const bool fallback = action == W8_ACTION_DEFEND && party.rows[slot].committed.kind != action;
+    party.beginDefensiveAction(slot, action);
+    combat->beginReaction(slot, fallback);
+    events.push(PartySlotChanged{slot});
+    events.push(CombatProgressChanged{});
+    return true;
 }

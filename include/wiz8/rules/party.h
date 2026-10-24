@@ -20,6 +20,9 @@ struct W8Party {
 
     W8Disposition dispositionToward(unsigned int slot, W8Disposition other) const;
     W8Disposition dispositionBetween(unsigned int first, unsigned int second) const;
+    bool canAct(unsigned int slot) const;
+    W8ActionKind commitAction(unsigned int slot, W8Action action);
+    void beginDefensiveAction(unsigned int slot, W8ActionKind action);
     bool canAttack(unsigned int slot) const;
     bool participates(unsigned int slot) const;
     W8Action availableAction(unsigned int slot, W8Action action) const;

@@ -354,15 +354,15 @@ void RepickInvalidCombatTargets(void)
         W8Character* character = &CurrentGame().party.characters[party_slot];
         if (!CurrentGame().party.members[party_slot].has_value() || character->hp_current == 0 ||
             character->highest_condition >= W8_CONDITION_TURNCOAT ||
-            !CharacterCanSwitchTo(
+            !CurrentGame().canPerformAction(
                 party_slot, CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
                 true)) {
             continue;
         }
         const auto selected =
             CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
-        if (!TargetIsInPlay(party_slot, 2, selected)) {
-            RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
+        if (!CurrentGame().targetInPlay(party_slot, 2, selected)) {
+            CurrentGame().repickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
         }
     }
 }
@@ -430,12 +430,6 @@ int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
 }
 
 // Only the fields that determine auto-target priority are retained.
-struct W8MonsterTargetCandidate {
-    int location_id;
-    W8Condition state;
-    bool in_reach;
-    float distance;
-};
 
 /* Resolve where a target physically is into the slot's own point: the camera
    for the character and party kinds, the monster's model position plus its
@@ -470,44 +464,6 @@ bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe)
     }
     target->point = point;
     return true;
-}
-
-// Select the best live enemy directly; no owning scratch array or sort is needed.
-static void CommitAutomaticWeaponChoice(int party_slot, W8WeaponSwap equipment);
-
-static int ChooseMonsterTarget(int party_slot, const W8Action& action,
-                               std::optional<W8RangeCategory> attack_range = {})
-{
-    std::optional<W8MonsterTargetCandidate> best;
-    const auto priority = [](const W8MonsterTargetCandidate& candidate) {
-        return std::tuple(candidate.state, !candidate.in_reach, candidate.distance);
-    };
-    for (unsigned index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
-         ++index) {
-        W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-        if (!monster_info->fActive || !monster_info->pCombat || monster_info->hp_current == 0 ||
-            CurrentGame().party.dispositionToward(party_slot, (monster_info)->ubDisposition) !=
-                W8_DISPOSITION_HOSTILE ||
-            !CurrentGame().assessActionReach(party_slot, 2,
-                                             (action).aimedAt(W8CombatSlot::monster(
-                                                 monster_info ? monster_info->location_id : -1)),
-                                             attack_range)) {
-            continue;
-        }
-        W8MonsterTargetCandidate candidate{monster_info->location_id,
-                                           monster_info->highest_condition, false,
-                                           monster_info->entity->GetDistanceToPlayer()};
-        const auto* record = GetMonsterDataForInfo(monster_info);
-        if (GetBestMonsterAttackRange(record, true) != -1) {
-            const auto quadrant = static_cast<unsigned char>(GetMonsterQuadrant(monster_info));
-            candidate.in_reach =
-                quadrant == 2 || (!FormationRowOccupied(CurrentGame().party, quadrant) &&
-                                  FormationRowOccupied(CurrentGame().party, 4));
-        }
-        assert(monster_info->uiHPMax != 0);
-        if (!best || priority(candidate) < priority(*best)) best = candidate;
-    }
-    return best ? best->location_id : BAD_INDEX;
 }
 
 /* The two conditions the indirect character kind reads: eighteen has to be
@@ -648,7 +604,7 @@ void RevalidateSelectedTarget(int party_slot)
         return;
     }
     const auto selected = EditedAction(party_slot);
-    if (!CharacterCanSwitchTo(party_slot, selected, true)) {
+    if (!CurrentGame().canPerformAction(party_slot, selected, true)) {
         CurrentGame().events.push(TargetingRequested{});
         return;
     }
@@ -786,46 +742,13 @@ bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group, const W8Action
     return reachable != 0;
 }
 
-static bool NeedsMonsterTarget(const W8Action& action)
-{
-    const auto kind = action.kind;
-    return CurrentGame().combat.has_value() &&
-           (kind == W8_ACTION_ATTACK || kind == W8_ACTION_BERSERK || kind == W8_ACTION_CAST_SPELL ||
-            kind == W8_ACTION_USE_ITEM) &&
-           CurrentGame().targetNeed(action) == W8_TARGET_NEED_ENEMY;
-}
-
-std::optional<W8CombatSlot> ChooseEquippedMonsterTarget(int party_slot, const W8Action& action)
-{
-    if (!NeedsMonsterTarget(action)) return std::nullopt;
-    const int selected = ChooseMonsterTarget(party_slot, action);
-    if (selected == -1) return std::nullopt;
-    return W8CombatSlot::monster(selected);
-}
-
 /* A repicked monster, and the weapon set to change to when only the alternate set
    reaches it. */
-struct MonsterRepick {
-    W8CombatSlot target;
-    std::optional<W8WeaponSwap> equipment;
-};
 
 /* The monster a live attack, spell or item action that needs an enemy turns to in combat:
    the best monster, or one the alternate weapon set reaches. Choosing changes nothing;
    the caller aims first and then commits the equipment, so settling the swap finds the
    target already in play. */
-static std::optional<MonsterRepick> RepickMonsterTarget(int party_slot, const W8Action& action)
-{
-    if (const auto target = ChooseEquippedMonsterTarget(party_slot, action))
-        return MonsterRepick{*target, std::nullopt};
-    if (!NeedsMonsterTarget(action) ||
-        (action.kind != W8_ACTION_ATTACK && action.kind != W8_ACTION_BERSERK)) {
-        return std::nullopt;
-    }
-    const auto fallback = ChooseFallbackMonsterTarget(party_slot, action);
-    if (!fallback) return std::nullopt;
-    return MonsterRepick{W8CombatSlot::monster(fallback->location_id), fallback->equipment};
-}
 
 static W8CombatSlot ClearedTarget()
 {
@@ -840,65 +763,21 @@ static W8CombatSlot ClearedTarget()
    the alternate weapon set. A nonzero `arg` restarts the breath cycle.
    Repicking the executing (out-of-combat) target also copies it to the
    in-combat target when that one no longer matches or reaches. */
-bool RepickActionTarget(int party_slot, W8TargetingContext stored, int arg)
-{
-    if (!CurrentGame().party.participates(party_slot)) {
-        return false;
-    }
-
-    const auto selected_action = CurrentGame().party.action(party_slot, stored);
-    const auto previous_kind = selected_action.target.iType;
-    if (CurrentGame().combat.has_value() && stored == W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
-        ++CurrentGame().combat->characters[party_slot].pending_action_repick_count;
-    }
-    const auto repick = RepickMonsterTarget(party_slot, selected_action);
-    const auto new_target = repick ? std::optional{repick->target} : std::optional<W8CombatSlot>{};
-    if (new_target) {
-        // 0x00536876: the new target goes into the selected action's block.
-        CurrentGame().aimStoredAction(party_slot, stored, *new_target);
-        if (arg != 0) {
-            StartBreathCycle(party_slot, false);
-        }
-        if (stored == W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
-            if (g_settings.verbose_combat_messages) {
-                PostCharacterNotice(party_slot, Data().strings[0x26b]);
-            }
-            const auto committed =
-                CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
-            if (!TargetIsInPlay(party_slot, 2, committed)) {
-                CurrentGame().aimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT,
-                                              *new_target);
-            }
-        }
-    } else {
-        CurrentGame().aimStoredAction(party_slot, stored, ClearedTarget());
-    }
-    if (CurrentGame().combat.has_value() && stored == W8_TARGETING_CONTEXT_IN_COMBAT &&
-        new_target.value_or(ClearedTarget()).iType != previous_kind) {
-        CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
-    }
-    if (repick && repick->equipment) CommitAutomaticWeaponChoice(party_slot, *repick->equipment);
-    return new_target.has_value();
-}
 
 bool RepickDraftTarget(int party_slot, W8Action& draft)
 {
     if (!CurrentGame().party.participates(party_slot)) {
         return false;
     }
-    const auto repick =
-        RepickMonsterTarget(party_slot, CurrentGame().party.availableAction(party_slot, draft));
+    const auto repick = CurrentGame().chooseTarget(
+        party_slot, CurrentGame().party.availableAction(party_slot, draft));
     AimDraft(party_slot, draft, repick ? repick->target : ClearedTarget());
-    if (repick && repick->equipment) CommitAutomaticWeaponChoice(party_slot, *repick->equipment);
+    if (repick && repick->equipment)
+        CurrentGame().commitWeaponChoice(party_slot, *repick->equipment);
     return repick.has_value();
 }
 
 // Eligibility and reach use the same action and target selected by the caller.
-bool TargetIsInPlay(int party_slot, int hand, const W8Action& selected)
-{
-    return CurrentGame().targetMatches(selected.target, CurrentGame().targetNeed(selected)) &&
-           CurrentGame().assessActionReach(party_slot, hand, selected);
-}
 
 /* Whether the supplied action can be aimed at a live, standing and reachable
    monster.
@@ -1311,10 +1190,10 @@ void RefreshAllPartyTargets(void)
         if (CurrentGame().party.members[party_slot].has_value() &&
             (character->hp_current != 0 || character->highest_condition < W8_CONDITION_DEAD)) {
             const auto selected = EditedAction(party_slot);
-            bool can_switch = CharacterCanSwitchTo(party_slot, selected, false);
+            bool can_switch = CurrentGame().canPerformAction(party_slot, selected, false);
 
             if (!can_switch) {
-                can_switch = CharacterCanSwitchTo(party_slot, selected, true);
+                can_switch = CurrentGame().canPerformAction(party_slot, selected, true);
                 if (!can_switch) {
                     if (selected.target.iType != W8_TARGET_KIND_NONE) {
                         W8CombatSlot action{};
@@ -1326,11 +1205,11 @@ void RefreshAllPartyTargets(void)
                 } else if (auto* draft = EditedDraft(party_slot)) {
                     RepickDraftTarget(party_slot, *draft);
                 } else {
-                    RepickActionTarget(party_slot,
-                                       CurrentGame().combat.has_value()
-                                           ? W8_TARGETING_CONTEXT_IN_COMBAT
-                                           : W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
-                                       0);
+                    CurrentGame().repickActionTarget(party_slot,
+                                                     CurrentGame().combat.has_value()
+                                                         ? W8_TARGETING_CONTEXT_IN_COMBAT
+                                                         : W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
+                                                     0);
                 }
             }
 
@@ -1338,17 +1217,18 @@ void RefreshAllPartyTargets(void)
                 (row->committed.kind == W8_ACTION_ATTACK ||
                  row->committed.kind == W8_ACTION_BERSERK) &&
                 (row->weapon_swap_pending ||
-                 CharacterCanSwitchTo(
+                 CurrentGame().canPerformAction(
                      party_slot,
                      CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
                      false))) {
-                const auto fallback = ChooseFallbackMonsterTarget(
+                const auto fallback = CurrentGame().chooseFallbackTarget(
                     party_slot,
                     CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT));
                 if (fallback) {
-                    CurrentGame().aimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT,
-                                                  W8CombatSlot::monster(fallback->location_id));
-                    CommitAutomaticWeaponChoice(party_slot, fallback->equipment);
+                    CurrentGame().aimStoredAction(
+                        party_slot, W8_TARGETING_CONTEXT_IN_COMBAT,
+                        W8CombatSlot::monster(fallback->target.iMonsterID));
+                    CurrentGame().commitWeaponChoice(party_slot, *fallback->equipment);
                 }
             }
         }
@@ -1564,58 +1444,9 @@ bool ItemUseNeedsTarget(int party_slot)
 }
 
 // Query the proposed equipment without moving items or recalculating live state.
-std::optional<W8WeaponTarget> ChooseFallbackMonsterTarget(int party_slot, const W8Action& action)
-{
-    const auto& row = CurrentGame().party.rows[party_slot];
-    const auto& character = CurrentGame().party.characters[party_slot];
-    if (!g_settings.autoswap_weapons || row.remembered.weapon_sets_locked ||
-        (CurrentGame().combat && CurrentGame().combat->execution_active &&
-         CurrentGame().combat->characters[party_slot].dead &&
-         CurrentGame().combat->characters[party_slot].phase != 0) ||
-        IsItemBoundToWearer(&character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON]) ||
-        IsItemBoundToWearer(&character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON]))
-        return {};
-    const auto choice = PlanWeaponSetSwap(Data(), character);
-    if (!choice) return {};
-    const auto& primary =
-        character.EquippedItem[choice->primary ? W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON
-                                               : W8_EQUIP_SLOT_PRIMARY_WEAPON];
-    const auto& secondary =
-        character.EquippedItem[choice->secondary ? W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON
-                                                 : W8_EQUIP_SLOT_SECONDARY_WEAPON];
-    const auto hands = EvaluateWeaponHands(Data(), primary, secondary);
-    W8RangeCategory range = W8_RANGE_NONE;
-    for (unsigned int hand = 0; hand < 2; ++hand) {
-        if (!hands[hand].in_play) continue;
-        const auto& item = hand == 0 ? primary : secondary;
-        const auto reach =
-            hands[hand].uiHolds == 1 || hands[hand].uiHolds == 3
-                ? static_cast<W8RangeCategory>(Data().items[item.iItemNo].range_category)
-                : W8_RANGE_TOUCH;
-        range = std::max(range, reach);
-    }
-    int target = ChooseMonsterTarget(party_slot, action, range);
-    if (target == -1) return {};
-    if (action.target.iType == W8_TARGET_KIND_MONSTER) {
-        auto* remembered = FindMonster(action.target.iMonsterID, false);
-        if (remembered &&
-            CurrentGame().assessActionReach(
-                party_slot, 2,
-                (action).aimedAt(W8CombatSlot::monster(remembered ? remembered->location_id : -1)),
-                range))
-            target = remembered->location_id;
-    }
-    return W8WeaponTarget{target, *choice};
-}
 
 /* Change to the weapon set an automatic target choice needs. The target is aimed
    beforehand, so the one settlement this swap starts keeps it. */
-static void CommitAutomaticWeaponChoice(int party_slot, W8WeaponSwap equipment)
-{
-    CurrentGame().party.rows[party_slot].weapon_swap_pending ^= 1;
-    CurrentGame().inventory.commitWeaponSwap(party_slot, equipment);
-    PostCharacterNotice(party_slot, Data().strings[0x26d]);
-}
 
 /* When combat ends, swap each occupied, living slot whose pending swap flag is
    set back to its primary weapon set, provided auto-swap is on and nothing is

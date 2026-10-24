@@ -3811,12 +3811,13 @@ void UpdateCombatPortraitStatus(void)
                     if (combat_row->dead) {
                         status = W8_COMBAT_PORTRAIT_INELIGIBLE;
                     } else {
-                        status = CharacterCanSwitchTo(slot,
-                                                      CurrentGame().party.action(
-                                                          slot, W8_TARGETING_CONTEXT_IN_COMBAT),
-                                                      false)
-                                     ? W8_COMBAT_PORTRAIT_READY
-                                     : W8_COMBAT_PORTRAIT_CANNOT_SWITCH;
+                        status =
+                            CurrentGame().canPerformAction(
+                                slot,
+                                CurrentGame().party.action(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                false)
+                                ? W8_COMBAT_PORTRAIT_READY
+                                : W8_COMBAT_PORTRAIT_CANNOT_SWITCH;
                     }
                 } else {
                     status = W8_COMBAT_PORTRAIT_INELIGIBLE;
