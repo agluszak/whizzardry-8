@@ -18,6 +18,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/inventory.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/script_context.h"
 #include "wiz8/story.h"

@@ -13,6 +13,7 @@
 
 #include "wiz8/audio/soundman.h"
 #include "wiz8/canvas/image_assets.h"
+#include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
@@ -40,7 +41,6 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
