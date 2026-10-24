@@ -851,7 +851,7 @@ void OpenLevelImage(W8Chunk& chunk, std::span<const std::byte> image)
 bool CanAutoSaveNow()
 {
     return CurrentGame().status.world_cursor_gate == 0 && !AnyMonsterDying() &&
-           !CurrentGame().combat.has_value() && !IsSightRangeOverridden() &&
+           !CurrentGame().combat.has_value() && !CurrentGame().accelerated_calendar &&
            CanInterruptLevelMovement() && !CurrentGame().activity.conversation &&
            !CurrentGame().activity.conversation_aside;
 }

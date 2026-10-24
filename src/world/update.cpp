@@ -38,7 +38,6 @@
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
-#include "wiz8/render/picking.h"
 #include "wiz8/render/plane_math.h"
 #include "wiz8/render/triangle_projection.h"
 #include "wiz8/render/world_scene.h"
@@ -196,20 +195,19 @@ bool BakeInstanceVertexLightingIfNeeded(MeshInstance* instance, WorldScene* scen
 }
 
 /* Visibility queries share midpoint/corner generation and retain early-exit order. */
-bool targetMarkerVisible(const glm::vec3& eye, const BoundingBox& bounds)
+bool World::targetMarkerVisible(const BoundingBox& bounds) const
 {
-    const glm::vec3 from(eye);
+    const auto from = party.eye();
     return std::ranges::any_of(bounds.visibilitySamples(), [&](const auto& sample) {
-        return projectsToCamera(sample) &&
-               GetWorldSpatialIndex()->hasLineOfSight(from, glm::vec3(sample));
+        return projectsToCamera(sample) && compiledIndex()->hasLineOfSight(from, glm::vec3(sample));
     });
 }
 
-bool traceLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds)
+bool World::hasLineOfSightTo(const BoundingBox& bounds) const
 {
-    const glm::vec3 from(origin);
+    const auto from = party.eye();
     return std::ranges::any_of(bounds.visibilitySamples(), [&](const auto& sample) {
-        return !GetWorldSpatialIndex()->traceSight(from, glm::vec3(sample));
+        return !compiledIndex()->traceSight(from, glm::vec3(sample));
     });
 }
 

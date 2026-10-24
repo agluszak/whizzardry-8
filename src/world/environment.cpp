@@ -145,7 +145,7 @@ static void AdvanceEnvironmentClock(void)
     const auto elapsed = std::exchange(GetWorld()->environment.untaken_time, {});
     if (elapsed.count() != 0) {
         AdvanceEnvironmentTime(
-            static_cast<int>(static_cast<double>(elapsed.count()) * g_view_distance));
+            static_cast<int>(static_cast<double>(elapsed.count()) * CurrentGame().calendarRate()));
     }
 }
 
@@ -270,17 +270,6 @@ void SetSkyEnabled(bool enabled)
         return;
     }
     GetWorld()->camera->setEnvironmentRange(0.0f, static_cast<float>(WorldGetFarClip(GetWorld())));
-}
-
-/* The far plane the world is drawn to. */
-void SetViewDistance(float distance)
-{
-    g_view_distance = distance;
-}
-
-float GetViewDistance(void)
-{
-    return g_view_distance;
 }
 
 /* Turn the sky on, then catch the light direction up: advance the clock by the

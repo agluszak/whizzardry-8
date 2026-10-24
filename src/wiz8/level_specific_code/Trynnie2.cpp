@@ -17,7 +17,6 @@
 #include "wiz8/level_specific_code/Trynnie1.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"

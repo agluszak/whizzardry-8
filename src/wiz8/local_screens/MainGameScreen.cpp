@@ -5333,7 +5333,7 @@ void SetCombatSelection(int value)
         auto* info = FindMonster(value, false);
         if (Monster* monster = info ? info->entity.get() : nullptr) {
             const auto bounds = monster->GetWorldAnimationBounds();
-            if (bounds && traceLineOfSightToBounds(cameraLocation(), *bounds))
+            if (bounds && monster->owner_world.hasLineOfSightTo(*bounds))
                 MainGameHud()->highlighted_item = value;
         }
     }
@@ -5360,7 +5360,7 @@ void SetCombatTarget(int value)
         } else {
             W8WorldItem* item = ItemInfo(ItemIndex(value));
             if (item != 0 && item->entity &&
-                traceLineOfSightToBounds(cameraLocation(), GetItemWorldBounds(*item->entity))) {
+                item->entity->owner_world.hasLineOfSightTo(GetItemWorldBounds(*item->entity))) {
                 MainGameHud()->selected_item = value;
             }
         }

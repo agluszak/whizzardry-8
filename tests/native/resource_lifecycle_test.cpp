@@ -711,6 +711,15 @@ TEST_CASE_METHOD(SpellVisualFixture,
     REQUIRE(prepared.IsRenderable(false));
     REQUIRE_FALSE(prepared.IsRenderable(true));
     REQUIRE_FALSE(world.population->findMonster(7)->within_viewing_distance);
+
+    for (auto* camera : {world.camera, replacement.camera}) {
+        camera->setClipRange(1, 100);
+        camera->setViewPlane(Camera3D::Rect{-1, -1, 1, 1}, 1);
+    }
+    world.camera->transform.setLocation(100, 0, 0);
+    replacement.camera->transform.setLocation(0, 0, 0);
+    REQUIRE(replacement.projectsToCamera({0, 0, 10}));
+    REQUIRE_FALSE(world.projectsToCamera({0, 0, 10}));
 }
 
 TEST_CASE("Ambient exchanges wait for completion and choose a different respondent", "[events]")

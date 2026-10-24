@@ -109,6 +109,7 @@ public:
     void setMotionPaused(bool paused);
     void resumeVisibleMotion();
     bool cameraSwayActive() const;
+    float calendarRate() const { return accelerated_calendar ? 2880.0f : 12.0f; }
     void reconcileCombatHands(unsigned int party_slot, std::vector<Event>& outcomes);
     unsigned int damageCharacter(unsigned int slot, unsigned int amount, DamageOptions options = {},
                                  W8SpellEffectResult* report = nullptr);
@@ -284,6 +285,13 @@ public:
     W8PartyFormationState planned_formation{};
     // A camp or rest may be interrupted by an ambush.
     bool surprise_possible = false;
+    // Surprise hold accelerates the calendar, not simulation or presentation clocks.
+    bool accelerated_calendar = false;
+    struct SightNotices {
+        int marker = 0;
+        int fade_in = 0;
+        int fade_out = 0;
+    } sight_notices;
     // The combat movement phase: the party walks to a new position before acting.
     bool party_movement_mode = false;
     bool party_moving = false;

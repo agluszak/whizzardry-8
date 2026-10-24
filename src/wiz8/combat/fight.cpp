@@ -158,7 +158,7 @@ bool Game::beginCombat(int surprise)
     if (surprise_possible) {
         ResolveSurpriseHold();
     }
-    if (GetViewDistance() != g_sight_default) {
+    if (accelerated_calendar) {
         resetSight();
     }
     if (auto* screen = MainGame()) screen->dismissOverlays(false);

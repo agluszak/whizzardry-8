@@ -26,22 +26,7 @@ void ResetAndRefreshAllSight(void);
 void AgeAllMonsterSight(void);
 void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bounds);
 
-/* Monster-to-monster sight after line of sight is already clear. */
-bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8VisibilityRecord* record);
-
-/* Shared perception primitive for monster/player and player/monster checks.
-   penalty_source is party minimum level or monster missile value; twice it
-   comes off perception_attribute in the base factor. penalty_modifier applies
-   a -10 or -5 penalty per unit depending on
-   skip_field_of_view, and sight_override forces full range. */
-float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_position,
-                            float observer_yaw, unsigned int perception_attribute,
-                            unsigned char ranged_bonus, bool blinded, bool extended_sight_active,
-                            int penalty_source, int penalty_modifier, int skip_field_of_view,
-                            unsigned char sight_override, float distance);
-
 bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group);
-bool IsSightRangeOverridden(void);
 signed char GetMonsterSpellSightIndex(const W8MonsterInfo* monster);
 
 extern const float g_sight_default;

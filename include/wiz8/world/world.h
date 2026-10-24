@@ -105,6 +105,7 @@ public:
 };
 
 struct Story;
+struct BoundingBox;
 
 // Resources and borrowed indexes precede their consumers. Reverse member
 // destruction removes population-owned bodies before their resources and indexes.
@@ -113,6 +114,9 @@ struct World {
                    ShakeSystem* shakes = nullptr, float reference_gravity = kDefaultGravity);
     ~World();
     void setPartyLight(unsigned int intensity);
+    bool projectsToCamera(const glm::vec3& point) const;
+    bool targetMarkerVisible(const BoundingBox& bounds) const;
+    bool hasLineOfSightTo(const BoundingBox& bounds) const;
     World(const World&) = delete;
     World& operator=(const World&) = delete;
     void setNavigatorsPaused(bool paused);

@@ -43,7 +43,6 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/TextBuffer.h"

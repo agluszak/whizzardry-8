@@ -2485,3 +2485,9 @@ bool Monster::HoldsCombatTurn(bool resolving_own_action, bool missile_released, 
     return can_turn &&
            std::fabs(nav.movement.target_yaw - nav.movement.yaw) >= g_camera_transition_epsilon;
 }
+
+bool Monster::targetMarkerVisible()
+{
+    const auto bounds = GetWorldAnimationBounds();
+    return bounds && owner_world.targetMarkerVisible(*bounds);
+}

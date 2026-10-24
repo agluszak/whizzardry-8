@@ -307,7 +307,7 @@ void Game::updateSurpriseMode()
         if (UpdateSurpriseFade() != 0) {
             surprise.deadline_turns = status.world_clock + 0x7080;
             DestroyUngroupedMonsters();
-            SetViewDistance(2880.0f);
+            accelerated_calendar = true;
             SetNavigatorLinkMode(W8_NAVIGATOR_LINK_MODE_STOPPED);
             level_scale = data.levels[level.loaded().level_id].gameplay_time_scale;
             scale = 1.0f / level_scale;
@@ -507,7 +507,7 @@ static bool AgePartyEffectSlot(W8EffectSlot* slot, unsigned int minutes)
     }
     ShowNotice(W8_FONT_PALETTE_BEIGE,
                fmt::sprintf(Data().strings[0x1b4], Data().spells[slot->effect_id].display_name));
-    if (GetViewDistance() != g_encounter_culling_rate) {
+    if (!CurrentGame().accelerated_calendar) {
         wiz8::sound::play("Data\\Sound\\Misc\\Spell Expiry.wav");
     }
     CurrentGame().resetPartyEffect(*slot);
@@ -963,9 +963,9 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
             glm::vec3 camera;
 
             probe.y += 1e+03f;
-            camera = cameraLocation();
-            if (projectsToCamera(probe) == 0 &&
-                !GetWorldSpatialIndex()->hasLineOfSight(camera, probe)) {
+            camera = monster.owner_world.party.eye();
+            if (monster.owner_world.projectsToCamera(probe) == 0 &&
+                !monster.owner_world.compiledIndex()->hasLineOfSight(camera, probe)) {
                 glm::vec3 notify_position = last_seen;
                 W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id);
 
@@ -974,7 +974,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
         }
         return;
     }
-    if (GetViewDistance() != g_sight_default) {
+    if (CurrentGame().accelerated_calendar) {
         return;
     }
     if ((monster.nav.linked_navigator == 0 && !monster.nav.halted) &&
@@ -1005,7 +1005,8 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
                        short-move test passes; a long move leaves both alone. */
                     flags_cleared = true;
 
-                    if (!GetWorldPathing()->SnapWaypointPosition(&navigator_position, false) &&
+                    if (!monster.owner_world.compiledIndex()->pathing.get()->SnapWaypointPosition(
+                            &navigator_position, false) &&
                         !monster_info->party_threat.visible_to_player) {
                         glm::vec3 next_position;
 
@@ -1017,9 +1018,10 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
                             glm::vec3 camera;
                             glm::vec3 probe = next_position;
 
-                            camera = cameraLocation();
-                            if (projectsToCamera(probe) == 0 &&
-                                !GetWorldSpatialIndex()->hasLineOfSight(camera, probe)) {
+                            camera = monster.owner_world.party.eye();
+                            if (monster.owner_world.projectsToCamera(probe) == 0 &&
+                                !monster.owner_world.compiledIndex()->hasLineOfSight(camera,
+                                                                                     probe)) {
                                 glm::vec3 notify_position = next_position;
                                 W8MonsterGroup* group =
                                     FindMonsterGroup(monster_info->monster_group_id);
@@ -1037,22 +1039,22 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
                 glm::vec3 probe;
                 glm::vec3 location2;
 
-                camera = cameraLocation();
+                camera = monster.owner_world.party.eye();
                 location2 = monster.nav.GetPosition();
                 probe = location2;
                 probe.y += 1e+03f;
                 /* Both on-screen tests take the representation location read at the top of
                    the watch block, not the navigator position (0x00503e90, 0x00503f40). */
-                if (projectsToCamera(location) == 0 &&
-                    !GetWorldSpatialIndex()->hasLineOfSight(camera, probe)) {
+                if (monster.owner_world.projectsToCamera(location) == 0 &&
+                    !monster.owner_world.compiledIndex()->hasLineOfSight(camera, probe)) {
                     if (monster.formation.x == 0.0f && monster.formation.y == 0.0f &&
                         monster.formation.z == 0.0f) {
                         monster.formation = monster.nav.GetPosition();
                     }
                     probe = monster.formation;
                     probe.y += 1e+03f;
-                    if (projectsToCamera(location) == 0 &&
-                        !GetWorldSpatialIndex()->hasLineOfSight(camera, probe)) {
+                    if (monster.owner_world.projectsToCamera(location) == 0 &&
+                        !monster.owner_world.compiledIndex()->hasLineOfSight(camera, probe)) {
                         if (monster.formation.x == 0.0f && monster.formation.y == 0.0f &&
                             monster.formation.z == 0.0f) {
                             monster.formation = monster.nav.GetPosition();

@@ -284,7 +284,8 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
 
     update = false;
     decision = W8_RT_AI_IDLE;
-    if (engage && IsSightRangeOverridden() && monster_info->ai_mode == W8_RT_AI_CHARGE_PARTY) {
+    if (engage && CurrentGame().accelerated_calendar &&
+        monster_info->ai_mode == W8_RT_AI_CHARGE_PARTY) {
         const W8MonsterRecord* record;
         W8MonsterGroup* monster_group;
         Navigator* navigator;
@@ -619,7 +620,7 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
         }
         if (monster.ApproachStartupNavigator(
                 CalcRangeDistance(static_cast<W8RangeCategory>(best_range)) * 0.9f) == 1) {
-            if (IsSightRangeOverridden()) {
+            if (CurrentGame().accelerated_calendar) {
                 monster_group = FindMonsterGroup(monster_info->monster_group_id);
                 MonsterGroupEnterCombat(monster_group);
             }

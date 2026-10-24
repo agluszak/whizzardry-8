@@ -58,16 +58,10 @@ const float g_sight_default = 12.0f;
 /* Put the sight subsystem back to its starting state. */
 void Game::resetSight()
 {
-    SetViewDistance(12.0f);
+    accelerated_calendar = false;
     SetNavigatorLinkMode(W8_NAVIGATOR_LINK_MODE_DEFAULT);
     motion_clock.ResetTimeScale();
     ResetMonsterGeneratorTimers();
-}
-
-/* Whether the view distance has been moved off its default. */
-bool IsSightRangeOverridden(void)
-{
-    return GetViewDistance() != g_sight_default;
 }
 
 /* Re-run both directions of the sight update for one monster. */
@@ -116,77 +110,20 @@ void RefreshAllSight(void)
     }
 }
 
-/* Whether one monster can see another in combat once line of sight is clear. */
-bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target, W8VisibilityRecord* record)
-{
-    const W8MonsterRecord* target_record;
-    glm::vec3 observer_position;
-    glm::vec3 target_position;
-    float observer_yaw;
-    int penalty_modifier;
-    float distance;
-    const W8MonsterRecord* source_record;
-    unsigned char ranged_bonus;
-    float threshold;
-
-    if (source->hp_current == 0 || source->highest_condition >= W8_CONDITION_ASLEEP) {
-        return false;
-    }
-    target_record = GetMonsterDataForInfo(target);
-    Monster& source_monster = *source->entity;
-    observer_position = source_monster.nav.movement.position;
-    observer_position.y += source_monster.nav.movement.height_offset;
-    Monster& target_monster = *target->entity;
-    target_position = target_monster.nav.movement.position;
-    target_position.y += target_monster.nav.movement.height_offset;
-    observer_yaw = source_monster.nav.GetYaw();
-    if (!target->pCombat) {
-        penalty_modifier = target_record->camouflage0;
-    } else {
-        penalty_modifier = 0;
-    }
-    distance = source_monster.GetDistanceToMonster(target_monster);
-    source_record = GetMonsterDataForInfo(source);
-    if (source_record->kind == 4) {
-        ranged_bonus = source_record->effective_level * 5;
-        if (ranged_bonus > 0x7d) {
-            ranged_bonus = 0x7d;
-        }
-    } else {
-        ranged_bonus = 0;
-    }
-    source_record = GetMonsterDataForInfo(source);
-    threshold = ComputeSightThreshold(
-        observer_position, target_position, observer_yaw,
-        source->attributes[W8_MONSTER_ATTRIBUTE_SENSES], ranged_bonus,
-        static_cast<unsigned char>(source->uiCondition[W8_CONDITION_BLIND] != 0),
-        static_cast<unsigned char>(source_record->kind == 12),
-        static_cast<int>(target_record->effective_level), penalty_modifier,
-        static_cast<int>(record->sight_state), 0, distance);
-    if (threshold < distance) {
-        return false;
-    }
-    return true;
-}
-
 /* Maximum distance at which the observer can perceive the target. */
-float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_position,
-                            float observer_yaw, unsigned int perception_attribute,
-                            unsigned char ranged_bonus, bool blinded, bool extended_sight_active,
-                            int penalty_source, int penalty_modifier, int skip_field_of_view,
-                            unsigned char sight_override, float distance)
+static float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_position,
+                                   float observer_yaw, unsigned int perception_attribute,
+                                   unsigned char ranged_bonus, bool blinded,
+                                   bool extended_sight_active, int penalty_source,
+                                   int penalty_modifier, int skip_field_of_view,
+                                   unsigned char sight_override, float distance,
+                                   float viewing_distance)
 {
-    World* world;
-    double far_clip;
-    float viewing_distance;
     float heading;
     float angle_delta;
     int sight_percent;
     int penalty;
 
-    world = GetWorld();
-    far_clip = WorldGetFarClip(world);
-    viewing_distance = static_cast<float>(far_clip);
     assert(viewing_distance > 0.0f);
     heading = GetHeadingAngle(&observer_position, &target_position);
     angle_delta = ShortestAngleDistance(observer_yaw, heading);
@@ -215,6 +152,61 @@ float ComputeSightThreshold(glm::vec3 observer_position, glm::vec3 target_positi
     }
     sight_percent = std::clamp(sight_percent, 2, 100);
     return sight_percent * viewing_distance * kMovementSpeedStep;
+}
+
+/* Whether one monster can see another in combat once line of sight is clear. */
+static bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target,
+                                 W8VisibilityRecord* record)
+{
+    const W8MonsterRecord* target_record;
+    glm::vec3 observer_position;
+    glm::vec3 target_position;
+    float observer_yaw;
+    int penalty_modifier;
+    float distance;
+    const W8MonsterRecord* source_record;
+    unsigned char ranged_bonus;
+    float threshold;
+
+    if (source->hp_current == 0 || source->highest_condition >= W8_CONDITION_ASLEEP) {
+        return false;
+    }
+    target_record = &target->entity->species();
+    Monster& source_monster = *source->entity;
+    observer_position = source_monster.nav.movement.position;
+    observer_position.y += source_monster.nav.movement.height_offset;
+    Monster& target_monster = *target->entity;
+    target_position = target_monster.nav.movement.position;
+    target_position.y += target_monster.nav.movement.height_offset;
+    observer_yaw = source_monster.nav.GetYaw();
+    if (!target->pCombat) {
+        penalty_modifier = target_record->camouflage0;
+    } else {
+        penalty_modifier = 0;
+    }
+    distance = source_monster.GetDistanceToMonster(target_monster);
+    source_record = &source->entity->species();
+    if (source_record->kind == 4) {
+        ranged_bonus = source_record->effective_level * 5;
+        if (ranged_bonus > 0x7d) {
+            ranged_bonus = 0x7d;
+        }
+    } else {
+        ranged_bonus = 0;
+    }
+    source_record = &source->entity->species();
+    threshold = ComputeSightThreshold(
+        observer_position, target_position, observer_yaw,
+        source->attributes[W8_MONSTER_ATTRIBUTE_SENSES], ranged_bonus,
+        static_cast<unsigned char>(source->uiCondition[W8_CONDITION_BLIND] != 0),
+        static_cast<unsigned char>(source_record->kind == 12),
+        static_cast<int>(target_record->effective_level), penalty_modifier,
+        static_cast<int>(record->sight_state), 0, distance,
+        static_cast<float>(WorldGetFarClip(&source_monster.owner_world)));
+    if (threshold < distance) {
+        return false;
+    }
+    return true;
 }
 
 /* Drop every visibility record anyone held about one departing monster. */
@@ -349,10 +341,6 @@ void ResetAndRefreshAllSight(void)
         UpdateMonsterSight(GetMonsterListEntry(index), false, false);
     }
 }
-
-static int g_sight_marker_tick;
-static int g_sight_fade_in_tick;
-static int g_sight_fade_out_tick;
 
 const float g_sight_threat_scale = 0.6667f;
 
@@ -535,7 +523,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                     monster_info->attributes[W8_MONSTER_ATTRIBUTE_SENSES], fade_flag,
                     monster_info->uiCondition[W8_CONDITION_BLIND] != 0, record->kind == 0xc,
                     static_cast<int>(minimum_level), static_cast<int>(sight_override),
-                    monster_info->player_visibility.sight_state, 0, player_distance);
+                    monster_info->player_visibility.sight_state, 0, player_distance,
+                    viewing_distance);
 
                 visible_to_player = threshold >= player_distance;
             }
@@ -632,7 +621,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                             character->uiCondition[W8_CONDITION_BLIND] != 0,
                             character->iProfession == W8_PROFESSION_MONK, record->effective_level,
                             npc_fade_flag, static_cast<int>(monster_info->party_threat.sight_state),
-                            CurrentGame().party.modifiers.sight_override, distance);
+                            CurrentGame().party.modifiers.sight_override, distance,
+                            viewing_distance);
 
                         if (CurrentGame().search.active()) {
                             threshold *= g_sight_threat_scale;
@@ -645,7 +635,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                 }
                 monster_info->party_threat.party_detected = seen_by_party;
                 if (seen_by_party) {
-                    if (GetViewDistance() == g_sight_default) {
+                    if (!CurrentGame().accelerated_calendar) {
                         if (record == 0 ||
                             (SetFactionFlag(static_cast<signed char>(record->faction_id), true),
                              (record->flags & W8_MONSTER_FLAG_NPC) == 0)) {
@@ -656,11 +646,12 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                   (0x78U < static_cast<unsigned int>(
                                                CurrentGame().status.world_clock -
                                                monster_info->party_threat.last_seen_clock))) &&
-                                 (ShowMonsterTargetMarker(monster_info) == 0)) &&
+                                 (monster.targetMarkerVisible() == 0)) &&
                                 (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE ||
                                  monster_info->ubDisposition == W8_DISPOSITION_NEUTRAL) &&
-                                (g_sight_marker_tick == 0 || now - g_sight_marker_tick > 199)) {
-                                g_sight_marker_tick = now;
+                                (CurrentGame().sight_notices.marker == 0 ||
+                                 now - CurrentGame().sight_notices.marker > 199)) {
+                                CurrentGame().sight_notices.marker = now;
                                 int party_slot =
                                     CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, -1, -1);
 
@@ -684,7 +675,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
 
                             if (npc != 0 && !npc->party_noticed &&
                                 npc->record->monster_bound == 0 &&
-                                ShowMonsterTargetMarker(monster_info) != 0) {
+                                monster.targetMarkerVisible() != 0) {
                                 glm::vec3 delta;
                                 delta = own_position - monster.owner_world.party.position();
                                 if (glm::length(delta) < 25000.0f &&
@@ -719,8 +710,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
 
                         monster.BeginFadeIn(5.0f);
                         if (!CurrentGame().surprise_possible &&
-                            (g_sight_fade_in_tick == 0 || now - g_sight_fade_in_tick > 199)) {
-                            g_sight_fade_in_tick = now;
+                            (CurrentGame().sight_notices.fade_in == 0 ||
+                             now - CurrentGame().sight_notices.fade_in > 199)) {
+                            CurrentGame().sight_notices.fade_in = now;
                             ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x1dd]);
                         }
                     }
@@ -739,8 +731,9 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
 
                 monster.BeginFadeOut(5.0f);
                 if (!CurrentGame().surprise_possible &&
-                    (g_sight_fade_out_tick == 0 || now - g_sight_fade_out_tick > 199)) {
-                    g_sight_fade_out_tick = now;
+                    (CurrentGame().sight_notices.fade_out == 0 ||
+                     now - CurrentGame().sight_notices.fade_out > 199)) {
+                    CurrentGame().sight_notices.fade_out = now;
                     ShowNotice(W8_FONT_PALETTE_WHITE, Data().strings[0x1de]);
                 }
             }
@@ -791,7 +784,7 @@ bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
     Monster& target_monster = *target_info->entity;
     if (!target_info->pCombat) {
         distance = source_monster.GetDistanceToMonster(target_monster);
-        world = GetWorld();
+        world = &source_monster.owner_world;
         far_clip = WorldGetFarClip(world);
         if (distance <= far_clip) {
             record = {};

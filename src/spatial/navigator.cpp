@@ -676,17 +676,14 @@ void Navigator::UpdateLinkedNavigator(std::optional<BoundingSphere> player)
         return;
     }
     linked_update_time = tick;
-    glm::vec3 camera = owner_world.party.eye();
     if (linked_navigator->monster_owner &&
         linked_navigator->monster_owner->IsWithinWorldRange() != 0) {
-        const auto bounds = linked_navigator->monster_owner->GetWorldAnimationBounds();
-        if (bounds && targetMarkerVisible(camera, *bounds) != 0) {
+        if (linked_navigator->monster_owner->targetMarkerVisible()) {
             goto follow_path;
         }
     }
     if (monster_owner && monster_owner->IsWithinWorldRange() != 0) {
-        const auto bounds = monster_owner->GetWorldAnimationBounds();
-        if (bounds && targetMarkerVisible(camera, *bounds) != 0) {
+        if (monster_owner->targetMarkerVisible()) {
             goto follow_path;
         }
     }
@@ -700,6 +697,7 @@ follow_path:
         }
     } else {
         SetMovementStopped();
+        const auto camera = owner_world.party.eye();
         AimAtPosition(&camera);
     }
 }

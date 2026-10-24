@@ -367,15 +367,13 @@ static bool IsWorldItemMarkerVisible(W8WorldItem* item, const glm::vec3& camera)
 {
     if (item->entity) {
         glm::vec3 position;
-        glm::vec3 eye;
         position = item->entity->GetLocation();
-        eye = cameraLocation();
         glm::vec3 delta = position - camera;
         if (glm::length(delta) < static_cast<float>(2500.0)) {
             auto bounds = item->entity->GetCachedLocalBounds();
             bounds.minimum += position;
             bounds.maximum += position;
-            return targetMarkerVisible(eye, bounds) != 0;
+            return item->entity->owner_world.targetMarkerVisible(bounds);
         }
     }
     return false;

@@ -79,8 +79,7 @@ bool PointInsideBounds(const glm::vec3* point, const glm::vec3* minimum, const g
 
 /* Project one world point through the active world's camera and report
    whether it stays in front of it. */
-bool projectsToCamera(const glm::vec3& position)
+bool World::projectsToCamera(const glm::vec3& position) const
 {
-    return GetWorld()->camera->project(glm::dvec3(position)).result ==
-           Camera3D::PROJECTION_RESULT_ACCEPTED;
+    return camera->project(glm::dvec3(position)).result == Camera3D::PROJECTION_RESULT_ACCEPTED;
 }

@@ -327,18 +327,6 @@ void AimAtGroundTarget(int party_slot)
 /* Walk every party slot and every live monster: anyone already aiming at
    `target` drops that aim when combat and their action require it. */
 
-/* Put the on-screen marker over one monster, from the party's eye to the
-   monster's own bounds. */
-unsigned char ShowMonsterTargetMarker(W8MonsterInfo* monster_info)
-{
-    glm::vec3 eye;
-
-    assert(monster_info != 0);
-    eye = cameraLocation();
-    const auto bounds = monster_info->entity->GetWorldAnimationBounds();
-    return bounds && targetMarkerVisible(eye, *bounds);
-}
-
 /* Whether a recorded target is of the kind a caller needs. Each needed kind
    admits one or two target kinds that additionally have to be present.
    Other requirements are accepted after the null-target check. */
@@ -1219,7 +1207,6 @@ void RefreshAllPartyTargets(void)
    pair in the group's scratch slot. */
 void RefreshMonsterTargetCounts(void)
 {
-    glm::vec3 camera;
     unsigned int group_index;
 
     for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
@@ -1241,9 +1228,7 @@ void RefreshMonsterTargetCounts(void)
                 continue;
             }
             assert(monster_info != 0);
-            camera = cameraLocation();
-            const auto bounds = monster_info->entity->GetWorldAnimationBounds();
-            if (bounds && targetMarkerVisible(camera, *bounds) != 0) {
+            if (monster_info->entity->targetMarkerVisible()) {
                 on_screen_count += 1;
             }
             if (CurrentGame().status.selected_character == -1 ||

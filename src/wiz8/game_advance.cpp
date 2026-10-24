@@ -5,7 +5,6 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"
-#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterAI.h"
@@ -89,7 +88,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
     } else if (!hold.combat && !activity.conversation) {
         combat->step(*this);
     }
-    if (IsSightRangeOverridden() && HostilesEngage(*this)) beginCombat(0);
+    if (accelerated_calendar && HostilesEngage(*this)) beginCombat(0);
     if (Due(sight_due, kSightInterval)) UpdateMonsterSight();
     if (!advancement.held) {
         UpdateMonsterGroups(true);

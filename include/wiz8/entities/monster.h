@@ -172,6 +172,7 @@ public:
        bounded at nine by the body's own `ja` against the jump table. */
     int Query(W8MonsterQueryKind query);         /* 0x004C4660 */
     std::optional<BoundingBox> GetWorldAnimationBounds();
+    bool targetMarkerVisible();
     glm::vec3 GetRepresentationLocation() const;
     glm::vec3 GetRepresentationLocalLocation() const;
     void SetFacing(float angle);

@@ -459,7 +459,7 @@ void CullExpiredEncounters(void)
     float span;
 
     party = cameraLocation();
-    if (!IsSightRangeOverridden()) {
+    if (!CurrentGame().accelerated_calendar) {
         span = GetWorld()->encounters.culling_seconds * g_sight_default;
     } else {
         span = GetWorld()->encounters.culling_seconds * g_encounter_culling_scale_fast *

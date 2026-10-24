@@ -57,7 +57,6 @@ void AimAtGroundTarget(int party_slot);
    the ordinary group selection has no usable monster. */
 
 void SetFactionFlag(signed char faction, bool flag);
-unsigned char ShowMonsterTargetMarker(W8MonsterInfo* monster_info);
 bool IsSpellTargetStillValid(int party_slot, int spell_id, const W8Action& selected);
 
 /* The action as the slot can carry it out: nothing while its member cannot participate,
