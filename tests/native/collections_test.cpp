@@ -1675,3 +1675,38 @@ TEST_CASE("Failed operations do not publish completion or consume older pending 
     }
     REQUIRE(seen == std::vector<unsigned int>{1, 3});
 }
+
+TEST_CASE("Formation owns death, revival and full-row refusal", "[party][formation]")
+{
+    W8PartyFormationState formation;
+    REQUIRE(formation.seatInRow(0, 0));
+    REQUIRE(formation.seatInRow(1, 0));
+    REQUIRE(formation.seatInRow(2, 0));
+    const auto full = formation;
+    REQUIRE_FALSE(formation.seatInRow(3, 0));
+    REQUIRE(formation == full);
+
+    formation.positions[0].unknown_04[0] = 42;
+    formation.updateLiveness(0, true);
+    REQUIRE_FALSE(formation.cellOf(0));
+    REQUIRE(formation.positions[0].revival_row == 0);
+    REQUIRE(formation.cellOf(1) == W8FormationCell{0, 2});
+    REQUIRE(formation.cellOf(2) == W8FormationCell{0, 1});
+    const auto dead = formation;
+    formation.updateLiveness(0, true);
+    REQUIRE(formation == dead);
+
+    SECTION("Revival restores the remembered row")
+    {
+        formation.updateLiveness(0, false);
+        REQUIRE(formation.cellOf(0) == W8FormationCell{0, 0});
+    }
+    SECTION("A full remembered row falls back to the center")
+    {
+        REQUIRE(formation.seatInRow(3, 0));
+        formation.updateLiveness(0, false);
+        REQUIRE(formation.cellOf(0) == W8FormationCell{4, 0});
+    }
+    REQUIRE(formation.positions[0].revival_row == -1);
+    REQUIRE(formation.positions[0].unknown_04[0] == 42);
+}

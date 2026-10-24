@@ -27,9 +27,11 @@
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/JournalScreen.h"
+#include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
@@ -310,6 +312,16 @@ struct GameEventPresentation {
         if (!hud) return;
         if (hud->open_submenu) ReopenSubMenuPanel();
         RefreshFlaggedMainGameState();
+    }
+    void operator()(const FormationChanged&) const
+    {
+        if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME ||
+            g_settings.main_ui_mode == W8_MAIN_UI_MODE_RADAR)
+            return;
+        if (auto* screen = MainGame()) {
+            RefreshFormationBoard();
+            if (screen->radar_map) screen->radar_map->refresh();
+        }
     }
     void operator()(const SkillImproved& improved) const
     {

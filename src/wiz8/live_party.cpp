@@ -23,7 +23,6 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
-#include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -41,6 +40,7 @@
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_conditions.h"
+#include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
@@ -92,6 +92,21 @@ void PushSlotDisplayChanged(Events& events, unsigned int slot)
     events.push(PartyPanelChanged{});
 }
 
+void UpdateFormationPresence(Game& game, W8PartyFormationState& formation, unsigned int slot)
+{
+    const int previous = formation.rowOf(slot);
+    const int remembered = formation.positions[slot].revival_row;
+    formation.updateLiveness(slot,
+                             game.party.characters[slot].highest_condition >= W8_CONDITION_DEAD);
+    const int row = formation.rowOf(slot);
+    if (row == previous || !game.status.game_started || game.activity.conversation) return;
+    const bool live = &formation == &game.party.formation;
+    if (live) game.events.push(FormationChanged{});
+    if (row != -1 && (live || row != remembered))
+        game.events.push(
+            CharacterNotice{slot, fmt::sprintf(game.data.strings[0x24c], kFormationRowNames[row])});
+}
+
 /* Rescan member `slot`'s highest condition. A member who can no longer hold a formation
    seat leaves it, and one who can again returns; the portrait lies down from sleep upward
    and gets up again below it. */
@@ -99,10 +114,10 @@ void RecomputeHighestCondition(Game& game, unsigned int slot)
 {
     auto& character = game.party.characters[slot];
     character.highest_condition = HighestCondition(character);
-    UpdateFormationSlotState(&game.party.formation, slot);
+    UpdateFormationPresence(game, game.party.formation, slot);
     if (game.combat.has_value()) {
-        UpdateFormationSlotState(&game.planned_formation, slot);
-        UpdateFormationSlotState(&game.combat->saved_formation, slot);
+        UpdateFormationPresence(game, game.planned_formation, slot);
+        UpdateFormationPresence(game, game.combat->saved_formation, slot);
     }
     auto& entry = game.monster_manager_entries[slot];
     const bool lying = character.highest_condition >= W8_CONDITION_ASLEEP;

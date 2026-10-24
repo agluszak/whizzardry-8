@@ -10,6 +10,7 @@ struct Story;
 #include <string_view>
 #include <vector>
 
+#include "wiz8/audio_resources.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_script_file.h"
 struct W8NpcState;
@@ -45,13 +46,17 @@ struct W8NpcPriceCheck {
    class decides which script step follows. */
 class W8NpcDialogue {
 public:
+    W8NpcDialogue() = default;
+    ~W8NpcDialogue();
+    W8NpcDialogue(const W8NpcDialogue&) = delete;
+    W8NpcDialogue& operator=(const W8NpcDialogue&) = delete;
     W8NpcState* speaker() const { return session_.npc.get(); }
     int current_quote() const { return session_.current_quote_index; }
     W8NpcReplyState reply() const { return reply_; }
     const std::optional<W8NpcPriceCheck>& price_check() const { return price_check_; }
     bool has_queued_actions() const { return !queue_.empty(); }
     /* A scripted scene holds the queue until it ends. */
-    bool is_held_by_scene() const { return held_by_scene_; }
+    bool is_held_by_scene() const { return scene_.has_value(); }
     /* Party character events wait while a conversation line or queued script action
        is pending for an ungrouped speaker (or any speaker, with `require_group_entry`),
        unless a scripted scene holds the dialogue. */
@@ -114,7 +119,10 @@ public:
     void ReplyDialogClosed();
     /* Drop a pending reply and price check without answering. */
     void AbandonReply();
-    void HoldForScene();
+    // Begin replaces the previous scene and cancels its pending sound completion.
+    void BeginScene();
+    // Successful playback owns this wait; failure leaves any existing scene unchanged.
+    void BeginSoundScene(std::string_view path);
     void ReleaseScene();
 
 private:
@@ -158,7 +166,9 @@ private:
     std::vector<int> pending_quotes_;
     bool queue_idle_ = false;
     unsigned int cancellation_generation_ = 0;
-    bool held_by_scene_ = false;
+    // No scene means no wait; an empty playback is an externally completed scene.
+    // A sound-backed scene cancels its completion when replaced or destroyed.
+    std::optional<wiz8::sound::Playback> scene_;
 };
 
 std::string GetNpcScriptRegionName(int region);

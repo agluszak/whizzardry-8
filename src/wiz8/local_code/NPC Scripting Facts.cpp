@@ -62,13 +62,6 @@
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
-/* Potion explosion completion callback: retail stores this JMP thunk rather than
-   ClearScriptedSceneActive's void() entry. */
-static void ClearPotionExplosionSoundFlag()
-{
-    CurrentGame().npc_dialogue.ReleaseScene();
-}
-
 /* Camera-shake completion callback stored on ShakeDefinition::completion_callback. */
 static void ReplayEarthquakeShake(void)
 {
@@ -711,10 +704,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_FUZZFAS_BOOM1:
     case W8_FACT_FUZZFAS_BOOM2:
-        if (wiz8::sound::play("Data\\Sound\\misc\\potion_exploding.wav",
-                              {.on_finished = ClearPotionExplosionSoundFlag}) != nullptr) {
-            CurrentGame().npc_dialogue.HoldForScene();
-        }
+        context.game.npc_dialogue.BeginSoundScene("Data\\Sound\\misc\\potion_exploding.wav");
         particle = FindParticleByName("FuzzBlast");
         if (particle != 0) {
             particle->SetActive(false);

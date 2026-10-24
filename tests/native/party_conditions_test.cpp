@@ -235,3 +235,25 @@ TEST_CASE_METHOD(PartyFixture,
     REQUIRE(hits == 1);
     REQUIRE(deaths == 1);
 }
+
+TEST_CASE_METHOD(PartyFixture, "Candidate conditions change only its own formation",
+                 "[conditions][formation]")
+{
+    Game candidate{data};
+    candidate.level.replacePrimary(std::make_unique<World>());
+    candidate.party.members[0].emplace();
+    candidate.party.characters[0] = member();
+    candidate.party.formation.placeCharacter(0);
+    const auto outgoing = game.party.formation;
+    const auto outgoing_events = game.events.pending().size();
+
+    REQUIRE(InflictCondition(candidate, 0, {.condition = W8_CONDITION_ASLEEP, .duration = 5}));
+    REQUIRE(candidate.party.formation.rowOf(0) == 0);
+    REQUIRE(InflictCondition(
+        candidate, 0, {.condition = W8_CONDITION_DEAD, .duration = W8_CONDITION_INDEFINITE}));
+    REQUIRE_FALSE(candidate.party.formation.cellOf(0));
+    REQUIRE(candidate.party.formation.positions[0].revival_row == 0);
+    REQUIRE(game.party.formation == outgoing);
+    REQUIRE(member().highest_condition == W8_CONDITION_NONE);
+    REQUIRE(game.events.pending().size() == outgoing_events);
+}

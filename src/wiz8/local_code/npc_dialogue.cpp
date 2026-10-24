@@ -11,6 +11,7 @@
 
 #include <fmt/format.h>
 
+#include "wiz8/audio/soundman.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
@@ -549,12 +550,27 @@ void W8NpcDialogue::AbandonReply()
     price_check_.reset();
 }
 
-void W8NpcDialogue::HoldForScene()
+W8NpcDialogue::~W8NpcDialogue()
 {
-    held_by_scene_ = true;
+    if (scene_) wiz8::sound::stop(*scene_);
+}
+
+void W8NpcDialogue::BeginScene()
+{
+    ReleaseScene();
+    scene_.emplace();
+}
+
+void W8NpcDialogue::BeginSoundScene(std::string_view path)
+{
+    auto sound = wiz8::sound::play(path, {.on_finished = [this] { ReleaseScene(); }});
+    if (!sound) return;
+    ReleaseScene();
+    scene_ = std::move(sound);
 }
 
 void W8NpcDialogue::ReleaseScene()
 {
-    held_by_scene_ = false;
+    if (scene_) wiz8::sound::stop(*scene_);
+    scene_.reset();
 }

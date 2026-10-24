@@ -214,6 +214,11 @@ Two layers are enforced:
   read and change explicitly: `const GameData&`, the character, party or item values,
   `Rng&`, `Events&`.
 
+The formation model owns seating, row packing, death removal and remembered-row
+revival. Condition settlement updates the supplied game's live, planned and saved
+formations; presentation observes the settled live formation. Planned combat choices
+and the restoration formation remain distinct from current placement.
+
 A layer file includes only its own layer, the layers below it, the standard
 library, glm, fmt and three stateless headers (`math.h`, `world/camera_pose.h`,
 `retail_opaque_records.h`), and declares no mutable globals. `tools/check_layers.py`
@@ -339,6 +344,10 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   create it or paint a different game's controls. Speech destruction does not release
   UI. Voice playback still begins inside dispatch, so silent candidate preparation
   is not yet guaranteed.
+  A scripted scene is one active dialogue wait. Starting a replacement cancels the
+  prior scene's sound completion; finishing or destroying it releases its playback.
+  A sound-backed scene resumes only its originating dialogue, never the installed
+  game. Quote-panel suspension does not own or accidentally end that scene.
 - **Advancement and stepping.** `Game::advance(elapsed, hold)` (`game_advance.cpp`)
   is the game's one step: it applies the interface's hold, runs speech, and in the
   world runs the simulation in retail order. `Game::time` is the step time that

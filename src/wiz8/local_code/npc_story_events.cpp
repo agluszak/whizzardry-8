@@ -153,7 +153,7 @@ void BeginNpcScriptedScene(const ScriptContext& context)
 {
     int party_slot;
 
-    CurrentGame().npc_dialogue.HoldForScene();
+    context.game.npc_dialogue.BeginScene();
     ResetLevelDataVectors();
     context.activity.scripted_scene = true;
     context.events.push(TargetingRequested{W8_TARGET_NEED_ALLY});
@@ -285,7 +285,7 @@ void BeginSedexusCapture(const ScriptContext& context)
 {
     unsigned int party_slot;
 
-    CurrentGame().npc_dialogue.HoldForScene();
+    context.game.npc_dialogue.BeginScene();
     BeginScriptedWorldAction();
     CurrentGame().sedexus_scene.capture_pending = true;
     CurrentGame().sedexus_scene.capture_active = true;
@@ -326,7 +326,7 @@ static void ResolveSedexusCapture(void)
             }
         }
     }
-    CurrentGame().npc_dialogue.HoldForScene();
+    CurrentGame().npc_dialogue.BeginScene();
     CurrentGame().sedexus_scene.release_pending = true;
     BeginWorldLightingFade(1000.0f);
     RunNamedTrigger("al-seduxusgate", -1);

@@ -1,6 +1,7 @@
 #include "wiz8/rules/party_formation.h"
 
 #include <algorithm>
+#include <cassert>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -102,4 +103,56 @@ void W8PartyFormationState::reconcile(std::span<const std::optional<W8PartyMembe
 {
     for (int slot = 0; slot < 8; ++slot)
         if (!members[slot] && cellOf(slot)) setPosition(slot, std::nullopt, true, true);
+}
+
+bool W8PartyFormationState::seatInRow(int slot, int row)
+{
+    const int count = rowOccupants(row);
+    if (count == W8_FORMATION_COLUMNS) return false;
+    int column = 0;
+    if (count == 1) {
+        const auto leader = occupant(row, 0);
+        assert(leader);
+        setPosition(*leader, W8FormationCell{row, 1}, false, true);
+        column = 2;
+    } else {
+        assert(!occupant(row, 0));
+    }
+    setPosition(slot, W8FormationCell{row, column}, true, true);
+    return true;
+}
+
+void W8PartyFormationState::placeCharacter(int slot)
+{
+    setPosition(slot, std::nullopt, false, false);
+    for (int row : {0, 4, 2})
+        if (seatInRow(slot, row)) return;
+    throw std::logic_error("A party formation has no free seat");
+}
+
+bool W8PartyFormationState::swapOrRestore(int slot, int other)
+{
+    assert(slot != other);
+    if (cellOf(other)) {
+        swap(slot, other);
+        return true;
+    }
+    const int row = positions[other].revival_row;
+    return row == -1 || seatInRow(slot, row);
+}
+
+void W8PartyFormationState::updateLiveness(int slot, bool dead)
+{
+    const int row = rowOf(slot);
+    auto& history = positions[slot].revival_row;
+    if (dead) {
+        if (row != -1) {
+            history = static_cast<signed char>(row);
+            setPosition(slot, std::nullopt, true, true);
+        }
+        return;
+    }
+    if (row != -1) return;
+    if (history == -1 || !seatInRow(slot, history)) placeCharacter(slot);
+    history = -1;
 }

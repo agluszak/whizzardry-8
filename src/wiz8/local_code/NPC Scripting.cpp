@@ -339,7 +339,7 @@ void ReloadNpcScriptResources(W8NpcState* npc)
 
 void W8NpcDialogue::Advance(const ScriptContext& context)
 {
-    if (held_by_scene_ || has_active_utterance()) {
+    if (is_held_by_scene() || has_active_utterance()) {
         return;
     }
     if (reply_ != W8NpcReplyState::dialog_open) {

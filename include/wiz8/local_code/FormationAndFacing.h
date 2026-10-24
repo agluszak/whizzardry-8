@@ -1,6 +1,5 @@
 #pragma once
 
-#include <optional>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/rules/party_formation.h"
@@ -35,15 +34,6 @@ bool IsPartyLookingAwayFrom(int party_slot, W8MonsterInfo* monster_info);
    and in better shape than the hostile conditions. */
 bool CanHoldFormationPlace(int party_slot);
 void RestoreCombatFormation(void);
-/* Give one joining party slot its formation position, scanning
-   the row order for the first free one. */
-void PlaceCharacterInFormation(W8PartyFormationState* formation, int slot);
-/* Move one party slot into a formation cell, or unseat it, announcing the row
-   change when asked and redrawing the live formation's displays. */
-void SetFormationPosition(W8PartyFormationState* formation, int slot,
-                          std::optional<W8FormationCell> cell, bool announce, bool detach,
-                          bool update_facing);
-
 void InitializePartyFormation(W8PartyFormationState* state);
 /* Remember the formation combat started with. */
 void SaveCombatFormation(void);
@@ -51,15 +41,6 @@ void SaveCombatFormation(void);
    characters that can no longer hold their edited place and writing the
    result back into both formations. */
 void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationState* live);
-/* Keep one slot's seat in step with its liveness - death remembers
-   its row as the revival row and unseats it, revival re-seats it there or
-   in a fallback row. */
-void UpdateFormationSlotState(W8PartyFormationState* formation, int slot);
-/* Seat one party slot in a formation row, shuffling its occupants
-   to make room, or refuse a full row with a notice. */
-void SeatFormationSlotInRow(W8PartyFormationState* formation, int slot, int row);
-/* Swap two party slots' formation positions. */
-void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b);
 /* Re-aim party_heading at the selected character's formation
    facing and swing the camera to match, while the camera is not being
    rotated by hand. */

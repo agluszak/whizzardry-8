@@ -9,6 +9,7 @@
 #include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_surface.h>
+#include <fmt/printf.h>
 
 #include "glm/ext/vector_int2.hpp"
 #include "layouts/main_game_screen.h"
@@ -490,15 +491,22 @@ static void DropFormationSlot(int cell)
 {
     if (cell != -1 && cell != g_formation_drag_cell) {
         if (FormationCellSlot(cell) == -1) {
-            SetFormationPosition(&CurrentGame().planned_formation, g_formation_drag_slot,
-                                 std::nullopt, false, true, true);
-            SeatFormationSlotInRow(&CurrentGame().planned_formation, g_formation_drag_slot,
-                                   cell / 3);
+            auto& proposal = CurrentGame().planned_formation;
+            proposal.setPosition(g_formation_drag_slot, std::nullopt, true, true);
+            if (!proposal.seatInRow(g_formation_drag_slot, cell / 3))
+                PostCharacterNotice(
+                    g_formation_drag_slot,
+                    fmt::sprintf(Data().strings[0x24e], kFormationRowNames[cell / 3]));
         } else if (!CanHoldFormationPlace(FormationCellSlot(cell))) {
             cell = -1;
         } else {
-            SwapFormationSlots(&CurrentGame().planned_formation, g_formation_drag_slot,
-                               FormationCellSlot(cell));
+            auto& proposal = CurrentGame().planned_formation;
+            const int other = FormationCellSlot(cell);
+            if (!proposal.swapOrRestore(g_formation_drag_slot, other))
+                PostCharacterNotice(
+                    g_formation_drag_slot,
+                    fmt::sprintf(Data().strings[0x24e],
+                                 kFormationRowNames[proposal.positions[other].revival_row]));
         }
     }
     const int dragged_from = std::exchange(g_formation_drag_cell, -1);

@@ -27,7 +27,6 @@
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -464,7 +463,13 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
             break;
         }
     }
-    PlaceCharacterInFormation(&CurrentGame().party.formation, slot);
+    CurrentGame().party.formation.placeCharacter(slot);
+    if (GameStarted() && !CurrentGame().activity.conversation) {
+        CurrentGame().events.push(FormationChanged{});
+        CurrentGame().events.push(CharacterNotice{
+            slot, fmt::sprintf(Data().strings[0x24c],
+                               kFormationRowNames[CurrentGame().party.formation.rowOf(slot)])});
+    }
     CurrentGame().party.formation.positions[slot].revival_row = -1;
 
     if (GameStarted()) {
@@ -490,13 +495,12 @@ void RemoveCharacterFromParty(int party_slot)
     character->fInParty = false;
     character->highest_condition = W8_CONDITION_NONE;
     character->enchantment_top = W8_ENCHANTMENT_NONE;
-    SetFormationPosition(&CurrentGame().party.formation, party_slot, std::nullopt, false, true,
-                         true);
+    CurrentGame().party.formation.setPosition(party_slot, std::nullopt, true, true);
+    if (GameStarted() && !CurrentGame().activity.conversation)
+        CurrentGame().events.push(FormationChanged{});
     if (CurrentGame().combat.has_value()) {
-        SetFormationPosition(&CurrentGame().planned_formation, party_slot, std::nullopt, false,
-                             true, true);
-        SetFormationPosition(&CurrentGame().combat->saved_formation, party_slot, std::nullopt,
-                             false, true, true);
+        CurrentGame().planned_formation.setPosition(party_slot, std::nullopt, true, true);
+        CurrentGame().combat->saved_formation.setPosition(party_slot, std::nullopt, true, true);
     }
     if (GameStarted()) {
         PostCharacterNotice(party_slot, Data().strings[0x251]);
@@ -548,7 +552,13 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
             break;
         }
     }
-    PlaceCharacterInFormation(&CurrentGame().party.formation, slot);
+    CurrentGame().party.formation.placeCharacter(slot);
+    if (GameStarted() && !CurrentGame().activity.conversation) {
+        CurrentGame().events.push(FormationChanged{});
+        CurrentGame().events.push(CharacterNotice{
+            slot, fmt::sprintf(Data().strings[0x24c],
+                               kFormationRowNames[CurrentGame().party.formation.rowOf(slot)])});
+    }
     CurrentGame().party.formation.positions[slot].revival_row = -1;
     RecalculateCharacterDerivedStats(CurrentGame(), *character);
     if (buy_equipment) {

@@ -149,6 +149,8 @@ struct PartyEffectsChanged {};
 struct CombatEffectsChanged {};
 // What the world view's frame shows about the party changed: conditions, quotes.
 struct PartyPanelChanged {};
+// Accepted formation is settled; presentation derives the board, radar and camera from it.
+struct FormationChanged {};
 // A member joined or left; everything the party is shown in changes.
 struct PartyMembershipChanged {};
 // An item left the world.
@@ -167,7 +169,7 @@ using Event =
                  WorldAdvancementChanged, CombatantsMoved, CombatExecutionBegan, CombatCalledOff,
                  CombatBegan, CombatEnded, CombatProgressChanged, CombatStanceChanged,
                  MonstersChanged, PartyEffectsChanged, CombatEffectsChanged, PartyPanelChanged,
-                 PartyMembershipChanged, WorldItemRemoved, TargetingRequested>;
+                 PartyMembershipChanged, WorldItemRemoved, TargetingRequested, FormationChanged>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events

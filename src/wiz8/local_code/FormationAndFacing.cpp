@@ -2,8 +2,6 @@
 
 #include <cassert>
 #include <cmath>
-#include <optional>
-#include <vector>
 
 #include <fmt/printf.h>
 
@@ -24,6 +22,7 @@
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
@@ -38,8 +37,6 @@
 /* A full turn, and the half-quadrant the bearing is biased by so that a
    quadrant is centred on its facing rather than starting at it. */
 enum { W8_DEGREES_PER_TURN = 360, W8_DEGREES_PER_QUADRANT = 90 };
-
-extern char g_formation_row_names[5][20];
 
 /* Reconcile an edited formation against the live one. Characters still able
    to hold a place take their edited seat - a moved slot announces its new row
@@ -56,6 +53,8 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
     int column;
 
     InitializePartyFormation(&working);
+    working.positions = live->positions;
+    working.unknown_74 = live->unknown_74;
     for (slot = 0; slot < 8; ++slot) {
         const W8Character* character = &CurrentGame().party.characters[slot];
 
@@ -65,7 +64,11 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
         }
         const auto cell = edited->cellOf(slot);
         const bool row_changed = edited->rowOf(slot) != live->rowOf(slot);
-        SetFormationPosition(&working, slot, cell, row_changed, false, row_changed);
+        working.setPosition(slot, cell, false, row_changed);
+        if (row_changed && cell && GameStarted() && !CurrentGame().activity.conversation)
+            CurrentGame().events.push(CharacterNotice{
+                static_cast<unsigned int>(slot),
+                fmt::sprintf(Data().strings[0x24c], kFormationRowNames[cell->row])});
         if (!row_changed) {
             working.positions[slot].facing = live->positions[slot].facing;
         }
@@ -73,14 +76,13 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
     for (slot = 0; slot < 8; ++slot) {
         const W8Character* character = &CurrentGame().party.characters[slot];
         W8PartyFormationPosition* live_position = &live->positions[slot];
-        W8PartyFormationPosition* edited_position = &edited->positions[slot];
 
         if (!CurrentGame().party.members[slot].has_value() ||
             (character->hp_current > 0 && character->highest_condition < W8_CONDITION_TURNCOAT)) {
             continue;
         }
         if (character->highest_condition >= W8_CONDITION_DEAD) {
-            *edited_position = *live_position;
+            working.positions[slot] = *live_position;
             continue;
         }
         if (edited->rowOf(slot) != live->rowOf(slot)) {
@@ -102,11 +104,11 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
                 }
                 assert(column != -1);
             }
-            SetFormationPosition(&working, slot, W8FormationCell{row, column}, false, false, false);
+            working.setPosition(slot, W8FormationCell{row, column}, false, false);
             working.positions[slot].facing = live_position->facing;
             if (edited->rowOf(slot) != row) {
-                PostCharacterNotice(
-                    slot, fmt::sprintf(Data().strings[0x249], &g_formation_row_names[row][0]));
+                PostCharacterNotice(slot,
+                                    fmt::sprintf(Data().strings[0x249], kFormationRowNames[row]));
             }
         } else {
             const int new_rows[3] = {4, 2, 3};
@@ -117,10 +119,9 @@ void ReconcilePartyFormation(W8PartyFormationState* edited, W8PartyFormationStat
 
                 for (column = 0; column < 3; ++column) {
                     if (!working.occupant(new_row, column)) {
-                        SetFormationPosition(&working, slot, W8FormationCell{new_row, column},
-                                             false, false, true);
-                        PostCharacterNotice(slot, fmt::sprintf(Data().strings[0x24a],
-                                                               &g_formation_row_names[new_row][0]));
+                        working.setPosition(slot, W8FormationCell{new_row, column}, false, true);
+                        PostCharacterNotice(
+                            slot, fmt::sprintf(Data().strings[0x24a], kFormationRowNames[new_row]));
                         placed = true;
                         break;
                     }
@@ -390,178 +391,6 @@ bool IsPartyLookingAt(W8MonsterInfo* monster_info, glm::vec3 point)
     float bearing = NormalizeAngle(GetHeadingAngle(&monster_position, &point));
 
     return fabsf(bearing - monster_info->entity->nav.GetYaw()) <= g_facing_tolerance0;
-}
-
-/* The five formation rows' display names, indexed by row. */
-char g_formation_row_names[5][20] = {
-    "Front", "Right", "Rear", "Left", "Center",
-};
-
-/* Make room in `row` for one more character and return the column it should
-   take: an empty row, or one whose lead column is already open, seats it in
-   column 0; a lone leader moves over to column 1 and the newcomer takes column
-   2. A full row has no room (-1). */
-static int MakeRoomInFormationRow(W8PartyFormationState* formation, int row)
-{
-    switch (formation->rowOccupants(row)) {
-    case 0:
-        return 0;
-    case 1: {
-        const auto leader = formation->occupant(row, 0);
-        assert(leader);
-        SetFormationPosition(formation, *leader, W8FormationCell{row, 1}, false, false, true);
-        return 2;
-    }
-    case 2:
-        assert(!formation->occupant(row, 0));
-        return 0;
-    default:
-        return -1;
-    }
-}
-
-/* Give one joining party slot its formation position: clear the position and
-   walk the rows in the 0, 4, 2 order. An empty row takes the joiner in its
-   first column; a row led by one character moves that leader to the second
-   column and puts the joiner in the third; a row already holding two takes
-   the joiner directly. */
-void PlaceCharacterInFormation(W8PartyFormationState* formation, int slot)
-{
-    const int row_order[3] = {0, 4, 2};
-
-    formation->setPosition(slot, std::nullopt, false, false);
-    for (int row : row_order) {
-        const int seat = MakeRoomInFormationRow(formation, row);
-        if (seat != -1) {
-            SetFormationPosition(formation, slot, W8FormationCell{row, seat}, true, true, true);
-            return;
-        }
-    }
-}
-
-/* Move one party position into a formation row and column: clear the old
-   entry from its row's occupant list, install the new row and column, place
-   the slot in the new row and update the facing. The detach flag re-places
-   the positions left in the old row, and the announce flag posts the row
-   name to the slot. */
-// FUNCTION: WIZ8 0x00554dd0
-static bool FormationNoticesShown()
-{
-    return GameStarted() && !CurrentGame().activity.conversation;
-}
-
-/* Redraw the board and radar after the live formation changed. */
-static void RefreshFormationDisplays(const W8PartyFormationState* formation)
-{
-    if (FormationNoticesShown() && CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
-        g_settings.main_ui_mode != W8_MAIN_UI_MODE_RADAR &&
-        formation == &CurrentGame().party.formation) {
-        RefreshFormationBoard();
-        if (auto* screen = MainGame(); screen && screen->radar_map) screen->radar_map->refresh();
-    }
-}
-
-void SetFormationPosition(W8PartyFormationState* formation, int slot,
-                          std::optional<W8FormationCell> cell, bool announce, bool detach,
-                          bool update_facing)
-{
-    const auto old_row = formation->rowOf(slot);
-    formation->setPosition(slot, cell, detach, update_facing);
-    RefreshFormationDisplays(formation);
-    if (FormationNoticesShown()) {
-        if (announce) {
-            if (cell) {
-                PostCharacterNotice(slot, fmt::sprintf(Data().strings[0x24c],
-                                                       &g_formation_row_names[cell->row][0]));
-                return;
-            }
-            if (old_row != -1) {
-                PostCharacterNotice(
-                    slot, fmt::sprintf(Data().strings[0x24d], &g_formation_row_names[old_row][0]));
-            }
-        }
-    }
-}
-
-/* Keep one slot's seat in step with its liveness. A member who can no longer
-   hold a place remembers its row as its revival row and is lifted out; a
-   member who can hold one again is returned to that remembered quadrant under
-   the usual seating rules, or placed like a joiner when it had none. The
-   remembered quadrant is cleared once the slot is dealt with. */
-void UpdateFormationSlotState(W8PartyFormationState* formation, int slot)
-{
-    const int row_order[3] = {0, 4, 2};
-    W8PartyFormationPosition* position = &formation->positions[slot];
-    const int current_row = formation->rowOf(slot);
-
-    if (CurrentGame().party.characters[slot].highest_condition >= W8_CONDITION_DEAD) {
-        if (current_row == -1) {
-            return;
-        }
-        position->revival_row = static_cast<signed char>(current_row);
-        SetFormationPosition(formation, slot, std::nullopt, false, true, true);
-        return;
-    }
-    if (current_row != -1) {
-        return;
-    }
-    const int revival_row = position->revival_row;
-    if (revival_row != -1) {
-        const int seat = MakeRoomInFormationRow(formation, revival_row);
-        if (seat != -1) {
-            SetFormationPosition(formation, slot, W8FormationCell{revival_row, seat},
-                                 formation == &CurrentGame().party.formation, true, true);
-            position->revival_row = -1;
-            return;
-        }
-    }
-    for (int row : row_order) {
-        const int seat = MakeRoomInFormationRow(formation, row);
-        if (seat != -1) {
-            SetFormationPosition(formation, slot, W8FormationCell{row, seat}, true, true, true);
-            break;
-        }
-    }
-    position->revival_row = -1;
-}
-
-/* Seat one party slot in a formation row, shuffling the occupants to make
-   room: an empty row takes it in column 0, a row led by one character moves
-   the leader to column 1 and seats the slot at column 2, and a row already
-   holding two puts it in the free lead column. A full row refuses with a
-   notice naming the row. */
-void SeatFormationSlotInRow(W8PartyFormationState* formation, int slot, int row)
-{
-    const int seat = MakeRoomInFormationRow(formation, row);
-
-    if (seat != -1) {
-        SetFormationPosition(formation, slot, W8FormationCell{row, seat}, false, true, true);
-        return;
-    }
-    PostCharacterNotice(slot, fmt::sprintf(Data().strings[0x24e], &g_formation_row_names[row][0]));
-}
-
-/* Swap two party slots' formation positions. When the second slot holds no
-   cell, the first is seated in the row the second last occupied instead. */
-void SwapFormationSlots(W8PartyFormationState* formation, int slot_a, int slot_b)
-{
-    assert(slot_a != slot_b);
-    if (formation->cellOf(slot_b)) {
-        formation->swap(slot_a, slot_b);
-        RefreshFormationDisplays(formation);
-        return;
-    }
-    const int row = formation->positions[slot_b].revival_row;
-    if (row == -1) {
-        return;
-    }
-    const int seat = MakeRoomInFormationRow(formation, row);
-    if (seat != -1) {
-        SetFormationPosition(formation, slot_a, W8FormationCell{row, seat}, false, true, true);
-        return;
-    }
-    PostCharacterNotice(slot_a,
-                        fmt::sprintf(Data().strings[0x24e], &g_formation_row_names[row][0]));
 }
 
 /* Whether the monster currently faces the party's own position, inside the
