@@ -99,7 +99,6 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/world/level_session.h"
 
 struct W8NpcState;
 

@@ -4,7 +4,6 @@
 #include <ctime>
 #include <functional>
 #include <memory>
-#include <optional>
 #include <stdexcept>
 #include <utility>
 

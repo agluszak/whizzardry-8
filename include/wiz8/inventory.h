@@ -254,8 +254,7 @@ private:
     void settleOutsider(const ItemRecipient& recipient,
                         std::initializer_list<W8ItemLocation> changed)
     {
-        settleOutsider(recipient,
-                       std::span<const W8ItemLocation>(changed.begin(), changed.size()));
+        settleOutsider(recipient, std::span<const W8ItemLocation>(changed.begin(), changed.size()));
     }
 
     Game& game_;

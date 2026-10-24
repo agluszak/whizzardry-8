@@ -19,6 +19,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party_conditions.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/world/world.h"
 
 namespace {
