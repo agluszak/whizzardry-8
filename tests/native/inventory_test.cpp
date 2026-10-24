@@ -1,4 +1,5 @@
 // Game-level inventory commands: the hand, the party pool and a member's backpack.
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -7,14 +8,20 @@
 
 #include "scoped_game.h"
 #include "scoped_game_data.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
+#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/random.h"
+#include "wiz8/story.h"
 
 namespace {
 
@@ -154,4 +161,65 @@ TEST_CASE("Quantity normalization follows explicit definitions and preserves the
     item = empty;
     NormalizeItemQuantityKind(data, item);
     REQUIRE(item == empty);
+}
+
+TEST_CASE("Acquiring the Astral Dominae clears one scheduled copy without extra randomness",
+          "[inventory][facts]")
+{
+    GameData data;
+    data.items.resize(0x300);
+    data.npcs.resize(0x49);
+    data.npcs[0x48].kind = 0x48;
+    ScopedGameData definitions{std::move(data)};
+    ScopedGame scope{Data()};
+    auto& game = scope.game;
+    auto npc = std::make_shared<W8NpcState>();
+    npc->record = &Data().npcs[0x48];
+    for (auto& id : npc->item_ids) id = -1;
+    npc->item_ids[0] = npc->item_ids[1] = 0x242;
+    game.story.npcs.push_back(npc);
+    std::vector<Rng::Draw> draws;
+    game.rng.trace(&draws);
+    W8ItemInstance item{.iItemNo = 0x242};
+    REQUIRE(game.inventory.storeInPool(item, false));
+    REQUIRE(npc->item_ids[0] == -1);
+    REQUIRE(npc->item_ids[1] == 0x242);
+    REQUIRE(game.story.facts[W8_FACT_ASTRAL_POSSESS] == 1);
+    REQUIRE(game.story.journal.size() == 1);
+    REQUIRE(draws.size() == 1);
+    REQUIRE(draws.front().range == 8); // Reaction selection even when the party is empty.
+    REQUIRE_FALSE(game.inventory.pool().front().effect_used);
+
+    // Same-value writes still apply mandatory consequences, but do not journal twice.
+    SetFact(W8_FACT_ASTRAL_POSSESS, 1, false);
+    REQUIRE(npc->item_ids[1] == -1);
+    REQUIRE(game.story.journal.size() == 1);
+    REQUIRE(draws.size() == 1);
+    game.rng.trace(nullptr);
+}
+
+TEST_CASE("Repeated pool acquisitions preserve reaction draws and Chaos timing",
+          "[inventory][facts]")
+{
+    GameData data;
+    data.items.resize(0x300);
+    ScopedGameData definitions{std::move(data)};
+    ScopedGame scope{Data()};
+    auto& game = scope.game;
+    std::vector<Rng::Draw> draws;
+    game.rng.trace(&draws);
+    for (int clock : {100, 200}) {
+        game.status.world_clock = clock;
+        game.status.fact_b8_pending = false;
+        W8ItemInstance item{.iItemNo = 0x244};
+        REQUIRE(game.inventory.storeInPool(item, false));
+        REQUIRE(game.status.fact_b8_pending);
+        REQUIRE(game.status.fact_b8_clock == clock);
+    }
+    REQUIRE(game.story.journal.size() == 1);
+    W8ItemInstance ordinary{.iItemNo = 0, .effect_used = true};
+    REQUIRE(game.inventory.storeInPool(ordinary, false));
+    REQUIRE(draws.size() == 3);
+    for (const auto& draw : draws) REQUIRE(draw.range == 8);
+    game.rng.trace(nullptr);
 }

@@ -24,6 +24,7 @@
 #include "wiz8/difficulty.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/game.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/encounter_tables.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/npc_dialogue.h"
@@ -41,6 +42,7 @@
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
@@ -1812,4 +1814,25 @@ TEST_CASE("The pool saves its live items and keeps a loaded save's unused record
     REQUIRE_THROWS_AS(wiz8::save::decode_game_state(payload), std::runtime_error);
     restored.pool.resize(501);
     REQUIRE_THROWS_AS(wiz8::save::encode(restored), std::runtime_error);
+}
+
+TEST_CASE("Covert-training fact evaluation consumes its first success before journal presentation",
+          "[save][facts]")
+{
+    ScopedGameData definitions{GameData{}};
+    ScopedGame scope{Data()};
+    auto& game = scope.game;
+    game.inventory.restore({W8ItemInstance{.iItemNo = 0x1c4, .stack_count = 5}}, std::nullopt);
+    const auto fact = W8_FACT_UMISSION_TRAIN_COVERT_DONE;
+    REQUIRE(EvaluateFact(fact) == 1);
+    REQUIRE(game.status.fact_88_latch);
+    REQUIRE(EvaluateFact(fact) == 0);
+
+    game.status.fact_88_latch = false;
+    game.story.facts[fact] = 1;
+    SetFact(fact, 0, false);
+    REQUIRE(game.story.journal.size() == 1);
+    REQUIRE(game.story.journal.front().alternate_text); // First evaluated value, not stored zero.
+    REQUIRE(game.story.facts[fact] == 0);
+    REQUIRE(EvaluateFact(fact) == 0);
 }

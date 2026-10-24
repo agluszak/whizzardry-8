@@ -97,6 +97,13 @@ The decisions behind it:
      screen teardown. The session invokes them for load and end; screens request them
      and present loading. The outgoing world is released after the destination and its
      saved status are prepared.
+   - Close fact/acquisition operations before calling saved-party restoration isolated.
+     Preserve write, changed-only evaluated journal entry, mandatory same-value
+     consequences, and diagnostics in order. Legacy covert-training fact evaluation
+     consumes a latch; split that command from queries deliberately, not by caching
+     evaluated values. Pool reaction selection draws before item/reaction-bit gates,
+     and party-selection suppression is not a general pre-game suppression rule.
+     Keep observers outside the complete inventory mutation/settlement boundary.
 2. **Rules emit events; the UI presents them.**
    - Rules append, in order:
      - domain facts (`ItemReceived`, `ConditionChanged`, `CharacterDied`,

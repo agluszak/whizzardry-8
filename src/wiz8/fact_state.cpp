@@ -45,6 +45,8 @@ void PostNewGameLoad(void)
    the hard-coded rules below are the original's. The helper evaluates
    recursively for the combined facts and logs each dependency when the
    fact-check log is enabled. */
+// This legacy script test is not universally observational: covert-training success
+// consumes a one-shot latch. Preserve evaluation order until that command is separated.
 unsigned char EvaluateFact(W8FactId fact_id)
 {
     if (static_cast<unsigned>(fact_id) >= W8_FACT_SLOT_COUNT) return 0;
