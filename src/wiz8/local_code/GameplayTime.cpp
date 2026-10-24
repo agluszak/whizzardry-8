@@ -1005,7 +1005,7 @@ static void AgeMonsterMovement(W8MonsterInfo* monster_info, unsigned int minutes
                        short-move test passes; a long move leaves both alone. */
                     flags_cleared = true;
 
-                    if (!monster.owner_world.compiledIndex()->pathing.get()->SnapWaypointPosition(
+                    if (!monster.owner_world.compiledIndex()->pathing->SnapWaypointPosition(
                             &navigator_position, false) &&
                         !monster_info->party_threat.visible_to_player) {
                         glm::vec3 next_position;

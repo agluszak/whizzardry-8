@@ -10,7 +10,6 @@
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Search.h"
-#include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/monster_roster.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
