@@ -1000,8 +1000,8 @@ TEST_CASE("Collision index expands level bounds locally", "[geometry][octree]")
 
 TEST_CASE("Item bounds preserve local extents", "[geometry][item]")
 {
-    World world;
-    WorldItemEntity item(world);
+    World owner;
+    WorldItemEntity item(owner);
     item.m_psrMesh = nullptr;
     item.bounds_minimum = {-5, -3, -1};
     item.bounds_maximum = {7, 9, 11};
