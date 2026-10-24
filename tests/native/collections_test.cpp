@@ -28,6 +28,8 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/chunk.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/hostility.h"
+#include "wiz8/data/attack_modes.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -52,6 +54,7 @@
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -1922,4 +1925,62 @@ TEST_CASE("Target selection and repicking stay in their originating game", "[tar
     REQUIRE(outgoing_draws.empty());
     candidate.rng.trace(nullptr);
     outgoing.game.rng.trace(nullptr);
+}
+
+TEST_CASE("Monster candidate selection retains target locks and the original draw sequence",
+          "[ai][random]")
+{
+    GameData data;
+    auto& species = data.monsters.emplace_back();
+    species.attacks_per_round = 2;
+    species.swings_per_round = 1;
+    species.attacks[0].fHasAttack = true;
+    species.attacks[0].range_category = W8_RANGE_SHORT;
+    species.attacks[0].attack_modes = (1 << W8_ATTACK_MODE_SWING) | (1 << W8_ATTACK_MODE_THRUST);
+    const ScopedGameData installed(data);
+    ScopedGame scope{data};
+    auto& game = scope.game;
+    game.level.replacePrimary(std::make_unique<World>());
+    auto& world = game.level.loaded();
+    for (int id : {1, 2}) {
+        auto monster = std::make_unique<W8MonsterInfo>();
+        monster->location_id = id;
+        monster->fActive = true;
+        monster->hp_current = monster->uiHPMax = 1;
+        monster->ubDisposition = id == 1 ? W8_DISPOSITION_HOSTILE : W8_DISPOSITION_FRIENDLY;
+        monster->pCombat = std::make_unique<W8MonsterCombatState>();
+        monster->entity = std::make_unique<Monster>(world, &species);
+        world.population->monster_roster.add(std::move(monster), false);
+    }
+    auto& actor = *world.population->findMonster(1);
+    actor.Target = W8CombatSlot::monster(2);
+    actor.monster_visibility = std::make_unique<W8MonsterVisibility>();
+    auto& visible = (*actor.monster_visibility)[2];
+    visible.sight_state = W8_SIGHT_SEEN;
+    visible.los_flags[0] = true;
+    game.rng.seed(1);
+    std::vector<Rng::Draw> draws;
+    game.rng.trace(&draws);
+    REQUIRE(ChooseRandomMonsterAction(&actor, true, false, true));
+    REQUIRE(draws.size() == 3); // Two candidate draws, then selection; no party stealth sweep.
+    REQUIRE(draws[0].range == 100);
+    REQUIRE(draws[1].range == 100);
+    REQUIRE(draws[2].range == 2);
+    REQUIRE(actor.action_kind == W8_MONSTER_ACTION_ATTACK);
+    REQUIRE(actor.action_detail == W8_ATTACK_MODE_SWING);
+    REQUIRE(actor.pCombat->attack_index == 0);
+    REQUIRE(actor.pCombat->attacks_per_round == 2);
+    REQUIRE(actor.pCombat->attacks_per_round0 == 2);
+    REQUIRE(actor.Target == W8CombatSlot::monster(2));
+    actor.Target = W8CombatSlot::character(3);
+    REQUIRE_FALSE(ChooseRandomMonsterAction(&actor, true, false, false));
+    REQUIRE(draws.size() == 3);
+
+    GameData allied_data = data;
+    allied_data.monsters[0].faction_id = 1;
+    auto& other = *world.population->findMonster(2);
+    REQUIRE(MonsterHostility(allied_data, actor, other) == W8_DISPOSITION_NEUTRAL);
+    other.uiCondition[W8_CONDITION_TURNCOAT] = 1;
+    REQUIRE(MonsterHostility(allied_data, actor, other) == W8_DISPOSITION_HOSTILE);
+    REQUIRE(draws.size() == 3);
 }

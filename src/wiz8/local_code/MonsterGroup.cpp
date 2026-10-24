@@ -40,7 +40,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/render/picking.h"
-#include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/targeting.h"

@@ -26,7 +26,6 @@ struct GameData;
 
 #include <string_view>
 #include <unordered_map>
-#include <vector>
 
 #include "wiz8/audio/mouth_gap.h"
 #include "wiz8/character_skills.h"
@@ -128,18 +127,6 @@ W8RangeCategory MonsterAttackRange(const W8MonsterInfo& monster_info, const W8Mo
 W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* record,
                                  glm::vec3* position);
 
-/* One queued monster action, 0x30 bytes: the kind/detail pair, the attack
-   index the plain attack alone carries, an inline combat slot whose type and
-   id words QueueMonsterAction fills by target kind, and a random 1..100
-   tie-break so equal decisions do not always resolve the same way. */
-struct W8MonsterAction {
-    W8MonsterActionKind action_kind;
-    int action_detail;
-    int attack_index;
-    W8CombatSlot target;
-    unsigned char tie_break;
-};
-
 enum { W8_MONSTER_ATTR_COUNT = 5 };
 
 /* Monster attribute indices into W8MonsterInfo::attributes. Derived-stat rebuilding
@@ -153,8 +140,7 @@ enum {
     W8_MONSTER_ATTRIBUTE_SENSES = 4
 };
 
-/* Runtime combat state, with its pending actions owned as a value.
-   The serialized monster record is handled by the separate save codec. */
+/* Engagement and current-action state. Candidate actions exist only during selection. */
 
 struct W8MonsterCombatState {
     /* The phase of the round this monster next acts on, zero when it
@@ -183,8 +169,6 @@ struct W8MonsterCombatState {
        indiscriminately (friends included); Combat Range counts allies as
        hostile while set. */
     bool berserk;
-    /* Candidate actions for the next AI decision. */
-    std::vector<W8MonsterAction> actions;
     int character_hate[9];
     W8EffectSlot combat_effects[9];   /* 0x03e .. 0x0d7 */
     W8EffectSlot combat_effects_2[6]; /* 0x0d7 .. 0x13d */

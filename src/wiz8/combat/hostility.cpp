@@ -15,6 +15,7 @@
 #include "wiz8/combat/range.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/faction_ids.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
@@ -75,38 +76,21 @@ void Game::refreshCombatEngagement(std::vector<Event>& outcomes)
    either band clear answers zero; otherwise the faction records decide, and
    only matching non-zero factions fall through to the condition-thirteen
    presence test. */
-W8Disposition MonsterHostility(W8MonsterInfo* first, W8MonsterInfo* second)
+W8Disposition MonsterHostility(const GameData& data, const W8MonsterInfo& first,
+                               const W8MonsterInfo& second)
 {
-    const W8MonsterRecord* first_record;
-    const W8MonsterRecord* second_record;
-    unsigned int first_faction;
-    unsigned int second_faction;
-
-    if (first->monster_species == W8_NEUTRAL_SPECIES_224 ||
-        second->monster_species == W8_NEUTRAL_SPECIES_224) {
+    if (first.monster_species == W8_NEUTRAL_SPECIES_224 ||
+        second.monster_species == W8_NEUTRAL_SPECIES_224)
         return W8_DISPOSITION_NEUTRAL;
-    }
-    if (first->ubDisposition == second->ubDisposition) {
-        return W8_DISPOSITION_FRIENDLY;
-    }
-    if (first->ubDisposition == W8_DISPOSITION_NEUTRAL ||
-        second->ubDisposition == W8_DISPOSITION_NEUTRAL) {
+    if (first.ubDisposition == second.ubDisposition) return W8_DISPOSITION_FRIENDLY;
+    if (first.ubDisposition == W8_DISPOSITION_NEUTRAL ||
+        second.ubDisposition == W8_DISPOSITION_NEUTRAL)
         return W8_DISPOSITION_NEUTRAL;
-    }
-    first_record = GetMonsterDataForInfo(first);
-    second_record = GetMonsterDataForInfo(second);
-    first_faction = first_record->faction_id;
-    if (first_faction == 0) {
-        return W8_DISPOSITION_HOSTILE;
-    }
-    second_faction = second_record->faction_id;
-    if (second_faction == 0 || first_faction != second_faction) {
-        return W8_DISPOSITION_HOSTILE;
-    }
-    if ((first->uiCondition[W8_CONDITION_TURNCOAT] != 0) ==
-        (second->uiCondition[W8_CONDITION_TURNCOAT] != 0)) {
+    const auto faction = data.monsters[first.monster_species].faction_id;
+    if (faction != 0 && faction == data.monsters[second.monster_species].faction_id &&
+        (first.uiCondition[W8_CONDITION_TURNCOAT] != 0) ==
+            (second.uiCondition[W8_CONDITION_TURNCOAT] != 0))
         return W8_DISPOSITION_NEUTRAL;
-    }
     return W8_DISPOSITION_HOSTILE;
 }
 

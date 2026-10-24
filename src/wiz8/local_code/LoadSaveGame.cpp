@@ -1852,7 +1852,7 @@ void SavedGame::install(Game& game) &&
 {
     game.left_levels = std::move(levels);
     game.stored_characters = std::move(characters);
-    game.status = std::move(state.status);
+    game.status = state.status;
     game.party = std::move(state.party);
     game.inventory.restore(std::move(state.pool), state.held);
     game.search.restore(state.search_mode);

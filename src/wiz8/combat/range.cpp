@@ -200,10 +200,9 @@ bool MonsterAttackReachesAnyone(W8MonsterInfo* monster_info, unsigned int attack
     count = CurrentLevelPopulation().monster_roster.live().size();
     for (index = 0; index < count; ++index) {
         other = GetMonsterListEntry(index);
-        GetMonsterDataForInfo(other);
         if (other != monster_info && other->fActive && other->pCombat && other->hp_current != 0 &&
             other->highest_condition < W8_CONDITION_DEAD &&
-            MonsterHostility(monster_info, other) == disposition_needed &&
+            MonsterHostility(CurrentGame().data, *monster_info, *other) == disposition_needed &&
             MonsterAttackReachesMonster(monster_info, record, attack, other)) {
             return true;
         }
@@ -594,7 +593,9 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out,
             W8MonsterInfo* other = GetMonsterListEntry(index);
 
             if (other != monster_info && other->fActive && other->hp_current != 0 &&
-                other->pCombat && MonsterHostility(monster_info, other) == W8_DISPOSITION_HOSTILE) {
+                other->pCombat &&
+                MonsterHostility(CurrentGame().data, *monster_info, *other) ==
+                    W8_DISPOSITION_HOSTILE) {
                 W8VisibilityRecord* row = FindMonToMonVisibility(monster_info, other);
                 if (IsVisibleUnderConditions(monster_info, row, condition)) {
                     float distance = monster_info->entity->GetDistanceToMonster(*other->entity);

@@ -122,12 +122,6 @@ bool MonsterGroupHasReinforcement(W8MonsterGroup* monster_group);
    reinforcement, hostile ones a member with a visible target inside the
    leader's reach or a rendered member near the party. */
 bool ShouldMonsterGroupEnterCombat(W8MonsterGroup* monster_group);
-/* Refill the monster's pending-action queue with everything it may do this
-   round: cooperative and special actions first, then one attack entry per
-   attack-mode bit for every target the attack can reach. `target_locked`
-   restricts the sweep to the stored target, `attack_locked` to the committed
-   attack index. */
-void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bool attack_locked);
 /* Build the monster's list of possible actions and take one of them at
    random into its action fields and target. */
 bool ChooseRandomMonsterAction(W8MonsterInfo* monster_info, bool target_locked, bool attack_locked,

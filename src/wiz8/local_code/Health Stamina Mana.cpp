@@ -701,8 +701,8 @@ void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* att
                     attacker->iChar, (monster_info)->ubDisposition) == W8_DISPOSITION_FRIENDLY) {
                 TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
             }
-        } else if (MonsterHostility(FindMonster(attacker->iMonsterID), monster_info) ==
-                   W8_DISPOSITION_FRIENDLY) {
+        } else if (MonsterHostility(CurrentGame().data, *FindMonster(attacker->iMonsterID),
+                                    *monster_info) == W8_DISPOSITION_FRIENDLY) {
             TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
         }
     }

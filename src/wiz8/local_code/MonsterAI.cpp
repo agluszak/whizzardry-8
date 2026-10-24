@@ -72,9 +72,6 @@ static bool g_out_of_combat_rtai_enabled = true;
 static unsigned int g_monster_group_tick = 0;
 
 static W8MonsterInfo* GetGroupMemberInfo(W8MonsterGroup* group, unsigned int index);
-static void QueueMonsterAction(W8MonsterInfo* monster_info, W8MonsterActionKind action_kind,
-                               int action_detail, int attack_index, W8TargetKind target_kind,
-                               int target_value);
 
 /* 125000, the cap on how far a monster will walk to investigate a heard
    noise. */
@@ -299,7 +296,7 @@ void DoMonsterRTAI(W8MonsterInfo* monster_info, bool engage)
         record = GetMonsterDataForInfo(monster_info);
         best_range = 0;
         for (attack = 0; attack < W8_MAX_MONSTER_ATTACKS; ++attack) {
-            if (RateMonsterAttack(monster_info, record, attack, 0, false) ==
+            if (RateMonsterAttack(monster_info, record, attack, false) ==
                     W8_MONSTER_ATTACK_OUT_OF_REACH &&
                 best_range < record->attacks[attack].range_category) {
                 best_range = record->attacks[attack].range_category;
@@ -613,7 +610,7 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
         assert(monster_info != 0);
         record = GetMonsterDataForInfo(monster_info);
         for (attack = 0; attack < 3; ++attack) {
-            if (RateMonsterAttack(monster_info, record, attack, 0, false) == 3 &&
+            if (RateMonsterAttack(monster_info, record, attack, false) == 3 &&
                 best_range < record->attacks[attack].range_category) {
                 best_range = record->attacks[attack].range_category;
             }
@@ -975,7 +972,23 @@ unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, const W8MonsterRe
     return result;
 }
 
-/* Refill the monster's pending-action queue with everything it may do this
+namespace {
+bool CanProtect(const W8MonsterInfo& monster, const W8MonsterRecord& record)
+{
+    return monster.fActive && monster.pCombat && monster.hp_current != 0 &&
+           monster.highest_condition < W8_CONDITION_BLIND &&
+           (record.flags & W8_MONSTER_FLAG_BODYGUARD) != 0 && record.attacks[0].fHasAttack != 0;
+}
+
+struct MonsterActionCandidate {
+    W8MonsterActionKind action_kind;
+    int action_detail;
+    int attack_index;
+    W8CombatSlot target;
+};
+
+/* Collect the possible actions for this decision without retaining a queue.
+   Consider everything the monster may do this
    round. A fresh pick first rolls the cooperative sweep, queueing a kind-8
    entry for every character and other monster the monster has an attack on,
    and returns early when any of them stuck; a behavior-2 record may then add
@@ -986,7 +999,8 @@ unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, const W8MonsterRe
    sweeps every target. A character's evasion skill roll keeps attacks off it
    but flags the slot, and each flagged slot may practice that skill at the
    end. */
-void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bool attack_locked)
+std::vector<MonsterActionCandidate> BuildMonsterActions(W8MonsterInfo* monster_info,
+                                                        bool target_locked, bool attack_locked)
 {
     W8MonsterInfo* locked_monster = nullptr;
     W8MonsterInfo* other;
@@ -1008,10 +1022,14 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
     W8Disposition disposition_needed;
 
     record = GetMonsterDataForInfo(monster_info);
-    auto& actions = monster_info->pCombat->actions;
-    actions.clear();
+    std::vector<MonsterActionCandidate> actions;
+    const auto append = [&](W8MonsterActionKind kind, int detail, int attack, W8CombatSlot target) {
+        actions.push_back({kind, detail, attack, target});
+        // Retail drew an unused tie value for each candidate. Keep its place in the RNG stream.
+        CurrentGame().rng.below(100);
+    };
     if (!target_locked && !attack_locked) {
-        if (CanMonsterProtect(monster_info) &&
+        if (CanProtect(*monster_info, *record) &&
             CurrentGame().rng.below(100) <
                 monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
             monster_info->action_kind = W8_MONSTER_ACTION_PROTECT;
@@ -1023,8 +1041,8 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
                     monster_info->Target.iType = W8_TARGET_KIND_MONSTER;
                     monster_info->Target.iMonsterID = other->location_id;
                     if (CanMonsterProtectCombatant(monster_info, &monster_info->Target)) {
-                        QueueMonsterAction(monster_info, W8_MONSTER_ACTION_PROTECT, 0, 0,
-                                           W8_TARGET_KIND_MONSTER, other->location_id);
+                        append(W8_MONSTER_ACTION_PROTECT, 0, 0,
+                               W8CombatSlot::monster(other->location_id));
                     }
                 }
             }
@@ -1033,18 +1051,17 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
                 monster_info->Target.iType = W8_TARGET_KIND_CHARACTER;
                 monster_info->Target.iChar = index;
                 if (CanMonsterProtectCombatant(monster_info, &monster_info->Target)) {
-                    QueueMonsterAction(monster_info, W8_MONSTER_ACTION_PROTECT, 0, 0,
-                                       W8_TARGET_KIND_CHARACTER, index);
+                    append(W8_MONSTER_ACTION_PROTECT, 0, 0, W8CombatSlot::character(index));
                 }
             }
             if (!actions.empty()) {
-                return;
+                return actions;
             }
         }
         if (record->combat_morale == 2 && record->combat_behavior != 3 &&
             CurrentGame().rng.below(100) <
                 monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
-            QueueMonsterAction(monster_info, W8_MONSTER_ACTION_WAIT, -1, 0, W8_TARGET_KIND_NONE, 0);
+            append(W8_MONSTER_ACTION_WAIT, -1, 0, {W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}});
         }
     }
     monster_info->action_kind = W8_MONSTER_ACTION_ATTACK;
@@ -1065,7 +1082,7 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
         monster_hi = CurrentLevelPopulation().monster_roster.live().size();
     } else {
         if (!CurrentGame().targetPresent(monster_info->Target)) {
-            return;
+            return actions;
         }
         if (monster_info->Target.iType == W8_TARGET_KIND_CHARACTER) {
             assert(monster_info->Target.iChar != -1);
@@ -1080,7 +1097,7 @@ void BuildMonsterActionQueue(W8MonsterInfo* monster_info, bool target_locked, bo
             monster_hi = CurrentLevelPopulation().monster_roster.live().size();
             goto targets_chosen;
         } else {
-            return;
+            return actions;
         }
     }
     for (index = char_lo; index < char_hi; ++index) {
@@ -1093,7 +1110,7 @@ targets_chosen:
     friendly_targets = monster_info->pCombat && monster_info->pCombat->berserk;
     disposition_needed = friendly_targets ? W8_DISPOSITION_FRIENDLY : W8_DISPOSITION_HOSTILE;
     for (attack = attack_lo; attack < attack_hi; ++attack) {
-        if (RateMonsterAttack(monster_info, record, attack, 1, friendly_targets) != 0) {
+        if (RateMonsterAttack(monster_info, record, attack, friendly_targets) != 0) {
             continue;
         }
         if (scan_chars && monster_info->player_visibility.los_flags[RangeCategoryUsesSightCondition(
@@ -1107,8 +1124,8 @@ targets_chosen:
                     if (avoided[index] == 0) {
                         for (mode_bit = 0; mode_bit < 9; ++mode_bit) {
                             if ((record->attacks[attack].attack_modes & (1 << mode_bit)) != 0) {
-                                QueueMonsterAction(monster_info, W8_MONSTER_ACTION_ATTACK, mode_bit,
-                                                   attack, W8_TARGET_KIND_CHARACTER, index);
+                                append(W8_MONSTER_ACTION_ATTACK, mode_bit, attack,
+                                       W8CombatSlot::character(index));
                             }
                         }
                     } else {
@@ -1123,12 +1140,13 @@ targets_chosen:
                 if (locked_monster && other != locked_monster) continue;
                 if (other != monster_info && other->fActive && other->hp_current != 0 &&
                     GetMonsterDataForInfo(other)->untargetable == 0 && other->pCombat &&
-                    MonsterHostility(monster_info, other) == disposition_needed &&
+                    MonsterHostility(CurrentGame().data, *monster_info, *other) ==
+                        disposition_needed &&
                     MonsterAttackReachesMonster(monster_info, record, attack, other)) {
                     for (mode_bit = 0; mode_bit < 9; ++mode_bit) {
                         if ((record->attacks[attack].attack_modes & (1 << mode_bit)) != 0) {
-                            QueueMonsterAction(monster_info, W8_MONSTER_ACTION_ATTACK, mode_bit,
-                                               attack, W8_TARGET_KIND_MONSTER, other->location_id);
+                            append(W8_MONSTER_ACTION_ATTACK, mode_bit, attack,
+                                   W8CombatSlot::monster(other->location_id));
                         }
                     }
                 }
@@ -1143,31 +1161,10 @@ targets_chosen:
             }
         }
     }
+    return actions;
 }
 
-/* Add one decided action to a monster's queue. The third field only carries a
-   value for the plain attack, and which of the two target fields the target
-   goes in depends on what kind of target it is. Each entry gets a random tie
-   break so two equal decisions do not always resolve the same way. */
-static void QueueMonsterAction(W8MonsterInfo* monster_info, W8MonsterActionKind action_kind,
-                               int action_detail, int attack_index, W8TargetKind target_kind,
-                               int target_value)
-{
-    auto& entry = monster_info->pCombat->actions.emplace_back();
-    entry.action_kind = action_kind;
-    entry.action_detail = action_detail;
-    if (action_kind == W8_MONSTER_ACTION_ATTACK) {
-        entry.attack_index = attack_index;
-    }
-    ResetCombatSlot(&entry.target);
-    entry.target.iType = target_kind;
-    if (target_kind == W8_TARGET_KIND_CHARACTER) {
-        entry.target.iChar = target_value;
-    } else if (target_kind == W8_TARGET_KIND_MONSTER) {
-        entry.target.iMonsterID = target_value;
-    }
-    entry.tie_break = static_cast<unsigned char>(CurrentGame().rng.below(100)) + 1;
-}
+} // namespace
 
 /* Build the monster's list of possible actions and take one of them at
    random into its action fields and target. Committing a plain attack also
@@ -1179,8 +1176,7 @@ bool ChooseRandomMonsterAction(W8MonsterInfo* monster_info, bool target_locked, 
     const W8MonsterRecord* record;
 
     record = GetMonsterDataForInfo(monster_info);
-    BuildMonsterActionQueue(monster_info, target_locked, attack_locked);
-    const auto& actions = monster_info->pCombat->actions;
+    const auto actions = BuildMonsterActions(monster_info, target_locked, attack_locked);
     if (actions.empty()) {
         return false;
     }
@@ -1755,7 +1751,8 @@ static void addMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         member = GetMonsterListEntry(index);
         if ((!exclude_caster || member != monster_info) && member->fActive &&
             member->hp_current != 0 && member->highest_condition < W8_CONDITION_DEAD &&
-            member->pCombat && MonsterHostility(monster_info, member) == disposition &&
+            member->pCombat &&
+            MonsterHostility(CurrentGame().data, *monster_info, *member) == disposition &&
             MonsterAttackReachesMonster(monster_info, record, 0, member)) {
             ResetCombatSlot(&slot);
             slot.iType = W8_TARGET_KIND_MONSTER;
@@ -1872,7 +1869,8 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
             member = GetMonsterListEntry(index);
             if (member != monster_info && member->fActive && member->hp_current != 0 &&
                 member->highest_condition < W8_CONDITION_DEAD && member->pCombat &&
-                MonsterHostility(monster_info, member) == W8_DISPOSITION_HOSTILE &&
+                MonsterHostility(CurrentGame().data, *monster_info, *member) ==
+                    W8_DISPOSITION_HOSTILE &&
                 MonsterAttackReachesMonster(monster_info, record, 0, member)) {
                 ResetCombatSlot(&slot);
                 slot.iType = W8_TARGET_KIND_MONSTER;
@@ -2058,7 +2056,8 @@ bool MonsterHasNoVisibleEnemy(W8MonsterInfo* monster_info, bool party_only)
             other = GetMonsterListEntry(index);
             if (other != monster_info && other->fActive && other->hp_current != 0 &&
                 other->highest_condition < W8_CONDITION_DEAD && other->pCombat &&
-                MonsterHostility(monster_info, other) == W8_DISPOSITION_HOSTILE &&
+                MonsterHostility(CurrentGame().data, *monster_info, *other) ==
+                    W8_DISPOSITION_HOSTILE &&
                 (record = FindMonToMonVisibility(monster_info, other)) != 0 &&
                 record->sight_state != W8_SIGHT_UNSEEN) {
                 return false;
@@ -2134,7 +2133,7 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
             other = GetMonsterListEntry(index);
             if (other != monster_info && other->fActive && other->hp_current != 0 &&
                 other->highest_condition < W8_CONDITION_DEAD && other->pCombat) {
-                disposition = MonsterHostility(monster_info, other);
+                disposition = MonsterHostility(CurrentGame().data, *monster_info, *other);
                 if (hostility == W8_VISIBLE_TARGET_ANY ||
                     static_cast<W8VisibleTargetFilter>(disposition) == hostility ||
                     (hostility == W8_VISIBLE_TARGET_NON_NEUTRAL &&
@@ -2311,7 +2310,8 @@ bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id
         member = FindMonster(location_id);
         if (member->fActive && member->hp_current != 0 &&
             member->highest_condition < W8_CONDITION_DEAD && member->pCombat &&
-            MonsterHostility(monster_info, member) == W8_DISPOSITION_HOSTILE) {
+            MonsterHostility(CurrentGame().data, *monster_info, *member) ==
+                W8_DISPOSITION_HOSTILE) {
             ++eligible;
             ResetCombatSlot(&slot);
             slot.iType = W8_TARGET_KIND_MONSTER;

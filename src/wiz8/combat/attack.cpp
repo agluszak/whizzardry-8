@@ -189,20 +189,6 @@ W8AttackMode ChooseAttackMode(unsigned int attack_modes)
 /* Whether one character can swing this round: engaged, in better shape than
    the attack threshold, and with the first hand in play. */
 
-/* Whether a bodyguard can protect another combatant: active, alive, able
-   to act and equipped with a natural attack. The AI uses this for action 8. */
-bool CanMonsterProtect(W8MonsterInfo* monster_info)
-{
-    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-
-    if (!monster_info->fActive || !monster_info->pCombat || monster_info->hp_current == 0 ||
-        monster_info->highest_condition >= W8_CONDITION_BLIND ||
-        (record->flags & W8_MONSTER_FLAG_BODYGUARD) == 0) {
-        return false;
-    }
-    return record->attacks[0].fHasAttack != 0;
-}
-
 /* How much of a hit the target actually takes. The two reductions add, the
    remainder is taken as a percentage rounding to nearest, and nothing goes
    below zero. */
@@ -225,7 +211,7 @@ int ApplyDamageReduction(const W8MonsterInfo* monster_info, const W8MonsterRecor
    broken, which is reported. Otherwise the attack is out of reach unless it
    reaches anyone, judged with the monster's current action set aside. */
 unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                                unsigned int attack, int, bool friendly_targets)
+                                unsigned int attack, bool friendly_targets)
 {
     W8MonsterActionKind action_kind;
     bool reaches;
@@ -266,7 +252,7 @@ unsigned char RateMonsterBestAttack(W8MonsterInfo* monster_info, const W8Monster
     }
     best = 0;
     for (attack = 0; attack < W8_MAX_MONSTER_ATTACKS; ++attack) {
-        rating = RateMonsterAttack(monster_info, record, attack, 1, friendly_targets);
+        rating = RateMonsterAttack(monster_info, record, attack, friendly_targets);
         if (rating == 0) {
             return 0;
         }
@@ -390,7 +376,8 @@ bool CanMonsterProtectCombatant(W8MonsterInfo* monster_info, W8CombatSlot* targe
         if (GetMonsterDataForInfo(target_info)->untargetable != 0) {
             return false;
         }
-        if (MonsterHostility(monster_info, target_info) != W8_DISPOSITION_FRIENDLY) {
+        if (MonsterHostility(CurrentGame().data, *monster_info, *target_info) !=
+            W8_DISPOSITION_FRIENDLY) {
             return false;
         }
         if (!MonsterAttackReachesMonster(monster_info, record, 0, target_info)) {
@@ -1836,7 +1823,7 @@ bool StartMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* reco
     attack = combat->attack_index;
     --combat->attacks_per_round;
     W8AttackMode action_detail = static_cast<W8AttackMode>(monster_info->action_detail);
-    if (RateMonsterAttack(monster_info, record, attack, 0, false) != 0) {
+    if (RateMonsterAttack(monster_info, record, attack, false) != 0) {
         return false;
     }
     if (!CurrentGame().targetMatches(monster_info->Target, W8_TARGET_NEED_ENEMY) ||
@@ -1998,7 +1985,6 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
     } else {
         assert(monster_info->Target.iType == W8_TARGET_KIND_MONSTER);
         second = FindMonster(monster_info->Target.iMonsterID);
-        MonsterHostility(monster_info, second);
         CurrentGame().combat->attack_message += CurrentGame().monsterName(*second);
         palette = 9;
         if (range <= W8_RANGE_SHORT && IsMonsterFacingMonster(second, monster_info) == 0) {

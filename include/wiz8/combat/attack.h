@@ -77,8 +77,6 @@ struct W8MonsterAttack;
 bool CharacterHasAttackOn(int party_slot, W8CombatSlot* target);
 /* Whether a friendly, higher-level combatant qualifies for protection. */
 bool CanMonsterProtectCombatant(W8MonsterInfo* monster_info, W8CombatSlot* target);
-/* Whether an active, living bodyguard can protect another combatant. */
-bool CanMonsterProtect(W8MonsterInfo* monster_info);
 
 /* What RateMonsterAttack reports for one of a monster's three attacks: zero
    when the attack can be made, otherwise why not. */
@@ -94,7 +92,7 @@ enum {
    RateMonsterBestAttack answers zero as soon as any attack is usable, one for a
    motionless monster, and otherwise the highest reason it saw. */
 unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                                unsigned int attack, int, bool friendly_targets);
+                                unsigned int attack, bool friendly_targets);
 unsigned char RateMonsterBestAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
                                     bool friendly_targets);
 

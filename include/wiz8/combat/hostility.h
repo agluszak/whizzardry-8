@@ -7,6 +7,7 @@
 #include "wiz8/rules/targeting.h"
 
 class Inventory;
+struct GameData;
 struct W8MonsterInfo;
 struct W8MonsterGroup;
 struct W8TargetSource;
@@ -15,7 +16,8 @@ struct W8Character;
 struct W8ActionDetailBlock;
 /* Local Code\Combat Hostility.cpp: whether two monsters count as hostile to
    each other, and whether a spell can be aimed by monster AI. */
-W8Disposition MonsterHostility(W8MonsterInfo* first, W8MonsterInfo* second);
+W8Disposition MonsterHostility(const GameData& data, const W8MonsterInfo& first,
+                               const W8MonsterInfo& second);
 /* Whether a party action aims at enemies (melee kinds, or a spell /
    item-spell whose target type is an enemy band). */
 
