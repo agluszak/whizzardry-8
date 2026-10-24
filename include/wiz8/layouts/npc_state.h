@@ -49,14 +49,14 @@ struct W8NpcState : std::enable_shared_from_this<W8NpcState> {
        representative values rather than a range. */
     unsigned char disposition;
     bool dismissed_flag;
-    /* 0x1d: raised by CreateNpcRuntimeNode; the greeting quote (0) and the
+    /* 0x1d: raised by Game::createNpcRuntimeNode; the greeting quote (0) and the
        first-interaction paths lower it once the NPC has been greeted. */
     bool greeting_pending;
     unsigned int dismissed_timer;
     /* 0x22/0x23: cleared when the dialogue NPC is staged. */
     bool flag;
     bool flag0;
-    /* 0x24: the level-band byte GetLevelBand returns for the bound level. */
+    /* 0x24: the level-band byte Game::levelBand returns for the bound level. */
     unsigned char level_band;
     bool is_present; /* 0x25 */
     bool is_grouped; /* 0x26 */
@@ -65,7 +65,7 @@ struct W8NpcState : std::enable_shared_from_this<W8NpcState> {
     std::optional<W8Character> character;
     signed char group_index; /* 0x2b */
     /* 0x2c: this node's own slot in the story's NPC states, written by
-       CreateNpcRuntimeNode; the release pass follows the index a partner
+       Game::createNpcRuntimeNode; the release pass follows the index a partner
        names. */
     unsigned char partner_index;
     /* 0x2d: the NPC's monster has noticed the party once; the sight path
@@ -98,7 +98,7 @@ struct W8NpcState : std::enable_shared_from_this<W8NpcState> {
     unsigned char binding_unavailable;
     bool talk_cooldown_active;
     bool trade_cooldown_active;
-    /* 0x0ca: the record's word at 0x002, copied by CreateNpcRuntimeNode. */
+    /* 0x0ca: the record's word at 0x002, copied by Game::createNpcRuntimeNode. */
     unsigned short trade_pool;
     int talk_cooldown_clock;
     int trade_cooldown_clock;

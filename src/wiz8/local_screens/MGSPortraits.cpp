@@ -177,13 +177,10 @@ void SyncPartyPortraitVitalsBars(void)
    0x92-catalog animation when the character's hit points are gone, a forced
    portrait refresh defers the frame to -1, and a still-playing effect icon
    defers it likewise. */
-void RecordCharacterDamage(int party_slot, unsigned int amount)
+void PresentCharacterDamage(int party_slot, unsigned int amount, bool fatal)
 {
     bool splat_started = false;
 
-    if (CurrentGame().surprise_possible) {
-        return;
-    }
     W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[party_slot];
     if (!entry->damage_splat_active) {
         entry->damage_splat_amount = amount;
@@ -193,7 +190,7 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
         } else {
             entry->damage_splat_catalog = 0x91;
         }
-        if (CurrentGame().party.characters[party_slot].hp_current == 0) {
+        if (fatal) {
             entry->damage_splat_death_variant = true;
             entry->damage_splat_end_frame = 0x1e;
         } else {
@@ -211,8 +208,7 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
     } else {
         entry->damage_splat_amount += amount;
         entry->damage_splat_frame = 0;
-        if (CurrentGame().party.characters[party_slot].hp_current == 0 &&
-            !entry->damage_splat_death_variant) {
+        if (fatal && !entry->damage_splat_death_variant) {
             entry->damage_splat_death_variant = true;
             entry->damage_splat_end_frame = 0x1e;
         }

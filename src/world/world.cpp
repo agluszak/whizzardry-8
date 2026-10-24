@@ -6,7 +6,6 @@
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
-#include <initializer_list>
 #include <memory>
 #include <ranges>
 #include <stdexcept>
@@ -46,6 +45,7 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/spell_database.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/camera_shake.h"
@@ -77,7 +77,7 @@
 #include "wiz8/local_code/MonsterGenerator.h" // IWYU pragma: keep
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/local_code/SpellEffect.h" // IWYU pragma: keep - completes world-owned casts.
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/world/automap.h"
@@ -102,53 +102,32 @@ NavigationMesh* GetWorldPathing()
 }
 bool g_navigator_vertical_enabled = true;
 
-/* Build scene resources under a local owner. No active world is required;
-   malformed resources destroy only this unpublished result. */
-static void UpdateWorld(World& world, std::chrono::milliseconds elapsed)
+// Keep the authored update points: sky particles first, then primary simulation;
+// continuing casts resolve after level scripts, before the primary particle sweep.
+void Game::advanceWorlds(std::chrono::milliseconds elapsed)
 {
-    if (&world != GetSecondaryWorld()) {
-        UpdateWorldMonsters(&world);
+    g_navigator_vertical_enabled =
+        !(((GetInputState().modifiers & CTRL_DOWN) != 0) && combat.has_value() &&
+          (combat->round_active || party_movement_mode));
+    if (level.sky) SweepFinishedParticles(level.sky.get());
+    if (level.primary) {
+        auto& world = *level.primary;
+        world.updateMonsters();
         UpdateWorldMissiles(&world);
         UpdateWorldSpellVisuals(&world);
         UpdateAmbientSounds(&world);
         WorldUpdateLights(&world);
         RunMonsterGenerators(elapsed);
         UpdateWorldTriggers(&world);
-        if (world.compiledIndex() != 0 && world.script) {
-            world.script->runMasters();
-        }
-        UpdateSpellEffects();
+        if (world.compiledIndex() && world.script) world.script->runMasters();
+        advanceSpellEffects(world);
+        SweepFinishedParticles(&world);
     }
-
-    SweepFinishedParticles(&world);
-}
-
-void UpdateWorlds(std::chrono::milliseconds elapsed)
-{
-    g_navigator_vertical_enabled =
-        !(((GetInputState().modifiers & CTRL_DOWN) != 0) && CurrentGame().combat.has_value() &&
-          (CurrentGame().combat->round_active || CurrentGame().party_movement_mode));
-
-    // Loading registered the sky first; preserve that update order.
-    for (World* world : {GetSecondaryWorld(), GetWorld()}) {
-        if (world) UpdateWorld(*world, elapsed);
-    }
-
     RefreshWorldView();
-
     UpdateTimedTriggerEvents();
-    UpdateShakeEffects();
+    camera_shakes.advance(level.primary ? level.primary->party.eye() : glm::vec3(0));
     UpdateEnvironment();
     UpdateNpcEvents();
-}
-
-/* Detach the item meshes in the level and sky worlds before the renderer-side
-   resource transition. */
-void DetachAllWorldItems(void)
-{
-    for (World* world : {GetWorld(), GetSecondaryWorld()}) {
-        if (world != 0) DetachWorldItemMeshes(world);
-    }
 }
 
 W8LevelPopulation& CurrentLevelPopulation()
@@ -157,8 +136,8 @@ W8LevelPopulation& CurrentLevelPopulation()
     return *GetWorld()->population;
 }
 
-World::World(int level_id, std::string path)
-    : level_id(level_id),
+World::World(int level_id, std::string path, TimerClockView clocks, ShakeSystem* shakes)
+    : clocks(clocks), shakes(shakes), level_id(level_id),
       source_path(path.empty() ? std::string{} : wiz8::normalize_asset_path(path).generic_string()),
       scene(std::make_unique<WorldScene>()), population(std::make_unique<W8LevelPopulation>())
 {
@@ -167,7 +146,7 @@ World::World(int level_id, std::string path)
 
 World::~World() = default;
 
-WorldParty::WorldParty(World& world) : navigator(world)
+WorldParty::WorldParty(World& world) : camera(world.clocks), navigator(world)
 {
     navigator.configureStartupRange(500.0f);
     navigator.configureStartupDepth(std::max(kStartupNearLimit, g_default_world_height),
@@ -230,7 +209,7 @@ void updatePartyMovement(World& world, unsigned int flags)
     for (const auto& camera_path : world.plsCameras) {
         if (!camera_path->active) continue;
         KeyframeTrack* path = camera_path->path ? &*camera_path->path : nullptr;
-        PathAITick(path, 1);
+        PathAITick(path, 1, world.clocks.worldMilliseconds());
         Transform3D pose;
         pose.setLocation(glm::dvec3(party.m_position));
         pose.setRotation(party.rotationMatrix());
@@ -407,7 +386,7 @@ bool AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_
 
     if (check_items) {
         for (const auto& item : CurrentLevelPopulation().world_items) {
-            WorldItemEntity* owner = item->entity.find();
+            WorldItemEntity* owner = item->entity.get();
             if (owner != 0) {
                 glm::vec3 center;
                 center = owner->GetSearchPosition();
@@ -423,7 +402,7 @@ bool AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_
     if (check_monsters) {
         for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
             auto* info = monster_owner.get();
-            Monster* monster = info->entity.find();
+            Monster* monster = info->entity.get();
             if (monster != 0) {
                 const auto center = monster->GetAnimationCenter();
                 float other_radius;

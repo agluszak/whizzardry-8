@@ -81,3 +81,15 @@ retry:
     }
     return -1;
 }
+
+unsigned int W8Party::averageLevel() const
+{
+    unsigned int total = 0;
+    unsigned int count = 0;
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        if (!members[slot]) continue;
+        total += characters[slot].uiExpLevel;
+        ++count;
+    }
+    return count ? total / count : 0;
+}

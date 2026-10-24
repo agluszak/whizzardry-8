@@ -6,12 +6,14 @@
 #include "monster_cycles.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
 #include "wiz8/world/world.h"
 
 struct W8NpcState;
@@ -68,7 +70,7 @@ bool SeaCavesDoorTomb(Trigger* pTrigger)
     W8MonsterInfo* monster_info;
     W8MonsterGroup* group;
 
-    npc = GetNpcStateByKind(0x64);
+    npc = CurrentGame().story.npcOfKind(0x64);
     if (npc == 0) {
         return true;
     }

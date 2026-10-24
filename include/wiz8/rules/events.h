@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <functional>
 #include <string>
 #include <variant>
@@ -85,6 +86,13 @@ struct CharacterSpeech {
     int event_type = 0;
 };
 
+// A completed hit's presentation, including the variant selected at the hit milestone.
+struct CharacterDamaged {
+    unsigned int party_slot = 0;
+    unsigned int amount = 0;
+    bool fatal = false;
+};
+
 // A member died.
 struct CharacterDied {
     unsigned int party_slot = 0;
@@ -154,26 +162,45 @@ struct TargetingRequested {
 
 using Event =
     std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, CharacterSpeech,
-                 CharacterDied, PartySlotChanged, PartyLoadChanged, CombatPanelChanged,
-                 CharacterActionChanged, EquipmentSettled, SkillImproved, WorldAdvancementChanged,
-                 CombatantsMoved, CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
-                 CombatProgressChanged, CombatStanceChanged, MonstersChanged, PartyEffectsChanged,
-                 CombatEffectsChanged, PartyPanelChanged, PartyMembershipChanged, WorldItemRemoved,
-                 TargetingRequested>;
+                 CharacterDamaged, CharacterDied, PartySlotChanged, PartyLoadChanged,
+                 CombatPanelChanged, CharacterActionChanged, EquipmentSettled, SkillImproved,
+                 WorldAdvancementChanged, CombatantsMoved, CombatExecutionBegan, CombatCalledOff,
+                 CombatBegan, CombatEnded, CombatProgressChanged, CombatStanceChanged,
+                 MonstersChanged, PartyEffectsChanged, CombatEffectsChanged, PartyPanelChanged,
+                 PartyMembershipChanged, WorldItemRemoved, TargetingRequested>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events
-   wait in order until an observer is installed. */
+   wait in order until an observer is installed. Migrated operations defer delivery
+   until their mandatory consequences finish, preserving the order of their outcomes. */
 class Events {
 public:
     using Observer = std::function<void(const Event&)>;
 
+    // Migrated commands hold their outcomes until the outermost operation completes.
+    // Simulation callbacks remain immediate; only presentation delivery is held.
+    class Operation {
+    public:
+        explicit Operation(Events& events);
+        ~Operation() noexcept(false);
+        Operation(const Operation&) = delete;
+        Operation& operator=(const Operation&) = delete;
+
+    private:
+        Events& events_;
+        std::size_t pending_start_;
+        int exceptions_;
+    };
+
     void push(Event event);
-    // Install or clear the observer; an installed one first receives what is pending.
+    // Install or clear the observer. Pending outcomes wait for any active operation.
     void observe(Observer observer);
     const std::vector<Event>& pending() const { return pending_; }
 
 private:
+    void deliver();
+    unsigned int operations_ = 0;
+    bool delivering_ = false;
     Observer observer_;
     std::vector<Event> pending_;
 };

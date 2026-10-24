@@ -85,7 +85,7 @@ void PrintState(GameHarness& game)
         std::vector<std::pair<float, W8MonsterInfo*>> nearby;
         for (const auto& owner : CurrentLevelPopulation().monster_roster.live()) {
             auto* monster = owner.get();
-            if (monster->fActive && monster->entity.find() && monster->hp_current)
+            if (monster->fActive && monster->entity.get() && monster->hp_current)
                 nearby.emplace_back(HorizontalDistance(monster->entity->nav.GetPosition(), at),
                                     monster);
         }

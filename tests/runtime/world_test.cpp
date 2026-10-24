@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -26,7 +27,10 @@
 #include <vsg/state/ViewportState.h>
 
 #include "harness.h"
+#include "scoped_asset_roots.h"
+#include "temporary_directory.h"
 #include "wiz8/application.h"
+#include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/item_records.h"
@@ -37,6 +41,7 @@
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
 #include "wiz8/entities/native_object.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/main_game_screen.h"
@@ -76,8 +81,10 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/world/camera_pose.h"
+#include "wiz8/world/level_loader.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
+#include "wiz8/world_view.h"
 
 namespace {
 
@@ -324,7 +331,7 @@ void CampSpellsScenario()
     caster.profession_levels[W8_PROFESSION_BISHOP] = 4;
     for (const auto skill : {W8_SKILL_SPELLBOOK_WIZARDRY, W8_SKILL_MENTAL_MAGIC})
         caster.skills[skill].base_level = caster.skills[skill].level = 100;
-    LearnSpell(&caster, W8_SPELL_IDENTIFY_ITEM, false);
+    LearnSpell(Data(), &caster, W8_SPELL_IDENTIFY_ITEM);
     const auto realm = Data().spells[W8_SPELL_IDENTIFY_ITEM].realm;
     caster.sp_max[realm] = caster.iSPLeft[realm] = 100;
     auto& sword = caster.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
@@ -350,7 +357,7 @@ void CampSpellsScenario()
 
     // The next automatic cast targets a character, not the remembered item.
     // Automatic power and immediate retries must respect the mana budget.
-    LearnSpell(&caster, W8_SPELL_REMOVE_CURSE, false);
+    LearnSpell(Data(), &caster, W8_SPELL_REMOVE_CURSE);
     caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].base_level =
         caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].level = 100;
     const auto curse_realm = Data().spells[W8_SPELL_REMOVE_CURSE].realm;
@@ -381,15 +388,34 @@ void CheckWorldRender(GameHarness& game)
         if (world->psrMeshes[i] && world->psrMeshes[i]->visible) ++enabled;
     REQUIRE(enabled > 0);
 
+    // Rendering another view must not replace the interaction's last accepted pick.
+    const auto previous_selection = world->picked;
+    world->picked.intersection.position = {.25f, .75f, 1};
+    const auto accepted_position = world->picked.intersection.position;
     // The same scene and UI with only the world pass switched off is the control.
     REQUIRE((g_world_render_enabled && !g_world_blacked_out));
-    RenderFrame();
+    REQUIRE(PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr).has_value());
+    REQUIRE(world->picked.intersection.position == accepted_position);
     const unsigned polygons = world->scene->submitted_polygons;
     const auto visible = game.read_frame();
     g_world_render_enabled = 0;
-    RenderFrame();
+    const auto unrendered_world = PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
+    REQUIRE(unrendered_world.has_value());
+    REQUIRE_FALSE(unrendered_world->hit);
+    REQUIRE(world->picked.intersection.position == accepted_position);
     const auto control = game.read_frame();
     g_world_render_enabled = 1;
+    world->scene->submitted_polygons = 0;
+    const auto empty_view = RenderFrame(FrameView{});
+    REQUIRE(empty_view.has_value());
+    REQUIRE_FALSE(empty_view->hit);
+    REQUIRE(world->scene->submitted_polygons == 0); // No current-world fallback.
+    REQUIRE(world->picked.intersection.position == accepted_position);
+    REQUIRE(BeginVideoPresentation());
+    const auto skipped = RenderFrame(FrameView{});
+    REQUIRE(FinishVideoPresentation());
+    REQUIRE_FALSE(skipped); // The movie owns presentation, not a rendered miss.
+    world->picked = previous_selection;
 
     Snapshot("world", visible);
     Snapshot("world-control", control);
@@ -456,6 +482,22 @@ void CheckTwoWorldViews(GameHarness& game)
     // adjacent byte even with identical geometry and camera matrices.
     REQUIRE(max_channel_difference <= 1);
     REQUIRE(colored > SCREEN_WIDTH * SCREEN_HEIGHT / 16);
+    const auto simulation_time = CurrentGame().time;
+    const auto visual_time = CurrentGame().visual_time;
+    auto expected_rng = CurrentGame().rng;
+    expected_rng.trace(nullptr);
+    const auto selection = GetWorld()->picked.intersection.position;
+    REQUIRE(RenderFrame(FrameView{.world = &scene,
+                                  .camera = GetWorld()->camera,
+                                  .frame = GameSceneFrame(&CurrentGame())})
+                .has_value());
+    REQUIRE(scene.submitted_polygons > 0);
+    REQUIRE(CurrentGame().time == simulation_time);
+    REQUIRE(CurrentGame().visual_time == visual_time);
+    REQUIRE(GetWorld()->picked.intersection.position == selection);
+    auto actual_rng = CurrentGame().rng;
+    actual_rng.trace(nullptr);
+    REQUIRE(actual_rng.next() == expected_rng.next());
     for (const auto& saved : particles) {
         REQUIRE(std::ranges::count(saved.system->particles, true,
                                    &ParticleSystem::Particle::active) == saved.active);
@@ -514,7 +556,7 @@ void CheckGameplayUi(GameHarness& game)
     const auto original_character = character;
     character.iProfession = W8_PROFESSION_MAGE;
     character.skills[W8_SKILL_FIRE_MAGIC].level = 100;
-    LearnSpell(&character, W8_SPELL_LIGHT, false);
+    LearnSpell(Data(), &character, W8_SPELL_LIGHT);
     const auto realm = Data().spells[W8_SPELL_LIGHT].realm;
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
     CurrentGame().advancement.paused = true;
@@ -563,7 +605,7 @@ void CheckGameplayUi(GameHarness& game)
     REQUIRE_FALSE(SpellPicker());
     REQUIRE(returns == 2);
     // A pending confirmation belongs to the picker being replaced, not its successor.
-    LearnSpell(&character, W8_SPELL_SET_PORTAL, false);
+    LearnSpell(Data(), &character, W8_SPELL_SET_PORTAL);
     const auto portal_realm = Data().spells[W8_SPELL_SET_PORTAL].realm;
     character.sp_max[portal_realm] = character.iSPLeft[portal_realm] = 100;
     character.has_saved_location = true;
@@ -865,7 +907,7 @@ void ResourceLifecycleScenario()
         REQUIRE(linked > 0);
         REQUIRE(animated > 0);
         for (int frame = 0; frame != 4; ++frame) game.frame();
-        RenderFrame();
+        PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
         REQUIRE(world->scene->submitted_polygons > 0);
         game.command(W8_MGS_COMMAND_QUICK_LOAD);
         bool loading = false;
@@ -878,7 +920,7 @@ void ResourceLifecycleScenario()
         REQUIRE(GetWorld()->native_objects.size() == 1);
         ExpectAt("reloaded-position", anchor);
     }
-    RenderFrame();
+    PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
     REQUIRE(GetWorld()->scene->submitted_polygons > 0);
 }
 
@@ -897,4 +939,71 @@ TEST_CASE("inventory-chest", "[runtime]")
 TEST_CASE("camp-spells", "[runtime]")
 {
     RunScenario(CampSpellsScenario);
+}
+
+// Temporary, explicitly invoked metadata census. Not part of the runtime scenario list.
+TEST_CASE("asset-record-census", "[runtime][audit]")
+{
+    RequireAssets();
+    const auto assets = std::filesystem::path(std::getenv("WIZ8_ASSET_ROOT"));
+    ScopedTemporaryDirectory user{"wiz8-asset-census"};
+    ScopedAssetRoots roots;
+    roots.configure({assets.string(), user.path.string()});
+    std::vector<std::filesystem::path> levels;
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(assets / "levels"))
+        if (entry.is_regular_file() &&
+            (entry.path().extension() == ".pvl" || entry.path().extension() == ".lvl"))
+            levels.push_back(entry.path());
+    std::ranges::sort(levels);
+    unsigned int unknown = 0, populated = 0, item_levels = 0, with_status = 0, unknown_status = 0,
+                 missing_status = 0, pvl_count = 0, lvl_count = 0;
+    for (const auto& path : levels) {
+        const bool compiled = path.extension() == ".pvl";
+        if (compiled)
+            ++pvl_count;
+        else
+            ++lvl_count;
+        auto file = wiz8::open_file(path);
+        const auto count = InspectRawLevelCounts(*file, path.parent_path() / "bitmaps", compiled);
+        auto status_path = path;
+        status_path.replace_extension(".sts");
+        int stat = -1, groups = 0;
+        W8Chunk chunks;
+        const bool status_exists = std::filesystem::is_regular_file(status_path);
+        if (status_exists && chunks.OpenRead(status_path)) {
+            stat = 0;
+            chunks.ForEachChunk([&](unsigned int id) {
+                if (id != W8ChunkId("LVLS")) return;
+                ++groups;
+                chunks.ReadGroup([&] {
+                    (void)chunks.ReadValue<int>(); // Level identity, before its sections.
+                    chunks.ForEachChunk([&](unsigned int section) {
+                        if (section == W8ChunkId("STAT")) stat = 1;
+                    });
+                });
+            });
+        }
+        if (!status_exists)
+            ++missing_status;
+        else if (stat == -1 || groups == 0)
+            ++unknown_status;
+        const auto relative = path.lexically_relative(assets).generic_string();
+        std::printf("RAW_ASSET_CENSUS %s raw_monsters=%d raw_items=%d STAT=%d groups=%d\n",
+                    relative.c_str(), count ? count->monsters : -1, count ? count->items : -1, stat,
+                    groups);
+        std::fflush(stdout);
+        if (!count) ++unknown;
+        if (count && count->monsters != 0) ++populated;
+        if (count && count->items != 0) ++item_levels;
+        if (stat == 1) ++with_status;
+    }
+    std::printf("RAW_ASSET_CENSUS_TOTAL files=%zu PVL=%u LVL=%u populated=%u item_levels=%u "
+                "with_STAT=%u unknown_geometry=%u "
+                "missing_STS=%u unknown_STS=%u\n",
+                levels.size(), pvl_count, lvl_count, populated, item_levels, with_status, unknown,
+                missing_status, unknown_status);
+    REQUIRE(pvl_count == 34);
+    REQUIRE(lvl_count > 0);
+    REQUIRE(unknown == 0);
+    REQUIRE(unknown_status == 0);
 }

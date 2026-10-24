@@ -7,7 +7,6 @@
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -22,6 +21,7 @@
 #include "wiz8/render/quality.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/update.h"
@@ -61,7 +61,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
         AdvancePartyVoices();
     }
     if (!activity.in_world()) return;
-    if (!advancement.held && !SharedGameTimersHeld()) {
+    if (!advancement.held && !timerClocks().held()) {
         visual_time += elapsed;
         for (auto* world : {level.sky.get(), level.primary.get()})
             if (world) world->scene->advanceVisuals(visual_time);
@@ -71,10 +71,10 @@ void Game::advance(milliseconds elapsed, StepHold hold)
     sight_due -= elapsed;
     world_items_due -= elapsed;
     if (combat) combat->passTime(elapsed);
-    if (!SharedGameTimersHeld()) autosave_due -= elapsed;
-    UpdateSurpriseMode();
+    if (!timerClocks().held()) autosave_due -= elapsed;
+    updateSurpriseMode();
     ProcessMainGameAutoSave();
-    GameTimeAccumulator().Update(elapsed);
+    motion_clock.Update(elapsed, timerClocks().held());
     g_animated_prop_present = false;
     WorldUpdateProps(level.primary.get(), elapsed);
     if (level.sky) WorldUpdateProps(level.sky.get(), elapsed);
@@ -98,14 +98,16 @@ void Game::advance(milliseconds elapsed, StepHold hold)
         }
     }
     if (Due(world_items_due, kWorldItemsInterval)) {
-        UpdateNearbyWorldItems();
-        DetachAllWorldItems();
+        level.loaded().updateNearbyItems(data, rng, events, g_navigator_gravity);
+        for (auto* world : {level.primary.get(), level.sky.get()})
+            if (world) AnimateWorldItems(*world);
     }
-    if (!advancement.paused || combat.has_value()) UpdateWorlds(elapsed);
+    if (!advancement.paused || combat.has_value()) advanceWorlds(elapsed);
     // Preserve the game's scene-activity gates and sky-before-world order.
     // Particle clocks keep running while world advancement is held; additional
     // camera views consume these results without advancing them again.
     if (level.sky && g_render_mesh_sky && g_monster_shadow_updates_enabled)
-        AdvanceWorldParticles(*level.sky, time);
-    if (level.primary && g_world_render_enabled) AdvanceWorldParticles(*level.primary, time);
+        AdvanceWorldParticles(*level.sky, level.loaded());
+    if (level.primary && g_world_render_enabled)
+        AdvanceWorldParticles(*level.primary, *level.primary);
 }

@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <cassert>
-#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -18,7 +17,6 @@
 #include <glm/trigonometric.hpp>
 #include <glm/vector_relational.hpp>
 
-#include "audio_resources.h"
 #include "geometry.h"
 #include "glm/ext/matrix_float2x2.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -28,7 +26,6 @@
 #include "glm/gtx/projection.hpp"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/SoundEvent.h"
-#include "wiz8/audio/soundman.h"
 #include "wiz8/combat/fight.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
@@ -98,17 +95,6 @@ GroundSurfaceInfo groundSurfaceInfo(const glm::vec3& position)
         result.material = hit.footstep_material;
     }
     return result;
-}
-
-bool g_shared_timers_paused;
-
-void UpdateGameDataRuntime()
-{
-    if (g_shared_timers_paused) {
-        ResumeSharedGameTimers();
-        g_shared_timers_paused = false;
-    }
-    GameTimeAccumulator().Update(std::chrono::milliseconds{0});
 }
 
 /* Apply world-render camera-motion flags into `rotation` and mirror the yaw
@@ -295,7 +281,7 @@ unsigned char LevelSpatialIndex::ProbeMonstersAlongMotion(glm::vec3* direction, 
         monster_info = owner_world->population->findMonster(objects[index]);
         if (monster_info != 0 && monster_info->entity && monster_info->entity->nav.active) {
             Monster& monster = *monster_info->entity;
-            time_scale = g_rate * GameTimeAccumulator().GetFrameDelta();
+            time_scale = g_rate * owner_world->clocks.motionDelta();
             velocity = monster.nav.GetVelocity();
             adjusted.x = direction->x - velocity.x * static_cast<float>(time_scale);
             adjusted.y = direction->z - velocity.z * static_cast<float>(time_scale);
@@ -1504,21 +1490,23 @@ const double g_game_data_pi = 3.141592653589793;
 // FUNCTION: WIZ8 0x00420b40
 float MoveTimer(W8MoveTimerAction action)
 {
-    if (g_shared_timers_paused) {
-        if ((action == W8_MOVE_TIMER_RESUME_MAIN_GAME && GameInProgress() &&
-             CurrentGame().activity.in_world() && !CurrentGame().advancement.hold.covered) ||
+    if (!GameInProgress()) return 0.0f;
+    auto& game = CurrentGame();
+    if (game.move_timer_suspended) {
+        if ((action == W8_MOVE_TIMER_RESUME_MAIN_GAME && game.activity.in_world() &&
+             !game.advancement.hold.covered) ||
             action == W8_MOVE_TIMER_RESUME) {
-            ResumeSharedGameTimers();
-            g_shared_timers_paused = false;
+            game.timerClocks().resume();
+            game.move_timer_suspended = false;
         } else {
             return 0.0f;
         }
     }
     if (action == W8_MOVE_TIMER_SUSPEND) {
-        PauseSharedGameTimers();
-        g_shared_timers_paused = true;
+        game.timerClocks().pause();
+        game.move_timer_suspended = true;
     }
-    return GameTimeAccumulator().GetFrameDelta();
+    return game.motion_clock.GetFrameDelta();
 }
 
 float GetCameraYawRadians()
@@ -1618,31 +1606,4 @@ bool hasCameraLineOfSight(const glm::vec3& position)
         return spatial->hasLineOfSight(cameraLocation(), position);
     }
     return true;
-}
-
-void UpdateLevelMovementAudio(void)
-{
-    PartyMotion* level = LevelMotion();
-    float now;
-
-    if (level == 0) {
-        return;
-    }
-    if ((partyCamera().m_orientation_flags & W8_CAMERA_YAW_MOVING) == 0 ||
-        (level->flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) == 0 || level->motion_velocity.x != 0.0f ||
-        level->motion_velocity.y != 0.0f || level->motion_velocity.z != 0.0f) {
-        if (GetWorld()->audio.footstep_loop != nullptr) {
-            wiz8::sound::stop(GetWorld()->audio.footstep_loop, 500);
-            GetWorld()->audio.footstep_loop = nullptr;
-        }
-        return;
-    }
-    now = GameTimeAccumulator().GetElapsed();
-    if (g_facing_tolerance0 < now - partyCamera().footstep_time &&
-        (partyCamera().footstep_time = now,
-         GetWorld()->audio.footstep_loop == nullptr ||
-             !wiz8::sound::is_playing(GetWorld()->audio.footstep_loop))) {
-        GetWorld()->audio.footstep_loop = PlayFootstep(
-            level->sound_environment, level->sound_environment_alt, W8_FOOTSTEP_KIND_SCUFF);
-    }
 }

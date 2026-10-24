@@ -115,7 +115,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
         case W8_FACT_VI_IN_PARTY:
             return NpcLeadHasNameStyle(W8_NPC_VI_DOMINA);
         case W8_FACT_GLUMPH_DEAD: {
-            W8NpcState* npc = GetNpcStateByKind(0x2b);
+            W8NpcState* npc = CurrentGame().story.npcOfKind(0x2b);
             if (npc == 0) {
                 return 0;
             }
@@ -214,7 +214,7 @@ unsigned char EvaluateFact(W8FactId fact_id)
             if (!NpcLeadHasNameStyle(W8_NPC_VI_DOMINA)) {
                 return CurrentGame().story.facts[fact_id];
             }
-            W8NpcState* npc = GetNpcStateByKind(0x18);
+            W8NpcState* npc = CurrentGame().story.npcOfKind(0x18);
             if (npc != 0 && CurrentGame().party.characters[npc->group_index].highest_condition >=
                                 W8_CONDITION_ASLEEP) {
                 return 1;

@@ -71,7 +71,7 @@ std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games, Pointer&
     case W8_SCREEN_MAIN_GAME:
         return std::make_unique<MainGameScreen>(GameOf(games), pointer);
     case W8_SCREEN_AUTOMAP:
-        return std::make_unique<AutomapScreen>(GameOf(games).level.loaded());
+        return std::make_unique<AutomapScreen>(GameOf(games));
     case W8_SCREEN_CREDITS:
         return CreateCreditsScreen();
     case W8_SCREEN_OPTIONS:
@@ -184,6 +184,10 @@ struct GameEventPresentation {
     {
         QueueCharacterEvent(&CurrentGame().party.characters[speech.party_slot], speech.event_type,
                             0, kCharacterEventFullVolume);
+    }
+    void operator()(const CharacterDamaged& damage) const
+    {
+        PresentCharacterDamage(static_cast<int>(damage.party_slot), damage.amount, damage.fatal);
     }
     void operator()(const CharacterDied&) const
     {

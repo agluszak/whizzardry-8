@@ -58,6 +58,7 @@
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/story.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
@@ -363,7 +364,8 @@ bool LevelScript::seenBodies(int command)
                 if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
                     GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
                     ApplyItemEffectToRandomCharacter(kCursorNodeRelicEvent, -1, 0);
-                    CreateLocationVar("AP_SeenBodies", 1);
+                    CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_SeenBodies",
+                                                               1);
                     if (GetFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
                         SetFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0, false);
                     }
@@ -401,16 +403,6 @@ bool LevelScript::partyVoice(int command, W8WorldCursorNode* node)
 
 /* Master-function values 0x10 and 0x26 select the same path once either of
    the two enabling facts has been set. */
-int NormalizeMasterFunctionValue(int value)
-{
-    if (value == 0x10 || value == 0x26) {
-        if (GetFact(W8_FACT_RAPAX_AWAY_CAMP_EXISTS) == 0 && GetFact(W8_FACT_PARTY_AT_RAC) == 0) {
-            return 0x26;
-        }
-        value = 0x10;
-    }
-    return value;
-}
 
 /* Format the current level's message-database path, fetch the indexed string
    and show it. Answers whether the string existed. */

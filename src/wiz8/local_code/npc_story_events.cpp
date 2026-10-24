@@ -56,6 +56,7 @@
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/story.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/world.h"
@@ -78,7 +79,7 @@ static W8MonsterInfo* FindMonsterGroupLeader(int species)
 
 static W8MonsterInfo* FindNpcKindMonster(int npc_kind)
 {
-    W8NpcState* npc = GetNpcStateByKind(npc_kind);
+    W8NpcState* npc = CurrentGame().story.npcOfKind(npc_kind);
     return npc == 0 ? 0 : GetNpcMonsterInfo(npc);
 }
 
@@ -125,7 +126,7 @@ static void NpcScriptQueueEndgame(void)
     const GameStatus& status = CurrentGame().status;
     if (status.endgame2_queued != 0 ||
         (status.endgame3_queued != 0 && FindNpcOfKind(W8_NPC_PHOONZANG))) {
-        W8NpcState* npc = GetNpcStateByKind(W8_NPC_ENDGAME2);
+        W8NpcState* npc = CurrentGame().story.npcOfKind(W8_NPC_ENDGAME2);
         if (npc != 0) {
             QueueNpcScriptNotice(npc, 0, -1, false, 0);
         }
@@ -396,7 +397,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         BeginScreenFade(0, 0, 500, NpcScriptTurnToBook, true, 1);
         break;
     case W8NpcStoryAction::phoonzang_notice:
-        npc = GetNpcStateByKind(0x87);
+        npc = CurrentGame().story.npcOfKind(0x87);
         if (npc != 0) {
             QueueNpcScriptNotice(npc, 0, -1, false, 0);
         }
@@ -565,7 +566,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
             trigger->flags |= W8_TRIGGER_ON;
             trigger->Run(-1);
         }
-        npc = GetNpcStateByKind(0x8d);
+        npc = CurrentGame().story.npcOfKind(0x8d);
         if (npc != 0) {
             QueueNpcScriptNotice(npc, 0, 7, false, 0);
         }
@@ -580,7 +581,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
                 W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
                 monster_info->entity->ForwardReferencePosition(0);
             }
-            npc = GetNpcStateByKind(0x84);
+            npc = CurrentGame().story.npcOfKind(0x84);
             if (npc != 0) {
                 QueueNpcScriptNotice(npc, 0, -1, false, 0);
             }
@@ -600,7 +601,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
             StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_ATTACK_SPECIAL,
                               W8_ANIMATION_PLAY_ONCE);
         }
-        npc = GetNpcStateByKind(0x8d);
+        npc = CurrentGame().story.npcOfKind(0x8d);
         if (npc != 0) {
             QueueNpcScriptNotice(npc, 0, 0x12, false, 0);
         }
@@ -608,7 +609,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
     }
     case W8NpcStoryAction::remove_rpc_vi:
         if (NpcLeadHasNameStyle(W8_NPC_VI_DOMINA)) {
-            npc = GetNpcStateByKind(0x18);
+            npc = CurrentGame().story.npcOfKind(0x18);
             if (npc != 0) {
                 DismissNpcFromParty(npc->group_index, 0, true, false);
             }

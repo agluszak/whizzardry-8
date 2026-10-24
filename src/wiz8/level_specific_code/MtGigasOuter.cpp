@@ -23,6 +23,8 @@
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 struct W8NpcState;
@@ -133,8 +135,8 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
         return false;
     }
     if (GetLocationVarIDByName("FlagPosition") == -1) {
-        CreateLocationVar("FlagPosition", 0);
-        npc = GetNpcStateByKind(0x2a);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "FlagPosition", 0);
+        npc = CurrentGame().story.npcOfKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x90, true, 0);
         g_trigger_feedback = true;
         return false;
@@ -143,7 +145,7 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
     if (value == 0) {
         liftGate(kMasterToggle);
         trigger->flags &= ~W8_TRIGGER_ENABLED;
-        npc = GetNpcStateByKind(0x2a);
+        npc = CurrentGame().story.npcOfKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x16, true, 0);
         return true;
     }
@@ -155,7 +157,7 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
         prop->SetPosition(&position);
         SetTriggerVariableByName("FlagPosition", 1000);
         ctx.inventory.replaceHeld(MakeItem(Data(), ctx.game.rng, 0x290, false, false, false));
-        npc = GetNpcStateByKind(0x2a);
+        npc = CurrentGame().story.npcOfKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x18, true, 0);
         ResumeNpc(npc, 1);
         if (FindEntityByName("NP_catwalk", &position, 0, 0)) {
@@ -203,7 +205,7 @@ bool MtGigasOuterScript::liftGate(int command)
             if (lift_gate_) {
                 lift_gate_->Arm();
             } else {
-                lift_gate_.emplace(3.0f, TimerClock::World, true);
+                lift_gate_.emplace(world().clocks, 3.0f, TimerClock::World, true);
             }
             if (value > 0) {
                 lift_gate_->SetProgress(value * kMovementSpeedStep);
@@ -254,7 +256,7 @@ bool MtGigasOuterScript::campAlarm(int command)
 
     if (command != 0) {
         if (GetLocationVarIDByName("UmpaniCampAlarm") == -1)
-            CreateLocationVar("UmpaniCampAlarm", 30);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "UmpaniCampAlarm", 30);
         position = world().party.eye();
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
@@ -264,7 +266,7 @@ bool MtGigasOuterScript::campAlarm(int command)
         alarm_sound_ = CreateAndPlaySoundNode(world(), "Data\\Sound\\Ambients\\Alarm1.wav",
                                               position, 1.0f, 75.0f, true);
         const bool was_running = alarm_gate_.has_value();
-        alarm_gate_.emplace(static_cast<float>(static_cast<unsigned int>(command)),
+        alarm_gate_.emplace(world().clocks, static_cast<float>(static_cast<unsigned int>(command)),
                             TimerClock::World, true);
         if (!was_running) {
             addMaster(&MtGigasOuterScript::campAlarm, &MtGigasOuterScript::captureCampAlarm);

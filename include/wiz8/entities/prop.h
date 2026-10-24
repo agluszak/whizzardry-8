@@ -18,6 +18,9 @@
 
 class NavigationMesh;
 struct LevelLoadContext;
+struct GameData;
+class Rng;
+struct Story;
 struct World;
 struct W8WorldItem;
 class MeshInstance;
@@ -92,7 +95,7 @@ public:
     bool SelectAnimationSlot(unsigned char tag);
     int FindCurrentAnimationSlot();
     unsigned char AdvanceAnimationSegment();
-    bool LoadProp(LevelLoadContext* info, Prop* prop);
+    bool LoadProp(LevelLoadContext* info, const GameData& data, Rng& rng, Story& story);
 
     std::optional<Animation> animation;
     Animation* currentAnimation() { return animation ? &*animation : nullptr; }
@@ -111,7 +114,7 @@ public:
     void DetachAnimationInstances(World* world);
     /* The step's prop animation service: `elapsed` is the step time since the previous
        one. */
-    void UpdatePropAnimation(std::chrono::milliseconds elapsed);
+    void UpdatePropAnimation(std::chrono::milliseconds elapsed, bool held);
     /* A frame lasts 1 / animation_speed seconds; a speed that gives no positive length
        keeps the previous one. */
     void UpdateAnimationFrameLength();
@@ -199,9 +202,7 @@ public:
 };
 
 Prop* FindPropByName(World* world, std::string_view name);
-std::unique_ptr<Prop> CreateAndLoadProp(LevelLoadContext* info);
+std::unique_ptr<Prop> CreateAndLoadProp(LevelLoadContext* info, const GameData& data, Rng& rng,
+                                        Story& story);
 
 void UpdateWorldProps(World* world);
-
-void AddItemToSector(int sector, W8WorldItem* item);
-void RemoveItemFromSector(int sector, W8WorldItem* item);

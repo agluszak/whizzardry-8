@@ -30,7 +30,9 @@
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
 #include "wiz8/string_database.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 class Trigger;
@@ -86,7 +88,7 @@ void EnsureKilledVar(World& world)
     if (GetFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
         if (GetLocationVarIDByName("Trynnie2Killed") == -1) {
             KillTrynnieGroups(world);
-            CreateLocationVar("Trynnie2Killed", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "Trynnie2Killed", 1);
         }
     }
 }
@@ -122,16 +124,18 @@ bool Trynnie2Script::giveZulu(Trigger* pTrigger)
 /* "Meat_Maker": spawn the meat item at the Meat_Position entity. */
 bool MeatMaker(Trigger* pTrigger)
 {
+    auto& game = CurrentGame();
+    auto& owner = game.level.loaded();
     glm::vec3 entity_position;
     glm::vec3 position;
     W8WorldItem* item;
 
     if (FindEntityByName("Meat_Position", &entity_position, 0, 0)) {
         position = entity_position;
-        item =
-            AddWorldItem(SpawnItem(0x1b4, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+        item = owner.adoptItem(game.spawnWorldItem(owner, 0x1b4, &position,
+                                                   W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
         if (item != 0) {
-            ActivateItem(item);
+            owner.activateItem(game.data, game.rng, item);
         }
     }
     return true;
@@ -166,7 +170,8 @@ bool Trynnie2Script::meatBox(Trigger* pTrigger)
         info->entity->SetScript("MoveHogarDrugged.msf", true);
         if (GetLocationVarIDByName("HogarDruggedGivenExp") == -1) {
             AwardPartyExperience(500, false);
-            CreateLocationVar("HogarDruggedGivenExp", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "HogarDruggedGivenExp",
+                                                       1);
         }
     }
     (void)ctx.inventory.take({W8ItemStorage::Hand});

@@ -5,12 +5,15 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
+#include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code for RapaxMainFloor.LVL (level 0x12) — the Rapax castle
@@ -40,16 +43,18 @@ void SetRamTriggerEnabled(const char* name, bool enabled)
 /* Spawns a pulsing, rotating item at a named entity and activates it, if the entity exists. */
 void SpawnActivatedItemAt(const char* entity, int item_id)
 {
+    auto& game = CurrentGame();
+    auto& owner = game.level.loaded();
     glm::vec3 entity_position;
     glm::vec3 position;
     W8WorldItem* world_item;
 
     if (FindEntityByName(entity, &entity_position, 0, 0)) {
         position = entity_position;
-        world_item = AddWorldItem(
-            SpawnItem(item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+        world_item = owner.adoptItem(game.spawnWorldItem(
+            owner, item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
         if (world_item != 0) {
-            ActivateItem(world_item);
+            owner.activateItem(game.data, game.rng, world_item);
         }
     }
 }
@@ -114,7 +119,7 @@ bool RapaxMainFloorScript::altarBox(Trigger* pTrigger)
             }
             SetTriggerVariableByName("LezboDemonAppeared", 1);
         } else {
-            CreateLocationVar("LezboDemonAppeared", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "LezboDemonAppeared", 1);
         }
         if (FindEntityByName("NP_Al-Sedexus", &position, 0, 0)) {
             SpawnMonsters(0x124, 1, &position, 0, true, false);

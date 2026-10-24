@@ -6,6 +6,7 @@
 #include "wiz8/combat/combat.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/CosmicCircle.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -16,6 +17,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
 #include "wiz8/world/world.h"
 
 struct W8NpcState;
@@ -55,7 +57,7 @@ bool CosmicCircleScript::triggerPlane1Hedra(Trigger* pTrigger)
         ctx.game.endCombat(true);
     }
     BeginScriptedWorldAction();
-    pNPC = GetNpcStateByKind(0x85);
+    pNPC = CurrentGame().story.npcOfKind(0x85);
     if (pNPC == 0) throw std::runtime_error("Savant NPC state is missing");
     QueueNpcScriptNotice(pNPC, 0, -1, false, 0);
     UpdateCameraPathStateByName(&world(), "CameraPath1", 1);

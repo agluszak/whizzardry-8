@@ -5,11 +5,12 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/entities/world_item.h"
-#include "wiz8/entity_link.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/rules/item_instance.h"
 
 class Trigger;
+struct GameData;
+class Events;
 
 /* Bit masks in W8WorldItem::flags; preserve combinations in unsigned int. */
 enum {
@@ -20,14 +21,14 @@ enum {
 
 /* A world item. Saves store it as wiz8::retail::WorldItem. */
 struct W8WorldItem {
+    void deactivate(Events& events);
     int runtime_id;      /* 0x00 */
-    // The scene entity, deactivated before the world record is removed.
-    EntityLink<WorldItemEntity> entity;
+    // A nearby item owns its loaded appearance; absence means it is unloaded.
+    std::unique_ptr<WorldItemEntity> entity;
     /* The level trigger placed with this item. The record keeps it, not the scene entity,
        because the entity is rebuilt each time the item comes back into range. The trigger
        belongs to the same world and outlives the record. */
     Trigger* trigger = nullptr;
-    bool fActive;        /* 0x08: assertion-proven pItemInfo->fActive */
     W8ItemInstance item; /* 0x09 */
     glm::vec3 position; /* 0x15 */
     unsigned char unknown_21[4];
@@ -42,15 +43,8 @@ struct W8WorldItem {
     unsigned char unknown_3d[0x70];
 };
 
-std::unique_ptr<W8WorldItem> CreateWorldItem(W8ItemInstance* item, const glm::vec3* position,
-                                             int entity_flags);
-W8WorldItem* AddWorldItem(std::unique_ptr<W8WorldItem> item);
-bool SettleWorldItem(W8WorldItem* item);
-std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, int entity_flags);
-
 bool ItemHasFlags(const W8WorldItem* item, unsigned int mask);
 void SetItemFlags(W8WorldItem* item, unsigned int mask, bool enabled);
 void SetItemAndEntityFlags(W8WorldItem* item, unsigned int mask, bool enabled);
 bool ItemInfoIsWorldPersistent(const W8WorldItem* item);
-void ActivateItem(W8WorldItem* item);
-int FindItemRecordByName(const char* name);
+int FindItemRecordByName(const GameData& data, const char* name);

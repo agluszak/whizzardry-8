@@ -59,6 +59,7 @@
 #include "wiz8/math.h"
 #include "wiz8/navigation_math.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/render/compiled_mesh.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/spatial/bounding_box.h"
@@ -72,6 +73,12 @@
 #include "wiz8/world/world.h"
 
 namespace {
+TimerClockView navigationClocks(const NavigationMesh& navigation)
+{
+    const auto* index = navigation.owner_octree;
+    return index && index->owner_world ? index->owner_world->clocks : TimerClockView{};
+}
+
 /* Path cells key Z in the high half and X in the low half, modulo 2^32 like
    retail, so out-of-grid coordinates still produce a (missing) key. */
 unsigned int pathCellKey(int x, int z)
@@ -2377,7 +2384,7 @@ unsigned int NavigationMesh::StepAlongPath(PathSearchScratch& path_search,
             glm::vec3* position = &movement->position;
             glm::vec3 advanced = *position;
             bool on_path = attachment->AdvanceAlongPathPositions(
-                GameTimeAccumulator().GetFrameDelta() * movement->movement_speed *
+                navigationClocks(*this).motionDelta() * movement->movement_speed *
                     movement->movement_scale * g_rate * kWorldScale,
                 &advanced);
             arrived = !on_path;
@@ -2520,7 +2527,7 @@ transitioned:
             if (attachment->path_cursor != attachment->lastWaypoint()) {
                 ActivateMovementTrigger(movement, true);
                 m_waypoints[attachment->path[attachment->path_cursor].value].visit_stamp =
-                    static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
+                    static_cast<unsigned int>(navigationClocks(*this).motionElapsed());
                 ++attachment->path_cursor;
                 owner_octree->UpdateMonsterLocation(movement->location_id, movement->position);
                 return arrived;
@@ -2620,7 +2627,7 @@ unsigned int NavigationMesh::StepMonsterAlongPath(NavigatorMovement* movement, f
     W8MonsterGroup* group =
         owner_octree->owner_world->population->findGroup(monster_info->monster_group_id);
     monster_info->entity->nav.group_linked = true;
-    float remaining = g_rate * GameTimeAccumulator().GetFrameDelta();
+    float remaining = g_rate * navigationClocks(*this).motionDelta();
     do {
         if (remaining <= 0.0f) {
             break;
@@ -2640,7 +2647,7 @@ unsigned int NavigationMesh::StepMonsterAlongPath(NavigatorMovement* movement, f
             do {
                 attachment->path_cursor = previous;
                 m_waypoints[attachment->path[attachment->path_cursor].value].visit_stamp =
-                    static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
+                    static_cast<unsigned int>(navigationClocks(*this).motionElapsed());
                 ++previous;
             } while (previous < reached);
             attachment->path_cursor = reached;
@@ -4005,7 +4012,7 @@ void SteeringStep::IntegrateSteering()
     float scale;
     bool snapped;
 
-    step = g_rate * GameTimeAccumulator().GetFrameDelta();
+    step = g_rate * navigationClocks(navigation).motionDelta();
     if (!blocked) {
         force.y = 0.0f;
         if (speed_limit <= 0.0f) {

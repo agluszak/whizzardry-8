@@ -74,10 +74,12 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/update.h"
@@ -155,15 +157,15 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
 {
     if (!monster_info || monster_info->fActive) return;
     ActivateMonster(monster_info);
-    PrepareMonsterInWorld(*GetWorld(), *monster_info,
-                          CurrentLevelPopulation().monster_roster.isUnborn(monster_info));
+    GetWorld()->prepareMonsterBody(*monster_info, CurrentGame().rng,
+                                   CurrentLevelPopulation().monster_roster.isUnborn(monster_info));
     RequestRefreshPartyState();
     RefreshFlaggedMainGameState();
     BindNpcToMonster(MonsterDBFromSpecies(monster_info->monster_species)->npc_kind, true,
                      monster_info->location_id);
 }
 
-void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
+void World::prepareMonsterBody(W8MonsterInfo& info, Rng& rng, bool unborn)
 {
     auto* monster_info = &info;
     const W8MonsterRecord* record;
@@ -176,7 +178,7 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
 
     if (!monster_info->entity) throw std::runtime_error("missing prepared monster representation");
     Monster& monster = *monster_info->entity;
-    record = MonsterDBFromSpecies(monster_info->monster_species);
+    record = &monster.species();
     if (monster.IsPendingFinalize()) {
         monster.SetLocationId(monster_info->location_id);
         monster.SetAdjustedPosition(&monster_info->position);
@@ -196,30 +198,28 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
             monster.SetCycle(1);
             monster.visual.SetBehaviour(W8_ANIMATION_NEVER_STOP);
             assert(monster.Query(W8_MONSTER_QUERY_FRAME_COUNT) != -1);
-            monster.visual.SetSubCycle(
-                CurrentGame().rng.below(monster.Query(W8_MONSTER_QUERY_FRAME_COUNT)));
+            monster.visual.SetSubCycle(rng.below(monster.Query(W8_MONSTER_QUERY_FRAME_COUNT)));
             monster.SetAnimating(!monster_info->fMotionless);
         }
 
-        world.active_monsters.push_back(&monster);
+        active_monsters.push_back(&monster);
         monster.SetFacing(monster_info->derived);
-        RebuildMonsterDerivedStats(*monster_info);
+        RebuildMonsterDerivedStats(*monster_info, *record);
         monster.nav.movement.leadership_rank =
             static_cast<unsigned int>(record->effective_level) * 0x10000U +
             monster_info->location_id;
         monster.SetLocationId(monster_info->location_id);
         monster.pending_finalize = false;
 
-        InitializeMonsterRangeCapabilities(monster_info,
-                                           MonsterDBFromSpecies(monster_info->monster_species));
+        InitializeMonsterRangeCapabilities(monster_info, record);
     }
 
     camera_position = monster.owner_world.party.eye();
     monster.visual.SelectLOD(&camera_position);
     UpdateMonsterDamageAppearance(monster_info);
     monster.UpdateRepresentation();
-    world.compiledIndex()->UpdateMonsterLocation(
-        static_cast<unsigned short>(monster_info->location_id), monster_info->position);
+    compiledIndex()->UpdateMonsterLocation(static_cast<unsigned short>(monster_info->location_id),
+                                           monster_info->position);
     monster_info->fActive = true;
     monster_info->monster_visibility = std::make_unique<W8MonsterVisibility>();
     if (record->can_open_doors) {
@@ -227,41 +227,57 @@ void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn)
     }
 }
 
-std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info)
+static float RollMonsterScale(W8MonsterInfo& info, const W8MonsterRecord& record, Rng& rng)
 {
-    const W8MonsterRecord* record;
-    record = GetMonsterDataForInfo(monster_info);
-
-    auto monster = Monster::ReadAllCycles(&world, record->cycle_name, monster_info->location_id);
-    assert(monster);
-    return monster;
-}
-
-void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info)
-{
-    if (monster_info->scale < 0.0f ||
-        CurrentGame().status.level_progress[world.level_id].visited == 0) {
-        monster_info->saved_mirror_x = monster_info->entity->visual.mirror_x;
-        monster_info->scale = CalculateMonsterScale(monster_info);
-        monster_info->entity->scale = monster_info->scale;
-    } else {
-        monster_info->entity->scale = monster_info->scale;
-        monster_info->entity->visual.mirror_x = monster_info->saved_mirror_x;
+    const float minimum = info.entity->minimum_scale;
+    const float maximum = info.entity->maximum_scale;
+    if (minimum == 0.0f || maximum == 0.0f) {
+        return info.entity->scale;
     }
 
-    monster_info->entity->ApplyRepresentationScale();
-    monster_info->entity->SetCycle(1);
-    monster_info->entity->RefreshStandingHeight();
+    int minimum_hp = record.hit_points.Minimum();
+    int maximum_hp = record.hit_points.Maximum();
+    float scale = ((maximum - minimum) * (static_cast<unsigned int>(info.uiHPMax) - minimum_hp)) /
+                      (maximum_hp - minimum_hp) +
+                  minimum;
+    float result = (maximum - minimum) * (rng.below(1000) * 0.0004f - 0.2f) + scale;
+
+    if (result < minimum) {
+        return minimum;
+    }
+    if (result > maximum) {
+        return maximum;
+    }
+    return result;
+}
+
+void W8MonsterInfo::configureBody(Rng& rng, bool level_visited)
+{
+    const auto& record = entity->species();
+    if (scale < 0.0f || !level_visited) {
+        saved_mirror_x = entity->visual.mirror_x;
+        scale = RollMonsterScale(*this, record, rng);
+        entity->scale = scale;
+    } else {
+        entity->scale = scale;
+        entity->visual.mirror_x = saved_mirror_x;
+    }
+
+    entity->ApplyRepresentationScale();
+    entity->SetCycle(1);
+    entity->RefreshStandingHeight();
 }
 
 void ActivateMonster(W8MonsterInfo* monster_info)
 {
     assert(monster_info && !monster_info->fActive);
     if (monster_info->entity) return;
-    auto monster = ReadMonsterRepresentation(*GetWorld(), monster_info);
-    monster_info->entity.attach(*monster);
-    GetWorld()->monsters.push_back(std::move(monster));
-    ConfigureMonsterRepresentation(*GetWorld(), monster_info);
+    const auto& record = *GetMonsterDataForInfo(monster_info);
+    auto monster =
+        GetWorld()->loadMonsterBody(record, monster_info->location_id, CurrentGame().rng);
+    monster_info->entity = std::move(monster);
+    monster_info->configureBody(
+        CurrentGame().rng, CurrentGame().status.level_progress[GetWorld()->level_id].visited != 0);
 }
 
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info)
@@ -457,7 +473,7 @@ Monster* GetMonsterByLocationID(int location_id)
 {
     if (location_id != -1) {
         if (W8MonsterInfo* monster_info = FindMonster(location_id, false)) {
-            return monster_info->entity.find();
+            return monster_info->entity.get();
         }
     }
     return 0;
@@ -479,7 +495,7 @@ float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info)
 
 void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info)
 {
-    Monster* monster = monster_info->entity.find();
+    Monster* monster = monster_info->entity.get();
     if (!monster || monster->damage_stage_count <= 1) return;
     const int count = monster->damage_stage_count;
     const int value =
@@ -516,45 +532,6 @@ void ProcessMonstersAtCombatEnd(bool forced_cleanup)
                 MonsterStartsDying(monster_info, true);
             }
         }
-    }
-}
-
-void ConvertMonsterAttributes(W8MonsterInfo* monster_info)
-{
-    for (unsigned int monster_attribute = 0; monster_attribute < W8_MONSTER_ATTR_COUNT;
-         ++monster_attribute) {
-        const W8MonsterRecord* record;
-        W8Attribute attribute_index;
-        int value;
-
-        record = GetMonsterDataForInfo(monster_info);
-        value = record->attribute_values[monster_attribute];
-        attribute_index = W8_ATTRIBUTE_STRENGTH;
-
-        assert(monster_attribute < W8_MONSTER_ATTR_COUNT);
-        switch (monster_attribute) {
-        case W8_MONSTER_ATTRIBUTE_STRENGTH:
-            attribute_index = W8_ATTRIBUTE_STRENGTH;
-            break;
-        case W8_MONSTER_ATTRIBUTE_INTELLIGENCE:
-            attribute_index = W8_ATTRIBUTE_INTELLIGENCE;
-            break;
-        case W8_MONSTER_ATTRIBUTE_DEXTERITY:
-            attribute_index = W8_ATTRIBUTE_DEXTERITY;
-            break;
-        case W8_MONSTER_ATTRIBUTE_SPEED:
-            attribute_index = W8_ATTRIBUTE_SPEED;
-            break;
-        case W8_MONSTER_ATTRIBUTE_SENSES:
-            attribute_index = W8_ATTRIBUTE_SENSES;
-            break;
-        default:
-            std::unreachable();
-        }
-
-        value += monster_info->modifiers.attribute_adjustments[attribute_index];
-        value = std::clamp(value, 1, 125);
-        monster_info->attributes[monster_attribute] = static_cast<unsigned char>(value);
     }
 }
 
@@ -597,7 +574,7 @@ void DestroyUngroupedMonsters(void)
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
 
         if (monster_info->monster_group_id == 0) {
-            Monster* monster = monster_info->entity.find();
+            Monster* monster = monster_info->entity.get();
 
             if (monster != 0) {
                 if ((monster->runtime_flags & W8_MONSTER_REMOVE_AFTER_FADE) != 0 &&
@@ -685,7 +662,7 @@ static void InitializeMonsterRuntimeStatsFor(W8MonsterInfo* monster_info)
     monster_info->stamina_max = value;
     monster_info->stamina = value;
     monster_info->fatigue_band = CalculateMonsterFatigueBand(value, value);
-    monster_info->scale = CalculateMonsterScale(monster_info);
+    monster_info->scale = RollMonsterScale(*monster_info, *record, CurrentGame().rng);
     monster_info->entity->scale = monster_info->scale;
     monster_info->entity->ApplyRepresentationScale();
     monster_info->entity->RefreshStandingHeight();
@@ -702,35 +679,6 @@ void InitializeMonsterRuntimeStats(void)
     for (index = 0; index < CurrentLevelPopulation().monster_roster.unborn().size(); ++index) {
         InitializeMonsterRuntimeStatsFor(GetUnbornMonsterEntry(index));
     }
-}
-
-float CalculateMonsterScale(W8MonsterInfo* monster_info)
-{
-    float minimum;
-    float maximum;
-
-    monster_info->entity->GetScaleRange(&minimum, &maximum);
-    if (minimum == 0.0f || maximum == 0.0f) {
-        return monster_info->entity->scale;
-    }
-
-    assert(monster_info != 0);
-    const W8MonsterRecord* record = MonsterDBFromSpecies(monster_info->monster_species);
-    int minimum_hp = record->hit_points.Minimum();
-    int maximum_hp = record->hit_points.Maximum();
-    float scale =
-        ((maximum - minimum) * (static_cast<unsigned int>(monster_info->uiHPMax) - minimum_hp)) /
-            (maximum_hp - minimum_hp) +
-        minimum;
-    float result = (maximum - minimum) * (CurrentGame().rng.below(1000) * 0.0004f - 0.2f) + scale;
-
-    if (result < minimum) {
-        return minimum;
-    }
-    if (result > maximum) {
-        return maximum;
-    }
-    return result;
 }
 
 // FUNCTION: WIZ8 0x004e67a0
@@ -823,12 +771,15 @@ void ShutdownMonsterManager(void)
 
 bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
 {
-    auto& roster = CurrentLevelPopulation().monster_roster;
+    auto& world = CurrentGame().level.loaded();
+    auto& roster = world.population->monster_roster;
     const auto owns = [&](const auto& partition) {
         return std::ranges::any_of(partition,
                                    [&](const auto& entry) { return entry.get() == monster_info; });
     };
     if (!owns(roster.live()) && !owns(roster.unborn())) return false;
+    if (world.monster_retirements_ && removal != W8MonsterRemoval::Deactivate)
+        world.monster_retirements_->reserve(world.monster_retirements_->size() + 1);
 
     if (CurrentGame().combat.has_value() && monster_info->pCombat) {
         MonsterInfoLeaveCombat(monster_info);
@@ -858,18 +809,19 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
         CurrentGame().combat->endTurnOf(MonsterActor{monster_info->location_id});
     }
     if (removal == W8MonsterRemoval::Deactivate) return true;
-    if (Monster* monster = monster_info->entity.find()) {
+    if (Monster* monster = monster_info->entity.get()) {
         if (removal == W8MonsterRemoval::Despawn) monster->visual.RetireParticles();
-        monster_info->entity.detach();
-        monster->owner_world.destroyMonster(*monster);
+        if (world.monster_retirements_)
+            monster->retire();
+        else
+            monster_info->entity.reset();
     }
     // Inactive and unborn records also own visibility/NPC relationships.
     ReleaseMonToMonVisibilityList(monster_info);
-    if (auto* world = GetWorld(); world && world->compiledIndex())
-        world->compiledIndex()->UnregisterLocationObjects(
-            static_cast<unsigned short>(monster_info->location_id));
+    if (auto* spatial = world.compiledIndex())
+        spatial->UnregisterLocationObjects(static_cast<unsigned short>(monster_info->location_id));
     ReleaseNpcBinding(monster_info->bound_npc_index);
-    return roster.erase(monster_info);
+    return roster.erase(monster_info, world.monster_retirements_);
 }
 
 /* Retires one entry from the live world: it parks the entry at the sentinel
@@ -1250,7 +1202,7 @@ std::string FormatMonsterHealth(W8MonsterInfo* monster_info)
 
         record = GetMonsterDataForInfo(monster_info);
         if ((record->flags & W8_MONSTER_FLAG_NPC) != 0) {
-            npc = GetNpcStateByKind(record->npc_kind);
+            npc = CurrentGame().story.npcOfKind(record->npc_kind);
             if (npc != 0 && npc->record->has_group != 0) {
                 suppress_exact_health = true;
             }

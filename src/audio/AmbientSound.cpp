@@ -506,7 +506,7 @@ bool AddAmbientSound(World* world, std::string_view name, const W8AmbientSoundCo
             return CompareTextIgnoreAsciiCase(group->resource, config->wave_name) == 0;
         });
         if (found == world->audio.shared_groups.end()) {
-            auto group = std::make_unique<SharedAmbientGroup>();
+            auto group = std::make_unique<SharedAmbientGroup>(world->clocks);
             group->resource = config->wave_name;
             world->audio.shared_groups.push_back(std::move(group));
             sound->group = world->audio.shared_groups.back().get();

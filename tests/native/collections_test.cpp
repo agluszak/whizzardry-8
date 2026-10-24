@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -315,7 +316,7 @@ static bool npcStockOrdering()
     npc.items[1].item.iItemNo = 1;
     npc.items[2].item.iItemNo = 0;
     npc.items[2].available_at = 200;
-    SortNpcItems(&npc);
+    SortNpcItems(Data(), &npc);
     // Item 1 sorts first; the two item-0 entries keep their order.
     REQUIRE(npc.items[0].item.iItemNo == 1);
     REQUIRE((npc.items[1].available_at == 100 && npc.items[2].available_at == 200));
@@ -907,7 +908,7 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
     });
     // The generator states a save keeps put back the saved timer after the rearm's draw.
     generator.timer.setSeconds(4.0f);
-    generator.timer.setScale(0.5f);
+    generator.timer.setScale(0.5f, false);
     generator.timer.advance(std::chrono::milliseconds{500});
     chunk.WriteChunk(W8ChunkId("MGNS"), [&] {
         WriteMonsterGeneratorStates(chunk.WriteStream(), live.savedGeneratorStates());
@@ -922,7 +923,7 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
             loaded_state->applyGeneratorStates(ReadMonsterGeneratorStates(chunk));
             // Decoding draws nothing; building the world draws each generator's jitter once.
             REQUIRE(draws.empty());
-            loaded_state->rearmDecodedGenerators();
+            loaded_state->rearmDecodedGenerators(game.game.rng);
             REQUIRE(draws.size() == 1);
             REQUIRE(draws[0].range == 41);
             const auto& timer = loaded_state->generators.front()->timer;
@@ -965,7 +966,6 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
     const ScopedGameData installed(EncounterLevelData());
     GetWorld()->encounters.random_budget = 8;
     auto& population = CurrentLevelPopulation();
-    std::array<std::unique_ptr<Monster>, 3> representations;
     for (int index = 0; index < 3; ++index) {
         auto group = std::make_unique<W8MonsterGroup>();
         group->group_id = index + 1;
@@ -975,11 +975,9 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
         population.monster_groups.push_back(std::move(group));
         auto record = std::make_unique<W8MonsterInfo>();
         record->location_id = index + 1;
-        auto& monster = representations[index];
-        monster = std::make_unique<Monster>(*GetWorld());
+        auto& monster = record->entity = std::make_unique<Monster>(*GetWorld());
         monster->location_id = index + 1;
         monster->nav.movement.leadership_rank = 0;
-        record->entity.attach(*monster);
         population.monster_roster.add(std::move(record), false);
     }
     auto* old = population.monster_groups[0].get();
@@ -995,7 +993,8 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
     REQUIRE(first->leader_group_id == 0);
     REQUIRE(first->allied_group_ids[0] == 3);
     REQUIRE(second->leader_group_id == 2);
-    REQUIRE(representations[2]->nav.linked_navigator == &(representations[1].get())->nav);
+    REQUIRE(population.findMonster(3)->entity->nav.linked_navigator ==
+            &population.findMonster(2)->entity->nav);
 }
 
 TEST_CASE_METHOD(LevelWorldFixture,
@@ -1287,8 +1286,12 @@ TEST_CASE("Rebinding an NPC to a new level keeps its state", "[npc]")
     npc->gold = 120;
     npc->binding_unavailable = 1;
     W8PreparedNpcBindings pending;
-    pending.records.push_back({.slot = 0, .location_id = 42, .level_band = 3, .bound_level = 7});
-    InstallNpcBindings(std::move(pending));
+    pending.records.push_back({.slot = 0,
+                               .previous = story.npcs[0],
+                               .location_id = 42,
+                               .level_band = 3,
+                               .bound_level = 7});
+    story.installNpcBindings(std::move(pending));
     REQUIRE(story.npcs[0].get() == npc);
     REQUIRE(npc->gold == 120);
     REQUIRE(npc->location_id == 42);
@@ -1600,7 +1603,7 @@ TEST_CASE("A held stack keeps what a full pool cannot take", "[party][inventory]
     inventory.restore(std::move(pool), W8ItemInstance{.iItemNo = 0, .stack_count = 30});
 
     // Ten units merge; the other twenty stay in the hand rather than being lost.
-    REQUIRE_FALSE(inventory.depositHeld(3, true));
+    REQUIRE(inventory.depositHeld(3, true) == Inventory::Deposit::Partial);
     REQUIRE(inventory.pool()[7].stack_count == 100);
     REQUIRE(inventory.pool().size() == Inventory::kPoolLimit);
     REQUIRE(inventory.held()->item.stack_count == 20);
@@ -1621,4 +1624,54 @@ TEST_CASE("Pool rows close up, and a use is abandoned once its row moves", "[par
     inventory.take({W8ItemStorage::Pool, 0, 0});
     REQUIRE_FALSE(inventory.holds(use));
     REQUIRE_FALSE(inventory.take({W8ItemStorage::Pool, 0, 1}));
+}
+
+TEST_CASE("Nested operations present settled outcomes before observer follow-ups", "[events]")
+{
+    Events events;
+    std::vector<unsigned int> seen;
+    std::vector<unsigned int> ordinals;
+    events.observe([&, ordinal = 0u](const Event& event) mutable {
+        const auto slot = std::get<PartySlotChanged>(event).party_slot;
+        seen.push_back(slot);
+        ordinals.push_back(++ordinal);
+        if (slot == 1) events.push(PartySlotChanged{3});
+    });
+    {
+        Events::Operation outer{events};
+        events.push(PartySlotChanged{1});
+        {
+            Events::Operation inner{events};
+            events.push(PartySlotChanged{2});
+        }
+        REQUIRE(seen.empty());
+    }
+    REQUIRE(seen == std::vector<unsigned int>{1, 2, 3});
+    REQUIRE(ordinals == std::vector<unsigned int>{1, 2, 3});
+    events.push(PartySlotChanged{4});
+    REQUIRE(seen.back() == 4); // Unmigrated commands still deliver immediately.
+}
+
+TEST_CASE("Failed operations do not publish completion or consume older pending outcomes",
+          "[events]")
+{
+    Events events;
+    events.push(PartySlotChanged{1});
+    REQUIRE_THROWS_AS(
+        [&] {
+            Events::Operation operation{events};
+            events.push(PartySlotChanged{2});
+            throw std::runtime_error("failed operation");
+        }(),
+        std::runtime_error);
+    std::vector<unsigned int> seen;
+    {
+        Events::Operation operation{events};
+        events.observe([&](const Event& event) {
+            seen.push_back(std::get<PartySlotChanged>(event).party_slot);
+        });
+        events.push(PartySlotChanged{3});
+        REQUIRE(seen.empty());
+    }
+    REQUIRE(seen == std::vector<unsigned int>{1, 3});
 }

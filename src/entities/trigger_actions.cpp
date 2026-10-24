@@ -6,7 +6,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <limits>
 #include <memory>
 #include <optional>
 #include <ranges>
@@ -199,11 +198,14 @@ bool InsideDestinationTrigger(const World& world, float x, float y, float z)
 
 /* Saves record lock progress only; the full lock record form (restoring
    flag set) is still accepted on load. */
-TriggerEvent::TriggerEvent() : action(-1), timer(), trigger(0), repeat(0), completed(0) {}
+TriggerEvent::TriggerEvent(World& world)
+    : owner_world(world), action(-1), timer(world.clocks), trigger(0), repeat(0), completed(0)
+{
+}
 
 TriggerEvent::~TriggerEvent()
 {
-    if (shake && shake->effect) CameraShakes().Stop(*shake->effect);
+    if (owner_world.shakes && shake && shake->effect) owner_world.shakes->Stop(*shake->effect);
 }
 
 glm::vec3 g_trigger_camera;
@@ -271,7 +273,7 @@ TriggerEvent* World::findTimedAction(const Trigger* trigger) const
 TriggerEvent& World::addTimedAction(Trigger* trigger)
 {
     if (auto* previous = findTimedAction(trigger)) previous->completed = true;
-    auto action = std::make_unique<TriggerEvent>();
+    auto action = std::make_unique<TriggerEvent>(*this);
     action->trigger = trigger;
     auto& result = *action;
     timed_events.push_back(std::move(action));
@@ -297,6 +299,7 @@ void UpdateTimedTriggerEvents(void)
 
 void TriggerEvent::UpdateShake()
 {
+    if (!owner_world.shakes) throw std::logic_error("shake action has no sequence owner");
     auto& effect = shake->effect;
     if (!effect) {
         float intensity = shake->intensity / 2.5e+02f;
@@ -310,10 +313,10 @@ void TriggerEvent::UpdateShake()
         if (shake->reverse) {
             effect->fade_out = true;
         }
-        CameraShakes().Start(*effect, &*effect);
+        owner_world.shakes->Start(*effect, &*effect);
     }
 
-    if (!CameraShakes().IsActive(*effect)) {
+    if (!owner_world.shakes->IsActive(*effect)) {
         effect.reset();
         if (trigger != 0) {
             trigger->FinishAction();
@@ -441,7 +444,7 @@ void TriggerEvent::Update()
             return;
         }
         timer.Resume();
-        if (SharedGameTimersHeld()) return;
+        if (owner_world.clocks.held()) return;
     }
 
     if (timer.GetProgress() <= 1.0f || trigger->HasActorWithinRadius(5000.0f, true)) {
@@ -533,30 +536,9 @@ void TriggerEvent::Update()
     }
 }
 
-/* A state-driven Prop has one location variable per animation slot.  Ensure
-   the complete set exists for the loaded level and select slot zero as the
-   initial active state. */
-void InitializeStateDrivenPropVariables(Trigger* trigger)
-{
-    int slot;
-
-    if (trigger->state_to_modify.empty()) {
-        return;
-    }
-    for (slot = 0; slot < static_cast<signed char>(trigger->m_pProp->slots.size()); ++slot) {
-        char name[132];
-
-        assert(trigger->m_bRepType == W8_TRIGGER_REP_PROP);
-        snprintf(name, sizeof(name), "%s%d", trigger->state_to_modify.c_str(), slot);
-        CreateLocationVar(name, slot == 0);
-    }
-}
-
 void SetTriggerVariableByName(std::string_view name, int value)
 {
-    const int index = GetLocationVarIDByName(name);
-    if (index < 0) throw std::out_of_range(fmt::format("unknown location variable {}", name));
-    CurrentGame().story.location_variables[index].value = value;
+    CurrentGame().story.setLocationVariable(GetLoadedLevelID(), name, value);
 }
 
 /* Clear the running bit and run every comma-separated recipient trigger once
@@ -599,7 +581,7 @@ bool Trigger::RequiresItem()
 
 Trigger::~Trigger() = default;
 
-Trigger::Trigger(World* world)
+Trigger::Trigger(World* world, unsigned int item_seed)
 {
     trigger_kind = W8TriggerKind::none;
     trigger_id = 0;
@@ -637,8 +619,7 @@ Trigger::Trigger(World* world)
     position = glm::vec3(0);
     action_data[0] = 0;
     action_data_mode = W8TriggerActionDataMode::toggle_alternate;
-    item_group_seed =
-        static_cast<unsigned int>(WorldClockMilliseconds() + CurrentGame().rng.below(30000));
+    item_group_seed = item_seed;
     gold = 0;
     uses_remaining = 0;
     trigger_id = world ? world->next_trigger_id++ : 0;
@@ -688,7 +669,7 @@ void Trigger::FinishAction()
         if (timed_action != 0) {
             timed_action->completed = true;
         }
-        g_camera_shake_active = false;
+        if (m_pWorld && m_pWorld->shakes) m_pWorld->shakes->suppressFrame();
         goto finish_linked_triggers;
     }
 
@@ -715,7 +696,7 @@ void Trigger::FinishAction()
         if (timed_action != 0) {
             timed_action->completed = true;
         }
-        g_camera_shake_active = false;
+        if (m_pWorld && m_pWorld->shakes) m_pWorld->shakes->suppressFrame();
         action_completed = true;
         break;
     }
@@ -772,14 +753,6 @@ reactivate_linked_triggers:
     }
 }
 
-/* The location variable a state-changing action writes; the level must define it. */
-static int FindModifiedLocationVar(const char* name)
-{
-    const int id = GetLocationVarIDByName(name);
-    if (id == -1) throw std::out_of_range(fmt::format("unknown location variable {}", name));
-    return id;
-}
-
 void Trigger::CommitActionResult(bool apply_state_changes)
 {
 
@@ -799,23 +772,17 @@ void Trigger::CommitActionResult(bool apply_state_changes)
     }
 
     if (!state_to_modify.empty() && apply_state_changes) {
-        int state_id;
         int state_value;
-
         if (state_mod_mode == W8TriggerStateModificationMode::set) {
-            state_id = FindModifiedLocationVar(state_to_modify.c_str());
             state_value = 1;
         } else if (state_mod_mode == W8TriggerStateModificationMode::clear) {
-            state_id = FindModifiedLocationVar(state_to_modify.c_str());
             state_value = 0;
         } else if (state_mod_mode == W8TriggerStateModificationMode::toggle) {
-            state_id = FindModifiedLocationVar(state_to_modify.c_str());
-            state_value = CurrentGame().story.location_variables[state_id].value == 0;
-            state_id = FindModifiedLocationVar(state_to_modify.c_str());
+            state_value = GetLocationVarValueByName(state_to_modify) == 0;
         } else {
             goto show_action_message;
         }
-        CurrentGame().story.location_variables[state_id].value = state_value;
+        SetTriggerVariableByName(state_to_modify, state_value);
     }
 
 show_action_message:
@@ -936,7 +903,8 @@ void Trigger::GenerateItemGroup()
     maximum_items = RollDice(&Data().item_tables[table_id].item_count_dice);
     GenerateItemsFromTable(items, table_id, maximum_items, position);
     if (world_item_group == 0) {
-        world_item_group = SpawnItem(0x23c, &position, 0);
+        world_item_group =
+            CurrentGame().spawnWorldItem(CurrentGame().level.loaded(), 0x23c, &position, 0);
     }
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         world_item_group->contents.push_back(std::move(items[index]));
@@ -951,7 +919,8 @@ void Trigger::GenerateItemGroup()
 W8WorldItem* Trigger::GetOrCreateItemGroup(bool create)
 {
     if (create && world_item_group == 0) {
-        world_item_group = SpawnItem(0x23c, &position, 0);
+        world_item_group =
+            CurrentGame().spawnWorldItem(CurrentGame().level.loaded(), 0x23c, &position, 0);
     }
     return world_item_group.get();
 }
@@ -988,11 +957,11 @@ void WakeMonsterGroup(int monster_id)
     if (monster_info == nullptr) return;
 
     group.members_active = true;
-    Monster* monster = monster_info->entity.find();
+    Monster* monster = monster_info->entity.get();
     if (monster == nullptr) return;
     monster->visual.rep_active = true;
     monster->visual.animation_playing = 1;
-    monster->visual.timer = GameClockMilliseconds();
+    monster->visual.timer = monster->owner_world.clocks.gameMilliseconds();
     monster->visual.ResetRepresentation();
     monster->nav.ResetPathAI();
     monster->nav.reactivated = true;
@@ -1258,7 +1227,8 @@ void Trigger::Run(int source)
                 if (animation->positioned_parts) {
                     for (auto& part : animation->parts[2]) {
                         PathAIUpdate(part.path ? &*part.path : nullptr,
-                                     previous <= static_cast<signed char>(state_index) ? 1 : -1);
+                                     previous <= static_cast<signed char>(state_index) ? 1 : -1,
+                                     m_pWorld->clocks.worldMilliseconds());
                     }
                 } else {
                     m_pProp->SetPendingAnimationSubcycle(static_cast<signed char>(state_index));
@@ -1362,13 +1332,15 @@ void Trigger::Run(int source)
         if (inline_action_data[0] != '\0') {
             if (auto held = CurrentGame().inventory.take({W8ItemStorage::Hand})) {
                 glm::vec3 item_position;
-                auto item = CreateWorldItem(&*held, &item_position,
-                                            W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
+                auto item = CurrentGame().createWorldItem(
+                    CurrentGame().level.loaded(), &*held, &item_position,
+                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
 
                 if (item != 0) {
                     if (world_item_group == 0) {
                         glm::vec3 group_position;
-                        world_item_group = SpawnItem(0x23c, &group_position, 0);
+                        world_item_group = CurrentGame().spawnWorldItem(
+                            CurrentGame().level.loaded(), 0x23c, &group_position, 0);
                     }
                     world_item_group->contents.push_back(std::move(item));
                 }
@@ -1540,7 +1512,7 @@ void Trigger::Run(int source)
             event->shake->intensity = m_lData1 == -1 ? 800 : m_lData1;
 
             if (m_lData3 != -1) {
-                event->m_pCountdown.emplace();
+                event->m_pCountdown.emplace(m_pWorld->clocks);
                 event->m_pCountdown->SetDuration(abs(m_lData3) * 0.001f);
                 event->m_pCountdown->Restart();
                 if (m_lData3 < 0) {
@@ -1817,7 +1789,7 @@ void Trigger::Run(int source)
 
         timed_action = &m_pWorld->addTimedAction(this);
         timed_action->action = static_cast<short>(action);
-        timed_action->m_pCountdown.emplace();
+        timed_action->m_pCountdown.emplace(m_pWorld->clocks);
         timed_action->m_pCountdown->SetDuration(m_lData1 == -1 ? 10.0f : m_lData1 * 0.001f);
         timed_action->m_pCountdown->Restart();
         timed_action->repeat = true;
@@ -1913,8 +1885,7 @@ bool Trigger::SelectAction()
 
     if (!required_states.empty()) {
         for (const auto& state_name : required_states) {
-            const int state_id = FindModifiedLocationVar(state_name.c_str());
-            if (CurrentGame().story.location_variables[state_id].value == 0) {
+            if (GetLocationVarValueByName(state_name) == 0) {
                 action = fallback_action;
                 action_state = W8TriggerActionState::fallback_action;
                 fallback_selected = true;
@@ -2043,7 +2014,7 @@ int ResetNextTriggerId(void)
 
 int GetLocationVarIDByName(std::string_view name)
 {
-    const auto& variables = CurrentGame().story.location_variables;
+    const auto& variables = CurrentGame().story.locationVariables();
     const auto found = std::ranges::find_if(variables, [name](const auto& variable) {
         return variable.level == GetLoadedLevelID() &&
                CompareTextIgnoreAsciiCase(variable.name, name) == 0;
@@ -2051,21 +2022,9 @@ int GetLocationVarIDByName(std::string_view name)
     return found == variables.end() ? -1 : static_cast<int>(found - variables.begin());
 }
 
-void CreateLocationVar(std::string_view name, int value)
-{
-    if (name.empty()) throw std::invalid_argument("empty location variable name");
-    if (GetLocationVarIDByName(name) >= 0) return;
-    auto& variables = CurrentGame().story.location_variables;
-    if (variables.size() >= std::numeric_limits<std::int32_t>::max())
-        throw std::length_error("Too many location variables");
-    variables.push_back({std::string(name), value, GetLoadedLevelID()});
-}
-
 int GetLocationVarValueByName(std::string_view name)
 {
-    const int index = GetLocationVarIDByName(name);
-    if (index < 0) throw std::out_of_range(fmt::format("unknown location variable {}", name));
-    return CurrentGame().story.location_variables[index].value;
+    return CurrentGame().story.locationVariable(GetLoadedLevelID(), name);
 }
 
 /* Index of the prop whose trigger last tested in view; -1 until a prop

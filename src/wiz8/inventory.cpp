@@ -68,6 +68,7 @@
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 enum { W8_ITEM_USE_TYPE_COUNT = 10 };
 // The speech a member makes when a shot weapon or ammunition has no partner to draw from.
@@ -383,8 +384,9 @@ bool Inventory::dropUnstored(W8ItemInstance& item, W8ItemLocation origin, int ac
 {
     if ((game_.data.items[item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
         if (const auto position = FindItemDropPosition()) {
-            AddWorldItem(
-                CreateWorldItem(&item, &*position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+            game_.level.loaded().adoptItem(
+                game_.createWorldItem(game_.level.loaded(), &item, &*position,
+                                      W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             return true;
         }
     }
@@ -513,13 +515,14 @@ Inventory::Receipt Inventory::receiveAll(std::span<const W8ItemInstance> items,
             const auto position = FindItemDropPosition();
             if (!position) return Receipt::Refused;
             for (auto& item : overflow)
-                drops.push_back(CreateWorldItem(&item, &*position,
-                                                W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                drops.push_back(
+                    game_.createWorldItem(game_.level.loaded(), &item, &*position,
+                                          W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
         }
     }
     pool_ = std::move(pool);
     commit();
-    for (auto& drop : drops) AddWorldItem(std::move(drop));
+    for (auto& drop : drops) game_.level.loaded().adoptItem(std::move(drop));
     if (held) held_ = W8HeldItem{*held};
     settle({});
     for (const auto row : received) {
@@ -760,8 +763,8 @@ std::expected<void, InventoryRefusal> Inventory::dropHeld()
     if (const auto position = FindItemDropPosition()) {
         auto item = held_->item;
         held_.reset();
-        AddWorldItem(
-            CreateWorldItem(&item, &*position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+        game_.level.loaded().adoptItem(game_.createWorldItem(
+            game_.level.loaded(), &item, &*position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
     } else {
         wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
     }
@@ -967,12 +970,14 @@ unsigned int Inventory::mergeHeld(W8ItemLocation location)
     return moved;
 }
 
-bool Inventory::depositHeld(unsigned int row, bool insert_rest)
+Inventory::Deposit Inventory::depositHeld(unsigned int row, bool insert_rest)
 {
-    if (!held_) return false;
+    Events::Operation outcomes{game_.events};
+    if (!held_) return Deposit::Refused;
+    unsigned int moved = 0;
     const auto& data = game_.data;
     if (data.items[held_->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK) {
-        unsigned int moved = row < pool_.size() ? MergeStack(data, pool_[row], held_->item) : 0;
+        moved = row < pool_.size() ? MergeStack(data, pool_[row], held_->item) : 0;
         for (auto& stack : pool_) {
             if (held_->item.stack_count == 0) break;
             moved += MergeStack(data, stack, held_->item);
@@ -980,13 +985,14 @@ bool Inventory::depositHeld(unsigned int row, bool insert_rest)
         const bool complete = held_->item.stack_count == 0;
         if (complete) held_.reset();
         if (moved != 0) settle({complete ? kHand : W8ItemLocation{}});
-        if (complete) return true;
+        if (complete) return Deposit::Complete;
     }
-    if (!insert_rest || row > pool_.size() || pool_.size() >= kPoolLimit) return false;
+    if (!insert_rest || row > pool_.size() || pool_.size() >= kPoolLimit)
+        return moved ? Deposit::Partial : Deposit::Refused;
     pool_.insert(pool_.begin() + row, held_->item);
     held_.reset();
     settle({kHand, PoolRow(row)});
-    return true;
+    return Deposit::Complete;
 }
 
 /* Two identified items that some database entry names as its components (in either order)

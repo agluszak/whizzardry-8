@@ -7,6 +7,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -15,7 +16,9 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
 #include "wiz8/string_database.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code for RapaxUpperFloor.LVL (level 0x13) — the Rapax
@@ -40,6 +43,8 @@ void RunTreasureDoor()
    Returns 0 once the treasure is delivered. */
 bool DoorDone(Trigger* pTrigger)
 {
+    auto& game = CurrentGame();
+    auto& owner = game.level.loaded();
     glm::vec3 entity_position;
     glm::vec3 position;
     W8WorldItem* world_item;
@@ -52,10 +57,11 @@ bool DoorDone(Trigger* pTrigger)
                     item_id = GetLocationVarValueByName("TMakeTreasureNumber");
                     if (FindEntityByName("NP_SlipItem", &entity_position, 0, 0)) {
                         position = entity_position;
-                        world_item = AddWorldItem(SpawnItem(
-                            item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                        world_item = owner.adoptItem(
+                            game.spawnWorldItem(owner, item_id, &position,
+                                                W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
                         if (world_item != 0) {
-                            ActivateItem(world_item);
+                            owner.activateItem(game.data, game.rng, world_item);
                         }
                     }
                     RunTreasureDoor();
@@ -111,10 +117,10 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
             if (var_id == -1 || GetLocationVarValueByName("TdoorOpen") == 0) {
                 if (FindEntityByName("NP_SlipItem", &entity_position, 0, 0)) {
                     position = entity_position;
-                    world_item = AddWorldItem(SpawnItem(
-                        item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                    world_item = world().adoptItem(ctx.game.spawnWorldItem(
+                        world(), item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
                     if (world_item != 0) {
-                        ActivateItem(world_item);
+                        world().activateItem(ctx.game.data, ctx.game.rng, world_item);
                     }
                 }
                 RunTreasureDoor();
@@ -123,13 +129,14 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
             RunTreasureDoor();
             var_id = GetLocationVarIDByName("TMakeTreasure");
             if (var_id == -1) {
-                CreateLocationVar("TMakeTreasure", 1);
+                CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "TMakeTreasure", 1);
             } else {
                 SetTriggerVariableByName("TMakeTreasure", 1);
             }
             var_id = GetLocationVarIDByName("TMakeTreasureNumber");
             if (var_id == -1) {
-                CreateLocationVar("TMakeTreasureNumber", item_id);
+                CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(),
+                                                           "TMakeTreasureNumber", item_id);
                 return true;
             }
             SetTriggerVariableByName("TMakeTreasureNumber", item_id);

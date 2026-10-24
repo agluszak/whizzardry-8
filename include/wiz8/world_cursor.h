@@ -1,14 +1,17 @@
 #pragma once
 
+#include <memory>
+
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
+#include "wiz8/entities/monster.h"
 
 class Monster;
 class Light;
 
 struct W8WorldCursorState {
-    /* detached with the world when the cursor hides. */
-    Monster* monster = nullptr;
+    // Cursor playback is not a gameplay monster and belongs to this interaction.
+    std::unique_ptr<Monster> monster;
     /* set by the right-button path while light exists; the group
        bind consumes and clears it. */
     bool group_bind_pending{};

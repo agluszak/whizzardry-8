@@ -1097,7 +1097,7 @@ static GameData ThreeNpcs()
 
 struct NpcGlobalGuard {
     const ScopedGameData data{ThreeNpcs()};
-    ScopedGame game;
+    ScopedGame game{Data()};
 };
 
 // The spell table, with Sleep aimed at enemies.
@@ -1290,8 +1290,8 @@ TEST_CASE("Monster-control sections keep the retail record", "[save][records]")
 
 TEST_CASE("The newest unexpired lure is the active monster-control effect", "[effects]")
 {
-    const ScopedGame game;
-    auto& effects = CurrentGame().spell_effects;
+    World world;
+    auto& effects = world.spell_effects;
 
     auto previous = std::make_unique<W8SpellEffectEntry>();
     previous->kind = W8_SPELL_HYPNOTIC_LURE;
@@ -1305,11 +1305,14 @@ TEST_CASE("The newest unexpired lure is the active monster-control effect", "[ef
     auto* replacement_ptr = replacement.get();
     effects.push_back(std::move(replacement));
 
-    REQUIRE(FindMonsterControlSpellEffect() == replacement_ptr);
+    REQUIRE(world.monsterControlEffect() == replacement_ptr);
+    REQUIRE_FALSE(world.hasPendingSpellEffects());
     previous_ptr->turns_remaining = 0;
-    REQUIRE(FindMonsterControlSpellEffect() == replacement_ptr);
+    REQUIRE(world.hasPendingSpellEffects());
+    REQUIRE(world.monsterControlEffect() == replacement_ptr);
     replacement_ptr->turns_remaining = 0;
-    REQUIRE(FindMonsterControlSpellEffect() == nullptr);
+    REQUIRE(world.monsterControlEffect() == nullptr);
+    REQUIRE(world.hasPendingSpellEffects());
 }
 
 TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][configuration]")
@@ -1410,7 +1413,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
         SavedGame saved;
         saved.npcs = std::move(npcs);
         saved.state.search_mode = true;
-        std::move(saved).install(globals.game.session);
+        auto& game = globals.game.session.begin();
+        std::move(saved).install(game);
         REQUIRE(CurrentGame().search.requested());
     };
     // A small word that a process-local handle table could have resolved.
@@ -1488,7 +1492,7 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
         const auto retired = CurrentGame().story.npcs[0];
         retired->binding_unavailable = true;
         REQUIRE(!GetNpcState(0));
-        auto* replacement = CreateNpcRuntimeNode(CurrentGame().story, 0);
+        auto* replacement = CurrentGame().createNpcRuntimeNode(0);
         REQUIRE((CurrentGame().story.npcs.size() == 3 && GetNpcState(0) == replacement));
         REQUIRE((replacement->partner_index == 0 && GetNpcState(1) == kept));
         REQUIRE((retired->binding_unavailable && retired->character.value().name[0] == L'A'));
@@ -1612,7 +1616,7 @@ TEST_CASE_METHOD(SaveFixture, "A save decodes to a game state before any session
     };
 
     write_save(true);
-    auto saved = ReadSavedGame("candidate");
+    auto saved = ReadSavedGame(GameData{}, "candidate");
     REQUIRE(!GameInProgress());
     REQUIRE(saved);
     REQUIRE(saved->state.status.resume_level == 5);
@@ -1625,7 +1629,7 @@ TEST_CASE_METHOD(SaveFixture, "A save decodes to a game state before any session
     REQUIRE((!saved->npcs && !saved->facts && !saved->journal));
 
     write_save(false);
-    REQUIRE(!ReadSavedGame("candidate"));
+    REQUIRE(!ReadSavedGame(GameData{}, "candidate"));
 }
 
 TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][records]")

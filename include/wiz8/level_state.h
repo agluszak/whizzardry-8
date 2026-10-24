@@ -9,6 +9,8 @@
 #include <vector>
 
 struct GameStatus;
+struct GameData;
+class Game;
 struct Level;
 struct W8Chunk;
 struct W8LoadedLevelStatus;
@@ -41,9 +43,9 @@ public:
     /* Build the unpublished `world`'s monsters, items and saved state, loading their
        representations and scripts. Throws when the state names what the game data lacks;
        the world is then discarded. */
-    std::unique_ptr<W8LoadedLevelStatus> build(World& world) &&;
+    std::unique_ptr<W8LoadedLevelStatus> build(Game& game, World& world) &&;
     // Throws when a monster or group names a species the monster database lacks.
-    void checkSpecies() const;
+    void checkSpecies(const GameData& data) const;
     // The world items alone, unlisted (the camp chest takes them from another level).
     std::vector<std::unique_ptr<W8WorldItem>> buildItems() const;
 

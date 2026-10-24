@@ -202,10 +202,10 @@ bool SwampScript::gasFireItemDrop(int command)
         if (Monster* spawned = GetMonsterByLocationID(spawned_monster_id_)) {
             position = spawned->nav.GetPosition();
             drop_position = position;
-            item = AddWorldItem(
-                SpawnItem(0x264, &drop_position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+            item = world().adoptItem(ctx.game.spawnWorldItem(
+                world(), 0x264, &drop_position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             item->item.identified = false;
-            ActivateItem(item);
+            world().activateItem(ctx.game.data, ctx.game.rng, item);
             spawned->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
         return true;

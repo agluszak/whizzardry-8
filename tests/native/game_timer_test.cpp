@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -8,15 +9,20 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include "glm/ext/matrix_float3x3.hpp"
+#include "glm/ext/vector_double3.hpp"
 #include "save_payload.h"
 #include "scoped_game.h"
 #include "scoped_game_data.h"
 #include "temporary_directory.h"
 #include "wiz8/audio/AmbientSound.h"
+#include "wiz8/camera_motion.h"
 #include "wiz8/chunk.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/spell_ids.h"
+#include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/keyframe_track.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
@@ -27,11 +33,16 @@
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
+#include "wiz8/render/camera_shake.h"
+#include "wiz8/render/particle_modes.h"
+#include "wiz8/render/particle_system.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/runtime_test_hooks.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
 
 W8RuntimeTestHooks g_runtime_test_hooks;
@@ -44,18 +55,16 @@ struct TimerFixture {
         g_runtime_test_hooks = {};
         g_runtime_test_hooks.virtual_clock = true;
         g_runtime_test_hooks.clock_us = 1'000'000;
-        g_shared_timer_paused = false;
-        g_level_motion_resume_pending = false;
+        CurrentGame().timers_paused = false;
         CurrentGame().status.game_time_days = 0;
         CurrentGame().status.game_time_ms = 0;
     }
-    ~TimerFixture() { ResetGameTimeAccumulator(); }
     void advance(unsigned long long micros)
     {
         g_runtime_test_hooks.clock_us += micros;
         const auto elapsed = std::chrono::milliseconds(micros / 1000);
         CurrentGame().time += elapsed;
-        if (!SharedGameTimersHeld()) CurrentGame().visual_time += elapsed;
+        if (!CurrentGame().timerClocks().held()) CurrentGame().visual_time += elapsed;
     }
 };
 }
@@ -63,9 +72,9 @@ struct TimerFixture {
 TEST_CASE_METHOD(TimerFixture, "Timer owners separate world, game and presentation time",
                  "[timers]")
 {
-    W8GameTimer world(1.0f, TimerClock::World);
-    W8GameTimer game(1.0f, TimerClock::Game);
-    W8GameTimer ui(1.0f, TimerClock::Presentation);
+    W8GameTimer world(CurrentGame().timerClocks(), 1.0f, TimerClock::World);
+    W8GameTimer game(CurrentGame().timerClocks(), 1.0f, TimerClock::Game);
+    W8GameTimer ui(CurrentGame().timerClocks(), 1.0f, TimerClock::Presentation);
     // Waiting and drawing alone must not advance any simulation timer.
     g_runtime_test_hooks.clock_us += 500'000;
     REQUIRE(world.GetElapsedSeconds() == 0);
@@ -73,17 +82,17 @@ TEST_CASE_METHOD(TimerFixture, "Timer owners separate world, game and presentati
     REQUIRE(ui.GetElapsedSeconds() == Catch::Approx(0.5f));
     advance(250'000);
     REQUIRE(world.GetElapsedSeconds() == Catch::Approx(0.25f));
-    PauseSharedGameTimers();
+    CurrentGame().timerClocks().pause();
     advance(500'000);
     REQUIRE(world.GetElapsedSeconds() == Catch::Approx(0.25f));
     REQUIRE(world.GetProgress() == 0);
     REQUIRE(game.GetElapsedSeconds() == Catch::Approx(0.75f));
     REQUIRE(ui.GetElapsedSeconds() == Catch::Approx(1.25f));
-    ResumeSharedGameTimers();
+    CurrentGame().timerClocks().resume();
     advance(250'000);
     REQUIRE(world.GetElapsedSeconds() == Catch::Approx(0.5f));
     REQUIRE(game.GetElapsedSeconds() == Catch::Approx(1));
-    W8GameTimer stopped(1.0f, TimerClock::World);
+    W8GameTimer stopped(CurrentGame().timerClocks(), 1.0f, TimerClock::World);
     advance(250'000);
     stopped.Pause();
     advance(5'000'000);
@@ -94,7 +103,7 @@ TEST_CASE_METHOD(TimerFixture, "Timer owners separate world, game and presentati
     REQUIRE(stopped.GetProgress() == Catch::Approx(.5f));
     // Clock stamps may wrap; interval subtraction remains valid.
     CurrentGame().visual_time = std::chrono::milliseconds((1ull << 32) / 10);
-    W8GameTimer wrapped(1.0f, TimerClock::World);
+    W8GameTimer wrapped(CurrentGame().timerClocks(), 1.0f, TimerClock::World);
     advance(250'000);
     REQUIRE(wrapped.GetElapsedSeconds() == Catch::Approx(0.25f));
 }
@@ -104,7 +113,7 @@ TEST_CASE_METHOD(TimerFixture, "Game-day time and accelerated frame deltas keep 
 {
     // Thirty game days put the tick clock past 2^32, so it has wrapped.
     CurrentGame().status.game_time_days = 30;
-    W8GameTimer game(2.0f, TimerClock::Calendar);
+    W8GameTimer game(CurrentGame().timerClocks(), 2.0f, TimerClock::Calendar);
     game.SetMode(TimerClock::Calendar);
     REQUIRE(game.ReadClock() == static_cast<std::uint32_t>(30ull * 864'000'000));
     advance(250'000);
@@ -113,17 +122,20 @@ TEST_CASE_METHOD(TimerFixture, "Game-day time and accelerated frame deltas keep 
     REQUIRE(game.GetProgress() == Catch::Approx(0.125f));
 
     // The frame delta follows the elapsed time the step passes, not the clock.
-    ResetGameTimeAccumulator();
-    auto& accumulator = GameTimeAccumulator();
+    CurrentGame().motion_clock = {};
+    auto& accumulator = CurrentGame().motion_clock;
     accumulator.SetTimeScale(0.5f);
-    REQUIRE(accumulator.Update(std::chrono::milliseconds{25}) == Catch::Approx(0.5f));
-    PauseSharedGameTimers();
-    REQUIRE(accumulator.Update(std::chrono::seconds{1}) == 0);
-    ResumeSharedGameTimers();
-    REQUIRE(accumulator.Update(std::chrono::milliseconds{25}) == Catch::Approx(0.5f));
+    REQUIRE(accumulator.Update(std::chrono::milliseconds{25}, CurrentGame().timerClocks().held()) ==
+            Catch::Approx(0.5f));
+    CurrentGame().timerClocks().pause();
+    REQUIRE(accumulator.Update(std::chrono::seconds{1}, CurrentGame().timerClocks().held()) == 0);
+    CurrentGame().timerClocks().resume();
+    REQUIRE(accumulator.Update(std::chrono::milliseconds{25}, CurrentGame().timerClocks().held()) ==
+            Catch::Approx(0.5f));
     accumulator.ResetTimeScale();
-    REQUIRE(accumulator.Update(std::chrono::milliseconds{25}) == Catch::Approx(0.25f));
-    REQUIRE(accumulator.Update(std::chrono::seconds{1}) ==
+    REQUIRE(accumulator.Update(std::chrono::milliseconds{25}, CurrentGame().timerClocks().held()) ==
+            Catch::Approx(0.25f));
+    REQUIRE(accumulator.Update(std::chrono::seconds{1}, CurrentGame().timerClocks().held()) ==
             Catch::Approx(2.0f)); // One step moves at most 200ms.
     REQUIRE(accumulator.GetElapsed() == Catch::Approx(3.25f));
 }
@@ -131,7 +143,8 @@ TEST_CASE_METHOD(TimerFixture, "Game-day time and accelerated frame deltas keep 
 TEST_CASE_METHOD(TimerFixture, "Interval gates retain catch-up, one-shot and saved progress",
                  "[timers][save]")
 {
-    W8IntervalGate repeating(0.1f, TimerClock::World, false), once(0.1f, TimerClock::World, true);
+    W8IntervalGate repeating(CurrentGame().timerClocks(), 0.1f, TimerClock::World, false),
+        once(CurrentGame().timerClocks(), 0.1f, TimerClock::World, true);
     advance(350'000);
     REQUIRE(repeating.PollElapsedIntervals() == 3);
     REQUIRE(repeating.PollElapsedIntervals() == 0);
@@ -145,7 +158,7 @@ TEST_CASE_METHOD(TimerFixture, "Interval gates retain catch-up, one-shot and sav
 
     ScopedTemporaryDirectory directory{"wiz8-timers"};
     const auto path = directory.path / "progress.bin";
-    W8IntervalGate saved(2.0f, TimerClock::World, false);
+    W8IntervalGate saved(CurrentGame().timerClocks(), 2.0f, TimerClock::World, false);
     advance(500'000);
     saved.SetDurationScale(0.5f);
     {
@@ -161,7 +174,7 @@ TEST_CASE_METHOD(TimerFixture, "Interval gates retain catch-up, one-shot and sav
         REQUIRE(values[1] == Catch::Approx(0.5f));
     }
     CurrentGame().visual_time = std::chrono::milliseconds::zero();
-    W8IntervalGate loaded(2.0f, TimerClock::World, false);
+    W8IntervalGate loaded(CurrentGame().timerClocks(), 2.0f, TimerClock::World, false);
     {
         auto file = wiz8::open_file(path);
         REQUIRE(ReadSavePayload(*file, [&](W8Chunk& chunk) { return loaded.LoadState(chunk); }));
@@ -172,14 +185,14 @@ TEST_CASE_METHOD(TimerFixture, "Interval gates retain catch-up, one-shot and sav
 
     // One-shot records store the time left, not the elapsed part. Completed gates
     // load as completed instead of dividing by a zero-duration interval.
-    W8IntervalGate one_shot(2.0f, TimerClock::World, true);
+    W8IntervalGate one_shot(CurrentGame().timerClocks(), 2.0f, TimerClock::World, true);
     advance(500'000);
     {
         auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
         REQUIRE(one_shot.SaveState(*file));
     }
     CurrentGame().visual_time = std::chrono::milliseconds::zero();
-    W8IntervalGate restored(1.0f, TimerClock::World, true);
+    W8IntervalGate restored(CurrentGame().timerClocks(), 1.0f, TimerClock::World, true);
     {
         auto file = wiz8::open_file(path);
         REQUIRE(file->size() == sizeof(float));
@@ -193,7 +206,7 @@ TEST_CASE_METHOD(TimerFixture, "Interval gates retain catch-up, one-shot and sav
         auto file = wiz8::open_file(path, wiz8::OpenMode::replace);
         REQUIRE(restored.SaveState(*file));
     }
-    W8IntervalGate finished(1.0f, TimerClock::World, true);
+    W8IntervalGate finished(CurrentGame().timerClocks(), 1.0f, TimerClock::World, true);
     {
         auto file = wiz8::open_file(path);
         REQUIRE(ReadSavePayload(*file, [&](W8Chunk& chunk) { return finished.LoadState(chunk); }));
@@ -215,7 +228,7 @@ TEST_CASE_METHOD(TimerFixture, "Generator intervals catch up on step time and sa
     interval.setSeconds(2.0f);
     interval.arm();
     interval.advance(milliseconds{500});
-    interval.setScale(0.5f);
+    interval.setScale(0.5f, false);
     REQUIRE(interval.progress() == Catch::Approx(0.25f));
 
     // A save stores the progress and the scale.
@@ -233,7 +246,8 @@ TEST_CASE_METHOD(TimerFixture, "A game steps deterministically on the times it i
     using std::chrono::milliseconds;
     // An empty level in view: each step runs the whole simulation over nothing.
     auto& game = CurrentGame();
-    game.level.replacePrimary(std::make_unique<World>());
+    game.level.replacePrimary(
+        std::make_unique<World>(-1, "", game.timerClocks(), &game.camera_shakes));
     game.level.primary->camera = &game.level.primary->scene->camera;
     const auto auto_save = std::exchange(g_settings.auto_save, 0);
     const auto step = [&](int ms) { game.advance(milliseconds{ms}, {}); };
@@ -251,9 +265,9 @@ TEST_CASE_METHOD(TimerFixture, "A game steps deterministically on the times it i
     REQUIRE(game.time == milliseconds{433});
 
     // Held shared timers stop the countdowns that stand in for them, not the step time.
-    PauseSharedGameTimers();
+    CurrentGame().timerClocks().pause();
     step(1000);
-    ResumeSharedGameTimers();
+    CurrentGame().timerClocks().resume();
     REQUIRE(game.time == milliseconds{1433});
     REQUIRE(game.visual_time == milliseconds{433});
     REQUIRE(game.autosave_due == Game::kAutosaveInterval - milliseconds{433});
@@ -291,27 +305,28 @@ TEST_CASE_METHOD(TimerFixture, "World paths, item radar and ambient replay wait 
     KeyframeTrack path(std::vector<KeyframePoint>{{{0, 0, 0}}, {{10, 0, 0}}});
     path.speed = 1;
     PathAIEnableTimedMode(&path);
-    PathAIResetTick(&path);
-    WorldItemEntity item;
+    PathAIResetTick(&path, game.game.timerClocks().worldMilliseconds());
+    World world(-1, "", game.game.timerClocks());
+    WorldItemEntity item(world);
     item.LightRadarBlip();
     W8AmbientTrack ambient;
     ambient.time_min = ambient.time_max = 1000;
     ambient.Reschedule();
     g_runtime_test_hooks.clock_us += 20'000'000;
-    PathAITick(&path, 1);
+    PathAITick(&path, 1, game.game.timerClocks().worldMilliseconds());
     REQUIRE(path.position == 0);
     REQUIRE(item.IsRadarBlipLit());
     REQUIRE_FALSE(ambient.Due());
     advance(500'000);
-    REQUIRE(PathAITick(&path, 1));
+    REQUIRE(PathAITick(&path, 1, game.game.timerClocks().worldMilliseconds()));
     REQUIRE(path.position == Catch::Approx(.25f));
-    PauseSharedGameTimers();
+    CurrentGame().timerClocks().pause();
     advance(20'000'000);
-    PathAITick(&path, 1);
+    PathAITick(&path, 1, game.game.timerClocks().worldMilliseconds());
     REQUIRE(path.position == Catch::Approx(.25f));
     REQUIRE(item.IsRadarBlipLit());
     REQUIRE_FALSE(ambient.Due());
-    ResumeSharedGameTimers();
+    CurrentGame().timerClocks().resume();
     advance(500'000);
     REQUIRE(ambient.Due());
     advance(9'000'000);
@@ -345,4 +360,195 @@ TEST_CASE("Spell practice queries are pure and attempts restart even a running c
     game.game.combat.emplace();
     REQUIRE(AttemptSpellPractice(W8_SPELL_REMOVE_CURSE, &target, 1, 1));
     REQUIRE(game.game.spell_cooldowns == before_combat);
+}
+
+TEST_CASE_METHOD(TimerFixture, "Candidate timers keep their game clocks across session replacement",
+                 "[timers][lifetime]")
+{
+    auto& outgoing = game.game;
+    outgoing.visual_time = std::chrono::seconds{10};
+    outgoing.timerClocks().pause();
+    Game candidate(outgoing.data);
+    candidate.visual_time = std::chrono::seconds{2};
+    candidate.time = std::chrono::seconds{3};
+    World world(-1, "", candidate.timerClocks(), &candidate.camera_shakes);
+    Trigger trigger(&world);
+    auto& timer = world.addTimedAction(&trigger).timer;
+    W8GameTimer step(candidate.timerClocks(), 1.0f, TimerClock::Game);
+    W8GameTimer calendar(candidate.timerClocks(), 1.0f, TimerClock::Calendar);
+
+    outgoing.visual_time += std::chrono::seconds{1};
+    REQUIRE(timer.GetProgress() == 0);
+    candidate.visual_time += std::chrono::milliseconds{250};
+    REQUIRE(timer.GetProgress() == Catch::Approx(.25f));
+    candidate.timerClocks().pause();
+    REQUIRE(timer.GetProgress() == 0); // Holds report zero, not the previous fraction.
+    candidate.status.game_time_ms += 250;
+    REQUIRE(calendar.GetProgress() == 0);
+    candidate.time += std::chrono::milliseconds{250};
+    REQUIRE(step.GetProgress() == Catch::Approx(.25f));
+    candidate.timerClocks().resume();
+    REQUIRE(calendar.GetProgress() == Catch::Approx(.25f));
+
+    auto& replacement = game.session.begin();
+    REQUIRE_FALSE(replacement.timerClocks().held());
+    replacement.visual_time = std::chrono::seconds{60};
+    candidate.visual_time += std::chrono::milliseconds{250};
+    REQUIRE(timer.GetProgress() == Catch::Approx(.5f));
+    REQUIRE(calendar.GetProgress() == Catch::Approx(.25f));
+    W8GameTimer disconnected({}, 1.0f, TimerClock::Calendar);
+    REQUIRE(disconnected.ReadClock() == 0);
+}
+
+TEST_CASE_METHOD(TimerFixture, "Unkeyed shakes survive level changes but not their game",
+                 "[timers][lifetime][shake]")
+{
+    auto& owner = game.game;
+    const auto world = [&] {
+        return std::make_unique<World>(-1, "", owner.timerClocks(), &owner.camera_shakes);
+    };
+    owner.level.replacePrimary(world());
+    int completed = 0;
+    ShakeDefinition shake(1.0f, false, 1.0f, 0, nullptr);
+    shake.completion_callback = [&] { ++completed; };
+    owner.camera_shakes.Start(shake);
+    owner.level.replacePrimary(world());
+    owner.visual_time += std::chrono::milliseconds{1100};
+    owner.camera_shakes.Update({0, 0, 0});
+    REQUIRE(completed == 1);
+
+    owner.camera_shakes.Start(shake);
+    auto& replacement = game.session.begin();
+    replacement.visual_time += std::chrono::seconds{2};
+    REQUIRE(replacement.camera_shakes.Update({0, 0, 0}) == 0);
+    REQUIRE(completed == 1); // A discarded game's continuation cannot run in its replacement.
+}
+
+TEST_CASE_METHOD(TimerFixture, "First camera motion resumes its clock only once",
+                 "[timers][camera]")
+{
+    CurrentGame().motion_clock = {}; // Zero movement delta: this test needs no collision geometry.
+    auto clocks = game.game.timerClocks();
+    PartyCamera camera(clocks);
+    LevelSpatialIndex geometry;
+    clocks.pause();
+    REQUIRE_FALSE(camera.move(geometry, 0, glm::mat3(1)).moved);
+    REQUIRE(camera.motion_started);
+    REQUIRE_FALSE(clocks.held());
+    clocks.pause();
+    REQUIRE_FALSE(camera.move(geometry, W8_CAMERA_MOTION_FORWARD, glm::mat3(1)).moved);
+    REQUIRE(clocks.held());
+}
+
+TEST_CASE_METHOD(TimerFixture, "Motion clocks belong to their game and survive level resets",
+                 "[timers][lifetime][motion]")
+{
+    Game candidate(game.game.data);
+    World world(-1, "", candidate.timerClocks());
+    const auto clocks = world.clocks;
+    game.game.motion_clock.Update(std::chrono::milliseconds{100}, false);
+    candidate.motion_clock.SetTimeScale(.25f);
+    candidate.motion_clock.Update(std::chrono::milliseconds{25}, false);
+    REQUIRE(clocks.motionDelta() == Catch::Approx(1));
+    REQUIRE(clocks.motionSlowed());
+    REQUIRE(clocks.motionElapsed() == Catch::Approx(1));
+
+    // Changing scale restarts the interval, not its accumulated motion timestamp.
+    candidate.motion_clock.SetTimeScale(1);
+    REQUIRE(clocks.motionDelta() == 0);
+    REQUIRE(clocks.motionSlowed()); // Only ResetTimeScale clears the sticky slow mode.
+    REQUIRE(clocks.motionElapsed() == Catch::Approx(1));
+    candidate.motion_clock.ResetTimeScale();
+    REQUIRE_FALSE(clocks.motionSlowed());
+    candidate.motion_clock.Update(std::chrono::seconds{1}, false);
+    REQUIRE(clocks.motionDelta() == Catch::Approx(2)); // Clamp in motion units.
+    REQUIRE(clocks.motionElapsed() == Catch::Approx(3));
+    candidate.motion_clock.Update(std::chrono::seconds{1}, true);
+    REQUIRE(clocks.motionDelta() == 0);
+    REQUIRE(clocks.motionElapsed() == Catch::Approx(3));
+
+    // Both existing and prepared worlds borrow the same stable clock object.
+    candidate.motion_clock = {};
+    REQUIRE(clocks.motionElapsed() == 0);
+    candidate.motion_clock.Update(std::chrono::milliseconds{50}, false);
+    REQUIRE(clocks.motionDelta() == Catch::Approx(.5f));
+    auto& replacement = game.session.begin();
+    replacement.motion_clock.Update(std::chrono::seconds{1}, false);
+    REQUIRE(clocks.motionDelta() == Catch::Approx(.5f));
+    REQUIRE(clocks.motionElapsed() == Catch::Approx(.5f));
+    const TimerClockView disconnected;
+    REQUIRE(disconnected.motionDelta() == 0);
+    REQUIRE(disconnected.motionElapsed() == 0);
+    REQUIRE_FALSE(disconnected.motionSlowed());
+}
+
+TEST_CASE_METHOD(TimerFixture, "Motion suspension and timer holds remain distinct inputs",
+                 "[timers][motion]")
+{
+    auto& owner = game.game;
+    const auto clocks = owner.timerClocks();
+    owner.motion_clock.SetTimeScale(.3333f);
+    // The old timer quantizes the scaled duration to an integer number of ticks.
+    REQUIRE(owner.motion_clock.Update(std::chrono::milliseconds{10}, false) ==
+            Catch::Approx(100.0f / 333.0f));
+    owner.move_timer_suspended = true;
+    REQUIRE(clocks.motionSuspended());
+    REQUIRE_FALSE(clocks.held());
+    REQUIRE(clocks.motionDelta() > 0); // Camera sway suppresses it; physical motion owns its hold.
+    owner.move_timer_suspended = false;
+    clocks.pause();
+    REQUIRE_FALSE(clocks.motionSuspended());
+    REQUIRE(clocks.held());
+}
+
+TEST_CASE_METHOD(TimerFixture, "Actor clocks and particle clones retain their originating world",
+                 "[timers][lifetime][particles]")
+{
+    game.game.time = std::chrono::seconds{90};
+    game.game.visual_time = std::chrono::seconds{90};
+    Game candidate(game.game.data);
+    candidate.time = std::chrono::milliseconds{(1ull << 32) + 123};
+    candidate.visual_time = std::chrono::milliseconds{400};
+    World primary(7, "", candidate.timerClocks());
+    World sky(-1, "", candidate.timerClocks());
+    primary.party.camera.m_position = {10, 20, 30};
+    sky.party.camera.m_position = {100, 200, 300};
+    CyclePlayer cycle(primary);
+    REQUIRE(cycle.timer == 123); // Milliseconds wrap, not the 10,000-Hz timer ticks.
+    REQUIRE(candidate.timerClocks().gameTime() == candidate.time);
+
+    ParticleSystem empty(nullptr, 0);
+    ParticleSystem empty_clone(empty, sky);
+    REQUIRE(std::ranges::find(sky.scene->particles, &empty_clone) != sky.scene->particles.end());
+    ParticleSystem definition(nullptr, 1);
+    REQUIRE(definition.last_integration_tick == 0);
+    auto nested = std::make_shared<Texture>(TexturePlayback{});
+    nested->AddTexture(std::make_shared<Texture>());
+    auto texture = std::make_shared<Texture>(TexturePlayback{});
+    texture->AddTexture(nested);
+    definition.SetTexture(texture);
+    ParticleSystem live(definition, sky);
+    live.camera_relative = true;
+    live.camera_offset = {1, 2, 3};
+    live.speed_mode = W8_PARTICLE_SPEED_FIXED;
+    live.initial_speed = 0;
+    live.emission_gap = 0;
+    auto* particle = live.activateParticle(false);
+    REQUIRE(particle);
+    REQUIRE(particle->birth_tick == 123);
+    const auto& outer = particle->animation->playback;
+    REQUIRE(outer->last_update == candidate.time);
+    REQUIRE(outer->textures.front()->playback->last_update == candidate.time);
+
+    WorldItemEntity radar(primary);
+    radar.LightRadarBlip();
+    game.game.time += std::chrono::seconds{60};
+    game.game.visual_time += std::chrono::seconds{60};
+    REQUIRE(radar.IsRadarBlipLit());
+    candidate.time += std::chrono::milliseconds{1};
+    AdvanceWorldParticles(sky, primary);
+    REQUIRE(live.transform.getLocation() == glm::dvec3(11, 22, 33));
+    REQUIRE(live.last_integration_tick == 124);
+    candidate.visual_time += std::chrono::seconds{10};
+    REQUIRE_FALSE(radar.IsRadarBlipLit()); // The deadline is strict, on held world time.
 }

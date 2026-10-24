@@ -26,6 +26,9 @@
 #include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/message_log.h"
 #include "wiz8/npc_interaction_state.h"
+#include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/render/camera_shake.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
@@ -36,7 +39,9 @@
 
 class NativeObject;
 struct GameData;
+struct SavedGame;
 struct World;
+struct W8WorldItem;
 
 /* The worlds the party is in: the loaded level and the sky drawn behind it. Each slot
    owns its world; queries borrow it. The level's entities report to combat. Replacing a slot hands back the previous owner,
@@ -60,6 +65,8 @@ struct Level {
    the menu. Starting or loading a game replaces the whole object, so nothing is reset
    field by field. Its members keep their retail-era types for now; it moves into the
    `game` layer as they move into the lower layers (ROADMAP.md, "Migration"). */
+struct W8PreparedNpcBindings;
+
 class Game {
 public:
     // The game reads `data`, which its session's owner keeps alive longer than the game.
@@ -83,6 +90,22 @@ public:
         bool speech = false;
     };
     void advance(std::chrono::milliseconds elapsed, StepHold hold);
+    /* Replace the loaded level with `level_id` entered at `entrance`. The destination
+       is prepared before departure; failure leaves the current world loaded. Reloading
+       the current level through the -1 entrance restores the party's camera pose. */
+    [[nodiscard]] bool travelToLevel(int level_id, int entrance);
+    /* Enter the level a decoded save resumes at. */
+    [[nodiscard]] bool
+    enterSavedLevel(int level_id, std::vector<std::unique_ptr<W8SpellEffectEntry>> restored_casts);
+    std::unique_ptr<World> loadWorld(int level_id, std::string source_path);
+    std::unique_ptr<W8WorldItem> createWorldItem(World& world, W8ItemInstance* item,
+                                                 const glm::vec3* position, int entity_flags);
+    std::unique_ptr<W8WorldItem> spawnWorldItem(World& world, int item_id,
+                                                const glm::vec3* position, int entity_flags);
+    /* End level-bound activity, capture the outgoing level's state and release its
+       world. The game, its party and its rng remain; ending the game is the session's
+       operation. */
+    void leaveLevel();
     /* The step time this game has run: the sum of the elapsed times its steps were given.
        Game-step deadlines use this clock; world holds use visual_time, while UI
        presentation and the saved game-day calendar are explicit timer domains. */
@@ -90,6 +113,14 @@ public:
     // World visual time stops with world advancement and shared timer holds.
     // UI/cursor presentation continues on its own monotonic clock.
     std::chrono::milliseconds visual_time{};
+    bool timers_paused = false;
+    bool move_timer_suspended = false;
+    W8GameTimeAccumulator motion_clock;
+    TimerClockView timerClocks()
+    {
+        return {time,          visual_time,  status.game_time_days, status.game_time_ms,
+                timers_paused, motion_clock, move_timer_suspended};
+    }
 
     /* Start a fight with the monsters hostile to the party; `surprise` says the party
        may be ambushed. Declines (returns false) while no member can fight, the party has
@@ -99,6 +130,11 @@ public:
        destroy the combat. A forced end (a departure or a scripted end) neither announces
        nor kills the summoned monsters. */
     void endCombat(bool forced_cleanup);
+    void resetSight();
+    int normalizeLevel(int requested) const;
+    signed char levelBand(int requested) const;
+    W8NpcState* createNpcRuntimeNode(int npc_id);
+    W8PreparedNpcBindings prepareNpcBindings(World& world);
 
     // Commands the level's monster scripts and triggers issue.
     // A monster's script turns the group of the monster at `location_id` to `disposition`.
@@ -136,9 +172,6 @@ public:
     /* What the party is doing. The camp commands set the place; dialogue and story scenes
        set the rest. */
     Activity activity;
-    /* Spells still taking effect: casts whose missiles are in flight, and the
-       sustained monster control the HYPN section saves. */
-    std::vector<std::unique_ptr<W8SpellEffectEntry>> spell_effects;
     // Voice barks and quotes waiting for, or holding, a speaker.
     W8CharacterEventQueue speech{*this};
     // The NPC conversation's progress: its speaker, queued script work and owed reply.
@@ -149,7 +182,7 @@ public:
     // The deadline of each shared three-minute spell cooldown (in `SpellPracticeCooldown`).
     std::array<std::uint64_t, 14> spell_cooldowns{};
     /* The step time left until the timed autosave announces itself, counted in the world
-       while the shared timers run (`SharedGameTimersHeld`). */
+       while the game's world timers run. */
     static constexpr std::chrono::minutes kAutosaveInterval{5};
     std::chrono::milliseconds autosave_due = kAutosaveInterval;
     W8MonsterManagerEntry monster_manager_entries[8]{};
@@ -167,7 +200,6 @@ public:
     /* A container offered more than one item, so the item-choice dialog is pending;
        blocks the magic-effects tick until it opens. */
     bool item_pick_pending = false;
-    int item_manager_pending = 0;
 
     /* Whether the world moves on. Each step applies what the interface holds
        (`ApplyWorldAdvancement`); rules read the result. */
@@ -191,10 +223,18 @@ public:
     /* Leaving a level stores its state here, entering one reads it back, and a save writes
        them beside the current level's. */
     LeftLevels left_levels;
+    // Unkeyed camera sequences can continue across level changes, but not another game.
+    ShakeSystem camera_shakes{timerClocks()};
     /* Last, so its worlds are destroyed first, while combat and speech still exist.
-       The main game leaves the level when it is discarded, before a game that ends in
-       play is destroyed; destroying a world does no departure bookkeeping. */
+       Session and level transitions perform departure before releasing the world;
+       screen disposal and world destruction do no departure bookkeeping. */
     Level level;
+
+private:
+    std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
+    void updateSurpriseMode();
+    void advanceWorlds(std::chrono::milliseconds elapsed);
+    void advanceSpellEffects(World& world);
 };
 
 /* The games of one run of the program: the game in progress, if any, and the random
@@ -210,11 +250,16 @@ public:
     GameSession& operator=(const GameSession&) = delete;
 
     // The game in progress, or null.
-    Game* game() { return game_ ? &*game_ : nullptr; }
+    Game* game() { return game_.get(); }
     std::filesystem::path native_object_file;
     /* Begin a new game, ending any in progress. It continues the previous game's random
        stream, and its events go to the observer. */
     Game& begin();
+    /* Replace a decoded game at the presentation boundary: end combat while its views
+       exist, release those views, install the saved owners and enter the saved level.
+       A construction failure ends the replacement and propagates to the caller.
+       Resource construction still requires the installed game; decoding is independent. */
+    void load(SavedGame saved, std::function_ref<void()> release_presentation);
     /* End the game in progress, if any, leaving its level (departure bookkeeping); the next
        game continues its random stream. */
     void end();
@@ -229,7 +274,7 @@ private:
     // Release the game in progress without leaving its level.
     void discard();
     const GameData& data_;
-    std::optional<Game> game_;
+    std::unique_ptr<Game> game_;
     Rng next_stream_;
     std::function<void(const Event&)> observer_;
 };

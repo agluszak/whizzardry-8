@@ -205,7 +205,9 @@ public:
     Navigator& operator=(const Navigator&) = delete;
     LevelSpatialIndex* NavigationOctree() const;
     World& owner_world; // Whose geometry, population and registry it uses.
-    ~Navigator();                /* 0x00452120 */
+    ~Navigator();
+    // Logical removal can precede reclamation while an update still borrows this object.
+    void detachFromWorld();
     /* Takes ownership, releasing the previous path. Null clears it;
        assigning the current path preserves it. GetPathAI only borrows. */
     void SetPathAI(std::optional<KeyframeTrack> path);

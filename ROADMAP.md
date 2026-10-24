@@ -35,10 +35,17 @@ of it:
 - **Rules drive presentation directly.** Inventory and party report events, but other
   rules still call presentation (notices, targeting, the combat panel, screen ids), and 33 of the 57
   `local_code` files include screen headers.
-- **Level departure is screen-directed.** Destroying a game does no departure
-  bookkeeping: the main game, discarded before its game ends or is replaced, leaves the
-  level (`LeaveLevel`), which releases the monster manager, item lists, world cursor, sky,
-  camera sway and game-time accumulator that live outside `Game`.
+- **Level transition internals still reach the current game.** `Game::travelToLevel`
+  and `Game::leaveLevel` own the transition boundary, and screens no longer load or
+  unload levels. The helpers they call (monster manager, NPC bindings, item lists,
+  world cursor, sky/camera release and entry scripts) still use current-game lookups;
+  pass the game, world and level-local owners as each helper migrates. Resource
+  preparation still uses the installed game, so retaining the outgoing game on a
+  construction failure remains a target.
+- **Remaining time lookups.** Timers are bound to their originating game, but cycle,
+  particle and item timestamps still use current-game clock helpers. Bind those to
+  their world too, and move the process-scoped motion-delta accumulator into its game
+  without changing elapsed scaling, integer quantization or level-reset timing.
 - **Combat waits on presentation.** Each step, combat reads the camera, monster
   animations and missiles in flight to decide whether its turn may advance.
 
@@ -48,9 +55,9 @@ The target is five layers. Each may depend only on the layers listed above it.
 |---|---|---|
 | `data` | `GameData`: the string table; item, spell, monster, NPC, fact and level databases; missile and encounter tables; profession, race and skill tables. Immutable after loading. Retail record codecs. | change after loading |
 | `rules` | Functions over explicit state: item rules, character derivation and settlement, conditions, spell and attack resolution, facts, factions, trade, NPC script evaluation. They take what they read and change (`const GameData&`, the state they change, `Rng&`, `Events&`), return values, and report refusals as `std::expected`. | include SDL, render, audio, world or screen headers; touch a mutable namespace-scope variable |
-| `game` | `Game`, one play-through. It owns the saved `GameState` value (party, story, clock, message log, level progress), `Rng`, the `Level` (primary and sky worlds, monsters, triggers, encounters), `std::optional<Combat>`, the `Activity`, the speech scheduler and the event log. Commands are its member functions. `Game::advance(elapsed)` is the only simulation step. | include screen headers or call presentation |
-| `ui` | The router and screens. A screen borrows `const GameData&` and `Game*`. It draws from state, issues commands and presents events (notices, voices, portrait flashes, camera cues). It owns all presentation state: the main game's HUD (`MainGameScreen::hud`), text boxes, cursor, targeting mode, the edited formation and the item drag. | change game state except through commands |
-| `app` | The platform (window, GPU, audio device, input), `GameData`, `std::optional<Game>` and the UI. | |
+| `game` | `Game`, one play-through: party, inventory, story, clocks, message log, level progress, RNG, loaded level, optional party combat, activity and ongoing sequences. Components enforce local invariants; game operations coordinate consequences across owners. Saved values are snapshots. | include screen headers or call presentation |
+| `ui` | The router and screens. A screen borrows `const GameData&` and `Game*`. It draws from state, issues commands and presents events (notices, voices, portrait flashes, camera cues). It owns all presentation state: the main game's HUD (`MainGameScreen::hud`), text boxes, cursor, targeting mode, the edited formation and the held item’s cursor image. Inventory owns the item and transfer state. | change game state except through commands |
+| `app` | Devices, immutable `GameData`, the `GameSession` and actual screen router. The session owns the current game and continuing RNG stream. | |
 
 The table states which dependencies each layer may have, not a directory move:
 
@@ -77,16 +84,29 @@ The decisions behind it:
      member of `Game`.
    - Party selection, import and character creation edit the party of a game still in
      party creation, so menus outside a game never touch live state.
-   - A load decodes the save into values (`GameState`, step 8) and constructs the game
-     from them, instead of filling a begun game section by section.
+   - Decode and validate before replacement. The remaining target is to construct a
+     separate, stable-address candidate with explicit dependencies, then release outgoing
+     presentation and install it. Entry consequences retain their established RNG order;
+     resource preparation must not run them early. Raw level parsing still creates
+     embedded monsters/items, seeds triggers and initializes prop story variables.
+     Decode their values separately, then initialize in file order: monster paths,
+     each item trigger followed by that item, prop triggers, standalone triggers,
+     saved population and entry. Preserve the pre-prop legacy numeric-ID prefix;
+     moving only monster/item creation changes both trigger RNG and APST keys.
+   - Travel and departure are game operations (`travelToLevel`, `leaveLevel`), not
+     screen teardown. The session invokes them for load and end; screens request them
+     and present loading. The outgoing world is released after the destination and its
+     saved status are prepared.
 2. **Rules emit events; the UI presents them.**
    - Rules append, in order:
      - domain facts (`ItemReceived`, `ConditionChanged`, `CharacterDied`,
        `RoundStarted`, `GoldChanged`);
      - narration (`Message{text, speaker}`);
      - speech requests.
-   - The UI drains the log after each command and each step, and presents it in that
-     order.
+   - Each migrated operation delivers its presentation outcomes after required
+     consequences settle, in their original order. Unmigrated flows retain immediate
+     delivery until their direct presentation work moves with them. Simulation release
+     frames and impacts remain immediate; they are not presentation notifications.
    - `RequestRedraw` and redraw bitmasks disappear: screens repaint what an event
      invalidated.
    - The retail order of messages and voices and every random draw are preserved.
@@ -103,15 +123,18 @@ The decisions behind it:
      speech, surprise, autosave pacing, monsters, movement fatigue, search, combat,
      sight, groups, worlds, the environment clock and NPC events.
    - The screen decides only whether to step (pause, an open modal).
-5. **Combat advances on explicit signals.**
-   - `Combat` owns its pacing and its participants' per-fight state, and steps when
-     the presentation reports its actors idle. Action choices stay with the party.
-   - Animation frames and missile impacts post simulation events (`SpellReleased`,
-     `MissileHit`) to combat. Entities no longer resolve attacks themselves.
+5. **Combat owns the party fight's progression.**
+   - Combat owns rounds, scheduling, execution and the decision to wait. Monsters retain
+     world-owned engagement state even outside a party fight. Action choices stay with
+     the party; executing choices are snapshots.
+   - Authored release frames and missile impacts resolve at their established simulation
+     milestones, preserving random-draw order. Playback reports completion to its original
+     sequence; a semantic readiness query is acceptable where it is simpler.
 6. **Saves are codecs over values.**
-   - A save is `GameState` plus one `LevelState` per visited level.
+   - Prepare required gameplay settlement, capture authoritative owners into saved
+     values, then encode and write. There is no second mutable live `GameState`.
    - `W8GlobalStatus` and the other retail records exist only inside the codec.
-   - A save snapshot is a copy of `GameState`.
+   - Keep unknown retail fields and retained NPC snapshots at the compatibility boundary.
 7. **The boundaries are enforced.**
    - `data` and `rules` build as a library without the engine or SDL, and `game` does
      not link `ui`.
@@ -139,10 +162,10 @@ the licensed runtime scenarios after every step.
    - The dialogue's interface (layouts, trade table, quote bubble, `NpcDialogueUi`) is the
      main game's `W8NpcDialoguePanel`; `Game::npc_interaction` keeps the conversation
      (who speaks with whom, the offered item, the staged notice) and four interface facts
-     the conversation's progress waits on (the open layout, the hidden panel or dialogue,
-     a modal dialog), which `W8NpcDialogue::Advance` and the NPC script read every step.
-     Those go once the dialogue's progress hears from its interface instead of reading
-     it. The portrait animation in `monster_manager_entries`, which combat and magic
+     that NPC scripts still consult for layout-specific UI requests (the open layout,
+     the hidden panel or dialogue and a modal dialog). Move those requests behind the
+     panel boundary without moving its state into the conversation. Utterance completion
+     already belongs to the dialogue rather than a query of the current screen. The portrait animation in `monster_manager_entries`, which combat and magic
      drive directly, still belongs on the screen with step 5, behind events.
    - The main game's first entry starts the world running, resets the autosave interval,
      clears the aging hold and readies the portrait slots (`ResetTargetingState`, whose
@@ -178,9 +201,10 @@ the licensed runtime scenarios after every step.
      storage slot that has no member yet), the last two through `W8Party::slotOf`.
      Pass party slots, and give the camp and the creation editor a slot or an outsider
      value instead of a `W8Character*`.
-   - Presentation is synchronous: the observer shows each event as it is pushed, to keep
-     its order among the direct screen calls of unmigrated code. When those are gone,
-     the UI drains the log after each command and step instead.
+   - Remaining inventory flows still present synchronously among direct screen calls.
+     Pool deposits now hold their outcomes until pool and hand settle. Migrate each
+     remaining flow's complete presentation sequence before adding its operation boundary;
+     do not defer unrelated simulation callbacks or blanket-queue the entire frame.
 5. **Presentation owned by screens.** The main game repaints what its HUD's record
    (`MainGameRepaint`) holds, game code reports changes as events, the draw path
    receives the HUD, and the pointer derives the held-item cursor every frame
@@ -286,10 +310,6 @@ the licensed runtime scenarios after every step.
      variables, `SpawnMonsters`) still reach the world and story through globals.
    - The fade and monster-cycle completions are plain function pointers, so the NPC
      story callbacks they run read `CurrentGame()`.
-   - The game owns the dialogue's progress (`Game::npc_dialogue`) and the Al-Sedexus
-     scene, but the quote presentation (`npc_dialogue_view.cpp`) is still module state
-     and keeps its state in `Game` (step 1). The presentation belongs to the dialogue's
-     screen.
    - `IsPartySlotEligible` (about 50 callers) is a party query that reads the game; it
      belongs in `rules`, taking the party.
 8. **Saves over values.** Every game section (GSTA, TEXT, TVAR, NPCI, NPCT, NPCF, FATA,
@@ -345,12 +365,6 @@ Substantial but contained work.
   `CONTROL_REUSE_FRONT_MATERIAL`, `CONTROL_NO_FRONT_CULL`) that only tests
   exercise. `W8_MESH_SORTED_RENDERING` duplicates `CONTROL_SORTED_RENDERING`,
   except that posters set only the control bit; merging them changes behaviour.
-- **One world pick.** `RenderFrame` stores the intersection in `World::picked` and
-  its mesh owner in `g_current_model_instance`; `ResolvePickedProp` then latches
-  `g_selected_prop_trigger`/`g_selected_prop_index` and clears the instance when the
-  prop refuses. Native objects, props, monsters and world items each match against
-  one of these. Resolve the pick once into a world-owned selection (owner, prop,
-  native object, distance) that the cursor and activation read, and delete the globals.
 - **Modules named for what they do.** `local_code/` and `local_screens/` keep
   retail translation-unit names, including nine files with spaces (`PC Item.cpp`,
   `Magic Effects.cpp`, …). Move the remaining code into named modules, as

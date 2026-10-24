@@ -37,6 +37,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -44,6 +45,7 @@
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
@@ -55,11 +57,11 @@ struct World;
 const float g_sight_default = 12.0f;
 
 /* Put the sight subsystem back to its starting state. */
-void ResetSight(void)
+void Game::resetSight()
 {
     SetViewDistance(12.0f);
     SetNavigatorLinkMode(W8_NAVIGATOR_LINK_MODE_DEFAULT);
-    GameTimeAccumulator().ResetTimeScale();
+    motion_clock.ResetTimeScale();
     ResetMonsterGeneratorTimers();
 }
 
@@ -648,8 +650,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                         if (record == 0 ||
                             (SetFactionFlag(static_cast<signed char>(record->faction_id), true),
                              (record->flags & W8_MONSTER_FLAG_NPC) == 0)) {
-                            unsigned int now =
-                                static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
+                            unsigned int now = static_cast<unsigned int>(
+                                monster.owner_world.clocks.motionElapsed());
 
                             if ((((monster_info->party_threat.last_seen_clock == 0) ||
                                   (0x78U < static_cast<unsigned int>(
@@ -679,7 +681,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                 }
                             }
                         } else {
-                            W8NpcState* npc = GetNpcStateByKind(record->npc_kind);
+                            W8NpcState* npc = CurrentGame().story.npcOfKind(record->npc_kind);
 
                             if (npc != 0 && !npc->party_noticed &&
                                 npc->record->monster_bound == 0 &&
@@ -714,7 +716,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                     if (monster_info->party_threat.sight_state != W8_SIGHT_SEEN &&
                         record->camouflage0 != 0) {
                         unsigned int now =
-                            static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
+                            static_cast<unsigned int>(monster.owner_world.clocks.motionElapsed());
 
                         monster.BeginFadeIn(5.0f);
                         if (!CurrentGame().surprise_possible &&
@@ -733,7 +735,8 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
         if (!seen_by_party) {
             if (monster_info->party_threat.sight_state == W8_SIGHT_SEEN &&
                 record->camouflage0 != 0) {
-                unsigned int now = static_cast<unsigned int>(GameTimeAccumulator().GetElapsed());
+                unsigned int now =
+                    static_cast<unsigned int>(monster.owner_world.clocks.motionElapsed());
 
                 monster.BeginFadeOut(5.0f);
                 if (!CurrentGame().surprise_possible &&
@@ -752,7 +755,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                         : W8_SIGHT_RECENT);
             }
             if (record != 0 && (record->flags & W8_MONSTER_FLAG_NPC) != 0) {
-                W8NpcState* npc = GetNpcStateByKind(record->npc_kind);
+                W8NpcState* npc = CurrentGame().story.npcOfKind(record->npc_kind);
 
                 if (npc != 0 && npc->event_pending != 0) {
                     HandleMarkedNpcEvent(npc, W8MarkedNpcEventMode::arm_restore);

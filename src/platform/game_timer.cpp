@@ -4,36 +4,10 @@
 #include <exception>
 
 #include "wiz8/chunk.h"
-#include "wiz8/game.h"
-#include "wiz8/layouts/game_status.h"
+#include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/timer.h"
 
-std::uint64_t WorldClockMilliseconds()
-{
-    return GameInProgress() ? static_cast<std::uint64_t>(CurrentGame().visual_time.count()) : 0;
-}
-
-std::uint32_t GameClockMilliseconds()
-{
-    return GameInProgress() ? static_cast<std::uint32_t>(CurrentGame().time.count()) : 0;
-}
-
-bool g_shared_timer_paused;
-bool g_level_motion_resume_pending;
-
-void PauseSharedGameTimers(void)
-{
-    g_shared_timer_paused = true;
-}
-
-void ResumeSharedGameTimers(void)
-{
-    g_shared_timer_paused = false;
-}
-
-W8GameTimer::W8GameTimer() : W8GameTimer(1.0f) {}
-
-W8GameTimer::W8GameTimer(float duration, TimerClock clock)
+W8GameTimer::W8GameTimer(TimerClockView clocks, float duration, TimerClock clock) : clocks_(clocks)
 {
     m_clock_mode = clock;
     m_flags = {};
@@ -86,15 +60,11 @@ void W8GameTimer::Resume()
 
 void W8GameTimer::SetDurationScale(float scale)
 {
-    if (scale < 0.5f) {
-        m_flags.slow_scale = true;
-    }
     Rescale(scale);
 }
 
 void W8GameTimer::ResetDurationScale()
 {
-    m_flags.slow_scale = false;
     Rescale(1.0f);
 }
 
@@ -110,7 +80,7 @@ bool W8GameTimer::Held() const
 {
     return m_flags.paused ||
            ((m_clock_mode == TimerClock::World || m_clock_mode == TimerClock::Calendar) &&
-            SharedGameTimersHeld());
+            clocks_.held());
 }
 
 float W8GameTimer::GetProgress()
@@ -149,17 +119,35 @@ float W8GameTimer::GetElapsedSeconds()
 
 std::uint32_t W8GameTimer::ReadClock() const
 {
-    switch (m_clock_mode) {
+    return clocks_.read(m_clock_mode);
+}
+
+std::uint32_t TimerClockView::read(TimerClock clock) const
+{
+    switch (clock) {
     case TimerClock::Calendar:
-        return (static_cast<std::uint32_t>(CurrentGame().status.game_time_days) * 86400000u +
-                CurrentGame().status.game_time_ms) *
-               10u;
+        return days_ ? (static_cast<std::uint32_t>(*days_) * 86400000u + *calendar_ms_) * 10u : 0;
     case TimerClock::Presentation:
         return static_cast<std::uint32_t>(MonotonicMicroseconds() / 100);
     case TimerClock::Game:
-        return GameClockMilliseconds() * 10u;
+        return step_ ? static_cast<std::uint32_t>(step_->count()) * 10u : 0;
     case TimerClock::World:
-        return static_cast<std::uint32_t>(WorldClockMilliseconds() * 10u);
+        return world_ ? static_cast<std::uint32_t>(world_->count()) * 10u : 0;
     }
     return 0;
+}
+
+float TimerClockView::motionDelta() const
+{
+    return motion_ ? motion_->GetFrameDelta() : 0.0f;
+}
+
+float TimerClockView::motionElapsed() const
+{
+    return motion_ ? motion_->GetElapsed() : 0.0f;
+}
+
+bool TimerClockView::motionSlowed() const
+{
+    return motion_ && motion_->slow_scale;
 }

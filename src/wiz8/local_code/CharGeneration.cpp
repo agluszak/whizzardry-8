@@ -14,6 +14,7 @@
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/live_party.h"
+#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayMods.h"
@@ -584,7 +585,7 @@ int CharacterDraft::recountSpellPoints()
         }
         for (index = 0; index < 0x72; ++index) {
             if (character.spell_learned[index] != 1) {
-                if (!CanCharacterLearnSpell(&character, index)) {
+                if (!CanCharacterLearnSpell(Data(), &character, index)) {
                     if (character.spell_learned[index] == 2) {
                         --spent;
                         ++allocation.spell_points_remaining;
@@ -694,7 +695,7 @@ int CharacterDraft::computeLevelUpSpellPointAward()
                 std::fill_n(character.spell_learned, 29, 0);
                 static const int trial_spells[6] = {0xc, 6, 7, 5, 3, 0xb};
                 for (index = 0; index < 6; ++index) {
-                    if (CanCharacterLearnSpell(&character, trial_spells[index])) {
+                    if (CanCharacterLearnSpell(Data(), &character, trial_spells[index])) {
                         character.spell_learned[trial_spells[index]] = 1;
                     }
                 }

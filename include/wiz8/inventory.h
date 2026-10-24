@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <expected>
 #include <functional>
+#include <initializer_list>
 #include <optional>
 #include <span>
 #include <vector>
@@ -160,9 +161,10 @@ public:
        stays held. */
     unsigned int mergeHeld(W8ItemLocation location);
     /* Put the held item into the pool at a row: merged into that row, then into every other
-       stack, and the rest inserted at the row when asked. Returns whether the hand emptied;
-       a full pool keeps the rest held. */
-    bool depositHeld(unsigned int row, bool insert_rest);
+       stack, and the rest inserted at the row when asked. A full pool keeps the rest held;
+       partial progress is distinct from refusal. */
+    enum class Deposit { Refused, Partial, Complete };
+    Deposit depositHeld(unsigned int row, bool insert_rest);
     /* Combine the held item with another: a recipe makes a new item and practises its
        skill; two stacks of one item merge. Returns whether anything changed. */
     std::expected<bool, InventoryRefusal> combineHeld(unsigned int actor, W8ItemLocation target);
@@ -243,7 +245,17 @@ private:
 
     // What every operation owes after changing items.
     void settle(std::span<const W8ItemLocation> changed);
+    // A short fixed list, which lives through the call.
+    void settle(std::initializer_list<W8ItemLocation> changed)
+    {
+        settle(std::span<const W8ItemLocation>(changed.begin(), changed.size()));
+    }
     void settleOutsider(const ItemRecipient& recipient, std::span<const W8ItemLocation> changed);
+    void settleOutsider(const ItemRecipient& recipient,
+                        std::initializer_list<W8ItemLocation> changed)
+    {
+        settleOutsider(recipient, std::span<const W8ItemLocation>(changed.begin(), changed.size()));
+    }
 
     Game& game_;
     std::vector<W8ItemInstance> pool_;

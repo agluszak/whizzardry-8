@@ -26,6 +26,7 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/render/segment_math.h"
 #include "wiz8/spatial/bounding_box.h"
@@ -47,7 +48,7 @@ bool g_navigator_position_changed;
 namespace {
 bool NavigationCombatActive(const Navigator& navigator)
 {
-    return CurrentGame().combat.has_value() && &navigator.owner_world == GetWorld();
+    return &navigator.owner_world == GetWorld() && CurrentGame().combat.has_value();
 }
 
 // A copy of the active world's registry, party included, to walk while it changes.
@@ -181,7 +182,8 @@ void SetNavigatorLinkMode(W8NavigatorLinkMode mode)
         for (auto navigator : activeNavigators()) {
             navigator->halted = false;
             if (navigator->path_ai.has_value()) {
-                PathAIResetTick((navigator->path_ai ? &*navigator->path_ai : nullptr));
+                PathAIResetTick((navigator->path_ai ? &*navigator->path_ai : nullptr),
+                                navigator->owner_world.clocks.worldMilliseconds());
             }
             if (navigator->group_linked) {
                 W8MonsterInfo* monster_info = FindMonster(navigator->movement.location_id);
@@ -227,10 +229,12 @@ void ResumeAllNavigators(void)
     for (auto* navigator : activeNavigators()) {
         navigator->halted = false;
         if (navigator->path_ai.has_value()) {
-            PathAIResetTick((navigator->path_ai ? &*navigator->path_ai : nullptr));
+            PathAIResetTick((navigator->path_ai ? &*navigator->path_ai : nullptr),
+                            navigator->owner_world.clocks.worldMilliseconds());
         }
         if (navigator->path_ai.has_value()) {
-            PathAIResetTick((navigator->path_ai ? &*navigator->path_ai : nullptr));
+            PathAIResetTick((navigator->path_ai ? &*navigator->path_ai : nullptr),
+                            navigator->owner_world.clocks.worldMilliseconds());
         }
     }
 }
@@ -360,13 +364,20 @@ NavigatorMovement::~NavigatorMovement() = default;
    following it instead of reading freed memory. */
 Navigator::~Navigator()
 {
+    detachFromWorld();
+}
+
+void Navigator::detachFromWorld()
+{
+    active = false;
     wiz8::erase_first(owner_world.navigators, this);
     for (Navigator* other : owner_world.navigators) {
         if (other->target_navigator == this) other->target_navigator = nullptr;
         if (other->linked_navigator == this) other->linked_navigator = nullptr;
     }
-    if (auto* octree = NavigationOctree(); octree && movement.location_id != 0)
-        octree->UnregisterLocationObject(movement.location_id, W8_OCTREE_KIND_NAVIGATOR);
+    const auto location = std::exchange(movement.location_id, 0);
+    if (auto* octree = NavigationOctree(); octree && location != 0)
+        octree->UnregisterLocationObject(location, W8_OCTREE_KIND_NAVIGATOR);
 }
 
 bool Navigator::IsLinkedToNavigator(Navigator* other)
@@ -565,7 +576,7 @@ void Navigator::ResetPathAI()
     if (path_ai.has_value()) {
         path_ai->position = 0.0f;
         path_ai->interpolation_fraction = 0.0f;
-        PathAIResetTick((path_ai ? &*path_ai : nullptr));
+        PathAIResetTick((path_ai ? &*path_ai : nullptr), owner_world.clocks.worldMilliseconds());
     }
 }
 
@@ -672,7 +683,7 @@ void Navigator::UpdateLinkedNavigator(std::optional<BoundingSphere> player)
         UpdateLinkedPosition(player);
         return;
     }
-    int tick = static_cast<int>(GameTimeAccumulator().GetElapsed());
+    int tick = static_cast<int>(owner_world.clocks.motionElapsed());
     if (static_cast<unsigned int>(tick - linked_update_time) <= 50) {
         return;
     }
@@ -767,17 +778,15 @@ glm::vec3* Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* current
                     glm::vec3 falling = *current;
                     float distance;
                     if (NavigationCombatActive(*this)) {
-                        movement.vertical_velocity += GameTimeAccumulator().GetFrameDelta() *
+                        movement.vertical_velocity += owner_world.clocks.motionDelta() *
                                                       g_settings.monster_movement_speed *
                                                       g_navigator_gravity * acceleration_scale;
-                        distance = movement.vertical_velocity *
-                                   GameTimeAccumulator().GetFrameDelta() *
+                        distance = movement.vertical_velocity * owner_world.clocks.motionDelta() *
                                    g_settings.monster_movement_speed;
                     } else {
-                        movement.vertical_velocity += GameTimeAccumulator().GetFrameDelta() *
+                        movement.vertical_velocity += owner_world.clocks.motionDelta() *
                                                       g_navigator_gravity * acceleration_scale;
-                        distance =
-                            movement.vertical_velocity * GameTimeAccumulator().GetFrameDelta();
+                        distance = movement.vertical_velocity * owner_world.clocks.motionDelta();
                     }
                     falling.y -= distance;
                     if (falling.y >= ground) {
@@ -1172,7 +1181,8 @@ void Navigator::SetHalted(bool value)
     halted = value;
     if (!value) {
         if (path_ai.has_value()) {
-            PathAIResetTick((path_ai ? &*path_ai : nullptr));
+            PathAIResetTick((path_ai ? &*path_ai : nullptr),
+                            owner_world.clocks.worldMilliseconds());
         }
     } else {
         movement.velocity = glm::vec3(0);
@@ -1463,7 +1473,7 @@ void Navigator::UpdateAngles()
     if (!CurrentGame().combat.has_value()) {
         step = movement.turn_rate;
     }
-    step *= g_rate * GameTimeAccumulator().GetFrameDelta();
+    step *= g_rate * owner_world.clocks.motionDelta();
 
     if (movement.yaw != movement.target_yaw) {
         distance = NormalizeAngle(movement.yaw - movement.target_yaw);
@@ -1566,7 +1576,7 @@ std::vector<Navigator*> Navigator::CollectGroupNavigators() const
         int location_id = group->MemberLocationId(member);
         if (location_id != movement.location_id) {
             monster_info = population.findMonster(location_id);
-            if (Monster* monster = monster_info ? monster_info->entity.find() : nullptr)
+            if (Monster* monster = monster_info ? monster_info->entity.get() : nullptr)
                 navigators.push_back(&monster->nav);
         }
     }
@@ -1577,7 +1587,7 @@ std::vector<Navigator*> Navigator::CollectGroupNavigators() const
             if (!allied_group) continue;
             for (member = 0; member < allied_group->MemberCount(); ++member) {
                 monster_info = population.findMonster(allied_group->MemberLocationId(member));
-                if (Monster* monster = monster_info ? monster_info->entity.find() : nullptr)
+                if (Monster* monster = monster_info ? monster_info->entity.get() : nullptr)
                     navigators.push_back(&monster->nav);
             }
         }
@@ -1605,7 +1615,7 @@ void Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed,
         if (!g_navigator_vertical_enabled) {
             movement.vertical_offset = movement.vertical_base;
         } else {
-            float phase = movement.vertical_phase + g_rate * GameTimeAccumulator().GetFrameDelta() *
+            float phase = movement.vertical_phase + g_rate * owner_world.clocks.motionDelta() *
                                                         g_navigator_vertical_phase_step;
             phase -= static_cast<float>(floor(phase));
             movement.vertical_phase = phase;
@@ -1776,7 +1786,7 @@ void Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed,
             }
             /* Two frames within one clock tick have no elapsed time; dividing by it
                made movement_speed NaN, which then stuck (NaN fails every comparison). */
-            const float frame_time = g_rate * GameTimeAccumulator().GetFrameDelta();
+            const float frame_time = g_rate * owner_world.clocks.motionDelta();
             velocity.y = frame_time > 0.0f ? (movement.position.y - previous.y) / frame_time : 0.0f;
             const auto* spatial = NavigationOctree();
             const auto tuning =
@@ -1798,7 +1808,7 @@ void Navigator::UpdateNavigation(unsigned char skip_movement, bool slowed,
     UpdateAngles();
     if (!movement_stopped && NavigationCombatActive(*this) && !movement_complete && flags != 0) {
         movement.callback_progress +=
-            GameTimeAccumulator().GetFrameDelta() * movement.movement_scale * g_rate * kWorldScale;
+            owner_world.clocks.motionDelta() * movement.movement_scale * g_rate * kWorldScale;
         if (movement.callback_threshold <= movement.callback_progress) {
             if (movement_callback != 0) {
                 movement_callback(this);

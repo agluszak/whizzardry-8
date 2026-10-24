@@ -34,8 +34,10 @@
 #include "wiz8/render/particle_system.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/story.h"
 #include "wiz8/string_database.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code\MartensBluff1.cpp (level 5, Marten's Bluff).
@@ -158,7 +160,7 @@ void MartensBluff1Script::setup()
         ctx.game.rng.below(8);
         ctx.game.rng.below(8);
         ctx.game.rng.below(8);
-        CreateLocationVar("DialState", 0x470111);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "DialState", 0x470111);
     }
     transporter(kMasterToggle);
     position = world().party.eye();
@@ -168,7 +170,7 @@ void MartensBluff1Script::setup()
         if (glm::length((trigger_position - position)) < 500.0) {
             FindTriggerByName("Lift2Marten2");
             if (GetLocationVarIDByName("LiftArrived") == -1) {
-                CreateLocationVar("LiftArrived", 1);
+                CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "LiftArrived", 1);
                 ShowString(Data().strings[0x71b]);
             }
         }
@@ -376,7 +378,7 @@ bool MartensBluff1Script::transporter(int command)
             if (transport_gate_) {
                 transport_gate_->Arm();
             } else {
-                transport_gate_.emplace(60.0f, TimerClock::World, true);
+                transport_gate_.emplace(world().clocks, 60.0f, TimerClock::World, true);
             }
             if (GetLocationVarIDByName("TransportSpawn") != -1) {
                 transport_gate_->SetProgress(GetLocationVarValueByName("TransportSpawn") *
@@ -408,7 +410,7 @@ bool MartensBluff1Script::teleporter(Trigger* pTrigger)
     MartensBluff1TeleporterPad state;
 
     if (GetLocationVarIDByName("TeleporterState") == -1) {
-        CreateLocationVar("TeleporterState", 0);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "TeleporterState", 0);
         state = MartensBluff1TeleporterPad::none;
     } else {
         state =
@@ -457,7 +459,7 @@ bool MartensBluff1Script::teleportState(MartensBluff1TeleporterPad new_state)
 
     FindRequiredTriggerByName("MR109");
     if (GetLocationVarIDByName("TeleporterState") == -1) {
-        CreateLocationVar("TeleporterState", 0);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "TeleporterState", 0);
         return false;
     }
     state = static_cast<MartensBluff1TeleporterPad>(GetLocationVarValueByName("TeleporterState"));
@@ -502,7 +504,9 @@ bool MartensBluff1Script::wireTrigger(Trigger* pTrigger)
     g_trigger_feedback = true;
     pTelTrigger = FindRequiredTriggerByName("MR109");
     if (GetLocationVarIDByName("TeleporterState") == -1) {
-        CreateLocationVar("TeleporterState", static_cast<int>(MartensBluff1TeleporterPad::gigas));
+        CurrentGame().story.ensureLocationVariable(
+            GetLoadedLevelID(), "TeleporterState",
+            static_cast<int>(MartensBluff1TeleporterPad::gigas));
     } else {
         if (GetLocationVarValueByName("TeleporterState") !=
             static_cast<int>(MartensBluff1TeleporterPad::none)) {

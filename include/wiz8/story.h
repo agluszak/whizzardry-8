@@ -6,12 +6,16 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
+
+struct W8PreparedNpcBindings;
 
 /* One fact change as the journal lists it. */
 struct W8JournalEntry {
@@ -89,5 +93,19 @@ struct Story {
         W8NpcState* state = npcs[static_cast<std::size_t>(index)].get();
         return state && !state->binding_unavailable ? state : nullptr;
     }
+    W8NpcState* adoptNpc(std::shared_ptr<W8NpcState> npc);
+    W8NpcState* npcOfKind(int kind) const;
+    std::string npcDisplayName(const W8NpcState& npc) const;
+    void installNpcBindings(W8PreparedNpcBindings pending);
+    void ensureLocationVariable(int level, std::string_view name, int initial_value);
+    int locationVariable(int level, std::string_view name) const;
+    void setLocationVariable(int level, std::string_view name, int value);
+    const std::vector<W8LocationVariable>& locationVariables() const { return location_variables; }
+    void restoreLocationVariables(std::vector<W8LocationVariable> saved)
+    {
+        location_variables = std::move(saved);
+    }
+
+private:
     std::vector<W8LocationVariable> location_variables;
 };

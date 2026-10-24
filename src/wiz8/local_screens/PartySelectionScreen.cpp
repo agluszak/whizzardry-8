@@ -65,6 +65,7 @@
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
+#include "wiz8/world_view.h"
 
 // Saved candidates are owned here; party entries identify a slot, never borrow
 // storage from a game that import/reset can replace.
@@ -1160,7 +1161,7 @@ void PartySelectionScreen::TogglePartyMemberSelection()
 namespace {
 void PreparePartySelectionCanvas()
 {
-    SetViewport({0, 0, 0x281, 0x1e1});
+    SetWorldViewport(GameInProgress() ? &CurrentGame() : nullptr, {0, 0, 0x281, 0x1e1});
     SetUiCanvasAlphaTestEnabled(false);
     ScreenPointer().reset();
     g_wiz_text_font_secondary.resetPalette();
@@ -1262,7 +1263,7 @@ void PartySelectionScreen::frame()
         }});
     AnimatePartyPortraits();
     controller->DrawPartySelectionComposition();
-    RenderFrame();
+    PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
 }
 
 namespace {

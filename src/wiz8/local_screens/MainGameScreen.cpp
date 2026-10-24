@@ -160,6 +160,7 @@
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
+#include "wiz8/world_view.h"
 
 struct SDL_Surface;
 
@@ -707,7 +708,7 @@ void W8LockInfoPanel::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer(1.0f, TimerClock::Presentation)
+W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer(W8GameTimer::presentation(1.0f))
 {
     int i;
 
@@ -1223,7 +1224,7 @@ void W8MainGameTextPanel::BeginProgress(std::string_view text, float duration, f
 
 W8MainGameTextPanel::W8MainGameTextPanel()
     : m_selection(0), m_screen(0), m_values(0), m_progress_display(0),
-      m_timer1(0.04f, TimerClock::Presentation)
+      m_timer1(W8GameTimer::presentation(0.04f))
 {
     int index;
 
@@ -2522,14 +2523,9 @@ void MainGameScreen::frame()
         if (game.activity.conversation) ServiceNpcDialogue();
         if (IsLockInteractionActive()) ProcessLockInteractMode();
         if (IsTrapInteractionActive()) UpdateTrapInteraction();
-        int active;
-        if (!AnyPropTriggerInView() && !AnyMonsterVisible() && !AnyWorldItemVisible() &&
-            !SelectWorldCursorNode()) {
-            active = 0;
-        } else {
-            active = 1;
-        }
-        SetWorldModelPickingEnabled(active);
+        world_pick_enabled = AnyPropTriggerInView() || AnyMonsterVisible() ||
+                             AnyWorldItemVisible() || SelectWorldCursorNode();
+        if (!world_pick_enabled) game.level.loaded().acceptPick({}, game.combat.has_value());
         if (game.level_up_check_due && !game.activity.conversation && !game.combat.has_value()) {
             RefreshLevelUpReadyNotices();
         }
@@ -2547,6 +2543,9 @@ bool MainGameScreen::leave(ScreenDeparture departure)
 {
     const bool leaving = departure == ScreenDeparture::Discard;
     int index;
+
+    // Covering this interaction invalidates its old aim even if no new view is rendered.
+    if (auto* world = game.level.primary.get()) world->acceptPick({}, game.combat.has_value());
 
     if (leaving) {
         OpenModal(nullptr);
@@ -2591,6 +2590,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
             ReleasePartyMovement();
         }
 
+        dialogue.discardSpeech();
         ShutdownTextBoxRegions();
         DestroyFormationPanel();
         wiz8::sound::release_cache();
@@ -2944,7 +2944,8 @@ void MainGameScreen::draw(const W8TargetingPresentation& presentation)
         if (MainGame()->radar_map) {
             MainGame()->radar_map->captureBackdrop();
         }
-        RenderFrame();
+        if (auto pick = PresentGameFrame(&game, world_pick_enabled))
+            game.level.loaded().acceptPick(std::move(*pick), game.combat.has_value());
     }
 }
 
@@ -3732,7 +3733,7 @@ DesignRect g_viewport_modes[7] = {
    straight into the pending screen state and modes 3/5/6 are torn down. */
 void RequestLevelTransition(int level, int entry, unsigned char flag)
 {
-    unsigned int normalized = NormalizeMasterFunctionValue(level);
+    unsigned int normalized = CurrentGame().normalizeLevel(level);
 
     const int level_id = static_cast<int>(normalized);
     if (flag != 0) {
@@ -4107,7 +4108,7 @@ void MainGameScreen::refreshLayout()
             const auto& rect = g_viewport_modes[static_cast<unsigned int>(layout.viewport)];
             world_view->setShape(
                 SDL_Rect{rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top});
-            SetViewport({rect.left, rect.top, rect.right + 1, rect.bottom + 1});
+            SetWorldViewport(&game, {rect.left, rect.top, rect.right + 1, rect.bottom + 1});
             partyCamera().bottom_panel_view =
                 layout.viewport == W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL ||
                 layout.viewport == W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL;
@@ -4843,8 +4844,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         }
         SetCombatSelection(hover);
         if (MainGameHud()->highlighted_item == -1) {
-            if (CurrentGame().item_manager_pending != 0 && !IsWorldCursorVisible() &&
-                !g_mouselook_active) {
+            if (!IsWorldCursorVisible() && !g_mouselook_active) {
                 hover = PickNearestItemUnderCursor(cursor_x, cursor_y, 5000.0f);
             } else {
                 hover = -1;
@@ -5324,7 +5324,7 @@ void SetCombatSelection(int value)
     MainGameHud()->highlighted_item = -1;
     if (value != -1) {
         auto* info = FindMonster(value, false);
-        if (Monster* monster = info ? info->entity.find() : nullptr) {
+        if (Monster* monster = info ? info->entity.get() : nullptr) {
             const auto bounds = monster->GetWorldAnimationBounds();
             if (bounds && traceLineOfSightToBounds(cameraLocation(), *bounds))
                 MainGameHud()->highlighted_item = value;
@@ -5899,7 +5899,8 @@ void ConfirmNpcTradeItem(void)
                                                                     : W8TradeAction::Exchange;
     const auto result = CompleteNpcTrade(game, npc, actor, selection, panel.trade_quantity, action);
     if (result.theft_succeeded)
-        DisplayNpcQuote(fmt::sprintf(Data().strings[0x74d], game.party.characters[actor].name,
+        DisplayNpcQuote(game,
+                        fmt::sprintf(Data().strings[0x74d], game.party.characters[actor].name,
                                      GetItemDisplayName(Data(), &selection.expected)),
                         true);
     switch (result.outcome) {
@@ -5908,8 +5909,8 @@ void ConfirmNpcTradeItem(void)
         break;
     case W8TradeOutcome::Complete:
         wiz8::sound::play("Data\\Sound\\misc\\Cash Transaction.wav");
-        if (result.dropped_overflow) DisplayNpcQuote(Data().strings[0x6b1], false);
-        if (!result.theft_succeeded) SortNpcItems(npc);
+        if (result.dropped_overflow) DisplayNpcQuote(game, Data().strings[0x6b1], false);
+        if (!result.theft_succeeded) SortNpcItems(Data(), npc);
         RebuildNpcTradeItemList(false);
         if (!result.theft_succeeded) {
             SetSelectedTextLine(row, 2);
@@ -5918,8 +5919,8 @@ void ConfirmNpcTradeItem(void)
         if (result.accepted_topic) game.npc_dialogue.QueueQuote(0x15, false, false, false);
         break;
     case W8TradeOutcome::TheftFailed:
-        DisplayNpcQuote(fmt::sprintf(Data().strings[0x74f], game.party.characters[actor].name),
-                        false);
+        DisplayNpcQuote(
+            game, fmt::sprintf(Data().strings[0x74f], game.party.characters[actor].name), false);
         break;
     case W8TradeOutcome::TheftCaught:
         game.npc_dialogue.QueueQuote(0x17, false, false, false);

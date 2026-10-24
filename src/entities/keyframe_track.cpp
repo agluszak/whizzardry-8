@@ -23,15 +23,14 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/math.h"
-#include "wiz8/platform/game_timer.h"
 #include "wiz8/render/transform.h"
 
-bool PathAIUpdate(KeyframeTrack* record, signed char direction)
+bool PathAIUpdate(KeyframeTrack* record, signed char direction, std::uint64_t now)
 {
     if (record == 0) {
         return false;
     }
-    return PathAITick(record, direction);
+    return PathAITick(record, direction, now);
 }
 
 KeyframeGeometry::KeyframeGeometry(std::vector<KeyframePoint> values) : points(std::move(values))
@@ -105,9 +104,9 @@ void PathAIEnableTimedMode(KeyframeTrack* path)
     path->timed = true;
 }
 
-void PathAIResetTick(KeyframeTrack* path)
+void PathAIResetTick(KeyframeTrack* path, std::uint64_t now)
 {
-    path->last_update_tick = WorldClockMilliseconds();
+    path->last_update_tick = now;
 }
 
 float PathAIGetValue(KeyframeTrack* path)
@@ -240,15 +239,13 @@ void PathAIAdvanceNormalized(KeyframeTrack* path, float amount)
     path->point_index = 0;
 }
 
-bool PathAITick(KeyframeTrack* path, signed char direction)
+bool PathAITick(KeyframeTrack* path, signed char direction, std::uint64_t now)
 {
-    uint64_t now;
     uint64_t elapsed;
     float amount;
     float point_count;
 
     assert(path != 0);
-    now = WorldClockMilliseconds();
     if (!path->discrete_mode && path->animated) {
         elapsed = now - path->last_update_tick;
         if (path->last_update_tick < now) {

@@ -1,4 +1,5 @@
 #pragma once
+struct Story;
 
 #include <string>
 
@@ -7,9 +8,6 @@
 /* The NPC-scripting gates NPC Scripting.cpp sets and npc_interaction.cpp
    reads. */
 
-/* Whether a quote or portrait message is on screen (npc_dialogue_view.cpp);
-   the conversation does not advance while one is. */
-bool IsNpcScriptSessionActive(void);
 /* Raise / drop the world-cursor gate around a scripted world action. */
 void BeginScriptedWorldAction(void);
 void ClearMainGameTargetState(void);
@@ -19,4 +17,4 @@ std::string GetNpcQuoteText(W8NpcState* npc, int type);
 
 bool IsPartySlotEligible(int slot);
 
-std::string FormatNpcVoiceSoundPath(W8NpcState* npc, bool script_event = false);
+std::string FormatNpcVoiceSoundPath(const Story& story, W8NpcState* npc, bool script_event = false);

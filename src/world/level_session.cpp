@@ -1,5 +1,6 @@
 #include "wiz8/world/level_session.h"
 
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -9,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include <SDL3/SDL_filesystem.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -27,6 +29,7 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -53,6 +56,7 @@
 #include "wiz8/render/mesh_loader.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/story.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/camera_pose.h"
@@ -61,13 +65,6 @@
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
-
-namespace {
-Level& CurrentLevel()
-{
-    return CurrentGame().level;
-}
-}
 
 World* GetWorld()
 {
@@ -83,7 +80,7 @@ int GetLoadedLevelID()
     return world ? world->level_id : -1;
 }
 
-W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
+const W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
     {"Arnika", "Arnika2", "ARN", 1, 2},
     {"Ascension", "Ascension", "ASC", 0, 12},
     {"Bayjin", "Bayjin1", "BA1", -1, 8},
@@ -133,15 +130,21 @@ W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
     {"Spare20", "Spare20", "SPK", 0, 0},
 };
 
-signed char GetLevelBand(int saved_level)
+int Game::normalizeLevel(int requested) const
 {
-    int level = NormalizeMasterFunctionValue(saved_level);
-    /* `<= 0x2f` is the retail bound: it admits the first test-level slot, one
-       past the W8_LEVEL_COUNT-entry table. */
-    if (level >= 0 && level <= 0x2f) {
-        return g_level_folders[level].level_band;
+    if (requested == 0x10 || requested == 0x26) {
+        // The away-camp fact derives from these three devices. Resolve it from
+        // this game's inventory, without running the global fact logger.
+        const int devices = inventory.has(0x242) + inventory.has(0x243) + inventory.has(0x244);
+        return devices >= 2 || story.facts[W8_FACT_PARTY_AT_RAC] ? 0x10 : 0x26;
     }
-    return 0;
+    return requested;
+}
+
+signed char Game::levelBand(int requested) const
+{
+    const int level = normalizeLevel(requested);
+    return level >= 0 && level < W8_LEVEL_COUNT ? g_level_folders[level].level_band : 0;
 }
 
 /* Start the saved level's music playlist. Formats a path from the level's
@@ -210,10 +213,10 @@ std::string_view GetLevelFolderName(int level_id)
    the previous sky. A replacement receives the animated-cloud material:
    its cloud meshes are marked for the renderer's
    control bits and every CloudsN prop's mesh chain is rebound to it. */
-static std::unique_ptr<World> PrepareSkyWorld(std::string_view sky_path)
+static std::unique_ptr<World> PrepareSkyWorld(Game& game, std::string_view sky_path)
 {
     if (sky_path.empty()) return nullptr;
-    auto replacement = LoadWorld(-1, std::string(sky_path));
+    auto replacement = game.loadWorld(-1, std::string(sky_path));
     if (!replacement) return nullptr;
     auto* sky = replacement.get();
 
@@ -255,19 +258,6 @@ static std::unique_ptr<World> PrepareSkyWorld(std::string_view sky_path)
     WorldRemoveLight(sky, sky->camera_light);
     sky->camera_light = 0;
     return replacement;
-}
-
-bool LoadSkyWorld(std::string_view sky_path)
-{
-    Level& level = CurrentLevel();
-    if (level.sky &&
-        level.sky->source_path == wiz8::normalize_asset_path(sky_path).generic_string())
-        return true;
-    auto replacement = PrepareSkyWorld(sky_path);
-    if (!sky_path.empty() && !replacement) return false;
-    level.replaceSky(std::move(replacement));
-    if (!level.sky) ResetEnvironment();
-    return true;
 }
 
 unsigned short g_level_name_indices[W8_LEVEL_COUNT] = {
@@ -345,13 +335,17 @@ bool LevelBuildInfoByID(int level, W8LevelInfo* info)
     return true;
 }
 
-static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLevelStatus* status)
+static void EnterLevel(Game& game, World& world, int level, int entrance, bool restoring_game,
+                       W8LoadedLevelStatus* status)
 {
-    World& world = *GetWorld();
     bool first_visit = false;
     StartLevelMusic(1, 1);
-    CurrentGame().status.next_trigger_id = world.next_trigger_id;
-    UpdateGameDataRuntime();
+    game.status.next_trigger_id = world.next_trigger_id;
+    if (game.move_timer_suspended) {
+        game.timerClocks().resume();
+        game.move_timer_suspended = false;
+    }
+    game.motion_clock.Update(std::chrono::milliseconds{0}, game.timerClocks().held());
     if (world.environment.fog_enabled) UpdateEnvironmentLight();
     ApplyCameraRotation(&world.initial_camera_rotation);
     world.party.camera.applySway(*world.camera, world.initial_camera_sway ? CameraSwayMode::Start
@@ -399,13 +393,13 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             world.party.place(position);
         }
     } else {
-        world.party.restore(CurrentGame().status.pending_move_location);
+        world.party.restore(game.status.pending_move_location);
     }
 
-    if (level < W8_LEVEL_COUNT && !CurrentGame().status.level_progress[level].visited) {
+    if (level < W8_LEVEL_COUNT && !game.status.level_progress[level].visited) {
         ResetMonsterGroupTurnState();
         RebindMonsterGroupScripts();
-        CurrentGame().status.level_progress[level].visited = true;
+        game.status.level_progress[level].visited = true;
         first_visit = true;
     }
 
@@ -415,9 +409,9 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
     }
     g_camera_path_active = false;
     InitializeLevelEnvironment();
-    world.script = MakeLevelScript(level, MakeScriptContext(CurrentGame()));
+    world.script = MakeLevelScript(level, MakeScriptContext(game));
     world.script->enter();
-    LoadNativeLevelObject(CurrentGame());
+    LoadNativeLevelObject(game);
     RebindNpcLevelTriggers();
     SetWorldCursorNodesVisible(false);
     RebuildPartyEffectBlock();
@@ -430,7 +424,7 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             RecordLevelEntryDialogueState();
             ForgetRecentCombat();
         }
-        if (CurrentGame().status.greeting_pending &&
+        if (game.status.greeting_pending &&
             (GetFact(W8_FACT_IMPORT_UMPANI) || GetFact(W8_FACT_IMPORT_TRANG))) {
             DespawnAllActiveMonsterGroups();
         } else {
@@ -440,9 +434,9 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
             ResetAndRefreshAllSight();
             AgeAllMonsterSight();
         }
-        CurrentGame().spell_effects.clear();
+        world.spell_effects.clear();
     } else {
-        W8SpellEffectEntry* effect = FindMonsterControlSpellEffect();
+        W8SpellEffectEntry* effect = world.monsterControlEffect();
 
         if (effect != 0) {
             SpawnLureEffects(effect, effect->definition.duration_scale, &effect->target);
@@ -456,69 +450,32 @@ static void EnterLevel(int level, int entrance, bool restoring_game, W8LoadedLev
     RefreshWorldView();
 }
 
-/* Construct level and sky resources before leaving the current level. The
-   remaining work activates gameplay against the completed scenes. */
-static void FinishLevelDeparture()
+/* Combat state is transient on restore, so departure ends it after the level
+   state is captured; sight age is session history recorded at the actual
+   departure boundary. */
+static void FinishLevelDeparture(Game& game)
 {
-    // Combat state is transient on restore. End it after saving the level;
-    // sight age is session history recorded at the actual departure boundary.
-    if (CurrentGame().combat.has_value()) {
-        CurrentGame().endCombat(true);
-    }
+    if (game.combat.has_value()) game.endCombat(true);
 
     // These values become durable session history at departure. Saving only
     // observes them; releasing the old world's resources never captures gameplay.
-    const World& world = *GetWorld();
+    const World& world = *game.level.primary;
     for (const auto& [name, value] :
          world.script ? world.script->captureState() : W8SavedLocationState{}) {
-        CreateLocationVar(name.c_str(), value);
-        SetTriggerVariableByName(name.c_str(), value);
+        game.story.ensureLocationVariable(world.level_id, name, value);
+        game.story.setLocationVariable(world.level_id, name, value);
     }
-    if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
-        CurrentGame().status.level_progress[GetLoadedLevelID()].sight_clock =
-            CurrentGame().status.world_clock;
-    }
+    const int level = world.level_id;
+    if (level >= 0 && level < W8_LEVEL_COUNT)
+        game.status.level_progress[level].sight_clock = game.status.world_clock;
 }
 
-bool LoadLevel(int requested_level, int entrance, bool restoring_game)
+/* Release everything bound to the loaded world, after departure work. The sky
+   stays with the level slot because the next level may reuse it. */
+static void LeaveLoadedLevel(Game& game)
 {
-    int level = NormalizeMasterFunctionValue(requested_level);
-    W8LevelInfo level_info;
-
-    if (level >= 57) return false; // A saved level number outside the level table.
-    if (!LevelBuildInfoByID(level, &level_info)) {
-        return false;
-    }
-
-    auto replacement = LoadWorld(level, level_info.level_path);
-    if (!replacement) return false;
-    auto ambient_path = wiz8::path_from_utf8(level_info.level_path);
-    ambient_path.replace_extension(".SCF");
-    ReadAmbientSoundListFile(*replacement, wiz8::path_to_utf8(ambient_path).c_str());
-    Level& current = CurrentLevel();
-    const bool reuse_sky =
-        current.sky && current.sky->source_path ==
-                           wiz8::normalize_asset_path(level_info.sky_path).generic_string();
-    auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(level_info.sky_path);
-    if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return false;
-    auto& game = CurrentGame();
-    if (current.primary) game.left_levels.store(LevelState::capture(current, game.status));
-    auto state = game.left_levels.decode(level);
-    if (!state)
-        state = LevelState::decode(wiz8::asset_path(BuildLevelStatusPath(level)), level, true);
-    auto status = state ? std::move(*state).build(*replacement) : nullptr;
-    if (GetWorld()) LeaveLevel();
-    current.replacePrimary(std::move(replacement));
-    if (!reuse_sky) current.replaceSky(std::move(replacement_sky));
-    InstallLevelSessionState(*GetWorld(), status.get());
-    EnterLevel(level, entrance, restoring_game, status.get());
-    return true;
-}
-
-void LeaveLevel()
-{
-    if (!GetWorld()) return;
-    FinishLevelDeparture();
+    if (!game.level.primary) return;
+    FinishLevelDeparture(game);
 
     ReleaseMarkedNpcBindings();
     ReleaseItemLists();
@@ -527,20 +484,65 @@ void LeaveLevel()
     ReleaseWorldCursor();
     DisableSky();
     EndCameraSway();
-    ResetGameTimeAccumulator();
-    CurrentLevel().replacePrimary(nullptr);
+    game.motion_clock = {};
+    game.level.replacePrimary(nullptr);
 }
 
-/* Unload the current level and load `level` at `entrance`. When the request
-   re-enters the current level through the -1 entrance sentinel, the party's pose
-   is put back after the load; every other request is a plain unload+load. */
-bool ReloadLevelPreservingCamera(int level, int entrance)
+/* Construct level and sky resources before leaving the current level. The
+   remaining work activates gameplay against the completed scenes. */
+static bool TravelToLevel(Game& game, int requested_level, int entrance, bool restoring_game,
+                          std::vector<std::unique_ptr<W8SpellEffectEntry>> restored_casts = {})
 {
-    std::optional<CameraPose> saved;
-    if (entrance == -1 && level == GetLoadedLevelID()) saved = GetWorld()->party.pose();
-    if (LoadLevel(level, entrance, false) == 0) {
+    int level = game.normalizeLevel(requested_level);
+    W8LevelInfo level_info;
+
+    if (level >= 57) return false; // A saved level number outside the level table.
+    if (!LevelBuildInfoByID(level, &level_info)) {
         return false;
     }
-    if (saved) GetWorld()->party.restore(*saved);
+
+    auto replacement = game.loadWorld(level, level_info.level_path);
+    if (!replacement) return false;
+    auto ambient_path = wiz8::path_from_utf8(level_info.level_path);
+    ambient_path.replace_extension(".SCF");
+    ReadAmbientSoundListFile(*replacement, wiz8::path_to_utf8(ambient_path).c_str());
+    Level& current = game.level;
+    const bool reuse_sky =
+        current.sky && current.sky->source_path ==
+                           wiz8::normalize_asset_path(level_info.sky_path).generic_string();
+    auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(game, level_info.sky_path);
+    if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return false;
+    if (current.primary) game.left_levels.store(LevelState::capture(current, game.status));
+    auto state = game.left_levels.decode(level);
+    if (!state)
+        state = LevelState::decode(wiz8::asset_path(BuildLevelStatusPath(level)), level, true);
+    auto status = state ? std::move(*state).build(game, *replacement) : nullptr;
+    LeaveLoadedLevel(game);
+    current.replacePrimary(std::move(replacement));
+    current.primary->spell_effects = std::move(restored_casts);
+    if (!reuse_sky) current.replaceSky(std::move(replacement_sky));
+    InstallLevelSessionState(game, *current.primary, status.get());
+    EnterLevel(game, *current.primary, level, entrance, restoring_game, status.get());
     return true;
+}
+
+bool Game::travelToLevel(int level_id, int entrance)
+{
+    std::optional<CameraPose> saved;
+    if (entrance == -1 && level.primary && level_id == level.primary->level_id)
+        saved = level.primary->party.pose();
+    if (!TravelToLevel(*this, level_id, entrance, false)) return false;
+    if (saved) level.primary->party.restore(*saved);
+    return true;
+}
+
+bool Game::enterSavedLevel(int level_id,
+                           std::vector<std::unique_ptr<W8SpellEffectEntry>> restored_casts)
+{
+    return TravelToLevel(*this, level_id, -1, true, std::move(restored_casts));
+}
+
+void Game::leaveLevel()
+{
+    LeaveLoadedLevel(*this);
 }

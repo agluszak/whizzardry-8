@@ -39,6 +39,7 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
@@ -59,9 +60,9 @@ void GeneratorInterval::setSeconds(float seconds)
     if (seconds > 0.0f) seconds_ = seconds;
 }
 
-void GeneratorInterval::setScale(float scale)
+void GeneratorInterval::setScale(float scale, bool held)
 {
-    const float kept = SharedGameTimersHeld() ? 0.0f : progress();
+    const float kept = held ? 0.0f : progress();
     scale_ = scale;
     elapsed_ = kept * length();
 }
@@ -428,7 +429,7 @@ void ResetMonsterGeneratorTimers(void)
 
     for (const auto& generator : *generators) {
 
-        generator->timer.setScale(1.0f);
+        generator->timer.setScale(1.0f, GetWorld()->clocks.held());
     }
 }
 
@@ -618,7 +619,7 @@ void StartLevelEncounters(World& world)
    each element, which is what the repeated bounds test in the original is. */
 void RunMonsterGenerators(std::chrono::milliseconds elapsed)
 {
-    if (SharedGameTimersHeld()) elapsed = {};
+    if (GetWorld()->clocks.held()) elapsed = {};
     int count = static_cast<int>(GetWorld()->encounters.generators.size());
     MonGen* generator;
     int index;
@@ -687,7 +688,7 @@ try {
    default interval; a clear bit uses the generator's custom +0x06 interval. */
 void MonGen::Reset(short default_interval)
 {
-    Rearm(IntervalSeconds(default_interval));
+    Rearm(CurrentGame().rng, IntervalSeconds(default_interval));
 }
 
 short MonGen::IntervalSeconds(short default_interval) const
@@ -696,20 +697,20 @@ short MonGen::IntervalSeconds(short default_interval) const
                                                          : custom_interval_seconds;
 }
 
-void MonGen::Rearm(short interval)
+void MonGen::Rearm(Rng& rng, short interval)
 {
     const float jitter = interval * g_generator_jitter_fraction;
-    timer.setSeconds(static_cast<float>(CurrentGame().rng.below(static_cast<int>(jitter) * 2 + 1)) +
-                     interval - jitter);
+    timer.setSeconds(static_cast<float>(rng.below(static_cast<int>(jitter) * 2 + 1)) + interval -
+                     jitter);
     timer.arm();
 }
 
-void W8EncounterState::rearmDecodedGenerators()
+void W8EncounterState::rearmDecodedGenerators(Rng& rng)
 {
     for (const auto& generator : generators) {
         if (!generator->rearm) continue;
         auto rearm = *std::exchange(generator->rearm, std::nullopt);
-        generator->Rearm(rearm.interval);
+        generator->Rearm(rng, rearm.interval);
         if (rearm.saved_timer) generator->timer = *rearm.saved_timer;
     }
 }
@@ -753,7 +754,7 @@ void SetMonsterGeneratorDurationScale(float scale)
     auto* generators = &GetWorld()->encounters.generators;
 
     for (auto& generator : *generators) {
-        generator->timer.setScale(scale);
+        generator->timer.setScale(scale, GetWorld()->clocks.held());
     }
 }
 

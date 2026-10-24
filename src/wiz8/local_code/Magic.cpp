@@ -4,10 +4,12 @@
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <iterator>
 #include <memory>
+#include <ranges>
 #include <span>
 #include <string>
 #include <utility>
@@ -357,26 +359,18 @@ enum { W8_PARTY_CONDITION_SLOTS = 12, W8_COMBAT_CONDITION_SLOTS = 9 };
 /* Debug switch: when set, every cast except 0x76 fizzles on a forced 100
    percent failure chance. */
 bool g_force_spell_failure;
-/* Whether every queued effect still has time left on it. */
-bool AllSpellEffectsStillRunning(void)
+bool World::hasPendingSpellEffects() const
 {
-    int index;
-
-    for (index = 0; index < static_cast<int>(CurrentGame().spell_effects.size()); ++index) {
-        if (CurrentGame().spell_effects[index]->turns_remaining == 0) {
-            return false;
-        }
-    }
-    return true;
+    return std::ranges::any_of(spell_effects,
+                               [](const auto& effect) { return effect->turns_remaining == 0; });
 }
 
-W8SpellEffectEntry* FindMonsterControlSpellEffect(void)
+W8SpellEffectEntry* World::monsterControlEffect() const
 {
     // Replaced lures remain queued until their visuals are retired.
-    auto& effects = CurrentGame().spell_effects;
-    for (auto it = effects.rbegin(); it != effects.rend(); ++it) {
-        const auto& effect = **it;
-        if (effect.kind == W8_SPELL_HYPNOTIC_LURE && effect.turns_remaining > 0) return it->get();
+    for (const auto& effect : std::views::reverse(spell_effects)) {
+        if (effect->kind == W8_SPELL_HYPNOTIC_LURE && effect->turns_remaining > 0)
+            return effect.get();
     }
     return nullptr;
 }
@@ -385,23 +379,22 @@ W8SpellEffectEntry* FindMonsterControlSpellEffect(void)
    running out is the one with a consequence: every monster that is still alive
    goes back to controlling itself. */
 /* An expired or replaced hypnotic lure releases every living monster. */
-static void ReleaseHypnoticLureControl()
+static void ReleaseHypnoticLureControl(World& world)
 {
-    for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
-         ++index) {
-        W8MonsterInfo* monster = GetMonsterListEntry(index);
+    for (std::size_t index = 0; index < world.population->monster_roster.live().size(); ++index) {
+        auto* monster = world.population->monster_roster.live()[index].get();
         if (monster && !monster->entity->IsDying())
             SetMonsterControlState(monster, W8_MONSTER_CONTROL_NONE);
     }
 }
 
-void TickSpellEffects(void)
+void World::tickSpellEffects()
 {
-    for (const auto& effect : CurrentGame().spell_effects) {
+    for (const auto& effect : spell_effects) {
         if (effect->turns_remaining != 0) {
             --effect->turns_remaining;
             if (effect->turns_remaining == 0 && effect->kind == W8_SPELL_HYPNOTIC_LURE)
-                ReleaseHypnoticLureControl();
+                ReleaseHypnoticLureControl(*this);
         }
     }
 }
@@ -479,27 +472,20 @@ void StartCharacterBreathAttack(int party_slot)
 /* Fold one missile's accumulated damage and reports into the queued effect
    that owns it. The owning effect is the one whose missile list still names
    the missile; nothing happens if it has already been detached. */
-void AbsorbMissileDamage(Missile* missile)
+void World::absorbMissileDamage(Missile& missile)
 {
-    for (const auto& effect : CurrentGame().spell_effects) {
-        for (int missile_index = 0; missile_index < static_cast<int>(effect->missiles.size());
-             ++missile_index) {
-            if (effect->missiles[missile_index] == missile) {
-                effect->result.count += missile->result.count;
-                effect->result.amount += missile->result.amount;
-                for (int condition = 0; condition < W8_CONDITION_COUNT; ++condition) {
-                    effect->result.condition_counts[condition] +=
-                        missile->result.condition_counts[condition];
-                }
-                auto& source_reports = missile->result.reports;
-                auto& destination_reports = effect->result.reports;
-                destination_reports.insert(destination_reports.end(),
-                                           std::make_move_iterator(source_reports.begin()),
-                                           std::make_move_iterator(source_reports.end()));
-                source_reports.clear();
-                return;
-            }
-        }
+    for (const auto& effect : spell_effects) {
+        if (!std::ranges::contains(effect->missiles, &missile)) continue;
+        effect->result.count += missile.result.count;
+        effect->result.amount += missile.result.amount;
+        for (int condition = 0; condition < W8_CONDITION_COUNT; ++condition)
+            effect->result.condition_counts[condition] +=
+                missile.result.condition_counts[condition];
+        auto& reports = effect->result.reports;
+        reports.insert(reports.end(), std::make_move_iterator(missile.result.reports.begin()),
+                       std::make_move_iterator(missile.result.reports.end()));
+        missile.result.reports.clear();
+        return;
     }
 }
 
@@ -514,44 +500,22 @@ void FinishSpellEffect(W8SpellEffectEntry* effect);
    run out is finalized: a spell that needed aiming and is not in the singled
    out set reports itself, its visuals and missiles are released, and the entry
    is removed from the queue and deleted. */
-void UpdateSpellEffects(void)
+void Game::advanceSpellEffects(World& world)
 {
     bool handled = false;
-    int index;
-
-    if (static_cast<int>(CurrentGame().spell_effects.size()) <= 0) {
-        return;
-    }
-    for (index = 0; index < static_cast<int>(CurrentGame().spell_effects.size()); ++index) {
-        auto& effect = *CurrentGame().spell_effects[index];
-        bool alive = true;
-
-        for (int visual_index = 0;
-             visual_index < static_cast<int>(effect.spell_visuals.size()) && alive;
-             ++visual_index) {
-            SpellVisual* visual = effect.spell_visuals[visual_index];
-            if (!visual->finished) {
-                alive = false;
-            }
-        }
-        for (int missile_index = 0;
-             missile_index < static_cast<int>(effect.missiles.size()) && alive; ++missile_index) {
-            Missile* missile = effect.missiles[missile_index];
-            if (!missile->flight_done) {
-                alive = false;
-            }
-        }
-        for (int monster_index = 0;
-             monster_index < static_cast<int>(effect.target_indices.size()) && alive;
-             ++monster_index) {
-            int entry = effect.target_indices[monster_index];
-            if (CurrentGame().monster_manager_entries[entry].effect_icon_active) {
-                alive = false;
-            }
-        }
+    for (int index = 0; index < static_cast<int>(world.spell_effects.size()); ++index) {
+        auto& effect = *world.spell_effects[index];
+        bool alive =
+            std::ranges::all_of(effect.spell_visuals,
+                                [](const auto* visual) { return visual->finished; }) &&
+            std::ranges::all_of(effect.missiles,
+                                [](const auto* missile) { return missile->flight_done; }) &&
+            std::ranges::none_of(effect.target_indices, [&](int entry) {
+                return monster_manager_entries[entry].effect_icon_active;
+            });
 
         bool process =
-            ((Data().spells[effect.kind].missile_delivered == 0 && !effect.missiles_pending) ||
+            ((data.spells[effect.kind].missile_delivered == 0 && !effect.missiles_pending) ||
              effect.kind == W8_SPELL_HYPNOTIC_LURE || alive) &&
             !effect.targets_resolved;
         if (process) {
@@ -569,7 +533,7 @@ void UpdateSpellEffects(void)
                     glm::vec3 position = missile->nav.GetPosition();
                     position.y -= 1e+03f;
                     SpellVisual* visual =
-                        SpawnSpellEffect(&position, Data().spells[effect.kind].resource_name,
+                        SpawnSpellEffect(&position, data.spells[effect.kind].resource_name,
                                          missile->definition.duration_scale, 0, 0);
                     if (visual != 0) {
                         visual->auto_release = false;
@@ -589,9 +553,9 @@ void UpdateSpellEffects(void)
                 if (TargetSourceIsMonster(&effect.OrigSource, 0)) {
                     assert(effect.OrigSource.iMonsterID != -1);
                     /* The casting monster's turn finishes with its spell. */
-                    if (CurrentGame().combat.has_value()) {
-                        CurrentGame().combat->setStepOf(MonsterActor{effect.OrigSource.iMonsterID},
-                                                        ActionStep::finishing);
+                    if (combat.has_value()) {
+                        combat->setStepOf(MonsterActor{effect.OrigSource.iMonsterID},
+                                          ActionStep::finishing);
                     }
                 }
             }
@@ -603,7 +567,7 @@ void UpdateSpellEffects(void)
             continue;
         }
 
-        if (!handled && Data().spells[effect.kind].needs_aim != 0 &&
+        if (!handled && data.spells[effect.kind].needs_aim != 0 &&
             !IsCombatEffectSlotSpell(effect.kind)) {
             W8SpellTargetType target_type = GetSpellTargetType(effect.kind, false);
             if (target_type != W8_TARGET_TYPE_RADIUS && target_type != W8_TARGET_TYPE_PARTY) {
@@ -616,9 +580,7 @@ void UpdateSpellEffects(void)
         if (effect.kind == W8_SPELL_BOILING_BLOOD) {
             FinishSpellEffect(&effect);
         }
-        for (int release_visual = 0; release_visual < static_cast<int>(effect.spell_visuals.size());
-             ++release_visual) {
-            SpellVisual* visual = effect.spell_visuals[release_visual];
+        for (auto* visual : effect.spell_visuals) {
             visual->auto_release = true;
             if (effect.kind == W8_SPELL_HYPNOTIC_LURE) {
                 visual->finished = true;
@@ -627,23 +589,17 @@ void UpdateSpellEffects(void)
         for (auto* missile : effect.missiles) {
             missile->block_released = 1;
         }
-        CurrentGame().spell_effects.erase(CurrentGame().spell_effects.begin() + index);
+        world.spell_effects.erase(world.spell_effects.begin() + index);
         --index;
     }
 }
 
 /* Take one missile back off the spell effect that owns it. The first effect
    whose missile list contains it drops the entry and stops the walk. */
-void DetachMissileReferences(Missile* missile)
+void World::detachMissile(Missile& missile)
 {
-    // The spell effects end with their game; a missile may outlive it.
-    if (!GameInProgress()) return;
-    for (const auto& effect : CurrentGame().spell_effects) {
-        const bool was_removed = wiz8::erase_first(effect->missiles, missile);
-        if (was_removed) {
-            return;
-        }
-    }
+    for (const auto& effect : spell_effects)
+        if (wiz8::erase_first(effect->missiles, &missile)) return;
 }
 
 /* Which spell a missile type carries, for the missile kinds that are spells
@@ -888,13 +844,31 @@ int GetTotalCasterLevel(const W8Character* character, int spellbook, bool includ
 /* Which spellbooks a spell belongs to, as the mask the profession table is
    tested against. A spell in no book at all answers nothing, which is what
    makes the test below a membership test rather than a comparison. */
-static unsigned char SpellbookMaskForSpell(int spell_id)
+static unsigned char SpellbookMaskForSpell(const GameData& data, int spell_id)
 {
     return static_cast<unsigned char>(
-        (Data().spells[spell_id].wizardry_spell != 0) |
-        (Data().spells[spell_id].psionics_spell != 0 ? W8_SPELLBOOK_PSIONICS : W8_SPELLBOOK_NONE) |
-        (Data().spells[spell_id].divinity_spell != 0 ? W8_SPELLBOOK_DIVINITY : W8_SPELLBOOK_NONE) |
-        (Data().spells[spell_id].alchemy_spell != 0 ? W8_SPELLBOOK_ALCHEMY : W8_SPELLBOOK_NONE));
+        (data.spells[spell_id].wizardry_spell != 0) |
+        (data.spells[spell_id].psionics_spell != 0 ? W8_SPELLBOOK_PSIONICS : W8_SPELLBOOK_NONE) |
+        (data.spells[spell_id].divinity_spell != 0 ? W8_SPELLBOOK_DIVINITY : W8_SPELLBOOK_NONE) |
+        (data.spells[spell_id].alchemy_spell != 0 ? W8_SPELLBOOK_ALCHEMY : W8_SPELLBOOK_NONE));
+}
+
+// A pure choice over authored membership and the character's skill values.
+static W8Skill BestSpellbookSkill(const W8Character& character, unsigned char book,
+                                  bool active_only)
+{
+    W8Skill best = W8_SKILL_NONE;
+    unsigned int best_level = 0xffffffff;
+    unsigned char probe = 1;
+    for (unsigned int skill = W8_SKILL_SPELLBOOK_WIZARDRY; skill < W8_SKILL_FIRE_MAGIC; ++skill) {
+        if ((probe & book) != 0 && (!active_only || character.skills[skill].active) &&
+            static_cast<int>(best_level) < static_cast<int>(character.skills[skill].points)) {
+            best = static_cast<W8Skill>(skill);
+            best_level = character.skills[skill].points;
+        }
+        probe = static_cast<unsigned char>(probe << 1);
+    }
+    return best;
 }
 
 /* Whether the character knows any spell whose realm's remaining points still
@@ -920,9 +894,9 @@ bool CharacterHasCastableSpell(W8Character* character)
 
    The two ceilings are computed even when the first alone would settle it,
    which is what shows them as one rule rather than two guards. */
-bool CanCharacterLearnSpell(W8Character* character, int spell_id)
+bool CanCharacterLearnSpell(const GameData& data, W8Character* character, int spell_id)
 {
-    unsigned char book = SpellbookMaskForSpell(spell_id);
+    unsigned char book = SpellbookMaskForSpell(data, spell_id);
     int caster_level;
     int other;
     int other_level;
@@ -964,9 +938,10 @@ bool CanCharacterLearnSpell(W8Character* character, int spell_id)
         }
     }
 
-    spellbook_skill = GetBestSpellbookSkillForSpell(character, spell_id, false, false, 0);
+    spellbook_skill = BestSpellbookSkill(*character, book, false);
+    assert(spellbook_skill != W8_SKILL_NONE);
     skill_ceiling =
-        (character->skills[static_cast<int>(W8_SKILL_FIRE_MAGIC) + Data().spells[spell_id].realm]
+        (character->skills[static_cast<int>(W8_SKILL_FIRE_MAGIC) + data.spells[spell_id].realm]
                  .points /
              10 +
          character->skills[spellbook_skill].level) /
@@ -974,7 +949,7 @@ bool CanCharacterLearnSpell(W8Character* character, int spell_id)
         1;
     ceiling = skill_ceiling < level_ceiling ? skill_ceiling : level_ceiling;
 
-    return ceiling >= static_cast<unsigned int>(Data().spells[spell_id].spell_level);
+    return ceiling >= static_cast<unsigned int>(data.spells[spell_id].spell_level);
 }
 
 /* One message-table index per realm, for the realm's name. */
@@ -983,36 +958,18 @@ unsigned short g_realm_message_offsets[W8_SPELL_REALM_COUNT] = {
     0x30b, 0x30c, 0x30d, 0x30e, 0x30f, 0x310,
 };
 
-/* Take one spell on. The spell is marked known, its realm's known count goes
-   up, the spell-point pools are recomputed, and - when the caller asks for it -
-   the character says so in a line built from the character's name, the spell's
-   name and the realm's remaining points.
-
-   The line is assembled twice over: once only to measure the three pieces so
-   the buffer can be allocated, and once into it. */
-void LearnSpell(W8Character* character, int spell_id, bool announce)
+/* Learn the spell and recompute its realm pools. Presentation belongs to the
+   command that accepted the learning, not to standalone character construction. */
+void LearnSpell(const GameData& data, W8Character* character, int spell_id)
 {
     W8SpellRealm realm;
-    std::string realm_name;
 
     character->spell_learned[spell_id] = 1;
-    realm = Data().spells[spell_id].realm;
+    realm = data.spells[spell_id].realm;
     ++character->skill_unlocks[static_cast<int>(W8_SKILL_FIRE_MAGIC) + realm];
     const auto spell_point_ceilings = std::to_array(character->sp_max);
-    character->skill_unlocks[W8_SKILL_IRON_WILL] =
-        RebuildRealmSpellPointCeilings(Data(), character);
+    character->skill_unlocks[W8_SKILL_IRON_WILL] = RebuildRealmSpellPointCeilings(data, character);
     FollowSpellPointCeilings(*character, spell_point_ceilings);
-
-    if (!announce) {
-        return;
-    }
-
-    realm_name = Data().strings[g_realm_message_offsets[realm]];
-    const std::string line =
-        fmt::format("{}: \"{}\" - {}", fmt::sprintf(Data().strings[0x1b9], character->name),
-                    Data().spells[spell_id].display_name,
-                    fmt::sprintf(Data().strings[0x1ba], realm_name, character->sp_max[realm]));
-    ShowNoticeLine(line, 0, true, false);
 }
 
 int g_learn_sound = kFirstRemappedEvent + 16;
@@ -1033,12 +990,19 @@ void LearnSpellFromItem(W8Character* character, W8ItemLocation location)
     assert(Data().items[item->iItemNo].spell_id != W8_SPELL_NONE);
     spell_id = Data().items[item->iItemNo].spell_id;
 
-    if (!CanCharacterLearnSpell(character, spell_id)) {
+    if (!CanCharacterLearnSpell(Data(), character, spell_id)) {
         ShowNoticeLine(fmt::sprintf(Data().strings[0x1bb], character->name), 0, true, false);
         return;
     }
 
-    LearnSpell(character, spell_id, true);
+    LearnSpell(Data(), character, spell_id);
+    const auto realm = Data().spells[spell_id].realm;
+    const auto realm_name = Data().strings[g_realm_message_offsets[realm]];
+    const std::string line =
+        fmt::format("{}: \"{}\" - {}", fmt::sprintf(Data().strings[0x1b9], character->name),
+                    Data().spells[spell_id].display_name,
+                    fmt::sprintf(Data().strings[0x1ba], realm_name, character->sp_max[realm]));
+    ShowNoticeLine(line, 0, true, false);
     usage_points = Data().spells[spell_id].spell_level;
     PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_ARTIFACTS, usage_points * 2, false);
     PracticeCharacterSkill(
@@ -1356,14 +1320,7 @@ unsigned int GetSpellCastingSkillLevel(const W8Character* character, W8Skill spe
 W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool pricing,
                                       bool prefer_unlocked, unsigned int power_level)
 {
-    unsigned char book = SpellbookMaskForSpell(spell_id);
-    unsigned char probe;
-    unsigned int skill_id;
-    W8Skill best_skill = W8_SKILL_NONE;
-    unsigned int best_level = 0xffffffff;
-    W8Skill unlocked_skill = W8_SKILL_NONE;
-    unsigned int unlocked_level = 0xffffffff;
-    unsigned int level;
+    unsigned char book = SpellbookMaskForSpell(Data(), spell_id);
     int party_slot;
 
     if (pricing && character->uiCondition[W8_CONDITION_SILENCED] != 0 &&
@@ -1371,22 +1328,9 @@ W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool
         return W8_SKILL_SPELLBOOK_ALCHEMY;
     }
 
-    probe = 1;
-    for (skill_id = W8_SKILL_SPELLBOOK_WIZARDRY; skill_id < W8_SKILL_FIRE_MAGIC; ++skill_id) {
-        if ((probe & book) != 0) {
-            level = character->skills[skill_id].points;
-            if (static_cast<int>(best_level) < static_cast<int>(level)) {
-                best_skill = static_cast<W8Skill>(skill_id);
-                best_level = level;
-            }
-            if (prefer_unlocked && character->skills[skill_id].active &&
-                static_cast<int>(unlocked_level) < static_cast<int>(level)) {
-                unlocked_skill = static_cast<W8Skill>(skill_id);
-                unlocked_level = level;
-            }
-        }
-        probe = static_cast<unsigned char>(probe << 1);
-    }
+    W8Skill best_skill = BestSpellbookSkill(*character, book, false);
+    const W8Skill unlocked_skill =
+        prefer_unlocked ? BestSpellbookSkill(*character, book, true) : W8_SKILL_NONE;
 
     if (prefer_unlocked && unlocked_skill != W8_SKILL_NONE && best_skill != unlocked_skill) {
         if (pricing) {
@@ -1434,7 +1378,7 @@ static unsigned int GetCastFailureChance(W8Character* character, int spell_id,
     int shortfall;
 
     chance = GetSpellFailureChance(skill_figure, spell_id, static_cast<int>(power_level));
-    book = SpellbookMaskForSpell(spell_id);
+    book = SpellbookMaskForSpell(Data(), spell_id);
     caster_level = GetTotalCasterLevel(character, book, true);
     shortfall = GetMinimumCasterLevelForSpell(spell_id) - caster_level - 1 + power_level;
     if (shortfall > 0) {
@@ -2919,17 +2863,17 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         if (spell_id == W8_SPELL_HYPNOTIC_LURE) {
             owner.turns_remaining = RollEffectDuration(&owner.definition);
             bool replaced = false;
-            for (const auto& previous : CurrentGame().spell_effects) {
+            for (const auto& previous : CurrentGame().level.loaded().spell_effects) {
                 if (previous->kind == W8_SPELL_HYPNOTIC_LURE && previous->turns_remaining > 0) {
                     previous->turns_remaining = 0;
                     replaced = true;
                 }
             }
-            if (replaced) ReleaseHypnoticLureControl();
+            if (replaced) ReleaseHypnoticLureControl(CurrentGame().level.loaded());
         }
         if (CurrentGame().activity.in_world() && !CurrentGame().activity.conversation &&
             !CurrentGame().activity.conversation_aside) {
-            CurrentGame().spell_effects.push_back(std::move(pending));
+            CurrentGame().level.loaded().spell_effects.push_back(std::move(pending));
         } else {
             ProcessSpellEffectTargets(&owner);
             // Immediate casts have no queued owner to retire their visuals later.
@@ -3387,7 +3331,7 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
             return;
         }
         GetMonsterDataForInfo(monster_info);
-        monster = monster_info->entity.find();
+        monster = monster_info->entity.get();
     }
     /* A monster source, direct or (for backfire and reflection) indirect, was
        resolved above; a direct one is also where the spell starts from. */

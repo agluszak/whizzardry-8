@@ -50,7 +50,8 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
 /* The character-side counterpart - damage absorbed by the
    slot-2 enchantment first, two thirds of the rest fatigue the character, the
    remainder comes off hit points and can kill. The sixth parameter receives a
-   kill-counting result block.
+   kill-counting result block. The game-level operation in live_party.cpp settles
+   fatigue, conditions, combat and speech before delivering its presentation outcomes.
    `quiet` marks non-provoking damage such as a poison tick: it picks the
    shield/notice strings and the poison suffix, and keeps a sleeping character
    asleep. `announce` gates the damage notice, `short_notice` selects the terse

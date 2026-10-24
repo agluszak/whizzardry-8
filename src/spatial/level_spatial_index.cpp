@@ -54,6 +54,7 @@
 #include "wiz8/packed_bits.h"
 #include "wiz8/placement_math.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/compiled_mesh.h"
 #include "wiz8/render/frame.h"
@@ -1033,7 +1034,7 @@ no_probes:;
                 W8MonsterInfo* info =
                     (owner_world ? owner_world->population->findMonster(id) : nullptr);
                 if (info != 0) {
-                    Monster* monster = info->entity.find();
+                    Monster* monster = info->entity.get();
                     if (monster != 0 && monster->nav.active &&
                         (monster->nav.trace_mask & flags) == 0) {
                         const glm::vec3 center(monster->nav.movement.position.x,
@@ -2025,7 +2026,8 @@ unsigned int LevelSpatialIndex::AdvanceNavigator(NavigatorMovement* movement, fl
     vecDir = movement->target_position - movement->position;
     vecDir.y = 0.0f;
     distance = glm::length(((glm::vec2(vecDir.x, vecDir.z))));
-    step = GameTimeAccumulator().GetFrameDelta() * movement->movement_scale * g_rate * kWorldScale;
+    step = (owner_world ? owner_world->clocks.motionDelta() : 0.0f) * movement->movement_scale *
+           g_rate * kWorldScale;
     if (step >= distance) {
         step = distance;
     } else {
@@ -2076,7 +2078,7 @@ static bool OverlapsNearbyMonster(const World* world, const glm::vec3& point, fl
 {
     return std::ranges::any_of(locations, [&](std::uint32_t id) {
         auto* info = world && world->population ? world->population->findMonster(id) : nullptr;
-        auto* monster = info ? info->entity.find() : nullptr;
+        auto* monster = info ? info->entity.get() : nullptr;
         if (!monster) return false;
         const auto delta = monster->nav.GetPosition() - point;
         const float clearance =

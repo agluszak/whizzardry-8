@@ -4,6 +4,7 @@
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <variant>
 
 #include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_rect.h>
@@ -11,8 +12,11 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "harness.h"
+#include "wiz8/audio/soundman.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/skills.h"
+#include "wiz8/dialog_code/PortraitQuote.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/npc_dialogue.h"
@@ -21,9 +25,15 @@
 #include "wiz8/local_code/npc_dialogue_view.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/npc_interaction.h"
+#include "wiz8/local_screens/Screens.h"
+#include "wiz8/local_screens/npc_dialogue_panel.h"
+#include "wiz8/message_box.h"
 #include "wiz8/npc_script_file.h"
+#include "wiz8/npc_speech.h"
+#include "wiz8/platform/timer.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/screen.h"
+#include "wiz8/script_context.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
@@ -35,7 +45,8 @@ namespace {
 /* The conversation waits for the player: nothing spoken, queued or asked. */
 bool DialogueAwaitingPlayer()
 {
-    return CurrentGame().activity.conversation && !IsNpcScriptSessionActive() &&
+    return CurrentGame().activity.conversation &&
+           !CurrentGame().npc_dialogue.has_active_utterance() &&
            !CurrentGame().npc_dialogue.has_queued_actions() &&
            CurrentGame().npc_dialogue.reply() == W8NpcReplyState::none && g_modal_owner == nullptr;
 }
@@ -47,7 +58,7 @@ void WaitDialogue(GameHarness& game, const char* step, const std::function<bool(
         step,
         [&] {
             if (ready()) return true;
-            if (IsNpcVoicePlaying() && g_modal_owner == nullptr) {
+            if (CurrentGame().npc_dialogue.voice_pending() && g_modal_owner == nullptr) {
                 game.key(SDLK_ESCAPE);
             }
             return false;
@@ -117,7 +128,7 @@ void SayFarewell(GameHarness& game, const char* step)
     game.key(SDLK_ESCAPE);
     game.wait(step, [&] {
         if (!CurrentGame().activity.conversation) return true;
-        if (IsNpcScriptSessionActive()) game.key(SDLK_ESCAPE);
+        if (CurrentGame().npc_dialogue.has_active_utterance()) game.key(SDLK_ESCAPE);
         return false;
     });
     WaitMainGame(game, step);
@@ -138,6 +149,61 @@ void NpcDialogueScenario()
     CurrentGame().party.gold = 200;
 
     StartConversation(game, "greeting", burz);
+    {
+        Game detached(CurrentGame().data);
+        const auto playing = MainGame()->dialogue.utterance_identity;
+        DisplayNpcQuote(detached, "Not this game's quote", false);
+        ShowNpcPortraitMessage(detached, "Not this game's notice");
+        W8NpcScriptQuote quote;
+        quote.subquotes.emplace_back("Detached");
+        REQUIRE(SpeakNpcSubquote(MakeScriptContext(detached), &quote, 0, false, false) ==
+                W8NpcSubquoteOutcome::presented);
+        REQUIRE(MainGame()->dialogue.utterance_identity == playing);
+        REQUIRE_FALSE(detached.npc_dialogue.has_active_utterance());
+    }
+    {
+        auto& panel = MainGame()->dialogue;
+        auto& sequence = CurrentGame().npc_dialogue;
+        const auto notices = std::make_shared<unsigned>(0);
+        CurrentGame().events.observe([notices](const Event& event) {
+            if (std::holds_alternative<CharacterNotice>(event)) ++*notices;
+            PresentGameEvent(event);
+        });
+        panel.showPortraitMessage(
+            "Old notice",
+            W8SkillNoticePayload{{{static_cast<unsigned>(PremadeSlot()), W8_SKILL_COMMUNICATION}}});
+        const auto identity = sequence.BeginVoiceQuote();
+        panel.utterance_identity = identity;
+        const auto completions = std::make_shared<unsigned>(0);
+        REQUIRE(PlayNpcVoice(panel.speech, "Data\\Sound\\misc\\startgame.wav",
+                             [completions] { ++*completions; }));
+        sequence.VoiceStarted(identity, MonotonicMilliseconds(), true, 2000);
+        const auto old_voice = panel.speech.voice_handle;
+        auto* body = GetNpcMonster(burz);
+        REQUIRE(body);
+        body->talking = true;
+        sequence.ReplyDialogOpened(std::nullopt); // Ordinary completion retains its question.
+        panel.showPortraitMessage("Replacement notice");
+        REQUIRE(*notices == 1);
+        REQUIRE(panel.active_quote);
+        REQUIRE(panel.active_quote->bubble);
+        REQUIRE(panel.active_quote->bubble->text() == "Replacement notice");
+        REQUIRE_FALSE(wiz8::sound::is_playing(old_voice));
+        REQUIRE_FALSE(body->talking);
+        REQUIRE(panel.utterance_identity);
+        const auto replacement = *panel.utterance_identity;
+        sequence.VoiceFinished(identity, MonotonicMilliseconds());
+        REQUIRE(sequence.utterance(replacement));
+        REQUIRE(sequence.utterance(replacement)->phase ==
+                W8NpcDialogue::Utterance::Phase::portrait_message);
+        panel.tryFinishVoice(true);
+        wiz8::sound::service();
+        REQUIRE_FALSE(sequence.has_active_utterance());
+        REQUIRE(*completions == 0);
+        REQUIRE(*notices == 1);
+        sequence.ReplyDialogClosed();
+        CurrentGame().events.observe(PresentGameEvent);
+    }
     // Filtering/sorting changes the view, not notebook identity. Removing the
     // first displayed topic must remove that topic from the actual notebook.
     auto& controller = *MainGame()->dialogue.ui->transcript;

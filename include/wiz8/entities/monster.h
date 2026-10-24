@@ -15,6 +15,7 @@
 
 struct KeyframeTrack;
 struct World;
+struct W8MonsterRecord;
 
 #include <memory>
 #include <string>
@@ -88,17 +89,21 @@ public:
     std::string asset_name;
     typedef void (*CycleCallback)(Monster* monster);
 
-    explicit Monster(World& owner);
+    explicit Monster(World& owner, const W8MonsterRecord* species = nullptr);
     /* A new monster of a species: its own copies of the definition's animations,
        lights, emitters and light, a registered navigator, and appearance still
        to be rolled. */
-    Monster(const MonsterDefinition& definition, World& owner);
+    Monster(const MonsterDefinition& definition, World& owner,
+            const W8MonsterRecord* species = nullptr);
+    const W8MonsterRecord& species() const;
     void TickAnimation(float scale);
     bool ApplyPendingCycle();
     void SetCyclePosition(glm::vec3* position);
     Monster(const Monster&) = delete;
     Monster& operator=(const Monster&) = delete;
     ~Monster();
+    // Stop exposing this runtime to the world, without reclaiming in-flight storage.
+    void retire();
 
     bool CanEnterCycle(signed char cycle);
     void UpdateRepresentation();
@@ -166,14 +171,10 @@ public:
        at all, relying on `this` already being there. The query selector is
        bounded at nine by the body's own `ja` against the jump table. */
     int Query(W8MonsterQueryKind query);         /* 0x004C4660 */
-    // Monster operations that were free Monster* wrappers around this object.
-    static std::unique_ptr<Monster> ReadAllCycles(World* world, std::string_view monster_name,
-                                                  int location_id);
     std::optional<BoundingBox> GetWorldAnimationBounds();
     glm::vec3 GetRepresentationLocation() const;
     glm::vec3 GetRepresentationLocalLocation() const;
     void SetFacing(float angle);
-    void GetScaleRange(float* minimum, float* maximum);
     void SetAdjustedPosition(const glm::vec3* position);
     unsigned short ApproachStartupNavigator(double separation);
     unsigned char LinkToStartupNavigator();
@@ -262,8 +263,8 @@ public:
     /* 0x1fd: the StartTalking argument; mouth texture animation only runs
        while it is set. */
     bool animate_mouth;
-    /* The world-clock stamp (`GameClockMilliseconds`) of the last frame of the random
-       mouth flicker used while the gap track reports the mouth closed, and that frame. */
+    /* The owning game's millisecond stamp of the last random mouth-flicker frame
+       while the gap track reports the mouth closed, and that frame. */
     std::uint32_t mouth_frame_clock;
     int mouth_frame;
     // When the current talk cycle began, on the world clock.
@@ -332,6 +333,10 @@ public:
     bool hostility_preserved;
     std::unique_ptr<Sound3D> sound;
     std::vector<wiz8::sound::Playback> sounds;
+
+private:
+    // Immutable gameplay definition outlives this body. Cursor-only bodies have none.
+    const W8MonsterRecord* const species_definition_;
 };
 
 /* What a species' MLS and .mon files author, loaded once per world: the
@@ -398,8 +403,6 @@ W8MonsterCycle ParseMonsterCycleName(std::string_view name, signed char* subcycl
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction);
 
 std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_name, int cycle);
-
-void UpdateNearestMonsterGroupMembers();
 
 /* Secondary vftable 0x005ed218 keeps the Navigator subobject at +0x18. */
 

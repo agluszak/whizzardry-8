@@ -26,6 +26,7 @@
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
+#include "wiz8/world/environment.h"
 
 namespace {
 
@@ -85,6 +86,7 @@ wiz8::Application::Application(std::span<const std::string_view> arguments)
         if (options.inspector) VideoInspectorEnable();
         if (options.windowed) VideoFullScreen(false);
         if (!InitializeVideoManager()) throw std::runtime_error("Video initialization failed");
+        InitializeEnvironmentColours();
         if (!wiz8::sound::initialize(options.sound && !SetupDisablesAudio()))
             throw std::runtime_error("Sound initialization failed");
         data_ = std::make_unique<const GameData>(

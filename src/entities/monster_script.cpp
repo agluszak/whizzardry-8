@@ -54,6 +54,7 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/party_camera.h"
@@ -360,7 +361,7 @@ void Monster::ProcessScript()
                     if (cycle != W8_MONSTER_CYCLE_NONE) {
                         visual.pending_cycle = static_cast<signed char>(cycle);
                         visual.animation_playing = 1;
-                        visual.timer = GameClockMilliseconds();
+                        visual.timer = owner_world.clocks.gameMilliseconds();
                         visual.SetSubCycle(0);
                         visual.forced_subcycle = subcycle - 1;
                         if (visual.pending_cycle == -1) {
@@ -407,9 +408,9 @@ void Monster::ProcessScript()
             case MONSCR_GIVE:
                 tokens >> token;
                 if (tokens) {
-                    int item = FindItemRecordByName(token.c_str());
+                    auto& game = CurrentGame();
+                    int item = FindItemRecordByName(game.data, token.c_str());
                     if (item != -1) {
-                        auto& game = CurrentGame();
                         game.inventory.replaceHeld(
                             MakeItem(game.data, game.rng, item, true, true, false));
                     }
@@ -430,7 +431,7 @@ void Monster::ProcessScript()
                 visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
                 visual.pending_cycle = 0x15;
                 visual.animation_playing = 1;
-                visual.timer = GameClockMilliseconds();
+                visual.timer = owner_world.clocks.gameMilliseconds();
                 visual.SetSubCycle(0);
                 break;
             case MONSCR_END:
@@ -526,6 +527,7 @@ void Monster::ProcessScript()
                     this->trigger = FindTriggerByName(token.c_str());
                     if (this->trigger != 0) {
                         this->trigger->Run(-1);
+                        if (owner_world.isRetiring(*this)) return;
                         script_wait = MONSCR_TRIGGER;
                     }
                 }
@@ -554,6 +556,7 @@ void Monster::ProcessScript()
                         runtime_flags |= W8_MONSTER_PARKED;
                         Trigger* trigger = FindTriggerByName("Path3Trigger");
                         if (trigger != 0) trigger->Run(-1);
+                        if (owner_world.isRetiring(*this)) return;
                     } else if (SDL_strcasecmp(token.c_str(), "UNLOCKUI") == 0 ||
                                SDL_strcasecmp(token.c_str(), "ENDGARIWALK") == 0) {
                         ClearMainGameTargetState();
@@ -572,7 +575,7 @@ void Monster::ProcessScript()
                         runtime_flags |= W8_MONSTER_PARKED;
                         ClearMainGameTargetState();
                     } else if (SDL_strcasecmp(token.c_str(), "BELA_END_CC_WALK") == 0) {
-                        W8NpcState* npc = GetNpcStateByKind(0x8d);
+                        W8NpcState* npc = CurrentGame().story.npcOfKind(0x8d);
                         if (npc != 0) QueueNpcScriptNotice(npc, 0, 6, false, 0);
                         monster_info = owner_world.population->findMonster(location_id);
                         if (monster_info->control_state != W8_MONSTER_CONTROL_LURED) {

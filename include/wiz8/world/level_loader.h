@@ -2,14 +2,13 @@
 
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/render/material_loader.h"
 #include "wiz8/retail_geometry_types.h"
-
-glm::vec3 CurrentEnvironmentOffset();
 
 namespace wiz8 {
 class File;
@@ -66,17 +65,19 @@ struct W8LevelParticleRecord {
 #pragma pack(pop)
 static_assert(sizeof(W8LevelParticleRecord) == 0x225);
 
+class Game;
+
 struct LevelLoadContext {
     World* world = nullptr;
     wiz8::File* hFile = nullptr;
     std::filesystem::path bitmap_folder;
 };
 
-unsigned char ReadLevel(World* world, wiz8::File* handle,
+unsigned char ReadLevel(Game& game, World* world, wiz8::File* handle,
                         const std::filesystem::path& texture_directory);
-unsigned char ReadWorldItems(LevelLoadContext* info, World* world);
+bool ReadWorldItems(Game& game, LevelLoadContext& info);
 // The destination owns particles; scene attachment borrows them.
-unsigned char ReadWorldParticles(LevelLoadContext* info, WorldScene* scene,
+unsigned char ReadWorldParticles(LevelLoadContext* info, World* owner,
                                  std::vector<std::unique_ptr<ParticleSystem>>* particles);
 
 // Append a complete named-position section; failure leaves the destination unchanged.
@@ -92,3 +93,11 @@ struct World;
 
 std::unique_ptr<LevelSpatialIndex> ReadCollisionGeometry(std::string_view path, World* owner);
 bool BuildCollisionIndex(LevelSpatialIndex* game_data);
+
+// Temporary PR 664 metadata probe; remove after the retail census.
+struct RawLevelCounts {
+    int monsters;
+    int items;
+};
+std::optional<RawLevelCounts>
+InspectRawLevelCounts(wiz8::File& file, const std::filesystem::path& textures, bool compiled);

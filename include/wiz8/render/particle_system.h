@@ -1,6 +1,7 @@
-#include <chrono>
 #pragma once
 struct W8Chunk;
+struct World;
+class LevelSpatialIndex;
 
 #include <cstdint>
 #include <memory>
@@ -17,6 +18,7 @@ struct W8Chunk;
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "wiz8/math.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/material.h"
@@ -47,8 +49,10 @@ public:
         std::shared_ptr<Texture> animation;
     };
 
-    ParticleSystem(WorldScene* scene, int count); /* 0x00497AF0 */
-    ParticleSystem(const ParticleSystem& other); /* 0x00498180 */
+    // A null owner is an unbound resource definition, not the installed world.
+    ParticleSystem(World* owner, int count);
+    ParticleSystem(const ParticleSystem& definition, World& owner);
+    ParticleSystem(const ParticleSystem&) = delete;
     ~ParticleSystem();
     void CancelAnimationCallback();
     void SetActive(bool active);
@@ -62,7 +66,7 @@ public:
     void SetFlutter(W8ParticleFlutterMode mode);
     void SetParticleScale(float scale);
     // Called once by the game update, independent of the number of views.
-    void AdvanceSimulation(std::chrono::milliseconds game_time);
+    void AdvanceSimulation(const glm::vec3& camera, const LevelSpatialIndex* collision);
     // The effect's scene member; the scene inserts it on attach and removes it on detach.
     vsg::ref_ptr<vsg::Node> renderNode() const;
     void updateRenderNode(render::RenderContext& context, const SceneFrame& frame,
@@ -135,7 +139,9 @@ public:
     float size_scale = 1.0f;
 
 private:
-    void Update(); /* 0x00499FA0 */
+    World* const owner_world;
+    TimerClockView clocks() const;
+    void Update(const LevelSpatialIndex* collision); /* 0x00499FA0 */
     vsg::ref_ptr<vsg::Group> root = vsg::Group::create();
     std::unique_ptr<ParticleRenderData> render_data;
 
@@ -152,7 +158,7 @@ public:
 
 struct World;
 // Advance attached particles in their scene order, after entity placement.
-void AdvanceWorldParticles(World& world, std::chrono::milliseconds game_time);
+void AdvanceWorldParticles(World& world, const World& gameplay);
 // A still-emitting particle outlives its cycle in the world's retired list;
 // the sweep destroys it once it has finished, never during rendering.
 void RetireParticle(World& world, std::unique_ptr<ParticleSystem> particle);

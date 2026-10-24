@@ -28,7 +28,6 @@ void EnsureUniquePartyVoice(W8Character* character);
    notice. The lock-interaction owner lives past MainGameScreen.h, which this
    task does not expand. */
 void CastSpellAtLockInteraction(unsigned int level, int flag, int backfire);
-unsigned int GetAveragePartyLevel(void);
 unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* record,
                                         bool buy_equipment);
 bool AnyMonsterEngaged(void);

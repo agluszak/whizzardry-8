@@ -31,6 +31,8 @@
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code\Ascension.cpp.
@@ -176,10 +178,11 @@ void AscensionScript::peakInit()
                 }
             }
             SpawnAscensionAmbush();
-            CreateLocationVar("AP_AtLeast2of3Items", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_AtLeast2of3Items",
+                                                       1);
         }
         if (GetLocationVarIDByName("AP_SpawnDaughter") == -1) {
-            W8NpcState* npc = GetNpcStateByKind(0x31);
+            W8NpcState* npc = CurrentGame().story.npcOfKind(0x31);
 
             if (npc != 0 && npc->greeting_pending && npc->spawned == 0 && !npc->party_noticed &&
                 GetFact(W8_FACT_TEMPLAR) != 0) {
@@ -187,7 +190,8 @@ void AscensionScript::peakInit()
                     SpawnMonsters(0x18d, 1, &position, 0, true, false);
                     SetFact(static_cast<W8FactId>(0x327), 1, false);
                 }
-                CreateLocationVar("AP_SpawnDaughter", 1);
+                CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_SpawnDaughter",
+                                                           1);
             }
         }
     }
@@ -200,7 +204,7 @@ void AscensionScript::peakInit()
                 GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
                 RunNamedTrigger("Bodies", -1);
             }
-            CreateLocationVar("AP_All3Items", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_All3Items", 1);
         }
     }
 }
@@ -240,7 +244,7 @@ bool AscensionScript::landShaker(int command)
         return false;
     }
     if (!avalanche_gate_) {
-        avalanche_gate_.emplace(1.0f, TimerClock::World, true);
+        avalanche_gate_.emplace(world().clocks, 1.0f, TimerClock::World, true);
         return false;
     }
     if (!avalanche_gate_->PollFinished()) {
@@ -258,7 +262,7 @@ bool AscensionScript::answerAletheides(Trigger* pTrigger, const char* active_var
                                        W8NpcStoryAction spawn)
 {
     if (GetLocationVarIDByName(active_var) == -1) {
-        CreateLocationVar(active_var, 0);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), active_var, 0);
     }
     if (GetLocationVarValueByName(active_var) != 0) {
         return false;
@@ -342,7 +346,7 @@ bool AscensionScript::darkSavantSpawn(Trigger* pTrigger)
         SpawnMonsters(0x18c, 1, &position, 0, true, false);
     }
     if (GetLocationVarIDByName("AP_DSSpawned") == -1) {
-        CreateLocationVar("AP_DSSpawned", 1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_DSSpawned", 1);
     }
     return true;
 }
@@ -414,7 +418,7 @@ void SpawnAlfieKnow(void)
    0x2f) is present, first match wins. */
 void RemoveAletheides(void)
 {
-    W8NpcState* npc = GetNpcStateByKind(0x2d);
+    W8NpcState* npc = CurrentGame().story.npcOfKind(0x2d);
     W8MonsterInfo* info;
 
     if (npc != 0) {
@@ -424,7 +428,7 @@ void RemoveAletheides(void)
             return;
         }
     }
-    npc = GetNpcStateByKind(0x2e);
+    npc = CurrentGame().story.npcOfKind(0x2e);
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
@@ -432,7 +436,7 @@ void RemoveAletheides(void)
             return;
         }
     }
-    npc = GetNpcStateByKind(0x2f);
+    npc = CurrentGame().story.npcOfKind(0x2f);
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {

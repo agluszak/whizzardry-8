@@ -36,7 +36,8 @@ ScreenRouter (file-scope in screen_router.cpp)
   log, combat, the activity and advancement, the speech queue, the NPC
   conversation, spell cooldowns, the event log, stored characters, the byte images
   of levels the party has left, and the `Level`. Destroying a game does no
-  departure bookkeeping; the main game leaves the level before its game ends.
+  departure bookkeeping; explicit session and level transitions leave the level before
+  releasing it.
 - **`Level`** owns the primary and sky `World`s. Queries borrow those owners, so no
   world outlives its game; replacing a slot hands back the previous owner.
 - **`World`** (`world/world.h`) owns a loaded level: the VSG scene, environment,
@@ -84,7 +85,7 @@ operations and delete their old path, rather than adding a parallel architecture
 | Codecs | Conversion between live values and retail disk records. Not a second live game model. |
 
 Some current fields do not yet live at these boundaries (for example,
-`Game::spell_effects` and UI-owned gameplay transitions). Moving one must also
+layout-specific dialogue requests and current-game dependencies in level preparation). Moving one must also
 move its actual lifecycle and consumers; a new container or `Game&` wrapper alone
 does not satisfy this contract.
 
@@ -93,9 +94,24 @@ does not satisfy this contract.
   has defined copy-back/save behavior. A UI draft, accepted action and executing
   action are likewise different stages, not redundant mirrors. Never keep parallel
   mutable representations that require routine synchronization.
-- **Ownership is not membership.** A world owns its monsters; groups, combat,
+- **Ownership is not membership.** A world owns its monster records, and each record
+  exclusively owns its optional loaded runtime. The world cursor owns its own
+  animation body; it is not a gameplay monster. Groups, combat,
   indexes and VSG scene attachments reference them. A monster record may exist
   without a body, a loaded body may be inactive, and death may leave a fading body.
+  The existing navigator index borrows loaded bodies in construction order; there
+  is no second owning body collection or attach/detach protocol.
+  World items similarly own their optional loaded appearance: its presence is
+  activation, with no separate active flag, body owner or active-item counter.
+  Item animation updates attached instances instead of detaching and rebuilding
+  scene membership each tick.
+  Continuing casts belong to their gameplay world, alongside their borrowed
+  missiles and visuals. Missile completion and destruction use that original
+  world, even after another world or session has become current. Saved casts
+  remain decoded values until installation into the destination; normal entry
+  clears entry-created casts at its established point, while restore rebuilds
+  the saved lure's visuals without moving its semantic anchor. Combat exit does
+  not end these world-owned casts.
   Neither scene attachment nor combat participation decides destruction. Deferred
   work identifies its original actor/session, never whichever one is current later.
 - **Borrow according to lifetime.** A live actor can retain its `World&`; a party
@@ -133,7 +149,11 @@ does not satisfy this contract.
   defer all events to the end of a frame. Combat owns its decision to wait, while
   playback owns actual audio/animation progress and reports completion to the
   originating operation. Polling a read-only readiness query is acceptable when
-  it is simpler than subscriptions or cached busy counts.
+  it is simpler than subscriptions or cached busy counts. Monster update traversal
+  retains removed records until its script callbacks return. Removal immediately
+  retires targeting, navigation and scene relationships; it cannot reclaim the
+  actor whose update is on the stack. Newly spawned actors enter the next pass,
+  and removing another actor cannot skip surviving actors in the current pass.
 - **Presentation is an output, not an authority over game state.** Render and
   paint do not mutate gameplay or draw gameplay RNG. Picking returns a semantic
   selection for the interaction owner to interpret. UI notifications may still
@@ -159,6 +179,18 @@ does not satisfy this contract.
   World-local continuing effects are cleared on ordinary entry or reconstructed
   from a save according to their actual lifetime. Combat exit alone does not
   necessarily end a cast.
+
+The transition contracts below constrain later ownership moves:
+
+| Transition | Behavior to preserve |
+| --- | --- |
+| A monster engages before party combat | World-owned engagement/readiness exists without a party `Combat`. |
+| The last group member dies | Group participation can end while the monster's death, script and fade work remains alive. |
+| Recruit, edit, save, dismiss | The active party character, retained NPC snapshot and world embodiment are distinct; save and copy-back retain their respective semantics and identities. |
+| Lure, combat exit, travel or restore | Combat exit does not clear the continuing cast. Normal entry clears it at its established point; saved entry reconstructs its runtime. |
+| Lock attempt, nested picker, return | The same attempt resumes after a picker. Genuine departure applies explicit cancellation rather than inferring it from widget destruction. |
+| Partly filled stack in a full inventory | Preserve transferred units and the held remainder. Identification and practice may occur even when placement cannot finish. |
+| Save during scripted fade | Decide settlement timing explicitly, then capture values and encode them. Encoding itself cannot run removal consequences or scripts. |
 
 A refactor is finished when the new authority and transition are clear, the
 original call path and redundant state are removed, and required behavior
@@ -239,6 +271,33 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
 
 ## The game
 
+- **Session ownership.** `GameSession` keeps the current game in a `unique_ptr`.
+  Beginning a game constructs its basic owners before ending the outgoing game;
+  installation preserves the new object's address. Saved-level resource preparation
+  is not yet independent of the current game (see "Worlds and levels").
+- **Level transitions.** `Game::travelToLevel` prepares the destination, captures
+  the outgoing level, ends its level-bound activity, publishes the replacement and
+  enters it. `Game::leaveLevel` performs the same departure and releases the loaded
+  world without ending the game. The session uses these operations when a game ends
+  or a save is installed; screens request travel and present loading, but neither
+  their teardown nor their destructors load or unload levels. Entry and resource
+  preparation still reach current-game helpers (monster manager, NPC bindings, item
+  lists and sky/camera release); moving those internals is remaining work.
+- **Clock identity.** Timers retain a narrow view of their originating game's step,
+  world and calendar clocks and world hold. They cannot discover the installed game;
+  restoring progress and changing timer mode retain the same owner. Disconnected
+  geometry worlds sample zero simulation time, while presentation timers explicitly
+  sample monotonic time. Resource decoding does not pause/resume simulation: synchronous
+  decoding cannot advance step time and must not release a caller's hold. First camera
+  motion resumes its clock directly, without a second pending-resume flag or repair step.
+  The legacy motion-delta accumulator is still process-scoped, but is a plain scaled
+  delta calculation rather than a clock-sampling timer; its ownership remains migration work.
+- **Camera sequences.** The game owns its shake system and computed frame offset.
+  Primary and sky worlds borrow that same system, and keyed actor/trigger effects stop
+  when their owner is released. Unkeyed sequences can continue across a level change,
+  including the ending callback, but are destroyed with their game. Rendering only
+  reads the prepared offset. Timer and shake implementations cannot include game/screen
+  headers or call current-game clock helpers; the layer check enforces that boundary.
 - **Randomness.** All gameplay draws come from `Game::rng`, retail's MSVC
   `rand()` sequence (`rules/random.h`), in retail order. A session draws one
   sequence from one seed: each game continues the stream of the one before it
@@ -250,6 +309,16 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
 - **Activity.** Rules branch on `Game::activity` (place, conversation, scripted
   scene), never on a screen id or UI flag. Combat is `Game::combat`, a
   `std::optional<Combat>` engaged exactly while the party fights.
+- **Dialogue continuation.** `W8NpcDialogue` owns the active utterance: its originating
+  conversation, NPC/script/quote snapshot, serviced-voice wait and timed hold. The panel
+  owns playback, mouth and bubble resources, not another busy flag or hold clock.
+  Natural voice completion records the original quote and retains its 700 ms hold;
+  a scoped utterance identity prevents late completion from affecting a replacement.
+  Holds are serviced at the existing speech-queue update point before portrait-idle
+  and dialogue advancement, not by rendering. Replacement completes the old utterance
+  and its notice before starting the next; suspension retains it and explicit discard
+  abandons it without completing scripts. Headless presentation creates no wait, and
+  another game's panel cannot satisfy a presentation request.
 - **Advancement and stepping.** `Game::advance(elapsed, hold)` (`game_advance.cpp`)
   is the game's one step: it applies the interface's hold, runs speech, and in the
   world runs the simulation in retail order. `Game::time` is the step time that
@@ -257,7 +326,13 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
 - **Events.** Rules push typed events onto `Game::events` (notices, display
   changes, combat progress, speech) and never ask for repaints. The session's
   presenter (`PresentGameEvent`) maps each to the active screen. A game without an
-  observer keeps events pending, which is how tests inspect them.
+  observer keeps events pending, which is how tests inspect them. Party damage,
+  condition infliction/lifting, revival and settlement hold delivery with
+  `Events::Operation`: nested operations complete before the outer boundary presents
+  their ordered outcomes. Damage narration and splats use that same stream; mandatory
+  combat, story and speech consequences remain explicit calls. Unmigrated commands
+  continue to deliver immediately. Failed operations discard their unpublished outcomes,
+  without implying gameplay rollback.
 - **Combat.** `Combat::turn()` is idle or one actor's turn, stepped once per frame
   once nothing is waited on (camera, animation, sound, missile, script). Actors are
   held by slot or location id and looked up when used. Combat is not saved.
@@ -268,7 +343,9 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   and the hand, and is the only thing that moves items between any of them. Each
   operation is complete when it returns: restrictions, the move, acquisition and
   settling the party. A transfer's `item` argument is what remains with the giver, so
-  a refused or partial transfer never loses units. `MergeStack` is the one stacking
+  a refused or partial transfer never loses units. Pool deposits explicitly distinguish
+  refusal, partial placement and completion; their outcomes are delivered after both
+  pool and hand settle. `MergeStack` is the one stacking
   rule and changes nothing but the two values. A `W8ItemLocation` addresses a slot
   for one call (an empty hand or free pool row reads as an empty item); anything kept
   longer (a queued use, a trade selection) is checked against its expected item when
@@ -284,16 +361,36 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
 
 - Level reconstruction builds a replacement world completely before it is
   published; entry then starts clocks, music, dialogue and first-visit effects.
+  `Game::travelToLevel` owns that sequence and leaves the outgoing level only after
+  the destination and its saved status have been prepared. A failed destination
+  leaves the current world loaded, but this is not yet an isolation guarantee:
+  embedded monster construction, trigger seeds and prop variables still touch
+  the installed game while parsing. Item creation uses the supplied game for its
+  data, RNG and continuing runtime IDs; its candidate world owns ground/sector
+  queries, the item record, scene attachment and lighting. Loading does not defer
+  item construction past later props: trigger/item/yaw random draws and legacy
+  APST identity allocation keep their established order. The world-item operation
+  implementation cannot include the game or screens or find the installed world;
+  the layer check enforces this boundary. Malformed compiled-level sections return a
+  loading failure rather than asking presentation to terminate the application.
 - Departure ends combat and captures script state into location variables before
-  resources are released. Destruction does no departure bookkeeping.
+  resources are released. Destruction does no departure bookkeeping. `Game::leaveLevel`
+  is the departure operation; the session calls it when ending a game, and a screen
+  requests it rather than implementing it in teardown.
 - Loading a save decodes every section, each level group included, before the game
   in progress or its screens are released, into a plain `SavedGame` (`ReadSavedGame`)
-  that `SavedGame::install` writes into the game it begins; a rejected save resumes
-  that game. If the resume level then fails to build, the new game ends and the menu
-  shows the error.
-- Monster and world-item records link to their scene entity through an
-  `EntityLink`. An inactive record may have none. Anything that keeps an actor
-  past the current call keeps its id and looks it up again when used.
+  that `GameSession::load` installs at an explicit presentation-release boundary.
+  A rejected decode resumes the outgoing game. The session ends combat while its
+  controls exist, begins the replacement game, has `SavedGame::install(Game&)` fill
+  it, and constructs and enters its level through `Game::enterSavedLevel`. The saved
+  value cannot begin or end a game itself. If construction fails, the session ends the
+  replacement and the caller presents the error. Resource preparation still uses the
+  installed game; retaining the outgoing game on construction failure is a target, not
+  a guarantee of this implementation.
+- Monster and world-item records own their optional loaded runtime directly.
+  Monster activation is separate from runtime presence; a world item's activation
+  is its appearance's presence. Borrowed indexes and rendering relationships never
+  decide their lifetime. Work that outlives an actor uses its scoped identity.
 - Group counts, active-monster presence and combat membership are queries over
   ownership, not maintained counters.
 - Each world has a `WorldParty` (`World::party`): the party's pose and its
@@ -320,10 +417,28 @@ code has a subclass whose members are that state. Trigger callbacks are
   `AutomapScreen` is rebuilt with that world on every visit.
 - Wizardry lighting, fog and material operations run in GLSL shaders compiled to
   SPIR-V. VSG uses Vulkan (MoltenVK on macOS).
+- `RenderFrame` returns the raw intersection (or a miss) without changing the world's
+  accepted selection. The main screen applies it using the current combat context.
+  Rendering auxiliary views cannot replace the interaction's accepted pick. Frame
+  submission receives a `FrameView` of explicit scenes, cameras, frame values and
+  background, plus an optional normalized pick request. An empty view never falls
+  back to the installed game. `world_view.cpp` composes these inputs from the game
+  supplied by presentation; the main screen owns whether it requests picking.
+  Screenshots use a steady view and do not advance clocks. The automap borrows its
+  game and level together, so its world, clock and lighting inputs agree. The layer
+  checker prevents frame submission from reacquiring gameplay headers or lookups.
 - `endFrame` waits for submitted work: graph mutations and object destruction
   happen on the game thread between completed frames.
 - The UI is drawn on a fixed ARGB1555 CPU canvas and published to a dynamic VSG
   image.
+- `Game::motion_clock` owns the scaled, clamped motion delta and accumulated
+  motion timestamp. Worlds, navigators and their camera borrow it through their
+  originating clock view; replacing the installed session cannot redirect them.
+  Level departure resets this value in place at the existing transition boundary,
+  after ending camera sway. Scale changes preserve elapsed motion; timer holds
+  and the camera-sway suspension latch remain separate inputs. World item falling
+  and proximity updates use the owning world, including its collision geometry,
+  clock and item appearances, with gravity and activation inputs supplied explicitly.
 - Particles and other effects advance in the game step, never in render
   traversal. World animation uses `Game::visual_time`, which stops while the world
   is held; UI animation uses presentation time.
@@ -340,7 +455,8 @@ code has a subclass whose members are that state. Trigger callbacks are
   during it are destroyed when the outermost transaction ends
   (`DestroyAfterUiDispatch`), so nothing is freed while its own callback runs.
   The main game's dialogue panel owns NPC voice playback and the active quote's
-  input; discarding the panel cancels pending voice completion.
+  input; explicit screen discard abandons its logical utterance and cancels pending
+  voice completion. Destructors release playback resources only.
   In the main game, `MainGameScreen::refreshLayout` decides one `MainGameLayout`
   (shown mode, panels, world viewport) from the open interaction and the player's
   preferences and changes only the panels that differ; an interaction overrides
@@ -366,3 +482,70 @@ CTest runs asset-independent tests and licensed runtime scenarios (label
 `runtime`), which need `WIZ8_ASSET_ROOT` and a usable Vulkan backend; CI provides
 both. Scenarios click controls through `GameHarness::click`, which first checks a
 player could: the control is shown, enabled and reachable under the pointer.
+
+### Candidate trigger construction
+
+`World::loadTrigger` decodes and adopts triggers in its destination world, with
+explicit definitions, RNG and story inputs. Seeds use that world's bound clock;
+invalid types draw nothing, non-ambient records draw before their body is decoded,
+and ambient records draw nothing. Timed actions retain the destination clock.
+Raw state declarations and prop animation-slot variables use the destination level
+identity and Story's ensure operation, which preserves existing values and the
+case-insensitive, level-scoped name contract. Story keeps the mutable variable
+collection private; updates require a defined name in the specified level, while
+saving reads a snapshot and loading explicitly installs decoded values. Decoding
+does not run entry actions.
+This does not promise rollback of RNG, variable declarations or partially loaded
+resources on malformed input; candidate construction still needs the remaining
+monster/NPC dependencies removed before replacement can become transactional.
+
+### Animation timing and simulation inputs
+
+Live cycles, monster animation, missiles, item radar and particles sample their
+originating world's clocks. Millisecond stamps retain their 32-bit wrap; texture
+playback retains full game time, while paths and radar use held 64-bit world time.
+Reusable keyframe geometry takes an explicit timestamp when advanced rather than
+retaining a session. Particle definitions have no world; a live clone explicitly
+binds its destination, including an empty definition's scene membership. Item
+appearances attach only to their constructor-bound world.
+
+A particle's resource lifetime does not choose its simulation inputs. In particular,
+sky particles still use the primary world's camera and collision geometry, supplied
+by the game step. Additional views only consume the completed particle state.
+
+### Monster representation preparation
+
+The world loads and caches authored monster resources, and constructs each body
+with an explicit appearance RNG and a borrowed immutable species definition.
+The logical record configures its owned body's saved/fresh scale; the world
+finalizes navigation, active membership and visibility using that bound definition.
+A cursor-only body has no gameplay species. Rendering eligibility must not resolve
+a candidate's species through the installed game.
+
+Saved reconstruction still rearms generators first, reads all bodies before any
+configuration/finalization, and prepares NPC bindings only afterward. Definition
+validation, body appearance, scale and idle-frame draws now use the supplied game.
+NPC binding and raw embedded-group creation remain separate migration work; this
+is not yet a guarantee of fully isolated candidate construction.
+
+### NPC construction and binding publication
+
+`Game` coordinates new NPC construction from its content, RNG, party-level query
+and world-clock stamp. Character setup uses standalone stats and explicit spell
+definitions; stock creation receives its own definitions and random stream. Story
+selects and owns NPC slots. Naming uses the specified Story's facts, not the
+installed session or a fact-checking presentation callback.
+
+Level preparation retains the existing NPC and character/stock snapshots, or owns
+a newly prepared shared state. It does not publish presence, scripts or replacement
+slots into Story. Saved restoration keeps the existing live-then-unborn order,
+after every monster body has been prepared. Each plan retains the previous shared
+slot identity. Publication validates every slot first and reserves append capacity
+before any binding changes; reused slots reject the stale plan without partial
+writes. Prepared script/state control blocks already exist, so publication does
+not allocate them midway through the operation. Work holding a retired NPC still
+refers to that NPC, not its slot's replacement.
+
+Live raw-level group creation still uses its existing immediate binding point and
+remains to be migrated. Candidate preparation advances its supplied RNG and may
+modify its own bodies; no rollback of those private construction effects is claimed.

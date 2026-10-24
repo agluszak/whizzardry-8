@@ -93,9 +93,11 @@ target_sources(wiz8_engine PRIVATE
     ../world/automap.cpp
     ../world/level_session.cpp
     ../world/level_loader.cpp
+    ../world/items.cpp
     ../render/resources/mesh_loader.cpp
     ../world/world.cpp
     ../render/effects/particle_system.cpp
+    ../render/effects/camera_shake.cpp
     ../render/resources/compiled_mesh.cpp
     ../entities/trigger_actions.cpp
     ../entities/trigger_io.cpp
@@ -166,9 +168,12 @@ target_sources(wiz8_engine PRIVATE
     loaded_game_data.cpp
     game.cpp
     game_advance.cpp
+    world_view.cpp
     combat/entity_signals.cpp
     combat/script_commands.cpp
     fact_state.cpp
+    story.cpp
+    npc_creation.cpp
     ../world/party_camera.cpp
     ../world/party_motion.cpp
     ../world/selection.cpp

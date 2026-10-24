@@ -69,18 +69,6 @@ static void RefreshCloudMaterial(World& world)
     material.dirty = 1;
 }
 
-/* Drop every per-level environment object: the sky gradients, the Sun/Moon
-   props and the orbit radius reset, then release the two fog objects and
-   empty the registered-light list without freeing its storage. */
-void ClearEnvironmentObjects(void)
-{
-    ResetEnvironment();
-    if (GetWorld()) {
-        GetWorld()->environment.static_fog.reset();
-        GetWorld()->environment.dynamic_fog.reset();
-    }
-}
-
 /* Advance the authoritative game clock and place the two celestial props on
    opposite sides of the world's recovered sky origin: the day's prop sits one
    orbit radius away in the rotated direction, the other rests on the origin.
@@ -711,4 +699,14 @@ bool IsSkyEnabled()
 W8EnvironmentLightingMode EnvironmentLightingMode()
 {
     return GetWorld() ? GetWorld()->environment.lighting_mode : W8EnvironmentLightingMode::DayNight;
+}
+
+void PublishLightDirection(const glm::vec3* direction)
+{
+    if (GetWorld() != 0) {
+        GetWorld()->scene->setFogColor(*direction);
+    }
+    if (GetSecondaryWorld() != 0) {
+        GetSecondaryWorld()->scene->setFogColor(*direction);
+    }
 }

@@ -27,7 +27,8 @@ enum {
 };
 
 struct WorldItemEntity {
-    WorldItemEntity();
+    explicit WorldItemEntity(World& world);
+    World& owner_world;
     ~WorldItemEntity();
     WorldItemEntity(const WorldItemEntity&) = delete;
     WorldItemEntity& operator=(const WorldItemEntity&) = delete;
@@ -55,7 +56,7 @@ struct WorldItemEntity {
 
     void DetachMesh();
     void ApplyRepTransform();
-    void AttachMesh(World* world);
+    void AttachMesh();
     void UpdateAnimation();
     MeshInstance* GetMesh();
     BoundingBox GetCachedLocalBounds() const;
@@ -68,4 +69,4 @@ struct WorldItemEntity {
 };
 
 BoundingBox GetItemWorldBounds(const WorldItemEntity& item);
-std::unique_ptr<WorldItemEntity> LoadItemFromFile(std::string_view name);
+std::unique_ptr<WorldItemEntity> LoadItemFromFile(World& world, std::string_view name);

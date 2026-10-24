@@ -7,6 +7,7 @@
 #include <initializer_list>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -16,6 +17,8 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/named_position.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/render/camera_shake.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/world_scene.h"
@@ -33,6 +36,14 @@ class LevelScript;
 class W8AmbientSound;
 struct W8AmbientTrack;
 struct W8LevelPopulation;
+struct W8MonsterInfo;
+struct W8MonsterRecord;
+struct W8WorldItem;
+struct GameData;
+class Events;
+class Rng;
+struct W8SpellEffectEntry;
+enum class W8MonsterRemoval : unsigned char;
 struct W8WorldCursorState;
 struct W8WorldCursorNode;
 struct WorldItemEntity;
@@ -91,13 +102,19 @@ public:
     void followCamera();
 };
 
+struct Story;
+
 // Resources and borrowed indexes precede their consumers. Reverse member
-// destruction removes entities before their scene, spatial, audio and population.
+// destruction removes population-owned bodies before their resources and indexes.
 struct World {
-    explicit World(int level_id = -1, std::string source_path = {});
+    explicit World(int level_id = -1, std::string source_path = {}, TimerClockView clocks = {},
+                   ShakeSystem* shakes = nullptr);
     ~World();
     World(const World&) = delete;
     World& operator=(const World&) = delete;
+    const TimerClockView clocks;
+    // Borrowed playthrough sequence owner; standalone geometry worlds have none.
+    ShakeSystem* const shakes;
     const int level_id;
     const std::string source_path;
     std::unique_ptr<WorldScene> scene;
@@ -116,7 +133,6 @@ struct World {
     LevelSpatialIndex* compiledIndex() const;
     LevelSpatialIndex* collisionIndex() const;
     AmbientAudioSystem audio;
-    std::unique_ptr<W8LevelPopulation> population;
     Automap automap{*this};
     // These indexes borrow resources owned below or by the scene.
     Camera3D* camera{};
@@ -128,6 +144,20 @@ struct World {
     // After the registry its navigator joins; destroyed before the spatial index.
     WorldParty party{*this};
     std::vector<Monster*> active_monsters;
+    // Commands remove relationships immediately; this pass retains removed owners
+    // until every script/update borrowing them has returned.
+    void updateMonsters();
+    void prepareMonsterBody(W8MonsterInfo& info, Rng& rng, bool unborn);
+    std::unique_ptr<Monster> loadMonsterBody(const W8MonsterRecord& record, int location_id,
+                                             Rng& rng);
+    W8WorldItem* adoptItem(std::unique_ptr<W8WorldItem> item);
+    bool settleItem(W8WorldItem* item);
+    Trigger* loadTrigger(wiz8::File& file, const GameData& data, Rng& rng, Story& story);
+    void updateNearbyItems(const GameData& data, Rng& rng, Events& events, float gravity);
+    void activateItem(const GameData& data, Rng& rng, W8WorldItem* item);
+    void addItemToSector(int sector, W8WorldItem* item);
+    void removeItemFromSector(int sector, W8WorldItem* item);
+    bool isRetiring(const Monster& monster) const;
     SpellVisual* target_cone = nullptr;
     unsigned int next_trigger_id = 1;
     int last_visible_prop_index = -1;
@@ -145,27 +175,41 @@ struct World {
     std::vector<std::unique_ptr<TriggerEvent>> timed_events;
     TriggerEvent* findTimedAction(const Trigger* trigger) const;
     TriggerEvent& addTimedAction(Trigger* trigger);
-    // Detach one of this world's monsters from the scene and destroy it.
-    void destroyMonster(Monster& monster);
     std::vector<std::unique_ptr<Prop>> plsProps;
-    std::vector<std::unique_ptr<WorldItemEntity>> plsItems;
     std::vector<std::unique_ptr<W8WorldCursorNode>> cursor_nodes;
-    std::unique_ptr<W8WorldCursorState> cursor;
     W8WorldCursorRecall cursor_recall;
     /* The *_definitions hold the loaded resources of each monster species, spell
        visual and missile kind; live entities are created from them. */
     std::vector<std::unique_ptr<MonsterDefinition>> monster_definitions;
-    std::vector<std::unique_ptr<Monster>> monsters;
     std::vector<std::unique_ptr<SpellVisualDefinition>> spell_visual_definitions;
+    // Continuing casts borrow this world's visuals and missiles. Missile teardown
+    // removes its references while this queue is still alive.
+    std::vector<std::unique_ptr<W8SpellEffectEntry>> spell_effects;
+    bool hasPendingSpellEffects() const;
+    W8SpellEffectEntry* monsterControlEffect() const;
+    void tickSpellEffects();
+    void absorbMissileDamage(Missile& missile);
+    void detachMissile(Missile& missile);
     std::vector<std::unique_ptr<SpellVisual>> spell_visuals;
     std::vector<std::unique_ptr<MissileDefinition>> missile_definitions;
     std::vector<std::unique_ptr<Missile>> missiles;
+    // Records own their loaded bodies. Both these owners go before the resource
+    // definitions, particles, navigation index and scene their bodies borrow.
+    std::unique_ptr<W8LevelPopulation> population;
+    std::unique_ptr<W8WorldCursorState> cursor;
     W8EncounterState encounters;
     // Where the entities report missile hits and release frames; null reports nowhere.
     SimulationSink* simulation = nullptr;
     /* The level's script, installed when the level is entered. Last, so it goes first:
        it borrows the entities above and its trigger callbacks refer to it. */
     std::unique_ptr<LevelScript> script;
+
+private:
+    void updateNearestMonsterGroupMembers();
+    bool advanceFallingItem(W8WorldItem& item, float gravity);
+    friend bool RemoveMonster(W8MonsterInfo*, W8MonsterRemoval);
+    // Borrowed only during updateMonsters; the local batch is the temporary owner.
+    std::vector<std::unique_ptr<W8MonsterInfo>>* monster_retirements_ = nullptr;
 };
 
 /* Typed element access for the homogeneous world lists. */
@@ -202,10 +246,6 @@ class Prop;
 World* GetWorld(void);
 World* GetSecondaryWorld(void);
 
-std::unique_ptr<World> LoadWorld(int level_id, std::string source_path);
-void DetachAllWorldItems(void);
-// Run the worlds over the step's `elapsed` time.
-void UpdateWorlds(std::chrono::milliseconds elapsed);
 void RefreshWorldView(void);
 ParticleSystem* FindParticleByName(std::string_view name);
 bool FindEntityByName(std::string_view name, glm::vec3* position, float* angle,

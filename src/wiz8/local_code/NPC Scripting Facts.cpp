@@ -58,6 +58,7 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/story.h"
 #include "wiz8/string_database.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Potion explosion completion callback: retail stores this JMP thunk rather than
@@ -70,7 +71,7 @@ static void ClearPotionExplosionSoundFlag()
 /* Camera-shake completion callback stored on ShakeDefinition::completion_callback. */
 static void ReplayEarthquakeShake(void)
 {
-    CameraShakes().Start(ShakeDefinition(3.0f, false, 1.0f, 0, nullptr));
+    CurrentGame().camera_shakes.Start(ShakeDefinition(3.0f, false, 1.0f, 0, nullptr));
     BeginEndgameSequence();
 }
 
@@ -95,31 +96,31 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(3), 0x28a, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(3), 0x28a, 1, 0x15180);
         return;
     case W8_FACT_ANTONE_STEELHIDE_ALL_INGREDIENTS:
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(3), 0x28b, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(3), 0x28b, 1, 0x15180);
         return;
     case W8_FACT_ANTONE_FEATHERWEIGHT_ALL_INGREDIENTS:
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(3), 0x28c, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(3), 0x28c, 1, 0x15180);
         return;
     case W8_FACT_ANTONE_BEASTSLAYER_ALL_INGREDIENTS:
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(3), 0x28d, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(3), 0x28d, 1, 0x15180);
         return;
     case W8_FACT_ANTONE_EBON_STAFF_ALL_INGREDIENTS:
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(3), 0x28e, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(3), 0x28e, 1, 0x15180);
         return;
     case W8_FACT_RAPAX_MYLES_IN_JAIL:
         if (value == 0) {
@@ -128,7 +129,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (NpcLeadHasNameStyle(W8_NPC_MYLES)) {
             return;
         }
-        npc = GetNpcStateByKind(7);
+        npc = CurrentGame().story.npcOfKind(7);
         if (npc == 0) {
             return;
         }
@@ -139,7 +140,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        npc = GetNpcStateByKind(0x48);
+        npc = CurrentGame().story.npcOfKind(0x48);
         assert(npc != 0);
         ClearNpcScheduledItem(npc, 0x242, 0);
         return;
@@ -151,15 +152,17 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_CROCK_KIDNAPPED_PLAYER:
         if (value != 0 && FindEntityByName("NP_BlueFlowers", &position, 0, 0)) {
-            world_item = AddWorldItem(
-                SpawnItem(0x2eb, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+            world_item = CurrentGame().level.loaded().adoptItem(
+                CurrentGame().spawnWorldItem(CurrentGame().level.loaded(), 0x2eb, &position,
+                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             if (world_item != 0) {
-                ActivateItem(world_item);
+                CurrentGame().level.loaded().activateItem(Data(), CurrentGame().rng, world_item);
             }
-            world_item = AddWorldItem(
-                SpawnItem(0x2eb, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+            world_item = CurrentGame().level.loaded().adoptItem(
+                CurrentGame().spawnWorldItem(CurrentGame().level.loaded(), 0x2eb, &position,
+                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             if (world_item != 0) {
-                ActivateItem(world_item);
+                CurrentGame().level.loaded().activateItem(Data(), CurrentGame().rng, world_item);
             }
         }
         return;
@@ -182,7 +185,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_RFS81_HAS_BEEN_FIXED:
         if (value != 0) {
-            npc = GetNpcStateByKind(0x20);
+            npc = CurrentGame().story.npcOfKind(0x20);
             if (npc != 0) {
                 ReloadNpcScriptResources(npc);
                 if (!npc->is_grouped) {
@@ -222,7 +225,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        npc = GetNpcStateByKind(0x29);
+        npc = CurrentGame().story.npcOfKind(0x29);
         assert(npc != 0);
         MarkNpcOfKind(0x29);
         return;
@@ -237,7 +240,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
     case W8_FACT_LOCATION_GIGAS_MOTION_SENSORS_OFF:
         if (value != 0) {
             RunNamedTrigger("SecurityLasers", -1);
-            CreateLocationVar("LasersOff", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "LasersOff", 1);
         }
         return;
     case W8_FACT_LOCATION_GIGAS_OUTER_GATE_OPEN:
@@ -338,7 +341,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         SetFact(W8_FACT_QUEST_MYLES_BANK_VAULT, 0, false);
         return;
     case W8_FACT_MYLES_MISSION_RESCUE_VI_ASSIGNED:
-        npc = GetNpcStateByKind(7);
+        npc = CurrentGame().story.npcOfKind(7);
         if (npc == 0) {
             return;
         }
@@ -408,7 +411,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(0x48), 0x242, 1, 0);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(0x48), 0x242, 1, 0);
         return;
     case W8_FACT_BAYJIN_JANETTE_DEAD:
         if (value == 0) {
@@ -480,7 +483,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(0x49), 0x1b0, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(0x49), 0x1b0, 1, 0x15180);
         return;
     case W8_FACT_AP_BELA_DONE:
         CurrentGame().npc_dialogue.Queue(W8NpcStoryAction::move_bela);
@@ -553,19 +556,19 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(0x39), 500, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(0x39), 500, 1, 0x15180);
         return;
     case W8_FACT_FERRO_IVORY_BLADE_ALL_INGREDIENTS:
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(0x39), 0x1f5, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(0x39), 0x1f5, 1, 0x15180);
         return;
     case W8_FACT_FERRO_VAMPIRE_CHAIN_ALL_INGREDIENTS:
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(0x39), 0x1f8, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(0x39), 0x1f8, 1, 0x15180);
         return;
     case W8_FACT_ALETHEIDES_DISAPPEARS:
         CurrentGame().npc_dialogue.Queue(W8NpcStoryAction::aletheides_leaves);
@@ -640,7 +643,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        npc = GetNpcStateByKind(0x29);
+        npc = CurrentGame().story.npcOfKind(0x29);
         assert(npc != 0);
         MarkNpcOfKind(0x29);
         return;
@@ -670,7 +673,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
                                      GetLocationVarValueByName("ObstacleDoors") | 2);
             return;
         }
-        CreateLocationVar("ObstacleDoors", 2);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "ObstacleDoors", 2);
         return;
     case W8_FACT_LOCATION_GIGAS_OFFICERS_QUARTERS_GATE_OPEN1:
         if (value == 0) {
@@ -685,7 +688,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
                                      GetLocationVarValueByName("ObstacleDoors") | 1);
             return;
         }
-        CreateLocationVar("ObstacleDoors", 1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "ObstacleDoors", 1);
         return;
     case W8_FACT_LOCATION_GIGAS_TOP_DOOR_OPEN1:
     case W8_FACT_LOCATION_GIGAS_TOP_DOOR_OPEN2:
@@ -719,7 +722,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
             particle->SetActive(true);
             particle->SetTraversalEnabled(true);
         }
-        npc = GetNpcStateByKind(0x49);
+        npc = CurrentGame().story.npcOfKind(0x49);
         if (npc == 0) {
             return;
         }
@@ -734,7 +737,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
         return;
     case W8_FACT_QUEST_SAVANT_BOMB_DEACTIVATED:
-        npc = GetNpcStateByKind(0x57);
+        npc = CurrentGame().story.npcOfKind(0x57);
         if (npc == 0) {
             return;
         }
@@ -793,7 +796,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (group != 0) {
             SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
-        GetNpcStateByKind(0x89);
+        CurrentGame().story.npcOfKind(0x89);
         return;
     case W8_FACT_FACTION_RAPAX_TEMPLAR_FRIENDLY:
         if (value == 0) {
@@ -821,7 +824,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
             ShakeDefinition shake(6.0f, false, 1.0f, 0, nullptr);
             shake.fade_in = true;
             shake.completion_callback = ReplayEarthquakeShake;
-            CameraShakes().Start(shake);
+            CurrentGame().camera_shakes.Start(shake);
         }
         return;
     default:
@@ -837,7 +840,7 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
         return;
     }
     if ((record->flags & W8_MONSTER_FLAG_NPC) != 0) {
-        W8NpcState* npc = GetNpcStateByKind(record->npc_kind);
+        W8NpcState* npc = CurrentGame().story.npcOfKind(record->npc_kind);
         if (npc != 0) {
             npc->spawned = 1;
             if (npc->name_style == W8_NPC_VI_DOMINA) {
@@ -856,7 +859,7 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
     }
     int lead_index = -1;
     if (NpcLeadHasNameStyle(W8_NPC_VI_DOMINA)) {
-        W8NpcState* lead = GetNpcStateByKind(W8_NPC_VI_DOMINA);
+        W8NpcState* lead = CurrentGame().story.npcOfKind(W8_NPC_VI_DOMINA);
         if (lead != 0) {
             lead_index = lead->group_index;
         }
@@ -933,7 +936,8 @@ void MonsterKilled(const ScriptContext& context, int record_id, int killer_party
     }
     if (record_id == 0x14f || record_id == 0xdd) {
         if (GetLocationVarIDByName("NumberRattkinBreedersKilled") == -1) {
-            CreateLocationVar("NumberRattkinBreedersKilled", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(),
+                                                       "NumberRattkinBreedersKilled", 1);
             return;
         }
         SetTriggerVariableByName("NumberRattkinBreedersKilled", 2);

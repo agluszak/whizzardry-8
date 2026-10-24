@@ -7,12 +7,15 @@
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code\MtGigas1.cpp (level 0x0c).
@@ -99,7 +102,7 @@ void MtGigas1Script::setup()
         }
     }
     if (GetLocationVarIDByName("PPlateDown") == -1) {
-        CreateLocationVar("PPlateDown", 0);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "PPlateDown", 0);
         return;
     }
     if (GetLocationVarValueByName("PPlateDown") != 0) {

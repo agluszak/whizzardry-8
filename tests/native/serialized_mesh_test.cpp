@@ -24,10 +24,18 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "scoped_asset_roots.h"
+#include "scoped_game.h"
 #include "temporary_directory.h"
 #include "wiz8/asset_paths.h"
+#include "wiz8/data/game_data.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
+#include "wiz8/entities/prop.h"
+#include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
+#include "wiz8/item_spawning.h"
+#include "wiz8/level_population.h"
 #include "wiz8/render/compiled_mesh.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/material.h"
@@ -37,6 +45,9 @@
 #include "wiz8/render/mesh_loader.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
+#include "wiz8/rules/random.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/surface_geometry.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
@@ -184,6 +195,7 @@ bool LoadCycles(const std::filesystem::path& path)
 
 TEST_CASE("serialized_mesh_test")
 {
+    ScopedGame game;
     ScopedTemporaryDirectory temporary{"wiz8-mesh-fixture"};
     const auto& directory = temporary.path;
     const auto good = directory / "linked.pvl", bad = directory / "duplicate.pvl";
@@ -245,12 +257,12 @@ TEST_CASE("serialized_mesh_test")
         const auto empty = directory / "empty.lvl";
         wiz8::open_file(empty, wiz8::OpenMode::replace)->close();
         auto file = wiz8::open_file(empty);
-        REQUIRE_FALSE(ReadLevel(&world, file.get(), ""));
+        REQUIRE_FALSE(ReadLevel(game.game, &world, file.get(), ""));
         REQUIRE(destroyed == 3);
         REQUIRE(world.update_mesh_source == nullptr);
         REQUIRE(world.psrMeshes.empty());
         REQUIRE(world.scene->static_meshes.empty());
-        REQUIRE_FALSE(ReadLevel(&world, file.get(), ""));
+        REQUIRE_FALSE(ReadLevel(game.game, &world, file.get(), ""));
         REQUIRE(destroyed == 3);
     }
     REQUIRE(ok);
@@ -650,4 +662,132 @@ TEST_CASE("Texture sharing and lazy reads retain the resolved asset directory")
     REQUIRE_FALSE(MeshHasAnimatedTexture(head));
     REQUIRE(MeshHasAnimatedTexture(head->parts[0].get()));
     REQUIRE(animated_first->getModel() != animated_second->getModel());
+}
+
+TEST_CASE("Malformed compiled levels return failure instead of shutting down", "[loader][lifetime]")
+{
+    ScopedGame game;
+    ScopedTemporaryDirectory temporary{"wiz8-invalid-level"};
+    const auto path = temporary.path / "broken.pvl";
+    WriteFixture(path, false);
+    {
+        std::ofstream tail(path, std::ios::binary | std::ios::app);
+        const int no_lights = 0;
+        const int invalid_section_end = 0;
+        tail.write(reinterpret_cast<const char*>(&no_lights), sizeof(no_lights));
+        tail.write(reinterpret_cast<const char*>(&invalid_section_end),
+                   sizeof(invalid_section_end));
+    }
+    World world;
+    world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
+    world.spatial->compiled_available = true;
+    world.spatial->m_spatial.submesh_count = 4;
+    world.spatial->m_meshCount = 4;
+    world.psrMeshes.resize(5);
+    auto input = wiz8::open_file(path);
+    REQUIRE_FALSE(ReadLevel(game.game, &world, input.get(), ""));
+
+    // The same recoverable result applies before any scene mesh was built.
+    input.reset();
+    WriteFixture(path, false, true);
+    input = wiz8::open_file(path);
+    REQUIRE_FALSE(ReadLevel(game.game, &world, input.get(), ""));
+}
+
+TEST_CASE("Raw level items and their triggers belong to the candidate world",
+          "[loader][lifetime][items]")
+{
+    ScopedTemporaryDirectory temporary{"wiz8-candidate-item"};
+    ScopedAssetRoots roots;
+    const auto assets = temporary.path / "assets";
+    std::filesystem::create_directories(assets / "data/items3d");
+    std::filesystem::create_directory(temporary.path / "user");
+    roots.configure({assets.string(), (temporary.path / "user").string()});
+    const auto mesh_path = temporary.path / "mesh.bin";
+    WriteAnimatedFixture(mesh_path);
+    const auto mesh_bytes = wiz8::open_file(mesh_path)->read_text();
+    {
+        auto file = wiz8::open_file(assets / "data/items3d/test-item.itm", wiz8::OpenMode::replace);
+        Write(*file, std::uint8_t{2});
+        file->write(mesh_bytes.data(), mesh_bytes.size());
+    }
+    GameData data;
+    data.items.resize(1);
+    data.items[0].internal_name = "test-item";
+    data.items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
+    data.items[0].initial_quantity = {.base = 0, .count = 1, .sides = 6};
+    ScopedGame scope(data);
+    scope.game.level.replacePrimary(std::make_unique<World>());
+    auto& installed = scope.game.level.loaded();
+    Game candidate_game(data);
+    World candidate(7, "", candidate_game.timerClocks());
+    const auto floorAt = [](World& world, float height) {
+        world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
+        auto& spatial = *world.spatial;
+        spatial.collision_available = true;
+        spatial.registry.cells = std::make_unique<W8OctreeObjectRegistry>();
+        spatial.m_pVertices = {{0, height, 0}, {0, height, 3000}, {3000, height, 0}};
+        spatial.m_pSurfaces.resize(1);
+        auto& floor = spatial.m_pSurfaces[0];
+        for (int index = 0; index < 3; ++index) floor.vertex_indices[index] = index;
+        surfaceGeometry::initializePropSurface(floor, spatial.m_pVertices);
+        floor.index = 0;
+        spatial.m_object_bit_count = 1;
+        spatial.m_spatial.m_bounds.minimum = glm::vec3(0);
+        spatial.m_spatial.m_clipped_bounds.maximum = glm::vec3(3000);
+        spatial.m_spatial.m_node_extent = 3000;
+        spatial.m_leaf_grid_dimensions = {1, 1, 1};
+        spatial.m_leaf_lookup = {1};
+        spatial.m_leaves.resize(2);
+        spatial.m_leaves[1].gd_polygon_offset = 1;
+        spatial.m_gd_surface_index_stream = {0, 1, 0};
+    };
+    floorAt(installed, 200);
+    floorAt(candidate, 0);
+    const auto items_path = temporary.path / "items.bin";
+    {
+        auto file = wiz8::open_file(items_path, wiz8::OpenMode::replace);
+        Write(*file, 1);
+        file->write_padded("0", 20);
+        Write(*file, std::array<float, 3>{1, 2, 3});
+        Write(*file, std::array<int, 4>{});
+        Write(*file, std::uint8_t{1}); // Item has a trigger.
+        Write(*file, std::array<std::uint8_t, 3>{1, 1, 1}); // Outer version/type, inner version.
+        Write(*file, std::array<int, 2>{});
+        Write(*file, 0.0f);
+        Write(*file, std::array<int, 4>{});
+        Write(*file, std::array<std::uint8_t, 2>{0, 1});
+        file->write_padded("ITEM_TRIGGER", 128);
+        file->write_padded("", 256);
+        file->write_padded("", 128);
+        Write(*file, std::array<std::uint8_t, 3>{});
+        Write(*file, std::array<int, 4>{});
+    }
+    Prop preceding;
+    std::vector<Rng::Draw> draws;
+    candidate_game.rng.seed(1);
+    candidate_game.rng.trace(&draws);
+    auto file = wiz8::open_file(items_path);
+    LevelLoadContext info{&candidate, file.get(), {}};
+    const auto loaded = ReadWorldItems(candidate_game, info);
+    candidate_game.rng.trace(nullptr);
+    REQUIRE(loaded);
+    REQUIRE(draws.size() == 3);
+    REQUIRE(draws[0].range == 30000);
+    REQUIRE(draws[1].range == 6);
+    REQUIRE(draws[2].range == 360);
+    Rng expected(1);
+    for (const auto& draw : draws) REQUIRE(draw.value == expected.below(draw.range));
+    REQUIRE(installed.population->world_items.empty());
+    REQUIRE(installed.triggers.empty());
+    REQUIRE(candidate.population->world_items.size() == 1);
+    const auto& item = *candidate.population->world_items.front();
+    REQUIRE(item.entity);
+    REQUIRE(item.entity->GetMesh()->scene == candidate.scene.get());
+    REQUIRE(item.position == glm::vec3(500, 0, 1500));
+    REQUIRE(candidate.triggers.size() == 1);
+    REQUIRE(item.trigger == candidate.triggers.front().get());
+    REQUIRE(item.trigger->m_pWorld == &candidate);
+    Prop following;
+    REQUIRE(following.legacy_save_id == preceding.legacy_save_id + 2);
 }

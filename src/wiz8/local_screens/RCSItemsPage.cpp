@@ -1649,7 +1649,8 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         if (held) {
             // Into the clicked stack, then the others; the rest goes in at the row.
             const bool companion = camp.game.party.companion_inventory.has_value();
-            if (!inventory.depositHeld(slot_index, !companion)) {
+            const auto deposited = inventory.depositHeld(slot_index, !companion);
+            if (deposited != Inventory::Deposit::Complete) {
                 if (companion)
                     SelectPendingCampCharacter();
                 else

@@ -1,5 +1,6 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 #define WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
+class Rng;
 
 #include <cstdint>
 #include <memory>
@@ -10,7 +11,7 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/data/records.h"
 #include "wiz8/difficulty.h"
-#include "wiz8/entity_link.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/targeting.h"
 
@@ -146,7 +147,7 @@ struct W8MonsterAction {
 
 enum { W8_MONSTER_ATTR_COUNT = 5 };
 
-/* Monster attribute indices into W8MonsterInfo::attributes. ConvertMonsterAttributes
+/* Monster attribute indices into W8MonsterInfo::attributes. Derived-stat rebuilding
    builds the five slots from character-domain attributes, skipping Piety (2) and
    Vitality (3): slot 0 is Strength, 1 Intelligence, 2 Dexterity, 3 Speed, 4 Senses. */
 enum {
@@ -284,12 +285,14 @@ using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
 
 /* A live monster. Saves store it as wiz8::retail::MonsterInfo. */
 struct W8MonsterInfo {
+    void configureBody(Rng& rng, bool level_visited);
     int location_id;
     int monster_group_id;
     unsigned int monster_species;
-    // The monster's scene entity while the record is active.
-    EntityLink<Monster> entity;
-    /* Combat state exists only during the fight, and owns its action queue. */
+    // The optional loaded runtime, including navigation, scripts and presentation.
+    // A loaded body can be inactive or dying; presence is not activation.
+    std::unique_ptr<Monster> entity;
+    /* Engagement state can exist before the party enters combat. */
     std::unique_ptr<W8MonsterCombatState> pCombat;
     bool fActive;
     /* Copied from the group's ubDisposition when the entry is created. */
@@ -402,10 +405,7 @@ struct W8MonsterInfo {
     unsigned char unknown_37d[0xa8];
 };
 
-void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn);
 void ActivateMonsterInWorld(W8MonsterInfo* monster_info);
-std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info);
-void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info);
 void ActivateMonster(W8MonsterInfo* monster_info);
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);
@@ -419,7 +419,6 @@ void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info);
 
 int GetMonsterQuadrant(W8MonsterInfo* monster_info);
 void ProcessMonstersAtCombatEnd(bool forced_cleanup);
-void ConvertMonsterAttributes(W8MonsterInfo* monster_info);
 W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species);
 void ResetLivingMonstersAfterCombat(void);
 void DestroyUngroupedMonsters(void);
@@ -427,7 +426,6 @@ void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState c
 void MonsterInfoSetMotionless(W8MonsterInfo* monster_info, bool motionless);
 void MoveMonsterToLiveList(W8MonsterInfo* monster_info);
 void InitializeMonsterRuntimeStats(void);
-float CalculateMonsterScale(W8MonsterInfo* monster_info);
 void ProcessMonsterManagerFrame(void);
 std::string FormatMonsterHealth(W8MonsterInfo* monster_info);
 unsigned int GetMonsterExperience(const W8MonsterRecord* record);

@@ -2961,7 +2961,7 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
             SetNpcDialogueHidden(0);
             return;
         }
-        if (IsNpcScriptSessionActive()) {
+        if (CurrentGame().npc_dialogue.has_active_utterance()) {
             TryFinishNpcVoicePlayback(true);
             return;
         }
@@ -3315,7 +3315,7 @@ void DrainNpcDialogueDeferralInput(void)
         if (input.type == InputEventType::KeyDown) {
             if (input.key == SDLK_ESCAPE) {
                 if (CurrentGame().npc_interaction.dialogue_hidden == 0) {
-                    if (!IsNpcScriptSessionActive()) {
+                    if (!CurrentGame().npc_dialogue.has_active_utterance()) {
                         switch (CurrentGame().npc_interaction.dialogue_layout) {
                         case W8_DIALOGUE_LAYOUT_TOPIC_MENU:
                         case W8_DIALOGUE_LAYOUT_TRANSCRIPT:
@@ -3457,10 +3457,12 @@ void W8NpcDialoguePanel::setQuoteBubbleVisible(bool visible, std::string_view te
         return;
     }
 
-    auto& active = *active_quote;
+    const auto bounds = active_quote->bounds();
+    const bool had_bubble = active_quote->bubble.has_value();
+    W8QuoteNotice dismissed = std::move(active_quote->notice);
+    active_quote.reset(); // A notice callback may present a different bubble.
     bool flush_notices =
-        (quote_id == 0x12 || quote_id < 0) && std::holds_alternative<std::monostate>(active.notice);
-    W8QuoteNotice dismissed = active.notice;
+        (quote_id == 0x12 || quote_id < 0) && std::holds_alternative<std::monostate>(dismissed);
     if (const auto* experience = std::get_if<W8ExperienceNoticePayload>(&dismissed)) {
         ShowNotice(W8_FONT_PALETTE_BEIGE,
                    fmt::sprintf(Data().strings[experience->alternate_message ? 0x231 : 0x232],
@@ -3481,9 +3483,6 @@ void W8NpcDialoguePanel::setQuoteBubbleVisible(bool visible, std::string_view te
     if (flush_notices) {
         FlushPendingNoticeLines();
     }
-    const auto bounds = active.bounds();
-    const bool had_bubble = active.bubble.has_value();
-    active_quote.reset();
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         if (had_bubble) {
             ClearSurfaceRect(bounds.x, bounds.y, bounds.x + bounds.w, bounds.y + bounds.h);
@@ -3623,21 +3622,21 @@ static void ResolveNpcPickpocket(int party_slot)
             if (character->backpack[slot].iItemNo == -1) {
                 CurrentGame().inventory.storeWithCharacter(
                     CurrentGame().inventory.member(party_slot), item, false, false);
-                DisplayNpcQuote(text, true);
+                DisplayNpcQuote(CurrentGame(), text, true);
                 return;
             }
         }
         CurrentGame().inventory.storeInPool(item, false);
-        DisplayNpcQuote(text, true);
+        DisplayNpcQuote(CurrentGame(), text, true);
         return;
     case W8_PICKPOCKET_GOLD_TAKEN:
         text = fmt::sprintf(Data().strings[0x74e], character->name, gold);
         AddPartyGold(CurrentGame(), gold, false);
-        DisplayNpcQuote(text, true);
+        DisplayNpcQuote(CurrentGame(), text, true);
         return;
     case W8_PICKPOCKET_FAILED:
         text = fmt::sprintf(Data().strings[0x74f], character->name);
-        DisplayNpcQuote(text, false);
+        DisplayNpcQuote(CurrentGame(), text, false);
         return;
     case W8_PICKPOCKET_CAUGHT:
         CurrentGame().npc_dialogue.QueueQuote(0x17, false, false, false);
@@ -3648,7 +3647,7 @@ static void ResolveNpcPickpocket(int party_slot)
         ShowNpcDialogueTopicMenu();
         return;
     case W8_PICKPOCKET_EMPTY:
-        DisplayNpcQuote(Data().strings[0x750], false);
+        DisplayNpcQuote(CurrentGame(), Data().strings[0x750], false);
         return;
     default:
         return;
@@ -3928,7 +3927,7 @@ void LearnDialogueKeyword(std::string_view text, W8DialogueCategory category, bo
 void RecordLevelEntryDialogueState(void)
 {
     std::string region_name;
-    int region = GetLevelBand(GetLoadedLevelID());
+    int region = CurrentGame().levelBand(GetLoadedLevelID());
     region_name = GetNpcScriptRegionName(region);
     if (!region_name.empty()) {
         LearnDialogueKeyword(region_name, W8_DIALOGUE_CATEGORY_PLACES, false);
@@ -4005,7 +4004,7 @@ void W8NpcDialoguePanel::keepTranscriptOverPortraits()
 }
 bool FinishNpcVoiceIfSessionActive(void)
 {
-    if (!IsNpcScriptSessionActive()) {
+    if (!CurrentGame().npc_dialogue.has_active_utterance()) {
         return false;
     }
     TryFinishNpcVoicePlayback(false);
@@ -4014,7 +4013,7 @@ bool FinishNpcVoiceIfSessionActive(void)
 
 bool ProcessPendingEvent(void)
 {
-    if (IsNpcScriptSessionActive()) {
+    if (CurrentGame().npc_dialogue.has_active_utterance()) {
         TryFinishNpcVoicePlayback(true);
         return true;
     }

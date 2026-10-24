@@ -4,16 +4,15 @@
 #include <ctime>
 #include <functional>
 #include <memory>
-#include <optional>
 #include <stdexcept>
 #include <utility>
 
 #include "wiz8/audio/soundman.h"
 #include "wiz8/combat/entity_signals.h"
+#include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/script_context.h"
-#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 namespace {
@@ -70,18 +69,39 @@ GameSession::~GameSession()
 
 Game& GameSession::begin()
 {
+    // Allocate the next owner before departure. Its address remains stable when
+    // published, and failure to construct it leaves the outgoing game intact.
+    auto candidate = std::make_unique<Game>(data_);
+    candidate->native_object_file = native_object_file;
     end();
-    auto& game = game_.emplace(data_);
-    game.rng = next_stream_;
-    game.native_object_file = native_object_file;
-    game.events.observe(observer_);
-    return game;
+    candidate->rng = next_stream_;
+    game_ = std::move(candidate);
+    game_->events.observe(observer_);
+    return *game_;
+}
+
+void GameSession::load(SavedGame saved, std::function_ref<void()> release_presentation)
+{
+    // Ending combat can still present outcomes through the outgoing screen.
+    if (game_ && game_->combat) game_->endCombat(true);
+    release_presentation();
+    try {
+        auto& game = begin();
+        auto restored_casts = std::move(saved.spell_effects);
+        std::move(saved).install(game);
+        if (!game.enterSavedLevel(game.status.resume_level, std::move(restored_casts)))
+            throw std::runtime_error("cannot construct saved level");
+    } catch (...) {
+        // Never leave a partially entered replacement available to screens.
+        end();
+        throw;
+    }
 }
 
 void GameSession::end()
 {
     if (!game_) return;
-    LeaveLevel();
+    game_->leaveLevel();
     discard();
 }
 
@@ -131,4 +151,14 @@ ScriptContext MakeScriptContext(Game& game)
             .events = game.events,
             .world = game.level.primary.get(),
             .game = game};
+}
+
+std::uint64_t WorldClockMilliseconds()
+{
+    return GameInProgress() ? static_cast<std::uint64_t>(CurrentGame().visual_time.count()) : 0;
+}
+
+std::uint32_t GameClockMilliseconds()
+{
+    return GameInProgress() ? static_cast<std::uint32_t>(CurrentGame().time.count()) : 0;
 }

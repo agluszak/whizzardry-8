@@ -52,8 +52,10 @@
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/environment.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code\MartensBluff2.cpp (level 6).
@@ -199,7 +201,7 @@ void MartensBluff2Script::setup()
     quest_state = RavenQuestState::not_started;
     if (pTrigger != 0) {
         if (GetLocationVarIDByName("RavenQuest") == -1) {
-            CreateLocationVar("RavenQuest", 0);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "RavenQuest", 0);
             running_trigger_from_script_ = true;
             FindTriggerByName("Dummy")->Run(-1);
             running_trigger_from_script_ = false;
@@ -336,7 +338,7 @@ bool MartensBluff2Script::spikeball(int command)
             spikeball_count_ = command;
         }
         if (!spikeball_gate_) {
-            spikeball_gate_.emplace(2.0f, TimerClock::World, true);
+            spikeball_gate_.emplace(world().clocks, 2.0f, TimerClock::World, true);
             addMaster(&MartensBluff2Script::spikeball, &MartensBluff2Script::captureSpikeball);
         }
     }
@@ -372,7 +374,8 @@ bool MartensBluff2Script::spikeball(int command)
     spikeball_gate_.reset();
     spikeball_count_ = 0;
     if (GetLocationVarIDByName("SpikedBallLauncher") == -1) {
-        CreateLocationVar("SpikedBallLauncher", spikeball_count_);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "SpikedBallLauncher",
+                                                   spikeball_count_);
     } else {
         SetTriggerVariableByName("SpikedBallLauncher", spikeball_count_);
     }
@@ -565,7 +568,7 @@ bool MartensBluff2Script::monsterCrusher(int command)
     }
     for (i = 0; i < count; i++) {
         info = FindMonster(location_ids[i]);
-        Monster* monster = info ? info->entity.find() : nullptr;
+        Monster* monster = info ? info->entity.get() : nullptr;
         if (monster && monster->nav.flags != 0x200000) {
             position = monster->nav.GetPosition();
             radius = monster->nav.movement.alternate_radius;
@@ -642,7 +645,7 @@ bool MartensBluff2Script::idolGas(int command)
             idol_gas_gate_->Arm();
             return false;
         }
-        idol_gas_gate_.emplace(4.0f, TimerClock::World, true);
+        idol_gas_gate_.emplace(world().clocks, 4.0f, TimerClock::World, true);
         return false;
     }
     if (!idol_gas_armed_) {

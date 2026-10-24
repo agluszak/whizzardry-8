@@ -43,7 +43,6 @@ bool IsSkyEnabled();
 void ResetEnvironment(void);
 void InitializeLevelEnvironment(void);
 /* Reset sky presentation and the current world's fog nodes. */
-void ClearEnvironmentObjects(void);
 /* Apply one day-phase colour and intensity to the world, its environment
    lights, and the animated cloud material. */
 void ApplyEnvironmentColour(World* world, float intensity, const glm::vec3* colour);
@@ -120,3 +119,6 @@ struct EnvironmentState {
     float orbit_radius = -1.0f;
     std::array<std::weak_ptr<Texture>, 3> gradients;
 };
+
+// Publish the environment colour to the primary and sky scenes.
+void PublishLightDirection(const glm::vec3* direction);

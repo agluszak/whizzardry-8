@@ -859,7 +859,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
 
 /* Return the casting character to the pose spell 0x4b stored. Nothing happens unless
    the anchor was ever set. On the same level the pose is restored in place; on any
-   other level it is staged into pending_move_location for LoadLevel. */
+   other level it is staged into pending_move_location for Game::travelToLevel. */
 void RecallCasterToSavedLocation(W8SpellEffectEntry* pQueue)
 {
     W8Character* caster;
@@ -2339,7 +2339,7 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
     notice = Data().strings[0x1ac];
     name = GetMonsterName(monster_info, 0, 0);
     formatted = fmt::format("{} {}", name, notice);
-    DisplayNpcQuote(formatted, false);
+    DisplayNpcQuote(CurrentGame(), formatted, false);
 }
 
 /* The tame/refuse spell: a monster target that fails its resistance check
@@ -3191,7 +3191,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
                                   50000.0f, &point);
             shake.quadratic_falloff = false;
             shake.fade_out = false;
-            CameraShakes().Start(shake);
+            CurrentGame().camera_shakes.Start(shake);
         }
         sound_name = Data().spells[spell_id].sound_name;
         if (sound_name[0] != 0) {

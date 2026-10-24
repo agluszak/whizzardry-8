@@ -36,6 +36,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/story.h"
 #include "wiz8/utility.h"
 
 /* The background and scroll track the monster and statistic info dialogs
@@ -105,7 +106,8 @@ bool W8MonsterInfoDialog::PopulateText()
     monster_level = record->display_level;
     if (monster_info->ubDisposition != W8_DISPOSITION_HOSTILE &&
         (record->flags & W8_MONSTER_FLAG_NPC) != 0 &&
-        (npc = GetNpcStateByKind(record->npc_kind)) != 0 && npc->record->has_group != 0) {
+        (npc = CurrentGame().story.npcOfKind(record->npc_kind)) != 0 &&
+        npc->record->has_group != 0) {
         is_npc = true;
     }
     if (monster_info->summoned == W8_MONSTER_SUMMON_FRIENDLY) {
