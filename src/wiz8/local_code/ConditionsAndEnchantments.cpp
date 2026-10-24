@@ -117,45 +117,6 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info)
  * highest enchantment slot in use up to date as slots empty.
  */
 
-/* Keep the live quantity in the byte selected by the database record. Stack
-   items use stack_count; charge and use-count items use uses_or_charges. */
-void NormalizeItemQuantityKind(W8ItemInstance* item)
-{
-    unsigned char quantity_kind;
-
-    if (item->iItemNo == -1) {
-        return;
-    }
-
-    quantity_kind = Data().items[item->iItemNo].quantity_kind;
-    if (quantity_kind != W8_ITEM_QUANTITY_STACK) {
-        if (quantity_kind <= W8_ITEM_QUANTITY_STACK || quantity_kind > W8_ITEM_QUANTITY_SHOTS ||
-            item->stack_count <= 0) {
-            return;
-        }
-        if (item->uses_or_charges > 0) {
-            item->stack_count = 0;
-            return;
-        }
-        item->uses_or_charges = item->stack_count;
-        item->stack_count = 0;
-        return;
-    }
-
-    if (item->uses_or_charges > 0) {
-        if (item->stack_count > 0) {
-            item->uses_or_charges = 0;
-            return;
-        }
-        item->stack_count = item->uses_or_charges;
-        item->uses_or_charges = 0;
-        return;
-    }
-    if (item->stack_count == 0) {
-        item->stack_count = 1;
-    }
-}
-
 /* Condition immunity sets by monster kind, from the retail table at
    0x006171A8. */
 static constexpr std::array<W8ConditionImmunity, 3> kConditionImmunities = {{

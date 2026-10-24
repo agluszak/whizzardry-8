@@ -14,6 +14,7 @@
 #include "wiz8/inventory.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 
 namespace {
 
@@ -116,4 +117,41 @@ TEST_CASE_METHOD(HeldItemFixture,
     });
     REQUIRE(inventory.depositHeld(0, true) == Inventory::Deposit::Complete);
     REQUIRE(notifications > 0);
+}
+
+TEST_CASE("Quantity normalization follows explicit definitions and preserves the selected byte",
+          "[items][rules]")
+{
+    GameData data;
+    data.items.resize(1);
+    W8ItemInstance item{.iItemNo = 0, .stack_count = 4, .uses_or_charges = 7};
+    data.items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
+    NormalizeItemQuantityKind(data, item);
+    REQUIRE(item.stack_count == 4);
+    REQUIRE(item.uses_or_charges == 0);
+    item.stack_count = 0;
+    item.uses_or_charges = 7;
+    NormalizeItemQuantityKind(data, item);
+    REQUIRE(item.stack_count == 7);
+    REQUIRE(item.uses_or_charges == 0);
+    item.stack_count = 0;
+    NormalizeItemQuantityKind(data, item);
+    REQUIRE(item.stack_count == 1);
+
+    data.items[0].quantity_kind = W8_ITEM_QUANTITY_CHARGES;
+    item.stack_count = 4;
+    item.uses_or_charges = 7;
+    NormalizeItemQuantityKind(data, item);
+    REQUIRE(item.stack_count == 0);
+    REQUIRE(item.uses_or_charges == 7);
+    item.stack_count = 4;
+    item.uses_or_charges = 0;
+    NormalizeItemQuantityKind(data, item);
+    REQUIRE(item.stack_count == 0);
+    REQUIRE(item.uses_or_charges == 4);
+
+    const W8ItemInstance empty;
+    item = empty;
+    NormalizeItemQuantityKind(data, item);
+    REQUIRE(item == empty);
 }

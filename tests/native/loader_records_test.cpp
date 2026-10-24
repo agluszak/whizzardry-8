@@ -1440,7 +1440,7 @@ TEST_CASE_METHOD(LoaderFixture, "Prop save records decode missing entries within
     auto* present = prop.get();
     world.plsProps.push_back(std::move(prop));
     for (int id : {std::numeric_limits<int>::min(), -1, 0, 1, std::numeric_limits<int>::max()}) {
-        ApplySavedProps(world, {{id, {7, 2, 9, 1, 1, 0}}});
+        ApplySavedProps(world, {{id, {.subcycle = 7}}});
         REQUIRE(present->subcycle == 0);
     }
     for (bool named : {false, true}) {

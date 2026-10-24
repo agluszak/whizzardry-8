@@ -75,10 +75,6 @@ struct W8MonsterAttack;
    is in play and not screened by the front rank, or a monster who is engaged,
    alive, targetable and within the character's reach. */
 bool CharacterHasAttackOn(int party_slot, W8CombatSlot* target);
-/* Whether the character can berserk - has the fighter's ability (trait
-   W8_TRAIT_BERSERK), a hand that can reach, and a primary hand that fights at
-   short range or closer. The attack sub-menu entry it gates is "Berserk". */
-bool CanCharacterBerserk(int party_slot);
 /* Whether a friendly, higher-level combatant qualifies for protection. */
 bool CanMonsterProtectCombatant(W8MonsterInfo* monster_info, W8CombatSlot* target);
 /* Whether an active, living bodyguard can protect another combatant. */

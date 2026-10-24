@@ -61,7 +61,6 @@
 #include "wiz8/level_state.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -92,6 +91,7 @@
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
@@ -1913,9 +1913,8 @@ void SavedGame::install(Game& game) &&
     // Drop equipment a character can no longer wear, then normalize every carried item's
     // quantity byte.
     SettleActiveParty(game);
-    const auto normalize = [](std::span<W8ItemInstance> items) {
-        for (auto& item : items)
-            if (item.iItemNo != -1) NormalizeItemQuantityKind(&item);
+    const auto normalize = [&game](std::span<W8ItemInstance> items) {
+        for (auto& item : items) NormalizeItemQuantityKind(game.data, item);
     };
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         if (!game.party.members[slot].has_value()) continue;
@@ -1923,7 +1922,8 @@ void SavedGame::install(Game& game) &&
         normalize(game.party.characters[slot].backpack);
     }
     for (unsigned int index = 0; index < game.inventory.pool().size(); ++index) {
-        game.inventory.editItem({W8ItemStorage::Pool, 0, index},
-                                [](W8ItemInstance& item) { NormalizeItemQuantityKind(&item); });
+        game.inventory.editItem({W8ItemStorage::Pool, 0, index}, [&game](W8ItemInstance& item) {
+            NormalizeItemQuantityKind(game.data, item);
+        });
     }
 }

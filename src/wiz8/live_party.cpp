@@ -11,14 +11,12 @@
 #include <fmt/printf.h>
 
 #include "wiz8/character_skills.h"
-#include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
@@ -38,11 +36,13 @@
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_conditions.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
+#include "wiz8/story.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
@@ -55,9 +55,9 @@ static CharacterStatRules CaptureLiveCharacterStatRules(const Game& game, unsign
         rules.defensive_action = TryCharacterAction(slot, W8_ACTION_DEFEND, false) ||
                                  TryCharacterAction(slot, W8_ACTION_PROTECT, false);
     if (character.fInParty && character.iRace == W8_RACE_ANDROID) {
-        const auto* npc = GetNpcState(game.party.npcIndex(slot));
-        rules.damaged_android =
-            npc && npc->name_style == W8_NPC_RFS81_A && !GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED);
+        const auto* npc = game.story.npc(game.party.npcIndex(slot));
+        rules.damaged_android = npc && npc->name_style == W8_NPC_RFS81_A &&
+                                !game.story.facts[W8_FACT_RFS81_HAS_BEEN_FIXED];
     }
     return rules;
 }
@@ -213,7 +213,7 @@ void Die(Game& game, unsigned int slot)
         game.combat->characters[slot].dead = true;
         DropCharacterFromRound(slot);
     }
-    if (auto* npc = GetNpcState(game.party.npcIndex(slot))) npc->spawned = 1;
+    if (auto* npc = game.story.npc(game.party.npcIndex(slot))) npc->spawned = 1;
 }
 } // namespace
 
@@ -233,7 +233,8 @@ void SettleActiveParty(Game& game, std::bitset<W8_PARTY_SLOT_COUNT> changed_hand
         if (changed_hands[slot] && character.fInParty && game.status.game_started) {
             // Combat choices follow a change of the weapons in the member's hands.
             auto& row = party.rows[slot];
-            ReconcileBerserkChoice(row.remembered, row.committed, CanCharacterBerserk(slot));
+            ReconcileBerserkChoice(row.remembered, row.committed,
+                                   CanCharacterBerserk(game.data, &character));
             ReconcileCombatHandChange(game, slot);
             game.events.push(PartySlotChanged{slot});
         }

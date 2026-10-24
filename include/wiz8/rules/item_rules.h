@@ -3,6 +3,7 @@
 #include <array>
 #include <string>
 
+#include "wiz8/data/records.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
@@ -10,6 +11,11 @@
 class Rng;
 struct GameData;
 struct W8ItemDatabaseRecord;
+
+// Reach and berserk eligibility depend on equipment and character traits, not a live fight.
+W8RangeCategory GetCharAttackRange(const GameData& data, const W8Character* character,
+                                   unsigned int hand);
+bool CanCharacterBerserk(const GameData& data, const W8Character* character);
 
 unsigned int GetItemStackWeight(const GameData& data, const W8ItemInstance* item);
 int WeaponHandKind(const GameData& data, const W8ItemInstance& primary,
@@ -22,6 +28,9 @@ bool ItemHasSingledOutGenericName(const GameData& data, int item_id);
 bool ItemUsesShots(const GameData& data, int item_id);
 
 bool GetItemMergeKind(const GameData& data, int item_id, short* related_kind);
+
+// Restore the quantity to the byte selected by the definition; empty slots stay empty.
+void NormalizeItemQuantityKind(const GameData& data, W8ItemInstance& item);
 
 // ---- Making and naming items
 

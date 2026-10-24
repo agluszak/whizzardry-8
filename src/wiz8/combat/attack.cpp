@@ -299,7 +299,8 @@ bool CanHandReachTarget(int party_slot, unsigned int hand)
     if (!CurrentGame().party.characters[party_slot].Hand[hand].in_play) {
         return false;
     }
-    return GetCharAttackRange(&CurrentGame().party.characters[party_slot], hand) != W8_RANGE_NONE;
+    return GetCharAttackRange(Data(), &CurrentGame().party.characters[party_slot], hand) !=
+           W8_RANGE_NONE;
 }
 
 /* Whether either hand can. */
@@ -339,27 +340,6 @@ int ApplyCharacterDamageReduction(W8Character* character, int damage)
         PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_IRON_SKIN, 1, false);
     }
     return damage;
-}
-
-/* Whether a character can berserk: the ability itself, a hand that can reach
-   the target, and a primary hand fighting at short range or closer. */
-bool CanCharacterBerserk(int party_slot)
-{
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-    unsigned int hand;
-
-    if (!CharacterHasTrait(character, W8_TRAIT_BERSERK)) {
-        return false;
-    }
-    for (hand = 0; hand < W8_HAND_COUNT; ++hand) {
-        assert(hand < W8_HAND_COUNT);
-        if (CurrentGame().party.characters[party_slot].Hand[hand].in_play &&
-            GetCharAttackRange(&CurrentGame().party.characters[party_slot], hand) !=
-                W8_RANGE_NONE) {
-            return GetCharAttackRange(character, 0) <= W8_RANGE_SHORT;
-        }
-    }
-    return false;
 }
 
 /* Whether a character could attack what a combat slot names. A party member
@@ -974,7 +954,7 @@ int ChooseCharacterAttackHand(int party_slot)
     for (hand = 0; hand < W8_HAND_COUNT; ++hand) {
         assert(hand < W8_HAND_COUNT);
         if (CurrentGame().party.characters[party_slot].Hand[hand].in_play &&
-            GetCharAttackRange(&CurrentGame().party.characters[party_slot], hand) !=
+            GetCharAttackRange(Data(), &CurrentGame().party.characters[party_slot], hand) !=
                 W8_RANGE_NONE &&
             (best_attacks < CurrentGame().party.characters[party_slot].Hand[hand].attacks ||
              (CurrentGame().party.characters[party_slot].Hand[hand].attacks == best_attacks &&
@@ -1004,7 +984,7 @@ void PrepareCharacterAttacks(int party_slot)
     for (hand = 0; hand < W8_HAND_COUNT; ++hand) {
         assert(hand < W8_HAND_COUNT);
         if (!CurrentGame().party.characters[party_slot].Hand[hand].in_play ||
-            GetCharAttackRange(&CurrentGame().party.characters[party_slot], hand) ==
+            GetCharAttackRange(Data(), &CurrentGame().party.characters[party_slot], hand) ==
                 W8_RANGE_NONE) {
             value = 0;
         } else {
@@ -3270,7 +3250,8 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     CurrentGame().combat->attack_report = {};
     assert(static_cast<unsigned int>(row->current_hand) < 2);
     hand = row->current_hand;
-    if (!character->Hand[hand].in_play || GetCharAttackRange(character, hand) == W8_RANGE_NONE) {
+    if (!character->Hand[hand].in_play ||
+        GetCharAttackRange(Data(), character, hand) == W8_RANGE_NONE) {
         row->hand_attack_values[hand] = 0;
         return false;
     }
@@ -3303,7 +3284,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
         row->paired_equip_slot = W8_EQUIP_SLOT_NONE;
     }
     row->uiSwingsRemaining = CurrentGame().rng.below(character->Hand[hand].swings) + 1;
-    range = GetCharAttackRange(character, hand);
+    range = GetCharAttackRange(Data(), character, hand);
     if (CharacterHasTrait(character, W8_TRAIT_BACKSTAB) && range <= W8_RANGE_TOUCH &&
         (character->Hand[hand].weapon_skill == W8_SKILL_SWORD ||
          character->Hand[hand].weapon_skill == W8_SKILL_DAGGER)) {
@@ -3501,7 +3482,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
             return ActionStep::resolving;
         }
         target = party_row->executing.target;
-        range = GetCharAttackRange(character, hand);
+        range = GetCharAttackRange(Data(), character, hand);
         if (target.iType == W8_TARGET_KIND_CHARACTER) {
             MarkDefenderSkillUse(target.iChar);
         }
@@ -3882,7 +3863,8 @@ ActionStep ResolveCharacterAttack(int party_slot)
     }
     if (row->uiSwingsRemaining != 0) {
         assert(hand < 2);
-        if (character->Hand[hand].in_play && GetCharAttackRange(character, hand) != W8_RANGE_NONE &&
+        if (character->Hand[hand].in_play &&
+            GetCharAttackRange(Data(), character, hand) != W8_RANGE_NONE &&
             (target == party_row->executing.target) &&
             TargetIsInPlay(party_slot, hand,
                            SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {

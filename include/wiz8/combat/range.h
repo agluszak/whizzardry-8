@@ -61,9 +61,6 @@ int FindNearestVisibleGroupMonster(W8MonsterInfo* monster_info, int group_id,
    `out_sight` receives the sight-condition slot the band's target needs. */
 W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
                                             bool skip_capability_checks, int* out_sight);
-/* The range category the weapon in `hand` attacks at; `hand` of 2
-   asks for the better of the two. */
-W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int hand);
 /* The range category the slot's chosen action works at. */
 W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& selected,
                                    std::optional<W8RangeCategory> attack_range = {});

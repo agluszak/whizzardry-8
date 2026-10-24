@@ -1107,7 +1107,8 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
 static void ReadyWeaponForAction(int party_slot, W8ActionKind action)
 {
     if ((action == W8_ACTION_ATTACK && !CanAnyHandReachTarget(party_slot)) ||
-        (action == W8_ACTION_BERSERK && !CanCharacterBerserk(party_slot))) {
+        (action == W8_ACTION_BERSERK &&
+         !CanCharacterBerserk(Data(), &CurrentGame().party.characters[party_slot]))) {
         CurrentGame().inventory.readyPrimaryWeapon(party_slot);
     }
 }
@@ -1220,7 +1221,7 @@ bool CanPerformAction(int party_slot, const W8Action& selected, bool allow_missi
         }
         break;
     case W8_ACTION_BERSERK:
-        if (!CanCharacterBerserk(party_slot)) {
+        if (!CanCharacterBerserk(Data(), &CurrentGame().party.characters[party_slot])) {
             return false;
         }
         break;

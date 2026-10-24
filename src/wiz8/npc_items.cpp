@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "character_skills.h"
-#include "local_code/ConditionsAndEnchantments.h"
 #include "npc_trade_price.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/fact_ids.h"
@@ -172,7 +171,7 @@ bool MaintainNpcStock(W8NpcState* npc, bool force)
     for (index = 0; index < count; ++index) {
         entry = &npc->items[index];
         if (((entry->quantity != 0) &&
-             (NormalizeItemQuantityKind(&entry->item),
+             (NormalizeItemQuantityKind(Data(), entry->item),
               Data().items[entry->item.iItemNo].quantity_kind == W8_ITEM_QUANTITY_STACK)) &&
             entry->quantity > entry->item.stack_count) {
             entry->item.stack_count = entry->quantity;

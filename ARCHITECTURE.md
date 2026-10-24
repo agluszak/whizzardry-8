@@ -353,6 +353,9 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
 - **Character derivation.** Every statistic is derived in one place,
   `DeriveCharacterStats`, from evaluated inputs; any change a statistic depends on
   settles the party (`SettleActiveParty`).
+- **Item rules.** Quantity normalization, weapon reach and berserk eligibility
+  use explicit definitions and character values, without a running session. Restored
+  characters read their android NPC identity and repair fact from their own Story.
 - **Conditions.** Inflicting, lifting and aging conditions and death are game
   operations in `live_party.h`; the pure calculations they need are in
   `rules/party_conditions.h`.

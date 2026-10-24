@@ -35,6 +35,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -97,7 +98,7 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
                     if (static_cast<signed char>(first) == slot) {
                         return true;
                     }
-                    const auto range = GetCharAttackRange(character, reach_hand);
+                    const auto range = GetCharAttackRange(Data(), character, reach_hand);
                     if (range == W8_RANGE_NONE) {
                         continue;
                     }
@@ -271,7 +272,7 @@ W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& sel
     switch (selected.kind) {
     case W8_ACTION_ATTACK:
     case W8_ACTION_BERSERK:
-        return attack_range ? *attack_range : GetCharAttackRange(character, hand);
+        return attack_range ? *attack_range : GetCharAttackRange(Data(), character, hand);
     case W8_ACTION_CAST_SPELL:
         if (selected.detail != 0) {
             return Data().spells[selected.detail].range_category;
@@ -290,39 +291,6 @@ W8RangeCategory GetCharActionRange(int party_slot, int hand, const W8Action& sel
     return W8_RANGE_NONE;
 }
 
-/* The range category the weapon in one of the character's hands attacks at.
-   `hand` of HAND_ANY asks both hands and keeps the better answer; only a
-   hand actually in play carrying a melee or thrown wield kind has a range to
-   report at all. */
-W8RangeCategory GetCharAttackRange(const W8Character* character, unsigned int hand)
-{
-    unsigned int index;
-    W8RangeCategory best;
-    W8RangeCategory range;
-
-    if (hand >= 2) {
-        assert(hand == 2);
-        best = W8_RANGE_NONE;
-        for (index = 0; index < 2; ++index) {
-            if (character->Hand[index].in_play) {
-                range = GetCharAttackRange(character, index);
-                if (best < range) {
-                    best = range;
-                }
-            }
-        }
-        return best;
-    }
-    if (!character->Hand[hand].in_play) {
-        return W8_RANGE_NONE;
-    }
-    if (character->Hand[hand].uiHolds != 1 && character->Hand[hand].uiHolds != 3) {
-        return W8_RANGE_TOUCH;
-    }
-    return static_cast<W8RangeCategory>(
-        Data().items[character->EquippedItem[6 + (hand != 0)].iItemNo].range_category);
-}
-
 /* The furthest range category any of this character's hands can reach at. */
 W8RangeCategory GetBestHandRangeCategory(const W8Character* character)
 {
@@ -332,7 +300,7 @@ W8RangeCategory GetBestHandRangeCategory(const W8Character* character)
 
     for (hand = 0; hand < 2; ++hand) {
         if (character->Hand[hand].in_play) {
-            category = GetCharAttackRange(character, hand);
+            category = GetCharAttackRange(Data(), character, hand);
             if (category > best) {
                 best = category;
             }

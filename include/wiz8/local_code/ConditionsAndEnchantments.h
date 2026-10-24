@@ -4,7 +4,6 @@
 #include "wiz8/rules/conditions.h"
 
 class Game;
-struct W8ItemInstance;
 struct W8TargetSource;
 struct W8Character;
 struct W8MonsterInfo;
@@ -55,5 +54,3 @@ void ReleaseMonsterConditionBindings(W8MonsterInfo* monster_info);
 
 void RemoveConditionFromEveryone(W8Condition condition);
 void RemoveAllEnchantments(void);
-
-void NormalizeItemQuantityKind(W8ItemInstance* item);
