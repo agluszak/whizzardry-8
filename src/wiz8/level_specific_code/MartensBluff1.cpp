@@ -17,7 +17,6 @@
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
@@ -122,9 +121,9 @@ void MartensBluff1Script::enter()
     // "Controller": toggles fact 0x42.
     bindTrigger("Controller", [this](Trigger*) {
         if (ctx.game.testFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON) == 0) {
-            SetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
+            ctx.game.setFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1);
         } else {
-            SetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 0, false);
+            ctx.game.setFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 0);
         }
         g_trigger_feedback = true;
         return true;
@@ -136,8 +135,8 @@ void MartensBluff1Script::enter()
     bindTrigger("Gas-Switch", &MartensBluff1Script::gasSwitch);
     bindTrigger("J-Doorcontroller", &MartensBluff1Script::jDoorController);
     // "MartenBook": latches fact 0x268.
-    bindTrigger("MartenBook", [](Trigger*) {
-        SetFact(W8_FACT_QUEST_MARTEN_DIARY, 1, false);
+    bindTrigger("MartenBook", [this](Trigger*) {
+        ctx.game.setFact(W8_FACT_QUEST_MARTEN_DIARY, 1);
         return true;
     });
 }

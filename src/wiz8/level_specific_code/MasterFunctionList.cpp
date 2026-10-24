@@ -19,7 +19,6 @@
 #include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
@@ -367,10 +366,10 @@ bool LevelScript::seenBodies(int command)
                     CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_SeenBodies",
                                                                1);
                     if (ctx.game.testFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
-                        SetFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0, false);
+                        ctx.game.setFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0);
                     }
                     if (ctx.game.testFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
-                        SetFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0, false);
+                        ctx.game.setFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0);
                     }
                 }
             }

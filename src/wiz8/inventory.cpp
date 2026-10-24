@@ -35,7 +35,6 @@
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/world_item.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -375,7 +374,7 @@ std::optional<Inventory::Placement> Inventory::placeEither(ItemRecipient recipie
 void Inventory::acquire(const std::optional<Placement>& placement)
 {
     if (!placement || !placement->received) return;
-    UpdateFactsAfterAcquiringItem(placement->received);
+    game_.acquireItemFacts(*placement->received);
     DeliverExceptionalItemReaction(game_, placement->received, placement->receiver == nullptr,
                                    placement->receiver);
 }
@@ -533,7 +532,7 @@ Inventory::Receipt Inventory::receiveAll(std::span<const W8ItemInstance> items,
     if (held) held_ = W8HeldItem{*held};
     settle({});
     for (const auto row : received) {
-        UpdateFactsAfterAcquiringItem(&pool_[row]);
+        game_.acquireItemFacts(pool_[row]);
         DeliverExceptionalItemReaction(game_, &pool_[row], true, nullptr);
     }
     return drops.empty() ? Receipt::Stored : Receipt::Dropped;
@@ -1479,8 +1478,8 @@ Inventory::UseOutcome Inventory::useOnce(unsigned int party_slot, W8ItemLocation
             [[maybe_unused]] W8NpcState* npc = GetNpcState(game.party.npcIndex(party_slot));
             assert(npc != 0);
             assert(npc->name_style == W8_NPC_RFS81_A);
-            SetFact(W8_FACT_RFS81_HAS_BEEN_FIXED, 1, false);
-            SetFact(W8_FACT_QUEST_ANDROID_BROKEN, 0, false);
+            game_.setFact(W8_FACT_RFS81_HAS_BEEN_FIXED, 1);
+            game_.setFact(W8_FACT_QUEST_ANDROID_BROKEN, 0);
             return {{1, std::nullopt}, spendUse(location, true)};
         }
 

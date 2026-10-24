@@ -22,7 +22,6 @@
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -400,7 +399,7 @@ void EndSurprise(void)
         LiftCondition(CurrentGame(), party_slot, W8_CONDITION_MISSING, false);
         QueueCharacterEvent(&CurrentGame().party.characters[party_slot], 52, 0,
                             kCharacterEventFullVolume);
-        SetFact(W8_FACT_MOOK_MOOK_PC_SWAP_COMPLETE, 1, false);
+        CurrentGame().setFact(W8_FACT_MOOK_MOOK_PC_SWAP_COMPLETE, 1);
     }
 }
 

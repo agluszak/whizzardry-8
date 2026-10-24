@@ -46,7 +46,6 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
@@ -805,7 +804,7 @@ void ProcessNpcPendingEvents(void)
                                      {.condition = W8_CONDITION_INFATUATED,
                                       .duration = W8_CONDITION_INDEFINITE});
                     CurrentGame().status.infatuation_pending = false;
-                    SetFact(W8_FACT_QUEST_KILL_ALSEDEXUS, 1, false);
+                    CurrentGame().setFact(W8_FACT_QUEST_KILL_ALSEDEXUS, 1);
                 }
             }
         }
@@ -1478,7 +1477,7 @@ void UpdateNpcEvents(void)
                                   CurrentGame().status.trang_check_clock) > 0x2a30) {
         if (CurrentGame().testFact(W8_FACT_ALIGNMENT_UMPANI) != 0 &&
             CurrentGame().rng.below(100) < 6) {
-            SetFact(W8_FACT_TRANG_YOU_ARE_BUSTED, 1, false);
+            CurrentGame().setFact(W8_FACT_TRANG_YOU_ARE_BUSTED, 1);
         }
         CurrentGame().status.trang_check_pending = false;
     }
@@ -1585,7 +1584,7 @@ void UpdateNpcEvents(void)
         static_cast<unsigned int>(CurrentGame().status.world_clock -
                                   CurrentGame().status.fact_b8_clock) > 0x2a300) {
         CurrentGame().status.fact_b8_pending = false;
-        SetFact(W8_FACT_MOOK_CHAOS_STOLEN, 1, false);
+        CurrentGame().setFact(W8_FACT_MOOK_CHAOS_STOLEN, 1);
     }
     if (CurrentGame().status.greeting_pending &&
         static_cast<std::int32_t>(CurrentGame().status.world_clock -
@@ -1758,7 +1757,7 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
         return;
     }
     if (npc->name_style == W8_NPC_VI_DOMINA) {
-        SetFact(W8_FACT_INTRO_VI_DISAPPEARS, 0, false);
+        CurrentGame().setFact(W8_FACT_INTRO_VI_DISAPPEARS, 0);
     }
     if (npc->name_style == ')' && GetLoadedLevelID() == 0xd) {
         glm::vec3 position;
@@ -1775,7 +1774,7 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
                 }
                 RunNamedTrigger("door08", -1);
             }
-            SetFact(W8_FACT_UMISSION_MOVE_RUBBLE_COVERT, 0, false);
+            CurrentGame().setFact(W8_FACT_UMISSION_MOVE_RUBBLE_COVERT, 0);
             npc->event_pending = 0;
             npc->restore_done = 0;
             return;

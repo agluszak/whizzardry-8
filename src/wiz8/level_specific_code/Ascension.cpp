@@ -14,7 +14,6 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_population.h"
@@ -188,7 +187,7 @@ void AscensionScript::peakInit()
                 ctx.game.testFact(W8_FACT_TEMPLAR) != 0) {
                 if (FindEntityByName("NP_Daughter", &position, 0, 0)) {
                     SpawnMonsters(0x18d, 1, &position, 0, true, false);
-                    SetFact(static_cast<W8FactId>(0x327), 1, false);
+                    ctx.game.setFact(static_cast<W8FactId>(0x327), 1);
                 }
                 CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_SpawnDaughter",
                                                            1);
@@ -222,13 +221,13 @@ void AscensionScript::avalanche(bool command)
         position = world().party.eye();
         FindTriggerByName("ASC40")->GetPosition(&trigger_position);
         if (glm::length((position - trigger_position)) < 2500.0) {
-            SetFact(W8_FACT_LANDSLIDE_RAPAX_SIDE, 1, false);
-            SetFact(W8_FACT_LANDSLIDE_WILD_SIDE, 0, false);
+            ctx.game.setFact(W8_FACT_LANDSLIDE_RAPAX_SIDE, 1);
+            ctx.game.setFact(W8_FACT_LANDSLIDE_WILD_SIDE, 0);
         } else {
             FindTriggerByName("ASC30")->GetPosition(&trigger_position);
             if (glm::length((position - trigger_position)) < 2500.0) {
-                SetFact(W8_FACT_LANDSLIDE_RAPAX_SIDE, 0, false);
-                SetFact(W8_FACT_LANDSLIDE_WILD_SIDE, 1, false);
+                ctx.game.setFact(W8_FACT_LANDSLIDE_RAPAX_SIDE, 0);
+                ctx.game.setFact(W8_FACT_LANDSLIDE_WILD_SIDE, 1);
             }
         }
         addMaster(&AscensionScript::landShaker);

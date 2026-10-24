@@ -22,7 +22,6 @@
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/difficulty.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/encounter_tables.h"
@@ -1191,7 +1190,7 @@ TEST_CASE("Unknown fact IDs never index native fact storage", "[save][records]")
                            std::numeric_limits<std::int32_t>::max()}) {
         const auto fact = static_cast<W8FactId>(raw);
         REQUIRE(game.game.testFact(fact) == 0);
-        SetFact(fact, 1, true);
+        game.game.setFact(fact, 1);
     }
     REQUIRE(CurrentGame().story.facts == before);
 }
@@ -1829,7 +1828,7 @@ TEST_CASE("Covert-training fact evaluation consumes its first success before jou
 
     game.status.fact_88_latch = false;
     game.story.facts[fact] = 1;
-    SetFact(fact, 0, false);
+    game.setFact(fact, 0);
     REQUIRE(game.story.journal.size() == 1);
     REQUIRE(game.story.journal.front().alternate_text); // First evaluated value, not stored zero.
     REQUIRE(game.story.facts[fact] == 0);

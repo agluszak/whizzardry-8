@@ -12,7 +12,6 @@
 #include <fmt/format.h>
 
 #include "message_box.h"
-#include "wiz8/audio/soundman.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/canvas/Font.h"
 #include "wiz8/canvas/himage.h"
@@ -23,19 +22,16 @@
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/difficulty.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonWidget.h"
-#include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/TextBuffer.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/pointer.h"
@@ -85,51 +81,6 @@ int g_journal_faction_name_indices[11] = {
 };
 char g_journal_alternate_page[] = "1 / 1";
 int g_journal_page_count = -1;
-
-bool g_fact_notifications_suppressed;
-
-/* Append one changed fact to the journal and, when notices are not suppressed
-   and the fact is visible at the current notice setting, post the fact's own
-   description through the notice pane with its sound. */
-void RecordFactChangeForJournal(W8FactId fact_id)
-{
-    W8JournalEntry entry;
-    entry.level = GetLoadedLevelID();
-    entry.fact = fact_id;
-    entry.alternate_text = CurrentGame().testFact(fact_id) != 0;
-    CurrentGame().story.journal.push_back(entry);
-
-    if (g_fact_notifications_suppressed || static_cast<unsigned>(fact_id) >= Data().facts.size()) {
-        return;
-    }
-    int visibility;
-    if (g_settings.difficulty == W8_DIFFICULTY_NOVICE) {
-        visibility = 2;
-    } else if (g_settings.difficulty == W8_DIFFICULTY_NORMAL) {
-        visibility = 1;
-    } else {
-        visibility = fact_id;
-        if (g_settings.difficulty == W8_DIFFICULTY_EXPERT) {
-            visibility = 0;
-        }
-    }
-    const W8FactDatabaseRecord* record = &Data().facts[fact_id];
-    if (record->visibility > visibility) {
-        return;
-    }
-    std::string description =
-        CurrentGame().testFact(fact_id) ? record->alternate_description : record->description;
-    if (description.empty() || MainGameHud() == nullptr) {
-        return;
-    }
-    if (CurrentGame().activity.conversation) {
-        CurrentGame().npc_dialogue.Queue(W8NpcCommand::journal_quote);
-        return;
-    }
-    int range = (MainGameHud()->text_box_right - MainGameHud()->text_box_left);
-    ShowNotice(W8_FONT_PALETTE_BLUE, Data().strings[0x74a], 2, range);
-    wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
-}
 
 void JournalScreen::DrawJournalLine(SDL_Surface& target, std::string_view text, int column, int y,
                                     int palette, bool centered)
@@ -342,7 +293,7 @@ bool JournalScreen::enter(const ScreenRequest&)
     m_font = g_journal_font;
     m_highlight_palette = CatalogArtwork::Load(0x1b9).spriteSheet()->colors;
 
-    switch (g_settings.difficulty) {
+    switch (CurrentGame().status.difficulty) {
     case W8_DIFFICULTY_NOVICE:
         maximum_visibility = 2;
         break;

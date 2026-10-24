@@ -4,19 +4,12 @@
 #include "wiz8/data/fact_ids.h"
 
 struct ScriptContext;
-struct Story;
-
-/* Raised while facts are seeded, so that the journal records the changes without
-   posting their notices. */
-extern bool g_fact_notifications_suppressed;
 
 void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned char value);
 /* Scripted consequences of an NPC-bound monster's death; lives in NPC
    Scripting Facts.cpp, driven by MonsterManager's death switch. */
 void HandleScriptedNpcDeath(const ScriptContext& context,
                             unsigned int monster_list_index); /* 0x00508D70 */
-void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects);
-void SeedNewGameFacts(Story& story);
 
 void PostNewGameLoad(void);
 

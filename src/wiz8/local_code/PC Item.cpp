@@ -23,7 +23,6 @@
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -647,55 +646,6 @@ unsigned int GetEquipmentBindingDifficulty(int character_index)
 }
 
 /* Acquisition of a handful of plot items updates their paired facts. */
-void UpdateFactsAfterAcquiringItem(const W8ItemInstance* item)
-{
-    switch (item->iItemNo) {
-    case 0x243:
-        if (!CurrentGame().testFact(W8_FACT_DESTINAE_POSSESS)) {
-            SetFact(W8_FACT_DESTINAE_POSSESS, 1, false);
-        }
-        if (CurrentGame().testFact(W8_FACT_QUEST_GET_DD)) {
-            SetFact(W8_FACT_QUEST_GET_DD, 0, false);
-        }
-        break;
-    case 0x242:
-        if (!CurrentGame().testFact(W8_FACT_ASTRAL_POSSESS)) {
-            SetFact(W8_FACT_ASTRAL_POSSESS, 1, false);
-        }
-        if (CurrentGame().testFact(W8_FACT_QUEST_GET_AD)) {
-            SetFact(W8_FACT_QUEST_GET_AD, 0, false);
-        }
-        break;
-    case 0x244:
-        if (!CurrentGame().testFact(W8_FACT_CHAOS_POSSESS)) {
-            SetFact(W8_FACT_CHAOS_POSSESS, 1, false);
-        }
-        if (CurrentGame().testFact(W8_FACT_QUEST_GET_CM)) {
-            SetFact(W8_FACT_QUEST_GET_CM, 0, false);
-        }
-        CurrentGame().status.fact_b8_pending = true;
-        CurrentGame().status.fact_b8_clock = CurrentGame().status.world_clock;
-        break;
-    case 0x264:
-        if (!CurrentGame().testFact(W8_FACT_ASTRAL_FAKE_POSSESS)) {
-            SetFact(W8_FACT_ASTRAL_FAKE_POSSESS, 1, false);
-            SetFact(W8_FACT_ASTRAL_FAKE_POSSESS1, 1, false);
-        }
-        break;
-    case 0x201:
-        SetFact(W8_FACT_QUEST_BRAFFIT_CIERDAN, 0, false);
-        break;
-    case 0x27c:
-        SetFact(W8_FACT_QUEST_MYLES_FIND_DIAMOND, 0, false);
-        break;
-    case 0x1d2:
-        if (CurrentGame().testFact(W8_FACT_QUEST_MYLES_WEAPONS_CACHE)) {
-            SetFact(W8_FACT_QUEST_MYLES_WEAPONS_CACHE, 0, false);
-        }
-        break;
-    }
-}
-
 /* Deliver the one-time character reaction associated with exceptional items.
    Character creation (screen 5) deliberately suppresses every reaction. */
 void DeliverExceptionalItemReaction(Game& game, W8ItemInstance* item, bool choose_character,
@@ -707,7 +657,7 @@ void DeliverExceptionalItemReaction(Game& game, W8ItemInstance* item, bool choos
         return;
     }
     if (choose_character) {
-        int party_slot = CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, -1, -1);
+        int party_slot = game.party.randomSlot(game.rng, 0, 0, -1, -1);
         if (party_slot == -1) {
             return;
         }
@@ -734,16 +684,16 @@ void DeliverExceptionalItemReaction(Game& game, W8ItemInstance* item, bool choos
         message = 66;
         break;
     case 0x27c: {
-        SetFact(W8_FACT_DIAMOND_FOUND, 1, false);
+        game.setFact(W8_FACT_DIAMOND_FOUND, 1);
         if (!game.hasLeadingNpc(W8_NPC_MYLES) || !game.testFact(W8_FACT_QUEST_MYLES_FIND_DIAMOND)) {
             return;
         }
-        W8NpcState* npc = CurrentGame().story.npcOfKind(7);
+        W8NpcState* npc = game.story.npcOfKind(7);
         if (npc == 0) {
             return;
         }
         signed char npc_slot = npc->group_index;
-        QueueCharacterEvent(&game.party.characters[npc_slot], 65, 0, kCharacterEventFullVolume);
+        game.speech.Queue(&game.party.characters[npc_slot], 65, 0, kCharacterEventFullVolume);
         return;
     }
     default:
@@ -756,7 +706,7 @@ void DeliverExceptionalItemReaction(Game& game, W8ItemInstance* item, bool choos
         break;
     }
 
-    QueueCharacterEvent(character, message, 0, kCharacterEventFullVolume);
+    game.speech.Queue(character, message, 0, kCharacterEventFullVolume);
     item->effect_used |= 1;
 }
 

@@ -151,6 +151,9 @@ struct CombatEffectsChanged {};
 struct PartyPanelChanged {};
 // Accepted formation is settled; presentation derives the board, radar and camera from it.
 struct FormationChanged {};
+struct JournalEntryAdded {
+    std::string notice;
+};
 struct ActionChoiceChanged {
     unsigned int slot;
 };
@@ -176,7 +179,7 @@ using Event =
                  CombatBegan, CombatEnded, CombatProgressChanged, CombatStanceChanged,
                  MonstersChanged, PartyEffectsChanged, CombatEffectsChanged, PartyPanelChanged,
                  PartyMembershipChanged, WorldItemRemoved, TargetingRequested, FormationChanged,
-                 ActionAimChanged, ActionChoiceChanged>;
+                 ActionAimChanged, ActionChoiceChanged, JournalEntryAdded>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events

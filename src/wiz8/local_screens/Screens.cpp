@@ -319,6 +319,14 @@ struct GameEventPresentation {
         if (hud->open_submenu) ReopenSubMenuPanel();
         RefreshFlaggedMainGameState();
     }
+    void operator()(const JournalEntryAdded& entry) const
+    {
+        if (auto* hud = MainGameHud()) {
+            ShowNotice(W8_FONT_PALETTE_BLUE, entry.notice, 2,
+                       hud->text_box_right - hud->text_box_left);
+            wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
+        }
+    }
     void operator()(const FormationChanged&) const
     {
         if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) return;

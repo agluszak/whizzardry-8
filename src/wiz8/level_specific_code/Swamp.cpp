@@ -10,7 +10,6 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
@@ -49,8 +48,8 @@ constexpr int kMasterToggle = static_cast<int>(0xEFFFFFFF);
 bool Onelid(Trigger* pTrigger)
 {
     if (CurrentGame().testFact(W8_FACT_CROCK_KIDNAPPED_PLAYER) != 0 && FindNpcOfKind(0x1e) != 0) {
-        SetFact(W8_FACT_CROCK_PLAYER_RETURNED_TO_PARTY, 1, false);
-        SetFact(W8_FACT_CROCK_KIDNAPPED_PLAYER, 0, false);
+        CurrentGame().setFact(W8_FACT_CROCK_PLAYER_RETURNED_TO_PARTY, 1);
+        CurrentGame().setFact(W8_FACT_CROCK_KIDNAPPED_PLAYER, 0);
     }
     return true;
 }
@@ -146,7 +145,7 @@ bool SwampScript::gasFireSpawn(Trigger* pTrigger)
     if (ctx.game.testFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET) != 0) {
         return false;
     }
-    SetFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET, 1, false);
+    ctx.game.setFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET, 1);
     ResetInactiveLevelDataVectors();
     center =
         glm::vec3((pTrigger->representation_vectors[0].x + pTrigger->representation_vectors[1].x +

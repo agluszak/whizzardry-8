@@ -21,7 +21,6 @@
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
@@ -195,10 +194,10 @@ void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
     CurrentGame().npc_dialogue.ReleaseScene();
     context.activity.scripted_scene = false;
     other_gender_present = false;
-    SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_WOMAN, 0, false);
-    SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_ALL_WOMAN, 0, false);
-    SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 0, false);
-    SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_ABLE, 0, false);
+    context.game.setFact(W8_FACT_ALSEDEXUS_SACRIFICE_WOMAN, 0);
+    context.game.setFact(W8_FACT_ALSEDEXUS_SACRIFICE_ALL_WOMAN, 0);
+    context.game.setFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 0);
+    context.game.setFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_ABLE, 0);
     for (slot = 0; slot < 8; ++slot) {
         if (context.party.members[slot].has_value() &&
             context.party.characters[slot].gender != W8_GENDER_FEMALE) {
@@ -208,7 +207,7 @@ void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
     }
     character = &context.party.characters[party_slot];
     if (character->gender == W8_GENDER_FEMALE && other_gender_present) {
-        SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_WOMAN, 1, false);
+        context.game.setFact(W8_FACT_ALSEDEXUS_SACRIFICE_WOMAN, 1);
         QueueCharacterEvent(character, 43, kCharacterEventNoNpcDefer, kCharacterEventFullVolume);
         return;
     }
@@ -217,17 +216,17 @@ void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
         if (FindCharacterItem(*character, ItemWithId(0x1fd), W8ItemReach::Worn) &&
             FindCharacterItem(*character, ItemWithId(0x1fe), W8ItemReach::Worn) &&
             FindCharacterItem(*character, ItemWithId(0x1ff), W8ItemReach::Worn)) {
-            SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 0, false);
+            context.game.setFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 0);
             context.status.monster_name_buffer = fmt::format("Al-{}", character->name);
             context.status.sedexus_party_slot = party_slot;
             context.status.rpc_active = true;
             context.status.infatuation_pending = true;
             QueueCharacterEvent(character, g_special_event2, 0, kCharacterEventFullVolume);
         } else {
-            SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 1, false);
+            context.game.setFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_DRESSED, 1);
         }
     } else {
-        SetFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_ABLE, 1, false);
+        context.game.setFact(W8_FACT_ALSEDEXUS_SACRIFICE_NOT_ABLE, 1);
     }
     for (slot = 0; slot < 8; ++slot) {
         if (context.party.members[slot].has_value()) {

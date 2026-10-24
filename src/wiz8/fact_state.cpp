@@ -1,3 +1,5 @@
+#include "wiz8/fact_state.h"
+
 #include <fmt/format.h>
 
 #include "wiz8/data/fact_ids.h"
@@ -5,16 +7,21 @@
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/npc_ids.h"
 #include "wiz8/data/records.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/local_code/NPCScripting.h"
+#include "wiz8/message_box.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/inventory.h"
 #include "wiz8/rules/party.h"
+#include "wiz8/script_context.h"
 #include "wiz8/story.h"
+#include "wiz8/world/world.h"
 
 bool Game::hasLeadingNpc(W8NpcId kind) const
 {
@@ -254,4 +261,121 @@ unsigned char Game::evaluateFact(W8FactId fact_id)
         }
     }
     return story.facts[fact_id];
+}
+
+void Game::setFact(W8FactId fact_id, unsigned char value, bool notify)
+{
+    if (static_cast<unsigned>(fact_id) >= W8_FACT_SLOT_COUNT) return;
+    const auto previous = story.facts[fact_id];
+    story.facts[fact_id] = value;
+    if (value != previous) recordFactChange(fact_id, notify);
+    // Repeated writes still run mandatory consequences, without another journal entry.
+    HandleFactChange(MakeScriptContext(*this), fact_id, value);
+    if (status.log_fact_checks && static_cast<unsigned>(fact_id) < data.facts.size()) {
+        events.push(TextNotice{W8_FONT_PALETTE_YELLOW,
+                               fmt::format("{} set to {}", data.facts[fact_id].symbolic_name,
+                                           value ? "TRUE" : "FALSE")});
+    }
+}
+
+void Game::recordFactChange(W8FactId fact_id, bool notify)
+{
+    story.journal.push_back({.level = level.primary ? level.primary->level_id : -1,
+                             .fact = fact_id,
+                             .alternate_text = testFact(fact_id) != 0});
+    if (!notify || static_cast<unsigned>(fact_id) >= data.facts.size()) return;
+    const int visibility = status.difficulty == W8_DIFFICULTY_NOVICE   ? 2
+                           : status.difficulty == W8_DIFFICULTY_NORMAL ? 1
+                           : status.difficulty == W8_DIFFICULTY_EXPERT ? 0
+                                                                       : static_cast<int>(fact_id);
+    const auto& record = data.facts[fact_id];
+    if (record.visibility > visibility) return;
+    // Evaluation may consume a one-shot latch, so retain both original evaluation points.
+    const auto& description = testFact(fact_id) ? record.alternate_description : record.description;
+    if (description.empty()) return;
+    if (activity.conversation)
+        npc_dialogue.Queue(W8NpcCommand::journal_quote);
+    else
+        events.push(JournalEntryAdded{data.strings[0x74a]});
+}
+
+/* The opening sequence consumes only the imported story choices. The decoded
+   Wizardry 7 records have already been discarded after character conversion. */
+void Game::seedNewGameFacts()
+{
+    if (story.imported_origin) {
+        setFact(W8_FACT_IMPORT, 1, false);
+        switch (story.imported_origin->alignment) {
+        case Story::ImportedOrigin::Alignment::Umpani:
+            setFact(W8_FACT_IMPORT_UMPANI, 1, false);
+            break;
+        case Story::ImportedOrigin::Alignment::Trang:
+            setFact(W8_FACT_IMPORT_TRANG, 1, false);
+            break;
+        default:
+            setFact(W8_FACT_IMPORT_NOALIGN, 1, false);
+            break;
+        }
+        if (story.imported_origin->barlone_dead) {
+            setFact(W8_FACT_BARLONE_WAS_DEAD, 1, false);
+        }
+        if (story.imported_origin->rodan_dead) {
+            setFact(W8_FACT_RODAN_WAS_DEAD, 1, false);
+        }
+    } else {
+        setFact(W8_FACT_VIRGIN, 1, false);
+        setFact(W8_FACT_QUEST_VIRGIN_1, 1, false);
+        setFact(W8_FACT_QUEST_VIRGIN_2, 1, false);
+        setFact(W8_FACT_QUEST_VIRGIN_3, 1, false);
+    }
+    story.imported_origin.reset();
+}
+
+void Game::acquireItemFacts(const W8ItemInstance& item)
+{
+    switch (item.iItemNo) {
+    case 0x243:
+        if (!testFact(W8_FACT_DESTINAE_POSSESS)) {
+            setFact(W8_FACT_DESTINAE_POSSESS, 1);
+        }
+        if (testFact(W8_FACT_QUEST_GET_DD)) {
+            setFact(W8_FACT_QUEST_GET_DD, 0);
+        }
+        break;
+    case 0x242:
+        if (!testFact(W8_FACT_ASTRAL_POSSESS)) {
+            setFact(W8_FACT_ASTRAL_POSSESS, 1);
+        }
+        if (testFact(W8_FACT_QUEST_GET_AD)) {
+            setFact(W8_FACT_QUEST_GET_AD, 0);
+        }
+        break;
+    case 0x244:
+        if (!testFact(W8_FACT_CHAOS_POSSESS)) {
+            setFact(W8_FACT_CHAOS_POSSESS, 1);
+        }
+        if (testFact(W8_FACT_QUEST_GET_CM)) {
+            setFact(W8_FACT_QUEST_GET_CM, 0);
+        }
+        status.fact_b8_pending = true;
+        status.fact_b8_clock = status.world_clock;
+        break;
+    case 0x264:
+        if (!testFact(W8_FACT_ASTRAL_FAKE_POSSESS)) {
+            setFact(W8_FACT_ASTRAL_FAKE_POSSESS, 1);
+            setFact(W8_FACT_ASTRAL_FAKE_POSSESS1, 1);
+        }
+        break;
+    case 0x201:
+        setFact(W8_FACT_QUEST_BRAFFIT_CIERDAN, 0);
+        break;
+    case 0x27c:
+        setFact(W8_FACT_QUEST_MYLES_FIND_DIAMOND, 0);
+        break;
+    case 0x1d2:
+        if (testFact(W8_FACT_QUEST_MYLES_WEAPONS_CACHE)) {
+            setFact(W8_FACT_QUEST_MYLES_WEAPONS_CACHE, 0);
+        }
+        break;
+    }
 }

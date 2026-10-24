@@ -14,7 +14,6 @@
 #include "wiz8/audio/soundman.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/npc_state.h"
@@ -181,7 +180,7 @@ void W8NpcDialogue::Speak(const ScriptContext& context, int script_line, bool fo
                     finished = true;
                     break;
                 case W8_NPC_ENTRY_SET_FACT:
-                    SetFact(static_cast<W8FactId>(entry->operand0), entry->operand1, false);
+                    context.game.setFact(static_cast<W8FactId>(entry->operand0), entry->operand1);
                     break;
                 case W8_NPC_ENTRY_CLOSE_DIALOGUE:
                     Queue(W8NpcCommand::close_dialogue);

@@ -49,7 +49,6 @@
 #include "wiz8/dialog_code/NpcDialog.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -729,7 +728,7 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, const W8ItemInstance* item, bo
             if (CurrentGame().npc_interaction.dialogue_npc->name_style == W8_NPC_ZANT &&
                 CurrentGame().testFact(W8_FACT_TRANG_YOU_ARE_BUSTED) != 0 &&
                 CurrentGame().testFact(W8_FACT_ALIGNMENT_UMPANI) == 0) {
-                SetFact(W8_FACT_TRANG_YOU_ARE_BUSTED, 0, false);
+                CurrentGame().setFact(W8_FACT_TRANG_YOU_ARE_BUSTED, 0);
             }
             if (band == W8_NPC_BAND_FRIENDLY) {
                 HandleNpcDialogueDeparture(1);
@@ -3942,9 +3941,9 @@ void RecordLevelEntryDialogueState(void)
         LearnDialogueKeyword(region_name, W8_DIALOGUE_CATEGORY_PLACES, false);
     }
     if (region == 14) {
-        SetFact(W8_FACT_QUEST_ASCEND_TO_CIRCLE, 0, false);
+        CurrentGame().setFact(W8_FACT_QUEST_ASCEND_TO_CIRCLE, 0);
         if (!CurrentGame().hasLeadingNpc(W8_NPC_VI_DOMINA)) {
-            SetFact(W8_FACT_VI_IS_DEAD, 1, false);
+            CurrentGame().setFact(W8_FACT_VI_IS_DEAD, 1);
         }
     }
 }

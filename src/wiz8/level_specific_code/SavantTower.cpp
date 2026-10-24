@@ -5,7 +5,6 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -75,7 +74,7 @@ bool SavantTowerScript::buttonBlocker(Trigger* pTrigger)
         blocker->SetActivationState(true);
     }
     QueueNpcScriptNotice(CurrentGame().story.npcOfKind(0x46), 0, 1, false, 0);
-    SetFact(W8_FACT_DS_BOMB_DEACTIVATED, 1, false);
+    ctx.game.setFact(W8_FACT_DS_BOMB_DEACTIVATED, 1);
     return true;
 }
 

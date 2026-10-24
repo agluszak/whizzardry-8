@@ -24,7 +24,6 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
@@ -611,7 +610,7 @@ bool MartensBluff2Script::stoneIdol(Trigger* pTrigger)
     addMaster(&MartensBluff2Script::idolGas);
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     running_trigger_from_script_ = true;
-    SetFact(W8_FACT_QUEST_MARTEN_IDOL, 1, false);
+    ctx.game.setFact(W8_FACT_QUEST_MARTEN_IDOL, 1);
     return true;
 }
 
@@ -744,7 +743,7 @@ void MartensBluff2Script::idolGasVictim()
         ctx.status.party_slot = slot;
         InflictCondition(CurrentGame(), slot,
                          {.condition = W8_CONDITION_MISSING, .duration = W8_CONDITION_INDEFINITE});
-        SetFact(W8_FACT_CROCK_KIDNAPPED_PLAYER, 1, false);
+        ctx.game.setFact(W8_FACT_CROCK_KIDNAPPED_PLAYER, 1);
     }
 }
 

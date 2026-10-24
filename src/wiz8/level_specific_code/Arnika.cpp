@@ -15,7 +15,6 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -610,7 +609,7 @@ bool ArnikaScript::vaultAlarmDoor(Trigger* pTrigger)
         SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         group = FindNextExistingMonsterByID(0xc, group);
     }
-    SetFact(W8_FACT_ARNIKA_VAULT_ENTERED, 1, false);
+    ctx.game.setFact(W8_FACT_ARNIKA_VAULT_ENTERED, 1);
     return true;
 }
 
@@ -633,8 +632,8 @@ bool ArnikaScript::exitButton(Trigger* pTrigger)
         addMaster(&ArnikaScript::teleportWatch);
     }
     g_trigger_feedback = true;
-    SetFact(W8_FACT_ARNIKA_VAULT_TELEPORT, 1, false);
-    SetFact(W8_FACT_ARNIKA_VAULT_ENTERED, 1, false);
+    ctx.game.setFact(W8_FACT_ARNIKA_VAULT_TELEPORT, 1);
+    ctx.game.setFact(W8_FACT_ARNIKA_VAULT_ENTERED, 1);
     return true;
 }
 
@@ -698,7 +697,7 @@ bool ArnikaScript::redButton(Trigger* pTrigger)
         return false;
     }
     red_button_armed_ = false;
-    SetFact(W8_FACT_ARNIKA_SAFETY_DEPOSIT_OPEN, 1, false);
+    ctx.game.setFact(W8_FACT_ARNIKA_SAFETY_DEPOSIT_OPEN, 1);
     red_button_armed_ = true;
     g_trigger_feedback = true;
     if (el01_.state != W8_ARNIKA_ELEVATOR_STEP_3) {

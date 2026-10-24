@@ -25,7 +25,6 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/file_time.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
@@ -654,7 +653,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
                 OpenNpcDialogueTranscriptLayout();
                 break;
             case W8NpcCommand::journal_quote:
-                DisplayNpcQuote(context.game, Data().strings[0x74a], false);
+                DisplayNpcQuote(context.game, context.game.data.strings[0x74a], false);
                 wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
                 break;
             case W8NpcCommand::dispatch_pending_notice:

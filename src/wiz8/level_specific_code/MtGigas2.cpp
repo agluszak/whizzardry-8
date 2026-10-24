@@ -11,7 +11,6 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -116,7 +115,7 @@ bool YellowWire(Trigger* pTrigger)
         WireShock();
         return false;
     }
-    SetFact(W8_FACT_UMISSION_TRAIN_MACHINE_FIXED, 1, false);
+    CurrentGame().setFact(W8_FACT_UMISSION_TRAIN_MACHINE_FIXED, 1);
     SetTriggerVariableByName("WirePanel", 3);
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     wire = FindTriggerByName("redwire");
@@ -208,7 +207,7 @@ void MtGigas2Script::setup()
 
         SetTriggerVariableByName("CODESgtRubbleTeleport", 1);
         RunNamedTrigger("door08", -1);
-        SetFact(W8_FACT_UMISSION_MOVE_RUBBLE_COVERT, 0, false);
+        ctx.game.setFact(W8_FACT_UMISSION_MOVE_RUBBLE_COVERT, 0);
         npc = CurrentGame().story.npcOfKind(0x29);
         if (npc != 0) {
             info = GetNpcMonsterInfo(npc);

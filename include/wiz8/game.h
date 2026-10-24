@@ -94,6 +94,9 @@ public:
     ~Game();
     // Script fact tests can consume a one-shot latch; this is not a pure state query.
     unsigned char testFact(W8FactId fact);
+    void setFact(W8FactId fact, unsigned char value, bool notify = true);
+    void seedNewGameFacts();
+    void acquireItemFacts(const W8ItemInstance& item);
     bool hasLeadingNpc(W8NpcId kind) const;
     // Settle the pending formation and publish its accepted or refused moves.
     void commitFormation();
@@ -290,6 +293,7 @@ public:
 
 private:
     unsigned char evaluateFact(W8FactId fact);
+    void recordFactChange(W8FactId fact, bool notify);
     std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
     void updateSurpriseMode();
     void advanceWorlds(std::chrono::milliseconds elapsed);

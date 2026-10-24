@@ -12,7 +12,6 @@
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/npc_state.h"
@@ -172,7 +171,8 @@ TEST_CASE("Acquiring the Astral Dominae clears one scheduled copy without extra 
     data.npcs[0x48].kind = 0x48;
     ScopedGameData definitions{std::move(data)};
     ScopedGame scope{Data()};
-    auto& game = scope.game;
+    Game game{Data()};
+    auto outgoing_rng = scope.game.rng;
     auto npc = std::make_shared<W8NpcState>();
     npc->record = &Data().npcs[0x48];
     for (auto& id : npc->item_ids) id = -1;
@@ -191,10 +191,13 @@ TEST_CASE("Acquiring the Astral Dominae clears one scheduled copy without extra 
     REQUIRE_FALSE(game.inventory.pool().front().effect_used);
 
     // Same-value writes still apply mandatory consequences, but do not journal twice.
-    SetFact(W8_FACT_ASTRAL_POSSESS, 1, false);
+    game.setFact(W8_FACT_ASTRAL_POSSESS, 1);
     REQUIRE(npc->item_ids[1] == -1);
     REQUIRE(game.story.journal.size() == 1);
     REQUIRE(draws.size() == 1);
+    REQUIRE(scope.game.story.journal.empty());
+    REQUIRE(scope.game.story.facts[W8_FACT_ASTRAL_POSSESS] == 0);
+    REQUIRE(scope.game.rng.next() == outgoing_rng.next());
     game.rng.trace(nullptr);
 }
 

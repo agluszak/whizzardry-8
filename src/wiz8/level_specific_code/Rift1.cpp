@@ -7,7 +7,6 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -94,7 +93,7 @@ bool Rift1Fireantspawn(Trigger* pTrigger)
 /* "Gate": raise fact 0x1c4. */
 bool Rift1Gate(Trigger* pTrigger)
 {
-    SetFact(W8_FACT_RIFT_RAFE_CAGE_OPEN, 1, false);
+    CurrentGame().setFact(W8_FACT_RIFT_RAFE_CAGE_OPEN, 1);
     return true;
 }
 

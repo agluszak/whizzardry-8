@@ -16,7 +16,6 @@
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
@@ -765,43 +764,43 @@ void MatureNpcDelayedItems(W8NpcState* npc)
         if (npc->record->kind == 3) {
             switch (entry->item.iItemNo) {
             case 0x28a:
-                SetFact(W8_FACT_ZYNARYX_PLATE_COMPLETE, 1, false);
+                CurrentGame().setFact(W8_FACT_ZYNARYX_PLATE_COMPLETE, 1);
                 break;
             case 0x28b:
-                SetFact(W8_FACT_STEELHIDE_COMPLETE, 1, false);
+                CurrentGame().setFact(W8_FACT_STEELHIDE_COMPLETE, 1);
                 break;
             case 0x28c:
-                SetFact(W8_FACT_FEATHERWEIGHT_COMPLETE, 1, false);
+                CurrentGame().setFact(W8_FACT_FEATHERWEIGHT_COMPLETE, 1);
                 break;
             case 0x28d:
-                SetFact(W8_FACT_BEASTSLAYER_COMPLETE, 1, false);
+                CurrentGame().setFact(W8_FACT_BEASTSLAYER_COMPLETE, 1);
                 break;
             case 0x28e:
-                SetFact(W8_FACT_EBON_STAFF_COMPLETE, 1, false);
+                CurrentGame().setFact(W8_FACT_EBON_STAFF_COMPLETE, 1);
                 break;
             default:
                 break;
             }
         } else if (npc->record->kind == 0x49) {
             if (entry->item.iItemNo == 0x1b0) {
-                SetFact(W8_FACT_TRYNNIE_FUZZFAS_POTION_DONE, 1, false);
-                SetFact(W8_FACT_TRYNNIE_FUZZFAS_POTION, 0, false);
+                CurrentGame().setFact(W8_FACT_TRYNNIE_FUZZFAS_POTION_DONE, 1);
+                CurrentGame().setFact(W8_FACT_TRYNNIE_FUZZFAS_POTION, 0);
                 return;
             }
         } else if (npc->record->kind == 0x39) {
             if (entry->item.iItemNo == 500) {
-                SetFact(W8_FACT_FERRO_MIRROR_ARMOR_ALL_INGREDIENTS, 0, false);
-                SetFact(W8_FACT_MIRROR_ARMOR_COMPLETE, 1, false);
+                CurrentGame().setFact(W8_FACT_FERRO_MIRROR_ARMOR_ALL_INGREDIENTS, 0);
+                CurrentGame().setFact(W8_FACT_MIRROR_ARMOR_COMPLETE, 1);
                 return;
             }
             if (entry->item.iItemNo == 0x1f5) {
-                SetFact(W8_FACT_FERRO_IVORY_BLADE_ALL_INGREDIENTS, 0, false);
-                SetFact(W8_FACT_IVORY_BLADE_COMPLETE, 1, false);
+                CurrentGame().setFact(W8_FACT_FERRO_IVORY_BLADE_ALL_INGREDIENTS, 0);
+                CurrentGame().setFact(W8_FACT_IVORY_BLADE_COMPLETE, 1);
                 return;
             }
             if (entry->item.iItemNo == 0x1f8) {
-                SetFact(W8_FACT_FERRO_VAMPIRE_CHAIN_ALL_INGREDIENTS, 0, false);
-                SetFact(W8_FACT_VAMPIRE_CHAIN_COMPLETE, 1, false);
+                CurrentGame().setFact(W8_FACT_FERRO_VAMPIRE_CHAIN_ALL_INGREDIENTS, 0);
+                CurrentGame().setFact(W8_FACT_VAMPIRE_CHAIN_COMPLETE, 1);
                 return;
             }
         }

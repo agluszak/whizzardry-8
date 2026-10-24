@@ -40,7 +40,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/npc_story_events.h"
-#include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -271,7 +270,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_MOOK_MOOK_PC_SWAP_COMPLETE:
         if (value != 0) {
-            SetFact(W8_FACT_QUEST_MOOK_BUDDY_TELLS_OF_CM, 1, false);
+            context.game.setFact(W8_FACT_QUEST_MOOK_BUDDY_TELLS_OF_CM, 1);
         }
         return;
     case W8_FACT_MOOK_MOOK_PC_REMOVED:
@@ -330,9 +329,9 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         }
         fact_value = context.game.testFact(W8_FACT_MYLES_IN_PARTY);
         if (fact_value != 0) {
-            SetFact(W8_FACT_MYLES_IN_PARTY_WHEN_BANK_DONE, 1, false);
+            context.game.setFact(W8_FACT_MYLES_IN_PARTY_WHEN_BANK_DONE, 1);
         }
-        SetFact(W8_FACT_QUEST_MYLES_BANK_VAULT, 0, false);
+        context.game.setFact(W8_FACT_QUEST_MYLES_BANK_VAULT, 0);
         return;
     case W8_FACT_MYLES_MISSION_RESCUE_VI_ASSIGNED:
         npc = CurrentGame().story.npcOfKind(7);
@@ -468,7 +467,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        SetFact(W8_FACT_QUEST_MADRAS_OPEXTERM, 1, false);
+        context.game.setFact(W8_FACT_QUEST_MADRAS_OPEXTERM, 1);
         return;
     case W8_FACT_TRYNNIE_KILL_RATS_ASSIGNED:
         CurrentGame().npc_dialogue.Queue(W8NpcStoryAction::move_gari);
@@ -917,11 +916,11 @@ void MonsterKilled(const ScriptContext& context, int record_id, int killer_party
     unsigned char value;
 
     if (record_id == 0x131) {
-        SetFact(W8_FACT_CROCK_BREKEK_DEAD, 1, false);
+        context.game.setFact(W8_FACT_CROCK_BREKEK_DEAD, 1);
         return;
     }
     if (record_id == 0x1a9) {
-        SetFact(W8_FACT_QUEEN_IS_DEAD, 1, false);
+        context.game.setFact(W8_FACT_QUEEN_IS_DEAD, 1);
         ApplyFactionChange(2, 1, 0x10, 0x14);
         return;
     }
@@ -932,13 +931,13 @@ void MonsterKilled(const ScriptContext& context, int record_id, int killer_party
             return;
         }
         SetTriggerVariableByName("NumberRattkinBreedersKilled", 2);
-        SetFact(W8_FACT_TRYNNIE_KILL_RATS_DONE, 1, false);
+        context.game.setFact(W8_FACT_TRYNNIE_KILL_RATS_DONE, 1);
         SetFactionDispositionBand(7, W8_FACTION_HOSTILE);
     } else {
         if (record_id == 0x22b) {
             value = context.game.testFact(W8_FACT_ALSEDEXUS_ATTACK);
             if (value != 0) {
-                SetFact(W8_FACT_QUEST_KILL_ALSEDEXUS, 0, false);
+                context.game.setFact(W8_FACT_QUEST_KILL_ALSEDEXUS, 0);
             }
             if (context.status.rpc_active) {
                 if (context.party.characters[context.status.sedexus_party_slot]
@@ -949,95 +948,18 @@ void MonsterKilled(const ScriptContext& context, int record_id, int killer_party
                 QueueCharacterEvent(&context.party.characters[context.status.sedexus_party_slot],
                                     131, 0, kCharacterEventFullVolume);
             }
-            SetFact(W8_FACT_RAPAX_ALSEDEXUS_DEAD, 1, false);
+            context.game.setFact(W8_FACT_RAPAX_ALSEDEXUS_DEAD, 1);
             return;
         }
         if (record_id == 0x181) {
-            SetFact(W8_FACT_KING_IS_DEAD, 1, false);
+            context.game.setFact(W8_FACT_KING_IS_DEAD, 1);
             return;
         }
         if (record_id == 0x175 || record_id == 0x222) {
-            SetFact(W8_FACT_LAVALORD_DIE, 1, false);
+            context.game.setFact(W8_FACT_LAVALORD_DIE, 1);
             return;
         }
     }
-}
-
-/* Original translation-unit ownership of these helpers is unknown. */
-
-void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
-{
-    unsigned char previous_value;
-    std::string display_value;
-
-    if (static_cast<unsigned>(fact_id) >= W8_FACT_SLOT_COUNT) {
-        return;
-    }
-
-    Game& game = CurrentGame();
-    auto& facts = game.story.facts;
-    previous_value = facts[fact_id];
-    facts[fact_id] = value;
-
-    if (fact_id < static_cast<int>(Data().facts.size())) {
-        if (value) {
-            display_value = "TRUE";
-        } else {
-            display_value = "FALSE";
-        }
-    }
-
-    if (!suppress_side_effects) {
-        if (facts[fact_id] != previous_value) {
-            RecordFactChangeForJournal(fact_id);
-        }
-        HandleFactChange(MakeScriptContext(game), fact_id, value);
-
-        if (game.status.log_fact_checks && static_cast<unsigned>(fact_id) < Data().facts.size()) {
-            if (value) {
-                display_value = "TRUE";
-            } else {
-                display_value = "FALSE";
-            }
-            ShowNotice(
-                W8_FONT_PALETTE_YELLOW,
-                fmt::format("{} set to {}", Data().facts[fact_id].symbolic_name, display_value));
-        }
-    }
-}
-
-/* The opening sequence consumes only the imported story choices. The decoded
-   Wizardry 7 records have already been discarded after character conversion. */
-void SeedNewGameFacts(Story& story)
-{
-    g_fact_notifications_suppressed = true;
-    if (story.imported_origin) {
-        SetFact(W8_FACT_IMPORT, 1, false);
-        switch (story.imported_origin->alignment) {
-        case Story::ImportedOrigin::Alignment::Umpani:
-            SetFact(W8_FACT_IMPORT_UMPANI, 1, false);
-            break;
-        case Story::ImportedOrigin::Alignment::Trang:
-            SetFact(W8_FACT_IMPORT_TRANG, 1, false);
-            break;
-        default:
-            SetFact(W8_FACT_IMPORT_NOALIGN, 1, false);
-            break;
-        }
-        if (story.imported_origin->barlone_dead) {
-            SetFact(W8_FACT_BARLONE_WAS_DEAD, 1, false);
-        }
-        if (story.imported_origin->rodan_dead) {
-            SetFact(W8_FACT_RODAN_WAS_DEAD, 1, false);
-        }
-    } else {
-        SetFact(W8_FACT_VIRGIN, 1, false);
-        SetFact(W8_FACT_QUEST_VIRGIN_1, 1, false);
-        SetFact(W8_FACT_QUEST_VIRGIN_2, 1, false);
-        SetFact(W8_FACT_QUEST_VIRGIN_3, 1, false);
-    }
-    story.imported_origin.reset();
-    g_fact_notifications_suppressed = false;
 }
 
 /* Runs once the new-game level has finished loading: records the two starting
@@ -1045,15 +967,13 @@ void SeedNewGameFacts(Story& story)
    seeds the starting fact set, all with notifications suppressed. */
 void PostNewGameLoad(void)
 {
-    g_fact_notifications_suppressed = true;
     LearnDialogueKeyword(Data().strings[0x7e7], W8_DIALOGUE_CATEGORY_MISC, false);
     LearnDialogueKeyword(Data().strings[0x7e8], W8_DIALOGUE_CATEGORY_MISC, false);
-    SetFact(W8_FACT_FACTION_HIGARDI_FELLOW_FRIENDLY, 1, false);
-    SetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
-    SetFact(W8_FACT_RAPAX_QUEEN_LOCKED_UP, 1, false);
-    SetFact(W8_FACT_RODAN_LOCKED_IN_CAGE, 1, false);
-    SetFact(W8_FACT_DRAZIC_LOCKED_IN_CAGE, 1, false);
-    SetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
-    SetFact(W8_FACT_FACTION_RATTKIN_COMMON_FRIENDLY, 1, false);
-    g_fact_notifications_suppressed = false;
+    CurrentGame().setFact(W8_FACT_FACTION_HIGARDI_FELLOW_FRIENDLY, 1, false);
+    CurrentGame().setFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
+    CurrentGame().setFact(W8_FACT_RAPAX_QUEEN_LOCKED_UP, 1, false);
+    CurrentGame().setFact(W8_FACT_RODAN_LOCKED_IN_CAGE, 1, false);
+    CurrentGame().setFact(W8_FACT_DRAZIC_LOCKED_IN_CAGE, 1, false);
+    CurrentGame().setFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
+    CurrentGame().setFact(W8_FACT_FACTION_RATTKIN_COMMON_FRIENDLY, 1, false);
 }
