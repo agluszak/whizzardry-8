@@ -73,10 +73,11 @@ struct PartyMotion {
     /* 0x00420810: rotate motion_input by the saved yaw matrix and refresh
        motion_displacement; returns the updated fast-move latch. */
     unsigned char ApplySavedMotionMatrix(const LevelEnvironment& environ, unsigned char prior_fast,
-                                         bool fast_move, const glm::mat3& saved);
+                                         bool fast_move, const glm::mat3& saved,
+                                         float vertical_limit);
     /* 0x0041FF90: advance movement progress / footstep state for one tick. */
     void UpdateMotionProgress(LevelEnvironment& environ, unsigned char fast_move,
-                              unsigned char moved);
+                              unsigned char moved, bool camera_sway);
     /* 0x00420A60: accumulate footstep distance and optionally play a step. */
     bool UpdateFootstepFromMotion();
 };

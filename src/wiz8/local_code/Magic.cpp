@@ -2482,7 +2482,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         forced = true;
         failure_chance = 100;
     }
-    if (Data().spells[spell_id].realm == W8_SPELL_REALM_FIRE && g_camera_sway_active) {
+    if (Data().spells[spell_id].realm == W8_SPELL_REALM_FIRE && CurrentGame().cameraSwayActive()) {
         failure_chance = 100;
     }
     if (quiet && !g_force_spell_failure) {
@@ -2490,7 +2490,8 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
     }
     if (failure_chance != 0 && (roll = CurrentGame().rng.below(100)) < failure_chance) {
         backfire_chance = failure_chance;
-        if (Data().spells[spell_id].realm == W8_SPELL_REALM_FIRE && g_camera_sway_active) {
+        if (Data().spells[spell_id].realm == W8_SPELL_REALM_FIRE &&
+            CurrentGame().cameraSwayActive()) {
             backfire_chance = 0;
         } else if (!quiet && !forced) {
             if (backfire_chance < 6) {

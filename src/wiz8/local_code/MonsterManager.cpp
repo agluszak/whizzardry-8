@@ -84,6 +84,7 @@
 #include "wiz8/story.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
@@ -168,6 +169,11 @@ void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
 
 void World::prepareMonsterBody(W8MonsterInfo& info, Rng& rng, bool unborn)
 {
+    prepareMonsterBody(info, rng, unborn, party.camera.gravity());
+}
+
+void World::prepareMonsterBody(W8MonsterInfo& info, Rng& rng, bool unborn, float reference_gravity)
+{
     auto* monster_info = &info;
     const W8MonsterRecord* record;
     glm::vec3 camera_position;
@@ -182,7 +188,7 @@ void World::prepareMonsterBody(W8MonsterInfo& info, Rng& rng, bool unborn)
     record = &monster.species();
     if (monster.IsPendingFinalize()) {
         monster.SetLocationId(monster_info->location_id);
-        monster.SetAdjustedPosition(&monster_info->position);
+        monster.SetAdjustedPosition(&monster_info->position, reference_gravity);
 
         if (unborn) {
             if (!monster.IsCycleSupported(0))

@@ -1227,7 +1227,7 @@ bool IsSpellUsableByMonster(W8MonsterInfo* monster_info, int spell_id, bool need
     if (spell_id == W8_SPELL_SUMMON_ELEMENTAL && monster_info->elemental_summon != -1) {
         return false;
     }
-    if (Data().spells[spell_id].realm == W8_SPELL_REALM_FIRE && g_camera_sway_active) {
+    if (Data().spells[spell_id].realm == W8_SPELL_REALM_FIRE && CurrentGame().cameraSwayActive()) {
         return false;
     }
     if (needs_target) {

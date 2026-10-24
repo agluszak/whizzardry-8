@@ -2093,16 +2093,14 @@ void Monster::GetMappedPosition(glm::vec3* position)
 
 void Monster::SetAdjustedPosition(const glm::vec3* position)
 {
-    glm::vec3 current;
-    glm::vec3 adjusted;
-    glm::vec3* adjusted_position;
-    glm::vec3 result;
+    SetAdjustedPosition(position, owner_world.party.camera.gravity());
+}
 
-    current = *position;
-    adjusted_position =
-        nav.AdjustPosition(&adjusted, &current, &current, *owner_world.compiledIndex());
-    result = *adjusted_position;
-    nav.SetPositionInternal(&result);
+void Monster::SetAdjustedPosition(const glm::vec3* position, float gravity)
+{
+    glm::vec3 adjusted;
+    nav.AdjustPosition(&adjusted, position, position, *owner_world.compiledIndex(), gravity);
+    nav.SetPositionInternal(&adjusted);
 }
 
 unsigned short Monster::ApproachStartupNavigator(double separation)

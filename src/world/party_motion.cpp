@@ -180,7 +180,7 @@ bool PartyMotion::IntegrateCameraForward(const LevelEnvironment& environ)
 
 unsigned char PartyMotion::ApplySavedMotionMatrix(const LevelEnvironment& environ,
                                                   unsigned char prior_fast, bool fast_move,
-                                                  const glm::mat3& saved)
+                                                  const glm::mat3& saved, float vertical_limit)
 {
     float horizontal;
     float clamp_scale;
@@ -206,8 +206,6 @@ unsigned char PartyMotion::ApplySavedMotionMatrix(const LevelEnvironment& enviro
         motion_velocity.x = limited.x;
         motion_velocity.z = limited.y;
     }
-    const float vertical_limit =
-        g_environment_load_flag ? g_camera_forward_scale : g_camera_level_forward_scale;
     motion_velocity.y = glm::clamp(motion_velocity.y, -vertical_limit, vertical_limit);
     motion_displacement = motion_velocity * camera_scale;
     return prior_fast;
@@ -271,7 +269,7 @@ unsigned char PartyMotion::ToggleBoundProps()
 }
 
 void PartyMotion::UpdateMotionProgress(LevelEnvironment& environ, unsigned char fast_move,
-                                       unsigned char moved)
+                                       unsigned char moved, bool camera_sway)
 {
     bool allow_override;
     float length;
@@ -343,7 +341,7 @@ void PartyMotion::UpdateMotionProgress(LevelEnvironment& environ, unsigned char 
         }
     }
 
-    if (!g_camera_sway_active) {
+    if (!camera_sway) {
         if (!movement_override) {
             if (allow_override && vertical_motion < 0.1f) {
                 movement_override = true;
@@ -357,7 +355,7 @@ void PartyMotion::UpdateMotionProgress(LevelEnvironment& environ, unsigned char 
     vertical_motion = 0;
 }
 
-LevelEnvironment::LevelEnvironment()
+LevelEnvironment::LevelEnvironment(float gravity)
 {
 
     value_00 = 0;
@@ -366,7 +364,7 @@ LevelEnvironment::LevelEnvironment()
     scale = 1.0f;
     value_08 = 0;
     gravity_x = 0;
-    gravity_y = -g_navigator_gravity;
+    gravity_y = -gravity;
     gravity_z = 0;
     motion_step = 0.05f;
     motion_factor = 1.0f;

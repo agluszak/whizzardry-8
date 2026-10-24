@@ -102,7 +102,9 @@
 #include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/automap.h"
+#include "wiz8/world/environment_state.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
 #include "wiz8/world_view.h"
@@ -1375,7 +1377,9 @@ void PrepareLevelPopulation(Game& game, World& world, LevelState::Data& data,
     for (size_t index = 0; index < records.size(); ++index) {
         if (auto* info = records[index]) {
             info->configureBody(game.rng, game.status.level_progress[world.level_id].visited != 0);
-            world.prepareMonsterBody(*info, game.rng, data.monsters[index].unborn);
+            world.prepareMonsterBody(*info, game.rng, data.monsters[index].unborn,
+                                     game.level.primary ? game.level.primary->party.camera.gravity()
+                                                        : kDefaultGravity);
         }
     }
     entry.npc_bindings = game.prepareNpcBindings(world);

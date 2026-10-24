@@ -442,6 +442,11 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   Game prepares a dialogue's resource binding; the dialogue only changes its own speaker
   and continuation. Preparation can advance its supplied RNG and mutate its own bodies;
   it does not promise rollback.
+- **World physics reference.** The party controller in each world owns its sway mode;
+  gravity and the forward-motion clamp derive from it instead of separately mutable
+  process state. Level preparation takes the source game's gravity as an explicit
+  normalization and initial-placement input. That construction reference is distinct
+  from the incoming world's live mode and authored environment values.
 - Departure ends combat and captures script state into location variables before
   resources are released. Destruction does no departure bookkeeping. `Game::leaveLevel`
   is the departure operation; the session calls it when ending a game, and a screen

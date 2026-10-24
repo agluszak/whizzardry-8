@@ -21,6 +21,7 @@
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/script_context.h"
+#include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
 
 namespace {
@@ -209,4 +210,9 @@ void Game::commitFormation()
     planned_formation = party.formation;
     outcomes.emplace_back(FormationChanged{});
     events.publish(std::move(outcomes));
+}
+
+bool Game::cameraSwayActive() const
+{
+    return level.primary && level.primary->party.camera.swayActive();
 }

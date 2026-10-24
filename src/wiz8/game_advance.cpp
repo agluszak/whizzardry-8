@@ -24,6 +24,7 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/environment.h"
+#include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
@@ -98,7 +99,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
         }
     }
     if (Due(world_items_due, kWorldItemsInterval)) {
-        level.loaded().updateNearbyItems(data, rng, events, g_navigator_gravity);
+        level.loaded().updateNearbyItems(data, rng, events, level.loaded().party.camera.gravity());
         for (auto* world : {level.primary.get(), level.sky.get()})
             if (world) AnimateWorldItems(*world);
     }

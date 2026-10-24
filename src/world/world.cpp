@@ -134,17 +134,20 @@ W8LevelPopulation& CurrentLevelPopulation()
     return *GetWorld()->population;
 }
 
-World::World(int level_id, std::string path, TimerClockView clocks, ShakeSystem* shakes)
+World::World(int level_id, std::string path, TimerClockView clocks, ShakeSystem* shakes,
+             float reference_gravity)
     : clocks(clocks), shakes(shakes), level_id(level_id),
       source_path(path.empty() ? std::string{} : wiz8::normalize_asset_path(path).generic_string()),
-      scene(std::make_unique<WorldScene>()), population(std::make_unique<W8LevelPopulation>())
+      scene(std::make_unique<WorldScene>()), party(*this, reference_gravity),
+      population(std::make_unique<W8LevelPopulation>())
 {
     SetSceneAmbientLightWhite(scene.get());
 }
 
 World::~World() = default;
 
-WorldParty::WorldParty(World& world) : camera(world.clocks), navigator(world)
+WorldParty::WorldParty(World& world, float reference_gravity)
+    : camera(world.clocks, reference_gravity), navigator(world)
 {
     navigator.configureStartupRange(500.0f);
     navigator.configureStartupDepth(std::max(kStartupNearLimit, g_default_world_height),

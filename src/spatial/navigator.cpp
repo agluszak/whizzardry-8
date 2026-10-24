@@ -660,7 +660,6 @@ float g_camera_sphere_radius_scale = 1.0f;
 
 static const float NAVIGATOR_THREE_QUARTER_TURN = 4.712389f;
 static const float NAVIGATOR_MAXIMUM_DROP = 1500.0f;
-float g_navigator_gravity = 187.5f;
 static const float NAVIGATOR_LINK_DISTANCE_SQUARED = 400.0f;
 
 // FUNCTION: WIZ8 0x00454d70
@@ -751,6 +750,13 @@ bool Navigator::UpdateLinkedPosition(std::optional<BoundingSphere> player)
 glm::vec3* Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* current,
                                      const glm::vec3* previous, LevelSpatialIndex& octree)
 {
+    return AdjustPosition(result, current, previous, octree, owner_world.party.camera.gravity());
+}
+
+glm::vec3* Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* current,
+                                     const glm::vec3* previous, LevelSpatialIndex& octree,
+                                     float gravity)
+{
     float acceleration_scale = 0.25f;
     if (movement.location_id == 0) {
         *result = *current;
@@ -779,13 +785,13 @@ glm::vec3* Navigator::AdjustPosition(glm::vec3* result, const glm::vec3* current
                     float distance;
                     if (NavigationCombatActive(*this)) {
                         movement.vertical_velocity += owner_world.clocks.motionDelta() *
-                                                      g_settings.monster_movement_speed *
-                                                      g_navigator_gravity * acceleration_scale;
+                                                      g_settings.monster_movement_speed * gravity *
+                                                      acceleration_scale;
                         distance = movement.vertical_velocity * owner_world.clocks.motionDelta() *
                                    g_settings.monster_movement_speed;
                     } else {
-                        movement.vertical_velocity += owner_world.clocks.motionDelta() *
-                                                      g_navigator_gravity * acceleration_scale;
+                        movement.vertical_velocity +=
+                            owner_world.clocks.motionDelta() * gravity * acceleration_scale;
                         distance = movement.vertical_velocity * owner_world.clocks.motionDelta();
                     }
                     falling.y -= distance;

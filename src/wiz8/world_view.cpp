@@ -128,7 +128,7 @@ void SetWorldViewport(Game* game, const DesignRect& bounds)
         if (sky != 0) {
             sky->camera->setViewPlane(plane, 1.0);
         }
-        if (g_camera_sway_active) {
+        if (world->party.camera.swayActive()) {
             world->party.camera.applySway(*world->camera, CameraSwayMode::Start);
         }
     }

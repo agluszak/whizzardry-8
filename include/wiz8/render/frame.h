@@ -65,7 +65,6 @@ void InvalidateScreenRects(DesignRect* rects, unsigned int count);
 extern int g_cursor_image_height;
 /* 0x00652DA4: set while the swaying camera view is active; see
    PartyCamera::applySway. */
-extern bool g_camera_sway_active;
 extern int g_screenshot_index;
 void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom);
 /* Clear a rectangle of the interface overlay and upload it. */

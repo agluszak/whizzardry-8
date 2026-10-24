@@ -740,7 +740,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
         weights[2] = caster->skills[W8_SKILL_AIR_MAGIC].level + 20;
         weights[3] = caster->skills[W8_SKILL_EARTH_MAGIC].level + 20;
     }
-    if (g_camera_sway_active) {
+    if (CurrentGame().cameraSwayActive()) {
         weights[0] = 0;
     }
     roll = CurrentGame().rng.below(weights[0] + weights[1] + weights[2] + weights[3]);

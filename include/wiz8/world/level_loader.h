@@ -89,5 +89,6 @@ extern const float g_path_endpoint_scale;
 class LevelSpatialIndex;
 struct World;
 
-std::unique_ptr<LevelSpatialIndex> ReadCollisionGeometry(std::string_view path, World* owner);
+std::unique_ptr<LevelSpatialIndex> ReadCollisionGeometry(std::string_view path, World* owner,
+                                                         float reference_gravity);
 bool BuildCollisionIndex(LevelSpatialIndex* game_data);

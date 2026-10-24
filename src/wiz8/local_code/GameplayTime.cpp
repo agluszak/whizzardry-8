@@ -193,7 +193,8 @@ void UpdateGameClock(int elapsed)
         }
     }
 
-    if ((!CurrentGame().combat.has_value() || aging_ticks != 0) && g_camera_sway_active) {
+    if ((!CurrentGame().combat.has_value() || aging_ticks != 0) &&
+        CurrentGame().cameraSwayActive()) {
         if (CurrentGame().combat.has_value()) {
             assert(aging_ticks != 0);
             CurrentGame().status.camp_tick_ms -= 4 * 0x9c4;

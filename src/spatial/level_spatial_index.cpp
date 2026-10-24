@@ -1425,9 +1425,10 @@ bool LevelSpatialIndex::SetPathStem(std::string_view path)
 
    A null path builds an empty octree, and a level whose preprocessed files
    cannot be built runs on the LVL file alone with the same error bit set. */
-LevelSpatialIndex::LevelSpatialIndex(std::string_view path, World* owner) : owner_world(owner)
+LevelSpatialIndex::LevelSpatialIndex(std::string_view path, World* owner, float reference_gravity)
+    : owner_world(owner)
 {
-    initializeCollision();
+    initializeCollision(reference_gravity);
     Reset();
     try {
         if (path.empty()) {
@@ -1595,7 +1596,7 @@ LevelSpatialIndex::LevelSpatialIndex(std::string_view path, World* owner) : owne
             throw std::runtime_error("Invalid octree terminator.");
         }
         if (header.m_gd_surface_stream_len != 0) {
-            ReadProcessedCollision(hOctFile.get());
+            ReadProcessedCollision(hOctFile.get(), reference_gravity);
             hOctFile->read_exact(&uiTerminator, sizeof(uiTerminator));
             if (uiTerminator != 0xffffffff) {
                 throw std::runtime_error("Invalid octree GameData terminator.");

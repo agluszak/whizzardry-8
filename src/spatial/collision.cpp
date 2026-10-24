@@ -1400,37 +1400,6 @@ LevelEnvironment* LevelEnviron()
     return data ? &GetWorld()->party.camera.environment.value : nullptr;
 }
 
-/* The camera-sway mode halves navigator gravity, mirrors it into the active
-   environment record and swaps the camera forward scale; the flag guards both
-   transitions so repeated triggers are idempotent. */
-void BeginCameraSway(void)
-{
-    LevelEnvironment* environ = LevelEnviron();
-    if (g_camera_sway_active) {
-        return;
-    }
-    g_camera_forward_scale = g_camera_level_forward_scale;
-    g_navigator_gravity = 93.75f;
-    if (environ != 0) {
-        environ->gravity_y = -93.75f;
-    }
-    g_camera_sway_active = true;
-}
-
-void EndCameraSway(void)
-{
-    LevelEnvironment* environ = LevelEnviron();
-    if (!g_camera_sway_active) {
-        return;
-    }
-    g_camera_forward_scale = g_camera_default_forward_scale;
-    g_navigator_gravity = 187.5f;
-    if (environ != 0) {
-        environ->gravity_y = -187.5f;
-    }
-    g_camera_sway_active = false;
-}
-
 void ResetCurrentEnvironment(void)
 {
     auto* data = GetWorldCollision();

@@ -82,6 +82,7 @@
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
+#include "wiz8/world/environment_state.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
@@ -907,9 +908,9 @@ const float g_path_endpoint_scale = 0.9900000095367432f;
 /* Opens a game-data file, builds its record, and pulls the polygon and
    vertex banks through the record reader. */
 static std::unique_ptr<LevelSpatialIndex> ReadGeometry(std::unique_ptr<wiz8::File> file,
-                                                       World* owner)
+                                                       World* owner, float reference_gravity)
 {
-    auto game_data = std::make_unique<LevelSpatialIndex>("", owner);
+    auto game_data = std::make_unique<LevelSpatialIndex>("", owner, reference_gravity);
     game_data->compiled_available = false;
     game_data->ReadWGDList(*file, 0);
     game_data->ReadWGDList(*file, 1);
@@ -917,7 +918,8 @@ static std::unique_ptr<LevelSpatialIndex> ReadGeometry(std::unique_ptr<wiz8::Fil
     return game_data;
 }
 
-std::unique_ptr<LevelSpatialIndex> ReadCollisionGeometry(std::string_view path, World* owner)
+std::unique_ptr<LevelSpatialIndex> ReadCollisionGeometry(std::string_view path, World* owner,
+                                                         float reference_gravity)
 {
     std::unique_ptr<wiz8::File> file;
     try {
@@ -926,7 +928,7 @@ std::unique_ptr<LevelSpatialIndex> ReadCollisionGeometry(std::string_view path, 
         return 0; // Retail: a level without game data (e.g. Test\DefaultSky) is valid.
     }
     try {
-        return ReadGeometry(std::move(file), owner);
+        return ReadGeometry(std::move(file), owner, reference_gravity);
     } catch (const std::exception&) {
         return 0;
     }
@@ -1226,11 +1228,11 @@ struct W8ProcessedGameDataHeader {
     unsigned char reserved[0x24];
 };
 
-bool LevelEnvironment::RescaleToReference(const LevelEnvironment* reference)
+bool LevelEnvironment::RescaleToReference(const LevelEnvironment* reference, float gravity)
 {
     if (reference == 0) {
-        float difference = static_cast<float>(fabs(g_navigator_gravity + vector.y));
-        if (g_navigator_gravity * kCameraSnapEpsilon < difference) {
+        float difference = static_cast<float>(fabs(gravity + vector.y));
+        if (gravity * kCameraSnapEpsilon < difference) {
             return true;
         }
         difference = static_cast<float>(fabs(forward_scale - g_camera_level_forward_scale));
@@ -1248,7 +1250,7 @@ bool LevelEnvironment::RescaleToReference(const LevelEnvironment* reference)
         return false;
     }
 
-    float scale = g_navigator_gravity / -reference->gravity_y;
+    float scale = gravity / -reference->gravity_y;
     gravity_x *= scale;
     gravity_y *= scale;
     gravity_z *= scale;
@@ -1259,7 +1261,7 @@ bool LevelEnvironment::RescaleToReference(const LevelEnvironment* reference)
 }
 
 /* Read the processed GameData header and all of its variable-size banks. */
-void LevelSpatialIndex::ReadProcessedCollision(wiz8::File* handle)
+void LevelSpatialIndex::ReadProcessedCollision(wiz8::File* handle, float reference_gravity)
 {
     wiz8::BinaryReader reader(*handle);
     const auto header = reader.record<W8ProcessedGameDataHeader>();
@@ -1329,11 +1331,11 @@ void LevelSpatialIndex::ReadProcessedCollision(wiz8::File* handle)
     }
     std::vector<bool> pending_bits(header.trigger_count);
     std::vector<bool> active_bits(header.trigger_count);
-    if (!environs.empty() && environs[0].RescaleToReference(0) != 0) {
+    if (!environs.empty() && environs[0].RescaleToReference(nullptr, reference_gravity) != 0) {
         for (std::size_t index = 1; index < environs.size(); ++index) {
-            environs[index].RescaleToReference(&environs[0]);
+            environs[index].RescaleToReference(&environs[0], reference_gravity);
         }
-        environs[0].RescaleToReference(&environs[0]);
+        environs[0].RescaleToReference(&environs[0], reference_gravity);
     }
 
     m_pVertices.swap(vertices);
@@ -1359,13 +1361,13 @@ void LevelSpatialIndex::ReadProcessedCollision(wiz8::File* handle)
     state.pending_triggers = std::move(pending_bits);
     state.active_triggers = std::move(active_bits);
     interface_names.clear();
-    if (environments.empty()) environments.emplace_back();
+    if (environments.empty()) environments.emplace_back(reference_gravity);
     collision_available = true;
 }
 
 /* 0x0044902E is the constructor's shared body entry: the SEH wrapper at
    0x00449010 zeroes EBX and falls through into the code below. */
-void LevelSpatialIndex::initializeCollision()
+void LevelSpatialIndex::initializeCollision(float reference_gravity)
 {
     geometry_index = 0;
     integrated_surface_count = 0;
@@ -1376,9 +1378,7 @@ void LevelSpatialIndex::initializeCollision()
 
     minimum = glm::vec3(1.0e8f);
     maximum = glm::vec3(-1.0e8f);
-    if (EnvironsCount() == 0) {
-        environments.emplace_back();
-    }
+    if (EnvironsCount() == 0) environments.emplace_back(reference_gravity);
 }
 
 /* Build the processed level's spatial index once and publish every surface
@@ -1483,8 +1483,10 @@ void LevelSpatialIndex::adoptCollisionData(LevelSpatialIndex&& source)
 
 std::unique_ptr<World> Game::loadWorld(int level_id, std::string source_path)
 {
-    auto owner =
-        std::make_unique<World>(level_id, std::move(source_path), timerClocks(), &camera_shakes);
+    const float reference_gravity =
+        level.primary ? level.primary->party.camera.gravity() : kDefaultGravity;
+    auto owner = std::make_unique<World>(level_id, std::move(source_path), timerClocks(),
+                                         &camera_shakes, reference_gravity);
     auto* world = owner.get();
     const auto& resource_path = world->source_path;
     const auto path = wiz8::path_from_utf8(resource_path);
@@ -1500,12 +1502,13 @@ std::unique_ptr<World> Game::loadWorld(int level_id, std::string source_path)
     const auto material_folder = wiz8::path_to_utf8(path.parent_path() / "Bitmaps");
 
     if (CheckLevelAssetSet(oct_path.c_str()) >= 0) {
-        world->spatial = std::make_unique<LevelSpatialIndex>(oct_path.c_str(), world);
+        world->spatial =
+            std::make_unique<LevelSpatialIndex>(oct_path.c_str(), world, reference_gravity);
         if (world->compiledIndex()->HasLoadError()) world->spatial.reset();
     }
 
     if (!world->collisionIndex()) {
-        if (auto data = ReadCollisionGeometry(game_data_path, world)) {
+        if (auto data = ReadCollisionGeometry(game_data_path, world, reference_gravity)) {
             if (world->spatial)
                 world->spatial->adoptCollisionData(std::move(*data));
             else

@@ -176,6 +176,7 @@ public:
     glm::vec3 GetRepresentationLocalLocation() const;
     void SetFacing(float angle);
     void SetAdjustedPosition(const glm::vec3* position);
+    void SetAdjustedPosition(const glm::vec3* position, float gravity);
     unsigned short ApproachStartupNavigator(double separation);
     unsigned char LinkToStartupNavigator();
     unsigned short ConfigureMovementToPlayer(float separation, float maximum_distance,

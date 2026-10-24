@@ -311,6 +311,8 @@ public:
     glm::vec3* AdjustPosition(glm::vec3* result, const glm::vec3* current,
                               const glm::vec3* previous,
                               LevelSpatialIndex& octree); /* 0x00454440 */
+    glm::vec3* AdjustPosition(glm::vec3* result, const glm::vec3* current,
+                              const glm::vec3* previous, LevelSpatialIndex& octree, float gravity);
     void UpdateFacing(bool immediate);                                    /* 0x00454780 */
     void UpdateLinkedNavigator(std::optional<BoundingSphere> player); /* 0x00454D70 */
     bool UpdateLinkedPosition(std::optional<BoundingSphere> player);

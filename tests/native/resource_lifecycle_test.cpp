@@ -1849,3 +1849,35 @@ TEST_CASE("Script fact tests and diagnostics use their own party, story and cont
     REQUIRE(candidate.story.facts[W8_FACT_ALIGNMENT_UMPANI] == 1);
     candidate.events.observe({});
 }
+
+TEST_CASE("Camera sway and its gravity belong to the world's party", "[lifetime][world][motion]")
+{
+    ScopedGame outgoing;
+    outgoing.game.level.replacePrimary(std::make_unique<World>());
+    auto& first = outgoing.game.level.loaded();
+    first.party.camera.applySway(first.scene->camera, CameraSwayMode::Start);
+    REQUIRE(outgoing.game.cameraSwayActive());
+    REQUIRE(first.party.camera.gravity() == 93.75f);
+    REQUIRE(first.party.camera.environment.value.gravity_y == -93.75f);
+    // Preparation captures the source world's normalization reference, not its live mode.
+    World prepared{-1, "", {}, nullptr, first.party.camera.gravity()};
+    REQUIRE(prepared.party.camera.environment.value.gravity_y == -93.75f);
+    REQUIRE_FALSE(prepared.party.camera.swayActive());
+    REQUIRE(prepared.party.camera.gravity() == 187.5f);
+    LevelSpatialIndex prepared_geometry{"", &prepared, first.party.camera.gravity()};
+    REQUIRE(prepared_geometry.environments.front().gravity_y == -93.75f);
+
+    Game candidate{outgoing.game.data};
+    candidate.level.replacePrimary(std::make_unique<World>());
+    auto& second = candidate.level.loaded();
+    REQUIRE_FALSE(candidate.cameraSwayActive());
+    REQUIRE(second.party.camera.gravity() == 187.5f);
+    second.party.camera.applySway(second.scene->camera, CameraSwayMode::Start);
+    second.party.camera.applySway(second.scene->camera, CameraSwayMode::Stop);
+    REQUIRE_FALSE(candidate.cameraSwayActive());
+    REQUIRE(second.party.camera.environment.value.gravity_y == -187.5f);
+    REQUIRE(outgoing.game.cameraSwayActive());
+    REQUIRE(first.party.camera.gravity() == 93.75f);
+    candidate.level.replacePrimary(nullptr);
+    REQUIRE(outgoing.game.cameraSwayActive());
+}

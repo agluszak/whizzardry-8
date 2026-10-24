@@ -1,5 +1,4 @@
 #pragma once
-
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -30,6 +29,7 @@
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/environment.h"
+#include "wiz8/world/environment_state.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world_cursor.h"
 
@@ -83,7 +83,7 @@ class LevelSpatialIndex;
    the proxy with it. Characters and inventory stay with the game. */
 class WorldParty {
 public:
-    explicit WorldParty(World& world);
+    explicit WorldParty(World& world, float reference_gravity = kDefaultGravity);
     PartyCamera camera;
     // Registered in the world's navigators like any other mover.
     Navigator navigator;
@@ -110,7 +110,7 @@ struct Story;
 // destruction removes population-owned bodies before their resources and indexes.
 struct World {
     explicit World(int level_id = -1, std::string source_path = {}, TimerClockView clocks = {},
-                   ShakeSystem* shakes = nullptr);
+                   ShakeSystem* shakes = nullptr, float reference_gravity = kDefaultGravity);
     ~World();
     World(const World&) = delete;
     World& operator=(const World&) = delete;
@@ -150,6 +150,7 @@ struct World {
     // until every script/update borrowing them has returned.
     void updateMonsters();
     void prepareMonsterBody(W8MonsterInfo& info, Rng& rng, bool unborn);
+    void prepareMonsterBody(W8MonsterInfo& info, Rng& rng, bool unborn, float reference_gravity);
     std::unique_ptr<Monster> loadMonsterBody(const W8MonsterRecord& record, int location_id,
                                              Rng& rng);
     W8WorldItem* adoptItem(std::unique_ptr<W8WorldItem> item);

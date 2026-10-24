@@ -90,9 +90,6 @@ extern const float g_camera_vertical_margin = 0.2168571501970291f;
    initializer would under-produce the .data bytes. */
 static float g_camera_transition_speed = g_camera_half_period / g_camera_transition_duration_factor;
 float g_camera_max_yaw_velocity = 0.3490658700466156f;
-float g_camera_level_forward_scale = 375.0f;
-float g_camera_default_forward_scale = 750.0f;
-float g_camera_forward_scale = 750.0f;
 
 PartyCamera& partyCamera()
 {
@@ -117,9 +114,10 @@ void OffsetPositionByYawPitch(float distance, glm::vec3* position, float yaw, fl
     *position += glm::rotateY(glm::rotateX(glm::vec3(0, 0, distance), pitch), yaw);
 }
 
-PartyCamera::PartyCamera(TimerClockView clocks)
+PartyCamera::PartyCamera(TimerClockView clocks, float reference_gravity)
     : clocks(clocks), m_manual_input_timer(clocks, 1.0f, TimerClock::World, true)
 {
+    environment.value.gravity_y = -reference_gravity;
     m_orientation_flags = 0;
     m_target_yaw = 0.0f;
     m_target_pitch = 0.0f;
@@ -637,19 +635,21 @@ CameraMotion PartyCamera::move(LevelSpatialIndex& collision, unsigned int flags,
         cameraMotionInput(flags, motion.motion_input, forward_scale, g_camera_motion_clamp,
                           g_environment_load_flag == 0, g_environment_load_flag == 0);
     fast_move = (flags & W8_CAMERA_MOTION_FAST) != 0;
-    fast_move_state =
-        motion.ApplySavedMotionMatrix(*environ, fast_move_state, fast_move, movement_basis);
+    fast_move_state = motion.ApplySavedMotionMatrix(
+        *environ, fast_move_state, fast_move, movement_basis,
+        g_environment_load_flag && !sway_active_ ? g_camera_default_forward_scale
+                                                 : g_camera_level_forward_scale);
 
     if (g_environment_load_flag == 0) {
         delta = motion.motion_displacement;
         moved = static_cast<float>(g_motion_delta_epsilon) < glm::length(delta);
-        motion.UpdateMotionProgress(*environ, fast_move_state, moved);
+        motion.UpdateMotionProgress(*environ, fast_move_state, moved, sway_active_);
         if (moved == 0) {
             goto after_move;
         }
     } else {
         moved = collision.AdvanceEnvironmentMotion(motion, environment);
-        motion.UpdateMotionProgress(*environ, fast_move_state, moved);
+        motion.UpdateMotionProgress(*environ, fast_move_state, moved, sway_active_);
         delta = motion.motion_displacement;
         if (glm::length(delta) <= static_cast<float>(g_motion_delta_epsilon)) {
             if (moved == 0) {
@@ -817,19 +817,23 @@ void PartyCamera::applySway(Camera3D& camera, CameraSwayMode mode)
                 static_cast<float>(camera.getHorizontalFOV() * (180.0 / std::numbers::pi));
             base_vertical_fov =
                 static_cast<float>(camera.getVerticalFOV() * (180.0 / std::numbers::pi));
-            if (!g_camera_sway_active) {
+            if (!sway_active_) {
                 sway_horizontal_phase = 0.0f;
                 sway_vertical_phase = 0.0f;
-                BeginCameraSway();
+                sway_active_ = true;
+                environment.value.gravity_y = -gravity();
             }
         } else {
             double radians = std::numbers::pi * 0.0055555557f;
             camera.setViewPlane(radians * base_horizontal_fov, radians * base_vertical_fov);
-            EndCameraSway();
+            if (sway_active_) {
+                sway_active_ = false;
+                environment.value.gravity_y = -gravity();
+            }
             return;
         }
     }
-    if (!g_camera_sway_active) {
+    if (!sway_active_) {
         return;
     }
 

@@ -334,7 +334,8 @@ static void geometry()
     data.collision_available = true;
     store("geometry.bin", bytes);
     auto file = wiz8::open_file(wiz8::asset_path("geometry.bin"));
-    data.ReadProcessedCollision(file.get());
+    data.ReadProcessedCollision(file.get(), 93.75f);
+    REQUIRE(data.environments.front().gravity_y == -93.75f);
     file->seek(0, wiz8::SeekOrigin::begin);
     std::size_t operations;
     {

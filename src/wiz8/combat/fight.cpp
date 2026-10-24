@@ -1326,7 +1326,7 @@ void AdvanceCombatRound(void)
         }
     }
     AdvanceEnvironmentTime(120000);
-    if (g_camera_sway_active) {
+    if (CurrentGame().cameraSwayActive()) {
         UpdateCampFatigue(10);
     }
     CurrentGame().events.push(PartyEffectsChanged{});

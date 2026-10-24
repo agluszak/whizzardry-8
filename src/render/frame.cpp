@@ -91,7 +91,6 @@ std::unique_ptr<UiCanvasTexture> g_ui_canvas;
 std::shared_ptr<SDL_Surface> g_mouse_surface;
 
 DesignRect g_viewport;
-bool g_camera_sway_active;
 extern const float g_viewport_x_scale = 1.0f / 640.0f;
 extern const float g_viewport_y_scale = 1.0f / 480.0f;
 

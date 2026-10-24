@@ -53,6 +53,8 @@ public:
     float sway_horizontal_phase = 0;
     float sway_vertical_phase = 0;
     void applySway(Camera3D& camera, CameraSwayMode mode);
+    bool swayActive() const { return sway_active_; }
+    float gravity() const { return sway_active_ ? kDefaultGravity / 2 : kDefaultGravity; }
     ActiveEnvironment environment;
     bool motion_started = false;
     int saved_environment_flag = 1;
@@ -65,7 +67,7 @@ public:
     glm::mat3 turn(unsigned int flags);
     CameraMotion move(LevelSpatialIndex& collision, unsigned int flags,
                       const glm::mat3& movement_basis);
-    explicit PartyCamera(TimerClockView clocks = {});
+    explicit PartyCamera(TimerClockView clocks = {}, float reference_gravity = kDefaultGravity);
 
     void ApplyRotationMatrix(glm::mat3* rotation, PartyMotion* context); /* 0x00476610 */
     void pointAt(const glm::vec3& position, bool force, bool animate, bool conversation);
@@ -128,6 +130,7 @@ public:
     W8IntervalGate m_manual_input_timer;
 
 private:
+    bool sway_active_ = false;
     void updateMovementAudio(World& world);
     bool CanTrackTarget(bool conversation);
 };
@@ -148,10 +151,9 @@ void OffsetPositionByYawPitch(float distance, glm::vec3* position, float yaw, fl
    radians; the homing missile tick faces its representation with them. */
 /* ElevationToTargetCPP and HeadingToTargetCPP are declared in
    wiz8/render/picking.h. */
-extern float g_camera_level_forward_scale;
+inline constexpr float g_camera_level_forward_scale = 375.0f;
 extern float g_camera_max_yaw_velocity;
 extern const float g_negative_one;
 extern const double g_camera_pi;
 extern const float g_camera_transition_epsilon;
-extern float g_camera_default_forward_scale;
-extern float g_camera_forward_scale;
+inline constexpr float g_camera_default_forward_scale = 750.0f;

@@ -480,7 +480,6 @@ static void LeaveLoadedLevel(Game& game)
 
     ReleaseWorldCursor();
     DisableSky();
-    EndCameraSway();
     game.motion_clock = {};
     game.level.replacePrimary(nullptr);
 }
