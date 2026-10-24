@@ -22,6 +22,7 @@
 #include "wiz8/render/quality.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/update.h"
