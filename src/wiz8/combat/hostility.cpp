@@ -671,7 +671,7 @@ int CharacterPrayAction(int party_slot)
             if (CurrentGame().combat.has_value()) {
                 for (index = 0; index < 9; ++index) {
                     if (CurrentGame().combat->effect_slots[index].active) {
-                        ResetPartyEffectBlock(&CurrentGame().combat->effect_slots[index]);
+                        CurrentGame().resetPartyEffect(CurrentGame().combat->effect_slots[index]);
                     }
                 }
             }

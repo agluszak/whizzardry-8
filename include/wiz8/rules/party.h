@@ -2,6 +2,7 @@
 
 #include <array>
 #include <optional>
+#include <span>
 
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/rules/character.h"
@@ -26,6 +27,9 @@ struct W8Party {
     bool canAttack(unsigned int slot) const;
     bool participates(unsigned int slot) const;
     unsigned int participantCount() const;
+    void refreshModifiers(std::span<const W8EffectSlot, 12> effects,
+                          std::span<const W8EffectSlot> combat_effects,
+                          std::span<const W8EffectSlot> radius_effects);
     unsigned int awardExperience(unsigned int amount);
     W8Action availableAction(unsigned int slot, W8Action action) const;
     W8Action action(unsigned int slot, W8TargetingContext stored) const;

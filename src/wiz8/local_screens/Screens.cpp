@@ -31,6 +31,7 @@
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
+#include "wiz8/local_screens/MGSSpellIcons.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
@@ -286,6 +287,7 @@ struct GameEventPresentation {
     }
     void operator()(const CombatEffectsChanged&) const
     {
+        InvalidateMainGameEffectHud();
         if (auto* hud = ShownHud()) hud->repaint.combat_effects = true;
     }
     void operator()(const PartyPanelChanged&) const

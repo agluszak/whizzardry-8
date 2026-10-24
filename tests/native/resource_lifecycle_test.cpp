@@ -1904,3 +1904,38 @@ TEST_CASE("Camera sway and its gravity belong to the world's party", "[lifetime]
     candidate.level.replacePrimary(nullptr);
     REQUIRE(outgoing.game.cameraSwayActive());
 }
+
+TEST_CASE("Party effect expiry settles and lights only its originating world",
+          "[lifetime][effects]")
+{
+    ScopedGame outgoing;
+    outgoing.game.level.replacePrimary(std::make_unique<World>());
+    Light old_light{nullptr};
+    outgoing.game.level.loaded().camera_light = &old_light;
+    old_light.intensity = 42.0f;
+    old_light.visible = true;
+
+    Game candidate{outgoing.game.data};
+    candidate.level.replacePrimary(std::make_unique<World>());
+    Light light{nullptr};
+    candidate.level.loaded().camera_light = &light;
+    auto& effect = candidate.status.effect_slots[0];
+    effect.percent = 50;
+    effect.Activate(8, 4, 3);
+    candidate.refreshPartyEffects();
+    REQUIRE(candidate.party.modifiers.light == 12);
+    REQUIRE(light.visible);
+    REQUIRE(light.intensity == 14.0f);
+    const auto intensity = light.intensity;
+    candidate.resetPartyEffect(effect);
+    REQUIRE_FALSE(effect.active);
+    REQUIRE(effect.percent == 50);
+    REQUIRE(candidate.party.modifiers.light == 0);
+    REQUIRE_FALSE(light.visible);
+    REQUIRE(light.intensity == intensity);
+    REQUIRE(old_light.visible);
+    REQUIRE(old_light.intensity == 42.0f);
+    REQUIRE(outgoing.game.events.pending().empty());
+    candidate.level.loaded().camera_light = nullptr;
+    outgoing.game.level.loaded().camera_light = nullptr;
+}

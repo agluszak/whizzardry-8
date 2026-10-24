@@ -1,6 +1,8 @@
 #ifndef WIZ8_GAMEPLAY_MODIFIERS_H
 #define WIZ8_GAMEPLAY_MODIFIERS_H
 
+#include <span>
+
 /*
  * The effect-slot and modifier records the gameplay-modifier passes accumulate through.
  *
@@ -109,5 +111,8 @@ inline void AdjustByteByPercent(unsigned char* value, unsigned int percent)
 {
     *value = static_cast<unsigned char>(((percent + 100) * *value + 50) / 100);
 }
+
+void ApplyPartyEffectSlots(std::span<const W8EffectSlot> source, W8GameplayModifierBlock* target);
+void ApplyCombatEffectSlots(std::span<const W8EffectSlot> source, W8GameplayModifierBlock* target);
 
 #endif

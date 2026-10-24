@@ -30,6 +30,7 @@
 #include "wiz8/containers.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/faction_ids.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/difficulty.h"
@@ -876,13 +877,15 @@ void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info)
     for (index = 0; index < 9; ++index) {
         entry = &monster_info->pCombat->combat_effects[index];
         if (entry->active) {
-            ClearEffectSlot(monster_info, entry);
+            monster_info->clearEffect(*entry,
+                                      CurrentGame().data.monsters[monster_info->monster_species]);
         }
     }
     for (index = 0; index < 6; ++index) {
         entry = &monster_info->pCombat->combat_effects_2[index];
         if (entry->active) {
-            ClearEffectSlot(monster_info, entry);
+            monster_info->clearEffect(*entry,
+                                      CurrentGame().data.monsters[monster_info->monster_species]);
         }
     }
     monster_info->pCombat.reset();

@@ -24,6 +24,7 @@
 #include "wiz8/combat/range.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -59,7 +60,6 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/MGSSpellIcons.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/render/camera_shake.h"
@@ -338,68 +338,42 @@ bool MonsterResistsSpellEffect(const W8CombatSlot* target, int power)
     return static_cast<int>(CurrentGame().rng.below(100)) < score;
 }
 
-/* Empty one effect slot, dropping its visual first if it was running. The
-   clear is written field by field rather than as a block, which is what leaves
-   the four bytes at 0x09 untouched. */
-void ClearEffectSlot(W8MonsterInfo* monster_info, W8EffectSlot* slot)
+// Reset deliberately retains percent: it belongs to the slot's next activation too.
+void W8MonsterInfo::clearEffect(W8EffectSlot& effect, const W8MonsterRecord& record)
 {
-    if (slot->active) {
-        SetMonsterSpellIcon(*monster_info->entity,
-                            g_effect_visual_table[slot->effect_id].monster_icon, false);
+    if (effect.active) {
+        SetMonsterSpellIcon(*entity, g_effect_visual_table[effect.effect_id].monster_icon, false);
     }
-    slot->Reset();
-    RebuildMonsterDerivedStats(monster_info->location_id);
+    effect.Reset();
+    RebuildMonsterDerivedStats(*this, record);
 }
 
-/* Clear every live combat effect at battle end: the party blocks get the
-   field-by-field wipe plus the rebuild/HUD/redraw trio, and each active
-   in-combat monster loses the matching mirrored slot, its visual and a
-   derived-stat rebuild. */
-void ResetCombatEffects(void)
+void Game::resetCombatEffects()
 {
-    W8MonsterInfo* monster_info;
-    W8EffectSlot* slot;
-    unsigned int index;
-    int i;
-
-    for (i = 0; i < 9; ++i) {
-        if (CurrentGame().combat->effect_slots[i].active) {
-            ResetPartyEffectBlock(&CurrentGame().combat->effect_slots[i]);
-        }
-        for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
-            monster_info = GetMonsterListEntry(index);
-            if (monster_info->fActive && monster_info->pCombat) {
-                slot = &monster_info->pCombat->combat_effects[i];
-                if (slot->active) {
-                    ClearEffectSlot(monster_info, slot);
-                }
+    auto reset = [&](auto& party_effects, auto member) {
+        for (unsigned int slot = 0; slot < std::size(party_effects); ++slot) {
+            if (party_effects[slot].active) resetPartyEffect(party_effects[slot]);
+            // Settlement above can change the population. Preserve slot-major traversal.
+            auto& monsters = level.loaded().population->monster_roster.live();
+            for (unsigned int index = 0; index < monsters.size(); ++index) {
+                auto& monster = *monsters[index];
+                if (!monster.fActive || !monster.pCombat) continue;
+                auto& effect = (monster.pCombat.get()->*member)[slot];
+                if (effect.active)
+                    monster.clearEffect(effect, data.monsters[monster.monster_species]);
             }
         }
-    }
-    for (i = 0; i < 6; ++i) {
-        if (CurrentGame().combat->effect_slots0[i].active) {
-            ResetPartyEffectBlock(&CurrentGame().combat->effect_slots0[i]);
-        }
-        for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
-            monster_info = GetMonsterListEntry(index);
-            if (monster_info->fActive && monster_info->pCombat) {
-                slot = &monster_info->pCombat->combat_effects_2[i];
-                if (slot->active) {
-                    ClearEffectSlot(monster_info, slot);
-                }
-            }
-        }
-    }
+    };
+    reset(combat->effect_slots, &W8MonsterCombatState::combat_effects);
+    reset(combat->effect_slots0, &W8MonsterCombatState::combat_effects_2);
 }
 
-/* Wipe the party-wide effect block and tell the three displays that read it. */
-void ResetPartyEffectBlock(W8EffectSlot* slot)
+void Game::resetPartyEffect(W8EffectSlot& effect)
 {
-    slot->Reset();
-    RebuildPartyEffectBlock();
-    InvalidateMainGameEffectHud();
-    CurrentGame().events.push(PartyEffectsChanged{});
-    CurrentGame().events.push(CombatEffectsChanged{});
+    effect.Reset();
+    refreshPartyEffects();
+    events.push(PartyEffectsChanged{});
+    events.push(CombatEffectsChanged{});
 }
 
 /* How much harder each condition is to shrug off, added to the
@@ -1749,7 +1723,7 @@ void ApplyBeingEffectSlot(W8SpellEffectEntry* effect)
     if (!effect->target_indices.empty()) {
         slot = &CurrentGame().status.effect_slots[slot_index];
         slot->Activate(effect->kind, effect->definition.duration_scale, duration);
-        RebuildPartyEffectBlock();
+        CurrentGame().refreshPartyEffects();
         CurrentGame().events.push(PartyEffectsChanged{});
         CurrentGame().events.push(CombatEffectsChanged{});
         effect->applied = true;
@@ -1841,7 +1815,7 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
         if (!effect->target_indices.empty()) {
             slot = &CurrentGame().combat->effect_slots[slot_index];
             slot->Activate(spell_id, effect->definition.duration_scale, duration);
-            RebuildPartyEffectBlock();
+            CurrentGame().refreshPartyEffects();
             CurrentGame().events.push(PartyEffectsChanged{});
             CurrentGame().events.push(CombatEffectsChanged{});
             effect->applied = true;
@@ -1906,7 +1880,7 @@ void ApplyDefenseEffectSlot(W8SpellEffectEntry* effect)
     if (!effect->target_indices.empty()) {
         slot = &CurrentGame().combat->effect_slots0[slot_index];
         slot->Activate(spell_id, effect->definition.duration_scale, duration);
-        RebuildPartyEffectBlock();
+        CurrentGame().refreshPartyEffects();
         CurrentGame().events.push(PartyEffectsChanged{});
         CurrentGame().events.push(CombatEffectsChanged{});
         effect->applied = true;
@@ -2428,7 +2402,7 @@ void ReduceCombatEffectDurations(W8SpellEffectEntry* effect)
                     if (static_cast<unsigned int>(reduce) < slot->duration) {
                         slot->duration -= reduce;
                     } else {
-                        ResetPartyEffectBlock(slot);
+                        CurrentGame().resetPartyEffect(*slot);
                     }
                     effect->applied = true;
                 }
@@ -2439,7 +2413,8 @@ void ReduceCombatEffectDurations(W8SpellEffectEntry* effect)
                         if (static_cast<unsigned int>(reduce) < slot->duration) {
                             slot->duration -= reduce;
                         } else {
-                            ClearEffectSlot(monster_info, slot);
+                            monster_info->clearEffect(
+                                *slot, CurrentGame().data.monsters[monster_info->monster_species]);
                         }
                         effect->applied = true;
                     }
@@ -3297,7 +3272,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
             slot = CurrentGame().status.effect_slots.data();
             do {
                 if (slot->active) {
-                    ResetPartyEffectBlock(slot);
+                    CurrentGame().resetPartyEffect(*slot);
                 }
                 ++slot;
             } while (slot < CurrentGame().status.effect_slots.data() + 12);

@@ -23,6 +23,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/platform/game_timer.h"
@@ -556,29 +557,12 @@ void ApplyEnvironmentColour(World* world, float intensity, const glm::vec3* colo
     RefreshCloudMaterial(*world);
 }
 
-/* Write the camera light's intensity, if the world has one. */
-void SetCameraLightIntensity(float value)
+// Extinguishing the party light preserves its last intensity.
+void World::setPartyLight(unsigned int intensity)
 {
-    if (GetWorld()->camera_light != 0) {
-        GetWorld()->camera_light->intensity = value;
-    }
-}
-
-/* Show or hide the world's camera light, which is the renderer's flag zero the
-   other way round: showing it clears the flag. 0x00483E50 loads the light from
-   GetWorld() at offset 0x54 and reaches the same two imported flag thunks, so the
-   node here is the camera light the world setup creates, never a sky node. */
-void SetSkyNodeVisible(bool visible)
-{
-    Light* camera_light = GetWorld()->camera_light;
-
-    if (camera_light != 0) {
-        if (visible) {
-            camera_light->visible = true;
-        } else {
-            camera_light->visible = false;
-        }
-    }
+    if (!camera_light) return;
+    camera_light->visible = intensity != 0;
+    if (intensity != 0) camera_light->intensity = intensity + kEnvironmentNearScale;
 }
 
 /* Raise or lower the camera light by one step, disable it, or enable it. */

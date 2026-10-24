@@ -60,8 +60,6 @@ void UpdateEnvironmentLighting(void);
    and updates its visibility.
    Nothing here is a sky node; the exported name is still the placeholder and one
    caller lives in a TU owned elsewhere, so the rename waits for it. */
-void SetSkyNodeVisible(bool visible);
-void SetCameraLightIntensity(float value);
 /* Camera light actions used by SetCameraLightMode. */
 enum class W8CameraLightMode : unsigned char { Increase, Decrease, Disable, Enable };
 void SetCameraLightMode(W8CameraLightMode mode);

@@ -112,6 +112,7 @@ struct World {
     explicit World(int level_id = -1, std::string source_path = {}, TimerClockView clocks = {},
                    ShakeSystem* shakes = nullptr, float reference_gravity = kDefaultGravity);
     ~World();
+    void setPartyLight(unsigned int intensity);
     World(const World&) = delete;
     World& operator=(const World&) = delete;
     void setNavigatorsPaused(bool paused);

@@ -347,7 +347,7 @@ static void EnterLevel(Game& game, World& world, int level, int entrance, bool r
     ApplyCameraRotation(&world.initial_camera_rotation);
     world.party.camera.applySway(*world.camera, world.initial_camera_sway ? CameraSwayMode::Start
                                                                           : CameraSwayMode::Stop);
-    SetSkyNodeVisible(false);
+    world.setPartyLight(0);
     BeginRestoredLevelActivity(world, status);
 
     if (!restoring_game && entrance != -1) {
@@ -411,7 +411,7 @@ static void EnterLevel(Game& game, World& world, int level, int entrance, bool r
     LoadNativeLevelObject(game);
     RebindNpcLevelTriggers();
     SetWorldCursorNodesVisible(false);
-    RebuildPartyEffectBlock();
+    game.refreshPartyEffects();
 
     if (!restoring_game) {
         if (level < W8_LEVEL_COUNT) {

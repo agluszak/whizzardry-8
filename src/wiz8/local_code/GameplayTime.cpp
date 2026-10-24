@@ -19,6 +19,7 @@
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/entities/monster.h"
@@ -509,7 +510,7 @@ static bool AgePartyEffectSlot(W8EffectSlot* slot, unsigned int minutes)
     if (GetViewDistance() != g_encounter_culling_rate) {
         wiz8::sound::play("Data\\Sound\\Misc\\Spell Expiry.wav");
     }
-    ResetPartyEffectBlock(slot);
+    CurrentGame().resetPartyEffect(*slot);
     return true;
 }
 
@@ -1244,9 +1245,10 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 if (minutes < slot->duration) {
                     slot->duration -= minutes;
                 } else if (monster_info == 0) {
-                    ResetPartyEffectBlock(slot);
+                    CurrentGame().resetPartyEffect(*slot);
                 } else {
-                    ClearEffectSlot(monster_info, slot);
+                    monster_info->clearEffect(
+                        *slot, CurrentGame().data.monsters[monster_info->monster_species]);
                 }
             }
             ++slot;
@@ -1260,9 +1262,10 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 if (minutes < slot->duration) {
                     slot->duration -= minutes;
                 } else if (monster_info == 0) {
-                    ResetPartyEffectBlock(slot);
+                    CurrentGame().resetPartyEffect(*slot);
                 } else {
-                    ClearEffectSlot(monster_info, slot);
+                    monster_info->clearEffect(
+                        *slot, CurrentGame().data.monsters[monster_info->monster_species]);
                 }
             }
         }
@@ -1273,9 +1276,10 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 if (minutes < slot->duration) {
                     slot->duration -= minutes;
                 } else if (monster_info == 0) {
-                    ResetPartyEffectBlock(slot);
+                    CurrentGame().resetPartyEffect(*slot);
                 } else {
-                    ClearEffectSlot(monster_info, slot);
+                    monster_info->clearEffect(
+                        *slot, CurrentGame().data.monsters[monster_info->monster_species]);
                 }
             }
         }

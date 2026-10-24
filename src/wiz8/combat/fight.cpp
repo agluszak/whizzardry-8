@@ -893,7 +893,7 @@ void Game::endCombat(bool forced_cleanup)
     RemoveConditionFromEveryone(W8_CONDITION_SLOWED);
     LiftConditionFromParty(*this, W8_CONDITION_TURNCOAT);
     RemoveAllEnchantments();
-    ResetCombatEffects();
+    resetCombatEffects();
     ProcessMonstersAtCombatEnd(forced_cleanup);
     auto group_count = CurrentLevelPopulation().monster_groups.size();
     for (unsigned int group_index = 0; group_index < group_count; ++group_index) {

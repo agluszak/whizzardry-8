@@ -104,6 +104,8 @@ public:
     // Settle the pending formation and publish its accepted or refused moves.
     void commitFormation();
     void awardExperience(int amount, bool alternate_message);
+    void refreshPartyEffects();
+    void resetPartyEffect(W8EffectSlot& effect);
     void setMotionPaused(bool paused);
     void resumeVisibleMotion();
     bool cameraSwayActive() const;
@@ -333,6 +335,7 @@ private:
     std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
     void updateSurpriseMode();
     void applyCombatEndEffects();
+    void resetCombatEffects();
     void restoreCombatEquipment(bool automatic);
     void advanceWorlds(std::chrono::milliseconds elapsed);
     void advanceSpellEffects(World& world);

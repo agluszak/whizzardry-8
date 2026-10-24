@@ -280,6 +280,7 @@ using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
 /* A live monster. Saves store it as wiz8::retail::MonsterInfo. */
 struct W8MonsterInfo {
     void configureBody(Rng& rng, bool level_visited);
+    void clearEffect(W8EffectSlot& effect, const W8MonsterRecord& record);
     int location_id;
     int monster_group_id;
     unsigned int monster_species;

@@ -84,10 +84,6 @@ extern W8EffectVisual g_effect_visual_table[150];
 void TickCombatEffectSlots(W8EffectSlot* slots, W8CombatSlot* target);
 void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> slots);
 void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect);
-void ClearEffectSlot(W8MonsterInfo* monster_info, W8EffectSlot* slot);
-void ResetPartyEffectBlock(W8EffectSlot* slot);
-
-void ResetCombatEffects(void);
 
 /* Enchantment- and flat-amount damage applied outside the announced attack
    path: each rolls or takes its amount, runs it through the target's damage

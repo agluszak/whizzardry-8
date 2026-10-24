@@ -7,7 +7,9 @@
 #include <optional>
 
 #include "wiz8/data/faction_ids.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
@@ -271,4 +273,31 @@ unsigned int W8Party::participantCount() const
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (participates(slot)) ++count;
     return count;
+}
+
+void W8Party::refreshModifiers(std::span<const W8EffectSlot, 12> effects,
+                               std::span<const W8EffectSlot> combat_effects,
+                               std::span<const W8EffectSlot> radius_effects)
+{
+    modifiers = {};
+    ApplyPartyEffectSlots(effects, &modifiers);
+    unsigned char armor = modifiers.armor_matchup;
+    for (const auto& effect : combat_effects) {
+        if (effect.active && effect.effect_id == 0x31) {
+            armor -= effect.amount;
+            modifiers.armor_matchup = armor;
+        }
+    }
+    ApplyCombatEffectSlots(radius_effects, &modifiers);
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        const auto& character = characters[slot];
+        if (members[slot] && character.hp_current != 0 &&
+            character.highest_condition == W8_CONDITION_NONE &&
+            CharacterHasTrait(&character, W8_TRAIT_CAMP_RECOVERY_BONUS)) {
+            modifiers.boost_health_regen = 1;
+            modifiers.boost_stamina_regen = 1;
+            modifiers.boost_spell_regen = 1;
+            break;
+        }
+    }
 }

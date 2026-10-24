@@ -292,3 +292,88 @@ void ApplyEnchantmentModifiers(const W8Enchantment* enchantments, W8GameplayModi
         }
     }
 }
+
+/* Fold the party's twelve effect slots into the shared modifier block. */
+void ApplyPartyEffectSlots(std::span<const W8EffectSlot> source, W8GameplayModifierBlock* target)
+{
+    for (const auto& effect : source) {
+        const auto* slot = &effect;
+        if (slot->active) {
+            unsigned char amount = static_cast<unsigned char>(slot->amount);
+            unsigned int percent = slot->percent;
+            unsigned char adjusted = amount;
+
+            switch (slot->effect_id) {
+            case 0x14:
+                adjusted = static_cast<unsigned char>((slot->amount + 1) / 2);
+                AdjustByteByPercent(&adjusted, percent);
+                target->hit_bonus += adjusted;
+                break;
+            case 0x20:
+                adjusted = static_cast<unsigned char>((slot->amount + 1) / 2);
+                AdjustByteByPercent(&adjusted, percent);
+                target->armor_matchup += adjusted;
+                break;
+            case 0x28:
+                adjusted = static_cast<unsigned char>(slot->amount * 4 + 7);
+                AdjustByteByPercent(&adjusted, percent);
+                target->resistance_bonus_all += adjusted;
+                break;
+            case 0x11:
+                target->detect_secrets = 1;
+                break;
+            case 8:
+                AdjustByteByPercent(&adjusted, percent);
+                target->light = adjusted << 1;
+                break;
+            case 0x21:
+                AdjustByteByPercent(&adjusted, percent);
+                target->value = adjusted;
+                break;
+            case 0x1a:
+                adjusted = static_cast<unsigned char>((slot->amount + 5) * 5);
+                AdjustByteByPercent(&adjusted, percent);
+                target->missile_deflect_chance = adjusted;
+                break;
+            case 0x2d:
+                target->sight_override = 1;
+                break;
+            }
+        }
+    }
+}
+
+/* Fold the six combat effect records at +0x85a into the shared modifier block. */
+void ApplyCombatEffectSlots(std::span<const W8EffectSlot> source, W8GameplayModifierBlock* target)
+{
+    for (const auto& effect : source) {
+        const auto* slot = &effect;
+        if (slot->active) {
+            unsigned char adjusted;
+            unsigned int percent = slot->percent;
+
+            switch (slot->effect_id) {
+            case 2:
+                adjusted = 2;
+                AdjustByteByPercent(&adjusted, percent);
+                target->armor_flat += adjusted;
+                target->hit_bonus += adjusted;
+                break;
+            case 0x35:
+                adjusted = static_cast<unsigned char>(slot->amount * 7);
+                AdjustByteByPercent(&adjusted, percent);
+                target->resistance_bonus[0] += adjusted;
+                target->resistance_bonus[1] += adjusted;
+                target->resistance_bonus[2] += adjusted;
+                target->resistance_bonus[3] += adjusted;
+                break;
+            case 0x3b:
+                adjusted = static_cast<unsigned char>(slot->amount * 10);
+                AdjustByteByPercent(&adjusted, percent);
+                target->resistance_bonus[5] += adjusted;
+                target->resistance_bonus[4] += adjusted;
+                break;
+            }
+        }
+    }
+}
