@@ -1467,7 +1467,8 @@ void LevelState::checkSpecies(const GameData& data) const
 {
     const auto& state = *data_;
     for (const auto& group : state.groups)
-        if (group.image.monster_id >= data.monsters.size())
+        if (group.image.monster_id < 0 ||
+            std::cmp_greater_equal(group.image.monster_id, data.monsters.size()))
             throw std::runtime_error("missing saved monster group species");
     for (const auto& saved : state.monsters) {
         const auto species = saved.image.monster_species;
