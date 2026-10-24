@@ -12,7 +12,6 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/render/picking.h"
-#include "wiz8/rules/character.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"

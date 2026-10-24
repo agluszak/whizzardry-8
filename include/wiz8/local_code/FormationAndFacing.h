@@ -1,7 +1,6 @@
 #pragma once
 
 #include "glm/ext/vector_float3.hpp"
-#include "wiz8/rules/party_formation.h"
 
 struct W8MonsterInfo;
 struct W8CombatSlot;
