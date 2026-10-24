@@ -7,14 +7,11 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/platform/game_timer.h"
 
-W8IntervalGate::W8IntervalGate() : W8GameTimer(1.0f), m_finished(0) {}
-
-W8IntervalGate::W8IntervalGate(float duration, TimerClock clock, bool one_shot)
-    : W8GameTimer(duration, clock), m_finished(0)
+W8IntervalGate::W8IntervalGate(TimerClockView clocks, float duration, TimerClock clock,
+                               bool one_shot)
+    : W8GameTimer(clocks, duration, clock), m_finished(0)
 {
-    if (one_shot) {
-        m_flags.one_shot = true;
-    }
+    m_flags.one_shot = one_shot;
 }
 
 void W8IntervalGate::Arm()

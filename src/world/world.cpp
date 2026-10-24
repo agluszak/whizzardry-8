@@ -45,6 +45,7 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/spell_database.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/camera_shake.h"
@@ -124,7 +125,7 @@ void Game::advanceWorlds(std::chrono::milliseconds elapsed)
     }
     RefreshWorldView();
     UpdateTimedTriggerEvents();
-    UpdateShakeEffects();
+    camera_shakes.advance(level.primary ? level.primary->party.eye() : glm::vec3(0));
     UpdateEnvironment();
     UpdateNpcEvents();
 }
@@ -135,8 +136,8 @@ W8LevelPopulation& CurrentLevelPopulation()
     return *GetWorld()->population;
 }
 
-World::World(int level_id, std::string path)
-    : level_id(level_id),
+World::World(int level_id, std::string path, TimerClockView clocks, ShakeSystem* shakes)
+    : clocks(clocks), shakes(shakes), level_id(level_id),
       source_path(path.empty() ? std::string{} : wiz8::normalize_asset_path(path).generic_string()),
       scene(std::make_unique<WorldScene>()), population(std::make_unique<W8LevelPopulation>())
 {
@@ -145,7 +146,7 @@ World::World(int level_id, std::string path)
 
 World::~World() = default;
 
-WorldParty::WorldParty(World& world) : navigator(world)
+WorldParty::WorldParty(World& world) : camera(world.clocks), navigator(world)
 {
     navigator.configureStartupRange(500.0f);
     navigator.configureStartupDepth(std::max(kStartupNearLimit, g_default_world_height),

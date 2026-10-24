@@ -23,7 +23,7 @@ public:
     void setSeconds(float seconds);
     /* Change the scale, keeping the progress through the interval; while the shared
        timers are held the progress restarts, as it did on the retail clock. */
-    void setScale(float scale);
+    void setScale(float scale, bool held);
     // Begin a new interval.
     void arm() { elapsed_ = {}; }
     /* Take `elapsed` step time and return how many whole intervals have passed; those

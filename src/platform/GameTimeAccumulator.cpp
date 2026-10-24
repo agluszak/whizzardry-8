@@ -23,33 +23,35 @@ void ResetGameTimeAccumulator()
     g_game_time_accumulator.reset();
 }
 
-W8GameTimeAccumulator::W8GameTimeAccumulator() : W8GameTimer(g_rate) {}
+W8GameTimeAccumulator::W8GameTimeAccumulator()
+    : base_duration_(g_rate), duration_(static_cast<int>(g_rate * W8_SHARED_TIMER_TICKS_PER_SECOND))
+{
+}
 
 void W8GameTimeAccumulator::SetTimeScale(float scale)
 {
     if (scale < 0.5f) {
-        m_flags.slow_scale = true;
+        slow_scale = true;
     }
-    m_duration_scale = scale;
     m_max_frame_delta = 2.0f / scale;
-    SetDuration(-1.0f);
+    duration_ = static_cast<int>(scale * base_duration_ * W8_SHARED_TIMER_TICKS_PER_SECOND);
     m_frame_delta = 0.0f;
 }
 
 void W8GameTimeAccumulator::ResetTimeScale()
 {
     SetTimeScale(1.0f);
-    m_flags.slow_scale = false;
+    slow_scale = false;
 }
 
-float W8GameTimeAccumulator::Update(std::chrono::milliseconds elapsed)
+float W8GameTimeAccumulator::Update(std::chrono::milliseconds elapsed, bool held)
 {
-    if (SharedGameTimersHeld()) {
+    if (held) {
         m_frame_delta = 0.0f;
     } else {
         const auto ticks =
             static_cast<float>(elapsed.count()) * (W8_SHARED_TIMER_TICKS_PER_SECOND / 1000.0f);
-        m_frame_delta = std::min(ticks / static_cast<float>(m_duration), m_max_frame_delta);
+        m_frame_delta = std::min(ticks / static_cast<float>(duration_), m_max_frame_delta);
         m_elapsed += m_frame_delta;
     }
     return m_frame_delta;

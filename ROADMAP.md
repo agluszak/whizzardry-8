@@ -42,6 +42,10 @@ of it:
   pass the game, world and level-local owners as each helper migrates. Resource
   preparation still uses the installed game, so retaining the outgoing game on a
   construction failure remains a target.
+- **Remaining time lookups.** Timers are bound to their originating game, but cycle,
+  particle and item timestamps still use current-game clock helpers. Bind those to
+  their world too, and move the process-scoped motion-delta accumulator into its game
+  without changing elapsed scaling, integer quantization or level-reset timing.
 - **Combat waits on presentation.** Each step, combat reads the camera, monster
   animations and missiles in flight to decide whether its turn may advance.
 

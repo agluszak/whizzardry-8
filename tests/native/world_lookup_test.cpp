@@ -361,16 +361,18 @@ TEST_CASE("An unloaded monster target has no position", "[levels][targeting]")
 TEST_CASE("An untimed camera trigger owns its shake until the event is removed",
           "[levels][events][shake]")
 {
+    ShakeSystem shakes;
+    World world(-1, "", {}, &shakes);
     {
-        TriggerEvent event;
+        TriggerEvent event(world);
         event.shake.emplace();
         event.Update();
         REQUIRE(event.shake->effect);
-        REQUIRE(CameraShakes().IsActive(*event.shake->effect));
-        REQUIRE(CameraShakes().Update({0, 0, 0}) == 1.0f);
+        REQUIRE(shakes.IsActive(*event.shake->effect));
+        REQUIRE(shakes.Update({0, 0, 0}) == 1.0f);
         REQUIRE_FALSE(event.completed);
     }
-    REQUIRE(CameraShakes().Update({0, 0, 0}) == 0.0f);
+    REQUIRE(shakes.Update({0, 0, 0}) == 0.0f);
 }
 
 TEST_CASE("Trigger names retain empty tokens, duplicates and authored spacing",
@@ -504,7 +506,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         generator.flags = 0x40 + index;
         generator.generation_enabled = index == 0;
         generator.timer.setSeconds(4.0f);
-        generator.timer.setScale(0.5f + index);
+        generator.timer.setScale(0.5f + index, false);
         generator.timer.advance(std::chrono::milliseconds{300});
     }
     for (int index = 0; index < 2; ++index) {

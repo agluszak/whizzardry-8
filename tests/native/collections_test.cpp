@@ -908,7 +908,7 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
     });
     // The generator states a save keeps put back the saved timer after the rearm's draw.
     generator.timer.setSeconds(4.0f);
-    generator.timer.setScale(0.5f);
+    generator.timer.setScale(0.5f, false);
     generator.timer.advance(std::chrono::milliseconds{500});
     chunk.WriteChunk(W8ChunkId("MGNS"), [&] {
         WriteMonsterGeneratorStates(chunk.WriteStream(), live.savedGeneratorStates());

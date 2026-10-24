@@ -55,8 +55,8 @@ FrameView PrepareWorldView(Game* game, const glm::vec3& offset)
 std::optional<Pick> PresentGameFrame(Game* game, bool pick_world)
 {
     if (!CanPresentFrame()) return std::nullopt;
-    auto view =
-        PrepareWorldView(game, g_camera_shake_active ? g_camera_shake_offset : glm::vec3(0));
+    const auto offset = game ? game->camera_shakes.offset() : glm::vec3(0);
+    auto view = PrepareWorldView(game, offset);
     if (view.world) {
         const auto& world = *game->level.primary;
         if (!world.environment.sky_enabled)

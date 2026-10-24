@@ -326,7 +326,7 @@ bool MtGigas2Script::umpaniAlarm(int command)
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }
-        alarm_gate_.emplace(static_cast<float>(static_cast<unsigned int>(command)),
+        alarm_gate_.emplace(world().clocks, static_cast<float>(static_cast<unsigned int>(command)),
                             TimerClock::World, true);
         alarm_sound_ = CreateAndPlaySoundNode(
             world(), "Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav", position, 1.0f,

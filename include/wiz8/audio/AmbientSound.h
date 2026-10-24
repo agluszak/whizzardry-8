@@ -85,6 +85,7 @@ public:
 
 // A shared loop stays here while regions change its target gain.
 struct SharedAmbientGroup {
+    explicit SharedAmbientGroup(TimerClockView clocks = {}) : fade_timer(clocks) {}
     std::string resource;
     std::vector<W8AmbientSound*> emitters;
     W8AmbientSound* selected = nullptr;

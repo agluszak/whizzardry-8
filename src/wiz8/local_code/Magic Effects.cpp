@@ -3191,7 +3191,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
                                   50000.0f, &point);
             shake.quadratic_falloff = false;
             shake.fade_out = false;
-            CameraShakes().Start(shake);
+            CurrentGame().camera_shakes.Start(shake);
         }
         sound_name = Data().spells[spell_id].sound_name;
         if (sound_name[0] != 0) {

@@ -1,5 +1,6 @@
 #include "wiz8/world/level_session.h"
 
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
@@ -332,7 +333,11 @@ static void EnterLevel(Game& game, World& world, int level, int entrance, bool r
     bool first_visit = false;
     StartLevelMusic(1, 1);
     game.status.next_trigger_id = world.next_trigger_id;
-    UpdateGameDataRuntime();
+    if (game.move_timer_suspended) {
+        game.timerClocks().resume();
+        game.move_timer_suspended = false;
+    }
+    GameTimeAccumulator().Update(std::chrono::milliseconds{0}, game.timerClocks().held());
     if (world.environment.fog_enabled) UpdateEnvironmentLight();
     ApplyCameraRotation(&world.initial_camera_rotation);
     world.party.camera.applySway(*world.camera, world.initial_camera_sway ? CameraSwayMode::Start

@@ -1583,7 +1583,8 @@ void LevelSpatialIndex::adoptCollisionData(LevelSpatialIndex&& source)
 
 std::unique_ptr<World> Game::loadWorld(int level_id, std::string source_path)
 {
-    auto owner = std::make_unique<World>(level_id, std::move(source_path));
+    auto owner =
+        std::make_unique<World>(level_id, std::move(source_path), timerClocks(), &camera_shakes);
     auto* world = owner.get();
     const auto& resource_path = world->source_path;
     ResetLegacyPropSaveIds();

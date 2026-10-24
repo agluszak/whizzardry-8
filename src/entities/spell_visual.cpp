@@ -269,7 +269,6 @@ static int FindSpellCycleByName(const char* name)
 static std::unique_ptr<SpellVisualDefinition> LoadSpellVisualDefinition(std::string_view name,
                                                                         W8SpellVisualMode group)
 {
-    PauseSharedGameTimers();
 
     bool success = true;
     const auto path = fmt::format("data/spells/{}.mls", name);
@@ -348,7 +347,6 @@ static std::unique_ptr<SpellVisualDefinition> LoadSpellVisualDefinition(std::str
         }
     }
 
-    ResumeSharedGameTimers();
     return success ? std::move(visual) : nullptr;
 }
 

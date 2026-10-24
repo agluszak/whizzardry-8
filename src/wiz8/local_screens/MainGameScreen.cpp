@@ -708,7 +708,7 @@ void W8LockInfoPanel::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer(1.0f, TimerClock::Presentation)
+W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer(W8GameTimer::presentation(1.0f))
 {
     int i;
 
@@ -1224,7 +1224,7 @@ void W8MainGameTextPanel::BeginProgress(std::string_view text, float duration, f
 
 W8MainGameTextPanel::W8MainGameTextPanel()
     : m_selection(0), m_screen(0), m_values(0), m_progress_display(0),
-      m_timer1(0.04f, TimerClock::Presentation)
+      m_timer1(W8GameTimer::presentation(0.04f))
 {
     int index;
 

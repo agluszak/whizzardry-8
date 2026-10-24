@@ -39,6 +39,7 @@ enum class CameraSwayMode : signed char { Stop = -1, Reset = 0, Start = 1 };
 
 class PartyCamera {
 public:
+    TimerClockView clocks;
     PartyMotion motion;
     wiz8::retail::CameraPoseOpaque saved_pose_bytes;
     unsigned char fast_move_state = 0;
@@ -62,7 +63,7 @@ public:
     glm::mat3 turn(unsigned int flags);
     CameraMotion move(LevelSpatialIndex& collision, unsigned int flags,
                       const glm::mat3& movement_basis);
-    PartyCamera(); /* 0x00476140 */
+    explicit PartyCamera(TimerClockView clocks = {});
 
     void ApplyRotationMatrix(glm::mat3* rotation, PartyMotion* context); /* 0x00476610 */
     void SnapToTarget(const glm::vec3* target); /* 0x00476950 */
@@ -120,7 +121,7 @@ public:
     float m_yaw_distance; /* 0x0b0 */
     float m_pitch_distance; /* 0x0b4 */
     float m_transition_duration; /* 0x0b8 */
-    W8IntervalGate m_manual_input_timer{1.0f, TimerClock::World, true};
+    W8IntervalGate m_manual_input_timer;
 
 private:
     bool CanTrackTarget();

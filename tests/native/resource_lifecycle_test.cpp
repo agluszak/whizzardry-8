@@ -263,7 +263,8 @@ TEST_CASE("A rejected destination leaves the loaded world current", "[lifetime][
 
 static World& PublishEmptyWorld(Game& game)
 {
-    game.level.replacePrimary(std::make_unique<World>());
+    game.level.replacePrimary(
+        std::make_unique<World>(-1, "", game.timerClocks(), &game.camera_shakes));
     return *game.level.primary;
 }
 
@@ -334,11 +335,13 @@ TEST_CASE_METHOD(SpellVisualFixture, "Missing spell visual fallback", "[resource
 {
     glm::vec3 position{1, 2, 3};
     glm::mat3 rotation{1};
+    game.game.timerClocks().pause();
     REQUIRE(SpawnSpellEffect(&position, "Missing", 1, 0, 0) == nullptr);
     REQUIRE(SpawnCameraSpellEffect("Missing", 1, 0, 0) == nullptr);
     REQUIRE(CreateAttachedSpellEffect("Missing", 1, nullptr, 0, 0) == nullptr);
     REQUIRE(CreateAimedSpellEffect("Missing", 1, &position, &rotation, 0, 0) == nullptr);
     REQUIRE(visuals.empty());
+    REQUIRE(game.game.timerClocks().held()); // Resource decoding cannot release a caller's hold.
 }
 
 // An actor must own its animations and light vectors after its definition is released.

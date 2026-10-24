@@ -59,9 +59,9 @@ void GeneratorInterval::setSeconds(float seconds)
     if (seconds > 0.0f) seconds_ = seconds;
 }
 
-void GeneratorInterval::setScale(float scale)
+void GeneratorInterval::setScale(float scale, bool held)
 {
-    const float kept = SharedGameTimersHeld() ? 0.0f : progress();
+    const float kept = held ? 0.0f : progress();
     scale_ = scale;
     elapsed_ = kept * length();
 }
@@ -428,7 +428,7 @@ void ResetMonsterGeneratorTimers(void)
 
     for (const auto& generator : *generators) {
 
-        generator->timer.setScale(1.0f);
+        generator->timer.setScale(1.0f, GetWorld()->clocks.held());
     }
 }
 
@@ -618,7 +618,7 @@ void StartLevelEncounters(World& world)
    each element, which is what the repeated bounds test in the original is. */
 void RunMonsterGenerators(std::chrono::milliseconds elapsed)
 {
-    if (SharedGameTimersHeld()) elapsed = {};
+    if (GetWorld()->clocks.held()) elapsed = {};
     int count = static_cast<int>(GetWorld()->encounters.generators.size());
     MonGen* generator;
     int index;
@@ -753,7 +753,7 @@ void SetMonsterGeneratorDurationScale(float scale)
     auto* generators = &GetWorld()->encounters.generators;
 
     for (auto& generator : *generators) {
-        generator->timer.setScale(scale);
+        generator->timer.setScale(scale, GetWorld()->clocks.held());
     }
 }
 

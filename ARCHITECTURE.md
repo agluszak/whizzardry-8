@@ -283,6 +283,21 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   their teardown nor their destructors load or unload levels. Entry and resource
   preparation still reach current-game helpers (monster manager, NPC bindings, item
   lists and sky/camera release); moving those internals is remaining work.
+- **Clock identity.** Timers retain a narrow view of their originating game's step,
+  world and calendar clocks and world hold. They cannot discover the installed game;
+  restoring progress and changing timer mode retain the same owner. Disconnected
+  geometry worlds sample zero simulation time, while presentation timers explicitly
+  sample monotonic time. Resource decoding does not pause/resume simulation: synchronous
+  decoding cannot advance step time and must not release a caller's hold. First camera
+  motion resumes its clock directly, without a second pending-resume flag or repair step.
+  The legacy motion-delta accumulator is still process-scoped, but is a plain scaled
+  delta calculation rather than a clock-sampling timer; its ownership remains migration work.
+- **Camera sequences.** The game owns its shake system and computed frame offset.
+  Primary and sky worlds borrow that same system, and keyed actor/trigger effects stop
+  when their owner is released. Unkeyed sequences can continue across a level change,
+  including the ending callback, but are destroyed with their game. Rendering only
+  reads the prepared offset. Timer and shake implementations cannot include game/screen
+  headers or call current-game clock helpers; the layer check enforces that boundary.
 - **Randomness.** All gameplay draws come from `Game::rng`, retail's MSVC
   `rand()` sequence (`rules/random.h`), in retail order. A session draws one
   sequence from one seed: each game continues the stream of the one before it

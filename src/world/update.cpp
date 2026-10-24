@@ -305,7 +305,7 @@ void WorldUpdateProps(World* world, std::chrono::milliseconds elapsed)
         prop = GetWorldProp(world, index);
         if (prop) {
             prop->DetachAnimationInstances(world);
-            prop->UpdatePropAnimation(elapsed);
+            prop->UpdatePropAnimation(elapsed, world->clocks.held());
             prop->AttachAnimationInstances(world);
         }
     }

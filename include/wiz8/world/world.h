@@ -16,6 +16,8 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/named_position.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/render/camera_shake.h"
 #include "wiz8/render/light.h"
 #include "wiz8/render/particle_system.h"
 #include "wiz8/render/world_scene.h"
@@ -100,10 +102,14 @@ public:
 // Resources and borrowed indexes precede their consumers. Reverse member
 // destruction removes population-owned bodies before their resources and indexes.
 struct World {
-    explicit World(int level_id = -1, std::string source_path = {});
+    explicit World(int level_id = -1, std::string source_path = {}, TimerClockView clocks = {},
+                   ShakeSystem* shakes = nullptr);
     ~World();
     World(const World&) = delete;
     World& operator=(const World&) = delete;
+    const TimerClockView clocks;
+    // Borrowed playthrough sequence owner; standalone geometry worlds have none.
+    ShakeSystem* const shakes;
     const int level_id;
     const std::string source_path;
     std::unique_ptr<WorldScene> scene;

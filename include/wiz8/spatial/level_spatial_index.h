@@ -40,8 +40,6 @@ class File;
    response; movement can stop at its distance limit or through a reset.
    Fast movement selects the running stamina/noise path. */
 
-extern bool g_shared_timers_paused;
-
 enum W8MoveTimerAction {
     W8_MOVE_TIMER_SUSPEND = 1,
     W8_MOVE_TIMER_FRAME_DELTA = 2,
@@ -632,7 +630,6 @@ LevelEnvironment* LevelEnviron();
 
 void ResetInactiveLevelDataVectors(void);
 // Resume the shared timers and restart the frame delta as a level is entered.
-void UpdateGameDataRuntime();
 
 void ClearLevelMovementStopped(void);
 void ResetLevelDataVectors(void);

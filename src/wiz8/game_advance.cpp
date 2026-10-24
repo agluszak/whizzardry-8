@@ -61,7 +61,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
         AdvancePartyVoices();
     }
     if (!activity.in_world()) return;
-    if (!advancement.held && !SharedGameTimersHeld()) {
+    if (!advancement.held && !timerClocks().held()) {
         visual_time += elapsed;
         for (auto* world : {level.sky.get(), level.primary.get()})
             if (world) world->scene->advanceVisuals(visual_time);
@@ -71,10 +71,10 @@ void Game::advance(milliseconds elapsed, StepHold hold)
     sight_due -= elapsed;
     world_items_due -= elapsed;
     if (combat) combat->passTime(elapsed);
-    if (!SharedGameTimersHeld()) autosave_due -= elapsed;
+    if (!timerClocks().held()) autosave_due -= elapsed;
     UpdateSurpriseMode();
     ProcessMainGameAutoSave();
-    GameTimeAccumulator().Update(elapsed);
+    GameTimeAccumulator().Update(elapsed, timerClocks().held());
     g_animated_prop_present = false;
     WorldUpdateProps(level.primary.get(), elapsed);
     if (level.sky) WorldUpdateProps(level.sky.get(), elapsed);

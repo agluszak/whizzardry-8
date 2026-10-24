@@ -203,7 +203,7 @@ bool MtGigasOuterScript::liftGate(int command)
             if (lift_gate_) {
                 lift_gate_->Arm();
             } else {
-                lift_gate_.emplace(3.0f, TimerClock::World, true);
+                lift_gate_.emplace(world().clocks, 3.0f, TimerClock::World, true);
             }
             if (value > 0) {
                 lift_gate_->SetProgress(value * kMovementSpeedStep);
@@ -264,7 +264,7 @@ bool MtGigasOuterScript::campAlarm(int command)
         alarm_sound_ = CreateAndPlaySoundNode(world(), "Data\\Sound\\Ambients\\Alarm1.wav",
                                               position, 1.0f, 75.0f, true);
         const bool was_running = alarm_gate_.has_value();
-        alarm_gate_.emplace(static_cast<float>(static_cast<unsigned int>(command)),
+        alarm_gate_.emplace(world().clocks, static_cast<float>(static_cast<unsigned int>(command)),
                             TimerClock::World, true);
         if (!was_running) {
             addMaster(&MtGigasOuterScript::campAlarm, &MtGigasOuterScript::captureCampAlarm);

@@ -28,6 +28,10 @@ struct ShakeDefinition {
 
 class ShakeSystem {
 public:
+    explicit ShakeSystem(TimerClockView clocks = {}) : clocks_(clocks) {}
+    void advance(const glm::vec3& camera);
+    glm::vec3 offset() const { return offset_; }
+    void suppressFrame() { offset_ = {}; }
     // A key identifies a reusable definition that can be restarted/stopped.
     // Unkeyed instances run once. The system exclusively owns every instance.
     void Start(const ShakeDefinition&, const ShakeDefinition* key = nullptr);
@@ -37,18 +41,14 @@ public:
 
 private:
     struct Instance {
-        explicit Instance(const ShakeDefinition& definition, const ShakeDefinition* key);
+        Instance(const ShakeDefinition& definition, const ShakeDefinition* key,
+                 TimerClockView clocks);
         ShakeDefinition definition;
         W8GameTimer timer;
         const ShakeDefinition* key;
         bool Evaluate(const glm::vec3& camera, float& amount);
     };
+    TimerClockView clocks_;
+    glm::vec3 offset_{};
     std::vector<std::unique_ptr<Instance>> active;
 };
-
-ShakeSystem& CameraShakes();
-/* The frame's shake: an offset the prepared views apply to the eye. It never moves the
-   party. */
-extern bool g_camera_shake_active;
-extern glm::vec3 g_camera_shake_offset;
-void UpdateShakeEffects();

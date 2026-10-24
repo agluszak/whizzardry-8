@@ -1,14 +1,12 @@
 #pragma once
 struct W8Chunk;
 
+#include <chrono>
 #include <cstdint>
 
 namespace wiz8 {
 class File;
 }
-
-extern bool g_shared_timer_paused;
-extern bool g_level_motion_resume_pending;
 
 /* The shared game timer counts in 1/10000-second units. */
 inline constexpr std::uint32_t W8_SHARED_TIMER_TICKS_PER_SECOND = 10000;
@@ -19,29 +17,52 @@ std::uint64_t WorldClockMilliseconds();
    while no game is in progress. Cycles, monsters, missiles and particles stamp it. */
 std::uint32_t GameClockMilliseconds();
 
-void PauseSharedGameTimers(void);
-void ResumeSharedGameTimers(void);
-/* The shared timers are held: a timer on them makes no progress. Step-time countdowns
-   that stand in for such timers stop with them. */
-inline bool SharedGameTimersHeld()
-{
-    return g_shared_timer_paused || g_level_motion_resume_pending;
-}
-
 // Choose the owner at construction: world holds, game steps, UI presentation, or
 // the saved game-day calendar. Only Presentation samples the platform clock.
 enum class TimerClock { World, Game, Presentation, Calendar };
+
+// Borrow the originating game's clock values and holds, never the installed session.
+// An empty view is disconnected: simulation/calendar time stays at zero.
+class TimerClockView {
+public:
+    TimerClockView() = default;
+    TimerClockView(const std::chrono::milliseconds& step, const std::chrono::milliseconds& world,
+                   const int& days, const unsigned& calendar_ms, bool& paused)
+        : step_(&step), world_(&world), days_(&days), calendar_ms_(&calendar_ms), paused_(&paused)
+    {
+    }
+    std::uint32_t read(TimerClock clock) const;
+    bool held() const { return paused_ && *paused_; }
+    void pause() const
+    {
+        if (paused_) *paused_ = true;
+    }
+    void resume() const
+    {
+        if (paused_) *paused_ = false;
+    }
+
+private:
+    const std::chrono::milliseconds* step_ = nullptr;
+    const std::chrono::milliseconds* world_ = nullptr;
+    const int* days_ = nullptr;
+    const unsigned* calendar_ms_ = nullptr;
+    bool* paused_ = nullptr;
+};
 
 class W8GameTimer {
 public:
     struct Flags {
         bool one_shot = false;
         bool paused = false;
-        bool slow_scale = false;
     };
 
-    W8GameTimer();
-    explicit W8GameTimer(float duration, TimerClock clock = TimerClock::World);
+    explicit W8GameTimer(TimerClockView clocks, float duration = 1.0f,
+                         TimerClock clock = TimerClock::World);
+    static W8GameTimer presentation(float duration = 1.0f)
+    {
+        return W8GameTimer({}, duration, TimerClock::Presentation);
+    }
     /* Clock samples and stamps are modulo 2^32 ticks: intervals are measured
        as unsigned differences, so the clock may wrap. */
     std::uint32_t ReadClock() const;
@@ -70,6 +91,7 @@ protected:
     bool Held() const;
 
 private:
+    TimerClockView clocks_;
     void Rescale(float scale);
     std::uint32_t paused_elapsed_ = 0;
 };

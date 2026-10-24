@@ -2,6 +2,7 @@
 struct W8Chunk;
 struct SavedLock;
 struct SavedTrigger;
+struct World;
 
 #include <cassert>
 #include <cstdint>
@@ -32,7 +33,8 @@ class File;
 // The world owns timed actions and their timers.
 class TriggerEvent {
 public:
-    TriggerEvent();
+    explicit TriggerEvent(World& world);
+    World& owner_world;
     ~TriggerEvent();
     void Update();
     struct Shake {

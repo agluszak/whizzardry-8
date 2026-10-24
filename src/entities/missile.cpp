@@ -326,7 +326,6 @@ Missile* AllocateMissile(int missile_table_index)
    a script the name itself is loaded as the cycle. */
 static std::unique_ptr<MissileDefinition> LoadMissileDefinition(std::string_view name)
 {
-    PauseSharedGameTimers();
     auto output = std::make_unique<MissileDefinition>();
     const auto read_cycle = [&](LevelLoadContext& read_info, int cycle) {
         return ReadEmitterCycle(output->resources.cycles, read_info, cycle);
@@ -344,7 +343,6 @@ static std::unique_ptr<MissileDefinition> LoadMissileDefinition(std::string_view
         if (success) {
             output->asset_name = name;
         }
-        ResumeSharedGameTimers();
         return success ? std::move(output) : nullptr;
     }
     bool gravity = false, align_camera = false, explode_ground = false, align_explosion = false;
@@ -428,7 +426,6 @@ static std::unique_ptr<MissileDefinition> LoadMissileDefinition(std::string_view
     output->align_explosion = align_explosion;
     output->lifetime = velocity * kWorldScale;
     output->asset_name = name;
-    ResumeSharedGameTimers();
     return success ? std::move(output) : nullptr;
 }
 

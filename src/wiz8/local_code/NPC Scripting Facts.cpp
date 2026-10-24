@@ -70,7 +70,7 @@ static void ClearPotionExplosionSoundFlag()
 /* Camera-shake completion callback stored on ShakeDefinition::completion_callback. */
 static void ReplayEarthquakeShake(void)
 {
-    CameraShakes().Start(ShakeDefinition(3.0f, false, 1.0f, 0, nullptr));
+    CurrentGame().camera_shakes.Start(ShakeDefinition(3.0f, false, 1.0f, 0, nullptr));
     BeginEndgameSequence();
 }
 
@@ -823,7 +823,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
             ShakeDefinition shake(6.0f, false, 1.0f, 0, nullptr);
             shake.fade_in = true;
             shake.completion_callback = ReplayEarthquakeShake;
-            CameraShakes().Start(shake);
+            CurrentGame().camera_shakes.Start(shake);
         }
         return;
     default:

@@ -100,17 +100,6 @@ GroundSurfaceInfo groundSurfaceInfo(const glm::vec3& position)
     return result;
 }
 
-bool g_shared_timers_paused;
-
-void UpdateGameDataRuntime()
-{
-    if (g_shared_timers_paused) {
-        ResumeSharedGameTimers();
-        g_shared_timers_paused = false;
-    }
-    GameTimeAccumulator().Update(std::chrono::milliseconds{0});
-}
-
 /* Apply world-render camera-motion flags into `rotation` and mirror the yaw
    rotation into `saved`. ECX is the owning LevelSpatialIndex; the body reads only
    globals. */
@@ -1504,19 +1493,21 @@ const double g_game_data_pi = 3.141592653589793;
 // FUNCTION: WIZ8 0x00420b40
 float MoveTimer(W8MoveTimerAction action)
 {
-    if (g_shared_timers_paused) {
-        if ((action == W8_MOVE_TIMER_RESUME_MAIN_GAME && GameInProgress() &&
-             CurrentGame().activity.in_world() && !CurrentGame().advancement.hold.covered) ||
+    if (!GameInProgress()) return 0.0f;
+    auto& game = CurrentGame();
+    if (game.move_timer_suspended) {
+        if ((action == W8_MOVE_TIMER_RESUME_MAIN_GAME && game.activity.in_world() &&
+             !game.advancement.hold.covered) ||
             action == W8_MOVE_TIMER_RESUME) {
-            ResumeSharedGameTimers();
-            g_shared_timers_paused = false;
+            game.timerClocks().resume();
+            game.move_timer_suspended = false;
         } else {
             return 0.0f;
         }
     }
     if (action == W8_MOVE_TIMER_SUSPEND) {
-        PauseSharedGameTimers();
-        g_shared_timers_paused = true;
+        game.timerClocks().pause();
+        game.move_timer_suspended = true;
     }
     return GameTimeAccumulator().GetFrameDelta();
 }

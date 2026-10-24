@@ -111,7 +111,7 @@ public:
     void DetachAnimationInstances(World* world);
     /* The step's prop animation service: `elapsed` is the step time since the previous
        one. */
-    void UpdatePropAnimation(std::chrono::milliseconds elapsed);
+    void UpdatePropAnimation(std::chrono::milliseconds elapsed, bool held);
     /* A frame lasts 1 / animation_speed seconds; a speed that gives no positive length
        keeps the previous one. */
     void UpdateAnimationFrameLength();

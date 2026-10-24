@@ -199,11 +199,14 @@ bool InsideDestinationTrigger(const World& world, float x, float y, float z)
 
 /* Saves record lock progress only; the full lock record form (restoring
    flag set) is still accepted on load. */
-TriggerEvent::TriggerEvent() : action(-1), timer(), trigger(0), repeat(0), completed(0) {}
+TriggerEvent::TriggerEvent(World& world)
+    : owner_world(world), action(-1), timer(world.clocks), trigger(0), repeat(0), completed(0)
+{
+}
 
 TriggerEvent::~TriggerEvent()
 {
-    if (shake && shake->effect) CameraShakes().Stop(*shake->effect);
+    if (owner_world.shakes && shake && shake->effect) owner_world.shakes->Stop(*shake->effect);
 }
 
 glm::vec3 g_trigger_camera;
@@ -271,7 +274,7 @@ TriggerEvent* World::findTimedAction(const Trigger* trigger) const
 TriggerEvent& World::addTimedAction(Trigger* trigger)
 {
     if (auto* previous = findTimedAction(trigger)) previous->completed = true;
-    auto action = std::make_unique<TriggerEvent>();
+    auto action = std::make_unique<TriggerEvent>(*this);
     action->trigger = trigger;
     auto& result = *action;
     timed_events.push_back(std::move(action));
@@ -297,6 +300,7 @@ void UpdateTimedTriggerEvents(void)
 
 void TriggerEvent::UpdateShake()
 {
+    if (!owner_world.shakes) throw std::logic_error("shake action has no sequence owner");
     auto& effect = shake->effect;
     if (!effect) {
         float intensity = shake->intensity / 2.5e+02f;
@@ -310,10 +314,10 @@ void TriggerEvent::UpdateShake()
         if (shake->reverse) {
             effect->fade_out = true;
         }
-        CameraShakes().Start(*effect, &*effect);
+        owner_world.shakes->Start(*effect, &*effect);
     }
 
-    if (!CameraShakes().IsActive(*effect)) {
+    if (!owner_world.shakes->IsActive(*effect)) {
         effect.reset();
         if (trigger != 0) {
             trigger->FinishAction();
@@ -441,7 +445,7 @@ void TriggerEvent::Update()
             return;
         }
         timer.Resume();
-        if (SharedGameTimersHeld()) return;
+        if (owner_world.clocks.held()) return;
     }
 
     if (timer.GetProgress() <= 1.0f || trigger->HasActorWithinRadius(5000.0f, true)) {
@@ -688,7 +692,7 @@ void Trigger::FinishAction()
         if (timed_action != 0) {
             timed_action->completed = true;
         }
-        g_camera_shake_active = false;
+        if (m_pWorld && m_pWorld->shakes) m_pWorld->shakes->suppressFrame();
         goto finish_linked_triggers;
     }
 
@@ -715,7 +719,7 @@ void Trigger::FinishAction()
         if (timed_action != 0) {
             timed_action->completed = true;
         }
-        g_camera_shake_active = false;
+        if (m_pWorld && m_pWorld->shakes) m_pWorld->shakes->suppressFrame();
         action_completed = true;
         break;
     }
@@ -1544,7 +1548,7 @@ void Trigger::Run(int source)
             event->shake->intensity = m_lData1 == -1 ? 800 : m_lData1;
 
             if (m_lData3 != -1) {
-                event->m_pCountdown.emplace();
+                event->m_pCountdown.emplace(m_pWorld->clocks);
                 event->m_pCountdown->SetDuration(abs(m_lData3) * 0.001f);
                 event->m_pCountdown->Restart();
                 if (m_lData3 < 0) {
@@ -1821,7 +1825,7 @@ void Trigger::Run(int source)
 
         timed_action = &m_pWorld->addTimedAction(this);
         timed_action->action = static_cast<short>(action);
-        timed_action->m_pCountdown.emplace();
+        timed_action->m_pCountdown.emplace(m_pWorld->clocks);
         timed_action->m_pCountdown->SetDuration(m_lData1 == -1 ? 10.0f : m_lData1 * 0.001f);
         timed_action->m_pCountdown->Restart();
         timed_action->repeat = true;

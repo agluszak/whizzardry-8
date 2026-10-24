@@ -116,7 +116,8 @@ void OffsetPositionByYawPitch(float distance, glm::vec3* position, float yaw, fl
     *position += glm::rotateY(glm::rotateX(glm::vec3(0, 0, distance), pitch), yaw);
 }
 
-PartyCamera::PartyCamera()
+PartyCamera::PartyCamera(TimerClockView clocks)
+    : clocks(clocks), m_manual_input_timer(clocks, 1.0f, TimerClock::World, true)
 {
     m_orientation_flags = 0;
     m_target_yaw = 0.0f;
@@ -526,7 +527,7 @@ glm::mat3 PartyCamera::turn(unsigned int flags)
     float yaw_input;
 
     // Held time leaves the orientation alone, and movement takes the whole rotation.
-    if (g_shared_timer_paused || GameTimeAccumulator().m_flags.slow_scale) {
+    if (clocks.held() || GameTimeAccumulator().slow_scale) {
         return m_rotation;
     }
 
@@ -592,25 +593,18 @@ CameraMotion PartyCamera::move(LevelSpatialIndex& collision, unsigned int flags,
 
     if (!motion_started) {
         motion_started = true;
-        PauseSharedGameTimers();
-        g_level_motion_resume_pending = true;
         fast_move_state = 0;
+        clocks.resume();
     }
 
-    if (g_shared_timer_paused) {
-        if (!g_level_motion_resume_pending) {
-            return result;
-        }
-        g_level_motion_resume_pending = false;
-        ResumeSharedGameTimers();
-    }
+    if (clocks.held()) return result;
 
     level = &motion;
     level_flags = level->flags;
     if ((((level_flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) != 0 &&
           (level_flags & W8_LEVEL_FLAG_WALKABLE_CONTACT) != 0) &&
          ((level_flags & W8_LEVEL_FLAG_PROP_CONTACT) == 0 && !g_animated_prop_present)) ||
-        GameTimeAccumulator().m_flags.slow_scale) {
+        GameTimeAccumulator().slow_scale) {
         return result;
     }
 

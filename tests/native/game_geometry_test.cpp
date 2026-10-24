@@ -2064,24 +2064,16 @@ TEST_CASE("Camera rotation and movement share the level motion flag policy", "[g
 
 TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
 {
-    const struct RestoreRuntime {
-        bool resume = g_level_motion_resume_pending;
-        ~RestoreRuntime()
-        {
-            ResumeSharedGameTimers();
-            g_level_motion_resume_pending = resume;
-        }
-    } restore;
+    Game game(ScopedGame::NoData());
     LevelSpatialIndex data;
     data.compiled_available = false;
     data.collision_available = true;
-    PauseSharedGameTimers();
-    PartyCamera controller;
+    game.timerClocks().pause();
+    PartyCamera controller(game.timerClocks());
     controller.motion_started = true;
     controller.SetOrientation(.4f, .1f);
     controller.m_position = {1, 2, 3};
     const auto before = controller.rotationMatrix();
-    g_level_motion_resume_pending = false;
     // Held time leaves the orientation alone and hands movement the whole rotation.
     const auto basis = controller.turn(W8_CAMERA_MOTION_TURN_LEFT);
     REQUIRE(basis == before);

@@ -235,9 +235,10 @@ Monster::Monster(World& owner)
     : owner_world(owner), nav(owner), visual(owner), runtime_flags(0), location_id(-1),
       missile_frame(0), spell_frame(0), talking(0), animate_mouth(false), mouth_frame_clock(0),
       mouth_frame(0), talk_start(0), inactive(false), pending_finalize(1), disabled(0),
-      nearest_to_party(false), script(0), script_wait(MONSCR_NONE), trigger(0),
-      spell_effect_armed(0), sector_mesh(0), fade_state(W8_MONSTER_FADE_IDLE),
-      hostility_preserved(false), sound(nullptr)
+      nearest_to_party(false), script(0), script_wait(MONSCR_NONE),
+      script_delay_timer(owner.clocks), trigger(0), light_scale_timer(owner.clocks),
+      spell_effect_armed(0), sector_mesh(0), fade_timer(owner.clocks),
+      fade_state(W8_MONSTER_FADE_IDLE), hostility_preserved(false), sound(nullptr)
 {
     nav.monster_owner = this;
     formation = glm::vec3(0);
@@ -273,9 +274,10 @@ Monster::Monster(const MonsterDefinition& definition, World& owner)
       missile_frame(definition.missile_frame), spell_frame(definition.spell_frame), talking(0),
       animate_mouth(false), mouth_frame_clock(0), mouth_frame(0), talk_start(0), inactive(false),
       pending_finalize(1), disabled(0), nearest_to_party(false), script(0),
-      script_wait(MONSCR_NONE), trigger(0), spell_effect_armed(0), sector_mesh(0),
-      fade_state(W8_MONSTER_FADE_IDLE), hostility_preserved(definition.hostility_preserved),
-      sound(nullptr)
+      script_wait(MONSCR_NONE), script_delay_timer(owner.clocks), trigger(0),
+      light_scale_timer(owner.clocks), spell_effect_armed(0), sector_mesh(0),
+      fade_timer(owner.clocks), fade_state(W8_MONSTER_FADE_IDLE),
+      hostility_preserved(definition.hostility_preserved), sound(nullptr)
 {
     nav.monster_owner = this;
     nav.trace_mask = 2;
@@ -359,7 +361,8 @@ void Monster::retire()
     if (monster_light) monster_light->setScene(nullptr);
     visual.SetLights(nullptr);
     ClearMonsterSpellIcons(*this);
-    for (const auto& event : visual.shake_events) CameraShakes().Stop(event);
+    for (const auto& event : visual.shake_events)
+        if (owner_world.shakes) owner_world.shakes->Stop(event);
     visual.shake_events.clear();
     sound.reset();
     nav.detachFromWorld();

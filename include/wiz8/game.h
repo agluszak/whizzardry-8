@@ -26,6 +26,8 @@
 #include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/message_log.h"
 #include "wiz8/npc_interaction_state.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/render/camera_shake.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
@@ -108,6 +110,12 @@ public:
     // World visual time stops with world advancement and shared timer holds.
     // UI/cursor presentation continues on its own monotonic clock.
     std::chrono::milliseconds visual_time{};
+    bool timers_paused = false;
+    bool move_timer_suspended = false;
+    TimerClockView timerClocks()
+    {
+        return {time, visual_time, status.game_time_days, status.game_time_ms, timers_paused};
+    }
 
     /* Start a fight with the monsters hostile to the party; `surprise` says the party
        may be ambushed. Declines (returns false) while no member can fight, the party has
@@ -164,7 +172,7 @@ public:
     // The deadline of each shared three-minute spell cooldown (in `SpellPracticeCooldown`).
     std::array<std::uint64_t, 14> spell_cooldowns{};
     /* The step time left until the timed autosave announces itself, counted in the world
-       while the shared timers run (`SharedGameTimersHeld`). */
+       while the game's world timers run. */
     static constexpr std::chrono::minutes kAutosaveInterval{5};
     std::chrono::milliseconds autosave_due = kAutosaveInterval;
     W8MonsterManagerEntry monster_manager_entries[8]{};
@@ -205,6 +213,8 @@ public:
     /* Leaving a level stores its state here, entering one reads it back, and a save writes
        them beside the current level's. */
     LeftLevels left_levels;
+    // Unkeyed camera sequences can continue across level changes, but not another game.
+    ShakeSystem camera_shakes{timerClocks()};
     /* Last, so its worlds are destroyed first, while combat and speech still exist.
        Session and level transitions perform departure before releasing the world;
        screen disposal and world destruction do no departure bookkeeping. */

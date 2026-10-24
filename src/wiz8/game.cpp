@@ -152,3 +152,13 @@ ScriptContext MakeScriptContext(Game& game)
             .world = game.level.primary.get(),
             .game = game};
 }
+
+std::uint64_t WorldClockMilliseconds()
+{
+    return GameInProgress() ? static_cast<std::uint64_t>(CurrentGame().visual_time.count()) : 0;
+}
+
+std::uint32_t GameClockMilliseconds()
+{
+    return GameInProgress() ? static_cast<std::uint32_t>(CurrentGame().time.count()) : 0;
+}

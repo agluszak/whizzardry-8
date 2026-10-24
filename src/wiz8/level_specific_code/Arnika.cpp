@@ -464,7 +464,8 @@ bool ArnikaScript::warningSound(int command)
         }
         warning_gate_.reset();
         if (command <= 0x1e) {
-            warning_gate_.emplace(static_cast<float>(command), TimerClock::World, true);
+            warning_gate_.emplace(world().clocks, static_cast<float>(command), TimerClock::World,
+                                  true);
         } else {
             warning_oneshot_ = CreateAndPlaySoundNode(
                 world(), "Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_002.wav", position,
@@ -484,7 +485,7 @@ bool ArnikaScript::warningSound(int command)
         warning_oneshot_ = 0;
     }
     if (!warning_gate_) {
-        warning_gate_.emplace(30.0f, TimerClock::World, true);
+        warning_gate_.emplace(world().clocks, 30.0f, TimerClock::World, true);
         return false;
     }
     if (!warning_gate_->PollFinished()) {

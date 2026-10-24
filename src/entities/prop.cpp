@@ -385,13 +385,13 @@ void Prop::SetRepresentationActive(unsigned char active, bool update_animation)
    0x20 pathing-dirty bit set for the next call to rebuild.  A pending
    pending_subcycle frame is latched into subcycle first, and an idle prop with the
    random flag may start a fresh run on its own. */
-void Prop::UpdatePropAnimation(std::chrono::milliseconds elapsed)
+void Prop::UpdatePropAnimation(std::chrono::milliseconds elapsed, bool held)
 {
     Prop* rep = this;
     unsigned int total;
     int frames;
 
-    if (!SharedGameTimersHeld()) animation_elapsed += elapsed;
+    if (!held) animation_elapsed += elapsed;
 
     if (rep->active == 0 &&
         (rep->animation_behaviour != W8_ANIMATION_PLAY_ONCE || rep->animation_playing == 0) &&
@@ -432,7 +432,7 @@ void Prop::UpdatePropAnimation(std::chrono::milliseconds elapsed)
     }
     /* Progress in frames, whole ones included; the whole frames are consumed and the
        fraction carries over. Held shared timers show no progress. */
-    if (!SharedGameTimersHeld()) {
+    if (!held) {
         anim_frame_fraction = animation_elapsed / animation_frame;
         animation_elapsed -=
             static_cast<float>(static_cast<int>(anim_frame_fraction)) * animation_frame;
