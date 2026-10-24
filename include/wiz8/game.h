@@ -73,6 +73,8 @@ struct W8PreparedNpcBindings;
 
 struct W8SpellEffectResult;
 
+enum class ActionOrigin { Automatic, Player };
+
 enum class DamageNotice { None, Standard, AmountOnly, Detailed };
 struct DamageOptions {
     // Poison-style damage uses its own wording and does not wake sleeping members.
@@ -121,6 +123,9 @@ public:
     void pointCameraAtMonster(const W8MonsterInfo& monster, bool force, bool animate);
     void pointCameraAtPosition(const glm::vec3& position, bool force, bool animate);
     void pointCameraAtCombatTarget(const W8TargetSource* source, const W8CombatSlot* target);
+    void setCombatAction(unsigned int slot, W8Action action,
+                         ActionOrigin origin = ActionOrigin::Automatic, bool cue_ready = false);
+    void resetCombatChoice(unsigned int slot);
     bool targetPresent(const W8CombatSlot& target) const;
     bool targetMatches(const W8CombatSlot& target, W8TargetNeed needed) const;
     bool actionTargetsEnemies(unsigned int slot, const W8Action& action) const;

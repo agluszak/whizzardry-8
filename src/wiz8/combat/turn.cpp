@@ -144,7 +144,7 @@ void Combat::finishAction(Game& game, const CombatActor& actor)
             if (slot == game.status.selected_character) {
                 CurrentGame().events.push(MonstersChanged{});
             }
-            SetCharacterCombatAction(slot, row->remembered.basic(), 0);
+            game.setCombatAction(slot, row->remembered.basic());
         }
     }
     settleCharacterPhase(game, slot);

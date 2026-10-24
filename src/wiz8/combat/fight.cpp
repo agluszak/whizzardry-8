@@ -192,7 +192,7 @@ bool Game::beginCombat(int surprise)
         }
     }
     if (nearest_info != 0) {
-        CurrentGame().pointCameraAtMonster(*nearest_info, false, true);
+        pointCameraAtMonster(*nearest_info, false, true);
     }
     RefreshAllSight();
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
@@ -243,7 +243,7 @@ void ResetPartyCombatRows(void)
         if (slot == static_cast<unsigned int>(CurrentGame().status.selected_character)) {
             CurrentGame().events.push(MonstersChanged{});
         }
-        SetCharacterCombatAction(slot, row.remembered.basic(), 0);
+        CurrentGame().setCombatAction(slot, row.remembered.basic());
         CurrentGame().combat->characters[slot].combat_status = W8_COMBAT_PORTRAIT_EMPTY;
         CurrentGame().combat->characters[slot].portrait_image = -1;
         CurrentGame().combat->characters[slot].portrait_image_alternate = -1;
@@ -644,15 +644,6 @@ void BeginCombatRound(void)
 /* Bring one combatant's clock up to the current round: advance it by however
    many rounds have passed since it last caught up, clamp it, and remember
    where it got to. */
-void CatchUpCombatActor(W8CombatCharacterRow* row)
-{
-    row->phase += CurrentGame().combat->round_counter - row->phase_clock_stamp;
-    row->phase = row->phase > 100u
-                     ? 100u
-                     : std::max<unsigned>(row->phase, CurrentGame().combat->round_counter);
-    RoundPhaseToStep(&row->phase, CurrentGame().combat->round_counter);
-    row->phase_clock_stamp = CurrentGame().combat->round_counter;
-}
 
 /* Whether one character can breathe again. The name is the Magic.cpp:5320
    assertion's own - assert(CanCharReBreathe(uiChar)) - and the rule is that
@@ -671,17 +662,6 @@ bool CanCharReBreathe(int party_slot)
 
 /* Take one character out of the round: hand back whatever they were aiming at,
    clear the slot, and re-choose an action of the same kind. */
-void DropCharacterFromRound(int party_slot)
-{
-    W8PartySlotRow* row = &CurrentGame().party.rows[party_slot];
-
-    ResetCombatSlot(&row->committed.target);
-    CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
-    if (party_slot == CurrentGame().status.selected_character) {
-        CurrentGame().events.push(MonstersChanged{});
-    }
-    SetCharacterCombatAction(party_slot, row->remembered.basic(), 0);
-}
 
 /* Tell every monster within short range about something. A monster has to be
    in combat, alive, not on its way out, free of whatever 0x087 records, and
@@ -876,7 +856,8 @@ void EndMonsterAttack(W8MonsterInfo* monster_info)
                    (100 - CurrentGame().combat->round_counter) / (combat->attacks_per_round + 1);
             combat->phase = next;
             if (next < 0x65) {
-                RoundPhaseToStep(&combat->phase, CurrentGame().combat->round_counter);
+                combat->phase = CurrentGame().combat->phaseAtStep(
+                    combat->phase, CurrentGame().combat->round_counter);
                 return;
             }
         }
@@ -1023,7 +1004,9 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
     if (action != W8_ACTION_WALK && action != W8_ACTION_RUN) {
         W8Action choice{action, detail};
         if (data) choice.detail_block = *data;
-        SetCharacterCombatAction(party_slot, choice, notify);
+        CurrentGame().setCombatAction(party_slot, choice,
+                                      notify ? ActionOrigin::Player : ActionOrigin::Automatic,
+                                      notify != 0 && !SpellPicker() && !UseItemPicker());
         return;
     }
     if (CurrentGame().combat->execution_active == 0 ||
@@ -1063,76 +1046,10 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
 
 /* Choosing an attack or berserk readies the primary weapon (and its
    ammunition) when the hands as equipped cannot carry the action out. */
-static void ReadyWeaponForAction(int party_slot, W8ActionKind action)
-{
-    if ((action == W8_ACTION_ATTACK &&
-         !(GetCharAttackRange(CurrentGame().data, &CurrentGame().party.characters[party_slot], 2) !=
-           W8_RANGE_NONE)) ||
-        (action == W8_ACTION_BERSERK &&
-         !CanCharacterBerserk(Data(), &CurrentGame().party.characters[party_slot]))) {
-        CurrentGame().inventory.readyPrimaryWeapon(party_slot);
-    }
-}
 
 /* Record the chosen in-combat action on the slot row, copy its detail block,
    then aim and validate that choice for a still-active character. A notified
    choice is the player's selection, which readies the weapon it needs first. */
-void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
-{
-    const auto previous_action = CurrentGame().party.commitAction(party_slot, next);
-    const auto action_kind = next.kind;
-    W8TargetSource source;
-    W8CombatCharacterRow* row = &CurrentGame().combat->characters[party_slot];
-    SetTargetSourceToCharacter(party_slot, &source);
-    assert(action_kind <= W8_ACTION_RUN);
-    row->action_changed = true;
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-    if (character->hp_current != 0 && character->highest_condition < W8_CONDITION_TURNCOAT &&
-        action_kind != W8_ACTION_NONE) {
-        if (notify != 0) {
-            ReadyWeaponForAction(party_slot, action_kind);
-        }
-        if (!CurrentGame().canPerformAction(
-                party_slot, CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
-                true)) {
-            W8CombatSlot none;
-            ResetCombatSlot(&none);
-            CurrentGame().aimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, none);
-        } else {
-            if (!CurrentGame().targetInPlay(
-                    party_slot, 2,
-                    CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT)) &&
-                CurrentGame().repickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT,
-                                                 notify != 0 && !SpellPicker() &&
-                                                     !UseItemPicker())) {
-                CurrentGame().pointCameraAtCombatTarget(
-                    &source, &CurrentGame().party.rows[party_slot].committed.target);
-            }
-            if (notify != 0) {
-                RevalidateSelectedTarget(party_slot);
-            }
-        }
-    }
-    if (!CurrentGame().combat.has_value()) {
-        return;
-    }
-    if (action_kind != previous_action && CurrentGame().combat->execution_active != 0 &&
-        !row->dead) {
-        CatchUpCombatActor(row);
-    }
-    CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
-    CurrentGame().combat->target_picked = false;
-    if (action_kind == W8_ACTION_EQUIP) {
-        CurrentGame().events.push(
-            CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x225]});
-    } else if (previous_action == W8_ACTION_EQUIP &&
-               !(CurrentGame().combat->actingSlot() == party_slot &&
-                 CurrentGame().party.rows[party_slot].executing.kind == W8_ACTION_EQUIP)) {
-        CurrentGame().events.push(
-            CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x226]});
-    }
-    SettleActiveParty(CurrentGame());
-}
 
 void ReconcileCombatHandChange(Game& game, unsigned int party_slot)
 {
@@ -1304,7 +1221,7 @@ void AssignCombatPhases(void)
             }
             value = std::clamp(value, -10, 0x59);
             row->phase = 0x5a - value;
-            RoundPhaseToStep(&row->phase, 10);
+            row->phase = CurrentGame().combat->phaseAtStep(row->phase, 10);
             if (CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 &&
                 character->skills[W8_SKILL_SNAKESPEED].active && CurrentGame().rng.below(5) == 0) {
                 PracticeCharacterSkill(CurrentGame(), character, W8_SKILL_SNAKESPEED, 1, false);
@@ -1334,7 +1251,8 @@ void AssignCombatPhases(void)
                     CurrentGame().rng.below(4) + GetMonsterDataForInfo(monster_info)->initiative;
                 value = std::clamp(value, -10, 0x59);
                 monster_info->pCombat->phase = 0x5a - value;
-                RoundPhaseToStep(&monster_info->pCombat->phase, 10);
+                monster_info->pCombat->phase =
+                    CurrentGame().combat->phaseAtStep(monster_info->pCombat->phase, 10);
             }
         }
         monster_count = CurrentLevelPopulation().monster_roster.live().size();

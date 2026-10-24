@@ -9,7 +9,6 @@ class Game;
 void ChooseAction(int party_slot, W8ActionKind action, int detail, const W8ActionDetailBlock* data,
                   bool defer_execution, int notify);
 
-void SetCharacterCombatAction(int party_slot, W8Action action, int notify);
 /* In combat, a member's committed action follows a change of the weapons in hand: an
    attack keeps a reachable target, and the alternate-hand toggle flips so the
    hand-attack values are rebuilt. Outside combat it does nothing. */
@@ -37,7 +36,6 @@ struct W8Character;
 struct W8MonsterInfo;
 struct W8CombatCharacterRow;
 
-void CatchUpCombatActor(W8CombatCharacterRow* row);
 bool AnyCharacterEngaged(void);
 /* Whether the character knows any spell whose realm's sp_left
    still covers its spell_point_cost. */
@@ -53,7 +51,6 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
 bool IsPartyEngaged(void);
 W8PartyAction GetEffectivePartyAction(void);
 
-void DropCharacterFromRound(int party_slot);
 /* Whether one party slot can carry out the given action with its equipment as
    it is, optionally before a target has been chosen. Asking changes nothing. */
 

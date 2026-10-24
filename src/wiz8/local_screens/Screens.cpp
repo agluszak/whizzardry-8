@@ -45,6 +45,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
+#include "wiz8/targeting_presentation.h"
 
 // The screens that belong to one game take it when they are built.
 static Game& GameOf(GameSession& games)
@@ -301,6 +302,10 @@ struct GameEventPresentation {
     {
         if (auto* hud = ShownHud(); hud && hud->selected_item == removed.runtime_id)
             hud->selected_item = -1;
+    }
+    void operator()(const ActionChoiceChanged& change) const
+    {
+        RevalidateSelectedTarget(change.slot);
     }
     void operator()(const ActionAimChanged& change) const { RefreshStoredAim(change.slot); }
     void operator()(const CharacterActionChanged&) const

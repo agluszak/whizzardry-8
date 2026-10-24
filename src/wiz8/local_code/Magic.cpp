@@ -68,7 +68,9 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/render/frame.h"
@@ -417,7 +419,8 @@ void SetCharacterSpell(const W8Character* character, const W8Action& spell)
     auto& row = CurrentGame().party.rows[party_slot];
     row.remembered.spell = spell;
     if (CurrentGame().combat.has_value()) {
-        SetCharacterCombatAction(party_slot, spell, 1);
+        CurrentGame().setCombatAction(party_slot, spell, ActionOrigin::Player,
+                                      !SpellPicker() && !UseItemPicker());
     } else {
         row.executing.target = spell.target;
         ChooseAction(party_slot, spell.kind, spell.detail, &spell.detail_block, false, 1);
@@ -747,7 +750,8 @@ void StartCharacterSpellCast(int party_slot, int power_level)
     auto choice = row->remembered.spell;
     if (power_level != 0) choice.detail_block.spell.power_level = power_level;
     if (CurrentGame().combat.has_value()) {
-        SetCharacterCombatAction(party_slot, choice, 1);
+        CurrentGame().setCombatAction(party_slot, choice, ActionOrigin::Player,
+                                      !SpellPicker() && !UseItemPicker());
     } else {
         AimAtTarget(party_slot, choice.target);
         ChooseAction(party_slot, choice.kind, choice.detail, &choice.detail_block, false, 1);

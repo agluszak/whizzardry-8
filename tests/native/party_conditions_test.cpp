@@ -1,3 +1,5 @@
+#include "wiz8/combat/combat.h"
+#include "wiz8/rules/random.h"
 // Conditions, death and settlement on an empty level, without screens or retail data.
 #include <algorithm>
 #include <memory>
@@ -286,4 +288,50 @@ TEST_CASE("Stamina spending owns scaling, clamping and the fatigue band", "[cond
     REQUIRE(character.stamina == 0);
     REQUIRE(character.fatigue_band == 4);
     REQUIRE_FALSE(character.spendStamina(10, true));
+}
+
+TEST_CASE_METHOD(PartyFixture,
+                 "Detached lethal damage retires only its fight and repairs its peers",
+                 "[conditions][damage][targeting]")
+{
+    ScopedCombat outgoing_fight{true};
+    game.combat->schedule(PartyActor{0});
+    game.party.rows[2].committed = {W8_ACTION_CAST_SPELL, 1, W8CombatSlot::character(0)};
+    const auto outgoing_target = game.party.rows[2].committed.target;
+    const auto outgoing_hp = member().hp_current;
+    const auto outgoing_events = game.events.pending().size();
+    Game candidate{data};
+    candidate.level.replacePrimary(std::make_unique<World>());
+    candidate.combat.emplace();
+    candidate.combat->schedule(PartyActor{0});
+    for (unsigned int slot : {0u, 2u}) {
+        candidate.party.members[slot].emplace();
+        candidate.party.characters[slot] = member();
+        candidate.party.formation.placeCharacter(slot);
+    }
+    candidate.party.characters[0].hp_current = 5;
+    candidate.party.characters[0].stamina = candidate.party.characters[0].uiStaminaMax = 500;
+    candidate.party.rows[2].committed = {W8_ACTION_PROTECT, -1, W8CombatSlot::character(0)};
+    candidate.party.rows[2].executing.target = W8CombatSlot::character(0);
+    std::vector<Rng::Draw> outgoing_draws;
+    game.rng.trace(&outgoing_draws);
+    unsigned int notifications = 0;
+    candidate.events.observe([&](const Event&) {
+        ++notifications;
+        REQUIRE(candidate.party.characters[0].hp_current == 0);
+        REQUIRE(candidate.combat->pending_death_count == 1);
+        REQUIRE_FALSE(candidate.combat->holdsTurn(PartyActor{0}));
+        REQUIRE(candidate.party.rows[2].committed.kind == W8_ACTION_ATTACK);
+        REQUIRE(candidate.party.rows[2].committed.target.iType == W8_TARGET_KIND_NONE);
+        REQUIRE(candidate.party.rows[2].executing.target.iType == W8_TARGET_KIND_NONE);
+        REQUIRE(game.combat->holdsTurn(PartyActor{0}));
+        REQUIRE(game.combat->pending_death_count == 0);
+        REQUIRE(member().hp_current == outgoing_hp);
+        REQUIRE(game.party.rows[2].committed.target == outgoing_target);
+    });
+    REQUIRE(candidate.damageCharacter(0, 99) == 5);
+    REQUIRE(notifications > 0);
+    REQUIRE(game.events.pending().size() == outgoing_events);
+    REQUIRE(outgoing_draws.empty());
+    game.rng.trace(nullptr);
 }

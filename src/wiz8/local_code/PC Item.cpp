@@ -43,6 +43,7 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
+#include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -923,7 +924,8 @@ void SetCharacterItemUse(int party_slot, const W8Action& action)
     StagePartySlotItemUse(party_slot, action.detail_block.item_use.item, &action.target);
     const bool identify = Data().items[item->iItemNo].spell_id == W8_SPELL_IDENTIFY_ITEM;
     if (CurrentGame().combat.has_value()) {
-        SetCharacterCombatAction(party_slot, {W8_ACTION_USE_ITEM, -1, action.target, detail}, 1);
+        CurrentGame().setCombatAction(party_slot, {W8_ACTION_USE_ITEM, -1, action.target, detail},
+                                      ActionOrigin::Player, !SpellPicker() && !UseItemPicker());
     } else {
         CurrentGame().party.rows[party_slot].executing.target = action.target;
         ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &detail, identify, 1);

@@ -8,9 +8,9 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/combat/combat.h"
-#include "wiz8/combat/fight.h"
 #include "wiz8/combat/hostility.h"
 #include "wiz8/combat/range.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -19,11 +19,10 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_population.h"
+#include "wiz8/live_party.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/monster_roster.h"
 #include "wiz8/render/picking.h"
@@ -172,7 +171,7 @@ void Game::invalidateAimsAt(const W8CombatSlot& target, TargetChange change)
             invalid(party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] != 0,
                     actionTargetsEnemies(slot, row.committed))) {
             if (row.committed.kind == W8_ACTION_PROTECT)
-                DropCharacterFromRound(slot);
+                resetCombatChoice(slot);
             else
                 repickActionTarget(slot, W8_TARGETING_CONTEXT_IN_COMBAT);
         }
@@ -601,4 +600,55 @@ void Game::pointCameraAtCombatTarget(const W8TargetSource* source, const W8Comba
         return;
     if (const auto* monster = population->findMonster(monster_id))
         pointCameraAtMonster(*monster, false, true);
+}
+
+void Game::setCombatAction(unsigned int slot, W8Action next, ActionOrigin origin, bool cue_ready)
+{
+    assert(combat);
+    const auto previous = party.commitAction(slot, next);
+    combat->characters[slot].action_changed = true;
+    const auto& character = party.characters[slot];
+    bool revalidate = false;
+    if (character.hp_current != 0 && character.highest_condition < W8_CONDITION_TURNCOAT &&
+        next.kind != W8_ACTION_NONE) {
+        if (origin == ActionOrigin::Player &&
+            ((next.kind == W8_ACTION_ATTACK &&
+              GetCharAttackRange(data, &character, 2) == W8_RANGE_NONE) ||
+             (next.kind == W8_ACTION_BERSERK && !CanCharacterBerserk(data, &character))))
+            inventory.readyPrimaryWeapon(slot);
+        const auto action = party.action(slot, W8_TARGETING_CONTEXT_IN_COMBAT);
+        if (!canPerformAction(slot, action, true)) {
+            aimStoredAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT,
+                            {W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}});
+        } else {
+            if (!targetInPlay(slot, 2, action) &&
+                repickActionTarget(slot, W8_TARGETING_CONTEXT_IN_COMBAT, cue_ready)) {
+                const W8TargetSource source{.iType = W8_TARGET_SOURCE_CHARACTER,
+                                            .iChar = static_cast<int>(slot)};
+                pointCameraAtCombatTarget(&source, &party.rows[slot].committed.target);
+            }
+            revalidate = origin == ActionOrigin::Player;
+        }
+    }
+    if (!combat) return;
+    if (next.kind != previous && combat->execution_active && !combat->characters[slot].dead)
+        combat->catchUpCharacter(slot);
+    events.push(PartySlotChanged{slot});
+    combat->target_picked = false;
+    if (next.kind == W8_ACTION_EQUIP)
+        events.push(CharacterNotice{slot, data.strings[0x225]});
+    else if (previous == W8_ACTION_EQUIP && !(combat->actingSlot() == static_cast<int>(slot) &&
+                                              party.rows[slot].executing.kind == W8_ACTION_EQUIP))
+        events.push(CharacterNotice{slot, data.strings[0x226]});
+    SettleActiveParty(*this);
+    if (revalidate) events.push(ActionChoiceChanged{slot});
+}
+
+void Game::resetCombatChoice(unsigned int slot)
+{
+    party.rows[slot].committed.target = {W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}};
+    events.push(PartySlotChanged{slot});
+    if (slot == static_cast<unsigned int>(status.selected_character))
+        events.push(MonstersChanged{});
+    setCombatAction(slot, party.rows[slot].remembered.basic());
 }

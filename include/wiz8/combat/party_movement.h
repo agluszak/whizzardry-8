@@ -31,7 +31,7 @@ void ResetRoundPartyMovement(void);
 std::optional<PartyMotionElapsed> AccumulateMovementFatigue(Game& game);
 void UpdateActivePartyMovement(void);
 void UpdatePartyMovementControl(void);
-void RoundPhaseToStep(unsigned int* phase, unsigned int base);
+
 int GetPhaseStep(void);
 float GetPartyMovementSpeed(void);
 void BeginPartyMovementPhase(void);

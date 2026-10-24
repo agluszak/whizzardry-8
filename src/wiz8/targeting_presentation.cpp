@@ -19,6 +19,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/pointer.h"
 #include "wiz8/rules/action_rules.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/world/party_camera.h"
@@ -155,4 +156,24 @@ void ApplyTargetingPresentation(const W8TargetingPresentation& presentation)
             item->entity->SetHighlight(true, hovered);
         }
     }
+}
+
+void RevalidateSelectedTarget(int party_slot)
+{
+    W8TargetNeed needed;
+
+    if (party_slot != CurrentGame().status.selected_character) {
+        return;
+    }
+    const auto selected = EditedAction(party_slot);
+    if (!CurrentGame().canPerformAction(party_slot, selected, true)) {
+        CurrentGame().events.push(TargetingRequested{});
+        return;
+    }
+    needed = W8_TARGET_NEED_NONE;
+    if (!IsSighting(party_slot)) {
+        needed = CurrentGame().targetNeed(selected, MainGameHud() == nullptr);
+    }
+    CurrentGame().events.push(TargetingRequested{
+        CurrentGame().targetMatches(selected.target, needed) ? W8_TARGET_NEED_NONE : needed});
 }

@@ -148,7 +148,7 @@ void SetTargetSourceToCharacter(int party_slot, W8TargetSource* source);
 /* After the selected character's action changes, drop back to no
    targeting when its recorded target still fits, or enter the mode the action
    now needs. */
-void RevalidateSelectedTarget(int party_slot);
+
 /* Cycle the pick within a group and aim the party slot at it. */
 void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group);
 /* The cycle-target command - advance the pick to the next

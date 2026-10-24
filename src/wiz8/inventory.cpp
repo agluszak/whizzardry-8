@@ -283,7 +283,7 @@ void Inventory::settle(std::span<const W8ItemLocation> changed)
         if (game_.status.game_started && party.members[slot].has_value() &&
             action.kind == W8_ACTION_USE_ITEM && use.item.storage != W8ItemStorage::None &&
             !holds(use))
-            DropCharacterFromRound(static_cast<int>(slot));
+            game_.resetCombatChoice(static_cast<int>(slot));
     }
     SettleActiveParty(game_, changed_hands);
     if (any) game_.events.push(EquipmentSettled{});

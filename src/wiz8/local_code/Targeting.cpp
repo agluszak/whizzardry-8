@@ -594,25 +594,6 @@ static int g_last_visible_monster = -1;
    otherwise the action's needed kind is worked out again and the recorded
    target either still satisfies it - leaving no targeting mode - or the mode
    matching what the action now needs is entered so the player can pick. */
-void RevalidateSelectedTarget(int party_slot)
-{
-    W8TargetNeed needed;
-
-    if (party_slot != CurrentGame().status.selected_character) {
-        return;
-    }
-    const auto selected = EditedAction(party_slot);
-    if (!CurrentGame().canPerformAction(party_slot, selected, true)) {
-        CurrentGame().events.push(TargetingRequested{});
-        return;
-    }
-    needed = W8_TARGET_NEED_NONE;
-    if (!IsSighting(party_slot)) {
-        needed = CurrentGame().targetNeed(selected, MainGameHud() == nullptr);
-    }
-    CurrentGame().events.push(TargetingRequested{
-        CurrentGame().targetMatches(selected.target, needed) ? W8_TARGET_NEED_NONE : needed});
-}
 
 /* Whether anything in `group` is close enough to `source` for the source's
    action to reach it. A character source asks the range of its chosen action;

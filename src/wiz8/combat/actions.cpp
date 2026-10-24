@@ -449,7 +449,7 @@ void Combat::settleCharacterPhase(Game& game, int party_slot)
                 }
                 row->phase =
                     row->phase > 100u ? 100u : std::max<unsigned>(row->phase, round_counter);
-                RoundPhaseToStep(&row->phase, round_counter);
+                row->phase = phaseAtStep(row->phase, round_counter);
                 return;
             }
         }
@@ -841,7 +841,7 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
                 if (combat->phase > 100) {
                     combat->phase = 100;
                 }
-                RoundPhaseToStep(&combat->phase, round_counter);
+                combat->phase = phaseAtStep(combat->phase, round_counter);
             }
         }
         outcome = ActionStep::finishing;

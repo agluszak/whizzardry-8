@@ -358,6 +358,8 @@ struct Combat {
         }
     }
 
+    unsigned int phaseAtStep(unsigned int phase, unsigned int base) const;
+    void catchUpCharacter(unsigned int slot);
     void beginReaction(unsigned int slot, bool fallback_defend)
     {
         characters[slot].dead = true;
