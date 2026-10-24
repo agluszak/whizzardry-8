@@ -254,21 +254,41 @@ try {
 
 // Temporary PR 664 metadata probe: use the production readers, but stop before
 // any monster/item/prop creation, gameplay RNG or NPC binding can run.
-std::optional<int> InspectRawPvlMonsterCount(wiz8::File& file,
-                                             const std::filesystem::path& textures)
+std::optional<RawLevelCounts>
+InspectRawLevelCounts(wiz8::File& file, const std::filesystem::path& textures, bool compiled)
 try {
-    unsigned int mesh_count;
-    file.read_exact(&mesh_count, sizeof(mesh_count));
-    file.seek(0, wiz8::SeekOrigin::begin);
-    auto meshes = ReadMultipleLevelMeshes(file, mesh_count, textures);
-    if (meshes.empty()) return std::nullopt;
+    if (compiled) {
+        unsigned int mesh_count;
+        file.read_exact(&mesh_count, sizeof(mesh_count));
+        file.seek(0, wiz8::SeekOrigin::begin);
+        auto meshes = ReadMultipleLevelMeshes(file, mesh_count, textures);
+        if (meshes.empty()) return std::nullopt;
+    } else if (!ReadSingleLevelMesh(file, textures)) {
+        return std::nullopt;
+    }
     World world;
     if (!ReadWorldLights(&world, &file)) return std::nullopt;
-    int end, count;
-    file.read_exact(&end, sizeof(end));
-    file.read_exact(&count, sizeof(count));
-    if (end != -1 || count < 0 || count >= 100000) return std::nullopt;
-    return count;
+    RawLevelCounts counts;
+    file.read_exact(&counts.monsters, sizeof(counts.monsters));
+    // A section marker is -1, which cannot be a valid record count. Some
+    // single-mesh worlds also have collision data and therefore these markers.
+    const bool terminated_sections = counts.monsters == -1;
+    if (terminated_sections) file.read_exact(&counts.monsters, sizeof(counts.monsters));
+    if (counts.monsters < 0 || counts.monsters >= 100000) return std::nullopt;
+    for (int index = 0; index < counts.monsters; ++index) {
+        std::array<char, 20> name;
+        file.read_exact(name.data(), name.size());
+        if (!std::ranges::contains(name, '\0')) return std::nullopt;
+        (void)LoadPathAI(file); // Decode only the authored path, never create its actor.
+    }
+    if (terminated_sections) {
+        int end;
+        file.read_exact(&end, sizeof(end));
+        if (end != -1) return std::nullopt;
+    }
+    file.read_exact(&counts.items, sizeof(counts.items));
+    if (counts.items < 0 || counts.items >= 100000) return std::nullopt;
+    return counts;
 } catch (const std::exception&) {
     return std::nullopt;
 }

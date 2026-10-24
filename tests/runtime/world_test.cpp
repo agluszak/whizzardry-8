@@ -30,7 +30,6 @@
 #include "scoped_asset_roots.h"
 #include "temporary_directory.h"
 #include "wiz8/application.h"
-#include "wiz8/asset_paths.h"
 #include "wiz8/chunk.h"
 #include "wiz8/cursor.h"
 #include "wiz8/data/fact_ids.h"
@@ -952,14 +951,20 @@ TEST_CASE("asset-record-census", "[runtime][audit]")
     roots.configure({assets.string(), user.path.string()});
     std::vector<std::filesystem::path> levels;
     for (const auto& entry : std::filesystem::recursive_directory_iterator(assets / "levels"))
-        if (entry.is_regular_file() && entry.path().extension() == ".pvl")
+        if (entry.is_regular_file() &&
+            (entry.path().extension() == ".pvl" || entry.path().extension() == ".lvl"))
             levels.push_back(entry.path());
     std::ranges::sort(levels);
-    unsigned int unknown = 0, populated = 0, with_status = 0, unknown_status = 0,
-                 missing_status = 0;
+    unsigned int unknown = 0, populated = 0, item_levels = 0, with_status = 0, unknown_status = 0,
+                 missing_status = 0, pvl_count = 0, lvl_count = 0;
     for (const auto& path : levels) {
+        const bool compiled = path.extension() == ".pvl";
+        if (compiled)
+            ++pvl_count;
+        else
+            ++lvl_count;
         auto file = wiz8::open_file(path);
-        const auto count = InspectRawPvlMonsterCount(*file, path.parent_path() / "bitmaps");
+        const auto count = InspectRawLevelCounts(*file, path.parent_path() / "bitmaps", compiled);
         auto status_path = path;
         status_path.replace_extension(".sts");
         int stat = -1, groups = 0;
@@ -983,17 +988,22 @@ TEST_CASE("asset-record-census", "[runtime][audit]")
         else if (stat == -1 || groups == 0)
             ++unknown_status;
         const auto relative = path.lexically_relative(assets).generic_string();
-        std::printf("RAW_ASSET_CENSUS %s raw_monsters=%d STAT=%d groups=%d\n", relative.c_str(),
-                    count.value_or(-1), stat, groups);
+        std::printf("RAW_ASSET_CENSUS %s raw_monsters=%d raw_items=%d STAT=%d groups=%d\n",
+                    relative.c_str(), count ? count->monsters : -1, count ? count->items : -1, stat,
+                    groups);
         std::fflush(stdout);
         if (!count) ++unknown;
-        if (count && *count != 0) ++populated;
+        if (count && count->monsters != 0) ++populated;
+        if (count && count->items != 0) ++item_levels;
         if (stat == 1) ++with_status;
     }
-    std::printf("RAW_ASSET_CENSUS_TOTAL files=%zu populated=%u with_STAT=%u unknown_PVL=%u "
+    std::printf("RAW_ASSET_CENSUS_TOTAL files=%zu PVL=%u LVL=%u populated=%u item_levels=%u "
+                "with_STAT=%u unknown_geometry=%u "
                 "missing_STS=%u unknown_STS=%u\n",
-                levels.size(), populated, with_status, unknown, missing_status, unknown_status);
-    REQUIRE_FALSE(levels.empty());
+                levels.size(), pvl_count, lvl_count, populated, item_levels, with_status, unknown,
+                missing_status, unknown_status);
+    REQUIRE(pvl_count == 34);
+    REQUIRE(lvl_count > 0);
     REQUIRE(unknown == 0);
     REQUIRE(unknown_status == 0);
 }

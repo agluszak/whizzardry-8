@@ -95,5 +95,9 @@ std::unique_ptr<LevelSpatialIndex> ReadCollisionGeometry(std::string_view path, 
 bool BuildCollisionIndex(LevelSpatialIndex* game_data);
 
 // Temporary PR 664 metadata probe; remove after the retail census.
-std::optional<int> InspectRawPvlMonsterCount(wiz8::File& file,
-                                             const std::filesystem::path& textures);
+struct RawLevelCounts {
+    int monsters;
+    int items;
+};
+std::optional<RawLevelCounts>
+InspectRawLevelCounts(wiz8::File& file, const std::filesystem::path& textures, bool compiled);
