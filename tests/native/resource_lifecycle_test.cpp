@@ -2,6 +2,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdio>
+#include <deque>
 #include <filesystem>
 #include <functional>
 #include <limits>
@@ -59,6 +60,7 @@
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/message_box.h"
+#include "wiz8/monster_cycles.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/timer.h"
@@ -951,8 +953,8 @@ TEST_CASE("Scripted removal retires relationships before reclaiming an updating 
         body.nav.halted = true;
         body.nav.position_dirty = false;
         body.nav.movement.position_adjusted = false;
-        auto& cycle = body.cycles[W8_MONSTER_CYCLE_IDLE].emplace_back();
-        cycle.animation = std::make_unique<Animation>();
+        auto& cycle = body.cycles[W8_MONSTER_CYCLE_IDLE].emplace_back(
+            EmitterLights{}, std::make_unique<Animation>(), 1.0f);
         AnimationMesh mesh;
         mesh.frame_count = 1;
         mesh.frames = {{std::make_shared<Mesh>(), {}}};
