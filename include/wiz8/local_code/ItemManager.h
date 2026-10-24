@@ -16,7 +16,5 @@ unsigned char InteractWithWorldItem(int runtime_id);
 void SetWorldItemFalling(W8WorldItem* item, bool enabled);
 void RebuildAllWorldItemInstances(void);
 
-void ReleaseItemLists();
-
 bool AnyWorldItemVisible(void);
 void DropMonsterLoot(W8MonsterInfo* monster_info, int value);

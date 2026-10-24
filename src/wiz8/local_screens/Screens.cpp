@@ -303,6 +303,13 @@ struct GameEventPresentation {
     {
         if (auto* hud = ShownHud()) hud->repaint.everything = true;
     }
+    void operator()(const LevelDeparted& departure) const
+    {
+        if (auto* main = MainGame(); main && &main->game == &game && main->hud &&
+                                     CurrentScreenState().id == W8_SCREEN_MAIN_GAME)
+            main->hud->selected_item = -1;
+        if (departure.restore_cursor) EnableCursorScene();
+    }
     void operator()(const WorldItemRemoved& removed) const
     {
         if (auto* hud = ShownHud(); hud && hud->selected_item == removed.runtime_id)

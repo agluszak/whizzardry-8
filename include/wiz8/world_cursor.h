@@ -5,9 +5,9 @@
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "wiz8/entities/monster.h"
+#include "wiz8/render/light.h"
 
 class Monster;
-class Light;
 
 struct W8WorldCursorState {
     // Cursor playback is not a gameplay monster and belongs to this interaction.
@@ -22,8 +22,7 @@ struct W8WorldCursorState {
     /* camera-relative offset the placement update derives from
        position. */
     glm::vec3 cam_rel_offset{0};
-    /* the light node the complete teardown removes from the world. */
-    Light* light = nullptr;
+    std::unique_ptr<Light> light;
     /* read back by the path-visualization update as a world point. */
     glm::vec3 position{0};
     /* the last position published to the cursor's nodes and monster;

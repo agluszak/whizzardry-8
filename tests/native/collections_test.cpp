@@ -1363,29 +1363,6 @@ TEST_CASE("Using up an offered item drains the offer and leaves the hand alone",
     REQUIRE(CurrentGame().inventory.heldItemId() == 9);
 }
 
-TEST_CASE("Rebinding an NPC to a new level keeps its state", "[npc]")
-{
-    const ScopedGame game;
-    auto& story = CurrentGame().story;
-    story.npcs.push_back(std::make_unique<W8NpcState>());
-    W8NpcState* npc = story.npcs[0].get();
-    npc->gold = 120;
-    npc->binding_unavailable = 1;
-    W8PreparedNpcBindings pending;
-    pending.records.push_back({.slot = 0,
-                               .previous = story.npcs[0],
-                               .location_id = 42,
-                               .level_band = 3,
-                               .bound_level = 7});
-    story.installNpcBindings(std::move(pending));
-    REQUIRE(story.npcs[0].get() == npc);
-    REQUIRE(npc->gold == 120);
-    REQUIRE(npc->location_id == 42);
-    REQUIRE(npc->bound_level == 7);
-    REQUIRE(npc->is_present);
-    REQUIRE(npc->binding_unavailable == 0);
-}
-
 TEST_CASE("Formation reconciliation repairs only its owning party", "[party][formation]")
 {
     const ScopedGame game;
@@ -2024,7 +2001,7 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     REQUIRE_FALSE(candidate.monsterReachesPartyMember(actor, 0, 0, W8_MONSTER_ACTION_SPELL));
     // No-range actions must not inspect a body or formation, even during combat.
     candidate.combat.emplace();
-    W8MonsterInfo inactive;
+    W8MonsterInfo inactive{};
     inactive.player_visibility.sight_state = W8_SIGHT_SEEN;
     inactive.player_visibility.los_flags[0] = true;
     REQUIRE_FALSE(candidate.monsterReachesPartyMember(inactive, 0, 0, W8_MONSTER_ACTION_WAIT));

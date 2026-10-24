@@ -269,17 +269,6 @@ Light* CreateRangedWorldLight(World* world, std::string_view name)
     return AddWorldLight(world, std::move(light));
 }
 
-/* Take a light out of both world collections and release it. */
-void WorldRemoveLight(World* world, Light* light)
-{
-    assert(world != 0);
-    assert(light != 0);
-    std::erase(world->environment.lights, light);
-    // The world owns the light: erasing it from the list destroys it.
-    std::erase_if(world->transient_lights,
-                  [light](const std::unique_ptr<Light>& owned) { return owned.get() == light; });
-}
-
 void ConfigureWorldLight(Light* light, float range)
 {
     light->far_end = static_cast<double>(range);

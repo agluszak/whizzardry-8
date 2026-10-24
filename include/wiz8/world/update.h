@@ -65,10 +65,9 @@ void WorldSetFarClip(World* world, float distance);
 void WorldSetRenderRange(World* world, float value);
 std::unique_ptr<Light> CreateLight(WorldScene* scene, std::string_view name);
 Light* CreateWorldLight(World* world, std::string_view name);
-// The world takes ownership; the returned pointer is a borrowed handle until WorldRemoveLight.
+// Authored lights live with the world; callers borrow the returned pointer.
 Light* AddWorldLight(World* world, std::unique_ptr<Light> light);
 Light* CreateRangedWorldLight(World* world, std::string_view name);
 void ConfigureWorldLight(Light* light, float range);
-void WorldRemoveLight(World* world, Light* light); /* 0x0046E250 */
 void AnimateWorldItems(World& world);
 LevelSpatialIndex* GetWorldCollision();

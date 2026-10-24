@@ -348,18 +348,6 @@ unsigned char InteractWithWorldItem(int runtime_id)
     return result;
 }
 
-/* Detach and release all world item groups. */
-void ReleaseItemLists()
-{
-    for (const auto& owned : CurrentLevelPopulation().world_items) {
-        auto* item = owned.get();
-        if (item->sector_id >= 0)
-            CurrentGame().level.loaded().removeItemFromSector(item->sector_id, item);
-        if (item->entity) item->deactivate(CurrentGame().events);
-    }
-    CurrentLevelPopulation().world_items.clear();
-}
-
 /* plsItemList index that last satisfied AnyWorldItemVisible. */
 static int g_last_visible_world_item = -1;
 

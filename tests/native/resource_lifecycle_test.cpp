@@ -101,6 +101,7 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
+#include "wiz8/world_cursor.h"
 
 extern std::shared_ptr<SDL_Surface> g_mouse_surface;
 
@@ -276,8 +277,25 @@ TEST_CASE("Level departure belongs to the game, not screen teardown", "[lifetime
     World* world = replacement.get();
     scope.game.level.replacePrimary(std::move(replacement));
     REQUIRE(GetWorld() == world);
-
+    world->cursor = std::make_unique<W8WorldCursorState>();
+    world->cursor->light = std::make_unique<Light>(world->scene.get());
+    auto sky = std::make_unique<World>();
+    auto* retained_sky = sky.get();
+    sky->scene->setFogColor(glm::vec3(1));
+    scope.game.level.replaceSky(std::move(sky));
+    unsigned int departures = 0;
+    scope.game.events.observe([&](const Event& event) {
+        if (const auto* departure = std::get_if<LevelDeparted>(&event)) {
+            ++departures;
+            REQUIRE(departure->restore_cursor);
+            REQUIRE_FALSE(scope.game.level.primary);
+            REQUIRE(scope.game.level.sky.get() == retained_sky);
+            REQUIRE(retained_sky->scene->getFogColor() == glm::vec3(0));
+        }
+    });
     scope.game.leaveLevel();
+    scope.game.leaveLevel(); // Already absent: no duplicate departure or presentation.
+    REQUIRE(departures == 1);
 
     REQUIRE(GetWorld() == nullptr);
     REQUIRE(scope.session.game() == &scope.game);
@@ -857,8 +875,7 @@ TEST_CASE("Rendering derives the views from the party and changes nothing it rea
     ScopedGame game;
     World& world = PublishEmptyWorld(game.game);
     world.camera = &world.scene->camera;
-    Light light(nullptr);
-    world.camera_light = &light;
+    auto& light = *(world.camera_light = std::make_unique<Light>(world.scene.get()));
     World sky;
     sky.camera = &sky.scene->camera;
     world.party.place({10, 20, 30});
@@ -885,7 +902,14 @@ TEST_CASE("Rendering derives the views from the party and changes nothing it rea
     }
     placeWorldCameras(world, nullptr, {});
     REQUIRE(world.camera->transform.getLocation() == glm::dvec3(10, 20, 30));
-    world.camera_light = nullptr;
+    // Discarding a cursor releases its light without scanning a second owning
+    // collection, and does not disturb the world's independent camera light.
+    world.cursor = std::make_unique<W8WorldCursorState>();
+    world.cursor->light = std::make_unique<Light>(world.scene.get());
+    REQUIRE(world.scene->lights.size() == 2);
+    world.cursor.reset();
+    REQUIRE(world.scene->lights.size() == 1);
+    REQUIRE(world.scene->lights.front() == &light);
 }
 
 TEST_CASE("The party navigator stands the world height below the eye",
@@ -1609,6 +1633,7 @@ TEST_CASE("NPC preparation keeps story identity and publishes only into its supp
     }
     SECTION("Publication preserves old identities and separates monster-bound instances")
     {
+        singleton->binding_unavailable = true;
         auto pending = candidate.prepareNpcBindings(world);
         unchanged();
         REQUIRE(pending.records.size() == 4);
@@ -1633,6 +1658,9 @@ TEST_CASE("NPC preparation keeps story identity and publishes only into its supp
         REQUIRE(candidate.story.npcs.size() == 4);
         REQUIRE(candidate.story.npcs[0] == singleton);
         REQUIRE(singleton->location_id == 4);
+        REQUIRE(singleton->bound_level == 7);
+        REQUIRE(singleton->is_present);
+        REQUIRE_FALSE(singleton->binding_unavailable);
         REQUIRE(singleton->gold == 777);
         REQUIRE(singleton->character->name == "Retained snapshot");
         REQUIRE(singleton->items.front().quantity == 9);
@@ -1976,15 +2004,14 @@ TEST_CASE("Party effect expiry settles and lights only its originating world",
 {
     ScopedGame outgoing;
     outgoing.game.level.replacePrimary(std::make_unique<World>());
-    Light old_light{nullptr};
-    outgoing.game.level.loaded().camera_light = &old_light;
+    auto& old_light =
+        *(outgoing.game.level.loaded().camera_light = std::make_unique<Light>(nullptr));
     old_light.intensity = 42.0f;
     old_light.visible = true;
 
     Game candidate{outgoing.game.data};
     candidate.level.replacePrimary(std::make_unique<World>());
-    Light light{nullptr};
-    candidate.level.loaded().camera_light = &light;
+    auto& light = *(candidate.level.loaded().camera_light = std::make_unique<Light>(nullptr));
     auto& effect = candidate.status.effect_slots[0];
     effect.percent = 50;
     effect.Activate(8, 4, 3);
@@ -2002,8 +2029,6 @@ TEST_CASE("Party effect expiry settles and lights only its originating world",
     REQUIRE(old_light.visible);
     REQUIRE(old_light.intensity == 42.0f);
     REQUIRE(outgoing.game.events.pending().empty());
-    candidate.level.loaded().camera_light = nullptr;
-    outgoing.game.level.loaded().camera_light = nullptr;
 }
 
 TEST_CASE("A group leaves only its own game fight and releases its engagement effects",

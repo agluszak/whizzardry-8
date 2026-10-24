@@ -561,11 +561,11 @@ void SetCameraLightMode(W8CameraLightMode mode)
     Light* camera_light;
     float intensity;
 
-    if (GetWorld() != 0 && (camera_light = GetWorld()->camera_light) != 0) {
+    if (GetWorld() != 0 && (camera_light = GetWorld()->camera_light.get()) != 0) {
         switch (mode) {
         case W8CameraLightMode::Increase:
             camera_light->visible = true;
-            camera_light = GetWorld()->camera_light;
+            camera_light = GetWorld()->camera_light.get();
             intensity = 0.0f;
             if (camera_light != 0) {
                 intensity = camera_light->intensity;

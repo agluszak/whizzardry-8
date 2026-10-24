@@ -88,9 +88,9 @@ void InitializeWorldCursor(void)
         GetWorld()->active_monsters.push_back(cursor.monster.get());
         cursor.monster->UpdateRepresentation();
         cursor.monster->SetActive(false);
-        cursor.light = CreateRangedWorldLight(GetWorld(), "3D Cursor Light");
+        cursor.light = CreateLight(GetWorld()->scene.get(), "3D Cursor Light");
         cursor.light->intensity = 1.0f;
-        ConfigureWorldLight(cursor.light, 2500.0f);
+        ConfigureWorldLight(cursor.light.get(), 2500.0f);
         cursor.light->ambient = glm::vec3(0);
         cursor.light->diffuse = glm::vec3(1);
         cursor.light->specular = glm::vec3(0);
@@ -138,10 +138,7 @@ void ReleaseWorldCursor(void)
     GetWorld()->cursor_recall.projection_distance = glm::length(delta);
 
     cursor->monster.reset();
-    if (cursor->light != 0) {
-        WorldRemoveLight(GetWorld(), cursor->light);
-        cursor->light = 0;
-    }
+    cursor->light.reset();
     cursor->group_bind_pending = false;
     GetWorld()->cursor_recall.monster_group_id = cursor->monster_group_id;
     EnableCursorScene();

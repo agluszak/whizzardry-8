@@ -52,6 +52,7 @@
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/mesh_loader.h"
+#include "wiz8/render/world_scene.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/story.h"
@@ -253,8 +254,7 @@ static std::unique_ptr<World> PrepareSkyWorld(Game& game, std::string_view sky_p
 
     SetWorldSceneMeshShaderLowBits(sky, 0);
     SetWorldSceneMeshShaderBit3(sky, 1);
-    WorldRemoveLight(sky, sky->camera_light);
-    sky->camera_light = 0;
+    sky->camera_light.reset();
     return replacement;
 }
 
@@ -466,21 +466,20 @@ static void FinishLevelDeparture(Game& game)
         game.status.level_progress[level].sight_clock = game.status.world_clock;
 }
 
-/* Release everything bound to the loaded world, after departure work. The sky
-   stays with the level slot because the next level may reuse it. */
-static void LeaveLoadedLevel(Game& game)
+void Game::leaveLevel()
 {
-    if (!game.level.primary) return;
-    FinishLevelDeparture(game);
-
+    if (!level.primary) return;
+    FinishLevelDeparture(*this);
     ReleaseMarkedNpcBindings();
-    ReleaseItemLists();
+    // Retirement still resolves group, NPC and targeting consequences in order.
     ShutdownMonsterManager();
 
-    ReleaseWorldCursor();
-    DisableSky();
-    game.motion_clock = {};
-    game.level.replacePrimary(nullptr);
+    const bool restore_cursor = static_cast<bool>(level.primary->cursor);
+    // The sky can survive travel. Everything else below belongs to the outgoing world.
+    if (level.sky) level.sky->scene->setFogColor(glm::vec3(0));
+    motion_clock = {};
+    level.replacePrimary(nullptr);
+    events.push(LevelDeparted{restore_cursor});
 }
 
 /* Construct level and sky resources before leaving the current level. The
@@ -512,7 +511,7 @@ static bool TravelToLevel(Game& game, int requested_level, int entrance, bool re
     if (!state)
         state = LevelState::decode(wiz8::asset_path(BuildLevelStatusPath(level)), level, true);
     auto status = state ? std::move(*state).build(game, *replacement) : nullptr;
-    LeaveLoadedLevel(game);
+    game.leaveLevel();
     current.replacePrimary(std::move(replacement));
     current.primary->spell_effects = std::move(restored_casts);
     if (!reuse_sky) current.replaceSky(std::move(replacement_sky));
@@ -535,9 +534,4 @@ bool Game::enterSavedLevel(int level_id,
                            std::vector<std::unique_ptr<W8SpellEffectEntry>> restored_casts)
 {
     return TravelToLevel(*this, level_id, -1, true, std::move(restored_casts));
-}
-
-void Game::leaveLevel()
-{
-    LeaveLoadedLevel(*this);
 }

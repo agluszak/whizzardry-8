@@ -164,6 +164,10 @@ struct ActionAimChanged {
 };
 // A member joined or left; everything the party is shown in changes.
 struct PartyMembershipChanged {};
+// The outgoing world and its borrowed presentation targets have been released.
+struct LevelDeparted {
+    bool restore_cursor;
+};
 // An item left the world.
 struct WorldItemRemoved {
     int runtime_id = -1;
@@ -180,8 +184,8 @@ using Event =
                  CombatantsMoved, CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
                  CombatProgressChanged, CombatStanceChanged, MonstersChanged, PartyEffectsChanged,
                  CombatEffectsChanged, PartyPanelChanged, PartyMembershipChanged, WorldItemRemoved,
-                 TargetingRequested, FormationChanged, ActionAimChanged, ActionChoiceChanged,
-                 JournalEntryAdded, PortraitSpeechChanged>;
+                 LevelDeparted, TargetingRequested, FormationChanged, ActionAimChanged,
+                 ActionChoiceChanged, JournalEntryAdded, PortraitSpeechChanged>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events

@@ -144,9 +144,9 @@ struct World {
     LevelSpatialIndex* collisionIndex() const;
     AmbientAudioSystem audio;
     Automap automap{*this};
-    // These indexes borrow resources owned below or by the scene.
+    // The camera is borrowed from the scene; its light belongs to this world.
     Camera3D* camera{};
-    Light* camera_light{};
+    std::unique_ptr<Light> camera_light;
     MeshInstance* update_mesh_source{};
     std::vector<MeshInstance*> psrMeshes;
     std::vector<Prop*> collidable_props;

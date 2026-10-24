@@ -1527,13 +1527,13 @@ std::unique_ptr<World> Game::loadWorld(int level_id, std::string source_path)
     world->camera->setClipRange(250.0, 75000.0);
     world->camera->setEnvironmentRange(0.0f, 1.0f);
     world->camera->setViewPlane(std::acos(-1.0) / 2.0, std::acos(-1.0) / 2.0);
-    world->camera_light = CreateRangedWorldLight(world, "CameraLight");
+    world->camera_light = CreateLight(world->scene.get(), "CameraLight");
     world->camera_light->ambient = glm::vec3(0);
     world->camera_light->diffuse = glm::vec3(1.0f, 0.85f, 0.39f);
     world->camera_light->specular = glm::vec3(0);
     world->camera_light->intensity = 1.0f;
     world->camera_light->setGroupMask(2);
-    ConfigureWorldLight(world->camera_light, 4000.0f);
+    ConfigureWorldLight(world->camera_light.get(), 4000.0f);
 
     if (world->compiledIndex() != nullptr && world->compiledIndex()->GetMeshCount() != 0) {
         world->psrMeshes.resize(
