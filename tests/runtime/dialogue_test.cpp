@@ -28,7 +28,6 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/local_screens/npc_dialogue_panel.h"
 #include "wiz8/message_box.h"
-#include "wiz8/npc_interaction.h"
 #include "wiz8/npc_script_file.h"
 #include "wiz8/npc_speech.h"
 #include "wiz8/platform/timer.h"
