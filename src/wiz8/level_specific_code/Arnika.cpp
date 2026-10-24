@@ -1021,7 +1021,7 @@ int ArnikaScript::pedestalItem(int* previous_item)
         if (info != 0) {
             position = info->entity->nav.movement.position;
             position.y += info->entity->nav.movement.height_offset;
-            partyCamera().LookAt(&position, false);
+            partyCamera().LookAt(&position, false, CurrentGame().activity.conversation);
         }
         QueueNpcScriptNotice(npc, 0, 8, false, 0);
     }

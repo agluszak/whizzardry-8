@@ -1539,24 +1539,26 @@ void LevelCamera()
 
 void CameraLookAt(const glm::vec3* position)
 {
-    partyCamera().LookAt(position, false);
+    partyCamera().LookAt(position, false, CurrentGame().activity.conversation);
 }
 
 void CameraSnapToTarget(const glm::vec3* target)
 {
-    partyCamera().SnapToTarget(target);
+    partyCamera().SnapToTarget(target, CurrentGame().activity.conversation);
 }
 
 void TurnCameraToDegrees(float degrees)
 {
     double scale = g_game_data_pi * 0.0055555557f;
-    partyCamera().BeginOrientationTransition(0.0f, static_cast<float>(scale * degrees), false);
+    partyCamera().BeginOrientationTransition(0.0f, static_cast<float>(scale * degrees), false,
+                                             CurrentGame().activity.conversation);
 }
 
 void SetCameraYawDegrees(float degrees)
 {
     double scale = g_game_data_pi * 0.0055555557f;
-    partyCamera().SetOrientationImmediate(0.0f, static_cast<float>(scale * degrees));
+    partyCamera().SetOrientationImmediate(0.0f, static_cast<float>(scale * degrees),
+                                          CurrentGame().activity.conversation);
 }
 
 void ApplyCameraRotation(glm::mat3* rotation)

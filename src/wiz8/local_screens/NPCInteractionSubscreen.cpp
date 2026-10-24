@@ -625,7 +625,7 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, const W8ItemInstance* item
     }
     position = info->entity->nav.movement.position;
     position.y += info->entity->nav.movement.height_offset;
-    partyCamera().LookAt(&position, false);
+    partyCamera().LookAt(&position, false, CurrentGame().activity.conversation);
 }
 
 void BeginNpcDialogue(W8NpcState* npc, const W8ItemInstance* item, int quote, unsigned char flags,
@@ -753,7 +753,7 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, const W8ItemInstance* item, bo
         if (dialogue_info != 0) {
             position = dialogue_info->entity->nav.movement.position;
             position.y += dialogue_info->entity->nav.movement.height_offset;
-            partyCamera().LookAt(&position, false);
+            partyCamera().LookAt(&position, false, CurrentGame().activity.conversation);
         }
         info->entity->ForwardReferencePosition(0);
     }
@@ -3545,7 +3545,7 @@ void LookAtDialogueNpc(void)
     if (info != 0) {
         glm::vec3 position = info->entity->nav.movement.position;
         position.y += info->entity->nav.movement.height_offset;
-        partyCamera().LookAt(&position, false);
+        partyCamera().LookAt(&position, false, CurrentGame().activity.conversation);
     }
 }
 

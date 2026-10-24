@@ -5,6 +5,7 @@
 #include <tuple>
 #include <utility>
 
+#include "glm/ext/vector_float3.hpp"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
@@ -43,6 +44,7 @@
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
 
 bool Game::targetPresent(const W8CombatSlot& target) const
@@ -545,4 +547,58 @@ bool Game::reactDefensively(unsigned int slot, W8ActionKind action)
     events.push(PartySlotChanged{slot});
     events.push(CombatProgressChanged{});
     return true;
+}
+
+void Game::pointCameraAtMonster(const W8MonsterInfo& info, bool force, bool animate)
+{
+    const bool track =
+        force || (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER &&
+                  info.Target.iType == W8_TARGET_KIND_CHARACTER &&
+                  info.Target.iChar == status.selected_character);
+    if (!track && g_settings.camera_rotation_mode != W8_CAMERA_ROTATION_ALL_TARGETS) return;
+    if (!info.entity || !info.entity->IsRenderable(true)) return;
+    auto& monster = *info.entity;
+    auto position = monster.nav.movement.position;
+    position.y +=
+        monster.nav.movement.height_offset - monster.nav.movement.secondary_height_offset <
+                    1000.0f ||
+                monster.GetDistanceToPlayer() > 2000.0f
+            ? monster.nav.movement.secondary_height_offset
+            : monster.nav.movement.height_offset;
+    monster.owner_world.party.camera.pointAt(position, track, animate, activity.conversation);
+}
+
+void Game::pointCameraAtPosition(const glm::vec3& position, bool force, bool animate)
+{
+    if (level.primary)
+        level.primary->party.camera.pointAt(position, force, animate, activity.conversation);
+}
+
+void Game::pointCameraAtCombatTarget(const W8TargetSource* source, const W8CombatSlot* target)
+{
+    if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_DISABLED || !target ||
+        !targetPresent(*target))
+        return;
+    if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER &&
+        (source->iType != W8_TARGET_SOURCE_CHARACTER ||
+         source->iChar != status.selected_character) &&
+        (target->iType != W8_TARGET_KIND_CHARACTER || target->iChar != status.selected_character))
+        return;
+    if (target->iType == W8_TARGET_KIND_PLACE) {
+        pointCameraAtPosition(target->point, false, false);
+        return;
+    }
+    const auto* population = level.primary ? level.primary->population.get() : nullptr;
+    if (!population) return;
+    int monster_id;
+    if (target->iType == W8_TARGET_KIND_MONSTER)
+        monster_id = target->iMonsterID;
+    else if (target->iType == W8_TARGET_KIND_GROUP) {
+        const auto* group = population->findGroup(target->iGroupID);
+        if (!group) return;
+        monster_id = group->leader_location_id;
+    } else
+        return;
+    if (const auto* monster = population->findMonster(monster_id))
+        pointCameraAtMonster(*monster, false, true);
 }

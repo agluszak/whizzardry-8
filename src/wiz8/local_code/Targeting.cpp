@@ -8,7 +8,6 @@
 #include <iterator>
 #include <optional>
 #include <span>
-#include <tuple>
 #include <vector>
 
 #include <SDL3/SDL_stdinc.h>
@@ -51,7 +50,6 @@
 #include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
-#include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
@@ -1078,7 +1076,7 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
             AimAtTarget(party_slot, target);
             StartBreathCycle(party_slot, false);
             SetTargetSourceToCharacter(party_slot, &source);
-            PointCameraAtCombatTarget(&source, &target);
+            CurrentGame().pointCameraAtCombatTarget(&source, &target);
             return;
         }
     }
@@ -1098,7 +1096,7 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
 
     StartBreathCycle(party_slot, false);
     SetTargetSourceToCharacter(party_slot, &source);
-    PointCameraAtCombatTarget(&source, &target);
+    CurrentGame().pointCameraAtCombatTarget(&source, &target);
 }
 
 /* The group the party currently has picked out, by id, and -1 when
@@ -1175,7 +1173,7 @@ void CycleToNextTarget(int party_slot)
     }
     StartBreathCycle(party_slot, false);
     SetTargetSourceToCharacter(party_slot, &source);
-    PointCameraAtCombatTarget(&source, &target);
+    CurrentGame().pointCameraAtCombatTarget(&source, &target);
     if (auto& combat = CurrentGame().combat) combat->target_picked = true;
 }
 

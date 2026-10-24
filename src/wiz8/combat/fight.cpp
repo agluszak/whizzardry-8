@@ -192,7 +192,7 @@ bool Game::beginCombat(int surprise)
         }
     }
     if (nearest_info != 0) {
-        PointCameraAtMonster(nearest_info, false, true);
+        CurrentGame().pointCameraAtMonster(*nearest_info, false, true);
     }
     RefreshAllSight();
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
@@ -1105,8 +1105,8 @@ void SetCharacterCombatAction(int party_slot, W8Action next, int notify)
                 CurrentGame().repickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT,
                                                  notify != 0 && !SpellPicker() &&
                                                      !UseItemPicker())) {
-                PointCameraAtCombatTarget(&source,
-                                          &CurrentGame().party.rows[party_slot].committed.target);
+                CurrentGame().pointCameraAtCombatTarget(
+                    &source, &CurrentGame().party.rows[party_slot].committed.target);
             }
             if (notify != 0) {
                 RevalidateSelectedTarget(party_slot);
@@ -1777,47 +1777,6 @@ int GetConditionInterrupt(W8TargetSource* source)
    only turns for the selected character's own actions. Monster and group
    targets resolve through the monster list; a place target aims the camera
    at the point. */
-void PointCameraAtCombatTarget(W8TargetSource* source, const W8CombatSlot* target)
-{
-    int location_id;
-    W8MonsterInfo* monster_info;
-    W8MonsterGroup* group;
-    glm::vec3 position;
-
-    if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_DISABLED) {
-        return;
-    }
-    if (!(target && CurrentGame().targetPresent(*target))) {
-        return;
-    }
-    if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER &&
-        (!TargetSourceIsCharacter(source, 0) ||
-         source->iChar != CurrentGame().status.selected_character)) {
-        if (target->iType != W8_TARGET_KIND_CHARACTER) {
-            return;
-        }
-        if (target->iChar != CurrentGame().status.selected_character) {
-            return;
-        }
-    }
-    if (target->iType == W8_TARGET_KIND_MONSTER) {
-        assert(target->iMonsterID != -1);
-        location_id = target->iMonsterID;
-    } else if (target->iType == W8_TARGET_KIND_GROUP) {
-        assert(target->iGroupID != -1);
-        group = FindMonsterGroup(target->iGroupID);
-        location_id = group->leader_location_id;
-    } else {
-        if (target->iType != W8_TARGET_KIND_PLACE) {
-            return;
-        }
-        position = target->point;
-        PointCameraAtTarget(&position, false, false);
-        return;
-    }
-    monster_info = FindMonster(location_id);
-    PointCameraAtMonster(monster_info, false, true);
-}
 
 short GetCombatActionProgress(int* out_total)
 {

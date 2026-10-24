@@ -6453,8 +6453,8 @@ void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed need
         } else if (g_settings.autotarget_spells && draft && RepickDraftTarget(selected, *draft)) {
             W8TargetSource source;
             SetTargetSourceToCharacter(selected, &source);
-            PointCameraAtCombatTarget(&source,
-                                      &CurrentGame().party.rows[selected].committed.target);
+            CurrentGame().pointCameraAtCombatTarget(
+                &source, &CurrentGame().party.rows[selected].committed.target);
         }
         goto aim_done;
     case W8_TARGET_TYPE_ALL_ENEMIES:

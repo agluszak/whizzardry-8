@@ -159,7 +159,7 @@ ActionStep ReleaseMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8Mons
     SetTargetSourceToMonster(monster_info, &source);
     if (g_special_attack_table[record->special_attack_kind][0] != 6) {
         monster_info->entity->visual.aim_set = false;
-        PointCameraAtCombatTarget(&source, &monster_info->Target);
+        CurrentGame().pointCameraAtCombatTarget(&source, &monster_info->Target);
         PopulateSpellTargetMarkers(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, &monster_info->Target,
                                    monster_targets, char_targets,
                                    W8AreaSightRule::RequireLineOfSight);
@@ -483,7 +483,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
     if (uiCurrentPartyActionStatus == W8_PARTY_ACTION_IN_PROGRESS) {
         EndPartyMovementPhase();
     }
-    PointCameraAtMonster(monster_info, false, true);
+    CurrentGame().pointCameraAtMonster(*monster_info, false, true);
     SetTargetSourceToMonster(monster_info, &source);
     interrupt = GetConditionInterrupt(&source);
     if (interrupt != -1) {
@@ -789,7 +789,7 @@ bool Combat::startCharacterBreath(Game& game, int party_slot)
                                          fmt::format("{} -- ", Data().strings[kBreathNoticeId])});
     }
     breath_visual->auto_release = false;
-    PointCameraAtCombatTarget(&source, target);
+    CurrentGame().pointCameraAtCombatTarget(&source, target);
     return true;
 }
 
@@ -812,7 +812,7 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
     case W8_MONSTER_ACTION_RETURN_TO_START:
     case W8_MONSTER_ACTION_BACK_OFF:
     case W8_MONSTER_ACTION_CONTROLLED_MOVE:
-        PointCameraAtMonster(monster_info, false, true);
+        CurrentGame().pointCameraAtMonster(*monster_info, false, true);
         if (!monster_info->entity->nav.movement_complete) {
             outcome = ActionStep::resolving;
             break;

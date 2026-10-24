@@ -75,6 +75,7 @@
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/activity.h"
+#include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"

@@ -45,6 +45,7 @@ struct GameData;
 struct SavedGame;
 struct World;
 struct W8WorldItem;
+struct W8MonsterInfo;
 
 /* The worlds the party is in: the loaded level and the sky drawn behind it. Each slot
    owns its world; queries borrow it. The level's entities report to combat. Replacing a slot hands back the previous owner,
@@ -117,6 +118,9 @@ public:
                           bool allow_missing_target) const;
     bool canReactWith(unsigned int slot, W8ActionKind action) const;
     bool reactDefensively(unsigned int slot, W8ActionKind action);
+    void pointCameraAtMonster(const W8MonsterInfo& monster, bool force, bool animate);
+    void pointCameraAtPosition(const glm::vec3& position, bool force, bool animate);
+    void pointCameraAtCombatTarget(const W8TargetSource* source, const W8CombatSlot* target);
     bool targetPresent(const W8CombatSlot& target) const;
     bool targetMatches(const W8CombatSlot& target, W8TargetNeed needed) const;
     bool actionTargetsEnemies(unsigned int slot, const W8Action& action) const;

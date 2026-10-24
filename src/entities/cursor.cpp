@@ -377,7 +377,7 @@ void UpdateWorldCursor(void)
     if (!(old_position == position)) {
         if (cursor.detached) {
             position.y += kCursorSightProbeHeight;
-            PointCameraAtTarget(&position, true, false);
+            CurrentGame().pointCameraAtPosition(position, true, false);
         }
     }
 }
@@ -498,7 +498,7 @@ void UpdateWorldCursorPlacement(void)
             cursor->cam_rel_offset -= camera;
         }
         target.y += kCursorSightProbeHeight;
-        PointCameraAtTarget(&target, true, false);
+        CurrentGame().pointCameraAtPosition(target, true, false);
     } else {
         cursor->position = target;
     }

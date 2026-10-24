@@ -984,7 +984,7 @@ static void SelectStartNpcGreeting(void)
             head = glm::vec3(monster.nav.movement.position.x,
                              monster.nav.movement.position.y + monster.nav.movement.height_offset,
                              monster.nav.movement.position.z);
-            partyCamera().LookAt(&head, false);
+            partyCamera().LookAt(&head, false, CurrentGame().activity.conversation);
             return;
         }
         npc = CurrentGame().story.npcOfKind(0x18);

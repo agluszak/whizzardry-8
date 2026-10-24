@@ -171,7 +171,7 @@ bool SwampScript::gasFireSpawn(Trigger* pTrigger)
             monster_info->entity->GetMappedPosition(&mapped);
             look_target = monster_info->entity->nav.movement.position;
             look_target.y += monster_info->entity->nav.movement.height_offset;
-            partyCamera().LookAt(&look_target, false);
+            partyCamera().LookAt(&look_target, false, CurrentGame().activity.conversation);
             npc_dialogue_closed = false;
             addMaster(&SwampScript::gasFireItemDrop);
         }

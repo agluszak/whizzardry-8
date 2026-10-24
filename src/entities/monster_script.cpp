@@ -491,7 +491,8 @@ void Monster::ProcessScript()
                 runtime_flags |= W8_MONSTER_PARKED;
                 break;
             case MONSCR_LOOKHERE:
-                PointCameraAtMonster(owner_world.population->findMonster(location_id), true, true);
+                CurrentGame().pointCameraAtMonster(
+                    *owner_world.population->findMonster(location_id), true, true);
                 tokens >> token;
                 if (!tokens || SDL_strcasecmp(token.c_str(), "NOBLOCK") != 0) {
                     script_wait = MONSCR_LOOKHERE;

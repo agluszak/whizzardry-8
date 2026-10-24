@@ -1604,7 +1604,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
             report = &local_report;
         }
         ResolveGuardianInterception(&source, &CurrentGame().combat->TargetHit);
-        PointCameraAtCombatTarget(&source, &CurrentGame().combat->TargetHit);
+        CurrentGame().pointCameraAtCombatTarget(&source, &CurrentGame().combat->TargetHit);
         if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_CHARACTER) {
             unsigned int total = 0;
             unsigned int location_roll = CurrentGame().rng.below(100);
@@ -3043,7 +3043,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
             CurrentGame().combat->engaged_missile = missile;
             CurrentGame().combat->missile_hit_result = W8_MISSILE_HIT_NONE;
         }
-        PointCameraAtCombatTarget(source, target);
+        CurrentGame().pointCameraAtCombatTarget(source, target);
         return missile;
     }
     throw std::runtime_error(fmt::format("cannot load missile {}", missile_type));
@@ -3334,7 +3334,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
     if (party_row->executing.target.iType == W8_TARGET_KIND_MONSTER) {
         monster_info = FindMonster(party_row->executing.target.iMonsterID);
         CurrentGame().combat->attack_message += GetMonsterName(monster_info, 0, 0);
-        PointCameraAtMonster(monster_info, false, true);
+        CurrentGame().pointCameraAtMonster(*monster_info, false, true);
         if (range <= W8_RANGE_SHORT && !IsMonsterFacingParty(monster_info)) {
             if (monster_info->hp_current != 0 && monster_info->stamina != 0 &&
                 monster_info->highest_condition < W8_CONDITION_WEBBED &&
@@ -3549,7 +3549,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                 report = &local_report;
             }
             ResolveGuardianInterception(&source, &CurrentGame().combat->TargetHit);
-            PointCameraAtCombatTarget(&source, &CurrentGame().combat->TargetHit);
+            CurrentGame().pointCameraAtCombatTarget(&source, &CurrentGame().combat->TargetHit);
             if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
                 monster_info = FindMonster(CurrentGame().combat->TargetHit.iMonsterID);
                 const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);

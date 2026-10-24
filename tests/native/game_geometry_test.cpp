@@ -306,15 +306,15 @@ static void camera_and_throw()
     camera.ApplyRotationMatrix(&vertical, nullptr);
     REQUIRE((std::isfinite(camera.m_yaw) && std::isfinite(camera.m_pitch)));
     camera.SetOrientation(glm::two_pi<float>() - 0.1f, 0);
-    REQUIRE(camera.BeginOrientationTransition(0, glm::two_pi<float>() + 0.1f, true));
+    REQUIRE(camera.BeginOrientationTransition(0, glm::two_pi<float>() + 0.1f, true, false));
     REQUIRE((std::abs(camera.m_yaw_distance - 0.2f) < 1e-5f && camera.m_yaw_velocity > 0));
     camera.Update(camera.m_transition_duration + 1);
     REQUIRE((!camera.m_transition_active && !camera.m_forced_transition));
     REQUIRE(std::abs(camera.m_yaw - 0.1f) < 1e-5f);
-    REQUIRE(!camera.BeginOrientationTransition(0, camera.m_yaw, true));
+    REQUIRE(!camera.BeginOrientationTransition(0, camera.m_yaw, true, false));
     camera.Update(0.01f);
     REQUIRE((std::isfinite(camera.m_yaw) && std::isfinite(camera.m_pitch)));
-    REQUIRE(camera.BeginOrientationTransition(-0.2f, glm::two_pi<float>() - 0.1f, true));
+    REQUIRE(camera.BeginOrientationTransition(-0.2f, glm::two_pi<float>() - 0.1f, true, false));
     REQUIRE((camera.m_yaw_velocity < 0 && camera.m_pitch_velocity < 0));
 
     const auto center = ItemThrowDirection({0.5f, 0.5f}, glm::mat3(1));
@@ -2430,4 +2430,21 @@ TEST_CASE("Resolved prop picks retain occlusion and the closed-door combat excep
     world.acceptPick({}, false);
     REQUIRE_FALSE(world.picked.intersection.hit);
     REQUIRE_FALSE(world.selectedProp());
+}
+
+TEST_CASE("Camera tracking uses the requesting game's conversation state", "[camera]")
+{
+    ScopedGame outgoing;
+    Game candidate{ScopedGame::NoData()};
+    candidate.level.replacePrimary(
+        std::make_unique<World>(-1, std::string{}, candidate.timerClocks()));
+    auto& camera = candidate.level.loaded().party.camera;
+    camera.m_orientation_flags = W8_CAMERA_MANUAL_INPUT;
+    outgoing.game.activity.conversation = true;
+    candidate.pointCameraAtPosition({5000, 0, 0}, true, true);
+    REQUIRE_FALSE(camera.m_transition_active);
+    outgoing.game.activity.conversation = false;
+    candidate.activity.conversation = true;
+    candidate.pointCameraAtPosition({5000, 0, 0}, true, true);
+    REQUIRE(camera.m_transition_active);
 }

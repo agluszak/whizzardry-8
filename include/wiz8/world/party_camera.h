@@ -68,13 +68,15 @@ public:
     explicit PartyCamera(TimerClockView clocks = {});
 
     void ApplyRotationMatrix(glm::mat3* rotation, PartyMotion* context); /* 0x00476610 */
-    void SnapToTarget(const glm::vec3* target); /* 0x00476950 */
-    void SetOrientationImmediate(float pitch, float angle); /* 0x00476C30 */
-    unsigned char LookAt(const glm::vec3* target, bool preserve_pitch); /* 0x00476F90 */
+    void pointAt(const glm::vec3& position, bool force, bool animate, bool conversation);
+    void SnapToTarget(const glm::vec3* target, bool conversation); /* 0x00476950 */
+    void SetOrientationImmediate(float pitch, float angle, bool conversation); /* 0x00476C30 */
+    unsigned char LookAt(const glm::vec3* target, bool preserve_pitch,
+                         bool conversation); /* 0x00476F90 */
     bool ComputeTrackingOrientation(const glm::vec3* target, float* angle,
                                     float* pitch); /* 0x00477180 */
-    unsigned char BeginOrientationTransition(float target_pitch, float target_angle,
-                                             bool force); /* 0x00477440 */
+    unsigned char BeginOrientationTransition(float target_pitch, float target_angle, bool force,
+                                             bool conversation); /* 0x00477440 */
     void Update(float elapsed); /* 0x004776A0 */
     void ApplyYawInput(float input); /* 0x00477B90 */
     void ApplyPitchInput(float input); /* 0x00477EB0 */
@@ -127,7 +129,7 @@ public:
 
 private:
     void updateMovementAudio(World& world);
-    bool CanTrackTarget();
+    bool CanTrackTarget(bool conversation);
 };
 
 // Active world controller, or startup state while no world is published.

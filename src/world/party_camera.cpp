@@ -161,9 +161,9 @@ void PartyCamera::ApplyRotationMatrix(glm::mat3* rotation, PartyMotion* context)
     *rotation = m_rotation;
 }
 
-bool PartyCamera::CanTrackTarget()
+bool PartyCamera::CanTrackTarget(bool conversation)
 {
-    return CurrentGame().activity.conversation ||
+    return conversation ||
            (!(m_orientation_flags & W8_CAMERA_MANUAL_INPUT) && m_manual_input_timer.PollFinished());
 }
 
@@ -178,20 +178,20 @@ static std::optional<DirectionAngles> aimAngles(const glm::vec3& target, const g
     return angles;
 }
 
-void PartyCamera::SnapToTarget(const glm::vec3* target)
+void PartyCamera::SnapToTarget(const glm::vec3* target, bool conversation)
 {
-    if (!CanTrackTarget()) return;
+    if (!CanTrackTarget(conversation)) return;
 
     const auto aim = aimAngles((*target), m_position);
     if (!aim) return;
     m_target_pitch = aim->pitch;
     m_target_yaw = aim->yaw;
-    SetOrientationImmediate(aim->pitch, aim->yaw);
+    SetOrientationImmediate(aim->pitch, aim->yaw, conversation);
 }
 
-void PartyCamera::SetOrientationImmediate(float pitch, float angle)
+void PartyCamera::SetOrientationImmediate(float pitch, float angle, bool conversation)
 {
-    if (!CanTrackTarget()) return;
+    if (!CanTrackTarget(conversation)) return;
 
     m_target_pitch = pitch;
     m_target_yaw = angle;
@@ -203,13 +203,14 @@ void PartyCamera::SetOrientationImmediate(float pitch, float angle)
     m_yaw_velocity = 0.0f;
 }
 
-unsigned char PartyCamera::LookAt(const glm::vec3* target, bool preserve_pitch)
+unsigned char PartyCamera::LookAt(const glm::vec3* target, bool preserve_pitch, bool conversation)
 {
-    if (!CanTrackTarget()) return 0;
+    if (!CanTrackTarget(conversation)) return 0;
 
     const auto aim = aimAngles((*target), m_position);
     if (!aim) return 0;
-    return BeginOrientationTransition(preserve_pitch ? m_pitch : aim->pitch, aim->yaw, false);
+    return BeginOrientationTransition(preserve_pitch ? m_pitch : aim->pitch, aim->yaw, false,
+                                      conversation);
 }
 
 bool PartyCamera::ComputeTrackingOrientation(const glm::vec3* target, float* angle, float* pitch)
@@ -253,9 +254,9 @@ bool PartyCamera::ComputeTrackingOrientation(const glm::vec3* target, float* ang
 }
 
 unsigned char PartyCamera::BeginOrientationTransition(float target_pitch, float target_angle,
-                                                      bool force)
+                                                      bool force, bool conversation)
 {
-    if (!force && !CanTrackTarget()) return 0;
+    if (!force && !CanTrackTarget(conversation)) return 0;
 
     m_target_pitch = target_pitch;
     m_target_yaw = target_angle;
@@ -501,7 +502,7 @@ void PartyCamera::SetOrientation(float angle, float pitch)
 void PartyCamera::BeginLeveling()
 {
     m_orientation_flags |= W8_CAMERA_LEVELING;
-    BeginOrientationTransition(0.0f, m_yaw, false);
+    BeginOrientationTransition(0.0f, m_yaw, false, CurrentGame().activity.conversation);
 }
 
 void PartyCamera::GetForwardPoint(float distance, glm::vec3* output)
@@ -753,7 +754,7 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
             group = FindFirstMonsterByID(0x18c);
             if (group != 0) {
                 monster_info = FindMonster(group->leader_location_id);
-                PointCameraAtMonster(monster_info, true, true);
+                CurrentGame().pointCameraAtMonster(*monster_info, true, true);
                 position = monster_info->entity->nav.GetPosition();
                 target = position;
                 if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_ALL_TARGETS) {
@@ -765,7 +766,8 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
                     } else if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SMOOTH &&
                                partyCamera().ComputeTrackingOrientation(&target, &angle, &pitch) ==
                                    0) {
-                        partyCamera().BeginOrientationTransition(pitch, angle, false);
+                        partyCamera().BeginOrientationTransition(
+                            pitch, angle, false, CurrentGame().activity.conversation);
                     }
                 }
                 monster_info->entity->ForwardReferencePosition(0);
@@ -799,94 +801,11 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
    animate chooses the eased transition over the snap. The aim point is the
    head height, or the lower offset when the two nearly coincide or the
    monster is far away. */
-void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate)
-{
-    glm::vec3 position;
-    float pitch;
-    float angle;
-    bool track;
-
-    if (g_settings.camera_rotation_mode == W8_CAMERA_ROTATION_SELECTED_CHARACTER &&
-        monster_info->Target.iType == W8_TARGET_KIND_CHARACTER &&
-        monster_info->Target.iChar == CurrentGame().status.selected_character) {
-        track = true;
-    } else {
-        track = force;
-        if (!track && g_settings.camera_rotation_mode != W8_CAMERA_ROTATION_ALL_TARGETS) {
-            return;
-        }
-    }
-    Monster& monster = *monster_info->entity;
-    if (!monster.IsRenderable(true)) {
-        return;
-    }
-    if (monster.nav.movement.height_offset - monster.nav.movement.secondary_height_offset <
-            1e+03f ||
-        monster.GetDistanceToPlayer() > 2e+03f) {
-        position = monster.nav.movement.position;
-        position.y += monster.nav.movement.secondary_height_offset;
-    } else {
-        position = monster.nav.movement.position;
-        position.y += monster.nav.movement.height_offset;
-    }
-    if (track) {
-        if (!animate) {
-            CameraSnapToTarget(&position);
-            return;
-        }
-        if (partyCamera().ComputeTrackingOrientation(&position, &angle, &pitch) == 0) {
-            partyCamera().BeginOrientationTransition(pitch, angle, false);
-        }
-        return;
-    }
-    if (g_settings.camera_rotation_mode != W8_CAMERA_ROTATION_ALL_TARGETS) {
-        return;
-    }
-    if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SMOOTH) {
-        if (partyCamera().ComputeTrackingOrientation(&position, &angle, &pitch) == 0) {
-            partyCamera().BeginOrientationTransition(pitch, angle, false);
-        }
-    } else if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SNAP &&
-               partyCamera().ComputeTrackingOrientation(&position, &pitch, &angle) == 0) {
-        CameraSnapToTarget(&position);
-    }
-}
 
 /* Turn the camera to face a world position: without the force flag the camera
    only moves when tracking mode is enabled, snapping or easing per the
    configured rotation style; with it the orientation is always updated -
    snapped unless animate asks for the transition. */
-void PointCameraAtTarget(glm::vec3* position, bool force, bool animate)
-{
-    float angle;
-    float pitch;
-
-    if (force) {
-        if (!animate) {
-            CameraSnapToTarget(position);
-            return;
-        }
-        if (partyCamera().ComputeTrackingOrientation(position, &angle, &pitch) == 0) {
-            partyCamera().BeginOrientationTransition(pitch, angle, false);
-        }
-        return;
-    }
-    if (g_settings.camera_rotation_mode != W8_CAMERA_ROTATION_ALL_TARGETS) {
-        return;
-    }
-    switch (g_settings.camera_rotation_style) {
-    case W8_CAMERA_ROTATION_SMOOTH:
-        if (partyCamera().ComputeTrackingOrientation(position, &angle, &pitch) == 0) {
-            partyCamera().BeginOrientationTransition(pitch, angle, false);
-        }
-        break;
-    case W8_CAMERA_ROTATION_SNAP:
-        if (partyCamera().ComputeTrackingOrientation(position, &pitch, &angle) == 0) {
-            CameraSnapToTarget(position);
-        }
-        break;
-    }
-}
 
 void PartyCamera::applySway(Camera3D& camera, CameraSwayMode mode)
 {
@@ -947,5 +866,22 @@ void PartyCamera::updateMovementAudio(World& world)
         if (!loop || !wiz8::sound::is_playing(loop))
             loop = PlayFootstep(motion.sound_environment, motion.sound_environment_alt,
                                 W8_FOOTSTEP_KIND_SCUFF);
+    }
+}
+
+void PartyCamera::pointAt(const glm::vec3& position, bool force, bool animate, bool conversation)
+{
+    if (!force && g_settings.camera_rotation_mode != W8_CAMERA_ROTATION_ALL_TARGETS) return;
+    if (force && !animate) {
+        SnapToTarget(&position, conversation);
+        return;
+    }
+    float yaw, pitch;
+    if (force || g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SMOOTH) {
+        if (!ComputeTrackingOrientation(&position, &yaw, &pitch))
+            BeginOrientationTransition(pitch, yaw, false, conversation);
+    } else if (g_settings.camera_rotation_style == W8_CAMERA_ROTATION_SNAP &&
+               !ComputeTrackingOrientation(&position, &pitch, &yaw)) {
+        SnapToTarget(&position, conversation);
     }
 }

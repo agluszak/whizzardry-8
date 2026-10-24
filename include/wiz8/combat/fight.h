@@ -42,7 +42,7 @@ bool AnyCharacterEngaged(void);
 /* Whether the character knows any spell whose realm's sp_left
    still covers its spell_point_cost. */
 bool CharacterHasCastableSpell(W8Character* character);
-void PointCameraAtCombatTarget(W8TargetSource* source, const W8CombatSlot* target);
+
 /* Set one monster's turn up, once - phase and speed by action. */
 void SetUpMonsterTurn(W8MonsterInfo* monster_info);
 /* The condition interrupt that fires before the actor's action;

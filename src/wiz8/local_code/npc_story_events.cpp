@@ -342,7 +342,7 @@ static void NpcScriptHenchmanArrives(Monster* monster)
     glm::vec3 origin;
 
     if (FindEntityByName("NP_HENCHMEN", &position, 0, 0)) {
-        PointCameraAtTarget(&position, false, true);
+        CurrentGame().pointCameraAtPosition(position, false, true);
         W8MonsterGroup* group = SpawnMonsters(0xdc, 1, &position, 2, true, false);
         int location_id = group->MemberLocationId(0);
         if (location_id != 0) {
@@ -647,7 +647,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         SetMonsterGroupScript(0x18c, "MoveBela.msf");
         glm::vec3 position;
         if (FindEntityByName("NP_DSExit", &position, 0, 0)) {
-            PointCameraAtTarget(&position, false, true);
+            CurrentGame().pointCameraAtPosition(position, false, true);
         }
         break;
     }

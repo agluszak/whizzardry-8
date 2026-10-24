@@ -242,7 +242,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
     }
     if (amount != 0) {
         if (CurrentGame().combat.has_value() || monster_info->party_threat.visible_to_player) {
-            PointCameraAtMonster(monster_info, false, true);
+            CurrentGame().pointCameraAtMonster(*monster_info, false, true);
             category = 9;
             if (TargetSourceIsCharacter(source, 0) && source->iChar != -1) {
                 category = 8;

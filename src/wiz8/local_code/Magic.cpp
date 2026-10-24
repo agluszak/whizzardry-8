@@ -2845,7 +2845,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             // Immediate casts have no queued owner to retire their visuals later.
             for (auto* visual : owner.spell_visuals) visual->auto_release = true;
         }
-        PointCameraAtCombatTarget(source, target);
+        CurrentGame().pointCameraAtCombatTarget(source, target);
         if (source->fBackfire) {
             if (quiet) {
                 owner.reported = true;

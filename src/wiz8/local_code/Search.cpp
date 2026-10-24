@@ -202,7 +202,7 @@ static void RunSearchPulse(bool searching)
                     glm::vec3 position;
                     searchable->GetPosition(&position);
                     ResetInactiveLevelDataVectors();
-                    PointCameraAtTarget(&position, true, true);
+                    CurrentGame().pointCameraAtPosition(position, true, true);
                     searchable->Reveal();
                 }
             }
