@@ -203,7 +203,20 @@ TEST_CASE("A dead character's events leave every queue of their own game", "[res
     }
     owner.monster_manager_entries[0].active_character_event = queue.active_events.front().get();
 
-    queue.RemoveCharacterEvents(&party[0]);
+    owner.monster_manager_entries[0].portrait_event_active = true;
+    unsigned int presented = 0;
+    owner.events.observe([&](const Event& event) {
+        REQUIRE(std::holds_alternative<PortraitSpeechChanged>(event));
+        for (const auto* events : queues)
+            REQUIRE((events->size() == 1 && events->front()->character == &party[1]));
+        ++presented;
+    });
+    std::vector<Event> outcomes;
+    queue.RemoveCharacterEvents(&party[0], outcomes);
+    REQUIRE(presented == 0);
+    owner.events.publish(std::move(outcomes));
+    REQUIRE(presented == 1);
+    owner.events.observe({});
 
     for (const auto* events : queues)
         REQUIRE((events->size() == 1 && events->front()->character == &party[1]));

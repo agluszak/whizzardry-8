@@ -13,6 +13,7 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 
 class Game;
@@ -87,9 +88,9 @@ struct W8CharacterEvent {
         return type == 14 || type == 15;
     }
 
-    void Complete(); /* 0x0052CED0 */
+    void Complete(std::vector<Event>& outcomes); /* 0x0052CED0 */
 
-    bool Dispatch(); /* 0x0052CA60 */
+    bool Dispatch(std::vector<Event>& outcomes); /* 0x0052CA60 */
 
     bool IsConditionMet(unsigned int event_type); /* 0x0052C910 */
     bool PlayEventSound(std::string_view quote);  /* 0x0052D260 */
@@ -136,14 +137,23 @@ struct W8CharacterEventQueue {
     /* Create and queue `character`'s event; see QueueEntry for the result. */
     W8CharacterEvent* Queue(W8Character* character, int event_type, unsigned int flags,
                             unsigned int volume);
+    W8CharacterEvent* Queue(W8Character* character, int event_type, unsigned int flags,
+                            unsigned int volume, std::vector<Event>& outcomes);
     void QueuePartyDeathReaction(unsigned int party_slot);
+    void QueuePartyDeathReaction(unsigned int party_slot, std::vector<Event>& outcomes);
     void QueueTurnReactionEvent();
     void QueueConditionChangeReaction(W8Character* character);
+    void QueueConditionChangeReaction(W8Character* character, std::vector<Event>& outcomes);
     void QueueConditionClearedReaction(W8Character* character, W8Condition condition);
+    void QueueConditionClearedReaction(W8Character* character, W8Condition condition,
+                                       std::vector<Event>& outcomes);
     void QueueDamageReactionEvents(W8Character* character);
+    void QueueDamageReactionEvents(W8Character* character, std::vector<Event>& outcomes);
     /* Takes ownership of `entry`. Returns the event while the queue still
        holds it, so the caller may adjust it, or null when it was dropped. */
     W8CharacterEvent* QueueEntry(std::unique_ptr<W8CharacterEvent> entry);
+    W8CharacterEvent* QueueEntry(std::unique_ptr<W8CharacterEvent> entry,
+                                 std::vector<Event>& outcomes);
     /* Descriptive name for the successful-dispatch bookkeeping operation. */
     void RecordDispatchedEvent(unsigned int event_type, unsigned int party_slot);
     void SetEventCharacterMask(unsigned int event_type, unsigned int party_slot, bool enabled);
@@ -154,12 +164,16 @@ struct W8CharacterEventQueue {
     /* Unlink an active event, restart the follow-up clock for it, complete it
        and release it. Retail expands this body in the dispatch helpers as well
        as retaining the emission. */
-    void CompleteActiveEvent(W8CharacterEvent* entry); /* 0x0052D8D0 */
+    void CompleteActiveEvent(W8CharacterEvent* entry);
+    void CompleteActiveEvent(W8CharacterEvent* entry,
+                             std::vector<Event>& outcomes); /* 0x0052D8D0 */
     void CompleteFirstActiveEvent();
     void RestartFollowUpClock(W8CharacterEvent* entry);
     /* Removes every queued event belonging to a character; active ones are
        completed first. Runs when a character dies. */
-    void RemoveCharacterEvents(W8Character* character); /* 0x0052D970 */
+    void RemoveCharacterEvents(W8Character* character);
+    void RemoveCharacterEvents(W8Character* character,
+                               std::vector<Event>& outcomes); /* 0x0052D970 */
     void CompleteAllActiveEvents();                     /* 0x0052DB30 */
     bool HasActiveEvents();                             /* 0x0052E460 */
     /* Advances the ambient follow-up exchange: arms it, then on each clock
@@ -178,6 +192,9 @@ struct W8CharacterEventQueue {
     // Update logical portrait playback, then report the transition for widgets and subtitles.
     void SetPortraitEventState(unsigned int party_slot, bool active, unsigned int event_type,
                                std::string_view quote_text, int show_quote);
+    void SetPortraitEventState(unsigned int party_slot, bool active, unsigned int event_type,
+                               std::string_view quote_text, int show_quote,
+                               std::vector<Event>& outcomes);
     /* Drive `party_slot`'s portrait from `voice`: its remaining time and mouth gaps
        follow the playback, or the portrait holds for `unvoiced_ms` when no voice
        started. Character events and NPC party members both speak this way. */

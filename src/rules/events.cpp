@@ -2,6 +2,7 @@
 
 #include <exception>
 #include <utility>
+#include <vector>
 
 Events::Operation::Operation(Events& events)
     : events_(events), pending_start_(events.pending_.size()),
