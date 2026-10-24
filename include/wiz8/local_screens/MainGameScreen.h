@@ -539,7 +539,6 @@ extern bool g_mouselook_active;
 extern bool g_mouselook_left_held;
 enum W8MainGameMode {
     W8_MAIN_GAME_DEFAULT = 0,
-    W8_MAIN_GAME_NPC_DIALOGUE = 3,
     W8_MAIN_GAME_PORTRAIT_REFRESH = 4,
     W8_MAIN_GAME_MODAL = 5,
     W8_MAIN_GAME_HIGHLIGHT_OVERLAY = 6

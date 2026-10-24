@@ -84,7 +84,7 @@ Game& GameSession::begin()
     end();
     candidate->rng = next_stream_;
     game_ = std::move(candidate);
-    game_->events.observe(observer_);
+    observe(observer_);
     return *game_;
 }
 
@@ -125,10 +125,16 @@ void GameSession::seed(std::uint32_t seed)
     (game_ ? game_->rng : next_stream_).seed(seed);
 }
 
-void GameSession::observe(std::function<void(const Event&)> observer)
+void GameSession::observe(std::function<void(Game&, const Event&)> observer)
 {
     observer_ = std::move(observer);
-    if (game_) game_->events.observe(observer_);
+    if (!game_) return;
+    if (!observer_) {
+        game_->events.observe({});
+        return;
+    }
+    game_->events.observe(
+        [owner = game_.get(), present = observer_](const Event& event) { present(*owner, event); });
 }
 
 Game& CurrentGame()

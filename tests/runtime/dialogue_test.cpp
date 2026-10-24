@@ -164,9 +164,9 @@ void NpcDialogueScenario()
         auto& panel = MainGame()->dialogue;
         auto& sequence = CurrentGame().npc_dialogue;
         const auto notices = std::make_shared<unsigned>(0);
-        CurrentGame().events.observe([notices](const Event& event) {
+        CurrentGame().events.observe([notices, &game = CurrentGame()](const Event& event) {
             if (std::holds_alternative<CharacterNotice>(event)) ++*notices;
-            PresentGameEvent(event);
+            PresentGameEvent(game, event);
         });
         panel.showPortraitMessage(
             "Old notice",
@@ -201,7 +201,8 @@ void NpcDialogueScenario()
         REQUIRE(*completions == 0);
         REQUIRE(*notices == 1);
         sequence.ReplyDialogClosed();
-        CurrentGame().events.observe(PresentGameEvent);
+        CurrentGame().events.observe(
+            [&game = CurrentGame()](const Event& event) { PresentGameEvent(game, event); });
     }
     // Filtering/sorting changes the view, not notebook identity. Removing the
     // first displayed topic must remove that topic from the actual notebook.

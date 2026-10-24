@@ -2355,22 +2355,12 @@ void TickAmbientFollowUpIdle(unsigned char input_handled)
     CurrentGame().speech.follow_up.reset();
 }
 
-/* Leave one main-game mode for another: mode 3 ends a live NPC dialogue
-   session, mode 5 releases its screen state, and mode 6 releases the dialogue
-   highlight sprite then clears and dirties the dialogue rectangle when it
-   crosses the viewport band. The new mode is stored last. */
+// A highlighted plate belongs to the mode being left, not its replacement.
 void SetMainGameMode(W8MainGameMode mode)
 {
-    switch (g_main_game_mode) {
-    case W8_MAIN_GAME_NPC_DIALOGUE:
-        CloseNpcDialogueIfActive();
-        break;
-    case W8_MAIN_GAME_HIGHLIGHT_OVERLAY:
+    if (g_main_game_mode == W8_MAIN_GAME_HIGHLIGHT_OVERLAY) {
         MainGameHud()->highlight_graphic.reset();
         ClearHighlightOverlayRegion();
-        break;
-    default:
-        break;
     }
     g_main_game_mode = mode;
 }
@@ -3169,9 +3159,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
         if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
     }
 
-    if (g_main_game_mode == W8_MAIN_GAME_NPC_DIALOGUE) {
-        CloseNpcDialogueIfActive();
-    } else if (g_main_game_mode == W8_MAIN_GAME_HIGHLIGHT_OVERLAY) {
+    if (g_main_game_mode == W8_MAIN_GAME_HIGHLIGHT_OVERLAY) {
         MainGameHud()->highlight_graphic.reset();
         ClearHighlightOverlayRegion();
     }

@@ -79,11 +79,13 @@ struct TextBoxModeChange {
     int value = -1;
 };
 
-/* A member says one of their lines (a character event type), as a voice and a portrait
-   quote. */
-struct CharacterSpeech {
-    unsigned int party_slot = 0;
-    int event_type = 0;
+// Playback/portrait state has changed; widgets and subtitles present the settled transition.
+struct PortraitSpeechChanged {
+    unsigned int party_slot;
+    bool active;
+    unsigned int event_type;
+    std::string quote;
+    bool show_quote;
 };
 
 // A completed hit's presentation, including the variant selected at the hit milestone.
@@ -172,14 +174,14 @@ struct TargetingRequested {
 };
 
 using Event =
-    std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, CharacterSpeech,
-                 CharacterDamaged, CharacterDied, PartySlotChanged, PartyLoadChanged,
-                 CombatPanelChanged, CharacterActionChanged, EquipmentSettled, SkillImproved,
-                 WorldAdvancementChanged, CombatantsMoved, CombatExecutionBegan, CombatCalledOff,
-                 CombatBegan, CombatEnded, CombatProgressChanged, CombatStanceChanged,
-                 MonstersChanged, PartyEffectsChanged, CombatEffectsChanged, PartyPanelChanged,
-                 PartyMembershipChanged, WorldItemRemoved, TargetingRequested, FormationChanged,
-                 ActionAimChanged, ActionChoiceChanged, JournalEntryAdded>;
+    std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, CharacterDamaged,
+                 CharacterDied, PartySlotChanged, PartyLoadChanged, CombatPanelChanged,
+                 CharacterActionChanged, EquipmentSettled, SkillImproved, WorldAdvancementChanged,
+                 CombatantsMoved, CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
+                 CombatProgressChanged, CombatStanceChanged, MonstersChanged, PartyEffectsChanged,
+                 CombatEffectsChanged, PartyPanelChanged, PartyMembershipChanged, WorldItemRemoved,
+                 TargetingRequested, FormationChanged, ActionAimChanged, ActionChoiceChanged,
+                 JournalEntryAdded, PortraitSpeechChanged>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events

@@ -15,7 +15,6 @@
 #include "wiz8/cursor.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
@@ -166,6 +165,7 @@ void ShowRefusal(const InventoryRefusal& refusal)
 namespace {
 // Each game event shown the way the active screen shows it.
 struct GameEventPresentation {
+    Game& game;
     void operator()(const TextNotice& notice) const
     {
         ShowNotice(notice.palette, notice.text, notice.text_box, notice.wrap_width,
@@ -183,10 +183,9 @@ struct GameEventPresentation {
     {
         SetTextBoxMode(change.mode, change.value);
     }
-    void operator()(const CharacterSpeech& speech) const
+    void operator()(const PortraitSpeechChanged& change) const
     {
-        QueueCharacterEvent(&CurrentGame().party.characters[speech.party_slot], speech.event_type,
-                            0, kCharacterEventFullVolume);
+        PresentPortraitSpeech(game, change);
     }
     void operator()(const CharacterDamaged& damage) const
     {
@@ -203,8 +202,7 @@ struct GameEventPresentation {
     }
     void operator()(const PartyLoadChanged&) const
     {
-        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
-            !CurrentGame().activity.conversation) {
+        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && !game.activity.conversation) {
             if (auto* hud = ShownHud()) hud->repaint.portraits.set();
         } else if (auto* camp = FindScreen<CampScreen>()) {
             camp->RefreshPartyLoad();
@@ -337,7 +335,6 @@ struct GameEventPresentation {
     }
     void operator()(const SkillImproved& improved) const
     {
-        auto& game = CurrentGame();
         AnnounceSkillIncrease(game, improved.party_slot, improved.skill,
                               !improved.quiet && SkillIncreasesShownNow(game));
     }
@@ -355,9 +352,9 @@ bool SkillIncreasesShownNow(const Game& game)
            CurrentScreenState().id == W8_SCREEN_MAIN_GAME && IsScreenIdle();
 }
 
-void PresentGameEvent(const Event& event)
+void PresentGameEvent(Game& game, const Event& event)
 {
-    std::visit(GameEventPresentation{}, event);
+    std::visit(GameEventPresentation{game}, event);
 }
 
 /* Default the main game's HUD state on entry: clear

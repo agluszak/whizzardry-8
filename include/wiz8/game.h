@@ -332,7 +332,7 @@ public:
     void seed(std::uint32_t seed);
     /* The composition root's presenter for every game's events; a game begun before one
        is installed keeps its events pending. */
-    void observe(std::function<void(const Event&)> observer);
+    void observe(std::function<void(Game&, const Event&)> observer);
 
 private:
     // Release the game in progress without leaving its level.
@@ -340,7 +340,7 @@ private:
     const GameData& data_;
     std::unique_ptr<Game> game_;
     Rng next_stream_;
-    std::function<void(const Event&)> observer_;
+    std::function<void(Game&, const Event&)> observer_;
 };
 
 /* The game in progress. Transitional: code that does not receive the game yet reaches

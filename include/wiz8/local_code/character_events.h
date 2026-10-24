@@ -1,6 +1,9 @@
 #pragma once
 
 struct SDL_Surface;
+class Game;
+struct PortraitSpeechChanged;
+void PresentPortraitSpeech(Game& game, const PortraitSpeechChanged& change);
 
 #include <cstdint>
 #include <string>

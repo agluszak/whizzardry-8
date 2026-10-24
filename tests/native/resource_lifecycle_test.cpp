@@ -243,6 +243,15 @@ TEST_CASE("Pending outcomes do not survive into a replacement game", "[lifetime]
 
     REQUIRE(next.events.pending().empty());
     REQUIRE(scope.session.game() == &next);
+    std::vector<Game*> sources;
+    scope.session.observe([&](Game& source, const Event&) { sources.push_back(&source); });
+    next.events.push(PartySlotChanged{3});
+    REQUIRE(sources == std::vector<Game*>{&next});
+    auto& replacement = scope.session.begin();
+    replacement.events.push(PartySlotChanged{4});
+    REQUIRE(sources.size() == 2);
+    REQUIRE(sources.back() == &replacement);
+    scope.session.observe({});
 }
 
 TEST_CASE("Level departure belongs to the game, not screen teardown", "[lifetime][level]")

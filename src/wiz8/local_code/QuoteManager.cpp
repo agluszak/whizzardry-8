@@ -815,6 +815,38 @@ void W8CharacterEventQueue::SetPortraitEventState(unsigned int party_slot, bool 
                                                   unsigned int event_type,
                                                   std::string_view quote_text, int show_quote)
 {
+    auto& record = game.monster_manager_entries[party_slot];
+    if (record.portrait_event_active == active) return;
+    record.portrait_event_active = active;
+    record.portrait.frame = active ? 7 : 6;
+    record.portrait.frame_dirty = true;
+    record.portrait.blink_closing = false;
+    int pose = 1;
+    if (active) {
+        record.portrait.frame_due = game.time + std::chrono::milliseconds{120};
+        if (static_cast<int>(event_type) <= static_cast<int>(g_normal_event_count)) {
+            const auto mapped = kFirstRemappedEvent <= event_type
+                                    ? g_normal_event_count - kFirstRemappedEvent + event_type
+                                    : event_type;
+            pose = g_character_event_descriptors[mapped].portrait_pose_category;
+        }
+    }
+    record.portrait.target_pose =
+        game.party.characters[party_slot].highest_condition < W8_CONDITION_ASLEEP &&
+                !game.surprise_possible
+            ? pose
+            : 2;
+    game.events.push(PortraitSpeechChanged{
+        party_slot, active, active ? event_type : record.pending_event_type,
+        active ? std::string(quote_text) : std::string{}, active && show_quote != 0});
+}
+
+void PresentPortraitSpeech(Game& game, const PortraitSpeechChanged& change)
+{
+    const auto party_slot = change.party_slot;
+    const auto event_type = change.event_type;
+    const auto& quote_text = change.quote;
+    const bool show_quote = change.show_quote;
     const auto shown = ShownPartyQuotes(game);
     const auto screen_id = shown ? CurrentScreenState().id : W8_SCREEN_NONE;
     auto* main = MainGame();
@@ -822,49 +854,23 @@ void W8CharacterEventQueue::SetPortraitEventState(unsigned int party_slot, bool 
     W8MonsterManagerEntry* record = &game.monster_manager_entries[party_slot];
     W8PortraitQuoteState* quote = &record->quote;
 
-    if (record->portrait_event_active == active) {
-        return;
-    }
-    if (!active) {
-        record->portrait_event_active = false;
-        record->portrait.frame = 6;
-        record->portrait.frame_dirty = true;
-        record->portrait.blink_closing = false;
-        W8Condition highest_condition = game.party.characters[party_slot].highest_condition;
-        if (highest_condition < W8_CONDITION_ASLEEP && !game.surprise_possible) {
-            if (record->portrait.target_pose != 1) {
-                record->portrait.target_pose = 1;
-            }
-        } else {
-            record->portrait.target_pose = 2;
-        }
-        if (!quote->bubble) {
-            record->portrait_event_active = active;
-            return;
-        }
-        unsigned int stored_event = record->pending_event_type;
-        unsigned int mapped_event = stored_event;
+    if (!change.active) {
+        if (!quote->bubble) return;
         if (!shown) {
             quote->bubble.reset();
             return;
         }
-        if (static_cast<int>(g_normal_event_count) < static_cast<int>(mapped_event)) {
-        show_deactivate_quote:
-            std::string formatted;
-            std::string character_name = game.party.characters[party_slot].name;
-            formatted = character_name;
-            ShowNotice(W8_FONT_PALETTE_GREEN, formatted, 3, W8_NOTICE_WRAP_TEXT_BOX);
-            /* Retail 0x0052fc82..0x0052fc9b: the quote line follows the
-               speaker's name into the dialogue box (3) with the same scroll
-               width, not the mode-selected box. */
+        bool log_quote = static_cast<int>(g_normal_event_count) < static_cast<int>(event_type);
+        if (!log_quote) {
+            const auto mapped = kFirstRemappedEvent <= event_type
+                                    ? g_normal_event_count - kFirstRemappedEvent + event_type
+                                    : event_type;
+            log_quote = g_character_event_descriptors[mapped].log_quote_on_finish != 0;
+        }
+        if (log_quote) {
+            ShowNotice(W8_FONT_PALETTE_GREEN, game.party.characters[party_slot].name, 3,
+                       W8_NOTICE_WRAP_TEXT_BOX);
             ShowNotice(W8_FONT_PALETTE_TEXT_BOX, quote->bubble->text(), 3, W8_NOTICE_WRAP_TEXT_BOX);
-        } else {
-            if (kFirstRemappedEvent <= mapped_event) {
-                mapped_event = g_normal_event_count - kFirstRemappedEvent + mapped_event;
-            }
-            if (g_character_event_descriptors[mapped_event].log_quote_on_finish != 0) {
-                goto show_deactivate_quote;
-            }
         }
         quote->bubble.reset();
         if (screen_id == W8_SCREEN_CAMP || (screen_id == W8_SCREEN_MAIN_GAME && main && main->hud &&
@@ -875,39 +881,17 @@ void W8CharacterEventQueue::SetPortraitEventState(unsigned int party_slot, bool 
         }
         shown->targets[party_slot]->setEnabled(false);
         if (screen_id == W8_SCREEN_MAIN_GAME) {
-            game.events.push(PartyPanelChanged{});
-            game.events.push(MonstersChanged{});
-            record->portrait_event_active = false;
+            if (main && main->hud) {
+                main->hud->repaint.portrait_panel = true;
+                main->hud->repaint.monster_list = true;
+            }
+
             return;
         }
         if (auto* camp = FindScreen<CampScreen>(); shown && camp && &camp->game == &game)
             camp->InvalidateAll();
-        record->portrait_event_active = active;
-        return;
-    }
 
-    record->portrait_event_active = true;
-    record->portrait.frame = 7;
-    record->portrait.frame_dirty = true;
-    record->portrait.frame_due = game.time + std::chrono::milliseconds{120};
-    int pose_category;
-    if (static_cast<int>(g_normal_event_count) < static_cast<int>(event_type)) {
-        pose_category = 1;
-    } else {
-        unsigned int mapped_event = event_type;
-        if (kFirstRemappedEvent <= event_type) {
-            mapped_event = g_normal_event_count - kFirstRemappedEvent + event_type;
-        }
-        pose_category = g_character_event_descriptors[mapped_event].portrait_pose_category;
-    }
-    record->portrait.blink_closing = false;
-    W8Condition highest_condition = game.party.characters[party_slot].highest_condition;
-    if (highest_condition < W8_CONDITION_ASLEEP && !game.surprise_possible) {
-        if (record->portrait.target_pose != pose_category) {
-            record->portrait.target_pose = pose_category;
-        }
-    } else {
-        record->portrait.target_pose = 2;
+        return;
     }
     if (!shown || quote_text.empty() || show_quote == 0) {
         quote->bubble.reset();
@@ -970,10 +954,7 @@ void W8CharacterEventQueue::SetPortraitEventState(unsigned int party_slot, bool 
         event_type != static_cast<unsigned int>(g_special_event17)) {
         RefreshSelectedPartyPortrait(party_slot);
         record->auto_portrait_refresh = true;
-        record->portrait_event_active = active;
-        return;
     }
-    record->portrait_event_active = active;
 }
 
 // The first line schedules a quick response; the response schedules a new

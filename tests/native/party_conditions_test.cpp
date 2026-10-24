@@ -11,6 +11,7 @@
 
 #include "scoped_combat.h"
 #include "scoped_game.h"
+#include "wiz8/character_event_queue.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/game.h"
@@ -350,4 +351,36 @@ TEST_CASE_METHOD(PartyFixture, "Creation settlement keeps acquisition reactions 
     REQUIRE(game.inventory.pool().size() == 1);
     REQUIRE(draws.empty());
     game.rng.trace(nullptr);
+}
+
+TEST_CASE_METHOD(PartyFixture, "Damage preemption publishes speech completion after settlement",
+                 "[conditions][damage][speech]")
+{
+    data.strings.resize(0x800);
+    data.strings[0x771] = "item complete";
+    member().stamina = member().uiStaminaMax = 500;
+    const auto previous_hp = member().hp_current;
+    auto active = std::make_unique<W8CharacterEvent>(game.speech, &member(), 23, 0, 127);
+    auto& portrait = game.monster_manager_entries[0];
+    portrait.active_character_event = active.get();
+    portrait.portrait_event_active = true;
+    portrait.pending_event_type = 23;
+    game.speech.active_events.push_back(std::move(active));
+    unsigned int item_completions = 0;
+    unsigned int portrait_completions = 0;
+    game.events.observe([&](const Event& event) {
+        REQUIRE(member().hp_current == previous_hp - 1);
+        if (const auto* notice = std::get_if<CharacterNotice>(&event);
+            notice && notice->text == "item complete")
+            ++item_completions;
+        if (const auto* speech = std::get_if<PortraitSpeechChanged>(&event);
+            speech && !speech->active) {
+            REQUIRE(speech->event_type == 23);
+            ++portrait_completions;
+        }
+    });
+    REQUIRE(game.damageCharacter(0, 1) == 1);
+    REQUIRE(item_completions == 1);
+    REQUIRE(portrait_completions == 1);
+    game.events.observe({});
 }

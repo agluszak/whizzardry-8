@@ -22,6 +22,7 @@
 
 #include "glm/ext/vector_float2.hpp"
 #include "wiz8/audio/soundman.h"
+#include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
@@ -1236,7 +1237,8 @@ W8ItemLocation Inventory::equipPartner(unsigned int party_slot, const W8ItemInst
     else if (item_id != -1)
         pair = FindMemberItem(party, party_slot, ItemWithId(item_id), W8ItemReach::Carried);
     if (pair.storage == W8ItemStorage::None) {
-        game_.events.push(CharacterSpeech{party_slot, W8_SPEECH_NO_AMMUNITION});
+        game_.speech.Queue(&game_.party.characters[party_slot], W8_SPEECH_NO_AMMUNITION, 0,
+                           kCharacterEventFullVolume);
         return {};
     }
     exchange(pair, Equipment(party_slot, equip_slot), -1);
@@ -1263,7 +1265,8 @@ W8ItemLocation Inventory::mergePartnerUses(unsigned int party_slot, W8ItemInstan
         game_.events.push(CharacterNotice{party_slot, data.strings[0x1d4]});
         return emptied ? partner : W8ItemLocation{};
     }
-    game_.events.push(CharacterSpeech{party_slot, W8_SPEECH_NO_AMMUNITION});
+    game_.speech.Queue(&game_.party.characters[party_slot], W8_SPEECH_NO_AMMUNITION, 0,
+                       kCharacterEventFullVolume);
     return {};
 }
 

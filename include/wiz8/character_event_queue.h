@@ -175,9 +175,7 @@ struct W8CharacterEventQueue {
        database; character creation uses PC identity. */
     std::string QuoteText(const W8Character& character, unsigned int event_type) const;
 
-    /* The party portraits speak the events' lines. Turn `party_slot`'s portrait event on
-       or off, optionally laying out the quote bubble and posting subtitle notices when
-       one ends. */
+    // Update logical portrait playback, then report the transition for widgets and subtitles.
     void SetPortraitEventState(unsigned int party_slot, bool active, unsigned int event_type,
                                std::string_view quote_text, int show_quote);
     /* Drive `party_slot`'s portrait from `voice`: its remaining time and mouth gaps
