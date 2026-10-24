@@ -20,6 +20,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
+#include "glm/ext/vector_float2.hpp"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/attack.h"
@@ -768,7 +769,7 @@ std::expected<bool, InventoryRefusal> Inventory::dropHeld(const glm::vec2& curso
         return std::unexpected(InventoryRefusal{game_.data.strings[0x4ef]});
     auto* world = game_.level.primary.get();
     const auto position = world ? world->itemDropPosition(cursor) : std::nullopt;
-    if (position) {
+    if (world && position) {
         auto item = held_->item;
         world->adoptItem(game_.createWorldItem(*world, &item, &*position,
                                                W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));

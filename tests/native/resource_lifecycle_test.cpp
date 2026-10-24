@@ -1643,3 +1643,72 @@ TEST_CASE("Saved facts restore their own story without changing the outgoing gam
     REQUIRE(candidate.story.facts[W8_FACT_IMPORT_NOALIGN] == 0);
     REQUIRE(candidate.story.journal.empty());
 }
+
+TEST_CASE("Condition and death reactions stay with their originating party and clock",
+          "[lifetime][speech]")
+{
+    ScopedGame outgoing;
+    Game candidate(outgoing.game.data);
+    candidate.time = std::chrono::milliseconds{1234};
+    candidate.rng.seed(17);
+    for (unsigned int slot : {2u, 3u}) {
+        candidate.party.members[slot].emplace();
+        auto& character = candidate.party.characters[slot];
+        character.fInParty = true;
+        character.hp_current = 10;
+        character.uiHPMax = 10;
+    }
+    // This selection includes living incapacitated members; the awake selector does not.
+    candidate.party.characters[3].highest_condition = W8_CONDITION_ASLEEP;
+    std::vector<Rng::Draw> draws;
+    candidate.rng.trace(&draws);
+    candidate.speech.QueuePartyDeathReaction(0);
+    REQUIRE(draws.size() == 1);
+    REQUIRE(draws.front().range == 2);
+    REQUIRE(candidate.speech.pending_events.size() == 1);
+    const auto& reaction = *candidate.speech.pending_events.front();
+    REQUIRE(reaction.character == &candidate.party.characters[2 + draws.front().value]);
+    REQUIRE(reaction.queued_at == candidate.time);
+    REQUIRE(reaction.dispatch_delay == std::chrono::milliseconds{3000});
+    REQUIRE(outgoing.game.speech.pending_events.empty());
+
+    // A sole eligible member needs no random selection; an empty set also draws nothing.
+    candidate.party.members[3].reset();
+    REQUIRE(candidate.party.randomLivingSlot(candidate.rng) == 2);
+    REQUIRE_FALSE(candidate.party.randomLivingSlot(candidate.rng, 2));
+    REQUIRE(draws.size() == 1);
+    candidate.rng.trace(nullptr);
+
+    outgoing.game.status.skip_next_condition_reaction = true;
+    candidate.status.skip_next_condition_reaction = true;
+    auto& character = candidate.party.characters[2];
+    candidate.speech.QueueConditionClearedReaction(&character, W8_CONDITION_POISONED);
+    REQUIRE_FALSE(candidate.status.skip_next_condition_reaction);
+    REQUIRE(outgoing.game.status.skip_next_condition_reaction);
+    REQUIRE(candidate.speech.pending_events.size() == 1);
+    candidate.speech.QueueConditionClearedReaction(&character, W8_CONDITION_POISONED);
+    REQUIRE(candidate.speech.pending_events.size() == 2);
+    REQUIRE(candidate.speech.pending_events.back()->event_type == 0x55);
+    REQUIRE(outgoing.game.speech.pending_events.empty());
+}
+
+TEST_CASE("Speech completion notices use the originating game's content", "[lifetime][speech]")
+{
+    ScopedGame outgoing;
+    GameData data;
+    data.strings.resize(0x773);
+    data.strings[0x771] = "candidate completion";
+    Game candidate(data);
+    candidate.party.members[0].emplace();
+    auto& character = candidate.party.characters[0];
+    character.fInParty = true;
+    auto event = std::make_unique<W8CharacterEvent>(candidate.speech, &character, 23, 0, 127);
+    auto* active = event.get();
+    candidate.speech.active_events.push_back(std::move(event));
+    candidate.speech.CompleteActiveEvent(active);
+    REQUIRE(candidate.speech.active_events.empty());
+    REQUIRE(candidate.events.pending().size() == 1);
+    REQUIRE(std::get<CharacterNotice>(candidate.events.pending().front()).text ==
+            "candidate completion");
+    REQUIRE(outgoing.game.events.pending().empty());
+}

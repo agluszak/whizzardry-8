@@ -31,6 +31,10 @@ struct W8Party {
     int randomSlot(Rng& rng, int require_primary, int require_secondary, int excluded_slot,
                    signed char excluded_gender) const;
 
+    // Living members, including incapacitated ones. No draw when at most one qualifies.
+    std::optional<unsigned int> randomLivingSlot(Rng& rng, int excluded_slot = -1,
+                                                 unsigned int first_slot = 0) const;
+
     std::optional<int> companion_inventory;
     W8Character characters[W8_PARTY_SLOT_COUNT]{};
     // The members by slot; an empty slot has none.

@@ -1,5 +1,6 @@
 #include "wiz8/rules/party.h"
 
+#include <array>
 #include <optional>
 
 #include "wiz8/rules/character.h"
@@ -92,4 +93,19 @@ unsigned int W8Party::averageLevel() const
         ++count;
     }
     return count ? total / count : 0;
+}
+
+std::optional<unsigned int> W8Party::randomLivingSlot(Rng& rng, int excluded_slot,
+                                                      unsigned int first_slot) const
+{
+    std::array<unsigned int, W8_PARTY_SLOT_COUNT> eligible;
+    unsigned int count = 0;
+    for (unsigned int slot = first_slot; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        const auto& character = characters[slot];
+        if (members[slot] && static_cast<int>(slot) != excluded_slot && character.hp_current != 0 &&
+            character.highest_condition < W8_CONDITION_DEAD)
+            eligible[count++] = slot;
+    }
+    if (count == 0) return std::nullopt;
+    return eligible[count == 1 ? 0 : rng.below(count)];
 }

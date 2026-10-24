@@ -237,11 +237,6 @@ void EndScriptedPortraitPick(const ScriptContext& context, int party_slot)
     }
 }
 
-bool IsSedexusCaptureActive(void)
-{
-    return CurrentGame().sedexus_scene.capture_active;
-}
-
 void UpdateSedexusScene(const ScriptContext& context)
 {
     if (!context.game.sedexus_scene.capture_pending &&

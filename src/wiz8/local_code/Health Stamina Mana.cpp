@@ -581,7 +581,7 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
                               .announce = false});
         }
         if (character->hp_current != 0) {
-            QueueDamageReactionEvents(character);
+            CurrentGame().speech.QueueDamageReactionEvents(character);
         }
     }
 }

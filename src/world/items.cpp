@@ -12,6 +12,7 @@
 
 #include <SDL3/SDL_filesystem.h>
 #include <fmt/format.h>
+#include <glm/common.hpp>
 #include <glm/ext/vector_float3.hpp>
 #include <glm/geometric.hpp>
 

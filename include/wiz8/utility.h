@@ -23,13 +23,4 @@ bool ScreenPointInRect(const DesignRect* rect, const SDL_Point* point);
 void AdjustIntegerByPercent(unsigned int* value, unsigned int percent);
 float NormalizeAngle(float angle);
 
-/* 0x00517FB0: fill `selected` with up to `count` distinct party slots that pass
-   the same eligibility gate as W8Party::randomSlot, skipping `excluded_slot` and
-   starting the scan at slot two when `skip_first_two` is set. More eligible
-   slots than asked for are sampled at random; too few relaxes the requirements
-   once each before giving up. Returns how many were written. */
-unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
-                                 unsigned int excluded_slot, unsigned int* selected,
-                                 unsigned int count, bool skip_first_two);
-
 #endif

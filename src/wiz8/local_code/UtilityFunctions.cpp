@@ -167,68 +167,6 @@ void AdjustIntegerByPercent(unsigned int* value, unsigned int percent)
     *value += *value * percent / 100;
 }
 
-unsigned int GetRandomPartySlots(int require_primary, int require_secondary,
-                                 unsigned int excluded_slot, unsigned int* selected,
-                                 unsigned int count, bool skip_first_two)
-{
-    int claimed[8];
-    unsigned int eligible[8];
-    unsigned int found = 0;
-    unsigned int returned = 0;
-    unsigned int slot;
-    bool relaxed;
-    int index;
-
-    for (index = 0; index < 8; ++index) {
-        claimed[index] = 0;
-    }
-    if (count != 0) {
-        for (relaxed = false; !relaxed;) {
-            for (slot = skip_first_two ? 2u : 0u; slot < 8; ++slot) {
-                W8Character* character = &CurrentGame().party.characters[slot];
-                if (CurrentGame().party.members[slot].has_value() && slot != excluded_slot &&
-                    claimed[slot] == 0 && (character->hp_current != 0 || require_primary == 2) &&
-                    (character->highest_condition < W8_CONDITION_DEAD || require_secondary == 2)) {
-                    eligible[found] = slot;
-                    ++found;
-                    claimed[slot] = 1;
-                }
-            }
-            if (found >= count) {
-                break;
-            }
-            if (require_secondary == 1) {
-                require_secondary = 2;
-            } else if (require_primary == 1) {
-                require_primary = 2;
-            } else {
-                relaxed = true;
-            }
-        }
-        if (found > count) {
-            for (index = 0; index < 8; ++index) {
-                claimed[index] = 0;
-            }
-            while (returned < count && found != 0) {
-                unsigned int pick = CurrentGame().rng.below(found);
-                while (pick < 8 && claimed[pick] != 0) {
-                    ++pick;
-                }
-                if (pick >= 8) {
-                    break;
-                }
-                selected[returned] = eligible[pick];
-                ++returned;
-                claimed[pick] = 1;
-                --found;
-            }
-            return returned;
-        }
-    }
-    std::copy_n(eligible, found, selected);
-    return found;
-}
-
 int GetNextCharacter(int require_primary, int require_secondary, int previous_slot)
 {
     int start_slot = (previous_slot + 1) % 8;

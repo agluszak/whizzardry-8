@@ -10,6 +10,7 @@
 #include <fmt/format.h>
 #include <fmt/printf.h>
 
+#include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
@@ -76,10 +77,10 @@ static PartyStatRules CaptureLivePartyStatRules(const Game& game)
 }
 
 // A member who became overloaded says so.
-static void PresentOverload(const Game& game, W8Character& character)
+static void PresentOverload(Game& game, W8Character& character)
 {
     const int event = game.activity.in_camp() ? 8 : g_special_event13;
-    QueueCharacterEvent(&character, event, 0, kCharacterEventFullVolume);
+    game.speech.Queue(&character, event, 0, kCharacterEventFullVolume);
 }
 
 namespace {
@@ -193,7 +194,8 @@ void Die(Game& game, unsigned int slot)
     for (unsigned int condition = 0; condition < W8_CONDITION_CLEARABLE_COUNT; ++condition) {
         if (condition != W8_CONDITION_INFATUATED && character.uiCondition[condition] != 0 &&
             ClearCondition(game, slot, static_cast<W8Condition>(condition), false)) {
-            QueueConditionClearedReaction(&character, static_cast<W8Condition>(condition));
+            game.speech.QueueConditionClearedReaction(&character,
+                                                      static_cast<W8Condition>(condition));
             lifted = true;
         }
     }
@@ -205,7 +207,7 @@ void Die(Game& game, unsigned int slot)
     row.committed.target = W8CombatSlot{W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}};
     game.events.push(CharacterDied{slot});
     if (game.combat.has_value()) RecordCharacterDeath(slot);
-    QueuePartyDeathReaction(slot);
+    game.speech.QueuePartyDeathReaction(slot);
     if (game.combat.has_value()) {
         game.combat->endTurnOf(PartyActor{static_cast<int>(slot)});
         row.executing.kind = W8_ACTION_NONE;
@@ -302,7 +304,8 @@ bool InflictCondition(Game& game, unsigned int slot, const ConditionInfliction& 
     if (condition == W8_CONDITION_DEAD) Die(game, slot);
     // A member who is dead or missing is no longer the party's target.
     if (condition >= W8_CONDITION_DEAD) SetTargetToCharacter(slot, false);
-    if (old_highest != character.highest_condition) QueueConditionChangeReaction(&character);
+    if (old_highest != character.highest_condition)
+        game.speech.QueueConditionChangeReaction(&character);
     if (infliction.announce) {
         if (condition == W8_CONDITION_MISSING && infliction.alternate_missing_notice) {
             game.events.push(CharacterNotice{slot, strings[0x1d5]});
@@ -319,7 +322,7 @@ void LiftCondition(Game& game, unsigned int slot, W8Condition condition, bool an
     Events::Operation outcomes{game.events};
     if (!ClearCondition(game, slot, condition, announce)) return;
     RefreshConditionModifiers(game, slot);
-    QueueConditionClearedReaction(&game.party.characters[slot], condition);
+    game.speech.QueueConditionClearedReaction(&game.party.characters[slot], condition);
 }
 
 void AgeCondition(Game& game, unsigned int slot, W8Condition condition, unsigned int minutes)
@@ -508,7 +511,7 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
                                           character->hp_current == 0});
     if (character->hp_current != 0) {
         if (!game.surprise_possible) {
-            QueueDamageReactionEvents(character);
+            game.speech.QueueDamageReactionEvents(character);
         }
     } else {
         if (result_stats != 0) {

@@ -45,6 +45,7 @@
 #include "wiz8/render/mesh_loader.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/surface_geometry.h"

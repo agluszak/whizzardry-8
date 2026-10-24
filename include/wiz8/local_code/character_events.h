@@ -43,19 +43,8 @@ int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot)
 W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int excluded_slot,
                                                    unsigned int flags);
 void MaybeStartIncapacitationEvent(unsigned int party_slot);
-void QueueDamageReactionEvents(W8Character* character);
-/* After a character dies, pick one other party member and queue
-   their reaction event with a three-second clock. */
-void QueuePartyDeathReaction(unsigned int party_slot);
-/* Several members still active at turn begin; queue the shared
-   reaction event on one random eligible character. */
-void QueueTurnReactionEvent(void);
 /* Only one occupied member still standing at turn begin. */
 void QueueLastSurvivorEvent(void);
-/* React to a freshly recomputed highest_condition. */
-void QueueConditionChangeReaction(W8Character* character);
-/* React to a condition being lifted. */
-void QueueConditionClearedReaction(W8Character* character, W8Condition condition);
 /* Requeue the selected character's stored portrait event. */
 void RequeueSelectedPortraitEvent(void);
 /* Set the pose a party-slot portrait animates toward; clears any

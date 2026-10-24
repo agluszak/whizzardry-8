@@ -136,6 +136,11 @@ struct W8CharacterEventQueue {
     /* Create and queue `character`'s event; see QueueEntry for the result. */
     W8CharacterEvent* Queue(W8Character* character, int event_type, unsigned int flags,
                             unsigned int volume);
+    void QueuePartyDeathReaction(unsigned int party_slot);
+    void QueueTurnReactionEvent();
+    void QueueConditionChangeReaction(W8Character* character);
+    void QueueConditionClearedReaction(W8Character* character, W8Condition condition);
+    void QueueDamageReactionEvents(W8Character* character);
     /* Takes ownership of `entry`. Returns the event while the queue still
        holds it, so the caller may adjust it, or null when it was dropped. */
     W8CharacterEvent* QueueEntry(std::unique_ptr<W8CharacterEvent> entry);

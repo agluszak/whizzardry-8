@@ -540,6 +540,17 @@ validation, body appearance, scale and idle-frame draws now use the supplied gam
 NPC binding is prepared separately before publication; this is not yet a
 guarantee of fully isolated session replacement.
 
+### Party reaction sequences
+
+The speech queue chooses and retains damage, death, turn and condition reactions
+using its originating party, RNG, suppression state and clock. Living-member
+selection draws only when more than one member qualifies; the separate awake-member
+selector retains its different rules. Speech completion reads its own content and
+Story, including an event preempted synchronously by a special reaction.
+
+This does not make portrait presentation candidate-safe: shared quote input and
+layout still need screen/router ownership rather than speech-destructor cleanup.
+
 ### NPC construction and binding publication
 
 `Game` coordinates new NPC construction from its content, RNG, party-level query

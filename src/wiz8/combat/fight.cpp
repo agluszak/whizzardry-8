@@ -1548,7 +1548,7 @@ void AdvanceCombatRound(void)
             if (active_characters == 1) {
                 QueueLastSurvivorEvent();
             } else if (CurrentGame().combat->pending_death_count > 1) {
-                QueueTurnReactionEvent();
+                CurrentGame().speech.QueueTurnReactionEvent();
             }
         }
     }
@@ -1657,8 +1657,6 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
                 return 1;
             }
         } else {
-            unsigned int party_slot;
-            W8CharacterEvent* event;
             CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x22c], 0});
             CurrentGame().events.push(TextNotice{
                 W8_FONT_PALETTE_BEIGE,
@@ -1668,14 +1666,16 @@ int CheckCombatEnd(unsigned int end_if_no_hostiles)
             StartMusicResource("CombatWin.MPL", 0, 1);
             ServiceMusicPlaylist();
             StartLevelMusic(1, 0);
-            if (LastCombatDifficulty() != W8_DIFFICULTY_NOVICE &&
-                GetRandomPartySlots(0, 0, -1, &party_slot, 1, false) != 0 &&
-                (event = QueueCharacterEvent(&CurrentGame().party.characters[party_slot], 35, 2,
-                                             kCharacterEventFullVolume),
-                 event != 0)) {
-                event->DelayDispatch(std::chrono::milliseconds{1500});
-                CurrentGame().endCombat(false);
-                return 1;
+            if (LastCombatDifficulty() != W8_DIFFICULTY_NOVICE) {
+                auto& game = CurrentGame();
+                if (const auto speaker = game.party.randomLivingSlot(game.rng)) {
+                    if (auto* event = game.speech.Queue(&game.party.characters[*speaker], 35, 2,
+                                                        kCharacterEventFullVolume)) {
+                        event->DelayDispatch(std::chrono::milliseconds{1500});
+                        game.endCombat(false);
+                        return 1;
+                    }
+                }
             }
         }
     }

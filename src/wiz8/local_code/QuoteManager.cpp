@@ -484,9 +484,10 @@ void W8CharacterEvent::Complete()
     if (event_type == 23 || event_type == 24) {
         if ((flags & W8_EVENT_NPC_SCRIPT) == 0) {
             game.events.push(CharacterNotice{
-                party_slot, item.iItemNo == -1 ? Data().strings[0x771]
-                                               : fmt::sprintf(Data().strings[0x772],
-                                                              GetItemDisplayName(Data(), &item))});
+                party_slot, item.iItemNo == -1
+                                ? game.data.strings[0x771]
+                                : fmt::sprintf(game.data.strings[0x772],
+                                               GetItemDisplayName(game.data, &item))});
         }
     } else if (event_type == 51) {
         game.npc_dialogue.Queue(W8NpcMarkMissing{static_cast<int>(party_slot)});
@@ -614,7 +615,7 @@ bool W8CharacterEvent::PlayEventSound(std::string_view quote)
     } else {
         npc = game.story.npc(npc_index);
         if (npc != 0) {
-            npc_sound_name = FormatNpcVoiceSoundPath(CurrentGame().story, npc);
+            npc_sound_name = FormatNpcVoiceSoundPath(game.story, npc);
             sound_path = fmt::format("Data\\Sound\\PCs\\{}\\{}_{:03d}.wav", npc_sound_name,
                                      npc_sound_name, sound_event);
         }
@@ -1301,91 +1302,50 @@ void MaybeStartIncapacitationEvent(unsigned int party_slot)
 /* After a death in `party_slot`, pick one other eligible party member and queue
    their reaction event - the slot-two pair share one effect, later slots pick
    by gender - with a three-second clock on the queued entry. */
-void QueuePartyDeathReaction(unsigned int party_slot)
+void W8CharacterEventQueue::QueuePartyDeathReaction(unsigned int party_slot)
 {
-    W8CharacterEvent* entry;
-    unsigned int selected[1];
-    unsigned int remaining;
-    unsigned int index;
-    bool skip_first_two = false;
-    int effect;
-
-    if (party_slot < 2) {
-        skip_first_two = true;
-        effect = 20;
-    } else {
-        effect = 18;
-        if (CurrentGame().party.characters[party_slot].gender != W8_GENDER_MALE) {
-            effect = 19;
-        }
-    }
-    remaining = GetRandomPartySlots(0, 0, party_slot, selected, 1, skip_first_two);
-    for (index = 0; index < remaining; ++index) {
-        entry = QueueCharacterEvent(&CurrentGame().party.characters[selected[index]], effect, 0,
-                                    kCharacterEventFullVolume);
-        if (entry != 0) {
+    const int effect = party_slot < 2                                               ? 20
+                       : game.party.characters[party_slot].gender == W8_GENDER_MALE ? 18
+                                                                                    : 19;
+    if (const auto speaker =
+            game.party.randomLivingSlot(game.rng, party_slot, party_slot < 2 ? 2 : 0)) {
+        if (auto* entry =
+                Queue(&game.party.characters[*speaker], effect, 0, kCharacterEventFullVolume))
             entry->DelayDispatch(std::chrono::milliseconds{3000});
-        }
     }
 }
 
 /* Queue a low-HP flee or incapacitation event when the character is still
    standing, then always roll one of three ambient follow-up events. */
-void QueueDamageReactionEvents(W8Character* character)
+void W8CharacterEventQueue::QueueDamageReactionEvents(W8Character* character)
 {
-    unsigned int hp_percent;
-    unsigned int party_slot;
-    bool has_incapacitation_event;
-    bool has_flee_event;
-    W8CharacterEvent* entry;
-    int effect;
-    int follow_up_events[3];
-
-    hp_percent = (character->hp_current * 100) / static_cast<unsigned int>(character->uiHPMax);
-    party_slot = CharacterPointerToPartySlot(character);
-    has_incapacitation_event = CurrentGame().speech.HasEventCharacter(3, party_slot);
-    has_flee_event = CurrentGame().speech.HasEventCharacter(2, party_slot);
-    CurrentGame().speech.HasEventCharacter(28, party_slot);
+    const auto hp_percent =
+        (character->hp_current * 100) / static_cast<unsigned int>(character->uiHPMax);
+    const auto slot = SlotOf(*character);
+    const bool has_incapacitation = HasEventCharacter(3, slot);
+    const bool has_flee = HasEventCharacter(2, slot);
     if (character->highest_condition != W8_CONDITION_ASLEEP &&
         character->highest_condition != W8_CONDITION_UNCONSCIOUS) {
-        if (kPortraitLowHealthPercent <= hp_percent || has_incapacitation_event) {
-            if (kFleeHpFraction <= hp_percent) {
-                goto queue_follow_up_event;
-            }
-            if (CurrentGame().rng.below(2) != 0 || has_flee_event) {
-                effect = 28;
-            } else {
-                effect = 2;
-            }
-            entry = QueueCharacterEvent(character, effect, 1, kCharacterEventFullVolume);
-        } else {
-            entry = QueueCharacterEvent(character, 3, 1, kCharacterEventFullVolume);
-        }
-        if (entry != 0) {
-            entry->DelayDispatch(std::chrono::milliseconds{1500});
+        std::optional<int> reaction;
+        if (hp_percent < kPortraitLowHealthPercent && !has_incapacitation)
+            reaction = 3;
+        else if (hp_percent < kFleeHpFraction)
+            reaction = game.rng.below(2) != 0 || has_flee ? 28 : 2;
+        if (reaction) {
+            if (auto* entry = Queue(character, *reaction, 1, kCharacterEventFullVolume))
+                entry->DelayDispatch(std::chrono::milliseconds{1500});
         }
     }
-queue_follow_up_event:
-    follow_up_events[0] = g_special_event11;
-    follow_up_events[1] = g_special_event12;
-    follow_up_events[2] = g_special_event4;
-    QueueCharacterEvent(character, follow_up_events[CurrentGame().rng.below(3)], 1,
-                        kCharacterEventFullVolume);
+    const int follow_up_events[] = {g_special_event11, g_special_event12, g_special_event4};
+    Queue(character, follow_up_events[game.rng.below(3)], 1, kCharacterEventFullVolume);
 }
 
 /* Turn-begin path for several surviving party members: queue event 0x15 on
    one random eligible character. */
-void QueueTurnReactionEvent(void)
+void W8CharacterEventQueue::QueueTurnReactionEvent()
 {
-    unsigned int selected[1];
-    unsigned int index;
-    unsigned int remaining;
-
-    remaining = GetRandomPartySlots(0, 0, -1, selected, 1, false);
-    for (index = 0; index < remaining; ++index) {
-        QueueCharacterEvent(&CurrentGame().party.characters[selected[index]], 0x15, 0,
-                            kCharacterEventFullVolume);
-    }
+    if (const auto speaker = game.party.randomLivingSlot(game.rng))
+        Queue(&game.party.characters[*speaker], 0x15, 0, kCharacterEventFullVolume);
 }
 
 /* Turn-begin path when only one occupied party member is still standing:
@@ -1412,7 +1372,7 @@ void QueueLastSurvivorEvent(void)
    swallows one change, otherwise the character queues the reaction event for
    the new condition. A dying character first loses every queued event, and a
    charmed character makes a different party member say the line instead. */
-void QueueConditionChangeReaction(W8Character* character)
+void W8CharacterEventQueue::QueueConditionChangeReaction(W8Character* character)
 {
     int events[3];
     int excluded_slot;
@@ -1420,82 +1380,78 @@ void QueueConditionChangeReaction(W8Character* character)
     int attempts;
     unsigned int reaction;
 
-    if (IsSedexusCaptureActive()) {
+    if (game.sedexus_scene.capture_active) {
         return;
     }
-    if (CurrentGame().status.skip_next_condition_reaction) {
-        CurrentGame().status.skip_next_condition_reaction = false;
+    if (game.status.skip_next_condition_reaction) {
+        game.status.skip_next_condition_reaction = false;
         return;
     }
     switch (character->highest_condition) {
     case 0x12:
-        CurrentGame().speech.RemoveCharacterEvents(character);
+        RemoveCharacterEvents(character);
         events[0] = g_special_event9;
         events[1] = g_special_event10;
         events[2] = g_special_event16;
-        QueueCharacterEvent(character, events[CurrentGame().rng.below(3)], 1,
-                            kCharacterEventFullVolume);
+        Queue(character, events[game.rng.below(3)], 1, kCharacterEventFullVolume);
         return;
     case 0x11:
         events[0] = g_special_event9;
         events[1] = g_special_event10;
         events[2] = g_special_event16;
-        QueueCharacterEvent(character, events[CurrentGame().rng.below(3)], 0,
-                            kCharacterEventFullVolume);
+        Queue(character, events[game.rng.below(3)], 0, kCharacterEventFullVolume);
         return;
     case 5:
-        QueueCharacterEvent(character, g_special_event13, 0, kCharacterEventFullVolume);
+        Queue(character, g_special_event13, 0, kCharacterEventFullVolume);
         return;
     case 8:
-        QueueCharacterEvent(character, g_special_event1, 0, kCharacterEventFullVolume);
+        Queue(character, g_special_event1, 0, kCharacterEventFullVolume);
         return;
     case 3:
     case 4:
-        QueueCharacterEvent(character, g_special_event7, 0, kCharacterEventFullVolume);
+        Queue(character, g_special_event7, 0, kCharacterEventFullVolume);
         return;
     case 2:
     case 7:
     case 9:
     case 10:
         reaction = kConditionReaction;
-        if (CurrentGame().rng.below(2) == 0) {
+        if (game.rng.below(2) == 0) {
             reaction = kConditionReactionAlt;
         }
-        QueueCharacterEvent(character, reaction, 0, kCharacterEventFullVolume);
+        Queue(character, reaction, 0, kCharacterEventFullVolume);
         return;
     case 0xc:
-        QueueCharacterEvent(character, 7, 0, kCharacterEventFullVolume);
+        Queue(character, 7, 0, kCharacterEventFullVolume);
         return;
     case 0xe:
     case 0x10:
-        QueueCharacterEvent(character, 9, 0, kCharacterEventFullVolume);
+        Queue(character, 9, 0, kCharacterEventFullVolume);
         return;
     case 0x13:
-        excluded_slot = CharacterPointerToPartySlot(character);
+        excluded_slot = SlotOf(*character);
         reaction = 40;
         if ((reaction < g_normal_event_count ||
              (kFirstRemappedEvent <= reaction &&
               reaction < kRemappedEventCount + kFirstRemappedEvent)) &&
-            (slot = CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, excluded_slot, -1)) !=
-                -1) {
+            (slot = game.party.randomSlot(game.rng, 0, 0, excluded_slot, -1)) != -1) {
             attempts = 0;
-            while (!CurrentGame().speech.CanDispatch(slot, reaction)) {
+            while (!CanDispatch(slot, reaction)) {
                 if (attempts >= 0x32) {
                     return;
                 }
-                slot = CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, excluded_slot, -1);
+                slot = game.party.randomSlot(game.rng, 0, 0, excluded_slot, -1);
                 ++attempts;
             }
-            QueueCharacterEvent(&CurrentGame().party.characters[slot], reaction, 0,
-                                kCharacterEventFullVolume);
+            Queue(&game.party.characters[slot], reaction, 0, kCharacterEventFullVolume);
             return;
         }
         break;
     case 6:
-        QueueCharacterEvent(character, g_special_event3, 0, kCharacterEventFullVolume);
+        Queue(character, g_special_event3, 0, kCharacterEventFullVolume);
         return;
     case 0xb:
-        QueueCharacterEvent(character, g_special_event21, 0, kCharacterEventFullVolume);
+        Queue(character, g_special_event21, 0, kCharacterEventFullVolume);
         break;
     default:
         break;
@@ -1505,22 +1461,23 @@ void QueueConditionChangeReaction(W8Character* character)
 /* Reacts to a condition being lifted: when nothing remains as the highest
    condition the character announces full recovery (0x55), otherwise the
    surviving-condition line (0x54); selected conditions map to fixed events. */
-void QueueConditionClearedReaction(W8Character* character, W8Condition condition)
+void W8CharacterEventQueue::QueueConditionClearedReaction(W8Character* character,
+                                                          W8Condition condition)
 {
-    if (IsSedexusCaptureActive()) {
+    if (game.sedexus_scene.capture_active) {
         return;
     }
-    if (CurrentGame().status.skip_next_condition_reaction) {
-        CurrentGame().status.skip_next_condition_reaction = false;
+    if (game.status.skip_next_condition_reaction) {
+        game.status.skip_next_condition_reaction = false;
         return;
     }
     switch (condition) {
     case W8_CONDITION_DEAD:
-        QueueCharacterEvent(character, 12, 0, kCharacterEventFullVolume);
+        Queue(character, 12, 0, kCharacterEventFullVolume);
         return;
     case W8_CONDITION_INFATUATED:
     case W8_CONDITION_MISSING:
-        QueueCharacterEvent(character, 11, 0, kCharacterEventFullVolume);
+        Queue(character, 11, 0, kCharacterEventFullVolume);
         return;
     case W8_CONDITION_DISEASED:
     case W8_CONDITION_IRRITATED:
@@ -1536,10 +1493,10 @@ void QueueConditionClearedReaction(W8Character* character, W8Condition condition
     case W8_CONDITION_PARALYZED:
     case W8_CONDITION_UNCONSCIOUS:
         if (character->highest_condition == W8_CONDITION_NONE) {
-            QueueCharacterEvent(character, 0x55, 0, kCharacterEventFullVolume);
+            Queue(character, 0x55, 0, kCharacterEventFullVolume);
             return;
         }
-        QueueCharacterEvent(character, 0x54, 0, kCharacterEventFullVolume);
+        Queue(character, 0x54, 0, kCharacterEventFullVolume);
         break;
     default:
         break;
