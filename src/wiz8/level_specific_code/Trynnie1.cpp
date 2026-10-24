@@ -10,7 +10,6 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -100,7 +99,7 @@ void Trynnie1Script::enter()
     glm::vec3 vPos2;
 
     bindTrigger("Fount_randomFX", &Trynnie1Script::fountRandomFX);
-    if (GetFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
+    if (ctx.game.testFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
         if (GetLocationVarIDByName("Trynnie1Killed") == -1) {
             KillTrynnieGroups(world());
             if (!FindEntityByName("VOC_SHAMAN_DYING", &vPos, 0, 0))

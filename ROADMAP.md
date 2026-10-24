@@ -302,16 +302,19 @@ the licensed runtime scenarios after every step.
        the same progression whatever the views draw.
    - Party conditions, death and settlement are rules ("Conditions" in
      ARCHITECTURE.md). Their game host still reaches its consequences through
-     globals (formation seats, targeting, the speech reactions, `FindMonster`), and
+     globals (formation seats, targeting and `FindMonster`), and
      most callers pass `CurrentGame()`; those go as the callers receive the game.
      Item effects, spells and attacks should build on these rules rather than
      touching condition durations themselves. Monster conditions
      (`SetMonsterCondition` and its siblings) still act on the world's records.
 7. **Story state.** `Game::story` and `Game::message_log` hold it, and NPC scripting and
    the level scripts act on a `ScriptContext` (ARCHITECTURE.md, "Scripts").
-   - The fact API (`GetFact`/`SetFact`, about 210 calls) still reaches the game;
-     `SetFact` builds the context for the fact's consequences. Facts should be read
-     from the story and set through the context.
+   - Fact tests use their game and emit diagnostic outcomes. `SetFact` still obtains
+     the installed game and runs journal/world consequences through legacy helpers.
+     Replace it with one explicit fact-change coordinator, preserving changed-only
+     journaling and mandatory same-value consequences, rather than adding a second
+     acquisition-only setter. Keep ordinary stored facts distinct from script tests
+     that consume one-shot state.
    - `NPC Manager.cpp` (NPC states, bindings, notices; about 160 `CurrentGame()` uses)
      and the helpers scripts call (trigger, entity and NPC lookups, location
      variables, `SpawnMonsters`) still reach the world and story through globals.

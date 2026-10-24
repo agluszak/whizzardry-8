@@ -46,7 +46,6 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
@@ -1101,9 +1100,9 @@ void BeginEndgameSequence(void)
 
     CurrentGame().status.endgame_started = true;
     ScreenPointer().reset();
-    if (GetFact(W8_FACT_ENDING_BOFFO_ONE) != 0) {
+    if (CurrentGame().testFact(W8_FACT_ENDING_BOFFO_ONE) != 0) {
         fade_to_black = 1;
-    } else if (GetFact(W8_FACT_ENDGAME_JOIN_SAVANT) != 0) {
+    } else if (CurrentGame().testFact(W8_FACT_ENDGAME_JOIN_SAVANT) != 0) {
         fade_code = 1;
         endgame_variant = true;
     }
@@ -1312,20 +1311,20 @@ void ShowEndingScreen(void)
     music = "EndCredit.MPL";
     g_ending_screen = true;
     g_ending_autosave = true;
-    if (GetFact(W8_FACT_ENDGAME_JOIN_SAVANT) != 0) {
+    if (CurrentGame().testFact(W8_FACT_ENDGAME_JOIN_SAVANT) != 0) {
         image = 0x1e1;
         schedule_fade = false;
         text = Data().strings[0x787];
         sound = "Data\\Sound\\npcs\\VOC_ENDGAME1\\VOC_ENDGAME1_005.mp3";
-    } else if (GetFact(W8_FACT_QUE_ENDGAME2) != 0) {
+    } else if (CurrentGame().testFact(W8_FACT_QUE_ENDGAME2) != 0) {
         image = 0x1e2;
         text = Data().strings[0x788];
         sound = "Data\\Sound\\npcs\\VOC_ENDGAME2\\VOC_ENDGAME2_005.mp3";
-    } else if (GetFact(W8_FACT_ENDGAME_SAVANT_PHOON_SPLIT) != 0) {
+    } else if (CurrentGame().testFact(W8_FACT_ENDGAME_SAVANT_PHOON_SPLIT) != 0) {
         image = 0x1e2;
         text = Data().strings[0x789];
         sound = "Data\\Sound\\npcs\\VOC_ENDGAME3\\VOC_ENDGAME3_000.mp3";
-    } else if (GetFact(W8_FACT_ENDING_BOFFO_ONE) != 0) {
+    } else if (CurrentGame().testFact(W8_FACT_ENDING_BOFFO_ONE) != 0) {
         image = 0x1e3;
         fade_to_black = 1;
         text = Data().strings[0x78a];

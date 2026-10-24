@@ -120,8 +120,8 @@ void MartensBluff1Script::enter()
     });
     bindTrigger("WireTrigger", &MartensBluff1Script::wireTrigger);
     // "Controller": toggles fact 0x42.
-    bindTrigger("Controller", [](Trigger*) {
-        if (GetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON) == 0) {
+    bindTrigger("Controller", [this](Trigger*) {
+        if (ctx.game.testFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON) == 0) {
             SetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
         } else {
             SetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 0, false);
@@ -331,7 +331,7 @@ bool MartensBluff1Script::transportSpawn()
     W8MonsterInfo* info;
     int location_id;
 
-    if (GetFact(W8_FACT_TRANG_TELEPORTER_TOAST)) {
+    if (ctx.game.testFact(W8_FACT_TRANG_TELEPORTER_TOAST)) {
         return false;
     }
     if (ctx.combat.has_value()) {
@@ -372,7 +372,7 @@ bool MartensBluff1Script::transporter(int command)
     if (command != 0) {
 
         if (command == kMasterToggle) {
-            if (GetFact(W8_FACT_TRANG_TELEPORTER_TOAST)) {
+            if (ctx.game.testFact(W8_FACT_TRANG_TELEPORTER_TOAST)) {
                 return false;
             }
             if (transport_gate_) {

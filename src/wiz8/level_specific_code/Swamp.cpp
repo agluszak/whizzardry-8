@@ -48,7 +48,7 @@ constexpr int kMasterToggle = static_cast<int>(0xEFFFFFFF);
    script facts - set 0x39 and clear 0x33. */
 bool Onelid(Trigger* pTrigger)
 {
-    if (GetFact(W8_FACT_CROCK_KIDNAPPED_PLAYER) != 0 && FindNpcOfKind(0x1e) != 0) {
+    if (CurrentGame().testFact(W8_FACT_CROCK_KIDNAPPED_PLAYER) != 0 && FindNpcOfKind(0x1e) != 0) {
         SetFact(W8_FACT_CROCK_PLAYER_RETURNED_TO_PARTY, 1, false);
         SetFact(W8_FACT_CROCK_KIDNAPPED_PLAYER, 0, false);
     }
@@ -116,7 +116,7 @@ bool SwampScript::castPlaneSpell(Trigger* pTrigger, int spell_id)
 {
     glm::vec3 position;
 
-    if (GetFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET) == 0) {
+    if (ctx.game.testFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET) == 0) {
         gasFireSpawn(pTrigger);
         return false;
     }
@@ -143,7 +143,7 @@ bool SwampScript::gasFireSpawn(Trigger* pTrigger)
     W8NpcState* npc;
     int index;
 
-    if (GetFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET) != 0) {
+    if (ctx.game.testFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET) != 0) {
         return false;
     }
     SetFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET, 1, false);

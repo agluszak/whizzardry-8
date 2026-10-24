@@ -11,6 +11,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/save_game.h"
@@ -36,7 +37,7 @@ public:
 
 void CampScript::enter()
 {
-    if (GetFact(W8_FACT_PARTY_AT_RAC) == 0) {
+    if (ctx.game.testFact(W8_FACT_PARTY_AT_RAC) == 0) {
         LoadAwayCampChest(world());
         SetFact(W8_FACT_PARTY_AT_RAC, 0, false);
     }

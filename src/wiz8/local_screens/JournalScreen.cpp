@@ -19,6 +19,7 @@
 #include "wiz8/canvas/image.h"
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/difficulty.h"
@@ -95,7 +96,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
     W8JournalEntry entry;
     entry.level = GetLoadedLevelID();
     entry.fact = fact_id;
-    entry.alternate_text = GetFact(fact_id) != 0;
+    entry.alternate_text = CurrentGame().testFact(fact_id) != 0;
     CurrentGame().story.journal.push_back(entry);
 
     if (g_fact_notifications_suppressed || static_cast<unsigned>(fact_id) >= Data().facts.size()) {
@@ -117,7 +118,7 @@ void RecordFactChangeForJournal(W8FactId fact_id)
         return;
     }
     std::string description =
-        GetFact(fact_id) ? record->alternate_description : record->description;
+        CurrentGame().testFact(fact_id) ? record->alternate_description : record->description;
     if (description.empty() || MainGameHud() == nullptr) {
         return;
     }
@@ -201,7 +202,7 @@ void JournalScreen::DrawContent(SDL_Surface& target)
         for (int index = first; index <= last; ++index, y += 0x1e) {
             const W8JournalEntry* entry = &m_entries[index];
             const W8FactDatabaseRecord* fact = &Data().facts[entry->fact];
-            int active = fact->highlight_when_true && GetFact(entry->fact);
+            int active = fact->highlight_when_true && CurrentGame().testFact(entry->fact);
             std::string description =
                 entry->alternate_text ? fact->alternate_description : fact->description;
             std::string level_name;
@@ -227,7 +228,7 @@ void JournalScreen::DrawContent(SDL_Surface& target)
         for (int index = 0; index < 11; ++index) {
             signed char faction = g_journal_factions[index];
             if (CurrentGame().story.factions[faction].encountered) {
-                W8FactionDisposition disposition = GetFactionDisposition(faction);
+                W8FactionDisposition disposition = CurrentGame().story.factionDisposition(faction);
                 std::string disposition_name;
                 switch (disposition) {
                 case W8_FACTION_HOSTILE:

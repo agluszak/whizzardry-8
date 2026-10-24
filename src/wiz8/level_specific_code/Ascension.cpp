@@ -185,7 +185,7 @@ void AscensionScript::peakInit()
             W8NpcState* npc = CurrentGame().story.npcOfKind(0x31);
 
             if (npc != 0 && npc->greeting_pending && npc->spawned == 0 && !npc->party_noticed &&
-                GetFact(W8_FACT_TEMPLAR) != 0) {
+                ctx.game.testFact(W8_FACT_TEMPLAR) != 0) {
                 if (FindEntityByName("NP_Daughter", &position, 0, 0)) {
                     SpawnMonsters(0x18d, 1, &position, 0, true, false);
                     SetFact(static_cast<W8FactId>(0x327), 1, false);
@@ -200,8 +200,8 @@ void AscensionScript::peakInit()
             if (FindEntityByName("NP_Savants01", &position, 0, 0)) {
                 SpawnMonsters(0x1a0, 6, &position, 1, true, false);
             }
-            if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
-                GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
+            if (ctx.game.testFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
+                ctx.game.testFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
                 RunNamedTrigger("Bodies", -1);
             }
             CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_All3Items", 1);

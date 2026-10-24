@@ -25,6 +25,7 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -126,7 +127,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        if (NpcLeadHasNameStyle(W8_NPC_MYLES)) {
+        if (context.game.hasLeadingNpc(W8_NPC_MYLES)) {
             return;
         }
         npc = CurrentGame().story.npcOfKind(7);
@@ -140,9 +141,9 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        npc = CurrentGame().story.npcOfKind(0x48);
+        npc = context.game.story.npcOfKind(0x48);
         assert(npc != 0);
-        ClearNpcScheduledItem(npc, 0x242, 0);
+        npc->clearScheduledItem(0x242);
         return;
     case W8_FACT_PEACE_SAVANT_BLOWUP_DONE:
         if (value == 0) {
@@ -167,7 +168,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         }
         return;
     case W8_FACT_CROCK_BREKEK_ASSIGN:
-        fact_value = GetFact(W8_FACT_CROCK_BREKEK_DEAD);
+        fact_value = context.game.testFact(W8_FACT_CROCK_BREKEK_DEAD);
         if (fact_value == 0 && FindEntityByName("Brekek", &position, 0, 0)) {
             SpawnMonsters(0x131, 1, &position, 1, true, true);
         }
@@ -334,7 +335,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        fact_value = GetFact(W8_FACT_MYLES_IN_PARTY);
+        fact_value = context.game.testFact(W8_FACT_MYLES_IN_PARTY);
         if (fact_value != 0) {
             SetFact(W8_FACT_MYLES_IN_PARTY_WHEN_BANK_DONE, 1, false);
         }
@@ -595,7 +596,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         }
         position = glm::vec3(53550.0f, 3516.0f, 36936.0f);
         CameraLookAt(&position);
-        fact_value = GetFact(W8_FACT_TMISSION_KILL_UMPANI_CORD_SEVERED);
+        fact_value = context.game.testFact(W8_FACT_TMISSION_KILL_UMPANI_CORD_SEVERED);
         if (fact_value == 0) {
             trigger_name = "TR2ShipTrigger";
         } else {
@@ -844,9 +845,9 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
         if (npc != 0) {
             npc->spawned = 1;
             if (npc->name_style == W8_NPC_VI_DOMINA) {
-                unsigned char fact_ok = GetFact(W8_FACT_VI_RESCUED);
+                unsigned char fact_ok = context.game.testFact(W8_FACT_VI_RESCUED);
                 if (fact_ok == 0) {
-                    fact_ok = GetFact(W8_FACT_MYLES_MISSION_RESCUE_VI_ASSIGNED);
+                    fact_ok = context.game.testFact(W8_FACT_MYLES_MISSION_RESCUE_VI_ASSIGNED);
                     if (fact_ok == 0) {
                         npc->spawned = 0;
                     }
@@ -858,7 +859,7 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
         return;
     }
     int lead_index = -1;
-    if (NpcLeadHasNameStyle(W8_NPC_VI_DOMINA)) {
+    if (context.game.hasLeadingNpc(W8_NPC_VI_DOMINA)) {
         W8NpcState* lead = CurrentGame().story.npcOfKind(W8_NPC_VI_DOMINA);
         if (lead != 0) {
             lead_index = lead->group_index;
@@ -945,7 +946,7 @@ void MonsterKilled(const ScriptContext& context, int record_id, int killer_party
         SetFactionDispositionBand(7, W8_FACTION_HOSTILE);
     } else {
         if (record_id == 0x22b) {
-            value = GetFact(W8_FACT_ALSEDEXUS_ATTACK);
+            value = context.game.testFact(W8_FACT_ALSEDEXUS_ATTACK);
             if (value != 0) {
                 SetFact(W8_FACT_QUEST_KILL_ALSEDEXUS, 0, false);
             }
@@ -973,30 +974,6 @@ void MonsterKilled(const ScriptContext& context, int record_id, int killer_party
 }
 
 /* Original translation-unit ownership of these helpers is unknown. */
-
-unsigned char GetFact(W8FactId fact_id)
-{
-    unsigned char value;
-    std::string display_value;
-
-    if (static_cast<unsigned>(fact_id) >= W8_FACT_SLOT_COUNT) {
-        return 0;
-    }
-
-    value = EvaluateFact(fact_id);
-    if (CurrentGame().status.log_fact_checks &&
-        static_cast<unsigned>(fact_id) < Data().facts.size()) {
-        if (value) {
-            display_value = "TRUE";
-        } else {
-            display_value = "FALSE";
-        }
-        ShowNotice(W8_FONT_PALETTE_YELLOW,
-                   fmt::format("Checking fact {} which is {}", Data().facts[fact_id].symbolic_name,
-                               display_value));
-    }
-    return value;
-}
 
 void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
 {
@@ -1070,5 +1047,23 @@ void SeedNewGameFacts(Story& story)
         SetFact(W8_FACT_QUEST_VIRGIN_3, 1, false);
     }
     story.imported_origin.reset();
+    g_fact_notifications_suppressed = false;
+}
+
+/* Runs once the new-game level has finished loading: records the two starting
+   transcript keywords from string-table entries 0x7e7/0x7e8 and
+   seeds the starting fact set, all with notifications suppressed. */
+void PostNewGameLoad(void)
+{
+    g_fact_notifications_suppressed = true;
+    LearnDialogueKeyword(Data().strings[0x7e7], W8_DIALOGUE_CATEGORY_MISC, false);
+    LearnDialogueKeyword(Data().strings[0x7e8], W8_DIALOGUE_CATEGORY_MISC, false);
+    SetFact(W8_FACT_FACTION_HIGARDI_FELLOW_FRIENDLY, 1, false);
+    SetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
+    SetFact(W8_FACT_RAPAX_QUEEN_LOCKED_UP, 1, false);
+    SetFact(W8_FACT_RODAN_LOCKED_IN_CAGE, 1, false);
+    SetFact(W8_FACT_DRAZIC_LOCKED_IN_CAGE, 1, false);
+    SetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
+    SetFact(W8_FACT_FACTION_RATTKIN_COMMON_FRIENDLY, 1, false);
     g_fact_notifications_suppressed = false;
 }

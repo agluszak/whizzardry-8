@@ -17,7 +17,6 @@
 #include "wiz8/data/skills.h"
 #include "wiz8/dialog_code/PortraitQuote.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -114,11 +113,11 @@ void BuyAnswer(GameHarness& game, const char* step, W8FactId fact)
     const int price = CurrentGame().npc_dialogue.price_check().value().price;
     CAPTURE(step, gold, price);
     REQUIRE((price > 0 && unsigned(price) <= gold));
-    REQUIRE(GetFact(fact) == 0);
+    REQUIRE(CurrentGame().testFact(fact) == 0);
     ChooseFirstReply(game, step);
     WaitDialogue(game, step, DialogueAwaitingPlayer);
     REQUIRE(CurrentGame().party.gold == gold - unsigned(price));
-    REQUIRE(GetFact(fact) != 0);
+    REQUIRE(CurrentGame().testFact(fact) != 0);
 }
 
 /* Escape asks for the farewell; once it has been said, Escape dismisses it. */

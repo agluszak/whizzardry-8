@@ -13,6 +13,8 @@
 
 #include "wiz8/character_event_queue.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/data/npc_ids.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
@@ -72,6 +74,9 @@ public:
     // The game reads `data`, which its session's owner keeps alive longer than the game.
     explicit Game(const GameData& data) : data(data) {}
     ~Game();
+    // Script fact tests can consume a one-shot latch; this is not a pure state query.
+    unsigned char testFact(W8FactId fact);
+    bool hasLeadingNpc(W8NpcId kind) const;
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
 
@@ -231,6 +236,7 @@ public:
     Level level;
 
 private:
+    unsigned char evaluateFact(W8FactId fact);
     std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
     void updateSurpriseMode();
     void advanceWorlds(std::chrono::milliseconds elapsed);

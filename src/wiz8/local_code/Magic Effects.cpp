@@ -30,7 +30,6 @@
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -3309,7 +3308,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         ApplyRandomAfflictionToTarget(effect);
         break;
     case W8_SPELL_ROCKET_BLAST:
-        GetFact(W8_FACT_UMISSION_TRAIN_FIRE_ASSIGN);
+        CurrentGame().testFact(W8_FACT_UMISSION_TRAIN_FIRE_ASSIGN);
         ApplyDamageToTargets(effect);
         break;
     default:

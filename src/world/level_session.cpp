@@ -26,7 +26,6 @@
 #include "wiz8/entities/native_object.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
@@ -425,7 +424,7 @@ static void EnterLevel(Game& game, World& world, int level, int entrance, bool r
             ForgetRecentCombat();
         }
         if (game.status.greeting_pending &&
-            (GetFact(W8_FACT_IMPORT_UMPANI) || GetFact(W8_FACT_IMPORT_TRANG))) {
+            (game.testFact(W8_FACT_IMPORT_UMPANI) || game.testFact(W8_FACT_IMPORT_TRANG))) {
             DespawnAllActiveMonsterGroups();
         } else {
             UpdateRandomEncounterBudget(first_visit);

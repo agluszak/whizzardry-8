@@ -57,7 +57,8 @@ int W8NpcDialogue::SelectResponse(const ScriptContext& context, const W8NpcQuote
     while (index < std::ssize(entry->sub_entries)) {
         expected = static_cast<unsigned char>(
             entry->sub_entries[index + 1].operand) /* c-style-cast-ok: packed byte operand */;
-        if (GetFact(static_cast<W8FactId>(entry->sub_entries[index].operand)) != expected) {
+        if (context.game.testFact(static_cast<W8FactId>(entry->sub_entries[index].operand)) !=
+            expected) {
             return -1;
         }
         index += 2;

@@ -19,7 +19,6 @@
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -698,7 +697,7 @@ void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bo
                                         int effect = 0x26;
 
                                         if (npc->name_style == W8_NPC_VI_DOMINA &&
-                                            GetFact(W8_FACT_PARTY_MET_VI) != 0) {
+                                            CurrentGame().testFact(W8_FACT_PARTY_MET_VI) != 0) {
                                             effect = 0x39;
                                         }
                                         W8CharacterEvent* notice = QueueCharacterEvent(

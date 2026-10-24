@@ -312,6 +312,12 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   advancement still consumes gameplay draws, including party portrait blinks; moving
   an effect to another stream requires behavioral review, not a visual-only label.
   Rendering additional views must not run those advancement operations.
+- **Script fact tests.** `Game::testFact` combines its own inventory, party and Story;
+  faction standings are Story queries, and leading-NPC identity is resolved against
+  that same party/Story pair. Diagnostics are ordered outcomes of the test, not direct
+  UI calls. This is a legacy script operation, not universally a pure query: covert
+  training consumes a one-shot latch. Recursive evaluation and its diagnostics retain
+  their order. Fact changes and journal/world consequences remain a separate migration.
 - **Activity.** Rules branch on `Game::activity` (place, conversation, scripted
   scene), never on a screen id or UI flag. Combat is `Game::combat`, a
   `std::optional<Combat>` engaged exactly while the party fights.

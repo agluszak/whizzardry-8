@@ -8,7 +8,6 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/world_item.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
@@ -85,7 +84,7 @@ void Trynnie2Script::enter()
    world-side check has a stable flag to read. */
 void EnsureKilledVar(World& world)
 {
-    if (GetFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
+    if (CurrentGame().testFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
         if (GetLocationVarIDByName("Trynnie2Killed") == -1) {
             KillTrynnieGroups(world);
             CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "Trynnie2Killed", 1);

@@ -107,23 +107,6 @@ W8FactionStates StartingFactions()
     return factions;
 }
 
-W8FactionDisposition GetFactionDisposition(signed char faction)
-{
-    signed char disposition_score;
-
-    // A faction id outside the table has no standing with the party.
-    if (faction < 0 || faction >= W8_FACTION_COUNT) return W8_FACTION_NEUTRAL;
-
-    disposition_score = CurrentGame().story.factions[faction].disposition_score;
-    if (disposition_score < 34) {
-        return W8_FACTION_HOSTILE;
-    }
-    if (disposition_score < 67) {
-        return W8_FACTION_NEUTRAL;
-    }
-    return W8_FACTION_FRIENDLY;
-}
-
 /* The Data().strings name id for each faction row; the two filler
    factions reuse the unaligned name. */
 static unsigned short g_faction_name_ids[W8_FACTION_COUNT] = {
@@ -140,7 +123,7 @@ void SetFactionDispositionBand(signed char faction, W8FactionDisposition band)
     W8FactionDisposition old_band;
     signed char palette;
 
-    old_band = GetFactionDisposition(faction);
+    old_band = CurrentGame().story.factionDisposition(faction);
     switch (band) {
     case W8_FACTION_HOSTILE:
         CurrentGame().story.factions[faction].disposition_score = 0x19;
@@ -172,7 +155,7 @@ void SetFactionDispositionBand(signed char faction, W8FactionDisposition band)
 W8FactionDisposition GetFactionDispositionToward(signed char faction, signed char other)
 {
     if (other == W8_FACTION_PARTY) {
-        return GetFactionDisposition(faction);
+        return CurrentGame().story.factionDisposition(faction);
     }
     return CurrentGame().story.faction_relations[faction][other] != W8_FACTION_NEUTRAL
                ? W8_FACTION_FRIENDLY
@@ -244,7 +227,7 @@ void AdjustFactionDisposition(signed char faction, signed char delta)
     W8FactionDisposition new_band;
     signed char palette;
 
-    old_band = GetFactionDisposition(faction);
+    old_band = CurrentGame().story.factionDisposition(faction);
     score = CurrentGame().story.factions[faction].disposition_score;
     old_score = CurrentGame().story.factions[faction].disposition_score;
     if (score + delta > 99) {
@@ -255,7 +238,7 @@ void AdjustFactionDisposition(signed char faction, signed char delta)
         score += delta;
     }
     CurrentGame().story.factions[faction].disposition_score = score;
-    new_band = GetFactionDisposition(faction);
+    new_band = CurrentGame().story.factionDisposition(faction);
     if (new_band != old_band) {
         CurrentGame().story.factions[faction].band_changed_clock = CurrentGame().status.world_clock;
     }

@@ -39,7 +39,7 @@ bool Rift1Sexspawn(Trigger* pTrigger)
     glm::vec3 position;
     W8MonsterInfo* monster_info;
 
-    if (GetFact(W8_FACT_TEMPLAR) != 0) {
+    if (CurrentGame().testFact(W8_FACT_TEMPLAR) != 0) {
         if (GetLocationVarIDByName("AlSedexusSwapped") == -1) {
             CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AlSedexusSwapped", 1);
             monster_info = FindMonsterInfoBySpecies(0xd9);
@@ -65,7 +65,7 @@ bool Rift1Hotstuff(Trigger* pTrigger)
     W8MonsterGroup* group;
     Monster* monster;
 
-    if (GetFact(W8_FACT_LAVALORD_DIE) == 0) {
+    if (CurrentGame().testFact(W8_FACT_LAVALORD_DIE) == 0) {
         if (FindEntityByName("Hotstuff", &position, 0, 0)) {
             group = SpawnMonsters(0x175, 1, &position, 0, true, false);
             if (group != 0) {

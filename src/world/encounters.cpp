@@ -22,10 +22,10 @@
 #include "wiz8/data/dice.h"
 #include "wiz8/data/encounter_records.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/difficulty.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
@@ -41,6 +41,7 @@
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/story.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
@@ -263,9 +264,10 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
     }
 
     if ((flags & W8_MONGEN_STORY_GATED) != 0) {
-        if (GetFactionDisposition(record->faction_id) != W8_FACTION_HOSTILE ||
-            (!GetFact(W8_FACT_DESTINAE_POSSESS) && !GetFact(W8_FACT_ASTRAL_POSSESS) &&
-             !GetFact(W8_FACT_CHAOS_POSSESS))) {
+        if (CurrentGame().story.factionDisposition(record->faction_id) != W8_FACTION_HOSTILE ||
+            (!CurrentGame().testFact(W8_FACT_DESTINAE_POSSESS) &&
+             !CurrentGame().testFact(W8_FACT_ASTRAL_POSSESS) &&
+             !CurrentGame().testFact(W8_FACT_CHAOS_POSSESS))) {
             return false;
         }
     }

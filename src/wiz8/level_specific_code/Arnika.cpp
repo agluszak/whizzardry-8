@@ -390,7 +390,7 @@ void ArnikaScript::setup()
         }
         SetTriggerVariableByName("ScregActive", 0);
     }
-    if (GetFact(W8_FACT_VI_RESCUED) != 0) {
+    if (ctx.game.testFact(W8_FACT_VI_RESCUED) != 0) {
         npc = CurrentGame().story.npcOfKind(0x18);
         if (npc != 0) {
             monster_info = GetNpcMonsterInfo(npc);
@@ -911,7 +911,7 @@ bool ArnikaScript::maddmook(Trigger* pTrigger)
 {
     if (GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
         GetLocationVarValueByName("WarnedAboutEntry") == 1 &&
-        GetFactionDisposition(W8_FACTION_MOOK) != W8_FACTION_NEUTRAL) {
+        ctx.game.story.factionDisposition(W8_FACTION_MOOK) != W8_FACTION_NEUTRAL) {
         W8NpcState* npc = CurrentGame().story.npcOfKind(0x69);
         if (npc != 0) {
             QueueNpcScriptNotice(npc, 0, 7, false, 0);

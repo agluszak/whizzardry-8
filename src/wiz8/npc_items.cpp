@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <utility>
 #include <vector>
 
@@ -103,6 +104,12 @@ static unsigned char JitterNpcStockQuantity(unsigned char amount)
         amount += jitter;
     }
     return amount;
+}
+
+void W8NpcState::clearScheduledItem(int item_id)
+{
+    if (const auto found = std::ranges::find(item_ids, item_id); found != std::end(item_ids))
+        *found = -1;
 }
 
 static void RemoveDepletedNpcStock(W8NpcState* npc)
@@ -380,7 +387,8 @@ int RestockNpcItems(W8NpcState* npc)
     rule_count = npc->record->item_stock_rules.size();
     for (rule_index = 0; rule_index < rule_count; ++rule_index) {
         rule = &npc->record->item_stock_rules[rule_index];
-        if (rule->persistent != 0 || (rule->item_id == 0x1fc && GetFact(W8_FACT_TEMPLAR) == 0)) {
+        if (rule->persistent != 0 ||
+            (rule->item_id == 0x1fc && CurrentGame().testFact(W8_FACT_TEMPLAR) == 0)) {
             continue;
         }
 

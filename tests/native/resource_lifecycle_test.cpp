@@ -32,7 +32,9 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/game_data.h"
+#include "wiz8/data/npc_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
@@ -1738,4 +1740,55 @@ TEST_CASE("Quote input belongs to screens rather than any speech queue's destruc
     REQUIRE(LiveUiTargetCount() == targets + 8);
     rebuilt.reset();
     REQUIRE(LiveUiTargetCount() == targets);
+}
+
+TEST_CASE("Script fact tests and diagnostics use their own party, story and content",
+          "[lifetime][facts]")
+{
+    ScopedGame outgoing;
+    outgoing.game.story.facts[W8_FACT_ALIGNMENT_TRANG] = 1;
+    GameData data;
+    data.facts.resize(W8_FACT_SLOT_COUNT);
+    data.facts[W8_FACT_ALIGNMENT_TRANG].symbolic_name = "Trang";
+    data.facts[W8_FACT_ALIGNMENT_UMPANI].symbolic_name = "Umpani";
+    data.facts[W8_FACT_ALIGNMENT_NONE].symbolic_name = "None";
+    Game candidate(data);
+    candidate.status.log_fact_checks = true;
+    REQUIRE(candidate.testFact(W8_FACT_ALIGNMENT_NONE) == 1);
+    const auto& notices = candidate.events.pending();
+    REQUIRE(notices.size() == 3);
+    REQUIRE(std::get<TextNotice>(notices[0]).text == "Checking fact Trang which is FALSE");
+    REQUIRE(std::get<TextNotice>(notices[1]).text == "Checking fact Umpani which is FALSE");
+    REQUIRE(std::get<TextNotice>(notices[2]).text == "Checking fact None which is TRUE");
+    REQUIRE(outgoing.game.events.pending().empty());
+    candidate.status.log_fact_checks = false;
+
+    candidate.story.factions[W8_FACTION_HIGARDI_COMMON].disposition_score = 75;
+    outgoing.game.story.factions[W8_FACTION_HIGARDI_COMMON].disposition_score = 0;
+    REQUIRE(candidate.testFact(W8_FACT_FACTION_HIGARDI_COMMON_FRIENDLY) == 1);
+    REQUIRE(candidate.story.factionDisposition(-1) == W8_FACTION_NEUTRAL);
+
+    candidate.party.members[0].emplace();
+    candidate.party.members[0]->npc_index = 0;
+    auto npc = std::make_shared<W8NpcState>();
+    npc->name_style = W8_NPC_VI_DOMINA;
+    candidate.story.npcs.push_back(npc);
+    REQUIRE(candidate.testFact(W8_FACT_VI_IN_PARTY) == 1);
+    npc->binding_unavailable = true;
+    REQUIRE(candidate.testFact(W8_FACT_VI_IN_PARTY) == 0);
+    REQUIRE(outgoing.game.story.npcs.empty());
+
+    candidate.events = {};
+    candidate.status.log_fact_checks = true;
+    std::vector<std::string> presented;
+    candidate.events.observe([&](const Event& event) {
+        const auto& notice = std::get<TextNotice>(event);
+        if (presented.empty()) candidate.story.facts[W8_FACT_ALIGNMENT_UMPANI] = 1;
+        presented.push_back(notice.text);
+    });
+    REQUIRE(candidate.testFact(W8_FACT_ALIGNMENT_NONE) == 1);
+    REQUIRE(presented.size() == 3);
+    REQUIRE(presented[1] == "Checking fact Umpani which is FALSE");
+    REQUIRE(candidate.story.facts[W8_FACT_ALIGNMENT_UMPANI] == 1);
+    candidate.events.observe({});
 }

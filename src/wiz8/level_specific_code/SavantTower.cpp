@@ -52,7 +52,7 @@ void SavantTowerScript::enter()
 {
     Prop* prop = FindPropByName(&world(), "ButtonBlocker");
     if (prop != 0) {
-        if (GetFact(W8_FACT_DS_BOMB_DEACTIVATED) != 0) {
+        if (ctx.game.testFact(W8_FACT_DS_BOMB_DEACTIVATED) != 0) {
             prop->SetActivationState(true);
         } else {
             prop->SetActivationState(false);

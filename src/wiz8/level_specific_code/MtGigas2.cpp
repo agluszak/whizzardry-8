@@ -199,7 +199,7 @@ void MtGigas2Script::setup()
             umpaniAlarm(alarm);
         }
     }
-    if (GetFact(W8_FACT_UMISSION_IUFPASS_LEVEL4) == 0 &&
+    if (ctx.game.testFact(W8_FACT_UMISSION_IUFPASS_LEVEL4) == 0 &&
         GetLocationVarIDByName("CODESgtRubbleTeleport") != -1 &&
         GetLocationVarValueByName("CODESgtRubbleTeleport") == 2) {
         W8NpcState* npc;
@@ -293,7 +293,7 @@ bool MtGigas2Script::activateOfficer(int door_bit, const char* door_name, int np
 bool MtGigas2Script::laserAlarm(Trigger* pTrigger)
 {
     g_trigger_feedback = true;
-    if (GetFact(W8_FACT_LOCATION_GIGAS_MOTION_SENSORS_OFF) != 0) {
+    if (ctx.game.testFact(W8_FACT_LOCATION_GIGAS_MOTION_SENSORS_OFF) != 0) {
         return false;
     }
     if (GetLocationVarIDByName("UmpaniAlarm") != -1) {

@@ -10,8 +10,18 @@
 #include <utility>
 
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/unicode.h"
+
+W8FactionDisposition Story::factionDisposition(signed char faction) const
+{
+    // A faction id outside the table has no standing with the party.
+    if (faction < 0 || faction >= W8_FACTION_COUNT) return W8_FACTION_NEUTRAL;
+    const auto score = factions[faction].disposition_score;
+    if (score < 34) return W8_FACTION_HOSTILE;
+    return score < 67 ? W8_FACTION_NEUTRAL : W8_FACTION_FRIENDLY;
+}
 
 void Story::restoreFacts(const decltype(facts)& saved, int level)
 {

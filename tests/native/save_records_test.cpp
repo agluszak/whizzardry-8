@@ -1190,8 +1190,7 @@ TEST_CASE("Unknown fact IDs never index native fact storage", "[save][records]")
     for (const auto raw : {-1, 1000, std::numeric_limits<std::int32_t>::min(),
                            std::numeric_limits<std::int32_t>::max()}) {
         const auto fact = static_cast<W8FactId>(raw);
-        REQUIRE(GetFact(fact) == 0);
-        REQUIRE(EvaluateFact(fact) == 0);
+        REQUIRE(game.game.testFact(fact) == 0);
         SetFact(fact, 1, true);
     }
     REQUIRE(CurrentGame().story.facts == before);
@@ -1824,9 +1823,9 @@ TEST_CASE("Covert-training fact evaluation consumes its first success before jou
     auto& game = scope.game;
     game.inventory.restore({W8ItemInstance{.iItemNo = 0x1c4, .stack_count = 5}}, std::nullopt);
     const auto fact = W8_FACT_UMISSION_TRAIN_COVERT_DONE;
-    REQUIRE(EvaluateFact(fact) == 1);
+    REQUIRE(game.testFact(fact) == 1);
     REQUIRE(game.status.fact_88_latch);
-    REQUIRE(EvaluateFact(fact) == 0);
+    REQUIRE(game.testFact(fact) == 0);
 
     game.status.fact_88_latch = false;
     game.story.facts[fact] = 1;
@@ -1834,5 +1833,5 @@ TEST_CASE("Covert-training fact evaluation consumes its first success before jou
     REQUIRE(game.story.journal.size() == 1);
     REQUIRE(game.story.journal.front().alternate_text); // First evaluated value, not stored zero.
     REQUIRE(game.story.facts[fact] == 0);
-    REQUIRE(EvaluateFact(fact) == 0);
+    REQUIRE(game.testFact(fact) == 0);
 }

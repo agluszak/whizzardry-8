@@ -36,7 +36,6 @@
 #include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
@@ -3499,7 +3498,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                 W8NpcState* npc_state = GetNpcState(
                     CurrentGame().party.npcIndex(CharacterPointerToPartySlot(character)));
                 if (npc_state != nullptr && npc_state->name_style == ' ' &&
-                    GetFact(W8_FACT_RFS81_HAS_BEEN_FIXED) == 0) {
+                    CurrentGame().testFact(W8_FACT_RFS81_HAS_BEEN_FIXED) == 0) {
                     fumble_chance += 5;
                 }
             }

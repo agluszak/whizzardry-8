@@ -77,6 +77,7 @@ struct Story {
     // Restore facts and their derived import alignment without running live script/UI callbacks.
     void restoreFacts(const decltype(facts)& saved, int level);
     W8FactionStates factions = StartingFactions();
+    W8FactionDisposition factionDisposition(signed char faction) const;
     W8FactionRelations faction_relations = StartingFactionRelations();
     std::vector<W8JournalEntry> journal;
     /* The learned keyword notebook. Every addition and removal changes it at once;

@@ -603,7 +603,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         break;
     }
     case W8NpcStoryAction::remove_rpc_vi:
-        if (NpcLeadHasNameStyle(W8_NPC_VI_DOMINA)) {
+        if (context.game.hasLeadingNpc(W8_NPC_VI_DOMINA)) {
             npc = CurrentGame().story.npcOfKind(0x18);
             if (npc != 0) {
                 DismissNpcFromParty(npc->group_index, 0, true, false);

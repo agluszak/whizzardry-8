@@ -713,33 +713,33 @@ void UpdateFactsAfterAcquiringItem(const W8ItemInstance* item)
 {
     switch (item->iItemNo) {
     case 0x243:
-        if (!GetFact(W8_FACT_DESTINAE_POSSESS)) {
+        if (!CurrentGame().testFact(W8_FACT_DESTINAE_POSSESS)) {
             SetFact(W8_FACT_DESTINAE_POSSESS, 1, false);
         }
-        if (GetFact(W8_FACT_QUEST_GET_DD)) {
+        if (CurrentGame().testFact(W8_FACT_QUEST_GET_DD)) {
             SetFact(W8_FACT_QUEST_GET_DD, 0, false);
         }
         break;
     case 0x242:
-        if (!GetFact(W8_FACT_ASTRAL_POSSESS)) {
+        if (!CurrentGame().testFact(W8_FACT_ASTRAL_POSSESS)) {
             SetFact(W8_FACT_ASTRAL_POSSESS, 1, false);
         }
-        if (GetFact(W8_FACT_QUEST_GET_AD)) {
+        if (CurrentGame().testFact(W8_FACT_QUEST_GET_AD)) {
             SetFact(W8_FACT_QUEST_GET_AD, 0, false);
         }
         break;
     case 0x244:
-        if (!GetFact(W8_FACT_CHAOS_POSSESS)) {
+        if (!CurrentGame().testFact(W8_FACT_CHAOS_POSSESS)) {
             SetFact(W8_FACT_CHAOS_POSSESS, 1, false);
         }
-        if (GetFact(W8_FACT_QUEST_GET_CM)) {
+        if (CurrentGame().testFact(W8_FACT_QUEST_GET_CM)) {
             SetFact(W8_FACT_QUEST_GET_CM, 0, false);
         }
         CurrentGame().status.fact_b8_pending = true;
         CurrentGame().status.fact_b8_clock = CurrentGame().status.world_clock;
         break;
     case 0x264:
-        if (!GetFact(W8_FACT_ASTRAL_FAKE_POSSESS)) {
+        if (!CurrentGame().testFact(W8_FACT_ASTRAL_FAKE_POSSESS)) {
             SetFact(W8_FACT_ASTRAL_FAKE_POSSESS, 1, false);
             SetFact(W8_FACT_ASTRAL_FAKE_POSSESS1, 1, false);
         }
@@ -751,7 +751,7 @@ void UpdateFactsAfterAcquiringItem(const W8ItemInstance* item)
         SetFact(W8_FACT_QUEST_MYLES_FIND_DIAMOND, 0, false);
         break;
     case 0x1d2:
-        if (GetFact(W8_FACT_QUEST_MYLES_WEAPONS_CACHE)) {
+        if (CurrentGame().testFact(W8_FACT_QUEST_MYLES_WEAPONS_CACHE)) {
             SetFact(W8_FACT_QUEST_MYLES_WEAPONS_CACHE, 0, false);
         }
         break;
@@ -797,7 +797,7 @@ void DeliverExceptionalItemReaction(Game& game, W8ItemInstance* item, bool choos
         break;
     case 0x27c: {
         SetFact(W8_FACT_DIAMOND_FOUND, 1, false);
-        if (!NpcLeadHasNameStyle(W8_NPC_MYLES) || !GetFact(W8_FACT_QUEST_MYLES_FIND_DIAMOND)) {
+        if (!game.hasLeadingNpc(W8_NPC_MYLES) || !game.testFact(W8_FACT_QUEST_MYLES_FIND_DIAMOND)) {
             return;
         }
         W8NpcState* npc = CurrentGame().story.npcOfKind(7);

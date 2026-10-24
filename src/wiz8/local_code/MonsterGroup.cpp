@@ -45,6 +45,7 @@
 #include "wiz8/spatial/bounding_sphere.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/world.h"
 
@@ -215,7 +216,8 @@ static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
             disposition = W8_DISPOSITION_FRIENDLY;
             break;
         default:
-            switch (GetFactionDisposition(static_cast<signed char>(record->faction_id))) {
+            switch (CurrentGame().story.factionDisposition(
+                static_cast<signed char>(record->faction_id))) {
             case W8_FACTION_HOSTILE:
                 disposition = W8_DISPOSITION_HOSTILE;
                 break;

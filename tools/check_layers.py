@@ -105,6 +105,13 @@ def check_includes():
         for match in INCLUDE.finditer(source):
             if match.group(2) == 'wiz8/game.h' or 'local_screens/' in match.group(2):
                 problems.append(f'{relative}: timed operations may not depend on game or screens')
+    facts = ROOT / 'src/wiz8/fact_state.cpp'
+    source = facts.read_text(encoding='utf-8')
+    if re.search(r'\b(CurrentGame|Data|GetWorld|FindScreen|ShowNotice)\s*\(', source):
+        problems.append('src/wiz8/fact_state.cpp: fact tests must use their game and report outcomes')
+    for match in INCLUDE.finditer(source):
+        if 'local_screens/' in match.group(2) or match.group(2) == 'wiz8/loaded_game_data.h':
+            problems.append('src/wiz8/fact_state.cpp: fact tests may not depend on screens or installed content')
     items = ROOT / 'src/world/items.cpp'
     source = items.read_text(encoding='utf-8')
     if re.search(r'\b(CurrentGame|GetWorld|GetWorldSpatialIndex|GetWorldPathing|GetCursorScaledPosition|Data)\s*\(', source):

@@ -3,6 +3,7 @@
 #include <string_view>
 #include <vector>
 
+#include "wiz8/data/npc_ids.h" // IWYU pragma: export
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/math.h"
@@ -39,23 +40,6 @@ struct W8GameplayModifierBlock;
 struct W8MonsterInfo;
 struct W8MonsterManagerEntry;
 
-/* NPC database record indices used as name-style ids at runtime. */
-enum W8NpcId {
-    W8_NPC_MYLES = 7,
-    W8_NPC_ZANT = 0x0f,
-    W8_NPC_DRAZIC = 0x10,
-    W8_NPC_RODAN = 0x11,
-    W8_NPC_VI_DOMINA = 0x18,
-    W8_NPC_RFS81_A = 0x20,
-    W8_NPC_GLUMPH = 0x2b,
-    W8_NPC_SPARKLE = 0x38,
-    W8_NPC_AL_ADRYIAN = 0x3b,
-    W8_NPC_MADRAS = 0x4a,
-    W8_NPC_SEXUS = 0x4f,
-    W8_NPC_PHOONZANG = 0x87,
-    W8_NPC_ENDGAME2 = 0x8e,
-};
-
 enum W8NpcServiceFlag {
     W8_NPC_SERVICE_ARNIKA = 0x1,
     W8_NPC_SERVICE_TRYNTON = 0x2,
@@ -80,8 +64,6 @@ int SelectNewGameStartLevel(void);
 void BindNpcToMonster(unsigned char value, bool enabled, int location_id);
 bool RecruitNpcIntoParty(W8NpcState* npc);
 int DismissNpcFromParty(int party_slot, int, bool skip_spawn, bool neutral);
-/* How many leading party slots are occupied. */
-unsigned char CountLeadingPartySlots(void);
 bool NpcKnowsFact(W8NpcState* npc, W8FactId fact);
 unsigned char FindNpcOfKind(int kind);
 bool CanNpcJoinParty(W8NpcState* npc);
@@ -121,7 +103,6 @@ W8NpcState* GetNpcState(int index);
    NPC whose member already carries more than one declines. */
 bool NpcWantsItem(W8NpcState* npc, const W8ItemInstance* item);
 bool NpcHasTopic(W8NpcState* npc, int topic);
-bool NpcLeadHasNameStyle(W8NpcId kind);
 /* Clear one NPC binding's monster link and hand the handle to the
    owned item-list teardown. */
 void ReleaseNpcBinding(int value);
@@ -149,7 +130,6 @@ W8NpcState* FindNpcStateByName(std::string_view name);
 W8MonsterManagerEntry* GetNpcGroupEntry(W8NpcState* npc);
 void ReleaseNpcMonsterBinding(W8NpcState* npc, signed char level);
 void RestoreNamedNpcAtLevel(int kind, signed char level, std::string_view entity_name);
-bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out);
 void ReleaseNpcMonsterByKind(int kind);
 /* Record that the NPC has told the party the given fact. */
 void TellNpcFact(W8NpcState* npc, short fact);

@@ -234,28 +234,6 @@ W8NpcState* GetNpcState(int index)
     return CurrentGame().story.npc(index);
 }
 
-/* Whether the NPC attached to either of the first two party rows carries the
-   given name style with an unreleased binding, while that row's lead stays
-   under level fifteen. */
-bool NpcLeadHasNameStyle(W8NpcId kind)
-{
-    if (CurrentGame().party.members[0].has_value()) {
-        W8NpcState* npc = GetNpcState(CurrentGame().party.npcIndex(0));
-        if (npc->name_style == kind &&
-            CurrentGame().party.characters[0].highest_condition < W8_CONDITION_ASLEEP) {
-            return true;
-        }
-    }
-    if (CurrentGame().party.members[1].has_value()) {
-        W8NpcState* npc = GetNpcState(CurrentGame().party.npcIndex(1));
-        if (npc->name_style == kind &&
-            CurrentGame().party.characters[1].highest_condition < W8_CONDITION_ASLEEP) {
-            return true;
-        }
-    }
-    return false;
-}
-
 /* The monster standing in the world for this NPC, if one is. */
 W8MonsterInfo* GetNpcMonsterInfo(W8NpcState* npc)
 {
@@ -302,24 +280,6 @@ bool WillNpcTradeForItem(W8NpcState* npc, const W8ItemInstance* item)
         return true;
     }
     return GetItemStackValue(item) >= W8_NPC_MINIMUM_TRADE_VALUE;
-}
-
-/* How many of the two leading party slots are occupied. Written as nested
-   tests rather than a count, which is why the first slot is read twice. */
-unsigned char CountLeadingPartySlots(void)
-{
-    if (CurrentGame().party.members[0].has_value()) {
-        if (CurrentGame().party.members[1].has_value()) {
-            return 2;
-        }
-        if (CurrentGame().party.members[0].has_value()) {
-            return 1;
-        }
-    }
-    if (CurrentGame().party.members[1].has_value()) {
-        return 1;
-    }
-    return 0;
 }
 
 /* The NPC-index consumers at 0x0050CC14/0x0050E025 address the first
@@ -681,22 +641,25 @@ bool CanNpcJoinParty(W8NpcState* npc)
     if (NpcOffersService(npc, CurrentGame().levelBand(GetLoadedLevelID()))) {
         return false;
     }
-    if (npc->name_style == W8_NPC_GLUMPH && GetFact(W8_FACT_UMISSION_SCUBA_DONE) != 0) {
+    if (npc->name_style == W8_NPC_GLUMPH &&
+        CurrentGame().testFact(W8_FACT_UMISSION_SCUBA_DONE) != 0) {
         return false;
     }
-    if (npc->name_style == W8_NPC_SEXUS && GetFact(W8_FACT_SEXUS_PAID) == 0) {
+    if (npc->name_style == W8_NPC_SEXUS && CurrentGame().testFact(W8_FACT_SEXUS_PAID) == 0) {
         return false;
     }
     /* Retail performs the identical Madras check twice in a row - the second
        test is dead but genuinely present, kept faithful. */
-    if (npc->name_style == W8_NPC_MADRAS && GetFact(W8_FACT_TRYNNIE_MADRAS_WILL_JOIN) == 0) {
+    if (npc->name_style == W8_NPC_MADRAS &&
+        CurrentGame().testFact(W8_FACT_TRYNNIE_MADRAS_WILL_JOIN) == 0) {
         return false;
     }
-    if (npc->name_style == W8_NPC_MADRAS && GetFact(W8_FACT_TRYNNIE_MADRAS_WILL_JOIN) == 0) {
+    if (npc->name_style == W8_NPC_MADRAS &&
+        CurrentGame().testFact(W8_FACT_TRYNNIE_MADRAS_WILL_JOIN) == 0) {
         return false;
     }
     if ((npc->name_style == W8_NPC_DRAZIC || npc->name_style == W8_NPC_RODAN) &&
-        GetFact(W8_FACT_PEACE_ACHIEVED) != 0) {
+        CurrentGame().testFact(W8_FACT_PEACE_ACHIEVED) != 0) {
         return false;
     }
     if (npc->record->min_party_level > 0) {
@@ -882,7 +845,7 @@ void ProcessNpcPendingEvents(void)
                                      W8_CONDITION_ASLEEP)) {
                                 event = 0x6c;
                             } else if (npc->name_style == W8_NPC_DRAZIC &&
-                                       !NpcLeadHasNameStyle(W8_NPC_RODAN)) {
+                                       !CurrentGame().hasLeadingNpc(W8_NPC_RODAN)) {
                                 event = 0x67;
                             }
                         }
@@ -948,34 +911,34 @@ void ChooseNewGameStartLocation(int* level, int* entrance)
     unsigned char value;
     int start_level;
 
-    value = GetFact(W8_FACT_VIRGIN);
+    value = CurrentGame().testFact(W8_FACT_VIRGIN);
     if (value != 0) {
         start_level = 8;
     } else {
-        value = GetFact(W8_FACT_IMPORT_UMPANI);
+        value = CurrentGame().testFact(W8_FACT_IMPORT_UMPANI);
         if (value != 0) {
             start_level = 0xe;
         } else {
-            start_level = GetFact(W8_FACT_IMPORT_TRANG) != 0 ? 6 : 8;
+            start_level = CurrentGame().testFact(W8_FACT_IMPORT_TRANG) != 0 ? 6 : 8;
         }
     }
     *level = start_level;
     *entrance = 0;
     CurrentGame().status.greeting_pending = true;
 
-    value = GetFact(W8_FACT_VIRGIN);
+    value = CurrentGame().testFact(W8_FACT_VIRGIN);
     if (value != 0) {
         return;
     }
 
-    value = GetFact(W8_FACT_IMPORT_UMPANI);
+    value = CurrentGame().testFact(W8_FACT_IMPORT_UMPANI);
     if (value != 0) {
         RestoreNamedNpcAtLevel(0x18, 0xe, "NP_ViGigas");
         RestoreNamedNpcAtLevel(0xc, 0xe, "NP_BalbrakIntro");
         return;
     }
 
-    value = GetFact(W8_FACT_IMPORT_TRANG);
+    value = CurrentGame().testFact(W8_FACT_IMPORT_TRANG);
     if (value != 0) {
         RestoreNamedNpcAtLevel(0x18, 6, "NP_ViBluff");
         RestoreNamedNpcAtLevel(0x8c, 6, "NP_GuardBluff");
@@ -996,17 +959,17 @@ static void SelectStartNpcGreeting(void)
     unsigned char value;
     glm::vec3 head;
 
-    value = GetFact(W8_FACT_VIRGIN);
+    value = CurrentGame().testFact(W8_FACT_VIRGIN);
     if (value != 0) {
         ApplyItemEffectToRandomCharacter(g_fact_check_event, -1, 0);
         return;
     }
 
-    value = GetFact(W8_FACT_IMPORT_UMPANI);
+    value = CurrentGame().testFact(W8_FACT_IMPORT_UMPANI);
     if (value != 0) {
         npc = CurrentGame().story.npcOfKind(0xc);
     } else {
-        value = GetFact(W8_FACT_IMPORT_TRANG);
+        value = CurrentGame().testFact(W8_FACT_IMPORT_TRANG);
         if (value != 0) {
             npc = CurrentGame().story.npcOfKind(0x8c);
             if (npc == 0) {
@@ -1037,17 +1000,17 @@ int SelectNewGameStartLevel(void)
 {
     unsigned char value;
 
-    value = GetFact(W8_FACT_VIRGIN);
+    value = CurrentGame().testFact(W8_FACT_VIRGIN);
     if (value != 0) {
         return 8;
     }
 
-    value = GetFact(W8_FACT_IMPORT_UMPANI);
+    value = CurrentGame().testFact(W8_FACT_IMPORT_UMPANI);
     if (value != 0) {
         return 0xe;
     }
 
-    value = GetFact(W8_FACT_IMPORT_TRANG);
+    value = CurrentGame().testFact(W8_FACT_IMPORT_TRANG);
     if (value != 0) {
         return 6;
     }
@@ -1513,7 +1476,8 @@ void UpdateNpcEvents(void)
     if (CurrentGame().status.trang_check_pending &&
         static_cast<unsigned int>(CurrentGame().status.world_clock -
                                   CurrentGame().status.trang_check_clock) > 0x2a30) {
-        if (GetFact(W8_FACT_ALIGNMENT_UMPANI) != 0 && CurrentGame().rng.below(100) < 6) {
+        if (CurrentGame().testFact(W8_FACT_ALIGNMENT_UMPANI) != 0 &&
+            CurrentGame().rng.below(100) < 6) {
             SetFact(W8_FACT_TRANG_YOU_ARE_BUSTED, 1, false);
         }
         CurrentGame().status.trang_check_pending = false;
@@ -1567,7 +1531,7 @@ void UpdateNpcEvents(void)
     }
 
     if (!CurrentGame().combat.has_value() && CurrentGame().status.vi_event_stage > 1) {
-        bool run_event = GetFact(W8_FACT_VI_IS_DEAD) != 0;
+        bool run_event = CurrentGame().testFact(W8_FACT_VI_IS_DEAD) != 0;
 
         if (!run_event) {
             for (const auto& state_owner : CurrentGame().story.npcs) {
@@ -1826,7 +1790,8 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
             return;
         }
     }
-    if (npc->name_style == W8_NPC_GLUMPH && GetFact(W8_FACT_UMISSION_SCUBA_DONE) == 0) {
+    if (npc->name_style == W8_NPC_GLUMPH &&
+        CurrentGame().testFact(W8_FACT_UMISSION_SCUBA_DONE) == 0) {
         glm::vec3 position;
 
         monster_info = GetNpcMonsterInfo(npc);
@@ -1857,7 +1822,8 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
         CurrentGame().status.npc_restore_pending = true;
     }
     if (npc->restore_done == 0) {
-        if (npc->name_style == W8_NPC_MYLES && GetFact(W8_FACT_RAPAX_MYLES_IN_JAIL) != 0) {
+        if (npc->name_style == W8_NPC_MYLES &&
+            CurrentGame().testFact(W8_FACT_RAPAX_MYLES_IN_JAIL) != 0) {
             RestoreNamedNpcAtLevel(npc->name_style, 0x11, "NP_MylesCell");
         } else {
             RestoreNamedNpcAtLevel(npc->name_style, npc->record->restore_level,
@@ -1949,24 +1915,6 @@ void RebindNpcLevelTriggers(void)
             }
         }
     }
-}
-
-/* Clear the first item_ids slot matching `item_id`, optionally building the
-   item into `out` first - the scheduled-stock handoff the pickpocket and trade
-   resolutions run. */
-bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out)
-{
-    assert(npc != 0);
-    for (int index = 0; index < 40; ++index) {
-        if (npc->item_ids[index] == item_id) {
-            if (out != 0) {
-                *out = MakeItem(Data(), CurrentGame().rng, npc->item_ids[index], true, true, false);
-            }
-            npc->item_ids[index] = -1;
-            return true;
-        }
-    }
-    return false;
 }
 
 static bool HasHealthyNpcPartner(unsigned char kind)

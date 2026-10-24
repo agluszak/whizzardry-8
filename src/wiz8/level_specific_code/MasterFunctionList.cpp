@@ -361,15 +361,15 @@ bool LevelScript::seenBodies(int command)
     if (command == 1) {
         if (GetLocationVarIDByName("AP_SeenBodies") == -1) {
             if (CountAscensionPeakItems(ctx.inventory) == 3) {
-                if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
-                    GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
+                if (ctx.game.testFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
+                    ctx.game.testFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
                     ApplyItemEffectToRandomCharacter(kCursorNodeRelicEvent, -1, 0);
                     CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_SeenBodies",
                                                                1);
-                    if (GetFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
+                    if (ctx.game.testFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
                         SetFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0, false);
                     }
-                    if (GetFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
+                    if (ctx.game.testFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
                         SetFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0, false);
                     }
                 }

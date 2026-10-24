@@ -483,7 +483,7 @@ std::string TranslateDialogueKeyword(std::string_view source)
 void ForwardNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line, bool suppress)
 {
     if (!CurrentGame().activity.conversation && !CurrentGame().combat.has_value() &&
-        (npc->record->kind != 7 || GetFact(W8_FACT_ARNIKA_MYLES_MEET_ONCE) != 1)) {
+        (npc->record->kind != 7 || CurrentGame().testFact(W8_FACT_ARNIKA_MYLES_MEET_ONCE) != 1)) {
         QueueNpcScriptNotice(npc, item, line, suppress, 0);
     }
 }
@@ -509,7 +509,7 @@ void QueueNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line,
     }
     flag = suppress;
     if ((npc->name_style == W8_NPC_DRAZIC || npc->name_style == W8_NPC_RODAN) &&
-        GetFact(W8_FACT_PEACE_ACHIEVED) != 0) {
+        CurrentGame().testFact(W8_FACT_PEACE_ACHIEVED) != 0) {
         flag = true;
         line = npc->name_style == W8_NPC_DRAZIC ? 0x23 : 0x1d;
     }
@@ -726,8 +726,8 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, const W8ItemInstance* item, bo
         } else {
             band = GetNpcDispositionBand(CurrentGame().npc_interaction.dialogue_npc.get());
             if (CurrentGame().npc_interaction.dialogue_npc->name_style == W8_NPC_ZANT &&
-                GetFact(W8_FACT_TRANG_YOU_ARE_BUSTED) != 0 &&
-                GetFact(W8_FACT_ALIGNMENT_UMPANI) == 0) {
+                CurrentGame().testFact(W8_FACT_TRANG_YOU_ARE_BUSTED) != 0 &&
+                CurrentGame().testFact(W8_FACT_ALIGNMENT_UMPANI) == 0) {
                 SetFact(W8_FACT_TRANG_YOU_ARE_BUSTED, 0, false);
             }
             if (band == W8_NPC_BAND_FRIENDLY) {
@@ -1145,7 +1145,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
         partyCamera().SetPitch(MainGame()->dialogue.saved_camera_pitch);
     }
     if (CurrentGame().npc_interaction.dialogue_npc->name_style == 0xf &&
-        GetFact(W8_FACT_ALIGNMENT_UMPANI) != 0) {
+        CurrentGame().testFact(W8_FACT_ALIGNMENT_UMPANI) != 0) {
         CurrentGame().status.trang_check_clock = CurrentGame().status.world_clock;
         CurrentGame().status.trang_check_pending = true;
     }
@@ -2429,7 +2429,7 @@ bool NpcTradeItemAllowed(const W8ItemInstance* item)
     W8ItemEquipSlotGroup group;
 
     if (CurrentGame().npc_interaction.dialogue_npc->name_style == ',' &&
-        GetFact(W8_FACT_ALIGNMENT_UMPANI) == 0 && item->iItemNo != 0x290) {
+        CurrentGame().testFact(W8_FACT_ALIGNMENT_UMPANI) == 0 && item->iItemNo != 0x290) {
         return true;
     }
     if (MainGame()->dialogue.trade_filter == 0) {
@@ -3937,7 +3937,7 @@ void RecordLevelEntryDialogueState(void)
     }
     if (region == 14) {
         SetFact(W8_FACT_QUEST_ASCEND_TO_CIRCLE, 0, false);
-        if (!NpcLeadHasNameStyle(W8_NPC_VI_DOMINA)) {
+        if (!CurrentGame().hasLeadingNpc(W8_NPC_VI_DOMINA)) {
             SetFact(W8_FACT_VI_IS_DEAD, 1, false);
         }
     }
