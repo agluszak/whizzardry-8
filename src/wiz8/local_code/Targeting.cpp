@@ -153,40 +153,6 @@ signed char GetTargetNoticeColor(const W8TargetSource* source, const W8CombatSlo
 }
 
 /* Whether a peer aiming at the just-applied target should drop that aim. */
-bool ShouldClearAimForAppliedTarget(W8TargetSource* source, W8CombatSlot* target, bool in_combat,
-                                    bool action_targets_enemies)
-{
-    bool source_hostile;
-    bool target_hostile;
-
-    if (!in_combat) {
-        return true;
-    }
-    if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
-        assert(source->iChar != BAD_INDEX);
-        source_hostile =
-            CurrentGame().party.characters[source->iChar].uiCondition[W8_CONDITION_TURNCOAT] != 0;
-    } else {
-        assert(source->iType == W8_TARGET_SOURCE_MONSTER);
-        assert(source->iMonsterID != BAD_INDEX);
-        source_hostile = FindMonster(source->iMonsterID)->ubDisposition == W8_DISPOSITION_HOSTILE;
-    }
-    if (target->iType == W8_TARGET_KIND_CHARACTER) {
-        target_hostile =
-            CurrentGame().party.characters[target->iChar].uiCondition[W8_CONDITION_TURNCOAT] != 0;
-    } else if (target->iType == W8_TARGET_KIND_MONSTER) {
-        target_hostile = FindMonster(target->iMonsterID)->ubDisposition == W8_DISPOSITION_HOSTILE;
-    } else if (target->iType == W8_TARGET_KIND_GROUP) {
-        target_hostile =
-            FindMonsterGroup(target->iGroupID)->ubDisposition == W8_DISPOSITION_HOSTILE;
-    } else {
-        return false;
-    }
-    if (source_hostile == target_hostile) {
-        return action_targets_enemies;
-    }
-    return !action_targets_enemies;
-}
 
 /* The faction names, thirty bytes apart, in the same order as the faction ids.
    Twenty-one of them, which is the whole faction domain. */
@@ -260,7 +226,7 @@ bool ClearMonsterCombatSlot(W8MonsterInfo* monster_info)
 bool IsSpellTargetStillValid(int party_slot, int spell_id, const W8Action& selected)
 {
     const auto needed = GetTargetNeededForSpellFriendly(spell_id, false, true);
-    return TargetMatchesNeeded(&selected.target, needed) &&
+    return CurrentGame().targetMatches(selected.target, needed) &&
            CharacterActionReachesTarget(party_slot, 0, selected);
 }
 
@@ -273,7 +239,7 @@ bool IsSpellTargetOfNeededKind(const W8CombatSlot* target, int spell_id, bool ne
     if (needed == W8_TARGET_NEED_ENEMY && g_settings.autotarget_spells) {
         return true;
     }
-    return TargetMatchesNeeded(target, needed);
+    return (target && CurrentGame().targetMatches(*target, needed));
 }
 
 /* What an item's spell needs picked before it can be cast. An item with no
@@ -341,16 +307,6 @@ void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_tar
     }
 }
 
-W8CombatSlot CharacterTarget(int character_slot, W8TargetKind kind)
-{
-    W8CombatSlot target;
-
-    ResetCombatSlot(&target);
-    target.iChar = character_slot;
-    target.iType = kind;
-    return target;
-}
-
 /* Aim at the place the party is looking, drop the marker and let the display
    know. */
 void AimAtPlace(int actor)
@@ -382,95 +338,9 @@ void AimAtGroundTarget(int party_slot)
 
 /* The three wrappers that set the party's own target rather than a
    combatant's, one per kind that names something. */
-void SetTargetToCharacter(int character_slot, bool in_combat)
-{
-    W8CombatSlot target;
-
-    ResetCombatSlot(&target);
-    target.iType = W8_TARGET_KIND_CHARACTER;
-    target.iChar = character_slot;
-    ApplyTarget(&target, in_combat);
-}
-
-void SetTargetToMonster(int monster_id, bool in_combat)
-{
-    W8CombatSlot target;
-
-    ResetCombatSlot(&target);
-    target.iType = W8_TARGET_KIND_MONSTER;
-    target.iMonsterID = monster_id;
-    ApplyTarget(&target, in_combat);
-}
-
-void SetTargetToGroup(int group_id, bool in_combat)
-{
-    W8CombatSlot target;
-
-    ResetCombatSlot(&target);
-    target.iType = W8_TARGET_KIND_GROUP;
-    target.iGroupID = group_id;
-    ApplyTarget(&target, in_combat);
-}
 
 /* Walk every party slot and every live monster: anyone already aiming at
    `target` drops that aim when combat and their action require it. */
-void ApplyTarget(W8CombatSlot* target, bool in_combat)
-{
-    W8TargetSource source;
-    W8PartySlotRow* row;
-    W8Character* character;
-    W8MonsterInfo* monster_info;
-    bool action_targets_enemies;
-    int party_slot;
-
-    for (party_slot = 0; party_slot < 8; ++party_slot) {
-        row = &CurrentGame().party.rows[party_slot];
-        character = &CurrentGame().party.characters[party_slot];
-        if (!CanPartySlotParticipate(party_slot)) {
-            continue;
-        }
-        SetTargetSourceToCharacter(party_slot, &source);
-        if (CurrentGame().combat.has_value()) {
-            if ((row->committed.target == *target)) {
-                action_targets_enemies = CharacterActionTargetsEnemies(
-                    CurrentGame().inventory, character, row->committed.kind, row->committed.detail,
-                    &row->committed.detail_block);
-                if (ShouldClearAimForAppliedTarget(&source, target, in_combat,
-                                                   action_targets_enemies)) {
-                    if (row->committed.kind == W8_ACTION_PROTECT) {
-                        DropCharacterFromRound(party_slot);
-                    } else {
-                        RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
-                    }
-                }
-            }
-        }
-        if ((row->executing.target == *target)) {
-            action_targets_enemies = CharacterActionTargetsEnemies(
-                CurrentGame().inventory, character, row->executing.kind,
-                row->executing.attack_mode[0], &row->executing.detail_block);
-            if (ShouldClearAimForAppliedTarget(&source, target, in_combat,
-                                               action_targets_enemies)) {
-                RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, 0);
-            }
-        }
-    }
-
-    for (unsigned int index = 0; index < CurrentLevelPopulation().monster_roster.live().size();
-         ++index) {
-        monster_info = GetMonsterListEntry(index);
-        SetTargetSourceToMonster(monster_info, &source);
-        if ((monster_info->Target == *target)) {
-            action_targets_enemies =
-                MonsterActionTargetsEnemies(monster_info->action_kind, monster_info->action_detail,
-                                            &monster_info->spell_power_level);
-            if (ShouldClearAimForAppliedTarget(&source, target, in_combat,
-                                               action_targets_enemies)) {
-                ResetCombatSlot(&monster_info->Target);
-            }
-        }
-    }
-}
 
 /* Put the on-screen marker over one monster, from the party's eye to the
    monster's own bounds. */
@@ -487,60 +357,6 @@ unsigned char ShowMonsterTargetMarker(W8MonsterInfo* monster_info)
 /* Whether a recorded target is of the kind a caller needs. Each needed kind
    admits one or two target kinds that additionally have to be present.
    Other requirements are accepted after the null-target check. */
-bool TargetMatchesNeeded(const W8CombatSlot* target, W8TargetNeed needed)
-{
-    bool matched = false;
-
-    if (target == 0) {
-        return false;
-    }
-    switch (needed) {
-    case W8_TARGET_NEED_ALLY:
-    case W8_TARGET_NEED_ENEMY:
-    case W8_TARGET_NEED_CASTER:
-        if (target->iType == W8_TARGET_KIND_CHARACTER && target->iChar != BAD_INDEX) {
-            matched = true;
-        }
-        if (target->iType == W8_TARGET_KIND_MONSTER && target->iMonsterID != BAD_INDEX) {
-            return IsTargetStillPresent(target);
-        }
-        if (matched) {
-            return IsTargetStillPresent(target);
-        }
-        break;
-    case W8_TARGET_NEED_PLACE:
-    case W8_TARGET_NEED_CONE:
-        if (target->iType == W8_TARGET_KIND_PLACE) {
-            return IsTargetStillPresent(target);
-        }
-        break;
-    case W8_TARGET_NEED_GROUP:
-        if (target->iType == W8_TARGET_KIND_GROUP && target->iGroupID != BAD_INDEX) {
-            matched = true;
-        }
-        if (target->iType == W8_TARGET_KIND_PARTY) {
-            return IsTargetStillPresent(target);
-        }
-        if (matched) {
-            return IsTargetStillPresent(target);
-        }
-        break;
-    case W8_TARGET_NEED_ITEM:
-        if (target->iType == W8_TARGET_KIND_ITEM &&
-            CurrentGame().inventory.itemAt(target->item) != 0) {
-            return IsTargetStillPresent(target);
-        }
-        break;
-    case W8_TARGET_NEED_CHARACTER_INDIRECT:
-        if (target->iType == W8_TARGET_KIND_CHARACTER_INDIRECT && target->iChar != BAD_INDEX) {
-            return IsTargetStillPresent(target);
-        }
-        break;
-    default:
-        return true;
-    }
-    return false;
-}
 
 /* What the interface has to ask the player to pick for one action. Most
    actions answer a fixed kind; casting asks the spell and using an item asks
@@ -552,10 +368,12 @@ void RepickInvalidCombatTargets(void)
         if (!CurrentGame().party.members[party_slot].has_value() || character->hp_current == 0 ||
             character->highest_condition >= W8_CONDITION_TURNCOAT ||
             !CharacterCanSwitchTo(
-                party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT), true)) {
+                party_slot, CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                true)) {
             continue;
         }
-        const auto selected = SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
+        const auto selected =
+            CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
         if (!TargetIsInPlay(party_slot, 2, selected)) {
             RepickActionTarget(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
         }
@@ -602,7 +420,7 @@ bool IsItemTargetOfNeededKind(const W8CombatSlot* target, const W8ItemInstance* 
             }
         }
     }
-    return TargetMatchesNeeded(target, needed);
+    return (target && CurrentGame().targetMatches(*target, needed));
 }
 
 static bool IsMonsterHoverSelectable(W8MonsterInfo* monster_info)
@@ -735,77 +553,6 @@ enum { W8_CONDITION_REACHABLE_WHEN_DOWN = 18, W8_CONDITION_BEYOND_REACH = 19 };
    the opposite, somebody with no hit points left whose two death fields say
    they can still be reached. Everything else - a place, the party as a whole -
    is always there and is not answered here at all. */
-bool IsTargetStillPresent(const W8CombatSlot* target)
-{
-    if (target == 0) {
-        return false;
-    }
-
-    switch (target->iType) {
-    case W8_TARGET_KIND_CHARACTER:
-        assert(target->iChar != BAD_INDEX);
-        if (!CanPartySlotParticipate(target->iChar)) {
-            return false;
-        }
-        break;
-
-    case W8_TARGET_KIND_CHARACTER_INDIRECT:
-        assert(target->iChar != BAD_INDEX);
-        if (CurrentGame().party.members[target->iChar].has_value() == 0 ||
-            CurrentGame().party.characters[target->iChar].hp_current != 0 ||
-            CurrentGame()
-                    .party.characters[target->iChar]
-                    .uiCondition[W8_CONDITION_REACHABLE_WHEN_DOWN] == 0 ||
-            CurrentGame().party.characters[target->iChar].uiCondition[W8_CONDITION_BEYOND_REACH] !=
-                0) {
-            return false;
-        }
-        break;
-
-    case W8_TARGET_KIND_MONSTER: {
-        W8MonsterInfo* monster_info;
-
-        assert(target->iMonsterID != BAD_INDEX);
-        monster_info = FindMonster(target->iMonsterID, false);
-        if (monster_info == 0) {
-            return false;
-        }
-        assert(monster_info != 0);
-        if (monster_info->hp_current == 0 ||
-            monster_info->uiCondition[W8_CONDITION_REACHABLE_WHEN_DOWN] != 0 ||
-            !monster_info->fActive) {
-            return false;
-        }
-        break;
-    }
-
-    case W8_TARGET_KIND_GROUP: {
-        W8MonsterGroup* group;
-
-        assert(target->iGroupID != BAD_INDEX);
-        group = FindMonsterGroup(target->iGroupID, false);
-        if (group == nullptr) {
-            return false;
-        }
-        assert(group != 0);
-        if (group->MemberCount() == 0 || !group->members_active) {
-            return false;
-        }
-        break;
-    }
-
-    case W8_TARGET_KIND_ITEM:
-        assert(CurrentGame().inventory.itemAt(target->item) != 0);
-        if (CurrentGame().inventory.itemAt(target->item)->iItemNo == BAD_INDEX) {
-            return false;
-        }
-        break;
-
-    default:
-        break;
-    }
-    return true;
-}
 
 /* The float that stands for "no distance given". GameData.cpp
    reads the same constant as the level vector's absent value. */
@@ -876,7 +623,8 @@ void SetMonsterCombatTarget(W8MonsterInfo* monster_info, int location_id)
    effects, so this wrapper discards its answer. */
 bool MonsterTargetMatchesSpell(W8MonsterInfo* monster_info, int spell_id)
 {
-    return TargetMatchesNeeded(&monster_info->Target, GetTargetNeededForSpellHostile(spell_id));
+    return CurrentGame().targetMatches(monster_info->Target,
+                                       GetTargetNeededForSpellHostile(spell_id));
 }
 
 /* Whether this spell choice needs an explicit target in the interaction. */
@@ -940,7 +688,7 @@ void RevalidateSelectedTarget(int party_slot)
             GetTargetNeededForAction(CurrentGame().inventory, selected, MainGameHud() == nullptr);
     }
     CurrentGame().events.push(TargetingRequested{
-        TargetMatchesNeeded(&selected.target, needed) ? W8_TARGET_NEED_NONE : needed});
+        CurrentGame().targetMatches(selected.target, needed) ? W8_TARGET_NEED_NONE : needed});
 }
 
 /* Whether anything in `group` is close enough to `source` for the source's
@@ -1019,12 +767,6 @@ bool IsDeadCharacterTargetable(int party_slot)
 
 /* A party slot can participate only while occupied, alive, and below the
    terminal character-state threshold. */
-bool CanPartySlotParticipate(int party_slot)
-{
-    return CurrentGame().party.members[party_slot].has_value() &&
-           CurrentGame().party.characters[party_slot].hp_current != 0 &&
-           CurrentGame().party.characters[party_slot].highest_condition < W8_CONDITION_DEAD;
-}
 
 /* Whether a party slot could aim its chosen action at one whole monster group.
    An untargetable group is refused before anything else is worked out. What
@@ -1073,16 +815,6 @@ bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group, const W8Action
     return reachable != 0;
 }
 
-static W8CombatSlot MonsterTarget(int location_id)
-{
-    W8CombatSlot target{};
-    target.iChar = -1;
-    target.iGroupID = -1;
-    target.iType = W8_TARGET_KIND_MONSTER;
-    target.iMonsterID = location_id;
-    return target;
-}
-
 static bool NeedsMonsterTarget(const W8Action& action)
 {
     const auto kind = action.kind;
@@ -1097,7 +829,7 @@ std::optional<W8CombatSlot> ChooseEquippedMonsterTarget(int party_slot, const W8
     if (!NeedsMonsterTarget(action)) return std::nullopt;
     const int selected = ChooseMonsterTarget(party_slot, action);
     if (selected == -1) return std::nullopt;
-    return MonsterTarget(selected);
+    return W8CombatSlot::monster(selected);
 }
 
 /* A repicked monster, and the weapon set to change to when only the alternate set
@@ -1121,7 +853,7 @@ static std::optional<MonsterRepick> RepickMonsterTarget(int party_slot, const W8
     }
     const auto fallback = ChooseFallbackMonsterTarget(party_slot, action);
     if (!fallback) return std::nullopt;
-    return MonsterRepick{MonsterTarget(fallback->location_id), fallback->equipment};
+    return MonsterRepick{W8CombatSlot::monster(fallback->location_id), fallback->equipment};
 }
 
 static W8CombatSlot ClearedTarget()
@@ -1139,11 +871,11 @@ static W8CombatSlot ClearedTarget()
    in-combat target when that one no longer matches or reaches. */
 bool RepickActionTarget(int party_slot, W8TargetingContext stored, int arg)
 {
-    if (!CanPartySlotParticipate(party_slot)) {
+    if (!CurrentGame().party.participates(party_slot)) {
         return false;
     }
 
-    const auto selected_action = SelectCombatAction(party_slot, stored);
+    const auto selected_action = CurrentGame().party.action(party_slot, stored);
     const auto previous_kind = selected_action.target.iType;
     if (CurrentGame().combat.has_value() && stored == W8_TARGETING_CONTEXT_OUT_OF_COMBAT) {
         ++CurrentGame().combat->characters[party_slot].pending_action_repick_count;
@@ -1152,7 +884,7 @@ bool RepickActionTarget(int party_slot, W8TargetingContext stored, int arg)
     const auto new_target = repick ? std::optional{repick->target} : std::optional<W8CombatSlot>{};
     if (new_target) {
         // 0x00536876: the new target goes into the selected action's block.
-        AimStoredAction(party_slot, stored, *new_target);
+        CurrentGame().aimStoredAction(party_slot, stored, *new_target);
         if (arg != 0) {
             StartBreathCycle(party_slot, false);
         }
@@ -1160,13 +892,15 @@ bool RepickActionTarget(int party_slot, W8TargetingContext stored, int arg)
             if (g_settings.verbose_combat_messages) {
                 PostCharacterNotice(party_slot, Data().strings[0x26b]);
             }
-            const auto committed = SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
+            const auto committed =
+                CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT);
             if (!TargetIsInPlay(party_slot, 2, committed)) {
-                AimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT, *new_target);
+                CurrentGame().aimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT,
+                                              *new_target);
             }
         }
     } else {
-        AimStoredAction(party_slot, stored, ClearedTarget());
+        CurrentGame().aimStoredAction(party_slot, stored, ClearedTarget());
     }
     if (CurrentGame().combat.has_value() && stored == W8_TARGETING_CONTEXT_IN_COMBAT &&
         new_target.value_or(ClearedTarget()).iType != previous_kind) {
@@ -1178,10 +912,11 @@ bool RepickActionTarget(int party_slot, W8TargetingContext stored, int arg)
 
 bool RepickDraftTarget(int party_slot, W8Action& draft)
 {
-    if (!CanPartySlotParticipate(party_slot)) {
+    if (!CurrentGame().party.participates(party_slot)) {
         return false;
     }
-    const auto repick = RepickMonsterTarget(party_slot, ParticipatingAction(party_slot, draft));
+    const auto repick =
+        RepickMonsterTarget(party_slot, CurrentGame().party.availableAction(party_slot, draft));
     AimDraft(party_slot, draft, repick ? repick->target : ClearedTarget());
     if (repick && repick->equipment) CommitAutomaticWeaponChoice(party_slot, *repick->equipment);
     return repick.has_value();
@@ -1190,8 +925,8 @@ bool RepickDraftTarget(int party_slot, W8Action& draft)
 // Eligibility and reach use the same action and target selected by the caller.
 bool TargetIsInPlay(int party_slot, int hand, const W8Action& selected)
 {
-    return TargetMatchesNeeded(&selected.target,
-                               GetTargetNeededForAction(CurrentGame().inventory, selected)) &&
+    return CurrentGame().targetMatches(
+               selected.target, GetTargetNeededForAction(CurrentGame().inventory, selected)) &&
            CharacterActionReachesTarget(party_slot, hand, selected);
 }
 
@@ -1264,7 +999,7 @@ W8TargetAssessment AssessMonsterTarget(int party_slot, int location_id, const W8
    chosen yet. A slot that cannot take part has no action to aim. */
 bool CandidateHasAnyValidTarget(int party_slot, W8ActionKind candidate)
 {
-    if (!CanPartySlotParticipate(party_slot) && candidate != W8_ACTION_WALK &&
+    if (!CurrentGame().party.participates(party_slot) && candidate != W8_ACTION_WALK &&
         candidate != W8_ACTION_RUN) {
         return true;
     }
@@ -1630,13 +1365,15 @@ void RefreshAllPartyTargets(void)
                  row->committed.kind == W8_ACTION_BERSERK) &&
                 (row->weapon_swap_pending ||
                  CharacterCanSwitchTo(
-                     party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                     party_slot,
+                     CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
                      false))) {
                 const auto fallback = ChooseFallbackMonsterTarget(
-                    party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT));
+                    party_slot,
+                    CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT));
                 if (fallback) {
-                    AimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT,
-                                    MonsterTarget(fallback->location_id));
+                    CurrentGame().aimStoredAction(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT,
+                                                  W8CombatSlot::monster(fallback->location_id));
                     CommitAutomaticWeaponChoice(party_slot, fallback->equipment);
                 }
             }
@@ -1733,23 +1470,6 @@ bool AnyMonsterVisible(void)
         }
     }
     return false;
-}
-
-void RememberActionTarget(ActionChoices& remembered, W8ActionKind kind, const W8CombatSlot& target)
-{
-    switch (kind) {
-    case W8_ACTION_CAST_SPELL:
-        remembered.spell.target = target;
-        break;
-    case W8_ACTION_USE_ITEM:
-        remembered.item_target = target;
-        break;
-    case W8_ACTION_BREATHE:
-        remembered.breath_target = target;
-        break;
-    default:
-        break;
-    }
 }
 
 /* Whether `source` can currently see `monster_info`: the party threat record's
@@ -1932,20 +1652,4 @@ void ReconcilePartyEquipmentAfterCombat(void)
             row->weapon_swap_pending = false;
         }
     }
-}
-
-W8Action SelectCombatAction(int party_slot, W8TargetingContext stored)
-{
-    const auto& row = CurrentGame().party.rows[party_slot];
-    return ParticipatingAction(party_slot, stored == W8_TARGETING_CONTEXT_IN_COMBAT
-                                               ? row.committed
-                                               : row.executing.action());
-}
-
-W8Action ParticipatingAction(int party_slot, W8Action action)
-{
-    if (!CanPartySlotParticipate(party_slot) && action.kind != W8_ACTION_WALK &&
-        action.kind != W8_ACTION_RUN)
-        return {};
-    return action;
 }

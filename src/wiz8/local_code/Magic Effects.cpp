@@ -65,6 +65,7 @@
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
@@ -1179,7 +1180,7 @@ void FatigueTargets(W8SpellEffectEntry* effect)
         assert(character_index != -1);
         if (CurrentGame().party.characters[character_index].stamina != 0) {
             magnitude = RollEffectMagnitude(&effect->definition);
-            FatigueCharacter(character_index, magnitude, false, 0);
+            CurrentGame().fatigueCharacter(character_index, magnitude, false, 0);
         }
     }
     for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
@@ -2462,7 +2463,7 @@ void FinishSpellEffectTargets(W8SpellEffectEntry* effect)
     character = 0;
     monster_info = 0;
     best = 0;
-    if (MonsterCanAimSpell(effect->kind) && !effect->Source.aim_resolved &&
+    if (SpellTargetsEnemies(CurrentGame().data, effect->kind) && !effect->Source.aim_resolved &&
         !effect->Source.fBackfire && !effect->Source.fReflection) {
         for (index = 0; index < static_cast<int>(effect->target_indices.size()); ++index) {
             W8Character* member = &CurrentGame().party.characters[effect->target_indices[index]];
@@ -2708,7 +2709,7 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                                             party_slot, static_cast<W8SpellRealm>(realm), amount,
                                             true);
                                     }
-                                    FatigueCharacter(party_slot, amount, false, 0);
+                                    CurrentGame().fatigueCharacter(party_slot, amount, false, 0);
                                 }
                             }
                         }
@@ -3333,7 +3334,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         } else if (TargetSourceIsCharacter(&effect->Source, 0)) {
             character = &CurrentGame().party.characters[effect->Source.iChar];
             cost = SpellCastFatigueCost(spell_id, effect->definition.duration_scale);
-            FatigueCharacter(effect->Source.iChar, cost, true, 0);
+            CurrentGame().fatigueCharacter(effect->Source.iChar, cost, true, 0);
             while (SpellCastFatigueCost(spell_id, 1) <= character->stamina) {
                 if (character->iSPLeft[Data().spells[spell_id].realm] <
                         Data().spells[spell_id].spell_point_cost ||
@@ -3341,7 +3342,7 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
                         2) {
                     break;
                 }
-                FatigueCharacter(effect->Source.iChar, cost, true, 0);
+                CurrentGame().fatigueCharacter(effect->Source.iChar, cost, true, 0);
             }
         }
     }

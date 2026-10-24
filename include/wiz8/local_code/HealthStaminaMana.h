@@ -19,8 +19,7 @@ void RestoreCharacterStamina(int party_slot, int amount, bool announce);
 void DrainCharacterSpellPoints(int party_slot, unsigned int amount, bool announce);
 void RestoreCharacterSpellPointsEvenly(int party_slot, int amount);
 void RestoreCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, int amount);
-void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
-                      W8SpellEffectResult* report_to);
+
 /* Run one queued fatigue op. The op is a combat slot: a
    character target fatigues that party slot, a monster target resolves the
    monster from its location id. The third argument is unused. */

@@ -78,6 +78,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/ui_layer.h"
@@ -345,8 +346,9 @@ void W8CampItemsPage::TargetCharacterWithHeldItem(unsigned int uiTargetChar)
 
 bool CanCharacterUseItemEntry(W8Character* character, const W8ItemInstance* item)
 {
-    if (CanCharacterActivateItem(character, item) || CanCastFromItem(character, item) ||
-        IsUsableItemClass(item)) {
+    if (CanCharacterActivateItem(CurrentGame().data, character, item,
+                                 CurrentGame().status.game_started) ||
+        CanCastFromItem(character, item) || IsUsableItemClass(item)) {
         return true;
     }
     return false;
@@ -379,7 +381,7 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, const W8ItemInsta
             camp.pointer.showSlot(camp.pointer.targetingSlot(alternate));
             return;
         }
-        if (CanPartySlotParticipate(slot)) {
+        if (CurrentGame().party.participates(slot)) {
             camp.pointer.showSlot(camp.pointer.targetingSlot(alternate));
         }
         return;
@@ -414,7 +416,8 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, const W8ItemInsta
             return;
         }
         if (item_action == W8_CAMP_ITEM_ACTION_USE) {
-            if (CanCharacterActivateItem(camp.reviewed, item) ||
+            if (CanCharacterActivateItem(CurrentGame().data, camp.reviewed, item,
+                                         CurrentGame().status.game_started) ||
                 CanCastFromItem(camp.reviewed, item) || IsUsableItemClass(item)) {
                 camp.pointer.showSlot(camp.pointer.targetingSlot(alternate));
             }

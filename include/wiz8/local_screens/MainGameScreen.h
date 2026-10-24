@@ -670,3 +670,6 @@ void OpenNpcTradeQuantityDialog(void);
 W8Action* EditedDraft(int party_slot);
 W8Action EditedAction(int party_slot);
 bool IsSighting(int party_slot);
+
+// Reconcile picker/cursor presentation after a stored gameplay aim has settled.
+void RefreshStoredAim(unsigned int actor);

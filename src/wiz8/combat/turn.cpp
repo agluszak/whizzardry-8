@@ -24,6 +24,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -314,11 +315,11 @@ void Combat::scheduleNextActor(Game& game)
                 if ((action == W8_ACTION_DEFEND || action == W8_ACTION_PROTECT ||
                      action == W8_ACTION_NONE) &&
                     (!g_settings.continuous_combat ||
-                     CharacterCanSwitchTo(*slot, SelectCombatAction(*slot, context), false))) {
+                     CharacterCanSwitchTo(*slot, game.party.action(*slot, context), false))) {
                     interruptible = true;
                 }
                 if ((g_settings.continuous_combat ||
-                     CharacterCanSwitchTo(*slot, SelectCombatAction(*slot, context), false)) &&
+                     CharacterCanSwitchTo(*slot, game.party.action(*slot, context), false)) &&
                     !interruptible) {
                     apply_delay = true;
                 }

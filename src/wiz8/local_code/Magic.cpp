@@ -73,6 +73,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/picking.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
@@ -82,6 +83,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -461,8 +463,9 @@ void StartCharacterBreathAttack(int party_slot)
     assert(CanCharReBreathe(party_slot));
     ChooseAction(party_slot, W8_ACTION_BREATHE, -1, 0, false, 1);
     AimAtTarget(party_slot, row->remembered.breath_target);
-    if (IsSpellTargetStillValid(party_slot, W8_SPELL_SPECIAL_ATTACK_CONE,
-                                ParticipatingAction(party_slot, row->remembered.breath()))) {
+    if (IsSpellTargetStillValid(
+            party_slot, W8_SPELL_SPECIAL_ATTACK_CONE,
+            CurrentGame().party.availableAction(party_slot, row->remembered.breath()))) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -545,8 +548,8 @@ void Game::advanceSpellEffects(World& world)
                 handled = true;
             } else {
                 effect.targets_resolved = true;
-                if (MonsterCanAimSpell(effect.kind) && !effect.Source.fBackfire &&
-                    !effect.Source.fReflection) {
+                if (SpellTargetsEnemies(CurrentGame().data, effect.kind) &&
+                    !effect.Source.fBackfire && !effect.Source.fReflection) {
                     ProvokeListedMonsterGroups(&effect.Source, effect.monster_ids);
                 }
                 ProcessSpellEffectTargets(&effect);
@@ -780,8 +783,9 @@ void StartCharacterSpellCast(int party_slot, int power_level)
     }
     AimAtTarget(party_slot, choice.target);
 
-    if (IsSpellTargetStillValid(party_slot, row->remembered.spell.detail,
-                                ParticipatingAction(party_slot, row->remembered.spell))) {
+    if (IsSpellTargetStillValid(
+            party_slot, row->remembered.spell.detail,
+            CurrentGame().party.availableAction(party_slot, row->remembered.spell))) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -805,7 +809,7 @@ void StartCharacterItemUse(int party_slot)
     if (IsSpellTargetStillValid(
             party_slot,
             GetItemSpell(CurrentGame().inventory.itemAt(row->remembered.item_detail.item_use.item)),
-            ParticipatingAction(party_slot, row->remembered.item()))) {
+            CurrentGame().party.availableAction(party_slot, row->remembered.item()))) {
         StartBreathCycle(party_slot, false);
         return;
     }
@@ -1066,8 +1070,8 @@ bool CanPartySlotCastRecordedSpell(int party_slot)
     if (!CurrentGame().combat.has_value() &&
         !IsSpellTargetStillValid(
             party_slot, spell_id,
-            ParticipatingAction(party_slot,
-                                CurrentGame().party.rows[party_slot].remembered.spell))) {
+            CurrentGame().party.availableAction(
+                party_slot, CurrentGame().party.rows[party_slot].remembered.spell))) {
         return false;
     }
     return true;
@@ -1105,8 +1109,8 @@ int GetAffordableSpellPowerLevel(int party_slot)
     if (!CurrentGame().combat.has_value() &&
         !IsSpellTargetStillValid(
             party_slot, spell_id,
-            ParticipatingAction(party_slot,
-                                CurrentGame().party.rows[party_slot].remembered.spell))) {
+            CurrentGame().party.availableAction(
+                party_slot, CurrentGame().party.rows[party_slot].remembered.spell))) {
         return 0;
     }
 
@@ -1149,7 +1153,8 @@ bool CanPartySlotUseRecordedItem(int party_slot)
     if (!CanUseItemForAction(party_slot, item)) {
         return false;
     }
-    if (!CanCharacterActivateItem(&CurrentGame().party.characters[party_slot], item)) {
+    if (!CanCharacterActivateItem(CurrentGame().data, &CurrentGame().party.characters[party_slot],
+                                  item, CurrentGame().status.game_started)) {
         return false;
     }
 
@@ -1165,8 +1170,8 @@ bool CanPartySlotUseRecordedItem(int party_slot)
     if (!CurrentGame().combat.has_value() &&
         !IsSpellTargetStillValid(
             party_slot, spell_id,
-            ParticipatingAction(party_slot,
-                                CurrentGame().party.rows[party_slot].remembered.item()))) {
+            CurrentGame().party.availableAction(
+                party_slot, CurrentGame().party.rows[party_slot].remembered.item()))) {
         return false;
     }
     return true;
@@ -1936,9 +1941,10 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
          LevelMovedThisUpdate())) {
         valid = false;
     }
-    if (!valid && (!CurrentGame().combat.has_value() || !MonsterCanAimSpell(spell_id) ||
-                   CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 ||
-                   !CurrentGame().combat->enemies_engaged)) {
+    if (!valid &&
+        (!CurrentGame().combat.has_value() || !SpellTargetsEnemies(CurrentGame().data, spell_id) ||
+         CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0 ||
+         !CurrentGame().combat->enemies_engaged)) {
         QueueCharacterEvent(&CurrentGame().party.characters[party_slot], 0x35, 0,
                             kCharacterEventFullVolume);
     }
@@ -2792,7 +2798,7 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                     }
                     if (!party_markers.empty()) {
                         for (index = 0; index < static_cast<int>(party_markers.size()); ++index) {
-                            if (MonsterCanAimSpell(spell_id)) {
+                            if (SpellTargetsEnemies(CurrentGame().data, spell_id)) {
                                 icon_flag = source->fBackfire;
                             } else {
                                 icon_flag = !source->fBackfire;
@@ -2971,7 +2977,7 @@ void RedirectBackfiredSpellTarget(W8TargetSource* source, W8CombatSlot* target)
         break;
     case W8_TARGET_KIND_PARTY:
         for (slot = 0; slot < 8; ++slot) {
-            if (CanPartySlotParticipate(slot)) {
+            if (CurrentGame().party.participates(slot)) {
                 break;
             }
         }
@@ -3554,9 +3560,10 @@ void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* s
     }
     if (marked && spell_id != W8_SPELL_HOLY_WATER && spell_id != W8_SPELL_BANISH) {
         for (slot = 0; slot < 8; ++slot) {
-            if (CanPartySlotParticipate(slot) &&
+            if (CurrentGame().party.participates(slot) &&
                 (CurrentGame().party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] == 0 ||
-                 !MonsterCanAimSpell(spell_id) || static_cast<signed char>(side) == 3)) {
+                 !SpellTargetsEnemies(CurrentGame().data, spell_id) ||
+                 static_cast<signed char>(side) == 3)) {
                 party_markers.push_back(slot);
             }
         }
@@ -3599,7 +3606,8 @@ void TrackItemSpellSource(W8Character* character, int spell_id)
             index < 12 ? &character->EquippedItem[index] : &character->backpack[index - 12];
         const int item_id = item->iItemNo;
         if (item_id != -1 && Data().items[item_id].spell_id != W8_SPELL_NONE &&
-            CanCharacterActivateItem(character, item) &&
+            CanCharacterActivateItem(CurrentGame().data, character, item,
+                                     CurrentGame().status.game_started) &&
             ((Data().items[item_id].quantity_kind != W8_ITEM_QUANTITY_SHOTS &&
               Data().items[item_id].quantity_kind != W8_ITEM_QUANTITY_CHARGES) ||
              item->uses_or_charges != 0)) {

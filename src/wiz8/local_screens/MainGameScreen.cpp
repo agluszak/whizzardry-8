@@ -140,6 +140,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
@@ -964,7 +965,7 @@ void W8LockInteraction::AttemptForce()
     if (!chance) {
         return;
     }
-    FatigueCharacter(CurrentGame().status.selected_character, 0x50, false, 0);
+    CurrentGame().fatigueCharacter(CurrentGame().status.selected_character, 0x50, false, 0);
     if (static_cast<int>(CurrentGame().rng.below(100)) < *chance) {
         wiz8::sound::play(s_lock_forcing_success);
         ShowString(fmt::format("{} {}", character->name, Data().strings[0x7ae]));
@@ -3804,9 +3805,10 @@ void UpdateCombatPortraitStatus(void)
                     if (combat_row->dead) {
                         status = W8_COMBAT_PORTRAIT_INELIGIBLE;
                     } else {
-                        status = CharacterCanSwitchTo(
-                                     slot, SelectCombatAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
-                                     false)
+                        status = CharacterCanSwitchTo(slot,
+                                                      CurrentGame().party.action(
+                                                          slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                                      false)
                                      ? W8_COMBAT_PORTRAIT_READY
                                      : W8_COMBAT_PORTRAIT_CANNOT_SWITCH;
                     }
@@ -4193,7 +4195,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
     if (ScreenPointer().targeting() == W8_TARGET_NEED_ALLY ||
         (needed == W8_TARGET_NEED_ALLY && (event.modifiers & CTRL_DOWN) != 0)) {
         targeting = true;
-        if (CanPartySlotParticipate(slot)) {
+        if (CurrentGame().party.participates(slot)) {
             front_rank = false;
             aim_ok = true;
             if (selected_action.kind == W8_ACTION_PROTECT) {
@@ -4262,10 +4264,10 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                     if (targeting) {
                         if (aim_ok) {
                             if (!CurrentGame().activity.scripted_scene) {
-                                if (!CanPartySlotParticipate(slot)) {
-                                    AimAtTarget(
-                                        CurrentGame().status.selected_character,
-                                        CharacterTarget(slot, W8_TARGET_KIND_CHARACTER_INDIRECT));
+                                if (!CurrentGame().party.participates(slot)) {
+                                    AimAtTarget(CurrentGame().status.selected_character,
+                                                W8CombatSlot::character(
+                                                    slot, W8_TARGET_KIND_CHARACTER_INDIRECT));
                                     StartBreathCycle(CurrentGame().status.selected_character,
                                                      false);
                                 } else if (front_rank) {
@@ -4277,7 +4279,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                                     ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x7dc]);
                                 } else {
                                     AimAtTarget(CurrentGame().status.selected_character,
-                                                CharacterTarget(slot));
+                                                W8CombatSlot::character(slot));
                                     StartBreathCycle(CurrentGame().status.selected_character,
                                                      false);
                                 }
@@ -6354,10 +6356,11 @@ W8Action* EditedDraft(int party_slot)
 
 W8Action EditedAction(int party_slot)
 {
-    if (auto* draft = EditedDraft(party_slot)) return ParticipatingAction(party_slot, *draft);
-    return SelectCombatAction(party_slot, CurrentGame().combat.has_value()
-                                              ? W8_TARGETING_CONTEXT_IN_COMBAT
-                                              : W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
+    if (auto* draft = EditedDraft(party_slot))
+        return CurrentGame().party.availableAction(party_slot, *draft);
+    return CurrentGame().party.action(party_slot, CurrentGame().combat.has_value()
+                                                      ? W8_TARGETING_CONTEXT_IN_COMBAT
+                                                      : W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
 }
 
 bool IsSighting(int party_slot)
@@ -6366,36 +6369,21 @@ bool IsSighting(int party_slot)
 }
 
 namespace {
-// The interaction controller evaluates a choice, commits its gameplay state,
-// and then refreshes the presentation of that committed choice. A sighting aim
-// commits without presentation.
-void CommitAim(int actor, const W8Action& action, W8CombatSlot& stored_target, W8CombatSlot chosen,
-               bool presented, bool remember)
+void RefreshAim(unsigned int actor, const W8CombatSlot& target)
 {
-    if (action.target != chosen) {
-        stored_target = chosen;
-        if (remember && chosen.iType != W8_TARGET_KIND_NONE)
-            RememberActionTarget(CurrentGame().party.rows[actor].remembered, action.kind, chosen);
-        if (presented) {
-            RequestPartySlotRedraw(actor);
-            if (actor == CurrentGame().status.selected_character) {
-                if (auto* hud = MainGameHud()) {
-                    hud->repaint.monster_list = true;
-                    hud->repaint.character_action = true;
-                }
-            }
-            if (auto& combat = CurrentGame().combat) combat->target_picked = false;
-        }
+    RequestPartySlotRedraw(actor);
+    if (actor != static_cast<unsigned int>(CurrentGame().status.selected_character)) return;
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.monster_list = true;
+        hud->repaint.character_action = true;
     }
-    if (chosen.iType != W8_TARGET_KIND_NONE && presented &&
-        actor == CurrentGame().status.selected_character) {
-        const auto edited_action = EditedAction(actor);
-        const auto needed = IsSighting(actor)
-                                ? W8_TARGET_NEED_NONE
-                                : GetTargetNeededForAction(CurrentGame().inventory, edited_action);
-        SetTargetingMode(TargetMatchesNeeded(&edited_action.target, needed) ? W8_TARGET_NEED_NONE
-                                                                            : needed);
-    }
+    if (target.iType == W8_TARGET_KIND_NONE) return;
+    const auto edited = EditedAction(actor);
+    const auto needed = IsSighting(actor)
+                            ? W8_TARGET_NEED_NONE
+                            : GetTargetNeededForAction(CurrentGame().inventory, edited);
+    SetTargetingMode(CurrentGame().targetMatches(edited.target, needed) ? W8_TARGET_NEED_NONE
+                                                                        : needed);
 }
 } // namespace
 
@@ -6404,25 +6392,22 @@ void AimAtTarget(int actor, const W8CombatSlot& target)
     if (auto* draft = EditedDraft(actor)) {
         AimDraft(actor, *draft, target);
     } else {
-        AimStoredAction(actor,
-                        CurrentGame().combat.has_value() ? W8_TARGETING_CONTEXT_IN_COMBAT
-                                                         : W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
-                        target);
+        CurrentGame().aimStoredAction(actor,
+                                      CurrentGame().combat.has_value()
+                                          ? W8_TARGETING_CONTEXT_IN_COMBAT
+                                          : W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
+                                      target);
     }
-}
-
-void AimStoredAction(int actor, W8TargetingContext stored, const W8CombatSlot& target)
-{
-    auto& row = CurrentGame().party.rows[actor];
-    const bool committed = stored == W8_TARGETING_CONTEXT_IN_COMBAT;
-    CommitAim(actor, SelectCombatAction(actor, stored),
-              committed ? row.committed.target : row.executing.target, target, committed,
-              committed && CurrentGame().combat.has_value());
 }
 
 void AimDraft(int actor, W8Action& draft, const W8CombatSlot& target)
 {
-    CommitAim(actor, ParticipatingAction(actor, draft), draft.target, target, true, false);
+    const bool changed = CurrentGame().party.availableAction(actor, draft).target != target;
+    if (changed) {
+        draft.target = target;
+        if (auto& combat = CurrentGame().combat) combat->target_picked = false;
+    }
+    if (changed || target.iType != W8_TARGET_KIND_NONE) RefreshAim(actor, target);
 }
 
 void SetTargetingMode(W8TargetNeed state)
@@ -6477,4 +6462,9 @@ void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed need
     AimAtTarget(selected, target);
 aim_done:
     SetTargetingMode(needed_kind);
+}
+
+void RefreshStoredAim(unsigned int actor)
+{
+    RefreshAim(actor, CurrentGame().party.rows[actor].committed.target);
 }

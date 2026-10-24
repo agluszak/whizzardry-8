@@ -89,3 +89,8 @@ bool FindUnmetItemRequirement(const W8Character* character, const W8ItemDatabase
 bool CanCharacterUseItem(const GameData& data, const W8Character* character, int item_id);
 // The lowest caster level that may cast a spell of this level.
 int MinimumCasterLevelForSpellLevel(int spell_level);
+
+// Activation depends on content, equipment and the play-through phase.
+bool CanCharacterActivateItem(const GameData& data, const W8Character* character,
+                              const W8ItemInstance* item, bool game_started);
+bool IsItemWornByCharacter(const W8Character* character, const W8ItemInstance* item);

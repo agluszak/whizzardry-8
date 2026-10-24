@@ -1038,7 +1038,7 @@ int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8Combat
     row->executing.target = *target;
     result = ExecuteCharacterSpellCast(party_slot, spell_id, power_level, &cost, false);
     SetPartySlotSpell(party_slot, spell_id, power_level, target);
-    FatigueCharacter(party_slot, cost, true, 0);
+    CurrentGame().fatigueCharacter(party_slot, cost, true, 0);
     if (result != 1) {
         wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
         return result;
@@ -1075,7 +1075,7 @@ int CommitPartySlotItemUse(int party_slot, W8ItemUse use, W8CombatSlot* target)
     StagePartySlotItemUse(party_slot, use.item, target);
     const auto used_item = CurrentGame().inventory.use(party_slot, use);
     result = used_item.effect;
-    FatigueCharacter(
+    CurrentGame().fatigueCharacter(
         party_slot,
         used_item.fatigue_cost.value_or(CharacterActionFatigueCost(party_slot, W8_ACTION_USE_ITEM)),
         true, 0);

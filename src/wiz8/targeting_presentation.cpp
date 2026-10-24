@@ -18,6 +18,7 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/pointer.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
@@ -81,7 +82,7 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
         if (actor == selected && area_preview) {
             targets = result.area_targets;
         } else if (spell != 0) {
-            if (!IsTargetStillPresent(&action.target)) return;
+            if (!CurrentGame().targetPresent(action.target)) return;
             W8TargetSource source;
             SetTargetSourceToCharacter(actor, &source);
             std::vector<int> party;
@@ -102,7 +103,7 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
         }
     };
     for (int actor = 0; actor < 8; ++actor) {
-        if (!CanPartySlotParticipate(actor)) continue;
+        if (!CurrentGame().party.participates(actor)) continue;
         if (!IsSighting(actor)) add_targets(actor, EditedAction(actor));
     }
     result.subject_valid = CurrentCombatSubjectIsValid(hud);

@@ -358,6 +358,17 @@ struct Combat {
         }
     }
 
+    // Retire participation and scheduling together, without owning the party character.
+    void retirePartyMember(unsigned int slot)
+    {
+        ++pending_death_count;
+        endTurnOf(PartyActor{static_cast<int>(slot)});
+        characters[slot].phase = 0;
+        characters[slot].dead = true;
+        characters[slot].action_changed = true;
+        target_picked = false;
+    }
+
     /* One step of the fight (the game's step calls it while the world runs and nothing
        holds the turn): wait for what the turn waits on, start the round when continuous
        combat or a surprise allows, and move the turn through its phases. The fight may

@@ -64,6 +64,7 @@
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_conditions.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -783,8 +784,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
             RestoreCharacterStamina(party_slot, stamina_mod * static_cast<int>(minutes), false);
         }
     } else if (stamina_mod < 0) {
-        FatigueCharacter(party_slot, -static_cast<int>(stamina_mod * minutes), false,
-                         static_cast<W8SpellEffectResult*>(0));
+        CurrentGame().fatigueCharacter(party_slot, -static_cast<int>(stamina_mod * minutes), false,
+                                       static_cast<W8SpellEffectResult*>(0));
     }
 
     for (realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {
@@ -1295,7 +1296,7 @@ void UpdateCampFatigue(int ticks)
     bool any_rolled = false;
     for (unsigned int slot = 0; slot < 8; ++slot) {
         W8Character* character = &CurrentGame().party.characters[slot];
-        if (CanPartySlotParticipate(slot) && character->iRace != W8_RACE_ANDROID &&
+        if (CurrentGame().party.participates(slot) && character->iRace != W8_RACE_ANDROID &&
             !FindCharacterItem(*character, ItemWithId(0x1e5), W8ItemReach::Worn)) {
             W8Dice dice;
             dice.count = static_cast<unsigned char>(ticks);
@@ -1309,8 +1310,8 @@ void UpdateCampFatigue(int ticks)
                 if (stamina < static_cast<int>(amount)) {
                     if (stamina > 0) {
                         amount -= stamina;
-                        FatigueCharacter(slot, stamina, false,
-                                         static_cast<W8SpellEffectResult*>(0));
+                        CurrentGame().fatigueCharacter(slot, stamina, false,
+                                                       static_cast<W8SpellEffectResult*>(0));
                     }
                     bool announce =
                         !CurrentGame().combat.has_value() || !g_settings.verbose_combat_messages
@@ -1319,8 +1320,8 @@ void UpdateCampFatigue(int ticks)
                     ApplyDamageToCharacter(slot, amount, false, announce, false,
                                            static_cast<W8SpellEffectResult*>(0), false);
                 } else {
-                    FatigueCharacter(slot, static_cast<int>(amount), false,
-                                     static_cast<W8SpellEffectResult*>(0));
+                    CurrentGame().fatigueCharacter(slot, static_cast<int>(amount), false,
+                                                   static_cast<W8SpellEffectResult*>(0));
                 }
             }
             if (!CurrentGame().status.party_fatigued) {
@@ -1379,8 +1380,8 @@ void RegenCharacterStamina(int party_slot, unsigned int elapsed)
     signed char stamina_mod = character->bonus.stamina_regen_adjustment;
     if (stamina_mod < 1) {
         if (stamina_mod < 0) {
-            FatigueCharacter(party_slot, -static_cast<int>(stamina_mod * elapsed), false,
-                             static_cast<W8SpellEffectResult*>(0));
+            CurrentGame().fatigueCharacter(party_slot, -static_cast<int>(stamina_mod * elapsed),
+                                           false, static_cast<W8SpellEffectResult*>(0));
         }
     } else if (character->stamina < character->uiStaminaMax) {
         RestoreCharacterStamina(party_slot, stamina_mod * static_cast<int>(elapsed), false);

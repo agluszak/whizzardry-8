@@ -130,7 +130,7 @@ std::optional<PartyMotionElapsed> AccumulateMovementFatigue(Game& game)
         fatigue = multiplier * amount + fatigue;
         if (fatigue > g_position_height_epsilon) {
             const auto ticks = static_cast<unsigned int>(fatigue * kMovementFatigueTickScale);
-            FatigueCharacter(static_cast<int>(party_slot), static_cast<int>(ticks), false, 0);
+            game.fatigueCharacter(static_cast<int>(party_slot), static_cast<int>(ticks), false, 0);
             fatigue = fatigue - (ticks * 0x9c4);
         }
     }

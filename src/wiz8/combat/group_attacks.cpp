@@ -261,7 +261,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        FatigueCharacter(iChar, uiDamage, false, 0);
+                        CurrentGame().fatigueCharacter(iChar, uiDamage, false, 0);
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];

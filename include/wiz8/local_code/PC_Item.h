@@ -23,8 +23,6 @@ struct W8Action;
 
 #include "wiz8/rules/equipment_slots.h"
 
-bool CanCharacterActivateItem(W8Character* character, const W8ItemInstance* item);
-
 extern W8Skill g_item_spell_presentation[11];
 
 unsigned int GetEquipmentBindingDifficulty(int character_index);
@@ -52,7 +50,6 @@ void StagePartySlotItemUse(int party_slot, W8ItemLocation location, const W8Comb
 bool PartyAttemptsToIdentifyItem(W8ItemInstance* item, int);
 
 bool CanItemLeaveItsSlot(const W8ItemInstance* item);
-bool IsItemWornByCharacter(W8Character* character, const W8ItemInstance* item);
 bool IsItemCarriedByCharacter(W8Character* character, const W8ItemInstance* item);
 
 bool AreAllHandSlotsEmpty(const W8Character* character);

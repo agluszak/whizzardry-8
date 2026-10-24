@@ -678,7 +678,7 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     draft.detail_block.spell.power_level = 3;
     W8CombatSlot target{W8_TARGET_KIND_CHARACTER, 0, -1, -1, {}, {}};
     AimDraft(0, draft, target);
-    const auto assessed = ParticipatingAction(0, draft);
+    const auto assessed = CurrentGame().party.availableAction(0, draft);
     REQUIRE(assessed.detail == 9);
     REQUIRE(assessed.target == target);
     draft.target.iType = W8_TARGET_KIND_NONE;

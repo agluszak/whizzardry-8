@@ -57,6 +57,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
@@ -325,7 +326,7 @@ bool AnyPartyMemberCanUseItem(int item_id)
     int slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        if (CanPartySlotParticipate(slot)) {
+        if (CurrentGame().party.participates(slot)) {
             if (CanCharacterUseItem(Data(), &CurrentGame().party.characters[slot], item_id)) {
                 return true;
             }
@@ -340,40 +341,6 @@ bool AnyPartyMemberCanUseItem(int item_id)
    spell sources are refused here because they go through the cast path,
    category zero is dead weight, spell-less records fail unless they are the
    one exempt item, and an empty charge stack fails. */
-bool CanCharacterActivateItem(W8Character* character, const W8ItemInstance* item)
-{
-    const W8ItemDatabaseRecord* record;
-
-    assert(character != 0);
-    assert(item != 0);
-    assert(item->iItemNo >= -1);
-    assert(item->iItemNo < static_cast<int>(Data().items.size()));
-    if (item->iItemNo == -1) {
-        return false;
-    }
-    if (!CanCharacterUseItem(Data(), character, item->iItemNo)) {
-        return false;
-    }
-
-    record = &Data().items[item->iItemNo];
-    if ((record->flags & W8_ITEM_FLAG_MUST_EQUIP_TO_USE) != 0 ||
-        GetItemDefaultEquipSlot(Data(), item->iItemNo, GameStarted()) != W8_EQUIP_SLOT_NONE) {
-        if (!IsItemWornByCharacter(character, item)) {
-            return false;
-        }
-    }
-
-    if (record->category == W8_ITEM_CATEGORY_SPELL_SOURCE || record->category == 0) {
-        return false;
-    }
-    if (item->iItemNo != 0x29f && record->spell_id == W8_SPELL_NONE) {
-        return false;
-    }
-    if (record->quantity_kind == W8_ITEM_QUANTITY_CHARGES && item->uses_or_charges == 0) {
-        return false;
-    }
-    return true;
-}
 
 /* Whether both weapon sets are entirely empty. */
 bool AreAllHandSlotsEmpty(const W8Character* character)
@@ -445,12 +412,14 @@ int CountUsableCharacterItems(W8Character* character)
     int index;
 
     for (index = 0; index < 12; ++index) {
-        if (CanCharacterActivateItem(character, &character->EquippedItem[index])) {
+        if (CanCharacterActivateItem(CurrentGame().data, character, &character->EquippedItem[index],
+                                     CurrentGame().status.game_started)) {
             ++count;
         }
     }
     for (index = 0; index < 8; ++index) {
-        if (CanCharacterActivateItem(character, &character->backpack[index])) {
+        if (CanCharacterActivateItem(CurrentGame().data, character, &character->backpack[index],
+                                     CurrentGame().status.game_started)) {
             ++count;
         }
     }
@@ -474,21 +443,6 @@ bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record)
 /* Whether one item sits in a character's equipment, excluding the two
    alternate-set hand slots - a slot in that set answers no even though the
    item is found there. */
-bool IsItemWornByCharacter(W8Character* character, const W8ItemInstance* item)
-{
-    unsigned int slot;
-
-    if (character == 0) {
-        return false;
-    }
-    for (slot = 0; slot < 12; ++slot) {
-        if (&character->EquippedItem[slot] == item) {
-            return slot != W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON &&
-                   slot != W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON;
-        }
-    }
-    return false;
-}
 
 /* Whether one item sits in a character's own carried slots. */
 bool IsItemCarriedByCharacter(W8Character* character, const W8ItemInstance* item)
@@ -896,7 +850,8 @@ bool ValidateItemSpellUse(int character_index, const W8ItemInstance* item,
    a service spell (0x03/0x29). Every carried location applies this test. */
 static bool IsActivatableServiceItem(W8Character* character, const W8ItemInstance* item)
 {
-    if (item->iItemNo != -1 && CanCharacterActivateItem(character, item)) {
+    if (item->iItemNo != -1 && CanCharacterActivateItem(CurrentGame().data, character, item,
+                                                        CurrentGame().status.game_started)) {
         const W8ItemDatabaseRecord* record = &Data().items[item->iItemNo];
         if (record->equip_class != W8_ITEM_EQUIP_CLASS_KEY &&
             record->equip_class != W8_ITEM_EQUIP_CLASS_OTHER && item->identified &&

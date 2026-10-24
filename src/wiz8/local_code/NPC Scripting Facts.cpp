@@ -445,7 +445,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         }
         for (slot = 0; slot < 8; ++slot) {
             character = &context.party.characters[slot];
-            if (CanPartySlotParticipate(slot)) {
+            if (CurrentGame().party.participates(slot)) {
                 added = 100 - character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base;
                 if (added > 5) {
                     added = 5;

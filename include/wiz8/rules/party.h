@@ -17,6 +17,12 @@ struct W8Party {
     unsigned int gold = 0;
     W8GameplayModifierBlock modifiers{};
 
+    bool participates(unsigned int slot) const;
+    W8Action availableAction(unsigned int slot, W8Action action) const;
+    W8Action action(unsigned int slot, W8TargetingContext stored) const;
+    bool aimAction(unsigned int slot, W8TargetingContext stored, const W8CombatSlot& target,
+                   bool remember);
+
     bool canChangeFormation(unsigned int slot) const;
     // Apply legal placement without changing the proposal or producing presentation.
     void applyFormation(const W8PartyFormationState& proposal);

@@ -159,3 +159,46 @@ void W8Party::applyFormation(const W8PartyFormationState& proposal)
     for (int row = 0; row < W8_FORMATION_ROWS; ++row) accepted.compactRow(row);
     formation = accepted;
 }
+
+bool W8Party::participates(unsigned int slot) const
+{
+    return slot < W8_PARTY_SLOT_COUNT && members[slot] && characters[slot].hp_current != 0 &&
+           characters[slot].highest_condition < W8_CONDITION_DEAD;
+}
+W8Action W8Party::availableAction(unsigned int slot, W8Action action) const
+{
+    if (!participates(slot) && action.kind != W8_ACTION_WALK && action.kind != W8_ACTION_RUN)
+        return {};
+    return action;
+}
+W8Action W8Party::action(unsigned int slot, W8TargetingContext stored) const
+{
+    const auto& row = rows[slot];
+    return availableAction(slot, stored == W8_TARGETING_CONTEXT_IN_COMBAT ? row.committed
+                                                                          : row.executing.action());
+}
+bool W8Party::aimAction(unsigned int slot, W8TargetingContext stored, const W8CombatSlot& target,
+                        bool remember)
+{
+    const auto selected = action(slot, stored);
+    if (selected.target == target) return false;
+    auto& row = rows[slot];
+    (stored == W8_TARGETING_CONTEXT_IN_COMBAT ? row.committed.target : row.executing.target) =
+        target;
+    if (remember && target.iType != W8_TARGET_KIND_NONE) {
+        switch (selected.kind) {
+        case W8_ACTION_CAST_SPELL:
+            row.remembered.spell.target = target;
+            break;
+        case W8_ACTION_USE_ITEM:
+            row.remembered.item_target = target;
+            break;
+        case W8_ACTION_BREATHE:
+            row.remembered.breath_target = target;
+            break;
+        default:
+            break;
+        }
+    }
+    return true;
+}

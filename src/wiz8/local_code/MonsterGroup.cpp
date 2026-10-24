@@ -368,7 +368,8 @@ void RefreshMonsterGroupAndAllies(W8MonsterGroup* monster_group)
 /* Detaches a group from whatever is tracking it and marks it no longer loaded. */
 void DetachMonsterGroup(W8MonsterGroup* monster_group)
 {
-    SetTargetToGroup(monster_group->group_id, false);
+    CurrentGame().invalidateAimsAt(W8CombatSlot::group(monster_group->group_id),
+                                   TargetChange::removed);
     monster_group->members_active = false;
 }
 

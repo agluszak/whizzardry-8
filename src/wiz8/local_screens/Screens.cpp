@@ -302,6 +302,7 @@ struct GameEventPresentation {
         if (auto* hud = ShownHud(); hud && hud->selected_item == removed.runtime_id)
             hud->selected_item = -1;
     }
+    void operator()(const ActionAimChanged& change) const { RefreshStoredAim(change.slot); }
     void operator()(const CharacterActionChanged&) const
     {
         if (auto* hud = ShownHud()) hud->repaint.character_action = true;

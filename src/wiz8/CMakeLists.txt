@@ -167,6 +167,7 @@ target_sources(wiz8_engine PRIVATE
     character_skills.cpp
     loaded_game_data.cpp
     game.cpp
+    action_targets.cpp
     game_advance.cpp
     world_view.cpp
     combat/entity_signals.cpp

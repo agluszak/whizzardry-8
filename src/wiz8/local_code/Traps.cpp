@@ -20,6 +20,7 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -113,7 +114,7 @@ static void DischargeTrapSpell(glm::vec3 point, int spell_id, unsigned int power
         target.point = GetWorld()->party.position();
         eligible = 0;
         for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
-            if (CanPartySlotParticipate(index)) {
+            if (CurrentGame().party.participates(index)) {
                 targets.push_back(index);
                 ++eligible;
             }

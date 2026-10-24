@@ -73,6 +73,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/screen.h"
@@ -849,7 +850,8 @@ void DeactivateMonster(W8MonsterInfo* monster_info)
         monster_info->fActive = false;
         if (CurrentGame().combat.has_value()) {
             RefreshAllSight();
-            SetTargetToMonster(monster_info->location_id, false);
+            CurrentGame().invalidateAimsAt(W8CombatSlot::monster(monster_info->location_id),
+                                           TargetChange::removed);
             RefreshFlaggedMainGameState();
             RefreshCombatEngagement();
             CurrentGame().combat->endTurnOf(MonsterActor{monster_info->location_id});
@@ -1358,7 +1360,7 @@ void EvaluateCombatDifficulty(void)
 
     for (slot = 0; slot < 8; ++slot) {
         W8Character* character = &CurrentGame().party.characters[slot];
-        if (!CanPartySlotParticipate(slot)) {
+        if (!CurrentGame().party.participates(slot)) {
             continue;
         }
         bool count_character = true;

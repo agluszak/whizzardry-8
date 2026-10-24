@@ -69,6 +69,8 @@ struct Level {
    `game` layer as they move into the lower layers (ROADMAP.md, "Migration"). */
 struct W8PreparedNpcBindings;
 
+struct W8SpellEffectResult;
+
 class Game {
 public:
     // The game reads `data`, which its session's owner keeps alive longer than the game.
@@ -79,6 +81,13 @@ public:
     bool hasLeadingNpc(W8NpcId kind) const;
     // Settle the pending formation and publish its accepted or refused moves.
     void commitFormation();
+    void fatigueCharacter(unsigned int slot, int amount, bool scale_by_load,
+                          W8SpellEffectResult* report = nullptr);
+    void aimStoredAction(unsigned int slot, W8TargetingContext stored, const W8CombatSlot& target);
+    bool targetPresent(const W8CombatSlot& target) const;
+    bool targetMatches(const W8CombatSlot& target, W8TargetNeed needed) const;
+    bool actionTargetsEnemies(unsigned int slot, const W8Action& action) const;
+    void invalidateAimsAt(const W8CombatSlot& target, TargetChange change);
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
 

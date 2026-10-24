@@ -18,14 +18,10 @@ struct W8ActionDetailBlock;
 W8Disposition MonsterHostility(W8MonsterInfo* first, W8MonsterInfo* second);
 /* Whether a party action aims at enemies (melee kinds, or a spell /
    item-spell whose target type is an enemy band). */
-bool CharacterActionTargetsEnemies(const Inventory& inventory, W8Character* character,
-                                   W8ActionKind action_kind, int action_detail,
-                                   W8ActionDetailBlock* detail);
+
 /* The monster-side counterpart; action kinds 0 and 3 always count,
    kind 2 defers to MonsterCanAimSpell. */
-bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, int action_detail,
-                                 unsigned int* spell_power_level);
-bool MonsterCanAimSpell(int spell_id);
+
 bool CombatAllowsLiveGroups(void);
 void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility);
 void RefreshCombatEngagement(void);
@@ -63,3 +59,6 @@ int CharacterPrayAction(int party_slot);
 /* GppStringList indices naming each monster special-attack kind,
    indexed by W8MonsterRecord::special_attack_kind; slot zero is unused. */
 extern int g_monster_special_attack_name_ids[12];
+
+struct GameData;
+bool MonsterActionTargetsEnemies(const GameData& data, W8MonsterActionKind kind, int detail);

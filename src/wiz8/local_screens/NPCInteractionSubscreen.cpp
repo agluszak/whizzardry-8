@@ -2675,7 +2675,10 @@ static const W8ItemInstance* GetNpcTradeSlotItem(int index)
     for (auto items : {std::span<W8ItemInstance>{character.EquippedItem},
                        std::span<W8ItemInstance>{character.backpack}}) {
         for (auto& item : items) {
-            if (item.iItemNo != -1 && CanCharacterActivateItem(&character, &item) && index-- == 0)
+            if (item.iItemNo != -1 &&
+                CanCharacterActivateItem(CurrentGame().data, &character, &item,
+                                         CurrentGame().status.game_started) &&
+                index-- == 0)
                 return &item;
         }
     }

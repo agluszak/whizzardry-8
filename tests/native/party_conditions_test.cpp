@@ -19,6 +19,7 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/load_category.h"
 #include "wiz8/rules/party_conditions.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/targeting.h"
@@ -257,4 +258,21 @@ TEST_CASE_METHOD(PartyFixture, "Candidate conditions change only its own formati
     REQUIRE(game.party.formation == outgoing);
     REQUIRE(member().highest_condition == W8_CONDITION_NONE);
     REQUIRE(game.events.pending().size() == outgoing_events);
+}
+
+TEST_CASE("Stamina spending owns scaling, clamping and the fatigue band", "[conditions][fatigue]")
+{
+    W8Character character{};
+    character.hp_current = 1;
+    character.stamina = character.uiStaminaMax = 100;
+    character.load_category = W8_LOAD_HEAVY;
+    character.enchantments[W8_ENCHANTMENT_HASTE].turns = 1;
+    character.uiCondition[W8_CONDITION_SLOWED] = 1;
+    // Slowing overrides haste: heavy load's 100% penalty becomes 75%.
+    REQUIRE_FALSE(character.spendStamina(20, true));
+    REQUIRE(character.stamina == 65);
+    REQUIRE(character.spendStamina(100, false));
+    REQUIRE(character.stamina == 0);
+    REQUIRE(character.fatigue_band == 4);
+    REQUIRE_FALSE(character.spendStamina(10, true));
 }

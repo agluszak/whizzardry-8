@@ -31,10 +31,12 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -88,7 +90,7 @@ bool CanPartySlotAttackAnyTarget(int party_slot, int flag, bool hand)
     {
         W8Character* character = &CurrentGame().party.characters[first];
         for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-            if (slot != first && CanPartySlotParticipate(slot) &&
+            if (slot != first && CurrentGame().party.participates(slot) &&
                 CharacterVsCharacterDisposition(first, slot) == side) {
                 for (unsigned int reach_hand = 0; reach_hand < 2; ++reach_hand) {
                     if (!CanHandReachTarget(first, reach_hand)) {
@@ -536,7 +538,7 @@ W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
     for (spell = 0; spell < 10; ++spell) {
         unsigned int spell_id = record->spells[spell];
 
-        if (!MonsterCanAimSpell(spell_id)) {
+        if (!SpellTargetsEnemies(CurrentGame().data, spell_id)) {
             continue;
         }
         if (!skip_capability_checks &&
@@ -776,7 +778,7 @@ int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)
     int* next = candidates;
     int count = 0;
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        if (slot == party_slot || !CanPartySlotParticipate(slot) ||
+        if (slot == party_slot || !CurrentGame().party.participates(slot) ||
             CharacterVsCharacterDisposition(party_slot, slot) != relationship) {
             continue;
         }
@@ -786,7 +788,7 @@ int PickReachableSlotByDisposition(int party_slot, W8Disposition relationship)
             }
             if (!CharacterActionReachesSlot(
                     party_slot, hand, slot,
-                    SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
+                    CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
                 continue;
             }
             ++count;

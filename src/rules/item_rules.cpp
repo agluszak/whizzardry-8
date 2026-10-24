@@ -649,3 +649,55 @@ int MinimumCasterLevelForSpellLevel(int spell_level)
         return 1;
     }
 }
+
+bool CanCharacterActivateItem(const GameData& data, const W8Character* character,
+                              const W8ItemInstance* item, bool game_started)
+{
+    const W8ItemDatabaseRecord* record;
+
+    assert(character != 0);
+    assert(item != 0);
+    assert(item->iItemNo >= -1);
+    assert(item->iItemNo < static_cast<int>(data.items.size()));
+    if (item->iItemNo == -1) {
+        return false;
+    }
+    if (!CanCharacterUseItem(data, character, item->iItemNo)) {
+        return false;
+    }
+
+    record = &data.items[item->iItemNo];
+    if ((record->flags & W8_ITEM_FLAG_MUST_EQUIP_TO_USE) != 0 ||
+        GetItemDefaultEquipSlot(data, item->iItemNo, game_started) != W8_EQUIP_SLOT_NONE) {
+        if (!IsItemWornByCharacter(character, item)) {
+            return false;
+        }
+    }
+
+    if (record->category == W8_ITEM_CATEGORY_SPELL_SOURCE || record->category == 0) {
+        return false;
+    }
+    if (item->iItemNo != 0x29f && record->spell_id == W8_SPELL_NONE) {
+        return false;
+    }
+    if (record->quantity_kind == W8_ITEM_QUANTITY_CHARGES && item->uses_or_charges == 0) {
+        return false;
+    }
+    return true;
+}
+
+bool IsItemWornByCharacter(const W8Character* character, const W8ItemInstance* item)
+{
+    unsigned int slot;
+
+    if (character == 0) {
+        return false;
+    }
+    for (slot = 0; slot < 12; ++slot) {
+        if (&character->EquippedItem[slot] == item) {
+            return slot != W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON &&
+                   slot != W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON;
+        }
+    }
+    return false;
+}

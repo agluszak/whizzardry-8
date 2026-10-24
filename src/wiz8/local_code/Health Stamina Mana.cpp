@@ -568,7 +568,7 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
     assert(CurrentGame().party.members[party_slot].has_value());
 
     if (character->uiHPMax != 0 && character->hp_current != 0) {
-        FatigueCharacter(party_slot, (damage * 2) / 3, false, 0);
+        CurrentGame().fatigueCharacter(party_slot, (damage * 2) / 3, false, 0);
         if (announce) {
             ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(Data().strings[0x1c4], damage));
         }
@@ -699,92 +699,6 @@ void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* att
         } else if (MonsterHostility(FindMonster(attacker->iMonsterID), monster_info) ==
                    W8_DISPOSITION_FRIENDLY) {
             TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
-        }
-    }
-}
-
-/* The band past which deep fatigue takes hold, and the band it lets go at. */
-enum { W8_FATIGUE_BAND_DEEP = 2, W8_FATIGUE_BAND_RECOVERED = 2 };
-
-/* Tire one character. The load they are carrying scales the cost - eased or
-   worsened by the two load modifiers - and the result is taken out of their
-   stamina without going below nothing. Running out puts them under the
-   exhausted condition; merely dropping into the deep band applies the
-   deep-fatigue effect once. */
-void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
-                      W8SpellEffectResult* report_to)
-{
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-    int previous_band;
-    int band;
-    int load_percent;
-
-    if (character->stamina <= 0 || character->hp_current == 0 || amount == 0) {
-        return;
-    }
-
-    if (scale_by_load) {
-        switch (character->load_category) {
-        case 0:
-            load_percent = 0;
-            break;
-        case 1:
-            load_percent = 0x19;
-            break;
-        case 2:
-            load_percent = 0x32;
-            break;
-        case 3:
-            load_percent = 100;
-            break;
-        case 4:
-            load_percent = 200;
-            break;
-        default:
-            load_percent = 0;
-            break;
-        }
-        if (character->uiCondition[W8_CONDITION_SLOWED] == 0) {
-            if (character->enchantments[W8_ENCHANTMENT_HASTE].turns != 0) {
-                load_percent += 0x19;
-            }
-        } else {
-            load_percent -= 0x19;
-        }
-        amount += (load_percent * amount) / 100;
-    }
-
-    if (amount < 0) {
-        amount = 0;
-    } else if (amount > character->stamina) {
-        amount = character->stamina;
-    }
-    character->stamina -= amount;
-
-    previous_band = character->fatigue_band;
-    band = FatigueBand(character->stamina, character->uiStaminaMax);
-    character->fatigue_band = band;
-    if (band != previous_band) {
-        SettleActiveParty(CurrentGame());
-    }
-
-    if (character->stamina < 1) {
-        if (character->uiCondition[W8_CONDITION_UNCONSCIOUS] < W8_CONDITION_INDEFINITE) {
-            InflictCondition(CurrentGame(), party_slot,
-                             {.condition = W8_CONDITION_UNCONSCIOUS,
-                              .duration = W8_CONDITION_INDEFINITE,
-                              .announce = report_to == 0});
-            if (report_to != 0) {
-                ++report_to->condition_counts[W8_CONDITION_UNCONSCIOUS];
-            }
-        }
-    } else if (band != previous_band && band > W8_FATIGUE_BAND_DEEP) {
-        if (!character->deep_fatigue_applied) {
-            QueueCharacterEvent(character, 4, 0, kCharacterEventFullVolume);
-            character->deep_fatigue_applied = true;
-        }
-        if (static_cast<unsigned int>(character->fatigue_band) < W8_FATIGUE_BAND_RECOVERED) {
-            character->deep_fatigue_applied = false;
         }
     }
 }
@@ -960,7 +874,7 @@ unsigned int FindPartySlotWithLowestSpellPoints(void)
 void ApplyQueuedFatigue(W8CombatSlot* op, unsigned int amount, int)
 {
     if (op->iType == W8_TARGET_KIND_CHARACTER) {
-        FatigueCharacter(op->iChar, amount, false, 0);
+        CurrentGame().fatigueCharacter(op->iChar, amount, false, 0);
         return;
     }
     if (op->iType == W8_TARGET_KIND_MONSTER) {

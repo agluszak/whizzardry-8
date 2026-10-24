@@ -45,10 +45,10 @@ std::optional<W8CombatSlot> ChooseEquippedMonsterTarget(int party_slot, const W8
    editing (see EditedAction), a stored action, or a picker's draft. Only a committed in-combat
    target is also remembered for its action kind. */
 void AimAtTarget(int actor, const W8CombatSlot& target);
-void AimStoredAction(int actor, W8TargetingContext stored, const W8CombatSlot& target);
+
 void AimDraft(int actor, W8Action& draft, const W8CombatSlot& target);
 // A target naming one party character, directly or indirectly.
-W8CombatSlot CharacterTarget(int character_slot, W8TargetKind kind = W8_TARGET_KIND_CHARACTER);
+
 void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_target);
 void AimAtPlace(int actor);
 void AimAtGroundTarget(int party_slot);
@@ -64,13 +64,11 @@ void SetFactionFlag(signed char faction, bool flag);
 unsigned char ShowMonsterTargetMarker(W8MonsterInfo* monster_info);
 bool IsSpellTargetStillValid(int party_slot, int spell_id, const W8Action& selected);
 
-void SetTargetToCharacter(int character_slot, bool in_combat);
-
 /* The action as the slot can carry it out: nothing while its member cannot participate,
    except a party move. */
-W8Action ParticipatingAction(int party_slot, W8Action action);
+
 // The slot's stored committed or executing action, as it can carry it out.
-W8Action SelectCombatAction(int party_slot, W8TargetingContext stored);
+
 /* Ask the player to pick a target of `state` (W8_TARGET_NEED_NONE stops asking): the
    pointer's cursor, the party panel and the aiming cone follow it. Game code asks through a
    `TargetingRequested` event instead. */
@@ -83,23 +81,19 @@ bool ActionNeedsExplicitTarget(const W8Action& action, bool conversation_aside);
 unsigned int GetActionSpellLikeId(const Inventory& inventory, const W8Action& selected);
 void ResetTargetSource(W8TargetSource* source);
 void SetTargetSourceToMonster(const W8MonsterInfo* monster_info, W8TargetSource* source);
-bool TargetMatchesNeeded(const W8CombatSlot* target, W8TargetNeed needed);
+
 bool SpellHasAnyValidTarget(int party_slot, int spell_id, bool normalize);
-void SetTargetToMonster(int monster_id, bool in_combat);
-void SetTargetToGroup(int group_id, bool in_combat);
 
 bool ClearMonsterCombatSlot(W8MonsterInfo* monster_info);
 
 /* Fill the slot's point from where its target is. */
 bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe);
-void ApplyTarget(W8CombatSlot* target, bool in_combat);
+
 /* Whether an actor aiming at `target` should drop that aim now
    that `target` has been (re)applied. An out-of-combat application always clears;
    otherwise the actor and the applied target must agree on hostility with the
    action's enemy-aimed flag. */
-bool ShouldClearAimForAppliedTarget(W8TargetSource* source, W8CombatSlot* target, bool in_combat,
-                                    bool action_targets_enemies);
-bool IsTargetStillPresent(const W8CombatSlot* target);
+
 bool IsTargetSourceInRangeOfGroup(const W8TargetSource* source, W8MonsterGroup* group,
                                   W8RangeCategory range);
 
@@ -151,7 +145,7 @@ void ReconcilePartyEquipmentAfterCombat(void);
 bool TargetIsInPlay(int party_slot, int hand, const W8Action& selected);
 
 /* Combat action-selection helpers used across the combat units. */
-bool CanPartySlotParticipate(int party_slot);
+
 void SetTargetSourceToCharacter(int party_slot, W8TargetSource* source);
 /* What the interface has to ask the player to pick for one
    action - a fixed kind for most, the spell's answer for casts and item use. */
@@ -179,7 +173,6 @@ signed char FindFactionByName(const char* name);
 void RepickInvalidCombatTargets(void);
 
 // Remember a committed target for the action kind that repeats it.
-void RememberActionTarget(ActionChoices& remembered, W8ActionKind kind, const W8CombatSlot& target);
 
 int PickNextTargetableGroupMember(int party_slot, const W8MonsterGroup* group,
                                   const W8Action& action, bool sighting);

@@ -52,7 +52,7 @@ void ApplyPartyCombatAction(int party_slot, W8ActionKind action, int detail,
                             const W8ActionDetailBlock* data, int notify);
 bool IsPartyEngaged(void);
 W8PartyAction GetEffectivePartyAction(void);
-void RecordCharacterDeath(int party_slot);
+
 void DropCharacterFromRound(int party_slot);
 /* Whether one party slot can carry out the given action with its equipment as
    it is, optionally before a target has been chosen. Asking changes nothing. */

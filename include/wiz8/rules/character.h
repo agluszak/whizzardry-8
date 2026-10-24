@@ -120,6 +120,9 @@ struct W8CharacterConditionRecord {
 };
 
 struct W8Character {
+    // Spend stamina and recompute fatigue; true when derived statistics need settling.
+    bool spendStamina(int amount, bool scale_by_load);
+
     /* Retail offset 0x0000: SaveCharacter stamps 1 here before writing the record, so the
        leading dword is a saved-record version rather than runtime state. */
     unsigned int record_version;

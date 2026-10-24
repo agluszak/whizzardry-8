@@ -1448,7 +1448,8 @@ Inventory::UseOutcome Inventory::useOnce(unsigned int party_slot, W8ItemLocation
                                                      GetItemDisplayName(game.data, item))});
         return {};
     }
-    if (!CanCharacterActivateItem(character, item)) {
+    if (!CanCharacterActivateItem(CurrentGame().data, character, item,
+                                  CurrentGame().status.game_started)) {
         game.events.push(
             CharacterNotice{party_slot, fmt::sprintf(game.data.strings[0x165],
                                                      GetItemDisplayName(game.data, item))});
@@ -1539,8 +1540,8 @@ Inventory::UseOutcome Inventory::useOnce(unsigned int party_slot, W8ItemLocation
                     SetTargetSourceToMonster(FindMonster(aimed->iMonsterID), &target);
                 }
             } else {
-                AimStoredAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
-                                CharacterTarget(party_slot));
+                game_.aimStoredAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
+                                      W8CombatSlot::character(party_slot));
             }
         }
         target.name_known = true;

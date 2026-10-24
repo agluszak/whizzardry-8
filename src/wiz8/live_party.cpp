@@ -23,6 +23,7 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -128,14 +129,16 @@ void RecomputeHighestCondition(Game& game, unsigned int slot)
 
 /* The level of the monster that swallowed the member, when it is on the loaded level;
    otherwise a swallowed member regenerates at the default penalty. */
-std::optional<int> SwallowerLevel(const W8Character& character)
+std::optional<int> SwallowerLevel(const Game& game, const W8Character& character)
 {
     if (!Swallowed(character)) return std::nullopt;
     const auto& record = character.conditions[W8_DEPENDENCE_SWALLOWED];
-    if (record.level_acquired != GetLoadedLevelID()) return std::nullopt;
-    auto* monster = FindMonster(record.source_monster, false);
+    const auto* world = game.level.primary.get();
+    if (!world || !world->population || record.level_acquired != world->level_id)
+        return std::nullopt;
+    const auto* monster = world->population->findMonster(record.source_monster);
     if (!monster) return std::nullopt;
-    return GetMonsterDataForInfo(monster)->effective_level;
+    return game.data.monsters[monster->monster_species].effective_level;
 }
 
 /* A cheat-death revival in a fight restores a share of the maximum the first time; true
@@ -189,7 +192,7 @@ bool ClearCondition(Game& game, unsigned int slot, W8Condition condition, bool a
             row.executing.target = row.committed.target;
         break;
     case W8_CONDITION_TURNCOAT:
-        SetTargetToCharacter(slot, true);
+        game.invalidateAimsAt(W8CombatSlot::character(slot), TargetChange::allegiance);
         RepickActionTarget(slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, 0);
         RepickActionTarget(slot, W8_TARGETING_CONTEXT_IN_COMBAT, 0);
         break;
@@ -222,14 +225,17 @@ void Die(Game& game, unsigned int slot)
     row.executing.target = W8CombatSlot{W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}};
     row.committed.target = W8CombatSlot{W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}};
     game.events.push(CharacterDied{slot});
-    if (game.combat.has_value()) RecordCharacterDeath(slot);
+    if (game.combat) game.combat->retirePartyMember(slot);
     game.speech.QueuePartyDeathReaction(slot);
     if (game.combat.has_value()) {
-        game.combat->endTurnOf(PartyActor{static_cast<int>(slot)});
+        const bool was_equipping = row.committed.kind == W8_ACTION_EQUIP;
         row.executing.kind = W8_ACTION_NONE;
-        game.combat->characters[slot].phase = 0;
-        game.combat->characters[slot].dead = true;
-        DropCharacterFromRound(slot);
+        row.committed = row.remembered.basic();
+        game.events.push(PartySlotChanged{slot});
+        if (slot == static_cast<unsigned int>(game.status.selected_character))
+            game.events.push(MonstersChanged{});
+        if (was_equipping) game.events.push(CharacterNotice{slot, game.data.strings[0x226]});
+        SettleActiveParty(game);
     }
     if (auto* npc = game.story.npc(game.party.npcIndex(slot))) npc->spawned = 1;
 }
@@ -306,7 +312,7 @@ bool InflictCondition(Game& game, unsigned int slot, const ConditionInfliction& 
             if (condition == W8_CONDITION_HEXED || condition == W8_CONDITION_BLIND)
                 game.sight_refresh_pending = true;
             else if (condition == W8_CONDITION_TURNCOAT)
-                SetTargetToCharacter(slot, true);
+                game.invalidateAimsAt(W8CombatSlot::character(slot), TargetChange::allegiance);
         }
         character.uiCondition[condition] = duration;
         RecomputeHighestCondition(game, slot);
@@ -319,7 +325,8 @@ bool InflictCondition(Game& game, unsigned int slot, const ConditionInfliction& 
     if (!took_hold) return false;
     if (condition == W8_CONDITION_DEAD) Die(game, slot);
     // A member who is dead or missing is no longer the party's target.
-    if (condition >= W8_CONDITION_DEAD) SetTargetToCharacter(slot, false);
+    if (condition >= W8_CONDITION_DEAD)
+        game.invalidateAimsAt(W8CombatSlot::character(slot), TargetChange::removed);
     if (old_highest != character.highest_condition)
         game.speech.QueueConditionChangeReaction(&character);
     if (infliction.announce) {
@@ -421,7 +428,7 @@ void RefreshConditionModifiers(Game& game, unsigned int slot)
     auto& character = game.party.characters[slot];
     const auto& member = game.party.members[slot];
     character.condition_modifiers =
-        ConditionModifiers(character, member && member->npc_bound, SwallowerLevel(character));
+        ConditionModifiers(character, member && member->npc_bound, SwallowerLevel(game, character));
     SettleActiveParty(game);
 }
 
@@ -486,7 +493,7 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
             CharacterNotice{static_cast<unsigned int>(party_slot), game.data.strings[0x194]});
     }
 
-    FatigueCharacter(party_slot, (amount * 2) / 3, false, result_stats);
+    game.fatigueCharacter(party_slot, (amount * 2) / 3, false, result_stats);
     if (result_stats != 0) {
         result_stats->amount += amount;
         ++result_stats->count;
@@ -547,4 +554,30 @@ unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool qu
         LiftCondition(game, party_slot, W8_CONDITION_ASLEEP, true);
     }
     return amount;
+}
+
+void Game::fatigueCharacter(unsigned int slot, int amount, bool scale_by_load,
+                            W8SpellEffectResult* report)
+{
+    auto& character = party.characters[slot];
+    if (character.stamina <= 0 || character.hp_current == 0 || amount == 0) return;
+    const bool band_changed = character.spendStamina(amount, scale_by_load);
+    const int spent_band = character.fatigue_band;
+    if (band_changed) SettleActiveParty(*this);
+    if (character.stamina < 1) {
+        if (character.uiCondition[W8_CONDITION_UNCONSCIOUS] < W8_CONDITION_INDEFINITE) {
+            InflictCondition(*this, slot,
+                             {.condition = W8_CONDITION_UNCONSCIOUS,
+                              .duration = W8_CONDITION_INDEFINITE,
+                              .announce = report == nullptr});
+            if (report) ++report->condition_counts[W8_CONDITION_UNCONSCIOUS];
+        }
+    } else if (band_changed && spent_band > 2) {
+        if (!character.deep_fatigue_applied) {
+            speech.Queue(&character, 4, 0, kCharacterEventFullVolume);
+            character.deep_fatigue_applied = true;
+        }
+        if (static_cast<unsigned int>(character.fatigue_band) < 2)
+            character.deep_fatigue_applied = false;
+    }
 }

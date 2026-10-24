@@ -404,7 +404,8 @@ bool W8UseItemView::IsFilteredOut(const W8ItemInstance* item) const
     if (item->iItemNo == -1) {
         return true;
     }
-    if (!CanCharacterActivateItem(&screen.game.party.characters[owner], item)) {
+    if (!CanCharacterActivateItem(CurrentGame().data, &screen.game.party.characters[owner], item,
+                                  CurrentGame().status.game_started)) {
         if (CanCastFromItem(&screen.game.party.characters[owner], item)) {
             return false;
         }

@@ -843,3 +843,22 @@ void DeriveCharacterStats(const GameData& data, W8Character& character, Characte
     CalcAttacks(data, &character, rules.damaged_android);
     CalcArmorClasses(data, &character, rules.defensive_action);
 }
+
+bool W8Character::spendStamina(int amount, bool scale_by_load)
+{
+    if (stamina <= 0 || hp_current == 0 || amount == 0) return false;
+    if (scale_by_load) {
+        constexpr std::array penalties{0, 25, 50, 100, 200};
+        const auto category = static_cast<unsigned int>(load_category);
+        int percent = category < penalties.size() ? penalties[category] : 0;
+        if (uiCondition[W8_CONDITION_SLOWED] != 0)
+            percent -= 25;
+        else if (enchantments[W8_ENCHANTMENT_HASTE].turns != 0)
+            percent += 25;
+        amount += percent * amount / 100;
+    }
+    stamina -= std::clamp(amount, 0, stamina);
+    const int previous = fatigue_band;
+    fatigue_band = FatigueBand(stamina, uiStaminaMax);
+    return fatigue_band != previous;
+}

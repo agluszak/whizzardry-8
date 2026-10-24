@@ -44,9 +44,11 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/monster_actions.h"
 #include "wiz8/monster_cycles.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
@@ -201,7 +203,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
             if ((slot->executing.kind == W8_ACTION_ATTACK ||
                  slot->executing.kind == W8_ACTION_BERSERK) &&
                 CharacterCanSwitchTo(
-                    party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
+                    party_slot, game.party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
                     false)) {
                 PrepareCharacterAttacks(party_slot);
             }
@@ -223,9 +225,9 @@ void ExecuteCharacterAction(Game& game, int party_slot)
             CurrentGame().events.push(PartySlotChanged{static_cast<unsigned int>(party_slot)});
             CurrentGame().events.push(CombatProgressChanged{});
         }
-        if (!CharacterCanSwitchTo(
-                party_slot, SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
-                false)) {
+        if (!CharacterCanSwitchTo(party_slot,
+                                  game.party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
+                                  false)) {
             slot->executing.kind = W8_ACTION_NONE;
             action = W8_ACTION_NONE;
         }
@@ -281,19 +283,18 @@ void ExecuteCharacterAction(Game& game, int party_slot)
                     if (!saved_dead) {
                         PrepareCharacterAttacks(party_slot);
                     }
-                    AimStoredAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
-                                    CharacterTarget(target));
+                    game.aimStoredAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
+                                         W8CombatSlot::character(target));
                 }
             }
         }
         if (CharacterCanSwitchTo(party_slot,
-                                 SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
+                                 game.party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT),
                                  false)) {
             FaceCharacterTowardCombatTarget(party_slot, &slot->executing.target);
         }
     }
-    if (CharacterActionTargetsEnemies(game.inventory, character, action, detail,
-                                      &slot->executing.detail_block) &&
+    if (game.actionTargetsEnemies(party_slot, {action, detail, {}, slot->executing.detail_block}) &&
         (!game.combat.has_value() ||
          (interrupt == -1 && !game.combat->characters[party_slot].berserk))) {
         SetTargetSourceToCharacter(party_slot, &enemy_source);
@@ -384,8 +385,8 @@ void ExecuteCharacterAction(Game& game, int party_slot)
         if (action != W8_ACTION_DEFEND && action != W8_ACTION_PROTECT) {
             game.combat->passive_round = 0;
         }
-        if (CharacterActionTargetsEnemies(game.inventory, character, action, detail,
-                                          &slot->executing.detail_block) &&
+        if (game.actionTargetsEnemies(party_slot,
+                                      {action, detail, {}, slot->executing.detail_block}) &&
             slot->executing.target.iType >= W8_TARGET_KIND_MONSTER &&
             slot->executing.target.iType <= W8_TARGET_KIND_PLACE) {
             game.combat->combat_update_count = 0;
@@ -393,7 +394,7 @@ void ExecuteCharacterAction(Game& game, int party_slot)
     }
     if (action != W8_ACTION_ATTACK && action != W8_ACTION_BERSERK) {
         if (!fatigue_cost) fatigue_cost = CharacterActionFatigueCost(party_slot, action);
-        FatigueCharacter(party_slot, *fatigue_cost, true, nullptr);
+        game.fatigueCharacter(party_slot, *fatigue_cost, true, nullptr);
     }
     if (game.combat.has_value()) {
         game.combat->setStepOf(PartyActor{party_slot}, ActionStep::resolving);
@@ -413,7 +414,7 @@ void Combat::settleCharacterPhase(Game& game, int party_slot)
     if ((action == W8_ACTION_ATTACK || action == W8_ACTION_BERSERK) &&
         CanAnyHandReachTarget(party_slot) &&
         TargetIsInPlay(party_slot, 2,
-                       SelectCombatAction(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
+                       game.party.action(party_slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT))) {
         W8Character* character = &game.party.characters[party_slot];
         int current = row->current_hand;
         int other = current == 0;
@@ -526,8 +527,8 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
         if (monster_info->action_kind != W8_MONSTER_ACTION_NONE) {
             tried[monster_info->action_kind] = 1;
         }
-        if (MonsterActionTargetsEnemies(monster_info->action_kind, monster_info->action_detail,
-                                        &monster_info->spell_power_level) &&
+        if (MonsterActionTargetsEnemies(CurrentGame().data, monster_info->action_kind,
+                                        monster_info->action_detail) &&
             interrupt == -1 && !monster_info->pCombat->berserk) {
             SetTargetSourceToMonster(monster_info, &monster_source);
             MakeTargetGroupHostile(&monster_source, &monster_info->Target);
@@ -724,7 +725,7 @@ ActionStep Combat::releaseCharacterBreath(Game& game, int party_slot)
     ProvokeListedMonsterGroups(&source, monster_targets);
     ResolveMonsterGroupAttack(0x1e, &source, &game.party.rows[party_slot].executing.target,
                               char_targets, monster_targets);
-    FatigueCharacter(
+    game.fatigueCharacter(
         party_slot,
         static_cast<int>(static_cast<unsigned int>(game.party.characters[party_slot].uiStaminaMax) /
                          5),

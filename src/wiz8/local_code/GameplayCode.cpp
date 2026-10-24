@@ -44,6 +44,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -100,7 +101,7 @@ int CountActiveCharacters(void)
     int party_slot;
 
     for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (CanPartySlotParticipate(party_slot)) {
+        if (CurrentGame().party.participates(party_slot)) {
             ++count;
         }
     }
@@ -578,7 +579,7 @@ void AwardPartyExperience(int amount, bool alternate_message)
 {
     for (int slot = 0; slot < 8; ++slot) {
         W8Character* character = &CurrentGame().party.characters[slot];
-        if (CanPartySlotParticipate(slot) && amount != 0) {
+        if (CurrentGame().party.participates(slot) && amount != 0) {
             unsigned int total = character->experience + static_cast<unsigned int>(amount);
             if (total > character->experience) {
                 character->experience = total;

@@ -57,6 +57,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
@@ -388,7 +389,7 @@ void MainGameScreen::paintCombatPortraits(std::bitset<8> slots) const
         const W8PartySlotRow* party_row = &game.party.rows[slot];
         const W8CombatCharacterRow* combat_row = &game.combat->characters[slot];
 
-        if (!slots.test(slot) || !CanPartySlotParticipate(slot) ||
+        if (!slots.test(slot) || !CurrentGame().party.participates(slot) ||
             combat_row->portrait_image == -1 || slot == hud->combat_slot) {
             continue;
         }
@@ -412,8 +413,8 @@ void MainGameScreen::paintCombatPortraits(std::bitset<8> slots) const
         }
         CatalogArtwork::Load(0x8a, 0).drawAndInvalidate(GetFrameBufferSurface(), portrait_image,
                                                         portrait_x, row_y + 0x44);
-        if (!CharacterCanSwitchTo(slot, SelectCombatAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
-                                  false)) {
+        if (!CharacterCanSwitchTo(
+                slot, CurrentGame().party.action(slot, W8_TARGETING_CONTEXT_IN_COMBAT), false)) {
             CatalogArtwork::Load(0x8b, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, badge_x,
                                                             row_y + 0x37);
         } else if (party_row->committed.target.iType == W8_TARGET_KIND_CHARACTER) {
