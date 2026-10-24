@@ -232,7 +232,7 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
     game.game.level.replaceSky(std::make_unique<World>(-1, "ExistingSky.LVL"));
     auto* sky = GetSecondaryWorld();
     for (int attempt = 0; attempt < 2; ++attempt) {
-        REQUIRE_THROWS_WITH(LoadSkyWorld("MissingSky.LVL"),
+        REQUIRE_THROWS_WITH(game.game.loadWorld(-1, "MissingSky.LVL"),
                             Catch::Matchers::ContainsSubstring("Couldn't open"));
         REQUIRE(GetSecondaryWorld() == sky);
         REQUIRE(GetWorld() == primary);

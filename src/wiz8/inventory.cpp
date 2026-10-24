@@ -68,6 +68,7 @@
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 enum { W8_ITEM_USE_TYPE_COUNT = 10 };
 // The speech a member makes when a shot weapon or ammunition has no partner to draw from.
@@ -383,8 +384,9 @@ bool Inventory::dropUnstored(W8ItemInstance& item, W8ItemLocation origin, int ac
 {
     if ((game_.data.items[item.iItemNo].flags & W8_ITEM_FLAG_NO_DISCARD) == 0) {
         if (const auto position = FindItemDropPosition()) {
-            AddWorldItem(
-                CreateWorldItem(&item, &*position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+            game_.level.loaded().adoptItem(
+                game_.createWorldItem(game_.level.loaded(), &item, &*position,
+                                      W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             return true;
         }
     }
@@ -513,13 +515,14 @@ Inventory::Receipt Inventory::receiveAll(std::span<const W8ItemInstance> items,
             const auto position = FindItemDropPosition();
             if (!position) return Receipt::Refused;
             for (auto& item : overflow)
-                drops.push_back(CreateWorldItem(&item, &*position,
-                                                W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                drops.push_back(
+                    game_.createWorldItem(game_.level.loaded(), &item, &*position,
+                                          W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
         }
     }
     pool_ = std::move(pool);
     commit();
-    for (auto& drop : drops) AddWorldItem(std::move(drop));
+    for (auto& drop : drops) game_.level.loaded().adoptItem(std::move(drop));
     if (held) held_ = W8HeldItem{*held};
     settle({});
     for (const auto row : received) {
@@ -760,8 +763,8 @@ std::expected<void, InventoryRefusal> Inventory::dropHeld()
     if (const auto position = FindItemDropPosition()) {
         auto item = held_->item;
         held_.reset();
-        AddWorldItem(
-            CreateWorldItem(&item, &*position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+        game_.level.loaded().adoptItem(game_.createWorldItem(
+            game_.level.loaded(), &item, &*position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
     } else {
         wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
     }

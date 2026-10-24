@@ -34,6 +34,9 @@ class W8AmbientSound;
 struct W8AmbientTrack;
 struct W8LevelPopulation;
 struct W8MonsterInfo;
+struct W8WorldItem;
+struct GameData;
+class Rng;
 struct W8SpellEffectEntry;
 enum class W8MonsterRemoval : unsigned char;
 struct W8WorldCursorState;
@@ -133,6 +136,11 @@ struct World {
     // Commands remove relationships immediately; this pass retains removed owners
     // until every script/update borrowing them has returned.
     void updateMonsters();
+    W8WorldItem* adoptItem(std::unique_ptr<W8WorldItem> item);
+    bool settleItem(W8WorldItem* item);
+    void activateItem(const GameData& data, Rng& rng, W8WorldItem* item);
+    void addItemToSector(int sector, W8WorldItem* item);
+    void removeItemFromSector(int sector, W8WorldItem* item);
     bool isRetiring(const Monster& monster) const;
     SpellVisual* target_cone = nullptr;
     unsigned int next_trigger_id = 1;
@@ -221,8 +229,6 @@ class Prop;
 World* GetWorld(void);
 World* GetSecondaryWorld(void);
 
-std::unique_ptr<World> LoadWorld(int level_id, std::string source_path);
-// Run the worlds over the step's `elapsed` time.
 void RefreshWorldView(void);
 ParticleSystem* FindParticleByName(std::string_view name);
 bool FindEntityByName(std::string_view name, glm::vec3* position, float* angle,

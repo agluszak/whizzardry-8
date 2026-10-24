@@ -36,6 +36,7 @@
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/mgs_commands.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/world/level_session.h"
@@ -76,7 +77,11 @@ void QuickSaveScenario()
     lure->kind = W8_SPELL_HYPNOTIC_LURE;
     lure->turns_remaining = 100;
     lure->targets_resolved = true;
+    lure->Source = {.iType = W8_TARGET_SOURCE_CHARACTER, .iChar = PremadeSlot()};
+    lure->OrigSource = lure->Source;
+    lure->target.iType = W8_TARGET_KIND_PLACE;
     lure->target.point = lure_anchor;
+    lure->OrigTarget = lure->target;
     lure->definition.duration_scale = 1;
     CurrentGame().level.loaded().spell_effects.push_back(std::move(lure));
     const fs::path save = QuickSave(game);

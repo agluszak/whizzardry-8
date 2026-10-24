@@ -64,15 +64,17 @@ struct W8LevelParticleRecord {
 #pragma pack(pop)
 static_assert(sizeof(W8LevelParticleRecord) == 0x225);
 
+class Game;
+
 struct LevelLoadContext {
     World* world = nullptr;
     wiz8::File* hFile = nullptr;
     std::filesystem::path bitmap_folder;
 };
 
-unsigned char ReadLevel(World* world, wiz8::File* handle,
+unsigned char ReadLevel(Game& game, World* world, wiz8::File* handle,
                         const std::filesystem::path& texture_directory);
-unsigned char ReadWorldItems(LevelLoadContext* info, World* world);
+bool ReadWorldItems(Game& game, LevelLoadContext& info);
 // The destination owns particles; scene attachment borrows them.
 unsigned char ReadWorldParticles(LevelLoadContext* info, WorldScene* scene,
                                  std::vector<std::unique_ptr<ParticleSystem>>* particles);

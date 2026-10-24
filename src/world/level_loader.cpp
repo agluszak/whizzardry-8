@@ -53,6 +53,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/legacy_prop_save_ids.h"
@@ -99,15 +100,6 @@
 class Texture;
 
 namespace {
-
-struct W8LevelItemRecord {
-    int positional0;
-    glm::vec3 position;
-    int positional2;
-    int positional3;
-    int positional4;
-    char item_name[20];
-};
 
 #pragma pack(push, 1)
 struct W8LevelLightRecord {
@@ -468,73 +460,42 @@ try {
     return false;
 }
 
-unsigned char ReadWorldItems(LevelLoadContext* pInfo, World* pWorld)
+bool ReadWorldItems(Game& game, LevelLoadContext& info)
 try {
-    unsigned char has_trigger;
-    int positional_value;
-    int index;
+    if (!info.hFile || !info.world) return false;
+    auto& file = *info.hFile;
+    auto& world = *info.world;
     int count;
-    W8LevelItemRecord record;
-    unsigned char positional_byte;
-    unsigned char success;
-    Trigger* trigger;
-    int item_id;
-    W8WorldItem* world_item;
+    if (!ReadRecordCount(file, count)) return false;
+    for (int index = 0; index < count; ++index) {
+        std::array<char, 21> name{};
+        file.read_exact(name.data(), 20);
+        glm::vec3 position;
+        wiz8::retail::read_exact(file, position);
+        position *= kWorldScale;
+        std::array<std::int32_t, 4> unused;
+        file.read_exact(unused.data(), sizeof(unused));
+        unsigned char has_trigger;
+        file.read_exact(&has_trigger, sizeof(has_trigger));
+        auto* trigger = has_trigger ? Trigger::CreateAndLoadLevelTrigger(&file, &world) : nullptr;
+        std::array<unsigned char, 3> flags;
+        file.read_exact(flags.data(), sizeof(flags));
+        file.read_exact(unused.data(), sizeof(unused));
 
-    if (pInfo == 0 || pInfo->hFile == 0 || pWorld == 0) {
-        return 0;
-    }
-    if (!ReadRecordCount(*pInfo->hFile, count)) {
-        return 0;
-    }
-    if (count == 0) {
-        return 1;
-    }
-
-    for (index = 0; index < count; ++index) {
-        world_item = nullptr;
-        trigger = 0;
-        success = (pInfo->hFile->read(record.item_name, sizeof(record.item_name)).bytes ==
-                   static_cast<std::size_t>(sizeof(record.item_name)));
-        if (success) {
-            wiz8::retail::read_exact(*pInfo->hFile, record.position);
-            record.position *= kWorldScale;
-            pInfo->hFile->read(&record.positional0, sizeof(int));
-            pInfo->hFile->read(&record.positional2, sizeof(int));
-            pInfo->hFile->read(&record.positional3, sizeof(int));
-            pInfo->hFile->read(&record.positional4, sizeof(int));
-            pInfo->hFile->read(&has_trigger, sizeof(has_trigger));
-            if (has_trigger != 0) {
-                trigger = Trigger::CreateAndLoadLevelTrigger(pInfo->hFile, pInfo->world);
-            }
-            pInfo->hFile->read(&positional_byte, sizeof(positional_byte));
-            pInfo->hFile->read(&positional_byte, sizeof(positional_byte));
-            pInfo->hFile->read(&positional_byte, sizeof(positional_byte));
-            pInfo->hFile->read(&positional_value, sizeof(positional_value));
-            pInfo->hFile->read(&positional_value, sizeof(positional_value));
-            pInfo->hFile->read(&positional_value, sizeof(positional_value));
-            pInfo->hFile->read(&positional_value, sizeof(positional_value));
-
-            if (record.item_name[0] >= '0' && record.item_name[0] <= '9') {
-                item_id = atoi(record.item_name);
-            } else {
-                item_id = FindItemRecordByName(record.item_name);
-            }
-            if (item_id >= 0) {
-                world_item = AddWorldItem(SpawnItem(item_id, &record.position,
-                                                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-                if (world_item != 0) {
-                    success = 1;
-                    ActivateItem(world_item);
-                }
-            }
-            if (trigger != 0 && world_item != 0) {
-                trigger->m_bRepType = W8_TRIGGER_REP_ITEM;
-                world_item->trigger = trigger;
-            }
+        const int item_id = name[0] >= '0' && name[0] <= '9'
+                                ? std::atoi(name.data())
+                                : FindItemRecordByName(game.data, name.data());
+        if (item_id < 0) continue;
+        if (static_cast<std::size_t>(item_id) >= game.data.items.size()) return false;
+        auto* item = world.adoptItem(game.spawnWorldItem(
+            world, item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+        world.activateItem(game.data, game.rng, item);
+        if (trigger) {
+            trigger->m_bRepType = W8_TRIGGER_REP_ITEM;
+            item->trigger = trigger;
         }
     }
-    return success;
+    return true;
 } catch (const std::exception&) {
     return false;
 }
@@ -863,7 +824,7 @@ try {
     return false;
 }
 
-unsigned char ReadLevel(World* world, wiz8::File* handle,
+unsigned char ReadLevel(Game& game, World* world, wiz8::File* handle,
                         const std::filesystem::path& texture_directory)
 try {
     LevelLoadContext info;
@@ -924,7 +885,7 @@ try {
     if (!section_ended()) return false;
     success = success && ReadMonsterPaths(&info, world);
     if (!section_ended()) return false;
-    success = success && ReadWorldItems(&info, world);
+    success = success && ReadWorldItems(game, info);
     if (!section_ended()) return false;
 
     if (!success || info.hFile == 0 || !ReadRecordCount(*info.hFile, section_count)) {
@@ -1619,7 +1580,7 @@ void LevelSpatialIndex::adoptCollisionData(LevelSpatialIndex&& source)
     collision_available = source.collision_available;
 }
 
-std::unique_ptr<World> LoadWorld(int level_id, std::string source_path)
+std::unique_ptr<World> Game::loadWorld(int level_id, std::string source_path)
 {
     auto owner = std::make_unique<World>(level_id, std::move(source_path));
     auto* world = owner.get();
@@ -1677,7 +1638,7 @@ std::unique_ptr<World> LoadWorld(int level_id, std::string source_path)
     }
 
     auto handle = wiz8::open_file(wiz8::asset_path(level_path), wiz8::OpenMode::read);
-    if (!ReadLevel(world, handle.get(), wiz8::asset_path(material_folder)))
+    if (!ReadLevel(*this, world, handle.get(), wiz8::asset_path(material_folder)))
         throw std::runtime_error("cannot read level " + level_path);
     return owner;
 }

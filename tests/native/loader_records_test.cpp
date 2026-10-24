@@ -756,6 +756,7 @@ TEST_CASE_METHOD(LoaderFixture, "World camera paths commit only complete tables"
 TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed counts",
                  "[loader][records]")
 {
+    ScopedGame game;
     World world{};
     for (const int count : {-1, 100000, 0}) {
         std::string bytes;
@@ -763,12 +764,12 @@ TEST_CASE_METHOD(LoaderFixture, "World item sections reject invalid signed count
         store("items.bin", bytes);
         auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
         LevelLoadContext info{&world, file.get(), {}};
-        REQUIRE(bool(ReadWorldItems(&info, &world)) == (count == 0));
+        REQUIRE(bool(ReadWorldItems(game.game, info)) == (count == 0));
     }
     store("items.bin", std::string(3, '\0'));
     auto file = wiz8::open_file(wiz8::asset_path("items.bin"));
     LevelLoadContext info{&world, file.get(), {}};
-    REQUIRE_FALSE(ReadWorldItems(&info, &world));
+    REQUIRE_FALSE(ReadWorldItems(game.game, info));
 }
 
 TEST_CASE_METHOD(LoaderFixture, "Environment tables decode RGB bytes without runtime vector layout",

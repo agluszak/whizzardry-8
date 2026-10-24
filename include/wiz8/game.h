@@ -38,6 +38,7 @@ class NativeObject;
 struct GameData;
 struct SavedGame;
 struct World;
+struct W8WorldItem;
 
 /* The worlds the party is in: the loaded level and the sky drawn behind it. Each slot
    owns its world; queries borrow it. The level's entities report to combat. Replacing a slot hands back the previous owner,
@@ -91,6 +92,11 @@ public:
     /* Enter the level a decoded save resumes at. */
     [[nodiscard]] bool
     enterSavedLevel(int level_id, std::vector<std::unique_ptr<W8SpellEffectEntry>> restored_casts);
+    std::unique_ptr<World> loadWorld(int level_id, std::string source_path);
+    std::unique_ptr<W8WorldItem> createWorldItem(World& world, W8ItemInstance* item,
+                                                 const glm::vec3* position, int entity_flags);
+    std::unique_ptr<W8WorldItem> spawnWorldItem(World& world, int item_id,
+                                                const glm::vec3* position, int entity_flags);
     /* End level-bound activity, capture the outgoing level's state and release its
        world. The game, its party and its rng remain; ending the game is the session's
        operation. */

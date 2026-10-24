@@ -87,8 +87,9 @@ void GameSession::load(SavedGame saved, std::function_ref<void()> release_presen
     release_presentation();
     try {
         auto& game = begin();
+        auto restored_casts = std::move(saved.spell_effects);
         std::move(saved).install(game);
-        if (!game.enterSavedLevel(game.status.resume_level, std::move(saved.spell_effects)))
+        if (!game.enterSavedLevel(game.status.resume_level, std::move(restored_casts)))
             throw std::runtime_error("cannot construct saved level");
     } catch (...) {
         // Never leave a partially entered replacement available to screens.

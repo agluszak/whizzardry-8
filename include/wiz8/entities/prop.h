@@ -202,6 +202,3 @@ Prop* FindPropByName(World* world, std::string_view name);
 std::unique_ptr<Prop> CreateAndLoadProp(LevelLoadContext* info);
 
 void UpdateWorldProps(World* world);
-
-void AddItemToSector(int sector, W8WorldItem* item);
-void RemoveItemFromSector(int sector, W8WorldItem* item);

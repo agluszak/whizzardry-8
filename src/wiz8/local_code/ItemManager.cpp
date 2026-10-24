@@ -10,7 +10,6 @@
 #include <utility>
 #include <vector>
 
-#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
 #include <glm/common.hpp> // NOLINT(misc-include-cleaner)
@@ -18,7 +17,6 @@
 #include <glm/gtx/rotate_vector.hpp>
 #include <glm/trigonometric.hpp> // NOLINT(misc-include-cleaner)
 
-#include "asset_paths.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
@@ -31,7 +29,6 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
-#include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
@@ -55,16 +52,12 @@
 #include "wiz8/unicode.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/party_camera.h"
-#include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
 constexpr float kDropItemPitchScale = 71.0f;
 constexpr float kDropItemYawScale = 85.0f;
 
 class W8DialogBase;
-
-/* The level runtime block, which also carries the interface
-   selection the item manager resets. */
 
 /* Camera distance inside which inactive world items are activated. */
 const float g_item_camera_cull_distance = 20000.0f;
@@ -149,9 +142,10 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
         if (table->entries[entry_index].selector != 0) {
             item_record = &Data().items[table->entries[entry_index].item_id];
             if (table->entries[entry_index].weight == 0) {
-                output_items.push_back(
-                    SpawnItem(Data().item_tables[table_id].entries[entry_index].item_id, &position,
-                              W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                output_items.push_back(CurrentGame().spawnWorldItem(
+                    CurrentGame().level.loaded(),
+                    Data().item_tables[table_id].entries[entry_index].item_id, &position,
+                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             } else if (table->level_scaled == 0) {
                 candidates.push_back(entry_index);
             } else {
@@ -195,8 +189,9 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
         entry = &table->entries[entry_index];
         random_value = CurrentGame().rng.below(total_weight);
         if (random_value <= entry->weight) {
-            output_items.push_back(
-                SpawnItem(entry->item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+            output_items.push_back(CurrentGame().spawnWorldItem(
+                CurrentGame().level.loaded(), entry->item_id, &position,
+                W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             candidates.erase(candidates.begin() + position_index);
             ++selected_count;
         }
@@ -208,15 +203,15 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
 /* Look an item record up by its internal name. The name sits at 0x8d in the
    record; a record whose name is empty is matched against the display name
    converted down from wide instead. */
-int FindItemRecordByName(const char* name)
+int FindItemRecordByName(const GameData& data, const char* name)
 {
     int index;
     std::string internal_name;
 
-    for (index = 0; index < static_cast<int>(Data().items.size()); ++index) {
-        internal_name = Data().items[index].internal_name;
+    for (index = 0; index < static_cast<int>(data.items.size()); ++index) {
+        internal_name = data.items[index].internal_name;
         if (internal_name[0] == 0) {
-            if (SDL_strcasecmp(Data().items[index].display_name.c_str(), name) == 0) {
+            if (SDL_strcasecmp(data.items[index].display_name.c_str(), name) == 0) {
                 return index;
             }
         } else if (CompareTextIgnoreAsciiCase(internal_name, name) == 0) {
@@ -266,218 +261,6 @@ unsigned int ItemIndex(int runtime_id)
     }
     assert(false && "unknown world item id");
     return 0;
-}
-
-/* The level runtime block, which also carries the interface
-   selection the item manager resets. */
-
-/* The generic 3D model names ActivateItem falls back to when a
-   record's internal_name is blank, indexed by unidentified_name_index. */
-static char g_item_model_fallback_names[145][0x1e] = {"Dagger",
-                                                      "Long Sword",
-                                                      "Bipennis",
-                                                      "Battle Axe",
-                                                      "Flail",
-                                                      "Mace",
-                                                      "Hammer",
-                                                      "Staff",
-                                                      "Halberd",
-                                                      "Spear",
-                                                      "Bo Stick",
-                                                      "Bow",
-                                                      "Crossbow",
-                                                      "Sling",
-                                                      "Great Sword",
-                                                      "Rapier",
-                                                      "Katana",
-                                                      "Long Staff",
-                                                      "Wand",
-                                                      "Magic Stave",
-                                                      "Spellbook",
-                                                      "Shuriken",
-                                                      "Arrows",
-                                                      "Bullets",
-                                                      "Kite Shield",
-                                                      "Basnet",
-                                                      "Plate Torso",
-                                                      "Plate Leggings",
-                                                      "Gauntlets",
-                                                      "Sollerets",
-                                                      "Amulet",
-                                                      "Ring",
-                                                      "Blue Potion",
-                                                      "Scroll",
-                                                      "Powder",
-                                                      "Key",
-                                                      "Locket",
-                                                      "Great Bow",
-                                                      "Round Shield",
-                                                      "Wizard Cone",
-                                                      "Leather Helm",
-                                                      "Cuirass",
-                                                      "Leather Top",
-                                                      "Greaves",
-                                                      "Leather Leggings",
-                                                      "Gloves",
-                                                      "Sandals",
-                                                      "Buskins",
-                                                      "Boots",
-                                                      "Book",
-                                                      "Ankh",
-                                                      "Ninjato",
-                                                      "War Hammer",
-                                                      "Flamberge",
-                                                      "Bullwhip",
-                                                      "Sai",
-                                                      "Nunchuka",
-                                                      "Glaive",
-                                                      "Black Sword",
-                                                      "Fire Sword",
-                                                      "Upper Robes",
-                                                      "Lower Robes",
-                                                      "Halter",
-                                                      "Skirt",
-                                                      "Skullcap",
-                                                      "Feathered Cap",
-                                                      "Mitre",
-                                                      "Breast Plate",
-                                                      "Kabuto",
-                                                      "Upper Toseido",
-                                                      "Lower Toseido",
-                                                      "Burgonet",
-                                                      "Fur Leggings",
-                                                      "Cloak",
-                                                      "Mantis Gloves",
-                                                      "Mantis Boots",
-                                                      "Garland",
-                                                      "Cat 'O Nine Tails",
-                                                      "Silver Cross",
-                                                      "Ruby Talisman",
-                                                      "Purple Amulet",
-                                                      "Bracelet",
-                                                      "Necklace",
-                                                      "Quarrels",
-                                                      "Jade Figure",
-                                                      "Chain Coif",
-                                                      "Upper Chain",
-                                                      "Lower Chain",
-                                                      "Mail Mittens",
-                                                      "Chain Hosen",
-                                                      "Lance",
-                                                      "Armet",
-                                                      "Ninja Cowl",
-                                                      "Upper Ninja Garb",
-                                                      "Lower Ninja Garb",
-                                                      "Tabi Boots",
-                                                      "Heaume",
-                                                      "Box Helm",
-                                                      "Diamond Ring",
-                                                      "Bag",
-                                                      "Red Potion",
-                                                      "Green Potion",
-                                                      "Purple Potion",
-                                                      "Yellow Potion",
-                                                      "Power Glove",
-                                                      "T'Rang Staff",
-                                                      "Bronze Gauntlets",
-                                                      "Comm Link",
-                                                      "Light Sword",
-                                                      "Magic Bag",
-                                                      "Phaser",
-                                                      "ID Card",
-                                                      "Darts",
-                                                      "Powder Shot",
-                                                      "Musket",
-                                                      "Coin",
-                                                      "Stone",
-                                                      "Stick",
-                                                      "Short Sword",
-                                                      "UNDEFINED",
-                                                      "Bagpipes",
-                                                      "Lyre",
-                                                      "Lute",
-                                                      "Horn",
-                                                      "Map",
-                                                      "Bracelet",
-                                                      "Shuriken",
-                                                      "UNDEFINED",
-                                                      "Wand",
-                                                      "Yellow Potion",
-                                                      "Medium Shield",
-                                                      "UNDEFINED",
-                                                      "UNDEFINED",
-                                                      "UNDEFINED",
-                                                      "UNDEFINED",
-                                                      "UNDEFINED",
-                                                      "Saxophone",
-                                                      "Violin",
-                                                      "Drum",
-                                                      "Bullroarer",
-                                                      "bomb",
-                                                      "emptybottle",
-                                                      "stix",
-                                                      "rocket",
-                                                      "rocketlauncher"};
-
-/* Put one spawned item into the world: load its 3D model from
-   Data\Items3D\Bitmaps, drop it at the item's position with a random yaw,
-   attach and register it, then scale it by whether the sun reaches it. */
-void ActivateItem(W8WorldItem* item)
-{
-    glm::vec3 position;
-    glm::vec3 sun_position;
-    std::string zItemName;
-    std::string zItemFullPath;
-    std::string name;
-    Light* sun;
-    MeshInstance* mesh;
-
-    assert(item != 0);
-    assert(!item->entity);
-
-    name = Data().items[item->item.iItemNo].internal_name;
-    if (name.empty()) {
-        name =
-            g_item_model_fallback_names[Data().items[item->item.iItemNo].unidentified_name_index];
-    }
-    zItemName = name;
-    if (zItemName.find(".ITM") != std::string::npos) {
-        zItemFullPath = fmt::format("{}\\{}", "Data\\Items3D", zItemName);
-    } else {
-        zItemFullPath = fmt::format("{}\\{}.ITM", "Data\\Items3D", zItemName);
-    }
-    if (![&]() {
-            const auto status = wiz8::file_status(wiz8::asset_path(zItemFullPath));
-            return status && status->info.type == SDL_PATHTYPE_FILE;
-        }()) {
-        zItemName = "questionmark";
-    }
-
-    auto entity = LoadItemFromFile(zItemName);
-    if (!entity) throw std::runtime_error(fmt::format("cannot load item model {}", zItemName));
-    item->entity = std::move(entity);
-    if (ItemHasFlags(item, W8_WORLD_ITEM_RADAR_BLIP_LIT)) {
-        item->entity->LightRadarBlip();
-    }
-    position = item->position;
-    item->entity->SetLocation(&position);
-    item->entity->SetYaw(static_cast<float>(CurrentGame().rng.below(0x168) * 2 * g_camera_pi *
-                                            kInverseFullTurnDegrees));
-    item->entity->flags |= item->entity_flags;
-    item->entity->AttachMesh(GetWorld());
-
-    sun = FindWorldLight("SUN");
-    if (sun != 0) {
-        sun_position = glm::vec3(sun->transform.getLocation());
-        mesh = static_cast<MeshInstance*>(item->entity->GetMesh());
-        if (mesh != 0) {
-            if (GetWorldSpatialIndex()->hasLineOfSight(position, sun_position)) {
-                mesh->light_scale = glm::vec3(1);
-            } else {
-                mesh->light_scale = glm::vec3(0);
-            }
-        }
-    }
 }
 
 /* Unload the appearance, retaining position and flags for its next activation.
@@ -546,7 +329,7 @@ void UpdateNearbyWorldItems(void)
 
         if (item->sector_id < -1) {
             item->sector_id = -1;
-            SettleWorldItem(item);
+            CurrentGame().level.loaded().settleItem(item);
         }
         if (ItemHasFlags(item, W8_WORLD_ITEM_FALLING)) {
             AdvanceFallingWorldItem(item);
@@ -558,7 +341,7 @@ void UpdateNearbyWorldItems(void)
                         goto next_item;
                     }
                 }
-                ActivateItem(item);
+                CurrentGame().level.loaded().activateItem(Data(), CurrentGame().rng, item);
             }
         } else {
             glm::vec3 location;
@@ -625,9 +408,9 @@ static void OnItemPickerClosed(W8WorldItem* group)
         item = group->contents.front().get();
         item->position = group->position;
         if (!item->entity) {
-            ActivateItem(item);
+            CurrentGame().level.loaded().activateItem(Data(), CurrentGame().rng, item);
         }
-        AddWorldItem(std::move(group->contents.front()));
+        CurrentGame().level.loaded().adoptItem(std::move(group->contents.front()));
         group->contents.clear();
     } else if (!group->contents.empty()) {
         return;
@@ -635,7 +418,7 @@ static void OnItemPickerClosed(W8WorldItem* group)
     index = ItemIndex(group->runtime_id);
     item = ItemInfo(index);
     if (item->sector_id > -1) {
-        RemoveItemFromSector(item->sector_id, item);
+        CurrentGame().level.loaded().removeItemFromSector(item->sector_id, item);
     }
     if (item->entity) {
         DeactivateWorldItem(item);
@@ -675,7 +458,7 @@ unsigned char InteractWithWorldItem(int runtime_id)
     index = ItemIndex(runtime_id);
     item = ItemInfo(index);
     if (item->sector_id > -1) {
-        RemoveItemFromSector(item->sector_id, item);
+        CurrentGame().level.loaded().removeItemFromSector(item->sector_id, item);
     }
     if (item->entity) {
         DeactivateWorldItem(item);
@@ -690,7 +473,8 @@ void ReleaseItemLists()
 {
     for (const auto& owned : CurrentLevelPopulation().world_items) {
         auto* item = owned.get();
-        if (item->sector_id >= 0) RemoveItemFromSector(item->sector_id, item);
+        if (item->sector_id >= 0)
+            CurrentGame().level.loaded().removeItemFromSector(item->sector_id, item);
         if (item->entity) DeactivateWorldItem(item);
     }
     CurrentLevelPopulation().world_items.clear();
@@ -780,10 +564,10 @@ bool AdvanceFallingWorldItem(W8WorldItem* item)
     sector = ground_probe.prop().value_or(-1);
     if (sector != item->sector_id) {
         if (item->sector_id >= 0) {
-            RemoveItemFromSector(item->sector_id, item);
+            CurrentGame().level.loaded().removeItemFromSector(item->sector_id, item);
         }
         if (sector >= 0) {
-            AddItemToSector(sector, item);
+            CurrentGame().level.loaded().addItemToSector(sector, item);
         }
         item->sector_id = sector;
     }
@@ -806,42 +590,6 @@ bool AdvanceFallingWorldItem(W8WorldItem* item)
     return true;
 }
 
-/* Drop one item onto the ground below where it is. The search starts one world
-   unit up so an item already resting does not settle into the floor; landing
-   moves it between sectors and clears its saved-marker flag. */
-bool SettleWorldItem(W8WorldItem* item)
-{
-    glm::vec3 start;
-    int sector;
-
-    start = glm::vec3(item->position.x, item->position.y + kWorldScale, item->position.z);
-
-    item->flags &= ~W8_WORLD_ITEM_FALLING;
-    item->vertical_velocity = 0.0f;
-
-    const auto ground_probe = GetWorldSpatialIndex()->settleToGround(start, 1, 250.0f);
-    start = ground_probe.position;
-    if (!ground_probe.contact) {
-        return false;
-    }
-
-    sector = ground_probe.prop().value_or(-1);
-    if (sector != item->sector_id) {
-        if (item->sector_id >= 0) {
-            RemoveItemFromSector(item->sector_id, item);
-        }
-        if (sector >= 0) {
-            AddItemToSector(sector, item);
-        }
-        item->sector_id = sector;
-    }
-    if (item->entity) {
-        item->entity->SetLocation(&start);
-    }
-    item->position = start;
-    return true;
-}
-
 /* Rebuild every world item's carried instance from its own item id, which
    re-rolls whatever the record decides rather than keeping what was there. */
 void RebuildAllWorldItemInstances(void)
@@ -855,43 +603,26 @@ void RebuildAllWorldItemInstances(void)
     }
 }
 
-std::unique_ptr<W8WorldItem> CreateWorldItem(W8ItemInstance* item, const glm::vec3* position,
-                                             int entity_flags)
+std::unique_ptr<W8WorldItem> Game::createWorldItem(World& world, W8ItemInstance* item,
+                                                   const glm::vec3* position, int entity_flags)
 {
     auto result = std::make_unique<W8WorldItem>();
-    *(&result->item) = W8ItemInstance{.iItemNo = -1};
-    result->runtime_id = CurrentGame().status.next_world_item_id++;
+    result->item = W8ItemInstance{.iItemNo = -1};
+    result->runtime_id = status.next_world_item_id++;
     result->position = *position;
     result->sector_id = -1;
-    SettleWorldItem(result.get());
+    world.settleItem(result.get());
     result->entity_flags = entity_flags;
-    if (item) *(&result->item) = std::exchange(*(item), W8ItemInstance{.iItemNo = -1});
+    if (item) result->item = std::exchange(*item, W8ItemInstance{.iItemNo = -1});
     return result;
 }
 
-W8WorldItem* AddWorldItem(std::unique_ptr<W8WorldItem> item)
+std::unique_ptr<W8WorldItem> Game::spawnWorldItem(World& world, int item_id,
+                                                  const glm::vec3* position, int entity_flags)
 {
-    auto* result = item.get();
-    if (item) CurrentLevelPopulation().world_items.push_back(std::move(item));
-    return result;
-}
-
-std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, int entity_flags)
-{
-    W8ItemInstance local_item;
-    W8ItemInstance* item;
-    std::unique_ptr<W8WorldItem> result;
-
-    if (item_id == -1) {
-        item = 0;
-    } else {
-        local_item = MakeItem(Data(), CurrentGame().rng, item_id, false, false, false);
-        item = &local_item;
-    }
-
-    result = CreateWorldItem(item, position, entity_flags);
-    assert(result != 0);
-    return result;
+    if (item_id == -1) return createWorldItem(world, nullptr, position, entity_flags);
+    auto item = MakeItem(data, rng, item_id, false, false, false);
+    return createWorldItem(world, &item, position, entity_flags);
 }
 
 /* Monster loot drop, driven by the death switch in MonsterManager. Non-NPC
@@ -902,7 +633,7 @@ std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, i
    rolls item_count_dice items out of what remains; the NPC's gold field
    pays out directly. One drop is adopted into plsItemList at the death
    position; two or more are owned by a container spawned with
-   SpawnItem - 0x23c by default, or value when the caller names one. */
+   spawnWorldItem - 0x23c by default, or value when the caller names one. */
 void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
 {
     std::vector<std::unique_ptr<W8WorldItem>> items;
@@ -926,8 +657,9 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                     int rolls = RollDice(&entry->dice);
                     for (roll = 0; roll < rolls; ++roll) {
                         if (entry->type == 0) {
-                            item = SpawnItem(entry->item_id, &position,
-                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
+                            item = CurrentGame().spawnWorldItem(
+                                CurrentGame().level.loaded(), entry->item_id, &position,
+                                W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
                             if (item != 0) {
                                 items.push_back(std::move(item));
                             }
@@ -945,8 +677,9 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                     fmt::format("NPC monster {} has no NPC state", monster_info->monster_species));
             for (index = 0; index < 40; ++index) {
                 if (npc->item_ids[index] != -1 && npc->item_weights[index] == 0) {
-                    item = SpawnItem(npc->item_ids[index], &position,
-                                     W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
+                    item = CurrentGame().spawnWorldItem(
+                        CurrentGame().level.loaded(), npc->item_ids[index], &position,
+                        W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
                     if (item != 0) {
                         items.push_back(std::move(item));
                     }
@@ -976,8 +709,9 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                     if (npc->item_ids[pick] != -1 &&
                         static_cast<short>(CurrentGame().rng.below(total_weight)) <=
                             static_cast<short>(static_cast<signed char>(npc->item_weights[pick]))) {
-                        item = SpawnItem(npc->item_ids[pick], &position,
-                                         W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
+                        item = CurrentGame().spawnWorldItem(
+                            CurrentGame().level.loaded(), npc->item_ids[pick], &position,
+                            W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
                         if (item != 0) {
                             items.push_back(std::move(item));
                         }
@@ -992,15 +726,17 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
             AddPartyGold(CurrentGame(), gold, true);
         }
         if (items.size() == 1) {
-            auto* dropped = AddWorldItem(std::move(items[0]));
+            auto* dropped = CurrentGame().level.loaded().adoptItem(std::move(items[0]));
             dropped->position = position;
         } else if (items.size() > 1) {
             W8WorldItem* container;
             if (value == -1) {
-                container = AddWorldItem(SpawnItem(0x23c, &position, W8_ITEM_ENTITY_ROTATE));
+                container = CurrentGame().level.loaded().adoptItem(CurrentGame().spawnWorldItem(
+                    CurrentGame().level.loaded(), 0x23c, &position, W8_ITEM_ENTITY_ROTATE));
             } else {
-                container = AddWorldItem(
-                    SpawnItem(value, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                container = CurrentGame().level.loaded().adoptItem(
+                    CurrentGame().spawnWorldItem(CurrentGame().level.loaded(), value, &position,
+                                                 W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             }
             container->contents = std::move(items);
         }

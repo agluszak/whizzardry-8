@@ -349,8 +349,14 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   `Game::travelToLevel` owns that sequence and leaves the outgoing level only after
   the destination and its saved status have been prepared. A failed destination
   leaves the current world loaded, but this is not yet an isolation guarantee:
-  embedded monster/item construction, trigger seeds and prop variables still touch
-  the installed game while parsing. Malformed compiled-level sections return a
+  embedded monster construction, trigger seeds and prop variables still touch
+  the installed game while parsing. Item creation uses the supplied game for its
+  data, RNG and continuing runtime IDs; its candidate world owns ground/sector
+  queries, the item record, scene attachment and lighting. Loading does not defer
+  item construction past later props: trigger/item/yaw random draws and legacy
+  APST identity allocation keep their established order. The world-item operation
+  implementation cannot include the game or screens or find the installed world;
+  the layer check enforces this boundary. Malformed compiled-level sections return a
   loading failure rather than asking presentation to terminate the application.
 - Departure ends combat and captures script state into location variables before
   resources are released. Destruction does no departure bookkeeping. `Game::leaveLevel`

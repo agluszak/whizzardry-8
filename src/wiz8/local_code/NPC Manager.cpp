@@ -2090,18 +2090,20 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
         monster_info = GetNpcMonsterInfo(npc);
         if (monster_info != 0) {
             position = monster_info->entity->nav.GetPosition();
-            W8WorldItem* item = AddWorldItem(
-                SpawnItem(0x1e6, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+            W8WorldItem* item = CurrentGame().level.loaded().adoptItem(
+                CurrentGame().spawnWorldItem(CurrentGame().level.loaded(), 0x1e6, &position,
+                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
 
             if (item != 0) {
-                ActivateItem(item);
+                CurrentGame().level.loaded().activateItem(Data(), CurrentGame().rng, item);
             }
         } else if (FindEntityByName("NP_Glumph", &position, 0, 0)) {
-            W8WorldItem* item = AddWorldItem(
-                SpawnItem(0x1e6, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+            W8WorldItem* item = CurrentGame().level.loaded().adoptItem(
+                CurrentGame().spawnWorldItem(CurrentGame().level.loaded(), 0x1e6, &position,
+                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
 
             if (item != 0) {
-                ActivateItem(item);
+                CurrentGame().level.loaded().activateItem(Data(), CurrentGame().rng, item);
             }
         }
     }

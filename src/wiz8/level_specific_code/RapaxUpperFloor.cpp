@@ -7,6 +7,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -40,6 +41,8 @@ void RunTreasureDoor()
    Returns 0 once the treasure is delivered. */
 bool DoorDone(Trigger* pTrigger)
 {
+    auto& game = CurrentGame();
+    auto& owner = game.level.loaded();
     glm::vec3 entity_position;
     glm::vec3 position;
     W8WorldItem* world_item;
@@ -52,10 +55,11 @@ bool DoorDone(Trigger* pTrigger)
                     item_id = GetLocationVarValueByName("TMakeTreasureNumber");
                     if (FindEntityByName("NP_SlipItem", &entity_position, 0, 0)) {
                         position = entity_position;
-                        world_item = AddWorldItem(SpawnItem(
-                            item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                        world_item = owner.adoptItem(
+                            game.spawnWorldItem(owner, item_id, &position,
+                                                W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
                         if (world_item != 0) {
-                            ActivateItem(world_item);
+                            owner.activateItem(game.data, game.rng, world_item);
                         }
                     }
                     RunTreasureDoor();
@@ -111,10 +115,10 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
             if (var_id == -1 || GetLocationVarValueByName("TdoorOpen") == 0) {
                 if (FindEntityByName("NP_SlipItem", &entity_position, 0, 0)) {
                     position = entity_position;
-                    world_item = AddWorldItem(SpawnItem(
-                        item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                    world_item = world().adoptItem(ctx.game.spawnWorldItem(
+                        world(), item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
                     if (world_item != 0) {
-                        ActivateItem(world_item);
+                        world().activateItem(ctx.game.data, ctx.game.rng, world_item);
                     }
                 }
                 RunTreasureDoor();

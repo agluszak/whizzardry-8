@@ -93,6 +93,7 @@ target_sources(wiz8_engine PRIVATE
     ../world/automap.cpp
     ../world/level_session.cpp
     ../world/level_loader.cpp
+    ../world/items.cpp
     ../render/resources/mesh_loader.cpp
     ../world/world.cpp
     ../render/effects/particle_system.cpp

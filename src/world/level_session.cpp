@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include <SDL3/SDL_filesystem.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -61,13 +62,6 @@
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
-
-namespace {
-Level& CurrentLevel()
-{
-    return CurrentGame().level;
-}
-}
 
 World* GetWorld()
 {
@@ -210,10 +204,10 @@ std::string_view GetLevelFolderName(int level_id)
    the previous sky. A replacement receives the animated-cloud material:
    its cloud meshes are marked for the renderer's
    control bits and every CloudsN prop's mesh chain is rebound to it. */
-static std::unique_ptr<World> PrepareSkyWorld(std::string_view sky_path)
+static std::unique_ptr<World> PrepareSkyWorld(Game& game, std::string_view sky_path)
 {
     if (sky_path.empty()) return nullptr;
-    auto replacement = LoadWorld(-1, std::string(sky_path));
+    auto replacement = game.loadWorld(-1, std::string(sky_path));
     if (!replacement) return nullptr;
     auto* sky = replacement.get();
 
@@ -255,19 +249,6 @@ static std::unique_ptr<World> PrepareSkyWorld(std::string_view sky_path)
     WorldRemoveLight(sky, sky->camera_light);
     sky->camera_light = 0;
     return replacement;
-}
-
-bool LoadSkyWorld(std::string_view sky_path)
-{
-    Level& level = CurrentLevel();
-    if (level.sky &&
-        level.sky->source_path == wiz8::normalize_asset_path(sky_path).generic_string())
-        return true;
-    auto replacement = PrepareSkyWorld(sky_path);
-    if (!sky_path.empty() && !replacement) return false;
-    level.replaceSky(std::move(replacement));
-    if (!level.sky) ResetEnvironment();
-    return true;
 }
 
 unsigned short g_level_name_indices[W8_LEVEL_COUNT] = {
@@ -507,7 +488,7 @@ static bool TravelToLevel(Game& game, int requested_level, int entrance, bool re
         return false;
     }
 
-    auto replacement = LoadWorld(level, level_info.level_path);
+    auto replacement = game.loadWorld(level, level_info.level_path);
     if (!replacement) return false;
     auto ambient_path = wiz8::path_from_utf8(level_info.level_path);
     ambient_path.replace_extension(".SCF");
@@ -516,7 +497,7 @@ static bool TravelToLevel(Game& game, int requested_level, int entrance, bool re
     const bool reuse_sky =
         current.sky && current.sky->source_path ==
                            wiz8::normalize_asset_path(level_info.sky_path).generic_string();
-    auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(level_info.sky_path);
+    auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(game, level_info.sky_path);
     if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return false;
     if (current.primary) game.left_levels.store(LevelState::capture(current, game.status));
     auto state = game.left_levels.decode(level);

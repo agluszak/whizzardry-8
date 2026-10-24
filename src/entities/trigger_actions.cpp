@@ -936,7 +936,8 @@ void Trigger::GenerateItemGroup()
     maximum_items = RollDice(&Data().item_tables[table_id].item_count_dice);
     GenerateItemsFromTable(items, table_id, maximum_items, position);
     if (world_item_group == 0) {
-        world_item_group = SpawnItem(0x23c, &position, 0);
+        world_item_group =
+            CurrentGame().spawnWorldItem(CurrentGame().level.loaded(), 0x23c, &position, 0);
     }
     for (index = 0; index < static_cast<int>(items.size()); ++index) {
         world_item_group->contents.push_back(std::move(items[index]));
@@ -951,7 +952,8 @@ void Trigger::GenerateItemGroup()
 W8WorldItem* Trigger::GetOrCreateItemGroup(bool create)
 {
     if (create && world_item_group == 0) {
-        world_item_group = SpawnItem(0x23c, &position, 0);
+        world_item_group =
+            CurrentGame().spawnWorldItem(CurrentGame().level.loaded(), 0x23c, &position, 0);
     }
     return world_item_group.get();
 }
@@ -1362,13 +1364,15 @@ void Trigger::Run(int source)
         if (inline_action_data[0] != '\0') {
             if (auto held = CurrentGame().inventory.take({W8ItemStorage::Hand})) {
                 glm::vec3 item_position;
-                auto item = CreateWorldItem(&*held, &item_position,
-                                            W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
+                auto item = CurrentGame().createWorldItem(
+                    CurrentGame().level.loaded(), &*held, &item_position,
+                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
 
                 if (item != 0) {
                     if (world_item_group == 0) {
                         glm::vec3 group_position;
-                        world_item_group = SpawnItem(0x23c, &group_position, 0);
+                        world_item_group = CurrentGame().spawnWorldItem(
+                            CurrentGame().level.loaded(), 0x23c, &group_position, 0);
                     }
                     world_item_group->contents.push_back(std::move(item));
                 }

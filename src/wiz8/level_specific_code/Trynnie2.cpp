@@ -122,16 +122,18 @@ bool Trynnie2Script::giveZulu(Trigger* pTrigger)
 /* "Meat_Maker": spawn the meat item at the Meat_Position entity. */
 bool MeatMaker(Trigger* pTrigger)
 {
+    auto& game = CurrentGame();
+    auto& owner = game.level.loaded();
     glm::vec3 entity_position;
     glm::vec3 position;
     W8WorldItem* item;
 
     if (FindEntityByName("Meat_Position", &entity_position, 0, 0)) {
         position = entity_position;
-        item =
-            AddWorldItem(SpawnItem(0x1b4, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+        item = owner.adoptItem(game.spawnWorldItem(owner, 0x1b4, &position,
+                                                   W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
         if (item != 0) {
-            ActivateItem(item);
+            owner.activateItem(game.data, game.rng, item);
         }
     }
     return true;

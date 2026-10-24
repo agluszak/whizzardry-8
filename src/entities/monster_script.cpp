@@ -407,7 +407,7 @@ void Monster::ProcessScript()
             case MONSCR_GIVE:
                 tokens >> token;
                 if (tokens) {
-                    int item = FindItemRecordByName(token.c_str());
+                    int item = FindItemRecordByName(Data(), token.c_str());
                     if (item != -1) {
                         auto& game = CurrentGame();
                         game.inventory.replaceHeld(

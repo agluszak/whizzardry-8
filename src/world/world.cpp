@@ -6,7 +6,6 @@
 #include <cmath>
 #include <cstddef>
 #include <filesystem>
-#include <initializer_list>
 #include <memory>
 #include <ranges>
 #include <stdexcept>
@@ -77,7 +76,7 @@
 #include "wiz8/local_code/MonsterGenerator.h" // IWYU pragma: keep
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/local_code/SpellEffect.h" // IWYU pragma: keep - completes world-owned casts.
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/world/automap.h"

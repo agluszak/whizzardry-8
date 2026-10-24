@@ -1,4 +1,3 @@
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
@@ -14,12 +13,10 @@
 #include "glm/ext/vector_int2.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "navigation_flags.h"
-#include "wiz8/containers.h"
 #include "wiz8/entities/locks.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/surface_geometry.h"
-#include "wiz8/world/world.h"
 /* Engine Code\Prop.cpp */
 
 #include "wiz8/entities/prop.h"
@@ -258,37 +255,6 @@ bool Prop::RegisterPathVertex(unsigned int index, const glm::ivec2& point, const
     if (!found) return false;
     m_path_edges.push_back(static_cast<unsigned short>(index));
     return true;
-}
-
-/* Register the item on the collidable prop's sector list, building the path
-   representation and the list itself on first use. */
-void AddItemToSector(int sector, W8WorldItem* item)
-{
-    if (item != 0 && sector >= 0) {
-        Prop* prop = GetWorld()->collidable_props[sector];
-        Prop* gd = (prop->collision_ready ? prop : nullptr);
-        if (gd == 0) {
-            prop->BuildOrRefreshPathingRepresentation(GetWorldPathing());
-            gd = (prop->collision_ready ? prop : nullptr);
-            if (gd == 0) {
-                return;
-            }
-        }
-        if (!std::ranges::contains(gd->m_supported_items, item)) {
-            gd->m_supported_items.push_back(item);
-        }
-    }
-}
-
-/* Drop the item from the collidable prop's sector list when both exist. */
-void RemoveItemFromSector(int sector, W8WorldItem* item)
-{
-    if (item != 0 && sector >= 0) {
-        Prop* prop = GetWorld()->collidable_props[sector];
-        if (prop != 0 && prop->collision_ready) {
-            wiz8::erase_first(prop->m_supported_items, item);
-        }
-    }
 }
 
 /* Whether any world items are supported by this prop. */

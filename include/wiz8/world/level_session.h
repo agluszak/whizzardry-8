@@ -16,7 +16,6 @@ int FindLevelIdByLocationCode(std::string_view location_code);
 extern unsigned short g_level_name_indices[W8_LEVEL_COUNT];
 
 bool LevelBuildInfoByID(int level_id, W8LevelInfo* info);
-bool LoadSkyWorld(std::string_view sky_path);
 
 signed char GetLevelBand(int saved_level);
 
