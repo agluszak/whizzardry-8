@@ -1,7 +1,7 @@
 #include "wiz8/local_code/ItemManager.h"
 
 #include <cassert>
-#include <cmath>
+#include <cstddef>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -29,7 +29,6 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/game.h"
-#include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_tables.h"
@@ -41,7 +40,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/render/picking.h"
-#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/spatial/bounding_box.h"

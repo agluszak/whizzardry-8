@@ -7,7 +7,6 @@
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayTime.h"
-#include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterManager.h"

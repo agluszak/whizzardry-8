@@ -17,7 +17,6 @@
 #include <glm/trigonometric.hpp>
 #include <glm/vector_relational.hpp>
 
-#include "audio_resources.h"
 #include "geometry.h"
 #include "glm/ext/matrix_float2x2.hpp"
 #include "glm/ext/matrix_float3x3.hpp"
@@ -27,7 +26,6 @@
 #include "glm/gtx/projection.hpp"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/SoundEvent.h"
-#include "wiz8/audio/soundman.h"
 #include "wiz8/combat/fight.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
