@@ -44,6 +44,7 @@
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 // The game's inputs to statistic calculations: combat actions and NPC story state.
 static CharacterStatRules CaptureLiveCharacterStatRules(const Game& game, unsigned int slot)
@@ -138,7 +139,8 @@ bool ClearCondition(Game& game, unsigned int slot, W8Condition condition, bool a
     assert(game.party.members[slot].has_value());
     assert(character.uiCondition[condition] != 0);
     if (condition == W8_CONDITION_HEXED &&
-        InfatuationHoldsHex(character, GetLevelBand(GetLoadedLevelID())))
+        InfatuationHoldsHex(character,
+                            game.levelBand(game.level.primary ? game.level.primary->level_id : -1)))
         return false;
     if (condition == W8_CONDITION_INSANE &&
         MadnessRingHoldsInsanity(game.party, game.inventory.find(ItemWithId(kItemMadnessRing)),

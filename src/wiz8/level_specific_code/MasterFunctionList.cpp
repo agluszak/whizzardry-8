@@ -403,16 +403,6 @@ bool LevelScript::partyVoice(int command, W8WorldCursorNode* node)
 
 /* Master-function values 0x10 and 0x26 select the same path once either of
    the two enabling facts has been set. */
-int NormalizeMasterFunctionValue(int value)
-{
-    if (value == 0x10 || value == 0x26) {
-        if (GetFact(W8_FACT_RAPAX_AWAY_CAMP_EXISTS) == 0 && GetFact(W8_FACT_PARTY_AT_RAC) == 0) {
-            return 0x26;
-        }
-        value = 0x10;
-    }
-    return value;
-}
 
 /* Format the current level's message-database path, fetch the indexed string
    and show it. Answers whether the string existed. */

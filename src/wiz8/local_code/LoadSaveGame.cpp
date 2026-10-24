@@ -1870,7 +1870,7 @@ void SavedGame::install(Game& game) &&
             npc.record = &game.data.npcs[npc.name_style];
             if (npc.is_grouped) {
                 npc.is_present = false;
-                npc.level_band = GetLevelBand(-1);
+                npc.level_band = game.levelBand(-1);
                 npc.bound_level = -1;
                 npc.script_file = LoadNpcScriptResources(game.story, npc, nullptr);
             }

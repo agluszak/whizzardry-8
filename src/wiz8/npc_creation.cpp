@@ -27,7 +27,6 @@
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/random.h"
 #include "wiz8/story.h"
-#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 static void InitializeNpcCharacter(const GameData& data, Rng& rng,
@@ -183,7 +182,7 @@ W8PreparedNpcBindings Game::prepareNpcBindings(World& world)
         }
         reserved[slot] = true;
         existing->location_id = info.location_id;
-        existing->level_band = GetLevelBand(world.level_id);
+        existing->level_band = levelBand(world.level_id);
         existing->bound_level = static_cast<unsigned char>(world.level_id);
         // Without a created state the slot holds the story's own NPC (source).
         W8NpcState& npc = existing->created ? *existing->created : *existing->previous;

@@ -224,23 +224,23 @@ int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text)
     }
     for (index = 0; g_npc_script_region_names[index].name[0] != 0; ++index) {
         if (CompareTextIgnoreAsciiCase(text, g_npc_script_region_names[index].name) == 0) {
-            band = GetLevelBand(GetLoadedLevelID());
+            band = CurrentGame().levelBand(GetLoadedLevelID());
             return g_npc_region_quotes[g_npc_script_region_names[index].region][band];
         }
     }
     if (CompareTextIgnoreAsciiCase(text, "Mt Gigas") == 0 ||
         CompareTextIgnoreAsciiCase(text, "Gigas") == 0) {
-        band = GetLevelBand(GetLoadedLevelID());
+        band = CurrentGame().levelBand(GetLoadedLevelID());
         return g_npc_region_quotes[11][band];
     }
     if (CompareTextIgnoreAsciiCase(text, "the swamp") == 0) {
-        band = GetLevelBand(GetLoadedLevelID());
+        band = CurrentGame().levelBand(GetLoadedLevelID());
         return g_npc_region_quotes[4][band];
     }
     if (CompareTextIgnoreAsciiCase(text, "the Monastery") != 0) {
         return -1;
     }
-    band = GetLevelBand(GetLoadedLevelID());
+    band = CurrentGame().levelBand(GetLoadedLevelID());
     return g_npc_region_quotes[1][band];
 }
 

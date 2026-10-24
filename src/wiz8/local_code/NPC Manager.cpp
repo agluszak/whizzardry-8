@@ -513,7 +513,7 @@ void UpdateNpcPartyMember(int party_slot)
         ShowNotice(W8_FONT_PALETTE_RED, Data().strings[0x7d5]);
         return;
     }
-    if (NpcOffersService(npc, GetLevelBand(GetLoadedLevelID()))) {
+    if (NpcOffersService(npc, CurrentGame().levelBand(GetLoadedLevelID()))) {
         if (character->highest_condition > W8_CONDITION_WEBBED) {
             npc->event_pending = 1;
             BeginScriptedWorldAction();
@@ -678,7 +678,7 @@ bool CanNpcJoinParty(W8NpcState* npc)
     }
     /* The service ids are the GetLevelBand region numbering: an NPC who offers
        the current region's service stays on duty and refuses to join. */
-    if (NpcOffersService(npc, GetLevelBand(GetLoadedLevelID()))) {
+    if (NpcOffersService(npc, CurrentGame().levelBand(GetLoadedLevelID()))) {
         return false;
     }
     if (npc->name_style == W8_NPC_GLUMPH && GetFact(W8_FACT_UMISSION_SCUBA_DONE) != 0) {
@@ -831,7 +831,7 @@ void ProcessNpcPendingEvents(void)
             if (flagged) {
                 CurrentGame().status.infatuation_pending = false;
             } else {
-                signed char band = GetLevelBand(GetLoadedLevelID());
+                signed char band = CurrentGame().levelBand(GetLoadedLevelID());
                 if (band != 9 && band != 0xa) {
                     W8Character* character =
                         &CurrentGame().party.characters[CurrentGame().status.sedexus_party_slot];
@@ -852,7 +852,7 @@ void ProcessNpcPendingEvents(void)
             int service = 0;
             if (g_npc_services[0].service_id != 0xffffffff) {
                 while (g_npc_services[service].service_id !=
-                       static_cast<unsigned int>(GetLevelBand(GetLoadedLevelID()))) {
+                       static_cast<unsigned int>(CurrentGame().levelBand(GetLoadedLevelID()))) {
                     ++service;
                     if (g_npc_services[service].service_id == 0xffffffff) {
                         CurrentGame().status.binding_reset_pending = false;
@@ -868,7 +868,7 @@ void ProcessNpcPendingEvents(void)
                     W8NpcState* npc = GetNpcState(CurrentGame().party.npcIndex(slot));
                     if (character->highest_condition < W8_CONDITION_ASLEEP) {
                         int event = 0;
-                        if (GetLevelBand(GetLoadedLevelID()) != 0xd) {
+                        if (CurrentGame().levelBand(GetLoadedLevelID()) != 0xd) {
                             if (npc->name_style == W8_NPC_RODAN &&
                                 (!CurrentGame().party.members[0].has_value() ||
                                  GetNpcState(CurrentGame().party.npcIndex(0))->name_style !=
@@ -895,7 +895,8 @@ void ProcessNpcPendingEvents(void)
                         W8NpcState* bound = GetNpcState(CurrentGame().party.npcIndex(slot));
                         if (bound != 0 && bound->service_flags[service] == 0) {
                             bound->service_flags[service] = 1;
-                            if (!NpcOffersService(bound, GetLevelBand(GetLoadedLevelID())) &&
+                            if (!NpcOffersService(bound,
+                                                  CurrentGame().levelBand(GetLoadedLevelID())) &&
                                 service != 0xc && service != 0xd) {
                                 QueueCharacterEvent(
                                     character,
@@ -905,7 +906,7 @@ void ProcessNpcPendingEvents(void)
                         }
                         bound = GetNpcState(CurrentGame().party.npcIndex(slot));
                         if (bound != 0) {
-                            signed char band = GetLevelBand(GetLoadedLevelID());
+                            signed char band = CurrentGame().levelBand(GetLoadedLevelID());
                             for (int index = 0; g_npc_services[index].service_id != 0xffffffff;
                                  ++index) {
                                 if (g_npc_services[index].service_id ==
@@ -1103,7 +1104,7 @@ void BindNpcToMonster(unsigned char npc_id, bool has_monster, int location_id)
     npc->location_id = location_id;
     npc->is_present = has_monster;
     npc->has_monster = true;
-    npc->level_band = GetLevelBand(GetLoadedLevelID());
+    npc->level_band = CurrentGame().levelBand(GetLoadedLevelID());
     npc->bound_level = static_cast<unsigned char>(GetLoadedLevelID());
     ReloadNpcScriptResources(npc);
 }
@@ -1940,7 +1941,8 @@ void RebindNpcLevelTriggers(void)
                 trigger->activation_callback = NotifyNpcTriggerActivation;
                 trigger->m_lData1 = static_cast<int>(npc_index);
                 npc->has_monster = true;
-                npc->level_band = static_cast<unsigned char>(GetLevelBand(GetLoadedLevelID()));
+                npc->level_band =
+                    static_cast<unsigned char>(CurrentGame().levelBand(GetLoadedLevelID()));
                 npc->bound_level = static_cast<unsigned char>(GetLoadedLevelID());
                 ReloadNpcScriptResources(npc);
                 npc->is_present = false;
@@ -2009,14 +2011,15 @@ bool QueueNpcDepartureEvents(int destination_level)
         if (g_npc_services[0].service_id != 0xffffffff) {
             while (g_npc_services[service].service_id != 0xffffffff) {
                 if (g_npc_services[service].service_id ==
-                    static_cast<unsigned int>(GetLevelBand(destination_level))) {
+                    static_cast<unsigned int>(CurrentGame().levelBand(destination_level))) {
                     if ((npc->record->service_flags & g_npc_services[service].bit) != 0) {
                         int other = 0;
                         bool serves_here = false;
                         if (g_npc_services[0].service_id != 0xffffffff) {
                             while (g_npc_services[other].service_id != 0xffffffff) {
                                 if (g_npc_services[other].service_id ==
-                                    static_cast<unsigned int>(GetLevelBand(GetLoadedLevelID()))) {
+                                    static_cast<unsigned int>(
+                                        CurrentGame().levelBand(GetLoadedLevelID()))) {
                                     if ((npc->record->service_flags & g_npc_services[other].bit) !=
                                         0) {
                                         serves_here = true;
@@ -2032,7 +2035,7 @@ bool QueueNpcDepartureEvents(int destination_level)
                                 while (g_npc_services[departure].service_id != 0xffffffff) {
                                     if (g_npc_services[departure].service_id ==
                                         static_cast<unsigned int>(
-                                            GetLevelBand(destination_level))) {
+                                            CurrentGame().levelBand(destination_level))) {
                                         QueueCharacterEvent(character,
                                                             g_npc_services[departure].npc_id, 0,
                                                             kCharacterEventFullVolume);
@@ -2049,7 +2052,7 @@ bool QueueNpcDepartureEvents(int destination_level)
                 ++service;
             }
         }
-        if (GetLevelBand(GetLoadedLevelID()) == 0xd) {
+        if (CurrentGame().levelBand(GetLoadedLevelID()) == 0xd) {
             int event = 0;
             if (npc->name_style == W8_NPC_RODAN) {
                 bool paired = HasHealthyNpcPartner(W8_NPC_DRAZIC);
@@ -2091,7 +2094,7 @@ void QueueNpcTravelRefusals(int destination_level)
         if (character->highest_condition >= W8_CONDITION_ASLEEP) {
             continue;
         }
-        if (NpcOffersService(npc, GetLevelBand(destination_level))) {
+        if (NpcOffersService(npc, CurrentGame().levelBand(destination_level))) {
             BeginScriptedWorldAction();
             CurrentGame().npc_dialogue.Queue(W8NpcDismiss{slot});
         }

@@ -721,7 +721,8 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
     }
 
     if (character->uiCondition[W8_CONDITION_INFATUATED] != 0) {
-        if (GetLevelBand(GetLoadedLevelID()) == 9 || GetLevelBand(GetLoadedLevelID()) == 0xa) {
+        if (CurrentGame().levelBand(GetLoadedLevelID()) == 9 ||
+            CurrentGame().levelBand(GetLoadedLevelID()) == 0xa) {
             if (character->uiCondition[W8_CONDITION_HEXED] == W8_CONDITION_INDEFINITE) {
                 LiftCondition(CurrentGame(), party_slot, W8_CONDITION_HEXED, true);
             }

@@ -29,6 +29,7 @@
 #include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -129,8 +130,20 @@ const W8LevelFolderRecord g_level_folders[W8_LEVEL_COUNT] = {
     {"Spare20", "Spare20", "SPK", 0, 0},
 };
 
-signed char GetLevelBand(int level)
+int Game::normalizeLevel(int requested) const
 {
+    if (requested == 0x10 || requested == 0x26) {
+        // The away-camp fact derives from these three devices. Resolve it from
+        // this game's inventory, without running the global fact logger.
+        const int devices = inventory.has(0x242) + inventory.has(0x243) + inventory.has(0x244);
+        return devices >= 2 || story.facts[W8_FACT_PARTY_AT_RAC] ? 0x10 : 0x26;
+    }
+    return requested;
+}
+
+signed char Game::levelBand(int requested) const
+{
+    const int level = normalizeLevel(requested);
     return level >= 0 && level < W8_LEVEL_COUNT ? g_level_folders[level].level_band : 0;
 }
 
@@ -480,7 +493,7 @@ static void LeaveLoadedLevel(Game& game)
 static bool TravelToLevel(Game& game, int requested_level, int entrance, bool restoring_game,
                           std::vector<std::unique_ptr<W8SpellEffectEntry>> restored_casts = {})
 {
-    int level = NormalizeMasterFunctionValue(requested_level);
+    int level = game.normalizeLevel(requested_level);
     W8LevelInfo level_info;
 
     if (level >= 57) return false; // A saved level number outside the level table.

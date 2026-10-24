@@ -17,8 +17,6 @@ extern unsigned short g_level_name_indices[W8_LEVEL_COUNT];
 
 bool LevelBuildInfoByID(int level_id, W8LevelInfo* info);
 
-signed char GetLevelBand(int saved_level);
-
 extern bool g_camera_path_active;
 extern float g_default_world_height;
 extern const float g_position_height_epsilon;

@@ -195,7 +195,8 @@ void RefreshLevelUpReadyNotices(void)
 {
     int party_slot;
 
-    if (CurrentGame().status.greeting_pending || GetLevelBand(GetLoadedLevelID()) == 0xe) {
+    if (CurrentGame().status.greeting_pending ||
+        CurrentGame().levelBand(GetLoadedLevelID()) == 0xe) {
         return;
     }
 

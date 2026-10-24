@@ -3733,7 +3733,7 @@ DesignRect g_viewport_modes[7] = {
    straight into the pending screen state and modes 3/5/6 are torn down. */
 void RequestLevelTransition(int level, int entry, unsigned char flag)
 {
-    unsigned int normalized = NormalizeMasterFunctionValue(level);
+    unsigned int normalized = CurrentGame().normalizeLevel(level);
 
     const int level_id = static_cast<int>(normalized);
     if (flag != 0) {

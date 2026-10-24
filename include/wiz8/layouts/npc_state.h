@@ -56,7 +56,7 @@ struct W8NpcState : std::enable_shared_from_this<W8NpcState> {
     /* 0x22/0x23: cleared when the dialogue NPC is staged. */
     bool flag;
     bool flag0;
-    /* 0x24: the level-band byte GetLevelBand returns for the bound level. */
+    /* 0x24: the level-band byte Game::levelBand returns for the bound level. */
     unsigned char level_band;
     bool is_present; /* 0x25 */
     bool is_grouped; /* 0x26 */

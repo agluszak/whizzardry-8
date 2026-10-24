@@ -3927,7 +3927,7 @@ void LearnDialogueKeyword(std::string_view text, W8DialogueCategory category, bo
 void RecordLevelEntryDialogueState(void)
 {
     std::string region_name;
-    int region = GetLevelBand(GetLoadedLevelID());
+    int region = CurrentGame().levelBand(GetLoadedLevelID());
     region_name = GetNpcScriptRegionName(region);
     if (!region_name.empty()) {
         LearnDialogueKeyword(region_name, W8_DIALOGUE_CATEGORY_PLACES, false);

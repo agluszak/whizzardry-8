@@ -10,7 +10,6 @@ struct W8MonsterGroup;
 struct World;
 class Sound3D;
 
-int NormalizeMasterFunctionValue(int value);
 /* Dispatch one world-cursor-node command through the loaded level's script
    (LevelScript::dispatchCursorNodeCommand); false while no level is loaded. */
 bool DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, int argument = 0);

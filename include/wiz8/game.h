@@ -131,6 +131,8 @@ public:
        nor kills the summoned monsters. */
     void endCombat(bool forced_cleanup);
     void resetSight();
+    int normalizeLevel(int requested) const;
+    signed char levelBand(int requested) const;
     W8NpcState* createNpcRuntimeNode(int npc_id);
     W8PreparedNpcBindings prepareNpcBindings(World& world);
 

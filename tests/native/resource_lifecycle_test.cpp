@@ -1386,17 +1386,21 @@ TEST_CASE("NPC preparation keeps story identity and publishes only into its supp
     const auto monster_scripts = directory.path / "assets/data/monsters/scripts";
     std::filesystem::create_directories(npc_scripts);
     std::filesystem::create_directories(monster_scripts);
-    for (const auto* name : {"NPC_Singleton.nsf", "NPC_RFS81B.nsf"}) {
+    for (const auto* name : {"npc_singleton.nsf", "npc_rfs81b.nsf"}) {
         auto file = wiz8::open_file(npc_scripts / name, wiz8::OpenMode::replace);
         const wiz8::retail::nsf::Header header{};
         file->write(&header, sizeof(header));
     }
     {
-        auto file = wiz8::open_file(monster_scripts / "NPC_Singleton.msf", wiz8::OpenMode::replace);
+        auto file = wiz8::open_file(monster_scripts / "npc_singleton.msf", wiz8::OpenMode::replace);
         constexpr char source[] = "* candidate monster script\n";
         file->write(source, sizeof(source) - 1);
     }
     roots.configure({(directory.path / "assets").string(), (directory.path / "user").string()});
+    REQUIRE(
+        std::filesystem::is_regular_file(wiz8::asset_path("Data\\NPC Scripts\\NPC_Singleton.nsf")));
+    REQUIRE(std::filesystem::is_regular_file(
+        wiz8::asset_path("Data\\Monsters\\Scripts\\NPC_Singleton.msf")));
     GameData active_data;
     active_data.npcs.resize(1);
     active_data.npcs[0].kind = 0;
@@ -1584,11 +1588,26 @@ TEST_CASE("Recruitable NPC construction uses standalone spell and character rule
                                 [](const auto& item) { return item.iItemNo == -1; }));
 }
 
-TEST_CASE("Level-band queries need no installed session or fact evaluation", "[resources][levels]")
+TEST_CASE("Level variants and bands use the supplied game's inventory and facts",
+          "[resources][levels]")
 {
     REQUIRE_FALSE(GameInProgress());
-    REQUIRE(GetLevelBand(0x10) == 7);
-    REQUIRE(GetLevelBand(0x26) == 7);
-    REQUIRE(GetLevelBand(-1) == 0);
-    REQUIRE(GetLevelBand(W8_LEVEL_COUNT) == 0);
+    GameData data;
+    Game game(data);
+    REQUIRE(game.normalizeLevel(0x10) == 0x26);
+    REQUIRE(game.levelBand(0x10) == 0);
+    REQUIRE(game.levelBand(0x26) == 0);
+    game.story.facts[W8_FACT_PARTY_AT_RAC] = 1;
+    REQUIRE(game.normalizeLevel(0x26) == 0x10);
+    REQUIRE(game.levelBand(0x10) == 13);
+    REQUIRE(game.levelBand(0x26) == 13);
+    game.story.facts[W8_FACT_PARTY_AT_RAC] = 0;
+    game.inventory.restore({W8ItemInstance{.iItemNo = 0x242}}, std::nullopt);
+    REQUIRE(game.levelBand(0x10) == 0);
+    game.inventory.restore({W8ItemInstance{.iItemNo = 0x242}, W8ItemInstance{.iItemNo = 0x244}},
+                           std::nullopt);
+    REQUIRE(game.normalizeLevel(0x26) == 0x10);
+    REQUIRE(game.levelBand(0x26) == 13);
+    REQUIRE(game.levelBand(-1) == 0);
+    REQUIRE(game.levelBand(W8_LEVEL_COUNT) == 0);
 }
