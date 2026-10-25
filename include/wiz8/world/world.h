@@ -127,6 +127,7 @@ struct World {
     void refreshGroupNavigation(const W8MonsterGroup& group, bool combat_active);
     void restartGroupScripts();
     void initializeMonsterVitals(Rng& rng);
+    void eraseMonster(W8MonsterInfo& monster, bool retire_particles);
     void replaceGroupLeader(W8MonsterGroup& group, bool combat_active);
     // PARTY resolves to this world's eye position; authored markers also supply facing.
     const W8NamedPosition* namedMarker(std::string_view name) const;
@@ -249,7 +250,6 @@ private:
     std::optional<glm::vec3> adjustItemDropPosition(glm::vec3 position) const;
     void updateNearestMonsterGroupMembers();
     bool advanceFallingItem(W8WorldItem& item, float gravity);
-    friend class Game;
     // Borrowed only during updateMonsters; the local batch is the temporary owner.
     std::vector<std::unique_ptr<W8MonsterInfo>>* monster_retirements_ = nullptr;
 };

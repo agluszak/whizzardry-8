@@ -118,7 +118,7 @@ bool NpcRecordHasTradePool(W8NpcState* npc)
    NPC instead reports its faction score unless the record keeps the answer
    static or the faction holds nothing toward the party; a factioned NPC whose
    allied faction a living front-rank party RPC shares answers fifty. */
-static signed char GetNpcDisposition(W8NpcState* npc)
+signed char Game::npcDisposition(W8NpcState* npc) const
 {
     signed char disposition = npc->disposition;
     signed char faction_disposition;
@@ -126,8 +126,8 @@ static signed char GetNpcDisposition(W8NpcState* npc)
     int bound_index;
     unsigned int slot;
 
-    if (npc->has_monster && npc->is_present) {
-        monster_info = FindMonster(npc->location_id);
+    if (npc->has_monster && npc->is_present && level.primary) {
+        monster_info = level.loaded().population->findMonster(npc->location_id);
         if (monster_info != 0) {
             disposition += monster_info->charm_strength;
             if (monster_info->uiCondition[W8_CONDITION_TURNCOAT] > 0) {
@@ -138,19 +138,19 @@ static signed char GetNpcDisposition(W8NpcState* npc)
     if (npc->record->faction == 0) {
         return disposition;
     }
-    faction_disposition = CurrentGame().story.factions[npc->record->faction].disposition_score;
+    faction_disposition = this->story.factions[npc->record->faction].disposition_score;
     if (npc->record->monster_bound != 0) {
         return faction_disposition;
     }
-    if (GetFactionDispositionToward(npc->record->faction, W8_FACTION_PARTY) == W8_FACTION_HOSTILE) {
+    if (story.factionDisposition(npc->record->faction) == W8_FACTION_HOSTILE) {
         return faction_disposition;
     }
     if (npc->record->allied_faction != 0) {
         for (slot = 0; slot < 2; ++slot) {
-            if (CurrentGame().party.members[slot].has_value() &&
-                CurrentGame().party.characters[slot].hp_current > 0) {
-                bound_index = CurrentGame().party.npcIndex(slot);
-                if (auto* bound = GetNpcState(bound_index);
+            if (this->party.members[slot].has_value() &&
+                this->party.characters[slot].hp_current > 0) {
+                bound_index = this->party.npcIndex(slot);
+                if (auto* bound = story.npc(bound_index);
                     bound && bound->record->faction == npc->record->allied_faction) {
                     return 0x32;
                 }
@@ -167,9 +167,9 @@ static signed char GetNpcDisposition(W8NpcState* npc)
    by the faction score when the record names a faction - and finally pinned
    friendly while a bound lead NPC belongs to the record's ally faction. */
 
-unsigned char GetNpcDispositionBand(W8NpcState* npc)
+unsigned char Game::npcDispositionBand(W8NpcState* npc) const
 {
-    signed char disposition = GetNpcDisposition(npc);
+    signed char disposition = this->npcDisposition(npc);
 
     if (disposition < W8_NPC_DISPOSITION_HOSTILE) {
         return W8_NPC_BAND_HOSTILE;
@@ -424,7 +424,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
         if (!species) {
             return 0;
         }
-        W8MonsterGroup* group = CreateGroup(*species, 1, &position, true);
+        W8MonsterGroup* group = CurrentGame().createMonsterGroup(*species, 1, &position, true);
         W8MonsterInfo* monster = FindMonster(group->leader_location_id);
         if (monster != 0) {
             CopyCharacterConditionsToTarget(dismissed_character, &monster->location_id);
@@ -571,8 +571,7 @@ void SetNpcDispositionBand(W8NpcState* npc, signed char band)
 {
     signed char current;
 
-    GetNpcDisposition(npc);
-    current = GetNpcDisposition(npc);
+    current = CurrentGame().npcDisposition(npc);
     if (current < W8_NPC_DISPOSITION_HOSTILE) {
         current = W8_NPC_BAND_HOSTILE;
     } else {
@@ -595,8 +594,7 @@ void ResumeNpc(W8NpcState* npc, int enabled)
 {
     W8MonsterInfo* monster_info = GetNpcMonsterInfo(npc);
 
-    GetNpcDisposition(npc);
-    if (GetNpcDisposition(npc) > 0x20) {
+    if (CurrentGame().npcDisposition(npc) > 0x20) {
         npc->disposition = 0x19;
     }
     if (monster_info != 0) {
@@ -1072,8 +1070,7 @@ static void DebitNpcTradePool(W8NpcState* npc, unsigned int price)
     if (npc->trade_pool != 0) {
         return;
     }
-    GetNpcDisposition(npc);
-    level = GetNpcDisposition(npc);
+    level = CurrentGame().npcDisposition(npc);
     if (level < W8_NPC_DISPOSITION_HOSTILE) {
         level = 2;
     } else {
@@ -1115,7 +1112,7 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, const W8ItemInsta
         AdjustNpcDisposition(npc, static_cast<signed char>(delta));
         PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[kind],
                                W8_SKILL_COMMUNICATION, 8, false);
-        GetNpcDisposition(npc);
+        CurrentGame().npcDisposition(npc);
         return;
     }
     case 1: {
@@ -1171,12 +1168,12 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, const W8ItemInsta
         AdjustNpcDisposition(npc, static_cast<signed char>(delta));
         PracticeCharacterSkill(CurrentGame(), &CurrentGame().party.characters[value],
                                W8_SKILL_COMMUNICATION, 5, false);
-        GetNpcDisposition(npc);
+        CurrentGame().npcDisposition(npc);
         return;
     }
     case 4: {
         AdjustNpcDisposition(npc, static_cast<signed char>(gold));
-        GetNpcDisposition(npc);
+        CurrentGame().npcDisposition(npc);
         return;
     }
     case 2: {
@@ -1192,7 +1189,6 @@ void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, const W8ItemInsta
     default:
         break;
     }
-    GetNpcDisposition(npc);
 }
 
 /* The 0..127 theft score the pickpocket resolutions compare against a d100
@@ -1213,7 +1209,7 @@ static signed char ScoreNpcTheft(Game& game, W8Character* character, W8NpcState*
     } else if (static_cast<int>(skill) >= 1) {
         skill += character->attributes[W8_ATTRIBUTE_DEXTERITY].effective / 0x14;
     }
-    score = skill + (GetNpcDisposition(npc) - 0x32) / 4;
+    score = skill + (CurrentGame().npcDisposition(npc) - 0x32) / 4;
     score -= (game.rng.below(5) + 10) * static_cast<signed char>(npc->suspicion);
     W8MonsterInfo* monster_info = GetNpcMonsterInfo(npc);
     const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
@@ -1576,7 +1572,7 @@ void ClearPendingNpcLevelFlags(void)
         auto* npc = CurrentGame().story.npcs[index].get();
         if (npc->pending_restore && npc->binding_unavailable == 0 &&
             npc->pending_restore_level == GetLoadedLevelID()) {
-            if (Game::restoreNpcMonster(npc, npc->restore_entity_name)) {
+            if (CurrentGame().restoreNpcMonster(npc, npc->restore_entity_name)) {
                 npc->pending_restore = false;
             }
         }
@@ -1625,21 +1621,21 @@ void ReleaseNpcMonsterByKind(int kind)
 /* Place or move this NPC's monster at the named world entity. Without a live
    monster it asks CreateGroup to create the NPC's species; with a live monster
    it repositions the Navigator subobject. */
-bool CurrentGame().restoreNpcMonster(W8NpcState* npc, std::string_view entity_name)
+bool Game::restoreNpcMonster(W8NpcState* npc, std::string_view entity_name)
 {
     if (!npc->has_monster) {
-        const auto species = NpcMonsterSpecies(CurrentGame().data, npc->name_style);
-        if (!species || entity_name[0] == '\0') return false;
-        if (auto position = CurrentGame().level.loaded().namedPosition(entity_name)) {
-            CreateGroup(*species, 1, &*position, true);
+        const auto species = NpcMonsterSpecies(this->data, npc->name_style);
+        if (!species || entity_name.empty()) return false;
+        if (auto position = this->level.loaded().namedPosition(entity_name)) {
+            this->createMonsterGroup(*species, 1, &*position, true);
             return true;
         }
         return false;
     }
     if (!npc->is_present) return false;
-    auto* monster = FindMonster(npc->location_id);
-    if (!monster || entity_name[0] == '\0') return false;
-    if (auto position = CurrentGame().level.loaded().namedPosition(entity_name)) {
+    auto* monster = level.loaded().population->findMonster(npc->location_id);
+    if (!monster || entity_name.empty()) return false;
+    if (auto position = this->level.loaded().namedPosition(entity_name)) {
         monster->entity->SetPosition(&*position);
         return true;
     }

@@ -73,14 +73,14 @@ const int g_special_attack_table[32][2] = {
    enchantment writers whenever what monsters can see of the party may have
    changed; out of combat sight is refreshed unconditionally, in combat only
    when the flag says so, and detection runs while the combat state permits. */
-void CurrentGame().updateMonsterSight(void)
+void Game::refreshPendingMonsterSight()
 {
-    if (!CurrentGame().combat.has_value() || CurrentGame().sight_refresh_pending) {
-        if (CurrentGame().sight_refresh_pending) {
-            CurrentGame().sight_refresh_pending = false;
+    if (!combat.has_value() || sight_refresh_pending) {
+        if (sight_refresh_pending) {
+            sight_refresh_pending = false;
         }
-        CurrentGame().refreshOutwardSight();
-        if (CurrentGame().combat.has_value() && CurrentGame().combat->round_count == 0) {
+        refreshOutwardSight();
+        if (combat.has_value() && combat->round_count == 0) {
             CheckMonsterGroupsEnterCombat();
         }
     }
@@ -107,7 +107,7 @@ void UpdateMonsterGroups(bool staggered)
     }
     ++g_monster_group_tick;
     if (!staggered) {
-        CurrentGame().updateMonsterSight();
+        CurrentGame().refreshPendingMonsterSight();
     }
     camera_position = GetWorld()->party.eye();
     for (group_list_index = 0; group_list_index < CurrentLevelPopulation().monster_groups.size();
@@ -599,8 +599,8 @@ void ApplyMonsterRTAIDecision(W8MonsterInfo* monster_info, unsigned char decisio
             monster_info->party_threat.sight_state == W8_SIGHT_SEEN) {
             monster_group = FindMonsterGroup(monster_info->monster_group_id);
             position = patrol_point;
-            if (MoveMonsterGroupToPosition(monster_group, &position, monster.nav.GetYaw(), false,
-                                           true, false, false)) {
+            if (CurrentGame().placeMonsterGroup(monster_group, &position, monster.nav.GetYaw(),
+                                                false, true, false, false)) {
                 break;
             }
         }

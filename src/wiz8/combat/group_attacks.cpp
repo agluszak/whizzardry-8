@@ -490,7 +490,7 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     record = MonsterDBFromSpecies(special_attack_kind);
     count = RollDice(&record->group_size_dice);
     position = &pAttackerSlot->point;
-    group = CreateGroup(special_attack_kind, count, position, false);
+    group = CurrentGame().createMonsterGroup(special_attack_kind, count, position, false);
     assert(group != 0);
     FindMonster(group->leader_location_id);
     monster_info = FindMonster(pAttackerSlot->iMonsterID);
@@ -510,7 +510,7 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
         }
     } else {
         yaw = GetCameraFacingYaw(position);
-        placed = MoveMonsterGroupToPosition(group, position, yaw, true, false, false, false);
+        placed = CurrentGame().placeMonsterGroup(group, position, yaw, true, false, false, false);
     }
     if (!placed) {
         RemoveAllGroupMembers(group);

@@ -63,7 +63,7 @@ public:
     }
 
 private:
-    friend class Game;
+    friend struct World;
     bool erase(W8MonsterInfo* info, std::vector<std::unique_ptr<W8MonsterInfo>>* retirements)
     {
         for (auto* partition : {&live_, &unborn_}) {

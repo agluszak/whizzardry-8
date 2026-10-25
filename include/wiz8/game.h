@@ -258,13 +258,21 @@ public:
     void refreshOutwardSight(void);
     void refreshInwardSight(void);
     void refreshSight(void);
+    void refreshPendingMonsterSight();
     void updateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bounds);
     void releaseNpcCompanion(W8NpcState* npc);
-    if (restoreNpcMonster(npc, npc->restore_entity_name))
-        ;
+    bool restoreNpcMonster(W8NpcState* npc, std::string_view entity_name);
     void restoreNamedNpc(int kind, signed char level, std::string_view entity_name);
     void handleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode);
     void releaseMarkedNpcBindings(void);
+    signed char npcDisposition(W8NpcState* npc) const;
+    unsigned char npcDispositionBand(W8NpcState* npc) const;
+    W8MonsterGroup* createMonsterGroup(unsigned int monster_id, unsigned int count,
+                                       const glm::vec3* position, bool use_alternate_name);
+    bool placeMonsterGroup(W8MonsterGroup* group, const glm::vec3* position, float yaw,
+                           bool proximity_check, bool include_allies, bool flatten_y,
+                           bool alternate_radius);
+    W8Disposition defaultGroupDisposition(W8MonsterGroup* monster_group) const;
     void activateGroup(W8MonsterGroup& group);
     void updateMonsterDecision(W8MonsterInfo* monster);
     bool canMonsterUseSpecial(W8MonsterInfo* monster, bool exclude_summon);

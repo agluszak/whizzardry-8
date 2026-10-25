@@ -275,7 +275,7 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
     int count = RollEncounterGroupSize(record);
     if (count == 0) throw std::runtime_error("monster database gives an empty encounter group");
 
-    group = CreateGroup(species, count, &spawn_position, false);
+    group = CurrentGame().createMonsterGroup(species, count, &spawn_position, false);
     group->encounter_registered = true;
     SetMonsterGroupFormation(group, &this->spawn_position);
 
@@ -299,8 +299,8 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
         }
 
         int companion_group_count = RollDice(&companion_record->group_size_dice);
-        W8MonsterGroup* companion_group =
-            CreateGroup(companion_species, companion_group_count, &spawn_position, false);
+        W8MonsterGroup* companion_group = CurrentGame().createMonsterGroup(
+            companion_species, companion_group_count, &spawn_position, false);
         companion_group->encounter_registered = true;
         SetMonsterGroupFormation(companion_group, &this->spawn_position);
         CurrentGame().linkMonsterGroup(group, companion_group);

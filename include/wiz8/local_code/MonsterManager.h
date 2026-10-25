@@ -124,8 +124,6 @@ const W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
    its current attack cycle made to it. */
 W8RangeCategory MonsterAttackRange(const W8MonsterInfo& monster_info, const W8MonsterRecord& record,
                                    unsigned int attack);
-W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* record,
-                                 const glm::vec3* position);
 
 enum { W8_MONSTER_ATTR_COUNT = 5 };
 

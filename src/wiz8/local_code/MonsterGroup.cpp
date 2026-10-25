@@ -20,6 +20,7 @@
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/hostility.h"
 #include "wiz8/data/faction_ids.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"
@@ -55,14 +56,14 @@ struct W8NpcState;
 
 enum { W8_MONSTER_GROUP_ALLY_COUNT = 4 };
 
-bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position, float yaw,
-                                bool proximity_check, bool include_allies, bool flatten_y,
-                                bool alternate_radius)
+bool Game::placeMonsterGroup(W8MonsterGroup* group, const glm::vec3* position, float yaw,
+                             bool proximity_check, bool include_allies, bool flatten_y,
+                             bool alternate_radius)
 {
     if (!group->members_active) {
         return false;
     }
-    W8MonsterInfo* leader = FindMonster(group->leader_location_id);
+    W8MonsterInfo* leader = level.loaded().population->findMonster(group->leader_location_id);
     float radius = alternate_radius ? leader->entity->nav.movement.alternate_radius
                                     : leader->entity->nav.radius;
     int location_ids[45];
@@ -75,8 +76,9 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
     if (include_allies) {
         for (int allied_group_id : group->allied_group_ids) {
             if (allied_group_id != 0) {
-                W8MonsterGroup* ally = FindMonsterGroup(allied_group_id);
-                W8MonsterInfo* ally_leader = FindMonster(ally->leader_location_id);
+                W8MonsterGroup* ally = level.loaded().population->findGroup(allied_group_id);
+                W8MonsterInfo* ally_leader =
+                    level.loaded().population->findMonster(ally->leader_location_id);
                 float ally_radius = alternate_radius
                                         ? ally_leader->entity->nav.movement.alternate_radius
                                         : ally_leader->entity->nav.radius;
@@ -91,21 +93,22 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
     }
     if (proximity_check) {
         for (index = 0; index < count; ++index) {
-            GetWorldSpatialIndex()->UnregisterLocationObjects(
+            level.loaded().compiledIndex()->UnregisterLocationObjects(
                 static_cast<short>(location_ids[index]));
         }
     }
     glm::vec3 target = *position;
     if (alternate_radius) {
-        positions =
-            GetWorldSpatialIndex()
-                ->navigatorPositions(target, yaw, radius + radius, count, proximity_check,
-                                     flatten_y, false, 5, true, GetWorld()->party.collisionSphere())
-                .positions;
+        positions = level.loaded()
+                        .compiledIndex()
+                        ->navigatorPositions(target, yaw, radius + radius, count, proximity_check,
+                                             flatten_y, false, 5, true,
+                                             (&level.loaded())->party.collisionSphere())
+                        .positions;
     } else {
-        positions = GetWorldSpatialIndex()->scatterPositions(
+        positions = level.loaded().compiledIndex()->scatterPositions(
             target, yaw, radius + radius, count, proximity_check, flatten_y,
-            BoundingSphere{GetWorld()->party.position(), GetWorld()->party.radius()});
+            BoundingSphere{(&level.loaded())->party.position(), (&level.loaded())->party.radius()});
     }
     const auto found = positions.size();
     if (found == 0) {
@@ -114,15 +117,15 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
     if (proximity_check) {
         while (found < count) {
             --count;
-            CurrentGame().retireMonster(FindMonster(location_ids[count]),
-                                        W8MonsterRemoval::Despawn);
+            this->retireMonster(level.loaded().population->findMonster(location_ids[count]),
+                                W8MonsterRemoval::Despawn);
         }
     }
     target = positions[0];
     unsigned int position_index = 0;
     for (index = 0; index < count; ++index) {
         int location_id = location_ids[index];
-        W8MonsterInfo* member = FindMonster(location_id);
+        W8MonsterInfo* member = level.loaded().population->findMonster(location_id);
         member->entity->nav.SetAngles(yaw);
         member->entity->nav.position_dirty = true;
         if (location_id == group->leader_location_id) {
@@ -135,8 +138,8 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
             member->entity->nav.SetPositionInternal(&member_position);
         }
         glm::vec3 placed = member->entity->nav.GetPosition();
-        GetWorldSpatialIndex()->UpdateMonsterLocation(static_cast<unsigned short>(location_id),
-                                                      placed);
+        level.loaded().compiledIndex()->UpdateMonsterLocation(
+            static_cast<unsigned short>(location_id), placed);
     }
     return true;
 }
@@ -163,21 +166,23 @@ bool W8LevelPopulation::allMembersDying(const W8MonsterGroup& group) const
 
    Each of the three multi-way tests is a switch rather than a comparison chain:
    the original emits the dec/je ladder VC6 produces for small dense cases. */
-static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_group)
+W8Disposition Game::defaultGroupDisposition(W8MonsterGroup* monster_group) const
 {
     const W8MonsterRecord* record;
     W8NpcState* npc_record;
     W8Disposition disposition = W8_DISPOSITION_NEUTRAL;
 
     assert(monster_group != 0);
-    record = MonsterDBFromSpecies(monster_group->monster_id);
+    record = &data.monsters[monster_group->monster_id];
     if ((record->flags & W8_MONSTER_FLAG_NPC) != 0) {
-        npc_record = FindNpcBindingForMonster(FindMonster(monster_group->MemberLocationId(0)));
-        if (npc_record == 0) {
+        npc_record =
+            story.npc((level.loaded().population->findMonster(monster_group->MemberLocationId(0)))
+                          ->bound_npc_index);
+        if (!npc_record || npc_record->binding_unavailable || record->npc_kind == 0xfa) {
             throw std::runtime_error(
                 fmt::format("NPC monster {} has no NPC state", monster_group->monster_id));
         } else {
-            switch (GetNpcDispositionBand(npc_record)) {
+            switch (this->npcDispositionBand(npc_record)) {
             case W8_NPC_BAND_FRIENDLY:
                 disposition = W8_DISPOSITION_FRIENDLY;
                 break;
@@ -199,8 +204,7 @@ static W8Disposition MonsterGroupCalcDefaultDisposition(W8MonsterGroup* monster_
             disposition = W8_DISPOSITION_FRIENDLY;
             break;
         default:
-            switch (CurrentGame().story.factionDisposition(
-                static_cast<signed char>(record->faction_id))) {
+            switch (this->story.factionDisposition(static_cast<signed char>(record->faction_id))) {
             case W8_FACTION_HOSTILE:
                 disposition = W8_DISPOSITION_HOSTILE;
                 break;
@@ -271,7 +275,7 @@ void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
         }
     }
     CurrentGame().setGroupHostility(monster_group,
-                                    MonsterGroupCalcDefaultDisposition(monster_group), false);
+                                    CurrentGame().defaultGroupDisposition(monster_group), false);
     monster_group->hostility_set_at = CurrentGame().status.world_clock;
 }
 
@@ -561,67 +565,53 @@ bool Game::linkMonsterGroup(W8MonsterGroup* leader, W8MonsterGroup* group)
 
 /* Allocate one live monster group, create its members, activate them, and
    register it on the species or encounter list. */
-W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const glm::vec3* position,
-                            bool use_alternate_name)
+W8MonsterGroup* Game::createMonsterGroup(unsigned int species, unsigned int count,
+                                         const glm::vec3* position, bool alternate_name)
 {
-    W8MonsterGroup* group;
-    const W8MonsterRecord* record;
-    std::vector<std::unique_ptr<W8MonsterGroup>>* list;
-    unsigned int created;
-    float yaw;
-
-    if (count > 9) {
-        count = 9;
-    }
-    record = MonsterDBFromSpecies(monster_id);
-    if (record == 0) {
-        return 0;
-    }
-    auto owner = std::make_unique<W8MonsterGroup>();
-    group = owner.get();
-
+    if (species >= data.monsters.size()) return nullptr;
+    const auto& record = data.monsters[species];
+    auto& world = level.loaded();
+    auto group_owner = std::make_unique<W8MonsterGroup>();
+    auto* group = group_owner.get();
     do {
-        group->group_id = CurrentGame().status.next_group_id;
-        ++CurrentGame().status.next_group_id;
+        group->group_id = status.next_group_id++;
     } while (group->group_id == 0);
-
-    group->monster_id = monster_id;
+    group->monster_id = species;
     group->centre = *position;
-    group->alternate_name =
-        use_alternate_name || (record->flags & W8_MONSTER_FLAG_ALTERNATE_NAME) != 0;
-    group->group_state[2] = 0xff;
-    group->group_state[3] = 0xff;
-    group->group_state[4] = 0xff;
-    group->group_state[5] = 0xff;
-    group->spawn_time = CurrentGame().status.world_clock;
-
-    list = &CurrentLevelPopulation().monster_groups;
-    if (record->unborn != 0) {
-        list = &CurrentLevelPopulation().encounter_groups;
+    group->alternate_name = alternate_name || (record.flags & W8_MONSTER_FLAG_ALTERNATE_NAME) != 0;
+    std::fill_n(group->group_state + 2, 4, 0xff);
+    group->spawn_time = status.world_clock;
+    auto& groups =
+        record.unborn ? world.population->encounter_groups : world.population->monster_groups;
+    groups.push_back(std::move(group_owner));
+    for (unsigned int index = 0; index < std::min(count, 9u); ++index) {
+        auto info = std::make_unique<W8MonsterInfo>();
+        do {
+            info->location_id = status.next_monster_location_id++;
+        } while (info->location_id == 0);
+        info->monster_group_id = group->group_id;
+        info->monster_species = species;
+        info->ubDisposition = group->ubDisposition;
+        info->scale = -1.0f;
+        info->position = *position;
+        const auto eye = world.party.eye();
+        info->derived = GetHeadingAngle(position, &eye);
+        info->initializeVitals(record, rng);
+        info->elemental_summon = -1;
+        info->movement_watch_position = glm::vec3(0);
+        const int id = info->location_id;
+        group->monsters.reserve(group->monsters.size() + 1);
+        world.population->monster_roster.add(std::move(info), record.unborn);
+        group->monsters.push_back(id);
+        events.push(MonstersChanged{});
+        world.compiledIndex()->UpdateMonsterLocation(static_cast<unsigned short>(id), *position);
     }
-    list->push_back(std::move(owner));
-
-    for (created = 0; created < count; ++created) {
-        if (CreateMonsterInfo(group, record, position) == 0) {
-            // Failure retires each adopted member through the same relationship boundary.
-            const auto members = group->monsters;
-            if (members.empty())
-                std::erase_if(*list, [group](const auto& entry) { return entry.get() == group; });
-            else
-                for (int id : members)
-                    if (auto* member = FindMonster(id, false))
-                        CurrentGame().retireMonster(member, W8MonsterRemoval::Unload);
-            return 0;
-        }
-    }
-
-    group->leader_location_id = CurrentGame().status.next_monster_location_id - 1;
-    CurrentGame().activateGroup(*group);
-    yaw = GetCameraFacingYaw(position);
-    MoveMonsterGroupToPosition(group, position, yaw, false, false, false, false);
-    CurrentGame().level.loaded().refreshGroupNavigation(*group, CurrentGame().combat.has_value());
-    CurrentGame().setGroupHostility(group, MonsterGroupCalcDefaultDisposition(group), false);
-
+    group->leader_location_id = status.next_monster_location_id - 1;
+    activateGroup(*group);
+    const auto eye = world.party.eye();
+    placeMonsterGroup(group, position, GetHeadingAngle(position, &eye), false, false, false, false);
+    world.refreshGroupNavigation(*group, combat.has_value());
+    setGroupHostility(group, defaultGroupDisposition(group), false);
     return group;
 }
 
@@ -794,7 +784,7 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
     camera = GetWorld()->party.position();
     if (!flag) {
         target = camera;
-        return MoveMonsterGroupToPosition(group, &target, 0.0f, true, true, false, true);
+        return CurrentGame().placeMonsterGroup(group, &target, 0.0f, true, true, false, true);
     }
     member_info = FindMonster(group->leader_location_id);
     angle = NormalizeAngle(GetCameraYawRadians() +
@@ -817,7 +807,7 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
     target.x = camera.x + distance * sin(angle);
     target.z = camera.z + distance * cos(angle);
     angle = GetCameraFacingYaw(&target);
-    return MoveMonsterGroupToPosition(group, &target, angle, true, true, false, true);
+    return CurrentGame().placeMonsterGroup(group, &target, angle, true, true, false, true);
 }
 
 /* Announces a group's composition on the notice line: the member count and the
@@ -907,7 +897,7 @@ W8MonsterGroup* ReplaceMonsterGroupSpecies(W8MonsterGroup* group, unsigned int m
     glm::vec3 spawn;
     unsigned int index;
 
-    new_group = CreateGroup(monster_id, group->MemberCount(), &spawn, false);
+    new_group = CurrentGame().createMonsterGroup(monster_id, group->MemberCount(), &spawn, false);
     if (new_group == 0 || new_group->MemberCount() != group->MemberCount()) {
         return 0;
     }

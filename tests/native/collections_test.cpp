@@ -983,10 +983,11 @@ TEST_CASE_METHOD(LevelWorldFixture, "Full formations reject a link before detach
 
 TEST_CASE("Allied leader election preserves one encounter with zero leadership ranks", "[groups]")
 {
-    const ScopedGame game;
+    const auto data = EncounterLevelData();
+    const ScopedGameData installed(data);
+    const ScopedGame game{data};
     game.game.level.replacePrimary(std::make_unique<World>(0));
     const ScopedCombat combat{true};
-    const ScopedGameData installed(EncounterLevelData());
     GetWorld()->encounters.random_budget = 8;
     auto& population = CurrentLevelPopulation();
     for (int index = 0; index < 3; ++index) {

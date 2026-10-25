@@ -119,9 +119,6 @@ bool MonsterGroupHasRenderableMember(W8MonsterGroup* monster_group, bool require
    allied groups; while the byte is set, each call ticks the counter beside
    it. The record kinds the special encounter ids carry ignore a set. */
 void SetMonsterGroupEngagementState(int group_id, bool state);
-bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position, float yaw,
-                                bool proximity_check, bool include_allies, bool flatten_y,
-                                bool alternate_radius);
 /* Place a monster group relative to the party camera: with flag clear the
    group moves straight to the camera position, and with flag set it picks a
    point at the requested distance on a random angle around the camera yaw,
@@ -134,8 +131,6 @@ void GetMonsterGroupCentre(W8MonsterGroup* monster_group, glm::vec3* centre);
 W8MonsterGroup* FindFirstMonsterByID(int monster_id);
 W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* previous);
 bool GiveBirthToMonster(W8MonsterGroup* monster_group);
-W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const glm::vec3* position,
-                            bool use_alternate_name);
 
 void ResetMonsterGroupTurnState(void);
 

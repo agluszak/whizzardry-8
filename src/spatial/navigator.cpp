@@ -190,8 +190,8 @@ void SetNavigatorLinkMode(W8NavigatorLinkMode mode)
 
                     if ((!group->fInCombat || !PositionMonsterGroupNearCamera(
                                                   group, 0.0f, navigator->movement.yaw, false)) &&
-                        (MoveMonsterGroupToPosition(group, &position, navigator->movement.yaw,
-                                                    false, true, false, false),
+                        (CurrentGame().placeMonsterGroup(group, &position, navigator->movement.yaw,
+                                                         false, true, false, false),
                          (!CurrentGame().combat.has_value()) != 0)) {
                         navigator->linked_update_time = 0;
                         for (auto* group_navigator : navigator->CollectGroupNavigators()) {

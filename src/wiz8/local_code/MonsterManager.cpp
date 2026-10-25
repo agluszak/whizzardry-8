@@ -95,53 +95,6 @@ const float g_monster_record_float_scale = 20.0f;
 
 /* The character array the alternate-name form indexes, and the slot it uses. */
 
-W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* record,
-                                 const glm::vec3* position)
-{
-    std::unique_ptr<W8MonsterInfo> owner(new (std::nothrow) W8MonsterInfo{});
-    W8MonsterInfo* monster_info = owner.get();
-
-    if (!monster_info) {
-        return nullptr;
-    }
-    monster_info->location_id = CurrentGame().status.next_monster_location_id;
-    while (CurrentGame().status.next_monster_location_id++, monster_info->location_id == 0) {
-        monster_info->location_id = CurrentGame().status.next_monster_location_id;
-    }
-
-    monster_info->monster_group_id = group->group_id;
-    monster_info->monster_species = group->monster_id;
-    monster_info->ubDisposition = group->ubDisposition;
-    monster_info->scale = -1.0f;
-    monster_info->fActive = false;
-    monster_info->pCombat = 0;
-    monster_info->position = *position;
-    monster_info->derived = GetCameraFacingYaw(position);
-
-    monster_info->initializeVitals(*record, CurrentGame().rng);
-
-    std::ranges::fill(monster_info->uiCondition, 0u);
-    std::ranges::fill(monster_info->enchantments, W8Enchantment{});
-    monster_info->highest_condition = W8_CONDITION_NONE;
-    monster_info->condition_argument = 0;
-    monster_info->charm_strength = 0;
-    monster_info->modifiers = {};
-    monster_info->fMotionless = false;
-    monster_info->ai_mode = W8_RT_AI_IDLE;
-    monster_info->summoned = W8_MONSTER_SUMMON_NONE;
-    monster_info->elemental_summon = -1;
-    monster_info->movement_watch_position = glm::vec3(0);
-
-    group->monsters.reserve(group->monsters.size() + 1);
-    CurrentLevelPopulation().monster_roster.add(std::move(owner), record->unborn);
-    group->monsters.push_back(monster_info->location_id);
-
-    CurrentGame().events.push(MonstersChanged{});
-    GetWorldSpatialIndex()->UpdateMonsterLocation(
-        static_cast<unsigned short>(monster_info->location_id), *position);
-    return monster_info;
-}
-
 // Finish the group's runtime and NPC bindings before presenting its activation.
 void Game::activateGroup(W8MonsterGroup& group)
 {
@@ -715,8 +668,6 @@ bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
                                    [&](const auto& entry) { return entry.get() == monster_info; });
     };
     if (!owns(roster.live()) && !owns(roster.unborn())) return false;
-    if (world.monster_retirements_ && removal != W8MonsterRemoval::Deactivate)
-        world.monster_retirements_->reserve(world.monster_retirements_->size() + 1);
 
     if (combat.has_value() && monster_info->pCombat) {
         removeMonsterFromCombat(*monster_info);
@@ -773,19 +724,10 @@ bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
         combat->endTurnOf(MonsterActor{monster_info->location_id});
     }
     if (removal == W8MonsterRemoval::Deactivate) return true;
-    if (Monster* monster = monster_info->entity.get()) {
-        if (removal == W8MonsterRemoval::Despawn) monster->visual.RetireParticles();
-        if (world.monster_retirements_)
-            monster->retire();
-        else
-            monster_info->entity.reset();
-    }
-    // Inactive and unborn records also own visibility/NPC relationships.
-    world.population->releaseMonsterVisibility(*monster_info);
-    if (auto* spatial = world.compiledIndex())
-        spatial->UnregisterLocationObjects(static_cast<unsigned short>(monster_info->location_id));
-    if (auto* binding = story.npc(monster_info->bound_npc_index)) binding->releaseWorldBinding();
-    return roster.erase(monster_info, world.monster_retirements_);
+    auto* binding = story.npc(monster_info->bound_npc_index);
+    world.eraseMonster(*monster_info, removal == W8MonsterRemoval::Despawn);
+    if (binding) binding->releaseWorldBinding();
+    return true;
 }
 
 /* Retires one entry from the live world: it parks the entry at the sentinel

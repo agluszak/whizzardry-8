@@ -102,7 +102,6 @@ bool NpcHasTopic(W8NpcState* npc, int topic);
    owned item-list teardown. */
 /* The NPC binding selected by a monster-list index, or null. */
 W8NpcState* FindNpcBindingForMonster(W8MonsterInfo* monster_info);
-unsigned char GetNpcDispositionBand(W8NpcState* npc);
 void SetNpcDispositionBand(W8NpcState* npc, signed char band);
 bool WillNpcTradeForItem(W8NpcState* npc, const W8ItemInstance* item);
 void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, const W8ItemInstance* item,

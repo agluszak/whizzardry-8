@@ -105,7 +105,7 @@ void Trynnie1Script::enter()
             const auto vPos = world().namedPosition("VOC_SHAMAN_DYING");
             if (!vPos) throw std::runtime_error("level lacks VOC_SHAMAN_DYING");
             vPos2 = *vPos;
-            [[maybe_unused]] auto* group = CreateGroup(0xcd, 1, &vPos2, true);
+            [[maybe_unused]] auto* group = CurrentGame().createMonsterGroup(0xcd, 1, &vPos2, true);
             assert(group != 0);
             CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "Trynnie1Killed", 1);
         }

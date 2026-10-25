@@ -400,3 +400,22 @@ NativeObject* World::selectedNativeObject() const
                ? *object
                : nullptr;
 }
+
+// Logical removal is immediate; an actor updating on the stack remains owned until the step ends.
+void World::eraseMonster(W8MonsterInfo& info, bool retire_particles)
+{
+    if (monster_retirements_) monster_retirements_->reserve(monster_retirements_->size() + 1);
+    if (auto* body = info.entity.get()) {
+        if (retire_particles) body->visual.RetireParticles();
+        if (monster_retirements_)
+            body->retire();
+        else
+            info.entity.reset();
+    }
+    population->releaseMonsterVisibility(info);
+    if (auto* spatial = compiledIndex())
+        spatial->UnregisterLocationObjects(static_cast<unsigned short>(info.location_id));
+    [[maybe_unused]] const bool removed =
+        population->monster_roster.erase(&info, monster_retirements_);
+    assert(removed);
+}

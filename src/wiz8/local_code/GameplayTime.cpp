@@ -924,11 +924,11 @@ void GameTurnsPassedChar(int party_slot, unsigned int minutes)
 /* Moves a monster group to a position, then each allied group that exists. */
 static void MoveMonsterGroupAndAllies(W8MonsterGroup* group, glm::vec3* position, float yaw)
 {
-    MoveMonsterGroupToPosition(group, position, yaw, false, false, false, false);
+    CurrentGame().placeMonsterGroup(group, position, yaw, false, false, false, false);
     for (const int ally_id : group->allied_group_ids) {
         if (ally_id != 0) {
             auto* ally = FindMonsterGroup(ally_id);
-            MoveMonsterGroupToPosition(ally, position, yaw, false, false, false, false);
+            CurrentGame().placeMonsterGroup(ally, position, yaw, false, false, false, false);
         }
     }
 }

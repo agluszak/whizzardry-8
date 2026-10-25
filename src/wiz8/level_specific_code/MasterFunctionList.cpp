@@ -129,7 +129,8 @@ W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, in
         position->y = probeGround((*position)).position.y;
     }
     const auto spawn_position = *position;
-    auto* group = CreateGroup(monster_id, count, &spawn_position, use_alternate_name);
+    auto* group =
+        CurrentGame().createMonsterGroup(monster_id, count, &spawn_position, use_alternate_name);
     if (group != 0) {
         CurrentGame().setGroupHostility(group, static_cast<W8Disposition>(hostility), false);
         GetMonsterGroupCentre(group, 0);
