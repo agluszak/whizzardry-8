@@ -22,46 +22,45 @@ namespace {
 
 /* Activation callback on _VOC_EWAXXCANNON1: hands the cannon NPC (kind 0x58)
    the item the player is holding, if any, as script argument -1. */
-bool EwaxxCannon1(Trigger* trigger)
+TriggerDecision EwaxxCannon1(Trigger* trigger)
 {
     QueueNpcHeldItemNotice(0x58);
-    return true;
+    return {.run_action = true};
 }
 
 /* Activation callback on EwaxxLanding: same held-item handoff to the landing
    NPC (kind 0x7f). */
-bool EwaxxLanding(Trigger* trigger)
+TriggerDecision EwaxxLanding(Trigger* trigger)
 {
     QueueNpcHeldItemNotice(0x7f);
-    return true;
+    return {.run_action = true};
 }
 
 /* Activation callback on catchCord: records fact 0x177 once the party grabs
    the catch cord. */
-bool CatchCord(Trigger* trigger)
+TriggerDecision CatchCord(Trigger* trigger)
 {
     CurrentGame().setFact(W8_FACT_TMISSION_KILL_UMPANI_CORD_SEVERED, 1);
-    return true;
+    return {.run_action = true};
 }
 
 /* Activation callback on _VOC_EWAXXTOPDOOR2: hands the top-door NPC (kind
    0x60) the held item, if any, as script argument -1. */
-bool EwaxxTopDoor2(Trigger* trigger)
+TriggerDecision EwaxxTopDoor2(Trigger* trigger)
 {
     QueueNpcHeldItemNotice(0x60);
-    g_trigger_feedback = true;
-    return false;
+    return {.run_action = false, .handled = true};
 }
 
 /* Activation callback on painActivatorTrigger: rolls 1d40+30 health damage
    against the party; the trigger stays armed (returns false). */
-bool PainActivator(Trigger* trigger)
+TriggerDecision PainActivator(Trigger* trigger)
 {
     W8Dice dice;
 
     SetDice(&dice, 1, 0x28, 0x1e);
     ApplyRolledHealthChangeToParty(&dice, 0, 1);
-    return false;
+    return {.run_action = false};
 }
 
 class MtGigasTopScript final : public LevelScript {

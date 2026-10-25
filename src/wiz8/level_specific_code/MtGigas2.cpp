@@ -84,36 +84,38 @@ void WireShock()
 }
 
 /* Each wire passes only from its expected panel state; 3 means already fixed. */
-bool AdvanceWirePanel(int expected, int next)
+TriggerDecision AdvanceWirePanel(int expected, int next)
 {
+    bool handled = false;
     const int value = GetLocationVarValueByName("WirePanel");
 
     if (value == 3) {
-        return true;
+        return {.run_action = true, .handled = handled};
     }
-    g_trigger_feedback = true;
+    handled = true;
     if (value != expected) {
         WireShock();
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     SetTriggerVariableByName("WirePanel", next);
-    return true;
+    return {.run_action = true, .handled = handled};
 }
 
 /* Activation callback on yellowwire: valid only as the last wire (2 -> 3);
    on success it latches fact 0xa7 and re-arms all three wire triggers. */
-bool YellowWire(Trigger* pTrigger)
+TriggerDecision YellowWire(Trigger* pTrigger)
 {
+    bool handled = false;
     int value = GetLocationVarValueByName("WirePanel");
     Trigger* wire;
 
     if (value == 3) {
-        return true;
+        return {.run_action = true, .handled = handled};
     }
-    g_trigger_feedback = true;
+    handled = true;
     if (value != 2) {
         WireShock();
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     CurrentGame().setFact(W8_FACT_UMISSION_TRAIN_MACHINE_FIXED, 1);
     SetTriggerVariableByName("WirePanel", 3);
@@ -126,7 +128,7 @@ bool YellowWire(Trigger* pTrigger)
     if (wire != 0) {
         wire->flags &= ~W8_TRIGGER_ENABLED;
     }
-    return true;
+    return {.run_action = true, .handled = handled};
 }
 
 class MtGigas2Script final : public LevelScript {
@@ -137,10 +139,10 @@ public:
 
 private:
     void setup();
-    bool train(Trigger* pTrigger);
-    bool heldItemNotice(int npc_kind);
-    bool activateOfficer(int door_bit, const char* door_name, int npc_kind);
-    bool laserAlarm(Trigger* pTrigger);
+    TriggerDecision train(Trigger* pTrigger);
+    TriggerDecision heldItemNotice(int npc_kind);
+    TriggerDecision activateOfficer(int door_bit, const char* door_name, int npc_kind);
+    TriggerDecision laserAlarm(Trigger* pTrigger);
     bool umpaniAlarm(int command);
     void captureUmpaniAlarm(W8SavedLocationState& state);
 
@@ -153,27 +155,29 @@ void MtGigas2Script::enter()
     setup();
     bindTrigger("_VOC_EWAXXTRAIN", &MtGigas2Script::train);
     // The wires pass in order: red (0 -> 1), blue (1 -> 2), then yellow.
-    bindTrigger("redwire", [](Trigger*) { return AdvanceWirePanel(0, 1); });
-    bindTrigger("bluewire", [](Trigger*) { return AdvanceWirePanel(1, 2); });
+    bindTrigger("redwire", [](Trigger*) -> TriggerDecision { return AdvanceWirePanel(0, 1); });
+    bindTrigger("bluewire", [](Trigger*) -> TriggerDecision { return AdvanceWirePanel(1, 2); });
     bindTrigger("yellowwire", YellowWire);
-    bindTrigger("_VOC_EWAXXLIFT3", [this](Trigger*) { return heldItemNotice(0x5c); });
-    bindTrigger("_VOC_EWAXXTOPDOOR1", [this](Trigger*) { return heldItemNotice(0x5f); });
+    bindTrigger("_VOC_EWAXXLIFT3",
+                [this](Trigger*) -> TriggerDecision { return heldItemNotice(0x5c); });
+    bindTrigger("_VOC_EWAXXTOPDOOR1",
+                [this](Trigger*) -> TriggerDecision { return heldItemNotice(0x5f); });
     // While ObstacleDoors bit 0 (1) is set the officer runs Door19 (Door18) and clears the bit.
     bindTrigger("_VOC_EWAXXOFFICER1",
-                [this](Trigger*) { return activateOfficer(1, "Door19", 0x7c); });
+                [this](Trigger*) -> TriggerDecision { return activateOfficer(1, "Door19", 0x7c); });
     bindTrigger("_VOC_EWAXXOFFICER2",
-                [this](Trigger*) { return activateOfficer(2, "Door18", 0x7d); });
+                [this](Trigger*) -> TriggerDecision { return activateOfficer(2, "Door18", 0x7d); });
     bindTrigger("triggerPlaneLaserAlarm", &MtGigas2Script::laserAlarm);
     bindTrigger("triggerPlaneLaserAlarm01", &MtGigas2Script::laserAlarm);
     // The access hatch plays the falling-statue sound.
-    bindTrigger("accessHatch", [](Trigger*) {
+    bindTrigger("accessHatch", [](Trigger*) -> TriggerDecision {
         wiz8::sound::play("Data\\Sound\\Ambients\\Sign Falling Statue.wav");
-        return true;
+        return {.run_action = true};
     });
     // The wiring malfunction plays the short spark sound.
-    bindTrigger("wiringMalfunction", [](Trigger*) {
+    bindTrigger("wiringMalfunction", [](Trigger*) -> TriggerDecision {
         wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 04.wav");
-        return true;
+        return {.run_action = true};
     });
 }
 
@@ -221,15 +225,16 @@ void MtGigas2Script::setup()
 /* Activation callback on _VOC_EWAXXTRAIN: queues the wire-panel NPC notice
    with the held item, and accepts the 0x269/0x26c wire items to arm the
    panel (value 0) when it was still untouched (-1). */
-bool MtGigas2Script::train(Trigger* pTrigger)
+TriggerDecision MtGigas2Script::train(Trigger* pTrigger)
 {
+    bool handled = false;
     W8NpcState* npc;
     const W8ItemInstance* item;
     int item_id;
     int value;
 
     if (ctx.activity.conversation) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     npc = CurrentGame().story.npcOfKind(0x5b);
     item = 0;
@@ -239,37 +244,37 @@ bool MtGigas2Script::train(Trigger* pTrigger)
         item_id = held->item.iItemNo;
     }
     QueueNpcScriptNotice(npc, item, -1, false, 0);
-    g_trigger_feedback = true;
+    handled = true;
     value = GetLocationVarValueByName("WirePanel");
     if (value == 3) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     if (item_id == 0x269 || item_id == 0x26c) {
         wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 01.wav");
         if (value == -1) {
             SetTriggerVariableByName("WirePanel", 0);
-            return true;
+            return {.run_action = true, .handled = handled};
         }
     }
-    return false;
+    return {.run_action = false, .handled = handled};
 }
 
 /* The lift (_VOC_EWAXXLIFT3) and top-door (_VOC_EWAXXTOPDOOR1) callbacks:
    outside a conversation, queue the NPC's notice with the held item, if any. */
-bool MtGigas2Script::heldItemNotice(int npc_kind)
+TriggerDecision MtGigas2Script::heldItemNotice(int npc_kind)
 {
     if (ctx.activity.conversation) {
-        return false;
+        return {.run_action = false};
     }
     QueueNpcHeldItemNotice(npc_kind);
-    g_trigger_feedback = true;
-    return false;
+    return {.run_action = false, .handled = true};
 }
 
-bool MtGigas2Script::activateOfficer(int door_bit, const char* door_name, int npc_kind)
+TriggerDecision MtGigas2Script::activateOfficer(int door_bit, const char* door_name, int npc_kind)
 {
+    bool handled = false;
     if (ctx.activity.conversation) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     int doors = 0;
     if (GetLocationVarIDByName("ObstacleDoors") != -1) {
@@ -277,30 +282,28 @@ bool MtGigas2Script::activateOfficer(int door_bit, const char* door_name, int np
     }
     if ((doors & door_bit) != 0) {
         Trigger* door = FindTriggerByName(door_name);
-        door->Run(-1);
+        handled |= door->Run(-1);
         SetTriggerVariableByName("ObstacleDoors", doors - door_bit);
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     QueueNpcHeldItemNotice(npc_kind);
-    g_trigger_feedback = true;
-    return false;
+    return {.run_action = false, .handled = true};
 }
 
 /* Activation callback on triggerPlaneLaserAlarm/01: once per level (fact
    0xa5 and the UmpaniAlarm variable both unset) turns the Umpani faction
    hostile and starts the intruder alarm. */
-bool MtGigas2Script::laserAlarm(Trigger* pTrigger)
+TriggerDecision MtGigas2Script::laserAlarm(Trigger* pTrigger)
 {
-    g_trigger_feedback = true;
     if (ctx.game.testFact(W8_FACT_LOCATION_GIGAS_MOTION_SENSORS_OFF) != 0) {
-        return false;
+        return {.run_action = false, .handled = true};
     }
     if (GetLocationVarIDByName("UmpaniAlarm") != -1) {
-        return false;
+        return {.run_action = false, .handled = true};
     }
     CurrentGame().setFactionDisposition(4, W8_FACTION_HOSTILE);
     umpaniAlarm(kMasterToggle);
-    return true;
+    return {.run_action = true, .handled = true};
 }
 
 void MtGigas2Script::captureUmpaniAlarm(W8SavedLocationState& state)

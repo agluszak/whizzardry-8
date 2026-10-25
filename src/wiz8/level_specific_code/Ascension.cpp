@@ -93,7 +93,7 @@ void SpawnAscensionAmbush()
 
 /* The B-side callbacks arm their A partner, and once the Aletheides flag is
    set dismiss the bound monster and clear the flag. */
-bool ArmAletheidesPartner(const char* partner, const char* active_var)
+TriggerDecision ArmAletheidesPartner(const char* partner, const char* active_var)
 {
     Trigger* partner_trigger = FindTriggerByName(partner);
 
@@ -104,7 +104,7 @@ bool ArmAletheidesPartner(const char* partner, const char* active_var)
         RemoveAletheides();
         SetTriggerVariableByName(active_var, 0);
     }
-    return true;
+    return {.run_action = true};
 }
 
 class AscensionScript final : public LevelScript {
@@ -117,17 +117,17 @@ private:
     void peakInit();
     void avalanche(bool command);
     bool landShaker(int command);
-    bool answerAletheides(Trigger* pTrigger, const char* active_var, int relic_item,
-                          W8NpcStoryAction spawn);
-    bool chaosBTrigger(Trigger* pTrigger);
-    bool chaosATrigger(Trigger* pTrigger);
-    bool lifeBTrigger(Trigger* pTrigger);
-    bool lifeATrigger(Trigger* pTrigger);
-    bool knowBTrigger(Trigger* pTrigger);
-    bool knowATrigger(Trigger* pTrigger);
-    bool darkSavantSpawn(Trigger* pTrigger);
-    bool path1Camera(Trigger* pTrigger);
-    bool shaker(Trigger* pTrigger);
+    TriggerDecision answerAletheides(Trigger* pTrigger, const char* active_var, int relic_item,
+                                     W8NpcStoryAction spawn);
+    TriggerDecision chaosBTrigger(Trigger* pTrigger);
+    TriggerDecision chaosATrigger(Trigger* pTrigger);
+    TriggerDecision lifeBTrigger(Trigger* pTrigger);
+    TriggerDecision lifeATrigger(Trigger* pTrigger);
+    TriggerDecision knowBTrigger(Trigger* pTrigger);
+    TriggerDecision knowATrigger(Trigger* pTrigger);
+    TriggerDecision darkSavantSpawn(Trigger* pTrigger);
+    TriggerDecision path1Camera(Trigger* pTrigger);
+    TriggerDecision shaker(Trigger* pTrigger);
 
     std::optional<W8IntervalGate> avalanche_gate_;
 };
@@ -252,14 +252,14 @@ bool AscensionScript::landShaker(int command)
 /* The A-side callbacks are inert while the flag is set. Otherwise Aletheides
    answers, and the party carrying the relic gets the exchange and the Alfie
    spawn. */
-bool AscensionScript::answerAletheides(Trigger* pTrigger, const char* active_var, int relic_item,
-                                       W8NpcStoryAction spawn)
+TriggerDecision AscensionScript::answerAletheides(Trigger* pTrigger, const char* active_var,
+                                                  int relic_item, W8NpcStoryAction spawn)
 {
     if (GetLocationVarIDByName(active_var) == -1) {
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), active_var, 0);
     }
     if (GetLocationVarValueByName(active_var) != 0) {
-        return false;
+        return {.run_action = false};
     }
     CurrentGame().npc_dialogue.Queue(W8NpcCommand::begin_scripted_world_action);
     CurrentGame().npc_dialogue.Queue(W8NpcPortraitString{0x71e});
@@ -272,13 +272,13 @@ bool AscensionScript::answerAletheides(Trigger* pTrigger, const char* active_var
     }
     CurrentGame().npc_dialogue.Queue(W8NpcCommand::clear_target_state);
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
-    return true;
+    return {.run_action = true};
 }
 
 /* The ChaosBTrigger activation callback: arm ChaosATrigger, and once
    AlethidiesChaosActive is set dismiss the bound Aletheides monster and clear
    the variable. */
-bool AscensionScript::chaosBTrigger(Trigger* pTrigger)
+TriggerDecision AscensionScript::chaosBTrigger(Trigger* pTrigger)
 {
     return ArmAletheidesPartner("ChaosATrigger", "AlethidiesChaosActive");
 }
@@ -287,7 +287,7 @@ bool AscensionScript::chaosBTrigger(Trigger* pTrigger)
    the trigger is inert. Otherwise Aletheides answers, and the party carrying
    the Astral Dominae (0x244) gets the relic exchange and the chaos Alfie
    spawn. */
-bool AscensionScript::chaosATrigger(Trigger* pTrigger)
+TriggerDecision AscensionScript::chaosATrigger(Trigger* pTrigger)
 {
     return answerAletheides(pTrigger, "AlethidiesChaosActive", 0x244,
                             W8NpcStoryAction::spawn_alfie_chaos);
@@ -296,7 +296,7 @@ bool AscensionScript::chaosATrigger(Trigger* pTrigger)
 /* The LifeBTrigger activation callback: arm LifeATrigger, and once
    AlethidiesLifeActive is set dismiss the bound Aletheides monster and clear
    the variable. */
-bool AscensionScript::lifeBTrigger(Trigger* pTrigger)
+TriggerDecision AscensionScript::lifeBTrigger(Trigger* pTrigger)
 {
     return ArmAletheidesPartner("LifeATrigger", "AlethidiesLifeActive");
 }
@@ -304,7 +304,7 @@ bool AscensionScript::lifeBTrigger(Trigger* pTrigger)
 /* The LifeATrigger activation callback: while AlethidiesLifeActive is set the
    trigger is inert. Otherwise Aletheides answers, and the party carrying the
    relic (0x242) gets the relic exchange and the life Alfie spawn. */
-bool AscensionScript::lifeATrigger(Trigger* pTrigger)
+TriggerDecision AscensionScript::lifeATrigger(Trigger* pTrigger)
 {
     return answerAletheides(pTrigger, "AlethidiesLifeActive", 0x242,
                             W8NpcStoryAction::spawn_alfie_life);
@@ -313,7 +313,7 @@ bool AscensionScript::lifeATrigger(Trigger* pTrigger)
 /* The KnowBTrigger activation callback: arm KnowATrigger, and once
    AlethidiesKnowActive is set dismiss the bound Aletheides monster and clear
    the variable. */
-bool AscensionScript::knowBTrigger(Trigger* pTrigger)
+TriggerDecision AscensionScript::knowBTrigger(Trigger* pTrigger)
 {
     return ArmAletheidesPartner("KnowATrigger", "AlethidiesKnowActive");
 }
@@ -321,7 +321,7 @@ bool AscensionScript::knowBTrigger(Trigger* pTrigger)
 /* The KnowATrigger activation callback: while AlethidiesKnowActive is set the
    trigger is inert. Otherwise Aletheides answers, and the party carrying the
    relic (0x243) gets the relic exchange and the know Alfie spawn. */
-bool AscensionScript::knowATrigger(Trigger* pTrigger)
+TriggerDecision AscensionScript::knowATrigger(Trigger* pTrigger)
 {
     return answerAletheides(pTrigger, "AlethidiesKnowActive", 0x243,
                             W8NpcStoryAction::spawn_alfie_know);
@@ -329,7 +329,7 @@ bool AscensionScript::knowATrigger(Trigger* pTrigger)
 
 /* The RampUp activation callback: spawn the Dark Savant (0xc2) and Bela
    (0x18c) and latch AP_DSSpawned so Path1Camera knows they arrived. */
-bool AscensionScript::darkSavantSpawn(Trigger* pTrigger)
+TriggerDecision AscensionScript::darkSavantSpawn(Trigger* pTrigger)
 {
     if (auto position = world().namedPosition("NP_DSavant")) {
         SpawnMonsters(0xc2, 1, &*position, 0, true, false);
@@ -340,18 +340,18 @@ bool AscensionScript::darkSavantSpawn(Trigger* pTrigger)
     if (GetLocationVarIDByName("AP_DSSpawned") == -1) {
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_DSSpawned", 1);
     }
-    return true;
+    return {.run_action = true};
 }
 
 /* The Path1Camera activation callback: once the Dark Savant is spawned, kill
    every live hostile monster, end combat and hand control to the scripted
    world action. */
-bool AscensionScript::path1Camera(Trigger* pTrigger)
+TriggerDecision AscensionScript::path1Camera(Trigger* pTrigger)
 {
     unsigned int index;
 
     if (GetLocationVarIDByName("AP_DSSpawned") == -1) {
-        return false;
+        return {.run_action = false};
     }
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         W8MonsterInfo* info = GetMonsterListEntry(index);
@@ -366,14 +366,14 @@ bool AscensionScript::path1Camera(Trigger* pTrigger)
     }
     BeginScriptedWorldAction();
     pTrigger->flags &= ~W8_TRIGGER_ON;
-    return true;
+    return {.run_action = true};
 }
 
 /* The Shaker activation callback: play the avalanche rumble. */
-bool AscensionScript::shaker(Trigger* pTrigger)
+TriggerDecision AscensionScript::shaker(Trigger* pTrigger)
 {
     wiz8::sound::play("Data\\Sound\\Ambients\\Rumble 01.wav");
-    return true;
+    return {.run_action = true};
 }
 
 } // namespace

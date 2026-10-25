@@ -27,38 +27,39 @@
 
 /* Activation callback on _VOC_EWAXXLIFT1: queues the lift NPC notice with
    the held item, if any. */
-bool QueueGigasLiftNotice(const ScriptContext& context)
+TriggerDecision QueueGigasLiftNotice(const ScriptContext& context)
 {
     if (context.activity.conversation) {
-        return false;
+        return {.run_action = false};
     }
     QueueNpcHeldItemNotice(0x5d);
-    g_trigger_feedback = true;
-    return false;
+    return {.run_action = false, .handled = true};
 }
 
 namespace {
 
-void RunPlateTrigger(const char* name, W8AnimationDirection direction)
+bool RunPlateTrigger(const char* name, W8AnimationDirection direction)
 {
+    bool handled = false;
     Trigger* trigger = FindTriggerByName(name);
     if (trigger != 0) {
-        trigger->Run(-1);
+        handled |= trigger->Run(-1);
         Prop* prop = trigger->GetProp();
         if (prop != 0) {
             prop->SetAnimationDirection(direction);
         }
     }
+    return handled;
 }
 
 /* Activation callback on mudWallTrigger: spawns the badass monster at the
    NP_BadassMonster entity. */
-bool MudWall(Trigger* pTrigger)
+TriggerDecision MudWall(Trigger* pTrigger)
 {
     if (auto position = CurrentGame().level.loaded().namedPosition("NP_BadassMonster")) {
         SpawnMonsters(0x157, 1, &*position, 1, true, false);
     }
-    return true;
+    return {.run_action = true};
 }
 
 class MtGigas1Script final : public LevelScript {
@@ -69,8 +70,8 @@ public:
 
 private:
     void setup();
-    bool lift2(Trigger* pTrigger);
-    bool pressurePlate(Trigger* pTrigger);
+    TriggerDecision lift2(Trigger* pTrigger);
+    TriggerDecision pressurePlate(Trigger* pTrigger);
 
     Prop* plate_prop_ = nullptr;
     bool plate_down_ = false;
@@ -79,7 +80,8 @@ private:
 void MtGigas1Script::enter()
 {
     setup();
-    bindTrigger("_VOC_EWAXXLIFT1", [this](Trigger*) { return QueueGigasLiftNotice(ctx); });
+    bindTrigger("_VOC_EWAXXLIFT1",
+                [this](Trigger*) -> TriggerDecision { return QueueGigasLiftNotice(ctx); });
     bindTrigger("_VOC_EWAXXLIFT2", &MtGigas1Script::lift2);
     bindTrigger("PRESSUREPLATE", &MtGigas1Script::pressurePlate);
     bindTrigger("mudWallTrigger", MudWall);
@@ -111,14 +113,13 @@ void MtGigas1Script::setup()
 
 /* Activation callback on _VOC_EWAXXLIFT2: queues the lift NPC notice with
    the held item, if any. */
-bool MtGigas1Script::lift2(Trigger* pTrigger)
+TriggerDecision MtGigas1Script::lift2(Trigger* pTrigger)
 {
     if (ctx.activity.conversation) {
-        return false;
+        return {.run_action = false};
     }
     QueueNpcHeldItemNotice(0x5e);
-    g_trigger_feedback = true;
-    return false;
+    return {.run_action = false, .handled = true};
 }
 
 /* Activation callback on PRESSUREPLATE: ticks the secret door. The plate
@@ -126,12 +127,13 @@ bool MtGigas1Script::lift2(Trigger* pTrigger)
    prop still has list entries. On the down edge it opens secretDoor-01 and
    drops the plate (forward animation, rumble + open sounds); on the release edge it
    reverses both (reverse animation, close + rumble sounds) and clears PPlateDown. */
-bool MtGigas1Script::pressurePlate(Trigger* pTrigger)
+TriggerDecision MtGigas1Script::pressurePlate(Trigger* pTrigger)
 {
+    bool handled = false;
     glm::vec3 position;
 
     if (plate_prop_ == 0) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     const glm::vec3 camera_position = world().party.eye();
     position.x = camera_position.x;
@@ -141,26 +143,26 @@ bool MtGigas1Script::pressurePlate(Trigger* pTrigger)
          position.z >= bounds.minimum.z && position.z <= bounds.maximum.z) ||
         plate_prop_->HasSupportedItems()) {
         if (plate_down_) {
-            return false;
+            return {.run_action = false, .handled = handled};
         }
-        RunPlateTrigger("secretDoor-01", W8_ANIMATION_FORWARD);
-        RunPlateTrigger("plate", W8_ANIMATION_FORWARD);
+        handled |= RunPlateTrigger("secretDoor-01", W8_ANIMATION_FORWARD);
+        handled |= RunPlateTrigger("plate", W8_ANIMATION_FORWARD);
         plate_down_ = true;
         SetTriggerVariableByName("PPlateDown", 1);
         wiz8::sound::play("Data\\Sound\\Ambients\\Door Stone Open.wav");
         wiz8::sound::play("Data\\Sound\\Ambients\\Amb Rumble Very Low.wav");
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     if (!plate_down_) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
-    RunPlateTrigger("secretDoor-01", W8_ANIMATION_REVERSE);
-    RunPlateTrigger("plate", W8_ANIMATION_REVERSE);
+    handled |= RunPlateTrigger("secretDoor-01", W8_ANIMATION_REVERSE);
+    handled |= RunPlateTrigger("plate", W8_ANIMATION_REVERSE);
     plate_down_ = false;
     SetTriggerVariableByName("PPlateDown", 0);
     wiz8::sound::play("Data\\Sound\\Ambients\\Door Stone Close 01.wav");
     wiz8::sound::play("Data\\Sound\\Ambients\\Amb Rumble Very Low.wav");
-    return false;
+    return {.run_action = false, .handled = handled};
 }
 
 } // namespace

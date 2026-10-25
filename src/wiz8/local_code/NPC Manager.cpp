@@ -1726,7 +1726,7 @@ void Game::releaseMarkedNpcBindings(void)
 /* The activation callback RebindNpcLevelTriggers installs on every NPC
    trigger: queue the NPC's script notice, handing it the item on the cursor
    when the trigger's 0x100 flag or the NPC's '{' naming style asks for it. */
-bool NotifyNpcTriggerActivation(Trigger* trigger)
+TriggerDecision NotifyNpcTriggerActivation(Trigger* trigger)
 {
     const W8ItemInstance* item = 0;
 
@@ -1740,7 +1740,7 @@ bool NotifyNpcTriggerActivation(Trigger* trigger)
         }
         QueueNpcScriptNotice(npc, item, -1, false, 0);
     }
-    return false;
+    return {.run_action = false};
 }
 
 /* Rebuild the level's NPC bindings: first drop the followers whose record or

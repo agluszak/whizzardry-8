@@ -1099,10 +1099,11 @@ TEST_CASE("Scripted removal retires relationships before reclaiming an updating 
         body.script->lines.push_back({"TRIGGER " + name, 1});
         auto trigger = std::make_unique<Trigger>(&world);
         std::snprintf(trigger->name, sizeof(trigger->name), "%s", name.c_str());
-        trigger->activation_callback = [&, id, action = std::move(action)](Trigger*) {
+        trigger->activation_callback = [&, id,
+                                        action = std::move(action)](Trigger*) -> TriggerDecision {
             calls.push_back(id);
             action();
-            return false;
+            return {.run_action = false};
         };
         world.triggers.push_back(std::move(trigger));
         world.active_monsters.push_back(&body);

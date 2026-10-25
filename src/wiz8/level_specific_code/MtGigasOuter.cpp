@@ -50,16 +50,15 @@ constexpr float kLiftParkedY = -5000.0f;
 
 /* Activation callback on VOC_EWAXXSENTRYtrig: hands the sentry NPC (kind
    0x59) the item the player is holding, if any, as script argument -1. */
-bool SentryTrigger(Trigger* trigger)
+TriggerDecision SentryTrigger(Trigger* trigger)
 {
     QueueNpcHeldItemNotice(0x59);
-    g_trigger_feedback = true;
-    return true;
+    return {.run_action = true, .handled = true};
 }
 
 /* Activation callback on dummytrigger: every live member of monster kind
    0x180 gives birth once. */
-bool DummyTrigger(const ScriptContext& ctx, Trigger* trigger)
+TriggerDecision DummyTrigger(const ScriptContext& ctx, Trigger* trigger)
 {
     W8MonsterGroup* group = ctx.world->population->findSpeciesGroup(0x180, 0);
 
@@ -67,7 +66,7 @@ bool DummyTrigger(const ScriptContext& ctx, Trigger* trigger)
         ctx.game.giveBirthToMonster(group);
         group = ctx.world->population->findSpeciesGroup(0x180, group);
     }
-    return true;
+    return {.run_action = true};
 }
 
 class MtGigasOuterScript final : public LevelScript {
@@ -78,11 +77,11 @@ public:
 
 private:
     void processFlagPosition();
-    bool crank(Trigger* trigger);
+    TriggerDecision crank(Trigger* trigger);
     bool liftGate(int command);
-    bool securityButton(Trigger* trigger);
+    TriggerDecision securityButton(Trigger* trigger);
     bool campAlarm(int command);
-    bool ewaxxDoor03(Trigger* trigger);
+    TriggerDecision ewaxxDoor03(Trigger* trigger);
     void captureLiftGate(W8SavedLocationState& state);
     void captureCampAlarm(W8SavedLocationState& state);
 
@@ -95,12 +94,14 @@ private:
 void MtGigasOuterScript::enter()
 {
     processFlagPosition();
-    bindTrigger("_VOC_EWAXXLIFT1", [this](Trigger*) { return QueueGigasLiftNotice(ctx); });
+    bindTrigger("_VOC_EWAXXLIFT1",
+                [this](Trigger*) -> TriggerDecision { return QueueGigasLiftNotice(ctx); });
     bindTrigger("crank", &MtGigasOuterScript::crank);
     bindTrigger("Security Button", &MtGigasOuterScript::securityButton);
     bindTrigger("VOC_EWAXXSENTRYtrig", SentryTrigger);
     bindTrigger("ewaxxdoortrigger03", &MtGigasOuterScript::ewaxxDoor03);
-    bindTrigger("dummytrigger", [this](Trigger* trigger) { return DummyTrigger(ctx, trigger); });
+    bindTrigger("dummytrigger",
+                [this](Trigger* trigger) -> TriggerDecision { return DummyTrigger(ctx, trigger); });
 }
 
 /* When the FlagPosition location variable exists, feed its value to the lift
@@ -124,7 +125,7 @@ void MtGigasOuterScript::processFlagPosition()
    resets the lift and flags the trigger used; a saved mid-descent value
    (100-999) snaps the lift prop to its parked depth, marks the ride done and
    spawns the sentry at NP_catwalk. */
-bool MtGigasOuterScript::crank(Trigger* trigger)
+TriggerDecision MtGigasOuterScript::crank(Trigger* trigger)
 {
     glm::vec3 position;
     W8NpcState* npc;
@@ -133,14 +134,13 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
     int value;
 
     if ((ctx.inventory.held())) {
-        return false;
+        return {.run_action = false};
     }
     if (GetLocationVarIDByName("FlagPosition") == -1) {
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "FlagPosition", 0);
         npc = CurrentGame().story.npcOfKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x90, true, 0);
-        g_trigger_feedback = true;
-        return false;
+        return {.run_action = false, .handled = true};
     }
     value = GetLocationVarValueByName("FlagPosition");
     if (value == 0) {
@@ -148,7 +148,7 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
         trigger->flags &= ~W8_TRIGGER_ENABLED;
         npc = CurrentGame().story.npcOfKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x16, true, 0);
-        return true;
+        return {.run_action = true};
     }
     if (value >= 100 && value < 1000) {
         pFlagTrigger = FindRequiredTriggerByName("flag");
@@ -164,9 +164,9 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
         if (auto point = world().namedPosition("NP_catwalk")) {
             SpawnMonsters(0x14a, 1, &*point, 1, true, false);
         }
-        return true;
+        return {.run_action = true};
     }
-    return false;
+    return {.run_action = false};
 }
 
 void MtGigasOuterScript::captureLiftGate(W8SavedLocationState& state)
@@ -236,15 +236,14 @@ bool MtGigasOuterScript::liftGate(int command)
 /* Activation callback installed on the "Security Button" trigger. The first
    press lowers the Umpani faction disposition and starts the camp alarm;
    while the UmpaniCampAlarm variable exists the button does nothing. */
-bool MtGigasOuterScript::securityButton(Trigger* trigger)
+TriggerDecision MtGigasOuterScript::securityButton(Trigger* trigger)
 {
-    g_trigger_feedback = true;
     if (GetLocationVarIDByName("UmpaniCampAlarm") != -1) {
-        return false;
+        return {.run_action = false, .handled = true};
     }
     CurrentGame().setFactionDisposition(4, W8_FACTION_HOSTILE);
     campAlarm(kMasterToggle);
-    return true;
+    return {.run_action = true, .handled = true};
 }
 
 /* The camp alarm's master function, same shape as the lift: command zero
@@ -286,15 +285,15 @@ bool MtGigasOuterScript::campAlarm(int command)
 
 /* Activation callback on ewaxxdoortrigger03: the door only responds while an
    item in the 0x268-0x26e key range sits in the player's hand. */
-bool MtGigasOuterScript::ewaxxDoor03(Trigger* trigger)
+TriggerDecision MtGigasOuterScript::ewaxxDoor03(Trigger* trigger)
 {
     if ((ctx.inventory.held())) {
         int item_id = ctx.inventory.heldItemId();
         if (item_id >= 0x268 && item_id <= 0x26e) {
-            return true;
+            return {.run_action = true};
         }
     }
-    return false;
+    return {.run_action = false};
 }
 
 } // namespace

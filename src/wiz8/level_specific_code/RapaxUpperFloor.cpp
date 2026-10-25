@@ -32,16 +32,12 @@
 
 namespace {
 
-void RunTreasureDoor()
-{
-    RunNamedTrigger("TDoor1", -1);
-}
-
 /* "DoorDone": when TMakeTreasure is armed and TdoorOpen is still closed,
    deliver the stashed TMakeTreasureNumber item at NP_SlipItem and run TDoor1.
    Returns 0 once the treasure is delivered. */
-bool DoorDone(Trigger* pTrigger)
+TriggerDecision DoorDone(Trigger* pTrigger)
 {
+    bool handled = false;
     auto& game = CurrentGame();
     auto& owner = game.level.loaded();
     glm::vec3 position;
@@ -62,13 +58,13 @@ bool DoorDone(Trigger* pTrigger)
                             owner.activateItem(game.data, game.rng, world_item);
                         }
                     }
-                    RunTreasureDoor();
-                    return false;
+                    handled |= RunNamedTrigger("TDoor1", -1);
+                    return {.run_action = false, .handled = handled};
                 }
             }
         }
     }
-    return true;
+    return {.run_action = true, .handled = handled};
 }
 
 class RapaxUpperFloorScript final : public LevelScript {
@@ -82,7 +78,7 @@ public:
     }
 
 private:
-    bool airBox(Trigger* pTrigger);
+    TriggerDecision airBox(Trigger* pTrigger);
 };
 
 /* "AirBox": while the cursor holds an item, placing one of the four vault
@@ -90,8 +86,9 @@ private:
    the NP_SlipItem entity and runs the TDoor1 trigger. When TdoorOpen is
    already set the treasure is deferred through the TMakeTreasure/
    TMakeTreasureNumber location vars for DoorDone to deliver. */
-bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
+TriggerDecision RapaxUpperFloorScript::airBox(Trigger* pTrigger)
 {
+    bool handled = false;
     glm::vec3 position;
     W8WorldItem* world_item;
     int item_id;
@@ -120,10 +117,10 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
                         world().activateItem(ctx.game.data, ctx.game.rng, world_item);
                     }
                 }
-                RunTreasureDoor();
-                return true;
+                handled |= RunNamedTrigger("TDoor1", -1);
+                return {.run_action = true, .handled = handled};
             }
-            RunTreasureDoor();
+            handled |= RunNamedTrigger("TDoor1", -1);
             var_id = GetLocationVarIDByName("TMakeTreasure");
             if (var_id == -1) {
                 CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "TMakeTreasure", 1);
@@ -134,15 +131,15 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
             if (var_id == -1) {
                 CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(),
                                                            "TMakeTreasureNumber", item_id);
-                return true;
+                return {.run_action = true, .handled = handled};
             }
             SetTriggerVariableByName("TMakeTreasureNumber", item_id);
-            return true;
+            return {.run_action = true, .handled = handled};
         }
         ctx.game.queueWorldMessage(Data().strings[0x96a]);
     }
     ctx.game.queueWorldMessage(Data().strings[0x964]);
-    return true;
+    return {.run_action = true, .handled = handled};
 }
 
 } // namespace

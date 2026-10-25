@@ -38,7 +38,7 @@ public:
 
 private:
     void setup();
-    bool triggerPlane1Hedra(Trigger* pTrigger);
+    TriggerDecision triggerPlane1Hedra(Trigger* pTrigger);
 };
 
 void CosmicCircleScript::enter()
@@ -49,7 +49,7 @@ void CosmicCircleScript::enter()
 
 /* "CC_TRIGGERPLANE1HEDRA": stepping onto the arena trigger plane ends any
    running combat, posts the savant's script notice and starts CameraPath1. */
-bool CosmicCircleScript::triggerPlane1Hedra(Trigger* pTrigger)
+TriggerDecision CosmicCircleScript::triggerPlane1Hedra(Trigger* pTrigger)
 {
     W8NpcState* pNPC;
 
@@ -61,7 +61,7 @@ bool CosmicCircleScript::triggerPlane1Hedra(Trigger* pTrigger)
     if (pNPC == 0) throw std::runtime_error("Savant NPC state is missing");
     QueueNpcScriptNotice(pNPC, 0, -1, false, 0);
     UpdateCameraPathStateByName(&world(), "CameraPath1", 1);
-    return true;
+    return {.run_action = true};
 }
 
 /* Spawn the Cosmic Circle arena: Altheides and the dark savant on their named

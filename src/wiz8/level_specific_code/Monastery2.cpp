@@ -31,7 +31,7 @@ void DisableBellTrigger(const char* name)
     pPropTrigger->flags &= ~W8_TRIGGER_ON;
 }
 
-bool MicroDoor2(Trigger* pTrigger)
+TriggerDecision MicroDoor2(Trigger* pTrigger)
 {
     auto& game = CurrentGame();
     auto& owner = game.level.loaded();
@@ -44,7 +44,7 @@ bool MicroDoor2(Trigger* pTrigger)
     if (item != 0) {
         owner.activateItem(game.data, game.rng, item);
     }
-    return true;
+    return {.run_action = true};
 }
 
 class Monastery2Script final : public LevelScript {
@@ -58,10 +58,10 @@ public:
     }
 
 private:
-    bool bellButton(Trigger* pTrigger);
+    TriggerDecision bellButton(Trigger* pTrigger);
 };
 
-bool Monastery2Script::bellButton(Trigger* pTrigger)
+TriggerDecision Monastery2Script::bellButton(Trigger* pTrigger)
 {
     Prop* prop;
     int slot;
@@ -73,15 +73,15 @@ bool Monastery2Script::bellButton(Trigger* pTrigger)
             wiz8::sound::play("Data\\Sound\\Ambients\\Mon2Bell1.wav");
         } else if (slot == 1) {
             wiz8::sound::play("Data\\Sound\\Ambients\\Mon2Bell2.wav");
-            return true;
+            return {.run_action = true};
         } else if (slot == 2) {
             wiz8::sound::play("Data\\Sound\\Ambients\\Mon2Bell3.wav");
             DisableBellTrigger("bellringswitch");
             DisableBellTrigger("bell_button");
-            return true;
+            return {.run_action = true};
         }
     }
-    return true;
+    return {.run_action = true};
 }
 
 } // namespace

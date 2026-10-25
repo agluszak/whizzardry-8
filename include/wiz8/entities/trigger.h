@@ -143,11 +143,16 @@ enum class W8TriggerActionDataMode : signed char {
     fallback_action = 2
 };
 
+struct TriggerDecision {
+    bool run_action;
+    bool handled = false;
+};
+
 class Trigger {
 public:
     /* Decides whether an activation runs the trigger's action. Level scripts and NPC
        bindings install it; it may refer to the level script that owns it. */
-    using ActivationCallback = std::function<bool(Trigger* trigger)>;
+    using ActivationCallback = std::function<TriggerDecision(Trigger* trigger)>;
 
     explicit Trigger(World* world = nullptr, unsigned int item_seed = 0);
     ~Trigger();
@@ -184,7 +189,7 @@ public:
     bool HasActorWithinRadius(float radius, bool include_party);
     bool PlayActionSound(std::string_view sound_name, int volume);
     void UpdateActionAnimation();
-    void CommitActionResult(bool apply_state_changes);
+    bool CommitActionResult(bool apply_state_changes);
     void CompleteItemInteraction();
     void Activate();
     // The trigger's save record, and restoring the trigger from one.
@@ -192,8 +197,8 @@ public:
     // The lock's save record, or nothing when the trigger has no lock.
     std::optional<SavedLock> CaptureLock() const;
     void Restore(SavedTrigger saved);
-    void RunLinkedTriggers();
-    void FinishAction();
+    bool RunLinkedTriggers();
+    bool FinishAction();
     void GetPosition(glm::vec3* position) const;
     bool CanRunLinkedTriggers();
     /* flags: loaded from the level record's message packed flag; gates
@@ -202,14 +207,12 @@ public:
     /* Whether the trigger takes an item: required_item_id >= 0 (the special-item
        notice path) or a type-10 action payload naming item. */
     bool RequiresItem();
-    bool SelectAction();
+    TriggerDecision SelectAction();
     void GenerateItemGroup();
     W8WorldItem* GetOrCreateItemGroup(bool create);
-    /* After a selected-prop Run: while g_trigger_feedback is clear, post either
-       the special-item notice (required_item_id != -1) or the nothing-happened notice. */
-    void PrintNothingHappenedOrSpecialItemRequired(); /* 0x004456E0 */
+    void interact();
     void RunDestination(std::string_view destination);
-    void Run(int source);
+    bool Run(int source);
 
     W8TriggerKind trigger_kind;
     char name[0x80];
@@ -278,18 +281,18 @@ Trigger* FindTriggerByName(std::string_view name);
 // Throws when the loaded level lacks the trigger.
 Trigger* FindRequiredTriggerByName(std::string_view name);
 
-inline void RunNamedTrigger(std::string_view name, int source)
+inline bool RunNamedTrigger(std::string_view name, int source)
 {
     Trigger* trigger = FindTriggerByName(name);
     if (trigger != 0) {
-        trigger->Run(source);
+        return trigger->Run(source);
     }
+    return false;
 }
 
 W8DoorTriggerActionData ReadDoorTriggerActionData(wiz8::File* handle);
 int ResetNextTriggerId(void);
 
-extern bool g_trigger_feedback;
 /* Camera position cached by the per-frame trigger walk. */
 extern glm::vec3 g_trigger_camera;
 extern int g_container_event_alt;

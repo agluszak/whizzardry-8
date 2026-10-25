@@ -9,6 +9,7 @@
 #include "wiz8/script_context.h"
 
 class Trigger;
+struct TriggerDecision;
 struct W8WorldCursorNode;
 struct World;
 
@@ -46,7 +47,7 @@ public:
 protected:
     using Update = std::function<bool(int)>;
     using Capture = std::function<void(W8SavedLocationState&)>;
-    using Callback = std::function<bool(Trigger*)>;
+    using Callback = std::function<TriggerDecision(Trigger*)>;
 
     World& world() const { return *ctx.world; }
 
@@ -69,12 +70,12 @@ protected:
     // Install `callback` on the trigger the level must have.
     void bindTrigger(std::string_view trigger, Callback callback);
     template<class Script>
-    void bindTrigger(std::string_view trigger, bool (Script::*callback)(Trigger*))
+    void bindTrigger(std::string_view trigger, TriggerDecision (Script::*callback)(Trigger*))
     {
         bindTrigger(trigger, callbackOf(callback));
     }
     template<class Script>
-    Callback callbackOf(bool (Script::*callback)(Trigger*))
+    Callback callbackOf(TriggerDecision (Script::*callback)(Trigger*))
     {
         return std::bind_front(callback, static_cast<Script*>(this));
     }

@@ -138,7 +138,9 @@ does not satisfy this contract.
   partially (stack merging) or have effects even when final placement fails
   (identification). Do not impose transactional/all-or-nothing semantics unless
   gameplay requires them. Preserve remainders and distinguish refusal from
-  completion.
+  completion. Trigger callbacks distinguish permission to run an action from
+  whether they handled the interaction. Nested activations return their feedback
+  to the calling operation; unrelated activations cannot change its result.
 - **Required consequences are explicit.** Damage/death, item acquisition, NPC
   dismissal and combat changes must not depend on presentation subscribers being
   installed. Observers report an outcome after the operation's relevant
