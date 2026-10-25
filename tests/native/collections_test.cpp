@@ -1097,7 +1097,6 @@ TEST_CASE_METHOD(LevelWorldFixture,
                  "Combat list rows cannot select a group outside the displayed list",
                  "[groups][targeting]")
 {
-    auto& groups = CurrentLevelPopulation().groups();
     auto group = std::make_unique<W8MonsterGroup>();
     group->members_active = true;
     group->fInCombat = true;
