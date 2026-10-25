@@ -7,6 +7,7 @@
 class Monster;
 class Rng;
 struct MonsterAction;
+struct DamageOptions;
 struct W8Character;
 struct W8CombatSlot;
 struct W8Dice;
@@ -36,30 +37,16 @@ void SpendCharacterSpellPoints(int party_slot, W8SpellRealm realm, int amount);
 int MonsterActionFatigueCost(Rng& rng, MonsterAction action, bool diseased);
 void HealMonster(W8MonsterInfo* monster_info, unsigned int amount, bool announce);
 void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announce);
-/* The monster-side effect application pass the aging producer
-   drives for both sign directions. The result block, when given, collects
-   the damage dealt; the applied amount is also returned. `quiet` marks
-   non-provoking damage such as a poison tick: it picks the notice strings,
-   skips the condition-target bookkeeping, and silences the struck reaction. */
-unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amount,
-                                  struct W8TargetSource* source, bool quiet,
-                                  unsigned char in_combat, signed char a,
-                                  W8SpellEffectResult* result_stats, bool c);
-/* The character-side counterpart - damage absorbed by the
-   slot-2 enchantment first, two thirds of the rest fatigue the character, the
-   remainder comes off hit points and can kill. The sixth parameter receives a
-   kill-counting result block. The game-level operation in live_party.cpp settles
-   fatigue, conditions, combat and speech before delivering its presentation outcomes.
-   `quiet` marks non-provoking damage such as a poison tick: it picks the
-   shield/notice strings and the poison suffix, and keeps a sleeping character
-   asleep. `announce` gates the damage notice, `short_notice` selects the terse
-   ShowNotice form over the verbose PostCharacterNotice one, and `detailed`
-   includes the character name in the message. */
+// Returns the post-shield magnitude, including overkill, not merely HP removed.
+unsigned int ApplyDamageToMonster(W8MonsterInfo& monster, unsigned int amount,
+                                  const W8TargetSource& source, DamageOptions options,
+                                  W8SpellEffectResult* result_stats = nullptr);
 
 extern char g_poison_suffix[];
 /* How a monster answers being struck - the struck cycle, a
    possible condition knock-on, and the hostility check toward the attacker. */
-void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* attacker, bool quiet);
+void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, const W8TargetSource* attacker,
+                                bool quiet);
 void ApplyRolledHealthChangeToParty(const W8Dice* dice, W8SpellEffectResult* result, int announce);
 /* Roll the dice once for every live monster within the radius of
    a point and apply each roll as damage. */

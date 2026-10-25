@@ -465,7 +465,8 @@ void SetMonsterGroupControlState(W8MonsterGroup* monster_group, W8MonsterControl
         int location_id = monster_group->MemberLocationId(index);
         W8MonsterInfo* info = FindMonster(location_id);
         if (info != 0 && !info->entity->IsDying()) {
-            SetMonsterControlState(info, control_state);
+            info->setControlState(control_state);
+            CurrentGame().events.push(MonstersChanged{});
         }
     }
 }

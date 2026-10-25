@@ -334,8 +334,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        ApplyDamageToMonster(monster_info, uiDamage, pSource, false, 1, 0, 0,
-                                             false);
+                        ApplyDamageToMonster(*monster_info, uiDamage, *pSource, {});
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];
@@ -385,8 +384,9 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        ApplyDamageToMonster(monster_info, uiDamage, pSource, false, announce, 0, 0,
-                                             false);
+                        ApplyDamageToMonster(
+                            *monster_info, uiDamage, *pSource,
+                            {.notice = announce ? DamageNotice::Standard : DamageNotice::None});
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];

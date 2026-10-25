@@ -266,6 +266,9 @@ struct W8MonsterInfo {
     W8NpcState* boundNpc(bool allow_unavailable = false) const;
     const std::shared_ptr<W8NpcState>& npcIdentity() const { return npc_binding_; }
     void initializeVitals(const W8MonsterRecord& record, Rng& rng);
+    std::optional<unsigned int> absorbDamage(unsigned int amount);
+    bool takeDamage(unsigned int amount, const W8TargetSource& source, bool poison);
+    void setControlState(W8MonsterControlState next);
     void configureBody(Rng& rng, bool level_visited);
     void restoreSpellIcons();
     void inheritLeaderState(const W8MonsterInfo& outgoing);
@@ -402,12 +405,10 @@ W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure = true);
 const W8MonsterRecord* GetMonsterDataByLocationID(int location_id);
 Monster* GetMonsterByLocationID(int location_id);
 float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info);
-void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info);
 
 void ProcessMonstersAtCombatEnd(bool forced_cleanup);
 W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species);
 void DestroyUngroupedMonsters(void);
-void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState control_state);
 void ProcessMonsterManagerFrame(void);
 std::string FormatMonsterHealth(W8MonsterInfo* monster_info);
 unsigned int GetMonsterExperience(const W8MonsterRecord* record);

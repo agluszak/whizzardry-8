@@ -170,7 +170,7 @@ void World::prepareMonsterBody(W8MonsterInfo& info, Rng& rng, bool unborn, float
 
     camera_position = monster.owner_world.party.eye();
     monster.visual.SelectLOD(&camera_position);
-    UpdateMonsterDamageAppearance(monster_info);
+    monster_info->entity->updateDamageAppearance(monster_info->hp_current, monster_info->uiHPMax);
     monster.UpdateRepresentation();
     compiledIndex()->UpdateMonsterLocation(static_cast<unsigned short>(monster_info->location_id),
                                            monster_info->position);
@@ -436,15 +436,11 @@ float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info)
     return result;
 }
 
-void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info)
+void Monster::updateDamageAppearance(unsigned int hp, int maximum)
 {
-    Monster* monster = monster_info->entity.get();
-    if (!monster || monster->damage_stage_count <= 1) return;
-    const int count = monster->damage_stage_count;
-    const int value =
-        ((monster_info->uiHPMax - static_cast<int>(monster_info->hp_current)) * count) /
-        monster_info->uiHPMax;
-    monster->visual.damage_stage = std::min(value, count - 1);
+    if (damage_stage_count <= 1) return;
+    const int stage = ((maximum - static_cast<int>(hp)) * damage_stage_count) / maximum;
+    visual.damage_stage = std::min(stage, damage_stage_count - 1);
 }
 
 void ProcessMonstersAtCombatEnd(bool forced_cleanup)
@@ -518,23 +514,41 @@ void DestroyUngroupedMonsters(void)
     }
 }
 
-void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState control_state)
+std::optional<unsigned int> W8MonsterInfo::absorbDamage(unsigned int amount)
 {
-    assert(monster_info != 0);
-    switch (control_state) {
+    auto& shield = enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL];
+    if (shield.turns == 0) return std::nullopt;
+    const auto absorbed = std::min(amount, static_cast<unsigned int>(shield.magnitude));
+    shield.magnitude = static_cast<unsigned short>(shield.magnitude - absorbed);
+    return absorbed;
+}
+
+bool W8MonsterInfo::takeDamage(unsigned int amount, const W8TargetSource& source, bool poison)
+{
+    if (hp_current == 0 || amount == 0) return false;
+    if (!source.fBackfire && !source.fReflection && !source.target_diverted && !poison) {
+        condition_target = source;
+        if (pCombat && TargetSourceIsCharacter(&source, 0) && source.iChar != -1)
+            pCombat->character_hate[source.iChar] += amount;
+    }
+    hp_current -= std::min(amount, hp_current);
+    return hp_current == 0;
+}
+
+void W8MonsterInfo::setControlState(W8MonsterControlState next)
+{
+    switch (next) {
     case W8_MONSTER_CONTROL_NONE:
     case W8_MONSTER_CONTROL_RESISTED:
-        if (monster_info->control_state == W8_MONSTER_CONTROL_LURED &&
-            monster_info->entity->nav.linked_navigator == 0) {
-            monster_info->entity->nav.ClearMovement();
-            monster_info->ai_mode = W8_RT_AI_IDLE;
+        if (control_state == W8_MONSTER_CONTROL_LURED && entity->nav.linked_navigator == 0) {
+            entity->nav.ClearMovement();
+            ai_mode = W8_RT_AI_IDLE;
         }
         break;
     default:
         break;
     }
-    monster_info->control_state = control_state;
-    CurrentGame().events.push(MonstersChanged{});
+    control_state = next;
 }
 
 void W8MonsterInfo::setMotionless(bool motionless)

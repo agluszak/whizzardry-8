@@ -1320,8 +1320,9 @@ void ApplyDamageToTargets(W8SpellEffectEntry* effect)
             } else {
                 result = 0;
             }
-            ApplyDamageToMonster(monster_info, magnitude, &effect->Source, false, verbose, 0,
-                                 result, false);
+            ApplyDamageToMonster(*monster_info, magnitude, effect->Source,
+                                 {.notice = verbose ? DamageNotice::Standard : DamageNotice::None},
+                                 result);
         }
     }
     if (!verbose) {
@@ -1388,8 +1389,9 @@ void DrainTargetsLife(W8SpellEffectEntry* effect)
             } else {
                 result = 0;
             }
-            ApplyDamageToMonster(monster_info, magnitude, &effect->Source, false, announce, 0,
-                                 result, false);
+            ApplyDamageToMonster(*monster_info, magnitude, effect->Source,
+                                 {.notice = announce ? DamageNotice::Standard : DamageNotice::None},
+                                 result);
             drained += magnitude;
         }
     }
@@ -1913,8 +1915,9 @@ static void ResolveAfflictionForTarget(W8SpellEffectEntry* effect, W8CombatSlot*
             target->iChar, magnitude,
             {.notice = verbose ? DamageNotice::Standard : DamageNotice::None}, result);
     else
-        ApplyDamageToMonster(monster_info, magnitude, &effect->Source, false, verbose, 0, result,
-                             false);
+        ApplyDamageToMonster(*monster_info, magnitude, effect->Source,
+                             {.notice = verbose ? DamageNotice::Standard : DamageNotice::None},
+                             result);
 }
 
 /* The affliction spells: each listed target takes either a weighted-random
@@ -1998,8 +2001,9 @@ void DamageTargetsAndReport(W8SpellEffectEntry* effect)
         ApplyEffectAndAnnounce(&magnitude, &target, Data().spells[effect->kind].realm,
                                effect->definition.power_level);
         if (magnitude != 0) {
-            ApplyDamageToMonster(monster_info, magnitude, &effect->Source, false, verbose, 0,
-                                 verbose ? 0 : result, false);
+            ApplyDamageToMonster(*monster_info, magnitude, effect->Source,
+                                 {.notice = verbose ? DamageNotice::Standard : DamageNotice::None},
+                                 verbose ? 0 : result);
             total += magnitude;
             ++hits;
         }
@@ -2161,7 +2165,8 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
         }
         if (monster_info->uiCondition[W8_CONDITION_BLIND] != 0 ||
             monster_info->highest_condition >= W8_CONDITION_ASLEEP) {
-            SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_NONE);
+            monster_info->setControlState(W8_MONSTER_CONTROL_NONE);
+            CurrentGame().events.push(MonstersChanged{});
             continue;
         }
         ResetCombatSlot(&target);
@@ -2169,7 +2174,8 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
         target.iMonsterID = monster_info->location_id;
         if (!MonsterResistsSpellEffect(&target, effect->definition.power_level)) {
             if (CurrentGame().combat.has_value()) {
-                SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_LURED);
+                monster_info->setControlState(W8_MONSTER_CONTROL_LURED);
+                CurrentGame().events.push(MonstersChanged{});
             } else {
                 SetMonsterGroupControlState(FindMonsterGroup(monster_info->monster_group_id),
                                             W8_MONSTER_CONTROL_LURED);
@@ -2177,7 +2183,8 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
             effect->applied = true;
         } else {
             if (CurrentGame().combat.has_value()) {
-                SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_RESISTED);
+                monster_info->setControlState(W8_MONSTER_CONTROL_RESISTED);
+                CurrentGame().events.push(MonstersChanged{});
             } else {
                 SetMonsterGroupControlState(FindMonsterGroup(monster_info->monster_group_id),
                                             W8_MONSTER_CONTROL_RESISTED);
@@ -2517,8 +2524,10 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
                 ApplyEffectAndAnnounce(&amount, &target, Data().spells[W8_SPELL_RING_OF_FIRE].realm,
                                        slot.amount * 3);
                 if (amount != 0) {
-                    ApplyDamageToMonster(monster_info, amount, &source, false, verbose, 0,
-                                         !verbose ? &local_result : 0, false);
+                    ApplyDamageToMonster(
+                        *monster_info, amount, source,
+                        {.notice = verbose ? DamageNotice::Standard : DamageNotice::None},
+                        !verbose ? &local_result : 0);
                 }
             }
             if (!verbose) {
@@ -2719,7 +2728,7 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                     ApplyEffectAndAnnounce(&amount, target, Data().spells[spell_id].realm,
                                            difficulty);
                     if (amount != 0) {
-                        ApplyDamageToMonster(monster_info, amount, &source, false, 1, 0, 0, false);
+                        ApplyDamageToMonster(*monster_info, amount, source, {});
                         if (spell_id == W8_SPELL_DRAINING_CLOUD) {
                             CurrentGame().fatigueMonster(monster_info, amount, 0);
                             monster_info->spell_points = monster_info->spell_points - (amount >> 1);
@@ -3354,7 +3363,8 @@ void ApplyDiceDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* sourc
     record = GetMonsterDataForInfo(monster_info);
     amount = ApplyDamageReduction(monster_info, record, damage);
     if (amount > 0) {
-        ApplyDamageToMonster(monster_info, amount, source, false, verbose, verbose, 0, false);
+        ApplyDamageToMonster(*monster_info, amount, *source,
+                             {.notice = verbose ? DamageNotice::AmountOnly : DamageNotice::None});
         CurrentGame().combat->attack_report.notice_values[3] += amount;
     }
 }
@@ -3395,10 +3405,11 @@ void ApplyDirectDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* sou
     amount = ApplyDamageReduction(monster_info, record, damage);
     if (amount > 0) {
         if (verbose) {
-            ApplyDamageToMonster(monster_info, amount, source, false, 1, 1, 0, true);
+            ApplyDamageToMonster(*monster_info, amount, *source,
+                                 {.notice = DamageNotice::Detailed});
         } else {
-            amount =
-                ApplyDamageToMonster(monster_info, amount, source, false, 0, 0, &result, false);
+            amount = ApplyDamageToMonster(*monster_info, amount, *source,
+                                          {.notice = DamageNotice::None}, &result);
             CurrentGame().combat->attack_report.notice_values[4] += amount;
             QueueCombatDamageReports(&result);
         }

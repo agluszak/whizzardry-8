@@ -267,8 +267,10 @@ static void ReleaseHypnoticLureControl(World& world)
 {
     for (std::size_t index = 0; index < world.population->monster_roster.live().size(); ++index) {
         auto* monster = world.population->monster_roster.live()[index].get();
-        if (monster && !monster->entity->IsDying())
-            SetMonsterControlState(monster, W8_MONSTER_CONTROL_NONE);
+        if (monster && !monster->entity->IsDying()) {
+            monster->setControlState(W8_MONSTER_CONTROL_NONE);
+            CurrentGame().events.push(MonstersChanged{});
+        }
     }
 }
 

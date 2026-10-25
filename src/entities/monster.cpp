@@ -2231,9 +2231,9 @@ void Monster::SpawnDamageNumber(unsigned int amount)
 
         GetMappedPosition(&position);
         facing = nav.GetPosition();
-        pitch = ElevationToTargetCPP(&facing);
-        facing = nav.GetPosition();
-        yaw = HeadingToTargetCPP(&facing);
+        const auto eye = owner_world.party.eye();
+        pitch = GetElevationAngle(&facing, &eye);
+        yaw = GetHeadingAngle(&facing, &eye);
         OffsetPositionByYawPitch(500.0f, &position, yaw, pitch);
         camera_position = owner_world.party.eye();
         distance = glm::length((position - camera_position));

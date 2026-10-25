@@ -192,6 +192,7 @@ public:
     void SetRuntimeBehaviour(W8AnimationBehaviour behaviour);
     void SetLocationId(int value);
     void ForwardReferencePosition(signed char alternate);
+    void updateDamageAppearance(unsigned int hp, int maximum);
     void SpawnDamageNumber(unsigned int amount); /* 0x004C6C30 */
     bool IsDying();                              /* 0x004CA4C0 */
     // The death cycle is playing.
