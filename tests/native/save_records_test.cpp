@@ -22,11 +22,13 @@
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/difficulty.h"
+#include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/encounter_tables.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/npc_dialogue.h"
+#include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/Magic.h"
@@ -351,6 +353,26 @@ static void unicode_file_contracts()
         REQUIRE((complete = GetStringFromStringDatabase("Data/Strings/unicode.msg", 0, nullptr,
                                                         nullptr)) == name);
     }
+    // A refused cast consumes the level message in its own game, without a UI observer.
+    wiz8::create_directory(wiz8::asset_path("Data/Messages"));
+    std::filesystem::copy_file(wiz8::asset_path("Data/Strings/unicode.msg"),
+                               wiz8::asset_path("Data/Messages/Test.msg"));
+    Game candidate{game.game.data};
+    candidate.level.replacePrimary(std::make_unique<World>());
+    auto& world = candidate.level.loaded();
+    world.party.place({});
+    world.script = std::make_unique<LevelScript>(MakeScriptContext(candidate));
+    auto block = CreateWorldCursorCube();
+    block->parameters[2] = 2; // Refuse casting with message zero.
+    world.cursor_nodes.push_back(std::move(block));
+    candidate.activity.place = Activity::Place::Camp;
+    REQUIRE(candidate.refuseBlockedCasting());
+    REQUIRE_FALSE(candidate.npc_dialogue.has_queued_actions());
+    candidate.activity.place = Activity::Place::World;
+    REQUIRE(candidate.refuseBlockedCasting());
+    REQUIRE(candidate.npc_dialogue.has_queued_actions());
+    REQUIRE_FALSE(game.game.npc_dialogue.has_queued_actions());
+
     auto file =
         wiz8::open_file(wiz8::asset_path("Data/Strings/unicode.dat"), wiz8::OpenMode::replace);
     const int count = 1;

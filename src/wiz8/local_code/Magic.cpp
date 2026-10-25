@@ -1730,7 +1730,7 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
                 CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x1b8]});
         }
         valid = false;
-    } else if (!skip_world_cursor && CurrentGame().partyCastingBlocked()) {
+    } else if (!skip_world_cursor && CurrentGame().refuseBlockedCasting()) {
         valid = false;
     }
 

@@ -229,7 +229,7 @@ public:
        destroy the combat. A forced end (a departure or a scripted end) neither announces
        nor kills the summoned monsters. */
     void endCombat(bool forced_cleanup);
-    bool partyCastingBlocked();
+    bool refuseBlockedCasting();
     void queueWorldMessage(std::string_view text);
     void queueLevelMessage(int message_id);
     void appendSpellTargets(World& world, int spell_id, int power_level, W8TargetSource* source,

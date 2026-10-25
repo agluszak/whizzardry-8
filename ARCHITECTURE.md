@@ -372,6 +372,10 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   is the game's one step: it applies the interface's hold, runs speech, and in the
   world runs the simulation in retail order. `Game::time` is the step time that
   deadlines below the step use. Only the main game and the camp step the game.
+- **Narration.** Gameplay emits completed text-write values, not queries or repairs of
+  text-box formatting. The main screen owns continuation mode and palette, retaining
+  them through suspension but not replacement. Casting refusal queues its dialogue
+  explanation in the game command itself; camp refusals remain silent.
 - **Events.** Completed commands publish ordered presentation outcomes to `Game::events`.
   A command collects an ordinary local vector; its internal calls append to the same
   vector and the command publishes it explicitly after its invariants and mandatory

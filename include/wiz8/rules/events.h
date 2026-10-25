@@ -183,10 +183,6 @@ struct PartyTargetAvailabilityChanged {};
 struct CombatSelectionRequested {};
 // A member joined or left; everything the party is shown in changes.
 struct PartyMembershipChanged {};
-// A casting restriction's message, shown through the main screen's portrait queue.
-struct CastingBlockedNotice {
-    std::string text;
-};
 // The outgoing world and its borrowed presentation targets have been released.
 struct LevelDeparted {
     bool restore_cursor;
@@ -208,9 +204,9 @@ using Event =
                  CombatBegan, CombatEnded, CombatProgressChanged, CombatStanceChanged,
                  MonstersChanged, MonsterHealthChanged, MonstersActivated, PartyEffectsChanged,
                  CombatEffectsChanged, PartyPanelChanged, PartyMembershipChanged, WorldItemRemoved,
-                 LevelDeparted, CastingBlockedNotice, TargetingRequested, FormationChanged,
-                 ActionAimChanged, ActionChoiceChanged, PartyTargetAvailabilityChanged,
-                 CombatSelectionRequested, JournalEntryAdded, PortraitSpeechChanged>;
+                 LevelDeparted, TargetingRequested, FormationChanged, ActionAimChanged,
+                 ActionChoiceChanged, PartyTargetAvailabilityChanged, CombatSelectionRequested,
+                 JournalEntryAdded, PortraitSpeechChanged>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events

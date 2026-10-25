@@ -165,16 +165,13 @@ Sound3D* CreateAndPlaySoundNode(World& world, const char* sound_name, glm::vec3 
     return result;
 }
 
-bool Game::partyCastingBlocked()
+bool Game::refuseBlockedCasting()
 {
     if (!level.primary) return false;
     const auto messages = level.primary->castingBlockMessagesAt(level.primary->party.eye());
     if (messages.empty()) return false;
-    const auto path = LevelMessagePath(level.primary->level_id);
-    for (int id : messages) {
-        auto text = GetStringFromStringDatabase(path, id, nullptr, nullptr);
-        if (!text.empty()) events.push(CastingBlockedNotice{std::move(text)});
-    }
+    if (activity.in_world())
+        for (int id : messages) queueLevelMessage(id);
     return true;
 }
 
