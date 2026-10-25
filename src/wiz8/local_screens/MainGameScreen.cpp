@@ -3115,7 +3115,8 @@ void SelectPartyCharacter(int party_slot)
         hud->repaint.submenu_buttons = true;
         hud->repaint.character_action = true;
     }
-    if (auto& combat = CurrentGame().combat) combat->target_picked = true;
+    if (auto* screen = MainGame(); screen && CurrentGame().combat)
+        screen->manual_target_selection = true;
 }
 
 void RefreshSelectedPartyPortrait(unsigned int party_slot)
@@ -6112,27 +6113,30 @@ bool IsSighting(int party_slot)
     return !CurrentGame().combat.has_value() && !EditedDraft(party_slot);
 }
 
-namespace {
-void RefreshAim(unsigned int actor, const W8CombatSlot& target)
+void MainGameScreen::refreshAim(unsigned int actor, const W8CombatSlot& target)
 {
     RequestPartySlotRedraw(actor);
-    if (actor != static_cast<unsigned int>(CurrentGame().status.selected_character)) return;
-    if (auto* hud = MainGameHud()) {
+    if (actor != static_cast<unsigned int>(game.status.selected_character)) return;
+    if (hud) {
         hud->repaint.monster_list = true;
         hud->repaint.character_action = true;
     }
     if (target.iType == W8_TARGET_KIND_NONE) return;
-    const auto edited = EditedAction(actor);
-    const auto needed = IsSighting(actor) ? W8_TARGET_NEED_NONE : CurrentGame().targetNeed(edited);
-    SetTargetingMode(CurrentGame().targetMatches(edited.target, needed) ? W8_TARGET_NEED_NONE
-                                                                        : needed);
+    const W8Action* draft = spell_picker  ? &spell_picker->action()
+                            : item_picker ? &item_picker->action()
+                                          : nullptr;
+    const auto edited =
+        draft ? game.party.availableAction(actor, *draft)
+              : game.party.action(actor, game.combat ? W8_TARGETING_CONTEXT_IN_COMBAT
+                                                     : W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
+    const auto needed = (!game.combat && !draft) ? W8_TARGET_NEED_NONE : game.targetNeed(edited);
+    SetTargetingMode(game.targetMatches(edited.target, needed) ? W8_TARGET_NEED_NONE : needed);
 }
-} // namespace
 
 void AimAtTarget(int actor, const W8CombatSlot& target)
 {
     if (auto* draft = EditedDraft(actor)) {
-        AimDraft(actor, *draft, target);
+        MainGame()->aimDraft(actor, *draft, target);
     } else {
         CurrentGame().aimStoredAction(actor,
                                       CurrentGame().combat.has_value()
@@ -6142,14 +6146,14 @@ void AimAtTarget(int actor, const W8CombatSlot& target)
     }
 }
 
-void AimDraft(int actor, W8Action& draft, const W8CombatSlot& target)
+void MainGameScreen::aimDraft(int actor, W8Action& draft, const W8CombatSlot& target)
 {
-    const bool changed = CurrentGame().party.availableAction(actor, draft).target != target;
+    const bool changed = game.party.availableAction(actor, draft).target != target;
     if (changed) {
         draft.target = target;
-        if (auto& combat = CurrentGame().combat) combat->target_picked = false;
+        if (game.combat) manual_target_selection = false;
     }
-    if (changed || target.iType != W8_TARGET_KIND_NONE) RefreshAim(actor, target);
+    if (changed || target.iType != W8_TARGET_KIND_NONE) refreshAim(actor, target);
 }
 
 void SetTargetingMode(W8TargetNeed state)
@@ -6182,7 +6186,8 @@ void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed need
             target.iMonsterID = CurrentGame().npc_interaction.target_location_id;
             AimAtTarget(selected, target);
             needed_kind = W8_TARGET_NEED_NONE;
-        } else if (g_settings.autotarget_spells && draft && RepickDraftTarget(selected, *draft)) {
+        } else if (g_settings.autotarget_spells && draft &&
+                   MainGame()->repickDraftTarget(selected, *draft)) {
             W8TargetSource source;
             SetTargetSourceToCharacter(selected, &source);
             CurrentGame().pointCameraAtCombatTarget(
@@ -6206,7 +6211,63 @@ aim_done:
     SetTargetingMode(needed_kind);
 }
 
-void RefreshStoredAim(unsigned int actor)
+void MainGameScreen::refreshStoredAim(unsigned int actor, bool changed)
 {
-    RefreshAim(actor, CurrentGame().party.rows[actor].committed.target);
+    if (changed) manual_target_selection = false;
+    refreshAim(actor, game.party.rows[actor].committed.target);
+}
+
+bool MainGameScreen::repickDraftTarget(int slot, W8Action& draft)
+{
+    if (!game.party.participates(slot)) return false;
+    const auto repick = game.chooseTarget(slot, game.party.availableAction(slot, draft));
+    // Pickers edit spells/items, never an automatic weapon arrangement.
+    assert(!repick || !repick->equipment);
+    aimDraft(slot, draft,
+             repick ? repick->target : W8CombatSlot{W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}});
+    return repick.has_value();
+}
+
+void MainGameScreen::refreshDraftTarget()
+{
+    if (keyboard_menu) keyboard_menu->refresh();
+    const int slot = game.status.selected_character;
+    if (slot < 0 || !game.party.members[slot]) return;
+    W8Action* draft = spell_picker  ? &spell_picker->action()
+                      : item_picker ? &item_picker->action()
+                                    : nullptr;
+    if (!draft) return;
+    const auto& character = game.party.characters[slot];
+    if (character.hp_current == 0 && character.highest_condition >= W8_CONDITION_DEAD) return;
+    const auto selected = game.party.availableAction(slot, *draft);
+    if (game.canPerformAction(slot, selected, false)) return;
+    if (game.canPerformAction(slot, selected, true))
+        repickDraftTarget(slot, *draft);
+    else if (selected.target.iType != W8_TARGET_KIND_NONE)
+        aimDraft(slot, *draft, {W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}});
+}
+
+void MainGameScreen::autoAdvanceSelection()
+{
+    if (!game.combat || !g_settings.auto_advance_character || manual_target_selection ||
+        !game.combat->round_active || pointer.targeting() != W8_TARGET_NEED_NONE || spell_picker ||
+        item_picker)
+        return;
+    const int selected = game.status.selected_character;
+    if (selected < 0) return;
+    const auto needs_action = [&](int slot) {
+        const auto& character = game.party.characters[slot];
+        return game.party.members[slot] && character.hp_current != 0 &&
+               character.highest_condition < W8_CONDITION_TURNCOAT &&
+               !game.canPerformAction(slot, game.party.action(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                      false);
+    };
+    if (needs_action(selected)) return;
+    for (int offset = 1; offset < W8_PARTY_SLOT_COUNT; ++offset) {
+        const int slot = (selected + offset) % W8_PARTY_SLOT_COUNT;
+        if (needs_action(slot)) {
+            SelectPartyCharacter(slot);
+            return;
+        }
+    }
 }

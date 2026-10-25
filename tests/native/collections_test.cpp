@@ -68,6 +68,7 @@
 #include "wiz8/local_code/Sight.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
+#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/monster_actions.h"
@@ -76,6 +77,7 @@
 #include "wiz8/npc_items.h"
 #include "wiz8/npc_trade_price.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/pointer.h"
 #include "wiz8/resource_cache.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
@@ -680,7 +682,16 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     draft.detail = 9;
     draft.detail_block.spell.power_level = 3;
     W8CombatSlot target{W8_TARGET_KIND_CHARACTER, 0, -1, -1, {}, {}};
-    AimDraft(0, draft, target);
+    Pointer pointer;
+    MainGameScreen screen(game.game, pointer);
+    game.game.status.selected_character = -1; // No spell presentation is loaded in this fixture.
+    game.game.combat.emplace();
+    screen.manual_target_selection = true;
+    screen.aimDraft(0, draft, target);
+    REQUIRE_FALSE(screen.manual_target_selection);
+    screen.manual_target_selection = true;
+    screen.aimDraft(0, draft, target);
+    REQUIRE(screen.manual_target_selection); // An unchanged aim does not release manual selection.
     const auto assessed = CurrentGame().party.availableAction(0, draft);
     REQUIRE(assessed.detail == 9);
     REQUIRE(assessed.target == target);
@@ -1883,6 +1894,9 @@ TEST_CASE("Target selection and repicking stay in their originating game", "[tar
     REQUIRE_FALSE(choice->equipment);
     REQUIRE(candidate.repickActionTarget(0, W8_TARGETING_CONTEXT_IN_COMBAT));
     REQUIRE(candidate.party.rows[0].committed.target == W8CombatSlot::monster(20));
+    candidate.level.loaded().population->findMonster(20)->hp_current = 0;
+    candidate.refreshPartyTargets(); // No screen participates in required target/equipment repair.
+    REQUIRE(candidate.party.rows[0].committed.target == W8CombatSlot::monster(21));
     REQUIRE(outgoing.game.party.rows[0].committed.target == W8CombatSlot::monster(10));
     REQUIRE(outgoing.game.events.pending().size() == outgoing_events);
     REQUIRE(draws.empty());

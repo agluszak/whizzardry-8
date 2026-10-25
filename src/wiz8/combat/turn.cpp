@@ -178,7 +178,7 @@ void Combat::step(Game& game)
             UpdateActivePartyMovement();
         }
     } else {
-        AutoAdvanceSelectedCharacter();
+        game.events.push(CombatSelectionRequested{});
         if (waitingOn(game) != CombatWait::none) {
             return;
         }

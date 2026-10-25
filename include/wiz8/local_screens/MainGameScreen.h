@@ -75,6 +75,13 @@ struct MainGameScreen final : Screen {
     ~MainGameScreen() override;
     bool enter(const ScreenRequest& request) override;
     void frame() override;
+    void autoAdvanceSelection();
+    void refreshDraftTarget();
+    bool repickDraftTarget(int slot, W8Action& draft);
+    void aimDraft(int slot, W8Action& draft, const W8CombatSlot& target);
+    void refreshStoredAim(unsigned int slot, bool changed);
+    // UI-only: manual targeting keeps the selected portrait instead of auto-advancing.
+    bool manual_target_selection = false;
     void resetStepClock() override { step_timer.restart(); }
     bool leave(ScreenDeparture departure) override;
 
@@ -229,6 +236,7 @@ private:
     void tryActionKey(W8MGSAction command);
     // Advance choices and commit them from their owner, not from a retiring view.
     void updateSpellPicker();
+    void refreshAim(unsigned int slot, const W8CombatSlot& target);
     void updateItemPicker();
     MainGameLayout applied_layout;
 
@@ -702,6 +710,3 @@ void OpenNpcTradeQuantityDialog(void);
 W8Action* EditedDraft(int party_slot);
 W8Action EditedAction(int party_slot);
 bool IsSighting(int party_slot);
-
-// Reconcile picker/cursor presentation after a stored gameplay aim has settled.
-void RefreshStoredAim(unsigned int actor);

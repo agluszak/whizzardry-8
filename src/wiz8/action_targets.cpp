@@ -141,9 +141,8 @@ void Game::aimStoredAction(unsigned int slot, W8TargetingContext stored, const W
     const bool committed = stored == W8_TARGETING_CONTEXT_IN_COMBAT;
     const bool changed = party.aimAction(slot, stored, target, committed && combat.has_value());
     if (!committed) return;
-    if (changed && combat) combat->target_picked = false;
     if (changed || target.iType != W8_TARGET_KIND_NONE)
-        outcomes.emplace_back(ActionAimChanged{slot});
+        outcomes.emplace_back(ActionAimChanged{slot, changed});
 }
 
 void Game::invalidateAimsAt(const W8CombatSlot& target, TargetChange change)
@@ -678,14 +677,13 @@ void Game::setCombatAction(unsigned int slot, W8Action next, ActionOrigin origin
     if (next.kind != previous && combat->execution_active && !combat->characters[slot].dead)
         combat->catchUpCharacter(slot);
     outcomes.emplace_back(PartySlotChanged{slot});
-    combat->target_picked = false;
     if (next.kind == W8_ACTION_EQUIP)
         outcomes.emplace_back(CharacterNotice{slot, data.strings[0x225]});
     else if (previous == W8_ACTION_EQUIP && !(combat->actingSlot() == static_cast<int>(slot) &&
                                               party.rows[slot].executing.kind == W8_ACTION_EQUIP))
         outcomes.emplace_back(CharacterNotice{slot, data.strings[0x226]});
     SettleActiveParty(*this, {}, ItemReactions::Normal, outcomes);
-    if (revalidate) outcomes.emplace_back(ActionChoiceChanged{slot});
+    outcomes.emplace_back(ActionChoiceChanged{slot, revalidate});
 }
 
 void Game::resetCombatChoice(unsigned int slot)
@@ -740,4 +738,42 @@ void Game::restoreCombatEquipment(bool automatic)
             row->weapon_swap_pending = false;
         }
     }
+}
+
+void Game::refreshPartyTargets()
+{
+    std::vector<Event> outcomes;
+    refreshPartyTargets(outcomes);
+    events.publish(std::move(outcomes));
+}
+
+void Game::refreshPartyTargets(std::vector<Event>& outcomes)
+{
+    const auto stored =
+        combat ? W8_TARGETING_CONTEXT_IN_COMBAT : W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        const auto& character = party.characters[slot];
+        if (!party.members[slot] ||
+            (character.hp_current == 0 && character.highest_condition >= W8_CONDITION_DEAD))
+            continue;
+        const auto selected = party.action(slot, stored);
+        if (!canPerformAction(slot, selected, false)) {
+            if (canPerformAction(slot, selected, true))
+                repickActionTarget(slot, stored, false, outcomes);
+            else if (selected.target.iType != W8_TARGET_KIND_NONE)
+                aimStoredAction(slot, stored, {W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}}, outcomes);
+        }
+        const auto& row = party.rows[slot];
+        const auto committed = party.action(slot, W8_TARGETING_CONTEXT_IN_COMBAT);
+        if (character.hp_current != 0 && character.highest_condition < W8_CONDITION_TURNCOAT &&
+            (row.committed.kind == W8_ACTION_ATTACK || row.committed.kind == W8_ACTION_BERSERK) &&
+            (row.weapon_swap_pending || canPerformAction(slot, committed, false))) {
+            if (const auto fallback = chooseFallbackTarget(slot, committed)) {
+                aimStoredAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT,
+                                W8CombatSlot::monster(fallback->target.iMonsterID), outcomes);
+                commitWeaponChoice(slot, *fallback->equipment, outcomes);
+            }
+        }
+    }
+    outcomes.emplace_back(PartyTargetAvailabilityChanged{});
 }

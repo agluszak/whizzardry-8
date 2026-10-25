@@ -161,7 +161,10 @@ does not satisfy this contract.
   originating operation. Polling a read-only readiness query is acceptable when
   it is simpler than subscriptions or cached busy counts. Combat follows the latest
   successful hit playback's serviced completion, including pauses; an older sound
-  cannot release a newer fight's wait. Monster update traversal
+  cannot release a newer fight's wait. Sight changes repair accepted party targets and
+  equipment synchronously, regardless of open pickers. The owning screen then repairs
+  its spell/item draft; draft repair cannot commit equipment. Manual target-selection
+  and automatic portrait advance are screen state, not fight state. Monster update traversal
   retains removed records until its script callbacks return. Removal immediately
   retires targeting, navigation and scene relationships; it cannot reclaim the
   actor whose update is on the stack. Newly spawned actors enter the next pass,

@@ -160,10 +160,16 @@ struct JournalEntryAdded {
 };
 struct ActionChoiceChanged {
     unsigned int slot;
+    bool revalidate_target = true;
 };
 struct ActionAimChanged {
     unsigned int slot;
+    bool target_changed = false;
 };
+// Stored target/equipment repair completed; presentation can repair its own drafts.
+struct PartyTargetAvailabilityChanged {};
+// The fight offers the main screen its usual automatic character-selection step.
+struct CombatSelectionRequested {};
 // A member joined or left; everything the party is shown in changes.
 struct PartyMembershipChanged {};
 // A casting restriction's message, shown through the main screen's portrait queue.
@@ -192,7 +198,8 @@ using Event =
                  PartyEffectsChanged, CombatEffectsChanged, PartyPanelChanged,
                  PartyMembershipChanged, WorldItemRemoved, LevelDeparted, CastingBlockedNotice,
                  TargetingRequested, FormationChanged, ActionAimChanged, ActionChoiceChanged,
-                 JournalEntryAdded, PortraitSpeechChanged>;
+                 PartyTargetAvailabilityChanged, CombatSelectionRequested, JournalEntryAdded,
+                 PortraitSpeechChanged>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events

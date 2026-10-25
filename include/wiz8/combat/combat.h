@@ -225,10 +225,6 @@ struct Combat {
     /* How much of the party's move is left, in percent. It falls as the party walks, and
        when the move ends it decides which members still act this round. */
     int party_move_percent = 0;
-    /* The player aimed a member at a target this round, so the selection stays on that
-       member instead of auto-advancing. Cleared when an action changes and as the round
-       executes. */
-    bool target_picked = false;
     W8PartyFormationState saved_formation;
     /* Historical offset 0x9a4: the running attack's target did not see it coming - the monster
        stands behind the character or the target monster is looking away. The
@@ -371,7 +367,6 @@ struct Combat {
         characters[slot].phase = 0;
         characters[slot].dead = true;
         characters[slot].action_changed = true;
-        target_picked = false;
     }
 
     /* One step of the fight (the game's step calls it while the world runs and nothing

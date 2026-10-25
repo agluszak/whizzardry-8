@@ -136,6 +136,12 @@ def check_includes():
     source = (ROOT / 'src/wiz8/npc_creation.cpp').read_text(encoding='utf-8')
     if re.search(r'\b(CurrentGame|GameInProgress|GetWorld|Data|GetFact)\s*\(', source):
         problems.append('src/wiz8/npc_creation.cpp: candidate NPC construction must use its supplied game')
+    targeting = (ROOT / 'src/wiz8/action_targets.cpp').read_text(encoding='utf-8')
+    if re.search(r'\b(CurrentGame|GameInProgress|MainGame|MainGameHud|EditedAction|EditedDraft|SpellPicker|UseItemPicker|FindScreen)\s*[<(]', targeting):
+        problems.append('src/wiz8/action_targets.cpp: accepted choices must not depend on the installed game or UI drafts')
+    for match in INCLUDE.finditer(targeting):
+        if 'local_screens/' in match.group(2):
+            problems.append('src/wiz8/action_targets.cpp: accepted-choice operations cannot include screens')
     choices = ROOT / 'src/wiz8/monster_decisions.cpp'
     source = choices.read_text(encoding='utf-8')
     if re.search(r'\b(CurrentGame|Data|GetWorld|CurrentLevelPopulation|FindMonster|GetMonsterDataForInfo)\s*\(', source):

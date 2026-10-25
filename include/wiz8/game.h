@@ -142,6 +142,8 @@ public:
                                              bool allow_weapon_swap = true) const;
     std::optional<TargetChoice> chooseFallbackTarget(unsigned int slot,
                                                      const W8Action& action) const;
+    void refreshPartyTargets();
+    void refreshPartyTargets(std::vector<Event>& outcomes);
     bool repickActionTarget(unsigned int slot, W8TargetingContext stored, bool breathe = false);
     bool repickActionTarget(unsigned int slot, W8TargetingContext stored, bool breathe,
                             std::vector<Event>& outcomes);

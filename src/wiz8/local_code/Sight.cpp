@@ -32,8 +32,6 @@
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/MGSTextBox.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/GameTimeAccumulator.h"
 #include "wiz8/platform/game_timer.h"
@@ -81,8 +79,7 @@ void Game::refreshOutwardSight(void)
                            false);
     }
     if (combat.has_value()) {
-        RefreshFlaggedMainGameState();
-        RefreshAllPartyTargets();
+        refreshPartyTargets();
     }
 }
 
@@ -316,8 +313,7 @@ void ResetAndRefreshAllSight(void)
         CurrentGame().updateMonsterSight(GetMonsterListEntry(index), true, false);
     }
     if (CurrentGame().combat.has_value()) {
-        RefreshFlaggedMainGameState();
-        RefreshAllPartyTargets();
+        CurrentGame().refreshPartyTargets();
     }
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         CurrentGame().updateMonsterSight(GetMonsterListEntry(index), false, false);

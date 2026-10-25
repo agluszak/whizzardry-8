@@ -167,6 +167,11 @@ namespace {
 // Each game event shown the way the active screen shows it.
 struct GameEventPresentation {
     Game& game;
+    MainGameScreen* mainScreen() const
+    {
+        auto* screen = MainGame();
+        return screen && &screen->game == &game ? screen : nullptr;
+    }
     void operator()(const TextNotice& notice) const
     {
         ShowNotice(notice.palette, notice.text, notice.text_box, notice.wrap_width,
@@ -194,6 +199,7 @@ struct GameEventPresentation {
     }
     void operator()(const CharacterDied&) const
     {
+        if (auto* screen = mainScreen()) screen->manual_target_selection = false;
         wiz8::sound::play("Data\\Sound\\Misc\\CharacterDead.wav");
     }
     void operator()(const PartySlotChanged& change) const
@@ -231,6 +237,7 @@ struct GameEventPresentation {
         }
         if (!g_settings.continuous_combat && ScreenPointer().targeting() != W8_TARGET_NEED_NONE)
             SetTargetingMode(W8_TARGET_NEED_NONE);
+        if (auto* screen = mainScreen()) screen->manual_target_selection = false;
     }
     void operator()(const CombatCalledOff&) const
     {
@@ -239,6 +246,7 @@ struct GameEventPresentation {
     }
     void operator()(const CombatBegan&) const
     {
+        if (auto* screen = mainScreen()) screen->manual_target_selection = false;
         ScreenPointer().reset();
         auto* main_game = MainGame();
         if (main_game) main_game->party_movement.reset();
@@ -252,6 +260,7 @@ struct GameEventPresentation {
     }
     void operator()(const CombatEnded&) const
     {
+        if (auto* screen = mainScreen()) screen->manual_target_selection = false;
         auto* hud = ShownHud();
         if (!hud) return;
         /* A suspended main game re-arms its input when it is entered again. While
@@ -329,9 +338,24 @@ struct GameEventPresentation {
     }
     void operator()(const ActionChoiceChanged& change) const
     {
-        RevalidateSelectedTarget(change.slot);
+        if (auto* screen = mainScreen()) {
+            screen->manual_target_selection = false;
+            if (change.revalidate_target) RevalidateSelectedTarget(change.slot);
+        }
     }
-    void operator()(const ActionAimChanged& change) const { RefreshStoredAim(change.slot); }
+    void operator()(const ActionAimChanged& change) const
+    {
+        if (auto* screen = mainScreen())
+            screen->refreshStoredAim(change.slot, change.target_changed);
+    }
+    void operator()(const PartyTargetAvailabilityChanged&) const
+    {
+        if (auto* screen = mainScreen()) screen->refreshDraftTarget();
+    }
+    void operator()(const CombatSelectionRequested&) const
+    {
+        if (auto* screen = mainScreen()) screen->autoAdvanceSelection();
+    }
     void operator()(const CharacterActionChanged&) const
     {
         if (auto* hud = ShownHud()) hud->repaint.character_action = true;
