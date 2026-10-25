@@ -57,8 +57,6 @@ void HighlightNoticeWordAt(int box, unsigned short x, unsigned short y);
 W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y, int* line_out);
 /* Copy a word's text span out of its source line. */
 std::string CopyNoticeWordText(const W8NoticeWord* word, int box, int line);
-W8TextBoxMode GetTextBoxMode(void);
-void SetTextBoxMode(W8TextBoxMode mode, int value);
 /* Re-derive the text-box mode from the live screen state; 0xffff
    asks for the automatic choice. */
 void RefreshTextBoxMode(unsigned short mode);
@@ -70,10 +68,6 @@ void SetKnockKnockTarget(int target, int flag, int backfire);
    same (level, flag, backfire) triple. */
 void AttemptTrapDisarm(int level, int flag, signed char backfire);
 
-/* Merge text onto a box's last used line, re-posting the combined
-   line so wrapping, highlighting and the link counts rebuild; -1 picks the box
-   the current game mode writes to. */
-void AppendToLastTextLine(std::string_view text, short text_box);
 void PostCharacterNotice(int party_slot, std::string_view text, int context = -1);
 
 /* Recolour the character span [start, stop) of the most recent

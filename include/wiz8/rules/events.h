@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -22,8 +23,7 @@ constexpr unsigned int W8_NOTICE_WRAP_TEXT_BOX = ~0U - 1;
 enum W8TextBoxMode : unsigned char {
     W8_TEXT_BOX_MODE_NOTICE = 0,
     // The next notice continues the current line.
-    W8_TEXT_BOX_MODE_APPEND = 1,
-    W8_TEXT_BOX_MODE_SPECIAL_PANEL = 3
+    W8_TEXT_BOX_MODE_APPEND = 1
 };
 
 /* Frames of the notice palette catalog (Data\Fonts\Palette*.sti). */
@@ -54,6 +54,14 @@ struct TextNotice {
     short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC;
     unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC;
     bool force_dialog = false;
+};
+
+/* A completed narration write. The prefix is written only into an open
+   continuation. An absent body is a separator-only write, not an empty line. */
+struct TextFragment {
+    std::optional<std::string> text;
+    std::string prefix_if_open;
+    bool leaves_open = false;
 };
 
 /* A party member's line, "Name: text", the name in the member's marching-order
@@ -193,16 +201,16 @@ struct TargetingRequested {
 };
 
 using Event =
-    std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, CharacterDamaged,
-                 CharacterDied, PartySlotChanged, PartyLoadChanged, CombatPanelChanged,
-                 CharacterActionChanged, EquipmentSettled, SkillImproved, WorldAdvancementChanged,
-                 CombatantsMoved, CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
-                 CombatProgressChanged, CombatStanceChanged, MonstersChanged, MonsterHealthChanged,
-                 MonstersActivated, PartyEffectsChanged, CombatEffectsChanged, PartyPanelChanged,
-                 PartyMembershipChanged, WorldItemRemoved, LevelDeparted, CastingBlockedNotice,
-                 TargetingRequested, FormationChanged, ActionAimChanged, ActionChoiceChanged,
-                 PartyTargetAvailabilityChanged, CombatSelectionRequested, JournalEntryAdded,
-                 PortraitSpeechChanged>;
+    std::variant<TextNotice, TextFragment, CharacterNotice, NoticeDialog, TextBoxModeChange,
+                 CharacterDamaged, CharacterDied, PartySlotChanged, PartyLoadChanged,
+                 CombatPanelChanged, CharacterActionChanged, EquipmentSettled, SkillImproved,
+                 WorldAdvancementChanged, CombatantsMoved, CombatExecutionBegan, CombatCalledOff,
+                 CombatBegan, CombatEnded, CombatProgressChanged, CombatStanceChanged,
+                 MonstersChanged, MonsterHealthChanged, MonstersActivated, PartyEffectsChanged,
+                 CombatEffectsChanged, PartyPanelChanged, PartyMembershipChanged, WorldItemRemoved,
+                 LevelDeparted, CastingBlockedNotice, TargetingRequested, FormationChanged,
+                 ActionAimChanged, ActionChoiceChanged, PartyTargetAvailabilityChanged,
+                 CombatSelectionRequested, JournalEntryAdded, PortraitSpeechChanged>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events

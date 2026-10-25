@@ -25,6 +25,7 @@ struct PartyQuoteInput;
 #include "wiz8/modal_content.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
@@ -194,6 +195,9 @@ struct MainGameScreen final : Screen {
        screen is discarded. */
     std::unique_ptr<W8LevelRuntimeBlock> hud;
     std::unique_ptr<MainGameTextInput> text_input;
+    W8TextBoxMode notice_mode = W8_TEXT_BOX_MODE_NOTICE;
+    unsigned int continuation_palette = W8_FONT_PALETTE_BEIGE;
+    void presentTextFragment(const TextFragment& fragment);
     MainGameHudButtons hud_buttons;
     std::unique_ptr<MainGameSubMenu> submenu;
     // The NPC dialogue's interface: its layouts, trade table and quote bubble.
@@ -207,6 +211,7 @@ struct MainGameScreen final : Screen {
     HitTarget *radar_target = nullptr, *monster_list = nullptr, *world_view = nullptr;
 
 private:
+    void appendNoticeText(std::string_view text);
     friend class MainGameTextInput;
     UiResult handleTextThumb(const UiPointerEvent& event);
     UiResult handleTextScroll(const UiPointerEvent& event, bool up);

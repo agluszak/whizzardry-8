@@ -911,7 +911,7 @@ int CastItemSpell(W8Character* character, W8ItemInstance* item, unsigned int pow
                                     Data().spells[spell_id].display_name, power),
                        -1);
             if (!g_settings.verbose_combat_messages) {
-                SetTextBoxMode(W8_TEXT_BOX_MODE_APPEND, -1);
+                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             }
         }
         item->spell_hint = true;

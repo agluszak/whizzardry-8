@@ -177,6 +177,10 @@ struct GameEventPresentation {
         ShowNotice(notice.palette, notice.text, notice.text_box, notice.wrap_width,
                    notice.force_dialog);
     }
+    void operator()(const TextFragment& fragment) const
+    {
+        if (auto* screen = mainScreen()) screen->presentTextFragment(fragment);
+    }
     void operator()(const CharacterNotice& notice) const
     {
         PostCharacterNotice(static_cast<int>(notice.party_slot), notice.text, notice.context);
@@ -187,7 +191,10 @@ struct GameEventPresentation {
     }
     void operator()(const TextBoxModeChange& change) const
     {
-        SetTextBoxMode(change.mode, change.value);
+        if (auto* screen = mainScreen()) {
+            screen->notice_mode = change.mode;
+            if (change.value != -1) screen->continuation_palette = change.value;
+        }
     }
     void operator()(const PortraitSpeechChanged& change) const
     {

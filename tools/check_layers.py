@@ -136,6 +136,12 @@ def check_includes():
     source = (ROOT / 'src/wiz8/npc_creation.cpp').read_text(encoding='utf-8')
     if re.search(r'\b(CurrentGame|GameInProgress|GetWorld|Data|GetFact)\s*\(', source):
         problems.append('src/wiz8/npc_creation.cpp: candidate NPC construction must use its supplied game')
+    for source_path in (ROOT / 'src/wiz8').rglob('*.cpp'):
+        if 'local_screens' in source_path.parts or 'dialog_code' in source_path.parts:
+            continue
+        source = source_path.read_text(encoding='utf-8')
+        if re.search(r'\b(GetTextBoxMode|SetTextBoxMode|AppendToLastTextLine|presentTextFragment|appendNoticeText)\s*\(', source):
+            problems.append(f'{source_path.relative_to(ROOT)}: narration writes must not query or repair text-box state')
     targeting = (ROOT / 'src/wiz8/action_targets.cpp').read_text(encoding='utf-8')
     if re.search(r'\b(CurrentGame|GameInProgress|MainGame|MainGameHud|EditedAction|EditedDraft|SpellPicker|UseItemPicker|FindScreen)\s*[<(]', targeting):
         problems.append('src/wiz8/action_targets.cpp: accepted choices must not depend on the installed game or UI drafts')

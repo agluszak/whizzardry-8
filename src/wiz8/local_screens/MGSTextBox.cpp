@@ -48,12 +48,6 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
 
-// GLOBAL: WIZ8 0x0069b7b8
-static W8TextBoxMode g_text_box_mode;
-static int g_text_box_value = W8_FONT_PALETTE_BEIGE;
-/* The screen the text box belongs to; its two panels sit at 0x0c
-   and 0x14. */
-
 static void AppendNoticeLine(unsigned char font_palette, std::string_view text, short text_box,
                              int wrapped_line);
 
@@ -304,7 +298,7 @@ int ShowNotice(unsigned int font_palette, std::string_view text_view, short text
                         line_count == 1 ? wiz8::checked_integer<unsigned int>(line.size()) : ~0U;
             }
         }
-        g_text_box_mode = W8_TEXT_BOX_MODE_NOTICE;
+        MainGame()->notice_mode = W8_TEXT_BOX_MODE_NOTICE;
         return line_count;
     } else if (force_dialog) {
         auto dialog = CreateMessageDialog();
@@ -427,22 +421,22 @@ void HighlightTextBoxRange(unsigned char color, std::size_t start, std::size_t s
 /* Append text to the last used line of one text box. The line's record is
    removed and the combined string posted again so wrapping, the shown count
    and the continuation links rebuild, while the line keeps its channel,
-   highlight span and clock. With the merge mode off the text posts as a new
-   line instead. A -1 box means the one the current game mode posts to. */
-void AppendToLastTextLine(std::string_view text, short text_box)
+   highlight span and links. A closed continuation starts a new line instead. */
+void MainGameScreen::appendNoticeText(std::string_view text)
 {
+    short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC;
     if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME &&
         CurrentScreenState().id != W8_SCREEN_CAMP) {
         return;
     }
-    if (g_text_box_mode == W8_TEXT_BOX_MODE_NOTICE) {
-        ShowNotice(g_text_box_value, text, text_box);
+    if (notice_mode == W8_TEXT_BOX_MODE_NOTICE) {
+        ShowNotice(continuation_palette, text, text_box);
         return;
     }
     text_box = ResolveNoticeTextBox(text_box);
-    unsigned int* lines_used = &CurrentGame().status.text_box_lines_used[text_box];
+    unsigned int* lines_used = &game.status.text_box_lines_used[text_box];
     assert(*lines_used > 0);
-    W8MessageStorageRecord* line = &CurrentGame().message_log[text_box][*lines_used - 1];
+    W8MessageStorageRecord* line = &game.message_log[text_box][*lines_used - 1];
     const auto merged = fmt::format("{}{}", line->text, text);
     unsigned char channel = line->font_palette;
     int link = line->link;
@@ -451,9 +445,9 @@ void AppendToLastTextLine(std::string_view text, short text_box)
     std::size_t start = line->highlight_start;
     line->text.clear();
     line->entries.clear();
-    if (CurrentGame().status.text_box_lines_shown[text_box] == *lines_used) {
-        assert(CurrentGame().status.text_box_lines_shown[text_box] > 0);
-        --CurrentGame().status.text_box_lines_shown[text_box];
+    if (game.status.text_box_lines_shown[text_box] == *lines_used) {
+        assert(game.status.text_box_lines_shown[text_box] > 0);
+        --game.status.text_box_lines_shown[text_box];
     }
     --*lines_used;
     ShowNotice(channel, merged, text_box);
@@ -461,7 +455,7 @@ void AppendToLastTextLine(std::string_view text, short text_box)
         HighlightTextBoxRange(color, start, stop, text_box);
     }
     if (link != 0) {
-        W8MessageStorageRecord* last = &CurrentGame().message_log[text_box][*lines_used - 1];
+        W8MessageStorageRecord* last = &game.message_log[text_box][*lines_used - 1];
         int propagated = 0;
         if (last->link != -1 && last->link + 1 > 0) {
             W8MessageStorageRecord* entry = last;
@@ -472,6 +466,17 @@ void AppendToLastTextLine(std::string_view text, short text_box)
             } while (propagated < last->link + 1);
         }
     }
+}
+
+void MainGameScreen::presentTextFragment(const TextFragment& fragment)
+{
+    const bool prefix = notice_mode != W8_TEXT_BOX_MODE_NOTICE && !fragment.prefix_if_open.empty();
+    if (prefix) {
+        appendNoticeText(fragment.prefix_if_open);
+        if (fragment.text) notice_mode = W8_TEXT_BOX_MODE_APPEND;
+    }
+    if (fragment.text) appendNoticeText(*fragment.text);
+    if (fragment.leaves_open && (prefix || fragment.text)) notice_mode = W8_TEXT_BOX_MODE_APPEND;
 }
 
 /* Retail returns 7 when the text box is in a multi-line mode (spell / item /
@@ -741,21 +746,6 @@ UiResult MainGameScreen::handleTextChannel(const UiPointerEvent& event, int chan
         scrollTextBoxTo(std::max(0, int(game.status.text_box_lines_shown[channel]) - 7));
     hud->repaint.text_box = true;
     return UiResult::Handled;
-}
-
-/* The text box's mode, and the setter that also records a value when one is
-   given - passing -1 leaves the value alone. */
-W8TextBoxMode GetTextBoxMode(void)
-{
-    return g_text_box_mode;
-}
-
-void SetTextBoxMode(W8TextBoxMode mode, int value)
-{
-    g_text_box_mode = mode;
-    if (value != -1) {
-        g_text_box_value = value;
-    }
 }
 
 /* Draw clickable notice-word overlays for one painted line. */

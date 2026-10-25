@@ -1648,63 +1648,57 @@ void SpawnLureEffects(W8SpellEffectEntry* owner, int argument, const W8CombatSlo
    its target took no damage. */
 void ReportSpellResult(W8SpellEffectEntry* effect)
 {
+    auto& events = CurrentGame().events;
 
-    if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
-        AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-    }
+    events.push(
+        TextFragment{.prefix_if_open = !effect->reported ? " -- " : ", ", .leaves_open = true});
     if (effect->result.amount != 0) {
         if (effect->result.count == 1) {
-            AppendToLastTextLine(fmt::sprintf(Data().strings[0x19a], effect->result.amount), -1);
+            events.push(
+                TextFragment{.text = fmt::sprintf(Data().strings[0x19a], effect->result.amount),
+                             .leaves_open = true});
         } else {
-            AppendToLastTextLine(fmt::sprintf(Data().strings[0x199], effect->result.count,
-                                              effect->result.amount / effect->result.count, -1),
-                                 -1);
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+            events.push(
+                TextFragment{.text = fmt::sprintf(Data().strings[0x199], effect->result.count,
+                                                  effect->result.amount / effect->result.count, -1),
+                             .leaves_open = true});
         }
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
         effect->reported = true;
     }
     for (int condition = W8_CONDITION_DRAINED; condition < W8_CONDITION_COUNT; ++condition) {
         if (effect->result.condition_counts[condition] != 0) {
-            if (effect->reported && GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
-                AppendToLastTextLine(", ", -1);
-                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+            if (effect->reported) {
+                events.push(TextFragment{.prefix_if_open = ", ", .leaves_open = true});
             }
-            if (effect->result.condition_counts[condition] == 1) {
-                if (effect->target.iType == W8_TARGET_KIND_CHARACTER) {
-                    AppendToLastTextLine(
-                        fmt::format("{} {}",
-                                    CurrentGame().party.characters[effect->target.iChar].name,
-                                    Data().strings[kConditionNotices[condition].singular]),
-                        -1);
-                } else if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
-                    W8MonsterInfo* monster_info = FindMonster(effect->target.iMonsterID);
-                    if (monster_info != 0) {
-                        AppendToLastTextLine(
-                            fmt::format("{} {}", CurrentGame().monsterName(*monster_info),
-                                        Data().strings[kConditionNotices[condition].singular]),
-                            -1);
-                    }
-                }
-            } else {
-                AppendToLastTextLine(
-                    fmt::format("{:d} {}", effect->result.condition_counts[condition],
-                                Data().strings[kConditionNotices[condition].plural]),
-                    -1);
+            std::optional<std::string> text;
+            if (effect->result.condition_counts[condition] != 1) {
+                text = fmt::format("{:d} {}", effect->result.condition_counts[condition],
+                                   Data().strings[kConditionNotices[condition].plural]);
+            } else if (effect->target.iType == W8_TARGET_KIND_CHARACTER) {
+                text =
+                    fmt::format("{} {}", CurrentGame().party.characters[effect->target.iChar].name,
+                                Data().strings[kConditionNotices[condition].singular]);
+            } else if (effect->target.iType == W8_TARGET_KIND_MONSTER) {
+                if (const auto* monster = FindMonster(effect->target.iMonsterID))
+                    text = fmt::format("{} {}", CurrentGame().monsterName(*monster),
+                                       Data().strings[kConditionNotices[condition].singular]);
             }
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+            if (text)
+                events.push(TextFragment{.text = std::move(text), .leaves_open = true});
+            else
+                // The original unsupported/missing target still opens the continuation without text.
+                events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
             effect->reported = true;
         }
     }
 
     for (auto& notice : std::exchange(effect->result.death_notices, {})) {
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_NOTICE, -1});
-        CurrentGame().events.push(std::move(notice));
+        events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_NOTICE, -1});
+        events.push(std::move(notice));
         effect->reported = true;
     }
     if (!effect->reported) {
-        AppendToLastTextLine(Data().strings[0x1a5], -1);
+        events.push(TextFragment{.text = Data().strings[0x1a5]});
     }
 }
 
@@ -2690,7 +2684,8 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
             } else if (g_settings.verbose_combat_messages) {
                 CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x197]});
             } else {
-                AppendToLastTextLine(fmt::format(" -- {}", Data().strings[0x197]), -1);
+                CurrentGame().events.push(
+                    TextFragment{.text = fmt::format(" -- {}", Data().strings[0x197])});
                 owner.reported = true;
             }
             if (caster_slot != -1) {
@@ -2718,14 +2713,16 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
                 CurrentGame().events.push(CharacterNotice{static_cast<unsigned int>(source->iChar),
                                                           Data().strings[message]});
             } else {
-                AppendToLastTextLine(fmt::format(" -- {}", Data().strings[message]), -1);
+                CurrentGame().events.push(
+                    TextFragment{.text = fmt::format(" -- {}", Data().strings[message])});
             }
             break;
         default:
             if (g_settings.verbose_combat_messages) {
                 CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_BEIGE, Data().strings[0x196]});
             } else {
-                AppendToLastTextLine(fmt::format(" -- {}", Data().strings[0x196]), -1);
+                CurrentGame().events.push(
+                    TextFragment{.text = fmt::format(" -- {}", Data().strings[0x196])});
             }
             break;
         }

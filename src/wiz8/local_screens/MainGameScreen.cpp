@@ -2662,8 +2662,6 @@ void MainGameScreen::paintRequested(const W8TargetingPresentation& presentation,
                          bottom + layout.PortraitYShift());
     };
     int party_slot;
-    int text_box_variant;
-    W8TextBoxMode text_box_mode;
     bool show_portraits;
     SDL_Rect combat_clip;
     short health_percent;
@@ -2761,19 +2759,9 @@ void MainGameScreen::paintRequested(const W8TargetingPresentation& presentation,
         } else {
             CatalogArtwork::Load(0x87, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x80,
                                                             0x166);
-            text_box_mode = GetTextBoxMode();
-            if (text_box_mode == W8_TEXT_BOX_MODE_NOTICE ||
-                text_box_mode == W8_TEXT_BOX_MODE_APPEND) {
-                text_box_variant = text_box_mode;
-            } else if (text_box_mode == W8_TEXT_BOX_MODE_SPECIAL_PANEL) {
-                text_box_variant = 2;
-            } else {
-                goto draw_formation_panel;
-            }
-            CatalogArtwork::Load(0x88, 0).drawAndInvalidate(GetFrameBufferSurface(),
-                                                            text_box_variant, 0x8a, 0x168);
+            CatalogArtwork::Load(0x88, 0).drawAndInvalidate(GetFrameBufferSurface(), notice_mode,
+                                                            0x8a, 0x168);
         }
-    draw_formation_panel:
         if (!repaint.formation || !layout.formation_board) {
             if (repaint.formation) {
                 ClearSurfaceRect(0x200, 0x166, 0x268, 0x1c2);

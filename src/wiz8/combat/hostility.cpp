@@ -405,6 +405,7 @@ static char g_pray_dash[] = " -- ";
    retries downward through the table until an action lands. */
 int CharacterPrayAction(int party_slot)
 {
+    auto& events = CurrentGame().events;
     W8Character* character = &CurrentGame().party.characters[party_slot];
     std::vector<int> monster_targets;
     bool found = false;
@@ -437,19 +438,16 @@ int CharacterPrayAction(int party_slot)
     source.auto_cast = true;
     source.aim_resolved = true;
     ResetCombatSlot(&target);
-    CurrentGame().events.push(
-        CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x174]});
+    events.push(CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x174]});
     cost = CharacterActionFatigueCost(party_slot, W8_ACTION_PRAY);
     if (character->stamina < static_cast<int>(cost) &&
         character->stamina < static_cast<int>(CurrentGame().rng.below(cost))) {
-        CurrentGame().events.push(
-            CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x175]});
+        events.push(CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x175]});
         return cost;
     }
     if (!g_settings.verbose_combat_messages) {
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-        AppendToLastTextLine(g_pray_dash, -1);
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+        events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+        events.push(TextFragment{.text = g_pray_dash, .leaves_open = true});
     }
     roll = CurrentGame().rng.below(g_pray_roll_sums[PRAY_ROLL_TIERS]);
     if (CurrentGame().combat->round_count < 4) {
@@ -477,10 +475,10 @@ int CharacterPrayAction(int party_slot)
         switch (action) {
         case 0:
             if (CurrentGame().rng.below(2) == 0) {
-                AppendToLastTextLine(Data().strings[0x178], -1);
+                events.push(TextFragment{.text = Data().strings[0x178]});
                 CurrentGame().combat->experience_bonus += 10;
             } else {
-                AppendToLastTextLine(Data().strings[0x177], -1);
+                events.push(TextFragment{.text = Data().strings[0x177]});
                 AddPartyGold(CurrentGame(), 100, true);
             }
             prayed = true;
@@ -490,7 +488,7 @@ int CharacterPrayAction(int party_slot)
                 W8Character* member = &CurrentGame().party.characters[index];
                 if (CurrentGame().party.members[index].has_value() && member->hp_current != 0 &&
                     member->stamina < member->uiStaminaMax) {
-                    AppendToLastTextLine(Data().strings[0x179], -1);
+                    events.push(TextFragment{.text = Data().strings[0x179]});
                     CastSpellFromSource(W8_SPELL_REST_ALL, &source, &target, 7, 0, 0, true,
                                         &outcome, W8SpellCastKind::Standard, 0, 0);
                     prayed = true;
@@ -516,8 +514,8 @@ int CharacterPrayAction(int party_slot)
                     if (CurrentGame().party.participates(index) &&
                         member->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].power == 0 &&
                         --pick == 0) {
-                        AppendToLastTextLine(fmt::sprintf(Data().strings[0x17a], member->name, -1),
-                                             -1);
+                        events.push(TextFragment{
+                            .text = fmt::sprintf(Data().strings[0x17a], member->name, -1)});
                         target.iType = W8_TARGET_KIND_CHARACTER;
                         if (power_level > 6) {
                             power_level = 7;
@@ -551,7 +549,7 @@ int CharacterPrayAction(int party_slot)
                         (member->uiCondition[W8_CONDITION_INSANE] != 0 ||
                          member->uiCondition[W8_CONDITION_TURNCOAT] != 0) &&
                         --pick == 0) {
-                        AppendToLastTextLine(Data().strings[0x179], -1);
+                        events.push(TextFragment{.text = Data().strings[0x179]});
                         target.iType = W8_TARGET_KIND_CHARACTER;
                         const bool capped = power_level > 7;
                         if (capped) {
@@ -575,7 +573,7 @@ int CharacterPrayAction(int party_slot)
                 }
                 ResetCombatSlot(&target);
                 target.iType = W8_TARGET_KIND_PARTY;
-                AppendToLastTextLine(Data().strings[0x179], -1);
+                events.push(TextFragment{.text = Data().strings[0x179]});
                 CastSpellFromSource(W8_SPELL_HEAL_ALL, &source, &target, power_level, 0, 0, true,
                                     &outcome, W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
@@ -595,7 +593,7 @@ int CharacterPrayAction(int party_slot)
                 ResetCombatSlot(&target);
                 target.iType = W8_TARGET_KIND_CHARACTER;
                 target.iChar = best;
-                AppendToLastTextLine(Data().strings[0x179], -1);
+                events.push(TextFragment{.text = Data().strings[0x179]});
                 CastSpellFromSource(W8_SPELL_HEAL_WOUNDS, &source, &target, power_level, 0, 0,
                                     false, &outcome, W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
@@ -611,7 +609,7 @@ int CharacterPrayAction(int party_slot)
                 }
             }
             if (!found) {
-                AppendToLastTextLine(Data().strings[0x17b], -1);
+                events.push(TextFragment{.text = Data().strings[0x17b]});
                 CastSpellFromSource(W8_SPELL_BLESS, &source, &target, power_level, 0, 0, false,
                                     &outcome, W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
@@ -639,7 +637,7 @@ int CharacterPrayAction(int party_slot)
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
                         monster->hp_current != 0 &&
                         monster->entity->GetDistanceToPlayer() <= range && --pick == 0) {
-                        AppendToLastTextLine(Data().strings[0x179], -1);
+                        events.push(TextFragment{.text = Data().strings[0x179]});
                         target.iType = W8_TARGET_KIND_MONSTER;
                         target.iMonsterID = monster->location_id;
                         if (power_level > 6) {
@@ -660,7 +658,7 @@ int CharacterPrayAction(int party_slot)
             prayed = TurnUndead(party_slot, false) > 0;
             break;
         case 8:
-            AppendToLastTextLine(Data().strings[0x179], -1);
+            events.push(TextFragment{.text = Data().strings[0x179]});
             for (index = 0; index < 0x12; ++index) {
                 LiftConditionFromParty(CurrentGame(), static_cast<W8Condition>(index));
             }
@@ -677,7 +675,7 @@ int CharacterPrayAction(int party_slot)
             if (!CombatHasCondition(0x3b) || !CombatHasCondition(0x35)) {
                 target.iType = W8_TARGET_KIND_PARTY;
                 target.iChar = -1;
-                AppendToLastTextLine(Data().strings[0x17b], -1);
+                events.push(TextFragment{.text = Data().strings[0x17b]});
                 CastSpellFromSource(W8_SPELL_SOUL_SHIELD, &source, &target, power_level, 0, 0,
                                     false, &outcome, W8SpellCastKind::Standard, 0, 0);
                 CastSpellFromSource(W8_SPELL_ELEMENT_SHIELD, &source, &target, power_level, 0, 0,
@@ -690,7 +688,7 @@ int CharacterPrayAction(int party_slot)
                 !PartyHasCondition(0x1a)) {
                 target.iType = W8_TARGET_KIND_PARTY;
                 target.iChar = -1;
-                AppendToLastTextLine(Data().strings[0x17b], -1);
+                events.push(TextFragment{.text = Data().strings[0x17b]});
                 CastSpellFromSource(W8_SPELL_MAGIC_SCREEN, &source, &target, power_level, 0, 0,
                                     false, &outcome, W8SpellCastKind::Standard, 0, 0);
                 CastSpellFromSource(W8_SPELL_ENCHANTED_BLADE, &source, &target, power_level, 0, 0,
@@ -709,11 +707,10 @@ int CharacterPrayAction(int party_slot)
                 if (monster->fActive && monster->pCombat &&
                     monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
                     monster->uiCondition[W8_CONDITION_AFRAID] == 0) {
-                    AppendToLastTextLine(
-                        fmt::sprintf(
+                    events.push(TextFragment{
+                        .text = fmt::sprintf(
                             Data().strings[0x17c],
-                            Data().strings[g_gender_name_message_rows[character->gender][2]], -1),
-                        -1);
+                            Data().strings[g_gender_name_message_rows[character->gender][2]], -1)});
                     target.iType = W8_TARGET_KIND_ALL_ENEMIES;
                     CastSpellFromSource(W8_SPELL_ROUT, &source, &target, power_level, 0, 0, false,
                                         &outcome, W8SpellCastKind::Standard, 0, 0);
@@ -734,7 +731,7 @@ int CharacterPrayAction(int party_slot)
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
                         monster->hp_current != 0 &&
                         monster->entity->GetDistanceToPlayer() <= range) {
-                        AppendToLastTextLine(Data().strings[0x179], -1);
+                        events.push(TextFragment{.text = Data().strings[0x179]});
                         ResetCombatSlot(&target);
                         CastSpellFromSource(W8_SPELL_FALLING_STARS, &source, &target, power_level,
                                             0, 0, false, &outcome, W8SpellCastKind::Standard, 0, 0);
@@ -744,7 +741,7 @@ int CharacterPrayAction(int party_slot)
             }
             break;
         default:
-            AppendToLastTextLine(Data().strings[0x176], -1);
+            events.push(TextFragment{.text = Data().strings[0x176]});
             prayed = true;
             break;
         }
