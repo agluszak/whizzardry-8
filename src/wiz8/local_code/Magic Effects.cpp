@@ -542,8 +542,8 @@ signed char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition
             magnitude = 2;
         }
         if (target->iType == W8_TARGET_KIND_MONSTER) {
-            SetMonsterCondition(target->iMonsterID, condition_id, magnitude, argument, &source,
-                                announce);
+            CurrentGame().setMonsterCondition(target->iMonsterID, condition_id, magnitude, argument,
+                                              &source, announce);
         } else {
             result = InflictCondition(CurrentGame(), target->iChar,
                                       {.condition = condition_id,
@@ -747,7 +747,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     summon = FindMonster(group->leader_location_id);
     summon->entity->nav.SetAngles(
         HeadingTowardNearestMonster(effect->target.point, disposition, summon->location_id));
-    SetMonsterGroupHostility(group, disposition, false);
+    CurrentGame().setGroupHostility(group, disposition, false);
     const auto summoned_state = disposition == W8_DISPOSITION_FRIENDLY ? W8_MONSTER_SUMMON_FRIENDLY
                                                                        : W8_MONSTER_SUMMON_HOSTILE;
     for (index = 0; index < group->MemberCount(); ++index) {
@@ -758,7 +758,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
             member->entity->addSpellIcon(SPELL_ICON_SUMMONED);
         }
     }
-    RefreshAllSight();
+    CurrentGame().refreshSight();
     if (TargetSourceIsCharacter(&effect->Source, 0)) {
         BindMonsterToCharacterDependence(effect->Source.iChar, W8_DEPENDENCE_SUMMON,
                                          summon->location_id);
@@ -1158,7 +1158,7 @@ void FatigueTargets(W8SpellEffectEntry* effect)
         monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x871, 0x872);
         if (monster_info->stamina != 0) {
             magnitude = RollEffectMagnitude(&effect->definition);
-            FatigueMonster(monster_info, magnitude, 0);
+            CurrentGame().fatigueMonster(monster_info, magnitude, 0);
         }
     }
 }
@@ -1522,7 +1522,7 @@ signed char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition co
                     chance = effect->definition.duration_scale * 0xf;
                 }
                 if (CurrentGame().rng.below(100) < chance) {
-                    ClearMonsterCondition(monster_info->location_id, condition);
+                    CurrentGame().clearMonsterCondition(monster_info->location_id, condition);
                     effect->applied = true;
                 } else {
                     all_cured = false;
@@ -2720,7 +2720,7 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                     if (amount != 0) {
                         ApplyDamageToMonster(monster_info, amount, &source, false, 1, 0, 0, false);
                         if (spell_id == W8_SPELL_DRAINING_CLOUD) {
-                            FatigueMonster(monster_info, amount, 0);
+                            CurrentGame().fatigueMonster(monster_info, amount, 0);
                             monster_info->spell_points = monster_info->spell_points - (amount >> 1);
                         }
                     }
@@ -2729,8 +2729,8 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                 if (sleep_type && monster_record->instant_death_immune == 0 &&
                     !TargetResistsCondition(target, Data().spells[W8_SPELL_DEATH_CLOUD].realm,
                                             difficulty, W8_CONDITION_DEAD)) {
-                    SetMonsterCondition(target->iMonsterID, W8_CONDITION_DEAD,
-                                        W8_CONDITION_INDEFINITE, 0, &source, true);
+                    CurrentGame().setMonsterCondition(target->iMonsterID, W8_CONDITION_DEAD,
+                                                      W8_CONDITION_INDEFINITE, 0, &source, true);
                 }
                 if (monster_info->hp_current == 0) {
                     return;
@@ -2748,20 +2748,23 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                         if (!TargetResistsCondition(target,
                                                     Data().spells[W8_SPELL_TOXIC_CLOUD].realm,
                                                     difficulty, W8_CONDITION_NAUSEATED)) {
-                            SetMonsterCondition(target->iMonsterID, W8_CONDITION_NAUSEATED,
-                                                condition_turns, 0, &source, true);
+                            CurrentGame().setMonsterCondition(target->iMonsterID,
+                                                              W8_CONDITION_NAUSEATED,
+                                                              condition_turns, 0, &source, true);
                         }
                         if (!TargetResistsCondition(target,
                                                     Data().spells[W8_SPELL_TOXIC_CLOUD].realm,
                                                     difficulty, W8_CONDITION_POISONED)) {
-                            SetMonsterCondition(target->iMonsterID, W8_CONDITION_POISONED,
-                                                condition_turns, condition_turns, &source, true);
+                            CurrentGame().setMonsterCondition(
+                                target->iMonsterID, W8_CONDITION_POISONED, condition_turns,
+                                condition_turns, &source, true);
                         }
                         if (!TargetResistsCondition(target,
                                                     Data().spells[W8_SPELL_TOXIC_CLOUD].realm,
                                                     difficulty, W8_CONDITION_UNCONSCIOUS)) {
-                            SetMonsterCondition(target->iMonsterID, W8_CONDITION_UNCONSCIOUS,
-                                                condition_turns, 0, &source, true);
+                            CurrentGame().setMonsterCondition(target->iMonsterID,
+                                                              W8_CONDITION_UNCONSCIOUS,
+                                                              condition_turns, 0, &source, true);
                         }
                     }
                 }

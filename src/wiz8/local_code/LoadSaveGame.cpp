@@ -1512,7 +1512,7 @@ void BeginRestoredLevelActivity(World& world, W8LoadedLevelStatus* status)
     if (!status) return;
     auto& data = *status->data;
     for (int id : data.pending_deaths)
-        if (auto* info = FindMonster(id, false)) MonsterStartsDying(info, true);
+        if (auto* info = FindMonster(id, false)) CurrentGame().startMonsterDeath(info, true);
 }
 
 /* Create the writable save directories in the user directory. */

@@ -1118,8 +1118,8 @@ TEST_CASE("Scripted removal retires relationships before reclaiming an updating 
         std::weak_ptr<Script> first_script, second_script;
         Navigator follower(world);
         first = add(1, [&] {
-            REQUIRE(RemoveMonster(first, W8MonsterRemoval::Despawn));
-            REQUIRE(RemoveMonster(second, W8MonsterRemoval::Despawn));
+            REQUIRE(CurrentGame().retireMonster(first, W8MonsterRemoval::Despawn));
+            REQUIRE(CurrentGame().retireMonster(second, W8MonsterRemoval::Despawn));
             REQUIRE_FALSE(world.population->findMonster(1));
             REQUIRE_FALSE(world.population->findMonster(2));
             REQUIRE_FALSE(follower.target_navigator);
@@ -1162,7 +1162,7 @@ TEST_CASE("Scripted removal retires relationships before reclaiming an updating 
         W8MonsterInfo* first = nullptr;
         std::weak_ptr<Script> script;
         first = add(1, [&] {
-            REQUIRE(RemoveMonster(first, W8MonsterRemoval::Despawn));
+            REQUIRE(CurrentGame().retireMonster(first, W8MonsterRemoval::Despawn));
             REQUIRE_FALSE(script.expired());
             throw std::runtime_error("script failed");
         });
@@ -1171,7 +1171,7 @@ TEST_CASE("Scripted removal retires relationships before reclaiming an updating 
         REQUIRE(script.expired());
         auto* next = add(2, [] {});
         script = next->entity->script;
-        REQUIRE(RemoveMonster(next, W8MonsterRemoval::Despawn));
+        REQUIRE(CurrentGame().retireMonster(next, W8MonsterRemoval::Despawn));
         REQUIRE(script.expired()); // Outside an update, destruction is immediate again.
         REQUIRE_NOTHROW(world.updateMonsters());
     }

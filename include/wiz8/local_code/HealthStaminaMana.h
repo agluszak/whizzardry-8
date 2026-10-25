@@ -34,8 +34,6 @@ void DrainPartySpellPoints(int amount, bool announce);
 int SpellCastFatigueCost(int spell_id, int result);
 void SpendCharacterSpellPoints(int party_slot, W8SpellRealm realm, int amount);
 int MonsterActionFatigueCost(Rng& rng, MonsterAction action, bool diseased);
-void FatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
-                    W8SpellEffectResult* report_to);
 void HealMonster(W8MonsterInfo* monster_info, unsigned int amount, bool announce);
 void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announce);
 /* The monster-side effect application pass the aging producer

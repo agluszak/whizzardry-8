@@ -572,7 +572,7 @@ bool MartensBluff2Script::monsterCrusher(int command)
                 position.x = left + radius;
                 monster->nav.SetPositionInternal(&position);
             } else {
-                MonsterStartsDying(info, true);
+                CurrentGame().startMonsterDeath(info, true);
                 if (info->monster_species == 0x183) {
                     ctx.game.awardExperience(10000, false);
                 }

@@ -240,7 +240,7 @@ void UpdateGameClock(int elapsed)
         CurrentGame().resetSight();
         ReverseSurpriseFade();
         surprise.phase = SurprisePhase::fade_out_and_resolve;
-        ReleaseMarkedNpcBindings();
+        CurrentGame().releaseMarkedNpcBindings();
         StartLevelMusic(1, 1);
     }
 }
@@ -324,7 +324,7 @@ void Game::updateSurpriseMode()
             RefreshEnvironment();
             ReverseSurpriseFade();
             surprise.phase = SurprisePhase::fade_out_and_resolve;
-            ReleaseMarkedNpcBindings();
+            releaseMarkedNpcBindings();
             StartLevelMusic(1, 1);
         }
         break;
@@ -362,7 +362,7 @@ void ResolveSurpriseHold(void)
         CurrentGame().resetSight();
         ReverseSurpriseFade();
         CurrentGame().surprise.phase = SurprisePhase::fade_out_and_resolve;
-        ReleaseMarkedNpcBindings();
+        CurrentGame().releaseMarkedNpcBindings();
         StartLevelMusic(1, 1);
     }
 }
@@ -1171,7 +1171,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
 
         if (amount < 1) {
             if (amount < 0) {
-                FatigueMonster(monster_info, -amount, 0);
+                CurrentGame().fatigueMonster(monster_info, -amount, 0);
             }
         } else if (monster_info->stamina < monster_info->stamina_max) {
             RestoreMonsterStamina(monster_info, amount, false);

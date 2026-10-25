@@ -253,7 +253,7 @@ void CombatSignals::spellReleased(Monster& monster)
     const unsigned int power_level = monster_info->spell_power_level;
     if (action_kind == W8_MONSTER_ACTION_SPELL && action_detail != 0 && power_level != 0) {
         const unsigned int fatigue = MonsterCastsSpell(monster_info, action_detail, power_level);
-        FatigueMonster(monster_info, fatigue, 0);
+        CurrentGame().fatigueMonster(monster_info, fatigue, 0);
         monster_info->fSpellReleased = true;
     }
 }

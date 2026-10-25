@@ -375,7 +375,7 @@ static bool IsMonsterHoverSelectable(W8MonsterInfo* monster_info)
         return false;
     }
     if (!monster_info->party_threat.use_bounds) {
-        UpdateMonsterSight(monster_info, true, true);
+        CurrentGame().updateMonsterSight(monster_info, true, true);
     }
     return monster_info->entity->IsRenderable(true);
 }

@@ -20,7 +20,6 @@ struct W8MonsterGroup;
 
 /* The timed sight service: clears the sight-dirty flag, refreshes what
    monsters can see, and reruns group detection in combat when allowed. */
-void UpdateMonsterSight(void);
 /* The per-frame monster group pass; `staggered` spreads the maintenance a
    fifth of the list at a time with a full-distance pass every 20 frames. */
 void UpdateMonsterGroups(bool staggered);

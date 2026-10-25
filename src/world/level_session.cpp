@@ -471,9 +471,12 @@ void Game::leaveLevel()
 {
     if (!level.primary) return;
     FinishLevelDeparture(*this);
-    ReleaseMarkedNpcBindings();
+    releaseMarkedNpcBindings();
     // Retirement still resolves group, NPC and targeting consequences in order.
-    ShutdownMonsterManager();
+    auto& roster = level.primary->population->monster_roster;
+    for (const auto* partition : {&roster.live(), &roster.unborn()})
+        while (!partition->empty())
+            retireMonster(partition->front().get(), W8MonsterRemoval::Unload);
 
     const bool restore_cursor = static_cast<bool>(level.primary->cursor);
     // The sky can survive travel. Everything else below belongs to the outgoing world.

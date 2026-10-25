@@ -73,13 +73,13 @@ const int g_special_attack_table[32][2] = {
    enchantment writers whenever what monsters can see of the party may have
    changed; out of combat sight is refreshed unconditionally, in combat only
    when the flag says so, and detection runs while the combat state permits. */
-void UpdateMonsterSight(void)
+void CurrentGame().updateMonsterSight(void)
 {
     if (!CurrentGame().combat.has_value() || CurrentGame().sight_refresh_pending) {
         if (CurrentGame().sight_refresh_pending) {
             CurrentGame().sight_refresh_pending = false;
         }
-        RefreshOutwardSightForAllMonsters();
+        CurrentGame().refreshOutwardSight();
         if (CurrentGame().combat.has_value() && CurrentGame().combat->round_count == 0) {
             CheckMonsterGroupsEnterCombat();
         }
@@ -107,7 +107,7 @@ void UpdateMonsterGroups(bool staggered)
     }
     ++g_monster_group_tick;
     if (!staggered) {
-        UpdateMonsterSight();
+        CurrentGame().updateMonsterSight();
     }
     camera_position = GetWorld()->party.eye();
     for (group_list_index = 0; group_list_index < CurrentLevelPopulation().monster_groups.size();
@@ -752,7 +752,7 @@ void CheckMonsterGroupsLeaveCombat(void)
     float reach;
     float minimum;
 
-    RefreshOutwardSightForAllMonsters();
+    CurrentGame().refreshOutwardSight();
     for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
          ++group_index) {
         group = CurrentLevelPopulation().monster_groups[group_index].get();
@@ -1096,11 +1096,11 @@ void CheckMonsterGroupsEnterCombat(void)
     const W8MonsterRecord* record;
     unsigned int index;
 
-    RefreshAllSight();
+    CurrentGame().refreshSight();
     for (index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
         group = CurrentLevelPopulation().monster_groups[index].get();
         if (group->fInCombat && group->ubDisposition == W8_DISPOSITION_HOSTILE) {
-            AlertSameFactionGroups(group);
+            CurrentGame().alertFactionGroups(group);
         }
     }
     for (index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
@@ -1113,7 +1113,7 @@ void CheckMonsterGroupsEnterCombat(void)
                     if ((record->flags & W8_MONSTER_FLAG_NPC) == 0 &&
                         record->faction_id == W8_FACTION_UNALIGNED &&
                         record->hostility_radius != 0 && record->hostility_radius != -1) {
-                        SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+                        CurrentGame().setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
                     }
                 }
             }

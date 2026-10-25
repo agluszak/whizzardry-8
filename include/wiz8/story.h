@@ -17,6 +17,7 @@
 #include "wiz8/layouts/npc_state.h"
 
 struct W8NpcScriptFile;
+struct W8MonsterRecord;
 
 /* One NPC slot's binding to the loaded level, staged so a failed load leaves the
    story untouched. An NPC the story already has keeps its state and only takes the
@@ -96,6 +97,9 @@ struct Story {
     void restoreFacts(const decltype(facts)& saved, int level);
     W8FactionStates factions = StartingFactions();
     W8FactionDisposition factionDisposition(signed char faction) const;
+    int adjustFactionDisposition(signed char faction, int delta, int clock);
+    int setFactionDisposition(signed char faction, W8FactionDisposition band, int clock);
+    int recordFactionOffense(signed char faction, const W8MonsterRecord& victim, int clock);
     W8FactionRelations faction_relations = StartingFactionRelations();
     std::vector<W8JournalEntry> journal;
     /* The learned keyword notebook. Every addition and removal changes it at once;
@@ -121,6 +125,7 @@ struct Story {
     std::string npcDisplayName(const W8NpcState& npc) const;
     void installNpcBindings(W8PreparedNpcBindings pending);
     void ensureLocationVariable(int level, std::string_view name, int initial_value);
+    std::optional<int> findLocationVariable(int level, std::string_view name) const;
     int locationVariable(int level, std::string_view name) const;
     void setLocationVariable(int level, std::string_view name, int value);
     const std::vector<W8LocationVariable>& locationVariables() const { return location_variables; }

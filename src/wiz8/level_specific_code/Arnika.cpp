@@ -601,7 +601,7 @@ bool ArnikaScript::vaultAlarmDoor(Trigger* pTrigger)
     wiz8::sound::play("Data\\Sound\\Ambients\\VaultAlarm.wav");
     group = FindNextExistingMonsterByID(0xc, 0);
     while (group != 0) {
-        SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+        CurrentGame().setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         group = FindNextExistingMonsterByID(0xc, group);
     }
     ctx.game.setFact(W8_FACT_ARNIKA_VAULT_ENTERED, 1);
@@ -767,7 +767,7 @@ bool ArnikaScript::greenButton(Trigger* pTrigger)
     if (el02_.button_down != 0) {
         return false;
     }
-    SetFactionDispositionBand(0xa, W8_FACTION_HOSTILE);
+    CurrentGame().setFactionDisposition(0xa, W8_FACTION_HOSTILE);
     g_trigger_feedback = true;
     if (el02_.state != W8_ARNIKA_ELEVATOR_STEP_3) {
         el02_.pElevator->Run(-1);
@@ -907,7 +907,7 @@ bool ArnikaScript::maddmook(Trigger* pTrigger)
         W8NpcState* npc = CurrentGame().story.npcOfKind(0x69);
         if (npc != 0) {
             QueueNpcScriptNotice(npc, 0, 7, false, 0);
-            SetFactionDispositionBand(W8_FACTION_MOOK, W8_FACTION_HOSTILE);
+            CurrentGame().setFactionDisposition(W8_FACTION_MOOK, W8_FACTION_HOSTILE);
         }
     }
     return true;

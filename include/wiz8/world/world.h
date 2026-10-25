@@ -249,7 +249,7 @@ private:
     std::optional<glm::vec3> adjustItemDropPosition(glm::vec3 position) const;
     void updateNearestMonsterGroupMembers();
     bool advanceFallingItem(W8WorldItem& item, float gravity);
-    friend bool RemoveMonster(W8MonsterInfo*, W8MonsterRemoval);
+    friend class Game;
     // Borrowed only during updateMonsters; the local batch is the temporary owner.
     std::vector<std::unique_ptr<W8MonsterInfo>>* monster_retirements_ = nullptr;
 };

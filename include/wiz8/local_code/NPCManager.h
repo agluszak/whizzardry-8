@@ -86,13 +86,11 @@ void CreateNewGameNpcStates(void);
 
 /* The NPC-side consequence pass the sight code runs when a marked NPC's
    binding is released. */
-void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode);
 /* The activation callback the rebinding installs on the level's
    NPC triggers. */
 void ResetNpcBindingsForParty(void);
 void ClearPendingNpcLevelFlags(void);
 void ReleaseNpcMonsterBindings(void);
-void ReleaseMarkedNpcBindings(void);
 void RebindNpcLevelTriggers(void);
 W8NpcState* GetNpcState(int index);
 /* Whether the NPC wants the offered item - it matches one of the
@@ -124,7 +122,6 @@ void ClearNpcItemId(W8NpcState* npc, int item_id);
    matches case-insensitively; 0 when none does. */
 W8MonsterManagerEntry* GetNpcGroupEntry(W8NpcState* npc);
 void ReleaseNpcMonsterBinding(W8NpcState* npc, signed char level);
-void RestoreNamedNpcAtLevel(int kind, signed char level, std::string_view entity_name);
 void ReleaseNpcMonsterByKind(int kind);
 /* Record that the NPC has told the party the given fact. */
 void TellNpcFact(W8NpcState* npc, short fact);

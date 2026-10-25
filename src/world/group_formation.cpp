@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cassert>
 
 #include "wiz8/entities/monster.h"
@@ -68,4 +69,32 @@ void World::restartGroupScripts()
         auto* leader = population->findEntity(group->leader_location_id);
         if (leader && leader->script) leader->UseScript(leader->script, true);
     }
+}
+
+void W8LevelPopulation::unlinkGroup(W8MonsterGroup& group)
+{
+    if (group.leader_group_id == 0) return;
+    auto* previous = findGroup(group.leader_group_id);
+    std::ranges::replace(previous->allied_group_ids, group.group_id, 0);
+    group.leader_group_id = 0;
+}
+
+W8MonsterGroup* W8LevelPopulation::alliedSuccessor(const W8MonsterGroup& outgoing) const
+{
+    W8MonsterGroup* leader = nullptr;
+    unsigned int best = 0;
+    for (int id : outgoing.allied_group_ids) {
+        auto* candidate = id == 0 ? nullptr : findGroup(id);
+        if (!candidate) continue;
+        unsigned int rank = 0;
+        for (int member_id : candidate->MemberIds())
+            if (auto* body = findEntity(member_id))
+                rank =
+                    std::max(rank, static_cast<unsigned int>(body->nav.movement.leadership_rank));
+        if (!leader || rank > best) {
+            leader = candidate;
+            best = rank;
+        }
+    }
+    return leader;
 }

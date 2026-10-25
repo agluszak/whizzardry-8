@@ -88,7 +88,7 @@ void Game::advance(milliseconds elapsed, StepHold hold)
         combat->step(*this);
     }
     if (accelerated_calendar && HostilesEngage(*this)) beginCombat(0);
-    if (Due(sight_due, kSightInterval)) UpdateMonsterSight();
+    if (Due(sight_due, kSightInterval)) updateMonsterSight();
     if (!advancement.held) {
         UpdateMonsterGroups(true);
         if (HostilesEngage(*this) && !activity.conversation) beginCombat(0);

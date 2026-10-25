@@ -989,7 +989,8 @@ void Monster::BeginFadeOutAndRemove(W8MonsterRemovalState state)
         }
         fade_state = W8_MONSTER_FADE_OUT;
     }
-    RemoveMonster(owner_world.population->findMonster(location_id), W8MonsterRemoval::Deactivate);
+    CurrentGame().retireMonster(owner_world.population->findMonster(location_id),
+                                W8MonsterRemoval::Deactivate);
     removal_state = state;
 }
 

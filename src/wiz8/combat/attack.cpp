@@ -604,7 +604,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
         target->iType = W8_TARGET_KIND_MONSTER;
         target->iMonsterID = interposer->iMonsterID;
         ++defender->pCombat->interception_count;
-        FatigueMonster(defender, CurrentGame().rng.below(3) + 2, nullptr);
+        CurrentGame().fatigueMonster(defender, CurrentGame().rng.below(3) + 2, nullptr);
     }
     CurrentGame().combat->unaware = 0;
     CurrentGame().combat->natural_attack = 0;
@@ -2678,7 +2678,7 @@ void ApplyEffectConditions(W8TargetSource* source, W8CombatSlot* target,
                         if (magnitude != 0) {
                             if (target->iType == W8_TARGET_KIND_MONSTER) {
                                 monster_info = FindMonster(target->iMonsterID);
-                                FatigueMonster(monster_info, magnitude, nullptr);
+                                CurrentGame().fatigueMonster(monster_info, magnitude, nullptr);
                             } else {
                                 CurrentGame().fatigueCharacter(target->iChar, magnitude, false,
                                                                nullptr);

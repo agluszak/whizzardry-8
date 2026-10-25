@@ -2657,7 +2657,7 @@ unsigned int NavigationMesh::StepMonsterAlongPath(NavigatorMovement* movement, f
         movement->target_yaw = angle;
         movement->yaw = angle;
         if (group->ubDisposition == W8_DISPOSITION_HOSTILE) {
-            UpdateMonsterSight(monster_info, true, false);
+            CurrentGame().updateMonsterSight(monster_info, true, false);
             DoMonsterRTAI(monster_info, true);
             if (monster_info->pCombat) {
                 break;

@@ -298,7 +298,7 @@ bool MtGigas2Script::laserAlarm(Trigger* pTrigger)
     if (GetLocationVarIDByName("UmpaniAlarm") != -1) {
         return false;
     }
-    SetFactionDispositionBand(4, W8_FACTION_HOSTILE);
+    CurrentGame().setFactionDisposition(4, W8_FACTION_HOSTILE);
     umpaniAlarm(kMasterToggle);
     return true;
 }

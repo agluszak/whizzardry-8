@@ -73,6 +73,7 @@ struct Level {
    field by field. Its members keep their retail-era types for now; it moves into the
    `game` layer as they move into the lower layers (ROADMAP.md, "Migration"). */
 struct W8SpellEffectResult;
+enum class W8MarkedNpcEventMode : unsigned char;
 
 enum class ActionOrigin { Automatic, Player };
 
@@ -236,6 +237,34 @@ public:
     std::vector<W8CombatSlot> monsterSpellTargets(W8MonsterInfo* monster, int spell_id);
     bool monsterAcceptsSpell(W8MonsterInfo* monster, int spell_id, W8CombatSlot* target,
                              MonsterAction action);
+    bool retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal);
+    void deactivateMonster(W8MonsterInfo* monster_info);
+    void startMonsterDeath(W8MonsterInfo* monster_info, bool display_message);
+    void recordMonsterKill(W8MonsterInfo* monster_info, bool announce);
+    void finishMonsterAttack(W8MonsterInfo* monster_info);
+    void fatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
+                        W8SpellEffectResult* report_to);
+    void setMonsterCondition(int location_id, W8Condition condition, int duration,
+                             int poison_strength, W8TargetSource* target, bool announce);
+    void clearMonsterCondition(int location_id, W8Condition condition);
+    void setMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility);
+    void setGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bool recurse);
+    void alertFactionGroups(W8MonsterGroup* monster_group);
+    bool linkMonsterGroup(W8MonsterGroup* leader, W8MonsterGroup* group);
+    void setFactionDisposition(signed char faction, W8FactionDisposition band);
+    void adjustFactionDisposition(signed char faction, signed char delta);
+    void recordFactionOffense(signed char faction, W8MonsterInfo* monster_info);
+    void refreshMonsterSight(W8MonsterInfo* monster_info);
+    void refreshOutwardSight(void);
+    void refreshInwardSight(void);
+    void refreshSight(void);
+    void updateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bounds);
+    void releaseNpcCompanion(W8NpcState* npc);
+    if (restoreNpcMonster(npc, npc->restore_entity_name))
+        ;
+    void restoreNamedNpc(int kind, signed char level, std::string_view entity_name);
+    void handleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode);
+    void releaseMarkedNpcBindings(void);
     void activateGroup(W8MonsterGroup& group);
     void updateMonsterDecision(W8MonsterInfo* monster);
     bool canMonsterUseSpecial(W8MonsterInfo* monster, bool exclude_summon);

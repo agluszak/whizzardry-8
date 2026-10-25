@@ -82,7 +82,7 @@ static W8MonsterInfo* FindNpcKindMonster(int npc_kind)
 
 static void RemoveMonsterNow(W8MonsterInfo* monster_info)
 {
-    RemoveMonster(monster_info, W8MonsterRemoval::Despawn);
+    CurrentGame().retireMonster(monster_info, W8MonsterRemoval::Despawn);
 }
 
 /* Fade an active NPC monster out of the world; one that is not active is
@@ -490,7 +490,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
             monster_info->entity->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
         if (W8MonsterGroup* group = FindFirstMonsterByID(0x15d)) {
-            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+            context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
         break;
     }
@@ -653,7 +653,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         W8MonsterInfo* monster_info = FindNpcKindMonster(0x62);
         if (monster_info != 0) {
             if (monster_info->fActive) {
-                MonsterStartsDying(monster_info, true);
+                context.game.startMonsterDeath(monster_info, true);
             } else {
                 RemoveMonsterNow(monster_info);
             }

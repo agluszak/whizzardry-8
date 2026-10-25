@@ -241,7 +241,7 @@ bool MtGigasOuterScript::securityButton(Trigger* trigger)
     if (GetLocationVarIDByName("UmpaniCampAlarm") != -1) {
         return false;
     }
-    SetFactionDispositionBand(4, W8_FACTION_HOSTILE);
+    CurrentGame().setFactionDisposition(4, W8_FACTION_HOSTILE);
     campAlarm(kMasterToggle);
     return true;
 }

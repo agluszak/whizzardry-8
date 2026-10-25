@@ -16,14 +16,9 @@ enum class W8VisibilityCondition : unsigned char {
     GeneralLineOfSight = 6
 };
 
-void RefreshAllSight(void);
 /* Put the sight subsystem back to its starting state. */
-void RefreshOutwardSightForAllMonsters(void);
-void RefreshInwardSightForAllMonsters(void);
-void RefreshMonsterSight(W8MonsterInfo* monster_info);
 void ResetAndRefreshAllSight(void);
 void AgeAllMonsterSight(void);
-void UpdateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bounds);
 
 bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group);
 signed char GetMonsterSpellSightIndex(const W8MonsterInfo* monster);

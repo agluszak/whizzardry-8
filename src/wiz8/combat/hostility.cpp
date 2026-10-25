@@ -185,7 +185,7 @@ void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
     }
     if (group_id != -1) {
         group = FindMonsterGroup(group_id);
-        SetMonsterGroupHostility(group, hostility, true);
+        CurrentGame().setGroupHostility(group, hostility, true);
         if (!group->fInCombat) {
             MonsterGroupEnterCombat(group);
         }
@@ -214,15 +214,15 @@ int g_monster_special_attack_name_ids[12] = {0,    1598, 1599, 1600, 1601, 1602,
 void SetMonsterGroupHostilityByID(int group_id, W8Disposition hostility, bool recurse)
 {
     W8MonsterGroup* group = FindMonsterGroup(group_id);
-    SetMonsterGroupHostility(group, hostility, recurse);
+    CurrentGame().setGroupHostility(group, hostility, recurse);
 }
 
-void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bool recurse)
+void Game::setGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bool recurse)
 {
-    if (CurrentLevelPopulation().allMembersDying(*group)) {
+    if ((*level.loaded().population).allMembersDying(*group)) {
         return;
     }
-    W8MonsterInfo* leader = FindMonster(group->leader_location_id);
+    W8MonsterInfo* leader = level.loaded().population->findMonster(group->leader_location_id);
     if (leader != 0 && leader->entity->hostility_preserved) {
         return;
     }
@@ -233,37 +233,39 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bo
     group->ubDisposition = hostility;
     group->forced_neutral = false;
     if (MonsterGroupHasVisibleThreat(group)) {
-        CurrentGame().events.push(
-            TextNotice{9, fmt::format("{} {} {}!", CurrentGame().monsterGroupName(*group),
-                                      Data().strings[0x1d7 + (group->MemberCount() != 1)],
-                                      Data().strings[g_group_hostility_notice_ids[hostility]])});
+        events.push(
+            TextNotice{9, fmt::format("{} {} {}!", monsterGroupName(*group),
+                                      data.strings[0x1d7 + (group->MemberCount() != 1)],
+                                      data.strings[g_group_hostility_notice_ids[hostility]])});
     }
-    group->hostility_set_at = CurrentGame().status.world_clock;
+    group->hostility_set_at = status.world_clock;
     if (previous != W8_DISPOSITION_NEUTRAL) {
-        CurrentGame().invalidateAimsAt(W8CombatSlot::group(group->group_id),
-                                       TargetChange::allegiance);
+        invalidateAimsAt(W8CombatSlot::group(group->group_id), TargetChange::allegiance);
     }
     for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {
         int location_id = group->MemberLocationId(index);
-        W8MonsterInfo* monster = FindMonster(location_id);
-        SetMonsterHostility(monster, hostility);
+        W8MonsterInfo* monster = level.loaded().population->findMonster(location_id);
+        setMonsterHostility(monster, hostility);
     }
     if (group->leader_group_id != 0) {
-        SetMonsterGroupHostility(FindMonsterGroup(group->leader_group_id), hostility, false);
+        setGroupHostility(level.loaded().population->findGroup(group->leader_group_id), hostility,
+                          false);
     }
     if (group->allied_group_ids[0] != 0) {
-        SetMonsterGroupHostility(FindMonsterGroup(group->allied_group_ids[0]), hostility, false);
+        setGroupHostility(level.loaded().population->findGroup(group->allied_group_ids[0]),
+                          hostility, false);
     }
     if (group->allied_group_ids[1] != 0) {
-        SetMonsterGroupHostility(FindMonsterGroup(group->allied_group_ids[1]), hostility, false);
+        setGroupHostility(level.loaded().population->findGroup(group->allied_group_ids[1]),
+                          hostility, false);
     }
     if (recurse) {
-        AlertSameFactionGroups(group);
+        alertFactionGroups(group);
     }
-    CurrentGame().events.push(MonstersChanged{});
+    events.push(MonstersChanged{});
 }
 
-void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
+void Game::setMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
 {
     W8Disposition previous = monster->ubDisposition;
     if (previous == hostility || monster->entity->hostility_preserved) {
@@ -272,22 +274,20 @@ void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
     monster->ubDisposition = hostility;
     if (monster->pCombat &&
         (hostility == W8_DISPOSITION_HOSTILE || previous == W8_DISPOSITION_HOSTILE)) {
-        CurrentGame().refreshCombatEngagement();
+        refreshCombatEngagement();
     }
     if (previous != W8_DISPOSITION_NEUTRAL) {
-        CurrentGame().invalidateAimsAt(W8CombatSlot::monster(monster->location_id),
-                                       TargetChange::allegiance);
+        invalidateAimsAt(W8CombatSlot::monster(monster->location_id), TargetChange::allegiance);
     }
     if (monster->pCombat && monster->hp_current > 0 &&
         monster->ubDisposition != W8_DISPOSITION_NEUTRAL) {
-        if (CurrentGame().combat.has_value() &&
-            CurrentGame().combat->holdsTurn(MonsterActor{monster->location_id}) &&
-            !std::holds_alternative<TurnScheduled>(CurrentGame().combat->turn())) {
-            EndMonsterAttack(monster);
+        if (combat.has_value() && combat->holdsTurn(MonsterActor{monster->location_id}) &&
+            !std::holds_alternative<TurnScheduled>(combat->turn())) {
+            finishMonsterAttack(monster);
             monster->action.kind = W8_MONSTER_ACTION_NONE;
             monster->pCombat->phase = 0;
         } else if (!monster->pCombat->active) {
-            CurrentGame().updateMonsterDecision(monster);
+            updateMonsterDecision(monster);
         } else {
             monster->action.kind = W8_MONSTER_ACTION_NONE;
             monster->pCombat->phase = 0;
@@ -749,19 +749,19 @@ int CharacterPrayAction(int party_slot)
     return cost;
 }
 
-void AlertSameFactionGroups(W8MonsterGroup* monster_group)
+void Game::alertFactionGroups(W8MonsterGroup* monster_group)
 {
-    const W8MonsterRecord* record = MonsterGroupGetRecord(monster_group);
+    const W8MonsterRecord* record = &data.monsters[(monster_group)->monster_id];
     if (record->faction_id != W8_FACTION_UNALIGNED) {
-        for (unsigned int index = 0; index < CurrentLevelPopulation().monster_groups.size();
+        for (unsigned int index = 0; index < (*level.loaded().population).monster_groups.size();
              ++index) {
-            W8MonsterGroup* other = CurrentLevelPopulation().monster_groups[index].get();
-            const W8MonsterRecord* other_record = MonsterGroupGetRecord(other);
+            W8MonsterGroup* other = (*level.loaded().population).monster_groups[index].get();
+            const W8MonsterRecord* other_record = &data.monsters[(other)->monster_id];
             if (other != monster_group &&
                 ((other_record->flags & W8_MONSTER_FLAG_NPC) == 0 || !other->forced_neutral) &&
                 record->faction_id == other_record->faction_id &&
                 MonsterGroupCanSeeGroup(other, monster_group)) {
-                SetMonsterGroupHostility(other, monster_group->ubDisposition, false);
+                setGroupHostility(other, monster_group->ubDisposition, false);
             }
         }
     }

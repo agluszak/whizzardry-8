@@ -131,9 +131,9 @@ W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, in
     const auto spawn_position = *position;
     auto* group = CreateGroup(monster_id, count, &spawn_position, use_alternate_name);
     if (group != 0) {
-        SetMonsterGroupHostility(group, static_cast<W8Disposition>(hostility), false);
+        CurrentGame().setGroupHostility(group, static_cast<W8Disposition>(hostility), false);
         GetMonsterGroupCentre(group, 0);
-        RefreshOutwardSightForAllMonsters();
+        CurrentGame().refreshOutwardSight();
     }
     return group;
 }

@@ -57,6 +57,8 @@ struct W8LevelPopulation {
         const auto* info = findMonster(id);
         return info ? info->entity.get() : nullptr;
     }
+    W8MonsterGroup* alliedSuccessor(const W8MonsterGroup& outgoing) const;
+    void unlinkGroup(W8MonsterGroup& group);
     bool allMembersDying(const W8MonsterGroup& group) const;
     auto activeMemberCount(const W8MonsterGroup& group) const
     {

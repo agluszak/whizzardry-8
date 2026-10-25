@@ -124,7 +124,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
             return;
         }
         ReleaseNpcMonsterBinding(npc, 0);
-        RestoreNamedNpcAtLevel(npc->name_style, 0x11, "NP_MylesCell");
+        CurrentGame().restoreNamedNpc(npc->name_style, 0x11, "NP_MylesCell");
         return;
     case W8_FACT_ASTRAL_POSSESS:
         if (value == 0) {
@@ -279,7 +279,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
     case W8_FACT_ARNIKA_MYLES_TROOPERS_HOSTILE:
         group = FindFirstMonsterByID(0x13);
         if (group != 0) {
-            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+            context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
         return;
     case W8_FACT_ARNIKA_SAFETY_DEPOSIT_OPEN:
@@ -287,31 +287,31 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_FACTION_HIGARDI_HLL_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(0xb, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(0xb, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(0xb, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(0xb, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_FACTION_HIGARDI_COMMON_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(0xc, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(0xc, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(0xc, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(0xc, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_FACTION_HIGARDI_BANK_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(10, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(10, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(10, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(10, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_FACTION_HIGARDI_FELLOW_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(9, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(9, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(9, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(9, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_ARNIKA_VAULT_TELEPORT:
     case W8_FACT_ARNIKA_VAULT_ENTERED:
@@ -349,10 +349,10 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_FACTION_TRANG_COMMON_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(5, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(5, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(5, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(5, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_AP_GOLEM_ATTACK:
         CurrentGame().npc_dialogue.Queue(W8NpcStoryAction::move_golem);
@@ -417,10 +417,10 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_FACTION_UMPANI_COMMON_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(4, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(4, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(4, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(4, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_LOCATION_GIGAS_TELEPORT_OPEN:
         if (value == 0) {
@@ -480,10 +480,10 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_FACTION_RAPAX_COMMON_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(0xf, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(0xf, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(0xf, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(0xf, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_RAPAX_RIDDLE1:
         if (value == 0) {
@@ -740,7 +740,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value != 0) {
             return;
         }
-        CurrentGame().npc_dialogue.Queue(W8NpcCommand::spacer);
+        context.game.npc_dialogue.Queue(W8NpcCommand::spacer);
         return;
     case W8_FACT_ALSEDEXUS_DISAPPEAR:
         if (value == 0) {
@@ -767,26 +767,26 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         context.status.vi_event_stage = 1;
         group = FindFirstMonsterByID(0x234);
         if (group != 0) {
-            SetMonsterGroupHostility(group, W8_DISPOSITION_FRIENDLY, false);
+            context.game.setGroupHostility(group, W8_DISPOSITION_FRIENDLY, false);
         }
         group = FindFirstMonsterByID(0x1b4);
         if (group != 0) {
-            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+            context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
         group = FindFirstMonsterByID(0x1b9);
         if (group != 0) {
-            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+            context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
         CurrentGame().story.npcOfKind(0x89);
         return;
     case W8_FACT_FACTION_RAPAX_TEMPLAR_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(0x10, W8_FACTION_HOSTILE);
-            SetFactionDispositionBand(0xf, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(0x10, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(0xf, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(0x10, W8_FACTION_FRIENDLY);
-        SetFactionDispositionBand(0xf, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(0x10, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(0xf, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_ENDGAME_QUE_CONGRAT_TWO:
     case W8_FACT_ENDGAME_QUE_CONGRAT_THREE:
@@ -893,7 +893,7 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
         if (entry->fActive && entry->ubDisposition == W8_DISPOSITION_HOSTILE &&
             !entry->entity->IsDying()) {
 
-            MonsterStartsDying(entry, true);
+            context.game.startMonsterDeath(entry, true);
         }
     }
 }
@@ -912,18 +912,20 @@ void MonsterKilled(const ScriptContext& context, int record_id, int killer_party
     }
     if (record_id == 0x1a9) {
         context.game.setFact(W8_FACT_QUEEN_IS_DEAD, 1);
-        ApplyFactionChange(2, 1, 0x10, 0x14);
+        context.game.adjustFactionDisposition(0x10, 0x14);
         return;
     }
     if (record_id == 0x14f || record_id == 0xdd) {
-        if (GetLocationVarIDByName("NumberRattkinBreedersKilled") == -1) {
-            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(),
-                                                       "NumberRattkinBreedersKilled", 1);
+        if (!context.story.findLocationVariable(context.world->level_id,
+                                                "NumberRattkinBreedersKilled")) {
+            context.story.ensureLocationVariable(context.world->level_id,
+                                                 "NumberRattkinBreedersKilled", 1);
             return;
         }
-        SetTriggerVariableByName("NumberRattkinBreedersKilled", 2);
+        context.story.setLocationVariable(context.world->level_id, "NumberRattkinBreedersKilled",
+                                          2);
         context.game.setFact(W8_FACT_TRYNNIE_KILL_RATS_DONE, 1);
-        SetFactionDispositionBand(7, W8_FACTION_HOSTILE);
+        context.game.setFactionDisposition(7, W8_FACTION_HOSTILE);
     } else {
         if (record_id == 0x22b) {
             value = context.game.testFact(W8_FACT_ALSEDEXUS_ATTACK);
@@ -933,11 +935,12 @@ void MonsterKilled(const ScriptContext& context, int record_id, int killer_party
             if (context.status.rpc_active) {
                 if (context.party.characters[context.status.sedexus_party_slot]
                         .uiCondition[W8_CONDITION_INFATUATED] > 0) {
-                    LiftCondition(CurrentGame(), context.status.sedexus_party_slot,
+                    LiftCondition(context.game, context.status.sedexus_party_slot,
                                   W8_CONDITION_INFATUATED, false);
                 }
-                QueueCharacterEvent(&context.party.characters[context.status.sedexus_party_slot],
-                                    131, 0, kCharacterEventFullVolume);
+                context.game.speech.Queue(
+                    &context.party.characters[context.status.sedexus_party_slot], 131, 0,
+                    kCharacterEventFullVolume);
             }
             context.game.setFact(W8_FACT_RAPAX_ALSEDEXUS_DEAD, 1);
             return;

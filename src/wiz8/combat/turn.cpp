@@ -126,7 +126,8 @@ void Combat::finishAction(Game& game, const CombatActor& actor)
 {
     const auto* party = std::get_if<PartyActor>(&actor);
     if (!party) {
-        EndMonsterAttack(FindMonster(std::get<MonsterActor>(actor).location_id));
+        game.finishMonsterAttack(
+            game.level.loaded().population->findMonster(std::get<MonsterActor>(actor).location_id));
         return;
     }
     const int slot = party->slot;
@@ -184,7 +185,7 @@ void Combat::step(Game& game)
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
         if (monster_info->fActive && monster_info->pCombat && monster_info->hp_current != 0 &&
             monster_info->pCombat->sight_refresh_pending) {
-            RefreshMonsterSight(monster_info);
+            CurrentGame().refreshMonsterSight(monster_info);
             monster_info->pCombat->sight_refresh_pending = false;
         }
     }

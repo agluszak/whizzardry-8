@@ -272,7 +272,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
         applied = monster_info->hp_current;
         if (amount < applied) {
             monster_info->hp_current = applied - amount;
-            FatigueMonster(monster_info, (amount * 2) / 3, result_stats);
+            CurrentGame().fatigueMonster(monster_info, (amount * 2) / 3, result_stats);
             MonsterReactsToBeingStruck(monster_info, source, quiet);
         } else {
             monster_info->hp_current = 0;
@@ -282,7 +282,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
                 death_report->text = CurrentGame().monsterName(*monster_info);
                 result_stats->reports.push_back(std::move(death_report));
             }
-            MonsterStartsDying(monster_info, result_stats == 0);
+            CurrentGame().startMonsterDeath(monster_info, result_stats == 0);
         }
         ClearHighlightIfItIs(&monster_info->location_id);
         UpdateMonsterDamageAppearance(monster_info);
@@ -585,8 +585,8 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
 /* Tire one monster. Running its pool down to nothing puts it under the
    exhausted condition indefinitely, and tells whoever asked for the fatigue
    that it landed. */
-void FatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
-                    W8SpellEffectResult* report_to)
+void Game::fatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
+                          W8SpellEffectResult* report_to)
 {
     W8TargetSource target_block;
 
@@ -606,7 +606,7 @@ void FatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
     if (monster_info->stamina == 0 &&
         monster_info->uiCondition[W8_CONDITION_UNCONSCIOUS] < W8_CONDITION_INDEFINITE) {
         ResetTargetSource(&target_block);
-        SetMonsterCondition(monster_info->location_id, W8_CONDITION_UNCONSCIOUS,
+        setMonsterCondition(monster_info->location_id, W8_CONDITION_UNCONSCIOUS,
                             W8_CONDITION_INDEFINITE, 0, &target_block, report_to == 0);
         if (report_to != 0) {
             ++report_to->condition_counts[W8_CONDITION_UNCONSCIOUS];
@@ -659,7 +659,7 @@ void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announc
 
     if (monster_info->uiCondition[W8_CONDITION_UNCONSCIOUS] == W8_CONDITION_INDEFINITE &&
         static_cast<unsigned int>(monster_info->stamina) > W8_STAMINA_TO_SHAKE_OFF_EXHAUSTION) {
-        ClearMonsterCondition(monster_info->location_id, W8_CONDITION_UNCONSCIOUS);
+        CurrentGame().clearMonsterCondition(monster_info->location_id, W8_CONDITION_UNCONSCIOUS);
     }
 }
 
@@ -676,7 +676,7 @@ void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* att
         CurrentGame().rng.below(100) <
             static_cast<unsigned int>((monster_info->attributes[W8_MONSTER_ATTRIBUTE_SENSES] >> 1) +
                                       0x32)) {
-        ClearMonsterCondition(monster_info->location_id, W8_CONDITION_ASLEEP);
+        CurrentGame().clearMonsterCondition(monster_info->location_id, W8_CONDITION_ASLEEP);
     }
     if (monster_info->control_state == W8_MONSTER_CONTROL_LURED) {
         SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_NONE);
@@ -875,6 +875,6 @@ void ApplyQueuedFatigue(W8CombatSlot* op, unsigned int amount, int)
     }
     if (op->iType == W8_TARGET_KIND_MONSTER) {
         W8MonsterInfo* monster_info = FindMonster(op->iMonsterID);
-        FatigueMonster(monster_info, amount, 0);
+        CurrentGame().fatigueMonster(monster_info, amount, 0);
     }
 }

@@ -42,7 +42,7 @@ bool Rift1Sexspawn(Trigger* pTrigger)
             CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AlSedexusSwapped", 1);
             monster_info = FindMonsterInfoBySpecies(0xd9);
             if (monster_info != 0) {
-                RemoveMonster(monster_info, W8MonsterRemoval::Despawn);
+                CurrentGame().retireMonster(monster_info, W8MonsterRemoval::Despawn);
             }
             monster_info = FindMonsterInfoBySpecies(0x22b);
             if (auto point = monster_info == 0

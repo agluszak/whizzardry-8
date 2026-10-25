@@ -101,7 +101,7 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
         item_id = ctx.inventory.heldItemId();
         if (item_id == 0x1cb || item_id == 0x1cd || item_id == 0x1cc || item_id == 0x1ce) {
             ctx.game.setFact(W8_FACT_RAPAX_TREASURY_RAIDED, 1);
-            SetFactionDispositionBand(0x12, W8_FACTION_HOSTILE);
+            CurrentGame().setFactionDisposition(0x12, W8_FACTION_HOSTILE);
             (void)ctx.inventory.take({W8ItemStorage::Hand});
             if (item_id == 0x1cb) {
                 item_id = 0x1c7;

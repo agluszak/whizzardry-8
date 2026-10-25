@@ -22,16 +22,16 @@ void Game::setMonsterGroupDisposition(int location_id, W8Disposition disposition
     W8MonsterInfo* monster_info = FindMonster(location_id);
     if (!monster_info) return;
     if (W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id, false))
-        SetMonsterGroupHostility(group, disposition, false);
+        setGroupHostility(group, disposition, false);
 }
 
 void Game::startGolemAttack()
 {
     ClearMainGameTargetState();
     if (W8MonsterGroup* group = FindFirstMonsterByID(kFirstGolem))
-        SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+        setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
     if (W8MonsterGroup* group = FindFirstMonsterByID(kSecondGolem)) {
-        SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+        setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         MonsterGroupEnterCombat(group);
     }
 }

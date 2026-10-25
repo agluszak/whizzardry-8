@@ -86,7 +86,6 @@
 #include "wiz8/world/world.h"
 
 static bool ProbeNpcPlacementNearParty(int party_slot, int mode, glm::vec3* position_out);
-static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name);
 static bool NpcOffersService(W8NpcState* npc, unsigned int service_id);
 
 enum { W8_NPC_TOPIC_SLOTS = 5, W8_NPC_FACT_SLOTS = 14 };
@@ -437,7 +436,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
                 monster->stamina = stamina;
             }
             if (neutral) {
-                SetMonsterGroupHostility(group, W8_DISPOSITION_NEUTRAL, false);
+                CurrentGame().setGroupHostility(group, W8_DISPOSITION_NEUTRAL, false);
                 group->forced_neutral = true;
             }
         }
@@ -510,7 +509,7 @@ bool RecruitNpcIntoParty(W8NpcState* npc)
         W8MonsterInfo* monster = FindMonster(npc->location_id);
         if (monster != 0) {
             CopyMonsterConditionsToCharacter(&CurrentGame().party.characters[party_slot], monster);
-            RemoveMonster(monster, W8MonsterRemoval::Despawn);
+            CurrentGame().retireMonster(monster, W8MonsterRemoval::Despawn);
         }
     }
     npc->group_index = static_cast<signed char>(party_slot);
@@ -919,18 +918,18 @@ void ChooseNewGameStartLocation(int* level, int* entrance)
 
     value = CurrentGame().testFact(W8_FACT_IMPORT_UMPANI);
     if (value != 0) {
-        RestoreNamedNpcAtLevel(0x18, 0xe, "NP_ViGigas");
-        RestoreNamedNpcAtLevel(0xc, 0xe, "NP_BalbrakIntro");
+        CurrentGame().restoreNamedNpc(0x18, 0xe, "NP_ViGigas");
+        CurrentGame().restoreNamedNpc(0xc, 0xe, "NP_BalbrakIntro");
         return;
     }
 
     value = CurrentGame().testFact(W8_FACT_IMPORT_TRANG);
     if (value != 0) {
-        RestoreNamedNpcAtLevel(0x18, 6, "NP_ViBluff");
-        RestoreNamedNpcAtLevel(0x8c, 6, "NP_GuardBluff");
+        CurrentGame().restoreNamedNpc(0x18, 6, "NP_ViBluff");
+        CurrentGame().restoreNamedNpc(0x8c, 6, "NP_GuardBluff");
         return;
     }
-    RestoreNamedNpcAtLevel(0x18, 8, "NP_ViMon");
+    CurrentGame().restoreNamedNpc(0x18, 8, "NP_ViMon");
 }
 
 /* Runs when the pending greeting_pending transition times out: new-game parties get
@@ -1391,17 +1390,16 @@ void TriggerBelaVoice(Monster* monster)
 }
 
 // Despawn the companion before releasing its remaining partner binding.
-static void ReleaseNpcCompanionMonster(W8NpcState* npc)
+void Game::releaseNpcCompanion(W8NpcState* npc)
 {
     if (npc->has_monster) {
         if (npc->is_present) {
-            W8MonsterInfo* monster = FindMonster(npc->location_id);
+            W8MonsterInfo* monster = this->level.loaded().population->findMonster(npc->location_id);
             if (monster != 0) {
-                RemoveMonster(monster, W8MonsterRemoval::Despawn);
+                this->retireMonster(monster, W8MonsterRemoval::Despawn);
             }
         }
-        if (auto* binding = CurrentGame().story.npc(npc->partner_index))
-            binding->releaseWorldBinding();
+        if (auto* binding = this->story.npc(npc->partner_index)) binding->releaseWorldBinding();
     }
 }
 
@@ -1435,7 +1433,7 @@ void UpdateNpcEvents(void)
         group = FindFirstMonsterByID(0x1b3);
         if (group != 0) {
             monster_info = FindMonster(group->leader_location_id);
-            MonsterStartsDying(monster_info, true);
+            CurrentGame().startMonsterDeath(monster_info, true);
         }
         CurrentGame().status.savant_hack_tick = 0;
         CurrentGame().status.bela_cycle_tick = int(uint32_t(MonotonicMilliseconds()));
@@ -1457,7 +1455,7 @@ void UpdateNpcEvents(void)
             npc = CurrentGame().story.npcs[slot].get();
             if (!npc->binding_unavailable && npc->restored) {
                 if (auto* partner = CurrentGame().story.npcOfKind(npc->name_style))
-                    ReleaseNpcCompanionMonster(partner);
+                    CurrentGame().releaseNpcCompanion(partner);
             }
             // Reset after each entry, not only after the whole pass.
             CurrentGame().status.npc_restore_pending = false;
@@ -1553,14 +1551,14 @@ void ResetNpcBindingsForParty(void)
 /* Restore the named entity's NPC on its level, or stamp the pending restore
    for the level-entry pass. The runtime node is created when no state for the
    record kind exists. */
-void RestoreNamedNpcAtLevel(int kind, signed char level, std::string_view entity_name)
+void Game::restoreNamedNpc(int kind, signed char level, std::string_view entity_name)
 {
-    auto* npc = CurrentGame().story.npcOfKind(kind);
+    auto* npc = this->story.npcOfKind(kind);
     if (npc == 0) {
-        npc = CurrentGame().createNpcRuntimeNode(kind);
+        npc = this->createNpcRuntimeNode(kind);
     }
-    if (level == GetLoadedLevelID()) {
-        RestoreNpcMonster(npc, std::string(entity_name).c_str());
+    if (level == (this->level.primary ? this->level.primary->level_id : -1)) {
+        this->restoreNpcMonster(npc, entity_name);
         npc->restored = false;
         return;
     }
@@ -1578,7 +1576,7 @@ void ClearPendingNpcLevelFlags(void)
         auto* npc = CurrentGame().story.npcs[index].get();
         if (npc->pending_restore && npc->binding_unavailable == 0 &&
             npc->pending_restore_level == GetLoadedLevelID()) {
-            if (RestoreNpcMonster(npc, npc->restore_entity_name)) {
+            if (Game::restoreNpcMonster(npc, npc->restore_entity_name)) {
                 npc->pending_restore = false;
             }
         }
@@ -1596,7 +1594,7 @@ void ReleaseNpcMonsterBindings(void)
         if (npc->pending_release && npc->binding_unavailable == 0 &&
             npc->pending_release_level == GetLoadedLevelID()) {
             W8NpcState* companion = CurrentGame().story.npcOfKind(npc->name_style);
-            ReleaseNpcCompanionMonster(companion);
+            CurrentGame().releaseNpcCompanion(companion);
         }
     }
 }
@@ -1608,7 +1606,7 @@ void ReleaseNpcMonsterBinding(W8NpcState* npc, signed char level)
 {
     if (level == GetLoadedLevelID()) {
         W8NpcState* companion = CurrentGame().story.npcOfKind(npc->name_style);
-        ReleaseNpcCompanionMonster(companion);
+        CurrentGame().releaseNpcCompanion(companion);
     } else {
         npc->pending_release = true;
         npc->pending_release_level = level;
@@ -1621,13 +1619,13 @@ void ReleaseNpcMonsterBinding(W8NpcState* npc, signed char level)
 void ReleaseNpcMonsterByKind(int kind)
 {
     W8NpcState* npc = CurrentGame().story.npcOfKind(kind);
-    ReleaseNpcCompanionMonster(npc);
+    CurrentGame().releaseNpcCompanion(npc);
 }
 
 /* Place or move this NPC's monster at the named world entity. Without a live
    monster it asks CreateGroup to create the NPC's species; with a live monster
    it repositions the Navigator subobject. */
-static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
+bool CurrentGame().restoreNpcMonster(W8NpcState* npc, std::string_view entity_name)
 {
     if (!npc->has_monster) {
         const auto species = NpcMonsterSpecies(CurrentGame().data, npc->name_style);
@@ -1653,9 +1651,12 @@ static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
    Glumph's mission item - then mode 0 arms the one-shot event pass while any
    other mode releases the companion monster binding, and the NPC's own
    restore is scheduled last. */
-void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
+void Game::handleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
 {
-    W8MonsterInfo* monster_info = GetNpcMonsterInfo(npc);
+    W8MonsterInfo* monster_info =
+        (npc->has_monster && npc->is_present
+             ? this->level.loaded().population->findMonster(npc->location_id)
+             : nullptr);
 
     if (monster_info != 0 && monster_info->highest_condition > W8_CONDITION_WEBBED) {
         return;
@@ -1666,33 +1667,33 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
         return;
     }
     if (npc->name_style == W8_NPC_VI_DOMINA) {
-        CurrentGame().setFact(W8_FACT_INTRO_VI_DISAPPEARS, 0);
+        this->setFact(W8_FACT_INTRO_VI_DISAPPEARS, 0);
     }
-    if (npc->name_style == ')' && GetLoadedLevelID() == 0xd) {
-        if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1 ||
-            GetLocationVarValueByName("CODESgtRubbleTeleport") == 0) {
+    if (npc->name_style == ')' && this->level.loaded().level_id == 0xd) {
+        const auto stage = story.findLocationVariable(0xd, "CODESgtRubbleTeleport");
+        if (!stage || *stage == 0) {
             if (monster_info) {
-                if (auto point = CurrentGame().level.loaded().namedPosition("RubbleCovert")) {
+                if (auto point = this->level.loaded().namedPosition("RubbleCovert")) {
                     monster_info->entity->SetPosition(&*point);
-                    if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1) {
-                        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(),
-                                                                   "CODESgtRubbleTeleport", 1);
+                    if (!stage) {
+                        this->story.ensureLocationVariable(this->level.loaded().level_id,
+                                                           "CODESgtRubbleTeleport", 1);
                     } else {
-                        SetTriggerVariableByName("CODESgtRubbleTeleport", 1);
+                        story.setLocationVariable(0xd, "CODESgtRubbleTeleport", 1);
                     }
                     RunNamedTrigger("door08", -1);
                 }
             }
-            CurrentGame().setFact(W8_FACT_UMISSION_MOVE_RUBBLE_COVERT, 0);
+            this->setFact(W8_FACT_UMISSION_MOVE_RUBBLE_COVERT, 0);
             npc->event_pending = 0;
             npc->restore_done = 0;
             return;
         }
-        if (GetLocationVarValueByName("CODESgtRubbleTeleport") == 1) {
+        if (*stage == 1) {
             if (monster_info) {
-                if (auto point = CurrentGame().level.loaded().namedPosition("rubbleUnderWater")) {
+                if (auto point = this->level.loaded().namedPosition("rubbleUnderWater")) {
                     monster_info->entity->SetPosition(&*point);
-                    SetTriggerVariableByName("CODESgtRubbleTeleport", 2);
+                    story.setLocationVariable(0xd, "CODESgtRubbleTeleport", 2);
                 }
             }
             npc->event_pending = 0;
@@ -1700,14 +1701,14 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
             return;
         }
     }
-    if (npc->name_style == W8_NPC_GLUMPH &&
-        CurrentGame().testFact(W8_FACT_UMISSION_SCUBA_DONE) == 0) {
-        monster_info = GetNpcMonsterInfo(npc);
-        const auto position = monster_info
-                                  ? std::optional{monster_info->entity->nav.GetPosition()}
-                                  : CurrentGame().level.loaded().namedPosition("NP_Glumph");
+    if (npc->name_style == W8_NPC_GLUMPH && this->testFact(W8_FACT_UMISSION_SCUBA_DONE) == 0) {
+        monster_info = (npc->has_monster && npc->is_present
+                            ? this->level.loaded().population->findMonster(npc->location_id)
+                            : nullptr);
+        const auto position = monster_info ? std::optional{monster_info->entity->nav.GetPosition()}
+                                           : this->level.loaded().namedPosition("NP_Glumph");
         if (position) {
-            auto& game = CurrentGame();
+            auto& game = *this;
             auto& world = game.level.loaded();
             if (auto* item = world.adoptItem(game.spawnWorldItem(
                     world, 0x1e6, &*position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)))
@@ -1715,19 +1716,18 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
         }
     }
     if (mode == W8MarkedNpcEventMode::release_companion) {
-        W8NpcState* companion = CurrentGame().story.npcOfKind(npc->name_style);
-        ReleaseNpcCompanionMonster(companion);
+        W8NpcState* companion = this->story.npcOfKind(npc->name_style);
+        this->releaseNpcCompanion(companion);
     } else {
         npc->restored = true;
-        CurrentGame().status.npc_restore_pending = true;
+        this->status.npc_restore_pending = true;
     }
     if (npc->restore_done == 0) {
-        if (npc->name_style == W8_NPC_MYLES &&
-            CurrentGame().testFact(W8_FACT_RAPAX_MYLES_IN_JAIL) != 0) {
-            RestoreNamedNpcAtLevel(npc->name_style, 0x11, "NP_MylesCell");
+        if (npc->name_style == W8_NPC_MYLES && this->testFact(W8_FACT_RAPAX_MYLES_IN_JAIL) != 0) {
+            this->restoreNamedNpc(npc->name_style, 0x11, "NP_MylesCell");
         } else {
-            RestoreNamedNpcAtLevel(npc->name_style, npc->record->restore_level,
-                                   npc->record->restore_entity_name);
+            this->restoreNamedNpc(npc->name_style, npc->record->restore_level,
+                                  npc->record->restore_entity_name);
         }
     }
     npc->event_pending = 0;
@@ -1738,17 +1738,17 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
    whose record kind matches the NPC's naming style and release its live
    monster and its own binding. The state vector is re-read after every
    callback. */
-void ReleaseMarkedNpcBindings(void)
+void Game::releaseMarkedNpcBindings(void)
 {
-    for (std::size_t index = 0; index < CurrentGame().story.npcs.size(); ++index) {
-        auto* npc = CurrentGame().story.npcs[index].get();
+    for (std::size_t index = 0; index < this->story.npcs.size(); ++index) {
+        auto* npc = this->story.npcs[index].get();
         if (npc->binding_unavailable == 0) {
             if (npc->event_pending != 0) {
-                HandleMarkedNpcEvent(npc, W8MarkedNpcEventMode::release_companion);
+                this->handleMarkedNpcEvent(npc, W8MarkedNpcEventMode::release_companion);
             }
             if (npc->pending_restore) {
-                W8NpcState* companion = CurrentGame().story.npcOfKind(npc->name_style);
-                ReleaseNpcCompanionMonster(companion);
+                W8NpcState* companion = this->story.npcOfKind(npc->name_style);
+                this->releaseNpcCompanion(companion);
             }
         }
     }

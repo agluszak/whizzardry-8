@@ -25,8 +25,6 @@ W8Disposition MonsterHostility(const GameData& data, const W8MonsterInfo& first,
    kind 2 defers to MonsterCanAimSpell. */
 
 bool CombatAllowsLiveGroups(void);
-void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility);
-void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bool recurse);
 
 /* The disposition two party slots hold toward each other from
    their turncoat state - same side is friendly, split is hostile. */
@@ -41,7 +39,6 @@ void ProvokeListedMonsterGroups(W8TargetSource* source, const std::vector<int>& 
 
 /* Give every other same-faction group that can see this one its disposition -
    one group going hostile brings the rest of its faction with it. */
-void AlertSameFactionGroups(W8MonsterGroup* monster_group);
 
 /* The target's monster group turns hostile toward the source's
    side and enters combat when it was not already. */

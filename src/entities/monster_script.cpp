@@ -572,8 +572,8 @@ void Monster::ProcessScript()
                         SetScript("ClosePatrol.msf", true);
                         monster_info = owner_world.population->findMonster(location_id);
                         ResetTargetSource(&source);
-                        SetMonsterCondition(monster_info->location_id, W8_CONDITION_ASLEEP, 6, 0,
-                                            &source, true);
+                        CurrentGame().setMonsterCondition(monster_info->location_id,
+                                                          W8_CONDITION_ASLEEP, 6, 0, &source, true);
                     } else if (SDL_strcasecmp(token.c_str(), "ENDBELAWALK") == 0) {
                         runtime_flags |= W8_MONSTER_PARKED;
                         ClearMainGameTargetState();

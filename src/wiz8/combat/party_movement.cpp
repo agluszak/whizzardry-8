@@ -397,7 +397,7 @@ void EndPartyMovementPhase(void)
     if (auto* world = GetWorld()) world->party.camera.motion.stop();
     SetFreeTurnEnabled(false);
     RepaintPartyMovementPanel();
-    RefreshOutwardSightForAllMonsters();
+    CurrentGame().refreshOutwardSight();
     CurrentGame().combat->uiCurrentPartyActionStatus = W8_PARTY_ACTION_PHASE_ENDED;
 }
 

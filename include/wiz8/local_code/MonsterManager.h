@@ -271,6 +271,7 @@ struct W8MonsterInfo {
     bool reaches(const W8MonsterInfo& target, const GameData& data, unsigned int attack,
                  MonsterAction action) const;
     void setMotionless(bool motionless);
+    void refreshConditionState();
     void startCycle(int cycle, W8AnimationBehaviour behavior);
     void clearEffect(W8EffectSlot& effect, const W8MonsterRecord& record);
     void endEngagement(const GameData& data);
@@ -392,7 +393,6 @@ struct W8MonsterInfo {
 };
 
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
-void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);
 const W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info);
 
 W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure = true);
@@ -415,15 +415,11 @@ float GetAveragePartyMemberLevel(void);
    `party_slot` receives the best member's slot. */
 unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot);
 
-void ShutdownMonsterManager(void);
-
 /* Report the monster's line, "Name text" in the monster colour; text that opens with a
    quote or a colon follows the name directly. */
 void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text);
 enum class W8MonsterRemoval : unsigned char { Deactivate, Despawn, Unload };
-bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal);
 void MonsterInfoEnterCombat(W8MonsterInfo* monster_info);
-void DeactivateMonster(W8MonsterInfo* monster_info);
 void ToggleCombatMode(void);
 void TogglePartyCombatStance(void);
 void DetectMonsterGroups(void);
@@ -431,7 +427,6 @@ void EvaluateCombatDifficulty(void);
 /* The kill bookkeeping a monster's death runs: credit the killer, post the
    "%s %s!" notice, clear conditions the dead monster sourced, apply the
    faction fallout, and bank the kill count and experience when it fought. */
-void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce);
 /* Record a kill fact for a monster record and the killer party slot. */
 void MonsterKilled(const ScriptContext& context, int record_id, int killer_party_slot);
 

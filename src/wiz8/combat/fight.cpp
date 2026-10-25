@@ -194,7 +194,7 @@ bool Game::beginCombat(int surprise)
     if (nearest_info != 0) {
         pointCameraAtMonster(*nearest_info, false, true);
     }
-    RefreshAllSight();
+    refreshSight();
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         monster_info = GetMonsterListEntry(index);
         if (monster_info->pCombat) {
@@ -831,34 +831,25 @@ void SetUpMonsterTurn(W8MonsterInfo* monster_info)
 /* Finish one monster's attack: charge it the fatigue, drop the party's
    selection, and give it its next phase if it still has attacks left - which
    divides whatever is left of the round between them. */
-void EndMonsterAttack(W8MonsterInfo* monster_info)
+void Game::finishMonsterAttack(W8MonsterInfo* monster)
 {
-    W8MonsterCombatState* combat = monster_info->pCombat.get();
-    unsigned int next;
-
-    FatigueMonster(monster_info,
-                   MonsterActionFatigueCost(CurrentGame().rng, monster_info->action,
-                                            monster_info->uiCondition[W8_CONDITION_DISEASED] != 0),
-                   0);
-    monster_info->entity->nav.SetHalted(true);
-    CurrentGame().combat->endTurnOf(MonsterActor{monster_info->location_id});
-
-    if (!combat->active) {
-        return;
-    }
-    if (monster_info->action.kind == W8_MONSTER_ACTION_ATTACK && combat->attacks_per_round != 0) {
-        if (CurrentGame().chooseMonsterAction(*monster_info, true, false, false)) {
-            next = combat->phase +
-                   (100 - CurrentGame().combat->round_counter) / (combat->attacks_per_round + 1);
-            combat->phase = next;
-            if (next < 0x65) {
-                combat->phase = CurrentGame().combat->phaseAtStep(
-                    combat->phase, CurrentGame().combat->round_counter);
-                return;
-            }
+    auto& engagement = *monster->pCombat;
+    fatigueMonster(monster,
+                   MonsterActionFatigueCost(rng, monster->action,
+                                            monster->uiCondition[W8_CONDITION_DISEASED] != 0),
+                   nullptr);
+    monster->entity->nav.SetHalted(true);
+    combat->endTurnOf(MonsterActor{monster->location_id});
+    if (!engagement.active) return;
+    if (monster->action.kind == W8_MONSTER_ACTION_ATTACK && engagement.attacks_per_round != 0 &&
+        chooseMonsterAction(*monster, true, false, false)) {
+        engagement.phase += (100 - combat->round_counter) / (engagement.attacks_per_round + 1);
+        if (engagement.phase < 0x65) {
+            engagement.phase = combat->phaseAtStep(engagement.phase, combat->round_counter);
+            return;
         }
     }
-    combat->phase = 0;
+    engagement.phase = 0;
 }
 
 /* Whether one character may take an action, and take it if asked. A character
@@ -1390,8 +1381,8 @@ void AdvanceCombatRound(void)
     UpdateMonsterGroupEngagement();
     CheckMonsterGroupsEnterCombat();
     DetectMonsterGroups();
-    RefreshOutwardSightForAllMonsters();
-    RefreshInwardSightForAllMonsters();
+    CurrentGame().refreshOutwardSight();
+    CurrentGame().refreshInwardSight();
     RepickInvalidCombatTargets();
     index = 0;
     while (index < CurrentLevelPopulation().monster_roster.live().size()) {

@@ -168,8 +168,8 @@ ActionStep ReleaseMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8Mons
     ResolveMonsterGroupAttack(record->special_attack_kind, &source, &monster_info->Target,
                               char_targets, monster_targets);
     monster_info->pCombat->special_cooldown = record->special_attack_cooldown;
-    FatigueMonster(monster_info, static_cast<unsigned int>(monster_info->stamina_max) / 10,
-                   nullptr);
+    CurrentGame().fatigueMonster(
+        monster_info, static_cast<unsigned int>(monster_info->stamina_max) / 10, nullptr);
     return ActionStep::finishing;
 }
 
@@ -504,7 +504,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
             break;
         case 7:
             monster_info->action.kind = W8_MONSTER_ACTION_NONE;
-            ClearMonsterCondition(monster_info->location_id, W8_CONDITION_WEBBED);
+            game.clearMonsterCondition(monster_info->location_id, W8_CONDITION_WEBBED);
             break;
         case 8:
             if (!monster_info->pCombat->berserk) {
@@ -825,7 +825,7 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
             monster_info->action.kind == W8_MONSTER_ACTION_BACK_OFF) {
             game.turnMonsterToTarget(*monster_info);
         }
-        RefreshAllSight();
+        CurrentGame().refreshSight();
         combat = monster_info->pCombat.get();
         {
             const auto& movement = monster_info->entity->nav.movement;

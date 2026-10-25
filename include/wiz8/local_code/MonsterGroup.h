@@ -17,8 +17,6 @@ struct W8MonsterInfo;
 
 /* The dispositions a group or member carries. */
 
-bool DestroyMonsterGroup(W8MonsterGroup* monster_group, W8MonsterInfo* monster_info);
-
 /* A live monster group. Saves store it as wiz8::retail::MonsterGroup. */
 struct W8MonsterGroup {
     wiz8::retail::MonsterGroupOpaque serialized;
@@ -160,7 +158,6 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group);
    group whose members hold the highest navigator leadership_rank leads the rest,
    and the fallen leader's script and heard-noise state carry to the new
    leader's MonsterInfo. */
-void ElectAlliedLeaderGroup(W8MonsterGroup* monster_group, W8MonsterInfo* leader_info);
 /* Marks every live member of the group and of its allied groups for removal. */
 void MarkMonsterGroupForRemoval(int group_id);
 /* Write the control state onto every live member of the group. */
@@ -172,7 +169,6 @@ bool MonsterGroupHasIncapacitatedMember(int group_id);
 /* Retire a group and its allies from the encounter budget,
    following the leader chain first. */
 void RetireMonsterGroupAndAllies(W8MonsterGroup* monster_group);
-bool LinkMonsterGroupToLeader(W8MonsterGroup* leader, W8MonsterGroup* group);
 
 void SetMonsterGroupFormation(W8MonsterGroup* monster_group, const glm::vec3* formation);
 

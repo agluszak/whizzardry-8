@@ -63,7 +63,7 @@ public:
     }
 
 private:
-    friend bool RemoveMonster(W8MonsterInfo*, W8MonsterRemoval);
+    friend class Game;
     bool erase(W8MonsterInfo* info, std::vector<std::unique_ptr<W8MonsterInfo>>* retirements)
     {
         for (auto* partition : {&live_, &unborn_}) {

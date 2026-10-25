@@ -302,9 +302,9 @@ static bool gameplayCollectionLifetime()
         (roster.unborn().empty() && roster.live().size() == 2 && roster.live()[1].get() == unborn));
     REQUIRE(!roster.promote(unborn));
     // Removal unindexes from whichever list holds the record, then frees it.
-    REQUIRE(RemoveMonster(live, W8MonsterRemoval::Unload));
+    REQUIRE(CurrentGame().retireMonster(live, W8MonsterRemoval::Unload));
     REQUIRE((roster.live().size() == 1 && roster.live()[0].get() == unborn));
-    REQUIRE(!RemoveMonster(live, W8MonsterRemoval::Unload));
+    REQUIRE(!CurrentGame().retireMonster(live, W8MonsterRemoval::Unload));
 
     // Reset destroys the owned records and leaves immediately reusable collections.
     *GetWorld()->population = {};
@@ -835,10 +835,6 @@ TEST_CASE("Encounter retirement spends one budget unit per formation, without re
     const ScopedCombat combat{true};
     const ScopedGameData installed(EncounterLevelData());
     GetWorld()->encounters.random_budget = 8;
-    W8MonsterGroup unowned{};
-    unowned.encounter_registered = true;
-    REQUIRE_FALSE(DestroyMonsterGroup(&unowned, nullptr));
-    REQUIRE(GetWorld()->encounters.random_budget == 8);
 
     auto& population = CurrentLevelPopulation();
     for (int id : {1, 2}) {
@@ -859,9 +855,6 @@ TEST_CASE("Encounter retirement spends one budget unit per formation, without re
     REQUIRE(population.activeEncounterLeaders().empty());
     REQUIRE(GetWorld()->encounters.random_budget == 7);
     RetireMonsterGroupAndAllies(leader);
-    REQUIRE(GetWorld()->encounters.random_budget == 7);
-    REQUIRE(DestroyMonsterGroup(ally, nullptr));
-    REQUIRE(DestroyMonsterGroup(leader, nullptr));
     REQUIRE(GetWorld()->encounters.random_budget == 7);
 }
 
@@ -983,7 +976,7 @@ TEST_CASE_METHOD(LevelWorldFixture, "Full formations reject a link before detach
     std::ranges::fill(destination.allied_group_ids, 99);
     source.group_id = 2;
     source.leader_group_id = 17;
-    REQUIRE_FALSE(LinkMonsterGroupToLeader(&destination, &source));
+    REQUIRE_FALSE(CurrentGame().linkMonsterGroup(&destination, &source));
     REQUIRE(source.leader_group_id == 17);
     REQUIRE(std::ranges::all_of(destination.allied_group_ids, [](int id) { return id == 99; }));
 }
@@ -1016,8 +1009,8 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
     old->allied_group_ids[0] = 2;
     old->allied_group_ids[1] = 3;
     first->leader_group_id = second->leader_group_id = 1;
-    old->monsters.clear(); // Final member removal owns group retirement.
-    REQUIRE(DestroyMonsterGroup(old, population.findMonster(1)));
+    population.findMonster(1)->monster_group_id = old->group_id;
+    REQUIRE(CurrentGame().retireMonster(population.findMonster(1), W8MonsterRemoval::Unload));
     REQUIRE(population.activeEncounterLeaders() == std::vector{first});
     REQUIRE(GetWorld()->encounters.random_budget == 7);
     REQUIRE(first->leader_group_id == 0);
@@ -1077,7 +1070,7 @@ TEST_CASE("Removing an allied leader settles allegiance even without a party fig
     std::vector<Rng::Draw> draws;
     game.rng.trace(&draws);
     REQUIRE_FALSE(game.combat);
-    REQUIRE(RemoveMonster(population.findMonster(1), W8MonsterRemoval::Unload));
+    REQUIRE(CurrentGame().retireMonster(population.findMonster(1), W8MonsterRemoval::Unload));
     REQUIRE(population.findMonster(1) == nullptr);
     REQUIRE(population.findGroup(3)->leader_group_id == 2);
     REQUIRE(population.findMonster(3)->ubDisposition == W8_DISPOSITION_FRIENDLY);

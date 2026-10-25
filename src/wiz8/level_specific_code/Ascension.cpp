@@ -358,7 +358,7 @@ bool AscensionScript::path1Camera(Trigger* pTrigger)
 
         if (info->fActive && info->pCombat && info->ubDisposition == W8_DISPOSITION_HOSTILE &&
             !info->entity->IsDying()) {
-            MonsterStartsDying(info, true);
+            CurrentGame().startMonsterDeath(info, true);
         }
     }
     if (ctx.combat.has_value()) {
@@ -416,7 +416,7 @@ void RemoveAletheides(void)
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
-            RemoveMonster(info, W8MonsterRemoval::Despawn);
+            CurrentGame().retireMonster(info, W8MonsterRemoval::Despawn);
             return;
         }
     }
@@ -424,7 +424,7 @@ void RemoveAletheides(void)
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
-            RemoveMonster(info, W8MonsterRemoval::Despawn);
+            CurrentGame().retireMonster(info, W8MonsterRemoval::Despawn);
             return;
         }
     }
@@ -432,7 +432,7 @@ void RemoveAletheides(void)
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
-            RemoveMonster(info, W8MonsterRemoval::Despawn);
+            CurrentGame().retireMonster(info, W8MonsterRemoval::Despawn);
         }
     }
 }
