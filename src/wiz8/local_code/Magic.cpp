@@ -36,6 +36,7 @@
 #include "wiz8/containers.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/dice.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
@@ -87,6 +88,7 @@
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
@@ -723,9 +725,7 @@ unsigned int GetSpellFailureChance(unsigned int skill, int spell_id, int factor)
     if (band > 0x10) {
         band = 0x10;
     }
-    needed =
-        static_cast<unsigned int>(g_combat_effect_slot_spells_and_cast_success[6 + band] * factor) /
-        7;
+    needed = static_cast<unsigned int>(kSpellCastCosts[band] * factor) / 7;
     if (needed <= skill) {
         return 0;
     }
@@ -990,7 +990,7 @@ void LearnSpellFromItem(W8Character* character, W8ItemLocation location)
 
 /* Eight is not a power level but the request to cast at the highest one the
    caster can pay for; the walk below resolves it. */
-enum { W8_SPELL_POWER_AS_AFFORDABLE = 8, W8_SPELL_POWER_MAX = 7 };
+enum { W8_SPELL_POWER_AS_AFFORDABLE = 8 };
 
 /* Whether the slot could go off with the spell it has recorded. The spell has
    to exist, to be one the character knows, to be usable now, and - out of
@@ -1144,7 +1144,7 @@ bool CanPartySlotUseRecordedItem(int party_slot)
 
 /* Monster casting uses the same runtime-plus-database spell budget
    for power selection and the final failure roll. */
-static unsigned int MonsterSpellPointBudget(W8MonsterInfo* monster_info,
+static unsigned int MonsterSpellPointBudget(const W8MonsterInfo* monster_info,
                                             const W8MonsterRecord* record)
 {
     unsigned int budget = monster_info->spell_points + record->sp_budget;
@@ -1161,61 +1161,13 @@ static unsigned int MonsterSpellPointBudget(W8MonsterInfo* monster_info,
 
    The budget is the monster's database base plus its own runtime bonus; a base
    of zero is a data error the monster is named in. */
-unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info, const W8MonsterRecord*,
-                                          int spell_id)
+unsigned int ChooseMonsterSpellPowerLevel(const GameData& data, Rng& rng,
+                                          const W8MonsterInfo& monster, int spell_id)
 {
-    unsigned int power_level;
-    unsigned int budget;
-    unsigned int cost;
-    int band;
-
-    if (spell_id == W8_SPELL_SPECIAL_ATTACK_CONE) {
-        return 0;
-    }
-
-    power_level = 1;
-    for (;;) {
-        const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-
-        budget = MonsterSpellPointBudget(monster_info, record);
-
-        band = Data().spells[spell_id].spell_point_cost / 2 + Data().spells[spell_id].spell_level;
-        if (band > 16) {
-            band = 16;
-        }
-        cost = (g_combat_effect_slot_spells_and_cast_success[6 + band] * power_level) / 7;
-
-        if (cost > budget) {
-            unsigned int shortfall = (cost * 70 - budget * 70) / cost;
-            if (static_cast<int>(shortfall) >= 0 &&
-                (static_cast<int>(shortfall) >= 0x65 || shortfall >= 9)) {
-                break;
-            }
-        }
-        ++power_level;
-        if (power_level >= 8) {
-            break;
-        }
-    }
-    if (power_level > 1) {
-        --power_level;
-    }
-
-    switch (CurrentGame().rng.below(4)) {
-    case 0:
-        if (power_level > 2) {
-            --power_level;
-        }
-        break;
-    case 1:
-        if (power_level < W8_SPELL_POWER_MAX) {
-            ++power_level;
-        }
-        break;
-    }
-
-    assert(power_level != 0 && power_level <= W8_SPELL_POWER_MAX);
-    return power_level;
+    if (spell_id == W8_SPELL_SPECIAL_ATTACK_CONE) return 0;
+    const auto budget = MonsterSpellPointBudget(&monster, &data.monsters[monster.monster_species]);
+    const auto& spell = data.spells[spell_id];
+    return RollMonsterSpellPower(rng, budget, spell.spell_point_cost / 2 + spell.spell_level);
 }
 
 /* Where the cast lands, by the spell's own target type. The kind values are
@@ -1967,14 +1919,10 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
     case W8_SPELL_ARMORPLATE:
     case W8_SPELL_MAGIC_SCREEN:
         if (CurrentGame().combat.has_value()) {
-            for (index = 0; index < 12; ++index) {
-                if (g_being_effect_slot_spells[index] == spell_id) {
-                    affected = CurrentGame().status.effect_slots[index].duration /
-                                   static_cast<float>(duration) <=
-                               g_navigator_vertical_phase_step;
-                    break;
-                }
-            }
+            const auto slot = EffectSlotForSpell(g_being_effect_slot_spells, spell_id);
+            affected =
+                CurrentGame().status.effect_slots[slot].duration / static_cast<float>(duration) <=
+                g_navigator_vertical_phase_step;
         }
         break;
     case W8_SPELL_BLESS:
@@ -1983,14 +1931,10 @@ bool SpellAffectedTarget(int spell_id, const W8CombatSlot* aim, unsigned int pow
     case W8_SPELL_RING_OF_FIRE:
         if (CurrentGame().combat.has_value() &&
             CurrentLevelPopulation().monster_roster.hostileCombatCount() > 0) {
-            for (index = 0; index < 9; ++index) {
-                if (g_combat_effect_slot_spells_and_cast_success[index] == spell_id) {
-                    affected = CurrentGame().combat->effect_slots0[index].duration /
-                                   static_cast<float>(duration) <=
-                               g_navigator_vertical_phase_step;
-                    break;
-                }
-            }
+            const auto slot = EffectSlotForSpell(g_defense_effect_slot_spells, spell_id);
+            affected =
+                CurrentGame().combat->effect_slots0[slot].duration / static_cast<float>(duration) <=
+                g_navigator_vertical_phase_step;
             break;
         }
         affected = false;
@@ -2322,7 +2266,7 @@ int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_l
     if (0x10 < level_index) {
         level_index = 0x10;
     }
-    threshold = (g_combat_effect_slot_spells_and_cast_success[level_index + 6] * power_level) / 7;
+    threshold = (kSpellCastCosts[level_index] * power_level) / 7;
     if (skill_score < threshold) {
         chance = ((threshold - skill_score) * 70) / threshold;
         if (static_cast<int>(chance) < 0) {

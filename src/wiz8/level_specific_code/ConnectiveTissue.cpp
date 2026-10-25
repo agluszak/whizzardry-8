@@ -5,7 +5,6 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/location_variables.h"

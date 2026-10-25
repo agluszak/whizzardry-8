@@ -775,18 +775,16 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
             spell_id = tier == 2 ? 0x1a : 0x20;
             attack_block.duration_base = Data().spells[spell_id].duration_per_level;
             attack_block.duration_per_power = Data().spells[spell_id].duration;
-            for (index = 0; index < 12; ++index) {
-                if (g_being_effect_slot_spells[index] == spell_id) {
-                    duration = RollEffectDuration(&attack_block);
-                    effect_slot = &summon->effect_slots[index];
-                    if (!effect_slot->active || effect_slot->effect_id != spell_id) {
-                        SetMonsterSpellIcon(*summon->entity,
-                                            g_effect_visual_table[spell_id].monster_icon, true);
-                    }
-                    effect_slot->Activate(spell_id, attack_block.duration_scale, duration);
-                    RebuildMonsterDerivedStats(summon->location_id);
-                    break;
+            {
+                const auto slot_index = EffectSlotForSpell(g_being_effect_slot_spells, spell_id);
+                duration = RollEffectDuration(&attack_block);
+                effect_slot = &summon->effect_slots[slot_index];
+                if (!effect_slot->active || effect_slot->effect_id != spell_id) {
+                    SetMonsterSpellIcon(*summon->entity,
+                                        g_effect_visual_table[spell_id].monster_icon, true);
                 }
+                effect_slot->Activate(spell_id, attack_block.duration_scale, duration);
+                RebuildMonsterDerivedStats(summon->location_id);
             }
             break;
         case 0:
@@ -1708,18 +1706,10 @@ void ApplyBeingEffectSlot(W8SpellEffectEntry* effect)
     W8MonsterInfo* monster_info;
     W8EffectSlot* slot;
     unsigned int duration;
-    const int* table;
-    int slot_index;
     int index;
 
     duration = RollEffectDuration(&effect->definition);
-    slot_index = 0;
-    table = g_being_effect_slot_spells;
-    while (effect->kind != *table) {
-        ++table;
-        ++slot_index;
-        assert(g_combat_effect_slot_spells > table);
-    }
+    const auto slot_index = EffectSlotForSpell(g_being_effect_slot_spells, effect->kind);
     if (!effect->target_indices.empty()) {
         slot = &CurrentGame().status.effect_slots[slot_index];
         slot->Activate(effect->kind, effect->definition.duration_scale, duration);
@@ -1788,10 +1778,8 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
     W8MonsterInfo* monster_info;
     W8EffectSlot* slot;
     unsigned int duration;
-    const int* table;
     int source_character = -1;
     int spell_id;
-    int slot_index;
     int index;
 
     spell_id = effect->kind;
@@ -1800,50 +1788,38 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
     if (TargetSourceIsCharacter(&effect->Source, 1)) {
         source_character = effect->Source.iChar;
     }
-    slot_index = 0;
-    table = g_combat_effect_slot_spells;
-    while (spell_id != *table) {
-        ++table;
-        ++slot_index;
-        if (table >= g_combat_effect_slot_spells_and_cast_success) {
-            break;
-        }
+    const auto slot_index = EffectSlotForSpell(g_combat_effect_slot_spells, spell_id);
+    if (!effect->target_indices.empty()) {
+        slot = &CurrentGame().combat->effect_slots[slot_index];
+        slot->Activate(spell_id, effect->definition.duration_scale, duration);
+        CurrentGame().refreshPartyEffects();
+        CurrentGame().events.push(PartyEffectsChanged{});
+        CurrentGame().events.push(CombatEffectsChanged{});
+        effect->applied = true;
+        effect->result.count += CurrentGame().party.participantCount();
     }
-    if (spell_id != *table) {
-        assert(false && "spell has no combat effect slot");
-    } else {
-        if (!effect->target_indices.empty()) {
-            slot = &CurrentGame().combat->effect_slots[slot_index];
-            slot->Activate(spell_id, effect->definition.duration_scale, duration);
-            CurrentGame().refreshPartyEffects();
-            CurrentGame().events.push(PartyEffectsChanged{});
-            CurrentGame().events.push(CombatEffectsChanged{});
-            effect->applied = true;
-            effect->result.count += CurrentGame().party.participantCount();
-        }
-        for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
-            monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x342, 0x343);
+    for (index = 0; index < static_cast<int>(effect->monster_ids.size()); ++index) {
+        monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x342, 0x343);
+        if (!monster_info->pCombat) {
+            MonsterGroupEnterCombat(FindMonsterGroup(monster_info->monster_group_id));
             if (!monster_info->pCombat) {
-                MonsterGroupEnterCombat(FindMonsterGroup(monster_info->monster_group_id));
-                if (!monster_info->pCombat) {
-                    continue;
-                }
+                continue;
             }
-            slot = &monster_info->pCombat->combat_effects[slot_index];
-            if (!slot->active || slot->effect_id != spell_id) {
-                SetMonsterSpellIcon(*monster_info->entity,
-                                    g_effect_visual_table[spell_id].monster_icon, true);
-            }
-            slot->Activate(spell_id, effect->definition.duration_scale, duration);
-            RebuildMonsterDerivedStats(monster_info->location_id);
-            if (source_character != -1) {
-                const W8MonsterRecord* monster = GetMonsterDataForInfo(monster_info);
-                monster_info->pCombat->character_hate[source_character] +=
-                    monster->effective_level * effect->definition.duration_scale;
-            }
-            effect->applied = true;
-            ++effect->result.count;
         }
+        slot = &monster_info->pCombat->combat_effects[slot_index];
+        if (!slot->active || slot->effect_id != spell_id) {
+            SetMonsterSpellIcon(*monster_info->entity, g_effect_visual_table[spell_id].monster_icon,
+                                true);
+        }
+        slot->Activate(spell_id, effect->definition.duration_scale, duration);
+        RebuildMonsterDerivedStats(monster_info->location_id);
+        if (source_character != -1) {
+            const W8MonsterRecord* monster = GetMonsterDataForInfo(monster_info);
+            monster_info->pCombat->character_hate[source_character] +=
+                monster->effective_level * effect->definition.duration_scale;
+        }
+        effect->applied = true;
+        ++effect->result.count;
     }
     if (effect->result.count != 0) {
         if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
@@ -1862,21 +1838,13 @@ void ApplyDefenseEffectSlot(W8SpellEffectEntry* effect)
     W8MonsterInfo* monster_info;
     W8EffectSlot* slot;
     unsigned int duration;
-    const int* table;
     int spell_id;
-    int slot_index;
     int index;
 
     spell_id = effect->kind;
     assert(CurrentGame().combat.has_value());
     duration = RollEffectDuration(&effect->definition);
-    slot_index = 0;
-    table = g_combat_effect_slot_spells_and_cast_success;
-    while (spell_id != *table) {
-        ++table;
-        ++slot_index;
-        assert(table < g_combat_effect_slot_spells_and_cast_success + 9);
-    }
+    const auto slot_index = EffectSlotForSpell(g_defense_effect_slot_spells, spell_id);
     if (!effect->target_indices.empty()) {
         slot = &CurrentGame().combat->effect_slots0[slot_index];
         slot->Activate(spell_id, effect->definition.duration_scale, duration);
@@ -2363,8 +2331,6 @@ void ReduceCombatEffectDurations(W8SpellEffectEntry* effect)
     W8EffectSlot* slot;
     unsigned int duration;
     int reduce;
-    const int* table;
-    int slot_index;
     int index;
 
     assert(CurrentGame().combat.has_value());
@@ -2385,17 +2351,17 @@ void ReduceCombatEffectDurations(W8SpellEffectEntry* effect)
         }
         AdjustIntegerByPercent(&duration, effect->definition.percent);
     }
-    slot_index = 0;
-    for (table = g_combat_effect_slot_spells; table < g_combat_effect_slot_spells_and_cast_success;
-         ++table, ++slot_index) {
-        switch (*table) {
+    for (std::size_t slot_index = 0; slot_index < g_combat_effect_slot_spells.size();
+         ++slot_index) {
+        const auto spell = g_combat_effect_slot_spells[slot_index];
+        switch (spell) {
         case 0x30:
         case 0x4c:
         case 0x50:
         case 0x51:
         case 0x5d:
             reduce = Data().spells[W8_SPELL_PURIFY_AIR].spell_level -
-                     Data().spells[*table].spell_level + duration;
+                     Data().spells[spell].spell_level + duration;
             if (reduce > 0) {
                 slot = &CurrentGame().combat->effect_slots[slot_index];
                 if (!effect->target_indices.empty() && slot->active) {

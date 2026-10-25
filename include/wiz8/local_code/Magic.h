@@ -8,7 +8,6 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/targeting.h"
 
@@ -20,6 +19,8 @@ enum class W8SpellCastKind : unsigned char {
     ThrowingItemUse = 4
 };
 
+struct GameData;
+class Rng;
 struct W8ItemInstance;
 struct W8MonsterInfo;
 class Missile;
@@ -40,8 +41,8 @@ bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int power_l
 unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsigned int power_level);
 /* The power level the monster can afford for the spell, out of
    its database base plus its runtime bonus. */
-unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info,
-                                          const W8MonsterRecord* record, int spell_id);
+unsigned int ChooseMonsterSpellPowerLevel(const GameData& data, Rng& rng,
+                                          const W8MonsterInfo& monster, int spell_id);
 /* One physical callable for queued and repeated casts; returns
    0/1/2 and writes the per-step point cost. */
 int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_level,

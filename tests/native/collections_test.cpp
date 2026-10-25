@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -85,6 +86,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
@@ -2031,4 +2033,28 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     inactive.player_visibility.sight_state = W8_SIGHT_SEEN;
     inactive.player_visibility.los_flags[0] = true;
     REQUIRE_FALSE(candidate.monsterReachesPartyMember(inactive, 0, 0, W8_MONSTER_ACTION_WAIT));
+}
+
+TEST_CASE("Effect slot lookup cannot run into casting-cost data", "[effects][bounds]")
+{
+    REQUIRE(EffectSlotForSpell(g_being_effect_slot_spells, W8_SPELL_X_RAY) == 8);
+    REQUIRE(EffectSlotForSpell(g_combat_effect_slot_spells, W8_SPELL_DRAINING_CLOUD) == 5);
+    REQUIRE(EffectSlotForSpell(g_defense_effect_slot_spells, W8_SPELL_RING_OF_FIRE) == 3);
+    REQUIRE_THROWS_AS(EffectSlotForSpell(g_defense_effect_slot_spells, kSpellCastCosts.front()),
+                      std::invalid_argument);
+}
+
+TEST_CASE("Monster power selection preserves affordability and its one draw", "[spells][random]")
+{
+    for (const auto [budget, seed, expected] :
+         std::array{std::array{0u, 1u, 1u}, std::array{30u, 1u, 2u}, std::array{110u, 1u, 6u},
+                    std::array{0u, 3000u, 2u}, std::array{110u, 3000u, 7u},
+                    std::array{30u, 6000u, 2u}, std::array{30u, 9000u, 2u}}) {
+        Rng rng{seed};
+        std::vector<Rng::Draw> draws;
+        rng.trace(&draws);
+        REQUIRE(RollMonsterSpellPower(rng, budget, 16) == expected);
+        REQUIRE(draws.size() == 1);
+        REQUIRE(draws.front().range == 4);
+    }
 }

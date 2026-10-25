@@ -84,55 +84,6 @@ int g_special_attack_table[32][2] = {
     {1, 1}, {1, 0}, {6, 0}, {6, 0}, {6, 0}, {6, 0}, {6, 0}, {6, 0}, {5, 0}, {6, 0},
 };
 
-/* The spell that fills each being effect slot, walked by
-   MonsterSpellTargetOK to tell whether a buff is already running; the
-   monster side indexes effect_slots, the party side the matching rows
-   in CurrentGame().status. */
-const int g_being_effect_slot_spells[12] = {
-    W8_SPELL_ARMORPLATE, W8_SPELL_CHAMELEON,    W8_SPELL_DETECT_SECRETS, W8_SPELL_ENCHANTED_BLADE,
-    W8_SPELL_LIGHT,      W8_SPELL_MAGIC_SCREEN, W8_SPELL_MISSILE_SHIELD, W8_SPELL_SHADOW_HOUND,
-    W8_SPELL_X_RAY,      W8_SPELL_NONE,         W8_SPELL_NONE,           W8_SPELL_NONE,
-};
-
-/* The combat-state spell per effect slot, walked against
-   Combat::effect_slots and the monster's combat_effects. */
-const int g_combat_effect_slot_spells[9] = {
-    W8_SPELL_ARMORMELT, W8_SPELL_ACID_BOMB,   W8_SPELL_TOXIC_CLOUD,
-    W8_SPELL_FIRESTORM, W8_SPELL_DEATH_CLOUD, W8_SPELL_DRAINING_CLOUD,
-    W8_SPELL_NONE,      W8_SPELL_NONE,        W8_SPELL_NONE,
-};
-
-/* The same mapping for the second combat effect block, indexed against
-   Combat::effect_slots0 and the monster's combat_effects_2. One
-   retail array: [0..6) are spell ids, [6..23) — the retail sub-table at
-   0x00616DF0 — is the spell-point budget/failure percentage indexed by cost
-   band that Magic.cpp's failure and power-level readers consume. */
-const int g_combat_effect_slot_spells_and_cast_success[23] = {
-    W8_SPELL_BLESS,
-    W8_SPELL_ELEMENT_SHIELD,
-    W8_SPELL_SOUL_SHIELD,
-    W8_SPELL_RING_OF_FIRE,
-    W8_SPELL_NONE,
-    W8_SPELL_NONE,
-    30,
-    40,
-    50,
-    58,
-    64,
-    70,
-    76,
-    81,
-    86,
-    90,
-    94,
-    97,
-    100,
-    102,
-    105,
-    107,
-    110,
-};
-
 /* The per-slot weights ChooseMonsterSpell rolls against. */
 static int g_spell_cast_weights[10] = {5, 5, 5, 10, 10, 10, 10, 15, 15, 15};
 
@@ -1249,8 +1200,8 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
             unsigned int power_level;
 
             SetTargetSourceToMonster(monster_info, &source);
-            power_level = ChooseMonsterSpellPowerLevel(
-                monster_info, GetMonsterDataForInfo(monster_info), spell_id);
+            power_level = ChooseMonsterSpellPowerLevel(CurrentGame().data, CurrentGame().rng,
+                                                       *monster_info, spell_id);
             CurrentGame().appendSpellTargets(spell_id, power_level, &source, combat_slot,
                                              monster_markers, party_markers,
                                              W8AreaSightRule::RequireLineOfSight);
@@ -1328,26 +1279,13 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
         break;
     case W8_SPELL_BLESS:
     case W8_SPELL_ELEMENT_SHIELD:
-    case W8_SPELL_SOUL_SHIELD:
-        if (!CurrentGame().combat.has_value()) {
-            return true;
-        }
-        for (index = 0; index < 9; ++index) {
-            if (spell_id == g_combat_effect_slot_spells_and_cast_success[index]) {
-                if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-                    duration = CurrentGame().combat->effect_slots0[index].duration;
-                } else {
-                    if (!target->pCombat) {
-                        continue;
-                    }
-                    duration = target->pCombat->combat_effects_2[index].duration;
-                }
-                if (duration != 0) {
-                    return false;
-                }
-            }
-        }
-        return true;
+    case W8_SPELL_SOUL_SHIELD: {
+        if (!CurrentGame().combat) return true;
+        const auto slot = EffectSlotForSpell(g_defense_effect_slot_spells, spell_id);
+        if (combat_slot->iType == W8_TARGET_KIND_CHARACTER)
+            return CurrentGame().combat->effect_slots0[slot].duration == 0;
+        return !target->pCombat || target->pCombat->combat_effects_2[slot].duration == 0;
+    }
     case W8_SPELL_HEAL_WOUNDS:
     case W8_SPELL_HEAL_ALL:
         if (hp == hp_max) {
@@ -1396,24 +1334,18 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
     case W8_SPELL_ENCHANTED_BLADE:
     case W8_SPELL_MISSILE_SHIELD:
     case W8_SPELL_ARMORPLATE:
-    case W8_SPELL_MAGIC_SCREEN:
-        for (index = 0; index < 12; ++index) {
-            if (spell_id == g_being_effect_slot_spells[index]) {
-                if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-                    duration = CurrentGame().status.effect_slots[index].duration;
-                } else {
-                    duration = target->effect_slots[index].duration;
-                }
-                if (duration != 0) {
-                    return false;
-                }
-            }
-        }
+    case W8_SPELL_MAGIC_SCREEN: {
+        const auto slot = EffectSlotForSpell(g_being_effect_slot_spells, spell_id);
+        duration = combat_slot->iType == W8_TARGET_KIND_CHARACTER
+                       ? CurrentGame().status.effect_slots[slot].duration
+                       : target->effect_slots[slot].duration;
+        if (duration != 0) return false;
         if (spell_id == W8_SPELL_ENCHANTED_BLADE && combat_slot->iType == W8_TARGET_KIND_MONSTER &&
             0x3b < record->spell_chance) {
             return false;
         }
         break;
+    }
     case W8_SPELL_GUARDIAN_ANGEL:
         if (enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].turns != 0) {
             return false;
@@ -1491,26 +1423,13 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
     case W8_SPELL_TOXIC_CLOUD:
     case W8_SPELL_DRAINING_CLOUD:
     case W8_SPELL_FIRESTORM:
-    case W8_SPELL_DEATH_CLOUD:
-        if (!CurrentGame().combat.has_value()) {
-            return true;
-        }
-        for (index = 0; index < 9; ++index) {
-            if (spell_id == g_combat_effect_slot_spells[index]) {
-                if (combat_slot->iType == W8_TARGET_KIND_CHARACTER) {
-                    duration = CurrentGame().combat->effect_slots[index].duration;
-                } else {
-                    if (!target->pCombat) {
-                        continue;
-                    }
-                    duration = target->pCombat->combat_effects[index].duration;
-                }
-                if (duration != 0) {
-                    return false;
-                }
-            }
-        }
-        return true;
+    case W8_SPELL_DEATH_CLOUD: {
+        if (!CurrentGame().combat) return true;
+        const auto slot = EffectSlotForSpell(g_combat_effect_slot_spells, spell_id);
+        if (combat_slot->iType == W8_TARGET_KIND_CHARACTER)
+            return CurrentGame().combat->effect_slots[slot].duration == 0;
+        return !target->pCombat || target->pCombat->combat_effects[slot].duration == 0;
+    }
     case W8_SPELL_EYE_FOR_AN_EYE:
         if (enchantments[W8_ENCHANTMENT_EYE_FOR_AN_EYE].turns != 0) {
             return false;
@@ -1649,8 +1568,8 @@ bool SpellAreaHitsNeutralMonster(W8MonsterInfo* monster_info, int spell_id,
         return false;
     }
     SetTargetSourceToMonster(monster_info, &source);
-    power_level =
-        ChooseMonsterSpellPowerLevel(monster_info, GetMonsterDataForInfo(monster_info), spell_id);
+    power_level = ChooseMonsterSpellPowerLevel(CurrentGame().data, CurrentGame().rng, *monster_info,
+                                               spell_id);
     CurrentGame().appendSpellTargets(spell_id, power_level, &source, combat_slot, monster_markers,
                                      party_markers, W8AreaSightRule::RequireLineOfSight);
     for (index = 0; index < static_cast<int>(monster_markers.size()); ++index) {
@@ -2424,8 +2343,8 @@ bool MonsterSpellHasPartyTarget(W8MonsterInfo* monster_info, int spell_id, W8Com
     unsigned int power_level;
 
     SetTargetSourceToMonster(monster_info, &source);
-    power_level =
-        ChooseMonsterSpellPowerLevel(monster_info, GetMonsterDataForInfo(monster_info), spell_id);
+    power_level = ChooseMonsterSpellPowerLevel(CurrentGame().data, CurrentGame().rng, *monster_info,
+                                               spell_id);
     CurrentGame().appendSpellTargets(spell_id, power_level, &source, slot, monster_markers,
                                      party_markers, W8AreaSightRule::RequireLineOfSight);
     return !party_markers.empty();

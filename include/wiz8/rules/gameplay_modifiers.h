@@ -1,7 +1,14 @@
 #ifndef WIZ8_GAMEPLAY_MODIFIERS_H
 #define WIZ8_GAMEPLAY_MODIFIERS_H
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
 #include <span>
+#include <stdexcept>
+
+#include "wiz8/data/spell_ids.h"
+#include "wiz8/rules/random.h"
 
 /*
  * The effect-slot and modifier records the gameplay-modifier passes accumulate through.
@@ -95,16 +102,51 @@ struct W8GameplayModifierBlock {
     unsigned char unknown_4c[0x1b]; /* 0x4c .. 0x66 */
 }; /* 0x67 */
 
-/* The spell that fills each being effect slot; the monster side indexes
-   W8MonsterInfo::effect_slots, the party side
-   W8GameStatus::effect_slots. */
-extern const int g_being_effect_slot_spells[12];
-/* The combat-state spell per effect slot, walked against
-   Combat::effect_slots and the monster's combat_effects. */
-extern const int g_combat_effect_slot_spells[9];
-/* The same mapping for the second combat effect block, indexed against
-   Combat::effect_slots0 and the monster's combat_effects_2. */
-extern const int g_combat_effect_slot_spells_and_cast_success[23];
+// Each mapping has the same bound as its owning effect block. Casting costs
+// are independent data, never a continuation or end marker of a slot mapping.
+inline constexpr std::array<W8SpellId, 12> g_being_effect_slot_spells{
+    W8_SPELL_ARMORPLATE, W8_SPELL_CHAMELEON,    W8_SPELL_DETECT_SECRETS, W8_SPELL_ENCHANTED_BLADE,
+    W8_SPELL_LIGHT,      W8_SPELL_MAGIC_SCREEN, W8_SPELL_MISSILE_SHIELD, W8_SPELL_SHADOW_HOUND,
+    W8_SPELL_X_RAY,      W8_SPELL_NONE,         W8_SPELL_NONE,           W8_SPELL_NONE};
+inline constexpr std::array<W8SpellId, 9> g_combat_effect_slot_spells{
+    W8_SPELL_ARMORMELT, W8_SPELL_ACID_BOMB,   W8_SPELL_TOXIC_CLOUD,
+    W8_SPELL_FIRESTORM, W8_SPELL_DEATH_CLOUD, W8_SPELL_DRAINING_CLOUD,
+    W8_SPELL_NONE,      W8_SPELL_NONE,        W8_SPELL_NONE};
+inline constexpr std::array<W8SpellId, 6> g_defense_effect_slot_spells{
+    W8_SPELL_BLESS,        W8_SPELL_ELEMENT_SHIELD, W8_SPELL_SOUL_SHIELD,
+    W8_SPELL_RING_OF_FIRE, W8_SPELL_NONE,           W8_SPELL_NONE};
+inline constexpr std::array<int, 17> kSpellCastCosts{30, 40, 50, 58,  64,  70,  76,  81, 86,
+                                                     90, 94, 97, 100, 102, 105, 107, 110};
+
+inline std::size_t EffectSlotForSpell(std::span<const W8SpellId> mapping, int spell)
+{
+    const auto slot = std::ranges::find(mapping, spell);
+    if (slot == mapping.end()) throw std::invalid_argument("spell has no effect slot");
+    return slot - mapping.begin();
+}
+
+inline constexpr unsigned int W8_SPELL_POWER_MAX = 7;
+
+inline unsigned int RollMonsterSpellPower(Rng& rng, unsigned int budget, int cost_band)
+{
+    const auto cost_scale = kSpellCastCosts.at(std::min(cost_band, 16));
+    unsigned int power = 1;
+    for (; power <= W8_SPELL_POWER_MAX; ++power) {
+        const auto cost = (cost_scale * power) / 7;
+        // Here budget < cost <= 110, so the old overflow/sign branches were unreachable.
+        if (cost > budget && (cost - budget) * 70 / cost >= 9) break;
+    }
+    if (power > 1) --power;
+    switch (rng.below(4)) {
+    case 0:
+        if (power > 2) --power;
+        break;
+    case 1:
+        if (power < W8_SPELL_POWER_MAX) ++power;
+        break;
+    }
+    return power;
+}
 
 // Raise a byte by `percent` percent, rounding to the nearest unit.
 inline void AdjustByteByPercent(unsigned char* value, unsigned int percent)

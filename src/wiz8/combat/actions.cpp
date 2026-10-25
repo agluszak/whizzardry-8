@@ -644,7 +644,8 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
             break;
         case W8_MONSTER_ACTION_SPELL: {
             int spell_id = monster_info->action_detail;
-            unsigned int power = ChooseMonsterSpellPowerLevel(monster_info, record, spell_id);
+            unsigned int power =
+                ChooseMonsterSpellPowerLevel(game.data, game.rng, *monster_info, spell_id);
             if (!CanMonsterAimSpell(monster_info, spell_id) ||
                 !MonsterOKToCastSpell(monster_info, spell_id, power)) {
                 result = 0;
