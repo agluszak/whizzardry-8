@@ -728,12 +728,12 @@ TEST_CASE_METHOD(SpellVisualFixture,
                  "[resources][levels][rendering]")
 {
     const ScopedGameData installed(GameData{.monsters = std::vector<W8MonsterRecord>(1)});
-    auto active = std::make_unique<W8MonsterInfo>();
+    auto active = std::make_unique<W8MonsterInfo>(world);
     active->location_id = 7;
     active->within_viewing_distance = false;
     world.population->monster_roster.add(std::move(active), false);
     World replacement;
-    auto record = std::make_unique<W8MonsterInfo>();
+    auto record = std::make_unique<W8MonsterInfo>(replacement);
     record->location_id = 7;
     record->within_viewing_distance = true;
     record->party_threat.visible_to_player = false;
@@ -757,7 +757,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
     REQUIRE_FALSE(world.projectsToCamera({0, 0, 10}));
 
     for (auto* owner : {&world, &replacement}) {
-        auto observer = std::make_unique<W8MonsterInfo>();
+        auto observer = std::make_unique<W8MonsterInfo>(*owner);
         observer->location_id = 8;
         observer->fActive = true;
         observer->monster_visibility = std::make_unique<W8MonsterVisibility>();
@@ -1048,7 +1048,7 @@ TEST_CASE("A monster record owns its loaded body independently of activation",
           "[resources][monsters]")
 {
     World world;
-    auto record = std::make_unique<W8MonsterInfo>();
+    auto record = std::make_unique<W8MonsterInfo>(world);
     record->location_id = 7;
     record->entity = std::make_unique<Monster>(world);
     auto* body = record->entity.get();
@@ -1111,7 +1111,7 @@ TEST_CASE("Scripted removal retires relationships before reclaiming an updating 
     world.compiledIndex()->registry.cells = std::make_unique<W8OctreeObjectRegistry>();
     std::vector<int> calls;
     const auto add = [&](int id, std::function<void()> action) {
-        auto record = std::make_unique<W8MonsterInfo>();
+        auto record = std::make_unique<W8MonsterInfo>(world);
         record->location_id = id;
         record->entity = std::make_unique<Monster>(world);
         auto& body = *record->entity;
@@ -1521,7 +1521,7 @@ TEST_CASE("Prepared monster bodies use their definition and RNG without an insta
     std::vector<Rng::Draw> draws;
     rng.trace(&draws);
     const auto prepare = [&](int id, bool unborn, bool visited) -> W8MonsterInfo& {
-        auto info = std::make_unique<W8MonsterInfo>();
+        auto info = std::make_unique<W8MonsterInfo>(world);
         info->location_id = id;
         info->monster_species = 123; // Deliberately no installed database with this species.
         info->uiHPMax = info->hp_current = 15;
@@ -1633,7 +1633,7 @@ TEST_CASE("NPC preparation keeps story identity and publishes only into its supp
     retired->gold = 999;
     candidate.story.npcs = {singleton, retired};
     const auto add = [&](int id, unsigned int species, bool unborn = false) -> W8MonsterInfo& {
-        auto info = std::make_unique<W8MonsterInfo>();
+        auto info = std::make_unique<W8MonsterInfo>(world);
         info->location_id = id;
         info->monster_species = species;
         info->entity = std::make_unique<Monster>(world, &data.monsters[species]);
@@ -2124,7 +2124,7 @@ TEST_CASE("A group leaves only its own game fight and releases its engagement ef
     candidate.combat.emplace().schedule(MonsterActor{7});
     candidate.level.replacePrimary(std::make_unique<World>());
     auto& world = candidate.level.loaded();
-    auto monster = std::make_unique<W8MonsterInfo>();
+    auto monster = std::make_unique<W8MonsterInfo>(world);
     monster->location_id = 7;
     monster->monster_group_id = 1;
     monster->hp_current = monster->uiHPMax = 1;
@@ -2169,7 +2169,7 @@ TEST_CASE("A group leaves only its own game fight and releases its engagement ef
     auto& nav = member.entity->nav;
     nav.movement.location_id = 7;
     nav.patrol_home = {4, 5, 6};
-    auto follower = std::make_unique<W8MonsterInfo>();
+    auto follower = std::make_unique<W8MonsterInfo>(world);
     follower->location_id = 8;
     follower->monster_group_id = 1;
     follower->hp_current = 1;
@@ -2218,11 +2218,11 @@ TEST_CASE("Monster names query their owning game without maintaining a display c
     candidate.level.replacePrimary(std::make_unique<World>());
     candidate.status.retail.monster_name_cache.fill(std::byte{0xa5});
     const auto cache = candidate.status.retail.monster_name_cache;
-    auto& group =
-        candidate.level.loaded().population->adoptGroup(std::make_unique<W8MonsterGroup>(), false);
+    World world;
+    auto& group = world.population->adoptGroup(std::make_unique<W8MonsterGroup>(), false);
     group.group_id = group.monster_id = 1;
     group.monsters = {7};
-    W8MonsterInfo monster{};
+    W8MonsterInfo monster{world};
     monster.monster_group_id = 1;
     const Game& query = candidate;
     REQUIRE(query.monsterName(monster) == "Rat");

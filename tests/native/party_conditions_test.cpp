@@ -411,12 +411,12 @@ TEST_CASE_METHOD(PartyFixture, "A monster releases its own party dependents befo
     character.uiCondition[W8_CONDITION_MISSING] = 1;
     character.highest_condition = W8_CONDITION_MISSING;
     auto& roster = candidate.level.loaded().population->monster_roster;
-    auto source = std::make_unique<W8MonsterInfo>();
+    auto source = std::make_unique<W8MonsterInfo>(candidate.level.loaded());
     source->location_id = 42;
     source->condition_binding_mask = (1 << W8_DEPENDENCE_SUMMON) | (1 << W8_DEPENDENCE_SWALLOWED);
     auto& monster = *roster.add(std::move(source), false);
     for (int id : {9, 10}) {
-        auto bound = std::make_unique<W8MonsterInfo>();
+        auto bound = std::make_unique<W8MonsterInfo>(candidate.level.loaded());
         bound->location_id = id;
         bound->elemental_summon = 42;
         roster.add(std::move(bound), false);

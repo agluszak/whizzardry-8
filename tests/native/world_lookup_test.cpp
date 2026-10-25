@@ -479,7 +479,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         group->monsters = {index + 1};
         group->centre = {1.5f * index, 2.0f, 3.0f};
         population.adoptGroup(std::move(group), index == 3);
-        auto record = std::make_unique<W8MonsterInfo>();
+        auto record = std::make_unique<W8MonsterInfo>(world);
         record->location_id = index + 1;
         record->monster_group_id = index == 1 ? 0 : index + 1;
         record->monster_species = 10 + index;

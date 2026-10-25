@@ -680,14 +680,6 @@ struct SavedMonster {
             throw std::runtime_error("invalid monster status species or effect");
         return saved;
     }
-    // The inactive record, without its entity or combat state.
-    std::unique_ptr<W8MonsterInfo> Build() const
-    {
-        auto info = std::make_unique<W8MonsterInfo>();
-        wiz8::retail::decode_image(image, *info);
-        info->fActive = false;
-        return info;
-    }
 };
 
 } // namespace
@@ -1482,7 +1474,7 @@ std::unique_ptr<W8LoadedLevelStatus> LevelState::build(Game& game, World& world)
     for (std::size_t index = 0; index < state.monsters.size(); ++index) {
         const auto& saved = state.monsters[index];
         if (game.data.monsters.at(saved.image.monster_species).deleted) continue;
-        auto& info = *(infos[index] = saved.Build());
+        auto& info = *(infos[index] = wiz8::retail::decode_monster(saved.image, world));
         if (saved.image.bound_npc_index > 0)
             if (auto* npc = game.story.npc(saved.image.bound_npc_index))
                 info.npc_binding_ = npc->shared_from_this();

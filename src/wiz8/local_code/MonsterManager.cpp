@@ -1011,7 +1011,7 @@ std::string Game::monsterName(const W8MonsterInfo& monster) const
     const auto& record = data.monsters[monster.monster_species];
     bool alternate = false;
     if (record.record_id != W8_MONSTER_RECORD_ALTERNATE_NAME && monster.monster_group_id != 0) {
-        const auto* group = level.loaded().population->findGroup(monster.monster_group_id);
+        const auto* group = monster.owner_world.population->findGroup(monster.monster_group_id);
         assert(group);
         alternate = group->alternate_name;
     }

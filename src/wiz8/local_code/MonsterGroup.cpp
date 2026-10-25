@@ -583,7 +583,7 @@ W8MonsterGroup* Game::createMonsterGroup(unsigned int species, unsigned int coun
     group->spawn_time = status.world_clock;
     world.population->adoptGroup(std::move(group_owner), record.unborn);
     for (unsigned int index = 0; index < std::min(count, 9u); ++index) {
-        auto info = std::make_unique<W8MonsterInfo>();
+        auto info = std::make_unique<W8MonsterInfo>(world);
         do {
             info->location_id = status.next_monster_location_id++;
         } while (info->location_id == 0);

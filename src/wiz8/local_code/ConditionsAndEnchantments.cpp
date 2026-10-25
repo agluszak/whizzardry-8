@@ -68,7 +68,7 @@ bool GetConditionRecordFlag(int party_slot, W8CharacterDependence dependence)
 
 void Game::releaseMonsterDependents(const W8MonsterInfo& monster)
 {
-    auto& world = level.loaded();
+    auto& world = monster.owner_world;
     std::vector<Event> outcomes;
     for (auto kind : {W8_DEPENDENCE_SUMMON, W8_DEPENDENCE_SWALLOWED}) {
         if ((monster.condition_binding_mask & (1 << kind)) == 0) continue;

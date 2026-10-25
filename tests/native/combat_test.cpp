@@ -58,7 +58,7 @@ struct CombatFixture {
 
     W8MonsterInfo& AddMonster(int location_id, unsigned int phase)
     {
-        auto monster = std::make_unique<W8MonsterInfo>();
+        auto monster = std::make_unique<W8MonsterInfo>(game.level.loaded());
         monster->location_id = location_id;
         monster->hp_current = 10;
         monster->pCombat = std::make_unique<W8MonsterCombatState>();
@@ -175,7 +175,7 @@ TEST_CASE("A deflected stored-spell missile keeps its outcome outside combat")
     Monster target(world);
     target.location_id = 7;
     target.nav.movement.location_id = target.location_id;
-    auto info = std::make_unique<W8MonsterInfo>();
+    auto info = std::make_unique<W8MonsterInfo>(world);
     info->location_id = target.location_id;
     info->hp_current = 10;
     info->modifiers.missile_deflect_chance = 100;
