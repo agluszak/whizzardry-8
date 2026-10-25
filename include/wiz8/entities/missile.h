@@ -1,9 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
-#include <string_view>
-#include <vector>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/data/attack_modes.h"
@@ -51,9 +50,6 @@ struct MissileFlight {
     bool unknown_1c{};
 };
 
-bool UpdateMissileAI(MissileFlight* record);
-float AdvanceMissileAI(MissileFlight* record, glm::vec3* out, unsigned int steps);
-
 /* What a missile kind's MLS and .mon files author, loaded once per world: its
    cycles with their lights outside any scene, the cycle events, and the flight
    settings each missile of the kind starts with. */
@@ -66,6 +62,18 @@ struct MissileDefinition {
     bool explode_ground = false;
     bool align_explosion = false;
     float lifetime = 15000.0f;
+};
+
+struct MissileLaunch {
+    int kind = 0;
+    glm::vec3 origin;
+    glm::vec3 destination;
+    float distance = 50000.0f;
+    unsigned int trace_mask = 0;
+    bool released = true;
+    W8TargetSource source{};
+    W8CombatSlot target{W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}};
+    std::optional<W8SpellEffectDefinition> effect;
 };
 
 /* The source assertion for its AI names the object `pMissile`. */
@@ -93,7 +101,7 @@ public:
     Animation* GetCurrentAnimation();
 
     unsigned int ApplyEmitterSetting(signed char emitter);
-    void StartIfHostActive(); /* 0x004A4050 */
+    void StartIfHostActive(bool held); /* 0x004A4050 */
     /* Decide what the missile struck - the party or a live monster - record it
        in combat_slot, roll the target's missile deflection and either hand
        the hit to Combat Attack.cpp or leave it for the combat engine. */
@@ -107,9 +115,8 @@ public:
     // End the flight and report the landing to the world's simulation.
     void Land();
 
-    void SetEffectDefinition(const W8SpellEffectDefinition* definition); /* 0x004A5410 */
     /* 0x004A5790: true while this in-flight missile still blocks ending combat. */
-    bool BlocksEndingCombat();
+    bool BlocksEndingCombat() const;
 
 public:
     int missile_table_index;
@@ -122,7 +129,7 @@ public:
     bool impacting;
     /* Set once the missile no longer blocks combat end (BlocksEndingCombat
        returned 0 or combat already resolved). */
-    unsigned char block_released;
+    bool block_released;
     bool gravity;
     bool align_camera;
     bool explode_ground;
@@ -132,7 +139,7 @@ public:
     int flags0;
     float duration;
     W8SpellEffectDefinition definition{};
-    W8TargetSource m_Source;
+    W8TargetSource m_Source{};
     W8CombatSlot combat_slot;
     /* 0x280: the damage and condition results this missile has accumulated,
        folded into the owning spell effect by 0x00500460. */
@@ -141,22 +148,3 @@ public:
     // The collision outcome survives combat ending before the missile lands.
     bool deflected = false;
 };
-
-/* Secondary vftable 0x005ecdf4 keeps the Navigator subobject at +0x18. */
-
-Missile* FireMissile(unsigned int missile_table_index, glm::vec3* source, glm::vec3* target,
-                     float flight_speed, unsigned int trace_mask, unsigned int block_released,
-                     float duration);
-/* The world position `character_index`'s current hand fires a missile from:
-   the camera's launch point swung to the wielding side. */
-void GetCharacterProjectilePosition(unsigned int character_index, glm::vec3* position);
-
-Missile* NextMissile(bool restart);
-
-Missile* AllocateMissile(int missile_table_index);
-std::unique_ptr<Missile> LoadMissileCycle(World* world, std::string_view name);
-
-Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, float heading,
-                       float pitch, float flight_speed, unsigned int trace_mask,
-                       unsigned char block_released, float duration);
-void UpdateWorldMissiles(World* world);

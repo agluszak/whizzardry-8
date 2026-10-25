@@ -393,7 +393,7 @@ void Monster::ProcessScript()
                 if (!tokens) {
                     break;
                 }
-                unsigned int owner = static_cast<unsigned int>(atoi(token.c_str()));
+                const int missile_type = atoi(token.c_str());
                 tokens >> token;
                 if (!tokens) {
                     break;
@@ -404,7 +404,8 @@ void Monster::ProcessScript()
                 if (!GetProjectilePosition(&source)) {
                     GetMappedPosition(&source);
                 }
-                FireMissile(owner, &source, &target, 0, 0, 1, 50000.0f);
+                owner_world.launchMissile(
+                    Data(), {.kind = missile_type, .origin = source, .destination = target});
                 break;
             }
             case MONSCR_GIVE:

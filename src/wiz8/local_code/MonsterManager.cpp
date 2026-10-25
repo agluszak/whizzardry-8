@@ -833,7 +833,6 @@ void ToggleCombatMode(void)
 {
     unsigned int group_list_index;
     W8MonsterGroup* monster_group;
-    Missile* missile;
 
     if (!CurrentGame().combat.has_value()) {
         CurrentGame().beginCombat(1);
@@ -855,8 +854,8 @@ void ToggleCombatMode(void)
             }
         }
     }
-    for (missile = NextMissile(true); missile != 0; missile = NextMissile(false)) {
-        if ((missile == CurrentGame().combat->engaged_missile ||
+    for (const auto& missile : CurrentGame().level.loaded().missiles()) {
+        if ((missile.get() == CurrentGame().combat->engaged_missile ||
              Data().missiles[missile->missile_table_index].spell_missile != 0) &&
             missile->BlocksEndingCombat()) {
             ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_COMBAT_CANNOT_END_ENGAGED]);

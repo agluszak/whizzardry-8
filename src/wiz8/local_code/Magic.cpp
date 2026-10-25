@@ -412,7 +412,7 @@ void Game::advanceSpellEffects(World& world)
                 for (int missile_index = 0;
                      missile_index < static_cast<int>(effect.missiles.size()); ++missile_index) {
                     missile = effect.missiles[missile_index];
-                    missile->block_released = 1;
+                    missile->block_released = true;
                     effect.missiles.erase(effect.missiles.begin() + missile_index);
                 }
                 if (missile != 0) {
@@ -473,7 +473,7 @@ void Game::advanceSpellEffects(World& world)
             }
         }
         for (auto* missile : effect.missiles) {
-            missile->block_released = 1;
+            missile->block_released = true;
         }
         world.spell_effects.erase(world.spell_effects.begin() + index);
         --index;

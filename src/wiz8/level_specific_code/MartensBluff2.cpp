@@ -83,7 +83,8 @@ void SetRavenQuestState(RavenQuestState state)
 /* The master command that toggles a sequence. */
 constexpr int kMasterToggle = static_cast<int>(0xEFFFFFFF);
 
-void FireTrapLauncher(World& world, const char* name, W8SpellEffectDefinition* effect);
+void FireTrapLauncher(World& world, const GameData& data, const char* name,
+                      const W8SpellEffectDefinition& effect);
 
 /* "DoorBolt": re-arms the side-gate text trigger when the bolt opens. */
 TriggerDecision DoorBolt(Trigger* pTrigger)
@@ -249,11 +250,11 @@ void MartensBluff2Script::setup()
     }
 }
 
-void FireTrapLauncher(World& world, const char* name, W8SpellEffectDefinition* effect)
+void FireTrapLauncher(World& world, const GameData& data, const char* name,
+                      const W8SpellEffectDefinition& effect)
 {
     glm::vec3 offset;
     glm::mat3 rotation;
-    Missile* missile;
 
     if (const auto* marker = world.namedMarker(name)) {
         auto position = marker->position;
@@ -265,8 +266,7 @@ void FireTrapLauncher(World& world, const char* name, W8SpellEffectDefinition* e
                                normalizedOrZero(glm::vec3(marker->direction))));
         }
         offset = position + glm::vec3{rotation * offset};
-        missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
-        missile->SetEffectDefinition(effect);
+        world.launchMissile(data, {.origin = position, .destination = offset, .effect = effect});
         CreateAndPlaySoundNode(world, "Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position, 1.0f,
                                15000.0f, false);
     }
@@ -279,15 +279,14 @@ TriggerDecision MartensBluff2Script::arrowTrap(Trigger* pTrigger)
     W8SpellEffectDefinition effect;
     glm::vec3 offset;
     glm::mat3 rotation;
-    Missile* missile;
 
     effect = {};
     effect.magnitude.base = 0;
     effect.magnitude.count = 2;
     effect.magnitude.sides = 6;
-    FireTrapLauncher(world(), "Arrowlauncher1", &effect);
-    FireTrapLauncher(world(), "Arrowlauncher2", &effect);
-    FireTrapLauncher(world(), "Arrowlauncher3", &effect);
+    FireTrapLauncher(world(), ctx.game.data, "Arrowlauncher1", effect);
+    FireTrapLauncher(world(), ctx.game.data, "Arrowlauncher2", effect);
+    FireTrapLauncher(world(), ctx.game.data, "Arrowlauncher3", effect);
     if (const auto* marker = world().namedMarker("Arrowlauncher4")) {
         auto position = marker->position;
         offset = glm::vec3(0.0, 0.0, 15000.0);
@@ -295,8 +294,8 @@ TriggerDecision MartensBluff2Script::arrowTrap(Trigger* pTrigger)
         rotation *= glm::mat3_cast(
             glm::angleAxis(float(marker->angle), normalizedOrZero(glm::vec3(marker->direction))));
         offset = rotation * offset + position;
-        missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
-        missile->SetEffectDefinition(&effect);
+        world().launchMissile(ctx.game.data,
+                              {.origin = position, .destination = offset, .effect = effect});
         CreateAndPlaySoundNode(world(), "Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav", position,
                                1.0f, 15000.0f, false);
     }
@@ -318,7 +317,6 @@ bool MartensBluff2Script::spikeball(int command)
     W8SpellEffectDefinition effect;
     glm::vec3 offset;
     glm::mat3 rotation;
-    Missile* missile;
 
     if (command != 0) {
         if (command == kMasterToggle) {
@@ -344,9 +342,9 @@ bool MartensBluff2Script::spikeball(int command)
             effect.magnitude.base = 0;
             effect.magnitude.count = 2;
             effect.magnitude.sides = 6;
-            FireTrapLauncher(world(), "Spikeball-launcher1", &effect);
-            FireTrapLauncher(world(), "Spikeball-launcher2", &effect);
-            FireTrapLauncher(world(), "Spikeball-launcher3", &effect);
+            FireTrapLauncher(world(), ctx.game.data, "Spikeball-launcher1", effect);
+            FireTrapLauncher(world(), ctx.game.data, "Spikeball-launcher2", effect);
+            FireTrapLauncher(world(), ctx.game.data, "Spikeball-launcher3", effect);
             if (const auto* marker = world().namedMarker("Spikeball-launcher4")) {
                 auto position = marker->position;
                 offset = glm::vec3(0.0, 0.0, 15000.0);
@@ -357,8 +355,8 @@ bool MartensBluff2Script::spikeball(int command)
                                        normalizedOrZero(glm::vec3(marker->direction))));
                 }
                 offset = rotation * offset + position;
-                missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
-                missile->SetEffectDefinition(&effect);
+                world().launchMissile(
+                    ctx.game.data, {.origin = position, .destination = offset, .effect = effect});
                 CreateAndPlaySoundNode(world(), "Data\\Sound\\Combat\\Blow_Gun_Attack_01.wav",
                                        position, 1.0f, 15000.0f, false);
             }

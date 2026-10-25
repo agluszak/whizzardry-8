@@ -495,8 +495,10 @@ void TriggerEvent::Update()
             transformed.x = glm::dot(glm::row(rotation, 1), target);
             transformed.y = glm::dot(glm::row(rotation, 2), target);
             transformed.z = glm::dot(axis, target);
-            FireMissile(static_cast<unsigned int>(trigger->m_lData1), &source, &transformed, 0, 1,
-                        1, 50000.0f);
+            owner_world.launchMissile(Data(), {.kind = trigger->m_lData1,
+                                               .origin = source,
+                                               .destination = transformed,
+                                               .trace_mask = 1});
         }
         break;
     }
@@ -1658,8 +1660,10 @@ bool Trigger::Run(int source)
                                                           normalizedOrZero(glm::vec3(direction))));
             }
             transformed = rotation * target_position;
-            FireMissile(static_cast<unsigned int>(m_lData1), &source_position, &transformed, 0, 1,
-                        1, 50000.0f);
+            m_pWorld->launchMissile(Data(), {.kind = m_lData1,
+                                             .origin = source_position,
+                                             .destination = transformed,
+                                             .trace_mask = 1});
         } else if (timed_action == 0) {
             float duration = abs(m_lData2) * 0.001f;
 

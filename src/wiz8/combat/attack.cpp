@@ -2930,7 +2930,7 @@ void QueueFumbleReaction(int party_slot)
 /* The missile dispatcher shared by the character and monster attack paths:
    resolves both endpoints' world positions, defers the target when a combat-
    ending missile is already engaged, folds the range category's base speed
-   into the shot and fires through FireMissile. */
+   into the shot and launches the completed projectile into its world. */
 Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8CombatSlot* target,
                                    W8SpellEffectDefinition* attack, bool use_default_accuracy,
                                    W8RangeCategory range_category, int accuracy)
@@ -2971,7 +2971,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
         return nullptr;
     }
     if (TargetSourceIsCharacter(source, 0)) {
-        GetCharacterProjectilePosition(source->iChar, &source_position);
+        source_position = CurrentGame().level.loaded().characterProjectilePosition(source->iChar);
         if (target->iType == W8_TARGET_KIND_PLACE) {
             if (GetWorldSpatialIndex()->traceSight(source_position, target_position).has_value()) {
                 source_position = cameraLocation();
@@ -3036,12 +3036,17 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
     if (accuracy != 9999) {
         ScatterMissileAimPoint(&source_position, &target_position, accuracy, blind);
     }
-    missile = FireMissile(missile_type, &source_position, &target_position, 0, target_flag,
-                          use_default_accuracy, speed);
+    missile = CurrentGame().level.loaded().launchMissile(CurrentGame().data,
+                                                         {.kind = missile_type,
+                                                          .origin = source_position,
+                                                          .destination = target_position,
+                                                          .distance = speed,
+                                                          .trace_mask = target_flag,
+                                                          .released = use_default_accuracy,
+                                                          .source = *source,
+                                                          .target = *target,
+                                                          .effect = *attack});
     if (missile != nullptr) {
-        missile->m_Source = *source;
-        missile->combat_slot = *target;
-        missile->SetEffectDefinition(attack);
         if (!use_default_accuracy) {
             CurrentGame().combat->engaged_missile = missile;
             CurrentGame().combat->missile_hit_result = W8_MISSILE_HIT_NONE;

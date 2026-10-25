@@ -106,7 +106,10 @@ does not satisfy this contract.
   Item animation updates attached instances instead of detaching and rebuilding
   scene membership each tick.
   Continuing casts belong to their gameplay world, alongside their borrowed
-  missiles and visuals. Missile completion and destruction use that original
+  missiles and visuals. World admits missiles only after their flight, source, target
+  and optional effect are initialized; its private collection owns update and removal.
+  A finished missile remains until its combat wait is released, and missiles launched
+  by update callbacks begin advancing on the next tick. Missile completion and destruction use that original
   world, even after another world or session has become current. Saved casts
   remain decoded values until installation into the destination; normal entry
   clears entry-created casts at its established point, while restore rebuilds

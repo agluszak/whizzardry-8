@@ -3,6 +3,7 @@
 class Missile;
 class Monster;
 class Navigator;
+struct World;
 
 /* What a world's entities report to the game that simulates them. An entity detects
    the moment (a missile touches a navigator, an animation reaches its release frame);
@@ -11,6 +12,8 @@ class Navigator;
 class SimulationSink {
 public:
     virtual ~SimulationSink() = default;
+    // Whether this world is participating in the party fight. Standalone worlds are not.
+    virtual bool partyCombatActive(const World&) const { return false; }
     // A flying missile touched `struck`; answers whether it hit, ending its flight.
     virtual bool missileReached(Missile& missile, Navigator& struck) = 0;
     // A missile's flight ended: it struck something or ran its course.

@@ -71,11 +71,13 @@ CombatWait Combat::waitingOn(const Game& game) const
     if (game.level.primary && game.level.primary->hasPendingSpellEffects()) {
         return CombatWait::spell_effect;
     }
-    for (Missile* missile = NextMissile(true); missile != 0; missile = NextMissile(false)) {
-        if ((missile == engaged_missile ||
-             Data().missiles[missile->missile_table_index].spell_missile != 0) &&
-            missile->BlocksEndingCombat()) {
-            return CombatWait::missile;
+    if (game.level.primary) {
+        for (const auto& missile : game.level.primary->missiles()) {
+            if ((missile.get() == engaged_missile ||
+                 game.data.missiles[missile->missile_table_index].spell_missile != 0) &&
+                missile->BlocksEndingCombat()) {
+                return CombatWait::missile;
+            }
         }
     }
     for (unsigned int slot = 0; slot < 2; ++slot) {
@@ -166,7 +168,7 @@ void Combat::step(Game& game)
         combat_evaluated = 1;
     }
     if (engaged_missile != 0 && !engaged_missile->BlocksEndingCombat()) {
-        engaged_missile->block_released = 1;
+        engaged_missile->block_released = true;
         engaged_missile = 0;
     }
     if (uiCurrentPartyActionStatus == W8_PARTY_ACTION_IN_PROGRESS) {

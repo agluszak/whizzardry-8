@@ -64,6 +64,7 @@ class WorldScene;
 class LevelSpatialIndex;
 class Navigator;
 class Missile;
+struct MissileLaunch;
 struct MissileDefinition;
 class SpellVisual;
 struct SpellVisualDefinition;
@@ -122,6 +123,10 @@ struct World {
     explicit World(int level_id = -1, std::string source_path = {}, TimerClockView clocks = {},
                    ShakeSystem* shakes = nullptr, float reference_gravity = kDefaultGravity);
     ~World();
+    Missile* launchMissile(const GameData& data, const MissileLaunch& launch);
+    void updateMissiles(bool held);
+    const auto& missiles() const { return missiles_; }
+    glm::vec3 characterProjectilePosition(unsigned int character_index) const;
     void setPartyLight(unsigned int intensity);
     void resumeMonstersAfterCombat();
     void refreshGroupNavigation(const W8MonsterGroup& group, bool combat_active);
@@ -234,7 +239,12 @@ struct World {
     void detachMissile(Missile& missile);
     std::vector<std::unique_ptr<SpellVisual>> spell_visuals;
     std::vector<std::unique_ptr<MissileDefinition>> missile_definitions;
-    std::vector<std::unique_ptr<Missile>> missiles;
+
+private:
+    // Keep destruction before the cast queue and resources borrowed by projectiles.
+    std::vector<std::unique_ptr<Missile>> missiles_;
+
+public:
     // Records own their loaded bodies. Both these owners go before the resource
     // definitions, particles, navigation index and scene their bodies borrow.
     std::unique_ptr<W8LevelPopulation> population;
