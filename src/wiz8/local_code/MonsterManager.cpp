@@ -700,9 +700,9 @@ bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
         combat->endTurnOf(MonsterActor{monster_info->location_id});
     }
     if (removal == W8MonsterRemoval::Deactivate) return true;
-    auto* binding = story.npc(monster_info->bound_npc_index);
+    auto binding = monster_info->npc_binding_;
     world.eraseMonster(*monster_info, removal == W8MonsterRemoval::Despawn);
-    if (binding) binding->releaseWorldBinding();
+    if (binding && !binding->binding_unavailable) binding->releaseWorldBinding();
     return true;
 }
 

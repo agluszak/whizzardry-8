@@ -175,7 +175,7 @@ bool SwampScript::gasFireSpawn(Trigger* pTrigger)
             addMaster(&SwampScript::gasFireItemDrop);
         }
     }
-    npc = FindNpcBindingForMonster(FindMonster(index));
+    npc = (FindMonster(index))->boundNpc();
     QueueNpcScriptNotice(npc, 0, -1, false, 0);
     return true;
 }

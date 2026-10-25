@@ -134,7 +134,7 @@ bool Game::beginCombat(int surprise)
             if (monster_info->pCombat && monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
                 monster_info->hp_current > 0 &&
                 monster_info->highest_condition < W8_CONDITION_PARALYZED) {
-                npc = GetNpcStateForMonsterInfo(monster_info, false);
+                npc = (monster_info)->boundNpc(false);
                 if (npc != 0 && npc->record->combat_script_notice_enabled != 0) {
                     QueueNpcScriptNotice(npc, 0, -1, false, 0);
                     g_npc_combat_notice_pending = true;

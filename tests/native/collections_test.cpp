@@ -1031,7 +1031,7 @@ TEST_CASE("Removing an allied leader settles allegiance even without a party fig
         group->ubDisposition = id == 3 ? W8_DISPOSITION_HOSTILE : W8_DISPOSITION_FRIENDLY;
         auto info = std::make_unique<W8MonsterInfo>();
         info->location_id = info->monster_group_id = id;
-        info->bound_npc_index = -1;
+
         info->hp_current = info->uiHPMax = 1;
         info->fActive = true;
         info->ubDisposition = group->ubDisposition;

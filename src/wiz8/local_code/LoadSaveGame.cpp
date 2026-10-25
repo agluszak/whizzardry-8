@@ -624,11 +624,17 @@ struct SavedMonster {
     std::optional<SavedMonsterMovement> movement;
     std::optional<SavedMonsterOrders> orders;
 
-    static SavedMonster Capture(const W8MonsterInfo& info, bool unborn)
+    static SavedMonster Capture(const W8MonsterInfo& info, bool unborn, const Story& story)
     {
         if (!info.entity) throw std::runtime_error("missing monster");
         Monster& monster = *info.entity;
         SavedMonster saved{.image = wiz8::retail::encode_image(info), .unborn = unborn};
+        if (const auto& identity = info.npcIdentity()) {
+            const auto found = std::ranges::find(story.npcs, identity);
+            if (found == story.npcs.end())
+                throw std::runtime_error("monster NPC identity is no longer in the saved story");
+            saved.image.bound_npc_index = wiz8::checked_integer<int>(found - story.npcs.begin());
+        }
         if (info.fActive) {
             auto position = monster.GetRepresentationLocation();
             position.y = probeGround(position).position.y;
@@ -1023,8 +1029,10 @@ static wiz8::save::GameState CaptureStateForSave(const Game& game, const wiz8::F
     return snapshot;
 }
 
-LevelState LevelState::capture(const Level& level, const GameStatus& status)
+LevelState LevelState::capture(const Game& game)
 {
+    const auto& level = game.level;
+    const auto& status = game.status;
     const World& world = *level.primary;
     LevelState captured;
     auto& state = *captured.data_;
@@ -1046,7 +1054,7 @@ LevelState LevelState::capture(const Level& level, const GameStatus& status)
         for (const auto& monster : *partition)
             if (monster->monster_group_id != 0)
                 state.monsters.push_back(SavedMonster::Capture(
-                    *monster, population.monster_roster.isUnborn(monster.get())));
+                    *monster, population.monster_roster.isUnborn(monster.get()), game.story));
     for (const auto& item : population.world_items) state.items.push_back(CaptureWorldItem(*item));
     state.automap = world.automap.capture();
     if (!world.triggers.empty()) {
@@ -1189,7 +1197,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
     WriteChunkPayload(chunks, W8_CHUNK_JOURNAL, wiz8::save::encode(story.journal));
     if (const auto* control = game.level.loaded().monsterControlEffect())
         WriteChunkPayload(chunks, W8_CHUNK_MONSTER_CONTROL, wiz8::save::encode(*control));
-    LevelState::capture(game.level, game.status).encode(chunks);
+    LevelState::capture(game).encode(chunks);
 }
 
 bool SaveGame(std::string_view name, const W8SaveScreenshot* screenshot)
@@ -1475,6 +1483,9 @@ std::unique_ptr<W8LoadedLevelStatus> LevelState::build(Game& game, World& world)
         const auto& saved = state.monsters[index];
         if (game.data.monsters.at(saved.image.monster_species).deleted) continue;
         auto& info = *(infos[index] = saved.Build());
+        if (saved.image.bound_npc_index > 0)
+            if (auto* npc = game.story.npc(saved.image.bound_npc_index))
+                info.npc_binding_ = npc->shared_from_this();
         const auto group = std::ranges::find_if(state.groups, [&](const auto& saved_group) {
             return saved_group.image.group_id == info.monster_group_id;
         });

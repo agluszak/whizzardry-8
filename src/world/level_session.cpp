@@ -511,7 +511,7 @@ static bool TravelToLevel(Game& game, int requested_level, int entrance, bool re
                            wiz8::normalize_asset_path(level_info.sky_path).generic_string();
     auto replacement_sky = reuse_sky ? nullptr : PrepareSkyWorld(game, level_info.sky_path);
     if (!reuse_sky && !level_info.sky_path.empty() && !replacement_sky) return false;
-    if (current.primary) game.left_levels.store(LevelState::capture(current, game.status));
+    if (current.primary) game.left_levels.store(LevelState::capture(game));
     auto state = game.left_levels.decode(level);
     if (!state)
         state = LevelState::decode(wiz8::asset_path(BuildLevelStatusPath(level)), level, true);

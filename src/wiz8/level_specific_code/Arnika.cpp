@@ -535,8 +535,7 @@ bool ArnikaScript::mookholo(Trigger* pTrigger)
                 npc_dialogue_closed = false;
                 addMaster(&ArnikaScript::mookholoWatch);
             }
-            QueueNpcScriptNotice(FindNpcBindingForMonster(FindMonster(location_id)), 0, -1, false,
-                                 0);
+            QueueNpcScriptNotice((FindMonster(location_id))->boundNpc(), 0, -1, false, 0);
         }
     }
     return true;

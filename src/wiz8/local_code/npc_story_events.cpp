@@ -343,7 +343,7 @@ static void NpcScriptHenchmanArrives(Monster* monster)
         if (location_id != 0) {
             W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
             if (monster_info != 0) {
-                W8NpcState* npc = GetNpcStateForMonsterInfo(monster_info, false);
+                W8NpcState* npc = (monster_info)->boundNpc(false);
                 if (npc != 0) {
                     QueueNpcScriptNotice(npc, 0, -1, false, 0);
                 }

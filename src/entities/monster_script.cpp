@@ -344,8 +344,8 @@ void Monster::ProcessScript()
                     }
                 }
                 ForwardNpcScriptNotice(
-                    FindNpcBindingForMonster(owner_world.population->findMonster(location_id)), 0,
-                    line_number, command == MONSCR_SAY ? 1 : suppress);
+                    (owner_world.population->findMonster(location_id))->boundNpc(), 0, line_number,
+                    command == MONSCR_SAY ? 1 : suppress);
                 if (command == MONSCR_NPCINTERACTION) {
                     script_wait = MONSCR_NPCINTERACTION;
                 } else if (!tokens || SDL_strcasecmp(token.c_str(), "NOBLOCK") != 0) {

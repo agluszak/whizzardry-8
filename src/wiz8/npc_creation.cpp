@@ -142,18 +142,19 @@ W8NpcState* Game::createNpcRuntimeNode(int npc_id)
     return story.adoptNpc(std::move(npc));
 }
 
-int Game::prepareNpcBinding(World& world, W8MonsterInfo& info, W8PreparedNpcBindings& pending)
+std::shared_ptr<W8NpcState> Game::prepareNpcBinding(World& world, W8MonsterInfo& info,
+                                                    W8PreparedNpcBindings& pending)
 {
     const auto& record = data.monsters.at(info.monster_species);
-    if ((record.flags & W8_MONSTER_FLAG_NPC) == 0) return -1;
+    if ((record.flags & W8_MONSTER_FLAG_NPC) == 0) return {};
     const int kind = record.npc_kind;
     const bool instance = data.npcs.at(kind).monster_bound;
     W8NpcState* source = nullptr;
     if (!instance)
         source = story.npcOfKind(kind);
-    else if (info.bound_npc_index > 0) {
-        auto* candidate = story.npc(info.bound_npc_index);
-        if (candidate && candidate->location_id == info.location_id &&
+    else if (info.npc_binding_ && info.npc_binding_->partner_index > 0) {
+        auto* candidate = story.npc(info.npc_binding_->partner_index);
+        if (candidate == info.npc_binding_.get() && candidate->location_id == info.location_id &&
             candidate->name_style == kind)
             source = candidate;
     }
@@ -178,10 +179,10 @@ int Game::prepareNpcBinding(World& world, W8MonsterInfo& info, W8PreparedNpcBind
     existing->location_id = info.location_id;
     existing->level_band = levelBand(world.level_id);
     existing->bound_level = static_cast<unsigned char>(world.level_id);
-    auto& npc = existing->created ? *existing->created : *existing->previous;
+    auto identity = existing->created ? existing->created : existing->previous;
     // Every body gets its program now. Publication must not reset restored script progress.
-    existing->script = LoadNpcScriptResources(story, npc, info.entity.get());
-    return slot;
+    existing->script = LoadNpcScriptResources(story, *identity, info.entity.get());
+    return identity;
 }
 
 W8PreparedNpcBindings Game::prepareNpcBindings(World& world)
@@ -190,16 +191,16 @@ W8PreparedNpcBindings Game::prepareNpcBindings(World& world)
     for (const auto* list :
          {&world.population->monster_roster.live(), &world.population->monster_roster.unborn()})
         for (const auto& info : *list)
-            info->bound_npc_index = prepareNpcBinding(world, *info, pending);
+            info->npc_binding_ = prepareNpcBinding(world, *info, pending);
     return pending;
 }
 
 void Game::bindMonsterNpc(World& world, W8MonsterInfo& monster)
 {
     W8PreparedNpcBindings pending;
-    const int slot = prepareNpcBinding(world, monster, pending);
+    auto identity = prepareNpcBinding(world, monster, pending);
     story.installNpcBindings(std::move(pending));
-    monster.bound_npc_index = slot;
+    monster.npc_binding_ = std::move(identity);
 }
 
 void Game::bindNpcDialogue(int kind)

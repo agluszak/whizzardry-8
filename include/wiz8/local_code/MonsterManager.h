@@ -23,6 +23,7 @@ struct W8MonsterInfo;
 struct World;
 struct W8MonsterRecord;
 struct GameData;
+struct W8NpcState;
 
 #include <string_view>
 #include <unordered_map>
@@ -262,6 +263,8 @@ using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
 
 /* A live monster. Saves store it as wiz8::retail::MonsterInfo. */
 struct W8MonsterInfo {
+    W8NpcState* boundNpc(bool allow_unavailable = false) const;
+    const std::shared_ptr<W8NpcState>& npcIdentity() const { return npc_binding_; }
     void initializeVitals(const W8MonsterRecord& record, Rng& rng);
     void configureBody(Rng& rng, bool level_visited);
     void restoreSpellIcons();
@@ -359,9 +362,6 @@ struct W8MonsterInfo {
     MonsterAction action;
     unsigned int spell_power_level;
     unsigned char unknown_2ed[4];
-    /* This script part's bound NPC slot in the story's NPC states, released when
-       the entry is destroyed. */
-    int bound_npc_index;
     /* Remaining noise-hearing margin, refreshed by nearby sounds and
        cleared when pathing cooldown expires. */
     int heard_noise_margin;
@@ -388,6 +388,11 @@ struct W8MonsterInfo {
     unsigned char unknown_37b;
     bool has_spell_origin;
     unsigned char unknown_37d[0xa8];
+
+private:
+    friend class Game;
+    friend class LevelState;
+    std::shared_ptr<W8NpcState> npc_binding_;
 };
 
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);

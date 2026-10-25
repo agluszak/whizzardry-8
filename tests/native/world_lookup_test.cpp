@@ -443,8 +443,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         group->forced_neutral = true;
         group->monsters = {index + 1};
         group->centre = {1.5f * index, 2.0f, 3.0f};
-        (index == 3 ? population.encounterGroups() : population.groups())
-            .push_back(std::move(group));
+        population.adoptGroup(std::move(group), index == 3);
         auto record = std::make_unique<W8MonsterInfo>();
         record->location_id = index + 1;
         record->monster_group_id = index == 1 ? 0 : index + 1;
@@ -567,7 +566,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         return file->written_memory();
     };
     auto& left = CurrentGame().left_levels;
-    const auto captured = LevelState::capture(CurrentGame().level, CurrentGame().status);
+    const auto captured = LevelState::capture(CurrentGame());
     left.store(captured);
     const auto state = left.decode(world.level_id);
     REQUIRE(state);

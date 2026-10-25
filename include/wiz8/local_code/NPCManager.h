@@ -66,7 +66,6 @@ unsigned char FindNpcOfKind(int kind);
 bool CanNpcJoinParty(W8NpcState* npc);
 bool CanPlaceNpcNearParty(int party_slot);
 W8MonsterInfo* GetNpcMonsterInfo(W8NpcState* npc);
-W8NpcState* GetNpcStateForMonsterInfo(W8MonsterInfo* monster_info, bool allow_unavailable);
 void ResumeNpc(W8NpcState* npc, int enabled);
 void QueueNpcTravelRefusals(int destination_level);
 void MarkNpcOfKind(int kind);
@@ -101,7 +100,6 @@ bool NpcHasTopic(W8NpcState* npc, int topic);
 /* Clear one NPC binding's monster link and hand the handle to the
    owned item-list teardown. */
 /* The NPC binding selected by a monster-list index, or null. */
-W8NpcState* FindNpcBindingForMonster(W8MonsterInfo* monster_info);
 void SetNpcDispositionBand(W8NpcState* npc, signed char band);
 bool WillNpcTradeForItem(W8NpcState* npc, const W8ItemInstance* item);
 void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, const W8ItemInstance* item,

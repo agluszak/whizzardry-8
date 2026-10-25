@@ -426,7 +426,8 @@ private:
     void recordFactChange(W8FactId fact_id, bool notify,
                           std::function_ref<void(std::vector<Event>)> publish);
     void bindNpcDialogue(int kind);
-    int prepareNpcBinding(World& world, W8MonsterInfo& info, W8PreparedNpcBindings& pending);
+    std::shared_ptr<W8NpcState> prepareNpcBinding(World& world, W8MonsterInfo& info,
+                                                  W8PreparedNpcBindings& pending);
     std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
     void updateSurpriseMode();
     bool resolveMonsterSpellAim(W8MonsterInfo* monster, int spell_id);

@@ -29,8 +29,8 @@ public:
                                             bool from_assets = false);
     // A group stored as a RIFF image of its own (LeftLevels). Throws on malformed input.
     static std::optional<LevelState> decode(std::span<const std::byte> image, int level);
-    // The state a save keeps of the loaded level, from its worlds and the game's status.
-    static LevelState capture(const Level& level, const GameStatus& status);
+    // Capture the loaded level's values and resolve NPC references against the same Story.
+    static LevelState capture(const Game& game);
 
     LevelState(LevelState&&) noexcept;
     LevelState& operator=(LevelState&&) noexcept;

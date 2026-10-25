@@ -356,8 +356,11 @@ template<> struct Record<W8MonsterInfo> {
         value(&runtime.spell_power_level,
               field(offsetof(Disk, spell_power_level), sizeof(Disk::spell_power_level)));
         value(&runtime.unknown_2ed, field(offsetof(Disk, unknown_2ed), sizeof(Disk::unknown_2ed)));
-        value(&runtime.bound_npc_index,
-              field(offsetof(Disk, bound_npc_index), sizeof(Disk::bound_npc_index)));
+        // Level capture supplies the Story identity's slot; construction resolves it once.
+        if constexpr (std::is_const_v<Runtime>) {
+            const int unbound = -1;
+            value(&unbound, field(offsetof(Disk, bound_npc_index), sizeof(Disk::bound_npc_index)));
+        }
         value(&runtime.heard_noise_margin,
               field(offsetof(Disk, heard_noise_margin), sizeof(Disk::heard_noise_margin)));
         value(&runtime.spell_points,

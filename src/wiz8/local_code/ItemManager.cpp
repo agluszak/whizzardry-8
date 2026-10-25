@@ -478,7 +478,7 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
             }
             gold = RollDice(&record->treasure.gold_dice);
         } else {
-            W8NpcState* npc = GetNpcStateForMonsterInfo(monster_info, true);
+            W8NpcState* npc = (monster_info)->boundNpc(true);
             if (npc == 0)
                 throw std::runtime_error(
                     fmt::format("NPC monster {} has no NPC state", monster_info->monster_species));

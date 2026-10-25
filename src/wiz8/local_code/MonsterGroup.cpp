@@ -176,8 +176,7 @@ W8Disposition Game::defaultGroupDisposition(W8MonsterGroup* monster_group) const
     record = &data.monsters[monster_group->monster_id];
     if ((record->flags & W8_MONSTER_FLAG_NPC) != 0) {
         npc_record =
-            story.npc((level.loaded().population->findMonster(monster_group->MemberLocationId(0)))
-                          ->bound_npc_index);
+            level.loaded().population->findMonster(monster_group->MemberLocationId(0))->boundNpc();
         if (!npc_record || npc_record->binding_unavailable || record->npc_kind == 0xfa) {
             throw std::runtime_error(
                 fmt::format("NPC monster {} has no NPC state", monster_group->monster_id));

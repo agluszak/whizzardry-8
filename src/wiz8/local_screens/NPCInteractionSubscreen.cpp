@@ -2643,7 +2643,7 @@ static void RequestNpcSpellService(int spell_id)
     CloseNpcDialogueMode1Layout();
     EndNpcDialogueSession(false);
     MainGame()->beginSpellCast(spell_id, [location, layout] {
-        BeginNpcDialogue(FindNpcBindingForMonster(FindMonster(location)), 0, -1, 0, 1);
+        BeginNpcDialogue((FindMonster(location))->boundNpc(), 0, -1, 0, 1);
         SwitchNpcDialogueLayout(layout);
     });
 }

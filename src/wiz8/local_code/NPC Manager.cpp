@@ -1014,37 +1014,9 @@ void CreateNewGameNpcStates(void)
 /* Hand back the NPC binding selected by a monster-list index, or null when
    the monster's record is missing, is not NPC-routed, binds no NPC, or the
    binding has been released. */
-W8NpcState* FindNpcBindingForMonster(W8MonsterInfo* monster_info)
-{
-    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-    W8NpcState* npc;
-
-    if (record == 0 || (record->flags & W8_MONSTER_FLAG_NPC) == 0 || record->npc_kind == 0xfa) {
-        return 0;
-    }
-    npc = CurrentGame().story.npcs[monster_info->bound_npc_index].get();
-    if (npc->binding_unavailable == 0) {
-        return npc;
-    }
-    return 0;
-}
 
 /* The NPC bound to a monster's script part while its binding is still
    available; `allow_unavailable` also hands back a released binding. */
-W8NpcState* GetNpcStateForMonsterInfo(W8MonsterInfo* monster_info, bool allow_unavailable)
-{
-    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-    W8NpcState* npc;
-
-    if (record == 0 || (record->flags & W8_MONSTER_FLAG_NPC) == 0 || record->npc_kind == 0xfa) {
-        return 0;
-    }
-    npc = CurrentGame().story.npcs[monster_info->bound_npc_index].get();
-    if (npc->binding_unavailable == 0 || allow_unavailable) {
-        return npc;
-    }
-    return 0;
-}
 
 static void AdjustNpcDisposition(W8NpcState* npc, signed char delta)
 {
@@ -1388,6 +1360,7 @@ void TriggerBelaVoice(Monster* monster)
 // Despawn the companion before releasing its remaining partner binding.
 void Game::releaseNpcCompanion(W8NpcState* npc)
 {
+    auto identity = npc->shared_from_this();
     if (npc->has_monster) {
         if (npc->is_present) {
             W8MonsterInfo* monster = this->level.loaded().population->findMonster(npc->location_id);
@@ -1395,7 +1368,7 @@ void Game::releaseNpcCompanion(W8NpcState* npc)
                 this->retireMonster(monster, W8MonsterRemoval::Despawn);
             }
         }
-        if (auto* binding = this->story.npc(npc->partner_index)) binding->releaseWorldBinding();
+        if (!identity->binding_unavailable) identity->releaseWorldBinding();
     }
 }
 
@@ -1973,4 +1946,16 @@ void ClearNpcItemId(W8NpcState* npc, int item_id)
             }
         }
     }
+}
+
+W8NpcState* W8MonsterInfo::boundNpc(bool allow_unavailable) const
+{
+    auto* npc = npc_binding_.get();
+    if (!npc) return nullptr;
+    assert(entity); // Gameplay binding queries operate on a loaded embodiment.
+    const auto& record = entity->species();
+    if ((record.flags & W8_MONSTER_FLAG_NPC) == 0 || record.npc_kind == 0xfa ||
+        (!allow_unavailable && npc->binding_unavailable))
+        return nullptr;
+    return npc;
 }

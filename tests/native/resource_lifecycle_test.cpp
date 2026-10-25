@@ -1073,7 +1073,6 @@ TEST_CASE("Scripted removal retires relationships before reclaiming an updating 
     const auto add = [&](int id, std::function<void()> action) {
         auto record = std::make_unique<W8MonsterInfo>();
         record->location_id = id;
-        record->bound_npc_index = -1;
         record->entity = std::make_unique<Monster>(world);
         auto& body = *record->entity;
         body.location_id = id;
@@ -1569,7 +1568,6 @@ TEST_CASE("NPC preparation keeps story identity and publishes only into its supp
         auto info = std::make_unique<W8MonsterInfo>();
         info->location_id = id;
         info->monster_species = species;
-        info->bound_npc_index = -1;
         info->entity = std::make_unique<Monster>(world, &data.monsters[species]);
         return *world.population->monster_roster.add(std::move(info), unborn);
     };
@@ -1621,7 +1619,7 @@ TEST_CASE("NPC preparation keeps story identity and publishes only into its supp
     SECTION("Live binding shares candidate identity and slot rules")
     {
         candidate.bindMonsterNpc(world, first);
-        REQUIRE(first.bound_npc_index == 1);
+        REQUIRE(first.npcIdentity() == candidate.story.npcs[1]);
         REQUIRE(draws.size() == 3);
         auto identity = candidate.story.npcs[1];
         identity->gold = 42;
@@ -1631,18 +1629,21 @@ TEST_CASE("NPC preparation keeps story identity and publishes only into its supp
         REQUIRE(identity->bound_level == 7);
         REQUIRE(identity->maintenance_clock == 77);
         REQUIRE(draws.size() == 3); // Matching instance: no stock recreation.
-        second.bound_npc_index = first.bound_npc_index;
         candidate.bindMonsterNpc(world, second);
-        REQUIRE(second.bound_npc_index == 2); // Location mismatch is a new instance.
+        REQUIRE(second.npcIdentity() ==
+                candidate.story.npcs[2]); // A different embodiment gets its own instance.
         REQUIRE(candidate.story.npcs[2] != identity);
         REQUIRE(draws.size() == 6);
         candidate.bindMonsterNpc(world, ordinary);
-        REQUIRE(ordinary.bound_npc_index == -1);
+        REQUIRE(!ordinary.npcIdentity());
         REQUIRE(draws.size() == 6);
         REQUIRE(retired->gold == 999);
         REQUIRE(active.game.story.npcs.front() == active_npc);
         REQUIRE(active_npc->gold == 900);
         REQUIRE(active_draws.empty());
+        candidate.story.npcs[1] = std::make_shared<W8NpcState>();
+        candidate.story.npcs[1]->record = &data.npcs[1];
+        REQUIRE(first.boundNpc() == identity.get()); // Slot reuse cannot redirect the embodiment.
     }
     SECTION("Publication preserves old identities and separates monster-bound instances")
     {
@@ -1652,7 +1653,7 @@ TEST_CASE("NPC preparation keeps story identity and publishes only into its supp
         REQUIRE(pending.records.size() == 4);
         REQUIRE(world.population->findMonster(1)->entity->script);
         REQUIRE(world.population->findMonster(4)->entity->script);
-        REQUIRE(ordinary.bound_npc_index == -1);
+        REQUIRE(!ordinary.npcIdentity());
         REQUIRE(draws.size() == 9);
         Rng expected(17);
         for (const auto& draw : draws) {
@@ -1682,9 +1683,9 @@ TEST_CASE("NPC preparation keeps story identity and publishes only into its supp
         REQUIRE(candidate.story.npcs[1] != retired);
         REQUIRE(retired->binding_unavailable);
         REQUIRE(retired->gold == 999); // Outstanding work still owns the retired object.
-        REQUIRE(first.bound_npc_index == 1);
-        REQUIRE(second.bound_npc_index == 2);
-        REQUIRE(unborn.bound_npc_index == 3);
+        REQUIRE(first.npcIdentity() == candidate.story.npcs[1]);
+        REQUIRE(second.npcIdentity() == candidate.story.npcs[2]);
+        REQUIRE(unborn.npcIdentity() == candidate.story.npcs[3]);
         for (int slot = 1; slot <= 3; ++slot) {
             const auto& npc = candidate.story.npcs[slot];
             REQUIRE(npc->record == &data.npcs[1]);

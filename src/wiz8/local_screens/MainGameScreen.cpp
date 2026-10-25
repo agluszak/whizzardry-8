@@ -4998,8 +4998,8 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                         const auto* held = CurrentGame().inventory.held();
                         const W8ItemInstance* item = held ? &held->item : nullptr;
                         if (monster_info->highest_condition < W8_CONDITION_ASLEEP) {
-                            W8NpcState* npc = FindNpcBindingForMonster(
-                                FindMonster(MainGameHud()->highlighted_item));
+                            W8NpcState* npc =
+                                (FindMonster(MainGameHud()->highlighted_item))->boundNpc();
                             QueueNpcScriptNotice(npc, item, -1, false, 0);
                             SetCombatSelection(-1);
                         } else {
