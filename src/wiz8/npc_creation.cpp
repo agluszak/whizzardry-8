@@ -311,8 +311,7 @@ void Game::queueNpcNotice(W8NpcState& npc, const W8ItemInstance* item, int line,
         suppress = true;
         line = npc.name_style == W8_NPC_DRAZIC ? 0x23 : 0x1d;
     }
-    npc_dialogue.Queue(
-        W8NpcScriptNotice{std::move(identity), std::move(description), line, suppress});
+    npc_dialogue.Queue(W8NpcScriptNotice{std::move(identity), description, line, suppress});
 }
 
 void Game::bindNpcLevelTriggers()
