@@ -54,7 +54,6 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
-#include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
