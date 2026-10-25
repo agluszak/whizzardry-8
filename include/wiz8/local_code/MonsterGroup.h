@@ -143,10 +143,8 @@ void ResetMonsterGroupTurnState(void);
 void RebindMonsterGroupScripts(void);
 
 void DespawnMonsterGroup(W8MonsterGroup* monster_group);
-void RefreshMonsterGroupAndAllies(W8MonsterGroup* monster_group);
 
 const W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* group);
-void RefreshMonsterGroup(W8MonsterGroup* monster_group);
 void DetachMonsterGroup(W8MonsterGroup* monster_group);
 
 bool RemoveAllGroupMembers(W8MonsterGroup* monster_group);
@@ -160,10 +158,6 @@ void LoadMonsterGroupMembers(W8MonsterGroup* monster_group);
    default disposition on the intelligence-squared cooldown. */
 void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group);
 void MonsterGroupEnterCombat(W8MonsterGroup* monster_group);
-/* Re-elect the group's leader member: the live member carrying the highest
-   navigator leadership_rank takes over leader_location_id, else the first member does, and
-   the outgoing leader's script and heard-noise state move across. */
-void ElectGroupLeaderMember(W8MonsterGroup* monster_group);
 /* Re-elect the allied leader group when this group's leader falls: the allied
    group whose members hold the highest navigator leadership_rank leads the rest,
    and the fallen leader's script and heard-noise state carry to the new

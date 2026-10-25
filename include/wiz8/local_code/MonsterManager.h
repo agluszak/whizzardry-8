@@ -266,6 +266,7 @@ using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
 struct W8MonsterInfo {
     void configureBody(Rng& rng, bool level_visited);
     void restoreSpellIcons();
+    void inheritLeaderState(const W8MonsterInfo& outgoing);
     bool reaches(const W8MonsterInfo& target, const GameData& data, unsigned int attack,
                  MonsterAction action) const;
     void setMotionless(bool motionless);

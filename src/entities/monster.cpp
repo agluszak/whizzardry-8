@@ -62,6 +62,7 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/monster_spell_icons.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"

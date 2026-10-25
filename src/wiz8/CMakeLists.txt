@@ -96,6 +96,7 @@ target_sources(wiz8_engine PRIVATE
     ../world/items.cpp
     ../render/resources/mesh_loader.cpp
     ../world/world.cpp
+    ../world/group_formation.cpp
     ../render/effects/particle_system.cpp
     ../render/effects/camera_shake.cpp
     ../render/resources/compiled_mesh.cpp

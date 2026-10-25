@@ -140,6 +140,13 @@ def check_includes():
     source = choices.read_text(encoding='utf-8')
     if re.search(r'\b(CurrentGame|Data|GetWorld|CurrentLevelPopulation|FindMonster|GetMonsterDataForInfo)\s*\(', source):
         problems.append('src/wiz8/monster_decisions.cpp: monster decisions must use their game and world')
+    formation = ROOT / 'src/world/group_formation.cpp'
+    source = formation.read_text(encoding='utf-8')
+    if re.search(r'\b(CurrentGame|GetWorld|CurrentLevelPopulation|FindMonster|GetMonsterByLocationID)\s*\(', source):
+        problems.append('src/world/group_formation.cpp: formation repair belongs to its world')
+    for match in INCLUDE.finditer(source):
+        if match.group(2) in ('wiz8/game.h', 'wiz8/loaded_game_data.h'):
+            problems.append('src/world/group_formation.cpp: formation repair may not depend on the installed game')
     # Picking interpretation belongs to interaction code, never frame rendering.
     frame = ROOT / 'src/render/frame.cpp'
     source = frame.read_text(encoding='utf-8')

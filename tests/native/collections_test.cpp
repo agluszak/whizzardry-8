@@ -39,6 +39,7 @@
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entities/script.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
@@ -2098,6 +2099,17 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     REQUIRE(actor.Target == W8CombatSlot::monster(2));
     REQUIRE(candidate_draws.size() ==
             29); // Advance roll, eight stealth rolls, two candidates, selection.
+    auto& formation = *world.population->monster_groups.front();
+    formation.leader_location_id = actor.location_id;
+    formation.monsters = {other.location_id};
+    actor.heard_noise_radius = 123;
+    actor.entity->script = std::make_shared<Script>();
+    other.entity->nav.linked_navigator = &actor.entity->nav;
+    world.replaceGroupLeader(formation, true);
+    REQUIRE(formation.leader_location_id == other.location_id);
+    REQUIRE(other.heard_noise_radius == 123);
+    REQUIRE(other.entity->script == actor.entity->script);
+    REQUIRE(other.entity->nav.linked_navigator == nullptr);
     REQUIRE(draws.size() == 3);
 }
 

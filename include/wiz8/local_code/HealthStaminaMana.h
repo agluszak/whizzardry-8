@@ -5,6 +5,8 @@
 #include "wiz8/rules/targeting.h"
 
 class Monster;
+class Rng;
+struct MonsterAction;
 struct W8Character;
 struct W8CombatSlot;
 struct W8Dice;
@@ -32,7 +34,7 @@ void DrainPartySpellPoints(int amount, bool announce);
 int CalculateMonsterFatigueBand(int current, int maximum);
 int SpellCastFatigueCost(int spell_id, int result);
 void SpendCharacterSpellPoints(int party_slot, W8SpellRealm realm, int amount);
-int MonsterActionFatigueCost(const W8MonsterInfo* monster_info);
+int MonsterActionFatigueCost(Rng& rng, MonsterAction action, bool diseased);
 void FatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
                     W8SpellEffectResult* report_to);
 void HealMonster(W8MonsterInfo* monster_info, unsigned int amount, bool announce);

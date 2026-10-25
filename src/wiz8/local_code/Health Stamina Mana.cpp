@@ -51,6 +51,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_paths.h"
@@ -325,29 +326,24 @@ void HealMonster(W8MonsterInfo* monster_info, unsigned int amount, bool announce
 /* What one monster action costs in fatigue, before it is spent. Four of the
    ten actions are free; the plain attack costs markedly more when its detail
    is three. A monster that tires twice as fast pays double. */
-int MonsterActionFatigueCost(const W8MonsterInfo* monster_info)
+int MonsterActionFatigueCost(Rng& rng, MonsterAction action, bool diseased)
 {
     int cost = 0;
-
-    switch (monster_info->action.kind) {
+    switch (action.kind) {
     case W8_MONSTER_ACTION_ADVANCE:
     case W8_MONSTER_ACTION_BACK_OFF:
-        cost = CurrentGame().rng.below(5) + 5;
+        cost = rng.below(5) + 5;
         break;
     case W8_MONSTER_ACTION_APPROACH:
     case W8_MONSTER_ACTION_RETURN_TO_START:
-        cost = CurrentGame().rng.below(3) + 3;
+        cost = rng.below(3) + 3;
         break;
     case W8_MONSTER_ACTION_WAIT:
     case W8_MONSTER_ACTION_CONTROLLED_MOVE:
-        cost = CurrentGame().rng.below(2) + 1;
+        cost = rng.below(2) + 1;
         break;
     case W8_MONSTER_ACTION_ATTACK:
-        if (monster_info->action.detail == 3) {
-            cost = CurrentGame().rng.below(8) + 5;
-        } else {
-            cost = CurrentGame().rng.below(3) + 2;
-        }
+        cost = action.detail == 3 ? rng.below(8) + 5 : rng.below(3) + 2;
         break;
     case W8_MONSTER_ACTION_NONE:
     case W8_MONSTER_ACTION_SPELL:
@@ -355,11 +351,7 @@ int MonsterActionFatigueCost(const W8MonsterInfo* monster_info)
     case W8_MONSTER_ACTION_PROTECT:
         break;
     }
-
-    if (monster_info->uiCondition[W8_CONDITION_DISEASED] == 0) {
-        return cost;
-    }
-    return cost * 2;
+    return diseased ? cost * 2 : cost;
 }
 
 /* How much stamina shakes exhaustion off again. */
@@ -602,7 +594,6 @@ void FatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
         return;
     }
     if (amount != 0) {
-        GetMonsterDataForInfo(monster_info);
         if (amount < static_cast<unsigned int>(monster_info->stamina)) {
             monster_info->stamina -= amount;
         } else {

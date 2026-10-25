@@ -307,48 +307,6 @@ bool RemoveAllGroupMembers(W8MonsterGroup* monster_group)
     return true;
 }
 
-void RefreshMonsterGroup(W8MonsterGroup* monster_group)
-{
-    Monster* leader;
-    unsigned int index;
-
-    assert(monster_group != 0);
-    if (monster_group->leader_group_id == 0) {
-        leader = GetMonsterByLocationID(monster_group->leader_location_id);
-        if (leader) leader->nav.LinkGroupNavigator(nullptr, CurrentGame().combat.has_value());
-    } else {
-        W8MonsterGroup* leader_group = FindMonsterGroup(monster_group->leader_group_id);
-        leader = GetMonsterByLocationID(leader_group->leader_location_id);
-    }
-    if (!leader) return;
-    for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        Monster* member = GetMonsterByLocationID(monster_group->MemberLocationId(index));
-
-        if (member && member != leader) {
-            member->nav.LinkGroupNavigator(&leader->nav, CurrentGame().combat.has_value());
-        }
-    }
-}
-
-/* Refreshes a group and every group allied to it, then the lead member's live
-   monster. All four ally slots are walked and the empty ones skipped, so the
-   array is fixed-size rather than terminated.
-
-   The link-repair path calls the same canonical body. */
-void RefreshMonsterGroupAndAllies(W8MonsterGroup* monster_group)
-{
-    int index;
-
-    RefreshMonsterGroup(monster_group);
-    for (index = 0; index < W8_MONSTER_GROUP_ALLY_COUNT; ++index) {
-        if (monster_group->allied_group_ids[index] != 0) {
-            RefreshMonsterGroup(FindMonsterGroup(monster_group->allied_group_ids[index]));
-        }
-    }
-    if (auto* leader = GetMonsterByLocationID(monster_group->leader_location_id))
-        leader->nav.PropagateGroupPosition(CurrentGame().combat.has_value());
-}
-
 /* Detaches a group from whatever is tracking it and marks it no longer loaded. */
 void DetachMonsterGroup(W8MonsterGroup* monster_group)
 {
@@ -638,7 +596,7 @@ bool LinkMonsterGroupToLeader(W8MonsterGroup* leader, W8MonsterGroup* group)
         *slot = group->group_id;
         group->leader_group_id = leader->group_id;
     }
-    RefreshMonsterGroup(group);
+    CurrentGame().level.loaded().refreshGroupNavigation(*group, CurrentGame().combat.has_value());
     if (leader) SetMonsterGroupHostility(group, leader->ubDisposition, false);
     return 1;
 }
@@ -730,7 +688,7 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
     group->members_active = true;
     yaw = GetCameraFacingYaw(position);
     MoveMonsterGroupToPosition(group, position, yaw, false, false, false, false);
-    RefreshMonsterGroup(group);
+    CurrentGame().level.loaded().refreshGroupNavigation(*group, CurrentGame().combat.has_value());
     SetMonsterGroupHostility(group, MonsterGroupCalcDefaultDisposition(group), false);
 
     return group;
@@ -791,49 +749,6 @@ W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* prev
     return nullptr;
 }
 
-/* Pick the group's new leader member: the live member carrying the highest
-   navigator leadership_rank, or the first member when none qualify, then hand the
-   outgoing leader's script and heard-noise state to the new leader's
-   MonsterInfo. */
-void ElectGroupLeaderMember(W8MonsterGroup* monster_group)
-{
-    assert(monster_group != 0);
-    assert(!monster_group->MemberIds().empty());
-    W8MonsterInfo* old_info = FindMonster(monster_group->leader_location_id);
-    Monster* old_monster = old_info->entity.get();
-    int leader_id = 0;
-    unsigned int best = 0;
-    if (!monster_group->MemberIds().empty()) {
-        unsigned int index = 0;
-        while (index < monster_group->MemberIds().size()) {
-            int member_id = monster_group->MemberLocationId(index);
-            Monster* member = GetMonsterByLocationID(member_id);
-            W8MonsterInfo* member_info = FindMonster(member_id);
-            if (member && member_info->highest_condition < W8_CONDITION_TURNCOAT &&
-                (member->runtime_flags & W8_MONSTER_REMOVE_NOW) == 0 &&
-                best < static_cast<unsigned int>(member->nav.movement.leadership_rank)) {
-                best = member->nav.movement.leadership_rank;
-                leader_id = member_id;
-            }
-            ++index;
-        }
-        if (leader_id != 0) {
-            monster_group->leader_location_id = leader_id;
-            goto done;
-        }
-    }
-    monster_group->leader_location_id = monster_group->MemberLocationId(0);
-done:
-    W8MonsterInfo* leader_info = FindMonster(monster_group->leader_location_id);
-    Script* script = old_monster ? old_monster->script.get() : nullptr;
-    Monster* leader_monster = leader_info->entity.get();
-    if (script && leader_monster) {
-        leader_monster->SetScript(script->getName(), true);
-    }
-    leader_info->heard_noise_radius = old_info->heard_noise_radius;
-    leader_info->heard_noise_position = old_info->heard_noise_position;
-}
-
 /* Elect a successor while the old formation is still intact, then publish
    the new links. No temporary independent encounters or registration repair. */
 void ElectAlliedLeaderGroup(W8MonsterGroup* monster_group, W8MonsterInfo* leader_info)
@@ -863,10 +778,7 @@ void ElectAlliedLeaderGroup(W8MonsterGroup* monster_group, W8MonsterInfo* leader
             LinkMonsterGroupToLeader(leader, FindMonsterGroup(id));
 
     auto* new_leader_info = FindMonster(leader->leader_location_id);
-    if (auto* script = leader_info->entity->script.get())
-        new_leader_info->entity->SetScript(script->getName(), true);
-    new_leader_info->heard_noise_radius = leader_info->heard_noise_radius;
-    new_leader_info->heard_noise_position = leader_info->heard_noise_position;
+    new_leader_info->inheritLeaderState(*leader_info);
 }
 
 /* Bring the group - or the group leading it - into combat once every gate

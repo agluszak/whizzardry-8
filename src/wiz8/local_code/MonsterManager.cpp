@@ -783,10 +783,7 @@ bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
             DestroyMonsterGroup(monster_group, monster_info);
         } else {
             if (monster_group->leader_location_id == monster_info->location_id) {
-                ElectGroupLeaderMember(monster_group);
-                if (monster_group->leader_group_id == 0) {
-                    RefreshMonsterGroupAndAllies(monster_group);
-                }
+                world.replaceGroupLeader(*monster_group, CurrentGame().combat.has_value());
             }
         }
         monster_info->monster_group_id = 0;

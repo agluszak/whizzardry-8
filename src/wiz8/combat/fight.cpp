@@ -836,8 +836,10 @@ void EndMonsterAttack(W8MonsterInfo* monster_info)
     W8MonsterCombatState* combat = monster_info->pCombat.get();
     unsigned int next;
 
-    GetMonsterDataForInfo(monster_info);
-    FatigueMonster(monster_info, MonsterActionFatigueCost(monster_info), 0);
+    FatigueMonster(monster_info,
+                   MonsterActionFatigueCost(CurrentGame().rng, monster_info->action,
+                                            monster_info->uiCondition[W8_CONDITION_DISEASED] != 0),
+                   0);
     monster_info->entity->nav.SetHalted(true);
     CurrentGame().combat->endTurnOf(MonsterActor{monster_info->location_id});
 

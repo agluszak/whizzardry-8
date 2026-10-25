@@ -124,6 +124,8 @@ struct World {
     ~World();
     void setPartyLight(unsigned int intensity);
     void resumeMonstersAfterCombat();
+    void refreshGroupNavigation(const W8MonsterGroup& group, bool combat_active);
+    void replaceGroupLeader(W8MonsterGroup& group, bool combat_active);
     bool projectsToCamera(const glm::vec3& point) const;
     std::optional<MonsterThreat> nearestThreat(const GameData& data, W8MonsterInfo& monster,
                                                W8VisibilityCondition visibility) const;
