@@ -27,6 +27,7 @@
 #include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSFormation.h"
+#include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSPortraits.h"
@@ -285,6 +286,14 @@ struct GameEventPresentation {
     void operator()(const MonstersChanged&) const
     {
         if (auto* hud = ShownHud()) hud->repaint.monster_list = true;
+    }
+    void operator()(const MonstersActivated&) const
+    {
+        auto* main = MainGame();
+        if (!main || &main->game != &game || !main->hud) return;
+        if (game.combat) main->hud->refresh_combat_panel = true;
+        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && main->keyboard_menu)
+            main->keyboard_menu->refresh();
     }
     void operator()(const PartyEffectsChanged&) const
     {

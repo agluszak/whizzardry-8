@@ -390,8 +390,6 @@ struct W8MonsterInfo {
     unsigned char unknown_37d[0xa8];
 };
 
-void ActivateMonsterInWorld(W8MonsterInfo* monster_info);
-void ActivateMonster(W8MonsterInfo* monster_info);
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);
 const W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info);

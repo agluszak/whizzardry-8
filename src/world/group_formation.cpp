@@ -61,3 +61,11 @@ void W8MonsterInfo::inheritLeaderState(const W8MonsterInfo& outgoing)
     heard_noise_radius = outgoing.heard_noise_radius;
     heard_noise_position = outgoing.heard_noise_position;
 }
+
+void World::restartGroupScripts()
+{
+    for (const auto& group : population->monster_groups) {
+        auto* leader = population->findEntity(group->leader_location_id);
+        if (leader && leader->script) leader->UseScript(leader->script, true);
+    }
+}

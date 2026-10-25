@@ -5,7 +5,6 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
-#include <cstring>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -436,24 +435,6 @@ void DespawnMonsterGroup(W8MonsterGroup* monster_group)
     RemoveAllGroupMembers(monster_group);
 }
 
-/* Brings a freshly loaded group's members into the world and marks the group
-   loaded. Members that are already active are left alone. The sentinel at +0x9B
-   is reset first, so a reload does not inherit the previous run's value. */
-void LoadMonsterGroupMembers(W8MonsterGroup* monster_group)
-{
-    unsigned int index;
-    W8MonsterInfo* monster_info;
-
-    monster_group->highlighted_member = -1;
-    for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        monster_info = FindMonster(monster_group->MemberLocationId(index));
-        if (!monster_info->fActive) {
-            ActivateMonsterInWorld(monster_info);
-        }
-    }
-    monster_group->members_active = true;
-}
-
 /* Clears the per-turn scratch on every loaded group and every monster entry.
    Both walks re-read their list length each iteration. */
 void ResetMonsterGroupTurnState(void)
@@ -468,22 +449,6 @@ void ResetMonsterGroupTurnState(void)
         monster_info = GetMonsterListEntry(index);
         monster_info->player_visibility.last_seen_clock = 0;
         monster_info->party_threat.last_seen_clock = 0;
-    }
-}
-
-/* On a level's first visit, rebind every group monster's script from the name
-   of the script it already carries, so reloaded monsters resume their
-   level-local script objects. */
-void RebindMonsterGroupScripts(void)
-{
-    for (unsigned int index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
-        W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[index].get();
-        W8MonsterInfo* info = FindMonster(group->leader_location_id);
-        if (info->entity->script != 0) {
-            char script_name[256];
-            strcpy(script_name, info->entity->script->getName().c_str());
-            info->entity->SetScript(script_name, true);
-        }
     }
 }
 
@@ -608,7 +573,6 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
     W8MonsterGroup* group;
     const W8MonsterRecord* record;
     std::vector<std::unique_ptr<W8MonsterGroup>>* list;
-    unsigned int index;
     unsigned int created;
     float yaw;
 
@@ -671,20 +635,7 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
     }
 
     group->leader_location_id = CurrentGame().status.next_monster_location_id - 1;
-    group->highlighted_member = -1;
-
-    index = 0;
-    while (index < group->MemberIds().size()) {
-        int location_id = group->MemberLocationId(index);
-        W8MonsterInfo* monster_info = FindMonster(location_id);
-
-        if (!monster_info->fActive) {
-            ActivateMonsterInWorld(monster_info);
-        }
-        ++index;
-    }
-
-    group->members_active = true;
+    CurrentGame().activateGroup(*group);
     yaw = GetCameraFacingYaw(position);
     MoveMonsterGroupToPosition(group, position, yaw, false, false, false, false);
     CurrentGame().level.loaded().refreshGroupNavigation(*group, CurrentGame().combat.has_value());
@@ -1033,7 +984,6 @@ W8MonsterGroup* ReplaceMonsterGroupSpecies(W8MonsterGroup* group, unsigned int m
             position = new_member->entity->nav.GetPosition();
             old_member->entity->nav.SetPositionInternal(&position);
             DeactivateMonster(old_member);
-            ActivateMonsterInWorld(new_member);
         }
     }
     return new_group;

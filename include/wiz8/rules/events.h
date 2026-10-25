@@ -145,6 +145,8 @@ struct CombatProgressChanged {
 struct CombatStanceChanged {};
 // The monsters about the party, their groups or their dispositions changed.
 struct MonstersChanged {};
+// A group's loaded bodies and NPC bindings are ready for interaction.
+struct MonstersActivated {};
 // The party's spell effects changed, or a round passed them by.
 struct PartyEffectsChanged {};
 // The spell effects on the party in a fight changed.
@@ -186,10 +188,11 @@ using Event =
                  CharacterDied, PartySlotChanged, PartyLoadChanged, CombatPanelChanged,
                  CharacterActionChanged, EquipmentSettled, SkillImproved, WorldAdvancementChanged,
                  CombatantsMoved, CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
-                 CombatProgressChanged, CombatStanceChanged, MonstersChanged, PartyEffectsChanged,
-                 CombatEffectsChanged, PartyPanelChanged, PartyMembershipChanged, WorldItemRemoved,
-                 LevelDeparted, CastingBlockedNotice, TargetingRequested, FormationChanged,
-                 ActionAimChanged, ActionChoiceChanged, JournalEntryAdded, PortraitSpeechChanged>;
+                 CombatProgressChanged, CombatStanceChanged, MonstersChanged, MonstersActivated,
+                 PartyEffectsChanged, CombatEffectsChanged, PartyPanelChanged,
+                 PartyMembershipChanged, WorldItemRemoved, LevelDeparted, CastingBlockedNotice,
+                 TargetingRequested, FormationChanged, ActionAimChanged, ActionChoiceChanged,
+                 JournalEntryAdded, PortraitSpeechChanged>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events

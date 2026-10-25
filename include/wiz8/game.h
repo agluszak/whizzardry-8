@@ -236,6 +236,7 @@ public:
     std::vector<W8CombatSlot> monsterSpellTargets(W8MonsterInfo* monster, int spell_id);
     bool monsterAcceptsSpell(W8MonsterInfo* monster, int spell_id, W8CombatSlot* target,
                              MonsterAction action);
+    void activateGroup(W8MonsterGroup& group);
     void updateMonsterDecision(W8MonsterInfo* monster);
     bool canMonsterUseSpecial(W8MonsterInfo* monster, bool exclude_summon);
     bool aimMonsterSpecial(W8MonsterInfo* monster);

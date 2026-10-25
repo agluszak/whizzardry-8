@@ -148,22 +148,25 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* r
     return monster_info;
 }
 
-/* , not : 0x0042E650 ends in `ret 0x4`, and both callers here
-   clean only three of the four dwords they push across the tail. */
-
-/* Materialize one inactive script record in the world. Existing engine
-   Monsters are reattached without rebuilding their representation; absent or
-   reset ones are activated first and choose either the birth cycle or a random
-   idle subcycle according to membership in the unborn list. */
-void ActivateMonsterInWorld(W8MonsterInfo* monster_info)
+// Finish the group's runtime and NPC bindings before presenting its activation.
+void Game::activateGroup(W8MonsterGroup& group)
 {
-    if (!monster_info || monster_info->fActive) return;
-    ActivateMonster(monster_info);
-    GetWorld()->prepareMonsterBody(*monster_info, CurrentGame().rng,
-                                   CurrentLevelPopulation().monster_roster.isUnborn(monster_info));
-    RequestRefreshPartyState();
-    RefreshFlaggedMainGameState();
-    CurrentGame().bindMonsterNpc(monster_info->entity->owner_world, *monster_info);
+    auto& world = level.loaded();
+    group.highlighted_member = -1;
+    bool activated = false;
+    for (int id : group.MemberIds()) {
+        auto& info = *world.population->findMonster(id);
+        if (info.fActive) continue;
+        if (!info.entity) {
+            info.entity = world.loadMonsterBody(data.monsters[info.monster_species], id, rng);
+            info.configureBody(rng, status.level_progress[world.level_id].visited != 0);
+        }
+        world.prepareMonsterBody(info, rng, world.population->monster_roster.isUnborn(&info));
+        bindMonsterNpc(world, info);
+        activated = true;
+    }
+    group.members_active = true;
+    if (activated) events.push(MonstersActivated{});
 }
 
 void World::prepareMonsterBody(W8MonsterInfo& info, Rng& rng, bool unborn)
@@ -272,18 +275,6 @@ void W8MonsterInfo::configureBody(Rng& rng, bool level_visited)
     entity->ApplyRepresentationScale();
     entity->SetCycle(1);
     entity->RefreshStandingHeight();
-}
-
-void ActivateMonster(W8MonsterInfo* monster_info)
-{
-    assert(monster_info && !monster_info->fActive);
-    if (monster_info->entity) return;
-    const auto& record = *GetMonsterDataForInfo(monster_info);
-    auto monster =
-        GetWorld()->loadMonsterBody(record, monster_info->location_id, CurrentGame().rng);
-    monster_info->entity = std::move(monster);
-    monster_info->configureBody(
-        CurrentGame().rng, CurrentGame().status.level_progress[GetWorld()->level_id].visited != 0);
 }
 
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info)

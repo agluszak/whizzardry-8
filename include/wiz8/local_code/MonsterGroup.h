@@ -140,7 +140,6 @@ W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const g
                             bool use_alternate_name, bool place_on_ground);
 
 void ResetMonsterGroupTurnState(void);
-void RebindMonsterGroupScripts(void);
 
 void DespawnMonsterGroup(W8MonsterGroup* monster_group);
 
@@ -153,7 +152,6 @@ bool RemoveAllGroupMembers(W8MonsterGroup* monster_group);
    activates; NULL on failure. */
 W8MonsterGroup* ReplaceMonsterGroupSpecies(W8MonsterGroup* group, unsigned int monster_id);
 void SetMonsterGroupNavigatorDirty(W8MonsterGroup* monster_group, bool flag);
-void LoadMonsterGroupMembers(W8MonsterGroup* monster_group);
 /* Out-of-combat refresh: proximity hostility for unaligned neutrals, then
    default disposition on the intelligence-squared cooldown. */
 void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group);

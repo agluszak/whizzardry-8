@@ -518,9 +518,9 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
     }
     case W8NpcStoryAction::balbrak_home: {
         W8MonsterInfo* monster_info = FindNpcKindMonster(0xc);
-        if (auto point =
-                monster_info ? context.world->namedPosition("NP_Balbrakhome") : std::nullopt) {
-            monster_info->entity->SetPosition(&*point);
+        if (monster_info && context.world) {
+            if (auto point = context.world->namedPosition("NP_Balbrakhome"))
+                monster_info->entity->SetPosition(&*point);
         }
         break;
     }
@@ -631,10 +631,11 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         break;
     case W8NpcStoryAction::move_bela: {
         EndNpcDialogueSession(false);
-        if (auto* world = context.world) world->party.camera.motion.stop();
-        SetMonsterGroupScript(0x18c, "MoveBela.msf");
-        if (auto point = context.world->namedPosition("NP_DSExit")) {
-            CurrentGame().pointCameraAtPosition(*point, false, true);
+        if (auto* world = context.world) {
+            world->party.camera.motion.stop();
+            SetMonsterGroupScript(0x18c, "MoveBela.msf");
+            if (auto point = world->namedPosition("NP_DSExit"))
+                CurrentGame().pointCameraAtPosition(*point, false, true);
         }
         break;
     }

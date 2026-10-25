@@ -210,8 +210,9 @@ void MtGigas2Script::setup()
         npc = CurrentGame().story.npcOfKind(0x29);
         if (npc != 0) {
             info = GetNpcMonsterInfo(npc);
-            if (auto point = info != 0 ? world().namedPosition("RubbleCovert") : std::nullopt) {
-                info->entity->SetPosition(&*point);
+            if (info) {
+                if (auto point = world().namedPosition("RubbleCovert"))
+                    info->entity->SetPosition(&*point);
             }
         }
     }

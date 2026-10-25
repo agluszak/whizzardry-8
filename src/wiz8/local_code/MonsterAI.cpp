@@ -131,7 +131,7 @@ void UpdateMonsterGroups(bool staggered)
         }
         if (!monster_group->members_active) {
             if (nearest_distance < WorldGetFarClip(GetWorld()) * 1.5f) {
-                LoadMonsterGroupMembers(monster_group);
+                CurrentGame().activateGroup(*monster_group);
             }
         }
         if (monster_group->members_active && !monster_group->fInCombat) {

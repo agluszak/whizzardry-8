@@ -395,7 +395,7 @@ static void EnterLevel(Game& game, World& world, int level, int entrance, bool r
 
     if (level < W8_LEVEL_COUNT && !game.status.level_progress[level].visited) {
         ResetMonsterGroupTurnState();
-        RebindMonsterGroupScripts();
+        world.restartGroupScripts();
         game.status.level_progress[level].visited = true;
         first_visit = true;
     }
