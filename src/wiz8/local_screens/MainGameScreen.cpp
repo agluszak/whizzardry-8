@@ -107,7 +107,6 @@
 #include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
-#include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
@@ -2337,8 +2336,8 @@ void BeginLevelTransition(int level, int entry)
 
 void MainGameScreen::updateIdleSpeech(unsigned char input_handled)
 {
-    if (!game.combat.has_value() && !spell_picker.get() && !item_picker.get() &&
-        !game.activity.conversation && !lock_active && !trap_active && !game.surprise_possible) {
+    if (!game.combat.has_value() && !spell_picker && !item_picker && !game.activity.conversation &&
+        !lock_active && !trap_active && !game.surprise_possible) {
         if (input_handled == 0) {
             if (GetMillisecondsSinceCursorMove() > 60000) {
                 if (TimeUntilDeadline(hud->countdown0) != 0) {

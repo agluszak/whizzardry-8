@@ -29,7 +29,6 @@
 #include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
-#include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSSpellIcons.h"

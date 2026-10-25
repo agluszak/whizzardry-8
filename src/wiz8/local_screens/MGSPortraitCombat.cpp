@@ -102,7 +102,7 @@ void MainGameScreen::createSubMenuButtons()
         ButtonGraphics::Load(g_submenu_icons_path, 0x17, 0x14, 0x15, 0x16, 0x18),
         {.on_click =
              [this](W8ButtonWidget* button) {
-                 if (item_picker.get()) {
+                 if (item_picker) {
                      closeItemPicker();
                      return;
                  }
@@ -121,7 +121,7 @@ void MainGameScreen::createSubMenuButtons()
              [this](W8ButtonWidget* button) {
                  if (CharacterHasCastableSpell(
                          game.data, &game.party.characters[game.status.selected_character])) {
-                     if (spell_picker.get()) {
+                     if (spell_picker) {
                          closeSpellPicker();
                      } else {
                          openSpellPicker(game.status.selected_character);

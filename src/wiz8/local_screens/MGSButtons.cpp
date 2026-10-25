@@ -271,7 +271,7 @@ void MainGameScreen::updateCombatStanceButtons(void)
     for (index = 0; index < 5; ++index) {
         hud_buttons.combat_stance[index].SetVisible(index == stance);
     }
-    if (!spell_picker.get() && !item_picker.get() && !formation_panel_open) {
+    if (!spell_picker && !item_picker && !formation_panel_open) {
         enabled = true;
     } else {
         enabled = false;
@@ -678,7 +678,7 @@ void MainGameScreen::updateSubMenuPanelButtons(void)
     hud_buttons.submenu_panel[0].SetEnabled(enabled);
 
     if (!game.surprise_possible && !lock_active && !trap_active && !game.activity.conversation &&
-        !spell_picker.get() && !item_picker.get() && !submenu && AnyCharacterEngaged()) {
+        !spell_picker && !item_picker && !submenu && AnyCharacterEngaged()) {
         hud_buttons.submenu_panel[1].SetEnabled(true);
         if (!formation_panel_open) {
             if (hud_buttons.submenu_panel[1].IsPressed()) {

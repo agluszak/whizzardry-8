@@ -42,7 +42,6 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSFormation.h"
-#include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"

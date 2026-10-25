@@ -26,7 +26,6 @@
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/RangeControl.h"
@@ -40,7 +39,6 @@
 #include "wiz8/modal_content.h"
 #include "wiz8/npc_interaction_state.h"
 #include "wiz8/platform/game_timer.h"
-#include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/rules/character.h"
@@ -374,8 +372,7 @@ void MainGameScreen::scrollTextBoxToLatest(void)
     if (game.activity.conversation) {
         offset = dialogue.text_box_collapsed ? 1 : 7;
     } else {
-        offset =
-            !spell_picker.get() && !item_picker.get() && !game.activity.conversation_aside ? 1 : 7;
+        offset = !spell_picker && !item_picker && !game.activity.conversation_aside ? 1 : 7;
     }
     scrollTextBoxTo(game.status.text_box_lines_shown[game.status.text_line_cursor] - offset);
 }
