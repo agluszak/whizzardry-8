@@ -202,7 +202,7 @@ void Game::invalidateAimsAt(const W8CombatSlot& target, TargetChange change,
         if (monster->Target == target &&
             invalid(
                 monster->ubDisposition == W8_DISPOSITION_HOSTILE,
-                MonsterActionTargetsEnemies(data, monster->action_kind, monster->action_detail)))
+                MonsterActionTargetsEnemies(data, monster->action.kind, monster->action.detail)))
             monster->Target = {W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}};
     }
 }

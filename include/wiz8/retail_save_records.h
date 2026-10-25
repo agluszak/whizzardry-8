@@ -350,8 +350,8 @@ template<> struct Record<W8MonsterInfo> {
               field(offsetof(Disk, fMissileReleased), sizeof(Disk::fMissileReleased)));
         value(&runtime.fSpellReleased,
               field(offsetof(Disk, fSpellReleased), sizeof(Disk::fSpellReleased)));
-        value(&runtime.action_kind, field(offsetof(Disk, action_kind), sizeof(Disk::action_kind)));
-        value(&runtime.action_detail,
+        value(&runtime.action.kind, field(offsetof(Disk, action_kind), sizeof(Disk::action_kind)));
+        value(&runtime.action.detail,
               field(offsetof(Disk, action_detail), sizeof(Disk::action_detail)));
         value(&runtime.spell_power_level,
               field(offsetof(Disk, spell_power_level), sizeof(Disk::spell_power_level)));

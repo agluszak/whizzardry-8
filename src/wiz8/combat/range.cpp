@@ -155,9 +155,9 @@ bool RangeCategoryUsesSightCondition(const W8MonsterInfo* monster, W8RangeCatego
 
 namespace {
 unsigned int MonsterActionSight(const W8MonsterInfo& monster, const W8MonsterRecord& record,
-                                unsigned int attack, W8MonsterActionKind action)
+                                unsigned int attack, MonsterAction action)
 {
-    switch (action) {
+    switch (action.kind) {
     case W8_MONSTER_ACTION_ATTACK:
         return RangeCategoryUsesSightCondition(
             &monster, static_cast<W8RangeCategory>(record.attacks[attack].range_category));
@@ -172,15 +172,15 @@ unsigned int MonsterActionSight(const W8MonsterInfo& monster, const W8MonsterRec
 
 W8RangeCategory ActionRange(const GameData& data, const W8MonsterInfo& monster,
                             const W8MonsterRecord& record, unsigned int attack,
-                            W8MonsterActionKind action)
+                            MonsterAction action)
 {
-    switch (action) {
+    switch (action.kind) {
     case W8_MONSTER_ACTION_ATTACK:
         assert(attack < W8_MAX_MONSTER_ATTACKS);
         assert(record.attacks[attack].fHasAttack != 0);
         return MonsterAttackRange(monster, record, attack);
     case W8_MONSTER_ACTION_SPELL:
-        return data.spells[monster.action_detail].range_category;
+        return data.spells[action.detail].range_category;
     case W8_MONSTER_ACTION_SPECIAL_ATTACK:
         return W8_RANGE_LONG;
     case W8_MONSTER_ACTION_PROTECT:
@@ -192,7 +192,7 @@ W8RangeCategory ActionRange(const GameData& data, const W8MonsterInfo& monster,
 }
 
 bool Game::monsterReachesPartyMember(const W8MonsterInfo& monster, unsigned int attack, int slot,
-                                     W8MonsterActionKind action) const
+                                     MonsterAction action) const
 {
     if (monster.player_visibility.sight_state != W8_SIGHT_SEEN) return false;
     const auto& record = data.monsters[monster.monster_species];
@@ -208,7 +208,7 @@ bool Game::monsterReachesPartyMember(const W8MonsterInfo& monster, unsigned int 
 }
 
 bool W8MonsterInfo::reaches(const W8MonsterInfo& target, const GameData& data, unsigned int attack,
-                            W8MonsterActionKind action) const
+                            MonsterAction action) const
 {
     const auto& record = data.monsters[monster_species];
     if (record.untargetable != 0) return false;
@@ -310,7 +310,7 @@ W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
 W8RangeCategory MonsterActionRange(const GameData& data, const W8MonsterInfo& monster,
                                    const W8MonsterRecord& record, unsigned int attack)
 {
-    return ActionRange(data, monster, record, attack, monster.action_kind);
+    return ActionRange(data, monster, record, attack, monster.action);
 }
 
 /* How far a range category actually is. The four categories step 2, 4, 25, 50
@@ -509,25 +509,27 @@ float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out,
    target monster has to be reachable, and a group target is checked against
    every member. */
 bool Game::monsterActionReachesTarget(W8MonsterInfo* monster_info, unsigned int attack,
-                                      W8CombatSlot* target)
+                                      W8CombatSlot* target, MonsterAction action)
 {
 
     if (target->iType == W8_TARGET_KIND_CHARACTER) {
         int party_slot = target->iChar;
-        return monsterReachesPartyMember(*monster_info, attack, party_slot,
-                                         monster_info->action_kind);
+        return monsterReachesPartyMember(*monster_info, attack, party_slot, action);
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
         W8MonsterInfo* target_monster = level.loaded().population->findMonster(target->iMonsterID);
-        return monster_info->reaches(*target_monster, data, attack, monster_info->action_kind);
+        return monster_info->reaches(*target_monster, data, attack, action);
     } else if (target->iType == W8_TARGET_KIND_PARTY) {
         int party_slot = party.randomSlot(rng, 1, 1, -1, -1);
-        return monsterReachesPartyMember(*monster_info, attack, party_slot,
-                                         monster_info->action_kind);
+        return monsterReachesPartyMember(*monster_info, attack, party_slot, action);
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
         W8TargetSource source;
         SetTargetSourceToMonster(monster_info, &source);
         W8MonsterGroup* group = level.loaded().population->findGroup(target->iGroupID);
-        return sourceReachesGroup(&source, group, W8_RANGE_NONE);
+        // Retirement can leave a body alive after its identity leaves the population.
+        if (!level.loaded().population->findEntity(monster_info->location_id)) return false;
+        const auto range = ActionRange(data, *monster_info,
+                                       data.monsters[monster_info->monster_species], 0, action);
+        return level.loaded().sourceReachesGroup(source, *group, CalcRangeDistance(range));
     }
     return true;
 }
@@ -568,17 +570,4 @@ glm::vec3 GetMonsterAttackSourceOffset(Monster& monster, int kind)
         return origin - monster.nav.GetPosition();
     }
     return origin;
-}
-
-bool Game::sourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target,
-                                     const W8Action& action)
-{
-    if (TargetSourceIsCharacter(source, 0)) {
-        return assessActionReach(source->iChar, 0, action);
-    }
-    if (TargetSourceIsMonster(source, 0)) {
-        W8MonsterInfo* monster_info = level.loaded().population->findMonster(source->iMonsterID);
-        return monsterActionReachesTarget(monster_info, 0, target);
-    }
-    return true;
 }

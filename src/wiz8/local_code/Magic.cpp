@@ -221,8 +221,9 @@ bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
     }
 
     combat_slot = &monster_info->Target;
-    if (!CurrentGame().monsterActionReachesTarget(monster_info, 0, combat_slot) &&
-        !ClearMonsterCombatSlot(monster_info)) {
+    if (!CurrentGame().monsterActionReachesTarget(monster_info, 0, combat_slot,
+                                                  monster_info->action)) {
+        ResetCombatSlot(&monster_info->Target);
         return false;
     }
     if (!monster_info->entity->owner_world
@@ -230,10 +231,10 @@ bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
              .empty()) {
         return false;
     }
-    if (!MonsterSpellTargetOK(monster_info, spell_id, combat_slot)) {
+    if (!MonsterSpellTargetOK(monster_info, spell_id, combat_slot, monster_info->action)) {
         return false;
     }
-    return !SpellAreaHitsNeutralMonster(monster_info, spell_id, combat_slot);
+    return !SpellAreaHitsNeutralMonster(monster_info, spell_id, combat_slot, monster_info->action);
 }
 
 /* Whether the spell may be cast in the situation the party is in now. Two
@@ -3202,7 +3203,8 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
    radius, a cone or a whole side goes into the vectors. */
 void Game::appendSpellTargets(int spell_id, int power_level, W8TargetSource* source,
                               W8CombatSlot* target, std::vector<int>& monster_markers,
-                              std::vector<int>& party_markers, W8AreaSightRule sight_rule)
+                              std::vector<int>& party_markers, W8AreaSightRule sight_rule,
+                              std::optional<MonsterAction> proposed_action)
 {
     glm::vec3 player_pos;
     glm::vec3 camera;
@@ -3232,10 +3234,18 @@ void Game::appendSpellTargets(int spell_id, int power_level, W8TargetSource* sou
     marked = false;
     monster_info = 0;
     sight_flag = 0;
-    if (!source->fBackfire && !source->fReflection &&
-        !sourceActionReachesTarget(source, target,
-                                   W8Action{W8_ACTION_CAST_SPELL, spell_id, *target, {}})) {
-        return;
+    if (!source->fBackfire && !source->fReflection) {
+        if (TargetSourceIsCharacter(source, 0) &&
+            !assessActionReach(source->iChar, 0,
+                               W8Action{W8_ACTION_CAST_SPELL, spell_id, *target, {}}))
+            return;
+        if (TargetSourceIsMonster(source, 0)) {
+            auto* caster = level.loaded().population->findMonster(source->iMonsterID);
+            if (!caster) return;
+            if (!monsterActionReachesTarget(caster, 0, target,
+                                            proposed_action.value_or(caster->action)))
+                return;
+        }
     }
     auto& world = level.loaded();
     player_pos = world.party.position();

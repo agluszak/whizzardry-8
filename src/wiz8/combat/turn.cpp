@@ -272,7 +272,7 @@ void Combat::scheduleNextActor(Game& game)
                     schedule(MonsterActor{monster_info->location_id});
                     break;
                 }
-                monster_info->action_kind = W8_MONSTER_ACTION_NONE;
+                monster_info->action.kind = W8_MONSTER_ACTION_NONE;
                 combat->phase = 0;
                 if (!combat->active) {
                     combat->active = true;
@@ -324,7 +324,7 @@ void Combat::scheduleNextActor(Game& game)
                     apply_delay = true;
                 }
             } else {
-                W8MonsterActionKind action_kind = FindMonster(*actingMonster())->action_kind;
+                W8MonsterActionKind action_kind = FindMonster(*actingMonster())->action.kind;
                 if (action_kind == W8_MONSTER_ACTION_WAIT ||
                     action_kind == W8_MONSTER_ACTION_PROTECT ||
                     action_kind == W8_MONSTER_ACTION_NONE) {

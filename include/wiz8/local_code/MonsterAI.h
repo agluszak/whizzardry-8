@@ -14,6 +14,7 @@ enum W8VisibleTargetFilter {
 };
 
 struct W8MonsterInfo;
+struct MonsterAction;
 struct W8MonsterRecord;
 struct W8CombatSlot;
 struct W8MonsterGroup;
@@ -53,11 +54,12 @@ extern int g_special_attack_table[32][2];
 
 bool AimMonsterAtSpellTarget(W8MonsterInfo* monster_info, int spell_id);
 /* Whether the combat slot accepts `spell_id` from this caster. */
-bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlot* combat_slot);
+bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlot* combat_slot,
+                          MonsterAction action);
 /* Whether the spell's area effect would catch a disposition-neutral monster,
    which vetoes it - the AI does not turn neutrals hostile by accident. */
 bool SpellAreaHitsNeutralMonster(W8MonsterInfo* monster_info, int spell_id,
-                                 W8CombatSlot* combat_slot);
+                                 W8CombatSlot* combat_slot, MonsterAction action);
 /* Whether the spell's markers catch at least one party member when cast at
    `slot`. */
 bool MonsterSpellHasPartyTarget(W8MonsterInfo* monster_info, int spell_id, W8CombatSlot* slot);
@@ -110,10 +112,10 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
 /* Whether at least half of the group's live in-combat members the caster is
    hostile to accept the spell. */
 bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id,
-                                       W8MonsterGroup* target_group);
+                                       W8MonsterGroup* target_group, MonsterAction action);
 /* Whether at least half of the party members the caster is hostile to accept
    the spell. */
-bool PartyHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id);
+bool PartyHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id, MonsterAction action);
 /* Whether a live hostile monster already fighting stands nearer to one of the
    group's members than to the party - reinforcement keeps the group in or
    brings it into combat. */

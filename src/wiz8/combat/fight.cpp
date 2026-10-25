@@ -198,8 +198,8 @@ bool Game::beginCombat(int surprise)
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         monster_info = GetMonsterListEntry(index);
         if (monster_info->pCombat) {
-            monster_info->action_kind = W8_MONSTER_ACTION_NONE;
-            monster_info->action_detail = 0;
+            monster_info->action.kind = W8_MONSTER_ACTION_NONE;
+            monster_info->action.detail = 0;
             monster_info->pCombat->phase = 0;
             monster_info->pCombat->active = true;
             monster_info->pCombat->settle_ticks = 0;
@@ -569,10 +569,10 @@ void BeginCombatExecution(void)
             monster->highest_condition >= W8_CONDITION_WEBBED) {
             continue;
         }
-        if (monster->action_kind == W8_MONSTER_ACTION_WAIT) {
+        if (monster->action.kind == W8_MONSTER_ACTION_WAIT) {
             PostMonsterNotice(monster, Data().strings[0x228]);
         }
-        if (monster->action_kind == W8_MONSTER_ACTION_PROTECT) {
+        if (monster->action.kind == W8_MONSTER_ACTION_PROTECT) {
             if (monster->Target.iType == W8_TARGET_KIND_MONSTER) {
                 W8MonsterInfo* target = FindMonster(monster->Target.iMonsterID);
                 PostMonsterNotice(monster, fmt::sprintf(Data().strings[0x229],
@@ -769,8 +769,8 @@ bool TryPanicWoundedCharacter(const W8CombatSlot* target)
    it to face whoever it settled on. */
 void EndMonsterTurn(W8MonsterInfo* monster_info)
 {
-    monster_info->action_kind = W8_MONSTER_ACTION_NONE;
-    monster_info->action_detail = 0;
+    monster_info->action.kind = W8_MONSTER_ACTION_NONE;
+    monster_info->action.detail = 0;
     monster_info->pCombat->phase = 0;
     monster_info->pCombat->active = true;
     monster_info->pCombat->settle_ticks = 0;
@@ -811,10 +811,10 @@ void SetUpMonsterTurn(W8MonsterInfo* monster_info)
     }
 
     scale = GetMonsterCombatMoveRange(monster_info);
-    if (monster_info->action_kind == W8_MONSTER_ACTION_CONTROLLED_MOVE) {
+    if (monster_info->action.kind == W8_MONSTER_ACTION_CONTROLLED_MOVE) {
         speed = 0x32;
     } else {
-        if (monster_info->action_kind == W8_MONSTER_ACTION_BACK_OFF) {
+        if (monster_info->action.kind == W8_MONSTER_ACTION_BACK_OFF) {
             speed = 0x96;
         }
         if (monster_info->enchantments[W8_ENCHANTMENT_HASTE].turns == 0) {
@@ -849,7 +849,7 @@ void EndMonsterAttack(W8MonsterInfo* monster_info)
     if (!combat->active) {
         return;
     }
-    if (monster_info->action_kind == W8_MONSTER_ACTION_ATTACK && combat->attacks_per_round != 0) {
+    if (monster_info->action.kind == W8_MONSTER_ACTION_ATTACK && combat->attacks_per_round != 0) {
         if (CurrentGame().chooseMonsterAction(*monster_info, true, false, false)) {
             next = combat->phase +
                    (100 - CurrentGame().combat->round_counter) / (combat->attacks_per_round + 1);
@@ -1216,7 +1216,7 @@ void AssignCombatPhases(void)
             }
             if (monster_info->hp_current == 0 ||
                 monster_info->highest_condition > W8_CONDITION_WEBBED || side_done) {
-                monster_info->action_kind = W8_MONSTER_ACTION_NONE;
+                monster_info->action.kind = W8_MONSTER_ACTION_NONE;
                 monster_info->pCombat->phase = 0;
                 monster_info->pCombat->active = true;
             } else {
@@ -1370,7 +1370,7 @@ void AdvanceCombatRound(void)
     while (index < CurrentLevelPopulation().monster_roster.live().size()) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
         if (monster_info->pCombat) {
-            if (monster_info->action_kind == W8_MONSTER_ACTION_WAIT ||
+            if (monster_info->action.kind == W8_MONSTER_ACTION_WAIT ||
                 monster_info->highest_condition == W8_CONDITION_ASLEEP ||
                 monster_info->highest_condition == W8_CONDITION_UNCONSCIOUS) {
                 int sides = static_cast<unsigned int>(monster_info->stamina_max) / 0x14 - 1;
@@ -1381,7 +1381,7 @@ void AdvanceCombatRound(void)
                 RestoreMonsterStamina(monster_info, RollDice(&dice), false);
             }
             if (monster_info->pCombat->special_cooldown != 0 &&
-                monster_info->action_kind != W8_MONSTER_ACTION_SPECIAL_ATTACK) {
+                monster_info->action.kind != W8_MONSTER_ACTION_SPECIAL_ATTACK) {
                 monster_info->pCombat->special_cooldown =
                     monster_info->pCombat->special_cooldown - 1;
             }
@@ -1592,7 +1592,7 @@ int GetConditionInterrupt(W8TargetSource* source)
         assert(source->iType == W8_TARGET_SOURCE_MONSTER);
         assert(source->iMonsterID != -1);
         monster_info = FindMonster(source->iMonsterID);
-        moving = monster_info->action_kind == W8_MONSTER_ACTION_ADVANCE;
+        moving = monster_info->action.kind == W8_MONSTER_ACTION_ADVANCE;
         condition_turns = monster_info->uiCondition;
         can_attack = CurrentGame().rateMonsterBestAttack(*monster_info, false) == 0;
         secondary_flag = monster_info->pCombat->berserk;
@@ -1654,8 +1654,8 @@ int GetConditionInterrupt(W8TargetSource* source)
             }
             return 10;
         }
-    } else if (!MonsterActionTargetsEnemies(CurrentGame().data, monster_info->action_kind,
-                                            monster_info->action_detail)) {
+    } else if (!MonsterActionTargetsEnemies(CurrentGame().data, monster_info->action.kind,
+                                            monster_info->action.detail)) {
         return -1;
     }
     return 9;
@@ -1711,14 +1711,14 @@ short GetCombatActionProgress(int* out_total)
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
         if (monster_info->pCombat && monster_info->hp_current != 0 &&
             monster_info->highest_condition < W8_CONDITION_ASLEEP && !monster_info->fMotionless &&
-            monster_info->action_kind != W8_MONSTER_ACTION_WAIT &&
-            monster_info->action_kind != W8_MONSTER_ACTION_PROTECT &&
-            monster_info->action_kind != W8_MONSTER_ACTION_NONE) {
-            total += monster_info->action_kind == W8_MONSTER_ACTION_ATTACK
+            monster_info->action.kind != W8_MONSTER_ACTION_WAIT &&
+            monster_info->action.kind != W8_MONSTER_ACTION_PROTECT &&
+            monster_info->action.kind != W8_MONSTER_ACTION_NONE) {
+            total += monster_info->action.kind == W8_MONSTER_ACTION_ATTACK
                          ? monster_info->pCombat->attacks_per_round0
                          : 1;
             if (monster_info->pCombat->active) {
-                completed += monster_info->action_kind == W8_MONSTER_ACTION_ATTACK
+                completed += monster_info->action.kind == W8_MONSTER_ACTION_ATTACK
                                  ? monster_info->pCombat->attacks_per_round0 -
                                        monster_info->pCombat->attacks_per_round
                                  : 1;

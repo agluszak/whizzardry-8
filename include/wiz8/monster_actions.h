@@ -17,6 +17,13 @@ enum W8MonsterActionKind {
     W8_MONSTER_ACTION_CONTROLLED_MOVE = 9
 };
 
+// The operation and its qualifier are one value, whether committed or only proposed.
+struct MonsterAction {
+    W8MonsterActionKind kind = W8_MONSTER_ACTION_ATTACK;
+    int detail = 0;
+    bool operator==(const MonsterAction&) const = default;
+};
+
 /* Lure success/resistance state, separate from real-time movement modes. */
 enum W8MonsterControlState {
     W8_MONSTER_CONTROL_NONE = 0,

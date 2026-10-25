@@ -213,14 +213,6 @@ void ResetCombatSlot(W8CombatSlot* slot)
              .iGroupID = BAD_INDEX};
 }
 
-/* Clear whatever a monster was aiming at, and report that it now has no
-   target. */
-bool ClearMonsterCombatSlot(W8MonsterInfo* monster_info)
-{
-    ResetCombatSlot(&monster_info->Target);
-    return false;
-}
-
 /* Eligibility and range both use the caller's selected action and target. */
 bool IsSpellTargetStillValid(int party_slot, int spell_id, const W8Action& selected)
 {
@@ -571,44 +563,23 @@ static int g_last_visible_monster = -1;
    members are then walked until one stands inside that distance - the source
    measures to the party for a character and to its own monster for a
    monster. */
-bool Game::sourceReachesGroup(const W8TargetSource* source, W8MonsterGroup* group,
-                              W8RangeCategory range) const
+bool World::sourceReachesGroup(const W8TargetSource& source, const W8MonsterGroup& group,
+                               float range) const
 {
-    Monster* source_monster;
-    W8MonsterInfo* monster_info;
-    const W8MonsterRecord* record;
-    unsigned int index;
-    float distance;
-    float max_distance;
-
-    source_monster = 0;
-    if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
-        assert(source->iChar != BAD_INDEX);
+    Monster* source_monster = nullptr;
+    if (source.iType == W8_TARGET_SOURCE_CHARACTER) {
+        assert(source.iChar != BAD_INDEX);
     } else {
-        assert(source->iType == W8_TARGET_SOURCE_MONSTER);
-        assert(source->iMonsterID != BAD_INDEX);
-        assert(source->iMonsterID != BAD_INDEX);
-        monster_info = level.loaded().population->findMonster(source->iMonsterID);
-        source_monster = level.loaded().population->findEntity(source->iMonsterID);
+        assert(source.iType == W8_TARGET_SOURCE_MONSTER && source.iMonsterID != BAD_INDEX);
+        source_monster = population->findEntity(source.iMonsterID);
         if (!source_monster) return false;
-        record = &data.monsters[monster_info->monster_species];
-        range = MonsterActionRange(data, *monster_info, *record, 0);
     }
-    max_distance = CalcRangeDistance(range);
-    for (index = 0; index < group->MemberIds().size(); ++index) {
-        Monster* member = level.loaded().population->findEntity(group->MemberLocationId(index));
+    for (int id : group.MemberIds()) {
+        auto* member = population->findEntity(id);
         if (!member) continue;
-
-        if (source->iType == W8_TARGET_SOURCE_CHARACTER) {
-            assert(source->iChar != BAD_INDEX);
-            distance = member->GetDistanceToPlayer();
-        } else if (source->iType == W8_TARGET_SOURCE_MONSTER) {
-            assert(source->iMonsterID != BAD_INDEX);
-            distance = member->GetDistanceToMonster(*source_monster);
-        }
-        if (distance <= max_distance) {
-            return true;
-        }
+        const auto distance = source_monster ? member->GetDistanceToMonster(*source_monster)
+                                             : member->GetDistanceToPlayer();
+        if (distance <= range) return true;
     }
     return false;
 }
@@ -671,8 +642,8 @@ bool CanTargetMonsterGroup(int party_slot, W8MonsterGroup* group, const W8Action
     SetTargetSourceToCharacter(party_slot, &source);
 
     if (needed == W8_TARGET_NEED_GROUP) {
-        return CurrentGame().sourceReachesGroup(&source, group,
-                                                CurrentGame().actionRange(party_slot, 0, selected));
+        return CurrentGame().level.loaded().sourceReachesGroup(
+            source, *group, CalcRangeDistance(CurrentGame().actionRange(party_slot, 0, selected)));
     }
     if (needed != W8_TARGET_NEED_ENEMY && needed != W8_TARGET_NEED_ALLY) {
         return false;

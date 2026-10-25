@@ -284,12 +284,12 @@ void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
             CurrentGame().combat->holdsTurn(MonsterActor{monster->location_id}) &&
             !std::holds_alternative<TurnScheduled>(CurrentGame().combat->turn())) {
             EndMonsterAttack(monster);
-            monster->action_kind = W8_MONSTER_ACTION_NONE;
+            monster->action.kind = W8_MONSTER_ACTION_NONE;
             monster->pCombat->phase = 0;
         } else if (!monster->pCombat->active) {
             UpdateMonsterAI(monster);
         } else {
-            monster->action_kind = W8_MONSTER_ACTION_NONE;
+            monster->action.kind = W8_MONSTER_ACTION_NONE;
             monster->pCombat->phase = 0;
         }
     }

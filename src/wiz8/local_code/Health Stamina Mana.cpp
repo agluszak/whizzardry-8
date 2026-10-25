@@ -329,7 +329,7 @@ int MonsterActionFatigueCost(const W8MonsterInfo* monster_info)
 {
     int cost = 0;
 
-    switch (monster_info->action_kind) {
+    switch (monster_info->action.kind) {
     case W8_MONSTER_ACTION_ADVANCE:
     case W8_MONSTER_ACTION_BACK_OFF:
         cost = CurrentGame().rng.below(5) + 5;
@@ -343,7 +343,7 @@ int MonsterActionFatigueCost(const W8MonsterInfo* monster_info)
         cost = CurrentGame().rng.below(2) + 1;
         break;
     case W8_MONSTER_ACTION_ATTACK:
-        if (monster_info->action_detail == 3) {
+        if (monster_info->action.detail == 3) {
             cost = CurrentGame().rng.below(8) + 5;
         } else {
             cost = CurrentGame().rng.below(3) + 2;

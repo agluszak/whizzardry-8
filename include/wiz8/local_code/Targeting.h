@@ -79,8 +79,6 @@ void SetTargetSourceToMonster(const W8MonsterInfo* monster_info, W8TargetSource*
 
 bool SpellHasAnyValidTarget(int party_slot, int spell_id, bool normalize);
 
-bool ClearMonsterCombatSlot(W8MonsterInfo* monster_info);
-
 /* Fill the slot's point from where its target is. */
 bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe);
 

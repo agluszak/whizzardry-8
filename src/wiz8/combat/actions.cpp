@@ -500,10 +500,10 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
         case 5:
         case 6:
         case 10:
-            monster_info->action_kind = W8_MONSTER_ACTION_NONE;
+            monster_info->action.kind = W8_MONSTER_ACTION_NONE;
             break;
         case 7:
-            monster_info->action_kind = W8_MONSTER_ACTION_NONE;
+            monster_info->action.kind = W8_MONSTER_ACTION_NONE;
             ClearMonsterCondition(monster_info->location_id, W8_CONDITION_WEBBED);
             break;
         case 8:
@@ -513,30 +513,30 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
             }
             break;
         case 0xb:
-            monster_info->action_kind = W8_MONSTER_ACTION_CONTROLLED_MOVE;
+            monster_info->action.kind = W8_MONSTER_ACTION_CONTROLLED_MOVE;
             break;
         case 0xc:
-            monster_info->action_kind = W8_MONSTER_ACTION_ADVANCE;
+            monster_info->action.kind = W8_MONSTER_ACTION_ADVANCE;
             break;
         }
         if (monster_info->pCombat->berserk) {
-            monster_info->action_kind = W8_MONSTER_ACTION_ATTACK;
+            monster_info->action.kind = W8_MONSTER_ACTION_ATTACK;
             if (!CurrentGame().chooseMonsterAction(*monster_info, true, false, berserked)) {
-                monster_info->action_kind = W8_MONSTER_ACTION_NONE;
+                monster_info->action.kind = W8_MONSTER_ACTION_NONE;
             }
         }
     }
     while (true) {
-        if (monster_info->action_kind != W8_MONSTER_ACTION_NONE) {
-            tried[monster_info->action_kind] = 1;
+        if (monster_info->action.kind != W8_MONSTER_ACTION_NONE) {
+            tried[monster_info->action.kind] = 1;
         }
-        if (MonsterActionTargetsEnemies(CurrentGame().data, monster_info->action_kind,
-                                        monster_info->action_detail) &&
+        if (MonsterActionTargetsEnemies(CurrentGame().data, monster_info->action.kind,
+                                        monster_info->action.detail) &&
             interrupt == -1 && !monster_info->pCombat->berserk) {
             SetTargetSourceToMonster(monster_info, &monster_source);
             MakeTargetGroupHostile(&monster_source, &monster_info->Target);
         }
-        switch (monster_info->action_kind) {
+        switch (monster_info->action.kind) {
         case W8_MONSTER_ACTION_APPROACH:
         case W8_MONSTER_ACTION_BACK_OFF:
             if (monster_info->uiCondition[W8_CONDITION_BLIND] == 0 || record->kind == '\f') {
@@ -572,7 +572,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
                             approach_distance, engage_distance, position, sight, &move_flag);
                     }
                     if (move_result == 1 || (move_result == 3 && move_flag != 0)) {
-                        if (monster_info->action_kind == W8_MONSTER_ACTION_APPROACH) {
+                        if (monster_info->action.kind == W8_MONSTER_ACTION_APPROACH) {
                             if (g_settings.verbose_combat_messages) {
                                 if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
                                     PostMonsterNotice(monster_info,
@@ -600,7 +600,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
                         break;
                     }
                 }
-                monster_info->action_kind = W8_MONSTER_ACTION_RETURN_TO_START;
+                monster_info->action.kind = W8_MONSTER_ACTION_RETURN_TO_START;
                 continue;
             }
             break;
@@ -611,7 +611,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
                 game.events.push(TextNotice{
                     W8_FONT_PALETTE_RUST,
                     fmt::sprintf(Data().strings[0x23c], game.monsterName(*monster_info))});
-                monster_info->action_kind = W8_MONSTER_ACTION_WAIT;
+                monster_info->action.kind = W8_MONSTER_ACTION_WAIT;
                 continue;
             }
             SetUpMonsterTurn(monster_info);
@@ -643,7 +643,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
             result = StartMonsterAttack(monster_info, record);
             break;
         case W8_MONSTER_ACTION_SPELL: {
-            int spell_id = monster_info->action_detail;
+            int spell_id = monster_info->action.detail;
             unsigned int power =
                 ChooseMonsterSpellPowerLevel(game.data, game.rng, *monster_info, spell_id);
             if (!CanMonsterAimSpell(monster_info, spell_id) ||
@@ -671,31 +671,31 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
             break;
         }
         if (result != 0) {
-            if (monster_info->action_kind != W8_MONSTER_ACTION_WAIT &&
-                monster_info->action_kind != W8_MONSTER_ACTION_PROTECT) {
+            if (monster_info->action.kind != W8_MONSTER_ACTION_WAIT &&
+                monster_info->action.kind != W8_MONSTER_ACTION_PROTECT) {
                 monster_info->entity->nav.SetHalted(false);
             }
             break;
         }
         if (interrupt != -1 || monster_info->pCombat->active ||
-            monster_info->action_kind == W8_MONSTER_ACTION_CONTROLLED_MOVE) {
-            monster_info->action_kind = W8_MONSTER_ACTION_NONE;
+            monster_info->action.kind == W8_MONSTER_ACTION_CONTROLLED_MOVE) {
+            monster_info->action.kind = W8_MONSTER_ACTION_NONE;
             break;
         }
         UpdateMonsterAI(monster_info);
-        if (monster_info->action_kind == W8_MONSTER_ACTION_NONE ||
-            tried[monster_info->action_kind] != '\0') {
-            monster_info->action_kind = W8_MONSTER_ACTION_WAIT;
+        if (monster_info->action.kind == W8_MONSTER_ACTION_NONE ||
+            tried[monster_info->action.kind] != '\0') {
+            monster_info->action.kind = W8_MONSTER_ACTION_WAIT;
         }
-        if (monster_info->action_kind == W8_MONSTER_ACTION_WAIT) {
+        if (monster_info->action.kind == W8_MONSTER_ACTION_WAIT) {
             game.events.push(
                 TextNotice{W8_FONT_PALETTE_RUST,
                            fmt::sprintf(Data().strings[0x23c], game.monsterName(*monster_info))});
             break;
         }
     }
-    if (monster_info->action_kind != W8_MONSTER_ACTION_WAIT &&
-        monster_info->action_kind != W8_MONSTER_ACTION_PROTECT) {
+    if (monster_info->action.kind != W8_MONSTER_ACTION_WAIT &&
+        monster_info->action.kind != W8_MONSTER_ACTION_PROTECT) {
         passive_round = 0;
     }
     if (IsMonsterActionUsable(monster_info)) {
@@ -805,7 +805,7 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
     W8MonsterCombatState* combat;
     int action_kind;
 
-    switch (monster_info->action_kind) {
+    switch (monster_info->action.kind) {
     case W8_MONSTER_ACTION_ADVANCE:
     case W8_MONSTER_ACTION_APPROACH:
     case W8_MONSTER_ACTION_RETURN_TO_START:
@@ -816,8 +816,8 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
             outcome = ActionStep::resolving;
             break;
         }
-        if (monster_info->action_kind == W8_MONSTER_ACTION_APPROACH ||
-            monster_info->action_kind == W8_MONSTER_ACTION_BACK_OFF) {
+        if (monster_info->action.kind == W8_MONSTER_ACTION_APPROACH ||
+            monster_info->action.kind == W8_MONSTER_ACTION_BACK_OFF) {
             TurnMonsterToNewTarget(*monster_info);
         }
         RefreshAllSight();
@@ -830,10 +830,10 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
             progress_pct = std::min(100, static_cast<int>(progress * g_octree_cell_scale));
         }
         if (static_cast<int>(game.rng.below(100)) < 100 - progress_pct) {
-            if (monster_info->action_kind != W8_MONSTER_ACTION_CONTROLLED_MOVE) {
+            if (monster_info->action.kind != W8_MONSTER_ACTION_CONTROLLED_MOVE) {
                 UpdateMonsterAI(monster_info);
             }
-            action_kind = monster_info->action_kind;
+            action_kind = monster_info->action.kind;
             if (action_kind < 4 || (action_kind > 7 && action_kind != 9)) {
                 combat->active = false;
                 combat->phase += round_counter;

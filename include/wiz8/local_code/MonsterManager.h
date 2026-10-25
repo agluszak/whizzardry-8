@@ -266,7 +266,7 @@ using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
 struct W8MonsterInfo {
     void configureBody(Rng& rng, bool level_visited);
     bool reaches(const W8MonsterInfo& target, const GameData& data, unsigned int attack,
-                 W8MonsterActionKind action) const;
+                 MonsterAction action) const;
     void setMotionless(bool motionless);
     void startCycle(int cycle, W8AnimationBehaviour behavior);
     void clearEffect(W8EffectSlot& effect, const W8MonsterRecord& record);
@@ -354,9 +354,7 @@ struct W8MonsterInfo {
     bool fSpellReleased;
     /* The action the monster is taking, -1 through 9. Its whole domain
        is enumerated by MonsterActionFatigueCost, whose error text names it. */
-    W8MonsterActionKind action_kind;
-    /* Qualifies action kind zero; three costs markedly more. */
-    int action_detail;
+    MonsterAction action;
     unsigned int spell_power_level;
     unsigned char unknown_2ed[4];
     /* This script part's bound NPC slot in the story's NPC states, released when

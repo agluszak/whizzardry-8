@@ -239,14 +239,14 @@ unsigned char Game::rateMonsterAttack(const W8MonsterInfo& monster, unsigned int
         if (party.members[slot] && character.hp_current != 0 &&
             character.highest_condition < W8_CONDITION_DEAD &&
             party.dispositionToward(slot, monster.ubDisposition) == disposition &&
-            monsterReachesPartyMember(monster, attack, slot, W8_MONSTER_ACTION_ATTACK))
+            monsterReachesPartyMember(monster, attack, slot, {W8_MONSTER_ACTION_ATTACK, 0}))
             return W8_MONSTER_ATTACK_USABLE;
     }
     for (const auto& other : level.loaded().population->monster_roster.live()) {
         if (other.get() != &monster && other->fActive && other->pCombat && other->hp_current != 0 &&
             other->highest_condition < W8_CONDITION_DEAD &&
             MonsterHostility(data, monster, *other) == disposition &&
-            monster.reaches(*other, data, attack, W8_MONSTER_ACTION_ATTACK))
+            monster.reaches(*other, data, attack, {W8_MONSTER_ACTION_ATTACK, 0}))
             return W8_MONSTER_ATTACK_USABLE;
     }
     return W8_MONSTER_ATTACK_OUT_OF_REACH;
@@ -376,7 +376,7 @@ bool Game::canMonsterProtect(const W8MonsterInfo& monster, const W8CombatSlot& t
             W8_DISPOSITION_FRIENDLY) {
             return false;
         }
-        if (!monsterReachesPartyMember(monster, 0, target_slot, monster.action_kind)) {
+        if (!monsterReachesPartyMember(monster, 0, target_slot, monster.action)) {
             return false;
         }
         character = &party.characters[target_slot];
@@ -394,7 +394,7 @@ bool Game::canMonsterProtect(const W8MonsterInfo& monster, const W8CombatSlot& t
         if (MonsterHostility(data, monster, *target_info) != W8_DISPOSITION_FRIENDLY) {
             return false;
         }
-        if (!monster.reaches(*target_info, data, 0, monster.action_kind)) {
+        if (!monster.reaches(*target_info, data, 0, monster.action)) {
             return false;
         }
         target_level = data.monsters[target_info->monster_species].effective_level;
@@ -503,7 +503,7 @@ int ResolveGuardianInterception(W8TargetSource* source, W8CombatSlot* target)
             monster_info->highest_condition < W8_CONDITION_BLIND &&
             (record->flags & W8_MONSTER_FLAG_BODYGUARD) != 0 &&
             record->attacks[0].fHasAttack != 0 &&
-            monster_info->action_kind == W8_MONSTER_ACTION_PROTECT &&
+            monster_info->action.kind == W8_MONSTER_ACTION_PROTECT &&
             monster_info->pCombat->interception_count < record->attacks_per_round &&
             (*target == monster_info->Target) &&
             CurrentGame().canMonsterProtect(*monster_info, *target)) {
@@ -999,10 +999,10 @@ int GetTargetArmorClassModifier(W8CombatSlot* target, W8AttackMode attack_mode)
                 (record->flags & W8_MONSTER_FLAG_VULNERABLE_FROM_BEHIND) != 0) {
                 modifier -= 2;
             }
-            if (monster_info->action_kind == W8_MONSTER_ACTION_WAIT) {
+            if (monster_info->action.kind == W8_MONSTER_ACTION_WAIT) {
                 modifier += 2;
             }
-            distracted = monster_info->action_kind == W8_MONSTER_ACTION_ADVANCE;
+            distracted = monster_info->action.kind == W8_MONSTER_ACTION_ADVANCE;
         }
         out_of_formation = monster_info->modifiers.out_of_formation;
     } else if (target->iType == W8_TARGET_KIND_CHARACTER) {
@@ -1505,7 +1505,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
     W8SpellEffectResult local_report;
     W8MonsterCombatState* combat = monster_info->pCombat.get();
     unsigned int attack_index = combat->attack_index;
-    W8AttackMode action_detail = static_cast<W8AttackMode>(monster_info->action_detail);
+    W8AttackMode action_detail = static_cast<W8AttackMode>(monster_info->action.detail);
     const W8MonsterAttack* attack = &record->attacks[attack_index];
     W8MonsterInfo* target_info = nullptr;
     const W8MonsterRecord* target_record;
@@ -1763,7 +1763,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
         if (record->attack_multiple_targets != 0 && range < W8_RANGE_LONG) {
             repick_target = monster_info->Target;
             if (!CurrentGame().chooseMonsterAction(*monster_info, false, true, false) ||
-                monster_info->action_kind != W8_MONSTER_ACTION_ATTACK) {
+                monster_info->action.kind != W8_MONSTER_ACTION_ATTACK) {
                 combat->uiSwingsRemaining = 0;
             } else {
                 repicked = true;
@@ -1837,15 +1837,15 @@ bool StartMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* reco
     }
     attack = combat->attack_index;
     --combat->attacks_per_round;
-    W8AttackMode action_detail = static_cast<W8AttackMode>(monster_info->action_detail);
+    W8AttackMode action_detail = static_cast<W8AttackMode>(monster_info->action.detail);
     if (CurrentGame().rateMonsterAttack(*monster_info, attack, false) != 0) {
         return false;
     }
     if (!CurrentGame().targetMatches(monster_info->Target, W8_TARGET_NEED_ENEMY) ||
-        !CurrentGame().monsterActionReachesTarget(monster_info, attack, &monster_info->Target)) {
-        if (!ClearMonsterCombatSlot(monster_info)) {
-            return false;
-        }
+        !CurrentGame().monsterActionReachesTarget(monster_info, attack, &monster_info->Target,
+                                                  monster_info->action)) {
+        ResetCombatSlot(&monster_info->Target);
+        return false;
     }
     combat->uiSwingsRemaining = CurrentGame().rng.below(record->swings_per_round) + 1;
     AnnounceMonsterAttack(monster_info, record, 0);
@@ -1924,7 +1924,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
                            signed char target_changed)
 {
     W8MonsterCombatState* combat = monster_info->pCombat.get();
-    W8AttackMode action_detail = static_cast<W8AttackMode>(monster_info->action_detail);
+    W8AttackMode action_detail = static_cast<W8AttackMode>(monster_info->action.detail);
     unsigned int attack = combat->attack_index;
     const W8MonsterAttack* pAttack = &record->attacks[attack];
     W8RangeCategory range = MonsterActionRange(CurrentGame().data, *monster_info, *record, attack);
@@ -2008,7 +2008,7 @@ void AnnounceMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* r
             if (second->hp_current != 0 && second->stamina != 0 &&
                 second->highest_condition < W8_CONDITION_WEBBED &&
                 second->uiCondition[W8_CONDITION_BLIND] == 0 &&
-                second->action_kind == W8_MONSTER_ACTION_WAIT) {
+                second->action.kind == W8_MONSTER_ACTION_WAIT) {
                 attempts = second_combat->spot_attempts;
                 if (attempts == 0) {
                     notices = true;
@@ -2175,7 +2175,7 @@ int ResolveCharacterAttackDamage(int party_slot, int hand, W8AttackMode attack_m
         monster_info = FindMonster(CurrentGame().combat->TargetHit.iMonsterID);
         record = GetMonsterDataForInfo(monster_info);
         out_of_formation = monster_info->modifiers.out_of_formation;
-        W8MonsterActionKind action_kind = monster_info->action_kind;
+        W8MonsterActionKind action_kind = monster_info->action.kind;
         target_moving = action_kind == W8_MONSTER_ACTION_ADVANCE;
         target_defending =
             action_kind == W8_MONSTER_ACTION_WAIT || action_kind == W8_MONSTER_ACTION_PROTECT;
@@ -2389,7 +2389,7 @@ int GetMonsterAttackScore(W8MonsterInfo* monster_info, const W8MonsterAttack* at
 int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, const W8MonsterAttack* attack,
                                unsigned int* out_dice_count)
 {
-    W8AttackMode attack_mode = static_cast<W8AttackMode>(monster_info->action_detail);
+    W8AttackMode attack_mode = static_cast<W8AttackMode>(monster_info->action.detail);
     W8MonsterInfo* target_info;
     const W8MonsterRecord* record;
     W8Character* target;
@@ -2416,7 +2416,7 @@ int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, const W8MonsterAttac
         target_info = FindMonster(CurrentGame().combat->TargetHit.iMonsterID);
         record = GetMonsterDataForInfo(target_info);
         FindMonsterGroup(target_info->monster_group_id);
-        W8MonsterActionKind action_kind = target_info->action_kind;
+        W8MonsterActionKind action_kind = target_info->action.kind;
         out_of_formation = target_info->modifiers.out_of_formation;
         target_moving = action_kind == W8_MONSTER_ACTION_ADVANCE;
         target_defending =
@@ -2823,7 +2823,7 @@ void BuildMonsterTargetList(W8MonsterInfo* monster_info, unsigned int attack,
             (monster_info->Target.iType != W8_TARGET_KIND_CHARACTER ||
              monster_info->Target.iChar != i) &&
             CurrentGame().monsterReachesPartyMember(*monster_info, attack, i,
-                                                    monster_info->action_kind)) {
+                                                    monster_info->action)) {
             AppendCombatTargetEntry(out_list, W8_TARGET_KIND_CHARACTER, i, -1);
         }
     }
@@ -2837,7 +2837,7 @@ void BuildMonsterTargetList(W8MonsterInfo* monster_info, unsigned int attack,
                 if ((monster_info->Target.iType == W8_TARGET_KIND_MONSTER &&
                      monster_info->Target.iMonsterID == monster_info->location_id) ||
                     !monster_info->reaches(*candidate, CurrentGame().data, attack,
-                                           monster_info->action_kind)) {
+                                           monster_info->action)) {
 
                     continue;
                 }
@@ -3342,7 +3342,7 @@ bool StartCharacterAttack(int party_slot, W8AttackMode attack_mode)
             if (monster_info->hp_current != 0 && monster_info->stamina != 0 &&
                 monster_info->highest_condition < W8_CONDITION_WEBBED &&
                 monster_info->uiCondition[W8_CONDITION_BLIND] == 0 &&
-                monster_info->action_kind == W8_MONSTER_ACTION_WAIT) {
+                monster_info->action.kind == W8_MONSTER_ACTION_WAIT) {
                 if (monster_info->pCombat->spot_attempts == 0) {
                     noticed = true;
                 } else {

@@ -114,7 +114,7 @@ void Trace(GameHarness& game, int location_id, int frames)
         std::printf("  t%lu %d (%.0f %.0f) action=%d active=%d complete=%d stopped=%d halted=%d "
                     "flags=%x progress=%g/%g speed=%g status=%d actor=%d cycle=%d frame=%d/%d "
                     "end=%d\n",
-                    game.frames(), location_id, at.x, at.z, int(monster->action_kind),
+                    game.frames(), location_id, at.x, at.z, int(monster->action.kind),
                     monster->pCombat ? int(monster->pCombat->active) : -1,
                     int(body.nav.movement_complete), int(body.nav.movement_stopped),
                     int(body.nav.halted), unsigned(body.nav.flags),

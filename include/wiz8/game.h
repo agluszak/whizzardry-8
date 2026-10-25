@@ -225,17 +225,16 @@ public:
     void queueLevelMessage(int message_id);
     void appendSpellTargets(int spell_id, int power_level, W8TargetSource* source,
                             W8CombatSlot* target, std::vector<int>& monsters,
-                            std::vector<int>& party, W8AreaSightRule sight_rule);
+                            std::vector<int>& party, W8AreaSightRule sight_rule,
+                            std::optional<MonsterAction> proposed_action = {});
     bool monsterActionReachesTarget(W8MonsterInfo* monster, unsigned int attack,
-                                    W8CombatSlot* target);
-    bool sourceReachesGroup(const W8TargetSource* source, W8MonsterGroup* group,
-                            W8RangeCategory range) const;
+                                    W8CombatSlot* target, MonsterAction action);
     bool canMonsterProtect(const W8MonsterInfo& monster, const W8CombatSlot& target) const;
     bool chooseMonsterAction(W8MonsterInfo& monster, bool target_locked, bool attack_locked,
                              bool set_attack_rate);
     int monsterQuadrant(const W8MonsterInfo& monster) const;
     bool monsterReachesPartyMember(const W8MonsterInfo& monster, unsigned int attack, int slot,
-                                   W8MonsterActionKind action) const;
+                                   MonsterAction action) const;
     unsigned char rateMonsterAttack(const W8MonsterInfo& monster, unsigned int attack,
                                     bool friendly_targets) const;
     unsigned char rateMonsterBestAttack(const W8MonsterInfo& monster, bool friendly_targets) const;
@@ -372,8 +371,6 @@ private:
     std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
     void updateSurpriseMode();
     void applyCombatEndEffects();
-    bool sourceActionReachesTarget(W8TargetSource* source, W8CombatSlot* target,
-                                   const W8Action& action);
     std::string monsterName(const W8MonsterRecord& record, bool alternate, bool plural) const;
     void refreshCombatEngagement(std::vector<Event>& outcomes);
     void removeMonsterFromCombat(W8MonsterInfo& monster, std::vector<Event>& outcomes);

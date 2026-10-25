@@ -1918,6 +1918,9 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     species.attacks[0].fHasAttack = true;
     species.attacks[0].range_category = W8_RANGE_SHORT;
     species.attacks[0].attack_modes = (1 << W8_ATTACK_MODE_SWING) | (1 << W8_ATTACK_MODE_THRUST);
+    data.spells.resize(2);
+    data.spells[1].range_category = W8_RANGE_SHORT;
+    data.spells[1].target_type = W8_TARGET_TYPE_ENEMY;
     const ScopedGameData installed(data);
     ScopedGame scope{data};
     auto& game = scope.game;
@@ -1939,6 +1942,7 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     auto& visible = (*actor.monster_visibility)[2];
     visible.sight_state = W8_SIGHT_SEEN;
     visible.los_flags[0] = true;
+    visible.los_flags[2] = true;
     game.rng.seed(1);
     std::vector<Rng::Draw> draws;
     game.rng.trace(&draws);
@@ -1947,8 +1951,8 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     REQUIRE(draws[0].range == 100);
     REQUIRE(draws[1].range == 100);
     REQUIRE(draws[2].range == 2);
-    REQUIRE(actor.action_kind == W8_MONSTER_ACTION_ATTACK);
-    REQUIRE(actor.action_detail == W8_ATTACK_MODE_SWING);
+    REQUIRE(actor.action.kind == W8_MONSTER_ACTION_ATTACK);
+    REQUIRE(actor.action.detail == W8_ATTACK_MODE_SWING);
     REQUIRE(actor.pCombat->attack_index == 0);
     REQUIRE(actor.pCombat->attacks_per_round == 2);
     REQUIRE(actor.pCombat->attacks_per_round0 == 2);
@@ -1956,6 +1960,31 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     actor.Target = W8CombatSlot::character(3);
     REQUIRE_FALSE(game.chooseMonsterAction(actor, true, false, false));
     REQUIRE(draws.size() == 3);
+
+    // A spell probe must neither borrow nor temporarily overwrite the accepted action.
+    actor.action = {W8_MONSTER_ACTION_WAIT, 77};
+    const auto accepted = actor.action;
+    std::vector<W8CombatSlot> proposals;
+    CollectMonsterSpellTargets(&actor, 1, proposals);
+    REQUIRE(proposals == std::vector<W8CombatSlot>{W8CombatSlot::monster(2)});
+    REQUIRE(actor.action == accepted);
+    W8TargetSource probe_source;
+    SetTargetSourceToMonster(&actor, &probe_source);
+    auto probe_target = W8CombatSlot::monster(2);
+    std::vector<int> probe_monsters, probe_party;
+    game.appendSpellTargets(1, 1, &probe_source, &probe_target, probe_monsters, probe_party,
+                            W8AreaSightRule::RequireLineOfSight,
+                            MonsterAction{W8_MONSTER_ACTION_SPELL, 1});
+    REQUIRE(probe_monsters == std::vector<int>{2});
+    REQUIRE(actor.action == accepted);
+    proposals.clear();
+    data.spells[1].target_type = W8_TARGET_TYPE_ALL_ENEMIES;
+    data.spells[1].spell_level = -1; // Rejected cost band exercises real failed evaluation.
+    REQUIRE_THROWS_AS(CollectMonsterSpellTargets(&actor, 1, proposals), std::out_of_range);
+    REQUIRE(actor.action == accepted);
+    REQUIRE(draws.size() == 3);
+    data.spells[1].spell_level = 0;
+    data.spells[1].target_type = W8_TARGET_TYPE_ENEMY;
 
     GameData allied_data = data;
     allied_data.monsters[0].faction_id = W8_FACTION_PARTY;
@@ -1969,8 +1998,8 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     // temporarily replacing the selected spell or consulting that spell's record.
     Game candidate{allied_data};
     candidate.level.replacePrimary(game.level.replacePrimary(nullptr));
-    actor.action_kind = W8_MONSTER_ACTION_SPELL;
-    actor.action_detail = -1;
+    actor.action.kind = W8_MONSTER_ACTION_SPELL;
+    actor.action.detail = -1;
     other.uiCondition[W8_CONDITION_TURNCOAT] = 0;
     REQUIRE(candidate.rateMonsterAttack(actor, 0, false) == W8_MONSTER_ATTACK_OUT_OF_REACH);
     other.uiCondition[W8_CONDITION_TURNCOAT] = 1;
@@ -1978,8 +2007,8 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     actor.has_projectile_origin = true;
     // Corrected distance does not switch the authored short attack's sight slot to 1.
     REQUIRE(candidate.rateMonsterAttack(actor, 0, false) == W8_MONSTER_ATTACK_USABLE);
-    REQUIRE(actor.action_kind == W8_MONSTER_ACTION_SPELL);
-    REQUIRE(actor.action_detail == -1);
+    REQUIRE(actor.action.kind == W8_MONSTER_ACTION_SPELL);
+    REQUIRE(actor.action.detail == -1);
     REQUIRE(draws.size() == 3);
 
     std::vector<Rng::Draw> candidate_draws;
@@ -1991,15 +2020,15 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     REQUIRE(candidate_draws[0].range == 100);
     REQUIRE(candidate_draws[1].range == 100);
     REQUIRE(candidate_draws[2].range == 2);
-    REQUIRE(actor.action_detail == W8_ATTACK_MODE_SWING);
+    REQUIRE(actor.action.detail == W8_ATTACK_MODE_SWING);
     REQUIRE(draws.size() == 3);
-    actor.action_kind = W8_MONSTER_ACTION_SPELL;
-    actor.action_detail = -1;
+    actor.action.kind = W8_MONSTER_ACTION_SPELL;
+    actor.action.detail = -1;
 
     // Spell target collection uses the same unpublished world and definitions.
     allied_data.spells.resize(2);
     allied_data.spells[1].target_type = W8_TARGET_TYPE_ENEMY;
-    actor.action_kind = W8_MONSTER_ACTION_ATTACK;
+    actor.action.kind = W8_MONSTER_ACTION_ATTACK;
     W8TargetSource source;
     SetTargetSourceToMonster(&actor, &source);
     std::vector<int> monster_targets, party_targets;
@@ -2010,29 +2039,36 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     monster_targets.clear();
     world.appendMonstersInRadius({}, {}, monster_targets, 1.0f, 3, W8AreaSightRule::GeometryOnly);
     REQUIRE(monster_targets == std::vector<int>{1, 2});
+    monster_targets.clear();
+    source.iMonsterID = 999; // A continuing cast may have outlived its source.
+    W8CombatSlot area{W8_TARGET_KIND_ALL_ENEMIES, -1, -1, -1, {}, {}};
+    candidate.appendSpellTargets(1, 1, &source, &area, monster_targets, party_targets,
+                                 W8AreaSightRule::RequireLineOfSight,
+                                 MonsterAction{W8_MONSTER_ACTION_SPELL, 1});
+    REQUIRE(monster_targets.empty());
     REQUIRE(candidate_draws.size() == 3);
     REQUIRE(draws.size() == 3);
-    actor.action_kind = W8_MONSTER_ACTION_SPELL;
+    actor.action.kind = W8_MONSTER_ACTION_SPELL;
 
     // An unrestricted scan still rolls stealth for all eight slots, even when empty.
     REQUIRE(candidate.chooseMonsterAction(actor, false, false, false));
     REQUIRE(candidate_draws.size() == 14); // Eight stealth draws, two candidates, then selection.
     REQUIRE(candidate_draws.back().range == 2);
     REQUIRE(draws.size() == 3);
-    actor.action_kind = W8_MONSTER_ACTION_SPELL;
-    actor.action_detail = -1;
+    actor.action.kind = W8_MONSTER_ACTION_SPELL;
+    actor.action.detail = -1;
 
     // Self and unseen targets short-circuit before the deliberately absent spell.
-    REQUIRE(actor.reaches(actor, allied_data, 0, W8_MONSTER_ACTION_SPELL));
+    REQUIRE(actor.reaches(actor, allied_data, 0, actor.action));
     visible.sight_state = W8_SIGHT_UNSEEN;
-    REQUIRE_FALSE(actor.reaches(other, allied_data, 0, W8_MONSTER_ACTION_SPELL));
-    REQUIRE_FALSE(candidate.monsterReachesPartyMember(actor, 0, 0, W8_MONSTER_ACTION_SPELL));
+    REQUIRE_FALSE(actor.reaches(other, allied_data, 0, actor.action));
+    REQUIRE_FALSE(candidate.monsterReachesPartyMember(actor, 0, 0, actor.action));
     // No-range actions must not inspect a body or formation, even during combat.
     candidate.combat.emplace();
     W8MonsterInfo inactive{};
     inactive.player_visibility.sight_state = W8_SIGHT_SEEN;
     inactive.player_visibility.los_flags[0] = true;
-    REQUIRE_FALSE(candidate.monsterReachesPartyMember(inactive, 0, 0, W8_MONSTER_ACTION_WAIT));
+    REQUIRE_FALSE(candidate.monsterReachesPartyMember(inactive, 0, 0, {W8_MONSTER_ACTION_WAIT, 0}));
 }
 
 TEST_CASE("Effect slot lookup cannot run into casting-cost data", "[effects][bounds]")

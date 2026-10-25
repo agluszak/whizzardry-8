@@ -203,7 +203,7 @@ void CombatSignals::missileReleased(Monster& monster)
     for (attack_index = 0; attack_index < W8_MAX_MONSTER_ATTACKS; ++attack_index) {
         attack = &record->attacks[attack_index];
         if (attack->fHasAttack != 0 && (attack->attack_modes & 0x110) != 0) {
-            monster_info->action_detail = ChooseAttackMode(attack->attack_modes);
+            monster_info->action.detail = ChooseAttackMode(attack->attack_modes);
             goto prepare_attack;
         }
     }
@@ -232,7 +232,7 @@ prepare_attack:
 
     if (selected_attack) {
         accuracy = GetMonsterAttackScore(monster_info, attack,
-                                         static_cast<W8AttackMode>(monster_info->action_detail), 0);
+                                         static_cast<W8AttackMode>(monster_info->action.detail), 0);
     } else {
         accuracy = 50;
     }
@@ -248,8 +248,8 @@ fire_missile:
 void CombatSignals::spellReleased(Monster& monster)
 {
     W8MonsterInfo* monster_info = FindMonster(monster.location_id);
-    const W8MonsterActionKind action_kind = monster_info->action_kind;
-    const int action_detail = monster_info->action_detail;
+    const W8MonsterActionKind action_kind = monster_info->action.kind;
+    const int action_detail = monster_info->action.detail;
     const unsigned int power_level = monster_info->spell_power_level;
     if (action_kind == W8_MONSTER_ACTION_SPELL && action_detail != 0 && power_level != 0) {
         const unsigned int fatigue = MonsterCastsSpell(monster_info, action_detail, power_level);

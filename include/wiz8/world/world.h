@@ -49,6 +49,7 @@ struct W8SpellEffectEntry;
 enum class W8MonsterRemoval : unsigned char;
 struct W8WorldCursorState;
 struct W8WorldCursorNode;
+struct W8MonsterGroup;
 struct WorldItemEntity;
 class Monster;
 struct MonsterDefinition;
@@ -167,6 +168,8 @@ struct World {
     std::optional<glm::vec3> itemDropPosition(const glm::vec2& cursor) const;
     Trigger* loadTrigger(wiz8::File& file, const GameData& data, Rng& rng, Story& story);
     std::vector<int> castingBlockMessagesAt(glm::vec3 position) const;
+    bool sourceReachesGroup(const W8TargetSource& source, const W8MonsterGroup& group,
+                            float range) const;
     float sourceRadius(const W8TargetSource& source) const;
     void appendMonstersInRadius(const glm::vec3& centre, const glm::vec3& eye,
                                 std::vector<int>& found, float radius, signed char side,
