@@ -27,7 +27,7 @@ void ShowNoticeLine(std::string_view text, std::function<void(bool)> callback, b
 void ShowRefusal(const InventoryRefusal& refusal);
 /* Show one game event on the active screen: the composition root's observer of every
    game's events. */
-void PresentGameEvent(const Event& event);
+void PresentGameEvent(Game& game, const Event& event);
 /* Whether a skill increase is shown at once: only over the idle exploring main game.
    Otherwise it waits, and the main game shows the waiting ones once it is idle again. */
 bool SkillIncreasesShownNow(const Game& game);

@@ -1,8 +1,7 @@
 #pragma once
-#include <memory>
 #include <string_view>
-#include <vector>
 
+#include "wiz8/data/npc_ids.h" // IWYU pragma: export
 #include "wiz8/fact_state.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/math.h"
@@ -39,23 +38,6 @@ struct W8GameplayModifierBlock;
 struct W8MonsterInfo;
 struct W8MonsterManagerEntry;
 
-/* NPC database record indices used as name-style ids at runtime. */
-enum W8NpcId {
-    W8_NPC_MYLES = 7,
-    W8_NPC_ZANT = 0x0f,
-    W8_NPC_DRAZIC = 0x10,
-    W8_NPC_RODAN = 0x11,
-    W8_NPC_VI_DOMINA = 0x18,
-    W8_NPC_RFS81_A = 0x20,
-    W8_NPC_GLUMPH = 0x2b,
-    W8_NPC_SPARKLE = 0x38,
-    W8_NPC_AL_ADRYIAN = 0x3b,
-    W8_NPC_MADRAS = 0x4a,
-    W8_NPC_SEXUS = 0x4f,
-    W8_NPC_PHOONZANG = 0x87,
-    W8_NPC_ENDGAME2 = 0x8e,
-};
-
 enum W8NpcServiceFlag {
     W8_NPC_SERVICE_ARNIKA = 0x1,
     W8_NPC_SERVICE_TRYNTON = 0x2,
@@ -77,17 +59,13 @@ Monster* GetNpcMonster(W8NpcState* npc);
 
 void ChooseNewGameStartLocation(int* level, int* entrance);
 int SelectNewGameStartLevel(void);
-void BindNpcToMonster(unsigned char value, bool enabled, int location_id);
 bool RecruitNpcIntoParty(W8NpcState* npc);
 int DismissNpcFromParty(int party_slot, int, bool skip_spawn, bool neutral);
-/* How many leading party slots are occupied. */
-unsigned char CountLeadingPartySlots(void);
 bool NpcKnowsFact(W8NpcState* npc, W8FactId fact);
 unsigned char FindNpcOfKind(int kind);
 bool CanNpcJoinParty(W8NpcState* npc);
 bool CanPlaceNpcNearParty(int party_slot);
 W8MonsterInfo* GetNpcMonsterInfo(W8NpcState* npc);
-W8NpcState* GetNpcStateForMonsterInfo(W8MonsterInfo* monster_info, bool allow_unavailable);
 void ResumeNpc(W8NpcState* npc, int enabled);
 void QueueNpcTravelRefusals(int destination_level);
 void MarkNpcOfKind(int kind);
@@ -104,32 +82,24 @@ void ProcessNpcPendingEvents(void);
 void CreateNewGameNpcStates(void);
 /* Build one runtime state from its database record and return it,
    reusing the slot of a released node when one is free. */
-W8NpcState* CreateNpcRuntimeNode(Story& story, int npc_id);
 
 /* The NPC-side consequence pass the sight code runs when a marked NPC's
    binding is released. */
-void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode);
 /* The activation callback the rebinding installs on the level's
    NPC triggers. */
 void ResetNpcBindingsForParty(void);
 void ClearPendingNpcLevelFlags(void);
 void ReleaseNpcMonsterBindings(void);
-void ReleaseMarkedNpcBindings(void);
 void RebindNpcLevelTriggers(void);
 W8NpcState* GetNpcState(int index);
-W8NpcState* GetNpcStateByKind(int kind);
 /* Whether the NPC wants the offered item - it matches one of the
    record's wanted entries by id or by the shared 0x83 name kind, and a grouped
    NPC whose member already carries more than one declines. */
 bool NpcWantsItem(W8NpcState* npc, const W8ItemInstance* item);
 bool NpcHasTopic(W8NpcState* npc, int topic);
-bool NpcLeadHasNameStyle(W8NpcId kind);
 /* Clear one NPC binding's monster link and hand the handle to the
    owned item-list teardown. */
-void ReleaseNpcBinding(int value);
 /* The NPC binding selected by a monster-list index, or null. */
-W8NpcState* FindNpcBindingForMonster(W8MonsterInfo* monster_info);
-unsigned char GetNpcDispositionBand(W8NpcState* npc);
 void SetNpcDispositionBand(W8NpcState* npc, signed char band);
 bool WillNpcTradeForItem(W8NpcState* npc, const W8ItemInstance* item);
 void ApplyNpcInteraction(W8NpcState* npc, int kind, int value, const W8ItemInstance* item,
@@ -147,12 +117,8 @@ W8NpcPickpocketResult AttemptNpcPickpocket(W8Character* character, W8NpcState* n
 void ClearNpcItemId(W8NpcState* npc, int item_id);
 /* The live NPC state whose display (or fact-substituted) name
    matches case-insensitively; 0 when none does. */
-W8NpcState* FindNpcStateByName(std::string_view name);
 W8MonsterManagerEntry* GetNpcGroupEntry(W8NpcState* npc);
-std::string GetNpcDisplayName(W8NpcState* npc);
 void ReleaseNpcMonsterBinding(W8NpcState* npc, signed char level);
-void RestoreNamedNpcAtLevel(int kind, signed char level, std::string_view entity_name);
-bool ClearNpcScheduledItem(W8NpcState* npc, int item_id, W8ItemInstance* out);
 void ReleaseNpcMonsterByKind(int kind);
 /* Record that the NPC has told the party the given fact. */
 void TellNpcFact(W8NpcState* npc, short fact);
@@ -160,21 +126,3 @@ W8NpcItemTheftResult AttemptNpcItemTheft(Game& game, W8Character* character, W8N
                                          int item_id, int count);
 void UpdateNpcPartyMember(int party_slot);
 bool QueueNpcDepartureEvents(int destination_level);
-
-struct World;
-/* One NPC slot's binding to the loaded level, staged so a failed load leaves the
-   story untouched. An NPC the story already has keeps its state and only takes the
-   new binding; `created` holds a state made for this level. */
-struct W8PreparedNpcBinding {
-    int slot;
-    std::unique_ptr<W8NpcState> created;
-    int location_id = 0;
-    unsigned char level_band = 0;
-    unsigned char bound_level = 0;
-    std::unique_ptr<W8NpcScriptFile> script;
-};
-struct W8PreparedNpcBindings {
-    std::vector<W8PreparedNpcBinding> records;
-};
-W8PreparedNpcBindings PrepareNpcBindings(World& world);
-void InstallNpcBindings(W8PreparedNpcBindings pending);

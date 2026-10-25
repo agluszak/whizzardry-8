@@ -38,7 +38,7 @@ std::vector<W8MonsterInfo*> CombatMonsters()
     std::vector<W8MonsterInfo*> monsters;
     for (const auto& owner : CurrentLevelPopulation().monster_roster.live()) {
         auto* monster = owner.get();
-        if (monster->fActive && monster->pCombat && monster->entity.find() && monster->hp_current)
+        if (monster->fActive && monster->pCombat && monster->entity.get() && monster->hp_current)
             monsters.push_back(monster);
     }
     return monsters;

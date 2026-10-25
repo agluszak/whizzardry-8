@@ -181,7 +181,7 @@ static void RunSearchPulse(bool searching)
                                 std::string text;
                                 if ((!(text = GetStringFromStringDatabase(path, message, 0, 0))
                                           .empty()) != 0) {
-                                    ShowString(text);
+                                    CurrentGame().queueWorldMessage(text);
                                 }
                             }
                         }
@@ -202,7 +202,7 @@ static void RunSearchPulse(bool searching)
                     glm::vec3 position;
                     searchable->GetPosition(&position);
                     ResetInactiveLevelDataVectors();
-                    PointCameraAtTarget(&position, true, true);
+                    CurrentGame().pointCameraAtPosition(position, true, true);
                     searchable->Reveal();
                 }
             }
@@ -220,7 +220,7 @@ static void RunSearchPulse(bool searching)
             }
         }
         if (searching && !IsLevelFastMovement() && !found && CurrentGame().rng.below(100) == 0) {
-            ApplyItemEffectToRandomCharacter(g_container_event, -1, 0);
+            CurrentGame().speech.QueueRandom(g_container_event, -1, 0);
         }
     }
 }

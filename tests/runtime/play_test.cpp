@@ -85,7 +85,7 @@ void PrintState(GameHarness& game)
         std::vector<std::pair<float, W8MonsterInfo*>> nearby;
         for (const auto& owner : CurrentLevelPopulation().monster_roster.live()) {
             auto* monster = owner.get();
-            if (monster->fActive && monster->entity.find() && monster->hp_current)
+            if (monster->fActive && monster->entity.get() && monster->hp_current)
                 nearby.emplace_back(HorizontalDistance(monster->entity->nav.GetPosition(), at),
                                     monster);
         }
@@ -93,7 +93,7 @@ void PrintState(GameHarness& game)
         if (nearby.size() > 6) nearby.resize(6);
         for (const auto& [distance, monster] : nearby)
             std::printf("  monster %d %s hp=%u disposition=%d combat=%d at %.0f (%g %g)\n",
-                        monster->location_id, GetMonsterName(monster, nullptr, false).c_str(),
+                        monster->location_id, CurrentGame().monsterName(*monster).c_str(),
                         monster->hp_current, int(monster->ubDisposition), bool(monster->pCombat),
                         distance, monster->entity->nav.GetPosition().x,
                         monster->entity->nav.GetPosition().z);
@@ -114,7 +114,7 @@ void Trace(GameHarness& game, int location_id, int frames)
         std::printf("  t%lu %d (%.0f %.0f) action=%d active=%d complete=%d stopped=%d halted=%d "
                     "flags=%x progress=%g/%g speed=%g status=%d actor=%d cycle=%d frame=%d/%d "
                     "end=%d\n",
-                    game.frames(), location_id, at.x, at.z, int(monster->action_kind),
+                    game.frames(), location_id, at.x, at.z, int(monster->action.kind),
                     monster->pCombat ? int(monster->pCombat->active) : -1,
                     int(body.nav.movement_complete), int(body.nav.movement_stopped),
                     int(body.nav.halted), unsigned(body.nav.flags),

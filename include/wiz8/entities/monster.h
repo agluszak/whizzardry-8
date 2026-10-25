@@ -15,6 +15,7 @@
 
 struct KeyframeTrack;
 struct World;
+struct W8MonsterRecord;
 
 #include <memory>
 #include <string>
@@ -30,7 +31,6 @@ struct World;
 
 struct Animation;
 struct LevelLoadContext;
-struct WorldItemEntity;
 class Mesh;
 class MeshInstance;
 class Light;
@@ -66,11 +66,10 @@ extern float g_monster_light_scale;
    GrCycle copies the same 0x10 bytes onto a model instance at +0x164. */
 
 /* One spell/condition icon attached to a monster: the icon id and the
-   billboard item it owns (retail "psrBMO"). Removing an icon detaches the
-   billboard from the scene before it is destroyed. */
+   billboard mesh it owns. Mesh lifetime owns scene attachment. */
 struct W8MonsterSpellIcon {
     W8MonsterSpellIconId icon;
-    std::unique_ptr<WorldItemEntity> item;
+    std::unique_ptr<MeshInstance> mesh;
 };
 
 /* The constructor at 0x004BEA20 initializes through 0x624; the observed
@@ -88,17 +87,21 @@ public:
     std::string asset_name;
     typedef void (*CycleCallback)(Monster* monster);
 
-    explicit Monster(World& owner);
+    explicit Monster(World& owner, const W8MonsterRecord* species = nullptr);
     /* A new monster of a species: its own copies of the definition's animations,
        lights, emitters and light, a registered navigator, and appearance still
        to be rolled. */
-    Monster(const MonsterDefinition& definition, World& owner);
+    Monster(const MonsterDefinition& definition, World& owner,
+            const W8MonsterRecord* species = nullptr);
+    const W8MonsterRecord& species() const;
     void TickAnimation(float scale);
     bool ApplyPendingCycle();
     void SetCyclePosition(glm::vec3* position);
     Monster(const Monster&) = delete;
     Monster& operator=(const Monster&) = delete;
     ~Monster();
+    // Stop exposing this runtime to the world, without reclaiming in-flight storage.
+    void retire();
 
     bool CanEnterCycle(signed char cycle);
     void UpdateRepresentation();
@@ -115,6 +118,10 @@ public:
     void GetMappedPosition(glm::vec3* position);
     std::optional<glm::vec3> GetAnimationCenter();
     void SetPosition(const glm::vec3* position);
+    void setPartyMarker(int slot, std::optional<int> colour);
+    void addSpellIcon(W8MonsterSpellIconId icon);
+    void removeSpellIcon(W8MonsterSpellIconId icon);
+    void clearSpellIcons();
 
     // Representation state that used to live in a separate Monster.
     unsigned int ApplyEmitterSetting(signed char cycle); /* 0x004BF970 */
@@ -143,11 +150,6 @@ public:
     /* 0x5bc: per-party-member highlight bitmask - bit N set while party
        member N has the monster highlighted/targeted. */
     std::string name;
-    /* 0x5c4: number of populated party-icon entries in objects; the
-       attachment layout read by UpdateAttachedObjects. */
-    int icon_count = 0;
-    std::unique_ptr<WorldItemEntity> objects[8];
-    std::vector<W8MonsterSpellIcon> spell_icons;
     float standing_height = 0.0f;
     float scale = 1.0f;
     float minimum_scale = 0.0f;
@@ -166,15 +168,13 @@ public:
        at all, relying on `this` already being there. The query selector is
        bounded at nine by the body's own `ja` against the jump table. */
     int Query(W8MonsterQueryKind query);         /* 0x004C4660 */
-    // Monster operations that were free Monster* wrappers around this object.
-    static std::unique_ptr<Monster> ReadAllCycles(World* world, std::string_view monster_name,
-                                                  int location_id);
     std::optional<BoundingBox> GetWorldAnimationBounds();
+    bool targetMarkerVisible();
     glm::vec3 GetRepresentationLocation() const;
     glm::vec3 GetRepresentationLocalLocation() const;
     void SetFacing(float angle);
-    void GetScaleRange(float* minimum, float* maximum);
     void SetAdjustedPosition(const glm::vec3* position);
+    void SetAdjustedPosition(const glm::vec3* position, float gravity);
     unsigned short ApproachStartupNavigator(double separation);
     unsigned char LinkToStartupNavigator();
     unsigned short ConfigureMovementToPlayer(float separation, float maximum_distance,
@@ -219,8 +219,8 @@ public:
     void SetCycleCallback(int cycle, CycleCallback callback);
     bool GetPatrolPoint(glm::vec3* point);
     void TrackSound(wiz8::sound::Playback playback);
-    float GetDistanceToPlayer();
-    float GetPointDistanceToPlayer(glm::vec3 point);
+    float GetDistanceToPlayer() const;
+    float GetPointDistanceToPlayer(glm::vec3 point) const;
     float GetDistanceToMonster(const Monster& monster);
     float GetPointDistanceToMonster(Monster* monster, glm::vec3 point);
     bool SetScript(std::string script_name, bool reset_orders);
@@ -262,8 +262,8 @@ public:
     /* 0x1fd: the StartTalking argument; mouth texture animation only runs
        while it is set. */
     bool animate_mouth;
-    /* The world-clock stamp (`GameClockMilliseconds`) of the last frame of the random
-       mouth flicker used while the gap track reports the mouth closed, and that frame. */
+    /* The owning game's millisecond stamp of the last random mouth-flicker frame
+       while the gap track reports the mouth closed, and that frame. */
     std::uint32_t mouth_frame_clock;
     int mouth_frame;
     // When the current talk cycle began, on the world clock.
@@ -332,6 +332,13 @@ public:
     bool hostility_preserved;
     std::unique_ptr<Sound3D> sound;
     std::vector<wiz8::sound::Playback> sounds;
+
+private:
+    std::unique_ptr<MeshInstance> createIcon(std::string_view path);
+    std::array<std::unique_ptr<MeshInstance>, 8> party_markers_;
+    std::vector<W8MonsterSpellIcon> spell_icons_;
+    // Immutable gameplay definition outlives this body. Cursor-only bodies have none.
+    const W8MonsterRecord* const species_definition_;
 };
 
 /* What a species' MLS and .mon files author, loaded once per world: the
@@ -399,8 +406,6 @@ unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction
 
 std::unique_ptr<Monster> LoadMonsterCycle(World* world, std::string_view mon_name, int cycle);
 
-void UpdateNearestMonsterGroupMembers();
-
 /* Secondary vftable 0x005ed218 keeps the Navigator subobject at +0x18. */
 
 // Owned by a particle while it temporarily controls the monster animation.
@@ -412,9 +417,6 @@ struct W8MonsterShakeCallback {
     W8AnimationFrameMethod saved_frame_method{};
 };
 
-void SetMonsterPartySlotMarker(int party_slot, int location_id, signed char on);
-
-std::unique_ptr<WorldItemEntity> CreateMonsterIconItem(World& world, std::string_view path);
 /* A Monster script by name, shared through the script cache; null when missing. */
 std::shared_ptr<Script> LoadMonsterScript(std::string_view name);
 /* One eight-byte row per animation cycle at 0x0060EA08. The parser at

@@ -57,6 +57,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
@@ -177,13 +178,10 @@ void SyncPartyPortraitVitalsBars(void)
    0x92-catalog animation when the character's hit points are gone, a forced
    portrait refresh defers the frame to -1, and a still-playing effect icon
    defers it likewise. */
-void RecordCharacterDamage(int party_slot, unsigned int amount)
+void PresentCharacterDamage(int party_slot, unsigned int amount, bool fatal)
 {
     bool splat_started = false;
 
-    if (CurrentGame().surprise_possible) {
-        return;
-    }
     W8MonsterManagerEntry* entry = &CurrentGame().monster_manager_entries[party_slot];
     if (!entry->damage_splat_active) {
         entry->damage_splat_amount = amount;
@@ -193,7 +191,7 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
         } else {
             entry->damage_splat_catalog = 0x91;
         }
-        if (CurrentGame().party.characters[party_slot].hp_current == 0) {
+        if (fatal) {
             entry->damage_splat_death_variant = true;
             entry->damage_splat_end_frame = 0x1e;
         } else {
@@ -211,8 +209,7 @@ void RecordCharacterDamage(int party_slot, unsigned int amount)
     } else {
         entry->damage_splat_amount += amount;
         entry->damage_splat_frame = 0;
-        if (CurrentGame().party.characters[party_slot].hp_current == 0 &&
-            !entry->damage_splat_death_variant) {
+        if (fatal && !entry->damage_splat_death_variant) {
             entry->damage_splat_death_variant = true;
             entry->damage_splat_end_frame = 0x1e;
         }
@@ -392,7 +389,7 @@ void MainGameScreen::paintCombatPortraits(std::bitset<8> slots) const
         const W8PartySlotRow* party_row = &game.party.rows[slot];
         const W8CombatCharacterRow* combat_row = &game.combat->characters[slot];
 
-        if (!slots.test(slot) || !CanPartySlotParticipate(slot) ||
+        if (!slots.test(slot) || !CurrentGame().party.participates(slot) ||
             combat_row->portrait_image == -1 || slot == hud->combat_slot) {
             continue;
         }
@@ -416,8 +413,8 @@ void MainGameScreen::paintCombatPortraits(std::bitset<8> slots) const
         }
         CatalogArtwork::Load(0x8a, 0).drawAndInvalidate(GetFrameBufferSurface(), portrait_image,
                                                         portrait_x, row_y + 0x44);
-        if (!CharacterCanSwitchTo(slot, SelectCombatAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
-                                  false)) {
+        if (!CurrentGame().canPerformAction(
+                slot, CurrentGame().party.action(slot, W8_TARGETING_CONTEXT_IN_COMBAT), false)) {
             CatalogArtwork::Load(0x8b, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, badge_x,
                                                             row_y + 0x37);
         } else if (party_row->committed.target.iType == W8_TARGET_KIND_CHARACTER) {

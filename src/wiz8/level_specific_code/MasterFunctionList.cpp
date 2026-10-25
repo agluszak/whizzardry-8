@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -10,6 +11,7 @@
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/sound3d.h"
+#include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/hostility.h"
@@ -19,7 +21,6 @@
 #include "wiz8/entities/cursor_nodes.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
@@ -53,11 +54,12 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
-#include "wiz8/screen.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/story.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
@@ -72,9 +74,9 @@ constexpr int kCursorNodeEffectEvent = 0x1b;
 constexpr int kSedexusMaleEvent = 0x2d;
 constexpr int kCursorNodeRelicEvent = 0x40;
 
-std::string LevelMessagePath()
+std::string LevelMessagePath(int level_id)
 {
-    const std::string_view folder = GetLevelFolderName(GetLoadedLevelID());
+    const std::string_view folder = GetLevelFolderName(level_id);
     return fmt::format("Data\\Messages\\{}.msg", folder.empty() ? "Test" : folder);
 }
 
@@ -91,7 +93,9 @@ void LevelScript::addMaster(Update update, Capture capture)
 
 void LevelScript::bindTrigger(std::string_view trigger, Callback callback)
 {
-    FindRequiredTriggerByName(trigger)->activation_callback = std::move(callback);
+    auto* target = FindTriggerInWorld(world(), trigger);
+    if (!target) throw std::runtime_error("missing level trigger " + std::string(trigger));
+    target->activation_callback = std::move(callback);
 }
 
 // Capture the batch size: callbacks may append work for the next frame.
@@ -124,18 +128,16 @@ W8SavedLocationState LevelScript::captureState() const
 W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, int hostility,
                               bool settle, bool use_alternate_name)
 {
-    W8MonsterGroup* group;
-    glm::vec3 position_copy;
-
     if (settle) {
         position->y = probeGround((*position)).position.y;
     }
-    position_copy = *position;
-    group = CreateGroup(monster_id, count, &position_copy, use_alternate_name, settle);
+    const auto spawn_position = *position;
+    auto* group =
+        CurrentGame().createMonsterGroup(monster_id, count, &spawn_position, use_alternate_name);
     if (group != 0) {
-        SetMonsterGroupHostility(group, static_cast<W8Disposition>(hostility), false);
+        CurrentGame().setGroupHostility(group, static_cast<W8Disposition>(hostility), false);
         GetMonsterGroupCentre(group, 0);
-        RefreshOutwardSightForAllMonsters();
+        CurrentGame().refreshOutwardSight();
     }
     return group;
 }
@@ -162,34 +164,39 @@ Sound3D* CreateAndPlaySoundNode(World& world, const char* sound_name, glm::vec3 
     return result;
 }
 
-bool DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, int argument)
+bool Game::partyCastingBlocked()
+{
+    if (!level.primary) return false;
+    const auto messages = level.primary->castingBlockMessagesAt(level.primary->party.eye());
+    if (messages.empty()) return false;
+    const auto path = LevelMessagePath(level.primary->level_id);
+    for (int id : messages) {
+        auto text = GetStringFromStringDatabase(path, id, nullptr, nullptr);
+        if (!text.empty()) events.push(CastingBlockedNotice{std::move(text)});
+    }
+    return true;
+}
+
+bool DispatchWorldCursorNodeCommand(int command)
 {
     World* world = GetWorld();
     if (world == nullptr || !world->script) return false;
-    return world->script->dispatchCursorNodeCommand(info, command, argument);
+    return world->script->dispatchCursorNodeCommand(command);
 }
 
 /* Command zero is the movement sweep: the tracked node's handler gets 2 (leave)
-   and each newly entered node's handler gets 1 (enter); commands 3, 4 and 8
-   deliver themselves to nodes of type 3, 2 and 7 respectively. */
-bool LevelScript::dispatchCursorNodeCommand(W8MonsterInfo* info, int command, int argument)
+   and each newly entered node's handler gets 1 (enter); commands 3 and 8
+   deliver themselves to nodes of type 3 and 7 respectively. */
+bool LevelScript::dispatchCursorNodeCommand(int command)
 {
     glm::vec3 position;
     W8WorldCursorNode* node;
     bool handled = false;
     bool result = false;
 
-    if (info == 0) {
-        position = cameraLocation();
-    } else {
-        position = info->entity->nav.GetPosition();
-    }
+    position = cameraLocation();
     position.y = probeGround(position).position.y + 125.0f;
     node = FindWorldCursorNodeAtPoint(0, &position);
-    // Only command 4 reads its argument.
-    if (command != 4) {
-        argument = 0;
-    }
     if (node == 0) {
         return handled;
     }
@@ -197,26 +204,21 @@ bool LevelScript::dispatchCursorNodeCommand(W8MonsterInfo* info, int command, in
         switch (command) {
         case 0:
             if (active_cursor_node_ != 0 && active_cursor_node_ != node) {
-                result = runCursorNodeHandler(2, active_cursor_node_, argument);
+                result = runCursorNodeHandler(2, active_cursor_node_);
             }
             if (active_cursor_node_ != node) {
-                result = runCursorNodeHandler(1, node, argument);
+                result = runCursorNodeHandler(1, node);
             }
             active_cursor_node_ = node;
             break;
-        case 4:
-            if (node->parameters[2] == 2) {
-                result = runCursorNodeHandler(4, node, argument);
-            }
-            break;
         case 8:
             if (node->parameters[2] == 7) {
-                result = runCursorNodeHandler(8, node, argument);
+                result = runCursorNodeHandler(8, node);
             }
             break;
         case 3:
             if (node->parameters[2] == 3) {
-                result = runCursorNodeHandler(3, node, argument);
+                result = runCursorNodeHandler(3, node);
             }
             break;
         default:
@@ -232,27 +234,25 @@ bool LevelScript::dispatchCursorNodeCommand(W8MonsterInfo* info, int command, in
 }
 
 /* The cursor-node handlers, by the node's type parameter (numbers[2]). */
-bool LevelScript::runCursorNodeHandler(int command, W8WorldCursorNode* node, int argument)
+bool LevelScript::runCursorNodeHandler(int command, W8WorldCursorNode* node)
 {
     switch (node->parameters[2]) {
     case 0:
     case 1:
         return showMessageOnce(command, node);
-    case 2:
-        return showContextMessage(command, node, argument);
     case 3:
         return showMessage(command, node);
     case 4:
         // Entering applies the node's item effect to a random party member.
         if (command == 1) {
-            ApplyItemEffectToRandomCharacter(kCursorNodeEffectEvent, -1, 0);
+            ctx.game.speech.QueueRandom(kCursorNodeEffectEvent, -1, 0);
         }
         return true;
     case 5:
         return seenBodies(command);
     case 6:
         if (command == 1) {
-            ApplyItemEffectToRandomCharacter(kCursorNodeRelicEvent, -1, 0);
+            ctx.game.speech.QueueRandom(kCursorNodeRelicEvent, -1, 0);
         }
         return true;
     case 7:
@@ -300,26 +300,10 @@ bool LevelScript::showMessageOnce(int command, W8WorldCursorNode* node)
         return false;
     }
     *shown = std::byte{1};
-    const std::string text = GetStringFromStringDatabase(LevelMessagePath(), message_id, 0, 0);
+    const std::string text =
+        GetStringFromStringDatabase(LevelMessagePath(world().level_id), message_id, 0, 0);
     if (!text.empty()) {
-        ShowString(text);
-    }
-    return true;
-}
-
-/* Type-2 nodes: command 4 with a nonzero argument shows the node's message
-   while the main game screen is up. */
-bool LevelScript::showContextMessage(int command, W8WorldCursorNode* node, int argument)
-{
-    if (command != 4) {
-        return false;
-    }
-    if (static_cast<unsigned char>(argument) != 0) {
-        const std::string text =
-            GetStringFromStringDatabase(LevelMessagePath(), node->parameters[0], 0, 0);
-        if (!text.empty() && CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
-            ShowString(text);
-        }
+        ctx.game.queueWorldMessage(text);
     }
     return true;
 }
@@ -331,9 +315,9 @@ bool LevelScript::showMessage(int command, W8WorldCursorNode* node)
         return false;
     }
     const std::string text =
-        GetStringFromStringDatabase(LevelMessagePath(), node->parameters[0], 0, 0);
+        GetStringFromStringDatabase(LevelMessagePath(world().level_id), node->parameters[0], 0, 0);
     if (!text.empty()) {
-        ShowString(text);
+        ctx.game.queueWorldMessage(text);
     }
     return true;
 }
@@ -360,15 +344,16 @@ bool LevelScript::seenBodies(int command)
     if (command == 1) {
         if (GetLocationVarIDByName("AP_SeenBodies") == -1) {
             if (CountAscensionPeakItems(ctx.inventory) == 3) {
-                if (GetFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
-                    GetFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
-                    ApplyItemEffectToRandomCharacter(kCursorNodeRelicEvent, -1, 0);
-                    CreateLocationVar("AP_SeenBodies", 1);
-                    if (GetFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
-                        SetFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0, false);
+                if (ctx.game.testFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
+                    ctx.game.testFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
+                    ctx.game.speech.QueueRandom(kCursorNodeRelicEvent, -1, 0);
+                    CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_SeenBodies",
+                                                               1);
+                    if (ctx.game.testFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
+                        ctx.game.setFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0);
                     }
-                    if (GetFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
-                        SetFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0, false);
+                    if (ctx.game.testFact(W8_FACT_QUEST_PEACE_GOTO_AP) != 0) {
+                        ctx.game.setFact(W8_FACT_QUEST_PEACE_GOTO_AP, 0);
                     }
                 }
             }
@@ -401,27 +386,14 @@ bool LevelScript::partyVoice(int command, W8WorldCursorNode* node)
 
 /* Master-function values 0x10 and 0x26 select the same path once either of
    the two enabling facts has been set. */
-int NormalizeMasterFunctionValue(int value)
-{
-    if (value == 0x10 || value == 0x26) {
-        if (GetFact(W8_FACT_RAPAX_AWAY_CAMP_EXISTS) == 0 && GetFact(W8_FACT_PARTY_AT_RAC) == 0) {
-            return 0x26;
-        }
-        value = 0x10;
-    }
-    return value;
-}
 
 /* Format the current level's message-database path, fetch the indexed string
-   and show it. Answers whether the string existed. */
-bool ShowLevelMessage(int message_id)
+   and queue it when present. */
+void Game::queueLevelMessage(int message_id)
 {
-    const std::string text = GetStringFromStringDatabase(LevelMessagePath(), message_id, 0, 0);
-    if (!text.empty()) {
-        ShowString(text);
-        return true;
-    }
-    return false;
+    const std::string text = GetStringFromStringDatabase(
+        LevelMessagePath(level.primary ? level.primary->level_id : -1), message_id, 0, 0);
+    if (!text.empty()) queueWorldMessage(text);
 }
 
 std::unique_ptr<LevelScript> MakeLevelScript(int level, const ScriptContext& context)

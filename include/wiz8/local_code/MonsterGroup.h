@@ -4,7 +4,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
-#include <string>
 #include <vector>
 
 #include "glm/ext/vector_float3.hpp"
@@ -17,8 +16,6 @@ struct W8MonsterGroup;
 struct W8MonsterInfo;
 
 /* The dispositions a group or member carries. */
-
-bool DestroyMonsterGroup(W8MonsterGroup* monster_group, W8MonsterInfo* monster_info);
 
 /* A live monster group. Saves store it as wiz8::retail::MonsterGroup. */
 struct W8MonsterGroup {
@@ -106,7 +103,6 @@ struct W8MonsterGroup {
 };
 
 W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure = true);
-bool GetMonsterGroupEngagementState(int group_id);
 bool ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group, const glm::vec3* position,
                                bool follow_leader);
 /* Whether the group is loaded, in combat, and still has members; hostile
@@ -123,9 +119,6 @@ bool MonsterGroupHasRenderableMember(W8MonsterGroup* monster_group, bool require
    allied groups; while the byte is set, each call ticks the counter beside
    it. The record kinds the special encounter ids carry ignore a set. */
 void SetMonsterGroupEngagementState(int group_id, bool state);
-bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position, float yaw,
-                                bool proximity_check, bool include_allies, bool flatten_y,
-                                bool alternate_radius);
 /* Place a monster group relative to the party camera: with flag clear the
    group moves straight to the camera position, and with flag set it picks a
    point at the requested distance on a random angle around the camera yaw,
@@ -135,21 +128,12 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
 /* Refresh the group's cached centre; a null centre out-pointer
    keeps only the cache update, which is how SpawnMonsters uses it. */
 void GetMonsterGroupCentre(W8MonsterGroup* monster_group, glm::vec3* centre);
-W8MonsterGroup* FindFirstMonsterByID(int monster_id);
-W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* previous);
-bool GiveBirthToMonster(W8MonsterGroup* monster_group);
-W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const glm::vec3* position,
-                            bool use_alternate_name, bool place_on_ground);
 
 void ResetMonsterGroupTurnState(void);
-void RebindMonsterGroupScripts(void);
 
 void DespawnMonsterGroup(W8MonsterGroup* monster_group);
-std::string GetMonsterGroupName(W8MonsterGroup* monster_group);
-void RefreshMonsterGroupAndAllies(W8MonsterGroup* monster_group);
 
 const W8MonsterRecord* MonsterGroupGetRecord(W8MonsterGroup* group);
-void RefreshMonsterGroup(W8MonsterGroup* monster_group);
 void DetachMonsterGroup(W8MonsterGroup* monster_group);
 
 bool RemoveAllGroupMembers(W8MonsterGroup* monster_group);
@@ -158,21 +142,14 @@ bool RemoveAllGroupMembers(W8MonsterGroup* monster_group);
    activates; NULL on failure. */
 W8MonsterGroup* ReplaceMonsterGroupSpecies(W8MonsterGroup* group, unsigned int monster_id);
 void SetMonsterGroupNavigatorDirty(W8MonsterGroup* monster_group, bool flag);
-bool MonsterGroupAllMembersDying(W8MonsterGroup* monster_group);
-void LoadMonsterGroupMembers(W8MonsterGroup* monster_group);
 /* Out-of-combat refresh: proximity hostility for unaligned neutrals, then
    default disposition on the intelligence-squared cooldown. */
 void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group);
 void MonsterGroupEnterCombat(W8MonsterGroup* monster_group);
-/* Re-elect the group's leader member: the live member carrying the highest
-   navigator leadership_rank takes over leader_location_id, else the first member does, and
-   the outgoing leader's script and heard-noise state move across. */
-void ElectGroupLeaderMember(W8MonsterGroup* monster_group);
 /* Re-elect the allied leader group when this group's leader falls: the allied
    group whose members hold the highest navigator leadership_rank leads the rest,
    and the fallen leader's script and heard-noise state carry to the new
    leader's MonsterInfo. */
-void ElectAlliedLeaderGroup(W8MonsterGroup* monster_group, W8MonsterInfo* leader_info);
 /* Marks every live member of the group and of its allied groups for removal. */
 void MarkMonsterGroupForRemoval(int group_id);
 /* Write the control state onto every live member of the group. */
@@ -184,9 +161,6 @@ bool MonsterGroupHasIncapacitatedMember(int group_id);
 /* Retire a group and its allies from the encounter budget,
    following the leader chain first. */
 void RetireMonsterGroupAndAllies(W8MonsterGroup* monster_group);
-bool LinkMonsterGroupToLeader(W8MonsterGroup* leader, W8MonsterGroup* group);
-
-void MonsterGroupLeaveCombat(W8MonsterGroup* monster_group);
 
 void SetMonsterGroupFormation(W8MonsterGroup* monster_group, const glm::vec3* formation);
 

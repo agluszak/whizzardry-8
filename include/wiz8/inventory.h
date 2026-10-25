@@ -3,11 +3,14 @@
 #include <cstddef>
 #include <expected>
 #include <functional>
+#include <initializer_list>
 #include <optional>
 #include <span>
 #include <vector>
 
+#include "glm/ext/vector_float2.hpp"
 #include "wiz8/rules/equipment_slots.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/inventory.h" // IWYU pragma: export - the item rules operations use.
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
@@ -93,12 +96,14 @@ public:
        in its first free backpack slot. A character outside the party is brought up to date
        on its own. */
     bool storeWithCharacter(ItemRecipient recipient, W8ItemInstance& item, bool equip,
-                            bool announce, bool stack = true);
+                            bool announce, bool stack = true,
+                            ItemReactions reactions = ItemReactions::Normal);
     // Merged into the pool's stacks in order, and the rest added at the front of the pool.
-    bool storeInPool(W8ItemInstance& item, bool announce, bool stack = true);
+    bool storeInPool(W8ItemInstance& item, bool announce, bool stack = true,
+                     ItemReactions reactions = ItemReactions::Normal);
     // The character and the pool in the order asked for.
     bool store(ItemRecipient recipient, W8ItemInstance& item, StoreOrder order, bool announce,
-               bool equip);
+               bool equip, ItemReactions reactions = ItemReactions::Normal);
     // The pool, else the party's feet, else an empty hand.
     bool storeOrDrop(W8ItemInstance& item, bool announce);
     // The held item with a member: merged into its stacks or put in a free backpack slot.
@@ -116,7 +121,7 @@ public:
        announced, iconless or worn by the dead. */
     void stashDeparting(unsigned int party_slot);
     // Empty a character outside the party of everything it carries.
-    void emptyCharacter(W8Character& outsider);
+    void emptyCharacter(W8Character& outsider, ItemReactions reactions = ItemReactions::Normal);
     // Give or raise the class item the character's current profession level earns.
     void upgradeClassItem(ItemRecipient recipient);
 
@@ -141,7 +146,8 @@ public:
     // Put an item into an empty hand; false (keeping the item) when the hand is full.
     bool hold(W8ItemInstance& item);
     // Drop the held item at the party's feet unless it may not be discarded.
-    std::expected<void, InventoryRefusal> dropHeld();
+    // False means geometry refused the drop; the hand keeps its item.
+    std::expected<bool, InventoryRefusal> dropHeld(const glm::vec2& cursor);
 
     // ---- The player's moves
 
@@ -160,9 +166,11 @@ public:
        stays held. */
     unsigned int mergeHeld(W8ItemLocation location);
     /* Put the held item into the pool at a row: merged into that row, then into every other
-       stack, and the rest inserted at the row when asked. Returns whether the hand emptied;
-       a full pool keeps the rest held. */
-    bool depositHeld(unsigned int row, bool insert_rest);
+       stack, and the rest inserted at the row when asked. A full pool keeps the rest held;
+       partial progress is distinct from refusal. */
+    enum class Deposit { Refused, Partial, Complete };
+    Deposit depositHeld(unsigned int row, bool insert_rest);
+    Deposit depositHeld(unsigned int row, bool insert_rest, std::vector<Event>& outcomes);
     /* Combine the held item with another: a recipe makes a new item and practises its
        skill; two stacks of one item merge. Returns whether anything changed. */
     std::expected<bool, InventoryRefusal> combineHeld(unsigned int actor, W8ItemLocation target);
@@ -178,7 +186,10 @@ public:
 
     // Bind the active hands' items, announcing a binding that takes hold.
     void bindHands(unsigned int party_slot);
+    void bindHands(unsigned int party_slot, std::vector<Event>& outcomes);
     void commitWeaponSwap(unsigned int party_slot, W8WeaponSwap choice);
+    void commitWeaponSwap(unsigned int party_slot, W8WeaponSwap choice,
+                          std::vector<Event>& outcomes);
     /* Swap a member's weapon sets now, when they can: the hands bind first, and when
        announcing, the notice says why they cannot. */
     bool swapWeaponSets(unsigned int party_slot, bool announce);
@@ -189,7 +200,7 @@ public:
     bool consumeAttackItems(unsigned int actor, unsigned int hand, W8EquipSlot used,
                             W8EquipSlot paired);
     // Equip the primary weapon's off-hand partner and refill its shots before attacking.
-    void readyPrimaryWeapon(unsigned int party_slot);
+    void readyPrimaryWeapon(unsigned int party_slot, std::vector<Event>& outcomes);
 
     // Use one item as a member's action; a use whose item has moved does nothing.
     W8ItemUseResult use(unsigned int actor, const W8ItemUse& use);
@@ -197,7 +208,8 @@ public:
     /* Part of settling the party: equipment a member can no longer use comes off and is
        stored like a received item; what nothing takes stays equipped. Returns whether a
        weapon hand changed. */
-    bool unequipUnusable(unsigned int party_slot);
+    bool unequipUnusable(unsigned int party_slot, ItemReactions reactions,
+                         std::vector<Event>& outcomes);
 
     // ---- Saves
 
@@ -224,15 +236,23 @@ private:
     std::optional<Placement> placeInPool(W8ItemInstance& item, bool announce, bool stack);
     std::optional<Placement> placeEither(ItemRecipient recipient, W8ItemInstance& item,
                                          StoreOrder order, bool announce, bool equip);
-    void acquire(const std::optional<Placement>& placement);
+    void acquire(const std::optional<Placement>& placement,
+                 ItemReactions reactions = ItemReactions::Normal);
+    void acquire(const std::optional<Placement>& placement, ItemReactions reactions,
+                 std::vector<Event>& outcomes);
     bool dropUnstored(W8ItemInstance& item, W8ItemLocation origin = {}, int actor = -1);
     bool stowPartner(unsigned int actor, W8EquipSlot slot);
     void supersedeQueuedSwap(W8ItemLocation location);
 
     void bind(unsigned int party_slot, W8EquipSlot equip_slot);
+    void bind(unsigned int party_slot, W8EquipSlot equip_slot, std::vector<Event>& outcomes);
     W8ItemLocation equipPartner(unsigned int party_slot, const W8ItemInstance& item, int item_id,
                                 W8EquipSlot equip_slot);
+    W8ItemLocation equipPartner(unsigned int party_slot, const W8ItemInstance& item, int item_id,
+                                W8EquipSlot equip_slot, std::vector<Event>& outcomes);
     W8ItemLocation mergePartnerUses(unsigned int party_slot, W8ItemInstance& item);
+    W8ItemLocation mergePartnerUses(unsigned int party_slot, W8ItemInstance& item,
+                                    std::vector<Event>& outcomes);
     void splitThrowableStack(unsigned int party_slot, W8EquipSlot equip_slot);
     bool pourUses(W8ItemInstance& into, W8ItemLocation from);
     struct UseOutcome {
@@ -242,8 +262,31 @@ private:
     UseOutcome useOnce(unsigned int party_slot, W8ItemLocation location);
 
     // What every operation owes after changing items.
-    void settle(std::span<const W8ItemLocation> changed);
-    void settleOutsider(const ItemRecipient& recipient, std::span<const W8ItemLocation> changed);
+    void settle(std::span<const W8ItemLocation> changed,
+                ItemReactions reactions = ItemReactions::Normal);
+    void settle(std::span<const W8ItemLocation> changed, ItemReactions reactions,
+                std::vector<Event>& outcomes);
+    void settle(std::initializer_list<W8ItemLocation> changed, ItemReactions reactions,
+                std::vector<Event>& outcomes)
+    {
+        settle(std::span<const W8ItemLocation>(changed.begin(), changed.size()), reactions,
+               outcomes);
+    }
+    // A short fixed list, which lives through the call.
+    void settle(std::initializer_list<W8ItemLocation> changed,
+                ItemReactions reactions = ItemReactions::Normal)
+    {
+        settle(std::span<const W8ItemLocation>(changed.begin(), changed.size()), reactions);
+    }
+    void settleOutsider(const ItemRecipient& recipient, std::span<const W8ItemLocation> changed,
+                        ItemReactions reactions = ItemReactions::Normal);
+    void settleOutsider(const ItemRecipient& recipient,
+                        std::initializer_list<W8ItemLocation> changed,
+                        ItemReactions reactions = ItemReactions::Normal)
+    {
+        settleOutsider(recipient, std::span<const W8ItemLocation>(changed.begin(), changed.size()),
+                       reactions);
+    }
 
     Game& game_;
     std::vector<W8ItemInstance> pool_;

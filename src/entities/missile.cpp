@@ -37,7 +37,6 @@
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Magic.h"
@@ -100,7 +99,7 @@ bool UpdateMissileAI(MissileFlight* record)
         return true;
     }
     position = missile->nav.GetPosition();
-    count = GameClockMilliseconds() >> 1;
+    count = missile->owner_world.clocks.gameMilliseconds() >> 1;
     delta = count - record->last_half_tick;
     if (delta > 0xfa) {
         delta = 0xfa;
@@ -326,7 +325,6 @@ Missile* AllocateMissile(int missile_table_index)
    a script the name itself is loaded as the cycle. */
 static std::unique_ptr<MissileDefinition> LoadMissileDefinition(std::string_view name)
 {
-    PauseSharedGameTimers();
     auto output = std::make_unique<MissileDefinition>();
     const auto read_cycle = [&](LevelLoadContext& read_info, int cycle) {
         return ReadEmitterCycle(output->resources.cycles, read_info, cycle);
@@ -344,7 +342,6 @@ static std::unique_ptr<MissileDefinition> LoadMissileDefinition(std::string_view
         if (success) {
             output->asset_name = name;
         }
-        ResumeSharedGameTimers();
         return success ? std::move(output) : nullptr;
     }
     bool gravity = false, align_camera = false, explode_ground = false, align_explosion = false;
@@ -428,18 +425,15 @@ static std::unique_ptr<MissileDefinition> LoadMissileDefinition(std::string_view
     output->align_explosion = align_explosion;
     output->lifetime = velocity * kWorldScale;
     output->asset_name = name;
-    ResumeSharedGameTimers();
     return success ? std::move(output) : nullptr;
 }
 
 /* A new missile of the named kind, created from the kind's definition. The
    definition is loaded on first use and kept for the world's lifetime, so a
    missile never inherits another one's flight.
-   Every request takes one legacy prop save id, as retail's did whether it
-   loaded, cloned or failed. */
+*/
 std::unique_ptr<Missile> LoadMissileCycle(World* world, std::string_view name)
 {
-    AllocateLegacyPropSaveId();
     auto& definitions = world->missile_definitions;
     auto definition = std::ranges::find_if(definitions, [&](const auto& candidate) {
         return CompareTextIgnoreAsciiCase(candidate->asset_name, name) == 0;
@@ -510,7 +504,7 @@ Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, floa
         ai->speed_per_step = flight_speed * 0.001f;
         ai->gravity = missile->gravity;
         ai->limit = limit;
-        ai->last_half_tick = GameClockMilliseconds() >> 1;
+        ai->last_half_tick = missile->owner_world.clocks.gameMilliseconds() >> 1;
         ai->missile = missile;
         ai->fall_speed = static_cast<float>(sin(-pitch) * flight_speed * 0.001f);
         ai->limit = limit;
@@ -601,7 +595,7 @@ std::uint32_t Missile::GetAnimationState(W8MissileAnimationStateQuery query)
 Missile::~Missile()
 {
     visual.SetLights(0);
-    DetachMissileReferences(this);
+    owner_world.detachMissile(*this);
 }
 
 /* Start or advance the missile while its launcher is live.
@@ -619,7 +613,8 @@ void Missile::StartIfHostActive()
         if (flight_ai) {
             UpdateMissileAI(&*flight_ai);
         } else if (visual.m_pAI.has_value()) {
-            PathAIUpdate((visual.m_pAI ? &*visual.m_pAI : nullptr), 1);
+            PathAIUpdate((visual.m_pAI ? &*visual.m_pAI : nullptr), 1,
+                         owner_world.clocks.worldMilliseconds());
         }
         TickAnimation(1.0f);
     } else {
@@ -725,7 +720,7 @@ void Missile::AnnounceCollisionTarget()
     target_start = text.size();
     if (combat_slot.iType == W8_TARGET_KIND_MONSTER) {
         W8MonsterInfo* monster_info = owner_world.population->findMonster(combat_slot.iMonsterID);
-        text += GetMonsterName(monster_info, 0, 0);
+        text += CurrentGame().monsterName(*monster_info);
     } else {
         text += CurrentGame().party.characters[combat_slot.iChar].name;
     }

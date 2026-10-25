@@ -10,7 +10,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
-#include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/save_game.h"
@@ -36,23 +36,23 @@ public:
 
 void CampScript::enter()
 {
-    if (GetFact(W8_FACT_PARTY_AT_RAC) == 0) {
+    if (ctx.game.testFact(W8_FACT_PARTY_AT_RAC) == 0) {
         LoadAwayCampChest(world());
-        SetFact(W8_FACT_PARTY_AT_RAC, 0, false);
+        ctx.game.setFact(W8_FACT_PARTY_AT_RAC, 0);
     }
     // "prisondoor06": clear fact 0x1e9.
-    bindTrigger("prisondoor06", [](Trigger*) {
-        SetFact(W8_FACT_RAPAX_QUEEN_LOCKED_UP, 0, false);
+    bindTrigger("prisondoor06", [this](Trigger*) {
+        ctx.game.setFact(W8_FACT_RAPAX_QUEEN_LOCKED_UP, 0);
         return true;
     });
     // "prisondoor04": clear fact 0x7d.
-    bindTrigger("prisondoor04", [](Trigger*) {
-        SetFact(W8_FACT_RODAN_LOCKED_IN_CAGE, 0, false);
+    bindTrigger("prisondoor04", [this](Trigger*) {
+        ctx.game.setFact(W8_FACT_RODAN_LOCKED_IN_CAGE, 0);
         return true;
     });
     // "prisondoor03": clear fact 0x3e.
-    bindTrigger("prisondoor03", [](Trigger*) {
-        SetFact(W8_FACT_DRAZIC_LOCKED_IN_CAGE, 0, false);
+    bindTrigger("prisondoor03", [this](Trigger*) {
+        ctx.game.setFact(W8_FACT_DRAZIC_LOCKED_IN_CAGE, 0);
         return true;
     });
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <functional>
 #include <string>
 #include <variant>
@@ -78,11 +79,20 @@ struct TextBoxModeChange {
     int value = -1;
 };
 
-/* A member says one of their lines (a character event type), as a voice and a portrait
-   quote. */
-struct CharacterSpeech {
+// Playback/portrait state has changed; widgets and subtitles present the settled transition.
+struct PortraitSpeechChanged {
+    unsigned int party_slot;
+    bool active;
+    unsigned int event_type;
+    std::string quote;
+    bool show_quote;
+};
+
+// A completed hit's presentation, including the variant selected at the hit milestone.
+struct CharacterDamaged {
     unsigned int party_slot = 0;
-    int event_type = 0;
+    unsigned int amount = 0;
+    bool fatal = false;
 };
 
 // A member died.
@@ -135,14 +145,35 @@ struct CombatProgressChanged {
 struct CombatStanceChanged {};
 // The monsters about the party, their groups or their dispositions changed.
 struct MonstersChanged {};
+// A group's loaded bodies and NPC bindings are ready for interaction.
+struct MonstersActivated {};
 // The party's spell effects changed, or a round passed them by.
 struct PartyEffectsChanged {};
 // The spell effects on the party in a fight changed.
 struct CombatEffectsChanged {};
 // What the world view's frame shows about the party changed: conditions, quotes.
 struct PartyPanelChanged {};
+// Accepted formation is settled; presentation derives the board, radar and camera from it.
+struct FormationChanged {};
+struct JournalEntryAdded {
+    std::string notice;
+};
+struct ActionChoiceChanged {
+    unsigned int slot;
+};
+struct ActionAimChanged {
+    unsigned int slot;
+};
 // A member joined or left; everything the party is shown in changes.
 struct PartyMembershipChanged {};
+// A casting restriction's message, shown through the main screen's portrait queue.
+struct CastingBlockedNotice {
+    std::string text;
+};
+// The outgoing world and its borrowed presentation targets have been released.
+struct LevelDeparted {
+    bool restore_cursor;
+};
 // An item left the world.
 struct WorldItemRemoved {
     int runtime_id = -1;
@@ -153,27 +184,34 @@ struct TargetingRequested {
 };
 
 using Event =
-    std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, CharacterSpeech,
+    std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, CharacterDamaged,
                  CharacterDied, PartySlotChanged, PartyLoadChanged, CombatPanelChanged,
                  CharacterActionChanged, EquipmentSettled, SkillImproved, WorldAdvancementChanged,
                  CombatantsMoved, CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
-                 CombatProgressChanged, CombatStanceChanged, MonstersChanged, PartyEffectsChanged,
-                 CombatEffectsChanged, PartyPanelChanged, PartyMembershipChanged, WorldItemRemoved,
-                 TargetingRequested>;
+                 CombatProgressChanged, CombatStanceChanged, MonstersChanged, MonstersActivated,
+                 PartyEffectsChanged, CombatEffectsChanged, PartyPanelChanged,
+                 PartyMembershipChanged, WorldItemRemoved, LevelDeparted, CastingBlockedNotice,
+                 TargetingRequested, FormationChanged, ActionAimChanged, ActionChoiceChanged,
+                 JournalEntryAdded, PortraitSpeechChanged>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its
    presentation interleaves with everything else the game does; without one, events
-   wait in order until an observer is installed. */
+   wait in order until an observer is installed. Migrated operations defer delivery
+   until their mandatory consequences finish, preserving the order of their outcomes. */
 class Events {
 public:
     using Observer = std::function<void(const Event&)>;
 
     void push(Event event);
-    // Install or clear the observer; an installed one first receives what is pending.
+    // Publish all outcomes of a completed command before delivering any of them.
+    void publish(std::vector<Event> outcomes);
+    // Install or clear the observer; installing one presents pending completed outcomes.
     void observe(Observer observer);
     const std::vector<Event>& pending() const { return pending_; }
 
 private:
+    void deliver();
+    bool delivering_ = false;
     Observer observer_;
     std::vector<Event> pending_;
 };

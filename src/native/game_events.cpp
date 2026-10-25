@@ -1,3 +1,4 @@
+#include <functional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -8,7 +9,6 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
-#include "wiz8/spatial/level_spatial_index.h"
 
 // GLOBAL: WIZ8 0x006f0630
 bool gfApplicationActive = false;
@@ -24,7 +24,7 @@ namespace {
 bool restore_pending = false;
 }
 
-void HandleGameEvent(const SDL_Event& event)
+void HandleGameEvent(const SDL_Event& event, std::function_ref<void(bool)> focus_changed)
 {
     if (event.type == SDL_EVENT_QUIT) {
         gfProgramIsRunning = false;
@@ -44,13 +44,13 @@ void HandleGameEvent(const SDL_Event& event)
     case SDL_EVENT_WINDOW_FOCUS_GAINED:
         if (restore_pending) {
             if (auto* screen = CurrentScreen()) screen->resetStepClock();
-            MoveTimer(W8_MOVE_TIMER_RESUME_MAIN_GAME);
+            focus_changed(true);
             restore_pending = false;
         }
         gfApplicationActive = true;
         break;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
-        if (!restore_pending) MoveTimer(W8_MOVE_TIMER_SUSPEND);
+        if (!restore_pending) focus_changed(false);
         gfApplicationActive = false;
         restore_pending = true;
         break;
@@ -62,16 +62,16 @@ void HandleGameEvent(const SDL_Event& event)
         break;
     }
 }
-bool PumpGameEvents(bool wait)
+bool PumpGameEvents(std::function_ref<void(bool)> focus_changed, bool wait)
 {
     SDL_Event event{};
     bool received = false;
     if (wait && SDL_WaitEventTimeout(&event, 10)) {
-        HandleGameEvent(event);
+        HandleGameEvent(event, focus_changed);
         received = true;
     }
     while (SDL_PollEvent(&event)) {
-        HandleGameEvent(event);
+        HandleGameEvent(event, focus_changed);
         received = true;
     }
     return received;

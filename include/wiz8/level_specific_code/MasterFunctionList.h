@@ -5,18 +5,13 @@
 // Worn or held by the party, this item ignores the Sea Caves' explicit slopes.
 inline constexpr int kSlopeOverrideItem = 0x254;
 
-struct W8MonsterInfo;
 struct W8MonsterGroup;
 struct World;
 class Sound3D;
 
-int NormalizeMasterFunctionValue(int value);
 /* Dispatch one world-cursor-node command through the loaded level's script
    (LevelScript::dispatchCursorNodeCommand); false while no level is loaded. */
-bool DispatchWorldCursorNodeCommand(W8MonsterInfo* info, int command, int argument = 0);
-/* Format the current level's message-database path, fetch the indexed string
-   and show it. Answers whether the string existed. */
-bool ShowLevelMessage(int message_id);
+bool DispatchWorldCursorNodeCommand(int command);
 
 W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, int hostility,
                               bool settle, bool use_alternate_name); /* 0x004D8F00 */

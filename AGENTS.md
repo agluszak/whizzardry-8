@@ -76,6 +76,12 @@ What does **not** count as progress:
 - **Design normal C++ APIs.** Return values instead of output parameters. Prefer
   clear types, small functions and standard algorithms to macros, casts, mutable
   globals, opaque flags and duplicated loops.
+- **Give each operation an owner.** An owner's method enforces that owner's invariant;
+  a named game-level operation sequences obligations across owners in a visible order;
+  a calculation over explicit values needs no receiver. A class that only holds
+  `Game&` and reaches through it does not establish a boundary, and a `Game` method
+  that forwards an already complete local operation earns nothing. Retain constructor
+  dependencies that define lifetime; pass changing inputs on the operation.
 - **One fact, one representation.** No parallel mutable copies, cached summaries,
   flags or collections that must be kept in sync. Derive cheap values when needed.
 - **New abstractions must pay for themselves.** A new class, wrapper, manager,

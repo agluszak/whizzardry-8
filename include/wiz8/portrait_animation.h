@@ -8,6 +8,12 @@ struct SpriteDraw;
 
 /* Animation state belongs to the portrait being shown, independently of party membership. */
 struct W8PortraitAnimation {
+    void setTargetPose(int requested, bool incapacitated)
+    {
+        blink_closing = false;
+        target_pose = incapacitated ? 2 : requested;
+    }
+
     int rendered_frame = -1;
     int frame = 6;
     // When the next mouth frame is due, on the clock its caller passes to AdvancePortraitSpeech.

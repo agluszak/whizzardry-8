@@ -23,17 +23,19 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/chunk.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/entities/locks.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/saved_world_sections.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
-#include "wiz8/loaded_game_data.h"
-#include "wiz8/location_variables.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/retail_geometry_types.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/save_game.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/story.h"
 #include "wiz8/world/world.h"
 
 // Sets or clears one flag bit from a retail integer or float condition.
@@ -503,7 +505,7 @@ W8DoorTriggerActionData ReadDoorTriggerActionData(wiz8::File* handle)
     return data;
 }
 
-Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
+Trigger* World::loadTrigger(wiz8::File& file, const GameData& data, Rng& rng, Story& story)
 {
     std::string recipient_text;
     /* Retail read these uninitialised when the FileRead chain short-circuited;
@@ -512,15 +514,15 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
     Trigger* trigger = nullptr;
     unsigned char record_version = 0;
     unsigned char record_type = 0;
-    assert(handle != 0);
-    handle->read_exact(&record_version, 1);
-    handle->read_exact(&record_type, 1);
+    file.read_exact(&record_version, 1);
+    file.read_exact(&record_type, 1);
     if (record_type < 1 || record_type > 4) throw std::runtime_error("invalid level trigger type");
     if (record_type != 3) {
-        owner = std::make_unique<Trigger>(world);
+        const auto seed = static_cast<unsigned int>(clocks.worldMilliseconds() + rng.below(30000));
+        owner = std::make_unique<Trigger>(this, seed);
         trigger = owner.get();
-        trigger->trigger_id = world->next_trigger_id++;
-        trigger->m_pWorld = world;
+        trigger->trigger_id = next_trigger_id++;
+        trigger->m_pWorld = this;
         trigger->flags = (trigger->flags & ~0x20U) | W8_TRIGGER_ON;
     }
 
@@ -541,19 +543,19 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         char recipients[0x100];
         char sound[0x80];
 
-        handle->read_exact(&version, 1);
-        handle->read_exact(&byte0, 4);
-        handle->read_exact(&byte1, 4);
-        handle->read_exact(&animate_states, 4);
-        handle->read_exact(&range, 4);
-        handle->read_exact(&action, 4);
-        handle->read_exact(&value_ac, 4);
-        handle->read_exact(&animate_action, 4);
-        handle->read_exact(&packed_flags, 1);
-        handle->read_exact(&enabled, 1);
-        ReadTriggerText(*handle, trigger->name);
-        ReadTriggerText(*handle, recipients);
-        ReadTriggerText(*handle, sound);
+        file.read_exact(&version, 1);
+        file.read_exact(&byte0, 4);
+        file.read_exact(&byte1, 4);
+        file.read_exact(&animate_states, 4);
+        file.read_exact(&range, 4);
+        file.read_exact(&action, 4);
+        file.read_exact(&value_ac, 4);
+        file.read_exact(&animate_action, 4);
+        file.read_exact(&packed_flags, 1);
+        file.read_exact(&enabled, 1);
+        ReadTriggerText(file, trigger->name);
+        ReadTriggerText(file, recipients);
+        ReadTriggerText(file, sound);
         if (SDL_snprintf(trigger->action_data, sizeof(trigger->action_data), "data\\sound\\%s",
                          sound) >= static_cast<int>(sizeof(trigger->action_data)))
             throw std::runtime_error("trigger sound path is too long");
@@ -564,14 +566,14 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
             char surface_id[0x40];
             int id = -1;
 
-            handle->read_exact(&minimum_range, 4);
-            handle->read_exact(surface_id, sizeof(surface_id));
+            file.read_exact(&minimum_range, 4);
+            file.read_exact(surface_id, sizeof(surface_id));
             /* The id is the four characters after a leading NUL: retail stores
                a terminator at surface_id[5] before atoi. Retail 0x00441c99
                only requires the world's game data, not its build-time
                geometry index (null once a level runs from its octree). */
             if (surface_id[0] == 0) {
-                if (world->collisionIndex() != 0) {
+                if (collisionIndex() != 0) {
                     surface_id[5] = 0;
                     id = atoi(surface_id + 1);
                 }
@@ -582,19 +584,19 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         }
         if (version > 2) {
             unsigned char has_action_data;
-            handle->read_exact(&has_action_data, 1);
+            file.read_exact(&has_action_data, 1);
             if (has_action_data != 0) {
                 unsigned char action_data_kind;
-                handle->read_exact(&action_data_kind, 1);
+                file.read_exact(&action_data_kind, 1);
                 if (action_data_kind == 1) {
-                    const auto door = ReadDoorTriggerActionData(handle);
+                    const auto door = ReadDoorTriggerActionData(&file);
                     trigger->state_index = door.open;
                     trigger->action_payload = door;
                 }
             }
         }
         if (version > 3) {
-            handle->read_exact(&action_value, 4);
+            file.read_exact(&action_value, 4);
         }
 
         trigger->trigger_kind = W8TriggerKind::item;
@@ -630,23 +632,23 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         unsigned char keep_on_finish = 0;
         int value_ac = 0;
 
-        handle->read_exact(&version, 1);
-        handle->read_exact(&range, 4);
-        handle->read_exact(&x, 4);
-        handle->read_exact(&y, 4);
-        handle->read_exact(&z, 4);
-        handle->read_exact(&action, 4);
-        handle->read_exact(&value_c8, 4);
-        handle->read_exact(&fire_linked, 1);
-        handle->read_exact(&enabled, 1);
-        ReadTriggerText(*handle, trigger->name);
-        ReadTriggerText(*handle, recipients);
+        file.read_exact(&version, 1);
+        file.read_exact(&range, 4);
+        file.read_exact(&x, 4);
+        file.read_exact(&y, 4);
+        file.read_exact(&z, 4);
+        file.read_exact(&action, 4);
+        file.read_exact(&value_c8, 4);
+        file.read_exact(&fire_linked, 1);
+        file.read_exact(&enabled, 1);
+        ReadTriggerText(file, trigger->name);
+        ReadTriggerText(file, recipients);
         SDL_strupr(trigger->name);
         SDL_strupr(recipients);
         if (version > 1) {
-            handle->read_exact(&plane, 1);
+            file.read_exact(&plane, 1);
             for (auto& point : trigger->representation_vectors)
-                wiz8::retail::read_exact(*handle, point);
+                wiz8::retail::read_exact(file, point);
             for (int vector = 0; vector < 4; ++vector) {
                 trigger->representation_vectors[vector] *= 500.0f;
             }
@@ -654,36 +656,36 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         if (version > 2) {
             unsigned char unused;
             char action_string[0x80];
-            handle->read_exact(&trigger->angle, 4);
-            handle->read_exact(&trigger->direction.x, 4);
-            handle->read_exact(&trigger->direction.y, 4);
-            handle->read_exact(&trigger->direction.z, 4);
-            handle->read_exact(&unused, 1);
-            ReadTriggerText(*handle, action_string);
+            file.read_exact(&trigger->angle, 4);
+            file.read_exact(&trigger->direction.x, 4);
+            file.read_exact(&trigger->direction.y, 4);
+            file.read_exact(&trigger->direction.z, 4);
+            file.read_exact(&unused, 1);
+            ReadTriggerText(file, action_string);
             if (action == 17) {
                 trigger->action_payload = W8StringTriggerActionData{action_string};
             }
         }
         if (version > 3) {
-            handle->read_exact(&keep_on_finish, 1);
-            handle->read_exact(&value_ac, 4);
+            file.read_exact(&keep_on_finish, 1);
+            file.read_exact(&value_ac, 4);
         }
         if (version > 4) {
             unsigned char has_legacy_geometry;
-            handle->read_exact(&has_legacy_geometry, 1);
+            file.read_exact(&has_legacy_geometry, 1);
             if (has_legacy_geometry != 0) {
                 unsigned char geometry_kind;
-                handle->read_exact(&geometry_kind, 1);
+                file.read_exact(&geometry_kind, 1);
                 if (geometry_kind == 2) {
                     unsigned char count;
                     wiz8::retail::Vec3f legacy_vertices[36];
                     unsigned char legacy_flags[2];
-                    handle->read_exact(&count, 1);
+                    file.read_exact(&count, 1);
                     for (int index = 0; index < 36; ++index) {
-                        handle->read_exact(&legacy_vertices[index], sizeof(legacy_vertices[index]));
+                        file.read_exact(&legacy_vertices[index], sizeof(legacy_vertices[index]));
                     }
-                    handle->read_exact(&legacy_flags[0], 1);
-                    handle->read_exact(&legacy_flags[1], 1);
+                    file.read_exact(&legacy_flags[0], 1);
+                    file.read_exact(&legacy_flags[1], 1);
                 }
             }
         }
@@ -703,8 +705,8 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         recipient_text = recipients;
         /* Retail 0x00442483 hands plane triggers to the game data whenever it
            exists; AddTriggerPlane itself picks the octree or build path. */
-        if ((trigger->flags & W8_TRIGGER_PLANE) != 0 && world->collisionIndex() != 0) {
-            world->collisionIndex()->AddTriggerPlane(trigger->representation_vectors, trigger);
+        if ((trigger->flags & W8_TRIGGER_PLANE) != 0 && collisionIndex() != 0) {
+            collisionIndex()->AddTriggerPlane(trigger->representation_vectors, trigger);
         }
         if (trigger->initial_action == 0x34 && recipient_text.empty()) {
             trigger->range_minimum = 0.0f;
@@ -733,47 +735,47 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         region_min.x = region_min.y = region_min.z = 0.0f;
         region_max.x = region_max.y = region_max.z = 0.0f;
 
-        handle->read_exact(&version, 1);
-        handle->read_exact(&volume_min, 4);
-        handle->read_exact(&volume_max, 4);
-        handle->read_exact(&speed_min, 4);
-        handle->read_exact(&speed_max, 4);
-        handle->read_exact(&time_min, 4);
-        handle->read_exact(&time_max, 4);
-        handle->read_exact(&unbounded, 4);
-        handle->read_exact(&radius, 4);
-        wiz8::retail::read_exact(*handle, position);
-        handle->read_exact(&region_u, sizeof(region_u));
-        handle->read_exact(&region_v, sizeof(region_v));
-        ReadTriggerText(*handle, wave);
+        file.read_exact(&version, 1);
+        file.read_exact(&volume_min, 4);
+        file.read_exact(&volume_max, 4);
+        file.read_exact(&speed_min, 4);
+        file.read_exact(&speed_max, 4);
+        file.read_exact(&time_min, 4);
+        file.read_exact(&time_max, 4);
+        file.read_exact(&unbounded, 4);
+        file.read_exact(&radius, 4);
+        wiz8::retail::read_exact(file, position);
+        file.read_exact(&region_u, sizeof(region_u));
+        file.read_exact(&region_v, sizeof(region_v));
+        ReadTriggerText(file, wave);
         W8AmbientSoundConfig config;
         if (SDL_snprintf(config.wave_name, sizeof(config.wave_name), "data\\sound\\%s", wave) >=
             static_cast<int>(sizeof(config.wave_name)))
             throw std::runtime_error("ambient sound path is too long");
         if (version > 1) {
             unsigned char has_position;
-            handle->read_exact(&has_position, 1);
-            handle->read_exact(&looping, 1);
+            file.read_exact(&has_position, 1);
+            file.read_exact(&looping, 1);
         }
         if (version > 2) {
-            handle->read_exact(&region_center, sizeof(region_center));
-            handle->read_exact(&region_angle, 4);
-            handle->read_exact(&region_min, sizeof(region_min));
-            handle->read_exact(&region_max, sizeof(region_max));
+            file.read_exact(&region_center, sizeof(region_center));
+            file.read_exact(&region_angle, 4);
+            file.read_exact(&region_min, sizeof(region_min));
+            file.read_exact(&region_max, sizeof(region_max));
             region_center *= 500.0f;
         }
         if (version > 3) {
-            ReadTriggerText(*handle, name);
+            ReadTriggerText(file, name);
             optional_name = name;
         }
         if (version > 4) {
-            handle->read_exact(&shared, 1);
+            file.read_exact(&shared, 1);
         }
         position *= 500.0f;
         region_u *= 500.0f;
         region_v *= 500.0f;
         radius *= 500.0f;
-        AddAmbientSound(world, optional_name, &config, &position, &region_u, &region_v, volume_min,
+        AddAmbientSound(this, optional_name, &config, &position, &region_u, &region_v, volume_min,
                         volume_max, speed_min, speed_max, time_min, time_max, radius,
                         unbounded == 0, looping, &region_center, region_angle, &region_min,
                         &region_max, shared);
@@ -804,25 +806,25 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         unsigned char flag0 = 0;
         unsigned char representation_kind = 0;
 
-        handle->read_exact(&version, 1);
-        ReadTriggerText(*handle, trigger->name);
-        handle->read_exact(&packed_flags, 1);
-        handle->read_exact(&enabled, 1);
-        handle->read_exact(&fire_linked, 1);
-        handle->read_exact(&link_on_deactivate, 1);
-        handle->read_exact(&keep_on_finish, 1);
-        handle->read_exact(&flag, 1);
-        handle->read_exact(&alternate_toggles, 1);
-        handle->read_exact(&initial_action, 4);
-        handle->read_exact(&alternate_action, 4);
-        handle->read_exact(&fallback_action, 4);
-        ReadTriggerText(*handle, recipients);
-        handle->read_exact(&searchable, 1);
-        ReadTriggerText(*handle, location_variable);
-        handle->read_exact(&consume_item, 1);
-        handle->read_exact(&action_value, 4);
-        handle->read_exact(&animate_action, 1);
-        ReadTriggerText(*handle, sound);
+        file.read_exact(&version, 1);
+        ReadTriggerText(file, trigger->name);
+        file.read_exact(&packed_flags, 1);
+        file.read_exact(&enabled, 1);
+        file.read_exact(&fire_linked, 1);
+        file.read_exact(&link_on_deactivate, 1);
+        file.read_exact(&keep_on_finish, 1);
+        file.read_exact(&flag, 1);
+        file.read_exact(&alternate_toggles, 1);
+        file.read_exact(&initial_action, 4);
+        file.read_exact(&alternate_action, 4);
+        file.read_exact(&fallback_action, 4);
+        ReadTriggerText(file, recipients);
+        file.read_exact(&searchable, 1);
+        ReadTriggerText(file, location_variable);
+        file.read_exact(&consume_item, 1);
+        file.read_exact(&action_value, 4);
+        file.read_exact(&animate_action, 1);
+        ReadTriggerText(file, sound);
         if (SDL_snprintf(trigger->action_data, sizeof(trigger->action_data), "data\\sound\\%s",
                          sound) >= static_cast<int>(sizeof(trigger->action_data)))
             throw std::runtime_error("trigger sound path is too long");
@@ -831,21 +833,21 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         SDL_strupr(location_variable);
 
         if (version > 1) {
-            handle->read_exact(&trigger->m_lData1, 4);
-            handle->read_exact(&trigger->m_lData2, 4);
-            handle->read_exact(&trigger->m_lData3, 4);
-            handle->read_exact(&representation_scale, 4);
-            handle->read_exact(&initial_location_value, 1);
-            handle->read_exact(&flag0, 1);
+            file.read_exact(&trigger->m_lData1, 4);
+            file.read_exact(&trigger->m_lData2, 4);
+            file.read_exact(&trigger->m_lData3, 4);
+            file.read_exact(&representation_scale, 4);
+            file.read_exact(&initial_location_value, 1);
+            file.read_exact(&flag0, 1);
             signed char action_data_mode;
-            handle->read_exact(&action_data_mode, 1);
+            file.read_exact(&action_data_mode, 1);
             trigger->action_data_mode = static_cast<W8TriggerActionDataMode>(action_data_mode);
-            handle->read_exact(&trigger->sound_volume, 1);
+            file.read_exact(&trigger->sound_volume, 1);
             int unused;
-            handle->read_exact(&unused, 4);
-            handle->read_exact(&unused, 4);
-            handle->read_exact(&unused, 4);
-            handle->read_exact(&unused, 4);
+            file.read_exact(&unused, 4);
+            file.read_exact(&unused, 4);
+            file.read_exact(&unused, 4);
+            file.read_exact(&unused, 4);
         }
 
         trigger->trigger_kind = ((packed_flags & 1) != 0 || searchable == 1) ? W8TriggerKind::item
@@ -880,12 +882,12 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         char required_states[0x100];
         char state_to_modify[0x100];
         unsigned char value_b4;
-        handle->read_exact(&value_b0, 1);
-        handle->read_exact(&animate_states, 1);
-        handle->read_exact(&value_b3, 1);
-        ReadTriggerText(*handle, required_states);
-        ReadTriggerText(*handle, state_to_modify);
-        handle->read_exact(&value_b4, 1);
+        file.read_exact(&value_b0, 1);
+        file.read_exact(&animate_states, 1);
+        file.read_exact(&value_b3, 1);
+        ReadTriggerText(file, required_states);
+        ReadTriggerText(file, state_to_modify);
+        file.read_exact(&value_b4, 1);
         SDL_strupr(required_states);
         SDL_strupr(state_to_modify);
         if (required_states[0] != 0) {
@@ -901,75 +903,76 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
 
         if (!trigger->state_to_modify.empty() &&
             (initial_location_value == 0 || initial_location_value == 1)) {
-            CreateLocationVar(trigger->state_to_modify.c_str(), initial_location_value);
+            story.ensureLocationVariable(level_id, trigger->state_to_modify,
+                                         initial_location_value);
         }
 
         int unused_value;
-        handle->read_exact(&trigger->range_minimum, 4);
-        handle->read_exact(&trigger->range_maximum, 4);
-        ReadTriggerText(*handle, trigger->inline_action_data);
-        handle->read_exact(&unused_value, 4);
+        file.read_exact(&trigger->range_minimum, 4);
+        file.read_exact(&trigger->range_maximum, 4);
+        ReadTriggerText(file, trigger->inline_action_data);
+        file.read_exact(&unused_value, 4);
         SDL_strupr(trigger->inline_action_data);
         trigger->range_minimum *= 500.0f;
         trigger->range_maximum *= 500.0f;
         if (version > 2) {
-            ReadTriggerText(*handle, sound);
+            ReadTriggerText(file, sound);
             sprintf(trigger->alternate_action_data, "data\\sound\\%s", sound);
             assignFlag(trigger->flags, W8_TRIGGER_ALTERNATE_ACTION, flag0 != 0);
         }
 
         if ((packed_flags & 1) == 0) {
-            handle->read_exact(&representation_kind, 1);
+            file.read_exact(&representation_kind, 1);
             if (representation_kind == 1) {
-                wiz8::retail::read_exact(*handle, trigger->position);
-                handle->read_exact(&trigger->angle, 4);
-                wiz8::retail::read_exact(*handle, trigger->direction);
+                wiz8::retail::read_exact(file, trigger->position);
+                file.read_exact(&trigger->angle, 4);
+                wiz8::retail::read_exact(file, trigger->direction);
                 trigger->position *= 500.0f;
                 trigger->flags |= W8_TRIGGER_POSITIONED;
             } else if (representation_kind == 2) {
                 for (auto& point : trigger->representation_vectors)
-                    wiz8::retail::read_exact(*handle, point);
+                    wiz8::retail::read_exact(file, point);
                 for (int vector = 0; vector < 4; ++vector) {
                     trigger->representation_vectors[vector] *= 500.0f;
                 }
             }
             unsigned char has_legacy_action;
-            handle->read_exact(&has_legacy_action, 1);
+            file.read_exact(&has_legacy_action, 1);
             if (has_legacy_action != 0) {
                 unsigned char legacy_kind;
                 float legacy_value;
-                handle->read_exact(&legacy_kind, 1);
-                handle->read_exact(&legacy_value, 4);
-                ReadTriggerText(*handle, sound);
+                file.read_exact(&legacy_kind, 1);
+                file.read_exact(&legacy_value, 4);
+                ReadTriggerText(file, sound);
             }
         }
 
         unsigned char has_action_data;
-        handle->read_exact(&has_action_data, 1);
+        file.read_exact(&has_action_data, 1);
         if (has_action_data != 0) {
             unsigned char action_data_kind;
-            handle->read_exact(&action_data_kind, 1);
+            file.read_exact(&action_data_kind, 1);
             if (action_data_kind == 1) {
-                const auto door = ReadDoorTriggerActionData(handle);
+                const auto door = ReadDoorTriggerActionData(&file);
                 trigger->state_index = door.open;
                 trigger->action_payload = door;
             } else if (action_data_kind == 2) {
                 unsigned char count;
                 wiz8::retail::Vec3f legacy_vertices[36];
                 unsigned char legacy_flags[2];
-                handle->read_exact(&count, 1);
+                file.read_exact(&count, 1);
                 for (int index = 0; index < 36; ++index) {
-                    handle->read_exact(&legacy_vertices[index], sizeof(legacy_vertices[index]));
+                    file.read_exact(&legacy_vertices[index], sizeof(legacy_vertices[index]));
                 }
-                handle->read_exact(&legacy_flags[0], 1);
-                handle->read_exact(&legacy_flags[1], 1);
+                file.read_exact(&legacy_flags[0], 1);
+                file.read_exact(&legacy_flags[1], 1);
             }
         }
 
         /* Retail 0x0044342d: the legacy representation path has the same
            game-data-only guard. */
-        if (representation_kind == 2 && world->collisionIndex() != 0) {
-            world->collisionIndex()->AddTriggerPlane(trigger->representation_vectors, trigger);
+        if (representation_kind == 2 && collisionIndex() != 0) {
+            collisionIndex()->AddTriggerPlane(trigger->representation_vectors, trigger);
         }
         if (trigger->initial_action == 0x34 && recipient_text.empty()) {
             trigger->range_minimum = 0.0f;
@@ -977,14 +980,14 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
         }
         if (trigger->initial_action == 0x0c) {
             if (trigger->m_lData1 < 0 ||
-                trigger->m_lData1 >= static_cast<int>(Data().missiles.size()))
+                trigger->m_lData1 >= static_cast<int>(data.missiles.size()))
                 throw std::runtime_error(fmt::format("trigger {}: invalid missile {}",
                                                      trigger->name, trigger->m_lData1));
             if (trigger->m_lData2 == -1)
                 throw std::runtime_error(
                     fmt::format("trigger {}: missile trigger needs a time", trigger->name));
             if (trigger->m_lData2 < 0) {
-                auto& timed_action = world->addTimedAction(trigger);
+                auto& timed_action = addTimedAction(trigger);
                 timed_action.action = static_cast<short>(trigger->initial_action);
                 timed_action.timer.SetDuration(abs(trigger->m_lData2) * 0.001f);
                 timed_action.timer.Restart();
@@ -1007,6 +1010,6 @@ Trigger* Trigger::CreateAndLoadLevelTrigger(wiz8::File* handle, World* world)
             break;
         }
     }
-    world->triggers.push_back(std::move(owner));
+    triggers.push_back(std::move(owner));
     return trigger;
 }

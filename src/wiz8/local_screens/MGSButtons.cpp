@@ -43,6 +43,7 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
@@ -712,7 +713,7 @@ void DrawSubMenuCharacterAction(void)
                                 CurrentGame().party.characters[row->committed.target.iChar].name);
             } else if (row->committed.target.iType == W8_TARGET_KIND_MONSTER) {
                 monster_info = FindMonster(row->committed.target.iMonsterID);
-                name = GetMonsterName(monster_info, 0, 0);
+                name = CurrentGame().monsterName(*monster_info);
                 text = fmt::format("{} - {}", Data().strings[g_action_kind_message_ids[5]], name);
             } else {
                 text = fmt::format("{} ", Data().strings[g_action_kind_message_ids[5]]);
@@ -1151,7 +1152,7 @@ W8SubMenuEntryState GetSubMenuEntryState(short menu, short item, int party_slot)
         break;
     case W8_SUBMENU_SPELLS:
         if (item == 0) {
-            if (CharacterHasCastableSpell(character)) {
+            if (CharacterHasCastableSpell(CurrentGame().data, character)) {
                 return CheckSubMenuActionUsable(party_slot, W8_ACTION_CAST_SPELL);
             }
         } else if (item == 1) {

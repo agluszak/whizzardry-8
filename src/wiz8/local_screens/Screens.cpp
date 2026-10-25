@@ -15,7 +15,6 @@
 #include "wiz8/cursor.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/main_game_screen.h"
@@ -27,9 +26,13 @@
 #include "wiz8/local_screens/CreditsScreen.h"
 #include "wiz8/local_screens/IntroScreen.h"
 #include "wiz8/local_screens/JournalScreen.h"
+#include "wiz8/local_screens/MGSFormation.h"
+#include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
 #include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSRadarMap.h"
+#include "wiz8/local_screens/MGSSpellIcons.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
@@ -43,6 +46,7 @@
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
+#include "wiz8/targeting_presentation.h"
 
 // The screens that belong to one game take it when they are built.
 static Game& GameOf(GameSession& games)
@@ -71,7 +75,7 @@ std::unique_ptr<Screen> CreateScreen(W8ScreenId id, GameSession& games, Pointer&
     case W8_SCREEN_MAIN_GAME:
         return std::make_unique<MainGameScreen>(GameOf(games), pointer);
     case W8_SCREEN_AUTOMAP:
-        return std::make_unique<AutomapScreen>(GameOf(games).level.loaded());
+        return std::make_unique<AutomapScreen>(GameOf(games));
     case W8_SCREEN_CREDITS:
         return CreateCreditsScreen();
     case W8_SCREEN_OPTIONS:
@@ -163,6 +167,7 @@ void ShowRefusal(const InventoryRefusal& refusal)
 namespace {
 // Each game event shown the way the active screen shows it.
 struct GameEventPresentation {
+    Game& game;
     void operator()(const TextNotice& notice) const
     {
         ShowNotice(notice.palette, notice.text, notice.text_box, notice.wrap_width,
@@ -180,10 +185,13 @@ struct GameEventPresentation {
     {
         SetTextBoxMode(change.mode, change.value);
     }
-    void operator()(const CharacterSpeech& speech) const
+    void operator()(const PortraitSpeechChanged& change) const
     {
-        QueueCharacterEvent(&CurrentGame().party.characters[speech.party_slot], speech.event_type,
-                            0, kCharacterEventFullVolume);
+        PresentPortraitSpeech(game, change);
+    }
+    void operator()(const CharacterDamaged& damage) const
+    {
+        PresentCharacterDamage(static_cast<int>(damage.party_slot), damage.amount, damage.fatal);
     }
     void operator()(const CharacterDied&) const
     {
@@ -196,14 +204,18 @@ struct GameEventPresentation {
     }
     void operator()(const PartyLoadChanged&) const
     {
-        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
-            !CurrentGame().activity.conversation) {
+        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && !game.activity.conversation) {
             if (auto* hud = ShownHud()) hud->repaint.portraits.set();
         } else if (auto* camp = FindScreen<CampScreen>()) {
             camp->RefreshPartyLoad();
         }
     }
-    void operator()(const CombatPanelChanged&) const { RequestRefreshPartyState(); }
+    void operator()(const CombatPanelChanged&) const
+    {
+        if (game.combat) {
+            if (auto* hud = MainGameHud()) hud->refresh_combat_panel = true;
+        }
+    }
     void operator()(const CombatantsMoved&) const
     {
         if (auto* main_game = MainGame(); main_game && main_game->hud)
@@ -275,12 +287,21 @@ struct GameEventPresentation {
     {
         if (auto* hud = ShownHud()) hud->repaint.monster_list = true;
     }
+    void operator()(const MonstersActivated&) const
+    {
+        auto* main = MainGame();
+        if (!main || &main->game != &game || !main->hud) return;
+        if (game.combat) main->hud->refresh_combat_panel = true;
+        if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && main->keyboard_menu)
+            main->keyboard_menu->refresh();
+    }
     void operator()(const PartyEffectsChanged&) const
     {
         if (auto* hud = ShownHud()) hud->repaint.roof_and_spell_icons = true;
     }
     void operator()(const CombatEffectsChanged&) const
     {
+        InvalidateMainGameEffectHud();
         if (auto* hud = ShownHud()) hud->repaint.combat_effects = true;
     }
     void operator()(const PartyPanelChanged&) const
@@ -291,11 +312,29 @@ struct GameEventPresentation {
     {
         if (auto* hud = ShownHud()) hud->repaint.everything = true;
     }
+    void operator()(const CastingBlockedNotice& notice) const
+    {
+        if (auto* main = MainGame();
+            main && &main->game == &game && CurrentScreenState().id == W8_SCREEN_MAIN_GAME)
+            game.queueWorldMessage(notice.text);
+    }
+    void operator()(const LevelDeparted& departure) const
+    {
+        if (auto* main = MainGame(); main && &main->game == &game && main->hud &&
+                                     CurrentScreenState().id == W8_SCREEN_MAIN_GAME)
+            main->hud->selected_item = -1;
+        if (departure.restore_cursor) EnableCursorScene();
+    }
     void operator()(const WorldItemRemoved& removed) const
     {
         if (auto* hud = ShownHud(); hud && hud->selected_item == removed.runtime_id)
             hud->selected_item = -1;
     }
+    void operator()(const ActionChoiceChanged& change) const
+    {
+        RevalidateSelectedTarget(change.slot);
+    }
+    void operator()(const ActionAimChanged& change) const { RefreshStoredAim(change.slot); }
     void operator()(const CharacterActionChanged&) const
     {
         if (auto* hud = ShownHud()) hud->repaint.character_action = true;
@@ -307,9 +346,24 @@ struct GameEventPresentation {
         if (hud->open_submenu) ReopenSubMenuPanel();
         RefreshFlaggedMainGameState();
     }
+    void operator()(const JournalEntryAdded& entry) const
+    {
+        if (auto* hud = MainGameHud()) {
+            ShowNotice(W8_FONT_PALETTE_BLUE, entry.notice, 2,
+                       hud->text_box_right - hud->text_box_left);
+            wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
+        }
+    }
+    void operator()(const FormationChanged&) const
+    {
+        if (CurrentScreenState().id != W8_SCREEN_MAIN_GAME) return;
+        if (auto* screen = MainGame()) {
+            RefreshFormationBoard();
+            if (screen->radar_map) screen->radar_map->refresh();
+        }
+    }
     void operator()(const SkillImproved& improved) const
     {
-        auto& game = CurrentGame();
         AnnounceSkillIncrease(game, improved.party_slot, improved.skill,
                               !improved.quiet && SkillIncreasesShownNow(game));
     }
@@ -327,9 +381,9 @@ bool SkillIncreasesShownNow(const Game& game)
            CurrentScreenState().id == W8_SCREEN_MAIN_GAME && IsScreenIdle();
 }
 
-void PresentGameEvent(const Event& event)
+void PresentGameEvent(Game& game, const Event& event)
 {
-    std::visit(GameEventPresentation{}, event);
+    std::visit(GameEventPresentation{game}, event);
 }
 
 /* Default the main game's HUD state on entry: clear

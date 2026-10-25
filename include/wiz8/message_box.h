@@ -93,7 +93,7 @@ enum class W8NpcCommand : unsigned char {
     remove_speaking_npc,       /* end the session and fade the speaker's monster */
     clear_target_state,
     begin_scripted_world_action,
-    /* ShowString brackets a portrait message with these two outside combat. */
+    /* World messages bracket a portrait message with these two outside combat. */
     reset_level_data_vectors,
     clear_level_movement_stopped,
     spacer,                    /* holds its queue position for one frame; no effect */

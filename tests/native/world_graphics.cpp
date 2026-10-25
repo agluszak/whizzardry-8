@@ -48,6 +48,7 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
+#include "wiz8/world_view.h"
 
 static std::vector<unsigned int> ReadFrame()
 {
@@ -179,11 +180,11 @@ TEST_CASE("world graphics")
         DrawSubMenuCharacterAction();
         REQUIRE(caption() == first);
         VideoRemoveToolTip();
-        RenderFrame();
+        PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
         const auto without_tooltip = ReadFrame();
         VideoToolTip("Swap Weapons");
         VideoPositionToolTip(300, 200);
-        RenderFrame();
+        PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
         const auto tooltip = ReadFrame();
         // Inspect the composed tooltip, including its opaque black background
         // and transparent area outside the panel, rather than a copied widget.
@@ -210,14 +211,14 @@ TEST_CASE("world graphics")
 
     // Same scene and UI, with only the actual world pass switched off.
     REQUIRE((g_world_render_enabled && !g_world_blacked_out));
-    RenderFrame();
+    PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
     unsigned polygons = world->scene->submitted_polygons;
     auto visible = ReadFrame();
     g_world_render_enabled = 0;
-    RenderFrame();
+    PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
     auto control = ReadFrame();
     g_world_render_enabled = 1;
-    RenderFrame();
+    PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
     auto restored = ReadFrame();
     unsigned changed = 0, recovered = 0;
     for (int y = g_viewport.top; y < g_viewport.bottom; ++y)
@@ -240,7 +241,7 @@ TEST_CASE("world graphics")
     if (mode && strcmp(mode, "kill") == 0) {
         W8MonsterInfo* monster = nullptr;
         for (const auto& candidate : CurrentLevelPopulation().monster_roster.live()) {
-            if (candidate->fActive && candidate->entity.find() && candidate->hp_current) {
+            if (candidate->fActive && candidate->entity.get() && candidate->hp_current) {
                 monster = candidate.get();
                 break;
             }
@@ -286,7 +287,7 @@ TEST_CASE("world graphics")
             // captures that never exercise the requested angles.
             partyCamera().SetOrientation(state.orientation.yaw + angle * 1.5707963f,
                                          angle < 2 ? -0.7f : 0.5f);
-            RenderFrame();
+            PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
             auto pixels = ReadFrame();
             REQUIRE(pixels != previous);
             SaveFrame((std::string(output) + "." + std::to_string(angle) + ".ppm").c_str(), pixels);

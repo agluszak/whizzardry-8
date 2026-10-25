@@ -1,7 +1,6 @@
 #include "wiz8/render/frame.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -11,6 +10,7 @@
 #include <ios>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <span>
 #include <sstream>
 #include <stdexcept>
@@ -20,7 +20,6 @@
 #include <vector>
 
 #include <SDL3/SDL_blendmode.h>
-#include <SDL3/SDL_keycode.h>
 #include <SDL3/SDL_pixels.h>
 #include <SDL3/SDL_rect.h>
 #include <SDL3/SDL_stdinc.h>
@@ -31,7 +30,7 @@
 #include <wiz8/filesystem.h>
 
 #include "asset_paths.h"
-#include "glm/common.hpp" // IWYU pragma: keep
+#include "glm/common.hpp"
 #include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
@@ -40,20 +39,12 @@
 #include "wiz8/canvas/sprite.h"
 #include "wiz8/cursor.h"
 #include "wiz8/design_rect.h"
-#include "wiz8/entities/cursor_nodes.h"
-#include "wiz8/entities/monster.h"
-#include "wiz8/entities/prop.h"
-#include "wiz8/entities/trigger.h"
 #include "wiz8/fonts.h"
-#include "wiz8/game.h"
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_code/TextBuffer.h"
-#include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
 #include "wiz8/platform/window.h"
-#include "wiz8/render/camera.h"
-#include "wiz8/render/camera_shake.h"
 #include "wiz8/render/compositor.h"
 #include "wiz8/render/draw_inputs.h"
 #include "wiz8/render/draw_shader.h"
@@ -66,14 +57,7 @@
 #include "wiz8/render/texture.h"
 #include "wiz8/render/vsg_scene.h"
 #include "wiz8/render/world_scene.h"
-#include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/surface_storage.h"
-#include "wiz8/ui_input.h"
-#include "wiz8/world/camera_control.h"
-#include "wiz8/world/environment.h"
-#include "wiz8/world/level_loader.h"
-#include "wiz8/world/party_camera.h"
-#include "wiz8/world/world.h"
 
 void SaveJpegScreenshot(void);
 static void FlushUiUpload();
@@ -85,7 +69,6 @@ static SDL_Rect g_ui_upload{};
 /* SDL owns the platform window used by VSG presentation. */
 SDL_Window* ghWindow;
 
-bool g_world_pick_enabled = true;
 unsigned char g_fullscreen_scene_last = 1;
 bool g_cursor_scene_enabled = true;
 bool g_overlay_scenes_enabled = true;
@@ -108,11 +91,9 @@ std::unique_ptr<UiCanvasTexture> g_ui_canvas;
 std::shared_ptr<SDL_Surface> g_mouse_surface;
 
 DesignRect g_viewport;
-bool g_camera_sway_active;
 extern const float g_viewport_x_scale = 1.0f / 640.0f;
 extern const float g_viewport_y_scale = 1.0f / 480.0f;
 
-int g_video_inspector_mode;
 float g_frames_per_second;
 
 std::unique_ptr<OverlayQuad> g_cursor_node;
@@ -142,7 +123,6 @@ void ResetVideoFrameState(void)
 /* Create the platform window, CPU canvas and VSG renderer before scene setup. */
 bool InitializeVideoManager(void)
 {
-    g_world_pick_enabled = true;
     g_fps_frame_count = 0;
     g_fps_window_tick = MonotonicMilliseconds();
     if (!CreateWizardryWindow()) {
@@ -156,9 +136,8 @@ bool InitializeVideoManager(void)
     }
     InitializeRendererSceneObjects();
     if (!RestoreVideoManager()) return false;
-    SetViewport({0, 0, 0x281, 0x1e1});
+    SetScaledViewport({0, 0, 0x281, 0x1e1});
     InitializeRenderQuality();
-    InitializeEnvironmentColours();
     EnableAllRenderOptions();
     return InitializeMouseCursorScene();
 }
@@ -167,7 +146,6 @@ void ShutdownVideoManager(void)
 {
     FreeMouseCursor();
     ShutdownVideoScenes();
-    ClearEnvironmentObjects();
     SuspendVideoManager();
     SDL_Window* native_window = ghWindow;
     ReleasePrimarySurface();
@@ -378,33 +356,16 @@ bool ClearPrimarySurface(void)
     return true;
 }
 
-/* The inputs every scene pass of the current frame shares. */
-static SceneFrame CurrentSceneFrame()
-{
-    return {.environment_offset = CurrentEnvironmentOffset(),
-            .brightness = g_monster_light_scale,
-            .texture_reduction = g_resident_texture_policy,
-            .time = GameInProgress()
-                        ? std::chrono::duration<double>(CurrentGame().visual_time).count()
-                        : RenderClockSeconds()};
-}
+/* Submit the requested scene without consulting gameplay or changing its fog. */
 
-/* Render one scene into either the full output or a logical 640x480 viewport.
-   Scene fog follows the current world's static scene for ordinary overlays;
-   the world passes retain their own fog by selecting preserve_fog. */
-
-void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport, bool preserve_fog,
-                 std::span<Pick> picks)
+static void RenderScene(WorldScene* scene, Camera3D* camera, const SceneFrame& frame,
+                        const DesignRect* viewport, std::span<Pick> picks = {})
 {
     if (!scene) return;
-    if (!preserve_fog) {
-        const auto fog = GetWorld() ? GetWorld()->scene->getFogColor() : glm::vec3(0);
-        scene->setFogColor(glm::clamp(fog, 0.0f, 1.0f));
-    }
     const auto area = viewport ? ToSurfaceRect(*viewport, g_renderer->width(), g_renderer->height())
                                : SDL_Rect{0, 0, static_cast<int>(g_renderer->width()),
                                           static_cast<int>(g_renderer->height())};
-    auto render_view = scene->createView(g_renderer->context(), camera, CurrentSceneFrame(),
+    auto render_view = scene->createView(g_renderer->context(), camera, frame,
                                          vsg::ViewportState::create(area.x, area.y, area.w, area.h),
                                          g_renderer->frameNumber());
     if (!picks.empty()) scene->pick(*render_view->camera, picks);
@@ -414,68 +375,29 @@ void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport
 /* The central renderer frame transaction. It owns presentation, every scene
    pass, optional world picking, transient-node retirement, and frame timing;
    callers do not reproduce any subset of that lifecycle. */
-void RenderFrame(void)
+bool CanPresentFrame()
 {
-    /* The movie adapter owns presentation until FinishVideoPresentation. */
-    if (!g_flush_pending) {
-        return;
-    }
-    glm::vec3 clear_color(0);
+    return g_flush_pending && g_video_active;
+}
+
+std::optional<Pick> RenderFrame(const FrameView& view, std::optional<glm::vec2> pick_position)
+{
+    if (!CanPresentFrame()) return std::nullopt;
     std::uint64_t now;
     float elapsed;
     float frames_per_second;
 
-    if (!g_video_active) {
-        return;
-    }
-
-    if (auto* world = GetWorld()) {
-        placeWorldCameras(*world, GetSecondaryWorld(),
-                          g_camera_shake_active ? g_camera_shake_offset : glm::vec3(0));
-    }
-    if (GetWorld() != 0) {
-        if (!IsSkyEnabled()) {
-            GetWorldLightValue(GetWorld(), &clear_color);
-        } else {
-            clear_color =
-                // NOLINTNEXTLINE(misc-include-cleaner)
-                glm::clamp(GetWorld()->scene->getFogColor(), 0.0f, 1.0f);
-        }
-    }
-
-    SyncSystemCursor();
-    UpdateUiHelp();
     FlushUiUpload();
-    g_renderer->beginFrame(glm::vec4(clear_color, 1.0f));
+    g_renderer->beginFrame(glm::vec4(view.background, 1.0f));
     UpdateRenderElapsedTime();
 
     g_compositor.draw(*g_renderer, OverlayLayer::PreWorld);
 
-    if (g_render_mesh_sky && GetSecondaryWorld() != 0 && g_monster_shadow_updates_enabled) {
-        RenderScene(GetSecondaryWorld()->scene.get(), GetSecondaryWorld()->camera, &g_viewport,
-                    false);
-    }
-    if (GetWorld()) GetWorld()->picked = {};
-    if (GetWorld() != 0 && g_world_render_enabled) {
-        if (!g_world_pick_enabled || g_cursor_hotspot_x + g_cursor_width < g_viewport.left ||
-            g_cursor_hotspot_y + g_cursor_height < g_viewport.top ||
-            g_viewport.right < g_cursor_hotspot_x + g_cursor_width ||
-            g_viewport.bottom < g_cursor_hotspot_y + g_cursor_height) {
-            RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &g_viewport, true);
-        } else {
-            int half_width = (g_viewport.right - g_viewport.left) / 2;
-            int half_height = (g_viewport.bottom - g_viewport.top) / 2;
-            Pick pick;
-            pick.position.x = (g_cursor_hotspot_x - half_width - g_viewport.left + g_cursor_width) /
-                              static_cast<float>(half_width);
-            pick.position.y = -static_cast<float>(g_cursor_hotspot_y - half_height -
-                                                  g_viewport.top + g_cursor_height) /
-                              half_height;
-            RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &g_viewport, true,
-                        std::span{&pick, 1});
-            GetWorld()->acceptPick(std::move(pick), CurrentGame().combat.has_value());
-        }
-    }
+    RenderScene(view.sky, view.sky_camera, view.frame, &g_viewport);
+    Pick pick;
+    if (pick_position) pick.position = glm::vec3(*pick_position, 1);
+    RenderScene(view.world, view.camera, view.frame, &g_viewport,
+                pick_position ? std::span{&pick, 1} : std::span<Pick>{});
 
     if (g_overlay_scenes_enabled) {
         if (!g_fullscreen_scene_last) g_compositor.draw(*g_renderer, OverlayLayer::Fullscreen);
@@ -503,6 +425,7 @@ void RenderFrame(void)
         g_fps_frame_count = 0;
     }
     g_frames_per_second = frames_per_second;
+    return pick;
 }
 
 /* Finish an offscreen frame and copy its image into a caller-owned surface. */
@@ -515,33 +438,22 @@ static bool ReadFrameInto(SDL_Surface& target)
     return true;
 }
 
-/* Render offscreen and copy the completed image into a caller-owned surface.
-   `rect` selects a logical 640x480 viewport; otherwise the stored game viewport
-   applies. Saves use this for SHOT screenshots. */
-// FUNCTION: WIZ8 0x00426f80
-bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect)
+/* Render the requested view offscreen without input processing or clock advancement. */
+
+bool RenderViewToSurface(SDL_Surface& target, const FrameView& view, const DesignRect& rect)
 {
-    if (!g_renderer || !g_renderer->isOpen() || !GetWorld() || !target) return false;
-    glm::vec3 clear_color{1.0f};
-    if (GetWorld() && GetWorld()->environment.fog_enabled)
-        clear_color = EnvironmentLightDirection();
-    else
-        GetWorldLightValue(GetWorld(), &clear_color);
-    g_renderer->beginFrame(glm::vec4(clear_color, 1.0f));
-    const DesignRect bounds = rect ? *rect : g_viewport;
-    // A steady view of the party's pose; the frame's shake belongs to the presented frame.
-    placeWorldCameras(*GetWorld(), GetSecondaryWorld(), glm::vec3(0));
-    if (g_render_mesh_sky && GetSecondaryWorld())
-        RenderScene(GetSecondaryWorld()->scene.get(), GetSecondaryWorld()->camera, &bounds, true);
-    RenderScene(GetWorld()->scene.get(), GetWorld()->camera, &bounds, true);
-    return ReadFrameInto(*target);
+    if (!g_renderer || !g_renderer->isOpen() || !view.world) return false;
+    g_renderer->beginFrame(glm::vec4(view.background, 1));
+    RenderScene(view.sky, view.sky_camera, view.frame, &rect);
+    RenderScene(view.world, view.camera, view.frame, &rect);
+    return ReadFrameInto(target);
 }
 
-bool RenderMapToSurface(SDL_Surface& target, WorldScene& scene, const DesignRect& rect)
+bool RenderMapToSurface(SDL_Surface& target, WorldScene& scene, SceneFrame frame,
+                        const DesignRect& rect)
 {
     if (!g_renderer || !g_renderer->isOpen()) return false;
     g_renderer->beginFrame(glm::vec4(0, 0, 0, 1));
-    auto frame = CurrentSceneFrame();
     // The map keeps the retail automap's reduced texture detail.
     frame.texture_reduction = 3;
     const auto area = ToSurfaceRect(rect, g_renderer->width(), g_renderer->height());
@@ -549,25 +461,6 @@ bool RenderMapToSurface(SDL_Surface& target, WorldScene& scene, const DesignRect
         g_renderer->context(), frame, vsg::ViewportState::create(area.x, area.y, area.w, area.h),
         g_renderer->frameNumber()));
     return ReadFrameInto(target);
-}
-
-/* Both static scenes take the light direction as their fog colour. */
-void PublishLightDirection(const glm::vec3* direction)
-{
-    if (GetWorld() != 0) {
-        GetWorld()->scene->setFogColor(*direction);
-    }
-    if (GetSecondaryWorld() != 0) {
-        GetSecondaryWorld()->scene->setFogColor(*direction);
-    }
-}
-
-void SetWorldModelPickingEnabled(bool enabled)
-{
-    g_world_pick_enabled = enabled;
-    if (!enabled) {
-        if (GetWorld()) GetWorld()->picked = {};
-    }
 }
 
 /* Mouse cursor scene and rendering. */
@@ -924,111 +817,12 @@ void SetScaledViewport(const DesignRect& bounds)
     g_viewport = bounds;
 }
 
-/* Sets the viewport and rebuilds the camera view plane to match it. */
-
-void SetViewport(const DesignRect& bounds)
-{
-    float fractional_left;
-    float fractional_top;
-    float fractional_right;
-    float fractional_bottom;
-    Camera3D::Rect plane;
-
-    g_viewport = bounds;
-    fractional_left = bounds.left * g_viewport_x_scale;
-    fractional_top = bounds.top * g_viewport_y_scale;
-    fractional_right = g_viewport.right * g_viewport_x_scale;
-    fractional_bottom = g_viewport.bottom * g_viewport_y_scale;
-
-    if (GetWorld() != 0 && GetWorld()->camera != 0) {
-        GetWorld()->camera->setViewPlane(3.14159265358979323846 * 0.0055555557f * 85.0f,
-                                         3.14159265358979323846 * 0.0055555557f * 71.0f);
-        const auto view = GetWorld()->camera->getViewPlane().rectangle;
-
-        plane.left = fractional_left * (view.right - view.left) + view.left;
-        plane.right = fractional_right * (view.right - view.left) + view.left;
-        plane.bottom = (1.0 - fractional_bottom) * (view.top - view.bottom) + view.bottom;
-        plane.top = (1.0 - fractional_top) * (view.top - view.bottom) + view.bottom;
-
-        GetWorld()->camera->setViewPlane(plane, 1.0);
-        if (GetSecondaryWorld() != 0) {
-            GetSecondaryWorld()->camera->setViewPlane(plane, 1.0);
-        }
-        if (g_camera_sway_active) {
-            GetWorld()->party.camera.applySway(*GetWorld()->camera, CameraSwayMode::Start);
-        }
-    }
-}
-
-/* The debug stats readout drawn over the primary surface: a black band plus
-   the frame-rate line always, the object/poly/vertex counters, texture and
-   pagefile memory in mode 2, or the scaled camera position in mode 3. */
 void DrawVideoInspector(int left, unsigned int top)
 {
-    glm::vec3 position;
-    unsigned int bottom;
-    unsigned char* row;
-    int rows;
-    /* Retail left the band height uninitialised for inspector modes outside
-       1..3 and read that storage into bottom; natively it starts at zero. */
-    int height = 0;
-
-    if (g_video_inspector_mode == 1) {
-        height = 0xb;
-    } else if (g_video_inspector_mode == 2) {
-        height = 0x9a;
-    } else if (g_video_inspector_mode == 3) {
-        height = 0x2c;
-    }
-    bottom = top + height;
-    const auto& description = *primarySurface;
-    if (description.pixels != 0) {
-        if (top < bottom) {
-            row = static_cast<unsigned char*>(description.pixels) + description.pitch * top +
-                  left * 2;
-            for (rows = bottom - top; rows != 0; --rows) {
-                memset(row, 0, 0x226);
-                row += description.pitch;
-            }
-        }
-    }
-    InvalidateRegion(left, top, left + 0x113, bottom);
-    if (g_renderer != 0) {
-        g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
-        const int text_left = static_cast<int>(left);
-        const int text_top = static_cast<int>(top);
-        DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {text_left, text_top},
-                              fmt::format("FR: {:4.1f}", g_frames_per_second));
-        if (g_video_inspector_mode == 2) {
-            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
-                                  {text_left, text_top + 0xa},
-                                  fmt::format("OC: {:d}", GetWorld()->scene->submitted_polygons));
-            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
-                                  {text_left, text_top + 0x6e},
-                                  fmt::format("DR: {:3d}", GetCameraYawAndRotation(0)));
-            return;
-        }
-        if (g_video_inspector_mode == 3) {
-            float scaled;
-
-            position = cameraLocation();
-            if (IsKeyHeld(SDLK_F1)) {
-                position.x *= g_world_cursor_scale;
-                scaled = position.y * g_world_cursor_scale;
-                position.y = position.z * g_world_cursor_scale;
-                position.z = scaled;
-            }
-            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
-                                  {text_left, text_top + 0xa},
-                                  fmt::format(" X: {:.2f}", position.x));
-            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
-                                  {text_left, text_top + 0x14},
-                                  fmt::format(" Y: {:.2f}", position.y));
-            DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font,
-                                  {text_left, text_top + 0x1e},
-                                  fmt::format(" Z: {:.2f}", position.z));
-        }
-    }
+    if (!g_renderer) return;
+    g_smfnt_font.setPalette(g_font_state_palettes[W8_FONT_PALETTE_YELLOW]);
+    DrawTextAndInvalidate(GetFrameBufferSurface(), g_smfnt_font, {left, static_cast<int>(top)},
+                          fmt::format("FR: {:4.1f}", g_frames_per_second));
 }
 
 void VideoInspectorEnable(void)
@@ -1195,16 +989,12 @@ void VideoToolTip(std::string_view text)
     SDL_Rect background{0, 0, g_help_box_width, g_help_box_height};
     SDL_FillSurfaceRect(surface.get(), &background, SDL_MapSurfaceRGB(surface.get(), 0, 0, 0));
     buffer.RenderText(*surface, 2, 1, true);
-    std::uint32_t border_colour;
-    PackColourToLong(&border_colour, 1.0, 0.93, 0.6, 0.33);
     const SDL_Rect edges[]{{0, 0, g_help_box_width, 1},
                            {0, g_help_box_height - 1, g_help_box_width, 1},
                            {0, 0, 1, g_help_box_height},
                            {g_help_box_width - 1, 0, 1, g_help_box_height}};
     SDL_FillSurfaceRects(surface.get(), edges, 4,
-                         SDL_MapSurfaceRGBA(surface.get(), (border_colour >> 16) & 255,
-                                            (border_colour >> 8) & 255, border_colour & 255,
-                                            border_colour >> 24));
+                         SDL_MapSurfaceRGBA(surface.get(), 237, 153, 84, 255));
 
     W8ControlsRect rect;
     rect.left = 0;

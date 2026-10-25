@@ -43,45 +43,25 @@ bool IsSkyEnabled();
 void ResetEnvironment(void);
 void InitializeLevelEnvironment(void);
 /* Reset sky presentation and the current world's fog nodes. */
-void ClearEnvironmentObjects(void);
 /* Apply one day-phase colour and intensity to the world, its environment
    lights, and the animated cloud material. */
 void ApplyEnvironmentColour(World* world, float intensity, const glm::vec3* colour);
 
-/* Turn the environment clock on or off; enabling drops the time it has not taken up. */
-void SetEnvironmentTimeEnabled(bool enabled);
-/* One step's elapsed time reaches the environment clock while it runs; the clock takes it
-   up as it next advances. */
-void PassEnvironmentTime(std::chrono::milliseconds elapsed);
-float GetViewDistance(void);
 void SetGameTimeMilliseconds(int value);
 /* The per-frame environment update, and the alternate lighting transition it
    hands off to when the bypass value is set. */
 void UpdateEnvironment(void);
 void UpdateEnvironmentLighting(void);
-/* Show or hide the world's camera light: 0x00483E50 loads GetWorld()->camera_light
-   and updates its visibility.
-   Nothing here is a sky node; the exported name is still the placeholder and one
-   caller lives in a TU owned elsewhere, so the rename waits for it. */
-void SetSkyNodeVisible(bool visible);
-void SetCameraLightIntensity(float value);
 /* Camera light actions used by SetCameraLightMode. */
 enum class W8CameraLightMode : unsigned char { Increase, Decrease, Disable, Enable };
 void SetCameraLightMode(W8CameraLightMode mode);
 void RefreshFogRanges(World& world);
 
-void SetViewDistance(float distance);
 bool InitializeEnvironmentColours(void);
 
 /* Whether day/night lighting is active, fading, or faded out. */
 enum class W8EnvironmentLightingMode : unsigned char { FadedOut, Transition, DayNight };
 W8EnvironmentLightingMode EnvironmentLightingMode();
-/* The game clock's multiplier, not a distance: every environment clock advance
-   scales the elapsed milliseconds by it (12.0 normally, 2880.0 while the party
-   rests) and the environment update is skipped while it holds another value.
-   Sight.cpp and GameplayTime.cpp consume it through SetViewDistance and
-   GetViewDistance, so the rename waits for those owners. */
-extern float g_view_distance;
 void AdvanceEnvironmentTime(int elapsed); /* 0x00482A20 */
 void SetWorldEnvironmentIntensity(World* world, float value);
 /* Arm the lighting transition. Duration is in milliseconds: negative fades the
@@ -120,3 +100,6 @@ struct EnvironmentState {
     float orbit_radius = -1.0f;
     std::array<std::weak_ptr<Texture>, 3> gradients;
 };
+
+// Publish the environment colour to the primary and sky scenes.
+void PublishLightDirection(const glm::vec3* direction);

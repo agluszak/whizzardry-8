@@ -10,7 +10,6 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
@@ -48,9 +47,9 @@ constexpr int kMasterToggle = static_cast<int>(0xEFFFFFFF);
    script facts - set 0x39 and clear 0x33. */
 bool Onelid(Trigger* pTrigger)
 {
-    if (GetFact(W8_FACT_CROCK_KIDNAPPED_PLAYER) != 0 && FindNpcOfKind(0x1e) != 0) {
-        SetFact(W8_FACT_CROCK_PLAYER_RETURNED_TO_PARTY, 1, false);
-        SetFact(W8_FACT_CROCK_KIDNAPPED_PLAYER, 0, false);
+    if (CurrentGame().testFact(W8_FACT_CROCK_KIDNAPPED_PLAYER) != 0 && FindNpcOfKind(0x1e) != 0) {
+        CurrentGame().setFact(W8_FACT_CROCK_PLAYER_RETURNED_TO_PARTY, 1);
+        CurrentGame().setFact(W8_FACT_CROCK_KIDNAPPED_PLAYER, 0);
     }
     return true;
 }
@@ -116,7 +115,7 @@ bool SwampScript::castPlaneSpell(Trigger* pTrigger, int spell_id)
 {
     glm::vec3 position;
 
-    if (GetFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET) == 0) {
+    if (ctx.game.testFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET) == 0) {
         gasFireSpawn(pTrigger);
         return false;
     }
@@ -143,10 +142,10 @@ bool SwampScript::gasFireSpawn(Trigger* pTrigger)
     W8NpcState* npc;
     int index;
 
-    if (GetFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET) != 0) {
+    if (ctx.game.testFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET) != 0) {
         return false;
     }
-    SetFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET, 1, false);
+    ctx.game.setFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET, 1);
     ResetInactiveLevelDataVectors();
     center =
         glm::vec3((pTrigger->representation_vectors[0].x + pTrigger->representation_vectors[1].x +
@@ -171,12 +170,12 @@ bool SwampScript::gasFireSpawn(Trigger* pTrigger)
             monster_info->entity->GetMappedPosition(&mapped);
             look_target = monster_info->entity->nav.movement.position;
             look_target.y += monster_info->entity->nav.movement.height_offset;
-            partyCamera().LookAt(&look_target, false);
+            partyCamera().LookAt(&look_target, false, CurrentGame().activity.conversation);
             npc_dialogue_closed = false;
             addMaster(&SwampScript::gasFireItemDrop);
         }
     }
-    npc = FindNpcBindingForMonster(FindMonster(index));
+    npc = (FindMonster(index))->boundNpc();
     QueueNpcScriptNotice(npc, 0, -1, false, 0);
     return true;
 }
@@ -202,10 +201,10 @@ bool SwampScript::gasFireItemDrop(int command)
         if (Monster* spawned = GetMonsterByLocationID(spawned_monster_id_)) {
             position = spawned->nav.GetPosition();
             drop_position = position;
-            item = AddWorldItem(
-                SpawnItem(0x264, &drop_position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+            item = world().adoptItem(ctx.game.spawnWorldItem(
+                world(), 0x264, &drop_position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             item->item.identified = false;
-            ActivateItem(item);
+            world().activateItem(ctx.game.data, ctx.game.rng, item);
             spawned->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
         return true;

@@ -50,6 +50,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
+#include "wiz8/party_quote_input.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
@@ -58,6 +59,7 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
+#include "wiz8/world_view.h"
 
 unsigned short g_race_name_message_ids[W8_RACE_COUNT] = {
     0x284, 0x285, 0x286, 0x287, 0x288, 0x289, 0x28a, 0x28b,
@@ -563,8 +565,9 @@ W8Character* CharacterScreen::GetOriginalCharacter()
 
 bool CharacterScreen::enter(const ScreenRequest& request)
 {
+    party_quotes = AcquirePartyQuoteInput(m_game);
     const W8CharacterScreenMode mode = std::get<W8CharacterScreenMode>(request.mode);
-    SetViewport({0, 0, 0x281, 0x1e1});
+    SetWorldViewport(&m_game, {0, 0, 0x281, 0x1e1});
     SetUiCanvasAlphaTestEnabled(false);
     ScreenPointer().reset();
     g_wiz_text_font_secondary.resetPalette();
@@ -637,5 +640,5 @@ void CharacterScreen::frame()
     m_pages[m_page_index]->Redraw(GetFrameBufferSurface(), false);
     DrawNavigation(GetFrameBufferSurface());
     if (m_dialog) m_dialog->RefreshModal();
-    RenderFrame();
+    PresentGameFrame(&m_game);
 }

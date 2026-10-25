@@ -1,13 +1,14 @@
 #include "wiz8/level_specific_code/Rift1.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 
-#include "glm/ext/vector_float3.hpp"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
+#include "wiz8/game.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -15,6 +16,8 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code\Rift1.cpp (level 0x15).
@@ -33,19 +36,20 @@ namespace {
    armed until it does. */
 bool Rift1Sexspawn(Trigger* pTrigger)
 {
-    glm::vec3 position;
     W8MonsterInfo* monster_info;
 
-    if (GetFact(W8_FACT_TEMPLAR) != 0) {
+    if (CurrentGame().testFact(W8_FACT_TEMPLAR) != 0) {
         if (GetLocationVarIDByName("AlSedexusSwapped") == -1) {
-            CreateLocationVar("AlSedexusSwapped", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AlSedexusSwapped", 1);
             monster_info = FindMonsterInfoBySpecies(0xd9);
             if (monster_info != 0) {
-                RemoveMonster(monster_info, W8MonsterRemoval::Despawn);
+                CurrentGame().retireMonster(monster_info, W8MonsterRemoval::Despawn);
             }
             monster_info = FindMonsterInfoBySpecies(0x22b);
-            if (monster_info == 0 && FindEntityByName("Sexspawn", &position, 0, 0)) {
-                SpawnMonsters(0x22b, 1, &position, 0, true, false);
+            if (auto point = monster_info == 0
+                                 ? CurrentGame().level.loaded().namedPosition("Sexspawn")
+                                 : std::nullopt) {
+                SpawnMonsters(0x22b, 1, &*point, 0, true, false);
             }
             return true;
         }
@@ -58,13 +62,12 @@ bool Rift1Sexspawn(Trigger* pTrigger)
    world action. */
 bool Rift1Hotstuff(Trigger* pTrigger)
 {
-    glm::vec3 position;
     W8MonsterGroup* group;
     Monster* monster;
 
-    if (GetFact(W8_FACT_LAVALORD_DIE) == 0) {
-        if (FindEntityByName("Hotstuff", &position, 0, 0)) {
-            group = SpawnMonsters(0x175, 1, &position, 0, true, false);
+    if (CurrentGame().testFact(W8_FACT_LAVALORD_DIE) == 0) {
+        if (auto position = CurrentGame().level.loaded().namedPosition("Hotstuff")) {
+            group = SpawnMonsters(0x175, 1, &*position, 0, true, false);
             if (group != 0) {
                 monster = GetMonsterByLocationID(group->MemberLocationId(0));
                 if (monster != 0 && monster->SetScript("MoveLavalord.MSF", true)) {
@@ -80,10 +83,8 @@ bool Rift1Hotstuff(Trigger* pTrigger)
    Fireantspawn entity. */
 bool Rift1Fireantspawn(Trigger* pTrigger)
 {
-    glm::vec3 position;
-
-    if (FindEntityByName("Fireantspawn", &position, 0, 0)) {
-        SpawnMonsters(0x12b, 6, &position, 1, false, false);
+    if (auto position = CurrentGame().level.loaded().namedPosition("Fireantspawn")) {
+        SpawnMonsters(0x12b, 6, &*position, 1, false, false);
     }
     return true;
 }
@@ -91,31 +92,29 @@ bool Rift1Fireantspawn(Trigger* pTrigger)
 /* "Gate": raise fact 0x1c4. */
 bool Rift1Gate(Trigger* pTrigger)
 {
-    SetFact(W8_FACT_RIFT_RAFE_CAGE_OPEN, 1, false);
+    CurrentGame().setFact(W8_FACT_RIFT_RAFE_CAGE_OPEN, 1);
     return true;
 }
 
 /* "AshLock": spawn one hostile monster 0x222 at the NP_Hotstuff3 entity. */
 bool Rift1AshLock(Trigger* pTrigger)
 {
-    glm::vec3 position;
-
-    if (FindEntityByName("NP_Hotstuff3", &position, 0, 0)) {
-        SpawnMonsters(0x222, 1, &position, 1, true, false);
+    if (auto position = CurrentGame().level.loaded().namedPosition("NP_Hotstuff3")) {
+        SpawnMonsters(0x222, 1, &*position, 1, true, false);
     }
     return true;
 }
 
 /* "TimeDorado": give every existing monster group of species 0xfc a fresh
    member. */
-bool Rift1TimeDorado(Trigger* pTrigger)
+bool Rift1TimeDorado(const ScriptContext& ctx, Trigger* pTrigger)
 {
     W8MonsterGroup* previous;
 
-    previous = FindNextExistingMonsterByID(0xfc, 0);
+    previous = ctx.world->population->findSpeciesGroup(0xfc, 0);
     while (previous != 0) {
-        GiveBirthToMonster(previous);
-        previous = FindNextExistingMonsterByID(0xfc, previous);
+        ctx.game.giveBirthToMonster(previous);
+        previous = ctx.world->population->findSpeciesGroup(0xfc, previous);
     }
     return true;
 }
@@ -131,7 +130,8 @@ public:
         bindTrigger("Hotstuff", Rift1Hotstuff);
         bindTrigger("Gate", Rift1Gate);
         bindTrigger("AshLock", Rift1AshLock);
-        bindTrigger("TimeDorado", Rift1TimeDorado);
+        bindTrigger("TimeDorado",
+                    [this](Trigger* trigger) { return Rift1TimeDorado(ctx, trigger); });
     }
 };
 

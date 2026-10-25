@@ -8,7 +8,6 @@
 #include "wiz8/character_skills.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/spell_ids.h"
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/targeting.h"
 
@@ -20,31 +19,22 @@ enum class W8SpellCastKind : unsigned char {
     ThrowingItemUse = 4
 };
 
+struct GameData;
+class Rng;
 struct W8ItemInstance;
 struct W8MonsterInfo;
 class Missile;
-
-void TickSpellEffects(void);
 
 extern int g_learn_sound;
 
 /* Whether the spell may be cast in the current situation. */
 bool SpellUsableNow(int spell_id, bool allow_out_of_combat);
 
-W8TargetNeed GetTargetNeededForSpellFriendly(int spell_id, bool normalize, bool needs_item_target);
-W8TargetNeed GetTargetNeededForSpellHostile(int spell_id);
-/* Whether the monster's spellcasting-blocked condition stops it
-   casting this spell - everything except alchemy, and alchemy only for the
-   monster kinds that keep it. */
-bool IsSpellBlockedForMonster(W8MonsterInfo* monster_info, int spell_id);
-/* Everything that has to hold before a monster may start
-   casting. The power level is unused. */
-bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int power_level);
 unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsigned int power_level);
 /* The power level the monster can afford for the spell, out of
    its database base plus its runtime bonus. */
-unsigned int ChooseMonsterSpellPowerLevel(W8MonsterInfo* monster_info,
-                                          const W8MonsterRecord* record, int spell_id);
+unsigned int ChooseMonsterSpellPowerLevel(const GameData& data, Rng& rng,
+                                          const W8MonsterInfo& monster, int spell_id);
 /* One physical callable for queued and repeated casts; returns
    0/1/2 and writes the per-step point cost. */
 int ExecuteCharacterSpellCast(int party_slot, int spell_id, unsigned int power_level,
@@ -66,23 +56,15 @@ int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level);
 
 bool CanCastFromItem(const W8Character* caster, const W8ItemInstance* item);
 
-bool CanCharacterLearnSpell(W8Character* character, int spell_id);
-void LearnSpell(W8Character* character, int spell_id, bool announce);
+bool CanCharacterLearnSpell(const GameData& data, W8Character* character, int spell_id);
+void LearnSpell(const GameData& data, W8Character* character, int spell_id);
 /* Learns the spell a spell-source item holds and empties the
    item. */
 void LearnSpellFromItem(W8Character* character, W8ItemLocation location);
 
 /* Learned, and the remaining points in the spell's realm cover its cost.
    CharacterHasCastableSpell expands this body for every spell. */
-inline bool CanCharacterCastSpell(W8Character* character, int spell_id)
-{
-    if (spell_id != W8_SPELL_NONE && character->spell_learned[spell_id] == 1 &&
-        Data().spells[spell_id].spell_point_cost <=
-            character->iSPLeft[Data().spells[spell_id].realm]) {
-        return true;
-    }
-    return false;
-}
+
 unsigned int GetSpellCastingSkillLevel(const W8Character* character, W8Skill spellbook_skill,
                                        W8SpellRealm realm);
 W8Skill GetBestSpellbookSkillForSpell(W8Character* character, int spell_id, bool pricing,
@@ -95,16 +77,6 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
 /* Assert and route the source/target pair a cast is about to
    use; some target kinds have their own placement pass. */
 void PrepareSpellTarget(int spell_id, W8TargetSource* source, W8CombatSlot* target);
-/* Resolve valid spell targets for one cast and append location ids to the
-   caller's vectors. The party and monster vectors are separate outputs; the
-   sight rule explicitly chooses geometry-only preview or line-of-sight
-   eligibility. The query never changes presentation. */
-void PopulateSpellTargetMarkers(int spell_id, int power_level, W8TargetSource* source,
-                                W8CombatSlot* target, std::vector<int>& monster_markers,
-                                std::vector<int>& party_markers, W8AreaSightRule sight_rule);
-/* Drop every marker that no longer names a live, targetable
-   monster; a few spell ids prune on extra monster-record rules. */
-void PruneSpellTargetMarkers(int spell_id, std::vector<int>& monster_markers);
 int GetProfessionCasterLevel(const W8Character* character, W8Profession profession_id);
 extern unsigned char g_profession_spellbooks[W8_PROFESSION_COUNT];
 /* The spell a missile type carries, or W8_SPELL_NONE. */
@@ -161,8 +133,5 @@ bool AttemptSpellPractice(int spell_id, const W8CombatSlot* aim, unsigned int po
 void TrackItemSpellSource(W8Character* character, int spell_id);
 bool IsTeleportCastMissingAnchor(W8Character* character, int spell_id);
 extern unsigned short g_realm_message_offsets[W8_SPELL_REALM_COUNT];
-
-void DetachMissileReferences(Missile* missile);
-bool AllSpellEffectsStillRunning(void);
 
 #endif

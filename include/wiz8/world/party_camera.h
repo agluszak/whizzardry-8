@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <utility>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/euler_angles.hpp>
@@ -37,8 +38,11 @@ enum W8CameraOrientationFlag {
 
 enum class CameraSwayMode : signed char { Stop = -1, Reset = 0, Start = 1 };
 
+struct World;
+
 class PartyCamera {
 public:
+    TimerClockView clocks;
     PartyMotion motion;
     wiz8::retail::CameraPoseOpaque saved_pose_bytes;
     unsigned char fast_move_state = 0;
@@ -50,6 +54,8 @@ public:
     float sway_horizontal_phase = 0;
     float sway_vertical_phase = 0;
     void applySway(Camera3D& camera, CameraSwayMode mode);
+    bool swayActive() const { return sway_active_; }
+    float gravity() const { return sway_active_ ? kDefaultGravity / 2 : kDefaultGravity; }
     ActiveEnvironment environment;
     bool motion_started = false;
     int saved_environment_flag = 1;
@@ -57,21 +63,23 @@ public:
        The main game screen sets it whenever its viewport changes. */
     bool bottom_panel_view = false;
     /* One frame of movement. `turn` applies the frame's turn and look input and returns the
-       basis the movement input is taken in; `move` advances the party under that input
+       basis and whether sight needs refreshing; `move` advances the party under that input
        against the collision index and reports the displacement. */
-    glm::mat3 turn(unsigned int flags);
+    std::pair<glm::mat3, bool> turn(unsigned int flags);
     CameraMotion move(LevelSpatialIndex& collision, unsigned int flags,
                       const glm::mat3& movement_basis);
-    PartyCamera(); /* 0x00476140 */
+    explicit PartyCamera(TimerClockView clocks = {}, float reference_gravity = kDefaultGravity);
 
     void ApplyRotationMatrix(glm::mat3* rotation, PartyMotion* context); /* 0x00476610 */
-    void SnapToTarget(const glm::vec3* target); /* 0x00476950 */
-    void SetOrientationImmediate(float pitch, float angle); /* 0x00476C30 */
-    unsigned char LookAt(const glm::vec3* target, bool preserve_pitch); /* 0x00476F90 */
+    void pointAt(const glm::vec3& position, bool force, bool animate, bool conversation);
+    void SnapToTarget(const glm::vec3* target, bool conversation); /* 0x00476950 */
+    void SetOrientationImmediate(float pitch, float angle, bool conversation); /* 0x00476C30 */
+    unsigned char LookAt(const glm::vec3* target, bool preserve_pitch,
+                         bool conversation); /* 0x00476F90 */
     bool ComputeTrackingOrientation(const glm::vec3* target, float* angle,
                                     float* pitch); /* 0x00477180 */
-    unsigned char BeginOrientationTransition(float target_pitch, float target_angle,
-                                             bool force); /* 0x00477440 */
+    unsigned char BeginOrientationTransition(float target_pitch, float target_angle, bool force,
+                                             bool conversation); /* 0x00477440 */
     void Update(float elapsed); /* 0x004776A0 */
     void ApplyYawInput(float input); /* 0x00477B90 */
     void ApplyPitchInput(float input); /* 0x00477EB0 */
@@ -120,10 +128,12 @@ public:
     float m_yaw_distance; /* 0x0b0 */
     float m_pitch_distance; /* 0x0b4 */
     float m_transition_duration; /* 0x0b8 */
-    W8IntervalGate m_manual_input_timer{1.0f, TimerClock::World, true};
+    W8IntervalGate m_manual_input_timer;
 
 private:
-    bool CanTrackTarget();
+    bool sway_active_ = false;
+    void updateMovementAudio(World& world);
+    bool CanTrackTarget(bool conversation);
 };
 
 // Active world controller, or startup state while no world is published.
@@ -142,10 +152,9 @@ void OffsetPositionByYawPitch(float distance, glm::vec3* position, float yaw, fl
    radians; the homing missile tick faces its representation with them. */
 /* ElevationToTargetCPP and HeadingToTargetCPP are declared in
    wiz8/render/picking.h. */
-extern float g_camera_level_forward_scale;
+inline constexpr float g_camera_level_forward_scale = 375.0f;
 extern float g_camera_max_yaw_velocity;
 extern const float g_negative_one;
 extern const double g_camera_pi;
 extern const float g_camera_transition_epsilon;
-extern float g_camera_default_forward_scale;
-extern float g_camera_forward_scale;
+inline constexpr float g_camera_default_forward_scale = 750.0f;

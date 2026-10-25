@@ -21,14 +21,13 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/screen.h"
-#include "wiz8/spatial/level_spatial_index.h"
 
 SDL_Window* ghWindow = nullptr;
 bool g_screenshot_pending = false;
 bool g_video_inspector_enabled = false;
 static int suspensions = 0, restorations = 0, resizes = 0;
 static std::thread::id dispatch_thread;
-static std::vector<W8MoveTimerAction> clock_actions;
+static std::vector<bool> clock_actions;
 void SuspendVideoManager()
 {
     ++suspensions;
@@ -43,10 +42,9 @@ bool VideoResizeWindow()
     ++resizes;
     return true;
 }
-float MoveTimer(W8MoveTimerAction action)
+void FocusChanged(bool focused)
 {
-    clock_actions.push_back(action);
-    return 0;
+    clock_actions.push_back(focused);
 }
 // This event fixture has no game screen; the runtime scenario covers its step clock.
 Screen* CurrentScreen()
@@ -108,7 +106,7 @@ static void wheel(float amount, bool flipped = false)
 static void drain_events()
 {
     REQUIRE(std::this_thread::get_id() == dispatch_thread);
-    PumpGameEvents();
+    PumpGameEvents(FocusChanged);
 }
 static std::vector<InputEvent> input()
 {
@@ -346,7 +344,7 @@ TEST_CASE("events_test")
     events = input();
     Uint64 deadline = SDL_GetTicks() + 1000;
     while (events.size() < 2 && SDL_GetTicks() < deadline) {
-        PumpGameEvents(true);
+        PumpGameEvents(FocusChanged, true);
         auto next = input();
         events.insert(events.end(), next.begin(), next.end());
     }
@@ -374,8 +372,7 @@ TEST_CASE("events_test")
     focus(SDL_EVENT_WINDOW_FOCUS_GAINED);
     drain_events();
     REQUIRE((restorations == 0 && clock_actions.size() == 2));
-    REQUIRE((clock_actions[0] == W8_MOVE_TIMER_SUSPEND &&
-             clock_actions[1] == W8_MOVE_TIMER_RESUME_MAIN_GAME));
+    REQUIRE((!clock_actions[0] && clock_actions[1]));
     focus(SDL_EVENT_WINDOW_MINIMIZED);
     drain_events();
     REQUIRE(suspensions == 1);

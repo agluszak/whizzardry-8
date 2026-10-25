@@ -17,19 +17,14 @@
 #include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
-#include "wiz8/data/fact_ids.h"
-#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/layouts/npc_state.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
@@ -41,8 +36,8 @@
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
-#include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
+#include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -57,6 +52,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
@@ -309,13 +305,6 @@ bool ItemsShareUnidentifiedName(const W8ItemInstance* first, const W8ItemInstanc
 
 /* Whether an item is bound to whoever is wearing it, which is what stops it
    being taken off or swapped away. */
-bool IsItemBoundToWearer(const W8ItemInstance* item)
-{
-    if (item->iItemNo != -1 && Data().items[item->iItemNo].binds_on_equip != 0 && item->bound) {
-        return true;
-    }
-    return false;
-}
 
 /* Whether anybody in the party could use this item. Only occupied slots with a
    character who is conscious enough to act are asked. */
@@ -324,7 +313,7 @@ bool AnyPartyMemberCanUseItem(int item_id)
     int slot;
 
     for (slot = 0; slot < 8; ++slot) {
-        if (CanPartySlotParticipate(slot)) {
+        if (CurrentGame().party.participates(slot)) {
             if (CanCharacterUseItem(Data(), &CurrentGame().party.characters[slot], item_id)) {
                 return true;
             }
@@ -339,40 +328,6 @@ bool AnyPartyMemberCanUseItem(int item_id)
    spell sources are refused here because they go through the cast path,
    category zero is dead weight, spell-less records fail unless they are the
    one exempt item, and an empty charge stack fails. */
-bool CanCharacterActivateItem(W8Character* character, const W8ItemInstance* item)
-{
-    const W8ItemDatabaseRecord* record;
-
-    assert(character != 0);
-    assert(item != 0);
-    assert(item->iItemNo >= -1);
-    assert(item->iItemNo < static_cast<int>(Data().items.size()));
-    if (item->iItemNo == -1) {
-        return false;
-    }
-    if (!CanCharacterUseItem(Data(), character, item->iItemNo)) {
-        return false;
-    }
-
-    record = &Data().items[item->iItemNo];
-    if ((record->flags & W8_ITEM_FLAG_MUST_EQUIP_TO_USE) != 0 ||
-        GetItemDefaultEquipSlot(Data(), item->iItemNo, GameStarted()) != W8_EQUIP_SLOT_NONE) {
-        if (!IsItemWornByCharacter(character, item)) {
-            return false;
-        }
-    }
-
-    if (record->category == W8_ITEM_CATEGORY_SPELL_SOURCE || record->category == 0) {
-        return false;
-    }
-    if (item->iItemNo != 0x29f && record->spell_id == W8_SPELL_NONE) {
-        return false;
-    }
-    if (record->quantity_kind == W8_ITEM_QUANTITY_CHARGES && item->uses_or_charges == 0) {
-        return false;
-    }
-    return true;
-}
 
 /* Whether both weapon sets are entirely empty. */
 bool AreAllHandSlotsEmpty(const W8Character* character)
@@ -444,12 +399,14 @@ int CountUsableCharacterItems(W8Character* character)
     int index;
 
     for (index = 0; index < 12; ++index) {
-        if (CanCharacterActivateItem(character, &character->EquippedItem[index])) {
+        if (CanCharacterActivateItem(CurrentGame().data, character, &character->EquippedItem[index],
+                                     CurrentGame().status.game_started)) {
             ++count;
         }
     }
     for (index = 0; index < 8; ++index) {
-        if (CanCharacterActivateItem(character, &character->backpack[index])) {
+        if (CanCharacterActivateItem(CurrentGame().data, character, &character->backpack[index],
+                                     CurrentGame().status.game_started)) {
             ++count;
         }
     }
@@ -459,35 +416,10 @@ int CountUsableCharacterItems(W8Character* character)
 /* Whether an item's class is one of the three the target rules normalize for.
    The classes here are above the thirteen the equip-slot switch enumerates,
    so the class domain is wider than that switch covers. */
-bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record)
-{
-    unsigned char equip_class = record->equip_class;
-
-    if (equip_class != W8_ITEM_EQUIP_CLASS_POTION &&
-        (equip_class < W8_ITEM_EQUIP_CLASS_FOOD || equip_class > W8_ITEM_EQUIP_CLASS_DRINK)) {
-        return false;
-    }
-    return true;
-}
 
 /* Whether one item sits in a character's equipment, excluding the two
    alternate-set hand slots - a slot in that set answers no even though the
    item is found there. */
-bool IsItemWornByCharacter(W8Character* character, const W8ItemInstance* item)
-{
-    unsigned int slot;
-
-    if (character == 0) {
-        return false;
-    }
-    for (slot = 0; slot < 12; ++slot) {
-        if (&character->EquippedItem[slot] == item) {
-            return slot != W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON &&
-                   slot != W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON;
-        }
-    }
-    return false;
-}
 
 /* Whether one item sits in a character's own carried slots. */
 bool IsItemCarriedByCharacter(W8Character* character, const W8ItemInstance* item)
@@ -707,120 +639,6 @@ unsigned int GetEquipmentBindingDifficulty(int character_index)
     return level;
 }
 
-/* Acquisition of a handful of plot items updates their paired facts. */
-void UpdateFactsAfterAcquiringItem(const W8ItemInstance* item)
-{
-    switch (item->iItemNo) {
-    case 0x243:
-        if (!GetFact(W8_FACT_DESTINAE_POSSESS)) {
-            SetFact(W8_FACT_DESTINAE_POSSESS, 1, false);
-        }
-        if (GetFact(W8_FACT_QUEST_GET_DD)) {
-            SetFact(W8_FACT_QUEST_GET_DD, 0, false);
-        }
-        break;
-    case 0x242:
-        if (!GetFact(W8_FACT_ASTRAL_POSSESS)) {
-            SetFact(W8_FACT_ASTRAL_POSSESS, 1, false);
-        }
-        if (GetFact(W8_FACT_QUEST_GET_AD)) {
-            SetFact(W8_FACT_QUEST_GET_AD, 0, false);
-        }
-        break;
-    case 0x244:
-        if (!GetFact(W8_FACT_CHAOS_POSSESS)) {
-            SetFact(W8_FACT_CHAOS_POSSESS, 1, false);
-        }
-        if (GetFact(W8_FACT_QUEST_GET_CM)) {
-            SetFact(W8_FACT_QUEST_GET_CM, 0, false);
-        }
-        CurrentGame().status.fact_b8_pending = true;
-        CurrentGame().status.fact_b8_clock = CurrentGame().status.world_clock;
-        break;
-    case 0x264:
-        if (!GetFact(W8_FACT_ASTRAL_FAKE_POSSESS)) {
-            SetFact(W8_FACT_ASTRAL_FAKE_POSSESS, 1, false);
-            SetFact(W8_FACT_ASTRAL_FAKE_POSSESS1, 1, false);
-        }
-        break;
-    case 0x201:
-        SetFact(W8_FACT_QUEST_BRAFFIT_CIERDAN, 0, false);
-        break;
-    case 0x27c:
-        SetFact(W8_FACT_QUEST_MYLES_FIND_DIAMOND, 0, false);
-        break;
-    case 0x1d2:
-        if (GetFact(W8_FACT_QUEST_MYLES_WEAPONS_CACHE)) {
-            SetFact(W8_FACT_QUEST_MYLES_WEAPONS_CACHE, 0, false);
-        }
-        break;
-    }
-}
-
-/* Deliver the one-time character reaction associated with exceptional items.
-   Character creation (screen 5) deliberately suppresses every reaction. */
-void DeliverExceptionalItemReaction(Game& game, W8ItemInstance* item, bool choose_character,
-                                    W8Character* character)
-{
-    int message;
-
-    if (CurrentScreenState().id == W8_SCREEN_PARTY_SELECTION) {
-        return;
-    }
-    if (choose_character) {
-        int party_slot = CurrentGame().party.randomSlot(CurrentGame().rng, 0, 0, -1, -1);
-        if (party_slot == -1) {
-            return;
-        }
-        character = &game.party.characters[party_slot];
-    }
-    if ((item->effect_used & 1) != 0) {
-        return;
-    }
-
-    switch (item->iItemNo) {
-    case 0x239:
-        message = 132;
-        break;
-    case 0x242:
-        message = 46;
-        break;
-    case 0x243:
-        message = 47;
-        break;
-    case 0x244:
-        message = game.story.factions[W8_FACTION_MOOK].disposition_score != 0 ? 48 : 49;
-        break;
-    case 0x264:
-        message = 66;
-        break;
-    case 0x27c: {
-        SetFact(W8_FACT_DIAMOND_FOUND, 1, false);
-        if (!NpcLeadHasNameStyle(W8_NPC_MYLES) || !GetFact(W8_FACT_QUEST_MYLES_FIND_DIAMOND)) {
-            return;
-        }
-        W8NpcState* npc = GetNpcStateByKind(7);
-        if (npc == 0) {
-            return;
-        }
-        signed char npc_slot = npc->group_index;
-        QueueCharacterEvent(&game.party.characters[npc_slot], 65, 0, kCharacterEventFullVolume);
-        return;
-    }
-    default:
-        if (choose_character || !CanCharacterUseItem(game.data, character, item->iItemNo) ||
-            game.data.items[item->iItemNo].value / character->uiExpLevel <= 500 ||
-            !item->identified) {
-            return;
-        }
-        message = 55;
-        break;
-    }
-
-    QueueCharacterEvent(character, message, 0, kCharacterEventFullVolume);
-    item->effect_used |= 1;
-}
-
 /* Whether the item's equip class is directly usable (0x17/0x19). */
 bool IsUsableItemClass(const W8ItemInstance* item)
 {
@@ -895,7 +713,8 @@ bool ValidateItemSpellUse(int character_index, const W8ItemInstance* item,
    a service spell (0x03/0x29). Every carried location applies this test. */
 static bool IsActivatableServiceItem(W8Character* character, const W8ItemInstance* item)
 {
-    if (item->iItemNo != -1 && CanCharacterActivateItem(character, item)) {
+    if (item->iItemNo != -1 && CanCharacterActivateItem(CurrentGame().data, character, item,
+                                                        CurrentGame().status.game_started)) {
         const W8ItemDatabaseRecord* record = &Data().items[item->iItemNo];
         if (record->equip_class != W8_ITEM_EQUIP_CLASS_KEY &&
             record->equip_class != W8_ITEM_EQUIP_CLASS_OTHER && item->identified &&
@@ -984,7 +803,8 @@ void SetCharacterItemUse(int party_slot, const W8Action& action)
     StagePartySlotItemUse(party_slot, action.detail_block.item_use.item, &action.target);
     const bool identify = Data().items[item->iItemNo].spell_id == W8_SPELL_IDENTIFY_ITEM;
     if (CurrentGame().combat.has_value()) {
-        SetCharacterCombatAction(party_slot, {W8_ACTION_USE_ITEM, -1, action.target, detail}, 1);
+        CurrentGame().setCombatAction(party_slot, {W8_ACTION_USE_ITEM, -1, action.target, detail},
+                                      ActionOrigin::Player, !SpellPicker() && !UseItemPicker());
     } else {
         CurrentGame().party.rows[party_slot].executing.target = action.target;
         ChooseAction(party_slot, W8_ACTION_USE_ITEM, -1, &detail, identify, 1);

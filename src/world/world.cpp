@@ -3,11 +3,10 @@
 #include <algorithm>
 #include <cassert>
 #include <chrono>
-#include <cmath>
 #include <cstddef>
 #include <filesystem>
-#include <initializer_list>
 #include <memory>
+#include <optional>
 #include <ranges>
 #include <stdexcept>
 #include <string>
@@ -16,7 +15,6 @@
 #include <variant>
 #include <vector>
 
-#include <glm/ext/quaternion_trigonometric.hpp>
 #include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 #include <glm/trigonometric.hpp>
 
@@ -46,6 +44,7 @@
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/spell_database.h"
+#include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/render/camera.h"
 #include "wiz8/render/camera_shake.h"
@@ -72,12 +71,11 @@
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/party_motion.h"
 #include "wiz8/world/update.h"
-#include "wiz8/world_cursor.h"
 // Completes MonGen for templated world-registry destruction.
 #include "wiz8/local_code/MonsterGenerator.h" // IWYU pragma: keep
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/local_code/SpellEffect.h" // IWYU pragma: keep - completes world-owned casts.
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/world/automap.h"
@@ -102,53 +100,32 @@ NavigationMesh* GetWorldPathing()
 }
 bool g_navigator_vertical_enabled = true;
 
-/* Build scene resources under a local owner. No active world is required;
-   malformed resources destroy only this unpublished result. */
-static void UpdateWorld(World& world, std::chrono::milliseconds elapsed)
+// Keep the authored update points: sky particles first, then primary simulation;
+// continuing casts resolve after level scripts, before the primary particle sweep.
+void Game::advanceWorlds(std::chrono::milliseconds elapsed)
 {
-    if (&world != GetSecondaryWorld()) {
-        UpdateWorldMonsters(&world);
+    g_navigator_vertical_enabled =
+        !(((GetInputState().modifiers & CTRL_DOWN) != 0) && combat.has_value() &&
+          (combat->round_active || party_movement_mode));
+    if (level.sky) SweepFinishedParticles(level.sky.get());
+    if (level.primary) {
+        auto& world = *level.primary;
+        world.updateMonsters();
         UpdateWorldMissiles(&world);
         UpdateWorldSpellVisuals(&world);
         UpdateAmbientSounds(&world);
         WorldUpdateLights(&world);
         RunMonsterGenerators(elapsed);
         UpdateWorldTriggers(&world);
-        if (world.compiledIndex() != 0 && world.script) {
-            world.script->runMasters();
-        }
-        UpdateSpellEffects();
+        if (world.compiledIndex() && world.script) world.script->runMasters();
+        advanceSpellEffects(world);
+        SweepFinishedParticles(&world);
     }
-
-    SweepFinishedParticles(&world);
-}
-
-void UpdateWorlds(std::chrono::milliseconds elapsed)
-{
-    g_navigator_vertical_enabled =
-        !(((GetInputState().modifiers & CTRL_DOWN) != 0) && CurrentGame().combat.has_value() &&
-          (CurrentGame().combat->round_active || CurrentGame().party_movement_mode));
-
-    // Loading registered the sky first; preserve that update order.
-    for (World* world : {GetSecondaryWorld(), GetWorld()}) {
-        if (world) UpdateWorld(*world, elapsed);
-    }
-
     RefreshWorldView();
-
     UpdateTimedTriggerEvents();
-    UpdateShakeEffects();
+    camera_shakes.advance(level.primary ? level.primary->party.eye() : glm::vec3(0));
     UpdateEnvironment();
     UpdateNpcEvents();
-}
-
-/* Detach the item meshes in the level and sky worlds before the renderer-side
-   resource transition. */
-void DetachAllWorldItems(void)
-{
-    for (World* world : {GetWorld(), GetSecondaryWorld()}) {
-        if (world != 0) DetachWorldItemMeshes(world);
-    }
 }
 
 W8LevelPopulation& CurrentLevelPopulation()
@@ -157,17 +134,20 @@ W8LevelPopulation& CurrentLevelPopulation()
     return *GetWorld()->population;
 }
 
-World::World(int level_id, std::string path)
-    : level_id(level_id),
+World::World(int level_id, std::string path, TimerClockView clocks, ShakeSystem* shakes,
+             float reference_gravity)
+    : clocks(clocks), shakes(shakes), level_id(level_id),
       source_path(path.empty() ? std::string{} : wiz8::normalize_asset_path(path).generic_string()),
-      scene(std::make_unique<WorldScene>()), population(std::make_unique<W8LevelPopulation>())
+      scene(std::make_unique<WorldScene>()), party(*this, reference_gravity),
+      population(std::make_unique<W8LevelPopulation>())
 {
     SetSceneAmbientLightWhite(scene.get());
 }
 
 World::~World() = default;
 
-WorldParty::WorldParty(World& world) : navigator(world)
+WorldParty::WorldParty(World& world, float reference_gravity)
+    : camera(world.clocks, reference_gravity), navigator(world)
 {
     navigator.configureStartupRange(500.0f);
     navigator.configureStartupDepth(std::max(kStartupNearLimit, g_default_world_height),
@@ -219,18 +199,19 @@ void updatePartyMovement(World& world, unsigned int flags)
     world.automap.reveal(10);
     if (auto* collision = world.collisionIndex()) {
         party.motion.flags &= ~W8_LEVEL_FLAG_MOVED_THIS_UPDATE;
-        const glm::mat3 movement_basis = party.turn(flags);
+        const auto [movement_basis, turned] = party.turn(flags);
+        world.navigation_changed |= turned;
         const auto motion = party.move(*collision, flags, movement_basis);
         // A camera path flies the eye without moving the party.
         if (!g_camera_path_active) world.party.followCamera();
         world.automap.follow(navigationPosition(party.m_position));
-        if (motion.moved) DispatchWorldCursorNodeCommand(0, 0, 0);
+        if (motion.moved) DispatchWorldCursorNodeCommand(0);
     }
     party.applySway(*world.camera, CameraSwayMode::Reset);
     for (const auto& camera_path : world.plsCameras) {
         if (!camera_path->active) continue;
         KeyframeTrack* path = camera_path->path ? &*camera_path->path : nullptr;
-        PathAITick(path, 1);
+        PathAITick(path, 1, world.clocks.worldMilliseconds());
         Transform3D pose;
         pose.setLocation(glm::dvec3(party.m_position));
         pose.setRotation(party.rotationMatrix());
@@ -327,148 +308,21 @@ void ApplyWorldUpdateFlags(World* world, unsigned int flags)
     }
 }
 
-/* Resolve the PARTY alias or a named position stored with the current world. */
-bool FindEntityByName(std::string_view name, glm::vec3* position, float* angle,
-                      glm::vec3* direction)
+// Authored markers retain their facing; point queries also resolve the PARTY alias.
+const W8NamedPosition* World::namedMarker(std::string_view name) const
 {
-    if (name.empty()) {
-        return false;
-    }
-    if (CompareTextIgnoreAsciiCase("PARTY", name) == 0) {
-        *position = cameraLocation();
-        return true;
-    }
-
-    int count = static_cast<int>(GetWorld()->named_positions.size());
-    for (int index = 0; index < count; ++index) {
-        const W8NamedPosition* entry = &GetWorld()->named_positions[index];
-        if (CompareTextIgnoreAsciiCase(name, entry->name) == 0) {
-            *position = entry->position;
-            if (angle != 0) {
-                *angle = entry->angle;
-            }
-            if (direction != 0) {
-                *direction = entry->direction;
-            }
-            return true;
-        }
-    }
-    return false;
+    if (name.empty()) return nullptr;
+    const auto found = std::ranges::find_if(named_positions, [&](const auto& entry) {
+        return CompareTextIgnoreAsciiCase(name, entry.name) == 0;
+    });
+    return found == named_positions.end() ? nullptr : &*found;
 }
 
-/* Push a candidate position clear of static geometry, then reject it when it
-   overlaps another world item or monster. */
-bool AdjustWorldCollisionPosition(float radius, glm::vec3* position, bool check_items,
-                                  bool check_monsters)
+std::optional<glm::vec3> World::namedPosition(std::string_view name) const
 {
-    float threshold = radius * g_path_endpoint_scale;
-    float angle = 0.0f;
-
-    do {
-        glm::vec3 first(0.0f, 0.0f, radius);
-        first =
-            glm::vec3(glm::angleAxis(std::atan2(std::sin(double(angle)), std::cos(double(angle))),
-                                     glm::dvec3(0, 1, 0)) *
-                      glm::dvec3(first));
-        first += *position;
-
-        double opposite_angle = angle + g_camera_pi;
-        glm::vec3 second(0.0f, 0.0f, radius);
-        second = glm::vec3(glm::angleAxis(std::atan2(sin(opposite_angle), cos(opposite_angle)),
-                                          glm::dvec3(0, 1, 0)) *
-                           glm::dvec3(second));
-        second += *position;
-
-        if (const auto hit = GetWorldSpatialIndex()->traceSight(*position, first))
-            first = hit->point;
-        if (const auto hit = GetWorldSpatialIndex()->traceSight(*position, second))
-            second = hit->point;
-
-        first -= *position;
-        second -= *position;
-        float first_distance = glm::length(first);
-        if (first_distance < threshold && glm::length(second) < threshold) {
-            return false;
-        }
-        if (first_distance < threshold) {
-            first = glm::dot(first, first) == 0
-                        ? first
-                        : glm::normalize(first) * static_cast<float>(radius - first_distance);
-            *position -= first;
-        } else {
-            second =
-                glm::dot(second, second) == 0
-                    ? second
-                    : glm::normalize(second) * static_cast<float>(radius - glm::length(second));
-            *position -= second;
-        }
-        angle += 0.7853981256484985f;
-    } while (angle < g_camera_pi);
-
-    if (check_items) {
-        for (const auto& item : CurrentLevelPopulation().world_items) {
-            WorldItemEntity* owner = item->entity.find();
-            if (owner != 0) {
-                glm::vec3 center;
-                center = owner->GetSearchPosition();
-                const auto other_radius = owner->GetBoundsRadius();
-                glm::vec3 delta = center - *position;
-                if (glm::length(delta) < other_radius + radius) {
-                    return false;
-                }
-            }
-        }
-    }
-
-    if (check_monsters) {
-        for (const auto& monster_owner : CurrentLevelPopulation().monster_roster.live()) {
-            auto* info = monster_owner.get();
-            Monster* monster = info->entity.find();
-            if (monster != 0) {
-                const auto center = monster->GetAnimationCenter();
-                float other_radius;
-                if (center && monster->GetAnimationRadius(&other_radius) &&
-                    glm::length((*center - *position)) < other_radius + radius) {
-                    return false;
-                }
-            }
-        }
-    }
-    return true;
-}
-
-/* Try the requested point first, then the two retail half-turn probe points
-   around it; only an unobstructed probe is handed to the overlap resolver. */
-bool FindNearbyFreePosition(float radius, glm::vec3* position, bool check_items,
-                            bool check_monsters)
-{
-    glm::vec3 candidate = *position;
-    if (AdjustWorldCollisionPosition(radius, &candidate, check_items, check_monsters)) {
-        *position = candidate;
-        return true;
-    }
-
-    float angle = 0.0f;
-    float diameter = radius + radius;
-    do {
-        glm::vec3 offset(0.0f, 0.0f, diameter);
-        offset =
-            glm::vec3(glm::angleAxis(std::atan2(std::sin(double(angle)), std::cos(double(angle))),
-                                     glm::dvec3(0, 1, 0)) *
-                      glm::dvec3(offset));
-        candidate = offset + *position;
-        glm::vec3 unblocked = candidate;
-
-        if (const auto hit = GetWorldSpatialIndex()->traceSight(*position, candidate))
-            candidate = hit->point;
-        if (candidate == unblocked &&
-            AdjustWorldCollisionPosition(radius, &candidate, check_items, check_monsters)) {
-            *position = candidate;
-            return true;
-        }
-        angle += kQuarterTurn;
-    } while (angle < g_camera_pi);
-    return false;
+    if (CompareTextIgnoreAsciiCase("PARTY", name) == 0) return party.eye();
+    if (const auto* marker = namedMarker(name)) return marker->position;
+    return {};
 }
 
 LevelSpatialIndex* World::compiledIndex() const
@@ -545,4 +399,23 @@ NativeObject* World::selectedNativeObject() const
     return glm::distance(glm::dvec3(point.x, point.y, point.z), glm::dvec3(party.eye())) <= 5000
                ? *object
                : nullptr;
+}
+
+// Logical removal is immediate; an actor updating on the stack remains owned until the step ends.
+void World::eraseMonster(W8MonsterInfo& info, bool retire_particles)
+{
+    if (monster_retirements_) monster_retirements_->reserve(monster_retirements_->size() + 1);
+    if (auto* body = info.entity.get()) {
+        if (retire_particles) body->visual.RetireParticles();
+        if (monster_retirements_)
+            body->retire();
+        else
+            info.entity.reset();
+    }
+    population->releaseMonsterVisibility(info);
+    if (auto* spatial = compiledIndex())
+        spatial->UnregisterLocationObjects(static_cast<unsigned short>(info.location_id));
+    [[maybe_unused]] const bool removed =
+        population->monster_roster.erase(&info, monster_retirements_);
+    assert(removed);
 }

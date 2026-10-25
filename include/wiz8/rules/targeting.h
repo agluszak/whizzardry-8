@@ -90,6 +90,8 @@ enum W8TargetNeed : std::int8_t {
 
 /* The shorter form a combatant carries inline, with one more field reset to
    -1 and no room for the tail. Its disk form is wiz8::retail::CombatTarget. */
+enum class TargetChange { removed, allegiance };
+
 struct W8CombatSlot {
     W8TargetKind iType;
     int iChar;      /* -1 when empty */
@@ -99,6 +101,12 @@ struct W8CombatSlot {
     /* The item aimed at, for the one kind that aims at one. */
     W8ItemLocation item;
 
+    static W8CombatSlot character(int slot, W8TargetKind kind = W8_TARGET_KIND_CHARACTER)
+    {
+        return {kind, slot, -1, -1, {}, {}};
+    }
+    static W8CombatSlot monster(int id) { return {W8_TARGET_KIND_MONSTER, -1, id, -1, {}, {}}; }
+    static W8CombatSlot group(int id) { return {W8_TARGET_KIND_GROUP, -1, -1, id, {}, {}}; }
     bool operator==(const W8CombatSlot&) const = default;
 };
 /* Party movement is distinct from an individual character's action. */
@@ -165,6 +173,12 @@ struct W8Action {
     int detail = -1;
     W8CombatSlot target{W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}};
     W8ActionDetailBlock detail_block{.item_use = {-1, {}}};
+    W8Action aimedAt(const W8CombatSlot& aim) const
+    {
+        auto result = *this;
+        result.target = aim;
+        return result;
+    }
 };
 
 enum class W8AreaSightRule : std::uint8_t { RequireLineOfSight, GeometryOnly };

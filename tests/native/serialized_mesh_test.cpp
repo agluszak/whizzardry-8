@@ -24,10 +24,18 @@
 #include "glm/ext/vector_float4.hpp"
 #include "glm/ext/vector_int3.hpp"
 #include "scoped_asset_roots.h"
+#include "scoped_game.h"
 #include "temporary_directory.h"
 #include "wiz8/asset_paths.h"
+#include "wiz8/data/game_data.h"
+#include "wiz8/data/item_records.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
+#include "wiz8/entities/world_item.h"
+#include "wiz8/game.h"
+#include "wiz8/inventory.h"
+#include "wiz8/item_spawning.h"
+#include "wiz8/level_population.h"
 #include "wiz8/render/compiled_mesh.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/material.h"
@@ -37,6 +45,10 @@
 #include "wiz8/render/mesh_loader.h"
 #include "wiz8/render/texture.h"
 #include "wiz8/render/world_scene.h"
+#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/random.h"
+#include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/surface_geometry.h"
 #include "wiz8/world/level_loader.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
@@ -184,6 +196,7 @@ bool LoadCycles(const std::filesystem::path& path)
 
 TEST_CASE("serialized_mesh_test")
 {
+    ScopedGame game;
     ScopedTemporaryDirectory temporary{"wiz8-mesh-fixture"};
     const auto& directory = temporary.path;
     const auto good = directory / "linked.pvl", bad = directory / "duplicate.pvl";
@@ -245,12 +258,12 @@ TEST_CASE("serialized_mesh_test")
         const auto empty = directory / "empty.lvl";
         wiz8::open_file(empty, wiz8::OpenMode::replace)->close();
         auto file = wiz8::open_file(empty);
-        REQUIRE_FALSE(ReadLevel(&world, file.get(), ""));
+        REQUIRE_FALSE(ReadLevel(game.game, &world, file.get(), ""));
         REQUIRE(destroyed == 3);
         REQUIRE(world.update_mesh_source == nullptr);
         REQUIRE(world.psrMeshes.empty());
         REQUIRE(world.scene->static_meshes.empty());
-        REQUIRE_FALSE(ReadLevel(&world, file.get(), ""));
+        REQUIRE_FALSE(ReadLevel(game.game, &world, file.get(), ""));
         REQUIRE(destroyed == 3);
     }
     REQUIRE(ok);
@@ -650,4 +663,146 @@ TEST_CASE("Texture sharing and lazy reads retain the resolved asset directory")
     REQUIRE_FALSE(MeshHasAnimatedTexture(head));
     REQUIRE(MeshHasAnimatedTexture(head->parts[0].get()));
     REQUIRE(animated_first->getModel() != animated_second->getModel());
+}
+
+TEST_CASE("Malformed compiled levels return failure instead of shutting down", "[loader][lifetime]")
+{
+    ScopedGame game;
+    ScopedTemporaryDirectory temporary{"wiz8-invalid-level"};
+    const auto path = temporary.path / "broken.pvl";
+    WriteFixture(path, false);
+    {
+        std::ofstream tail(path, std::ios::binary | std::ios::app);
+        const int no_lights = 0;
+        const int invalid_section_end = 0;
+        tail.write(reinterpret_cast<const char*>(&no_lights), sizeof(no_lights));
+        tail.write(reinterpret_cast<const char*>(&invalid_section_end),
+                   sizeof(invalid_section_end));
+    }
+    World world;
+    world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
+    world.spatial->compiled_available = true;
+    world.spatial->m_spatial.submesh_count = 4;
+    world.spatial->m_meshCount = 4;
+    world.psrMeshes.resize(5);
+    auto input = wiz8::open_file(path);
+    REQUIRE_FALSE(ReadLevel(game.game, &world, input.get(), ""));
+
+    // Unsupported embedded populations fail at the count, without constructing actors
+    // against the installed game or consuming gameplay randomness.
+    for (int section : {0, 1}) {
+        for (int count : {-1, 1, 100000}) {
+            input.reset();
+            WriteFixture(path, false);
+            {
+                auto tail = wiz8::open_file(path, wiz8::OpenMode::append);
+                Write(*tail, short{0}); // Lights.
+                Write(*tail, -1);
+                if (section == 1) {
+                    Write(*tail, 0); // Monsters.
+                    Write(*tail, -1);
+                }
+                Write(*tail, count);
+            }
+            input = wiz8::open_file(path);
+            REQUIRE_FALSE(ReadLevel(game.game, &world, input.get(), ""));
+            REQUIRE(input->tell() == input->size());
+            REQUIRE(world.population->world_items.empty());
+        }
+    }
+
+    // The same recoverable result applies before any scene mesh was built.
+    input.reset();
+    WriteFixture(path, false, true);
+    input = wiz8::open_file(path);
+    REQUIRE_FALSE(ReadLevel(game.game, &world, input.get(), ""));
+}
+
+TEST_CASE("World item creation and activation use the candidate world", "[loader][lifetime][items]")
+{
+    ScopedTemporaryDirectory temporary{"wiz8-candidate-item"};
+    ScopedAssetRoots roots;
+    const auto assets = temporary.path / "assets";
+    std::filesystem::create_directories(assets / "data/items3d");
+    std::filesystem::create_directory(temporary.path / "user");
+    roots.configure({assets.string(), (temporary.path / "user").string()});
+    const auto mesh_path = temporary.path / "mesh.bin";
+    WriteAnimatedFixture(mesh_path);
+    const auto mesh_bytes = wiz8::open_file(mesh_path)->read_text();
+    {
+        auto file = wiz8::open_file(assets / "data/items3d/test-item.itm", wiz8::OpenMode::replace);
+        Write(*file, std::uint8_t{2});
+        file->write(mesh_bytes.data(), mesh_bytes.size());
+    }
+    GameData data;
+    data.items.resize(1);
+    data.items[0].internal_name = "test-item";
+    data.items[0].quantity_kind = W8_ITEM_QUANTITY_STACK;
+    data.items[0].initial_quantity = {.base = 0, .count = 1, .sides = 6};
+    ScopedGame scope(data);
+    scope.game.level.replacePrimary(std::make_unique<World>());
+    auto& installed = scope.game.level.loaded();
+    Game candidate_game(data);
+    World candidate(7, "", candidate_game.timerClocks());
+    const auto floorAt = [](World& world, float height) {
+        world.spatial = std::make_unique<LevelSpatialIndex>("", &world);
+        auto& spatial = *world.spatial;
+        spatial.collision_available = true;
+        spatial.registry.cells = std::make_unique<W8OctreeObjectRegistry>();
+        spatial.m_pVertices = {{0, height, 0}, {0, height, 3000}, {3000, height, 0}};
+        spatial.m_pSurfaces.resize(1);
+        auto& floor = spatial.m_pSurfaces[0];
+        for (int index = 0; index < 3; ++index) floor.vertex_indices[index] = index;
+        surfaceGeometry::initializePropSurface(floor, spatial.m_pVertices);
+        floor.index = 0;
+        spatial.m_object_bit_count = 1;
+        spatial.m_spatial.m_bounds.minimum = glm::vec3(0);
+        spatial.m_spatial.m_clipped_bounds.maximum = glm::vec3(3000);
+        spatial.m_spatial.m_node_extent = 3000;
+        spatial.m_leaf_grid_dimensions = {1, 1, 1};
+        spatial.m_leaf_lookup = {1};
+        spatial.m_leaves.resize(2);
+        spatial.m_leaves[1].gd_polygon_offset = 1;
+        spatial.m_gd_surface_index_stream = {0, 1, 0};
+    };
+    floorAt(installed, 200);
+    floorAt(candidate, 0);
+    installed.party.camera.m_position = candidate.party.camera.m_position = {250, 1000, 250};
+    const auto candidate_drop = candidate.itemDropPosition({0.5f, 0.5f});
+    const auto installed_drop = installed.itemDropPosition({0.5f, 0.5f});
+    REQUIRE(candidate_drop);
+    REQUIRE(installed_drop);
+    REQUIRE(candidate_drop->y == 125);
+    REQUIRE(installed_drop->y == 325);
+    REQUIRE(candidate_drop->x == installed_drop->x);
+    REQUIRE(candidate_drop->z == installed_drop->z);
+
+    // An uninstalled candidate with no level cannot borrow the outgoing floor.
+    candidate_game.inventory.restore({}, W8ItemInstance{.iItemNo = 0, .stack_count = 3});
+    const auto refused = candidate_game.inventory.dropHeld({0.5f, 0.5f});
+    REQUIRE(refused.has_value());
+    REQUIRE_FALSE(*refused);
+    REQUIRE(candidate_game.inventory.held()->item.stack_count == 3);
+    REQUIRE(installed.population->world_items.empty());
+    std::vector<Rng::Draw> draws;
+    candidate_game.rng.seed(1);
+    candidate_game.rng.trace(&draws);
+    const glm::vec3 position(500, 1000, 1500);
+    auto* created = candidate.adoptItem(candidate_game.spawnWorldItem(
+        candidate, 0, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+    candidate.activateItem(data, candidate_game.rng, created);
+    candidate_game.rng.trace(nullptr);
+    REQUIRE(draws.size() == 2);
+    REQUIRE(draws[0].range == 6);
+    REQUIRE(draws[1].range == 360);
+    Rng expected(1);
+    for (const auto& draw : draws) REQUIRE(draw.value == expected.below(draw.range));
+    REQUIRE(installed.population->world_items.empty());
+    REQUIRE(installed.triggers.empty());
+    REQUIRE(candidate.population->world_items.size() == 1);
+    const auto& item = *candidate.population->world_items.front();
+    REQUIRE(item.entity);
+    REQUIRE(item.entity->GetMesh()->scene == candidate.scene.get());
+    REQUIRE(item.position == glm::vec3(500, 0, 1500));
+    REQUIRE(candidate.triggers.empty());
 }

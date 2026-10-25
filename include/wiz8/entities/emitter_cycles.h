@@ -5,7 +5,6 @@
 
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/cycle_resources.h"
-#include "wiz8/platform/game_timer.h"
 
 inline void SelectInitialEmitterLod(CyclePlayer& visual)
 {
@@ -17,18 +16,7 @@ inline void SelectInitialEmitterLod(CyclePlayer& visual)
         visual.m_bLOD = 0;
 }
 
-inline void StartEmitterCycle(CyclePlayer& visual, Animation& animation, signed char cycle)
-{
-    visual.active_animation = &animation;
-    visual.current_cycle = cycle;
-    visual.rep_active = true;
-    visual.frame_direction = W8_ANIMATION_FORWARD;
-    SelectInitialEmitterLod(visual);
-    visual.timer = GameClockMilliseconds();
-    visual.frame_method = animation.frame_method;
-    visual.animation_playing = animation.animation_playing;
-    visual.subcycle = 0;
-}
+void StartEmitterCycle(CyclePlayer& visual, Animation& animation, signed char cycle);
 
 // Load one .mon animation into its emitter cycle (the one it names, for -1).
 inline bool ReadEmitterCycle(std::span<EmitterCycleResources> cycles, LevelLoadContext& info,

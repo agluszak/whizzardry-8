@@ -16,7 +16,6 @@
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/filesystem.h"
-#include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
@@ -31,12 +30,11 @@
 
 static constexpr float kItemBoundsVerticalFactor = 0.66f;
 
-WorldItemEntity::WorldItemEntity()
+WorldItemEntity::WorldItemEntity(World& world) : owner_world(world)
 {
     flags = W8_ITEM_ENTITY_PULSE_INCREASING;
     pulse_level = static_cast<float>(PresentationRng().below(20) * 0.05);
-    AllocateLegacyPropSaveId();
-    countdown = WorldClockMilliseconds();
+    countdown = owner_world.clocks.worldMilliseconds();
 }
 
 WorldItemEntity::~WorldItemEntity() = default;
@@ -80,16 +78,15 @@ void WorldItemEntity::ApplyRepTransform()
     m_psrMesh->transform.setRotation(rotation);
 }
 
-void WorldItemEntity::AttachMesh(World* world)
+void WorldItemEntity::AttachMesh()
 {
-    assert(world);
     if ((flags & W8_ITEM_ENTITY_MESH_LOADED) == 0) {
         return;
     }
     MeshInstance* mesh = m_psrMesh.get();
     assert(mesh);
     mesh->visible = true;
-    mesh->setScene((world->scene.get()));
+    mesh->setScene(owner_world.scene.get());
     const glm::dvec3 widened(location);
 
     mesh->transform.setLocation(widened);
@@ -103,10 +100,10 @@ MeshInstance* WorldItemEntity::GetMesh()
 
 bool WorldItemEntity::IsRadarBlipLit()
 {
-    return WorldClockMilliseconds() < countdown;
+    return owner_world.clocks.worldMilliseconds() < countdown;
 }
 
-std::unique_ptr<WorldItemEntity> LoadItemFromFile(std::string_view name)
+std::unique_ptr<WorldItemEntity> LoadItemFromFile(World& world, std::string_view name)
 try {
     const auto filename = fmt::format("data/items3d/{}.itm", name);
     auto file = wiz8::open_file(wiz8::asset_path(filename));
@@ -118,7 +115,7 @@ try {
     mesh->setName("Item mesh instance");
     mesh->render_flags |= MeshInstance::RENDER_SHADOW;
     SetModelInstanceExclusionMask(mesh.get(), 4);
-    auto item = std::make_unique<WorldItemEntity>();
+    auto item = std::make_unique<WorldItemEntity>(world);
     item->m_psrMesh = std::move(mesh);
     item->flags |= W8_ITEM_ENTITY_MESH_LOADED;
     item->RefreshBounds();
@@ -197,7 +194,7 @@ void WorldItemEntity::SetHighlight(bool enabled, bool hovered)
 
 void WorldItemEntity::LightRadarBlip()
 {
-    countdown = WorldClockMilliseconds() + 10000;
+    countdown = owner_world.clocks.worldMilliseconds() + 10000;
 }
 
 BoundingBox GetItemWorldBounds(const WorldItemEntity& item)

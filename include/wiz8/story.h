@@ -5,13 +5,36 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
+
+struct W8NpcScriptFile;
+struct W8MonsterRecord;
+
+/* One NPC slot's binding to the loaded level, staged so a failed load leaves the
+   story untouched. An NPC the story already has keeps its state and only takes the
+   new binding; `created` holds a state made for this level. */
+struct W8PreparedNpcBinding {
+    int slot;
+    std::shared_ptr<W8NpcState> created;
+    // The slot identity observed during preparation; null only for an appended slot.
+    std::shared_ptr<W8NpcState> previous;
+    int location_id = 0;
+    unsigned char level_band = 0;
+    unsigned char bound_level = 0;
+    std::shared_ptr<const W8NpcScriptFile> script;
+};
+struct W8PreparedNpcBindings {
+    std::vector<W8PreparedNpcBinding> records;
+};
 
 /* One fact change as the journal lists it. */
 struct W8JournalEntry {
@@ -70,7 +93,13 @@ struct Story {
     // Set by the import and consumed when the opening sequence seeds the facts.
     std::optional<ImportedOrigin> imported_origin;
     std::array<unsigned char, W8_FACT_SLOT_COUNT> facts{};
+    // Restore facts and their derived import alignment without running live script/UI callbacks.
+    void restoreFacts(const decltype(facts)& saved, int level);
     W8FactionStates factions = StartingFactions();
+    W8FactionDisposition factionDisposition(signed char faction) const;
+    int adjustFactionDisposition(signed char faction, int delta, int clock);
+    int setFactionDisposition(signed char faction, W8FactionDisposition band, int clock);
+    int recordFactionOffense(signed char faction, const W8MonsterRecord& victim, int clock);
     W8FactionRelations faction_relations = StartingFactionRelations();
     std::vector<W8JournalEntry> journal;
     /* The learned keyword notebook. Every addition and removal changes it at once;
@@ -89,5 +118,22 @@ struct Story {
         W8NpcState* state = npcs[static_cast<std::size_t>(index)].get();
         return state && !state->binding_unavailable ? state : nullptr;
     }
+    int availableNpcSlot(std::span<const W8PreparedNpcBinding> pending = {}) const;
+    W8NpcState* adoptNpc(std::shared_ptr<W8NpcState> npc);
+    W8NpcState* npcOfKind(int kind) const;
+    W8NpcState* npcByName(std::string_view name) const;
+    std::string npcDisplayName(const W8NpcState& npc) const;
+    void installNpcBindings(W8PreparedNpcBindings pending);
+    void ensureLocationVariable(int level, std::string_view name, int initial_value);
+    std::optional<int> findLocationVariable(int level, std::string_view name) const;
+    int locationVariable(int level, std::string_view name) const;
+    void setLocationVariable(int level, std::string_view name, int value);
+    const std::vector<W8LocationVariable>& locationVariables() const { return location_variables; }
+    void restoreLocationVariables(std::vector<W8LocationVariable> saved)
+    {
+        location_variables = std::move(saved);
+    }
+
+private:
     std::vector<W8LocationVariable> location_variables;
 };

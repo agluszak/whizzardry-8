@@ -261,7 +261,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        FatigueCharacter(iChar, uiDamage, false, 0);
+                        CurrentGame().fatigueCharacter(iChar, uiDamage, false, 0);
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];
@@ -279,7 +279,9 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        ApplyDamageToCharacter(iChar, uiDamage, false, announce, false, 0, false);
+                        CurrentGame().damageCharacter(
+                            iChar, uiDamage,
+                            {.notice = announce ? DamageNotice::Standard : DamageNotice::None});
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];
@@ -365,7 +367,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        FatigueMonster(monster_info, uiDamage, 0);
+                        CurrentGame().fatigueMonster(monster_info, uiDamage, 0);
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];
@@ -488,7 +490,7 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     record = MonsterDBFromSpecies(special_attack_kind);
     count = RollDice(&record->group_size_dice);
     position = &pAttackerSlot->point;
-    group = CreateGroup(special_attack_kind, count, position, false, true);
+    group = CurrentGame().createMonsterGroup(special_attack_kind, count, position, false);
     assert(group != 0);
     FindMonster(group->leader_location_id);
     monster_info = FindMonster(pAttackerSlot->iMonsterID);
@@ -497,7 +499,7 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     } else {
         disposition = W8_DISPOSITION_HOSTILE;
     }
-    SetMonsterGroupHostility(group, disposition, false);
+    CurrentGame().setGroupHostility(group, disposition, false);
     if (monster_info->player_visibility.sight_state == W8_SIGHT_SEEN) {
         placed = PositionMonsterGroupNearCamera(group, 0.0f, 0.0f, true);
         if (!placed) {
@@ -508,14 +510,14 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
         }
     } else {
         yaw = GetCameraFacingYaw(position);
-        placed = MoveMonsterGroupToPosition(group, position, yaw, true, false, false, false);
+        placed = CurrentGame().placeMonsterGroup(group, position, yaw, true, false, false, false);
     }
     if (!placed) {
         RemoveAllGroupMembers(group);
         CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_RUST, Data().strings[0x26a]});
         return;
     }
-    RefreshAllSight();
+    CurrentGame().refreshSight();
     SetMonsterGroupNavigatorDirty(group, false);
     MonsterGroupEnterCombat(group);
 }

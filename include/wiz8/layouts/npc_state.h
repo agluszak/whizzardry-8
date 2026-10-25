@@ -27,6 +27,15 @@ struct W8NpcItemEntry {
    conversation, price check or queued notice started with it shares it until done. */
 struct W8NpcState : std::enable_shared_from_this<W8NpcState> {
     W8NpcState() = default;
+    // A fact consumes one scheduled copy, not every duplicate slot.
+    void clearScheduledItem(int item_id);
+    // Release the level embodiment, retaining campaign history, stock and character snapshot.
+    void releaseWorldBinding()
+    {
+        has_monster = false;
+        script_file.reset();
+        if (record->monster_bound) binding_unavailable = true;
+    }
 
     /* The NPC's current script. A reply dialog showing one of its entries shares it, so
        replacing or releasing the script leaves the open dialog valid. */
@@ -49,14 +58,14 @@ struct W8NpcState : std::enable_shared_from_this<W8NpcState> {
        representative values rather than a range. */
     unsigned char disposition;
     bool dismissed_flag;
-    /* 0x1d: raised by CreateNpcRuntimeNode; the greeting quote (0) and the
+    /* 0x1d: raised by Game::createNpcRuntimeNode; the greeting quote (0) and the
        first-interaction paths lower it once the NPC has been greeted. */
     bool greeting_pending;
     unsigned int dismissed_timer;
     /* 0x22/0x23: cleared when the dialogue NPC is staged. */
     bool flag;
     bool flag0;
-    /* 0x24: the level-band byte GetLevelBand returns for the bound level. */
+    /* 0x24: the level-band byte Game::levelBand returns for the bound level. */
     unsigned char level_band;
     bool is_present; /* 0x25 */
     bool is_grouped; /* 0x26 */
@@ -65,7 +74,7 @@ struct W8NpcState : std::enable_shared_from_this<W8NpcState> {
     std::optional<W8Character> character;
     signed char group_index; /* 0x2b */
     /* 0x2c: this node's own slot in the story's NPC states, written by
-       CreateNpcRuntimeNode; the release pass follows the index a partner
+       Game::createNpcRuntimeNode; the release pass follows the index a partner
        names. */
     unsigned char partner_index;
     /* 0x2d: the NPC's monster has noticed the party once; the sight path
@@ -89,7 +98,7 @@ struct W8NpcState : std::enable_shared_from_this<W8NpcState> {
     unsigned int refusal_flags;
     /* 0x089: five topics stored one more than their id so zero means empty. */
     int topics[5];
-    char restore_entity_name[0x28]; /* 0x9d: FindEntityByName key for restore */
+    char restore_entity_name[0x28]; /* 0x9d: named world marker key for restore */
     /* 0x0c5/0x0c6: the pending-restore flag and the level it belongs to. */
     bool pending_restore;
     unsigned char pending_restore_level;
@@ -98,7 +107,7 @@ struct W8NpcState : std::enable_shared_from_this<W8NpcState> {
     unsigned char binding_unavailable;
     bool talk_cooldown_active;
     bool trade_cooldown_active;
-    /* 0x0ca: the record's word at 0x002, copied by CreateNpcRuntimeNode. */
+    /* 0x0ca: the record's word at 0x002, copied by Game::createNpcRuntimeNode. */
     unsigned short trade_pool;
     int talk_cooldown_clock;
     int trade_cooldown_clock;

@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
@@ -31,13 +30,13 @@
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_mesh.h"
 #include "wiz8/entities/animation_types.h"
+#include "wiz8/entities/emitter_cycles.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/platform/game_timer.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/ground_shadow.h"
 #include "wiz8/render/light.h"
@@ -62,140 +61,17 @@ float g_lod_range_default1 = 8500.0f;
 #define BEHAVIOUR_FIRST W8_ANIMATION_PLAY_ONCE
 #define BEHAVIOUR_LAST W8_ANIMATION_NEVER_STOP
 
-static bool g_camera_shake_enabled = true;
-ShakeDefinition::ShakeDefinition(float duration, bool preset, float intensity, float distance_cap,
-                                 const glm::vec3* position)
-    : duration(duration), intensity(intensity), distance_cap(distance_cap), limit_distance(preset),
-      quadratic_falloff(preset), fade_out(preset)
+static void TriggerShakeEvents(ShakeSystem* shakes, std::deque<ShakeDefinition>& events, int cycle,
+                               unsigned int frame, int subcycle, const glm::vec3& position)
 {
-    if (position) {
-        this->position = *position;
-    }
-}
-
-ShakeSystem& CameraShakes()
-{
-    static ShakeSystem system;
-    return system;
-}
-
-ShakeSystem::Instance::Instance(const ShakeDefinition& definition, const ShakeDefinition* key)
-    : definition(definition),
-      timer(std::isfinite(definition.duration) ? definition.duration : 0.0f, TimerClock::World),
-      key(key)
-{
-    timer.Restart();
-}
-
-void ShakeSystem::Start(const ShakeDefinition& definition, const ShakeDefinition* key)
-{
-    auto instance = std::make_unique<Instance>(definition, key);
-    if (key) {
-        for (auto& current : active) {
-            if (current->key == key) {
-                current.swap(instance);
-                return;
-            }
-        }
-    }
-    active.push_back(std::move(instance));
-}
-
-void ShakeSystem::Stop(const ShakeDefinition& key)
-{
-    std::erase_if(active, [&key](const auto& instance) { return instance->key == &key; });
-}
-
-bool ShakeSystem::IsActive(const ShakeDefinition& key) const
-{
-    return std::ranges::any_of(active,
-                               [&key](const auto& instance) { return instance->key == &key; });
-}
-
-bool ShakeSystem::Instance::Evaluate(const glm::vec3& camera, float& amount)
-{
-    if (!definition.continuous && !(definition.duration > 0.0f)) {
-        return false;
-    }
-    const float progress =
-        (definition.continuous || std::isinf(definition.duration)) ? 0.0f : timer.GetProgress();
-    if (progress >= 1.0f) {
-        return false;
-    }
-    amount = 1.0f;
-    if (definition.limit_distance) {
-        const auto delta = definition.position - camera;
-        const float distance = sqrtf(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
-        if (definition.distance_cap < distance) {
-            amount = 0.0f;
-        } else if (definition.quadratic_falloff) {
-            const float weight = distance / definition.distance_cap - 1.0f;
-            amount = weight * weight;
-        }
-    }
-    if (definition.fade_out) {
-        amount *= 1.0f - progress;
-    } else if (definition.fade_in) {
-        amount *= progress;
-    }
-    return true;
-}
-
-float ShakeSystem::Update(const glm::vec3& camera)
-{
-    float intensity = 0.0f;
-    std::vector<std::function<void()>> callbacks;
-    callbacks.reserve(active.size());
-    std::erase_if(active, [&](const auto& instance) {
-        float amount;
-        if (instance->Evaluate(camera, amount)) {
-            intensity += amount;
-            return false;
-        }
-        if (instance->definition.completion_callback) {
-            callbacks.push_back(std::move(instance->definition.completion_callback));
-        }
-        return true;
-    });
-    // Callbacks may start/stop shakes or destroy the definitions that keyed
-    // them. Retire all completed instances before invoking any callback.
-    for (const auto& callback : callbacks) {
-        callback();
-    }
-    return intensity;
-}
-
-static void TriggerShakeEvents(std::deque<ShakeDefinition>& events, int cycle, unsigned int frame,
-                               int subcycle, const glm::vec3& position)
-{
+    if (!shakes) return;
     for (auto& event : events) {
         if (event.cycle == cycle && event.frame == static_cast<int>(frame) &&
             event.subcycle == subcycle) {
             auto definition = event;
             definition.position = position;
-            CameraShakes().Start(definition, &event);
+            shakes->Start(definition, &event);
         }
-    }
-}
-
-bool g_camera_shake_active;
-glm::vec3 g_camera_shake_offset;
-
-void UpdateShakeEffects()
-{
-    if (!g_camera_shake_enabled) {
-        return;
-    }
-    const float intensity = CameraShakes().Update(cameraLocation());
-    if (intensity > 0.0f) {
-        const float amplitude = std::min(intensity, 1.0f) * 2.5e+02f;
-        const int span = static_cast<int>(amplitude) << 1;
-        g_camera_shake_offset.x = PresentationRng().below(span) - amplitude;
-        g_camera_shake_offset.y = PresentationRng().below(span) - amplitude;
-        g_camera_shake_offset.z = PresentationRng().below(span) - amplitude;
-        g_camera_shake_active = true;
-    } else {
-        g_camera_shake_active = false;
     }
 }
 
@@ -293,7 +169,7 @@ try {
    while the particle node remains scene-owned. */
 CyclePlayer::CyclePlayer(World& owner) : owner_world(owner)
 {
-    timer = GameClockMilliseconds();
+    timer = owner_world.clocks.gameMilliseconds();
     lod_near = g_lod_range_default0;
     lod_far = g_lod_range_default1;
     current_model_instance = 0;
@@ -319,8 +195,7 @@ CyclePlayer::CyclePlayer(const CycleDefinition& definition, World& owner) : Cycl
         copy.cycle = source.cycle;
         copy.subcycle = source.subcycle;
         if (source.m_pstParticles) {
-            copy.m_pstParticles = std::make_unique<ParticleSystem>(*source.m_pstParticles);
-            copy.m_pstParticles->setScene(owner.scene.get());
+            copy.m_pstParticles = std::make_unique<ParticleSystem>(*source.m_pstParticles, owner);
         }
         copy.position = source.position;
         copy.rotation = source.rotation;
@@ -362,7 +237,7 @@ void CyclePlayer::SetFrameMethod(W8AnimationFrameMethod method)
 CyclePlayer::~CyclePlayer()
 {
     for (const auto& event : shake_events) {
-        CameraShakes().Stop(event);
+        if (owner_world.shakes) owner_world.shakes->Stop(event);
     }
 }
 
@@ -386,7 +261,7 @@ void CyclePlayer::TickAnimation(float rate, const glm::vec3& position, bool rese
         signed char subcycle_count = frameCount();
 
         if (subcycle_count != 0) {
-            unsigned int now = GameClockMilliseconds();
+            unsigned int now = owner_world.clocks.gameMilliseconds();
             unsigned int elapsed = now - timer;
             float progress;
             int frames;
@@ -424,8 +299,8 @@ void CyclePlayer::TickAnimation(float rate, const glm::vec3& position, bool rese
                                       W8_SOUND_EVENT_FRAME | W8_SOUND_EVENT_FOOTSTEP, current_cycle,
                                       subcycle, current_subcycle);
                     if (!shake_events.empty()) {
-                        TriggerShakeEvents(shake_events, current_cycle, subcycle, current_subcycle,
-                                           position);
+                        TriggerShakeEvents(owner_world.shakes, shake_events, current_cycle,
+                                           subcycle, current_subcycle, position);
                     }
                 } while (frames != 0);
             }
@@ -464,7 +339,8 @@ void CyclePlayer::finishCycleSelection(const glm::vec3& position)
                       W8_SOUND_EVENT_FRAME | W8_SOUND_EVENT_CYCLE | W8_SOUND_EVENT_FOOTSTEP,
                       current_cycle, subcycle, current_subcycle);
     if (!shake_events.empty()) {
-        TriggerShakeEvents(shake_events, current_cycle, subcycle, current_subcycle, position);
+        TriggerShakeEvents(owner_world.shakes, shake_events, current_cycle, subcycle,
+                           current_subcycle, position);
     }
 
     signed char subcycle_count = frameCount();
@@ -472,7 +348,7 @@ void CyclePlayer::finishCycleSelection(const glm::vec3& position)
         subcycle = subcycle_count - 1;
     }
     animation_playing = 1;
-    timer = GameClockMilliseconds();
+    timer = owner_world.clocks.gameMilliseconds();
 }
 
 void CyclePlayer::UpdateLights()
@@ -592,7 +468,7 @@ void CyclePlayer::ResetRepresentation()
     PathAIResetRecord((m_pAI ? &*m_pAI : nullptr));
     frame_direction = W8_ANIMATION_FORWARD;
     subcycle = 0;
-    timer = GameClockMilliseconds();
+    timer = owner_world.clocks.gameMilliseconds();
 }
 
 /* Push the cycle's animation state into the live scene.
@@ -996,4 +872,17 @@ AnimationFrame CyclePlayer::frameModel(signed char frame, signed char lod) const
 {
     if (!active_animation) return {};
     return active_animation->frame(lod, frame);
+}
+
+void StartEmitterCycle(CyclePlayer& visual, Animation& animation, signed char cycle)
+{
+    visual.active_animation = &animation;
+    visual.current_cycle = cycle;
+    visual.rep_active = true;
+    visual.frame_direction = W8_ANIMATION_FORWARD;
+    SelectInitialEmitterLod(visual);
+    visual.timer = visual.owner_world.clocks.gameMilliseconds();
+    visual.frame_method = animation.frame_method;
+    visual.animation_playing = animation.animation_playing;
+    visual.subcycle = 0;
 }

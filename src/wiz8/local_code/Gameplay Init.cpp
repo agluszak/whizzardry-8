@@ -14,7 +14,6 @@
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/Configuration.h"
-#include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -46,11 +45,10 @@ Game& BeginNewGame(GameSession& games)
     for (const auto id : starting_items) {
         auto item = MakeItem(Data(), CurrentGame().rng, id, true, true, true);
         item.stack_count = 1;
-        game.inventory.storeInPool(item, false);
+        game.inventory.storeInPool(item, false, true, ItemReactions::Suppressed);
     }
     game.party.gold = 500;
     game.status.selected_character = GetNextCharacter(1, 1, -1);
-    InitializePartyFormation(&game.party.formation);
     std::ranges::fill(game.party.order_slots, 0xffffffff);
     return game;
 }

@@ -73,9 +73,11 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ItemManager.h"
+#include "wiz8/monster_spell_icons.h"
 #include "wiz8/octree_walk.h"
 #include "wiz8/placement_math.h"
 #include "wiz8/platform/game_timer.h"
@@ -119,6 +121,7 @@
 #include "wiz8/world/party_motion.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
+#include "wiz8/world_view.h"
 
 static bool close(const glm::vec3& actual, const glm::vec3& expected, float tolerance = 1e-4f)
 {
@@ -304,15 +307,15 @@ static void camera_and_throw()
     camera.ApplyRotationMatrix(&vertical, nullptr);
     REQUIRE((std::isfinite(camera.m_yaw) && std::isfinite(camera.m_pitch)));
     camera.SetOrientation(glm::two_pi<float>() - 0.1f, 0);
-    REQUIRE(camera.BeginOrientationTransition(0, glm::two_pi<float>() + 0.1f, true));
+    REQUIRE(camera.BeginOrientationTransition(0, glm::two_pi<float>() + 0.1f, true, false));
     REQUIRE((std::abs(camera.m_yaw_distance - 0.2f) < 1e-5f && camera.m_yaw_velocity > 0));
     camera.Update(camera.m_transition_duration + 1);
     REQUIRE((!camera.m_transition_active && !camera.m_forced_transition));
     REQUIRE(std::abs(camera.m_yaw - 0.1f) < 1e-5f);
-    REQUIRE(!camera.BeginOrientationTransition(0, camera.m_yaw, true));
+    REQUIRE(!camera.BeginOrientationTransition(0, camera.m_yaw, true, false));
     camera.Update(0.01f);
     REQUIRE((std::isfinite(camera.m_yaw) && std::isfinite(camera.m_pitch)));
-    REQUIRE(camera.BeginOrientationTransition(-0.2f, glm::two_pi<float>() - 0.1f, true));
+    REQUIRE(camera.BeginOrientationTransition(-0.2f, glm::two_pi<float>() - 0.1f, true, false));
     REQUIRE((camera.m_yaw_velocity < 0 && camera.m_pitch_velocity < 0));
 
     const auto center = ItemThrowDirection({0.5f, 0.5f}, glm::mat3(1));
@@ -675,7 +678,7 @@ TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
     REQUIRE(tree.registry.current_regions == std::vector<bool>{true, false});
 }
 
-TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry][rendering]")
+TEST_CASE("Monster billboards and shadows retain their world and terrain", "[geometry][rendering]")
 {
     const ScopedTemporaryDirectory directory("wiz8-shadow-bounds");
     const auto assets = directory.path / "assets";
@@ -696,6 +699,26 @@ TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry]
     const ScopedGame game;
     World world;
     REQUIRE(GetWorld() == nullptr);
+    const auto icons = assets / "data/icons/monsterspells";
+    std::filesystem::create_directories(icons);
+    std::filesystem::copy_file(bitmap_path / "shadow.tga", icons / "Hexed_A.TGA");
+    std::filesystem::copy_file(bitmap_path / "shadow.tga", bitmap_path / "TriRed.tga");
+    {
+        Monster monster(world);
+        monster.addSpellIcon(SPELL_ICON_HEXED);
+        monster.addSpellIcon(SPELL_ICON_HEXED);
+        REQUIRE(world.scene->dynamic_meshes.size() == 2);
+        monster.removeSpellIcon(SPELL_ICON_HEXED); // All duplicates retire together.
+        REQUIRE(world.scene->dynamic_meshes.empty());
+        monster.setPartyMarker(6, 0);
+        monster.setPartyMarker(6, 0);
+        REQUIRE(world.scene->dynamic_meshes.size() == 1);
+        monster.setPartyMarker(6, std::nullopt);
+        REQUIRE(world.scene->dynamic_meshes.empty());
+        monster.addSpellIcon(SPELL_ICON_HEXED);
+        monster.retire(); // Retired bodies can outlive their visible attachments.
+        REQUIRE(world.scene->dynamic_meshes.empty());
+    }
     auto mesh = std::make_shared<Mesh>(1, 4);
     mesh->getVertexLoc()[0] = {-1, 0, -1};
     mesh->getVertexLoc()[1] = {0, 0, 1};
@@ -998,7 +1021,8 @@ TEST_CASE("Collision index expands level bounds locally", "[geometry][octree]")
 
 TEST_CASE("Item bounds preserve local extents", "[geometry][item]")
 {
-    WorldItemEntity item;
+    World owner;
+    WorldItemEntity item(owner);
     item.m_psrMesh = nullptr;
     item.bounds_minimum = {-5, -3, -1};
     item.bounds_maximum = {7, 9, 11};
@@ -1039,7 +1063,7 @@ TEST_CASE("Viewport bounds normalize each edge into an independent value", "[geo
     REQUIRE(scaled.y == 22);
     REQUIRE(scaled.w == 743);
     REQUIRE(scaled.h == 540);
-    SetViewport({23, 18, 618, 451});
+    SetWorldViewport(GameInProgress() ? &CurrentGame() : nullptr, {23, 18, 618, 451});
     REQUIRE(g_viewport == DesignRect{23, 18, 618, 451});
     g_viewport = {80, 60, 560, 420};
     const auto bounds = GetScaledViewportBounds();
@@ -1425,7 +1449,8 @@ TEST_CASE("Attached particle orientation follows rotations independently of mode
 TEST_CASE("Particle simulation respects activation and completes without a view", "[geometry]")
 {
     const ScopedGame game;
-    ParticleSystem particles(nullptr, 2);
+    World world(-1, "", game.game.timerClocks());
+    ParticleSystem particles(&world, 2);
     particles.emission_gap = 0;
     particles.emission_mode = W8_PARTICLE_EMISSION_SINGLE;
     particles.emission_interval = 0;
@@ -1433,21 +1458,21 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.initial_speed = 0;
     particles.visible = false;
-    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE(particles.emission_count == 0);
     particles.visible = true;
     particles.SetTraversalEnabled(false);
-    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE(particles.emission_count == 0);
 
     particles.SetTraversalEnabled(true);
-    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE(particles.emission_count == 1);
-    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 2);
     particles.particles[0].active = false;
     particles.SetActive(false);
-    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE_FALSE(particles.particles[0].active);
     REQUIRE(particles.particles[1].active);
 
@@ -1494,7 +1519,7 @@ TEST_CASE("Particle simulation respects activation and completes without a view"
     particles.release_when_done = true;
     particles.lifetime_ms = 0;
     game.game.time += std::chrono::milliseconds{1};
-    particles.AdvanceSimulation(std::chrono::milliseconds{0});
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 0);
     REQUIRE(particles.finished);
     particles.updateRenderNode(*context, {}, 2);
@@ -1507,6 +1532,7 @@ TEST_CASE("Particle simulation resolves nested animation before views consume it
           "[geometry][particles]")
 {
     ScopedGame game;
+    World world(-1, "", game.game.timerClocks());
     auto first = std::make_shared<Texture>();
     auto last = std::make_shared<Texture>();
     auto inner = std::make_shared<Texture>(TexturePlayback{});
@@ -1517,7 +1543,7 @@ TEST_CASE("Particle simulation resolves nested animation before views consume it
     auto outer = std::make_shared<Texture>(TexturePlayback{});
     outer->playback->animation_mode = W8_TEXTURE_ANIM_MANUAL;
     outer->AddTexture(inner);
-    ParticleSystem particles(nullptr, 1);
+    ParticleSystem particles(&world, 1);
     particles.emission_gap = 0;
     particles.initial_speed = 0;
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
@@ -1527,7 +1553,7 @@ TEST_CASE("Particle simulation resolves nested animation before views consume it
     REQUIRE(&prepared != inner.get());
     REQUIRE(particles.particles.front().animation->currentFrame() == first.get());
     game.game.time += std::chrono::milliseconds{1000};
-    particles.AdvanceSimulation(game.game.time);
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE(particles.particles.front().animation->currentFrame() == last.get());
 
     // Time may elapse before another view. Only simulation advances playback.
@@ -2062,26 +2088,19 @@ TEST_CASE("Camera rotation and movement share the level motion flag policy", "[g
 
 TEST_CASE("Paused camera APIs return complete initialized values", "[geometry]")
 {
-    const struct RestoreRuntime {
-        bool resume = g_level_motion_resume_pending;
-        ~RestoreRuntime()
-        {
-            ResumeSharedGameTimers();
-            g_level_motion_resume_pending = resume;
-        }
-    } restore;
+    Game game(ScopedGame::NoData());
     LevelSpatialIndex data;
     data.compiled_available = false;
     data.collision_available = true;
-    PauseSharedGameTimers();
-    PartyCamera controller;
+    game.timerClocks().pause();
+    PartyCamera controller(game.timerClocks());
     controller.motion_started = true;
     controller.SetOrientation(.4f, .1f);
     controller.m_position = {1, 2, 3};
     const auto before = controller.rotationMatrix();
-    g_level_motion_resume_pending = false;
     // Held time leaves the orientation alone and hands movement the whole rotation.
-    const auto basis = controller.turn(W8_CAMERA_MOTION_TURN_LEFT);
+    const auto [basis, turned] = controller.turn(W8_CAMERA_MOTION_TURN_LEFT);
+    REQUIRE_FALSE(turned);
     REQUIRE(basis == before);
     REQUIRE(controller.rotationMatrix() == before);
     const auto motion = controller.move(data, W8_CAMERA_MOTION_FORWARD, basis);
@@ -2289,24 +2308,25 @@ TEST_CASE("Cursor animation keeps rectangular artwork without baking sprite offs
 TEST_CASE("Recycled particles restart texture playback at their new birth", "[geometry][particles]")
 {
     ScopedGame game;
+    World world(-1, "", game.game.timerClocks());
     TexturePlayback playback;
     playback.animation_mode = W8_TEXTURE_ANIM_PLAY_ONCE;
     playback.frame_rate = 1;
     playback.textures = {std::make_shared<Texture>(), std::make_shared<Texture>(),
                          std::make_shared<Texture>()};
-    ParticleSystem particles(nullptr, 1);
+    ParticleSystem particles(&world, 1);
     particles.emitting = false;
     particles.speed_mode = W8_PARTICLE_SPEED_FIXED;
     particles.initial_speed = 0;
     particles.expiry_mode = W8_PARTICLE_EXPIRY_TEXTURE;
     particles.SetTexture(std::make_shared<Texture>(std::move(playback)));
     REQUIRE(particles.activateParticle(false));
-    particles.AdvanceSimulation(game.game.time);
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     particles.particles[0].active = false;
     game.game.time = std::chrono::milliseconds{10000};
     REQUIRE(particles.activateParticle(false));
     game.game.time += std::chrono::milliseconds{1000};
-    particles.AdvanceSimulation(game.game.time);
+    particles.AdvanceSimulation(world.party.eye(), world.compiledIndex());
     REQUIRE(std::ranges::count(particles.particles, true, &ParticleSystem::Particle::active) == 1);
     REQUIRE(particles.particles.front().animation->playback->frame == 1);
 }
@@ -2432,4 +2452,21 @@ TEST_CASE("Resolved prop picks retain occlusion and the closed-door combat excep
     world.acceptPick({}, false);
     REQUIRE_FALSE(world.picked.intersection.hit);
     REQUIRE_FALSE(world.selectedProp());
+}
+
+TEST_CASE("Camera tracking uses the requesting game's conversation state", "[camera]")
+{
+    ScopedGame outgoing;
+    Game candidate{ScopedGame::NoData()};
+    candidate.level.replacePrimary(
+        std::make_unique<World>(-1, std::string{}, candidate.timerClocks()));
+    auto& camera = candidate.level.loaded().party.camera;
+    camera.m_orientation_flags = W8_CAMERA_MANUAL_INPUT;
+    outgoing.game.activity.conversation = true;
+    candidate.pointCameraAtPosition({5000, 0, 0}, true, true);
+    REQUIRE_FALSE(camera.m_transition_active);
+    outgoing.game.activity.conversation = false;
+    candidate.activity.conversation = true;
+    candidate.pointCameraAtPosition({5000, 0, 0}, true, true);
+    REQUIRE(camera.m_transition_active);
 }

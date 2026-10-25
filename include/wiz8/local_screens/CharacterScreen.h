@@ -1,4 +1,6 @@
 #pragma once
+
+struct PartyQuoteInput;
 #include <array>
 #include <functional>
 #include <memory>
@@ -197,7 +199,7 @@ public:
 private:
     void UpdateSpellLists();
     std::unique_ptr<W8CharacterSpellList> m_realms[6];
-    W8GameTimer anim_timer{1.0f, TimerClock::Presentation};
+    W8GameTimer anim_timer = W8GameTimer::presentation(1.0f);
     unsigned int m_animation_frames[6];
     std::optional<unsigned int> m_last_selected;
 };
@@ -236,7 +238,7 @@ private:
     std::array<std::unique_ptr<W8ButtonWidget>, 5> m_buttons;
     std::array<HitTarget*, 11> m_choices{};
     bool m_choices_dirty = true;
-    W8GameTimer anim_timer{1.0f, TimerClock::Presentation};
+    W8GameTimer anim_timer = W8GameTimer::presentation(1.0f);
     int m_animation_frame;
     bool m_animation_active;
     bool m_description_dirty;
@@ -307,6 +309,7 @@ public:
     void DrawNavigation(SDL_Surface& target);
 
     Game& m_game;
+    std::shared_ptr<PartyQuoteInput> party_quotes;
     W8CharacterScreenMode m_mode = W8_CHARACTER_CREATE;
     int m_page_index = -1;
     bool m_header_dirty = false;

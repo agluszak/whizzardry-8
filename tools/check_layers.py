@@ -86,6 +86,77 @@ def check_includes():
             if target_layer not in allowed:
                 problems.append(f'{where}:{line}: {layer} may not include "{name}" '
                                 f'({target_layer or "unlayered"})')
+    # Complete migrated flows cannot reacquire direct screen dependencies.
+    for relative in (
+        'src/wiz8/game.cpp',
+        'src/wiz8/game_advance.cpp',
+        'src/wiz8/inventory.cpp',
+        'src/wiz8/live_party.cpp',
+        'src/wiz8/monster_decisions.cpp',
+    ):
+        path = ROOT / relative
+        for match in INCLUDE.finditer(path.read_text(encoding='utf-8')):
+            if any(part in match.group(2) for part in ('local_screens/', 'screen.h', 'pointer.h')):
+                problems.append(f'{relative}: gameplay may not include "{match.group(2)}"')
+    for relative in ('src/platform/game_timer.cpp', 'src/platform/GameTimeAccumulator.cpp',
+                     'src/render/effects/camera_shake.cpp'):
+        source = (ROOT / relative).read_text(encoding='utf-8')
+        if re.search(r'\b(CurrentGame|GameInProgress|WorldClockMilliseconds|GameClockMilliseconds)\s*\(', source):
+            problems.append(f'{relative}: timed operations must retain their originating clock')
+        for match in INCLUDE.finditer(source):
+            if match.group(2) == 'wiz8/game.h' or 'local_screens/' in match.group(2):
+                problems.append(f'{relative}: timed operations may not depend on game or screens')
+    facts = ROOT / 'src/wiz8/fact_state.cpp'
+    source = facts.read_text(encoding='utf-8')
+    if re.search(r'\b(CurrentGame|Data|GetWorld|FindScreen|ShowNotice)\s*\(', source):
+        problems.append('src/wiz8/fact_state.cpp: fact tests must use their game and report outcomes')
+    for match in INCLUDE.finditer(source):
+        if 'local_screens/' in match.group(2) or match.group(2) == 'wiz8/loaded_game_data.h':
+            problems.append('src/wiz8/fact_state.cpp: fact tests may not depend on screens or installed content')
+    items = ROOT / 'src/world/items.cpp'
+    source = items.read_text(encoding='utf-8')
+    if re.search(r'\b(CurrentGame|GetWorld|GetWorldSpatialIndex|GetWorldPathing|GetCursorScaledPosition|Data)\s*\(', source):
+        problems.append('src/world/items.cpp: item operations must use their world and explicit inputs')
+    for match in INCLUDE.finditer(source):
+        if match.group(2) in ('wiz8/game.h', 'wiz8/cursor.h') or 'local_screens/' in match.group(2):
+            problems.append('src/world/items.cpp: world item operations may not depend on game or screens')
+    for relative in ('src/entities/trigger_io.cpp', 'src/wiz8/story.cpp'):
+        source = (ROOT / relative).read_text(encoding='utf-8')
+        if re.search(r'\b(CurrentGame|GameInProgress|GetWorld|GetLoadedLevelID|Data|WorldClockMilliseconds)\s*\(', source):
+            problems.append(f'{relative}: loading and story values require explicit owners')
+        for match in INCLUDE.finditer(source):
+            if match.group(2) in ('wiz8/game.h', 'wiz8/loaded_game_data.h') or 'local_screens/' in match.group(2):
+                problems.append(f'{relative}: loading and story values may not find the installed game')
+    for relative in ('src/entities/cycle_player.cpp', 'src/entities/world_item.cpp',
+                     'src/entities/keyframe_track.cpp', 'src/render/effects/particle_system.cpp',
+                     'src/entities/monster_loader.cpp'):
+        source = (ROOT / relative).read_text(encoding='utf-8')
+        if re.search(r'\b(CurrentGame|GameInProgress|GetWorld|GameClockMilliseconds|WorldClockMilliseconds|cameraLocation)\s*\(', source):
+            problems.append(f'{relative}: animation must use its owner or explicit simulation inputs')
+    source = (ROOT / 'src/wiz8/npc_creation.cpp').read_text(encoding='utf-8')
+    if re.search(r'\b(CurrentGame|GameInProgress|GetWorld|Data|GetFact)\s*\(', source):
+        problems.append('src/wiz8/npc_creation.cpp: candidate NPC construction must use its supplied game')
+    choices = ROOT / 'src/wiz8/monster_decisions.cpp'
+    source = choices.read_text(encoding='utf-8')
+    if re.search(r'\b(CurrentGame|Data|GetWorld|CurrentLevelPopulation|FindMonster|GetMonsterDataForInfo)\s*\(', source):
+        problems.append('src/wiz8/monster_decisions.cpp: monster decisions must use their game and world')
+    formation = ROOT / 'src/world/group_formation.cpp'
+    source = formation.read_text(encoding='utf-8')
+    if re.search(r'\b(CurrentGame|GetWorld|CurrentLevelPopulation|FindMonster|GetMonsterByLocationID)\s*\(', source):
+        problems.append('src/world/group_formation.cpp: formation repair belongs to its world')
+    for match in INCLUDE.finditer(source):
+        if match.group(2) in ('wiz8/game.h', 'wiz8/loaded_game_data.h'):
+            problems.append('src/world/group_formation.cpp: formation repair may not depend on the installed game')
+    # Picking interpretation belongs to interaction code, never frame rendering.
+    frame = ROOT / 'src/render/frame.cpp'
+    source = frame.read_text(encoding='utf-8')
+    if re.search(r'\bacceptPick\s*\(|->picked\b', source):
+        problems.append('src/render/frame.cpp: rendering may not commit gameplay selections')
+    if re.search(r'\b(CurrentGame|GameInProgress|GetWorld|GetSecondaryWorld)\s*\(', source):
+        problems.append('src/render/frame.cpp: frame inputs must be explicit')
+    for match in INCLUDE.finditer(source):
+        if match.group(2) in ('wiz8/game.h', 'wiz8/world/world.h', 'wiz8/world_view.h'):
+            problems.append('src/render/frame.cpp: scene submission may not depend on gameplay')
     return problems
 
 

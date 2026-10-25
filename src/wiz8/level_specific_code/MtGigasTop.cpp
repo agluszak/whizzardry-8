@@ -5,7 +5,7 @@
 #include "wiz8/data/dice.h"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -40,7 +40,7 @@ bool EwaxxLanding(Trigger* trigger)
    the catch cord. */
 bool CatchCord(Trigger* trigger)
 {
-    SetFact(W8_FACT_TMISSION_KILL_UMPANI_CORD_SEVERED, 1, false);
+    CurrentGame().setFact(W8_FACT_TMISSION_KILL_UMPANI_CORD_SEVERED, 1);
     return true;
 }
 

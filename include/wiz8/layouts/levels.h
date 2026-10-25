@@ -39,7 +39,7 @@ struct W8LevelInfo {
 };
 
 /* The forty-seven real levels. Level ids 47..56 are the test-level slots the
-   LoadLevel assert (TEST_LEVEL_COUNT) still admits. */
+   level transition (TEST_LEVEL_COUNT) still admits. */
 enum { W8_LEVEL_COUNT = 47 };
 
 #endif

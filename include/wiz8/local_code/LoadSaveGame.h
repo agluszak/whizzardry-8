@@ -1,4 +1,5 @@
 #pragma once
+struct GameData;
 
 #include <filesystem>
 #include <memory>
@@ -12,6 +13,8 @@
 #include "wiz8/layouts/save_screenshot.h"
 #include "wiz8/level_state.h"
 #include "wiz8/save_codec.h"
+
+class Game;
 
 bool VerifyDataSubdirs(void);
 std::optional<std::string> FindStartupQuickSave();
@@ -33,13 +36,12 @@ struct W8SaveSlot {
     unsigned int version_patch;
 };
 
-void CaptureSaveScreenshot(W8SaveScreenshot& screenshot);
+void CaptureSaveScreenshot(Game& game, W8SaveScreenshot& screenshot);
 void FillCurrentSaveSlot(W8SaveSlot& slot);
 bool EnumerateSaveSlots(std::vector<std::unique_ptr<W8SaveSlot>>& slots);
 
 bool SaveGame(std::string_view name, const W8SaveScreenshot* screenshot);
 
-class GameSession;
 struct W8Character;
 
 bool SaveCharacter(const W8Character* character, int slot);
@@ -55,7 +57,6 @@ bool LoadCharacter(std::string_view name, W8Character* character, int slot);
 std::string BuildCharacterFilePath(std::string_view filename, int slot);
 std::string BuildCharacterPath(std::string_view name, int slot);
 bool SaveGameExists(void);
-class Game;
 /* A save's game sections, decoded and checked. A repeated section keeps its last record
    (a character, the last under its name) or, for location variables and monster control,
    accumulates; a missing one leaves the new game's default. */
@@ -72,11 +73,12 @@ struct SavedGame {
     std::optional<wiz8::save::Factions> factions;
     std::optional<std::vector<W8JournalEntry>> journal;
     std::vector<std::unique_ptr<W8SpellEffectEntry>> spell_effects;
-    // Begin `games`'s replacement game from this state, in the order a save writes it.
-    void install(GameSession& games) &&;
+    // Fill `game`, in the order a save writes its sections. The session owns replacing
+    // any game in progress; installing a value cannot begin or end one.
+    void install(Game& game) &&;
 };
 // Decode a save slot, or nothing (logged) when it is missing or malformed.
-std::optional<SavedGame> ReadSavedGame(std::string_view slot_name);
+std::optional<SavedGame> ReadSavedGame(const GameData& data, std::string_view slot_name);
 struct World;
 // What entering a built level still installs (LevelState::build, InstallLevelSessionState).
 struct W8LoadedLevelStatus {
@@ -85,7 +87,7 @@ struct W8LoadedLevelStatus {
     W8LoadedLevelStatus();
     ~W8LoadedLevelStatus();
 };
-void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status);
+void InstallLevelSessionState(Game& game, World& world, W8LoadedLevelStatus* status);
 void BeginRestoredLevelActivity(World& world, W8LoadedLevelStatus* status);
 std::string BuildLevelStatusPath(unsigned int level);
 

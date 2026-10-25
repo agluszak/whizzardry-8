@@ -78,6 +78,7 @@
 #include "wiz8/world/camera_pose.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
+#include "wiz8/world_view.h"
 
 namespace {
 
@@ -324,7 +325,7 @@ void CampSpellsScenario()
     caster.profession_levels[W8_PROFESSION_BISHOP] = 4;
     for (const auto skill : {W8_SKILL_SPELLBOOK_WIZARDRY, W8_SKILL_MENTAL_MAGIC})
         caster.skills[skill].base_level = caster.skills[skill].level = 100;
-    LearnSpell(&caster, W8_SPELL_IDENTIFY_ITEM, false);
+    LearnSpell(Data(), &caster, W8_SPELL_IDENTIFY_ITEM);
     const auto realm = Data().spells[W8_SPELL_IDENTIFY_ITEM].realm;
     caster.sp_max[realm] = caster.iSPLeft[realm] = 100;
     auto& sword = caster.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON];
@@ -350,7 +351,7 @@ void CampSpellsScenario()
 
     // The next automatic cast targets a character, not the remembered item.
     // Automatic power and immediate retries must respect the mana budget.
-    LearnSpell(&caster, W8_SPELL_REMOVE_CURSE, false);
+    LearnSpell(Data(), &caster, W8_SPELL_REMOVE_CURSE);
     caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].base_level =
         caster.skills[W8_SKILL_SPELLBOOK_DIVINITY].level = 100;
     const auto curse_realm = Data().spells[W8_SPELL_REMOVE_CURSE].realm;
@@ -381,15 +382,34 @@ void CheckWorldRender(GameHarness& game)
         if (world->psrMeshes[i] && world->psrMeshes[i]->visible) ++enabled;
     REQUIRE(enabled > 0);
 
+    // Rendering another view must not replace the interaction's last accepted pick.
+    const auto previous_selection = world->picked;
+    world->picked.intersection.position = {.25f, .75f, 1};
+    const auto accepted_position = world->picked.intersection.position;
     // The same scene and UI with only the world pass switched off is the control.
     REQUIRE((g_world_render_enabled && !g_world_blacked_out));
-    RenderFrame();
+    REQUIRE(PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr).has_value());
+    REQUIRE(world->picked.intersection.position == accepted_position);
     const unsigned polygons = world->scene->submitted_polygons;
     const auto visible = game.read_frame();
     g_world_render_enabled = 0;
-    RenderFrame();
+    const auto unrendered_world = PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
+    REQUIRE(unrendered_world.has_value());
+    REQUIRE_FALSE(unrendered_world->hit);
+    REQUIRE(world->picked.intersection.position == accepted_position);
     const auto control = game.read_frame();
     g_world_render_enabled = 1;
+    world->scene->submitted_polygons = 0;
+    const auto empty_view = RenderFrame(FrameView{});
+    REQUIRE(empty_view.has_value());
+    REQUIRE_FALSE(empty_view->hit);
+    REQUIRE(world->scene->submitted_polygons == 0); // No current-world fallback.
+    REQUIRE(world->picked.intersection.position == accepted_position);
+    REQUIRE(BeginVideoPresentation());
+    const auto skipped = RenderFrame(FrameView{});
+    REQUIRE(FinishVideoPresentation());
+    REQUIRE_FALSE(skipped); // The movie owns presentation, not a rendered miss.
+    world->picked = previous_selection;
 
     Snapshot("world", visible);
     Snapshot("world-control", control);
@@ -456,6 +476,22 @@ void CheckTwoWorldViews(GameHarness& game)
     // adjacent byte even with identical geometry and camera matrices.
     REQUIRE(max_channel_difference <= 1);
     REQUIRE(colored > SCREEN_WIDTH * SCREEN_HEIGHT / 16);
+    const auto simulation_time = CurrentGame().time;
+    const auto visual_time = CurrentGame().visual_time;
+    auto expected_rng = CurrentGame().rng;
+    expected_rng.trace(nullptr);
+    const auto selection = GetWorld()->picked.intersection.position;
+    REQUIRE(RenderFrame(FrameView{.world = &scene,
+                                  .camera = GetWorld()->camera,
+                                  .frame = GameSceneFrame(&CurrentGame())})
+                .has_value());
+    REQUIRE(scene.submitted_polygons > 0);
+    REQUIRE(CurrentGame().time == simulation_time);
+    REQUIRE(CurrentGame().visual_time == visual_time);
+    REQUIRE(GetWorld()->picked.intersection.position == selection);
+    auto actual_rng = CurrentGame().rng;
+    actual_rng.trace(nullptr);
+    REQUIRE(actual_rng.next() == expected_rng.next());
     for (const auto& saved : particles) {
         REQUIRE(std::ranges::count(saved.system->particles, true,
                                    &ParticleSystem::Particle::active) == saved.active);
@@ -514,7 +550,7 @@ void CheckGameplayUi(GameHarness& game)
     const auto original_character = character;
     character.iProfession = W8_PROFESSION_MAGE;
     character.skills[W8_SKILL_FIRE_MAGIC].level = 100;
-    LearnSpell(&character, W8_SPELL_LIGHT, false);
+    LearnSpell(Data(), &character, W8_SPELL_LIGHT);
     const auto realm = Data().spells[W8_SPELL_LIGHT].realm;
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
     CurrentGame().advancement.paused = true;
@@ -563,7 +599,7 @@ void CheckGameplayUi(GameHarness& game)
     REQUIRE_FALSE(SpellPicker());
     REQUIRE(returns == 2);
     // A pending confirmation belongs to the picker being replaced, not its successor.
-    LearnSpell(&character, W8_SPELL_SET_PORTAL, false);
+    LearnSpell(Data(), &character, W8_SPELL_SET_PORTAL);
     const auto portal_realm = Data().spells[W8_SPELL_SET_PORTAL].realm;
     character.sp_max[portal_realm] = character.iSPLeft[portal_realm] = 100;
     character.has_saved_location = true;
@@ -683,12 +719,12 @@ void ResourceLifecycleScenario()
     focus.window.windowID = SDL_GetWindowID(ghWindow);
     const auto before_focus_loss = CurrentGame().time;
     focus.type = SDL_EVENT_WINDOW_FOCUS_LOST;
-    HandleGameEvent(focus);
+    DispatchGameEvent(focus);
     g_runtime_test_hooks.clock_us += 30'000'000;
     REQUIRE(IsVideoActive());
     REQUIRE(g_renderer->isOpen());
     focus.type = SDL_EVENT_WINDOW_FOCUS_GAINED;
-    HandleGameEvent(focus);
+    DispatchGameEvent(focus);
     game.frame();
     REQUIRE(CurrentGame().time - before_focus_loss < std::chrono::milliseconds(100));
     g_renderer->close();
@@ -865,7 +901,7 @@ void ResourceLifecycleScenario()
         REQUIRE(linked > 0);
         REQUIRE(animated > 0);
         for (int frame = 0; frame != 4; ++frame) game.frame();
-        RenderFrame();
+        PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
         REQUIRE(world->scene->submitted_polygons > 0);
         game.command(W8_MGS_COMMAND_QUICK_LOAD);
         bool loading = false;
@@ -878,7 +914,7 @@ void ResourceLifecycleScenario()
         REQUIRE(GetWorld()->native_objects.size() == 1);
         ExpectAt("reloaded-position", anchor);
     }
-    RenderFrame();
+    PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
     REQUIRE(GetWorld()->scene->submitted_polygons > 0);
 }
 

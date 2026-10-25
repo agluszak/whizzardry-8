@@ -18,10 +18,59 @@
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/random.h"
+
+void NormalizeItemQuantityKind(const GameData& data, W8ItemInstance& item)
+{
+    if (item.iItemNo == -1) return;
+    const auto kind = data.items[item.iItemNo].quantity_kind;
+    if (kind == W8_ITEM_QUANTITY_STACK) {
+        if (item.stack_count == 0)
+            item.stack_count = item.uses_or_charges > 0 ? item.uses_or_charges : 1;
+        item.uses_or_charges = 0;
+    } else if (kind > W8_ITEM_QUANTITY_STACK && kind <= W8_ITEM_QUANTITY_SHOTS &&
+               item.stack_count > 0) {
+        if (item.uses_or_charges == 0) item.uses_or_charges = item.stack_count;
+        item.stack_count = 0;
+    }
+}
+
+/* The range category the weapon in one of the character's hands attacks at.
+   `hand` of HAND_ANY asks both hands and keeps the better answer; only a
+   hand actually in play carrying a melee or thrown wield kind has a range to
+   report at all. */
+W8RangeCategory GetCharAttackRange(const GameData& data, const W8Character* character,
+                                   unsigned int hand)
+{
+    if (hand >= 2) {
+        assert(hand == 2);
+        return std::max(GetCharAttackRange(data, character, 0),
+                        GetCharAttackRange(data, character, 1));
+    }
+    if (!character->Hand[hand].in_play) {
+        return W8_RANGE_NONE;
+    }
+    if (character->Hand[hand].uiHolds != 1 && character->Hand[hand].uiHolds != 3) {
+        return W8_RANGE_TOUCH;
+    }
+    return static_cast<W8RangeCategory>(
+        data.items[character->EquippedItem[6 + (hand != 0)].iItemNo].range_category);
+}
+
+bool CanCharacterBerserk(const GameData& data, const W8Character* character)
+{
+    if (!CharacterHasTrait(character, W8_TRAIT_BERSERK)) return false;
+    for (unsigned int hand = 0; hand < std::size(character->Hand); ++hand) {
+        if (character->Hand[hand].in_play &&
+            GetCharAttackRange(data, character, hand) != W8_RANGE_NONE)
+            return GetCharAttackRange(data, character, 0) <= W8_RANGE_SHORT;
+    }
+    return false;
+}
 
 static const short g_compatible_partner_pairs[6][2] = {
     {114, 113}, {110, 132}, {104, 132}, {144, 143}, {145, 146}, {0, 0},
@@ -599,4 +648,67 @@ int MinimumCasterLevelForSpellLevel(int spell_level)
     default:
         return 1;
     }
+}
+
+bool CanCharacterActivateItem(const GameData& data, const W8Character* character,
+                              const W8ItemInstance* item, bool game_started)
+{
+    const W8ItemDatabaseRecord* record;
+
+    assert(character != 0);
+    assert(item != 0);
+    assert(item->iItemNo >= -1);
+    assert(item->iItemNo < static_cast<int>(data.items.size()));
+    if (item->iItemNo == -1) {
+        return false;
+    }
+    if (!CanCharacterUseItem(data, character, item->iItemNo)) {
+        return false;
+    }
+
+    record = &data.items[item->iItemNo];
+    if ((record->flags & W8_ITEM_FLAG_MUST_EQUIP_TO_USE) != 0 ||
+        GetItemDefaultEquipSlot(data, item->iItemNo, game_started) != W8_EQUIP_SLOT_NONE) {
+        if (!IsItemWornByCharacter(character, item)) {
+            return false;
+        }
+    }
+
+    if (record->category == W8_ITEM_CATEGORY_SPELL_SOURCE || record->category == 0) {
+        return false;
+    }
+    if (item->iItemNo != 0x29f && record->spell_id == W8_SPELL_NONE) {
+        return false;
+    }
+    if (record->quantity_kind == W8_ITEM_QUANTITY_CHARGES && item->uses_or_charges == 0) {
+        return false;
+    }
+    return true;
+}
+
+bool IsItemWornByCharacter(const W8Character* character, const W8ItemInstance* item)
+{
+    unsigned int slot;
+
+    if (character == 0) {
+        return false;
+    }
+    for (slot = 0; slot < 12; ++slot) {
+        if (&character->EquippedItem[slot] == item) {
+            return slot != W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON &&
+                   slot != W8_EQUIP_SLOT_ALTERNATE_SECONDARY_WEAPON;
+        }
+    }
+    return false;
+}
+
+bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record)
+{
+    unsigned char equip_class = record->equip_class;
+
+    if (equip_class != W8_ITEM_EQUIP_CLASS_POTION &&
+        (equip_class < W8_ITEM_EQUIP_CLASS_FOOD || equip_class > W8_ITEM_EQUIP_CLASS_DRINK)) {
+        return false;
+    }
+    return true;
 }

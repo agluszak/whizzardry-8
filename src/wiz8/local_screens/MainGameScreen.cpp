@@ -123,6 +123,7 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_interaction_state.h"
 #include "wiz8/npc_items.h"
+#include "wiz8/party_quote_input.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
@@ -131,6 +132,7 @@
 #include "wiz8/render/frame.h"
 #include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/texture.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
@@ -139,6 +141,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
@@ -146,7 +149,6 @@
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/string_database.h"
 #include "wiz8/targeting_presentation.h"
 #include "wiz8/text_input.h"
 #include "wiz8/ui_input.h"
@@ -157,9 +159,11 @@
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
+#include "wiz8/world/party_motion.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
+#include "wiz8/world_view.h"
 
 struct SDL_Surface;
 
@@ -297,7 +301,7 @@ void CancelMouselook()
 static void QueueInteractionNotice(int event_type)
 {
     W8CharacterEvent* event =
-        ApplyItemEffectToRandomCharacter(event_type, -1, kCharacterEventNoPreempt);
+        CurrentGame().speech.QueueRandom(event_type, -1, kCharacterEventNoPreempt);
     if (event != 0) {
         event->DelayDispatch(std::chrono::milliseconds{600});
     }
@@ -343,7 +347,7 @@ static void TakeHudForInteraction()
     MainGame()->refreshLayout();
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
-    ResetLevelDataVectors();
+    if (auto* world = GetWorld()) world->party.camera.motion.stop();
     if (auto* hud = MainGameHud()) {
         hud->repaint.roof_and_spell_icons = true;
         hud->repaint.submenu_buttons = true;
@@ -412,7 +416,7 @@ void EndLockInteractMode(bool suspend)
     LockInteraction()->EnablePanels(false);
     if (!suspend) {
         DestroyAfterUiDispatch(std::move(MainGame()->lock_interaction));
-        ClearLevelMovementStopped();
+        if (auto* world = GetWorld()) world->party.camera.motion.resume();
     }
     SelectTextBox(0);
     MainGame()->refreshLayout();
@@ -444,7 +448,8 @@ static bool CanSelectedCharacterCastKnockKnock()
 {
     const int slot = CurrentGame().status.selected_character;
     return LearnedSpellPower(slot, W8_SPELL_KNOCK_KNOCK) > -1 &&
-           CanCharacterCastSpell(&CurrentGame().party.characters[slot], W8_SPELL_KNOCK_KNOCK);
+           CanCharacterCastSpell(CurrentGame().data, &CurrentGame().party.characters[slot],
+                                 W8_SPELL_KNOCK_KNOCK);
 }
 
 /* The selected character's percent chance to force a lock with
@@ -456,8 +461,8 @@ static bool CanCastTrapSpell(int slot)
     W8Character* character = &CurrentGame().party.characters[slot];
     return (LearnedSpellPower(slot, W8_SPELL_KNOCK_KNOCK) > -1 ||
             LearnedSpellPower(slot, W8_SPELL_DIVINE_TRAP) > -1) &&
-           (CanCharacterCastSpell(character, W8_SPELL_KNOCK_KNOCK) ||
-            CanCharacterCastSpell(character, W8_SPELL_DIVINE_TRAP));
+           (CanCharacterCastSpell(CurrentGame().data, character, W8_SPELL_KNOCK_KNOCK) ||
+            CanCharacterCastSpell(CurrentGame().data, character, W8_SPELL_DIVINE_TRAP));
 }
 
 static std::optional<int> PercentOrNothing(int value)
@@ -707,7 +712,7 @@ void W8LockInfoPanel::Redraw(SDL_Surface& target, bool full_redraw)
     }
 }
 
-W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer(1.0f, TimerClock::Presentation)
+W8LockInteraction::W8LockInteraction(Trigger* trigger) : m_timer(W8GameTimer::presentation(1.0f))
 {
     int i;
 
@@ -962,15 +967,16 @@ void W8LockInteraction::AttemptForce()
     if (!chance) {
         return;
     }
-    FatigueCharacter(CurrentGame().status.selected_character, 0x50, false, 0);
+    CurrentGame().fatigueCharacter(CurrentGame().status.selected_character, 0x50, false, 0);
     if (static_cast<int>(CurrentGame().rng.below(100)) < *chance) {
         wiz8::sound::play(s_lock_forcing_success);
-        ShowString(fmt::format("{} {}", character->name, Data().strings[0x7ae]));
+        CurrentGame().queueWorldMessage(
+            fmt::format("{} {}", character->name, Data().strings[0x7ae]));
         BeginUnlock();
         return;
     }
     wiz8::sound::play(s_lock_forcing_fail);
-    ShowString(fmt::format("{} {}", character->name, Data().strings[0x7ad]));
+    CurrentGame().queueWorldMessage(fmt::format("{} {}", character->name, Data().strings[0x7ad]));
     RefreshControls();
 }
 
@@ -1223,7 +1229,7 @@ void W8MainGameTextPanel::BeginProgress(std::string_view text, float duration, f
 
 W8MainGameTextPanel::W8MainGameTextPanel()
     : m_selection(0), m_screen(0), m_values(0), m_progress_display(0),
-      m_timer1(0.04f, TimerClock::Presentation)
+      m_timer1(W8GameTimer::presentation(0.04f))
 {
     int index;
 
@@ -1747,8 +1753,10 @@ void W8TrapInteraction::CastTrapSpell()
         return;
     }
     const int spell =
-        CanCharacterCastSpell(&CurrentGame().party.characters[slot], W8_SPELL_DIVINE_TRAP) ? 0x12
-                                                                                           : 0x27;
+        CanCharacterCastSpell(CurrentGame().data, &CurrentGame().party.characters[slot],
+                              W8_SPELL_DIVINE_TRAP)
+            ? 0x12
+            : 0x27;
     EndTrapInteractMode(true);
     MainGame()->beginSpellCast(spell, ResumeTrapInteraction);
 }
@@ -1825,7 +1833,7 @@ void EndTrapInteractMode(bool suspend)
     TrapInteraction()->EnablePanelInput(false);
     if (!suspend) {
         DestroyAfterUiDispatch(std::move(MainGame()->trap_interaction));
-        ClearLevelMovementStopped();
+        if (auto* world = GetWorld()) world->party.camera.motion.resume();
     }
     SelectTextBox(0);
     MainGame()->refreshLayout();
@@ -2243,7 +2251,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
         LoadMainGameCursorResources();
     }
     game.level_up_check_due = true;
-    CreatePartyPortraitEventRegions();
+    party_quotes = AcquirePartyQuoteInput(game);
 
     InitTextBoxRegions();
     ConfigureMainGameHudButtons();
@@ -2282,7 +2290,7 @@ bool MainGameScreen::enter(const ScreenRequest&)
                    fmt::sprintf(Data().strings[0x78c], Data().strings[display_mode]));
     }
     ResetTransientRenderScenes();
-    MoveTimer(W8_MOVE_TIMER_RESUME);
+    game.setMotionPaused(false);
     // Time spent under other screens does not reach the world.
     step_timer.restart();
     DrainInputEventQueue();
@@ -2348,22 +2356,12 @@ void TickAmbientFollowUpIdle(unsigned char input_handled)
     CurrentGame().speech.follow_up.reset();
 }
 
-/* Leave one main-game mode for another: mode 3 ends a live NPC dialogue
-   session, mode 5 releases its screen state, and mode 6 releases the dialogue
-   highlight sprite then clears and dirties the dialogue rectangle when it
-   crosses the viewport band. The new mode is stored last. */
+// A highlighted plate belongs to the mode being left, not its replacement.
 void SetMainGameMode(W8MainGameMode mode)
 {
-    switch (g_main_game_mode) {
-    case W8_MAIN_GAME_NPC_DIALOGUE:
-        CloseNpcDialogueIfActive();
-        break;
-    case W8_MAIN_GAME_HIGHLIGHT_OVERLAY:
+    if (g_main_game_mode == W8_MAIN_GAME_HIGHLIGHT_OVERLAY) {
         MainGameHud()->highlight_graphic.reset();
         ClearHighlightOverlayRegion();
-        break;
-    default:
-        break;
     }
     g_main_game_mode = mode;
 }
@@ -2420,7 +2418,7 @@ void MainGameScreen::frame()
         return;
     }
     // Nobody left who can act, or the party fell out of the world: the game is lost.
-    if (!AnyCharacterActive() || game.party_moving) BeginPartyDeath();
+    if (game.party.participantCount() == 0 || game.party_moving) BeginPartyDeath();
     if (dismissed_npc_slot != -1) UpdateNpcPartyMember(std::exchange(dismissed_npc_slot, -1));
     if (std::exchange(resume_conversation, false)) SyncDialogueNpcStateAndMarkPending();
     if (SkillIncreasesShownNow(game)) FlushDeferredSkillNotices(game);
@@ -2522,14 +2520,9 @@ void MainGameScreen::frame()
         if (game.activity.conversation) ServiceNpcDialogue();
         if (IsLockInteractionActive()) ProcessLockInteractMode();
         if (IsTrapInteractionActive()) UpdateTrapInteraction();
-        int active;
-        if (!AnyPropTriggerInView() && !AnyMonsterVisible() && !AnyWorldItemVisible() &&
-            !SelectWorldCursorNode()) {
-            active = 0;
-        } else {
-            active = 1;
-        }
-        SetWorldModelPickingEnabled(active);
+        world_pick_enabled = AnyPropTriggerInView() || AnyMonsterVisible() ||
+                             AnyWorldItemVisible() || SelectWorldCursorNode();
+        if (!world_pick_enabled) game.level.loaded().acceptPick({}, game.combat.has_value());
         if (game.level_up_check_due && !game.activity.conversation && !game.combat.has_value()) {
             RefreshLevelUpReadyNotices();
         }
@@ -2547,6 +2540,9 @@ bool MainGameScreen::leave(ScreenDeparture departure)
 {
     const bool leaving = departure == ScreenDeparture::Discard;
     int index;
+
+    // Covering this interaction invalidates its old aim even if no new view is rendered.
+    if (auto* world = game.level.primary.get()) world->acceptPick({}, game.combat.has_value());
 
     if (leaving) {
         OpenModal(nullptr);
@@ -2571,7 +2567,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     ReleaseConditionButtons();
     if (party_movement) party_movement->disableInput();
     dialogue.restoreQuoteBubble();
-    MoveTimer(W8_MOVE_TIMER_SUSPEND);
+    game.setMotionPaused(true);
     // The world stays covered, and held, until this screen steps it again.
     ApplyWorldAdvancement(game, {.covered = true});
 
@@ -2591,6 +2587,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
             ReleasePartyMovement();
         }
 
+        dialogue.discardSpeech();
         ShutdownTextBoxRegions();
         DestroyFormationPanel();
         wiz8::sound::release_cache();
@@ -2621,7 +2618,7 @@ void OnLeaveGameConfirmClosed(bool accepted)
 void OnQuitGameDialogClosed(bool accepted)
 {
     if (accepted) {
-        if (AnyCharacterActive()) {
+        if ((CurrentGame().party.participantCount() != 0)) {
             AutoSaveIfAllowed(true);
         }
         RequestExitScreen();
@@ -2944,7 +2941,8 @@ void MainGameScreen::draw(const W8TargetingPresentation& presentation)
         if (MainGame()->radar_map) {
             MainGame()->radar_map->captureBackdrop();
         }
-        RenderFrame();
+        if (auto pick = PresentGameFrame(&game, world_pick_enabled))
+            game.level.loaded().acceptPick(std::move(*pick), game.combat.has_value());
     }
 }
 
@@ -2979,14 +2977,14 @@ void RedrawCombatMonsterList(bool subject_valid)
     }
     if (CurrentLevelPopulation().monster_roster.hasActiveMonsters()) {
         group_list_index = 0;
-        list_length = CurrentLevelPopulation().monster_groups.size();
+        list_length = CurrentLevelPopulation().groups().size();
         if (list_length != 0) {
             do {
-                monster_group = CurrentLevelPopulation().monster_groups[group_list_index].get();
+                monster_group = CurrentLevelPopulation().groups()[group_list_index].get();
                 if (IsMonsterGroupLive(monster_group)) {
                     scratch_text =
                         fmt::format("{:d} {} ({:d}/{:d}/{:d})", monster_group->MemberCount(),
-                                    GetMonsterGroupName(monster_group),
+                                    CurrentGame().monsterGroupName(*monster_group),
                                     CurrentLevelPopulation().activeMemberCount(*monster_group),
                                     monster_group->selectable_member_count,
                                     monster_group->visible_member_count);
@@ -3039,7 +3037,7 @@ void RedrawCombatMonsterList(bool subject_valid)
                     }
                 }
                 ++group_list_index;
-                list_length = CurrentLevelPopulation().monster_groups.size();
+                list_length = CurrentLevelPopulation().groups().size();
             } while (group_list_index < list_length);
         }
     }
@@ -3162,9 +3160,7 @@ void RefreshSelectedPartyPortrait(unsigned int party_slot)
         if (auto* hud = MainGameHud()) hud->repaint.portrait_panel = true;
     }
 
-    if (g_main_game_mode == W8_MAIN_GAME_NPC_DIALOGUE) {
-        CloseNpcDialogueIfActive();
-    } else if (g_main_game_mode == W8_MAIN_GAME_HIGHLIGHT_OVERLAY) {
+    if (g_main_game_mode == W8_MAIN_GAME_HIGHLIGHT_OVERLAY) {
         MainGameHud()->highlight_graphic.reset();
         ClearHighlightOverlayRegion();
     }
@@ -3640,7 +3636,8 @@ void FallbackFromUnreachableAction(int party_slot)
     switch (row->committed.kind) {
     case W8_ACTION_ATTACK:
     case W8_ACTION_BERSERK:
-        if (CanAnyHandReachTarget(party_slot) &&
+        if ((GetCharAttackRange(CurrentGame().data, &CurrentGame().party.characters[party_slot],
+                                2) != W8_RANGE_NONE) &&
             (CurrentGame().combat->round_active || CurrentGame().party_movement_mode)) {
             SelectPartyCharacter(party_slot);
             if (party_slot == CurrentGame().status.selected_character) {
@@ -3652,7 +3649,8 @@ void FallbackFromUnreachableAction(int party_slot)
     case W8_ACTION_CAST_SPELL:
     case W8_ACTION_USE_ITEM: {
         const bool casting = row->committed.kind == W8_ACTION_CAST_SPELL;
-        if (!(casting ? CharacterHasCastableSpell(&CurrentGame().party.characters[party_slot]) &&
+        if (!(casting ? CharacterHasCastableSpell(CurrentGame().data,
+                                                  &CurrentGame().party.characters[party_slot]) &&
                             ActionNeedsExplicitTarget(row->committed,
                                                       CurrentGame().activity.conversation_aside)
                       : ItemUseNeedsTarget(party_slot))) {
@@ -3666,7 +3664,7 @@ void FallbackFromUnreachableAction(int party_slot)
                                              : GetItemSpell(CurrentGame().inventory.itemAt(
                                                    row->committed.detail_block.item_use.item));
                 const W8TargetNeed needed_kind =
-                    GetTargetNeededForSpellFriendly(spell_id, false, MainGameHud() == nullptr);
+                    SpellTargetNeed(CurrentGame().data, spell_id, false, MainGameHud() == nullptr);
                 ConfigureSpellTargetFilter(GetSpellTargetType(spell_id, false), needed_kind,
                                            nullptr);
                 return;
@@ -3688,7 +3686,7 @@ void FallbackFromUnreachableAction(int party_slot)
         break;
     }
     case W8_ACTION_PROTECT:
-        if (CanCharacterAttack(party_slot) &&
+        if (CurrentGame().party.canAttack(party_slot) &&
             (CurrentGame().combat->round_active || CurrentGame().party_movement_mode)) {
             SelectPartyCharacter(party_slot);
             if (party_slot == CurrentGame().status.selected_character) {
@@ -3732,7 +3730,7 @@ DesignRect g_viewport_modes[7] = {
    straight into the pending screen state and modes 3/5/6 are torn down. */
 void RequestLevelTransition(int level, int entry, unsigned char flag)
 {
-    unsigned int normalized = NormalizeMasterFunctionValue(level);
+    unsigned int normalized = CurrentGame().normalizeLevel(level);
 
     const int level_id = static_cast<int>(normalized);
     if (flag != 0) {
@@ -3802,11 +3800,13 @@ void UpdateCombatPortraitStatus(void)
                     if (combat_row->dead) {
                         status = W8_COMBAT_PORTRAIT_INELIGIBLE;
                     } else {
-                        status = CharacterCanSwitchTo(
-                                     slot, SelectCombatAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
-                                     false)
-                                     ? W8_COMBAT_PORTRAIT_READY
-                                     : W8_COMBAT_PORTRAIT_CANNOT_SWITCH;
+                        status =
+                            CurrentGame().canPerformAction(
+                                slot,
+                                CurrentGame().party.action(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                false)
+                                ? W8_COMBAT_PORTRAIT_READY
+                                : W8_COMBAT_PORTRAIT_CANNOT_SWITCH;
                     }
                 } else {
                     status = W8_COMBAT_PORTRAIT_INELIGIBLE;
@@ -4107,7 +4107,7 @@ void MainGameScreen::refreshLayout()
             const auto& rect = g_viewport_modes[static_cast<unsigned int>(layout.viewport)];
             world_view->setShape(
                 SDL_Rect{rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top});
-            SetViewport({rect.left, rect.top, rect.right + 1, rect.bottom + 1});
+            SetWorldViewport(&game, {rect.left, rect.top, rect.right + 1, rect.bottom + 1});
             partyCamera().bottom_panel_view =
                 layout.viewport == W8_VIEWPORT_MODE_FULL_WITH_BOTTOM_PANEL ||
                 layout.viewport == W8_VIEWPORT_MODE_CENTERED_WITH_BOTTOM_PANEL;
@@ -4187,18 +4187,19 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                                      : EditedAction(CurrentGame().status.selected_character);
     needed = IsSighting(CurrentGame().status.selected_character)
                  ? W8_TARGET_NEED_NONE
-                 : GetTargetNeededForAction(CurrentGame().inventory, selected_action);
+                 : CurrentGame().targetNeed(selected_action);
     if (ScreenPointer().targeting() == W8_TARGET_NEED_ALLY ||
         (needed == W8_TARGET_NEED_ALLY && (event.modifiers & CTRL_DOWN) != 0)) {
         targeting = true;
-        if (CanPartySlotParticipate(slot)) {
+        if (CurrentGame().party.participates(slot)) {
             front_rank = false;
             aim_ok = true;
             if (selected_action.kind == W8_ACTION_PROTECT) {
                 if (CurrentGame().status.selected_character == slot) {
                     front_rank = false;
                     aim_ok = false;
-                } else if (FrontRankScreens(CurrentGame().status.selected_character, slot)) {
+                } else if (FormationScreens(CurrentGame().party,
+                                            CurrentGame().status.selected_character, slot)) {
                     front_rank = true;
                     aim_ok = true;
                 }
@@ -4260,10 +4261,10 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                     if (targeting) {
                         if (aim_ok) {
                             if (!CurrentGame().activity.scripted_scene) {
-                                if (!CanPartySlotParticipate(slot)) {
-                                    AimAtTarget(
-                                        CurrentGame().status.selected_character,
-                                        CharacterTarget(slot, W8_TARGET_KIND_CHARACTER_INDIRECT));
+                                if (!CurrentGame().party.participates(slot)) {
+                                    AimAtTarget(CurrentGame().status.selected_character,
+                                                W8CombatSlot::character(
+                                                    slot, W8_TARGET_KIND_CHARACTER_INDIRECT));
                                     StartBreathCycle(CurrentGame().status.selected_character,
                                                      false);
                                 } else if (front_rank) {
@@ -4275,7 +4276,7 @@ UiResult PortraitSelectInput(const UiPointerEvent& event, HitTarget& target, int
                                     ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x7dc]);
                                 } else {
                                     AimAtTarget(CurrentGame().status.selected_character,
-                                                CharacterTarget(slot));
+                                                W8CombatSlot::character(slot));
                                     StartBreathCycle(CurrentGame().status.selected_character,
                                                      false);
                                 }
@@ -4812,7 +4813,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                                      : EditedAction(CurrentGame().status.selected_character);
     needed = IsSighting(CurrentGame().status.selected_character)
                  ? W8_TARGET_NEED_NONE
-                 : GetTargetNeededForAction(CurrentGame().inventory, selected_action);
+                 : CurrentGame().targetNeed(selected_action);
     if (!(event.button == UiPointerButton::Left) &&
         !(event.button == UiPointerButton::Right && event.action == UiPointerAction::Down)) {
         if ((event.button == UiPointerButton::Right && event.action == UiPointerAction::Up)) {
@@ -4843,8 +4844,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         }
         SetCombatSelection(hover);
         if (MainGameHud()->highlighted_item == -1) {
-            if (CurrentGame().item_manager_pending != 0 && !IsWorldCursorVisible() &&
-                !g_mouselook_active) {
+            if (!IsWorldCursorVisible() && !g_mouselook_active) {
                 hover = PickNearestItemUnderCursor(cursor_x, cursor_y, 5000.0f);
             } else {
                 hover = -1;
@@ -4929,8 +4929,8 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         if (!IsWorldCursorVisible()) {
             InitializeWorldCursor();
         }
-        SetWorldCursorRange(CalcRangeDistanceFromParty(
-            GetCharActionRange(CurrentGame().status.selected_character, 0, selected_action)));
+        SetWorldCursorRange(CalcRangeDistanceFromParty(CurrentGame().actionRange(
+            CurrentGame().status.selected_character, 0, selected_action)));
         if (SpellPicker() &&
             GetActionSpellLikeId(CurrentGame().inventory, selected_action) == 0x3c) {
             signed char extent_index;
@@ -4958,8 +4958,11 @@ UiResult WorldViewInput(const UiPointerEvent& event)
     } else if (MainGameHud()->highlighted_item == -1) {
         if ((CurrentGame().inventory.held()) && !GetWorld()->selectedProp()) {
             if (!CurrentGame().advancement.held) {
-                if (auto dropped = CurrentGame().inventory.dropHeld(); !dropped)
+                if (auto dropped = CurrentGame().inventory.dropHeld(GetCursorScaledPosition());
+                    !dropped)
                     ShowRefusal(dropped.error());
+                else if (!*dropped)
+                    wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
             }
         } else if (MainGameHud()->selected_item != -1) {
             if (!CurrentGame().advancement.held &&
@@ -4975,6 +4978,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
         }
     } else {
         W8MonsterInfo* monster_info = FindMonster(MainGameHud()->highlighted_item);
+        if (!monster_info) return UiResult::Handled;
         bool assign = true;
         if (!CurrentGame().combat.has_value()) {
             if (needed != W8_TARGET_NEED_ENEMY && needed != W8_TARGET_NEED_ALLY &&
@@ -4983,16 +4987,19 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                 if ((ScreenPointer().shownSlot() == W8_CURSOR_VALID_TARGET ||
                      (CurrentGame().inventory.held())) &&
                     CurrentGame().status.selected_character != -1 &&
-                    AssessMonsterAim(CurrentGame().status.selected_character, 2, monster_info,
-                                     EditedAction(CurrentGame().status.selected_character))) {
+                    CurrentGame().assessActionReach(
+                        CurrentGame().status.selected_character, 2,
+                        (EditedAction(CurrentGame().status.selected_character))
+                            .aimedAt(W8CombatSlot::monster(monster_info ? monster_info->location_id
+                                                                        : -1)))) {
                     if ((GetMonsterDataForInfo(monster_info)->flags & W8_MONSTER_FLAG_NPC) == 0) {
                         ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x7de]);
                     } else {
                         const auto* held = CurrentGame().inventory.held();
                         const W8ItemInstance* item = held ? &held->item : nullptr;
                         if (monster_info->highest_condition < W8_CONDITION_ASLEEP) {
-                            W8NpcState* npc = FindNpcBindingForMonster(
-                                FindMonster(MainGameHud()->highlighted_item));
+                            W8NpcState* npc =
+                                (FindMonster(MainGameHud()->highlighted_item))->boundNpc();
                             QueueNpcScriptNotice(npc, item, -1, false, 0);
                             SetCombatSelection(-1);
                         } else {
@@ -5310,7 +5317,7 @@ void SetCombatSelection(int value)
             point = CursorPosition();
             W8MonsterInfo* monster_info = FindMonster(MainGameHud()->highlighted_item);
             if (monster_info != 0) {
-                text = GetMonsterName(monster_info, 0, 0);
+                text = CurrentGame().monsterName(*monster_info);
                 text += " (";
                 health = FormatMonsterHealth(monster_info);
                 text += health;
@@ -5324,9 +5331,9 @@ void SetCombatSelection(int value)
     MainGameHud()->highlighted_item = -1;
     if (value != -1) {
         auto* info = FindMonster(value, false);
-        if (Monster* monster = info ? info->entity.find() : nullptr) {
+        if (Monster* monster = info ? info->entity.get() : nullptr) {
             const auto bounds = monster->GetWorldAnimationBounds();
-            if (bounds && traceLineOfSightToBounds(cameraLocation(), *bounds))
+            if (bounds && monster->owner_world.hasLineOfSightTo(*bounds))
                 MainGameHud()->highlighted_item = value;
         }
     }
@@ -5353,7 +5360,7 @@ void SetCombatTarget(int value)
         } else {
             W8WorldItem* item = ItemInfo(ItemIndex(value));
             if (item != 0 && item->entity &&
-                traceLineOfSightToBounds(cameraLocation(), GetItemWorldBounds(*item->entity))) {
+                item->entity->owner_world.hasLineOfSightTo(GetItemWorldBounds(*item->entity))) {
                 MainGameHud()->selected_item = value;
             }
         }
@@ -5899,7 +5906,8 @@ void ConfirmNpcTradeItem(void)
                                                                     : W8TradeAction::Exchange;
     const auto result = CompleteNpcTrade(game, npc, actor, selection, panel.trade_quantity, action);
     if (result.theft_succeeded)
-        DisplayNpcQuote(fmt::sprintf(Data().strings[0x74d], game.party.characters[actor].name,
+        DisplayNpcQuote(game,
+                        fmt::sprintf(Data().strings[0x74d], game.party.characters[actor].name,
                                      GetItemDisplayName(Data(), &selection.expected)),
                         true);
     switch (result.outcome) {
@@ -5908,8 +5916,8 @@ void ConfirmNpcTradeItem(void)
         break;
     case W8TradeOutcome::Complete:
         wiz8::sound::play("Data\\Sound\\misc\\Cash Transaction.wav");
-        if (result.dropped_overflow) DisplayNpcQuote(Data().strings[0x6b1], false);
-        if (!result.theft_succeeded) SortNpcItems(npc);
+        if (result.dropped_overflow) DisplayNpcQuote(game, Data().strings[0x6b1], false);
+        if (!result.theft_succeeded) SortNpcItems(Data(), npc);
         RebuildNpcTradeItemList(false);
         if (!result.theft_succeeded) {
             SetSelectedTextLine(row, 2);
@@ -5918,8 +5926,8 @@ void ConfirmNpcTradeItem(void)
         if (result.accepted_topic) game.npc_dialogue.QueueQuote(0x15, false, false, false);
         break;
     case W8TradeOutcome::TheftFailed:
-        DisplayNpcQuote(fmt::sprintf(Data().strings[0x74f], game.party.characters[actor].name),
-                        false);
+        DisplayNpcQuote(
+            game, fmt::sprintf(Data().strings[0x74f], game.party.characters[actor].name), false);
         break;
     case W8TradeOutcome::TheftCaught:
         game.npc_dialogue.QueueQuote(0x17, false, false, false);
@@ -6232,7 +6240,7 @@ void ResetMainGameMode(void)
     SetMainGameMode(W8_MAIN_GAME_DEFAULT);
     if (CurrentGame().combat.has_value()) {
         CurrentGame().endCombat(true);
-    } else if (AnyCharacterActive() && !CurrentGame().party_moving) {
+    } else if ((CurrentGame().party.participantCount() != 0) && !CurrentGame().party_moving) {
         AutoSaveIfAllowed(true);
     }
     if (CurrentGame().surprise_possible) {
@@ -6349,10 +6357,11 @@ W8Action* EditedDraft(int party_slot)
 
 W8Action EditedAction(int party_slot)
 {
-    if (auto* draft = EditedDraft(party_slot)) return ParticipatingAction(party_slot, *draft);
-    return SelectCombatAction(party_slot, CurrentGame().combat.has_value()
-                                              ? W8_TARGETING_CONTEXT_IN_COMBAT
-                                              : W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
+    if (auto* draft = EditedDraft(party_slot))
+        return CurrentGame().party.availableAction(party_slot, *draft);
+    return CurrentGame().party.action(party_slot, CurrentGame().combat.has_value()
+                                                      ? W8_TARGETING_CONTEXT_IN_COMBAT
+                                                      : W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
 }
 
 bool IsSighting(int party_slot)
@@ -6361,36 +6370,19 @@ bool IsSighting(int party_slot)
 }
 
 namespace {
-// The interaction controller evaluates a choice, commits its gameplay state,
-// and then refreshes the presentation of that committed choice. A sighting aim
-// commits without presentation.
-void CommitAim(int actor, const W8Action& action, W8CombatSlot& stored_target, W8CombatSlot chosen,
-               bool presented, bool remember)
+void RefreshAim(unsigned int actor, const W8CombatSlot& target)
 {
-    if (action.target != chosen) {
-        stored_target = chosen;
-        if (remember && chosen.iType != W8_TARGET_KIND_NONE)
-            RememberActionTarget(CurrentGame().party.rows[actor].remembered, action.kind, chosen);
-        if (presented) {
-            RequestPartySlotRedraw(actor);
-            if (actor == CurrentGame().status.selected_character) {
-                if (auto* hud = MainGameHud()) {
-                    hud->repaint.monster_list = true;
-                    hud->repaint.character_action = true;
-                }
-            }
-            if (auto& combat = CurrentGame().combat) combat->target_picked = false;
-        }
+    RequestPartySlotRedraw(actor);
+    if (actor != static_cast<unsigned int>(CurrentGame().status.selected_character)) return;
+    if (auto* hud = MainGameHud()) {
+        hud->repaint.monster_list = true;
+        hud->repaint.character_action = true;
     }
-    if (chosen.iType != W8_TARGET_KIND_NONE && presented &&
-        actor == CurrentGame().status.selected_character) {
-        const auto edited_action = EditedAction(actor);
-        const auto needed = IsSighting(actor)
-                                ? W8_TARGET_NEED_NONE
-                                : GetTargetNeededForAction(CurrentGame().inventory, edited_action);
-        SetTargetingMode(TargetMatchesNeeded(&edited_action.target, needed) ? W8_TARGET_NEED_NONE
-                                                                            : needed);
-    }
+    if (target.iType == W8_TARGET_KIND_NONE) return;
+    const auto edited = EditedAction(actor);
+    const auto needed = IsSighting(actor) ? W8_TARGET_NEED_NONE : CurrentGame().targetNeed(edited);
+    SetTargetingMode(CurrentGame().targetMatches(edited.target, needed) ? W8_TARGET_NEED_NONE
+                                                                        : needed);
 }
 } // namespace
 
@@ -6399,25 +6391,22 @@ void AimAtTarget(int actor, const W8CombatSlot& target)
     if (auto* draft = EditedDraft(actor)) {
         AimDraft(actor, *draft, target);
     } else {
-        AimStoredAction(actor,
-                        CurrentGame().combat.has_value() ? W8_TARGETING_CONTEXT_IN_COMBAT
-                                                         : W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
-                        target);
+        CurrentGame().aimStoredAction(actor,
+                                      CurrentGame().combat.has_value()
+                                          ? W8_TARGETING_CONTEXT_IN_COMBAT
+                                          : W8_TARGETING_CONTEXT_OUT_OF_COMBAT,
+                                      target);
     }
-}
-
-void AimStoredAction(int actor, W8TargetingContext stored, const W8CombatSlot& target)
-{
-    auto& row = CurrentGame().party.rows[actor];
-    const bool committed = stored == W8_TARGETING_CONTEXT_IN_COMBAT;
-    CommitAim(actor, SelectCombatAction(actor, stored),
-              committed ? row.committed.target : row.executing.target, target, committed,
-              committed && CurrentGame().combat.has_value());
 }
 
 void AimDraft(int actor, W8Action& draft, const W8CombatSlot& target)
 {
-    CommitAim(actor, ParticipatingAction(actor, draft), draft.target, target, true, false);
+    const bool changed = CurrentGame().party.availableAction(actor, draft).target != target;
+    if (changed) {
+        draft.target = target;
+        if (auto& combat = CurrentGame().combat) combat->target_picked = false;
+    }
+    if (changed || target.iType != W8_TARGET_KIND_NONE) RefreshAim(actor, target);
 }
 
 void SetTargetingMode(W8TargetNeed state)
@@ -6453,8 +6442,8 @@ void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed need
         } else if (g_settings.autotarget_spells && draft && RepickDraftTarget(selected, *draft)) {
             W8TargetSource source;
             SetTargetSourceToCharacter(selected, &source);
-            PointCameraAtCombatTarget(&source,
-                                      &CurrentGame().party.rows[selected].committed.target);
+            CurrentGame().pointCameraAtCombatTarget(
+                &source, &CurrentGame().party.rows[selected].committed.target);
         }
         goto aim_done;
     case W8_TARGET_TYPE_ALL_ENEMIES:
@@ -6472,4 +6461,9 @@ void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed need
     AimAtTarget(selected, target);
 aim_done:
     SetTargetingMode(needed_kind);
+}
+
+void RefreshStoredAim(unsigned int actor)
+{
+    RefreshAim(actor, CurrentGame().party.rows[actor].committed.target);
 }

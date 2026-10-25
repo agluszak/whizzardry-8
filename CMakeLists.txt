@@ -239,6 +239,7 @@ add_library(wiz8_rules STATIC
     src/rules/inventory.cpp
     src/rules/item_rules.cpp
     src/rules/party.cpp
+    src/rules/action_rules.cpp
     src/rules/party_conditions.cpp
     src/rules/party_formation.cpp
     src/rules/party_stats.cpp

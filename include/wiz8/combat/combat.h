@@ -358,6 +358,25 @@ struct Combat {
         }
     }
 
+    unsigned int phaseAtStep(unsigned int phase, unsigned int base) const;
+    void catchUpCharacter(unsigned int slot);
+    void beginReaction(unsigned int slot, bool fallback_defend)
+    {
+        characters[slot].dead = true;
+        if (fallback_defend) characters[slot].defend_switched = true;
+    }
+
+    // Retire participation and scheduling together, without owning the party character.
+    void retirePartyMember(unsigned int slot)
+    {
+        ++pending_death_count;
+        endTurnOf(PartyActor{static_cast<int>(slot)});
+        characters[slot].phase = 0;
+        characters[slot].dead = true;
+        characters[slot].action_changed = true;
+        target_picked = false;
+    }
+
     /* One step of the fight (the game's step calls it while the world runs and nothing
        holds the turn): wait for what the turn waits on, start the round when continuous
        combat or a surprise allows, and move the turn through its phases. The fight may

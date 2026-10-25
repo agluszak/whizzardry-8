@@ -20,6 +20,7 @@ class ClipPlane;
 struct InputEvent;
 struct OverlayQuad;
 struct World;
+class Game;
 
 enum class W8AutomapTool : unsigned char { Select = 0, AddNote = 2, EraseNote = 3 };
 
@@ -38,7 +39,7 @@ class AutomapScreen final : public Screen {
 public:
     static constexpr W8ScreenId id = W8_SCREEN_AUTOMAP;
 
-    explicit AutomapScreen(World& world);
+    explicit AutomapScreen(Game& game);
     ~AutomapScreen() override;
 
     bool enter(const ScreenRequest& request) override;
@@ -93,6 +94,7 @@ private:
     void HandleNoteInput(const InputEvent& input);
     void HandleViewportInput(const InputEvent& input);
 
+    Game& m_game;
     World& m_world;
     Automap& m_automap;
     AutomapGrid m_grid;

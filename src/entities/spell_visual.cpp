@@ -31,7 +31,6 @@
 #include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/spell_database.h"
@@ -269,7 +268,6 @@ static int FindSpellCycleByName(const char* name)
 static std::unique_ptr<SpellVisualDefinition> LoadSpellVisualDefinition(std::string_view name,
                                                                         W8SpellVisualMode group)
 {
-    PauseSharedGameTimers();
 
     bool success = true;
     const auto path = fmt::format("data/spells/{}.mls", name);
@@ -348,18 +346,15 @@ static std::unique_ptr<SpellVisualDefinition> LoadSpellVisualDefinition(std::str
         }
     }
 
-    ResumeSharedGameTimers();
     return success ? std::move(visual) : nullptr;
 }
 
 /* A new spell visual created from the definition of the named resource's cycle
    group. The definition is loaded on first use and kept for the world's
-   lifetime, so a visual never inherits another one's playback. Every request takes one legacy prop save id, as retail's did
-   whether it loaded, cloned or failed. */
+   lifetime, so a visual never inherits another one's playback.*/
 std::unique_ptr<SpellVisual> LoadSpellVisualResource(World* world, std::string_view name,
                                                      W8SpellVisualMode group)
 {
-    AllocateLegacyPropSaveId();
     auto& definitions = world->spell_visual_definitions;
     auto definition = std::ranges::find_if(definitions, [&](const auto& candidate) {
         return candidate->mode == group &&

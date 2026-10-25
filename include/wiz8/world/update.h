@@ -26,7 +26,6 @@ struct W8Plane;
 
 void SetSceneAmbientLightWhite(WorldScene* scene);
 void SetModelInstanceExclusionMask(MeshInstance* node, int value);
-void UpdateWorldMonsters(World* world);
 // Advance the world's prop animations by the step's `elapsed` time.
 void WorldUpdateProps(World* world, std::chrono::milliseconds elapsed);
 void SetWorldSceneMeshShaderLowBits(World* owner, int argument);
@@ -59,8 +58,6 @@ std::array<glm::vec3, 8> sortedFrustumCorners(std::span<const glm::vec3, 8> poin
    region volume's frustum: true when a bounds corner satisfies all six
    planes or a volume corner lands inside the bounds. */
 bool BoundsInsideFrustum(const W8OctRegionVolume& volume, const BoundingBox& bounds);
-bool traceLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds);
-bool targetMarkerVisible(const glm::vec3& eye, const BoundingBox& bounds); /* 0x0046F820 */
 
 void WorldUpdateLights(World* world);
 double WorldGetFarClip(World* world);
@@ -68,10 +65,9 @@ void WorldSetFarClip(World* world, float distance);
 void WorldSetRenderRange(World* world, float value);
 std::unique_ptr<Light> CreateLight(WorldScene* scene, std::string_view name);
 Light* CreateWorldLight(World* world, std::string_view name);
-// The world takes ownership; the returned pointer is a borrowed handle until WorldRemoveLight.
+// Authored lights live with the world; callers borrow the returned pointer.
 Light* AddWorldLight(World* world, std::unique_ptr<Light> light);
 Light* CreateRangedWorldLight(World* world, std::string_view name);
 void ConfigureWorldLight(Light* light, float range);
-void WorldRemoveLight(World* world, Light* light); /* 0x0046E250 */
-void DetachWorldItemMeshes(World* world);
+void AnimateWorldItems(World& world);
 LevelSpatialIndex* GetWorldCollision();

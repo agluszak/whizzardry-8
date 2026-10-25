@@ -37,6 +37,7 @@
 #include "wiz8/screen.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
+#include "wiz8/world_view.h"
 
 namespace {
 class PleaseWaitScreen final : public Screen {
@@ -87,7 +88,7 @@ bool PleaseWaitScreen::enter(const ScreenRequest& request)
     mode = std::get<W8PleaseWaitMode>(request.mode);
     switch (mode) {
     case W8_PLEASE_WAIT_NEW_GAME:
-        SeedNewGameFacts(games.game()->story);
+        games.game()->seedNewGameFacts();
         parameter = SelectNewGameStartLevel();
         break;
     case W8_PLEASE_WAIT_LOAD_GAME:
@@ -154,8 +155,8 @@ void PleaseWaitScreen::frame()
     }
 
     draw();
-    RenderFrame();
-    RenderFrame();
+    PresentGameFrame(games.game());
+    PresentGameFrame(games.game());
     DisableCursorScene();
 
     switch (mode) {
@@ -163,27 +164,21 @@ void PleaseWaitScreen::frame()
         int level;
         int entrance;
         ChooseNewGameStartLocation(&level, &entrance);
-        if (!LoadLevel(level, entrance, false))
+        if (!games.game()->travelToLevel(level, entrance))
             throw std::runtime_error(fmt::format("cannot load level {}", level));
         PostNewGameLoad();
 
         break;
     case W8_PLEASE_WAIT_LOAD_GAME: {
-        auto saved = ReadSavedGame(name);
+        auto saved = ReadSavedGame(Data(), name);
         if (!saved) {
             ReturnToPreviousScreen();
             return;
         }
-        // Finish combat while its controls exist; release the world after they leave.
-        if (GameInProgress() && CurrentGame().combat) CurrentGame().endCombat(true);
-        DiscardSuspendedScreensAbove(W8_SCREEN_MAIN_MENU);
         try {
-            std::move(*saved).install(games);
-            if (!LoadLevel(CurrentGame().status.resume_level, -1, true))
-                throw std::runtime_error("cannot construct saved level");
+            games.load(std::move(*saved),
+                       [] { DiscardSuspendedScreensAbove(W8_SCREEN_MAIN_MENU); });
         } catch (const std::exception& error) {
-            // Resource failure ends the replacement; never expose a partial session.
-            games.end();
             g_pending_main_menu_message = fmt::format("Cannot load {}: {}", name, error.what());
             RequestScreen({.id = W8_SCREEN_MAIN_MENU}, ScreenDeparture::Discard);
             return;
@@ -212,7 +207,7 @@ void PleaseWaitScreen::frame()
         break;
     }
     case W8_PLEASE_WAIT_CHANGE_LEVEL:
-        if (!ReloadLevelPreservingCamera(parameter, parameter_2))
+        if (!games.game()->travelToLevel(parameter, parameter_2))
             throw std::runtime_error(fmt::format("cannot load level {}", parameter));
         AutoSaveIfAllowed(true);
     }
@@ -242,7 +237,7 @@ void PleaseWaitScreen::animate()
         entered_tick = tick;
         CatalogArtwork::Load(0x1dd, 0).drawAndInvalidate(GetFrameBufferSurface(), caption_y, 0,
                                                          0x185);
-        RenderFrame();
+        PresentGameFrame(games.game());
     }
 }
 

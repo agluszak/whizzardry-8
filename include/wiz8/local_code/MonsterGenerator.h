@@ -2,6 +2,7 @@
 #define WIZ8_LOCAL_CODE_MONSTER_GENERATOR_H
 
 struct W8Chunk;
+class Rng;
 
 #include <chrono>
 #include <optional>
@@ -23,7 +24,7 @@ public:
     void setSeconds(float seconds);
     /* Change the scale, keeping the progress through the interval; while the shared
        timers are held the progress restarts, as it did on the retail clock. */
-    void setScale(float scale);
+    void setScale(float scale, bool held);
     // Begin a new interval.
     void arm() { elapsed_ = {}; }
     /* Take `elapsed` step time and return how many whole intervals have passed; those
@@ -70,7 +71,7 @@ struct MonGen {
     // Rearm the timer for the configured interval, jittered by one draw.
     void Reset(short default_interval);
     [[nodiscard]] short IntervalSeconds(short default_interval) const;
-    void Rearm(short interval);
+    void Rearm(Rng& rng, short interval);
     /* Tests global encounter gates, range/LOS/occupancy constraints and this
        generator's chance. */
     bool CanGenerateEncounter(bool force);

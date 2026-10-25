@@ -15,6 +15,9 @@ enum class W8MonsterRemoval : unsigned char;
 // operation can erase an individual record.
 class W8MonsterRoster {
 public:
+    W8MonsterRoster() = default;
+    W8MonsterRoster(const W8MonsterRoster&) = delete;
+    W8MonsterRoster& operator=(const W8MonsterRoster&) = delete;
     W8MonsterInfo* add(std::unique_ptr<W8MonsterInfo> info, bool unborn)
     {
         auto& index = unborn ? unborn_ : live_;
@@ -22,7 +25,9 @@ public:
         return index.back().get();
     }
 
-    // Membership change only; returns false when the monster is not unborn.
+private:
+    friend struct W8LevelPopulation;
+    // Only the population birth operation may promote a record.
     bool promote(W8MonsterInfo* info)
     {
         const auto it = std::ranges::find(unborn_, info, &std::unique_ptr<W8MonsterInfo>::get);
@@ -34,6 +39,7 @@ public:
         return true;
     }
 
+public:
     const std::vector<std::unique_ptr<W8MonsterInfo>>& live() const { return live_; }
     const std::vector<std::unique_ptr<W8MonsterInfo>>& unborn() const { return unborn_; }
     bool isUnborn(const W8MonsterInfo* info) const
@@ -47,6 +53,14 @@ public:
         return std::ranges::any_of(live_, active) || std::ranges::any_of(unborn_, active);
     }
 
+    bool hasEngagedHostile() const
+    {
+        return std::ranges::any_of(live_, [](const auto& info) {
+            return info->pCombat && info->ubDisposition == W8_DISPOSITION_HOSTILE &&
+                   info->hp_current != 0 && info->highest_condition < W8_CONDITION_WEBBED;
+        });
+    }
+
     auto hostileCombatCount() const
     {
         return std::ranges::count_if(live_, [](const auto& info) {
@@ -55,13 +69,15 @@ public:
     }
 
 private:
-    friend bool RemoveMonster(W8MonsterInfo*, W8MonsterRemoval);
-    bool erase(W8MonsterInfo* info)
+    friend struct World;
+    bool erase(W8MonsterInfo* info, std::vector<std::unique_ptr<W8MonsterInfo>>* retirements)
     {
         for (auto* partition : {&live_, &unborn_}) {
             const auto it =
                 std::ranges::find(*partition, info, &std::unique_ptr<W8MonsterInfo>::get);
             if (it != partition->end()) {
+                // Allocation happens before moving the owner. Failure leaves it retained.
+                if (retirements) retirements->push_back(std::move(*it));
                 partition->erase(it);
                 return true;
             }

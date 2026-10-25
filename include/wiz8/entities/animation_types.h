@@ -28,7 +28,7 @@ enum W8AnimationFrameMethod : unsigned char {
 /* AdvanceAnimationFrame clamps PLAY_ONCE at an endpoint and repeats the other
    two modes. MonsterQuery reports an endpoint as complete for REPEAT; the
    NEVER_STOP mode completes only when playback stops. NEVER_STOP is named by
-   StartMonsterCycle's retail assertion. Representation and file fields stay
+   the monster's cycle-transition assertion. Representation and file fields stay
    byte-sized; pending_behaviour uses 0xff for no queued change. */
 enum W8AnimationBehaviour : unsigned char {
     W8_ANIMATION_BEHAVIOUR_NONE = 0,

@@ -3,12 +3,10 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
-#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 #include <exception>
 #include <filesystem>
@@ -20,7 +18,6 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <system_error>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -31,14 +28,12 @@
 #include <glm/geometric.hpp> // NOLINT(misc-include-cleaner)
 #include <glm/gtc/quaternion.hpp>
 
-#include "application.h"
 #include "asset_paths.h"
 #include "geometry.h"
 #include "glm/ext/matrix_float3x3.hpp"
 #include "glm/ext/vector_double3.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "glm/ext/vector_float4.hpp"
-#include "local_code/MonsterGroup.h"
 #include "named_position.h"
 #include "texture_animation.h"
 #include "wiz8/audio/AmbientSound.h"
@@ -49,20 +44,15 @@
 #include "wiz8/entities/cycle_player.h"
 #include "wiz8/entities/keyframe_track.h"
 #include "wiz8/entities/missile.h"
-#include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
+#include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
-#include "wiz8/item_spawning.h"
-#include "wiz8/legacy_prop_save_ids.h"
 #include "wiz8/local_code/MonsterGenerator.h" // IWYU pragma: keep
-#include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_code/spell_database.h"
-#include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/math.h"
 #include "wiz8/monster_generators.h"
 #include "wiz8/render/camera.h"
@@ -86,30 +76,20 @@
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigation.h"
-#include "wiz8/spatial/navigator.h"
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/spatial/surface_index.h"
 #include "wiz8/world/automap.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/camera_paths.h"
 #include "wiz8/world/environment.h"
+#include "wiz8/world/environment_state.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
-#include "wiz8/world_cursor.h"
 
 class Texture;
 
 namespace {
-
-struct W8LevelItemRecord {
-    int positional0;
-    glm::vec3 position;
-    int positional2;
-    int positional3;
-    int positional4;
-    char item_name[20];
-};
 
 #pragma pack(push, 1)
 struct W8LevelLightRecord {
@@ -126,11 +106,6 @@ struct W8LevelLightRecord {
 static_assert(sizeof(W8LevelLightRecord) == 40);
 
 } // namespace
-
-glm::vec3 CurrentEnvironmentOffset()
-{
-    return GetWorld() ? GetWorld()->environment.offset : glm::vec3(0.0f);
-}
 
 void AssociateWorldLights(World* world)
 {
@@ -419,7 +394,7 @@ static bool ReadRecordCount(wiz8::File& file, int& count)
     return read && count >= 0 && count < 100000;
 }
 
-static unsigned char ReadWorldProps(LevelLoadContext* pInfo, World* pWorld,
+static unsigned char ReadWorldProps(Game& game, LevelLoadContext* pInfo, World* pWorld,
                                     bool mark_model_instances)
 try {
     Prop* prop;
@@ -440,7 +415,7 @@ try {
     }
 
     for (index = 0; index < count; ++index) {
-        auto owner = success ? CreateAndLoadProp(pInfo) : nullptr;
+        auto owner = success ? CreateAndLoadProp(pInfo, game.data, game.rng, game.story) : nullptr;
         prop = owner.get();
         if (!prop) {
             success = 0;
@@ -471,128 +446,6 @@ try {
         pWorld->compiledIndex()->TestPropSunBit(-1);
     }
     return success;
-} catch (const std::exception&) {
-    return false;
-}
-
-unsigned char ReadWorldItems(LevelLoadContext* pInfo, World* pWorld)
-try {
-    unsigned char has_trigger;
-    int positional_value;
-    int index;
-    int count;
-    W8LevelItemRecord record;
-    unsigned char positional_byte;
-    unsigned char success;
-    Trigger* trigger;
-    int item_id;
-    W8WorldItem* world_item;
-
-    if (pInfo == 0 || pInfo->hFile == 0 || pWorld == 0) {
-        return 0;
-    }
-    if (!ReadRecordCount(*pInfo->hFile, count)) {
-        return 0;
-    }
-    if (count == 0) {
-        return 1;
-    }
-
-    for (index = 0; index < count; ++index) {
-        world_item = nullptr;
-        trigger = 0;
-        success = (pInfo->hFile->read(record.item_name, sizeof(record.item_name)).bytes ==
-                   static_cast<std::size_t>(sizeof(record.item_name)));
-        if (success) {
-            wiz8::retail::read_exact(*pInfo->hFile, record.position);
-            record.position *= kWorldScale;
-            pInfo->hFile->read(&record.positional0, sizeof(int));
-            pInfo->hFile->read(&record.positional2, sizeof(int));
-            pInfo->hFile->read(&record.positional3, sizeof(int));
-            pInfo->hFile->read(&record.positional4, sizeof(int));
-            pInfo->hFile->read(&has_trigger, sizeof(has_trigger));
-            if (has_trigger != 0) {
-                trigger = Trigger::CreateAndLoadLevelTrigger(pInfo->hFile, pInfo->world);
-            }
-            pInfo->hFile->read(&positional_byte, sizeof(positional_byte));
-            pInfo->hFile->read(&positional_byte, sizeof(positional_byte));
-            pInfo->hFile->read(&positional_byte, sizeof(positional_byte));
-            pInfo->hFile->read(&positional_value, sizeof(positional_value));
-            pInfo->hFile->read(&positional_value, sizeof(positional_value));
-            pInfo->hFile->read(&positional_value, sizeof(positional_value));
-            pInfo->hFile->read(&positional_value, sizeof(positional_value));
-
-            if (record.item_name[0] >= '0' && record.item_name[0] <= '9') {
-                item_id = atoi(record.item_name);
-            } else {
-                item_id = FindItemRecordByName(record.item_name);
-            }
-            if (item_id >= 0) {
-                world_item = AddWorldItem(SpawnItem(item_id, &record.position,
-                                                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-                if (world_item != 0) {
-                    success = 1;
-                    ActivateItem(world_item);
-                }
-            }
-            if (trigger != 0 && world_item != 0) {
-                trigger->m_bRepType = W8_TRIGGER_REP_ITEM;
-                world_item->trigger = trigger;
-            }
-        }
-    }
-    return success;
-} catch (const std::exception&) {
-    return false;
-}
-
-unsigned char ReadMonsterPaths(LevelLoadContext* info, World* world)
-try {
-    if (!info || !info->hFile || !world) return false;
-    auto& file = *info->hFile;
-    int count;
-    if (!ReadRecordCount(file, count)) return false;
-    // Retail options persist when the next record omits the colon.
-    std::array<char, 12> options{};
-    bool has_options = false;
-    for (int index = 0; index < count; ++index) {
-        std::array<char, 20> name;
-        file.read_exact(name.data(), name.size());
-        if (std::find(name.begin(), name.end(), '\0') == name.end()) return false;
-        if (auto* separator = std::strchr(name.data(), ':')) {
-            has_options = true;
-            SDL_strlcpy(options.data(), separator + 1, options.size());
-            *separator = '\0';
-        }
-        int monster_id;
-        const auto end = name.data() + std::strlen(name.data());
-        const auto parsed = std::from_chars(name.data(), end, monster_id);
-        if (parsed.ec != std::errc{} || parsed.ptr != end) return false;
-        auto path = LoadPathAI(file);
-        if (has_options && (options[2] == '1' || options[3] == '1')) {
-            if (!path) return false;
-            path->animated = options[2] == '1';
-            path->looping = options[3] == '1';
-        }
-        const glm::vec3 origin(0);
-        auto* group = CreateGroup(monster_id, 1, &origin, true, true);
-        if (!group) return false;
-        auto* monster_info = FindMonster(group->MemberLocationId(0));
-        ActivateMonster(monster_info);
-        Monster& monster = *monster_info->entity;
-        const glm::vec3 camera_position = monster.owner_world.party.eye();
-        monster.visual.SelectLOD(&camera_position);
-        monster.nav.SetPathAI(std::move(path));
-        if (has_options) {
-            if (options[1] == '0' || options[1] == '\0') {
-                group->members_active = false;
-                monster.visual.rep_active = false;
-            }
-            if (options[0] == '0' || options[0] == '\0') continue;
-        }
-        monster.UpdateRepresentation();
-    }
-    return true;
 } catch (const std::exception&) {
     return false;
 }
@@ -641,7 +494,7 @@ try {
     return false;
 }
 
-unsigned char ReadWorldParticles(LevelLoadContext* pInfo, WorldScene* pScene,
+unsigned char ReadWorldParticles(LevelLoadContext* pInfo, World* owner,
                                  std::vector<std::unique_ptr<ParticleSystem>>* pParticles)
 try {
     if (!pInfo || !pInfo->hFile || !pParticles) return false;
@@ -692,7 +545,7 @@ try {
         glm::dvec3 axis;
         glm::dvec3 location;
         const auto particle_count = record.particle_count;
-        auto owned = std::make_unique<ParticleSystem>(pScene, particle_count);
+        auto owned = std::make_unique<ParticleSystem>(owner, particle_count);
         particle = owned.get();
 
         SDL_strupr(record.name);
@@ -870,22 +723,12 @@ try {
     return false;
 }
 
-#define CHECK_PVL_OFFSET(message)                                                                  \
-    if (world->compiledIndex() != 0 && (!(handle->read(&section_end, sizeof(section_end)).bytes == \
-                                          static_cast<std::size_t>(sizeof(section_end))) ||        \
-                                        section_end != -1)) {                                      \
-        sprintf(error_message, "%s\nTry deleting .PVL file and reloading.", message);              \
-        ShutdownWithErrorBox(error_message);                                                       \
-    }
-
-unsigned char ReadLevel(World* world, wiz8::File* handle,
+unsigned char ReadLevel(Game& game, World* world, wiz8::File* handle,
                         const std::filesystem::path& texture_directory)
 try {
     LevelLoadContext info;
     std::unique_ptr<MeshInstance> level_mesh;
     glm::vec3 environment_offset;
-    char error_message[512];
-    int section_end;
     int section_count;
     int camera_mode;
     int index;
@@ -895,6 +738,13 @@ try {
     if (world == nullptr || world->scene == nullptr || handle == nullptr) {
         return false;
     }
+
+    const auto section_ended = [&] {
+        if (!world->compiledIndex()) return true;
+        int end;
+        handle->read_exact(&end, sizeof(end));
+        return end == -1;
+    };
 
     level_mesh = nullptr;
     world->update_mesh_source = nullptr;
@@ -919,9 +769,7 @@ try {
     } else {
         auto meshes = ReadMultipleLevelMeshes(*handle, world->compiledIndex()->GetMeshCount(),
                                               texture_directory);
-        if (meshes.empty()) {
-            ShutdownWithErrorBox("ReadLevel: Error reading multi-meshes.");
-        }
+        if (meshes.empty()) return false;
         for (unsigned int mesh_index = 0; mesh_index < world->compiledIndex()->m_meshCount;
              ++mesh_index) {
             if (meshes[mesh_index]) {
@@ -933,22 +781,24 @@ try {
     }
 
     success = ReadWorldLights(world, handle);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after lights.");
-    success = success && ReadMonsterPaths(&info, world);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after monsters.");
-    success = success && ReadWorldItems(&info, world);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after items.");
+    if (!section_ended()) return false;
+    // Retail worlds keep population in STS/saved values, not these geometry sections.
+    // Reject unsupported embedded actors instead of constructing a second population.
+    for (int section = 0; section < 2; ++section) {
+        if (!ReadRecordCount(*handle, section_count) || section_count != 0) return false;
+        if (!section_ended()) return false;
+    }
 
     if (!success || info.hFile == 0 || !ReadRecordCount(*info.hFile, section_count)) {
         success = 0;
     }
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after missiles.");
-    success = success && ReadWorldProps(&info, world, false);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after props.");
-    success = success && ReadWorldProps(&info, world, true);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after bitmaps.");
+    if (!section_ended()) return false;
+    success = success && ReadWorldProps(game, &info, world, false);
+    if (!section_ended()) return false;
+    success = success && ReadWorldProps(game, &info, world, true);
+    if (!section_ended()) return false;
     success = success && ReadWorldCameras(&info, world);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after cameras.");
+    if (!section_ended()) return false;
     AssociateWorldLights(world);
     if (!success) {
         return 0;
@@ -961,13 +811,13 @@ try {
     } else {
         success = ReadWorldEnvironment(&info, world);
     }
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after fog options.");
+    if (!section_ended()) return false;
 
     if (success && info.hFile != 0) {
         info.hFile->read(&section_count, sizeof(section_count));
         if (section_count != 0) {
             for (index = 0; index < section_count; ++index) {
-                Trigger::CreateAndLoadLevelTrigger(info.hFile, world);
+                world->loadTrigger(*info.hFile, game.data, game.rng, game.story);
             }
             /* Retail 0x004bb565 integrates whenever the world has game data;
                IntegrateTriggers returns at once when the octree path took the
@@ -977,7 +827,7 @@ try {
             }
         }
     }
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after triggers.");
+    if (!section_ended()) return false;
 
     UpdateWorldProps(world);
     info.hFile->read(&camera_mode, sizeof(camera_mode));
@@ -990,7 +840,7 @@ try {
     if (!success) {
         return 0;
     }
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after Clipping Planes.");
+    if (!section_ended()) return false;
 
     FinalizeStaticScene(*world);
 
@@ -998,13 +848,13 @@ try {
                         sizeof(environment_offset)) {
         success = 0;
     } else {
-        success = ReadWorldParticles(&info, (world->scene.get()), &world->particles);
+        success = ReadWorldParticles(&info, world, &world->particles);
     }
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after particles.");
+    if (!section_ended()) return false;
     success = success && ReadNamedPositions(info.hFile, world->named_positions);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after named position points.");
+    if (!section_ended()) return false;
     success = success && world->automap.readCells(*handle);
-    CHECK_PVL_OFFSET("Wrong offset in .pvl file after automap nodes.");
+    if (!section_ended()) return false;
 
     world->environment.offset = environment_offset;
 
@@ -1045,8 +895,6 @@ try {
     return false;
 }
 
-#undef CHECK_PVL_OFFSET
-
 constexpr float kSurfaceFlatNormalThreshold = 0.9959999918937683f;
 
 class Trigger;
@@ -1059,9 +907,9 @@ const float g_path_endpoint_scale = 0.9900000095367432f;
 /* Opens a game-data file, builds its record, and pulls the polygon and
    vertex banks through the record reader. */
 static std::unique_ptr<LevelSpatialIndex> ReadGeometry(std::unique_ptr<wiz8::File> file,
-                                                       World* owner)
+                                                       World* owner, float reference_gravity)
 {
-    auto game_data = std::make_unique<LevelSpatialIndex>("", owner);
+    auto game_data = std::make_unique<LevelSpatialIndex>("", owner, reference_gravity);
     game_data->compiled_available = false;
     game_data->ReadWGDList(*file, 0);
     game_data->ReadWGDList(*file, 1);
@@ -1069,7 +917,8 @@ static std::unique_ptr<LevelSpatialIndex> ReadGeometry(std::unique_ptr<wiz8::Fil
     return game_data;
 }
 
-std::unique_ptr<LevelSpatialIndex> ReadCollisionGeometry(std::string_view path, World* owner)
+std::unique_ptr<LevelSpatialIndex> ReadCollisionGeometry(std::string_view path, World* owner,
+                                                         float reference_gravity)
 {
     std::unique_ptr<wiz8::File> file;
     try {
@@ -1078,7 +927,7 @@ std::unique_ptr<LevelSpatialIndex> ReadCollisionGeometry(std::string_view path, 
         return 0; // Retail: a level without game data (e.g. Test\DefaultSky) is valid.
     }
     try {
-        return ReadGeometry(std::move(file), owner);
+        return ReadGeometry(std::move(file), owner, reference_gravity);
     } catch (const std::exception&) {
         return 0;
     }
@@ -1378,11 +1227,11 @@ struct W8ProcessedGameDataHeader {
     unsigned char reserved[0x24];
 };
 
-bool LevelEnvironment::RescaleToReference(const LevelEnvironment* reference)
+bool LevelEnvironment::RescaleToReference(const LevelEnvironment* reference, float gravity)
 {
     if (reference == 0) {
-        float difference = static_cast<float>(fabs(g_navigator_gravity + vector.y));
-        if (g_navigator_gravity * kCameraSnapEpsilon < difference) {
+        float difference = static_cast<float>(fabs(gravity + vector.y));
+        if (gravity * kCameraSnapEpsilon < difference) {
             return true;
         }
         difference = static_cast<float>(fabs(forward_scale - g_camera_level_forward_scale));
@@ -1400,7 +1249,7 @@ bool LevelEnvironment::RescaleToReference(const LevelEnvironment* reference)
         return false;
     }
 
-    float scale = g_navigator_gravity / -reference->gravity_y;
+    float scale = gravity / -reference->gravity_y;
     gravity_x *= scale;
     gravity_y *= scale;
     gravity_z *= scale;
@@ -1411,7 +1260,7 @@ bool LevelEnvironment::RescaleToReference(const LevelEnvironment* reference)
 }
 
 /* Read the processed GameData header and all of its variable-size banks. */
-void LevelSpatialIndex::ReadProcessedCollision(wiz8::File* handle)
+void LevelSpatialIndex::ReadProcessedCollision(wiz8::File* handle, float reference_gravity)
 {
     wiz8::BinaryReader reader(*handle);
     const auto header = reader.record<W8ProcessedGameDataHeader>();
@@ -1481,11 +1330,11 @@ void LevelSpatialIndex::ReadProcessedCollision(wiz8::File* handle)
     }
     std::vector<bool> pending_bits(header.trigger_count);
     std::vector<bool> active_bits(header.trigger_count);
-    if (!environs.empty() && environs[0].RescaleToReference(0) != 0) {
+    if (!environs.empty() && environs[0].RescaleToReference(nullptr, reference_gravity) != 0) {
         for (std::size_t index = 1; index < environs.size(); ++index) {
-            environs[index].RescaleToReference(&environs[0]);
+            environs[index].RescaleToReference(&environs[0], reference_gravity);
         }
-        environs[0].RescaleToReference(&environs[0]);
+        environs[0].RescaleToReference(&environs[0], reference_gravity);
     }
 
     m_pVertices.swap(vertices);
@@ -1511,13 +1360,13 @@ void LevelSpatialIndex::ReadProcessedCollision(wiz8::File* handle)
     state.pending_triggers = std::move(pending_bits);
     state.active_triggers = std::move(active_bits);
     interface_names.clear();
-    if (environments.empty()) environments.emplace_back();
+    if (environments.empty()) environments.emplace_back(reference_gravity);
     collision_available = true;
 }
 
 /* 0x0044902E is the constructor's shared body entry: the SEH wrapper at
    0x00449010 zeroes EBX and falls through into the code below. */
-void LevelSpatialIndex::initializeCollision()
+void LevelSpatialIndex::initializeCollision(float reference_gravity)
 {
     geometry_index = 0;
     integrated_surface_count = 0;
@@ -1528,9 +1377,7 @@ void LevelSpatialIndex::initializeCollision()
 
     minimum = glm::vec3(1.0e8f);
     maximum = glm::vec3(-1.0e8f);
-    if (EnvironsCount() == 0) {
-        environments.emplace_back();
-    }
+    if (EnvironsCount() == 0) environments.emplace_back(reference_gravity);
 }
 
 /* Build the processed level's spatial index once and publish every surface
@@ -1633,12 +1480,14 @@ void LevelSpatialIndex::adoptCollisionData(LevelSpatialIndex&& source)
     collision_available = source.collision_available;
 }
 
-std::unique_ptr<World> LoadWorld(int level_id, std::string source_path)
+std::unique_ptr<World> Game::loadWorld(int level_id, std::string source_path)
 {
-    auto owner = std::make_unique<World>(level_id, std::move(source_path));
+    const float reference_gravity =
+        level.primary ? level.primary->party.camera.gravity() : kDefaultGravity;
+    auto owner = std::make_unique<World>(level_id, std::move(source_path), timerClocks(),
+                                         &camera_shakes, reference_gravity);
     auto* world = owner.get();
     const auto& resource_path = world->source_path;
-    ResetLegacyPropSaveIds();
     const auto path = wiz8::path_from_utf8(resource_path);
     std::string level_path(resource_path);
     const auto sibling = [&](const char* extension) {
@@ -1652,12 +1501,13 @@ std::unique_ptr<World> LoadWorld(int level_id, std::string source_path)
     const auto material_folder = wiz8::path_to_utf8(path.parent_path() / "Bitmaps");
 
     if (CheckLevelAssetSet(oct_path.c_str()) >= 0) {
-        world->spatial = std::make_unique<LevelSpatialIndex>(oct_path.c_str(), world);
+        world->spatial =
+            std::make_unique<LevelSpatialIndex>(oct_path.c_str(), world, reference_gravity);
         if (world->compiledIndex()->HasLoadError()) world->spatial.reset();
     }
 
     if (!world->collisionIndex()) {
-        if (auto data = ReadCollisionGeometry(game_data_path, world)) {
+        if (auto data = ReadCollisionGeometry(game_data_path, world, reference_gravity)) {
             if (world->spatial)
                 world->spatial->adoptCollisionData(std::move(*data));
             else
@@ -1676,13 +1526,13 @@ std::unique_ptr<World> LoadWorld(int level_id, std::string source_path)
     world->camera->setClipRange(250.0, 75000.0);
     world->camera->setEnvironmentRange(0.0f, 1.0f);
     world->camera->setViewPlane(std::acos(-1.0) / 2.0, std::acos(-1.0) / 2.0);
-    world->camera_light = CreateRangedWorldLight(world, "CameraLight");
+    world->camera_light = CreateLight(world->scene.get(), "CameraLight");
     world->camera_light->ambient = glm::vec3(0);
     world->camera_light->diffuse = glm::vec3(1.0f, 0.85f, 0.39f);
     world->camera_light->specular = glm::vec3(0);
     world->camera_light->intensity = 1.0f;
     world->camera_light->setGroupMask(2);
-    ConfigureWorldLight(world->camera_light, 4000.0f);
+    ConfigureWorldLight(world->camera_light.get(), 4000.0f);
 
     if (world->compiledIndex() != nullptr && world->compiledIndex()->GetMeshCount() != 0) {
         world->psrMeshes.resize(
@@ -1691,7 +1541,7 @@ std::unique_ptr<World> LoadWorld(int level_id, std::string source_path)
     }
 
     auto handle = wiz8::open_file(wiz8::asset_path(level_path), wiz8::OpenMode::read);
-    if (!ReadLevel(world, handle.get(), wiz8::asset_path(material_folder)))
+    if (!ReadLevel(*this, world, handle.get(), wiz8::asset_path(material_folder)))
         throw std::runtime_error("cannot read level " + level_path);
     return owner;
 }

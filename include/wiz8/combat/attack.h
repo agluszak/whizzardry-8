@@ -75,14 +75,6 @@ struct W8MonsterAttack;
    is in play and not screened by the front rank, or a monster who is engaged,
    alive, targetable and within the character's reach. */
 bool CharacterHasAttackOn(int party_slot, W8CombatSlot* target);
-/* Whether the character can berserk - has the fighter's ability (trait
-   W8_TRAIT_BERSERK), a hand that can reach, and a primary hand that fights at
-   short range or closer. The attack sub-menu entry it gates is "Berserk". */
-bool CanCharacterBerserk(int party_slot);
-/* Whether a friendly, higher-level combatant qualifies for protection. */
-bool CanMonsterProtectCombatant(W8MonsterInfo* monster_info, W8CombatSlot* target);
-/* Whether an active, living bodyguard can protect another combatant. */
-bool CanMonsterProtect(W8MonsterInfo* monster_info);
 
 /* What RateMonsterAttack reports for one of a monster's three attacks: zero
    when the attack can be made, otherwise why not. */
@@ -92,26 +84,16 @@ enum {
     W8_MONSTER_ATTACK_OUT_OF_REACH = 3
 };
 
-/* An attack the record does not carry, or carries with bad data, is not
-   usable; otherwise the attack is usable when it can reach someone, judged as
-   though the monster were idle. `friendly_targets` selects friendly rather than hostile targets.
-   RateMonsterBestAttack answers zero as soon as any attack is usable, one for a
-   motionless monster, and otherwise the highest reason it saw. */
-unsigned char RateMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                                unsigned int attack, int, bool friendly_targets);
-unsigned char RateMonsterBestAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                                    bool friendly_targets);
-bool CanAnyHandReachTarget(int party_slot);
 /* Whether `hand` is in play and has a range category at all. */
-bool CanHandReachTarget(int party_slot, unsigned int hand);
-bool CanCharacterAttack(int party_slot);
+
 struct W8Character;
 
 void GetCharacterHandDamageDice(const W8Character* character, int hand, W8Dice* dice);
 int GetCharacterHandDamageBonus(const W8Character* character, int hand);
 
 int GetHandAttackValue(int party_slot, unsigned int hand);
-W8AttackMode ChooseAttackMode(unsigned int attack_modes);
+class Rng;
+W8AttackMode ChooseAttackMode(Rng& rng, unsigned int attack_modes);
 
 /* How much of a hit a monster actually takes - its own adjustment
    and the record's reduction add, the remainder is taken as a percentage
@@ -144,8 +126,8 @@ int ResolveMonsterAttackDamage(W8MonsterInfo* monster_info, const W8MonsterAttac
                                unsigned int* out_dice_count);
 /* Build the candidate list the monster's fumbled or repicked
    attack chooses a new target from. */
-void BuildMonsterTargetList(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                            unsigned int attack, std::vector<W8CombatSlot>& out_list);
+void BuildMonsterTargetList(W8MonsterInfo* monster_info, unsigned int attack,
+                            std::vector<W8CombatSlot>& out_list);
 /* Announce a friendly-fire strike and highlight the name on the
    other side's notice palette when the two sides differ. */
 void AnnounceAccidentalStrike(W8TargetSource* source, W8CombatSlot* target);

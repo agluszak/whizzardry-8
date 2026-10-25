@@ -7,6 +7,7 @@
 #include <memory>
 #include <ranges>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -27,6 +28,8 @@
 #include "wiz8/entities/world_item.h"
 #include "wiz8/game.h"
 #include "wiz8/geometry.h"
+#include "wiz8/level_population.h"
+#include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/math.h"
 #include "wiz8/render/camera.h"
@@ -35,12 +38,12 @@
 #include "wiz8/render/material.h"
 #include "wiz8/render/mesh.h"
 #include "wiz8/render/mesh_instance.h"
-#include "wiz8/render/picking.h"
 #include "wiz8/render/plane_math.h"
 #include "wiz8/render/triangle_projection.h"
 #include "wiz8/render/world_scene.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/spatial/navigator.h"
 #include "wiz8/spatial/octree_geometry.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/environment.h"
@@ -49,38 +52,44 @@
 constexpr double kLightRangeAttenuationDenominator = 0.0019569471624266144;
 constexpr double kLightRangeAttenuationNumerator = 0.9980430528375734;
 
-void UpdateWorldMonsters(World* world)
+void World::updateMonsters()
 {
-    assert(world != 0);
-
-    const glm::vec3 position = world->party.eye();
-
-    auto count = world->active_monsters.size();
-    UpdateNearestMonsterGroupMembers();
-    for (int index = 0; index < static_cast<int>(count); ++index) {
-        Monster* monster = world->active_monsters[index];
-        if (monster != 0) {
+    if (monster_retirements_) throw std::logic_error("recursive monster update");
+    const auto updating = active_monsters;
+    std::vector<std::unique_ptr<W8MonsterInfo>> retired;
+    monster_retirements_ = &retired;
+    try {
+        const auto position = party.eye();
+        updateNearestMonsterGroupMembers();
+        for (Monster* monster : updating) {
+            if (!monster || !std::ranges::contains(active_monsters, monster)) continue;
             monster->visual.DetachRepresentation();
             monster->visual.SelectLOD(&position);
             monster->Update();
-            monster->UpdateRepresentation();
+            if (std::ranges::contains(active_monsters, monster)) monster->UpdateRepresentation();
         }
+    } catch (...) {
+        monster_retirements_ = nullptr;
+        throw;
     }
+    monster_retirements_ = nullptr;
+    // The batch is reclaimed after all update/callback stack frames have unwound.
 }
 
-/* Detach every item mesh in one world, refresh its animation, and reattach it
-   to the world's dynamic scene before the renderer transition. */
-void DetachWorldItemMeshes(World* world)
+bool World::isRetiring(const Monster& monster) const
 {
-    assert(world != 0);
-    auto count = world->plsItems.size();
-    for (int index = 0; index < static_cast<int>(count); ++index) {
-        WorldItemEntity* item = world->plsItems[index].get();
-        if (item != 0) {
-            item->DetachMesh();
-            item->UpdateAnimation();
-            item->AttachMesh(world);
-        }
+    return monster_retirements_ &&
+           std::ranges::any_of(*monster_retirements_,
+                               [&](const auto& info) { return info->entity.get() == &monster; });
+}
+
+/* Animation changes the instances already attached to this world's scene. */
+void AnimateWorldItems(World& world)
+{
+    for (const auto& item : world.population->world_items) {
+        if (!item->entity) continue;
+        item->entity->UpdateAnimation();
+        item->entity->ApplyRepTransform();
     }
 }
 
@@ -186,20 +195,19 @@ bool BakeInstanceVertexLightingIfNeeded(MeshInstance* instance, WorldScene* scen
 }
 
 /* Visibility queries share midpoint/corner generation and retain early-exit order. */
-bool targetMarkerVisible(const glm::vec3& eye, const BoundingBox& bounds)
+bool World::targetMarkerVisible(const BoundingBox& bounds) const
 {
-    const glm::vec3 from(eye);
+    const auto from = party.eye();
     return std::ranges::any_of(bounds.visibilitySamples(), [&](const auto& sample) {
-        return projectsToCamera(sample) &&
-               GetWorldSpatialIndex()->hasLineOfSight(from, glm::vec3(sample));
+        return projectsToCamera(sample) && compiledIndex()->hasLineOfSight(from, glm::vec3(sample));
     });
 }
 
-bool traceLineOfSightToBounds(const glm::vec3& origin, const BoundingBox& bounds)
+bool World::hasLineOfSightTo(const BoundingBox& bounds) const
 {
-    const glm::vec3 from(origin);
+    const auto from = party.eye();
     return std::ranges::any_of(bounds.visibilitySamples(), [&](const auto& sample) {
-        return !GetWorldSpatialIndex()->traceSight(from, glm::vec3(sample));
+        return !compiledIndex()->traceSight(from, glm::vec3(sample));
     });
 }
 
@@ -261,17 +269,6 @@ Light* CreateRangedWorldLight(World* world, std::string_view name)
     return AddWorldLight(world, std::move(light));
 }
 
-/* Take a light out of both world collections and release it. */
-void WorldRemoveLight(World* world, Light* light)
-{
-    assert(world != 0);
-    assert(light != 0);
-    std::erase(world->environment.lights, light);
-    // The world owns the light: erasing it from the list destroys it.
-    std::erase_if(world->transient_lights,
-                  [light](const std::unique_ptr<Light>& owned) { return owned.get() == light; });
-}
-
 void ConfigureWorldLight(Light* light, float range)
 {
     light->far_end = static_cast<double>(range);
@@ -295,7 +292,7 @@ void WorldUpdateProps(World* world, std::chrono::milliseconds elapsed)
         prop = GetWorldProp(world, index);
         if (prop) {
             prop->DetachAnimationInstances(world);
-            prop->UpdatePropAnimation(elapsed);
+            prop->UpdatePropAnimation(elapsed, world->clocks.held());
             prop->AttachAnimationInstances(world);
         }
     }
@@ -308,18 +305,17 @@ void WorldUpdateLights(World* world)
     for (const auto& light : world->transient_lights)
         if (!std::holds_alternative<std::monostate>(light->animator))
             light->Update(std::chrono::duration<float>(CurrentGame().visual_time).count());
-    const auto update_cycles = [&](const auto& cycles) {
-        for (const auto& cycle : cycles) {
-            if (!cycle->visual.m_plsLights) continue;
-            for (const auto& light : *cycle->visual.m_plsLights)
-                if (!std::holds_alternative<std::monostate>(light->animator) &&
-                    light->scene == (world->scene.get()))
-                    light->Update(std::chrono::duration<float>(CurrentGame().visual_time).count());
-        }
+    const auto update_cycle = [&](const auto& cycle) {
+        if (!cycle.visual.m_plsLights) return;
+        for (const auto& light : *cycle.visual.m_plsLights)
+            if (!std::holds_alternative<std::monostate>(light->animator) &&
+                light->scene == world->scene.get())
+                light->Update(std::chrono::duration<float>(CurrentGame().visual_time).count());
     };
-    update_cycles(world->monsters);
-    update_cycles(world->missiles);
-    update_cycles(world->spell_visuals);
+    for (const auto* navigator : world->navigators)
+        if (navigator->monster_owner) update_cycle(*navigator->monster_owner);
+    for (const auto& missile : world->missiles) update_cycle(*missile);
+    for (const auto& visual : world->spell_visuals) update_cycle(*visual);
 }
 
 void SetWorldSceneMeshShaderLowBits(World* owner, int argument)

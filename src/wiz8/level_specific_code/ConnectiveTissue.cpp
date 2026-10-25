@@ -3,13 +3,14 @@
 #include <memory>
 
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
-#include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
-#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 
 /* Level Specific Code\ConnectiveTissue.cpp (level 0x1b, the Arnika-Trynton
    connector map).
@@ -47,14 +48,14 @@ private:
 bool ConnectiveTissueScript::liche(Trigger* pTrigger)
 {
     if (ctx.inventory.heldItemId() != 0x15d && pTrigger->action == 0) {
-        ShowLevelMessage(6);
+        ctx.game.queueLevelMessage(6);
         g_trigger_feedback = true;
         return false;
     }
-    ShowLevelMessage(7);
+    ctx.game.queueLevelMessage(7);
     if (GetLocationVarIDByName("LicheDead") == -1) {
-        CreateLocationVar("LicheDead", 1);
-        AwardPartyExperience(0x3e8, false);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "LicheDead", 1);
+        ctx.game.awardExperience(0x3e8, false);
     }
     EnableMonGenerator("UNDEAD01");
     EnableMonGenerator("UNDEAD02");

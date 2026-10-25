@@ -350,14 +350,17 @@ template<> struct Record<W8MonsterInfo> {
               field(offsetof(Disk, fMissileReleased), sizeof(Disk::fMissileReleased)));
         value(&runtime.fSpellReleased,
               field(offsetof(Disk, fSpellReleased), sizeof(Disk::fSpellReleased)));
-        value(&runtime.action_kind, field(offsetof(Disk, action_kind), sizeof(Disk::action_kind)));
-        value(&runtime.action_detail,
+        value(&runtime.action.kind, field(offsetof(Disk, action_kind), sizeof(Disk::action_kind)));
+        value(&runtime.action.detail,
               field(offsetof(Disk, action_detail), sizeof(Disk::action_detail)));
         value(&runtime.spell_power_level,
               field(offsetof(Disk, spell_power_level), sizeof(Disk::spell_power_level)));
         value(&runtime.unknown_2ed, field(offsetof(Disk, unknown_2ed), sizeof(Disk::unknown_2ed)));
-        value(&runtime.bound_npc_index,
-              field(offsetof(Disk, bound_npc_index), sizeof(Disk::bound_npc_index)));
+        // Level capture supplies the Story identity's slot; construction resolves it once.
+        if constexpr (std::is_const_v<Runtime>) {
+            const int unbound = -1;
+            value(&unbound, field(offsetof(Disk, bound_npc_index), sizeof(Disk::bound_npc_index)));
+        }
         value(&runtime.heard_noise_margin,
               field(offsetof(Disk, heard_noise_margin), sizeof(Disk::heard_noise_margin)));
         value(&runtime.spell_points,
@@ -464,7 +467,11 @@ template<> struct Record<W8WorldItem> {
         };
         value(&runtime.runtime_id, field(offsetof(Disk, runtime_id), sizeof(Disk::runtime_id)));
         pointer_slot(runtime.entity, field(offsetof(Disk, p3D), sizeof(Disk::p3D)));
-        value(&runtime.fActive, field(offsetof(Disk, fActive), sizeof(Disk::fActive)));
+        // Runtime presence is derived from ownership, never restored from a disk flag.
+        if constexpr (std::is_const_v<Runtime>) {
+            const bool active = bool(runtime.entity);
+            value(&active, field(offsetof(Disk, fActive), sizeof(Disk::fActive)));
+        }
         nested(runtime.item, field(offsetof(Disk, item), sizeof(Disk::item)), value, text);
         nested(runtime.position, field(offsetof(Disk, position), sizeof(Disk::position)), value,
                text);

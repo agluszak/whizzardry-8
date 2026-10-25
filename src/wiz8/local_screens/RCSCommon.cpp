@@ -63,6 +63,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
@@ -244,12 +245,12 @@ UiResult CampScreen::HandleCampPortrait(const UiPointerEvent& event, int target_
                 if (page != W8_CAMP_PAGE_ITEMS ||
                     (items.action() != W8_CAMP_ITEM_ACTION_CAST_SPELL &&
                      items.action() != W8_CAMP_ITEM_ACTION_USE_ON_CHARACTER)) {
-                    if (!CanPartySlotParticipate(target_slot)) {
+                    if (!CurrentGame().party.participates(target_slot)) {
                         QueueCharacterEvent(&game.party.characters[ReviewedPartySlot()], 0x35, 0,
                                             kCharacterEventFullVolume);
                         return;
                     }
-                    AimAtTarget(ReviewedPartySlot(), CharacterTarget(target_slot));
+                    AimAtTarget(ReviewedPartySlot(), W8CombatSlot::character(target_slot));
                     StartBreathCycle(ReviewedPartySlot(), false);
                     return;
                 }
@@ -268,8 +269,9 @@ UiResult CampScreen::HandleCampPortrait(const UiPointerEvent& event, int target_
                                             kCharacterEventFullVolume);
                         return;
                     }
-                    AimAtTarget(ReviewedPartySlot(),
-                                CharacterTarget(target_slot, W8_TARGET_KIND_CHARACTER_INDIRECT));
+                    AimAtTarget(
+                        ReviewedPartySlot(),
+                        W8CombatSlot::character(target_slot, W8_TARGET_KIND_CHARACTER_INDIRECT));
                     StartBreathCycle(ReviewedPartySlot(), false);
                     return;
                 }

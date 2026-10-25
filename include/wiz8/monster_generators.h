@@ -1,5 +1,6 @@
 #pragma once
 struct W8Chunk;
+class Rng;
 
 #include <array>
 #include <chrono>
@@ -47,7 +48,7 @@ struct W8EncounterState {
     void applyGeneratorStates(const W8MonsterGeneratorStates& states);
     /* Rearm decoded generators in the order they were read, drawing each one's jittered
        interval from the game's stream as retail did while it read the level. */
-    void rearmDecodedGenerators();
+    void rearmDecodedGenerators(Rng& rng);
 };
 W8EncounterState ReadEncounterState(W8Chunk& file);
 W8MonsterGeneratorStates ReadMonsterGeneratorStates(W8Chunk& file);
@@ -56,14 +57,10 @@ void StartLevelEncounters(World& world);
 // Roll the generators whose intervals passed in the step's `elapsed` time.
 void RunMonsterGenerators(std::chrono::milliseconds elapsed);
 void DespawnAllActiveMonsterGroups(void);
-void ResetMonsterGeneratorTimers(void);
-void SetMonsterGeneratorDurationScale(float scale); /* 0x0048CB80 */
 
 void SpendRandomEncounterBudget();
 
 void UpdateRandomEncounterBudget(bool reset_budget);
 
 extern const float g_generator_jitter_fraction;
-extern float g_encounter_culling_scale_fast;
-extern const float g_encounter_culling_rate;
 extern const double g_encounter_culling_distance;

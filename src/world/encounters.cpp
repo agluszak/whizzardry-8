@@ -22,10 +22,10 @@
 #include "wiz8/data/dice.h"
 #include "wiz8/data/encounter_records.h"
 #include "wiz8/data/fact_ids.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/difficulty.h"
 #include "wiz8/entities/monster.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
@@ -39,7 +39,9 @@
 #include "wiz8/monster_generators.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/story.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
@@ -59,9 +61,9 @@ void GeneratorInterval::setSeconds(float seconds)
     if (seconds > 0.0f) seconds_ = seconds;
 }
 
-void GeneratorInterval::setScale(float scale)
+void GeneratorInterval::setScale(float scale, bool held)
 {
-    const float kept = SharedGameTimersHeld() ? 0.0f : progress();
+    const float kept = held ? 0.0f : progress();
     scale_ = scale;
     elapsed_ = kept * length();
 }
@@ -262,9 +264,10 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
     }
 
     if ((flags & W8_MONGEN_STORY_GATED) != 0) {
-        if (GetFactionDisposition(record->faction_id) != W8_FACTION_HOSTILE ||
-            (!GetFact(W8_FACT_DESTINAE_POSSESS) && !GetFact(W8_FACT_ASTRAL_POSSESS) &&
-             !GetFact(W8_FACT_CHAOS_POSSESS))) {
+        if (CurrentGame().story.factionDisposition(record->faction_id) != W8_FACTION_HOSTILE ||
+            (!CurrentGame().testFact(W8_FACT_DESTINAE_POSSESS) &&
+             !CurrentGame().testFact(W8_FACT_ASTRAL_POSSESS) &&
+             !CurrentGame().testFact(W8_FACT_CHAOS_POSSESS))) {
             return false;
         }
     }
@@ -272,7 +275,7 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
     int count = RollEncounterGroupSize(record);
     if (count == 0) throw std::runtime_error("monster database gives an empty encounter group");
 
-    group = CreateGroup(species, count, &spawn_position, false, true);
+    group = CurrentGame().createMonsterGroup(species, count, &spawn_position, false);
     group->encounter_registered = true;
     SetMonsterGroupFormation(group, &this->spawn_position);
 
@@ -296,11 +299,11 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
         }
 
         int companion_group_count = RollDice(&companion_record->group_size_dice);
-        W8MonsterGroup* companion_group =
-            CreateGroup(companion_species, companion_group_count, &spawn_position, false, true);
+        W8MonsterGroup* companion_group = CurrentGame().createMonsterGroup(
+            companion_species, companion_group_count, &spawn_position, false);
         companion_group->encounter_registered = true;
         SetMonsterGroupFormation(companion_group, &this->spawn_position);
-        LinkMonsterGroupToLeader(group, companion_group);
+        CurrentGame().linkMonsterGroup(group, companion_group);
     }
 
     return true;
@@ -349,7 +352,7 @@ bool MonGen::CanGenerateEncounter(bool force)
         return true;
     }
 
-    if (g_encounter_culling_scale_fast == 1.0f) {
+    if (CurrentGame().encounter_duration_scale == 1.0f) {
         glm::vec3 lower(spawn_position.x - 5000.0f, spawn_position.y - 5000.0f,
                         spawn_position.z - 5000.0f);
         glm::vec3 upper(spawn_position.x + 5000.0f, spawn_position.y + 5000.0f,
@@ -419,23 +422,6 @@ void DespawnAllActiveMonsterGroups(void)
     }
 }
 
-/* Put the encounter-culling scale back to its fast default and rearm every
-   loaded generator's interval timer. */
-void ResetMonsterGeneratorTimers(void)
-{
-    g_encounter_culling_scale_fast = 1.0f;
-    auto* generators = &GetWorld()->encounters.generators;
-
-    for (const auto& generator : *generators) {
-
-        generator->timer.setScale(1.0f);
-    }
-}
-
-float g_encounter_culling_scale_fast = 1.0f;
-
-const float g_encounter_culling_rate = 2880.0f;
-
 const double g_encounter_culling_distance = 50000.0;
 
 /* Retires random encounters that have outlived their welcome.
@@ -456,11 +442,11 @@ void CullExpiredEncounters(void)
     float span;
 
     party = cameraLocation();
-    if (!IsSightRangeOverridden()) {
-        span = GetWorld()->encounters.culling_seconds * g_sight_default;
+    if (!CurrentGame().accelerated_calendar) {
+        span = GetWorld()->encounters.culling_seconds * CurrentGame().calendarRate();
     } else {
-        span = GetWorld()->encounters.culling_seconds * g_encounter_culling_scale_fast *
-               g_encounter_culling_rate;
+        span = GetWorld()->encounters.culling_seconds * CurrentGame().encounter_duration_scale *
+               CurrentGame().calendarRate();
     }
     std::vector<int> expired;
     for (auto* group : CurrentLevelPopulation().activeEncounterLeaders()) {
@@ -618,7 +604,7 @@ void StartLevelEncounters(World& world)
    each element, which is what the repeated bounds test in the original is. */
 void RunMonsterGenerators(std::chrono::milliseconds elapsed)
 {
-    if (SharedGameTimersHeld()) elapsed = {};
+    if (GetWorld()->clocks.held()) elapsed = {};
     int count = static_cast<int>(GetWorld()->encounters.generators.size());
     MonGen* generator;
     int index;
@@ -687,7 +673,7 @@ try {
    default interval; a clear bit uses the generator's custom +0x06 interval. */
 void MonGen::Reset(short default_interval)
 {
-    Rearm(IntervalSeconds(default_interval));
+    Rearm(CurrentGame().rng, IntervalSeconds(default_interval));
 }
 
 short MonGen::IntervalSeconds(short default_interval) const
@@ -696,20 +682,20 @@ short MonGen::IntervalSeconds(short default_interval) const
                                                          : custom_interval_seconds;
 }
 
-void MonGen::Rearm(short interval)
+void MonGen::Rearm(Rng& rng, short interval)
 {
     const float jitter = interval * g_generator_jitter_fraction;
-    timer.setSeconds(static_cast<float>(CurrentGame().rng.below(static_cast<int>(jitter) * 2 + 1)) +
-                     interval - jitter);
+    timer.setSeconds(static_cast<float>(rng.below(static_cast<int>(jitter) * 2 + 1)) + interval -
+                     jitter);
     timer.arm();
 }
 
-void W8EncounterState::rearmDecodedGenerators()
+void W8EncounterState::rearmDecodedGenerators(Rng& rng)
 {
     for (const auto& generator : generators) {
         if (!generator->rearm) continue;
         auto rearm = *std::exchange(generator->rearm, std::nullopt);
-        generator->Rearm(rearm.interval);
+        generator->Rearm(rng, rearm.interval);
         if (rearm.saved_timer) generator->timer = *rearm.saved_timer;
     }
 }
@@ -745,16 +731,12 @@ void RollRandomEncounters(void)
     }
 }
 
-/* Apply one duration scale to the encounter culling clock and every loaded
-   generator timer. */
-void SetMonsterGeneratorDurationScale(float scale)
+void Game::setEncounterDurationScale(float scale)
 {
-    g_encounter_culling_scale_fast = scale;
-    auto* generators = &GetWorld()->encounters.generators;
-
-    for (auto& generator : *generators) {
-        generator->timer.setScale(scale);
-    }
+    encounter_duration_scale = scale;
+    auto& world = level.loaded();
+    for (const auto& generator : world.encounters.generators)
+        generator->timer.setScale(scale, world.clocks.held());
 }
 
 /* Store the table index and mark HARASSMENT tables with bit 5. Retail never

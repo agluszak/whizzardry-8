@@ -2,6 +2,7 @@
 struct W8Chunk;
 struct SavedLock;
 struct SavedTrigger;
+struct World;
 
 #include <cassert>
 #include <cstdint>
@@ -32,7 +33,8 @@ class File;
 // The world owns timed actions and their timers.
 class TriggerEvent {
 public:
-    TriggerEvent();
+    explicit TriggerEvent(World& world);
+    World& owner_world;
     ~TriggerEvent();
     void Update();
     struct Shake {
@@ -147,7 +149,7 @@ public:
        bindings install it; it may refer to the level script that owns it. */
     using ActivationCallback = std::function<bool(Trigger* trigger)>;
 
-    explicit Trigger(World* world = nullptr);
+    explicit Trigger(World* world = nullptr, unsigned int item_seed = 0);
     ~Trigger();
 
     W8DoorTriggerActionData* doorData()
@@ -172,8 +174,6 @@ public:
             return W8_TRIGGER_PAYLOAD_STRING;
         return W8_TRIGGER_PAYLOAD_NONE;
     }
-
-    static Trigger* CreateAndLoadLevelTrigger(wiz8::File* handle, World* world);
 
     Prop* GetProp() const
     {
@@ -273,8 +273,6 @@ public:
     unsigned char unknown_365[3];
     LockState lock_state;
 };
-
-void InitializeStateDrivenPropVariables(Trigger* trigger);
 
 Trigger* FindTriggerByName(std::string_view name);
 // Throws when the loaded level lacks the trigger.

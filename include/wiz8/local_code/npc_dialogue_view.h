@@ -6,5 +6,5 @@
 
 /* Dialogue presentation: quote bubbles, portrait messages and voiced
    subquotes. NPC Scripting.cpp decides what is said; this decides how. */
-void ShowNpcPortraitMessage(std::string_view text, W8QuoteNotice notice = {});
-bool IsNpcVoicePlaying(void);
+class Game;
+void ShowNpcPortraitMessage(Game& game, std::string_view text, W8QuoteNotice notice = {});

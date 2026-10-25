@@ -10,7 +10,6 @@
 #include <fmt/printf.h>
 
 #include "layouts/levels.h"
-#include "local_code/Factions.h"
 #include "wiz8/audio/soundman.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/character_skills.h"
@@ -23,11 +22,9 @@
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/CharGeneration.h"
-#include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayInit.h"
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
@@ -45,6 +42,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
@@ -78,45 +76,8 @@ static int g_character_table[480] = {
 
 /* Whether any monster is engaged with the party right now: in combat, in the
    engaged state, still alive and not yet on its way out. */
-bool AnyMonsterEngaged(void)
-{
-    unsigned int index;
-    const W8MonsterInfo* monster_info;
-
-    for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
-        monster_info = GetMonsterListEntry(index);
-        if (monster_info->pCombat && monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
-            monster_info->hp_current != 0 &&
-            monster_info->highest_condition < W8_CONDITION_WEBBED) {
-            return true;
-        }
-    }
-    return false;
-}
 
 /* How many party members are still on their feet. */
-int CountActiveCharacters(void)
-{
-    int count = 0;
-    int party_slot;
-
-    for (party_slot = 0; party_slot < 8; ++party_slot) {
-        if (CanPartySlotParticipate(party_slot)) {
-            ++count;
-        }
-    }
-    return count;
-}
-
-/* Whether anybody is. */
-bool AnyCharacterActive(void)
-{
-    return CountActiveCharacters() != 0;
-}
-
-/* Walk a character up to a level from scratch, recomputing the experience goal
-   at each step so the goals for the level below are the ones they actually
-   passed. */
 void AdvanceCharacterToLevel(W8Character* character, unsigned int level)
 {
     character->uiExpLevel = 1;
@@ -195,7 +156,8 @@ void RefreshLevelUpReadyNotices(void)
 {
     int party_slot;
 
-    if (CurrentGame().status.greeting_pending || GetLevelBand(GetLoadedLevelID()) == 0xe) {
+    if (CurrentGame().status.greeting_pending ||
+        CurrentGame().levelBand(GetLoadedLevelID()) == 0xe) {
         return;
     }
 
@@ -420,26 +382,11 @@ void EnsureUniquePartyVoice(W8Character* character)
     }
 }
 
-unsigned int GetAveragePartyLevel(void)
-{
-    unsigned int total_level = 0;
-    unsigned int occupied_slots = 0;
-    int slot;
-
-    for (slot = 0; slot < 8; ++slot) {
-        if (CurrentGame().party.members[slot].has_value()) {
-            total_level += CurrentGame().party.characters[slot].uiExpLevel;
-            ++occupied_slots;
-        }
-    }
-    return total_level / occupied_slots;
-}
-
 /* Add one character to the party: find a free slot in the requested band,
    copy the record, mark it in party, rebuild its row and formation position
    and enter it in the marching order. The band is 2..7 for a regular member
    and 0..1 for the two auxiliary slots. */
-int AddCharacterToParty(W8Character& character, int slot_kind)
+int AddCharacterToParty(W8Character& character, int slot_kind, ItemReactions reactions)
 {
     unsigned int slot;
 
@@ -478,7 +425,13 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
             break;
         }
     }
-    PlaceCharacterInFormation(&CurrentGame().party.formation, slot);
+    CurrentGame().party.formation.placeCharacter(slot);
+    if (GameStarted() && !CurrentGame().activity.conversation) {
+        CurrentGame().events.push(FormationChanged{});
+        CurrentGame().events.push(CharacterNotice{
+            slot, fmt::sprintf(Data().strings[0x24c],
+                               kFormationRowNames[CurrentGame().party.formation.rowOf(slot)])});
+    }
     CurrentGame().party.formation.positions[slot].revival_row = -1;
 
     if (GameStarted()) {
@@ -486,7 +439,7 @@ int AddCharacterToParty(W8Character& character, int slot_kind)
         PostCharacterNotice(slot, Data().strings[0x250]);
     }
 
-    RecalculateCharacterDerivedStats(CurrentGame(), *destination);
+    RecalculateCharacterDerivedStats(CurrentGame(), *destination, reactions);
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME) {
         MainGame()->refreshPartySlotRegions();
     }
@@ -504,13 +457,12 @@ void RemoveCharacterFromParty(int party_slot)
     character->fInParty = false;
     character->highest_condition = W8_CONDITION_NONE;
     character->enchantment_top = W8_ENCHANTMENT_NONE;
-    SetFormationPosition(&CurrentGame().party.formation, party_slot, std::nullopt, false, true,
-                         true);
+    CurrentGame().party.formation.setPosition(party_slot, std::nullopt, true, true);
+    if (GameStarted() && !CurrentGame().activity.conversation)
+        CurrentGame().events.push(FormationChanged{});
     if (CurrentGame().combat.has_value()) {
-        SetFormationPosition(&CurrentGame().planned_formation, party_slot, std::nullopt, false,
-                             true, true);
-        SetFormationPosition(&CurrentGame().combat->saved_formation, party_slot, std::nullopt,
-                             false, true, true);
+        CurrentGame().planned_formation.setPosition(party_slot, std::nullopt, true, true);
+        CurrentGame().combat->saved_formation.setPosition(party_slot, std::nullopt, true, true);
     }
     if (GameStarted()) {
         PostCharacterNotice(party_slot, Data().strings[0x251]);
@@ -562,7 +514,13 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
             break;
         }
     }
-    PlaceCharacterInFormation(&CurrentGame().party.formation, slot);
+    CurrentGame().party.formation.placeCharacter(slot);
+    if (GameStarted() && !CurrentGame().activity.conversation) {
+        CurrentGame().events.push(FormationChanged{});
+        CurrentGame().events.push(CharacterNotice{
+            slot, fmt::sprintf(Data().strings[0x24c],
+                               kFormationRowNames[CurrentGame().party.formation.rowOf(slot)])});
+    }
     CurrentGame().party.formation.positions[slot].revival_row = -1;
     RecalculateCharacterDerivedStats(CurrentGame(), *character);
     if (buy_equipment) {
@@ -578,30 +536,19 @@ unsigned char RecruitCharacterIntoParty(W8Character* character, W8Character* rec
 }
 
 // FUNCTION: WIZ8 0x004EEF10
-void AwardPartyExperience(int amount, bool alternate_message)
+void Game::awardExperience(int amount, bool alternate_message)
 {
-    for (int slot = 0; slot < 8; ++slot) {
-        W8Character* character = &CurrentGame().party.characters[slot];
-        if (CanPartySlotParticipate(slot) && amount != 0) {
-            unsigned int total = character->experience + static_cast<unsigned int>(amount);
-            if (total > character->experience) {
-                character->experience = total;
-            } else {
-                character->experience = static_cast<unsigned int>(-1);
-            }
-            if (GetLoadedLevelID() >= 0 && GetLoadedLevelID() < W8_LEVEL_COUNT) {
-                auto& progress = CurrentGame().status.level_progress[GetLoadedLevelID()];
-                const unsigned int gained = progress.experience_gained;
-                total = gained + static_cast<unsigned int>(amount);
-                if (total > gained) {
-                    progress.experience_gained = total;
-                }
-            }
-            CurrentGame().level_up_check_due = true;
+    const auto recipients = party.awardExperience(static_cast<unsigned int>(amount));
+    if (recipients) level_up_check_due = true;
+    if (level.primary && level.primary->level_id >= 0 && level.primary->level_id < W8_LEVEL_COUNT) {
+        auto& gained = status.level_progress[level.primary->level_id].experience_gained;
+        // Retail accounts once per participating recipient, even when their own XP saturated.
+        for (unsigned int recipient = 0; recipient < recipients; ++recipient) {
+            const auto total = gained + static_cast<unsigned int>(amount);
+            if (total > gained) gained = total;
         }
     }
-    auto text = fmt::sprintf(Data().strings[alternate_message ? 0x231 : 0x232], amount);
-    CurrentGame().npc_dialogue.QueuePortraitMessage(
-        std::move(text),
+    npc_dialogue.QueuePortraitMessage(
+        fmt::sprintf(data.strings[alternate_message ? 0x231 : 0x232], amount),
         W8ExperienceNoticePayload{static_cast<unsigned int>(amount), alternate_message});
 }

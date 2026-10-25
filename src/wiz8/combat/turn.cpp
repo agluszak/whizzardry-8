@@ -24,10 +24,12 @@
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/world/party_camera.h"
+#include "wiz8/world/world.h"
 
 /* The fight's turn: what it waits on, the scheduler that picks who acts next, and the
    step that moves the turn through its phases. */
@@ -66,7 +68,7 @@ CombatWait Combat::waitingOn(const Game& game) const
     if (hit_sound) {
         return CombatWait::hit_sound;
     }
-    if (!AllSpellEffectsStillRunning()) {
+    if (game.level.primary && game.level.primary->hasPendingSpellEffects()) {
         return CombatWait::spell_effect;
     }
     for (Missile* missile = NextMissile(true); missile != 0; missile = NextMissile(false)) {
@@ -124,7 +126,8 @@ void Combat::finishAction(Game& game, const CombatActor& actor)
 {
     const auto* party = std::get_if<PartyActor>(&actor);
     if (!party) {
-        EndMonsterAttack(FindMonster(std::get<MonsterActor>(actor).location_id));
+        game.finishMonsterAttack(
+            game.level.loaded().population->findMonster(std::get<MonsterActor>(actor).location_id));
         return;
     }
     const int slot = party->slot;
@@ -142,7 +145,7 @@ void Combat::finishAction(Game& game, const CombatActor& actor)
             if (slot == game.status.selected_character) {
                 CurrentGame().events.push(MonstersChanged{});
             }
-            SetCharacterCombatAction(slot, row->remembered.basic(), 0);
+            game.setCombatAction(slot, row->remembered.basic());
         }
     }
     settleCharacterPhase(game, slot);
@@ -182,7 +185,7 @@ void Combat::step(Game& game)
         W8MonsterInfo* monster_info = GetMonsterListEntry(monster_index);
         if (monster_info->fActive && monster_info->pCombat && monster_info->hp_current != 0 &&
             monster_info->pCombat->sight_refresh_pending) {
-            RefreshMonsterSight(monster_info);
+            CurrentGame().refreshMonsterSight(monster_info);
             monster_info->pCombat->sight_refresh_pending = false;
         }
     }
@@ -270,7 +273,7 @@ void Combat::scheduleNextActor(Game& game)
                     schedule(MonsterActor{monster_info->location_id});
                     break;
                 }
-                monster_info->action_kind = W8_MONSTER_ACTION_NONE;
+                monster_info->action.kind = W8_MONSTER_ACTION_NONE;
                 combat->phase = 0;
                 if (!combat->active) {
                     combat->active = true;
@@ -313,16 +316,16 @@ void Combat::scheduleNextActor(Game& game)
                 if ((action == W8_ACTION_DEFEND || action == W8_ACTION_PROTECT ||
                      action == W8_ACTION_NONE) &&
                     (!g_settings.continuous_combat ||
-                     CharacterCanSwitchTo(*slot, SelectCombatAction(*slot, context), false))) {
+                     game.canPerformAction(*slot, game.party.action(*slot, context), false))) {
                     interruptible = true;
                 }
                 if ((g_settings.continuous_combat ||
-                     CharacterCanSwitchTo(*slot, SelectCombatAction(*slot, context), false)) &&
+                     game.canPerformAction(*slot, game.party.action(*slot, context), false)) &&
                     !interruptible) {
                     apply_delay = true;
                 }
             } else {
-                W8MonsterActionKind action_kind = FindMonster(*actingMonster())->action_kind;
+                W8MonsterActionKind action_kind = FindMonster(*actingMonster())->action.kind;
                 if (action_kind == W8_MONSTER_ACTION_WAIT ||
                     action_kind == W8_MONSTER_ACTION_PROTECT ||
                     action_kind == W8_MONSTER_ACTION_NONE) {

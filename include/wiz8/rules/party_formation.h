@@ -20,14 +20,17 @@ struct W8FormationCell {
    only record of placement. */
 struct W8PartyFormationPosition {
     /* The row remembered while the slot is unseated by death; the revival
-       path in UpdateFormationSlotState re-seats into it and then clears it. */
+       path re-seats into it and then clears it. */
     signed char revival_row = -1;
-    signed char facing = 0;
+    signed char facing = 4; // Unseated: no preferred facing.
     /* Saved bytes with no known meaning, kept for round trips. */
     std::array<unsigned char, 8> unknown_04{};
 
     bool operator==(const W8PartyFormationPosition&) const = default;
 };
+
+inline constexpr std::array<const char*, 5> kFormationRowNames = {"Front", "Right", "Rear", "Left",
+                                                                  "Center"};
 
 struct W8PartyFormationState {
     /* The party slot seated in a cell, if any. */
@@ -41,6 +44,10 @@ struct W8PartyFormationState {
        left and `update_facing` turns it the way its new row faces. */
     void setPosition(int slot, std::optional<W8FormationCell> cell, bool detach,
                      bool update_facing);
+    // Complete seating operations own row packing and facing together.
+    bool seatInRow(int slot, int row);
+    void placeCharacter(int slot);
+    void updateLiveness(int slot, bool dead);
     /* Exchange two slots' cells; each seated slot faces the way its new row does. */
     void swap(int slot_a, int slot_b);
     /* A lone occupant moves to column 0, two pack toward column 2. */

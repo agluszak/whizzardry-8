@@ -1,4 +1,6 @@
 #pragma once
+
+struct PartyQuoteInput;
 #include <array>
 #include <bitset>
 #include <cstddef>
@@ -106,6 +108,8 @@ struct MainGameScreen final : Screen {
 
     // The game this main game belongs to; it is discarded before the game ends.
     Game& game;
+    std::shared_ptr<PartyQuoteInput> party_quotes;
+    bool world_pick_enabled = true;
     std::unique_ptr<KeyboardActionMenu> keyboard_menu;
     // The radar map panel, present exactly while the applied layout shows it.
     std::unique_ptr<RadarMap> radar_map;
@@ -272,10 +276,10 @@ public:
     float m_progress_duration;
     float m_progress_elapsed;
     int m_progress_drawn; /* widest progress extent drawn so far */
-    W8GameTimer m_timer0{1.0f, TimerClock::Presentation};
+    W8GameTimer m_timer0 = W8GameTimer::presentation(1.0f);
     W8ControlsRect m_text_bounds;
     W8TextBuffer m_text_buffer;
-    W8GameTimer m_timer1{1.0f, TimerClock::Presentation};
+    W8GameTimer m_timer1 = W8GameTimer::presentation(1.0f);
     int m_marker_anim_time; /* drives the 12-frame target-changed marker */
     bool m_target_changed;
     /* Draw the animated target-changed marker this frame; raised while
@@ -359,9 +363,9 @@ public:
     int m_tumbler_count;
     bool m_animating = false, m_dirty = true;
     int m_phase = 0;
-    W8GameTimer m_phase_timer{0.04f, TimerClock::Presentation};
-    W8GameTimer m_rise_timer{0.03f, TimerClock::Presentation};
-    W8GameTimer m_fall_timer{0.01f, TimerClock::Presentation};
+    W8GameTimer m_phase_timer = W8GameTimer::presentation(0.04f);
+    W8GameTimer m_rise_timer = W8GameTimer::presentation(0.03f);
+    W8GameTimer m_fall_timer = W8GameTimer::presentation(0.01f);
 };
 
 class W8LockInfoPanel {
@@ -427,7 +431,7 @@ public:
     int m_tumbler_owner[8];            /* owning party slot per pin, -1 unset */
     unsigned char m_tumbler_locked[8]; /* pin kept when the slot is released */
     int m_slot_attempts[8];            /* pick attempts per party slot */
-    W8GameTimer m_timer{1.0f, TimerClock::Presentation}; /* state-8 completion delay */
+    W8GameTimer m_timer = W8GameTimer::presentation(1.0f); /* state-8 completion delay */
 };
 
 enum W8TrapInteractionAction {
@@ -481,7 +485,7 @@ public:
     int m_slot_columns[8][8];
     int m_target_difficulty;
     wiz8::sound::Playback m_sound_handle;
-    W8GameTimer m_timer{1.0f, TimerClock::Presentation};
+    W8GameTimer m_timer = W8GameTimer::presentation(1.0f);
 };
 
 W8TrapInteraction* TrapInteraction();
@@ -535,7 +539,6 @@ extern bool g_mouselook_active;
 extern bool g_mouselook_left_held;
 enum W8MainGameMode {
     W8_MAIN_GAME_DEFAULT = 0,
-    W8_MAIN_GAME_NPC_DIALOGUE = 3,
     W8_MAIN_GAME_PORTRAIT_REFRESH = 4,
     W8_MAIN_GAME_MODAL = 5,
     W8_MAIN_GAME_HIGHLIGHT_OVERLAY = 6
@@ -666,3 +669,6 @@ void OpenNpcTradeQuantityDialog(void);
 W8Action* EditedDraft(int party_slot);
 W8Action EditedAction(int party_slot);
 bool IsSighting(int party_slot);
+
+// Reconcile picker/cursor presentation after a stored gameplay aim has settled.
+void RefreshStoredAim(unsigned int actor);

@@ -852,7 +852,7 @@ UiResult W8CampSkillsPage::HandleCampSkillList(const UiPointerEvent& event,
 
 W8CharacterPersonalityPage::W8CharacterPersonalityPage(CharacterScreen& owner)
     : W8CharacterPage(owner, CatalogArtwork::Load(0x105)),
-      anim_timer(0.4f, TimerClock::Presentation), m_animation_active(false)
+      anim_timer(W8GameTimer::presentation(0.4f)), m_animation_active(false)
 {
     auto* character = &screen.draft.character;
     constexpr SDL_Point positions[] = {

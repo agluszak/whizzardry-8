@@ -43,7 +43,6 @@
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ControlsRect.h"
-#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/TextBuffer.h"
@@ -56,6 +55,7 @@
 #include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/quality.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/screen.h"
 #include "wiz8/surface_storage.h"
 #include "wiz8/text_input.h"
@@ -63,6 +63,7 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
+#include "wiz8/world_view.h"
 
 /* Shared zero-initialized wide string: binary-wide DATA references read it as
    empty text and as a sprintf format argument. No recovered writer exists. */
@@ -1603,7 +1604,8 @@ void OptionsScreen::UpdateNavigation()
 void OptionsScreen::OnDialogClosed(bool accepted, int)
 {
     if (accepted) {
-        if (GameStarted() && !CurrentGame().combat.has_value() && AnyCharacterActive()) {
+        if (GameStarted() && !CurrentGame().combat.has_value() &&
+            (CurrentGame().party.participantCount() != 0)) {
             AutoSaveIfAllowed(true);
         }
         RequestExitScreen();
@@ -1626,7 +1628,7 @@ bool OptionsScreen::enter(const ScreenRequest& request)
     int selected;
     const W8OptionsMode mode = std::get<W8OptionsMode>(request.mode);
 
-    SetViewport({0, 0, 0x281, 0x1e1});
+    SetWorldViewport(GameInProgress() ? &CurrentGame() : nullptr, {0, 0, 0x281, 0x1e1});
     SetUiCanvasAlphaTestEnabled(false);
     ScreenPointer().reset();
     g_wiz_text_font_secondary.resetPalette();
@@ -1699,7 +1701,7 @@ void OptionsScreen::frame()
                 },
         });
     Redraw();
-    RenderFrame();
+    PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
 }
 std::string_view GetLastSaveName(void)
 {

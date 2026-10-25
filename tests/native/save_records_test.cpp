@@ -22,8 +22,8 @@
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/difficulty.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
+#include "wiz8/inventory.h"
 #include "wiz8/layouts/encounter_tables.h"
 #include "wiz8/layouts/levels.h"
 #include "wiz8/layouts/npc_dialogue.h"
@@ -34,6 +34,7 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/message_log.h"
+#include "wiz8/monster_actions.h"
 #include "wiz8/npc_interaction_state.h"
 #include "wiz8/render/mesh_instance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include "wiz8/render/quality.h"
@@ -41,6 +42,7 @@
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/gameplay_modifiers.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
@@ -918,7 +920,12 @@ static wiz8::save::GameState populated_game_state()
     status.retail.save_filetime_xor = {0x01234567, 0x89abcdef};
     status.text_box_lines_used = {1, 2, 3, 4};
     status.text_box_lines_shown = {1, 1, 2, 3};
-    status.monster_name_buffer = "Rattkin";
+    // A valid short UTF-16 name, then nonzero scratch bytes after its terminator.
+    status.retail.monster_name_cache.fill(std::byte{0xa5});
+    status.retail.monster_name_cache[0] = std::byte{'R'};
+    status.retail.monster_name_cache[1] = std::byte{0};
+    status.retail.monster_name_cache[2] = std::byte{0};
+    status.retail.monster_name_cache[3] = std::byte{0};
     status.flags[3] = 1;
     status.spell_usage[2].cast_count = 5;
     status.item_spell_usage[7].usable_cast_count = 9;
@@ -1013,7 +1020,7 @@ static void global_status_record()
     auto edited = payload;
     constexpr std::pair<unsigned, unsigned> unknown_runs[] = {
         {0x187b, 0x55}, {0x1904, 0xd4},  {0x19dc, 0x28}, {0x243f, 5},
-        {0x40c2, 0xc},  {0x47de, 0x194}, {0x497b, 4}};
+        {0x40c2, 0xc},  {0x47de, 0x194}, {0x497b, 4},    {0x2453, 44}};
     for (const auto& [offset, size] : unknown_runs)
         for (unsigned index = 0; index < size; ++index)
             edited[4 + offset + index] = std::byte(0x40 + index % 0x31);
@@ -1097,23 +1104,7 @@ static GameData ThreeNpcs()
 
 struct NpcGlobalGuard {
     const ScopedGameData data{ThreeNpcs()};
-    ScopedGame game;
-};
-
-// The spell table, with Sleep aimed at enemies.
-static GameData SleepSpell()
-{
-    GameData data{.spells = std::vector<W8SpellRuntimeRecord>(W8_SPELL_COUNT)};
-    data.spells[W8_SPELL_SLEEP].target_type = W8_TARGET_TYPE_ENEMY;
-    return data;
-}
-
-// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
-struct CombatRecordGuard {
-    const ScopedGameData data{SleepSpell()};
-    W8Party previous_party = std::exchange(CurrentGame().party, W8Party{});
-
-    ~CombatRecordGuard() { CurrentGame().party = std::move(previous_party); }
+    ScopedGame game{Data()};
 };
 
 struct SaveFixture {
@@ -1188,9 +1179,8 @@ TEST_CASE("Unknown fact IDs never index native fact storage", "[save][records]")
     for (const auto raw : {-1, 1000, std::numeric_limits<std::int32_t>::min(),
                            std::numeric_limits<std::int32_t>::max()}) {
         const auto fact = static_cast<W8FactId>(raw);
-        REQUIRE(GetFact(fact) == 0);
-        REQUIRE(EvaluateFact(fact) == 0);
-        SetFact(fact, 1, true);
+        REQUIRE(game.game.testFact(fact) == 0);
+        game.game.setFact(fact, 1);
     }
     REQUIRE(CurrentGame().story.facts == before);
 }
@@ -1290,8 +1280,8 @@ TEST_CASE("Monster-control sections keep the retail record", "[save][records]")
 
 TEST_CASE("The newest unexpired lure is the active monster-control effect", "[effects]")
 {
-    const ScopedGame game;
-    auto& effects = CurrentGame().spell_effects;
+    World world;
+    auto& effects = world.spell_effects;
 
     auto previous = std::make_unique<W8SpellEffectEntry>();
     previous->kind = W8_SPELL_HYPNOTIC_LURE;
@@ -1305,11 +1295,14 @@ TEST_CASE("The newest unexpired lure is the active monster-control effect", "[ef
     auto* replacement_ptr = replacement.get();
     effects.push_back(std::move(replacement));
 
-    REQUIRE(FindMonsterControlSpellEffect() == replacement_ptr);
+    REQUIRE(world.monsterControlEffect() == replacement_ptr);
+    REQUIRE_FALSE(world.hasPendingSpellEffects());
     previous_ptr->turns_remaining = 0;
-    REQUIRE(FindMonsterControlSpellEffect() == replacement_ptr);
+    REQUIRE(world.hasPendingSpellEffects());
+    REQUIRE(world.monsterControlEffect() == replacement_ptr);
     replacement_ptr->turns_remaining = 0;
-    REQUIRE(FindMonsterControlSpellEffect() == nullptr);
+    REQUIRE(world.monsterControlEffect() == nullptr);
+    REQUIRE(world.hasPendingSpellEffects());
 }
 
 TEST_CASE("Settings records keep the retail layout and unnamed bytes", "[save][configuration]")
@@ -1410,7 +1403,8 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
         SavedGame saved;
         saved.npcs = std::move(npcs);
         saved.state.search_mode = true;
-        std::move(saved).install(globals.game.session);
+        auto& game = globals.game.session.begin();
+        std::move(saved).install(game);
         REQUIRE(CurrentGame().search.requested());
     };
     // A small word that a process-local handle table could have resolved.
@@ -1482,13 +1476,12 @@ TEST_CASE_METHOD(SaveFixture, "NPC state versions and malformed sections", "[sav
             REQUIRE_THROWS(wiz8::save::decode_npc_states(bad, Data().npcs.size()));
         }
         REQUIRE((!GetNpcState(-1) && !GetNpcState(3)));
-        ReleaseNpcBinding(3); // one past the end is not a live binding
         auto* kept = GetNpcState(1);
         // Work still holding a released NPC shares it; reusing its slot leaves it intact.
         const auto retired = CurrentGame().story.npcs[0];
         retired->binding_unavailable = true;
         REQUIRE(!GetNpcState(0));
-        auto* replacement = CreateNpcRuntimeNode(CurrentGame().story, 0);
+        auto* replacement = CurrentGame().createNpcRuntimeNode(0);
         REQUIRE((CurrentGame().story.npcs.size() == 3 && GetNpcState(0) == replacement));
         REQUIRE((replacement->partner_index == 0 && GetNpcState(1) == kept));
         REQUIRE((retired->binding_unavailable && retired->character.value().name[0] == L'A'));
@@ -1612,7 +1605,7 @@ TEST_CASE_METHOD(SaveFixture, "A save decodes to a game state before any session
     };
 
     write_save(true);
-    auto saved = ReadSavedGame("candidate");
+    auto saved = ReadSavedGame(GameData{}, "candidate");
     REQUIRE(!GameInProgress());
     REQUIRE(saved);
     REQUIRE(saved->state.status.resume_level == 5);
@@ -1625,23 +1618,26 @@ TEST_CASE_METHOD(SaveFixture, "A save decodes to a game state before any session
     REQUIRE((!saved->npcs && !saved->facts && !saved->journal));
 
     write_save(false);
-    REQUIRE(!ReadSavedGame("candidate"));
+    REQUIRE(!ReadSavedGame(GameData{}, "candidate"));
 }
 
 TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][records]")
 {
-    const ScopedGame game;
-    CombatRecordGuard globals;
+    GameData data{.spells = std::vector<W8SpellRuntimeRecord>(W8_SPELL_COUNT)};
+    data.spells[W8_SPELL_SLEEP].target_type = W8_TARGET_TYPE_ENEMY;
+    Game game{data};
     // The AI used to decay the odd-offset condition array into unsigned int*.
-    auto& character = CurrentGame().party.characters[0];
+    auto& character = game.party.characters[0];
     character = {};
     W8CombatSlot target = {};
     target.iType = W8_TARGET_KIND_CHARACTER;
     target.iChar = 0;
     REQUIRE(reinterpret_cast<uintptr_t>(character.uiCondition) % alignof(unsigned int) == 0);
-    REQUIRE(MonsterSpellTargetOK(nullptr, W8_SPELL_SLEEP, &target));
+    REQUIRE(game.monsterAcceptsSpell(nullptr, W8_SPELL_SLEEP, &target,
+                                     {W8_MONSTER_ACTION_SPELL, W8_SPELL_SLEEP}));
     character.uiCondition[W8_CONDITION_ASLEEP] = 1;
-    REQUIRE(!MonsterSpellTargetOK(nullptr, W8_SPELL_SLEEP, &target));
+    REQUIRE(!game.monsterAcceptsSpell(nullptr, W8_SPELL_SLEEP, &target,
+                                      {W8_MONSTER_ACTION_SPELL, W8_SPELL_SLEEP}));
     REQUIRE(BuildLevelStatusPath(56) == "Levels\\Test\\DefaultLevel.STS");
     for (int index = 0; index < 10; ++index) {
         const auto name = index == 0 ? std::string("Ending") : "Ending" + std::to_string(index);
@@ -1808,4 +1804,25 @@ TEST_CASE("The pool saves its live items and keeps a loaded save's unused record
     REQUIRE_THROWS_AS(wiz8::save::decode_game_state(payload), std::runtime_error);
     restored.pool.resize(501);
     REQUIRE_THROWS_AS(wiz8::save::encode(restored), std::runtime_error);
+}
+
+TEST_CASE("Covert-training fact evaluation consumes its first success before journal presentation",
+          "[save][facts]")
+{
+    ScopedGameData definitions{GameData{}};
+    ScopedGame scope{Data()};
+    auto& game = scope.game;
+    game.inventory.restore({W8ItemInstance{.iItemNo = 0x1c4, .stack_count = 5}}, std::nullopt);
+    const auto fact = W8_FACT_UMISSION_TRAIN_COVERT_DONE;
+    REQUIRE(game.testFact(fact) == 1);
+    REQUIRE(game.status.fact_88_latch);
+    REQUIRE(game.testFact(fact) == 0);
+
+    game.status.fact_88_latch = false;
+    game.story.facts[fact] = 1;
+    game.setFact(fact, 0);
+    REQUIRE(game.story.journal.size() == 1);
+    REQUIRE(game.story.journal.front().alternate_text); // First evaluated value, not stored zero.
+    REQUIRE(game.story.facts[fact] == 0);
+    REQUIRE(game.testFact(fact) == 0);
 }

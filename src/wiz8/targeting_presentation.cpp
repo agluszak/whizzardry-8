@@ -1,5 +1,6 @@
 #include "wiz8/targeting_presentation.h"
 
+#include <optional>
 #include <vector>
 
 #include "wiz8/combat/combat.h"
@@ -18,6 +19,9 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/pointer.h"
+#include "wiz8/rules/action_rules.h"
+#include "wiz8/rules/events.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
@@ -70,8 +74,9 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
             W8TargetSource source;
             SetTargetSourceToCharacter(selected, &source);
             std::vector<int> party;
-            PopulateSpellTargetMarkers(spell, PreviewPower(action), &source, &target,
-                                       result.area_targets, party, W8AreaSightRule::GeometryOnly);
+            CurrentGame().appendSpellTargets(spell, PreviewPower(action), &source, &target,
+                                             result.area_targets, party,
+                                             W8AreaSightRule::GeometryOnly);
             for (int id : result.area_targets) result.monsters[id].tint = {0, 1, 0, 1};
         }
     }
@@ -81,12 +86,12 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
         if (actor == selected && area_preview) {
             targets = result.area_targets;
         } else if (spell != 0) {
-            if (!IsTargetStillPresent(&action.target)) return;
+            if (!CurrentGame().targetPresent(action.target)) return;
             W8TargetSource source;
             SetTargetSourceToCharacter(actor, &source);
             std::vector<int> party;
-            PopulateSpellTargetMarkers(spell, PreviewPower(action), &source, &action.target,
-                                       targets, party, W8AreaSightRule::RequireLineOfSight);
+            CurrentGame().appendSpellTargets(spell, PreviewPower(action), &source, &action.target,
+                                             targets, party, W8AreaSightRule::RequireLineOfSight);
         } else if (action.target.iType == W8_TARGET_KIND_MONSTER) {
             if (FindMonster(action.target.iMonsterID, false))
                 targets.push_back(action.target.iMonsterID);
@@ -102,7 +107,7 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
         }
     };
     for (int actor = 0; actor < 8; ++actor) {
-        if (!CanPartySlotParticipate(actor)) continue;
+        if (!CurrentGame().party.participates(actor)) continue;
         if (!IsSighting(actor)) add_targets(actor, EditedAction(actor));
     }
     result.subject_valid = CurrentCombatSubjectIsValid(hud);
@@ -111,16 +116,14 @@ W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hu
     if (auto* info = FindMonster(hud.highlighted_item, false)) {
         result.monsters[info->location_id].hovered = true;
         const auto action = selected == -1 ? W8Action{} : EditedAction(selected);
-        if (selected != -1 &&
-            GetTargetNeededForAction(CurrentGame().inventory, action) == W8_TARGET_NEED_GROUP) {
+        if (selected != -1 && CurrentGame().targetNeed(action) == W8_TARGET_NEED_GROUP) {
             if (auto* group = FindMonsterGroup(info->monster_group_id, false))
                 for (int id : group->MemberIds()) result.monsters[id].tint = tint;
         } else
             result.monsters[info->location_id].tint = tint;
     } else if (auto* group = FindMonsterGroup(hud.action_group, false)) {
         const auto action = selected == -1 ? W8Action{} : EditedAction(selected);
-        if (selected != -1 &&
-            GetTargetNeededForAction(CurrentGame().inventory, action) == W8_TARGET_NEED_GROUP) {
+        if (selected != -1 && CurrentGame().targetNeed(action) == W8_TARGET_NEED_GROUP) {
             for (int id : group->MemberIds()) result.monsters[id].tint = tint;
         } else if (selected != -1) {
             const auto id =
@@ -135,7 +138,7 @@ void ApplyTargetingPresentation(const W8TargetingPresentation& presentation)
 {
     if (!GetWorld()) return;
     for (const auto& info : CurrentLevelPopulation().monster_roster.live()) {
-        auto* monster = info->entity.find();
+        auto* monster = info->entity.get();
         if (!monster) continue;
         const auto found = presentation.monsters.find(info->location_id);
         const auto mark =
@@ -143,16 +146,37 @@ void ApplyTargetingPresentation(const W8TargetingPresentation& presentation)
         for (int actor = 0; actor < 8; ++actor) {
             const bool targeted = (mark.party_targets & (1u << actor)) != 0;
             // Marker objects are a replaceable render cache, never selection input.
-            if (targeted != (monster->objects[actor] != nullptr))
-                SetMonsterPartySlotMarker(actor, info->location_id, targeted);
+            monster->setPartyMarker(
+                actor,
+                targeted ? std::optional{CurrentGame().party.orderIndexOf(actor)} : std::nullopt);
         }
         monster->UpdateAttachedObjects(mark.hovered);
         monster->visual.SetPresentationColour(monster->IsDying() ? glm::vec4{0} : mark.tint);
     }
     for (const auto& item : CurrentLevelPopulation().world_items) {
-        if (item->fActive && item->entity) {
+        if (item->entity) {
             const bool hovered = presentation.hovered_item == item->runtime_id;
             item->entity->SetHighlight(true, hovered);
         }
     }
+}
+
+void RevalidateSelectedTarget(int party_slot)
+{
+    W8TargetNeed needed;
+
+    if (party_slot != CurrentGame().status.selected_character) {
+        return;
+    }
+    const auto selected = EditedAction(party_slot);
+    if (!CurrentGame().canPerformAction(party_slot, selected, true)) {
+        CurrentGame().events.push(TargetingRequested{});
+        return;
+    }
+    needed = W8_TARGET_NEED_NONE;
+    if (!IsSighting(party_slot)) {
+        needed = CurrentGame().targetNeed(selected, MainGameHud() == nullptr);
+    }
+    CurrentGame().events.push(TargetingRequested{
+        CurrentGame().targetMatches(selected.target, needed) ? W8_TARGET_NEED_NONE : needed});
 }

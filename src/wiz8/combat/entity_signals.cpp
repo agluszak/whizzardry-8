@@ -1,5 +1,3 @@
-#include "wiz8/combat/entity_signals.h"
-
 #include <algorithm>
 #include <cassert>
 
@@ -14,7 +12,7 @@
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/game.h"
-#include "wiz8/loaded_game_data.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -25,25 +23,20 @@
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/world/simulation_sink.h"
+#include "wiz8/world/world.h"
 
 namespace {
 // The missile table row of a stored-spell missile, which casts its spell where it lands.
 constexpr int kStoredSpellMissile = 0x23;
 
-class CombatSignals final : public SimulationSink {
-public:
-    bool missileReached(Missile& missile, Navigator& struck) override;
-    void missileLanded(Missile& missile) override;
-    void missileReleased(Monster& monster) override;
-    void spellReleased(Monster& monster) override;
-};
+} // namespace
 
 /* Decide what the missile struck - the party or a live monster - record it in its
    combat slot, roll the target's missile deflection and either resolve the hit or
    leave it for the combat engine. */
-bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
+bool Game::missileReached(Missile& missile, Navigator& struck)
 {
+    auto* fight = level.primary.get() == &missile.owner_world && combat ? &*combat : nullptr;
     W8MissileHitResult hit_result;
     unsigned char deflect_chance;
 
@@ -53,17 +46,16 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
         }
         if (missile.combat_slot.iType != W8_TARGET_KIND_PARTY &&
             missile.combat_slot.iType != W8_TARGET_KIND_CHARACTER) {
-            if (Data().missiles[missile.missile_table_index].spell_missile) {
+            if (data.missiles[missile.missile_table_index].spell_missile) {
                 return false;
             }
             if (missile.combat_slot.iType != W8_TARGET_KIND_NONE) {
                 missile.retargeted = true;
             }
             missile.combat_slot.iType = W8_TARGET_KIND_CHARACTER;
-            missile.combat_slot.iChar =
-                CurrentGame().party.randomSlot(CurrentGame().rng, 1, 1, -1, -1);
+            missile.combat_slot.iChar = party.randomSlot(rng, 1, 1, -1, -1);
             missile.combat_slot.iMonsterID = -1;
-            if (CurrentGame().combat.has_value()) {
+            if (fight != nullptr) {
                 missile.AnnounceCollisionTarget();
             }
         }
@@ -74,7 +66,7 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
         Monster* monster = struck.monster_owner;
         if (!monster) return false;
         int location_id = monster->location_id;
-        W8MonsterInfo* monster_info = FindMonster(location_id);
+        W8MonsterInfo* monster_info = missile.owner_world.population->findMonster(location_id);
         if (TargetSourceIsMonster(&missile.m_Source, 0) &&
             missile.m_Source.iMonsterID == location_id) {
             return false;
@@ -84,7 +76,7 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
         }
         if (missile.combat_slot.iType != W8_TARGET_KIND_MONSTER ||
             missile.combat_slot.iMonsterID != location_id) {
-            if (Data().missiles[missile.missile_table_index].spell_missile) {
+            if (data.missiles[missile.missile_table_index].spell_missile) {
                 return false;
             }
             if (missile.combat_slot.iType != W8_TARGET_KIND_NONE) {
@@ -93,36 +85,36 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
             missile.combat_slot.iType = W8_TARGET_KIND_MONSTER;
             missile.combat_slot.iChar = -1;
             missile.combat_slot.iMonsterID = location_id;
-            if (CurrentGame().combat.has_value()) {
+            if (fight != nullptr) {
                 missile.AnnounceCollisionTarget();
             }
         }
     }
 
     hit_result = W8_MISSILE_HIT;
-    if (!Data().missiles[missile.missile_table_index].spell_missile) {
+    if (!data.missiles[missile.missile_table_index].spell_missile) {
         if (missile.combat_slot.iType == W8_TARGET_KIND_CHARACTER) {
-            deflect_chance = CurrentGame()
-                                 .party.characters[missile.combat_slot.iChar]
-                                 .bonus.missile_deflect_chance;
+            deflect_chance =
+                party.characters[missile.combat_slot.iChar].bonus.missile_deflect_chance;
         } else {
-            W8MonsterInfo* monster_info = FindMonster(missile.combat_slot.iMonsterID);
+            W8MonsterInfo* monster_info =
+                missile.owner_world.population->findMonster(missile.combat_slot.iMonsterID);
             deflect_chance = monster_info->modifiers.missile_deflect_chance;
         }
-        if (deflect_chance > 0 && CurrentGame().rng.below(100) + 1 <= deflect_chance) {
+        if (deflect_chance > 0 && rng.below(100) + 1 <= deflect_chance) {
             hit_result = W8_MISSILE_HIT_DEFLECTED;
         }
     }
 
     missile.deflected = hit_result == W8_MISSILE_HIT_DEFLECTED;
     if (missile.missile_table_index == kStoredSpellMissile) {
-        if (CurrentGame().combat && CurrentGame().combat->engaged_missile == &missile) {
-            CurrentGame().combat->missile_hit_result = hit_result;
+        if (fight && fight->engaged_missile == &missile) {
+            fight->missile_hit_result = hit_result;
         }
-    } else if (CurrentGame().combat.has_value() && CurrentGame().combat->engaged_missile != 0) {
-        CurrentGame().combat->missile_hit_result = hit_result;
-        CurrentGame().combat->TargetHit = missile.combat_slot;
-    } else if (Data().missiles[missile.missile_table_index].spell_missile) {
+    } else if (fight != nullptr && fight->engaged_missile != 0) {
+        fight->missile_hit_result = hit_result;
+        fight->TargetHit = missile.combat_slot;
+    } else if (data.missiles[missile.missile_table_index].spell_missile) {
         ResolveSpellMissileHit(&missile);
     } else {
         ResolveMissileHit(&missile, hit_result == W8_MISSILE_HIT_DEFLECTED);
@@ -132,42 +124,40 @@ bool CombatSignals::missileReached(Missile& missile, Navigator& struck)
 
 /* Cast Rocket Blast where a stored-spell missile landed, on behalf of the character
    that fired it. */
-void DetonateStoredSpell(Missile& missile)
-{
-    W8TargetSource source;
-    W8CombatSlot target;
-
-    assert(missile.m_Source.iType == W8_TARGET_SOURCE_CHARACTER);
-    const glm::vec3 position = missile.nav.GetPosition();
-    ResetTargetSource(&source);
-    source.iChar = missile.m_Source.iChar;
-    source.iType = W8_TARGET_SOURCE_CHARACTER;
-    source.point = position;
-    source.aim_resolved = true;
-    ResetCombatSlot(&target);
-    target.iType = W8_TARGET_KIND_PLACE;
-    target.point = position;
-    CastSpellFromSource(W8_SPELL_ROCKET_BLAST, &source, &target, 1, 0, 0, false, 0,
-                        W8SpellCastKind::Standard, 0, 0);
-}
 
 /* A stored-spell missile releases its spell unless its collision was deflected,
    and a spell missile hands what it did to the spell that cast it. */
-void CombatSignals::missileLanded(Missile& missile)
+void Game::missileLanded(Missile& missile)
 {
     if (missile.missile_table_index == kStoredSpellMissile && !missile.deflected) {
-        DetonateStoredSpell(missile);
+
+        W8TargetSource source;
+        W8CombatSlot target;
+
+        assert(missile.m_Source.iType == W8_TARGET_SOURCE_CHARACTER);
+        const glm::vec3 position = missile.nav.GetPosition();
+        ResetTargetSource(&source);
+        source.iChar = missile.m_Source.iChar;
+        source.iType = W8_TARGET_SOURCE_CHARACTER;
+        source.point = position;
+        source.aim_resolved = true;
+        ResetCombatSlot(&target);
+        target.iType = W8_TARGET_KIND_PLACE;
+        target.point = position;
+        CastSpellFromSource(W8_SPELL_ROCKET_BLAST, &source, &target, 1, 0, 0, false, 0,
+                            W8SpellCastKind::Standard, 0, 0);
     }
-    if (Data().missiles[missile.missile_table_index].spell_missile != 0) {
-        AbsorbMissileDamage(&missile);
+    if (data.missiles[missile.missile_table_index].spell_missile != 0) {
+        missile.owner_world.absorbMissileDamage(missile);
     }
 }
 
 /* Launch the missile at the frame shared by attack cycles 7, 13 and 17. In
    combat an already-selected attack is reused; otherwise the monster picks a
    live character and the first database attack that permits a missile mode. */
-void CombatSignals::missileReleased(Monster& monster)
+void Game::missileReleased(Monster& monster)
 {
+    auto* fight = level.primary.get() == &monster.owner_world && combat ? &*combat : nullptr;
     W8MonsterInfo* monster_info;
     const W8MonsterRecord* record;
     W8TargetSource source;
@@ -181,19 +171,18 @@ void CombatSignals::missileReleased(Monster& monster)
     unsigned char monster_value;
 
     selected_attack = false;
-    monster_info = FindMonster(monster.location_id);
-    record = GetMonsterDataForInfo(monster_info);
+    monster_info = monster.owner_world.population->findMonster(monster.location_id);
+    record = &monster.species();
     SetTargetSourceToMonster(monster_info, &source);
 
-    if (CurrentGame().combat.has_value() &&
-        CurrentGame().combat->resolvingTurnOf(MonsterActor{monster_info->location_id})) {
+    if (fight != nullptr && fight->resolvingTurnOf(MonsterActor{monster_info->location_id})) {
         attack_index = monster_info->pCombat->attack_index;
         selected_attack = true;
         goto prepare_attack;
     }
 
     monster_info->Target.iType = W8_TARGET_KIND_CHARACTER;
-    monster_info->Target.iChar = CurrentGame().party.randomSlot(CurrentGame().rng, 1, 1, -1, -1);
+    monster_info->Target.iChar = party.randomSlot(rng, 1, 1, -1, -1);
     monster_info->Target.iMonsterID = -1;
     if (monster_info->Target.iChar == -1) {
         return;
@@ -202,7 +191,7 @@ void CombatSignals::missileReleased(Monster& monster)
     for (attack_index = 0; attack_index < W8_MAX_MONSTER_ATTACKS; ++attack_index) {
         attack = &record->attacks[attack_index];
         if (attack->fHasAttack != 0 && (attack->attack_modes & 0x110) != 0) {
-            monster_info->action_detail = ChooseAttackMode(attack->attack_modes);
+            monster_info->action.detail = ChooseAttackMode(rng, attack->attack_modes);
             goto prepare_attack;
         }
     }
@@ -217,7 +206,7 @@ prepare_attack:
     assert(attack_index < W8_MAX_MONSTER_ATTACKS);
     attack = &record->attacks[attack_index];
     missile_type = attack->missile_type;
-    if (static_cast<unsigned int>(missile_type) >= Data().missiles.size()) {
+    if (static_cast<unsigned int>(missile_type) >= data.missiles.size()) {
         missile_type = 0;
     }
 
@@ -231,7 +220,7 @@ prepare_attack:
 
     if (selected_attack) {
         accuracy = GetMonsterAttackScore(monster_info, attack,
-                                         static_cast<W8AttackMode>(monster_info->action_detail), 0);
+                                         static_cast<W8AttackMode>(monster_info->action.detail), 0);
     } else {
         accuracy = 50;
     }
@@ -244,22 +233,15 @@ fire_missile:
 
 /* Cast the monster's pending spell action as its casting animation releases it. The
    cast's return is the stamina charge passed directly to FatigueMonster. */
-void CombatSignals::spellReleased(Monster& monster)
+void Game::spellReleased(Monster& monster)
 {
-    W8MonsterInfo* monster_info = FindMonster(monster.location_id);
-    const W8MonsterActionKind action_kind = monster_info->action_kind;
-    const int action_detail = monster_info->action_detail;
+    W8MonsterInfo* monster_info = monster.owner_world.population->findMonster(monster.location_id);
+    const W8MonsterActionKind action_kind = monster_info->action.kind;
+    const int action_detail = monster_info->action.detail;
     const unsigned int power_level = monster_info->spell_power_level;
     if (action_kind == W8_MONSTER_ACTION_SPELL && action_detail != 0 && power_level != 0) {
         const unsigned int fatigue = MonsterCastsSpell(monster_info, action_detail, power_level);
-        FatigueMonster(monster_info, fatigue, 0);
+        fatigueMonster(monster_info, fatigue, 0);
         monster_info->fSpellReleased = true;
     }
-}
-} // namespace
-
-SimulationSink& CombatEntitySignals()
-{
-    static CombatSignals signals;
-    return signals;
 }

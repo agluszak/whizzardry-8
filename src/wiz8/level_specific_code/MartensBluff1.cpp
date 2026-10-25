@@ -17,7 +17,6 @@
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
@@ -34,8 +33,9 @@
 #include "wiz8/render/particle_system.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
-#include "wiz8/string_database.h"
+#include "wiz8/story.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code\MartensBluff1.cpp (level 5, Marten's Bluff).
@@ -118,11 +118,11 @@ void MartensBluff1Script::enter()
     });
     bindTrigger("WireTrigger", &MartensBluff1Script::wireTrigger);
     // "Controller": toggles fact 0x42.
-    bindTrigger("Controller", [](Trigger*) {
-        if (GetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON) == 0) {
-            SetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
+    bindTrigger("Controller", [this](Trigger*) {
+        if (ctx.game.testFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON) == 0) {
+            ctx.game.setFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1);
         } else {
-            SetFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 0, false);
+            ctx.game.setFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 0);
         }
         g_trigger_feedback = true;
         return true;
@@ -134,8 +134,8 @@ void MartensBluff1Script::enter()
     bindTrigger("Gas-Switch", &MartensBluff1Script::gasSwitch);
     bindTrigger("J-Doorcontroller", &MartensBluff1Script::jDoorController);
     // "MartenBook": latches fact 0x268.
-    bindTrigger("MartenBook", [](Trigger*) {
-        SetFact(W8_FACT_QUEST_MARTEN_DIARY, 1, false);
+    bindTrigger("MartenBook", [this](Trigger*) {
+        ctx.game.setFact(W8_FACT_QUEST_MARTEN_DIARY, 1);
         return true;
     });
 }
@@ -158,7 +158,7 @@ void MartensBluff1Script::setup()
         ctx.game.rng.below(8);
         ctx.game.rng.below(8);
         ctx.game.rng.below(8);
-        CreateLocationVar("DialState", 0x470111);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "DialState", 0x470111);
     }
     transporter(kMasterToggle);
     position = world().party.eye();
@@ -168,8 +168,8 @@ void MartensBluff1Script::setup()
         if (glm::length((trigger_position - position)) < 500.0) {
             FindTriggerByName("Lift2Marten2");
             if (GetLocationVarIDByName("LiftArrived") == -1) {
-                CreateLocationVar("LiftArrived", 1);
-                ShowString(Data().strings[0x71b]);
+                CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "LiftArrived", 1);
+                ctx.game.queueWorldMessage(Data().strings[0x71b]);
             }
         }
     }
@@ -323,27 +323,27 @@ bool MartensBluff1Script::jDoorController(Trigger* pTrigger)
    script. Answers false only when the fact was already set. */
 bool MartensBluff1Script::transportSpawn()
 {
-    glm::vec3 position_a;
-    glm::vec3 position_b;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
     int location_id;
 
-    if (GetFact(W8_FACT_TRANG_TELEPORTER_TOAST)) {
+    if (ctx.game.testFact(W8_FACT_TRANG_TELEPORTER_TOAST)) {
         return false;
     }
     if (ctx.combat.has_value()) {
         return true;
     }
-    if (!FindEntityByName("ANTRHACAX1", &position_a, 0, 0)) {
+    auto position_a = world().namedPosition("ANTRHACAX1");
+    if (!position_a) {
         return true;
     }
-    if (!FindEntityByName("ANTRHACAX2", &position_b, 0, 0)) {
+    auto position_b = world().namedPosition("ANTRHACAX2");
+    if (!position_b) {
         return true;
     }
-    CreateAndPlaySoundNode(world(), "Data\\Sound\\Ambients\\TrangTransporter.wav", position_a, 0.7f,
-                           30.0f, false);
-    group = SpawnMonsters(0x177, 1, &position_a, 0, true, false);
+    CreateAndPlaySoundNode(world(), "Data\\Sound\\Ambients\\TrangTransporter.wav", *position_a,
+                           0.7f, 30.0f, false);
+    group = SpawnMonsters(0x177, 1, &*position_a, 0, true, false);
     location_id = group->MemberLocationId(0);
     if (location_id != 0) {
         info = FindMonster(location_id);
@@ -370,13 +370,13 @@ bool MartensBluff1Script::transporter(int command)
     if (command != 0) {
 
         if (command == kMasterToggle) {
-            if (GetFact(W8_FACT_TRANG_TELEPORTER_TOAST)) {
+            if (ctx.game.testFact(W8_FACT_TRANG_TELEPORTER_TOAST)) {
                 return false;
             }
             if (transport_gate_) {
                 transport_gate_->Arm();
             } else {
-                transport_gate_.emplace(60.0f, TimerClock::World, true);
+                transport_gate_.emplace(world().clocks, 60.0f, TimerClock::World, true);
             }
             if (GetLocationVarIDByName("TransportSpawn") != -1) {
                 transport_gate_->SetProgress(GetLocationVarValueByName("TransportSpawn") *
@@ -408,7 +408,7 @@ bool MartensBluff1Script::teleporter(Trigger* pTrigger)
     MartensBluff1TeleporterPad state;
 
     if (GetLocationVarIDByName("TeleporterState") == -1) {
-        CreateLocationVar("TeleporterState", 0);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "TeleporterState", 0);
         state = MartensBluff1TeleporterPad::none;
     } else {
         state =
@@ -457,7 +457,7 @@ bool MartensBluff1Script::teleportState(MartensBluff1TeleporterPad new_state)
 
     FindRequiredTriggerByName("MR109");
     if (GetLocationVarIDByName("TeleporterState") == -1) {
-        CreateLocationVar("TeleporterState", 0);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "TeleporterState", 0);
         return false;
     }
     state = static_cast<MartensBluff1TeleporterPad>(GetLocationVarValueByName("TeleporterState"));
@@ -502,7 +502,9 @@ bool MartensBluff1Script::wireTrigger(Trigger* pTrigger)
     g_trigger_feedback = true;
     pTelTrigger = FindRequiredTriggerByName("MR109");
     if (GetLocationVarIDByName("TeleporterState") == -1) {
-        CreateLocationVar("TeleporterState", static_cast<int>(MartensBluff1TeleporterPad::gigas));
+        CurrentGame().story.ensureLocationVariable(
+            GetLoadedLevelID(), "TeleporterState",
+            static_cast<int>(MartensBluff1TeleporterPad::gigas));
     } else {
         if (GetLocationVarValueByName("TeleporterState") !=
             static_cast<int>(MartensBluff1TeleporterPad::none)) {

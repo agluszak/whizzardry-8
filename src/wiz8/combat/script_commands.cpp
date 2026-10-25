@@ -3,6 +3,7 @@
 #include "wiz8/combat/hostility.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/game.h"
+#include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
@@ -22,16 +23,16 @@ void Game::setMonsterGroupDisposition(int location_id, W8Disposition disposition
     W8MonsterInfo* monster_info = FindMonster(location_id);
     if (!monster_info) return;
     if (W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id, false))
-        SetMonsterGroupHostility(group, disposition, false);
+        setGroupHostility(group, disposition, false);
 }
 
 void Game::startGolemAttack()
 {
     ClearMainGameTargetState();
-    if (W8MonsterGroup* group = FindFirstMonsterByID(kFirstGolem))
-        SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
-    if (W8MonsterGroup* group = FindFirstMonsterByID(kSecondGolem)) {
-        SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+    if (W8MonsterGroup* group = CurrentLevelPopulation().findSpeciesGroup(kFirstGolem))
+        setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+    if (W8MonsterGroup* group = CurrentLevelPopulation().findSpeciesGroup(kSecondGolem)) {
+        setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         MonsterGroupEnterCombat(group);
     }
 }

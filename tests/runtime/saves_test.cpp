@@ -14,6 +14,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <SDL3/SDL_keycode.h>
@@ -25,17 +26,22 @@
 #include "wiz8/asset_paths.h"
 #include "wiz8/chunk.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/LoadSaveGame.h"
+#include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/local_screens/OptionsScreen.h"
 #include "wiz8/mgs_commands.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/world.h"
 
 namespace {
 
@@ -65,6 +71,20 @@ void QuickSaveScenario()
     const unsigned experience = CurrentGame().party.characters[PremadeSlot()].experience;
     const auto health = CurrentGame().party.characters[PremadeSlot()].hp_current;
     REQUIRE(health > 1);
+    // A sustained cast survives fight exit and save/load, but belongs to this level.
+    // Keep its anchor away from the scenario's actors, so this tests persistence only.
+    const glm::vec3 lure_anchor{1000000, -1000, 1000000};
+    auto lure = std::make_unique<W8SpellEffectEntry>();
+    lure->kind = W8_SPELL_HYPNOTIC_LURE;
+    lure->turns_remaining = 100;
+    lure->targets_resolved = true;
+    lure->Source = {.iType = W8_TARGET_SOURCE_CHARACTER, .iChar = PremadeSlot()};
+    lure->OrigSource = lure->Source;
+    lure->target.iType = W8_TARGET_KIND_PLACE;
+    lure->target.point = lure_anchor;
+    lure->OrigTarget = lure->target;
+    lure->definition.duration_scale = 1;
+    CurrentGame().level.loaded().spell_effects.push_back(std::move(lure));
     const fs::path save = QuickSave(game);
     WriteSaveFixture(RuntimeOutput("WIZ8_RUNTIME_SAVE_FIXTURE"), save, anchor);
     Walk(game, "walk-away", 4.0f);
@@ -110,11 +130,16 @@ void QuickSaveScenario()
 
     QuickLoad(game);
     ExpectAt("quick-load", anchor);
-    REQUIRE(CountActiveCharacters() == 1);
+    REQUIRE(CurrentGame().party.participantCount() == 1);
     REQUIRE(GetLoadedLevelID() == level);
     REQUIRE(CurrentGame().party.characters[PremadeSlot()].experience == experience);
     REQUIRE(CurrentGame().party.characters[PremadeSlot()].hp_current == health);
     REQUIRE(!CurrentGame().combat.has_value());
+    const auto* restored_lure = CurrentGame().level.loaded().monsterControlEffect();
+    REQUIRE(restored_lure);
+    REQUIRE(restored_lure->target.point == lure_anchor);
+    REQUIRE(restored_lure->turns_remaining > 0);
+    REQUIRE_FALSE(restored_lure->spell_visuals.empty());
     std::printf("quick-save: %s round-tripped after %lu frames\n", save.filename().string().c_str(),
                 game.frames());
 }
@@ -135,7 +160,7 @@ void LoadGameScenario(const fs::path& fixture)
     REQUIRE(fs::is_regular_file(fixture / "fixture.SAV"));
     LoadFromMenu(game, fixture / "fixture.SAV");
     ExpectAt("loaded", anchor);
-    REQUIRE(CountActiveCharacters() == 1);
+    REQUIRE(CurrentGame().party.participantCount() == 1);
     REQUIRE(GetLoadedLevelID() == level);
     REQUIRE(CurrentGame().party.characters[PremadeSlot()].experience == experience);
     REQUIRE(CurrentGame().party.characters[PremadeSlot()].hp_current == health);
@@ -244,20 +269,20 @@ void ImportScenario(const char* file, const std::vector<ImportedMember>* party,
         return CurrentScreenState().id == W8_SCREEN_PARTY_SELECTION && game.settled() &&
                UiTargetAt(kImportButton) != nullptr;
     });
-    REQUIRE(CountActiveCharacters() == 0);
+    REQUIRE(CurrentGame().party.participantCount() == 0);
     game.click("import", kImportButton);
     if (!party) {
         REQUIRE(game.within_frames(2, [] { return UiModalActive(); }));
         game.frame();
         Snapshot(file, game.read_frame());
-        REQUIRE(CountActiveCharacters() == 0);
+        REQUIRE(CurrentGame().party.participantCount() == 0);
         game.key(SDLK_RETURN);
         REQUIRE(game.within_frames(2, [] { return !UiModalActive(); }));
         REQUIRE(CurrentScreenState().id == W8_SCREEN_PARTY_SELECTION);
-        REQUIRE(CountActiveCharacters() == 0);
+        REQUIRE(CurrentGame().party.participantCount() == 0);
         return;
     }
-    REQUIRE(game.within_frames(2, [] { return CountActiveCharacters() == 6; }));
+    REQUIRE(game.within_frames(2, [] { return CurrentGame().party.participantCount() == 6; }));
     REQUIRE_FALSE(UiModalActive());
     REQUIRE(ImportedParty() == *party);
     REQUIRE(CurrentGame().story.imported_origin);

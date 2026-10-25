@@ -8,6 +8,7 @@
 #include <fmt/format.h>
 
 #include "glm/ext/vector_float3.hpp"
+#include "wiz8/character_event_queue.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/locks.h"
 #include "wiz8/entities/prop.h"
@@ -20,11 +21,11 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
-#include "wiz8/string_database.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
 
@@ -81,11 +82,11 @@ void CompleteTrapDisarm(Trigger* trigger)
     trigger->CompleteItemInteraction();
     type = trigger->lock_state.device_id;
     if (CurrentGame().rng.below(100) < 40) {
-        ApplyItemEffectToRandomCharacter(g_learn_sound, -1, 0);
+        CurrentGame().speech.QueueRandom(g_learn_sound, -1, 0);
     }
     text =
         fmt::format("{} {}", Data().strings[g_trap_name_string_ids[type]], Data().strings[0x7b2]);
-    ShowString(text);
+    CurrentGame().queueWorldMessage(text);
     trigger->Run(-1);
 }
 
@@ -113,7 +114,7 @@ static void DischargeTrapSpell(glm::vec3 point, int spell_id, unsigned int power
         target.point = GetWorld()->party.position();
         eligible = 0;
         for (index = 0; index < W8_PARTY_SLOT_COUNT; ++index) {
-            if (CanPartySlotParticipate(index)) {
+            if (CurrentGame().party.participates(index)) {
                 targets.push_back(index);
                 ++eligible;
             }
@@ -153,7 +154,7 @@ void ResolveSprungTrap(Trigger* trigger)
         result = Data().strings[0x7b4];
     }
     text = fmt::format("{} {}", Data().strings[g_trap_name_string_ids[type]], result);
-    ShowString(text);
+    CurrentGame().queueWorldMessage(text);
     count = devices - static_cast<int>(CurrentGame().rng.below(devices / 2));
     power = 4;
     if (devices > g_trap_difficulty[type]) {

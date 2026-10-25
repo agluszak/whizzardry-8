@@ -18,6 +18,7 @@ class File;
 // A cursor node owns its saved scratch bytes and its labelled cube.
 struct W8WorldCursorNode {
     ~W8WorldCursorNode();
+    bool contains(const glm::vec3& point) const;
 
     std::unique_ptr<MeshInstance> node;
     unsigned int value_08 = 0;

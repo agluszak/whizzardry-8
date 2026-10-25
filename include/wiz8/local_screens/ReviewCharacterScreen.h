@@ -1,5 +1,7 @@
 #pragma once
 
+struct PartyQuoteInput;
+
 #include <array>
 #include <bitset>
 #include <cstddef>
@@ -460,6 +462,7 @@ public:
     void GiveHeldItemToPortrait(int slot);
 
     Game& game;
+    std::shared_ptr<PartyQuoteInput> party_quotes;
     W8Character* reviewed = nullptr;
     W8CampPage page = W8_CAMP_PAGE_ITEMS;
 

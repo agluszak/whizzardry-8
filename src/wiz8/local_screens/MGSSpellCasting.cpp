@@ -59,7 +59,9 @@
 #include "wiz8/platform/timer.h"
 #include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
@@ -277,7 +279,7 @@ void W8SpellCastingView::SelectCharacter(int party_slot)
     W8SpellRealm realm;
 
     if (!IsPartySlotEligible(party_slot) ||
-        !CharacterHasCastableSpell(&screen.game.party.characters[party_slot])) {
+        !CharacterHasCastableSpell(CurrentGame().data, &screen.game.party.characters[party_slot])) {
         ResetEditorStatusLine(-1);
         screen.closeSpellPicker();
         return;
@@ -521,7 +523,7 @@ void MainGameScreen::beginSpellCast(int spell_id, std::move_only_function<void()
 {
     const int slot = game.status.selected_character;
     if (!openSpellPicker(slot, std::move(on_return))) return;
-    if (CanCharacterCastSpell(&game.party.characters[slot], spell_id)) {
+    if (CanCharacterCastSpell(CurrentGame().data, &game.party.characters[slot], spell_id)) {
         spell_picker->SelectSpell(spell_id);
     }
 }
@@ -850,7 +852,7 @@ void W8SpellCastingView::SelectListRow(int index)
         return;
     }
     draft.detail = spell_id;
-    needed = GetTargetNeededForSpellFriendly(spell_id, false, false);
+    needed = SpellTargetNeed(CurrentGame().data, spell_id, false, false);
     target_type = GetSpellTargetType(spell_id, false);
     ConfigureSpellTargetFilter(target_type, needed, &draft);
     SelectPowerLevel(-1);

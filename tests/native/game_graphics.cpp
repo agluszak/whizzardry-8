@@ -9,6 +9,7 @@
 #include <wiz8/filesystem.h>
 
 #include "surface_pixels.h"
+#include "wiz8/game.h"
 /* Real SLF/STI -> immutable sprites and SDL surfaces -> UiCanvasTexture -> VSG.
    Also checks a movie-owned surface and restoration of the game primary. */
 
@@ -35,6 +36,7 @@
 #include "wiz8/render/image_io.h"
 #include "wiz8/render/renderer.h"
 #include "wiz8/surface_storage.h"
+#include "wiz8/world_view.h"
 
 class WorldScene;
 
@@ -162,7 +164,7 @@ TEST_CASE("game graphics")
         REQUIRE(movie.play(movie_path, *target));
         REQUIRE(!movie.advance());
         // The actual presentation surface reaches GPU output; the game primary stays intact.
-        RenderFrame();
+        PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
         buffer = g_renderer->captureLastFrame();
         REQUIRE(buffer);
         unsigned movie_matches = 0;

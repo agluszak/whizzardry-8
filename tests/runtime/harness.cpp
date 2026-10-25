@@ -66,6 +66,7 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/renderer.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/runtime_test_hooks.h"
 #include "wiz8/screen.h"
@@ -223,7 +224,7 @@ GameHarness::GameHarness(bool play_movies, bool native_object)
     SDL_Event focus{};
     focus.type = SDL_EVENT_WINDOW_FOCUS_GAINED;
     focus.window.windowID = SDL_GetWindowID(window_);
-    HandleGameEvent(focus);
+    DispatchGameEvent(focus);
     g_live_game = this;
 }
 
@@ -265,7 +266,7 @@ void GameHarness::frame()
     // game, but host input and focus changes never steer or suspend a run.
     SDL_Event event{};
     while (SDL_PollEvent(&event))
-        if (!IsHostInput(event)) HandleGameEvent(event);
+        if (!IsHostInput(event)) DispatchGameEvent(event);
     if (!gfProgramIsRunning) throw GameExited();
     GameLoop();
     // Run the real mixer on the same 60 Hz clock as movement and animation.
@@ -304,7 +305,7 @@ void GameHarness::move_pointer(int x, int y)
     motion.motion.windowID = SDL_GetWindowID(window_);
     motion.motion.x = (x + 0.5f) * width / 640;
     motion.motion.y = (y + 0.5f) * height / 480;
-    HandleGameEvent(motion);
+    DispatchGameEvent(motion);
     frame();
 }
 
@@ -327,7 +328,7 @@ void GameHarness::send_key(SDL_Scancode scancode, SDL_Keycode code, bool down, S
     event.key.key = code;
     event.key.mod = mod;
     event.key.down = down;
-    HandleGameEvent(event);
+    DispatchGameEvent(event);
 }
 
 void GameHarness::key(SDL_Keycode code)
@@ -339,7 +340,7 @@ void GameHarness::key(SDL_Keycode code)
         committed.type = SDL_EVENT_TEXT_INPUT;
         committed.text.windowID = SDL_GetWindowID(window_);
         committed.text.text = text;
-        HandleGameEvent(committed);
+        DispatchGameEvent(committed);
     }
     frame();
     hold_key(code, false);
@@ -354,7 +355,7 @@ void GameHarness::enter_text(std::string_view text)
     event.type = SDL_EVENT_TEXT_INPUT;
     event.text.windowID = SDL_GetWindowID(window_);
     event.text.text = committed.c_str();
-    HandleGameEvent(event);
+    DispatchGameEvent(event);
     frame();
 }
 
@@ -625,7 +626,7 @@ void GameHarness::mouse_button(int x, int y, bool down, Uint8 which)
     motion.motion.windowID = SDL_GetWindowID(window_);
     motion.motion.x = wx;
     motion.motion.y = wy;
-    HandleGameEvent(motion);
+    DispatchGameEvent(motion);
     SDL_Event button{};
     button.type = down ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
     button.button.windowID = motion.motion.windowID;
@@ -634,7 +635,7 @@ void GameHarness::mouse_button(int x, int y, bool down, Uint8 which)
     button.button.clicks = 1;
     button.button.x = wx;
     button.button.y = wy;
-    HandleGameEvent(button);
+    DispatchGameEvent(button);
 }
 
 const char* ScreenName(int id)
@@ -830,7 +831,7 @@ glm::vec3 Walk(GameHarness& game, const char* step, float distance)
 
 int PremadeSlot()
 {
-    REQUIRE(CountActiveCharacters() == 1);
+    REQUIRE(CurrentGame().party.participantCount() == 1);
     for (int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot)
         if (CurrentGame().party.members[slot].has_value()) {
             REQUIRE(CurrentGame().party.characters[slot].fInParty);
@@ -852,7 +853,7 @@ void StartPremadeGame(GameHarness& game)
              character.gender == W8_GENDER_MALE));
     REQUIRE((character.hp_current == 18 && character.experience == 0));
     REQUIRE(AddCharacterToParty(character, -1) >= 0);
-    REQUIRE(CountActiveCharacters() == 1);
+    REQUIRE(CurrentGame().party.participantCount() == 1);
     RunNewGameOpeningSequence(false, {});
     WaitMainGame(game, "premade-main-game");
 }
@@ -938,7 +939,7 @@ W8MonsterInfo* EnterCombat(GameHarness& game)
     REQUIRE(CurrentGame().combat);
     W8MonsterInfo* monster = nullptr;
     for (const auto& candidate : CurrentLevelPopulation().monster_roster.live()) {
-        if (candidate->fActive && candidate->entity.find() && candidate->hp_current &&
+        if (candidate->fActive && candidate->entity.get() && candidate->hp_current &&
             candidate->ubDisposition == W8_DISPOSITION_HOSTILE) {
             monster = candidate.get();
             break;
@@ -987,4 +988,15 @@ void CheckGameErrors()
 {
     for (const auto& message : g_logged_errors) UNSCOPED_INFO(message);
     REQUIRE(g_logged_errors.empty());
+}
+
+void DispatchGameEvent(const SDL_Event& event)
+{
+    HandleGameEvent(event, [](bool focused) {
+        if (!GameInProgress()) return;
+        if (focused)
+            CurrentGame().resumeVisibleMotion();
+        else
+            CurrentGame().setMotionPaused(true);
+    });
 }

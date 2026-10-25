@@ -1,5 +1,6 @@
 #ifndef WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
 #define WIZ8_LOCAL_CODE_MONSTER_MANAGER_H
+class Rng;
 
 #include <cstdint>
 #include <memory>
@@ -10,7 +11,7 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/data/records.h"
 #include "wiz8/difficulty.h"
-#include "wiz8/entity_link.h"
+#include "wiz8/entities/monster.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/targeting.h"
 
@@ -21,10 +22,11 @@ struct W8MonsterGroup;
 struct W8MonsterInfo;
 struct World;
 struct W8MonsterRecord;
+struct GameData;
+struct W8NpcState;
 
 #include <string_view>
 #include <unordered_map>
-#include <vector>
 
 #include "wiz8/audio/mouth_gap.h"
 #include "wiz8/character_skills.h"
@@ -123,30 +125,10 @@ const W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
    its current attack cycle made to it. */
 W8RangeCategory MonsterAttackRange(const W8MonsterInfo& monster_info, const W8MonsterRecord& record,
                                    unsigned int attack);
-/* Combat started: for two minutes a new fight at the same difficulty skips
-   the combat-start character reaction. */
-void RecordCombatStart(void);
-/* Forget the recent combat, so the next fight reacts again. */
-void ForgetRecentCombat(void);
-W8Difficulty LastCombatDifficulty(void);
-W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* record,
-                                 glm::vec3* position);
-
-/* One queued monster action, 0x30 bytes: the kind/detail pair, the attack
-   index the plain attack alone carries, an inline combat slot whose type and
-   id words QueueMonsterAction fills by target kind, and a random 1..100
-   tie-break so equal decisions do not always resolve the same way. */
-struct W8MonsterAction {
-    W8MonsterActionKind action_kind;
-    int action_detail;
-    int attack_index;
-    W8CombatSlot target;
-    unsigned char tie_break;
-};
 
 enum { W8_MONSTER_ATTR_COUNT = 5 };
 
-/* Monster attribute indices into W8MonsterInfo::attributes. ConvertMonsterAttributes
+/* Monster attribute indices into W8MonsterInfo::attributes. Derived-stat rebuilding
    builds the five slots from character-domain attributes, skipping Piety (2) and
    Vitality (3): slot 0 is Strength, 1 Intelligence, 2 Dexterity, 3 Speed, 4 Senses. */
 enum {
@@ -157,8 +139,7 @@ enum {
     W8_MONSTER_ATTRIBUTE_SENSES = 4
 };
 
-/* Runtime combat state, with its pending actions owned as a value.
-   The serialized monster record is handled by the separate save codec. */
+/* Engagement and current-action state. Candidate actions exist only during selection. */
 
 struct W8MonsterCombatState {
     /* The phase of the round this monster next acts on, zero when it
@@ -187,8 +168,6 @@ struct W8MonsterCombatState {
        indiscriminately (friends included); Combat Range counts allies as
        hostile while set. */
     bool berserk;
-    /* Candidate actions for the next AI decision. */
-    std::vector<W8MonsterAction> actions;
     int character_hate[9];
     W8EffectSlot combat_effects[9];   /* 0x03e .. 0x0d7 */
     W8EffectSlot combat_effects_2[6]; /* 0x0d7 .. 0x13d */
@@ -284,12 +263,26 @@ using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
 
 /* A live monster. Saves store it as wiz8::retail::MonsterInfo. */
 struct W8MonsterInfo {
+    W8NpcState* boundNpc(bool allow_unavailable = false) const;
+    const std::shared_ptr<W8NpcState>& npcIdentity() const { return npc_binding_; }
+    void initializeVitals(const W8MonsterRecord& record, Rng& rng);
+    void configureBody(Rng& rng, bool level_visited);
+    void restoreSpellIcons();
+    void inheritLeaderState(const W8MonsterInfo& outgoing);
+    bool reaches(const W8MonsterInfo& target, const GameData& data, unsigned int attack,
+                 MonsterAction action) const;
+    void setMotionless(bool motionless);
+    void refreshConditionState();
+    void startCycle(int cycle, W8AnimationBehaviour behavior);
+    void clearEffect(W8EffectSlot& effect, const W8MonsterRecord& record);
+    void endEngagement(const GameData& data);
     int location_id;
     int monster_group_id;
     unsigned int monster_species;
-    // The monster's scene entity while the record is active.
-    EntityLink<Monster> entity;
-    /* Combat state exists only during the fight, and owns its action queue. */
+    // The optional loaded runtime, including navigation, scripts and presentation.
+    // A loaded body can be inactive or dying; presence is not activation.
+    std::unique_ptr<Monster> entity;
+    /* Engagement state can exist before the party enters combat. */
     std::unique_ptr<W8MonsterCombatState> pCombat;
     bool fActive;
     /* Copied from the group's ubDisposition when the entry is created. */
@@ -366,14 +359,9 @@ struct W8MonsterInfo {
     bool fSpellReleased;
     /* The action the monster is taking, -1 through 9. Its whole domain
        is enumerated by MonsterActionFatigueCost, whose error text names it. */
-    W8MonsterActionKind action_kind;
-    /* Qualifies action kind zero; three costs markedly more. */
-    int action_detail;
+    MonsterAction action;
     unsigned int spell_power_level;
     unsigned char unknown_2ed[4];
-    /* This script part's bound NPC slot in the story's NPC states, released when
-       the entry is destroyed. */
-    int bound_npc_index;
     /* Remaining noise-hearing margin, refreshed by nearby sounds and
        cleared when pathing cooldown expires. */
     int heard_noise_margin;
@@ -400,15 +388,14 @@ struct W8MonsterInfo {
     unsigned char unknown_37b;
     bool has_spell_origin;
     unsigned char unknown_37d[0xa8];
+
+private:
+    friend class Game;
+    friend class LevelState;
+    std::shared_ptr<W8NpcState> npc_binding_;
 };
 
-void PrepareMonsterInWorld(World& world, W8MonsterInfo& info, bool unborn);
-void ActivateMonsterInWorld(W8MonsterInfo* monster_info);
-std::unique_ptr<Monster> ReadMonsterRepresentation(World& world, W8MonsterInfo* monster_info);
-void ConfigureMonsterRepresentation(World& world, W8MonsterInfo* monster_info);
-void ActivateMonster(W8MonsterInfo* monster_info);
 void ClearMonsterPathAndResume(W8MonsterInfo* monster_info);
-void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message);
 const W8MonsterRecord* GetMonsterDataForInfo(W8MonsterInfo* monster_info);
 
 W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure = true);
@@ -417,17 +404,10 @@ Monster* GetMonsterByLocationID(int location_id);
 float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info);
 void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info);
 
-int GetMonsterQuadrant(W8MonsterInfo* monster_info);
 void ProcessMonstersAtCombatEnd(bool forced_cleanup);
-void ConvertMonsterAttributes(W8MonsterInfo* monster_info);
 W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species);
-void ResetLivingMonstersAfterCombat(void);
 void DestroyUngroupedMonsters(void);
 void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState control_state);
-void MonsterInfoSetMotionless(W8MonsterInfo* monster_info, bool motionless);
-void MoveMonsterToLiveList(W8MonsterInfo* monster_info);
-void InitializeMonsterRuntimeStats(void);
-float CalculateMonsterScale(W8MonsterInfo* monster_info);
 void ProcessMonsterManagerFrame(void);
 std::string FormatMonsterHealth(W8MonsterInfo* monster_info);
 unsigned int GetMonsterExperience(const W8MonsterRecord* record);
@@ -437,19 +417,11 @@ float GetAveragePartyMemberLevel(void);
    `party_slot` receives the best member's slot. */
 unsigned int GetBestPartySkillLevel(W8Skill skill_index, int* party_slot);
 
-void StartMonsterCycle(W8MonsterInfo* monster_info, int cycle, W8AnimationBehaviour behavior);
-void MonsterInfoLeaveCombat(W8MonsterInfo* monster_info);
-void ShutdownMonsterManager(void);
-
-std::string GetMonsterName(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                           unsigned char name_form);
 /* Report the monster's line, "Name text" in the monster colour; text that opens with a
    quote or a colon follows the name directly. */
 void PostMonsterNotice(W8MonsterInfo* monster_info, std::string_view text);
 enum class W8MonsterRemoval : unsigned char { Deactivate, Despawn, Unload };
-bool RemoveMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal);
 void MonsterInfoEnterCombat(W8MonsterInfo* monster_info);
-void DeactivateMonster(W8MonsterInfo* monster_info);
 void ToggleCombatMode(void);
 void TogglePartyCombatStance(void);
 void DetectMonsterGroups(void);
@@ -457,7 +429,6 @@ void EvaluateCombatDifficulty(void);
 /* The kill bookkeeping a monster's death runs: credit the killer, post the
    "%s %s!" notice, clear conditions the dead monster sourced, apply the
    faction fallout, and bank the kill count and experience when it fought. */
-void RecordMonsterKill(W8MonsterInfo* monster_info, bool announce);
 /* Record a kill fact for a monster record and the killer party slot. */
 void MonsterKilled(const ScriptContext& context, int record_id, int killer_party_slot);
 

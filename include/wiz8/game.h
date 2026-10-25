@@ -1,5 +1,4 @@
 #pragma once
-
 #include <array>
 #include <chrono>
 #include <cstdint>
@@ -7,13 +6,18 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include <glm/ext/vector_float3.hpp>
 
 #include "wiz8/character_event_queue.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/data/fact_ids.h"
+#include "wiz8/data/npc_ids.h"
 #include "wiz8/data/spell_ids.h"
+#include "wiz8/difficulty.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_state.h"
@@ -26,23 +30,32 @@
 #include "wiz8/local_code/npc_story_events.h"
 #include "wiz8/message_log.h"
 #include "wiz8/npc_interaction_state.h"
+#include "wiz8/platform/GameTimeAccumulator.h"
+#include "wiz8/platform/game_timer.h"
+#include "wiz8/render/camera_shake.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/inventory.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_formation.h"
 #include "wiz8/rules/random.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/story.h"
+#include "wiz8/world/simulation_sink.h"
 
 class NativeObject;
 struct GameData;
+struct SavedGame;
 struct World;
+struct W8WorldItem;
+struct W8MonsterInfo;
 
 /* The worlds the party is in: the loaded level and the sky drawn behind it. Each slot
    owns its world; queries borrow it. The level's entities report to combat. Replacing a slot hands back the previous owner,
    so a world is never reachable from its slot while it is destroyed. */
 struct Level {
-    Level();
+    explicit Level(SimulationSink& simulation);
     ~Level();
     Level(const Level&) = delete;
     Level& operator=(const Level&) = delete;
@@ -54,17 +67,106 @@ struct Level {
 
     std::unique_ptr<World> primary;
     std::unique_ptr<World> sky;
+
+private:
+    SimulationSink& simulation_;
 };
 
 /* One play-through, from choosing a new game or loading one until the player quits to
    the menu. Starting or loading a game replaces the whole object, so nothing is reset
    field by field. Its members keep their retail-era types for now; it moves into the
    `game` layer as they move into the lower layers (ROADMAP.md, "Migration"). */
-class Game {
+struct W8SpellEffectResult;
+enum class W8MarkedNpcEventMode : unsigned char;
+
+enum class ActionOrigin { Automatic, Player };
+
+enum class DamageNotice { None, Standard, AmountOnly, Detailed };
+struct DamageOptions {
+    // Poison-style damage uses its own wording and does not wake sleeping members.
+    bool poison = false;
+    DamageNotice notice = DamageNotice::Standard;
+};
+
+struct TargetChoice {
+    W8CombatSlot target;
+    std::optional<W8WeaponSwap> equipment;
+};
+
+class Game : public SimulationSink {
 public:
     // The game reads `data`, which its session's owner keeps alive longer than the game.
     explicit Game(const GameData& data) : data(data) {}
-    ~Game();
+    ~Game() override;
+    // Script fact tests can consume a one-shot latch; this is not a pure state query.
+    unsigned char testFact(W8FactId fact);
+    void setFact(W8FactId fact, unsigned char value, bool notify = true);
+    void setFact(W8FactId fact_id, unsigned char value, bool notify, std::vector<Event>& outcomes);
+    void seedNewGameFacts();
+    void reactToItem(W8ItemInstance& item, W8Character* receiver = nullptr);
+    void reactToItem(W8ItemInstance& item, W8Character* receiver, std::vector<Event>& outcomes);
+    void acquireItemFacts(const W8ItemInstance& item);
+    void acquireItemFacts(const W8ItemInstance& item, std::vector<Event>& outcomes);
+    bool hasLeadingNpc(W8NpcId kind) const;
+    // Settle the pending formation and publish its accepted or refused moves.
+    void commitFormation();
+    void awardExperience(int amount, bool alternate_message);
+    void refreshPartyEffects();
+    void resetPartyEffect(W8EffectSlot& effect);
+    void setMotionPaused(bool paused);
+    void resumeVisibleMotion();
+    bool cameraSwayActive() const;
+    float calendarRate() const { return accelerated_calendar ? 2880.0f : 12.0f; }
+    void reconcileCombatHands(unsigned int party_slot, std::vector<Event>& outcomes);
+    unsigned int damageCharacter(unsigned int slot, unsigned int amount, DamageOptions options = {},
+                                 W8SpellEffectResult* report = nullptr);
+    unsigned int damageCharacter(unsigned int party_slot, unsigned int amount,
+                                 DamageOptions options, W8SpellEffectResult* result_stats,
+                                 std::vector<Event>& outcomes);
+    void fatigueCharacter(unsigned int slot, int amount, bool scale_by_load,
+                          W8SpellEffectResult* report = nullptr);
+    void fatigueCharacter(unsigned int slot, int amount, bool scale_by_load,
+                          W8SpellEffectResult* report, std::vector<Event>& outcomes);
+    void aimStoredAction(unsigned int slot, W8TargetingContext stored, const W8CombatSlot& target);
+    void aimStoredAction(unsigned int slot, W8TargetingContext stored, const W8CombatSlot& target,
+                         std::vector<Event>& outcomes);
+    W8RangeCategory actionRange(unsigned int slot, unsigned int hand, const W8Action& action,
+                                std::optional<W8RangeCategory> attack_range = {}) const;
+    W8TargetAssessment assessActionReach(unsigned int slot, unsigned int hand,
+                                         const W8Action& action,
+                                         std::optional<W8RangeCategory> attack_range = {},
+                                         bool sighting = false) const;
+    W8TargetNeed targetNeed(const W8Action& action, bool needs_item_target = true) const;
+    bool targetInPlay(unsigned int slot, unsigned int hand, const W8Action& action) const;
+    std::optional<TargetChoice> chooseTarget(unsigned int slot, const W8Action& action,
+                                             bool allow_weapon_swap = true) const;
+    std::optional<TargetChoice> chooseFallbackTarget(unsigned int slot,
+                                                     const W8Action& action) const;
+    bool repickActionTarget(unsigned int slot, W8TargetingContext stored, bool breathe = false);
+    bool repickActionTarget(unsigned int slot, W8TargetingContext stored, bool breathe,
+                            std::vector<Event>& outcomes);
+    void commitWeaponChoice(unsigned int slot, W8WeaponSwap equipment);
+    void commitWeaponChoice(unsigned int slot, W8WeaponSwap equipment,
+                            std::vector<Event>& outcomes);
+    bool canPerformAction(unsigned int slot, const W8Action& action,
+                          bool allow_missing_target) const;
+    bool canReactWith(unsigned int slot, W8ActionKind action) const;
+    bool reactDefensively(unsigned int slot, W8ActionKind action);
+    void pointCameraAtMonster(const W8MonsterInfo& monster, bool force, bool animate);
+    void pointCameraAtPosition(const glm::vec3& position, bool force, bool animate);
+    void pointCameraAtCombatTarget(const W8TargetSource* source, const W8CombatSlot* target);
+    void setCombatAction(unsigned int slot, W8Action action,
+                         ActionOrigin origin = ActionOrigin::Automatic, bool cue_ready = false);
+    void setCombatAction(unsigned int slot, W8Action next, ActionOrigin origin, bool cue_ready,
+                         std::vector<Event>& outcomes);
+    void resetCombatChoice(unsigned int slot);
+    void resetCombatChoice(unsigned int slot, std::vector<Event>& outcomes);
+    bool targetPresent(const W8CombatSlot& target) const;
+    bool targetMatches(const W8CombatSlot& target, W8TargetNeed needed) const;
+    bool actionTargetsEnemies(unsigned int slot, const W8Action& action) const;
+    void invalidateAimsAt(const W8CombatSlot& target, TargetChange change);
+    void invalidateAimsAt(const W8CombatSlot& target, TargetChange change,
+                          std::vector<Event>& outcomes);
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
 
@@ -83,6 +185,22 @@ public:
         bool speech = false;
     };
     void advance(std::chrono::milliseconds elapsed, StepHold hold);
+    /* Replace the loaded level with `level_id` entered at `entrance`. The destination
+       is prepared before departure; failure leaves the current world loaded. Reloading
+       the current level through the -1 entrance restores the party's camera pose. */
+    [[nodiscard]] bool travelToLevel(int level_id, int entrance);
+    /* Enter the level a decoded save resumes at. */
+    [[nodiscard]] bool
+    enterSavedLevel(int level_id, std::vector<std::unique_ptr<W8SpellEffectEntry>> restored_casts);
+    std::unique_ptr<World> loadWorld(int level_id, std::string source_path);
+    std::unique_ptr<W8WorldItem> createWorldItem(World& world, W8ItemInstance* item,
+                                                 const glm::vec3* position, int entity_flags);
+    std::unique_ptr<W8WorldItem> spawnWorldItem(World& world, int item_id,
+                                                const glm::vec3* position, int entity_flags);
+    /* End level-bound activity, capture the outgoing level's state and release its
+       world. The game, its party and its rng remain; ending the game is the session's
+       operation. */
+    void leaveLevel();
     /* The step time this game has run: the sum of the elapsed times its steps were given.
        Game-step deadlines use this clock; world holds use visual_time, while UI
        presentation and the saved game-day calendar are explicit timer domains. */
@@ -90,6 +208,14 @@ public:
     // World visual time stops with world advancement and shared timer holds.
     // UI/cursor presentation continues on its own monotonic clock.
     std::chrono::milliseconds visual_time{};
+    bool timers_paused = false;
+    bool move_timer_suspended = false;
+    W8GameTimeAccumulator motion_clock;
+    TimerClockView timerClocks()
+    {
+        return {time,          visual_time,  status.game_time_days, status.game_time_ms,
+                timers_paused, motion_clock, move_timer_suspended};
+    }
 
     /* Start a fight with the monsters hostile to the party; `surprise` says the party
        may be ambushed. Declines (returns false) while no member can fight, the party has
@@ -99,6 +225,92 @@ public:
        destroy the combat. A forced end (a departure or a scripted end) neither announces
        nor kills the summoned monsters. */
     void endCombat(bool forced_cleanup);
+    bool partyCastingBlocked();
+    void queueWorldMessage(std::string_view text);
+    void queueLevelMessage(int message_id);
+    void appendSpellTargets(int spell_id, int power_level, W8TargetSource* source,
+                            W8CombatSlot* target, std::vector<int>& monsters,
+                            std::vector<int>& party, W8AreaSightRule sight_rule,
+                            std::optional<MonsterAction> proposed_action = {});
+    bool monsterActionReachesTarget(W8MonsterInfo* monster, unsigned int attack,
+                                    W8CombatSlot* target, MonsterAction action);
+    bool canMonsterCastSpell(W8MonsterInfo* monster, int spell_id, bool needs_target);
+    bool aimMonsterSpell(W8MonsterInfo* monster, int spell_id);
+    bool prepareMonsterSpell(W8MonsterInfo* monster, int spell_id);
+    int chooseMonsterSpell(W8MonsterInfo* monster);
+    std::vector<W8CombatSlot> monsterSpellTargets(W8MonsterInfo* monster, int spell_id);
+    bool monsterAcceptsSpell(W8MonsterInfo* monster, int spell_id, W8CombatSlot* target,
+                             MonsterAction action);
+    bool retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal);
+    void deactivateMonster(W8MonsterInfo* monster_info);
+    void startMonsterDeath(W8MonsterInfo* monster_info, bool display_message);
+    void recordMonsterKill(W8MonsterInfo* monster_info, bool announce);
+    void finishMonsterAttack(W8MonsterInfo* monster_info);
+    void fatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
+                        W8SpellEffectResult* report_to);
+    void setMonsterCondition(int location_id, W8Condition condition, int duration,
+                             int poison_strength, W8TargetSource* target, bool announce);
+    void clearMonsterCondition(int location_id, W8Condition condition);
+    void setMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility);
+    void setGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bool recurse);
+    void alertFactionGroups(W8MonsterGroup* monster_group);
+    bool linkMonsterGroup(W8MonsterGroup* leader, W8MonsterGroup* group);
+    void setFactionDisposition(signed char faction, W8FactionDisposition band);
+    void adjustFactionDisposition(signed char faction, signed char delta);
+    void recordFactionOffense(signed char faction, W8MonsterInfo* monster_info);
+    void refreshMonsterSight(W8MonsterInfo* monster_info);
+    void refreshOutwardSight(void);
+    void refreshInwardSight(void);
+    void refreshSight(void);
+    void refreshPendingMonsterSight();
+    void updateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool use_bounds);
+    void releaseNpcCompanion(W8NpcState* npc);
+    bool restoreNpcMonster(W8NpcState* npc, std::string_view entity_name);
+    void restoreNamedNpc(int kind, signed char level, std::string_view entity_name);
+    void handleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode);
+    void releaseMarkedNpcBindings(void);
+    signed char npcDisposition(W8NpcState* npc) const;
+    unsigned char npcDispositionBand(W8NpcState* npc) const;
+    W8MonsterGroup* createMonsterGroup(unsigned int monster_id, unsigned int count,
+                                       const glm::vec3* position, bool use_alternate_name);
+    bool placeMonsterGroup(W8MonsterGroup* group, const glm::vec3* position, float yaw,
+                           bool proximity_check, bool include_allies, bool flatten_y,
+                           bool alternate_radius);
+    W8Disposition defaultGroupDisposition(W8MonsterGroup* monster_group) const;
+    bool missileReached(Missile& missile, Navigator& struck) override;
+    void missileLanded(Missile& missile) override;
+    void missileReleased(Monster& monster) override;
+    void spellReleased(Monster& monster) override;
+    bool giveBirthToMonster(W8MonsterGroup* group);
+    void activateGroup(W8MonsterGroup& group);
+    void updateMonsterDecision(W8MonsterInfo* monster);
+    bool canMonsterUseSpecial(W8MonsterInfo* monster, bool exclude_summon);
+    bool aimMonsterSpecial(W8MonsterInfo* monster);
+    bool monsterActionUsable(W8MonsterInfo* monster);
+    void turnMonsterToTarget(W8MonsterInfo& monster);
+    bool canMonsterProtect(const W8MonsterInfo& monster, const W8CombatSlot& target) const;
+    bool chooseMonsterAction(W8MonsterInfo& monster, bool target_locked, bool attack_locked,
+                             bool set_attack_rate);
+    int monsterQuadrant(const W8MonsterInfo& monster) const;
+    bool monsterReachesPartyMember(const W8MonsterInfo& monster, unsigned int attack, int slot,
+                                   MonsterAction action) const;
+    unsigned char rateMonsterAttack(const W8MonsterInfo& monster, unsigned int attack,
+                                    bool friendly_targets) const;
+    unsigned char rateMonsterBestAttack(const W8MonsterInfo& monster, bool friendly_targets) const;
+    void resetSight();
+    void refreshCombatEngagement();
+    void removeMonsterFromCombat(W8MonsterInfo& monster);
+    void endGroupCombat(W8MonsterGroup& group);
+    void releaseMonsterDependents(const W8MonsterInfo& monster);
+    std::string monsterName(const W8MonsterInfo& monster) const;
+    std::string monsterGroupName(const W8MonsterGroup& group) const;
+    void setEncounterDurationScale(float scale);
+    int normalizeLevel(int requested) const;
+    signed char levelBand(int requested) const;
+    W8NpcState* createNpcRuntimeNode(int npc_id);
+    W8PreparedNpcBindings prepareNpcBindings(World& world);
+    void bindMonsterNpc(World& world, W8MonsterInfo& monster);
+    void beginNpcDialogue(W8NpcState* npc, bool suspend_current, bool script_event = false);
 
     // Commands the level's monster scripts and triggers issue.
     // A monster's script turns the group of the monster at `location_id` to `disposition`.
@@ -133,12 +345,13 @@ public:
     W8MessageLog message_log;
     // The fight in progress, if any.
     std::optional<Combat> combat;
+    struct RecentCombat {
+        std::chrono::milliseconds until{};
+        W8Difficulty difficulty = W8_DIFFICULTY_NOVICE;
+    } recent_combat;
     /* What the party is doing. The camp commands set the place; dialogue and story scenes
        set the rest. */
     Activity activity;
-    /* Spells still taking effect: casts whose missiles are in flight, and the
-       sustained monster control the HYPN section saves. */
-    std::vector<std::unique_ptr<W8SpellEffectEntry>> spell_effects;
     // Voice barks and quotes waiting for, or holding, a speaker.
     W8CharacterEventQueue speech{*this};
     // The NPC conversation's progress: its speaker, queued script work and owed reply.
@@ -149,7 +362,7 @@ public:
     // The deadline of each shared three-minute spell cooldown (in `SpellPracticeCooldown`).
     std::array<std::uint64_t, 14> spell_cooldowns{};
     /* The step time left until the timed autosave announces itself, counted in the world
-       while the shared timers run (`SharedGameTimersHeld`). */
+       while the game's world timers run. */
     static constexpr std::chrono::minutes kAutosaveInterval{5};
     std::chrono::milliseconds autosave_due = kAutosaveInterval;
     W8MonsterManagerEntry monster_manager_entries[8]{};
@@ -158,6 +371,14 @@ public:
     W8PartyFormationState planned_formation{};
     // A camp or rest may be interrupted by an ambush.
     bool surprise_possible = false;
+    // Surprise hold accelerates the calendar, not simulation or presentation clocks.
+    bool accelerated_calendar = false;
+    float encounter_duration_scale = 1.0f;
+    struct SightNotices {
+        int marker = 0;
+        int fade_in = 0;
+        int fade_out = 0;
+    } sight_notices;
     // The combat movement phase: the party walks to a new position before acting.
     bool party_movement_mode = false;
     bool party_moving = false;
@@ -167,7 +388,6 @@ public:
     /* A container offered more than one item, so the item-choice dialog is pending;
        blocks the magic-effects tick until it opens. */
     bool item_pick_pending = false;
-    int item_manager_pending = 0;
 
     /* Whether the world moves on. Each step applies what the interface holds
        (`ApplyWorldAdvancement`); rules read the result. */
@@ -191,10 +411,39 @@ public:
     /* Leaving a level stores its state here, entering one reads it back, and a save writes
        them beside the current level's. */
     LeftLevels left_levels;
+    // Unkeyed camera sequences can continue across level changes, but not another game.
+    ShakeSystem camera_shakes{timerClocks()};
     /* Last, so its worlds are destroyed first, while combat and speech still exist.
-       The main game leaves the level when it is discarded, before a game that ends in
-       play is destroyed; destroying a world does no departure bookkeeping. */
-    Level level;
+       Session and level transitions perform departure before releasing the world;
+       screen disposal and world destruction do no departure bookkeeping. */
+    Level level{*this};
+
+private:
+    unsigned char testFact(W8FactId fact, std::vector<Event>& outcomes);
+    unsigned char evaluateFact(W8FactId fact, std::vector<Event>& outcomes);
+    void writeFact(W8FactId fact_id, unsigned char value, bool notify,
+                   std::function_ref<void(std::vector<Event>)> publish);
+    void recordFactChange(W8FactId fact_id, bool notify,
+                          std::function_ref<void(std::vector<Event>)> publish);
+    void bindNpcDialogue(int kind);
+    std::shared_ptr<W8NpcState> prepareNpcBinding(World& world, W8MonsterInfo& info,
+                                                  W8PreparedNpcBindings& pending);
+    std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
+    void updateSurpriseMode();
+    bool resolveMonsterSpellAim(W8MonsterInfo* monster, int spell_id);
+    bool monsterSpellHitsNeutral(W8MonsterInfo* monster, int spell_id, W8CombatSlot* target,
+                                 MonsterAction action);
+    bool groupSpellTargetsAccept(W8MonsterInfo* monster, int spell_id, W8MonsterGroup* group,
+                                 MonsterAction action);
+    bool partySpellTargetsAccept(W8MonsterInfo* monster, int spell_id, MonsterAction action);
+    void applyCombatEndEffects();
+    std::string monsterName(const W8MonsterRecord& record, bool alternate, bool plural) const;
+    void refreshCombatEngagement(std::vector<Event>& outcomes);
+    void removeMonsterFromCombat(W8MonsterInfo& monster, std::vector<Event>& outcomes);
+    void resetCombatEffects();
+    void restoreCombatEquipment(bool automatic);
+    void advanceWorlds(std::chrono::milliseconds elapsed);
+    void advanceSpellEffects(World& world);
 };
 
 /* The games of one run of the program: the game in progress, if any, and the random
@@ -210,11 +459,16 @@ public:
     GameSession& operator=(const GameSession&) = delete;
 
     // The game in progress, or null.
-    Game* game() { return game_ ? &*game_ : nullptr; }
+    Game* game() { return game_.get(); }
     std::filesystem::path native_object_file;
     /* Begin a new game, ending any in progress. It continues the previous game's random
        stream, and its events go to the observer. */
     Game& begin();
+    /* Replace a decoded game at the presentation boundary: end combat while its views
+       exist, release those views, install the saved owners and enter the saved level.
+       A construction failure ends the replacement and propagates to the caller.
+       Resource construction still requires the installed game; decoding is independent. */
+    void load(SavedGame saved, std::function_ref<void()> release_presentation);
     /* End the game in progress, if any, leaving its level (departure bookkeeping); the next
        game continues its random stream. */
     void end();
@@ -223,15 +477,15 @@ public:
     void seed(std::uint32_t seed);
     /* The composition root's presenter for every game's events; a game begun before one
        is installed keeps its events pending. */
-    void observe(std::function<void(const Event&)> observer);
+    void observe(std::function<void(Game&, const Event&)> observer);
 
 private:
     // Release the game in progress without leaving its level.
     void discard();
     const GameData& data_;
-    std::optional<Game> game_;
+    std::unique_ptr<Game> game_;
     Rng next_stream_;
-    std::function<void(const Event&)> observer_;
+    std::function<void(Game&, const Event&)> observer_;
 };
 
 /* The game in progress. Transitional: code that does not receive the game yet reaches

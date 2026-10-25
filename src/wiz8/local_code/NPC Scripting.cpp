@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -25,7 +26,6 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/file_time.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
@@ -66,9 +66,11 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
+#include "wiz8/story.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/environment.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/party_motion.h"
 #include "wiz8/world/world.h"
 
 constexpr unsigned int kCharacterEventNpcScript = 0x40;
@@ -223,33 +225,33 @@ int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text)
     }
     for (index = 0; g_npc_script_region_names[index].name[0] != 0; ++index) {
         if (CompareTextIgnoreAsciiCase(text, g_npc_script_region_names[index].name) == 0) {
-            band = GetLevelBand(GetLoadedLevelID());
+            band = CurrentGame().levelBand(GetLoadedLevelID());
             return g_npc_region_quotes[g_npc_script_region_names[index].region][band];
         }
     }
     if (CompareTextIgnoreAsciiCase(text, "Mt Gigas") == 0 ||
         CompareTextIgnoreAsciiCase(text, "Gigas") == 0) {
-        band = GetLevelBand(GetLoadedLevelID());
+        band = CurrentGame().levelBand(GetLoadedLevelID());
         return g_npc_region_quotes[11][band];
     }
     if (CompareTextIgnoreAsciiCase(text, "the swamp") == 0) {
-        band = GetLevelBand(GetLoadedLevelID());
+        band = CurrentGame().levelBand(GetLoadedLevelID());
         return g_npc_region_quotes[4][band];
     }
     if (CompareTextIgnoreAsciiCase(text, "the Monastery") != 0) {
         return -1;
     }
-    band = GetLevelBand(GetLoadedLevelID());
+    band = CurrentGame().levelBand(GetLoadedLevelID());
     return g_npc_region_quotes[1][band];
 }
 
-static void ShowConsumedItemQuote(std::string_view text)
+static void ShowConsumedItemQuote(Game& game, std::string_view text)
 {
-    if (CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
+    if (game.npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
         RebuildNpcTradeItemList(false);
         return;
     }
-    DisplayNpcQuote(text, true);
+    DisplayNpcQuote(game, text, true);
     return;
 }
 
@@ -276,7 +278,7 @@ void RemoveNpcScriptItem(const ScriptContext& context, const W8ItemInstance* ite
                 (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
                 context.inventory.removeQuantity({W8ItemStorage::Backpack, slot, index}, 1);
                 text = fmt::sprintf(Data().strings[0x7ec], context.party.characters[slot].name);
-                ShowConsumedItemQuote(text);
+                ShowConsumedItemQuote(context.game, text);
                 return;
             }
         }
@@ -287,7 +289,7 @@ void RemoveNpcScriptItem(const ScriptContext& context, const W8ItemInstance* ite
             (slot_item == item || (match_item_id != 0 && slot_item->iItemNo == item_id))) {
             context.inventory.removeQuantity({W8ItemStorage::Pool, 0, slot}, 1);
             text = Data().strings[0x7ed];
-            ShowConsumedItemQuote(text);
+            ShowConsumedItemQuote(context.game, text);
             return;
         }
     }
@@ -312,17 +314,18 @@ void StripNpcKeywordPunctuation(std::string& text)
 /* Alternates between the two string-list ids SpeakNpcSubquote substitutes for
    an "EMPTY"/"BLANK" quote on the closing quotes it allows. */
 
-std::string FormatNpcVoiceSoundPath(W8NpcState* npc, bool script_event)
+std::string FormatNpcVoiceSoundPath(const Story& story, W8NpcState* npc, bool script_event)
 {
     const auto prefix = npc->is_grouped && !script_event ? "RPC_"
                         : npc->record->voice_script != 0 ? "VOC_"
                                                          : "NPC_";
-    return fmt::format("{}{}", prefix, GetNpcDisplayName(npc));
+    return fmt::format("{}{}", prefix, story.npcDisplayName(*npc));
 }
 
-std::unique_ptr<W8NpcScriptFile> LoadNpcScriptResources(W8NpcState& npc, Monster* monster)
+std::unique_ptr<W8NpcScriptFile> LoadNpcScriptResources(const Story& story, W8NpcState& npc,
+                                                        Monster* monster)
 {
-    const std::string script_name = FormatNpcVoiceSoundPath(&npc);
+    const std::string script_name = FormatNpcVoiceSoundPath(story, &npc);
     auto script = LoadNpcScriptFile(fmt::format("Data\\NPC Scripts\\{}.nsf", script_name));
     if (script != 0 && monster != 0) {
         monster->SetScript(fmt::format("{}.msf", script_name).c_str(), true);
@@ -332,17 +335,17 @@ std::unique_ptr<W8NpcScriptFile> LoadNpcScriptResources(W8NpcState& npc, Monster
 
 void ReloadNpcScriptResources(W8NpcState* npc)
 {
-    npc->script_file = LoadNpcScriptResources(*npc, GetNpcMonster(npc));
+    npc->script_file = LoadNpcScriptResources(CurrentGame().story, *npc, GetNpcMonster(npc));
 }
 
 void W8NpcDialogue::Advance(const ScriptContext& context)
 {
-    if (held_by_scene_ || IsNpcScriptSessionActive()) {
+    if (is_held_by_scene() || has_active_utterance()) {
         return;
     }
     if (reply_ != W8NpcReplyState::dialog_open) {
         RunNextAction(context);
-        if (IsNpcScriptSessionActive()) {
+        if (has_active_utterance()) {
             return;
         }
     }
@@ -355,32 +358,23 @@ void W8NpcDialogue::Advance(const ScriptContext& context)
     }
     if (context.activity.conversation && context.status.world_cursor_gate == 0 &&
         !context.activity.scripted_scene && reply_ == W8NpcReplyState::none &&
-        (context.activity.conversation && CurrentGame().npc_interaction.scripted_dialogue)) {
+        (context.activity.conversation && context.game.npc_interaction.scripted_dialogue)) {
         EndNpcDialogueSession(false);
     }
-    if (reply_ == W8NpcReplyState::none && CurrentGame().npc_interaction.dialogue_panel_hidden &&
+    if (reply_ == W8NpcReplyState::none && context.game.npc_interaction.dialogue_panel_hidden &&
         context.game.speech.IsMainQueueEmpty()) {
         SetNpcDialoguePanelVisible(1);
     }
 }
 
-void W8NpcDialogue::Begin(W8NpcState* npc, bool suspend_current, bool script_event)
+void W8NpcDialogue::Begin(std::shared_ptr<W8NpcState> npc, W8NpcScriptBinding binding,
+                          bool suspend_current)
 {
-    if (suspend_current) {
-        suspended_ = session_;
-    }
-    if (!npc->has_monster) {
-        BindNpcToMonster(npc->name_style, false, -1);
-    }
+    if (suspend_current) suspended_ = session_;
+    session_.identity = ++session_identity_;
     session_.finished_quote_index = -1;
-    session_.npc = npc->shared_from_this();
-    session_.binding = {npc->script_file, FormatNpcVoiceSoundPath(npc, script_event),
-                        script_event || !npc->is_grouped};
-    if (script_event) {
-        // Event resource selection does not change the monster's persistent .msf program.
-        session_.binding.script = LoadNpcScriptFile(
-            fmt::format("Data\\NPC Scripts\\{}.nsf", session_.binding.voice_stem));
-    }
+    session_.npc = std::move(npc);
+    session_.binding = std::move(binding);
 }
 
 bool W8NpcDialogue::DefersCharacterEvents(bool require_group_entry) const
@@ -388,14 +382,15 @@ bool W8NpcDialogue::DefersCharacterEvents(bool require_group_entry) const
     if (is_held_by_scene()) {
         return false;
     }
-    if (!IsNpcScriptSessionActive() && !has_queued_actions()) {
+    if (!has_active_utterance() && !has_queued_actions()) {
         return false;
     }
     W8NpcState* speaker = this->speaker();
     if (speaker == 0) {
         return false;
     }
-    if (GetNpcGroupEntry(speaker) != 0 && !require_group_entry) {
+    if (speaker->record->has_group && speaker->character && speaker->is_grouped &&
+        !require_group_entry) {
         return false;
     }
     return true;
@@ -418,7 +413,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
     case W8_NPC_ENTRY_NEXT_QUOTE:
         if (entry->operand2 == 4 && entry->operand1 != 2) {
             action_name = entry->sub_entries[0].text.c_str() + 4;
-            target = FindNpcStateByName(action_name);
+            target = context.story.npcByName(action_name);
             if (target != 0) {
                 if (target->name_style == W8_NPC_VI_DOMINA && entry->operand0 == 0) {
                     session_.subquote_index = 0;
@@ -429,7 +424,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
                         LookAtDialogueNpc();
                     }
                 } else {
-                    Begin(target, true);
+                    context.game.beginNpcDialogue(target, true);
                 }
                 QueueQuote(entry->operand0, false, false, false);
                 if (target->is_grouped) {
@@ -442,7 +437,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
     case W8_NPC_ENTRY_FACT_CONDITIONAL_QUOTE:
         if (entry->operand2 == 4 && entry->operand1 != 2) {
             action_name = entry->sub_entries[0].text.c_str() + 4;
-            target = FindNpcStateByName(action_name);
+            target = context.story.npcByName(action_name);
             if (target != 0) {
                 if (!target->is_grouped) {
                     SelectNpcDialogueSpeaker(target, 0);
@@ -450,7 +445,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
                         LookAtDialogueNpc();
                     }
                 } else {
-                    Begin(target, true);
+                    context.game.beginNpcDialogue(target, true);
                     SetNpcDialoguePanelVisible(0);
                 }
                 QueueQuote(entry->operand0, false, false, false);
@@ -477,7 +472,7 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
         } else {
             context.inventory.storeOrDrop(item, false);
             if (item.iItemNo != -1) break;
-            if (context.activity.conversation) DisplayNpcQuote(notice_text, true);
+            if (context.activity.conversation) DisplayNpcQuote(context.game, notice_text, true);
         }
         ClearNpcItemId(session_.npc.get(), entry->operand0);
         if (CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
@@ -491,10 +486,10 @@ void W8NpcDialogue::RunQuoteEntry(const ScriptContext& context, const W8NpcQuote
         notice_text =
             fmt::sprintf(Data().strings[0x7e9], session_.npc->record->source_name, entry->operand0);
         AddPartyGold(context.game, entry->operand0, false);
-        DisplayNpcQuote(notice_text, true);
+        DisplayNpcQuote(context.game, notice_text, true);
         break;
     case W8_NPC_ENTRY_GIVE_EXPERIENCE:
-        AwardPartyExperience(entry->operand0, false);
+        context.game.awardExperience(entry->operand0, false);
         break;
     default:
         break;
@@ -519,10 +514,10 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
 
     auto current = queue_.begin();
     W8MessageBoxLine& line = *current;
-    npc = line.npc_kind != -1 ? GetNpcStateByKind(line.npc_kind) : 0;
+    npc = line.npc_kind != -1 ? context.story.npcOfKind(line.npc_kind) : 0;
     if (auto* quote_line = std::get_if<W8NpcQueuedQuote>(&line.action)) {
         if (npc != 0 && npc != session_.npc.get()) {
-            Begin(npc, true);
+            context.game.beginNpcDialogue(npc, true);
         }
         if (session_.binding.script != quote_line->binding.script)
             session_.finished_quote_index = -1;
@@ -597,7 +592,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
         {
             const auto& binding = queued.binding;
             const W8NpcScriptFile* script = binding.script.get();
-            if (npc && npc != dialogue.speaker()) dialogue.Begin(npc, true);
+            if (npc && npc != dialogue.speaker()) context.game.beginNpcDialogue(npc, true);
             if (dialogue.session_.binding.script != binding.script)
                 dialogue.session_.finished_quote_index = -1;
             dialogue.session_.binding = binding;
@@ -626,7 +621,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
                     return;
                 }
             }
-            ShowNpcPortraitMessage(message.text, message.notice);
+            ShowNpcPortraitMessage(context.game, message.text, message.notice);
         }
         void operator()(W8NpcStoryAction action) const { RunNpcStoryAction(context, action); }
         void operator()(W8NpcCommand command) const
@@ -649,7 +644,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
                 OpenNpcDialogueTranscriptLayout();
                 break;
             case W8NpcCommand::journal_quote:
-                DisplayNpcQuote(Data().strings[0x74a], false);
+                DisplayNpcQuote(context.game, context.game.data.strings[0x74a], false);
                 wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
                 break;
             case W8NpcCommand::dispatch_pending_notice:
@@ -671,12 +666,12 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
                 break;
             case W8NpcCommand::reset_level_data_vectors:
                 if (!context.combat.has_value() || context.game.party_movement_mode) {
-                    ResetLevelDataVectors();
+                    if (auto* world = context.world) world->party.camera.motion.stop();
                 }
                 break;
             case W8NpcCommand::clear_level_movement_stopped:
                 if (!context.combat.has_value() || context.game.party_movement_mode) {
-                    ClearLevelMovementStopped();
+                    if (auto* world = context.world) world->party.camera.motion.resume();
                 }
                 break;
             case W8NpcCommand::spacer:
@@ -685,7 +680,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
         }
         void operator()(W8NpcRecruit recruit) const
         {
-            if (W8NpcState* recruited = GetNpcStateByKind(recruit.npc_kind)) {
+            if (W8NpcState* recruited = CurrentGame().story.npcOfKind(recruit.npc_kind)) {
                 RecruitNpcIntoParty(recruited);
             }
             EndNpcDialogueSession(false);
@@ -730,7 +725,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
         }
         void operator()(W8NpcPortraitString message) const
         {
-            ShowNpcPortraitMessage(Data().strings[message.string_index]);
+            ShowNpcPortraitMessage(context.game, Data().strings[message.string_index]);
         }
         void operator()(W8NpcMarkMissing missing) const
         {
@@ -752,7 +747,8 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
             context.combat->endTurnOf(PartyActor{party_slot});
             ClearMainGameTargetState();
             DismissNpcFromParty(party_slot, 0, false, true);
-            SetTargetToCharacter(party_slot, false);
+            context.game.invalidateAimsAt(W8CombatSlot::character(party_slot),
+                                          TargetChange::removed);
             context.combat->npc_combat_script_pending[party_slot] = false;
         }
         void operator()(W8NpcTravelConfirm travel) const
@@ -871,13 +867,12 @@ void AuditNpcScriptQuotes(GameStatus& status)
    queue owns it, and while the level-data flag is clear the message is
    bracketed by RESET_LEVEL_STATE markers so the dispatcher restores state
    around it. */
-void ShowString(std::string_view text)
+void Game::queueWorldMessage(std::string_view text)
 {
-    if (!IsLevelMovementStopped()) {
-        CurrentGame().npc_dialogue.Queue(W8NpcCommand::reset_level_data_vectors);
-    }
-    CurrentGame().npc_dialogue.QueuePortraitMessage(std::string(text));
-    if (!IsLevelMovementStopped()) {
-        CurrentGame().npc_dialogue.Queue(W8NpcCommand::clear_level_movement_stopped);
-    }
+    const bool hold =
+        !level.primary || !level.primary->collisionIndex() ||
+        (level.primary->party.camera.motion.flags & W8_LEVEL_FLAG_MOVEMENT_STOPPED) == 0;
+    if (hold) npc_dialogue.Queue(W8NpcCommand::reset_level_data_vectors);
+    npc_dialogue.QueuePortraitMessage(std::string(text));
+    if (hold) npc_dialogue.Queue(W8NpcCommand::clear_level_movement_stopped);
 }

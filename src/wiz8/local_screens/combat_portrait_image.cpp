@@ -5,7 +5,10 @@
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 
 /* The combat-strip portrait catalog index for one slot's chosen action and
@@ -79,7 +82,10 @@ short GetCombatPortraitImage(W8ActionKind action, int detail, W8CombatPortraitSt
         if (status == W8_COMBAT_PORTRAIT_INELIGIBLE) {
             return 0x17d;
         }
-        return CanAnyHandReachTarget(slot) ? 0x17a : 0x17c;
+        return (GetCharAttackRange(CurrentGame().data, &CurrentGame().party.characters[slot], 2) !=
+                W8_RANGE_NONE)
+                   ? 0x17a
+                   : 0x17c;
     }
     switch (status) {
     case W8_COMBAT_PORTRAIT_READY:

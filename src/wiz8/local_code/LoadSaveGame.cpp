@@ -32,7 +32,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "item_spawning.h"
 #include "monster_actions.h"
-#include "monster_spell_icons.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/checked_integer.h"
@@ -48,7 +47,6 @@
 #include "wiz8/entities/script.h" // IWYU pragma: keep - complete script type used through the owned pointer.
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/file_time.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
@@ -61,7 +59,6 @@
 #include "wiz8/level_state.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/ItemManager.h"
@@ -88,10 +85,9 @@
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
 #include "wiz8/rules/character.h"
-#include "wiz8/rules/conditions.h"
-#include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
@@ -103,9 +99,12 @@
 #include "wiz8/surface_storage.h"
 #include "wiz8/unicode.h"
 #include "wiz8/world/automap.h"
+#include "wiz8/world/environment_state.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/party_camera.h"
 #include "wiz8/world/world.h"
 #include "wiz8/world_cursor.h"
+#include "wiz8/world_view.h"
 
 bool g_save_pending;
 
@@ -349,9 +348,9 @@ void InstallMessageBoxes(wiz8::save::MessageBoxes boxes, Game& game)
    the level would record. */
 std::vector<W8LocationVariable> CaptureLocationVariables(const Game& game, const World* world)
 {
-    auto variables = game.story.location_variables;
+    auto variables = game.story.locationVariables();
     if (!world || !world->script) return variables;
-    const int level = GetLoadedLevelID();
+    const int level = world->level_id;
     for (const auto& [name, value] : world->script->captureState()) {
         const auto found = std::ranges::find_if(variables, [&](const auto& variable) {
             return variable.level == level && CompareTextIgnoreAsciiCase(variable.name, name) == 0;
@@ -484,7 +483,7 @@ struct SavedMonsterMovement {
         monster.nav.movement.target_position = patrol_home;
         if (monster.nav.SetMovementTarget(&monster.nav.movement_target, true)) {
             monster.nav.flags |= 0x6;
-            monster.nav.ClearMovementStopped();
+            monster.nav.ClearMovementStopped(false);
             monster.nav.halted = false;
             monster.nav.movement_target = monster.nav.movement.attachment->path_destination;
         }
@@ -580,30 +579,6 @@ struct SavedMonsterOrders {
     }
 };
 
-/* Rebuild the icons for the conditions, enchantments and effects a loaded
-   monster carries. */
-void RestoreMonsterSpellIcons(World& world, const W8MonsterInfo& info, Monster& monster)
-{
-    if (info.highest_condition != W8_CONDITION_NONE) {
-        for (int index = 0; index < W8_CONDITION_COUNT; ++index) {
-            if (info.uiCondition[index] != 0)
-                AddMonsterSpellIcon(world, monster, static_cast<W8MonsterSpellIconId>(index - 1));
-        }
-    }
-    for (int index = 0; index < 8; ++index) {
-        if (info.enchantments[index].turns != 0)
-            AddMonsterSpellIcon(world, monster, static_cast<W8MonsterSpellIconId>(index + 0x10));
-    }
-    for (const auto& effect : info.effect_slots) {
-        if (effect.duration != 0)
-            AddMonsterSpellIcon(world, monster,
-                                g_effect_visual_table[effect.effect_id].monster_icon);
-    }
-    if (info.charm_strength > 0) AddMonsterSpellIcon(world, monster, SPELL_ICON_CHARMED);
-    if (info.summoned != W8_MONSTER_SUMMON_NONE)
-        AddMonsterSpellIcon(world, monster, SPELL_ICON_SUMMONED);
-}
-
 /* A MONS group record: its size-prefixed W8MonsterGroup image and, from version 2,
    whether it was on the encounter list. */
 struct SavedMonsterGroup {
@@ -649,11 +624,17 @@ struct SavedMonster {
     std::optional<SavedMonsterMovement> movement;
     std::optional<SavedMonsterOrders> orders;
 
-    static SavedMonster Capture(const W8MonsterInfo& info, bool unborn)
+    static SavedMonster Capture(const W8MonsterInfo& info, bool unborn, const Story& story)
     {
         if (!info.entity) throw std::runtime_error("missing monster");
-        Monster& monster = *info.entity.find();
+        Monster& monster = *info.entity;
         SavedMonster saved{.image = wiz8::retail::encode_image(info), .unborn = unborn};
+        if (const auto& identity = info.npcIdentity()) {
+            const auto found = std::ranges::find(story.npcs, identity);
+            if (found == story.npcs.end())
+                throw std::runtime_error("monster NPC identity is no longer in the saved story");
+            saved.image.bound_npc_index = wiz8::checked_integer<int>(found - story.npcs.begin());
+        }
         if (info.fActive) {
             auto position = monster.GetRepresentationLocation();
             position.y = probeGround(position).position.y;
@@ -849,7 +830,7 @@ void OpenLevelImage(W8Chunk& chunk, std::span<const std::byte> image)
 bool CanAutoSaveNow()
 {
     return CurrentGame().status.world_cursor_gate == 0 && !AnyMonsterDying() &&
-           !CurrentGame().combat.has_value() && !IsSightRangeOverridden() &&
+           !CurrentGame().combat.has_value() && !CurrentGame().accelerated_calendar &&
            CanInterruptLevelMovement() && !CurrentGame().activity.conversation &&
            !CurrentGame().activity.conversation_aside;
 }
@@ -928,7 +909,7 @@ void FillCurrentSaveSlot(W8SaveSlot& slot)
     slot.iron_man = CurrentGame().status.iron_man;
     const auto now = wiz8::current_local_time();
     slot.timestamp = now;
-    CaptureSaveScreenshot(slot.screenshot);
+    CaptureSaveScreenshot(CurrentGame(), slot.screenshot);
     slot.version_major = kCurrentSaveVersion.major;
     slot.version_minor = kCurrentSaveVersion.minor;
     slot.version_patch = kCurrentSaveVersion.patch;
@@ -1048,8 +1029,10 @@ static wiz8::save::GameState CaptureStateForSave(const Game& game, const wiz8::F
     return snapshot;
 }
 
-LevelState LevelState::capture(const Level& level, const GameStatus& status)
+LevelState LevelState::capture(const Game& game)
 {
+    const auto& level = game.level;
+    const auto& status = game.status;
     const World& world = *level.primary;
     LevelState captured;
     auto& state = *captured.data_;
@@ -1057,10 +1040,10 @@ LevelState LevelState::capture(const Level& level, const GameStatus& status)
     state.header = CaptureStatusHeader(status);
     auto& population = *world.population;
     // Live list entries come first, then encounter groups and unborn monsters.
-    for (const auto* partition : {&population.monster_groups, &population.encounter_groups}) {
+    for (const auto* partition : {&population.groups(), &population.encounterGroups()}) {
         for (const auto& group : *partition) {
             auto& saved = state.groups.emplace_back(SavedMonsterGroup{
-                wiz8::retail::encode_image(*group), partition == &population.encounter_groups});
+                wiz8::retail::encode_image(*group), partition == &population.encounterGroups()});
             saved.image.version = kMonsterGroupRecordVersion;
             saved.image.active_member_count =
                 wiz8::checked_integer<std::int32_t>(population.activeMemberCount(*group));
@@ -1071,7 +1054,7 @@ LevelState LevelState::capture(const Level& level, const GameStatus& status)
         for (const auto& monster : *partition)
             if (monster->monster_group_id != 0)
                 state.monsters.push_back(SavedMonster::Capture(
-                    *monster, population.monster_roster.isUnborn(monster.get())));
+                    *monster, population.monster_roster.isUnborn(monster.get()), game.story));
     for (const auto& item : population.world_items) state.items.push_back(CaptureWorldItem(*item));
     state.automap = world.automap.capture();
     if (!world.triggers.empty()) {
@@ -1193,7 +1176,7 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
     });
     W8SaveScreenshot captured{};
     if (!screenshot) {
-        CaptureSaveScreenshot(captured);
+        CaptureSaveScreenshot(game, captured);
         screenshot = &captured;
     }
     chunks.WriteChunk(W8_CHUNK_SCREENSHOT, [&] { chunks.WriteValue(*screenshot); });
@@ -1212,9 +1195,9 @@ static void WriteGame(std::string_view name, const W8SaveScreenshot* screenshot,
         chunks, W8_CHUNK_FACTION_STATE,
         wiz8::save::encode(wiz8::save::Factions{story.faction_relations, story.factions}));
     WriteChunkPayload(chunks, W8_CHUNK_JOURNAL, wiz8::save::encode(story.journal));
-    if (const auto* control = FindMonsterControlSpellEffect())
+    if (const auto* control = game.level.loaded().monsterControlEffect())
         WriteChunkPayload(chunks, W8_CHUNK_MONSTER_CONTROL, wiz8::save::encode(*control));
-    LevelState::capture(game.level, game.status).encode(chunks);
+    LevelState::capture(game).encode(chunks);
 }
 
 bool SaveGame(std::string_view name, const W8SaveScreenshot* screenshot)
@@ -1344,15 +1327,14 @@ struct LevelScripts {
 
 /* Install the decoded groups, items and monsters in `world`'s population, link them, and
    restore the encounters, automap, ambient sounds, particles and lights. */
-void PrepareLevelPopulation(World& world, LevelState::Data& data,
+void PrepareLevelPopulation(Game& game, World& world, LevelState::Data& data,
                             std::vector<std::unique_ptr<W8MonsterInfo>> infos, LevelScripts scripts,
                             W8LoadedLevelStatus::Data& entry)
 {
     auto& population = *world.population;
     for (const auto& saved : data.groups) {
-        if (MonsterDBFromSpecies(saved.image.monster_id)->deleted) continue;
-        auto& list = saved.encounter ? population.encounter_groups : population.monster_groups;
-        list.push_back(saved.Build());
+        if (game.data.monsters.at(saved.image.monster_id).deleted) continue;
+        population.adoptGroup(saved.Build(), saved.encounter);
     }
     for (const auto& item : data.items) population.world_items.push_back(BuildWorldItem(item));
     std::vector<W8MonsterInfo*> records;
@@ -1374,11 +1356,13 @@ void PrepareLevelPopulation(World& world, LevelState::Data& data,
     }
     for (size_t index = 0; index < records.size(); ++index) {
         if (auto* info = records[index]) {
-            ConfigureMonsterRepresentation(world, info);
-            PrepareMonsterInWorld(world, *info, data.monsters[index].unborn);
+            info->configureBody(game.rng, game.status.level_progress[world.level_id].visited != 0);
+            world.prepareMonsterBody(*info, game.rng, data.monsters[index].unborn,
+                                     game.level.primary ? game.level.primary->party.camera.gravity()
+                                                        : kDefaultGravity);
         }
     }
-    entry.npc_bindings = PrepareNpcBindings(world);
+    entry.npc_bindings = game.prepareNpcBindings(world);
     for (size_t index = 0; index < records.size(); ++index) {
         auto* info = records[index];
         if (!info) continue;
@@ -1390,7 +1374,7 @@ void PrepareLevelPopulation(World& world, LevelState::Data& data,
         if (info->hp_current == 0) entry.pending_deaths.push_back(info->location_id);
     }
     // Resolve durable links against this population, preserving stored member order.
-    for (auto& group : population.monster_groups) {
+    for (auto& group : population.groups()) {
         if (group->monsters.empty()) throw std::runtime_error("empty prepared monster group");
         if (!population.findMonster(group->leader_location_id))
             group->leader_location_id = group->monsters.back();
@@ -1404,7 +1388,7 @@ void PrepareLevelPopulation(World& world, LevelState::Data& data,
         if (group->encounter_registered && !leader.script)
             leader.UseScript(scripts.default_script, true);
         auto* lead_group = group.get();
-        size_t remaining = population.monster_groups.size();
+        size_t remaining = population.groups().size();
         while (lead_group->leader_group_id) {
             if (remaining-- == 0) throw std::runtime_error("cyclic monster group leaders");
             lead_group = population.findGroup(lead_group->leader_group_id);
@@ -1419,7 +1403,7 @@ void PrepareLevelPopulation(World& world, LevelState::Data& data,
                 &member == &formation_leader ? nullptr : &formation_leader.nav, false);
         }
     }
-    for (const auto& group : population.monster_groups) {
+    for (const auto& group : population.groups()) {
         if (group->leader_group_id) continue;
         Monster& leader = *population.findMonster(group->leader_location_id)->entity;
         // Restored levels start outside combat. Propagate the saved path using
@@ -1462,31 +1446,33 @@ std::vector<std::unique_ptr<W8WorldItem>> LevelState::buildItems() const
 }
 
 // A monster of a deleted species is dropped, so only the others need their group.
-void LevelState::checkSpecies() const
+void LevelState::checkSpecies(const GameData& data) const
 {
     const auto& state = *data_;
     for (const auto& group : state.groups)
-        if (!MonsterDBFromSpecies(group.image.monster_id))
+        if (group.image.monster_id < 0 ||
+            std::cmp_greater_equal(group.image.monster_id, data.monsters.size()))
             throw std::runtime_error("missing saved monster group species");
     for (const auto& saved : state.monsters) {
-        const auto* record = MonsterDBFromSpecies(saved.image.monster_species);
-        if (!record) throw std::runtime_error("missing saved monster species");
-        if (record->deleted) continue;
+        const auto species = saved.image.monster_species;
+        if (species >= data.monsters.size())
+            throw std::runtime_error("missing saved monster species");
+        if (data.monsters[species].deleted) continue;
         const auto group = std::ranges::find_if(state.groups, [&](const auto& saved_group) {
             return saved_group.image.group_id == saved.image.monster_group_id;
         });
-        if (group == state.groups.end() || MonsterDBFromSpecies(group->image.monster_id)->deleted)
+        if (group == state.groups.end() || data.monsters.at(group->image.monster_id).deleted)
             throw std::runtime_error("missing saved monster group");
     }
 }
 
-std::unique_ptr<W8LoadedLevelStatus> LevelState::build(World& world) &&
+std::unique_ptr<W8LoadedLevelStatus> LevelState::build(Game& game, World& world) &&
 {
     auto& state = *data_;
     ApplyLevelBase(state);
-    checkSpecies();
+    checkSpecies(game.data);
     // Retail drew the generators' jittered intervals as it read them, before building anything.
-    if (state.encounters) state.encounters->rearmDecodedGenerators();
+    if (state.encounters) state.encounters->rearmDecodedGenerators(game.rng);
     auto status = std::make_unique<W8LoadedLevelStatus>();
     status->data->header = state.header;
     for (auto& section : state.world_sections) ApplySavedSection(world, section);
@@ -1495,37 +1481,39 @@ std::unique_ptr<W8LoadedLevelStatus> LevelState::build(World& world) &&
     std::vector<std::unique_ptr<W8MonsterInfo>> infos(state.monsters.size());
     for (std::size_t index = 0; index < state.monsters.size(); ++index) {
         const auto& saved = state.monsters[index];
-        if (MonsterDBFromSpecies(saved.image.monster_species)->deleted) continue;
+        if (game.data.monsters.at(saved.image.monster_species).deleted) continue;
         auto& info = *(infos[index] = saved.Build());
+        if (saved.image.bound_npc_index > 0)
+            if (auto* npc = game.story.npc(saved.image.bound_npc_index))
+                info.npc_binding_ = npc->shared_from_this();
         const auto group = std::ranges::find_if(state.groups, [&](const auto& saved_group) {
             return saved_group.image.group_id == info.monster_group_id;
         });
-        auto model = ReadMonsterRepresentation(world, &info);
-        info.entity.attach(*model);
-        world.monsters.push_back(std::move(model));
-        RestoreMonsterSpellIcons(world, info, *info.entity);
+        const auto& record = game.data.monsters.at(info.monster_species);
+        auto model = world.loadMonsterBody(record, info.location_id, game.rng);
+        info.entity = std::move(model);
+        info.restoreSpellIcons();
         if (!info.entity->script && !scripts.default_script && group->image.encounter_registered)
             scripts.default_script = LoadMonsterScript("Default.MSF");
         if (saved.script && saved.script->name[0] != '\0')
             scripts.saved[index] = LoadMonsterScript(saved.script->name);
     }
     if (state.cursors) BuildWorldCursorNodes(world, std::move(*state.cursors));
-    PrepareLevelPopulation(world, state, std::move(infos), std::move(scripts), *status->data);
+    PrepareLevelPopulation(game, world, state, std::move(infos), std::move(scripts), *status->data);
     return status;
 }
 
 // Publish shared session references and scalar state only. The replacement
 // already owns every record, representation, membership and identity link.
-void InstallLevelSessionState(World& world, W8LoadedLevelStatus* status)
+void InstallLevelSessionState(Game& game, World& world, W8LoadedLevelStatus* status)
 {
-    CurrentGame().status.next_group_id = CurrentGame().status.next_monster_location_id =
-        CurrentGame().status.next_world_item_id = 1;
-    CurrentGame().status.next_trigger_id = world.next_trigger_id;
-    CurrentGame().item_manager_pending = 0;
+    game.status.next_group_id = game.status.next_monster_location_id =
+        game.status.next_world_item_id = 1;
+    game.status.next_trigger_id = world.next_trigger_id;
     if (!status) return;
     auto& data = *status->data;
-    if (data.header) ApplyStatusHeader(*data.header, CurrentGame().status);
-    InstallNpcBindings(std::move(data.npc_bindings));
+    if (data.header) ApplyStatusHeader(*data.header, game.status);
+    game.story.installNpcBindings(std::move(data.npc_bindings));
 }
 
 void BeginRestoredLevelActivity(World& world, W8LoadedLevelStatus* status)
@@ -1534,7 +1522,7 @@ void BeginRestoredLevelActivity(World& world, W8LoadedLevelStatus* status)
     if (!status) return;
     auto& data = *status->data;
     for (int id : data.pending_deaths)
-        if (auto* info = FindMonster(id, false)) MonsterStartsDying(info, true);
+        if (auto* info = FindMonster(id, false)) CurrentGame().startMonsterDeath(info, true);
 }
 
 /* Create the writable save directories in the user directory. */
@@ -1561,7 +1549,7 @@ SavedWorldItem CaptureWorldItem(const W8WorldItem& item_info)
         auto& image = records.emplace_back(wiz8::retail::encode_image(*item));
         image.saved_marker = 1;
         image.next = index < item_info.contents.size() ? 1 : 0;
-        if (item->fActive) {
+        if (item->entity) {
             const auto position = item->entity->GetLocation();
             image.position = {position.x, position.y, position.z};
             image.entity_flags = item->entity->flags;
@@ -1595,7 +1583,6 @@ std::unique_ptr<W8WorldItem> BuildWorldItem(const SavedWorldItem& records)
         auto entry = std::make_unique<W8WorldItem>();
         wiz8::retail::decode_image(image, *entry);
         entry->sector_id = -2;
-        entry->fActive = false;
         if (!head)
             head = std::move(entry);
         else
@@ -1644,7 +1631,7 @@ try {
 }
 
 /* Capture the world offscreen into the save's 80x60 ARGB1555 image. */
-void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
+void CaptureSaveScreenshot(Game& game, W8SaveScreenshot& screenshot)
 {
     screenshot.version = 1.0f;
     DesignRect rect;
@@ -1653,7 +1640,7 @@ void CaptureSaveScreenshot(W8SaveScreenshot& screenshot)
     rect.right = 640;
     rect.bottom = 480;
     auto surface = CreateCpuStorage(80, 60, SDL_PIXELFORMAT_ARGB1555, screenshot.pixels, 160);
-    screenshot.capture_result = RenderWorldToSurface(surface.get(), &rect)
+    screenshot.capture_result = CaptureGameView(game, *surface, rect)
                                     ? W8ScreenshotCaptureResult::succeeded
                                     : W8ScreenshotCaptureResult::failed;
 }
@@ -1774,7 +1761,7 @@ try {
 /* Decode a save slot before the game in progress or its presentation is released, so a
    malformed section, nested level groups included, rejects the load and the current game
    resumes. */
-std::optional<SavedGame> ReadSavedGame(std::string_view slot_name)
+std::optional<SavedGame> ReadSavedGame(const GameData& data, std::string_view slot_name)
 try {
     W8Chunk chunks;
     if (!chunks.OpenRead(wiz8::user_path(SaveSlotPath(slot_name)))) return std::nullopt;
@@ -1787,7 +1774,7 @@ try {
         case W8_CHUNK_LEVEL_STATUS: {
             const int level = PeekGroupLevel(chunks);
             auto image = CopyLevelGroupImage(chunks);
-            if (auto state = LevelState::decode(image, level)) state->checkSpecies();
+            if (auto state = LevelState::decode(image, level)) state->checkSpecies(data);
             saved.levels.keep(level, std::move(image));
             break;
         }
@@ -1816,8 +1803,7 @@ try {
             saved.transcript = wiz8::save::decode_dialogue_transcript(ReadChunkPayload(chunks));
             break;
         case W8_CHUNK_NPC_STATES:
-            saved.npcs =
-                wiz8::save::decode_npc_states(ReadChunkPayload(chunks), Data().npcs.size());
+            saved.npcs = wiz8::save::decode_npc_states(ReadChunkPayload(chunks), data.npcs.size());
             break;
         case W8_CHUNK_FACT_STATE:
             saved.facts = wiz8::save::decode_facts(ReadChunkPayload(chunks));
@@ -1845,17 +1831,16 @@ try {
     return std::nullopt;
 }
 
-void SavedGame::install(GameSession& games) &&
+void SavedGame::install(Game& game) &&
 {
-    auto& game = games.begin();
     game.left_levels = std::move(levels);
     game.stored_characters = std::move(characters);
-    game.status = std::move(state.status);
+    game.status = state.status;
     game.party = std::move(state.party);
     game.inventory.restore(std::move(state.pool), state.held);
     game.search.restore(state.search_mode);
     if (messages) InstallMessageBoxes(std::move(*messages), game);
-    game.story.location_variables = std::move(location_variables);
+    game.story.restoreLocationVariables(std::move(location_variables));
     if (transcript)
         InstallDialogueTranscript(std::move(*transcript), game.story, game.npc_interaction);
     if (npcs) {
@@ -1868,44 +1853,40 @@ void SavedGame::install(GameSession& games) &&
             npc.partner_index = static_cast<unsigned char>(index);
             npc.script_file.reset();
             npc.has_monster = npc.is_grouped;
-            npc.record = &Data().npcs[npc.name_style];
+            npc.record = &game.data.npcs[npc.name_style];
             if (npc.is_grouped) {
                 npc.is_present = false;
-                npc.level_band = GetLevelBand(-1);
+                npc.level_band = game.levelBand(-1);
                 npc.bound_level = -1;
-                npc.script_file = LoadNpcScriptResources(npc, nullptr);
+                npc.script_file = LoadNpcScriptResources(game.story, npc, nullptr);
             }
             if (npc.spawned == 0xffff) npc.spawned = 0;
         }
         // The unflagged records no saved state claims start as new runtime nodes.
-        for (unsigned int npc_id = 0; npc_id < Data().npcs.size(); ++npc_id) {
+        for (unsigned int npc_id = 0; npc_id < game.data.npcs.size(); ++npc_id) {
             const auto claimed = std::ranges::any_of(states, [&](const auto& npc) {
                 return npc->record->kind == static_cast<int>(npc_id);
             });
-            if (Data().npcs[npc_id].monster_bound == 0 && !claimed)
-                CreateNpcRuntimeNode(game.story, npc_id);
+            if (game.data.npcs[npc_id].monster_bound == 0 && !claimed)
+                game.createNpcRuntimeNode(npc_id);
         }
     }
     if (facts) {
         // Re-apply the consequences of the facts that do not survive a save.
-        const auto& stored = game.story.facts = *facts;
+        game.story.restoreFacts(*facts, game.level.primary ? game.level.primary->level_id : -1);
+        const auto& stored = game.story.facts;
         if (stored[W8_FACT_RFS81_HAS_BEEN_FIXED]) {
             const auto npc = std::ranges::find_if(
                 game.story.npcs, [](const auto& state) { return state->record->kind == 0x20; });
             if (npc != game.story.npcs.end() && (*npc)->has_monster)
-                (*npc)->script_file = LoadNpcScriptResources(**npc, nullptr);
+                (*npc)->script_file = LoadNpcScriptResources(game.story, **npc, nullptr);
         }
-        // The derived import fact keeps its side effects, which act on the game just begun.
-        if (!stored[W8_FACT_IMPORT_TRANG] && !stored[W8_FACT_IMPORT_UMPANI] &&
-            !stored[W8_FACT_VIRGIN])
-            SetFact(W8_FACT_IMPORT_NOALIGN, 1, false);
     }
     if (factions) {
         game.story.faction_relations = factions->relations;
         game.story.factions = factions->states;
     }
     if (journal) game.story.journal = std::move(*journal);
-    std::ranges::move(spell_effects, std::back_inserter(game.spell_effects));
     for (std::size_t box = 0; box < game.message_log.size(); ++box) {
         for (std::size_t line = 0; line < game.status.text_box_lines_shown[box]; ++line) {
             auto& message = game.message_log[box][line];
@@ -1915,9 +1896,8 @@ void SavedGame::install(GameSession& games) &&
     // Drop equipment a character can no longer wear, then normalize every carried item's
     // quantity byte.
     SettleActiveParty(game);
-    const auto normalize = [](std::span<W8ItemInstance> items) {
-        for (auto& item : items)
-            if (item.iItemNo != -1) NormalizeItemQuantityKind(&item);
+    const auto normalize = [&game](std::span<W8ItemInstance> items) {
+        for (auto& item : items) NormalizeItemQuantityKind(game.data, item);
     };
     for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
         if (!game.party.members[slot].has_value()) continue;
@@ -1925,7 +1905,8 @@ void SavedGame::install(GameSession& games) &&
         normalize(game.party.characters[slot].backpack);
     }
     for (unsigned int index = 0; index < game.inventory.pool().size(); ++index) {
-        game.inventory.editItem({W8ItemStorage::Pool, 0, index},
-                                [](W8ItemInstance& item) { NormalizeItemQuantityKind(&item); });
+        game.inventory.editItem({W8ItemStorage::Pool, 0, index}, [&game](W8ItemInstance& item) {
+            NormalizeItemQuantityKind(game.data, item);
+        });
     }
 }

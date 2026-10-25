@@ -23,8 +23,6 @@ struct W8Action;
 
 #include "wiz8/rules/equipment_slots.h"
 
-bool CanCharacterActivateItem(W8Character* character, const W8ItemInstance* item);
-
 extern W8Skill g_item_spell_presentation[11];
 
 unsigned int GetEquipmentBindingDifficulty(int character_index);
@@ -45,14 +43,10 @@ unsigned int GetItemStackValue(const W8ItemInstance* item);
 unsigned int GetItemUnitWeight(const W8ItemInstance* item);
 unsigned char GetItemEquipClass(const W8ItemInstance* item);
 W8Skill GetItemSpellPresentation(const W8ItemDatabaseRecord* record);
-void UpdateFactsAfterAcquiringItem(const W8ItemInstance* item);
-void DeliverExceptionalItemReaction(Game& game, W8ItemInstance* item, bool choose_character,
-                                    W8Character* character);
 void StagePartySlotItemUse(int party_slot, W8ItemLocation location, const W8CombatSlot* target);
 bool PartyAttemptsToIdentifyItem(W8ItemInstance* item, int);
 
 bool CanItemLeaveItsSlot(const W8ItemInstance* item);
-bool IsItemWornByCharacter(W8Character* character, const W8ItemInstance* item);
 bool IsItemCarriedByCharacter(W8Character* character, const W8ItemInstance* item);
 
 bool AreAllHandSlotsEmpty(const W8Character* character);
@@ -74,8 +68,6 @@ W8ItemEquipSlotGroup GetItemEquipSlotGroup(int item_id);
 
 unsigned int CountIdentifyAttemptsNeeded(const W8ItemInstance* item, unsigned int percent);
 
-bool ItemClassNormalizesTarget(const W8ItemDatabaseRecord* record);
-
 /* Per-item-class notice index into Data().strings used for the
    unidentified ("Uncursed item" style) display name. */
 unsigned short GetItemUnidentifiedNameIndex(const W8ItemInstance* item);
@@ -88,7 +80,6 @@ bool AnyPartyMemberCanUseItem(int item_id);
 
 /* Whether an item is bound to whoever is wearing it, which is what stops it
    being taken off or swapped away. */
-bool IsItemBoundToWearer(const W8ItemInstance* item);
 
 bool CanUseItemForAction(int party_slot, const W8ItemInstance* item);
 

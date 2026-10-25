@@ -1,6 +1,7 @@
 #include "wiz8/level_specific_code/Trynnie2.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -8,17 +9,16 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/world_item.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/Trynnie1.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -30,7 +30,8 @@
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/script_context.h"
-#include "wiz8/string_database.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 class Trigger;
@@ -83,10 +84,10 @@ void Trynnie2Script::enter()
    world-side check has a stable flag to read. */
 void EnsureKilledVar(World& world)
 {
-    if (GetFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
+    if (CurrentGame().testFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
         if (GetLocationVarIDByName("Trynnie2Killed") == -1) {
             KillTrynnieGroups(world);
-            CreateLocationVar("Trynnie2Killed", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "Trynnie2Killed", 1);
         }
     }
 }
@@ -122,16 +123,17 @@ bool Trynnie2Script::giveZulu(Trigger* pTrigger)
 /* "Meat_Maker": spawn the meat item at the Meat_Position entity. */
 bool MeatMaker(Trigger* pTrigger)
 {
-    glm::vec3 entity_position;
+    auto& game = CurrentGame();
+    auto& owner = game.level.loaded();
     glm::vec3 position;
     W8WorldItem* item;
 
-    if (FindEntityByName("Meat_Position", &entity_position, 0, 0)) {
-        position = entity_position;
-        item =
-            AddWorldItem(SpawnItem(0x1b4, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+    if (auto entity_position = owner.namedPosition("Meat_Position")) {
+        position = *entity_position;
+        item = owner.adoptItem(game.spawnWorldItem(owner, 0x1b4, &position,
+                                                   W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
         if (item != 0) {
-            ActivateItem(item);
+            owner.activateItem(game.data, game.rng, item);
         }
     }
     return true;
@@ -146,7 +148,7 @@ bool Trynnie2Script::meatBox(Trigger* pTrigger)
     W8MonsterInfo* info;
     int item_id;
 
-    group = FindFirstMonsterByID(0x1d4);
+    group = CurrentLevelPopulation().findSpeciesGroup(0x1d4);
     if (group == 0 || !(ctx.inventory.held())) {
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, Data().strings[0x964]);
         return true;
@@ -165,8 +167,9 @@ bool Trynnie2Script::meatBox(Trigger* pTrigger)
     } else {
         info->entity->SetScript("MoveHogarDrugged.msf", true);
         if (GetLocationVarIDByName("HogarDruggedGivenExp") == -1) {
-            AwardPartyExperience(500, false);
-            CreateLocationVar("HogarDruggedGivenExp", 1);
+            ctx.game.awardExperience(500, false);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "HogarDruggedGivenExp",
+                                                       1);
         }
     }
     (void)ctx.inventory.take({W8ItemStorage::Hand});
@@ -200,10 +203,10 @@ bool UrnTrigger(Trigger* pTrigger)
         if (generator != 0) {
             generator->generation_enabled = false;
         }
-        ShowLevelMessage(0x14);
+        CurrentGame().queueLevelMessage(0x14);
         return true;
     }
-    ShowLevelMessage(0x13);
+    CurrentGame().queueLevelMessage(0x13);
     return true;
 }
 
@@ -219,32 +222,29 @@ std::unique_ptr<LevelScript> MakeTrynnie2Script(const ScriptContext& context)
    reports the refusal string; the first handled use only latches the status
    flag, later uses show a second string and spawn the Mystical Shaman (0xec)
    at NP_MysticalShaman. Either way the used item is consumed into a scratch
-   instance. The retail DispatchWorldCursorNodeCommand call passes only two
-   arguments; arg is never dereferenced for command 8, so the callee reads an
-   uninitialized stack slot there. */
+   instance. */
 bool Trynnie2UseItem(const ScriptContext& context, W8ItemLocation location)
 {
     const W8ItemInstance* item = context.inventory.itemAt(location);
-    glm::vec3 position;
 
     if (item->iItemNo != 0x1b3 && item->iItemNo != 0x1c3) {
         return false;
     }
-    if (DispatchWorldCursorNodeCommand(0, 8, 0) == 0) {
-        ShowString(Data().strings[0x966]);
+    if (DispatchWorldCursorNodeCommand(8) == 0) {
+        context.game.queueWorldMessage(Data().strings[0x966]);
         return true;
     }
     if (item->iItemNo == 0x1b3) {
-        ShowString(Data().strings[0x968]);
+        context.game.queueWorldMessage(Data().strings[0x968]);
     } else {
-        ShowString(Data().strings[0x967]);
+        context.game.queueWorldMessage(Data().strings[0x967]);
     }
     if (!context.status.use_item_latch) {
         context.status.use_item_latch = true;
     } else {
-        ShowString(Data().strings[0x969]);
-        if (FindEntityByName("NP_MysticalShaman", &position, 0, 0)) {
-            SpawnMonsters(0xec, 1, &position, 0, true, false);
+        context.game.queueWorldMessage(Data().strings[0x969]);
+        if (auto position = context.world->namedPosition("NP_MysticalShaman")) {
+            SpawnMonsters(0xec, 1, &*position, 0, true, false);
         }
     }
     context.inventory.take(location);

@@ -62,17 +62,17 @@ struct KeyframeTrack {
     bool timed{};
 };
 
-bool PathAIUpdate(KeyframeTrack* record, signed char direction);
+bool PathAIUpdate(KeyframeTrack* record, signed char direction, std::uint64_t now);
 void PathAIResetRecord(KeyframeTrack* record);
 Transform3D sampleKeyframeTrack(const KeyframeTrack& path, const Transform3D& initial);
 void PathAIEnableTimedMode(KeyframeTrack* path);
-void PathAIResetTick(KeyframeTrack* path);
+void PathAIResetTick(KeyframeTrack* path, std::uint64_t now);
 float PathAIGetValue(KeyframeTrack* path);
 bool PathAINextPoint(KeyframeTrack* path, glm::vec3* point);
 bool PathAIIsComplete(KeyframeTrack* path);
 void PathAISetValue(KeyframeTrack* path, float value);
 void PathAIAdvanceNormalized(KeyframeTrack* path, float amount);
-bool PathAITick(KeyframeTrack* path, signed char direction);
+bool PathAITick(KeyframeTrack* path, signed char direction, std::uint64_t now);
 void PathAIPosition(const KeyframeTrack* path, glm::vec3* value);
 std::optional<KeyframeTrack> LoadPathAI(wiz8::File& file);
 

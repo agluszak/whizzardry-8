@@ -1,6 +1,9 @@
 #pragma once
 
 struct SDL_Surface;
+class Game;
+struct PortraitSpeechChanged;
+void PresentPortraitSpeech(Game& game, const PortraitSpeechChanged& change);
 
 #include <cstdint>
 #include <string>
@@ -40,28 +43,11 @@ std::string GetCharacterVoicePath(const W8Character& character, unsigned int eve
 extern const int g_fact_check_event;
 
 int PickRandomPartySpeaker(unsigned int event_type, unsigned char excluded_slot);
-W8CharacterEvent* ApplyItemEffectToRandomCharacter(unsigned int event_type, int excluded_slot,
-                                                   unsigned int flags);
 void MaybeStartIncapacitationEvent(unsigned int party_slot);
-void QueueDamageReactionEvents(W8Character* character);
-/* After a character dies, pick one other party member and queue
-   their reaction event with a three-second clock. */
-void QueuePartyDeathReaction(unsigned int party_slot);
-/* Several members still active at turn begin; queue the shared
-   reaction event on one random eligible character. */
-void QueueTurnReactionEvent(void);
 /* Only one occupied member still standing at turn begin. */
 void QueueLastSurvivorEvent(void);
-/* React to a freshly recomputed highest_condition. */
-void QueueConditionChangeReaction(W8Character* character);
-/* React to a condition being lifted. */
-void QueueConditionClearedReaction(W8Character* character, W8Condition condition);
 /* Requeue the selected character's stored portrait event. */
 void RequeueSelectedPortraitEvent(void);
-/* Set the pose a party-slot portrait animates toward; clears any
-   pose animation in progress and forces the incapacitated pose when the
-   character is too far gone or the party is surprised. */
-void SetPortraitTargetPose(struct W8MonsterManagerEntry* slot, int pose);
 /* Left-click on a party portrait completes that slot's active
    event, or finishes the NPC voice playback for the player portraits. */
 /* Re-blit each active portrait quote bubble when the screen comes
@@ -77,7 +63,6 @@ void RenderPartyPortrait(SDL_Surface& target, int portrait, int left, int top, S
 bool BlitPartyPortraitAnimation(SDL_Surface& target, int portrait, int left, int top,
                                 SpriteDraw options, int party_slot, bool animate);
 
-void CreatePartyPortraitEventRegions();
 extern int g_special_event2;
 extern unsigned int g_event_range_max;
 extern int g_special_event18; /* One of the three melee

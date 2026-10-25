@@ -3,7 +3,6 @@
 
 #include <array>
 #include <cstdint>
-#include <string>
 
 #include "wiz8/data/records.h"
 #include "wiz8/difficulty.h"
@@ -60,8 +59,8 @@ struct GameStatus {
     int resume_level = -1;
     unsigned int uiTurnsElapsed = 0;
     std::array<W8LevelProgressRow, W8_LEVEL_COUNT> level_progress{};
-    /* CamPos staged by recall when the anchor is on another level; LoadLevel restores it
-       after the new world exists. */
+    /* CamPos staged by recall when the anchor is on another level; Game::travelToLevel
+       restores it after the new world exists. */
     CameraPose pending_move_location{};
     int next_group_id = 0;
     int next_monster_location_id = 0;
@@ -111,7 +110,6 @@ struct GameStatus {
     bool use_item_latch = false;
     bool infatuation_pending = false;
     W8Difficulty difficulty = W8_DIFFICULTY_NOVICE;
-    std::string monster_name_buffer;
     /* Party slot selected by the Sedexus path before rpc_active is armed; later capture,
        fact and death handling reuse the same slot. */
     int sedexus_party_slot = 0;

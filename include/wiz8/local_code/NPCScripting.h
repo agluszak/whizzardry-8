@@ -1,11 +1,16 @@
 #pragma once
+struct Story;
 
+#include <cstdint>
+#include <functional>
 #include <list>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "wiz8/audio_resources.h"
 #include "wiz8/message_box.h"
 #include "wiz8/npc_script_file.h"
 struct W8NpcState;
@@ -20,6 +25,7 @@ class Monster;
 class W8DialogBase;
 struct ScriptContext;
 struct GameStatus;
+class Game;
 
 /* Whether the conversation waits on the player: a queued options, keyword or
    price-check entry is pending, or its reply dialog is open. */
@@ -40,13 +46,17 @@ struct W8NpcPriceCheck {
    class decides which script step follows. */
 class W8NpcDialogue {
 public:
+    W8NpcDialogue() = default;
+    ~W8NpcDialogue();
+    W8NpcDialogue(const W8NpcDialogue&) = delete;
+    W8NpcDialogue& operator=(const W8NpcDialogue&) = delete;
     W8NpcState* speaker() const { return session_.npc.get(); }
     int current_quote() const { return session_.current_quote_index; }
     W8NpcReplyState reply() const { return reply_; }
     const std::optional<W8NpcPriceCheck>& price_check() const { return price_check_; }
     bool has_queued_actions() const { return !queue_.empty(); }
     /* A scripted scene holds the queue until it ends. */
-    bool is_held_by_scene() const { return held_by_scene_; }
+    bool is_held_by_scene() const { return scene_.has_value(); }
     /* Party character events wait while a conversation line or queued script action
        is pending for an ungrouped speaker (or any speaker, with `require_group_entry`),
        unless a scripted scene holds the dialogue. */
@@ -54,7 +64,7 @@ public:
 
     /* Make `npc` the speaker. `suspend_current` keeps the current
        conversation, which resumes once the queue drains. */
-    void Begin(W8NpcState* npc, bool suspend_current, bool script_event = false);
+    void Begin(std::shared_ptr<W8NpcState> npc, W8NpcScriptBinding binding, bool suspend_current);
     const W8NpcScriptBinding& binding() const { return session_.binding; }
     /* One frame: unless a quote is on screen, a scene holds the queue or a
        reply dialog is open, run the next queued action; once the queue
@@ -67,8 +77,38 @@ public:
     void Cancel();
     /* The player's answer to the pending reply. */
     void Answer(const ScriptContext& context, std::string_view text);
-    /* The current quote or portrait message has left the screen. */
-    void SpeechFinished();
+    // One utterance's logical wait. Playback and bubble resources remain with its panel.
+    struct Utterance {
+        enum class Phase { voice, quote_hold, portrait_message };
+        std::uint64_t identity;
+        std::uint64_t session;
+        Phase phase;
+        std::shared_ptr<W8NpcState> npc;
+        W8NpcScriptBinding binding;
+        int quote;
+        std::uint64_t hold_started = 0;
+        std::uint64_t hold_ms = 0;
+    };
+    bool has_active_utterance() const { return utterance_.has_value(); }
+    bool voice_pending() const
+    {
+        return utterance_ && utterance_->phase == Utterance::Phase::voice;
+    }
+    const Utterance* utterance(std::uint64_t identity) const;
+    std::uint64_t BeginVoiceQuote();
+    // Playback reports success/failure and its actual start time, after resource loading.
+    void VoiceStarted(std::uint64_t identity, std::uint64_t now, bool voiced,
+                      std::uint64_t unvoiced_ms);
+    std::uint64_t BeginHeldQuote(std::uint64_t now, std::uint64_t duration);
+    std::uint64_t BeginPortraitMessage(std::uint64_t now, std::uint64_t duration);
+    bool UtteranceHoldOver(std::uint64_t identity, std::uint64_t now) const;
+    bool CanSkipUtterance(std::uint64_t now) const;
+    // Natural EOS marks the originating quote finished, but retains its 700 ms wait.
+    void VoiceFinished(std::uint64_t identity, std::uint64_t now);
+    void FinishUtterance(std::uint64_t identity,
+                         std::function_ref<void(const Utterance&)> release_presentation);
+    // Discard abandons the wait without completing scripts or publishing notices.
+    void AbandonUtterance(std::uint64_t identity);
 
     void QueueQuote(int quote, bool mark_pending, bool prepend, bool suppress_entries);
     void Queue(W8NpcAction action);
@@ -79,12 +119,16 @@ public:
     void ReplyDialogClosed();
     /* Drop a pending reply and price check without answering. */
     void AbandonReply();
-    void HoldForScene();
+    // Begin replaces the previous scene and cancels its pending sound completion.
+    void BeginScene();
+    // Successful playback owns this wait; failure leaves any existing scene unchanged.
+    void BeginSoundScene(std::string_view path);
     void ReleaseScene();
 
 private:
     /* A conversation position. Begin can suspend one and Advance resumes it. */
     struct Session {
+        std::uint64_t identity = 0;
         std::shared_ptr<W8NpcState> npc;
         W8NpcScriptBinding binding;
         int current_quote_index;
@@ -105,6 +149,13 @@ private:
     int FindReplyQuote(std::string_view text) const;
     void RunDeclineActions(const ScriptContext& context, int quote);
 
+    std::uint64_t BeginUtterance(Utterance::Phase phase, std::uint64_t now, std::uint64_t duration);
+    void MarkUtteranceFinished(const Utterance& utterance);
+
+    std::optional<Utterance> utterance_;
+    std::uint64_t utterance_identity_ = 0;
+    std::uint64_t session_identity_ = 0;
+    std::uint64_t voice_started_at_ = 0;
     Session session_{};
     std::optional<Session> suspended_;
     std::optional<Session> reply_session_;
@@ -115,7 +166,9 @@ private:
     std::vector<int> pending_quotes_;
     bool queue_idle_ = false;
     unsigned int cancellation_generation_ = 0;
-    bool held_by_scene_ = false;
+    // No scene means no wait; an empty playback is an externally completed scene.
+    // A sound-backed scene cancels its completion when replaced or destroyed.
+    std::optional<wiz8::sound::Playback> scene_;
 };
 
 std::string GetNpcScriptRegionName(int region);
@@ -151,7 +204,7 @@ int FindNpcNameOrPlaceQuote(W8NpcState* npc, std::string_view text);
 void RestoreCurrentNpcQuoteBubble(void);
 /* Show the NPC quote bubble for the formatted line; a nonzero
    second argument also plays the startup jingle. */
-void DisplayNpcQuote(std::string_view text, bool play_sound);
+void DisplayNpcQuote(Game& game, std::string_view text, bool play_sound);
 /* Advance the dialogue NPC's refusal state - each stage queues a
    different quote until the third, which stays queued. */
 void QueueDialogueNpcRefusal(void);
@@ -163,4 +216,5 @@ void AuditNpcScriptQuotes(GameStatus& status);
 void ReloadNpcScriptResources(W8NpcState* npc);
 /* Load the NPC's .nsf script and give its monster the matching .msf script,
    without changing the NPC. */
-std::unique_ptr<W8NpcScriptFile> LoadNpcScriptResources(W8NpcState& npc, Monster* monster);
+std::unique_ptr<W8NpcScriptFile> LoadNpcScriptResources(const Story& story, W8NpcState& npc,
+                                                        Monster* monster);

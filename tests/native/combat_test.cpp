@@ -7,7 +7,6 @@
 
 #include "scoped_combat.h"
 #include "scoped_game.h"
-#include "scoped_game_data.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
@@ -24,6 +23,7 @@
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/world/simulation_sink.h"
@@ -168,9 +168,8 @@ TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed 
 
 TEST_CASE("A deflected stored-spell missile keeps its outcome outside combat")
 {
-    const ScopedGame game_scope;
-    Game& game = game_scope.game;
-    const ScopedGameData missile_data{GameData{.missiles = std::vector<W8MissileTableRecord>(36)}};
+    const GameData data{.missiles = std::vector<W8MissileTableRecord>(36)};
+    Game game{data};
     game.level.replacePrimary(std::make_unique<World>());
     World& world = *game.level.primary;
     Monster target(world);
@@ -201,4 +200,31 @@ TEST_CASE("A deflected stored-spell missile keeps its outcome outside combat")
     // Deflection prevents Rocket Blast even without a fight to remember the hit.
     missile.Land();
     REQUIRE(missile.flight_done);
+}
+
+TEST_CASE("Weapon reach and berserk eligibility need no installed game", "[combat][rules]")
+{
+    GameData data;
+    data.items.resize(1);
+    data.items[0].range_category = W8_RANGE_SHORT;
+    W8Character character{};
+    character.iProfession = W8_PROFESSION_FIGHTER;
+    character.iRace = W8_RACE_HUMAN;
+    character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo = 0;
+    character.Hand[0].in_play = true;
+    character.Hand[0].uiHolds = 1;
+    REQUIRE(GetCharAttackRange(data, &character, 0) == W8_RANGE_SHORT);
+    REQUIRE(GetCharAttackRange(data, &character, 2) == W8_RANGE_SHORT);
+    REQUIRE(CanCharacterBerserk(data, &character));
+    data.items[0].range_category = W8_RANGE_LONG;
+    REQUIRE_FALSE(CanCharacterBerserk(data, &character));
+    character.Hand[0].in_play = false;
+    REQUIRE(GetCharAttackRange(data, &character, 2) == W8_RANGE_NONE);
+    REQUIRE_FALSE(CanCharacterBerserk(data, &character));
+    // Retail gates against the primary range even when only the secondary can attack.
+    character.EquippedItem[W8_EQUIP_SLOT_SECONDARY_WEAPON].iItemNo = 0;
+    character.Hand[1].in_play = true;
+    character.Hand[1].uiHolds = 1;
+    REQUIRE(GetCharAttackRange(data, &character, 2) == W8_RANGE_LONG);
+    REQUIRE(CanCharacterBerserk(data, &character));
 }

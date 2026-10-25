@@ -46,7 +46,6 @@
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/dialog_code/SpellInfoDialog.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
@@ -79,6 +78,7 @@
 #include "wiz8/local_screens/Screens.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
+#include "wiz8/party_quote_input.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/random.h"
 #include "wiz8/platform/timer.h"
@@ -99,7 +99,7 @@
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
-#include "wiz8/world/level_session.h"
+#include "wiz8/world_view.h"
 
 struct W8NpcState;
 
@@ -625,7 +625,7 @@ bool CampScreen::enter(const ScreenRequest& request)
     }
     if (auto* main_game = MainGame()) main_game->item_drag.reset();
     game.aging_held = false;
-    CreatePartyPortraitEventRegions();
+    party_quotes = AcquirePartyQuoteInput(game);
     CreateCampInput();
     if (request.parameter_4) items.IdentifyWithSpell(*request.parameter_4);
     CreateCampButtonPanel();
@@ -831,7 +831,7 @@ void CampScreen::DrawCampScreen(void)
 done:
     RedrawPortraitQuoteBubbles();
     if (auto* dialog = dialogs.open()) dialog->RefreshModal();
-    RenderFrame();
+    PresentGameFrame(&game);
 }
 
 void CampScreen::SyncReviewCharInputRegion(void)
@@ -1038,7 +1038,7 @@ int CommitPartySlotSpell(int party_slot, int spell_id, int power_level, W8Combat
     row->executing.target = *target;
     result = ExecuteCharacterSpellCast(party_slot, spell_id, power_level, &cost, false);
     SetPartySlotSpell(party_slot, spell_id, power_level, target);
-    FatigueCharacter(party_slot, cost, true, 0);
+    CurrentGame().fatigueCharacter(party_slot, cost, true, 0);
     if (result != 1) {
         wiz8::sound::play("Data\\Sound\\Misc\\Spell Fizzle 01.wav");
         return result;
@@ -1075,7 +1075,7 @@ int CommitPartySlotItemUse(int party_slot, W8ItemUse use, W8CombatSlot* target)
     StagePartySlotItemUse(party_slot, use.item, target);
     const auto used_item = CurrentGame().inventory.use(party_slot, use);
     result = used_item.effect;
-    FatigueCharacter(
+    CurrentGame().fatigueCharacter(
         party_slot,
         used_item.fatigue_cost.value_or(CharacterActionFatigueCost(party_slot, W8_ACTION_USE_ITEM)),
         true, 0);
@@ -1100,9 +1100,9 @@ void BeginEndgameSequence(void)
 
     CurrentGame().status.endgame_started = true;
     ScreenPointer().reset();
-    if (GetFact(W8_FACT_ENDING_BOFFO_ONE) != 0) {
+    if (CurrentGame().testFact(W8_FACT_ENDING_BOFFO_ONE) != 0) {
         fade_to_black = 1;
-    } else if (GetFact(W8_FACT_ENDGAME_JOIN_SAVANT) != 0) {
+    } else if (CurrentGame().testFact(W8_FACT_ENDGAME_JOIN_SAVANT) != 0) {
         fade_code = 1;
         endgame_variant = true;
     }
@@ -1162,8 +1162,8 @@ unsigned char UpdateScreenFade(void)
         MainGameHud()->screen_fade_running = false;
         if (g_fade_out == 0) {
             g_fade_overlay->color.a = 1.0f;
-            RenderFrame();
-            RenderFrame();
+            PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
+            PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
         }
         g_fade_overlay.reset();
         SetFullscreenSceneLast(0);
@@ -1180,7 +1180,7 @@ unsigned char UpdateScreenFade(void)
         material->color.a = 1.0f - progress;
     }
     if (g_fade_flag != 0) {
-        RenderFrame();
+        PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
     }
     return g_fade_flag;
 }
@@ -1229,7 +1229,7 @@ void PumpReviewTransition(void)
         }
         g_ending_autosave = false;
     }
-    LeaveLevel();
+    CurrentGame().leaveLevel();
     exit_review = false;
     while (auto next_input = PollInputEvent()) {
         input = *next_input;
@@ -1246,7 +1246,7 @@ void PumpReviewTransition(void)
     if (exit_review) {
         BeginScreenFade(0, 0, 0x320, EndReviewTransition, true, 1);
     }
-    RenderFrame();
+    PresentGameFrame(GameInProgress() ? &CurrentGame() : nullptr);
 }
 
 /* Fade-completion callback for party death: draw the review backdrop and
@@ -1311,20 +1311,20 @@ void ShowEndingScreen(void)
     music = "EndCredit.MPL";
     g_ending_screen = true;
     g_ending_autosave = true;
-    if (GetFact(W8_FACT_ENDGAME_JOIN_SAVANT) != 0) {
+    if (CurrentGame().testFact(W8_FACT_ENDGAME_JOIN_SAVANT) != 0) {
         image = 0x1e1;
         schedule_fade = false;
         text = Data().strings[0x787];
         sound = "Data\\Sound\\npcs\\VOC_ENDGAME1\\VOC_ENDGAME1_005.mp3";
-    } else if (GetFact(W8_FACT_QUE_ENDGAME2) != 0) {
+    } else if (CurrentGame().testFact(W8_FACT_QUE_ENDGAME2) != 0) {
         image = 0x1e2;
         text = Data().strings[0x788];
         sound = "Data\\Sound\\npcs\\VOC_ENDGAME2\\VOC_ENDGAME2_005.mp3";
-    } else if (GetFact(W8_FACT_ENDGAME_SAVANT_PHOON_SPLIT) != 0) {
+    } else if (CurrentGame().testFact(W8_FACT_ENDGAME_SAVANT_PHOON_SPLIT) != 0) {
         image = 0x1e2;
         text = Data().strings[0x789];
         sound = "Data\\Sound\\npcs\\VOC_ENDGAME3\\VOC_ENDGAME3_000.mp3";
-    } else if (GetFact(W8_FACT_ENDING_BOFFO_ONE) != 0) {
+    } else if (CurrentGame().testFact(W8_FACT_ENDING_BOFFO_ONE) != 0) {
         image = 0x1e3;
         fade_to_black = 1;
         text = Data().strings[0x78a];

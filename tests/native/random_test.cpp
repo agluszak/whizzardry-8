@@ -129,7 +129,8 @@ TEST_CASE("Rules draw from the game's stream in retail order", "[random]")
     REQUIRE(sword.practice_count == 1);
 
     // Combat: an attack mode and a missile's scatter.
-    ChooseAttackMode((1u << W8_ATTACK_MODE_SWING) | (1u << W8_ATTACK_MODE_THRUST));
+    ChooseAttackMode(CurrentGame().rng,
+                     (1u << W8_ATTACK_MODE_SWING) | (1u << W8_ATTACK_MODE_THRUST));
     glm::vec3 aim{100.0f, 0.0f, 0.0f};
     const glm::vec3 origin{};
     ScatterMissileAimPoint(&origin, &aim, 50, false);

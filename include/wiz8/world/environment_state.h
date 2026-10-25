@@ -2,8 +2,10 @@
 #include <glm/glm.hpp>
 
 #include "wiz8/retail_opaque_records.h"
+inline constexpr float kDefaultGravity = 187.5f;
+
 struct LevelEnvironment {
-    LevelEnvironment();
+    explicit LevelEnvironment(float gravity = kDefaultGravity);
 
     int value_00;
     bool ground_latch;
@@ -25,7 +27,7 @@ struct LevelEnvironment {
     float momentum_scale;
     float value_40;
 
-    bool RescaleToReference(const LevelEnvironment* reference);
+    bool RescaleToReference(const LevelEnvironment* reference, float gravity);
     /* 0x00421800: store `motion` / scale as the per-frame vector. */
     void SetScaledMotion(const glm::vec3& motion);
     /* 0x00421850: add vector * scale into `position`. */

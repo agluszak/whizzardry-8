@@ -33,6 +33,8 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/level_session.h"
+#include "wiz8/world/party_motion.h"
+#include "wiz8/world/world.h"
 
 /* PHASES_PER_ROUND, named by the assertion that bounds the phase. */
 enum { W8_PHASES_PER_ROUND = 100 };
@@ -69,23 +71,11 @@ void ResetRoundPartyMovement()
 void BeginPartyMovement(void)
 {
     CurrentGame().party_moving = true;
-    MoveTimer(W8_MOVE_TIMER_SUSPEND);
+    CurrentGame().setMotionPaused(true);
 }
 
 /* Round one combatant's phase to the ten it belongs in and clamp it into the
    round. The assertion names the bound as PHASES_PER_ROUND. */
-void RoundPhaseToStep(unsigned int* phase, unsigned int base)
-{
-    if (CurrentGame().combat->uiCurrentPartyAction != W8_PARTY_ACTION_NONE) {
-        *phase = (*phase + 5) - (*phase + 5) % 10;
-        if (base % 10 != 0) {
-            base += 10 - base % 10;
-        }
-        *phase =
-            *phase > W8_PHASES_PER_ROUND ? W8_PHASES_PER_ROUND : std::max<unsigned>(*phase, base);
-    }
-    assert(*phase != 0 && *phase <= W8_PHASES_PER_ROUND);
-}
 
 /* Movement fatigue: each occupied party slot with stamina and a bearable load
    accumulates distance scaled by load, doubled in combat and raised again while
@@ -130,7 +120,7 @@ std::optional<PartyMotionElapsed> AccumulateMovementFatigue(Game& game)
         fatigue = multiplier * amount + fatigue;
         if (fatigue > g_position_height_epsilon) {
             const auto ticks = static_cast<unsigned int>(fatigue * kMovementFatigueTickScale);
-            FatigueCharacter(static_cast<int>(party_slot), static_cast<int>(ticks), false, 0);
+            game.fatigueCharacter(static_cast<int>(party_slot), static_cast<int>(ticks), false, 0);
             fatigue = fatigue - (ticks * 0x9c4);
         }
     }
@@ -305,7 +295,7 @@ void CompletePartyMovementTurns(void)
         }
         W8CombatCharacterRow* combat_row = &CurrentGame().combat->characters[party_slot];
         if (!combat_row->dead && CurrentGame().rng.below(100) < remaining) {
-            CatchUpCombatActor(combat_row);
+            CurrentGame().combat->catchUpCharacter(party_slot);
             continue;
         }
         combat_row->dead = true;
@@ -335,7 +325,8 @@ void InitializePartyMovementPhase(void)
     CurrentGame().combat->uiPartyActionPhase = 90 - minimum_initiative;
     if (CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_WALK ||
         CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
-        RoundPhaseToStep(&CurrentGame().combat->uiPartyActionPhase, 10);
+        CurrentGame().combat->uiPartyActionPhase =
+            CurrentGame().combat->phaseAtStep(CurrentGame().combat->uiPartyActionPhase, 10);
     }
     assert(CurrentGame().combat->uiPartyActionPhase != 0 &&
            CurrentGame().combat->uiPartyActionPhase <= W8_PHASES_PER_ROUND);
@@ -345,12 +336,13 @@ void InitializePartyMovementPhase(void)
    party movement action. */
 void AlignCombatantsToPartyMovementPhase(void)
 {
-    RoundPhaseToStep(&CurrentGame().combat->uiPartyActionPhase,
-                     CurrentGame().combat->round_counter);
+    CurrentGame().combat->uiPartyActionPhase = CurrentGame().combat->phaseAtStep(
+        CurrentGame().combat->uiPartyActionPhase, CurrentGame().combat->round_counter);
     for (auto& character : CurrentGame().combat->characters) {
         W8CombatCharacterRow* row = &character;
         if (row->phase >= CurrentGame().combat->round_counter && !row->dead) {
-            RoundPhaseToStep(&row->phase, CurrentGame().combat->round_counter);
+            row->phase =
+                CurrentGame().combat->phaseAtStep(row->phase, CurrentGame().combat->round_counter);
         }
     }
     auto monster_count = CurrentLevelPopulation().monster_roster.live().size();
@@ -359,7 +351,8 @@ void AlignCombatantsToPartyMovementPhase(void)
         if (monster_info->pCombat &&
             monster_info->pCombat->phase >= CurrentGame().combat->round_counter &&
             !monster_info->pCombat->active) {
-            RoundPhaseToStep(&monster_info->pCombat->phase, CurrentGame().combat->round_counter);
+            monster_info->pCombat->phase = CurrentGame().combat->phaseAtStep(
+                monster_info->pCombat->phase, CurrentGame().combat->round_counter);
         }
         monster_count = CurrentLevelPopulation().monster_roster.live().size();
     }
@@ -383,7 +376,8 @@ void StartPartyMovementAction(W8PartyAction move_kind)
         CurrentGame().combat->uiPartyActionPhase = W8_PHASES_PER_ROUND;
     }
     AlignCombatantsToPartyMovementPhase();
-    RoundPhaseToStep(&CurrentGame().combat->round_counter, CurrentGame().combat->round_counter);
+    CurrentGame().combat->round_counter = CurrentGame().combat->phaseAtStep(
+        CurrentGame().combat->round_counter, CurrentGame().combat->round_counter);
     CurrentGame().events.push(CombatProgressChanged{});
 }
 
@@ -400,10 +394,10 @@ void EndPartyMovementPhase(void)
     if (!IsLevelMovementStopped()) {
         CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x21c]});
     }
-    ResetLevelDataVectors();
+    if (auto* world = GetWorld()) world->party.camera.motion.stop();
     SetFreeTurnEnabled(false);
     RepaintPartyMovementPanel();
-    RefreshOutwardSightForAllMonsters();
+    CurrentGame().refreshOutwardSight();
     CurrentGame().combat->uiCurrentPartyActionStatus = W8_PARTY_ACTION_PHASE_ENDED;
 }
 
@@ -411,7 +405,7 @@ void EndPartyMovementPhase(void)
    the monsters are told, and movement control is settled. */
 void BeginFreeTurnPhase(void)
 {
-    ResetLevelDataVectors();
+    if (auto* world = GetWorld()) world->party.camera.motion.stop();
     CurrentGame().combat->uiCurrentPartyActionStatus = W8_PARTY_ACTION_FINISHED;
     CurrentGame().party_movement_mode = false;
     CheckMonsterGroupsEnterCombat();
@@ -479,7 +473,7 @@ void FinishPartyMovementAction(void)
         CurrentGame().events.push(TextNotice{W8_FONT_PALETTE_WHITE, Data().strings[0x21d]});
     }
     wiz8::sound::play("Data\\Sound\\Misc\\Movement_Bar_Pop_Up.wav");
-    ClearLevelMovementStopped();
+    if (auto* world = GetWorld()) world->party.camera.motion.resume();
     if (CurrentGame().combat->uiCurrentPartyAction == W8_PARTY_ACTION_RUN) {
         SetLevelFastMovement();
     }
@@ -516,4 +510,25 @@ bool PartyMovementReachedPhaseLimit(void)
         CurrentGame().combat->round_counter - CurrentGame().combat->uiPartyActionPhase +
         (CurrentGame().combat->uiCurrentPartyAction != W8_PARTY_ACTION_NONE ? 9 : 0) + 2;
     return static_cast<float>(elapsed_phases) / remaining_phases <= moved_fraction;
+}
+
+unsigned int Combat::phaseAtStep(unsigned int phase, unsigned int base) const
+{
+    if (uiCurrentPartyAction != W8_PARTY_ACTION_NONE) {
+        phase = (phase + 5) - (phase + 5) % 10;
+        if (base % 10 != 0) base += 10 - base % 10;
+        phase = phase > W8_PHASES_PER_ROUND ? W8_PHASES_PER_ROUND : std::max(phase, base);
+    }
+    assert(phase != 0 && phase <= W8_PHASES_PER_ROUND);
+    return phase;
+}
+
+void Combat::catchUpCharacter(unsigned int slot)
+{
+    auto& row = characters[slot];
+    row.phase += round_counter - row.phase_clock_stamp;
+    row.phase =
+        row.phase > W8_PHASES_PER_ROUND ? W8_PHASES_PER_ROUND : std::max(row.phase, round_counter);
+    row.phase = phaseAtStep(row.phase, round_counter);
+    row.phase_clock_stamp = round_counter;
 }

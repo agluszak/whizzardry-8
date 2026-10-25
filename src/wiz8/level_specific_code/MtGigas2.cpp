@@ -11,7 +11,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -25,7 +25,9 @@
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/rules/activity.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
 #include "wiz8/utility.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 struct W8ItemInstance;
@@ -113,7 +115,7 @@ bool YellowWire(Trigger* pTrigger)
         WireShock();
         return false;
     }
-    SetFact(W8_FACT_UMISSION_TRAIN_MACHINE_FIXED, 1, false);
+    CurrentGame().setFact(W8_FACT_UMISSION_TRAIN_MACHINE_FIXED, 1);
     SetTriggerVariableByName("WirePanel", 3);
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     wire = FindTriggerByName("redwire");
@@ -188,7 +190,7 @@ void MtGigas2Script::setup()
             RunNamedTrigger("yellowwire", -1);
         }
     } else {
-        CreateLocationVar("WirePanel", -1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "WirePanel", -1);
     }
     if (GetLocationVarIDByName("UmpaniAlarm") != -1) {
         int alarm = GetLocationVarValueByName("UmpaniAlarm");
@@ -196,21 +198,21 @@ void MtGigas2Script::setup()
             umpaniAlarm(alarm);
         }
     }
-    if (GetFact(W8_FACT_UMISSION_IUFPASS_LEVEL4) == 0 &&
+    if (ctx.game.testFact(W8_FACT_UMISSION_IUFPASS_LEVEL4) == 0 &&
         GetLocationVarIDByName("CODESgtRubbleTeleport") != -1 &&
         GetLocationVarValueByName("CODESgtRubbleTeleport") == 2) {
         W8NpcState* npc;
         W8MonsterInfo* info;
-        glm::vec3 position;
 
         SetTriggerVariableByName("CODESgtRubbleTeleport", 1);
         RunNamedTrigger("door08", -1);
-        SetFact(W8_FACT_UMISSION_MOVE_RUBBLE_COVERT, 0, false);
-        npc = GetNpcStateByKind(0x29);
+        ctx.game.setFact(W8_FACT_UMISSION_MOVE_RUBBLE_COVERT, 0);
+        npc = CurrentGame().story.npcOfKind(0x29);
         if (npc != 0) {
             info = GetNpcMonsterInfo(npc);
-            if (info != 0 && FindEntityByName("RubbleCovert", &position, 0, 0)) {
-                info->entity->SetPosition(&position);
+            if (info) {
+                if (auto point = world().namedPosition("RubbleCovert"))
+                    info->entity->SetPosition(&*point);
             }
         }
     }
@@ -229,7 +231,7 @@ bool MtGigas2Script::train(Trigger* pTrigger)
     if (ctx.activity.conversation) {
         return false;
     }
-    npc = GetNpcStateByKind(0x5b);
+    npc = CurrentGame().story.npcOfKind(0x5b);
     item = 0;
     item_id = 0;
     if (const auto* held = ctx.inventory.held()) {
@@ -290,13 +292,13 @@ bool MtGigas2Script::activateOfficer(int door_bit, const char* door_name, int np
 bool MtGigas2Script::laserAlarm(Trigger* pTrigger)
 {
     g_trigger_feedback = true;
-    if (GetFact(W8_FACT_LOCATION_GIGAS_MOTION_SENSORS_OFF) != 0) {
+    if (ctx.game.testFact(W8_FACT_LOCATION_GIGAS_MOTION_SENSORS_OFF) != 0) {
         return false;
     }
     if (GetLocationVarIDByName("UmpaniAlarm") != -1) {
         return false;
     }
-    SetFactionDispositionBand(4, W8_FACTION_HOSTILE);
+    CurrentGame().setFactionDisposition(4, W8_FACTION_HOSTILE);
     umpaniAlarm(kMasterToggle);
     return true;
 }
@@ -318,7 +320,8 @@ bool MtGigas2Script::umpaniAlarm(int command)
     glm::vec3 position;
 
     if (command != 0) {
-        if (GetLocationVarIDByName("UmpaniAlarm") == -1) CreateLocationVar("UmpaniAlarm", 30);
+        if (GetLocationVarIDByName("UmpaniAlarm") == -1)
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "UmpaniAlarm", 30);
         if (alarm_gate_ || alarm_sound_ != 0) {
             return false;
         }
@@ -326,7 +329,7 @@ bool MtGigas2Script::umpaniAlarm(int command)
         if (static_cast<unsigned int>(command) > 0x1e) {
             command = 0x1e;
         }
-        alarm_gate_.emplace(static_cast<float>(static_cast<unsigned int>(command)),
+        alarm_gate_.emplace(world().clocks, static_cast<float>(static_cast<unsigned int>(command)),
                             TimerClock::World, true);
         alarm_sound_ = CreateAndPlaySoundNode(
             world(), "Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav", position, 1.0f,

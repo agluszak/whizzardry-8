@@ -111,7 +111,7 @@ struct GlobalStatus {
     LevelProgress level_progress[W8_LEVEL_COUNT];
     unsigned char unknown_2013[0x294];
     /* 0x22a7: CamPos staged by recall when the anchor is on another level;
-       LoadLevel restores it after the new world exists. */
+       Game::travelToLevel restores it after the new world exists. */
     CameraState pending_move_location;
     /* 0x22e3: the party-wide modifier block the effect rebuild clears and
        refills. Its +0x4a flag is the light gate the monster-sight threshold
@@ -587,9 +587,9 @@ template<> struct Record<save::GameState> {
               bytes.subspan(offsetof(Disk, difficulty), sizeof(Disk::difficulty)));
         value(&runtime.status.retail.save_filetime_xor,
               bytes.subspan(offsetof(Disk, save_filetime_xor), sizeof(Disk::save_filetime_xor)));
-        text(runtime.status.monster_name_buffer,
-             bytes.subspan(offsetof(Disk, monster_name_buffer), sizeof(Disk::monster_name_buffer)),
-             Encoding::utf16);
+        value(
+            &runtime.status.retail.monster_name_cache,
+            bytes.subspan(offsetof(Disk, monster_name_buffer), sizeof(Disk::monster_name_buffer)));
         value(&runtime.status.sedexus_party_slot,
               bytes.subspan(offsetof(Disk, sedexus_party_slot), sizeof(Disk::sedexus_party_slot)));
         value(&runtime.status.stamina_tick_ms,

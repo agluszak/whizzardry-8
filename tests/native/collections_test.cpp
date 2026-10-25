@@ -7,6 +7,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -27,12 +28,18 @@
 #include "temporary_directory.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/chunk.h"
+#include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/combat/hostility.h"
+#include "wiz8/data/attack_modes.h"
+#include "wiz8/data/faction_ids.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
+#include "wiz8/data/spell_ids.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entities/script.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
@@ -51,6 +58,7 @@
 #include "wiz8/local_code/GameplayMods.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/local_code/HealthStaminaMana.h"
+#include "wiz8/local_code/MonsterAI.h"
 #include "wiz8/local_code/MonsterGenerator.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -71,12 +79,15 @@
 #include "wiz8/resource_cache.h"
 #include "wiz8/retail_save_records.h"
 #include "wiz8/retail_text_records.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/activity.h"
+#include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
@@ -88,7 +99,9 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/script_context.h"
+#include "wiz8/sight_state.h"
 #include "wiz8/spatial/navigator.h"
+#include "wiz8/story.h"
 #include "wiz8/world/world.h"
 
 // A game in progress with an empty level world.
@@ -265,11 +278,11 @@ static bool gameplayCollectionLifetime()
     REQUIRE((roster.live().empty() && GetMonsterListEntry(0) == nullptr));
     auto* live = roster.add(std::make_unique<W8MonsterInfo>(), false);
     auto* unborn = roster.add(std::make_unique<W8MonsterInfo>(), true);
-    CurrentLevelPopulation().encounter_groups.push_back(std::move(group));
+    CurrentLevelPopulation().adoptGroup(std::move(group), true);
     REQUIRE(GetMonsterListEntry(0) == live);
     REQUIRE((GetMonsterListEntry(-1) == nullptr && GetMonsterListEntry(1) == nullptr));
     REQUIRE((GetUnbornMonsterEntry(0) == unborn && GetUnbornMonsterEntry(1) == nullptr));
-    REQUIRE(CurrentLevelPopulation().encounter_groups.front().get() == group_ptr);
+    REQUIRE(CurrentLevelPopulation().encounterGroups().front().get() == group_ptr);
 
     // Preparing and abandoning another population cannot publish its identities.
     live->location_id = 7;
@@ -283,20 +296,16 @@ static bool gameplayCollectionLifetime()
     }
     REQUIRE(FindMonster(7, false) == live);
 
-    // Promotion moves membership only: the same record, now live, and promotion is one-way.
-    REQUIRE(roster.promote(unborn));
-    REQUIRE(
-        (roster.unborn().empty() && roster.live().size() == 2 && roster.live()[1].get() == unborn));
-    REQUIRE(!roster.promote(unborn));
     // Removal unindexes from whichever list holds the record, then frees it.
-    REQUIRE(RemoveMonster(live, W8MonsterRemoval::Unload));
-    REQUIRE((roster.live().size() == 1 && roster.live()[0].get() == unborn));
-    REQUIRE(!RemoveMonster(live, W8MonsterRemoval::Unload));
+    REQUIRE(CurrentGame().retireMonster(live, W8MonsterRemoval::Unload));
+    REQUIRE(roster.live().empty());
+    REQUIRE(roster.unborn().front().get() == unborn);
+    REQUIRE(!CurrentGame().retireMonster(live, W8MonsterRemoval::Unload));
 
     // Reset destroys the owned records and leaves immediately reusable collections.
-    *GetWorld()->population = {};
+    CurrentGame().level.replacePrimary(std::make_unique<World>());
     REQUIRE((GetMonsterListEntry(0) == nullptr && GetUnbornMonsterEntry(0) == nullptr));
-    REQUIRE(CurrentLevelPopulation().encounter_groups.empty());
+    REQUIRE(CurrentLevelPopulation().encounterGroups().empty());
     return true;
 }
 
@@ -315,7 +324,7 @@ static bool npcStockOrdering()
     npc.items[1].item.iItemNo = 1;
     npc.items[2].item.iItemNo = 0;
     npc.items[2].available_at = 200;
-    SortNpcItems(&npc);
+    SortNpcItems(Data(), &npc);
     // Item 1 sorts first; the two item-0 entries keep their order.
     REQUIRE(npc.items[0].item.iItemNo == 1);
     REQUIRE((npc.items[1].available_at == 100 && npc.items[2].available_at == 200));
@@ -446,12 +455,12 @@ static bool visibilityRecordLifetime()
     for (int id = 1000; id < 2000; ++id) records[id].about_location_id = id;
     REQUIRE(FindMonToMonVisibility(&observer, &target) == original);
     REQUIRE(original->sight_state == W8_SIGHT_SEEN);
-    ReleaseMonToMonVisibilityList(&target);
+    CurrentLevelPopulation().releaseMonsterVisibility(target);
     REQUIRE(!FindMonToMonVisibility(&observer, &target));
     REQUIRE(records.size() == 1000);
-    ReleaseMonToMonVisibilityList(&observer);
+    CurrentLevelPopulation().releaseMonsterVisibility(observer);
     REQUIRE(!observer.monster_visibility);
-    ReleaseMonToMonVisibilityList(&observer);
+    CurrentLevelPopulation().releaseMonsterVisibility(observer);
     return true;
 }
 
@@ -469,18 +478,12 @@ TEST_CASE_METHOD(LevelWorldFixture, "collections_test")
 TEST_CASE_METHOD(LevelWorldFixture, "Engagement propagates to the original leader's direct allies",
                  "[groups]")
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
-    struct RestoreGroups {
-        std::vector<std::unique_ptr<W8MonsterGroup>> saved =
-            std::exchange(CurrentLevelPopulation().monster_groups, {});
-        ~RestoreGroups() { CurrentLevelPopulation().monster_groups = std::move(saved); }
-    } restore;
     for (int i = 0; i < 4; ++i)
-        CurrentLevelPopulation().monster_groups.push_back(std::make_unique<W8MonsterGroup>());
-    auto& leader = *CurrentLevelPopulation().monster_groups[0];
-    auto& first = *CurrentLevelPopulation().monster_groups[1];
-    auto& second = *CurrentLevelPopulation().monster_groups[2];
-    auto& unrelated = *CurrentLevelPopulation().monster_groups[3];
+        CurrentLevelPopulation().adoptGroup(std::make_unique<W8MonsterGroup>(), false);
+    auto& leader = *CurrentLevelPopulation().groups()[0];
+    auto& first = *CurrentLevelPopulation().groups()[1];
+    auto& second = *CurrentLevelPopulation().groups()[2];
+    auto& unrelated = *CurrentLevelPopulation().groups()[3];
     leader.group_id = 1;
     first.group_id = 2;
     second.group_id = 3;
@@ -600,12 +603,9 @@ TEST_CASE("An inventory command's notice follows its consequences in the game's 
     REQUIRE(game.events.pending().empty());
 }
 
-TEST_CASE_METHOD(LevelWorldFixture,
-                 "A failed alternate-weapon search leaves equipment and binding state untouched",
-                 "[equipment]")
+TEST_CASE("A failed alternate-weapon search leaves equipment and binding state untouched",
+          "[equipment]")
 {
-    auto& characters = CurrentGame().party.characters;
-    auto& rows = CurrentGame().party.rows;
     GameData data;
     auto& records = data.items;
     records.resize(2);
@@ -615,7 +615,11 @@ TEST_CASE_METHOD(LevelWorldFixture,
     records[1].weapon_skill = W8_SKILL_THROWING_SLING;
     records[1].range_category = W8_RANGE_LONG;
     records[1].binds_on_equip = 1;
-    const ScopedGameData installed(std::move(data));
+    ScopedGame scope{data};
+    auto& game = scope.game;
+    game.level.replacePrimary(std::make_unique<World>());
+    auto& characters = game.party.characters;
+    auto& rows = game.party.rows;
     struct RestoreState {
         unsigned char autoswap = g_settings.autoswap_weapons;
         ScopedCombat combat;
@@ -629,7 +633,7 @@ TEST_CASE_METHOD(LevelWorldFixture,
     character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON].iItemNo = 1;
     W8CombatSlot target{};
     const W8Action action{W8_ACTION_ATTACK, -1, target, {}};
-    REQUIRE_FALSE(ChooseFallbackMonsterTarget(0, action));
+    REQUIRE_FALSE(game.chooseFallbackTarget(0, action));
     REQUIRE(character.EquippedItem[W8_EQUIP_SLOT_PRIMARY_WEAPON].iItemNo == 0);
     const auto& alternate = character.EquippedItem[W8_EQUIP_SLOT_ALTERNATE_PRIMARY_WEAPON];
     REQUIRE(alternate.iItemNo == 1);
@@ -653,11 +657,11 @@ TEST_CASE("Target eligibility uses the supplied action and target without a scre
     target.iType = W8_TARGET_KIND_CHARACTER;
     target.iChar = 0;
     W8Action action{W8_ACTION_PROTECT, -1, target, {}};
-    REQUIRE(TargetIsInPlay(0, 0, action));
+    REQUIRE(CurrentGame().targetInPlay(0, 0, action));
     target.iType = W8_TARGET_KIND_NONE;
-    REQUIRE(TargetIsInPlay(0, 0, action)); // The supplied action owns its target.
+    REQUIRE(CurrentGame().targetInPlay(0, 0, action)); // The supplied action owns its target.
     action.target.iType = W8_TARGET_KIND_NONE;
-    REQUIRE_FALSE(TargetIsInPlay(0, 0, action));
+    REQUIRE_FALSE(CurrentGame().targetInPlay(0, 0, action));
 }
 
 TEST_CASE("Spell drafts cancel without changing committed or remembered choices", "[targeting]")
@@ -677,7 +681,7 @@ TEST_CASE("Spell drafts cancel without changing committed or remembered choices"
     draft.detail_block.spell.power_level = 3;
     W8CombatSlot target{W8_TARGET_KIND_CHARACTER, 0, -1, -1, {}, {}};
     AimDraft(0, draft, target);
-    const auto assessed = ParticipatingAction(0, draft);
+    const auto assessed = CurrentGame().party.availableAction(0, draft);
     REQUIRE(assessed.detail == 9);
     REQUIRE(assessed.target == target);
     draft.target.iType = W8_TARGET_KIND_NONE;
@@ -821,20 +825,16 @@ TEST_CASE("Encounter retirement spends one budget unit per formation, without re
     const ScopedCombat combat{true};
     const ScopedGameData installed(EncounterLevelData());
     GetWorld()->encounters.random_budget = 8;
-    W8MonsterGroup unowned{};
-    unowned.encounter_registered = true;
-    REQUIRE_FALSE(DestroyMonsterGroup(&unowned, nullptr));
-    REQUIRE(GetWorld()->encounters.random_budget == 8);
 
     auto& population = CurrentLevelPopulation();
     for (int id : {1, 2}) {
         auto group = std::make_unique<W8MonsterGroup>();
         group->group_id = id;
         group->encounter_registered = true;
-        population.monster_groups.push_back(std::move(group));
+        population.adoptGroup(std::move(group), false);
     }
-    auto* leader = population.monster_groups[0].get();
-    auto* ally = population.monster_groups[1].get();
+    auto* leader = population.groups()[0].get();
+    auto* ally = population.groups()[1].get();
     leader->allied_group_ids[0] = ally->group_id;
     ally->leader_group_id = leader->group_id;
     REQUIRE(population.activeEncounterLeaders() == std::vector{leader});
@@ -845,9 +845,6 @@ TEST_CASE("Encounter retirement spends one budget unit per formation, without re
     REQUIRE(population.activeEncounterLeaders().empty());
     REQUIRE(GetWorld()->encounters.random_budget == 7);
     RetireMonsterGroupAndAllies(leader);
-    REQUIRE(GetWorld()->encounters.random_budget == 7);
-    REQUIRE(DestroyMonsterGroup(ally, nullptr));
-    REQUIRE(DestroyMonsterGroup(leader, nullptr));
     REQUIRE(GetWorld()->encounters.random_budget == 7);
 }
 
@@ -907,7 +904,7 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
     });
     // The generator states a save keeps put back the saved timer after the rearm's draw.
     generator.timer.setSeconds(4.0f);
-    generator.timer.setScale(0.5f);
+    generator.timer.setScale(0.5f, false);
     generator.timer.advance(std::chrono::milliseconds{500});
     chunk.WriteChunk(W8ChunkId("MGNS"), [&] {
         WriteMonsterGeneratorStates(chunk.WriteStream(), live.savedGeneratorStates());
@@ -922,7 +919,7 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
             loaded_state->applyGeneratorStates(ReadMonsterGeneratorStates(chunk));
             // Decoding draws nothing; building the world draws each generator's jitter once.
             REQUIRE(draws.empty());
-            loaded_state->rearmDecodedGenerators();
+            loaded_state->rearmDecodedGenerators(game.game.rng);
             REQUIRE(draws.size() == 1);
             REQUIRE(draws[0].range == 41);
             const auto& timer = loaded_state->generators.front()->timer;
@@ -941,6 +938,23 @@ TEST_CASE("Encounter state prepares independently and retains the retail save fi
         REQUIRE(loaded.save_flag == 1);
         REQUIRE(chunk.RemainingBytes() == 0);
     });
+    Game candidate{game.game.data};
+    candidate.level.replacePrimary(std::make_unique<World>(1, "", candidate.timerClocks()));
+    candidate.level.loaded().encounters = std::move(*loaded_state);
+    std::vector<Rng::Draw> candidate_draws;
+    candidate.rng.trace(&candidate_draws);
+    const auto& timer = candidate.level.loaded().encounters.generators.front()->timer;
+    candidate.setEncounterDurationScale(2.0f);
+    REQUIRE(candidate.encounter_duration_scale == 2.0f);
+    REQUIRE(timer.progress() == Catch::Approx(0.25f));
+    REQUIRE(timer.scale() == 2.0f);
+    REQUIRE(game.game.encounter_duration_scale == 1.0f);
+    REQUIRE(generator.timer.scale() == 0.5f);
+    candidate.timers_paused = true;
+    candidate.setEncounterDurationScale(1.0f);
+    REQUIRE(timer.progress() == 0.0f);
+    REQUIRE(draws.size() == 1);
+    REQUIRE(candidate_draws.empty()); // Scaling never rerolls generator intervals.
     game.game.rng.trace(nullptr);
 }
 
@@ -952,50 +966,108 @@ TEST_CASE_METHOD(LevelWorldFixture, "Full formations reject a link before detach
     std::ranges::fill(destination.allied_group_ids, 99);
     source.group_id = 2;
     source.leader_group_id = 17;
-    REQUIRE_FALSE(LinkMonsterGroupToLeader(&destination, &source));
+    REQUIRE_FALSE(CurrentGame().linkMonsterGroup(&destination, &source));
     REQUIRE(source.leader_group_id == 17);
     REQUIRE(std::ranges::all_of(destination.allied_group_ids, [](int id) { return id == 99; }));
 }
 
 TEST_CASE("Allied leader election preserves one encounter with zero leadership ranks", "[groups]")
 {
-    const ScopedGame game;
+    const auto data = EncounterLevelData();
+    const ScopedGameData installed(data);
+    const ScopedGame game{data};
     game.game.level.replacePrimary(std::make_unique<World>(0));
     const ScopedCombat combat{true};
-    const ScopedGameData installed(EncounterLevelData());
     GetWorld()->encounters.random_budget = 8;
     auto& population = CurrentLevelPopulation();
-    std::array<std::unique_ptr<Monster>, 3> representations;
     for (int index = 0; index < 3; ++index) {
         auto group = std::make_unique<W8MonsterGroup>();
         group->group_id = index + 1;
         group->leader_location_id = index + 1;
         group->encounter_registered = true;
         group->monsters = {index + 1};
-        population.monster_groups.push_back(std::move(group));
+        population.adoptGroup(std::move(group), false);
         auto record = std::make_unique<W8MonsterInfo>();
         record->location_id = index + 1;
-        auto& monster = representations[index];
-        monster = std::make_unique<Monster>(*GetWorld());
+        auto& monster = record->entity = std::make_unique<Monster>(*GetWorld());
         monster->location_id = index + 1;
         monster->nav.movement.leadership_rank = 0;
-        record->entity.attach(*monster);
         population.monster_roster.add(std::move(record), false);
     }
-    auto* old = population.monster_groups[0].get();
-    auto* first = population.monster_groups[1].get();
-    auto* second = population.monster_groups[2].get();
+    auto* old = population.groups()[0].get();
+    auto* first = population.groups()[1].get();
+    auto* second = population.groups()[2].get();
     old->allied_group_ids[0] = 2;
     old->allied_group_ids[1] = 3;
     first->leader_group_id = second->leader_group_id = 1;
-    old->monsters.clear(); // Final member removal owns group retirement.
-    REQUIRE(DestroyMonsterGroup(old, population.findMonster(1)));
+    population.findMonster(1)->monster_group_id = old->group_id;
+    REQUIRE(CurrentGame().retireMonster(population.findMonster(1), W8MonsterRemoval::Unload));
     REQUIRE(population.activeEncounterLeaders() == std::vector{first});
     REQUIRE(GetWorld()->encounters.random_budget == 7);
     REQUIRE(first->leader_group_id == 0);
     REQUIRE(first->allied_group_ids[0] == 3);
     REQUIRE(second->leader_group_id == 2);
-    REQUIRE(representations[2]->nav.linked_navigator == &(representations[1].get())->nav);
+    REQUIRE(population.findMonster(3)->entity->nav.linked_navigator ==
+            &population.findMonster(2)->entity->nav);
+}
+
+TEST_CASE("Removing an allied leader settles allegiance even without a party fight",
+          "[groups][lifetime]")
+{
+    auto data = EncounterLevelData();
+    data.monsters.resize(1);
+    data.monsters[0].advance_chance = 100;
+    const ScopedGameData installed(data);
+    ScopedGame scope{data};
+    auto& game = scope.game;
+    game.level.replacePrimary(std::make_unique<World>(0));
+    auto& world = game.level.loaded();
+    auto& population = *world.population;
+    for (int id = 1; id <= 3; ++id) {
+        auto group = std::make_unique<W8MonsterGroup>();
+        group->group_id = group->leader_location_id = id;
+        group->monsters = {id};
+        group->members_active = true;
+        group->ubDisposition = id == 3 ? W8_DISPOSITION_HOSTILE : W8_DISPOSITION_FRIENDLY;
+        auto info = std::make_unique<W8MonsterInfo>();
+        info->location_id = info->monster_group_id = id;
+
+        info->hp_current = info->uiHPMax = 1;
+        info->fActive = true;
+        info->ubDisposition = group->ubDisposition;
+        info->entity = std::make_unique<Monster>(world, &data.monsters[0]);
+        info->entity->location_id = id;
+        population.adoptGroup(std::move(group), false);
+        population.monster_roster.add(std::move(info), false);
+    }
+    auto* old = population.findGroup(1);
+    old->allied_group_ids[0] = 2;
+    old->allied_group_ids[2] = 3; // This ally can retain a different disposition.
+    population.findGroup(2)->leader_group_id = 1;
+    population.findGroup(3)->leader_group_id = 1;
+    game.party.members[0].emplace();
+    game.party.characters[0].hp_current = 1;
+    auto& action = game.party.rows[0].executing;
+    action.kind = W8_ACTION_ATTACK;
+    action.target = W8CombatSlot::monster(3);
+    bool engaged = false;
+    SECTION("No monster is engaged") {}
+    SECTION("An ally engaged before party combat")
+    {
+        engaged = true;
+        population.findGroup(3)->fInCombat = true;
+        population.findMonster(3)->pCombat = std::make_unique<W8MonsterCombatState>();
+    }
+    std::vector<Rng::Draw> draws;
+    game.rng.trace(&draws);
+    REQUIRE_FALSE(game.combat);
+    REQUIRE(CurrentGame().retireMonster(population.findMonster(1), W8MonsterRemoval::Unload));
+    REQUIRE(population.findMonster(1) == nullptr);
+    REQUIRE(population.findGroup(3)->leader_group_id == 2);
+    REQUIRE(population.findMonster(3)->ubDisposition == W8_DISPOSITION_FRIENDLY);
+    REQUIRE(action.target.iType == W8_TARGET_KIND_NONE);
+    REQUIRE(draws.size() == (engaged ? 1 : 0));
+    if (engaged) REQUIRE(draws.front().range == 100);
 }
 
 TEST_CASE_METHOD(LevelWorldFixture,
@@ -1007,7 +1079,7 @@ TEST_CASE_METHOD(LevelWorldFixture,
     group->monster_id = 7;
     group->monsters = {3};
     auto* placed = group.get();
-    population.monster_groups.push_back(std::move(group));
+    population.adoptGroup(std::move(group), false);
     auto record = std::make_unique<W8MonsterInfo>();
     record->location_id = 3; // Not loaded yet, so it has no representation.
     population.monster_roster.add(std::move(record), false);
@@ -1025,15 +1097,15 @@ TEST_CASE_METHOD(LevelWorldFixture,
                  "Combat list rows cannot select a group outside the displayed list",
                  "[groups][targeting]")
 {
-    auto& groups = CurrentLevelPopulation().monster_groups;
     auto group = std::make_unique<W8MonsterGroup>();
     group->members_active = true;
     group->fInCombat = true;
     group->ubDisposition = W8_DISPOSITION_HOSTILE;
     group->monsters = {1};
     auto* displayed = group.get();
-    groups.push_back(std::move(group));
-    groups.push_back(std::make_unique<W8MonsterGroup>()); // Not displayed.
+    CurrentLevelPopulation().adoptGroup(std::move(group), false);
+    CurrentLevelPopulation().adoptGroup(std::make_unique<W8MonsterGroup>(),
+                                        false); // Not displayed.
     REQUIRE(GetLiveMonsterGroupAtIndex(0) == displayed);
     REQUIRE(GetLiveMonsterGroupAtIndex(1) == nullptr);
     REQUIRE(GetLiveMonsterGroupAtIndex(-1) == nullptr);
@@ -1051,14 +1123,12 @@ TEST_CASE("Threat queries follow roster membership and owned combat state", "[co
     unborn->pCombat = std::make_unique<W8MonsterCombatState>();
     REQUIRE(roster.hasActiveMonsters());
     REQUIRE(roster.hostileCombatCount() == 0);
-    REQUIRE(roster.promote(unborn));
-    REQUIRE(roster.hostileCombatCount() == 1);
     live->fActive = true;
     live->ubDisposition = W8_DISPOSITION_HOSTILE;
     live->pCombat = std::make_unique<W8MonsterCombatState>();
-    REQUIRE(roster.hostileCombatCount() == 2);
-    live->ubDisposition = W8_DISPOSITION_FRIENDLY;
     REQUIRE(roster.hostileCombatCount() == 1);
+    live->ubDisposition = W8_DISPOSITION_FRIENDLY;
+    REQUIRE(roster.hostileCombatCount() == 0);
     unborn->fActive = false;
     REQUIRE(roster.hostileCombatCount() == 0);
     live->ubDisposition = W8_DISPOSITION_HOSTILE;
@@ -1276,25 +1346,6 @@ TEST_CASE("Using up an offered item drains the offer and leaves the hand alone",
     RemoveNpcScriptItem(MakeScriptContext(CurrentGame()), &*offer, 0, -1);
     REQUIRE_FALSE(offer);
     REQUIRE(CurrentGame().inventory.heldItemId() == 9);
-}
-
-TEST_CASE("Rebinding an NPC to a new level keeps its state", "[npc]")
-{
-    const ScopedGame game;
-    auto& story = CurrentGame().story;
-    story.npcs.push_back(std::make_unique<W8NpcState>());
-    W8NpcState* npc = story.npcs[0].get();
-    npc->gold = 120;
-    npc->binding_unavailable = 1;
-    W8PreparedNpcBindings pending;
-    pending.records.push_back({.slot = 0, .location_id = 42, .level_band = 3, .bound_level = 7});
-    InstallNpcBindings(std::move(pending));
-    REQUIRE(story.npcs[0].get() == npc);
-    REQUIRE(npc->gold == 120);
-    REQUIRE(npc->location_id == 42);
-    REQUIRE(npc->bound_level == 7);
-    REQUIRE(npc->is_present);
-    REQUIRE(npc->binding_unavailable == 0);
 }
 
 TEST_CASE("Formation reconciliation repairs only its owning party", "[party][formation]")
@@ -1600,7 +1651,7 @@ TEST_CASE("A held stack keeps what a full pool cannot take", "[party][inventory]
     inventory.restore(std::move(pool), W8ItemInstance{.iItemNo = 0, .stack_count = 30});
 
     // Ten units merge; the other twenty stay in the hand rather than being lost.
-    REQUIRE_FALSE(inventory.depositHeld(3, true));
+    REQUIRE(inventory.depositHeld(3, true) == Inventory::Deposit::Partial);
     REQUIRE(inventory.pool()[7].stack_count == 100);
     REQUIRE(inventory.pool().size() == Inventory::kPoolLimit);
     REQUIRE(inventory.held()->item.stack_count == 20);
@@ -1621,4 +1672,449 @@ TEST_CASE("Pool rows close up, and a use is abandoned once its row moves", "[par
     inventory.take({W8ItemStorage::Pool, 0, 0});
     REQUIRE_FALSE(inventory.holds(use));
     REQUIRE_FALSE(inventory.take({W8ItemStorage::Pool, 0, 1}));
+}
+
+TEST_CASE("Completed batches present outcomes before observer follow-ups", "[events]")
+{
+    Events events;
+    std::vector<unsigned int> seen;
+    std::vector<unsigned int> ordinals;
+    events.observe([&, ordinal = 0u](const Event& event) mutable {
+        const auto slot = std::get<PartySlotChanged>(event).party_slot;
+        seen.push_back(slot);
+        ordinals.push_back(++ordinal);
+        if (slot == 1) events.push(PartySlotChanged{3});
+    });
+    events.publish({PartySlotChanged{1}, PartySlotChanged{2}});
+    REQUIRE(seen == std::vector<unsigned int>{1, 2, 3});
+    REQUIRE(ordinals == std::vector<unsigned int>{1, 2, 3});
+    events.push(PartySlotChanged{4});
+    REQUIRE(seen.back() == 4); // Unmigrated commands still deliver immediately.
+}
+
+TEST_CASE("Formation owns death, revival and full-row refusal", "[party][formation]")
+{
+    W8PartyFormationState formation;
+    REQUIRE(formation.seatInRow(0, 0));
+    REQUIRE(formation.seatInRow(1, 0));
+    REQUIRE(formation.seatInRow(2, 0));
+    const auto full = formation;
+    REQUIRE_FALSE(formation.seatInRow(3, 0));
+    REQUIRE(formation == full);
+
+    formation.positions[0].unknown_04[0] = 42;
+    formation.updateLiveness(0, true);
+    REQUIRE_FALSE(formation.cellOf(0));
+    REQUIRE(formation.positions[0].revival_row == 0);
+    REQUIRE(formation.cellOf(1) == W8FormationCell{0, 2});
+    REQUIRE(formation.cellOf(2) == W8FormationCell{0, 1});
+    const auto dead = formation;
+    formation.updateLiveness(0, true);
+    REQUIRE(formation == dead);
+
+    SECTION("Revival restores the remembered row")
+    {
+        formation.updateLiveness(0, false);
+        REQUIRE(formation.cellOf(0) == W8FormationCell{0, 0});
+    }
+    SECTION("A full remembered row falls back to the center")
+    {
+        REQUIRE(formation.seatInRow(3, 0));
+        formation.updateLiveness(0, false);
+        REQUIRE(formation.cellOf(0) == W8FormationCell{4, 0});
+    }
+    REQUIRE(formation.positions[0].revival_row == -1);
+    REQUIRE(formation.positions[0].unknown_04[0] == 42);
+}
+
+TEST_CASE("Formation acceptance settles immobile members before notifying observers",
+          "[party][formation]")
+{
+    GameData data{.strings = std::vector<std::string>(0x250)};
+    data.strings[0x248] = "Cannot move";
+    data.strings[0x249] = "Remains %s";
+    data.strings[0x24c] = "Moves %s";
+    Game game{data};
+    game.status.game_started = true;
+    auto& party = game.party;
+    for (unsigned int slot = 0; slot < 2; ++slot) {
+        party.members[slot].emplace();
+        party.characters[slot].hp_current = 1;
+        party.formation.placeCharacter(slot);
+    }
+    party.characters[0].highest_condition = W8_CONDITION_UNCONSCIOUS;
+    party.formation.positions[0].unknown_04[0] = 42;
+    party.formation.unknown_74[0] = 9;
+    auto& proposal = game.planned_formation;
+    proposal = party.formation;
+    proposal.setPosition(0, W8FormationCell{2, 0}, true, true);
+    proposal.setPosition(1, W8FormationCell{4, 0}, true, true);
+    auto& events = game.events;
+    std::vector<std::string> notices;
+    events.observe([&](const Event& event) {
+        REQUIRE(party.formation == proposal);
+        REQUIRE(party.formation.rowOf(0) == 0);
+        REQUIRE(party.formation.positions[0].unknown_04[0] == 42);
+        REQUIRE(party.formation.unknown_74[0] == 9);
+        if (const auto* notice = std::get_if<CharacterNotice>(&event))
+            notices.push_back(notice->text);
+    });
+    game.commitFormation();
+    REQUIRE(notices == std::vector<std::string>{"Moves Center", "Cannot move", "Remains Front"});
+    REQUIRE_FALSE(party.canChangeFormation(8));
+}
+
+TEST_CASE("Formation reach uses occupied rows rather than party headcounts", "[party][targeting]")
+{
+    W8Party party;
+    party.formation.setPosition(0, W8FormationCell{0, 0}, false, true);
+    party.formation.setPosition(1, W8FormationCell{2, 0}, false, true);
+    party.formation.setPosition(2, W8FormationCell{4, 0}, false, true);
+    REQUIRE(BlockingFormationRows(party, 0, 2) == 2);
+    REQUIRE(FormationScreens(party, 0, 1));
+    party.characters[1].bonus.out_of_formation = 1;
+    REQUIRE(BlockingFormationRows(party, 0, 2) == 1);
+    party.characters[2].bonus.out_of_formation = 1;
+    REQUIRE(BlockingFormationRows(party, 0, 2) == 0);
+    REQUIRE_FALSE(FormationScreens(party, 0, 1));
+    REQUIRE(BlockingFormationRows(party, 0, 0) == 0);
+    REQUIRE(ShortenFormationReach(W8_RANGE_TOUCH, 1) == W8_RANGE_NONE);
+    REQUIRE(ShortenFormationReach(W8_RANGE_SHORT, 1) == W8_RANGE_TOUCH);
+    REQUIRE(ShortenFormationReach(W8_RANGE_LONG, 2) == W8_RANGE_LONG);
+}
+
+TEST_CASE("Action reach uses its game and resolves range only when needed", "[party][targeting]")
+{
+    GameData outgoing_data{.spells = std::vector<W8SpellRuntimeRecord>(2)};
+    outgoing_data.spells[1].range_category = W8_RANGE_LONG;
+    ScopedGame outgoing{outgoing_data};
+    GameData candidate_data = outgoing_data;
+    candidate_data.spells[1].range_category = W8_RANGE_NONE;
+    Game candidate{candidate_data};
+    const W8Action spell{W8_ACTION_CAST_SPELL, 1, W8CombatSlot::character(1)};
+    std::vector<Rng::Draw> draws;
+    candidate.rng.trace(&draws);
+    REQUIRE(outgoing.game.assessActionReach(0, 2, spell));
+    REQUIRE_FALSE(candidate.assessActionReach(0, 2, spell));
+    // Self-targeting and missing world targets must not consult an absent item's spell record.
+    W8Action item{W8_ACTION_USE_ITEM, -1, W8CombatSlot::character(0)};
+    item.detail_block.item_use.item = {W8ItemStorage::Equipment, 0, 0};
+    candidate.party.characters[0].EquippedItem[0].iItemNo = -1;
+    REQUIRE(candidate.assessActionReach(0, 2, item));
+    REQUIRE(candidate.assessActionReach(0, 2, item.aimedAt(W8CombatSlot::monster(1))).failure ==
+            W8TargetFailure::Unavailable);
+    REQUIRE(candidate.assessActionReach(0, 2, item.aimedAt(W8CombatSlot::group(1))).failure ==
+            W8TargetFailure::Unavailable);
+    REQUIRE(draws.empty());
+    candidate.rng.trace(nullptr);
+}
+
+TEST_CASE("Spell and item target rules use supplied content", "[party][targeting]")
+{
+    GameData data;
+    data.spells.resize(W8_SPELL_RESURRECTION + 1);
+    data.items.resize(1);
+    data.spells[W8_SPELL_RESURRECTION].target_type = W8_TARGET_TYPE_ALLY;
+    REQUIRE(SpellTargetNeed(data, W8_SPELL_RESURRECTION, false, true) ==
+            W8_TARGET_NEED_CHARACTER_INDIRECT);
+    REQUIRE(SpellTargetNeed(data, W8_SPELL_RESURRECTION, true, true) == W8_TARGET_NEED_CASTER);
+    data.spells[1].target_type = W8_TARGET_TYPE_ITEM;
+    REQUIRE(SpellTargetNeed(data, 1, false, false) == W8_TARGET_NEED_NONE);
+    REQUIRE(SpellTargetNeed(data, 1, false, true) == W8_TARGET_NEED_ITEM);
+    data.items[0].spell_id = W8_SPELL_RESURRECTION;
+    data.items[0].equip_class = W8_ITEM_EQUIP_CLASS_POTION;
+    W8ItemInstance item{};
+    item.iItemNo = 0;
+    REQUIRE(ItemTargetNeed(data, &item, true) == W8_TARGET_NEED_CASTER);
+    W8Character character{};
+    character.spell_learned[1] = 1;
+    data.spells[1].spell_point_cost = 10;
+    character.iSPLeft[data.spells[1].realm] = 9;
+    REQUIRE_FALSE(CanCharacterCastSpell(data, &character, 1));
+    character.iSPLeft[data.spells[1].realm] = 10;
+    REQUIRE(CanCharacterCastSpell(data, &character, 1));
+}
+
+TEST_CASE("Target selection and repicking stay in their originating game", "[targeting]")
+{
+    GameData data;
+    data.monsters.resize(1);
+    ScopedGame outgoing{data};
+    Game candidate{data};
+    const auto prepare = [&](Game& game, int id) {
+        game.level.replacePrimary(std::make_unique<World>());
+        auto& world = game.level.loaded();
+        world.party.place({0, 1000, 0});
+        game.combat.emplace();
+        game.party.members[0].emplace();
+        auto& character = game.party.characters[0];
+        character.hp_current = 10;
+        character.Hand[0].in_play = true;
+        character.Hand[0].uiHolds = HOLDS_NOTHING;
+        game.party.formation.seatInRow(0, 4);
+        game.party.commitAction(0, W8Action{W8_ACTION_ATTACK});
+        const auto add = [&](int location) {
+            auto monster = std::make_unique<W8MonsterInfo>();
+            monster->location_id = location;
+            monster->monster_species = 0;
+            monster->fActive = true;
+            monster->ubDisposition = W8_DISPOSITION_HOSTILE;
+            monster->hp_current = monster->uiHPMax = 10;
+            monster->pCombat = std::make_unique<W8MonsterCombatState>();
+            monster->party_threat.sight_state = W8_SIGHT_SEEN;
+            monster->party_threat.los_flags[0] = true;
+            monster->entity = std::make_unique<Monster>(world, &data.monsters[0]);
+            monster->entity->nav.movement.position = {0, 0, 500};
+            world.population->monster_roster.add(std::move(monster), false);
+        };
+        add(id);
+        add(id + 1); // Equal priority retains the earlier roster entry.
+    };
+    prepare(outgoing.game, 10);
+    prepare(candidate, 20);
+    outgoing.game.party.rows[0].committed.target = W8CombatSlot::monster(10);
+    const auto outgoing_events = outgoing.game.events.pending().size();
+    std::vector<Rng::Draw> draws, outgoing_draws;
+    candidate.rng.trace(&draws);
+    outgoing.game.rng.trace(&outgoing_draws);
+    const auto choice = candidate.chooseTarget(0, W8Action{W8_ACTION_ATTACK}, false);
+    REQUIRE(choice);
+    REQUIRE(choice->target == W8CombatSlot::monster(20));
+    REQUIRE_FALSE(choice->equipment);
+    REQUIRE(candidate.repickActionTarget(0, W8_TARGETING_CONTEXT_IN_COMBAT));
+    REQUIRE(candidate.party.rows[0].committed.target == W8CombatSlot::monster(20));
+    REQUIRE(outgoing.game.party.rows[0].committed.target == W8CombatSlot::monster(10));
+    REQUIRE(outgoing.game.events.pending().size() == outgoing_events);
+    REQUIRE(draws.empty());
+    REQUIRE(outgoing_draws.empty());
+    candidate.rng.trace(nullptr);
+    outgoing.game.rng.trace(nullptr);
+}
+
+TEST_CASE("Monster candidate selection retains target locks and the original draw sequence",
+          "[ai][random]")
+{
+    GameData data;
+    auto& species = data.monsters.emplace_back();
+    species.attacks_per_round = 2;
+    species.swings_per_round = 1;
+    species.attacks[0].fHasAttack = true;
+    species.attacks[0].range_category = W8_RANGE_SHORT;
+    species.attacks[0].attack_modes = (1 << W8_ATTACK_MODE_SWING) | (1 << W8_ATTACK_MODE_THRUST);
+    data.spells.resize(2);
+    data.spells[1].range_category = W8_RANGE_SHORT;
+    data.spells[1].target_type = W8_TARGET_TYPE_ENEMY;
+    const ScopedGameData installed(data);
+    ScopedGame scope{data};
+    auto& game = scope.game;
+    game.level.replacePrimary(std::make_unique<World>());
+    auto& world = game.level.loaded();
+    for (int id : {1, 2}) {
+        auto monster = std::make_unique<W8MonsterInfo>();
+        monster->location_id = id;
+        monster->fActive = true;
+        monster->hp_current = monster->uiHPMax = 1;
+        monster->ubDisposition = id == 1 ? W8_DISPOSITION_HOSTILE : W8_DISPOSITION_FRIENDLY;
+        monster->pCombat = std::make_unique<W8MonsterCombatState>();
+        monster->entity = std::make_unique<Monster>(world, &species);
+        world.population->monster_roster.add(std::move(monster), false);
+    }
+    auto& actor = *world.population->findMonster(1);
+    actor.Target = W8CombatSlot::monster(2);
+    actor.monster_visibility = std::make_unique<W8MonsterVisibility>();
+    auto& visible = (*actor.monster_visibility)[2];
+    visible.sight_state = W8_SIGHT_SEEN;
+    visible.los_flags[0] = true;
+    visible.los_flags[2] = true;
+    game.rng.seed(1);
+    std::vector<Rng::Draw> draws;
+    game.rng.trace(&draws);
+    REQUIRE(game.chooseMonsterAction(actor, true, false, true));
+    REQUIRE(draws.size() == 3); // Two candidate draws, then selection; no party stealth sweep.
+    REQUIRE(draws[0].range == 100);
+    REQUIRE(draws[1].range == 100);
+    REQUIRE(draws[2].range == 2);
+    REQUIRE(actor.action.kind == W8_MONSTER_ACTION_ATTACK);
+    REQUIRE(actor.action.detail == W8_ATTACK_MODE_SWING);
+    REQUIRE(actor.pCombat->attack_index == 0);
+    REQUIRE(actor.pCombat->attacks_per_round == 2);
+    REQUIRE(actor.pCombat->attacks_per_round0 == 2);
+    REQUIRE(actor.Target == W8CombatSlot::monster(2));
+    actor.Target = W8CombatSlot::character(3);
+    REQUIRE_FALSE(game.chooseMonsterAction(actor, true, false, false));
+    REQUIRE(draws.size() == 3);
+
+    // A spell probe must neither borrow nor temporarily overwrite the accepted action.
+    actor.action = {W8_MONSTER_ACTION_WAIT, 77};
+    const auto accepted = actor.action;
+    const auto proposals = game.monsterSpellTargets(&actor, 1);
+    REQUIRE(proposals == std::vector<W8CombatSlot>{W8CombatSlot::monster(2)});
+    REQUIRE(actor.action == accepted);
+    W8TargetSource probe_source;
+    SetTargetSourceToMonster(&actor, &probe_source);
+    auto probe_target = W8CombatSlot::monster(2);
+    std::vector<int> probe_monsters, probe_party;
+    game.appendSpellTargets(1, 1, &probe_source, &probe_target, probe_monsters, probe_party,
+                            W8AreaSightRule::RequireLineOfSight,
+                            MonsterAction{W8_MONSTER_ACTION_SPELL, 1});
+    REQUIRE(probe_monsters == std::vector<int>{2});
+    REQUIRE(actor.action == accepted);
+    data.spells[1].target_type = W8_TARGET_TYPE_ALL_ENEMIES;
+    data.spells[1].spell_level = -1; // Rejected cost band exercises real failed evaluation.
+    REQUIRE_THROWS_AS(game.monsterSpellTargets(&actor, 1), std::out_of_range);
+    REQUIRE(actor.action == accepted);
+    REQUIRE(draws.size() == 3);
+    data.spells[1].spell_level = 0;
+    data.spells[1].target_type = W8_TARGET_TYPE_ENEMY;
+
+    GameData allied_data = data;
+    allied_data.monsters[0].faction_id = W8_FACTION_PARTY;
+    auto& other = *world.population->findMonster(2);
+    REQUIRE(MonsterHostility(allied_data, actor, other) == W8_DISPOSITION_NEUTRAL);
+    other.uiCondition[W8_CONDITION_TURNCOAT] = 1;
+    REQUIRE(MonsterHostility(allied_data, actor, other) == W8_DISPOSITION_HOSTILE);
+    REQUIRE(draws.size() == 3);
+
+    // Rating an unpublished game must use its factions and population, without
+    // temporarily replacing the selected spell or consulting that spell's record.
+    Game candidate{allied_data};
+    candidate.level.replacePrimary(game.level.replacePrimary(nullptr));
+    actor.action.kind = W8_MONSTER_ACTION_SPELL;
+    actor.action.detail = -1;
+    other.uiCondition[W8_CONDITION_TURNCOAT] = 0;
+    REQUIRE(candidate.rateMonsterAttack(actor, 0, false) == W8_MONSTER_ATTACK_OUT_OF_REACH);
+    other.uiCondition[W8_CONDITION_TURNCOAT] = 1;
+    actor.pCombat->corrected_range = W8_RANGE_LONG;
+    actor.has_projectile_origin = true;
+    // Corrected distance does not switch the authored short attack's sight slot to 1.
+    REQUIRE(candidate.rateMonsterAttack(actor, 0, false) == W8_MONSTER_ATTACK_USABLE);
+    REQUIRE(actor.action.kind == W8_MONSTER_ACTION_SPELL);
+    REQUIRE(actor.action.detail == -1);
+    REQUIRE(draws.size() == 3);
+
+    std::vector<Rng::Draw> candidate_draws;
+    candidate.rng.seed(1);
+    candidate.rng.trace(&candidate_draws);
+    actor.Target = W8CombatSlot::monster(2);
+    REQUIRE(candidate.chooseMonsterAction(actor, true, false, true));
+    REQUIRE(candidate_draws.size() == 3);
+    REQUIRE(candidate_draws[0].range == 100);
+    REQUIRE(candidate_draws[1].range == 100);
+    REQUIRE(candidate_draws[2].range == 2);
+    REQUIRE(actor.action.detail == W8_ATTACK_MODE_SWING);
+    REQUIRE(draws.size() == 3);
+    actor.action.kind = W8_MONSTER_ACTION_SPELL;
+    actor.action.detail = -1;
+
+    // Spell target collection uses the same unpublished world and definitions.
+    allied_data.spells.resize(2);
+    allied_data.spells[1].target_type = W8_TARGET_TYPE_ENEMY;
+    allied_data.spells[1].monster_castable = true;
+    REQUIRE(candidate.canMonsterCastSpell(&actor, 1, true));
+    REQUIRE(candidate.monsterSpellTargets(&actor, 1) ==
+            std::vector<W8CombatSlot>{W8CombatSlot::monster(2)});
+    REQUIRE(actor.action.detail == -1);
+    actor.action.kind = W8_MONSTER_ACTION_ATTACK;
+    W8TargetSource source;
+    SetTargetSourceToMonster(&actor, &source);
+    std::vector<int> monster_targets, party_targets;
+    candidate.appendSpellTargets(1, 1, &source, &actor.Target, monster_targets, party_targets,
+                                 W8AreaSightRule::RequireLineOfSight);
+    REQUIRE(monster_targets == std::vector<int>{2});
+    REQUIRE(party_targets.empty());
+    monster_targets.clear();
+    world.appendMonstersInRadius({}, {}, monster_targets, 1.0f, 3, W8AreaSightRule::GeometryOnly);
+    REQUIRE(monster_targets == std::vector<int>{1, 2});
+    monster_targets.clear();
+    source.iMonsterID = 999; // A continuing cast may have outlived its source.
+    W8CombatSlot area{W8_TARGET_KIND_ALL_ENEMIES, -1, -1, -1, {}, {}};
+    candidate.appendSpellTargets(1, 1, &source, &area, monster_targets, party_targets,
+                                 W8AreaSightRule::RequireLineOfSight,
+                                 MonsterAction{W8_MONSTER_ACTION_SPELL, 1});
+    REQUIRE(monster_targets.empty());
+    REQUIRE(candidate_draws.size() == 3);
+    REQUIRE(draws.size() == 3);
+    actor.action.kind = W8_MONSTER_ACTION_SPELL;
+
+    // An unrestricted scan still rolls stealth for all eight slots, even when empty.
+    REQUIRE(candidate.chooseMonsterAction(actor, false, false, false));
+    REQUIRE(candidate_draws.size() == 14); // Eight stealth draws, two candidates, then selection.
+    REQUIRE(candidate_draws.back().range == 2);
+    REQUIRE(draws.size() == 3);
+    actor.action.kind = W8_MONSTER_ACTION_SPELL;
+    actor.action.detail = -1;
+
+    // Self and unseen targets short-circuit before the deliberately absent spell.
+    REQUIRE(actor.reaches(actor, allied_data, 0, actor.action));
+    visible.sight_state = W8_SIGHT_UNSEEN;
+    REQUIRE_FALSE(actor.reaches(other, allied_data, 0, actor.action));
+    REQUIRE_FALSE(candidate.monsterReachesPartyMember(actor, 0, 0, actor.action));
+    // No-range actions must not inspect a body or formation, even during combat.
+    candidate.combat.emplace();
+    W8MonsterInfo inactive{};
+    inactive.player_visibility.sight_state = W8_SIGHT_SEEN;
+    inactive.player_visibility.los_flags[0] = true;
+    REQUIRE_FALSE(candidate.monsterReachesPartyMember(inactive, 0, 0, {W8_MONSTER_ACTION_WAIT, 0}));
+
+    visible.sight_state = W8_SIGHT_SEEN;
+    actor.action = {W8_MONSTER_ACTION_SPELL, 1};
+    actor.Target = W8CombatSlot::monster(2);
+    REQUIRE(candidate.prepareMonsterSpell(&actor, 1));
+    REQUIRE(candidate_draws.size() == 15); // Final neutral veto rolls power even for one target.
+    REQUIRE(candidate_draws.back().range == 4);
+    allied_data.monsters[0].spells[0] = allied_data.monsters[0].spells[1] = 1;
+    REQUIRE(candidate.chooseMonsterSpell(&actor) == 1);
+    REQUIRE(candidate_draws.back().range == 10); // Duplicate spell slots retain both weights.
+    REQUIRE(candidate.aimMonsterSpell(&actor, 1));
+    REQUIRE(candidate_draws.size() == 17);
+    REQUIRE(candidate_draws.back().range == 1);
+    auto group = std::make_unique<W8MonsterGroup>();
+    group->group_id = actor.monster_group_id = 1;
+    world.population->adoptGroup(std::move(group), false);
+    actor.pCombat->advancing = true;
+    const auto threat =
+        world.nearestThreat(allied_data, actor, W8VisibilityCondition::FirstLineOfSightFlag);
+    REQUIRE(threat);
+    REQUIRE(threat->monster == other.entity.get());
+    candidate.updateMonsterDecision(&actor);
+    REQUIRE_FALSE(actor.pCombat->advancing);
+    REQUIRE(actor.Target == W8CombatSlot::monster(2));
+    REQUIRE(candidate_draws.size() ==
+            29); // Advance roll, eight stealth rolls, two candidates, selection.
+    auto& formation = *world.population->groups().front();
+    formation.leader_location_id = actor.location_id;
+    formation.monsters = {other.location_id};
+    actor.heard_noise_radius = 123;
+    actor.entity->script = std::make_shared<Script>();
+    other.entity->nav.linked_navigator = &actor.entity->nav;
+    world.replaceGroupLeader(formation, true);
+    REQUIRE(formation.leader_location_id == other.location_id);
+    REQUIRE(other.heard_noise_radius == 123);
+    REQUIRE(other.entity->script == actor.entity->script);
+    REQUIRE(other.entity->nav.linked_navigator == nullptr);
+    REQUIRE(draws.size() == 3);
+}
+
+TEST_CASE("Effect slot lookup cannot run into casting-cost data", "[effects][bounds]")
+{
+    REQUIRE(EffectSlotForSpell(g_being_effect_slot_spells, W8_SPELL_X_RAY) == 8);
+    REQUIRE(EffectSlotForSpell(g_combat_effect_slot_spells, W8_SPELL_DRAINING_CLOUD) == 5);
+    REQUIRE(EffectSlotForSpell(g_defense_effect_slot_spells, W8_SPELL_RING_OF_FIRE) == 3);
+    REQUIRE_THROWS_AS(EffectSlotForSpell(g_defense_effect_slot_spells, kSpellCastCosts.front()),
+                      std::invalid_argument);
+}
+
+TEST_CASE("Monster power selection preserves affordability and its one draw", "[spells][random]")
+{
+    for (const auto [budget, seed, expected] :
+         std::array{std::array{0u, 1u, 1u}, std::array{30u, 1u, 2u}, std::array{110u, 1u, 6u},
+                    std::array{0u, 3000u, 2u}, std::array{110u, 3000u, 7u},
+                    std::array{30u, 6000u, 2u}, std::array{30u, 9000u, 2u}}) {
+        Rng rng{seed};
+        std::vector<Rng::Draw> draws;
+        rng.trace(&draws);
+        REQUIRE(RollMonsterSpellPower(rng, budget, 16) == expected);
+        REQUIRE(draws.size() == 1);
+        REQUIRE(draws.front().range == 4);
+    }
 }

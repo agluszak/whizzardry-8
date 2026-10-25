@@ -6,6 +6,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -45,6 +46,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
+#include "wiz8/named_position.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/light.h"
@@ -168,13 +170,9 @@ bool nodes(const std::filesystem::path& directory)
     REQUIRE(((!lamp->visible)));
     REQUIRE(((!torch->visible)));
 
-    auto* gas =
-        level.particles.emplace_back(std::make_unique<ParticleSystem>((level.scene.get()), 1))
-            .get();
+    auto* gas = level.particles.emplace_back(std::make_unique<ParticleSystem>(&level, 1)).get();
     gas->setName("GAS");
-    auto* idle =
-        level.particles.emplace_back(std::make_unique<ParticleSystem>((level.scene.get()), 1))
-            .get();
+    auto* idle = level.particles.emplace_back(std::make_unique<ParticleSystem>(&level, 1)).get();
     idle->setName("IDLE");
     gas->persisted = true;
     gas->SetActive(0);
@@ -232,12 +230,13 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
     game.game.level.replaceSky(std::make_unique<World>(-1, "ExistingSky.LVL"));
     auto* sky = GetSecondaryWorld();
     for (int attempt = 0; attempt < 2; ++attempt) {
-        REQUIRE_THROWS_WITH(LoadSkyWorld("MissingSky.LVL"),
+        REQUIRE_THROWS_WITH(game.game.loadWorld(-1, "MissingSky.LVL"),
                             Catch::Matchers::ContainsSubstring("Couldn't open"));
         REQUIRE(GetSecondaryWorld() == sky);
         REQUIRE(GetWorld() == primary);
         // Traversal must derive from the live owners after the failed load.
-        DetachAllWorldItems();
+        AnimateWorldItems(*primary);
+        AnimateWorldItems(*sky);
     }
 
     const auto level_path = wiz8::asset_path("Levels/Test/level1.LVL");
@@ -252,14 +251,15 @@ TEST_CASE("Failed resource construction preserves the active worlds and allows r
     // A malformed level passes path preflight, then fails before publication.
     CurrentGame().status.resume_level = 8; // A pending saved destination is not the active world.
     for (int attempt = 0; attempt < 2; ++attempt) {
-        REQUIRE_THROWS_WITH(LoadLevel(47, -1, false),
+        REQUIRE_THROWS_WITH(CurrentGame().travelToLevel(47, -1),
                             Catch::Matchers::ContainsSubstring("cannot read level"));
         REQUIRE(GetWorld() == primary);
         REQUIRE(GetSecondaryWorld() == sky);
         REQUIRE(GetLoadedLevelID() == 8);
         REQUIRE(CurrentGame().status.resume_level == 8);
         REQUIRE(GetWorld()->scene != nullptr);
-        DetachAllWorldItems();
+        AnimateWorldItems(*primary);
+        AnimateWorldItems(*sky);
     }
 }
 
@@ -314,61 +314,85 @@ TEST_CASE("Only published worlds schedule their trigger events", "[levels][event
     REQUIRE(GetWorld()->timed_events.empty());
 }
 
-TEST_CASE("Reward accounting follows the owned world, not a pending save destination",
+TEST_CASE("Reward accounting follows its game and world, not installed state or save destination",
           "[levels][rewards]")
 {
-    const ScopedGame game;
+    const ScopedGame outgoing;
+    const ScopedGameData installed{GameData{}};
     GameData data{.strings = std::vector<std::string>(0x233)};
     data.strings[0x232] = "%d";
-    const ScopedGameData installed(std::move(data));
-    auto& characters = CurrentGame().party.characters;
-    CurrentGame().party.members[0].emplace();
-    characters[0].hp_current = 1;
-    CurrentGame().status.resume_level = 8;
-    game.game.level.replacePrimary(std::make_unique<World>(3));
-    AddPartyGold(CurrentGame(), 1, false);
-    AwardPartyExperience(1, 0);
-    REQUIRE(CurrentGame().status.level_progress[3].gold_collected == 1);
-    REQUIRE(CurrentGame().status.level_progress[3].experience_gained == 1);
-    REQUIRE(CurrentGame().status.level_progress[8].gold_collected == 0);
-    REQUIRE(CurrentGame().status.level_progress[8].experience_gained == 0);
-    game.game.level.replacePrimary(nullptr);
-    const auto suffix = CurrentGame().status.retail.status_header_suffix;
-    AddPartyGold(CurrentGame(), 1, false);
-    AwardPartyExperience(1, 0);
-    REQUIRE(CurrentGame().party.gold == 2);
-    REQUIRE(characters[0].experience == 2);
-    REQUIRE(CurrentGame().status.level_progress[3].gold_collected == 1);
-    REQUIRE(CurrentGame().status.level_progress[3].experience_gained == 1);
-    REQUIRE(CurrentGame().status.retail.status_header_suffix == suffix);
+    Game game{data};
+    auto& characters = game.party.characters;
+    for (unsigned int slot : {0u, 2u, 3u}) game.party.members[slot].emplace();
+    characters[0].hp_current = characters[2].hp_current = 1;
+    characters[0].experience = std::numeric_limits<unsigned int>::max() - 1;
+    game.status.resume_level = 8;
+    game.level.replacePrimary(std::make_unique<World>(3));
+    AddPartyGold(game, 1, false);
+    game.awardExperience(1, false);
+    REQUIRE(game.status.level_progress[3].gold_collected == 1);
+    REQUIRE(game.status.level_progress[3].experience_gained == 2);
+    REQUIRE(game.status.level_progress[8].experience_gained == 0);
+    REQUIRE(characters[0].experience == std::numeric_limits<unsigned int>::max());
+    REQUIRE(characters[2].experience == 1);
+    REQUIRE(characters[3].experience == 0);
+    REQUIRE(game.level_up_check_due);
+    REQUIRE(game.npc_dialogue.has_queued_actions());
+    game.level.replacePrimary(nullptr);
+    const auto suffix = game.status.retail.status_header_suffix;
+    AddPartyGold(game, 1, false);
+    game.awardExperience(1, false);
+    REQUIRE(game.party.gold == 2);
+    REQUIRE(characters[0].experience == std::numeric_limits<unsigned int>::max());
+    REQUIRE(characters[2].experience == 2);
+    REQUIRE(game.status.level_progress[3].gold_collected == 1);
+    REQUIRE(game.status.level_progress[3].experience_gained == 2);
+    REQUIRE(game.status.retail.status_header_suffix == suffix);
+    REQUIRE(outgoing.game.party.gold == 0);
+    REQUIRE(outgoing.game.party.characters[0].experience == 0);
+    REQUIRE(outgoing.game.status.level_progress[3].experience_gained == 0);
+    REQUIRE_FALSE(outgoing.game.npc_dialogue.has_queued_actions());
 }
 
-TEST_CASE("An unloaded monster target has no position", "[levels][targeting]")
+TEST_CASE("World target queries use their own pose and authored markers", "[levels][targeting]")
 {
-    const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>(8));
+    World world{8};
     W8CombatSlot target{};
     target.iType = W8_TARGET_KIND_MONSTER;
     target.iMonsterID = 42;
     target.point = {1, 2, 3};
-    REQUIRE_FALSE(ResolveTargetPoint(&target, false));
-    REQUIRE_FALSE(ResolveTargetPoint(&target, true));
+    REQUIRE_FALSE(world.targetPoint(target, false));
+    REQUIRE_FALSE(world.targetPoint(target, true));
     REQUIRE(target.point == glm::vec3(1, 2, 3));
+    target.iType = W8_TARGET_KIND_PARTY;
+    REQUIRE(world.targetPoint(target, false) == world.party.eye());
+    REQUIRE(world.targetPoint(target, true) == world.party.position() + glm::vec3{0, 1000, 0});
+    auto& marker = world.named_positions.emplace_back();
+    std::strcpy(marker.name, "pArTy");
+    marker.position = {11, 22, 33};
+    REQUIRE(world.namedPosition("PARTY") == world.party.eye()); // Alias precedes authored names.
+    REQUIRE(world.namedMarker("party") == &marker);
+    std::strcpy(marker.name, "Marker");
+    REQUIRE(world.namedPosition("mArKeR") == marker.position);
+    REQUIRE_FALSE(world.namedPosition(""));
+    REQUIRE_FALSE(world.namedPosition("absent"));
 }
 
 TEST_CASE("An untimed camera trigger owns its shake until the event is removed",
           "[levels][events][shake]")
 {
+    ShakeSystem shakes;
+    World world(-1, "", {}, &shakes);
     {
-        TriggerEvent event;
+        TriggerEvent event(world);
         event.shake.emplace();
         event.Update();
         REQUIRE(event.shake->effect);
-        REQUIRE(CameraShakes().IsActive(*event.shake->effect));
-        REQUIRE(CameraShakes().Update({0, 0, 0}) == 1.0f);
+        REQUIRE(shakes.IsActive(*event.shake->effect));
+        REQUIRE(shakes.Update({0, 0, 0}) == 1.0f);
         REQUIRE_FALSE(event.completed);
     }
-    REQUIRE(CameraShakes().Update({0, 0, 0}) == 0.0f);
+    REQUIRE(shakes.Update({0, 0, 0}) == 0.0f);
 }
 
 TEST_CASE("Trigger names retain empty tokens, duplicates and authored spacing",
@@ -407,7 +431,6 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
     status.next_group_id = 77;
     status.world_clock = 123456;
     auto& population = *world.population;
-    std::vector<std::unique_ptr<Monster>> models;
     for (int index = 0; index < 4; ++index) {
         auto group = std::make_unique<W8MonsterGroup>();
         group->group_id = index + 1;
@@ -420,8 +443,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         group->forced_neutral = true;
         group->monsters = {index + 1};
         group->centre = {1.5f * index, 2.0f, 3.0f};
-        (index == 3 ? population.encounter_groups : population.monster_groups)
-            .push_back(std::move(group));
+        population.adoptGroup(std::move(group), index == 3);
         auto record = std::make_unique<W8MonsterInfo>();
         record->location_id = index + 1;
         record->monster_group_id = index == 1 ? 0 : index + 1;
@@ -429,7 +451,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         record->hp_current = 5 * index;
         record->position = {index * 10.0f, 1.0f, -2.0f};
         record->enchantments[1].turns = 3;
-        auto& model = models.emplace_back(std::make_unique<Monster>(world));
+        auto& model = record->entity = std::make_unique<Monster>(world);
         model->location_id = index + 1;
         model->defining_orders = index == 0;
         model->patrol_distance = 4.5f;
@@ -437,7 +459,6 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         model->vector = {{1, 2, 3}, {4, 5, 6}};
         model->direction_x = 0.25f;
         model->face_party = true;
-        record->entity.attach(*model);
         population.monster_roster.add(std::move(record), index == 2);
     }
     for (int index = 0; index < 2; ++index) {
@@ -504,7 +525,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         generator.flags = 0x40 + index;
         generator.generation_enabled = index == 0;
         generator.timer.setSeconds(4.0f);
-        generator.timer.setScale(0.5f + index);
+        generator.timer.setScale(0.5f + index, false);
         generator.timer.advance(std::chrono::milliseconds{300});
     }
     for (int index = 0; index < 2; ++index) {
@@ -513,8 +534,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         sound->stopped = static_cast<unsigned char>(index);
         world.audio.emitters.push_back(std::move(sound));
     }
-    auto* gas =
-        world.particles.emplace_back(std::make_unique<ParticleSystem>(world.scene.get(), 1)).get();
+    auto* gas = world.particles.emplace_back(std::make_unique<ParticleSystem>(&world, 1)).get();
     gas->setName("GAS");
     gas->persisted = true;
     auto* lamp = CreateWorldLight(&world, "LAMP");
@@ -546,7 +566,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         return file->written_memory();
     };
     auto& left = CurrentGame().left_levels;
-    const auto captured = LevelState::capture(CurrentGame().level, CurrentGame().status);
+    const auto captured = LevelState::capture(CurrentGame());
     left.store(captured);
     const auto state = left.decode(world.level_id);
     REQUIRE(state);

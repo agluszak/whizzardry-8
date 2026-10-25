@@ -40,19 +40,8 @@ class File;
    response; movement can stop at its distance limit or through a reset.
    Fast movement selects the running stamina/noise path. */
 
-extern bool g_shared_timers_paused;
-
-enum W8MoveTimerAction {
-    W8_MOVE_TIMER_SUSPEND = 1,
-    W8_MOVE_TIMER_FRAME_DELTA = 2,
-    W8_MOVE_TIMER_RESUME = 4,
-    W8_MOVE_TIMER_RESUME_MAIN_GAME = 8
-};
-float MoveTimer(W8MoveTimerAction action);
-
 void ResetLevelMovement(float movement_limit, bool reset, bool fast_move); /* 0x0041EEE0 */
 
-extern float g_navigator_gravity;
 extern float g_default_motion_limit;
 extern float g_default_momentum_scale;
 
@@ -315,7 +304,8 @@ struct DynamicSpatialRegistry {
 
 class LevelSpatialIndex {
 public:
-    void ReadProcessedCollision(wiz8::File* handle); /* 0x00449240 */
+    void ReadProcessedCollision(wiz8::File* handle,
+                                float reference_gravity = kDefaultGravity); /* 0x00449240 */
     /* Reads one WGD vertex/polygon list: counts, the scaled vertex bank with
        unscaled bounds tracking, the face records, and — for the non-primary
        pass — the interface name and conditional-face records. */
@@ -394,14 +384,15 @@ public:
     std::optional<SurfaceRayHit>
     traceGeometry(const PlaneSegment& segment, SurfaceTraceFilter filter,
                   std::span<const unsigned int> surface_ids = {}) const;
-    void initializeCollision();
+    void initializeCollision(float reference_gravity);
     void adoptCollisionData(LevelSpatialIndex&& source);
     bool collision_available = false;
     bool compiled_available = true;
 
     DynamicSpatialRegistry registry;
     World* const owner_world;
-    explicit LevelSpatialIndex(std::string_view path = {}, World* owner = nullptr);
+    explicit LevelSpatialIndex(std::string_view path = {}, World* owner = nullptr,
+                               float reference_gravity = kDefaultGravity);
     /* Preprocessing calls retain this receiver even when a body uses only
        global build state. */
     void Reset();
@@ -632,10 +623,7 @@ LevelEnvironment* LevelEnviron();
 
 void ResetInactiveLevelDataVectors(void);
 // Resume the shared timers and restart the frame delta as a level is entered.
-void UpdateGameDataRuntime();
 
-void ClearLevelMovementStopped(void);
-void ResetLevelDataVectors(void);
 bool CanInterruptLevelMovement(void);
 bool HasLevelWalkableContact(void); /* 0x0041F070 */
 bool IsLevelFastMovement(void); /* 0x0041EFB0 */
@@ -645,8 +633,6 @@ bool LevelMovedThisUpdate(void); /* 0x0041EFF0 */
 bool HasLevelDataVector(void); /* 0x0041F010 */
 void ResetCurrentEnvironment(void);
 unsigned char SetEnvironmentLoadFlag(unsigned char flag); /* 0x0041AAE0 */
-void BeginCameraSway(void);
-void EndCameraSway(void);
 
 bool IsLevelMovementStopped(void);
 unsigned char ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed);
@@ -655,8 +641,6 @@ unsigned char ConsumeLevelElapsedTime(float* real_elapsed, float* frame_elapsed)
    GameData geometry index. Without an octree, return the original position
    with no contact. */
 GroundProbe probeGround(const glm::vec3& position);
-
-void ClearLevelMovementState(void); /* 0x0041F0C0 */
 
 float GetCameraYawRadians();
 struct CameraOrientation;
@@ -682,7 +666,6 @@ int GetCameraYawDegrees(void);
    world, true for a loaded world without an octree. */
 bool hasCameraLineOfSight(const glm::vec3& position);
 /* 0x00420E20: start/stop the sustained movement footstep loop. */
-void UpdateLevelMovementAudio(void);
 /* 0x004EF9A0: fall-impact override handler owned by GameplayCode.cpp;
    declared in wiz8/local_code/GameplayCode.h. */
 

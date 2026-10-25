@@ -9,7 +9,7 @@ struct CameraPoseOpaque {
 
     bool operator==(const CameraPoseOpaque&) const = default;
 };
-// Unidentified disk fields retained for lossless saves/database edits.
+// Retail-only fields retained for lossless saves/database edits.
 struct MonsterGroupOpaque {
     // Retail cache retained on decode; level saves replace it with the derived count.
     int active_member_count = 0;
@@ -34,6 +34,8 @@ struct GlobalStatusOpaque {
     std::array<unsigned char, 5> unknown_243f{};
     // The save file's creation time, masked; SaveGame stamps it into Iron Man saves.
     std::array<unsigned int, 2> save_filetime_xor{};
+    // Retail's 22-code-unit display scratch buffer, including bytes after its terminator.
+    std::array<std::byte, 44> monster_name_cache{};
     std::array<unsigned char, 0xc> unknown_40c2{};
     std::array<unsigned char, 0x194> unknown_47de{};
     std::array<unsigned char, 4> unknown_497b{};

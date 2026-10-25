@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <bitset>
+#include <cassert>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -34,6 +36,7 @@
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/unicode.h"
 
@@ -398,7 +401,8 @@ void PracticeCharacterSkill(Game& game, W8Character* character, W8Skill skill_id
                 RefreshCharacterSkillAvailability(game.data, character);
                 skill->level = GetEffectiveSkillLevel(character, skill_id);
                 RecalculateCharacterDerivedStats(game, *character);
-                game.events.push(SkillImproved{CharacterPointerToPartySlot(character), skill_id,
+                assert(character->fInParty);
+                game.events.push(SkillImproved{game.party.slotOf(*character).value(), skill_id,
                                                suppress_notification});
             }
         }

@@ -23,6 +23,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/game.h"
+#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/local_code/GameplayTime.h"
 #include "wiz8/platform/game_timer.h"
@@ -67,18 +68,6 @@ static void RefreshCloudMaterial(World& world)
     material.parms.ambient = glm::vec4(static_cast<float>(brightness));
     material.parms.diffuse.w = static_cast<float>(brightness * 0.75 + 0.25);
     material.dirty = 1;
-}
-
-/* Drop every per-level environment object: the sky gradients, the Sun/Moon
-   props and the orbit radius reset, then release the two fog objects and
-   empty the registered-light list without freeing its storage. */
-void ClearEnvironmentObjects(void)
-{
-    ResetEnvironment();
-    if (GetWorld()) {
-        GetWorld()->environment.static_fog.reset();
-        GetWorld()->environment.dynamic_fog.reset();
-    }
 }
 
 /* Advance the authoritative game clock and place the two celestial props on
@@ -156,24 +145,12 @@ static void AdvanceEnvironmentClock(void)
     const auto elapsed = std::exchange(GetWorld()->environment.untaken_time, {});
     if (elapsed.count() != 0) {
         AdvanceEnvironmentTime(
-            static_cast<int>(static_cast<double>(elapsed.count()) * g_view_distance));
+            static_cast<int>(static_cast<double>(elapsed.count()) * CurrentGame().calendarRate()));
     }
 }
 
 /* Turn environment time progression on or off. While it is off, no step time reaches
    it, so it resumes from the moment it is enabled. */
-void SetEnvironmentTimeEnabled(bool enabled)
-{
-    CurrentGame().advancement.time_passes = enabled;
-    if (enabled && GetWorld()) GetWorld()->environment.untaken_time = {};
-}
-
-void PassEnvironmentTime(std::chrono::milliseconds elapsed)
-{
-    if (CurrentGame().advancement.time_passes && GetWorld())
-        GetWorld()->environment.untaken_time += elapsed;
-}
-
 /* The environment's per-frame update. A running transition short-circuits to
    the transition body. Otherwise, in day/night mode the sky consumes the day
    phase to pick the light direction, and the world colour table is refreshed
@@ -293,17 +270,6 @@ void SetSkyEnabled(bool enabled)
         return;
     }
     GetWorld()->camera->setEnvironmentRange(0.0f, static_cast<float>(WorldGetFarClip(GetWorld())));
-}
-
-/* The far plane the world is drawn to. */
-void SetViewDistance(float distance)
-{
-    g_view_distance = distance;
-}
-
-float GetViewDistance(void)
-{
-    return g_view_distance;
 }
 
 /* Turn the sky on, then catch the light direction up: advance the clock by the
@@ -580,29 +546,12 @@ void ApplyEnvironmentColour(World* world, float intensity, const glm::vec3* colo
     RefreshCloudMaterial(*world);
 }
 
-/* Write the camera light's intensity, if the world has one. */
-void SetCameraLightIntensity(float value)
+// Extinguishing the party light preserves its last intensity.
+void World::setPartyLight(unsigned int intensity)
 {
-    if (GetWorld()->camera_light != 0) {
-        GetWorld()->camera_light->intensity = value;
-    }
-}
-
-/* Show or hide the world's camera light, which is the renderer's flag zero the
-   other way round: showing it clears the flag. 0x00483E50 loads the light from
-   GetWorld() at offset 0x54 and reaches the same two imported flag thunks, so the
-   node here is the camera light the world setup creates, never a sky node. */
-void SetSkyNodeVisible(bool visible)
-{
-    Light* camera_light = GetWorld()->camera_light;
-
-    if (camera_light != 0) {
-        if (visible) {
-            camera_light->visible = true;
-        } else {
-            camera_light->visible = false;
-        }
-    }
+    if (!camera_light) return;
+    camera_light->visible = intensity != 0;
+    if (intensity != 0) camera_light->intensity = intensity + kEnvironmentNearScale;
 }
 
 /* Raise or lower the camera light by one step, disable it, or enable it. */
@@ -612,11 +561,11 @@ void SetCameraLightMode(W8CameraLightMode mode)
     Light* camera_light;
     float intensity;
 
-    if (GetWorld() != 0 && (camera_light = GetWorld()->camera_light) != 0) {
+    if (GetWorld() != 0 && (camera_light = GetWorld()->camera_light.get()) != 0) {
         switch (mode) {
         case W8CameraLightMode::Increase:
             camera_light->visible = true;
-            camera_light = GetWorld()->camera_light;
+            camera_light = GetWorld()->camera_light.get();
             intensity = 0.0f;
             if (camera_light != 0) {
                 intensity = camera_light->intensity;
@@ -711,4 +660,14 @@ bool IsSkyEnabled()
 W8EnvironmentLightingMode EnvironmentLightingMode()
 {
     return GetWorld() ? GetWorld()->environment.lighting_mode : W8EnvironmentLightingMode::DayNight;
+}
+
+void PublishLightDirection(const glm::vec3* direction)
+{
+    if (GetWorld() != 0) {
+        GetWorld()->scene->setFogColor(*direction);
+    }
+    if (GetSecondaryWorld() != 0) {
+        GetSecondaryWorld()->scene->setFogColor(*direction);
+    }
 }

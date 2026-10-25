@@ -2,7 +2,7 @@
 
 #include <cstdint>
 #include <memory>
-#include <span>
+#include <optional>
 #include <string_view>
 
 #include <SDL3/SDL_rect.h>
@@ -65,7 +65,6 @@ void InvalidateScreenRects(DesignRect* rects, unsigned int count);
 extern int g_cursor_image_height;
 /* 0x00652DA4: set while the swaying camera view is active; see
    PartyCamera::applySway. */
-extern bool g_camera_sway_active;
 extern int g_screenshot_index;
 void ClearSurfaceRect(int left, unsigned int top, int right, unsigned int bottom);
 /* Clear a rectangle of the interface overlay and upload it. */
@@ -85,11 +84,9 @@ std::unique_ptr<MeshInstance> MakePosterQuad(std::shared_ptr<Texture> texture, f
                                              float height, bool additive);
 std::unique_ptr<OverlayQuad> makeOverlayFromTexture(std::shared_ptr<Texture> texture, double width,
                                                     double height, bool alpha_blend, bool square);
-/* 0x00426F80: render the world into a caller-owned color surface through a
-   scissored viewport, then blit the locked frame buffer onto the target. */
-bool RenderWorldToSurface(SDL_Surface* target, const DesignRect* rect);
 /* Render a world scene's map view into a caller-owned surface the same way. */
-bool RenderMapToSurface(SDL_Surface& target, WorldScene& scene, const DesignRect& rect);
+bool RenderMapToSurface(SDL_Surface& target, WorldScene& scene, SceneFrame frame,
+                        const DesignRect& rect);
 
 struct W8ControlsRect;
 
@@ -153,7 +150,6 @@ extern bool g_world_blacked_out;
 
 void SetResidentTexturePolicy(int policy);
 void SetSwapInterval(bool enabled);
-void SetViewport(const DesignRect& bounds);
 // Update the surface viewport without changing the camera view plane.
 void SetScaledViewport(const DesignRect& bounds);
 /* Read the stored pixel viewport back out in normalized 0..1 scale. */
@@ -172,14 +168,26 @@ void ClearVideoDirtyBlocks(void); /* 0x00423150 */
 void UpdateRenderElapsedTime(void);
 // Seconds on the render clock that scene passes animate textures with.
 double RenderClockSeconds();
-// Draws one scene pass; `picks` are tested against its pickable triangles.
-void RenderScene(WorldScene* scene, Camera3D* camera, const DesignRect* viewport, bool preserve_fog,
-                 std::span<Pick> picks = {});
-void RenderFrame(void);
+// Synchronous borrowed view inputs. No installed game or current world is consulted.
+struct FrameView {
+    WorldScene* world = nullptr;
+    Camera3D* camera = nullptr;
+    WorldScene* sky = nullptr;
+    Camera3D* sky_camera = nullptr;
+    SceneFrame frame;
+    glm::vec3 background{0};
+};
+// A movie or inactive device owns presentation instead of the frame pipeline.
+bool CanPresentFrame();
+// A rendered frame returns its raw pick (possibly a miss); a skipped frame returns nullopt.
+// The interaction owner supplies normalized picking coordinates and interprets the result.
+std::optional<Pick> RenderFrame(const FrameView& view,
+                                std::optional<glm::vec2> pick_position = std::nullopt);
+// Offscreen submission does not advance clocks or choose a gameplay camera.
+bool RenderViewToSurface(SDL_Surface& target, const FrameView& view, const DesignRect& rect);
 /* The native presentation shell also owns this opaque surface entry point. */
 SDL_Surface* BeginVideoPresentation(void);
 bool FinishVideoPresentation(void);
-void PublishLightDirection(const glm::vec3* direction);
 bool CreateWizardryWindow(void);
 bool InitializePrimarySurface(void);
 void ReleasePrimarySurface(void);
@@ -188,7 +196,6 @@ bool SetupDisablesAudio();
 bool OpenRendererWindow(void);
 bool DisableCursorScene(void);
 bool EnableCursorScene(void);
-void SetWorldModelPickingEnabled(bool enabled);
 bool IsCursorInsideViewport(void);      /* 0x00428070 */
 bool IsCursorImageInsideViewport(void); /* 0x00428030 */
 

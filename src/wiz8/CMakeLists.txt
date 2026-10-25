@@ -74,7 +74,6 @@ target_sources(wiz8_engine PRIVATE
     local_screens/MGSUseItemSelect.cpp
     local_screens/MGSPartyMovement.cpp
     local_code/MonsterManager.cpp
-    local_code/monster_fatigue.cpp
     local_code/MonsterGroup.cpp
     local_code/UtilityFunctions.cpp
     local_code/Strings.cpp
@@ -93,9 +92,12 @@ target_sources(wiz8_engine PRIVATE
     ../world/automap.cpp
     ../world/level_session.cpp
     ../world/level_loader.cpp
+    ../world/items.cpp
     ../render/resources/mesh_loader.cpp
     ../world/world.cpp
+    ../world/group_formation.cpp
     ../render/effects/particle_system.cpp
+    ../render/effects/camera_shake.cpp
     ../render/resources/compiled_mesh.cpp
     ../entities/trigger_actions.cpp
     ../entities/trigger_io.cpp
@@ -165,10 +167,14 @@ target_sources(wiz8_engine PRIVATE
     character_skills.cpp
     loaded_game_data.cpp
     game.cpp
+    action_targets.cpp
     game_advance.cpp
+    world_view.cpp
     combat/entity_signals.cpp
     combat/script_commands.cpp
     fact_state.cpp
+    story.cpp
+    npc_creation.cpp
     ../world/party_camera.cpp
     ../world/party_motion.cpp
     ../world/selection.cpp
@@ -178,6 +184,7 @@ target_sources(wiz8_engine PRIVATE
     version.cpp
     inventory.cpp
     live_party.cpp
+    monster_decisions.cpp
     local_code/Search.cpp
     local_code/npc_interaction.cpp
     local_code/npc_dialogue.cpp
@@ -186,7 +193,6 @@ target_sources(wiz8_engine PRIVATE
     local_code/npc_story_events.cpp
     "local_code/NPC Scripting.cpp"
     "local_code/NPC Scripting Facts.cpp"
-    local_code/formation_state.cpp
     combat/group_attacks.cpp
     local_code/CharGeneration.cpp
     local_screens/AutomapScreen.cpp

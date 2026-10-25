@@ -1,8 +1,7 @@
 #include <cassert>
+#include <optional>
 #include <string>
 #include <vector>
-
-#include <fmt/format.h>
 
 #include "glm/ext/vector_float3.hpp"
 #include "message_box.h"
@@ -20,11 +19,11 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fact_state.h"
-#include "wiz8/fonts.h"
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/layouts/npc_dialogue.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
@@ -39,7 +38,6 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_code/npc_story_events.h"
-#include "wiz8/local_screens/JournalScreen.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -57,20 +55,14 @@
 #include "wiz8/script_context.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/story.h"
-#include "wiz8/string_database.h"
+#include "wiz8/world/level_session.h"
+#include "wiz8/world/party_motion.h"
 #include "wiz8/world/world.h"
-
-/* Potion explosion completion callback: retail stores this JMP thunk rather than
-   ClearScriptedSceneActive's void() entry. */
-static void ClearPotionExplosionSoundFlag()
-{
-    CurrentGame().npc_dialogue.ReleaseScene();
-}
 
 /* Camera-shake completion callback stored on ShakeDefinition::completion_callback. */
 static void ReplayEarthquakeShake(void)
 {
-    CameraShakes().Start(ShakeDefinition(3.0f, false, 1.0f, 0, nullptr));
+    CurrentGame().camera_shakes.Start(ShakeDefinition(3.0f, false, 1.0f, 0, nullptr));
     BeginEndgameSequence();
 }
 
@@ -78,7 +70,6 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
 {
     W8NpcState* npc;
     W8MonsterGroup* group;
-    W8WorldItem* world_item;
     W8Character* character;
     Trigger* trigger;
     ParticleSystem* particle;
@@ -95,53 +86,53 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(3), 0x28a, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(3), 0x28a, 1, 0x15180);
         return;
     case W8_FACT_ANTONE_STEELHIDE_ALL_INGREDIENTS:
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(3), 0x28b, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(3), 0x28b, 1, 0x15180);
         return;
     case W8_FACT_ANTONE_FEATHERWEIGHT_ALL_INGREDIENTS:
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(3), 0x28c, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(3), 0x28c, 1, 0x15180);
         return;
     case W8_FACT_ANTONE_BEASTSLAYER_ALL_INGREDIENTS:
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(3), 0x28d, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(3), 0x28d, 1, 0x15180);
         return;
     case W8_FACT_ANTONE_EBON_STAFF_ALL_INGREDIENTS:
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(3), 0x28e, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(3), 0x28e, 1, 0x15180);
         return;
     case W8_FACT_RAPAX_MYLES_IN_JAIL:
         if (value == 0) {
             return;
         }
-        if (NpcLeadHasNameStyle(W8_NPC_MYLES)) {
+        if (context.game.hasLeadingNpc(W8_NPC_MYLES)) {
             return;
         }
-        npc = GetNpcStateByKind(7);
+        npc = CurrentGame().story.npcOfKind(7);
         if (npc == 0) {
             return;
         }
         ReleaseNpcMonsterBinding(npc, 0);
-        RestoreNamedNpcAtLevel(npc->name_style, 0x11, "NP_MylesCell");
+        CurrentGame().restoreNamedNpc(npc->name_style, 0x11, "NP_MylesCell");
         return;
     case W8_FACT_ASTRAL_POSSESS:
         if (value == 0) {
             return;
         }
-        npc = GetNpcStateByKind(0x48);
+        npc = context.game.story.npcOfKind(0x48);
         assert(npc != 0);
-        ClearNpcScheduledItem(npc, 0x242, 0);
+        npc->clearScheduledItem(0x242);
         return;
     case W8_FACT_PEACE_SAVANT_BLOWUP_DONE:
         if (value == 0) {
@@ -150,23 +141,19 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         CurrentGame().npc_dialogue.Queue(W8NpcStoryAction::trigger_fix);
         return;
     case W8_FACT_CROCK_KIDNAPPED_PLAYER:
-        if (value != 0 && FindEntityByName("NP_BlueFlowers", &position, 0, 0)) {
-            world_item = AddWorldItem(
-                SpawnItem(0x2eb, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-            if (world_item != 0) {
-                ActivateItem(world_item);
-            }
-            world_item = AddWorldItem(
-                SpawnItem(0x2eb, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-            if (world_item != 0) {
-                ActivateItem(world_item);
+        if (auto point =
+                value != 0 ? context.world->namedPosition("NP_BlueFlowers") : std::nullopt) {
+            for (int count = 0; count < 2; ++count) {
+                auto* item = context.world->adoptItem(context.game.spawnWorldItem(
+                    *context.world, 0x2eb, &*point, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                if (item) context.world->activateItem(context.game.data, context.game.rng, item);
             }
         }
         return;
     case W8_FACT_CROCK_BREKEK_ASSIGN:
-        fact_value = GetFact(W8_FACT_CROCK_BREKEK_DEAD);
-        if (fact_value == 0 && FindEntityByName("Brekek", &position, 0, 0)) {
-            SpawnMonsters(0x131, 1, &position, 1, true, true);
+        fact_value = context.game.testFact(W8_FACT_CROCK_BREKEK_DEAD);
+        if (auto point = fact_value == 0 ? context.world->namedPosition("Brekek") : std::nullopt) {
+            SpawnMonsters(0x131, 1, &*point, 1, true, true);
         }
         return;
     case W8_FACT_CROCK_PLAYER_RETURNED_TO_PARTY:
@@ -182,12 +169,12 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_RFS81_HAS_BEEN_FIXED:
         if (value != 0) {
-            npc = GetNpcStateByKind(0x20);
+            npc = CurrentGame().story.npcOfKind(0x20);
             if (npc != 0) {
                 ReloadNpcScriptResources(npc);
                 if (!npc->is_grouped) {
                     CurrentGame().npc_dialogue.Cancel();
-                    CurrentGame().npc_dialogue.Begin(npc, false);
+                    CurrentGame().beginNpcDialogue(npc, false);
                     CurrentGame().npc_dialogue.QueueQuote(0, false, false, false);
                     return;
                 }
@@ -222,7 +209,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        npc = GetNpcStateByKind(0x29);
+        npc = CurrentGame().story.npcOfKind(0x29);
         assert(npc != 0);
         MarkNpcOfKind(0x29);
         return;
@@ -237,7 +224,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
     case W8_FACT_LOCATION_GIGAS_MOTION_SENSORS_OFF:
         if (value != 0) {
             RunNamedTrigger("SecurityLasers", -1);
-            CreateLocationVar("LasersOff", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "LasersOff", 1);
         }
         return;
     case W8_FACT_LOCATION_GIGAS_OUTER_GATE_OPEN:
@@ -274,7 +261,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_MOOK_MOOK_PC_SWAP_COMPLETE:
         if (value != 0) {
-            SetFact(W8_FACT_QUEST_MOOK_BUDDY_TELLS_OF_CM, 1, false);
+            context.game.setFact(W8_FACT_QUEST_MOOK_BUDDY_TELLS_OF_CM, 1);
         }
         return;
     case W8_FACT_MOOK_MOOK_PC_REMOVED:
@@ -290,9 +277,9 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         RunNamedTrigger("blackboxrecorder", -1);
         return;
     case W8_FACT_ARNIKA_MYLES_TROOPERS_HOSTILE:
-        group = FindFirstMonsterByID(0x13);
+        group = CurrentLevelPopulation().findSpeciesGroup(0x13);
         if (group != 0) {
-            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+            context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
         return;
     case W8_FACT_ARNIKA_SAFETY_DEPOSIT_OPEN:
@@ -300,45 +287,45 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_FACTION_HIGARDI_HLL_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(0xb, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(0xb, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(0xb, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(0xb, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_FACTION_HIGARDI_COMMON_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(0xc, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(0xc, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(0xc, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(0xc, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_FACTION_HIGARDI_BANK_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(10, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(10, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(10, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(10, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_FACTION_HIGARDI_FELLOW_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(9, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(9, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(9, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(9, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_ARNIKA_VAULT_TELEPORT:
     case W8_FACT_ARNIKA_VAULT_ENTERED:
         if (value == 0) {
             return;
         }
-        fact_value = GetFact(W8_FACT_MYLES_IN_PARTY);
+        fact_value = context.game.testFact(W8_FACT_MYLES_IN_PARTY);
         if (fact_value != 0) {
-            SetFact(W8_FACT_MYLES_IN_PARTY_WHEN_BANK_DONE, 1, false);
+            context.game.setFact(W8_FACT_MYLES_IN_PARTY_WHEN_BANK_DONE, 1);
         }
-        SetFact(W8_FACT_QUEST_MYLES_BANK_VAULT, 0, false);
+        context.game.setFact(W8_FACT_QUEST_MYLES_BANK_VAULT, 0);
         return;
     case W8_FACT_MYLES_MISSION_RESCUE_VI_ASSIGNED:
-        npc = GetNpcStateByKind(7);
+        npc = CurrentGame().story.npcOfKind(7);
         if (npc == 0) {
             return;
         }
@@ -362,10 +349,10 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_FACTION_TRANG_COMMON_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(5, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(5, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(5, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(5, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_AP_GOLEM_ATTACK:
         CurrentGame().npc_dialogue.Queue(W8NpcStoryAction::move_golem);
@@ -408,7 +395,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(0x48), 0x242, 1, 0);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(0x48), 0x242, 1, 0);
         return;
     case W8_FACT_BAYJIN_JANETTE_DEAD:
         if (value == 0) {
@@ -430,10 +417,10 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_FACTION_UMPANI_COMMON_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(4, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(4, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(4, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(4, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_LOCATION_GIGAS_TELEPORT_OPEN:
         if (value == 0) {
@@ -448,7 +435,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         }
         for (slot = 0; slot < 8; ++slot) {
             character = &context.party.characters[slot];
-            if (CanPartySlotParticipate(slot)) {
+            if (CurrentGame().party.participates(slot)) {
                 added = 100 - character->attributes[W8_ATTRIBUTE_INTELLIGENCE].base;
                 if (added > 5) {
                     added = 5;
@@ -457,7 +444,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
                 ApplyAttributeChange(context.game, character, W8_ATTRIBUTE_INTELLIGENCE);
             }
         }
-        ShowString(Data().strings[0x1dc]);
+        context.game.queueWorldMessage(Data().strings[0x1dc]);
         trigger = FindTriggerByName("FOUNT_RIDDLE");
         if (trigger == 0) {
             return;
@@ -471,7 +458,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        SetFact(W8_FACT_QUEST_MADRAS_OPEXTERM, 1, false);
+        context.game.setFact(W8_FACT_QUEST_MADRAS_OPEXTERM, 1);
         return;
     case W8_FACT_TRYNNIE_KILL_RATS_ASSIGNED:
         CurrentGame().npc_dialogue.Queue(W8NpcStoryAction::move_gari);
@@ -480,7 +467,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(0x49), 0x1b0, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(0x49), 0x1b0, 1, 0x15180);
         return;
     case W8_FACT_AP_BELA_DONE:
         CurrentGame().npc_dialogue.Queue(W8NpcStoryAction::move_bela);
@@ -493,10 +480,10 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_FACTION_RAPAX_COMMON_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(0xf, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(0xf, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(0xf, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(0xf, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_RAPAX_RIDDLE1:
         if (value == 0) {
@@ -553,19 +540,19 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(0x39), 500, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(0x39), 500, 1, 0x15180);
         return;
     case W8_FACT_FERRO_IVORY_BLADE_ALL_INGREDIENTS:
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(0x39), 0x1f5, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(0x39), 0x1f5, 1, 0x15180);
         return;
     case W8_FACT_FERRO_VAMPIRE_CHAIN_ALL_INGREDIENTS:
         if (value == 0) {
             return;
         }
-        AddNpcItemWithDelay(GetNpcStateByKind(0x39), 0x1f8, 1, 0x15180);
+        AddNpcItemWithDelay(CurrentGame().story.npcOfKind(0x39), 0x1f8, 1, 0x15180);
         return;
     case W8_FACT_ALETHEIDES_DISAPPEARS:
         CurrentGame().npc_dialogue.Queue(W8NpcStoryAction::aletheides_leaves);
@@ -592,7 +579,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         }
         position = glm::vec3(53550.0f, 3516.0f, 36936.0f);
         CameraLookAt(&position);
-        fact_value = GetFact(W8_FACT_TMISSION_KILL_UMPANI_CORD_SEVERED);
+        fact_value = context.game.testFact(W8_FACT_TMISSION_KILL_UMPANI_CORD_SEVERED);
         if (fact_value == 0) {
             trigger_name = "TR2ShipTrigger";
         } else {
@@ -640,7 +627,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value == 0) {
             return;
         }
-        npc = GetNpcStateByKind(0x29);
+        npc = CurrentGame().story.npcOfKind(0x29);
         assert(npc != 0);
         MarkNpcOfKind(0x29);
         return;
@@ -670,7 +657,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
                                      GetLocationVarValueByName("ObstacleDoors") | 2);
             return;
         }
-        CreateLocationVar("ObstacleDoors", 2);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "ObstacleDoors", 2);
         return;
     case W8_FACT_LOCATION_GIGAS_OFFICERS_QUARTERS_GATE_OPEN1:
         if (value == 0) {
@@ -685,7 +672,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
                                      GetLocationVarValueByName("ObstacleDoors") | 1);
             return;
         }
-        CreateLocationVar("ObstacleDoors", 1);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "ObstacleDoors", 1);
         return;
     case W8_FACT_LOCATION_GIGAS_TOP_DOOR_OPEN1:
     case W8_FACT_LOCATION_GIGAS_TOP_DOOR_OPEN2:
@@ -707,10 +694,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_FUZZFAS_BOOM1:
     case W8_FACT_FUZZFAS_BOOM2:
-        if (wiz8::sound::play("Data\\Sound\\misc\\potion_exploding.wav",
-                              {.on_finished = ClearPotionExplosionSoundFlag}) != nullptr) {
-            CurrentGame().npc_dialogue.HoldForScene();
-        }
+        context.game.npc_dialogue.BeginSoundScene("Data\\Sound\\misc\\potion_exploding.wav");
         particle = FindParticleByName("FuzzBlast");
         if (particle != 0) {
             particle->SetActive(false);
@@ -719,7 +703,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
             particle->SetActive(true);
             particle->SetTraversalEnabled(true);
         }
-        npc = GetNpcStateByKind(0x49);
+        npc = CurrentGame().story.npcOfKind(0x49);
         if (npc == 0) {
             return;
         }
@@ -731,10 +715,10 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
                 monster_info->entity->visual.pending_cycle)) {
             return;
         }
-        StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
+        monster_info->startCycle(W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
         return;
     case W8_FACT_QUEST_SAVANT_BOMB_DEACTIVATED:
-        npc = GetNpcStateByKind(0x57);
+        npc = CurrentGame().story.npcOfKind(0x57);
         if (npc == 0) {
             return;
         }
@@ -756,7 +740,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         if (value != 0) {
             return;
         }
-        CurrentGame().npc_dialogue.Queue(W8NpcCommand::spacer);
+        context.game.npc_dialogue.Queue(W8NpcCommand::spacer);
         return;
     case W8_FACT_ALSEDEXUS_DISAPPEAR:
         if (value == 0) {
@@ -781,28 +765,28 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
             return;
         }
         context.status.vi_event_stage = 1;
-        group = FindFirstMonsterByID(0x234);
+        group = CurrentLevelPopulation().findSpeciesGroup(0x234);
         if (group != 0) {
-            SetMonsterGroupHostility(group, W8_DISPOSITION_FRIENDLY, false);
+            context.game.setGroupHostility(group, W8_DISPOSITION_FRIENDLY, false);
         }
-        group = FindFirstMonsterByID(0x1b4);
+        group = CurrentLevelPopulation().findSpeciesGroup(0x1b4);
         if (group != 0) {
-            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+            context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
-        group = FindFirstMonsterByID(0x1b9);
+        group = CurrentLevelPopulation().findSpeciesGroup(0x1b9);
         if (group != 0) {
-            SetMonsterGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+            context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
-        GetNpcStateByKind(0x89);
+        CurrentGame().story.npcOfKind(0x89);
         return;
     case W8_FACT_FACTION_RAPAX_TEMPLAR_FRIENDLY:
         if (value == 0) {
-            SetFactionDispositionBand(0x10, W8_FACTION_HOSTILE);
-            SetFactionDispositionBand(0xf, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(0x10, W8_FACTION_HOSTILE);
+            context.game.setFactionDisposition(0xf, W8_FACTION_HOSTILE);
             return;
         }
-        SetFactionDispositionBand(0x10, W8_FACTION_FRIENDLY);
-        SetFactionDispositionBand(0xf, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(0x10, W8_FACTION_FRIENDLY);
+        context.game.setFactionDisposition(0xf, W8_FACTION_FRIENDLY);
         return;
     case W8_FACT_ENDGAME_QUE_CONGRAT_TWO:
     case W8_FACT_ENDGAME_QUE_CONGRAT_THREE:
@@ -810,8 +794,8 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         return;
     case W8_FACT_ENDGAME_QUE_CONGRAT_FOUR:
         EndNpcDialogueSession(false);
-        ResetLevelDataVectors();
-        group = FindFirstMonsterByID(0xc2);
+        if (auto* world = context.world) world->party.camera.motion.stop();
+        group = CurrentLevelPopulation().findSpeciesGroup(0xc2);
         if (group != 0) {
             monster_info = FindMonster(group->leader_location_id);
             monster_info->entity->SetScript("MoveSavantBoffo.msf", true);
@@ -821,7 +805,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
             ShakeDefinition shake(6.0f, false, 1.0f, 0, nullptr);
             shake.fade_in = true;
             shake.completion_callback = ReplayEarthquakeShake;
-            CameraShakes().Start(shake);
+            CurrentGame().camera_shakes.Start(shake);
         }
         return;
     default:
@@ -837,13 +821,13 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
         return;
     }
     if ((record->flags & W8_MONSTER_FLAG_NPC) != 0) {
-        W8NpcState* npc = GetNpcStateByKind(record->npc_kind);
+        W8NpcState* npc = CurrentGame().story.npcOfKind(record->npc_kind);
         if (npc != 0) {
             npc->spawned = 1;
             if (npc->name_style == W8_NPC_VI_DOMINA) {
-                unsigned char fact_ok = GetFact(W8_FACT_VI_RESCUED);
+                unsigned char fact_ok = context.game.testFact(W8_FACT_VI_RESCUED);
                 if (fact_ok == 0) {
-                    fact_ok = GetFact(W8_FACT_MYLES_MISSION_RESCUE_VI_ASSIGNED);
+                    fact_ok = context.game.testFact(W8_FACT_MYLES_MISSION_RESCUE_VI_ASSIGNED);
                     if (fact_ok == 0) {
                         npc->spawned = 0;
                     }
@@ -855,8 +839,8 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
         return;
     }
     int lead_index = -1;
-    if (NpcLeadHasNameStyle(W8_NPC_VI_DOMINA)) {
-        W8NpcState* lead = GetNpcStateByKind(W8_NPC_VI_DOMINA);
+    if (context.game.hasLeadingNpc(W8_NPC_VI_DOMINA)) {
+        W8NpcState* lead = CurrentGame().story.npcOfKind(W8_NPC_VI_DOMINA);
         if (lead != 0) {
             lead_index = lead->group_index;
         }
@@ -909,7 +893,7 @@ void HandleScriptedNpcDeath(const ScriptContext& context, unsigned int monster_l
         if (entry->fActive && entry->ubDisposition == W8_DISPOSITION_HOSTILE &&
             !entry->entity->IsDying()) {
 
-            MonsterStartsDying(entry, true);
+            context.game.startMonsterDeath(entry, true);
         }
     }
 }
@@ -923,148 +907,67 @@ void MonsterKilled(const ScriptContext& context, int record_id, int killer_party
     unsigned char value;
 
     if (record_id == 0x131) {
-        SetFact(W8_FACT_CROCK_BREKEK_DEAD, 1, false);
+        context.game.setFact(W8_FACT_CROCK_BREKEK_DEAD, 1);
         return;
     }
     if (record_id == 0x1a9) {
-        SetFact(W8_FACT_QUEEN_IS_DEAD, 1, false);
-        ApplyFactionChange(2, 1, 0x10, 0x14);
+        context.game.setFact(W8_FACT_QUEEN_IS_DEAD, 1);
+        context.game.adjustFactionDisposition(0x10, 0x14);
         return;
     }
     if (record_id == 0x14f || record_id == 0xdd) {
-        if (GetLocationVarIDByName("NumberRattkinBreedersKilled") == -1) {
-            CreateLocationVar("NumberRattkinBreedersKilled", 1);
+        if (!context.story.findLocationVariable(context.world->level_id,
+                                                "NumberRattkinBreedersKilled")) {
+            context.story.ensureLocationVariable(context.world->level_id,
+                                                 "NumberRattkinBreedersKilled", 1);
             return;
         }
-        SetTriggerVariableByName("NumberRattkinBreedersKilled", 2);
-        SetFact(W8_FACT_TRYNNIE_KILL_RATS_DONE, 1, false);
-        SetFactionDispositionBand(7, W8_FACTION_HOSTILE);
+        context.story.setLocationVariable(context.world->level_id, "NumberRattkinBreedersKilled",
+                                          2);
+        context.game.setFact(W8_FACT_TRYNNIE_KILL_RATS_DONE, 1);
+        context.game.setFactionDisposition(7, W8_FACTION_HOSTILE);
     } else {
         if (record_id == 0x22b) {
-            value = GetFact(W8_FACT_ALSEDEXUS_ATTACK);
+            value = context.game.testFact(W8_FACT_ALSEDEXUS_ATTACK);
             if (value != 0) {
-                SetFact(W8_FACT_QUEST_KILL_ALSEDEXUS, 0, false);
+                context.game.setFact(W8_FACT_QUEST_KILL_ALSEDEXUS, 0);
             }
             if (context.status.rpc_active) {
                 if (context.party.characters[context.status.sedexus_party_slot]
                         .uiCondition[W8_CONDITION_INFATUATED] > 0) {
-                    LiftCondition(CurrentGame(), context.status.sedexus_party_slot,
+                    LiftCondition(context.game, context.status.sedexus_party_slot,
                                   W8_CONDITION_INFATUATED, false);
                 }
-                QueueCharacterEvent(&context.party.characters[context.status.sedexus_party_slot],
-                                    131, 0, kCharacterEventFullVolume);
+                context.game.speech.Queue(
+                    &context.party.characters[context.status.sedexus_party_slot], 131, 0,
+                    kCharacterEventFullVolume);
             }
-            SetFact(W8_FACT_RAPAX_ALSEDEXUS_DEAD, 1, false);
+            context.game.setFact(W8_FACT_RAPAX_ALSEDEXUS_DEAD, 1);
             return;
         }
         if (record_id == 0x181) {
-            SetFact(W8_FACT_KING_IS_DEAD, 1, false);
+            context.game.setFact(W8_FACT_KING_IS_DEAD, 1);
             return;
         }
         if (record_id == 0x175 || record_id == 0x222) {
-            SetFact(W8_FACT_LAVALORD_DIE, 1, false);
+            context.game.setFact(W8_FACT_LAVALORD_DIE, 1);
             return;
         }
     }
 }
 
-/* Original translation-unit ownership of these helpers is unknown. */
-
-unsigned char GetFact(W8FactId fact_id)
+/* Runs once the new-game level has finished loading: records the two starting
+   transcript keywords from string-table entries 0x7e7/0x7e8 and
+   seeds the starting fact set, all with notifications suppressed. */
+void PostNewGameLoad(void)
 {
-    unsigned char value;
-    std::string display_value;
-
-    if (static_cast<unsigned>(fact_id) >= W8_FACT_SLOT_COUNT) {
-        return 0;
-    }
-
-    value = EvaluateFact(fact_id);
-    if (CurrentGame().status.log_fact_checks &&
-        static_cast<unsigned>(fact_id) < Data().facts.size()) {
-        if (value) {
-            display_value = "TRUE";
-        } else {
-            display_value = "FALSE";
-        }
-        ShowNotice(W8_FONT_PALETTE_YELLOW,
-                   fmt::format("Checking fact {} which is {}", Data().facts[fact_id].symbolic_name,
-                               display_value));
-    }
-    return value;
-}
-
-void SetFact(W8FactId fact_id, unsigned char value, bool suppress_side_effects)
-{
-    unsigned char previous_value;
-    std::string display_value;
-
-    if (static_cast<unsigned>(fact_id) >= W8_FACT_SLOT_COUNT) {
-        return;
-    }
-
-    Game& game = CurrentGame();
-    auto& facts = game.story.facts;
-    previous_value = facts[fact_id];
-    facts[fact_id] = value;
-
-    if (fact_id < static_cast<int>(Data().facts.size())) {
-        if (value) {
-            display_value = "TRUE";
-        } else {
-            display_value = "FALSE";
-        }
-    }
-
-    if (!suppress_side_effects) {
-        if (facts[fact_id] != previous_value) {
-            RecordFactChangeForJournal(fact_id);
-        }
-        HandleFactChange(MakeScriptContext(game), fact_id, value);
-
-        if (game.status.log_fact_checks && static_cast<unsigned>(fact_id) < Data().facts.size()) {
-            if (value) {
-                display_value = "TRUE";
-            } else {
-                display_value = "FALSE";
-            }
-            ShowNotice(
-                W8_FONT_PALETTE_YELLOW,
-                fmt::format("{} set to {}", Data().facts[fact_id].symbolic_name, display_value));
-        }
-    }
-}
-
-/* The opening sequence consumes only the imported story choices. The decoded
-   Wizardry 7 records have already been discarded after character conversion. */
-void SeedNewGameFacts(Story& story)
-{
-    g_fact_notifications_suppressed = true;
-    if (story.imported_origin) {
-        SetFact(W8_FACT_IMPORT, 1, false);
-        switch (story.imported_origin->alignment) {
-        case Story::ImportedOrigin::Alignment::Umpani:
-            SetFact(W8_FACT_IMPORT_UMPANI, 1, false);
-            break;
-        case Story::ImportedOrigin::Alignment::Trang:
-            SetFact(W8_FACT_IMPORT_TRANG, 1, false);
-            break;
-        default:
-            SetFact(W8_FACT_IMPORT_NOALIGN, 1, false);
-            break;
-        }
-        if (story.imported_origin->barlone_dead) {
-            SetFact(W8_FACT_BARLONE_WAS_DEAD, 1, false);
-        }
-        if (story.imported_origin->rodan_dead) {
-            SetFact(W8_FACT_RODAN_WAS_DEAD, 1, false);
-        }
-    } else {
-        SetFact(W8_FACT_VIRGIN, 1, false);
-        SetFact(W8_FACT_QUEST_VIRGIN_1, 1, false);
-        SetFact(W8_FACT_QUEST_VIRGIN_2, 1, false);
-        SetFact(W8_FACT_QUEST_VIRGIN_3, 1, false);
-    }
-    story.imported_origin.reset();
-    g_fact_notifications_suppressed = false;
+    LearnDialogueKeyword(Data().strings[0x7e7], W8_DIALOGUE_CATEGORY_MISC, false);
+    LearnDialogueKeyword(Data().strings[0x7e8], W8_DIALOGUE_CATEGORY_MISC, false);
+    CurrentGame().setFact(W8_FACT_FACTION_HIGARDI_FELLOW_FRIENDLY, 1, false);
+    CurrentGame().setFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
+    CurrentGame().setFact(W8_FACT_RAPAX_QUEEN_LOCKED_UP, 1, false);
+    CurrentGame().setFact(W8_FACT_RODAN_LOCKED_IN_CAGE, 1, false);
+    CurrentGame().setFact(W8_FACT_DRAZIC_LOCKED_IN_CAGE, 1, false);
+    CurrentGame().setFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1, false);
+    CurrentGame().setFact(W8_FACT_FACTION_RATTKIN_COMMON_FRIENDLY, 1, false);
 }

@@ -136,7 +136,7 @@ void W8CharacterSpellList::Redraw(SDL_Surface& target, bool force)
 
 W8CharacterSpellsPage::W8CharacterSpellsPage(CharacterScreen& owner)
     : W8CharacterPage(owner, CatalogArtwork::Load(0x109)),
-      anim_timer(0.05f, TimerClock::Presentation)
+      anim_timer(W8GameTimer::presentation(0.05f))
 {
     m_last_selected.reset();
     for (int realm = 0; realm < W8_SPELL_REALM_COUNT; ++realm) {

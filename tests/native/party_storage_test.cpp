@@ -1,13 +1,19 @@
 // Links only the rules layer: a rules dependency on the engine fails to link here.
+#include <array>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
+#include "wiz8/data/records.h"
 #include "wiz8/rules/action_choices.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/conditions.h"
+#include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/inventory.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 
 namespace {
@@ -87,4 +93,35 @@ TEST_CASE("A berserk choice yields to attack while the member cannot berserk", "
     ReconcileBerserkChoice(choices, committed, true);
     REQUIRE(choices.basic_kind == W8_ACTION_ATTACK);
     REQUIRE(committed.kind == W8_ACTION_DEFEND);
+}
+
+TEST_CASE(
+    "Party modifiers fold combat effects without losing byte arithmetic or recovery eligibility",
+    "[party][rules][effects]")
+{
+    W8Party party;
+    std::array<W8EffectSlot, 12> effects{};
+    std::array<W8EffectSlot, 9> combat{};
+    std::array<W8EffectSlot, 6> radius{};
+    effects[0].Activate(0x20, 3, 1); // +2 armor before the fight's penalties.
+    combat[0].Activate(0x31, 5, 1);
+    combat[1].Activate(0x31, 2, 1);
+    radius[0].Activate(2, 1, 1);
+    auto& bard = party.characters[7];
+    party.members[7].emplace();
+    bard.iProfession = W8_PROFESSION_BARD;
+    bard.iRace = W8_RACE_HUMAN;
+    bard.hp_current = 1;
+    party.refreshModifiers(effects, combat, radius);
+    REQUIRE(party.modifiers.armor_matchup == -5);
+    REQUIRE(party.modifiers.armor_flat == 2);
+    REQUIRE(party.modifiers.hit_bonus == 2);
+    REQUIRE(party.modifiers.boost_health_regen == 1);
+    REQUIRE(party.modifiers.boost_stamina_regen == 1);
+    REQUIRE(party.modifiers.boost_spell_regen == 1);
+    bard.highest_condition = W8_CONDITION_ASLEEP;
+    party.refreshModifiers(effects, {}, {});
+    REQUIRE(party.modifiers.armor_matchup == 2);
+    REQUIRE(party.modifiers.hit_bonus == 0);
+    REQUIRE(party.modifiers.boost_health_regen == 0);
 }

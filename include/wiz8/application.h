@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <span>
 #include <string>
@@ -11,8 +12,8 @@ extern bool gfApplicationActive;
 extern bool gfGameInitialized;
 
 union SDL_Event;
-void HandleGameEvent(const SDL_Event& event);
-bool PumpGameEvents(bool wait = false);
+void HandleGameEvent(const SDL_Event& event, std::function_ref<void(bool)> focus_changed);
+bool PumpGameEvents(std::function_ref<void(bool)> focus_changed, bool wait = false);
 [[noreturn]] void ShutdownWithErrorBox(std::string_view message);
 }
 

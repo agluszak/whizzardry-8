@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <functional>
+#include <optional>
 #include <stdexcept>
 
 #include "wiz8/data/attack_modes.h"
@@ -842,4 +843,39 @@ void DeriveCharacterStats(const GameData& data, W8Character& character, Characte
     CalcInitiative(&character);
     CalcAttacks(data, &character, rules.damaged_android);
     CalcArmorClasses(data, &character, rules.defensive_action);
+}
+
+bool W8Character::spendStamina(int amount, bool scale_by_load)
+{
+    if (stamina <= 0 || hp_current == 0 || amount == 0) return false;
+    if (scale_by_load) {
+        constexpr std::array penalties{0, 25, 50, 100, 200};
+        const auto category = static_cast<unsigned int>(load_category);
+        int percent = category < penalties.size() ? penalties[category] : 0;
+        if (uiCondition[W8_CONDITION_SLOWED] != 0)
+            percent -= 25;
+        else if (enchantments[W8_ENCHANTMENT_HASTE].turns != 0)
+            percent += 25;
+        amount += percent * amount / 100;
+    }
+    stamina -= std::clamp(amount, 0, stamina);
+    const int previous = fatigue_band;
+    fatigue_band = FatigueBand(stamina, uiStaminaMax);
+    return fatigue_band != previous;
+}
+
+std::optional<unsigned int> W8Character::absorbDamage(unsigned int amount)
+{
+    auto& shield = enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL];
+    if (shield.turns == 0) return std::nullopt;
+    const auto absorbed = std::min(amount, static_cast<unsigned int>(shield.magnitude));
+    shield.magnitude = static_cast<unsigned short>(shield.magnitude - absorbed);
+    return absorbed;
+}
+
+unsigned int W8Character::takeDamage(unsigned int amount)
+{
+    const auto applied = std::min(amount, hp_current);
+    hp_current -= applied;
+    return applied;
 }

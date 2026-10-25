@@ -6,7 +6,6 @@
 #include <cmath>
 #include <memory>
 #include <optional>
-#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -48,7 +47,6 @@
 #include "wiz8/entities/missile.h"
 #include "wiz8/entities/spell_visual.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/entities/world_item.h"
 #include "wiz8/filesystem.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
@@ -64,8 +62,11 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/location_variables.h"
+#include "wiz8/monster_spell_icons.h"
 #include "wiz8/platform/game_timer.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/platform/random.h"
+#include "wiz8/render/camera_shake.h"
 #include "wiz8/render/draw_shader.h"
 #include "wiz8/render/frame.h"
 #include "wiz8/render/ground_shadow.h"
@@ -182,10 +183,10 @@ W8CycleNameRow g_cycle_names[W8_MONSTER_CYCLE_COUNT] = {
 };
 
 /* Highlight triangle bitmaps indexed by the slot's marching-order position:
-   the marker SetMonsterPartySlotMarker hangs on a monster. */
-const char* g_party_target_marker_bitmaps[8] = {"TriRed.tga",  "TriGreen.tga",  "TriPurple.tga",
-                                                "TriBlue.tga", "TriOrange.tga", "TriYellow.tga",
-                                                "TriPink.tga", "TriBrown.tga"};
+   the marker setPartyMarker hangs on a monster. */
+static constexpr const char* kPartyMarkerBitmaps[8] = {
+    "TriRed.tga",    "TriGreen.tga",  "TriPurple.tga", "TriBlue.tga",
+    "TriOrange.tga", "TriYellow.tga", "TriPink.tga",   "TriBrown.tga"};
 
 unsigned short ChooseDifferentMonsterDirection(unsigned short previous_direction)
 {
@@ -231,13 +232,15 @@ void Monster::CopyCycle(signed char cycle, signed char other_cycle)
     for (const auto& source : cycles[other_cycle]) cycles[cycle].emplace_back(source);
 }
 
-Monster::Monster(World& owner)
+Monster::Monster(World& owner, const W8MonsterRecord* species)
     : owner_world(owner), nav(owner), visual(owner), runtime_flags(0), location_id(-1),
       missile_frame(0), spell_frame(0), talking(0), animate_mouth(false), mouth_frame_clock(0),
       mouth_frame(0), talk_start(0), inactive(false), pending_finalize(1), disabled(0),
-      nearest_to_party(false), script(0), script_wait(MONSCR_NONE), trigger(0),
-      spell_effect_armed(0), sector_mesh(0), fade_state(W8_MONSTER_FADE_IDLE),
-      hostility_preserved(false), sound(nullptr)
+      nearest_to_party(false), script(0), script_wait(MONSCR_NONE),
+      script_delay_timer(owner.clocks), trigger(0), light_scale_timer(owner.clocks),
+      spell_effect_armed(0), sector_mesh(0), fade_timer(owner.clocks),
+      fade_state(W8_MONSTER_FADE_IDLE), hostility_preserved(false), sound(nullptr),
+      species_definition_(species)
 {
     nav.monster_owner = this;
     formation = glm::vec3(0);
@@ -263,7 +266,7 @@ Monster::Monster(World& owner)
     order_mode = W8_MONSTER_ORDER_NONE;
 }
 
-Monster::Monster(const MonsterDefinition& definition, World& owner)
+Monster::Monster(const MonsterDefinition& definition, World& owner, const W8MonsterRecord* species)
     : owner_world(owner), nav(owner), visual(definition.events, owner),
       asset_name(definition.asset_name), cycles(definition.cycles),
       damage_stage_count(definition.damage_stage_count), name(definition.asset_name),
@@ -273,9 +276,11 @@ Monster::Monster(const MonsterDefinition& definition, World& owner)
       missile_frame(definition.missile_frame), spell_frame(definition.spell_frame), talking(0),
       animate_mouth(false), mouth_frame_clock(0), mouth_frame(0), talk_start(0), inactive(false),
       pending_finalize(1), disabled(0), nearest_to_party(false), script(0),
-      script_wait(MONSCR_NONE), trigger(0), spell_effect_armed(0), sector_mesh(0),
-      fade_state(W8_MONSTER_FADE_IDLE), hostility_preserved(definition.hostility_preserved),
-      sound(nullptr)
+      script_wait(MONSCR_NONE), script_delay_timer(owner.clocks), trigger(0),
+      light_scale_timer(owner.clocks), spell_effect_armed(0), sector_mesh(0),
+      fade_timer(owner.clocks), fade_state(W8_MONSTER_FADE_IDLE),
+      hostility_preserved(definition.hostility_preserved), sound(nullptr),
+      species_definition_(species)
 {
     nav.monster_owner = this;
     nav.trace_mask = 2;
@@ -345,13 +350,27 @@ Monster::Monster(const MonsterDefinition& definition, World& owner)
 
 Monster::~Monster()
 {
-    visual.SetLights(0);
-    ClearMonsterSpellIcons(*this);
-    script.reset();
-    runtime_flags &= ~W8_MONSTER_SCRIPT_WAIT;
-    script_line = 0;
-    script_wait = MONSCR_NONE;
+    retire();
+}
+
+void Monster::retire()
+{
+    if (visual.active_animation) visual.DetachRepresentation();
+    for (const auto& model : visual.models) model->setScene(nullptr);
+    for (const auto& model : linked_runtime_objects) model->setScene(nullptr);
+    for (const auto& cycle : cycles)
+        for (const auto& animation : cycle)
+            for (const auto& light : animation.lights.lights) light->setScene(nullptr);
+    if (monster_light) monster_light->setScene(nullptr);
+    visual.SetLights(nullptr);
+    clearSpellIcons();
+    for (const auto& event : visual.shake_events)
+        if (owner_world.shakes) owner_world.shakes->Stop(event);
+    visual.shake_events.clear();
     sound.reset();
+    nav.detachFromWorld();
+    std::erase(owner_world.active_monsters, this);
+    // Script/cycle storage stays alive until the owning record is reclaimed.
 }
 
 /* Navigator is Monster's second base at +0x18. VC6 places this override in
@@ -496,6 +515,7 @@ void Monster::Update()
 
     if (cycle != W8_MONSTER_CYCLE_DIE && script != 0 && !CurrentGame().combat.has_value()) {
         ProcessScript();
+        if (owner_world.isRetiring(*this)) return;
         cycle = Query(W8_MONSTER_QUERY_CYCLE);
     }
 
@@ -503,7 +523,7 @@ void Monster::Update()
         switch (cycle) {
         case W8_MONSTER_CYCLE_TALK:
             if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
-                if (talk_duration < GameClockMilliseconds() - talk_start &&
+                if (talk_duration < owner_world.clocks.gameMilliseconds() - talk_start &&
                     IsCycleSupported(0x17)) {
                     visual.pending_cycle = 0x17;
                 } else {
@@ -512,7 +532,7 @@ void Monster::Update()
                 visual.frame_direction = W8_ANIMATION_FORWARD;
                 visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
                 visual.animation_playing = 1;
-                visual.timer = GameClockMilliseconds();
+                visual.timer = owner_world.clocks.gameMilliseconds();
                 visual.pending_subcycle = 0;
             }
             break;
@@ -522,17 +542,17 @@ void Monster::Update()
                     /* 0x004C276F..0x004C27D7: the talking path never stores
                            pending_subcycle, so TALK keeps the current frame
                            (clamped by ApplyPendingCycle) instead of frame 0. */
-                    talk_start = GameClockMilliseconds();
+                    talk_start = owner_world.clocks.gameMilliseconds();
                     talk_duration = CurrentGame().rng.below(2000) + 2000;
                     visual.pending_cycle = 0x18;
                     visual.frame_direction = W8_ANIMATION_FORWARD;
                     visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
                     visual.animation_playing = 1;
-                    visual.timer = GameClockMilliseconds();
+                    visual.timer = owner_world.clocks.gameMilliseconds();
                 } else {
                     visual.pending_cycle = 1;
                     visual.animation_playing = 1;
-                    visual.timer = GameClockMilliseconds();
+                    visual.timer = owner_world.clocks.gameMilliseconds();
                     visual.pending_subcycle = 0;
                 }
             }
@@ -542,7 +562,7 @@ void Monster::Update()
                 visual.pending_cycle = 1;
                 visual.frame_direction = W8_ANIMATION_FORWARD;
                 visual.animation_playing = 1;
-                visual.timer = GameClockMilliseconds();
+                visual.timer = owner_world.clocks.gameMilliseconds();
                 visual.pending_behaviour = W8_ANIMATION_NEVER_STOP;
                 visual.pending_subcycle = 0;
             }
@@ -571,7 +591,7 @@ void Monster::Update()
                         runtime_flags |= W8_MONSTER_KEEP_FRAME_DIRECTION;
                     }
                     visual.animation_playing = 1;
-                    visual.timer = GameClockMilliseconds();
+                    visual.timer = owner_world.clocks.gameMilliseconds();
                 }
             }
             break;
@@ -590,7 +610,7 @@ void Monster::Update()
                     visual.pending_subcycle = 0;
                 }
                 visual.animation_playing = 1;
-                visual.timer = GameClockMilliseconds();
+                visual.timer = owner_world.clocks.gameMilliseconds();
             }
             break;
         case W8_MONSTER_CYCLE_TRANSITION:
@@ -602,7 +622,7 @@ void Monster::Update()
                     visual.pending_cycle = 4;
                 }
                 visual.animation_playing = 1;
-                visual.timer = GameClockMilliseconds();
+                visual.timer = owner_world.clocks.gameMilliseconds();
                 visual.pending_behaviour = W8_ANIMATION_NEVER_STOP;
                 visual.pending_subcycle = 0;
             }
@@ -611,7 +631,7 @@ void Monster::Update()
             if (Query(W8_MONSTER_QUERY_CYCLE_COMPLETE) != 0) {
                 visual.pending_cycle = 1;
                 visual.animation_playing = 1;
-                visual.timer = GameClockMilliseconds();
+                visual.timer = owner_world.clocks.gameMilliseconds();
                 visual.pending_behaviour = W8_ANIMATION_NEVER_STOP;
                 visual.pending_subcycle = 0;
             }
@@ -630,7 +650,7 @@ void Monster::Update()
         (cycle == W8_MONSTER_CYCLE_IDLE || cycle == W8_MONSTER_CYCLE_SPICE) &&
         (visual.pending_cycle == -1 || visual.pending_cycle == 1 || visual.pending_cycle == 2) &&
         !CurrentGame().combat->resolvingTurnOf(MonsterActor{location_id})) {
-        visual.timer = GameClockMilliseconds();
+        visual.timer = owner_world.clocks.gameMilliseconds();
     }
 
     if (monster_info != 0 && monster_info->uiCondition[W8_CONDITION_SLOWED] != 0) {
@@ -879,36 +899,47 @@ bool Monster::IsFacingPlayer()
     return fabs(bearing - facing) <= g_monster_facing_tolerance;
 }
 
-/* Attach or remove the party slot's target-marker triangle on a monster's
-   representation: on set it hangs the slot's colored Tri*.tga object on
-   attachment index `party_slot`, on clear it detaches and deletes it. The
-   rep's object count tracks the live markers. */
-void SetMonsterPartySlotMarker(int party_slot, int location_id, signed char on)
-{
-    W8MonsterInfo* info;
-    WorldItemEntity* item;
-    std::string path;
+/* The forty icon resource names under Data\Icons\MonsterSpells. Entries 8 and
+   9 share the pooled "Hexed" literal in retail. */
+static constexpr const char* kSpellIconNames[40] = {
+    "Hexed",           "Diseased",     "Irritated",      "Nauseated",      "Slowed",
+    "Afraid",          "Poisoned",     "Silenced",       "Hexed",          "Hexed",
+    "Insane",          "Blind",        "Turncoat",       "Webbed",         "Asleep",
+    "Paralyzed",       "Unconscious",  "Dracon_Breath",  "Guardian_Angel", "Razor_Cloak",
+    "Eye4Eye",         "Haste",        "Super_Man",      "Body_Stone",     "Armor_Plate",
+    "Enchanted_Blade", "Magic_Screen", "Missile_Shield", "Armor_Melt",     "Acid_Cloud",
+    "Toxic_Cloud",     "Fire_Storm",   "Death_Cloud",    "Draining_Cloud", "Bless",
+    "Element_Shield",  "Soul_Shield",  "Ring_Of_Fire",   "Charmed",        "Summoned",
+};
 
-    info = FindMonster(location_id);
-    Monster& rep = *info->entity;
-    if (on == 0) {
-        item = rep.objects[party_slot].get();
-        if (item != 0) {
-            item->DetachMesh();
-            rep.objects[party_slot].reset();
-            --rep.icon_count;
-        }
+void Monster::addSpellIcon(W8MonsterSpellIconId icon)
+{
+    assert(icon >= 0 && icon < SPELL_NUM_ICONS);
+    spell_icons_.push_back({icon, createIcon(fmt::format("data/icons/monsterspells/{}_A.TGA",
+                                                         kSpellIconNames[icon]))});
+}
+
+void Monster::removeSpellIcon(W8MonsterSpellIconId icon)
+{
+    assert(icon >= 0 && icon < SPELL_NUM_ICONS);
+    std::erase_if(spell_icons_, [icon](const auto& entry) { return entry.icon == icon; });
+}
+
+void Monster::clearSpellIcons()
+{
+    spell_icons_.clear();
+}
+
+void Monster::setPartyMarker(int slot, std::optional<int> colour)
+{
+    auto& marker = party_markers_[slot];
+    if (bool(marker) == colour.has_value()) return;
+    if (colour) {
+        marker = createIcon(fmt::format("Data/Monsters/Bitmaps/{}", kPartyMarkerBitmaps[*colour]));
     } else {
-        if (rep.objects[party_slot] == 0) {
-            path = fmt::format(
-                "Data\\Monsters\\Bitmaps\\{}",
-                g_party_target_marker_bitmaps[CurrentGame().party.orderIndexOf(party_slot)]);
-            rep.objects[party_slot] =
-                CreateMonsterIconItem(info->entity->owner_world, path.c_str());
-            ++rep.icon_count;
-        }
+        marker.reset();
     }
-    info->entity->UpdateAttachedObjects();
+    UpdateAttachedObjects();
 }
 
 /* Start making the representation visible.  Reversing an active fade-out
@@ -958,7 +989,8 @@ void Monster::BeginFadeOutAndRemove(W8MonsterRemovalState state)
         }
         fade_state = W8_MONSTER_FADE_OUT;
     }
-    RemoveMonster(owner_world.population->findMonster(location_id), W8MonsterRemoval::Deactivate);
+    CurrentGame().retireMonster(owner_world.population->findMonster(location_id),
+                                W8MonsterRemoval::Deactivate);
     removal_state = state;
 }
 
@@ -985,9 +1017,9 @@ void Monster::StartTalking(bool animate_mouth)
 {
     talking = true;
     this->animate_mouth = animate_mouth;
-    mouth_frame_clock = GameClockMilliseconds();
+    mouth_frame_clock = owner_world.clocks.gameMilliseconds();
     mouth_open = false;
-    talk_start = GameClockMilliseconds();
+    talk_start = owner_world.clocks.gameMilliseconds();
     talk_duration = CurrentGame().rng.below(2000) + 2000;
     visual.pending_cycle = 0x18;
     visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
@@ -1067,50 +1099,35 @@ void Monster::TrackSound(wiz8::sound::Playback playback)
 
 /* Mark the closest live member of each loaded group inside the selection
    range. Members that do not improve the current candidate are unmarked. */
-void UpdateNearestMonsterGroupMembers()
+void World::updateNearestMonsterGroupMembers()
 {
-    glm::vec3 player_position;
-    unsigned int group_index;
-
-    player_position = cameraLocation();
-    for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
-         ++group_index) {
-        W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
-
-        if (group != 0) {
-            double nearest_distance = 1e11;
-            W8MonsterInfo* nearest = 0;
-            unsigned int member_index;
-
-            for (member_index = 0; member_index < group->MemberIds().size(); ++member_index) {
-                W8MonsterInfo* member = FindMonster(group->MemberLocationId(member_index));
-
-                if (member != 0 && member->entity) {
-                    glm::vec3 position = member->entity->nav.GetPosition();
-                    float distance = glm::length((position - player_position));
-
-                    if (distance < g_monster_group_nearest_range && distance < nearest_distance) {
-                        nearest_distance = distance;
-                        nearest = member;
-                    } else {
-                        member->entity->nearest_to_party = false;
-                    }
-                }
-            }
-            if (nearest != 0) {
-                nearest->entity->nearest_to_party = true;
+    const auto player_position = party.camera.m_position;
+    for (const auto& group : population->groups()) {
+        if (!group) continue;
+        double nearest_distance = 1e11;
+        W8MonsterInfo* nearest = nullptr;
+        for (const auto id : group->MemberIds()) {
+            auto* member = population->findMonster(id);
+            if (!member || !member->entity) continue;
+            const auto distance = glm::length(member->entity->nav.GetPosition() - player_position);
+            if (distance < g_monster_group_nearest_range && distance < nearest_distance) {
+                nearest_distance = distance;
+                nearest = member;
+            } else {
+                member->entity->nearest_to_party = false;
             }
         }
+        if (nearest) nearest->entity->nearest_to_party = true;
     }
 }
 
-float Monster::GetDistanceToPlayer()
+float Monster::GetDistanceToPlayer() const
 {
     glm::vec3 position = nav.GetPosition();
     return GetPointDistanceToPlayer(position);
 }
 
-float Monster::GetPointDistanceToPlayer(glm::vec3 point)
+float Monster::GetPointDistanceToPlayer(glm::vec3 point) const
 {
     glm::vec3 player_position;
     float distance;
@@ -1204,14 +1221,12 @@ bool Monster::IsCycleInterruptable(signed char cycle)
    state three clears the ScregActive trigger variable. */
 void Monster::ApplyRemovalStateEffects()
 {
-    glm::vec3 position;
-
     switch (removal_state) {
     case W8_MONSTER_REMOVAL_NONE:
         break;
     case W8_MONSTER_REMOVAL_RETURN_BALBRAK_HOME:
-        if (FindEntityByName("NP_Balbrakhome", &position, 0, 0)) {
-            SetPosition(&position);
+        if (auto position = owner_world.namedPosition("NP_Balbrakhome")) {
+            SetPosition(&*position);
         }
         break;
     case W8_MONSTER_REMOVAL_CLEAR_SCREG_ACTIVE:
@@ -1292,9 +1307,9 @@ void Monster::UpdateRepresentation()
                 mouth->playback->animation_mode = W8_TEXTURE_ANIM_MANUAL;
                 mouth->SetFrame(0);
             }
-        } else if (GameClockMilliseconds() - mouth_frame_clock > 120) {
+        } else if (owner_world.clocks.gameMilliseconds() - mouth_frame_clock > 120) {
             unsigned short frame;
-            mouth_frame_clock = GameClockMilliseconds();
+            mouth_frame_clock = owner_world.clocks.gameMilliseconds();
             do {
                 frame = static_cast<unsigned short>(CurrentGame().rng.below(6));
                 if (frame > 3) {
@@ -1328,8 +1343,8 @@ void Monster::UpdateRepresentation()
             SetModelInstanceExclusionMask(model, 4);
         }
         if (monster_light != 0) {
-            monster_light->Update(&position,
-                                  std::chrono::duration<float>(CurrentGame().visual_time).count());
+            monster_light->Update(
+                &position, std::chrono::duration<float>(owner_world.clocks.worldTime()).count());
         }
         if (!visual.enabled) {
             visual.enabled = true;
@@ -1453,7 +1468,7 @@ void Monster::SetCycle(signed char cycle)
         subcycle = 0;
     } else if (visual.forced_subcycle == -1 || count <= visual.forced_subcycle) {
         if ((runtime_flags & W8_MONSTER_KEEP_SUBCYCLE) == 0) {
-            subcycle = static_cast<signed char>(GameClockMilliseconds() % count);
+            subcycle = static_cast<signed char>(owner_world.clocks.gameMilliseconds() % count);
         } else {
             runtime_flags &= ~W8_MONSTER_KEEP_SUBCYCLE;
             subcycle = visual.current_subcycle;
@@ -1545,7 +1560,7 @@ void Monster::SetCycle(signed char cycle)
         }
         if (monster_light != 0) {
             monster_light->StartFadeOut(
-                std::chrono::duration<float>(CurrentGame().visual_time).count());
+                std::chrono::duration<float>(owner_world.clocks.worldTime()).count());
         }
     }
 }
@@ -1604,8 +1619,9 @@ std::optional<glm::vec3> Monster::GetAnimationCenter()
 void Monster::UpdateAttachedObjects(bool hovered)
 {
     Monster* representation = this;
-    int attachment_layout = representation->icon_count;
-    const auto linked_count = representation->spell_icons.size();
+    const auto attachment_layout =
+        std::ranges::count_if(party_markers_, [](const auto& marker) { return bool(marker); });
+    const auto linked_count = representation->spell_icons_.size();
     int poster_count = static_cast<int>(representation->linked_runtime_objects.size());
     glm::mat3 camera_rotation;
     glm::vec3 base_position;
@@ -1618,7 +1634,7 @@ void Monster::UpdateAttachedObjects(bool hovered)
         return;
     }
 
-    elapsed = GameClockMilliseconds() - representation->visual.timer;
+    elapsed = owner_world.clocks.gameMilliseconds() - representation->visual.timer;
     camera_rotation = owner_world.party.rotation();
     base_position = nav.movement.position;
     base_position.y += nav.movement.vertical_base + nav.movement.vertical_amplitude;
@@ -1638,15 +1654,14 @@ void Monster::UpdateAttachedObjects(bool hovered)
         int placed = 0;
 
         for (index = 0; index < 8; ++index) {
-            WorldItemEntity* item = representation->objects[index].get();
+            auto* mesh = party_markers_[index].get();
 
-            if (item != 0) {
+            if (mesh != nullptr) {
                 const W8AttachmentOffset& raw =
                     g_monster_attachment_offsets[attachment_layout - 1][placed];
                 glm::vec3 source(raw.x, raw.y, raw.z);
                 glm::vec3 offset;
                 glm::vec3 location;
-                MeshInstance* mesh;
                 float mesh_scale;
                 glm::dvec3 widened_scale;
 
@@ -1656,8 +1671,6 @@ void Monster::UpdateAttachedObjects(bool hovered)
                 location.y += representation->standing_height +
                               distance_scale * g_monster_attachment_vertical_scale;
 
-                item->SetLocation(&location);
-                mesh = item->GetMesh();
                 mesh_scale = distance_scale * g_monster_attachment_scales[attachment_layout - 1];
                 widened_scale = glm::dvec3(mesh_scale);
                 mesh->transform.setScale(widened_scale);
@@ -1666,7 +1679,7 @@ void Monster::UpdateAttachedObjects(bool hovered)
                 } else {
                     mesh->visible = false;
                 }
-                item->ApplyRepTransform();
+                mesh->transform.setLocation(glm::dvec3(location));
                 ++placed;
             }
         }
@@ -1687,14 +1700,13 @@ void Monster::UpdateAttachedObjects(bool hovered)
             group_height = static_cast<float>(group * g_monster_attachment_group_spacing);
 
             for (chunk_index = 0; chunk_index < chunk_count; ++chunk_index, ++index) {
-                const auto* entry = &representation->spell_icons[index];
-                WorldItemEntity* item = entry->item.get();
+                const auto* entry = &representation->spell_icons_[index];
+                auto* mesh = entry->mesh.get();
                 const W8AttachmentOffset& raw =
                     g_monster_attachment_offsets[chunk_count - 1][chunk_index];
                 glm::vec3 source(raw.x, raw.y, raw.z);
                 glm::vec3 offset;
                 glm::vec3 location;
-                MeshInstance* mesh;
                 float mesh_scale;
                 glm::dvec3 widened;
 
@@ -1705,8 +1717,6 @@ void Monster::UpdateAttachedObjects(bool hovered)
                 location.y += representation->standing_height +
                               distance_scale * g_monster_linked_vertical_scale;
 
-                item->SetLocation(&location);
-                mesh = item->GetMesh();
                 mesh_scale = distance_scale * g_monster_attachment_scales[chunk_count - 1];
                 widened = glm::dvec3(mesh_scale);
                 mesh->transform.setScale(widened);
@@ -2006,14 +2016,6 @@ void Monster::SetFacing(float angle)
     visual.SetRotation(&rotation);
 }
 
-void Monster::GetScaleRange(float* minimum, float* maximum)
-{
-    Monster* runtime = this;
-
-    *minimum = runtime->minimum_scale;
-    *maximum = runtime->maximum_scale;
-}
-
 /* Returns the previous animation state and timestamps every update through the
    recovered shared SurRender timer. */
 unsigned char Monster::SetAnimating(bool animating)
@@ -2022,7 +2024,7 @@ unsigned char Monster::SetAnimating(bool animating)
     unsigned char previous = runtime->visual.animation_playing;
 
     runtime->visual.animation_playing = animating;
-    runtime->visual.timer = GameClockMilliseconds();
+    runtime->visual.timer = owner_world.clocks.gameMilliseconds();
     return previous;
 }
 
@@ -2097,16 +2099,14 @@ void Monster::GetMappedPosition(glm::vec3* position)
 
 void Monster::SetAdjustedPosition(const glm::vec3* position)
 {
-    glm::vec3 current;
-    glm::vec3 adjusted;
-    glm::vec3* adjusted_position;
-    glm::vec3 result;
+    SetAdjustedPosition(position, owner_world.party.camera.gravity());
+}
 
-    current = *position;
-    adjusted_position =
-        nav.AdjustPosition(&adjusted, &current, &current, *owner_world.compiledIndex());
-    result = *adjusted_position;
-    nav.SetPositionInternal(&result);
+void Monster::SetAdjustedPosition(const glm::vec3* position, float gravity)
+{
+    glm::vec3 adjusted;
+    nav.AdjustPosition(&adjusted, position, position, *owner_world.compiledIndex(), gravity);
+    nav.SetPositionInternal(&adjusted);
 }
 
 unsigned short Monster::ApproachStartupNavigator(double separation)
@@ -2249,7 +2249,7 @@ void Monster::SpawnDamageNumber(unsigned int amount)
             poster->setScene(owner_world.scene.get());
             linked_runtime_objects.push_back(std::move(poster));
 
-            auto owned_particle = std::make_unique<ParticleSystem>(owner_world.scene.get(), 0xa);
+            auto owned_particle = std::make_unique<ParticleSystem>(&owner_world, 0xa);
             particle = owned_particle.get();
             auto material = std::make_shared<Material>();
             colour = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -2292,6 +2292,12 @@ void Monster::SpawnDamageNumber(unsigned int amount)
 /* Resolve the database-controlled render gate after the Monster's transient
    runtime overrides. The alternate argument selects the secondary live-info
    flag used by the world-update path. */
+const W8MonsterRecord& Monster::species() const
+{
+    if (!species_definition_) throw std::logic_error("gameplay monster has no species definition");
+    return *species_definition_;
+}
+
 bool Monster::IsRenderable(bool alternate)
 {
     bool disabled = this->disabled;
@@ -2316,7 +2322,7 @@ bool Monster::IsRenderable(bool alternate)
     }
 
     monster_info = owner_world.population->findMonster(location_id);
-    record = GetMonsterDataForInfo(monster_info);
+    record = &species();
     if (record->camouflage0 > 0) {
         return monster_info->party_threat.party_detected;
     }
@@ -2407,11 +2413,8 @@ void Monster::ApplyRepresentationScale()
     }
 }
 
-/* Build a floating icon item from a bitmap path: clamp-wrapped texture, a
-   500-unit-wide poster quad raised so its bottom edge rests on the origin, with alignment
-   enabled, wrapped in a WorldItemEntity whose mesh attachment and bounds are refreshed
-   for the world. */
-std::unique_ptr<WorldItemEntity> CreateMonsterIconItem(World& world, std::string_view path)
+// A billboard owns its scene attachment directly; it is not a gameplay item.
+std::unique_ptr<MeshInstance> Monster::createIcon(std::string_view path)
 {
     auto texture = std::make_shared<Texture>(wiz8::asset_path(path), false);
     texture->setWrapS(Texture::WRAP_CLAMP);
@@ -2424,20 +2427,12 @@ std::unique_ptr<WorldItemEntity> CreateMonsterIconItem(World& world, std::string
     if (!mesh->vertex_locations.empty())
         mesh->relocateVertices(glm::vec3(0, -mesh->vertex_locations[0].y, 0));
     instance->setAlignment(1);
-    auto item = std::make_unique<WorldItemEntity>();
-    item->flags |= W8_ITEM_ENTITY_MESH_LOADED;
-    item->m_psrMesh = std::move(poster);
-    item->RefreshBounds();
-    item->AttachMesh(&world);
+    // Retain the former item proxy's cosmetic draw without its unused pulse state.
+    PresentationRng().below(20);
+    instance->visible = true;
+    instance->setScene(owner_world.scene.get());
     instance->light_scale = glm::vec3(0);
-    return item;
-}
-
-void World::destroyMonster(Monster& monster)
-{
-    monster.visual.DetachRepresentation();
-    std::erase(active_monsters, &monster);
-    std::erase_if(monsters, [&monster](const auto& owner) { return owner.get() == &monster; });
+    return poster;
 }
 
 void Monster::TickAnimation(float time_scale)
@@ -2491,4 +2486,10 @@ bool Monster::HoldsCombatTurn(bool resolving_own_action, bool missile_released, 
     }
     return can_turn &&
            std::fabs(nav.movement.target_yaw - nav.movement.yaw) >= g_camera_transition_epsilon;
+}
+
+bool Monster::targetMarkerVisible()
+{
+    const auto bounds = GetWorldAnimationBounds();
+    return bounds && owner_world.targetMarkerVisible(*bounds);
 }

@@ -1,17 +1,20 @@
 #include "wiz8/level_specific_code/SeaCaves.h"
 
 #include <memory>
+#include <optional>
 
-#include "glm/ext/vector_float3.hpp"
 #include "monster_cycles.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
+#include "wiz8/game.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
 #include "wiz8/world/world.h"
 
 struct W8NpcState;
@@ -21,10 +24,8 @@ namespace {
 /* Spawns one hostile spirit at the named entity, if it exists. */
 bool SpawnSpiritAt(const char* entity)
 {
-    glm::vec3 position;
-
-    if (FindEntityByName(entity, &position, 0, 0)) {
-        SpawnMonsters(0x1f2, 1, &position, 1, false, false);
+    if (auto position = CurrentGame().level.loaded().namedPosition(entity)) {
+        SpawnMonsters(0x1f2, 1, &*position, 1, false, false);
     }
     return true;
 }
@@ -62,17 +63,19 @@ bool SeaCavesHigardiChest05(Trigger* pTrigger)
 
 /* "doortomb": NPC kind 0x64's monster entry gets a fresh group member when
    its group still exists and the monster answers query 6 false. */
-bool SeaCavesDoorTomb(Trigger* pTrigger)
+bool SeaCavesDoorTomb(const ScriptContext& ctx, Trigger* pTrigger)
 {
     W8NpcState* npc;
     W8MonsterInfo* monster_info;
     W8MonsterGroup* group;
 
-    npc = GetNpcStateByKind(0x64);
+    npc = ctx.story.npcOfKind(0x64);
     if (npc == 0) {
         return true;
     }
-    monster_info = GetNpcMonsterInfo(npc);
+    monster_info =
+        (npc->has_monster && npc->is_present ? ctx.world->population->findMonster(npc->location_id)
+                                             : nullptr);
     if (monster_info == 0) {
         return true;
     }
@@ -82,9 +85,9 @@ bool SeaCavesDoorTomb(Trigger* pTrigger)
     if (monster_info->entity->Query(W8_MONSTER_QUERY_CYCLE) != W8_MONSTER_CYCLE_BIRTH) {
         return true;
     }
-    group = FindMonsterGroup(monster_info->monster_group_id);
+    group = ctx.world->population->findGroup(monster_info->monster_group_id);
     if (group != 0) {
-        GiveBirthToMonster(group);
+        ctx.game.giveBirthToMonster(group);
     }
     return true;
 }
@@ -101,7 +104,8 @@ public:
         bindTrigger("HigardiChest03", SeaCavesHigardiChest03);
         bindTrigger("HigardiChest04", SeaCavesHigardiChest04);
         bindTrigger("HigardiChest05", SeaCavesHigardiChest05);
-        bindTrigger("doortomb", SeaCavesDoorTomb);
+        bindTrigger("doortomb",
+                    [this](Trigger* trigger) { return SeaCavesDoorTomb(ctx, trigger); });
     }
 };
 

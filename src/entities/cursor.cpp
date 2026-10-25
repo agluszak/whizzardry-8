@@ -4,7 +4,6 @@
 #include <cmath>
 #include <memory>
 #include <string>
-#include <utility>
 
 #include <SDL3/SDL_rect.h>
 #include <glm/ext/quaternion_trigonometric.hpp>
@@ -74,9 +73,7 @@ void InitializeWorldCursor(void)
         cursor.detached = false;
         cursor.march_enabled = true;
         cursor.footprint_mode = false;
-        auto monster = LoadMonsterCycle(GetWorld(), "3DCursor", -1);
-        cursor.monster = monster.get();
-        GetWorld()->monsters.push_back(std::move(monster));
+        cursor.monster = LoadMonsterCycle(GetWorld(), "3DCursor", -1);
         cursor.monster->SetCycle(0);
         cursor.last_published = glm::vec3(-100000000.0f);
         cursor.position = glm::vec3(0);
@@ -88,12 +85,12 @@ void InitializeWorldCursor(void)
         cursor.input_delta.z = 0;
         position = cursor.position;
         cursor.monster->SetAdjustedPosition(&position);
-        GetWorld()->active_monsters.push_back(cursor.monster);
+        GetWorld()->active_monsters.push_back(cursor.monster.get());
         cursor.monster->UpdateRepresentation();
         cursor.monster->SetActive(false);
-        cursor.light = CreateRangedWorldLight(GetWorld(), "3D Cursor Light");
+        cursor.light = CreateLight(GetWorld()->scene.get(), "3D Cursor Light");
         cursor.light->intensity = 1.0f;
-        ConfigureWorldLight(cursor.light, 2500.0f);
+        ConfigureWorldLight(cursor.light.get(), 2500.0f);
         cursor.light->ambient = glm::vec3(0);
         cursor.light->diffuse = glm::vec3(1);
         cursor.light->specular = glm::vec3(0);
@@ -140,11 +137,8 @@ void ReleaseWorldCursor(void)
     delta = cursor->position - camera;
     GetWorld()->cursor_recall.projection_distance = glm::length(delta);
 
-    if (cursor->monster) cursor->monster->owner_world.destroyMonster(*cursor->monster);
-    if (cursor->light != 0) {
-        WorldRemoveLight(GetWorld(), cursor->light);
-        cursor->light = 0;
-    }
+    cursor->monster.reset();
+    cursor->light.reset();
     cursor->group_bind_pending = false;
     GetWorld()->cursor_recall.monster_group_id = cursor->monster_group_id;
     EnableCursorScene();
@@ -257,10 +251,10 @@ void BindCursorMonsterToGroup(void)
         position = cursor.position;
         monster_group = FindMonsterGroup(cursor.monster_group_id, false);
         if (monster_group == 0) {
-            if (CurrentLevelPopulation().monster_groups.empty()) {
+            if (CurrentLevelPopulation().groups().empty()) {
                 return;
             }
-            monster_group = CurrentLevelPopulation().monster_groups[0].get();
+            monster_group = CurrentLevelPopulation().groups()[0].get();
         }
         cursor.monster_group_id = monster_group->group_id;
         if (monster_group != 0) {
@@ -380,7 +374,7 @@ void UpdateWorldCursor(void)
     if (!(old_position == position)) {
         if (cursor.detached) {
             position.y += kCursorSightProbeHeight;
-            PointCameraAtTarget(&position, true, false);
+            CurrentGame().pointCameraAtPosition(position, true, false);
         }
     }
 }
@@ -501,7 +495,7 @@ void UpdateWorldCursorPlacement(void)
             cursor->cam_rel_offset -= camera;
         }
         target.y += kCursorSightProbeHeight;
-        PointCameraAtTarget(&target, true, false);
+        CurrentGame().pointCameraAtPosition(target, true, false);
     } else {
         cursor->position = target;
     }

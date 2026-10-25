@@ -148,10 +148,10 @@ struct SpellRuntimeRecord {
     unsigned char psionics_spell; /* 0x120 */
     float effect_radius;          /* 0x121 */
     unsigned char unknown_125;
-    /* 0x126: a monster may cast the spell at all. MonsterOKToCastSpell reports
+    /* 0x126: a monster may cast the spell at all. Game::prepareMonsterSpell reports
        a spell without it by name and asserts. */
     unsigned char monster_castable;
-    /* 0x127: radius added per power level; PopulateSpellTargetMarkers scales
+    /* 0x127: radius added per power level; spell target resolution scales
        the pair as (radius_per_level * power + effect_radius) * 500. */
     float radius_per_level;
     /* 0x12b: the power class the spell-casting view copies into
@@ -226,7 +226,7 @@ static_assert(sizeof(NpcCharacterTemplate) == 0x206, "NpcCharacterTemplate_size_
 struct NpcDatabaseRecord {
     unsigned short
         version; /* 0x000: two in the corpus; the rule tail loads only when this exceeds 1 */
-    /* 0x002: trade-pool stock count; CreateNpcRuntimeNode copies it into the
+    /* 0x002: trade-pool stock count; Game::createNpcRuntimeNode copies it into the
        runtime state's trade_pool. */
     short trade_pool;
     /* 0x004: the wide source name the level-entry rebinding prefixes with an
@@ -246,7 +246,7 @@ struct NpcDatabaseRecord {
     unsigned char has_group;
     /* 0x058: the NPC's kind. Kind twenty refuses to trade. */
     int kind;
-    /* 0x05c: the disposition byte CreateNpcRuntimeNode starts the state with. */
+    /* 0x05c: the disposition byte Game::createNpcRuntimeNode starts the state with. */
     unsigned char disposition;
     /* 0x05d/0x05e: the signed scales the charm and talk interactions fold into
        the disposition shift; the sub-one path negates the /5 quotient. */
@@ -272,7 +272,7 @@ struct NpcDatabaseRecord {
        invited. */
     unsigned char min_party_level;
     /* 0x070/0x074: the level this NPC restores its binding at and the
-       FindEntityByName key the restore moves its monster to - the default
+       named world marker key the restore moves its monster to - the default
        pair copied into the runtime state's pending restore. */
     signed char restore_level;
     unsigned char unknown_071[3];
@@ -347,7 +347,7 @@ struct MonsterRecord {
        table a character indexes by sex. */
     unsigned char name_group;
     /* 0x0cd: the NPC record index this monster is bound to, fed to
-       GetNpcStateByKind and compared against W8NpcState::name_style; 0xfa
+       Story::npcOfKind and compared against W8NpcState::name_style; 0xfa
        marks a record with no bound NPC. */
     unsigned char npc_kind;
     /* 0x0ce: signed stamina regeneration rate (Monster Editor: ST Regen). */

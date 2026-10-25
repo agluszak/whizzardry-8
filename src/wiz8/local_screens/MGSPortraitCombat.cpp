@@ -18,6 +18,7 @@
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_interaction_state.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 
@@ -214,6 +215,7 @@ void UpdateSubMenuButton(int index)
         MainGame()->hud_buttons.submenu[4].SetEnabled(
             IsPartySlotEligible(CurrentGame().status.selected_character) &&
             CharacterHasCastableSpell(
+                CurrentGame().data,
                 &CurrentGame().party.characters[CurrentGame().status.selected_character]));
         /* As case 2, with the spell picker open: 0x00594FA0/0x00594FB5 then
            0x00594FBC/0x00594FCD. This case's SetEnabled stays a single call -
@@ -294,6 +296,7 @@ static void SubMenuButtonUseItem(W8ButtonWidget* button)
 static void SubMenuButtonSpellView(W8ButtonWidget* button)
 {
     if (CharacterHasCastableSpell(
+            CurrentGame().data,
             &CurrentGame().party.characters[CurrentGame().status.selected_character])) {
         if (SpellPicker()) {
             MainGame()->closeSpellPicker();

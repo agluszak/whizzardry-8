@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 
@@ -10,7 +11,6 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
-#include "wiz8/fact_state.h"
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -26,6 +26,8 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 class Trigger;
@@ -56,9 +58,8 @@ void KillTrynnieGroups(World& world)
     int iNewTable;
     int index;
 
-    for (index = 0; index < static_cast<int>(CurrentLevelPopulation().monster_groups.size());
-         ++index) {
-        group = CurrentLevelPopulation().monster_groups[index].get();
+    for (index = 0; index < static_cast<int>(CurrentLevelPopulation().groups().size()); ++index) {
+        group = CurrentLevelPopulation().groups()[index].get();
         if (group != 0 && group->members_active &&
             (record = MonsterGroupGetRecord(group), record->faction_id == W8_FACTION_TRYNNIE) &&
             ReplaceMonsterGroupSpecies(group, 0x1be) != 0) {
@@ -94,19 +95,18 @@ private:
    encounter tables and spawns the dead shaman (0xcd) at VOC_SHAMAN_DYING. */
 void Trynnie1Script::enter()
 {
-    glm::vec3 vPos;
     glm::vec3 vPos2;
 
     bindTrigger("Fount_randomFX", &Trynnie1Script::fountRandomFX);
-    if (GetFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
+    if (ctx.game.testFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
         if (GetLocationVarIDByName("Trynnie1Killed") == -1) {
             KillTrynnieGroups(world());
-            if (!FindEntityByName("VOC_SHAMAN_DYING", &vPos, 0, 0))
-                throw std::runtime_error("level lacks VOC_SHAMAN_DYING");
-            vPos2 = vPos;
-            [[maybe_unused]] auto* group = CreateGroup(0xcd, 1, &vPos2, true, true);
+            const auto vPos = world().namedPosition("VOC_SHAMAN_DYING");
+            if (!vPos) throw std::runtime_error("level lacks VOC_SHAMAN_DYING");
+            vPos2 = *vPos;
+            [[maybe_unused]] auto* group = CurrentGame().createMonsterGroup(0xcd, 1, &vPos2, true);
             assert(group != 0);
-            CreateLocationVar("Trynnie1Killed", 1);
+            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "Trynnie1Killed", 1);
         }
     }
 }

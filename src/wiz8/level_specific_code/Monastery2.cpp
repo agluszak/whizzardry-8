@@ -7,6 +7,7 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
+#include "wiz8/game.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/script_context.h"
@@ -32,13 +33,16 @@ void DisableBellTrigger(const char* name)
 
 bool MicroDoor2(Trigger* pTrigger)
 {
+    auto& game = CurrentGame();
+    auto& owner = game.level.loaded();
     glm::vec3 position;
     W8WorldItem* item;
 
     position = glm::vec3(13085.0f, -80.0f, -49440.0f);
-    item = AddWorldItem(SpawnItem(0x2d7, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+    item = owner.adoptItem(
+        game.spawnWorldItem(owner, 0x2d7, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
     if (item != 0) {
-        ActivateItem(item);
+        owner.activateItem(game.data, game.rng, item);
     }
     return true;
 }

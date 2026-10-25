@@ -32,6 +32,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/character_skills.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/cursor.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
@@ -77,6 +78,7 @@
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_stats.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/ui_layer.h"
@@ -177,10 +179,12 @@ void W8CampItemsPage::IdentifyAndOpenItemInfo(W8ItemLocation location)
 void W8CampItemsPage::DropHeldCampItem(void)
 {
     if (ResolvePendingCampCharacter(true)) {
-        if (auto dropped = camp.game.inventory.dropHeld(); !dropped)
+        if (auto dropped = camp.game.inventory.dropHeld(GetCursorScaledPosition()); !dropped) {
             camp.dialogs.ShowNotice(dropped.error().notice, {}, true, false);
-        else
+        } else {
+            if (!*dropped) wiz8::sound::play("Data\\Sound\\Misc\\CantDrop.WAV");
             SetCampItemActionMode(W8_CAMP_ITEM_ACTION_NONE);
+        }
     }
 }
 
@@ -342,8 +346,9 @@ void W8CampItemsPage::TargetCharacterWithHeldItem(unsigned int uiTargetChar)
 
 bool CanCharacterUseItemEntry(W8Character* character, const W8ItemInstance* item)
 {
-    if (CanCharacterActivateItem(character, item) || CanCastFromItem(character, item) ||
-        IsUsableItemClass(item)) {
+    if (CanCharacterActivateItem(CurrentGame().data, character, item,
+                                 CurrentGame().status.game_started) ||
+        CanCastFromItem(character, item) || IsUsableItemClass(item)) {
         return true;
     }
     return false;
@@ -376,7 +381,7 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, const W8ItemInsta
             camp.pointer.showSlot(camp.pointer.targetingSlot(alternate));
             return;
         }
-        if (CanPartySlotParticipate(slot)) {
+        if (CurrentGame().party.participates(slot)) {
             camp.pointer.showSlot(camp.pointer.targetingSlot(alternate));
         }
         return;
@@ -411,7 +416,8 @@ void W8CampItemsPage::UpdateItemCursorForState(bool alternate, const W8ItemInsta
             return;
         }
         if (item_action == W8_CAMP_ITEM_ACTION_USE) {
-            if (CanCharacterActivateItem(camp.reviewed, item) ||
+            if (CanCharacterActivateItem(CurrentGame().data, camp.reviewed, item,
+                                         CurrentGame().status.game_started) ||
                 CanCastFromItem(camp.reviewed, item) || IsUsableItemClass(item)) {
                 camp.pointer.showSlot(camp.pointer.targetingSlot(alternate));
             }
@@ -1649,7 +1655,8 @@ void W8CampItemsPage::HandleCampItemClick(W8ItemLocation location)
         if (held) {
             // Into the clicked stack, then the others; the rest goes in at the row.
             const bool companion = camp.game.party.companion_inventory.has_value();
-            if (!inventory.depositHeld(slot_index, !companion)) {
+            const auto deposited = inventory.depositHeld(slot_index, !companion);
+            if (deposited != Inventory::Deposit::Complete) {
                 if (companion)
                     SelectPendingCampCharacter();
                 else

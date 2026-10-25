@@ -49,6 +49,7 @@
 #include "wiz8/combat/sounds.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/local_code/ButtonWidget.h"
+#include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_screens/npc_dialogue_panel.h"
 #include "wiz8/npc_speech.h"
 #include "wiz8/platform/input.h"
@@ -1035,4 +1036,39 @@ TEST_CASE_METHOD(AudioFixture,
         REQUIRE(wiz8::sound::is_playing(playback));
     }
     StopMusicPlaylist(false);
+}
+
+TEST_CASE_METHOD(AudioFixture, "Scene sound completion belongs to its original dialogue wait",
+                 "[audio][ownership][dialogue]")
+{
+    startOfflineAudio();
+    auto& outgoing = game.game.npc_dialogue;
+    outgoing.BeginScene();
+    {
+        Game candidate{ScopedGame::NoData()};
+        auto& dialogue = candidate.npc_dialogue;
+        dialogue.BeginSoundScene("tone.wav");
+        REQUIRE(dialogue.is_held_by_scene());
+        mix(8192);
+        REQUIRE(dialogue.is_held_by_scene()); // Completion is serviced, not polled.
+        wiz8::sound::service();
+        REQUIRE_FALSE(dialogue.is_held_by_scene());
+        REQUIRE(outgoing.is_held_by_scene());
+
+        dialogue.BeginSoundScene("tone.wav");
+        mix(8192);
+        dialogue.BeginScene(); // Replace the wait before its old completion is serviced.
+        wiz8::sound::service();
+        REQUIRE(dialogue.is_held_by_scene());
+        dialogue.BeginSoundScene("missing.wav");
+        REQUIRE(dialogue.is_held_by_scene());
+        dialogue.ReleaseScene();
+        REQUIRE_FALSE(dialogue.is_held_by_scene());
+
+        dialogue.BeginSoundScene("tone.wav");
+        mix(8192); // Destroy the owner while its completion is pending.
+    }
+    wiz8::sound::service();
+    REQUIRE(outgoing.is_held_by_scene());
+    outgoing.ReleaseScene();
 }

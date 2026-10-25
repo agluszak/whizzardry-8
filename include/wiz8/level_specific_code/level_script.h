@@ -9,7 +9,6 @@
 #include "wiz8/script_context.h"
 
 class Trigger;
-struct W8MonsterInfo;
 struct W8WorldCursorNode;
 struct World;
 
@@ -33,11 +32,8 @@ public:
     void runMasters();
     // The masters' persistent state; never steps gameplay.
     W8SavedLocationState captureState() const;
-    /* Dispatch one world-cursor-node command against the nodes covering `info`'s
-       ground-settled position (the camera's when info is null). Command zero is the
-       movement sweep; only command 4 reads `argument`. Answers whether any node's
-       handler reported the command handled. */
-    bool dispatchCursorNodeCommand(W8MonsterInfo* info, int command, int argument);
+    // Dispatch movement or interaction against the nodes covering the party's ground position.
+    bool dispatchCursorNodeCommand(int command);
     // Forget the node the party stands in, so the next sweep enters it again.
     void clearActiveCursorNode() { active_cursor_node_ = nullptr; }
     // Item kSlopeOverrideItem, worn or held, lets the party ignore this level's slopes.
@@ -92,9 +88,8 @@ private:
         Capture capture;
     };
 
-    bool runCursorNodeHandler(int command, W8WorldCursorNode* node, int argument);
+    bool runCursorNodeHandler(int command, W8WorldCursorNode* node);
     bool showMessageOnce(int command, W8WorldCursorNode* node);
-    bool showContextMessage(int command, W8WorldCursorNode* node, int argument);
     bool showMessage(int command, W8WorldCursorNode* node);
     bool seenBodies(int command);
     bool partyVoice(int command, W8WorldCursorNode* node);

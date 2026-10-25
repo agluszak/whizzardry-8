@@ -154,7 +154,7 @@ void RadarMap::update(const W8TargetingPresentation& presentation)
     const World& world = *game_.level.primary;
 
     for (const auto& world_item : world.population->world_items) {
-        WorldItemEntity* item = world_item->entity.find();
+        WorldItemEntity* item = world_item->entity.get();
 
         if (item != 0) {
             if ((item->flags & W8_ITEM_ENTITY_NO_PICKUP) == 0) {
@@ -176,7 +176,7 @@ void RadarMap::update(const W8TargetingPresentation& presentation)
 
     for (const auto& monster_owner : world.population->monster_roster.live()) {
         auto* info = monster_owner.get();
-        Monster* monster = info->entity.find();
+        Monster* monster = info->entity.get();
 
         if (monster != 0 && info->fActive && info->within_viewing_distance &&
             (!monster->disabled || detect_all)) {

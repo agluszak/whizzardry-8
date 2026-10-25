@@ -29,8 +29,7 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active);
    through UpdateCameraPathState. */
 /* 0x0048F650: face the camera at a monster's head; force overrides the
    tracking-mode gate, animate chooses the eased transition over the snap. */
-void PointCameraAtMonster(W8MonsterInfo* monster_info, bool force, bool animate);
+
 /* 0x0048F800: the position-taking variant of the camera orientation helper. */
-void PointCameraAtTarget(glm::vec3* position, bool force, bool animate);
 
 #endif

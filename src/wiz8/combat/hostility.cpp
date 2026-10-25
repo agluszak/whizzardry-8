@@ -1,6 +1,7 @@
 #include "wiz8/combat/hostility.h"
 
 #include <span>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -14,6 +15,7 @@
 #include "wiz8/combat/range.h"
 #include "wiz8/data/character_tables.h"
 #include "wiz8/data/faction_ids.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/data/skills.h"
 #include "wiz8/data/spell_ids.h"
@@ -40,102 +42,61 @@
 #include "wiz8/local_code/spell_database.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
-#include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
+#include "wiz8/world/world.h"
 
 /* Species 0x224 never counts: both directions answer zero before anything
    else is read. */
 enum { W8_NEUTRAL_SPECIES_224 = 0x224 };
 
-void RefreshCombatEngagement(void)
+void Game::refreshCombatEngagement()
 {
-    if (CurrentGame().combat.has_value() &&
-        CurrentLevelPopulation().monster_roster.hostileCombatCount() != 0) {
-        CurrentGame().combat->enemies_engaged = true;
-    }
-    RequestRefreshPartyState();
+    std::vector<Event> outcomes;
+    refreshCombatEngagement(outcomes);
+    events.publish(std::move(outcomes));
+}
+
+void Game::refreshCombatEngagement(std::vector<Event>& outcomes)
+{
+    if (!combat) return;
+    if (level.loaded().population->monster_roster.hostileCombatCount() != 0)
+        combat->enemies_engaged = true;
+    outcomes.emplace_back(CombatPanelChanged{});
 }
 
 /* Compare two monsters for hostility. Equal disposition bands answer two;
    either band clear answers zero; otherwise the faction records decide, and
    only matching non-zero factions fall through to the condition-thirteen
    presence test. */
-W8Disposition MonsterHostility(W8MonsterInfo* first, W8MonsterInfo* second)
+W8Disposition MonsterHostility(const GameData& data, const W8MonsterInfo& first,
+                               const W8MonsterInfo& second)
 {
-    const W8MonsterRecord* first_record;
-    const W8MonsterRecord* second_record;
-    unsigned int first_faction;
-    unsigned int second_faction;
-
-    if (first->monster_species == W8_NEUTRAL_SPECIES_224 ||
-        second->monster_species == W8_NEUTRAL_SPECIES_224) {
+    if (first.monster_species == W8_NEUTRAL_SPECIES_224 ||
+        second.monster_species == W8_NEUTRAL_SPECIES_224)
         return W8_DISPOSITION_NEUTRAL;
-    }
-    if (first->ubDisposition == second->ubDisposition) {
-        return W8_DISPOSITION_FRIENDLY;
-    }
-    if (first->ubDisposition == W8_DISPOSITION_NEUTRAL ||
-        second->ubDisposition == W8_DISPOSITION_NEUTRAL) {
+    if (first.ubDisposition == second.ubDisposition) return W8_DISPOSITION_FRIENDLY;
+    if (first.ubDisposition == W8_DISPOSITION_NEUTRAL ||
+        second.ubDisposition == W8_DISPOSITION_NEUTRAL)
         return W8_DISPOSITION_NEUTRAL;
-    }
-    first_record = GetMonsterDataForInfo(first);
-    second_record = GetMonsterDataForInfo(second);
-    first_faction = first_record->faction_id;
-    if (first_faction == 0) {
-        return W8_DISPOSITION_HOSTILE;
-    }
-    second_faction = second_record->faction_id;
-    if (second_faction == 0 || first_faction != second_faction) {
-        return W8_DISPOSITION_HOSTILE;
-    }
-    if ((first->uiCondition[W8_CONDITION_TURNCOAT] != 0) ==
-        (second->uiCondition[W8_CONDITION_TURNCOAT] != 0)) {
+    const auto faction = data.monsters[first.monster_species].faction_id;
+    if (faction != 0 && faction == data.monsters[second.monster_species].faction_id &&
+        (first.uiCondition[W8_CONDITION_TURNCOAT] != 0) ==
+            (second.uiCondition[W8_CONDITION_TURNCOAT] != 0))
         return W8_DISPOSITION_NEUTRAL;
-    }
     return W8_DISPOSITION_HOSTILE;
 }
 
 /* Map a monster's disposition band onto the party character: while the
    character carries condition thirteen the hostile and friendly bands swap;
    otherwise the monster's band is returned unchanged. */
-W8Disposition MonsterVsCharDisposition(int character_slot, W8MonsterInfo* monster_info)
-{
-    W8Disposition disposition;
-
-    if (CurrentGame().party.characters[character_slot].uiCondition[W8_CONDITION_TURNCOAT] == 0) {
-        return monster_info->ubDisposition;
-    }
-    disposition = monster_info->ubDisposition;
-    switch (disposition) {
-    case W8_DISPOSITION_NEUTRAL:
-        return W8_DISPOSITION_NEUTRAL;
-    case W8_DISPOSITION_HOSTILE:
-        return W8_DISPOSITION_FRIENDLY;
-    case W8_DISPOSITION_FRIENDLY:
-        return W8_DISPOSITION_HOSTILE;
-    default:
-        return disposition;
-    }
-}
-
-W8Disposition CharacterVsCharacterDisposition(int first, int second)
-{
-    W8Character* characters = CurrentGame().party.characters;
-    unsigned int first_turns = characters[first].uiCondition[W8_CONDITION_TURNCOAT];
-    if (first_turns == 0 && characters[second].uiCondition[W8_CONDITION_TURNCOAT] == 0) {
-        return W8_DISPOSITION_FRIENDLY;
-    }
-    if (first_turns == 0 || characters[second].uiCondition[W8_CONDITION_TURNCOAT] == 0) {
-        return W8_DISPOSITION_HOSTILE;
-    }
-    return W8_DISPOSITION_FRIENDLY;
-}
 
 W8Disposition GetOppositeDisposition(W8TargetSource* source)
 {
@@ -185,7 +146,7 @@ void ProvokeListedMonsterGroups(W8TargetSource* source, const std::vector<int>& 
 void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
 {
     W8Disposition hostility = GetOppositeDisposition(source);
-    if (hostility == W8_DISPOSITION_NEUTRAL || !IsTargetStillPresent(target)) {
+    if (hostility == W8_DISPOSITION_NEUTRAL || !(target && CurrentGame().targetPresent(*target))) {
         return;
     }
     int group_id;
@@ -224,7 +185,7 @@ void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
     }
     if (group_id != -1) {
         group = FindMonsterGroup(group_id);
-        SetMonsterGroupHostility(group, hostility, true);
+        CurrentGame().setGroupHostility(group, hostility, true);
         if (!group->fInCombat) {
             MonsterGroupEnterCombat(group);
         }
@@ -233,89 +194,11 @@ void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
 
 /* Whether a party action aims at enemies: the four melee kinds do, as do
    spells (and item-spells) whose target type sits in the enemy band. */
-bool CharacterActionTargetsEnemies(const Inventory& inventory, W8Character* character,
-                                   W8ActionKind action_kind, int action_detail,
-                                   W8ActionDetailBlock* detail)
-{
-    const W8ItemInstance* item;
-    unsigned char spell_id;
-    W8SpellTargetType target_type;
-
-    switch (action_kind) {
-    case W8_ACTION_ATTACK:
-    case W8_ACTION_BERSERK:
-    case W8_ACTION_BREATHE:
-    case W8_ACTION_TURN_UNDEAD:
-        return true;
-    case W8_ACTION_CAST_SPELL:
-        if (action_detail > 0x95) return false; // Not a spell in the table.
-        if (action_detail != 3 && action_detail != 0x29) {
-            target_type = GetSpellTargetType(action_detail, false);
-            if (target_type > W8_TARGET_TYPE_PARTY && target_type < W8_TARGET_TYPE_POINT) {
-                return true;
-            }
-        }
-        break;
-    case W8_ACTION_USE_ITEM:
-        item = inventory.itemAt(detail->item_use.item);
-        if (CanCharacterActivateItem(character, item)) {
-            spell_id = Data().items[item->iItemNo].spell_id;
-            if (spell_id != W8_SPELL_NONE) {
-                if (spell_id > 0x95) return false;
-                if (spell_id != W8_SPELL_CHARM && spell_id != W8_SPELL_MINDREAD) {
-                    target_type = GetSpellTargetType(spell_id, false);
-                    if (target_type > W8_TARGET_TYPE_PARTY && target_type < W8_TARGET_TYPE_POINT) {
-                        return true;
-                    }
-                }
-            }
-        }
-        break;
-    default:
-        break;
-    }
-    return false;
-}
 
 /* Monster actions 0 and 3 always count as enemy-aimed; action 2 is a spell id. */
-bool MonsterActionTargetsEnemies(W8MonsterActionKind action_kind, int action_detail,
-                                 unsigned int* spell_power_level)
-{
-    W8SpellTargetType target_type;
-
-    switch (action_kind) {
-    case W8_MONSTER_ACTION_ATTACK:
-        return true;
-    case W8_MONSTER_ACTION_SPELL:
-        if (action_detail > 0x95) return false; // Not a spell in the table.
-        if (action_detail != 3 && action_detail != 0x29) {
-            target_type = GetSpellTargetType(action_detail, false);
-            if (target_type > W8_TARGET_TYPE_PARTY && target_type < W8_TARGET_TYPE_POINT) {
-                return true;
-            }
-        }
-        return false;
-    case W8_MONSTER_ACTION_SPECIAL_ATTACK:
-        return true;
-    default:
-        return false;
-    }
-}
 
 /* Whether a spell id can be aimed by monster AI: inside the spell table, not
    one of the two self-only kinds, and carrying a middle target type. */
-bool MonsterCanAimSpell(int spell_id)
-{
-    if (spell_id > 0x95) return false;
-    if (spell_id != W8_SPELL_CHARM && spell_id != W8_SPELL_MINDREAD) {
-        W8SpellTargetType target_type = GetSpellTargetType(spell_id, false);
-        if (target_type > W8_TARGET_TYPE_PARTY && target_type < W8_TARGET_TYPE_POINT) {
-            return true;
-        }
-        return false;
-    }
-    return false;
-}
 
 bool CombatAllowsLiveGroups(void)
 {
@@ -331,15 +214,15 @@ int g_monster_special_attack_name_ids[12] = {0,    1598, 1599, 1600, 1601, 1602,
 void SetMonsterGroupHostilityByID(int group_id, W8Disposition hostility, bool recurse)
 {
     W8MonsterGroup* group = FindMonsterGroup(group_id);
-    SetMonsterGroupHostility(group, hostility, recurse);
+    CurrentGame().setGroupHostility(group, hostility, recurse);
 }
 
-void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bool recurse)
+void Game::setGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bool recurse)
 {
-    if (MonsterGroupAllMembersDying(group)) {
+    if ((*level.loaded().population).allMembersDying(*group)) {
         return;
     }
-    W8MonsterInfo* leader = FindMonster(group->leader_location_id);
+    W8MonsterInfo* leader = level.loaded().population->findMonster(group->leader_location_id);
     if (leader != 0 && leader->entity->hostility_preserved) {
         return;
     }
@@ -349,37 +232,40 @@ void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bo
     }
     group->ubDisposition = hostility;
     group->forced_neutral = false;
-    if (MonsterGroupHasVisibleThreat(group)) {
-        CurrentGame().events.push(
-            TextNotice{9, fmt::format("{} {} {}!", GetMonsterGroupName(group),
-                                      Data().strings[0x1d7 + (group->MemberCount() != 1)],
-                                      Data().strings[g_group_hostility_notice_ids[hostility]])});
+    if (level.loaded().population->hasVisibleThreat(*(group))) {
+        events.push(
+            TextNotice{9, fmt::format("{} {} {}!", monsterGroupName(*group),
+                                      data.strings[0x1d7 + (group->MemberCount() != 1)],
+                                      data.strings[g_group_hostility_notice_ids[hostility]])});
     }
-    group->hostility_set_at = CurrentGame().status.world_clock;
+    group->hostility_set_at = status.world_clock;
     if (previous != W8_DISPOSITION_NEUTRAL) {
-        SetTargetToGroup(group->group_id, true);
+        invalidateAimsAt(W8CombatSlot::group(group->group_id), TargetChange::allegiance);
     }
     for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {
         int location_id = group->MemberLocationId(index);
-        W8MonsterInfo* monster = FindMonster(location_id);
-        SetMonsterHostility(monster, hostility);
+        W8MonsterInfo* monster = level.loaded().population->findMonster(location_id);
+        setMonsterHostility(monster, hostility);
     }
     if (group->leader_group_id != 0) {
-        SetMonsterGroupHostility(FindMonsterGroup(group->leader_group_id), hostility, false);
+        setGroupHostility(level.loaded().population->findGroup(group->leader_group_id), hostility,
+                          false);
     }
     if (group->allied_group_ids[0] != 0) {
-        SetMonsterGroupHostility(FindMonsterGroup(group->allied_group_ids[0]), hostility, false);
+        setGroupHostility(level.loaded().population->findGroup(group->allied_group_ids[0]),
+                          hostility, false);
     }
     if (group->allied_group_ids[1] != 0) {
-        SetMonsterGroupHostility(FindMonsterGroup(group->allied_group_ids[1]), hostility, false);
+        setGroupHostility(level.loaded().population->findGroup(group->allied_group_ids[1]),
+                          hostility, false);
     }
     if (recurse) {
-        AlertSameFactionGroups(group);
+        alertFactionGroups(group);
     }
-    CurrentGame().events.push(MonstersChanged{});
+    events.push(MonstersChanged{});
 }
 
-void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
+void Game::setMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
 {
     W8Disposition previous = monster->ubDisposition;
     if (previous == hostility || monster->entity->hostility_preserved) {
@@ -388,23 +274,22 @@ void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
     monster->ubDisposition = hostility;
     if (monster->pCombat &&
         (hostility == W8_DISPOSITION_HOSTILE || previous == W8_DISPOSITION_HOSTILE)) {
-        RefreshCombatEngagement();
+        refreshCombatEngagement();
     }
     if (previous != W8_DISPOSITION_NEUTRAL) {
-        SetTargetToMonster(monster->location_id, true);
+        invalidateAimsAt(W8CombatSlot::monster(monster->location_id), TargetChange::allegiance);
     }
     if (monster->pCombat && monster->hp_current > 0 &&
         monster->ubDisposition != W8_DISPOSITION_NEUTRAL) {
-        if (CurrentGame().combat.has_value() &&
-            CurrentGame().combat->holdsTurn(MonsterActor{monster->location_id}) &&
-            !std::holds_alternative<TurnScheduled>(CurrentGame().combat->turn())) {
-            EndMonsterAttack(monster);
-            monster->action_kind = W8_MONSTER_ACTION_NONE;
+        if (combat.has_value() && combat->holdsTurn(MonsterActor{monster->location_id}) &&
+            !std::holds_alternative<TurnScheduled>(combat->turn())) {
+            finishMonsterAttack(monster);
+            monster->action.kind = W8_MONSTER_ACTION_NONE;
             monster->pCombat->phase = 0;
         } else if (!monster->pCombat->active) {
-            UpdateMonsterAI(monster);
+            updateMonsterDecision(monster);
         } else {
-            monster->action_kind = W8_MONSTER_ACTION_NONE;
+            monster->action.kind = W8_MONSTER_ACTION_NONE;
             monster->pCombat->phase = 0;
         }
     }
@@ -461,8 +346,8 @@ int TurnUndead(int party_slot, bool check)
 
     W8CombatSlot target;
     ResetCombatSlot(&target);
-    PopulateSpellTargetMarkers(W8_SPELL_DISPEL_UNDEAD, 1, &source, &target, monsters, party,
-                               W8AreaSightRule::RequireLineOfSight);
+    CurrentGame().appendSpellTargets(W8_SPELL_DISPEL_UNDEAD, 1, &source, &target, monsters, party,
+                                     W8AreaSightRule::RequireLineOfSight);
     if (monsters.empty()) {
         return 0;
     }
@@ -614,7 +499,7 @@ int CharacterPrayAction(int party_slot)
             in_range = 0;
             for (index = 0; index < 8; ++index) {
                 W8Character* member = &CurrentGame().party.characters[index];
-                if (CanPartySlotParticipate(index) &&
+                if (CurrentGame().party.participates(index) &&
                     member->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].power == 0) {
                     ++in_range;
                     found = true;
@@ -624,7 +509,7 @@ int CharacterPrayAction(int party_slot)
                 pick = CurrentGame().rng.below(in_range) + 1;
                 for (index = 0; index < 8; ++index) {
                     W8Character* member = &CurrentGame().party.characters[index];
-                    if (CanPartySlotParticipate(index) &&
+                    if (CurrentGame().party.participates(index) &&
                         member->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].power == 0 &&
                         --pick == 0) {
                         AppendToLastTextLine(fmt::sprintf(Data().strings[0x17a], member->name, -1),
@@ -647,7 +532,7 @@ int CharacterPrayAction(int party_slot)
             in_range = 0;
             for (index = 0; index < 8; ++index) {
                 W8Character* member = &CurrentGame().party.characters[index];
-                if (CanPartySlotParticipate(index) &&
+                if (CurrentGame().party.participates(index) &&
                     (member->uiCondition[W8_CONDITION_INSANE] != 0 ||
                      member->uiCondition[W8_CONDITION_TURNCOAT] != 0)) {
                     ++in_range;
@@ -658,7 +543,7 @@ int CharacterPrayAction(int party_slot)
                 pick = CurrentGame().rng.below(in_range) + 1;
                 for (index = 0; index < 8; ++index) {
                     W8Character* member = &CurrentGame().party.characters[index];
-                    if (CanPartySlotParticipate(index) &&
+                    if (CurrentGame().party.participates(index) &&
                         (member->uiCondition[W8_CONDITION_INSANE] != 0 ||
                          member->uiCondition[W8_CONDITION_TURNCOAT] != 0) &&
                         --pick == 0) {
@@ -695,7 +580,7 @@ int CharacterPrayAction(int party_slot)
             best = -1;
             for (index = 0; index < 8; ++index) {
                 W8Character* member = &CurrentGame().party.characters[index];
-                if (CanPartySlotParticipate(index) &&
+                if (CurrentGame().party.participates(index) &&
                     member->hp_current < static_cast<unsigned int>(member->uiHPMax) &&
                     (best == -1 ||
                      member->hp_current < CurrentGame().party.characters[best].hp_current)) {
@@ -778,7 +663,7 @@ int CharacterPrayAction(int party_slot)
             if (CurrentGame().combat.has_value()) {
                 for (index = 0; index < 9; ++index) {
                     if (CurrentGame().combat->effect_slots[index].active) {
-                        ResetPartyEffectBlock(&CurrentGame().combat->effect_slots[index]);
+                        CurrentGame().resetPartyEffect(CurrentGame().combat->effect_slots[index]);
                     }
                 }
             }
@@ -864,20 +749,26 @@ int CharacterPrayAction(int party_slot)
     return cost;
 }
 
-void AlertSameFactionGroups(W8MonsterGroup* monster_group)
+void Game::alertFactionGroups(W8MonsterGroup* monster_group)
 {
-    const W8MonsterRecord* record = MonsterGroupGetRecord(monster_group);
+    const W8MonsterRecord* record = &data.monsters[(monster_group)->monster_id];
     if (record->faction_id != W8_FACTION_UNALIGNED) {
-        for (unsigned int index = 0; index < CurrentLevelPopulation().monster_groups.size();
+        for (unsigned int index = 0; index < (*level.loaded().population).groups().size();
              ++index) {
-            W8MonsterGroup* other = CurrentLevelPopulation().monster_groups[index].get();
-            const W8MonsterRecord* other_record = MonsterGroupGetRecord(other);
+            W8MonsterGroup* other = (*level.loaded().population).groups()[index].get();
+            const W8MonsterRecord* other_record = &data.monsters[(other)->monster_id];
             if (other != monster_group &&
                 ((other_record->flags & W8_MONSTER_FLAG_NPC) == 0 || !other->forced_neutral) &&
                 record->faction_id == other_record->faction_id &&
-                MonsterGroupCanSeeGroup(other, monster_group)) {
-                SetMonsterGroupHostility(other, monster_group->ubDisposition, false);
+                level.loaded().population->groupCanSeeGroup(*(other), *(monster_group))) {
+                setGroupHostility(other, monster_group->ubDisposition, false);
             }
         }
     }
+}
+
+bool MonsterActionTargetsEnemies(const GameData& data, W8MonsterActionKind kind, int detail)
+{
+    return kind == W8_MONSTER_ACTION_ATTACK || kind == W8_MONSTER_ACTION_SPECIAL_ATTACK ||
+           (kind == W8_MONSTER_ACTION_SPELL && SpellTargetsEnemies(data, detail));
 }

@@ -1,29 +1,19 @@
 #include "wiz8/local_code/ItemManager.h"
 
 #include <cassert>
-#include <cmath>
 #include <cstddef>
 #include <memory>
-#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include <SDL3/SDL_filesystem.h>
 #include <SDL3/SDL_stdinc.h>
 #include <fmt/format.h>
-#include <glm/common.hpp> // NOLINT(misc-include-cleaner)
 #include <glm/geometric.hpp>
-#include <glm/gtx/rotate_vector.hpp>
-#include <glm/trigonometric.hpp> // NOLINT(misc-include-cleaner)
 
-#include "asset_paths.h"
-#include "glm/ext/matrix_float3x3.hpp"
-#include "glm/ext/vector_float2.hpp"
 #include "glm/ext/vector_float3.hpp"
 #include "layouts/npc_state.h"
-#include "wiz8/cursor.h"
 #include "wiz8/data/item_records.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/DialogFactoryDialogs.h"
@@ -31,25 +21,20 @@
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
-#include "wiz8/filesystem.h"
 #include "wiz8/game.h"
-#include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/item_tables.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/loaded_game_data.h"
-#include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/platform/GameTimeAccumulator.h"
-#include "wiz8/render/mesh_instance.h"
 #include "wiz8/render/picking.h"
-#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/spatial/bounding_box.h"
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/unicode.h"
@@ -58,20 +43,7 @@
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
-constexpr float kDropItemPitchScale = 71.0f;
-constexpr float kDropItemYawScale = 85.0f;
-
 class W8DialogBase;
-
-/* The level runtime block, which also carries the interface
-   selection the item manager resets. */
-
-/* Camera distance inside which inactive world items are activated. */
-const float g_item_camera_cull_distance = 20000.0f;
-
-/* When set, skip activating world items that already carry flag
-   bit 0. */
-bool g_hide_invisible_items = true;
 
 // FUNCTION: WIZ8 0x004f8130
 bool ItemHasFlags(const W8WorldItem* item, unsigned int mask)
@@ -130,7 +102,7 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
                            unsigned int table_id, unsigned int maximum_items,
                            const glm::vec3& position)
 {
-    unsigned int party_level = GetAveragePartyLevel();
+    unsigned int party_level = CurrentGame().party.averageLevel();
     std::vector<int> candidates;
     const W8ItemTableRecord* table;
     const W8ItemTableEntry* entry;
@@ -149,9 +121,10 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
         if (table->entries[entry_index].selector != 0) {
             item_record = &Data().items[table->entries[entry_index].item_id];
             if (table->entries[entry_index].weight == 0) {
-                output_items.push_back(
-                    SpawnItem(Data().item_tables[table_id].entries[entry_index].item_id, &position,
-                              W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                output_items.push_back(CurrentGame().spawnWorldItem(
+                    CurrentGame().level.loaded(),
+                    Data().item_tables[table_id].entries[entry_index].item_id, &position,
+                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             } else if (table->level_scaled == 0) {
                 candidates.push_back(entry_index);
             } else {
@@ -195,8 +168,9 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
         entry = &table->entries[entry_index];
         random_value = CurrentGame().rng.below(total_weight);
         if (random_value <= entry->weight) {
-            output_items.push_back(
-                SpawnItem(entry->item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+            output_items.push_back(CurrentGame().spawnWorldItem(
+                CurrentGame().level.loaded(), entry->item_id, &position,
+                W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             candidates.erase(candidates.begin() + position_index);
             ++selected_count;
         }
@@ -208,15 +182,15 @@ int GenerateItemsFromTable(std::vector<std::unique_ptr<W8WorldItem>>& output_ite
 /* Look an item record up by its internal name. The name sits at 0x8d in the
    record; a record whose name is empty is matched against the display name
    converted down from wide instead. */
-int FindItemRecordByName(const char* name)
+int FindItemRecordByName(const GameData& data, const char* name)
 {
     int index;
     std::string internal_name;
 
-    for (index = 0; index < static_cast<int>(Data().items.size()); ++index) {
-        internal_name = Data().items[index].internal_name;
+    for (index = 0; index < static_cast<int>(data.items.size()); ++index) {
+        internal_name = data.items[index].internal_name;
         if (internal_name[0] == 0) {
-            if (SDL_strcasecmp(Data().items[index].display_name.c_str(), name) == 0) {
+            if (SDL_strcasecmp(data.items[index].display_name.c_str(), name) == 0) {
                 return index;
             }
         } else if (CompareTextIgnoreAsciiCase(internal_name, name) == 0) {
@@ -268,246 +242,6 @@ unsigned int ItemIndex(int runtime_id)
     return 0;
 }
 
-/* The level runtime block, which also carries the interface
-   selection the item manager resets. */
-
-/* The generic 3D model names ActivateItem falls back to when a
-   record's internal_name is blank, indexed by unidentified_name_index. */
-static char g_item_model_fallback_names[145][0x1e] = {"Dagger",
-                                                      "Long Sword",
-                                                      "Bipennis",
-                                                      "Battle Axe",
-                                                      "Flail",
-                                                      "Mace",
-                                                      "Hammer",
-                                                      "Staff",
-                                                      "Halberd",
-                                                      "Spear",
-                                                      "Bo Stick",
-                                                      "Bow",
-                                                      "Crossbow",
-                                                      "Sling",
-                                                      "Great Sword",
-                                                      "Rapier",
-                                                      "Katana",
-                                                      "Long Staff",
-                                                      "Wand",
-                                                      "Magic Stave",
-                                                      "Spellbook",
-                                                      "Shuriken",
-                                                      "Arrows",
-                                                      "Bullets",
-                                                      "Kite Shield",
-                                                      "Basnet",
-                                                      "Plate Torso",
-                                                      "Plate Leggings",
-                                                      "Gauntlets",
-                                                      "Sollerets",
-                                                      "Amulet",
-                                                      "Ring",
-                                                      "Blue Potion",
-                                                      "Scroll",
-                                                      "Powder",
-                                                      "Key",
-                                                      "Locket",
-                                                      "Great Bow",
-                                                      "Round Shield",
-                                                      "Wizard Cone",
-                                                      "Leather Helm",
-                                                      "Cuirass",
-                                                      "Leather Top",
-                                                      "Greaves",
-                                                      "Leather Leggings",
-                                                      "Gloves",
-                                                      "Sandals",
-                                                      "Buskins",
-                                                      "Boots",
-                                                      "Book",
-                                                      "Ankh",
-                                                      "Ninjato",
-                                                      "War Hammer",
-                                                      "Flamberge",
-                                                      "Bullwhip",
-                                                      "Sai",
-                                                      "Nunchuka",
-                                                      "Glaive",
-                                                      "Black Sword",
-                                                      "Fire Sword",
-                                                      "Upper Robes",
-                                                      "Lower Robes",
-                                                      "Halter",
-                                                      "Skirt",
-                                                      "Skullcap",
-                                                      "Feathered Cap",
-                                                      "Mitre",
-                                                      "Breast Plate",
-                                                      "Kabuto",
-                                                      "Upper Toseido",
-                                                      "Lower Toseido",
-                                                      "Burgonet",
-                                                      "Fur Leggings",
-                                                      "Cloak",
-                                                      "Mantis Gloves",
-                                                      "Mantis Boots",
-                                                      "Garland",
-                                                      "Cat 'O Nine Tails",
-                                                      "Silver Cross",
-                                                      "Ruby Talisman",
-                                                      "Purple Amulet",
-                                                      "Bracelet",
-                                                      "Necklace",
-                                                      "Quarrels",
-                                                      "Jade Figure",
-                                                      "Chain Coif",
-                                                      "Upper Chain",
-                                                      "Lower Chain",
-                                                      "Mail Mittens",
-                                                      "Chain Hosen",
-                                                      "Lance",
-                                                      "Armet",
-                                                      "Ninja Cowl",
-                                                      "Upper Ninja Garb",
-                                                      "Lower Ninja Garb",
-                                                      "Tabi Boots",
-                                                      "Heaume",
-                                                      "Box Helm",
-                                                      "Diamond Ring",
-                                                      "Bag",
-                                                      "Red Potion",
-                                                      "Green Potion",
-                                                      "Purple Potion",
-                                                      "Yellow Potion",
-                                                      "Power Glove",
-                                                      "T'Rang Staff",
-                                                      "Bronze Gauntlets",
-                                                      "Comm Link",
-                                                      "Light Sword",
-                                                      "Magic Bag",
-                                                      "Phaser",
-                                                      "ID Card",
-                                                      "Darts",
-                                                      "Powder Shot",
-                                                      "Musket",
-                                                      "Coin",
-                                                      "Stone",
-                                                      "Stick",
-                                                      "Short Sword",
-                                                      "UNDEFINED",
-                                                      "Bagpipes",
-                                                      "Lyre",
-                                                      "Lute",
-                                                      "Horn",
-                                                      "Map",
-                                                      "Bracelet",
-                                                      "Shuriken",
-                                                      "UNDEFINED",
-                                                      "Wand",
-                                                      "Yellow Potion",
-                                                      "Medium Shield",
-                                                      "UNDEFINED",
-                                                      "UNDEFINED",
-                                                      "UNDEFINED",
-                                                      "UNDEFINED",
-                                                      "UNDEFINED",
-                                                      "Saxophone",
-                                                      "Violin",
-                                                      "Drum",
-                                                      "Bullroarer",
-                                                      "bomb",
-                                                      "emptybottle",
-                                                      "stix",
-                                                      "rocket",
-                                                      "rocketlauncher"};
-
-/* Put one spawned item into the world: load its 3D model from
-   Data\Items3D\Bitmaps, drop it at the item's position with a random yaw,
-   attach and register it, then scale it by whether the sun reaches it. */
-void ActivateItem(W8WorldItem* item)
-{
-    glm::vec3 position;
-    glm::vec3 sun_position;
-    std::string zItemName;
-    std::string zItemFullPath;
-    std::string name;
-    Light* sun;
-    MeshInstance* mesh;
-
-    assert(item != 0);
-    assert(!item->fActive);
-
-    name = Data().items[item->item.iItemNo].internal_name;
-    if (name.empty()) {
-        name =
-            g_item_model_fallback_names[Data().items[item->item.iItemNo].unidentified_name_index];
-    }
-    zItemName = name;
-    if (zItemName.find(".ITM") != std::string::npos) {
-        zItemFullPath = fmt::format("{}\\{}", "Data\\Items3D", zItemName);
-    } else {
-        zItemFullPath = fmt::format("{}\\{}.ITM", "Data\\Items3D", zItemName);
-    }
-    if (![&]() {
-            const auto status = wiz8::file_status(wiz8::asset_path(zItemFullPath));
-            return status && status->info.type == SDL_PATHTYPE_FILE;
-        }()) {
-        zItemName = "questionmark";
-    }
-
-    auto entity = LoadItemFromFile(zItemName);
-    if (!entity) throw std::runtime_error(fmt::format("cannot load item model {}", zItemName));
-    item->entity.attach(*entity);
-    if (ItemHasFlags(item, W8_WORLD_ITEM_RADAR_BLIP_LIT)) {
-        item->entity->LightRadarBlip();
-    }
-    position = item->position;
-    item->entity->SetLocation(&position);
-    item->entity->SetYaw(static_cast<float>(CurrentGame().rng.below(0x168) * 2 * g_camera_pi *
-                                            kInverseFullTurnDegrees));
-    item->entity->flags |= item->entity_flags;
-    item->entity->AttachMesh(GetWorld());
-    GetWorld()->plsItems.push_back(std::move(entity));
-    item->fActive = true;
-    ++CurrentGame().item_manager_pending;
-
-    sun = FindWorldLight("SUN");
-    if (sun != 0) {
-        sun_position = glm::vec3(sun->transform.getLocation());
-        mesh = static_cast<MeshInstance*>(item->entity->GetMesh());
-        if (mesh != 0) {
-            if (GetWorldSpatialIndex()->hasLineOfSight(position, sun_position)) {
-                mesh->light_scale = glm::vec3(1);
-            } else {
-                mesh->light_scale = glm::vec3(0);
-            }
-        }
-    }
-}
-
-/* Take one item out of the world. Its three assertions name the two fields
-   they guard - fActive and the entity link - and the item keeps its last position and
-   entity flags so it can be put back. */
-void DeactivateWorldItem(W8WorldItem* item)
-{
-    glm::vec3 position;
-
-    assert(item != 0);
-    assert(item->fActive);
-    assert(item->entity);
-
-    if (GameInProgress()) CurrentGame().events.push(WorldItemRemoved{item->runtime_id});
-
-    position = item->entity->GetLocation();
-    item->position = position;
-    item->entity_flags = item->entity->flags;
-
-    WorldItemEntity& entity = *item->entity;
-    item->entity.detach();
-    entity.DetachMesh();
-    std::erase_if(GetWorld()->plsItems, [&](const auto& owner) { return owner.get() == &entity; });
-    item->fActive = false;
-    --CurrentGame().item_manager_pending;
-}
-
 /* The runtime id of the nearest active world item the cursor is hovering over
    and whose screen distance stays inside `max_distance`, or -1. The cursor
    coordinates are carried but unused - the hover test is IsSelected. */
@@ -523,7 +257,7 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
         W8WorldItem* item = ItemInfo(index);
         float distance;
 
-        if (!item->fActive) {
+        if (!item->entity) {
             continue;
         }
         if (item->entity->flags & W8_ITEM_ENTITY_NO_PICKUP) {
@@ -541,88 +275,6 @@ int PickNearestItemUnderCursor(int cursor_x, int cursor_y, float max_distance)
     return result;
 }
 
-/* Walk every world item: repair invalid sectors, advance falling ones, then
-   activate inactive items near the camera and deactivate active ones that have
-   drifted beyond the far range. */
-void UpdateNearbyWorldItems(void)
-{
-    glm::vec3 camera;
-    unsigned int index;
-    std::size_t count;
-
-    camera = GetWorld()->party.eye();
-    count = CurrentLevelPopulation().world_items.size();
-    for (index = 0; index < count; ++index) {
-        W8WorldItem* item = ItemInfo(index);
-
-        if (item->sector_id < -1) {
-            item->sector_id = -1;
-            SettleWorldItem(item);
-        }
-        if (ItemHasFlags(item, W8_WORLD_ITEM_FALLING)) {
-            AdvanceFallingWorldItem(item);
-        }
-        if (!item->fActive) {
-            if (glm::distance(item->position, camera) < g_item_camera_cull_distance) {
-                if (g_hide_invisible_items) {
-                    if (ItemHasFlags(item, W8_WORLD_ITEM_HIDDEN)) {
-                        goto next_item;
-                    }
-                }
-                ActivateItem(item);
-            }
-        } else {
-            glm::vec3 location;
-
-            location = item->entity->GetLocation();
-            if (glm::distance(location, camera) > 2.5e+04f) {
-                DeactivateWorldItem(item);
-            }
-        }
-    next_item:
-        count = CurrentLevelPopulation().world_items.size();
-    }
-}
-
-glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_rotation)
-{
-    const auto offset = (cursor - 0.5f) * 0.9f;
-    const float yaw = glm::radians(offset.x * kDropItemYawScale);
-    const float pitch = glm::radians(5.0f + offset.y * kDropItemPitchScale);
-    const auto forward = glm::vec3(0, 0, 2500.0);
-    return camera_rotation * glm::rotateY(glm::rotateX(forward, pitch), yaw);
-}
-
-/* Toss the cursor-held item into the world. The tracked cursor position is
-   turned into a 2500-unit direction through the camera rotation, traced to
-   the first obstruction, shortened by the item radius, settled onto the
-   ground and lifted back up. When the spot is free the held instance becomes
-   a world item; otherwise the refusal sound plays. Without a loaded level there is no
-   drop position. */
-std::optional<glm::vec3> FindItemDropPosition()
-{
-    auto* const index = GetWorldSpatialIndex();
-    if (!index) return std::nullopt;
-    glm::mat3 rotation;
-    rotation = GetWorld()->party.rotation();
-    glm::vec3 direction = ItemThrowDirection(GetCursorScaledPosition(), rotation);
-
-    glm::vec3 camera = cameraLocation();
-    direction += camera;
-    if (const auto hit = index->traceSight(camera, direction)) direction = hit->point;
-
-    glm::vec3 delta = direction - camera;
-    delta = glm::dot(delta, delta) == 0
-                ? delta
-                : glm::normalize(delta) *
-                      static_cast<float>(glm::max(glm::length(delta) - 125.0f, 0.0f));
-
-    glm::vec3 position = camera + delta;
-    position.y = index->settleToGround(position, true, 250).position.y + 125.0f;
-    if (FindNearbyFreePosition(250.0f, &position, true, true) != 0) return position;
-    return std::nullopt;
-}
-
 /* The item picker returns its remaining items as group contents. A two-item group returns the picked
    extra to the world at the group's position; a lone item is simply dropped.
    Either way the group's own world entry is found by runtime id, pulled out
@@ -636,9 +288,9 @@ static void OnItemPickerClosed(W8WorldItem* group)
         item = group->contents.front().get();
         item->position = group->position;
         if (!item->entity) {
-            ActivateItem(item);
+            CurrentGame().level.loaded().activateItem(Data(), CurrentGame().rng, item);
         }
-        AddWorldItem(std::move(group->contents.front()));
+        CurrentGame().level.loaded().adoptItem(std::move(group->contents.front()));
         group->contents.clear();
     } else if (!group->contents.empty()) {
         return;
@@ -646,10 +298,10 @@ static void OnItemPickerClosed(W8WorldItem* group)
     index = ItemIndex(group->runtime_id);
     item = ItemInfo(index);
     if (item->sector_id > -1) {
-        RemoveItemFromSector(item->sector_id, item);
+        CurrentGame().level.loaded().removeItemFromSector(item->sector_id, item);
     }
-    if (item->fActive) {
-        DeactivateWorldItem(item);
+    if (item->entity) {
+        item->deactivate(CurrentGame().events);
     }
     CurrentLevelPopulation().world_items.erase(CurrentLevelPopulation().world_items.begin() +
                                                index);
@@ -686,25 +338,14 @@ unsigned char InteractWithWorldItem(int runtime_id)
     index = ItemIndex(runtime_id);
     item = ItemInfo(index);
     if (item->sector_id > -1) {
-        RemoveItemFromSector(item->sector_id, item);
+        CurrentGame().level.loaded().removeItemFromSector(item->sector_id, item);
     }
-    if (item->fActive) {
-        DeactivateWorldItem(item);
+    if (item->entity) {
+        item->deactivate(CurrentGame().events);
     }
     CurrentLevelPopulation().world_items.erase(CurrentLevelPopulation().world_items.begin() +
                                                index);
     return result;
-}
-
-/* Detach and release all world item groups. */
-void ReleaseItemLists()
-{
-    for (const auto& owned : CurrentLevelPopulation().world_items) {
-        auto* item = owned.get();
-        if (item->sector_id >= 0) RemoveItemFromSector(item->sector_id, item);
-        if (item->fActive) DeactivateWorldItem(item);
-    }
-    CurrentLevelPopulation().world_items.clear();
 }
 
 /* plsItemList index that last satisfied AnyWorldItemVisible. */
@@ -714,15 +355,13 @@ static bool IsWorldItemMarkerVisible(W8WorldItem* item, const glm::vec3& camera)
 {
     if (item->entity) {
         glm::vec3 position;
-        glm::vec3 eye;
         position = item->entity->GetLocation();
-        eye = cameraLocation();
         glm::vec3 delta = position - camera;
         if (glm::length(delta) < static_cast<float>(2500.0)) {
             auto bounds = item->entity->GetCachedLocalBounds();
             bounds.minimum += position;
             bounds.maximum += position;
-            return targetMarkerVisible(eye, bounds) != 0;
+            return item->entity->owner_world.targetMarkerVisible(bounds);
         }
     }
     return false;
@@ -758,101 +397,6 @@ bool AnyWorldItemVisible(void)
     return false;
 }
 
-/* Advance one falling world item (flag bit 1) toward the ground for this
-   frame. Clears the falling flag once it has landed or the settle misses. */
-bool AdvanceFallingWorldItem(W8WorldItem* item)
-{
-    glm::vec3 probe;
-    float ground;
-    float previous_y;
-    float dt;
-    int sector;
-
-    if (!ItemHasFlags(item, W8_WORLD_ITEM_FALLING)) {
-        return false;
-    }
-
-    previous_y = item->position.y;
-    probe = glm::vec3(item->position.x, previous_y + kWorldScale, item->position.z);
-    dt = GameTimeAccumulator().GetFrameDelta();
-    if (kCameraSnapEpsilon < item->vertical_velocity) {
-        probe.y = dt * item->vertical_velocity + probe.y;
-    }
-
-    const auto ground_probe = GetWorldSpatialIndex()->settleToGround(probe, 1, 250.0f);
-    probe = ground_probe.position;
-    ground = ground_probe.position.y;
-    if (!ground_probe.contact || fabs(ground - previous_y) < kCameraSnapEpsilon) {
-        item->flags &= ~W8_WORLD_ITEM_FALLING;
-        item->vertical_velocity = 0.0f;
-        return false;
-    }
-
-    sector = ground_probe.prop().value_or(-1);
-    if (sector != item->sector_id) {
-        if (item->sector_id >= 0) {
-            RemoveItemFromSector(item->sector_id, item);
-        }
-        if (sector >= 0) {
-            AddItemToSector(sector, item);
-        }
-        item->sector_id = sector;
-    }
-
-    if (previous_y <= ground) {
-        item->vertical_velocity = (ground - previous_y) / dt;
-        probe.y = ground;
-    } else {
-        item->vertical_velocity = dt * g_navigator_gravity * 0.5f + item->vertical_velocity;
-        probe.y = probe.y - dt * item->vertical_velocity;
-        if (probe.y < ground) {
-            probe.y = ground;
-        }
-    }
-
-    if (item->entity) {
-        item->entity->SetLocation(&probe);
-    }
-    item->position = probe;
-    return true;
-}
-
-/* Drop one item onto the ground below where it is. The search starts one world
-   unit up so an item already resting does not settle into the floor; landing
-   moves it between sectors and clears its saved-marker flag. */
-bool SettleWorldItem(W8WorldItem* item)
-{
-    glm::vec3 start;
-    int sector;
-
-    start = glm::vec3(item->position.x, item->position.y + kWorldScale, item->position.z);
-
-    item->flags &= ~W8_WORLD_ITEM_FALLING;
-    item->vertical_velocity = 0.0f;
-
-    const auto ground_probe = GetWorldSpatialIndex()->settleToGround(start, 1, 250.0f);
-    start = ground_probe.position;
-    if (!ground_probe.contact) {
-        return false;
-    }
-
-    sector = ground_probe.prop().value_or(-1);
-    if (sector != item->sector_id) {
-        if (item->sector_id >= 0) {
-            RemoveItemFromSector(item->sector_id, item);
-        }
-        if (sector >= 0) {
-            AddItemToSector(sector, item);
-        }
-        item->sector_id = sector;
-    }
-    if (item->entity) {
-        item->entity->SetLocation(&start);
-    }
-    item->position = start;
-    return true;
-}
-
 /* Rebuild every world item's carried instance from its own item id, which
    re-rolls whatever the record decides rather than keeping what was there. */
 void RebuildAllWorldItemInstances(void)
@@ -866,43 +410,26 @@ void RebuildAllWorldItemInstances(void)
     }
 }
 
-std::unique_ptr<W8WorldItem> CreateWorldItem(W8ItemInstance* item, const glm::vec3* position,
-                                             int entity_flags)
+std::unique_ptr<W8WorldItem> Game::createWorldItem(World& world, W8ItemInstance* item,
+                                                   const glm::vec3* position, int entity_flags)
 {
     auto result = std::make_unique<W8WorldItem>();
-    *(&result->item) = W8ItemInstance{.iItemNo = -1};
-    result->runtime_id = CurrentGame().status.next_world_item_id++;
+    result->item = W8ItemInstance{.iItemNo = -1};
+    result->runtime_id = status.next_world_item_id++;
     result->position = *position;
     result->sector_id = -1;
-    SettleWorldItem(result.get());
+    world.settleItem(result.get());
     result->entity_flags = entity_flags;
-    if (item) *(&result->item) = std::exchange(*(item), W8ItemInstance{.iItemNo = -1});
+    if (item) result->item = std::exchange(*item, W8ItemInstance{.iItemNo = -1});
     return result;
 }
 
-W8WorldItem* AddWorldItem(std::unique_ptr<W8WorldItem> item)
+std::unique_ptr<W8WorldItem> Game::spawnWorldItem(World& world, int item_id,
+                                                  const glm::vec3* position, int entity_flags)
 {
-    auto* result = item.get();
-    if (item) CurrentLevelPopulation().world_items.push_back(std::move(item));
-    return result;
-}
-
-std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, int entity_flags)
-{
-    W8ItemInstance local_item;
-    W8ItemInstance* item;
-    std::unique_ptr<W8WorldItem> result;
-
-    if (item_id == -1) {
-        item = 0;
-    } else {
-        local_item = MakeItem(Data(), CurrentGame().rng, item_id, false, false, false);
-        item = &local_item;
-    }
-
-    result = CreateWorldItem(item, position, entity_flags);
-    assert(result != 0);
-    return result;
+    if (item_id == -1) return createWorldItem(world, nullptr, position, entity_flags);
+    auto item = MakeItem(data, rng, item_id, false, false, false);
+    return createWorldItem(world, &item, position, entity_flags);
 }
 
 /* Monster loot drop, driven by the death switch in MonsterManager. Non-NPC
@@ -913,7 +440,7 @@ std::unique_ptr<W8WorldItem> SpawnItem(int item_id, const glm::vec3* position, i
    rolls item_count_dice items out of what remains; the NPC's gold field
    pays out directly. One drop is adopted into plsItemList at the death
    position; two or more are owned by a container spawned with
-   SpawnItem - 0x23c by default, or value when the caller names one. */
+   spawnWorldItem - 0x23c by default, or value when the caller names one. */
 void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
 {
     std::vector<std::unique_ptr<W8WorldItem>> items;
@@ -937,8 +464,9 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                     int rolls = RollDice(&entry->dice);
                     for (roll = 0; roll < rolls; ++roll) {
                         if (entry->type == 0) {
-                            item = SpawnItem(entry->item_id, &position,
-                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
+                            item = CurrentGame().spawnWorldItem(
+                                CurrentGame().level.loaded(), entry->item_id, &position,
+                                W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
                             if (item != 0) {
                                 items.push_back(std::move(item));
                             }
@@ -950,14 +478,15 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
             }
             gold = RollDice(&record->treasure.gold_dice);
         } else {
-            W8NpcState* npc = GetNpcStateForMonsterInfo(monster_info, true);
+            W8NpcState* npc = (monster_info)->boundNpc(true);
             if (npc == 0)
                 throw std::runtime_error(
                     fmt::format("NPC monster {} has no NPC state", monster_info->monster_species));
             for (index = 0; index < 40; ++index) {
                 if (npc->item_ids[index] != -1 && npc->item_weights[index] == 0) {
-                    item = SpawnItem(npc->item_ids[index], &position,
-                                     W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
+                    item = CurrentGame().spawnWorldItem(
+                        CurrentGame().level.loaded(), npc->item_ids[index], &position,
+                        W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
                     if (item != 0) {
                         items.push_back(std::move(item));
                     }
@@ -987,8 +516,9 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
                     if (npc->item_ids[pick] != -1 &&
                         static_cast<short>(CurrentGame().rng.below(total_weight)) <=
                             static_cast<short>(static_cast<signed char>(npc->item_weights[pick]))) {
-                        item = SpawnItem(npc->item_ids[pick], &position,
-                                         W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
+                        item = CurrentGame().spawnWorldItem(
+                            CurrentGame().level.loaded(), npc->item_ids[pick], &position,
+                            W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE);
                         if (item != 0) {
                             items.push_back(std::move(item));
                         }
@@ -1003,15 +533,17 @@ void DropMonsterLoot(W8MonsterInfo* monster_info, int value)
             AddPartyGold(CurrentGame(), gold, true);
         }
         if (items.size() == 1) {
-            auto* dropped = AddWorldItem(std::move(items[0]));
+            auto* dropped = CurrentGame().level.loaded().adoptItem(std::move(items[0]));
             dropped->position = position;
         } else if (items.size() > 1) {
             W8WorldItem* container;
             if (value == -1) {
-                container = AddWorldItem(SpawnItem(0x23c, &position, W8_ITEM_ENTITY_ROTATE));
+                container = CurrentGame().level.loaded().adoptItem(CurrentGame().spawnWorldItem(
+                    CurrentGame().level.loaded(), 0x23c, &position, W8_ITEM_ENTITY_ROTATE));
             } else {
-                container = AddWorldItem(
-                    SpawnItem(value, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                container = CurrentGame().level.loaded().adoptItem(
+                    CurrentGame().spawnWorldItem(CurrentGame().level.loaded(), value, &position,
+                                                 W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
             }
             container->contents = std::move(items);
         }

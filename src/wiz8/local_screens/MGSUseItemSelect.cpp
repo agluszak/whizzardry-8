@@ -51,12 +51,14 @@
 #include "wiz8/npc_interaction.h"
 #include "wiz8/pointer.h"
 #include "wiz8/render/frame.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/script_context.h"
@@ -404,7 +406,8 @@ bool W8UseItemView::IsFilteredOut(const W8ItemInstance* item) const
     if (item->iItemNo == -1) {
         return true;
     }
-    if (!CanCharacterActivateItem(&screen.game.party.characters[owner], item)) {
+    if (!CanCharacterActivateItem(CurrentGame().data, &screen.game.party.characters[owner], item,
+                                  CurrentGame().status.game_started)) {
         if (CanCastFromItem(&screen.game.party.characters[owner], item)) {
             return false;
         }
@@ -523,7 +526,8 @@ void W8UseItemView::SelectLine(int iTextLine)
     RedrawTextBox();
     target_type = GetSpellTargetType(GetItemSpell(item),
                                      ItemClassNormalizesTarget(&Data().items[item->iItemNo]));
-    ConfigureSpellTargetFilter(target_type, GetTargetNeededForItem(item, false), &draft);
+    ConfigureSpellTargetFilter(target_type, ItemTargetNeed(CurrentGame().data, item, false),
+                               &draft);
 }
 
 /* Show the item in the detail control: its catalog icon plus a quantity line -

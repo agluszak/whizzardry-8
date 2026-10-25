@@ -22,6 +22,5 @@ float MonsterDistanceToCamera(Monster& monster);
    scans in ItemManager.cpp. */
 float ItemDistanceToCamera(const WorldItemEntity& item);
 bool PointInsideBounds(const glm::vec3* point, const glm::vec3* minimum, const glm::vec3* maximum);
-bool projectsToCamera(const glm::vec3& position);
 
 #endif

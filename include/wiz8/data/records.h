@@ -207,10 +207,10 @@ struct W8SpellRuntimeRecord {
     unsigned char divinity_spell;
     unsigned char psionics_spell;
     float effect_radius;
-    /* Retail offset 0x126: a monster may cast the spell at all. MonsterOKToCastSpell reports
+    /* Retail offset 0x126: a monster may cast the spell at all. Game::prepareMonsterSpell reports
        a spell without it by name and asserts. */
     unsigned char monster_castable;
-    /* Retail offset 0x127: radius added per power level; PopulateSpellTargetMarkers scales
+    /* Retail offset 0x127: radius added per power level; spell target resolution scales
        the pair as (radius_per_level * power + effect_radius) * 500. */
     float radius_per_level;
     /* Retail offset 0x12b: the power class the spell-casting view copies into
@@ -289,7 +289,7 @@ struct W8NpcCharacterTemplate {
 /* One Data\Databases\NPC.DBS record. */
 struct W8NpcDatabaseRecord {
     unsigned short version;
-    /* Retail offset 0x002: trade-pool stock count; CreateNpcRuntimeNode copies it into the
+    /* Retail offset 0x002: trade-pool stock count; Game::createNpcRuntimeNode copies it into the
        runtime state's trade_pool. */
     short trade_pool;
     /* Retail offset 0x004: the wide source name the level-entry rebinding prefixes with an
@@ -309,7 +309,7 @@ struct W8NpcDatabaseRecord {
     unsigned char has_group;
     /* Retail offset 0x058: the NPC's kind. Kind twenty refuses to trade. */
     int kind;
-    /* Retail offset 0x05c: the disposition byte CreateNpcRuntimeNode starts the state with. */
+    /* Retail offset 0x05c: the disposition byte Game::createNpcRuntimeNode starts the state with. */
     unsigned char disposition;
     /* Retail offset 0x05d/0x05e: the signed scales the charm and talk interactions fold into
        the disposition shift; the sub-one path negates the /5 quotient. */
@@ -335,7 +335,7 @@ struct W8NpcDatabaseRecord {
        invited. */
     unsigned char min_party_level;
     /* Retail offset 0x070/0x074: the level this NPC restores its binding at and the
-       FindEntityByName key the restore moves its monster to - the default
+       named world marker key the restore moves its monster to - the default
        pair copied into the runtime state's pending restore. */
     signed char restore_level;
     unsigned char unknown_071[3];
@@ -443,7 +443,7 @@ struct W8MonsterRecord {
        table a character indexes by sex. */
     unsigned char name_group;
     /* Retail offset 0x0cd: the NPC record index this monster is bound to, fed to
-       GetNpcStateByKind and compared against W8NpcState::name_style; 0xfa
+       Story::npcOfKind and compared against W8NpcState::name_style; 0xfa
        marks a record with no bound NPC. */
     unsigned char npc_kind;
     /* Retail offset 0x0ce: signed stamina regeneration rate (Monster Editor: ST Regen). */

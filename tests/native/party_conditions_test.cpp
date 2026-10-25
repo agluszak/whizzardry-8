@@ -1,7 +1,10 @@
+#include "wiz8/combat/combat.h"
+#include "wiz8/rules/random.h"
 // Conditions, death and settlement on an empty level, without screens or retail data.
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -9,14 +12,27 @@
 
 #include "scoped_combat.h"
 #include "scoped_game.h"
+#include "wiz8/character_event_queue.h"
+#include "wiz8/character_skills.h"
+#include "wiz8/data/fact_ids.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
+#include "wiz8/data/skills.h"
 #include "wiz8/game.h"
+#include "wiz8/inventory.h"
+#include "wiz8/layouts/npc_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
+#include "wiz8/local_code/MonsterManager.h"
+#include "wiz8/local_code/SpellEffect.h"
+#include "wiz8/portrait_animation.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
+#include "wiz8/rules/load_category.h"
 #include "wiz8/rules/party_conditions.h"
+#include "wiz8/rules/party_formation.h"
+#include "wiz8/rules/targeting.h"
 #include "wiz8/world/world.h"
 
 namespace {
@@ -66,12 +82,15 @@ TEST_CASE_METHOD(PartyFixture, "A ceiling that exhausts hit points kills the mem
 {
     member().uiCondition[W8_CONDITION_POISONED] = 30;
     member().condition_argument = 4;
+    game.monster_manager_entries[0].portrait.blink_closing = true;
     // The pool was under a higher ceiling than the member's state now supports.
     member().uiHPMax += member().hp_current;
 
     SettleActiveParty(game);
     REQUIRE(member().uiCondition[W8_CONDITION_DEAD] == W8_CONDITION_INDEFINITE);
     REQUIRE(member().highest_condition == W8_CONDITION_DEAD);
+    REQUIRE(game.monster_manager_entries[0].portrait.target_pose == 2);
+    REQUIRE_FALSE(game.monster_manager_entries[0].portrait.blink_closing);
     REQUIRE(member().uiCondition[W8_CONDITION_POISONED] == 0);
     REQUIRE((member().hp_current == 0 && member().stamina == 0 && member().death_count == 1));
     REQUIRE(deaths() == 1);
@@ -81,6 +100,40 @@ TEST_CASE_METHOD(PartyFixture, "A ceiling that exhausts hit points kills the mem
         game, 0, {.condition = W8_CONDITION_DEAD, .duration = W8_CONDITION_INDEFINITE}));
     SettleActiveParty(game);
     REQUIRE((deaths() == 1 && member().death_count == 1));
+}
+
+TEST_CASE_METHOD(PartyFixture, "Death observers see completed combat and condition consequences",
+                 "[conditions][events]")
+{
+    ScopedCombat fight{true};
+    data.npcs.emplace_back();
+    auto npc = std::make_shared<W8NpcState>();
+    npc->record = &data.npcs.back();
+    game.story.npcs.push_back(npc);
+    game.party.members[0]->npc_index = 0;
+    game.party.rows[0].executing.kind = W8_ACTION_ATTACK;
+    game.combat->characters[0].phase = 2;
+    member().uiCondition[W8_CONDITION_POISONED] = 30;
+    member().condition_argument = 4;
+    unsigned int notifications = 0;
+    unsigned int death_notifications = 0;
+    game.events.observe([&](const Event& event) {
+        ++notifications;
+        if (std::holds_alternative<CharacterDied>(event)) ++death_notifications;
+        REQUIRE(npc->spawned == 1);
+        REQUIRE(game.combat->pending_death_count == 1);
+        REQUIRE(game.combat->characters[0].dead);
+        REQUIRE(game.combat->characters[0].phase == 0);
+        REQUIRE(game.party.rows[0].executing.kind == W8_ACTION_NONE);
+        REQUIRE(member().hp_current == 0);
+        REQUIRE(member().stamina == 0);
+        REQUIRE(member().uiCondition[W8_CONDITION_POISONED] == 0);
+    });
+    REQUIRE(InflictCondition(
+        game, 0, {.condition = W8_CONDITION_DEAD, .duration = W8_CONDITION_INDEFINITE}));
+    REQUIRE(notifications > 1);
+    REQUIRE(death_notifications == 1);
+    REQUIRE(game.events.pending().empty());
 }
 
 TEST_CASE_METHOD(PartyFixture, "Cheating death leaves the member unconscious instead",
@@ -128,4 +181,292 @@ TEST_CASE_METHOD(PartyFixture, "A longer condition is not shortened, and aging l
     AgeCondition(game, 0, W8_CONDITION_ASLEEP, 5);
     REQUIRE(member().uiCondition[W8_CONDITION_ASLEEP] == 0);
     REQUIRE(member().highest_condition == W8_CONDITION_NONE);
+}
+
+TEST_CASE_METHOD(PartyFixture, "Absorbed damage publishes its notice after spending the shield",
+                 "[conditions][damage][events]")
+{
+    auto& shield = member().enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL];
+    shield.turns = 1;
+    unsigned int capacity = 20;
+    SECTION("Shield retains a remainder") {}
+    SECTION("Exact absorption leaves the enchantment active")
+    {
+        capacity = 5;
+    }
+    shield.magnitude = capacity;
+    const auto hp = member().hp_current;
+    unsigned int notices = 0;
+    game.events.observe([&](const Event& event) {
+        REQUIRE(std::holds_alternative<CharacterNotice>(event));
+        REQUIRE(shield.magnitude == capacity - 5);
+        REQUIRE(shield.turns == 1);
+        REQUIRE(member().hp_current == hp);
+        ++notices;
+    });
+    REQUIRE(game.damageCharacter(0, 5) == 0);
+    REQUIRE(notices == 1);
+}
+
+TEST_CASE_METHOD(PartyFixture,
+                 "Lethal damage completes without a screen and publishes settled outcomes",
+                 "[conditions][damage][events]")
+{
+    ScopedCombat fight{true};
+    member().hp_current = 5;
+    member().stamina = member().uiStaminaMax = 500;
+    unsigned int hits = 0;
+    unsigned int deaths = 0;
+    game.events.observe([&](const Event& event) {
+        REQUIRE(member().hp_current == 0);
+        REQUIRE(member().stamina == 0);
+        REQUIRE(game.combat->characters[0].dead);
+        REQUIRE(game.combat->pending_death_count == 1);
+        if (const auto* hit = std::get_if<CharacterDamaged>(&event)) {
+            ++hits;
+            REQUIRE(hit->amount == 5);
+            REQUIRE(hit->fatal);
+        }
+        if (std::holds_alternative<CharacterDied>(event)) ++deaths;
+    });
+    W8SpellEffectResult report;
+    REQUIRE(game.damageCharacter(0, 99, {}, &report) == 5);
+    REQUIRE(report.amount == 99);
+    REQUIRE(report.count == 1);
+    REQUIRE(report.reports.size() == 1);
+    REQUIRE(hits == 1);
+    REQUIRE(deaths == 1);
+}
+
+TEST_CASE_METHOD(PartyFixture, "Candidate conditions change only its own formation",
+                 "[conditions][formation]")
+{
+    Game candidate{data};
+    candidate.level.replacePrimary(std::make_unique<World>());
+    candidate.party.members[0].emplace();
+    candidate.party.characters[0] = member();
+    candidate.party.formation.placeCharacter(0);
+    const auto outgoing = game.party.formation;
+    const auto outgoing_events = game.events.pending().size();
+
+    REQUIRE(InflictCondition(candidate, 0, {.condition = W8_CONDITION_ASLEEP, .duration = 5}));
+    REQUIRE(candidate.party.formation.rowOf(0) == 0);
+    REQUIRE(InflictCondition(
+        candidate, 0, {.condition = W8_CONDITION_DEAD, .duration = W8_CONDITION_INDEFINITE}));
+    REQUIRE_FALSE(candidate.party.formation.cellOf(0));
+    REQUIRE(candidate.party.formation.positions[0].revival_row == 0);
+    REQUIRE(game.party.formation == outgoing);
+    REQUIRE(member().highest_condition == W8_CONDITION_NONE);
+    REQUIRE(game.events.pending().size() == outgoing_events);
+}
+
+TEST_CASE("Stamina spending owns scaling, clamping and the fatigue band", "[conditions][fatigue]")
+{
+    W8Character character{};
+    character.hp_current = 1;
+    character.stamina = character.uiStaminaMax = 100;
+    character.load_category = W8_LOAD_HEAVY;
+    character.enchantments[W8_ENCHANTMENT_HASTE].turns = 1;
+    character.uiCondition[W8_CONDITION_SLOWED] = 1;
+    // Slowing overrides haste: heavy load's 100% penalty becomes 75%.
+    REQUIRE_FALSE(character.spendStamina(20, true));
+    REQUIRE(character.stamina == 65);
+    REQUIRE(character.spendStamina(100, false));
+    REQUIRE(character.stamina == 0);
+    REQUIRE(character.fatigue_band == 4);
+    REQUIRE_FALSE(character.spendStamina(10, true));
+}
+
+TEST_CASE_METHOD(PartyFixture,
+                 "Detached lethal damage retires only its fight and repairs its peers",
+                 "[conditions][damage][targeting]")
+{
+    ScopedCombat outgoing_fight{true};
+    game.combat->schedule(PartyActor{0});
+    game.party.rows[2].committed = {W8_ACTION_CAST_SPELL, 1, W8CombatSlot::character(0)};
+    const auto outgoing_target = game.party.rows[2].committed.target;
+    const auto outgoing_hp = member().hp_current;
+    const auto outgoing_events = game.events.pending().size();
+    Game candidate{data};
+    candidate.level.replacePrimary(std::make_unique<World>());
+    candidate.combat.emplace();
+    candidate.combat->schedule(PartyActor{0});
+    for (unsigned int slot : {0u, 2u}) {
+        candidate.party.members[slot].emplace();
+        candidate.party.characters[slot] = member();
+        candidate.party.formation.placeCharacter(slot);
+    }
+    candidate.party.characters[0].hp_current = 5;
+    candidate.party.characters[0].stamina = candidate.party.characters[0].uiStaminaMax = 500;
+    candidate.party.rows[2].committed = {W8_ACTION_PROTECT, -1, W8CombatSlot::character(0)};
+    candidate.party.rows[2].executing.target = W8CombatSlot::character(0);
+    std::vector<Rng::Draw> outgoing_draws;
+    game.rng.trace(&outgoing_draws);
+    unsigned int notifications = 0;
+    candidate.events.observe([&](const Event&) {
+        ++notifications;
+        REQUIRE(candidate.party.characters[0].hp_current == 0);
+        REQUIRE(candidate.combat->pending_death_count == 1);
+        REQUIRE_FALSE(candidate.combat->holdsTurn(PartyActor{0}));
+        REQUIRE(candidate.party.rows[2].committed.kind == W8_ACTION_ATTACK);
+        REQUIRE(candidate.party.rows[2].committed.target.iType == W8_TARGET_KIND_NONE);
+        REQUIRE(candidate.party.rows[2].executing.target.iType == W8_TARGET_KIND_NONE);
+        REQUIRE(game.combat->holdsTurn(PartyActor{0}));
+        REQUIRE(game.combat->pending_death_count == 0);
+        REQUIRE(member().hp_current == outgoing_hp);
+        REQUIRE(game.party.rows[2].committed.target == outgoing_target);
+    });
+    REQUIRE(candidate.damageCharacter(0, 99) == 5);
+    REQUIRE(notifications > 0);
+    REQUIRE(game.events.pending().size() == outgoing_events);
+    REQUIRE(outgoing_draws.empty());
+    game.rng.trace(nullptr);
+}
+
+TEST_CASE_METHOD(PartyFixture, "Creation settlement keeps acquisition reactions suppressed",
+                 "[conditions][inventory]")
+{
+    data.items.resize(1); // No profession can use the default record.
+    member().EquippedItem[0] = {.iItemNo = 0};
+    for (auto& item : member().backpack) item = {.iItemNo = 0};
+    std::vector<Rng::Draw> draws;
+    game.rng.trace(&draws);
+    RefreshConditionModifiers(game, 0, ItemReactions::Suppressed);
+    REQUIRE(member().EquippedItem[0].iItemNo == -1);
+    REQUIRE(game.inventory.pool().size() == 1);
+    REQUIRE(draws.empty());
+    game.rng.trace(nullptr);
+}
+
+TEST_CASE_METHOD(PartyFixture, "Damage preemption publishes speech completion after settlement",
+                 "[conditions][damage][speech]")
+{
+    data.strings.resize(0x800);
+    data.strings[0x771] = "item complete";
+    member().stamina = member().uiStaminaMax = 500;
+    const auto previous_hp = member().hp_current;
+    auto active = std::make_unique<W8CharacterEvent>(game.speech, &member(), 23, 0, 127);
+    auto& portrait = game.monster_manager_entries[0];
+    portrait.active_character_event = active.get();
+    portrait.portrait_event_active = true;
+    portrait.pending_event_type = 23;
+    game.speech.active_events.push_back(std::move(active));
+    unsigned int item_completions = 0;
+    unsigned int portrait_completions = 0;
+    game.events.observe([&](const Event& event) {
+        REQUIRE(member().hp_current == previous_hp - 1);
+        if (const auto* notice = std::get_if<CharacterNotice>(&event);
+            notice && notice->text == "item complete")
+            ++item_completions;
+        if (const auto* speech = std::get_if<PortraitSpeechChanged>(&event);
+            speech && !speech->active) {
+            REQUIRE(speech->event_type == 23);
+            ++portrait_completions;
+        }
+    });
+    REQUIRE(game.damageCharacter(0, 1) == 1);
+    REQUIRE(item_completions == 1);
+    REQUIRE(portrait_completions == 1);
+    game.events.observe({});
+}
+
+TEST_CASE_METHOD(PartyFixture, "Acquisition diagnostics wait for the enclosing death settlement",
+                 "[conditions][inventory][events]")
+{
+    data.items.resize(0x245);
+    data.facts.resize(W8_FACT_SLOT_COUNT);
+    game.status.log_fact_checks = true;
+    member().EquippedItem[0] = {.iItemNo = 0x244};
+    for (auto& item : member().backpack) item = {.iItemNo = 0};
+    member().uiHPMax += member().hp_current;
+    unsigned int diagnostics = 0;
+    game.events.observe([&](const Event& event) {
+        REQUIRE(member().hp_current == 0);
+        REQUIRE(member().highest_condition == W8_CONDITION_DEAD);
+        REQUIRE(game.story.facts[W8_FACT_CHAOS_POSSESS] == 1);
+        REQUIRE(game.inventory.pool().size() == 1);
+        if (std::holds_alternative<TextNotice>(event)) ++diagnostics;
+    });
+    SettleActiveParty(game);
+    REQUIRE(diagnostics > 0);
+    game.events.observe({});
+}
+
+TEST_CASE_METHOD(PartyFixture, "A monster releases its own party dependents before publishing",
+                 "[conditions][lifetime]")
+{
+    Game candidate{data};
+    candidate.level.replacePrimary(std::make_unique<World>(7));
+    candidate.party.members[0].emplace();
+    auto& character = candidate.party.characters[0] = member();
+    auto& summoned = character.conditions[W8_DEPENDENCE_SUMMON];
+    summoned.level_acquired = 7;
+    summoned.source_monster = 42;
+    summoned.active = false; // Matching records count even when already inactive.
+    auto& swallowed = character.conditions[W8_DEPENDENCE_SWALLOWED];
+    swallowed.level_acquired = 7;
+    swallowed.source_monster = 42;
+    swallowed.active = true;
+    swallowed.unknown_09[0] = 77;
+    character.uiCondition[W8_CONDITION_MISSING] = 1;
+    character.highest_condition = W8_CONDITION_MISSING;
+    auto& roster = candidate.level.loaded().population->monster_roster;
+    auto source = std::make_unique<W8MonsterInfo>();
+    source->location_id = 42;
+    source->condition_binding_mask = (1 << W8_DEPENDENCE_SUMMON) | (1 << W8_DEPENDENCE_SWALLOWED);
+    auto& monster = *roster.add(std::move(source), false);
+    for (int id : {9, 10}) {
+        auto bound = std::make_unique<W8MonsterInfo>();
+        bound->location_id = id;
+        bound->elemental_summon = 42;
+        roster.add(std::move(bound), false);
+    }
+    member().conditions[W8_DEPENDENCE_SWALLOWED] = swallowed;
+    std::vector<Rng::Draw> outgoing_draws;
+    game.rng.trace(&outgoing_draws);
+    unsigned int notices = 0;
+    candidate.events.observe([&](const Event&) {
+        ++notices;
+        REQUIRE(summoned.source_monster == 0);
+        REQUIRE_FALSE(swallowed.active);
+        REQUIRE(character.uiCondition[W8_CONDITION_MISSING] == 0);
+    });
+    candidate.releaseMonsterDependents(monster);
+    REQUIRE(notices > 0);
+    REQUIRE(swallowed.unknown_09[0] == 77);
+    REQUIRE(candidate.level.loaded().population->findMonster(9)->elemental_summon == 42);
+    REQUIRE(member().conditions[W8_DEPENDENCE_SWALLOWED].active);
+    REQUIRE(outgoing_draws.empty());
+    // With no matching character binding, only the first live monster link is released.
+    candidate.releaseMonsterDependents(monster);
+    REQUIRE(candidate.level.loaded().population->findMonster(9)->elemental_summon == -1);
+    REQUIRE(candidate.level.loaded().population->findMonster(10)->elemental_summon == 42);
+}
+
+TEST_CASE_METHOD(PartyFixture, "Practicing a skill identifies the member in its supplied party",
+                 "[conditions][skills][lifetime]")
+{
+    Game candidate{data};
+    candidate.party.members[3].emplace();
+    auto& character = candidate.party.characters[3] = member();
+    auto& sword = character.skills[W8_SKILL_SWORD];
+    sword.active = true;
+    sword.base_level = 100;
+    sword.points = 0;
+    sword.practice_count = 7;
+    std::vector<Rng::Draw> candidate_draws, outgoing_draws;
+    candidate.rng.trace(&candidate_draws);
+    game.rng.trace(&outgoing_draws);
+    PracticeCharacterSkill(candidate, &character, W8_SKILL_SWORD, 1, true);
+    REQUIRE(sword.points == 1);
+    REQUIRE(sword.practice_count == 0);
+    REQUIRE(candidate_draws.size() == 1);
+    REQUIRE(candidate_draws.front().range == 100);
+    REQUIRE(outgoing_draws.empty());
+    REQUIRE(game.events.pending().empty());
+    REQUIRE(std::ranges::count_if(candidate.events.pending(), [](const Event& event) {
+                const auto* improvement = std::get_if<SkillImproved>(&event);
+                return improvement && improvement->party_slot == 3 &&
+                       improvement->skill == W8_SKILL_SWORD;
+            }) == 1);
 }

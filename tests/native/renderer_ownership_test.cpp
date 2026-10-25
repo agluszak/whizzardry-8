@@ -657,7 +657,8 @@ TEST_CASE("A scene refreshes scoped material bindings when its render context is
     positions[0] = {-1, -1, 5};
     positions[1] = {0, 1, 5};
     positions[2] = {1, -1, 5};
-    ParticleSystem particle(&scene, 1);
+    ParticleSystem particle(nullptr, 1);
+    scene.attach(particle);
     particle.particles[0].active = true;
     particle.particles[0].position = {0, 0, 5};
     auto original = std::make_unique<render::RenderContext>(VkExtent2D{640, 480});

@@ -5,12 +5,14 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/prop.h"
 #include "wiz8/entities/trigger.h"
-#include "wiz8/fact_state.h"
+#include "wiz8/game.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/NPCManager.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/script_context.h"
+#include "wiz8/story.h"
+#include "wiz8/world/level_session.h"
 #include "wiz8/world/world.h"
 
 /* Level Specific Code\SavantTower.cpp (level 0x24, the Savant's tower on
@@ -28,8 +30,8 @@ namespace {
 bool Shape(Trigger* pTrigger)
 {
     if (GetLocationVarIDByName("DeactivatingBomb") == -1) {
-        CreateLocationVar("DeactivatingBomb", 1);
-        QueueNpcScriptNotice(GetNpcStateByKind(0x46), 0, 0, false, 0);
+        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "DeactivatingBomb", 1);
+        QueueNpcScriptNotice(CurrentGame().story.npcOfKind(0x46), 0, 0, false, 0);
     }
     return true;
 }
@@ -49,7 +51,7 @@ void SavantTowerScript::enter()
 {
     Prop* prop = FindPropByName(&world(), "ButtonBlocker");
     if (prop != 0) {
-        if (GetFact(W8_FACT_DS_BOMB_DEACTIVATED) != 0) {
+        if (ctx.game.testFact(W8_FACT_DS_BOMB_DEACTIVATED) != 0) {
             prop->SetActivationState(true);
         } else {
             prop->SetActivationState(false);
@@ -71,8 +73,8 @@ bool SavantTowerScript::buttonBlocker(Trigger* pTrigger)
     if (blocker != 0) {
         blocker->SetActivationState(true);
     }
-    QueueNpcScriptNotice(GetNpcStateByKind(0x46), 0, 1, false, 0);
-    SetFact(W8_FACT_DS_BOMB_DEACTIVATED, 1, false);
+    QueueNpcScriptNotice(CurrentGame().story.npcOfKind(0x46), 0, 1, false, 0);
+    ctx.game.setFact(W8_FACT_DS_BOMB_DEACTIVATED, 1);
     return true;
 }
 

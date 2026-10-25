@@ -21,12 +21,10 @@
 #include "wiz8/data/attack_modes.h"
 #include "wiz8/data/dice.h"
 #include "wiz8/data/records.h"
-#include "wiz8/data/skills.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
-#include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
@@ -41,17 +39,19 @@
 #include "wiz8/local_code/Targeting.h"
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_code/character_events.h"
-#include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_cycles.h"
+#include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
 #include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/item_instance.h"
+#include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
+#include "wiz8/rules/random.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_paths.h"
@@ -60,98 +60,6 @@
    embed. The party sweeps in here all share one shape: walk the eight party
    slots, skip the empty ones, and hand each occupied slot to a per-character
    worker. */
-
-unsigned int ApplyDamageToCharacter(int party_slot, unsigned int amount, bool quiet, bool announce,
-                                    bool short_notice, W8SpellEffectResult* result_stats,
-                                    bool detailed)
-{
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-    unsigned int absorbed;
-    unsigned int applied;
-
-    assert(CurrentGame().party.members[party_slot].has_value());
-    if (character->hp_current == 0) {
-        return 0;
-    }
-    if (CurrentGame().status.world_suspended) {
-        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x253], amount));
-        return 0;
-    }
-
-    if (character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].turns != 0) {
-        absorbed = character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude;
-        if (amount <= absorbed) {
-            PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x193 - (quiet)], amount));
-            character->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].magnitude =
-                static_cast<unsigned short>(absorbed - amount);
-            if (result_stats != 0) {
-                ++result_stats->count;
-            }
-            return 0;
-        }
-
-        PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x193 - (quiet)], absorbed));
-        amount -= absorbed;
-        Disenchant(CurrentGame(), party_slot, W8_ENCHANTMENT_GUARDIAN_ANGEL);
-        PostCharacterNotice(party_slot, Data().strings[0x194]);
-    }
-
-    FatigueCharacter(party_slot, (amount * 2) / 3, false, result_stats);
-    if (result_stats != 0) {
-        result_stats->amount += amount;
-        ++result_stats->count;
-    }
-
-    if (announce) {
-        if (detailed) {
-            PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x268], amount));
-        } else if (short_notice) {
-            ShowNotice(W8_FONT_PALETTE_RUST, fmt::sprintf(Data().strings[0x254], amount));
-        } else {
-            PostCharacterNotice(party_slot, fmt::sprintf(Data().strings[0x255], amount,
-                                                         quiet ? Data().strings[0x257] : ""));
-        }
-    }
-
-    applied = character->hp_current;
-    if (applied <= amount) {
-        if (CharacterHasTrait(character, W8_TRAIT_CHEAT_DEATH) &&
-            character->uiCondition[W8_CONDITION_UNCONSCIOUS] < 7) {
-            ReviveByCheatingDeath(CurrentGame(), party_slot);
-            RecordCharacterDamage(party_slot, amount);
-            return applied;
-        }
-        if (applied < amount) {
-            amount = applied;
-        }
-    }
-
-    character->hp_current = applied - amount;
-    RecordCharacterDamage(party_slot, amount);
-    if (character->hp_current != 0) {
-        if (!CurrentGame().surprise_possible) {
-            QueueDamageReactionEvents(character);
-        }
-    } else {
-        if (result_stats != 0) {
-            auto report = std::make_unique<W8SpellDamageReport>();
-            report->kind = W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH;
-            report->value = party_slot;
-            result_stats->reports.push_back(std::move(report));
-        }
-        InflictCondition(CurrentGame(), party_slot,
-                         {.condition = W8_CONDITION_DEAD,
-                          .duration = W8_CONDITION_INDEFINITE,
-                          .announce = result_stats == 0});
-    }
-
-    if (character->uiCondition[W8_CONDITION_ASLEEP] != 0 && !quiet &&
-        CurrentGame().rng.below(100) <
-            (character->attributes[W8_ATTRIBUTE_SENSES].effective >> 1) + 0x32) {
-        LiftCondition(CurrentGame(), party_slot, W8_CONDITION_ASLEEP, true);
-    }
-    return amount;
-}
 
 /* The eligibility window the party sweeps use, the same one W8Party::randomSlot
    and AnyPartyMemberCanUseItem apply: highest_condition below death. */
@@ -169,8 +77,9 @@ void ApplyRolledHealthChangeToParty(const W8Dice* dice, W8SpellEffectResult* res
     for (party_slot = 0; party_slot < 8; ++party_slot) {
         if (CurrentGame().party.members[party_slot].has_value() &&
             CurrentGame().party.characters[party_slot].highest_condition < W8_CONDITION_DEAD) {
-            ApplyDamageToCharacter(party_slot, RollDice(dice), false, announce, false, result,
-                                   false);
+            CurrentGame().damageCharacter(
+                party_slot, RollDice(dice),
+                {.notice = announce ? DamageNotice::Standard : DamageNotice::None}, result);
         }
     }
 }
@@ -334,21 +243,22 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
     }
     if (amount != 0) {
         if (CurrentGame().combat.has_value() || monster_info->party_threat.visible_to_player) {
-            PointCameraAtMonster(monster_info, false, true);
+            CurrentGame().pointCameraAtMonster(*monster_info, false, true);
             category = 9;
             if (TargetSourceIsCharacter(source, 0) && source->iChar != -1) {
                 category = 8;
             }
             if (in_combat != 0) {
                 if (c) {
-                    ShowNotice(category, fmt::format("{} {}", GetMonsterName(monster_info, 0, 0),
-                                                     Data().strings[0x268]));
+                    ShowNotice(category,
+                               fmt::format("{} {}", CurrentGame().monsterName(*monster_info),
+                                           Data().strings[0x268]));
                 } else if (a != 0) {
                     ShowNotice(category, fmt::sprintf(Data().strings[0x254], amount));
                 } else {
                     ShowNotice(category, fmt::sprintf(Data().strings[0x256],
-                                                      GetMonsterName(monster_info, 0, 0), amount,
-                                                      quiet ? g_poison_suffix : ""));
+                                                      CurrentGame().monsterName(*monster_info),
+                                                      amount, quiet ? g_poison_suffix : ""));
                 }
             }
         }
@@ -362,17 +272,17 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo* monster_info, unsigned int amou
         applied = monster_info->hp_current;
         if (amount < applied) {
             monster_info->hp_current = applied - amount;
-            FatigueMonster(monster_info, (amount * 2) / 3, result_stats);
+            CurrentGame().fatigueMonster(monster_info, (amount * 2) / 3, result_stats);
             MonsterReactsToBeingStruck(monster_info, source, quiet);
         } else {
             monster_info->hp_current = 0;
             if (result_stats != 0) {
                 auto death_report = std::make_unique<W8SpellDamageReport>();
                 death_report->kind = W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH;
-                death_report->text = GetMonsterName(monster_info, 0, 0);
+                death_report->text = CurrentGame().monsterName(*monster_info);
                 result_stats->reports.push_back(std::move(death_report));
             }
-            MonsterStartsDying(monster_info, result_stats == 0);
+            CurrentGame().startMonsterDeath(monster_info, result_stats == 0);
         }
         ClearHighlightIfItIs(&monster_info->location_id);
         UpdateMonsterDamageAppearance(monster_info);
@@ -402,12 +312,13 @@ void HealMonster(W8MonsterInfo* monster_info, unsigned int amount, bool announce
 
     if (announce) {
         if (monster_info->hp_current == static_cast<unsigned int>(monster_info->uiHPMax)) {
-            ShowNotice(W8_FONT_PALETTE_RUST,
-                       fmt::sprintf(Data().strings[0x259], GetMonsterName(monster_info, 0, 0)));
-        } else {
             ShowNotice(
                 W8_FONT_PALETTE_RUST,
-                fmt::sprintf(Data().strings[0x25b], GetMonsterName(monster_info, 0, 0), amount));
+                fmt::sprintf(Data().strings[0x259], CurrentGame().monsterName(*monster_info)));
+        } else {
+            ShowNotice(W8_FONT_PALETTE_RUST,
+                       fmt::sprintf(Data().strings[0x25b], CurrentGame().monsterName(*monster_info),
+                                    amount));
         }
     }
 }
@@ -415,29 +326,24 @@ void HealMonster(W8MonsterInfo* monster_info, unsigned int amount, bool announce
 /* What one monster action costs in fatigue, before it is spent. Four of the
    ten actions are free; the plain attack costs markedly more when its detail
    is three. A monster that tires twice as fast pays double. */
-int MonsterActionFatigueCost(const W8MonsterInfo* monster_info)
+int MonsterActionFatigueCost(Rng& rng, MonsterAction action, bool diseased)
 {
     int cost = 0;
-
-    switch (monster_info->action_kind) {
+    switch (action.kind) {
     case W8_MONSTER_ACTION_ADVANCE:
     case W8_MONSTER_ACTION_BACK_OFF:
-        cost = CurrentGame().rng.below(5) + 5;
+        cost = rng.below(5) + 5;
         break;
     case W8_MONSTER_ACTION_APPROACH:
     case W8_MONSTER_ACTION_RETURN_TO_START:
-        cost = CurrentGame().rng.below(3) + 3;
+        cost = rng.below(3) + 3;
         break;
     case W8_MONSTER_ACTION_WAIT:
     case W8_MONSTER_ACTION_CONTROLLED_MOVE:
-        cost = CurrentGame().rng.below(2) + 1;
+        cost = rng.below(2) + 1;
         break;
     case W8_MONSTER_ACTION_ATTACK:
-        if (monster_info->action_detail == 3) {
-            cost = CurrentGame().rng.below(8) + 5;
-        } else {
-            cost = CurrentGame().rng.below(3) + 2;
-        }
+        cost = action.detail == 3 ? rng.below(8) + 5 : rng.below(3) + 2;
         break;
     case W8_MONSTER_ACTION_NONE:
     case W8_MONSTER_ACTION_SPELL:
@@ -445,11 +351,7 @@ int MonsterActionFatigueCost(const W8MonsterInfo* monster_info)
     case W8_MONSTER_ACTION_PROTECT:
         break;
     }
-
-    if (monster_info->uiCondition[W8_CONDITION_DISEASED] == 0) {
-        return cost;
-    }
-    return cost * 2;
+    return diseased ? cost * 2 : cost;
 }
 
 /* How much stamina shakes exhaustion off again. */
@@ -662,7 +564,7 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
     assert(CurrentGame().party.members[party_slot].has_value());
 
     if (character->uiHPMax != 0 && character->hp_current != 0) {
-        FatigueCharacter(party_slot, (damage * 2) / 3, false, 0);
+        CurrentGame().fatigueCharacter(party_slot, (damage * 2) / 3, false, 0);
         if (announce) {
             ShowNotice(W8_FONT_PALETTE_WHITE, fmt::sprintf(Data().strings[0x1c4], damage));
         }
@@ -675,7 +577,7 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
                               .announce = false});
         }
         if (character->hp_current != 0) {
-            QueueDamageReactionEvents(character);
+            CurrentGame().speech.QueueDamageReactionEvents(character);
         }
     }
 }
@@ -683,8 +585,8 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce)
 /* Tire one monster. Running its pool down to nothing puts it under the
    exhausted condition indefinitely, and tells whoever asked for the fatigue
    that it landed. */
-void FatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
-                    W8SpellEffectResult* report_to)
+void Game::fatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
+                          W8SpellEffectResult* report_to)
 {
     W8TargetSource target_block;
 
@@ -692,7 +594,6 @@ void FatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
         return;
     }
     if (amount != 0) {
-        GetMonsterDataForInfo(monster_info);
         if (amount < static_cast<unsigned int>(monster_info->stamina)) {
             monster_info->stamina -= amount;
         } else {
@@ -705,7 +606,7 @@ void FatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
     if (monster_info->stamina == 0 &&
         monster_info->uiCondition[W8_CONDITION_UNCONSCIOUS] < W8_CONDITION_INDEFINITE) {
         ResetTargetSource(&target_block);
-        SetMonsterCondition(monster_info->location_id, W8_CONDITION_UNCONSCIOUS,
+        setMonsterCondition(monster_info->location_id, W8_CONDITION_UNCONSCIOUS,
                             W8_CONDITION_INDEFINITE, 0, &target_block, report_to == 0);
         if (report_to != 0) {
             ++report_to->condition_counts[W8_CONDITION_UNCONSCIOUS];
@@ -744,12 +645,13 @@ void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announc
     }
     if (announce) {
         if (static_cast<unsigned int>(monster_info->stamina) == stamina_max) {
-            ShowNotice(W8_FONT_PALETTE_RUST,
-                       fmt::sprintf(Data().strings[0x25d], GetMonsterName(monster_info, 0, 0)));
-        } else {
             ShowNotice(
                 W8_FONT_PALETTE_RUST,
-                fmt::sprintf(Data().strings[0x25f], GetMonsterName(monster_info, 0, 0), amount));
+                fmt::sprintf(Data().strings[0x25d], CurrentGame().monsterName(*monster_info)));
+        } else {
+            ShowNotice(W8_FONT_PALETTE_RUST,
+                       fmt::sprintf(Data().strings[0x25f], CurrentGame().monsterName(*monster_info),
+                                    amount));
         }
     }
 
@@ -757,7 +659,7 @@ void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announc
 
     if (monster_info->uiCondition[W8_CONDITION_UNCONSCIOUS] == W8_CONDITION_INDEFINITE &&
         static_cast<unsigned int>(monster_info->stamina) > W8_STAMINA_TO_SHAKE_OFF_EXHAUSTION) {
-        ClearMonsterCondition(monster_info->location_id, W8_CONDITION_UNCONSCIOUS);
+        CurrentGame().clearMonsterCondition(monster_info->location_id, W8_CONDITION_UNCONSCIOUS);
     }
 }
 
@@ -768,13 +670,13 @@ void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announc
    enemy, the disposition check decides whether being hit makes them one. */
 void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* attacker, bool quiet)
 {
-    StartMonsterCycle(monster_info, W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
+    monster_info->startCycle(W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
 
     if (monster_info->uiCondition[W8_CONDITION_ASLEEP] != 0 && !quiet &&
         CurrentGame().rng.below(100) <
             static_cast<unsigned int>((monster_info->attributes[W8_MONSTER_ATTRIBUTE_SENSES] >> 1) +
                                       0x32)) {
-        ClearMonsterCondition(monster_info->location_id, W8_CONDITION_ASLEEP);
+        CurrentGame().clearMonsterCondition(monster_info->location_id, W8_CONDITION_ASLEEP);
     }
     if (monster_info->control_state == W8_MONSTER_CONTROL_LURED) {
         SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_NONE);
@@ -786,99 +688,13 @@ void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, W8TargetSource* att
     if (!attacker->fBackfire && !attacker->fReflection && !attacker->target_diverted && !quiet &&
         monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
         if (TargetSourceIsCharacter(attacker, 0)) {
-            if (MonsterVsCharDisposition(attacker->iChar, monster_info) ==
-                W8_DISPOSITION_FRIENDLY) {
+            if (CurrentGame().party.dispositionToward(
+                    attacker->iChar, (monster_info)->ubDisposition) == W8_DISPOSITION_FRIENDLY) {
                 TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
             }
-        } else if (MonsterHostility(FindMonster(attacker->iMonsterID), monster_info) ==
-                   W8_DISPOSITION_FRIENDLY) {
+        } else if (MonsterHostility(CurrentGame().data, *FindMonster(attacker->iMonsterID),
+                                    *monster_info) == W8_DISPOSITION_FRIENDLY) {
             TickMonsterCondition(monster_info->location_id, W8_CONDITION_TURNCOAT, 1);
-        }
-    }
-}
-
-/* The band past which deep fatigue takes hold, and the band it lets go at. */
-enum { W8_FATIGUE_BAND_DEEP = 2, W8_FATIGUE_BAND_RECOVERED = 2 };
-
-/* Tire one character. The load they are carrying scales the cost - eased or
-   worsened by the two load modifiers - and the result is taken out of their
-   stamina without going below nothing. Running out puts them under the
-   exhausted condition; merely dropping into the deep band applies the
-   deep-fatigue effect once. */
-void FatigueCharacter(int party_slot, int amount, bool scale_by_load,
-                      W8SpellEffectResult* report_to)
-{
-    W8Character* character = &CurrentGame().party.characters[party_slot];
-    int previous_band;
-    int band;
-    int load_percent;
-
-    if (character->stamina <= 0 || character->hp_current == 0 || amount == 0) {
-        return;
-    }
-
-    if (scale_by_load) {
-        switch (character->load_category) {
-        case 0:
-            load_percent = 0;
-            break;
-        case 1:
-            load_percent = 0x19;
-            break;
-        case 2:
-            load_percent = 0x32;
-            break;
-        case 3:
-            load_percent = 100;
-            break;
-        case 4:
-            load_percent = 200;
-            break;
-        default:
-            load_percent = 0;
-            break;
-        }
-        if (character->uiCondition[W8_CONDITION_SLOWED] == 0) {
-            if (character->enchantments[W8_ENCHANTMENT_HASTE].turns != 0) {
-                load_percent += 0x19;
-            }
-        } else {
-            load_percent -= 0x19;
-        }
-        amount += (load_percent * amount) / 100;
-    }
-
-    if (amount < 0) {
-        amount = 0;
-    } else if (amount > character->stamina) {
-        amount = character->stamina;
-    }
-    character->stamina -= amount;
-
-    previous_band = character->fatigue_band;
-    band = FatigueBand(character->stamina, character->uiStaminaMax);
-    character->fatigue_band = band;
-    if (band != previous_band) {
-        SettleActiveParty(CurrentGame());
-    }
-
-    if (character->stamina < 1) {
-        if (character->uiCondition[W8_CONDITION_UNCONSCIOUS] < W8_CONDITION_INDEFINITE) {
-            InflictCondition(CurrentGame(), party_slot,
-                             {.condition = W8_CONDITION_UNCONSCIOUS,
-                              .duration = W8_CONDITION_INDEFINITE,
-                              .announce = report_to == 0});
-            if (report_to != 0) {
-                ++report_to->condition_counts[W8_CONDITION_UNCONSCIOUS];
-            }
-        }
-    } else if (band != previous_band && band > W8_FATIGUE_BAND_DEEP) {
-        if (!character->deep_fatigue_applied) {
-            QueueCharacterEvent(character, 4, 0, kCharacterEventFullVolume);
-            character->deep_fatigue_applied = true;
-        }
-        if (static_cast<unsigned int>(character->fatigue_band) < W8_FATIGUE_BAND_RECOVERED) {
-            character->deep_fatigue_applied = false;
         }
     }
 }
@@ -1054,11 +870,11 @@ unsigned int FindPartySlotWithLowestSpellPoints(void)
 void ApplyQueuedFatigue(W8CombatSlot* op, unsigned int amount, int)
 {
     if (op->iType == W8_TARGET_KIND_CHARACTER) {
-        FatigueCharacter(op->iChar, amount, false, 0);
+        CurrentGame().fatigueCharacter(op->iChar, amount, false, 0);
         return;
     }
     if (op->iType == W8_TARGET_KIND_MONSTER) {
         W8MonsterInfo* monster_info = FindMonster(op->iMonsterID);
-        FatigueMonster(monster_info, amount, 0);
+        CurrentGame().fatigueMonster(monster_info, amount, 0);
     }
 }

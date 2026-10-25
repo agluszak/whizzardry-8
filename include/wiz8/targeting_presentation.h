@@ -26,3 +26,5 @@ struct W8LevelRuntimeBlock;
 W8TargetingPresentation BuildTargetingPresentation(const W8LevelRuntimeBlock& hud);
 void ApplyTargetingPresentation(const W8TargetingPresentation& presentation);
 bool CurrentCombatSubjectIsValid(const W8LevelRuntimeBlock& hud);
+
+void RevalidateSelectedTarget(int party_slot);
