@@ -742,7 +742,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
                                                             : W8_DISPOSITION_HOSTILE;
     }
     group = CreateGroup(g_elemental_summon_group_ids[effect->definition.duration_scale][tier], 1,
-                        &effect->target.point, true, true);
+                        &effect->target.point, true);
     assert(group != 0);
     summon = FindMonster(group->leader_location_id);
     summon->entity->nav.SetAngles(

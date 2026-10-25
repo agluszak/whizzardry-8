@@ -425,7 +425,7 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
         if (!species) {
             return 0;
         }
-        W8MonsterGroup* group = CreateGroup(*species, 1, &position, true, true);
+        W8MonsterGroup* group = CreateGroup(*species, 1, &position, true);
         W8MonsterInfo* monster = FindMonster(group->leader_location_id);
         if (monster != 0) {
             CopyCharacterConditionsToTarget(dismissed_character, &monster->location_id);
@@ -1633,7 +1633,7 @@ static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
         const auto species = NpcMonsterSpecies(CurrentGame().data, npc->name_style);
         if (!species || entity_name[0] == '\0') return false;
         if (auto position = CurrentGame().level.loaded().namedPosition(entity_name)) {
-            CreateGroup(*species, 1, &*position, true, true);
+            CreateGroup(*species, 1, &*position, true);
             return true;
         }
         return false;

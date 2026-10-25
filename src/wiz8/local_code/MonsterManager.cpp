@@ -72,6 +72,7 @@
 #include "wiz8/notices.h"
 #include "wiz8/render/picking.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/character_stats.h"
 #include "wiz8/rules/conditions.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
@@ -95,11 +96,10 @@ const float g_monster_record_float_scale = 20.0f;
 /* The character array the alternate-name form indexes, and the slot it uses. */
 
 W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* record,
-                                 glm::vec3* position)
+                                 const glm::vec3* position)
 {
     std::unique_ptr<W8MonsterInfo> owner(new (std::nothrow) W8MonsterInfo{});
     W8MonsterInfo* monster_info = owner.get();
-    int value;
 
     if (!monster_info) {
         return nullptr;
@@ -118,13 +118,7 @@ W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* r
     monster_info->position = *position;
     monster_info->derived = GetCameraFacingYaw(position);
 
-    value = RollDice(&record->hit_points);
-    monster_info->uiHPMax = value;
-    monster_info->hp_current = value;
-    value = RollDice(&record->stamina_dice);
-    monster_info->stamina_max = value;
-    monster_info->stamina = value;
-    monster_info->fatigue_band = CalculateMonsterFatigueBand(value, value);
+    monster_info->initializeVitals(*record, CurrentGame().rng);
 
     std::ranges::fill(monster_info->uiCondition, 0u);
     std::ranges::fill(monster_info->enchantments, W8Enchantment{});
@@ -630,32 +624,26 @@ void MoveMonsterToLiveList(W8MonsterInfo* monster_info)
     monster_info->entity->inactive = false;
 }
 
-static void InitializeMonsterRuntimeStatsFor(W8MonsterInfo* monster_info)
+void W8MonsterInfo::initializeVitals(const W8MonsterRecord& record, Rng& rng)
 {
-    const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);
-    int value = RollDice(&record->hit_points);
-    monster_info->uiHPMax = value;
-    monster_info->hp_current = value;
-    value = RollDice(&record->stamina_dice);
-    monster_info->stamina_max = value;
-    monster_info->stamina = value;
-    monster_info->fatigue_band = CalculateMonsterFatigueBand(value, value);
-    monster_info->scale = RollMonsterScale(*monster_info, *record, CurrentGame().rng);
-    monster_info->entity->scale = monster_info->scale;
-    monster_info->entity->ApplyRepresentationScale();
-    monster_info->entity->RefreshStandingHeight();
+    hp_current = uiHPMax = RollDice(rng, record.hit_points);
+    stamina = stamina_max = RollDice(rng, record.stamina_dice);
+    fatigue_band = FatigueBand(stamina, stamina_max);
 }
 
-void InitializeMonsterRuntimeStats(void)
+// First-visit rolls remain distinct from body preparation and saved restoration.
+void World::initializeMonsterVitals(Rng& rng)
 {
-    unsigned int index;
-
-    for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
-        InitializeMonsterRuntimeStatsFor(GetMonsterListEntry(index));
-    }
-
-    for (index = 0; index < CurrentLevelPopulation().monster_roster.unborn().size(); ++index) {
-        InitializeMonsterRuntimeStatsFor(GetUnbornMonsterEntry(index));
+    for (const auto* partition :
+         {&population->monster_roster.live(), &population->monster_roster.unborn()}) {
+        for (const auto& info : *partition) {
+            const auto& record = info->entity->species();
+            info->initializeVitals(record, rng);
+            info->scale = RollMonsterScale(*info, record, rng);
+            info->entity->scale = info->scale;
+            info->entity->ApplyRepresentationScale();
+            info->entity->RefreshStandingHeight();
+        }
     }
 }
 

@@ -74,7 +74,6 @@ target_sources(wiz8_engine PRIVATE
     local_screens/MGSUseItemSelect.cpp
     local_screens/MGSPartyMovement.cpp
     local_code/MonsterManager.cpp
-    local_code/monster_fatigue.cpp
     local_code/MonsterGroup.cpp
     local_code/UtilityFunctions.cpp
     local_code/Strings.cpp

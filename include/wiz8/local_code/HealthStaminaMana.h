@@ -31,7 +31,6 @@ void DamageCharacter(int party_slot, unsigned int damage, bool announce);
 void DrainCharacterRealmSpellPoints(int party_slot, W8SpellRealm realm, unsigned int amount,
                                     bool announce);
 void DrainPartySpellPoints(int amount, bool announce);
-int CalculateMonsterFatigueBand(int current, int maximum);
 int SpellCastFatigueCost(int spell_id, int result);
 void SpendCharacterSpellPoints(int party_slot, W8SpellRealm realm, int amount);
 int MonsterActionFatigueCost(Rng& rng, MonsterAction action, bool diseased);

@@ -125,7 +125,7 @@ const W8MonsterRecord* MonsterDBFromSpecies(unsigned int monster_species);
 W8RangeCategory MonsterAttackRange(const W8MonsterInfo& monster_info, const W8MonsterRecord& record,
                                    unsigned int attack);
 W8MonsterInfo* CreateMonsterInfo(W8MonsterGroup* group, const W8MonsterRecord* record,
-                                 glm::vec3* position);
+                                 const glm::vec3* position);
 
 enum { W8_MONSTER_ATTR_COUNT = 5 };
 
@@ -264,6 +264,7 @@ using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
 
 /* A live monster. Saves store it as wiz8::retail::MonsterInfo. */
 struct W8MonsterInfo {
+    void initializeVitals(const W8MonsterRecord& record, Rng& rng);
     void configureBody(Rng& rng, bool level_visited);
     void restoreSpellIcons();
     void inheritLeaderState(const W8MonsterInfo& outgoing);
@@ -405,7 +406,6 @@ W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species);
 void DestroyUngroupedMonsters(void);
 void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState control_state);
 void MoveMonsterToLiveList(W8MonsterInfo* monster_info);
-void InitializeMonsterRuntimeStats(void);
 void ProcessMonsterManagerFrame(void);
 std::string FormatMonsterHealth(W8MonsterInfo* monster_info);
 unsigned int GetMonsterExperience(const W8MonsterRecord* record);

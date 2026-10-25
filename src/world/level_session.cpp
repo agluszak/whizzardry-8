@@ -441,7 +441,7 @@ static void EnterLevel(Game& game, World& world, int level, int entrance, bool r
     }
 
     if (first_visit) {
-        InitializeMonsterRuntimeStats();
+        world.initializeMonsterVitals(game.rng);
         RebuildAllWorldItemInstances();
     }
     RefreshWorldView();

@@ -137,7 +137,7 @@ W8MonsterGroup* FindFirstMonsterByID(int monster_id);
 W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* previous);
 bool GiveBirthToMonster(W8MonsterGroup* monster_group);
 W8MonsterGroup* CreateGroup(unsigned int monster_id, unsigned int count, const glm::vec3* position,
-                            bool use_alternate_name, bool place_on_ground);
+                            bool use_alternate_name);
 
 void ResetMonsterGroupTurnState(void);
 

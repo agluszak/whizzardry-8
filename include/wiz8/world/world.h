@@ -126,6 +126,7 @@ struct World {
     void resumeMonstersAfterCombat();
     void refreshGroupNavigation(const W8MonsterGroup& group, bool combat_active);
     void restartGroupScripts();
+    void initializeMonsterVitals(Rng& rng);
     void replaceGroupLeader(W8MonsterGroup& group, bool combat_active);
     // PARTY resolves to this world's eye position; authored markers also supply facing.
     const W8NamedPosition* namedMarker(std::string_view name) const;
