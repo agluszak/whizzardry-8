@@ -223,12 +223,11 @@ struct GameEventPresentation {
     }
     void operator()(const CombatExecutionBegan&) const
     {
-        if (auto* main_game = MainGame();
-            main_game && main_game->hud && main_game->hud->open_submenu) {
+        if (auto* main_game = MainGame(); main_game && main_game->hud && main_game->submenu) {
             if (!g_settings.continuous_combat) {
-                DestroySubMenuControls();
+                main_game->closeSubMenu();
             } else {
-                ReopenSubMenuPanel();
+                main_game->rebuildSubMenu();
             }
         }
         if (!g_settings.continuous_combat && ScreenPointer().targeting() != W8_TARGET_NEED_NONE)
@@ -236,9 +235,8 @@ struct GameEventPresentation {
     }
     void operator()(const CombatCalledOff&) const
     {
-        if (auto* main_game = MainGame();
-            main_game && main_game->hud && main_game->hud->open_submenu)
-            DestroySubMenuControls();
+        if (auto* main_game = MainGame(); main_game && main_game->hud && main_game->submenu)
+            main_game->closeSubMenu();
     }
     void operator()(const CombatBegan&) const
     {
@@ -343,7 +341,7 @@ struct GameEventPresentation {
     {
         auto* hud = ShownHud();
         if (!hud) return;
-        if (hud->open_submenu) ReopenSubMenuPanel();
+        if (auto* main_game = MainGame()) main_game->rebuildSubMenu();
         RefreshFlaggedMainGameState();
     }
     void operator()(const JournalEntryAdded& entry) const
@@ -417,7 +415,6 @@ void InitializeMainGameLevelBlock(W8LevelRuntimeBlock& hud)
         hud.portrait_refresh_pending[slot] = 0;
         hud.portrait_refresh_image[slot] = 0;
     }
-    hud.open_submenu.reset();
     hud.countdown0 = MonotonicMilliseconds() + (60000);
     hud.countdown1 = MonotonicMilliseconds() + (0);
     hud.text_box_visible = true;
@@ -430,7 +427,7 @@ void InitializeMainGameLevelBlock(W8LevelRuntimeBlock& hud)
     hud.refresh_combat_panel = 1;
     hud.combat_panel_timer = MonotonicMilliseconds() + (0);
     hud.text_scroll_drag_idle = 1;
-    SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
+    MainGame()->setTextBoxBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
     for (unsigned int& text_line : hud.text_lines) {
         text_line = 0;
     }

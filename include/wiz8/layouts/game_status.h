@@ -89,12 +89,6 @@ struct GameStatus {
     bool binding_reset_pending = false;
     // One-shot gate for the NPC event pass.
     bool npc_restore_pending = false;
-    /* Raised by the .nsf quote audit while it runs; ShowNotice counts each notice's
-       wrapped lines under it. */
-    unsigned char quote_audit = 0;
-    /* ShowNotice sets it under quote_audit when a notice wraps past seven lines; the
-       audit reports those as "Long Quote". */
-    unsigned char long_quote = 0;
     bool party_fatigued = false;
     // Index of the party member the main-game selection flow is on; 0xff for none.
     unsigned char selected_party_member = 0xff;

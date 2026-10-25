@@ -153,12 +153,7 @@ struct GlobalStatus {
     unsigned char padding_242f;
     /* 0x2430: one-shot gate for the NPC event pass. */
     bool npc_restore_pending;
-    /* 0x2431: raised by the .nsf quote audit while it runs; ShowNotice counts
-       each notice's wrapped lines under it. */
-    unsigned char quote_audit;
-    /* 0x2432: ShowNotice sets it under quote_audit when a notice wraps
-       past seven lines; the audit reports those as "Long Quote". */
-    unsigned char long_quote;
+    unsigned char quote_audit_flags[2]; // 0x2431: retained retail diagnostic state
     bool party_fatigued;
     /* 0x2434: index of the party member the main-game selection flow is on.
        The screen reset writes 0xff. */
@@ -558,10 +553,8 @@ template<> struct Record<save::GameState> {
         value(
             &runtime.status.npc_restore_pending,
             bytes.subspan(offsetof(Disk, npc_restore_pending), sizeof(Disk::npc_restore_pending)));
-        value(&runtime.status.quote_audit,
-              bytes.subspan(offsetof(Disk, quote_audit), sizeof(Disk::quote_audit)));
-        value(&runtime.status.long_quote,
-              bytes.subspan(offsetof(Disk, long_quote), sizeof(Disk::long_quote)));
+        value(&runtime.status.retail.quote_audit_flags,
+              bytes.subspan(offsetof(Disk, quote_audit_flags), sizeof(Disk::quote_audit_flags)));
         value(&runtime.status.party_fatigued,
               bytes.subspan(offsetof(Disk, party_fatigued), sizeof(Disk::party_fatigued)));
         value(&runtime.status.selected_party_member,

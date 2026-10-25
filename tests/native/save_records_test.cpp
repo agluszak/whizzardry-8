@@ -915,6 +915,7 @@ static wiz8::save::GameState populated_game_state()
     rows[0].remembered.item_detail.item_use.item = {W8ItemStorage::Backpack, 0, 3};
     status.retail.save_version = 1.1f;
     status.retail.padding_242f = 0xa5;
+    status.retail.quote_audit_flags = {0xa5, 0x5a};
     status.retail.padding_49be = {0x5a, 0x17};
     status.retail.unknown_2013.fill(0x3c);
     status.retail.save_filetime_xor = {0x01234567, 0x89abcdef};
@@ -963,6 +964,8 @@ static void global_status_record()
         for (std::size_t index = 0; index < expected_progress.size(); ++index)
             REQUIRE(byte_at(0x1a04 + level * 0x21 + index) == expected_progress[index]);
     REQUIRE(byte_at(0x242f) == 0xa5);
+    REQUIRE(byte_at(0x2431) == 0xa5);
+    REQUIRE(byte_at(0x2432) == 0x5a);
     REQUIRE(byte_at(0x49be) == 0x5a);
     REQUIRE(byte_at(0x49bf) == 0x17);
     std::array<int, 3> members;
