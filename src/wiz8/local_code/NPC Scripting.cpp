@@ -583,12 +583,13 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
     }
 
     if (auto* queued = std::get_if<W8NpcScriptNotice>(&line.action)) {
-        // The executing notice is no longer pending. Nested requests can be
-        // admitted without replacing the NPC/item this invocation is using.
+        // Admission no longer sees a pending notice, but speech must still see
+        // the executing action until startup (including healer reactions) ends.
         auto notice = std::move(*queued);
-        queue_.erase(current);
+        line.action = W8NpcCommand::spacer;
         BeginNpcDialogue(notice.npc.get(), notice.item ? &*notice.item : nullptr, notice.line,
                          notice.suppress, 0);
+        queue_.erase(current);
         return;
     }
 

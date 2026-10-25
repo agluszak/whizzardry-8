@@ -142,8 +142,9 @@ does not satisfy this contract.
   whether they handled the interaction. Nested activations return their feedback
   to the calling operation; unrelated activations cannot change its result.
   An accepted NPC notice owns its identity and copied item description in the
-  dialogue queue. The first pending notice wins; the executing request is detached
-  before dialogue startup so nested requests cannot replace its values. Direct
+  dialogue queue. The first pending notice wins; execution releases admission
+  without releasing the speech wait until startup returns. Nested requests cannot
+  replace the executing notice's values. Direct
   conversation startup does not retarget or duplicate an already queued notice.
 - **Required consequences are explicit.** Damage/death, item acquisition, NPC
   dismissal and combat changes must not depend on presentation subscribers being

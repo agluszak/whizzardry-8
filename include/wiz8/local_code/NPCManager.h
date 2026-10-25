@@ -85,8 +85,6 @@ void CreateNewGameNpcStates(void);
 
 /* The NPC-side consequence pass the sight code runs when a marked NPC's
    binding is released. */
-/* The activation callback the rebinding installs on the level's
-   NPC triggers. */
 void ResetNpcBindingsForParty(void);
 void ClearPendingNpcLevelFlags(void);
 void ReleaseNpcMonsterBindings(void);
