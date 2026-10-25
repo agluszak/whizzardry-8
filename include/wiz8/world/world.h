@@ -118,6 +118,7 @@ struct World {
     void setPartyLight(unsigned int intensity);
     void resumeMonstersAfterCombat();
     bool projectsToCamera(const glm::vec3& point) const;
+    std::optional<glm::vec3> targetPoint(const W8CombatSlot& target, bool sight_probe) const;
     bool targetMarkerVisible(const BoundingBox& bounds) const;
     bool hasLineOfSightTo(const BoundingBox& bounds) const;
     World(const World&) = delete;

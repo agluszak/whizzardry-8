@@ -79,9 +79,6 @@ void SetTargetSourceToMonster(const W8MonsterInfo* monster_info, W8TargetSource*
 
 bool SpellHasAnyValidTarget(int party_slot, int spell_id, bool normalize);
 
-/* Fill the slot's point from where its target is. */
-bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe);
-
 /* Whether an actor aiming at `target` should drop that aim now
    that `target` has been (re)applied. An out-of-combat application always clears;
    otherwise the actor and the applied target must agree on hostility with the

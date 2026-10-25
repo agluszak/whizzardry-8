@@ -1240,43 +1240,6 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
         }
     }
     switch (spell_id) {
-    case W8_SPELL_ACID_SPLASH:
-    case W8_SPELL_FROST:
-    case W8_SPELL_ENERGY_BLAST:
-    case W8_SPELL_MAKE_WOUNDS:
-    case W8_SPELL_MIND_STAB:
-    case W8_SPELL_MAGIC_MISSILES:
-    case W8_SPELL_SHRILL_SOUND:
-    case W8_SPELL_FIREBALL:
-    case W8_SPELL_NOXIOUS_FUMES:
-    case W8_SPELL_PSIONIC_FIRE:
-    case W8_SPELL_WHIPPING_ROCKS:
-    case W8_SPELL_CRUSH:
-    case W8_SPELL_EGO_WHIP:
-    case W8_SPELL_FIRE_BOMB:
-    case W8_SPELL_ICEBALL:
-    case W8_SPELL_SUMMON_ELEMENTAL:
-    case W8_SPELL_WHIRLWIND:
-    case W8_SPELL_DEHYDRATE:
-    case W8_SPELL_INSTANT_DEATH:
-    case W8_SPELL_PSIONIC_BLAST:
-    case W8_SPELL_BLIZZARD:
-    case W8_SPELL_BOILING_BLOOD:
-    case W8_SPELL_LIGHTNING:
-    case W8_SPELL_PRISMIC_RAY:
-    case W8_SPELL_QUICKSAND:
-    case W8_SPELL_ASPHYXIATION:
-    case W8_SPELL_CEREBRAL_HEMORRHAGE:
-    case W8_SPELL_CONCUSSION:
-    case W8_SPELL_DEATH_WISH:
-    case W8_SPELL_EARTHQUAKE:
-    case W8_SPELL_FALLING_STARS:
-    case W8_SPELL_MIND_FLAY:
-    case W8_SPELL_NUCLEAR_BLAST:
-    case W8_SPELL_PRISMIC_CHAOS:
-    case W8_SPELL_TSUNAMI:
-    case W8_SPELL_SPECIAL_ATTACK_CONE:
-        break;
     case W8_SPELL_BLESS:
     case W8_SPELL_ELEMENT_SHIELD:
     case W8_SPELL_SOUL_SHIELD: {
@@ -1504,46 +1467,6 @@ bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlo
             return false;
         }
         break;
-    case W8_SPELL_CHARM:
-    case W8_SPELL_LIGHT:
-    case W8_SPELL_DETECT_SECRETS:
-    case W8_SPELL_DIVINE_TRAP:
-    case W8_SPELL_DRACON_BREATH:
-    case W8_SPELL_HOLY_WATER:
-    case W8_SPELL_IDENTIFY_ITEM:
-    case W8_SPELL_SONIC_BOOM:
-    case W8_SPELL_CHAMELEON:
-    case W8_SPELL_HYPNOTIC_LURE:
-    case W8_SPELL_KNOCK_KNOCK:
-    case W8_SPELL_MINDREAD:
-    case W8_SPELL_SHADOW_HOUND:
-    case W8_SPELL_CURE_DISEASE:
-    case W8_SPELL_REMOVE_CURSE:
-    case W8_SPELL_RING_OF_FIRE:
-    case W8_SPELL_X_RAY:
-    case W8_SPELL_RETURN_TO_PORTAL:
-    case W8_SPELL_SET_PORTAL:
-    case W8_SPELL_LIFESTEAL:
-    case W8_SPELL_MIGHT_TO_MAGIC:
-    case W8_SPELL_RESURRECTION:
-    case W8_SPELL_RESTORATION:
-    case 0x66:
-    case 0x67:
-    case 0x68:
-    case 0x69:
-    case 0x6a:
-    case 0x6b:
-    case 0x6c:
-    case 0x6d:
-    case 0x6e:
-    case 0x6f:
-    case 0x70:
-    case 0x71:
-    case W8_SPELL_RESTORE_HEALTH:
-    case W8_SPELL_RESTORE_MAGIC:
-    case W8_SPELL_SMELLING_SALTS:
-    case W8_SPELL_ROUT:
-    case W8_SPELL_BOILING_BLOOD_EXPLOSION:
     default:
         break;
     }
@@ -1744,7 +1667,9 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
                 ResetCombatSlot(&slot);
                 slot.iType = W8_TARGET_KIND_MONSTER;
                 slot.iMonsterID = member->location_id;
-                ResolveTargetPoint(&slot, target_type == W8_TARGET_TYPE_RADIUS);
+                if (const auto point = monster_info->entity->owner_world.targetPoint(
+                        slot, target_type == W8_TARGET_TYPE_RADIUS))
+                    slot.point = *point;
                 slot.iType = W8_TARGET_KIND_PLACE;
                 if (MonsterSpellTargetOK(monster_info, spell_id, &slot, action) &&
                     !SpellAreaHitsNeutralMonster(monster_info, spell_id, &slot, action)) {
@@ -1754,8 +1679,10 @@ void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
         }
         if (IsVisibleUnderConditions(monster_info, &monster_info->player_visibility, sight_kind)) {
             ResetCombatSlot(&slot);
-            slot.iType = W8_TARGET_KIND_PARTY;
-            ResolveTargetPoint(&slot, target_type == W8_TARGET_TYPE_RADIUS);
+            const auto& party = monster_info->entity->owner_world.party;
+            slot.point = target_type == W8_TARGET_TYPE_RADIUS
+                             ? party.position() + glm::vec3{0, 1000, 0}
+                             : party.eye();
             slot.iType = W8_TARGET_KIND_PLACE;
             if (MonsterSpellTargetOK(monster_info, spell_id, &slot, action) &&
                 !SpellAreaHitsNeutralMonster(monster_info, spell_id, &slot, action)) {
@@ -1805,7 +1732,11 @@ bool CanMonsterAimSpell(W8MonsterInfo* monster_info, int spell_id)
         return AimMonsterAtSpellTarget(monster_info, spell_id);
     }
     if (Data().spells[spell_id].needs_aim != 0) {
-        return ResolveTargetPoint(&monster_info->Target, false);
+        const auto point =
+            monster_info->entity->owner_world.targetPoint(monster_info->Target, false);
+        if (!point) return false;
+        monster_info->Target.point = *point;
+        return true;
     }
     return true;
 }

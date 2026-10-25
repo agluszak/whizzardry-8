@@ -355,15 +355,17 @@ TEST_CASE("Reward accounting follows its game and world, not installed state or 
 
 TEST_CASE("An unloaded monster target has no position", "[levels][targeting]")
 {
-    const ScopedGame game;
-    game.game.level.replacePrimary(std::make_unique<World>(8));
+    World world{8};
     W8CombatSlot target{};
     target.iType = W8_TARGET_KIND_MONSTER;
     target.iMonsterID = 42;
     target.point = {1, 2, 3};
-    REQUIRE_FALSE(ResolveTargetPoint(&target, false));
-    REQUIRE_FALSE(ResolveTargetPoint(&target, true));
+    REQUIRE_FALSE(world.targetPoint(target, false));
+    REQUIRE_FALSE(world.targetPoint(target, true));
     REQUIRE(target.point == glm::vec3(1, 2, 3));
+    target.iType = W8_TARGET_KIND_PARTY;
+    REQUIRE(world.targetPoint(target, false) == world.party.eye());
+    REQUIRE(world.targetPoint(target, true) == world.party.position() + glm::vec3{0, 1000, 0});
 }
 
 TEST_CASE("An untimed camera trigger owns its shake until the event is removed",

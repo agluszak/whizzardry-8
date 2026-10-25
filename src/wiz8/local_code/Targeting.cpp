@@ -409,39 +409,23 @@ int PickNearestMonsterUnderCursor(int cursor_x, int cursor_y)
 
 // Only the fields that determine auto-target priority are retained.
 
-/* Resolve where a target physically is into the slot's own point: the camera
-   for the character and party kinds, the monster's model position plus its
-   height for the monster kind. The sight-probe variant takes the navigator
-   position lifted by the sight offset instead. Answers zero for any kind
-   without a place. */
-bool ResolveTargetPoint(W8CombatSlot* target, bool sight_probe)
+// Aim points distinguish authored body height from the lifted navigation sight probe.
+std::optional<glm::vec3> World::targetPoint(const W8CombatSlot& target, bool sight_probe) const
 {
     glm::vec3 point;
-    Monster* monster;
-
-    if (target->iType == W8_TARGET_KIND_PARTY || target->iType == W8_TARGET_KIND_CHARACTER) {
-        if (sight_probe) {
-            point = GetWorld()->party.position();
-        } else {
-            point = cameraLocation();
-        }
-    } else if (target->iType == W8_TARGET_KIND_MONSTER) {
-        monster = GetMonsterByLocationID(target->iMonsterID);
-        if (!monster) return false;
-        if (sight_probe) {
-            point = monster->nav.GetPosition();
-        } else {
-            point = monster->nav.movement.position;
-            point.y += monster->nav.movement.height_offset;
-        }
+    if (target.iType == W8_TARGET_KIND_PARTY || target.iType == W8_TARGET_KIND_CHARACTER) {
+        point = sight_probe ? party.position() : party.eye();
+    } else if (target.iType == W8_TARGET_KIND_MONSTER) {
+        const auto* monster = population->findEntity(target.iMonsterID);
+        if (!monster) return {};
+        point = sight_probe ? monster->nav.GetPosition()
+                            : monster->nav.movement.position +
+                                  glm::vec3{0, monster->nav.movement.height_offset, 0};
     } else {
-        return false;
+        return {};
     }
-    if (sight_probe) {
-        point.y += 1e+03f;
-    }
-    target->point = point;
-    return true;
+    if (sight_probe) point.y += 1000.0f;
+    return point;
 }
 
 /* The two conditions the indirect character kind reads: eighteen has to be

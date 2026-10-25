@@ -1185,7 +1185,6 @@ int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level)
 {
     W8TargetSource source;
     W8CombatSlot target;
-    bool sight_probe;
 
     if (power_level == 0) {
         return 0;
@@ -1208,15 +1207,11 @@ int PointCastSpell(glm::vec3 position, int spell_id, unsigned int power_level)
         break;
     case W8_TARGET_TYPE_RADIUS:
     case W8_TARGET_TYPE_POINT:
-        sight_probe = true;
-        target.iType = W8_TARGET_KIND_PARTY;
-        ResolveTargetPoint(&target, sight_probe);
+        target.point = CurrentGame().level.loaded().party.position() + glm::vec3{0, 1000, 0};
         target.iType = W8_TARGET_KIND_PLACE;
         break;
     case W8_TARGET_TYPE_CONE:
-        sight_probe = false;
-        target.iType = W8_TARGET_KIND_PARTY;
-        ResolveTargetPoint(&target, sight_probe);
+        target.point = CurrentGame().level.loaded().party.eye();
         target.iType = W8_TARGET_KIND_PLACE;
         break;
     case W8_TARGET_TYPE_PARTY:
