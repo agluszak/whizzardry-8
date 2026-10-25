@@ -111,7 +111,7 @@ void Game::advanceWorlds(std::chrono::milliseconds elapsed)
     if (level.primary) {
         auto& world = *level.primary;
         world.updateMonsters();
-        UpdateWorldMissiles(&world);
+        world.updateMissiles(advancement.held);
         UpdateWorldSpellVisuals(&world);
         UpdateAmbientSounds(&world);
         WorldUpdateLights(&world);

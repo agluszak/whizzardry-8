@@ -61,9 +61,9 @@ enum class MartensBluff1TeleporterPad : int {
 constexpr int kMasterToggle = static_cast<int>(0xEFFFFFFF);
 
 // Activation callback that only stops the trigger.
-bool BlockTriggerActivation(Trigger*)
+TriggerDecision BlockTriggerActivation(Trigger*)
 {
-    return false;
+    return {.run_action = false};
 }
 
 class MartensBluff1Script final : public LevelScript {
@@ -74,17 +74,17 @@ public:
 
 private:
     void setup();
-    bool fHandlock(Trigger* pTrigger);
-    bool dial(int shift);
-    bool gasSwitch(Trigger* pTrigger);
-    bool jDoorController(Trigger* pTrigger);
+    TriggerDecision fHandlock(Trigger* pTrigger);
+    TriggerDecision dial(int shift);
+    TriggerDecision gasSwitch(Trigger* pTrigger);
+    TriggerDecision jDoorController(Trigger* pTrigger);
     bool transportSpawn();
     bool transporter(int command);
     void captureTransporter(W8SavedLocationState& state);
-    bool teleporter(Trigger* pTrigger);
-    bool pressTeleporterButton(MartensBluff1TeleporterPad pad);
-    bool teleportState(MartensBluff1TeleporterPad new_state);
-    bool wireTrigger(Trigger* pTrigger);
+    TriggerDecision teleporter(Trigger* pTrigger);
+    TriggerDecision pressTeleporterButton(MartensBluff1TeleporterPad pad);
+    TriggerDecision teleportState(MartensBluff1TeleporterPad new_state);
+    TriggerDecision wireTrigger(Trigger* pTrigger);
 
     bool teleport_running_ = false;
     Trigger* door_controller_ = nullptr;
@@ -104,39 +104,38 @@ void MartensBluff1Script::enter()
     }
     bindTrigger("F-Handlock", &MartensBluff1Script::fHandlock);
     // A button press while a teleport runs only re-arms the input.
-    bindTrigger("ButtonGigas", [this](Trigger*) {
+    bindTrigger("ButtonGigas", [this](Trigger*) -> TriggerDecision {
         return pressTeleporterButton(MartensBluff1TeleporterPad::gigas);
     });
-    bindTrigger("ButtonTrang", [this](Trigger*) {
+    bindTrigger("ButtonTrang", [this](Trigger*) -> TriggerDecision {
         return pressTeleporterButton(MartensBluff1TeleporterPad::trang);
     });
-    bindTrigger("ButtonRift", [this](Trigger*) {
+    bindTrigger("ButtonRift", [this](Trigger*) -> TriggerDecision {
         return pressTeleporterButton(MartensBluff1TeleporterPad::rift);
     });
-    bindTrigger("ButtonMaten", [this](Trigger*) {
+    bindTrigger("ButtonMaten", [this](Trigger*) -> TriggerDecision {
         return pressTeleporterButton(MartensBluff1TeleporterPad::maten);
     });
     bindTrigger("WireTrigger", &MartensBluff1Script::wireTrigger);
     // "Controller": toggles fact 0x42.
-    bindTrigger("Controller", [this](Trigger*) {
+    bindTrigger("Controller", [this](Trigger*) -> TriggerDecision {
         if (ctx.game.testFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON) == 0) {
             ctx.game.setFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 1);
         } else {
             ctx.game.setFact(W8_FACT_NARGISST_MONITOR_OVERFLOW_ON, 0);
         }
-        g_trigger_feedback = true;
-        return true;
+        return {.run_action = true, .handled = true};
     });
     // The dials advance one 4-bit digit of DialState each.
-    bindTrigger("Dial-A", [this](Trigger*) { return dial(0); });
-    bindTrigger("Dial-B", [this](Trigger*) { return dial(4); });
-    bindTrigger("Dial-C", [this](Trigger*) { return dial(8); });
+    bindTrigger("Dial-A", [this](Trigger*) -> TriggerDecision { return dial(0); });
+    bindTrigger("Dial-B", [this](Trigger*) -> TriggerDecision { return dial(4); });
+    bindTrigger("Dial-C", [this](Trigger*) -> TriggerDecision { return dial(8); });
     bindTrigger("Gas-Switch", &MartensBluff1Script::gasSwitch);
     bindTrigger("J-Doorcontroller", &MartensBluff1Script::jDoorController);
     // "MartenBook": latches fact 0x268.
-    bindTrigger("MartenBook", [this](Trigger*) {
+    bindTrigger("MartenBook", [this](Trigger*) -> TriggerDecision {
         ctx.game.setFact(W8_FACT_QUEST_MARTEN_DIARY, 1);
-        return true;
+        return {.run_action = true};
     });
 }
 
@@ -205,55 +204,54 @@ void MartensBluff1Script::setup()
 
 /* The "F-Handlock" trap callback: already-unlocked or the right hand item
    (0x26f) opens it; otherwise it shocks the whole party for 2d4+1. */
-bool MartensBluff1Script::fHandlock(Trigger* pTrigger)
+TriggerDecision MartensBluff1Script::fHandlock(Trigger* pTrigger)
 {
     W8Dice dice;
 
     if (pTrigger->running) {
-        return true;
+        return {.run_action = true};
     }
     if ((ctx.inventory.held()) && ctx.inventory.heldItemId() == 0x26f) {
-        return true;
+        return {.run_action = true};
     }
     SetDice(&dice, 2, 4, 1);
     ApplyRolledHealthChangeToParty(&dice, 0, 1);
     wiz8::sound::play("Data\\Sound\\Ambients\\Electricity 04.wav");
-    g_trigger_feedback = true;
-    return false;
+    return {.run_action = false, .handled = true};
 }
 
 /* The "Dial-A", "Dial-B" and "Dial-C" callbacks: advance one 4-bit digit of
    DialState (the lowest, second or third) modulo 8, leaving the other digits
    alone. */
-bool MartensBluff1Script::dial(int shift)
+TriggerDecision MartensBluff1Script::dial(int shift)
 {
     if (door_controller_ == 0) {
-        return false;
+        return {.run_action = false};
     }
     int state = GetLocationVarValueByName("DialState");
     const int digit = (((state >> shift) & 0xf) + 1) % 8;
 
     state = (digit << shift) | (state & ~(0xf << shift));
     SetTriggerVariableByName("DialState", state);
-    return true;
+    return {.run_action = true};
 }
 
 /* The "Gas-Switch" callback: toggles the 0x1000 gas-disable digit of
    DialState. Re-enabling only clears the digit; disabling also stops the two
    GasSpray particles and their looping sounds. */
-bool MartensBluff1Script::gasSwitch(Trigger* pTrigger)
+TriggerDecision MartensBluff1Script::gasSwitch(Trigger* pTrigger)
 {
     ParticleSystem* particle;
     int state;
 
     if (door_controller_ == 0) {
-        return false;
+        return {.run_action = false};
     }
     state = GetLocationVarValueByName("DialState");
     if ((state & 0xf000) != 0) {
         state &= ~0xf000;
         SetTriggerVariableByName("DialState", state);
-        return true;
+        return {.run_action = true};
     }
     state = (state & 0xfff0fff) | 0x1000;
     particle = FindParticleByName("GasSpray-00");
@@ -273,29 +271,30 @@ bool MartensBluff1Script::gasSwitch(Trigger* pTrigger)
         gas_sound1_ = 0;
     }
     SetTriggerVariableByName("DialState", state);
-    return true;
+    return {.run_action = true};
 }
 
 /* The "J-Doorcontroller" callback: opens while the three dialed digits match
    the combination stored in bits 16-27 of DialState. A wrong code sprays gas
    (unless the gas switch disabled it) and casts spell 0x25 at the party. */
-bool MartensBluff1Script::jDoorController(Trigger* pTrigger)
+TriggerDecision MartensBluff1Script::jDoorController(Trigger* pTrigger)
 {
+    bool handled = false;
     glm::vec3 position;
     ParticleSystem* particle;
     int state;
 
     if (door_controller_ == 0 || pTrigger->running) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     state = GetLocationVarValueByName("DialState");
     if ((state >> 0x10 & 0xfff) == (state & 0xfff)) {
-        return true;
+        return {.run_action = true, .handled = handled};
     }
     if ((state & 0xf000) != 0) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
-    g_trigger_feedback = true;
+    handled = true;
     particle = FindParticleByName("GasSpray-00");
     if (particle != 0) {
         particle->SetActive(true);
@@ -314,7 +313,7 @@ bool MartensBluff1Script::jDoorController(Trigger* pTrigger)
     PointCastSpell(position, W8_SPELL_FREEZE_FLESH, 5);
     state |= 0x10000000;
     SetTriggerVariableByName("DialState", state);
-    return false;
+    return {.run_action = false, .handled = handled};
 }
 
 /* The Trang transporter spawn: while fact 0x43 is unset and combat is off it
@@ -403,7 +402,7 @@ bool MartensBluff1Script::transporter(int command)
 /* "MR109": the teleporter pad. Sends the party to the destination indexed by
    the TeleporterState location variable, picking a random pad when none has
    been chosen yet. Always answers false so the trigger stays armed. */
-bool MartensBluff1Script::teleporter(Trigger* pTrigger)
+TriggerDecision MartensBluff1Script::teleporter(Trigger* pTrigger)
 {
     MartensBluff1TeleporterPad state;
 
@@ -420,52 +419,52 @@ bool MartensBluff1Script::teleporter(Trigger* pTrigger)
     switch (state) {
     case MartensBluff1TeleporterPad::gigas:
         pTrigger->RunDestination("CT611");
-        return false;
+        return {.run_action = false};
     case MartensBluff1TeleporterPad::trang:
         pTrigger->RunDestination("CT107");
-        return false;
+        return {.run_action = false};
     case MartensBluff1TeleporterPad::rift:
         pTrigger->RunDestination("RIF01");
-        return false;
+        return {.run_action = false};
     case MartensBluff1TeleporterPad::maten:
         pTrigger->RunDestination("MR207");
-        return false;
+        return {.run_action = false};
     case MartensBluff1TeleporterPad::none:
         break;
     }
-    return false;
+    return {.run_action = false};
 }
 
 /* Advances the teleporter to a pad; while a teleport runs, a press only re-arms the input. */
-bool MartensBluff1Script::pressTeleporterButton(MartensBluff1TeleporterPad pad)
+TriggerDecision MartensBluff1Script::pressTeleporterButton(MartensBluff1TeleporterPad pad)
 {
     if (!teleport_running_) {
         return teleportState(pad);
     }
-    g_trigger_feedback = true;
-    return true;
+    return {.run_action = true, .handled = true};
 }
 
 /* Shared teleporter state advance. Asserts the MR109 trigger exists, reads
    the current TeleporterState and, when it names a different live pad, runs
    that pad's button trigger before writing the new state. The re-entrancy
    flag keeps the button callbacks from recursing back in. */
-bool MartensBluff1Script::teleportState(MartensBluff1TeleporterPad new_state)
+TriggerDecision MartensBluff1Script::teleportState(MartensBluff1TeleporterPad new_state)
 {
+    bool handled = false;
     Trigger* pOldButtonTrigger;
     MartensBluff1TeleporterPad state;
 
     FindRequiredTriggerByName("MR109");
     if (GetLocationVarIDByName("TeleporterState") == -1) {
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "TeleporterState", 0);
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     state = static_cast<MartensBluff1TeleporterPad>(GetLocationVarValueByName("TeleporterState"));
     if (state == MartensBluff1TeleporterPad::none) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     if (state == new_state) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     teleport_running_ = true;
     switch (state) {
@@ -485,21 +484,22 @@ bool MartensBluff1Script::teleportState(MartensBluff1TeleporterPad new_state)
     default:
         goto set_state;
     }
-    pOldButtonTrigger->Run(-1);
+    handled |= pOldButtonTrigger->Run(-1);
 set_state:
     SetTriggerVariableByName("TeleporterState", static_cast<int>(new_state));
     teleport_running_ = false;
-    return true;
+    return {.run_action = true, .handled = handled};
 }
 
 /* The "WireTrigger" callback: latches TeleporterState 1 (returning false when
    it is already nonzero) and replays the ButtonGigas sequence under the
    teleport-running guard. */
-bool MartensBluff1Script::wireTrigger(Trigger* pTrigger)
+TriggerDecision MartensBluff1Script::wireTrigger(Trigger* pTrigger)
 {
+    bool handled = false;
     Trigger* pTelTrigger;
 
-    g_trigger_feedback = true;
+    handled = true;
     pTelTrigger = FindRequiredTriggerByName("MR109");
     if (GetLocationVarIDByName("TeleporterState") == -1) {
         CurrentGame().story.ensureLocationVariable(
@@ -508,16 +508,16 @@ bool MartensBluff1Script::wireTrigger(Trigger* pTrigger)
     } else {
         if (GetLocationVarValueByName("TeleporterState") !=
             static_cast<int>(MartensBluff1TeleporterPad::none)) {
-            return false;
+            return {.run_action = false, .handled = handled};
         }
         SetTriggerVariableByName("TeleporterState",
                                  static_cast<int>(MartensBluff1TeleporterPad::gigas));
     }
     teleport_running_ = true;
     pTelTrigger = FindRequiredTriggerByName("ButtonGigas");
-    pTelTrigger->Run(-1);
+    handled |= pTelTrigger->Run(-1);
     teleport_running_ = false;
-    return true;
+    return {.run_action = true, .handled = handled};
 }
 
 } // namespace

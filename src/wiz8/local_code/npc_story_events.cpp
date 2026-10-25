@@ -126,7 +126,7 @@ static void NpcScriptQueueEndgame(void)
         (status.endgame3_queued != 0 && FindNpcOfKind(W8_NPC_PHOONZANG))) {
         W8NpcState* npc = CurrentGame().story.npcOfKind(W8_NPC_ENDGAME2);
         if (npc != 0) {
-            QueueNpcScriptNotice(npc, 0, -1, false, 0);
+            CurrentGame().queueNpcNotice(*npc);
         }
     }
 }
@@ -345,7 +345,7 @@ static void NpcScriptHenchmanArrives(Monster* monster)
             if (monster_info != 0) {
                 W8NpcState* npc = (monster_info)->boundNpc(false);
                 if (npc != 0) {
-                    QueueNpcScriptNotice(npc, 0, -1, false, 0);
+                    CurrentGame().queueNpcNotice(*npc);
                 }
             }
         }
@@ -387,9 +387,9 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         BeginScreenFade(0, 0, 500, NpcScriptTurnToBook, true, 1);
         break;
     case W8NpcStoryAction::phoonzang_notice:
-        npc = CurrentGame().story.npcOfKind(0x87);
+        npc = context.story.npcOfKind(0x87);
         if (npc != 0) {
-            QueueNpcScriptNotice(npc, 0, -1, false, 0);
+            context.game.queueNpcNotice(*npc);
         }
         break;
     case W8NpcStoryAction::move_gari: {
@@ -491,7 +491,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
             monster_info->entity->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
         if (W8MonsterGroup* group = CurrentLevelPopulation().findSpeciesGroup(0x15d)) {
-            context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+            context.game.setGroupHostility(*context.world, group, W8_DISPOSITION_HOSTILE, false);
         }
         break;
     }
@@ -554,9 +554,9 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
             trigger->flags |= W8_TRIGGER_ON;
             trigger->Run(-1);
         }
-        npc = CurrentGame().story.npcOfKind(0x8d);
+        npc = context.story.npcOfKind(0x8d);
         if (npc != 0) {
-            QueueNpcScriptNotice(npc, 0, 7, false, 0);
+            context.game.queueNpcNotice(*npc, nullptr, 7);
         }
         break;
     }
@@ -568,9 +568,9 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
                 W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
                 monster_info->entity->ForwardReferencePosition(0);
             }
-            npc = CurrentGame().story.npcOfKind(0x84);
+            npc = context.story.npcOfKind(0x84);
             if (npc != 0) {
-                QueueNpcScriptNotice(npc, 0, -1, false, 0);
+                context.game.queueNpcNotice(*npc);
             }
         }
         break;
@@ -586,9 +586,9 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
             monster_info->entity->ForwardReferencePosition(0);
             monster_info->startCycle(W8_MONSTER_CYCLE_ATTACK_SPECIAL, W8_ANIMATION_PLAY_ONCE);
         }
-        npc = CurrentGame().story.npcOfKind(0x8d);
+        npc = context.story.npcOfKind(0x8d);
         if (npc != 0) {
-            QueueNpcScriptNotice(npc, 0, 0x12, false, 0);
+            context.game.queueNpcNotice(*npc, nullptr, 0x12);
         }
         break;
     }

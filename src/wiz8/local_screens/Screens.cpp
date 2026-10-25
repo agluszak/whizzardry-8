@@ -29,7 +29,6 @@
 #include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
-#include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSSpellIcons.h"
@@ -168,10 +167,19 @@ namespace {
 // Each game event shown the way the active screen shows it.
 struct GameEventPresentation {
     Game& game;
+    MainGameScreen* mainScreen() const
+    {
+        auto* screen = MainGame();
+        return screen && &screen->game == &game ? screen : nullptr;
+    }
     void operator()(const TextNotice& notice) const
     {
         ShowNotice(notice.palette, notice.text, notice.text_box, notice.wrap_width,
                    notice.force_dialog);
+    }
+    void operator()(const TextFragment& fragment) const
+    {
+        if (auto* screen = mainScreen()) screen->presentTextFragment(fragment);
     }
     void operator()(const CharacterNotice& notice) const
     {
@@ -183,7 +191,10 @@ struct GameEventPresentation {
     }
     void operator()(const TextBoxModeChange& change) const
     {
-        SetTextBoxMode(change.mode, change.value);
+        if (auto* screen = mainScreen()) {
+            screen->notice_mode = change.mode;
+            if (change.value != -1) screen->continuation_palette = change.value;
+        }
     }
     void operator()(const PortraitSpeechChanged& change) const
     {
@@ -195,6 +206,7 @@ struct GameEventPresentation {
     }
     void operator()(const CharacterDied&) const
     {
+        if (auto* screen = mainScreen()) screen->manual_target_selection = false;
         wiz8::sound::play("Data\\Sound\\Misc\\CharacterDead.wav");
     }
     void operator()(const PartySlotChanged& change) const
@@ -223,25 +235,25 @@ struct GameEventPresentation {
     }
     void operator()(const CombatExecutionBegan&) const
     {
-        if (auto* main_game = MainGame();
-            main_game && main_game->hud && main_game->hud->open_submenu) {
+        if (auto* main_game = MainGame(); main_game && main_game->hud && main_game->submenu) {
             if (!g_settings.continuous_combat) {
-                DestroySubMenuControls();
+                main_game->closeSubMenu();
             } else {
-                ReopenSubMenuPanel();
+                main_game->rebuildSubMenu();
             }
         }
         if (!g_settings.continuous_combat && ScreenPointer().targeting() != W8_TARGET_NEED_NONE)
             SetTargetingMode(W8_TARGET_NEED_NONE);
+        if (auto* screen = mainScreen()) screen->manual_target_selection = false;
     }
     void operator()(const CombatCalledOff&) const
     {
-        if (auto* main_game = MainGame();
-            main_game && main_game->hud && main_game->hud->open_submenu)
-            DestroySubMenuControls();
+        if (auto* main_game = MainGame(); main_game && main_game->hud && main_game->submenu)
+            main_game->closeSubMenu();
     }
     void operator()(const CombatBegan&) const
     {
+        if (auto* screen = mainScreen()) screen->manual_target_selection = false;
         ScreenPointer().reset();
         auto* main_game = MainGame();
         if (main_game) main_game->party_movement.reset();
@@ -255,6 +267,7 @@ struct GameEventPresentation {
     }
     void operator()(const CombatEnded&) const
     {
+        if (auto* screen = mainScreen()) screen->manual_target_selection = false;
         auto* hud = ShownHud();
         if (!hud) return;
         /* A suspended main game re-arms its input when it is entered again. While
@@ -287,6 +300,13 @@ struct GameEventPresentation {
     {
         if (auto* hud = ShownHud()) hud->repaint.monster_list = true;
     }
+    void operator()(const MonsterHealthChanged& change) const
+    {
+        if (auto* screen = mainScreen(); screen && screen->hud &&
+                                         screen->hud->highlighted_item != -1 &&
+                                         screen->hud->highlighted_item == change.location_id)
+            VideoRemoveToolTip();
+    }
     void operator()(const MonstersActivated&) const
     {
         auto* main = MainGame();
@@ -312,12 +332,6 @@ struct GameEventPresentation {
     {
         if (auto* hud = ShownHud()) hud->repaint.everything = true;
     }
-    void operator()(const CastingBlockedNotice& notice) const
-    {
-        if (auto* main = MainGame();
-            main && &main->game == &game && CurrentScreenState().id == W8_SCREEN_MAIN_GAME)
-            game.queueWorldMessage(notice.text);
-    }
     void operator()(const LevelDeparted& departure) const
     {
         if (auto* main = MainGame(); main && &main->game == &game && main->hud &&
@@ -332,9 +346,24 @@ struct GameEventPresentation {
     }
     void operator()(const ActionChoiceChanged& change) const
     {
-        RevalidateSelectedTarget(change.slot);
+        if (auto* screen = mainScreen()) {
+            screen->manual_target_selection = false;
+            if (change.revalidate_target) RevalidateSelectedTarget(change.slot);
+        }
     }
-    void operator()(const ActionAimChanged& change) const { RefreshStoredAim(change.slot); }
+    void operator()(const ActionAimChanged& change) const
+    {
+        if (auto* screen = mainScreen())
+            screen->refreshStoredAim(change.slot, change.target_changed);
+    }
+    void operator()(const PartyTargetAvailabilityChanged&) const
+    {
+        if (auto* screen = mainScreen()) screen->refreshDraftTarget();
+    }
+    void operator()(const CombatSelectionRequested&) const
+    {
+        if (auto* screen = mainScreen()) screen->autoAdvanceSelection();
+    }
     void operator()(const CharacterActionChanged&) const
     {
         if (auto* hud = ShownHud()) hud->repaint.character_action = true;
@@ -343,7 +372,7 @@ struct GameEventPresentation {
     {
         auto* hud = ShownHud();
         if (!hud) return;
-        if (hud->open_submenu) ReopenSubMenuPanel();
+        if (auto* main_game = MainGame()) main_game->rebuildSubMenu();
         RefreshFlaggedMainGameState();
     }
     void operator()(const JournalEntryAdded& entry) const
@@ -417,7 +446,6 @@ void InitializeMainGameLevelBlock(W8LevelRuntimeBlock& hud)
         hud.portrait_refresh_pending[slot] = 0;
         hud.portrait_refresh_image[slot] = 0;
     }
-    hud.open_submenu.reset();
     hud.countdown0 = MonotonicMilliseconds() + (60000);
     hud.countdown1 = MonotonicMilliseconds() + (0);
     hud.text_box_visible = true;
@@ -430,7 +458,7 @@ void InitializeMainGameLevelBlock(W8LevelRuntimeBlock& hud)
     hud.refresh_combat_panel = 1;
     hud.combat_panel_timer = MonotonicMilliseconds() + (0);
     hud.text_scroll_drag_idle = 1;
-    SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
+    MainGame()->setTextBoxBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
     for (unsigned int& text_line : hud.text_lines) {
         text_line = 0;
     }

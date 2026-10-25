@@ -263,9 +263,18 @@ using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
 
 /* A live monster. Saves store it as wiz8::retail::MonsterInfo. */
 struct W8MonsterInfo {
+    explicit W8MonsterInfo(World& world) : owner_world(world) {}
+    World& owner_world;
     W8NpcState* boundNpc(bool allow_unavailable = false) const;
     const std::shared_ptr<W8NpcState>& npcIdentity() const { return npc_binding_; }
     void initializeVitals(const W8MonsterRecord& record, Rng& rng);
+    bool heal(unsigned int amount);
+    bool fatigue(unsigned int amount);
+    bool deactivate();
+    std::optional<unsigned int> absorbDamage(unsigned int amount);
+    bool takeDamage(unsigned int amount, const W8TargetSource& source, bool poison);
+    void setControlState(W8MonsterControlState next);
+    void clearEnchantment(W8EnchantmentSlot slot, const W8MonsterRecord& record);
     void configureBody(Rng& rng, bool level_visited);
     void restoreSpellIcons();
     void inheritLeaderState(const W8MonsterInfo& outgoing);
@@ -275,119 +284,120 @@ struct W8MonsterInfo {
     void refreshConditionState();
     void startCycle(int cycle, W8AnimationBehaviour behavior);
     void clearEffect(W8EffectSlot& effect, const W8MonsterRecord& record);
+    void ageEffects(unsigned int minutes, const W8MonsterRecord& record);
     void endEngagement(const GameData& data);
-    int location_id;
-    int monster_group_id;
-    unsigned int monster_species;
+    int location_id{};
+    int monster_group_id{};
+    unsigned int monster_species{};
     // The optional loaded runtime, including navigation, scripts and presentation.
     // A loaded body can be inactive or dying; presence is not activation.
-    std::unique_ptr<Monster> entity;
+    std::unique_ptr<Monster> entity{};
     /* Engagement state can exist before the party enters combat. */
-    std::unique_ptr<W8MonsterCombatState> pCombat;
-    bool fActive;
+    std::unique_ptr<W8MonsterCombatState> pCombat{};
+    bool fActive{};
     /* Copied from the group's ubDisposition when the entry is created. */
-    W8Disposition ubDisposition;
+    W8Disposition ubDisposition{};
     /* The spawn position; the facing yaw toward the camera follows. */
-    glm::vec3 position;
-    float derived; /* camera-facing yaw over position */
-    int uiHPMax;
-    unsigned int hp_current; /* unsigned conversion at 0053164B */
-    int stamina_max;         /* initialized from MONSTERS.DBS dice */
-    int stamina;             /* initialized to the same roll */
+    glm::vec3 position{};
+    float derived{}; /* camera-facing yaw over position */
+    int uiHPMax{};
+    unsigned int hp_current{}; /* unsigned conversion at 0053164B */
+    int stamina_max{};         /* initialized from MONSTERS.DBS dice */
+    int stamina{};             /* initialized to the same roll */
     /* The position and radius of the last noise this monster heard;
        Noise.cpp writes the heard position and the radius that carried. */
-    glm::vec3 heard_noise_position;
-    int heard_noise_radius;
+    glm::vec3 heard_noise_position{};
+    int heard_noise_radius{};
     /* The hit-point regeneration rate and its fractional accumulator. */
-    float hp_regen_rate;
-    float hp_regen_accumulator;
-    float stamina_regen_rate;
-    float stamina_regen_accumulator;
+    float hp_regen_rate{};
+    float hp_regen_accumulator{};
+    float stamina_regen_rate{};
+    float stamina_regen_accumulator{};
     /* The monster's copy of the character condition array, entry for
        entry - condition two doubles its action fatigue at 0x05f, eight blocks
        its spellcasting at 0x077, thirteen makes it hostile at 0x08b, fifteen
        at 0x093 and seventeen is exhaustion at 0x09b. */
-    unsigned int uiCondition[W8_CONDITION_COUNT];
-    W8Enchantment enchantments[8];
+    unsigned int uiCondition[W8_CONDITION_COUNT]{};
+    W8Enchantment enchantments[8]{};
     /* Highest set uiCondition index; 0x12 when deactivated. */
-    W8Condition highest_condition;
+    W8Condition highest_condition{};
     /* The argument a condition carries when a monster's conditions are
        copied onto a character. */
-    int condition_argument;
-    W8EffectSlot effect_slots[12];
-    W8GameplayModifierBlock modifiers;
-    int fatigue_band; /* derived from stamina */
+    int condition_argument{};
+    W8EffectSlot effect_slots[12]{};
+    W8GameplayModifierBlock modifiers{};
+    int fatigue_band{}; /* derived from stamina */
     /* Countdown set on pathing failure (0x14) or after a long stall
        (0x1e); each AI tick decrements it, and reaching zero clears
        heard_noise_margin. Also gates the face-party proximity check. */
-    unsigned char pathing_cooldown;
-    unsigned char attributes[W8_MONSTER_ATTR_COUNT]; /* values clamped to 1..125 */
-    unsigned char condition_binding_mask;
-    bool within_viewing_distance; /* cycle-2 eligibility gate */
-    bool fMotionless;
-    float scale; /* HP-dependent live Monster scale */
+    unsigned char pathing_cooldown{};
+    unsigned char attributes[W8_MONSTER_ATTR_COUNT]{}; /* values clamped to 1..125 */
+    unsigned char condition_binding_mask{};
+    bool within_viewing_distance{}; /* cycle-2 eligibility gate */
+    bool fMotionless{};
+    float scale{}; /* HP-dependent live Monster scale */
     /* Set once the non-forced death path has run MonsterDies; gates
        the death notice and skips repeat processing. */
-    bool death_processed;
+    bool death_processed{};
     /* Movement-stall tick counter - incremented each watch tick while
        the monster is unlinked, floored at 2 on pathing failure, reset when
        the watch cycle clears. */
-    signed char movement_stall_ticks;
+    signed char movement_stall_ticks{};
     /* Monster AI mode in the low nibble (0..8), bit 0x80 marks a
        pending decision write, bit 0x10 set on load. */
-    unsigned char ai_mode;
-    unsigned char unknown_256[0x30];
-    W8PartyThreatRecord party_threat;
+    unsigned char ai_mode{};
+    unsigned char unknown_256[0x30]{};
+    W8PartyThreatRecord party_threat{};
     /* What this monster can see of other monsters, one heap record per
        other monster. The two release paths own it: one drops every record
        about a departing monster, the other empties and destroys the whole
        list. */
-    std::unique_ptr<W8MonsterVisibility> monster_visibility;
-    W8CombatSlot Target;
+    std::unique_ptr<W8MonsterVisibility> monster_visibility{};
+    W8CombatSlot Target{};
     /* Summon marker - 0 ordinary, 1 friendly summon, 2 hostile summon;
        nonzero raises the summoned spell icon and feeds the slain cleanup. */
-    W8MonsterSummonKind summoned;
+    W8MonsterSummonKind summoned{};
     /* Charm strength; clearing it posts a notice and drops the charmed icon.
        The NPC price check reads it as a percentage discount on the quoted
        price. */
-    signed char charm_strength;
+    signed char charm_strength{};
     /* The committed attack already launched its missile; asserted by
        ContinueMonsterAttack when an out-of-range attack reports no release. */
-    bool fMissileReleased;
+    bool fMissileReleased{};
     /* The committed spell/special attack already released its payload;
        the action step asserts on it in the spell-wait case. */
-    bool fSpellReleased;
+    bool fSpellReleased{};
     /* The action the monster is taking, -1 through 9. Its whole domain
        is enumerated by MonsterActionFatigueCost, whose error text names it. */
-    MonsterAction action;
-    unsigned int spell_power_level;
-    unsigned char unknown_2ed[4];
+    MonsterAction action{};
+    unsigned int spell_power_level{};
+    unsigned char unknown_2ed[4]{};
     /* Remaining noise-hearing margin, refreshed by nearby sounds and
        cleared when pathing cooldown expires. */
-    int heard_noise_margin;
+    int heard_noise_margin{};
     /* Live spell-point pool; spell-budget calculations add it to the
        database base, and group attacks drain it. */
-    unsigned int spell_points;
-    W8MonsterControlState control_state; /* Lure success/resistance state */
-    bool saved_mirror_x;
+    unsigned int spell_points{};
+    W8MonsterControlState control_state{}; /* Lure success/resistance state */
+    bool saved_mirror_x{};
     /* The two alternating look-around timers the aging pass
        counts down and rearms from the monster's look frequency/duration. */
-    unsigned char look_time;
-    unsigned char pause_time;
+    unsigned char look_time{};
+    unsigned char pause_time{};
     /* The condition's own target source, copied in whole by the
        condition setter. */
-    W8TargetSource condition_target;
-    glm::vec3 movement_watch_position;
+    W8TargetSource condition_target{};
+    glm::vec3 movement_watch_position{};
     /* Location id of the elemental Summon Elemental bound to
        this monster, -1 while none is bound; a bound monster cannot be picked
        again. */
-    int elemental_summon;
-    W8VisibilityRecord player_visibility;
-    unsigned char unknown_379;
-    bool has_projectile_origin;
-    unsigned char unknown_37b;
-    bool has_spell_origin;
-    unsigned char unknown_37d[0xa8];
+    int elemental_summon{};
+    W8VisibilityRecord player_visibility{};
+    unsigned char unknown_379{};
+    bool has_projectile_origin{};
+    unsigned char unknown_37b{};
+    bool has_spell_origin{};
+    unsigned char unknown_37d[0xa8]{};
 
 private:
     friend class Game;
@@ -402,12 +412,10 @@ W8MonsterInfo* FindMonster(int location_id, bool assert_on_failure = true);
 const W8MonsterRecord* GetMonsterDataByLocationID(int location_id);
 Monster* GetMonsterByLocationID(int location_id);
 float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info);
-void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info);
 
 void ProcessMonstersAtCombatEnd(bool forced_cleanup);
 W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species);
 void DestroyUngroupedMonsters(void);
-void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState control_state);
 void ProcessMonsterManagerFrame(void);
 std::string FormatMonsterHealth(W8MonsterInfo* monster_info);
 unsigned int GetMonsterExperience(const W8MonsterRecord* record);

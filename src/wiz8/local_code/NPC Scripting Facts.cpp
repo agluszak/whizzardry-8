@@ -279,7 +279,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
     case W8_FACT_ARNIKA_MYLES_TROOPERS_HOSTILE:
         group = CurrentLevelPopulation().findSpeciesGroup(0x13);
         if (group != 0) {
-            context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+            context.game.setGroupHostility(*context.world, group, W8_DISPOSITION_HOSTILE, false);
         }
         return;
     case W8_FACT_ARNIKA_SAFETY_DEPOSIT_OPEN:
@@ -767,15 +767,15 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         context.status.vi_event_stage = 1;
         group = CurrentLevelPopulation().findSpeciesGroup(0x234);
         if (group != 0) {
-            context.game.setGroupHostility(group, W8_DISPOSITION_FRIENDLY, false);
+            context.game.setGroupHostility(*context.world, group, W8_DISPOSITION_FRIENDLY, false);
         }
         group = CurrentLevelPopulation().findSpeciesGroup(0x1b4);
         if (group != 0) {
-            context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+            context.game.setGroupHostility(*context.world, group, W8_DISPOSITION_HOSTILE, false);
         }
         group = CurrentLevelPopulation().findSpeciesGroup(0x1b9);
         if (group != 0) {
-            context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+            context.game.setGroupHostility(*context.world, group, W8_DISPOSITION_HOSTILE, false);
         }
         CurrentGame().story.npcOfKind(0x89);
         return;

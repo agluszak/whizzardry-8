@@ -2,6 +2,7 @@
 #include <chrono>
 #include <variant>
 
+#include "wiz8/audio/soundman.h"
 #include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
@@ -65,17 +66,19 @@ CombatWait Combat::waitingOn(const Game& game) const
     if (AnyCombatMonsterBusy(*this)) {
         return CombatWait::monster;
     }
-    if (hit_sound) {
+    if (!wiz8::sound::finished(hit_sound_)) {
         return CombatWait::hit_sound;
     }
     if (game.level.primary && game.level.primary->hasPendingSpellEffects()) {
         return CombatWait::spell_effect;
     }
-    for (Missile* missile = NextMissile(true); missile != 0; missile = NextMissile(false)) {
-        if ((missile == engaged_missile ||
-             Data().missiles[missile->missile_table_index].spell_missile != 0) &&
-            missile->BlocksEndingCombat()) {
-            return CombatWait::missile;
+    if (game.level.primary) {
+        for (const auto& missile : game.level.primary->missiles()) {
+            if ((missile.get() == engaged_missile ||
+                 game.data.missiles[missile->missile_table_index].spell_missile != 0) &&
+                missile->BlocksEndingCombat()) {
+                return CombatWait::missile;
+            }
         }
     }
     for (unsigned int slot = 0; slot < 2; ++slot) {
@@ -166,7 +169,7 @@ void Combat::step(Game& game)
         combat_evaluated = 1;
     }
     if (engaged_missile != 0 && !engaged_missile->BlocksEndingCombat()) {
-        engaged_missile->block_released = 1;
+        engaged_missile->block_released = true;
         engaged_missile = 0;
     }
     if (uiCurrentPartyActionStatus == W8_PARTY_ACTION_IN_PROGRESS) {
@@ -175,7 +178,7 @@ void Combat::step(Game& game)
             UpdateActivePartyMovement();
         }
     } else {
-        AutoAdvanceSelectedCharacter();
+        game.events.push(CombatSelectionRequested{});
         if (waitingOn(game) != CombatWait::none) {
             return;
         }

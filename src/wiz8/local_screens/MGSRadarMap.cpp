@@ -251,12 +251,10 @@ void RadarMap::update(const W8TargetingPresentation& presentation)
         }
     }
 
-    Missile* missile = NextMissile(true);
-    while (missile != 0) {
+    for (const auto& missile : world.missiles()) {
         if (!missile->impacting) {
             const auto bounds = missile->visual.GetAnimationBounds();
             if (!bounds) {
-                missile = NextMissile(false);
                 continue;
             }
             center = bounds->center();
@@ -268,7 +266,6 @@ void RadarMap::update(const W8TargetingPresentation& presentation)
                 placeBlip(delta, W8_RADAR_BLIP_MISSILE, false, next_blip++);
             }
         }
-        missile = NextMissile(false);
     }
 }
 

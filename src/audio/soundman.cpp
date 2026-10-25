@@ -313,6 +313,11 @@ void release_cache()
     service_state.cached_bytes = 0;
 }
 
+bool finished(const Playback& playback)
+{
+    return !playback || !playback->track;
+}
+
 bool is_playing(const Playback& playback)
 {
     return live(playback) && MIX_TrackPlaying(playback->track.get());

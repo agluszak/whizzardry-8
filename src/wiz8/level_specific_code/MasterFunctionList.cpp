@@ -54,7 +54,6 @@
 #include "wiz8/location_variables.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
-#include "wiz8/rules/events.h"
 #include "wiz8/rules/gameplay_modifiers.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_slot.h"
@@ -135,7 +134,8 @@ W8MonsterGroup* SpawnMonsters(int monster_id, int count, glm::vec3* position, in
     auto* group =
         CurrentGame().createMonsterGroup(monster_id, count, &spawn_position, use_alternate_name);
     if (group != 0) {
-        CurrentGame().setGroupHostility(group, static_cast<W8Disposition>(hostility), false);
+        CurrentGame().setGroupHostility(CurrentGame().level.loaded(), group,
+                                        static_cast<W8Disposition>(hostility), false);
         GetMonsterGroupCentre(group, 0);
         CurrentGame().refreshOutwardSight();
     }
@@ -164,16 +164,13 @@ Sound3D* CreateAndPlaySoundNode(World& world, const char* sound_name, glm::vec3 
     return result;
 }
 
-bool Game::partyCastingBlocked()
+bool Game::refuseBlockedCasting()
 {
     if (!level.primary) return false;
     const auto messages = level.primary->castingBlockMessagesAt(level.primary->party.eye());
     if (messages.empty()) return false;
-    const auto path = LevelMessagePath(level.primary->level_id);
-    for (int id : messages) {
-        auto text = GetStringFromStringDatabase(path, id, nullptr, nullptr);
-        if (!text.empty()) events.push(CastingBlockedNotice{std::move(text)});
-    }
+    if (activity.in_world())
+        for (int id : messages) queueLevelMessage(id);
     return true;
 }
 

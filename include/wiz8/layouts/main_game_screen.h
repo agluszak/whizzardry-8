@@ -273,8 +273,6 @@ struct W8LevelRuntimeBlock {
     std::unique_ptr<OverlayQuad> formation_overlay_sprite;
     unsigned char refresh_combat_panel;
     uint64_t combat_panel_timer;
-    // The submenu panel that is open, by menu id.
-    std::optional<short> open_submenu;
     int text_box_left;
     int text_box_top;
     int text_box_right;

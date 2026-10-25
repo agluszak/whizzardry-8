@@ -14,7 +14,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/script_context.h"
 #include "wiz8/story.h"
@@ -38,7 +37,7 @@ public:
 
 private:
     void setup();
-    bool triggerPlane1Hedra(Trigger* pTrigger);
+    TriggerDecision triggerPlane1Hedra(Trigger* pTrigger);
 };
 
 void CosmicCircleScript::enter()
@@ -49,7 +48,7 @@ void CosmicCircleScript::enter()
 
 /* "CC_TRIGGERPLANE1HEDRA": stepping onto the arena trigger plane ends any
    running combat, posts the savant's script notice and starts CameraPath1. */
-bool CosmicCircleScript::triggerPlane1Hedra(Trigger* pTrigger)
+TriggerDecision CosmicCircleScript::triggerPlane1Hedra(Trigger* pTrigger)
 {
     W8NpcState* pNPC;
 
@@ -57,11 +56,11 @@ bool CosmicCircleScript::triggerPlane1Hedra(Trigger* pTrigger)
         ctx.game.endCombat(true);
     }
     BeginScriptedWorldAction();
-    pNPC = CurrentGame().story.npcOfKind(0x85);
+    pNPC = ctx.story.npcOfKind(0x85);
     if (pNPC == 0) throw std::runtime_error("Savant NPC state is missing");
-    QueueNpcScriptNotice(pNPC, 0, -1, false, 0);
+    ctx.game.queueNpcNotice(*pNPC);
     UpdateCameraPathStateByName(&world(), "CameraPath1", 1);
-    return true;
+    return {.run_action = true};
 }
 
 /* Spawn the Cosmic Circle arena: Altheides and the dark savant on their named

@@ -107,7 +107,6 @@
 #include "wiz8/local_screens/MGSFormation.h"
 #include "wiz8/local_screens/MGSKeyboard.h"
 #include "wiz8/local_screens/MGSPartyMovement.h"
-#include "wiz8/local_screens/MGSPortraitCombat.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
@@ -307,15 +306,6 @@ static void QueueInteractionNotice(int event_type)
     }
 }
 
-// The action bar's text box regions follow the bottom panel.
-static void SetActionPanelRegions(bool enabled)
-{
-    SetTextBoxEnabled(enabled);
-    SetTextBoxMuteInput(enabled);
-    SetTextBoxScrollInput(enabled);
-    SetTextBoxChannelTabInput(enabled);
-}
-
 bool LockInteractionSuspended()
 {
     return LockInteraction() && !IsLockInteractionActive();
@@ -341,8 +331,8 @@ static bool InteractionBlocksWorldAdvancement()
 /* The HUD gives the bottom panel to a lock or trap interaction. */
 static void TakeHudForInteraction()
 {
-    if (MainGameHud()->open_submenu) {
-        DestroySubMenuControls();
+    if (MainGame()->submenu) {
+        MainGame()->closeSubMenu();
     }
     MainGame()->refreshLayout();
     SelectTextBox(2);
@@ -1456,6 +1446,16 @@ W8TrapInteraction::W8TrapInteraction(Trigger* owner)
     RefreshActionPanel();
 }
 
+bool W8TrapInteraction::handleKey(SDL_Keycode key)
+{
+    const int before = m_text_panel->m_selection;
+    const bool handled = m_text_panel->m_key_handler->HandleKey(key);
+    if (handled && m_text_panel->m_selection != before) {
+        PlayButtonSound(UiPointerAction::Up);
+    }
+    return handled;
+}
+
 void W8TrapInteraction::DrawActions(SDL_Surface& target)
 {
     if (actions_dirty) {
@@ -2253,15 +2253,15 @@ bool MainGameScreen::enter(const ScreenRequest&)
     game.level_up_check_due = true;
     party_quotes = AcquirePartyQuoteInput(game);
 
-    InitTextBoxRegions();
-    ConfigureMainGameHudButtons();
+    text_input = std::make_unique<MainGameTextInput>(*this);
+    configureHudButtons();
     CreateLevelButtons();
     CreateConditionButtons();
     InitializeMainGameLevelBlock(*hud);
     // The renderer starts each entry without a viewport.
     applied_layout.viewport = W8_VIEWPORT_MODE_UNINITIALIZED;
     refreshLayout();
-    ScrollTextBoxToCursor();
+    scrollTextBoxToCursor();
     g_world_render_enabled = 1;
     g_monster_shadow_updates_enabled = 1;
     ClearPrimarySurface();
@@ -2334,26 +2334,25 @@ void BeginLevelTransition(int level, int entry)
                    .parameter_2 = entry});
 }
 
-void TickAmbientFollowUpIdle(unsigned char input_handled)
+void MainGameScreen::updateIdleSpeech(unsigned char input_handled)
 {
-    if (!CurrentGame().combat.has_value() && !SpellPicker() && !UseItemPicker() &&
-        !CurrentGame().activity.conversation && !IsLockInteractionActive() &&
-        !IsTrapInteractionActive() && !CurrentGame().surprise_possible) {
+    if (!game.combat.has_value() && !spell_picker && !item_picker && !game.activity.conversation &&
+        !lock_active && !trap_active && !game.surprise_possible) {
         if (input_handled == 0) {
             if (GetMillisecondsSinceCursorMove() > 60000) {
-                if (TimeUntilDeadline(MainGameHud()->countdown0) != 0) {
+                if (TimeUntilDeadline(hud->countdown0) != 0) {
                     return;
                 }
-                CurrentGame().speech.ProcessFollowUpEvents();
+                game.speech.ProcessFollowUpEvents();
                 return;
             }
         } else {
-            MainGameHud()->countdown0 = MonotonicMilliseconds() + (60000);
+            hud->countdown0 = MonotonicMilliseconds() + (60000);
         }
     } else {
-        MainGameHud()->countdown0 = MonotonicMilliseconds() + (60000);
+        hud->countdown0 = MonotonicMilliseconds() + (60000);
     }
-    CurrentGame().speech.follow_up.reset();
+    game.speech.follow_up.reset();
 }
 
 // A highlighted plate belongs to the mode being left, not its replacement.
@@ -2366,19 +2365,19 @@ void SetMainGameMode(W8MainGameMode mode)
     g_main_game_mode = mode;
 }
 
-bool ProcessMainGameInput(void)
+bool MainGameScreen::processInput(void)
 {
     if (IsModalOpen()) return false;
     return PumpUiInput({
         .before =
-            [](const InputEvent& input) {
+            [this](const InputEvent& input) {
                 if (g_mouselook_active && HandleMouselookInput(&input)) return InputRoute::Handled;
-                if (MainGame()->resume_world && !IsModalOpen() && HandleWorldResumeInput(&input))
+                if (resume_world && !IsModalOpen() && HandleWorldResumeInput(&input))
                     return InputRoute::Handled;
                 return InputRoute::Pass;
             },
         .unhandled =
-            [](const InputEvent& input) {
+            [this](const InputEvent& input) {
                 switch (input.type) {
                 case InputEventType::LeftButtonDown:
                 case InputEventType::LeftButtonUp:
@@ -2388,13 +2387,10 @@ bool ProcessMainGameInput(void)
                 default:
                     break;
                 }
-                if (HandleMainGameInputEvent(&input) == 0) {
-                    ResetMainGameMode();
-                    return InputRoute::Stop;
-                }
+                handleKeyEvent(&input);
                 return InputRoute::Handled;
             },
-        .track_hover = !MainGame()->resume_world,
+        .track_hover = !resume_world,
     });
 }
 
@@ -2482,8 +2478,8 @@ void MainGameScreen::frame()
     if (!MainGame()->keyboard_menu && MainGameHud()->hover_combat_slot != -1 &&
         !MainGame()->combat_targets[MainGameHud()->hover_combat_slot]->hitAt(point))
         MainGameHud()->hover_combat_slot = -1;
-    TickAmbientFollowUpIdle(ProcessMainGameInput());
-    HandleManualCameraHotkeys();
+    updateIdleSpeech(processInput());
+    handleCameraKeys();
     if (!g_camera_path_active && g_mouselook_active && g_mouselook_left_held) {
         MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD;
         if (GetInputState().modifiers & SHIFT_DOWN) {
@@ -2588,7 +2584,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
         }
 
         dialogue.discardSpeech();
-        ShutdownTextBoxRegions();
+        text_input.reset();
         DestroyFormationPanel();
         wiz8::sound::release_cache();
         hud.reset();
@@ -2597,7 +2593,7 @@ bool MainGameScreen::leave(ScreenDeparture departure)
     g_world_render_enabled = 0;
     g_monster_shadow_updates_enabled = 0;
     DisableSky();
-    DestroySubMenuPanel();
+    submenu.reset();
     DestroySpellIconHudControls();
     return true;
 }
@@ -2666,8 +2662,6 @@ void MainGameScreen::paintRequested(const W8TargetingPresentation& presentation,
                          bottom + layout.PortraitYShift());
     };
     int party_slot;
-    int text_box_variant;
-    W8TextBoxMode text_box_mode;
     bool show_portraits;
     SDL_Rect combat_clip;
     short health_percent;
@@ -2765,19 +2759,9 @@ void MainGameScreen::paintRequested(const W8TargetingPresentation& presentation,
         } else {
             CatalogArtwork::Load(0x87, 0).drawAndInvalidate(GetFrameBufferSurface(), 0, 0x80,
                                                             0x166);
-            text_box_mode = GetTextBoxMode();
-            if (text_box_mode == W8_TEXT_BOX_MODE_NOTICE ||
-                text_box_mode == W8_TEXT_BOX_MODE_APPEND) {
-                text_box_variant = text_box_mode;
-            } else if (text_box_mode == W8_TEXT_BOX_MODE_SPECIAL_PANEL) {
-                text_box_variant = 2;
-            } else {
-                goto draw_formation_panel;
-            }
-            CatalogArtwork::Load(0x88, 0).drawAndInvalidate(GetFrameBufferSurface(),
-                                                            text_box_variant, 0x8a, 0x168);
+            CatalogArtwork::Load(0x88, 0).drawAndInvalidate(GetFrameBufferSurface(), notice_mode,
+                                                            0x8a, 0x168);
         }
-    draw_formation_panel:
         if (!repaint.formation || !layout.formation_board) {
             if (repaint.formation) {
                 ClearSurfaceRect(0x200, 0x166, 0x268, 0x1c2);
@@ -2804,8 +2788,8 @@ finish_mode_overlays:
     if (repaint.character_action) {
         DrawSubMenuCharacterAction();
     }
-    if (hud.open_submenu) {
-        RefreshSubMenuPanel(repaint.submenu_panel);
+    if (submenu) {
+        submenu->draw(repaint.submenu_panel);
     }
     if (repaint.submenu_panel) publish_chrome(469, 382, 501, 462);
     if (repaint.options_button) {
@@ -2836,7 +2820,7 @@ W8TargetingPresentation MainGameScreen::updatePresentation()
     }
     if (!spell_picker && item_picker) item_picker->UpdatePoolButtons();
     if (!IsScreenTransitionPending()) {
-        if (hud.open_submenu) UpdateSubMenuAutoClose();
+        if (submenu) updateSubMenu();
         if (!CurrentGame().combat.has_value()) UpdatePortraitAdvanceButtons();
         UpdateConditionButtons();
         updateHudButtons();
@@ -3107,8 +3091,8 @@ void SelectPartyCharacter(int party_slot)
     if (FormationPanelOpen()) {
         SelectFormationSlotCell(CurrentGame().status.selected_character);
     }
-    if (MainGameHud()->open_submenu) {
-        ResetSubMenuPanel();
+    if (MainGame()->submenu) {
+        MainGame()->rebuildSubMenu();
     }
     if (MainGame()->keyboard_menu && party_slot != MainGame()->keyboard_menu->slot) {
         MainGame()->closeKeyboardMenu();
@@ -3119,7 +3103,8 @@ void SelectPartyCharacter(int party_slot)
         hud->repaint.submenu_buttons = true;
         hud->repaint.character_action = true;
     }
-    if (auto& combat = CurrentGame().combat) combat->target_picked = true;
+    if (auto* screen = MainGame(); screen && CurrentGame().combat)
+        screen->manual_target_selection = true;
 }
 
 void RefreshSelectedPartyPortrait(unsigned int party_slot)
@@ -4064,12 +4049,12 @@ void MainGameScreen::syncInput(const MainGameLayout& layout)
 
     // Spell and item pickers always raise the text box; otherwise it follows the bottom panel.
     if (spell_picker || (!npc_dialogue && item_picker)) {
-        SetTextBoxEnabled(true);
-        SetTextBoxScrollInput(true);
-        SetTextBoxMuteInput(false);
-        SetTextBoxChannelTabInput(false);
+        text_input->setEnabled(true);
+        text_input->setScrollEnabled(true);
+        text_input->setMuteEnabled(false);
+        text_input->setChannelTabsEnabled(false);
     } else {
-        SetActionPanelRegions(layout.bottom_panel);
+        text_input->setPanelEnabled(layout.bottom_panel);
     }
     if (spell_picker) spell_picker->input.setEnabled(true);
     if (npc_dialogue) SetNpcDialogueInputEnabled(2, true);
@@ -5000,7 +4985,7 @@ UiResult WorldViewInput(const UiPointerEvent& event)
                         if (monster_info->highest_condition < W8_CONDITION_ASLEEP) {
                             W8NpcState* npc =
                                 (FindMonster(MainGameHud()->highlighted_item))->boundNpc();
-                            QueueNpcScriptNotice(npc, item, -1, false, 0);
+                            CurrentGame().queueNpcNotice(*npc, item);
                             SetCombatSelection(-1);
                         } else {
                             ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x7de]);
@@ -5154,30 +5139,11 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
 }
 
 /* Drop the highlight when the thing being highlighted is the one going away. */
-void ClearHighlightIfItIs(const int* item)
-{
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && MainGameHud() != nullptr &&
-        MainGameHud()->highlighted_item != -1 && *item == MainGameHud()->highlighted_item) {
-        VideoRemoveToolTip();
-    }
-}
 
-/* Whether the screen is in one of the states that takes the player's input
-   away. The first flag settles it outright; otherwise one state only counts
-   while a further check disagrees, and three more count on their own. */
-bool IsScreenInputBlocked(void)
+bool MainGameScreen::inputBlocked() const
 {
-    if (SpellPicker()) {
-        return true;
-    }
-    if (CurrentGame().activity.conversation &&
-        !(CurrentGame().activity.conversation && CurrentGame().npc_interaction.scripted_dialogue)) {
-        return true;
-    }
-    if (!IsLockInteractionActive() && !IsTrapInteractionActive() && !UseItemPicker()) {
-        return false;
-    }
-    return true;
+    return spell_picker || item_picker || lock_active || trap_active ||
+           (game.activity.conversation && !game.npc_interaction.scripted_dialogue);
 }
 
 /* Whether the screen is idle - none of the six overlays is up. The same six
@@ -5437,247 +5403,6 @@ void MainGameScreen::dismissOverlays(bool suspend_interaction)
     }
 }
 
-/* Whether the numbered action-key command may run in the current UI mode:
-   dialogue, interaction, camp and surprise lock most of them out, the item
-   and spell views admit only their own toggle, and combat commands check the
-   entry's submenu state. Command 0x10 re-checks the slot's queued action's
-   own command. */
-bool IsMGSActionKeyEnabled(unsigned short command)
-{
-    short state;
-
-    state = -1;
-    if (CurrentGame().activity.conversation) {
-        if (command != W8_MGS_ACTION_JOURNAL || IsNpcDialogueCursorActive() != 0 ||
-            (CurrentGame().activity.conversation &&
-             CurrentGame().npc_interaction.scripted_dialogue)) {
-            return false;
-        }
-    }
-    if (IsLockInteractionActive() || IsTrapInteractionActive() || FormationPanelOpen()) {
-        return false;
-    }
-    if (UseItemPicker() && command != W8_MGS_ACTION_USE_ITEM_VIEW) {
-        return false;
-    }
-    if (SpellPicker() && command != W8_MGS_ACTION_SPELL_VIEW) {
-        return false;
-    }
-    if (CurrentGame().surprise_possible || CurrentGame().activity.conversation_aside) {
-        return false;
-    }
-    if (CurrentGame().combat.has_value() && !CurrentGame().combat->round_active) {
-        return false;
-    }
-    switch (command) {
-    case W8_MGS_ACTION_USE_ITEM_VIEW:
-        state = GetSubMenuEntryState(W8_SUBMENU_ITEMS, 1, CurrentGame().status.selected_character);
-        break;
-    case W8_MGS_ACTION_USE_RECORDED_ITEM:
-        state = GetSubMenuEntryState(W8_SUBMENU_ITEMS, 2, CurrentGame().status.selected_character);
-        break;
-    case W8_MGS_ACTION_SPELL_VIEW:
-        state = GetSubMenuEntryState(W8_SUBMENU_SPELLS, 0, CurrentGame().status.selected_character);
-        break;
-    case W8_MGS_ACTION_CAST_RECORDED_SPELL:
-        state = GetSubMenuEntryState(W8_SUBMENU_SPELLS, 1, CurrentGame().status.selected_character);
-        break;
-    default:
-        if (!CurrentGame().combat.has_value()) {
-            return command == W8_MGS_ACTION_JOURNAL;
-        }
-        switch (command) {
-        case W8_MGS_ACTION_JOURNAL:
-            return false;
-        case W8_MGS_ACTION_BREATHE:
-            state =
-                GetSubMenuEntryState(W8_SUBMENU_ATTACK, 2, CurrentGame().status.selected_character);
-            break;
-        case W8_MGS_ACTION_BREATH_ATTACK:
-            return IsPartySlotEligible(CurrentGame().status.selected_character) &&
-                   CanPartySlotReBreathe(CurrentGame().status.selected_character);
-        case W8_MGS_ACTION_ATTACK:
-            state =
-                GetSubMenuEntryState(W8_SUBMENU_ATTACK, 0, CurrentGame().status.selected_character);
-            break;
-        case W8_MGS_ACTION_BERSERK:
-            state =
-                GetSubMenuEntryState(W8_SUBMENU_ATTACK, 1, CurrentGame().status.selected_character);
-            break;
-        case W8_MGS_ACTION_TURN_UNDEAD:
-            state =
-                GetSubMenuEntryState(W8_SUBMENU_ATTACK, 3, CurrentGame().status.selected_character);
-            break;
-        case W8_MGS_ACTION_PRAY:
-            state =
-                GetSubMenuEntryState(W8_SUBMENU_ATTACK, 4, CurrentGame().status.selected_character);
-            break;
-        case W8_MGS_ACTION_DEFEND:
-            state =
-                GetSubMenuEntryState(W8_SUBMENU_DEFEND, 0, CurrentGame().status.selected_character);
-            break;
-        case W8_MGS_ACTION_PROTECT:
-            state =
-                GetSubMenuEntryState(W8_SUBMENU_DEFEND, 1, CurrentGame().status.selected_character);
-            break;
-        case W8_MGS_ACTION_EQUIP:
-            state =
-                GetSubMenuEntryState(W8_SUBMENU_ITEMS, 0, CurrentGame().status.selected_character);
-            break;
-        case W8_MGS_ACTION_WALK:
-        case W8_MGS_ACTION_RUN:
-            return AnyCharacterEngaged();
-        case W8_MGS_ACTION_REPEAT:
-            switch (CurrentGame()
-                        .party.rows[CurrentGame().status.selected_character]
-                        .remembered.repeat_action) {
-            case W8_ACTION_BREATHE:
-                return IsMGSActionKeyEnabled(W8_MGS_ACTION_BREATH_ATTACK);
-            case W8_ACTION_TURN_UNDEAD:
-                return IsMGSActionKeyEnabled(W8_MGS_ACTION_TURN_UNDEAD);
-            case W8_ACTION_PRAY:
-                return IsMGSActionKeyEnabled(W8_MGS_ACTION_PRAY);
-            case W8_ACTION_CAST_SPELL:
-                return IsMGSActionKeyEnabled(W8_MGS_ACTION_CAST_RECORDED_SPELL);
-            case W8_ACTION_USE_ITEM:
-                return IsMGSActionKeyEnabled(W8_MGS_ACTION_USE_RECORDED_ITEM);
-            case W8_ACTION_EQUIP:
-                return IsMGSActionKeyEnabled(W8_MGS_ACTION_EQUIP);
-            default:
-                return false;
-            }
-        default:
-            return false;
-        }
-    }
-    assert(state != -1);
-    if (!IsPartySlotEligible(CurrentGame().status.selected_character)) {
-        return false;
-    }
-    return state == 0 || state == 1;
-}
-
-/* Run the numbered action-key command: dismiss the transient menu first, then
-   act - toggle the item or spell view, fire the recorded spell/item, choose
-   the combat action, or dispatch the slot's queued action's own command. */
-void RunMGSActionKey(unsigned short command)
-{
-    if (MainGameHud()->open_submenu) {
-        DestroySubMenuControls();
-    }
-    if (MainGame()->keyboard_menu) {
-        MainGame()->closeKeyboardMenu();
-    }
-    switch (command) {
-    case W8_MGS_ACTION_JOURNAL:
-        if (CurrentGame().activity.conversation) {
-            CurrentGame().activity.conversation_aside = true;
-        }
-        RequestScreen({.id = W8_SCREEN_JOURNAL});
-        break;
-    case W8_MGS_ACTION_USE_ITEM_VIEW:
-        if (UseItemPicker()) {
-            MainGame()->closeItemPicker();
-        } else {
-            MainGame()->openItemPicker(CurrentGame().status.selected_character);
-        }
-        break;
-    case W8_MGS_ACTION_USE_RECORDED_ITEM:
-        StartCharacterItemUse(CurrentGame().status.selected_character);
-        break;
-    case W8_MGS_ACTION_SPELL_VIEW:
-        if (SpellPicker()) {
-            MainGame()->closeSpellPicker();
-        } else {
-            MainGame()->openSpellPicker(CurrentGame().status.selected_character);
-        }
-        break;
-    case W8_MGS_ACTION_CAST_RECORDED_SPELL:
-        StartCharacterSpellCast(CurrentGame().status.selected_character, 0);
-        break;
-    case W8_MGS_ACTION_BREATHE:
-        ChooseAction(CurrentGame().status.selected_character, W8_ACTION_BREATHE, -1, 0, false, 1);
-        DrawSubMenuCharacterAction();
-        break;
-    case W8_MGS_ACTION_BREATH_ATTACK:
-        StartCharacterBreathAttack(CurrentGame().status.selected_character);
-        break;
-    case W8_MGS_ACTION_ATTACK:
-        ChooseAction(CurrentGame().status.selected_character, W8_ACTION_ATTACK, -1, 0, false, 1);
-        DrawSubMenuCharacterAction();
-        break;
-    case W8_MGS_ACTION_BERSERK:
-        ChooseAction(CurrentGame().status.selected_character, W8_ACTION_BERSERK, -1, 0, false, 1);
-        DrawSubMenuCharacterAction();
-        break;
-    case W8_MGS_ACTION_TURN_UNDEAD:
-        ChooseAction(CurrentGame().status.selected_character, W8_ACTION_TURN_UNDEAD, -1, 0, false,
-                     1);
-        DrawSubMenuCharacterAction();
-        break;
-    case W8_MGS_ACTION_PRAY:
-        ChooseAction(CurrentGame().status.selected_character, W8_ACTION_PRAY, -1, 0, false, 1);
-        DrawSubMenuCharacterAction();
-        break;
-    case W8_MGS_ACTION_DEFEND:
-        ChooseAction(CurrentGame().status.selected_character, W8_ACTION_DEFEND, -1, 0, false, 1);
-        DrawSubMenuCharacterAction();
-        break;
-    case W8_MGS_ACTION_PROTECT:
-        ChooseAction(CurrentGame().status.selected_character, W8_ACTION_PROTECT, -1, 0, false, 1);
-        DrawSubMenuCharacterAction();
-        break;
-    case W8_MGS_ACTION_EQUIP:
-        ChooseAction(CurrentGame().status.selected_character, W8_ACTION_EQUIP, -1, 0, false, 1);
-        DrawSubMenuCharacterAction();
-        break;
-    case W8_MGS_ACTION_WALK:
-        ChooseAction(CurrentGame().status.selected_character, W8_ACTION_WALK, -1, 0, false, 1);
-        DrawSubMenuCharacterAction();
-        break;
-    case W8_MGS_ACTION_RUN:
-        ChooseAction(CurrentGame().status.selected_character, W8_ACTION_RUN, -1, 0, false, 1);
-        DrawSubMenuCharacterAction();
-        break;
-    case W8_MGS_ACTION_REPEAT:
-        switch (CurrentGame()
-                    .party.rows[CurrentGame().status.selected_character]
-                    .remembered.repeat_action) {
-        case W8_ACTION_BREATHE:
-            RunMGSActionKey(W8_MGS_ACTION_BREATH_ATTACK);
-            break;
-        case W8_ACTION_TURN_UNDEAD:
-            RunMGSActionKey(W8_MGS_ACTION_TURN_UNDEAD);
-            break;
-        case W8_ACTION_PRAY:
-            RunMGSActionKey(W8_MGS_ACTION_PRAY);
-            break;
-        case W8_ACTION_CAST_SPELL:
-            RunMGSActionKey(W8_MGS_ACTION_CAST_RECORDED_SPELL);
-            break;
-        case W8_ACTION_USE_ITEM:
-            RunMGSActionKey(W8_MGS_ACTION_USE_RECORDED_ITEM);
-            break;
-        case W8_ACTION_EQUIP:
-            RunMGSActionKey(W8_MGS_ACTION_EQUIP);
-            break;
-        default:
-            break;
-        }
-        break;
-    default:
-        break;
-    }
-}
-
-/* Fire the numbered action-key command when the current UI mode allows it. */
-void TryMGSActionKey(W8MGSAction command)
-{
-    if (IsMGSActionKeyEnabled(command)) {
-        RunMGSActionKey(command);
-    }
-}
-
 /* Load each main-game cursor catalog entry into an Texture and record the
    ETRLE frame size onto the slot. Called once when the HUD state is first
    allocated. */
@@ -5820,7 +5545,7 @@ void MainGameScreen::closeOverlays()
     auto& layout = applied_layout;
     if (std::exchange(layout.formation_board, false)) showFormationBoard(false);
     if (std::exchange(layout.radar_map, false)) showRadarMap(false);
-    if (std::exchange(layout.bottom_panel, false)) SetActionPanelRegions(false);
+    if (std::exchange(layout.bottom_panel, false)) text_input->setPanelEnabled(false);
 }
 
 void ClearHighlightOverlayRegion(void)
@@ -6022,7 +5747,7 @@ void RebuildNpcTradeItemList(bool scroll_to_top)
         PopulateNpcTradeList();
     }
     if (scroll_to_top) {
-        ScrollTextBoxTo(0);
+        MainGame()->scrollTextBoxTo(0);
     }
 }
 
@@ -6369,27 +6094,30 @@ bool IsSighting(int party_slot)
     return !CurrentGame().combat.has_value() && !EditedDraft(party_slot);
 }
 
-namespace {
-void RefreshAim(unsigned int actor, const W8CombatSlot& target)
+void MainGameScreen::refreshAim(unsigned int actor, const W8CombatSlot& target)
 {
     RequestPartySlotRedraw(actor);
-    if (actor != static_cast<unsigned int>(CurrentGame().status.selected_character)) return;
-    if (auto* hud = MainGameHud()) {
+    if (actor != static_cast<unsigned int>(game.status.selected_character)) return;
+    if (hud) {
         hud->repaint.monster_list = true;
         hud->repaint.character_action = true;
     }
     if (target.iType == W8_TARGET_KIND_NONE) return;
-    const auto edited = EditedAction(actor);
-    const auto needed = IsSighting(actor) ? W8_TARGET_NEED_NONE : CurrentGame().targetNeed(edited);
-    SetTargetingMode(CurrentGame().targetMatches(edited.target, needed) ? W8_TARGET_NEED_NONE
-                                                                        : needed);
+    const W8Action* draft = spell_picker  ? &spell_picker->action()
+                            : item_picker ? &item_picker->action()
+                                          : nullptr;
+    const auto edited =
+        draft ? game.party.availableAction(actor, *draft)
+              : game.party.action(actor, game.combat ? W8_TARGETING_CONTEXT_IN_COMBAT
+                                                     : W8_TARGETING_CONTEXT_OUT_OF_COMBAT);
+    const auto needed = (!game.combat && !draft) ? W8_TARGET_NEED_NONE : game.targetNeed(edited);
+    SetTargetingMode(game.targetMatches(edited.target, needed) ? W8_TARGET_NEED_NONE : needed);
 }
-} // namespace
 
 void AimAtTarget(int actor, const W8CombatSlot& target)
 {
     if (auto* draft = EditedDraft(actor)) {
-        AimDraft(actor, *draft, target);
+        MainGame()->aimDraft(actor, *draft, target);
     } else {
         CurrentGame().aimStoredAction(actor,
                                       CurrentGame().combat.has_value()
@@ -6399,14 +6127,14 @@ void AimAtTarget(int actor, const W8CombatSlot& target)
     }
 }
 
-void AimDraft(int actor, W8Action& draft, const W8CombatSlot& target)
+void MainGameScreen::aimDraft(int actor, W8Action& draft, const W8CombatSlot& target)
 {
-    const bool changed = CurrentGame().party.availableAction(actor, draft).target != target;
+    const bool changed = game.party.availableAction(actor, draft).target != target;
     if (changed) {
         draft.target = target;
-        if (auto& combat = CurrentGame().combat) combat->target_picked = false;
+        if (game.combat) manual_target_selection = false;
     }
-    if (changed || target.iType != W8_TARGET_KIND_NONE) RefreshAim(actor, target);
+    if (changed || target.iType != W8_TARGET_KIND_NONE) refreshAim(actor, target);
 }
 
 void SetTargetingMode(W8TargetNeed state)
@@ -6439,7 +6167,8 @@ void ConfigureSpellTargetFilter(W8SpellTargetType target_type, W8TargetNeed need
             target.iMonsterID = CurrentGame().npc_interaction.target_location_id;
             AimAtTarget(selected, target);
             needed_kind = W8_TARGET_NEED_NONE;
-        } else if (g_settings.autotarget_spells && draft && RepickDraftTarget(selected, *draft)) {
+        } else if (g_settings.autotarget_spells && draft &&
+                   MainGame()->repickDraftTarget(selected, *draft)) {
             W8TargetSource source;
             SetTargetSourceToCharacter(selected, &source);
             CurrentGame().pointCameraAtCombatTarget(
@@ -6463,7 +6192,63 @@ aim_done:
     SetTargetingMode(needed_kind);
 }
 
-void RefreshStoredAim(unsigned int actor)
+void MainGameScreen::refreshStoredAim(unsigned int actor, bool changed)
 {
-    RefreshAim(actor, CurrentGame().party.rows[actor].committed.target);
+    if (changed) manual_target_selection = false;
+    refreshAim(actor, game.party.rows[actor].committed.target);
+}
+
+bool MainGameScreen::repickDraftTarget(int slot, W8Action& draft)
+{
+    if (!game.party.participates(slot)) return false;
+    const auto repick = game.chooseTarget(slot, game.party.availableAction(slot, draft));
+    // Pickers edit spells/items, never an automatic weapon arrangement.
+    assert(!repick || !repick->equipment);
+    aimDraft(slot, draft,
+             repick ? repick->target : W8CombatSlot{W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}});
+    return repick.has_value();
+}
+
+void MainGameScreen::refreshDraftTarget()
+{
+    if (keyboard_menu) keyboard_menu->refresh();
+    const int slot = game.status.selected_character;
+    if (slot < 0 || !game.party.members[slot]) return;
+    W8Action* draft = spell_picker  ? &spell_picker->action()
+                      : item_picker ? &item_picker->action()
+                                    : nullptr;
+    if (!draft) return;
+    const auto& character = game.party.characters[slot];
+    if (character.hp_current == 0 && character.highest_condition >= W8_CONDITION_DEAD) return;
+    const auto selected = game.party.availableAction(slot, *draft);
+    if (game.canPerformAction(slot, selected, false)) return;
+    if (game.canPerformAction(slot, selected, true))
+        repickDraftTarget(slot, *draft);
+    else if (selected.target.iType != W8_TARGET_KIND_NONE)
+        aimDraft(slot, *draft, {W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}});
+}
+
+void MainGameScreen::autoAdvanceSelection()
+{
+    if (!game.combat || !g_settings.auto_advance_character || manual_target_selection ||
+        !game.combat->round_active || pointer.targeting() != W8_TARGET_NEED_NONE || spell_picker ||
+        item_picker)
+        return;
+    const int selected = game.status.selected_character;
+    if (selected < 0) return;
+    const auto needs_action = [&](int slot) {
+        const auto& character = game.party.characters[slot];
+        return game.party.members[slot] && character.hp_current != 0 &&
+               character.highest_condition < W8_CONDITION_TURNCOAT &&
+               !game.canPerformAction(slot, game.party.action(slot, W8_TARGETING_CONTEXT_IN_COMBAT),
+                                      false);
+    };
+    if (needs_action(selected)) return;
+    for (int offset = 1; offset < W8_PARTY_SLOT_COUNT; ++offset) {
+        const int slot = (selected + offset) % W8_PARTY_SLOT_COUNT;
+        if (needs_action(slot)) {
+            SelectPartyCharacter(slot);
+            return;
+        }
+    }
 }

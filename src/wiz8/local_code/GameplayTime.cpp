@@ -1140,8 +1140,11 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 amount += amount >> 1;
             }
             ResetTargetSource(&source);
-            ApplyDamageToMonster(monster_info, amount, &source, true,
-                                 CurrentGame().combat.has_value(), 0, 0, false);
+            CurrentGame().damageMonster(*monster_info, amount, source,
+                                        {.poison = true,
+                                         .notice = CurrentGame().combat.has_value()
+                                                       ? DamageNotice::Standard
+                                                       : DamageNotice::None});
         }
     }
     if (monster_info->uiCondition[W8_CONDITION_DISEASED] != 0) {
@@ -1158,10 +1161,11 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 W8TargetSource source;
 
                 ResetTargetSource(&source);
-                ApplyDamageToMonster(monster_info, -amount, &source, false, 0, 0, 0, false);
+                CurrentGame().damageMonster(*monster_info, -amount, source,
+                                            {.notice = DamageNotice::None});
             }
         } else if (monster_info->hp_current < static_cast<unsigned int>(monster_info->uiHPMax)) {
-            HealMonster(monster_info, amount, false);
+            CurrentGame().healMonster(*monster_info, amount, false);
         }
     }
     {
@@ -1199,7 +1203,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                     monster_info->hp_regen_accumulator;
                 int healed = static_cast<int>(monster_info->hp_regen_accumulator);
 
-                HealMonster(monster_info, healed, false);
+                CurrentGame().healMonster(*monster_info, healed, false);
                 monster_info->hp_regen_accumulator -= static_cast<float>(healed);
             }
             if (monster_info->stamina < monster_info->stamina_max) {
@@ -1216,22 +1220,15 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
     for (int condition = 0; condition < 0x14; ++condition) {
         if (monster_info->uiCondition[condition] != 0 &&
             monster_info->uiCondition[condition] < W8_CONDITION_INDEFINITE) {
-            TickMonsterCondition(monster_info->location_id, static_cast<W8Condition>(condition),
-                                 minutes);
+            CurrentGame().ageMonsterCondition(*monster_info, static_cast<W8Condition>(condition),
+                                              minutes);
         }
     }
     for (int enchant = 0; enchant < 8; ++enchant) {
-        float remaining = static_cast<float>(monster_info->enchantments[enchant].turns);
-
-        if (remaining != 0.0f && static_cast<unsigned int>(remaining) < W8_CONDITION_INDEFINITE) {
-            if (minutes < static_cast<unsigned int>(remaining)) {
-                monster_info->enchantments[enchant].turns =
-                    static_cast<int>(remaining) - static_cast<int>(minutes);
-            } else {
-                ClearMonsterEnchantmentSlot(monster_info->location_id,
-                                            static_cast<W8EnchantmentSlot>(enchant));
-            }
-        }
+        const auto remaining = monster_info->enchantments[enchant].turns;
+        if (remaining != 0 && remaining < W8_CONDITION_INDEFINITE)
+            CurrentGame().ageMonsterEnchantment(*monster_info,
+                                                static_cast<W8EnchantmentSlot>(enchant), minutes);
     }
     if (static_cast<unsigned int>(monster_info->uiHPMax) <= monster_info->hp_current) {
         monster_info->hp_regen_accumulator = 0.0f;
@@ -1239,53 +1236,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
     if (monster_info->stamina_max <= monster_info->stamina) {
         monster_info->stamina_regen_accumulator = 0.0f;
     }
-    {
-        W8EffectSlot* slot = monster_info->effect_slots;
-
-        for (int owned_index = 0; owned_index < 0xc; ++owned_index) {
-            if (slot->active) {
-                if (minutes < slot->duration) {
-                    slot->duration -= minutes;
-                } else if (monster_info == 0) {
-                    CurrentGame().resetPartyEffect(*slot);
-                } else {
-                    monster_info->clearEffect(
-                        *slot, CurrentGame().data.monsters[monster_info->monster_species]);
-                }
-            }
-            ++slot;
-        }
-    }
-    if (monster_info->pCombat) {
-        for (auto& combat_effect : monster_info->pCombat->combat_effects) {
-            W8EffectSlot* slot = &combat_effect;
-
-            if (slot->active) {
-                if (minutes < slot->duration) {
-                    slot->duration -= minutes;
-                } else if (monster_info == 0) {
-                    CurrentGame().resetPartyEffect(*slot);
-                } else {
-                    monster_info->clearEffect(
-                        *slot, CurrentGame().data.monsters[monster_info->monster_species]);
-                }
-            }
-        }
-        for (auto& d7_index : monster_info->pCombat->combat_effects_2) {
-            W8EffectSlot* slot = &d7_index;
-
-            if (slot->active) {
-                if (minutes < slot->duration) {
-                    slot->duration -= minutes;
-                } else if (monster_info == 0) {
-                    CurrentGame().resetPartyEffect(*slot);
-                } else {
-                    monster_info->clearEffect(
-                        *slot, CurrentGame().data.monsters[monster_info->monster_species]);
-                }
-            }
-        }
-    }
+    monster_info->ageEffects(minutes, *record);
 }
 
 /* The camping fatigue tick: while a camp is active each character without

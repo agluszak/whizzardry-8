@@ -201,7 +201,7 @@ bool Game::monsterReachesPartyMember(const W8MonsterInfo& monster, unsigned int 
         return false;
     auto range = ActionRange(data, monster, record, attack, action);
     if (range == W8_RANGE_NONE) return false;
-    if (combat)
+    if (partyCombatActive(monster.owner_world))
         range = ShortenFormationReach(range,
                                       BlockingFormationRows(party, slot, monsterQuadrant(monster)));
     return range != W8_RANGE_NONE &&
@@ -506,7 +506,8 @@ bool Game::monsterActionReachesTarget(W8MonsterInfo* monster_info, unsigned int 
         int party_slot = target->iChar;
         return monsterReachesPartyMember(*monster_info, attack, party_slot, action);
     } else if (target->iType == W8_TARGET_KIND_MONSTER) {
-        W8MonsterInfo* target_monster = level.loaded().population->findMonster(target->iMonsterID);
+        W8MonsterInfo* target_monster =
+            monster_info->owner_world.population->findMonster(target->iMonsterID);
         return monster_info->reaches(*target_monster, data, attack, action);
     } else if (target->iType == W8_TARGET_KIND_PARTY) {
         int party_slot = party.randomSlot(rng, 1, 1, -1, -1);
@@ -514,12 +515,14 @@ bool Game::monsterActionReachesTarget(W8MonsterInfo* monster_info, unsigned int 
     } else if (target->iType == W8_TARGET_KIND_GROUP) {
         W8TargetSource source;
         SetTargetSourceToMonster(monster_info, &source);
-        W8MonsterGroup* group = level.loaded().population->findGroup(target->iGroupID);
+        W8MonsterGroup* group = monster_info->owner_world.population->findGroup(target->iGroupID);
         // Retirement can leave a body alive after its identity leaves the population.
-        if (!level.loaded().population->findEntity(monster_info->location_id)) return false;
+        if (!monster_info->owner_world.population->findEntity(monster_info->location_id))
+            return false;
         const auto range = ActionRange(data, *monster_info,
                                        data.monsters[monster_info->monster_species], 0, action);
-        return level.loaded().sourceReachesGroup(source, *group, CalcRangeDistance(range));
+        return monster_info->owner_world.sourceReachesGroup(source, *group,
+                                                            CalcRangeDistance(range));
     }
     return true;
 }

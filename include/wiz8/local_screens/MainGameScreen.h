@@ -21,15 +21,18 @@ struct PartyQuoteInput;
 #include "wiz8/local_code/ControlsRect.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/npc_dialogue_panel.h"
+#include "wiz8/mgs_commands.h"
 #include "wiz8/modal_content.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/platform/timer.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/screen.h"
 #include "wiz8/ui_input.h"
 
 class PartyMovementPanel;
+class MainGameTextInput;
 struct PortraitBandPaint;
 struct RepaintedPortraitBands;
 struct W8TargetingPresentation;
@@ -43,6 +46,26 @@ class W8UseItemView;
 struct W8LevelRuntimeBlock;
 struct W8SpellCastingView;
 
+enum W8MGSAction {
+    W8_MGS_ACTION_JOURNAL = 0,
+    W8_MGS_ACTION_USE_ITEM_VIEW = 1,
+    W8_MGS_ACTION_USE_RECORDED_ITEM = 2,
+    W8_MGS_ACTION_SPELL_VIEW = 3,
+    W8_MGS_ACTION_CAST_RECORDED_SPELL = 4,
+    W8_MGS_ACTION_BREATHE = 5,
+    W8_MGS_ACTION_BREATH_ATTACK = 6,
+    W8_MGS_ACTION_ATTACK = 7,
+    W8_MGS_ACTION_BERSERK = 8,
+    W8_MGS_ACTION_TURN_UNDEAD = 9,
+    W8_MGS_ACTION_PRAY = 0xa,
+    W8_MGS_ACTION_DEFEND = 0xb,
+    W8_MGS_ACTION_PROTECT = 0xc,
+    W8_MGS_ACTION_EQUIP = 0xd,
+    W8_MGS_ACTION_WALK = 0xe,
+    W8_MGS_ACTION_RUN = 0xf,
+    W8_MGS_ACTION_REPEAT = 0x10
+};
+
 /* The world view with its HUD, portraits, text box and overlays. The level
    block, cursor resources and HUD are created on first entry and survive the
    camp, options, automap, journal and character screens opened over it. */
@@ -53,6 +76,13 @@ struct MainGameScreen final : Screen {
     ~MainGameScreen() override;
     bool enter(const ScreenRequest& request) override;
     void frame() override;
+    void autoAdvanceSelection();
+    void refreshDraftTarget();
+    bool repickDraftTarget(int slot, W8Action& draft);
+    void aimDraft(int slot, W8Action& draft, const W8CombatSlot& target);
+    void refreshStoredAim(unsigned int slot, bool changed);
+    // UI-only: manual targeting keeps the selected portrait instead of auto-advancing.
+    bool manual_target_selection = false;
     void resetStepClock() override { step_timer.restart(); }
     bool leave(ScreenDeparture departure) override;
 
@@ -106,6 +136,19 @@ struct MainGameScreen final : Screen {
     void updatePortraitPlate();
     void paintPortraitPlate() const;
 
+    // Dispatch a bound command against this screen and its active interaction.
+    void dispatchCommand(W8MGSCommand command);
+    void setTextBoxBounds(int left, int top, int right, int bottom);
+    void scrollTextBoxToCursor();
+    void scrollTextBoxToLatest();
+    void scrollTextBoxTo(int line);
+    void scrollTextBoxUp(int lines);
+    void scrollTextBoxDown(int lines);
+    int textBoxVisibleLineCount() const;
+    void openSubMenu(short bank);
+    void closeSubMenu();
+    void rebuildSubMenu();
+
     // The game this main game belongs to; it is discarded before the game ends.
     Game& game;
     std::shared_ptr<PartyQuoteInput> party_quotes;
@@ -151,6 +194,10 @@ struct MainGameScreen final : Screen {
     /* The HUD's presentation state; created on the first entry and released when the
        screen is discarded. */
     std::unique_ptr<W8LevelRuntimeBlock> hud;
+    std::unique_ptr<MainGameTextInput> text_input;
+    W8TextBoxMode notice_mode = W8_TEXT_BOX_MODE_NOTICE;
+    unsigned int continuation_palette = W8_FONT_PALETTE_BEIGE;
+    void presentTextFragment(const TextFragment& fragment);
     MainGameHudButtons hud_buttons;
     std::unique_ptr<MainGameSubMenu> submenu;
     // The NPC dialogue's interface: its layouts, trade table and quote bubble.
@@ -164,8 +211,37 @@ struct MainGameScreen final : Screen {
     HitTarget *radar_target = nullptr, *monster_list = nullptr, *world_view = nullptr;
 
 private:
+    void appendNoticeText(std::string_view text);
+    friend class MainGameTextInput;
+    UiResult handleTextThumb(const UiPointerEvent& event);
+    UiResult handleTextScroll(const UiPointerEvent& event, bool up);
+    UiResult handleTextBody(const UiPointerEvent& event);
+    UiResult handleTextChannel(const UiPointerEvent& event, int channel);
+    void configureHudButtons();
+    void createSubMenuButtons();
+    void createSubMenuScrollButtons();
+    void createSubMenuPanelButtons();
+    void createOptionsDiskButton();
+    void createCombatStanceButtons();
+    void updateCombatStanceButtons();
+    void updateSubMenuPanelButtons();
+    void updateSubMenuScrollButtons();
+    void scrollSubMenuCharacter(signed char direction);
+    void chooseSubMenuAction(W8MGSAction command);
+    void updateSubMenu();
+    void updateSubMenuButton(int index);
+    bool inputBlocked() const;
+    bool processInput();
+    void handleKeyEvent(const InputEvent* input);
+    void handleCameraKeys();
+    void applyCameraKeys();
+    void updateIdleSpeech(unsigned char input_handled);
+    bool actionKeyEnabled(W8MGSAction command);
+    void runActionKey(W8MGSAction command);
+    void tryActionKey(W8MGSAction command);
     // Advance choices and commit them from their owner, not from a retiring view.
     void updateSpellPicker();
+    void refreshAim(unsigned int slot, const W8CombatSlot& target);
     void updateItemPicker();
     MainGameLayout applied_layout;
 
@@ -210,7 +286,6 @@ void DisableMainGamePortraitSlot(unsigned int slot);
 
 void RedrawCombatMonsterList(bool subject_valid);
 void RefreshSelectedPartyPortrait(unsigned int party_slot);
-void ClearHighlightIfItIs(const int* item);
 
 extern W8MainGameResourceSlot g_main_game_resource_slots[17];
 extern DesignRect g_viewport_modes[];
@@ -459,6 +534,7 @@ enum W8TrapDisarmState {
 class W8TrapInteraction {
 public:
     W8TrapInteraction(Trigger* owner);
+    bool handleKey(SDL_Keycode key);
     void SelectTextEntry(int index);
     void OnPrimary(W8TrapInteractionAction action);
     void DrawActions(SDL_Surface& target);
@@ -533,7 +609,6 @@ bool IsModalOpen(void);
 
 void CancelMouselook();
 void SetTooltipSubject(W8PortraitHighlightKind kind, int subject);
-bool IsScreenInputBlocked(void);
 
 extern bool g_mouselook_active;
 extern bool g_mouselook_left_held;
@@ -548,8 +623,6 @@ extern W8MainGameMode g_main_game_mode;
 void RequestLevelTransition(int level, int entry, unsigned char flag);
 // Change to `level`, arriving at `entry` (-1 for a saved location).
 void BeginLevelTransition(int level, int entry);
-bool ProcessMainGameInput(void);
-void TickAmbientFollowUpIdle(unsigned char input_handled);
 /* Forget the shown plate and, while the overlay mode is up, have the next draw
    erase its rectangle and repaint the roof or text box it crossed. */
 void ClearHighlightOverlayRegion(void);
@@ -587,34 +660,6 @@ UiResult WorldViewInput(const UiPointerEvent& event);
 UiResult MonsterListInput(const UiPointerEvent& event);
 void SetMainGameMode(W8MainGameMode mode);
 void ToggleMainGamePause(void);
-/* The numbered action-key space IsMGSActionKeyEnabled, RunMGSActionKey and
-   TryMGSActionKey share: the interface commands map to views and recorded
-   actions, the combat commands map to ChooseAction selections, and
-   W8_MGS_ACTION_REPEAT re-dispatches the slot's queued action. */
-enum W8MGSAction {
-    W8_MGS_ACTION_JOURNAL = 0,
-    W8_MGS_ACTION_USE_ITEM_VIEW = 1,
-    W8_MGS_ACTION_USE_RECORDED_ITEM = 2,
-    W8_MGS_ACTION_SPELL_VIEW = 3,
-    W8_MGS_ACTION_CAST_RECORDED_SPELL = 4,
-    W8_MGS_ACTION_BREATHE = 5,
-    W8_MGS_ACTION_BREATH_ATTACK = 6,
-    W8_MGS_ACTION_ATTACK = 7,
-    W8_MGS_ACTION_BERSERK = 8,
-    W8_MGS_ACTION_TURN_UNDEAD = 9,
-    W8_MGS_ACTION_PRAY = 0xa,
-    W8_MGS_ACTION_DEFEND = 0xb,
-    W8_MGS_ACTION_PROTECT = 0xc,
-    W8_MGS_ACTION_EQUIP = 0xd,
-    W8_MGS_ACTION_WALK = 0xe,
-    W8_MGS_ACTION_RUN = 0xf,
-    W8_MGS_ACTION_REPEAT = 0x10
-};
-
-void TryMGSActionKey(W8MGSAction command);
-
-bool IsMGSActionKeyEnabled(unsigned short command);
-void RunMGSActionKey(unsigned short command);
 void LoadMainGameCursorResources(void);
 void OpenCharacterScreenForPartySlot(unsigned int party_slot, bool flag);
 void RebuildNpcTradeItemList(bool scroll_to_top);
@@ -669,6 +714,3 @@ void OpenNpcTradeQuantityDialog(void);
 W8Action* EditedDraft(int party_slot);
 W8Action EditedAction(int party_slot);
 bool IsSighting(int party_slot);
-
-// Reconcile picker/cursor presentation after a stored gameplay aim has settled.
-void RefreshStoredAim(unsigned int actor);

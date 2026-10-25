@@ -8,6 +8,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/entities/world_item.h"
 #include "wiz8/fonts.h"
 #include "wiz8/game.h"
@@ -46,8 +47,8 @@ class Trigger;
 
 namespace {
 
-bool MeatMaker(Trigger* pTrigger);
-bool UrnTrigger(Trigger* pTrigger);
+TriggerDecision MeatMaker(Trigger* pTrigger);
+TriggerDecision UrnTrigger(Trigger* pTrigger);
 void EnsureKilledVar(World& world);
 
 class Trynnie2Script final : public LevelScript {
@@ -57,12 +58,12 @@ public:
     void enter() override;
 
 private:
-    bool goodaVineA(Trigger* pTrigger);
-    bool goodaVineB(Trigger* pTrigger);
-    bool giveZulu(Trigger* pTrigger);
-    bool meatBox(Trigger* pTrigger);
+    TriggerDecision goodaVineA(Trigger* pTrigger);
+    TriggerDecision goodaVineB(Trigger* pTrigger);
+    TriggerDecision giveZulu(Trigger* pTrigger);
+    TriggerDecision meatBox(Trigger* pTrigger);
     // A new item in the hand, refused while the hand holds something.
-    bool putOnCursor(int item_id);
+    TriggerDecision putOnCursor(int item_id);
 };
 
 void Trynnie2Script::enter()
@@ -92,36 +93,36 @@ void EnsureKilledVar(World& world)
     }
 }
 
-bool Trynnie2Script::putOnCursor(int item_id)
+TriggerDecision Trynnie2Script::putOnCursor(int item_id)
 {
-    if (ctx.inventory.held()) return false;
+    if (ctx.inventory.held()) return {.run_action = false};
     auto item = MakeItem(Data(), ctx.game.rng, item_id, true, true, false);
-    return ctx.inventory.hold(item);
+    return {.run_action = ctx.inventory.hold(item)};
 }
 
 /* "GoodaVine_A": place the vine item on the cursor, refusing while the cursor
    already holds an item. */
-bool Trynnie2Script::goodaVineA(Trigger* pTrigger)
+TriggerDecision Trynnie2Script::goodaVineA(Trigger* pTrigger)
 {
     return putOnCursor(0x16d);
 }
 
 /* "GoodaVine_B": place the second vine item on the cursor, refusing while the
    cursor already holds an item. */
-bool Trynnie2Script::goodaVineB(Trigger* pTrigger)
+TriggerDecision Trynnie2Script::goodaVineB(Trigger* pTrigger)
 {
     return putOnCursor(0x16e);
 }
 
 /* "Give_Zulu": place item 0x1b3 on the cursor, refusing while the cursor
    already holds an item. */
-bool Trynnie2Script::giveZulu(Trigger* pTrigger)
+TriggerDecision Trynnie2Script::giveZulu(Trigger* pTrigger)
 {
     return putOnCursor(0x1b3);
 }
 
 /* "Meat_Maker": spawn the meat item at the Meat_Position entity. */
-bool MeatMaker(Trigger* pTrigger)
+TriggerDecision MeatMaker(Trigger* pTrigger)
 {
     auto& game = CurrentGame();
     auto& owner = game.level.loaded();
@@ -136,13 +137,13 @@ bool MeatMaker(Trigger* pTrigger)
             owner.activateItem(game.data, game.rng, item);
         }
     }
-    return true;
+    return {.run_action = true};
 }
 
 /* "Meat_Box": feeding Hogar (monster 0x1d4) plain meat starts MoveHogar.msf;
    drugged meat starts MoveHogarDrugged.msf and pays the 500-point reward
    once. */
-bool Trynnie2Script::meatBox(Trigger* pTrigger)
+TriggerDecision Trynnie2Script::meatBox(Trigger* pTrigger)
 {
     W8MonsterGroup* group;
     W8MonsterInfo* info;
@@ -151,16 +152,16 @@ bool Trynnie2Script::meatBox(Trigger* pTrigger)
     group = CurrentLevelPopulation().findSpeciesGroup(0x1d4);
     if (group == 0 || !(ctx.inventory.held())) {
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, Data().strings[0x964]);
-        return true;
+        return {.run_action = true};
     }
     item_id = ctx.inventory.heldItemId();
     if (item_id != 0x1b4 && item_id != 0x1c2) {
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, Data().strings[0x964]);
-        return true;
+        return {.run_action = true};
     }
     info = FindMonster(group->leader_location_id);
     if (info->highest_condition >= W8_CONDITION_ASLEEP) {
-        return true;
+        return {.run_action = true};
     }
     if (item_id == 0x1b4) {
         info->entity->SetScript("MoveHogar.msf", true);
@@ -174,13 +175,13 @@ bool Trynnie2Script::meatBox(Trigger* pTrigger)
     }
     (void)ctx.inventory.take({W8ItemStorage::Hand});
     BeginScriptedWorldAction();
-    return true;
+    return {.run_action = true};
 }
 
 /* "URN_Trigger_01..04": once more than two of the four urn variables are set
    the pagoda generator is shut down; either way a level message reports the
    outcome. */
-bool UrnTrigger(Trigger* pTrigger)
+TriggerDecision UrnTrigger(Trigger* pTrigger)
 {
     MonGen* generator;
     unsigned int count;
@@ -204,10 +205,10 @@ bool UrnTrigger(Trigger* pTrigger)
             generator->generation_enabled = false;
         }
         CurrentGame().queueLevelMessage(0x14);
-        return true;
+        return {.run_action = true};
     }
     CurrentGame().queueLevelMessage(0x13);
-    return true;
+    return {.run_action = true};
 }
 
 } // namespace

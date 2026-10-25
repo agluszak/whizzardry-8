@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cstdint>
 #include <exception>
 #include <memory>
@@ -28,6 +29,7 @@
 #include "wiz8/combat/fight.h"
 #include "wiz8/combat/party_movement.h"
 #include "wiz8/cursor.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/data/records.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
 #include "wiz8/entities/cursor.h"
@@ -37,7 +39,6 @@
 #include "wiz8/inventory.h"
 #include "wiz8/key_bindings.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/ButtonSound.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/GameplayTime.h"
@@ -59,6 +60,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/local_screens/OptionsScreen.h"
+#include "wiz8/npc_interaction.h"
 #include "wiz8/npc_interaction_state.h"
 #include "wiz8/platform/input.h"
 #include "wiz8/pointer.h"
@@ -198,74 +200,73 @@ void ResetMGSKeyboardBindings()
    box consume key presses first; everything else resolves to a bound MGS
    command.
    Attribution-gap body leading the MGSKeyboard.cpp hull at 0x00591960. */
-bool HandleMainGameInputEvent(const InputEvent* input)
+void MainGameScreen::handleKeyEvent(const InputEvent* input)
 {
     auto* text_fields = TextFieldGroup::Focused();
     if (IsTypingEvent(*input) && text_fields && text_fields->HandleInput(*input)) {
-        return true;
+        return;
     }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
-        CurrentGame().activity.conversation) {
-        HandleNpcDialogueKeyEvent(input);
-        return true;
+        game.activity.conversation) {
+        dialogue.handleKeyEvent(input);
+        return;
     }
     if ((input->type == InputEventType::KeyDown || input->type == InputEventType::KeyRepeat) &&
-        IsTrapInteractionActive() && TextBoxHandleKey(input) != 0) {
-        return true;
+        trap_active && trap_interaction->handleKey(input->key)) {
+        return;
     }
 
-    DispatchMGSCommand(g_mgs_keyboard.FindCommandForEvent(input));
-    return true;
+    dispatchCommand(g_mgs_keyboard.FindCommandForEvent(input));
 }
 
-void DispatchMGSCommand(W8MGSCommand command)
+void MainGameScreen::dispatchCommand(W8MGSCommand command)
 {
     switch (command) {
     case W8_MGS_COMMAND_CANCEL:
         if (IsWorldCursorVisible()) {
             ToggleWorldCursor();
-        } else if (CurrentGame().surprise_possible) {
+        } else if (game.surprise_possible) {
             AcknowledgeSurprise();
-        } else if (auto* picker = SpellPicker()) {
+        } else if (auto* picker = spell_picker.get()) {
             picker->Cancel();
-        } else if (IsLockInteractionActive()) {
+        } else if (lock_active) {
             EndLockInteractMode(false);
-        } else if (UseItemPicker()) {
-            MainGame()->closeItemPicker();
-        } else if (ScreenPointer().targeting() != W8_TARGET_NEED_NONE) {
+        } else if (item_picker) {
+            closeItemPicker();
+        } else if (pointer.targeting() != W8_TARGET_NEED_NONE) {
             SetTargetingMode(W8_TARGET_NEED_NONE);
-        } else if (FormationPanelOpen()) {
+        } else if (formation_panel_open) {
             CloseFormationPanel();
-        } else if (CurrentGame().npc_dialogue.has_active_utterance()) {
+        } else if (game.npc_dialogue.has_active_utterance()) {
             TryFinishNpcVoicePlayback(true);
-        } else if (CurrentGame().speech.HasActiveEvents()) {
-            CurrentGame().speech.CompleteFirstActiveEvent();
+        } else if (game.speech.HasActiveEvents()) {
+            game.speech.CompleteFirstActiveEvent();
         } else {
-            if (CurrentGame().combat.has_value()) {
+            if (game.combat.has_value()) {
                 ToggleCombatMode();
-                if (!CurrentGame().combat.has_value()) {
+                if (!game.combat.has_value()) {
                     InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba);
                     return;
                 }
             }
-            ShowMainGameNoticeLine(Data().strings[0x779], OnLeaveGameConfirmClosed, true, true);
+            ShowMainGameNoticeLine(game.data.strings[0x779], OnLeaveGameConfirmClosed, true, true);
         }
         InvalidateRegion(0xa8, 0x16e, 0x1c4, 0x1ba);
         break;
     case W8_MGS_COMMAND_QUIT_GAME:
-        ShowMainGameNoticeLine(Data().strings[0x832], OnQuitGameDialogClosed, true, true);
+        ShowMainGameNoticeLine(game.data.strings[0x832], OnQuitGameDialogClosed, true, true);
         break;
     case W8_MGS_COMMAND_TOGGLE_FULLSCREEN:
         ResetTransientRenderScenes();
         VideoFullScreen(g_fullscreen == 0);
         break;
     case W8_MGS_COMMAND_LOAD_OPTIONS:
-        if (IsScreenInputBlocked() == 0 && CanInterruptLevelMovement()) {
+        if (!inputBlocked() && CanInterruptLevelMovement()) {
             RequestScreen({.id = W8_SCREEN_OPTIONS, .mode = W8_OPTIONS_LOAD});
         }
         break;
     case W8_MGS_COMMAND_SAVE_OPTIONS:
-        if (IsScreenInputBlocked() == 0 && CanInterruptLevelMovement()) {
+        if (!inputBlocked() && CanInterruptLevelMovement()) {
             RequestScreen({.id = W8_SCREEN_OPTIONS, .mode = W8_OPTIONS_SAVE});
         }
         break;
@@ -279,10 +280,10 @@ void DispatchMGSCommand(W8MGSCommand command)
             }
             g_settings.combat_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} {:d}", Data().strings[0x7ba], 0x14 - delay / 0xfa));
+                       fmt::format("{} {:d}", game.data.strings[0x7ba], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} ({:d})", Data().strings[0x7bb], 0x14 - delay / 0xfa));
+                       fmt::format("{} ({:d})", game.data.strings[0x7bb], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -296,10 +297,10 @@ void DispatchMGSCommand(W8MGSCommand command)
             }
             g_settings.combat_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} {:d}", Data().strings[0x7ba], 0x14 - delay / 0xfa));
+                       fmt::format("{} {:d}", game.data.strings[0x7ba], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} ({:d})", Data().strings[0x7bc], 0x14 - delay / 0xfa));
+                       fmt::format("{} ({:d})", game.data.strings[0x7bc], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -313,10 +314,10 @@ void DispatchMGSCommand(W8MGSCommand command)
             }
             g_settings.text_display_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} {:d}", Data().strings[0x7b7], 0x14 - delay / 0xfa));
+                       fmt::format("{} {:d}", game.data.strings[0x7b7], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} ({:d})", Data().strings[0x7b8], 0x14 - delay / 0xfa));
+                       fmt::format("{} ({:d})", game.data.strings[0x7b8], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -330,10 +331,10 @@ void DispatchMGSCommand(W8MGSCommand command)
             }
             g_settings.text_display_delay_ms = delay;
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} {:d}", Data().strings[0x7b7], 0x14 - delay / 0xfa));
+                       fmt::format("{} {:d}", game.data.strings[0x7b7], 0x14 - delay / 0xfa));
         } else {
             ShowNotice(W8_FONT_PALETTE_BEIGE,
-                       fmt::format("{} ({:d})", Data().strings[0x7b9], 0x14 - delay / 0xfa));
+                       fmt::format("{} ({:d})", game.data.strings[0x7b9], 0x14 - delay / 0xfa));
         }
         break;
     }
@@ -354,26 +355,24 @@ void DispatchMGSCommand(W8MGSCommand command)
         ToggleMainGamePause();
         break;
     case W8_MGS_COMMAND_NEXT_LAYOUT:
-        if (CurrentGame().activity.conversation || CurrentGame().activity.conversation_aside) {
+        if (game.activity.conversation || game.activity.conversation_aside) {
             break;
         }
-        MainGame()->stepLayoutMode(1);
+        stepLayoutMode(1);
         break;
     case W8_MGS_COMMAND_PREV_LAYOUT:
-        MainGame()->stepLayoutMode(-1);
+        stepLayoutMode(-1);
         break;
     case W8_MGS_COMMAND_AUTOMAP:
-        if (IsScreenInputBlocked() == 0) {
+        if (!inputBlocked()) {
             OpenAutomapScreen();
         }
         break;
     case W8_MGS_COMMAND_OPTIONS:
-        if (CurrentGame().activity.conversation ||
-            (CurrentGame().activity.conversation &&
-             CurrentGame().npc_interaction.scripted_dialogue) ||
-            IsLockInteractionActive() || IsTrapInteractionActive() ||
-            CurrentGame().activity.conversation_aside || LockInteractionSuspended() ||
-            TrapInteractionSuspended()) {
+        if (game.activity.conversation ||
+            (game.activity.conversation && game.npc_interaction.scripted_dialogue) || lock_active ||
+            trap_active || game.activity.conversation_aside || (lock_interaction && !lock_active) ||
+            (trap_interaction && !trap_active)) {
             break;
         }
         if (!CanInterruptLevelMovement()) {
@@ -382,71 +381,69 @@ void DispatchMGSCommand(W8MGSCommand command)
         ClearScreenWait();
         break;
     case W8_MGS_COMMAND_JOURNAL:
-        TryMGSActionKey(W8_MGS_ACTION_JOURNAL);
+        tryActionKey(W8_MGS_ACTION_JOURNAL);
         break;
     case W8_MGS_COMMAND_INVENTORY:
-        if ((CurrentGame().activity.conversation &&
-             CurrentGame().npc_interaction.scripted_dialogue) ||
-            CurrentGame().activity.conversation_aside ||
-            CurrentGame().status.selected_character == -1 ||
-            (CurrentGame().activity.conversation &&
-             CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT)) {
+        if ((game.activity.conversation && game.npc_interaction.scripted_dialogue) ||
+            game.activity.conversation_aside || game.status.selected_character == -1 ||
+            (game.activity.conversation &&
+             game.npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT)) {
             break;
         }
-        OpenCharacterScreenForPartySlot(CurrentGame().status.selected_character, false);
+        OpenCharacterScreenForPartySlot(game.status.selected_character, false);
         break;
     case W8_MGS_COMMAND_USE_ITEM:
-        TryMGSActionKey(W8_MGS_ACTION_USE_ITEM_VIEW);
+        tryActionKey(W8_MGS_ACTION_USE_ITEM_VIEW);
         break;
     case W8_MGS_COMMAND_USE_LAST_ITEM:
-        TryMGSActionKey(W8_MGS_ACTION_USE_RECORDED_ITEM);
+        tryActionKey(W8_MGS_ACTION_USE_RECORDED_ITEM);
         break;
     case W8_MGS_COMMAND_CAST_SPELL:
-        TryMGSActionKey(W8_MGS_ACTION_SPELL_VIEW);
+        tryActionKey(W8_MGS_ACTION_SPELL_VIEW);
         break;
     case W8_MGS_COMMAND_CAST_LAST_SPELL:
-        TryMGSActionKey(W8_MGS_ACTION_CAST_RECORDED_SPELL);
+        tryActionKey(W8_MGS_ACTION_CAST_RECORDED_SPELL);
         break;
     case W8_MGS_COMMAND_CAMP:
         RequestCamp();
         break;
     case W8_MGS_COMMAND_TOGGLE_SEARCH:
-        if (IsScreenInputBlocked() == 0) {
-            CurrentGame().search.toggle();
+        if (!inputBlocked()) {
+            game.search.toggle();
         }
         break;
     case W8_MGS_COMMAND_TOGGLE_COMBAT:
-        if (IsScreenInputBlocked() == 0) {
+        if (!inputBlocked()) {
             ToggleCombatMode();
         }
         break;
     case W8_MGS_COMMAND_QUICK_SAVE: {
-        if (IsScreenInputBlocked() != 0 || !CanInterruptLevelMovement()) {
+        if (inputBlocked() || !CanInterruptLevelMovement()) {
             break;
         }
-        if (CurrentGame().status.iron_man) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x82c]);
+        if (game.status.iron_man) {
+            ShowNotice(W8_FONT_PALETTE_BEIGE, game.data.strings[0x82c]);
             break;
         }
-        if (CurrentGame().combat.has_value()) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x774]);
+        if (game.combat.has_value()) {
+            ShowNotice(W8_FONT_PALETTE_BEIGE, game.data.strings[0x774]);
             break;
         }
         const auto slot_name = SelectQuickSaveSlotForWrite();
         if (slot_name && SaveGame(*slot_name, nullptr)) {
             g_options_last_save_name = (*slot_name);
-            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x6f5]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, game.data.strings[0x6f5]);
         } else {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x6f6]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, game.data.strings[0x6f6]);
         }
         break;
     }
     case W8_MGS_COMMAND_QUICK_LOAD: {
-        if (IsScreenInputBlocked() != 0) {
+        if (inputBlocked()) {
             break;
         }
-        if (CurrentGame().status.iron_man) {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x82c]);
+        if (game.status.iron_man) {
+            ShowNotice(W8_FONT_PALETTE_BEIGE, game.data.strings[0x82c]);
             break;
         }
         if (const auto slot_name = FindStartupQuickSave()) {
@@ -460,26 +457,25 @@ void DispatchMGSCommand(W8MGSCommand command)
             request.id = W8_SCREEN_PLEASE_WAIT;
             RequestScreen(std::move(request));
         } else {
-            ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[0x786]);
+            ShowNotice(W8_FONT_PALETTE_BEIGE, game.data.strings[0x786]);
         }
         break;
     }
     case W8_MGS_COMMAND_RADAR_ZOOM:
-        if (MainGame()->radar_map) {
-            MainGame()->radar_map->toggleZoom();
+        if (radar_map) {
+            radar_map->toggleZoom();
         }
         break;
     case W8_MGS_COMMAND_REPLAY_QUOTE:
         RequeueSelectedPortraitEvent();
         break;
     case W8_MGS_COMMAND_SWAP_WEAPONS:
-        if (IsScreenInputBlocked() == 0 && CurrentGame().status.selected_character != -1) {
-            CurrentGame().inventory.requestWeaponSwap(CurrentGame().status.selected_character,
-                                                      true);
+        if (!inputBlocked() && game.status.selected_character != -1) {
+            game.inventory.requestWeaponSwap(game.status.selected_character, true);
         }
         break;
     case W8_MGS_COMMAND_SWAP_ALL_WEAPONS:
-        if (IsScreenInputBlocked() == 0) {
+        if (!inputBlocked()) {
             BindEveryPartyItem();
         }
         break;
@@ -492,96 +488,96 @@ void DispatchMGSCommand(W8MGSCommand command)
     case W8_MGS_COMMAND_SELECT_PC_5:
     case W8_MGS_COMMAND_SELECT_PC_6: {
         int slot = command - W8_MGS_COMMAND_SELECT_RECRUITED_1;
-        if (!CurrentGame().party.members[slot].has_value()) {
+        if (!game.party.members[slot].has_value()) {
             break;
         }
-        if (CurrentGame().status.selected_character != slot) {
+        if (game.status.selected_character != slot) {
             SelectPartyCharacter(slot);
             break;
         }
-        if (MainGame()->layout().mode == W8_MAIN_UI_MODE_PORTRAITS) {
+        if (layout().mode == W8_MAIN_UI_MODE_PORTRAITS) {
             break;
         }
-        if (MainGameHud()->portrait_refresh_pending[slot] != 0) {
+        if (hud->portrait_refresh_pending[slot] != 0) {
             ClearPortraitRefreshSlot(slot);
         } else {
             RefreshSelectedPartyPortrait(slot);
-            CurrentGame().monster_manager_entries[slot].portrait_refresh_pinned = true;
+            game.monster_manager_entries[slot].portrait_refresh_pinned = true;
         }
         break;
     }
     case W8_MGS_COMMAND_TEXTBOX_PAGE_UP:
-        ScrollTextBoxUp(7);
+        scrollTextBoxUp(7);
         break;
     case W8_MGS_COMMAND_TEXTBOX_PAGE_DOWN:
-        ScrollTextBoxDown(7);
+        scrollTextBoxDown(7);
         break;
     case W8_MGS_COMMAND_TEXTBOX_TOP:
-        ScrollTextBoxTo(0);
+        scrollTextBoxTo(0);
         break;
     case W8_MGS_COMMAND_TEXTBOX_BOTTOM:
-        ScrollDialogueTextBoxToLine();
+        scrollTextBoxToLatest();
         break;
     case W8_MGS_COMMAND_TEXTBOX_CLEAR:
-        if (!SpellPicker() && !UseItemPicker()) {
+        if (!spell_picker && !item_picker) {
             ResetEditorStatusLine(-1);
         }
         break;
     case W8_MGS_COMMAND_START_COMBAT_ROUND:
-        if (!CurrentGame().combat.has_value() || SpellPicker() || UseItemPicker()) {
+        if (!game.combat.has_value() || spell_picker.get() || item_picker.get()) {
             break;
         }
-        if (CurrentGame().combat->execution_active == 0) {
+        if (game.combat->execution_active == 0) {
             BeginCombatExecution();
-        } else if (PartyMovementPanelShown() && !CanPartyMove() && !IsLevelMovementStopped()) {
+        } else if (bool(party_movement) && !CanPartyMove() && !IsLevelMovementStopped()) {
             BeginFreeTurnPhase();
         }
         break;
     case W8_MGS_COMMAND_CONTINUOUS_COMBAT:
-        if (IsScreenInputBlocked() == 0) {
+        if (!inputBlocked()) {
             TogglePartyCombatStance();
         }
         break;
     case W8_MGS_COMMAND_CYCLE_TARGET:
-        if (CurrentGame().status.selected_character != -1) {
-            CycleToNextTarget(CurrentGame().status.selected_character);
+        if (game.status.selected_character != -1) {
+            CycleToNextTarget(game.status.selected_character);
         }
         break;
     case W8_MGS_COMMAND_ATTACK:
-        TryMGSActionKey(W8_MGS_ACTION_ATTACK);
+        tryActionKey(W8_MGS_ACTION_ATTACK);
         break;
     case W8_MGS_COMMAND_BERSERK:
-        TryMGSActionKey(W8_MGS_ACTION_BERSERK);
+        tryActionKey(W8_MGS_ACTION_BERSERK);
         break;
     case W8_MGS_COMMAND_BREATHE:
-        TryMGSActionKey(W8_MGS_ACTION_BREATHE);
+        tryActionKey(W8_MGS_ACTION_BREATHE);
         break;
     case W8_MGS_COMMAND_TURN_UNDEAD:
-        TryMGSActionKey(W8_MGS_ACTION_TURN_UNDEAD);
+        tryActionKey(W8_MGS_ACTION_TURN_UNDEAD);
         break;
     case W8_MGS_COMMAND_PRAY:
-        TryMGSActionKey(W8_MGS_ACTION_PRAY);
+        tryActionKey(W8_MGS_ACTION_PRAY);
         break;
     case W8_MGS_COMMAND_DEFEND:
-        TryMGSActionKey(W8_MGS_ACTION_DEFEND);
+        tryActionKey(W8_MGS_ACTION_DEFEND);
         break;
     case W8_MGS_COMMAND_PROTECT:
-        TryMGSActionKey(W8_MGS_ACTION_PROTECT);
+        tryActionKey(W8_MGS_ACTION_PROTECT);
         break;
     case W8_MGS_COMMAND_EQUIP:
-        TryMGSActionKey(W8_MGS_ACTION_EQUIP);
+        tryActionKey(W8_MGS_ACTION_EQUIP);
         break;
     case W8_MGS_COMMAND_PARTY_WALK:
-        TryMGSActionKey(W8_MGS_ACTION_WALK);
+        tryActionKey(W8_MGS_ACTION_WALK);
         break;
     case W8_MGS_COMMAND_PARTY_RUN:
-        TryMGSActionKey(W8_MGS_ACTION_RUN);
+        tryActionKey(W8_MGS_ACTION_RUN);
         break;
     case W8_MGS_COMMAND_REPEAT_ACTION:
-        TryMGSActionKey(W8_MGS_ACTION_REPEAT);
+        tryActionKey(W8_MGS_ACTION_REPEAT);
         break;
     case W8_MGS_COMMAND_DEBUG_AUDIT_QUOTES:
-        AuditNpcScriptQuotes(CurrentGame().status);
+        AuditNpcScriptQuotes();
         break;
     case W8_MGS_COMMAND_DEBUG_NUMERIC_HP:
         ToggleNumericHitPoints();
@@ -596,21 +592,21 @@ void DispatchMGSCommand(W8MGSCommand command)
     case W8_MGS_COMMAND_TOGGLE_AUTO_ADVANCE:
         g_settings.auto_advance_character = !g_settings.auto_advance_character;
         ShowNotice(W8_FONT_PALETTE_BEIGE,
-                   Data().strings[g_settings.auto_advance_character ? 0x1f68 / 4 : 0x1f6c / 4]);
+                   game.data.strings[g_settings.auto_advance_character ? 0x1f68 / 4 : 0x1f6c / 4]);
         break;
     case W8_MGS_COMMAND_TEXTBOX_SCROLL_UP:
-        ScrollTextBoxUp(1);
+        scrollTextBoxUp(1);
         break;
     case W8_MGS_COMMAND_TEXTBOX_SCROLL_DOWN:
-        ScrollTextBoxDown(1);
+        scrollTextBoxDown(1);
         break;
     case W8_MGS_COMMAND_DEBUG_TOGGLE_FLAG_271:
-        MainGameHud()->text_box_visible ^= 1;
-        if (auto* hud = MainGameHud()) hud->repaint.text_box = true;
+        hud->text_box_visible ^= 1;
+        hud->repaint.text_box = true;
         break;
     case W8_MGS_COMMAND_DEBUG_MONSTER_SCRIPT:
-        if (MainGameHud()->highlighted_item != -1) {
-            FindMonster(MainGameHud()->highlighted_item);
+        if (hud->highlighted_item != -1) {
+            FindMonster(hud->highlighted_item);
         }
         break;
     default:
@@ -662,22 +658,23 @@ void MainGameScreen::closeKeyboardMenu()
 
 std::string KeyboardActionMenu::tooltip(const Row& row) const
 {
-    if (row.menu == -1) return Data().strings[0x11];
+    if (row.menu == -1) return screen_.game.data.strings[0x11];
     if (row.menu == W8_SUBMENU_SPELLS && row.item == 1) {
-        if (!row.enabled) return Data().strings[0x5a];
-        const auto& spell = Data().spells[screen_.game.party.rows[slot].remembered.spell.detail];
-        return fmt::format("{}: {} ({:d})", Data().strings[0x5a], spell.display_name,
+        if (!row.enabled) return screen_.game.data.strings[0x5a];
+        const auto& spell =
+            screen_.game.data.spells[screen_.game.party.rows[slot].remembered.spell.detail];
+        return fmt::format("{}: {} ({:d})", screen_.game.data.strings[0x5a], spell.display_name,
                            GetAffordableSpellPowerLevel(slot));
     }
     if (row.menu == W8_SUBMENU_ITEMS && row.item == 2) {
-        if (!row.enabled) return Data().strings[0x5d];
+        if (!row.enabled) return screen_.game.data.strings[0x5d];
         const auto& party = screen_.game.party.rows[slot];
         const auto* item =
             screen_.game.inventory.itemAt(party.remembered.item_detail.item_use.item);
-        return fmt::format("{}: {}", Data().strings[0x5d],
-                           FormatItemDisplayName(Data(), item, false));
+        return fmt::format("{}: {}", screen_.game.data.strings[0x5d],
+                           FormatItemDisplayName(screen_.game.data, item, false));
     }
-    return Data().strings[g_submenu_entry_help_ids[row.menu * 5 + row.item]];
+    return screen_.game.data.strings[g_submenu_entry_help_ids[row.menu * 5 + row.item]];
 }
 
 KeyboardActionMenu::KeyboardActionMenu(MainGameScreen& screen, int selected_slot)
@@ -772,7 +769,9 @@ void KeyboardActionMenu::refresh()
         }
         int offset = 0;
         if (row.menu == W8_SUBMENU_SPELLS && row.item == 1)
-            offset = Data().spells[screen_.game.party.rows[slot].remembered.spell.detail].realm * 7;
+            offset = screen_.game.data.spells[screen_.game.party.rows[slot].remembered.spell.detail]
+                         .realm *
+                     7;
         else if (row.menu == W8_SUBMENU_ATTACK && row.item == 0)
             offset = GetAttackMenuWeaponOffset(
                          screen_.game.party.characters[slot].Hand[0].weapon_skill) *
@@ -842,54 +841,267 @@ void MainGameScreen::chooseKeyboardMenuAction(int slot, int menu, int item)
     }
 }
 
-void HandleManualCameraHotkeys(void)
+void MainGameScreen::handleCameraKeys(void)
 {
-    if (g_modal_owner == 0 && !CurrentGame().activity.conversation) {
+    if (g_modal_owner == 0 && !game.activity.conversation) {
         if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_CAMERA_LOCK)) {
             BeginManualCameraControl();
         }
-        ApplyCameraMotionHotkeys();
+        applyCameraKeys();
     }
 }
 
-void ApplyCameraMotionHotkeys(void)
+void MainGameScreen::applyCameraKeys(void)
 {
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_LEFT) ||
         g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_LEFT_ALT)) {
-        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_TURN_LEFT;
+        hud->camera_motion_flags |= W8_CAMERA_MOTION_TURN_LEFT;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_RIGHT) ||
         g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_TURN_RIGHT_ALT)) {
-        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_TURN_RIGHT;
+        hud->camera_motion_flags |= W8_CAMERA_MOTION_TURN_RIGHT;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_FORWARD)) {
-        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD;
+        hud->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_FORWARD_RUN)) {
-        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_FAST;
+        hud->camera_motion_flags |= W8_CAMERA_MOTION_FORWARD | W8_CAMERA_MOTION_FAST;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_BACKWARD)) {
-        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD;
+        hud->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_MOVE_BACKWARD_RUN)) {
-        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD | W8_CAMERA_MOTION_FAST;
+        hud->camera_motion_flags |= W8_CAMERA_MOTION_BACKWARD | W8_CAMERA_MOTION_FAST;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_LOOK_UP)) {
-        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_UP;
+        hud->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_UP;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_LOOK_DOWN)) {
-        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_DOWN;
+        hud->camera_motion_flags |= W8_CAMERA_MOTION_LOOK_DOWN;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_LEFT)) {
-        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT;
+        hud->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_RIGHT)) {
-        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT;
+        hud->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_LEFT_RUN)) {
-        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT | W8_CAMERA_MOTION_FAST;
+        hud->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_LEFT | W8_CAMERA_MOTION_FAST;
     }
     if (g_mgs_keyboard.IsCommandPressed(W8_MGS_COMMAND_STRAFE_RIGHT_RUN)) {
-        MainGameHud()->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT | W8_CAMERA_MOTION_FAST;
+        hud->camera_motion_flags |= W8_CAMERA_MOTION_STRAFE_RIGHT | W8_CAMERA_MOTION_FAST;
+    }
+}
+
+namespace {
+std::optional<W8MGSAction> RepeatedActionKey(W8ActionKind action)
+{
+    switch (action) {
+    case W8_ACTION_BREATHE:
+        return W8_MGS_ACTION_BREATH_ATTACK;
+    case W8_ACTION_TURN_UNDEAD:
+        return W8_MGS_ACTION_TURN_UNDEAD;
+    case W8_ACTION_PRAY:
+        return W8_MGS_ACTION_PRAY;
+    case W8_ACTION_CAST_SPELL:
+        return W8_MGS_ACTION_CAST_RECORDED_SPELL;
+    case W8_ACTION_USE_ITEM:
+        return W8_MGS_ACTION_USE_RECORDED_ITEM;
+    case W8_ACTION_EQUIP:
+        return W8_MGS_ACTION_EQUIP;
+    default:
+        return std::nullopt;
+    }
+}
+} // namespace
+
+/* Whether the numbered action-key command may run in the current UI mode:
+   dialogue, interaction, camp and surprise lock most of them out, the item
+   and spell views admit only their own toggle, and combat commands check the
+   entry's submenu state. Command 0x10 re-checks the slot's queued action's
+   own command. */
+bool MainGameScreen::actionKeyEnabled(W8MGSAction command)
+{
+    short state;
+
+    state = -1;
+    if (game.activity.conversation) {
+        if (command != W8_MGS_ACTION_JOURNAL || IsNpcDialogueCursorActive() != 0 ||
+            (game.activity.conversation && game.npc_interaction.scripted_dialogue)) {
+            return false;
+        }
+    }
+    if (lock_active || trap_active || formation_panel_open) {
+        return false;
+    }
+    if (item_picker.get() && command != W8_MGS_ACTION_USE_ITEM_VIEW) {
+        return false;
+    }
+    if (spell_picker.get() && command != W8_MGS_ACTION_SPELL_VIEW) {
+        return false;
+    }
+    if (game.surprise_possible || game.activity.conversation_aside) {
+        return false;
+    }
+    if (game.combat.has_value() && !game.combat->round_active) {
+        return false;
+    }
+    switch (command) {
+    case W8_MGS_ACTION_USE_ITEM_VIEW:
+        state = GetSubMenuEntryState(W8_SUBMENU_ITEMS, 1, game.status.selected_character);
+        break;
+    case W8_MGS_ACTION_USE_RECORDED_ITEM:
+        state = GetSubMenuEntryState(W8_SUBMENU_ITEMS, 2, game.status.selected_character);
+        break;
+    case W8_MGS_ACTION_SPELL_VIEW:
+        state = GetSubMenuEntryState(W8_SUBMENU_SPELLS, 0, game.status.selected_character);
+        break;
+    case W8_MGS_ACTION_CAST_RECORDED_SPELL:
+        state = GetSubMenuEntryState(W8_SUBMENU_SPELLS, 1, game.status.selected_character);
+        break;
+    default:
+        if (!game.combat.has_value()) {
+            return command == W8_MGS_ACTION_JOURNAL;
+        }
+        switch (command) {
+        case W8_MGS_ACTION_JOURNAL:
+            return false;
+        case W8_MGS_ACTION_BREATHE:
+            state = GetSubMenuEntryState(W8_SUBMENU_ATTACK, 2, game.status.selected_character);
+            break;
+        case W8_MGS_ACTION_BREATH_ATTACK:
+            return IsPartySlotEligible(game.status.selected_character) &&
+                   CanPartySlotReBreathe(game.status.selected_character);
+        case W8_MGS_ACTION_ATTACK:
+            state = GetSubMenuEntryState(W8_SUBMENU_ATTACK, 0, game.status.selected_character);
+            break;
+        case W8_MGS_ACTION_BERSERK:
+            state = GetSubMenuEntryState(W8_SUBMENU_ATTACK, 1, game.status.selected_character);
+            break;
+        case W8_MGS_ACTION_TURN_UNDEAD:
+            state = GetSubMenuEntryState(W8_SUBMENU_ATTACK, 3, game.status.selected_character);
+            break;
+        case W8_MGS_ACTION_PRAY:
+            state = GetSubMenuEntryState(W8_SUBMENU_ATTACK, 4, game.status.selected_character);
+            break;
+        case W8_MGS_ACTION_DEFEND:
+            state = GetSubMenuEntryState(W8_SUBMENU_DEFEND, 0, game.status.selected_character);
+            break;
+        case W8_MGS_ACTION_PROTECT:
+            state = GetSubMenuEntryState(W8_SUBMENU_DEFEND, 1, game.status.selected_character);
+            break;
+        case W8_MGS_ACTION_EQUIP:
+            state = GetSubMenuEntryState(W8_SUBMENU_ITEMS, 0, game.status.selected_character);
+            break;
+        case W8_MGS_ACTION_WALK:
+        case W8_MGS_ACTION_RUN:
+            return AnyCharacterEngaged();
+        case W8_MGS_ACTION_REPEAT: {
+            const auto repeat = RepeatedActionKey(
+                game.party.rows[game.status.selected_character].remembered.repeat_action);
+            return repeat && actionKeyEnabled(*repeat);
+        }
+        default:
+            return false;
+        }
+    }
+    assert(state != -1);
+    if (!IsPartySlotEligible(game.status.selected_character)) {
+        return false;
+    }
+    return state == 0 || state == 1;
+}
+
+/* Run the numbered action-key command: dismiss the transient menu first, then
+   act - toggle the item or spell view, fire the recorded spell/item, choose
+   the combat action, or dispatch the slot's queued action's own command. */
+void MainGameScreen::runActionKey(W8MGSAction command)
+{
+    if (submenu) {
+        closeSubMenu();
+    }
+    if (keyboard_menu) {
+        closeKeyboardMenu();
+    }
+    W8ActionKind action = W8_ACTION_NONE;
+    switch (command) {
+    case W8_MGS_ACTION_JOURNAL:
+        if (game.activity.conversation) {
+            game.activity.conversation_aside = true;
+        }
+        RequestScreen({.id = W8_SCREEN_JOURNAL});
+        break;
+    case W8_MGS_ACTION_USE_ITEM_VIEW:
+        if (item_picker) {
+            closeItemPicker();
+        } else {
+            openItemPicker(game.status.selected_character);
+        }
+        break;
+    case W8_MGS_ACTION_USE_RECORDED_ITEM:
+        StartCharacterItemUse(game.status.selected_character);
+        break;
+    case W8_MGS_ACTION_SPELL_VIEW:
+        if (spell_picker) {
+            closeSpellPicker();
+        } else {
+            openSpellPicker(game.status.selected_character);
+        }
+        break;
+    case W8_MGS_ACTION_CAST_RECORDED_SPELL:
+        StartCharacterSpellCast(game.status.selected_character, 0);
+        break;
+    case W8_MGS_ACTION_BREATHE:
+        action = W8_ACTION_BREATHE;
+        break;
+    case W8_MGS_ACTION_BREATH_ATTACK:
+        StartCharacterBreathAttack(game.status.selected_character);
+        break;
+    case W8_MGS_ACTION_ATTACK:
+        action = W8_ACTION_ATTACK;
+        break;
+    case W8_MGS_ACTION_BERSERK:
+        action = W8_ACTION_BERSERK;
+        break;
+    case W8_MGS_ACTION_TURN_UNDEAD:
+        action = W8_ACTION_TURN_UNDEAD;
+        break;
+    case W8_MGS_ACTION_PRAY:
+        action = W8_ACTION_PRAY;
+        break;
+    case W8_MGS_ACTION_DEFEND:
+        action = W8_ACTION_DEFEND;
+        break;
+    case W8_MGS_ACTION_PROTECT:
+        action = W8_ACTION_PROTECT;
+        break;
+    case W8_MGS_ACTION_EQUIP:
+        action = W8_ACTION_EQUIP;
+        break;
+    case W8_MGS_ACTION_WALK:
+        action = W8_ACTION_WALK;
+        break;
+    case W8_MGS_ACTION_RUN:
+        action = W8_ACTION_RUN;
+        break;
+    case W8_MGS_ACTION_REPEAT:
+        if (const auto repeat = RepeatedActionKey(
+                game.party.rows[game.status.selected_character].remembered.repeat_action))
+            runActionKey(*repeat);
+        break;
+    default:
+        break;
+    }
+    if (action != W8_ACTION_NONE) {
+        ChooseAction(game.status.selected_character, action, -1, 0, false, 1);
+        DrawSubMenuCharacterAction();
+    }
+}
+
+/* Fire the numbered action-key command when the current UI mode allows it. */
+void MainGameScreen::tryActionKey(W8MGSAction command)
+{
+    if (actionKeyEnabled(command)) {
+        runActionKey(command);
     }
 }

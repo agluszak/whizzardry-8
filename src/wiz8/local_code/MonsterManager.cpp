@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -51,7 +52,6 @@
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/MonsterAI.h"
@@ -170,7 +170,7 @@ void World::prepareMonsterBody(W8MonsterInfo& info, Rng& rng, bool unborn, float
 
     camera_position = monster.owner_world.party.eye();
     monster.visual.SelectLOD(&camera_position);
-    UpdateMonsterDamageAppearance(monster_info);
+    monster_info->entity->updateDamageAppearance(monster_info->hp_current, monster_info->uiHPMax);
     monster.UpdateRepresentation();
     compiledIndex()->UpdateMonsterLocation(static_cast<unsigned short>(monster_info->location_id),
                                            monster_info->position);
@@ -277,6 +277,7 @@ void Game::startMonsterDeath(W8MonsterInfo* monster_info, bool display_message)
    the kill count and experience for a monster that fought the party. */
 void Game::recordMonsterKill(W8MonsterInfo* monster_info, bool announce)
 {
+    auto& world = monster_info->owner_world;
     int killer_party_slot = -1;
     assert(monster_info != 0);
     unsigned int monster_species = monster_info->monster_species;
@@ -311,7 +312,7 @@ void Game::recordMonsterKill(W8MonsterInfo* monster_info, bool announce)
             goto done;
         }
         W8MonsterInfo* killer_info =
-            level.loaded().population->findMonster(monster_info->condition_target.iMonsterID);
+            world.population->findMonster(monster_info->condition_target.iMonsterID);
         if (killer_info == nullptr) {
             goto done;
         }
@@ -324,13 +325,14 @@ void Game::recordMonsterKill(W8MonsterInfo* monster_info, bool announce)
         recordFactionOffense(static_cast<signed char>(record->faction_id), monster_info);
 done:
     MonsterKilled(MakeScriptContext(*this), record->record_id, killer_party_slot);
-    if (monster_info->pCombat && ((monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
-                                   monster_info->uiCondition[W8_CONDITION_TURNCOAT] == 0) ||
-                                  (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
-                                   monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0))) {
+    if (partyCombatActive(world) && monster_info->pCombat &&
+        ((monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
+          monster_info->uiCondition[W8_CONDITION_TURNCOAT] == 0) ||
+         (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
+          monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0))) {
         ++combat->combat_result;
-        if (level.loaded().level_id >= 0 && level.loaded().level_id < W8_LEVEL_COUNT) {
-            ++status.level_progress[level.loaded().level_id].monster_kill_count;
+        if (world.level_id >= 0 && world.level_id < W8_LEVEL_COUNT) {
+            ++status.level_progress[world.level_id].monster_kill_count;
         }
         if (killer_party_slot != -1) {
             W8Character* killer = &party.characters[killer_party_slot];
@@ -436,15 +438,11 @@ float GetMonsterCombatMoveRange(W8MonsterInfo* monster_info)
     return result;
 }
 
-void UpdateMonsterDamageAppearance(W8MonsterInfo* monster_info)
+void Monster::updateDamageAppearance(unsigned int hp, int maximum)
 {
-    Monster* monster = monster_info->entity.get();
-    if (!monster || monster->damage_stage_count <= 1) return;
-    const int count = monster->damage_stage_count;
-    const int value =
-        ((monster_info->uiHPMax - static_cast<int>(monster_info->hp_current)) * count) /
-        monster_info->uiHPMax;
-    monster->visual.damage_stage = std::min(value, count - 1);
+    if (damage_stage_count <= 1) return;
+    const int stage = ((maximum - static_cast<int>(hp)) * damage_stage_count) / maximum;
+    visual.damage_stage = std::min(stage, damage_stage_count - 1);
 }
 
 void ProcessMonstersAtCombatEnd(bool forced_cleanup)
@@ -518,23 +516,51 @@ void DestroyUngroupedMonsters(void)
     }
 }
 
-void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState control_state)
+bool W8MonsterInfo::heal(unsigned int amount)
 {
-    assert(monster_info != 0);
-    switch (control_state) {
+    if (hp_current == 0 || hp_current == static_cast<unsigned int>(uiHPMax) || amount == 0)
+        return false;
+    hp_current += amount;
+    hp_current = std::min(hp_current, static_cast<unsigned int>(uiHPMax));
+    if (entity) entity->updateDamageAppearance(hp_current, uiHPMax);
+    return true;
+}
+
+std::optional<unsigned int> W8MonsterInfo::absorbDamage(unsigned int amount)
+{
+    auto& shield = enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL];
+    if (shield.turns == 0) return std::nullopt;
+    const auto absorbed = std::min(amount, static_cast<unsigned int>(shield.magnitude));
+    shield.magnitude = static_cast<unsigned short>(shield.magnitude - absorbed);
+    return absorbed;
+}
+
+bool W8MonsterInfo::takeDamage(unsigned int amount, const W8TargetSource& source, bool poison)
+{
+    if (hp_current == 0 || amount == 0) return false;
+    if (!source.fBackfire && !source.fReflection && !source.target_diverted && !poison) {
+        condition_target = source;
+        if (pCombat && TargetSourceIsCharacter(&source, 0) && source.iChar != -1)
+            pCombat->character_hate[source.iChar] += amount;
+    }
+    hp_current -= std::min(amount, hp_current);
+    return hp_current == 0;
+}
+
+void W8MonsterInfo::setControlState(W8MonsterControlState next)
+{
+    switch (next) {
     case W8_MONSTER_CONTROL_NONE:
     case W8_MONSTER_CONTROL_RESISTED:
-        if (monster_info->control_state == W8_MONSTER_CONTROL_LURED &&
-            monster_info->entity->nav.linked_navigator == 0) {
-            monster_info->entity->nav.ClearMovement();
-            monster_info->ai_mode = W8_RT_AI_IDLE;
+        if (control_state == W8_MONSTER_CONTROL_LURED && entity->nav.linked_navigator == 0) {
+            entity->nav.ClearMovement();
+            ai_mode = W8_RT_AI_IDLE;
         }
         break;
     default:
         break;
     }
-    monster_info->control_state = control_state;
-    CurrentGame().events.push(MonstersChanged{});
+    control_state = next;
 }
 
 void W8MonsterInfo::setMotionless(bool motionless)
@@ -640,20 +666,14 @@ bool AnyMonsterDying(void)
 
 bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
 {
-    auto& world = level.loaded();
-    auto& roster = world.population->monster_roster;
-    const auto owns = [&](const auto& partition) {
-        return std::ranges::any_of(partition,
-                                   [&](const auto& entry) { return entry.get() == monster_info; });
-    };
-    if (!owns(roster.live()) && !owns(roster.unborn())) return false;
+    if (!monster_info) return false;
+    auto& world = monster_info->owner_world;
 
-    if (combat.has_value() && monster_info->pCombat) {
+    if (partyCombatActive(world) && monster_info->pCombat) {
         removeMonsterFromCombat(*monster_info);
     }
     if (monster_info->monster_group_id != 0) {
-        W8MonsterGroup* monster_group =
-            level.loaded().population->findGroup(monster_info->monster_group_id);
+        W8MonsterGroup* monster_group = world.population->findGroup(monster_info->monster_group_id);
 
         wiz8::erase_first(monster_group->monsters, monster_info->location_id);
         if (monster_group->highlighted_member == monster_info->location_id)
@@ -662,7 +682,7 @@ bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
         events.push(MonstersChanged{});
         if (monster_group->MemberCount() == 0) {
             if (monster_group->members_active) {
-                invalidateAimsAt(W8CombatSlot::group(monster_group->group_id),
+                invalidateAimsAt(&world, W8CombatSlot::group(monster_group->group_id),
                                  TargetChange::removed);
                 monster_group->members_active = false;
             }
@@ -670,7 +690,7 @@ bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
             if (monster_group->leader_group_id != 0) {
                 population.unlinkGroup(*monster_group);
             } else {
-                if (monster_group->encounter_registered && combat) {
+                if (monster_group->encounter_registered && partyCombatActive(world)) {
                     auto& budget = world.encounters.random_budget;
                     const auto& definition = data.levels[world.level_id];
                     budget = std::clamp(budget - 1, definition.minimum_encounter_budget,
@@ -679,10 +699,10 @@ bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
                 const auto allies = std::to_array(monster_group->allied_group_ids);
                 auto* leader = population.alliedSuccessor(*monster_group);
                 if (leader) {
-                    linkMonsterGroup(nullptr, leader);
+                    linkMonsterGroup(world, nullptr, leader);
                     for (int id : allies)
                         if (id != 0 && id != leader->group_id)
-                            linkMonsterGroup(leader, population.findGroup(id));
+                            linkMonsterGroup(world, leader, population.findGroup(id));
                     population.findMonster(leader->leader_location_id)
                         ->inheritLeaderState(*monster_info);
                 }
@@ -690,13 +710,13 @@ bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
             population.eraseEmptyGroup(*monster_group);
         } else {
             if (monster_group->leader_location_id == monster_info->location_id) {
-                world.replaceGroupLeader(*monster_group, combat.has_value());
+                world.replaceGroupLeader(*monster_group, partyCombatActive(world));
             }
         }
         monster_info->monster_group_id = 0;
     }
     deactivateMonster(monster_info);
-    if (combat) {
+    if (partyCombatActive(world)) {
         combat->endTurnOf(MonsterActor{monster_info->location_id});
     }
     if (removal == W8MonsterRemoval::Deactivate) return true;
@@ -706,37 +726,34 @@ bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
     return true;
 }
 
-/* Retires one entry from the live world: it parks the entry at the sentinel
-   location 9999, zeroes its two current stats, resets the live Monster's flag
-   word to the deactivated value, captures the position the Monster ends at, and
-   lowers the live count. In combat it also clears the two selection slots the
-   global at 0x006836A8 holds if this entry occupied them. */
+// Logical death stops participation; the loaded body remains for death, script and fade work.
+bool W8MonsterInfo::deactivate()
+{
+    if (!fActive) return false;
+    assert(entity);
+    uiCondition[W8_CONDITION_DEAD] = W8_CONDITION_INDEFINITE;
+    highest_condition = W8_CONDITION_DEAD;
+    hp_current = 0;
+    stamina = 0;
+    entity->nav.active = false;
+    entity->nav.flags = 0x200000;
+    entity->clearSpellIcons();
+    owner_world.population->releaseMonsterVisibility(*this);
+    position = entity->GetRepresentationLocalLocation();
+    fActive = false;
+    return true;
+}
+
 void Game::deactivateMonster(W8MonsterInfo* monster_info)
 {
-    glm::vec3 position;
-
-    assert(monster_info != 0);
-    if (monster_info->fActive) {
-        assert(monster_info->entity);
-        monster_info->uiCondition[W8_CONDITION_DEAD] = W8_CONDITION_INDEFINITE;
-        monster_info->highest_condition = W8_CONDITION_DEAD;
-        monster_info->hp_current = 0;
-        monster_info->stamina = 0;
-        monster_info->entity->nav.active = false;
-        monster_info->entity->nav.flags = 0x200000;
-        monster_info->entity->clearSpellIcons();
-        monster_info->entity->owner_world.population->releaseMonsterVisibility(*monster_info);
-        position = monster_info->entity->GetRepresentationLocalLocation();
-        monster_info->position = position;
-        monster_info->fActive = false;
-        if (combat.has_value()) {
-            refreshSight();
-            invalidateAimsAt(W8CombatSlot::monster(monster_info->location_id),
-                             TargetChange::removed);
-            RefreshFlaggedMainGameState();
-            refreshCombatEngagement();
-            combat->endTurnOf(MonsterActor{monster_info->location_id});
-        }
+    if (!monster_info->deactivate()) return;
+    if (partyCombatActive(monster_info->owner_world)) {
+        refreshSight();
+        invalidateAimsAt(&monster_info->owner_world,
+                         W8CombatSlot::monster(monster_info->location_id), TargetChange::removed);
+        RefreshFlaggedMainGameState();
+        refreshCombatEngagement();
+        combat->endTurnOf(MonsterActor{monster_info->location_id});
     }
 }
 
@@ -833,7 +850,6 @@ void ToggleCombatMode(void)
 {
     unsigned int group_list_index;
     W8MonsterGroup* monster_group;
-    Missile* missile;
 
     if (!CurrentGame().combat.has_value()) {
         CurrentGame().beginCombat(1);
@@ -855,8 +871,8 @@ void ToggleCombatMode(void)
             }
         }
     }
-    for (missile = NextMissile(true); missile != 0; missile = NextMissile(false)) {
-        if ((missile == CurrentGame().combat->engaged_missile ||
+    for (const auto& missile : CurrentGame().level.loaded().missiles()) {
+        if ((missile.get() == CurrentGame().combat->engaged_missile ||
              Data().missiles[missile->missile_table_index].spell_missile != 0) &&
             missile->BlocksEndingCombat()) {
             ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_COMBAT_CANNOT_END_ENGAGED]);
@@ -998,7 +1014,7 @@ std::string Game::monsterName(const W8MonsterInfo& monster) const
     const auto& record = data.monsters[monster.monster_species];
     bool alternate = false;
     if (record.record_id != W8_MONSTER_RECORD_ALTERNATE_NAME && monster.monster_group_id != 0) {
-        const auto* group = level.loaded().population->findGroup(monster.monster_group_id);
+        const auto* group = monster.owner_world.population->findGroup(monster.monster_group_id);
         assert(group);
         alternate = group->alternate_name;
     }

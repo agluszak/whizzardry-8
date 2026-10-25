@@ -303,7 +303,7 @@ bool MonGen::GenerateEncounter(const glm::vec3* position)
             companion_species, companion_group_count, &spawn_position, false);
         companion_group->encounter_registered = true;
         SetMonsterGroupFormation(companion_group, &this->spawn_position);
-        CurrentGame().linkMonsterGroup(group, companion_group);
+        CurrentGame().linkMonsterGroup(CurrentGame().level.loaded(), group, companion_group);
     }
 
     return true;

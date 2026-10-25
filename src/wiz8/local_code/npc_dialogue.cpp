@@ -7,6 +7,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <fmt/format.h>
@@ -317,6 +318,11 @@ void W8NpcDialogue::QueueQuote(int quote, bool mark_pending, bool prepend, bool 
 
 void W8NpcDialogue::Queue(W8NpcAction action)
 {
+    if (std::holds_alternative<W8NpcScriptNotice>(action) &&
+        std::ranges::any_of(queue_, [](const auto& queued) {
+            return std::holds_alternative<W8NpcScriptNotice>(queued.action);
+        }))
+        return;
     Push(std::move(action), false);
 }
 

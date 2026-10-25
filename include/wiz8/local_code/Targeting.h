@@ -30,11 +30,9 @@ bool TargetSourceIsMonster(const W8TargetSource* source, int allow_indirect);
 signed char GetSourceNoticeColor(const W8TargetSource* source);
 signed char GetTargetNoticeColor(const W8TargetSource* source, const W8CombatSlot* target);
 
-void RefreshAllPartyTargets(void);
 /* Repick a stored action's target, or a picker's draft target, when the old one no longer
    holds. Both return whether a monster was found; otherwise the target is cleared. */
 
-bool RepickDraftTarget(int party_slot, W8Action& draft);
 /* The best monster for a live attack, spell or item action that needs an enemy in
    combat, reached with the weapons in hand; it never changes equipment. */
 
@@ -43,7 +41,6 @@ bool RepickDraftTarget(int party_slot, W8Action& draft);
    target is also remembered for its action kind. */
 void AimAtTarget(int actor, const W8CombatSlot& target);
 
-void AimDraft(int actor, W8Action& draft, const W8CombatSlot& target);
 // A target naming one party character, directly or indirectly.
 
 void AimAtMonsterLocation(int party_slot, int location_id, bool allow_single_target);

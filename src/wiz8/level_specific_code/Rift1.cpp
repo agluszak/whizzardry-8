@@ -34,7 +34,7 @@ namespace {
    the replacement (species 0x22b) at the Sexspawn entity if it is not already
    in the level. Returns false unless the swap runs, so the trigger stays
    armed until it does. */
-bool Rift1Sexspawn(Trigger* pTrigger)
+TriggerDecision Rift1Sexspawn(Trigger* pTrigger)
 {
     W8MonsterInfo* monster_info;
 
@@ -51,16 +51,16 @@ bool Rift1Sexspawn(Trigger* pTrigger)
                                  : std::nullopt) {
                 SpawnMonsters(0x22b, 1, &*point, 0, true, false);
             }
-            return true;
+            return {.run_action = true};
         }
     }
-    return false;
+    return {.run_action = false};
 }
 
 /* "Hotstuff": until fact 0x326, spawn the lava lord (0x175) at the Hotstuff
    entity, give it the MoveLavalord movement script and begin the scripted
    world action. */
-bool Rift1Hotstuff(Trigger* pTrigger)
+TriggerDecision Rift1Hotstuff(Trigger* pTrigger)
 {
     W8MonsterGroup* group;
     Monster* monster;
@@ -76,38 +76,38 @@ bool Rift1Hotstuff(Trigger* pTrigger)
             }
         }
     }
-    return true;
+    return {.run_action = true};
 }
 
 /* "Fireantspawn": spawn a hostile group of six fire ants (0x12b) at the
    Fireantspawn entity. */
-bool Rift1Fireantspawn(Trigger* pTrigger)
+TriggerDecision Rift1Fireantspawn(Trigger* pTrigger)
 {
     if (auto position = CurrentGame().level.loaded().namedPosition("Fireantspawn")) {
         SpawnMonsters(0x12b, 6, &*position, 1, false, false);
     }
-    return true;
+    return {.run_action = true};
 }
 
 /* "Gate": raise fact 0x1c4. */
-bool Rift1Gate(Trigger* pTrigger)
+TriggerDecision Rift1Gate(Trigger* pTrigger)
 {
     CurrentGame().setFact(W8_FACT_RIFT_RAFE_CAGE_OPEN, 1);
-    return true;
+    return {.run_action = true};
 }
 
 /* "AshLock": spawn one hostile monster 0x222 at the NP_Hotstuff3 entity. */
-bool Rift1AshLock(Trigger* pTrigger)
+TriggerDecision Rift1AshLock(Trigger* pTrigger)
 {
     if (auto position = CurrentGame().level.loaded().namedPosition("NP_Hotstuff3")) {
         SpawnMonsters(0x222, 1, &*position, 1, true, false);
     }
-    return true;
+    return {.run_action = true};
 }
 
 /* "TimeDorado": give every existing monster group of species 0xfc a fresh
    member. */
-bool Rift1TimeDorado(const ScriptContext& ctx, Trigger* pTrigger)
+TriggerDecision Rift1TimeDorado(const ScriptContext& ctx, Trigger* pTrigger)
 {
     W8MonsterGroup* previous;
 
@@ -116,7 +116,7 @@ bool Rift1TimeDorado(const ScriptContext& ctx, Trigger* pTrigger)
         ctx.game.giveBirthToMonster(previous);
         previous = ctx.world->population->findSpeciesGroup(0xfc, previous);
     }
-    return true;
+    return {.run_action = true};
 }
 
 class Rift1Script final : public LevelScript {
@@ -130,8 +130,9 @@ public:
         bindTrigger("Hotstuff", Rift1Hotstuff);
         bindTrigger("Gate", Rift1Gate);
         bindTrigger("AshLock", Rift1AshLock);
-        bindTrigger("TimeDorado",
-                    [this](Trigger* trigger) { return Rift1TimeDorado(ctx, trigger); });
+        bindTrigger("TimeDorado", [this](Trigger* trigger) -> TriggerDecision {
+            return Rift1TimeDorado(ctx, trigger);
+        });
     }
 };
 

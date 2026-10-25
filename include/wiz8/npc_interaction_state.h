@@ -15,19 +15,9 @@ struct W8PendingNoticeLine {
     int npc_kind;
 };
 
-/* An NPC script notice waiting for DispatchPendingNpcScriptNotice. */
-struct W8PendingNotice {
-    std::shared_ptr<W8NpcState> npc;
-    W8ItemInstance item;
-    int line;
-    bool flag;
-    unsigned char force;
-};
-
 /* The NPC conversation's state the game keeps for one play-through: who is spoken to and
-   by whom, the offered item, whether the conversation runs as a scripted scene, the
-   transcript's category filter a save records, and the staged script notice. The game owns
-   it (`Game::npc_interaction`); the dialogue's interface is the main game's
+   by whom, the offered item, whether the conversation runs as a scripted scene, and the
+   transcript's category filter. The game owns it (`Game::npc_interaction`); the dialogue's interface is the main game's
    (`W8NpcDialoguePanel`). */
 struct W8NpcInteractionState {
     /* The dialogue's leading speaker: the occupied row whose character leads
@@ -48,9 +38,6 @@ struct W8NpcInteractionState {
        interactive panel. */
     bool scripted_dialogue{};
     int last_notice_npc_kind{};
-    // The script notice staged for DispatchPendingNpcScriptNotice, while queued.
-    W8PendingNotice pending_notice{};
-    bool pending_notice_queued = false;
     /* What the dialogue's interface shows that the conversation's progress waits on: the
        open layout, whether the panel or the whole dialogue is hidden, and a modal dialog
        over it. */

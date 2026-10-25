@@ -185,7 +185,7 @@ void MakeTargetGroupHostile(W8TargetSource* source, W8CombatSlot* target)
     }
     if (group_id != -1) {
         group = FindMonsterGroup(group_id);
-        CurrentGame().setGroupHostility(group, hostility, true);
+        CurrentGame().setGroupHostility(CurrentGame().level.loaded(), group, hostility, true);
         if (!group->fInCombat) {
             MonsterGroupEnterCombat(group);
         }
@@ -214,15 +214,16 @@ int g_monster_special_attack_name_ids[12] = {0,    1598, 1599, 1600, 1601, 1602,
 void SetMonsterGroupHostilityByID(int group_id, W8Disposition hostility, bool recurse)
 {
     W8MonsterGroup* group = FindMonsterGroup(group_id);
-    CurrentGame().setGroupHostility(group, hostility, recurse);
+    CurrentGame().setGroupHostility(CurrentGame().level.loaded(), group, hostility, recurse);
 }
 
-void Game::setGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bool recurse)
+void Game::setGroupHostility(World& world, W8MonsterGroup* group, W8Disposition hostility,
+                             bool recurse)
 {
-    if ((*level.loaded().population).allMembersDying(*group)) {
+    if ((*world.population).allMembersDying(*group)) {
         return;
     }
-    W8MonsterInfo* leader = level.loaded().population->findMonster(group->leader_location_id);
+    W8MonsterInfo* leader = world.population->findMonster(group->leader_location_id);
     if (leader != 0 && leader->entity->hostility_preserved) {
         return;
     }
@@ -232,7 +233,7 @@ void Game::setGroupHostility(W8MonsterGroup* group, W8Disposition hostility, boo
     }
     group->ubDisposition = hostility;
     group->forced_neutral = false;
-    if (level.loaded().population->hasVisibleThreat(*(group))) {
+    if (world.population->hasVisibleThreat(*(group))) {
         events.push(
             TextNotice{9, fmt::format("{} {} {}!", monsterGroupName(*group),
                                       data.strings[0x1d7 + (group->MemberCount() != 1)],
@@ -240,27 +241,27 @@ void Game::setGroupHostility(W8MonsterGroup* group, W8Disposition hostility, boo
     }
     group->hostility_set_at = status.world_clock;
     if (previous != W8_DISPOSITION_NEUTRAL) {
-        invalidateAimsAt(W8CombatSlot::group(group->group_id), TargetChange::allegiance);
+        invalidateAimsAt(&world, W8CombatSlot::group(group->group_id), TargetChange::allegiance);
     }
     for (unsigned int index = 0; index < group->MemberIds().size(); ++index) {
         int location_id = group->MemberLocationId(index);
-        W8MonsterInfo* monster = level.loaded().population->findMonster(location_id);
+        W8MonsterInfo* monster = world.population->findMonster(location_id);
         setMonsterHostility(monster, hostility);
     }
     if (group->leader_group_id != 0) {
-        setGroupHostility(level.loaded().population->findGroup(group->leader_group_id), hostility,
+        setGroupHostility(world, world.population->findGroup(group->leader_group_id), hostility,
                           false);
     }
     if (group->allied_group_ids[0] != 0) {
-        setGroupHostility(level.loaded().population->findGroup(group->allied_group_ids[0]),
-                          hostility, false);
+        setGroupHostility(world, world.population->findGroup(group->allied_group_ids[0]), hostility,
+                          false);
     }
     if (group->allied_group_ids[1] != 0) {
-        setGroupHostility(level.loaded().population->findGroup(group->allied_group_ids[1]),
-                          hostility, false);
+        setGroupHostility(world, world.population->findGroup(group->allied_group_ids[1]), hostility,
+                          false);
     }
     if (recurse) {
-        alertFactionGroups(group);
+        alertFactionGroups(world, group);
     }
     events.push(MonstersChanged{});
 }
@@ -272,16 +273,18 @@ void Game::setMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
         return;
     }
     monster->ubDisposition = hostility;
-    if (monster->pCombat &&
+    if (partyCombatActive(monster->owner_world) && monster->pCombat &&
         (hostility == W8_DISPOSITION_HOSTILE || previous == W8_DISPOSITION_HOSTILE)) {
         refreshCombatEngagement();
     }
     if (previous != W8_DISPOSITION_NEUTRAL) {
-        invalidateAimsAt(W8CombatSlot::monster(monster->location_id), TargetChange::allegiance);
+        invalidateAimsAt(&monster->owner_world, W8CombatSlot::monster(monster->location_id),
+                         TargetChange::allegiance);
     }
     if (monster->pCombat && monster->hp_current > 0 &&
         monster->ubDisposition != W8_DISPOSITION_NEUTRAL) {
-        if (combat.has_value() && combat->holdsTurn(MonsterActor{monster->location_id}) &&
+        if (partyCombatActive(monster->owner_world) &&
+            combat->holdsTurn(MonsterActor{monster->location_id}) &&
             !std::holds_alternative<TurnScheduled>(combat->turn())) {
             finishMonsterAttack(monster);
             monster->action.kind = W8_MONSTER_ACTION_NONE;
@@ -346,7 +349,8 @@ int TurnUndead(int party_slot, bool check)
 
     W8CombatSlot target;
     ResetCombatSlot(&target);
-    CurrentGame().appendSpellTargets(W8_SPELL_DISPEL_UNDEAD, 1, &source, &target, monsters, party,
+    CurrentGame().appendSpellTargets(CurrentGame().level.loaded(), W8_SPELL_DISPEL_UNDEAD, 1,
+                                     &source, &target, monsters, party,
                                      W8AreaSightRule::RequireLineOfSight);
     if (monsters.empty()) {
         return 0;
@@ -401,6 +405,7 @@ static char g_pray_dash[] = " -- ";
    retries downward through the table until an action lands. */
 int CharacterPrayAction(int party_slot)
 {
+    auto& events = CurrentGame().events;
     W8Character* character = &CurrentGame().party.characters[party_slot];
     std::vector<int> monster_targets;
     bool found = false;
@@ -433,19 +438,16 @@ int CharacterPrayAction(int party_slot)
     source.auto_cast = true;
     source.aim_resolved = true;
     ResetCombatSlot(&target);
-    CurrentGame().events.push(
-        CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x174]});
+    events.push(CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x174]});
     cost = CharacterActionFatigueCost(party_slot, W8_ACTION_PRAY);
     if (character->stamina < static_cast<int>(cost) &&
         character->stamina < static_cast<int>(CurrentGame().rng.below(cost))) {
-        CurrentGame().events.push(
-            CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x175]});
+        events.push(CharacterNotice{static_cast<unsigned int>(party_slot), Data().strings[0x175]});
         return cost;
     }
     if (!g_settings.verbose_combat_messages) {
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-        AppendToLastTextLine(g_pray_dash, -1);
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+        events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+        events.push(TextFragment{.text = g_pray_dash, .leaves_open = true});
     }
     roll = CurrentGame().rng.below(g_pray_roll_sums[PRAY_ROLL_TIERS]);
     if (CurrentGame().combat->round_count < 4) {
@@ -473,10 +475,10 @@ int CharacterPrayAction(int party_slot)
         switch (action) {
         case 0:
             if (CurrentGame().rng.below(2) == 0) {
-                AppendToLastTextLine(Data().strings[0x178], -1);
+                events.push(TextFragment{.text = Data().strings[0x178]});
                 CurrentGame().combat->experience_bonus += 10;
             } else {
-                AppendToLastTextLine(Data().strings[0x177], -1);
+                events.push(TextFragment{.text = Data().strings[0x177]});
                 AddPartyGold(CurrentGame(), 100, true);
             }
             prayed = true;
@@ -486,7 +488,7 @@ int CharacterPrayAction(int party_slot)
                 W8Character* member = &CurrentGame().party.characters[index];
                 if (CurrentGame().party.members[index].has_value() && member->hp_current != 0 &&
                     member->stamina < member->uiStaminaMax) {
-                    AppendToLastTextLine(Data().strings[0x179], -1);
+                    events.push(TextFragment{.text = Data().strings[0x179]});
                     CastSpellFromSource(W8_SPELL_REST_ALL, &source, &target, 7, 0, 0, true,
                                         &outcome, W8SpellCastKind::Standard, 0, 0);
                     prayed = true;
@@ -512,8 +514,8 @@ int CharacterPrayAction(int party_slot)
                     if (CurrentGame().party.participates(index) &&
                         member->enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL].power == 0 &&
                         --pick == 0) {
-                        AppendToLastTextLine(fmt::sprintf(Data().strings[0x17a], member->name, -1),
-                                             -1);
+                        events.push(TextFragment{
+                            .text = fmt::sprintf(Data().strings[0x17a], member->name, -1)});
                         target.iType = W8_TARGET_KIND_CHARACTER;
                         if (power_level > 6) {
                             power_level = 7;
@@ -547,7 +549,7 @@ int CharacterPrayAction(int party_slot)
                         (member->uiCondition[W8_CONDITION_INSANE] != 0 ||
                          member->uiCondition[W8_CONDITION_TURNCOAT] != 0) &&
                         --pick == 0) {
-                        AppendToLastTextLine(Data().strings[0x179], -1);
+                        events.push(TextFragment{.text = Data().strings[0x179]});
                         target.iType = W8_TARGET_KIND_CHARACTER;
                         const bool capped = power_level > 7;
                         if (capped) {
@@ -571,7 +573,7 @@ int CharacterPrayAction(int party_slot)
                 }
                 ResetCombatSlot(&target);
                 target.iType = W8_TARGET_KIND_PARTY;
-                AppendToLastTextLine(Data().strings[0x179], -1);
+                events.push(TextFragment{.text = Data().strings[0x179]});
                 CastSpellFromSource(W8_SPELL_HEAL_ALL, &source, &target, power_level, 0, 0, true,
                                     &outcome, W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
@@ -591,7 +593,7 @@ int CharacterPrayAction(int party_slot)
                 ResetCombatSlot(&target);
                 target.iType = W8_TARGET_KIND_CHARACTER;
                 target.iChar = best;
-                AppendToLastTextLine(Data().strings[0x179], -1);
+                events.push(TextFragment{.text = Data().strings[0x179]});
                 CastSpellFromSource(W8_SPELL_HEAL_WOUNDS, &source, &target, power_level, 0, 0,
                                     false, &outcome, W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
@@ -607,7 +609,7 @@ int CharacterPrayAction(int party_slot)
                 }
             }
             if (!found) {
-                AppendToLastTextLine(Data().strings[0x17b], -1);
+                events.push(TextFragment{.text = Data().strings[0x17b]});
                 CastSpellFromSource(W8_SPELL_BLESS, &source, &target, power_level, 0, 0, false,
                                     &outcome, W8SpellCastKind::Standard, 0, 0);
                 prayed = true;
@@ -635,7 +637,7 @@ int CharacterPrayAction(int party_slot)
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
                         monster->hp_current != 0 &&
                         monster->entity->GetDistanceToPlayer() <= range && --pick == 0) {
-                        AppendToLastTextLine(Data().strings[0x179], -1);
+                        events.push(TextFragment{.text = Data().strings[0x179]});
                         target.iType = W8_TARGET_KIND_MONSTER;
                         target.iMonsterID = monster->location_id;
                         if (power_level > 6) {
@@ -656,7 +658,7 @@ int CharacterPrayAction(int party_slot)
             prayed = TurnUndead(party_slot, false) > 0;
             break;
         case 8:
-            AppendToLastTextLine(Data().strings[0x179], -1);
+            events.push(TextFragment{.text = Data().strings[0x179]});
             for (index = 0; index < 0x12; ++index) {
                 LiftConditionFromParty(CurrentGame(), static_cast<W8Condition>(index));
             }
@@ -673,7 +675,7 @@ int CharacterPrayAction(int party_slot)
             if (!CombatHasCondition(0x3b) || !CombatHasCondition(0x35)) {
                 target.iType = W8_TARGET_KIND_PARTY;
                 target.iChar = -1;
-                AppendToLastTextLine(Data().strings[0x17b], -1);
+                events.push(TextFragment{.text = Data().strings[0x17b]});
                 CastSpellFromSource(W8_SPELL_SOUL_SHIELD, &source, &target, power_level, 0, 0,
                                     false, &outcome, W8SpellCastKind::Standard, 0, 0);
                 CastSpellFromSource(W8_SPELL_ELEMENT_SHIELD, &source, &target, power_level, 0, 0,
@@ -686,7 +688,7 @@ int CharacterPrayAction(int party_slot)
                 !PartyHasCondition(0x1a)) {
                 target.iType = W8_TARGET_KIND_PARTY;
                 target.iChar = -1;
-                AppendToLastTextLine(Data().strings[0x17b], -1);
+                events.push(TextFragment{.text = Data().strings[0x17b]});
                 CastSpellFromSource(W8_SPELL_MAGIC_SCREEN, &source, &target, power_level, 0, 0,
                                     false, &outcome, W8SpellCastKind::Standard, 0, 0);
                 CastSpellFromSource(W8_SPELL_ENCHANTED_BLADE, &source, &target, power_level, 0, 0,
@@ -705,11 +707,10 @@ int CharacterPrayAction(int party_slot)
                 if (monster->fActive && monster->pCombat &&
                     monster->ubDisposition == W8_DISPOSITION_HOSTILE && monster->hp_current != 0 &&
                     monster->uiCondition[W8_CONDITION_AFRAID] == 0) {
-                    AppendToLastTextLine(
-                        fmt::sprintf(
+                    events.push(TextFragment{
+                        .text = fmt::sprintf(
                             Data().strings[0x17c],
-                            Data().strings[g_gender_name_message_rows[character->gender][2]], -1),
-                        -1);
+                            Data().strings[g_gender_name_message_rows[character->gender][2]], -1)});
                     target.iType = W8_TARGET_KIND_ALL_ENEMIES;
                     CastSpellFromSource(W8_SPELL_ROUT, &source, &target, power_level, 0, 0, false,
                                         &outcome, W8SpellCastKind::Standard, 0, 0);
@@ -730,7 +731,7 @@ int CharacterPrayAction(int party_slot)
                         monster->ubDisposition == W8_DISPOSITION_HOSTILE &&
                         monster->hp_current != 0 &&
                         monster->entity->GetDistanceToPlayer() <= range) {
-                        AppendToLastTextLine(Data().strings[0x179], -1);
+                        events.push(TextFragment{.text = Data().strings[0x179]});
                         ResetCombatSlot(&target);
                         CastSpellFromSource(W8_SPELL_FALLING_STARS, &source, &target, power_level,
                                             0, 0, false, &outcome, W8SpellCastKind::Standard, 0, 0);
@@ -740,7 +741,7 @@ int CharacterPrayAction(int party_slot)
             }
             break;
         default:
-            AppendToLastTextLine(Data().strings[0x176], -1);
+            events.push(TextFragment{.text = Data().strings[0x176]});
             prayed = true;
             break;
         }
@@ -749,19 +750,18 @@ int CharacterPrayAction(int party_slot)
     return cost;
 }
 
-void Game::alertFactionGroups(W8MonsterGroup* monster_group)
+void Game::alertFactionGroups(World& world, W8MonsterGroup* monster_group)
 {
     const W8MonsterRecord* record = &data.monsters[(monster_group)->monster_id];
     if (record->faction_id != W8_FACTION_UNALIGNED) {
-        for (unsigned int index = 0; index < (*level.loaded().population).groups().size();
-             ++index) {
-            W8MonsterGroup* other = (*level.loaded().population).groups()[index].get();
+        for (unsigned int index = 0; index < (*world.population).groups().size(); ++index) {
+            W8MonsterGroup* other = (*world.population).groups()[index].get();
             const W8MonsterRecord* other_record = &data.monsters[(other)->monster_id];
             if (other != monster_group &&
                 ((other_record->flags & W8_MONSTER_FLAG_NPC) == 0 || !other->forced_neutral) &&
                 record->faction_id == other_record->faction_id &&
-                level.loaded().population->groupCanSeeGroup(*(other), *(monster_group))) {
-                setGroupHostility(other, monster_group->ubDisposition, false);
+                world.population->groupCanSeeGroup(*(other), *(monster_group))) {
+                setGroupHostility(world, other, monster_group->ubDisposition, false);
             }
         }
     }

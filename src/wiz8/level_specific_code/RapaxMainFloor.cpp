@@ -61,29 +61,29 @@ void SpawnActivatedItemAt(const char* entity, int item_id)
 
 /* "platformtrigger": drop the three cursed Rapax items (0x1fd robe, 0x1fe
    helm, 0x1ff dagger) at their NP_C* entities and enable RAM03. */
-bool Platform(Trigger* pTrigger)
+TriggerDecision Platform(Trigger* pTrigger)
 {
     SpawnActivatedItemAt("NP_CRobe", 0x1fd);
     SpawnActivatedItemAt("NP_CHelm", 0x1fe);
     SpawnActivatedItemAt("NP_CDagger", 0x1ff);
     SetRamTriggerEnabled("RAM03", true);
-    return true;
+    return {.run_action = true};
 }
 
 /* "platformtrigger01": disable RAM03 and enable RAM07. */
-bool Platform01(Trigger* pTrigger)
+TriggerDecision Platform01(Trigger* pTrigger)
 {
     SetRamTriggerEnabled("RAM03", false);
     SetRamTriggerEnabled("RAM07", true);
-    return true;
+    return {.run_action = true};
 }
 
 /* "platformtrigger02": disable RAM07 and enable RAM11. */
-bool Platform02(Trigger* pTrigger)
+TriggerDecision Platform02(Trigger* pTrigger)
 {
     SetRamTriggerEnabled("RAM07", false);
     SetRamTriggerEnabled("RAM11", true);
-    return true;
+    return {.run_action = true};
 }
 
 class RapaxMainFloorScript final : public LevelScript {
@@ -99,13 +99,13 @@ public:
     }
 
 private:
-    bool altarBox(Trigger* pTrigger);
+    TriggerDecision altarBox(Trigger* pTrigger);
 };
 
 /* "AltarBox": the first activation while the fact-0x14c gate is clear marks
    LezboDemonAppeared, spawns Al-Sedexus (0x124) at NP_Al-Sedexus and arms the
    trigger's follow-up action 0x1fc. */
-bool RapaxMainFloorScript::altarBox(Trigger* pTrigger)
+TriggerDecision RapaxMainFloorScript::altarBox(Trigger* pTrigger)
 {
     int var_id;
 
@@ -114,7 +114,7 @@ bool RapaxMainFloorScript::altarBox(Trigger* pTrigger)
         if (var_id != -1) {
             var_id = GetLocationVarValueByName("LezboDemonAppeared");
             if (var_id == 1) {
-                return true;
+                return {.run_action = true};
             }
             SetTriggerVariableByName("LezboDemonAppeared", 1);
         } else {
@@ -125,7 +125,7 @@ bool RapaxMainFloorScript::altarBox(Trigger* pTrigger)
         }
         pTrigger->required_item_id = 0x1fc;
     }
-    return true;
+    return {.run_action = true};
 }
 
 } // namespace

@@ -28,7 +28,6 @@
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/Sight.h"
@@ -68,7 +67,7 @@ bool GetConditionRecordFlag(int party_slot, W8CharacterDependence dependence)
 
 void Game::releaseMonsterDependents(const W8MonsterInfo& monster)
 {
-    auto& world = level.loaded();
+    auto& world = monster.owner_world;
     std::vector<Event> outcomes;
     for (auto kind : {W8_DEPENDENCE_SUMMON, W8_DEPENDENCE_SWALLOWED}) {
         if ((monster.condition_binding_mask & (1 << kind)) == 0) continue;
@@ -144,10 +143,9 @@ void W8MonsterInfo::refreshConditionState()
     if (fActive) setMotionless(highest_condition >= W8_CONDITION_WEBBED);
 }
 
-void Game::setMonsterCondition(int location_id, W8Condition condition, int duration,
+void Game::setMonsterCondition(W8MonsterInfo& monster, W8Condition condition, int duration,
                                int poison_strength, W8TargetSource* target, bool announce)
 {
-    W8MonsterInfo* monster_info;
     const W8MonsterRecord* record;
     int old_duration;
     bool handled;
@@ -169,44 +167,42 @@ void Game::setMonsterCondition(int location_id, W8Condition condition, int durat
         }
         break;
     }
-    monster_info = level.loaded().population->findMonster(location_id);
-    record = &data.monsters[(monster_info)->monster_species];
-    if (monster_info->hp_current == 0) {
+    record = &data.monsters[monster.monster_species];
+    if (monster.hp_current == 0) {
         return;
     }
     if (const auto* immunity = FindConditionImmunity(record->kind);
         immunity && immunity->Contains(condition)) {
         return;
     }
-    old_duration = monster_info->uiCondition[condition];
+    old_duration = monster.uiCondition[condition];
     if (old_duration < duration) {
-        monster_info->uiCondition[condition] = duration;
+        monster.uiCondition[condition] = duration;
         if (old_duration == 0) {
             if (condition == W8_CONDITION_HEXED || condition == W8_CONDITION_BLIND) {
-                refreshMonsterSight(monster_info);
+                refreshMonsterSight(&monster);
             } else if (condition == W8_CONDITION_TURNCOAT) {
-                if (monster_info->ubDisposition == W8_DISPOSITION_NEUTRAL) {
-                    monster_info->uiCondition[W8_CONDITION_TURNCOAT] = 0;
+                if (monster.ubDisposition == W8_DISPOSITION_NEUTRAL) {
+                    monster.uiCondition[W8_CONDITION_TURNCOAT] = 0;
                     return;
                 }
-                setMonsterHostility(monster_info,
-                                    monster_info->ubDisposition == W8_DISPOSITION_HOSTILE
-                                        ? W8_DISPOSITION_FRIENDLY
-                                        : W8_DISPOSITION_HOSTILE);
+                setMonsterHostility(&monster, monster.ubDisposition == W8_DISPOSITION_HOSTILE
+                                                  ? W8_DISPOSITION_FRIENDLY
+                                                  : W8_DISPOSITION_HOSTILE);
             }
         }
-        monster_info->refreshConditionState();
+        monster.refreshConditionState();
         events.push(MonstersChanged{});
         /* The retail's mangled signature keeps condition an int, but 0x00523D8A
            tests it and 0x00523D8F bounds it unsigned, which is the same cast the
            three later uses of condition in this function already carry. */
         unsigned int condition_index = static_cast<unsigned int>(condition);
         if (old_duration == 0 && condition_index != 0 && condition_index <= 0x12) {
-            monster_info->entity->addSpellIcon(static_cast<W8MonsterSpellIconId>(condition - 1));
+            monster.entity->addSpellIcon(static_cast<W8MonsterSpellIconId>(condition - 1));
         }
-        if (monster_info->pCombat && TargetSourceIsCharacter(target, 0) && target->iChar != -1) {
-            int* hate = &monster_info->pCombat->character_hate[target->iChar];
-            record = &data.monsters[(monster_info)->monster_species];
+        if (monster.pCombat && TargetSourceIsCharacter(target, 0) && target->iChar != -1) {
+            int* hate = &monster.pCombat->character_hate[target->iChar];
+            record = &data.monsters[monster.monster_species];
             *hate += (record->effective_level * static_cast<unsigned int>(condition)) / 3;
         }
         handled = true;
@@ -215,109 +211,106 @@ void Game::setMonsterCondition(int location_id, W8Condition condition, int durat
     }
     if (TargetSourceIsCharacter(target, 0) || TargetSourceIsMonster(target, 0)) {
         if (!target->fBackfire && !target->fReflection && !target->target_diverted) {
-            monster_info->condition_target = *target;
+            monster.condition_target = *target;
         }
     }
     if (static_cast<unsigned int>(poison_strength) >
-        static_cast<unsigned int>(monster_info->condition_argument)) {
-        monster_info->condition_argument = poison_strength;
+        static_cast<unsigned int>(monster.condition_argument)) {
+        monster.condition_argument = poison_strength;
         handled = true;
     }
-    RebuildMonsterDerivedStats(*monster_info, data.monsters[monster_info->monster_species]);
+    RebuildMonsterDerivedStats(monster, data.monsters[monster.monster_species]);
     if (!handled) {
         return;
     }
     if (static_cast<unsigned int>(condition) >= 0xD) {
-        ResetCombatSlot(&monster_info->Target);
+        ResetCombatSlot(&monster.Target);
     }
     if (static_cast<unsigned int>(condition) >= 0x12) {
-        startMonsterDeath(monster_info, announce);
+        startMonsterDeath(&monster, announce);
         return;
     }
-    if (announce && (combat.has_value() || monster_info->party_threat.visible_to_player)) {
-        auto name = monsterName(*monster_info);
+    if (announce &&
+        (partyCombatActive(monster.owner_world) || monster.party_threat.visible_to_player)) {
+        auto name = monsterName(monster);
         events.push(TextNotice{
             W8_FONT_PALETTE_RUST,
             fmt::format("{} {}!", name, data.strings[kConditionNotices[condition].singular])});
     }
-    if (monster_info->entity->IsCycleInterruptable(monster_info->entity->visual.pending_cycle)) {
-        monster_info->startCycle(W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
+    if (monster.entity->IsCycleInterruptable(monster.entity->visual.pending_cycle)) {
+        monster.startCycle(W8_MONSTER_CYCLE_GET_HIT, W8_ANIMATION_PLAY_ONCE);
     }
 }
 /* Clearing a monster's condition also re-derives its highest set condition
    index, recounts its group, and possibly stops it moving. */
-void Game::clearMonsterCondition(int location_id, W8Condition condition)
+void Game::clearMonsterCondition(W8MonsterInfo& monster, W8Condition condition)
 {
-    W8MonsterInfo* monster_info;
     W8MonsterGroup* monster_group;
 
-    monster_info = level.loaded().population->findMonster(location_id);
-    if (monster_info->hp_current != 0) {
-        assert(monster_info->uiCondition[condition] != 0);
-        if (condition == W8_CONDITION_TURNCOAT &&
-            monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0) {
-            monster_group = level.loaded().population->findGroup(monster_info->monster_group_id);
-            setMonsterHostility(monster_info, monster_group->ubDisposition);
+    if (monster.hp_current != 0) {
+        assert(monster.uiCondition[condition] != 0);
+        if (condition == W8_CONDITION_TURNCOAT && monster.uiCondition[W8_CONDITION_TURNCOAT] != 0) {
+            monster_group = monster.owner_world.population->findGroup(monster.monster_group_id);
+            setMonsterHostility(&monster, monster_group->ubDisposition);
         }
-        if (combat.has_value() || monster_info->party_threat.visible_to_player) {
+        if (partyCombatActive(monster.owner_world) || monster.party_threat.visible_to_player) {
             events.push(TextNotice{W8_FONT_PALETTE_RUST,
-                                   fmt::sprintf(data.strings[0x244], monsterName(*monster_info),
+                                   fmt::sprintf(data.strings[0x244], monsterName(monster),
                                                 data.strings[kConditionNotices[condition].name])});
         }
-        monster_info->uiCondition[condition] = 0;
-        monster_info->refreshConditionState();
+        monster.uiCondition[condition] = 0;
+        monster.refreshConditionState();
         events.push(MonstersChanged{});
         if (condition != W8_CONDITION_NONE && condition < W8_CONDITION_MISSING) {
-            monster_info->entity->removeSpellIcon(static_cast<W8MonsterSpellIconId>(condition - 1));
+            monster.entity->removeSpellIcon(static_cast<W8MonsterSpellIconId>(condition - 1));
         }
         switch (condition) {
         case W8_CONDITION_HEXED:
         case W8_CONDITION_BLIND:
-            refreshMonsterSight(monster_info);
-            RebuildMonsterDerivedStats(*monster_info, data.monsters[monster_info->monster_species]);
+            refreshMonsterSight(&monster);
+            RebuildMonsterDerivedStats(monster, data.monsters[monster.monster_species]);
             return;
         case W8_CONDITION_POISONED:
-            monster_info->condition_argument = 0;
-            RebuildMonsterDerivedStats(*monster_info, data.monsters[monster_info->monster_species]);
+            monster.condition_argument = 0;
+            RebuildMonsterDerivedStats(monster, data.monsters[monster.monster_species]);
             return;
         case W8_CONDITION_AFRAID:
-            if (monster_info->pCombat) {
-                monster_info->pCombat->advancing = false;
+            if (monster.pCombat) {
+                monster.pCombat->advancing = false;
             }
             break;
         default:
             break;
         }
-        RebuildMonsterDerivedStats(*monster_info, data.monsters[monster_info->monster_species]);
+        RebuildMonsterDerivedStats(monster, data.monsters[monster.monster_species]);
     }
 }
 
 /* Age one live monster condition. Poison loses its carried strength in the
    same proportion as its remaining duration, with a probabilistic one-point
    correction when integer division rounds the loss to zero. */
-void TickMonsterCondition(int location_id, W8Condition condition, unsigned int minutes)
+void Game::ageMonsterCondition(W8MonsterInfo& monster, W8Condition condition, unsigned int minutes)
 {
-    W8MonsterInfo* monster_info = FindMonster(location_id);
 
-    if (monster_info->hp_current == 0) {
+    if (monster.hp_current == 0) {
         return;
     }
-    assert(monster_info->uiCondition[condition] != 0);
-    if (monster_info->uiCondition[condition] <= minutes) {
-        CurrentGame().clearMonsterCondition(location_id, condition);
+    assert(monster.uiCondition[condition] != 0);
+    if (monster.uiCondition[condition] <= minutes) {
+        clearMonsterCondition(monster, condition);
         return;
     }
     if (condition == W8_CONDITION_POISONED) {
-        int strength = monster_info->condition_argument;
-        unsigned int lost = strength * minutes / monster_info->uiCondition[condition];
+        int strength = monster.condition_argument;
+        unsigned int lost = strength * minutes / monster.uiCondition[condition];
 
-        if (lost == 0 && CurrentGame().rng.below(100) <
-                             strength * minutes * 100 / monster_info->uiCondition[condition]) {
+        if (lost == 0 &&
+            rng.below(100) < strength * minutes * 100 / monster.uiCondition[condition]) {
             lost = 1;
         }
-        monster_info->condition_argument = strength - lost;
+        monster.condition_argument = strength - lost;
     }
-    monster_info->uiCondition[condition] -= minutes;
+    monster.uiCondition[condition] -= minutes;
 }
 
 /* Copy every condition a character is under onto something else in the world.
@@ -340,8 +333,9 @@ void CopyCharacterConditionsToTarget(const W8Character& character, const int* ta
             } else {
                 argument = 0;
             }
-            CurrentGame().setMonsterCondition(*target, static_cast<W8Condition>(condition),
-                                              duration, argument, &target_block, false);
+            CurrentGame().setMonsterCondition(*FindMonster(*target),
+                                              static_cast<W8Condition>(condition), duration,
+                                              argument, &target_block, false);
         }
     }
 }
@@ -403,34 +397,26 @@ void ApplyMonsterCondition(int location_id, W8EnchantmentSlot slot, int argument
     }
 }
 
-/* Empty one of a monster's enchantment slots and tell the live engine object
-   that the matching effect is over. */
-void ClearMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot)
+void W8MonsterInfo::clearEnchantment(W8EnchantmentSlot slot, const W8MonsterRecord& record)
 {
-    W8MonsterInfo* monster_info = FindMonster(location_id);
-
-    monster_info->enchantments[slot] = {};
-    monster_info->entity->removeSpellIcon(static_cast<W8MonsterSpellIconId>(slot + 0x10));
-    RebuildMonsterDerivedStats(location_id);
-    if (slot == W8_ENCHANTMENT_SUPERMAN) {
-        CurrentGame().refreshMonsterSight(monster_info);
-    }
+    enchantments[slot] = {};
+    if (entity) entity->removeSpellIcon(static_cast<W8MonsterSpellIconId>(slot + 0x10));
+    RebuildMonsterDerivedStats(*this, record);
 }
 
-/* Run one of a monster's enchantment slots down by the given number of turns,
-   emptying it when nothing is left. The look-up is repeated rather than
-   reused, which is what the two separate index calls show. */
-void TickMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot, unsigned int turns)
+void Game::disenchantMonster(W8MonsterInfo& monster, W8EnchantmentSlot slot)
 {
-    W8MonsterInfo* monster_info = FindMonster(location_id);
-    unsigned int remaining = monster_info->enchantments[slot].turns;
+    monster.clearEnchantment(slot, data.monsters[monster.monster_species]);
+    if (slot == W8_ENCHANTMENT_SUPERMAN) refreshMonsterSight(&monster);
+}
 
-    if (turns < remaining) {
-        monster_info->enchantments[slot].turns = remaining - turns;
-        return;
-    }
-
-    ClearMonsterEnchantmentSlot(location_id, slot);
+void Game::ageMonsterEnchantment(W8MonsterInfo& monster, W8EnchantmentSlot slot, unsigned int turns)
+{
+    auto& remaining = monster.enchantments[slot].turns;
+    if (turns < remaining)
+        remaining -= turns;
+    else
+        disenchantMonster(monster, slot);
 }
 
 /* Lift one condition from everybody in the world - the party first, then every
@@ -447,7 +433,7 @@ void RemoveConditionFromEveryone(W8Condition condition)
          ++monster_index) {
         monster_info = GetMonsterListEntry(monster_index);
         if (monster_info->uiCondition[condition] != 0) {
-            CurrentGame().clearMonsterCondition(monster_info->location_id, condition);
+            CurrentGame().clearMonsterCondition(*monster_info, condition);
         }
     }
 }
@@ -472,8 +458,8 @@ void RemoveAllEnchantments(void)
             W8MonsterInfo* monster_info = GetMonsterListEntry(index);
 
             if (monster_info->enchantments[enchantment].turns != 0) {
-                ClearMonsterEnchantmentSlot(monster_info->location_id,
-                                            static_cast<W8EnchantmentSlot>(enchantment));
+                CurrentGame().disenchantMonster(*monster_info,
+                                                static_cast<W8EnchantmentSlot>(enchantment));
             }
         }
     }

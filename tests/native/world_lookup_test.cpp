@@ -314,6 +314,41 @@ TEST_CASE("Only published worlds schedule their trigger events", "[levels][event
     REQUIRE(GetWorld()->timed_events.empty());
 }
 
+TEST_CASE("Trigger feedback belongs to the activation, including linked refusals",
+          "[levels][triggers]")
+{
+    const ScopedGame game;
+    game.game.level.replacePrimary(std::make_unique<World>(8));
+    auto& world = *GetWorld();
+    auto* parent = AddTrigger(world, "PARENT");
+    auto* child = AddTrigger(world, "CHILD");
+    int calls = 0;
+    child->activation_callback = [&](Trigger*) -> TriggerDecision {
+        ++calls;
+        return {.run_action = false, .handled = true};
+    };
+
+    // A linked refusal can have handled the interaction. Both recipients still run.
+    parent->trigger_kind = W8TriggerKind::prop;
+    parent->running = true;
+    parent->m_lData1 = -1;
+    parent->flags |= W8_TRIGGER_FIRE_LINKED;
+    parent->recipients = {"CHILD", "CHILD"};
+    REQUIRE(parent->Run(-1));
+    REQUIRE(calls == 2);
+    parent->recipients.clear();
+    REQUIRE_FALSE(parent->Run(-1));
+
+    // Missing-item selection retains feedback even though it rejects the action
+    // before the normal callback dispatch. No ambient flag leaks into the next run.
+    child->required_item_id = 42;
+    child->m_lData2 = 1;
+    REQUIRE(child->Run(-1));
+    REQUIRE(calls == 3);
+    child->activation_callback = [](Trigger*) -> TriggerDecision { return {.run_action = false}; };
+    REQUIRE_FALSE(child->Run(-1));
+}
+
 TEST_CASE("Reward accounting follows its game and world, not installed state or save destination",
           "[levels][rewards]")
 {
@@ -444,7 +479,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         group->monsters = {index + 1};
         group->centre = {1.5f * index, 2.0f, 3.0f};
         population.adoptGroup(std::move(group), index == 3);
-        auto record = std::make_unique<W8MonsterInfo>();
+        auto record = std::make_unique<W8MonsterInfo>(world);
         record->location_id = index + 1;
         record->monster_group_id = index == 1 ? 0 : index + 1;
         record->monster_species = 10 + index;

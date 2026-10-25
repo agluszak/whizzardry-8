@@ -34,6 +34,11 @@ constexpr int kStoredSpellMissile = 0x23;
 /* Decide what the missile struck - the party or a live monster - record it in its
    combat slot, roll the target's missile deflection and either resolve the hit or
    leave it for the combat engine. */
+bool Game::partyCombatActive(const World& world) const
+{
+    return level.primary.get() == &world && combat.has_value();
+}
+
 bool Game::missileReached(Missile& missile, Navigator& struck)
 {
     auto* fight = level.primary.get() == &missile.owner_world && combat ? &*combat : nullptr;

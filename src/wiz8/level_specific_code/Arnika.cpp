@@ -25,7 +25,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/IntervalGate.h"
@@ -123,31 +122,31 @@ private:
     bool runElevatorMoving(W8Elevator& elevator, const ElevatorStateBindings& bindings);
     void elevator1Setup();
     void elevator2Setup();
-    void elevatorAdvance(W8ArnikaElevatorId which);
+    bool elevatorAdvance(W8ArnikaElevatorId which);
     int pedestalItem(int* previous_item);
 
-    bool lazerScanner(Trigger* pTrigger);
+    TriggerDecision lazerScanner(Trigger* pTrigger);
     bool laserScanMaster(int command);
-    bool scannerDoor(Trigger* pTrigger);
+    TriggerDecision scannerDoor(Trigger* pTrigger);
     bool warningSound(int command);
-    bool mookholo(Trigger* pTrigger);
+    TriggerDecision mookholo(Trigger* pTrigger);
     bool mookholoWatch(int command);
-    bool mookFrontDoor(Trigger* pTrigger);
-    bool yellowButton(Trigger* pTrigger);
-    bool vaultAlarmDoor(Trigger* pTrigger);
-    bool exitButton(Trigger* pTrigger);
+    TriggerDecision mookFrontDoor(Trigger* pTrigger);
+    TriggerDecision yellowButton(Trigger* pTrigger);
+    TriggerDecision vaultAlarmDoor(Trigger* pTrigger);
+    TriggerDecision exitButton(Trigger* pTrigger);
     bool teleportWatch(int command);
-    bool genVaultDoor(Trigger* pTrigger);
-    bool redButton(Trigger* pTrigger);
-    bool el1TopButtons(Trigger* pTrigger);
-    bool greenButton(Trigger* pTrigger);
-    bool elevator02Trigger(Trigger* pTrigger);
-    bool chaosMolori(Trigger* pTrigger);
-    bool maddmook(Trigger* pTrigger);
-    bool astralDominae(Trigger* pTrigger);
-    bool cmBox(Trigger* pTrigger);
-    bool ballSlot(Trigger* pTrigger);
-    bool flightRecorder(Trigger* pTrigger);
+    TriggerDecision genVaultDoor(Trigger* pTrigger);
+    TriggerDecision redButton(Trigger* pTrigger);
+    TriggerDecision el1TopButtons(Trigger* pTrigger);
+    TriggerDecision greenButton(Trigger* pTrigger);
+    TriggerDecision elevator02Trigger(Trigger* pTrigger);
+    TriggerDecision chaosMolori(Trigger* pTrigger);
+    TriggerDecision maddmook(Trigger* pTrigger);
+    TriggerDecision astralDominae(Trigger* pTrigger);
+    TriggerDecision cmBox(Trigger* pTrigger);
+    TriggerDecision ballSlot(Trigger* pTrigger);
+    TriggerDecision flightRecorder(Trigger* pTrigger);
     void captureLaserScan(W8SavedLocationState& state);
     void captureWarningSound(W8SavedLocationState& state);
 
@@ -192,9 +191,9 @@ constexpr ElevatorStateBindings kEl02Bindings{W8_ARNIKA_ELEVATOR_TWO,
                                               &ArnikaScript::captureEl2Button};
 
 // Activation callback that only stops the trigger.
-bool BlockTriggerActivation(Trigger*)
+TriggerDecision BlockTriggerActivation(Trigger*)
 {
-    return false;
+    return {.run_action = false};
 }
 
 void ArnikaScript::enter()
@@ -205,7 +204,7 @@ void ArnikaScript::enter()
     bindTrigger("AstralDominae", &ArnikaScript::astralDominae);
     bindTrigger("BallSlot", &ArnikaScript::ballSlot);
     bindTrigger("Flightrecordertrigger", &ArnikaScript::flightRecorder);
-    bindTrigger("ULLspawn", [](Trigger*) { return true; });
+    bindTrigger("ULLspawn", [](Trigger*) -> TriggerDecision { return {.run_action = true}; });
     bindTrigger("Mookholo", &ArnikaScript::mookholo);
     bindTrigger("MookFrontDoor", &ArnikaScript::mookFrontDoor);
     bindTrigger("YellowButton", &ArnikaScript::yellowButton);
@@ -404,19 +403,19 @@ void ArnikaScript::setup()
 
 /* LazerScanner trigger: caches the scanner prop, refuses while its rep is
    still animating or the HLL door is already open, then arms the scan. */
-bool ArnikaScript::lazerScanner(Trigger* pTrigger)
+TriggerDecision ArnikaScript::lazerScanner(Trigger* pTrigger)
 {
     lazer_prop_ = pTrigger->GetProp();
     if (lazer_prop_->animation_playing != 0) {
-        return false;
+        return {.run_action = false};
     }
     if (GetLocationVarIDByName("HLLDoorOpen") != -1) {
-        return false;
+        return {.run_action = false};
     }
     laser_scanning_ = 1;
     BeginScriptedWorldAction();
     addMaster(&ArnikaScript::laserScanMaster, &ArnikaScript::captureLaserScan);
-    return true;
+    return {.run_action = true};
 }
 
 /* Laser-scan master: a positive command re-arms the scan; a zero tick drops it once the prop's
@@ -442,15 +441,15 @@ bool ArnikaScript::laserScanMaster(int command)
 }
 
 /* ScannerDoor trigger: the 0x27b key item opens the HLL door once. */
-bool ArnikaScript::scannerDoor(Trigger* pTrigger)
+TriggerDecision ArnikaScript::scannerDoor(Trigger* pTrigger)
 {
     if (!ctx.inventory.has(0x27b)) {
-        return false;
+        return {.run_action = false};
     }
     if (GetLocationVarIDByName("HLLDoorOpen") == -1) {
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "HLLDoorOpen", 1);
     }
-    return true;
+    return {.run_action = true};
 }
 
 /* Warning-sound master: a positive command starts the ULLspawn alarm for
@@ -503,29 +502,29 @@ bool ArnikaScript::warningSound(int command)
 /* Mookholo trigger: spawns the Screg ambush once while neither ScregActive
    nor MookDoorOpen is set, then hands the spawned monster to the fade-out
    watch and queues the NPC notice. */
-bool ArnikaScript::mookholo(Trigger* pTrigger)
+TriggerDecision ArnikaScript::mookholo(Trigger* pTrigger)
 {
     W8MonsterGroup* group;
     W8MonsterInfo* info;
     int location_id;
 
     if (ctx.combat.has_value()) {
-        return false;
+        return {.run_action = false};
     }
     if (GetLocationVarIDByName("ScregActive") != -1 &&
         GetLocationVarValueByName("ScregActive") != 0) {
-        return false;
+        return {.run_action = false};
     }
     if (GetLocationVarIDByName("MookDoorOpen") != -1 &&
         GetLocationVarValueByName("MookDoorOpen") != 0) {
-        return false;
+        return {.run_action = false};
     }
     if (auto position = world().namedPosition("Mookholo")) {
         group = SpawnMonsters(0xb, 1, &*position, 0, true, false);
         if (GetLocationVarIDByName("ScregActive") != -1) {
             SetTriggerVariableByName("ScregActive", 1);
         } else {
-            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "ScregActive", 1);
+            ctx.story.ensureLocationVariable(GetLoadedLevelID(), "ScregActive", 1);
         }
         location_id = group->MemberLocationId(0);
         if (location_id != 0) {
@@ -535,10 +534,10 @@ bool ArnikaScript::mookholo(Trigger* pTrigger)
                 npc_dialogue_closed = false;
                 addMaster(&ArnikaScript::mookholoWatch);
             }
-            QueueNpcScriptNotice((FindMonster(location_id))->boundNpc(), 0, -1, false, 0);
+            ctx.game.queueNpcNotice(*world().population->findMonster(location_id)->boundNpc());
         }
     }
-    return true;
+    return {.run_action = true};
 }
 
 /* Mookholo watch: the toggle command re-arms the wait, and a zero tick fades
@@ -562,7 +561,7 @@ bool ArnikaScript::mookholoWatch(int command)
 
 /* MookFrontDoor trigger: asserts the Mookholo trigger exists and opens the
    Mook door by latching MookDoorOpen. */
-bool ArnikaScript::mookFrontDoor(Trigger* pTrigger)
+TriggerDecision ArnikaScript::mookFrontDoor(Trigger* pTrigger)
 {
     FindRequiredTriggerByName("Mookholo");
     if (GetLocationVarIDByName("MookDoorOpen") != -1) {
@@ -570,17 +569,18 @@ bool ArnikaScript::mookFrontDoor(Trigger* pTrigger)
     } else {
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "MookDoorOpen", 1);
     }
-    return true;
+    return {.run_action = true};
 }
 
 /* YellowButton trigger: raises the "nothing happened" flag, spawns the
    bank guards at Bguards and puts the first on the guard script. */
-bool ArnikaScript::yellowButton(Trigger* pTrigger)
+TriggerDecision ArnikaScript::yellowButton(Trigger* pTrigger)
 {
+    bool handled = false;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
 
-    g_trigger_feedback = true;
+    handled = true;
     if (auto position = world().namedPosition("Bguards")) {
         group = SpawnMonsters(0xc, 6, &*position, 1, true, false);
         if (group != 0) {
@@ -588,31 +588,34 @@ bool ArnikaScript::yellowButton(Trigger* pTrigger)
             info->entity->SetScript("guard.msf", true);
         }
     }
-    return true;
+    return {.run_action = true, .handled = handled};
 }
 
 /* Vaultalarmdoor trigger: raises the "nothing happened" flag, plays the
    vault alarm, turns every guard group hostile and records fact 0xe0. */
-bool ArnikaScript::vaultAlarmDoor(Trigger* pTrigger)
+TriggerDecision ArnikaScript::vaultAlarmDoor(Trigger* pTrigger)
 {
+    bool handled = false;
     W8MonsterGroup* group;
 
-    g_trigger_feedback = true;
+    handled = true;
     wiz8::sound::play("Data\\Sound\\Ambients\\VaultAlarm.wav");
     group = CurrentLevelPopulation().findSpeciesGroup(0xc, 0);
     while (group != 0) {
-        CurrentGame().setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+        CurrentGame().setGroupHostility(CurrentGame().level.loaded(), group, W8_DISPOSITION_HOSTILE,
+                                        false);
         group = CurrentLevelPopulation().findSpeciesGroup(0xc, group);
     }
     ctx.game.setFact(W8_FACT_ARNIKA_VAULT_ENTERED, 1);
-    return true;
+    return {.run_action = true, .handled = handled};
 }
 
 /* Exitbutton trigger: caches the exit-door trigger and prop, toggles the
    Teleporting location variable, arms the teleport watch when a teleport
    starts and records facts 0xcd and 0xe0. */
-bool ArnikaScript::exitButton(Trigger* pTrigger)
+TriggerDecision ArnikaScript::exitButton(Trigger* pTrigger)
 {
+    bool handled = false;
     exit_door_trigger_ = pTrigger;
     exit_door_prop_ = pTrigger->GetProp();
     if (GetLocationVarIDByName("Teleporting") != -1) {
@@ -626,10 +629,10 @@ bool ArnikaScript::exitButton(Trigger* pTrigger)
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "Teleporting", 1);
         addMaster(&ArnikaScript::teleportWatch);
     }
-    g_trigger_feedback = true;
+    handled = true;
     ctx.game.setFact(W8_FACT_ARNIKA_VAULT_TELEPORT, 1);
     ctx.game.setFact(W8_FACT_ARNIKA_VAULT_ENTERED, 1);
-    return true;
+    return {.run_action = true, .handled = handled};
 }
 
 /* Teleport watch: once the exit-door prop's rep finishes animating, runs
@@ -647,17 +650,17 @@ bool ArnikaScript::teleportWatch(int command)
 
 /* GenVault-2-door trigger: spawns the vault golem once at the Golem
    entity. */
-bool ArnikaScript::genVaultDoor(Trigger* pTrigger)
+TriggerDecision ArnikaScript::genVaultDoor(Trigger* pTrigger)
 {
     if (auto position = world().namedPosition("Golem")) {
         if (GetLocationVarIDByName("GolemSpawned") != -1) {
-            return false;
+            return {.run_action = false};
         }
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "GolemSpawned", 1);
         SpawnMonsters(0x31, 1, &*position, 1, true, false);
         wiz8::sound::play("Data\\Sound\\Ambients\\Temp Transporting.wav");
     }
-    return true;
+    return {.run_action = true};
 }
 
 /* Elevator-1 setup: resolves the seven triggers, restores El01State,
@@ -678,36 +681,37 @@ void ArnikaScript::elevator1Setup()
 
 /* "RedButton": while the button press is armed it stamps the pressed fact,
    then either starts the lift (states 1/7) or re-arms the button master. */
-bool ArnikaScript::redButton(Trigger* pTrigger)
+TriggerDecision ArnikaScript::redButton(Trigger* pTrigger)
 {
+    bool handled = false;
     if (!red_button_armed_) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     if (el01_.button_down == 2) {
-        return true;
+        return {.run_action = true, .handled = handled};
     }
     if (el01_.button_down != 0) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     red_button_armed_ = false;
     ctx.game.setFact(W8_FACT_ARNIKA_SAFETY_DEPOSIT_OPEN, 1);
     red_button_armed_ = true;
-    g_trigger_feedback = true;
+    handled = true;
     if (el01_.state != W8_ARNIKA_ELEVATOR_STEP_3) {
         if (el01_.button_down == 2) {
-            g_trigger_feedback = true;
+            handled = true;
             red_button_armed_ = true;
-            return false;
+            return {.run_action = false, .handled = handled};
         }
         if (el01_.state != W8_ARNIKA_ELEVATOR_STEP_1 && el01_.state != W8_ARNIKA_ELEVATOR_STEP_7) {
-            g_trigger_feedback = true;
+            handled = true;
             red_button_armed_ = true;
-            return false;
+            return {.run_action = false, .handled = handled};
         }
         elevatorAdvance(W8_ARNIKA_ELEVATOR_ONE);
     }
     el1Button(kMasterToggle);
-    return true;
+    return {.run_action = true, .handled = handled};
 }
 
 /* The elevator-1 button master function. A nonzero command re-arms it: -1
@@ -722,15 +726,14 @@ bool ArnikaScript::el1Button(int command)
 /* "El1-TopButtons" and "El1-BottomButtons": advances the lift while no button
    run is pending and the elevator is in a callable state; always reports
    handled. */
-bool ArnikaScript::el1TopButtons(Trigger* pTrigger)
+TriggerDecision ArnikaScript::el1TopButtons(Trigger* pTrigger)
 {
-    g_trigger_feedback = true;
     if (el01_.button_down != 2 &&
         (el01_.state == W8_ARNIKA_ELEVATOR_STEP_1 || el01_.state == W8_ARNIKA_ELEVATOR_STEP_3 ||
          el01_.state == W8_ARNIKA_ELEVATOR_STEP_7)) {
         elevatorAdvance(W8_ARNIKA_ELEVATOR_ONE);
     }
-    return true;
+    return {.run_action = true, .handled = true};
 }
 
 /* The El01Moving master function: the command-0 run advances the elevator
@@ -759,21 +762,22 @@ void ArnikaScript::elevator2Setup()
 /* "GreenButton": while no press is pending it plays the acknowledgement,
    runs the elevator unless it is already at the top, and re-arms the button
    master. */
-bool ArnikaScript::greenButton(Trigger* pTrigger)
+TriggerDecision ArnikaScript::greenButton(Trigger* pTrigger)
 {
+    bool handled = false;
     if (el02_.button_down == 2) {
-        return true;
+        return {.run_action = true, .handled = handled};
     }
     if (el02_.button_down != 0) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     CurrentGame().setFactionDisposition(0xa, W8_FACTION_HOSTILE);
-    g_trigger_feedback = true;
+    handled = true;
     if (el02_.state != W8_ARNIKA_ELEVATOR_STEP_3) {
-        el02_.pElevator->Run(-1);
+        handled |= el02_.pElevator->Run(-1);
     }
     el2Button(kMasterToggle);
-    return true;
+    return {.run_action = true, .handled = handled};
 }
 
 /* The elevator-2 button master function, mirroring el1Button against
@@ -785,17 +789,16 @@ bool ArnikaScript::el2Button(int command)
 
 /* "Elevator-02": steps the lift while no button run is pending and the
    elevator is in a callable state; answers false otherwise. */
-bool ArnikaScript::elevator02Trigger(Trigger* pTrigger)
+TriggerDecision ArnikaScript::elevator02Trigger(Trigger* pTrigger)
 {
     if (el02_.button_down == 2) {
-        return false;
+        return {.run_action = false};
     }
     if (el02_.state != W8_ARNIKA_ELEVATOR_STEP_1 && el02_.state != W8_ARNIKA_ELEVATOR_STEP_3 &&
         el02_.state != W8_ARNIKA_ELEVATOR_STEP_7) {
-        return false;
+        return {.run_action = false};
     }
-    elevatorAdvance(W8_ARNIKA_ELEVATOR_TWO);
-    return true;
+    return {.run_action = true, .handled = elevatorAdvance(W8_ARNIKA_ELEVATOR_TWO)};
 }
 
 /* The El02Moving master function, mirroring el1Moving. */
@@ -805,29 +808,22 @@ bool ArnikaScript::el2Moving(int command)
 }
 
 /* Runs a door and its collide trigger for one elevator step and returns the door's prop. */
-Prop* RunElevatorDoor(Trigger* door, Trigger* collide)
-{
-    Prop* prop = door->GetProp();
-    door->Run(-1);
-    collide->Run(-1);
-    return prop;
-}
 
 /* Runs the lift for one elevator step and returns its prop. */
-Prop* RunElevatorLift(Trigger* lift)
-{
-    Prop* prop = lift->GetProp();
-    lift->Run(-1);
-    return prop;
-}
 
 /* Shared elevator step: advances the selected elevator one state, running
    the door/lift triggers for the departing state and caching the rep the
    moving master will wait on. States 3 and 7 are the door-closed pauses that
    produce no prop. */
 // FUNCTION: WIZ8 0x004E2010
-void ArnikaScript::elevatorAdvance(W8ArnikaElevatorId which)
+bool ArnikaScript::elevatorAdvance(W8ArnikaElevatorId which)
 {
+    bool handled = false;
+    const auto activate = [&](Trigger* trigger) {
+        Prop* prop = trigger->GetProp();
+        handled |= trigger->Run(-1);
+        return prop;
+    };
     W8Elevator* el;
     /* An invalid state runs nothing and leaves no prop to wait on. */
     Prop* prop = nullptr;
@@ -839,7 +835,8 @@ void ArnikaScript::elevatorAdvance(W8ArnikaElevatorId which)
     }
     switch (el->state) {
     case W8_ARNIKA_ELEVATOR_STEP_1:
-        prop = RunElevatorDoor(el->pTopDoor, el->pTopDoorCollide);
+        prop = activate(el->pTopDoor);
+        handled |= el->pTopDoorCollide->Run(-1);
         el->state = W8_ARNIKA_ELEVATOR_STEP_2;
         break;
     case W8_ARNIKA_ELEVATOR_STEP_2:
@@ -847,15 +844,17 @@ void ArnikaScript::elevatorAdvance(W8ArnikaElevatorId which)
         el->state = W8_ARNIKA_ELEVATOR_STEP_3;
         break;
     case W8_ARNIKA_ELEVATOR_STEP_3:
-        prop = RunElevatorDoor(el->pTopDoor, el->pTopDoorCollide);
+        prop = activate(el->pTopDoor);
+        handled |= el->pTopDoorCollide->Run(-1);
         el->state = W8_ARNIKA_ELEVATOR_STEP_4;
         break;
     case W8_ARNIKA_ELEVATOR_STEP_4:
-        prop = RunElevatorLift(el->pLift);
+        prop = activate(el->pLift);
         el->state = W8_ARNIKA_ELEVATOR_STEP_5;
         break;
     case W8_ARNIKA_ELEVATOR_STEP_5:
-        prop = RunElevatorDoor(el->pBottomDoor, el->pBottomDoorCollide);
+        prop = activate(el->pBottomDoor);
+        handled |= el->pBottomDoorCollide->Run(-1);
         el->state = W8_ARNIKA_ELEVATOR_STEP_6;
         break;
     case W8_ARNIKA_ELEVATOR_STEP_6:
@@ -863,11 +862,12 @@ void ArnikaScript::elevatorAdvance(W8ArnikaElevatorId which)
         el->state = W8_ARNIKA_ELEVATOR_STEP_7;
         break;
     case W8_ARNIKA_ELEVATOR_STEP_7:
-        prop = RunElevatorDoor(el->pBottomDoor, el->pBottomDoorCollide);
+        prop = activate(el->pBottomDoor);
+        handled |= el->pBottomDoorCollide->Run(-1);
         el->state = W8_ARNIKA_ELEVATOR_STEP_8;
         break;
     case W8_ARNIKA_ELEVATOR_STEP_8:
-        prop = RunElevatorLift(el->pLift);
+        prop = activate(el->pLift);
         el->state = W8_ARNIKA_ELEVATOR_STEP_1;
         break;
     }
@@ -884,72 +884,75 @@ void ArnikaScript::elevatorAdvance(W8ArnikaElevatorId which)
             addMaster(&ArnikaScript::el2Moving, &ArnikaScript::captureEl2Moving);
         }
     }
+    return handled;
 }
 
 /* "ChaosMolori": rejects the activation when an item is on the cursor and
    the pedestal is not running it; accepts when the cursor is empty or the
    pedestal runs it. */
-bool ArnikaScript::chaosMolori(Trigger* pTrigger)
+TriggerDecision ArnikaScript::chaosMolori(Trigger* pTrigger)
 {
     if (!running_trigger_from_script_ && (ctx.inventory.held())) {
-        return false;
+        return {.run_action = false};
     }
-    return true;
+    return {.run_action = true};
 }
 
 /* "Maddmook": the first time the party has been warned, posts the mook's
    script notice and drops the faction band. */
-bool ArnikaScript::maddmook(Trigger* pTrigger)
+TriggerDecision ArnikaScript::maddmook(Trigger* pTrigger)
 {
     if (GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
         GetLocationVarValueByName("WarnedAboutEntry") == 1 &&
         ctx.game.story.factionDisposition(W8_FACTION_MOOK) != W8_FACTION_NEUTRAL) {
-        W8NpcState* npc = CurrentGame().story.npcOfKind(0x69);
+        W8NpcState* npc = ctx.story.npcOfKind(0x69);
         if (npc != 0) {
-            QueueNpcScriptNotice(npc, 0, 7, false, 0);
+            ctx.game.queueNpcNotice(*npc, nullptr, 7);
             CurrentGame().setFactionDisposition(W8_FACTION_MOOK, W8_FACTION_HOSTILE);
         }
     }
-    return true;
+    return {.run_action = true};
 }
 
 /* "AstralDominae": same cursor gate as ChaosMolori, then forwards the
    activation to the CMBox trigger. */
-bool ArnikaScript::astralDominae(Trigger* pTrigger)
+TriggerDecision ArnikaScript::astralDominae(Trigger* pTrigger)
 {
+    bool handled = false;
     if (!running_trigger_from_script_ && (ctx.inventory.held())) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     pTrigger = FindRequiredTriggerByName("CMBox");
-    pTrigger->Run(-1);
-    return true;
+    handled |= pTrigger->Run(-1);
+    return {.run_action = true, .handled = handled};
 }
 
 /* "CMbox": places the held relic on the pedestal through pedestalItem, then
    runs the matching trigger itself so the pedestal callbacks stay quiet. */
-bool ArnikaScript::cmBox(Trigger* pTrigger)
+TriggerDecision ArnikaScript::cmBox(Trigger* pTrigger)
 {
+    bool handled = false;
     int previous = -1;
     int item;
 
     if (running_trigger_from_script_) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     item = pedestalItem(&previous);
     if (item < -1) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
     if (item == 0x244) {
         pTrigger = FindRequiredTriggerByName("ChaosMolori");
     } else if (item == 0x242 || item == 0x264) {
         pTrigger = FindRequiredTriggerByName("AstralDominae");
     } else {
-        return previous != -1;
+        return {.run_action = previous != -1, .handled = handled};
     }
     running_trigger_from_script_ = true;
-    pTrigger->Run(-1);
+    handled |= pTrigger->Run(-1);
     running_trigger_from_script_ = false;
-    return true;
+    return {.run_action = true, .handled = handled};
 }
 
 /* Pedestal item exchange: when a relic (0x242/0x244/0x264) is on the cursor
@@ -990,7 +993,7 @@ int ArnikaScript::pedestalItem(int* previous_item)
         return item;
     }
     if (GetLocationVarIDByName("PedestalItem") == -1) {
-        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "PedestalItem", -1);
+        ctx.story.ensureLocationVariable(GetLoadedLevelID(), "PedestalItem", -1);
         previous = 0x244;
         if (item == -1) {
             ctx.inventory.replaceHeld(
@@ -1007,7 +1010,7 @@ int ArnikaScript::pedestalItem(int* previous_item)
                 MakeItem(Data(), ctx.game.rng, previous, false, false, false));
         }
     }
-    npc = CurrentGame().story.npcOfKind(0x69);
+    npc = ctx.story.npcOfKind(0x69);
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
@@ -1015,10 +1018,10 @@ int ArnikaScript::pedestalItem(int* previous_item)
             position.y += info->entity->nav.movement.height_offset;
             partyCamera().LookAt(&position, false, CurrentGame().activity.conversation);
         }
-        QueueNpcScriptNotice(npc, 0, 8, false, 0);
+        ctx.game.queueNpcNotice(*npc, nullptr, 8);
     }
     if (GetLocationVarIDByName("WarnedAboutEntry") == -1) {
-        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "WarnedAboutEntry", 1);
+        ctx.story.ensureLocationVariable(GetLoadedLevelID(), "WarnedAboutEntry", 1);
     } else {
         SetTriggerVariableByName("WarnedAboutEntry", 1);
     }
@@ -1028,40 +1031,40 @@ int ArnikaScript::pedestalItem(int* previous_item)
 
 /* The "BallSlot" activation callback: on the first ball insert it creates
    item 0x240 and hands it to the kind-0x16 NPC's script notice queue. */
-bool ArnikaScript::ballSlot(Trigger* pTrigger)
+TriggerDecision ArnikaScript::ballSlot(Trigger* pTrigger)
 {
     W8ItemInstance item;
     W8NpcState* npc;
 
     if (GetLocationVarIDByName("BallInserted") == -1) {
-        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "BallInserted", 1);
-        npc = CurrentGame().story.npcOfKind(0x16);
+        ctx.story.ensureLocationVariable(GetLoadedLevelID(), "BallInserted", 1);
+        npc = ctx.story.npcOfKind(0x16);
         item = MakeItem(Data(), ctx.game.rng, 0x240, true, true, false);
-        QueueNpcScriptNotice(npc, &item, -1, false, 0);
+        ctx.game.queueNpcNotice(*npc, &item);
     }
-    g_trigger_feedback = true;
-    return true;
+    return {.run_action = true, .handled = true};
 }
 
 /* The "Flightrecordertrigger" activation callback: outside NPC dialogue it
    queues the kind-0x14 NPC's script notice, passing the held item when the
    cursor holds one. */
-bool ArnikaScript::flightRecorder(Trigger* pTrigger)
+TriggerDecision ArnikaScript::flightRecorder(Trigger* pTrigger)
 {
+    bool handled = false;
     const W8ItemInstance* item;
     W8NpcState* npc;
 
     if (ctx.activity.conversation) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
-    g_trigger_feedback = true;
-    npc = CurrentGame().story.npcOfKind(0x14);
+    handled = true;
+    npc = ctx.story.npcOfKind(0x14);
     item = 0;
     if (const auto* held = ctx.inventory.held()) {
         item = &held->item;
     }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
-    return false;
+    ctx.game.queueNpcNotice(*npc, item);
+    return {.run_action = false, .handled = handled};
 }
 
 } // namespace

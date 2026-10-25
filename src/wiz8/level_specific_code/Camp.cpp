@@ -41,19 +41,19 @@ void CampScript::enter()
         ctx.game.setFact(W8_FACT_PARTY_AT_RAC, 0);
     }
     // "prisondoor06": clear fact 0x1e9.
-    bindTrigger("prisondoor06", [this](Trigger*) {
+    bindTrigger("prisondoor06", [this](Trigger*) -> TriggerDecision {
         ctx.game.setFact(W8_FACT_RAPAX_QUEEN_LOCKED_UP, 0);
-        return true;
+        return {.run_action = true};
     });
     // "prisondoor04": clear fact 0x7d.
-    bindTrigger("prisondoor04", [this](Trigger*) {
+    bindTrigger("prisondoor04", [this](Trigger*) -> TriggerDecision {
         ctx.game.setFact(W8_FACT_RODAN_LOCKED_IN_CAGE, 0);
-        return true;
+        return {.run_action = true};
     });
     // "prisondoor03": clear fact 0x3e.
-    bindTrigger("prisondoor03", [this](Trigger*) {
+    bindTrigger("prisondoor03", [this](Trigger*) -> TriggerDecision {
         ctx.game.setFact(W8_FACT_DRAZIC_LOCKED_IN_CAGE, 0);
-        return true;
+        return {.run_action = true};
     });
 }
 

@@ -49,7 +49,12 @@
 
 bool Game::targetPresent(const W8CombatSlot& target) const
 {
-    const auto* population = level.primary ? level.primary->population.get() : nullptr;
+    return targetPresent(level.primary.get(), target);
+}
+
+bool Game::targetPresent(const World* world, const W8CombatSlot& target) const
+{
+    const auto* population = world ? world->population.get() : nullptr;
     switch (target.iType) {
     case W8_TARGET_KIND_CHARACTER:
         return party.participates(target.iChar);
@@ -78,6 +83,11 @@ bool Game::targetPresent(const W8CombatSlot& target) const
 
 bool Game::targetMatches(const W8CombatSlot& target, W8TargetNeed needed) const
 {
+    return targetMatches(level.primary.get(), target, needed);
+}
+
+bool Game::targetMatches(const World* world, const W8CombatSlot& target, W8TargetNeed needed) const
+{
     bool matches;
     switch (needed) {
     case W8_TARGET_NEED_ALLY:
@@ -103,7 +113,7 @@ bool Game::targetMatches(const W8CombatSlot& target, W8TargetNeed needed) const
     default:
         return true;
     }
-    return matches && targetPresent(target);
+    return matches && targetPresent(world, target);
 }
 
 bool Game::actionTargetsEnemies(unsigned int slot, const W8Action& action) const
@@ -141,24 +151,23 @@ void Game::aimStoredAction(unsigned int slot, W8TargetingContext stored, const W
     const bool committed = stored == W8_TARGETING_CONTEXT_IN_COMBAT;
     const bool changed = party.aimAction(slot, stored, target, committed && combat.has_value());
     if (!committed) return;
-    if (changed && combat) combat->target_picked = false;
     if (changed || target.iType != W8_TARGET_KIND_NONE)
-        outcomes.emplace_back(ActionAimChanged{slot});
+        outcomes.emplace_back(ActionAimChanged{slot, changed});
 }
 
-void Game::invalidateAimsAt(const W8CombatSlot& target, TargetChange change)
+void Game::invalidateAimsAt(World* world, const W8CombatSlot& target, TargetChange change)
 {
     std::vector<Event> outcomes;
-    invalidateAimsAt(target, change, outcomes);
+    invalidateAimsAt(world, target, change, outcomes);
     events.publish(std::move(outcomes));
 }
 
-void Game::invalidateAimsAt(const W8CombatSlot& target, TargetChange change,
+void Game::invalidateAimsAt(World* world, const W8CombatSlot& target, TargetChange change,
                             std::vector<Event>& outcomes)
 {
     const auto invalid = [&](bool source_hostile, bool targets_enemies) {
         if (change == TargetChange::removed) return true;
-        const auto* population = level.primary ? level.primary->population.get() : nullptr;
+        const auto* population = world ? world->population.get() : nullptr;
         bool target_hostile;
         switch (target.iType) {
         case W8_TARGET_KIND_CHARACTER:
@@ -181,24 +190,25 @@ void Game::invalidateAimsAt(const W8CombatSlot& target, TargetChange change,
         }
         return targets_enemies == (source_hostile == target_hostile);
     };
-    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        if (!party.participates(slot)) continue;
-        auto& row = party.rows[slot];
-        if (combat && row.committed.target == target &&
-            invalid(party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] != 0,
-                    actionTargetsEnemies(slot, row.committed))) {
-            if (row.committed.kind == W8_ACTION_PROTECT)
-                resetCombatChoice(slot, outcomes);
-            else
-                repickActionTarget(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, outcomes);
+    if (world == level.primary.get())
+        for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+            if (!party.participates(slot)) continue;
+            auto& row = party.rows[slot];
+            if (combat && row.committed.target == target &&
+                invalid(party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] != 0,
+                        actionTargetsEnemies(slot, row.committed))) {
+                if (row.committed.kind == W8_ACTION_PROTECT)
+                    resetCombatChoice(slot, outcomes);
+                else
+                    repickActionTarget(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, outcomes);
+            }
+            if (row.executing.target == target &&
+                invalid(party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] != 0,
+                        actionTargetsEnemies(slot, row.executing.action())))
+                repickActionTarget(slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, false, outcomes);
         }
-        if (row.executing.target == target &&
-            invalid(party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] != 0,
-                    actionTargetsEnemies(slot, row.executing.action())))
-            repickActionTarget(slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, false, outcomes);
-    }
-    if (!level.primary || !level.primary->population) return;
-    for (const auto& monster : level.primary->population->monster_roster.live()) {
+    if (!world) return;
+    for (const auto& monster : world->population->monster_roster.live()) {
         if (monster->Target == target &&
             invalid(
                 monster->ubDisposition == W8_DISPOSITION_HOSTILE,
@@ -223,7 +233,7 @@ int ActionSpell(const Game& game, const W8Action& action)
 
 int Game::monsterQuadrant(const W8MonsterInfo& monster) const
 {
-    const auto eye = level.loaded().party.eye();
+    const auto eye = monster.owner_world.party.eye();
     const auto position = monster.entity->nav.GetPosition();
     int bearing = static_cast<int>(NormalizeAngle(GetHeadingAngle(&eye, &position)) * 57.295776f);
     bearing -= status.party_facing;
@@ -678,14 +688,13 @@ void Game::setCombatAction(unsigned int slot, W8Action next, ActionOrigin origin
     if (next.kind != previous && combat->execution_active && !combat->characters[slot].dead)
         combat->catchUpCharacter(slot);
     outcomes.emplace_back(PartySlotChanged{slot});
-    combat->target_picked = false;
     if (next.kind == W8_ACTION_EQUIP)
         outcomes.emplace_back(CharacterNotice{slot, data.strings[0x225]});
     else if (previous == W8_ACTION_EQUIP && !(combat->actingSlot() == static_cast<int>(slot) &&
                                               party.rows[slot].executing.kind == W8_ACTION_EQUIP))
         outcomes.emplace_back(CharacterNotice{slot, data.strings[0x226]});
     SettleActiveParty(*this, {}, ItemReactions::Normal, outcomes);
-    if (revalidate) outcomes.emplace_back(ActionChoiceChanged{slot});
+    outcomes.emplace_back(ActionChoiceChanged{slot, revalidate});
 }
 
 void Game::resetCombatChoice(unsigned int slot)
@@ -740,4 +749,42 @@ void Game::restoreCombatEquipment(bool automatic)
             row->weapon_swap_pending = false;
         }
     }
+}
+
+void Game::refreshPartyTargets()
+{
+    std::vector<Event> outcomes;
+    refreshPartyTargets(outcomes);
+    events.publish(std::move(outcomes));
+}
+
+void Game::refreshPartyTargets(std::vector<Event>& outcomes)
+{
+    const auto stored =
+        combat ? W8_TARGETING_CONTEXT_IN_COMBAT : W8_TARGETING_CONTEXT_OUT_OF_COMBAT;
+    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+        const auto& character = party.characters[slot];
+        if (!party.members[slot] ||
+            (character.hp_current == 0 && character.highest_condition >= W8_CONDITION_DEAD))
+            continue;
+        const auto selected = party.action(slot, stored);
+        if (!canPerformAction(slot, selected, false)) {
+            if (canPerformAction(slot, selected, true))
+                repickActionTarget(slot, stored, false, outcomes);
+            else if (selected.target.iType != W8_TARGET_KIND_NONE)
+                aimStoredAction(slot, stored, {W8_TARGET_KIND_NONE, -1, -1, -1, {}, {}}, outcomes);
+        }
+        const auto& row = party.rows[slot];
+        const auto committed = party.action(slot, W8_TARGETING_CONTEXT_IN_COMBAT);
+        if (character.hp_current != 0 && character.highest_condition < W8_CONDITION_TURNCOAT &&
+            (row.committed.kind == W8_ACTION_ATTACK || row.committed.kind == W8_ACTION_BERSERK) &&
+            (row.weapon_swap_pending || canPerformAction(slot, committed, false))) {
+            if (const auto fallback = chooseFallbackTarget(slot, committed)) {
+                aimStoredAction(slot, W8_TARGETING_CONTEXT_IN_COMBAT,
+                                W8CombatSlot::monster(fallback->target.iMonsterID), outcomes);
+                commitWeaponChoice(slot, *fallback->equipment, outcomes);
+            }
+        }
+    }
+    outcomes.emplace_back(PartyTargetAvailabilityChanged{});
 }

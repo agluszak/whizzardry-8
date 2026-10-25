@@ -64,6 +64,8 @@ Playback stream(std::string_view path, PlayOptions options = {});
 void release_cache();
 
 bool is_playing(const Playback& playback);
+// Terminal, serviced completion. Paused and not-yet-serviced tracks still hold a wait.
+bool finished(const Playback& playback);
 bool is_file_playing(std::string_view path);
 // Stops playback without calling on_finished (including deferred completion).
 // Returns whether it was audible; a fade keeps it playing until silent.

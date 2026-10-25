@@ -7,8 +7,6 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/game.h"
 #include "wiz8/level_specific_code/level_script.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/script_context.h"
 #include "wiz8/story.h"
@@ -27,13 +25,13 @@ namespace {
 
 /* The shape callback (Triangle/Circle/Square/Star): on the first step latch
    DeactivatingBomb and queue the NPC-0x46 script notice. */
-bool Shape(Trigger* pTrigger)
+TriggerDecision Shape(Trigger* pTrigger)
 {
     if (GetLocationVarIDByName("DeactivatingBomb") == -1) {
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "DeactivatingBomb", 1);
-        QueueNpcScriptNotice(CurrentGame().story.npcOfKind(0x46), 0, 0, false, 0);
+        CurrentGame().queueNpcNotice(*CurrentGame().story.npcOfKind(0x46), nullptr, 0);
     }
-    return true;
+    return {.run_action = true};
 }
 
 class SavantTowerScript final : public LevelScript {
@@ -43,7 +41,7 @@ public:
     void enter() override;
 
 private:
-    bool buttonBlocker(Trigger* pTrigger);
+    TriggerDecision buttonBlocker(Trigger* pTrigger);
 };
 
 /* The ButtonBlocker prop tracks fact 0x156. */
@@ -66,16 +64,16 @@ void SavantTowerScript::enter()
 
 /* The ButtonBlocker callback: pin the blocker prop, queue the NPC-0x46
    script notice and latch fact 0x156. */
-bool SavantTowerScript::buttonBlocker(Trigger* pTrigger)
+TriggerDecision SavantTowerScript::buttonBlocker(Trigger* pTrigger)
 {
     Prop* blocker = FindPropByName(&world(), "ButtonBlocker");
 
     if (blocker != 0) {
         blocker->SetActivationState(true);
     }
-    QueueNpcScriptNotice(CurrentGame().story.npcOfKind(0x46), 0, 1, false, 0);
+    ctx.game.queueNpcNotice(*ctx.story.npcOfKind(0x46), nullptr, 1);
     ctx.game.setFact(W8_FACT_DS_BOMB_DEACTIVATED, 1);
-    return true;
+    return {.run_action = true};
 }
 
 } // namespace

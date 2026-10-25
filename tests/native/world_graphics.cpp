@@ -30,7 +30,6 @@
 #include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/local_code/GameplayCode.h"
 #include "wiz8/local_code/GameplayInit.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/character_events.h"
@@ -265,7 +264,7 @@ TEST_CASE("world graphics")
             ++attacker.iChar;
         REQUIRE(attacker.iChar < W8_PARTY_SLOT_COUNT);
         attacker.iMonsterID = -1;
-        ApplyDamageToMonster(monster, monster->hp_current, &attacker, false, 1, 0, nullptr, false);
+        CurrentGame().damageMonster(*monster, monster->hp_current, attacker, {});
         fprintf(stderr, "regression: lethal damage returned\n");
         for (int frame = 0; frame < 100; ++frame) GameLoop();
     }

@@ -134,7 +134,7 @@ static void ApplyRazorCloakBacklash(const W8CombatSlot& target, W8MonsterInfo* m
     apply_damage(&source, enchantment);
     if (--enchantment->power == 0) {
         if (is_monster)
-            ClearMonsterEnchantmentSlot(monster->location_id, W8_ENCHANTMENT_RAZOR_CLOAK);
+            CurrentGame().disenchantMonster(*monster, W8_ENCHANTMENT_RAZOR_CLOAK);
         else
             Disenchant(CurrentGame(), target.iChar, W8_ENCHANTMENT_RAZOR_CLOAK);
     }
@@ -242,7 +242,7 @@ unsigned char Game::rateMonsterAttack(const W8MonsterInfo& monster, unsigned int
             monsterReachesPartyMember(monster, attack, slot, {W8_MONSTER_ACTION_ATTACK, 0}))
             return W8_MONSTER_ATTACK_USABLE;
     }
-    for (const auto& other : level.loaded().population->monster_roster.live()) {
+    for (const auto& other : monster.owner_world.population->monster_roster.live()) {
         if (other.get() != &monster && other->fActive && other->pCombat && other->hp_current != 0 &&
             other->highest_condition < W8_CONDITION_DEAD &&
             MonsterHostility(data, monster, *other) == disposition &&
@@ -384,7 +384,7 @@ bool Game::canMonsterProtect(const W8MonsterInfo& monster, const W8CombatSlot& t
         target_level = character->uiExpLevel;
         out_of_formation = character->bonus.out_of_formation;
     } else if (target.iType == W8_TARGET_KIND_MONSTER) {
-        target_info = level.loaded().population->findMonster(target.iMonsterID);
+        target_info = monster.owner_world.population->findMonster(target.iMonsterID);
         if (!target_info->fActive || target_info->hp_current == 0 || !target_info->pCombat) {
             return false;
         }
@@ -776,9 +776,11 @@ void ResolveSpellMissileHit(Missile* missile)
         if (magnitude > 0) {
             if (target->iType == W8_TARGET_KIND_MONSTER) {
                 monster_info = FindMonster(target->iMonsterID);
-                ApplyDamageToMonster(monster_info, magnitude, source, false,
-                                     g_settings.verbose_combat_messages, 0, &missile->result,
-                                     false);
+                CurrentGame().damageMonster(*monster_info, magnitude, *source,
+                                            {.notice = g_settings.verbose_combat_messages
+                                                           ? DamageNotice::Standard
+                                                           : DamageNotice::None},
+                                            &missile->result);
             } else {
                 CurrentGame().damageCharacter(target->iChar, magnitude,
                                               {.notice = g_settings.verbose_combat_messages
@@ -905,7 +907,8 @@ void ResolveMissileHit(Missile* missile, bool deflected)
         if (magnitude > 0) {
             MakePCHitSound(missile, target, hit_location, -1);
             if (target_is_monster) {
-                ApplyDamageToMonster(monster_info, magnitude, source, false, 1, 1, 0, false);
+                CurrentGame().damageMonster(*monster_info, magnitude, *source,
+                                            {.notice = DamageNotice::AmountOnly});
             } else {
                 CurrentGame().damageCharacter(target->iChar, magnitude,
                                               {.notice = DamageNotice::AmountOnly});
@@ -1207,7 +1210,7 @@ bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_
         CurrentGame().events.push(
             TextNotice{static_cast<unsigned int>(palette), Data().strings[0x213]});
     }
-    PlayCombatSound(GetMaterialImpactSound(weapon_class, material), 1, true, -1);
+    CurrentGame().playCombatSound(GetMaterialImpactSound(weapon_class, material), true, -1);
     return true;
 }
 
@@ -1315,29 +1318,6 @@ void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_de
     monster_info->startCycle(cycle, W8_ANIMATION_PLAY_ONCE);
 }
 
-/* Release queued casualty notices and reset the attack result. */
-static void DrainCombatDeathReports(W8SpellEffectResult* report)
-{
-    while (!report->reports.empty()) {
-        auto entry = std::move(report->reports.front());
-        report->reports.erase(report->reports.begin());
-        if (entry != nullptr) {
-            if (entry->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
-                CurrentGame().events.push(CharacterNotice{
-                    static_cast<unsigned int>(entry->value),
-                    fmt::format("{}!",
-                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
-            } else if (entry->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
-                CurrentGame().events.push(TextNotice{
-                    W8_FONT_PALETTE_RUST,
-                    fmt::format("{} {}!", entry->text,
-                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
-            }
-        }
-    }
-    *report = {};
-}
-
 /* Both attack result paths announce target conditions in the same way. */
 static void AnnounceCombatTargetCondition(const W8SpellEffectResult* report, unsigned int condition,
                                           W8MonsterInfo* monster_info)
@@ -1432,7 +1412,9 @@ static void ReportAttackResult(int party_slot, W8MonsterInfo* attacker, W8SpellE
             }
         }
     }
-    DrainCombatDeathReports(report);
+    auto deaths = std::move(report->death_notices);
+    *report = {};
+    CurrentGame().events.publish(std::move(deaths));
 }
 
 void ReportCharacterAttackResult(int party_slot, W8SpellEffectResult* report)
@@ -1706,8 +1688,10 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
                             {.notice = verbose ? DamageNotice::AmountOnly : DamageNotice::None},
                             verbose ? nullptr : report);
                     } else {
-                        applied = ApplyDamageToMonster(target_info, damage, &source, false, verbose,
-                                                       verbose, verbose ? nullptr : report, false);
+                        applied = CurrentGame().damageMonster(
+                            *target_info, damage, source,
+                            {.notice = verbose ? DamageNotice::AmountOnly : DamageNotice::None},
+                            verbose ? nullptr : report);
                     }
                     if (applied != 0) {
                         effect = {};
@@ -1735,7 +1719,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
             if (damage == 0) {
                 MakeMonsterHitSound(attack, &CurrentGame().combat->TargetHit, hit_location, 0x2a);
                 if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
-                    MonsterReactsToBeingStruck(target_info, &source, false);
+                    CurrentGame().reactToMonsterHit(*target_info, source, false);
                 }
                 if (!verbose) {
                     ++report->count;
@@ -2930,7 +2914,7 @@ void QueueFumbleReaction(int party_slot)
 /* The missile dispatcher shared by the character and monster attack paths:
    resolves both endpoints' world positions, defers the target when a combat-
    ending missile is already engaged, folds the range category's base speed
-   into the shot and fires through FireMissile. */
+   into the shot and launches the completed projectile into its world. */
 Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8CombatSlot* target,
                                    W8SpellEffectDefinition* attack, bool use_default_accuracy,
                                    W8RangeCategory range_category, int accuracy)
@@ -2971,7 +2955,7 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
         return nullptr;
     }
     if (TargetSourceIsCharacter(source, 0)) {
-        GetCharacterProjectilePosition(source->iChar, &source_position);
+        source_position = CurrentGame().level.loaded().characterProjectilePosition(source->iChar);
         if (target->iType == W8_TARGET_KIND_PLACE) {
             if (GetWorldSpatialIndex()->traceSight(source_position, target_position).has_value()) {
                 source_position = cameraLocation();
@@ -3036,12 +3020,17 @@ Missile* FireMissileSourceToTarget(int missile_type, W8TargetSource* source, W8C
     if (accuracy != 9999) {
         ScatterMissileAimPoint(&source_position, &target_position, accuracy, blind);
     }
-    missile = FireMissile(missile_type, &source_position, &target_position, 0, target_flag,
-                          use_default_accuracy, speed);
+    missile = CurrentGame().level.loaded().launchMissile(CurrentGame().data,
+                                                         {.kind = missile_type,
+                                                          .origin = source_position,
+                                                          .destination = target_position,
+                                                          .distance = speed,
+                                                          .trace_mask = target_flag,
+                                                          .released = use_default_accuracy,
+                                                          .source = *source,
+                                                          .target = *target,
+                                                          .effect = *attack});
     if (missile != nullptr) {
-        missile->m_Source = *source;
-        missile->combat_slot = *target;
-        missile->SetEffectDefinition(attack);
         if (!use_default_accuracy) {
             CurrentGame().combat->engaged_missile = missile;
             CurrentGame().combat->missile_hit_result = W8_MISSILE_HIT_NONE;
@@ -3646,9 +3635,10 @@ ActionStep ResolveCharacterAttack(int party_slot)
                                             &CurrentGame().combat->TargetHit, hit_location, -1);
                         CurrentGame().targetPresent(CurrentGame().combat->TargetHit);
                         if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
-                            applied =
-                                ApplyDamageToMonster(monster_info, damage, &source, false, verbose,
-                                                     verbose, verbose ? nullptr : report, false);
+                            applied = CurrentGame().damageMonster(
+                                *monster_info, damage, source,
+                                {.notice = verbose ? DamageNotice::AmountOnly : DamageNotice::None},
+                                verbose ? nullptr : report);
                             if (monster_info->hp_current == 0 && hit_flag != 0 &&
                                 CurrentGame().rng.below(2) == 0 &&
                                 CurrentLevelPopulation().monster_roster.hostileCombatCount() > 1) {
@@ -3786,7 +3776,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                     MakePCMeleeHitSound(party_slot, &character->Hand[hand],
                                         &CurrentGame().combat->TargetHit, hit_location, 0x2a);
                     if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
-                        MonsterReactsToBeingStruck(monster_info, &source, false);
+                        CurrentGame().reactToMonsterHit(*monster_info, source, false);
                     }
                     if (!verbose) {
                         ++report->count;

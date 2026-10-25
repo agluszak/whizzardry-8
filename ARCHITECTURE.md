@@ -106,7 +106,10 @@ does not satisfy this contract.
   Item animation updates attached instances instead of detaching and rebuilding
   scene membership each tick.
   Continuing casts belong to their gameplay world, alongside their borrowed
-  missiles and visuals. Missile completion and destruction use that original
+  missiles and visuals. World admits missiles only after their flight, source, target
+  and optional effect are initialized; its private collection owns update and removal.
+  A finished missile remains until its combat wait is released, and missiles launched
+  by update callbacks begin advancing on the next tick. Missile completion and destruction use that original
   world, even after another world or session has become current. Saved casts
   remain decoded values until installation into the destination; normal entry
   clears entry-created casts at its established point, while restore rebuilds
@@ -138,7 +141,14 @@ does not satisfy this contract.
   partially (stack merging) or have effects even when final placement fails
   (identification). Do not impose transactional/all-or-nothing semantics unless
   gameplay requires them. Preserve remainders and distinguish refusal from
-  completion.
+  completion. Trigger callbacks distinguish permission to run an action from
+  whether they handled the interaction. Nested activations return their feedback
+  to the calling operation; unrelated activations cannot change its result.
+  An accepted NPC notice owns its identity and copied item description in the
+  dialogue queue. The first pending notice wins; execution releases admission
+  without releasing the speech wait until startup returns. Nested requests cannot
+  replace the executing notice's values. Direct
+  conversation startup does not retarget or duplicate an already queued notice.
 - **Required consequences are explicit.** Damage/death, item acquisition, NPC
   dismissal and combat changes must not depend on presentation subscribers being
   installed. Observers report an outcome after the operation's relevant
@@ -149,7 +159,12 @@ does not satisfy this contract.
   defer all events to the end of a frame. Combat owns its decision to wait, while
   playback owns actual audio/animation progress and reports completion to the
   originating operation. Polling a read-only readiness query is acceptable when
-  it is simpler than subscriptions or cached busy counts. Monster update traversal
+  it is simpler than subscriptions or cached busy counts. Combat follows the latest
+  successful hit playback's serviced completion, including pauses; an older sound
+  cannot release a newer fight's wait. Sight changes repair accepted party targets and
+  equipment synchronously, regardless of open pickers. The owning screen then repairs
+  its spell/item draft; draft repair cannot commit equipment. Manual target-selection
+  and automatic portrait advance are screen state, not fight state. Monster update traversal
   retains removed records until its script callbacks return. Removal immediately
   retires targeting, navigation and scene relationships; it cannot reclaim the
   actor whose update is on the stack. Newly spawned actors enter the next pass,
@@ -357,6 +372,10 @@ The configuration file's CNFG chunk has its own codec (`EncodeGameSettings`).
   is the game's one step: it applies the interface's hold, runs speech, and in the
   world runs the simulation in retail order. `Game::time` is the step time that
   deadlines below the step use. Only the main game and the camp step the game.
+- **Narration.** Gameplay emits completed text-write values, not queries or repairs of
+  text-box formatting. The main screen owns continuation mode and palette, retaining
+  them through suspension but not replacement. Casting refusal queues its dialogue
+  explanation in the game command itself; camp refusals remain silent.
 - **Events.** Completed commands publish ordered presentation outcomes to `Game::events`.
   A command collects an ordinary local vector; its internal calls append to the same
   vector and the command publishes it explicitly after its invariants and mandatory
@@ -539,6 +558,16 @@ code has a subclass whose members are that state. Trigger callbacks are
   (shown mode, panels, world viewport) from the open interaction and the player's
   preferences and changes only the panels that differ; an interaction overrides
   the layout, never the preference.
+  Main-game keyboard dispatch belongs to that screen: focused text entry consumes
+  input before dialogue, trap input and bound commands. The dialogue panel routes
+  its allowed commands back to its originating screen; action gates and picker
+  toggles use that screen's interactions, game and pointer.
+  HUD button callbacks retain that same screen. A submenu owns its bank selection,
+  rows and input layer together; its presence is the open state. Rebuilding replaces
+  that one object, and suspension discards it. Row callbacks finish after input
+  dispatch, so opening a picker can retire the menu that initiated it safely.
+  Text-box input belongs to the main screen, survives suspension, and is replaced
+  on re-entry. Its scroll and channel handlers act on that screen's game and HUD.
   Spell and item pickers own private controls and drafts; the screen commits a copied
   choice inside the same retirement boundary. Explicit completion returns to the opener;
   replacement and screen/combat teardown abandon it. Dismissal also retires the picker's

@@ -169,7 +169,7 @@ the licensed runtime scenarios after every step.
      parts they act on (steps 3, 6 and 7).
    - The dialogue's interface (layouts, trade table, quote bubble, `NpcDialogueUi`) is the
      main game's `W8NpcDialoguePanel`; `Game::npc_interaction` keeps the conversation
-     (who speaks with whom, the offered item, the staged notice) and four interface facts
+     (who speaks with whom and the offered item) and four interface facts
      that NPC scripts still consult for layout-specific UI requests (the open layout,
      the hidden panel or dialogue and a modal dialog). Move those requests behind the
      panel boundary without moving its state into the conversation. Utterance completion
@@ -239,11 +239,10 @@ the licensed runtime scenarios after every step.
      reach it through `ScreenPointer()`. They should receive it with
      the HUD, and the accessor then goes.
    - The main game owns the spell and item pickers (`spell_picker`, `item_picker`) and
-     opens, closes and dismisses them. About 35 free functions still ask
+     opens, closes and dismisses them. Remaining free helpers still ask
      `SpellPicker()`/`UseItemPicker()` whether one is open, or reach the screen through
      `MainGame()->openSpellPicker(…)`. These are the world, portrait, monster-list and
-     combat-slot input handlers, the keyboard dispatch (`DispatchMGSCommand`,
-     `TryMGSActionKey`), the submenu buttons, the text box module, the lock/trap
+     combat-slot input handlers, the text box module, the lock/trap
      interactions and the NPC services. Game code calls the screen as well:
      `FallbackFromUnreachableAction` from `Magic.cpp`, `SelectPartyCharacter`,
      `MainGameScreen::dismissOverlays` and `AutoAdvanceSelectedCharacter` from combat, `IsScreenIdle`

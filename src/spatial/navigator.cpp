@@ -36,6 +36,7 @@
 #include "wiz8/utility.h"
 #include "wiz8/world/camera_control.h"
 #include "wiz8/world/party_camera.h"
+#include "wiz8/world/simulation_sink.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
 
@@ -46,7 +47,8 @@
 namespace {
 bool NavigationCombatActive(const Navigator& navigator)
 {
-    return &navigator.owner_world == GetWorld() && CurrentGame().combat.has_value();
+    const auto* simulation = navigator.owner_world.simulation;
+    return simulation && simulation->partyCombatActive(navigator.owner_world);
 }
 
 // A copy of the active world's registry, party included, to walk while it changes.
@@ -1453,7 +1455,7 @@ void Navigator::UpdateAngles()
     float reverse_distance;
     float direction;
 
-    if (!CurrentGame().combat.has_value()) {
+    if (!NavigationCombatActive(*this)) {
         step = movement.turn_rate;
     }
     step *= g_rate * owner_world.clocks.motionDelta();

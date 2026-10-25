@@ -334,8 +334,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        ApplyDamageToMonster(monster_info, uiDamage, pSource, false, 1, 0, 0,
-                                             false);
+                        CurrentGame().damageMonster(*monster_info, uiDamage, *pSource, {});
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];
@@ -385,8 +384,9 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        ApplyDamageToMonster(monster_info, uiDamage, pSource, false, announce, 0, 0,
-                                             false);
+                        CurrentGame().damageMonster(
+                            *monster_info, uiDamage, *pSource,
+                            {.notice = announce ? DamageNotice::Standard : DamageNotice::None});
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];
@@ -398,14 +398,14 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
         }
         if (!announce) {
             if (uiHits[0] == 0) {
-                AppendToLastTextLine(Data().strings[0x1a5], -1);
+                CurrentGame().events.push(TextFragment{.text = Data().strings[0x1a5]});
             } else {
                 for (i = 0; i < 2; ++i) {
                     if (uiHits[i] == 0) {
                         continue;
                     }
                     if (i == 1 && uiHits[0] != 0) {
-                        AppendToLastTextLine(",", -1);
+                        CurrentGame().events.push(TextFragment{.text = ","});
                     }
                     switch (g_special_attack_table[special_attack_kind][i]) {
                     case 1:
@@ -435,8 +435,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                         CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
                         continue;
                     }
-                    AppendToLastTextLine(text, -1);
-                    CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+                    CurrentGame().events.push(TextFragment{.text = text, .leaves_open = true});
                 }
             }
         }
@@ -499,7 +498,7 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     } else {
         disposition = W8_DISPOSITION_HOSTILE;
     }
-    CurrentGame().setGroupHostility(group, disposition, false);
+    CurrentGame().setGroupHostility(CurrentGame().level.loaded(), group, disposition, false);
     if (monster_info->player_visibility.sight_state == W8_SIGHT_SEEN) {
         placed = PositionMonsterGroupNearCamera(group, 0.0f, 0.0f, true);
         if (!placed) {

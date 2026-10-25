@@ -32,8 +32,8 @@ public:
     void enter() override;
 
 private:
-    bool coffinlidg(Trigger* trigger);
-    bool wheelStar(Trigger* trigger);
+    TriggerDecision coffinlidg(Trigger* trigger);
+    TriggerDecision wheelStar(Trigger* trigger);
 };
 
 void ClearTextForBarTrigger()
@@ -50,17 +50,17 @@ void ClearTextForBarTrigger()
 /* Activation callback on roach_trigger: the first activation drops three
    roaches (kind 0x138) 1000 units above each roach location and records
    RoachesSpawned so later activations do nothing. */
-bool OnRoachTriggerActivated(Trigger* trigger)
+TriggerDecision OnRoachTriggerActivated(Trigger* trigger)
 {
     if (GetLocationVarIDByName("RoachesSpawned") != -1) {
-        return false;
+        return {.run_action = false};
     }
     auto first = CurrentGame().level.loaded().namedPosition("location_roach01");
-    if (!first) return false;
+    if (!first) return {.run_action = false};
     auto second = CurrentGame().level.loaded().namedPosition("location_roach02");
-    if (!second) return false;
+    if (!second) return {.run_action = false};
     auto third = CurrentGame().level.loaded().namedPosition("location_roach03");
-    if (!third) return false;
+    if (!third) return {.run_action = false};
     first->z += 1000.0f;
     second->z += 1000.0f;
     third->z += 1000.0f;
@@ -68,34 +68,34 @@ bool OnRoachTriggerActivated(Trigger* trigger)
     SpawnMonsters(0x138, 3, &*second, 1, false, false);
     SpawnMonsters(0x138, 3, &*third, 1, false, false);
     CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "RoachesSpawned", 1);
-    return true;
+    return {.run_action = true};
 }
 
 /* Activation callback on spider_trigger: every activation spawns six spiders
    (kind 0x19c) at the spiderman entity when it exists. */
-bool OnSpiderTriggerActivated(Trigger* trigger)
+TriggerDecision OnSpiderTriggerActivated(Trigger* trigger)
 {
     if (auto position = CurrentGame().level.loaded().namedPosition("spiderman")) {
         SpawnMonsters(0x19c, 6, &*position, 1, false, false);
     }
-    return true;
+    return {.run_action = true};
 }
 
 /* Activation callback on Bartrigger: clears the armed bit of the Textforbar
    trigger so the bar text stops repeating. */
-bool OnBarTriggerActivated(Trigger* trigger)
+TriggerDecision OnBarTriggerActivated(Trigger* trigger)
 {
     Trigger* textTrigger = FindTriggerByName("Textforbar");
 
     if (textTrigger != 0) {
         textTrigger->flags &= ~W8_TRIGGER_ENABLED;
     }
-    return true;
+    return {.run_action = true};
 }
 
 /* Activation callback on Coffinlide: the first activation spawns the head
    (kind 0x12d) at the Head entity and records HeadSpawned. */
-bool OnCoffinlideActivated(Trigger* trigger)
+TriggerDecision OnCoffinlideActivated(Trigger* trigger)
 {
     if (auto point = GetLocationVarIDByName("HeadSpawned") == -1
                          ? CurrentGame().level.loaded().namedPosition("Head")
@@ -103,7 +103,7 @@ bool OnCoffinlideActivated(Trigger* trigger)
         SpawnMonsters(0x12d, 1, &*point, 1, true, false);
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "HeadSpawned", 1);
     }
-    return true;
+    return {.run_action = true};
 }
 
 void Monastery1Script::enter()
@@ -119,27 +119,26 @@ void Monastery1Script::enter()
 
 /* Activation callback on Coffinlidg: casts spell 0x2a at power 3 onto the
    camera position. */
-bool Monastery1Script::coffinlidg(Trigger* trigger)
+TriggerDecision Monastery1Script::coffinlidg(Trigger* trigger)
 {
     glm::vec3 position;
 
     position = world().party.eye();
     PointCastSpell(position, W8_SPELL_NOXIOUS_FUMES, 3);
-    return true;
+    return {.run_action = true};
 }
 
 /* Activation callback on wheel_star: consumes the held star key (item 0x24c);
    anything else in hand plays level message 0x22 and leaves the trigger
    armed. */
-bool Monastery1Script::wheelStar(Trigger* trigger)
+TriggerDecision Monastery1Script::wheelStar(Trigger* trigger)
 {
     if (ctx.inventory.heldItemId() != 0x24c) {
         ctx.game.queueLevelMessage(0x22);
-        g_trigger_feedback = true;
-        return false;
+        return {.run_action = false, .handled = true};
     }
     ctx.inventory.removeById(ctx.inventory.heldItemId(), false);
-    return true;
+    return {.run_action = true};
 }
 
 } // namespace

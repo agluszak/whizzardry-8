@@ -32,11 +32,9 @@
 #include <memory>
 #include <optional>
 #include <stdexcept>
-#include <string>
 #include <string_view>
 #include <vector>
 
-#include <fmt/format.h>
 #include <fmt/printf.h>
 
 #include "glm/ext/vector_float3.hpp"
@@ -105,7 +103,7 @@ void QueueNpcHeldItemNotice(int npc_kind)
 {
     auto* npc = CurrentGame().story.npcOfKind(npc_kind);
     const auto* held = CurrentGame().inventory.held();
-    QueueNpcScriptNotice(npc, held ? &held->item : nullptr, -1, false, 0);
+    CurrentGame().queueNpcNotice(*npc, held ? &held->item : nullptr);
 }
 
 bool NpcRecordHasTradePool(W8NpcState* npc)
@@ -436,7 +434,8 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
                 monster->stamina = stamina;
             }
             if (neutral) {
-                CurrentGame().setGroupHostility(group, W8_DISPOSITION_NEUTRAL, false);
+                CurrentGame().setGroupHostility(CurrentGame().level.loaded(), group,
+                                                W8_DISPOSITION_NEUTRAL, false);
                 group->forced_neutral = true;
             }
         }
@@ -958,7 +957,7 @@ static void SelectStartNpcGreeting(void)
             if (npc == 0) {
                 return;
             }
-            QueueNpcScriptNotice(npc, 0, 0, false, 0);
+            CurrentGame().queueNpcNotice(*npc, nullptr, 0);
             monster_info = GetNpcMonsterInfo(npc);
             if (monster_info == 0) {
                 return;
@@ -973,7 +972,7 @@ static void SelectStartNpcGreeting(void)
         npc = CurrentGame().story.npcOfKind(0x18);
     }
     if (npc != 0) {
-        QueueNpcScriptNotice(npc, 0, -1, false, 0);
+        CurrentGame().queueNpcNotice(*npc);
     }
 }
 
@@ -1354,7 +1353,7 @@ void TriggerBelaVoice(Monster* monster)
 
     npc = CurrentGame().story.npcOfKind(0x89);
     if (npc == 0) throw std::runtime_error("Bela NPC state is missing");
-    QueueNpcScriptNotice(npc, 0, -1, false, 0);
+    CurrentGame().queueNpcNotice(*npc);
 }
 
 // Despawn the companion before releasing its remaining partner binding.
@@ -1718,65 +1717,6 @@ void Game::releaseMarkedNpcBindings(void)
             if (npc->pending_restore) {
                 W8NpcState* companion = this->story.npcOfKind(npc->name_style);
                 this->releaseNpcCompanion(companion);
-            }
-        }
-    }
-}
-
-/* The activation callback RebindNpcLevelTriggers installs on every NPC
-   trigger: queue the NPC's script notice, handing it the item on the cursor
-   when the trigger's 0x100 flag or the NPC's '{' naming style asks for it. */
-bool NotifyNpcTriggerActivation(Trigger* trigger)
-{
-    const W8ItemInstance* item = 0;
-
-    if (!CurrentGame().activity.conversation) {
-        W8NpcState* npc = CurrentGame().story.npcs[trigger->m_lData1].get();
-
-        if ((trigger->flags & W8_TRIGGER_ENABLED) != 0 || npc->name_style == '{') {
-            if (const auto* held = CurrentGame().inventory.held()) {
-                item = &held->item;
-            }
-        }
-        QueueNpcScriptNotice(npc, item, -1, false, 0);
-    }
-    return false;
-}
-
-/* Rebuild the level's NPC bindings: first drop the followers whose record or
-   presence rules changed, then re-install each NPC trigger's activation
-   callback and re-stamp the NPC from the loaded level. */
-void RebindNpcLevelTriggers(void)
-{
-    unsigned int npc_index;
-
-    for (std::size_t index = 0; index < CurrentGame().story.npcs.size(); ++index) {
-        auto* npc = CurrentGame().story.npcs[index].get();
-        if (npc->has_monster &&
-            (npc->record->merchant != 0 || (npc->record->voice_script != 0 && !npc->is_present))) {
-            npc->releaseWorldBinding();
-        }
-    }
-
-    for (npc_index = 0;
-         npc_index < static_cast<unsigned int>(static_cast<int>(CurrentGame().story.npcs.size()));
-         ++npc_index) {
-        W8NpcState* npc = CurrentGame().story.npcs[npc_index].get();
-        std::string trigger_name;
-
-        if (npc->record->merchant != 0 || npc->record->voice_script != 0) {
-            trigger_name = fmt::format("_{}", npc->record->source_name);
-            Trigger* trigger = FindTriggerByName(trigger_name.c_str());
-
-            if (trigger != 0) {
-                trigger->activation_callback = NotifyNpcTriggerActivation;
-                trigger->m_lData1 = static_cast<int>(npc_index);
-                npc->has_monster = true;
-                npc->level_band =
-                    static_cast<unsigned char>(CurrentGame().levelBand(GetLoadedLevelID()));
-                npc->bound_level = static_cast<unsigned char>(GetLoadedLevelID());
-                ReloadNpcScriptResources(npc);
-                npc->is_present = false;
             }
         }
     }

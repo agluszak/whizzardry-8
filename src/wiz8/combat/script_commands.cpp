@@ -23,16 +23,16 @@ void Game::setMonsterGroupDisposition(int location_id, W8Disposition disposition
     W8MonsterInfo* monster_info = FindMonster(location_id);
     if (!monster_info) return;
     if (W8MonsterGroup* group = FindMonsterGroup(monster_info->monster_group_id, false))
-        setGroupHostility(group, disposition, false);
+        setGroupHostility(level.loaded(), group, disposition, false);
 }
 
 void Game::startGolemAttack()
 {
     ClearMainGameTargetState();
     if (W8MonsterGroup* group = CurrentLevelPopulation().findSpeciesGroup(kFirstGolem))
-        setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+        setGroupHostility(level.loaded(), group, W8_DISPOSITION_HOSTILE, false);
     if (W8MonsterGroup* group = CurrentLevelPopulation().findSpeciesGroup(kSecondGolem)) {
-        setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+        setGroupHostility(level.loaded(), group, W8_DISPOSITION_HOSTILE, false);
         MonsterGroupEnterCombat(group);
     }
 }

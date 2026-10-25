@@ -314,7 +314,7 @@ void WorldUpdateLights(World* world)
     };
     for (const auto* navigator : world->navigators)
         if (navigator->monster_owner) update_cycle(*navigator->monster_owner);
-    for (const auto& missile : world->missiles) update_cycle(*missile);
+    for (const auto& missile : world->missiles()) update_cycle(*missile);
     for (const auto& visual : world->spell_visuals) update_cycle(*visual);
 }
 

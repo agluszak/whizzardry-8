@@ -589,4 +589,20 @@ template<> struct Record<W8NpcItemEntry> {
     }
 };
 
+// Decode a fresh, inactive monster already bound to its lifetime owner. Saved
+// pointer markers never reconstruct a body, engagement or another world binding.
+inline std::unique_ptr<W8MonsterInfo> decode_monster(const MonsterInfo& image, World& world)
+{
+    auto monster = std::make_unique<W8MonsterInfo>(world);
+    Record<W8MonsterInfo>::fields(
+        *monster, std::as_bytes(std::span(&image, 1)),
+        [](auto* destination, auto bytes) {
+            check_field_width(destination, bytes.size());
+            load_field(destination, std::span<const std::byte>(bytes));
+        },
+        nullptr);
+    monster->fActive = false;
+    return monster;
+}
+
 } // namespace wiz8::retail

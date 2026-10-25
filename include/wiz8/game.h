@@ -142,6 +142,8 @@ public:
                                              bool allow_weapon_swap = true) const;
     std::optional<TargetChoice> chooseFallbackTarget(unsigned int slot,
                                                      const W8Action& action) const;
+    void refreshPartyTargets();
+    void refreshPartyTargets(std::vector<Event>& outcomes);
     bool repickActionTarget(unsigned int slot, W8TargetingContext stored, bool breathe = false);
     bool repickActionTarget(unsigned int slot, W8TargetingContext stored, bool breathe,
                             std::vector<Event>& outcomes);
@@ -162,10 +164,12 @@ public:
     void resetCombatChoice(unsigned int slot);
     void resetCombatChoice(unsigned int slot, std::vector<Event>& outcomes);
     bool targetPresent(const W8CombatSlot& target) const;
+    bool targetPresent(const World* world, const W8CombatSlot& target) const;
     bool targetMatches(const W8CombatSlot& target, W8TargetNeed needed) const;
+    bool targetMatches(const World* world, const W8CombatSlot& target, W8TargetNeed needed) const;
     bool actionTargetsEnemies(unsigned int slot, const W8Action& action) const;
-    void invalidateAimsAt(const W8CombatSlot& target, TargetChange change);
-    void invalidateAimsAt(const W8CombatSlot& target, TargetChange change,
+    void invalidateAimsAt(World* world, const W8CombatSlot& target, TargetChange change);
+    void invalidateAimsAt(World* world, const W8CombatSlot& target, TargetChange change,
                           std::vector<Event>& outcomes);
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
@@ -225,10 +229,10 @@ public:
        destroy the combat. A forced end (a departure or a scripted end) neither announces
        nor kills the summoned monsters. */
     void endCombat(bool forced_cleanup);
-    bool partyCastingBlocked();
+    bool refuseBlockedCasting();
     void queueWorldMessage(std::string_view text);
     void queueLevelMessage(int message_id);
-    void appendSpellTargets(int spell_id, int power_level, W8TargetSource* source,
+    void appendSpellTargets(World& world, int spell_id, int power_level, W8TargetSource* source,
                             W8CombatSlot* target, std::vector<int>& monsters,
                             std::vector<int>& party, W8AreaSightRule sight_rule,
                             std::optional<MonsterAction> proposed_action = {});
@@ -246,15 +250,24 @@ public:
     void startMonsterDeath(W8MonsterInfo* monster_info, bool display_message);
     void recordMonsterKill(W8MonsterInfo* monster_info, bool announce);
     void finishMonsterAttack(W8MonsterInfo* monster_info);
+    unsigned int damageMonster(W8MonsterInfo& monster, unsigned int amount,
+                               const W8TargetSource& source, DamageOptions options,
+                               W8SpellEffectResult* report = nullptr);
+    void healMonster(W8MonsterInfo& monster, unsigned int amount, bool announce);
+    void reactToMonsterHit(W8MonsterInfo& monster, const W8TargetSource& source, bool poison);
     void fatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
                         W8SpellEffectResult* report_to);
-    void setMonsterCondition(int location_id, W8Condition condition, int duration,
+    void setMonsterCondition(W8MonsterInfo& monster, W8Condition condition, int duration,
                              int poison_strength, W8TargetSource* target, bool announce);
-    void clearMonsterCondition(int location_id, W8Condition condition);
+    void clearMonsterCondition(W8MonsterInfo& monster, W8Condition condition);
+    void ageMonsterCondition(W8MonsterInfo& monster, W8Condition condition, unsigned int minutes);
+    void disenchantMonster(W8MonsterInfo& monster, W8EnchantmentSlot slot);
+    void ageMonsterEnchantment(W8MonsterInfo& monster, W8EnchantmentSlot slot, unsigned int turns);
     void setMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility);
-    void setGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bool recurse);
-    void alertFactionGroups(W8MonsterGroup* monster_group);
-    bool linkMonsterGroup(W8MonsterGroup* leader, W8MonsterGroup* group);
+    void setGroupHostility(World& world, W8MonsterGroup* group, W8Disposition hostility,
+                           bool recurse);
+    void alertFactionGroups(World& world, W8MonsterGroup* monster_group);
+    bool linkMonsterGroup(World& world, W8MonsterGroup* leader, W8MonsterGroup* group);
     void setFactionDisposition(signed char faction, W8FactionDisposition band);
     void adjustFactionDisposition(signed char faction, signed char delta);
     void recordFactionOffense(signed char faction, W8MonsterInfo* monster_info);
@@ -277,6 +290,8 @@ public:
                            bool proximity_check, bool include_allies, bool flatten_y,
                            bool alternate_radius);
     W8Disposition defaultGroupDisposition(W8MonsterGroup* monster_group) const;
+    void playCombatSound(std::string_view name, bool wait_for_finish, int volume);
+    bool partyCombatActive(const World& world) const override;
     bool missileReached(Missile& missile, Navigator& struck) override;
     void missileLanded(Missile& missile) override;
     void missileReleased(Monster& monster) override;
@@ -310,6 +325,9 @@ public:
     W8NpcState* createNpcRuntimeNode(int npc_id);
     W8PreparedNpcBindings prepareNpcBindings(World& world);
     void bindMonsterNpc(World& world, W8MonsterInfo& monster);
+    void bindNpcLevelTriggers();
+    void queueNpcNotice(W8NpcState& npc, const W8ItemInstance* item = nullptr, int line = -1,
+                        bool suppress = false);
     void beginNpcDialogue(W8NpcState* npc, bool suspend_current, bool script_event = false);
 
     // Commands the level's monster scripts and triggers issue.
@@ -356,7 +374,7 @@ public:
     W8CharacterEventQueue speech{*this};
     // The NPC conversation's progress: its speaker, queued script work and owed reply.
     W8NpcDialogue npc_dialogue;
-    // The conversation participants, offered item, transcript and staged script notice.
+    // The conversation participants, offered item and transcript.
     W8NpcInteractionState npc_interaction;
     W8SedexusScene sedexus_scene;
     // The deadline of each shared three-minute spell cooldown (in `SpellPracticeCooldown`).

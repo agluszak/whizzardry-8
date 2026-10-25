@@ -85,12 +85,9 @@ void CreateNewGameNpcStates(void);
 
 /* The NPC-side consequence pass the sight code runs when a marked NPC's
    binding is released. */
-/* The activation callback the rebinding installs on the level's
-   NPC triggers. */
 void ResetNpcBindingsForParty(void);
 void ClearPendingNpcLevelFlags(void);
 void ReleaseNpcMonsterBindings(void);
-void RebindNpcLevelTriggers(void);
 W8NpcState* GetNpcState(int index);
 /* Whether the NPC wants the offered item - it matches one of the
    record's wanted entries by id or by the shared 0x83 name kind, and a grouped

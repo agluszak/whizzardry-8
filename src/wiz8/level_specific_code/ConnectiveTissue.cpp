@@ -38,19 +38,18 @@ public:
     void enter() override { bindTrigger("Liche", &ConnectiveTissueScript::liche); }
 
 private:
-    bool liche(Trigger* pTrigger);
+    TriggerDecision liche(Trigger* pTrigger);
 };
 
 /* The "Liche" crypt callback: without item 0x15d in hand and before the
    trigger's action has fired it only answers with level message 6. Otherwise
    it answers with message 7, marks the lich dead (1000 experience the first
    time) and enables the six UNDEAD spawn generators. */
-bool ConnectiveTissueScript::liche(Trigger* pTrigger)
+TriggerDecision ConnectiveTissueScript::liche(Trigger* pTrigger)
 {
     if (ctx.inventory.heldItemId() != 0x15d && pTrigger->action == 0) {
         ctx.game.queueLevelMessage(6);
-        g_trigger_feedback = true;
-        return false;
+        return {.run_action = false, .handled = true};
     }
     ctx.game.queueLevelMessage(7);
     if (GetLocationVarIDByName("LicheDead") == -1) {
@@ -63,7 +62,7 @@ bool ConnectiveTissueScript::liche(Trigger* pTrigger)
     EnableMonGenerator("UNDEAD04");
     EnableMonGenerator("UNDEAD05");
     EnableMonGenerator("UNDEAD06");
-    return true;
+    return {.run_action = true};
 }
 
 } // namespace

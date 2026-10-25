@@ -27,6 +27,7 @@
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/audio/SoundEvent.h"
 #include "wiz8/combat/attack.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/entities/animation.h"
 #include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/cycle_player.h"
@@ -67,7 +68,9 @@ constexpr double kMissileGravityAcceleration = 0.009800000000000001;
    clamped half-tick delta, fold the returned advance into the elapsed clock,
    steer the representation while the path is unobstructed, and end the flight
    at expiry or an early-impact limit. */
-bool UpdateMissileAI(MissileFlight* record)
+static float AdvanceMissileAI(MissileFlight* record, glm::vec3* out, unsigned int steps);
+
+static void UpdateMissileAI(MissileFlight& record, bool held)
 {
     Missile* missile;
     glm::vec3 position;
@@ -80,71 +83,70 @@ bool UpdateMissileAI(MissileFlight* record)
     unsigned int count;
     unsigned int delta;
 
-    if (record == 0) {
-        return false;
-    }
-    missile = record->missile;
+    missile = record.missile;
     if (missile->impacting) {
         if (!missile->align_explosion) {
-            return true;
+            return;
         }
         position = missile->nav.GetPosition();
-        pitch = ElevationToTargetCPP(&position);
+        const auto eye = missile->owner_world.party.eye();
+        pitch = GetElevationAngle(&position, &eye);
         position = missile->nav.GetPosition();
-        yaw = HeadingToTargetCPP(&position);
+        yaw = GetHeadingAngle(&position, &eye);
         rotation = glm::mat3(1);
         rotation *= glm::mat3_cast(glm::angleAxis(float(yaw), glm::vec3(0, 1, 0)));
         rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
         missile->visual.SetRotation(&rotation);
-        return true;
+        return;
     }
     position = missile->nav.GetPosition();
     count = missile->owner_world.clocks.gameMilliseconds() >> 1;
-    delta = count - record->last_half_tick;
+    delta = count - record.last_half_tick;
     if (delta > 0xfa) {
         delta = 0xfa;
     }
-    record->last_half_tick = count;
-    if (CurrentGame().advancement.held) {
-        return true;
+    record.last_half_tick = count;
+    if (held) {
+        return;
     }
-    advance = AdvanceMissileAI(record, &out, delta);
-    remaining = missile->duration - record->elapsed + 1.0f;
+    advance = AdvanceMissileAI(&record, &out, delta);
+    remaining = missile->duration - record.elapsed + 1.0f;
     if (remaining <= advance) {
         advance = remaining;
     }
-    if (record->limit > 0.0f) {
-        remaining = record->limit - record->elapsed + 1.0f;
+    if (record.limit > 0.0f) {
+        remaining = record.limit - record.elapsed + 1.0f;
         if (remaining <= advance) {
             advance = remaining;
         }
     }
-    record->elapsed = advance + record->elapsed;
+    record.elapsed = advance + record.elapsed;
     missile->SetCyclePosition(&out);
     if (!missile->nav.CheckNavigatorCollision(&position, &out) && missile->align_camera) {
-        pitch = ElevationToTargetCPP(&out);
-        yaw = HeadingToTargetCPP(&out);
+        const auto eye = missile->owner_world.party.eye();
+        pitch = GetElevationAngle(&out, &eye);
+        yaw = GetHeadingAngle(&out, &eye);
         rotation = glm::mat3(1);
         rotation *= glm::mat3_cast(glm::angleAxis(float(yaw), glm::vec3(0, 1, 0)));
         rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
         missile->visual.SetRotation(&rotation);
     }
-    if (advance + record->elapsed <= missile->duration) {
-        if (record->limit > 0.0f && record->limit < advance + record->elapsed &&
+    if (advance + record.elapsed <= missile->duration) {
+        if (record.limit > 0.0f && record.limit < advance + record.elapsed &&
             !missile->nav.CheckNavigatorCollision(&position, &out)) {
             missile->EnterImpactCycle();
         }
-        return true;
+        return;
     }
     missile->Land();
-    return true;
+    return;
 }
 
 /* Predict the homing missile's next position `steps` half-ticks ahead and
    re-aim its representation at that point. A ray through the world octree
    flags the record when a prop blocks the path and fires the prop's
    missile trigger. Returns the distance the step covered. */
-float AdvanceMissileAI(MissileFlight* record, glm::vec3* out, unsigned int steps)
+static float AdvanceMissileAI(MissileFlight* record, glm::vec3* out, unsigned int steps)
 {
     Missile* missile;
     Prop* prop;
@@ -215,108 +217,39 @@ static int missileCycleIndex(const char* pac_name)
     return -1;
 }
 
-/* True while this missile is still an in-flight engagement that must finish
-   before combat can end: either it has not been marked done, or its animation
-   state for mode 6 is not the terminal value. */
-bool Missile::BlocksEndingCombat()
+bool Missile::BlocksEndingCombat() const
 {
-    if (!flight_done) {
-        if (GetAnimationState(W8_MISSILE_ANIMATION_CYCLE_INDEX) != 1) {
-            return true;
-        }
-    }
-    return false;
+    return !flight_done && visual.current_cycle != 1;
 }
 
-void GetCharacterProjectilePosition(unsigned int character_index, glm::vec3* position)
+glm::vec3 World::characterProjectilePosition(unsigned int character_index) const
 {
-    glm::vec3 camera = cameraLocation();
     const glm::vec3 offset(
         (character_index & 1) ? -75.0f : 75.0f,
         kCharacterProjectileHeight - character_index * 0.5f * kCharacterProjectileHeightStep, 0);
-    const auto yaw = GetCameraYawRadians() - g_monster_rotation_offset;
-    const auto pitch = -partyCamera().m_pitch;
-    *position = camera + glm::rotateY(glm::rotateX(offset, pitch), yaw);
+    const auto yaw = party.camera.m_yaw - g_monster_rotation_offset;
+    const auto pitch = -party.camera.m_pitch;
+    return party.eye() + glm::rotateY(glm::rotateX(offset, pitch), yaw);
 }
 
-static int g_missile_iterator;
-
-/* Iterate the world's missile vector. A nonzero argument restarts the shared
-   cursor; a missing world or vector answers null. */
-Missile* NextMissile(bool restart)
+void World::updateMissiles(bool held)
 {
-    Missile* missile = 0;
-
-    if (GetWorld() != 0) {
-        if (restart) {
-            g_missile_iterator = 0;
-        }
-        if (g_missile_iterator < static_cast<int>(GetWorld()->missiles.size())) {
-            missile = GetWorld()->missiles[g_missile_iterator].get();
-            ++g_missile_iterator;
+    // Callbacks can append projectiles. Only the original batch advances this tick.
+    int count = static_cast<int>(missiles_.size());
+    for (int index = 0; index < count;) {
+        auto& missile = *missiles_[index];
+        missile.visual.DetachRepresentation();
+        if (!missile.flight_done || !missile.block_released) {
+            missile.StartIfHostActive(held);
+            missile.visual.UpdateRepresentation(missile.nav);
+            missile.nav.UpdateNavigation(0, false, party.collisionSphere());
+            ++index;
+        } else {
+            missile.visual.RetireParticles();
+            missiles_.erase(missiles_.begin() + index);
+            --count;
         }
     }
-    return missile;
-}
-
-/* Step every live missile and drop the finished ones.
-
-   A missile still starting, or not yet marked for removal, detaches its
-   representation, starts if needed, and updates in place; a finished one
-   leaves the world collection and is destroyed. */
-void UpdateWorldMissiles(World* world)
-{
-    assert(world != 0);
-    int index = 0;
-    int count = static_cast<int>(world->missiles.size());
-    while (index < count) {
-        Missile* missile = world->missiles[index].get();
-        if (missile != 0) {
-            missile->visual.DetachRepresentation();
-            if (!missile->flight_done || missile->block_released == 0) {
-                missile->StartIfHostActive();
-                missile->visual.UpdateRepresentation(missile->nav);
-                missile->nav.UpdateNavigation(0, false, world->party.collisionSphere());
-            } else {
-                missile->visual.RetireParticles();
-                world->missiles.erase(world->missiles.begin() + index);
-                --index;
-                --count;
-            }
-        }
-        ++index;
-    }
-}
-
-/* Derive the two launch angles from the source and target, then forward the
-   remaining launch values to the missile factory. */
-Missile* FireMissile(unsigned int missile_table_index, glm::vec3* source, glm::vec3* target,
-                     float flight_speed, unsigned int trace_mask, unsigned int block_released,
-                     float duration)
-{
-    return CreateMissile(missile_table_index, source, GetHeadingAngle(source, target),
-                         GetElevationAngle(source, target), flight_speed, trace_mask,
-                         block_released, duration);
-}
-
-/* Instantiate the missile for `missile_table_index`: load or clone the cycle
-   the table row names, then stamp the index, register the result on the world
-   missile list and give it the default navigation bounds. */
-Missile* AllocateMissile(int missile_table_index)
-{
-    auto owner = LoadMissileCycle(GetWorld(), Data().missiles[missile_table_index].cycle_name);
-    auto* missile = owner.get();
-    if (missile == 0) {
-        return 0;
-    }
-    missile->missile_table_index = missile_table_index;
-    missile->visual.pending_cycle = 0;
-    missile->flight_done = false;
-    missile->impacting = false;
-    GetWorld()->missiles.push_back(std::move(owner));
-    missile->nav.SetBounds({{-125.0f, -125.0f, -125.0f}, {125.0f, 125.0f, 125.0f}});
-    missile->nav.active = true;
-    return missile;
 }
 
 /* Load a missile definition: the "data\\Missiles\\<name>.mls" script is
@@ -428,91 +361,68 @@ static std::unique_ptr<MissileDefinition> LoadMissileDefinition(std::string_view
     return success ? std::move(output) : nullptr;
 }
 
-/* A new missile of the named kind, created from the kind's definition. The
-   definition is loaded on first use and kept for the world's lifetime, so a
-   missile never inherits another one's flight.
-*/
-std::unique_ptr<Missile> LoadMissileCycle(World* world, std::string_view name)
+// Load resources and initialize the entire projectile before publishing its owner.
+Missile* World::launchMissile(const GameData& data, const MissileLaunch& launch)
 {
-    auto& definitions = world->missile_definitions;
-    auto definition = std::ranges::find_if(definitions, [&](const auto& candidate) {
-        return CompareTextIgnoreAsciiCase(candidate->asset_name, name) == 0;
+    const auto& record = data.missiles[launch.kind];
+    auto definition = std::ranges::find_if(missile_definitions, [&](const auto& candidate) {
+        return CompareTextIgnoreAsciiCase(candidate->asset_name, record.cycle_name) == 0;
     });
-    if (definition == definitions.end()) {
-        auto loaded = LoadMissileDefinition(name);
+    if (definition == missile_definitions.end()) {
+        auto loaded = LoadMissileDefinition(record.cycle_name);
         if (!loaded) return nullptr;
-        definitions.push_back(std::move(loaded));
-        definition = definitions.end() - 1;
+        missile_definitions.push_back(std::move(loaded));
+        definition = missile_definitions.end() - 1;
     }
-    auto missile = std::make_unique<Missile>(**definition, *world);
-    missile->asset_name = name;
-    return missile;
-}
-
-/* Build the launch state for a fresh missile: rotate the forward direction by
-   the heading and pitch, position and aim the navigator, probe the world
-   octree for an early-impact limit, and attach the kind-3 AI record that
-   drives the flight. */
-Missile* CreateMissile(unsigned int missile_table_index, glm::vec3* source, float heading,
-                       float pitch, float flight_speed, unsigned int trace_mask,
-                       unsigned char block_released, float duration)
-{
-    Missile* missile;
-    LevelSpatialIndex* octree;
-    MissileFlight* ai;
-    glm::vec3 direction(0.0f, 0.0f, 1.0f);
-    glm::vec3 end;
-    glm::mat3 rotation;
-    glm::mat3 aim;
+    auto missile = std::make_unique<Missile>(**definition, *this);
+    missile->asset_name = record.cycle_name;
+    missile->missile_table_index = launch.kind;
+    missile->nav.SetBounds({{-125.0f, -125.0f, -125.0f}, {125.0f, 125.0f, 125.0f}});
+    missile->nav.active = true;
+    missile->visual.pending_cycle = 0;
+    missile->SetCycle(0);
+    missile->visual.pending_behaviour = W8_ANIMATION_NEVER_STOP;
+    missile->visual.pending_subcycle = 0;
+    missile->visual.subcycle = 0;
+    const auto heading = GetHeadingAngle(&launch.origin, &launch.destination);
+    const auto pitch = GetElevationAngle(&launch.origin, &launch.destination);
+    auto rotation = glm::mat3(1);
+    rotation *= glm::mat3_cast(glm::angleAxis(heading, glm::vec3(0, 1, 0)));
+    rotation *= glm::mat3_cast(glm::angleAxis(pitch, glm::vec3(1, 0, 0)));
+    const auto direction = rotation * glm::vec3(0, 0, 1);
+    missile->nav.SetVelocity(&direction);
+    auto origin = launch.origin;
+    missile->SetCyclePosition(&origin);
+    missile->visual.SetRotation(&rotation);
+    missile->nav.SetAngles(heading);
+    missile->nav.SetPitch(pitch);
     float limit = -1.0f;
-
-    missile = AllocateMissile(missile_table_index);
-    if (missile != 0) {
-        missile->visual.pending_cycle = 0;
-        missile->SetCycle(0);
-        missile->visual.pending_behaviour = W8_ANIMATION_NEVER_STOP;
-        missile->visual.pending_subcycle = 0;
-        missile->visual.subcycle = 0;
-        rotation = glm::mat3(1);
-        rotation *= glm::mat3_cast(glm::angleAxis(float(heading), glm::vec3(0, 1, 0)));
-        rotation *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
-        direction = rotation * direction;
-        missile->nav.SetVelocity(&direction);
-        missile->SetCyclePosition(source);
-        aim = glm::mat3(1);
-        aim *= glm::mat3_cast(glm::angleAxis(float(heading), glm::vec3(0, 1, 0)));
-        aim *= glm::mat3_cast(glm::angleAxis(float(pitch), glm::vec3(1, 0, 0)));
-        missile->visual.SetRotation(&aim);
-        missile->nav.SetAngles(heading);
-        missile->nav.SetPitch(pitch);
-        octree = missile->owner_world.compiledIndex();
-        if (octree != 0) {
-            end = glm::vec3(direction.x * duration, direction.y * duration, direction.z * duration);
-            end = end + *source;
-            if (const auto hit = octree->traceSight(*source, end, {.props = false})) {
-                end = hit->point - *source;
-                limit = glm::length(end);
-                if (limit < 1.0f) {
-                    limit = 1.0f;
-                }
-            }
+    if (const auto* index = compiledIndex()) {
+        const auto end = direction * launch.distance + launch.origin;
+        if (const auto hit = index->traceSight(launch.origin, end, {.props = false})) {
+            limit = glm::length(hit->point - launch.origin);
+            if (limit < 1.0f) limit = 1.0f;
         }
-        if (flight_speed == 0.0f) {
-            flight_speed = missile->lifetime;
-        }
-        ai = &missile->flight_ai.emplace();
-        ai->speed_per_step = flight_speed * 0.001f;
-        ai->gravity = missile->gravity;
-        ai->limit = limit;
-        ai->last_half_tick = missile->owner_world.clocks.gameMilliseconds() >> 1;
-        ai->missile = missile;
-        ai->fall_speed = static_cast<float>(sin(-pitch) * flight_speed * 0.001f);
-        ai->limit = limit;
-        missile->nav.trace_mask = trace_mask;
-        missile->duration = duration;
-        missile->block_released = block_released;
     }
-    return missile;
+    auto& flight = missile->flight_ai.emplace();
+    flight.speed_per_step = missile->lifetime * 0.001f;
+    flight.gravity = missile->gravity;
+    flight.limit = limit;
+    flight.last_half_tick = clocks.gameMilliseconds() >> 1;
+    flight.missile = missile.get();
+    flight.fall_speed = static_cast<float>(sin(-pitch) * missile->lifetime * 0.001f);
+    missile->nav.trace_mask = launch.trace_mask;
+    missile->duration = launch.distance;
+    missile->block_released = launch.released;
+    missile->m_Source = launch.source;
+    missile->combat_slot = launch.target;
+    if (launch.effect) {
+        missile->definition = *launch.effect;
+        missile->definition.radius = record.radius;
+    }
+    auto* result = missile.get();
+    missiles_.push_back(std::move(missile));
+    return result;
 }
 
 /* Apply the representation's current LOD to one required animation. */
@@ -524,10 +434,6 @@ unsigned int Missile::ApplyEmitterSetting(signed char emitter)
     return target->frameCount(visual.m_bLOD);
 }
 
-/* Retail constructs the +0x2d8 growable vector normally, then clears the
-   complete +0x280..+0x321 tail after allocating the representation.  That
-   overwrites the vector and leaks its initial five-pointer allocation; the
-   ordering is preserved because it is present explicitly in the product. */
 Missile::Missile(World& owner)
     : owner_world(owner), nav(owner), visual(owner), missile_table_index(-1), flight_done(0),
       impacting(0), block_released(1), gravity(0), align_camera(0), explode_ground(0),
@@ -604,14 +510,14 @@ Missile::~Missile()
    missile's AI and ticks the animation. A scripted missile instead records
    the start, fires the one-shot launch for its table kind, and lets the
    combat boundary consume the animation once its table flag is set. */
-void Missile::StartIfHostActive()
+void Missile::StartIfHostActive(bool held)
 {
     if (!visual.rep_active) {
         return;
     }
     if (GetAnimationState(W8_MISSILE_ANIMATION_AT_FINAL_SUBCYCLE) == 0 || !impacting) {
         if (flight_ai) {
-            UpdateMissileAI(&*flight_ai);
+            UpdateMissileAI(*flight_ai, held);
         } else if (visual.m_pAI.has_value()) {
             PathAIUpdate((visual.m_pAI ? &*visual.m_pAI : nullptr), 1,
                          owner_world.clocks.worldMilliseconds());
@@ -620,14 +526,6 @@ void Missile::StartIfHostActive()
     } else {
         Land();
     }
-}
-
-/* Copy the effect definition, then replace its radius from the selected
-   0x1e5-byte missile database row. */
-void Missile::SetEffectDefinition(const W8SpellEffectDefinition* definition)
-{
-    this->definition = *definition;
-    this->definition.radius = Data().missiles[missile_table_index].radius;
 }
 
 /* The animation the representation is currently firing from. */
@@ -744,7 +642,8 @@ void Missile::EnterImpactCycle()
             visual.pending_behaviour = W8_ANIMATION_PLAY_ONCE;
             impacting = true;
             if (explode_ground) {
-                visual.location.y = probeGround(position).position.y;
+                if (const auto* index = owner_world.compiledIndex())
+                    visual.location.y = index->settleToGround(position, true, 500).position.y;
             }
         }
     } else {

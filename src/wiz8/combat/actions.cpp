@@ -160,9 +160,9 @@ ActionStep ReleaseMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8Mons
     if (g_special_attack_table[record->special_attack_kind][0] != 6) {
         monster_info->entity->visual.aim_set = false;
         CurrentGame().pointCameraAtCombatTarget(&source, &monster_info->Target);
-        CurrentGame().appendSpellTargets(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source,
-                                         &monster_info->Target, monster_targets, char_targets,
-                                         W8AreaSightRule::RequireLineOfSight);
+        CurrentGame().appendSpellTargets(monster_info->owner_world, W8_SPELL_SPECIAL_ATTACK_CONE, 0,
+                                         &source, &monster_info->Target, monster_targets,
+                                         char_targets, W8AreaSightRule::RequireLineOfSight);
         ProvokeListedMonsterGroups(&source, monster_targets);
     }
     ResolveMonsterGroupAttack(record->special_attack_kind, &source, &monster_info->Target,
@@ -504,7 +504,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
             break;
         case 7:
             monster_info->action.kind = W8_MONSTER_ACTION_NONE;
-            game.clearMonsterCondition(monster_info->location_id, W8_CONDITION_WEBBED);
+            game.clearMonsterCondition(*monster_info, W8_CONDITION_WEBBED);
             break;
         case 8:
             if (!monster_info->pCombat->berserk) {
@@ -726,7 +726,7 @@ ActionStep Combat::releaseCharacterBreath(Game& game, int party_slot)
     }
     breath_visual->auto_release = true;
     SetTargetSourceToCharacter(party_slot, &source);
-    game.appendSpellTargets(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source,
+    game.appendSpellTargets(game.level.loaded(), W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source,
                             &game.party.rows[party_slot].executing.target, monster_targets,
                             char_targets, W8AreaSightRule::RequireLineOfSight);
     ProvokeListedMonsterGroups(&source, monster_targets);
@@ -760,8 +760,8 @@ bool Combat::startCharacterBreath(Game& game, int party_slot)
 
     SetTargetSourceToCharacter(party_slot, &source);
     target = &game.party.rows[party_slot].executing.target;
-    game.appendSpellTargets(W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, target, monster_targets,
-                            char_targets, W8AreaSightRule::RequireLineOfSight);
+    game.appendSpellTargets(game.level.loaded(), W8_SPELL_SPECIAL_ATTACK_CONE, 0, &source, target,
+                            monster_targets, char_targets, W8AreaSightRule::RequireLineOfSight);
     if (monster_targets.empty()) {
         game.events.push(
             CharacterNotice{static_cast<unsigned int>(party_slot),

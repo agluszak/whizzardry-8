@@ -36,7 +36,6 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -393,7 +392,7 @@ void Monster::ProcessScript()
                 if (!tokens) {
                     break;
                 }
-                unsigned int owner = static_cast<unsigned int>(atoi(token.c_str()));
+                const int missile_type = atoi(token.c_str());
                 tokens >> token;
                 if (!tokens) {
                     break;
@@ -404,7 +403,9 @@ void Monster::ProcessScript()
                 if (!GetProjectilePosition(&source)) {
                     GetMappedPosition(&source);
                 }
-                FireMissile(owner, &source, &target, 0, 0, 1, 50000.0f);
+                owner_world.launchMissile(
+                    CurrentGame().data,
+                    {.kind = missile_type, .origin = source, .destination = target});
                 break;
             }
             case MONSCR_GIVE:
@@ -572,14 +573,14 @@ void Monster::ProcessScript()
                         SetScript("ClosePatrol.msf", true);
                         monster_info = owner_world.population->findMonster(location_id);
                         ResetTargetSource(&source);
-                        CurrentGame().setMonsterCondition(monster_info->location_id,
-                                                          W8_CONDITION_ASLEEP, 6, 0, &source, true);
+                        CurrentGame().setMonsterCondition(*monster_info, W8_CONDITION_ASLEEP, 6, 0,
+                                                          &source, true);
                     } else if (SDL_strcasecmp(token.c_str(), "ENDBELAWALK") == 0) {
                         runtime_flags |= W8_MONSTER_PARKED;
                         ClearMainGameTargetState();
                     } else if (SDL_strcasecmp(token.c_str(), "BELA_END_CC_WALK") == 0) {
                         W8NpcState* npc = CurrentGame().story.npcOfKind(0x8d);
-                        if (npc != 0) QueueNpcScriptNotice(npc, 0, 6, false, 0);
+                        if (npc != 0) CurrentGame().queueNpcNotice(*npc, nullptr, 6);
                         monster_info = owner_world.population->findMonster(location_id);
                         if (monster_info->control_state != W8_MONSTER_CONTROL_LURED) {
                             glm::vec3 party = owner_world.party.eye();

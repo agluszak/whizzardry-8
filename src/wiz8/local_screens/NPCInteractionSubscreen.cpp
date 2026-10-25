@@ -486,49 +486,8 @@ void ForwardNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int lin
 {
     if (!CurrentGame().activity.conversation && !CurrentGame().combat.has_value() &&
         (npc->record->kind != 7 || CurrentGame().testFact(W8_FACT_ARNIKA_MYLES_MEET_ONCE) != 1)) {
-        QueueNpcScriptNotice(npc, item, line, suppress, 0);
+        CurrentGame().queueNpcNotice(*npc, item, line, suppress);
     }
-}
-
-/* Queue one NPC script notice for the dispatch pass. A second NPC of the same
-   kind already in the world suppresses the notice unless the record carries
-   the 0x054 binding flag, a live monster with a condition at or above 0xf
-   takes none, and a pending notice blocks the next until it drains. Kind
-   0x10/0x11 NPCs with fact 0xbf substitute their own notice line and raise
-   the flag byte. */
-void QueueNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line, bool suppress,
-                          unsigned char arg)
-{
-    W8MonsterInfo* info;
-    bool flag;
-
-    if (FindNpcOfKind(npc->name_style) != 0 && npc->record->monster_bound == 0) {
-        return;
-    }
-    info = GetNpcMonsterInfo(npc);
-    if (info != 0 && info->highest_condition >= W8_CONDITION_ASLEEP) {
-        return;
-    }
-    flag = suppress;
-    if ((npc->name_style == W8_NPC_DRAZIC || npc->name_style == W8_NPC_RODAN) &&
-        CurrentGame().testFact(W8_FACT_PEACE_ACHIEVED) != 0) {
-        flag = true;
-        line = npc->name_style == W8_NPC_DRAZIC ? 0x23 : 0x1d;
-    }
-    if (CurrentGame().npc_interaction.pending_notice_queued) {
-        return;
-    }
-    CurrentGame().npc_interaction.pending_notice.flag = flag;
-    CurrentGame().npc_interaction.pending_notice.npc = npc->shared_from_this();
-    CurrentGame().npc_interaction.pending_notice.line = line;
-    CurrentGame().npc_interaction.pending_notice.force = arg;
-    if (item != 0) {
-        CurrentGame().npc_interaction.pending_notice.item = *item;
-    } else {
-        CurrentGame().npc_interaction.pending_notice.item = W8ItemInstance{.iItemNo = -1};
-    }
-    CurrentGame().npc_dialogue.Queue(W8NpcCommand::dispatch_pending_notice);
-    CurrentGame().npc_interaction.pending_notice_queued = true;
 }
 
 /* The NPC notice and dialogue dispatcher. Talking to a healer NPC (name
@@ -552,7 +511,6 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, const W8ItemInstance* item
     int condition;
     glm::vec3 position;
 
-    CurrentGame().npc_interaction.pending_notice_queued = false;
     MainGame()->dialogue.transcript_open_count = 0;
     if (npc->name_style == 0xf || npc->name_style == 0x12) {
         characters = CurrentGame().party.characters;
@@ -636,22 +594,6 @@ void BeginNpcDialogue(W8NpcState* npc, const W8ItemInstance* item, int quote, un
     BeginNpcDialogueInternal(npc, item, quote, flags, force);
 }
 
-/* Dispatch the queued NPC script notice: the item goes across only while it
-   still carries an id. The two notice flags remain independent byte values. */
-void DispatchPendingNpcScriptNotice(void)
-{
-    const W8ItemInstance* item;
-
-    item = 0;
-    if (CurrentGame().npc_interaction.pending_notice.item.iItemNo != -1) {
-        item = &CurrentGame().npc_interaction.pending_notice.item;
-    }
-    BeginNpcDialogue(CurrentGame().npc_interaction.pending_notice.npc.get(), item,
-                     CurrentGame().npc_interaction.pending_notice.line,
-                     CurrentGame().npc_interaction.pending_notice.flag,
-                     CurrentGame().npc_interaction.pending_notice.force);
-}
-
 /* Open the NPC dialogue panel. After the shared screen reset and the
    dialogue-UI build, a carried item goes through the pending-item path -
    inspecting it decides between the trade switch and a disposition check -
@@ -699,8 +641,7 @@ static bool OpenNpcDialoguePanel(W8NpcState* npc, const W8ItemInstance* item, bo
     MainGame()->refreshLayout();
     CreateNpcDialogueControls();
     MainGameHud()->text_box_visible = false;
-    EnableDialogueTextBoxRegions();
-    SetTextBoxScrollInput(true);
+    MainGame()->text_input->setDialogueEnabled(true);
     CurrentGame().activity.conversation_aside = false;
     greet = !force;
     if (item != 0) {
@@ -1006,8 +947,7 @@ void ServiceNpcDialogue(void)
     field_text = NpcFieldText();
     if (MainGame()->dialogue.pending_layout != W8_DIALOGUE_LAYOUT_NONE) {
         MainGameHud()->text_box_visible = false;
-        EnableDialogueTextBoxRegions();
-        SetTextBoxScrollInput(true);
+        MainGame()->text_input->setDialogueEnabled(true);
         W8NpcDialogueLayout layout = MainGame()->dialogue.pending_layout;
         SwitchNpcDialogueLayout(W8_DIALOGUE_LAYOUT_NONE);
         OpenNpcDialogueLayout(layout);
@@ -1106,8 +1046,7 @@ void EndNpcDialogueSession(bool skip_exit_actions)
         npc->dismissed_timer = 0;
     }
     CurrentGame().activity.conversation = false;
-    DisableDialogueTextBoxRegions();
-    SetTextBoxScrollInput(false);
+    MainGame()->text_input->setDialogueEnabled(false);
     CloseActiveNpcDialogueLayout();
     SetNpcDialogueInputEnabled(2, false);
     SelectTextBox(0);
@@ -2259,7 +2198,7 @@ void CloseNpcDialogueOptionLayout(void)
     SetNpcDialogueLayoutMode(W8_DIALOGUE_LAYOUT_NONE);
     MainGame()->dialogue.reopen_topics = false;
     SelectTextBox(3);
-    ScrollDialogueTextBoxToLine();
+    MainGame()->scrollTextBoxToLatest();
 }
 
 static void OpenNpcItemAssay(void)
@@ -2943,38 +2882,38 @@ void HandleNpcDialogueInput(void)
     CurrentGame().npc_dialogue.QueueQuote(second_quote_id, true, false, false);
 }
 
-void HandleNpcDialogueKeyEvent(const InputEvent* event)
+void W8NpcDialoguePanel::handleKeyEvent(const InputEvent* event)
 {
     W8MGSCommand command;
 
-    if (CurrentGame().npc_dialogue.DefersCharacterEvents(false)) {
+    if (screen_.game.npc_dialogue.DefersCharacterEvents(false)) {
         return;
     }
-    if (CurrentGame().npc_interaction.modal_dialog_open && event->key != SDLK_ESCAPE) {
+    if (screen_.game.npc_interaction.modal_dialog_open && event->key != SDLK_ESCAPE) {
         return;
     }
     switch (event->key) {
     case SDLK_UP:
-        if (CurrentGame().npc_interaction.dialogue_layout != W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
+        if (screen_.game.npc_interaction.dialogue_layout != W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
             return;
         }
-        ScrollTextBoxUp(1);
+        screen_.scrollTextBoxUp(1);
         NpcDialogueTextBoxWheelAt(0, event->position.y, true);
         return;
     case SDLK_DOWN:
-        if (CurrentGame().npc_interaction.dialogue_layout != W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
+        if (screen_.game.npc_interaction.dialogue_layout != W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX) {
             return;
         }
-        ScrollTextBoxDown(1);
+        screen_.scrollTextBoxDown(1);
         NpcDialogueTextBoxWheelAt(0, event->position.y, true);
         return;
     case SDLK_ESCAPE:
-        if (CurrentGame().npc_interaction.dialogue_hidden != 0) {
+        if (screen_.game.npc_interaction.dialogue_hidden != 0) {
             SetNpcDialogueHidden(0);
             return;
         }
-        if (CurrentGame().npc_dialogue.has_active_utterance()) {
-            TryFinishNpcVoicePlayback(true);
+        if (screen_.game.npc_dialogue.has_active_utterance()) {
+            tryFinishVoice(true);
             return;
         }
         if (NpcEditingText()) {
@@ -2982,20 +2921,20 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
             if (auto* fields = TextFieldGroup::Focused()) fields->ClearFocus();
             return;
         }
-        if (CurrentGame().npc_dialogue.reply() != W8NpcReplyState::none ||
-            CurrentGame().npc_dialogue.has_queued_actions()) {
+        if (screen_.game.npc_dialogue.reply() != W8NpcReplyState::none ||
+            screen_.game.npc_dialogue.has_queued_actions()) {
             return;
         }
-        switch (CurrentGame().npc_interaction.dialogue_layout) {
+        switch (screen_.game.npc_interaction.dialogue_layout) {
         case W8_DIALOGUE_LAYOUT_TRANSCRIPT:
-            CurrentGame().npc_interaction.suppress_parting_reaction = false;
-            CurrentGame().npc_dialogue.QueueQuote(0x5c, false, false, false);
+            screen_.game.npc_interaction.suppress_parting_reaction = false;
+            screen_.game.npc_dialogue.QueueQuote(0x5c, false, false, false);
             return;
         case W8_DIALOGUE_LAYOUT_TOPIC_MENU:
             EndNpcDialogueSession(false);
             return;
         case W8_DIALOGUE_LAYOUT_SERVICES: {
-            W8NpcDialogueLayout prev = MainGame()->dialogue.previous_dialogue_layout;
+            W8NpcDialogueLayout prev = previous_dialogue_layout;
             CloseNpcDialogueMode1Layout();
             if (prev == W8_DIALOGUE_LAYOUT_TOPIC_MENU) {
                 ShowNpcDialogueTopicMenu();
@@ -3007,7 +2946,7 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
             return;
         }
         case W8_DIALOGUE_LAYOUT_MAIN_TEXT_BOX: {
-            bool cursor = MainGame()->dialogue.reopen_topics;
+            bool cursor = reopen_topics;
             CloseNpcDialogueOptionLayout();
             if (cursor) {
                 ShowNpcDialogueTopicMenu();
@@ -3033,10 +2972,10 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
     default:
         command = g_mgs_keyboard.FindCommandForEvent(event);
         if (command == W8_MGS_COMMAND_JOURNAL) {
-            DispatchMGSCommand(command);
+            screen_.dispatchCommand(command);
             return;
         }
-        if (CurrentGame().npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
+        if (screen_.game.npc_interaction.dialogue_layout == W8_DIALOGUE_LAYOUT_TRANSCRIPT) {
             return;
         }
         if (command <= W8_MGS_COMMAND_INVENTORY) {
@@ -3047,7 +2986,7 @@ void HandleNpcDialogueKeyEvent(const InputEvent* event)
                    command > W8_MGS_COMMAND_SELECT_PC_6) {
             return;
         }
-        DispatchMGSCommand(command);
+        screen_.dispatchCommand(command);
         return;
     }
 }
@@ -3593,8 +3532,7 @@ static void SetNpcDialogueHidden(signed char value)
         }
         SetNpcDialogueInputEnabled(0, true);
         SetNpcDialogueInputEnabled(2, true);
-        EnableDialogueTextBoxRegions();
-        SetTextBoxScrollInput(true);
+        MainGame()->text_input->setDialogueEnabled(true);
         SetNpcPanelActive(2, true);
         SetNpcPanelActive(3, true);
         MainGame()->dialogue.ui->transcript->Expand();

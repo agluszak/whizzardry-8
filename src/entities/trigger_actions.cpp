@@ -94,8 +94,6 @@ std::vector<std::string> ParseTriggerNames(std::string_view text)
     }
 }
 
-bool g_trigger_feedback = true;
-
 int g_container_event_alt = kFirstRemappedEvent + 13;
 
 int g_container_event = kFirstRemappedEvent + 14;
@@ -497,8 +495,10 @@ void TriggerEvent::Update()
             transformed.x = glm::dot(glm::row(rotation, 1), target);
             transformed.y = glm::dot(glm::row(rotation, 2), target);
             transformed.z = glm::dot(axis, target);
-            FireMissile(static_cast<unsigned int>(trigger->m_lData1), &source, &transformed, 0, 1,
-                        1, 50000.0f);
+            owner_world.launchMissile(Data(), {.kind = trigger->m_lData1,
+                                               .origin = source,
+                                               .destination = transformed,
+                                               .trace_mask = 1});
         }
         break;
     }
@@ -655,8 +655,9 @@ void Trigger::UpdateActionAnimation()
     PlayActionSound(action_data, sound_volume);
 }
 
-void Trigger::FinishAction()
+bool Trigger::FinishAction()
 {
+    bool handled = false;
     auto* timed_action = m_pWorld ? m_pWorld->findTimedAction(this) : nullptr;
     bool was_running = ((flags & W8_TRIGGER_RUNNING) != 0);
     bool action_completed = false;
@@ -737,7 +738,7 @@ finish_linked_triggers:
         for (const auto& recipient : recipients) {
             Trigger* trigger = FindTriggerByName(recipient.c_str());
             if (trigger != 0) {
-                trigger->FinishAction();
+                handled |= trigger->FinishAction();
             }
         }
     }
@@ -748,14 +749,16 @@ reactivate_linked_triggers:
         for (const auto& recipient : recipients) {
             Trigger* trigger = FindTriggerByName(recipient.c_str());
             if (trigger != 0) {
-                trigger->Run(-1);
+                handled |= trigger->Run(-1);
             }
         }
     }
+    return handled;
 }
 
-void Trigger::CommitActionResult(bool apply_state_changes)
+bool Trigger::CommitActionResult(bool apply_state_changes)
 {
+    bool handled = false;
 
     UpdateActionAnimation();
 
@@ -766,7 +769,7 @@ void Trigger::CommitActionResult(bool apply_state_changes)
             if (trigger != 0) {
                 bool was_running = ((flags & W8_TRIGGER_RUNNING) != 0);
                 flags |= W8_TRIGGER_RUNNING;
-                trigger->Run(m_lData1);
+                handled |= trigger->Run(m_lData1);
                 flags = (flags & ~W8_TRIGGER_RUNNING) | (was_running ? W8_TRIGGER_RUNNING : 0);
             }
         }
@@ -815,6 +818,7 @@ show_action_message:
 
 action_complete:
     flags |= W8_TRIGGER_FIRED;
+    return handled;
 }
 
 /* Resolve an entity or a five-character level/entrance code, then either
@@ -934,11 +938,9 @@ W8WorldItem* Trigger::GetOrCreateItemGroup(bool create)
     return world_item_group.get();
 }
 
-/* After a selected-prop Run: while g_trigger_feedback is clear, post either the
-   special-item notice (required_item_id != -1) or the nothing-happened notice. */
-void Trigger::PrintNothingHappenedOrSpecialItemRequired()
+void Trigger::interact()
 {
-    if (g_trigger_feedback) {
+    if (Run(-1)) {
         return;
     }
     if (required_item_id != -1) {
@@ -976,18 +978,20 @@ void WakeMonsterGroup(int monster_id)
     monster->nav.reactivated = true;
 }
 
-void Trigger::Run(int source)
+bool Trigger::Run(int source)
 {
     auto* timed_action = m_pWorld ? m_pWorld->findTimedAction(this) : nullptr;
     ActivationCallback callback = activation_callback;
     bool apply_state_changes = true;
     bool action_succeeded = false;
 
-    if (!SelectAction()) {
-        return;
-    }
-    if (callback && !callback(this)) {
-        return;
+    const auto selection = SelectAction();
+    bool handled = selection.handled;
+    if (!selection.run_action) return handled;
+    if (callback) {
+        const auto decision = callback(this);
+        handled |= decision.handled;
+        if (!decision.run_action) return handled;
     }
 
     if (trigger_kind == W8TriggerKind::prop) {
@@ -1000,7 +1004,7 @@ void Trigger::Run(int source)
                 break;
             }
             UpdateCameraPathStateByName(m_pWorld, recipient_name.c_str(), 1);
-            FinishAction();
+            handled |= FinishAction();
             goto commit_action;
 
         case 0x0a: {
@@ -1055,7 +1059,7 @@ void Trigger::Run(int source)
                 snprintf(name, sizeof(name), "Camera0%d", camera);
                 UpdateCameraPathStateByName(m_pWorld, name, 1);
             }
-            FinishAction();
+            handled |= FinishAction();
             goto commit_action;
         }
 
@@ -1294,7 +1298,7 @@ void Trigger::Run(int source)
             flags |= W8_TRIGGER_RUNNING;
         }
         if (!action_succeeded) {
-            return;
+            return handled;
         }
         break;
     }
@@ -1308,7 +1312,7 @@ void Trigger::Run(int source)
     case 0x2f: {
 
         if (recipients.empty()) {
-            return;
+            return handled;
         }
         for (const auto& recipient : recipients) {
             Trigger* target = FindTriggerByName(recipient.c_str());
@@ -1324,7 +1328,7 @@ void Trigger::Run(int source)
             }
         }
         if (!action_succeeded) {
-            return;
+            return handled;
         }
         break;
     }
@@ -1334,7 +1338,7 @@ void Trigger::Run(int source)
         bool action_succeeded = true;
 
         if (m_bRepType != W8_TRIGGER_REP_PROP || m_pProp == 0) {
-            return;
+            return handled;
         }
         was_active = m_pProp->animation_playing;
 
@@ -1353,14 +1357,14 @@ void Trigger::Run(int source)
                     }
                     world_item_group->contents.push_back(std::move(item));
                 }
-                g_trigger_feedback = true;
-                return;
+                handled = true;
+                return handled;
             }
             if ((flags & W8_TRIGGER_ITEM_PICKER) != 0) {
-                return;
+                return handled;
             }
 
-            g_trigger_feedback = true;
+            handled = true;
             if (items_generated == 0) {
                 GenerateItemGroup();
             }
@@ -1405,7 +1409,7 @@ void Trigger::Run(int source)
                 }
 
                 if (!action_succeeded) {
-                    return;
+                    return handled;
                 }
             }
         }
@@ -1427,11 +1431,11 @@ void Trigger::Run(int source)
     case 0x32:
     case 0x33:
         if (m_bRepType != W8_TRIGGER_REP_PROP || m_pProp == 0) {
-            return;
+            return handled;
         }
         if ((action == 0x32 && m_pProp->animation_playing != 0) ||
             (action == 0x33 && m_pProp->animation_playing == 0)) {
-            return;
+            return handled;
         }
         m_pProp->SetRepresentationActive(action == 0x32, true);
         state_index = state_index == 0;
@@ -1448,20 +1452,20 @@ void Trigger::Run(int source)
     case 0x0f: {
 
         if (recipients.empty()) {
-            return;
+            return handled;
         }
         for (const auto& recipient : recipients) {
             Trigger* target = FindTriggerByName(recipient.c_str());
             if (target != 0) {
                 bool was_running = ((flags & W8_TRIGGER_RUNNING) != 0);
                 flags |= W8_TRIGGER_RUNNING;
-                target->Run(m_lData1);
+                handled |= target->Run(m_lData1);
                 flags = (flags & ~W8_TRIGGER_RUNNING) | (was_running ? W8_TRIGGER_RUNNING : 0);
                 action_succeeded = true;
             }
         }
         if (!action_succeeded) {
-            return;
+            return handled;
         }
         break;
     }
@@ -1469,7 +1473,7 @@ void Trigger::Run(int source)
     case 0x10:
         m_pWorld->party.camera.applySway(*m_pWorld->camera,
                                          source > 0 ? CameraSwayMode::Start : CameraSwayMode::Stop);
-        return;
+        return handled;
 
     case 0x36:
         if (action_state == W8TriggerActionState::fallback_action &&
@@ -1478,7 +1482,7 @@ void Trigger::Run(int source)
         } else {
             PlayActionSound(this->action_data, 0);
         }
-        return;
+        return handled;
 
     case 0x24: {
         W8Dice dice;
@@ -1503,7 +1507,7 @@ void Trigger::Run(int source)
 
     case 0x0b:
         if (!recipients.empty()) WakeMonsterGroup(recipient_group);
-        return;
+        return handled;
 
     case 0x39: {
         glm::vec3 party_position;
@@ -1551,14 +1555,14 @@ void Trigger::Run(int source)
 
     case 0x3a:
         if (m_pProp == 0 || source != m_lData1) {
-            return;
+            return handled;
         }
         m_pProp->SetActivationState(false);
         break;
 
     case 0x3b:
         if (m_pProp == 0 || source != m_lData1 || m_pProp->animation_playing == 0) {
-            return;
+            return handled;
         }
         m_pProp->SetRepresentationActive(m_pProp->animation_playing == 0, true);
         state_index = state_index == 0;
@@ -1569,7 +1573,7 @@ void Trigger::Run(int source)
 
     case 0x3c:
         if (m_pProp == 0 || source != m_lData1) {
-            return;
+            return handled;
         }
         m_pProp->SetRepresentationActive(m_pProp->animation_playing == 0, true);
         state_index = state_index == 0;
@@ -1616,7 +1620,7 @@ void Trigger::Run(int source)
 
         if (uses_remaining == 0) {
             if (m_lData1 != -1) {
-                return;
+                return handled;
             }
         } else {
             --uses_remaining;
@@ -1637,7 +1641,7 @@ void Trigger::Run(int source)
 
     case 0x0c:
         if (m_lData1 < 0) {
-            return;
+            return handled;
         }
         if (m_lData2 == 0) {
             glm::vec3 source_position;
@@ -1656,8 +1660,10 @@ void Trigger::Run(int source)
                                                           normalizedOrZero(glm::vec3(direction))));
             }
             transformed = rotation * target_position;
-            FireMissile(static_cast<unsigned int>(m_lData1), &source_position, &transformed, 0, 1,
-                        1, 50000.0f);
+            m_pWorld->launchMissile(Data(), {.kind = m_lData1,
+                                             .origin = source_position,
+                                             .destination = transformed,
+                                             .trace_mask = 1});
         } else if (timed_action == 0) {
             float duration = abs(m_lData2) * 0.001f;
 
@@ -1675,14 +1681,14 @@ void Trigger::Run(int source)
 
     case 0x3d:
         if (m_pProp == 0) {
-            return;
+            return handled;
         }
         m_pProp->SetActivationState(true);
         break;
 
     case 0x3e:
         if (m_pProp == 0) {
-            return;
+            return handled;
         }
         m_pProp->SetActivationState(false);
         break;
@@ -1709,7 +1715,7 @@ void Trigger::Run(int source)
 
     case 0x40:
         if (m_bRepType != W8_TRIGGER_REP_PROP || m_pProp == 0) {
-            return;
+            return handled;
         }
         if (!state_to_modify.empty()) {
             char state_name[132];
@@ -1735,7 +1741,7 @@ void Trigger::Run(int source)
     case 0x43: {
 
         if (recipients.empty()) {
-            return;
+            return handled;
         }
         for (const auto& recipient : recipients) {
             const auto& name = recipient;
@@ -1756,7 +1762,7 @@ void Trigger::Run(int source)
     case 0x46: {
 
         if (recipients.empty()) {
-            return;
+            return handled;
         }
         for (const auto& recipient : recipients) {
             ParticleSystem* particle = FindParticleByName(recipient.c_str());
@@ -1773,7 +1779,7 @@ void Trigger::Run(int source)
             }
         }
         if (!action_succeeded) {
-            return;
+            return handled;
         }
         break;
     }
@@ -1781,7 +1787,7 @@ void Trigger::Run(int source)
     case 0x47: {
 
         if (recipients.empty() || timed_action != 0) {
-            return;
+            return handled;
         }
         action_succeeded = false;
         for (const auto& recipient : recipients) {
@@ -1793,7 +1799,7 @@ void Trigger::Run(int source)
             }
         }
         if (!action_succeeded) {
-            return;
+            return handled;
         }
 
         timed_action = &m_pWorld->addTimedAction(this);
@@ -1809,11 +1815,11 @@ void Trigger::Run(int source)
         unsigned int count;
 
         if (m_pProp == 0 || m_lData1 < 0) {
-            return;
+            return handled;
         }
         count = m_pProp->currentAnimation()->frameCount(2);
         if (static_cast<int>(count) <= m_lData1) {
-            return;
+            return handled;
         }
         m_pProp->SetPendingAnimationSubcycle(static_cast<signed char>(m_lData1));
         break;
@@ -1821,7 +1827,7 @@ void Trigger::Run(int source)
 
     case 0x49:
         if (m_pProp == 0 || m_lData1 < 0) {
-            return;
+            return handled;
         }
         m_pProp->SetAnimationSpeed(static_cast<float>(m_lData1));
         break;
@@ -1829,7 +1835,7 @@ void Trigger::Run(int source)
     case 0x4a: {
 
         if (recipients.empty() || m_lData1 < 0) {
-            return;
+            return handled;
         }
         for (const auto& recipient : recipients) {
             Prop* prop = FindPropByName(GetWorld(), recipient.c_str());
@@ -1841,21 +1847,22 @@ void Trigger::Run(int source)
     }
 
     case 0x4b: {
-        if (recipients.empty()) return;
+        if (recipients.empty()) return handled;
         const auto selected = WorldClockMilliseconds() % recipients.size();
         RunDestination(recipients[selected].c_str());
         break;
     }
 
     default:
-        return;
+        return handled;
     }
 
 commit_action:
     if (!running) {
-        g_trigger_feedback = true;
+        handled = true;
     }
-    CommitActionResult(apply_state_changes);
+    handled |= CommitActionResult(apply_state_changes);
+    return handled;
 }
 
 bool Trigger::CanRunLinkedTriggers()
@@ -1876,20 +1883,21 @@ bool Trigger::CanRunLinkedTriggers()
     return true;
 }
 
-bool Trigger::SelectAction()
+TriggerDecision Trigger::SelectAction()
 {
+    bool handled = false;
     auto* timed_action = m_pWorld ? m_pWorld->findTimedAction(this) : nullptr;
     bool fallback_selected = false;
     bool result = true;
 
     if (CurrentGame().combat.has_value() && doorData() != nullptr && doorData()->open) {
-        return false;
+        return {.run_action = false, .handled = handled};
     }
 
     if (((flags & W8_TRIGGER_RUNNING) != 0 && action != 0x39) || (flags & W8_TRIGGER_ON) == 0 ||
         ((flags & W8_TRIGGER_ONCE) != 0 && (flags & W8_TRIGGER_FIRED) != 0)) {
         action_state = W8TriggerActionState::inactive;
-        return false;
+        return {.run_action = false, .handled = handled};
     }
 
     if (!required_states.empty()) {
@@ -1912,7 +1920,7 @@ bool Trigger::SelectAction()
                 }
             } else {
                 if (m_lData2 == 1 && activation_callback) {
-                    activation_callback(this);
+                    handled |= activation_callback(this).handled;
                 }
                 action = fallback_action;
                 action_state = W8TriggerActionState::fallback_action;
@@ -1936,22 +1944,22 @@ bool Trigger::SelectAction()
 
         if (linked_trigger_blocked) {
             if (timed_action == nullptr) {
-                return false;
+                return {.run_action = false, .handled = handled};
             }
             timed_action->timer.Restart();
             if (timed_action->m_pCountdown.has_value()) {
                 timed_action->m_pCountdown->Restart();
             }
             if (!running) {
-                g_trigger_feedback = true;
+                handled = true;
             }
-            return false;
+            return {.run_action = false, .handled = handled};
         }
 
         if (action_data->locked && action_data->item != -1) {
             if (CurrentGame().inventory.heldItemId() != action_data->item) {
                 if (m_lData2 == 1 && activation_callback) {
-                    activation_callback(this);
+                    handled |= activation_callback(this).handled;
                 }
                 action = fallback_action;
                 action_state = W8TriggerActionState::fallback_action;
@@ -1965,9 +1973,9 @@ bool Trigger::SelectAction()
                     result = false;
                     linked_trigger = FindTriggerByName(action_data->linked_trigger);
                     if (linked_trigger != 0) {
-                        linked_trigger->Run(-1);
+                        handled |= linked_trigger->Run(-1);
                         if (!running) {
-                            g_trigger_feedback = true;
+                            handled = true;
                         }
                     }
                 }
@@ -1978,14 +1986,14 @@ bool Trigger::SelectAction()
     if (lock_state.lock_type != LockType::none && lock_state.device_state.completed == 0 &&
         !running) {
         if (lock_state.lock_type == LockType::pickable_lock) {
-            g_trigger_feedback = true;
+            handled = true;
             OpenLockInteraction(this);
-            return false;
+            return {.run_action = false, .handled = handled};
         }
         if (lock_state.lock_type == LockType::trap) {
-            g_trigger_feedback = true;
+            handled = true;
             OpenTrapInteraction(this);
-            return false;
+            return {.run_action = false, .handled = handled};
         }
     }
 
@@ -2005,9 +2013,9 @@ bool Trigger::SelectAction()
         }
     } else if (action == 0) {
         action_state = W8TriggerActionState::inactive;
-        return false;
+        return {.run_action = false, .handled = handled};
     }
-    return result;
+    return {.run_action = result, .handled = handled};
 }
 
 Light* FindLightByName(std::string_view name)

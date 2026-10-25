@@ -1375,7 +1375,5 @@ void ApplySavedProps(World& world, const std::vector<SavedProp>& section)
 
 void Prop::activate()
 {
-    g_trigger_feedback = false;
-    trigger->Run(-1);
-    trigger->PrintNothingHappenedOrSpecialItemRequired();
+    trigger->interact();
 }

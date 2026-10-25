@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -22,8 +23,7 @@ constexpr unsigned int W8_NOTICE_WRAP_TEXT_BOX = ~0U - 1;
 enum W8TextBoxMode : unsigned char {
     W8_TEXT_BOX_MODE_NOTICE = 0,
     // The next notice continues the current line.
-    W8_TEXT_BOX_MODE_APPEND = 1,
-    W8_TEXT_BOX_MODE_SPECIAL_PANEL = 3
+    W8_TEXT_BOX_MODE_APPEND = 1
 };
 
 /* Frames of the notice palette catalog (Data\Fonts\Palette*.sti). */
@@ -54,6 +54,14 @@ struct TextNotice {
     short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC;
     unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC;
     bool force_dialog = false;
+};
+
+/* A completed narration write. The prefix is written only into an open
+   continuation. An absent body is a separator-only write, not an empty line. */
+struct TextFragment {
+    std::optional<std::string> text;
+    std::string prefix_if_open;
+    bool leaves_open = false;
 };
 
 /* A party member's line, "Name: text", the name in the member's marching-order
@@ -145,6 +153,9 @@ struct CombatProgressChanged {
 struct CombatStanceChanged {};
 // The monsters about the party, their groups or their dispositions changed.
 struct MonstersChanged {};
+struct MonsterHealthChanged {
+    int location_id;
+};
 // A group's loaded bodies and NPC bindings are ready for interaction.
 struct MonstersActivated {};
 // The party's spell effects changed, or a round passed them by.
@@ -160,16 +171,18 @@ struct JournalEntryAdded {
 };
 struct ActionChoiceChanged {
     unsigned int slot;
+    bool revalidate_target = true;
 };
 struct ActionAimChanged {
     unsigned int slot;
+    bool target_changed = false;
 };
+// Stored target/equipment repair completed; presentation can repair its own drafts.
+struct PartyTargetAvailabilityChanged {};
+// The fight offers the main screen its usual automatic character-selection step.
+struct CombatSelectionRequested {};
 // A member joined or left; everything the party is shown in changes.
 struct PartyMembershipChanged {};
-// A casting restriction's message, shown through the main screen's portrait queue.
-struct CastingBlockedNotice {
-    std::string text;
-};
 // The outgoing world and its borrowed presentation targets have been released.
 struct LevelDeparted {
     bool restore_cursor;
@@ -184,14 +197,15 @@ struct TargetingRequested {
 };
 
 using Event =
-    std::variant<TextNotice, CharacterNotice, NoticeDialog, TextBoxModeChange, CharacterDamaged,
-                 CharacterDied, PartySlotChanged, PartyLoadChanged, CombatPanelChanged,
-                 CharacterActionChanged, EquipmentSettled, SkillImproved, WorldAdvancementChanged,
-                 CombatantsMoved, CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
-                 CombatProgressChanged, CombatStanceChanged, MonstersChanged, MonstersActivated,
-                 PartyEffectsChanged, CombatEffectsChanged, PartyPanelChanged,
-                 PartyMembershipChanged, WorldItemRemoved, LevelDeparted, CastingBlockedNotice,
-                 TargetingRequested, FormationChanged, ActionAimChanged, ActionChoiceChanged,
+    std::variant<TextNotice, TextFragment, CharacterNotice, NoticeDialog, TextBoxModeChange,
+                 CharacterDamaged, CharacterDied, PartySlotChanged, PartyLoadChanged,
+                 CombatPanelChanged, CharacterActionChanged, EquipmentSettled, SkillImproved,
+                 WorldAdvancementChanged, CombatantsMoved, CombatExecutionBegan, CombatCalledOff,
+                 CombatBegan, CombatEnded, CombatProgressChanged, CombatStanceChanged,
+                 MonstersChanged, MonsterHealthChanged, MonstersActivated, PartyEffectsChanged,
+                 CombatEffectsChanged, PartyPanelChanged, PartyMembershipChanged, WorldItemRemoved,
+                 LevelDeparted, TargetingRequested, FormationChanged, ActionAimChanged,
+                 ActionChoiceChanged, PartyTargetAvailabilityChanged, CombatSelectionRequested,
                  JournalEntryAdded, PortraitSpeechChanged>;
 
 /* A game's ordered event log. An observer sees each event as it is pushed, so its

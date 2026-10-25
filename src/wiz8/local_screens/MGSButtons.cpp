@@ -57,23 +57,12 @@
 #include "wiz8/ui_input.h"
 #include "wiz8/ui_layer.h"
 
-unsigned short g_action_kind_message_ids[12] = {
+const unsigned short g_action_kind_message_ids[12] = {
     0x050f, 0x0510, 0x0511, 0x0512, 0x0513, 0x0514, 0x0515, 0x0516, 0x0517, 0x0518, 0x0519, 0x051a,
 };
 
-void DestroySubMenuPanel()
-{
-    if (MainGame()) MainGame()->submenu.reset();
-}
-
 /* Five caption rows suffice: Berserk and Pray require mutually exclusive
    professions, leaving room for the cancel action. */
-
-static void SubMenuPanelCloseButton(W8ButtonWidget* button);
-static void SubMenuPanelFormationButton(W8ButtonWidget* button);
-static void MainGameOptionsDiskButton(W8ButtonWidget* button);
-static void MainGameCombatConfirmButton(W8ButtonWidget* button);
-static void MainGameCombatStanceSecondary(W8ButtonWidget* button);
 
 int GetAttackMenuWeaponOffset(W8Skill skill)
 {
@@ -110,186 +99,140 @@ int GetAttackMenuWeaponOffset(W8Skill skill)
     return base;
 }
 
-void RefreshSubMenuPanel(bool invalidate)
+void MainGameSubMenu::draw(bool invalidate)
 {
-    auto& submenu = MainGame()->submenu;
-    if (!submenu) return;
     if (invalidate) {
-        CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(
-            GetFrameBufferSurface(), submenu->background, submenu->bounds.x, 0x1c3);
+        CatalogArtwork::Load(0x7f, 0).drawAndInvalidate(GetFrameBufferSurface(), background,
+                                                        bounds.x, 0x1c3);
     }
-    for (auto& button : submenu->buttons) button->Refresh(invalidate);
+    for (auto& button : buttons) button->Refresh(invalidate);
 }
 
-static void ChooseSubMenuAction(W8ActionKind action)
+void MainGameScreen::chooseSubMenuAction(W8MGSAction command)
 {
-    ChooseAction(CurrentGame().status.selected_character, action, -1, 0, false, 1);
+    const int slot = game.status.selected_character;
+    W8ActionKind action = W8_ACTION_NONE;
+    switch (command) {
+    case W8_MGS_ACTION_ATTACK:
+        action = W8_ACTION_ATTACK;
+        break;
+    case W8_MGS_ACTION_BERSERK:
+        action = W8_ACTION_BERSERK;
+        break;
+    case W8_MGS_ACTION_BREATHE:
+        action = W8_ACTION_BREATHE;
+        break;
+    case W8_MGS_ACTION_TURN_UNDEAD:
+        action = W8_ACTION_TURN_UNDEAD;
+        break;
+    case W8_MGS_ACTION_PRAY:
+        action = W8_ACTION_PRAY;
+        break;
+    case W8_MGS_ACTION_DEFEND:
+        action = W8_ACTION_DEFEND;
+        break;
+    case W8_MGS_ACTION_PROTECT:
+        action = W8_ACTION_PROTECT;
+        break;
+    case W8_MGS_ACTION_EQUIP:
+        action = W8_ACTION_EQUIP;
+        break;
+    case W8_MGS_ACTION_WALK:
+    case W8_MGS_ACTION_RUN:
+        if (!AnyCharacterEngaged()) return;
+        action = command == W8_MGS_ACTION_WALK ? W8_ACTION_WALK : W8_ACTION_RUN;
+        break;
+    case W8_MGS_ACTION_USE_ITEM_VIEW:
+        closeSubMenu();
+        openItemPicker(slot);
+        return;
+    case W8_MGS_ACTION_USE_RECORDED_ITEM:
+        closeSubMenu();
+        StartCharacterItemUse(slot);
+        return;
+    case W8_MGS_ACTION_SPELL_VIEW:
+        closeSubMenu();
+        openSpellPicker(slot);
+        return;
+    case W8_MGS_ACTION_CAST_RECORDED_SPELL:
+        closeSubMenu();
+        StartCharacterSpellCast(slot, 0);
+        return;
+    default:
+        return;
+    }
+    ChooseAction(slot, action, -1, 0, false, 1);
     DrawSubMenuCharacterAction();
-    DestroySubMenuControls();
+    closeSubMenu();
 }
 
-void SubMenuSelectAttack(void)
+void MainGameScreen::closeSubMenu()
 {
-    ChooseSubMenuAction(W8_ACTION_ATTACK);
+    hud_buttons.setSubMenuTooltips(true);
+    submenu.reset();
+    hud->repaint.layout = true;
 }
 
-void SubMenuSelectBerserk(void)
+void MainGameScreen::rebuildSubMenu()
 {
-    ChooseSubMenuAction(W8_ACTION_BERSERK);
+    if (submenu) openSubMenu(submenu->bank);
 }
 
-void SubMenuSelectBreathe(void)
-{
-    ChooseSubMenuAction(W8_ACTION_BREATHE);
-}
-
-void SubMenuSelectTurnUndead(void)
-{
-    ChooseSubMenuAction(W8_ACTION_TURN_UNDEAD);
-}
-
-void SubMenuSelectPray(void)
-{
-    ChooseSubMenuAction(W8_ACTION_PRAY);
-}
-
-void SubMenuSelectDefend(void)
-{
-    ChooseSubMenuAction(W8_ACTION_DEFEND);
-}
-
-void SubMenuSelectProtect(void)
-{
-    ChooseSubMenuAction(W8_ACTION_PROTECT);
-}
-
-void SubMenuSelectEquip(void)
-{
-    ChooseSubMenuAction(W8_ACTION_EQUIP);
-}
-
-void SubMenuOpenUseItemView(void)
-{
-    DestroySubMenuControls();
-    MainGame()->openItemPicker(CurrentGame().status.selected_character);
-}
-
-void SubMenuUseRecordedItem(void)
-{
-    DestroySubMenuControls();
-    StartCharacterItemUse(CurrentGame().status.selected_character);
-}
-
-void SubMenuOpenSpellView(void)
-{
-    DestroySubMenuControls();
-    MainGame()->openSpellPicker(CurrentGame().status.selected_character);
-}
-
-void SubMenuCastRecordedSpell(void)
-{
-    DestroySubMenuControls();
-    StartCharacterSpellCast(CurrentGame().status.selected_character, 0);
-}
-
-void SubMenuSelectRun(void)
-{
-    if (!AnyCharacterEngaged()) {
-        return;
-    }
-    ChooseSubMenuAction(W8_ACTION_RUN);
-}
-
-void SubMenuSelectWalk(void)
-{
-    if (!AnyCharacterEngaged()) {
-        return;
-    }
-    ChooseSubMenuAction(W8_ACTION_WALK);
-}
-
-void OpenSubMenuPanel(short notification)
-{
-    if (MainGameHud()->open_submenu) {
-        DestroySubMenuControls();
-    }
-    MainGame()->dismissOverlays(false);
-    if (!BuildSubMenuPanel(notification)) {
-        DestroySubMenuControls();
-    }
-    SetSubMenuButtonTooltips(0);
-    if (auto* hud = MainGameHud()) hud->repaint.layout = true;
-}
-
-void ResetSubMenuPanel(void)
-{
-    const auto open = MainGameHud()->open_submenu;
-    DestroySubMenuControls();
-    OpenSubMenuPanel(open.value_or(-1));
-}
-
-static void CreateSubMenuScrollButtons()
+void MainGameScreen::createSubMenuScrollButtons()
 {
     int i;
 
-    MainGame()->hud_buttons.submenu_scroll[0].Configure(
+    hud_buttons.submenu_scroll[0].Configure(
         ButtonGraphics::Load("Data\\Main Interface\\main_scroll_arrows.sti", 3, 0, 1, 2, 2),
-        {.on_click = [](auto*) { ScrollSubMenuCharacter(0); }, .tooltip = 0x4b});
-    MainGame()->hud_buttons.submenu_scroll[1].Configure(
+        {.on_click = [this](auto*) { scrollSubMenuCharacter(0); }, .tooltip = 0x4b});
+    hud_buttons.submenu_scroll[1].Configure(
         ButtonGraphics::Load("Data\\Main Interface\\main_scroll_arrows.sti", 7, 4, 5, 6, 6),
-        {.on_click = [](auto*) { ScrollSubMenuCharacter(1); }, .tooltip = 0x4c});
+        {.on_click = [this](auto*) { scrollSubMenuCharacter(1); }, .tooltip = 0x4c});
     for (i = 0; i < 2; ++i) {
-        MainGame()->hud_buttons.submenu_scroll[i].SetPosition(g_scroll_button_positions[i].x,
-                                                              g_scroll_button_positions[i].y);
+        hud_buttons.submenu_scroll[i].SetPosition(g_scroll_button_positions[i].x,
+                                                  g_scroll_button_positions[i].y);
     }
 }
 
-static void SubMenuPanelCloseButton(W8ButtonWidget* button)
+void MainGameScreen::createSubMenuPanelButtons()
 {
-    OpenSubMenuPanel(9);
-}
+    const auto toggle_formation = [this](W8ButtonWidget*) {
+        if (!formation_panel_open) {
+            OpenFormationPanel();
+        } else {
+            CloseFormationPanel();
+        }
+    };
 
-static void SubMenuPanelFormationButton(W8ButtonWidget* button)
-{
-    if (!FormationPanelOpen()) {
-        OpenFormationPanel();
-    } else {
-        CloseFormationPanel();
-    }
-}
+    const auto open_movement = [this](W8ButtonWidget*) { openSubMenu(9); };
 
-static void CreateSubMenuPanelButtons()
-{
     int index;
 
-    MainGame()->hud_buttons.submenu_panel[0].Configure(
+    hud_buttons.submenu_panel[0].Configure(
         ButtonGraphics::Load(g_submenu_icons_path, 0x21, 0x1e, 0x1f, 0x20, 0x22),
-        {.on_click = SubMenuPanelCloseButton, .tooltip = 0x4d});
-    MainGame()->hud_buttons.submenu_panel[1].Configure(
+        {.on_click = open_movement, .tooltip = 0x4d});
+    hud_buttons.submenu_panel[1].Configure(
         ButtonGraphics::Load(g_submenu_icons_path, 0x26, 0x23, 0x24, 0x25, 0x27),
-        {.on_click = SubMenuPanelFormationButton,
+        {.on_click = toggle_formation,
          .policy = {.primary_toggle = ButtonToggle::Press},
          .tooltip = 0x4e});
     for (index = 0; index < 2; ++index) {
-        MainGame()->hud_buttons.submenu_panel[index].SetPosition(
-            g_submenu_panel_button_positions[index].x, g_submenu_panel_button_positions[index].y);
+        hud_buttons.submenu_panel[index].SetPosition(g_submenu_panel_button_positions[index].x,
+                                                     g_submenu_panel_button_positions[index].y);
     }
 }
 
-static void MainGameOptionsDiskButton(W8ButtonWidget* button)
+void MainGameScreen::createOptionsDiskButton()
 {
-    if (CanInterruptLevelMovement()) {
-        RequestScreen({.id = W8_SCREEN_OPTIONS, .mode = W8_OPTIONS_IN_GAME});
-    }
-}
+    const auto open_options = [](W8ButtonWidget*) {
+        if (CanInterruptLevelMovement()) {
+            RequestScreen({.id = W8_SCREEN_OPTIONS, .mode = W8_OPTIONS_IN_GAME});
+        }
+    };
 
-static void CreateOptionsDiskButton()
-{
-    MainGame()->hud_buttons.options_disk.Configure(
-        ButtonGraphics::Load(g_options_disk_path, 3, 0, 1, 2, 2),
-        {.on_click = MainGameOptionsDiskButton, .tooltip = 0x41});
-    MainGame()->hud_buttons.options_disk.SetPosition(g_options_disk_position.x,
-                                                     g_options_disk_position.y);
+    hud_buttons.options_disk.Configure(ButtonGraphics::Load(g_options_disk_path, 3, 0, 1, 2, 2),
+                                       {.on_click = open_options, .tooltip = 0x41});
+    hud_buttons.options_disk.SetPosition(g_options_disk_position.x, g_options_disk_position.y);
 }
 
 /* Redraw the options-disk chrome and button; disabled under dialogue / lock /
@@ -302,38 +245,38 @@ void RedrawOptionsDiskButton(void)
 
 /* Pick which of the five combat-stance buttons is visible for the live combat
    / continuous-combat state, and enable that one. */
-void UpdateCombatStanceButtons(void)
+void MainGameScreen::updateCombatStanceButtons(void)
 {
     unsigned int stance;
     unsigned char index;
     bool enabled;
 
-    if (!CurrentGame().combat.has_value()) {
-        for (auto& button : MainGame()->hud_buttons.combat_stance) {
+    if (!game.combat.has_value()) {
+        for (auto& button : hud_buttons.combat_stance) {
             button.SetVisible(false);
         }
         return;
     }
 
     if (!g_settings.continuous_combat) {
-        stance = CurrentGame().combat->execution_active != 0 ? 3U : 0U;
-    } else if ((CurrentGame().combat->continuous_start_delay == std::chrono::milliseconds::zero() &&
+        stance = game.combat->execution_active != 0 ? 3U : 0U;
+    } else if ((game.combat->continuous_start_delay == std::chrono::milliseconds::zero() &&
                 CombatMayAdvanceContinuously()) ||
-               CurrentGame().combat->party_surprised) {
-        stance = CurrentGame().combat->round_active ? 1U : 4U;
+               game.combat->party_surprised) {
+        stance = game.combat->round_active ? 1U : 4U;
     } else {
         stance = 2;
     }
 
     for (index = 0; index < 5; ++index) {
-        MainGame()->hud_buttons.combat_stance[index].SetVisible(index == stance);
+        hud_buttons.combat_stance[index].SetVisible(index == stance);
     }
-    if (!SpellPicker() && !UseItemPicker() && !FormationPanelOpen()) {
+    if (!spell_picker && !item_picker && !formation_panel_open) {
         enabled = true;
     } else {
         enabled = false;
     }
-    MainGame()->hud_buttons.combat_stance[stance].SetEnabled(enabled);
+    hud_buttons.combat_stance[stance].SetEnabled(enabled);
 }
 
 // Draw the combat-stance chrome and the live stance button.
@@ -343,61 +286,49 @@ void RedrawCombatStanceButtons(void)
     for (auto& button : MainGame()->hud_buttons.combat_stance) button.Refresh(true);
 }
 
-static void MainGameCombatConfirmButton(W8ButtonWidget* button)
+void MainGameScreen::createCombatStanceButtons()
 {
-    if (!CurrentGame().combat.has_value()) {
-        return;
-    }
-    if (CurrentGame().combat->execution_active != 0) {
-        TogglePartyCombatStance();
-        return;
-    }
-    BeginCombatExecution();
-    if (!g_settings.continuous_combat) {
-        return;
-    }
-    CurrentGame().combat->continuous_start_delay = std::chrono::milliseconds::zero();
-}
+    const auto toggle_stance = [this](W8ButtonWidget*) {
+        if (game.combat.has_value()) {
+            TogglePartyCombatStance();
+        }
+    };
 
-static void MainGameCombatStanceSecondary(W8ButtonWidget* button)
-{
-    if (CurrentGame().combat.has_value()) {
-        TogglePartyCombatStance();
-    }
-}
+    const auto confirm = [this](W8ButtonWidget*) {
+        if (!game.combat.has_value()) {
+            return;
+        }
+        if (game.combat->execution_active != 0) {
+            TogglePartyCombatStance();
+            return;
+        }
+        BeginCombatExecution();
+        if (!g_settings.continuous_combat) {
+            return;
+        }
+        game.combat->continuous_start_delay = std::chrono::milliseconds::zero();
+    };
 
-static void CreateCombatStanceButtons()
-{
     int index;
 
-    MainGame()->hud_buttons.combat_stance[0].Configure(
+    hud_buttons.combat_stance[0].Configure(
         ButtonGraphics::Load(g_attack_confirm_path, 3, 0, 1, 2, 2),
-        {.on_click = MainGameCombatConfirmButton,
-         .on_right_click = MainGameCombatStanceSecondary,
-         .tooltip = 0x4f});
-    MainGame()->hud_buttons.combat_stance[1].Configure(
+        {.on_click = confirm, .on_right_click = toggle_stance, .tooltip = 0x4f});
+    hud_buttons.combat_stance[1].Configure(
         ButtonGraphics::Load(g_combat_stop_path, 3, 0, 1, 2, 2),
-        {.on_click = MainGameCombatConfirmButton,
-         .on_right_click = MainGameCombatStanceSecondary,
-         .tooltip = 0x50});
-    MainGame()->hud_buttons.combat_stance[2].Configure(
+        {.on_click = confirm, .on_right_click = toggle_stance, .tooltip = 0x50});
+    hud_buttons.combat_stance[2].Configure(
         ButtonGraphics::Load(g_cont_start_path, 3, 0, 1, 2, 2),
-        {.on_click = MainGameCombatConfirmButton,
-         .on_right_click = MainGameCombatStanceSecondary,
-         .tooltip = 0x4f});
-    MainGame()->hud_buttons.combat_stance[3].Configure(
+        {.on_click = confirm, .on_right_click = toggle_stance, .tooltip = 0x4f});
+    hud_buttons.combat_stance[3].Configure(
         ButtonGraphics::Load(g_cont_toggle_path, 3, 0, 1, 2, 2),
-        {.on_click = MainGameCombatConfirmButton,
-         .on_right_click = MainGameCombatStanceSecondary,
-         .tooltip = 0x51});
-    MainGame()->hud_buttons.combat_stance[4].Configure(
+        {.on_click = confirm, .on_right_click = toggle_stance, .tooltip = 0x51});
+    hud_buttons.combat_stance[4].Configure(
         ButtonGraphics::Load(g_cont_pending_path, 3, 0, 1, 2, 2),
-        {.on_click = MainGameCombatConfirmButton,
-         .on_right_click = MainGameCombatStanceSecondary,
-         .tooltip = 0x50});
+        {.on_click = confirm, .on_right_click = toggle_stance, .tooltip = 0x50});
     for (index = 0; index < 5; ++index) {
-        MainGame()->hud_buttons.combat_stance[index].SetPosition(
-            g_combat_stance_positions[index].x, g_combat_stance_positions[index].y);
+        hud_buttons.combat_stance[index].SetPosition(g_combat_stance_positions[index].x,
+                                                     g_combat_stance_positions[index].y);
     }
 }
 
@@ -504,8 +435,8 @@ void MainGameScreen::toggleFormationBoard()
 void MainGameScreen::stepLayoutMode(int step)
 {
     // While input is blocked only the portraits and formation modes are offered.
-    const int mode = IsScreenInputBlocked() != 0 ? (applied_layout.mode - 1) & 1
-                                                 : (applied_layout.mode + step + 3) % 3;
+    const int mode =
+        inputBlocked() ? (applied_layout.mode - 1) & 1 : (applied_layout.mode + step + 3) % 3;
     setPreferredMode(static_cast<W8MainUiMode>(mode));
 }
 
@@ -584,14 +515,14 @@ void MainGameScreen::updateLayoutButtons()
     arrows[5].SetVisible(!applied_layout.formation_board);
 }
 
-void ConfigureMainGameHudButtons(void)
+void MainGameScreen::configureHudButtons(void)
 {
-    CreateSubMenuButtons();
-    CreateSubMenuScrollButtons();
-    CreateSubMenuPanelButtons();
-    CreateOptionsDiskButton();
-    CreateCombatStanceButtons();
-    MainGame()->createLayoutButtons();
+    createSubMenuButtons();
+    createSubMenuScrollButtons();
+    createSubMenuPanelButtons();
+    createOptionsDiskButton();
+    createCombatStanceButtons();
+    createLayoutButtons();
 }
 
 static void SetMenuButtonBanksEnabled(bool enabled)
@@ -733,42 +664,40 @@ void DrawSubMenuCharacterAction(void)
 
 /* Enable the fight/review panel buttons from combat engagement and mode
    flags. */
-void UpdateSubMenuPanelButtons(void)
+void MainGameScreen::updateSubMenuPanelButtons(void)
 {
     bool enabled;
 
-    if (!CurrentGame().combat.has_value() || !CurrentGame().combat->round_active ||
-        CurrentGame().surprise_possible || IsLockInteractionActive() || IsTrapInteractionActive() ||
-        CurrentGame().activity.conversation || SpellPicker() || UseItemPicker() ||
-        MainGameHud()->open_submenu) {
+    if (!game.combat.has_value() || !game.combat->round_active || game.surprise_possible ||
+        lock_active || trap_active || game.activity.conversation || spell_picker.get() ||
+        item_picker.get() || submenu) {
         enabled = false;
     } else {
         enabled = AnyCharacterEngaged();
     }
-    MainGame()->hud_buttons.submenu_panel[0].SetEnabled(enabled);
+    hud_buttons.submenu_panel[0].SetEnabled(enabled);
 
-    if (!CurrentGame().surprise_possible && !IsLockInteractionActive() &&
-        !IsTrapInteractionActive() && !CurrentGame().activity.conversation && !SpellPicker() &&
-        !UseItemPicker() && !MainGameHud()->open_submenu && AnyCharacterEngaged()) {
-        MainGame()->hud_buttons.submenu_panel[1].SetEnabled(true);
-        if (!FormationPanelOpen()) {
-            if (MainGame()->hud_buttons.submenu_panel[1].IsPressed()) {
-                MainGame()->hud_buttons.submenu_panel[1].SetPressed(false);
+    if (!game.surprise_possible && !lock_active && !trap_active && !game.activity.conversation &&
+        !spell_picker && !item_picker && !submenu && AnyCharacterEngaged()) {
+        hud_buttons.submenu_panel[1].SetEnabled(true);
+        if (!formation_panel_open) {
+            if (hud_buttons.submenu_panel[1].IsPressed()) {
+                hud_buttons.submenu_panel[1].SetPressed(false);
             }
-        } else if (MainGame()->hud_buttons.submenu_panel[1].IsPressed() == 0) {
-            MainGame()->hud_buttons.submenu_panel[1].SetPressed(true);
+        } else if (hud_buttons.submenu_panel[1].IsPressed() == 0) {
+            hud_buttons.submenu_panel[1].SetPressed(true);
         }
     } else {
-        MainGame()->hud_buttons.submenu_panel[1].SetEnabled(false);
+        hud_buttons.submenu_panel[1].SetEnabled(false);
     }
 }
 
-static void UpdateSubMenuScrollButtons()
+void MainGameScreen::updateSubMenuScrollButtons()
 {
 
-    const bool enabled = !MainGameHud()->open_submenu && !CurrentGame().activity.conversation &&
-                         !CurrentGame().activity.conversation_aside;
-    for (auto& button : MainGame()->hud_buttons.submenu_scroll) {
+    const bool enabled =
+        !submenu && !game.activity.conversation && !game.activity.conversation_aside;
+    for (auto& button : hud_buttons.submenu_scroll) {
         button.SetEnabled(enabled);
     }
 }
@@ -801,15 +730,15 @@ void RedrawSubMenuButtons(void)
    slot to the edge, then wrapping from the far edge back to the current slot.
    The `slot != current` check inside the first half is unreachable for valid
    slots, but retail tests it anyway. */
-void ScrollSubMenuCharacter(signed char direction)
+void MainGameScreen::scrollSubMenuCharacter(signed char direction)
 {
     short current;
     short selected;
     short slot;
 
-    const int selected_character = CurrentGame().status.selected_character;
+    const int selected_character = game.status.selected_character;
     if (selected_character < 0 || selected_character >= 8) {
-        throw std::logic_error("ScrollSubMenuCharacter: selected character is not a party slot");
+        throw std::logic_error("scrollSubMenuCharacter: selected character is not a party slot");
     }
     current = static_cast<short>(selected_character);
     selected = current;
@@ -853,23 +782,22 @@ void ScrollSubMenuCharacter(signed char direction)
     }
 done:
     SelectPartyCharacter(selected);
-    if (auto* hud = MainGameHud()) {
+    {
         hud->repaint.portrait(current);
-        hud->repaint.portrait(CurrentGame().status.selected_character);
+        hud->repaint.portrait(game.status.selected_character);
         hud->repaint.character_action = true;
     }
 }
 
-void SetSubMenuButtonTooltips(int enabled)
+void MainGameHudButtons::setSubMenuTooltips(bool enabled)
 {
-    auto& hud = MainGame()->hud_buttons;
-    for (auto& button : hud.submenu) {
+    for (auto& button : submenu) {
         button.SetTooltipEnabled(enabled);
     }
-    for (auto& button : hud.submenu_scroll) {
+    for (auto& button : submenu_scroll) {
         button.SetTooltipEnabled(enabled);
     }
-    for (auto& button : hud.submenu_panel) {
+    for (auto& button : submenu_panel) {
         button.SetTooltipEnabled(enabled);
     }
 }
@@ -879,14 +807,14 @@ void SetSubMenuButtonTooltips(int enabled)
    the panel, stance, roof and layout-arrow sets. */
 void MainGameScreen::updateHudButtons()
 {
-    for (int index = 0; index < 9; ++index) UpdateSubMenuButton(index);
-    UpdateSubMenuScrollButtons();
-    UpdateSubMenuPanelButtons();
-    const bool enabled = !game.activity.conversation && !IsLockInteractionActive() &&
-                         !IsTrapInteractionActive() && !game.activity.conversation_aside &&
-                         !LockInteractionSuspended() && !TrapInteractionSuspended();
+    for (int index = 0; index < 9; ++index) updateSubMenuButton(index);
+    updateSubMenuScrollButtons();
+    updateSubMenuPanelButtons();
+    const bool enabled = !game.activity.conversation && !lock_active && !trap_active &&
+                         !game.activity.conversation_aside && !LockInteractionSuspended() &&
+                         !TrapInteractionSuspended();
     hud_buttons.options_disk.SetEnabled(enabled);
-    UpdateCombatStanceButtons();
+    updateCombatStanceButtons();
     updateLayoutButtons();
 }
 
@@ -905,9 +833,8 @@ void MainGameScreen::refreshHudButtons()
 /* While the combat-end submenu is up and the cursor has left its row band,
    run a 500 ms countdown; once it lapses, tear the panel and rows down like
    the background right-click path. */
-void UpdateSubMenuAutoClose(void)
+void MainGameScreen::updateSubMenu()
 {
-    auto& submenu = MainGame()->submenu;
     if (!submenu) {
         return;
     }
@@ -917,20 +844,16 @@ void UpdateSubMenuAutoClose(void)
     } else if (!submenu->close_deadline) {
         submenu->close_deadline = MonotonicMilliseconds() + 500;
     } else if (TimeUntilDeadline(*submenu->close_deadline) == 0) {
-        DestroySubMenuControls();
+        closeSubMenu();
     }
 }
 
-void EnableSubMenuRegions(void)
+void MainGameScreen::openSubMenu(short notification)
 {
-    auto& submenu = MainGame()->submenu;
-    if (submenu) submenu->input.setEnabled(true);
-}
-
-bool BuildSubMenuPanel(short notification)
-{
-    auto& submenu = MainGame()->submenu;
-    submenu.reset();
+    if (submenu) closeSubMenu();
+    dismissOverlays(false);
+    hud_buttons.setSubMenuTooltips(false);
+    hud->repaint.layout = true;
     int left;
     W8SubMenuPage menu;
     int count;
@@ -961,60 +884,55 @@ bool BuildSubMenuPanel(short notification)
         left = g_submenu_panel_button_positions[0].x - 1;
         break;
     default:
-        return false;
+        return;
     }
     std::vector<std::pair<int, W8SubMenuEntryState>> entries;
     for (int index = 0; index < count; ++index) {
-        const auto state =
-            GetSubMenuEntryState(menu, index, CurrentGame().status.selected_character);
+        const auto state = GetSubMenuEntryState(menu, index, game.status.selected_character);
         if (state != W8_SUBMENU_ENTRY_UNAVAILABLE) {
             entries.emplace_back(index, state);
         }
     }
     if (entries.empty()) {
-        return false;
+        return;
     }
     // Berserk and Pray are mutually exclusive, leaving at most four action rows.
     constexpr std::array widths{0x2f, 0x42, 0x55, 0x67};
     W8_ASSERT(entries.size() <= widths.size());
     const int built = static_cast<int>(entries.size()) + 1;
-    submenu = std::make_unique<MainGameSubMenu>();
-    if (auto* hud = MainGameHud()) hud->repaint.submenu_panel = true;
+    submenu = std::make_unique<MainGameSubMenu>(notification);
+    hud->repaint.submenu_panel = true;
     submenu->bounds = {left, 0x1c3, widths[entries.size() - 1] + 1, 0x1d};
     submenu->background = static_cast<int>(entries.size()) - 1;
     submenu->input.add(
         submenu->bounds,
-        [](const UiPointerEvent& event) {
+        [this](const UiPointerEvent& event) {
             if (event.action == UiPointerAction::Up && event.button == UiPointerButton::Right) {
-                AfterUiDispatch(DestroySubMenuControls);
+                AfterUiDispatch([this] { closeSubMenu(); });
             }
             return UiResult::Handled;
         },
         -1);
-    static constexpr void (*actions[5][5])() = {
-        {SubMenuSelectAttack, SubMenuSelectBerserk, SubMenuSelectBreathe, SubMenuSelectTurnUndead,
-         SubMenuSelectPray},
-        {SubMenuSelectDefend, SubMenuSelectProtect},
-        {SubMenuSelectEquip, SubMenuOpenUseItemView, SubMenuUseRecordedItem},
-        {SubMenuOpenSpellView, SubMenuCastRecordedSpell},
-        {SubMenuSelectWalk, SubMenuSelectRun}};
+    static constexpr W8MGSAction actions[5][5] = {
+        {W8_MGS_ACTION_ATTACK, W8_MGS_ACTION_BERSERK, W8_MGS_ACTION_BREATHE,
+         W8_MGS_ACTION_TURN_UNDEAD, W8_MGS_ACTION_PRAY},
+        {W8_MGS_ACTION_DEFEND, W8_MGS_ACTION_PROTECT},
+        {W8_MGS_ACTION_EQUIP, W8_MGS_ACTION_USE_ITEM_VIEW, W8_MGS_ACTION_USE_RECORDED_ITEM},
+        {W8_MGS_ACTION_SPELL_VIEW, W8_MGS_ACTION_CAST_RECORDED_SPELL},
+        {W8_MGS_ACTION_WALK, W8_MGS_ACTION_RUN}};
     for (std::size_t index = 0; index < entries.size(); ++index) {
         const auto [entry, state] = entries[index];
         int message = g_submenu_entry_message_ids[menu * 5 + entry];
         int icon_delta = 0;
         if (menu == W8_SUBMENU_SPELLS && entry == 1) {
-            message += Data()
-                           .spells[CurrentGame()
-                                       .party.rows[CurrentGame().status.selected_character]
-                                       .remembered.spell.detail]
-                           .realm *
-                       7;
+            message +=
+                game.data
+                    .spells[game.party.rows[game.status.selected_character].remembered.spell.detail]
+                    .realm *
+                7;
         } else if (menu == W8_SUBMENU_ATTACK && entry == 0) {
             const int base = GetAttackMenuWeaponOffset(
-                CurrentGame()
-                    .party.characters[CurrentGame().status.selected_character]
-                    .Hand[0]
-                    .weapon_skill);
+                game.party.characters[game.status.selected_character].Hand[0].weapon_skill);
             message += base * 7;
         }
         switch (state) {
@@ -1041,8 +959,11 @@ bool BuildSubMenuPanel(short notification)
         button->Configure(
             ButtonGraphics::Load(CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, message,
                                  message + icon_delta, message, message + icon_delta),
-            {.on_click = [action = actions[menu][entry]](auto*) { AfterUiDispatch(action); },
-             .on_right_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); },
+            {.on_click =
+                 [this, action = actions[menu][entry]](auto*) {
+                     AfterUiDispatch([this, action] { chooseSubMenuAction(action); });
+                 },
+             .on_right_click = [this](auto*) { AfterUiDispatch([this] { closeSubMenu(); }); },
              .on_hover =
                  [menu, entry](bool hovered) {
                      if (menu == W8_SUBMENU_ITEMS && entry == 2 && hovered) {
@@ -1056,34 +977,32 @@ bool BuildSubMenuPanel(short notification)
         button->SetPosition(left + static_cast<int>(index) * 19 + 5, 0x1c8);
         button->Resize(18, 18);
         if (menu == W8_SUBMENU_ITEMS && entry == 2) {
-            button->SetTooltip([] {
-                const int slot = CurrentGame().status.selected_character;
-                if (!CanPartySlotUseRecordedItem(slot)) return std::string(Data().strings[0x5d]);
-                const auto& row = CurrentGame().party.rows[slot];
-                const auto* item =
-                    CurrentGame().inventory.itemAt(row.remembered.item_detail.item_use.item);
-                return fmt::format("{}: {}", Data().strings[0x5d],
-                                   FormatItemDisplayName(Data(), item, false));
+            button->SetTooltip([this] {
+                const int slot = game.status.selected_character;
+                if (!CanPartySlotUseRecordedItem(slot)) return std::string(game.data.strings[0x5d]);
+                const auto& row = game.party.rows[slot];
+                const auto* item = game.inventory.itemAt(row.remembered.item_detail.item_use.item);
+                return fmt::format("{}: {}", game.data.strings[0x5d],
+                                   FormatItemDisplayName(game.data, item, false));
             });
         }
         submenu->buttons.push_back(std::move(button));
     }
     auto cancel = std::make_unique<W8ButtonWidget>(submenu->input);
 
-    cancel->Configure(ButtonGraphics::Load(CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd,
-                                           0xbf, 0xbd, 0xbf),
-                      {.on_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); },
-                       .on_right_click = [](auto*) { AfterUiDispatch(DestroySubMenuControls); },
-                       .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
-                       .tooltip = 0x11,
-                       .priority = 0,
-                       .menu_artwork = true});
+    cancel->Configure(
+        ButtonGraphics::Load(CatalogArtwork::Load(0x89, 0).spriteSheet(), -1, 0xbd, 0xbf, 0xbd,
+                             0xbf),
+        {.on_click = [this](auto*) { AfterUiDispatch([this] { closeSubMenu(); }); },
+         .on_right_click = [this](auto*) { AfterUiDispatch([this] { closeSubMenu(); }); },
+         .policy = {.input_rule = ButtonInputRule::PrimaryPressedState},
+         .tooltip = 0x11,
+         .priority = 0,
+         .menu_artwork = true});
     cancel->SetPosition(left + built * 19 - 14, 0x1c8);
     cancel->Resize(18, 18);
     submenu->buttons.push_back(std::move(cancel));
-    MainGameHud()->open_submenu = notification;
-    EnableSubMenuRegions();
-    return true;
+    submenu->input.setEnabled(true);
 }
 
 /* Whether the slot may perform a candidate action, in entry-state terms:

@@ -23,7 +23,6 @@ struct W8Character;
 
 struct W8MonsterInfo;
 
-struct W8SpellDamageReport;
 class Missile;
 class SpellVisual;
 
@@ -64,7 +63,7 @@ enum class CombatWait : unsigned char {
     none,
     camera,       // the party camera is still turning
     monster,      // a monster's cycle, animation or turn toward its target is unfinished
-    hit_sound,    // the last hit sound is still playing
+    hit_sound,    // the latest hit sound has not completed
     spell_effect, // a spell effect has run out and is being retired
     missile,      // an engaged or spell missile is still in flight
     npc_script,   // a conscious NPC party slot's combat script is still queued
@@ -211,9 +210,6 @@ struct Combat {
     std::chrono::milliseconds continuous_start_delay{};
     std::chrono::milliseconds action_delay{};
     std::chrono::milliseconds party_movement_delay{};
-    /* The hit sound the turn waits on; its completion releases it (an empty playback
-       when none is held). */
-    wiz8::sound::Playback hit_sound;
     W8EffectSlot effect_slots[9];
     W8EffectSlot effect_slots0[6];
     Missile* engaged_missile;
@@ -228,10 +224,6 @@ struct Combat {
     /* How much of the party's move is left, in percent. It falls as the party walks, and
        when the move ends it decides which members still act this round. */
     int party_move_percent = 0;
-    /* The player aimed a member at a target this round, so the selection stays on that
-       member instead of auto-advancing. Cleared when an action changes and as the round
-       executes. */
-    bool target_picked = false;
     W8PartyFormationState saved_formation;
     /* Historical offset 0x9a4: the running attack's target did not see it coming - the monster
        stands behind the character or the target monster is looking away. The
@@ -241,13 +233,7 @@ struct Combat {
        short range, so the announcement skips the weapon-name string and uses
        the natural-attack verbs instead. */
     unsigned char natural_attack;
-    /* Historical offset 0x9a6: the running attack's outcome record, cleared to a fresh 0xa2-byte
-       block before each attack resolves. The swing and hit tallies feed the
-       "hit once"/"hit %d of %d" notices, one flag per condition records what
-       the swings inflicted (index 0x12 doubles as the killed gate), the report
-       list is a W8SpellDamageReport* vector drained front-first, and the six
-       notice values carry the amounts the notices print - [3] and [4]
-       are the running damage totals the character/monster damage paths add to. */
+    // Totals and pending death narration for the executing attack.
     W8SpellEffectResult attack_report;
     /* Historical offset 0xa48: the once-per-combat difficulty evaluation has run; the update
        tick calls the evaluator on the first frame it sees this clear. */
@@ -374,7 +360,6 @@ struct Combat {
         characters[slot].phase = 0;
         characters[slot].dead = true;
         characters[slot].action_changed = true;
-        target_picked = false;
     }
 
     /* One step of the fight (the game's step calls it while the world runs and nothing
@@ -384,6 +369,8 @@ struct Combat {
     void step(Game& game);
     /* The first thing the turn waits on. */
     CombatWait waitingOn(const Game& game) const;
+    // Failed playback leaves the previous successful hit sound in charge of the wait.
+    void waitForHitSound(wiz8::sound::Playback sound);
     /* Pick the next party slot or monster whose action phase arrived, start
        party-movement phases, arm the action delay, and roll the round counter forward
        until someone can act or the round ends. */
@@ -411,5 +398,7 @@ private:
        this round. The turn becomes idle. */
     void finishAction(Game& game, const CombatActor& actor);
 
+    // Keep the latest sound identity; completion belongs to the audio service.
+    wiz8::sound::Playback hit_sound_;
     CombatTurn turn_ = TurnIdle{};
 };

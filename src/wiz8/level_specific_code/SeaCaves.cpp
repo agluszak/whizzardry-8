@@ -22,48 +22,48 @@ struct W8NpcState;
 namespace {
 
 /* Spawns one hostile spirit at the named entity, if it exists. */
-bool SpawnSpiritAt(const char* entity)
+TriggerDecision SpawnSpiritAt(const char* entity)
 {
     if (auto position = CurrentGame().level.loaded().namedPosition(entity)) {
         SpawnMonsters(0x1f2, 1, &*position, 1, false, false);
     }
-    return true;
+    return {.run_action = true};
 }
 
 /* "HigardiChest01": spawn one spirit monster (0x1f2, hostile) at the
    NP_Spirit01 entity. */
-bool SeaCavesHigardiChest01(Trigger* pTrigger)
+TriggerDecision SeaCavesHigardiChest01(Trigger* pTrigger)
 {
     return SpawnSpiritAt("NP_Spirit01");
 }
 
 /* "HigardiChest02": spawn one spirit monster at NP_Spirit02. */
-bool SeaCavesHigardiChest02(Trigger* pTrigger)
+TriggerDecision SeaCavesHigardiChest02(Trigger* pTrigger)
 {
     return SpawnSpiritAt("NP_Spirit02");
 }
 
 /* "HigardiChest03": spawn one spirit monster at NP_Spirit03. */
-bool SeaCavesHigardiChest03(Trigger* pTrigger)
+TriggerDecision SeaCavesHigardiChest03(Trigger* pTrigger)
 {
     return SpawnSpiritAt("NP_Spirit03");
 }
 
 /* "HigardiChest04": spawn one spirit monster at NP_Spirit04. */
-bool SeaCavesHigardiChest04(Trigger* pTrigger)
+TriggerDecision SeaCavesHigardiChest04(Trigger* pTrigger)
 {
     return SpawnSpiritAt("NP_Spirit04");
 }
 
 /* "HigardiChest05": spawn one spirit monster at NP_Spirit05. */
-bool SeaCavesHigardiChest05(Trigger* pTrigger)
+TriggerDecision SeaCavesHigardiChest05(Trigger* pTrigger)
 {
     return SpawnSpiritAt("NP_Spirit05");
 }
 
 /* "doortomb": NPC kind 0x64's monster entry gets a fresh group member when
    its group still exists and the monster answers query 6 false. */
-bool SeaCavesDoorTomb(const ScriptContext& ctx, Trigger* pTrigger)
+TriggerDecision SeaCavesDoorTomb(const ScriptContext& ctx, Trigger* pTrigger)
 {
     W8NpcState* npc;
     W8MonsterInfo* monster_info;
@@ -71,25 +71,25 @@ bool SeaCavesDoorTomb(const ScriptContext& ctx, Trigger* pTrigger)
 
     npc = ctx.story.npcOfKind(0x64);
     if (npc == 0) {
-        return true;
+        return {.run_action = true};
     }
     monster_info =
         (npc->has_monster && npc->is_present ? ctx.world->population->findMonster(npc->location_id)
                                              : nullptr);
     if (monster_info == 0) {
-        return true;
+        return {.run_action = true};
     }
     if (!monster_info->entity) {
-        return true;
+        return {.run_action = true};
     }
     if (monster_info->entity->Query(W8_MONSTER_QUERY_CYCLE) != W8_MONSTER_CYCLE_BIRTH) {
-        return true;
+        return {.run_action = true};
     }
     group = ctx.world->population->findGroup(monster_info->monster_group_id);
     if (group != 0) {
         ctx.game.giveBirthToMonster(group);
     }
-    return true;
+    return {.run_action = true};
 }
 
 class SeaCavesScript final : public LevelScript {
@@ -104,8 +104,9 @@ public:
         bindTrigger("HigardiChest03", SeaCavesHigardiChest03);
         bindTrigger("HigardiChest04", SeaCavesHigardiChest04);
         bindTrigger("HigardiChest05", SeaCavesHigardiChest05);
-        bindTrigger("doortomb",
-                    [this](Trigger* trigger) { return SeaCavesDoorTomb(ctx, trigger); });
+        bindTrigger("doortomb", [this](Trigger* trigger) -> TriggerDecision {
+            return SeaCavesDoorTomb(ctx, trigger);
+        });
     }
 };
 

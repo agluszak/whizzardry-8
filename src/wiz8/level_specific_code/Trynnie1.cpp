@@ -11,6 +11,7 @@
 #include "wiz8/data/fact_ids.h"
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/records.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -87,7 +88,7 @@ public:
     void enter() override;
 
 private:
-    bool fountRandomFX(Trigger* pTrigger);
+    TriggerDecision fountRandomFX(Trigger* pTrigger);
 };
 
 /* Binds the fountain, then, once fact 0x229 reports the Trynnies dead and
@@ -114,7 +115,7 @@ void Trynnie1Script::enter()
 /* "Fount_randomFX": the magic fountain rolls d100 - afflict a random party
    member with condition 9 (25%), restore the party's spell points (25%),
    heal everyone (25%) or restore everyone's stamina (25%). */
-bool Trynnie1Script::fountRandomFX(Trigger* pTrigger)
+TriggerDecision Trynnie1Script::fountRandomFX(Trigger* pTrigger)
 {
     unsigned int roll;
     int slot;
@@ -128,12 +129,12 @@ bool Trynnie1Script::fountRandomFX(Trigger* pTrigger)
                              {.condition = W8_CONDITION_HEXED,
                               .duration = static_cast<int>(ctx.game.rng.below(5)) + 10});
             wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
-            return true;
+            return {.run_action = true};
         }
     } else if (roll < 50) {
         RestorePartySpellPoints(-1);
         wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
-        return true;
+        return {.run_action = true};
     } else if (roll < 75) {
         for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
             if (ctx.party.members[i].has_value()) {
@@ -141,7 +142,7 @@ bool Trynnie1Script::fountRandomFX(Trigger* pTrigger)
             }
         }
         wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
-        return true;
+        return {.run_action = true};
     } else {
         for (i = 0; i < W8_PARTY_SLOT_COUNT; ++i) {
             if (ctx.party.members[i].has_value()) {
@@ -150,7 +151,7 @@ bool Trynnie1Script::fountRandomFX(Trigger* pTrigger)
         }
     }
     wiz8::sound::play("Data\\Sound\\misc\\fountain_magic.wav");
-    return true;
+    return {.run_action = true};
 }
 
 } // namespace

@@ -348,6 +348,24 @@ void W8MonsterInfo::clearEffect(W8EffectSlot& effect, const W8MonsterRecord& rec
     RebuildMonsterDerivedStats(*this, record);
 }
 
+void W8MonsterInfo::ageEffects(unsigned int minutes, const W8MonsterRecord& record)
+{
+    const auto age = [&](auto& slots) {
+        for (auto& effect : slots) {
+            if (!effect.active) continue;
+            if (minutes < effect.duration)
+                effect.duration -= minutes;
+            else
+                clearEffect(effect, record);
+        }
+    };
+    age(effect_slots);
+    if (pCombat) {
+        age(pCombat->combat_effects);
+        age(pCombat->combat_effects_2);
+    }
+}
+
 void Game::resetCombatEffects()
 {
     auto reset = [&](auto& party_effects, auto member) {
@@ -522,7 +540,8 @@ signed char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition
                 absorbed = monster_info->enchantments[W8_ENCHANTMENT_HASTE].turns;
                 if (absorbed > 0) {
                     remaining = magnitude - absorbed;
-                    TickMonsterEnchantmentSlot(target->iMonsterID, W8_ENCHANTMENT_HASTE, magnitude);
+                    CurrentGame().ageMonsterEnchantment(*monster_info, W8_ENCHANTMENT_HASTE,
+                                                        magnitude);
                     if (remaining > 0) {
                         magnitude = remaining;
                     } else {
@@ -542,8 +561,8 @@ signed char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition
             magnitude = 2;
         }
         if (target->iType == W8_TARGET_KIND_MONSTER) {
-            CurrentGame().setMonsterCondition(target->iMonsterID, condition_id, magnitude, argument,
-                                              &source, announce);
+            CurrentGame().setMonsterCondition(*FindMonster(target->iMonsterID), condition_id,
+                                              magnitude, argument, &source, announce);
         } else {
             result = InflictCondition(CurrentGame(), target->iChar,
                                       {.condition = condition_id,
@@ -690,9 +709,8 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
             CurrentGame().events.push(CharacterNotice{
                 static_cast<unsigned int>(effect->Source.iChar), Data().strings[0x1a8]});
         } else {
-            AppendToLastTextLine(" -- ", -1);
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-            AppendToLastTextLine(Data().strings[0x1a8], -1);
+            CurrentGame().events.push(TextFragment{.text = " -- ", .leaves_open = true});
+            CurrentGame().events.push(TextFragment{.text = Data().strings[0x1a8]});
         }
         effect->reported = true;
         return;
@@ -748,7 +766,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
     summon = FindMonster(group->leader_location_id);
     summon->entity->nav.SetAngles(
         HeadingTowardNearestMonster(effect->target.point, disposition, summon->location_id));
-    CurrentGame().setGroupHostility(group, disposition, false);
+    CurrentGame().setGroupHostility(CurrentGame().level.loaded(), group, disposition, false);
     const auto summoned_state = disposition == W8_DISPOSITION_FRIENDLY ? W8_MONSTER_SUMMON_FRIENDLY
                                                                        : W8_MONSTER_SUMMON_HOSTILE;
     for (index = 0; index < group->MemberCount(); ++index) {
@@ -985,7 +1003,7 @@ void ApplyConditionToTargets(W8SpellEffectEntry* effect, W8EnchantmentSlot slot)
         assert(monster_info != 0);
         if (slot == W8_ENCHANTMENT_HASTE && monster_info->uiCondition[W8_CONDITION_SLOWED] != 0) {
             remaining = duration - monster_info->uiCondition[W8_CONDITION_SLOWED];
-            TickMonsterCondition(monster_info->location_id, W8_CONDITION_SLOWED, duration);
+            CurrentGame().ageMonsterCondition(*monster_info, W8_CONDITION_SLOWED, duration);
             if (remaining > 0) {
                 ApplyMonsterCondition(monster_info->location_id, W8_ENCHANTMENT_HASTE,
                                       effect->definition.duration_scale, remaining,
@@ -1028,80 +1046,32 @@ void ApplyRandomAfflictionToTarget(W8SpellEffectEntry* effect)
     ApplyConditionToTargets(effect, W8_ENCHANTMENT_SUPERMAN);
 }
 
-static void ReportSpellDeaths(W8SpellEffectEntry* effect)
-{
-    while (!effect->result.reports.empty()) {
-        auto report = std::move(effect->result.reports.front());
-        effect->result.reports.erase(effect->result.reports.begin());
-        if (report != 0) {
-            if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
-                CurrentGame().events.push(CharacterNotice{
-                    static_cast<unsigned int>(report->value),
-                    fmt::format("{}!",
-                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
-            } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
-                CurrentGame().events.push(TextNotice{
-                    W8_FONT_PALETTE_RUST,
-                    fmt::format("{} {}!", report->text,
-                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
-            }
-        }
-    }
-}
-
-/* Post what a non-verbose effect accumulated. The total goes out as one
-   "<amount>" line for a lone hit or "<count> <average>" for several, each
-   nonzero condition adds its own "<count> <name>", and the queued report
-   records are then drained the same way the verbose pass drains them. */
+/* Report accumulated damage and condition counts, followed by the captured death notices. */
 void ReportSpellEffectResult(W8SpellEffectEntry* effect)
 {
-    W8TextBoxMode text_box_mode;
-    int condition;
-    std::string condition_name;
-
-    if (g_settings.verbose_combat_messages) {
-        return;
-    }
+    if (g_settings.verbose_combat_messages) return;
+    auto& game = CurrentGame();
     if (effect->result.count != 0) {
-        text_box_mode = GetTextBoxMode();
-        if (text_box_mode != W8_TEXT_BOX_MODE_NOTICE) {
-            AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-        }
-        if (static_cast<int>(effect->target_indices.size()) +
-                static_cast<int>(effect->monster_ids.size()) ==
-            1) {
-            AppendToLastTextLine(fmt::sprintf(Data().strings[0x19a], effect->result.amount, -1),
-                                 -1);
-        } else {
-            AppendToLastTextLine(fmt::sprintf(Data().strings[0x199], effect->result.count,
-                                              effect->result.amount / effect->result.count, -1),
-                                 -1);
-        }
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-        effect->reported = true;
-        effect->applied = true;
+        const auto text = effect->target_indices.size() + effect->monster_ids.size() == 1
+                              ? fmt::sprintf(game.data.strings[0x19a], effect->result.amount, -1)
+                              : fmt::sprintf(game.data.strings[0x199], effect->result.count,
+                                             effect->result.amount / effect->result.count, -1);
+        game.events.push(TextFragment{.text = text,
+                                      .prefix_if_open = !effect->reported ? " -- " : ", ",
+                                      .leaves_open = true});
+        effect->reported = effect->applied = true;
     }
-    for (condition = 0; condition < W8_CONDITION_CLEARABLE_COUNT; ++condition) {
-        if (effect->result.condition_counts[condition] != 0) {
-            text_box_mode = GetTextBoxMode();
-            if (text_box_mode != W8_TEXT_BOX_MODE_NOTICE) {
-                AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-            }
-            if (effect->result.condition_counts[condition] == 1) {
-                condition_name = Data().strings[kConditionNotices[condition].singular];
-            } else {
-                condition_name = Data().strings[kConditionNotices[condition].plural];
-            }
-            AppendToLastTextLine(
-                fmt::format("{:d} {}", effect->result.condition_counts[condition], condition_name),
-                -1);
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-        }
+    for (int condition = 0; condition < W8_CONDITION_CLEARABLE_COUNT; ++condition) {
+        const auto count = effect->result.condition_counts[condition];
+        if (count == 0) continue;
+        const auto& names = kConditionNotices[condition];
+        game.events.push(TextFragment{
+            .text = fmt::format("{:d} {}", count,
+                                game.data.strings[count == 1 ? names.singular : names.plural]),
+            .prefix_if_open = !effect->reported ? " -- " : ", ",
+            .leaves_open = true});
     }
-
-    ReportSpellDeaths(effect);
+    game.events.publish(std::exchange(effect->result.death_notices, {}));
 }
 
 /* Resolve the queued monster target with the caller's original lookup and
@@ -1227,30 +1197,29 @@ static signed char RestoreTargetResource(W8SpellEffectEntry* effect, RestoredRes
                 static_cast<unsigned int>(monster->stamina_max))
                 all_full = false;
         } else {
-            HealMonster(monster, restored, verbose);
+            CurrentGame().healMonster(*monster, restored, verbose);
             if (monster->hp_current < static_cast<unsigned int>(monster->uiHPMax)) all_full = false;
         }
         record(restored, monster->location_id, false);
     }
     if (!verbose && count != 0) {
         if (stamina) effect->applied = true;
-        if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
-            AppendToLastTextLine(" -- ", -1);
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-        }
+        std::string text;
+
         if (count == 1) {
             const std::string name = target_is_character
                                          ? CurrentGame().party.characters[target_id].name
                                          : CurrentGame().monsterName(*FindMonster(target_id));
             const int format = stamina ? (target_is_character ? (total != 1) + 0x1a1 : 0x1a2)
                                        : (total != 1) + 0x19d;
-            AppendToLastTextLine(fmt::sprintf(Data().strings[format], name, total, -1), -1);
+            text = fmt::sprintf(Data().strings[format], name, total, -1);
         } else {
             const int format = stamina ? (total != 1) + 0x19f : (total / count != 1) + 0x19b;
-            AppendToLastTextLine(fmt::sprintf(Data().strings[format], count, total / count, -1),
-                                 -1);
+            text = fmt::sprintf(Data().strings[format], count, total / count, -1);
         }
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+
+        CurrentGame().events.push(
+            TextFragment{.text = std::move(text), .prefix_if_open = " -- ", .leaves_open = true});
         effect->reported = true;
         if (!stamina) effect->applied = true;
     }
@@ -1320,8 +1289,9 @@ void ApplyDamageToTargets(W8SpellEffectEntry* effect)
             } else {
                 result = 0;
             }
-            ApplyDamageToMonster(monster_info, magnitude, &effect->Source, false, verbose, 0,
-                                 result, false);
+            CurrentGame().damageMonster(
+                *monster_info, magnitude, effect->Source,
+                {.notice = verbose ? DamageNotice::Standard : DamageNotice::None}, result);
         }
     }
     if (!verbose) {
@@ -1388,8 +1358,9 @@ void DrainTargetsLife(W8SpellEffectEntry* effect)
             } else {
                 result = 0;
             }
-            ApplyDamageToMonster(monster_info, magnitude, &effect->Source, false, announce, 0,
-                                 result, false);
+            CurrentGame().damageMonster(
+                *monster_info, magnitude, effect->Source,
+                {.notice = announce ? DamageNotice::Standard : DamageNotice::None}, result);
             drained += magnitude;
         }
     }
@@ -1401,7 +1372,7 @@ void DrainTargetsLife(W8SpellEffectEntry* effect)
             monster_info = FindMonster(effect->Source.iMonsterID);
             assert(monster_info != 0);
             if (effect->kind == W8_SPELL_LIFESTEAL) {
-                HealMonster(monster_info, (drained * 7) / 10, announce);
+                CurrentGame().healMonster(*monster_info, (drained * 7) / 10, announce);
             } else if (effect->kind == W8_SPELL_MIGHT_TO_MAGIC) {
                 monster_info->spell_points += drained >> 1;
             }
@@ -1523,7 +1494,7 @@ signed char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition co
                     chance = effect->definition.duration_scale * 0xf;
                 }
                 if (CurrentGame().rng.below(100) < chance) {
-                    CurrentGame().clearMonsterCondition(monster_info->location_id, condition);
+                    CurrentGame().clearMonsterCondition(*monster_info, condition);
                     effect->applied = true;
                 } else {
                     all_cured = false;
@@ -1537,10 +1508,8 @@ signed char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition co
         }
     }
     if (!g_settings.verbose_combat_messages && remaining_count != 0) {
-        if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
-            AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-        }
+        CurrentGame().events.push(
+            TextFragment{.prefix_if_open = !effect->reported ? " -- " : ", ", .leaves_open = true});
         if (remaining_count == 1) {
             if (effect->target.iType == W8_TARGET_KIND_CHARACTER) {
                 CurrentGame().events.push(CharacterNotice{
@@ -1559,9 +1528,9 @@ signed char TryCureConditionOnTargets(W8SpellEffectEntry* effect, W8Condition co
                 return all_cured;
             }
         }
-        AppendToLastTextLine(fmt::sprintf(Data().strings[0x1b2], remaining_count,
-                                          Data().strings[kConditionNotices[condition].noun], -1),
-                             -1);
+        CurrentGame().events.push(TextFragment{
+            .text = fmt::sprintf(Data().strings[0x1b2], remaining_count,
+                                 Data().strings[kConditionNotices[condition].noun], -1)});
         effect->reported = true;
     }
     return all_cured;
@@ -1585,8 +1554,7 @@ static bool ApplyConditionAttackToTarget(W8SpellEffectEntry* effect, W8CombatSlo
         if (haste_turns != 0) {
             const int remaining = static_cast<int>(duration) - static_cast<int>(haste_turns);
             if (monster)
-                TickMonsterEnchantmentSlot(monster_info->location_id, W8_ENCHANTMENT_HASTE,
-                                           duration);
+                CurrentGame().ageMonsterEnchantment(*monster_info, W8_ENCHANTMENT_HASTE, duration);
             else
                 AgeEnchantment(CurrentGame(), character_index, W8_ENCHANTMENT_HASTE, duration);
             return remaining > 0 &&
@@ -1624,6 +1592,7 @@ static bool ApplyConditionAttackToTarget(W8SpellEffectEntry* effect, W8CombatSlo
 void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, int chance,
                             int argument)
 {
+    auto& events = CurrentGame().events;
     W8MonsterInfo* monster_info;
     W8CombatSlot target;
     bool verbose;
@@ -1665,10 +1634,8 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
     if (verbose || affected == 0) {
         return;
     }
-    if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
-        AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-    }
+    std::string text;
+
     if (static_cast<int>(effect->monster_ids.size()) +
             static_cast<int>(effect->target_indices.size()) !=
         1) {
@@ -1677,23 +1644,23 @@ void InflictConditionAttack(W8SpellEffectEntry* effect, W8Condition condition, i
         } else {
             notice = Data().strings[kConditionNotices[condition].plural];
         }
-        AppendToLastTextLine(fmt::format("{:d} {}", affected, notice), -1);
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+        text = fmt::format("{:d} {}", affected, notice);
     } else {
         notice = Data().strings[kConditionNotices[condition].singular];
         if (target.iType == W8_TARGET_KIND_CHARACTER) {
-            AppendToLastTextLine(
-                fmt::format("{} {}", CurrentGame().party.characters[character_index].name, notice),
-                -1);
+            text =
+                fmt::format("{} {}", CurrentGame().party.characters[character_index].name, notice);
         } else if (target.iType == W8_TARGET_KIND_MONSTER) {
             monster_info = FindMonster(target.iMonsterID);
-            AppendToLastTextLine(
-                fmt::format("{} {}", CurrentGame().monsterName(*monster_info), notice), -1);
+            text = fmt::format("{} {}", CurrentGame().monsterName(*monster_info), notice);
         } else {
-            AppendToLastTextLine(fmt::format("{:d} {}", affected, notice), -1);
+            text = fmt::format("{:d} {}", affected, notice);
         }
-        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
     }
+
+    events.push(TextFragment{.text = std::move(text),
+                             .prefix_if_open = !effect->reported ? " -- " : ", ",
+                             .leaves_open = true});
     effect->reported = true;
     effect->applied = true;
 }
@@ -1820,11 +1787,10 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
         ++effect->result.count;
     }
     if (effect->result.count != 0) {
-        if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
-            AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-        }
-        AppendToLastTextLine(fmt::sprintf(Data().strings[0x1a4], effect->result.count, -1), -1);
+        CurrentGame().events.push(
+            TextFragment{.prefix_if_open = !effect->reported ? " -- " : ", ", .leaves_open = true});
+        CurrentGame().events.push(
+            TextFragment{.text = fmt::sprintf(Data().strings[0x1a4], effect->result.count, -1)});
         effect->reported = true;
     }
 }
@@ -1913,8 +1879,9 @@ static void ResolveAfflictionForTarget(W8SpellEffectEntry* effect, W8CombatSlot*
             target->iChar, magnitude,
             {.notice = verbose ? DamageNotice::Standard : DamageNotice::None}, result);
     else
-        ApplyDamageToMonster(monster_info, magnitude, &effect->Source, false, verbose, 0, result,
-                             false);
+        CurrentGame().damageMonster(
+            *monster_info, magnitude, effect->Source,
+            {.notice = verbose ? DamageNotice::Standard : DamageNotice::None}, result);
 }
 
 /* The affliction spells: each listed target takes either a weighted-random
@@ -1998,31 +1965,34 @@ void DamageTargetsAndReport(W8SpellEffectEntry* effect)
         ApplyEffectAndAnnounce(&magnitude, &target, Data().spells[effect->kind].realm,
                                effect->definition.power_level);
         if (magnitude != 0) {
-            ApplyDamageToMonster(monster_info, magnitude, &effect->Source, false, verbose, 0,
-                                 verbose ? 0 : result, false);
+            CurrentGame().damageMonster(
+                *monster_info, magnitude, effect->Source,
+                {.notice = verbose ? DamageNotice::Standard : DamageNotice::None},
+                verbose ? 0 : result);
             total += magnitude;
             ++hits;
         }
     }
     if (!verbose) {
         if (hits != 0) {
-            if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
-                AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-            }
+            std::string text;
+
             if (static_cast<int>(effect->monster_ids.size()) +
                     static_cast<int>(effect->target_indices.size()) ==
                 1) {
-                AppendToLastTextLine(fmt::sprintf(Data().strings[0x1a6], total, -1), -1);
+                text = fmt::sprintf(Data().strings[0x1a6], total, -1);
             } else {
-                AppendToLastTextLine(fmt::sprintf(Data().strings[0x1a7], hits, total / hits, -1),
-                                     -1);
+                text = fmt::sprintf(Data().strings[0x1a7], hits, total / hits, -1);
             }
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+
+            CurrentGame().events.push(
+                TextFragment{.text = std::move(text),
+                             .prefix_if_open = !effect->reported ? " -- " : ", ",
+                             .leaves_open = true});
             effect->reported = true;
             effect->applied = true;
         }
-        ReportSpellDeaths(effect);
+        CurrentGame().events.publish(std::exchange(effect->result.death_notices, {}));
     }
 }
 
@@ -2092,16 +2062,20 @@ void DestroyConsumablesOnTargets(W8SpellEffectEntry* effect)
         for (index = 0; index < 3; ++index) {
             if (totals[index] != 0) {
                 if (!verbose) {
-                    AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
+                    CurrentGame().events.push(
+                        TextFragment{.text = !effect->reported ? " -- " : ", "});
                 }
                 CurrentGame().events.push(TextBoxModeChange{
                     verbose ? W8_TEXT_BOX_MODE_NOTICE : W8_TEXT_BOX_MODE_APPEND, -1});
                 if (index == 0) {
-                    AppendToLastTextLine(fmt::sprintf(Data().strings[0x1fa], totals[0], -1), -1);
+                    CurrentGame().events.push(
+                        TextFragment{.text = fmt::sprintf(Data().strings[0x1fa], totals[0], -1)});
                 } else if (index == 1) {
-                    AppendToLastTextLine(fmt::sprintf(Data().strings[0x1fb], totals[1], -1), -1);
+                    CurrentGame().events.push(
+                        TextFragment{.text = fmt::sprintf(Data().strings[0x1fb], totals[1], -1)});
                 } else if (index == 2) {
-                    AppendToLastTextLine(fmt::sprintf(Data().strings[0x1fc], totals[2], -1), -1);
+                    CurrentGame().events.push(
+                        TextFragment{.text = fmt::sprintf(Data().strings[0x1fc], totals[2], -1)});
                 }
                 if (!verbose) {
                     CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
@@ -2161,7 +2135,8 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
         }
         if (monster_info->uiCondition[W8_CONDITION_BLIND] != 0 ||
             monster_info->highest_condition >= W8_CONDITION_ASLEEP) {
-            SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_NONE);
+            monster_info->setControlState(W8_MONSTER_CONTROL_NONE);
+            CurrentGame().events.push(MonstersChanged{});
             continue;
         }
         ResetCombatSlot(&target);
@@ -2169,7 +2144,8 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
         target.iMonsterID = monster_info->location_id;
         if (!MonsterResistsSpellEffect(&target, effect->definition.power_level)) {
             if (CurrentGame().combat.has_value()) {
-                SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_LURED);
+                monster_info->setControlState(W8_MONSTER_CONTROL_LURED);
+                CurrentGame().events.push(MonstersChanged{});
             } else {
                 SetMonsterGroupControlState(FindMonsterGroup(monster_info->monster_group_id),
                                             W8_MONSTER_CONTROL_LURED);
@@ -2177,7 +2153,8 @@ void ApplyMonsterControlToNearbyMonsters(W8SpellEffectEntry* effect)
             effect->applied = true;
         } else {
             if (CurrentGame().combat.has_value()) {
-                SetMonsterControlState(monster_info, W8_MONSTER_CONTROL_RESISTED);
+                monster_info->setControlState(W8_MONSTER_CONTROL_RESISTED);
+                CurrentGame().events.push(MonstersChanged{});
             } else {
                 SetMonsterGroupControlState(FindMonsterGroup(monster_info->monster_group_id),
                                             W8_MONSTER_CONTROL_RESISTED);
@@ -2207,21 +2184,21 @@ signed char RevealItemBindingsToTarget(W8SpellEffectEntry* effect)
         if (result > 0 && result < 3) {
             if (!verbose) {
                 effect->applied = true;
-                AppendToLastTextLine(!effect->reported ? " -- " : ", ", -1);
-                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+                CurrentGame().events.push(
+                    TextFragment{.text = !effect->reported ? " -- " : ", ", .leaves_open = true});
             }
             if (result == 2) {
-                AppendToLastTextLine(
-                    fmt::sprintf(Data().strings[0x1bc],
-                                 CurrentGame().party.characters[effect->target.iChar].name, -1),
-                    -1);
+                CurrentGame().events.push(TextFragment{
+                    .text = fmt::sprintf(Data().strings[0x1bc],
+                                         CurrentGame().party.characters[effect->target.iChar].name,
+                                         -1)});
                 effect->reported = true;
                 return applied;
             }
-            AppendToLastTextLine(
-                fmt::sprintf(Data().strings[0x1bd],
-                             CurrentGame().party.characters[effect->target.iChar].name, -1),
-                -1);
+            CurrentGame().events.push(TextFragment{
+                .text =
+                    fmt::sprintf(Data().strings[0x1bd],
+                                 CurrentGame().party.characters[effect->target.iChar].name, -1)});
             applied = 0;
             effect->reported = true;
         }
@@ -2454,8 +2431,8 @@ void FinishSpellEffectTargets(W8SpellEffectEntry* effect)
                 if (monster_info != 0) {
                     PostMonsterNotice(monster_info, Data().strings[0x198]);
                     if (--monster_info->enchantments[W8_ENCHANTMENT_EYE_FOR_AN_EYE].power == 0) {
-                        ClearMonsterEnchantmentSlot(monster_info->location_id,
-                                                    W8_ENCHANTMENT_EYE_FOR_AN_EYE);
+                        CurrentGame().disenchantMonster(*monster_info,
+                                                        W8_ENCHANTMENT_EYE_FOR_AN_EYE);
                     }
                 }
             } else {
@@ -2517,15 +2494,15 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
                 ApplyEffectAndAnnounce(&amount, &target, Data().spells[W8_SPELL_RING_OF_FIRE].realm,
                                        slot.amount * 3);
                 if (amount != 0) {
-                    ApplyDamageToMonster(monster_info, amount, &source, false, verbose, 0,
-                                         !verbose ? &local_result : 0, false);
+                    CurrentGame().damageMonster(
+                        *monster_info, amount, source,
+                        {.notice = verbose ? DamageNotice::Standard : DamageNotice::None},
+                        !verbose ? &local_result : 0);
                 }
             }
             if (!verbose) {
-                if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
-                    AppendToLastTextLine(" -- ", -1);
-                    CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-                }
+                CurrentGame().events.push(
+                    TextFragment{.prefix_if_open = " -- ", .leaves_open = true});
                 if (local_result.count != 0) {
                     std::string line;
                     if (static_cast<int>(found.size()) == 1) {
@@ -2534,31 +2511,11 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
                         line = fmt::sprintf(Data().strings[0x199], local_result.count,
                                             local_result.amount / local_result.count, -1);
                     }
-                    AppendToLastTextLine(line, -1);
+                    CurrentGame().events.push(TextFragment{.text = line});
                 } else {
-                    AppendToLastTextLine(Data().strings[0x1a5], -1);
+                    CurrentGame().events.push(TextFragment{.text = Data().strings[0x1a5]});
                 }
-                while (!local_result.reports.empty()) {
-                    auto report = std::move(local_result.reports.front());
-                    local_result.reports.erase(local_result.reports.begin());
-                    if (report != 0) {
-                        if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
-                            CurrentGame().events.push(CharacterNotice{
-                                static_cast<unsigned int>(report->value),
-                                fmt::format(
-                                    "{}!",
-                                    Data()
-                                        .strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
-                        } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
-                            CurrentGame().events.push(TextNotice{
-                                W8_FONT_PALETTE_RUST,
-                                fmt::format(
-                                    "{} {}!", report->text,
-                                    Data()
-                                        .strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
-                        }
-                    }
-                }
+                CurrentGame().events.publish(std::move(local_result.death_notices));
             }
         }
     }
@@ -2719,7 +2676,7 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                     ApplyEffectAndAnnounce(&amount, target, Data().spells[spell_id].realm,
                                            difficulty);
                     if (amount != 0) {
-                        ApplyDamageToMonster(monster_info, amount, &source, false, 1, 0, 0, false);
+                        CurrentGame().damageMonster(*monster_info, amount, source, {});
                         if (spell_id == W8_SPELL_DRAINING_CLOUD) {
                             CurrentGame().fatigueMonster(monster_info, amount, 0);
                             monster_info->spell_points = monster_info->spell_points - (amount >> 1);
@@ -2730,8 +2687,9 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                 if (sleep_type && monster_record->instant_death_immune == 0 &&
                     !TargetResistsCondition(target, Data().spells[W8_SPELL_DEATH_CLOUD].realm,
                                             difficulty, W8_CONDITION_DEAD)) {
-                    CurrentGame().setMonsterCondition(target->iMonsterID, W8_CONDITION_DEAD,
-                                                      W8_CONDITION_INDEFINITE, 0, &source, true);
+                    CurrentGame().setMonsterCondition(*FindMonster(target->iMonsterID),
+                                                      W8_CONDITION_DEAD, W8_CONDITION_INDEFINITE, 0,
+                                                      &source, true);
                 }
                 if (monster_info->hp_current == 0) {
                     return;
@@ -2749,7 +2707,7 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                         if (!TargetResistsCondition(target,
                                                     Data().spells[W8_SPELL_TOXIC_CLOUD].realm,
                                                     difficulty, W8_CONDITION_NAUSEATED)) {
-                            CurrentGame().setMonsterCondition(target->iMonsterID,
+                            CurrentGame().setMonsterCondition(*FindMonster(target->iMonsterID),
                                                               W8_CONDITION_NAUSEATED,
                                                               condition_turns, 0, &source, true);
                         }
@@ -2757,13 +2715,13 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
                                                     Data().spells[W8_SPELL_TOXIC_CLOUD].realm,
                                                     difficulty, W8_CONDITION_POISONED)) {
                             CurrentGame().setMonsterCondition(
-                                target->iMonsterID, W8_CONDITION_POISONED, condition_turns,
-                                condition_turns, &source, true);
+                                *FindMonster(target->iMonsterID), W8_CONDITION_POISONED,
+                                condition_turns, condition_turns, &source, true);
                         }
                         if (!TargetResistsCondition(target,
                                                     Data().spells[W8_SPELL_TOXIC_CLOUD].realm,
                                                     difficulty, W8_CONDITION_UNCONSCIOUS)) {
-                            CurrentGame().setMonsterCondition(target->iMonsterID,
+                            CurrentGame().setMonsterCondition(*FindMonster(target->iMonsterID),
                                                               W8_CONDITION_UNCONSCIOUS,
                                                               condition_turns, 0, &source, true);
                         }
@@ -2788,6 +2746,7 @@ void TickCombatEffectSlots(W8EffectSlot* effect_slots, W8CombatSlot* target)
    stamina and realm spell points hold out), and the reflection pass runs. */
 void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
 {
+    auto& events = CurrentGame().events;
     CameraPose* camera_state;
     World* world;
     glm::vec3 point;
@@ -3213,16 +3172,14 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
             }
             CurrentGame().party.gold =
                 CurrentGame().party.gold - (percent_roll * CurrentGame().party.gold) / 100;
-            if (!g_settings.verbose_combat_messages &&
-                GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
-                AppendToLastTextLine(" -- ", -1);
-                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
+            if (!g_settings.verbose_combat_messages) {
+                events.push(TextFragment{.prefix_if_open = " -- ", .leaves_open = true});
             }
             if (percent_roll < 100) {
-                AppendToLastTextLine(Data().strings[0x1b5], -1);
+                events.push(TextFragment{.text = Data().strings[0x1b5]});
                 effect->reported = true;
             } else {
-                AppendToLastTextLine(Data().strings[0x1b6], -1);
+                events.push(TextFragment{.text = Data().strings[0x1b6]});
                 effect->reported = true;
             }
         }
@@ -3260,17 +3217,15 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
         ApplyDamageToTargets(effect);
         break;
     default:
-        CurrentGame().events.push(
+        events.push(
             TextNotice{W8_FONT_PALETTE_BROWN, fmt::format("{} - spell effect not implemented",
                                                           Data().spells[spell_id].display_name)});
         break;
     }
     if (!g_settings.verbose_combat_messages && !effect->reported && !effect->Source.fBackfire) {
-        if (GetTextBoxMode() != W8_TEXT_BOX_MODE_NOTICE) {
-            AppendToLastTextLine(" -- ", -1);
-            CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_APPEND, -1});
-        }
-        AppendToLastTextLine(effect->applied ? Data().strings[0x1b0] : Data().strings[0x1a5], -1);
+        events.push(TextFragment{.prefix_if_open = " -- ", .leaves_open = true});
+        events.push(
+            TextFragment{.text = effect->applied ? Data().strings[0x1b0] : Data().strings[0x1a5]});
         effect->reported = true;
     }
     if (effect->recast && applied == 0) {
@@ -3301,10 +3256,10 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
 
 static void QueueCombatDamageReports(W8SpellEffectResult* result)
 {
-    auto& queued = CurrentGame().combat->attack_report.reports;
-    queued.insert(queued.end(), std::make_move_iterator(result->reports.begin()),
-                  std::make_move_iterator(result->reports.end()));
-    result->reports.clear();
+    auto& queued = CurrentGame().combat->attack_report.death_notices;
+    queued.insert(queued.end(), std::make_move_iterator(result->death_notices.begin()),
+                  std::make_move_iterator(result->death_notices.end()));
+    result->death_notices.clear();
 }
 
 /* Damage from the target-side enchantment: the enchantment's power scales the
@@ -3354,7 +3309,9 @@ void ApplyDiceDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* sourc
     record = GetMonsterDataForInfo(monster_info);
     amount = ApplyDamageReduction(monster_info, record, damage);
     if (amount > 0) {
-        ApplyDamageToMonster(monster_info, amount, source, false, verbose, verbose, 0, false);
+        CurrentGame().damageMonster(
+            *monster_info, amount, *source,
+            {.notice = verbose ? DamageNotice::AmountOnly : DamageNotice::None});
         CurrentGame().combat->attack_report.notice_values[3] += amount;
     }
 }
@@ -3395,10 +3352,11 @@ void ApplyDirectDamageToMonster(W8MonsterInfo* monster_info, W8TargetSource* sou
     amount = ApplyDamageReduction(monster_info, record, damage);
     if (amount > 0) {
         if (verbose) {
-            ApplyDamageToMonster(monster_info, amount, source, false, 1, 1, 0, true);
+            CurrentGame().damageMonster(*monster_info, amount, *source,
+                                        {.notice = DamageNotice::Detailed});
         } else {
-            amount =
-                ApplyDamageToMonster(monster_info, amount, source, false, 0, 0, &result, false);
+            amount = CurrentGame().damageMonster(*monster_info, amount, *source,
+                                                 {.notice = DamageNotice::None}, &result);
             CurrentGame().combat->attack_report.notice_values[4] += amount;
             QueueCombatDamageReports(&result);
         }

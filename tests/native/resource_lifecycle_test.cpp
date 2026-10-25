@@ -728,12 +728,12 @@ TEST_CASE_METHOD(SpellVisualFixture,
                  "[resources][levels][rendering]")
 {
     const ScopedGameData installed(GameData{.monsters = std::vector<W8MonsterRecord>(1)});
-    auto active = std::make_unique<W8MonsterInfo>();
+    auto active = std::make_unique<W8MonsterInfo>(world);
     active->location_id = 7;
     active->within_viewing_distance = false;
     world.population->monster_roster.add(std::move(active), false);
     World replacement;
-    auto record = std::make_unique<W8MonsterInfo>();
+    auto record = std::make_unique<W8MonsterInfo>(replacement);
     record->location_id = 7;
     record->within_viewing_distance = true;
     record->party_threat.visible_to_player = false;
@@ -757,7 +757,7 @@ TEST_CASE_METHOD(SpellVisualFixture,
     REQUIRE_FALSE(world.projectsToCamera({0, 0, 10}));
 
     for (auto* owner : {&world, &replacement}) {
-        auto observer = std::make_unique<W8MonsterInfo>();
+        auto observer = std::make_unique<W8MonsterInfo>(*owner);
         observer->location_id = 8;
         observer->fActive = true;
         observer->monster_visibility = std::make_unique<W8MonsterVisibility>();
@@ -938,6 +938,46 @@ TEST_CASE("The party navigator stands the world height below the eye",
     REQUIRE(navigationPosition({0, g_default_world_height, 0}) == glm::vec3(0));
 }
 
+TEST_CASE("NPC triggers and queued notices retain their original game and identity",
+          "[npc][lifetime]")
+{
+    const ScopedGame active;
+    W8NpcDatabaseRecord record{};
+    record.source_name = "NoticeOwner";
+    record.merchant = 1;
+    std::weak_ptr<W8NpcState> retained;
+    {
+        Game owner(active.game.data);
+        auto& world = PublishEmptyWorld(owner);
+        auto npc = std::make_shared<W8NpcState>();
+        npc->record = &record;
+        owner.story.npcs.push_back(npc);
+        auto trigger = std::make_unique<Trigger>(&world);
+        std::snprintf(trigger->name, sizeof(trigger->name), "_NoticeOwner");
+        trigger->m_lData1 = 123; // Authored action data must not become an NPC slot.
+        world.triggers.push_back(std::move(trigger));
+        owner.bindNpcLevelTriggers();
+        REQUIRE(world.triggers.front()->m_lData1 == 123);
+        retained = npc;
+        auto replacement = std::make_shared<W8NpcState>();
+        replacement->record = &record;
+        owner.story.npcs[0] = replacement;
+        npc.reset();
+        world.triggers.front()->Run(-1);
+        world.triggers.clear();
+        REQUIRE(owner.npc_dialogue.has_queued_actions());
+        REQUIRE_FALSE(active.game.npc_dialogue.has_queued_actions());
+        REQUIRE_FALSE(retained.expired());
+        std::weak_ptr<W8NpcState> refused = replacement;
+        owner.queueNpcNotice(*replacement);
+        owner.story.npcs.clear();
+        replacement.reset();
+        REQUIRE(
+            refused.expired()); // First pending notice wins; no shadow mailbox retains this one.
+    }
+    REQUIRE(retained.expired());
+}
+
 TEST_CASE("Queued dialogue keeps its script and voice when the NPC is rebound", "[npc][lifetime]")
 {
     ScopedGame scope;
@@ -1008,7 +1048,7 @@ TEST_CASE("A monster record owns its loaded body independently of activation",
           "[resources][monsters]")
 {
     World world;
-    auto record = std::make_unique<W8MonsterInfo>();
+    auto record = std::make_unique<W8MonsterInfo>(world);
     record->location_id = 7;
     record->entity = std::make_unique<Monster>(world);
     auto* body = record->entity.get();
@@ -1071,7 +1111,7 @@ TEST_CASE("Scripted removal retires relationships before reclaiming an updating 
     world.compiledIndex()->registry.cells = std::make_unique<W8OctreeObjectRegistry>();
     std::vector<int> calls;
     const auto add = [&](int id, std::function<void()> action) {
-        auto record = std::make_unique<W8MonsterInfo>();
+        auto record = std::make_unique<W8MonsterInfo>(world);
         record->location_id = id;
         record->entity = std::make_unique<Monster>(world);
         auto& body = *record->entity;
@@ -1099,10 +1139,11 @@ TEST_CASE("Scripted removal retires relationships before reclaiming an updating 
         body.script->lines.push_back({"TRIGGER " + name, 1});
         auto trigger = std::make_unique<Trigger>(&world);
         std::snprintf(trigger->name, sizeof(trigger->name), "%s", name.c_str());
-        trigger->activation_callback = [&, id, action = std::move(action)](Trigger*) {
+        trigger->activation_callback = [&, id,
+                                        action = std::move(action)](Trigger*) -> TriggerDecision {
             calls.push_back(id);
             action();
-            return false;
+            return {.run_action = false};
         };
         world.triggers.push_back(std::move(trigger));
         world.active_monsters.push_back(&body);
@@ -1178,38 +1219,67 @@ TEST_CASE("Scripted removal retires relationships before reclaiming an updating 
 TEST_CASE("A missile reports and detaches only from its original world's casts",
           "[resources][spell]")
 {
-    ScopedGame scope;
-    auto outgoing = std::make_unique<World>();
-    auto incoming = std::make_unique<World>();
+    GameData data;
+    data.missiles.resize(1);
+    data.missiles[0].cycle_name = "Lifetime";
+    data.missiles[0].radius = 123;
+    ScopedGame scope(data);
+    const auto make_world = [] {
+        auto world = std::make_unique<World>();
+        auto definition = std::make_unique<MissileDefinition>();
+        definition->asset_name = "Lifetime";
+        auto& animation = definition->resources.cycles[0].animation;
+        animation = std::make_unique<Animation>();
+        animation->positioned_parts = true;
+        animation->frame_count = 1;
+        animation->playback_scale = 1;
+        animation->frame_method = W8_ANIMATION_WRAP;
+        animation->behaviour = W8_ANIMATION_NEVER_STOP;
+        world->missile_definitions.push_back(std::move(definition));
+        return world;
+    };
+    auto outgoing = make_world();
+    auto incoming = make_world();
     auto old_cast = std::make_unique<W8SpellEffectEntry>();
     auto new_cast = std::make_unique<W8SpellEffectEntry>();
-    auto old_missile = std::make_unique<Missile>(*outgoing);
-    auto new_missile = std::make_unique<Missile>(*incoming);
-    old_cast->missiles.push_back(old_missile.get());
-    new_cast->missiles.push_back(new_missile.get());
+    auto* old_missile = outgoing->launchMissile(data, {.origin = {}, .destination = {0, 0, 100}});
+    auto* new_missile = incoming->launchMissile(
+        data, {.origin = {}, .destination = {0, 0, 100}, .effect = W8SpellEffectDefinition{}});
+    REQUIRE(old_missile->definition.radius == 0);
+    REQUIRE(new_missile->definition.radius == 123);
+    REQUIRE(old_missile->m_Source.iChar == -1);
+    REQUIRE(old_missile->combat_slot.iMonsterID == -1);
+    old_cast->missiles.push_back(old_missile);
+    new_cast->missiles.push_back(new_missile);
     auto* old_result = old_cast.get();
     auto* new_result = new_cast.get();
     outgoing->spell_effects.push_back(std::move(old_cast));
     incoming->spell_effects.push_back(std::move(new_cast));
-    incoming->missiles.push_back(std::move(new_missile));
     scope.game.level.replacePrimary(std::move(incoming));
 
     old_missile->result.amount = 12;
     old_missile->result.count = 1;
-    old_missile->result.reports.push_back(std::make_unique<W8SpellDamageReport>());
+    old_missile->result.death_notices.emplace_back(CharacterNotice{0, "retained death notice"});
     outgoing->absorbMissileDamage(*old_missile);
     REQUIRE(old_result->result.amount == 12);
-    REQUIRE(old_result->result.reports.size() == 1);
-    REQUIRE(old_missile->result.reports.empty());
+    REQUIRE(old_result->result.death_notices.size() == 1);
+    REQUIRE(std::get<CharacterNotice>(old_result->result.death_notices.front()).text ==
+            "retained death notice");
+    REQUIRE(old_missile->result.death_notices.empty());
     REQUIRE(new_result->result.amount == 0);
-    old_missile.reset();
+    old_missile->flight_done = true;
+    old_missile->block_released = false;
+    outgoing->updateMissiles(true);
+    REQUIRE(outgoing->missiles().size() == 1);
+    old_missile->block_released = true;
+    outgoing->updateMissiles(true);
+    REQUIRE(outgoing->missiles().empty());
     REQUIRE(old_result->missiles.empty());
     REQUIRE(new_result->missiles.size() == 1);
 
     // The entire old world can also be reclaimed after its session has ended.
-    auto remaining = std::make_unique<Missile>(*outgoing);
-    old_result->missiles.push_back(remaining.get());
-    outgoing->missiles.push_back(std::move(remaining));
+    auto* remaining = outgoing->launchMissile(data, {.origin = {}, .destination = {0, 0, 100}});
+    old_result->missiles.push_back(remaining);
     scope.session.end();
     REQUIRE_FALSE(GameInProgress());
     outgoing.reset();
@@ -1453,7 +1523,7 @@ TEST_CASE("Prepared monster bodies use their definition and RNG without an insta
     std::vector<Rng::Draw> draws;
     rng.trace(&draws);
     const auto prepare = [&](int id, bool unborn, bool visited) -> W8MonsterInfo& {
-        auto info = std::make_unique<W8MonsterInfo>();
+        auto info = std::make_unique<W8MonsterInfo>(world);
         info->location_id = id;
         info->monster_species = 123; // Deliberately no installed database with this species.
         info->uiHPMax = info->hp_current = 15;
@@ -1565,7 +1635,7 @@ TEST_CASE("NPC preparation keeps story identity and publishes only into its supp
     retired->gold = 999;
     candidate.story.npcs = {singleton, retired};
     const auto add = [&](int id, unsigned int species, bool unborn = false) -> W8MonsterInfo& {
-        auto info = std::make_unique<W8MonsterInfo>();
+        auto info = std::make_unique<W8MonsterInfo>(world);
         info->location_id = id;
         info->monster_species = species;
         info->entity = std::make_unique<Monster>(world, &data.monsters[species]);
@@ -2056,7 +2126,7 @@ TEST_CASE("A group leaves only its own game fight and releases its engagement ef
     candidate.combat.emplace().schedule(MonsterActor{7});
     candidate.level.replacePrimary(std::make_unique<World>());
     auto& world = candidate.level.loaded();
-    auto monster = std::make_unique<W8MonsterInfo>();
+    auto monster = std::make_unique<W8MonsterInfo>(world);
     monster->location_id = 7;
     monster->monster_group_id = 1;
     monster->hp_current = monster->uiHPMax = 1;
@@ -2064,10 +2134,17 @@ TEST_CASE("A group leaves only its own game fight and releases its engagement ef
     monster->ubDisposition = W8_DISPOSITION_HOSTILE;
     monster->entity = std::make_unique<Monster>(world, &data.monsters[0]);
     monster->pCombat = std::make_unique<W8MonsterCombatState>();
+    monster->effect_slots[0].Activate(2, 1, 1);
+    monster->effect_slots[0].percent = 37;
     monster->pCombat->combat_effects[0].Activate(2, 1, 10);
     monster->pCombat->combat_effects_2[0].Activate(2, 1, 10);
     monster->modifiers.hit_bonus = monster->modifiers.armor_flat = 2;
     auto& member = *world.population->monster_roster.add(std::move(monster), false);
+    member.ageEffects(1, data.monsters[0]);
+    REQUIRE_FALSE(member.effect_slots[0].active);
+    REQUIRE(member.effect_slots[0].percent == 37);
+    REQUIRE(member.pCombat->combat_effects[0].duration == 9);
+    REQUIRE(member.pCombat->combat_effects_2[0].duration == 9);
     auto& group = world.population->adoptGroup(std::make_unique<W8MonsterGroup>(), false);
     group.group_id = 1;
     group.fInCombat = true;
@@ -2101,7 +2178,7 @@ TEST_CASE("A group leaves only its own game fight and releases its engagement ef
     auto& nav = member.entity->nav;
     nav.movement.location_id = 7;
     nav.patrol_home = {4, 5, 6};
-    auto follower = std::make_unique<W8MonsterInfo>();
+    auto follower = std::make_unique<W8MonsterInfo>(world);
     follower->location_id = 8;
     follower->monster_group_id = 1;
     follower->hp_current = 1;
@@ -2150,11 +2227,11 @@ TEST_CASE("Monster names query their owning game without maintaining a display c
     candidate.level.replacePrimary(std::make_unique<World>());
     candidate.status.retail.monster_name_cache.fill(std::byte{0xa5});
     const auto cache = candidate.status.retail.monster_name_cache;
-    auto& group =
-        candidate.level.loaded().population->adoptGroup(std::make_unique<W8MonsterGroup>(), false);
+    World world;
+    auto& group = world.population->adoptGroup(std::make_unique<W8MonsterGroup>(), false);
     group.group_id = group.monster_id = 1;
     group.monsters = {7};
-    W8MonsterInfo monster{};
+    W8MonsterInfo monster{world};
     monster.monster_group_id = 1;
     const Game& query = candidate;
     REQUIRE(query.monsterName(monster) == "Rat");

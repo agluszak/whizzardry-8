@@ -41,7 +41,6 @@
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
@@ -775,7 +774,7 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
             npc = CurrentGame().story.npcOfKind(0x34);
         }
         if (npc != 0) {
-            QueueNpcScriptNotice(npc, 0, 0, true, 0);
+            CurrentGame().queueNpcNotice(*npc, nullptr, 0, true);
         }
         return;
     }

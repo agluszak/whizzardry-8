@@ -20,7 +20,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
@@ -45,13 +44,13 @@ constexpr int kMasterToggle = static_cast<int>(0xEFFFFFFF);
 
 /* "onelid": once fact 0x33 is set and an npc of kind 0x1e exists, advance the
    script facts - set 0x39 and clear 0x33. */
-bool Onelid(Trigger* pTrigger)
+TriggerDecision Onelid(Trigger* pTrigger)
 {
     if (CurrentGame().testFact(W8_FACT_CROCK_KIDNAPPED_PLAYER) != 0 && FindNpcOfKind(0x1e) != 0) {
         CurrentGame().setFact(W8_FACT_CROCK_PLAYER_RETURNED_TO_PARTY, 1);
         CurrentGame().setFact(W8_FACT_CROCK_KIDNAPPED_PLAYER, 0);
     }
-    return true;
+    return {.run_action = true};
 }
 
 class SwampScript final : public LevelScript {
@@ -61,9 +60,9 @@ public:
     void enter() override;
 
 private:
-    bool oilPool(Trigger* pTrigger);
-    bool castPlaneSpell(Trigger* pTrigger, int spell_id);
-    bool gasFireSpawn(Trigger* pTrigger);
+    TriggerDecision oilPool(Trigger* pTrigger);
+    TriggerDecision castPlaneSpell(Trigger* pTrigger, int spell_id);
+    void gasFireSpawn(Trigger* pTrigger);
     bool gasFireItemDrop(int command);
 
     // Resolved when used: the monster can be killed or removed while the party talks to it.
@@ -75,11 +74,11 @@ void SwampScript::enter()
     /* "gas_trig_plane01-07": while fact 0x16d is unset the trigger defers to the
        one-shot spawner; once set, it casts spell 0x2a at power 4 on the camera
        position. */
-    const Callback gas_plane = [this](Trigger* pTrigger) {
+    const Callback gas_plane = [this](Trigger* pTrigger) -> TriggerDecision {
         return castPlaneSpell(pTrigger, W8_SPELL_NOXIOUS_FUMES);
     };
     // "fire_trig_plane01-07": same fact gate as the gas planes, but casts spell 0x24.
-    const Callback fire_plane = [this](Trigger* pTrigger) {
+    const Callback fire_plane = [this](Trigger* pTrigger) -> TriggerDecision {
         return castPlaneSpell(pTrigger, W8_SPELL_FIREBALL);
     };
     for (const char* name :
@@ -99,29 +98,30 @@ void SwampScript::enter()
 /* "oil_pool": item 0x2d0 held over the pool is converted to item 0x15e and the
    shared item-consumed flag is raised. Always returns 0, so the trigger stays
    armed for another try. */
-bool SwampScript::oilPool(Trigger* pTrigger)
+TriggerDecision SwampScript::oilPool(Trigger* pTrigger)
 {
+    bool handled = false;
     if ((ctx.inventory.held()) && ctx.inventory.heldItemId() == 0x2d0) {
         (void)ctx.inventory.take({W8ItemStorage::Hand});
         ctx.inventory.replaceHeld(MakeItem(Data(), ctx.game.rng, 0x15e, false, true, false));
-        g_trigger_feedback = true;
+        handled = true;
     }
-    return false;
+    return {.run_action = false, .handled = handled};
 }
 
 /* Casts a spell at the camera position once the savant party has met; before
    that, spawns the gas fire. */
-bool SwampScript::castPlaneSpell(Trigger* pTrigger, int spell_id)
+TriggerDecision SwampScript::castPlaneSpell(Trigger* pTrigger, int spell_id)
 {
     glm::vec3 position;
 
     if (ctx.game.testFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET) == 0) {
         gasFireSpawn(pTrigger);
-        return false;
+        return {.run_action = false};
     }
     position = world().party.eye();
     PointCastSpell(position, spell_id, 4);
-    return true;
+    return {.run_action = true};
 }
 
 /* The one-shot behind the gas and fire trigger planes, armed while fact 0x16d
@@ -131,7 +131,7 @@ bool SwampScript::castPlaneSpell(Trigger* pTrigger, int spell_id)
 /* 0x004DAA8A is a split entry Ghidra carved out of this body: it resumes at
    the SetFact call after the fact-0x16d early return, not a separate
    authored function. */
-bool SwampScript::gasFireSpawn(Trigger* pTrigger)
+void SwampScript::gasFireSpawn(Trigger* pTrigger)
 {
     glm::vec3 center;
     glm::vec3 position;
@@ -143,7 +143,7 @@ bool SwampScript::gasFireSpawn(Trigger* pTrigger)
     int index;
 
     if (ctx.game.testFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET) != 0) {
-        return false;
+        return;
     }
     ctx.game.setFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET, 1);
     ResetInactiveLevelDataVectors();
@@ -176,8 +176,8 @@ bool SwampScript::gasFireSpawn(Trigger* pTrigger)
         }
     }
     npc = (FindMonster(index))->boundNpc();
-    QueueNpcScriptNotice(npc, 0, -1, false, 0);
-    return true;
+    ctx.game.queueNpcNotice(*npc);
+    return;
 }
 
 /* The master function the spawn arms. The toggle re-registers it and clears

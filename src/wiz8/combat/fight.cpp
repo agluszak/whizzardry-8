@@ -66,10 +66,8 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
-#include "wiz8/pointer.h"
 #include "wiz8/rules/action_rules.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/character_derivation.h"
@@ -136,7 +134,7 @@ bool Game::beginCombat(int surprise)
                 monster_info->highest_condition < W8_CONDITION_PARALYZED) {
                 npc = (monster_info)->boundNpc(false);
                 if (npc != 0 && npc->record->combat_script_notice_enabled != 0) {
-                    QueueNpcScriptNotice(npc, 0, -1, false, 0);
+                    queueNpcNotice(*npc);
                     g_npc_combat_notice_pending = true;
                     BeginScriptedWorldAction();
                     break;
@@ -457,7 +455,6 @@ void BeginCombatExecution(void)
     CurrentGame().combat->execution_active = 1;
     CurrentGame().combat->pending_death_count = 0;
     CurrentGame().combat->passive_round = 1;
-    CurrentGame().combat->target_picked = false;
     CurrentGame().combat->uiCurrentPartyAction = CurrentGame().combat->uiNextPartyAction;
     CurrentGame().combat->uiCurrentPartyActionStatus = W8_PARTY_ACTION_NOT_STARTED;
     UpdatePartyMovementControl();
@@ -1111,49 +1108,6 @@ void OrientMonsterTowardTarget(W8MonsterInfo* monster_info, bool alternate)
             return;
         }
     }
-}
-
-/* While the auto-advance option is on and the party is in combat with nothing
-   else capturing input, move the selection to the next party slot that is a
-   live member without a combat action to take. */
-void AutoAdvanceSelectedCharacter(void)
-{
-    if (!g_settings.auto_advance_character || CurrentGame().combat->target_picked ||
-        !CurrentGame().combat->round_active || ScreenPointer().targeting() != W8_TARGET_NEED_NONE ||
-        SpellPicker() || UseItemPicker()) {
-        return;
-    }
-    int selected = CurrentGame().status.selected_character;
-    if (!CurrentGame().canPerformAction(
-            selected, CurrentGame().party.action(selected, W8_TARGETING_CONTEXT_IN_COMBAT),
-            false) &&
-        IsPartySlotEligible(selected)) {
-        return;
-    }
-    assert(selected != -1);
-    int party_slot = selected + 1;
-    if (party_slot > 7) {
-        party_slot = 0;
-    }
-    if (party_slot == selected) {
-        return;
-    }
-    do {
-        if (!CurrentGame().canPerformAction(
-                party_slot, CurrentGame().party.action(party_slot, W8_TARGETING_CONTEXT_IN_COMBAT),
-                false) &&
-            IsPartySlotEligible(party_slot)) {
-            if (CurrentGame().status.selected_character == party_slot) {
-                return;
-            }
-            SelectPartyCharacter(party_slot);
-            return;
-        }
-        ++party_slot;
-        if (party_slot > 7) {
-            party_slot = 0;
-        }
-    } while (party_slot != CurrentGame().status.selected_character);
 }
 
 /* Assign each combatant's phase for the round: the living, active party slots
