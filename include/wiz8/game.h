@@ -310,6 +310,9 @@ public:
     W8NpcState* createNpcRuntimeNode(int npc_id);
     W8PreparedNpcBindings prepareNpcBindings(World& world);
     void bindMonsterNpc(World& world, W8MonsterInfo& monster);
+    void bindNpcLevelTriggers();
+    void queueNpcNotice(W8NpcState& npc, const W8ItemInstance* item = nullptr, int line = -1,
+                        bool suppress = false);
     void beginNpcDialogue(W8NpcState* npc, bool suspend_current, bool script_event = false);
 
     // Commands the level's monster scripts and triggers issue.
@@ -356,7 +359,7 @@ public:
     W8CharacterEventQueue speech{*this};
     // The NPC conversation's progress: its speaker, queued script work and owed reply.
     W8NpcDialogue npc_dialogue;
-    // The conversation participants, offered item, transcript and staged script notice.
+    // The conversation participants, offered item and transcript.
     W8NpcInteractionState npc_interaction;
     W8SedexusScene sedexus_scene;
     // The deadline of each shared three-minute spell cooldown (in `SpellPracticeCooldown`).

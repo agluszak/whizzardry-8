@@ -582,11 +582,22 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
         return;
     }
 
+    if (auto* queued = std::get_if<W8NpcScriptNotice>(&line.action)) {
+        // The executing notice is no longer pending. Nested requests can be
+        // admitted without replacing the NPC/item this invocation is using.
+        auto notice = std::move(*queued);
+        queue_.erase(current);
+        BeginNpcDialogue(notice.npc.get(), notice.item ? &*notice.item : nullptr, notice.line,
+                         notice.suppress, 0);
+        return;
+    }
+
     struct RunAction {
         W8NpcDialogue& dialogue;
         const ScriptContext& context;
         W8NpcState* npc;
 
+        void operator()(const W8NpcScriptNotice&) const {} // Dispatched above.
         void operator()(const W8NpcQueuedQuote&) const {}
         void operator()(const W8NpcQueuedEntry& queued) const
         {
@@ -646,9 +657,6 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
             case W8NpcCommand::journal_quote:
                 DisplayNpcQuote(context.game, context.game.data.strings[0x74a], false);
                 wiz8::sound::play("Data\\Sound\\Misc\\Journal Entry.wav");
-                break;
-            case W8NpcCommand::dispatch_pending_notice:
-                DispatchPendingNpcScriptNotice();
                 break;
             case W8NpcCommand::remove_speaking_npc: {
                 EndNpcDialogueSession(false);

@@ -938,6 +938,46 @@ TEST_CASE("The party navigator stands the world height below the eye",
     REQUIRE(navigationPosition({0, g_default_world_height, 0}) == glm::vec3(0));
 }
 
+TEST_CASE("NPC triggers and queued notices retain their original game and identity",
+          "[npc][lifetime]")
+{
+    const ScopedGame active;
+    W8NpcDatabaseRecord record{};
+    record.source_name = "NoticeOwner";
+    record.merchant = 1;
+    std::weak_ptr<W8NpcState> retained;
+    {
+        Game owner(active.game.data);
+        auto& world = PublishEmptyWorld(owner);
+        auto npc = std::make_shared<W8NpcState>();
+        npc->record = &record;
+        owner.story.npcs.push_back(npc);
+        auto trigger = std::make_unique<Trigger>(&world);
+        std::snprintf(trigger->name, sizeof(trigger->name), "_NoticeOwner");
+        trigger->m_lData1 = 123; // Authored action data must not become an NPC slot.
+        world.triggers.push_back(std::move(trigger));
+        owner.bindNpcLevelTriggers();
+        REQUIRE(world.triggers.front()->m_lData1 == 123);
+        retained = npc;
+        auto replacement = std::make_shared<W8NpcState>();
+        replacement->record = &record;
+        owner.story.npcs[0] = replacement;
+        npc.reset();
+        world.triggers.front()->Run(-1);
+        world.triggers.clear();
+        REQUIRE(owner.npc_dialogue.has_queued_actions());
+        REQUIRE_FALSE(active.game.npc_dialogue.has_queued_actions());
+        REQUIRE_FALSE(retained.expired());
+        std::weak_ptr<W8NpcState> refused = replacement;
+        owner.queueNpcNotice(*replacement);
+        owner.story.npcs.clear();
+        replacement.reset();
+        REQUIRE(
+            refused.expired()); // First pending notice wins; no shadow mailbox retains this one.
+    }
+    REQUIRE(retained.expired());
+}
+
 TEST_CASE("Queued dialogue keeps its script and voice when the NPC is rebound", "[npc][lifetime]")
 {
     ScopedGame scope;

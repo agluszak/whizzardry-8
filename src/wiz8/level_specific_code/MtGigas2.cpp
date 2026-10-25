@@ -19,7 +19,6 @@
 #include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
@@ -236,14 +235,14 @@ TriggerDecision MtGigas2Script::train(Trigger* pTrigger)
     if (ctx.activity.conversation) {
         return {.run_action = false, .handled = handled};
     }
-    npc = CurrentGame().story.npcOfKind(0x5b);
+    npc = ctx.story.npcOfKind(0x5b);
     item = 0;
     item_id = 0;
     if (const auto* held = ctx.inventory.held()) {
         item = &held->item;
         item_id = held->item.iItemNo;
     }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    ctx.game.queueNpcNotice(*npc, item);
     handled = true;
     value = GetLocationVarValueByName("WirePanel");
     if (value == 3) {

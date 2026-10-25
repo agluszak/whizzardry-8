@@ -579,7 +579,7 @@ void Monster::ProcessScript()
                         ClearMainGameTargetState();
                     } else if (SDL_strcasecmp(token.c_str(), "BELA_END_CC_WALK") == 0) {
                         W8NpcState* npc = CurrentGame().story.npcOfKind(0x8d);
-                        if (npc != 0) QueueNpcScriptNotice(npc, 0, 6, false, 0);
+                        if (npc != 0) CurrentGame().queueNpcNotice(*npc, nullptr, 6);
                         monster_info = owner_world.population->findMonster(location_id);
                         if (monster_info->control_state != W8_MONSTER_CONTROL_LURED) {
                             glm::vec3 party = owner_world.party.eye();

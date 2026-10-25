@@ -410,7 +410,7 @@ static void EnterLevel(Game& game, World& world, int level, int entrance, bool r
     world.script = MakeLevelScript(level, MakeScriptContext(game));
     world.script->enter();
     LoadNativeLevelObject(game);
-    RebindNpcLevelTriggers();
+    game.bindNpcLevelTriggers();
     SetWorldCursorNodesVisible(false);
     game.refreshPartyEffects();
 

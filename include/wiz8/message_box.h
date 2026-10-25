@@ -1,11 +1,13 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
 
 #include "wiz8/data/skills.h"
+#include "wiz8/rules/item_instance.h"
 
 struct W8NpcState;
 struct W8NpcScriptFile;
@@ -89,7 +91,6 @@ enum class W8NpcCommand : unsigned char {
     close_and_resume_npc,      /* close dialogue; ResumeNpc on the dialogue NPC */
     reopen_transcript,         /* CloseNpcDialogueLayout + transcript layout */
     journal_quote,             /* quote bubble + journal-entry.wav */
-    dispatch_pending_notice,
     remove_speaking_npc,       /* end the session and fade the speaker's monster */
     clear_target_state,
     begin_scripted_world_action,
@@ -169,9 +170,18 @@ struct W8NpcTravelConfirm {
     int level;
 };
 
+// Identity and item description are captured on admission; script binding is
+// selected when the notice starts. The item is not an inventory reservation.
+struct W8NpcScriptNotice {
+    std::shared_ptr<W8NpcState> npc;
+    std::optional<W8ItemInstance> item;
+    int line;
+    bool suppress;
+};
+
 using W8NpcAction =
-    std::variant<W8NpcQueuedQuote, W8NpcQueuedEntry, W8NpcQueuedNotice, W8NpcCommand,
-                 W8NpcStoryAction, W8NpcRecruit, W8NpcDismiss, W8NpcPartySpeakerEvent,
+    std::variant<W8NpcScriptNotice, W8NpcQueuedQuote, W8NpcQueuedEntry, W8NpcQueuedNotice,
+                 W8NpcCommand, W8NpcStoryAction, W8NpcRecruit, W8NpcDismiss, W8NpcPartySpeakerEvent,
                  W8NpcLevelUpReaction, W8NpcPartyScriptLine, W8NpcPortraitString, W8NpcMarkMissing,
                  W8NpcLeaveCombat, W8NpcTravelConfirm>;
 

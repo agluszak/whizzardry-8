@@ -1,7 +1,9 @@
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <initializer_list>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -15,6 +17,7 @@
 #include "wiz8/data/npc_ids.h"
 #include "wiz8/data/records.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/npc_state.h"
 #include "wiz8/level_population.h"
@@ -28,6 +31,7 @@
 #include "wiz8/npc_script_file.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/conditions.h"
+#include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/party_stats.h"
@@ -287,4 +291,65 @@ std::string Story::npcDisplayName(const W8NpcState& npc) const
         return "RFS81B";
     }
     return npc.record->display_name;
+}
+
+void Game::queueNpcNotice(W8NpcState& npc, const W8ItemInstance* item, int line, bool suppress)
+{
+    auto identity = npc.shared_from_this();
+    std::optional<W8ItemInstance> description;
+    if (item && item->iItemNo != -1) description = *item;
+    if (const auto* existing = story.npcOfKind(npc.name_style);
+        existing && static_cast<unsigned char>(existing->spawned) != 0 &&
+        npc.record->monster_bound == 0)
+        return;
+    if (npc.has_monster && npc.is_present && level.primary) {
+        const auto* monster = level.primary->population->findMonster(npc.location_id);
+        if (monster && monster->highest_condition >= W8_CONDITION_ASLEEP) return;
+    }
+    if ((npc.name_style == W8_NPC_DRAZIC || npc.name_style == W8_NPC_RODAN) &&
+        testFact(W8_FACT_PEACE_ACHIEVED) != 0) {
+        suppress = true;
+        line = npc.name_style == W8_NPC_DRAZIC ? 0x23 : 0x1d;
+    }
+    npc_dialogue.Queue(
+        W8NpcScriptNotice{std::move(identity), std::move(description), line, suppress});
+}
+
+void Game::bindNpcLevelTriggers()
+{
+    for (const auto& npc : story.npcs) {
+        if (npc->has_monster &&
+            (npc->record->merchant != 0 || (npc->record->voice_script != 0 && !npc->is_present)))
+            npc->releaseWorldBinding();
+    }
+    for (const auto& npc : story.npcs) {
+        if (npc->record->merchant == 0 && npc->record->voice_script == 0) continue;
+        const auto name = fmt::format("_{}", npc->record->source_name);
+        Trigger* trigger = nullptr;
+        for (auto* world : {level.primary.get(), level.sky.get()}) {
+            if (world) trigger = FindTriggerInWorld(*world, name);
+            if (trigger) break;
+        }
+        if (!trigger) continue;
+        trigger->activation_callback = [this, npc](Trigger* activated) -> TriggerDecision {
+            if (!activity.conversation) {
+                const auto* held = inventory.held();
+                const auto* item =
+                    held && ((activated->flags & W8_TRIGGER_ENABLED) != 0 || npc->name_style == '{')
+                        ? &held->item
+                        : nullptr;
+                queueNpcNotice(*npc, item);
+            }
+            return {.run_action = false};
+        };
+        npc->has_monster = true;
+        const int level_id = level.primary ? level.primary->level_id : -1;
+        npc->level_band = static_cast<unsigned char>(levelBand(level_id));
+        npc->bound_level = static_cast<unsigned char>(level_id);
+        auto* body = npc->is_present && level.primary
+                         ? level.primary->population->findMonster(npc->location_id)
+                         : nullptr;
+        npc->script_file = LoadNpcScriptResources(story, *npc, body ? body->entity.get() : nullptr);
+        npc->is_present = false;
+    }
 }

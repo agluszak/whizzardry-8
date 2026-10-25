@@ -18,7 +18,6 @@
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/platform/IntervalGate.h"
 #include "wiz8/platform/game_timer.h"
@@ -137,17 +136,17 @@ TriggerDecision MtGigasOuterScript::crank(Trigger* trigger)
         return {.run_action = false};
     }
     if (GetLocationVarIDByName("FlagPosition") == -1) {
-        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "FlagPosition", 0);
-        npc = CurrentGame().story.npcOfKind(0x2a);
-        QueueNpcScriptNotice(npc, 0, 0x90, true, 0);
+        ctx.story.ensureLocationVariable(GetLoadedLevelID(), "FlagPosition", 0);
+        npc = ctx.story.npcOfKind(0x2a);
+        ctx.game.queueNpcNotice(*npc, nullptr, 0x90, true);
         return {.run_action = false, .handled = true};
     }
     value = GetLocationVarValueByName("FlagPosition");
     if (value == 0) {
         liftGate(kMasterToggle);
         trigger->flags &= ~W8_TRIGGER_ENABLED;
-        npc = CurrentGame().story.npcOfKind(0x2a);
-        QueueNpcScriptNotice(npc, 0, 0x16, true, 0);
+        npc = ctx.story.npcOfKind(0x2a);
+        ctx.game.queueNpcNotice(*npc, nullptr, 0x16, true);
         return {.run_action = true};
     }
     if (value >= 100 && value < 1000) {
@@ -158,8 +157,8 @@ TriggerDecision MtGigasOuterScript::crank(Trigger* trigger)
         prop->SetPosition(&position);
         SetTriggerVariableByName("FlagPosition", 1000);
         ctx.inventory.replaceHeld(MakeItem(Data(), ctx.game.rng, 0x290, false, false, false));
-        npc = CurrentGame().story.npcOfKind(0x2a);
-        QueueNpcScriptNotice(npc, 0, 0x18, true, 0);
+        npc = ctx.story.npcOfKind(0x2a);
+        ctx.game.queueNpcNotice(*npc, nullptr, 0x18, true);
         ResumeNpc(npc, 1);
         if (auto point = world().namedPosition("NP_catwalk")) {
             SpawnMonsters(0x14a, 1, &*point, 1, true, false);

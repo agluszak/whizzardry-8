@@ -486,49 +486,8 @@ void ForwardNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int lin
 {
     if (!CurrentGame().activity.conversation && !CurrentGame().combat.has_value() &&
         (npc->record->kind != 7 || CurrentGame().testFact(W8_FACT_ARNIKA_MYLES_MEET_ONCE) != 1)) {
-        QueueNpcScriptNotice(npc, item, line, suppress, 0);
+        CurrentGame().queueNpcNotice(*npc, item, line, suppress);
     }
-}
-
-/* Queue one NPC script notice for the dispatch pass. A second NPC of the same
-   kind already in the world suppresses the notice unless the record carries
-   the 0x054 binding flag, a live monster with a condition at or above 0xf
-   takes none, and a pending notice blocks the next until it drains. Kind
-   0x10/0x11 NPCs with fact 0xbf substitute their own notice line and raise
-   the flag byte. */
-void QueueNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line, bool suppress,
-                          unsigned char arg)
-{
-    W8MonsterInfo* info;
-    bool flag;
-
-    if (FindNpcOfKind(npc->name_style) != 0 && npc->record->monster_bound == 0) {
-        return;
-    }
-    info = GetNpcMonsterInfo(npc);
-    if (info != 0 && info->highest_condition >= W8_CONDITION_ASLEEP) {
-        return;
-    }
-    flag = suppress;
-    if ((npc->name_style == W8_NPC_DRAZIC || npc->name_style == W8_NPC_RODAN) &&
-        CurrentGame().testFact(W8_FACT_PEACE_ACHIEVED) != 0) {
-        flag = true;
-        line = npc->name_style == W8_NPC_DRAZIC ? 0x23 : 0x1d;
-    }
-    if (CurrentGame().npc_interaction.pending_notice_queued) {
-        return;
-    }
-    CurrentGame().npc_interaction.pending_notice.flag = flag;
-    CurrentGame().npc_interaction.pending_notice.npc = npc->shared_from_this();
-    CurrentGame().npc_interaction.pending_notice.line = line;
-    CurrentGame().npc_interaction.pending_notice.force = arg;
-    if (item != 0) {
-        CurrentGame().npc_interaction.pending_notice.item = *item;
-    } else {
-        CurrentGame().npc_interaction.pending_notice.item = W8ItemInstance{.iItemNo = -1};
-    }
-    CurrentGame().npc_dialogue.Queue(W8NpcCommand::dispatch_pending_notice);
-    CurrentGame().npc_interaction.pending_notice_queued = true;
 }
 
 /* The NPC notice and dialogue dispatcher. Talking to a healer NPC (name
@@ -552,7 +511,6 @@ static void BeginNpcDialogueInternal(W8NpcState* npc, const W8ItemInstance* item
     int condition;
     glm::vec3 position;
 
-    CurrentGame().npc_interaction.pending_notice_queued = false;
     MainGame()->dialogue.transcript_open_count = 0;
     if (npc->name_style == 0xf || npc->name_style == 0x12) {
         characters = CurrentGame().party.characters;
@@ -634,22 +592,6 @@ void BeginNpcDialogue(W8NpcState* npc, const W8ItemInstance* item, int quote, un
                       unsigned char force)
 {
     BeginNpcDialogueInternal(npc, item, quote, flags, force);
-}
-
-/* Dispatch the queued NPC script notice: the item goes across only while it
-   still carries an id. The two notice flags remain independent byte values. */
-void DispatchPendingNpcScriptNotice(void)
-{
-    const W8ItemInstance* item;
-
-    item = 0;
-    if (CurrentGame().npc_interaction.pending_notice.item.iItemNo != -1) {
-        item = &CurrentGame().npc_interaction.pending_notice.item;
-    }
-    BeginNpcDialogue(CurrentGame().npc_interaction.pending_notice.npc.get(), item,
-                     CurrentGame().npc_interaction.pending_notice.line,
-                     CurrentGame().npc_interaction.pending_notice.flag,
-                     CurrentGame().npc_interaction.pending_notice.force);
 }
 
 /* Open the NPC dialogue panel. After the shared screen reset and the

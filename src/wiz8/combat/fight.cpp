@@ -66,7 +66,6 @@
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/pointer.h"
@@ -136,7 +135,7 @@ bool Game::beginCombat(int surprise)
                 monster_info->highest_condition < W8_CONDITION_PARALYZED) {
                 npc = (monster_info)->boundNpc(false);
                 if (npc != 0 && npc->record->combat_script_notice_enabled != 0) {
-                    QueueNpcScriptNotice(npc, 0, -1, false, 0);
+                    queueNpcNotice(*npc);
                     g_npc_combat_notice_pending = true;
                     BeginScriptedWorldAction();
                     break;

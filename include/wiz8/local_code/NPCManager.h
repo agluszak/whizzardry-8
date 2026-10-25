@@ -90,7 +90,6 @@ void CreateNewGameNpcStates(void);
 void ResetNpcBindingsForParty(void);
 void ClearPendingNpcLevelFlags(void);
 void ReleaseNpcMonsterBindings(void);
-void RebindNpcLevelTriggers(void);
 W8NpcState* GetNpcState(int index);
 /* Whether the NPC wants the offered item - it matches one of the
    record's wanted entries by id or by the shared 0x83 name kind, and a grouped

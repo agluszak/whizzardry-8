@@ -20,7 +20,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_location.h"
 #include "wiz8/rules/item_rules.h"
@@ -177,7 +176,7 @@ void SwampScript::gasFireSpawn(Trigger* pTrigger)
         }
     }
     npc = (FindMonster(index))->boundNpc();
-    QueueNpcScriptNotice(npc, 0, -1, false, 0);
+    ctx.game.queueNpcNotice(*npc);
     return;
 }
 

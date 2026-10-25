@@ -169,7 +169,7 @@ the licensed runtime scenarios after every step.
      parts they act on (steps 3, 6 and 7).
    - The dialogue's interface (layouts, trade table, quote bubble, `NpcDialogueUi`) is the
      main game's `W8NpcDialoguePanel`; `Game::npc_interaction` keeps the conversation
-     (who speaks with whom, the offered item, the staged notice) and four interface facts
+     (who speaks with whom and the offered item) and four interface facts
      that NPC scripts still consult for layout-specific UI requests (the open layout,
      the hidden panel or dialogue and a modal dialog). Move those requests behind the
      panel boundary without moving its state into the conversation. Utterance completion

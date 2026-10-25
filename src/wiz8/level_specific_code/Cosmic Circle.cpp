@@ -14,7 +14,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/script_context.h"
 #include "wiz8/story.h"
@@ -57,9 +56,9 @@ TriggerDecision CosmicCircleScript::triggerPlane1Hedra(Trigger* pTrigger)
         ctx.game.endCombat(true);
     }
     BeginScriptedWorldAction();
-    pNPC = CurrentGame().story.npcOfKind(0x85);
+    pNPC = ctx.story.npcOfKind(0x85);
     if (pNPC == 0) throw std::runtime_error("Savant NPC state is missing");
-    QueueNpcScriptNotice(pNPC, 0, -1, false, 0);
+    ctx.game.queueNpcNotice(*pNPC);
     UpdateCameraPathStateByName(&world(), "CameraPath1", 1);
     return {.run_action = true};
 }

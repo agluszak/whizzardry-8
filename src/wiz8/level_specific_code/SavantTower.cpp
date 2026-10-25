@@ -7,8 +7,6 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/game.h"
 #include "wiz8/level_specific_code/level_script.h"
-#include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/script_context.h"
 #include "wiz8/story.h"
@@ -31,7 +29,7 @@ TriggerDecision Shape(Trigger* pTrigger)
 {
     if (GetLocationVarIDByName("DeactivatingBomb") == -1) {
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "DeactivatingBomb", 1);
-        QueueNpcScriptNotice(CurrentGame().story.npcOfKind(0x46), 0, 0, false, 0);
+        CurrentGame().queueNpcNotice(*CurrentGame().story.npcOfKind(0x46), nullptr, 0);
     }
     return {.run_action = true};
 }
@@ -73,7 +71,7 @@ TriggerDecision SavantTowerScript::buttonBlocker(Trigger* pTrigger)
     if (blocker != 0) {
         blocker->SetActivationState(true);
     }
-    QueueNpcScriptNotice(CurrentGame().story.npcOfKind(0x46), 0, 1, false, 0);
+    ctx.game.queueNpcNotice(*ctx.story.npcOfKind(0x46), nullptr, 1);
     ctx.game.setFact(W8_FACT_DS_BOMB_DEACTIVATED, 1);
     return {.run_action = true};
 }

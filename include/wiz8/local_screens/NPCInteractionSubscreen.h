@@ -105,8 +105,6 @@ enum W8NpcDialogueControlSlot {
 };
 
 void ForwardNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line, bool suppress);
-void QueueNpcScriptNotice(W8NpcState* npc, const W8ItemInstance* item, int line, bool suppress,
-                          unsigned char arg);
 void FlushPendingNoticeLines(void);
 
 void SyncDialogueNpcState(void);
@@ -119,7 +117,6 @@ void DrawNpcQuoteBubble(void);
 void LookAtDialogueNpc(void);
 void CloseNpcDialogueLayout(void);
 void OpenNpcDialogueTranscriptLayout(void);
-void DispatchPendingNpcScriptNotice(void);
 bool IsNpcDialogueTextInputActive(void);
 bool IsNpcDialogueTextBoxActive(void);
 bool SetNpcDialoguePanelVisible(unsigned char value);

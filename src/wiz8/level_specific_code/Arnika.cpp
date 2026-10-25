@@ -25,7 +25,6 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
-#include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/location_variables.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/platform/IntervalGate.h"
@@ -525,7 +524,7 @@ TriggerDecision ArnikaScript::mookholo(Trigger* pTrigger)
         if (GetLocationVarIDByName("ScregActive") != -1) {
             SetTriggerVariableByName("ScregActive", 1);
         } else {
-            CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "ScregActive", 1);
+            ctx.story.ensureLocationVariable(GetLoadedLevelID(), "ScregActive", 1);
         }
         location_id = group->MemberLocationId(0);
         if (location_id != 0) {
@@ -535,7 +534,7 @@ TriggerDecision ArnikaScript::mookholo(Trigger* pTrigger)
                 npc_dialogue_closed = false;
                 addMaster(&ArnikaScript::mookholoWatch);
             }
-            QueueNpcScriptNotice((FindMonster(location_id))->boundNpc(), 0, -1, false, 0);
+            ctx.game.queueNpcNotice(*world().population->findMonster(location_id)->boundNpc());
         }
     }
     return {.run_action = true};
@@ -905,9 +904,9 @@ TriggerDecision ArnikaScript::maddmook(Trigger* pTrigger)
     if (GetLocationVarIDByName("WarnedAboutEntry") != -1 &&
         GetLocationVarValueByName("WarnedAboutEntry") == 1 &&
         ctx.game.story.factionDisposition(W8_FACTION_MOOK) != W8_FACTION_NEUTRAL) {
-        W8NpcState* npc = CurrentGame().story.npcOfKind(0x69);
+        W8NpcState* npc = ctx.story.npcOfKind(0x69);
         if (npc != 0) {
-            QueueNpcScriptNotice(npc, 0, 7, false, 0);
+            ctx.game.queueNpcNotice(*npc, nullptr, 7);
             CurrentGame().setFactionDisposition(W8_FACTION_MOOK, W8_FACTION_HOSTILE);
         }
     }
@@ -993,7 +992,7 @@ int ArnikaScript::pedestalItem(int* previous_item)
         return item;
     }
     if (GetLocationVarIDByName("PedestalItem") == -1) {
-        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "PedestalItem", -1);
+        ctx.story.ensureLocationVariable(GetLoadedLevelID(), "PedestalItem", -1);
         previous = 0x244;
         if (item == -1) {
             ctx.inventory.replaceHeld(
@@ -1010,7 +1009,7 @@ int ArnikaScript::pedestalItem(int* previous_item)
                 MakeItem(Data(), ctx.game.rng, previous, false, false, false));
         }
     }
-    npc = CurrentGame().story.npcOfKind(0x69);
+    npc = ctx.story.npcOfKind(0x69);
     if (npc != 0) {
         info = GetNpcMonsterInfo(npc);
         if (info != 0) {
@@ -1018,10 +1017,10 @@ int ArnikaScript::pedestalItem(int* previous_item)
             position.y += info->entity->nav.movement.height_offset;
             partyCamera().LookAt(&position, false, CurrentGame().activity.conversation);
         }
-        QueueNpcScriptNotice(npc, 0, 8, false, 0);
+        ctx.game.queueNpcNotice(*npc, nullptr, 8);
     }
     if (GetLocationVarIDByName("WarnedAboutEntry") == -1) {
-        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "WarnedAboutEntry", 1);
+        ctx.story.ensureLocationVariable(GetLoadedLevelID(), "WarnedAboutEntry", 1);
     } else {
         SetTriggerVariableByName("WarnedAboutEntry", 1);
     }
@@ -1037,10 +1036,10 @@ TriggerDecision ArnikaScript::ballSlot(Trigger* pTrigger)
     W8NpcState* npc;
 
     if (GetLocationVarIDByName("BallInserted") == -1) {
-        CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "BallInserted", 1);
-        npc = CurrentGame().story.npcOfKind(0x16);
+        ctx.story.ensureLocationVariable(GetLoadedLevelID(), "BallInserted", 1);
+        npc = ctx.story.npcOfKind(0x16);
         item = MakeItem(Data(), ctx.game.rng, 0x240, true, true, false);
-        QueueNpcScriptNotice(npc, &item, -1, false, 0);
+        ctx.game.queueNpcNotice(*npc, &item);
     }
     return {.run_action = true, .handled = true};
 }
@@ -1058,12 +1057,12 @@ TriggerDecision ArnikaScript::flightRecorder(Trigger* pTrigger)
         return {.run_action = false, .handled = handled};
     }
     handled = true;
-    npc = CurrentGame().story.npcOfKind(0x14);
+    npc = ctx.story.npcOfKind(0x14);
     item = 0;
     if (const auto* held = ctx.inventory.held()) {
         item = &held->item;
     }
-    QueueNpcScriptNotice(npc, item, -1, false, 0);
+    ctx.game.queueNpcNotice(*npc, item);
     return {.run_action = false, .handled = handled};
 }
 
