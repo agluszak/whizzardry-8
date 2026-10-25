@@ -212,13 +212,13 @@ static bool CanMonsterSeeMonster(W8MonsterInfo* source, W8MonsterInfo* target,
 
 /* Whether a monster group still has anybody in it worth seeing: alive, not
    dying, not too far gone, and marked as a threat. */
-bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group)
+bool W8LevelPopulation::hasVisibleThreat(const W8MonsterGroup& group) const
 {
     unsigned int index;
     W8MonsterInfo* monster_info;
 
-    for (index = 0; index < group->MemberIds().size(); ++index) {
-        monster_info = FindMonster(group->MemberLocationId(index));
+    for (index = 0; index < group.MemberIds().size(); ++index) {
+        monster_info = findMonster(group.MemberLocationId(index));
         if (monster_info->fActive && !monster_info->entity->IsDying() &&
             monster_info->hp_current != 0 && monster_info->highest_condition < W8_CONDITION_BLIND &&
             monster_info->party_threat.sight_state == W8_SIGHT_SEEN) {
@@ -743,7 +743,8 @@ void Game::updateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool 
    of combat the sight check is distance-gated by the world far clip and runs
    CanMonsterSeeMonster plus the 3D line-of-sight test; in combat the source's
    mon-to-mon visibility list is consulted directly. */
-bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
+bool W8LevelPopulation::groupCanSeeGroup(const W8MonsterGroup& source,
+                                         const W8MonsterGroup& target) const
 {
     W8MonsterInfo* source_info;
     W8MonsterInfo* target_info;
@@ -752,8 +753,8 @@ bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target)
     float distance;
     double far_clip;
 
-    source_info = FindMonster(source->leader_location_id);
-    target_info = FindMonster(target->leader_location_id);
+    source_info = findMonster(source.leader_location_id);
+    target_info = findMonster(target.leader_location_id);
     Monster& source_monster = *source_info->entity;
     Monster& target_monster = *target_info->entity;
     if (!target_info->pCombat) {

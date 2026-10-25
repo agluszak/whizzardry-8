@@ -11,7 +11,6 @@
 #include <fmt/printf.h>
 
 #include "wiz8/audio/soundman.h"
-#include "wiz8/combat/entity_signals.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/local_code/LoadSaveGame.h"
 #include "wiz8/rules/conditions.h"
@@ -29,7 +28,7 @@ namespace {
 GameSession* current_session = nullptr;
 }
 
-Level::Level() = default;
+Level::Level(SimulationSink& simulation) : simulation_(simulation) {}
 
 // The sky goes before the level it is drawn behind, each leaving its slot first.
 Level::~Level()
@@ -40,8 +39,10 @@ Level::~Level()
 
 std::unique_ptr<World> Level::replacePrimary(std::unique_ptr<World> world)
 {
-    if (world) world->simulation = &CombatEntitySignals();
-    return std::exchange(primary, std::move(world));
+    if (world) world->simulation = &simulation_;
+    auto outgoing = std::exchange(primary, std::move(world));
+    if (outgoing) outgoing->simulation = nullptr;
+    return outgoing;
 }
 
 World& Level::loaded() const

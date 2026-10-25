@@ -20,12 +20,10 @@ enum class W8VisibilityCondition : unsigned char {
 void ResetAndRefreshAllSight(void);
 void AgeAllMonsterSight(void);
 
-bool MonsterGroupHasVisibleThreat(W8MonsterGroup* group);
 signed char GetMonsterSpellSightIndex(const W8MonsterInfo* monster);
 
 bool IsVisibleUnderConditions(const W8MonsterInfo* monster, const W8VisibilityRecord* row,
                               W8VisibilityCondition condition);
 /* Whether one group's leader member can see the other's: far-clip distance
    first, then the outward sight record and a line-of-sight trace. */
-bool MonsterGroupCanSeeGroup(W8MonsterGroup* source, W8MonsterGroup* target);
 W8VisibilityRecord* FindMonToMonVisibility(W8MonsterInfo* source, W8MonsterInfo* target);

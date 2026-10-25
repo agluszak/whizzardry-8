@@ -42,6 +42,7 @@
 #include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
 #include "wiz8/story.h"
+#include "wiz8/world/simulation_sink.h"
 
 class NativeObject;
 struct GameData;
@@ -54,7 +55,7 @@ struct W8MonsterInfo;
    owns its world; queries borrow it. The level's entities report to combat. Replacing a slot hands back the previous owner,
    so a world is never reachable from its slot while it is destroyed. */
 struct Level {
-    Level();
+    explicit Level(SimulationSink& simulation);
     ~Level();
     Level(const Level&) = delete;
     Level& operator=(const Level&) = delete;
@@ -66,6 +67,9 @@ struct Level {
 
     std::unique_ptr<World> primary;
     std::unique_ptr<World> sky;
+
+private:
+    SimulationSink& simulation_;
 };
 
 /* One play-through, from choosing a new game or loading one until the player quits to
@@ -89,11 +93,11 @@ struct TargetChoice {
     std::optional<W8WeaponSwap> equipment;
 };
 
-class Game {
+class Game : public SimulationSink {
 public:
     // The game reads `data`, which its session's owner keeps alive longer than the game.
     explicit Game(const GameData& data) : data(data) {}
-    ~Game();
+    ~Game() override;
     // Script fact tests can consume a one-shot latch; this is not a pure state query.
     unsigned char testFact(W8FactId fact);
     void setFact(W8FactId fact, unsigned char value, bool notify = true);
@@ -273,6 +277,10 @@ public:
                            bool proximity_check, bool include_allies, bool flatten_y,
                            bool alternate_radius);
     W8Disposition defaultGroupDisposition(W8MonsterGroup* monster_group) const;
+    bool missileReached(Missile& missile, Navigator& struck) override;
+    void missileLanded(Missile& missile) override;
+    void missileReleased(Monster& monster) override;
+    void spellReleased(Monster& monster) override;
     void activateGroup(W8MonsterGroup& group);
     void updateMonsterDecision(W8MonsterInfo* monster);
     bool canMonsterUseSpecial(W8MonsterInfo* monster, bool exclude_summon);
@@ -407,7 +415,7 @@ public:
     /* Last, so its worlds are destroyed first, while combat and speech still exist.
        Session and level transitions perform departure before releasing the world;
        screen disposal and world destruction do no departure bookkeeping. */
-    Level level;
+    Level level{*this};
 
 private:
     unsigned char testFact(W8FactId fact, std::vector<Event>& outcomes);

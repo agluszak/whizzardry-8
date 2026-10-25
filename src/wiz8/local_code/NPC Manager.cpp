@@ -10,6 +10,7 @@
 #include "wiz8/data/skills.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
+#include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/platform/timer.h"
@@ -1209,7 +1210,7 @@ static signed char ScoreNpcTheft(Game& game, W8Character* character, W8NpcState*
     } else if (static_cast<int>(skill) >= 1) {
         skill += character->attributes[W8_ATTRIBUTE_DEXTERITY].effective / 0x14;
     }
-    score = skill + (CurrentGame().npcDisposition(npc) - 0x32) / 4;
+    score = skill + (game.npcDisposition(npc) - 0x32) / 4;
     score -= (game.rng.below(5) + 10) * static_cast<signed char>(npc->suspicion);
     W8MonsterInfo* monster_info = GetNpcMonsterInfo(npc);
     const W8MonsterRecord* record = GetMonsterDataForInfo(monster_info);

@@ -171,7 +171,7 @@ int GetCharacterHandDamageBonus(const W8Character* character, int hand)
    the nine bits, counting only the ones that are set, until it has passed as
    many as the roll asked for - so a mask with one bit always answers that bit
    however the roll came out. */
-W8AttackMode ChooseAttackMode(unsigned int attack_modes)
+W8AttackMode ChooseAttackMode(Rng& rng, unsigned int attack_modes)
 {
     unsigned int wanted;
     unsigned int seen = 0;
@@ -179,7 +179,7 @@ W8AttackMode ChooseAttackMode(unsigned int attack_modes)
 
     assert(static_cast<short>(attack_modes) != 0);
 
-    wanted = CurrentGame().rng.below(W8_ATTACK_MODE_COUNT);
+    wanted = rng.below(W8_ATTACK_MODE_COUNT);
     while (((attack_modes & 0xffff) & (1 << mode)) == 0 || seen++ < wanted) {
         ++mode;
         if (mode > 8) {
@@ -1056,7 +1056,7 @@ W8AttackMode CharChooseHandAttackMode(W8Character* character, int hand)
         modes = Data().items[item->iItemNo].attack_flags;
     }
     assert(modes != 0);
-    return ChooseAttackMode(modes);
+    return ChooseAttackMode(CurrentGame().rng, modes);
 }
 
 /* The bare display name of whatever a combat slot names, for the attack

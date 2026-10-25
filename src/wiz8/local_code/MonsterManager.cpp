@@ -7,7 +7,6 @@
 #include <cmath>
 #include <cstddef>
 #include <memory>
-#include <new>
 #include <stdexcept>
 #include <string>
 #include <string_view>

@@ -59,6 +59,8 @@ struct W8LevelPopulation {
     }
     W8MonsterGroup* alliedSuccessor(const W8MonsterGroup& outgoing) const;
     void unlinkGroup(W8MonsterGroup& group);
+    bool hasVisibleThreat(const W8MonsterGroup& group) const;
+    bool groupCanSeeGroup(const W8MonsterGroup& source, const W8MonsterGroup& target) const;
     bool allMembersDying(const W8MonsterGroup& group) const;
     auto activeMemberCount(const W8MonsterGroup& group) const
     {

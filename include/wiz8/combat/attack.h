@@ -92,7 +92,8 @@ void GetCharacterHandDamageDice(const W8Character* character, int hand, W8Dice* 
 int GetCharacterHandDamageBonus(const W8Character* character, int hand);
 
 int GetHandAttackValue(int party_slot, unsigned int hand);
-W8AttackMode ChooseAttackMode(unsigned int attack_modes);
+class Rng;
+W8AttackMode ChooseAttackMode(Rng& rng, unsigned int attack_modes);
 
 /* How much of a hit a monster actually takes - its own adjustment
    and the record's reduction add, the remainder is taken as a percentage

@@ -232,7 +232,7 @@ void Game::setGroupHostility(W8MonsterGroup* group, W8Disposition hostility, boo
     }
     group->ubDisposition = hostility;
     group->forced_neutral = false;
-    if (MonsterGroupHasVisibleThreat(group)) {
+    if (level.loaded().population->hasVisibleThreat(*(group))) {
         events.push(
             TextNotice{9, fmt::format("{} {} {}!", monsterGroupName(*group),
                                       data.strings[0x1d7 + (group->MemberCount() != 1)],
@@ -760,7 +760,7 @@ void Game::alertFactionGroups(W8MonsterGroup* monster_group)
             if (other != monster_group &&
                 ((other_record->flags & W8_MONSTER_FLAG_NPC) == 0 || !other->forced_neutral) &&
                 record->faction_id == other_record->faction_id &&
-                MonsterGroupCanSeeGroup(other, monster_group)) {
+                level.loaded().population->groupCanSeeGroup(*(other), *(monster_group))) {
                 setGroupHostility(other, monster_group->ubDisposition, false);
             }
         }
