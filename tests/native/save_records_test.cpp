@@ -34,6 +34,7 @@
 #include "wiz8/local_code/MonsterGroup.h"
 #include "wiz8/local_code/SpellEffect.h"
 #include "wiz8/message_log.h"
+#include "wiz8/monster_actions.h"
 #include "wiz8/npc_interaction_state.h"
 #include "wiz8/render/mesh_instance.h" // IWYU pragma: keep - complete model type for unique_ptr destruction.
 #include "wiz8/render/quality.h"
@@ -1106,22 +1107,6 @@ struct NpcGlobalGuard {
     ScopedGame game{Data()};
 };
 
-// The spell table, with Sleep aimed at enemies.
-static GameData SleepSpell()
-{
-    GameData data{.spells = std::vector<W8SpellRuntimeRecord>(W8_SPELL_COUNT)};
-    data.spells[W8_SPELL_SLEEP].target_type = W8_TARGET_TYPE_ENEMY;
-    return data;
-}
-
-// NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
-struct CombatRecordGuard {
-    const ScopedGameData data{SleepSpell()};
-    W8Party previous_party = std::exchange(CurrentGame().party, W8Party{});
-
-    ~CombatRecordGuard() { CurrentGame().party = std::move(previous_party); }
-};
-
 struct SaveFixture {
     ScopedTemporaryDirectory directory{"wiz8-save-records"};
     std::filesystem::path root = directory.path;
@@ -1638,20 +1623,21 @@ TEST_CASE_METHOD(SaveFixture, "A save decodes to a game state before any session
 
 TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][records]")
 {
-    const ScopedGame game;
-    CombatRecordGuard globals;
+    GameData data{.spells = std::vector<W8SpellRuntimeRecord>(W8_SPELL_COUNT)};
+    data.spells[W8_SPELL_SLEEP].target_type = W8_TARGET_TYPE_ENEMY;
+    Game game{data};
     // The AI used to decay the odd-offset condition array into unsigned int*.
-    auto& character = CurrentGame().party.characters[0];
+    auto& character = game.party.characters[0];
     character = {};
     W8CombatSlot target = {};
     target.iType = W8_TARGET_KIND_CHARACTER;
     target.iChar = 0;
     REQUIRE(reinterpret_cast<uintptr_t>(character.uiCondition) % alignof(unsigned int) == 0);
-    REQUIRE(CurrentGame().monsterAcceptsSpell(nullptr, W8_SPELL_SLEEP, &target,
-                                              {W8_MONSTER_ACTION_SPELL, W8_SPELL_SLEEP}));
+    REQUIRE(game.monsterAcceptsSpell(nullptr, W8_SPELL_SLEEP, &target,
+                                     {W8_MONSTER_ACTION_SPELL, W8_SPELL_SLEEP}));
     character.uiCondition[W8_CONDITION_ASLEEP] = 1;
-    REQUIRE(!CurrentGame().monsterAcceptsSpell(nullptr, W8_SPELL_SLEEP, &target,
-                                               {W8_MONSTER_ACTION_SPELL, W8_SPELL_SLEEP}));
+    REQUIRE(!game.monsterAcceptsSpell(nullptr, W8_SPELL_SLEEP, &target,
+                                      {W8_MONSTER_ACTION_SPELL, W8_SPELL_SLEEP}));
     REQUIRE(BuildLevelStatusPath(56) == "Levels\\Test\\DefaultLevel.STS");
     for (int index = 0; index < 10; ++index) {
         const auto name = index == 0 ? std::string("Ending") : "Ending" + std::to_string(index);

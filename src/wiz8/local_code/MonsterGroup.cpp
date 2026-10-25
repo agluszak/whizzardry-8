@@ -144,11 +144,10 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
 
 bool W8LevelPopulation::allMembersDying(const W8MonsterGroup& group) const
 {
-    for (int id : group.MemberIds()) {
+    return std::ranges::all_of(group.MemberIds(), [this](int id) {
         const auto* member = findMonster(id);
-        if (member && !member->entity->IsDying()) return false;
-    }
-    return true;
+        return !member || member->entity->IsDying();
+    });
 }
 
 /* How a monster group starts out disposed towards the party.
@@ -1162,11 +1161,6 @@ void SetMonsterGroupEngagementState(int group_id, bool state)
             }
         }
     }
-}
-
-bool GetMonsterGroupEngagementState(int group_id)
-{
-    return FindMonsterGroup(group_id)->engagement;
 }
 
 void SetMonsterGroupNavigatorDirty(W8MonsterGroup* monster_group, bool flag)

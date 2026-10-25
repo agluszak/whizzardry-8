@@ -49,8 +49,6 @@ W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
                                             bool skip_capability_checks, int* out_sight);
 /* The range category the slot's chosen action works at. */
 
-float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out,
-                          W8VisibilityCondition condition);
 float GetGroundTargetRange(void);
 float GetMonsterEngagementRange(void);
 

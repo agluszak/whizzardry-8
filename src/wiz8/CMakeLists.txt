@@ -184,7 +184,7 @@ target_sources(wiz8_engine PRIVATE
     version.cpp
     inventory.cpp
     live_party.cpp
-    monster_spell_choices.cpp
+    monster_decisions.cpp
     local_code/Search.cpp
     local_code/npc_interaction.cpp
     local_code/npc_dialogue.cpp

@@ -236,6 +236,11 @@ public:
     std::vector<W8CombatSlot> monsterSpellTargets(W8MonsterInfo* monster, int spell_id);
     bool monsterAcceptsSpell(W8MonsterInfo* monster, int spell_id, W8CombatSlot* target,
                              MonsterAction action);
+    void updateMonsterDecision(W8MonsterInfo* monster);
+    bool canMonsterUseSpecial(W8MonsterInfo* monster, bool exclude_summon);
+    bool aimMonsterSpecial(W8MonsterInfo* monster);
+    bool monsterActionUsable(W8MonsterInfo* monster);
+    void turnMonsterToTarget(W8MonsterInfo& monster);
     bool canMonsterProtect(const W8MonsterInfo& monster, const W8CombatSlot& target) const;
     bool chooseMonsterAction(W8MonsterInfo& monster, bool target_locked, bool attack_locked,
                              bool set_attack_rate);

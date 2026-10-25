@@ -78,6 +78,13 @@ class ParticleSystem;
 struct KeyframeTrack;
 class LevelSpatialIndex;
 
+enum class W8VisibilityCondition : unsigned char;
+// A null monster means the party; an absent result means no visible threat.
+struct MonsterThreat {
+    Monster* monster;
+    float distance;
+};
+
 /* The party's presence in one world: its pose (the eye position and orientation, with
    the retail pose bytes the save keeps) and its collision and pathing proxy there, at
    navigation height below the eye. Gameplay queries, saves and the rendered views read
@@ -118,6 +125,8 @@ struct World {
     void setPartyLight(unsigned int intensity);
     void resumeMonstersAfterCombat();
     bool projectsToCamera(const glm::vec3& point) const;
+    std::optional<MonsterThreat> nearestThreat(const GameData& data, W8MonsterInfo& monster,
+                                               W8VisibilityCondition visibility) const;
     std::optional<glm::vec3> targetPoint(const W8CombatSlot& target, bool sight_probe) const;
     bool targetMarkerVisible(const BoundingBox& bounds) const;
     bool hasLineOfSightTo(const BoundingBox& bounds) const;

@@ -2085,6 +2085,19 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     REQUIRE(candidate.aimMonsterSpell(&actor, 1));
     REQUIRE(candidate_draws.size() == 17);
     REQUIRE(candidate_draws.back().range == 1);
+    auto group = std::make_unique<W8MonsterGroup>();
+    group->group_id = actor.monster_group_id = 1;
+    world.population->monster_groups.push_back(std::move(group));
+    actor.pCombat->advancing = true;
+    const auto threat =
+        world.nearestThreat(allied_data, actor, W8VisibilityCondition::FirstLineOfSightFlag);
+    REQUIRE(threat);
+    REQUIRE(threat->monster == other.entity.get());
+    candidate.updateMonsterDecision(&actor);
+    REQUIRE_FALSE(actor.pCombat->advancing);
+    REQUIRE(actor.Target == W8CombatSlot::monster(2));
+    REQUIRE(candidate_draws.size() ==
+            29); // Advance roll, eight stealth rolls, two candidates, selection.
     REQUIRE(draws.size() == 3);
 }
 

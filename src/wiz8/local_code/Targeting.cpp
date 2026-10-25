@@ -536,14 +536,13 @@ bool World::sourceReachesGroup(const W8TargetSource& source, const W8MonsterGrou
         source_monster = population->findEntity(source.iMonsterID);
         if (!source_monster) return false;
     }
-    for (int id : group.MemberIds()) {
+    return std::ranges::any_of(group.MemberIds(), [this, source_monster, range](int id) {
         auto* member = population->findEntity(id);
-        if (!member) continue;
+        if (!member) return false;
         const auto distance = source_monster ? member->GetDistanceToMonster(*source_monster)
                                              : member->GetDistanceToPlayer();
-        if (distance <= range) return true;
-    }
-    return false;
+        return distance <= range;
+    });
 }
 
 /* Clear a picker's draft target before restoring the ordinary targeting UI. */

@@ -105,7 +105,6 @@ struct W8MonsterGroup {
 };
 
 W8MonsterGroup* FindMonsterGroup(int group_id, bool assert_on_failure = true);
-bool GetMonsterGroupEngagementState(int group_id);
 bool ApplyToMonsterGroupLeader(W8MonsterGroup* monster_group, const glm::vec3* position,
                                bool follow_leader);
 /* Whether the group is loaded, in combat, and still has members; hostile

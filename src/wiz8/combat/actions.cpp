@@ -114,10 +114,10 @@ void AimMonsterBreathAtTarget(W8MonsterInfo* monster_info)
    special-attack cycle and report the attempt. */
 bool StartMonsterSpecialAttack(W8MonsterInfo* monster_info, const W8MonsterRecord* record)
 {
-    if (!CanMonsterFlee(monster_info, record, false)) {
+    if (!CurrentGame().canMonsterUseSpecial(monster_info, false)) {
         return false;
     }
-    if (!AimFleeingMonster(monster_info, record)) {
+    if (!CurrentGame().aimMonsterSpecial(monster_info)) {
         return false;
     }
     if (g_special_attack_table[record->special_attack_kind][0] != 6) {
@@ -556,8 +556,14 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
                     }
                     position = GetMonsterAttackSourceOffset(*monster_info->entity, sight);
                     engage_distance = CalcRangeDistance(range);
-                    MonsterChooseTarget(monster_info, &monster_info->Target,
-                                        W8VisibilityCondition::SightState);
+                    const auto threat = monster_info->entity->owner_world.nearestThreat(
+                        game.data, *monster_info, W8VisibilityCondition::SightState);
+                    monster_info->Target.iType =
+                        threat ? W8_TARGET_KIND_CHARACTER : W8_TARGET_KIND_NONE;
+                    if (threat && threat->monster) {
+                        monster_info->Target.iType = W8_TARGET_KIND_MONSTER;
+                        monster_info->Target.iMonsterID = threat->monster->location_id;
+                    }
                     SetUpMonsterTurn(monster_info);
                     if (monster_info->Target.iType == W8_TARGET_KIND_MONSTER) {
                         target_info = FindMonster(monster_info->Target.iMonsterID);
@@ -681,7 +687,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
             monster_info->action.kind = W8_MONSTER_ACTION_NONE;
             break;
         }
-        UpdateMonsterAI(monster_info);
+        game.updateMonsterDecision(monster_info);
         if (monster_info->action.kind == W8_MONSTER_ACTION_NONE ||
             tried[monster_info->action.kind] != '\0') {
             monster_info->action.kind = W8_MONSTER_ACTION_WAIT;
@@ -697,7 +703,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
         monster_info->action.kind != W8_MONSTER_ACTION_PROTECT) {
         passive_round = 0;
     }
-    if (IsMonsterActionUsable(monster_info)) {
+    if (game.monsterActionUsable(monster_info)) {
         monster_info->pCombat->settle_ticks = 0;
     }
     monster_info->pCombat->active = true;
@@ -817,7 +823,7 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
         }
         if (monster_info->action.kind == W8_MONSTER_ACTION_APPROACH ||
             monster_info->action.kind == W8_MONSTER_ACTION_BACK_OFF) {
-            TurnMonsterToNewTarget(*monster_info);
+            game.turnMonsterToTarget(*monster_info);
         }
         RefreshAllSight();
         combat = monster_info->pCombat.get();
@@ -830,7 +836,7 @@ void Combat::stepMonsterAction(Game& game, W8MonsterInfo& monster)
         }
         if (static_cast<int>(game.rng.below(100)) < 100 - progress_pct) {
             if (monster_info->action.kind != W8_MONSTER_ACTION_CONTROLLED_MOVE) {
-                UpdateMonsterAI(monster_info);
+                game.updateMonsterDecision(monster_info);
             }
             action_kind = monster_info->action.kind;
             if (action_kind < 4 || (action_kind > 7 && action_kind != 9)) {

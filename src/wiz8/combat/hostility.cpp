@@ -287,7 +287,7 @@ void SetMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility)
             monster->action.kind = W8_MONSTER_ACTION_NONE;
             monster->pCombat->phase = 0;
         } else if (!monster->pCombat->active) {
-            UpdateMonsterAI(monster);
+            CurrentGame().updateMonsterDecision(monster);
         } else {
             monster->action.kind = W8_MONSTER_ACTION_NONE;
             monster->pCombat->phase = 0;

@@ -1,6 +1,7 @@
 #include "wiz8/combat/range.h"
 
 #include <cassert>
+#include <optional>
 
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/Factions.h"
@@ -274,7 +275,7 @@ W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
     if (skip_capability_checks || record->flee_chance >= 0x50) {
         if (record->special_attack_kind != 0 &&
             g_special_attack_table[record->special_attack_kind][0] != 6 &&
-            (skip_capability_checks || CanMonsterFlee(monster_info, record, true))) {
+            (skip_capability_checks || CurrentGame().canMonsterUseSpecial(monster_info, true))) {
             if (best < W8_RANGE_LONG) {
                 best = W8_RANGE_LONG;
                 *out_sight = W8_RANGE_LONG;
@@ -464,46 +465,35 @@ unsigned char TraceModeRejectsNoHit(int mode)
     }
 }
 
-/* Choose what one monster aims at: the player when it can see them, otherwise
-   the nearest hostile visible monster. Answers the chosen distance and fills
-   the target kind and monster id when applicable. */
-// FUNCTION: WIZ8 0x0051ac30
-float MonsterChooseTarget(W8MonsterInfo* monster_info, W8CombatSlot* out,
-                          W8VisibilityCondition condition)
+std::optional<MonsterThreat> World::nearestThreat(const GameData& data, W8MonsterInfo& monster,
+                                                  W8VisibilityCondition condition) const
 {
+    std::optional<MonsterThreat> chosen;
     float best = 999999.0f;
-
-    out->iType = W8_TARGET_KIND_NONE;
-    if (monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
-        IsVisibleUnderConditions(monster_info, &monster_info->player_visibility, condition) &&
-        (best = monster_info->entity->GetDistanceToPlayer(), best < 999999.0f)) {
-        out->iType = W8_TARGET_KIND_CHARACTER;
+    if (monster.ubDisposition == W8_DISPOSITION_HOSTILE &&
+        IsVisibleUnderConditions(&monster, &monster.player_visibility, condition)) {
+        best = monster.entity->GetDistanceToPlayer();
+        if (best < 999999.0f) chosen = MonsterThreat{nullptr, best};
     }
-    if (out->iType == W8_TARGET_KIND_NONE || !monster_info->pCombat->reconsider_action) {
-        auto count = CurrentLevelPopulation().monster_roster.live().size();
-
-        for (unsigned int index = 0; index < count; ++index) {
-            W8MonsterInfo* other = GetMonsterListEntry(index);
-
-            if (other != monster_info && other->fActive && other->hp_current != 0 &&
-                other->pCombat &&
-                MonsterHostility(CurrentGame().data, *monster_info, *other) ==
-                    W8_DISPOSITION_HOSTILE) {
-                W8VisibilityRecord* row = FindMonToMonVisibility(monster_info, other);
-                if (IsVisibleUnderConditions(monster_info, row, condition)) {
-                    float distance = monster_info->entity->GetDistanceToMonster(*other->entity);
-                    if (distance < best) {
-                        out->iType = W8_TARGET_KIND_MONSTER;
-                        out->iMonsterID = other->location_id;
-                        best = distance;
-                    }
-                }
+    if (!chosen || !monster.pCombat->reconsider_action) {
+        for (const auto& owner : population->monster_roster.live()) {
+            auto* other = owner.get();
+            if (other == &monster || !other->fActive || other->hp_current == 0 || !other->pCombat ||
+                MonsterHostility(data, monster, *other) != W8_DISPOSITION_HOSTILE)
+                continue;
+            if (!IsVisibleUnderConditions(&monster, FindMonToMonVisibility(&monster, other),
+                                          condition))
+                continue;
+            const float distance = monster.entity->GetDistanceToMonster(*other->entity);
+            if (distance < best) {
+                chosen = MonsterThreat{other->entity.get(), distance};
+                best = distance;
             }
-            count = CurrentLevelPopulation().monster_roster.live().size();
         }
     }
-    return best;
+    return chosen;
 }
+
 /* Whether the monster's current action still reaches the slot `target`
    carries: its own line of sight has to hold for a character or the party, the
    target monster has to be reachable, and a group target is checked against

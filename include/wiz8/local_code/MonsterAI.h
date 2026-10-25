@@ -49,11 +49,8 @@ bool MonsterHasVisibleTarget(W8MonsterInfo* monster_info, bool party_only,
 float GetGroupNearestDistance(W8MonsterGroup* group);
 
 /* Two dwords per special attack kind. */
-extern int g_special_attack_table[32][2];
+extern const int g_special_attack_table[32][2];
 
-/* Whether the spell's markers catch at least one party member when cast at
-   `slot`. */
-bool MonsterSpellHasPartyTarget(W8MonsterInfo* monster_info, int spell_id, W8CombatSlot* slot);
 /* Whether any live member of the group has a visible target; the arguments
    forward to MonsterHasVisibleTarget. */
 bool MonsterGroupHasVisibleTarget(W8MonsterGroup* monster_group, bool party_only,
@@ -67,19 +64,6 @@ void CheckMonsterGroupsLeaveCombat(void);
 /* Whether a group's members still count as fighting; propagates the answer
    to the group and its allies through the engagement-state pair. */
 void UpdateMonsterGroupEngagement(void);
-bool IsMonsterActionUsable(W8MonsterInfo* monster_info);
-/* Decide what one monster does this round: give up, hold, flee, cast, attack
-   or move, then fall back to holding when the choice cannot be carried out. */
-void UpdateMonsterAI(W8MonsterInfo* monster_info);
-/* The percentage chance the monster advances on the party this round. */
-unsigned int MonsterAdvanceChance(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
-/* Whether the monster can flee at all: it has a flee chance, a flee
-   animation, enough of its stat left, and somewhere to run. */
-bool CanMonsterFlee(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
-                    bool exclude_special);
-/* Pick the direction a fleeing monster runs; returns whether a heading was
-   found. */
-bool AimFleeingMonster(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
 /* Whether the control spell's visual anchor sits in range of the
    monster, falling back on where the party stands. */
 short IsMonsterControlPointInRange(W8MonsterInfo* monster_info);

@@ -204,7 +204,7 @@ bool Game::beginCombat(int surprise)
             monster_info->pCombat->active = true;
             monster_info->pCombat->settle_ticks = 0;
             CurrentGame().events.push(CombatProgressChanged{});
-            TurnMonsterToNewTarget(*monster_info);
+            turnMonsterToTarget(*monster_info);
             monster_info->death_processed = false;
         }
     }
@@ -776,24 +776,19 @@ void EndMonsterTurn(W8MonsterInfo* monster_info)
     monster_info->pCombat->settle_ticks = 0;
     CurrentGame().events.push(CombatProgressChanged{});
 
-    TurnMonsterToNewTarget(*monster_info);
+    CurrentGame().turnMonsterToTarget(*monster_info);
     monster_info->death_processed = false;
 }
 
-void TurnMonsterToNewTarget(W8MonsterInfo& monster_info)
+void Game::turnMonsterToTarget(W8MonsterInfo& monster)
 {
-    if (monster_info.hp_current == 0 || monster_info.highest_condition >= W8_CONDITION_WEBBED ||
-        monster_info.uiCondition[W8_CONDITION_BLIND] != 0) {
+    if (monster.hp_current == 0 || monster.highest_condition >= W8_CONDITION_WEBBED ||
+        monster.uiCondition[W8_CONDITION_BLIND] != 0)
         return;
-    }
-    W8CombatSlot chosen;
-    MonsterChooseTarget(&monster_info, &chosen, W8VisibilityCondition::ThirdLineOfSightFlag);
-    if (chosen.iType == W8_TARGET_KIND_PARTY) {
-        monster_info.entity->ForwardReferencePosition(0);
-    } else if (chosen.iType == W8_TARGET_KIND_MONSTER) {
-        if (Monster* target = GetMonsterByLocationID(chosen.iMonsterID))
-            monster_info.entity->AimAtMonster(*target, false);
-    }
+    const auto target = monster.entity->owner_world.nearestThreat(
+        data, monster, W8VisibilityCondition::ThirdLineOfSightFlag);
+    // Party targets never entered the old PARTY-kind branch (the query returned CHARACTER).
+    if (target && target->monster) monster.entity->AimAtMonster(*target->monster, false);
 }
 
 /* Set one monster's turn up, once. How fast it moves through the turn depends
@@ -1399,7 +1394,7 @@ void AdvanceCombatRound(void)
     index = 0;
     while (index < CurrentLevelPopulation().monster_roster.live().size()) {
         W8MonsterInfo* monster_info = GetMonsterListEntry(index);
-        if (monster_info->pCombat) TurnMonsterToNewTarget(*monster_info);
+        if (monster_info->pCombat) CurrentGame().turnMonsterToTarget(*monster_info);
         ++index;
     }
 }
