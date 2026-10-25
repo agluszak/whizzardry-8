@@ -20,6 +20,7 @@
 #include "wiz8/ui_layer.h"
 
 struct MainGameScreen;
+struct InputEvent;
 struct NpcDialogueUi;
 struct ScriptContext;
 struct W8NpcScriptQuote;
@@ -77,6 +78,7 @@ struct W8NpcDialoguePanel {
     W8NpcDialoguePanel(const W8NpcDialoguePanel&) = delete;
     W8NpcDialoguePanel& operator=(const W8NpcDialoguePanel&) = delete;
 
+    void handleKeyEvent(const InputEvent* event);
     bool showingQuote() const;
     // Explicit screen discard abandons continuation; suspension retains it.
     void discardSpeech();

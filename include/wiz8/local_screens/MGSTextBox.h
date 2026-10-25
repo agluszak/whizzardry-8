@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -10,35 +11,35 @@
 #include "wiz8/platform/input.h"
 #include "wiz8/rules/events.h"
 #include "wiz8/ui_input.h"
+#include "wiz8/ui_layer.h"
 
 struct W8MonsterInfo;
 
 void AdvanceNoticeLine(short text_box);
 
-enum class TextBoxRegion : std::size_t {
-    ScrollUp,
-    ScrollDown,
-    ScrollThumb,
-    Body,
-    ChannelTab1,
-    ChannelTab2,
-    ChannelTab3,
-    Mute
-};
+struct MainGameScreen;
 
-void InitTextBoxRegions();
-void ShutdownTextBoxRegions();
-void SetTextBoxEnabled(bool enabled);
-void EnableDialogueTextBoxRegions();
-void DisableDialogueTextBoxRegions();
-void SetTextBoxScrollInput(bool enabled);
-void SetTextBoxChannelTabInput(bool enabled);
-void SetTextBoxMuteInput(bool enabled);
+// The text box's input layers and regions live with their originating screen.
+class MainGameTextInput {
+public:
+    explicit MainGameTextInput(MainGameScreen& screen);
+    void setEnabled(bool enabled);
+    void setDialogueEnabled(bool enabled);
+    void setPanelEnabled(bool enabled);
+    void setScrollEnabled(bool enabled);
+    void setChannelTabsEnabled(bool enabled);
+    void setMuteEnabled(bool enabled);
+    void setBounds(SDL_Rect bounds);
+
+private:
+    void setRegions(std::size_t first, std::size_t count, bool enabled);
+    UiLayer body{UiLayerOrder::MessageBox}, tabs{UiLayerOrder::MessageBox};
+    std::array<HitTarget*, 8> targets{};
+};
 
 /* Reset one editor status line; -1 selects the current line. */
 void ResetEditorStatusLine(short line);
 
-signed char TextBoxHandleKey(const InputEvent* event);
 void ClearSelectedTextLine(int index);
 void ClearHoveredTextLine(int index);
 void SetHoveredTextLine(int line, int box);
@@ -56,7 +57,6 @@ void HighlightNoticeWordAt(int box, unsigned short x, unsigned short y);
 W8NoticeWord* HitTestNoticeWord(int text_box, unsigned short x, unsigned short y, int* line_out);
 /* Copy a word's text span out of its source line. */
 std::string CopyNoticeWordText(const W8NoticeWord* word, int box, int line);
-void ScrollTextBoxToCursor(void);
 W8TextBoxMode GetTextBoxMode(void);
 void SetTextBoxMode(W8TextBoxMode mode, int value);
 /* Re-derive the text-box mode from the live screen state; 0xffff
@@ -74,15 +74,7 @@ void AttemptTrapDisarm(int level, int flag, signed char backfire);
    line so wrapping, highlighting and the link counts rebuild; -1 picks the box
    the current game mode writes to. */
 void AppendToLastTextLine(std::string_view text, short text_box);
-/* Wrapped line count of the notice ShowNotice last displayed;
-   only maintained while game_status.quote_audit is raised. */
-extern int g_notice_line_count;
 void PostCharacterNotice(int party_slot, std::string_view text, int context = -1);
-void ScrollTextBoxTo(int line);
-void ScrollDialogueTextBoxToLine(void);
-void ScrollTextBoxUp(int lines);
-void ScrollTextBoxDown(int lines);
-int GetTextBoxVisibleLineCount(void);
 
 /* Recolour the character span [start, stop) of the most recent
    line in one text box; -1 picks the box the current game mode writes to. */
@@ -103,11 +95,11 @@ void AppendTextBoxLine(std::string_view text, short text_box = -1);
 bool CurrentTextLineHasContent(void);
 bool CurrentDialogueLineHasContent(void);
 int FindStoppedTextLine(void);
-void SetTextBoxRegionBounds(int left, int top, int right, int bottom);
 /* Rebuild every logged line's word hit boxes for the current text-box font. */
 void RebuildMessageLogWords(void);
-void ShowNotice(unsigned int font_palette, std::string_view text,
-                short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC,
-                unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC, bool force_dialog = false);
+// Return the number of wrapped lines posted to the message log, or zero for a dialog.
+int ShowNotice(unsigned int font_palette, std::string_view text,
+               short text_box = W8_NOTICE_TEXT_BOX_AUTOMATIC,
+               unsigned int wrap_width = W8_NOTICE_WRAP_AUTOMATIC, bool force_dialog = false);
 
 void HighlightNoticeRow(int line);

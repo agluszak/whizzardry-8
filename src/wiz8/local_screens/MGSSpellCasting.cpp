@@ -201,8 +201,8 @@ bool MainGameScreen::openSpellPicker(int party_slot, std::move_only_function<voi
     if (FormationPanelOpen()) CloseFormationPanel();
     auto& view = *(spell_picker = std::make_unique<W8SpellCastingView>(
                        *this, game.party.characters[party_slot], std::move(on_return)));
-    if (hud->open_submenu) {
-        DestroySubMenuControls();
+    if (submenu) {
+        closeSubMenu();
     }
     refreshLayout();
     if (game.activity.conversation_aside) {
@@ -215,7 +215,7 @@ bool MainGameScreen::openSpellPicker(int party_slot, std::move_only_function<voi
     SelectTextBox(2);
     ResetEditorStatusLine(-1);
     hud->text_box_visible = false;
-    SetTextBoxRegionBounds(0xea, 0x16e, 0x18c, 0x1ba);
+    setTextBoxBounds(0xea, 0x16e, 0x18c, 0x1ba);
     SelectSpellCastingPartySlot(party_slot, view.draft);
     view.SelectCharacter(party_slot);
     hud->repaint.layout = true;
@@ -231,14 +231,14 @@ void MainGameScreen::dismissSpellPicker()
     const UiTransaction transaction;
     OpenModal(nullptr);
     spell_picker->input.setEnabled(false);
-    SetTextBoxScrollInput(false);
+    text_input->setScrollEnabled(false);
     SetTargetingMode(W8_TARGET_NEED_NONE);
     if (!game.activity.conversation_aside) {
         ResetEditorStatusLine(-1);
     }
     hud->text_box_visible = true;
     SelectTextBox(game.combat.has_value());
-    SetTextBoxRegionBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
+    setTextBoxBounds(0xa8, 0x16e, 0x1c4, 0x1ba);
     DestroyAfterUiDispatch(std::move(spell_picker));
     refreshLayout();
     hud->repaint.layout = true;
@@ -464,10 +464,10 @@ void W8SpellCastingView::RebuildList(int spell_id)
         if (row.spell == spell_id && row.color == 15) selected = wiz8::checked_integer<int>(index);
     }
     if (selected == -1) {
-        ScrollTextBoxTo(0);
+        screen.scrollTextBoxTo(0);
     } else {
         SelectListRow(selected);
-        ScrollTextBoxTo(selected);
+        screen.scrollTextBoxTo(selected);
     }
     screen.hud->repaint.text_box = true;
 }

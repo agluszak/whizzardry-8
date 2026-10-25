@@ -67,6 +67,7 @@
 #include "wiz8/local_code/UtilityFunctions.h"
 #include "wiz8/local_screens/MGSButtons.h"
 #include "wiz8/local_screens/MGSPortraits.h"
+#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/RCSStatsPage.h"
 #include "wiz8/local_screens/ReviewCharacterScreen.h"
@@ -2194,7 +2195,7 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
         dispatch_mouse(InputEventType::LeftButtonDown, 105, 105, true);
         dispatch_mouse(InputEventType::LeftButtonUp, 105, 105);
         REQUIRE(clicks == 2);
-        screen.submenu = std::make_unique<MainGameSubMenu>();
+        screen.submenu = std::make_unique<MainGameSubMenu>(4);
         auto& panel = *screen.submenu;
         panel.buttons.push_back(std::make_unique<W8ButtonWidget>(panel.input));
         REQUIRE(panel.buttons.back()->Configure(ButtonAppearance{}, {100, 100, 20, 20}));
@@ -2212,7 +2213,22 @@ TEST_CASE("Main-game screen state owns HUD input through suspension and teardown
     {
         MainGameScreen reentered(game.game, ScreenPointer());
         REQUIRE_FALSE(reentered.hud_buttons.options_disk.IsConfigured());
+        reentered.hud = std::make_unique<W8LevelRuntimeBlock>();
+        reentered.text_input = std::make_unique<MainGameTextInput>(reentered);
+        reentered.text_input->setPanelEnabled(true);
+        // Destroying another screen's dormant text controls cannot unregister ours.
+        {
+            MainGameScreen other(game.game, ScreenPointer());
+            other.text_input = std::make_unique<MainGameTextInput>(other);
+        }
+        game.game.status.text_line_cursor = 0;
+        game.game.status.text_box_lines_shown[0] = 20;
+        dispatch_mouse(InputEventType::LeftButtonDown, 465, 400, true);
+        REQUIRE(g_ui.captured != nullptr);
+        REQUIRE(reentered.hud->text_lines[0] > 0);
+        // Destruction also releases a captured scrollbar, without an explicit shutdown.
     }
+    REQUIRE(g_ui.captured == nullptr);
     REQUIRE(LiveUiTargetCount() == targets);
     REQUIRE(LiveUiLayerCount() == layers);
 }

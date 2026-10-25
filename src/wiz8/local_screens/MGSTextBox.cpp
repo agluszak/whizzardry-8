@@ -49,22 +49,8 @@
 #include "wiz8/ui_layer.h"
 #include "wiz8/unicode.h"
 
-namespace {
-struct MessageBoxInput {
-    UiLayer body{UiLayerOrder::MessageBox}, tabs{UiLayerOrder::MessageBox};
-    std::array<HitTarget*, 8> targets{};
-};
-std::unique_ptr<MessageBoxInput> message_input;
-UiResult HandleTextScroll(const UiPointerEvent& event, bool up);
-UiResult HandleTextThumb(const UiPointerEvent& event);
-UiResult HandleTextBody(const UiPointerEvent& event);
-UiResult HandleTextChannel(const UiPointerEvent& event, int channel);
-}
-
 // GLOBAL: WIZ8 0x0069b7b8
 static W8TextBoxMode g_text_box_mode;
-// GLOBAL: WIZ8 0x0069b7bc
-int g_notice_line_count;
 static int g_text_box_value = W8_FONT_PALETTE_BEIGE;
 /* The screen the text box belongs to; its two panels sit at 0x0c
    and 0x14. */
@@ -175,7 +161,6 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
     record->highlight_color = 0xff;
     record->link = wrapped_line;
     record->length = -1;
-    ++g_notice_line_count;
     if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME &&
         CurrentGame().status.text_line_cursor == text_box) {
         AdvanceNoticeLine(text_box);
@@ -193,85 +178,88 @@ static void AppendNoticeLine(unsigned char font_palette, std::string_view text, 
     }
 }
 
-void InitTextBoxRegions()
+MainGameTextInput::MainGameTextInput(MainGameScreen& screen)
 {
-    message_input = std::make_unique<MessageBoxInput>();
-    auto& ui = *message_input;
-    ui.targets[0] = &ui.body.add(SDL_Rect{457, 363, 16, 16}, [](const UiPointerEvent& event) {
-        return HandleTextScroll(event, true);
+    targets[0] = &body.add(SDL_Rect{457, 363, 16, 16}, [&screen](const UiPointerEvent& event) {
+        return screen.handleTextScroll(event, true);
     });
-    ui.targets[1] = &ui.body.add(SDL_Rect{457, 429, 16, 16}, [](const UiPointerEvent& event) {
-        return HandleTextScroll(event, false);
+    targets[1] = &body.add(SDL_Rect{457, 429, 16, 16}, [&screen](const UiPointerEvent& event) {
+        return screen.handleTextScroll(event, false);
     });
-    ui.targets[2] = &ui.body.add(SDL_Rect{461, 379, 8, 50}, HandleTextThumb);
-    ui.targets[3] = &ui.body.add(SDL_Rect{166, 362, 291, 84}, HandleTextBody);
+    targets[2] = &body.add(SDL_Rect{461, 379, 8, 50}, [&screen](const UiPointerEvent& event) {
+        return screen.handleTextThumb(event);
+    });
+    targets[3] = &body.add(SDL_Rect{166, 362, 291, 84}, [&screen](const UiPointerEvent& event) {
+        return screen.handleTextBody(event);
+    });
     for (int tab = 0; tab < 3; ++tab) {
-        ui.targets[4 + tab] =
-            &ui.tabs.add(SDL_Rect{140, 362 + tab * 21, 24, 16}, [tab](const UiPointerEvent& event) {
-                return HandleTextChannel(event, tab == 2 ? 3 : tab);
-            });
-        ui.targets[4 + tab]->setTooltip([tab] { return Data().strings[33 + tab]; });
+        targets[4 + tab] = &tabs.add(SDL_Rect{140, 362 + tab * 21, 24, 16},
+                                     [&screen, tab](const UiPointerEvent& event) {
+                                         return screen.handleTextChannel(event, tab == 2 ? 3 : tab);
+                                     });
+        targets[4 + tab]->setTooltip([&screen, tab] { return screen.game.data.strings[33 + tab]; });
     }
-    ui.targets[7] = &ui.tabs.add(SDL_Rect{128, 358, 384, 93}, {}, -1);
-    ui.body.setEnabled(false);
-    ui.tabs.setEnabled(false);
+    targets[7] = &tabs.add(SDL_Rect{128, 358, 384, 93}, {}, -1);
+    setEnabled(false);
 }
 
-void ShutdownTextBoxRegions()
+void MainGameTextInput::setEnabled(bool enabled)
 {
-    message_input.reset();
-}
-void EnableDialogueTextBoxRegions()
-{
-    if (message_input) message_input->body.setEnabled(true);
-}
-void DisableDialogueTextBoxRegions()
-{
-    if (message_input) message_input->body.setEnabled(false);
-}
-void SetTextBoxEnabled(bool enabled)
-{
-    if (!message_input) return;
-    message_input->body.setEnabled(enabled);
-    message_input->tabs.setEnabled(enabled);
+    body.setEnabled(enabled);
+    tabs.setEnabled(enabled);
 }
 
-static void SetTextBoxRegionInput(TextBoxRegion first, std::size_t count, bool enabled)
+void MainGameTextInput::setRegions(std::size_t first, std::size_t count, bool enabled)
 {
-    if (!message_input) return;
-    for (std::size_t offset = 0; offset < count; ++offset)
-        message_input->targets[static_cast<std::size_t>(first) + offset]->setEnabled(enabled);
+    for (std::size_t index = first; index < first + count; ++index)
+        targets[index]->setEnabled(enabled);
 }
 
-void SetTextBoxScrollInput(bool enabled)
+void MainGameTextInput::setScrollEnabled(bool enabled)
 {
-    SetTextBoxRegionInput(TextBoxRegion::ScrollUp, 4, enabled);
+    setRegions(0, 4, enabled);
 }
-void SetTextBoxChannelTabInput(bool enabled)
+void MainGameTextInput::setChannelTabsEnabled(bool enabled)
 {
-    SetTextBoxRegionInput(TextBoxRegion::ChannelTab1, 3, enabled);
+    setRegions(4, 3, enabled);
 }
-void SetTextBoxMuteInput(bool enabled)
+void MainGameTextInput::setMuteEnabled(bool enabled)
 {
-    SetTextBoxRegionInput(TextBoxRegion::Mute, 1, enabled);
+    targets[7]->setEnabled(enabled);
 }
 
-void SetTextBoxRegionBounds(int left, int top, int right, int bottom)
+void MainGameTextInput::setDialogueEnabled(bool enabled)
 {
-    MainGameHud()->text_box_left = left;
-    MainGameHud()->text_box_top = top;
-    MainGameHud()->text_box_right = right;
-    MainGameHud()->text_box_bottom = bottom;
-    if (!message_input) return;
-    auto& targets = message_input->targets;
-    targets[3]->setShape(SDL_Rect{left, top, right - left + 1, bottom - top + 1});
+    body.setEnabled(enabled);
+    setScrollEnabled(enabled);
+}
+
+void MainGameTextInput::setPanelEnabled(bool enabled)
+{
+    setEnabled(enabled);
+    setRegions(0, targets.size(), enabled);
+}
+
+void MainGameTextInput::setBounds(SDL_Rect bounds)
+{
+    const int right = bounds.x + bounds.w - 1;
+    targets[3]->setShape(bounds);
     targets[0]->setShape(SDL_Rect{right + 5, 363, 16, 16});
     targets[1]->setShape(SDL_Rect{right + 5, 429, 16, 16});
     targets[2]->setShape(SDL_Rect{right + 9, 379, 8, 50});
 }
 
-void ShowNotice(unsigned int font_palette, std::string_view text_view, short text_box,
-                unsigned int wrap_width, bool force_dialog)
+void MainGameScreen::setTextBoxBounds(int left, int top, int right, int bottom)
+{
+    hud->text_box_left = left;
+    hud->text_box_top = top;
+    hud->text_box_right = right;
+    hud->text_box_bottom = bottom;
+    if (text_input) text_input->setBounds({left, top, right - left + 1, bottom - top + 1});
+}
+
+int ShowNotice(unsigned int font_palette, std::string_view text_view, short text_box,
+               unsigned int wrap_width, bool force_dialog)
 {
     const std::string owned_text(text_view);
     const std::string_view text = owned_text;
@@ -286,16 +274,13 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
             wrap_width = MainGameHud()->text_box_right - MainGameHud()->text_box_left;
         }
         text_box = ResolveNoticeTextBox(text_box);
-        if (CurrentGame().status.quote_audit) {
-            g_notice_line_count = 0;
-            CurrentGame().status.long_quote = 0;
-        }
+        int line_count = 0;
         MainGameHud()->text_lines[8 + text_box] = 0;
         if (static_cast<unsigned int>(MainGameHud()->text_box_font->textWidth(text)) < wrap_width) {
             AppendNoticeLine(static_cast<unsigned char>(font_palette), text, text_box, 0);
+            ++line_count;
         } else {
             std::string_view remaining(text);
-            int line_index = 0;
             while (!remaining.empty()) {
                 std::size_t end = 0, last_space = 0;
                 while (end < remaining.size() && remaining[end] != '\n') {
@@ -312,24 +297,23 @@ void ShowNotice(unsigned int font_palette, std::string_view text_view, short tex
                 }
                 const auto line = remaining.substr(0, end);
                 AppendNoticeLine(static_cast<unsigned char>(font_palette), line, text_box,
-                                 line_index++);
+                                 line_count++);
                 remaining.remove_prefix(end);
                 if (!remaining.empty() && remaining.front() == '\n') remaining.remove_prefix(1);
                 if (!remaining.empty())
                     MainGameHud()->text_lines[8 + text_box] =
-                        line_index == 1 ? wiz8::checked_integer<unsigned int>(line.size()) : ~0U;
+                        line_count == 1 ? wiz8::checked_integer<unsigned int>(line.size()) : ~0U;
             }
         }
-        if (CurrentGame().status.quote_audit && g_notice_line_count > 7) {
-            CurrentGame().status.long_quote = 1;
-        }
         g_text_box_mode = W8_TEXT_BOX_MODE_NOTICE;
+        return line_count;
     } else if (force_dialog) {
         auto dialog = CreateMessageDialog();
         dialog->SetMessage(text, 1, 50, true, false, true, false, 0, 0);
         OpenModal(std::move(dialog));
         g_modal_owner->RefreshModal();
     }
+    return 0;
 }
 
 /* Clear one box's hover or selection highlight and request a repaint. */
@@ -359,14 +343,13 @@ bool CurrentTextLineHasContent(void)
 
 /* Scroll so the line the cursor is on is the last of eight showing, or to the
    top when it would fit anyway. */
-void ScrollTextBoxToCursor(void)
+void MainGameScreen::scrollTextBoxToCursor(void)
 {
-    if (CurrentGame().status.text_box_lines_shown[CurrentGame().status.text_line_cursor] > 7) {
-        ScrollTextBoxTo(
-            CurrentGame().status.text_box_lines_shown[CurrentGame().status.text_line_cursor] - 7);
+    if (game.status.text_box_lines_shown[game.status.text_line_cursor] > 7) {
+        scrollTextBoxTo(game.status.text_box_lines_shown[game.status.text_line_cursor] - 7);
         return;
     }
-    ScrollTextBoxTo(0);
+    scrollTextBoxTo(0);
 }
 
 /* Append text onto a box's current line, growing its string in place; the
@@ -381,22 +364,20 @@ void AppendTextBoxLine(std::string_view text, short text_box)
     line.text.append(text);
 }
 
-void ScrollDialogueTextBoxToLine(void)
+void MainGameScreen::scrollTextBoxToLatest(void)
 {
     int offset;
 
     if (IsNpcDialogueTextInputActive()) {
         return;
     }
-    if (CurrentGame().activity.conversation) {
-        offset = MainGame()->dialogue.text_box_collapsed ? 1 : 7;
+    if (game.activity.conversation) {
+        offset = dialogue.text_box_collapsed ? 1 : 7;
     } else {
-        offset = !SpellPicker() && !UseItemPicker() && !CurrentGame().activity.conversation_aside
-                     ? 1
-                     : 7;
+        offset =
+            !spell_picker.get() && !item_picker.get() && !game.activity.conversation_aside ? 1 : 7;
     }
-    ScrollTextBoxTo(
-        CurrentGame().status.text_box_lines_shown[CurrentGame().status.text_line_cursor] - offset);
+    scrollTextBoxTo(game.status.text_box_lines_shown[game.status.text_line_cursor] - offset);
 }
 
 /* Recolour the character span [start, stop) of the most recent line of one
@@ -498,16 +479,15 @@ void AppendToLastTextLine(std::string_view text, short text_box)
 /* Retail returns 7 when the text box is in a multi-line mode (spell / item /
    camp / NPC dialogue with the transcript collapsed); otherwise 1. The image
    retains this out-of-line emission while VC6 inlines it at other callers. */
-int GetTextBoxVisibleLineCount(void)
+int MainGameScreen::textBoxVisibleLineCount() const
 {
-    bool dialogue = CurrentGame().activity.conversation;
-    if (dialogue) {
-        if (MainGame()->dialogue.text_box_collapsed) {
+    const bool conversing = game.activity.conversation;
+    if (conversing) {
+        if (dialogue.text_box_collapsed) {
             return 1;
         }
     }
-    if (!SpellPicker() && !dialogue && !UseItemPicker() &&
-        !CurrentGame().activity.conversation_aside) {
+    if (!spell_picker && !conversing && !item_picker && !game.activity.conversation_aside) {
         return 1;
     }
     return 7;
@@ -535,7 +515,7 @@ bool CurrentDialogueLineHasContent(void)
 {
     short text_box = CurrentGame().status.text_line_cursor;
 
-    return MainGameHud()->text_lines[text_box] + GetTextBoxVisibleLineCount() <
+    return MainGameHud()->text_lines[text_box] + MainGame()->textBoxVisibleLineCount() <
            CurrentGame().status.text_box_lines_shown[text_box];
 }
 
@@ -556,163 +536,160 @@ void AdvanceNoticeLine(short text_box)
     unsigned int shown = ++CurrentGame().status.text_box_lines_shown[text_box];
     if (MainGameHud()->text_scroll_drag_idle) {
         if (CurrentGame().activity.conversation && MainGame()->dialogue.text_box_collapsed) {
-            ScrollTextBoxTo(shown);
+            MainGame()->scrollTextBoxTo(shown);
             MainGame()->dialogue.text_box_collapsed = false;
         } else if (!SpellPicker() && !CurrentGame().activity.conversation && !UseItemPicker() &&
                    !CurrentGame().activity.conversation_aside) {
             if (CurrentGame().combat.has_value() && CurrentGame().combat->notice_scroll_pending) {
-                ScrollTextBoxTo(shown);
+                MainGame()->scrollTextBoxTo(shown);
                 CurrentGame().combat->notice_scroll_pending = false;
             } else if (shown == 350) {
                 unsigned int scroll = MainGameHud()->text_lines[text_box];
                 if (scroll >= 344) {
-                    ScrollTextBoxTo(scroll - 1);
+                    MainGame()->scrollTextBoxTo(scroll - 1);
                 } else if (scroll <= 342) {
-                    ScrollTextBoxTo(343);
+                    MainGame()->scrollTextBoxTo(343);
                 }
             } else if (shown >= 8 && shown - 7 > MainGameHud()->text_lines[text_box]) {
-                ScrollTextBoxTo(shown - 7);
+                MainGame()->scrollTextBoxTo(shown - 7);
             }
         } else if (!IsNpcDialogueTextInputActive()) {
-            ScrollTextBoxTo(
+            MainGame()->scrollTextBoxTo(
                 CurrentGame().status.text_box_lines_shown[CurrentGame().status.text_line_cursor] -
-                GetTextBoxVisibleLineCount());
+                MainGame()->textBoxVisibleLineCount());
         }
     }
     RedrawTextBox();
 }
 
-void ScrollTextBoxTo(int line)
+void MainGameScreen::scrollTextBoxTo(int line)
 {
-    short text_box = CurrentGame().status.text_line_cursor;
-    unsigned int count = CurrentGame().status.text_box_lines_shown[text_box];
-    unsigned int visible = GetTextBoxVisibleLineCount();
+    short text_box = game.status.text_line_cursor;
+    unsigned int count = game.status.text_box_lines_shown[text_box];
+    unsigned int visible = textBoxVisibleLineCount();
     if (count <= visible) {
         return;
     }
-    unsigned int previous = MainGameHud()->text_lines[text_box];
+    unsigned int previous = hud->text_lines[text_box];
     unsigned int target = static_cast<unsigned int>(line);
     if (target + visible <= count) {
         if (target > 349) {
             target = 350;
         }
-        MainGameHud()->text_lines[text_box] = target;
+        hud->text_lines[text_box] = target;
     } else {
-        MainGameHud()->text_lines[text_box] = count - visible;
+        hud->text_lines[text_box] = count - visible;
     }
-    if (MainGameHud()->text_lines[text_box] != previous) {
-        MainGameHud()->text_content_region =
-            MainGameHud()->text_lines[text_box] != 0 ? kUpArrowEnabled : kUpArrowDisabled;
-        MainGameHud()->dialogue_content_region =
-            MainGameHud()->text_lines[text_box] + GetTextBoxVisibleLineCount() < count
-                ? kDownArrowEnabled
-                : kDownArrowDisabled;
-        RedrawTextBox();
+    if (hud->text_lines[text_box] != previous) {
+        hud->text_content_region =
+            hud->text_lines[text_box] != 0 ? kUpArrowEnabled : kUpArrowDisabled;
+        hud->dialogue_content_region = hud->text_lines[text_box] + textBoxVisibleLineCount() < count
+                                           ? kDownArrowEnabled
+                                           : kDownArrowDisabled;
+        hud->repaint.text_box = true;
     }
 }
 
-void ScrollTextBoxUp(int lines)
+void MainGameScreen::scrollTextBoxUp(int lines)
 {
-    short text_box = CurrentGame().status.text_line_cursor;
-    unsigned int previous = MainGameHud()->text_lines[text_box];
+    short text_box = game.status.text_line_cursor;
+    unsigned int previous = hud->text_lines[text_box];
     if (previous == 0) {
         return;
     }
 
     unsigned int amount = static_cast<unsigned int>(lines);
     if (previous < amount) {
-        MainGameHud()->text_lines[text_box] = 0;
+        hud->text_lines[text_box] = 0;
     } else {
-        MainGameHud()->text_lines[text_box] = previous - amount;
+        hud->text_lines[text_box] = previous - amount;
     }
 
-    unsigned int current = MainGameHud()->text_lines[text_box];
+    unsigned int current = hud->text_lines[text_box];
     if (current == previous) {
         return;
     }
-    if (current + GetTextBoxVisibleLineCount() <
-        CurrentGame().status.text_box_lines_shown[text_box]) {
-        MainGameHud()->dialogue_content_region = kDownArrowEnabled;
+    if (current + textBoxVisibleLineCount() < game.status.text_box_lines_shown[text_box]) {
+        hud->dialogue_content_region = kDownArrowEnabled;
     }
     if (current == 0) {
-        MainGameHud()->text_content_region = kUpArrowDisabled;
+        hud->text_content_region = kUpArrowDisabled;
     }
-    RedrawTextBox();
+    hud->repaint.text_box = true;
 }
 
-void ScrollTextBoxDown(int lines)
+void MainGameScreen::scrollTextBoxDown(int lines)
 {
-    short text_box = CurrentGame().status.text_line_cursor;
-    unsigned int count = CurrentGame().status.text_box_lines_shown[text_box];
-    unsigned int visible = GetTextBoxVisibleLineCount();
-    unsigned int previous = MainGameHud()->text_lines[text_box];
+    short text_box = game.status.text_line_cursor;
+    unsigned int count = game.status.text_box_lines_shown[text_box];
+    unsigned int visible = textBoxVisibleLineCount();
+    unsigned int previous = hud->text_lines[text_box];
     if (previous + visible >= count) {
         return;
     }
 
     if (previous + visible + static_cast<unsigned int>(lines) <= count) {
-        MainGameHud()->text_lines[text_box] = previous + lines;
+        hud->text_lines[text_box] = previous + lines;
     } else {
-        MainGameHud()->text_lines[text_box] = count - visible;
+        hud->text_lines[text_box] = count - visible;
     }
 
-    unsigned int current = MainGameHud()->text_lines[text_box];
+    unsigned int current = hud->text_lines[text_box];
     if (current == previous) {
         return;
     }
     if (current != 0) {
-        MainGameHud()->text_content_region = kUpArrowEnabled;
+        hud->text_content_region = kUpArrowEnabled;
     }
     if (current + visible >= count) {
-        MainGameHud()->dialogue_content_region = kDownArrowDisabled;
+        hud->dialogue_content_region = kDownArrowDisabled;
     }
-    RedrawTextBox();
+    hud->repaint.text_box = true;
 }
 
-namespace {
-UiResult HandleTextThumb(const UiPointerEvent& event)
+UiResult MainGameScreen::handleTextThumb(const UiPointerEvent& event)
 {
 
     if (!(event.buttons & SDL_BUTTON_LMASK)) {
-        MainGameHud()->text_scroll_drag_idle = 1;
+        hud->text_scroll_drag_idle = 1;
         return UiResult::Handled;
     }
     if (event.action != UiPointerAction::Move && event.action != UiPointerAction::Down)
         return UiResult::Handled;
-    const short box = CurrentGame().status.text_line_cursor;
-    const int visible = GetTextBoxVisibleLineCount();
-    const int count = static_cast<int>(CurrentGame().status.text_box_lines_shown[box]);
+    const short box = game.status.text_line_cursor;
+    const int visible = textBoxVisibleLineCount();
+    const int count = static_cast<int>(game.status.text_box_lines_shown[box]);
     if (count <= visible) return UiResult::Handled;
     const auto position = std::clamp(event.local.y + 1, 0, 46);
-    const int previous = static_cast<int>(MainGameHud()->text_lines[box]);
+    const int previous = static_cast<int>(hud->text_lines[box]);
     const int current = (count - visible) * position / 47;
-    MainGameHud()->text_lines[box] = current;
+    hud->text_lines[box] = current;
     if (current != previous) {
-        MainGameHud()->text_content_region = current ? kUpArrowEnabled : kUpArrowDisabled;
-        MainGameHud()->dialogue_content_region =
+        hud->text_content_region = current ? kUpArrowEnabled : kUpArrowDisabled;
+        hud->dialogue_content_region =
             current + visible < count ? kDownArrowEnabled : kDownArrowDisabled;
-        RedrawTextBox();
+        hud->repaint.text_box = true;
     }
-    MainGameHud()->text_scroll_drag_idle = 0;
+    hud->text_scroll_drag_idle = 0;
     return UiResult::Handled;
 }
 
-UiResult HandleTextScroll(const UiPointerEvent& event, bool up)
+UiResult MainGameScreen::handleTextScroll(const UiPointerEvent& event, bool up)
 {
-    const short box = CurrentGame().status.text_line_cursor;
-    const bool enabled = up ? MainGameHud()->text_lines[box] != 0
-                            : MainGameHud()->text_lines[box] + GetTextBoxVisibleLineCount() <
-                                  CurrentGame().status.text_box_lines_shown[box];
+    const short box = game.status.text_line_cursor;
+    const bool enabled = up ? hud->text_lines[box] != 0
+                            : hud->text_lines[box] + textBoxVisibleLineCount() <
+                                  game.status.text_box_lines_shown[box];
     if ((enabled) && (event.action != UiPointerAction::Up || event.captured_buttons))
         PlayButtonSound(event.action);
     if (enabled &&
         (event.action == UiPointerAction::Enter || event.action == UiPointerAction::Leave)) {
         const bool hover = event.action == UiPointerAction::Enter;
         if (up)
-            MainGameHud()->text_content_region = hover ? kUpArrowPressed : kUpArrowEnabled;
+            hud->text_content_region = hover ? kUpArrowPressed : kUpArrowEnabled;
         else
-            MainGameHud()->dialogue_content_region = hover ? kDownArrowPressed : kDownArrowEnabled;
-        RedrawTextBox();
+            hud->dialogue_content_region = hover ? kDownArrowPressed : kDownArrowEnabled;
+        hud->repaint.text_box = true;
     }
     if ((event.action == UiPointerAction::Up || event.action == UiPointerAction::Repeat) &&
         event.inside) {
@@ -721,52 +698,51 @@ UiResult HandleTextScroll(const UiPointerEvent& event, bool up)
         if (event.captured_buttons & mask) {
             const int lines = event.button == UiPointerButton::Left ? 1 : 7;
             if (up)
-                ScrollTextBoxUp(lines);
+                scrollTextBoxUp(lines);
             else
-                ScrollTextBoxDown(lines);
+                scrollTextBoxDown(lines);
         }
     }
     return UiResult::Handled;
 }
 
-UiResult HandleTextBody(const UiPointerEvent& event)
+UiResult MainGameScreen::handleTextBody(const UiPointerEvent& event)
 {
 
     if (event.action == UiPointerAction::Wheel) {
         if (event.wheel < 0)
-            ScrollTextBoxDown(-event.wheel);
+            scrollTextBoxDown(-event.wheel);
         else
-            ScrollTextBoxUp(event.wheel);
-        if (CurrentGame().activity.conversation)
+            scrollTextBoxUp(event.wheel);
+        if (game.activity.conversation)
             NpcDialogueTextBoxWheelAt(event.position.x, event.position.y, true);
-        else if (auto* picker = UseItemPicker())
+        else if (auto* picker = item_picker.get())
             picker->TextBoxWheelAt(event.position.y);
         return UiResult::Handled;
     }
-    if (CurrentGame().activity.conversation) return HandleNpcTextBox(event);
-    if (auto* picker = SpellPicker()) return picker->HandleTextBox(event);
-    if (auto* picker = UseItemPicker()) return picker->HandleTextBox(event);
+    if (game.activity.conversation) return HandleNpcTextBox(event);
+    if (auto* picker = spell_picker.get()) return picker->HandleTextBox(event);
+    if (auto* picker = item_picker.get()) return picker->HandleTextBox(event);
     return UiResult::Handled;
 }
 
-UiResult HandleTextChannel(const UiPointerEvent& event, int channel)
+UiResult MainGameScreen::handleTextChannel(const UiPointerEvent& event, int channel)
 {
 
     if (event.action != UiPointerAction::Up || !event.inside ||
         event.button != UiPointerButton::Left || !(event.captured_buttons & SDL_BUTTON_LMASK))
         return UiResult::Handled;
-    CurrentGame().status.text_line_cursor = static_cast<short>(channel);
-    const auto scroll = MainGameHud()->text_lines[channel];
-    MainGameHud()->text_content_region = scroll ? kUpArrowEnabled : kUpArrowDisabled;
-    MainGameHud()->dialogue_content_region =
-        scroll + GetTextBoxVisibleLineCount() < CurrentGame().status.text_box_lines_shown[channel]
+    game.status.text_line_cursor = static_cast<short>(channel);
+    const auto scroll = hud->text_lines[channel];
+    hud->text_content_region = scroll ? kUpArrowEnabled : kUpArrowDisabled;
+    hud->dialogue_content_region =
+        scroll + textBoxVisibleLineCount() < game.status.text_box_lines_shown[channel]
             ? kDownArrowEnabled
             : kDownArrowDisabled;
     if (channel == 3)
-        ScrollTextBoxTo(std::max(0, int(CurrentGame().status.text_box_lines_shown[channel]) - 7));
-    RedrawTextBox();
+        scrollTextBoxTo(std::max(0, int(game.status.text_box_lines_shown[channel]) - 7));
+    hud->repaint.text_box = true;
     return UiResult::Handled;
-}
 }
 
 /* The text box's mode, and the setter that also records a value when one is
@@ -872,8 +848,9 @@ void RedrawTextBoxBody(bool skip_invalidate)
     }
 
     if (!MainGame()->layout().bottom_panel) {
-        can_scroll_down = scroll + static_cast<unsigned int>(GetTextBoxVisibleLineCount()) <
-                          CurrentGame().status.text_box_lines_shown[text_box];
+        can_scroll_down =
+            scroll + static_cast<unsigned int>(MainGame()->textBoxVisibleLineCount()) <
+            CurrentGame().status.text_box_lines_shown[text_box];
         if (!can_scroll_down &&
             TimeUntilDeadline(CurrentGame().message_log[text_box][scroll + rows - 1].clock) == 0) {
             return;
@@ -960,7 +937,7 @@ void RedrawTextBoxScrollChrome(void)
         }
 
         line_count = CurrentGame().status.text_box_lines_shown[text_box];
-        visible = GetTextBoxVisibleLineCount();
+        visible = MainGame()->textBoxVisibleLineCount();
         if (scroll + static_cast<unsigned int>(visible) < line_count) {
             if (MainGameHud()->dialogue_content_region == kDownArrowDisabled) {
                 MainGameHud()->dialogue_content_region = kDownArrowEnabled;
@@ -1020,23 +997,6 @@ int FindStoppedTextLine(void)
     return -1;
 }
 
-/* Hand one key to the text box's own handler. A key that moved the selection
-   is followed by the two calls that settle it; a key that did not is not. */
-signed char TextBoxHandleKey(const InputEvent* event)
-{
-    W8MainGameTextPanel* panel = TrapInteraction()->m_text_panel.get();
-    int before = panel->m_selection;
-    signed char handled;
-
-    handled = panel->m_key_handler->HandleKey(event->key);
-
-    if (handled != 0 && panel->m_selection != before) {
-
-        PlayButtonSound(UiPointerAction::Up);
-    }
-    return handled;
-}
-
 /* Record what the Knock Knock spell is aimed at. Casting it anywhere the
    overlay is not up says so and records nothing - the message is the
    function's own name in the player's words. Its caller passes the same
@@ -1091,8 +1051,9 @@ void SelectTextBox(short text_box)
         MainGameHud()->text_content_region = kUpArrowDisabled;
     }
 
-    const bool can_scroll = MainGameHud()->text_lines[text_box] + GetTextBoxVisibleLineCount() <
-                            CurrentGame().status.text_box_lines_shown[text_box];
+    const bool can_scroll =
+        MainGameHud()->text_lines[text_box] + MainGame()->textBoxVisibleLineCount() <
+        CurrentGame().status.text_box_lines_shown[text_box];
     MainGameHud()->dialogue_content_region = can_scroll ? kDownArrowEnabled : kDownArrowDisabled;
 }
 

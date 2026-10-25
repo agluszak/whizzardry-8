@@ -1,6 +1,6 @@
 #pragma once
 
-/* The command numbers MGSKeyBinding::command carries and DispatchMGSCommand
+/* The command numbers MGSKeyBinding::command carries and MainGameScreen::dispatchCommand
    switches on; Data\Strings\MGSKeyboard.INI binds keys to them and the
    options keymap labels them from the string table. Movement commands are
    polled via IsCommandPressed rather than dispatched. The shift-registered

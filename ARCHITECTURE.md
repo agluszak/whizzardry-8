@@ -541,6 +541,16 @@ code has a subclass whose members are that state. Trigger callbacks are
   (shown mode, panels, world viewport) from the open interaction and the player's
   preferences and changes only the panels that differ; an interaction overrides
   the layout, never the preference.
+  Main-game keyboard dispatch belongs to that screen: focused text entry consumes
+  input before dialogue, trap input and bound commands. The dialogue panel routes
+  its allowed commands back to its originating screen; action gates and picker
+  toggles use that screen's interactions, game and pointer.
+  HUD button callbacks retain that same screen. A submenu owns its bank selection,
+  rows and input layer together; its presence is the open state. Rebuilding replaces
+  that one object, and suspension discards it. Row callbacks finish after input
+  dispatch, so opening a picker can retire the menu that initiated it safely.
+  Text-box input belongs to the main screen, survives suspension, and is replaced
+  on re-entry. Its scroll and channel handlers act on that screen's game and HUD.
   Spell and item pickers own private controls and drafts; the screen commits a copied
   choice inside the same retirement boundary. Explicit completion returns to the opener;
   replacement and screen/combat teardown abandon it. Dismissal also retires the picker's

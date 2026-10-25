@@ -80,12 +80,3 @@ private:
     std::array<Row, 13> rows;
     UiLayer input{UiLayerOrder::KeyboardMenu};
 };
-
-/* Dispatch a bound MGS command number through the keyboard system. */
-void DispatchMGSCommand(W8MGSCommand command);
-/* Route one non-mouse input atom to text entry, dialogue, the trap text box
-   or a bound MGS command. */
-bool HandleMainGameInputEvent(const InputEvent* input);
-/* Poll the camera/movement command bindings and set the world-render flags. */
-void HandleManualCameraHotkeys(void);
-void ApplyCameraMotionHotkeys(void);

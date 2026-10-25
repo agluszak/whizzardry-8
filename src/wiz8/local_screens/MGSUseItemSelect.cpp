@@ -133,8 +133,8 @@ bool MainGameScreen::openItemPicker(int party_slot, std::move_only_function<void
     if (spell_picker || item_picker || lock_active || trap_active) dismissOverlays(false);
     if (FormationPanelOpen()) CloseFormationPanel();
     item_picker = std::make_unique<W8UseItemView>(*this, party_slot, std::move(on_return));
-    if (hud->open_submenu) {
-        DestroySubMenuControls();
+    if (submenu) {
+        closeSubMenu();
     }
     CloseNpcDialogueIfActive();
     refreshLayout();
@@ -155,8 +155,8 @@ void MainGameScreen::dismissItemPicker()
     if (!item_picker) return;
     const UiTransaction transaction;
     OpenModal(nullptr);
-    SetTextBoxScrollInput(false);
-    SetTextBoxEnabled(false);
+    text_input->setScrollEnabled(false);
+    text_input->setEnabled(false);
     SetTargetingMode(W8_TARGET_NEED_NONE);
     ResetEditorStatusLine(-1);
     hud->text_box_visible = true;
@@ -202,7 +202,7 @@ void W8UseItemView::RefreshForSlot(int party_slot)
             Rebuild(Pool::Hand, &screen.game.inventory.held()->item);
         }
         assert(selected_line != -1);
-        ScrollTextBoxTo(selected_line);
+        screen.scrollTextBoxTo(selected_line);
         return;
     }
     if (CanPartySlotUseRecordedItem(party_slot)) {
@@ -216,7 +216,7 @@ void W8UseItemView::RefreshForSlot(int party_slot)
             assert(!party_pool || !screen.game.combat.has_value());
             Rebuild(party_pool ? Pool::Party : Pool::Character, item);
             assert(selected_line != -1);
-            ScrollTextBoxTo(selected_line);
+            screen.scrollTextBoxTo(selected_line);
             SetHoveredTextLine(selected_line, 2);
             RedrawTextBox();
             return;
@@ -333,7 +333,7 @@ void W8UseItemView::Rebuild(Pool source, const W8ItemInstance* select)
     }
     ShowList(select);
     UpdatePoolButtons();
-    ScrollTextBoxTo(0);
+    screen.scrollTextBoxTo(0);
     Repaint(1);
 }
 

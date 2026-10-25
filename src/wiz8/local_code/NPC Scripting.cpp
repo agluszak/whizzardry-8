@@ -768,14 +768,9 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
     queue_.erase(current);
 }
 
-/* QA audit over every `Data\NPC Scripts\*.nsf`: load each script file, print
-   every quote line that is not a placeholder sentinel through ShowNotice, log
-   each notice that wraps past seven lines to data\longquotes.txt, and write
-   per-script plus grand totals to data\quotereport.txt. Raising
-   status.quote_audit makes ShowNotice maintain g_notice_line_count and
-   status.long_quote. The report streams are owned and failures leave
-   quote-audit mode disabled. */
-void AuditNpcScriptQuotes(GameStatus& status)
+/* Audit NPC script quotes using the same wrapping as their on-screen notices.
+   Report quotes longer than seven lines and per-script and total line counts. */
+void AuditNpcScriptQuotes()
 {
     const W8NpcScriptFile* script;
     const W8NpcScriptQuote* quote;
@@ -809,7 +804,6 @@ void AuditNpcScriptQuotes(GameStatus& status)
         const auto write_report = [&](const std::string& text) {
             file->write(text.data(), text.size());
         };
-        status.quote_audit = 1;
         write_report(std::string("Script Report File: ") + date + "\n");
         write_report("-------------------------------------------------\n");
         for (const auto& name :
@@ -829,16 +823,17 @@ void AuditNpcScriptQuotes(GameStatus& status)
                             CompareTextIgnoreAsciiCase(text, "UNKNOWN") != 0 &&
                             CompareTextIgnoreAsciiCase(text, "CLASSIFIED") != 0) {
                             display = fmt::format(" \"{}\"", text);
-                            ShowNotice(W8_FONT_PALETTE_RED, display, 0, W8_NOTICE_WRAP_TEXT_BOX);
-                            if (status.long_quote != 0) {
+                            const int lines = ShowNotice(W8_FONT_PALETTE_RED, display, 0,
+                                                         W8_NOTICE_WRAP_TEXT_BOX);
+                            if (lines > 7) {
                                 const std::string line =
                                     "Long Quote: #" + std::to_string(record_index) +
                                     ", subquote: #" + std::to_string(sub_index) +
                                     ", script file: " + name + " \n\n";
                                 log_file->write(line.data(), line.size());
                             }
-                            file_lines += g_notice_line_count;
-                            total_lines += g_notice_line_count;
+                            file_lines += lines;
+                            total_lines += lines;
                             ++total_quotes;
                             ++file_quotes;
                         }
@@ -861,7 +856,6 @@ void AuditNpcScriptQuotes(GameStatus& status)
         ShowNotice(W8_FONT_PALETTE_RED, "Quote test failed. Could not write report",
                    W8_NOTICE_TEXT_BOX_AUTOMATIC, W8_NOTICE_WRAP_TEXT_BOX);
     }
-    status.quote_audit = 0;
 }
 /* Queue `text` as a floating portrait message: the string is copied so the
    queue owns it, and while the level-data flag is clear the message is
