@@ -7,7 +7,6 @@
 
 #include "scoped_combat.h"
 #include "scoped_game.h"
-#include "scoped_game_data.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/data/game_data.h"
 #include "wiz8/data/item_records.h"
@@ -169,9 +168,8 @@ TEST_CASE_METHOD(InventoryCombatFixture, "Spending one charge keeps a committed 
 
 TEST_CASE("A deflected stored-spell missile keeps its outcome outside combat")
 {
-    const ScopedGame game_scope;
-    Game& game = game_scope.game;
-    const ScopedGameData missile_data{GameData{.missiles = std::vector<W8MissileTableRecord>(36)}};
+    const GameData data{.missiles = std::vector<W8MissileTableRecord>(36)};
+    Game game{data};
     game.level.replacePrimary(std::make_unique<World>());
     World& world = *game.level.primary;
     Monster target(world);
