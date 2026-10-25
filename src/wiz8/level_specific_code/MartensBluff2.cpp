@@ -137,7 +137,7 @@ private:
     TriggerDecision perfumeBox(Trigger* pTrigger);
     TriggerDecision squisherControls(Trigger* pTrigger);
     bool startCrusher(int command);
-    bool monsterCrusher(int command);
+    bool advanceCrusher(int);
     void captureCrusher(W8SavedLocationState& state);
     TriggerDecision stoneIdol(Trigger* pTrigger);
     TriggerDecision blueFlowers(Trigger* pTrigger);
@@ -244,7 +244,7 @@ void MartensBluff2Script::setup()
     if (GetLocationVarIDByName("MonsterCrusher") != -1) {
         value = GetLocationVarValueByName("MonsterCrusher");
         if (value != 0) {
-            monsterCrusher(value);
+            startCrusher(value);
         }
     }
 }
@@ -443,14 +443,7 @@ void MartensBluff2Script::captureCrusher(W8SavedLocationState& state)
     state.emplace_back("MonsterCrusher", static_cast<int>(crusher_state_));
 }
 
-/* The MonsterCrusher master function. A nonzero command looks up the two
-   squisher props and arms the sequence; 0xEFFFFFFF is
-   the toggle from SquisherControls, and 2 suppresses the hydraulics loop. The
-   command-0 run tracks the animation: while the squisher plays it sweeps the
-   kill box between the two props' facing planes for monsters, shoving those
-   with room aside and crushing the rest (species 0x183 pays out through
-   AwardPartyExperience); once the squisher finishes it runs the Dummy and DummyRope
-   triggers, and once those props finish it unregisters. */
+// Start or restore the sequence; the interactive toggle keeps the existing phase.
 bool MartensBluff2Script::startCrusher(int command)
 {
     bool handled = false;
@@ -491,7 +484,7 @@ bool MartensBluff2Script::startCrusher(int command)
         }
         crusher_active_ = true;
         crusher_state_ = W8CrusherState::moving;
-        addMaster(&MartensBluff2Script::monsterCrusher, &MartensBluff2Script::captureCrusher);
+        addMaster(&MartensBluff2Script::advanceCrusher, &MartensBluff2Script::captureCrusher);
     }
     if (command != 1 && GetRavenQuestState() != RavenQuestState::not_started) {
         running_trigger_from_script_ = true;
@@ -502,12 +495,8 @@ bool MartensBluff2Script::startCrusher(int command)
     return handled;
 }
 
-bool MartensBluff2Script::monsterCrusher(int command)
+bool MartensBluff2Script::advanceCrusher(int)
 {
-    if (command != 0) {
-        startCrusher(command);
-        return false;
-    }
     Trigger* pTrigger;
     glm::vec3 position;
     std::vector<std::uint32_t> location_ids;

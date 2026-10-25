@@ -542,9 +542,8 @@ void SetTriggerVariableByName(std::string_view name, int value)
 
 /* Clear the running bit and run every comma-separated recipient trigger once
    when the link-out and state-gate bits are set. */
-bool Trigger::RunLinkedTriggers()
+void Trigger::RunLinkedTriggers()
 {
-    bool handled = false;
 
     flags &= ~W8_TRIGGER_RUNNING;
     if ((flags & W8_TRIGGER_FIRE_LINKED) != 0 && (flags & W8_TRIGGER_LINK_ON_DEACTIVATE) != 0 &&
@@ -552,11 +551,10 @@ bool Trigger::RunLinkedTriggers()
         for (const auto& recipient : recipients) {
             Trigger* trigger = FindTriggerByName(recipient.c_str());
             if (trigger != 0) {
-                handled |= trigger->Run(-1);
+                trigger->Run(-1);
             }
         }
     }
-    return handled;
 }
 
 void Trigger::GetPosition(glm::vec3* position) const

@@ -150,8 +150,8 @@ struct TriggerDecision {
 
 class Trigger {
 public:
-    /* Decides whether an activation runs the trigger's action. Level scripts and NPC
-       bindings install it; it may refer to the level script that owns it. */
+    // Permission to execute and interaction feedback are independent: a callback
+    // may handle an interaction while declining its configured action.
     using ActivationCallback = std::function<TriggerDecision(Trigger* trigger)>;
 
     explicit Trigger(World* world = nullptr, unsigned int item_seed = 0);
@@ -189,7 +189,6 @@ public:
     bool HasActorWithinRadius(float radius, bool include_party);
     bool PlayActionSound(std::string_view sound_name, int volume);
     void UpdateActionAnimation();
-    bool CommitActionResult(bool apply_state_changes);
     void CompleteItemInteraction();
     void Activate();
     // The trigger's save record, and restoring the trigger from one.
@@ -197,7 +196,7 @@ public:
     // The lock's save record, or nothing when the trigger has no lock.
     std::optional<SavedLock> CaptureLock() const;
     void Restore(SavedTrigger saved);
-    bool RunLinkedTriggers();
+    void RunLinkedTriggers();
     bool FinishAction();
     void GetPosition(glm::vec3* position) const;
     bool CanRunLinkedTriggers();
@@ -207,7 +206,6 @@ public:
     /* Whether the trigger takes an item: required_item_id >= 0 (the special-item
        notice path) or a type-10 action payload naming item. */
     bool RequiresItem();
-    TriggerDecision SelectAction();
     void GenerateItemGroup();
     W8WorldItem* GetOrCreateItemGroup(bool create);
     void interact();
@@ -275,6 +273,10 @@ public:
     bool running;
     unsigned char unknown_365[3];
     LockState lock_state;
+
+private:
+    TriggerDecision SelectAction();
+    bool CommitActionResult(bool apply_state_changes);
 };
 
 Trigger* FindTriggerByName(std::string_view name);

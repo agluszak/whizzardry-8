@@ -63,7 +63,7 @@ public:
 private:
     TriggerDecision oilPool(Trigger* pTrigger);
     TriggerDecision castPlaneSpell(Trigger* pTrigger, int spell_id);
-    TriggerDecision gasFireSpawn(Trigger* pTrigger);
+    void gasFireSpawn(Trigger* pTrigger);
     bool gasFireItemDrop(int command);
 
     // Resolved when used: the monster can be killed or removed while the party talks to it.
@@ -132,7 +132,7 @@ TriggerDecision SwampScript::castPlaneSpell(Trigger* pTrigger, int spell_id)
 /* 0x004DAA8A is a split entry Ghidra carved out of this body: it resumes at
    the SetFact call after the fact-0x16d early return, not a separate
    authored function. */
-TriggerDecision SwampScript::gasFireSpawn(Trigger* pTrigger)
+void SwampScript::gasFireSpawn(Trigger* pTrigger)
 {
     glm::vec3 center;
     glm::vec3 position;
@@ -144,7 +144,7 @@ TriggerDecision SwampScript::gasFireSpawn(Trigger* pTrigger)
     int index;
 
     if (ctx.game.testFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET) != 0) {
-        return {.run_action = false};
+        return;
     }
     ctx.game.setFact(W8_FACT_SAVANT_PARTY_SWAMP_MEET, 1);
     ResetInactiveLevelDataVectors();
@@ -178,7 +178,7 @@ TriggerDecision SwampScript::gasFireSpawn(Trigger* pTrigger)
     }
     npc = (FindMonster(index))->boundNpc();
     QueueNpcScriptNotice(npc, 0, -1, false, 0);
-    return {.run_action = true};
+    return;
 }
 
 /* The master function the spawn arms. The toggle re-registers it and clears
