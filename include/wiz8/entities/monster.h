@@ -31,7 +31,6 @@ struct W8MonsterRecord;
 
 struct Animation;
 struct LevelLoadContext;
-struct WorldItemEntity;
 class Mesh;
 class MeshInstance;
 class Light;
@@ -67,11 +66,10 @@ extern float g_monster_light_scale;
    GrCycle copies the same 0x10 bytes onto a model instance at +0x164. */
 
 /* One spell/condition icon attached to a monster: the icon id and the
-   billboard item it owns (retail "psrBMO"). Removing an icon detaches the
-   billboard from the scene before it is destroyed. */
+   billboard mesh it owns. Mesh lifetime owns scene attachment. */
 struct W8MonsterSpellIcon {
     W8MonsterSpellIconId icon;
-    std::unique_ptr<WorldItemEntity> item;
+    std::unique_ptr<MeshInstance> mesh;
 };
 
 /* The constructor at 0x004BEA20 initializes through 0x624; the observed
@@ -120,6 +118,10 @@ public:
     void GetMappedPosition(glm::vec3* position);
     std::optional<glm::vec3> GetAnimationCenter();
     void SetPosition(const glm::vec3* position);
+    void setPartyMarker(int slot, std::optional<int> colour);
+    void addSpellIcon(W8MonsterSpellIconId icon);
+    void removeSpellIcon(W8MonsterSpellIconId icon);
+    void clearSpellIcons();
 
     // Representation state that used to live in a separate Monster.
     unsigned int ApplyEmitterSetting(signed char cycle); /* 0x004BF970 */
@@ -148,11 +150,6 @@ public:
     /* 0x5bc: per-party-member highlight bitmask - bit N set while party
        member N has the monster highlighted/targeted. */
     std::string name;
-    /* 0x5c4: number of populated party-icon entries in objects; the
-       attachment layout read by UpdateAttachedObjects. */
-    int icon_count = 0;
-    std::unique_ptr<WorldItemEntity> objects[8];
-    std::vector<W8MonsterSpellIcon> spell_icons;
     float standing_height = 0.0f;
     float scale = 1.0f;
     float minimum_scale = 0.0f;
@@ -337,6 +334,9 @@ public:
     std::vector<wiz8::sound::Playback> sounds;
 
 private:
+    std::unique_ptr<MeshInstance> createIcon(std::string_view path);
+    std::array<std::unique_ptr<MeshInstance>, 8> party_markers_;
+    std::vector<W8MonsterSpellIcon> spell_icons_;
     // Immutable gameplay definition outlives this body. Cursor-only bodies have none.
     const W8MonsterRecord* const species_definition_;
 };
@@ -417,9 +417,6 @@ struct W8MonsterShakeCallback {
     W8AnimationFrameMethod saved_frame_method{};
 };
 
-void SetMonsterPartySlotMarker(int party_slot, int location_id, signed char on);
-
-std::unique_ptr<WorldItemEntity> CreateMonsterIconItem(World& world, std::string_view path);
 /* A Monster script by name, shared through the script cache; null when missing. */
 std::shared_ptr<Script> LoadMonsterScript(std::string_view name);
 /* One eight-byte row per animation cycle at 0x0060EA08. The parser at

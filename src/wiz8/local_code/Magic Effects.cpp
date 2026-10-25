@@ -87,7 +87,7 @@ constexpr float kCameraShakeIntensityBase = 0.7900000214576721f;
 
 /* Eight bytes per effect id. The leading dword is the icon the
    party and combat HUD strips show for the effect (-1 means none); the second
-   dword is the visual resource SetMonsterSpellIcon attaches to the monster.
+   dword is the visual resource Monster::addSpellIcon attaches to the monster.
    The array fills the region between g_spellbook_name_ids and
    g_spell_usage_name_ids exactly. */
 W8EffectVisual g_effect_visual_table[150] = {
@@ -309,7 +309,7 @@ void ClearMonsterCharm(W8MonsterInfo* monster_info)
     if (monster_info->charm_strength != 0) {
         PostMonsterNotice(monster_info, Data().strings[0x1ad]);
         monster_info->charm_strength = 0;
-        SetMonsterSpellIcon(*monster_info->entity, SPELL_ICON_CHARMED, false);
+        monster_info->entity->removeSpellIcon(SPELL_ICON_CHARMED);
     }
 }
 
@@ -342,7 +342,7 @@ bool MonsterResistsSpellEffect(const W8CombatSlot* target, int power)
 void W8MonsterInfo::clearEffect(W8EffectSlot& effect, const W8MonsterRecord& record)
 {
     if (effect.active) {
-        SetMonsterSpellIcon(*entity, g_effect_visual_table[effect.effect_id].monster_icon, false);
+        entity->removeSpellIcon(g_effect_visual_table[effect.effect_id].monster_icon);
     }
     effect.Reset();
     RebuildMonsterDerivedStats(*this, record);
@@ -755,7 +755,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
         assert(member);
         if (member->summoned == W8_MONSTER_SUMMON_NONE) {
             member->summoned = summoned_state;
-            SetMonsterSpellIcon(*member->entity, SPELL_ICON_SUMMONED, true);
+            member->entity->addSpellIcon(SPELL_ICON_SUMMONED);
         }
     }
     RefreshAllSight();
@@ -780,8 +780,7 @@ void ApplySummonElementalEffect(W8SpellEffectEntry* effect)
                 duration = RollEffectDuration(&attack_block);
                 effect_slot = &summon->effect_slots[slot_index];
                 if (!effect_slot->active || effect_slot->effect_id != spell_id) {
-                    SetMonsterSpellIcon(*summon->entity,
-                                        g_effect_visual_table[spell_id].monster_icon, true);
+                    summon->entity->addSpellIcon(g_effect_visual_table[spell_id].monster_icon);
                 }
                 effect_slot->Activate(spell_id, attack_block.duration_scale, duration);
                 RebuildMonsterDerivedStats(summon->location_id);
@@ -1722,8 +1721,7 @@ void ApplyBeingEffectSlot(W8SpellEffectEntry* effect)
         monster_info = GetEffectMonsterTarget(effect->monster_ids[index], 0x30d, 0x30e);
         slot = &monster_info->effect_slots[slot_index];
         if (!slot->active || slot->effect_id != effect->kind) {
-            SetMonsterSpellIcon(*monster_info->entity,
-                                g_effect_visual_table[effect->kind].monster_icon, true);
+            monster_info->entity->addSpellIcon(g_effect_visual_table[effect->kind].monster_icon);
         }
         slot->Activate(effect->kind, effect->definition.duration_scale, duration);
         RebuildMonsterDerivedStats(monster_info->location_id);
@@ -1808,8 +1806,7 @@ void ApplyCombatEffectSlot(W8SpellEffectEntry* effect)
         }
         slot = &monster_info->pCombat->combat_effects[slot_index];
         if (!slot->active || slot->effect_id != spell_id) {
-            SetMonsterSpellIcon(*monster_info->entity, g_effect_visual_table[spell_id].monster_icon,
-                                true);
+            monster_info->entity->addSpellIcon(g_effect_visual_table[spell_id].monster_icon);
         }
         slot->Activate(spell_id, effect->definition.duration_scale, duration);
         RebuildMonsterDerivedStats(monster_info->location_id);
@@ -1863,8 +1860,7 @@ void ApplyDefenseEffectSlot(W8SpellEffectEntry* effect)
         }
         slot = &monster_info->pCombat->combat_effects_2[slot_index];
         if (!slot->active || slot->effect_id != spell_id) {
-            SetMonsterSpellIcon(*monster_info->entity, g_effect_visual_table[spell_id].monster_icon,
-                                true);
+            monster_info->entity->addSpellIcon(g_effect_visual_table[spell_id].monster_icon);
         }
         slot->Activate(spell_id, effect->definition.duration_scale, duration);
         RebuildMonsterDerivedStats(monster_info->location_id);
@@ -2274,7 +2270,7 @@ void ApplyCharmToMonsterTarget(W8SpellEffectEntry* effect)
         return;
     }
     if (monster_info->charm_strength == 0) {
-        SetMonsterSpellIcon(*monster_info->entity, SPELL_ICON_CHARMED, true);
+        monster_info->entity->addSpellIcon(SPELL_ICON_CHARMED);
     }
     monster_info->charm_strength = static_cast<signed char>(magnitude);
     if (g_settings.verbose_combat_messages) {

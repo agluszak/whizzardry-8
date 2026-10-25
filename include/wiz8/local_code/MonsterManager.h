@@ -265,6 +265,7 @@ using W8MonsterVisibility = std::unordered_map<int, W8VisibilityRecord>;
 /* A live monster. Saves store it as wiz8::retail::MonsterInfo. */
 struct W8MonsterInfo {
     void configureBody(Rng& rng, bool level_visited);
+    void restoreSpellIcons();
     bool reaches(const W8MonsterInfo& target, const GameData& data, unsigned int attack,
                  MonsterAction action) const;
     void setMotionless(bool motionless);

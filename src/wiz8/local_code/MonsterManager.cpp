@@ -806,7 +806,7 @@ void DeactivateMonster(W8MonsterInfo* monster_info)
         monster_info->stamina = 0;
         monster_info->entity->nav.active = false;
         monster_info->entity->nav.flags = 0x200000;
-        ClearMonsterSpellIcons(*monster_info->entity);
+        monster_info->entity->clearSpellIcons();
         monster_info->entity->owner_world.population->releaseMonsterVisibility(*monster_info);
         position = monster_info->entity->GetRepresentationLocalLocation();
         monster_info->position = position;

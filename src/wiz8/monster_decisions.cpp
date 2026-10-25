@@ -788,10 +788,9 @@ void Game::updateMonsterDecision(W8MonsterInfo* monster_info)
             chance = 100;
         else
             monster_info->pCombat->advancing = false;
-    } else if (record->advance_chance != 0) {
-        chance = record->advance_chance;
-    } else if (record->combat_morale == 0) {
-        chance = 100;
+    } else {
+        chance = record->advance_chance == 0 && record->combat_morale == 0 ? 100
+                                                                           : record->advance_chance;
     }
     const auto decide = [&] {
         if (rng.below(100) < chance) {

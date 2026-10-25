@@ -77,6 +77,7 @@
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/ItemManager.h"
+#include "wiz8/monster_spell_icons.h"
 #include "wiz8/octree_walk.h"
 #include "wiz8/placement_math.h"
 #include "wiz8/platform/game_timer.h"
@@ -677,7 +678,7 @@ TEST_CASE("Ground polygon queries return owned sorted runs beyond thirty faces",
     REQUIRE(tree.registry.current_regions == std::vector<bool>{true, false});
 }
 
-TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry][rendering]")
+TEST_CASE("Monster billboards and shadows retain their world and terrain", "[geometry][rendering]")
 {
     const ScopedTemporaryDirectory directory("wiz8-shadow-bounds");
     const auto assets = directory.path / "assets";
@@ -698,6 +699,26 @@ TEST_CASE("Ground shadow shading retains the source terrain bounds", "[geometry]
     const ScopedGame game;
     World world;
     REQUIRE(GetWorld() == nullptr);
+    const auto icons = assets / "data/icons/monsterspells";
+    std::filesystem::create_directories(icons);
+    std::filesystem::copy_file(bitmap_path / "shadow.tga", icons / "Hexed_A.TGA");
+    std::filesystem::copy_file(bitmap_path / "shadow.tga", bitmap_path / "TriRed.tga");
+    {
+        Monster monster(world);
+        monster.addSpellIcon(SPELL_ICON_HEXED);
+        monster.addSpellIcon(SPELL_ICON_HEXED);
+        REQUIRE(world.scene->dynamic_meshes.size() == 2);
+        monster.removeSpellIcon(SPELL_ICON_HEXED); // All duplicates retire together.
+        REQUIRE(world.scene->dynamic_meshes.empty());
+        monster.setPartyMarker(6, 0);
+        monster.setPartyMarker(6, 0);
+        REQUIRE(world.scene->dynamic_meshes.size() == 1);
+        monster.setPartyMarker(6, std::nullopt);
+        REQUIRE(world.scene->dynamic_meshes.empty());
+        monster.addSpellIcon(SPELL_ICON_HEXED);
+        monster.retire(); // Retired bodies can outlive their visible attachments.
+        REQUIRE(world.scene->dynamic_meshes.empty());
+    }
     auto mesh = std::make_shared<Mesh>(1, 4);
     mesh->getVertexLoc()[0] = {-1, 0, -1};
     mesh->getVertexLoc()[1] = {0, 0, 1};

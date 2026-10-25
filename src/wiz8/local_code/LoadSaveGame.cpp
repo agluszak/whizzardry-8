@@ -584,26 +584,25 @@ struct SavedMonsterOrders {
 
 /* Rebuild the icons for the conditions, enchantments and effects a loaded
    monster carries. */
-void RestoreMonsterSpellIcons(World& world, const W8MonsterInfo& info, Monster& monster)
+void W8MonsterInfo::restoreSpellIcons()
 {
-    if (info.highest_condition != W8_CONDITION_NONE) {
+    auto& monster = *entity;
+    if (highest_condition != W8_CONDITION_NONE) {
         for (int index = 0; index < W8_CONDITION_COUNT; ++index) {
-            if (info.uiCondition[index] != 0)
-                AddMonsterSpellIcon(world, monster, static_cast<W8MonsterSpellIconId>(index - 1));
+            if (uiCondition[index] != 0)
+                monster.addSpellIcon(static_cast<W8MonsterSpellIconId>(index - 1));
         }
     }
     for (int index = 0; index < 8; ++index) {
-        if (info.enchantments[index].turns != 0)
-            AddMonsterSpellIcon(world, monster, static_cast<W8MonsterSpellIconId>(index + 0x10));
+        if (enchantments[index].turns != 0)
+            monster.addSpellIcon(static_cast<W8MonsterSpellIconId>(index + 0x10));
     }
-    for (const auto& effect : info.effect_slots) {
+    for (const auto& effect : effect_slots) {
         if (effect.duration != 0)
-            AddMonsterSpellIcon(world, monster,
-                                g_effect_visual_table[effect.effect_id].monster_icon);
+            monster.addSpellIcon(g_effect_visual_table[effect.effect_id].monster_icon);
     }
-    if (info.charm_strength > 0) AddMonsterSpellIcon(world, monster, SPELL_ICON_CHARMED);
-    if (info.summoned != W8_MONSTER_SUMMON_NONE)
-        AddMonsterSpellIcon(world, monster, SPELL_ICON_SUMMONED);
+    if (charm_strength > 0) monster.addSpellIcon(SPELL_ICON_CHARMED);
+    if (summoned != W8_MONSTER_SUMMON_NONE) monster.addSpellIcon(SPELL_ICON_SUMMONED);
 }
 
 /* A MONS group record: its size-prefixed W8MonsterGroup image and, from version 2,
@@ -1509,7 +1508,7 @@ std::unique_ptr<W8LoadedLevelStatus> LevelState::build(Game& game, World& world)
         const auto& record = game.data.monsters.at(info.monster_species);
         auto model = world.loadMonsterBody(record, info.location_id, game.rng);
         info.entity = std::move(model);
-        RestoreMonsterSpellIcons(world, info, *info.entity);
+        info.restoreSpellIcons();
         if (!info.entity->script && !scripts.default_script && group->image.encounter_registered)
             scripts.default_script = LoadMonsterScript("Default.MSF");
         if (saved.script && saved.script->name[0] != '\0')
