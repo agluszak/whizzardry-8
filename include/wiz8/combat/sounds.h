@@ -13,11 +13,6 @@ struct W8HandAttack;
 struct W8MonsterAttack;
 class Missile;
 
-/* Play one Data\Sound\Combat\<name>.wav; a variant count above
-   one appends a random digit onto the caller's writable name buffer, and the
-   flag registers the handle on the combat state. */
-void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bool store_handle,
-                     int volume);
 /* Shared weapon-class/armour-material impact lookup. */
 std::string_view GetMaterialImpactSound(int weapon_class, int target_material);
 /* Play the attacking hand's swing sound; the attack mode is unused. */

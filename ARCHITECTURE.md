@@ -159,7 +159,9 @@ does not satisfy this contract.
   defer all events to the end of a frame. Combat owns its decision to wait, while
   playback owns actual audio/animation progress and reports completion to the
   originating operation. Polling a read-only readiness query is acceptable when
-  it is simpler than subscriptions or cached busy counts. Monster update traversal
+  it is simpler than subscriptions or cached busy counts. Combat follows the latest
+  successful hit playback's serviced completion, including pauses; an older sound
+  cannot release a newer fight's wait. Monster update traversal
   retains removed records until its script callbacks return. Removal immediately
   retires targeting, navigation and scene relationships; it cannot reclaim the
   actor whose update is on the stack. Newly spawned actors enter the next pass,

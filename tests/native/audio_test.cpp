@@ -46,8 +46,9 @@
 #include "wiz8/audio_resources.h"
 #include "wiz8/button_interaction.h"
 #include "wiz8/character_event_queue.h"
-#include "wiz8/combat/sounds.h"
+#include "wiz8/combat/combat.h"
 #include "wiz8/dialog_code/ButtonAppearance.h"
+#include "wiz8/game.h"
 #include "wiz8/local_code/ButtonWidget.h"
 #include "wiz8/local_code/NPCScripting.h"
 #include "wiz8/local_screens/npc_dialogue_panel.h"
@@ -259,19 +260,21 @@ TEST_CASE_METHOD(AudioFixture, "Prepared audio files, tracks and combat sounds",
 {
     checkArchiveStreams();
     startOfflineAudio();
-    // Variant selection accepts a bounded, read-only name and does not append
-    // into its backing storage or consume the characters beyond the view.
+    // Combat playback accepts a bounded name, without a writable buffer protocol.
     const auto combat = asset / "data" / "sound" / "combat";
     std::filesystem::create_directories(combat);
-    write(combat / "strike1.wav", wave);
-    write(combat / "strike2.wav", wave);
+    write(combat / "strike.wav", wave);
     const std::string backing = "striketrailing";
-    for (int repeat = 0; repeat < 2; ++repeat) {
-        PlayCombatSound(std::string_view(backing).substr(0, 6), 2, false, 0);
-        const auto rendered = mix(8192);
-        CHECK(energy(rendered, 0) + energy(rendered, 1) > 10);
-        CHECK(backing == "striketrailing");
-    }
+    game.game.level.replacePrimary(std::make_unique<World>());
+    auto& fight = game.game.combat.emplace();
+    game.game.playCombatSound(std::string_view(backing).substr(0, 6), true, 0);
+    game.game.playCombatSound("missing", true, 0);
+    REQUIRE(fight.waitingOn(game.game) == CombatWait::hit_sound);
+    const auto rendered = mix(8192);
+    CHECK(energy(rendered, 0) + energy(rendered, 1) > 10);
+    CHECK(backing == "striketrailing");
+    wiz8::sound::service();
+    REQUIRE(fight.waitingOn(game.game) == CombatWait::none);
     {
         auto looseInput = w8_native::open_audio_input("tone.wav");
         auto packedInput = w8_native::open_audio_input("data\\packed.wav");
@@ -639,18 +642,24 @@ TEST_CASE_METHOD(AudioFixture, "Playback references never alias replacement trac
                  "[audio][ownership]")
 {
     startOfflineAudio();
+    game.game.level.replacePrimary(std::make_unique<World>());
+    auto& fight = game.game.combat.emplace();
     auto first = wiz8::sound::play("tone.wav", {.loops = 0});
     REQUIRE(first);
     REQUIRE(wiz8::sound::stop(first));
     auto second = wiz8::sound::play("tone.wav", {.loops = 0});
     REQUIRE(second);
+    fight.waitForHitSound(second);
+    fight.waitForHitSound({}); // A failed new sound must not release the live one.
     REQUIRE(first != second);
     REQUIRE_FALSE(wiz8::sound::stop(first));
+    REQUIRE(fight.waitingOn(game.game) == CombatWait::hit_sound);
     REQUIRE_FALSE(wiz8::sound::set_volume(first, 0));
     REQUIRE(wiz8::sound::volume(second) == 127u);
     REQUIRE(wiz8::sound::is_playing(second));
     wiz8::sound::shutdown();
     REQUIRE_FALSE(wiz8::sound::is_playing(second));
+    REQUIRE(fight.waitingOn(game.game) == CombatWait::none);
     REQUIRE(wiz8::sound::initialize(true));
     auto third = wiz8::sound::play("tone.wav", {.loops = 0});
     REQUIRE(third);
@@ -685,12 +694,15 @@ TEST_CASE_METHOD(AudioFixture, "Paused playback survives completion polling", "[
     mix(8192);
     wiz8::sound::service();
     REQUIRE(calls == 0);
+    REQUIRE_FALSE(wiz8::sound::finished(sound));
     REQUIRE(wiz8::sound::volume(sound).has_value());
     REQUIRE(MIX_ResumeAllTracks(w8_native::audio_mixer()));
     REQUIRE(wiz8::sound::is_playing(sound));
     mix(8192);
+    REQUIRE_FALSE(wiz8::sound::finished(sound)); // Completion has not been serviced yet.
     wiz8::sound::service();
     REQUIRE(calls == 1);
+    REQUIRE(wiz8::sound::finished(sound));
     REQUIRE_FALSE(wiz8::sound::volume(sound));
 }
 

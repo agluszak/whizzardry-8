@@ -2,10 +2,7 @@
 
 #include <array>
 #include <cstddef>
-#include <cstring>
 #include <exception>
-#include <memory>
-#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -25,7 +22,6 @@
 #include "wiz8/game.h"
 #include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/MonsterManager.h"
-#include "wiz8/platform/random.h"
 #include "wiz8/rules/character.h"
 #include "wiz8/rules/equipment_slots.h"
 #include "wiz8/rules/item_instance.h"
@@ -34,43 +30,21 @@
 static std::array<std::string, 38> g_weapon_attack_sounds;
 static std::array<std::array<std::string, 12>, 28> g_material_impact_sounds;
 
-/* A held combat sound finished. The fight stops waiting once the hit sound it holds is
-   no longer playing; an earlier one finishing leaves a newer one held. */
-static void ReleaseFinishedHitSound()
+void Combat::waitForHitSound(wiz8::sound::Playback sound)
 {
-    if (!GameInProgress()) return;
-    auto& combat = CurrentGame().combat;
-    if (combat && combat->hit_sound && !wiz8::sound::is_playing(combat->hit_sound)) {
-        combat->hit_sound = {};
-    }
+    if (sound) hit_sound_ = std::move(sound);
 }
 
-/* Build the selected variant without modifying the borrowed sound name.
-   Positive volume is scaled by the effects setting; other values use the default. */
-void PlayCombatSound(std::string_view sound_name, unsigned int variant_count, bool store_handle,
-                     int volume)
+void Game::playCombatSound(std::string_view name, bool wait_for_finish, int volume)
 {
-    std::string zSoundFileName;
-    wiz8::sound::Playback handle;
-
-    if (sound_name.empty()) return;
-    const auto variant =
-        variant_count > 1 ? fmt::format("{}", PresentationRng().below(variant_count) + 1) : "";
-    zSoundFileName = fmt::format("Data\\Sound\\Combat\\{}{}.wav", sound_name, variant);
-    if (![&]() {
-            const auto status = wiz8::file_status(wiz8::asset_path(zSoundFileName));
-            return status && status->info.type == SDL_PATHTYPE_FILE;
-        }()) {
-        return; // A missing variant stays silent.
-    }
+    if (name.empty()) return;
+    const auto path = fmt::format("Data\\Sound\\Combat\\{}.wav", name);
+    const auto status = wiz8::file_status(wiz8::asset_path(path));
+    if (!status || status->info.type != SDL_PATHTYPE_FILE) return;
     wiz8::sound::PlayOptions options;
-    if (volume > 0) {
-        options.volume = static_cast<unsigned int>(volume);
-    }
-    const bool held = store_handle && CurrentGame().combat.has_value();
-    if (held) options.on_finished = ReleaseFinishedHitSound;
-    handle = wiz8::sound::play(zSoundFileName, std::move(options));
-    if (handle != nullptr && held) CurrentGame().combat->hit_sound = handle;
+    if (volume > 0) options.volume = static_cast<unsigned int>(volume);
+    auto sound = wiz8::sound::play(path, std::move(options));
+    if (wait_for_finish && combat) combat->waitForHitSound(std::move(sound));
 }
 
 unsigned char LoadHitSoundDatabase(void)
@@ -169,7 +143,7 @@ void MakePCAttackSound(W8CombatCharacterRow* row, const W8HandAttack* hand_attac
             return;
         }
     }
-    PlayCombatSound(g_weapon_attack_sounds[weapon_class], 1, store_handle, volume);
+    CurrentGame().playCombatSound(g_weapon_attack_sounds[weapon_class], store_handle, volume);
 }
 
 static int GetCombatTargetMaterial(W8CombatSlot* target, int hit_location, int assertion_line)
@@ -200,7 +174,8 @@ void MakePCMeleeHitSound(int iChar, const W8HandAttack* hand_attack, W8CombatSlo
             Data().items[CurrentGame().combat->characters[iChar].paired_item_id].weapon_sound_class;
     }
     int target_material = GetCombatTargetMaterial(target, hit_location, 415);
-    PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
+    CurrentGame().playCombatSound(GetMaterialImpactSound(weapon_class, target_material), true,
+                                  volume);
 }
 
 void MakePCHitSound(Missile* missile, W8CombatSlot* target, int hit_location, int volume)
@@ -208,7 +183,8 @@ void MakePCHitSound(Missile* missile, W8CombatSlot* target, int hit_location, in
     int weapon_class = Data().missiles[missile->missile_table_index].weapon_sound_class;
 
     int target_material = GetCombatTargetMaterial(target, hit_location, 465);
-    PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
+    CurrentGame().playCombatSound(GetMaterialImpactSound(weapon_class, target_material), true,
+                                  volume);
 }
 
 void MakeMonsterHitSound(const W8MonsterAttack* attack, W8CombatSlot* target, int hit_location,
@@ -224,5 +200,6 @@ void MakeMonsterHitSound(const W8MonsterAttack* attack, W8CombatSlot* target, in
     }
     weapon_class = attack->weapon_class;
     int target_material = GetCombatTargetMaterial(target, hit_location, 504);
-    PlayCombatSound(GetMaterialImpactSound(weapon_class, target_material), 1, true, volume);
+    CurrentGame().playCombatSound(GetMaterialImpactSound(weapon_class, target_material), true,
+                                  volume);
 }

@@ -2,6 +2,7 @@
 #include <chrono>
 #include <variant>
 
+#include "wiz8/audio/soundman.h"
 #include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/fight.h"
@@ -65,7 +66,7 @@ CombatWait Combat::waitingOn(const Game& game) const
     if (AnyCombatMonsterBusy(*this)) {
         return CombatWait::monster;
     }
-    if (hit_sound) {
+    if (!wiz8::sound::finished(hit_sound_)) {
         return CombatWait::hit_sound;
     }
     if (game.level.primary && game.level.primary->hasPendingSpellEffects()) {

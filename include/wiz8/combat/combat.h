@@ -64,7 +64,7 @@ enum class CombatWait : unsigned char {
     none,
     camera,       // the party camera is still turning
     monster,      // a monster's cycle, animation or turn toward its target is unfinished
-    hit_sound,    // the last hit sound is still playing
+    hit_sound,    // the latest hit sound has not completed
     spell_effect, // a spell effect has run out and is being retired
     missile,      // an engaged or spell missile is still in flight
     npc_script,   // a conscious NPC party slot's combat script is still queued
@@ -211,9 +211,6 @@ struct Combat {
     std::chrono::milliseconds continuous_start_delay{};
     std::chrono::milliseconds action_delay{};
     std::chrono::milliseconds party_movement_delay{};
-    /* The hit sound the turn waits on; its completion releases it (an empty playback
-       when none is held). */
-    wiz8::sound::Playback hit_sound;
     W8EffectSlot effect_slots[9];
     W8EffectSlot effect_slots0[6];
     Missile* engaged_missile;
@@ -384,6 +381,8 @@ struct Combat {
     void step(Game& game);
     /* The first thing the turn waits on. */
     CombatWait waitingOn(const Game& game) const;
+    // Failed playback leaves the previous successful hit sound in charge of the wait.
+    void waitForHitSound(wiz8::sound::Playback sound);
     /* Pick the next party slot or monster whose action phase arrived, start
        party-movement phases, arm the action delay, and roll the round counter forward
        until someone can act or the round ends. */
@@ -411,5 +410,7 @@ private:
        this round. The turn becomes idle. */
     void finishAction(Game& game, const CombatActor& actor);
 
+    // Keep the latest sound identity; completion belongs to the audio service.
+    wiz8::sound::Playback hit_sound_;
     CombatTurn turn_ = TurnIdle{};
 };

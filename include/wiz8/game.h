@@ -277,6 +277,7 @@ public:
                            bool proximity_check, bool include_allies, bool flatten_y,
                            bool alternate_radius);
     W8Disposition defaultGroupDisposition(W8MonsterGroup* monster_group) const;
+    void playCombatSound(std::string_view name, bool wait_for_finish, int volume);
     bool partyCombatActive(const World& world) const override;
     bool missileReached(Missile& missile, Navigator& struck) override;
     void missileLanded(Missile& missile) override;

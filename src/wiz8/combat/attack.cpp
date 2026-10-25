@@ -1207,7 +1207,7 @@ bool BlockedForSpecialReason(int weapon_class, W8CombatSlot* target, int attack_
         CurrentGame().events.push(
             TextNotice{static_cast<unsigned int>(palette), Data().strings[0x213]});
     }
-    PlayCombatSound(GetMaterialImpactSound(weapon_class, material), 1, true, -1);
+    CurrentGame().playCombatSound(GetMaterialImpactSound(weapon_class, material), true, -1);
     return true;
 }
 
