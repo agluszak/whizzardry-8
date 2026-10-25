@@ -405,7 +405,8 @@ void Monster::ProcessScript()
                     GetMappedPosition(&source);
                 }
                 owner_world.launchMissile(
-                    Data(), {.kind = missile_type, .origin = source, .destination = target});
+                    CurrentGame().data,
+                    {.kind = missile_type, .origin = source, .destination = target});
                 break;
             }
             case MONSCR_GIVE:
