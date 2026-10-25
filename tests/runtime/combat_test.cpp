@@ -161,7 +161,7 @@ void CombatScenario()
     game.command(W8_MGS_COMMAND_TOGGLE_COMBAT);
     REQUIRE(game.within_frames(4, [] { return CurrentGame().combat.has_value() != 0; }));
     REQUIRE((CurrentGame().combat && CurrentGame().combat->round_count == 0));
-    REQUIRE(CurrentGame().combat->attack_report.reports.empty());
+    REQUIRE(CurrentGame().combat->attack_report.death_notices.empty());
     auto& member = CurrentGame().party.characters[PremadeSlot()];
     member.party_weight_share = 123456;
     SettleActiveParty(CurrentGame());

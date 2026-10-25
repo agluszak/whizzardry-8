@@ -233,7 +233,7 @@ TEST_CASE_METHOD(PartyFixture,
     REQUIRE(game.damageCharacter(0, 99, {}, &report) == 5);
     REQUIRE(report.amount == 99);
     REQUIRE(report.count == 1);
-    REQUIRE(report.reports.size() == 1);
+    REQUIRE(report.death_notices.size() == 1);
     REQUIRE(hits == 1);
     REQUIRE(deaths == 1);
 }

@@ -369,10 +369,10 @@ void World::absorbMissileDamage(Missile& missile)
         for (int condition = 0; condition < W8_CONDITION_COUNT; ++condition)
             effect->result.condition_counts[condition] +=
                 missile.result.condition_counts[condition];
-        auto& reports = effect->result.reports;
-        reports.insert(reports.end(), std::make_move_iterator(missile.result.reports.begin()),
-                       std::make_move_iterator(missile.result.reports.end()));
-        missile.result.reports.clear();
+        auto& reports = effect->result.death_notices;
+        reports.insert(reports.end(), std::make_move_iterator(missile.result.death_notices.begin()),
+                       std::make_move_iterator(missile.result.death_notices.end()));
+        missile.result.death_notices.clear();
         return;
     }
 }
@@ -1698,26 +1698,10 @@ void ReportSpellResult(W8SpellEffectEntry* effect)
         }
     }
 
-    while (!effect->result.reports.empty()) {
-        auto report = std::move(effect->result.reports.front());
-        effect->result.reports.erase(effect->result.reports.begin());
-        if (report != 0) {
-            if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
-                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_NOTICE, -1});
-                CurrentGame().events.push(CharacterNotice{
-                    static_cast<unsigned int>(report->value),
-                    fmt::format("{}!",
-                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
-                effect->reported = true;
-            } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
-                CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_NOTICE, -1});
-                CurrentGame().events.push(TextNotice{
-                    W8_FONT_PALETTE_RUST,
-                    fmt::format("{} {}!", report->text,
-                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
-                effect->reported = true;
-            }
-        }
+    for (auto& notice : std::exchange(effect->result.death_notices, {})) {
+        CurrentGame().events.push(TextBoxModeChange{W8_TEXT_BOX_MODE_NOTICE, -1});
+        CurrentGame().events.push(std::move(notice));
+        effect->reported = true;
     }
     if (!effect->reported) {
         AppendToLastTextLine(Data().strings[0x1a5], -1);

@@ -23,7 +23,6 @@ struct W8Character;
 
 struct W8MonsterInfo;
 
-struct W8SpellDamageReport;
 class Missile;
 class SpellVisual;
 
@@ -234,13 +233,7 @@ struct Combat {
        short range, so the announcement skips the weapon-name string and uses
        the natural-attack verbs instead. */
     unsigned char natural_attack;
-    /* Historical offset 0x9a6: the running attack's outcome record, cleared to a fresh 0xa2-byte
-       block before each attack resolves. The swing and hit tallies feed the
-       "hit once"/"hit %d of %d" notices, one flag per condition records what
-       the swings inflicted (index 0x12 doubles as the killed gate), the report
-       list is a W8SpellDamageReport* vector drained front-first, and the six
-       notice values carry the amounts the notices print - [3] and [4]
-       are the running damage totals the character/monster damage paths add to. */
+    // Totals and pending death narration for the executing attack.
     W8SpellEffectResult attack_report;
     /* Historical offset 0xa48: the once-per-combat difficulty evaluation has run; the update
        tick calls the evaluator on the first frame it sees this clear. */

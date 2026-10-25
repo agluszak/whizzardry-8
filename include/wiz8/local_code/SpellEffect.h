@@ -12,24 +12,11 @@
 #include "wiz8/data/dice.h"
 #include "wiz8/data/spell_ids.h"
 #include "wiz8/rules/character.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/rules/targeting.h"
 
 class SpellVisual;
 class Missile;
-
-enum W8SpellDamageReportKind : unsigned char {
-    W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH = 1,
-    W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH = 3
-};
-
-/* One pending death report. Character reports identify a party slot, while
-   monster reports carry their own inline text. The message pass owns each
-   report until posting. */
-struct W8SpellDamageReport {
-    W8SpellDamageReportKind kind;
-    int value;
-    std::string text;
-};
 
 /* One spell effect definition, 0x30 bytes. A missile carries its own copy at
    0x1fc. The radius at 0x00 bounds an area effect (0 for a single target),
@@ -53,15 +40,13 @@ struct W8SpellEffectDefinition {
     int duration_per_power;
 };
 
-/* What one missile or queued effect accumulates while it resolves: the total
-   amount, the number of hits, one count per condition, and the report records
-   handed to the message pass. Both the missile and the effect embed this at
-   their own offset. */
+/* One resolving missile/effect owns its totals and delayed death narration.
+   Notices are already outcomes, not separately allocated records to decode later. */
 struct W8SpellEffectResult {
     unsigned int amount = 0;
     unsigned int count = 0;
     unsigned int condition_counts[W8_CONDITION_COUNT]{};
-    std::vector<std::unique_ptr<W8SpellDamageReport>> reports;
+    std::vector<Event> death_notices;
     /* The per-kind totals the notice pass folds into its messages;
        [3] and [4] are the running damage totals the character and monster
        damage paths add to. */

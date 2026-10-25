@@ -1318,29 +1318,6 @@ void StartMonsterAttackCycle(W8MonsterInfo* monster_info, W8AttackMode action_de
     monster_info->startCycle(cycle, W8_ANIMATION_PLAY_ONCE);
 }
 
-/* Release queued casualty notices and reset the attack result. */
-static void DrainCombatDeathReports(W8SpellEffectResult* report)
-{
-    while (!report->reports.empty()) {
-        auto entry = std::move(report->reports.front());
-        report->reports.erase(report->reports.begin());
-        if (entry != nullptr) {
-            if (entry->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
-                CurrentGame().events.push(CharacterNotice{
-                    static_cast<unsigned int>(entry->value),
-                    fmt::format("{}!",
-                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
-            } else if (entry->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
-                CurrentGame().events.push(TextNotice{
-                    W8_FONT_PALETTE_RUST,
-                    fmt::format("{} {}!", entry->text,
-                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
-            }
-        }
-    }
-    *report = {};
-}
-
 /* Both attack result paths announce target conditions in the same way. */
 static void AnnounceCombatTargetCondition(const W8SpellEffectResult* report, unsigned int condition,
                                           W8MonsterInfo* monster_info)
@@ -1435,7 +1412,9 @@ static void ReportAttackResult(int party_slot, W8MonsterInfo* attacker, W8SpellE
             }
         }
     }
-    DrainCombatDeathReports(report);
+    auto deaths = std::move(report->death_notices);
+    *report = {};
+    CurrentGame().events.publish(std::move(deaths));
 }
 
 void ReportCharacterAttackResult(int party_slot, W8SpellEffectResult* report)

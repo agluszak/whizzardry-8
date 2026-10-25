@@ -587,10 +587,9 @@ unsigned int Game::damageCharacter(unsigned int party_slot, unsigned int amount,
         }
     } else {
         if (result_stats != 0) {
-            auto report = std::make_unique<W8SpellDamageReport>();
-            report->kind = W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH;
-            report->value = party_slot;
-            result_stats->reports.push_back(std::move(report));
+            result_stats->death_notices.emplace_back(CharacterNotice{
+                party_slot,
+                fmt::format("{}!", data.strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
         }
         InflictCondition(*this, party_slot,
                          {.condition = W8_CONDITION_DEAD,

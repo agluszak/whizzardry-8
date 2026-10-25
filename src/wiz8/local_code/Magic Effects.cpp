@@ -1029,31 +1029,7 @@ void ApplyRandomAfflictionToTarget(W8SpellEffectEntry* effect)
     ApplyConditionToTargets(effect, W8_ENCHANTMENT_SUPERMAN);
 }
 
-static void ReportSpellDeaths(W8SpellEffectEntry* effect)
-{
-    while (!effect->result.reports.empty()) {
-        auto report = std::move(effect->result.reports.front());
-        effect->result.reports.erase(effect->result.reports.begin());
-        if (report != 0) {
-            if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
-                CurrentGame().events.push(CharacterNotice{
-                    static_cast<unsigned int>(report->value),
-                    fmt::format("{}!",
-                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
-            } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
-                CurrentGame().events.push(TextNotice{
-                    W8_FONT_PALETTE_RUST,
-                    fmt::format("{} {}!", report->text,
-                                Data().strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
-            }
-        }
-    }
-}
-
-/* Post what a non-verbose effect accumulated. The total goes out as one
-   "<amount>" line for a lone hit or "<count> <average>" for several, each
-   nonzero condition adds its own "<count> <name>", and the queued report
-   records are then drained the same way the verbose pass drains them. */
+/* Report accumulated damage and condition counts, followed by the captured death notices. */
 void ReportSpellEffectResult(W8SpellEffectEntry* effect)
 {
     W8TextBoxMode text_box_mode;
@@ -1102,7 +1078,7 @@ void ReportSpellEffectResult(W8SpellEffectEntry* effect)
         }
     }
 
-    ReportSpellDeaths(effect);
+    CurrentGame().events.publish(std::exchange(effect->result.death_notices, {}));
 }
 
 /* Resolve the queued monster target with the caller's original lookup and
@@ -2027,7 +2003,7 @@ void DamageTargetsAndReport(W8SpellEffectEntry* effect)
             effect->reported = true;
             effect->applied = true;
         }
-        ReportSpellDeaths(effect);
+        CurrentGame().events.publish(std::exchange(effect->result.death_notices, {}));
     }
 }
 
@@ -2548,27 +2524,7 @@ void TickRadiusBlastEffectSlots(std::span<const W8EffectSlot> effect_slots)
                 } else {
                     AppendToLastTextLine(Data().strings[0x1a5], -1);
                 }
-                while (!local_result.reports.empty()) {
-                    auto report = std::move(local_result.reports.front());
-                    local_result.reports.erase(local_result.reports.begin());
-                    if (report != 0) {
-                        if (report->kind == W8_SPELL_DAMAGE_REPORT_CHARACTER_DEATH) {
-                            CurrentGame().events.push(CharacterNotice{
-                                static_cast<unsigned int>(report->value),
-                                fmt::format(
-                                    "{}!",
-                                    Data()
-                                        .strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
-                        } else if (report->kind == W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH) {
-                            CurrentGame().events.push(TextNotice{
-                                W8_FONT_PALETTE_RUST,
-                                fmt::format(
-                                    "{} {}!", report->text,
-                                    Data()
-                                        .strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
-                        }
-                    }
-                }
+                CurrentGame().events.publish(std::move(local_result.death_notices));
             }
         }
     }
@@ -3312,10 +3268,10 @@ void ProcessSpellEffectTargets(W8SpellEffectEntry* effect)
 
 static void QueueCombatDamageReports(W8SpellEffectResult* result)
 {
-    auto& queued = CurrentGame().combat->attack_report.reports;
-    queued.insert(queued.end(), std::make_move_iterator(result->reports.begin()),
-                  std::make_move_iterator(result->reports.end()));
-    result->reports.clear();
+    auto& queued = CurrentGame().combat->attack_report.death_notices;
+    queued.insert(queued.end(), std::make_move_iterator(result->death_notices.begin()),
+                  std::make_move_iterator(result->death_notices.end()));
+    result->death_notices.clear();
 }
 
 /* Damage from the target-side enchantment: the enchantment's power scales the

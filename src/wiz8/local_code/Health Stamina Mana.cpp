@@ -261,10 +261,10 @@ unsigned int Game::damageMonster(W8MonsterInfo& monster, unsigned int amount,
             reactToMonsterHit(monster, source, options.poison);
         } else {
             if (result_stats != 0) {
-                auto death_report = std::make_unique<W8SpellDamageReport>();
-                death_report->kind = W8_SPELL_DAMAGE_REPORT_MONSTER_DEATH;
-                death_report->text = monsterName(monster);
-                result_stats->reports.push_back(std::move(death_report));
+                result_stats->death_notices.emplace_back(TextNotice{
+                    W8_FONT_PALETTE_RUST,
+                    fmt::format("{} {}!", monsterName(monster),
+                                data.strings[kConditionNotices[W8_CONDITION_DEAD].singular])});
             }
             startMonsterDeath(&monster, result_stats == 0);
         }

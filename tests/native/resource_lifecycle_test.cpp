@@ -1259,11 +1259,13 @@ TEST_CASE("A missile reports and detaches only from its original world's casts",
 
     old_missile->result.amount = 12;
     old_missile->result.count = 1;
-    old_missile->result.reports.push_back(std::make_unique<W8SpellDamageReport>());
+    old_missile->result.death_notices.push_back(CharacterNotice{0, "retained death notice"});
     outgoing->absorbMissileDamage(*old_missile);
     REQUIRE(old_result->result.amount == 12);
-    REQUIRE(old_result->result.reports.size() == 1);
-    REQUIRE(old_missile->result.reports.empty());
+    REQUIRE(old_result->result.death_notices.size() == 1);
+    REQUIRE(std::get<CharacterNotice>(old_result->result.death_notices.front()).text ==
+            "retained death notice");
+    REQUIRE(old_missile->result.death_notices.empty());
     REQUIRE(new_result->result.amount == 0);
     old_missile->flight_done = true;
     old_missile->block_released = false;
