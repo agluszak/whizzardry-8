@@ -20,6 +20,7 @@
 #include "wiz8/catalog_artwork.h"
 #include "wiz8/checked_integer.h"
 #include "wiz8/combat/combat.h"
+#include "wiz8/data/game_data.h"
 #include "wiz8/dialog_code/DialogInterface.h"
 #include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/fonts.h"
