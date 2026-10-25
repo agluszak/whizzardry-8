@@ -49,6 +49,7 @@
 #include "wiz8/rules/party.h"
 #include "wiz8/rules/targeting.h"
 #include "wiz8/save_codec.h"
+#include "wiz8/script_context.h"
 #include "wiz8/story.h"
 #include "wiz8/string_database.h"
 #include "wiz8/world/world.h"
