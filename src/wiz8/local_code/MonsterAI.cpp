@@ -50,10 +50,6 @@ constexpr float kGroupEngagementProbeScale = 333.33333f;
 constexpr float kMonsterEngagementRangeFloor = 7500.0f;
 constexpr float kReinforcementDistanceSlack = 1.15f;
 
-/* The special-attack table row value that marks a summon; flee and control
-   rules treat those rows differently. */
-enum { W8_SPECIAL_ATTACK_EFFECT_SUMMON = 6 };
-
 /* Gates the out-of-combat check that gives a group whose leader is still up a
    nudge. Only UpdateMonsterGroups reads it. */
 static bool g_out_of_combat_rtai_enabled = true;

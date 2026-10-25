@@ -7,6 +7,7 @@
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/character_skills.h"
 #include "wiz8/checked_integer.h"
+#include "wiz8/combat/attack.h"
 #include "wiz8/combat/combat.h"
 #include "wiz8/combat/group_attacks.h"
 #include "wiz8/combat/hostility.h"
@@ -38,6 +39,8 @@
 #include "wiz8/world/world.h"
 
 namespace {
+constexpr int kSummonEffect = 6;
+
 // Silence permits alchemy only for the three monster kinds that retain it.
 bool MonsterSpellBlocked(const GameData& data, const W8MonsterInfo& monster, int spell_id)
 {
@@ -896,7 +899,7 @@ bool Game::canMonsterUseSpecial(W8MonsterInfo* monster_info, bool exclude_specia
         MonsterSpecialAttackHonorsCastingBlock(record->special_attack_kind)) {
         return false;
     }
-    if (g_special_attack_table[record->special_attack_kind][0] == W8_SPECIAL_ATTACK_EFFECT_SUMMON) {
+    if (g_special_attack_table[record->special_attack_kind][0] == kSummonEffect) {
         if (CalcRangeDistance(W8_RANGE_LONG) < monster_info->entity->GetDistanceToPlayer()) {
             return false;
         }
@@ -922,7 +925,7 @@ bool Game::aimMonsterSpecial(W8MonsterInfo* monster_info)
     const auto* record = &data.monsters[monster_info->monster_species];
     glm::vec3 position;
 
-    if (g_special_attack_table[record->special_attack_kind][0] == W8_SPECIAL_ATTACK_EFFECT_SUMMON) {
+    if (g_special_attack_table[record->special_attack_kind][0] == kSummonEffect) {
         position = monster_info->entity->nav.GetPosition();
         ResetCombatSlot(&monster_info->Target);
         monster_info->Target.iType = W8_TARGET_KIND_PLACE;
@@ -961,7 +964,7 @@ bool Game::monsterActionUsable(W8MonsterInfo* monster_info)
         break;
     case W8_MONSTER_ACTION_SPECIAL_ATTACK:
         if (g_special_attack_table[data.monsters[monster_info->monster_species].special_attack_kind]
-                                  [0] == W8_SPECIAL_ATTACK_EFFECT_SUMMON) {
+                                  [0] == kSummonEffect) {
             return false;
         }
         spell_id = W8_SPELL_SPECIAL_ATTACK_CONE;
