@@ -92,6 +92,7 @@ def check_includes():
         'src/wiz8/game_advance.cpp',
         'src/wiz8/inventory.cpp',
         'src/wiz8/live_party.cpp',
+        'src/wiz8/monster_spell_choices.cpp',
     ):
         path = ROOT / relative
         for match in INCLUDE.finditer(path.read_text(encoding='utf-8')):
@@ -135,6 +136,10 @@ def check_includes():
     source = (ROOT / 'src/wiz8/npc_creation.cpp').read_text(encoding='utf-8')
     if re.search(r'\b(CurrentGame|GameInProgress|GetWorld|Data|GetFact)\s*\(', source):
         problems.append('src/wiz8/npc_creation.cpp: candidate NPC construction must use its supplied game')
+    choices = ROOT / 'src/wiz8/monster_spell_choices.cpp'
+    source = choices.read_text(encoding='utf-8')
+    if re.search(r'\b(CurrentGame|Data|GetWorld|CurrentLevelPopulation|FindMonster|GetMonsterDataForInfo)\s*\(', source):
+        problems.append('src/wiz8/monster_spell_choices.cpp: spell choices must use their game and world')
     # Picking interpretation belongs to interaction code, never frame rendering.
     frame = ROOT / 'src/render/frame.cpp'
     source = frame.read_text(encoding='utf-8')

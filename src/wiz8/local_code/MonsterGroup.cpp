@@ -142,23 +142,11 @@ bool MoveMonsterGroupToPosition(W8MonsterGroup* group, const glm::vec3* position
     return true;
 }
 
-/* A group is done dying only when every live script record either has no
-   engine Monster or reports the Monster death cycle.  Save-list location IDs
-   are deliberately resolved through the canonical lookup path rather than
-   treated as list indices. */
-bool MonsterGroupAllMembersDying(W8MonsterGroup* monster_group)
+bool W8LevelPopulation::allMembersDying(const W8MonsterGroup& group) const
 {
-    unsigned int index;
-    int location_id;
-    W8MonsterInfo* monster_info;
-
-    assert(monster_group != 0);
-    for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-        location_id = monster_group->MemberLocationId(index);
-        monster_info = FindMonster(location_id);
-        if (monster_info != 0 && !monster_info->entity->IsDying()) {
-            return false;
-        }
+    for (int id : group.MemberIds()) {
+        const auto* member = findMonster(id);
+        if (member && !member->entity->IsDying()) return false;
     }
     return true;
 }

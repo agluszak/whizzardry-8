@@ -207,7 +207,7 @@ struct W8SpellRuntimeRecord {
     unsigned char divinity_spell;
     unsigned char psionics_spell;
     float effect_radius;
-    /* Retail offset 0x126: a monster may cast the spell at all. MonsterOKToCastSpell reports
+    /* Retail offset 0x126: a monster may cast the spell at all. Game::prepareMonsterSpell reports
        a spell without it by name and asserts. */
     unsigned char monster_castable;
     /* Retail offset 0x127: radius added per power level; spell target resolution scales

@@ -293,7 +293,7 @@ W8RangeCategory GetMonsterBestRangeCategory(W8MonsterInfo* monster_info,
             continue;
         }
         if (!skip_capability_checks &&
-            !IsSpellUsableByMonster(monster_info, static_cast<int>(spell_id), true)) {
+            !CurrentGame().canMonsterCastSpell(monster_info, static_cast<int>(spell_id), true)) {
             continue;
         }
         if (static_cast<int>(best) < static_cast<int>(Data().spells[spell_id].range_category)) {

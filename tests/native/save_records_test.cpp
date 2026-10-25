@@ -1647,11 +1647,11 @@ TEST_CASE_METHOD(SaveFixture, "AI conditions and save slot naming", "[save][reco
     target.iType = W8_TARGET_KIND_CHARACTER;
     target.iChar = 0;
     REQUIRE(reinterpret_cast<uintptr_t>(character.uiCondition) % alignof(unsigned int) == 0);
-    REQUIRE(MonsterSpellTargetOK(nullptr, W8_SPELL_SLEEP, &target,
-                                 {W8_MONSTER_ACTION_SPELL, W8_SPELL_SLEEP}));
+    REQUIRE(CurrentGame().monsterAcceptsSpell(nullptr, W8_SPELL_SLEEP, &target,
+                                              {W8_MONSTER_ACTION_SPELL, W8_SPELL_SLEEP}));
     character.uiCondition[W8_CONDITION_ASLEEP] = 1;
-    REQUIRE(!MonsterSpellTargetOK(nullptr, W8_SPELL_SLEEP, &target,
-                                  {W8_MONSTER_ACTION_SPELL, W8_SPELL_SLEEP}));
+    REQUIRE(!CurrentGame().monsterAcceptsSpell(nullptr, W8_SPELL_SLEEP, &target,
+                                               {W8_MONSTER_ACTION_SPELL, W8_SPELL_SLEEP}));
     REQUIRE(BuildLevelStatusPath(56) == "Levels\\Test\\DefaultLevel.STS");
     for (int index = 0; index < 10; ++index) {
         const auto name = index == 0 ? std::string("Ending") : "Ending" + std::to_string(index);

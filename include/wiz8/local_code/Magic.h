@@ -30,14 +30,6 @@ extern int g_learn_sound;
 /* Whether the spell may be cast in the current situation. */
 bool SpellUsableNow(int spell_id, bool allow_out_of_combat);
 
-W8TargetNeed GetTargetNeededForSpellHostile(int spell_id);
-/* Whether the monster's spellcasting-blocked condition stops it
-   casting this spell - everything except alchemy, and alchemy only for the
-   monster kinds that keep it. */
-bool IsSpellBlockedForMonster(W8MonsterInfo* monster_info, int spell_id);
-/* Everything that has to hold before a monster may start
-   casting. The power level is unused. */
-bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int power_level);
 unsigned int MonsterCastsSpell(W8MonsterInfo* monster_info, int spell_id, unsigned int power_level);
 /* The power level the monster can afford for the spell, out of
    its database base plus its runtime bonus. */

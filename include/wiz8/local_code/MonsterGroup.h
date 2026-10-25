@@ -156,7 +156,6 @@ bool RemoveAllGroupMembers(W8MonsterGroup* monster_group);
    activates; NULL on failure. */
 W8MonsterGroup* ReplaceMonsterGroupSpecies(W8MonsterGroup* group, unsigned int monster_id);
 void SetMonsterGroupNavigatorDirty(W8MonsterGroup* monster_group, bool flag);
-bool MonsterGroupAllMembersDying(W8MonsterGroup* monster_group);
 void LoadMonsterGroupMembers(W8MonsterGroup* monster_group);
 /* Out-of-combat refresh: proximity hostility for unaligned neutrals, then
    default disposition on the intelligence-squared cooldown. */

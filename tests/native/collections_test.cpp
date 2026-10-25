@@ -1964,8 +1964,7 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     // A spell probe must neither borrow nor temporarily overwrite the accepted action.
     actor.action = {W8_MONSTER_ACTION_WAIT, 77};
     const auto accepted = actor.action;
-    std::vector<W8CombatSlot> proposals;
-    CollectMonsterSpellTargets(&actor, 1, proposals);
+    const auto proposals = game.monsterSpellTargets(&actor, 1);
     REQUIRE(proposals == std::vector<W8CombatSlot>{W8CombatSlot::monster(2)});
     REQUIRE(actor.action == accepted);
     W8TargetSource probe_source;
@@ -1977,10 +1976,9 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
                             MonsterAction{W8_MONSTER_ACTION_SPELL, 1});
     REQUIRE(probe_monsters == std::vector<int>{2});
     REQUIRE(actor.action == accepted);
-    proposals.clear();
     data.spells[1].target_type = W8_TARGET_TYPE_ALL_ENEMIES;
     data.spells[1].spell_level = -1; // Rejected cost band exercises real failed evaluation.
-    REQUIRE_THROWS_AS(CollectMonsterSpellTargets(&actor, 1, proposals), std::out_of_range);
+    REQUIRE_THROWS_AS(game.monsterSpellTargets(&actor, 1), std::out_of_range);
     REQUIRE(actor.action == accepted);
     REQUIRE(draws.size() == 3);
     data.spells[1].spell_level = 0;
@@ -2028,6 +2026,11 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     // Spell target collection uses the same unpublished world and definitions.
     allied_data.spells.resize(2);
     allied_data.spells[1].target_type = W8_TARGET_TYPE_ENEMY;
+    allied_data.spells[1].monster_castable = true;
+    REQUIRE(candidate.canMonsterCastSpell(&actor, 1, true));
+    REQUIRE(candidate.monsterSpellTargets(&actor, 1) ==
+            std::vector<W8CombatSlot>{W8CombatSlot::monster(2)});
+    REQUIRE(actor.action.detail == -1);
     actor.action.kind = W8_MONSTER_ACTION_ATTACK;
     W8TargetSource source;
     SetTargetSourceToMonster(&actor, &source);
@@ -2069,6 +2072,20 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     inactive.player_visibility.sight_state = W8_SIGHT_SEEN;
     inactive.player_visibility.los_flags[0] = true;
     REQUIRE_FALSE(candidate.monsterReachesPartyMember(inactive, 0, 0, {W8_MONSTER_ACTION_WAIT, 0}));
+
+    visible.sight_state = W8_SIGHT_SEEN;
+    actor.action = {W8_MONSTER_ACTION_SPELL, 1};
+    actor.Target = W8CombatSlot::monster(2);
+    REQUIRE(candidate.prepareMonsterSpell(&actor, 1));
+    REQUIRE(candidate_draws.size() == 15); // Final neutral veto rolls power even for one target.
+    REQUIRE(candidate_draws.back().range == 4);
+    allied_data.monsters[0].spells[0] = allied_data.monsters[0].spells[1] = 1;
+    REQUIRE(candidate.chooseMonsterSpell(&actor) == 1);
+    REQUIRE(candidate_draws.back().range == 10); // Duplicate spell slots retain both weights.
+    REQUIRE(candidate.aimMonsterSpell(&actor, 1));
+    REQUIRE(candidate_draws.size() == 17);
+    REQUIRE(candidate_draws.back().range == 1);
+    REQUIRE(draws.size() == 3);
 }
 
 TEST_CASE("Effect slot lookup cannot run into casting-cost data", "[effects][bounds]")

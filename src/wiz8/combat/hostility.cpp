@@ -219,7 +219,7 @@ void SetMonsterGroupHostilityByID(int group_id, W8Disposition hostility, bool re
 
 void SetMonsterGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bool recurse)
 {
-    if (MonsterGroupAllMembersDying(group)) {
+    if (CurrentLevelPopulation().allMembersDying(*group)) {
         return;
     }
     W8MonsterInfo* leader = FindMonster(group->leader_location_id);

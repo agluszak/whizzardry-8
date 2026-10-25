@@ -14,7 +14,6 @@ enum W8VisibleTargetFilter {
 };
 
 struct W8MonsterInfo;
-struct MonsterAction;
 struct W8MonsterRecord;
 struct W8CombatSlot;
 struct W8MonsterGroup;
@@ -52,14 +51,6 @@ float GetGroupNearestDistance(W8MonsterGroup* group);
 /* Two dwords per special attack kind. */
 extern int g_special_attack_table[32][2];
 
-bool AimMonsterAtSpellTarget(W8MonsterInfo* monster_info, int spell_id);
-/* Whether the combat slot accepts `spell_id` from this caster. */
-bool MonsterSpellTargetOK(W8MonsterInfo* monster_info, int spell_id, W8CombatSlot* combat_slot,
-                          MonsterAction action);
-/* Whether the spell's area effect would catch a disposition-neutral monster,
-   which vetoes it - the AI does not turn neutrals hostile by accident. */
-bool SpellAreaHitsNeutralMonster(W8MonsterInfo* monster_info, int spell_id,
-                                 W8CombatSlot* combat_slot, MonsterAction action);
 /* Whether the spell's markers catch at least one party member when cast at
    `slot`. */
 bool MonsterSpellHasPartyTarget(W8MonsterInfo* monster_info, int spell_id, W8CombatSlot* slot);
@@ -89,33 +80,13 @@ bool CanMonsterFlee(W8MonsterInfo* monster_info, const W8MonsterRecord* record,
 /* Pick the direction a fleeing monster runs; returns whether a heading was
    found. */
 bool AimFleeingMonster(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
-/* Whether the monster may cast `spell_id` now; `needs_target` also demands
-   something to aim it at. */
-bool IsSpellUsableByMonster(W8MonsterInfo* monster_info, int spell_id, bool needs_target);
-/* Whether a monster can aim the spell it wants to cast - area
-   target types aim at the world, the rest pass the slot check. */
-bool CanMonsterAimSpell(W8MonsterInfo* monster_info, int spell_id);
 /* Whether the control spell's visual anchor sits in range of the
    monster, falling back on where the party stands. */
 short IsMonsterControlPointInRange(W8MonsterInfo* monster_info);
-/* Which of the monster's ten spells to cast, weighted by the spell table. */
-int ChooseMonsterSpell(W8MonsterInfo* monster_info, const W8MonsterRecord* record);
 /* Whether the monster sees no living enemy: a set threat flag answers at
    once, a hostile party member in play counts, and `party_only` zero also
    scans the monsters it is hostile to that it can see. */
 bool MonsterHasNoVisibleEnemy(W8MonsterInfo* monster_info, bool party_only);
-/* Fill `targets` with the combat slots `spell_id` may be cast at by this
-   monster; the monster's action fields carry the spell while the probe runs
-   and are restored after. */
-void CollectMonsterSpellTargets(W8MonsterInfo* monster_info, int spell_id,
-                                std::vector<W8CombatSlot>& targets);
-/* Whether at least half of the group's live in-combat members the caster is
-   hostile to accept the spell. */
-bool MonsterGroupHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id,
-                                       W8MonsterGroup* target_group, MonsterAction action);
-/* Whether at least half of the party members the caster is hostile to accept
-   the spell. */
-bool PartyHalfSpellTargetsValid(W8MonsterInfo* monster_info, int spell_id, MonsterAction action);
 /* Whether a live hostile monster already fighting stands nearer to one of the
    group's members than to the party - reinforcement keeps the group in or
    brings it into combat. */

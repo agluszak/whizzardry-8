@@ -57,6 +57,7 @@ struct W8LevelPopulation {
         const auto* info = findMonster(id);
         return info ? info->entity.get() : nullptr;
     }
+    bool allMembersDying(const W8MonsterGroup& group) const;
     auto activeMemberCount(const W8MonsterGroup& group) const
     {
         return std::ranges::count_if(group.MemberIds(), [this](int id) {

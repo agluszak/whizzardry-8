@@ -148,7 +148,7 @@ struct SpellRuntimeRecord {
     unsigned char psionics_spell; /* 0x120 */
     float effect_radius;          /* 0x121 */
     unsigned char unknown_125;
-    /* 0x126: a monster may cast the spell at all. MonsterOKToCastSpell reports
+    /* 0x126: a monster may cast the spell at all. Game::prepareMonsterSpell reports
        a spell without it by name and asserts. */
     unsigned char monster_castable;
     /* 0x127: radius added per power level; spell target resolution scales

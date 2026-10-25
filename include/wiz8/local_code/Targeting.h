@@ -30,9 +30,6 @@ bool TargetSourceIsMonster(const W8TargetSource* source, int allow_indirect);
 signed char GetSourceNoticeColor(const W8TargetSource* source);
 signed char GetTargetNoticeColor(const W8TargetSource* source, const W8CombatSlot* target);
 
-void SetMonsterCombatTarget(W8MonsterInfo* monster_info, int location_id);
-bool MonsterTargetMatchesSpell(W8MonsterInfo* monster_info, int spell_id);
-
 void RefreshAllPartyTargets(void);
 /* Repick a stored action's target, or a picker's draft target, when the old one no longer
    holds. Both return whether a monster was found; otherwise the target is cleared. */

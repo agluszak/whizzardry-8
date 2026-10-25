@@ -152,13 +152,6 @@ bool CanCastFromItem(const W8Character* caster, const W8ItemInstance* item)
     return CanCharacterUseItem(Data(), caster, item->iItemNo);
 }
 
-/* The three monster kinds whose alchemy survives a spellcasting block. */
-enum {
-    W8_MONSTER_KIND_ALCHEMY_LOW = 4,
-    W8_MONSTER_KIND_ALCHEMY_HIGH = 5,
-    W8_MONSTER_KIND_ALCHEMY_OTHER = 0xd
-};
-
 /* Whether a spellcasting block stops this character casting this spell. The
    block stops everything except alchemy in the hands of someone who has the
    skill for it. */
@@ -171,70 +164,6 @@ bool IsSpellBlockedForCharacter(const W8Character* character, int spell_id)
         return character->skills[W8_SKILL_SPELLBOOK_ALCHEMY].level == 0;
     }
     return false;
-}
-
-/* The same question for a monster. The block stops everything except alchemy
-   from the three kinds that keep it. */
-bool IsSpellBlockedForMonster(W8MonsterInfo* monster_info, int spell_id)
-{
-    unsigned char kind;
-
-    if (monster_info->uiCondition[W8_CONDITION_SILENCED] != 0) {
-        if (Data().spells[spell_id].alchemy_spell == 0) {
-            return true;
-        }
-        kind = GetMonsterDataForInfo(monster_info)->kind;
-        if (kind < W8_MONSTER_KIND_ALCHEMY_LOW ||
-            (kind > W8_MONSTER_KIND_ALCHEMY_HIGH && kind != W8_MONSTER_KIND_ALCHEMY_OTHER)) {
-            return true;
-        }
-    }
-    return false;
-}
-
-/* Everything that has to hold before a monster may start casting: the spell
-   has to be one monsters can cast at all, the monster has to be in a state to
-   cast it, it has to have somewhere to aim, it has to be able to act, and the
-   two combat gates have to agree. */
-bool MonsterOKToCastSpell(W8MonsterInfo* monster_info, int spell_id, int)
-{
-    W8CombatSlot* combat_slot;
-    unsigned char kind;
-
-    assert(Data().spells[spell_id].monster_castable != 0);
-
-    if (monster_info->uiCondition[W8_CONDITION_SILENCED] != 0) {
-        if (Data().spells[spell_id].alchemy_spell == 0) {
-            return false;
-        }
-        kind = GetMonsterDataForInfo(monster_info)->kind;
-        if (kind < W8_MONSTER_KIND_ALCHEMY_LOW ||
-            (kind > W8_MONSTER_KIND_ALCHEMY_HIGH && kind != W8_MONSTER_KIND_ALCHEMY_OTHER)) {
-            return false;
-        }
-    }
-
-    if (GetSpellTargetType(spell_id, false) == W8_TARGET_TYPE_CASTER) {
-        SetMonsterCombatTarget(monster_info, monster_info->location_id);
-    } else if (!MonsterTargetMatchesSpell(monster_info, spell_id)) {
-        return false;
-    }
-
-    combat_slot = &monster_info->Target;
-    if (!CurrentGame().monsterActionReachesTarget(monster_info, 0, combat_slot,
-                                                  monster_info->action)) {
-        ResetCombatSlot(&monster_info->Target);
-        return false;
-    }
-    if (!monster_info->entity->owner_world
-             .castingBlockMessagesAt(monster_info->entity->nav.GetPosition())
-             .empty()) {
-        return false;
-    }
-    if (!MonsterSpellTargetOK(monster_info, spell_id, combat_slot, monster_info->action)) {
-        return false;
-    }
-    return !SpellAreaHitsNeutralMonster(monster_info, spell_id, combat_slot, monster_info->action);
 }
 
 /* Whether the spell may be cast in the situation the party is in now. Two
@@ -293,31 +222,6 @@ bool SpellUsableNow(int spell_id, bool allow_out_of_combat)
         return !lock_or_trap;
     }
     return false;
-}
-
-/* What the interface has to ask the player to pick before a friendly spell can
-   be cast. Nine target types map onto seven answers; the one that depends on
-   the selection owner only needs a pick when there is nothing selected already
-   and the caller is not in one of the two contexts that supply it. */
-
-/* The same question for a hostile spell, which has fewer answers because a
-   hostile spell never targets the party's own belongings. */
-W8TargetNeed GetTargetNeededForSpellHostile(int spell_id)
-{
-    switch (GetSpellTargetType(spell_id, false)) {
-    case W8_TARGET_TYPE_ALLY:
-        return spell_id != W8_SPELL_RESURRECTION ? W8_TARGET_NEED_ALLY
-                                                 : W8_TARGET_NEED_CHARACTER_INDIRECT;
-    case W8_TARGET_TYPE_ENEMY:
-        return W8_TARGET_NEED_ENEMY;
-    case W8_TARGET_TYPE_CASTER:
-        return W8_TARGET_NEED_CASTER;
-    case W8_TARGET_TYPE_ENEMY_GROUP:
-        return W8_TARGET_NEED_GROUP;
-    default:
-        break;
-    }
-    return W8_TARGET_NEED_NONE;
 }
 
 /* Forwarder that narrows CanCharReBreathe's answer to a flag. Its argument is

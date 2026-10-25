@@ -475,28 +475,6 @@ void World::appendMonstersInRadius(const glm::vec3& centre, const glm::vec3& eye
     }
 }
 
-void SetMonsterCombatTarget(W8MonsterInfo* monster_info, int location_id)
-{
-    W8CombatSlot* target = &monster_info->Target;
-
-    *target = {};
-    target->iType = W8_TARGET_KIND_NONE;
-    target->iMonsterID = BAD_INDEX;
-    target->iChar = BAD_INDEX;
-    target->iGroupID = BAD_INDEX;
-    target->iMonsterID = location_id;
-    target->iType = W8_TARGET_KIND_MONSTER;
-}
-
-/* Probe whether a monster's current combat target is one of the kinds its
-   chosen hostile spell accepts. The caller only needs the validator's side
-   effects, so this wrapper discards its answer. */
-bool MonsterTargetMatchesSpell(W8MonsterInfo* monster_info, int spell_id)
-{
-    return CurrentGame().targetMatches(monster_info->Target,
-                                       GetTargetNeededForSpellHostile(spell_id));
-}
-
 /* Whether this spell choice needs an explicit target in the interaction. */
 bool ActionNeedsExplicitTarget(const W8Action& action, bool conversation_aside)
 {

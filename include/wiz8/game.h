@@ -229,6 +229,13 @@ public:
                             std::optional<MonsterAction> proposed_action = {});
     bool monsterActionReachesTarget(W8MonsterInfo* monster, unsigned int attack,
                                     W8CombatSlot* target, MonsterAction action);
+    bool canMonsterCastSpell(W8MonsterInfo* monster, int spell_id, bool needs_target);
+    bool aimMonsterSpell(W8MonsterInfo* monster, int spell_id);
+    bool prepareMonsterSpell(W8MonsterInfo* monster, int spell_id);
+    int chooseMonsterSpell(W8MonsterInfo* monster);
+    std::vector<W8CombatSlot> monsterSpellTargets(W8MonsterInfo* monster, int spell_id);
+    bool monsterAcceptsSpell(W8MonsterInfo* monster, int spell_id, W8CombatSlot* target,
+                             MonsterAction action);
     bool canMonsterProtect(const W8MonsterInfo& monster, const W8CombatSlot& target) const;
     bool chooseMonsterAction(W8MonsterInfo& monster, bool target_locked, bool attack_locked,
                              bool set_attack_rate);
@@ -370,6 +377,12 @@ private:
     int prepareNpcBinding(World& world, W8MonsterInfo& info, W8PreparedNpcBindings& pending);
     std::shared_ptr<W8NpcState> makeNpcRuntimeNode(int npc_id);
     void updateSurpriseMode();
+    bool resolveMonsterSpellAim(W8MonsterInfo* monster, int spell_id);
+    bool monsterSpellHitsNeutral(W8MonsterInfo* monster, int spell_id, W8CombatSlot* target,
+                                 MonsterAction action);
+    bool groupSpellTargetsAccept(W8MonsterInfo* monster, int spell_id, W8MonsterGroup* group,
+                                 MonsterAction action);
+    bool partySpellTargetsAccept(W8MonsterInfo* monster, int spell_id, MonsterAction action);
     void applyCombatEndEffects();
     std::string monsterName(const W8MonsterRecord& record, bool alternate, bool plural) const;
     void refreshCombatEngagement(std::vector<Event>& outcomes);
