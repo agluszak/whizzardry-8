@@ -1259,7 +1259,7 @@ TEST_CASE("A missile reports and detaches only from its original world's casts",
 
     old_missile->result.amount = 12;
     old_missile->result.count = 1;
-    old_missile->result.death_notices.push_back(CharacterNotice{0, "retained death notice"});
+    old_missile->result.death_notices.emplace_back(CharacterNotice{0, "retained death notice"});
     outgoing->absorbMissileDamage(*old_missile);
     REQUIRE(old_result->result.amount == 12);
     REQUIRE(old_result->result.death_notices.size() == 1);
@@ -2134,10 +2134,17 @@ TEST_CASE("A group leaves only its own game fight and releases its engagement ef
     monster->ubDisposition = W8_DISPOSITION_HOSTILE;
     monster->entity = std::make_unique<Monster>(world, &data.monsters[0]);
     monster->pCombat = std::make_unique<W8MonsterCombatState>();
+    monster->effect_slots[0].Activate(2, 1, 1);
+    monster->effect_slots[0].percent = 37;
     monster->pCombat->combat_effects[0].Activate(2, 1, 10);
     monster->pCombat->combat_effects_2[0].Activate(2, 1, 10);
     monster->modifiers.hit_bonus = monster->modifiers.armor_flat = 2;
     auto& member = *world.population->monster_roster.add(std::move(monster), false);
+    member.ageEffects(1, data.monsters[0]);
+    REQUIRE_FALSE(member.effect_slots[0].active);
+    REQUIRE(member.effect_slots[0].percent == 37);
+    REQUIRE(member.pCombat->combat_effects[0].duration == 9);
+    REQUIRE(member.pCombat->combat_effects_2[0].duration == 9);
     auto& group = world.population->adoptGroup(std::make_unique<W8MonsterGroup>(), false);
     group.group_id = 1;
     group.fInCombat = true;

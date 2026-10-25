@@ -284,6 +284,7 @@ struct W8MonsterInfo {
     void refreshConditionState();
     void startCycle(int cycle, W8AnimationBehaviour behavior);
     void clearEffect(W8EffectSlot& effect, const W8MonsterRecord& record);
+    void ageEffects(unsigned int minutes, const W8MonsterRecord& record);
     void endEngagement(const GameData& data);
     int location_id{};
     int monster_group_id{};

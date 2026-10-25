@@ -1236,53 +1236,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
     if (monster_info->stamina_max <= monster_info->stamina) {
         monster_info->stamina_regen_accumulator = 0.0f;
     }
-    {
-        W8EffectSlot* slot = monster_info->effect_slots;
-
-        for (int owned_index = 0; owned_index < 0xc; ++owned_index) {
-            if (slot->active) {
-                if (minutes < slot->duration) {
-                    slot->duration -= minutes;
-                } else if (monster_info == 0) {
-                    CurrentGame().resetPartyEffect(*slot);
-                } else {
-                    monster_info->clearEffect(
-                        *slot, CurrentGame().data.monsters[monster_info->monster_species]);
-                }
-            }
-            ++slot;
-        }
-    }
-    if (monster_info->pCombat) {
-        for (auto& combat_effect : monster_info->pCombat->combat_effects) {
-            W8EffectSlot* slot = &combat_effect;
-
-            if (slot->active) {
-                if (minutes < slot->duration) {
-                    slot->duration -= minutes;
-                } else if (monster_info == 0) {
-                    CurrentGame().resetPartyEffect(*slot);
-                } else {
-                    monster_info->clearEffect(
-                        *slot, CurrentGame().data.monsters[monster_info->monster_species]);
-                }
-            }
-        }
-        for (auto& d7_index : monster_info->pCombat->combat_effects_2) {
-            W8EffectSlot* slot = &d7_index;
-
-            if (slot->active) {
-                if (minutes < slot->duration) {
-                    slot->duration -= minutes;
-                } else if (monster_info == 0) {
-                    CurrentGame().resetPartyEffect(*slot);
-                } else {
-                    monster_info->clearEffect(
-                        *slot, CurrentGame().data.monsters[monster_info->monster_species]);
-                }
-            }
-        }
-    }
+    monster_info->ageEffects(minutes, *record);
 }
 
 /* The camping fatigue tick: while a camp is active each character without

@@ -348,6 +348,24 @@ void W8MonsterInfo::clearEffect(W8EffectSlot& effect, const W8MonsterRecord& rec
     RebuildMonsterDerivedStats(*this, record);
 }
 
+void W8MonsterInfo::ageEffects(unsigned int minutes, const W8MonsterRecord& record)
+{
+    const auto age = [&](auto& slots) {
+        for (auto& effect : slots) {
+            if (!effect.active) continue;
+            if (minutes < effect.duration)
+                effect.duration -= minutes;
+            else
+                clearEffect(effect, record);
+        }
+    };
+    age(effect_slots);
+    if (pCombat) {
+        age(pCombat->combat_effects);
+        age(pCombat->combat_effects_2);
+    }
+}
+
 void Game::resetCombatEffects()
 {
     auto reset = [&](auto& party_effects, auto member) {
