@@ -2355,11 +2355,11 @@ void ReduceCombatEffectDurations(W8SpellEffectEntry* effect)
          ++slot_index) {
         const auto spell = g_combat_effect_slot_spells[slot_index];
         switch (spell) {
-        case 0x30:
-        case 0x4c:
-        case 0x50:
-        case 0x51:
-        case 0x5d:
+        case W8_SPELL_ACID_BOMB:
+        case W8_SPELL_TOXIC_CLOUD:
+        case W8_SPELL_FIRESTORM:
+        case W8_SPELL_DEATH_CLOUD:
+        case W8_SPELL_DRAINING_CLOUD:
             reduce = Data().spells[W8_SPELL_PURIFY_AIR].spell_level -
                      Data().spells[spell].spell_level + duration;
             if (reduce > 0) {
@@ -2386,6 +2386,9 @@ void ReduceCombatEffectDurations(W8SpellEffectEntry* effect)
                     }
                 }
             }
+            break;
+        default:
+            break;
         }
     }
 }
