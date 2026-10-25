@@ -14,6 +14,7 @@
 #include "wiz8/inventory.h"
 #include "wiz8/item_spawning.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/Trynnie1.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -147,7 +148,7 @@ bool Trynnie2Script::meatBox(Trigger* pTrigger)
     W8MonsterInfo* info;
     int item_id;
 
-    group = FindFirstMonsterByID(0x1d4);
+    group = CurrentLevelPopulation().findSpeciesGroup(0x1d4);
     if (group == 0 || !(ctx.inventory.held())) {
         ShowNotice(W8_FONT_PALETTE_TEXT_BOX, Data().strings[0x964]);
         return true;

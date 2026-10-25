@@ -85,7 +85,6 @@
 #include "wiz8/spatial/level_spatial_index.h"
 #include "wiz8/spatial/navigator.h"
 #include "wiz8/story.h"
-#include "wiz8/world/level_session.h"
 #include "wiz8/world/party_camera.h"
 #include "wiz8/world/update.h"
 #include "wiz8/world/world.h"
@@ -559,25 +558,6 @@ void W8MonsterInfo::setMotionless(bool motionless)
     }
 }
 
-void MoveMonsterToLiveList(W8MonsterInfo* monster_info)
-{
-    assert(monster_info != 0);
-    if (!CurrentLevelPopulation().monster_roster.promote(monster_info)) {
-        return;
-    }
-    if (monster_info->entity->IsCycleSupported(0)) {
-        monster_info->entity->SetCycle(0);
-        monster_info->entity->visual.SetBehaviour(W8_ANIMATION_PLAY_ONCE);
-    } else {
-        monster_info->entity->SetCycle(1);
-        monster_info->entity->visual.SetBehaviour(W8_ANIMATION_NEVER_STOP);
-    }
-    monster_info->entity->visual.SetSubCycle(0);
-    monster_info->entity->SetAnimating(true);
-    monster_info->entity->nav.active = true;
-    monster_info->entity->inactive = false;
-}
-
 void W8MonsterInfo::initializeVitals(const W8MonsterRecord& record, Rng& rng)
 {
     hp_current = uiHPMax = RollDice(rng, record.hit_points);
@@ -707,10 +687,7 @@ bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
                         ->inheritLeaderState(*monster_info);
                 }
             }
-            for (auto* groups : {&population.monster_groups, &population.encounter_groups})
-                std::erase_if(*groups, [monster_group](const auto& owner) {
-                    return owner.get() == monster_group;
-                });
+            population.eraseEmptyGroup(*monster_group);
         } else {
             if (monster_group->leader_location_id == monster_info->location_id) {
                 world.replaceGroupLeader(*monster_group, combat.has_value());
@@ -868,10 +845,9 @@ void ToggleCombatMode(void)
             ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_COMBAT_CANNOT_END]);
             return;
         }
-        for (group_list_index = 0;
-             group_list_index < CurrentLevelPopulation().monster_groups.size();
+        for (group_list_index = 0; group_list_index < CurrentLevelPopulation().groups().size();
              ++group_list_index) {
-            monster_group = CurrentLevelPopulation().monster_groups[group_list_index].get();
+            monster_group = CurrentLevelPopulation().groups()[group_list_index].get();
             if (monster_group->members_active && monster_group->fInCombat &&
                 MonsterGroupCanEngage(monster_group)) {
                 ShowNotice(W8_FONT_PALETTE_BEIGE, Data().strings[W8_NOTICE_COMBAT_CANNOT_END]);
@@ -1130,9 +1106,9 @@ void DetectMonsterGroups(void)
 {
     bool noticed = false;
 
-    for (unsigned int group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
+    for (unsigned int group_index = 0; group_index < CurrentLevelPopulation().groups().size();
          ++group_index) {
-        W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
+        W8MonsterGroup* group = CurrentLevelPopulation().groups()[group_index].get();
         if (!group->members_active || (group->alternate_name && group->group_state[0] != 0) ||
             (CurrentGame().combat.has_value() && !group->fInCombat) ||
             !MonsterGroupHasRenderableMember(group, false)) {
@@ -1248,10 +1224,9 @@ void EvaluateCombatDifficulty(void)
                 int faction = npc->record->faction;
                 if (faction != 0 && faction != 1) {
                     for (unsigned int group_index = 0;
-                         group_index < CurrentLevelPopulation().monster_groups.size();
-                         ++group_index) {
+                         group_index < CurrentLevelPopulation().groups().size(); ++group_index) {
                         W8MonsterGroup* group =
-                            CurrentLevelPopulation().monster_groups[group_index].get();
+                            CurrentLevelPopulation().groups()[group_index].get();
                         if (group->members_active && group->fInCombat &&
                             group->ubDisposition == W8_DISPOSITION_HOSTILE &&
                             MonsterGroupGetRecord(group)->faction_id == faction) {

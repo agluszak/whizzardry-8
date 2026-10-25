@@ -30,6 +30,7 @@
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/level_state.h"

@@ -337,7 +337,7 @@ bool IsMonsterGroupLive(W8MonsterGroup* monster_group)
 /* Walk plsMonsterGroupList and return the Nth live combat group. */
 W8MonsterGroup* GetLiveMonsterGroupAtIndex(int index)
 {
-    for (const auto& group : CurrentLevelPopulation().monster_groups) {
+    for (const auto& group : CurrentLevelPopulation().groups()) {
         if (IsMonsterGroupLive(group.get()) && index-- == 0) return group.get();
     }
     return nullptr;
@@ -448,8 +448,8 @@ void ResetMonsterGroupTurnState(void)
     unsigned int index;
     W8MonsterInfo* monster_info;
 
-    for (index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
-        CurrentLevelPopulation().monster_groups[index].get()->hostility_set_at = 0;
+    for (index = 0; index < CurrentLevelPopulation().groups().size(); ++index) {
+        CurrentLevelPopulation().groups()[index].get()->hostility_set_at = 0;
     }
     for (index = 0; index < CurrentLevelPopulation().monster_roster.live().size(); ++index) {
         monster_info = GetMonsterListEntry(index);
@@ -581,9 +581,7 @@ W8MonsterGroup* Game::createMonsterGroup(unsigned int species, unsigned int coun
     group->alternate_name = alternate_name || (record.flags & W8_MONSTER_FLAG_ALTERNATE_NAME) != 0;
     std::fill_n(group->group_state + 2, 4, 0xff);
     group->spawn_time = status.world_clock;
-    auto& groups =
-        record.unborn ? world.population->encounter_groups : world.population->monster_groups;
-    groups.push_back(std::move(group_owner));
+    world.population->adoptGroup(std::move(group_owner), record.unborn);
     for (unsigned int index = 0; index < std::min(count, 9u); ++index) {
         auto info = std::make_unique<W8MonsterInfo>();
         do {
@@ -618,39 +616,7 @@ W8MonsterGroup* Game::createMonsterGroup(unsigned int species, unsigned int coun
 /* The owning collection establishes membership before any relationship or
    budget changes. No id-to-index conversion or separate unregistration. */
 
-W8MonsterGroup* FindFirstMonsterByID(int monster_id)
-{
-    unsigned int index;
-    W8MonsterGroup* group;
-
-    for (index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
-        group = CurrentLevelPopulation().monster_groups[index].get();
-        if (group->monster_id == monster_id) {
-            return group;
-        }
-    }
-    for (index = 0; index < CurrentLevelPopulation().encounter_groups.size(); ++index) {
-        group = CurrentLevelPopulation().encounter_groups[index].get();
-        if (group->monster_id == monster_id) {
-            return group;
-        }
-    }
-    return 0;
-}
-
 /* Continue through live groups, then encounters, after the previous match. */
-W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* previous)
-{
-    bool after_previous = previous == nullptr;
-    for (const auto* groups :
-         {&CurrentLevelPopulation().monster_groups, &CurrentLevelPopulation().encounter_groups}) {
-        for (const auto& owner : *groups) {
-            if (after_previous && owner->monster_id == monster_id) return owner.get();
-            if (owner.get() == previous) after_previous = true;
-        }
-    }
-    return nullptr;
-}
 
 /* Elect a successor while the old formation is still intact, then publish
    the new links. No temporary independent encounters or registration repair. */
@@ -729,9 +695,9 @@ void MonsterGroupEnterCombat(W8MonsterGroup* monster_group)
                 CurrentGame().combat.has_value() && CurrentGame().combat->round_count != 0) {
                 unsigned int live_groups = 0;
                 unsigned int group_list_index = 0;
-                while (group_list_index < CurrentLevelPopulation().monster_groups.size()) {
+                while (group_list_index < CurrentLevelPopulation().groups().size()) {
                     W8MonsterGroup* other =
-                        CurrentLevelPopulation().monster_groups[group_list_index].get();
+                        CurrentLevelPopulation().groups()[group_list_index].get();
                     if (other->members_active && other->fInCombat && other->MemberCount() != 0 &&
                         (other->ubDisposition == W8_DISPOSITION_HOSTILE ||
                          CombatAllowsLiveGroups())) {
@@ -858,30 +824,11 @@ void MarkMonsterGroupForRemoval(int group_id)
 /* Moves a group off the encounter list onto the live list and brings every one
    of its members into the live monster list. Answers 1 when the group was
    actually waiting on the encounter list. */
-bool GiveBirthToMonster(W8MonsterGroup* monster_group)
+bool Game::giveBirthToMonster(W8MonsterGroup* group)
 {
-    W8MonsterInfo* member_info;
-    unsigned int index;
-    int location_id;
-
-    assert(monster_group != 0);
-    auto& encounters = CurrentLevelPopulation().encounter_groups;
-    const auto found = std::ranges::find_if(
-        encounters, [monster_group](const auto& owner) { return owner.get() == monster_group; });
-    if (found != encounters.end()) {
-        CurrentLevelPopulation().monster_groups.push_back(std::move(*found));
-        encounters.erase(found);
-        for (index = 0; index < monster_group->MemberIds().size(); ++index) {
-            location_id = monster_group->MemberLocationId(index);
-            member_info = FindMonster(location_id);
-            if (member_info != 0) {
-                MoveMonsterToLiveList(member_info);
-            }
-        }
-        CurrentGame().refreshOutwardSight();
-        return true;
-    }
-    return false;
+    if (!level.loaded().population->giveBirth(*group)) return false;
+    refreshOutwardSight();
+    return true;
 }
 
 /* Respawns a same-sized group of a different monster id beside the source

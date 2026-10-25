@@ -8,6 +8,7 @@
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
 #include "wiz8/game.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -106,14 +107,14 @@ bool Rift1AshLock(Trigger* pTrigger)
 
 /* "TimeDorado": give every existing monster group of species 0xfc a fresh
    member. */
-bool Rift1TimeDorado(Trigger* pTrigger)
+bool Rift1TimeDorado(const ScriptContext& ctx, Trigger* pTrigger)
 {
     W8MonsterGroup* previous;
 
-    previous = FindNextExistingMonsterByID(0xfc, 0);
+    previous = ctx.world->population->findSpeciesGroup(0xfc, 0);
     while (previous != 0) {
-        GiveBirthToMonster(previous);
-        previous = FindNextExistingMonsterByID(0xfc, previous);
+        ctx.game.giveBirthToMonster(previous);
+        previous = ctx.world->population->findSpeciesGroup(0xfc, previous);
     }
     return true;
 }
@@ -129,7 +130,8 @@ public:
         bindTrigger("Hotstuff", Rift1Hotstuff);
         bindTrigger("Gate", Rift1Gate);
         bindTrigger("AshLock", Rift1AshLock);
-        bindTrigger("TimeDorado", Rift1TimeDorado);
+        bindTrigger("TimeDorado",
+                    [this](Trigger* trigger) { return Rift1TimeDorado(ctx, trigger); });
     }
 };
 

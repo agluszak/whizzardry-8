@@ -1,17 +1,14 @@
 #include "wiz8/local_code/Factions.h"
 
-#include <string>
-
 #include <fmt/printf.h>
 
 #include "wiz8/data/faction_ids.h"
 #include "wiz8/data/game_data.h"
-#include "wiz8/data/records.h"
 #include "wiz8/game.h"
 #include "wiz8/layouts/game_status.h"
-#include "wiz8/loaded_game_data.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MGSTextBox.h"
+#include "wiz8/rules/events.h"
 #include "wiz8/story.h"
 
 /* Local Code\Factions.cpp. The unit is named by the two assertions this body
@@ -124,8 +121,8 @@ static void PresentFactionChange(Game& game, signed char faction, int change)
     const bool improved = change > 0;
     game.events.push(
         TextNotice{improved ? 5u : 0u, fmt::sprintf(game.data.strings[0x247],
-                                                  game.data.strings[g_faction_name_ids[faction]],
-                                                  game.data.strings[improved ? 0x246 : 0x245])});
+                                                    game.data.strings[g_faction_name_ids[faction]],
+                                                    game.data.strings[improved ? 0x246 : 0x245])});
 }
 
 void Game::setFactionDisposition(signed char faction, W8FactionDisposition band)

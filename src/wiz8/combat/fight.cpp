@@ -329,9 +329,9 @@ bool QueueNpcCombatScript(void)
         int faction = npc->record->faction;
         bool hostile_group_present = false;
         if (faction != 0 && faction != 1) {
-            for (unsigned int index = 0; index < CurrentLevelPopulation().monster_groups.size();
+            for (unsigned int index = 0; index < CurrentLevelPopulation().groups().size();
                  ++index) {
-                W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[index].get();
+                W8MonsterGroup* group = CurrentLevelPopulation().groups()[index].get();
                 if (group->members_active && group->fInCombat &&
                     group->ubDisposition == W8_DISPOSITION_HOSTILE &&
                     MonsterGroupGetRecord(group)->faction_id == faction) {
@@ -341,9 +341,9 @@ bool QueueNpcCombatScript(void)
             }
         }
         if (!hostile_group_present && npc->name_style == W8_NPC_SPARKLE) {
-            for (unsigned int index = 0; index < CurrentLevelPopulation().monster_groups.size();
+            for (unsigned int index = 0; index < CurrentLevelPopulation().groups().size();
                  ++index) {
-                W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[index].get();
+                W8MonsterGroup* group = CurrentLevelPopulation().groups()[index].get();
                 if (group->members_active && group->fInCombat &&
                     group->ubDisposition == W8_DISPOSITION_HOSTILE &&
                     MonsterGroupGetRecord(group)->faction_id == W8_FACTION_UMPANI) {
@@ -883,7 +883,7 @@ void Game::endCombat(bool forced_cleanup)
     RemoveAllEnchantments();
     resetCombatEffects();
     ProcessMonstersAtCombatEnd(forced_cleanup);
-    auto& groups = level.loaded().population->monster_groups;
+    auto& groups = level.loaded().population->groups();
     for (unsigned int index = 0; index < groups.size(); ++index) {
         auto& group = *groups[index];
         if (group.fInCombat) endGroupCombat(group);
@@ -1297,8 +1297,8 @@ void AdvanceCombatRound(void)
     } else {
         bool engaged = false;
 
-        for (index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
-            W8MonsterGroup* monster_group = CurrentLevelPopulation().monster_groups[index].get();
+        for (index = 0; index < CurrentLevelPopulation().groups().size(); ++index) {
+            W8MonsterGroup* monster_group = CurrentLevelPopulation().groups()[index].get();
             if (monster_group->members_active && monster_group->fInCombat &&
                 MonsterGroupCanEngage(monster_group)) {
                 engaged = true;

@@ -70,7 +70,6 @@
 #include "wiz8/local_code/character_events.h"
 #include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
-#include "wiz8/location_variables.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/npc_interaction.h"
 #include "wiz8/npc_items.h"
@@ -1427,7 +1426,7 @@ void UpdateNpcEvents(void)
     if (CurrentGame().status.savant_hack_tick != 0 &&
         int32_t(uint32_t(MonotonicMilliseconds()) -
                 uint32_t(CurrentGame().status.savant_hack_tick)) > 0x32) {
-        group = FindFirstMonsterByID(0x1b3);
+        group = CurrentLevelPopulation().findSpeciesGroup(0x1b3);
         if (group != 0) {
             monster_info = FindMonster(group->leader_location_id);
             CurrentGame().startMonsterDeath(monster_info, true);
@@ -1438,7 +1437,7 @@ void UpdateNpcEvents(void)
     if (CurrentGame().status.bela_cycle_tick != 0 &&
         int32_t(uint32_t(MonotonicMilliseconds()) -
                 uint32_t(CurrentGame().status.bela_cycle_tick)) > 0x1388) {
-        group = FindFirstMonsterByID(0x1b6);
+        group = CurrentLevelPopulation().findSpeciesGroup(0x1b6);
         if (group != 0) {
             monster_info = FindMonster(group->leader_location_id);
             monster_info->startCycle(W8_MONSTER_CYCLE_ATTACK_LASH, W8_ANIMATION_PLAY_ONCE);

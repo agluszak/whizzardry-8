@@ -15,6 +15,9 @@ enum class W8MonsterRemoval : unsigned char;
 // operation can erase an individual record.
 class W8MonsterRoster {
 public:
+    W8MonsterRoster() = default;
+    W8MonsterRoster(const W8MonsterRoster&) = delete;
+    W8MonsterRoster& operator=(const W8MonsterRoster&) = delete;
     W8MonsterInfo* add(std::unique_ptr<W8MonsterInfo> info, bool unborn)
     {
         auto& index = unborn ? unborn_ : live_;
@@ -22,7 +25,9 @@ public:
         return index.back().get();
     }
 
-    // Membership change only; returns false when the monster is not unborn.
+private:
+    friend struct W8LevelPopulation;
+    // Only the population birth operation may promote a record.
     bool promote(W8MonsterInfo* info)
     {
         const auto it = std::ranges::find(unborn_, info, &std::unique_ptr<W8MonsterInfo>::get);
@@ -34,6 +39,7 @@ public:
         return true;
     }
 
+public:
     const std::vector<std::unique_ptr<W8MonsterInfo>>& live() const { return live_; }
     const std::vector<std::unique_ptr<W8MonsterInfo>>& unborn() const { return unborn_; }
     bool isUnborn(const W8MonsterInfo* info) const

@@ -128,9 +128,6 @@ bool PositionMonsterGroupNearCamera(W8MonsterGroup* group, float distance, float
 /* Refresh the group's cached centre; a null centre out-pointer
    keeps only the cache update, which is how SpawnMonsters uses it. */
 void GetMonsterGroupCentre(W8MonsterGroup* monster_group, glm::vec3* centre);
-W8MonsterGroup* FindFirstMonsterByID(int monster_id);
-W8MonsterGroup* FindNextExistingMonsterByID(int monster_id, W8MonsterGroup* previous);
-bool GiveBirthToMonster(W8MonsterGroup* monster_group);
 
 void ResetMonsterGroupTurnState(void);
 

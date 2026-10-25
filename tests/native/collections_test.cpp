@@ -278,11 +278,11 @@ static bool gameplayCollectionLifetime()
     REQUIRE((roster.live().empty() && GetMonsterListEntry(0) == nullptr));
     auto* live = roster.add(std::make_unique<W8MonsterInfo>(), false);
     auto* unborn = roster.add(std::make_unique<W8MonsterInfo>(), true);
-    CurrentLevelPopulation().encounter_groups.push_back(std::move(group));
+    CurrentLevelPopulation().adoptGroup(std::move(group), true);
     REQUIRE(GetMonsterListEntry(0) == live);
     REQUIRE((GetMonsterListEntry(-1) == nullptr && GetMonsterListEntry(1) == nullptr));
     REQUIRE((GetUnbornMonsterEntry(0) == unborn && GetUnbornMonsterEntry(1) == nullptr));
-    REQUIRE(CurrentLevelPopulation().encounter_groups.front().get() == group_ptr);
+    REQUIRE(CurrentLevelPopulation().encounterGroups().front().get() == group_ptr);
 
     // Preparing and abandoning another population cannot publish its identities.
     live->location_id = 7;
@@ -296,20 +296,16 @@ static bool gameplayCollectionLifetime()
     }
     REQUIRE(FindMonster(7, false) == live);
 
-    // Promotion moves membership only: the same record, now live, and promotion is one-way.
-    REQUIRE(roster.promote(unborn));
-    REQUIRE(
-        (roster.unborn().empty() && roster.live().size() == 2 && roster.live()[1].get() == unborn));
-    REQUIRE(!roster.promote(unborn));
     // Removal unindexes from whichever list holds the record, then frees it.
     REQUIRE(CurrentGame().retireMonster(live, W8MonsterRemoval::Unload));
-    REQUIRE((roster.live().size() == 1 && roster.live()[0].get() == unborn));
+    REQUIRE(roster.live().empty());
+    REQUIRE(roster.unborn().front().get() == unborn);
     REQUIRE(!CurrentGame().retireMonster(live, W8MonsterRemoval::Unload));
 
     // Reset destroys the owned records and leaves immediately reusable collections.
-    *GetWorld()->population = {};
+    CurrentGame().level.replacePrimary(std::make_unique<World>());
     REQUIRE((GetMonsterListEntry(0) == nullptr && GetUnbornMonsterEntry(0) == nullptr));
-    REQUIRE(CurrentLevelPopulation().encounter_groups.empty());
+    REQUIRE(CurrentLevelPopulation().encounterGroups().empty());
     return true;
 }
 
@@ -482,18 +478,12 @@ TEST_CASE_METHOD(LevelWorldFixture, "collections_test")
 TEST_CASE_METHOD(LevelWorldFixture, "Engagement propagates to the original leader's direct allies",
                  "[groups]")
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-special-member-functions): local scope guard
-    struct RestoreGroups {
-        std::vector<std::unique_ptr<W8MonsterGroup>> saved =
-            std::exchange(CurrentLevelPopulation().monster_groups, {});
-        ~RestoreGroups() { CurrentLevelPopulation().monster_groups = std::move(saved); }
-    } restore;
     for (int i = 0; i < 4; ++i)
-        CurrentLevelPopulation().monster_groups.push_back(std::make_unique<W8MonsterGroup>());
-    auto& leader = *CurrentLevelPopulation().monster_groups[0];
-    auto& first = *CurrentLevelPopulation().monster_groups[1];
-    auto& second = *CurrentLevelPopulation().monster_groups[2];
-    auto& unrelated = *CurrentLevelPopulation().monster_groups[3];
+        CurrentLevelPopulation().adoptGroup(std::make_unique<W8MonsterGroup>(), false);
+    auto& leader = *CurrentLevelPopulation().groups()[0];
+    auto& first = *CurrentLevelPopulation().groups()[1];
+    auto& second = *CurrentLevelPopulation().groups()[2];
+    auto& unrelated = *CurrentLevelPopulation().groups()[3];
     leader.group_id = 1;
     first.group_id = 2;
     second.group_id = 3;
@@ -841,10 +831,10 @@ TEST_CASE("Encounter retirement spends one budget unit per formation, without re
         auto group = std::make_unique<W8MonsterGroup>();
         group->group_id = id;
         group->encounter_registered = true;
-        population.monster_groups.push_back(std::move(group));
+        population.adoptGroup(std::move(group), false);
     }
-    auto* leader = population.monster_groups[0].get();
-    auto* ally = population.monster_groups[1].get();
+    auto* leader = population.groups()[0].get();
+    auto* ally = population.groups()[1].get();
     leader->allied_group_ids[0] = ally->group_id;
     ally->leader_group_id = leader->group_id;
     REQUIRE(population.activeEncounterLeaders() == std::vector{leader});
@@ -996,7 +986,7 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
         group->leader_location_id = index + 1;
         group->encounter_registered = true;
         group->monsters = {index + 1};
-        population.monster_groups.push_back(std::move(group));
+        population.adoptGroup(std::move(group), false);
         auto record = std::make_unique<W8MonsterInfo>();
         record->location_id = index + 1;
         auto& monster = record->entity = std::make_unique<Monster>(*GetWorld());
@@ -1004,9 +994,9 @@ TEST_CASE("Allied leader election preserves one encounter with zero leadership r
         monster->nav.movement.leadership_rank = 0;
         population.monster_roster.add(std::move(record), false);
     }
-    auto* old = population.monster_groups[0].get();
-    auto* first = population.monster_groups[1].get();
-    auto* second = population.monster_groups[2].get();
+    auto* old = population.groups()[0].get();
+    auto* first = population.groups()[1].get();
+    auto* second = population.groups()[2].get();
     old->allied_group_ids[0] = 2;
     old->allied_group_ids[1] = 3;
     first->leader_group_id = second->leader_group_id = 1;
@@ -1047,7 +1037,7 @@ TEST_CASE("Removing an allied leader settles allegiance even without a party fig
         info->ubDisposition = group->ubDisposition;
         info->entity = std::make_unique<Monster>(world, &data.monsters[0]);
         info->entity->location_id = id;
-        population.monster_groups.push_back(std::move(group));
+        population.adoptGroup(std::move(group), false);
         population.monster_roster.add(std::move(info), false);
     }
     auto* old = population.findGroup(1);
@@ -1089,7 +1079,7 @@ TEST_CASE_METHOD(LevelWorldFixture,
     group->monster_id = 7;
     group->monsters = {3};
     auto* placed = group.get();
-    population.monster_groups.push_back(std::move(group));
+    population.adoptGroup(std::move(group), false);
     auto record = std::make_unique<W8MonsterInfo>();
     record->location_id = 3; // Not loaded yet, so it has no representation.
     population.monster_roster.add(std::move(record), false);
@@ -1107,15 +1097,16 @@ TEST_CASE_METHOD(LevelWorldFixture,
                  "Combat list rows cannot select a group outside the displayed list",
                  "[groups][targeting]")
 {
-    auto& groups = CurrentLevelPopulation().monster_groups;
+    auto& groups = CurrentLevelPopulation().groups();
     auto group = std::make_unique<W8MonsterGroup>();
     group->members_active = true;
     group->fInCombat = true;
     group->ubDisposition = W8_DISPOSITION_HOSTILE;
     group->monsters = {1};
     auto* displayed = group.get();
-    groups.push_back(std::move(group));
-    groups.push_back(std::make_unique<W8MonsterGroup>()); // Not displayed.
+    CurrentLevelPopulation().adoptGroup(std::move(group), false);
+    CurrentLevelPopulation().adoptGroup(std::make_unique<W8MonsterGroup>(),
+                                        false); // Not displayed.
     REQUIRE(GetLiveMonsterGroupAtIndex(0) == displayed);
     REQUIRE(GetLiveMonsterGroupAtIndex(1) == nullptr);
     REQUIRE(GetLiveMonsterGroupAtIndex(-1) == nullptr);
@@ -1133,14 +1124,12 @@ TEST_CASE("Threat queries follow roster membership and owned combat state", "[co
     unborn->pCombat = std::make_unique<W8MonsterCombatState>();
     REQUIRE(roster.hasActiveMonsters());
     REQUIRE(roster.hostileCombatCount() == 0);
-    REQUIRE(roster.promote(unborn));
-    REQUIRE(roster.hostileCombatCount() == 1);
     live->fActive = true;
     live->ubDisposition = W8_DISPOSITION_HOSTILE;
     live->pCombat = std::make_unique<W8MonsterCombatState>();
-    REQUIRE(roster.hostileCombatCount() == 2);
-    live->ubDisposition = W8_DISPOSITION_FRIENDLY;
     REQUIRE(roster.hostileCombatCount() == 1);
+    live->ubDisposition = W8_DISPOSITION_FRIENDLY;
+    REQUIRE(roster.hostileCombatCount() == 0);
     unborn->fActive = false;
     REQUIRE(roster.hostileCombatCount() == 0);
     live->ubDisposition = W8_DISPOSITION_HOSTILE;
@@ -2082,7 +2071,7 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     REQUIRE(candidate_draws.back().range == 1);
     auto group = std::make_unique<W8MonsterGroup>();
     group->group_id = actor.monster_group_id = 1;
-    world.population->monster_groups.push_back(std::move(group));
+    world.population->adoptGroup(std::move(group), false);
     actor.pCombat->advancing = true;
     const auto threat =
         world.nearestThreat(allied_data, actor, W8VisibilityCondition::FirstLineOfSightFlag);
@@ -2093,7 +2082,7 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     REQUIRE(actor.Target == W8CombatSlot::monster(2));
     REQUIRE(candidate_draws.size() ==
             29); // Advance roll, eight stealth rolls, two candidates, selection.
-    auto& formation = *world.population->monster_groups.front();
+    auto& formation = *world.population->groups().front();
     formation.leader_location_id = actor.location_id;
     formation.monsters = {other.location_id};
     actor.heard_noise_radius = 123;

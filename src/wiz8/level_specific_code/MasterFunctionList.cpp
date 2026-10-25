@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -92,7 +93,9 @@ void LevelScript::addMaster(Update update, Capture capture)
 
 void LevelScript::bindTrigger(std::string_view trigger, Callback callback)
 {
-    FindRequiredTriggerByName(trigger)->activation_callback = std::move(callback);
+    auto* target = FindTriggerInWorld(world(), trigger);
+    if (!target) throw std::runtime_error("missing level trigger " + std::string(trigger));
+    target->activation_callback = std::move(callback);
 }
 
 // Capture the batch size: callbacks may append work for the next frame.

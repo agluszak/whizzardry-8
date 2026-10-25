@@ -443,7 +443,7 @@ TEST_CASE("A left level's decoded state encodes to the bytes it was stored as", 
         group->forced_neutral = true;
         group->monsters = {index + 1};
         group->centre = {1.5f * index, 2.0f, 3.0f};
-        (index == 3 ? population.encounter_groups : population.monster_groups)
+        (index == 3 ? population.encounterGroups() : population.groups())
             .push_back(std::move(group));
         auto record = std::make_unique<W8MonsterInfo>();
         record->location_id = index + 1;

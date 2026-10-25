@@ -102,7 +102,7 @@ void UpdateMonsterGroups(bool staggered)
     if (!(CurrentGame().party.participantCount() != 0)) {
         return;
     }
-    if ((CurrentLevelPopulation().monster_groups.empty())) {
+    if ((CurrentLevelPopulation().groups().empty())) {
         return;
     }
     ++g_monster_group_tick;
@@ -110,12 +110,12 @@ void UpdateMonsterGroups(bool staggered)
         CurrentGame().refreshPendingMonsterSight();
     }
     camera_position = GetWorld()->party.eye();
-    for (group_list_index = 0; group_list_index < CurrentLevelPopulation().monster_groups.size();
+    for (group_list_index = 0; group_list_index < CurrentLevelPopulation().groups().size();
          ++group_list_index) {
         if (staggered && group_list_index % 5 != g_monster_group_tick % 5) {
             continue;
         }
-        monster_group = CurrentLevelPopulation().monster_groups[group_list_index].get();
+        monster_group = CurrentLevelPopulation().groups()[group_list_index].get();
         if (CurrentLevelPopulation().allMembersDying(*monster_group)) {
             continue;
         }
@@ -753,9 +753,8 @@ void CheckMonsterGroupsLeaveCombat(void)
     float minimum;
 
     CurrentGame().refreshOutwardSight();
-    for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
-         ++group_index) {
-        group = CurrentLevelPopulation().monster_groups[group_index].get();
+    for (group_index = 0; group_index < CurrentLevelPopulation().groups().size(); ++group_index) {
+        group = CurrentLevelPopulation().groups()[group_index].get();
         if (!group->members_active || !group->fInCombat ||
             CurrentLevelPopulation().allMembersDying(*group)) {
             continue;
@@ -810,9 +809,8 @@ void CheckMonsterGroupsLeaveCombat(void)
     if (engaged != 0) {
         return;
     }
-    for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
-         ++group_index) {
-        group = CurrentLevelPopulation().monster_groups[group_index].get();
+    for (group_index = 0; group_index < CurrentLevelPopulation().groups().size(); ++group_index) {
+        group = CurrentLevelPopulation().groups()[group_index].get();
         if (group->members_active && group->fInCombat &&
             !CurrentLevelPopulation().allMembersDying(*group)) {
             CurrentGame().endGroupCombat(*group);
@@ -1052,9 +1050,8 @@ void UpdateMonsterGroupEngagement(void)
     if (CurrentGame().combat->combat_update_count <= 2) {
         return;
     }
-    for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
-         ++group_index) {
-        group = CurrentLevelPopulation().monster_groups[group_index].get();
+    for (group_index = 0; group_index < CurrentLevelPopulation().groups().size(); ++group_index) {
+        group = CurrentLevelPopulation().groups()[group_index].get();
         if (!group->members_active || !group->fInCombat ||
             group->ubDisposition != W8_DISPOSITION_HOSTILE || group->leader_group_id != 0) {
             continue;
@@ -1097,14 +1094,14 @@ void CheckMonsterGroupsEnterCombat(void)
     unsigned int index;
 
     CurrentGame().refreshSight();
-    for (index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
-        group = CurrentLevelPopulation().monster_groups[index].get();
+    for (index = 0; index < CurrentLevelPopulation().groups().size(); ++index) {
+        group = CurrentLevelPopulation().groups()[index].get();
         if (group->fInCombat && group->ubDisposition == W8_DISPOSITION_HOSTILE) {
             CurrentGame().alertFactionGroups(group);
         }
     }
-    for (index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
-        group = CurrentLevelPopulation().monster_groups[index].get();
+    for (index = 0; index < CurrentLevelPopulation().groups().size(); ++index) {
+        group = CurrentLevelPopulation().groups()[index].get();
         if (!group->fInCombat) {
             if (ShouldMonsterGroupEnterCombat(group)) {
                 MonsterGroupEnterCombat(group);

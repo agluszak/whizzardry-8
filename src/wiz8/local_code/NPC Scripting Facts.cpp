@@ -277,7 +277,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         RunNamedTrigger("blackboxrecorder", -1);
         return;
     case W8_FACT_ARNIKA_MYLES_TROOPERS_HOSTILE:
-        group = FindFirstMonsterByID(0x13);
+        group = CurrentLevelPopulation().findSpeciesGroup(0x13);
         if (group != 0) {
             context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
@@ -765,15 +765,15 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
             return;
         }
         context.status.vi_event_stage = 1;
-        group = FindFirstMonsterByID(0x234);
+        group = CurrentLevelPopulation().findSpeciesGroup(0x234);
         if (group != 0) {
             context.game.setGroupHostility(group, W8_DISPOSITION_FRIENDLY, false);
         }
-        group = FindFirstMonsterByID(0x1b4);
+        group = CurrentLevelPopulation().findSpeciesGroup(0x1b4);
         if (group != 0) {
             context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
-        group = FindFirstMonsterByID(0x1b9);
+        group = CurrentLevelPopulation().findSpeciesGroup(0x1b9);
         if (group != 0) {
             context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
@@ -795,7 +795,7 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
     case W8_FACT_ENDGAME_QUE_CONGRAT_FOUR:
         EndNpcDialogueSession(false);
         if (auto* world = context.world) world->party.camera.motion.stop();
-        group = FindFirstMonsterByID(0xc2);
+        group = CurrentLevelPopulation().findSpeciesGroup(0xc2);
         if (group != 0) {
             monster_info = FindMonster(group->leader_location_id);
             monster_info->entity->SetScript("MoveSavantBoffo.msf", true);

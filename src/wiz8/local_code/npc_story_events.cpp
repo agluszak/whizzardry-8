@@ -23,6 +23,7 @@
 #include "wiz8/inventory.h"
 #include "wiz8/layouts/game_status.h"
 #include "wiz8/layouts/npc_state.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/Ascension.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/live_party.h"
@@ -70,7 +71,7 @@ static W8MonsterInfo* FindMonsterByLocation(int location_id)
 
 static W8MonsterInfo* FindMonsterGroupLeader(int species)
 {
-    W8MonsterGroup* group = FindFirstMonsterByID(species);
+    W8MonsterGroup* group = CurrentLevelPopulation().findSpeciesGroup(species);
     return group == 0 ? 0 : FindMonsterByLocation(group->leader_location_id);
 }
 
@@ -489,7 +490,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         if (W8MonsterInfo* monster_info = FindMonsterGroupLeader(0x1ab)) {
             monster_info->entity->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
-        if (W8MonsterGroup* group = FindFirstMonsterByID(0x15d)) {
+        if (W8MonsterGroup* group = CurrentLevelPopulation().findSpeciesGroup(0x15d)) {
             context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
         }
         break;

@@ -17,6 +17,7 @@
 #include "wiz8/entities/trigger.h"
 #include "wiz8/game.h"
 #include "wiz8/inventory.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/level_script.h"
 #include "wiz8/loaded_game_data.h"
@@ -599,10 +600,10 @@ bool ArnikaScript::vaultAlarmDoor(Trigger* pTrigger)
 
     g_trigger_feedback = true;
     wiz8::sound::play("Data\\Sound\\Ambients\\VaultAlarm.wav");
-    group = FindNextExistingMonsterByID(0xc, 0);
+    group = CurrentLevelPopulation().findSpeciesGroup(0xc, 0);
     while (group != 0) {
         CurrentGame().setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
-        group = FindNextExistingMonsterByID(0xc, group);
+        group = CurrentLevelPopulation().findSpeciesGroup(0xc, group);
     }
     ctx.game.setFact(W8_FACT_ARNIKA_VAULT_ENTERED, 1);
     return true;

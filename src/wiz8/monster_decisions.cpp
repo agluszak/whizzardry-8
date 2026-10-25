@@ -572,8 +572,8 @@ std::vector<W8CombatSlot> Game::monsterSpellTargets(W8MonsterInfo* monster_info,
         break;
     }
     case W8_TARGET_TYPE_ENEMY_GROUP:
-        for (index = 0; index < (*level.loaded().population).monster_groups.size(); ++index) {
-            monster_group = (*level.loaded().population).monster_groups[index].get();
+        for (index = 0; index < (*level.loaded().population).groups().size(); ++index) {
+            monster_group = (*level.loaded().population).groups()[index].get();
             if (monster_group->group_id != monster_info->monster_group_id &&
                 monster_group->members_active && monster_group->fInCombat &&
                 !level.loaded().population->allMembersDying(*monster_group) &&

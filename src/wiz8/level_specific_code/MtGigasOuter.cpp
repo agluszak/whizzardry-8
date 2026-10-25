@@ -10,6 +10,7 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/inventory.h"
+#include "wiz8/level_population.h"
 #include "wiz8/level_specific_code/MasterFunctionList.h"
 #include "wiz8/level_specific_code/MtGigas1.h"
 #include "wiz8/level_specific_code/level_script.h"
@@ -58,13 +59,13 @@ bool SentryTrigger(Trigger* trigger)
 
 /* Activation callback on dummytrigger: every live member of monster kind
    0x180 gives birth once. */
-bool DummyTrigger(Trigger* trigger)
+bool DummyTrigger(const ScriptContext& ctx, Trigger* trigger)
 {
-    W8MonsterGroup* group = FindNextExistingMonsterByID(0x180, 0);
+    W8MonsterGroup* group = ctx.world->population->findSpeciesGroup(0x180, 0);
 
     while (group != 0) {
-        GiveBirthToMonster(group);
-        group = FindNextExistingMonsterByID(0x180, group);
+        ctx.game.giveBirthToMonster(group);
+        group = ctx.world->population->findSpeciesGroup(0x180, group);
     }
     return true;
 }
@@ -99,7 +100,7 @@ void MtGigasOuterScript::enter()
     bindTrigger("Security Button", &MtGigasOuterScript::securityButton);
     bindTrigger("VOC_EWAXXSENTRYtrig", SentryTrigger);
     bindTrigger("ewaxxdoortrigger03", &MtGigasOuterScript::ewaxxDoor03);
-    bindTrigger("dummytrigger", DummyTrigger);
+    bindTrigger("dummytrigger", [this](Trigger* trigger) { return DummyTrigger(ctx, trigger); });
 }
 
 /* When the FlagPosition location variable exists, feed its value to the lift

@@ -12,16 +12,22 @@
 // Records and borrowed traversal indexes belong to the same loaded level as
 // their graphical representations. Preparation uses an unpublished instance.
 struct W8LevelPopulation {
+    W8LevelPopulation() = default;
+    W8LevelPopulation(const W8LevelPopulation&) = delete;
+    W8LevelPopulation& operator=(const W8LevelPopulation&) = delete;
     W8MonsterRoster monster_roster;
-    std::vector<std::unique_ptr<W8MonsterGroup>> monster_groups;
-    std::vector<std::unique_ptr<W8MonsterGroup>> encounter_groups;
+    const auto& groups() const { return monster_groups_; }
+    const auto& encounterGroups() const { return encounter_groups_; }
+    W8MonsterGroup& adoptGroup(std::unique_ptr<W8MonsterGroup> group, bool encounter);
+    void eraseEmptyGroup(W8MonsterGroup& group);
+    bool giveBirth(W8MonsterGroup& group);
     std::vector<std::unique_ptr<W8WorldItem>> world_items;
     // A traversal snapshot, never a second registry to update. A formation
     // consumes one encounter slot regardless of the number of allied groups.
     std::vector<W8MonsterGroup*> activeEncounterLeaders() const
     {
         std::vector<W8MonsterGroup*> leaders;
-        for (const auto* partition : {&monster_groups, &encounter_groups})
+        for (const auto* partition : {&monster_groups_, &encounter_groups_})
             for (const auto& group : *partition)
                 if (group->encounter_registered && group->leader_group_id == 0)
                     leaders.push_back(group.get());
@@ -70,13 +76,27 @@ struct W8LevelPopulation {
                    member->control_state != W8_MONSTER_CONTROL_LURED;
         });
     }
+    W8MonsterGroup* findSpeciesGroup(int species, const W8MonsterGroup* after = nullptr) const
+    {
+        bool passed = after == nullptr;
+        for (const auto* partition : {&monster_groups_, &encounter_groups_})
+            for (const auto& group : *partition) {
+                if (passed && group->monster_id == species) return group.get();
+                if (group.get() == after) passed = true;
+            }
+        return nullptr;
+    }
     W8MonsterGroup* findGroup(int id) const
     {
-        for (const auto* partition : {&monster_groups, &encounter_groups})
+        for (const auto* partition : {&monster_groups_, &encounter_groups_})
             for (const auto& group : *partition)
                 if (group->group_id == id) return group.get();
         return nullptr;
     }
+
+private:
+    std::vector<std::unique_ptr<W8MonsterGroup>> monster_groups_;
+    std::vector<std::unique_ptr<W8MonsterGroup>> encounter_groups_;
 };
 
 W8LevelPopulation& CurrentLevelPopulation();

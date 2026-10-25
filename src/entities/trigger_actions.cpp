@@ -957,7 +957,7 @@ void Trigger::PrintNothingHappenedOrSpecialItemRequired()
    group, and an unloaded one has no representation to restart until it loads. */
 void WakeMonsterGroup(int monster_id)
 {
-    const auto& groups = CurrentLevelPopulation().monster_groups;
+    const auto& groups = CurrentLevelPopulation().groups();
     const auto found = std::ranges::find_if(
         groups, [monster_id](const auto& group) { return group->monster_id == monster_id; });
     if (found == groups.end()) return;

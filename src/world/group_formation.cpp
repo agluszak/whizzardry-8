@@ -1,6 +1,10 @@
 #include <algorithm>
 #include <cassert>
+#include <memory>
+#include <stdexcept>
+#include <utility>
 
+#include "wiz8/entities/animation_types.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/level_population.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -65,7 +69,7 @@ void W8MonsterInfo::inheritLeaderState(const W8MonsterInfo& outgoing)
 
 void World::restartGroupScripts()
 {
-    for (const auto& group : population->monster_groups) {
+    for (const auto& group : population->groups()) {
         auto* leader = population->findEntity(group->leader_location_id);
         if (leader && leader->script) leader->UseScript(leader->script, true);
     }
@@ -97,4 +101,54 @@ W8MonsterGroup* W8LevelPopulation::alliedSuccessor(const W8MonsterGroup& outgoin
         }
     }
     return leader;
+}
+
+W8MonsterGroup& W8LevelPopulation::adoptGroup(std::unique_ptr<W8MonsterGroup> group, bool encounter)
+{
+    auto& groups = encounter ? encounter_groups_ : monster_groups_;
+    groups.push_back(std::move(group));
+    return *groups.back();
+}
+
+void W8LevelPopulation::eraseEmptyGroup(W8MonsterGroup& group)
+{
+    if (!group.MemberIds().empty())
+        throw std::logic_error("cannot erase a populated monster group");
+    for (auto* partition : {&monster_groups_, &encounter_groups_}) {
+        const auto found =
+            std::ranges::find(*partition, &group, &std::unique_ptr<W8MonsterGroup>::get);
+        if (found != partition->end()) {
+            partition->erase(found);
+            return;
+        }
+    }
+}
+
+bool W8LevelPopulation::giveBirth(W8MonsterGroup& group)
+{
+    const auto found =
+        std::ranges::find(encounter_groups_, &group, &std::unique_ptr<W8MonsterGroup>::get);
+    if (found == encounter_groups_.end()) return false;
+    // Reserve storage before moving either owning partition.
+    monster_groups_.reserve(monster_groups_.size() + 1);
+    monster_roster.live_.reserve(monster_roster.live_.size() + group.MemberIds().size());
+    monster_groups_.push_back(std::move(*found));
+    encounter_groups_.erase(found);
+    for (int id : group.MemberIds()) {
+        auto* info = findMonster(id);
+        if (!info || !monster_roster.promote(info)) continue;
+        auto& body = *info->entity;
+        if (body.IsCycleSupported(0)) {
+            body.SetCycle(0);
+            body.visual.SetBehaviour(W8_ANIMATION_PLAY_ONCE);
+        } else {
+            body.SetCycle(1);
+            body.visual.SetBehaviour(W8_ANIMATION_NEVER_STOP);
+        }
+        body.visual.SetSubCycle(0);
+        body.SetAnimating(true);
+        body.nav.active = true;
+        body.inactive = false;
+    }
+    return true;
 }

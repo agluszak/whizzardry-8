@@ -32,6 +32,7 @@
 #include "wiz8/game.h"
 #include "wiz8/gameplay_constants.h"
 #include "wiz8/layouts/game_status.h"
+#include "wiz8/level_population.h"
 #include "wiz8/local_code/Configuration.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/MonsterGroup.h"
@@ -750,7 +751,7 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
             if (SDL_strcasecmp(path->name0, "Camera03") != 0) {
                 return;
             }
-            group = FindFirstMonsterByID(0x18c);
+            group = CurrentLevelPopulation().findSpeciesGroup(0x18c);
             if (group != 0) {
                 monster_info = FindMonster(group->leader_location_id);
                 CurrentGame().pointCameraAtMonster(*monster_info, true, true);
@@ -781,7 +782,7 @@ void UpdateCameraPathState(World* world, W8CameraPath* path, int active)
     if (GetLoadedLevelID() == 4 && SDL_strcasecmp(path->name0, "CameraPath2") != 0) {
         if (SDL_strcasecmp(path->name0, "CameraPath3") == 0) {
             ClearMainGameTargetState();
-            group = FindFirstMonsterByID(0x1b4);
+            group = CurrentLevelPopulation().findSpeciesGroup(0x1b4);
             if (group != 0) {
                 monster_info = FindMonster(group->leader_location_id);
                 monster_info->entity->ForwardReferencePosition(0);

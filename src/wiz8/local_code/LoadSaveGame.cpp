@@ -1032,10 +1032,10 @@ LevelState LevelState::capture(const Level& level, const GameStatus& status)
     state.header = CaptureStatusHeader(status);
     auto& population = *world.population;
     // Live list entries come first, then encounter groups and unborn monsters.
-    for (const auto* partition : {&population.monster_groups, &population.encounter_groups}) {
+    for (const auto* partition : {&population.groups(), &population.encounterGroups()}) {
         for (const auto& group : *partition) {
             auto& saved = state.groups.emplace_back(SavedMonsterGroup{
-                wiz8::retail::encode_image(*group), partition == &population.encounter_groups});
+                wiz8::retail::encode_image(*group), partition == &population.encounterGroups()});
             saved.image.version = kMonsterGroupRecordVersion;
             saved.image.active_member_count =
                 wiz8::checked_integer<std::int32_t>(population.activeMemberCount(*group));
@@ -1326,8 +1326,7 @@ void PrepareLevelPopulation(Game& game, World& world, LevelState::Data& data,
     auto& population = *world.population;
     for (const auto& saved : data.groups) {
         if (game.data.monsters.at(saved.image.monster_id).deleted) continue;
-        auto& list = saved.encounter ? population.encounter_groups : population.monster_groups;
-        list.push_back(saved.Build());
+        population.adoptGroup(saved.Build(), saved.encounter);
     }
     for (const auto& item : data.items) population.world_items.push_back(BuildWorldItem(item));
     std::vector<W8MonsterInfo*> records;
@@ -1367,7 +1366,7 @@ void PrepareLevelPopulation(Game& game, World& world, LevelState::Data& data,
         if (info->hp_current == 0) entry.pending_deaths.push_back(info->location_id);
     }
     // Resolve durable links against this population, preserving stored member order.
-    for (auto& group : population.monster_groups) {
+    for (auto& group : population.groups()) {
         if (group->monsters.empty()) throw std::runtime_error("empty prepared monster group");
         if (!population.findMonster(group->leader_location_id))
             group->leader_location_id = group->monsters.back();
@@ -1381,7 +1380,7 @@ void PrepareLevelPopulation(Game& game, World& world, LevelState::Data& data,
         if (group->encounter_registered && !leader.script)
             leader.UseScript(scripts.default_script, true);
         auto* lead_group = group.get();
-        size_t remaining = population.monster_groups.size();
+        size_t remaining = population.groups().size();
         while (lead_group->leader_group_id) {
             if (remaining-- == 0) throw std::runtime_error("cyclic monster group leaders");
             lead_group = population.findGroup(lead_group->leader_group_id);
@@ -1396,7 +1395,7 @@ void PrepareLevelPopulation(Game& game, World& world, LevelState::Data& data,
                 &member == &formation_leader ? nullptr : &formation_leader.nav, false);
         }
     }
-    for (const auto& group : population.monster_groups) {
+    for (const auto& group : population.groups()) {
         if (group->leader_group_id) continue;
         Monster& leader = *population.findMonster(group->leader_location_id)->entity;
         // Restored levels start outside combat. Propagate the saved path using

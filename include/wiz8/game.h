@@ -281,6 +281,7 @@ public:
     void missileLanded(Missile& missile) override;
     void missileReleased(Monster& monster) override;
     void spellReleased(Monster& monster) override;
+    bool giveBirthToMonster(W8MonsterGroup* group);
     void activateGroup(W8MonsterGroup& group);
     void updateMonsterDecision(W8MonsterInfo* monster);
     bool canMonsterUseSpecial(W8MonsterInfo* monster, bool exclude_summon);

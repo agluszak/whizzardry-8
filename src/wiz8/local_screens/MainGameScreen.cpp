@@ -2977,10 +2977,10 @@ void RedrawCombatMonsterList(bool subject_valid)
     }
     if (CurrentLevelPopulation().monster_roster.hasActiveMonsters()) {
         group_list_index = 0;
-        list_length = CurrentLevelPopulation().monster_groups.size();
+        list_length = CurrentLevelPopulation().groups().size();
         if (list_length != 0) {
             do {
-                monster_group = CurrentLevelPopulation().monster_groups[group_list_index].get();
+                monster_group = CurrentLevelPopulation().groups()[group_list_index].get();
                 if (IsMonsterGroupLive(monster_group)) {
                     scratch_text =
                         fmt::format("{:d} {} ({:d}/{:d}/{:d})", monster_group->MemberCount(),
@@ -3037,7 +3037,7 @@ void RedrawCombatMonsterList(bool subject_valid)
                     }
                 }
                 ++group_list_index;
-                list_length = CurrentLevelPopulation().monster_groups.size();
+                list_length = CurrentLevelPopulation().groups().size();
             } while (group_list_index < list_length);
         }
     }

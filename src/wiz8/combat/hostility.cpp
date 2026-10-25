@@ -753,9 +753,9 @@ void Game::alertFactionGroups(W8MonsterGroup* monster_group)
 {
     const W8MonsterRecord* record = &data.monsters[(monster_group)->monster_id];
     if (record->faction_id != W8_FACTION_UNALIGNED) {
-        for (unsigned int index = 0; index < (*level.loaded().population).monster_groups.size();
+        for (unsigned int index = 0; index < (*level.loaded().population).groups().size();
              ++index) {
-            W8MonsterGroup* other = (*level.loaded().population).monster_groups[index].get();
+            W8MonsterGroup* other = (*level.loaded().population).groups()[index].get();
             const W8MonsterRecord* other_record = &data.monsters[(other)->monster_id];
             if (other != monster_group &&
                 ((other_record->flags & W8_MONSTER_FLAG_NPC) == 0 || !other->forced_neutral) &&

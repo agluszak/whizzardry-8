@@ -1102,7 +1102,7 @@ void Monster::TrackSound(wiz8::sound::Playback playback)
 void World::updateNearestMonsterGroupMembers()
 {
     const auto player_position = party.camera.m_position;
-    for (const auto& group : population->monster_groups) {
+    for (const auto& group : population->groups()) {
         if (!group) continue;
         double nearest_distance = 1e11;
         W8MonsterInfo* nearest = nullptr;

@@ -58,9 +58,8 @@ void KillTrynnieGroups(World& world)
     int iNewTable;
     int index;
 
-    for (index = 0; index < static_cast<int>(CurrentLevelPopulation().monster_groups.size());
-         ++index) {
-        group = CurrentLevelPopulation().monster_groups[index].get();
+    for (index = 0; index < static_cast<int>(CurrentLevelPopulation().groups().size()); ++index) {
+        group = CurrentLevelPopulation().groups()[index].get();
         if (group != 0 && group->members_active &&
             (record = MonsterGroupGetRecord(group), record->faction_id == W8_FACTION_TRYNNIE) &&
             ReplaceMonsterGroupSpecies(group, 0x1be) != 0) {

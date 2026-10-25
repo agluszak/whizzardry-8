@@ -403,7 +403,6 @@ void ProcessMonstersAtCombatEnd(bool forced_cleanup);
 W8MonsterInfo* FindMonsterInfoBySpecies(unsigned int monster_species);
 void DestroyUngroupedMonsters(void);
 void SetMonsterControlState(W8MonsterInfo* monster_info, W8MonsterControlState control_state);
-void MoveMonsterToLiveList(W8MonsterInfo* monster_info);
 void ProcessMonsterManagerFrame(void);
 std::string FormatMonsterHealth(W8MonsterInfo* monster_info);
 unsigned int GetMonsterExperience(const W8MonsterRecord* record);

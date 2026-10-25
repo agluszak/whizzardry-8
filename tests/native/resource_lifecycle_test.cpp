@@ -1020,7 +1020,6 @@ TEST_CASE("A monster record owns its loaded body independently of activation",
     auto* info = world.population->monster_roster.add(std::move(record), true);
 
     REQUIRE_FALSE(info->fActive);
-    REQUIRE(world.population->monster_roster.promote(info));
     REQUIRE(world.population->findEntity(7) == body);
     REQUIRE(body->inactive);
 
@@ -2068,8 +2067,7 @@ TEST_CASE("A group leaves only its own game fight and releases its engagement ef
     monster->pCombat->combat_effects_2[0].Activate(2, 1, 10);
     monster->modifiers.hit_bonus = monster->modifiers.armor_flat = 2;
     auto& member = *world.population->monster_roster.add(std::move(monster), false);
-    auto& group =
-        *world.population->monster_groups.emplace_back(std::make_unique<W8MonsterGroup>());
+    auto& group = world.population->adoptGroup(std::make_unique<W8MonsterGroup>(), false);
     group.group_id = 1;
     group.fInCombat = true;
     group.leader_location_id = 7;
@@ -2151,8 +2149,8 @@ TEST_CASE("Monster names query their owning game without maintaining a display c
     candidate.level.replacePrimary(std::make_unique<World>());
     candidate.status.retail.monster_name_cache.fill(std::byte{0xa5});
     const auto cache = candidate.status.retail.monster_name_cache;
-    auto& group = *candidate.level.loaded().population->monster_groups.emplace_back(
-        std::make_unique<W8MonsterGroup>());
+    auto& group =
+        candidate.level.loaded().population->adoptGroup(std::make_unique<W8MonsterGroup>(), false);
     group.group_id = group.monster_id = 1;
     group.monsters = {7};
     W8MonsterInfo monster{};

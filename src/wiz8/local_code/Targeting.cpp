@@ -785,7 +785,7 @@ bool CandidateHasAnyValidTarget(int party_slot, W8ActionKind candidate)
     return true;
 }
 
-/* CurrentLevelPopulation().monster_groups: every monster group in the level. */
+/* CurrentLevelPopulation().groups(): every monster group in the level. */
 
 /* The spell target kinds this has an opinion about. Everything else is
    answered yes outright, so the question only ever narrows. */
@@ -819,8 +819,8 @@ bool SpellHasAnyValidTarget(int party_slot, int spell_id, bool normalize)
         return false;
 
     case W8_TARGET_NEED_GROUP:
-        for (index = 0; index < CurrentLevelPopulation().monster_groups.size(); ++index) {
-            W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[index].get();
+        for (index = 0; index < CurrentLevelPopulation().groups().size(); ++index) {
+            W8MonsterGroup* group = CurrentLevelPopulation().groups()[index].get();
 
             if (group->members_active &&
                 CanTargetMonsterGroup(party_slot, group, edited_action, sighting)) {
@@ -994,7 +994,7 @@ void AimAtMonsterGroupMember(int party_slot, W8MonsterGroup* group)
    rather than ending the sweep. */
 static int PickNextTargetableGroup(int party_slot, const W8Action& edited_action, bool sighting)
 {
-    const auto& groups = CurrentLevelPopulation().monster_groups;
+    const auto& groups = CurrentLevelPopulation().groups();
     if (groups.empty()) return BAD_INDEX;
     const auto current = std::ranges::find_if(
         groups, [](const auto& group) { return group->group_id == picked_group; });
@@ -1123,9 +1123,8 @@ void RefreshMonsterTargetCounts(void)
 {
     unsigned int group_index;
 
-    for (group_index = 0; group_index < CurrentLevelPopulation().monster_groups.size();
-         ++group_index) {
-        W8MonsterGroup* group = CurrentLevelPopulation().monster_groups[group_index].get();
+    for (group_index = 0; group_index < CurrentLevelPopulation().groups().size(); ++group_index) {
+        W8MonsterGroup* group = CurrentLevelPopulation().groups()[group_index].get();
         int on_screen_count;
         int selectable_count;
 

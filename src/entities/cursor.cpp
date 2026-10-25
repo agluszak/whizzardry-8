@@ -251,10 +251,10 @@ void BindCursorMonsterToGroup(void)
         position = cursor.position;
         monster_group = FindMonsterGroup(cursor.monster_group_id, false);
         if (monster_group == 0) {
-            if (CurrentLevelPopulation().monster_groups.empty()) {
+            if (CurrentLevelPopulation().groups().empty()) {
                 return;
             }
-            monster_group = CurrentLevelPopulation().monster_groups[0].get();
+            monster_group = CurrentLevelPopulation().groups()[0].get();
         }
         cursor.monster_group_id = monster_group->group_id;
         if (monster_group != 0) {
