@@ -1731,7 +1731,7 @@ bool ValidateSpellTarget(int party_slot, int spell_id, unsigned int power, bool 
     std::vector<int> party;
     W8TargetSource source;
     SetTargetSourceToCharacter(party_slot, &source);
-    CurrentGame().appendSpellTargets(spell_id, power, &source,
+    CurrentGame().appendSpellTargets(CurrentGame().level.loaded(), spell_id, power, &source,
                                      &CurrentGame().party.rows[party_slot].executing.target,
                                      monsters, party, W8AreaSightRule::RequireLineOfSight);
 
@@ -2373,9 +2373,9 @@ int CastSpellFromSource(int spell_id, W8TargetSource* source, W8CombatSlot* targ
         }
         if (party_targets == 0) {
             if (monster_targets == 0) {
-                CurrentGame().appendSpellTargets(spell_id, power_level, source, target,
-                                                 monster_markers, party_markers,
-                                                 W8AreaSightRule::RequireLineOfSight);
+                CurrentGame().appendSpellTargets(
+                    CurrentGame().level.loaded(), spell_id, power_level, source, target,
+                    monster_markers, party_markers, W8AreaSightRule::RequireLineOfSight);
                 if (spell_id == W8_SPELL_SUMMON_ELEMENTAL) {
                     ground_point.y = target->point.y - 1e+03f;
                     target->point.y = ground_point.y;
@@ -3103,7 +3103,7 @@ void CheckSpellBackfire(int spell_id, W8TargetSource* source, W8CombatSlot* targ
    caller's vectors. The source's position and eye are picked per source kind,
    then the spell's target type decides whether the single aimed slot, a
    radius, a cone or a whole side goes into the vectors. */
-void Game::appendSpellTargets(int spell_id, int power_level, W8TargetSource* source,
+void Game::appendSpellTargets(World& world, int spell_id, int power_level, W8TargetSource* source,
                               W8CombatSlot* target, std::vector<int>& monster_markers,
                               std::vector<int>& party_markers, W8AreaSightRule sight_rule,
                               std::optional<MonsterAction> proposed_action)
@@ -3142,14 +3142,13 @@ void Game::appendSpellTargets(int spell_id, int power_level, W8TargetSource* sou
                                W8Action{W8_ACTION_CAST_SPELL, spell_id, *target, {}}))
             return;
         if (TargetSourceIsMonster(source, 0)) {
-            auto* caster = level.loaded().population->findMonster(source->iMonsterID);
+            auto* caster = world.population->findMonster(source->iMonsterID);
             if (!caster) return;
             if (!monsterActionReachesTarget(caster, 0, target,
                                             proposed_action.value_or(caster->action)))
                 return;
         }
     }
-    auto& world = level.loaded();
     player_pos = world.party.position();
     camera = world.party.eye();
     if (TargetSourceIsMonster(source, 1)) {

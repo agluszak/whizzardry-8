@@ -242,7 +242,7 @@ unsigned char Game::rateMonsterAttack(const W8MonsterInfo& monster, unsigned int
             monsterReachesPartyMember(monster, attack, slot, {W8_MONSTER_ACTION_ATTACK, 0}))
             return W8_MONSTER_ATTACK_USABLE;
     }
-    for (const auto& other : level.loaded().population->monster_roster.live()) {
+    for (const auto& other : monster.owner_world.population->monster_roster.live()) {
         if (other.get() != &monster && other->fActive && other->pCombat && other->hp_current != 0 &&
             other->highest_condition < W8_CONDITION_DEAD &&
             MonsterHostility(data, monster, *other) == disposition &&
@@ -384,7 +384,7 @@ bool Game::canMonsterProtect(const W8MonsterInfo& monster, const W8CombatSlot& t
         target_level = character->uiExpLevel;
         out_of_formation = character->bonus.out_of_formation;
     } else if (target.iType == W8_TARGET_KIND_MONSTER) {
-        target_info = level.loaded().population->findMonster(target.iMonsterID);
+        target_info = monster.owner_world.population->findMonster(target.iMonsterID);
         if (!target_info->fActive || target_info->hp_current == 0 || !target_info->pCombat) {
             return false;
         }

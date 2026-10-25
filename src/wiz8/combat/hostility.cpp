@@ -349,7 +349,8 @@ int TurnUndead(int party_slot, bool check)
 
     W8CombatSlot target;
     ResetCombatSlot(&target);
-    CurrentGame().appendSpellTargets(W8_SPELL_DISPEL_UNDEAD, 1, &source, &target, monsters, party,
+    CurrentGame().appendSpellTargets(CurrentGame().level.loaded(), W8_SPELL_DISPEL_UNDEAD, 1,
+                                     &source, &target, monsters, party,
                                      W8AreaSightRule::RequireLineOfSight);
     if (monsters.empty()) {
         return 0;

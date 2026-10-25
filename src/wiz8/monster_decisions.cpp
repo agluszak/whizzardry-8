@@ -83,7 +83,7 @@ bool Game::prepareMonsterSpell(W8MonsterInfo* monster_info, int spell_id)
         default:
             break;
         }
-        if (!targetMatches(monster_info->Target, need)) return false;
+        if (!targetMatches(&monster_info->owner_world, monster_info->Target, need)) return false;
     }
 
     combat_slot = &monster_info->Target;
@@ -125,7 +125,8 @@ bool Game::canMonsterCastSpell(W8MonsterInfo* monster_info, int spell_id, bool n
     if (spell_id == W8_SPELL_SUMMON_ELEMENTAL && monster_info->elemental_summon != -1) {
         return false;
     }
-    if (data.spells[spell_id].realm == W8_SPELL_REALM_FIRE && cameraSwayActive()) {
+    if (data.spells[spell_id].realm == W8_SPELL_REALM_FIRE &&
+        monster_info->owner_world.party.camera.swayActive()) {
         return false;
     }
     if (needs_target) {
@@ -194,8 +195,9 @@ bool Game::monsterAcceptsSpell(W8MonsterInfo* monster_info, int spell_id, W8Comb
 
             SetTargetSourceToMonster(monster_info, &source);
             power_level = ChooseMonsterSpellPowerLevel(data, rng, *monster_info, spell_id);
-            appendSpellTargets(spell_id, power_level, &source, combat_slot, monster_markers,
-                               party_markers, W8AreaSightRule::RequireLineOfSight, action);
+            appendSpellTargets(monster_info->owner_world, spell_id, power_level, &source,
+                               combat_slot, monster_markers, party_markers,
+                               W8AreaSightRule::RequireLineOfSight, action);
             for (index = 0; index < static_cast<int>(party_markers.size()); ++index) {
                 ++total;
                 ResetCombatSlot(&probe);
@@ -216,7 +218,7 @@ bool Game::monsterAcceptsSpell(W8MonsterInfo* monster_info, int spell_id, W8Comb
             }
             return valid != 0 && ((total + 1U) >> 1) <= valid;
         }
-        target = level.loaded().population->findMonster(combat_slot->iMonsterID);
+        target = monster_info->owner_world.population->findMonster(combat_slot->iMonsterID);
         record = &data.monsters[target->monster_species];
         stat_max = target->stamina_max;
         stat = target->stamina;
@@ -234,7 +236,7 @@ bool Game::monsterAcceptsSpell(W8MonsterInfo* monster_info, int spell_id, W8Comb
     case W8_SPELL_BLESS:
     case W8_SPELL_ELEMENT_SHIELD:
     case W8_SPELL_SOUL_SHIELD: {
-        if (!combat) return true;
+        if (!partyCombatActive(monster_info->owner_world)) return true;
         const auto slot = EffectSlotForSpell(g_defense_effect_slot_spells, spell_id);
         if (combat_slot->iType == W8_TARGET_KIND_CHARACTER)
             return combat->effect_slots0[slot].duration == 0;
@@ -373,7 +375,7 @@ bool Game::monsterAcceptsSpell(W8MonsterInfo* monster_info, int spell_id, W8Comb
     case W8_SPELL_DRAINING_CLOUD:
     case W8_SPELL_FIRESTORM:
     case W8_SPELL_DEATH_CLOUD: {
-        if (!combat) return true;
+        if (!partyCombatActive(monster_info->owner_world)) return true;
         const auto slot = EffectSlotForSpell(g_combat_effect_slot_spells, spell_id);
         if (combat_slot->iType == W8_TARGET_KIND_CHARACTER)
             return combat->effect_slots[slot].duration == 0;
@@ -405,7 +407,7 @@ bool Game::monsterAcceptsSpell(W8MonsterInfo* monster_info, int spell_id, W8Comb
         }
         break;
     case W8_SPELL_PURIFY_AIR:
-        if (!combat.has_value()) {
+        if (!partyCombatActive(monster_info->owner_world)) {
             return false;
         }
         for (index = 0; index < 9; ++index) {
@@ -478,10 +480,10 @@ bool Game::monsterSpellHitsNeutral(W8MonsterInfo* monster_info, int spell_id,
     }
     SetTargetSourceToMonster(monster_info, &source);
     power_level = ChooseMonsterSpellPowerLevel(data, rng, *monster_info, spell_id);
-    appendSpellTargets(spell_id, power_level, &source, combat_slot, monster_markers, party_markers,
-                       W8AreaSightRule::RequireLineOfSight, action);
+    appendSpellTargets(monster_info->owner_world, spell_id, power_level, &source, combat_slot,
+                       monster_markers, party_markers, W8AreaSightRule::RequireLineOfSight, action);
     for (index = 0; index < static_cast<int>(monster_markers.size()); ++index) {
-        target = level.loaded().population->findMonster(monster_markers[index]);
+        target = monster_info->owner_world.population->findMonster(monster_markers[index]);
         if (target->ubDisposition == W8_DISPOSITION_NEUTRAL) {
             return true;
         }
@@ -547,7 +549,7 @@ std::vector<W8CombatSlot> Game::monsterSpellTargets(W8MonsterInfo* monster_info,
     case W8_TARGET_TYPE_ENEMY: {
         const bool hostile = target_type == W8_TARGET_TYPE_ENEMY;
         const auto disposition = hostile ? W8_DISPOSITION_HOSTILE : W8_DISPOSITION_FRIENDLY;
-        for (const auto& owner : level.loaded().population->monster_roster.live()) {
+        for (const auto& owner : monster_info->owner_world.population->monster_roster.live()) {
             auto* member = owner.get();
             if ((!hostile || member != monster_info) && member->fActive &&
                 member->hp_current != 0 && member->highest_condition < W8_CONDITION_DEAD &&
@@ -572,11 +574,11 @@ std::vector<W8CombatSlot> Game::monsterSpellTargets(W8MonsterInfo* monster_info,
         break;
     }
     case W8_TARGET_TYPE_ENEMY_GROUP:
-        for (index = 0; index < (*level.loaded().population).groups().size(); ++index) {
-            monster_group = (*level.loaded().population).groups()[index].get();
+        for (index = 0; index < (*monster_info->owner_world.population).groups().size(); ++index) {
+            monster_group = (*monster_info->owner_world.population).groups()[index].get();
             if (monster_group->group_id != monster_info->monster_group_id &&
                 monster_group->members_active && monster_group->fInCombat &&
-                !level.loaded().population->allMembersDying(*monster_group) &&
+                !monster_info->owner_world.population->allMembersDying(*monster_group) &&
                 groupSpellTargetsAccept(monster_info, spell_id, monster_group, action)) {
                 ResetCombatSlot(&slot);
                 slot.iType = W8_TARGET_KIND_GROUP;
@@ -598,9 +600,10 @@ std::vector<W8CombatSlot> Game::monsterSpellTargets(W8MonsterInfo* monster_info,
         break;
     case W8_TARGET_TYPE_CONE:
     case W8_TARGET_TYPE_RADIUS:
-        for (index = 0; index < (*level.loaded().population).monster_roster.live().size();
+        for (index = 0;
+             index < (*monster_info->owner_world.population).monster_roster.live().size();
              ++index) {
-            member = level.loaded().population->monster_roster.live()[index].get();
+            member = monster_info->owner_world.population->monster_roster.live()[index].get();
             if (member != monster_info && member->fActive && member->hp_current != 0 &&
                 member->highest_condition < W8_CONDITION_DEAD && member->pCombat &&
                 MonsterHostility(data, *monster_info, *member) == W8_DISPOSITION_HOSTILE &&
@@ -698,7 +701,7 @@ bool Game::groupSpellTargetsAccept(W8MonsterInfo* monster_info, int spell_id,
     assert(target_group != 0);
     for (index = 0; index < target_group->MemberIds().size(); ++index) {
         int location_id = target_group->MemberLocationId(index);
-        member = level.loaded().population->findMonster(location_id);
+        member = monster_info->owner_world.population->findMonster(location_id);
         if (member->fActive && member->hp_current != 0 &&
             member->highest_condition < W8_CONDITION_DEAD && member->pCombat &&
             MonsterHostility(data, *monster_info, *member) == W8_DISPOSITION_HOSTILE) {
@@ -866,7 +869,8 @@ void Game::updateMonsterDecision(W8MonsterInfo* monster_info)
     };
     decide();
     if (!monsterActionUsable(monster_info) &&
-        level.loaded().population->findGroup(monster_info->monster_group_id)->engagement) {
+        monster_info->owner_world.population->findGroup(monster_info->monster_group_id)
+            ->engagement) {
         monster_info->action.kind = W8_MONSTER_ACTION_RETURN_TO_START;
     }
 }
@@ -887,7 +891,8 @@ bool Game::canMonsterUseSpecial(W8MonsterInfo* monster_info, bool exclude_specia
     if (!monster_info->entity->IsCycleSupported(0x12)) {
         return false;
     }
-    if (combat.has_value() && monster_info->pCombat->special_cooldown != 0) {
+    if (partyCombatActive(monster_info->owner_world) &&
+        monster_info->pCombat->special_cooldown != 0) {
         return false;
     }
     if (static_cast<unsigned int>(monster_info->stamina) <
@@ -975,8 +980,8 @@ bool Game::monsterActionUsable(W8MonsterInfo* monster_info)
     W8TargetSource source;
     SetTargetSourceToMonster(monster_info, &source);
     const auto power = ChooseMonsterSpellPowerLevel(data, rng, *monster_info, spell_id);
-    appendSpellTargets(spell_id, power, &source, &monster_info->Target, monster_markers,
-                       party_markers, W8AreaSightRule::RequireLineOfSight);
+    appendSpellTargets(monster_info->owner_world, spell_id, power, &source, &monster_info->Target,
+                       monster_markers, party_markers, W8AreaSightRule::RequireLineOfSight);
     return !party_markers.empty();
 }
 
@@ -1020,7 +1025,7 @@ std::vector<MonsterActionCandidate> BuildMonsterActions(Game& game, W8MonsterInf
         if (CanProtect(*monster_info, record) &&
             game.rng.below(100) < monster_info->attributes[W8_MONSTER_ATTRIBUTE_INTELLIGENCE]) {
             monster_info->action.kind = W8_MONSTER_ACTION_PROTECT;
-            for (const auto& owner : game.level.loaded().population->monster_roster.live()) {
+            for (const auto& owner : monster_info->owner_world.population->monster_roster.live()) {
                 auto* other = owner.get();
                 if (other != monster_info) {
                     ResetCombatSlot(&monster_info->Target);
@@ -1057,7 +1062,7 @@ std::vector<MonsterActionCandidate> BuildMonsterActions(Game& game, W8MonsterInf
                                  monster_info->attributes[W8_MONSTER_ATTRIBUTE_DEXTERITY] < 75;
     const auto& target = monster_info->Target;
     if (restrict_target &&
-        (!game.targetPresent(target) ||
+        (!game.targetPresent(&monster_info->owner_world, target) ||
          (target.iType != W8_TARGET_KIND_CHARACTER && target.iType != W8_TARGET_KIND_MONSTER)))
         return actions;
     const bool scan_chars = !restrict_target || target.iType == W8_TARGET_KIND_CHARACTER;
@@ -1067,7 +1072,7 @@ std::vector<MonsterActionCandidate> BuildMonsterActions(Game& game, W8MonsterInf
     const int char_hi = scan_chars ? (restrict_target ? char_lo + 1 : W8_PARTY_SLOT_COUNT) : 0;
     const auto* locked_monster =
         restrict_target && scan_monsters
-            ? game.level.loaded().population->findMonster(target.iMonsterID)
+            ? monster_info->owner_world.population->findMonster(target.iMonsterID)
             : nullptr;
     bool avoided[W8_PARTY_SLOT_COUNT]{}, resisted[W8_PARTY_SLOT_COUNT]{};
     for (int index = char_lo; index < char_hi; ++index) {
@@ -1105,7 +1110,7 @@ std::vector<MonsterActionCandidate> BuildMonsterActions(Game& game, W8MonsterInf
             }
         }
         if (scan_monsters) {
-            for (const auto& owner : game.level.loaded().population->monster_roster.live()) {
+            for (const auto& owner : monster_info->owner_world.population->monster_roster.live()) {
                 auto* other = owner.get();
                 if (locked_monster && other != locked_monster) continue;
                 if (other != monster_info && other->fActive && other->hp_current != 0 &&

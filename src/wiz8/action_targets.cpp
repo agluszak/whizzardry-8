@@ -49,7 +49,12 @@
 
 bool Game::targetPresent(const W8CombatSlot& target) const
 {
-    const auto* population = level.primary ? level.primary->population.get() : nullptr;
+    return targetPresent(level.primary.get(), target);
+}
+
+bool Game::targetPresent(const World* world, const W8CombatSlot& target) const
+{
+    const auto* population = world ? world->population.get() : nullptr;
     switch (target.iType) {
     case W8_TARGET_KIND_CHARACTER:
         return party.participates(target.iChar);
@@ -78,6 +83,11 @@ bool Game::targetPresent(const W8CombatSlot& target) const
 
 bool Game::targetMatches(const W8CombatSlot& target, W8TargetNeed needed) const
 {
+    return targetMatches(level.primary.get(), target, needed);
+}
+
+bool Game::targetMatches(const World* world, const W8CombatSlot& target, W8TargetNeed needed) const
+{
     bool matches;
     switch (needed) {
     case W8_TARGET_NEED_ALLY:
@@ -103,7 +113,7 @@ bool Game::targetMatches(const W8CombatSlot& target, W8TargetNeed needed) const
     default:
         return true;
     }
-    return matches && targetPresent(target);
+    return matches && targetPresent(world, target);
 }
 
 bool Game::actionTargetsEnemies(unsigned int slot, const W8Action& action) const
@@ -223,7 +233,7 @@ int ActionSpell(const Game& game, const W8Action& action)
 
 int Game::monsterQuadrant(const W8MonsterInfo& monster) const
 {
-    const auto eye = level.loaded().party.eye();
+    const auto eye = monster.owner_world.party.eye();
     const auto position = monster.entity->nav.GetPosition();
     int bearing = static_cast<int>(NormalizeAngle(GetHeadingAngle(&eye, &position)) * 57.295776f);
     bearing -= status.party_facing;

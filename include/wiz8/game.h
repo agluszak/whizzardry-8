@@ -164,7 +164,9 @@ public:
     void resetCombatChoice(unsigned int slot);
     void resetCombatChoice(unsigned int slot, std::vector<Event>& outcomes);
     bool targetPresent(const W8CombatSlot& target) const;
+    bool targetPresent(const World* world, const W8CombatSlot& target) const;
     bool targetMatches(const W8CombatSlot& target, W8TargetNeed needed) const;
+    bool targetMatches(const World* world, const W8CombatSlot& target, W8TargetNeed needed) const;
     bool actionTargetsEnemies(unsigned int slot, const W8Action& action) const;
     void invalidateAimsAt(World* world, const W8CombatSlot& target, TargetChange change);
     void invalidateAimsAt(World* world, const W8CombatSlot& target, TargetChange change,
@@ -230,7 +232,7 @@ public:
     bool partyCastingBlocked();
     void queueWorldMessage(std::string_view text);
     void queueLevelMessage(int message_id);
-    void appendSpellTargets(int spell_id, int power_level, W8TargetSource* source,
+    void appendSpellTargets(World& world, int spell_id, int power_level, W8TargetSource* source,
                             W8CombatSlot* target, std::vector<int>& monsters,
                             std::vector<int>& party, W8AreaSightRule sight_rule,
                             std::optional<MonsterAction> proposed_action = {});

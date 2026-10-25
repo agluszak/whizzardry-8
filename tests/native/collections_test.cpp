@@ -1973,7 +1973,7 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     SetTargetSourceToMonster(&actor, &probe_source);
     auto probe_target = W8CombatSlot::monster(2);
     std::vector<int> probe_monsters, probe_party;
-    game.appendSpellTargets(1, 1, &probe_source, &probe_target, probe_monsters, probe_party,
+    game.appendSpellTargets(world, 1, 1, &probe_source, &probe_target, probe_monsters, probe_party,
                             W8AreaSightRule::RequireLineOfSight,
                             MonsterAction{W8_MONSTER_ACTION_SPELL, 1});
     REQUIRE(probe_monsters == std::vector<int>{2});
@@ -1998,6 +1998,8 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     // temporarily replacing the selected spell or consulting that spell's record.
     Game candidate{allied_data};
     candidate.level.replacePrimary(game.level.replacePrimary(nullptr));
+    // Retain the actor world outside the primary slot: IDs must resolve in its actual owner.
+    const auto actor_world = candidate.level.replacePrimary(std::make_unique<World>());
     actor.action.kind = W8_MONSTER_ACTION_SPELL;
     actor.action.detail = -1;
     other.uiCondition[W8_CONDITION_TURNCOAT] = 0;
@@ -2037,8 +2039,8 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     W8TargetSource source;
     SetTargetSourceToMonster(&actor, &source);
     std::vector<int> monster_targets, party_targets;
-    candidate.appendSpellTargets(1, 1, &source, &actor.Target, monster_targets, party_targets,
-                                 W8AreaSightRule::RequireLineOfSight);
+    candidate.appendSpellTargets(actor.owner_world, 1, 1, &source, &actor.Target, monster_targets,
+                                 party_targets, W8AreaSightRule::RequireLineOfSight);
     REQUIRE(monster_targets == std::vector<int>{2});
     REQUIRE(party_targets.empty());
     monster_targets.clear();
@@ -2047,8 +2049,8 @@ TEST_CASE("Monster candidate selection retains target locks and the original dra
     monster_targets.clear();
     source.iMonsterID = 999; // A continuing cast may have outlived its source.
     W8CombatSlot area{W8_TARGET_KIND_ALL_ENEMIES, -1, -1, -1, {}, {}};
-    candidate.appendSpellTargets(1, 1, &source, &area, monster_targets, party_targets,
-                                 W8AreaSightRule::RequireLineOfSight,
+    candidate.appendSpellTargets(actor.owner_world, 1, 1, &source, &area, monster_targets,
+                                 party_targets, W8AreaSightRule::RequireLineOfSight,
                                  MonsterAction{W8_MONSTER_ACTION_SPELL, 1});
     REQUIRE(monster_targets.empty());
     REQUIRE(candidate_draws.size() == 3);
