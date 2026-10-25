@@ -52,6 +52,7 @@
 #include "wiz8/local_screens/MGSRadarMap.h"
 #include "wiz8/local_screens/MGSSpellCasting.h"
 #include "wiz8/local_screens/MGSSpellIcons.h"
+#include "wiz8/local_screens/MGSTextBox.h"
 #include "wiz8/local_screens/MGSUseItemSelect.h"
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/MainMenuScreen.h"
@@ -510,6 +511,26 @@ void CheckTwoWorldViews(GameHarness& game)
 // Exercise the screen-template behaviours that generic widget dispatch cannot replace.
 void CheckGameplayUi(GameHarness& game)
 {
+    // Quote auditing counts wrapped display lines, including empty notices and
+    // grapheme clusters that must not split into separate combining characters.
+    REQUIRE(ShowNotice(W8_FONT_PALETTE_RED, "a\u0301b", 0, 1) == 2);
+    REQUIRE(ShowNotice(W8_FONT_PALETTE_RED, "abcdefgh", 0, 1) == 8);
+    REQUIRE(ShowNotice(W8_FONT_PALETTE_RED, "", 0, 1) == 1);
+
+    // Scrolling clamps to the available transcript and keeps both arrows in sync.
+    const auto previous_channel = CurrentGame().status.text_line_cursor;
+    ShowNotice(W8_FONT_PALETTE_RED, "abcdefghijk", 3, 1);
+    SelectTextBox(3);
+    MainGame()->scrollTextBoxTo(3);
+    REQUIRE(MainGameHud()->text_lines[3] == 3);
+    MainGame()->scrollTextBoxUp(20);
+    REQUIRE(MainGameHud()->text_lines[3] == 0);
+    REQUIRE(MainGameHud()->text_content_region == kUpArrowDisabled);
+    MainGame()->scrollTextBoxDown(1000);
+    REQUIRE(MainGameHud()->text_lines[3] == CurrentGame().status.text_box_lines_shown[3] - 1);
+    REQUIRE(MainGameHud()->dialogue_content_region == kDownArrowDisabled);
+    SelectTextBox(previous_channel);
+
     const int slot = PremadeSlot();
     const auto original_formation = CurrentGame().party.formation;
     OpenFormationPanel();
@@ -553,6 +574,21 @@ void CheckGameplayUi(GameHarness& game)
     LearnSpell(Data(), &character, W8_SPELL_LIGHT);
     const auto realm = Data().spells[W8_SPELL_LIGHT].realm;
     character.sp_max[realm] = character.iSPLeft[realm] = 100;
+    // Selecting a submenu row replaces its controls during the same input step.
+    // A later menu must still accept right-click cancellation after that teardown.
+    MainGame()->openSubMenu(4);
+    REQUIRE(MainGame()->submenu);
+    REQUIRE_FALSE(MainGame()->submenu->buttons.empty());
+    game.click("submenu-open-spell", *MainGame()->submenu->buttons.front());
+    REQUIRE_FALSE(MainGame()->submenu);
+    REQUIRE(SpellPicker());
+    game.command(W8_MGS_COMMAND_CANCEL);
+    REQUIRE_FALSE(SpellPicker());
+    MainGame()->openSubMenu(4);
+    REQUIRE(MainGame()->submenu);
+    game.click("submenu-cancel", *MainGame()->submenu->buttons.back(), SDL_BUTTON_RIGHT);
+    REQUIRE_FALSE(MainGame()->submenu);
+
     CurrentGame().advancement.paused = true;
     int returns = 0;
     REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
@@ -598,6 +634,24 @@ void CheckGameplayUi(GameHarness& game)
     MainGame()->dismissOverlays(false);
     REQUIRE_FALSE(SpellPicker());
     REQUIRE(returns == 2);
+    // A bound action cannot replace the other picker. Escape must return to
+    // its opener exactly once, even when the slot has no usable item.
+    REQUIRE(MainGame()->openSpellPicker(slot, [&] { ++returns; }));
+    auto* keyboard_spell = SpellPicker();
+    game.command(W8_MGS_COMMAND_USE_ITEM);
+    REQUIRE(SpellPicker() == keyboard_spell);
+    REQUIRE_FALSE(UseItemPicker());
+    game.command(W8_MGS_COMMAND_CANCEL);
+    REQUIRE_FALSE(SpellPicker());
+    REQUIRE(returns == 3);
+    REQUIRE(MainGame()->openItemPicker(slot, [&] { ++returns; }));
+    auto* keyboard_item = UseItemPicker();
+    game.command(W8_MGS_COMMAND_CAST_SPELL);
+    REQUIRE(UseItemPicker() == keyboard_item);
+    REQUIRE_FALSE(SpellPicker());
+    game.command(W8_MGS_COMMAND_CANCEL);
+    REQUIRE_FALSE(UseItemPicker());
+    REQUIRE(returns == 4);
     // A pending confirmation belongs to the picker being replaced, not its successor.
     LearnSpell(Data(), &character, W8_SPELL_SET_PORTAL);
     const auto portal_realm = Data().spells[W8_SPELL_SET_PORTAL].realm;
@@ -612,9 +666,9 @@ void CheckGameplayUi(GameHarness& game)
     REQUIRE_FALSE(IsModalOpen());
     REQUIRE(UseItemPicker());
     REQUIRE(UseItemPicker()->action().kind == W8_ACTION_USE_ITEM);
-    REQUIRE(returns == 2);
+    REQUIRE(returns == 4);
     MainGame()->closeItemPicker();
-    REQUIRE(returns == 3);
+    REQUIRE(returns == 5);
     // Keep a new detour's parent, but do not strand it when that picker is replaced.
     Trigger trigger;
     REQUIRE(OpenLockInteraction(&trigger) == 1);
@@ -635,6 +689,25 @@ void CheckGameplayUi(GameHarness& game)
     REQUIRE_FALSE(IsLockInteractionActive());
     MainGame()->dismissOverlays(false);
     REQUIRE_FALSE(MainGame()->lock_interaction);
+    // Trap navigation consumes boundary keys without moving past the available rows.
+    MainGame()->trap_interaction = std::make_unique<W8TrapInteraction>(&trigger);
+    auto& trap_panel = *MainGame()->trap_interaction->m_text_panel;
+    const auto trap_key = [](SDL_Keycode key) {
+        return MainGame()->trap_interaction->handleKey(key);
+    };
+    REQUIRE(trap_key(SDLK_HOME));
+    REQUIRE(trap_panel.m_selection == 0);
+    REQUIRE(trap_key(SDLK_UP));
+    REQUIRE(trap_panel.m_selection == 0);
+    REQUIRE(trap_key(SDLK_PAGEDOWN));
+    REQUIRE(trap_panel.m_selection == 5);
+    REQUIRE(trap_key(SDLK_END));
+    REQUIRE(trap_panel.m_selection == 14);
+    REQUIRE(trap_key(SDLK_DOWN));
+    REQUIRE(trap_panel.m_selection == 14);
+    REQUIRE_FALSE(trap_key(SDLK_ESCAPE));
+    REQUIRE(trap_panel.m_selection == 14);
+    MainGame()->trap_interaction.reset();
     REQUIRE(CurrentGame().advancement.paused);
     REQUIRE(CurrentGame().advancement.held);
     ToggleMainGamePause();

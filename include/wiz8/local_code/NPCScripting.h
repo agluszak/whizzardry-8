@@ -24,7 +24,6 @@ struct W8WorldItem;
 class Monster;
 class W8DialogBase;
 struct ScriptContext;
-struct GameStatus;
 class Game;
 
 /* Whether the conversation waits on the player: a queued options, keyword or
@@ -210,7 +209,7 @@ void DisplayNpcQuote(Game& game, std::string_view text, bool play_sound);
 void QueueDialogueNpcRefusal(void);
 /* The quote audit: every script's quotes through the notice box, with a report of the
    long ones. */
-void AuditNpcScriptQuotes(GameStatus& status);
+void AuditNpcScriptQuotes();
 /* The NPC-side rebinding pass; reloads the NPC's .nsf script
    file and rebuilds its runtime bindings. */
 void ReloadNpcScriptResources(W8NpcState* npc);

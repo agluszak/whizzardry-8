@@ -31,6 +31,8 @@ struct GlobalStatusOpaque {
     std::array<unsigned char, 0x28> status_header_suffix{};
     std::array<unsigned char, 0x294> unknown_2013{};
     unsigned char padding_242f{};
+    // Retail quote-audit flags; diagnostics do not use live game state.
+    std::array<unsigned char, 2> quote_audit_flags{};
     std::array<unsigned char, 5> unknown_243f{};
     // The save file's creation time, masked; SaveGame stamps it into Iron Man saves.
     std::array<unsigned int, 2> save_filetime_xor{};

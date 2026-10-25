@@ -239,11 +239,10 @@ the licensed runtime scenarios after every step.
      reach it through `ScreenPointer()`. They should receive it with
      the HUD, and the accessor then goes.
    - The main game owns the spell and item pickers (`spell_picker`, `item_picker`) and
-     opens, closes and dismisses them. About 35 free functions still ask
+     opens, closes and dismisses them. Remaining free helpers still ask
      `SpellPicker()`/`UseItemPicker()` whether one is open, or reach the screen through
      `MainGame()->openSpellPicker(…)`. These are the world, portrait, monster-list and
-     combat-slot input handlers, the keyboard dispatch (`DispatchMGSCommand`,
-     `TryMGSActionKey`), the submenu buttons, the text box module, the lock/trap
+     combat-slot input handlers, the text box module, the lock/trap
      interactions and the NPC services. Game code calls the screen as well:
      `FallbackFromUnreachableAction` from `Magic.cpp`, `SelectPartyCharacter`,
      `MainGameScreen::dismissOverlays` and `AutoAdvanceSelectedCharacter` from combat, `IsScreenIdle`

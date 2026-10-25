@@ -177,7 +177,6 @@ bool FinishNpcVoiceIfSessionActive(void);
 void UpdateNpcTradeSelection(int index, int, int);
 bool NpcTradeItemAllowed(const W8ItemInstance* item);
 void EnableNpcTradeFilterButtons(void);
-void HandleNpcDialogueKeyEvent(const InputEvent* event);
 void HandleNpcDialogueItemChoice(void);
 void RefreshNpcTradePartyGold(void);
 void RefreshNpcTradePrice(void);
