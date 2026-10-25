@@ -145,6 +145,9 @@ struct CombatProgressChanged {
 struct CombatStanceChanged {};
 // The monsters about the party, their groups or their dispositions changed.
 struct MonstersChanged {};
+struct MonsterHealthChanged {
+    int location_id;
+};
 // A group's loaded bodies and NPC bindings are ready for interaction.
 struct MonstersActivated {};
 // The party's spell effects changed, or a round passed them by.
@@ -194,8 +197,8 @@ using Event =
                  CharacterDied, PartySlotChanged, PartyLoadChanged, CombatPanelChanged,
                  CharacterActionChanged, EquipmentSettled, SkillImproved, WorldAdvancementChanged,
                  CombatantsMoved, CombatExecutionBegan, CombatCalledOff, CombatBegan, CombatEnded,
-                 CombatProgressChanged, CombatStanceChanged, MonstersChanged, MonstersActivated,
-                 PartyEffectsChanged, CombatEffectsChanged, PartyPanelChanged,
+                 CombatProgressChanged, CombatStanceChanged, MonstersChanged, MonsterHealthChanged,
+                 MonstersActivated, PartyEffectsChanged, CombatEffectsChanged, PartyPanelChanged,
                  PartyMembershipChanged, WorldItemRemoved, LevelDeparted, CastingBlockedNotice,
                  TargetingRequested, FormationChanged, ActionAimChanged, ActionChoiceChanged,
                  PartyTargetAvailabilityChanged, CombatSelectionRequested, JournalEntryAdded,

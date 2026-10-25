@@ -504,7 +504,7 @@ void Combat::executeMonsterAction(Game& game, W8MonsterInfo& monster)
             break;
         case 7:
             monster_info->action.kind = W8_MONSTER_ACTION_NONE;
-            game.clearMonsterCondition(monster_info->location_id, W8_CONDITION_WEBBED);
+            game.clearMonsterCondition(*monster_info, W8_CONDITION_WEBBED);
             break;
         case 8:
             if (!monster_info->pCombat->berserk) {

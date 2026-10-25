@@ -434,7 +434,8 @@ int DismissNpcFromParty(int party_slot, int /*unused*/, bool skip_spawn, bool ne
                 monster->stamina = stamina;
             }
             if (neutral) {
-                CurrentGame().setGroupHostility(group, W8_DISPOSITION_NEUTRAL, false);
+                CurrentGame().setGroupHostility(CurrentGame().level.loaded(), group,
+                                                W8_DISPOSITION_NEUTRAL, false);
                 group->forced_neutral = true;
             }
         }

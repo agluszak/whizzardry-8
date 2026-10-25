@@ -756,7 +756,7 @@ void W8NpcDialogue::RunNextAction(const ScriptContext& context)
             context.combat->endTurnOf(PartyActor{party_slot});
             ClearMainGameTargetState();
             DismissNpcFromParty(party_slot, 0, false, true);
-            context.game.invalidateAimsAt(W8CombatSlot::character(party_slot),
+            context.game.invalidateAimsAt(context.world, W8CombatSlot::character(party_slot),
                                           TargetChange::removed);
             context.combat->npc_combat_script_pending[party_slot] = false;
         }

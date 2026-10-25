@@ -18,7 +18,6 @@
 #include "wiz8/game.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_screens/MGSPortraits.h"
 #include "wiz8/local_screens/MainGameScreen.h"
@@ -141,7 +140,7 @@ void CombatScenario()
     for (int id : crab_ids) {
         W8MonsterInfo* crab = FindMonster(id, false);
         if (crab && crab->hp_current)
-            ApplyDamageToMonster(*crab, crab->hp_current, attacker, {});
+            CurrentGame().damageMonster(*crab, crab->hp_current, attacker, {});
         else
             slain.push_back(id);
     }

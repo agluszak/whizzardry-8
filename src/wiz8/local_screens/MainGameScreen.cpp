@@ -5151,13 +5151,6 @@ void UpdateWorldViewCursor(const UiPointerEvent& event, W8TargetNeed target_need
 }
 
 /* Drop the highlight when the thing being highlighted is the one going away. */
-void ClearHighlightIfItIs(const int* item)
-{
-    if (CurrentScreenState().id == W8_SCREEN_MAIN_GAME && MainGameHud() != nullptr &&
-        MainGameHud()->highlighted_item != -1 && *item == MainGameHud()->highlighted_item) {
-        VideoRemoveToolTip();
-    }
-}
 
 bool MainGameScreen::inputBlocked() const
 {

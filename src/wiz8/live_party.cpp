@@ -193,7 +193,8 @@ bool ClearCondition(Game& game, unsigned int slot, W8Condition condition, bool a
             row.executing.target = row.committed.target;
         break;
     case W8_CONDITION_TURNCOAT:
-        game.invalidateAimsAt(W8CombatSlot::character(slot), TargetChange::allegiance, outcomes);
+        game.invalidateAimsAt(game.level.primary.get(), W8CombatSlot::character(slot),
+                              TargetChange::allegiance, outcomes);
         game.repickActionTarget(slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, false, outcomes);
         game.repickActionTarget(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, outcomes);
         break;
@@ -331,8 +332,8 @@ bool InflictCondition(Game& game, unsigned int slot, const ConditionInfliction& 
             if (condition == W8_CONDITION_HEXED || condition == W8_CONDITION_BLIND)
                 game.sight_refresh_pending = true;
             else if (condition == W8_CONDITION_TURNCOAT)
-                game.invalidateAimsAt(W8CombatSlot::character(slot), TargetChange::allegiance,
-                                      outcomes);
+                game.invalidateAimsAt(game.level.primary.get(), W8CombatSlot::character(slot),
+                                      TargetChange::allegiance, outcomes);
         }
         character.uiCondition[condition] = duration;
         RecomputeHighestCondition(game, slot, outcomes);
@@ -346,7 +347,8 @@ bool InflictCondition(Game& game, unsigned int slot, const ConditionInfliction& 
     if (condition == W8_CONDITION_DEAD) Die(game, slot, reactions, outcomes);
     // A member who is dead or missing is no longer the party's target.
     if (condition >= W8_CONDITION_DEAD)
-        game.invalidateAimsAt(W8CombatSlot::character(slot), TargetChange::removed, outcomes);
+        game.invalidateAimsAt(game.level.primary.get(), W8CombatSlot::character(slot),
+                              TargetChange::removed, outcomes);
     if (old_highest != character.highest_condition)
         game.speech.QueueConditionChangeReaction(&character, outcomes);
     if (infliction.announce) {

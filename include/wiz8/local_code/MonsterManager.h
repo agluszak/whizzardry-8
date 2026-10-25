@@ -268,6 +268,9 @@ struct W8MonsterInfo {
     W8NpcState* boundNpc(bool allow_unavailable = false) const;
     const std::shared_ptr<W8NpcState>& npcIdentity() const { return npc_binding_; }
     void initializeVitals(const W8MonsterRecord& record, Rng& rng);
+    bool heal(unsigned int amount);
+    bool fatigue(unsigned int amount);
+    bool deactivate();
     std::optional<unsigned int> absorbDamage(unsigned int amount);
     bool takeDamage(unsigned int amount, const W8TargetSource& source, bool poison);
     void setControlState(W8MonsterControlState next);

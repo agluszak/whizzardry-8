@@ -35,18 +35,10 @@ void DrainPartySpellPoints(int amount, bool announce);
 int SpellCastFatigueCost(int spell_id, int result);
 void SpendCharacterSpellPoints(int party_slot, W8SpellRealm realm, int amount);
 int MonsterActionFatigueCost(Rng& rng, MonsterAction action, bool diseased);
-void HealMonster(W8MonsterInfo* monster_info, unsigned int amount, bool announce);
 void RestoreMonsterStamina(W8MonsterInfo* monster_info, int amount, bool announce);
-// Returns the post-shield magnitude, including overkill, not merely HP removed.
-unsigned int ApplyDamageToMonster(W8MonsterInfo& monster, unsigned int amount,
-                                  const W8TargetSource& source, DamageOptions options,
-                                  W8SpellEffectResult* result_stats = nullptr);
 
-extern char g_poison_suffix[];
 /* How a monster answers being struck - the struck cycle, a
    possible condition knock-on, and the hostility check toward the attacker. */
-void MonsterReactsToBeingStruck(W8MonsterInfo* monster_info, const W8TargetSource* attacker,
-                                bool quiet);
 void ApplyRolledHealthChangeToParty(const W8Dice* dice, W8SpellEffectResult* result, int announce);
 /* Roll the dice once for every live monster within the radius of
    a point and apply each roll as damage. */

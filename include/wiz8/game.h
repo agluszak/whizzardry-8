@@ -166,8 +166,8 @@ public:
     bool targetPresent(const W8CombatSlot& target) const;
     bool targetMatches(const W8CombatSlot& target, W8TargetNeed needed) const;
     bool actionTargetsEnemies(unsigned int slot, const W8Action& action) const;
-    void invalidateAimsAt(const W8CombatSlot& target, TargetChange change);
-    void invalidateAimsAt(const W8CombatSlot& target, TargetChange change,
+    void invalidateAimsAt(World* world, const W8CombatSlot& target, TargetChange change);
+    void invalidateAimsAt(World* world, const W8CombatSlot& target, TargetChange change,
                           std::vector<Event>& outcomes);
     Game(const Game&) = delete;
     Game& operator=(const Game&) = delete;
@@ -248,17 +248,24 @@ public:
     void startMonsterDeath(W8MonsterInfo* monster_info, bool display_message);
     void recordMonsterKill(W8MonsterInfo* monster_info, bool announce);
     void finishMonsterAttack(W8MonsterInfo* monster_info);
+    unsigned int damageMonster(W8MonsterInfo& monster, unsigned int amount,
+                               const W8TargetSource& source, DamageOptions options,
+                               W8SpellEffectResult* report = nullptr);
+    void healMonster(W8MonsterInfo& monster, unsigned int amount, bool announce);
+    void reactToMonsterHit(W8MonsterInfo& monster, const W8TargetSource& source, bool poison);
     void fatigueMonster(W8MonsterInfo* monster_info, unsigned int amount,
                         W8SpellEffectResult* report_to);
-    void setMonsterCondition(int location_id, W8Condition condition, int duration,
+    void setMonsterCondition(W8MonsterInfo& monster, W8Condition condition, int duration,
                              int poison_strength, W8TargetSource* target, bool announce);
-    void clearMonsterCondition(int location_id, W8Condition condition);
+    void clearMonsterCondition(W8MonsterInfo& monster, W8Condition condition);
+    void ageMonsterCondition(W8MonsterInfo& monster, W8Condition condition, unsigned int minutes);
     void disenchantMonster(W8MonsterInfo& monster, W8EnchantmentSlot slot);
     void ageMonsterEnchantment(W8MonsterInfo& monster, W8EnchantmentSlot slot, unsigned int turns);
     void setMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility);
-    void setGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bool recurse);
-    void alertFactionGroups(W8MonsterGroup* monster_group);
-    bool linkMonsterGroup(W8MonsterGroup* leader, W8MonsterGroup* group);
+    void setGroupHostility(World& world, W8MonsterGroup* group, W8Disposition hostility,
+                           bool recurse);
+    void alertFactionGroups(World& world, W8MonsterGroup* monster_group);
+    bool linkMonsterGroup(World& world, W8MonsterGroup* leader, W8MonsterGroup* group);
     void setFactionDisposition(signed char faction, W8FactionDisposition band);
     void adjustFactionDisposition(signed char faction, signed char delta);
     void recordFactionOffense(signed char faction, W8MonsterInfo* monster_info);

@@ -1140,11 +1140,11 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 amount += amount >> 1;
             }
             ResetTargetSource(&source);
-            ApplyDamageToMonster(*monster_info, amount, source,
-                                 {.poison = true,
-                                  .notice = CurrentGame().combat.has_value()
-                                                ? DamageNotice::Standard
-                                                : DamageNotice::None});
+            CurrentGame().damageMonster(*monster_info, amount, source,
+                                        {.poison = true,
+                                         .notice = CurrentGame().combat.has_value()
+                                                       ? DamageNotice::Standard
+                                                       : DamageNotice::None});
         }
     }
     if (monster_info->uiCondition[W8_CONDITION_DISEASED] != 0) {
@@ -1161,11 +1161,11 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                 W8TargetSource source;
 
                 ResetTargetSource(&source);
-                ApplyDamageToMonster(*monster_info, -amount, source,
-                                     {.notice = DamageNotice::None});
+                CurrentGame().damageMonster(*monster_info, -amount, source,
+                                            {.notice = DamageNotice::None});
             }
         } else if (monster_info->hp_current < static_cast<unsigned int>(monster_info->uiHPMax)) {
-            HealMonster(monster_info, amount, false);
+            CurrentGame().healMonster(*monster_info, amount, false);
         }
     }
     {
@@ -1203,7 +1203,7 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
                     monster_info->hp_regen_accumulator;
                 int healed = static_cast<int>(monster_info->hp_regen_accumulator);
 
-                HealMonster(monster_info, healed, false);
+                CurrentGame().healMonster(*monster_info, healed, false);
                 monster_info->hp_regen_accumulator -= static_cast<float>(healed);
             }
             if (monster_info->stamina < monster_info->stamina_max) {
@@ -1220,8 +1220,8 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
     for (int condition = 0; condition < 0x14; ++condition) {
         if (monster_info->uiCondition[condition] != 0 &&
             monster_info->uiCondition[condition] < W8_CONDITION_INDEFINITE) {
-            TickMonsterCondition(monster_info->location_id, static_cast<W8Condition>(condition),
-                                 minutes);
+            CurrentGame().ageMonsterCondition(*monster_info, static_cast<W8Condition>(condition),
+                                              minutes);
         }
     }
     for (int enchant = 0; enchant < 8; ++enchant) {

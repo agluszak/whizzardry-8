@@ -334,7 +334,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        ApplyDamageToMonster(*monster_info, uiDamage, *pSource, {});
+                        CurrentGame().damageMonster(*monster_info, uiDamage, *pSource, {});
                         if (!announce) {
                             uiTotals[i] += uiDamage;
                             ++uiHits[i];
@@ -384,7 +384,7 @@ void ResolveMonsterGroupAttack(int special_attack_kind, W8TargetSource* pSource,
                     if (uiDamage == 0) {
                         AnnounceEffectResisted(&target);
                     } else {
-                        ApplyDamageToMonster(
+                        CurrentGame().damageMonster(
                             *monster_info, uiDamage, *pSource,
                             {.notice = announce ? DamageNotice::Standard : DamageNotice::None});
                         if (!announce) {
@@ -499,7 +499,7 @@ void SpawnSummonedMonsterGroup(int special_attack_kind, W8TargetSource* pSource,
     } else {
         disposition = W8_DISPOSITION_HOSTILE;
     }
-    CurrentGame().setGroupHostility(group, disposition, false);
+    CurrentGame().setGroupHostility(CurrentGame().level.loaded(), group, disposition, false);
     if (monster_info->player_visibility.sight_state == W8_SIGHT_SEEN) {
         placed = PositionMonsterGroupNearCamera(group, 0.0f, 0.0f, true);
         if (!placed) {

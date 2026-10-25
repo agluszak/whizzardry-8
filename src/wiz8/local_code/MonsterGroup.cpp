@@ -255,7 +255,8 @@ void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
         record->hostility_radius != 0 && record->hostility_radius != -1 &&
         GetGroupNearestDistance(monster_group) <= record->hostility_radius * kWorldScale &&
         MonsterGroupHasVisibleTarget(monster_group, true, W8_VISIBLE_TARGET_ANY, false)) {
-        CurrentGame().setGroupHostility(monster_group, W8_DISPOSITION_HOSTILE, false);
+        CurrentGame().setGroupHostility(CurrentGame().level.loaded(), monster_group,
+                                        W8_DISPOSITION_HOSTILE, false);
     }
     cooldown = IntegerPower(record->attribute_values[W8_MONSTER_ATTRIBUTE_INTELLIGENCE], 2) * 0x3c;
     if (monster_group->hostility_set_at != 0 &&
@@ -273,7 +274,7 @@ void RefreshMonsterGroupHostility(W8MonsterGroup* monster_group)
             return;
         }
     }
-    CurrentGame().setGroupHostility(monster_group,
+    CurrentGame().setGroupHostility(CurrentGame().level.loaded(), monster_group,
                                     CurrentGame().defaultGroupDisposition(monster_group), false);
     monster_group->hostility_set_at = CurrentGame().status.world_clock;
 }
@@ -313,7 +314,8 @@ bool RemoveAllGroupMembers(W8MonsterGroup* monster_group)
 /* Detaches a group from whatever is tracking it and marks it no longer loaded. */
 void DetachMonsterGroup(W8MonsterGroup* monster_group)
 {
-    CurrentGame().invalidateAimsAt(W8CombatSlot::group(monster_group->group_id),
+    CurrentGame().invalidateAimsAt(CurrentGame().level.primary.get(),
+                                   W8CombatSlot::group(monster_group->group_id),
                                    TargetChange::removed);
     monster_group->members_active = false;
 }
@@ -544,7 +546,7 @@ void GetMonsterGroupCentre(W8MonsterGroup* monster_group, glm::vec3* centre)
 
 // Reserve a destination before changing relationships. Refresh navigation and
 // disposition only after both sides describe the completed formation.
-bool Game::linkMonsterGroup(W8MonsterGroup* leader, W8MonsterGroup* group)
+bool Game::linkMonsterGroup(World& world, W8MonsterGroup* leader, W8MonsterGroup* group)
 {
     if (leader == group) return 0;
     if (leader && group->leader_group_id == leader->group_id) return 1;
@@ -553,13 +555,13 @@ bool Game::linkMonsterGroup(W8MonsterGroup* leader, W8MonsterGroup* group)
         slot = std::ranges::find(leader->allied_group_ids, 0);
         if (slot == std::end(leader->allied_group_ids)) return 0;
     }
-    level.loaded().population->unlinkGroup(*group);
+    world.population->unlinkGroup(*group);
     if (leader) {
         *slot = group->group_id;
         group->leader_group_id = leader->group_id;
     }
-    level.loaded().refreshGroupNavigation(*group, combat.has_value());
-    if (leader) setGroupHostility(group, leader->ubDisposition, false);
+    world.refreshGroupNavigation(*group, partyCombatActive(world));
+    if (leader) setGroupHostility(world, group, leader->ubDisposition, false);
     return 1;
 }
 
@@ -609,7 +611,7 @@ W8MonsterGroup* Game::createMonsterGroup(unsigned int species, unsigned int coun
     const auto eye = world.party.eye();
     placeMonsterGroup(group, position, GetHeadingAngle(position, &eye), false, false, false, false);
     world.refreshGroupNavigation(*group, combat.has_value());
-    setGroupHostility(group, defaultGroupDisposition(group), false);
+    setGroupHostility(world, group, defaultGroupDisposition(group), false);
     return group;
 }
 

@@ -145,19 +145,19 @@ void Game::aimStoredAction(unsigned int slot, W8TargetingContext stored, const W
         outcomes.emplace_back(ActionAimChanged{slot, changed});
 }
 
-void Game::invalidateAimsAt(const W8CombatSlot& target, TargetChange change)
+void Game::invalidateAimsAt(World* world, const W8CombatSlot& target, TargetChange change)
 {
     std::vector<Event> outcomes;
-    invalidateAimsAt(target, change, outcomes);
+    invalidateAimsAt(world, target, change, outcomes);
     events.publish(std::move(outcomes));
 }
 
-void Game::invalidateAimsAt(const W8CombatSlot& target, TargetChange change,
+void Game::invalidateAimsAt(World* world, const W8CombatSlot& target, TargetChange change,
                             std::vector<Event>& outcomes)
 {
     const auto invalid = [&](bool source_hostile, bool targets_enemies) {
         if (change == TargetChange::removed) return true;
-        const auto* population = level.primary ? level.primary->population.get() : nullptr;
+        const auto* population = world ? world->population.get() : nullptr;
         bool target_hostile;
         switch (target.iType) {
         case W8_TARGET_KIND_CHARACTER:
@@ -180,24 +180,25 @@ void Game::invalidateAimsAt(const W8CombatSlot& target, TargetChange change,
         }
         return targets_enemies == (source_hostile == target_hostile);
     };
-    for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
-        if (!party.participates(slot)) continue;
-        auto& row = party.rows[slot];
-        if (combat && row.committed.target == target &&
-            invalid(party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] != 0,
-                    actionTargetsEnemies(slot, row.committed))) {
-            if (row.committed.kind == W8_ACTION_PROTECT)
-                resetCombatChoice(slot, outcomes);
-            else
-                repickActionTarget(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, outcomes);
+    if (world == level.primary.get())
+        for (unsigned int slot = 0; slot < W8_PARTY_SLOT_COUNT; ++slot) {
+            if (!party.participates(slot)) continue;
+            auto& row = party.rows[slot];
+            if (combat && row.committed.target == target &&
+                invalid(party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] != 0,
+                        actionTargetsEnemies(slot, row.committed))) {
+                if (row.committed.kind == W8_ACTION_PROTECT)
+                    resetCombatChoice(slot, outcomes);
+                else
+                    repickActionTarget(slot, W8_TARGETING_CONTEXT_IN_COMBAT, false, outcomes);
+            }
+            if (row.executing.target == target &&
+                invalid(party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] != 0,
+                        actionTargetsEnemies(slot, row.executing.action())))
+                repickActionTarget(slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, false, outcomes);
         }
-        if (row.executing.target == target &&
-            invalid(party.characters[slot].uiCondition[W8_CONDITION_TURNCOAT] != 0,
-                    actionTargetsEnemies(slot, row.executing.action())))
-            repickActionTarget(slot, W8_TARGETING_CONTEXT_OUT_OF_COMBAT, false, outcomes);
-    }
-    if (!level.primary || !level.primary->population) return;
-    for (const auto& monster : level.primary->population->monster_roster.live()) {
+    if (!world) return;
+    for (const auto& monster : world->population->monster_roster.live()) {
         if (monster->Target == target &&
             invalid(
                 monster->ubDisposition == W8_DISPOSITION_HOSTILE,

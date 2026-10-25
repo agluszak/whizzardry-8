@@ -36,7 +36,6 @@
 #include "wiz8/local_code/ConditionsAndEnchantments.h"
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/Magic.h"
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/NPCManager.h"
@@ -574,8 +573,8 @@ void Monster::ProcessScript()
                         SetScript("ClosePatrol.msf", true);
                         monster_info = owner_world.population->findMonster(location_id);
                         ResetTargetSource(&source);
-                        CurrentGame().setMonsterCondition(monster_info->location_id,
-                                                          W8_CONDITION_ASLEEP, 6, 0, &source, true);
+                        CurrentGame().setMonsterCondition(*monster_info, W8_CONDITION_ASLEEP, 6, 0,
+                                                          &source, true);
                     } else if (SDL_strcasecmp(token.c_str(), "ENDBELAWALK") == 0) {
                         runtime_flags |= W8_MONSTER_PARKED;
                         ClearMainGameTargetState();

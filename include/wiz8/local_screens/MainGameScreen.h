@@ -281,7 +281,6 @@ void DisableMainGamePortraitSlot(unsigned int slot);
 
 void RedrawCombatMonsterList(bool subject_valid);
 void RefreshSelectedPartyPortrait(unsigned int party_slot);
-void ClearHighlightIfItIs(const int* item);
 
 extern W8MainGameResourceSlot g_main_game_resource_slots[17];
 extern DesignRect g_viewport_modes[];

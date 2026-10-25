@@ -293,6 +293,13 @@ struct GameEventPresentation {
     {
         if (auto* hud = ShownHud()) hud->repaint.monster_list = true;
     }
+    void operator()(const MonsterHealthChanged& change) const
+    {
+        if (auto* screen = mainScreen(); screen && screen->hud &&
+                                         screen->hud->highlighted_item != -1 &&
+                                         screen->hud->highlighted_item == change.location_id)
+            VideoRemoveToolTip();
+    }
     void operator()(const MonstersActivated&) const
     {
         auto* main = MainGame();

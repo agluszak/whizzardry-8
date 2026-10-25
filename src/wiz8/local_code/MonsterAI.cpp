@@ -1097,7 +1097,7 @@ void CheckMonsterGroupsEnterCombat(void)
     for (index = 0; index < CurrentLevelPopulation().groups().size(); ++index) {
         group = CurrentLevelPopulation().groups()[index].get();
         if (group->fInCombat && group->ubDisposition == W8_DISPOSITION_HOSTILE) {
-            CurrentGame().alertFactionGroups(group);
+            CurrentGame().alertFactionGroups(CurrentGame().level.loaded(), group);
         }
     }
     for (index = 0; index < CurrentLevelPopulation().groups().size(); ++index) {
@@ -1110,7 +1110,8 @@ void CheckMonsterGroupsEnterCombat(void)
                     if ((record->flags & W8_MONSTER_FLAG_NPC) == 0 &&
                         record->faction_id == W8_FACTION_UNALIGNED &&
                         record->hostility_radius != 0 && record->hostility_radius != -1) {
-                        CurrentGame().setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+                        CurrentGame().setGroupHostility(CurrentGame().level.loaded(), group,
+                                                        W8_DISPOSITION_HOSTILE, false);
                     }
                 }
             }

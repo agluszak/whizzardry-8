@@ -31,7 +31,6 @@ extern unsigned short g_condition_interrupt_notices[12];
 
 /* The per-condition aging tick the sight producer runs while a
    condition's countdown is live. */
-void TickMonsterCondition(int location_id, W8Condition condition, unsigned int minutes);
 /* Settle an enchantment on a character or monster with its argument, rolled
    duration and definition percentage. */
 void ApplyMonsterCondition(int location_id, W8EnchantmentSlot slot, int argument,

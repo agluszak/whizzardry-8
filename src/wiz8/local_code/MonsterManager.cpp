@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -51,7 +52,6 @@
 #include "wiz8/local_code/Factions.h"
 #include "wiz8/local_code/FormationAndFacing.h"
 #include "wiz8/local_code/GameplayMods.h"
-#include "wiz8/local_code/HealthStaminaMana.h"
 #include "wiz8/local_code/ItemManager.h"
 #include "wiz8/local_code/MagicEffects.h"
 #include "wiz8/local_code/MonsterAI.h"
@@ -277,6 +277,7 @@ void Game::startMonsterDeath(W8MonsterInfo* monster_info, bool display_message)
    the kill count and experience for a monster that fought the party. */
 void Game::recordMonsterKill(W8MonsterInfo* monster_info, bool announce)
 {
+    auto& world = monster_info->owner_world;
     int killer_party_slot = -1;
     assert(monster_info != 0);
     unsigned int monster_species = monster_info->monster_species;
@@ -311,7 +312,7 @@ void Game::recordMonsterKill(W8MonsterInfo* monster_info, bool announce)
             goto done;
         }
         W8MonsterInfo* killer_info =
-            level.loaded().population->findMonster(monster_info->condition_target.iMonsterID);
+            world.population->findMonster(monster_info->condition_target.iMonsterID);
         if (killer_info == nullptr) {
             goto done;
         }
@@ -324,13 +325,14 @@ void Game::recordMonsterKill(W8MonsterInfo* monster_info, bool announce)
         recordFactionOffense(static_cast<signed char>(record->faction_id), monster_info);
 done:
     MonsterKilled(MakeScriptContext(*this), record->record_id, killer_party_slot);
-    if (monster_info->pCombat && ((monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
-                                   monster_info->uiCondition[W8_CONDITION_TURNCOAT] == 0) ||
-                                  (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
-                                   monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0))) {
+    if (partyCombatActive(world) && monster_info->pCombat &&
+        ((monster_info->ubDisposition == W8_DISPOSITION_HOSTILE &&
+          monster_info->uiCondition[W8_CONDITION_TURNCOAT] == 0) ||
+         (monster_info->ubDisposition == W8_DISPOSITION_FRIENDLY &&
+          monster_info->uiCondition[W8_CONDITION_TURNCOAT] != 0))) {
         ++combat->combat_result;
-        if (level.loaded().level_id >= 0 && level.loaded().level_id < W8_LEVEL_COUNT) {
-            ++status.level_progress[level.loaded().level_id].monster_kill_count;
+        if (world.level_id >= 0 && world.level_id < W8_LEVEL_COUNT) {
+            ++status.level_progress[world.level_id].monster_kill_count;
         }
         if (killer_party_slot != -1) {
             W8Character* killer = &party.characters[killer_party_slot];
@@ -514,6 +516,16 @@ void DestroyUngroupedMonsters(void)
     }
 }
 
+bool W8MonsterInfo::heal(unsigned int amount)
+{
+    if (hp_current == 0 || hp_current == static_cast<unsigned int>(uiHPMax) || amount == 0)
+        return false;
+    hp_current += amount;
+    hp_current = std::min(hp_current, static_cast<unsigned int>(uiHPMax));
+    if (entity) entity->updateDamageAppearance(hp_current, uiHPMax);
+    return true;
+}
+
 std::optional<unsigned int> W8MonsterInfo::absorbDamage(unsigned int amount)
 {
     auto& shield = enchantments[W8_ENCHANTMENT_GUARDIAN_ANGEL];
@@ -654,20 +666,14 @@ bool AnyMonsterDying(void)
 
 bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
 {
-    auto& world = level.loaded();
-    auto& roster = world.population->monster_roster;
-    const auto owns = [&](const auto& partition) {
-        return std::ranges::any_of(partition,
-                                   [&](const auto& entry) { return entry.get() == monster_info; });
-    };
-    if (!owns(roster.live()) && !owns(roster.unborn())) return false;
+    if (!monster_info) return false;
+    auto& world = monster_info->owner_world;
 
-    if (combat.has_value() && monster_info->pCombat) {
+    if (partyCombatActive(world) && monster_info->pCombat) {
         removeMonsterFromCombat(*monster_info);
     }
     if (monster_info->monster_group_id != 0) {
-        W8MonsterGroup* monster_group =
-            level.loaded().population->findGroup(monster_info->monster_group_id);
+        W8MonsterGroup* monster_group = world.population->findGroup(monster_info->monster_group_id);
 
         wiz8::erase_first(monster_group->monsters, monster_info->location_id);
         if (monster_group->highlighted_member == monster_info->location_id)
@@ -676,7 +682,7 @@ bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
         events.push(MonstersChanged{});
         if (monster_group->MemberCount() == 0) {
             if (monster_group->members_active) {
-                invalidateAimsAt(W8CombatSlot::group(monster_group->group_id),
+                invalidateAimsAt(&world, W8CombatSlot::group(monster_group->group_id),
                                  TargetChange::removed);
                 monster_group->members_active = false;
             }
@@ -684,7 +690,7 @@ bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
             if (monster_group->leader_group_id != 0) {
                 population.unlinkGroup(*monster_group);
             } else {
-                if (monster_group->encounter_registered && combat) {
+                if (monster_group->encounter_registered && partyCombatActive(world)) {
                     auto& budget = world.encounters.random_budget;
                     const auto& definition = data.levels[world.level_id];
                     budget = std::clamp(budget - 1, definition.minimum_encounter_budget,
@@ -693,10 +699,10 @@ bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
                 const auto allies = std::to_array(monster_group->allied_group_ids);
                 auto* leader = population.alliedSuccessor(*monster_group);
                 if (leader) {
-                    linkMonsterGroup(nullptr, leader);
+                    linkMonsterGroup(world, nullptr, leader);
                     for (int id : allies)
                         if (id != 0 && id != leader->group_id)
-                            linkMonsterGroup(leader, population.findGroup(id));
+                            linkMonsterGroup(world, leader, population.findGroup(id));
                     population.findMonster(leader->leader_location_id)
                         ->inheritLeaderState(*monster_info);
                 }
@@ -704,13 +710,13 @@ bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
             population.eraseEmptyGroup(*monster_group);
         } else {
             if (monster_group->leader_location_id == monster_info->location_id) {
-                world.replaceGroupLeader(*monster_group, combat.has_value());
+                world.replaceGroupLeader(*monster_group, partyCombatActive(world));
             }
         }
         monster_info->monster_group_id = 0;
     }
     deactivateMonster(monster_info);
-    if (combat) {
+    if (partyCombatActive(world)) {
         combat->endTurnOf(MonsterActor{monster_info->location_id});
     }
     if (removal == W8MonsterRemoval::Deactivate) return true;
@@ -720,37 +726,34 @@ bool Game::retireMonster(W8MonsterInfo* monster_info, W8MonsterRemoval removal)
     return true;
 }
 
-/* Retires one entry from the live world: it parks the entry at the sentinel
-   location 9999, zeroes its two current stats, resets the live Monster's flag
-   word to the deactivated value, captures the position the Monster ends at, and
-   lowers the live count. In combat it also clears the two selection slots the
-   global at 0x006836A8 holds if this entry occupied them. */
+// Logical death stops participation; the loaded body remains for death, script and fade work.
+bool W8MonsterInfo::deactivate()
+{
+    if (!fActive) return false;
+    assert(entity);
+    uiCondition[W8_CONDITION_DEAD] = W8_CONDITION_INDEFINITE;
+    highest_condition = W8_CONDITION_DEAD;
+    hp_current = 0;
+    stamina = 0;
+    entity->nav.active = false;
+    entity->nav.flags = 0x200000;
+    entity->clearSpellIcons();
+    owner_world.population->releaseMonsterVisibility(*this);
+    position = entity->GetRepresentationLocalLocation();
+    fActive = false;
+    return true;
+}
+
 void Game::deactivateMonster(W8MonsterInfo* monster_info)
 {
-    glm::vec3 position;
-
-    assert(monster_info != 0);
-    if (monster_info->fActive) {
-        assert(monster_info->entity);
-        monster_info->uiCondition[W8_CONDITION_DEAD] = W8_CONDITION_INDEFINITE;
-        monster_info->highest_condition = W8_CONDITION_DEAD;
-        monster_info->hp_current = 0;
-        monster_info->stamina = 0;
-        monster_info->entity->nav.active = false;
-        monster_info->entity->nav.flags = 0x200000;
-        monster_info->entity->clearSpellIcons();
-        monster_info->entity->owner_world.population->releaseMonsterVisibility(*monster_info);
-        position = monster_info->entity->GetRepresentationLocalLocation();
-        monster_info->position = position;
-        monster_info->fActive = false;
-        if (combat.has_value()) {
-            refreshSight();
-            invalidateAimsAt(W8CombatSlot::monster(monster_info->location_id),
-                             TargetChange::removed);
-            RefreshFlaggedMainGameState();
-            refreshCombatEngagement();
-            combat->endTurnOf(MonsterActor{monster_info->location_id});
-        }
+    if (!monster_info->deactivate()) return;
+    if (partyCombatActive(monster_info->owner_world)) {
+        refreshSight();
+        invalidateAimsAt(&monster_info->owner_world,
+                         W8CombatSlot::monster(monster_info->location_id), TargetChange::removed);
+        RefreshFlaggedMainGameState();
+        refreshCombatEngagement();
+        combat->endTurnOf(MonsterActor{monster_info->location_id});
     }
 }
 

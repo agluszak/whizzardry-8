@@ -491,7 +491,7 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
             monster_info->entity->BeginFadeOutAndRemove(W8_MONSTER_REMOVAL_NONE);
         }
         if (W8MonsterGroup* group = CurrentLevelPopulation().findSpeciesGroup(0x15d)) {
-            context.game.setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+            context.game.setGroupHostility(*context.world, group, W8_DISPOSITION_HOSTILE, false);
         }
         break;
     }

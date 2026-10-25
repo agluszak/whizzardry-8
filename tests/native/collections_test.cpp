@@ -303,7 +303,7 @@ static bool gameplayCollectionLifetime()
     REQUIRE(CurrentGame().retireMonster(live, W8MonsterRemoval::Unload));
     REQUIRE(roster.live().empty());
     REQUIRE(roster.unborn().front().get() == unborn);
-    REQUIRE(!CurrentGame().retireMonster(live, W8MonsterRemoval::Unload));
+    REQUIRE_FALSE(CurrentGame().retireMonster(FindMonster(7, false), W8MonsterRemoval::Unload));
 
     // Reset destroys the owned records and leaves immediately reusable collections.
     CurrentGame().level.replacePrimary(std::make_unique<World>());
@@ -980,7 +980,8 @@ TEST_CASE_METHOD(LevelWorldFixture, "Full formations reject a link before detach
     std::ranges::fill(destination.allied_group_ids, 99);
     source.group_id = 2;
     source.leader_group_id = 17;
-    REQUIRE_FALSE(CurrentGame().linkMonsterGroup(&destination, &source));
+    REQUIRE_FALSE(
+        CurrentGame().linkMonsterGroup(CurrentGame().level.loaded(), &destination, &source));
     REQUIRE(source.leader_group_id == 17);
     REQUIRE(std::ranges::all_of(destination.allied_group_ids, [](int id) { return id == 99; }));
 }

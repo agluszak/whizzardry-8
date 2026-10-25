@@ -602,7 +602,8 @@ TriggerDecision ArnikaScript::vaultAlarmDoor(Trigger* pTrigger)
     wiz8::sound::play("Data\\Sound\\Ambients\\VaultAlarm.wav");
     group = CurrentLevelPopulation().findSpeciesGroup(0xc, 0);
     while (group != 0) {
-        CurrentGame().setGroupHostility(group, W8_DISPOSITION_HOSTILE, false);
+        CurrentGame().setGroupHostility(CurrentGame().level.loaded(), group, W8_DISPOSITION_HOSTILE,
+                                        false);
         group = CurrentLevelPopulation().findSpeciesGroup(0xc, group);
     }
     ctx.game.setFact(W8_FACT_ARNIKA_VAULT_ENTERED, 1);

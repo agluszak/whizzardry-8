@@ -776,11 +776,11 @@ void ResolveSpellMissileHit(Missile* missile)
         if (magnitude > 0) {
             if (target->iType == W8_TARGET_KIND_MONSTER) {
                 monster_info = FindMonster(target->iMonsterID);
-                ApplyDamageToMonster(*monster_info, magnitude, *source,
-                                     {.notice = g_settings.verbose_combat_messages
-                                                    ? DamageNotice::Standard
-                                                    : DamageNotice::None},
-                                     &missile->result);
+                CurrentGame().damageMonster(*monster_info, magnitude, *source,
+                                            {.notice = g_settings.verbose_combat_messages
+                                                           ? DamageNotice::Standard
+                                                           : DamageNotice::None},
+                                            &missile->result);
             } else {
                 CurrentGame().damageCharacter(target->iChar, magnitude,
                                               {.notice = g_settings.verbose_combat_messages
@@ -907,8 +907,8 @@ void ResolveMissileHit(Missile* missile, bool deflected)
         if (magnitude > 0) {
             MakePCHitSound(missile, target, hit_location, -1);
             if (target_is_monster) {
-                ApplyDamageToMonster(*monster_info, magnitude, *source,
-                                     {.notice = DamageNotice::AmountOnly});
+                CurrentGame().damageMonster(*monster_info, magnitude, *source,
+                                            {.notice = DamageNotice::AmountOnly});
             } else {
                 CurrentGame().damageCharacter(target->iChar, magnitude,
                                               {.notice = DamageNotice::AmountOnly});
@@ -1709,7 +1709,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
                             {.notice = verbose ? DamageNotice::AmountOnly : DamageNotice::None},
                             verbose ? nullptr : report);
                     } else {
-                        applied = ApplyDamageToMonster(
+                        applied = CurrentGame().damageMonster(
                             *target_info, damage, source,
                             {.notice = verbose ? DamageNotice::AmountOnly : DamageNotice::None},
                             verbose ? nullptr : report);
@@ -1740,7 +1740,7 @@ ActionStep ContinueMonsterAttack(W8MonsterInfo* monster_info, const W8MonsterRec
             if (damage == 0) {
                 MakeMonsterHitSound(attack, &CurrentGame().combat->TargetHit, hit_location, 0x2a);
                 if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
-                    MonsterReactsToBeingStruck(target_info, &source, false);
+                    CurrentGame().reactToMonsterHit(*target_info, source, false);
                 }
                 if (!verbose) {
                     ++report->count;
@@ -3656,7 +3656,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                                             &CurrentGame().combat->TargetHit, hit_location, -1);
                         CurrentGame().targetPresent(CurrentGame().combat->TargetHit);
                         if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
-                            applied = ApplyDamageToMonster(
+                            applied = CurrentGame().damageMonster(
                                 *monster_info, damage, source,
                                 {.notice = verbose ? DamageNotice::AmountOnly : DamageNotice::None},
                                 verbose ? nullptr : report);
@@ -3797,7 +3797,7 @@ ActionStep ResolveCharacterAttack(int party_slot)
                     MakePCMeleeHitSound(party_slot, &character->Hand[hand],
                                         &CurrentGame().combat->TargetHit, hit_location, 0x2a);
                     if (CurrentGame().combat->TargetHit.iType == W8_TARGET_KIND_MONSTER) {
-                        MonsterReactsToBeingStruck(monster_info, &source, false);
+                        CurrentGame().reactToMonsterHit(*monster_info, source, false);
                     }
                     if (!verbose) {
                         ++report->count;
