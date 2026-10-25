@@ -32,7 +32,6 @@
 #include "glm/ext/vector_float3.hpp"
 #include "item_spawning.h"
 #include "monster_actions.h"
-#include "monster_spell_icons.h"
 #include "wiz8/audio/AmbientSound.h"
 #include "wiz8/character_event_queue.h"
 #include "wiz8/checked_integer.h"
@@ -581,29 +580,6 @@ struct SavedMonsterOrders {
         info.ai_mode |= W8_MONSTER_AI_REAPPLY_MODE;
     }
 };
-
-/* Rebuild the icons for the conditions, enchantments and effects a loaded
-   monster carries. */
-void W8MonsterInfo::restoreSpellIcons()
-{
-    auto& monster = *entity;
-    if (highest_condition != W8_CONDITION_NONE) {
-        for (int index = 0; index < W8_CONDITION_COUNT; ++index) {
-            if (uiCondition[index] != 0)
-                monster.addSpellIcon(static_cast<W8MonsterSpellIconId>(index - 1));
-        }
-    }
-    for (int index = 0; index < 8; ++index) {
-        if (enchantments[index].turns != 0)
-            monster.addSpellIcon(static_cast<W8MonsterSpellIconId>(index + 0x10));
-    }
-    for (const auto& effect : effect_slots) {
-        if (effect.duration != 0)
-            monster.addSpellIcon(g_effect_visual_table[effect.effect_id].monster_icon);
-    }
-    if (charm_strength > 0) monster.addSpellIcon(SPELL_ICON_CHARMED);
-    if (summoned != W8_MONSTER_SUMMON_NONE) monster.addSpellIcon(SPELL_ICON_SUMMONED);
-}
 
 /* A MONS group record: its size-prefixed W8MonsterGroup image and, from version 2,
    whether it was on the encounter list. */

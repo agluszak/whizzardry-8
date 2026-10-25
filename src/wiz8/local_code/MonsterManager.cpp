@@ -67,6 +67,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/monster_cycles.h"
 #include "wiz8/monster_runtime.h"
+#include "wiz8/monster_spell_icons.h"
 #include "wiz8/music_playlist.h"
 #include "wiz8/notices.h"
 #include "wiz8/render/picking.h"
@@ -299,6 +300,29 @@ void ClearMonsterPathAndResume(W8MonsterInfo* monster_info)
             monster_info->startCycle(W8_MONSTER_CYCLE_IDLE, W8_ANIMATION_NEVER_STOP);
         }
     }
+}
+
+/* Rebuild the icons for the conditions, enchantments and effects a loaded
+   monster carries. */
+void W8MonsterInfo::restoreSpellIcons()
+{
+    auto& monster = *entity;
+    if (highest_condition != W8_CONDITION_NONE) {
+        for (int index = 0; index < W8_CONDITION_COUNT; ++index) {
+            if (uiCondition[index] != 0)
+                monster.addSpellIcon(static_cast<W8MonsterSpellIconId>(index - 1));
+        }
+    }
+    for (int index = 0; index < 8; ++index) {
+        if (enchantments[index].turns != 0)
+            monster.addSpellIcon(static_cast<W8MonsterSpellIconId>(index + 0x10));
+    }
+    for (const auto& effect : effect_slots) {
+        if (effect.duration != 0)
+            monster.addSpellIcon(g_effect_visual_table[effect.effect_id].monster_icon);
+    }
+    if (charm_strength > 0) monster.addSpellIcon(SPELL_ICON_CHARMED);
+    if (summoned != W8_MONSTER_SUMMON_NONE) monster.addSpellIcon(SPELL_ICON_SUMMONED);
 }
 
 void MonsterStartsDying(W8MonsterInfo* monster_info, bool display_message)
