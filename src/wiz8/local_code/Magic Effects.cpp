@@ -522,7 +522,8 @@ signed char InflictConditionOnTarget(W8CombatSlot* target, W8Condition condition
                 absorbed = monster_info->enchantments[W8_ENCHANTMENT_HASTE].turns;
                 if (absorbed > 0) {
                     remaining = magnitude - absorbed;
-                    TickMonsterEnchantmentSlot(target->iMonsterID, W8_ENCHANTMENT_HASTE, magnitude);
+                    CurrentGame().ageMonsterEnchantment(*monster_info, W8_ENCHANTMENT_HASTE,
+                                                        magnitude);
                     if (remaining > 0) {
                         magnitude = remaining;
                     } else {
@@ -1587,8 +1588,7 @@ static bool ApplyConditionAttackToTarget(W8SpellEffectEntry* effect, W8CombatSlo
         if (haste_turns != 0) {
             const int remaining = static_cast<int>(duration) - static_cast<int>(haste_turns);
             if (monster)
-                TickMonsterEnchantmentSlot(monster_info->location_id, W8_ENCHANTMENT_HASTE,
-                                           duration);
+                CurrentGame().ageMonsterEnchantment(*monster_info, W8_ENCHANTMENT_HASTE, duration);
             else
                 AgeEnchantment(CurrentGame(), character_index, W8_ENCHANTMENT_HASTE, duration);
             return remaining > 0 &&
@@ -2461,8 +2461,8 @@ void FinishSpellEffectTargets(W8SpellEffectEntry* effect)
                 if (monster_info != 0) {
                     PostMonsterNotice(monster_info, Data().strings[0x198]);
                     if (--monster_info->enchantments[W8_ENCHANTMENT_EYE_FOR_AN_EYE].power == 0) {
-                        ClearMonsterEnchantmentSlot(monster_info->location_id,
-                                                    W8_ENCHANTMENT_EYE_FOR_AN_EYE);
+                        CurrentGame().disenchantMonster(*monster_info,
+                                                        W8_ENCHANTMENT_EYE_FOR_AN_EYE);
                     }
                 }
             } else {

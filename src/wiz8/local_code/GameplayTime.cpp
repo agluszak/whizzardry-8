@@ -1225,17 +1225,10 @@ void AgeMonsterSight(W8MonsterInfo* monster_info, unsigned int minutes,
         }
     }
     for (int enchant = 0; enchant < 8; ++enchant) {
-        float remaining = static_cast<float>(monster_info->enchantments[enchant].turns);
-
-        if (remaining != 0.0f && static_cast<unsigned int>(remaining) < W8_CONDITION_INDEFINITE) {
-            if (minutes < static_cast<unsigned int>(remaining)) {
-                monster_info->enchantments[enchant].turns =
-                    static_cast<int>(remaining) - static_cast<int>(minutes);
-            } else {
-                ClearMonsterEnchantmentSlot(monster_info->location_id,
-                                            static_cast<W8EnchantmentSlot>(enchant));
-            }
-        }
+        const auto remaining = monster_info->enchantments[enchant].turns;
+        if (remaining != 0 && remaining < W8_CONDITION_INDEFINITE)
+            CurrentGame().ageMonsterEnchantment(*monster_info,
+                                                static_cast<W8EnchantmentSlot>(enchant), minutes);
     }
     if (static_cast<unsigned int>(monster_info->uiHPMax) <= monster_info->hp_current) {
         monster_info->hp_regen_accumulator = 0.0f;

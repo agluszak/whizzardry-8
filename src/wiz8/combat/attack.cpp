@@ -134,7 +134,7 @@ static void ApplyRazorCloakBacklash(const W8CombatSlot& target, W8MonsterInfo* m
     apply_damage(&source, enchantment);
     if (--enchantment->power == 0) {
         if (is_monster)
-            ClearMonsterEnchantmentSlot(monster->location_id, W8_ENCHANTMENT_RAZOR_CLOAK);
+            CurrentGame().disenchantMonster(*monster, W8_ENCHANTMENT_RAZOR_CLOAK);
         else
             Disenchant(CurrentGame(), target.iChar, W8_ENCHANTMENT_RAZOR_CLOAK);
     }

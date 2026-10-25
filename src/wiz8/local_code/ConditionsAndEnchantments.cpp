@@ -403,34 +403,26 @@ void ApplyMonsterCondition(int location_id, W8EnchantmentSlot slot, int argument
     }
 }
 
-/* Empty one of a monster's enchantment slots and tell the live engine object
-   that the matching effect is over. */
-void ClearMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot)
+void W8MonsterInfo::clearEnchantment(W8EnchantmentSlot slot, const W8MonsterRecord& record)
 {
-    W8MonsterInfo* monster_info = FindMonster(location_id);
-
-    monster_info->enchantments[slot] = {};
-    monster_info->entity->removeSpellIcon(static_cast<W8MonsterSpellIconId>(slot + 0x10));
-    RebuildMonsterDerivedStats(location_id);
-    if (slot == W8_ENCHANTMENT_SUPERMAN) {
-        CurrentGame().refreshMonsterSight(monster_info);
-    }
+    enchantments[slot] = {};
+    if (entity) entity->removeSpellIcon(static_cast<W8MonsterSpellIconId>(slot + 0x10));
+    RebuildMonsterDerivedStats(*this, record);
 }
 
-/* Run one of a monster's enchantment slots down by the given number of turns,
-   emptying it when nothing is left. The look-up is repeated rather than
-   reused, which is what the two separate index calls show. */
-void TickMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot, unsigned int turns)
+void Game::disenchantMonster(W8MonsterInfo& monster, W8EnchantmentSlot slot)
 {
-    W8MonsterInfo* monster_info = FindMonster(location_id);
-    unsigned int remaining = monster_info->enchantments[slot].turns;
+    monster.clearEnchantment(slot, data.monsters[monster.monster_species]);
+    if (slot == W8_ENCHANTMENT_SUPERMAN) refreshMonsterSight(&monster);
+}
 
-    if (turns < remaining) {
-        monster_info->enchantments[slot].turns = remaining - turns;
-        return;
-    }
-
-    ClearMonsterEnchantmentSlot(location_id, slot);
+void Game::ageMonsterEnchantment(W8MonsterInfo& monster, W8EnchantmentSlot slot, unsigned int turns)
+{
+    auto& remaining = monster.enchantments[slot].turns;
+    if (turns < remaining)
+        remaining -= turns;
+    else
+        disenchantMonster(monster, slot);
 }
 
 /* Lift one condition from everybody in the world - the party first, then every
@@ -472,8 +464,8 @@ void RemoveAllEnchantments(void)
             W8MonsterInfo* monster_info = GetMonsterListEntry(index);
 
             if (monster_info->enchantments[enchantment].turns != 0) {
-                ClearMonsterEnchantmentSlot(monster_info->location_id,
-                                            static_cast<W8EnchantmentSlot>(enchantment));
+                CurrentGame().disenchantMonster(*monster_info,
+                                                static_cast<W8EnchantmentSlot>(enchantment));
             }
         }
     }

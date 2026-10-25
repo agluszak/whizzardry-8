@@ -29,8 +29,6 @@ const W8ConditionImmunity* FindConditionImmunity(unsigned char kind);
 extern unsigned short g_enchantment_notices[16];
 extern unsigned short g_condition_interrupt_notices[12];
 
-void ClearMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot);
-void TickMonsterEnchantmentSlot(int location_id, W8EnchantmentSlot slot, unsigned int turns);
 /* The per-condition aging tick the sight producer runs while a
    condition's countdown is live. */
 void TickMonsterCondition(int location_id, W8Condition condition, unsigned int minutes);

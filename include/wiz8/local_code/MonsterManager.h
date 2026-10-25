@@ -269,6 +269,7 @@ struct W8MonsterInfo {
     std::optional<unsigned int> absorbDamage(unsigned int amount);
     bool takeDamage(unsigned int amount, const W8TargetSource& source, bool poison);
     void setControlState(W8MonsterControlState next);
+    void clearEnchantment(W8EnchantmentSlot slot, const W8MonsterRecord& record);
     void configureBody(Rng& rng, bool level_visited);
     void restoreSpellIcons();
     void inheritLeaderState(const W8MonsterInfo& outgoing);

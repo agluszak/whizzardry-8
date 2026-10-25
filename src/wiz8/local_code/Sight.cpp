@@ -341,6 +341,7 @@ void Game::updateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool 
     }
     record = &data.monsters[(monster_info)->monster_species];
     Monster& monster = *monster_info->entity;
+    auto& world = monster.owner_world;
     viewing_distance = static_cast<float>(WorldGetFarClip(&monster.owner_world));
     assert(viewing_distance > 0.0f);
     own_position = monster.nav.movement.position;
@@ -349,12 +350,11 @@ void Game::updateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool 
     if (!direction) {
         unsigned int index;
 
-        if (!combat.has_value()) {
+        if (!partyCombatActive(world)) {
             return;
         }
-        for (index = 0; index < (*level.loaded().population).monster_roster.live().size();
-             ++index) {
-            W8MonsterInfo* other = level.loaded().population->monster_roster.live()[index].get();
+        for (index = 0; index < (*world.population).monster_roster.live().size(); ++index) {
+            W8MonsterInfo* other = world.population->monster_roster.live()[index].get();
 
             if (other != monster_info && other->pCombat && other->fActive &&
                 other->hp_current != 0) {
@@ -468,7 +468,7 @@ void Game::updateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool 
                 unsigned char fade_flag;
                 float player_distance;
 
-                if (!combat.has_value()) {
+                if (!partyCombatActive(world)) {
                     sight_override = party.modifiers.sight_override;
                 } else {
                     sight_override = 0;
@@ -653,7 +653,7 @@ void Game::updateMonsterSight(W8MonsterInfo* monster_info, bool direction, bool 
                                 delta = own_position - monster.owner_world.party.position();
                                 if (glm::length(delta) < 25000.0f &&
                                     (npc->party_noticed = true, !surprise_possible) &&
-                                    level.loaded().level_id != 4) {
+                                    world.level_id != 4) {
                                     int party_slot = party.randomSlot(rng, 0, 0, -1, -1);
 
                                     if (party_slot != -1) {

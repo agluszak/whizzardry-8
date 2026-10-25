@@ -253,6 +253,8 @@ public:
     void setMonsterCondition(int location_id, W8Condition condition, int duration,
                              int poison_strength, W8TargetSource* target, bool announce);
     void clearMonsterCondition(int location_id, W8Condition condition);
+    void disenchantMonster(W8MonsterInfo& monster, W8EnchantmentSlot slot);
+    void ageMonsterEnchantment(W8MonsterInfo& monster, W8EnchantmentSlot slot, unsigned int turns);
     void setMonsterHostility(W8MonsterInfo* monster, W8Disposition hostility);
     void setGroupHostility(W8MonsterGroup* group, W8Disposition hostility, bool recurse);
     void alertFactionGroups(W8MonsterGroup* monster_group);

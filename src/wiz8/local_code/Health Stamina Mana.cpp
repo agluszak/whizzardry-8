@@ -228,7 +228,7 @@ unsigned int ApplyDamageToMonster(W8MonsterInfo& monster, unsigned int amount,
             return 0;
         }
         amount -= *absorbed;
-        ClearMonsterEnchantmentSlot(monster.location_id, W8_ENCHANTMENT_GUARDIAN_ANGEL);
+        CurrentGame().disenchantMonster(monster, W8_ENCHANTMENT_GUARDIAN_ANGEL);
     }
     if (result_stats != 0) {
         result_stats->amount += amount;
