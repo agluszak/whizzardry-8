@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <ranges>
 #include <stdexcept>
 #include <string>
@@ -307,33 +308,21 @@ void ApplyWorldUpdateFlags(World* world, unsigned int flags)
     }
 }
 
-/* Resolve the PARTY alias or a named position stored with the current world. */
-bool FindEntityByName(std::string_view name, glm::vec3* position, float* angle,
-                      glm::vec3* direction)
+// Authored markers retain their facing; point queries also resolve the PARTY alias.
+const W8NamedPosition* World::namedMarker(std::string_view name) const
 {
-    if (name.empty()) {
-        return false;
-    }
-    if (CompareTextIgnoreAsciiCase("PARTY", name) == 0) {
-        *position = cameraLocation();
-        return true;
-    }
+    if (name.empty()) return nullptr;
+    const auto found = std::ranges::find_if(named_positions, [&](const auto& entry) {
+        return CompareTextIgnoreAsciiCase(name, entry.name) == 0;
+    });
+    return found == named_positions.end() ? nullptr : &*found;
+}
 
-    int count = static_cast<int>(GetWorld()->named_positions.size());
-    for (int index = 0; index < count; ++index) {
-        const W8NamedPosition* entry = &GetWorld()->named_positions[index];
-        if (CompareTextIgnoreAsciiCase(name, entry->name) == 0) {
-            *position = entry->position;
-            if (angle != 0) {
-                *angle = entry->angle;
-            }
-            if (direction != 0) {
-                *direction = entry->direction;
-            }
-            return true;
-        }
-    }
-    return false;
+std::optional<glm::vec3> World::namedPosition(std::string_view name) const
+{
+    if (CompareTextIgnoreAsciiCase("PARTY", name) == 0) return party.eye();
+    if (const auto* marker = namedMarker(name)) return marker->position;
+    return {};
 }
 
 LevelSpatialIndex* World::compiledIndex() const

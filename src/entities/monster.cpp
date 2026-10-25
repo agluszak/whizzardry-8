@@ -1220,14 +1220,12 @@ bool Monster::IsCycleInterruptable(signed char cycle)
    state three clears the ScregActive trigger variable. */
 void Monster::ApplyRemovalStateEffects()
 {
-    glm::vec3 position;
-
     switch (removal_state) {
     case W8_MONSTER_REMOVAL_NONE:
         break;
     case W8_MONSTER_REMOVAL_RETURN_BALBRAK_HOME:
-        if (FindEntityByName("NP_Balbrakhome", &position, 0, 0)) {
-            SetPosition(&position);
+        if (auto position = owner_world.namedPosition("NP_Balbrakhome")) {
+            SetPosition(&*position);
         }
         break;
     case W8_MONSTER_REMOVAL_CLEAR_SCREG_ACTIVE:

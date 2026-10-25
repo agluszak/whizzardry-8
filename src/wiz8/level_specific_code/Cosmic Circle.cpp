@@ -1,8 +1,8 @@
 #include <cassert>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 
-#include "glm/ext/vector_float3.hpp"
 #include "wiz8/combat/combat.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
@@ -74,39 +74,37 @@ void CosmicCircleScript::setup()
        a missing monster is skipped. */
     W8MonsterInfo* pMonsterInfoDs = nullptr;
     W8MonsterInfo* pMonsterInfoAltheides = nullptr;
-    glm::vec3 positionAltheides;
-    glm::vec3 positionDs;
-    glm::vec3 positionBela;
-    glm::vec3 positionPhoonzang;
     W8MonsterGroup* group;
     Trigger* pTrigger;
     int uiMonsterID;
 
     if (!ctx.status.world_suspended && !ctx.status.cc_arena_spawned) {
-        if (FindEntityByName("NP_ALTHEIDESARENA", &positionAltheides, 0, 0)) {
-            group = SpawnMonsters(0x1b3, 1, &positionAltheides, 0, true, false);
+        auto positionAltheides = world().namedPosition("NP_ALTHEIDESARENA");
+        if (positionAltheides) {
+            group = SpawnMonsters(0x1b3, 1, &*positionAltheides, 0, true, false);
             uiMonsterID = group->MemberLocationId(0);
             assert(uiMonsterID != 0);
             pMonsterInfoAltheides = FindMonster(uiMonsterID);
         }
-        if (FindEntityByName("NP_DSARENA", &positionDs, 0, 0)) {
-            group = SpawnMonsters(0x1b6, 1, &positionDs, 0, true, false);
+        auto positionDs = world().namedPosition("NP_DSARENA");
+        if (positionDs) {
+            group = SpawnMonsters(0x1b6, 1, &*positionDs, 0, true, false);
             uiMonsterID = group->MemberLocationId(0);
             assert(uiMonsterID != 0);
             pMonsterInfoDs = FindMonster(uiMonsterID);
         }
-        if (FindEntityByName("NP_BELASTART", &positionBela, 0, 0)) {
-            SpawnMonsters(0x1b4, 1, &positionBela, 2, true, false);
+        if (auto positionBela = world().namedPosition("NP_BELASTART")) {
+            SpawnMonsters(0x1b4, 1, &*positionBela, 2, true, false);
         }
-        if (FindEntityByName("NP_PHOONZANG1", &positionPhoonzang, 0, 0)) {
-            SpawnMonsters(0x197, 1, &positionPhoonzang, 2, true, false);
+        if (auto positionPhoonzang = world().namedPosition("NP_PHOONZANG1")) {
+            SpawnMonsters(0x197, 1, &*positionPhoonzang, 2, true, false);
         }
         ctx.status.cc_arena_spawned = true;
-        if (pMonsterInfoDs != nullptr) {
-            pMonsterInfoDs->entity->nav.AimAtPosition(&positionAltheides);
+        if (pMonsterInfoDs != nullptr && positionAltheides) {
+            pMonsterInfoDs->entity->nav.AimAtPosition(&*positionAltheides);
         }
-        if (pMonsterInfoAltheides != nullptr) {
-            pMonsterInfoAltheides->entity->nav.AimAtPosition(&positionDs);
+        if (pMonsterInfoAltheides != nullptr && positionDs) {
+            pMonsterInfoAltheides->entity->nav.AimAtPosition(&*positionDs);
         }
         pTrigger = FindTriggerByName("CC_TRIGGERPLANE2");
         if (pTrigger != 0) {

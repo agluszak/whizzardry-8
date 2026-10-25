@@ -1639,36 +1639,23 @@ void ReleaseNpcMonsterByKind(int kind)
    it repositions the Navigator subobject. */
 static bool RestoreNpcMonster(W8NpcState* npc, const char* entity_name)
 {
-    glm::vec3 position;
-    glm::vec3 copied;
-
     if (!npc->has_monster) {
         const auto species = NpcMonsterSpecies(*npc);
-        if (!species) {
-            return false;
+        if (!species || entity_name[0] == '\0') return false;
+        if (auto position = CurrentGame().level.loaded().namedPosition(entity_name)) {
+            CreateGroup(*species, 1, &*position, true, true);
+            return true;
         }
-        if (!FindEntityByName(entity_name, &position, 0, 0)) {
-            return false;
-        }
-        copied = position;
-        CreateGroup(*species, 1, &copied, true, true);
-        return true;
-    }
-    if (!npc->is_present) {
         return false;
     }
-    {
-        W8MonsterInfo* monster_info = FindMonster(npc->location_id);
-
-        if (monster_info == 0) {
-            return false;
-        }
-        if (!FindEntityByName(entity_name, &position, 0, 0)) {
-            return false;
-        }
-        monster_info->entity->SetPosition(&position);
+    if (!npc->is_present) return false;
+    auto* monster = FindMonster(npc->location_id);
+    if (!monster || entity_name[0] == '\0') return false;
+    if (auto position = CurrentGame().level.loaded().namedPosition(entity_name)) {
+        monster->entity->SetPosition(&*position);
         return true;
     }
+    return false;
 }
 
 /* Run one marked NPC's scripted event step. The special naming styles run
@@ -1692,12 +1679,12 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
         CurrentGame().setFact(W8_FACT_INTRO_VI_DISAPPEARS, 0);
     }
     if (npc->name_style == ')' && GetLoadedLevelID() == 0xd) {
-        glm::vec3 position;
-
         if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1 ||
             GetLocationVarValueByName("CODESgtRubbleTeleport") == 0) {
-            if (monster_info != nullptr && FindEntityByName("RubbleCovert", &position, 0, 0)) {
-                monster_info->entity->SetPosition(&position);
+            if (auto point = monster_info
+                                 ? CurrentGame().level.loaded().namedPosition("RubbleCovert")
+                                 : std::nullopt) {
+                monster_info->entity->SetPosition(&*point);
                 if (GetLocationVarIDByName("CODESgtRubbleTeleport") == -1) {
                     CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(),
                                                                "CODESgtRubbleTeleport", 1);
@@ -1712,8 +1699,10 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
             return;
         }
         if (GetLocationVarValueByName("CODESgtRubbleTeleport") == 1) {
-            if (monster_info != nullptr && FindEntityByName("rubbleUnderWater", &position, 0, 0)) {
-                monster_info->entity->SetPosition(&position);
+            if (auto point = monster_info
+                                 ? CurrentGame().level.loaded().namedPosition("rubbleUnderWater")
+                                 : std::nullopt) {
+                monster_info->entity->SetPosition(&*point);
                 SetTriggerVariableByName("CODESgtRubbleTeleport", 2);
             }
             npc->event_pending = 0;
@@ -1723,26 +1712,16 @@ void HandleMarkedNpcEvent(W8NpcState* npc, W8MarkedNpcEventMode mode)
     }
     if (npc->name_style == W8_NPC_GLUMPH &&
         CurrentGame().testFact(W8_FACT_UMISSION_SCUBA_DONE) == 0) {
-        glm::vec3 position;
-
         monster_info = GetNpcMonsterInfo(npc);
-        if (monster_info != 0) {
-            position = monster_info->entity->nav.GetPosition();
-            W8WorldItem* item = CurrentGame().level.loaded().adoptItem(
-                CurrentGame().spawnWorldItem(CurrentGame().level.loaded(), 0x1e6, &position,
-                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-
-            if (item != 0) {
-                CurrentGame().level.loaded().activateItem(Data(), CurrentGame().rng, item);
-            }
-        } else if (FindEntityByName("NP_Glumph", &position, 0, 0)) {
-            W8WorldItem* item = CurrentGame().level.loaded().adoptItem(
-                CurrentGame().spawnWorldItem(CurrentGame().level.loaded(), 0x1e6, &position,
-                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-
-            if (item != 0) {
-                CurrentGame().level.loaded().activateItem(Data(), CurrentGame().rng, item);
-            }
+        const auto position = monster_info
+                                  ? std::optional{monster_info->entity->nav.GetPosition()}
+                                  : CurrentGame().level.loaded().namedPosition("NP_Glumph");
+        if (position) {
+            auto& game = CurrentGame();
+            auto& world = game.level.loaded();
+            if (auto* item = world.adoptItem(game.spawnWorldItem(
+                    world, 0x1e6, &*position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE)))
+                world.activateItem(game.data, game.rng, item);
         }
     }
     if (mode == W8MarkedNpcEventMode::release_companion) {

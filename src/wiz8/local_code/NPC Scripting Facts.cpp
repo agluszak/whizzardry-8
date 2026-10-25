@@ -1,4 +1,5 @@
 #include <cassert>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -69,7 +70,6 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
 {
     W8NpcState* npc;
     W8MonsterGroup* group;
-    W8WorldItem* world_item;
     W8Character* character;
     Trigger* trigger;
     ParticleSystem* particle;
@@ -141,25 +141,19 @@ void HandleFactChange(const ScriptContext& context, W8FactId fact_id, unsigned c
         CurrentGame().npc_dialogue.Queue(W8NpcStoryAction::trigger_fix);
         return;
     case W8_FACT_CROCK_KIDNAPPED_PLAYER:
-        if (value != 0 && FindEntityByName("NP_BlueFlowers", &position, 0, 0)) {
-            world_item = CurrentGame().level.loaded().adoptItem(
-                CurrentGame().spawnWorldItem(CurrentGame().level.loaded(), 0x2eb, &position,
-                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-            if (world_item != 0) {
-                CurrentGame().level.loaded().activateItem(Data(), CurrentGame().rng, world_item);
-            }
-            world_item = CurrentGame().level.loaded().adoptItem(
-                CurrentGame().spawnWorldItem(CurrentGame().level.loaded(), 0x2eb, &position,
-                                             W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
-            if (world_item != 0) {
-                CurrentGame().level.loaded().activateItem(Data(), CurrentGame().rng, world_item);
+        if (auto point =
+                value != 0 ? context.world->namedPosition("NP_BlueFlowers") : std::nullopt) {
+            for (int count = 0; count < 2; ++count) {
+                auto* item = context.world->adoptItem(context.game.spawnWorldItem(
+                    *context.world, 0x2eb, &*point, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
+                if (item) context.world->activateItem(context.game.data, context.game.rng, item);
             }
         }
         return;
     case W8_FACT_CROCK_BREKEK_ASSIGN:
         fact_value = context.game.testFact(W8_FACT_CROCK_BREKEK_DEAD);
-        if (fact_value == 0 && FindEntityByName("Brekek", &position, 0, 0)) {
-            SpawnMonsters(0x131, 1, &position, 1, true, true);
+        if (auto point = fact_value == 0 ? context.world->namedPosition("Brekek") : std::nullopt) {
+            SpawnMonsters(0x131, 1, &*point, 1, true, true);
         }
         return;
     case W8_FACT_CROCK_PLAYER_RETURNED_TO_PARTY:

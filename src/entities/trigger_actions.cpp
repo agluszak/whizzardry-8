@@ -824,15 +824,14 @@ action_complete:
 void Trigger::RunDestination(std::string_view destination)
 {
     glm::vec3 destination_position;
-    glm::vec3 destination_direction;
+    glm::vec3 destination_direction{};
     glm::mat3 rotation;
     /* Retail's named-entity path reads saved storage for these integers;
        natively a named entity stays in the current level. */
     int location_id;
     int entrance = 0;
     int current_location;
-    float angle;
-    bool named_entity;
+    float angle = 0;
 
     if (g_modal_owner != 0) {
         return;
@@ -841,8 +840,16 @@ void Trigger::RunDestination(std::string_view destination)
     ResetInactiveLevelDataVectors();
     current_location = GetLoadedLevelID();
     location_id = current_location;
-    named_entity =
-        FindEntityByName(destination, &destination_position, &angle, &destination_direction);
+    const bool party_destination = CompareTextIgnoreAsciiCase(destination, "PARTY") == 0;
+    const auto* marker = party_destination ? nullptr : m_pWorld->namedMarker(destination);
+    const bool named_entity = party_destination || marker;
+    if (party_destination)
+        destination_position = m_pWorld->party.eye();
+    else if (marker) {
+        destination_position = marker->position;
+        angle = marker->angle;
+        destination_direction = marker->direction;
+    }
     if (!named_entity) {
         if (destination.size() < 5) {
             return;
@@ -877,7 +884,8 @@ void Trigger::RunDestination(std::string_view destination)
             glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
                                           normalizedOrZero(glm::vec3(destination_direction))));
     }
-    ApplyCameraRotation(&rotation);
+    // PARTY denotes the current point, not an authored facing. Retain its orientation.
+    if (!party_destination) ApplyCameraRotation(&rotation);
     SpawnCameraSpellEffect("set_portal", 1, 0, 0);
 }
 

@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 
@@ -95,16 +96,15 @@ private:
    encounter tables and spawns the dead shaman (0xcd) at VOC_SHAMAN_DYING. */
 void Trynnie1Script::enter()
 {
-    glm::vec3 vPos;
     glm::vec3 vPos2;
 
     bindTrigger("Fount_randomFX", &Trynnie1Script::fountRandomFX);
     if (ctx.game.testFact(W8_FACT_TRYNNIE_SHAMAN_DIES) == 1) {
         if (GetLocationVarIDByName("Trynnie1Killed") == -1) {
             KillTrynnieGroups(world());
-            if (!FindEntityByName("VOC_SHAMAN_DYING", &vPos, 0, 0))
-                throw std::runtime_error("level lacks VOC_SHAMAN_DYING");
-            vPos2 = vPos;
+            const auto vPos = world().namedPosition("VOC_SHAMAN_DYING");
+            if (!vPos) throw std::runtime_error("level lacks VOC_SHAMAN_DYING");
+            vPos2 = *vPos;
             [[maybe_unused]] auto* group = CreateGroup(0xcd, 1, &vPos2, true, true);
             assert(group != 0);
             CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "Trynnie1Killed", 1);

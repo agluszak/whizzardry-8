@@ -1,6 +1,7 @@
 #include "wiz8/level_specific_code/RapaxUpperFloor.h"
 
 #include <memory>
+#include <optional>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/data/fact_ids.h"
@@ -43,7 +44,6 @@ bool DoorDone(Trigger* pTrigger)
 {
     auto& game = CurrentGame();
     auto& owner = game.level.loaded();
-    glm::vec3 entity_position;
     glm::vec3 position;
     W8WorldItem* world_item;
     int item_id;
@@ -53,8 +53,8 @@ bool DoorDone(Trigger* pTrigger)
             if (GetLocationVarIDByName("TdoorOpen") != -1) {
                 if (GetLocationVarValueByName("TdoorOpen") == 0) {
                     item_id = GetLocationVarValueByName("TMakeTreasureNumber");
-                    if (FindEntityByName("NP_SlipItem", &entity_position, 0, 0)) {
-                        position = entity_position;
+                    if (auto entity_position = owner.namedPosition("NP_SlipItem")) {
+                        position = *entity_position;
                         world_item = owner.adoptItem(
                             game.spawnWorldItem(owner, item_id, &position,
                                                 W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
@@ -92,7 +92,6 @@ private:
    TMakeTreasureNumber location vars for DoorDone to deliver. */
 bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
 {
-    glm::vec3 entity_position;
     glm::vec3 position;
     W8WorldItem* world_item;
     int item_id;
@@ -113,8 +112,8 @@ bool RapaxUpperFloorScript::airBox(Trigger* pTrigger)
             }
             var_id = GetLocationVarIDByName("TdoorOpen");
             if (var_id == -1 || GetLocationVarValueByName("TdoorOpen") == 0) {
-                if (FindEntityByName("NP_SlipItem", &entity_position, 0, 0)) {
-                    position = entity_position;
+                if (auto entity_position = world().namedPosition("NP_SlipItem")) {
+                    position = *entity_position;
                     world_item = world().adoptItem(ctx.game.spawnWorldItem(
                         world(), item_id, &position, W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
                     if (world_item != 0) {

@@ -193,7 +193,9 @@ bool Monster::ResolveScriptPosition(std::string_view name, glm::vec3* position)
         *position = formation;
     } else if (CompareTextIgnoreAsciiCase(name, "off_camera") == 0) {
         position->x = position->y = position->z = -10000000.0f;
-    } else if (!FindEntityByName(name, position, 0, 0)) {
+    } else if (const auto found = owner_world.namedPosition(name)) {
+        *position = *found;
+    } else {
         return false;
     }
     return true;

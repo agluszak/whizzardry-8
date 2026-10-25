@@ -323,8 +323,6 @@ bool MartensBluff1Script::jDoorController(Trigger* pTrigger)
    script. Answers false only when the fact was already set. */
 bool MartensBluff1Script::transportSpawn()
 {
-    glm::vec3 position_a;
-    glm::vec3 position_b;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
     int location_id;
@@ -335,15 +333,17 @@ bool MartensBluff1Script::transportSpawn()
     if (ctx.combat.has_value()) {
         return true;
     }
-    if (!FindEntityByName("ANTRHACAX1", &position_a, 0, 0)) {
+    auto position_a = world().namedPosition("ANTRHACAX1");
+    if (!position_a) {
         return true;
     }
-    if (!FindEntityByName("ANTRHACAX2", &position_b, 0, 0)) {
+    auto position_b = world().namedPosition("ANTRHACAX2");
+    if (!position_b) {
         return true;
     }
-    CreateAndPlaySoundNode(world(), "Data\\Sound\\Ambients\\TrangTransporter.wav", position_a, 0.7f,
-                           30.0f, false);
-    group = SpawnMonsters(0x177, 1, &position_a, 0, true, false);
+    CreateAndPlaySoundNode(world(), "Data\\Sound\\Ambients\\TrangTransporter.wav", *position_a,
+                           0.7f, 30.0f, false);
+    group = SpawnMonsters(0x177, 1, &*position_a, 0, true, false);
     location_id = group->MemberLocationId(0);
     if (location_id != 0) {
         info = FindMonster(location_id);

@@ -126,6 +126,9 @@ struct World {
     void resumeMonstersAfterCombat();
     void refreshGroupNavigation(const W8MonsterGroup& group, bool combat_active);
     void replaceGroupLeader(W8MonsterGroup& group, bool combat_active);
+    // PARTY resolves to this world's eye position; authored markers also supply facing.
+    const W8NamedPosition* namedMarker(std::string_view name) const;
+    std::optional<glm::vec3> namedPosition(std::string_view name) const;
     bool projectsToCamera(const glm::vec3& point) const;
     std::optional<MonsterThreat> nearestThreat(const GameData& data, W8MonsterInfo& monster,
                                                W8VisibilityCondition visibility) const;
@@ -285,8 +288,6 @@ World* GetSecondaryWorld(void);
 
 void RefreshWorldView(void);
 ParticleSystem* FindParticleByName(std::string_view name);
-bool FindEntityByName(std::string_view name, glm::vec3* position, float* angle,
-                      glm::vec3* direction);
 // World-space throw vector from normalized screen coordinates.
 glm::vec3 ItemThrowDirection(const glm::vec2& cursor, const glm::mat3& camera_rotation);
 

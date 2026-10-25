@@ -1,6 +1,7 @@
 #include "wiz8/local_code/npc_story_events.h"
 
 #include <cstdint>
+#include <optional>
 
 #include "glm/ext/vector_float3.hpp"
 #include "local_code/MonsterManager.h"
@@ -304,15 +305,14 @@ void BeginSedexusCapture(const ScriptContext& context)
 static void ResolveSedexusCapture(void)
 {
     W8MonsterGroup* group;
-    glm::vec3 position;
     int location_id;
     W8MonsterInfo* info;
 
     ReleaseNpcMonsterByKind(0x3b);
     ReleaseNpcMonsterByKind(0x40);
     SetTriggerVariableByName("LezboDemonAppeared", 0);
-    if (FindEntityByName("np_al-adryian51", &position, 0, 0)) {
-        group = SpawnMonsters(0xd8, 1, &position, 2, true, false);
+    if (auto position = CurrentGame().level.loaded().namedPosition("np_al-adryian51")) {
+        group = SpawnMonsters(0xd8, 1, &*position, 2, true, false);
         location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             info = FindMonsterByLocation(location_id);
@@ -333,12 +333,11 @@ static void ResolveSedexusCapture(void)
    dirty either way. */
 static void NpcScriptHenchmanArrives(Monster* monster)
 {
-    glm::vec3 position;
     glm::vec3 origin;
 
-    if (FindEntityByName("NP_HENCHMEN", &position, 0, 0)) {
-        CurrentGame().pointCameraAtPosition(position, false, true);
-        W8MonsterGroup* group = SpawnMonsters(0xdc, 1, &position, 2, true, false);
+    if (auto position = monster->owner_world.namedPosition("NP_HENCHMEN")) {
+        CurrentGame().pointCameraAtPosition(*position, false, true);
+        W8MonsterGroup* group = SpawnMonsters(0xdc, 1, &*position, 2, true, false);
         int location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
@@ -519,9 +518,9 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
     }
     case W8NpcStoryAction::balbrak_home: {
         W8MonsterInfo* monster_info = FindNpcKindMonster(0xc);
-        glm::vec3 position;
-        if (monster_info != 0 && FindEntityByName("NP_Balbrakhome", &position, 0, 0)) {
-            monster_info->entity->SetPosition(&position);
+        if (auto point =
+                monster_info ? context.world->namedPosition("NP_Balbrakhome") : std::nullopt) {
+            monster_info->entity->SetPosition(&*point);
         }
         break;
     }
@@ -561,9 +560,8 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         break;
     }
     case W8NpcStoryAction::savant_appears: {
-        glm::vec3 position;
-        if (FindEntityByName("NP_DS1", &position, 0, 0)) {
-            W8MonsterGroup* group = SpawnMonsters(0x234, 1, &position, 0, true, false);
+        if (auto point = context.world->namedPosition("NP_DS1")) {
+            W8MonsterGroup* group = SpawnMonsters(0x234, 1, &*point, 0, true, false);
             int location_id = group->MemberLocationId(0);
             if (location_id != 0) {
                 W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
@@ -581,10 +579,9 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         if (monster_info != 0) {
             monster_info->startCycle(W8_MONSTER_CYCLE_SPECIAL, W8_ANIMATION_PLAY_ONCE);
         }
-        glm::vec3 position;
-        if (FindEntityByName("NP_PHOONZANGLEE", &position, 0, 0) &&
-            (monster_info = FindMonsterGroupLeader(0x197)) != 0) {
-            monster_info->entity->SetPosition(&position);
+        if (auto point = context.world->namedPosition("NP_PHOONZANGLEE");
+            point && (monster_info = FindMonsterGroupLeader(0x197)) != 0) {
+            monster_info->entity->SetPosition(&*point);
             monster_info->entity->ForwardReferencePosition(0);
             monster_info->startCycle(W8_MONSTER_CYCLE_ATTACK_SPECIAL, W8_ANIMATION_PLAY_ONCE);
         }
@@ -600,14 +597,13 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
             if (npc != 0) {
                 DismissNpcFromParty(npc->group_index, 0, true, false);
             }
-            glm::vec3 position;
-            if (FindEntityByName("NP_VI1", &position, 0, 0)) {
-                W8MonsterGroup* group = SpawnMonsters(0x1b9, 1, &position, 2, true, false);
+            if (auto point = context.world->namedPosition("NP_VI1")) {
+                W8MonsterGroup* group = SpawnMonsters(0x1b9, 1, &*point, 2, true, false);
                 int location_id = group->MemberLocationId(0);
                 if (location_id != 0) {
                     W8MonsterInfo* monster_info = FindMonsterByLocation(location_id);
-                    if (FindEntityByName("NP_DS1", &position, 0, 0)) {
-                        monster_info->entity->nav.AimAtPosition(&position);
+                    if (auto savant_position = context.world->namedPosition("NP_DS1")) {
+                        monster_info->entity->nav.AimAtPosition(&*savant_position);
                     }
                 }
             }
@@ -637,9 +633,8 @@ void RunNpcStoryAction(const ScriptContext& context, W8NpcStoryAction action)
         EndNpcDialogueSession(false);
         if (auto* world = context.world) world->party.camera.motion.stop();
         SetMonsterGroupScript(0x18c, "MoveBela.msf");
-        glm::vec3 position;
-        if (FindEntityByName("NP_DSExit", &position, 0, 0)) {
-            CurrentGame().pointCameraAtPosition(position, false, true);
+        if (auto point = context.world->namedPosition("NP_DSExit")) {
+            CurrentGame().pointCameraAtPosition(*point, false, true);
         }
         break;
     }

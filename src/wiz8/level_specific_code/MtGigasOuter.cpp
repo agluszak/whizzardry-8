@@ -160,8 +160,8 @@ bool MtGigasOuterScript::crank(Trigger* trigger)
         npc = CurrentGame().story.npcOfKind(0x2a);
         QueueNpcScriptNotice(npc, 0, 0x18, true, 0);
         ResumeNpc(npc, 1);
-        if (FindEntityByName("NP_catwalk", &position, 0, 0)) {
-            SpawnMonsters(0x14a, 1, &position, 1, true, false);
+        if (auto point = world().namedPosition("NP_catwalk")) {
+            SpawnMonsters(0x14a, 1, &*point, 1, true, false);
         }
         return true;
     }

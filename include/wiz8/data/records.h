@@ -335,7 +335,7 @@ struct W8NpcDatabaseRecord {
        invited. */
     unsigned char min_party_level;
     /* Retail offset 0x070/0x074: the level this NPC restores its binding at and the
-       FindEntityByName key the restore moves its monster to - the default
+       named world marker key the restore moves its monster to - the default
        pair copied into the runtime state's pending restore. */
     signed char restore_level;
     unsigned char unknown_071[3];

@@ -1,6 +1,7 @@
 #include "wiz8/level_specific_code/Trynnie2.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -123,12 +124,11 @@ bool MeatMaker(Trigger* pTrigger)
 {
     auto& game = CurrentGame();
     auto& owner = game.level.loaded();
-    glm::vec3 entity_position;
     glm::vec3 position;
     W8WorldItem* item;
 
-    if (FindEntityByName("Meat_Position", &entity_position, 0, 0)) {
-        position = entity_position;
+    if (auto entity_position = owner.namedPosition("Meat_Position")) {
+        position = *entity_position;
         item = owner.adoptItem(game.spawnWorldItem(owner, 0x1b4, &position,
                                                    W8_ITEM_ENTITY_PULSE | W8_ITEM_ENTITY_ROTATE));
         if (item != 0) {
@@ -225,7 +225,6 @@ std::unique_ptr<LevelScript> MakeTrynnie2Script(const ScriptContext& context)
 bool Trynnie2UseItem(const ScriptContext& context, W8ItemLocation location)
 {
     const W8ItemInstance* item = context.inventory.itemAt(location);
-    glm::vec3 position;
 
     if (item->iItemNo != 0x1b3 && item->iItemNo != 0x1c3) {
         return false;
@@ -243,8 +242,8 @@ bool Trynnie2UseItem(const ScriptContext& context, W8ItemLocation location)
         context.status.use_item_latch = true;
     } else {
         context.game.queueWorldMessage(Data().strings[0x969]);
-        if (FindEntityByName("NP_MysticalShaman", &position, 0, 0)) {
-            SpawnMonsters(0xec, 1, &position, 0, true, false);
+        if (auto position = context.world->namedPosition("NP_MysticalShaman")) {
+            SpawnMonsters(0xec, 1, &*position, 0, true, false);
         }
     }
     context.inventory.take(location);

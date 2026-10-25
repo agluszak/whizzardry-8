@@ -68,10 +68,8 @@ namespace {
 /* Spawns one Alfie monster at a named entity, if the entity is present. */
 void SpawnAlfieAt(const char* entity, int monster_id)
 {
-    glm::vec3 position;
-
-    if (FindEntityByName(entity, &position, 0, 0)) {
-        SpawnMonsters(monster_id, 1, &position, 0, true, false);
+    if (auto position = CurrentGame().level.loaded().namedPosition(entity)) {
+        SpawnMonsters(monster_id, 1, &*position, 0, true, false);
     }
 }
 
@@ -79,19 +77,17 @@ void SpawnAlfieAt(const char* entity, int monster_id)
    peak. */
 void SpawnAscensionAmbush()
 {
-    glm::vec3 position;
-
-    if (FindEntityByName("NP_Rapax02", &position, 0, 0)) {
-        SpawnMonsters(0xc3, 3, &position, 0, true, false);
+    if (auto position = CurrentGame().level.loaded().namedPosition("NP_Rapax02")) {
+        SpawnMonsters(0xc3, 3, &*position, 0, true, false);
     }
-    if (FindEntityByName("NP_Rapax03", &position, 0, 0)) {
-        SpawnMonsters(0xc4, 6, &position, 0, true, false);
+    if (auto position = CurrentGame().level.loaded().namedPosition("NP_Rapax03")) {
+        SpawnMonsters(0xc4, 6, &*position, 0, true, false);
     }
-    if (FindEntityByName("NP_Rapax05", &position, 0, 0)) {
-        SpawnMonsters(0xc5, 6, &position, 0, true, false);
+    if (auto position = CurrentGame().level.loaded().namedPosition("NP_Rapax05")) {
+        SpawnMonsters(0xc5, 6, &*position, 0, true, false);
     }
-    if (FindEntityByName("NP_Prince", &position, 0, 0)) {
-        SpawnMonsters(0xb2, 1, &position, 0, true, false);
+    if (auto position = CurrentGame().level.loaded().namedPosition("NP_Prince")) {
+        SpawnMonsters(0xb2, 1, &*position, 0, true, false);
     }
 }
 
@@ -156,7 +152,6 @@ void AscensionScript::enter()
    trigger once. */
 void AscensionScript::peakInit()
 {
-    glm::vec3 position;
     int count = CountAscensionPeakItems(ctx.inventory);
 
     if (count > 1) {
@@ -164,11 +159,11 @@ void AscensionScript::peakInit()
             W8MonsterGroup* group = nullptr;
 
             avalanche(true);
-            if (FindEntityByName("NP_Rapax01", &position, 0, 0)) {
-                group = SpawnMonsters(0xb1, 6, &position, 1, true, false);
+            if (auto position = world().namedPosition("NP_Rapax01")) {
+                group = SpawnMonsters(0xb1, 6, &*position, 1, true, false);
             }
-            if (FindEntityByName("NP_Rapax04", &position, 0, 0)) {
-                SpawnMonsters(0xf, 4, &position, 1, true, false);
+            if (auto position = world().namedPosition("NP_Rapax04")) {
+                SpawnMonsters(0xf, 4, &*position, 1, true, false);
             }
             if (group != nullptr) {
                 W8MonsterInfo* info = FindMonster(group->leader_location_id);
@@ -185,8 +180,8 @@ void AscensionScript::peakInit()
 
             if (npc != 0 && npc->greeting_pending && npc->spawned == 0 && !npc->party_noticed &&
                 ctx.game.testFact(W8_FACT_TEMPLAR) != 0) {
-                if (FindEntityByName("NP_Daughter", &position, 0, 0)) {
-                    SpawnMonsters(0x18d, 1, &position, 0, true, false);
+                if (auto position = world().namedPosition("NP_Daughter")) {
+                    SpawnMonsters(0x18d, 1, &*position, 0, true, false);
                     ctx.game.setFact(static_cast<W8FactId>(0x327), 1);
                 }
                 CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_SpawnDaughter",
@@ -196,8 +191,8 @@ void AscensionScript::peakInit()
     }
     if (count == 3) {
         if (GetLocationVarIDByName("AP_All3Items") == -1) {
-            if (FindEntityByName("NP_Savants01", &position, 0, 0)) {
-                SpawnMonsters(0x1a0, 6, &position, 1, true, false);
+            if (auto position = world().namedPosition("NP_Savants01")) {
+                SpawnMonsters(0x1a0, 6, &*position, 1, true, false);
             }
             if (ctx.game.testFact(W8_FACT_TMISSION_MEET_ZANT_AT_AP) != 0 ||
                 ctx.game.testFact(W8_FACT_UMISSION_MEET_AP_ASSIGN) != 0) {
@@ -336,13 +331,11 @@ bool AscensionScript::knowATrigger(Trigger* pTrigger)
    (0x18c) and latch AP_DSSpawned so Path1Camera knows they arrived. */
 bool AscensionScript::darkSavantSpawn(Trigger* pTrigger)
 {
-    glm::vec3 position;
-
-    if (FindEntityByName("NP_DSavant", &position, 0, 0)) {
-        SpawnMonsters(0xc2, 1, &position, 0, true, false);
+    if (auto position = world().namedPosition("NP_DSavant")) {
+        SpawnMonsters(0xc2, 1, &*position, 0, true, false);
     }
-    if (FindEntityByName("NP_Bela", &position, 0, 0)) {
-        SpawnMonsters(0x18c, 1, &position, 0, true, false);
+    if (auto position = world().namedPosition("NP_Bela")) {
+        SpawnMonsters(0x18c, 1, &*position, 0, true, false);
     }
     if (GetLocationVarIDByName("AP_DSSpawned") == -1) {
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "AP_DSSpawned", 1);

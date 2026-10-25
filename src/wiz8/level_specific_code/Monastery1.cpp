@@ -1,6 +1,7 @@
 #include "wiz8/level_specific_code/Monastery1.h"
 
 #include <memory>
+#include <optional>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/data/spell_ids.h"
@@ -51,26 +52,21 @@ void ClearTextForBarTrigger()
    RoachesSpawned so later activations do nothing. */
 bool OnRoachTriggerActivated(Trigger* trigger)
 {
-    glm::vec3 positions[3];
-
     if (GetLocationVarIDByName("RoachesSpawned") != -1) {
         return false;
     }
-    if (!FindEntityByName("location_roach01", &positions[0], 0, 0)) {
-        return false;
-    }
-    if (!FindEntityByName("location_roach02", &positions[1], 0, 0)) {
-        return false;
-    }
-    if (!FindEntityByName("location_roach03", &positions[2], 0, 0)) {
-        return false;
-    }
-    positions[0].z += 1e+03f;
-    positions[1].z += 1e+03f;
-    positions[2].z += 1e+03f;
-    SpawnMonsters(0x138, 3, &positions[0], 1, false, false);
-    SpawnMonsters(0x138, 3, &positions[1], 1, false, false);
-    SpawnMonsters(0x138, 3, &positions[2], 1, false, false);
+    auto first = CurrentGame().level.loaded().namedPosition("location_roach01");
+    if (!first) return false;
+    auto second = CurrentGame().level.loaded().namedPosition("location_roach02");
+    if (!second) return false;
+    auto third = CurrentGame().level.loaded().namedPosition("location_roach03");
+    if (!third) return false;
+    first->z += 1000.0f;
+    second->z += 1000.0f;
+    third->z += 1000.0f;
+    SpawnMonsters(0x138, 3, &*first, 1, false, false);
+    SpawnMonsters(0x138, 3, &*second, 1, false, false);
+    SpawnMonsters(0x138, 3, &*third, 1, false, false);
     CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "RoachesSpawned", 1);
     return true;
 }
@@ -79,10 +75,8 @@ bool OnRoachTriggerActivated(Trigger* trigger)
    (kind 0x19c) at the spiderman entity when it exists. */
 bool OnSpiderTriggerActivated(Trigger* trigger)
 {
-    glm::vec3 position;
-
-    if (FindEntityByName("spiderman", &position, 0, 0)) {
-        SpawnMonsters(0x19c, 6, &position, 1, false, false);
+    if (auto position = CurrentGame().level.loaded().namedPosition("spiderman")) {
+        SpawnMonsters(0x19c, 6, &*position, 1, false, false);
     }
     return true;
 }
@@ -103,10 +97,10 @@ bool OnBarTriggerActivated(Trigger* trigger)
    (kind 0x12d) at the Head entity and records HeadSpawned. */
 bool OnCoffinlideActivated(Trigger* trigger)
 {
-    glm::vec3 position;
-
-    if (GetLocationVarIDByName("HeadSpawned") == -1 && FindEntityByName("Head", &position, 0, 0)) {
-        SpawnMonsters(0x12d, 1, &position, 1, true, false);
+    if (auto point = GetLocationVarIDByName("HeadSpawned") == -1
+                         ? CurrentGame().level.loaded().namedPosition("Head")
+                         : std::nullopt) {
+        SpawnMonsters(0x12d, 1, &*point, 1, true, false);
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "HeadSpawned", 1);
     }
     return true;

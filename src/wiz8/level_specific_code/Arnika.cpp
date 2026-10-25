@@ -358,7 +358,6 @@ bool ArnikaScript::runElevatorMoving(W8Elevator& elevator, const ElevatorStateBi
    monster is still present ends setup before the teleport. */
 void ArnikaScript::setup()
 {
-    glm::vec3 position;
     W8NpcState* npc;
     W8MonsterInfo* monster_info;
     Trigger* pTrigger;
@@ -393,9 +392,10 @@ void ArnikaScript::setup()
         npc = CurrentGame().story.npcOfKind(0x18);
         if (npc != 0) {
             monster_info = GetNpcMonsterInfo(npc);
-            if (monster_info != 0 && monster_info->entity &&
-                FindEntityByName("Inside_Inn", &position, 0, 0)) {
-                monster_info->entity->SetPosition(&position);
+            if (auto point = monster_info != 0 && monster_info->entity
+                                 ? world().namedPosition("Inside_Inn")
+                                 : std::nullopt) {
+                monster_info->entity->SetPosition(&*point);
             }
         }
     }
@@ -457,26 +457,23 @@ bool ArnikaScript::scannerDoor(Trigger* pTrigger)
    stops the looped VOC when it expires. */
 bool ArnikaScript::warningSound(int command)
 {
-    glm::vec3 position;
-
     if (command != 0) {
         if (GetLocationVarIDByName("WarningSound") == -1) {
             CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "WarningSound", 0x1e);
         }
-        if (!FindEntityByName("ULLspawn", &position, 0, 0)) {
-            return false;
-        }
+        auto position = world().namedPosition("ULLspawn");
+        if (!position) return false;
         warning_gate_.reset();
         if (command <= 0x1e) {
             warning_gate_.emplace(world().clocks, static_cast<float>(command), TimerClock::World,
                                   true);
         } else {
             warning_oneshot_ = CreateAndPlaySoundNode(
-                world(), "Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_002.wav", position,
+                world(), "Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_002.wav", *position,
                 1.0f, 100.0f, false);
         }
         warning_loop_ = CreateAndPlaySoundNode(
-            world(), "Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav", position, 1.0f,
+            world(), "Data\\Sound\\VOCs\\VOC_HLLIntruder\\VOC_HLLIntruder_003.wav", *position, 1.0f,
             75.0f, true);
         if (warning_loop_ != 0 || warning_oneshot_ != 0) {
             addMaster(&ArnikaScript::warningSound, &ArnikaScript::captureWarningSound);
@@ -507,7 +504,6 @@ bool ArnikaScript::warningSound(int command)
    watch and queues the NPC notice. */
 bool ArnikaScript::mookholo(Trigger* pTrigger)
 {
-    glm::vec3 position;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
     int location_id;
@@ -523,8 +519,8 @@ bool ArnikaScript::mookholo(Trigger* pTrigger)
         GetLocationVarValueByName("MookDoorOpen") != 0) {
         return false;
     }
-    if (FindEntityByName("Mookholo", &position, 0, 0)) {
-        group = SpawnMonsters(0xb, 1, &position, 0, true, false);
+    if (auto position = world().namedPosition("Mookholo")) {
+        group = SpawnMonsters(0xb, 1, &*position, 0, true, false);
         if (GetLocationVarIDByName("ScregActive") != -1) {
             SetTriggerVariableByName("ScregActive", 1);
         } else {
@@ -581,13 +577,12 @@ bool ArnikaScript::mookFrontDoor(Trigger* pTrigger)
    bank guards at Bguards and puts the first on the guard script. */
 bool ArnikaScript::yellowButton(Trigger* pTrigger)
 {
-    glm::vec3 position;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
 
     g_trigger_feedback = true;
-    if (FindEntityByName("Bguards", &position, 0, 0)) {
-        group = SpawnMonsters(0xc, 6, &position, 1, true, false);
+    if (auto position = world().namedPosition("Bguards")) {
+        group = SpawnMonsters(0xc, 6, &*position, 1, true, false);
         if (group != 0) {
             info = FindMonster(group->leader_location_id);
             info->entity->SetScript("guard.msf", true);
@@ -654,14 +649,12 @@ bool ArnikaScript::teleportWatch(int command)
    entity. */
 bool ArnikaScript::genVaultDoor(Trigger* pTrigger)
 {
-    glm::vec3 position;
-
-    if (FindEntityByName("Golem", &position, 0, 0)) {
+    if (auto position = world().namedPosition("Golem")) {
         if (GetLocationVarIDByName("GolemSpawned") != -1) {
             return false;
         }
         CurrentGame().story.ensureLocationVariable(GetLoadedLevelID(), "GolemSpawned", 1);
-        SpawnMonsters(0x31, 1, &position, 1, true, false);
+        SpawnMonsters(0x31, 1, &*position, 1, true, false);
         wiz8::sound::play("Data\\Sound\\Ambients\\Temp Transporting.wav");
     }
     return true;

@@ -46,6 +46,7 @@
 #include "wiz8/local_code/MonsterManager.h"
 #include "wiz8/local_code/PC_Item.h"
 #include "wiz8/local_code/Targeting.h"
+#include "wiz8/named_position.h"
 #include "wiz8/render/camera_shake.h"
 #include "wiz8/render/clip_plane.h"
 #include "wiz8/render/light.h"
@@ -353,7 +354,7 @@ TEST_CASE("Reward accounting follows its game and world, not installed state or 
     REQUIRE_FALSE(outgoing.game.npc_dialogue.has_queued_actions());
 }
 
-TEST_CASE("An unloaded monster target has no position", "[levels][targeting]")
+TEST_CASE("World target queries use their own pose and authored markers", "[levels][targeting]")
 {
     World world{8};
     W8CombatSlot target{};
@@ -366,6 +367,15 @@ TEST_CASE("An unloaded monster target has no position", "[levels][targeting]")
     target.iType = W8_TARGET_KIND_PARTY;
     REQUIRE(world.targetPoint(target, false) == world.party.eye());
     REQUIRE(world.targetPoint(target, true) == world.party.position() + glm::vec3{0, 1000, 0});
+    auto& marker = world.named_positions.emplace_back();
+    std::strcpy(marker.name, "pArTy");
+    marker.position = {11, 22, 33};
+    REQUIRE(world.namedPosition("PARTY") == world.party.eye()); // Alias precedes authored names.
+    REQUIRE(world.namedMarker("party") == &marker);
+    std::strcpy(marker.name, "Marker");
+    REQUIRE(world.namedPosition("mArKeR") == marker.position);
+    REQUIRE_FALSE(world.namedPosition(""));
+    REQUIRE_FALSE(world.namedPosition("absent"));
 }
 
 TEST_CASE("An untimed camera trigger owns its shake until the event is removed",

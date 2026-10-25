@@ -203,7 +203,6 @@ void MtGigas2Script::setup()
         GetLocationVarValueByName("CODESgtRubbleTeleport") == 2) {
         W8NpcState* npc;
         W8MonsterInfo* info;
-        glm::vec3 position;
 
         SetTriggerVariableByName("CODESgtRubbleTeleport", 1);
         RunNamedTrigger("door08", -1);
@@ -211,8 +210,8 @@ void MtGigas2Script::setup()
         npc = CurrentGame().story.npcOfKind(0x29);
         if (npc != 0) {
             info = GetNpcMonsterInfo(npc);
-            if (info != 0 && FindEntityByName("RubbleCovert", &position, 0, 0)) {
-                info->entity->SetPosition(&position);
+            if (auto point = info != 0 ? world().namedPosition("RubbleCovert") : std::nullopt) {
+                info->entity->SetPosition(&*point);
             }
         }
     }

@@ -1,8 +1,8 @@
 #include "wiz8/level_specific_code/SeaCaves.h"
 
 #include <memory>
+#include <optional>
 
-#include "glm/ext/vector_float3.hpp"
 #include "monster_cycles.h"
 #include "wiz8/entities/monster.h"
 #include "wiz8/entities/trigger.h"
@@ -23,10 +23,8 @@ namespace {
 /* Spawns one hostile spirit at the named entity, if it exists. */
 bool SpawnSpiritAt(const char* entity)
 {
-    glm::vec3 position;
-
-    if (FindEntityByName(entity, &position, 0, 0)) {
-        SpawnMonsters(0x1f2, 1, &position, 1, false, false);
+    if (auto position = CurrentGame().level.loaded().namedPosition(entity)) {
+        SpawnMonsters(0x1f2, 1, &*position, 1, false, false);
     }
     return true;
 }

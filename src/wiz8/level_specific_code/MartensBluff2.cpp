@@ -190,7 +190,6 @@ void MartensBluff2Script::setup()
     Trigger* pTrigger;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
-    glm::vec3 position;
     RavenQuestState quest_state;
     int location_id;
     int value;
@@ -213,8 +212,8 @@ void MartensBluff2Script::setup()
             }
             FindTriggerByName("DummyLever")->flags &= ~W8_TRIGGER_ENABLED;
             if (quest_state == RavenQuestState::perfume_used) {
-                if (FindEntityByName("Ravenz", &position, 0, 0)) {
-                    group = SpawnMonsters(0x183, 1, &position, 0, true, false);
+                if (auto position = world().namedPosition("Ravenz")) {
+                    group = SpawnMonsters(0x183, 1, &*position, 0, true, false);
                     location_id = group->MemberLocationId(0);
                     if (location_id != 0) {
                         info = FindMonster(location_id);
@@ -250,19 +249,18 @@ void MartensBluff2Script::setup()
 
 void FireTrapLauncher(World& world, const char* name, W8SpellEffectDefinition* effect)
 {
-    glm::vec3 position;
     glm::vec3 offset;
-    glm::vec3 direction;
     glm::mat3 rotation;
-    float angle;
     Missile* missile;
 
-    if (FindEntityByName(name, &position, &angle, &direction)) {
+    if (const auto* marker = world.namedMarker(name)) {
+        auto position = marker->position;
         offset = glm::vec3(0.0, 0.0, 15000.0);
         rotation = glm::mat3(1);
-        if (angle != 0.0) {
-            rotation *= glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
-                                                      normalizedOrZero(glm::vec3(direction))));
+        if (marker->angle != 0.0) {
+            rotation *= glm::mat3_cast(
+                glm::angleAxis(float(std::atan2(sin(marker->angle), cos(marker->angle))),
+                               normalizedOrZero(glm::vec3(marker->direction))));
         }
         offset = position + glm::vec3{rotation * offset};
         missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
@@ -277,11 +275,8 @@ void FireTrapLauncher(World& world, const char* name, W8SpellEffectDefinition* e
 bool MartensBluff2Script::arrowTrap(Trigger* pTrigger)
 {
     W8SpellEffectDefinition effect;
-    glm::vec3 position;
     glm::vec3 offset;
-    glm::vec3 direction;
     glm::mat3 rotation;
-    float angle;
     Missile* missile;
 
     effect = {};
@@ -291,11 +286,12 @@ bool MartensBluff2Script::arrowTrap(Trigger* pTrigger)
     FireTrapLauncher(world(), "Arrowlauncher1", &effect);
     FireTrapLauncher(world(), "Arrowlauncher2", &effect);
     FireTrapLauncher(world(), "Arrowlauncher3", &effect);
-    if (FindEntityByName("Arrowlauncher4", &position, &angle, &direction)) {
+    if (const auto* marker = world().namedMarker("Arrowlauncher4")) {
+        auto position = marker->position;
         offset = glm::vec3(0.0, 0.0, 15000.0);
         rotation = glm::mat3(1);
-        rotation *=
-            glm::mat3_cast(glm::angleAxis(float(angle), normalizedOrZero(glm::vec3(direction))));
+        rotation *= glm::mat3_cast(
+            glm::angleAxis(float(marker->angle), normalizedOrZero(glm::vec3(marker->direction))));
         offset = rotation * offset + position;
         missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
         missile->SetEffectDefinition(&effect);
@@ -318,11 +314,8 @@ void MartensBluff2Script::captureSpikeball(W8SavedLocationState& state)
 bool MartensBluff2Script::spikeball(int command)
 {
     W8SpellEffectDefinition effect;
-    glm::vec3 position;
     glm::vec3 offset;
-    glm::vec3 direction;
     glm::mat3 rotation;
-    float angle;
     Missile* missile;
 
     if (command != 0) {
@@ -352,13 +345,14 @@ bool MartensBluff2Script::spikeball(int command)
             FireTrapLauncher(world(), "Spikeball-launcher1", &effect);
             FireTrapLauncher(world(), "Spikeball-launcher2", &effect);
             FireTrapLauncher(world(), "Spikeball-launcher3", &effect);
-            if (FindEntityByName("Spikeball-launcher4", &position, &angle, &direction)) {
+            if (const auto* marker = world().namedMarker("Spikeball-launcher4")) {
+                auto position = marker->position;
                 offset = glm::vec3(0.0, 0.0, 15000.0);
                 rotation = glm::mat3(1);
-                if (angle != 0.0) {
-                    rotation *=
-                        glm::mat3_cast(glm::angleAxis(float(std::atan2(sin(angle), cos(angle))),
-                                                      normalizedOrZero(glm::vec3(direction))));
+                if (marker->angle != 0.0) {
+                    rotation *= glm::mat3_cast(
+                        glm::angleAxis(float(std::atan2(sin(marker->angle), cos(marker->angle))),
+                                       normalizedOrZero(glm::vec3(marker->direction))));
                 }
                 offset = rotation * offset + position;
                 missile = FireMissile(0, &position, &offset, 0, 0, 1, 50000.0f);
@@ -400,7 +394,6 @@ bool MartensBluff2Script::dummy(Trigger* pTrigger)
    Always returns 0. */
 bool MartensBluff2Script::perfumeBox(Trigger* pTrigger)
 {
-    glm::vec3 position;
     W8MonsterGroup* group;
     W8MonsterInfo* info;
     int location_id;
@@ -417,8 +410,8 @@ bool MartensBluff2Script::perfumeBox(Trigger* pTrigger)
     (void)ctx.inventory.take({W8ItemStorage::Hand});
     pTrigger->flags &= ~W8_TRIGGER_ENABLED;
     quest_state = RavenQuestState::perfume_used;
-    if (FindEntityByName("Ravenz", &position, 0, 0)) {
-        group = SpawnMonsters(0x183, 1, &position, 0, true, false);
+    if (auto position = world().namedPosition("Ravenz")) {
+        group = SpawnMonsters(0x183, 1, &*position, 0, true, false);
         location_id = group->MemberLocationId(0);
         if (location_id != 0) {
             info = FindMonster(location_id);

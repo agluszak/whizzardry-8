@@ -1,6 +1,7 @@
 #include "wiz8/level_specific_code/MtGigas1.h"
 
 #include <memory>
+#include <optional>
 
 #include "glm/ext/vector_float3.hpp"
 #include "wiz8/audio/soundman.h"
@@ -54,10 +55,8 @@ void RunPlateTrigger(const char* name, W8AnimationDirection direction)
    NP_BadassMonster entity. */
 bool MudWall(Trigger* pTrigger)
 {
-    glm::vec3 position;
-
-    if (FindEntityByName("NP_BadassMonster", &position, 0, 0)) {
-        SpawnMonsters(0x157, 1, &position, 1, true, false);
+    if (auto position = CurrentGame().level.loaded().namedPosition("NP_BadassMonster")) {
+        SpawnMonsters(0x157, 1, &*position, 1, true, false);
     }
     return true;
 }

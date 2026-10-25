@@ -98,7 +98,7 @@ struct W8NpcState : std::enable_shared_from_this<W8NpcState> {
     unsigned int refusal_flags;
     /* 0x089: five topics stored one more than their id so zero means empty. */
     int topics[5];
-    char restore_entity_name[0x28]; /* 0x9d: FindEntityByName key for restore */
+    char restore_entity_name[0x28]; /* 0x9d: named world marker key for restore */
     /* 0x0c5/0x0c6: the pending-restore flag and the level it belongs to. */
     bool pending_restore;
     unsigned char pending_restore_level;
