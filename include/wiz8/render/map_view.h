@@ -43,7 +43,7 @@ public:
     // The map graph over these static instances, updated for this pass.
     vsg::ref_ptr<vsg::Group> prepare(render::RenderContext& context,
                                      std::span<const std::unique_ptr<MeshInstance>> instances,
-                                     const ScenePass& pass);
+                                     const ScenePass& pass, std::uint64_t frame_number);
 
 private:
     struct Surface;

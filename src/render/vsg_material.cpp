@@ -308,6 +308,21 @@ InstanceBlock packInstance(const MeshInstance& instance, const Mesh& mesh, const
                       0, 0}};
 }
 
+vsg::ref_ptr<vsg::BindDescriptorSet> sharedMaterials(RenderContext& context, MeshAsset::Pass& pass,
+                                                     double time, std::uint64_t frame_number)
+{
+    // Pass-wide material changes keep the slot count; only a new asset changes it.
+    if (!pass.material_block) {
+        pass.material_block = makeArray(packPass(pass.materials, pass.draw_flags, true, time));
+    } else if (pass.material_frame != frame_number) {
+        store(*pass.material_block, packPass(pass.materials, pass.draw_flags, true, time));
+    }
+    pass.material_frame = frame_number;
+    if (!pass.material_bind || pass.material_bind->layout != context.layout)
+        pass.material_bind = context.descriptor(2, pass.material_block);
+    return pass.material_bind;
+}
+
 vsg::ref_ptr<vsg::vec4Array> makeArray(std::span<const glm::vec4> values,
                                        vsg::DataVariance variance)
 {

@@ -29,11 +29,7 @@ enum W8MeshFrameData {
     W8_MESH_FRAME_POLYGON_NORMALS = 4
 };
 
-enum W8MeshModelFlag {
-    W8_MESH_SORTED_RENDERING = 1,
-    W8_MESH_VERTEX_LIGHTING_DIRTY = 2,
-    W8_MESH_HAS_FRAME_STORAGE = 4
-};
+enum W8MeshModelFlag { W8_MESH_SORTED_RENDERING = 1, W8_MESH_HAS_FRAME_STORAGE = 4 };
 
 namespace render {
 struct MeshAsset;
@@ -79,9 +75,6 @@ public:
     Mesh& operator=(const Mesh&) = delete;
 
     Bounds getBounds();
-    /* Bakes pending vertex lighting into the render asset's first-pass colours.
-       Rendering calls this before it draws the asset. */
-    void applyPendingLighting();
     std::shared_ptr<render::MeshAsset> renderAsset();
     std::vector<std::shared_ptr<Texture>>* getPolygonTextureTable(std::int32_t pass,
                                                                   std::int32_t layer, bool create);
@@ -187,8 +180,16 @@ public:
     std::vector<glm::vec3> decodeFrame(unsigned int frame, unsigned char kind) const;
     /* One vertex's position in `frame`, for attachments that follow a source frame. */
     std::optional<glm::vec3> framePosition(unsigned int frame, int vertex) const;
-    void SetAmbientColor(const glm::vec3& color, const glm::vec3& environment = glm::vec3(0),
-                         float brightness = 1.0f);
+    /* Whether placements bake vertex colours: the mesh has both authored
+       vertex lights and sunlight. */
+    bool hasVertexLighting() const { return !vertex_lights.empty() && !vertex_sunlight.empty(); }
+    /* One placement's first-pass vertex colours: sunlight scaled by the scene
+       ambient and the vertex's material ambient, plus the authored and the
+       placement's own light (empty for none), offset by the environment and
+       scaled by brightness. */
+    std::vector<glm::vec3> bakedLighting(const glm::vec3& ambient, const glm::vec3& environment,
+                                         float brightness,
+                                         std::span<const glm::vec3> placement_lights) const;
     std::span<glm::vec3> GetVertexLights(bool initialize); /* 0x00472100 */
     std::span<float> GetVertexSunlight(bool initialize); /* 0x004721E0 */
     void InitializeVertexFrames(int frames); /* 0x00473B00 */
@@ -220,10 +221,8 @@ public:
         bool blanking_checked = false;
     };
     unsigned int flags;
-    glm::vec3 ambient_color;
-    glm::vec3 environment_offset{0};
-    float brightness = 1.0f;
-    /* m_pVertLights: per-vertex static lighting, zero-filled on demand. */
+    /* m_pVertLights: authored per-vertex static lighting, zero-filled on
+       demand. Lights baked for one placement stay with its MeshInstance. */
     std::vector<glm::vec3> vertex_lights;
     /* Per-vertex sunlight intensity, filled with 1.0f on demand. */
     std::vector<float> vertex_sunlight;
@@ -239,7 +238,6 @@ public:
 
 private:
     std::shared_ptr<render::MeshAsset> render_asset_;
-    void updateBakedLighting();
 };
 
 // Iterate concrete owned submeshes without a linked-list compatibility API.

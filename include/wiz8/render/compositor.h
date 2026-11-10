@@ -8,6 +8,7 @@
 #include <SDL3/SDL_rect.h>
 #include <vsg/core/Array.h>
 #include <vsg/core/Array2D.h>
+#include <vsg/nodes/MatrixTransform.h>
 #include <vsg/nodes/StateGroup.h>
 #include <vsg/nodes/Switch.h>
 #include <vsg/state/PipelineLayout.h>
@@ -66,7 +67,7 @@ struct OverlayQuad {
 private:
     friend class Compositor;
     friend class Renderer;
-    vsg::ref_ptr<vsg::vec3Array> positions;
+    vsg::ref_ptr<vsg::MatrixTransform> transform;
     vsg::ref_ptr<vsg::vec2Array> texcoords;
     vsg::ref_ptr<vsg::vec4Array> colors;
     vsg::ref_ptr<vsg::StateGroup> state;

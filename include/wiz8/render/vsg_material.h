@@ -25,6 +25,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include "wiz8/render/draw_inputs.h"
+#include "wiz8/render/render_mesh.h"
 
 class Material;
 class Mesh;
@@ -86,6 +87,11 @@ std::vector<glm::vec4> packPass(std::span<const std::shared_ptr<Material>> mater
                                 std::uint32_t draw_flags, bool has_normals, double time);
 InstanceBlock packInstance(const MeshInstance& instance, const Mesh& mesh, const ScenePass& pass,
                            bool reverse_normals = false);
+// The binding of a mesh pass's authored materials, shared by every instance and
+// view that draws them unchanged. The first user in a frame repacks them, so
+// material edits and UV animation reach all of them; a new layout rebinds.
+vsg::ref_ptr<vsg::BindDescriptorSet> sharedMaterials(RenderContext& context, MeshAsset::Pass& pass,
+                                                     double time, std::uint64_t frame_number);
 
 vsg::ref_ptr<vsg::vec4Array> makeArray(std::span<const glm::vec4> values,
                                        vsg::DataVariance variance = vsg::DYNAMIC_DATA);

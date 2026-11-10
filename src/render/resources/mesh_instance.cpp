@@ -208,6 +208,7 @@ MeshInstance& MeshInstance::operator=(const MeshInstance& other)
     skin = other.skin;
     damage_stage = other.damage_stage;
     baked_models = other.baked_models;
+    baked_lights = other.baked_lights;
     highlight_pass_mode = other.highlight_pass_mode;
     highlight_material.reset();
     light_scale = other.light_scale;
@@ -234,6 +235,11 @@ std::optional<glm::vec3> MeshInstance::sampledPosition(const Mesh& mesh, std::si
     return node_->sampledPosition(mesh, index);
 }
 
+std::span<const glm::vec3> MeshInstance::bakedColors(const Mesh& mesh) const
+{
+    return node_->bakedColors(mesh);
+}
+
 namespace render {
 
 struct InstanceNode::Part {
@@ -251,8 +257,11 @@ struct InstanceNode::Part {
     struct Pass {
         vsg::ref_ptr<vsg::Group> body;
         vsg::ref_ptr<vsg::CullNode> cull;
-        vsg::ref_ptr<vsg::vec4Array> data;
-        vsg::ref_ptr<vsg::BindDescriptorSet> bind;
+        // The materials the batches bind: the asset's shared block, or this
+        // instance's highlight block, created when it is first highlighted.
+        vsg::ref_ptr<vsg::BindDescriptorSet> bound;
+        vsg::ref_ptr<vsg::vec4Array> highlight_data;
+        vsg::ref_ptr<vsg::BindDescriptorSet> highlight_bind;
         vsg::ref_ptr<vsg::vec4Array> shell_data;
         vsg::ref_ptr<vsg::BindDescriptorSet> shell_bind;
         vsg::ref_ptr<vsg::vec3Array> expanded;
@@ -342,6 +351,14 @@ std::optional<glm::vec3> InstanceNode::sampledPosition(const Mesh& mesh, std::si
     return {};
 }
 
+std::span<const glm::vec3> InstanceNode::bakedColors(const Mesh& mesh)
+{
+    ensureParts();
+    for (const auto& part : parts)
+        if (part->mesh == &mesh) return part->pose.colors;
+    return {};
+}
+
 namespace {
 
 std::pair<vsg::ref_ptr<vsg::Node>, vsg::ref_ptr<vsg::vec4Array>>
@@ -420,12 +437,17 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
     for (auto& part : parts) {
         auto& mesh = *part->mesh;
         const int skin = instance->skinTable(mesh);
-        mesh.SetAmbientColor(glm::vec3(pass.ambient_light), pass.frame.environment_offset,
-                             pass.frame.brightness);
         part->pose.update(mesh, instance->frame_index, instance->frame_interpolation, skin,
                           !static_geometry);
         auto& pose = part->pose;
-        const auto& asset = *pose.asset;
+        auto& asset = *pose.asset;
+        const auto lights = instance->baked_lights.find(&mesh);
+        pose.light(mesh, {.ambient = glm::vec3(pass.ambient_light),
+                          .environment = pass.frame.environment_offset,
+                          .brightness = pass.frame.brightness,
+                          .placement_lights = lights == instance->baked_lights.end()
+                                                  ? std::span<const glm::vec3>{}
+                                                  : std::span<const glm::vec3>(lights->second)});
         auto instance_block = packInstance(*instance, mesh, pass);
         if (highlight_body) instance_block.overrides = glm::vec4(0);
         if (part->graph_asset != pose.asset || part->layout != context.layout) {
@@ -454,23 +476,35 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
             if (shadow) store(*part->shadow_data, packInstance(*instance, mesh, pass));
         }
         for (std::size_t pass_index = 0; pass_index < asset.passes.size(); ++pass_index) {
-            const auto& source = asset.passes[pass_index];
+            auto& source = asset.passes[pass_index];
             auto& sampled = pose.passes[pass_index];
             auto& cached = part->passes[pass_index];
-            auto materials = source.materials;
-            if (highlight_body && source.pass == 0 && source.material_side == 0)
-                std::ranges::fill(materials, instance->highlight_material);
-            const auto pass_values =
-                packPass(materials, source.draw_flags, !pose.normals.empty(), pass.frame.time);
+            auto bind = sharedMaterials(context, source, pass.frame.time, frame_number);
+            if (highlight_body && source.pass == 0 && source.material_side == 0) {
+                const std::vector materials(source.materials.size(), instance->highlight_material);
+                const auto values =
+                    packPass(materials, source.draw_flags, !pose.normals.empty(), pass.frame.time);
+                if (!cached.highlight_data) {
+                    cached.highlight_data = makeArray(values);
+                    cached.highlight_bind = context.descriptor(2, cached.highlight_data);
+                } else {
+                    store(*cached.highlight_data, values);
+                }
+                bind = cached.highlight_bind;
+            }
             if (!cached.body) {
                 cached.body = vsg::Group::create();
-                cached.data = makeArray(pass_values);
-                cached.bind = context.descriptor(2, cached.data);
                 cached.batches.resize(source.batches.size());
                 cached.cull = vsg::CullNode::create(vsg::dsphere(), cached.body);
                 part->graph->addChild(cached.cull);
-            } else {
-                store(*cached.data, pass_values);
+            }
+            if (cached.bound != bind) {
+                for (auto& state : cached.batches) {
+                    if (!state.leaf) continue;
+                    state.leaf->remove(cached.bound);
+                    state.leaf->add(bind);
+                }
+                cached.bound = bind;
             }
             const bool shell_part =
                 part == parts.front() || !(mesh.flags & W8_MESH_SORTED_RENDERING);
@@ -535,7 +569,7 @@ void InstanceNode::prepare(RenderContext& context, const ScenePass& pass,
                     state.leaf->authored_normals = sampled.authored_normals;
                     state.leaf->cull = cull;
                     state.leaf->add(part->instance_bind);
-                    state.leaf->add(cached.bind);
+                    state.leaf->add(cached.bound);
                     cached.body->addChild(state.leaf);
                 }
                 auto& leaf = *state.leaf;

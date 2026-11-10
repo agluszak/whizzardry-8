@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <vector>
 
 #include <glm/glm.hpp>
@@ -72,6 +73,7 @@ public:
     void prepare(RenderContext&, const ScenePass&, std::uint64_t frame_number,
                  bool static_geometry = false);
     std::optional<glm::vec3> sampledPosition(const Mesh& mesh, std::size_t index);
+    std::span<const glm::vec3> bakedColors(const Mesh& mesh);
 
     MeshInstance* instance;
     bool static_geometry = false;
