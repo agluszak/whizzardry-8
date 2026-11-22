@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+#include <SDL3/SDL_rect.h>
 #include <fmt/format.h>
 
 #include "layouts/main_game_screen.h"
@@ -822,9 +823,15 @@ void MainGameScreen::updateHudButtons()
 void MainGameScreen::refreshHudButtons()
 {
     auto& buttons = hud_buttons;
-    for (auto& button : buttons.submenu) button.Refresh();
-    for (auto& button : buttons.submenu_scroll) button.Refresh();
-    for (auto& button : buttons.submenu_panel) button.Refresh();
+    // An open submenu sits over the bottom bar. Buttons it covers keep their
+    // pending redraw until it closes, which repaints the whole strip.
+    const auto refresh = [this](W8ButtonWidget& button) {
+        const SDL_Rect bounds = button.Bounds();
+        if (!submenu || !SDL_HasRectIntersection(&bounds, &submenu->bounds)) button.Refresh();
+    };
+    for (auto& button : buttons.submenu) refresh(button);
+    for (auto& button : buttons.submenu_scroll) refresh(button);
+    for (auto& button : buttons.submenu_panel) refresh(button);
     buttons.options_disk.Refresh();
     for (auto& button : buttons.combat_stance) button.Refresh();
     for (auto& button : buttons.roof) button.Refresh();
