@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 
 #include "wiz8/rules/targeting.h"
 
@@ -63,7 +64,8 @@ private:
     void ask(PointerRequest request);
 
     PointerRequest request_;
-    Look shown_;
+    // Empty until the first look is installed: the cursor image starts blank.
+    std::optional<Look> shown_;
     // A multi-frame slot's animation frame and when the next is due.
     int frame_ = 0;
     std::uint64_t next_frame_ = 0;

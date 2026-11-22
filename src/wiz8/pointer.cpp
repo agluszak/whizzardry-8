@@ -46,7 +46,7 @@ Pointer::Look Pointer::wantedLook()
    animation. */
 void Pointer::applyShownSlot()
 {
-    auto& slot = g_main_game_resource_slots[shown_.value];
+    auto& slot = g_main_game_resource_slots[shown_->value];
     if (slot.object != 0) {
         ResizeMouseCursorSurface(slot.size_x, slot.size_y);
         SetMouseCursorTexture(slot.object);
@@ -135,8 +135,8 @@ void Pointer::showHeldItem(int overlay)
 
 void Pointer::animate()
 {
-    if (shown_.kind != PointerRequest::Kind::Slot) return;
-    const auto frame_count = static_cast<int>(g_main_game_resource_slots[shown_.value].frame_count);
+    if (!shown_ || shown_->kind != PointerRequest::Kind::Slot) return;
+    const auto frame_count = static_cast<int>(g_main_game_resource_slots[shown_->value].frame_count);
     if (frame_count <= 1 || TimeUntilDeadline(next_frame_)) return;
     if (++frame_ == frame_count) frame_ = 0;
     applyShownSlot();
