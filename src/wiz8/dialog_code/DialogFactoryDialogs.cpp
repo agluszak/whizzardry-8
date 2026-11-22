@@ -37,6 +37,7 @@
 #include "wiz8/local_screens/MainGameScreen.h"
 #include "wiz8/local_screens/NPCInteractionSubscreen.h"
 #include "wiz8/platform/input.h"
+#include "wiz8/render/frame.h"
 #include "wiz8/rules/item_instance.h"
 #include "wiz8/rules/item_rules.h"
 #include "wiz8/ui_input.h"
@@ -691,7 +692,12 @@ bool W8TriggerItemPickerDialog::ProcessInput()
 void W8TriggerItemPickerDialog::Draw(SDL_Surface& target)
 {
     W8DialogBase::Draw(target);
-    for (auto& button : m_buttons) button->Draw(target);
+    // The action strip (4) and the scroll track (12) are backdrops: paint them
+    // before the controls that sit on top of them.
+    m_buttons[4]->Draw(target);
+    m_buttons[12]->Draw(target);
+    for (std::size_t index = 0; index < m_buttons.size(); ++index)
+        if (index != 4 && index != 12) m_buttons[index]->Draw(target);
     for (int row = 0; row < std::min(4, int(entries.size()) - m_first_item); ++row) {
         W8ButtonWidget* button = m_buttons[5 + row].get();
 
@@ -737,8 +743,10 @@ void W8TriggerItemPickerDialog::UpdateLayout()
         m_buttons[2]->SetEnabled(false);
     }
     if (m_dirty) {
-        SetExtent(m_buttons[4]->Bounds().w + 0xe,
-                  m_buttons[5]->Bounds().h * visible_rows + m_buttons[4]->Bounds().h + 0xe);
+        const int height = m_buttons[5]->Bounds().h * visible_rows + m_buttons[4]->Bounds().h + 0xe;
+        // Taking items shrinks the picker; clear the rows it no longer covers.
+        if (height < m_height) EraseRegion(m_x, m_y, m_x + m_width + 1, m_y + m_height + 1);
+        SetExtent(m_buttons[4]->Bounds().w + 0xe, height);
     }
 
     if (count > 4) {
