@@ -774,10 +774,7 @@ void CampScreen::DrawCampScreen(void)
     header_redraw.portrait |= requested.portrait;
     if (full_redraw || header_redraw.any() || items.RedrawPending() || stats.RedrawPending() ||
         spells.RedrawPending() || (game.inventory.held())) {
-        if (full_redraw) {
-            items.InvalidateCells();
-            if (auto* dialog = dialogs.open()) dialog->m_dirty = true;
-        }
+        if (full_redraw) items.InvalidateCells();
         DrawCampHeader();
         switch (page) {
         case W8_CAMP_PAGE_ITEMS:

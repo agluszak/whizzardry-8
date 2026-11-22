@@ -82,7 +82,9 @@ bool W8DialogBase::TakeDirty()
 
 void W8DialogBase::RefreshModal()
 {
-    if (!TakeDirty()) return;
+    // The screen paints before its dialog; anything it drew underneath is covered again.
+    const bool dirty = TakeDirty();
+    if (!dirty && !UiUploadOverlaps({m_x, m_y, m_width, m_height})) return;
     Draw(GetFrameBufferSurface());
     InvalidateRegion(m_x, m_y, m_x + m_width, m_y + m_height);
 }

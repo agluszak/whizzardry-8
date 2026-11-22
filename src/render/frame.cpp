@@ -801,6 +801,11 @@ SDL_Rect TakeUiUpload()
     return std::exchange(g_ui_upload, SDL_Rect{});
 }
 
+bool UiUploadOverlaps(SDL_Rect bounds)
+{
+    return SDL_HasRectIntersection(&g_ui_upload, &bounds);
+}
+
 static void FlushUiUpload()
 {
     const auto upload = TakeUiUpload();

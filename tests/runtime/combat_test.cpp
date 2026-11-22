@@ -14,8 +14,12 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "harness.h"
+#include "wiz8/dialog_code/DialogInterface.h"
+#include "wiz8/dialog_code/MessageDialogBase.h"
 #include "wiz8/entities/monster.h"
+#include "wiz8/entities/trigger.h"
 #include "wiz8/game.h"
+#include "wiz8/layouts/main_game_screen.h"
 #include "wiz8/level_population.h"
 #include "wiz8/live_party.h"
 #include "wiz8/local_code/MonsterManager.h"
@@ -55,6 +59,24 @@ float NearestCombatMonster()
 /* The nearest of the three Crabs on the starting beach (retail level data). */
 constexpr int kBeachCrab = 238;
 
+/* Overlays the interface draws over other controls must survive those
+   controls repainting underneath them. */
+void ExpectRepaintKeeps(GameHarness& game, const char* step, SDL_Rect area,
+                        const std::function<void()>& repaint)
+{
+    for (int i = 0; i < 3; ++i) game.frame();
+    const auto before = FrameBufferPixels();
+    repaint();
+    for (int i = 0; i < 3; ++i) game.frame();
+    const auto after = FrameBufferPixels();
+    int changed = 0;
+    for (int y = area.y; y < area.y + area.h; ++y)
+        for (int x = area.x; x < area.x + area.w; ++x)
+            changed += before[y * 640 + x] != after[y * 640 + x];
+    CAPTURE(step);
+    CHECK(changed == 0);
+}
+
 /* Dismiss the quit prompt, then a real fight: walk up to the beach Crabs until
    they start combat, play rounds through the round key until the Crabs have
    closed in and both sides have landed blows, then finish the fight and leave.
@@ -71,9 +93,35 @@ void CombatScenario()
     game.key(SDLK_ESCAPE);
     REQUIRE(game.within_frames(4, [] { return !g_modal_owner && !OverlayPixel({320, 240}); }));
 
+    // A wide message box reaches over the portrait columns and their condition icons.
+    auto notice = CreateMessageDialog();
+    notice->SetMessage("Repaints under this message must not show through it.", 1, 50, true, false,
+                       true, false, 0, 0);
+    OpenModal(std::move(notice));
+    ExpectRepaintKeeps(game, "modal-over-portraits", {0, 170, 640, 140}, [] {
+        MainGameHud()->repaint.portraits.set();
+        MainGameHud()->repaint.condition_icons.set();
+    });
+    g_modal_owner.reset();
+    MainGameHud()->repaint.everything = true;
+    // The lock panel takes the text box's place; new messages must not draw its chrome.
+    Trigger lock;
+    REQUIRE(OpenLockInteraction(&lock) == 1);
+    ExpectRepaintKeeps(game, "lock-over-text-box", {0x80, 0x166, 0x180, 0x5c},
+                       [] { MainGameHud()->repaint.text_box = true; });
+    MainGame()->dismissOverlays(false);
+
     const W8Character& fighter = CurrentGame().party.characters[PremadeSlot()];
     Approach(game, kBeachCrab, 700);
     REQUIRE(CurrentGame().combat.has_value());
+    // A bottom-bar submenu sits over the strip; repainting the strip keeps it on top.
+    MainGame()->openSubMenu(6);
+    REQUIRE(MainGame()->submenu);
+    ExpectRepaintKeeps(game, "submenu-over-strip", MainGame()->submenu->bounds, [] {
+        MainGameHud()->repaint.submenu_buttons = true;
+        MainGameHud()->repaint.character_action = true;
+    });
+    MainGame()->closeSubMenu();
     // Closing and choosing through real menu targets must release its input layer
     // and restore the same portrait's controls, including deferred destruction.
     const int slot = PremadeSlot();
