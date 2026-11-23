@@ -2778,7 +2778,8 @@ finish_mode_overlays:
     if (repaint.text_box) publish_chrome(129, 358, 511, 450);
     if (repaint.formation) publish_chrome(512, 358, 617, 450);
     if (repaint.combat_progress) InvalidateRegion(612, 452, 637, 474);
-    if (repaint.text_box) {
+    // The lock and trap panels take the text box's place; it repaints when they close.
+    if (repaint.text_box && !IsLockInteractionActive() && !IsTrapInteractionActive()) {
         RedrawTextBoxScrollChrome();
     }
     if (repaint.submenu_buttons) {
@@ -2788,8 +2789,9 @@ finish_mode_overlays:
     if (repaint.character_action) {
         DrawSubMenuCharacterAction();
     }
+    // The strip and caption repaints above draw over an open submenu.
     if (submenu) {
-        submenu->draw(repaint.submenu_panel);
+        submenu->draw(repaint.submenu_panel || repaint.submenu_buttons || repaint.character_action);
     }
     if (repaint.submenu_panel) publish_chrome(469, 382, 501, 462);
     if (repaint.options_button) {
@@ -2847,9 +2849,8 @@ W8TargetingPresentation MainGameScreen::updatePresentation()
             if (hud.portrait_refresh_pending[slot]) repaint.portraits.set(slot);
     }
     if (repaint.portrait_panel) {
-        // The world view's frame repaints the movement panel and the modal over it.
+        // The world view's frame repaints the movement panel over it.
         if (!game.advancement.held && party_movement) repaint.movement_panel = true;
-        if (g_modal_owner) g_modal_owner->RequestModalRedraw();
     }
     updatePortraitPlate();
     for (int slot = 0; slot < 8; ++slot) {
@@ -2897,9 +2898,6 @@ void MainGameScreen::draw(const W8TargetingPresentation& presentation)
     }
     const MainGameRepaint repaint = std::exchange(hud.repaint, {});
     if (!IsScreenTransitionPending()) {
-        if (g_modal_owner != 0) {
-            g_modal_owner->RefreshModal();
-        }
         if (!CurrentGame().combat.has_value()) {
             refreshPortraitAdvanceButtons(bands.any);
         } else {
@@ -2907,7 +2905,6 @@ void MainGameScreen::draw(const W8TargetingPresentation& presentation)
         }
         paintConditionIcons(repaint.condition_icons, bands.complete);
         if (party_movement && !game.advancement.held) party_movement->paint(repaint.movement_panel);
-        DrawNpcQuoteBubble();
         if (IsLockInteractionActive()) {
             RedrawLockInteractionPanels();
         }
@@ -2915,6 +2912,9 @@ void MainGameScreen::draw(const W8TargetingPresentation& presentation)
             RedrawTrapInteractionPanels();
         }
         refreshHudButtons();
+        // After the HUD it can reach over (portrait columns, movement panel).
+        if (g_modal_owner) g_modal_owner->RefreshModal();
+        DrawNpcQuoteBubble();
         RedrawPortraitQuoteBubbles();
         if (auto* text_fields = TextFieldGroup::Focused())
             text_fields->RenderAll(GetFrameBufferSurface());

@@ -41,6 +41,9 @@ inline void InvalidateRegion(SDL_Rect bounds)
 }
 /* The pending UI upload rectangle, cleared by the call. */
 SDL_Rect TakeUiUpload();
+/* Whether this frame has already invalidated anything inside `bounds`: an
+   overlay drawn last must repaint over whatever was drawn under it. */
+bool UiUploadOverlaps(SDL_Rect bounds);
 
 enum { INVAL_SRC_TRANS = 1, PIXEL_DEPTH = 16, SCREEN_WIDTH = 640, SCREEN_HEIGHT = 480 };
 void VideoFullScreen(bool enabled);

@@ -206,7 +206,7 @@ void W8NpcDialog::RefreshModal()
         if (button) dirty |= button->TakeDirty();
     for (auto& text : m_text_buffers)
         if (text) dirty |= std::exchange(text->m_geometryDirty, false);
-    if (!dirty) return;
+    if (!dirty && !UiUploadOverlaps(m_bounds)) return;
     DrawModal(GetFrameBufferSurface());
     InvalidateRegion(m_bounds);
 }

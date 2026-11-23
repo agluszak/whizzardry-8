@@ -1209,8 +1209,8 @@ void MainGameScreen::paintConditionIcons(std::bitset<8> requested,
         if (!icon.catalog) {
             if (requested.test(slot) && !hud->portrait_refresh_pending[slot] &&
                 !keyboardMenuForSlot(slot))
-                ClearSurfaceRect(icon.position.x, icon.position.y, icon.position.x + 19,
-                                 icon.position.y + 19);
+                EraseRegion(icon.position.x, icon.position.y, icon.position.x + 19,
+                            icon.position.y + 19);
             continue;
         }
         if (!condition_icons->active || !(requested.test(slot) || repainted_bands.test(slot)))
