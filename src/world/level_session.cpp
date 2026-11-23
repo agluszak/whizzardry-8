@@ -257,6 +257,11 @@ static std::unique_ptr<World> PrepareSkyWorld(Game& game, std::string_view sky_p
     SetWorldSceneMeshShaderLowBits(sky, 0);
     SetWorldSceneMeshShaderBit3(sky, 1);
     sky->camera_light.reset();
+    // The sky draws depth-always behind the level, so its far plane can only
+    // remove geometry: the authored view distance cut distant cloud layers
+    // into hard-edged gaps. Fog ranges were already derived from it at load.
+    const auto [near_clip, far_clip] = sky->camera->getClipRange();
+    sky->camera->setClipRange(near_clip, far_clip * 16);
     return replacement;
 }
 
