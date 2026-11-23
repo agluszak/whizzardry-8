@@ -3,6 +3,7 @@
 
 #include <algorithm>
 
+#include <SDL3/SDL_mouse.h>
 #include <SDL3/SDL_video.h>
 
 #include "wiz8/platform/input.h"
@@ -20,6 +21,8 @@ SDL_Window* CreateGameWindow(int width, int height, bool fullscreen)
         return nullptr;
     }
     SetInputWindow(window);
+    // The game draws its own cursor in the interface overlay.
+    SDL_HideCursor();
     return window;
 }
 void DestroyGameWindow(SDL_Window* window)
